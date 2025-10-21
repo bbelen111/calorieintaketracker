@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, TrendingUp, TrendingDown, Minus, Settings, Plus, Trash2, Save, Dumbbell, Bike, Heart } from 'lucide-react';
+import { Activity, TrendingUp, TrendingDown, Minus, Settings, Plus, Trash2, Save, Dumbbell, Bike, Heart, Edit3 } from 'lucide-react';
 
 const EnergyMapCalculator = () => {
   // Load from localStorage or use defaults
@@ -28,6 +28,10 @@ const EnergyMapCalculator = () => {
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [showTrainingTypeModal, setShowTrainingTypeModal] = useState(false);
   const [tempTrainingType, setTempTrainingType] = useState('powerbuilding');
+  const [showAgeModal, setShowAgeModal] = useState(false);
+  const [tempAge, setTempAge] = useState(21);
+  const [showWeightModal, setShowWeightModal] = useState(false);
+  const [tempWeight, setTempWeight] = useState(74);
   const [newStepRange, setNewStepRange] = useState('');
   const [showCardioModal, setShowCardioModal] = useState(false);
   const [newCardio, setNewCardio] = useState({
@@ -255,14 +259,32 @@ const EnergyMapCalculator = () => {
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div className="bg-slate-700/50 rounded-lg p-3">
-              <p className="text-slate-400">Age</p>
+            <button
+              onClick={() => {
+                setTempAge(userData.age);
+                setShowAgeModal(true);
+              }}
+              className="bg-slate-700/50 hover:bg-slate-700 rounded-lg p-3 transition-all text-left group"
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-slate-400">Age</p>
+                <Edit3 size={14} className="text-slate-500 group-hover:text-blue-400 transition-colors" />
+              </div>
               <p className="text-white font-semibold text-lg">{userData.age} years</p>
-            </div>
-            <div className="bg-slate-700/50 rounded-lg p-3">
-              <p className="text-slate-400">Weight</p>
+            </button>
+            <button
+              onClick={() => {
+                setTempWeight(userData.weight);
+                setShowWeightModal(true);
+              }}
+              className="bg-slate-700/50 hover:bg-slate-700 rounded-lg p-3 transition-all text-left group"
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-slate-400">Weight</p>
+                <Edit3 size={14} className="text-slate-500 group-hover:text-blue-400 transition-colors" />
+              </div>
               <p className="text-white font-semibold text-lg">{userData.weight} kg</p>
-            </div>
+            </button>
             <div className="bg-slate-700/50 rounded-lg p-3">
               <p className="text-slate-400">Height</p>
               <p className="text-white font-semibold text-lg">{userData.height} cm</p>
@@ -333,6 +355,212 @@ const EnergyMapCalculator = () => {
                 >
                   <Save size={20} />
                   <span className="hidden sm:inline">Save &</span> Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Age Picker Modal */}
+        {showAgeModal && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-800 rounded-2xl p-6 w-full max-w-sm border border-slate-700">
+              <h3 className="text-white font-bold text-xl mb-4 text-center">Select Age</h3>
+              
+              <div className="relative h-48 overflow-hidden">
+                <div className="absolute inset-0 pointer-events-none z-10">
+                  <div className="h-16 bg-gradient-to-b from-slate-800 to-transparent"></div>
+                  <div className="h-16 bg-transparent"></div>
+                  <div className="h-16 bg-gradient-to-t from-slate-800 to-transparent"></div>
+                </div>
+                
+                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400 pointer-events-none z-10"></div>
+                
+                <div 
+                  className="h-full overflow-y-auto scrollbar-hide snap-y snap-mandatory"
+                  style={{ scrollPaddingTop: '64px', scrollPaddingBottom: '64px' }}
+                  onScroll={(e) => {
+                    const container = e.currentTarget;
+                    const items = container.children;
+                    const containerRect = container.getBoundingClientRect();
+                    const containerCenter = containerRect.top + containerRect.height / 2;
+                    
+                    let closestItem = null;
+                    let closestDistance = Infinity;
+                    
+                    Array.from(items).forEach((item) => {
+                      const itemRect = item.getBoundingClientRect();
+                      const itemCenter = itemRect.top + itemRect.height / 2;
+                      const distance = Math.abs(containerCenter - itemCenter);
+                      
+                      if (distance < closestDistance) {
+                        closestDistance = distance;
+                        closestItem = item;
+                      }
+                    });
+                    
+                    if (closestItem) {
+                      const age = parseInt(closestItem.dataset.value);
+                      if (!isNaN(age)) {
+                        setTempAge(age);
+                      }
+                    }
+                  }}
+                  ref={(el) => {
+                    if (el && el.children.length > 0) {
+                      setTimeout(() => {
+                        const targetItem = Array.from(el.children).find(
+                          child => parseInt(child.dataset.value) === tempAge
+                        );
+                        if (targetItem) {
+                          targetItem.scrollIntoView({ block: 'center', behavior: 'instant' });
+                        }
+                      }, 0);
+                    }
+                  }}
+                >
+                  <div className="h-16"></div>
+                  {Array.from({ length: 83 }, (_, i) => i + 15).map((age) => (
+                    <div
+                      key={age}
+                      data-value={age}
+                      onClick={() => {
+                        setTempAge(age);
+                        const el = document.querySelector(`[data-value="${age}"]`);
+                        if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                      }}
+                      className={`py-3 px-6 text-2xl font-semibold transition-all snap-center cursor-pointer text-center ${
+                        tempAge === age
+                          ? 'text-white scale-110'
+                          : 'text-slate-500'
+                      }`}
+                    >
+                      {age}
+                    </div>
+                  ))}
+                  <div className="h-16"></div>
+                </div>
+              </div>
+              
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setShowAgeModal(false)}
+                  className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    handleUserDataChange('age', tempAge);
+                    setShowAgeModal(false);
+                  }}
+                  className="flex-1 bg-blue-600 active:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
+                >
+                  <Save size={20} />
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Weight Picker Modal */}
+        {showWeightModal && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-800 rounded-2xl p-6 w-full max-w-sm border border-slate-700">
+              <h3 className="text-white font-bold text-xl mb-4 text-center">Select Weight (kg)</h3>
+              
+              <div className="relative h-48 overflow-hidden">
+                <div className="absolute inset-0 pointer-events-none z-10">
+                  <div className="h-16 bg-gradient-to-b from-slate-800 to-transparent"></div>
+                  <div className="h-16 bg-transparent"></div>
+                  <div className="h-16 bg-gradient-to-t from-slate-800 to-transparent"></div>
+                </div>
+                
+                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400 pointer-events-none z-10"></div>
+                
+                <div 
+                  className="h-full overflow-y-auto scrollbar-hide snap-y snap-mandatory"
+                  style={{ scrollPaddingTop: '64px', scrollPaddingBottom: '64px' }}
+                  onScroll={(e) => {
+                    const container = e.currentTarget;
+                    const items = container.children;
+                    const containerRect = container.getBoundingClientRect();
+                    const containerCenter = containerRect.top + containerRect.height / 2;
+                    
+                    let closestItem = null;
+                    let closestDistance = Infinity;
+                    
+                    Array.from(items).forEach((item) => {
+                      const itemRect = item.getBoundingClientRect();
+                      const itemCenter = itemRect.top + itemRect.height / 2;
+                      const distance = Math.abs(containerCenter - itemCenter);
+                      
+                      if (distance < closestDistance) {
+                        closestDistance = distance;
+                        closestItem = item;
+                      }
+                    });
+                    
+                    if (closestItem) {
+                      const weight = parseInt(closestItem.dataset.value);
+                      if (!isNaN(weight)) {
+                        setTempWeight(weight);
+                      }
+                    }
+                  }}
+                  ref={(el) => {
+                    if (el && el.children.length > 0) {
+                      setTimeout(() => {
+                        const targetItem = Array.from(el.children).find(
+                          child => parseInt(child.dataset.value) === tempWeight
+                        );
+                        if (targetItem) {
+                          targetItem.scrollIntoView({ block: 'center', behavior: 'instant' });
+                        }
+                      }, 0);
+                    }
+                  }}
+                >
+                  <div className="h-16"></div>
+                  {Array.from({ length: 181 }, (_, i) => i + 30).map((weight) => (
+                    <div
+                      key={weight}
+                      data-value={weight}
+                      onClick={() => {
+                        setTempWeight(weight);
+                        const el = document.querySelector(`[data-value="${weight}"]`);
+                        if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                      }}
+                      className={`py-3 px-6 text-2xl font-semibold transition-all snap-center cursor-pointer text-center ${
+                        tempWeight === weight
+                          ? 'text-white scale-110'
+                          : 'text-slate-500'
+                      }`}
+                    >
+                      {weight}
+                    </div>
+                  ))}
+                  <div className="h-16"></div>
+                </div>
+              </div>
+              
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setShowWeightModal(false)}
+                  className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    handleUserDataChange('weight', tempWeight);
+                    setShowWeightModal(false);
+                  }}
+                  className="flex-1 bg-blue-600 active:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
+                >
+                  <Save size={20} />
+                  Save
                 </button>
               </div>
             </div>
