@@ -25,20 +25,29 @@ const EnergyMapCalculator = () => {
   const [tempSelectedGoal, setTempSelectedGoal] = useState('maintenance');
   const [selectedDay, setSelectedDay] = useState('training');
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [closingSettingsModal, setClosingSettingsModal] = useState(false);
   const [showGoalModal, setShowGoalModal] = useState(false);
+  const [closingGoalModal, setClosingGoalModal] = useState(false);
   const [showTrainingTypeModal, setShowTrainingTypeModal] = useState(false);
+  const [closingTrainingTypeModal, setClosingTrainingTypeModal] = useState(false);
   const [tempTrainingType, setTempTrainingType] = useState('powerbuilding');
   const [showAgeModal, setShowAgeModal] = useState(false);
+  const [closingAgeModal, setClosingAgeModal] = useState(false);
   const [tempAge, setTempAge] = useState(21);
   const [showWeightModal, setShowWeightModal] = useState(false);
+  const [closingWeightModal, setClosingWeightModal] = useState(false);
   const [tempWeight, setTempWeight] = useState(74);
   const [newStepRange, setNewStepRange] = useState('');
   const [showStepRangesModal, setShowStepRangesModal] = useState(false);
+  const [closingStepRangesModal, setClosingStepRangesModal] = useState(false);
   const [showQuickTrainingModal, setShowQuickTrainingModal] = useState(false);
+  const [closingQuickTrainingModal, setClosingQuickTrainingModal] = useState(false);
   const [trainingDayClickCount, setTrainingDayClickCount] = useState(0);
   const [tempTrainingDuration, setTempTrainingDuration] = useState(1.5);
   const [showBmrInfoModal, setShowBmrInfoModal] = useState(false);
+  const [closingBmrInfoModal, setClosingBmrInfoModal] = useState(false);
   const [showCardioModal, setShowCardioModal] = useState(false);
+  const [closingCardioModal, setClosingCardioModal] = useState(false);
   const [newCardio, setNewCardio] = useState({
     type: 'treadmill_walk',
     duration: 30,
@@ -49,6 +58,15 @@ const EnergyMapCalculator = () => {
   useEffect(() => {
     localStorage.setItem('energyMapData', JSON.stringify(userData));
   }, [userData]);
+  
+  // Helper function to close modals with animation
+  const closeModal = (setClosing, setShow) => {
+    setClosing(true);
+    setTimeout(() => {
+      setShow(false);
+      setClosing(false);
+    }, 200); // Match animation duration
+  };
   
   // Training types with calorie burn rates (per hour)
   const trainingTypes = {
@@ -234,7 +252,7 @@ const EnergyMapCalculator = () => {
       cardioSessions: [...prev.cardioSessions, { ...newCardio, id: Date.now() }]
     }));
     setNewCardio({ type: 'treadmill_walk', duration: 30, intensity: 'moderate' });
-    setShowCardioModal(false);
+    closeModal(setClosingCardioModal, setShowCardioModal);
   };
   
   const removeCardioSession = (id) => {
@@ -326,8 +344,8 @@ const EnergyMapCalculator = () => {
         
         {/* Goal Selection Modal */}
         {showGoalModal && (
-          <div className="modal-overlay fixed inset-0 bg-black/70 flex items-start justify-center z-50 p-3 md:p-4 overflow-y-auto">
-            <div className="modal-content bg-slate-800 rounded-2xl p-4 md:p-6 w-full md:max-w-2xl border border-slate-700 my-3 md:my-8 max-h-[95vh] md:max-h-[90vh] overflow-y-auto">
+          <div className={`modal-overlay fixed inset-0 bg-black/70 flex items-start justify-center z-50 p-3 md:p-4 overflow-y-auto ${closingGoalModal ? 'closing' : ''}`}>
+            <div className={`modal-content bg-slate-800 rounded-2xl p-4 md:p-6 w-full md:max-w-2xl border border-slate-700 my-3 md:my-8 max-h-[95vh] md:max-h-[90vh] overflow-y-auto ${closingGoalModal ? 'closing' : ''}`}>
               <h3 className="text-white font-bold text-xl md:text-2xl mb-4 md:mb-6">Select Your Goal</h3>
               
               <div className="grid grid-cols-1 gap-3">
@@ -367,7 +385,7 @@ const EnergyMapCalculator = () => {
               
               <div className="flex gap-2 md:gap-3 mt-4">
                 <button
-                  onClick={() => setShowGoalModal(false)}
+                  onClick={() => closeModal(setClosingGoalModal, setShowGoalModal)}
                   className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg transition-all active:scale-95 font-medium"
                 >
                   Cancel
@@ -375,7 +393,7 @@ const EnergyMapCalculator = () => {
                 <button
                   onClick={() => {
                     setSelectedGoal(tempSelectedGoal);
-                    setShowGoalModal(false);
+                    closeModal(setClosingGoalModal, setShowGoalModal);
                   }}
                   className="flex-1 bg-green-600 active:bg-green-700 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
                 >
@@ -389,8 +407,8 @@ const EnergyMapCalculator = () => {
         
         {/* BMR Info Modal */}
         {showBmrInfoModal && (
-          <div className="modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-            <div className="modal-content bg-slate-800 rounded-2xl p-6 max-w-lg w-full border border-slate-700">
+          <div className={`modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 ${closingBmrInfoModal ? 'closing' : ''}`}>
+            <div className={`modal-content bg-slate-800 rounded-2xl p-6 max-w-lg w-full border border-slate-700 ${closingBmrInfoModal ? 'closing' : ''}`}>
               <div className="flex items-center gap-3 mb-4">
                 <Info size={28} className="text-blue-400" />
                 <h3 className="text-white font-bold text-xl">What is BMR?</h3>
@@ -441,7 +459,7 @@ const EnergyMapCalculator = () => {
               
               <div className="mt-6">
                 <button
-                  onClick={() => setShowBmrInfoModal(false)}
+                  onClick={() => closeModal(setClosingBmrInfoModal, setShowBmrInfoModal)}
                   className="w-full bg-blue-600 active:bg-blue-700 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium"
                 >
                   Got it!
@@ -453,8 +471,8 @@ const EnergyMapCalculator = () => {
         
         {/* Age Picker Modal */}
         {showAgeModal && (
-          <div className="modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-            <div className="modal-content bg-slate-800 rounded-2xl p-6 w-full max-w-sm border border-slate-700">
+          <div className={`modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 ${closingAgeModal ? 'closing' : ''}`}>
+            <div className={`modal-content bg-slate-800 rounded-2xl p-6 w-full max-w-sm border border-slate-700 ${closingAgeModal ? 'closing' : ''}`}>
               <h3 className="text-white font-bold text-xl mb-4 text-center">Select Age</h3>
               
               <div className="relative h-48 overflow-hidden">
@@ -534,7 +552,7 @@ const EnergyMapCalculator = () => {
               
               <div className="flex gap-3 mt-6">
                 <button
-                  onClick={() => setShowAgeModal(false)}
+                  onClick={() => closeModal(setClosingAgeModal, setShowAgeModal)}
                   className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium"
                 >
                   Cancel
@@ -542,7 +560,7 @@ const EnergyMapCalculator = () => {
                 <button
                   onClick={() => {
                     handleUserDataChange('age', tempAge);
-                    setShowAgeModal(false);
+                    closeModal(setClosingAgeModal, setShowAgeModal);
                   }}
                   className="flex-1 bg-blue-600 active:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
                 >
@@ -556,8 +574,8 @@ const EnergyMapCalculator = () => {
         
         {/* Weight Picker Modal */}
         {showWeightModal && (
-          <div className="modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-            <div className="modal-content bg-slate-800 rounded-2xl p-6 w-full max-w-sm border border-slate-700">
+          <div className={`modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 ${closingWeightModal ? 'closing' : ''}`}>
+            <div className={`modal-content bg-slate-800 rounded-2xl p-6 w-full max-w-sm border border-slate-700 ${closingWeightModal ? 'closing' : ''}`}>
               <h3 className="text-white font-bold text-xl mb-4 text-center">Select Weight (kg)</h3>
               
               <div className="relative h-48 overflow-hidden">
@@ -637,7 +655,7 @@ const EnergyMapCalculator = () => {
               
               <div className="flex gap-3 mt-6">
                 <button
-                  onClick={() => setShowWeightModal(false)}
+                  onClick={() => closeModal(setClosingWeightModal, setShowWeightModal)}
                   className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium"
                 >
                   Cancel
@@ -645,7 +663,7 @@ const EnergyMapCalculator = () => {
                 <button
                   onClick={() => {
                     handleUserDataChange('weight', tempWeight);
-                    setShowWeightModal(false);
+                    closeModal(setClosingWeightModal, setShowWeightModal);
                   }}
                   className="flex-1 bg-blue-600 active:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
                 >
@@ -659,8 +677,8 @@ const EnergyMapCalculator = () => {
         
         {/* Training Type Selection Modal (Nested) */}
         {showTrainingTypeModal && (
-          <div className="modal-overlay fixed inset-0 bg-black/80 flex items-start justify-center z-[60] p-3 md:p-4 overflow-y-auto">
-            <div className="modal-content bg-slate-800 rounded-2xl p-4 md:p-6 w-full md:max-w-2xl border border-slate-700 my-3 md:my-8 max-h-[95vh] md:max-h-[90vh] overflow-y-auto">
+          <div className={`modal-overlay fixed inset-0 bg-black/80 flex items-start justify-center z-[60] p-3 md:p-4 overflow-y-auto ${closingTrainingTypeModal ? 'closing' : ''}`}>
+            <div className={`modal-content bg-slate-800 rounded-2xl p-4 md:p-6 w-full md:max-w-2xl border border-slate-700 my-3 md:my-8 max-h-[95vh] md:max-h-[90vh] overflow-y-auto ${closingTrainingTypeModal ? 'closing' : ''}`}>
               <h3 className="text-white font-bold text-xl md:text-2xl mb-4 md:mb-6">Select Training Type</h3>
               
               <div className="grid grid-cols-1 gap-3">
@@ -694,7 +712,7 @@ const EnergyMapCalculator = () => {
               
               <div className="flex gap-2 md:gap-3 mt-4">
                 <button
-                  onClick={() => setShowTrainingTypeModal(false)}
+                  onClick={() => closeModal(setClosingTrainingTypeModal, setShowTrainingTypeModal)}
                   className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg transition-all active:scale-95 font-medium"
                 >
                   Cancel
@@ -702,7 +720,7 @@ const EnergyMapCalculator = () => {
                 <button
                   onClick={() => {
                     handleUserDataChange('trainingType', tempTrainingType);
-                    setShowTrainingTypeModal(false);
+                    closeModal(setClosingTrainingTypeModal, setShowTrainingTypeModal);
                   }}
                   className="flex-1 bg-green-600 active:bg-green-700 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
                 >
@@ -716,8 +734,8 @@ const EnergyMapCalculator = () => {
         
         {/* Settings Modal */}
         {showSettingsModal && (
-          <div className="modal-overlay fixed inset-0 bg-black/70 flex items-start justify-center z-50 p-3 md:p-4 overflow-y-auto">
-            <div className="modal-content bg-slate-800 rounded-2xl p-4 md:p-6 w-full md:max-w-2xl border border-slate-700 my-3 md:my-8 max-h-[95vh] md:max-h-[90vh] overflow-y-auto">
+          <div className={`modal-overlay fixed inset-0 bg-black/70 flex items-start justify-center z-50 p-3 md:p-4 overflow-y-auto ${closingSettingsModal ? 'closing' : ''}`}>
+            <div className={`modal-content bg-slate-800 rounded-2xl p-4 md:p-6 w-full md:max-w-2xl border border-slate-700 my-3 md:my-8 max-h-[95vh] md:max-h-[90vh] overflow-y-auto ${closingSettingsModal ? 'closing' : ''}`}>
               <h3 className="text-white font-bold text-xl md:text-2xl mb-4 md:mb-6">Personal Settings</h3>
               
               <div className="space-y-4 md:space-y-6">
@@ -824,13 +842,13 @@ const EnergyMapCalculator = () => {
               
               <div className="flex gap-2 md:gap-3 mt-6">
                 <button
-                  onClick={() => setShowSettingsModal(false)}
+                  onClick={() => closeModal(setClosingSettingsModal, setShowSettingsModal)}
                   className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg transition-all active:scale-95 font-medium"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={() => setShowSettingsModal(false)}
+                  onClick={() => closeModal(setClosingSettingsModal, setShowSettingsModal)}
                   className="flex-1 bg-green-600 active:bg-green-700 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
                 >
                   <Save size={20} />
@@ -843,8 +861,8 @@ const EnergyMapCalculator = () => {
         
         {/* Step Ranges Modal */}
         {showStepRangesModal && (
-          <div className="modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4">
-            <div className="modal-content bg-slate-800 rounded-2xl p-6 max-w-md w-full border border-slate-700 max-h-[90vh] overflow-y-auto">
+          <div className={`modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4 ${closingStepRangesModal ? 'closing' : ''}`}>
+            <div className={`modal-content bg-slate-800 rounded-2xl p-6 max-w-md w-full border border-slate-700 max-h-[90vh] overflow-y-auto ${closingStepRangesModal ? 'closing' : ''}`}>
               <h3 className="text-white font-bold text-xl mb-4">Edit Step Count Ranges</h3>
               
               <div className="space-y-4">
@@ -892,7 +910,7 @@ const EnergyMapCalculator = () => {
               
               <div className="flex gap-2 md:gap-3 mt-6">
                 <button
-                  onClick={() => setShowStepRangesModal(false)}
+                  onClick={() => closeModal(setClosingStepRangesModal, setShowStepRangesModal)}
                   className="flex-1 bg-green-600 active:bg-green-700 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
                 >
                   <Save size={20} />
@@ -905,8 +923,8 @@ const EnergyMapCalculator = () => {
         
         {/* Quick Training Settings Modal */}
         {showQuickTrainingModal && (
-          <div className="modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-            <div className="modal-content bg-slate-800 rounded-2xl p-6 w-full max-w-md border border-slate-700">
+          <div className={`modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 ${closingQuickTrainingModal ? 'closing' : ''}`}>
+            <div className={`modal-content bg-slate-800 rounded-2xl p-6 w-full max-w-md border border-slate-700 ${closingQuickTrainingModal ? 'closing' : ''}`}>
               <h3 className="text-white font-bold text-xl mb-4 text-center">Training Settings</h3>
               
               <div className="space-y-6">
@@ -1011,7 +1029,7 @@ const EnergyMapCalculator = () => {
               
               <div className="flex gap-3 mt-6">
                 <button
-                  onClick={() => setShowQuickTrainingModal(false)}
+                  onClick={() => closeModal(setClosingQuickTrainingModal, setShowQuickTrainingModal)}
                   className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium"
                 >
                   Cancel
@@ -1020,7 +1038,7 @@ const EnergyMapCalculator = () => {
                   onClick={() => {
                     handleUserDataChange('trainingType', tempTrainingType);
                     handleUserDataChange('trainingDuration', tempTrainingDuration);
-                    setShowQuickTrainingModal(false);
+                    closeModal(setClosingQuickTrainingModal, setShowQuickTrainingModal);
                   }}
                   className="flex-1 bg-green-600 active:bg-green-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
                 >
@@ -1034,8 +1052,8 @@ const EnergyMapCalculator = () => {
         
         {/* Cardio Modal */}
         {showCardioModal && (
-          <div className="modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-            <div className="modal-content bg-slate-800 rounded-2xl p-6 max-w-md w-full border border-slate-700">
+          <div className={`modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 ${closingCardioModal ? 'closing' : ''}`}>
+            <div className={`modal-content bg-slate-800 rounded-2xl p-6 max-w-md w-full border border-slate-700 ${closingCardioModal ? 'closing' : ''}`}>
               <h3 className="text-white font-bold text-xl mb-4">Add Cardio Session</h3>
               
               <div className="space-y-4">
@@ -1085,7 +1103,7 @@ const EnergyMapCalculator = () => {
               
               <div className="flex gap-3 mt-6">
                 <button
-                  onClick={() => setShowCardioModal(false)}
+                  onClick={() => closeModal(setClosingCardioModal, setShowCardioModal)}
                   className="flex-1 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-all"
                 >
                   Cancel

@@ -32,6 +32,15 @@ body {
   }
 }
 
+@keyframes modalFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 @keyframes modalSlideUp {
   from {
     opacity: 0;
@@ -43,10 +52,29 @@ body {
   }
 }
 
+@keyframes modalSlideDown {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+}
+
 .modal-overlay {
   animation: modalFadeIn 0.2s ease-out;
 }
 
+.modal-overlay.closing {
+  animation: modalFadeOut 0.2s ease-out;
+}
+
 .modal-content {
   animation: modalSlideUp 0.3s ease-out;
+}
+
+.modal-content.closing {
+  animation: modalSlideDown 0.2s ease-out;
 }
