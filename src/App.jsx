@@ -326,8 +326,8 @@ const EnergyMapCalculator = () => {
         
         {/* Goal Selection Modal */}
         {showGoalModal && (
-          <div className="fixed inset-0 bg-black/70 flex items-start justify-center z-50 p-3 md:p-4 overflow-y-auto">
-            <div className="bg-slate-800 rounded-2xl p-4 md:p-6 w-full md:max-w-2xl border border-slate-700 my-3 md:my-8 max-h-[95vh] md:max-h-[90vh] overflow-y-auto">
+          <div className="modal-overlay fixed inset-0 bg-black/70 flex items-start justify-center z-50 p-3 md:p-4 overflow-y-auto">
+            <div className="modal-content bg-slate-800 rounded-2xl p-4 md:p-6 w-full md:max-w-2xl border border-slate-700 my-3 md:my-8 max-h-[95vh] md:max-h-[90vh] overflow-y-auto">
               <h3 className="text-white font-bold text-xl md:text-2xl mb-4 md:mb-6">Select Your Goal</h3>
               
               <div className="grid grid-cols-1 gap-3">
@@ -389,8 +389,8 @@ const EnergyMapCalculator = () => {
         
         {/* BMR Info Modal */}
         {showBmrInfoModal && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-            <div className="bg-slate-800 rounded-2xl p-6 max-w-lg w-full border border-slate-700">
+          <div className="modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="modal-content bg-slate-800 rounded-2xl p-6 max-w-lg w-full border border-slate-700">
               <div className="flex items-center gap-3 mb-4">
                 <Info size={28} className="text-blue-400" />
                 <h3 className="text-white font-bold text-xl">What is BMR?</h3>
@@ -453,8 +453,8 @@ const EnergyMapCalculator = () => {
         
         {/* Age Picker Modal */}
         {showAgeModal && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-            <div className="bg-slate-800 rounded-2xl p-6 w-full max-w-sm border border-slate-700">
+          <div className="modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="modal-content bg-slate-800 rounded-2xl p-6 w-full max-w-sm border border-slate-700">
               <h3 className="text-white font-bold text-xl mb-4 text-center">Select Age</h3>
               
               <div className="relative h-48 overflow-hidden">
@@ -556,8 +556,8 @@ const EnergyMapCalculator = () => {
         
         {/* Weight Picker Modal */}
         {showWeightModal && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-            <div className="bg-slate-800 rounded-2xl p-6 w-full max-w-sm border border-slate-700">
+          <div className="modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="modal-content bg-slate-800 rounded-2xl p-6 w-full max-w-sm border border-slate-700">
               <h3 className="text-white font-bold text-xl mb-4 text-center">Select Weight (kg)</h3>
               
               <div className="relative h-48 overflow-hidden">
@@ -659,8 +659,8 @@ const EnergyMapCalculator = () => {
         
         {/* Training Type Selection Modal (Nested) */}
         {showTrainingTypeModal && (
-          <div className="fixed inset-0 bg-black/80 flex items-start justify-center z-[60] p-3 md:p-4 overflow-y-auto">
-            <div className="bg-slate-800 rounded-2xl p-4 md:p-6 w-full md:max-w-2xl border border-slate-700 my-3 md:my-8 max-h-[95vh] md:max-h-[90vh] overflow-y-auto">
+          <div className="modal-overlay fixed inset-0 bg-black/80 flex items-start justify-center z-[60] p-3 md:p-4 overflow-y-auto">
+            <div className="modal-content bg-slate-800 rounded-2xl p-4 md:p-6 w-full md:max-w-2xl border border-slate-700 my-3 md:my-8 max-h-[95vh] md:max-h-[90vh] overflow-y-auto">
               <h3 className="text-white font-bold text-xl md:text-2xl mb-4 md:mb-6">Select Training Type</h3>
               
               <div className="grid grid-cols-1 gap-3">
@@ -716,8 +716,8 @@ const EnergyMapCalculator = () => {
         
         {/* Settings Modal */}
         {showSettingsModal && (
-          <div className="fixed inset-0 bg-black/70 flex items-start justify-center z-50 p-3 md:p-4 overflow-y-auto">
-            <div className="bg-slate-800 rounded-2xl p-4 md:p-6 w-full md:max-w-2xl border border-slate-700 my-3 md:my-8 max-h-[95vh] md:max-h-[90vh] overflow-y-auto">
+          <div className="modal-overlay fixed inset-0 bg-black/70 flex items-start justify-center z-50 p-3 md:p-4 overflow-y-auto">
+            <div className="modal-content bg-slate-800 rounded-2xl p-4 md:p-6 w-full md:max-w-2xl border border-slate-700 my-3 md:my-8 max-h-[95vh] md:max-h-[90vh] overflow-y-auto">
               <h3 className="text-white font-bold text-xl md:text-2xl mb-4 md:mb-6">Personal Settings</h3>
               
               <div className="space-y-4 md:space-y-6">
@@ -843,8 +843,8 @@ const EnergyMapCalculator = () => {
         
         {/* Step Ranges Modal */}
         {showStepRangesModal && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4">
-            <div className="bg-slate-800 rounded-2xl p-6 max-w-md w-full border border-slate-700 max-h-[90vh] overflow-y-auto">
+          <div className="modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4">
+            <div className="modal-content bg-slate-800 rounded-2xl p-6 max-w-md w-full border border-slate-700 max-h-[90vh] overflow-y-auto">
               <h3 className="text-white font-bold text-xl mb-4">Edit Step Count Ranges</h3>
               
               <div className="space-y-4">
@@ -905,8 +905,8 @@ const EnergyMapCalculator = () => {
         
         {/* Quick Training Settings Modal */}
         {showQuickTrainingModal && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-            <div className="bg-slate-800 rounded-2xl p-6 w-full max-w-md border border-slate-700">
+          <div className="modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="modal-content bg-slate-800 rounded-2xl p-6 w-full max-w-md border border-slate-700">
               <h3 className="text-white font-bold text-xl mb-4 text-center">Training Settings</h3>
               
               <div className="space-y-6">
@@ -1034,8 +1034,8 @@ const EnergyMapCalculator = () => {
         
         {/* Cardio Modal */}
         {showCardioModal && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-            <div className="bg-slate-800 rounded-2xl p-6 max-w-md w-full border border-slate-700">
+          <div className="modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="modal-content bg-slate-800 rounded-2xl p-6 max-w-md w-full border border-slate-700">
               <h3 className="text-white font-bold text-xl mb-4">Add Cardio Session</h3>
               
               <div className="space-y-4">
