@@ -52,10 +52,13 @@ const EnergyMapCalculator = () => {
       weight: 74,
       height: 168,
       gender: 'male',
-      trainingType: 'powerbuilding',
+      trainingType: 'bodybuilding',
       trainingDuration: 2,
       stepRanges: ['<10k', '10k', '12k', '14k', '16k', '18k', '20k', '>20k'],
-      cardioSessions: []
+      cardioSessions: [],
+      customTrainingName: 'My Training',
+      customTrainingCalories: 220,
+      customTrainingDescription: 'Custom training style'
     };
   };
 
@@ -69,7 +72,12 @@ const EnergyMapCalculator = () => {
   const [closingGoalModal, setClosingGoalModal] = useState(false);
   const [showTrainingTypeModal, setShowTrainingTypeModal] = useState(false);
   const [closingTrainingTypeModal, setClosingTrainingTypeModal] = useState(false);
-  const [tempTrainingType, setTempTrainingType] = useState('powerbuilding');
+  const [tempTrainingType, setTempTrainingType] = useState('bodybuilding');
+  const [showCustomTrainingModal, setShowCustomTrainingModal] = useState(false);
+  const [closingCustomTrainingModal, setClosingCustomTrainingModal] = useState(false);
+  const [tempCustomName, setTempCustomName] = useState('My Training');
+  const [tempCustomCalories, setTempCustomCalories] = useState(220);
+  const [tempCustomDescription, setTempCustomDescription] = useState('Custom training style');
   const [showAgeModal, setShowAgeModal] = useState(false);
   const [closingAgeModal, setClosingAgeModal] = useState(false);
   const [tempAge, setTempAge] = useState(21);
@@ -190,11 +198,6 @@ const EnergyMapCalculator = () => {
       caloriesPerHour: 180,
       description: 'Heavy compounds, longer rest periods'
     },
-    powerbuilding: { 
-      label: 'Powerbuilding', 
-      caloriesPerHour: 225,
-      description: 'Mix of strength and hypertrophy'
-    },
     strongman: { 
       label: 'Strongman', 
       caloriesPerHour: 280,
@@ -209,6 +212,11 @@ const EnergyMapCalculator = () => {
       label: 'Calisthenics', 
       caloriesPerHour: 240,
       description: 'Bodyweight movements, skill work'
+    },
+    custom: { 
+      label: 'Custom', 
+      caloriesPerHour: 220,
+      description: 'Set your own training style'
     }
   };
   
@@ -253,7 +261,13 @@ const EnergyMapCalculator = () => {
   };
   
   // Training calories based on type
-  const trainingCalories = userData.trainingDuration * trainingTypes[userData.trainingType].caloriesPerHour;
+  const getTrainingCaloriesPerHour = () => {
+    if (userData.trainingType === 'custom') {
+      return userData.customTrainingCalories;
+    }
+    return trainingTypes[userData.trainingType].caloriesPerHour;
+  };
+  const trainingCalories = userData.trainingDuration * getTrainingCaloriesPerHour();
   
   // Step-based calorie burns
   const getStepCalories = (stepRange) => {
@@ -735,14 +749,28 @@ const EnergyMapCalculator = () => {
         {showTrainingTypeModal && (
           <div className={`modal-overlay fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-3 md:p-4 ${closingTrainingTypeModal ? 'closing' : ''}`}>
             <div className={`modal-content bg-slate-800 rounded-2xl p-4 md:p-6 w-full md:max-w-2xl border border-slate-700 max-h-[90vh] overflow-y-auto ${closingTrainingTypeModal ? 'closing' : ''}`}>
-              <h3 className="text-white font-bold text-xl md:text-2xl mb-4 md:mb-6">Select Training Type</h3>
+              <div className="flex items-center justify-between mb-4 md:mb-6">
+                <h3 className="text-white font-bold text-xl md:text-2xl">Select Training Type</h3>
+                <Edit3 size={20} className="text-slate-500 opacity-75" />
+              </div>
               
               <div className="grid grid-cols-1 gap-3">
                 {Object.entries(trainingTypes).map(([key, type]) => (
                   <button
                     key={key}
-                    onClick={() => setTempTrainingType(key)}
-                    className={`p-4 rounded-xl border-2 transition-all active:scale-[0.98] text-left ${
+                    onClick={() => {
+                      if (key === 'custom' && tempTrainingType === 'custom') {
+                        // Already selected, open edit modal
+                        setTempCustomName(userData.customTrainingName);
+                        setTempCustomCalories(userData.customTrainingCalories);
+                        setTempCustomDescription(userData.customTrainingDescription);
+                        setShowCustomTrainingModal(true);
+                      } else {
+                        // Select this training type
+                        setTempTrainingType(key);
+                      }
+                    }}
+                    className={`p-4 rounded-xl border-2 transition-all active:scale-[0.98] text-left relative ${
                       tempTrainingType === key
                         ? 'bg-blue-600 border-blue-400 text-white shadow-lg'
                         : 'bg-slate-700 border-slate-600 text-slate-300'
@@ -751,12 +779,15 @@ const EnergyMapCalculator = () => {
                     <div className="flex items-center gap-4">
                       <Dumbbell size={32} className="flex-shrink-0" />
                       <div className="flex-1">
-                        <p className="font-bold text-lg">{type.label}</p>
+                        <p className="font-bold text-lg">{key === 'custom' ? userData.customTrainingName : type.label}</p>
                         <p className="text-sm opacity-90 mt-1">
-                          {type.caloriesPerHour} cal/hr • {type.description}
+                          {key === 'custom' ? userData.customTrainingCalories : type.caloriesPerHour} cal/hr • {key === 'custom' ? userData.customTrainingDescription : type.description}
                         </p>
                       </div>
-                      {tempTrainingType === key && (
+                      {key === 'custom' && tempTrainingType === 'custom' && (
+                        <Edit3 size={18} className="flex-shrink-0 opacity-75" />
+                      )}
+                      {tempTrainingType === key && key !== 'custom' && (
                         <div className="flex-shrink-0 w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
                           <div className="w-3 h-3 rounded-full bg-white"></div>
                         </div>
@@ -782,6 +813,75 @@ const EnergyMapCalculator = () => {
                 >
                   <Save size={20} />
                   <span className="hidden sm:inline">Save &</span> Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Custom Training Modal */}
+        {showCustomTrainingModal && (
+          <div className={`modal-overlay fixed inset-0 bg-black/90 flex items-center justify-center z-[70] p-4 ${closingCustomTrainingModal ? 'closing' : ''}`}>
+            <div className={`modal-content bg-slate-800 rounded-2xl p-6 w-full max-w-md border border-slate-700 ${closingCustomTrainingModal ? 'closing' : ''}`}>
+              <h3 className="text-white font-bold text-xl mb-4 text-center">Custom Training Type</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="text-slate-300 text-sm block mb-2">Training Name</label>
+                  <input
+                    type="text"
+                    value={tempCustomName}
+                    onChange={(e) => setTempCustomName(e.target.value)}
+                    placeholder="My Training"
+                    className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-base"
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-slate-300 text-sm block mb-2">Description</label>
+                  <input
+                    type="text"
+                    value={tempCustomDescription}
+                    onChange={(e) => setTempCustomDescription(e.target.value)}
+                    placeholder="Custom training style"
+                    className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-base"
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-slate-300 text-sm block mb-2">Calories Per Hour</label>
+                  <input
+                    type="number"
+                    value={tempCustomCalories}
+                    onChange={(e) => setTempCustomCalories(parseInt(e.target.value) || 0)}
+                    placeholder="220"
+                    className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-base"
+                  />
+                  <p className="text-slate-400 text-xs mt-1">
+                    Typical range: 180-300 cal/hr
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => closeModal(setClosingCustomTrainingModal, setShowCustomTrainingModal)}
+                  className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    handleUserDataChange('customTrainingName', tempCustomName);
+                    handleUserDataChange('customTrainingCalories', tempCustomCalories);
+                    handleUserDataChange('customTrainingDescription', tempCustomDescription);
+                    setTempTrainingType('custom');
+                    closeModal(setClosingCustomTrainingModal, setShowCustomTrainingModal);
+                  }}
+                  className="flex-1 bg-green-600 active:bg-green-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
+                >
+                  <Save size={20} />
+                  Save
                 </button>
               </div>
             </div>
@@ -986,20 +1086,35 @@ const EnergyMapCalculator = () => {
               <div className="space-y-6">
                 {/* Training Type Selection */}
                 <div>
-                  <label className="text-slate-300 text-sm block mb-2">Training Type</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-slate-300 text-sm">Training Type</label>
+                    <Edit3 size={14} className="text-slate-500 opacity-75" />
+                  </div>
                   <div className="grid grid-cols-2 gap-2">
                     {Object.entries(trainingTypes).map(([key, type]) => (
                       <button
                         key={key}
-                        onClick={() => setTempTrainingType(key)}
-                        className={`p-3 rounded-lg border-2 transition-all text-sm ${
+                        onClick={() => {
+                          if (key === 'custom' && tempTrainingType === 'custom') {
+                            // Already selected, open edit modal
+                            setTempCustomName(userData.customTrainingName);
+                            setTempCustomCalories(userData.customTrainingCalories);
+                            setTempCustomDescription(userData.customTrainingDescription);
+                            setShowCustomTrainingModal(true);
+                          } else {
+                            // Select this training type
+                            setTempTrainingType(key);
+                          }
+                        }}
+                        className={`p-3 rounded-lg border-2 transition-all text-sm relative ${
                           tempTrainingType === key
                             ? 'bg-purple-600 border-purple-400 text-white'
                             : 'bg-slate-700 border-slate-600 text-slate-300 active:bg-slate-600'
                         }`}
                       >
-                        <div className="font-bold">{type.label}</div>
-                        <div className="text-xs opacity-75">{type.caloriesPerHour} cal/hr</div>
+                        {key === 'custom' && tempTrainingType === 'custom' && <Edit3 size={12} className="absolute top-2 right-2 opacity-75" />}
+                        <div className="font-bold">{key === 'custom' ? userData.customTrainingName : type.label}</div>
+                        <div className="text-xs opacity-75">{key === 'custom' ? userData.customTrainingCalories : type.caloriesPerHour} cal/hr</div>
                       </button>
                     ))}
                   </div>
@@ -1050,7 +1165,7 @@ const EnergyMapCalculator = () => {
                   <div className="bg-slate-700/50 rounded-lg p-3 mt-3">
                     <p className="text-slate-400 text-xs text-center mb-1">Estimated Burn:</p>
                     <p className="text-white font-bold text-xl text-center">
-                      ~{Math.round(trainingTypes[tempTrainingType].caloriesPerHour * tempTrainingDuration)} calories
+                      ~{Math.round((tempTrainingType === 'custom' ? userData.customTrainingCalories : trainingTypes[tempTrainingType].caloriesPerHour) * tempTrainingDuration)} calories
                     </p>
                   </div>
                 </div>
