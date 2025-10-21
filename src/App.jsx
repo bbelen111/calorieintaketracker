@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Activity, TrendingUp, TrendingDown, Minus, Settings, Plus, Trash2, Save, Dumbbell, Bike, Heart, Edit3, Info } from 'lucide-react';
 
 const SCROLL_SETTLE_DELAY = 140;
@@ -402,6 +403,8 @@ const EnergyMapCalculator = () => {
   const handleRestDayClick = () => {
     setSelectedDay('rest');
   };
+
+  const hasCardioSessions = userData.cardioSessions.length > 0;
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 md:p-6">
@@ -1326,64 +1329,115 @@ const EnergyMapCalculator = () => {
         </div>
         
         {/* Cardio Sessions Manager */}
-        <div className="bg-slate-800 rounded-2xl p-6 mb-6 border border-slate-700 shadow-2xl">
-          {userData.cardioSessions.length === 0 ? (
-            <button
-              onClick={() => setShowCardioModal(true)}
-              className="w-full flex items-center justify-between p-4 hover:bg-slate-700/50 rounded-xl transition-all group"
-            >
-              <div className="flex items-center gap-3">
-                <Heart className="text-red-400" size={24} />
-                <div className="text-left">
-                  <h2 className="text-lg font-bold text-white">Add Cardio Session</h2>
-                  <p className="text-slate-400 text-sm">Track your cardio activities</p>
-                </div>
-              </div>
-              <Plus className="text-slate-400 group-hover:text-red-400 transition-colors" size={24} />
-            </button>
-          ) : (
-            <>
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Heart className="text-red-400" size={24} />
-                  <h2 className="text-xl font-bold text-white">Cardio Sessions</h2>
-                </div>
-                <button
-                  onClick={() => setShowCardioModal(true)}
-                  className="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all"
+        <motion.div
+          className="bg-slate-800 rounded-2xl p-6 mb-6 border border-slate-700 shadow-2xl"
+          layout
+          initial={false}
+          transition={{ type: 'spring', stiffness: 120, damping: 18 }}
+        >
+          <AnimatePresence mode="wait" initial={false}>
+            {hasCardioSessions ? (
+              <motion.div
+                key="cardio-list"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
+              >
+                <motion.div
+                  className="flex items-center justify-between mb-4"
+                  layout="position"
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.3, ease: 'easeOut' }}
                 >
-                  <Plus size={20} />
-                  Add
-                </button>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-                {userData.cardioSessions.map((session) => (
-                  <div key={session.id} className="bg-slate-700 rounded-lg p-4 flex justify-between items-center">
-                    <div>
-                      <p className="text-white font-semibold">{cardioTypes[session.type].label}</p>
-                      <p className="text-slate-400 text-sm">
-                        {session.duration} min • {session.intensity} • ~{calculateCardioCalories(session)} cal
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => removeCardioSession(session.id)}
-                      className="text-red-400 hover:text-red-300 transition-all"
-                    >
-                      <Trash2 size={20} />
-                    </button>
+                  <div className="flex items-center gap-2">
+                    <Heart className="text-red-400" size={24} />
+                    <h2 className="text-xl font-bold text-white">Cardio Sessions</h2>
                   </div>
-                ))}
-              </div>
-              
-              <div className="bg-red-900/30 border border-red-700 rounded-lg p-3">
-                <p className="text-red-300 font-semibold">
-                  Total Cardio Burn: {getTotalCardioBurn()} calories
-                </p>
-              </div>
-            </>
-          )}
-        </div>
+                  <motion.button
+                    onClick={() => setShowCardioModal(true)}
+                    className="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all"
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                  >
+                    <Plus size={20} />
+                    Add
+                  </motion.button>
+                </motion.div>
+
+                <motion.div layout className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                  <AnimatePresence initial={false}>
+                    {userData.cardioSessions.map((session) => (
+                      <motion.div
+                        key={session.id}
+                        layout
+                        initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -12, scale: 0.95 }}
+                        transition={{ duration: 0.25, ease: 'easeOut' }}
+                        className="bg-slate-700 rounded-lg p-4 flex justify-between items-center shadow-lg shadow-slate-900/20"
+                      >
+                        <div>
+                          <p className="text-white font-semibold">{cardioTypes[session.type].label}</p>
+                          <p className="text-slate-400 text-sm">
+                            {session.duration} min • {session.intensity} • ~{calculateCardioCalories(session)} cal
+                          </p>
+                        </div>
+                        <motion.button
+                          onClick={() => removeCardioSession(session.id)}
+                          className="text-red-400 hover:text-red-300 transition-all"
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                        >
+                          <Trash2 size={20} />
+                        </motion.button>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </motion.div>
+
+                <motion.div
+                  layout
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  transition={{ duration: 0.3, ease: 'easeOut' }}
+                  className="bg-red-900/30 border border-red-700 rounded-lg p-3"
+                >
+                  <p className="text-red-300 font-semibold">
+                    Total Cardio Burn: {getTotalCardioBurn()} calories
+                  </p>
+                </motion.div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="cardio-empty"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+              >
+                <motion.button
+                  onClick={() => setShowCardioModal(true)}
+                  className="w-full flex items-center justify-between p-4 hover:bg-slate-700/50 rounded-xl transition-all group"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  <div className="flex items-center gap-3">
+                    <Heart className="text-red-400" size={24} />
+                    <div className="text-left">
+                      <h2 className="text-lg font-bold text-white">Add Cardio Session</h2>
+                      <p className="text-slate-400 text-sm">Track your cardio activities</p>
+                    </div>
+                  </div>
+                  <Plus className="text-slate-400 group-hover:text-red-400 transition-colors" size={24} />
+                </motion.button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
         
         {/* Calorie Map */}
         <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
