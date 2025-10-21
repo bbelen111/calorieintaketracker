@@ -101,6 +101,12 @@ const EnergyMapCalculator = () => {
     duration: 30,
     intensity: 'moderate'
   });
+  const [currentScreen, setCurrentScreen] = useState(0);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const swipeStartX = useRef(null);
+  const isSwipeActive = useRef(false);
+  const viewportRef = useRef(null);
 
   const ageScrollRef = useRef(null);
   const weightScrollRef = useRef(null);
@@ -108,6 +114,80 @@ const EnergyMapCalculator = () => {
   const ageScrollTimeout = useRef(null);
   const weightScrollTimeout = useRef(null);
   const durationScrollTimeout = useRef(null);
+  const TOTAL_SCREENS = 3;
+  const BASE_SWIPE_THRESHOLD = 80;
+
+  const beginSwipe = (clientX) => {
+    swipeStartX.current = clientX;
+    isSwipeActive.current = true;
+    setIsSwiping(true);
+    setDragOffset(0);
+  };
+
+  const updateSwipePosition = (clientX) => {
+    if (!isSwipeActive.current || swipeStartX.current === null) return;
+    setDragOffset(clientX - swipeStartX.current);
+  };
+
+  const finishSwipe = () => {
+    if (!isSwipeActive.current) return;
+
+    const width = viewportRef.current?.clientWidth || 0;
+    const threshold = width ? Math.min(width * 0.25, BASE_SWIPE_THRESHOLD) : BASE_SWIPE_THRESHOLD;
+    const delta = dragOffset;
+
+    if (delta < -threshold && currentScreen < TOTAL_SCREENS - 1) {
+      setCurrentScreen((prev) => Math.min(prev + 1, TOTAL_SCREENS - 1));
+    } else if (delta > threshold && currentScreen > 0) {
+      setCurrentScreen((prev) => Math.max(prev - 1, 0));
+    }
+
+    setDragOffset(0);
+    setIsSwiping(false);
+    isSwipeActive.current = false;
+    swipeStartX.current = null;
+  };
+
+  const handleTouchStart = (event) => {
+    if (event.touches.length === 0) return;
+    beginSwipe(event.touches[0].clientX);
+  };
+
+  const handleTouchMove = (event) => {
+    if (event.touches.length === 0) return;
+    updateSwipePosition(event.touches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    finishSwipe();
+  };
+
+  const handleMouseDown = (event) => {
+    if (event.button !== 0) return;
+    beginSwipe(event.clientX);
+  };
+
+  const handleMouseMove = (event) => {
+    if (!isSwipeActive.current) return;
+    updateSwipePosition(event.clientX);
+  };
+
+  const handleMouseUp = () => {
+    finishSwipe();
+  };
+
+  const handleMouseLeave = () => {
+    finishSwipe();
+  };
+
+  const goToScreen = (index) => {
+    const clampedIndex = Math.max(0, Math.min(index, TOTAL_SCREENS - 1));
+    setCurrentScreen(clampedIndex);
+    setDragOffset(0);
+    setIsSwiping(false);
+    isSwipeActive.current = false;
+    swipeStartX.current = null;
+  };
   
   // Save to localStorage whenever userData changes
   useEffect(() => {
@@ -404,73 +484,395 @@ const EnergyMapCalculator = () => {
     setSelectedDay('rest');
   };
 
+  const viewportWidth = viewportRef.current?.clientWidth || 1;
+  const sliderTranslatePercent = (-currentScreen * 100) + ((dragOffset / viewportWidth) * 100);
+  const sliderTransition = isSwiping ? 'none' : 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)';
+  const screenLabels = ['Home', 'Calorie Map', 'Insights'];
+
   const hasCardioSessions = userData.cardioSessions.length > 0;
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 md:p-6">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="bg-slate-800 rounded-2xl p-6 md:p-8 mb-6 border border-slate-700 shadow-2xl">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <Activity className="text-blue-400" size={32} />
-              <h1 className="text-2xl md:text-3xl font-bold text-white">Your Energy Map</h1>
-            </div>
-            <button
-              onClick={() => setShowSettingsModal(true)}
-              className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-all"
-            >
-              <Settings size={20} />
-              <span className="hidden md:inline">Settings</span>
-            </button>
+      <div className="max-w-6xl mx-auto space-y-6">
+        <div className="relative">
+          <div className="flex items-center justify-center gap-2 mb-6">
+            {screenLabels.map((label, index) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => goToScreen(index)}
+                aria-pressed={currentScreen === index}
+                className={`px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-wide transition-all ${
+                  currentScreen === index
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                    : 'bg-slate-700/60 text-slate-300 hover:bg-slate-700 hover:text-white'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <button
-              onClick={() => {
-                setTempAge(userData.age);
-                setShowAgeModal(true);
-              }}
-              className="bg-slate-700/50 hover:bg-slate-700 rounded-lg p-3 transition-all text-left group"
+
+          <div
+            ref={viewportRef}
+            className={`overflow-hidden ${isSwiping ? 'cursor-grabbing' : 'cursor-grab'}`}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchEnd}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseLeave}
+          >
+            <div
+              className="flex w-full"
+              style={{ transform: `translateX(${sliderTranslatePercent}%)`, transition: sliderTransition }}
             >
-              <div className="flex items-center justify-between">
-                <p className="text-slate-400">Age</p>
-                <Edit3 size={14} className="text-slate-500 group-hover:text-blue-400 transition-colors" />
+              <div className="w-full flex-shrink-0 px-0 md:px-1">
+                <div className="space-y-6 pb-10">
+                  {/* Header */}
+                  <div className="bg-slate-800 rounded-2xl p-6 md:p-8 border border-slate-700 shadow-2xl">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <Activity className="text-blue-400" size={32} />
+                        <h1 className="text-2xl md:text-3xl font-bold text-white">Your Energy Map</h1>
+                      </div>
+                      <button
+                        onClick={() => setShowSettingsModal(true)}
+                        className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-all"
+                      >
+                        <Settings size={20} />
+                        <span className="hidden md:inline">Settings</span>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <button
+                        onClick={() => {
+                          setTempAge(userData.age);
+                          setShowAgeModal(true);
+                        }}
+                        className="bg-slate-700/50 hover:bg-slate-700 rounded-lg p-3 transition-all text-left group"
+                      >
+                        <div className="flex items-center justify-between">
+                          <p className="text-slate-400">Age</p>
+                          <Edit3 size={14} className="text-slate-500 group-hover:text-blue-400 transition-colors" />
+                        </div>
+                        <p className="text-white font-semibold text-lg">{userData.age} years</p>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setTempWeight(userData.weight);
+                          setShowWeightModal(true);
+                        }}
+                        className="bg-slate-700/50 hover:bg-slate-700 rounded-lg p-3 transition-all text-left group"
+                      >
+                        <div className="flex items-center justify-between">
+                          <p className="text-slate-400">Weight</p>
+                          <Edit3 size={14} className="text-slate-500 group-hover:text-blue-400 transition-colors" />
+                        </div>
+                        <p className="text-white font-semibold text-lg">{userData.weight} kg</p>
+                      </button>
+                      <div className="bg-slate-700/50 rounded-lg p-3">
+                        <p className="text-slate-400">Height</p>
+                        <p className="text-white font-semibold text-lg">{userData.height} cm</p>
+                      </div>
+                      <button
+                        onClick={() => setShowBmrInfoModal(true)}
+                        className="bg-slate-700/50 hover:bg-slate-700 rounded-lg p-3 transition-all text-left group"
+                      >
+                        <div className="flex items-center justify-between">
+                          <p className="text-slate-400">BMR</p>
+                          <Info size={14} className="text-slate-500 group-hover:text-blue-400 transition-colors" />
+                        </div>
+                        <p className="text-white font-semibold text-lg">{BMR} cal</p>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Goal Selector */}
+                  <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
+                    <h2 className="text-xl font-bold text-white mb-4">Your Goal</h2>
+                    <button
+                      onClick={() => {
+                        setTempSelectedGoal(selectedGoal);
+                        setShowGoalModal(true);
+                      }}
+                      className={`w-full p-4 rounded-xl border-2 transition-all relative ${goals[selectedGoal].color} border-white text-white shadow-lg hover:scale-[1.02] active:scale-[0.98]`}
+                    >
+                      <Edit3 size={16} className="absolute top-3 right-3 opacity-75" />
+                      {(() => {
+                        const Icon = goals[selectedGoal].icon;
+                        return <Icon className="mx-auto mb-2" size={32} />;
+                      })()}
+                      <p className="font-bold text-xl">{goals[selectedGoal].label}</p>
+                      <p className="text-sm opacity-90 mt-1">{goals[selectedGoal].desc}</p>
+                      <p className="text-xs opacity-75 mt-2">Tap to change</p>
+                    </button>
+
+                    {goals[selectedGoal].warning && (
+                      <div className="mt-4 bg-yellow-900/30 border-2 border-yellow-600 rounded-xl p-4">
+                        <p className="text-yellow-300 text-sm font-medium">
+                          {goals[selectedGoal].warning}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Day Type Selector */}
+                  <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
+                    <h2 className="text-xl font-bold text-white mb-4">Day Type</h2>
+                    <div className="grid grid-cols-2 gap-4">
+                      <button
+                        onClick={handleTrainingDayClick}
+                        className={`p-4 rounded-xl border-2 transition-all relative ${
+                          selectedDay === 'training'
+                            ? 'bg-purple-600 border-white text-white shadow-lg transform scale-105'
+                            : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
+                        }`}
+                      >
+                        <Edit3 size={14} className="absolute top-2 right-2 opacity-75" />
+                        <Dumbbell className="mx-auto mb-2" size={28} />
+                        <p className="font-bold text-lg">Training Day</p>
+                        <p className="text-sm opacity-90">
+                          {userData.trainingDuration}hrs {trainingTypes[userData.trainingType].label}
+                        </p>
+                        <p className="text-xs opacity-75 mt-1">~{Math.round(trainingCalories)} cal burn</p>
+                      </button>
+                      <button
+                        onClick={handleRestDayClick}
+                        className={`p-4 rounded-xl border-2 transition-all ${
+                          selectedDay === 'rest'
+                            ? 'bg-indigo-600 border-white text-white shadow-lg transform scale-105'
+                            : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
+                        }`}
+                      >
+                        <Activity className="mx-auto mb-2" size={28} />
+                        <p className="font-bold text-lg">Rest Day</p>
+                        <p className="text-sm opacity-90">No training</p>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Cardio Sessions Manager */}
+                  <motion.div
+                    className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl"
+                    layout
+                    initial={false}
+                    transition={{ type: 'spring', stiffness: 120, damping: 18 }}
+                  >
+                    <AnimatePresence mode="wait" initial={false}>
+                      {hasCardioSessions ? (
+                        <motion.div
+                          key="cardio-list"
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
+                        >
+                          <motion.div
+                            className="flex items-center justify-between mb-4"
+                            layout="position"
+                            initial={{ opacity: 0, y: -8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -8 }}
+                            transition={{ duration: 0.3, ease: 'easeOut' }}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Heart className="text-red-400" size={24} />
+                              <h2 className="text-xl font-bold text-white">Cardio Sessions</h2>
+                            </div>
+                            <motion.button
+                              onClick={() => setShowCardioModal(true)}
+                              className="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all"
+                              whileHover={{ scale: 1.03 }}
+                              whileTap={{ scale: 0.97 }}
+                            >
+                              <Plus size={20} />
+                              Add
+                            </motion.button>
+                          </motion.div>
+
+                          <motion.div layout className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                            <AnimatePresence initial={false}>
+                              {userData.cardioSessions.map((session) => (
+                                <motion.div
+                                  key={session.id}
+                                  layout
+                                  initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                                  exit={{ opacity: 0, y: -12, scale: 0.95 }}
+                                  transition={{ duration: 0.25, ease: 'easeOut' }}
+                                  className="bg-slate-700 rounded-lg p-4 flex justify-between items-center shadow-lg shadow-slate-900/20"
+                                >
+                                  <div>
+                                    <p className="text-white font-semibold">{cardioTypes[session.type].label}</p>
+                                    <p className="text-slate-400 text-sm">
+                                      {session.duration} min • {session.intensity} • ~{calculateCardioCalories(session)} cal
+                                    </p>
+                                  </div>
+                                  <motion.button
+                                    onClick={() => removeCardioSession(session.id)}
+                                    className="text-red-400 hover:text-red-300 transition-all"
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.9 }}
+                                  >
+                                    <Trash2 size={20} />
+                                  </motion.button>
+                                </motion.div>
+                              ))}
+                            </AnimatePresence>
+                          </motion.div>
+
+                          <motion.div
+                            layout
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 8 }}
+                            transition={{ duration: 0.3, ease: 'easeOut' }}
+                            className="bg-red-900/30 border border-red-700 rounded-lg p-3"
+                          >
+                            <p className="text-red-300 font-semibold">
+                              Total Cardio Burn: {getTotalCardioBurn()} calories
+                            </p>
+                          </motion.div>
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="cardio-empty"
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+                        >
+                          <motion.button
+                            onClick={() => setShowCardioModal(true)}
+                            className="w-full flex items-center justify-between p-4 hover:bg-slate-700/50 rounded-xl transition-all group"
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.97 }}
+                          >
+                            <div className="flex items-center gap-3">
+                              <Heart className="text-red-400" size={24} />
+                              <div className="text-left">
+                                <h2 className="text-lg font-bold text-white">Add Cardio Session</h2>
+                                <p className="text-slate-400 text-sm">Track your cardio activities</p>
+                              </div>
+                            </div>
+                            <Plus className="text-slate-400 group-hover:text-red-400 transition-colors" size={24} />
+                          </motion.button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                </div>
               </div>
-              <p className="text-white font-semibold text-lg">{userData.age} years</p>
-            </button>
-            <button
-              onClick={() => {
-                setTempWeight(userData.weight);
-                setShowWeightModal(true);
-              }}
-              className="bg-slate-700/50 hover:bg-slate-700 rounded-lg p-3 transition-all text-left group"
-            >
-              <div className="flex items-center justify-between">
-                <p className="text-slate-400">Weight</p>
-                <Edit3 size={14} className="text-slate-500 group-hover:text-blue-400 transition-colors" />
+
+              <div className="w-full flex-shrink-0 px-0 md:px-1">
+                <div className="space-y-6 pb-10">
+                  {/* Calorie Map */}
+                  <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
+                    <h2 className="text-xl font-bold text-white mb-4">
+                      Your Calorie Targets: {goals[selectedGoal].label} - {selectedDay === 'training' ? 'Training' : 'Rest'} Day
+                    </h2>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {userData.stepRanges.map((steps) => {
+                        const tdee = calculateTDEE(steps, selectedDay === 'training');
+                        const targetCalories = calculateGoalCalories(tdee, selectedGoal);
+                        const difference = targetCalories - tdee;
+                        
+                        return (
+                          <div key={steps} className="bg-slate-700 rounded-xl p-4 hover:bg-slate-600 transition-all">
+                            <div className="text-center">
+                              <p className="text-slate-400 text-sm mb-1">Steps</p>
+                              <p className="text-white font-bold text-lg mb-3">{steps}</p>
+                              <div className={`${goals[selectedGoal].color} rounded-lg p-3 mb-2`}>
+                                <p className="text-white text-2xl font-bold">{targetCalories}</p>
+                                <p className="text-white text-xs opacity-90">calories</p>
+                              </div>
+                              <p className="text-slate-400 text-xs">TDEE: {tdee}</p>
+                              {difference !== 0 && (
+                                <p className={`text-xs font-semibold mt-1 ${difference > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                  {difference > 0 ? '+' : ''}{difference} cal
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
               </div>
-              <p className="text-white font-semibold text-lg">{userData.weight} kg</p>
-            </button>
-            <div className="bg-slate-700/50 rounded-lg p-3">
-              <p className="text-slate-400">Height</p>
-              <p className="text-white font-semibold text-lg">{userData.height} cm</p>
+
+              <div className="w-full flex-shrink-0 px-0 md:px-1">
+                <div className="space-y-6 pb-10">
+                  {/* Macro Recommendations */}
+                  <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
+                    <h2 className="text-xl font-bold text-white mb-4">Macro Recommendations</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-red-900/30 border border-red-700 rounded-xl p-4">
+                        <p className="text-red-400 font-bold mb-2">Protein</p>
+                        <p className="text-white text-2xl font-bold">{Math.round(userData.weight * 2.2)}g</p>
+                        <p className="text-slate-400 text-sm">2.2g per kg bodyweight</p>
+                      </div>
+                      <div className="bg-yellow-900/30 border border-yellow-700 rounded-xl p-4">
+                        <p className="text-yellow-400 font-bold mb-2">Fats</p>
+                        <p className="text-white text-2xl font-bold">{Math.round(userData.weight * 0.8)}-{Math.round(userData.weight * 1.0)}g</p>
+                        <p className="text-slate-400 text-sm">0.8-1.0g per kg bodyweight</p>
+                      </div>
+                      <div className="bg-blue-900/30 border border-blue-700 rounded-xl p-4">
+                        <p className="text-blue-400 font-bold mb-2">Carbs</p>
+                        <p className="text-white text-lg font-bold">Remaining calories</p>
+                        <p className="text-slate-400 text-sm">Adjust based on energy needs</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tips */}
+                  <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
+                    <h2 className="text-xl font-bold text-white mb-4">Tips for Success</h2>
+                    <ul className="space-y-2 text-slate-300">
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-400 mt-1">•</span>
+                        <span>Track your steps daily to use the accurate calorie target</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-400 mt-1">•</span>
+                        <span>On training days, fuel your sessions properly with higher carbs pre-workout</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-400 mt-1">•</span>
+                        <span>Cardio burns are calculated using MET values based on your weight</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-400 mt-1">•</span>
+                        <span>Different training types burn calories at different rates - adjust accordingly</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-400 mt-1">•</span>
+                        <span>Weigh yourself weekly and adjust if progress stalls for 2+ weeks</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-400 mt-1">•</span>
+                        <span>For lean bulk: aim for 0.25-0.5kg gain per week. For aggressive bulk: 0.5-1kg per week</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-400 mt-1">•</span>
+                        <span>For moderate cut: aim for 0.5kg loss per week. For aggressive cut: 0.75-1kg per week</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-400 mt-1">•</span>
+                        <span>Your data is saved automatically in your browser</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
             </div>
-            <button 
-              onClick={() => setShowBmrInfoModal(true)}
-              className="bg-slate-700/50 hover:bg-slate-700 rounded-lg p-3 transition-all text-left group"
-            >
-              <div className="flex items-center justify-between">
-                <p className="text-slate-400">BMR</p>
-                <Info size={14} className="text-slate-500 group-hover:text-blue-400 transition-colors" />
-              </div>
-              <p className="text-white font-semibold text-lg">{BMR} cal</p>
-            </button>
           </div>
         </div>
-        
 
-        
         {/* Goal Selection Modal */}
         {showGoalModal && (
           <div className={`modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3 md:p-4 ${closingGoalModal ? 'closing' : ''}`}>
@@ -1264,274 +1666,6 @@ const EnergyMapCalculator = () => {
           </div>
         )}
         
-        {/* Goal Selector */}
-        <div className="bg-slate-800 rounded-2xl p-6 mb-6 border border-slate-700 shadow-2xl">
-          <h2 className="text-xl font-bold text-white mb-4">Your Goal</h2>
-          <button
-            onClick={() => {
-              setTempSelectedGoal(selectedGoal);
-              setShowGoalModal(true);
-            }}
-            className={`w-full p-4 rounded-xl border-2 transition-all relative ${goals[selectedGoal].color} border-white text-white shadow-lg hover:scale-[1.02] active:scale-[0.98]`}
-          >
-            <Edit3 size={16} className="absolute top-3 right-3 opacity-75" />
-            {(() => {
-              const Icon = goals[selectedGoal].icon;
-              return <Icon className="mx-auto mb-2" size={32} />;
-            })()}
-            <p className="font-bold text-xl">{goals[selectedGoal].label}</p>
-            <p className="text-sm opacity-90 mt-1">{goals[selectedGoal].desc}</p>
-            <p className="text-xs opacity-75 mt-2">Tap to change</p>
-          </button>
-          
-          {goals[selectedGoal].warning && (
-            <div className="mt-4 bg-yellow-900/30 border-2 border-yellow-600 rounded-xl p-4">
-              <p className="text-yellow-300 text-sm font-medium">
-                {goals[selectedGoal].warning}
-              </p>
-            </div>
-          )}
-        </div>
-        
-        {/* Day Type Selector */}
-        <div className="bg-slate-800 rounded-2xl p-6 mb-6 border border-slate-700 shadow-2xl">
-          <h2 className="text-xl font-bold text-white mb-4">Day Type</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              onClick={handleTrainingDayClick}
-              className={`p-4 rounded-xl border-2 transition-all relative ${
-                selectedDay === 'training'
-                  ? 'bg-purple-600 border-white text-white shadow-lg transform scale-105'
-                  : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
-              }`}
-            >
-              <Edit3 size={14} className="absolute top-2 right-2 opacity-75" />
-              <Dumbbell className="mx-auto mb-2" size={28} />
-              <p className="font-bold text-lg">Training Day</p>
-              <p className="text-sm opacity-90">
-                {userData.trainingDuration}hrs {trainingTypes[userData.trainingType].label}
-              </p>
-              <p className="text-xs opacity-75 mt-1">~{Math.round(trainingCalories)} cal burn</p>
-            </button>
-            <button
-              onClick={handleRestDayClick}
-              className={`p-4 rounded-xl border-2 transition-all ${
-                selectedDay === 'rest'
-                  ? 'bg-indigo-600 border-white text-white shadow-lg transform scale-105'
-                  : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
-              }`}
-            >
-              <Activity className="mx-auto mb-2" size={28} />
-              <p className="font-bold text-lg">Rest Day</p>
-              <p className="text-sm opacity-90">No training</p>
-            </button>
-          </div>
-        </div>
-        
-        {/* Cardio Sessions Manager */}
-        <motion.div
-          className="bg-slate-800 rounded-2xl p-6 mb-6 border border-slate-700 shadow-2xl"
-          layout
-          initial={false}
-          transition={{ type: 'spring', stiffness: 120, damping: 18 }}
-        >
-          <AnimatePresence mode="wait" initial={false}>
-            {hasCardioSessions ? (
-              <motion.div
-                key="cardio-list"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
-              >
-                <motion.div
-                  className="flex items-center justify-between mb-4"
-                  layout="position"
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.3, ease: 'easeOut' }}
-                >
-                  <div className="flex items-center gap-2">
-                    <Heart className="text-red-400" size={24} />
-                    <h2 className="text-xl font-bold text-white">Cardio Sessions</h2>
-                  </div>
-                  <motion.button
-                    onClick={() => setShowCardioModal(true)}
-                    className="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all"
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
-                  >
-                    <Plus size={20} />
-                    Add
-                  </motion.button>
-                </motion.div>
-
-                <motion.div layout className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-                  <AnimatePresence initial={false}>
-                    {userData.cardioSessions.map((session) => (
-                      <motion.div
-                        key={session.id}
-                        layout
-                        initial={{ opacity: 0, y: 12, scale: 0.98 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -12, scale: 0.95 }}
-                        transition={{ duration: 0.25, ease: 'easeOut' }}
-                        className="bg-slate-700 rounded-lg p-4 flex justify-between items-center shadow-lg shadow-slate-900/20"
-                      >
-                        <div>
-                          <p className="text-white font-semibold">{cardioTypes[session.type].label}</p>
-                          <p className="text-slate-400 text-sm">
-                            {session.duration} min • {session.intensity} • ~{calculateCardioCalories(session)} cal
-                          </p>
-                        </div>
-                        <motion.button
-                          onClick={() => removeCardioSession(session.id)}
-                          className="text-red-400 hover:text-red-300 transition-all"
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                        >
-                          <Trash2 size={20} />
-                        </motion.button>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                </motion.div>
-
-                <motion.div
-                  layout
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 8 }}
-                  transition={{ duration: 0.3, ease: 'easeOut' }}
-                  className="bg-red-900/30 border border-red-700 rounded-lg p-3"
-                >
-                  <p className="text-red-300 font-semibold">
-                    Total Cardio Burn: {getTotalCardioBurn()} calories
-                  </p>
-                </motion.div>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="cardio-empty"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-              >
-                <motion.button
-                  onClick={() => setShowCardioModal(true)}
-                  className="w-full flex items-center justify-between p-4 hover:bg-slate-700/50 rounded-xl transition-all group"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.97 }}
-                >
-                  <div className="flex items-center gap-3">
-                    <Heart className="text-red-400" size={24} />
-                    <div className="text-left">
-                      <h2 className="text-lg font-bold text-white">Add Cardio Session</h2>
-                      <p className="text-slate-400 text-sm">Track your cardio activities</p>
-                    </div>
-                  </div>
-                  <Plus className="text-slate-400 group-hover:text-red-400 transition-colors" size={24} />
-                </motion.button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-        
-        {/* Calorie Map */}
-        <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
-          <h2 className="text-xl font-bold text-white mb-4">
-            Your Calorie Targets: {goals[selectedGoal].label} - {selectedDay === 'training' ? 'Training' : 'Rest'} Day
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {userData.stepRanges.map((steps) => {
-              const tdee = calculateTDEE(steps, selectedDay === 'training');
-              const targetCalories = calculateGoalCalories(tdee, selectedGoal);
-              const difference = targetCalories - tdee;
-              
-              return (
-                <div key={steps} className="bg-slate-700 rounded-xl p-4 hover:bg-slate-600 transition-all">
-                  <div className="text-center">
-                    <p className="text-slate-400 text-sm mb-1">Steps</p>
-                    <p className="text-white font-bold text-lg mb-3">{steps}</p>
-                    <div className={`${goals[selectedGoal].color} rounded-lg p-3 mb-2`}>
-                      <p className="text-white text-2xl font-bold">{targetCalories}</p>
-                      <p className="text-white text-xs opacity-90">calories</p>
-                    </div>
-                    <p className="text-slate-400 text-xs">TDEE: {tdee}</p>
-                    {difference !== 0 && (
-                      <p className={`text-xs font-semibold mt-1 ${difference > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                        {difference > 0 ? '+' : ''}{difference} cal
-                      </p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        
-        {/* Macro Recommendations */}
-        <div className="bg-slate-800 rounded-2xl p-6 mt-6 border border-slate-700 shadow-2xl">
-          <h2 className="text-xl font-bold text-white mb-4">Macro Recommendations</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-red-900/30 border border-red-700 rounded-xl p-4">
-              <p className="text-red-400 font-bold mb-2">Protein</p>
-              <p className="text-white text-2xl font-bold">{Math.round(userData.weight * 2.2)}g</p>
-              <p className="text-slate-400 text-sm">2.2g per kg bodyweight</p>
-            </div>
-            <div className="bg-yellow-900/30 border border-yellow-700 rounded-xl p-4">
-              <p className="text-yellow-400 font-bold mb-2">Fats</p>
-              <p className="text-white text-2xl font-bold">{Math.round(userData.weight * 0.8)}-{Math.round(userData.weight * 1.0)}g</p>
-              <p className="text-slate-400 text-sm">0.8-1.0g per kg bodyweight</p>
-            </div>
-            <div className="bg-blue-900/30 border border-blue-700 rounded-xl p-4">
-              <p className="text-blue-400 font-bold mb-2">Carbs</p>
-              <p className="text-white text-lg font-bold">Remaining calories</p>
-              <p className="text-slate-400 text-sm">Adjust based on energy needs</p>
-            </div>
-          </div>
-        </div>
-        
-        {/* Tips */}
-        <div className="bg-slate-800 rounded-2xl p-6 mt-6 border border-slate-700 shadow-2xl">
-          <h2 className="text-xl font-bold text-white mb-4">Tips for Success</h2>
-          <ul className="space-y-2 text-slate-300">
-            <li className="flex items-start gap-2">
-              <span className="text-blue-400 mt-1">•</span>
-              <span>Track your steps daily to use the accurate calorie target</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-blue-400 mt-1">•</span>
-              <span>On training days, fuel your sessions properly with higher carbs pre-workout</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-blue-400 mt-1">•</span>
-              <span>Cardio burns are calculated using MET values based on your weight</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-blue-400 mt-1">•</span>
-              <span>Different training types burn calories at different rates - adjust accordingly</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-blue-400 mt-1">•</span>
-              <span>Weigh yourself weekly and adjust if progress stalls for 2+ weeks</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-blue-400 mt-1">•</span>
-              <span>For lean bulk: aim for 0.25-0.5kg gain per week. For aggressive bulk: 0.5-1kg per week</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-blue-400 mt-1">•</span>
-              <span>For moderate cut: aim for 0.5kg loss per week. For aggressive cut: 0.75-1kg per week</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-blue-400 mt-1">•</span>
-              <span>Your data is saved automatically in your browser</span>
-            </li>
-          </ul>
-        </div>
       </div>
     </div>
   );
