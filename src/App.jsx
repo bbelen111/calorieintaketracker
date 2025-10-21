@@ -338,14 +338,28 @@ const EnergyMapCalculator = () => {
                   
                   <div>
                     <label className="text-slate-300 text-sm block mb-2">Gender</label>
-                    <select
-                      value={userData.gender}
-                      onChange={(e) => handleUserDataChange('gender', e.target.value)}
-                      className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none appearance-none cursor-pointer"
-                    >
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                    </select>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => handleUserDataChange('gender', 'male')}
+                        className={`p-3 rounded-lg border-2 transition-all font-semibold ${
+                          userData.gender === 'male'
+                            ? 'bg-blue-600 border-blue-400 text-white'
+                            : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
+                        }`}
+                      >
+                        Male
+                      </button>
+                      <button
+                        onClick={() => handleUserDataChange('gender', 'female')}
+                        className={`p-3 rounded-lg border-2 transition-all font-semibold ${
+                          userData.gender === 'female'
+                            ? 'bg-blue-600 border-blue-400 text-white'
+                            : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
+                        }`}
+                      >
+                        Female
+                      </button>
+                    </div>
                   </div>
                   
                   <div>
