@@ -33,6 +33,7 @@ const EnergyMapCalculator = () => {
   const [showWeightModal, setShowWeightModal] = useState(false);
   const [tempWeight, setTempWeight] = useState(74);
   const [newStepRange, setNewStepRange] = useState('');
+  const [showStepRangesModal, setShowStepRangesModal] = useState(false);
   const [showCardioModal, setShowCardioModal] = useState(false);
   const [newCardio, setNewCardio] = useState({
     type: 'treadmill_walk',
@@ -722,36 +723,13 @@ const EnergyMapCalculator = () => {
                 
                 <div>
                   <label className="text-slate-300 text-sm block mb-2">Step Count Ranges</label>
-                  <div className="flex gap-2 mb-3">
-                    <input
-                      type="text"
-                      value={newStepRange}
-                      onChange={(e) => setNewStepRange(e.target.value)}
-                      placeholder="e.g., 15k or >25k"
-                      className="flex-1 bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-base"
-                    />
-                    <button
-                      onClick={addStepRange}
-                      className="bg-blue-600 active:bg-blue-700 text-white px-4 py-3 rounded-lg flex items-center gap-2 transition-all active:scale-95 whitespace-nowrap"
-                    >
-                      <Plus size={20} />
-                      <span className="hidden sm:inline">Add</span>
-                    </button>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-2">
-                    {userData.stepRanges.map((step) => (
-                      <div key={step} className="bg-slate-700 text-white px-3 py-2 rounded-lg flex items-center gap-2">
-                        <span className="text-sm">{step}</span>
-                        <button
-                          onClick={() => removeStepRange(step)}
-                          className="text-red-400 active:text-red-300 transition-all p-1"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                  <button
+                    onClick={() => setShowStepRangesModal(true)}
+                    className="w-full bg-slate-700 active:bg-slate-600 text-white px-4 py-3 rounded-lg border border-slate-600 transition-all active:scale-95 text-left flex items-center justify-between"
+                  >
+                    <span>{userData.stepRanges.length} range{userData.stepRanges.length !== 1 ? 's' : ''} configured</span>
+                    <Edit3 size={16} className="opacity-75" />
+                  </button>
                 </div>
               </div>
               
@@ -768,6 +746,68 @@ const EnergyMapCalculator = () => {
                 >
                   <Save size={20} />
                   <span className="hidden sm:inline">Save &</span> Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Step Ranges Modal */}
+        {showStepRangesModal && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4">
+            <div className="bg-slate-800 rounded-2xl p-6 max-w-md w-full border border-slate-700 max-h-[90vh] overflow-y-auto">
+              <h3 className="text-white font-bold text-xl mb-4">Edit Step Count Ranges</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="text-slate-300 text-sm block mb-2">Add New Range</label>
+                  <div className="flex gap-2 mb-3">
+                    <input
+                      type="text"
+                      value={newStepRange}
+                      onChange={(e) => setNewStepRange(e.target.value)}
+                      placeholder="e.g., 15k or >25k"
+                      className="flex-1 bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-base"
+                    />
+                    <button
+                      onClick={addStepRange}
+                      className="bg-blue-600 active:bg-blue-700 text-white px-4 py-3 rounded-lg flex items-center gap-2 transition-all active:scale-95 whitespace-nowrap"
+                    >
+                      <Plus size={20} />
+                      <span className="hidden sm:inline">Add</span>
+                    </button>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="text-slate-300 text-sm block mb-2">Current Ranges</label>
+                  {userData.stepRanges.length === 0 ? (
+                    <p className="text-slate-400 text-sm italic">No step ranges configured yet</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {userData.stepRanges.map((step) => (
+                        <div key={step} className="bg-slate-700 text-white px-3 py-2 rounded-lg flex items-center gap-2">
+                          <span className="text-sm">{step}</span>
+                          <button
+                            onClick={() => removeStepRange(step)}
+                            className="text-red-400 active:text-red-300 transition-all p-1"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex gap-2 md:gap-3 mt-6">
+                <button
+                  onClick={() => setShowStepRangesModal(false)}
+                  className="flex-1 bg-green-600 active:bg-green-700 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
+                >
+                  <Save size={20} />
+                  Done
                 </button>
               </div>
             </div>
