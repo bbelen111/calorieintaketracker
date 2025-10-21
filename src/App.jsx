@@ -23,7 +23,7 @@ const EnergyMapCalculator = () => {
   const [userData, setUserData] = useState(loadData());
   const [selectedGoal, setSelectedGoal] = useState('maintenance');
   const [selectedDay, setSelectedDay] = useState('training');
-  const [showSettings, setShowSettings] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [newStepRange, setNewStepRange] = useState('');
   const [showCardioModal, setShowCardioModal] = useState(false);
   const [newCardio, setNewCardio] = useState({
@@ -242,7 +242,7 @@ const EnergyMapCalculator = () => {
               <h1 className="text-2xl md:text-3xl font-bold text-white">Your Energy Map</h1>
             </div>
             <button
-              onClick={() => setShowSettings(!showSettings)}
+              onClick={() => setShowSettingsModal(true)}
               className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-all"
             >
               <Settings size={20} />
@@ -250,147 +250,24 @@ const EnergyMapCalculator = () => {
             </button>
           </div>
           
-          {showSettings ? (
-            <div className="bg-slate-700/50 rounded-xl p-6 space-y-4">
-              <h3 className="text-white font-bold text-lg mb-4">Personal Settings</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-slate-300 text-sm block mb-2">Age</label>
-                  <input
-                    type="number"
-                    value={userData.age}
-                    onChange={(e) => handleUserDataChange('age', parseInt(e.target.value))}
-                    className="w-full bg-slate-600 text-white px-4 py-2 rounded-lg border border-slate-500 focus:border-blue-400 focus:outline-none"
-                  />
-                </div>
-                
-                <div>
-                  <label className="text-slate-300 text-sm block mb-2">Gender</label>
-                  <select
-                    value={userData.gender}
-                    onChange={(e) => handleUserDataChange('gender', e.target.value)}
-                    className="w-full bg-slate-600 text-white px-4 py-2 rounded-lg border border-slate-500 focus:border-blue-400 focus:outline-none"
-                  >
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="text-slate-300 text-sm block mb-2">Weight (kg)</label>
-                  <input
-                    type="number"
-                    value={userData.weight}
-                    onChange={(e) => handleUserDataChange('weight', parseFloat(e.target.value))}
-                    className="w-full bg-slate-600 text-white px-4 py-2 rounded-lg border border-slate-500 focus:border-blue-400 focus:outline-none"
-                  />
-                </div>
-                
-                <div>
-                  <label className="text-slate-300 text-sm block mb-2">Height (cm)</label>
-                  <input
-                    type="number"
-                    value={userData.height}
-                    onChange={(e) => handleUserDataChange('height', parseFloat(e.target.value))}
-                    className="w-full bg-slate-600 text-white px-4 py-2 rounded-lg border border-slate-500 focus:border-blue-400 focus:outline-none"
-                  />
-                </div>
-                
-                <div className="md:col-span-2">
-                  <label className="text-slate-300 text-sm block mb-2">Training Type</label>
-                  <select
-                    value={userData.trainingType}
-                    onChange={(e) => handleUserDataChange('trainingType', e.target.value)}
-                    className="w-full bg-slate-600 text-white px-4 py-2 rounded-lg border border-slate-500 focus:border-blue-400 focus:outline-none"
-                  >
-                    {Object.entries(trainingTypes).map(([key, type]) => (
-                      <option key={key} value={key}>
-                        {type.label} - {type.caloriesPerHour} cal/hr - {type.description}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div className="md:col-span-2">
-                  <label className="text-slate-300 text-sm block mb-2">Training Duration (hours)</label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    value={userData.trainingDuration}
-                    onChange={(e) => handleUserDataChange('trainingDuration', parseFloat(e.target.value))}
-                    className="w-full bg-slate-600 text-white px-4 py-2 rounded-lg border border-slate-500 focus:border-blue-400 focus:outline-none"
-                  />
-                  <p className="text-slate-400 text-xs mt-1">
-                    Total burn: ~{Math.round(trainingCalories)} calories
-                  </p>
-                </div>
-              </div>
-              
-              <div className="mt-6">
-                <label className="text-slate-300 text-sm block mb-2">Step Count Ranges</label>
-                <div className="flex gap-2 mb-3">
-                  <input
-                    type="text"
-                    value={newStepRange}
-                    onChange={(e) => setNewStepRange(e.target.value)}
-                    placeholder="e.g., 15k or >25k"
-                    className="flex-1 bg-slate-600 text-white px-4 py-2 rounded-lg border border-slate-500 focus:border-blue-400 focus:outline-none"
-                  />
-                  <button
-                    onClick={addStepRange}
-                    className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all"
-                  >
-                    <Plus size={20} />
-                    Add
-                  </button>
-                </div>
-                
-                <div className="flex flex-wrap gap-2">
-                  {userData.stepRanges.map((step) => (
-                    <div key={step} className="bg-slate-600 text-white px-3 py-2 rounded-lg flex items-center gap-2">
-                      <span>{step}</span>
-                      <button
-                        onClick={() => removeStepRange(step)}
-                        className="text-red-400 hover:text-red-300 transition-all"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              
-              <div className="flex justify-end pt-4">
-                <button
-                  onClick={() => setShowSettings(false)}
-                  className="bg-green-600 hover:bg-green-500 text-white px-6 py-2 rounded-lg flex items-center gap-2 transition-all"
-                >
-                  <Save size={20} />
-                  Save & Close
-                </button>
-              </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div className="bg-slate-700/50 rounded-lg p-3">
+              <p className="text-slate-400">Age</p>
+              <p className="text-white font-semibold text-lg">{userData.age} years</p>
             </div>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div className="bg-slate-700/50 rounded-lg p-3">
-                <p className="text-slate-400">Age</p>
-                <p className="text-white font-semibold text-lg">{userData.age} years</p>
-              </div>
-              <div className="bg-slate-700/50 rounded-lg p-3">
-                <p className="text-slate-400">Weight</p>
-                <p className="text-white font-semibold text-lg">{userData.weight} kg</p>
-              </div>
-              <div className="bg-slate-700/50 rounded-lg p-3">
-                <p className="text-slate-400">Height</p>
-                <p className="text-white font-semibold text-lg">{userData.height} cm</p>
-              </div>
-              <div className="bg-slate-700/50 rounded-lg p-3">
-                <p className="text-slate-400">BMR</p>
-                <p className="text-white font-semibold text-lg">{BMR} cal</p>
-              </div>
+            <div className="bg-slate-700/50 rounded-lg p-3">
+              <p className="text-slate-400">Weight</p>
+              <p className="text-white font-semibold text-lg">{userData.weight} kg</p>
             </div>
-          )}
+            <div className="bg-slate-700/50 rounded-lg p-3">
+              <p className="text-slate-400">Height</p>
+              <p className="text-white font-semibold text-lg">{userData.height} cm</p>
+            </div>
+            <div className="bg-slate-700/50 rounded-lg p-3">
+              <p className="text-slate-400">BMR</p>
+              <p className="text-white font-semibold text-lg">{BMR} cal</p>
+            </div>
+          </div>
         </div>
         
         {/* Cardio Sessions Manager */}
@@ -440,6 +317,147 @@ const EnergyMapCalculator = () => {
             </div>
           )}
         </div>
+        
+        {/* Settings Modal */}
+        {showSettingsModal && (
+          <div className="fixed inset-0 bg-black/70 flex items-start justify-center z-50 p-4 overflow-y-auto">
+            <div className="bg-slate-800 rounded-2xl p-6 max-w-2xl w-full border border-slate-700 my-8 max-h-[90vh] overflow-y-auto">
+              <h3 className="text-white font-bold text-2xl mb-6">Personal Settings</h3>
+              
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-slate-300 text-sm block mb-2">Age</label>
+                    <input
+                      type="number"
+                      value={userData.age}
+                      onChange={(e) => handleUserDataChange('age', parseInt(e.target.value))}
+                      className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="text-slate-300 text-sm block mb-2">Gender</label>
+                    <select
+                      value={userData.gender}
+                      onChange={(e) => handleUserDataChange('gender', e.target.value)}
+                      className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none appearance-none cursor-pointer"
+                    >
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="text-slate-300 text-sm block mb-2">Weight (kg)</label>
+                    <input
+                      type="number"
+                      value={userData.weight}
+                      onChange={(e) => handleUserDataChange('weight', parseFloat(e.target.value))}
+                      className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="text-slate-300 text-sm block mb-2">Height (cm)</label>
+                    <input
+                      type="number"
+                      value={userData.height}
+                      onChange={(e) => handleUserDataChange('height', parseFloat(e.target.value))}
+                      className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="text-slate-300 text-sm block mb-2">Training Type</label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {Object.entries(trainingTypes).map(([key, type]) => (
+                      <button
+                        key={key}
+                        onClick={() => handleUserDataChange('trainingType', key)}
+                        className={`text-left p-3 rounded-lg border-2 transition-all ${
+                          userData.trainingType === key
+                            ? 'bg-blue-600 border-blue-400 text-white'
+                            : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
+                        }`}
+                      >
+                        <div className="font-semibold">{type.label}</div>
+                        <div className="text-sm opacity-90">
+                          {type.caloriesPerHour} cal/hr • {type.description}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="text-slate-300 text-sm block mb-2">Training Duration (hours)</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={userData.trainingDuration}
+                    onChange={(e) => handleUserDataChange('trainingDuration', parseFloat(e.target.value))}
+                    className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none"
+                  />
+                  <p className="text-slate-400 text-xs mt-1">
+                    Total burn: ~{Math.round(trainingCalories)} calories
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="text-slate-300 text-sm block mb-2">Step Count Ranges</label>
+                  <div className="flex gap-2 mb-3">
+                    <input
+                      type="text"
+                      value={newStepRange}
+                      onChange={(e) => setNewStepRange(e.target.value)}
+                      placeholder="e.g., 15k or >25k"
+                      className="flex-1 bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none"
+                    />
+                    <button
+                      onClick={addStepRange}
+                      className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all"
+                    >
+                      <Plus size={20} />
+                      Add
+                    </button>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-2">
+                    {userData.stepRanges.map((step) => (
+                      <div key={step} className="bg-slate-700 text-white px-3 py-2 rounded-lg flex items-center gap-2">
+                        <span>{step}</span>
+                        <button
+                          onClick={() => removeStepRange(step)}
+                          className="text-red-400 hover:text-red-300 transition-all"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setShowSettingsModal(false)}
+                  className="flex-1 bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded-lg transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => setShowSettingsModal(false)}
+                  className="flex-1 bg-green-600 hover:bg-green-500 text-white px-6 py-2 rounded-lg flex items-center justify-center gap-2 transition-all"
+                >
+                  <Save size={20} />
+                  Save & Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         
         {/* Cardio Modal */}
         {showCardioModal && (
