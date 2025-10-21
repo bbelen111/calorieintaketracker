@@ -751,7 +751,6 @@ const EnergyMapCalculator = () => {
             <div className={`modal-content bg-slate-800 rounded-2xl p-4 md:p-6 w-full md:max-w-2xl border border-slate-700 max-h-[90vh] overflow-y-auto ${closingTrainingTypeModal ? 'closing' : ''}`}>
               <div className="flex items-center justify-between mb-4 md:mb-6">
                 <h3 className="text-white font-bold text-xl md:text-2xl">Select Training Type</h3>
-                <Edit3 size={20} className="text-slate-500 opacity-75" />
               </div>
               
               <div className="grid grid-cols-1 gap-3">
@@ -1088,7 +1087,6 @@ const EnergyMapCalculator = () => {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-slate-300 text-sm">Training Type</label>
-                    <Edit3 size={14} className="text-slate-500 opacity-75" />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     {Object.entries(trainingTypes).map(([key, type]) => (
