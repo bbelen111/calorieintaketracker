@@ -783,7 +783,7 @@ const EnergyMapCalculator = () => {
                           {key === 'custom' ? userData.customTrainingCalories : type.caloriesPerHour} cal/hr • {key === 'custom' ? userData.customTrainingDescription : type.description}
                         </p>
                       </div>
-                      {key === 'custom' && tempTrainingType === 'custom' && (
+                      {key === 'custom' && (
                         <Edit3 size={18} className="flex-shrink-0 opacity-75" />
                       )}
                       {tempTrainingType === key && key !== 'custom' && (
@@ -1110,7 +1110,7 @@ const EnergyMapCalculator = () => {
                             : 'bg-slate-700 border-slate-600 text-slate-300 active:bg-slate-600'
                         }`}
                       >
-                        {key === 'custom' && tempTrainingType === 'custom' && <Edit3 size={12} className="absolute top-2 right-2 opacity-75" />}
+                        {key === 'custom' && <Edit3 size={12} className="absolute top-2 right-2 opacity-75" />}
                         <div className="font-bold">{key === 'custom' ? userData.customTrainingName : type.label}</div>
                         <div className="text-xs opacity-75">{key === 'custom' ? userData.customTrainingCalories : type.caloriesPerHour} cal/hr</div>
                       </button>
