@@ -26,6 +26,8 @@ const EnergyMapCalculator = () => {
   const [selectedDay, setSelectedDay] = useState('training');
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showGoalModal, setShowGoalModal] = useState(false);
+  const [showTrainingTypeModal, setShowTrainingTypeModal] = useState(false);
+  const [tempTrainingType, setTempTrainingType] = useState('powerbuilding');
   const [newStepRange, setNewStepRange] = useState('');
   const [showCardioModal, setShowCardioModal] = useState(false);
   const [newCardio, setNewCardio] = useState({
@@ -337,6 +339,63 @@ const EnergyMapCalculator = () => {
           </div>
         )}
         
+        {/* Training Type Selection Modal (Nested) */}
+        {showTrainingTypeModal && (
+          <div className="fixed inset-0 bg-black/80 flex items-start justify-center z-[60] p-3 md:p-4 overflow-y-auto">
+            <div className="bg-slate-800 rounded-2xl p-4 md:p-6 w-full md:max-w-2xl border border-slate-700 my-3 md:my-8 max-h-[95vh] md:max-h-[90vh] overflow-y-auto">
+              <h3 className="text-white font-bold text-xl md:text-2xl mb-4 md:mb-6">Select Training Type</h3>
+              
+              <div className="grid grid-cols-1 gap-3">
+                {Object.entries(trainingTypes).map(([key, type]) => (
+                  <button
+                    key={key}
+                    onClick={() => setTempTrainingType(key)}
+                    className={`p-4 rounded-xl border-2 transition-all active:scale-[0.98] text-left ${
+                      tempTrainingType === key
+                        ? 'bg-blue-600 border-blue-400 text-white shadow-lg'
+                        : 'bg-slate-700 border-slate-600 text-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <Dumbbell size={32} className="flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="font-bold text-lg">{type.label}</p>
+                        <p className="text-sm opacity-90 mt-1">
+                          {type.caloriesPerHour} cal/hr • {type.description}
+                        </p>
+                      </div>
+                      {tempTrainingType === key && (
+                        <div className="flex-shrink-0 w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
+                          <div className="w-3 h-3 rounded-full bg-white"></div>
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              
+              <div className="flex gap-2 md:gap-3 mt-4">
+                <button
+                  onClick={() => setShowTrainingTypeModal(false)}
+                  className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg transition-all active:scale-95 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    handleUserDataChange('trainingType', tempTrainingType);
+                    setShowTrainingTypeModal(false);
+                  }}
+                  className="flex-1 bg-green-600 active:bg-green-700 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
+                >
+                  <Save size={20} />
+                  <span className="hidden sm:inline">Save &</span> Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {/* Settings Modal */}
         {showSettingsModal && (
           <div className="fixed inset-0 bg-black/70 flex items-start justify-center z-50 p-3 md:p-4 overflow-y-auto">
@@ -404,24 +463,19 @@ const EnergyMapCalculator = () => {
                 
                 <div>
                   <label className="text-slate-300 text-sm block mb-2">Training Type</label>
-                  <div className="grid grid-cols-1 gap-2">
-                    {Object.entries(trainingTypes).map(([key, type]) => (
-                      <button
-                        key={key}
-                        onClick={() => handleUserDataChange('trainingType', key)}
-                        className={`text-left p-3 md:p-4 rounded-lg border-2 transition-all active:scale-[0.98] ${
-                          userData.trainingType === key
-                            ? 'bg-blue-600 border-blue-400 text-white'
-                            : 'bg-slate-700 border-slate-600 text-slate-300'
-                        }`}
-                      >
-                        <div className="font-semibold text-base">{type.label}</div>
-                        <div className="text-xs md:text-sm opacity-90 mt-0.5">
-                          {type.caloriesPerHour} cal/hr • {type.description}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
+                  <button
+                    onClick={() => {
+                      setTempTrainingType(userData.trainingType);
+                      setShowTrainingTypeModal(true);
+                    }}
+                    className="w-full text-left p-3 md:p-4 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all active:scale-[0.98]"
+                  >
+                    <div className="font-semibold text-base">{trainingTypes[userData.trainingType].label}</div>
+                    <div className="text-xs md:text-sm opacity-90 mt-0.5">
+                      {trainingTypes[userData.trainingType].caloriesPerHour} cal/hr • {trainingTypes[userData.trainingType].description}
+                    </div>
+                    <div className="text-xs opacity-75 mt-2">Tap to change</div>
+                  </button>
                 </div>
                 
                 <div>
