@@ -105,7 +105,9 @@ const EnergyMapCalculator = () => {
   const [dragOffset, setDragOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const swipeStartX = useRef(null);
+  const swipeStartY = useRef(null);
   const isSwipeActive = useRef(false);
+  const hasSwipeDirection = useRef(false);
   const viewportRef = useRef(null);
 
   const ageScrollRef = useRef(null);
@@ -115,47 +117,78 @@ const EnergyMapCalculator = () => {
   const weightScrollTimeout = useRef(null);
   const durationScrollTimeout = useRef(null);
   const TOTAL_SCREENS = 3;
-  const BASE_SWIPE_THRESHOLD = 80;
+  const BASE_SWIPE_THRESHOLD = 130;
 
-  const beginSwipe = (clientX) => {
+  const beginSwipe = (clientX, clientY) => {
     swipeStartX.current = clientX;
+    swipeStartY.current = clientY;
     isSwipeActive.current = true;
-    setIsSwiping(true);
+    hasSwipeDirection.current = false;
+    setIsSwiping(false);
     setDragOffset(0);
   };
 
-  const updateSwipePosition = (clientX) => {
+  const updateSwipePosition = (clientX, clientY) => {
     if (!isSwipeActive.current || swipeStartX.current === null) return;
-    setDragOffset(clientX - swipeStartX.current);
+
+    const deltaX = clientX - swipeStartX.current;
+    const startY = swipeStartY.current ?? clientY;
+    const deltaY = clientY - startY;
+
+    if (!hasSwipeDirection.current) {
+      if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 10) {
+        isSwipeActive.current = false;
+        swipeStartX.current = null;
+        swipeStartY.current = null;
+        setIsSwiping(false);
+        setDragOffset(0);
+        return;
+      }
+
+      if (Math.abs(deltaX) > 12) {
+        hasSwipeDirection.current = true;
+        setIsSwiping(true);
+      } else {
+        return;
+      }
+    }
+
+    setDragOffset(deltaX);
   };
 
   const finishSwipe = () => {
-    if (!isSwipeActive.current) return;
+    if (swipeStartX.current === null) {
+      return;
+    }
 
-    const width = viewportRef.current?.clientWidth || 0;
-    const threshold = width ? Math.min(width * 0.25, BASE_SWIPE_THRESHOLD) : BASE_SWIPE_THRESHOLD;
-    const delta = dragOffset;
+    if (hasSwipeDirection.current) {
+      const width = viewportRef.current?.clientWidth || 0;
+      const threshold = width ? Math.min(width * 0.25, BASE_SWIPE_THRESHOLD) : BASE_SWIPE_THRESHOLD;
+      const delta = dragOffset;
 
-    if (delta < -threshold && currentScreen < TOTAL_SCREENS - 1) {
-      setCurrentScreen((prev) => Math.min(prev + 1, TOTAL_SCREENS - 1));
-    } else if (delta > threshold && currentScreen > 0) {
-      setCurrentScreen((prev) => Math.max(prev - 1, 0));
+      if (delta < -threshold && currentScreen < TOTAL_SCREENS - 1) {
+        setCurrentScreen((prev) => Math.min(prev + 1, TOTAL_SCREENS - 1));
+      } else if (delta > threshold && currentScreen > 0) {
+        setCurrentScreen((prev) => Math.max(prev - 1, 0));
+      }
     }
 
     setDragOffset(0);
     setIsSwiping(false);
     isSwipeActive.current = false;
+    hasSwipeDirection.current = false;
     swipeStartX.current = null;
+    swipeStartY.current = null;
   };
 
   const handleTouchStart = (event) => {
     if (event.touches.length === 0) return;
-    beginSwipe(event.touches[0].clientX);
+    beginSwipe(event.touches[0].clientX, event.touches[0].clientY);
   };
 
   const handleTouchMove = (event) => {
     if (event.touches.length === 0) return;
-    updateSwipePosition(event.touches[0].clientX);
+    updateSwipePosition(event.touches[0].clientX, event.touches[0].clientY);
   };
 
   const handleTouchEnd = () => {
@@ -164,12 +197,12 @@ const EnergyMapCalculator = () => {
 
   const handleMouseDown = (event) => {
     if (event.button !== 0) return;
-    beginSwipe(event.clientX);
+    beginSwipe(event.clientX, event.clientY);
   };
 
   const handleMouseMove = (event) => {
-    if (!isSwipeActive.current) return;
-    updateSwipePosition(event.clientX);
+    if (!isSwipeActive.current && !hasSwipeDirection.current) return;
+    updateSwipePosition(event.clientX, event.clientY);
   };
 
   const handleMouseUp = () => {
@@ -186,7 +219,9 @@ const EnergyMapCalculator = () => {
     setDragOffset(0);
     setIsSwiping(false);
     isSwipeActive.current = false;
+    hasSwipeDirection.current = false;
     swipeStartX.current = null;
+    swipeStartY.current = null;
   };
   
   // Save to localStorage whenever userData changes
@@ -529,7 +564,7 @@ const EnergyMapCalculator = () => {
               className="flex w-full"
               style={{ transform: `translateX(${sliderTranslatePercent}%)`, transition: sliderTransition }}
             >
-              <div className="w-full flex-shrink-0 px-0 md:px-1">
+              <div className="w-full flex-shrink-0 px-2 sm:px-4 md:px-6">
                 <div className="space-y-6 pb-10">
                   {/* Header */}
                   <div className="bg-slate-800 rounded-2xl p-6 md:p-8 border border-slate-700 shadow-2xl">
@@ -600,8 +635,7 @@ const EnergyMapCalculator = () => {
                         setShowGoalModal(true);
                       }}
                       className={`w-full p-4 rounded-xl border-2 transition-all relative ${goals[selectedGoal].color} border-white text-white shadow-lg hover:scale-[1.02] active:scale-[0.98]`}
-                    >
-                      <Edit3 size={16} className="absolute top-3 right-3 opacity-75" />
+                    >     
                       {(() => {
                         const Icon = goals[selectedGoal].icon;
                         return <Icon className="mx-auto mb-2" size={32} />;
@@ -658,7 +692,7 @@ const EnergyMapCalculator = () => {
                   {/* Cardio Sessions Manager */}
                   <motion.div
                     className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl"
-                    layout
+                    layout={!isSwiping}
                     initial={false}
                     transition={{ type: 'spring', stiffness: 120, damping: 18 }}
                   >
@@ -673,7 +707,7 @@ const EnergyMapCalculator = () => {
                         >
                           <motion.div
                             className="flex items-center justify-between mb-4"
-                            layout="position"
+                            layout={isSwiping ? false : 'position'}
                             initial={{ opacity: 0, y: -8 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -8 }}
@@ -694,12 +728,12 @@ const EnergyMapCalculator = () => {
                             </motion.button>
                           </motion.div>
 
-                          <motion.div layout className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                          <motion.div layout={!isSwiping} className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
                             <AnimatePresence initial={false}>
                               {userData.cardioSessions.map((session) => (
                                 <motion.div
                                   key={session.id}
-                                  layout
+                                  layout={!isSwiping}
                                   initial={{ opacity: 0, y: 12, scale: 0.98 }}
                                   animate={{ opacity: 1, y: 0, scale: 1 }}
                                   exit={{ opacity: 0, y: -12, scale: 0.95 }}
@@ -726,7 +760,7 @@ const EnergyMapCalculator = () => {
                           </motion.div>
 
                           <motion.div
-                            layout
+                            layout={!isSwiping}
                             initial={{ opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: 8 }}
@@ -768,7 +802,7 @@ const EnergyMapCalculator = () => {
                 </div>
               </div>
 
-              <div className="w-full flex-shrink-0 px-0 md:px-1">
+              <div className="w-full flex-shrink-0 px-2 sm:px-4 md:px-6">
                 <div className="space-y-6 pb-10">
                   {/* Calorie Map */}
                   <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
@@ -805,7 +839,7 @@ const EnergyMapCalculator = () => {
                 </div>
               </div>
 
-              <div className="w-full flex-shrink-0 px-0 md:px-1">
+              <div className="w-full flex-shrink-0 px-2 sm:px-4 md:px-6">
                 <div className="space-y-6 pb-10">
                   {/* Macro Recommendations */}
                   <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
