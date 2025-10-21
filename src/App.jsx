@@ -1047,9 +1047,12 @@ const EnergyMapCalculator = () => {
                       <div className="h-16"></div>
                     </div>
                   </div>
-                  <p className="text-slate-400 text-xs mt-2 text-center">
-                    ~{Math.round(trainingTypes[tempTrainingType].caloriesPerHour * tempTrainingDuration)} calories total
-                  </p>
+                  <div className="bg-slate-700/50 rounded-lg p-3 mt-3">
+                    <p className="text-slate-400 text-xs text-center mb-1">Estimated Burn:</p>
+                    <p className="text-white font-bold text-xl text-center">
+                      ~{Math.round(trainingTypes[tempTrainingType].caloriesPerHour * tempTrainingDuration)} calories
+                    </p>
+                  </div>
                 </div>
               </div>
               
