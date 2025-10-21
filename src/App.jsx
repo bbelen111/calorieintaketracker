@@ -320,19 +320,19 @@ const EnergyMapCalculator = () => {
         
         {/* Settings Modal */}
         {showSettingsModal && (
-          <div className="fixed inset-0 bg-black/70 flex items-start justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-slate-800 rounded-2xl p-6 max-w-2xl w-full border border-slate-700 my-8 max-h-[90vh] overflow-y-auto">
-              <h3 className="text-white font-bold text-2xl mb-6">Personal Settings</h3>
+          <div className="fixed inset-0 bg-black/70 flex items-start justify-center z-50 p-3 md:p-4 overflow-y-auto">
+            <div className="bg-slate-800 rounded-2xl p-4 md:p-6 w-full md:max-w-2xl border border-slate-700 my-3 md:my-8 max-h-[95vh] md:max-h-[90vh] overflow-y-auto">
+              <h3 className="text-white font-bold text-xl md:text-2xl mb-4 md:mb-6">Personal Settings</h3>
               
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-4 md:space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                   <div>
                     <label className="text-slate-300 text-sm block mb-2">Age</label>
                     <input
                       type="number"
                       value={userData.age}
                       onChange={(e) => handleUserDataChange('age', parseInt(e.target.value))}
-                      className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none"
+                      className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-lg"
                     />
                   </div>
                   
@@ -341,20 +341,20 @@ const EnergyMapCalculator = () => {
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => handleUserDataChange('gender', 'male')}
-                        className={`p-3 rounded-lg border-2 transition-all font-semibold ${
+                        className={`py-3 px-2 rounded-lg border-2 transition-all font-semibold ${
                           userData.gender === 'male'
                             ? 'bg-blue-600 border-blue-400 text-white'
-                            : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
+                            : 'bg-slate-700 border-slate-600 text-slate-300 active:scale-95'
                         }`}
                       >
                         Male
                       </button>
                       <button
                         onClick={() => handleUserDataChange('gender', 'female')}
-                        className={`p-3 rounded-lg border-2 transition-all font-semibold ${
+                        className={`py-3 px-2 rounded-lg border-2 transition-all font-semibold ${
                           userData.gender === 'female'
                             ? 'bg-blue-600 border-blue-400 text-white'
-                            : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
+                            : 'bg-slate-700 border-slate-600 text-slate-300 active:scale-95'
                         }`}
                       >
                         Female
@@ -368,7 +368,7 @@ const EnergyMapCalculator = () => {
                       type="number"
                       value={userData.weight}
                       onChange={(e) => handleUserDataChange('weight', parseFloat(e.target.value))}
-                      className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none"
+                      className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-lg"
                     />
                   </div>
                   
@@ -378,7 +378,7 @@ const EnergyMapCalculator = () => {
                       type="number"
                       value={userData.height}
                       onChange={(e) => handleUserDataChange('height', parseFloat(e.target.value))}
-                      className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none"
+                      className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-lg"
                     />
                   </div>
                 </div>
@@ -390,14 +390,14 @@ const EnergyMapCalculator = () => {
                       <button
                         key={key}
                         onClick={() => handleUserDataChange('trainingType', key)}
-                        className={`text-left p-3 rounded-lg border-2 transition-all ${
+                        className={`text-left p-3 md:p-4 rounded-lg border-2 transition-all active:scale-[0.98] ${
                           userData.trainingType === key
                             ? 'bg-blue-600 border-blue-400 text-white'
-                            : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
+                            : 'bg-slate-700 border-slate-600 text-slate-300'
                         }`}
                       >
-                        <div className="font-semibold">{type.label}</div>
-                        <div className="text-sm opacity-90">
+                        <div className="font-semibold text-base">{type.label}</div>
+                        <div className="text-xs md:text-sm opacity-90 mt-0.5">
                           {type.caloriesPerHour} cal/hr • {type.description}
                         </div>
                       </button>
@@ -412,7 +412,7 @@ const EnergyMapCalculator = () => {
                     step="0.5"
                     value={userData.trainingDuration}
                     onChange={(e) => handleUserDataChange('trainingDuration', parseFloat(e.target.value))}
-                    className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none"
+                    className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-lg"
                   />
                   <p className="text-slate-400 text-xs mt-1">
                     Total burn: ~{Math.round(trainingCalories)} calories
@@ -427,24 +427,24 @@ const EnergyMapCalculator = () => {
                       value={newStepRange}
                       onChange={(e) => setNewStepRange(e.target.value)}
                       placeholder="e.g., 15k or >25k"
-                      className="flex-1 bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none"
+                      className="flex-1 bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-base"
                     />
                     <button
                       onClick={addStepRange}
-                      className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all"
+                      className="bg-blue-600 active:bg-blue-700 text-white px-4 py-3 rounded-lg flex items-center gap-2 transition-all active:scale-95 whitespace-nowrap"
                     >
                       <Plus size={20} />
-                      Add
+                      <span className="hidden sm:inline">Add</span>
                     </button>
                   </div>
                   
                   <div className="flex flex-wrap gap-2">
                     {userData.stepRanges.map((step) => (
                       <div key={step} className="bg-slate-700 text-white px-3 py-2 rounded-lg flex items-center gap-2">
-                        <span>{step}</span>
+                        <span className="text-sm">{step}</span>
                         <button
                           onClick={() => removeStepRange(step)}
-                          className="text-red-400 hover:text-red-300 transition-all"
+                          className="text-red-400 active:text-red-300 transition-all p-1"
                         >
                           <Trash2 size={16} />
                         </button>
@@ -454,19 +454,19 @@ const EnergyMapCalculator = () => {
                 </div>
               </div>
               
-              <div className="flex gap-3 mt-6">
+              <div className="flex gap-2 md:gap-3 mt-6">
                 <button
                   onClick={() => setShowSettingsModal(false)}
-                  className="flex-1 bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded-lg transition-all"
+                  className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg transition-all active:scale-95 font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={() => setShowSettingsModal(false)}
-                  className="flex-1 bg-green-600 hover:bg-green-500 text-white px-6 py-2 rounded-lg flex items-center justify-center gap-2 transition-all"
+                  className="flex-1 bg-green-600 active:bg-green-700 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
                 >
                   <Save size={20} />
-                  Save & Close
+                  <span className="hidden sm:inline">Save &</span> Close
                 </button>
               </div>
             </div>
