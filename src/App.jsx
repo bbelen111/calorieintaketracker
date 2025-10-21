@@ -156,7 +156,7 @@ const EnergyMapCalculator = () => {
   
   const goals = {
     aggressive_bulk: { 
-      color: 'bg-green-600', 
+      color: 'bg-purple-500', 
       icon: TrendingUp, 
       label: 'Aggressive Bulk', 
       desc: '+500 cal surplus',
