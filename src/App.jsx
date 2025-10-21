@@ -245,28 +245,19 @@ const EnergyMapCalculator = () => {
   
   const handleTrainingDayClick = () => {
     if (selectedDay === 'training') {
-      // Already on training day, increment click count
-      const newCount = trainingDayClickCount + 1;
-      setTrainingDayClickCount(newCount);
-      
-      if (newCount === 2) {
-        // Second click - open modal
-        setTempTrainingType(userData.trainingType);
-        setTempTrainingDuration(userData.trainingDuration);
-        setShowQuickTrainingModal(true);
-        setTrainingDayClickCount(0); // Reset counter
-      }
+      // Already on training day - open modal immediately
+      setTempTrainingType(userData.trainingType);
+      setTempTrainingDuration(userData.trainingDuration);
+      setShowQuickTrainingModal(true);
     } else {
       // Switching to training day from rest
       setSelectedDay('training');
-      setTrainingDayClickCount(1); // First click
     }
   };
   
   // Reset click count when switching away from training day
   const handleRestDayClick = () => {
     setSelectedDay('rest');
-    setTrainingDayClickCount(0);
   };
   
   return (
