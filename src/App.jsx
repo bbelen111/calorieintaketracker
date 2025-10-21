@@ -270,53 +270,7 @@ const EnergyMapCalculator = () => {
           </div>
         </div>
         
-        {/* Cardio Sessions Manager */}
-        <div className="bg-slate-800 rounded-2xl p-6 mb-6 border border-slate-700 shadow-2xl">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Heart className="text-red-400" size={24} />
-              <h2 className="text-xl font-bold text-white">Cardio Sessions</h2>
-            </div>
-            <button
-              onClick={() => setShowCardioModal(true)}
-              className="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all"
-            >
-              <Plus size={20} />
-              Add Cardio
-            </button>
-          </div>
-          
-          {userData.cardioSessions.length === 0 ? (
-            <p className="text-slate-400 text-center py-4">No cardio sessions added. Click "Add Cardio" to add one.</p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {userData.cardioSessions.map((session) => (
-                <div key={session.id} className="bg-slate-700 rounded-lg p-4 flex justify-between items-center">
-                  <div>
-                    <p className="text-white font-semibold">{cardioTypes[session.type].label}</p>
-                    <p className="text-slate-400 text-sm">
-                      {session.duration} min • {session.intensity} • ~{calculateCardioCalories(session)} cal
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => removeCardioSession(session.id)}
-                    className="text-red-400 hover:text-red-300 transition-all"
-                  >
-                    <Trash2 size={20} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          
-          {userData.cardioSessions.length > 0 && (
-            <div className="mt-4 bg-red-900/30 border border-red-700 rounded-lg p-3">
-              <p className="text-red-300 font-semibold">
-                Total Cardio Burn: {getTotalCardioBurn()} calories
-              </p>
-            </div>
-          )}
-        </div>
+
         
         {/* Settings Modal */}
         {showSettingsModal && (
@@ -607,6 +561,66 @@ const EnergyMapCalculator = () => {
               <p className="text-sm opacity-90">No training</p>
             </button>
           </div>
+        </div>
+        
+        {/* Cardio Sessions Manager */}
+        <div className="bg-slate-800 rounded-2xl p-6 mb-6 border border-slate-700 shadow-2xl">
+          {userData.cardioSessions.length === 0 ? (
+            <button
+              onClick={() => setShowCardioModal(true)}
+              className="w-full flex items-center justify-between p-4 hover:bg-slate-700/50 rounded-xl transition-all group"
+            >
+              <div className="flex items-center gap-3">
+                <Heart className="text-red-400" size={24} />
+                <div className="text-left">
+                  <h2 className="text-lg font-bold text-white">Add Cardio Session</h2>
+                  <p className="text-slate-400 text-sm">Track your cardio activities</p>
+                </div>
+              </div>
+              <Plus className="text-slate-400 group-hover:text-red-400 transition-colors" size={24} />
+            </button>
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Heart className="text-red-400" size={24} />
+                  <h2 className="text-xl font-bold text-white">Cardio Sessions</h2>
+                </div>
+                <button
+                  onClick={() => setShowCardioModal(true)}
+                  className="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all"
+                >
+                  <Plus size={20} />
+                  Add
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                {userData.cardioSessions.map((session) => (
+                  <div key={session.id} className="bg-slate-700 rounded-lg p-4 flex justify-between items-center">
+                    <div>
+                      <p className="text-white font-semibold">{cardioTypes[session.type].label}</p>
+                      <p className="text-slate-400 text-sm">
+                        {session.duration} min • {session.intensity} • ~{calculateCardioCalories(session)} cal
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => removeCardioSession(session.id)}
+                      className="text-red-400 hover:text-red-300 transition-all"
+                    >
+                      <Trash2 size={20} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="bg-red-900/30 border border-red-700 rounded-lg p-3">
+                <p className="text-red-300 font-semibold">
+                  Total Cardio Burn: {getTotalCardioBurn()} calories
+                </p>
+              </div>
+            </>
+          )}
         </div>
         
         {/* Calorie Map */}
