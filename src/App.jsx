@@ -851,8 +851,9 @@ const EnergyMapCalculator = () => {
               setTempSelectedGoal(selectedGoal);
               setShowGoalModal(true);
             }}
-            className={`w-full p-4 rounded-xl border-2 transition-all ${goals[selectedGoal].color} border-white text-white shadow-lg hover:scale-[1.02] active:scale-[0.98]`}
+            className={`w-full p-4 rounded-xl border-2 transition-all relative ${goals[selectedGoal].color} border-white text-white shadow-lg hover:scale-[1.02] active:scale-[0.98]`}
           >
+            <Edit3 size={16} className="absolute top-3 right-3 opacity-75" />
             {(() => {
               const Icon = goals[selectedGoal].icon;
               return <Icon className="mx-auto mb-2" size={32} />;
