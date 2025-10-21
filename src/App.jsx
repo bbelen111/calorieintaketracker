@@ -1,5 +1,44 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Activity, TrendingUp, TrendingDown, Minus, Settings, Plus, Trash2, Save, Dumbbell, Bike, Heart, Edit3, Info } from 'lucide-react';
+
+const SCROLL_SETTLE_DELAY = 140;
+
+const findClosestScrollItem = (container) => {
+  if (!container) return null;
+
+  const containerCenter = container.scrollTop + container.clientHeight / 2;
+  let closestItem = null;
+  let closestDistance = Infinity;
+
+  container.querySelectorAll('[data-value]').forEach((item) => {
+    const itemCenter = item.offsetTop + item.offsetHeight / 2;
+    const distance = Math.abs(containerCenter - itemCenter);
+
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      closestItem = item;
+    }
+  });
+
+  return closestItem;
+};
+
+const alignScrollContainerToElement = (container, element, behavior = 'smooth') => {
+  if (!container || !element) return;
+
+  const targetScrollTop = element.offsetTop - container.clientHeight / 2 + element.offsetHeight / 2;
+  container.scrollTo({ top: targetScrollTop, behavior });
+};
+
+const alignScrollContainerToValue = (container, value, behavior = 'smooth') => {
+  if (!container || value === undefined || value === null) return;
+
+  const selector = `[data-value="${value}"]`;
+  const target = container.querySelector(selector);
+  if (target) {
+    alignScrollContainerToElement(container, target, behavior);
+  }
+};
 
 const EnergyMapCalculator = () => {
   // Load from localStorage or use defaults
@@ -53,11 +92,82 @@ const EnergyMapCalculator = () => {
     duration: 30,
     intensity: 'moderate'
   });
+
+  const ageScrollRef = useRef(null);
+  const weightScrollRef = useRef(null);
+  const durationScrollRef = useRef(null);
+  const ageScrollTimeout = useRef(null);
+  const weightScrollTimeout = useRef(null);
+  const durationScrollTimeout = useRef(null);
   
   // Save to localStorage whenever userData changes
   useEffect(() => {
     localStorage.setItem('energyMapData', JSON.stringify(userData));
   }, [userData]);
+
+  useEffect(() => {
+    return () => {
+      clearTimeout(ageScrollTimeout.current);
+      clearTimeout(weightScrollTimeout.current);
+      clearTimeout(durationScrollTimeout.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!showAgeModal || !ageScrollRef.current) return;
+
+    const frame = requestAnimationFrame(() => {
+      alignScrollContainerToValue(ageScrollRef.current, userData.age, 'instant');
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [showAgeModal, userData.age]);
+
+  useEffect(() => {
+    if (!showWeightModal || !weightScrollRef.current) return;
+
+    const frame = requestAnimationFrame(() => {
+      alignScrollContainerToValue(weightScrollRef.current, userData.weight, 'instant');
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [showWeightModal, userData.weight]);
+
+  useEffect(() => {
+    if (!showQuickTrainingModal || !durationScrollRef.current) return;
+
+    const frame = requestAnimationFrame(() => {
+      alignScrollContainerToValue(durationScrollRef.current, userData.trainingDuration, 'instant');
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [showQuickTrainingModal, userData.trainingDuration]);
+
+  const handlePickerScroll = (event, containerRef, timeoutRef, parseFn, setter) => {
+    const container = event.currentTarget;
+    const closestItem = findClosestScrollItem(container);
+
+    if (closestItem) {
+      const parsedValue = parseFn(closestItem.dataset.value);
+      if (!Number.isNaN(parsedValue)) {
+        setter(parsedValue);
+      }
+    }
+
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    timeoutRef.current = setTimeout(() => {
+      const containerEl = containerRef.current || container;
+      if (!containerEl) return;
+
+      const target = findClosestScrollItem(containerEl);
+      if (target) {
+        alignScrollContainerToElement(containerEl, target, 'smooth');
+      }
+    }, SCROLL_SETTLE_DELAY);
+  };
   
   // Helper function to close modals with animation
   const closeModal = (setClosing, setShow) => {
@@ -486,48 +596,18 @@ const EnergyMapCalculator = () => {
                 
                 <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400 pointer-events-none z-10"></div>
                 
-                <div 
-                  className="h-full overflow-y-auto scrollbar-hide snap-y snap-mandatory"
-                  style={{ scrollPaddingTop: '64px', scrollPaddingBottom: '64px' }}
-                  onScroll={(e) => {
-                    const container = e.currentTarget;
-                    const items = container.children;
-                    const containerRect = container.getBoundingClientRect();
-                    const containerCenter = containerRect.top + containerRect.height / 2;
-                    
-                    let closestItem = null;
-                    let closestDistance = Infinity;
-                    
-                    Array.from(items).forEach((item) => {
-                      const itemRect = item.getBoundingClientRect();
-                      const itemCenter = itemRect.top + itemRect.height / 2;
-                      const distance = Math.abs(containerCenter - itemCenter);
-                      
-                      if (distance < closestDistance) {
-                        closestDistance = distance;
-                        closestItem = item;
-                      }
-                    });
-                    
-                    if (closestItem) {
-                      const age = parseInt(closestItem.dataset.value);
-                      if (!isNaN(age)) {
-                        setTempAge(age);
-                      }
-                    }
-                  }}
-                  ref={(el) => {
-                    if (el && el.children.length > 0) {
-                      setTimeout(() => {
-                        const targetItem = Array.from(el.children).find(
-                          child => parseInt(child.dataset.value) === tempAge
-                        );
-                        if (targetItem) {
-                          targetItem.scrollIntoView({ block: 'center', behavior: 'instant' });
-                        }
-                      }, 0);
-                    }
-                  }}
+                <div
+                  ref={ageScrollRef}
+                  className="h-full overflow-y-auto scrollbar-hide"
+                  onScroll={(e) =>
+                    handlePickerScroll(
+                      e,
+                      ageScrollRef,
+                      ageScrollTimeout,
+                      (value) => parseInt(value, 10),
+                      setTempAge
+                    )
+                  }
                 >
                   <div className="h-16"></div>
                   {Array.from({ length: 83 }, (_, i) => i + 15).map((age) => (
@@ -536,8 +616,10 @@ const EnergyMapCalculator = () => {
                       data-value={age}
                       onClick={() => {
                         setTempAge(age);
-                        const el = document.querySelector(`[data-value="${age}"]`);
-                        if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                        if (ageScrollRef.current) {
+                          clearTimeout(ageScrollTimeout.current);
+                          alignScrollContainerToValue(ageScrollRef.current, age, 'smooth');
+                        }
                       }}
                       className={`py-3 px-6 text-2xl font-semibold transition-all snap-center cursor-pointer text-center ${
                         tempAge === age
@@ -589,48 +671,18 @@ const EnergyMapCalculator = () => {
                 
                 <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400 pointer-events-none z-10"></div>
                 
-                <div 
-                  className="h-full overflow-y-auto scrollbar-hide snap-y snap-mandatory"
-                  style={{ scrollPaddingTop: '64px', scrollPaddingBottom: '64px' }}
-                  onScroll={(e) => {
-                    const container = e.currentTarget;
-                    const items = container.children;
-                    const containerRect = container.getBoundingClientRect();
-                    const containerCenter = containerRect.top + containerRect.height / 2;
-                    
-                    let closestItem = null;
-                    let closestDistance = Infinity;
-                    
-                    Array.from(items).forEach((item) => {
-                      const itemRect = item.getBoundingClientRect();
-                      const itemCenter = itemRect.top + itemRect.height / 2;
-                      const distance = Math.abs(containerCenter - itemCenter);
-                      
-                      if (distance < closestDistance) {
-                        closestDistance = distance;
-                        closestItem = item;
-                      }
-                    });
-                    
-                    if (closestItem) {
-                      const weight = parseInt(closestItem.dataset.value);
-                      if (!isNaN(weight)) {
-                        setTempWeight(weight);
-                      }
-                    }
-                  }}
-                  ref={(el) => {
-                    if (el && el.children.length > 0) {
-                      setTimeout(() => {
-                        const targetItem = Array.from(el.children).find(
-                          child => parseInt(child.dataset.value) === tempWeight
-                        );
-                        if (targetItem) {
-                          targetItem.scrollIntoView({ block: 'center', behavior: 'instant' });
-                        }
-                      }, 0);
-                    }
-                  }}
+                <div
+                  ref={weightScrollRef}
+                  className="h-full overflow-y-auto scrollbar-hide"
+                  onScroll={(e) =>
+                    handlePickerScroll(
+                      e,
+                      weightScrollRef,
+                      weightScrollTimeout,
+                      (value) => parseInt(value, 10),
+                      setTempWeight
+                    )
+                  }
                 >
                   <div className="h-16"></div>
                   {Array.from({ length: 181 }, (_, i) => i + 30).map((weight) => (
@@ -639,8 +691,10 @@ const EnergyMapCalculator = () => {
                       data-value={weight}
                       onClick={() => {
                         setTempWeight(weight);
-                        const el = document.querySelector(`[data-value="${weight}"]`);
-                        if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                        if (weightScrollRef.current) {
+                          clearTimeout(weightScrollTimeout.current);
+                          alignScrollContainerToValue(weightScrollRef.current, weight, 'smooth');
+                        }
                       }}
                       className={`py-3 px-6 text-2xl font-semibold transition-all snap-center cursor-pointer text-center ${
                         tempWeight === weight
@@ -963,48 +1017,18 @@ const EnergyMapCalculator = () => {
                     
                     <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400 pointer-events-none z-10"></div>
                     
-                    <div 
-                      className="h-full overflow-y-auto scrollbar-hide snap-y snap-mandatory"
-                      style={{ scrollPaddingTop: '64px', scrollPaddingBottom: '64px' }}
-                      onScroll={(e) => {
-                        const container = e.currentTarget;
-                        const items = container.children;
-                        const containerRect = container.getBoundingClientRect();
-                        const containerCenter = containerRect.top + containerRect.height / 2;
-                        
-                        let closestItem = null;
-                        let closestDistance = Infinity;
-                        
-                        Array.from(items).forEach((item) => {
-                          const itemRect = item.getBoundingClientRect();
-                          const itemCenter = itemRect.top + itemRect.height / 2;
-                          const distance = Math.abs(containerCenter - itemCenter);
-                          
-                          if (distance < closestDistance) {
-                            closestDistance = distance;
-                            closestItem = item;
-                          }
-                        });
-                        
-                        if (closestItem) {
-                          const duration = parseFloat(closestItem.dataset.value);
-                          if (!isNaN(duration)) {
-                            setTempTrainingDuration(duration);
-                          }
-                        }
-                      }}
-                      ref={(el) => {
-                        if (el && el.children.length > 0) {
-                          setTimeout(() => {
-                            const targetItem = Array.from(el.children).find(
-                              child => parseFloat(child.dataset.value) === tempTrainingDuration
-                            );
-                            if (targetItem) {
-                              targetItem.scrollIntoView({ block: 'center', behavior: 'instant' });
-                            }
-                          }, 0);
-                        }
-                      }}
+                    <div
+                      ref={durationScrollRef}
+                      className="h-full overflow-y-auto scrollbar-hide"
+                      onScroll={(e) =>
+                        handlePickerScroll(
+                          e,
+                          durationScrollRef,
+                          durationScrollTimeout,
+                          (value) => parseFloat(value),
+                          setTempTrainingDuration
+                        )
+                      }
                     >
                       <div className="h-16"></div>
                       {Array.from({ length: 61 }, (_, i) => i * 0.5).slice(1).map((duration) => (
