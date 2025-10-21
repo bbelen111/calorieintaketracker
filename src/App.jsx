@@ -22,8 +22,10 @@ const EnergyMapCalculator = () => {
 
   const [userData, setUserData] = useState(loadData());
   const [selectedGoal, setSelectedGoal] = useState('maintenance');
+  const [tempSelectedGoal, setTempSelectedGoal] = useState('maintenance');
   const [selectedDay, setSelectedDay] = useState('training');
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showGoalModal, setShowGoalModal] = useState(false);
   const [newStepRange, setNewStepRange] = useState('');
   const [showCardioModal, setShowCardioModal] = useState(false);
   const [newCardio, setNewCardio] = useState({
@@ -272,6 +274,69 @@ const EnergyMapCalculator = () => {
         
 
         
+        {/* Goal Selection Modal */}
+        {showGoalModal && (
+          <div className="fixed inset-0 bg-black/70 flex items-start justify-center z-50 p-3 md:p-4 overflow-y-auto">
+            <div className="bg-slate-800 rounded-2xl p-4 md:p-6 w-full md:max-w-2xl border border-slate-700 my-3 md:my-8 max-h-[95vh] md:max-h-[90vh] overflow-y-auto">
+              <h3 className="text-white font-bold text-xl md:text-2xl mb-4 md:mb-6">Select Your Goal</h3>
+              
+              <div className="grid grid-cols-1 gap-3">
+                {Object.entries(goals).map(([key, goal]) => {
+                  const Icon = goal.icon;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setTempSelectedGoal(key)}
+                      className={`p-4 rounded-xl border-2 transition-all active:scale-[0.98] text-left ${
+                        tempSelectedGoal === key
+                          ? `${goal.color} border-white text-white shadow-lg`
+                          : 'bg-slate-700 border-slate-600 text-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <Icon size={32} className="flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="font-bold text-lg">{goal.label}</p>
+                          <p className="text-sm opacity-90 mt-1">{goal.desc}</p>
+                          {goal.warning && (
+                            <p className="text-xs opacity-75 mt-2 line-clamp-2">
+                              {goal.warning}
+                            </p>
+                          )}
+                        </div>
+                        {tempSelectedGoal === key && (
+                          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
+                            <div className="w-3 h-3 rounded-full bg-white"></div>
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              
+              <div className="flex gap-2 md:gap-3 mt-4">
+                <button
+                  onClick={() => setShowGoalModal(false)}
+                  className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg transition-all active:scale-95 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedGoal(tempSelectedGoal);
+                    setShowGoalModal(false);
+                  }}
+                  className="flex-1 bg-green-600 active:bg-green-700 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
+                >
+                  <Save size={20} />
+                  <span className="hidden sm:inline">Save &</span> Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {/* Settings Modal */}
         {showSettingsModal && (
           <div className="fixed inset-0 bg-black/70 flex items-start justify-center z-50 p-3 md:p-4 overflow-y-auto">
@@ -498,27 +563,22 @@ const EnergyMapCalculator = () => {
         
         {/* Goal Selector */}
         <div className="bg-slate-800 rounded-2xl p-6 mb-6 border border-slate-700 shadow-2xl">
-          <h2 className="text-xl font-bold text-white mb-4">Select Your Goal</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {Object.entries(goals).map(([key, goal]) => {
-              const Icon = goal.icon;
-              return (
-                <button
-                  key={key}
-                  onClick={() => setSelectedGoal(key)}
-                  className={`p-4 rounded-xl border-2 transition-all ${
-                    selectedGoal === key
-                      ? `${goal.color} border-white text-white shadow-lg transform scale-105`
-                      : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
-                  }`}
-                >
-                  <Icon className="mx-auto mb-2" size={28} />
-                  <p className="font-bold text-lg">{goal.label}</p>
-                  <p className="text-sm opacity-90">{goal.desc}</p>
-                </button>
-              );
-            })}
-          </div>
+          <h2 className="text-xl font-bold text-white mb-4">Your Goal</h2>
+          <button
+            onClick={() => {
+              setTempSelectedGoal(selectedGoal);
+              setShowGoalModal(true);
+            }}
+            className={`w-full p-4 rounded-xl border-2 transition-all ${goals[selectedGoal].color} border-white text-white shadow-lg hover:scale-[1.02] active:scale-[0.98]`}
+          >
+            {(() => {
+              const Icon = goals[selectedGoal].icon;
+              return <Icon className="mx-auto mb-2" size={32} />;
+            })()}
+            <p className="font-bold text-xl">{goals[selectedGoal].label}</p>
+            <p className="text-sm opacity-90 mt-1">{goals[selectedGoal].desc}</p>
+            <p className="text-xs opacity-75 mt-2">Tap to change</p>
+          </button>
           
           {goals[selectedGoal].warning && (
             <div className="mt-4 bg-yellow-900/30 border-2 border-yellow-600 rounded-xl p-4">
