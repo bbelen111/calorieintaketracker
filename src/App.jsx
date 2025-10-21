@@ -34,6 +34,9 @@ const EnergyMapCalculator = () => {
   const [tempWeight, setTempWeight] = useState(74);
   const [newStepRange, setNewStepRange] = useState('');
   const [showStepRangesModal, setShowStepRangesModal] = useState(false);
+  const [showQuickTrainingModal, setShowQuickTrainingModal] = useState(false);
+  const [trainingDayClickCount, setTrainingDayClickCount] = useState(0);
+  const [tempTrainingDuration, setTempTrainingDuration] = useState(1.5);
   const [showCardioModal, setShowCardioModal] = useState(false);
   const [newCardio, setNewCardio] = useState({
     type: 'treadmill_walk',
@@ -238,6 +241,32 @@ const EnergyMapCalculator = () => {
       ...prev,
       cardioSessions: prev.cardioSessions.filter(s => s.id !== id)
     }));
+  };
+  
+  const handleTrainingDayClick = () => {
+    if (selectedDay === 'training') {
+      // Already on training day, increment click count
+      const newCount = trainingDayClickCount + 1;
+      setTrainingDayClickCount(newCount);
+      
+      if (newCount === 2) {
+        // Second click - open modal
+        setTempTrainingType(userData.trainingType);
+        setTempTrainingDuration(userData.trainingDuration);
+        setShowQuickTrainingModal(true);
+        setTrainingDayClickCount(0); // Reset counter
+      }
+    } else {
+      // Switching to training day from rest
+      setSelectedDay('training');
+      setTrainingDayClickCount(1); // First click
+    }
+  };
+  
+  // Reset click count when switching away from training day
+  const handleRestDayClick = () => {
+    setSelectedDay('rest');
+    setTrainingDayClickCount(0);
   };
   
   return (
@@ -814,6 +843,135 @@ const EnergyMapCalculator = () => {
           </div>
         )}
         
+        {/* Quick Training Settings Modal */}
+        {showQuickTrainingModal && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-800 rounded-2xl p-6 w-full max-w-md border border-slate-700">
+              <h3 className="text-white font-bold text-xl mb-4 text-center">Training Settings</h3>
+              
+              <div className="space-y-6">
+                {/* Training Type Selection */}
+                <div>
+                  <label className="text-slate-300 text-sm block mb-2">Training Type</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {Object.entries(trainingTypes).map(([key, type]) => (
+                      <button
+                        key={key}
+                        onClick={() => setTempTrainingType(key)}
+                        className={`p-3 rounded-lg border-2 transition-all text-sm ${
+                          tempTrainingType === key
+                            ? 'bg-purple-600 border-purple-400 text-white'
+                            : 'bg-slate-700 border-slate-600 text-slate-300 active:bg-slate-600'
+                        }`}
+                      >
+                        <div className="font-bold">{type.label}</div>
+                        <div className="text-xs opacity-75">{type.caloriesPerHour} cal/hr</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Training Duration Scroll Picker */}
+                <div>
+                  <label className="text-slate-300 text-sm block mb-2">Training Duration (hours)</label>
+                  <div className="relative h-48 overflow-hidden">
+                    <div className="absolute inset-0 pointer-events-none z-10">
+                      <div className="h-16 bg-gradient-to-b from-slate-800 to-transparent"></div>
+                      <div className="h-16 bg-transparent"></div>
+                      <div className="h-16 bg-gradient-to-t from-slate-800 to-transparent"></div>
+                    </div>
+                    
+                    <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400 pointer-events-none z-10"></div>
+                    
+                    <div 
+                      className="h-full overflow-y-auto scrollbar-hide snap-y snap-mandatory"
+                      style={{ scrollPaddingTop: '64px', scrollPaddingBottom: '64px' }}
+                      onScroll={(e) => {
+                        const container = e.currentTarget;
+                        const items = container.children;
+                        const containerRect = container.getBoundingClientRect();
+                        const containerCenter = containerRect.top + containerRect.height / 2;
+                        
+                        let closestItem = null;
+                        let closestDistance = Infinity;
+                        
+                        Array.from(items).forEach((item) => {
+                          const itemRect = item.getBoundingClientRect();
+                          const itemCenter = itemRect.top + itemRect.height / 2;
+                          const distance = Math.abs(containerCenter - itemCenter);
+                          
+                          if (distance < closestDistance) {
+                            closestDistance = distance;
+                            closestItem = item;
+                          }
+                        });
+                        
+                        if (closestItem) {
+                          const duration = parseFloat(closestItem.dataset.value);
+                          if (!isNaN(duration)) {
+                            setTempTrainingDuration(duration);
+                          }
+                        }
+                      }}
+                      ref={(el) => {
+                        if (el && el.children.length > 0) {
+                          setTimeout(() => {
+                            const targetItem = Array.from(el.children).find(
+                              child => parseFloat(child.dataset.value) === tempTrainingDuration
+                            );
+                            if (targetItem) {
+                              targetItem.scrollIntoView({ block: 'center', behavior: 'instant' });
+                            }
+                          }, 0);
+                        }
+                      }}
+                    >
+                      <div className="h-16"></div>
+                      {Array.from({ length: 61 }, (_, i) => i * 0.5).slice(1).map((duration) => (
+                        <div
+                          key={duration}
+                          data-value={duration}
+                          className={`h-16 flex items-center justify-center text-2xl font-bold snap-center transition-all text-center ${
+                            Math.abs(tempTrainingDuration - duration) < 0.01
+                              ? 'text-white scale-110'
+                              : 'text-slate-500'
+                          }`}
+                        >
+                          {duration.toFixed(1)}
+                        </div>
+                      ))}
+                      <div className="h-16"></div>
+                    </div>
+                  </div>
+                  <p className="text-slate-400 text-xs mt-2 text-center">
+                    ~{Math.round(trainingTypes[tempTrainingType].caloriesPerHour * tempTrainingDuration)} calories total
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setShowQuickTrainingModal(false)}
+                  className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    handleUserDataChange('trainingType', tempTrainingType);
+                    handleUserDataChange('trainingDuration', tempTrainingDuration);
+                    setShowQuickTrainingModal(false);
+                  }}
+                  className="flex-1 bg-green-600 active:bg-green-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
+                >
+                  <Save size={20} />
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {/* Cardio Modal */}
         {showCardioModal && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
@@ -917,13 +1075,14 @@ const EnergyMapCalculator = () => {
           <h2 className="text-xl font-bold text-white mb-4">Day Type</h2>
           <div className="grid grid-cols-2 gap-4">
             <button
-              onClick={() => setSelectedDay('training')}
-              className={`p-4 rounded-xl border-2 transition-all ${
+              onClick={handleTrainingDayClick}
+              className={`p-4 rounded-xl border-2 transition-all relative ${
                 selectedDay === 'training'
                   ? 'bg-purple-600 border-white text-white shadow-lg transform scale-105'
                   : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
               }`}
             >
+              <Edit3 size={14} className="absolute top-2 right-2 opacity-75" />
               <Dumbbell className="mx-auto mb-2" size={28} />
               <p className="font-bold text-lg">Training Day</p>
               <p className="text-sm opacity-90">
@@ -932,7 +1091,7 @@ const EnergyMapCalculator = () => {
               <p className="text-xs opacity-75 mt-1">~{Math.round(trainingCalories)} cal burn</p>
             </button>
             <button
-              onClick={() => setSelectedDay('rest')}
+              onClick={handleRestDayClick}
               className={`p-4 rounded-xl border-2 transition-all ${
                 selectedDay === 'rest'
                   ? 'bg-indigo-600 border-white text-white shadow-lg transform scale-105'
