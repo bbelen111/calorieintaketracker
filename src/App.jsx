@@ -331,10 +331,12 @@ const EnergyMapCalculator = () => {
             </div>
             <button 
               onClick={() => setShowBmrInfoModal(true)}
-              className="bg-slate-700/50 rounded-lg p-3 hover:bg-slate-700 transition-all active:scale-95 text-left relative"
+              className="bg-slate-700/50 hover:bg-slate-700 rounded-lg p-3 transition-all text-left group"
             >
-              <Info size={16} className="absolute top-2 right-2 text-blue-400 opacity-75" />
-              <p className="text-slate-400">BMR</p>
+              <div className="flex items-center justify-between">
+                <p className="text-slate-400">BMR</p>
+                <Info size={14} className="text-slate-500 group-hover:text-blue-400 transition-colors" />
+              </div>
               <p className="text-white font-semibold text-lg">{BMR} cal</p>
             </button>
           </div>
@@ -344,8 +346,8 @@ const EnergyMapCalculator = () => {
         
         {/* Goal Selection Modal */}
         {showGoalModal && (
-          <div className={`modal-overlay fixed inset-0 bg-black/70 flex items-start justify-center z-50 p-3 md:p-4 overflow-y-auto ${closingGoalModal ? 'closing' : ''}`}>
-            <div className={`modal-content bg-slate-800 rounded-2xl p-4 md:p-6 w-full md:max-w-2xl border border-slate-700 my-3 md:my-8 max-h-[95vh] md:max-h-[90vh] overflow-y-auto ${closingGoalModal ? 'closing' : ''}`}>
+          <div className={`modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3 md:p-4 ${closingGoalModal ? 'closing' : ''}`}>
+            <div className={`modal-content bg-slate-800 rounded-2xl p-4 md:p-6 w-full md:max-w-2xl border border-slate-700 max-h-[90vh] overflow-y-auto ${closingGoalModal ? 'closing' : ''}`}>
               <h3 className="text-white font-bold text-xl md:text-2xl mb-4 md:mb-6">Select Your Goal</h3>
               
               <div className="grid grid-cols-1 gap-3">
@@ -677,8 +679,8 @@ const EnergyMapCalculator = () => {
         
         {/* Training Type Selection Modal (Nested) */}
         {showTrainingTypeModal && (
-          <div className={`modal-overlay fixed inset-0 bg-black/80 flex items-start justify-center z-[60] p-3 md:p-4 overflow-y-auto ${closingTrainingTypeModal ? 'closing' : ''}`}>
-            <div className={`modal-content bg-slate-800 rounded-2xl p-4 md:p-6 w-full md:max-w-2xl border border-slate-700 my-3 md:my-8 max-h-[95vh] md:max-h-[90vh] overflow-y-auto ${closingTrainingTypeModal ? 'closing' : ''}`}>
+          <div className={`modal-overlay fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-3 md:p-4 ${closingTrainingTypeModal ? 'closing' : ''}`}>
+            <div className={`modal-content bg-slate-800 rounded-2xl p-4 md:p-6 w-full md:max-w-2xl border border-slate-700 max-h-[90vh] overflow-y-auto ${closingTrainingTypeModal ? 'closing' : ''}`}>
               <h3 className="text-white font-bold text-xl md:text-2xl mb-4 md:mb-6">Select Training Type</h3>
               
               <div className="grid grid-cols-1 gap-3">
@@ -734,8 +736,8 @@ const EnergyMapCalculator = () => {
         
         {/* Settings Modal */}
         {showSettingsModal && (
-          <div className={`modal-overlay fixed inset-0 bg-black/70 flex items-start justify-center z-50 p-3 md:p-4 overflow-y-auto ${closingSettingsModal ? 'closing' : ''}`}>
-            <div className={`modal-content bg-slate-800 rounded-2xl p-4 md:p-6 w-full md:max-w-2xl border border-slate-700 my-3 md:my-8 max-h-[95vh] md:max-h-[90vh] overflow-y-auto ${closingSettingsModal ? 'closing' : ''}`}>
+          <div className={`modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3 md:p-4 ${closingSettingsModal ? 'closing' : ''}`}>
+            <div className={`modal-content bg-slate-800 rounded-2xl p-4 md:p-6 w-full md:max-w-2xl border border-slate-700 max-h-[90vh] overflow-y-auto ${closingSettingsModal ? 'closing' : ''}`}>
               <h3 className="text-white font-bold text-xl md:text-2xl mb-4 md:mb-6">Personal Settings</h3>
               
               <div className="space-y-4 md:space-y-6">
