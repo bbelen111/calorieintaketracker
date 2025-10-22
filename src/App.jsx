@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, TrendingUp, TrendingDown, Minus, Settings, Plus, Trash2, Save, Dumbbell, Bike, Heart, Edit3, Info, X } from 'lucide-react';
+import { Activity, TrendingUp, TrendingDown, Minus, Settings, Plus, Trash2, Save, Dumbbell, Bike, Heart, Edit3, Info, X, ListChecks } from 'lucide-react';
 
 const SCROLL_SETTLE_DELAY = 140;
 
@@ -1006,9 +1006,25 @@ const EnergyMapCalculator = () => {
                 <div className="space-y-6 pb-10">
                   {/* Calorie Map */}
                   <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
-                    <h2 className="text-xl font-bold text-white mb-4">
-                      Your Calorie Targets: {goals[selectedGoal].label} - {selectedDay === 'training' ? 'Training' : 'Rest'} Day
-                    </h2>
+                    <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                      <div>
+                        <p className="text-blue-300 text-sm uppercase tracking-widest font-semibold">Calorie Targets</p>
+                        <h2 className="text-2xl font-bold text-white mt-1">
+                          {goals[selectedGoal].label}
+                          <span className="text-slate-400 text-base font-normal ml-2">
+                            ({selectedDay === 'training' ? 'Training Day' : 'Rest Day'})
+                          </span>
+                        </h2>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowStepRangesModal(true)}
+                        className="inline-flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-lg text-sm font-semibold transition-all"
+                      >
+                        <ListChecks size={16} />
+                        Manage Step Ranges
+                      </button>
+                    </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       {userData.stepRanges.map((steps) => {
                         const breakdown = calculateCalorieBreakdown(steps, selectedDay === 'training');
@@ -1703,16 +1719,6 @@ const EnergyMapCalculator = () => {
                   </p>
                 </div>
                 
-                <div>
-                  <label className="text-slate-300 text-sm block mb-2">Step Count Ranges</label>
-                  <button
-                    onClick={() => setShowStepRangesModal(true)}
-                    className="w-full bg-slate-700 active:bg-slate-600 text-white px-4 py-3 rounded-lg border border-slate-600 transition-all active:scale-95 text-left flex items-center justify-between"
-                  >
-                    <span>{userData.stepRanges.length} range{userData.stepRanges.length !== 1 ? 's' : ''} configured</span>
-                    <Edit3 size={16} className="opacity-75" />
-                  </button>
-                </div>
               </div>
               
               <div className="flex gap-2 md:gap-3 mt-6">
