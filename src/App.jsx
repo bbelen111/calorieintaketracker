@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, TrendingUp, TrendingDown, Minus, Settings, Plus, Trash2, Save, Dumbbell, Bike, Heart, Edit3, Info } from 'lucide-react';
+import { Activity, TrendingUp, TrendingDown, Minus, Settings, Plus, Trash2, Save, Dumbbell, Bike, Heart, Edit3, Info, X } from 'lucide-react';
 
 const SCROLL_SETTLE_DELAY = 140;
 
@@ -88,6 +88,9 @@ const EnergyMapCalculator = () => {
   const [newStepRange, setNewStepRange] = useState('');
   const [showStepRangesModal, setShowStepRangesModal] = useState(false);
   const [closingStepRangesModal, setClosingStepRangesModal] = useState(false);
+  const [selectedStepRange, setSelectedStepRange] = useState(null);
+  const [showCalorieBreakdownModal, setShowCalorieBreakdownModal] = useState(false);
+  const [closingCalorieBreakdownModal, setClosingCalorieBreakdownModal] = useState(false);
   const [showQuickTrainingModal, setShowQuickTrainingModal] = useState(false);
   const [closingQuickTrainingModal, setClosingQuickTrainingModal] = useState(false);
   const [trainingDayClickCount, setTrainingDayClickCount] = useState(0);
@@ -116,6 +119,7 @@ const EnergyMapCalculator = () => {
   const ageScrollTimeout = useRef(null);
   const weightScrollTimeout = useRef(null);
   const durationScrollTimeout = useRef(null);
+  const calorieBreakdownResetTimeout = useRef(null);
   const TOTAL_SCREENS = 3;
   const BASE_SWIPE_THRESHOLD = 130;
 
@@ -266,6 +270,14 @@ const EnergyMapCalculator = () => {
 
     return () => cancelAnimationFrame(frame);
   }, [showQuickTrainingModal, userData.trainingDuration]);
+
+  useEffect(() => {
+    return () => {
+      if (calorieBreakdownResetTimeout.current) {
+        clearTimeout(calorieBreakdownResetTimeout.current);
+      }
+    };
+  }, []);
 
   const handlePickerScroll = (event, containerRef, timeoutRef, parseFn, setter) => {
     const container = event.currentTarget;
@@ -503,6 +515,18 @@ const EnergyMapCalculator = () => {
     return distanceMiles * caloriesPerMile;
   };
 
+  const getStepDetails = (stepRange) => {
+    const parsedRange = parseStepRange(stepRange);
+    const estimatedSteps = estimateStepsFromRange(parsedRange);
+    const calories = Math.round(calculateCaloriesFromSteps(estimatedSteps));
+
+    return {
+      parsedRange,
+      estimatedSteps,
+      calories
+    };
+  };
+
   const getStepRangeSortValue = (range) => {
     const parsed = parseStepRange(range);
     if (parsed.operator === 'lt') {
@@ -522,18 +546,38 @@ const EnergyMapCalculator = () => {
 
   // Step-based calorie burns
   const getStepCalories = (stepRange) => {
-    const parsedRange = parseStepRange(stepRange);
-    const estimatedSteps = estimateStepsFromRange(parsedRange);
-    return Math.round(calculateCaloriesFromSteps(estimatedSteps));
+    return getStepDetails(stepRange).calories;
+  };
+
+  const calculateCalorieBreakdown = (steps, isTrainingDay) => {
+    const stepDetails = getStepDetails(steps);
+    const activityMultiplier = isTrainingDay ? 0.35 : 0.28;
+    const baseActivity = Math.round(BMR * activityMultiplier);
+    const trainingBurn = Math.round(isTrainingDay ? trainingCalories : 0);
+    const cardioBurn = Math.round(getTotalCardioBurn());
+    const total = Math.round(
+      BMR +
+      baseActivity +
+      stepDetails.calories +
+      trainingBurn +
+      cardioBurn
+    );
+
+    return {
+      total,
+      bmr: BMR,
+      baseActivity,
+      activityMultiplier,
+      stepCalories: stepDetails.calories,
+      estimatedSteps: stepDetails.estimatedSteps,
+      trainingBurn,
+      cardioBurn
+    };
   };
   
   // Calculate TDEE for different scenarios
   const calculateTDEE = (steps, isTrainingDay) => {
-    const baseActivity = BMR * 0.3;
-    const stepBurn = getStepCalories(steps);
-    const trainingBurn = isTrainingDay ? trainingCalories : 0;
-    const cardioBurn = getTotalCardioBurn();
-    return Math.round(BMR + baseActivity + stepBurn + trainingBurn + cardioBurn);
+    return calculateCalorieBreakdown(steps, isTrainingDay).total;
   };
   
   // Calculate goal-based calories
@@ -605,6 +649,26 @@ const EnergyMapCalculator = () => {
       setNewStepRange('');
     }
   };
+  const openCalorieBreakdownModal = (range) => {
+    if (calorieBreakdownResetTimeout.current) {
+      clearTimeout(calorieBreakdownResetTimeout.current);
+      calorieBreakdownResetTimeout.current = null;
+    }
+    setSelectedStepRange(range);
+    setClosingCalorieBreakdownModal(false);
+    setShowCalorieBreakdownModal(true);
+  };
+
+  const handleCloseCalorieBreakdownModal = () => {
+    closeModal(setClosingCalorieBreakdownModal, setShowCalorieBreakdownModal);
+    if (calorieBreakdownResetTimeout.current) {
+      clearTimeout(calorieBreakdownResetTimeout.current);
+    }
+    calorieBreakdownResetTimeout.current = setTimeout(() => {
+      setSelectedStepRange(null);
+      calorieBreakdownResetTimeout.current = null;
+    }, 200);
+  };
   
   const removeStepRange = (stepRange) => {
     setUserData(prev => ({
@@ -652,6 +716,15 @@ const EnergyMapCalculator = () => {
   const screenLabels = ['Home', 'Calorie Map', 'Insights'];
 
   const hasCardioSessions = userData.cardioSessions.length > 0;
+  const selectedRangeBreakdown = selectedStepRange
+    ? calculateCalorieBreakdown(selectedStepRange, selectedDay === 'training')
+    : null;
+  const selectedRangeTarget = selectedRangeBreakdown
+    ? calculateGoalCalories(selectedRangeBreakdown.total, selectedGoal)
+    : null;
+  const selectedRangeDifference = selectedRangeBreakdown && selectedRangeTarget !== null
+    ? selectedRangeTarget - selectedRangeBreakdown.total
+    : null;
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 md:p-6">
@@ -938,27 +1011,39 @@ const EnergyMapCalculator = () => {
                     </h2>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       {userData.stepRanges.map((steps) => {
-                        const tdee = calculateTDEE(steps, selectedDay === 'training');
-                        const targetCalories = calculateGoalCalories(tdee, selectedGoal);
-                        const difference = targetCalories - tdee;
+                        const breakdown = calculateCalorieBreakdown(steps, selectedDay === 'training');
+                        const targetCalories = calculateGoalCalories(breakdown.total, selectedGoal);
+                        const difference = targetCalories - breakdown.total;
+                        const isActive = showCalorieBreakdownModal && selectedStepRange === steps;
                         
                         return (
-                          <div key={steps} className="bg-slate-700 rounded-xl p-4 hover:bg-slate-600 transition-all">
-                            <div className="text-center">
-                              <p className="text-slate-400 text-sm mb-1">Steps</p>
-                              <p className="text-white font-bold text-lg mb-3">{steps}</p>
-                              <div className={`${goals[selectedGoal].color} rounded-lg p-3 mb-2`}>
-                                <p className="text-white text-2xl font-bold">{targetCalories}</p>
-                                <p className="text-white text-xs opacity-90">calories</p>
+                          <motion.button
+                            key={steps}
+                            type="button"
+                            onClick={() => openCalorieBreakdownModal(steps)}
+                            className={`group relative w-full text-left bg-slate-700 rounded-xl p-4 transition-all ${isActive ? 'ring-2 ring-blue-400 bg-slate-700/90' : 'hover:bg-slate-600'}`}
+                            whileTap={{ scale: 0.98 }}
+                            aria-expanded={isActive}
+                            aria-label={`View calorie breakdown for ${steps} steps`}
+                          >
+                            <div className="flex items-start justify-between mb-2">
+                              <div>
+                                <p className="text-slate-400 text-sm">Steps</p>
+                                <p className="text-white font-bold text-lg">{steps}</p>
                               </div>
-                              <p className="text-slate-400 text-xs">TDEE: {tdee}</p>
-                              {difference !== 0 && (
-                                <p className={`text-xs font-semibold mt-1 ${difference > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                  {difference > 0 ? '+' : ''}{difference} cal
-                                </p>
-                              )}
+                              <Info size={18} className={`mt-1 ${isActive ? 'text-blue-300' : 'text-slate-400 group-hover:text-blue-300'}`} />
                             </div>
-                          </div>
+                            <div className={`${goals[selectedGoal].color} rounded-lg p-3 mb-2 text-center`}>
+                              <p className="text-white text-2xl font-bold">{targetCalories.toLocaleString()}</p>
+                              <p className="text-white text-xs opacity-90">calories</p>
+                            </div>
+                            <p className="text-slate-400 text-xs">TDEE: {breakdown.total.toLocaleString()}</p>
+                            {difference !== 0 && (
+                              <p className={`text-xs font-semibold mt-1 ${difference > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                {difference > 0 ? '+' : ''}{difference.toLocaleString()} cal
+                              </p>
+                            )}
+                          </motion.button>
                         );
                       })}
                     </div>
@@ -1033,6 +1118,75 @@ const EnergyMapCalculator = () => {
             </div>
           </div>
         </div>
+
+        {showCalorieBreakdownModal && selectedRangeBreakdown && (
+          <div className={`modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 ${closingCalorieBreakdownModal ? 'closing' : ''}`}>
+            <div className={`modal-content bg-slate-800 rounded-2xl p-5 md:p-6 w-full max-w-md border border-slate-700 max-h-[90vh] overflow-y-auto ${closingCalorieBreakdownModal ? 'closing' : ''}`}>
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div>
+                  <h3 className="text-white font-bold text-xl">Calorie Breakdown</h3>
+                  <p className="text-slate-400 text-sm mt-1">
+                    {selectedStepRange} steps • {selectedDay === 'training' ? 'Training' : 'Rest'} day • {goals[selectedGoal].label}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCloseCalorieBreakdownModal}
+                  className="text-slate-400 hover:text-white transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className={`${goals[selectedGoal].color} rounded-xl p-4 text-center mb-4`}>
+                <p className="text-white text-sm uppercase tracking-wide">Goal Target</p>
+                <p className="text-white text-3xl font-extrabold mt-1">
+                  {selectedRangeTarget?.toLocaleString() ?? '—'}
+                </p>
+                {selectedRangeDifference !== null && selectedRangeDifference !== 0 && (
+                  <p className={`text-sm font-semibold mt-2 ${selectedRangeDifference > 0 ? 'text-green-200' : 'text-red-200'}`}>
+                    {selectedRangeDifference > 0 ? '+' : ''}{selectedRangeDifference.toLocaleString()} cal from TDEE
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-3 text-sm">
+                <div className="flex items-center justify-between bg-slate-700/40 rounded-lg px-4 py-3">
+                  <span className="text-slate-400">BMR</span>
+                  <span className="text-white font-semibold">{selectedRangeBreakdown.bmr.toLocaleString()} cal</span>
+                </div>
+                <div className="flex items-center justify-between bg-slate-700/40 rounded-lg px-4 py-3">
+                  <span className="text-slate-400">Daily Activity (~{Math.round(selectedRangeBreakdown.activityMultiplier * 100)}%)</span>
+                  <span className="text-white font-semibold">{selectedRangeBreakdown.baseActivity.toLocaleString()} cal</span>
+                </div>
+                <div className="flex items-center justify-between bg-slate-700/40 rounded-lg px-4 py-3">
+                  <span className="text-slate-400">Steps (~{selectedRangeBreakdown.estimatedSteps.toLocaleString()} steps)</span>
+                  <span className="text-white font-semibold">{selectedRangeBreakdown.stepCalories.toLocaleString()} cal</span>
+                </div>
+                <div className="flex items-center justify-between bg-slate-700/40 rounded-lg px-4 py-3">
+                  <span className="text-slate-400">Training</span>
+                  <span className="text-white font-semibold">{selectedRangeBreakdown.trainingBurn.toLocaleString()} cal</span>
+                </div>
+                <div className="flex items-center justify-between bg-slate-700/40 rounded-lg px-4 py-3">
+                  <span className="text-slate-400">Cardio</span>
+                  <span className="text-white font-semibold">{selectedRangeBreakdown.cardioBurn.toLocaleString()} cal</span>
+                </div>
+                <div className="border border-slate-600 rounded-lg px-4 py-3 flex items-center justify-between">
+                  <span className="text-slate-300 font-semibold">Total TDEE</span>
+                  <span className="text-white font-bold text-lg">{selectedRangeBreakdown.total.toLocaleString()} cal</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCloseCalorieBreakdownModal}
+                className="w-full mt-5 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-lg transition-all"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Goal Selection Modal */}
         {showGoalModal && (
