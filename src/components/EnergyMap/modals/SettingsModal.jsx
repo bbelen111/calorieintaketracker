@@ -1,0 +1,126 @@
+import React from 'react';
+import { Save } from 'lucide-react';
+import { ModalShell } from '../common/ModalShell';
+
+export const SettingsModal = ({
+  isOpen,
+  isClosing,
+  userData,
+  onChange,
+  trainingTypes,
+  trainingCalories,
+  onTrainingTypeClick,
+  onCancel,
+  onSave
+}) => (
+  <ModalShell isOpen={isOpen} isClosing={isClosing} contentClassName="p-4 md:p-6 w-full md:max-w-2xl">
+    <h3 className="text-white font-bold text-xl md:text-2xl mb-4 md:mb-6">Personal Settings</h3>
+
+    <div className="space-y-4 md:space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+        <div>
+          <label className="text-slate-300 text-sm block mb-2">Age</label>
+          <input
+            type="number"
+            value={userData.age}
+            onChange={(event) => onChange('age', parseInt(event.target.value, 10) || 0)}
+            className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-lg"
+          />
+        </div>
+
+        <div>
+          <label className="text-slate-300 text-sm block mb-2">Gender</label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => onChange('gender', 'male')}
+              type="button"
+              className={`py-3 px-2 rounded-lg border-2 transition-all font-semibold ${
+                userData.gender === 'male'
+                  ? 'bg-blue-600 border-blue-400 text-white'
+                  : 'bg-slate-700 border-slate-600 text-slate-300 active:scale-95'
+              }`}
+            >
+              Male
+            </button>
+            <button
+              onClick={() => onChange('gender', 'female')}
+              type="button"
+              className={`py-3 px-2 rounded-lg border-2 transition-all font-semibold ${
+                userData.gender === 'female'
+                  ? 'bg-blue-600 border-blue-400 text-white'
+                  : 'bg-slate-700 border-slate-600 text-slate-300 active:scale-95'
+              }`}
+            >
+              Female
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label className="text-slate-300 text-sm block mb-2">Weight (kg)</label>
+          <input
+            type="number"
+            value={userData.weight}
+            onChange={(event) => onChange('weight', parseFloat(event.target.value) || 0)}
+            className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-lg"
+          />
+        </div>
+
+        <div>
+          <label className="text-slate-300 text-sm block mb-2">Height (cm)</label>
+          <input
+            type="number"
+            value={userData.height}
+            onChange={(event) => onChange('height', parseFloat(event.target.value) || 0)}
+            className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-lg"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="text-slate-300 text-sm block mb-2">Training Type</label>
+        <button
+          onClick={onTrainingTypeClick}
+          type="button"
+          className="w-full text-left p-3 md:p-4 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all active:scale-[0.98]"
+        >
+          <div className="font-semibold text-base">{trainingTypes[userData.trainingType].label}</div>
+          <div className="text-xs md:text-sm opacity-90 mt-0.5">
+            {trainingTypes[userData.trainingType].caloriesPerHour} cal/hr • {trainingTypes[userData.trainingType].description}
+          </div>
+          <div className="text-xs opacity-75 mt-2">Tap to change</div>
+        </button>
+      </div>
+
+      <div>
+        <label className="text-slate-300 text-sm block mb-2">Training Duration (hours)</label>
+        <input
+          type="number"
+          step="0.5"
+          value={userData.trainingDuration}
+          onChange={(event) => onChange('trainingDuration', parseFloat(event.target.value) || 0)}
+          className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-lg"
+        />
+        <p className="text-slate-400 text-xs mt-1">Total burn: ~{Math.round(trainingCalories)} calories</p>
+      </div>
+    </div>
+
+    <div className="flex gap-2 md:gap-3 mt-6">
+      <button
+        onClick={onCancel}
+        type="button"
+        className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg transition-all active:scale-95 font-medium"
+      >
+        Cancel
+      </button>
+      <button
+        onClick={onSave}
+        type="button"
+        className="flex-1 bg-green-600 active:bg-green-700 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
+      >
+        <Save size={20} />
+        <span className="hidden sm:inline">Save &amp;</span> Close
+      </button>
+    </div>
+  </ModalShell>
+);
