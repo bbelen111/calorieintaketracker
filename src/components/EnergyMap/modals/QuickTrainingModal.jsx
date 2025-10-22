@@ -9,11 +9,10 @@ export const QuickTrainingModal = ({
   isOpen,
   isClosing,
   trainingTypes,
-  userData,
   tempTrainingType,
   tempTrainingDuration,
   onTrainingTypeSelect,
-  onEditCustom,
+  onEditTrainingType,
   onDurationChange,
   onCancel,
   onSave
@@ -50,10 +49,8 @@ export const QuickTrainingModal = ({
     [onDurationChange]
   );
 
-  const caloriesPerHour =
-    tempTrainingType === 'custom'
-      ? userData.customTrainingCalories
-      : trainingTypes[tempTrainingType].caloriesPerHour;
+  const selectedTraining = trainingTypes[tempTrainingType];
+  const caloriesPerHour = selectedTraining?.caloriesPerHour ?? 0;
 
   const estimatedBurn = Math.round(caloriesPerHour * tempTrainingDuration);
 
@@ -68,29 +65,30 @@ export const QuickTrainingModal = ({
           </div>
           <div className="grid grid-cols-2 gap-2">
             {Object.entries(trainingTypes).map(([key, type]) => {
-              const isCustom = key === 'custom';
-              const label = isCustom ? userData.customTrainingName : type.label;
-              const calories = isCustom ? userData.customTrainingCalories : type.caloriesPerHour;
               const isActive = tempTrainingType === key;
 
               return (
                 <button
                   key={key}
                   onClick={() => {
-                    if (isCustom && isActive) {
-                      onEditCustom();
-                    } else {
-                      onTrainingTypeSelect(key);
-                    }
+                    onTrainingTypeSelect(key);
                   }}
                   type="button"
                   className={`p-3 rounded-lg border-2 transition-all text-sm relative ${
                     isActive ? 'bg-purple-600 border-purple-400 text-white' : 'bg-slate-700 border-slate-600 text-slate-300 active:bg-slate-600'
                   }`}
                 >
-                  {isCustom && <Edit3 size={12} className="absolute top-2 right-2 opacity-75" />}
-                  <div className="font-bold">{label}</div>
-                  <div className="text-xs opacity-75">{calories} cal/hr</div>
+                  <span
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onEditTrainingType(key);
+                    }}
+                    className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center cursor-pointer"
+                  >
+                    <Edit3 size={12} />
+                  </span>
+                  <div className="font-bold pr-6">{type.label}</div>
+                  <div className="text-xs opacity-75">{type.caloriesPerHour} cal/hr</div>
                 </button>
               );
             })}

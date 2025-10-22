@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { trainingTypes } from '../constants/trainingTypes';
+import { trainingTypes as baseTrainingTypes } from '../constants/trainingTypes';
 import { cardioTypes } from '../constants/cardioTypes';
 import { calculateBMR, calculateCalorieBreakdown, calculateCardioCalories, calculateGoalCalories, getTotalCardioBurn, getTrainingCalories } from '../utils/calculations';
 import { getStepRangeSortValue } from '../utils/steps';
@@ -16,8 +16,34 @@ export const useEnergyMapData = () => {
     setUserData((prev) => ({ ...prev, [field]: value }));
   }, []);
 
+  const resolvedTrainingTypes = useMemo(() => {
+    const overrides = userData.trainingTypeOverrides ?? {};
+    const merged = Object.entries(baseTrainingTypes).reduce((acc, [key, type]) => {
+      acc[key] = {
+        ...type,
+        ...(overrides[key] ?? {})
+      };
+      return acc;
+    }, {});
+
+    Object.keys(overrides).forEach((key) => {
+      if (merged[key]) return;
+      const override = overrides[key];
+      merged[key] = {
+        label: override.label ?? key,
+        description: override.description ?? '',
+        caloriesPerHour: override.caloriesPerHour ?? 0
+      };
+    });
+
+    return merged;
+  }, [userData.trainingTypeOverrides]);
+
   const bmr = useMemo(() => calculateBMR(userData), [userData]);
-  const trainingCalories = useMemo(() => getTrainingCalories(userData, trainingTypes), [userData]);
+  const trainingCalories = useMemo(
+    () => getTrainingCalories(userData, resolvedTrainingTypes),
+    [resolvedTrainingTypes, userData]
+  );
   const totalCardioBurn = useMemo(() => getTotalCardioBurn(userData, cardioTypes), [userData]);
 
   const calculateBreakdown = useCallback(
@@ -28,9 +54,9 @@ export const useEnergyMapData = () => {
         userData,
         bmr,
         cardioTypes,
-        trainingTypes
+        trainingTypes: resolvedTrainingTypes
       }),
-    [bmr, userData]
+    [bmr, resolvedTrainingTypes, userData]
   );
 
   const calculateTargetForGoal = useCallback(
@@ -80,13 +106,32 @@ export const useEnergyMapData = () => {
     }));
   }, []);
 
-  const updateCustomTraining = useCallback(({ name, calories, description }) => {
-    setUserData((prev) => ({
-      ...prev,
-      customTrainingName: name,
-      customTrainingCalories: calories,
-      customTrainingDescription: description
-    }));
+  const updateTrainingType = useCallback((key, { name, calories, description }) => {
+    setUserData((prev) => {
+      const numericCalories = Number(calories);
+      const normalizedCalories = Number.isFinite(numericCalories) ? Math.max(0, numericCalories) : 0;
+      const nextOverrides = {
+        ...(prev.trainingTypeOverrides ?? {}),
+        [key]: {
+          label: name,
+          description,
+          caloriesPerHour: normalizedCalories
+        }
+      };
+
+      const nextState = {
+        ...prev,
+        trainingTypeOverrides: nextOverrides
+      };
+
+      if (key === 'custom') {
+        nextState.customTrainingName = name;
+        nextState.customTrainingCalories = normalizedCalories;
+        nextState.customTrainingDescription = description;
+      }
+
+      return nextState;
+    });
   }, []);
 
   const calculateCardioSessionCalories = useCallback(
@@ -96,7 +141,7 @@ export const useEnergyMapData = () => {
 
   return {
     userData,
-    trainingTypes,
+  trainingTypes: resolvedTrainingTypes,
     cardioTypes,
     bmr,
     trainingCalories,
@@ -106,7 +151,7 @@ export const useEnergyMapData = () => {
     removeStepRange,
     addCardioSession,
     removeCardioSession,
-    updateCustomTraining,
+    updateTrainingType,
     calculateBreakdown,
     calculateTargetForGoal,
     calculateCardioSessionCalories

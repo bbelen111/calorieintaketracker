@@ -6,10 +6,9 @@ export const TrainingTypeModal = ({
   isOpen,
   isClosing,
   trainingTypes,
-  userData,
   tempTrainingType,
   onSelect,
-  onEditCustom,
+  onEditTrainingType,
   onCancel,
   onSave
 }) => (
@@ -25,42 +24,38 @@ export const TrainingTypeModal = ({
 
     <div className="grid grid-cols-1 gap-3">
       {Object.entries(trainingTypes).map(([key, type]) => {
-        const isCustom = key === 'custom';
         const isActive = tempTrainingType === key;
-        const caloriesPerHour = isCustom ? userData.customTrainingCalories : type.caloriesPerHour;
-        const description = isCustom ? userData.customTrainingDescription : type.description;
-        const label = isCustom ? userData.customTrainingName : type.label;
 
         return (
           <button
             key={key}
-            onClick={() => {
-              if (isCustom && isActive) {
-                onEditCustom();
-              } else {
-                onSelect(key);
-              }
-            }}
-            className={`p-4 rounded-xl border-2 transition-all active:scale-[0.98] text-left relative ${
+            onClick={() => onSelect(key)}
+            className={`p-4 rounded-xl border-2 transition-all active:scale-[0.98] text-left relative flex items-center gap-4 ${
               isActive ? 'bg-blue-600 border-blue-400 text-white shadow-lg' : 'bg-slate-700 border-slate-600 text-slate-300'
             }`}
             type="button"
           >
-            <div className="flex items-center gap-4">
-              <Dumbbell size={32} className="flex-shrink-0" />
-              <div className="flex-1">
-                <p className="font-bold text-lg">{label}</p>
-                <p className="text-sm opacity-90 mt-1">
-                  {caloriesPerHour} cal/hr • {description}
-                </p>
-              </div>
-              {isCustom && <Edit3 size={18} className="flex-shrink-0 opacity-75" />}
-              {isActive && !isCustom && (
-                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
-                  <div className="w-3 h-3 rounded-full bg-white" />
-                </div>
-              )}
+            <Dumbbell size={32} className="flex-shrink-0" />
+            <div className="flex-1">
+              <p className="font-bold text-lg">{type.label}</p>
+              <p className="text-sm opacity-90 mt-1">
+                {type.caloriesPerHour} cal/hr • {type.description}
+              </p>
             </div>
+            <span
+              onClick={(event) => {
+                event.stopPropagation();
+                onEditTrainingType(key);
+              }}
+              className="flex-shrink-0 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center cursor-pointer"
+            >
+              <Edit3 size={18} />
+            </span>
+            {isActive && (
+              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
+                <div className="w-3 h-3 rounded-full bg-white" />
+              </div>
+            )}
           </button>
         );
       })}

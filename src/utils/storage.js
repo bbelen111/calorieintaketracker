@@ -11,7 +11,10 @@ export const loadEnergyMapData = () => {
   try {
     const saved = window.localStorage.getItem(DATA_KEY);
     if (saved) {
-      return JSON.parse(saved);
+      const parsed = JSON.parse(saved);
+      if (parsed && typeof parsed === 'object') {
+        return parsed;
+      }
     }
   } catch (error) {
     console.warn('Failed to load energy map data from storage', error);
@@ -61,6 +64,38 @@ export const getDefaultEnergyMapData = () => ({
   trainingDuration: 2,
   stepRanges: ['<10k', '10k', '12k', '14k', '16k', '18k', '20k', '>20k'],
   cardioSessions: [],
+  trainingTypeOverrides: {
+    bodybuilding: {
+      label: 'Bodybuilding',
+      description: 'Hypertrophy focus, moderate rest periods',
+      caloriesPerHour: 220
+    },
+    powerlifting: {
+      label: 'Powerlifting',
+      description: 'Heavy compounds, longer rest periods',
+      caloriesPerHour: 180
+    },
+    strongman: {
+      label: 'Strongman',
+      description: 'High intensity events, carries, pushes',
+      caloriesPerHour: 280
+    },
+    crossfit: {
+      label: 'CrossFit',
+      description: 'High intensity, metabolic conditioning',
+      caloriesPerHour: 300
+    },
+    calisthenics: {
+      label: 'Calisthenics',
+      description: 'Bodyweight movements, skill work',
+      caloriesPerHour: 240
+    },
+    custom: {
+      label: 'My Training',
+      description: 'Custom training style',
+      caloriesPerHour: 220
+    }
+  },
   customTrainingName: 'My Training',
   customTrainingCalories: 220,
   customTrainingDescription: 'Custom training style'

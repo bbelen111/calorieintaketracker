@@ -22,12 +22,8 @@ export const getTotalCardioBurn = (userData, cardioTypes) =>
     0
   );
 
-export const getTrainingCaloriesPerHour = (userData, trainingTypes) => {
-  if (userData.trainingType === 'custom') {
-    return userData.customTrainingCalories;
-  }
-  return trainingTypes[userData.trainingType]?.caloriesPerHour ?? 0;
-};
+export const getTrainingCaloriesPerHour = (userData, trainingTypes) =>
+  trainingTypes[userData.trainingType]?.caloriesPerHour ?? 0;
 
 export const getTrainingCalories = (userData, trainingTypes) =>
   userData.trainingDuration * getTrainingCaloriesPerHour(userData, trainingTypes);

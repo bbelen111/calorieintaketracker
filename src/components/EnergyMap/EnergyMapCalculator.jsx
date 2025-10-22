@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Home, Map, BarChart3 } from 'lucide-react';
 import { goals } from '../../constants/goals';
+import { trainingTypes as presetTrainingTypes } from '../../constants/trainingTypes';
 import { useEnergyMapData } from '../../hooks/useEnergyMapData';
 import { useSwipeableScreens } from '../../hooks/useSwipeableScreens';
 import { useAnimatedModal } from '../../hooks/useAnimatedModal';
@@ -14,7 +15,7 @@ import { BmrInfoModal } from './modals/BmrInfoModal';
 import { AgePickerModal } from './modals/AgePickerModal';
 import { WeightPickerModal } from './modals/WeightPickerModal';
 import { TrainingTypeModal } from './modals/TrainingTypeModal';
-import { CustomTrainingModal } from './modals/CustomTrainingModal';
+import { TrainingTypeEditorModal } from './modals/TrainingTypeEditorModal';
 import { SettingsModal } from './modals/SettingsModal';
 import { StepRangesModal } from './modals/StepRangesModal';
 import { QuickTrainingModal } from './modals/QuickTrainingModal';
@@ -47,7 +48,7 @@ export const EnergyMapCalculator = () => {
     removeStepRange,
     addCardioSession,
     removeCardioSession,
-    updateCustomTraining,
+    updateTrainingType,
     calculateBreakdown,
     calculateTargetForGoal,
     calculateCardioSessionCalories
@@ -66,9 +67,10 @@ export const EnergyMapCalculator = () => {
   const [tempWeight, setTempWeight] = useState(userData.weight);
   const [tempTrainingType, setTempTrainingType] = useState(userData.trainingType);
   const [tempTrainingDuration, setTempTrainingDuration] = useState(userData.trainingDuration);
-  const [tempCustomName, setTempCustomName] = useState(userData.customTrainingName);
-  const [tempCustomCalories, setTempCustomCalories] = useState(userData.customTrainingCalories);
-  const [tempCustomDescription, setTempCustomDescription] = useState(userData.customTrainingDescription);
+  const [editingTrainingType, setEditingTrainingType] = useState(null);
+  const [tempPresetName, setTempPresetName] = useState('');
+  const [tempPresetCalories, setTempPresetCalories] = useState(0);
+  const [tempPresetDescription, setTempPresetDescription] = useState('');
   const [newStepRange, setNewStepRange] = useState('');
   const [selectedStepRange, setSelectedStepRange] = useState(null);
   const [cardioDraft, setCardioDraft] = useState(defaultCardioSession);
@@ -78,7 +80,7 @@ export const EnergyMapCalculator = () => {
   const ageModal = useAnimatedModal();
   const weightModal = useAnimatedModal();
   const trainingTypeModal = useAnimatedModal();
-  const customTrainingModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
+  const trainingTypeEditorModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
   const settingsModal = useAnimatedModal();
   const stepRangesModal = useAnimatedModal();
   const quickTrainingModal = useAnimatedModal();
@@ -140,12 +142,74 @@ export const EnergyMapCalculator = () => {
     trainingTypeModal.open();
   }, [trainingTypeModal, userData.trainingType]);
 
-  const openCustomTrainingModal = useCallback(() => {
-    setTempCustomName(userData.customTrainingName);
-    setTempCustomCalories(userData.customTrainingCalories);
-    setTempCustomDescription(userData.customTrainingDescription);
-    customTrainingModal.open();
-  }, [customTrainingModal, userData]);
+  const resetTrainingTypeEditorState = useCallback(() => {
+    setEditingTrainingType(null);
+    setTempPresetName('');
+    setTempPresetDescription('');
+    setTempPresetCalories(0);
+  }, []);
+
+  const closeTrainingTypeEditor = useCallback(() => {
+    trainingTypeEditorModal.requestClose();
+    setTimeout(resetTrainingTypeEditorState, MODAL_CLOSE_DELAY);
+  }, [resetTrainingTypeEditorState, trainingTypeEditorModal]);
+
+  const openTrainingTypeEditor = useCallback(
+    (typeKey) => {
+      const current = trainingTypes[typeKey] ?? presetTrainingTypes[typeKey] ?? {
+        label: typeKey,
+        description: '',
+        caloriesPerHour: 0
+      };
+
+      const initialCalories = Number(current.caloriesPerHour ?? 0);
+
+      setEditingTrainingType(typeKey);
+      setTempPresetName(current.label ?? '');
+      setTempPresetDescription(current.description ?? '');
+      setTempPresetCalories(Number.isFinite(initialCalories) ? initialCalories : 0);
+      trainingTypeEditorModal.open();
+    },
+    [trainingTypeEditorModal, trainingTypes]
+  );
+
+  const handleTrainingPresetSave = useCallback(() => {
+    if (!editingTrainingType) {
+      closeTrainingTypeEditor();
+      return;
+    }
+
+    const fallback = presetTrainingTypes[editingTrainingType] ?? {
+      label: editingTrainingType,
+      description: '',
+      caloriesPerHour: 0
+    };
+
+    const nextName = tempPresetName.trim() || fallback.label;
+    const nextDescription = tempPresetDescription.trim() || fallback.description;
+    const sanitizedCalories = Number.isFinite(tempPresetCalories) ? Math.max(0, tempPresetCalories) : NaN;
+    const nextCalories = Number.isFinite(sanitizedCalories) ? sanitizedCalories : fallback.caloriesPerHour;
+
+    updateTrainingType(editingTrainingType, {
+      name: nextName,
+      description: nextDescription,
+      calories: nextCalories
+    });
+
+    if (editingTrainingType === tempTrainingType) {
+      setTempTrainingType(editingTrainingType);
+    }
+
+    closeTrainingTypeEditor();
+  }, [
+    closeTrainingTypeEditor,
+    editingTrainingType,
+    tempPresetCalories,
+    tempPresetDescription,
+    tempPresetName,
+    tempTrainingType,
+    updateTrainingType
+  ]);
 
   const openQuickTrainingModal = useCallback(() => {
     setTempTrainingType(userData.trainingType);
@@ -194,16 +258,6 @@ export const EnergyMapCalculator = () => {
     (range) => calorieBreakdownModal.isOpen && selectedStepRange === range,
     [calorieBreakdownModal.isOpen, selectedStepRange]
   );
-
-  const handleSaveCustomTraining = useCallback(() => {
-    updateCustomTraining({
-      name: tempCustomName,
-      calories: tempCustomCalories,
-      description: tempCustomDescription
-    });
-    setTempTrainingType('custom');
-    customTrainingModal.requestClose();
-  }, [customTrainingModal, tempCustomCalories, tempCustomDescription, tempCustomName, updateCustomTraining]);
 
   const handleCardioSave = useCallback(() => {
     addCardioSession(cardioDraft);
@@ -356,25 +410,25 @@ export const EnergyMapCalculator = () => {
         isOpen={trainingTypeModal.isOpen}
         isClosing={trainingTypeModal.isClosing}
         trainingTypes={trainingTypes}
-        userData={userData}
         tempTrainingType={tempTrainingType}
         onSelect={setTempTrainingType}
-        onEditCustom={openCustomTrainingModal}
+        onEditTrainingType={openTrainingTypeEditor}
         onCancel={trainingTypeModal.requestClose}
         onSave={handleTrainingTypeSave}
       />
 
-      <CustomTrainingModal
-        isOpen={customTrainingModal.isOpen}
-        isClosing={customTrainingModal.isClosing}
-        name={tempCustomName}
-        calories={tempCustomCalories}
-        description={tempCustomDescription}
-        onNameChange={setTempCustomName}
-        onCaloriesChange={setTempCustomCalories}
-        onDescriptionChange={setTempCustomDescription}
-        onCancel={customTrainingModal.requestClose}
-        onSave={handleSaveCustomTraining}
+      <TrainingTypeEditorModal
+        isOpen={trainingTypeEditorModal.isOpen}
+        isClosing={trainingTypeEditorModal.isClosing}
+        typeKey={editingTrainingType}
+        name={tempPresetName}
+        calories={tempPresetCalories}
+        description={tempPresetDescription}
+        onNameChange={setTempPresetName}
+        onCaloriesChange={setTempPresetCalories}
+        onDescriptionChange={setTempPresetDescription}
+        onCancel={closeTrainingTypeEditor}
+        onSave={handleTrainingPresetSave}
       />
 
       <SettingsModal
@@ -404,11 +458,10 @@ export const EnergyMapCalculator = () => {
         isOpen={quickTrainingModal.isOpen}
         isClosing={quickTrainingModal.isClosing}
         trainingTypes={trainingTypes}
-        userData={userData}
         tempTrainingType={tempTrainingType}
         tempTrainingDuration={tempTrainingDuration}
         onTrainingTypeSelect={setTempTrainingType}
-        onEditCustom={openCustomTrainingModal}
+        onEditTrainingType={openTrainingTypeEditor}
         onDurationChange={setTempTrainingDuration}
         onCancel={quickTrainingModal.requestClose}
         onSave={handleQuickTrainingSave}
