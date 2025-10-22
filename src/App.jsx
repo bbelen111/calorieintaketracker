@@ -1075,8 +1075,10 @@ const EnergyMapCalculator = () => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="bg-red-900/30 border border-red-700 rounded-xl p-4">
                         <p className="text-red-400 font-bold mb-2">Protein</p>
-                        <p className="text-white text-2xl font-bold">{Math.round(userData.weight * 2.2)}g</p>
-                        <p className="text-slate-400 text-sm">2.2g per kg bodyweight</p>
+                        <p className="text-white text-2xl font-bold">
+                          {Math.round(userData.weight * 2.0)}-{Math.round(userData.weight * 2.4)}g
+                        </p>
+                        <p className="text-slate-400 text-sm">2.0-2.4g per kg bodyweight</p>
                       </div>
                       <div className="bg-yellow-900/30 border border-yellow-700 rounded-xl p-4">
                         <p className="text-yellow-400 font-bold mb-2">Fats</p>
@@ -1089,6 +1091,14 @@ const EnergyMapCalculator = () => {
                         <p className="text-slate-400 text-sm">Adjust based on energy needs</p>
                       </div>
                     </div>
+                    {selectedGoal === 'aggressive_cut' && (
+                      <div className="mt-4 bg-red-900/40 border border-red-600/80 rounded-xl p-4 flex items-start gap-3">
+                        <Info size={20} className="text-red-300 flex-shrink-0 mt-0.5" />
+                        <p className="text-red-100 text-sm">
+                          During an aggressive cut, push protein to the upper end of the {Math.round(userData.weight * 2.4)}g+ range to help preserve lean mass. Consider exceeding this slightly if recovery or satiety suffer.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Tips */}
