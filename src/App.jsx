@@ -63,10 +63,15 @@ const EnergyMapCalculator = () => {
     };
   };
 
+  const loadSelectedDay = () => {
+    const savedDay = localStorage.getItem('energyMapSelectedDay');
+    return savedDay === 'rest' ? 'rest' : 'training';
+  };
+
   const [userData, setUserData] = useState(loadData());
   const [selectedGoal, setSelectedGoal] = useState('maintenance');
   const [tempSelectedGoal, setTempSelectedGoal] = useState('maintenance');
-  const [selectedDay, setSelectedDay] = useState('training');
+  const [selectedDay, setSelectedDay] = useState(loadSelectedDay());
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [closingSettingsModal, setClosingSettingsModal] = useState(false);
   const [showGoalModal, setShowGoalModal] = useState(false);
@@ -232,6 +237,10 @@ const EnergyMapCalculator = () => {
   useEffect(() => {
     localStorage.setItem('energyMapData', JSON.stringify(userData));
   }, [userData]);
+
+  useEffect(() => {
+    localStorage.setItem('energyMapSelectedDay', selectedDay);
+  }, [selectedDay]);
 
   useEffect(() => {
     return () => {
