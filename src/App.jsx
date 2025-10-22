@@ -385,16 +385,146 @@ const EnergyMapCalculator = () => {
   };
   const trainingCalories = userData.trainingDuration * getTrainingCaloriesPerHour();
   
+  // Step range parsing helpers keep user input flexible while surfacing usable numbers
+  const parseStepRange = (rawRange) => {
+    if (!rawRange) {
+      return { min: 0, max: null, operator: 'exact' };
+    }
+
+    const normalized = rawRange.toString().trim().toLowerCase();
+    if (!normalized) {
+      return { min: 0, max: null, operator: 'exact' };
+    }
+
+    const operator = normalized.includes('<')
+      ? 'lt'
+      : normalized.includes('>') || normalized.includes('+')
+        ? 'gt'
+        : 'range';
+
+    const numericParts = normalized
+      .replace(/[<>+\s]/g, '')
+      .split(/(?:-|–|—|to)/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+
+    const parseValue = (value) => {
+      if (!value) {
+        return null;
+      }
+      const match = value.match(/(\d+(?:\.\d+)?)/);
+      if (!match) {
+        return null;
+      }
+      let numeric = parseFloat(match[1]);
+      if (value.includes('k')) {
+        numeric *= 1000;
+      }
+      return Math.round(numeric);
+    };
+
+    if (operator === 'lt') {
+      const max = parseValue(numericParts[numericParts.length - 1]);
+      return { min: 0, max: max ?? null, operator };
+    }
+
+    if (operator === 'gt') {
+      const min = parseValue(numericParts[0]);
+      return { min: min ?? 0, max: null, operator };
+    }
+
+    if (numericParts.length >= 2) {
+      const min = parseValue(numericParts[0]);
+      const max = parseValue(numericParts[1]);
+      if (min != null && max != null) {
+        return {
+          min: Math.min(min, max),
+          max: Math.max(min, max),
+          operator: 'range'
+        };
+      }
+    }
+
+    const value = parseValue(numericParts[0]);
+    return {
+      min: value ?? 0,
+      max: value ?? null,
+      operator: 'exact'
+    };
+  };
+
+  const estimateStepsFromRange = (rangeDetails) => {
+    if (!rangeDetails) {
+      return 0;
+    }
+
+    const { min, max, operator } = rangeDetails;
+
+    if (operator === 'lt') {
+      const effectiveMax = max ?? 10000;
+      return Math.round(effectiveMax * 0.75);
+    }
+
+    if (operator === 'gt') {
+      const baseline = min ?? 20000;
+      return Math.round(baseline * 1.15);
+    }
+
+    if (min != null && max != null) {
+      return Math.round((min + max) / 2);
+    }
+
+    if (min != null) {
+      return Math.round(min);
+    }
+
+    if (max != null) {
+      return Math.round(max * 0.75);
+    }
+
+    return 0;
+  };
+
+  const calculateCaloriesFromSteps = (stepCount) => {
+    if (!stepCount || stepCount <= 0) {
+      return 0;
+    }
+
+    const weightKg = userData.weight > 0 ? userData.weight : 70;
+    const heightCm = userData.height > 0 ? userData.height : 175;
+    const heightMeters = heightCm / 100;
+    const strideLengthMeters = heightMeters > 0 ? heightMeters * (userData.gender === 'female' ? 0.413 : 0.415) : 0.75;
+    const effectiveStride = strideLengthMeters > 0 ? strideLengthMeters : 0.75;
+    const stepsPerMile = 1609.34 / effectiveStride;
+    const distanceMiles = stepCount / stepsPerMile;
+    const weightLbs = weightKg * 2.20462;
+    const caloriesPerMile = 0.57 * weightLbs;
+
+    return distanceMiles * caloriesPerMile;
+  };
+
+  const getStepRangeSortValue = (range) => {
+    const parsed = parseStepRange(range);
+    if (parsed.operator === 'lt') {
+      return (parsed.max ?? 0) - 1000;
+    }
+    if (parsed.operator === 'gt') {
+      return (parsed.min ?? 0) + 1000;
+    }
+    if (parsed.min != null) {
+      return parsed.min;
+    }
+    if (parsed.max != null) {
+      return parsed.max;
+    }
+    return 0;
+  };
+
   // Step-based calorie burns
   const getStepCalories = (stepRange) => {
-    const stepValue = stepRange.replace(/[^0-9]/g, '');
-    if (stepRange.includes('<')) {
-      return 150;
-    } else if (stepRange.includes('>')) {
-      return Math.round((parseInt(stepValue) / 10000) * 250 + 100);
-    } else {
-      return Math.round((parseInt(stepValue) / 10000) * 250);
-    }
+    const parsedRange = parseStepRange(stepRange);
+    const estimatedSteps = estimateStepsFromRange(parsedRange);
+    return Math.round(calculateCaloriesFromSteps(estimatedSteps));
   };
   
   // Calculate TDEE for different scenarios
@@ -469,11 +599,8 @@ const EnergyMapCalculator = () => {
     if (newStepRange && !userData.stepRanges.includes(newStepRange)) {
       setUserData(prev => ({
         ...prev,
-        stepRanges: [...prev.stepRanges, newStepRange].sort((a, b) => {
-          const aVal = parseInt(a.replace(/[^0-9]/g, '')) || 0;
-          const bVal = parseInt(b.replace(/[^0-9]/g, '')) || 0;
-          return aVal - bVal;
-        })
+        stepRanges: [...prev.stepRanges, newStepRange]
+          .sort((a, b) => getStepRangeSortValue(a) - getStepRangeSortValue(b))
       }));
       setNewStepRange('');
     }
