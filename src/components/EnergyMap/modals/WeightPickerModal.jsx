@@ -8,13 +8,21 @@ const WEIGHT_VALUES = Array.from({ length: 181 }, (_, i) => i + 30);
 export const WeightPickerModal = ({ isOpen, isClosing, value, onChange, onCancel, onSave }) => {
   const scrollRef = useRef(null);
   const timeoutRef = useRef(null);
+  const hasAlignedRef = useRef(false);
 
   useEffect(() => () => clearTimeout(timeoutRef.current), []);
 
   useEffect(() => {
-    if (!isOpen || !scrollRef.current) return;
+    if (!isOpen || !scrollRef.current) {
+      hasAlignedRef.current = false;
+      return undefined;
+    }
+
+    const behavior = hasAlignedRef.current ? 'smooth' : 'instant';
+    hasAlignedRef.current = true;
+
     const frame = requestAnimationFrame(() => {
-      alignScrollContainerToValue(scrollRef.current, value, 'instant');
+      alignScrollContainerToValue(scrollRef.current, value, behavior);
     });
     return () => cancelAnimationFrame(frame);
   }, [isOpen, value]);

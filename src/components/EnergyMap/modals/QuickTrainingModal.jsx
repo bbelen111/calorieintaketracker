@@ -20,13 +20,21 @@ export const QuickTrainingModal = ({
 }) => {
   const scrollRef = useRef(null);
   const timeoutRef = useRef(null);
+  const hasAlignedRef = useRef(false);
 
   useEffect(() => () => clearTimeout(timeoutRef.current), []);
 
   useEffect(() => {
-    if (!isOpen || !scrollRef.current) return;
+    if (!isOpen || !scrollRef.current) {
+      hasAlignedRef.current = false;
+      return undefined;
+    }
+
+    const behavior = hasAlignedRef.current ? 'smooth' : 'instant';
+    hasAlignedRef.current = true;
+
     const frame = requestAnimationFrame(() => {
-      alignScrollContainerToValue(scrollRef.current, tempTrainingDuration.toFixed(1), 'instant');
+      alignScrollContainerToValue(scrollRef.current, tempTrainingDuration.toFixed(1), behavior);
     });
     return () => cancelAnimationFrame(frame);
   }, [isOpen, tempTrainingDuration]);
