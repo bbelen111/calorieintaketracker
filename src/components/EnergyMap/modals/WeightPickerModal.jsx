@@ -1,0 +1,81 @@
+import React, { useEffect, useMemo, useRef } from 'react';
+import { Save } from 'lucide-react';
+import { ModalShell } from '../common/ModalShell';
+import { alignScrollContainerToValue, createPickerScrollHandler } from '../../../utils/scroll';
+
+const WEIGHT_VALUES = Array.from({ length: 181 }, (_, i) => i + 30);
+
+export const WeightPickerModal = ({ isOpen, isClosing, value, onChange, onCancel, onSave }) => {
+  const scrollRef = useRef(null);
+  const timeoutRef = useRef(null);
+
+  useEffect(() => () => clearTimeout(timeoutRef.current), []);
+
+  useEffect(() => {
+    if (!isOpen || !scrollRef.current) return;
+    const frame = requestAnimationFrame(() => {
+      alignScrollContainerToValue(scrollRef.current, value, 'instant');
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [isOpen, value]);
+
+  const handleScroll = useMemo(
+    () => createPickerScrollHandler(scrollRef, timeoutRef, (v) => parseInt(v, 10), onChange),
+    [onChange]
+  );
+
+  return (
+    <ModalShell isOpen={isOpen} isClosing={isClosing} contentClassName="p-6 w-full max-w-sm">
+      <h3 className="text-white font-bold text-xl mb-4 text-center">Select Weight (kg)</h3>
+
+      <div className="relative h-48 overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none z-10">
+          <div className="h-16 bg-gradient-to-b from-slate-800 to-transparent" />
+          <div className="h-16 bg-transparent" />
+          <div className="h-16 bg-gradient-to-t from-slate-800 to-transparent" />
+        </div>
+        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400 pointer-events-none z-10" />
+
+        <div ref={scrollRef} className="h-full overflow-y-auto scrollbar-hide" onScroll={handleScroll}>
+          <div className="h-16" />
+          {WEIGHT_VALUES.map((weight) => (
+            <div
+              key={weight}
+              data-value={weight}
+              onClick={() => {
+                onChange(weight);
+                if (scrollRef.current) {
+                  alignScrollContainerToValue(scrollRef.current, weight, 'smooth');
+                }
+              }}
+              className={`py-3 px-6 text-2xl font-semibold transition-all snap-center cursor-pointer text-center ${
+                value === weight ? 'text-white scale-110' : 'text-slate-500'
+              }`}
+            >
+              {weight}
+            </div>
+          ))}
+          <div className="h-16" />
+        </div>
+      </div>
+
+      <div className="flex gap-3 mt-6">
+        <button
+          onClick={onCancel}
+          type="button"
+          className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={onSave}
+          type="button"
+          className="flex-1 bg-blue-600 active:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
+        >
+          <Save size={20} />
+          Save
+        </button>
+      </div>
+    </ModalShell>
+  );
+};
