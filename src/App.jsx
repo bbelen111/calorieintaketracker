@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, TrendingUp, TrendingDown, Minus, Settings, Plus, Trash2, Save, Dumbbell, Bike, Heart, Edit3, Info, X, ListChecks } from 'lucide-react';
+import { Activity, TrendingUp, TrendingDown, Minus, Settings, Plus, Trash2, Save, Dumbbell, Bike, Heart, Edit3, Info, X, ListChecks, Home, Map, BarChart3 } from 'lucide-react';
 
 const SCROLL_SETTLE_DELAY = 140;
 
@@ -713,7 +713,11 @@ const EnergyMapCalculator = () => {
   const viewportWidth = viewportRef.current?.clientWidth || 1;
   const sliderTranslatePercent = (-currentScreen * 100) + ((dragOffset / viewportWidth) * 100);
   const sliderTransition = isSwiping ? 'none' : 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)';
-  const screenLabels = ['Home', 'Calorie Map', 'Insights'];
+  const screenTabs = [
+    { key: 'home', label: 'Home', icon: Home },
+    { key: 'calorie-map', label: 'Calorie Map', icon: Map },
+    { key: 'insights', label: 'Insights', icon: BarChart3 }
+  ];
 
   const hasCardioSessions = userData.cardioSessions.length > 0;
   const selectedRangeBreakdown = selectedStepRange
@@ -730,20 +734,22 @@ const EnergyMapCalculator = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 md:p-6">
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="relative">
-          <div className="flex items-center justify-center gap-2 mb-6">
-            {screenLabels.map((label, index) => (
+          <div className="mx-auto mb-6 flex w-full max-w-xs items-center gap-3">
+            {screenTabs.map(({ key, label, icon: Icon }, index) => (
               <button
-                key={label}
+                key={key}
                 type="button"
                 onClick={() => goToScreen(index)}
                 aria-pressed={currentScreen === index}
-                className={`px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-wide transition-all ${
+                aria-label={label}
+                className={`flex-1 h-10 rounded-full border border-transparent transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 ${
                   currentScreen === index
                     ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
                     : 'bg-slate-700/60 text-slate-300 hover:bg-slate-700 hover:text-white'
-                }`}
+                } flex items-center justify-center`}
               >
-                {label}
+                <Icon size={currentScreen === index ? 22 : 20} className="shrink-0" />
+                <span className="sr-only">{label}</span>
               </button>
             ))}
           </div>
