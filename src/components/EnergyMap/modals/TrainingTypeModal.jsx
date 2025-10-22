@@ -51,11 +51,6 @@ export const TrainingTypeModal = ({
             >
               <Edit3 size={18} />
             </span>
-            {isActive && (
-              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
-                <div className="w-3 h-3 rounded-full bg-white" />
-              </div>
-            )}
           </button>
         );
       })}

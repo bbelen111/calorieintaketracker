@@ -74,7 +74,7 @@ export const QuickTrainingModal = ({
                     onTrainingTypeSelect(key);
                   }}
                   type="button"
-                  className={`p-3 rounded-lg border-2 transition-all text-sm relative ${
+                  className={`p-3 rounded-lg border-2 transition-all text-sm relative text-left ${
                     isActive ? 'bg-purple-600 border-purple-400 text-white' : 'bg-slate-700 border-slate-600 text-slate-300 active:bg-slate-600'
                   }`}
                 >
@@ -87,8 +87,10 @@ export const QuickTrainingModal = ({
                   >
                     <Edit3 size={12} />
                   </span>
-                  <div className="font-bold pr-6">{type.label}</div>
-                  <div className="text-xs opacity-75">{type.caloriesPerHour} cal/hr</div>
+                  <div className="pr-10 space-y-1">
+                    <div className="font-bold text-base leading-tight">{type.label}</div>
+                    <div className="text-xs opacity-75 leading-tight">{type.caloriesPerHour} cal/hr</div>
+                  </div>
                 </button>
               );
             })}
