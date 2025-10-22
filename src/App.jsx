@@ -1103,7 +1103,7 @@ const EnergyMapCalculator = () => {
 
                   {/* Tips */}
                   <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
-                    <h2 className="text-xl font-bold text-white mb-4">Tips for Success</h2>
+                    <h2 className="text-xl font-bold text-white mb-4">Tips</h2>
                     <ul className="space-y-2 text-slate-300">
                       <li className="flex items-start gap-2">
                         <span className="text-blue-400 mt-1">•</span>
@@ -1133,10 +1133,6 @@ const EnergyMapCalculator = () => {
                         <span className="text-blue-400 mt-1">•</span>
                         <span>For moderate cut: aim for 0.5kg loss per week. For aggressive cut: 0.75-1kg per week</span>
                       </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-blue-400 mt-1">•</span>
-                        <span>Your data is saved automatically in your browser</span>
-                      </li>
                     </ul>
                   </div>
                 </div>
@@ -1146,7 +1142,7 @@ const EnergyMapCalculator = () => {
         </div>
 
         {showCalorieBreakdownModal && selectedRangeBreakdown && (
-          <div className={`modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 ${closingCalorieBreakdownModal ? 'closing' : ''}`}>
+          <div className={`modal-overlay fixed inset-0 !mt-0 bg-black/70 flex items-center justify-center z-50 p-4 ${closingCalorieBreakdownModal ? 'closing' : ''}`}>
             <div className={`modal-content bg-slate-800 rounded-2xl p-5 md:p-6 w-full max-w-md border border-slate-700 max-h-[90vh] overflow-y-auto ${closingCalorieBreakdownModal ? 'closing' : ''}`}>
               <div className="flex items-start justify-between gap-4 mb-4">
                 <div>
@@ -1216,7 +1212,7 @@ const EnergyMapCalculator = () => {
 
         {/* Goal Selection Modal */}
         {showGoalModal && (
-          <div className={`modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3 md:p-4 ${closingGoalModal ? 'closing' : ''}`}>
+          <div className={`modal-overlay fixed inset-0 !mt-0 bg-black/70 flex items-center justify-center z-50 p-3 md:p-4 ${closingGoalModal ? 'closing' : ''}`}>
             <div className={`modal-content bg-slate-800 rounded-2xl p-4 md:p-6 w-full md:max-w-2xl border border-slate-700 max-h-[90vh] overflow-y-auto ${closingGoalModal ? 'closing' : ''}`}>
               <h3 className="text-white font-bold text-xl md:text-2xl mb-4 md:mb-6">Select Your Goal</h3>
               
@@ -1279,7 +1275,7 @@ const EnergyMapCalculator = () => {
         
         {/* BMR Info Modal */}
         {showBmrInfoModal && (
-          <div className={`modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 ${closingBmrInfoModal ? 'closing' : ''}`}>
+          <div className={`modal-overlay fixed inset-0 !mt-0 bg-black/70 flex items-center justify-center z-50 p-4 ${closingBmrInfoModal ? 'closing' : ''}`}>
             <div className={`modal-content bg-slate-800 rounded-2xl p-6 max-w-lg w-full border border-slate-700 ${closingBmrInfoModal ? 'closing' : ''}`}>
               <div className="flex items-center gap-3 mb-4">
                 <Info size={28} className="text-blue-400" />
@@ -1343,7 +1339,7 @@ const EnergyMapCalculator = () => {
         
         {/* Age Picker Modal */}
         {showAgeModal && (
-          <div className={`modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 ${closingAgeModal ? 'closing' : ''}`}>
+          <div className={`modal-overlay fixed inset-0 !mt-0 bg-black/70 flex items-center justify-center z-50 p-4 ${closingAgeModal ? 'closing' : ''}`}>
             <div className={`modal-content bg-slate-800 rounded-2xl p-6 w-full max-w-sm border border-slate-700 ${closingAgeModal ? 'closing' : ''}`}>
               <h3 className="text-white font-bold text-xl mb-4 text-center">Select Age</h3>
               
@@ -1418,7 +1414,7 @@ const EnergyMapCalculator = () => {
         
         {/* Weight Picker Modal */}
         {showWeightModal && (
-          <div className={`modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 ${closingWeightModal ? 'closing' : ''}`}>
+          <div className={`modal-overlay fixed inset-0 !mt-0 bg-black/70 flex items-center justify-center z-50 p-4 ${closingWeightModal ? 'closing' : ''}`}>
             <div className={`modal-content bg-slate-800 rounded-2xl p-6 w-full max-w-sm border border-slate-700 ${closingWeightModal ? 'closing' : ''}`}>
               <h3 className="text-white font-bold text-xl mb-4 text-center">Select Weight (kg)</h3>
               
@@ -1493,7 +1489,7 @@ const EnergyMapCalculator = () => {
         
         {/* Training Type Selection Modal (Nested) */}
         {showTrainingTypeModal && (
-          <div className={`modal-overlay fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-3 md:p-4 ${closingTrainingTypeModal ? 'closing' : ''}`}>
+          <div className={`modal-overlay fixed inset-0 !mt-0 bg-black/80 flex items-center justify-center z-[60] p-3 md:p-4 ${closingTrainingTypeModal ? 'closing' : ''}`}>
             <div className={`modal-content bg-slate-800 rounded-2xl p-4 md:p-6 w-full md:max-w-2xl border border-slate-700 max-h-[90vh] overflow-y-auto ${closingTrainingTypeModal ? 'closing' : ''}`}>
               <div className="flex items-center justify-between mb-4 md:mb-6">
                 <h3 className="text-white font-bold text-xl md:text-2xl">Select Training Type</h3>
@@ -1566,7 +1562,7 @@ const EnergyMapCalculator = () => {
         
         {/* Custom Training Modal */}
         {showCustomTrainingModal && (
-          <div className={`modal-overlay fixed inset-0 bg-black/90 flex items-center justify-center z-[70] p-4 ${closingCustomTrainingModal ? 'closing' : ''}`}>
+          <div className={`modal-overlay fixed inset-0 !mt-0 bg-black/90 flex items-center justify-center z-[70] p-4 ${closingCustomTrainingModal ? 'closing' : ''}`}>
             <div className={`modal-content bg-slate-800 rounded-2xl p-6 w-full max-w-md border border-slate-700 ${closingCustomTrainingModal ? 'closing' : ''}`}>
               <h3 className="text-white font-bold text-xl mb-4 text-center">Custom Training Type</h3>
               
@@ -1635,7 +1631,7 @@ const EnergyMapCalculator = () => {
         
         {/* Settings Modal */}
         {showSettingsModal && (
-          <div className={`modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3 md:p-4 ${closingSettingsModal ? 'closing' : ''}`}>
+          <div className={`modal-overlay fixed inset-0 !mt-0 bg-black/70 flex items-center justify-center z-50 p-3 md:p-4 ${closingSettingsModal ? 'closing' : ''}`}>
             <div className={`modal-content bg-slate-800 rounded-2xl p-4 md:p-6 w-full md:max-w-2xl border border-slate-700 max-h-[90vh] overflow-y-auto ${closingSettingsModal ? 'closing' : ''}`}>
               <h3 className="text-white font-bold text-xl md:text-2xl mb-4 md:mb-6">Personal Settings</h3>
               
@@ -1752,7 +1748,7 @@ const EnergyMapCalculator = () => {
         
         {/* Step Ranges Modal */}
         {showStepRangesModal && (
-          <div className={`modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4 ${closingStepRangesModal ? 'closing' : ''}`}>
+          <div className={`modal-overlay fixed inset-0 !mt-0 bg-black/70 flex items-center justify-center z-[60] p-4 ${closingStepRangesModal ? 'closing' : ''}`}>
             <div className={`modal-content bg-slate-800 rounded-2xl p-6 max-w-md w-full border border-slate-700 max-h-[90vh] overflow-y-auto ${closingStepRangesModal ? 'closing' : ''}`}>
               <h3 className="text-white font-bold text-xl mb-4">Edit Step Count Ranges</h3>
               
@@ -1814,7 +1810,7 @@ const EnergyMapCalculator = () => {
         
         {/* Quick Training Settings Modal */}
         {showQuickTrainingModal && (
-          <div className={`modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 ${closingQuickTrainingModal ? 'closing' : ''}`}>
+          <div className={`modal-overlay fixed inset-0 !mt-0 bg-black/70 flex items-center justify-center z-50 p-4 ${closingQuickTrainingModal ? 'closing' : ''}`}>
             <div className={`modal-content bg-slate-800 rounded-2xl p-6 w-full max-w-md border border-slate-700 ${closingQuickTrainingModal ? 'closing' : ''}`}>
               <h3 className="text-white font-bold text-xl mb-4 text-center">Training Settings</h3>
               
@@ -1930,7 +1926,7 @@ const EnergyMapCalculator = () => {
         
         {/* Cardio Modal */}
         {showCardioModal && (
-          <div className={`modal-overlay fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 ${closingCardioModal ? 'closing' : ''}`}>
+          <div className={`modal-overlay fixed inset-0 !mt-0 bg-black/70 flex items-center justify-center z-50 p-4 ${closingCardioModal ? 'closing' : ''}`}>
             <div className={`modal-content bg-slate-800 rounded-2xl p-6 max-w-md w-full border border-slate-700 ${closingCardioModal ? 'closing' : ''}`}>
               <h3 className="text-white font-bold text-xl mb-4">Add Cardio Session</h3>
               
