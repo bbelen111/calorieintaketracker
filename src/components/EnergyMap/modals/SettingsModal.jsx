@@ -93,13 +93,15 @@ export const SettingsModal = ({
         <button
           onClick={onTrainingTypeClick}
           type="button"
-          className="w-full text-left p-3 md:p-4 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all active:scale-[0.98]"
+          className="relative w-full text-left p-3 md:p-4 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all active:scale-[0.98]"
         >
-          <div className="font-semibold text-base">{trainingTypes[userData.trainingType].label}</div>
-          <div className="text-xs md:text-sm opacity-90 mt-0.5">
-            {trainingTypes[userData.trainingType].caloriesPerHour} cal/hr • {trainingTypes[userData.trainingType].description}
+          <div className="min-w-0 pr-24 md:pr-28">
+            <div className="font-semibold text-base">{trainingTypes[userData.trainingType].label}</div>
+            <div className="text-xs md:text-sm opacity-90 mt-0.5">
+              {trainingTypes[userData.trainingType].caloriesPerHour} cal/hr • {trainingTypes[userData.trainingType].description}
+            </div>
           </div>
-          <div className="text-xs opacity-75 mt-2">Tap to change</div>
+          <span className="pointer-events-none absolute top-3 right-3 md:top-4 md:right-4 text-[11px] opacity-75 whitespace-nowrap">Tap to change</span>
         </button>
       </div>
 
@@ -191,17 +193,19 @@ const DailyActivitySection = ({ userData, bmr, onDailyActivityClick }) => {
       <button
         onClick={onDailyActivityClick}
         type="button"
-        className="w-full text-left p-3 md:p-4 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98]"
+        className="relative w-full text-left p-3 md:p-4 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98]"
       >
-        <div className="font-semibold text-base">Training Day • {trainingLabel}</div>
-        <div className="text-xs md:text-sm opacity-90">
-          NEAT offset: {formatMultiplier(trainingMultiplier)}
+        <div className="min-w-0 pr-24 md:pr-28">
+          <div className="font-semibold text-base">Training Day • {trainingLabel}</div>
+          <div className="text-xs md:text-sm opacity-90">
+            NEAT offset: {formatMultiplier(trainingMultiplier)}
+          </div>
+          <div className="font-semibold text-base mt-3">Rest Day • {restLabel}</div>
+          <div className="text-xs md:text-sm opacity-90">
+            NEAT offset: {formatMultiplier(restMultiplier)}
+          </div>
         </div>
-        <div className="font-semibold text-base mt-3">Rest Day • {restLabel}</div>
-        <div className="text-xs md:text-sm opacity-90">
-          NEAT offset: {formatMultiplier(restMultiplier)}
-        </div>
-        <div className="text-xs opacity-75 mt-2">Tap to adjust</div>
+        <span className="pointer-events-none absolute top-3 right-3 md:top-4 md:right-4 text-[11px] opacity-75 whitespace-nowrap">Tap to adjust</span>
       </button>
       {Number.isFinite(bmr) && (
         <div className="mt-2 space-y-1 text-xs text-slate-400">
