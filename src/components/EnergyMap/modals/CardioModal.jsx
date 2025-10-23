@@ -1,9 +1,10 @@
 import React from 'react';
-import { Check, Edit3 } from 'lucide-react';
+import { Check, ChevronsUpDown } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
 import { CardioTypePickerModal } from './CardioTypePickerModal';
 import { CustomCardioTypeModal } from './CustomCardioTypeModal';
+import { CardioDurationPickerModal } from './CardioDurationPickerModal';
 import { calculateCardioCalories } from '../../../utils/calculations';
 
 export const CardioModal = ({
@@ -39,6 +40,10 @@ export const CardioModal = ({
     session.averageHeartRate === '' || session.averageHeartRate == null
       ? ''
       : session.averageHeartRate;
+  const sessionDurationMinutes = React.useMemo(() => {
+    const numeric = Number(session.duration);
+    return Number.isFinite(numeric) ? numeric : 0;
+  }, [session.duration]);
 
   const {
     isOpen: isTypePickerOpen,
@@ -53,6 +58,13 @@ export const CardioModal = ({
     open: openCustomModal,
     requestClose: requestCustomModalClose,
     forceClose: forceCustomModalClose
+  } = useAnimatedModal(false);
+  const {
+    isOpen: isDurationPickerOpen,
+    isClosing: isDurationPickerClosing,
+    open: openDurationPicker,
+    requestClose: requestDurationPickerClose,
+    forceClose: forceDurationPickerClose
   } = useAnimatedModal(false);
   const [customName, setCustomName] = React.useState('');
   const [customMetLight, setCustomMetLight] = React.useState('');
@@ -81,8 +93,9 @@ export const CardioModal = ({
     if (!isOpen) {
       forceTypePickerClose();
       forceCustomModalClose();
+      forceDurationPickerClose();
     }
-  }, [forceCustomModalClose, forceTypePickerClose, isOpen]);
+  }, [forceCustomModalClose, forceDurationPickerClose, forceTypePickerClose, isOpen]);
 
   React.useEffect(() => {
     if (!isCustomModalOpen && !isCustomModalClosing) {
@@ -101,6 +114,30 @@ export const CardioModal = ({
     const sanitized = Number.isFinite(parsed) ? Math.max(parsed, 0) : 0;
     onChange({ ...session, duration: sanitized });
   };
+
+  const handleDurationPickerChange = React.useCallback(
+    (minutes) => {
+      if (!Number.isFinite(minutes)) {
+        return;
+      }
+
+      const currentValue = Number(session.duration);
+      if (session.duration !== '' && Number.isFinite(currentValue) && currentValue === minutes) {
+        return;
+      }
+
+      onChange({ ...session, duration: minutes });
+    },
+    [onChange, session]
+  );
+
+  const handleDurationPickerSave = React.useCallback(
+    (minutes) => {
+      handleDurationPickerChange(minutes);
+      requestDurationPickerClose();
+    },
+    [handleDurationPickerChange, requestDurationPickerClose]
+  );
 
   const handleEffortTypeChange = (nextType) => {
     if (nextType === effortType) {
@@ -231,13 +268,23 @@ export const CardioModal = ({
 
           <div>
             <label className="text-slate-300 text-sm block mb-2">Duration (minutes)</label>
-            <input
-              type="number"
-              min="0"
-              value={session.duration === '' ? '' : session.duration}
-              onChange={handleDurationChange}
-              className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none"
-            />
+            <div className="relative">
+              <input
+                type="number"
+                min="0"
+                value={session.duration === '' ? '' : session.duration}
+                onChange={handleDurationChange}
+                className="w-full bg-slate-700 text-white px-4 pr-14 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={openDurationPicker}
+                className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-600/80 hover:bg-slate-500 text-white transition focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-800"
+                aria-label="Open duration picker"
+              >
+                <ChevronsUpDown size={16} />
+              </button>
+            </div>
           </div>
 
           <div>
@@ -328,6 +375,15 @@ export const CardioModal = ({
           </button>
         </div>
       </ModalShell>
+
+      <CardioDurationPickerModal
+        isOpen={isDurationPickerOpen}
+        isClosing={isDurationPickerClosing}
+        minutes={sessionDurationMinutes}
+        onChange={handleDurationPickerChange}
+        onCancel={requestDurationPickerClose}
+        onSave={handleDurationPickerSave}
+      />
 
       <CardioTypePickerModal
         isOpen={isTypePickerOpen}
