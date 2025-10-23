@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Flame, Plus, Search, Trash2 } from 'lucide-react';
+import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
 import { ModalShell } from '../common/ModalShell';
+import { ConfirmActionModal } from './ConfirmActionModal';
 
 export const CardioTypePickerModal = ({
   isOpen,
@@ -14,12 +16,28 @@ export const CardioTypePickerModal = ({
   onDeleteCustomCardioType
 }) => {
   const [query, setQuery] = useState('');
+  const [pendingDeleteKey, setPendingDeleteKey] = useState(null);
+  const {
+    isOpen: isConfirmOpen,
+    isClosing: isConfirmClosing,
+    open: openConfirm,
+    requestClose: requestConfirmClose,
+    forceClose: forceConfirmClose
+  } = useAnimatedModal(false);
 
   useEffect(() => {
     if (!isOpen) {
       setQuery('');
+      forceConfirmClose();
+      setPendingDeleteKey(null);
     }
-  }, [isOpen]);
+  }, [forceConfirmClose, isOpen]);
+
+  useEffect(() => {
+    if (!isConfirmOpen && !isConfirmClosing) {
+      setPendingDeleteKey(null);
+    }
+  }, [isConfirmClosing, isConfirmOpen]);
 
   const filteredTypes = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -128,7 +146,11 @@ export const CardioTypePickerModal = ({
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
-                          onDeleteCustomCardioType?.(key);
+                          if (!onDeleteCustomCardioType) {
+                            return;
+                          }
+                          setPendingDeleteKey(key);
+                          openConfirm();
                         }}
                         className="flex-shrink-0 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
                         aria-label="Delete custom cardio type"
@@ -153,6 +175,25 @@ export const CardioTypePickerModal = ({
           </button>
         </div>
       </div>
+
+      <ConfirmActionModal
+        isOpen={isConfirmOpen}
+        isClosing={isConfirmClosing}
+        title="Delete cardio type?"
+        description={pendingDeleteKey ? `This will remove ${cardioTypes[pendingDeleteKey]?.label ?? 'the selected option'} from your library. Any sessions using it will revert to a default.` : 'This will remove the selected cardio type.'}
+        confirmLabel="Delete"
+        cancelLabel="Keep"
+        tone="danger"
+        onConfirm={() => {
+          if (pendingDeleteKey) {
+            onDeleteCustomCardioType?.(pendingDeleteKey);
+          }
+          requestConfirmClose();
+        }}
+        onCancel={() => {
+          requestConfirmClose();
+        }}
+      />
     </ModalShell>
   );
 };
