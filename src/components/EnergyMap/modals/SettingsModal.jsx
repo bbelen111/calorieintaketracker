@@ -8,6 +8,7 @@ export const SettingsModal = ({
   isClosing,
   userData,
   onChange,
+  bmr,
   trainingTypes,
   trainingCalories,
   onTrainingTypeClick,
@@ -79,6 +80,12 @@ export const SettingsModal = ({
         </div>
       </div>
 
+      <DailyActivitySection
+        userData={userData}
+        bmr={bmr}
+        onDailyActivityClick={onDailyActivityClick}
+      />
+
       <div>
         <label className="text-slate-300 text-sm block mb-2">Training Type</label>
         <button
@@ -94,11 +101,6 @@ export const SettingsModal = ({
         </button>
       </div>
 
-      <DailyActivitySection
-        userData={userData}
-        onDailyActivityClick={onDailyActivityClick}
-      />
-
       <div>
         <label className="text-slate-300 text-sm block mb-2">Training Duration (hours)</label>
         <input
@@ -108,7 +110,7 @@ export const SettingsModal = ({
           onChange={(event) => onChange('trainingDuration', parseFloat(event.target.value) || 0)}
           className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-lg"
         />
-        <p className="text-slate-400 text-xs mt-1">Total burn: ~{Math.round(trainingCalories)} calories</p>
+        <p className="text-slate-400 text-xs mt-1">Training session burn: ~{Math.round(trainingCalories)} calories</p>
       </div>
     </div>
 
@@ -144,7 +146,7 @@ const formatMultiplier = (value) => {
 
 const defaultPresetKeys = { training: 'default', rest: 'default' };
 
-const DailyActivitySection = ({ userData, onDailyActivityClick }) => {
+const DailyActivitySection = ({ userData, bmr, onDailyActivityClick }) => {
   const presets = userData.activityPresets ?? defaultPresetKeys;
   const multipliers = userData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS;
 
@@ -160,9 +162,16 @@ const DailyActivitySection = ({ userData, onDailyActivityClick }) => {
   const trainingMultiplier = multipliers.training ?? DEFAULT_ACTIVITY_MULTIPLIERS.training;
   const restMultiplier = multipliers.rest ?? DEFAULT_ACTIVITY_MULTIPLIERS.rest;
 
+  const trainingBaseline = Number.isFinite(bmr)
+    ? Math.round(bmr + bmr * trainingMultiplier)
+    : null;
+  const restBaseline = Number.isFinite(bmr)
+    ? Math.round(bmr + bmr * restMultiplier)
+    : null;
+
   return (
     <div>
-  <label className="text-slate-300 text-sm block mb-2">Daily NEAT (Non-Exercise Activity)</label>
+      <label className="text-slate-300 text-sm block mb-2">Daily NEAT (Non-Exercise Activity)</label>
       <button
         onClick={onDailyActivityClick}
         type="button"
@@ -178,6 +187,16 @@ const DailyActivitySection = ({ userData, onDailyActivityClick }) => {
         </div>
         <div className="text-xs opacity-75 mt-2">Tap to adjust</div>
       </button>
+      {Number.isFinite(bmr) && (
+        <div className="mt-2 space-y-1 text-xs text-slate-400">
+          {restBaseline !== null && (
+            <p>Rest day baseline: ~{restBaseline.toLocaleString()} cal (BMR + NEAT)</p>
+          )}
+          {trainingBaseline !== null && (
+            <p>Training day baseline: ~{trainingBaseline.toLocaleString()} cal (BMR + NEAT)</p>
+          )}
+        </div>
+      )}
     </div>
   );
 };

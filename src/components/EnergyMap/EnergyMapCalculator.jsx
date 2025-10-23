@@ -590,6 +590,7 @@ export const EnergyMapCalculator = () => {
         isClosing={settingsModal.isClosing}
         userData={userData}
         onChange={handleUserDataChange}
+        bmr={bmr}
         trainingTypes={trainingTypes}
         trainingCalories={trainingCalories}
         onTrainingTypeClick={openTrainingTypeModal}

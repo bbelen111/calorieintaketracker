@@ -64,7 +64,7 @@ export const CalorieBreakdownModal = ({
           </div>
           <div className="flex items-center justify-between bg-slate-700/40 rounded-lg px-4 py-3">
             <span className="text-slate-400">
-              Daily Activity (~{Math.round(breakdown.activityMultiplier * 100)}%)
+              Daily Activity NEAT (~{Math.round(breakdown.activityMultiplier * 100)}%)
             </span>
             <span className="text-white font-semibold">{breakdown.baseActivity.toLocaleString()} cal</span>
           </div>
