@@ -23,6 +23,7 @@ import { StepRangesModal } from './modals/StepRangesModal';
 import { QuickTrainingModal } from './modals/QuickTrainingModal';
 import { TrainingDurationPickerModal } from './modals/TrainingDurationPickerModal';
 import { CardioModal } from './modals/CardioModal';
+import { CardioFavouritesModal } from './modals/CardioFavouritesModal';
 import { CalorieBreakdownModal } from './modals/CalorieBreakdownModal';
 import { DailyActivityModal } from './modals/DailyActivityModal';
 import { DailyActivityEditorModal } from './modals/DailyActivityEditorModal';
@@ -43,12 +44,54 @@ const defaultCardioSession = {
   averageHeartRate: ''
 };
 
+const sanitizeCardioDraft = (draft) => {
+  if (!draft) {
+    return null;
+  }
+
+  const parsedDuration = Number.parseInt(draft.duration, 10);
+  const duration = Number.isFinite(parsedDuration) ? Math.max(parsedDuration, 0) : 0;
+
+  if (!duration) {
+    return null;
+  }
+
+  const effortType = draft.effortType ?? 'intensity';
+  const session = {
+    ...defaultCardioSession,
+    ...draft,
+    duration,
+    intensity: draft.intensity ?? 'moderate',
+    effortType
+  };
+
+  if (effortType === 'heartRate') {
+    const parsedHeartRate = Number.parseInt(draft.averageHeartRate, 10);
+    const heartRate = Number.isFinite(parsedHeartRate) ? Math.max(parsedHeartRate, 0) : 0;
+
+    if (!heartRate) {
+      return null;
+    }
+
+    session.averageHeartRate = heartRate;
+  } else if (session.averageHeartRate !== undefined) {
+    delete session.averageHeartRate;
+  }
+
+  if (session.id !== undefined) {
+    delete session.id;
+  }
+
+  return session;
+};
+
 export const EnergyMapCalculator = () => {
   const {
     userData,
     trainingTypes,
     cardioTypes,
     customCardioTypes,
+    cardioFavourites,
     bmr,
     trainingCalories,
     totalCardioBurn,
@@ -58,6 +101,8 @@ export const EnergyMapCalculator = () => {
   addCardioSession,
   removeCardioSession,
   updateCardioSession,
+    addCardioFavourite,
+    removeCardioFavourite,
     updateTrainingType,
     addCustomCardioType,
     removeCustomCardioType,
@@ -87,6 +132,7 @@ export const EnergyMapCalculator = () => {
   const [newStepRange, setNewStepRange] = useState('');
   const [selectedStepRange, setSelectedStepRange] = useState(null);
   const [cardioDraft, setCardioDraft] = useState(defaultCardioSession);
+  const [favouriteDraft, setFavouriteDraft] = useState(defaultCardioSession);
   const [cardioModalMode, setCardioModalMode] = useState('add');
   const [activityEditorDay, setActivityEditorDay] = useState(null);
   const [customActivityPercent, setCustomActivityPercent] = useState(
@@ -112,6 +158,8 @@ export const EnergyMapCalculator = () => {
   const quickTrainingModal = useAnimatedModal();
   const durationPickerModal = useAnimatedModal();
   const cardioModal = useAnimatedModal();
+  const cardioFavouritesModal = useAnimatedModal();
+  const cardioFavouriteEditorModal = useAnimatedModal();
   const calorieBreakdownModal = useAnimatedModal();
 
   useEffect(() => {
@@ -459,33 +507,9 @@ export const EnergyMapCalculator = () => {
   );
 
   const handleCardioSave = useCallback(() => {
-    const parsedDuration = Number.parseInt(cardioDraft.duration, 10);
-    const sanitizedDuration = Number.isFinite(parsedDuration) ? Math.max(parsedDuration, 0) : 0;
-    if (!sanitizedDuration) {
+    const sessionToSave = sanitizeCardioDraft(cardioDraft);
+    if (!sessionToSave) {
       return;
-    }
-
-    let sanitizedHeartRate = '';
-    if (cardioDraft.effortType === 'heartRate') {
-      const parsedHeartRate = Number.parseInt(cardioDraft.averageHeartRate, 10);
-      const heartRateValue = Number.isFinite(parsedHeartRate) ? Math.max(parsedHeartRate, 0) : 0;
-      if (!heartRateValue) {
-        return;
-      }
-      sanitizedHeartRate = heartRateValue;
-    }
-
-    const sessionToSave = {
-      ...cardioDraft,
-      duration: sanitizedDuration,
-      intensity: cardioDraft.intensity ?? 'moderate',
-      effortType: cardioDraft.effortType ?? 'intensity'
-    };
-
-    if (sessionToSave.effortType === 'heartRate') {
-      sessionToSave.averageHeartRate = sanitizedHeartRate;
-    } else {
-      delete sessionToSave.averageHeartRate;
     }
 
     if (editingCardioId != null) {
@@ -496,6 +520,79 @@ export const EnergyMapCalculator = () => {
 
     cardioModal.requestClose();
   }, [addCardioSession, cardioDraft, cardioModal, editingCardioId, updateCardioSession]);
+
+  const handleFavouriteSave = useCallback(() => {
+    const favouriteToSave = sanitizeCardioDraft(favouriteDraft);
+    if (!favouriteToSave) {
+      return;
+    }
+
+    addCardioFavourite(favouriteToSave);
+    cardioFavouriteEditorModal.requestClose();
+  }, [addCardioFavourite, cardioFavouriteEditorModal, favouriteDraft]);
+
+  const handleApplyFavourite = useCallback(
+    (favourite) => {
+      const sanitized = sanitizeCardioDraft(favourite);
+      if (!sanitized) {
+        return;
+      }
+
+      const effortType = sanitized.effortType ?? 'intensity';
+      setCardioDraft({
+        ...defaultCardioSession,
+        ...sanitized,
+        averageHeartRate: effortType === 'heartRate' ? sanitized.averageHeartRate ?? '' : ''
+      });
+
+      if (cardioModalMode === 'edit' && editingCardioId != null) {
+        updateCardioSession(editingCardioId, sanitized);
+      } else {
+        addCardioSession(sanitized);
+      }
+
+      cardioFavouritesModal.requestClose();
+      cardioModal.requestClose();
+    },
+    [
+      addCardioSession,
+      cardioFavouritesModal,
+      cardioModal,
+      cardioModalMode,
+      editingCardioId,
+      updateCardioSession
+    ]
+  );
+
+  const handleOpenCardioFavourites = useCallback(() => {
+    cardioFavouritesModal.open();
+  }, [cardioFavouritesModal]);
+
+  const handleCreateFavourite = useCallback(
+    (template) => {
+      const source = template ?? cardioDraft;
+      const effortType = source?.effortType ?? 'intensity';
+      const nextDraft = {
+        ...defaultCardioSession,
+        ...source,
+        effortType,
+        averageHeartRate: effortType === 'heartRate' ? source?.averageHeartRate ?? '' : ''
+      };
+      if (nextDraft.id !== undefined) {
+        delete nextDraft.id;
+      }
+      setFavouriteDraft(nextDraft);
+      cardioFavouriteEditorModal.open();
+    },
+    [cardioDraft, cardioFavouriteEditorModal]
+  );
+
+  const handleRemoveFavourite = useCallback(
+    (id) => {
+      removeCardioFavourite(id);
+    },
+    [removeCardioFavourite]
+  );
 
   const handleGoalSave = useCallback(() => {
     setSelectedGoal(tempSelectedGoal);
@@ -567,6 +664,12 @@ export const EnergyMapCalculator = () => {
     }
   }, [cardioModal.isClosing, cardioModal.isOpen]);
 
+  useEffect(() => {
+    if (!cardioFavouriteEditorModal.isOpen && !cardioFavouriteEditorModal.isClosing) {
+      setFavouriteDraft(defaultCardioSession);
+    }
+  }, [cardioFavouriteEditorModal.isClosing, cardioFavouriteEditorModal.isOpen]);
+
   const hasCardioSessions = userData.cardioSessions.length > 0;
   const activityPresets = useMemo(
     () => ({
@@ -583,6 +686,8 @@ export const EnergyMapCalculator = () => {
     }),
     [userData.activityMultipliers]
   );
+
+  const showFavouritesButton = cardioModalMode !== 'edit' && !cardioFavouriteEditorModal.isOpen;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 md:p-6">
@@ -828,7 +933,41 @@ export const EnergyMapCalculator = () => {
         userWeight={userData.weight}
         userAge={userData.age}
         userGender={userData.gender}
+        onOpenFavourites={handleOpenCardioFavourites}
+        showFavouritesButton={showFavouritesButton}
         isEditing={cardioModalMode === 'edit'}
+      />
+
+      <CardioFavouritesModal
+        isOpen={cardioFavouritesModal.isOpen}
+        isClosing={cardioFavouritesModal.isClosing}
+        favourites={cardioFavourites}
+        cardioTypes={cardioTypes}
+        currentSession={cardioDraft}
+        onSelectFavourite={handleApplyFavourite}
+        onCreateFavourite={handleCreateFavourite}
+        onDeleteFavourite={handleRemoveFavourite}
+        onClose={cardioFavouritesModal.requestClose}
+        calculateCardioCalories={calculateCardioSessionCalories}
+      />
+
+      <CardioModal
+        isOpen={cardioFavouriteEditorModal.isOpen}
+        isClosing={cardioFavouriteEditorModal.isClosing}
+        cardioTypes={cardioTypes}
+        customCardioTypes={customCardioTypes}
+        onAddCustomCardioType={addCustomCardioType}
+        onDeleteCustomCardioType={removeCustomCardioType}
+        session={favouriteDraft}
+        onChange={setFavouriteDraft}
+        onCancel={cardioFavouriteEditorModal.requestClose}
+        onSave={handleFavouriteSave}
+        userWeight={userData.weight}
+        userAge={userData.age}
+        userGender={userData.gender}
+        showFavouritesButton={false}
+        mode="favourite"
+        isEditing={false}
       />
     </div>
   );

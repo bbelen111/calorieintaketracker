@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, ChevronsUpDown } from 'lucide-react';
+import { Check, ChevronsUpDown, Star } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
 import { CardioTypePickerModal } from './CardioTypePickerModal';
@@ -20,10 +20,22 @@ export const CardioModal = ({
   onSave,
   userWeight,
   userAge,
-  userGender
+  userGender,
+  onOpenFavourites,
+  showFavouritesButton = false,
+  mode = 'session',
+  isEditing: isEditingProp
 }) => {
   const effortType = session.effortType ?? 'intensity';
-  const isEditing = session?.id != null;
+  const isEditing = Boolean(isEditingProp ?? (session?.id != null));
+  const isFavouriteMode = mode === 'favourite';
+  const headerTitle = isFavouriteMode
+    ? 'Add Favourite Cardio Session'
+    : isEditing
+    ? 'Edit Cardio Session'
+    : 'Add Cardio Session';
+  const saveLabel = isFavouriteMode ? 'Save Favourite' : 'Save';
+  const overlayClassName = isFavouriteMode ? 'z-[80]' : '';
   const estimatedBurn = calculateCardioCalories(
     session,
     { weight: userWeight, age: userAge, gender: userGender },
@@ -236,11 +248,24 @@ export const CardioModal = ({
 
   return (
     <>
-      <ModalShell isOpen={isOpen} isClosing={isClosing} contentClassName="p-6 max-w-md w-full">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-white font-bold text-xl">
-            {isEditing ? 'Edit Cardio Session' : 'Add Cardio Session'}
-          </h3>
+      <ModalShell
+        isOpen={isOpen}
+        isClosing={isClosing}
+        contentClassName="p-6 max-w-md w-full"
+        overlayClassName={overlayClassName}
+      >
+        <div className="flex items-center justify-between mb-4 gap-3">
+          <h3 className="text-white font-bold text-xl">{headerTitle}</h3>
+          {showFavouritesButton && typeof onOpenFavourites === 'function' && (
+            <button
+              type="button"
+              onClick={onOpenFavourites}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-700 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-100 transition-colors hover:border-amber-400 hover:text-white"
+            >
+              <Star size={14} />
+              Favourites
+            </button>
+          )}
         </div>
 
         <div className="space-y-4">
@@ -371,7 +396,7 @@ export const CardioModal = ({
             }`}
           >
             <Check size={20} />
-            Save
+            {saveLabel}
           </button>
         </div>
       </ModalShell>

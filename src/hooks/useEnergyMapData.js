@@ -110,6 +110,19 @@ export const useEnergyMapData = () => {
     }));
   }, []);
 
+  const addCardioFavourite = useCallback((session) => {
+    setUserData((prev) => ({
+      ...prev,
+      cardioFavourites: [
+        ...(prev.cardioFavourites ?? []),
+        {
+          ...session,
+          id: Date.now()
+        }
+      ]
+    }));
+  }, []);
+
   const updateCardioSession = useCallback((id, updates) => {
     if (id == null) {
       return;
@@ -127,6 +140,13 @@ export const useEnergyMapData = () => {
     setUserData((prev) => ({
       ...prev,
       cardioSessions: prev.cardioSessions.filter((session) => session.id !== id)
+    }));
+  }, []);
+
+  const removeCardioFavourite = useCallback((id) => {
+    setUserData((prev) => ({
+      ...prev,
+      cardioFavourites: (prev.cardioFavourites ?? []).filter((session) => session.id !== id)
     }));
   }, []);
 
@@ -221,6 +241,7 @@ export const useEnergyMapData = () => {
     trainingTypes: resolvedTrainingTypes,
     cardioTypes: resolvedCardioTypes,
     customCardioTypes: userData.customCardioTypes ?? {},
+    cardioFavourites: userData.cardioFavourites ?? [],
     bmr,
     trainingCalories,
     totalCardioBurn,
@@ -230,6 +251,8 @@ export const useEnergyMapData = () => {
     addCardioSession,
   removeCardioSession,
   updateCardioSession,
+    addCardioFavourite,
+    removeCardioFavourite,
     updateTrainingType,
     addCustomCardioType,
     removeCustomCardioType,

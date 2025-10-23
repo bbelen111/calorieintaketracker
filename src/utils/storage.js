@@ -64,6 +64,7 @@ export const getDefaultEnergyMapData = () => ({
   trainingDuration: 2,
   stepRanges: ['<10k', '10k', '12k', '14k', '16k', '18k', '20k', '>20k'],
   cardioSessions: [],
+  cardioFavourites: [],
   customCardioTypes: {},
   trainingTypeOverrides: {
     bodybuilding: {
@@ -146,6 +147,12 @@ function mergeWithDefaults(data) {
           ...session,
           effortType: session?.effortType ?? 'intensity'
         }))
-      : defaults.cardioSessions
+      : defaults.cardioSessions,
+    cardioFavourites: Array.isArray(data.cardioFavourites)
+      ? data.cardioFavourites.map((session) => ({
+          ...session,
+          effortType: session?.effortType ?? 'intensity'
+        }))
+      : defaults.cardioFavourites
   };
 }
