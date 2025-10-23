@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus } from 'lucide-react';
+import { Check, Edit3 } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
 import { CardioTypePickerModal } from './CardioTypePickerModal';
@@ -22,6 +22,7 @@ export const CardioModal = ({
   userGender
 }) => {
   const effortType = session.effortType ?? 'intensity';
+  const isEditing = session?.id != null;
   const estimatedBurn = calculateCardioCalories(
     session,
     { weight: userWeight, age: userAge, gender: userGender },
@@ -199,7 +200,11 @@ export const CardioModal = ({
   return (
     <>
       <ModalShell isOpen={isOpen} isClosing={isClosing} contentClassName="p-6 max-w-md w-full">
-        <h3 className="text-white font-bold text-xl mb-4">Add Cardio Session</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-white font-bold text-xl">
+            {isEditing ? 'Edit Cardio Session' : 'Add Cardio Session'}
+          </h3>
+        </div>
 
         <div className="space-y-4">
           <div>
@@ -304,11 +309,17 @@ export const CardioModal = ({
             type="button"
             disabled={!canSave}
             className={`flex-1 text-white px-4 py-2 rounded-lg transition-all flex items-center justify-center gap-2 ${
-              canSave ? 'bg-red-600 hover:bg-red-500' : 'bg-red-600/60 cursor-not-allowed opacity-70'
+              canSave
+                ? isEditing
+                  ? 'bg-emerald-600 hover:bg-emerald-500'
+                  : 'bg-red-600 hover:bg-red-500'
+                : isEditing
+                ? 'bg-emerald-600/60 cursor-not-allowed opacity-70'
+                : 'bg-red-600/60 cursor-not-allowed opacity-70'
             }`}
           >
-            <Plus size={20} />
-            Add Session
+            <Check size={20} />
+            Save
           </button>
         </div>
       </ModalShell>

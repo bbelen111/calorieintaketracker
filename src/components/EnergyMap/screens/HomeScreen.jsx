@@ -30,6 +30,7 @@ export const HomeScreen = ({
   cardioTypes,
   hasCardioSessions,
   onAddCardioClick,
+  onEditCardioSession,
   cardioSessions,
   calculateCardioCalories,
   onRemoveCardioSession,
@@ -264,7 +265,7 @@ export const HomeScreen = ({
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -12, scale: 0.95 }}
                         transition={{ duration: 0.25, ease: 'easeOut' }}
-                        className="bg-slate-700 rounded-lg p-4 flex justify-between items-center shadow-lg shadow-slate-900/20"
+                        className="bg-slate-700 rounded-lg p-4 flex justify-between items-start gap-4 shadow-lg shadow-slate-900/20"
                       >
                         <div>
                           <p className="text-white font-semibold">{label}</p>
@@ -277,15 +278,26 @@ export const HomeScreen = ({
                             </p>
                           )}
                         </div>
-                        <motion.button
-                          onClick={() => onRemoveCardioSession(session.id)}
-                          type="button"
-                          className="text-red-400 hover:text-red-300 transition-all"
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                        >
-                          <Trash2 size={20} />
-                        </motion.button>
+                        <div className="flex items-end gap-3 pt-1">
+                          <motion.button
+                            onClick={() => onEditCardioSession?.(session.id)}
+                            type="button"
+                            className="text-slate-200 hover:text-white transition-all"
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                          >
+                            <Edit3 size={22} />
+                          </motion.button>
+                          <motion.button
+                            onClick={() => onRemoveCardioSession(session.id)}
+                            type="button"
+                            className="text-red-400 hover:text-red-300 transition-all"
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                          >
+                            <Trash2 size={22} />
+                          </motion.button>
+                        </div>
                       </motion.div>
                     );
                   })}

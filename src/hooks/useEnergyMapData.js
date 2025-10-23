@@ -110,6 +110,19 @@ export const useEnergyMapData = () => {
     }));
   }, []);
 
+  const updateCardioSession = useCallback((id, updates) => {
+    if (id == null) {
+      return;
+    }
+
+    setUserData((prev) => ({
+      ...prev,
+      cardioSessions: prev.cardioSessions.map((session) =>
+        session.id === id ? { ...session, ...updates, id: session.id } : session
+      )
+    }));
+  }, []);
+
   const removeCardioSession = useCallback((id) => {
     setUserData((prev) => ({
       ...prev,
@@ -215,7 +228,8 @@ export const useEnergyMapData = () => {
     addStepRange,
     removeStepRange,
     addCardioSession,
-    removeCardioSession,
+  removeCardioSession,
+  updateCardioSession,
     updateTrainingType,
     addCustomCardioType,
     removeCustomCardioType,

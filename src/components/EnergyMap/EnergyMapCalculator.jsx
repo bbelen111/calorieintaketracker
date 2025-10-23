@@ -55,8 +55,9 @@ export const EnergyMapCalculator = () => {
     handleUserDataChange,
     addStepRange,
     removeStepRange,
-    addCardioSession,
-    removeCardioSession,
+  addCardioSession,
+  removeCardioSession,
+  updateCardioSession,
     updateTrainingType,
     addCustomCardioType,
     removeCustomCardioType,
@@ -86,6 +87,7 @@ export const EnergyMapCalculator = () => {
   const [newStepRange, setNewStepRange] = useState('');
   const [selectedStepRange, setSelectedStepRange] = useState(null);
   const [cardioDraft, setCardioDraft] = useState(defaultCardioSession);
+  const [cardioModalMode, setCardioModalMode] = useState('add');
   const [activityEditorDay, setActivityEditorDay] = useState(null);
   const [customActivityPercent, setCustomActivityPercent] = useState(
     Math.round(DEFAULT_ACTIVITY_MULTIPLIERS.training * 100)
@@ -93,6 +95,7 @@ export const EnergyMapCalculator = () => {
   const [durationPickerValue, setDurationPickerValue] = useState(userData.trainingDuration);
   const [durationPickerTitle, setDurationPickerTitle] = useState('Training Duration');
   const durationPickerOnSaveRef = useRef(null);
+  const [editingCardioId, setEditingCardioId] = useState(null);
 
   const goalModal = useAnimatedModal();
   const bmrModal = useAnimatedModal();
@@ -386,9 +389,37 @@ export const EnergyMapCalculator = () => {
   }, [activityEditorDay, customActivityPercent, dailyActivityCustomModal, handleUserDataChange, userData]);
 
   const openCardioModal = useCallback(() => {
+    setEditingCardioId(null);
     setCardioDraft(defaultCardioSession);
+    setCardioModalMode('add');
     cardioModal.open();
   }, [cardioModal]);
+
+  const handleEditCardioSession = useCallback(
+    (sessionId) => {
+      const existing = userData.cardioSessions.find((session) => session.id === sessionId);
+      if (!existing) {
+        return;
+      }
+
+      const normalizedEffortType = existing.effortType ?? 'intensity';
+      const draft = {
+        ...defaultCardioSession,
+        ...existing,
+        type: existing.type ?? defaultCardioSession.type,
+        duration: existing.duration ?? defaultCardioSession.duration,
+        intensity: existing.intensity ?? defaultCardioSession.intensity,
+        effortType: normalizedEffortType,
+        averageHeartRate: normalizedEffortType === 'heartRate' ? existing.averageHeartRate ?? '' : ''
+      };
+
+      setCardioDraft(draft);
+      setEditingCardioId(sessionId);
+      setCardioModalMode('edit');
+      cardioModal.open();
+    },
+    [cardioModal, userData.cardioSessions]
+  );
 
   const handleAddStepRange = useCallback(() => {
     const trimmed = newStepRange.trim();
@@ -457,10 +488,14 @@ export const EnergyMapCalculator = () => {
       delete sessionToSave.averageHeartRate;
     }
 
-    addCardioSession(sessionToSave);
-    setCardioDraft(defaultCardioSession);
+    if (editingCardioId != null) {
+      updateCardioSession(editingCardioId, sessionToSave);
+    } else {
+      addCardioSession(sessionToSave);
+    }
+
     cardioModal.requestClose();
-  }, [addCardioSession, cardioDraft, cardioModal]);
+  }, [addCardioSession, cardioDraft, cardioModal, editingCardioId, updateCardioSession]);
 
   const handleGoalSave = useCallback(() => {
     setSelectedGoal(tempSelectedGoal);
@@ -524,6 +559,14 @@ export const EnergyMapCalculator = () => {
     settingsModal.requestClose();
   }, [settingsModal]);
 
+  useEffect(() => {
+    if (!cardioModal.isOpen && !cardioModal.isClosing) {
+      setCardioDraft(defaultCardioSession);
+      setEditingCardioId(null);
+      setCardioModalMode('add');
+    }
+  }, [cardioModal.isClosing, cardioModal.isOpen]);
+
   const hasCardioSessions = userData.cardioSessions.length > 0;
   const activityPresets = useMemo(
     () => ({
@@ -573,6 +616,7 @@ export const EnergyMapCalculator = () => {
                   cardioTypes={cardioTypes}
                   hasCardioSessions={hasCardioSessions}
                   onAddCardioClick={openCardioModal}
+                  onEditCardioSession={handleEditCardioSession}
                   cardioSessions={userData.cardioSessions}
                   calculateCardioCalories={calculateCardioSessionCalories}
                   onRemoveCardioSession={removeCardioSession}
@@ -784,6 +828,7 @@ export const EnergyMapCalculator = () => {
         userWeight={userData.weight}
         userAge={userData.age}
         userGender={userData.gender}
+        isEditing={cardioModalMode === 'edit'}
       />
     </div>
   );
