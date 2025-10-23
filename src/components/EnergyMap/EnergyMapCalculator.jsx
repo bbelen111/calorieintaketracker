@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Home, Map, BarChart3 } from 'lucide-react';
+import { Home, Map, BarChart3, ClipboardList, Target } from 'lucide-react';
 import { goals } from '../../constants/goals';
 import { DEFAULT_ACTIVITY_MULTIPLIERS } from '../../constants/activityPresets';
 import { trainingTypes as presetTrainingTypes } from '../../constants/trainingTypes';
@@ -8,6 +8,8 @@ import { useSwipeableScreens } from '../../hooks/useSwipeableScreens';
 import { useAnimatedModal } from '../../hooks/useAnimatedModal';
 import { loadSelectedDay, saveSelectedDay } from '../../utils/storage';
 import { ScreenTabs } from './common/ScreenTabs';
+import { LogbookScreen } from './screens/LogbookScreen';
+import { TrackerScreen } from './screens/TrackerScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import { CalorieMapScreen } from './screens/CalorieMapScreen';
 import { InsightsScreen } from './screens/InsightsScreen';
@@ -31,6 +33,8 @@ import { DailyActivityCustomModal } from './modals/DailyActivityCustomModal';
 
 const MODAL_CLOSE_DELAY = 200;
 const screenTabs = [
+  { key: 'logbook', label: 'Logbook', icon: ClipboardList },
+  { key: 'tracker', label: 'Tracker', icon: Target },
   { key: 'home', label: 'Home', icon: Home },
   { key: 'calorie-map', label: 'Calorie Map', icon: Map },
   { key: 'insights', label: 'Insights', icon: BarChart3 }
@@ -701,6 +705,14 @@ export const EnergyMapCalculator = () => {
             {...handlers}
           >
             <div className="flex w-full" style={sliderStyle}>
+              <div className="w-full flex-shrink-0 px-2 sm:px-4 md:px-6">
+                <LogbookScreen />
+              </div>
+
+              <div className="w-full flex-shrink-0 px-2 sm:px-4 md:px-6">
+                <TrackerScreen />
+              </div>
+
               <div className="w-full flex-shrink-0 px-2 sm:px-4 md:px-6">
                 <HomeScreen
                   userData={userData}
