@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Home, Map, BarChart3 } from 'lucide-react';
 import { goals } from '../../constants/goals';
+import { DEFAULT_ACTIVITY_MULTIPLIERS } from '../../constants/activityPresets';
 import { trainingTypes as presetTrainingTypes } from '../../constants/trainingTypes';
 import { useEnergyMapData } from '../../hooks/useEnergyMapData';
 import { useSwipeableScreens } from '../../hooks/useSwipeableScreens';
@@ -21,6 +22,9 @@ import { StepRangesModal } from './modals/StepRangesModal';
 import { QuickTrainingModal } from './modals/QuickTrainingModal';
 import { CardioModal } from './modals/CardioModal';
 import { CalorieBreakdownModal } from './modals/CalorieBreakdownModal';
+import { DailyActivityModal } from './modals/DailyActivityModal';
+import { DailyActivityEditorModal } from './modals/DailyActivityEditorModal';
+import { DailyActivityCustomModal } from './modals/DailyActivityCustomModal';
 
 const MODAL_CLOSE_DELAY = 200;
 const screenTabs = [
@@ -74,6 +78,10 @@ export const EnergyMapCalculator = () => {
   const [newStepRange, setNewStepRange] = useState('');
   const [selectedStepRange, setSelectedStepRange] = useState(null);
   const [cardioDraft, setCardioDraft] = useState(defaultCardioSession);
+  const [activityEditorDay, setActivityEditorDay] = useState(null);
+  const [customActivityPercent, setCustomActivityPercent] = useState(
+    Math.round(DEFAULT_ACTIVITY_MULTIPLIERS.training * 100)
+  );
 
   const goalModal = useAnimatedModal();
   const bmrModal = useAnimatedModal();
@@ -82,6 +90,9 @@ export const EnergyMapCalculator = () => {
   const trainingTypeModal = useAnimatedModal();
   const trainingTypeEditorModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
   const settingsModal = useAnimatedModal();
+  const dailyActivityModal = useAnimatedModal();
+  const dailyActivityEditorModal = useAnimatedModal();
+  const dailyActivityCustomModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
   const stepRangesModal = useAnimatedModal();
   const quickTrainingModal = useAnimatedModal();
   const cardioModal = useAnimatedModal();
@@ -217,6 +228,134 @@ export const EnergyMapCalculator = () => {
     quickTrainingModal.open();
   }, [quickTrainingModal, userData.trainingDuration, userData.trainingType]);
 
+  const openDailyActivitySettings = useCallback(() => {
+    setActivityEditorDay(null);
+    dailyActivityModal.open();
+  }, [dailyActivityModal]);
+
+  const handleDailyActivityModalClose = useCallback(() => {
+    dailyActivityModal.requestClose();
+    if (dailyActivityEditorModal.isOpen) {
+      dailyActivityEditorModal.forceClose();
+    }
+    if (dailyActivityCustomModal.isOpen) {
+      dailyActivityCustomModal.forceClose();
+    }
+    setActivityEditorDay(null);
+  }, [dailyActivityCustomModal, dailyActivityEditorModal, dailyActivityModal]);
+
+  const openDailyActivityEditor = useCallback(
+    (dayType) => {
+      setActivityEditorDay(dayType);
+      dailyActivityEditorModal.open();
+    },
+    [dailyActivityEditorModal]
+  );
+
+  const closeDailyActivityEditor = useCallback(() => {
+    dailyActivityEditorModal.requestClose();
+    setTimeout(() => {
+      if (!dailyActivityCustomModal.isOpen) {
+        setActivityEditorDay(null);
+      }
+    }, MODAL_CLOSE_DELAY);
+  }, [dailyActivityCustomModal.isOpen, dailyActivityEditorModal]);
+
+  const handleDailyActivityPresetSelect = useCallback(
+    (dayType, presetKey, multiplier) => {
+      const nextPresets = {
+        ...(userData.activityPresets ?? { training: 'default', rest: 'default' }),
+        [dayType]: presetKey
+      };
+
+      handleUserDataChange('activityPresets', nextPresets);
+
+      if (presetKey === 'custom') {
+        const existingCustom = userData.customActivityMultipliers?.[dayType];
+        const fallback = userData.activityMultipliers?.[dayType] ?? DEFAULT_ACTIVITY_MULTIPLIERS[dayType];
+        const resolved = Number.isFinite(existingCustom) ? existingCustom : fallback;
+
+        handleUserDataChange('customActivityMultipliers', {
+          ...(userData.customActivityMultipliers ?? {
+            training: DEFAULT_ACTIVITY_MULTIPLIERS.training,
+            rest: DEFAULT_ACTIVITY_MULTIPLIERS.rest
+          }),
+          [dayType]: resolved
+        });
+
+        handleUserDataChange('activityMultipliers', {
+          ...(userData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS),
+          [dayType]: resolved
+        });
+      } else if (Number.isFinite(multiplier)) {
+        handleUserDataChange('activityMultipliers', {
+          ...(userData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS),
+          [dayType]: multiplier
+        });
+      }
+    },
+    [handleUserDataChange, userData]
+  );
+
+  const handleDailyActivityCustomSelect = useCallback(
+    (dayType, alreadySelected) => {
+      const existingCustom = userData.customActivityMultipliers?.[dayType];
+      const fallback = userData.activityMultipliers?.[dayType] ?? DEFAULT_ACTIVITY_MULTIPLIERS[dayType];
+      const resolvedMultiplier = Number.isFinite(existingCustom) ? existingCustom : fallback;
+
+      handleDailyActivityPresetSelect(dayType, 'custom');
+
+      const percentValue = Math.round(resolvedMultiplier * 1000) / 10;
+      setActivityEditorDay(dayType);
+      setCustomActivityPercent(Number.isFinite(percentValue) ? percentValue : 0);
+
+      if (alreadySelected || !Number.isFinite(existingCustom)) {
+        dailyActivityCustomModal.open();
+      }
+    },
+    [dailyActivityCustomModal, handleDailyActivityPresetSelect, userData]
+  );
+
+  const handleCustomActivityCancel = useCallback(() => {
+    dailyActivityCustomModal.requestClose();
+  }, [dailyActivityCustomModal]);
+
+  const handleCustomActivitySave = useCallback(() => {
+    if (!activityEditorDay) {
+      dailyActivityCustomModal.requestClose();
+      return;
+    }
+
+    const numericPercent = Number(customActivityPercent);
+    if (!Number.isFinite(numericPercent)) {
+      return;
+    }
+
+    const clampedPercent = Math.min(Math.max(numericPercent, 0), 100);
+    const multiplier = Math.round((clampedPercent / 100) * 1000) / 1000;
+
+    const nextCustoms = {
+      ...(userData.customActivityMultipliers ?? {
+        training: DEFAULT_ACTIVITY_MULTIPLIERS.training,
+        rest: DEFAULT_ACTIVITY_MULTIPLIERS.rest
+      }),
+      [activityEditorDay]: multiplier
+    };
+
+    handleUserDataChange('customActivityMultipliers', nextCustoms);
+    handleUserDataChange('activityPresets', {
+      ...(userData.activityPresets ?? { training: 'default', rest: 'default' }),
+      [activityEditorDay]: 'custom'
+    });
+    handleUserDataChange('activityMultipliers', {
+      ...(userData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS),
+      [activityEditorDay]: multiplier
+    });
+
+    setCustomActivityPercent(Math.round(clampedPercent * 10) / 10);
+    dailyActivityCustomModal.requestClose();
+  }, [activityEditorDay, customActivityPercent, dailyActivityCustomModal, handleUserDataChange, userData]);
+
   const openCardioModal = useCallback(() => {
     setCardioDraft(defaultCardioSession);
     cardioModal.open();
@@ -296,6 +435,21 @@ export const EnergyMapCalculator = () => {
   }, [settingsModal]);
 
   const hasCardioSessions = userData.cardioSessions.length > 0;
+  const activityPresets = useMemo(
+    () => ({
+      training: userData.activityPresets?.training ?? 'default',
+      rest: userData.activityPresets?.rest ?? 'default'
+    }),
+    [userData.activityPresets]
+  );
+
+  const activityMultipliers = useMemo(
+    () => ({
+      training: userData.activityMultipliers?.training ?? DEFAULT_ACTIVITY_MULTIPLIERS.training,
+      rest: userData.activityMultipliers?.rest ?? DEFAULT_ACTIVITY_MULTIPLIERS.rest
+    }),
+    [userData.activityMultipliers]
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 md:p-6">
@@ -439,8 +593,39 @@ export const EnergyMapCalculator = () => {
         trainingTypes={trainingTypes}
         trainingCalories={trainingCalories}
         onTrainingTypeClick={openTrainingTypeModal}
+        onDailyActivityClick={openDailyActivitySettings}
         onCancel={settingsModal.requestClose}
         onSave={handleSettingsSave}
+      />
+
+      <DailyActivityModal
+        isOpen={dailyActivityModal.isOpen}
+        isClosing={dailyActivityModal.isClosing}
+        activityPresets={activityPresets}
+        activityMultipliers={activityMultipliers}
+        onSelectDay={openDailyActivityEditor}
+        onClose={handleDailyActivityModalClose}
+      />
+
+      <DailyActivityEditorModal
+        isOpen={dailyActivityEditorModal.isOpen}
+        isClosing={dailyActivityEditorModal.isClosing}
+        dayType={activityEditorDay}
+        currentPreset={activityEditorDay ? activityPresets[activityEditorDay] : 'default'}
+        currentMultiplier={activityEditorDay ? activityMultipliers[activityEditorDay] : undefined}
+        onSelectPreset={handleDailyActivityPresetSelect}
+        onSelectCustom={handleDailyActivityCustomSelect}
+        onClose={closeDailyActivityEditor}
+      />
+
+      <DailyActivityCustomModal
+        isOpen={dailyActivityCustomModal.isOpen}
+        isClosing={dailyActivityCustomModal.isClosing}
+        dayType={activityEditorDay}
+        value={customActivityPercent}
+        onChange={setCustomActivityPercent}
+        onCancel={handleCustomActivityCancel}
+        onSave={handleCustomActivitySave}
       />
 
       <StepRangesModal

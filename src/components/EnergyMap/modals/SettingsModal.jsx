@@ -1,5 +1,6 @@
 import React from 'react';
 import { Save } from 'lucide-react';
+import { DEFAULT_ACTIVITY_MULTIPLIERS, getActivityPresetByKey } from '../../../constants/activityPresets';
 import { ModalShell } from '../common/ModalShell';
 
 export const SettingsModal = ({
@@ -10,6 +11,7 @@ export const SettingsModal = ({
   trainingTypes,
   trainingCalories,
   onTrainingTypeClick,
+  onDailyActivityClick,
   onCancel,
   onSave
 }) => (
@@ -92,6 +94,11 @@ export const SettingsModal = ({
         </button>
       </div>
 
+      <DailyActivitySection
+        userData={userData}
+        onDailyActivityClick={onDailyActivityClick}
+      />
+
       <div>
         <label className="text-slate-300 text-sm block mb-2">Training Duration (hours)</label>
         <input
@@ -124,3 +131,53 @@ export const SettingsModal = ({
     </div>
   </ModalShell>
 );
+
+const formatMultiplier = (value) => {
+  if (!Number.isFinite(value)) {
+    return '—';
+  }
+
+  const percent = value * 100;
+  const rounded = Math.round(percent * 10) / 10;
+  return Number.isInteger(rounded) ? `${rounded.toFixed(0)}%` : `${rounded.toFixed(1)}%`;
+};
+
+const defaultPresetKeys = { training: 'default', rest: 'default' };
+
+const DailyActivitySection = ({ userData, onDailyActivityClick }) => {
+  const presets = userData.activityPresets ?? defaultPresetKeys;
+  const multipliers = userData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS;
+
+  const trainingPresetKey = presets.training ?? 'default';
+  const restPresetKey = presets.rest ?? 'default';
+
+  const trainingPreset = getActivityPresetByKey('training', trainingPresetKey);
+  const restPreset = getActivityPresetByKey('rest', restPresetKey);
+
+  const trainingLabel = trainingPreset ? trainingPreset.label : 'Custom';
+  const restLabel = restPreset ? restPreset.label : 'Custom';
+
+  const trainingMultiplier = multipliers.training ?? DEFAULT_ACTIVITY_MULTIPLIERS.training;
+  const restMultiplier = multipliers.rest ?? DEFAULT_ACTIVITY_MULTIPLIERS.rest;
+
+  return (
+    <div>
+  <label className="text-slate-300 text-sm block mb-2">Daily NEAT (Non-Exercise Activity)</label>
+      <button
+        onClick={onDailyActivityClick}
+        type="button"
+        className="w-full text-left p-3 md:p-4 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98]"
+      >
+        <div className="font-semibold text-base">Training Day • {trainingLabel}</div>
+        <div className="text-xs md:text-sm opacity-90">
+          NEAT offset: {formatMultiplier(trainingMultiplier)}
+        </div>
+        <div className="font-semibold text-base mt-3">Rest Day • {restLabel}</div>
+        <div className="text-xs md:text-sm opacity-90">
+          NEAT offset: {formatMultiplier(restMultiplier)}
+        </div>
+        <div className="text-xs opacity-75 mt-2">Tap to adjust</div>
+      </button>
+    </div>
+  );
+};

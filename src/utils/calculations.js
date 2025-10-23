@@ -1,3 +1,4 @@
+import { DEFAULT_ACTIVITY_MULTIPLIERS } from '../constants/activityPresets';
 import { getStepDetails } from './steps';
 
 export const calculateBMR = ({ age, weight, height, gender }) => {
@@ -37,7 +38,10 @@ export const calculateCalorieBreakdown = ({
   trainingTypes
 }) => {
   const stepDetails = getStepDetails(steps, userData);
-  const activityMultiplier = isTrainingDay ? 0.35 : 0.28;
+  const multipliers = userData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS;
+  const activityMultiplier = isTrainingDay
+    ? multipliers.training ?? DEFAULT_ACTIVITY_MULTIPLIERS.training
+    : multipliers.rest ?? DEFAULT_ACTIVITY_MULTIPLIERS.rest;
   const baseActivity = Math.round(bmr * activityMultiplier);
   const trainingBurn = Math.round(isTrainingDay ? getTrainingCalories(userData, trainingTypes) : 0);
   const cardioBurn = Math.round(getTotalCardioBurn(userData, cardioTypes));

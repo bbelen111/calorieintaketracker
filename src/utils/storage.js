@@ -13,7 +13,7 @@ export const loadEnergyMapData = () => {
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed && typeof parsed === 'object') {
-        return parsed;
+        return mergeWithDefaults(parsed);
       }
     }
   } catch (error) {
@@ -98,5 +98,44 @@ export const getDefaultEnergyMapData = () => ({
   },
   customTrainingName: 'My Training',
   customTrainingCalories: 220,
-  customTrainingDescription: 'Custom training style'
+  customTrainingDescription: 'Custom training style',
+  activityPresets: {
+    training: 'default',
+    rest: 'default'
+  },
+  activityMultipliers: {
+    training: 0.35,
+    rest: 0.28
+  },
+  customActivityMultipliers: {
+    training: 0.35,
+    rest: 0.28
+  }
 });
+
+function mergeWithDefaults(data) {
+  const defaults = getDefaultEnergyMapData();
+
+  return {
+    ...defaults,
+    ...data,
+    trainingTypeOverrides: {
+      ...defaults.trainingTypeOverrides,
+      ...(data.trainingTypeOverrides ?? {})
+    },
+    activityPresets: {
+      ...defaults.activityPresets,
+      ...(data.activityPresets ?? {})
+    },
+    activityMultipliers: {
+      ...defaults.activityMultipliers,
+      ...(data.activityMultipliers ?? {})
+    },
+    customActivityMultipliers: {
+      ...defaults.customActivityMultipliers,
+      ...(data.customActivityMultipliers ?? {})
+    },
+    stepRanges: Array.isArray(data.stepRanges) ? data.stepRanges : defaults.stepRanges,
+    cardioSessions: Array.isArray(data.cardioSessions) ? data.cardioSessions : defaults.cardioSessions
+  };
+}
