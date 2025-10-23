@@ -180,7 +180,12 @@ export const WeightPickerModal = ({ isOpen, isClosing, value, onChange, onCancel
   const selectedWeight = useMemo(() => buildWeightValue(selectedWhole, selectedDecimal), [selectedDecimal, selectedWhole]);
 
   return (
-    <ModalShell isOpen={isOpen} isClosing={isClosing} contentClassName="p-6 w-full max-w-md">
+    <ModalShell
+      isOpen={isOpen}
+      isClosing={isClosing}
+      overlayClassName="z-[70]"
+      contentClassName="p-6 w-full max-w-md"
+    >
       <h3 className="text-white font-bold text-xl mb-4 text-center">Select Weight</h3>
       <p className="text-slate-400 text-xs text-center mb-2 uppercase tracking-wide">Kilograms</p>
 

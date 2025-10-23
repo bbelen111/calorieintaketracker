@@ -126,6 +126,7 @@ export const EnergyMapCalculator = () => {
     }
   }, [durationPickerModal.isOpen]);
 
+
   const updateSelectedDay = useCallback((day) => {
     setSelectedDayState(day);
   }, []);
@@ -628,6 +629,8 @@ export const EnergyMapCalculator = () => {
         isClosing={settingsModal.isClosing}
         userData={userData}
         onChange={handleUserDataChange}
+  onAgePickerClick={openAgeModal}
+  onWeightPickerClick={openWeightModal}
         bmr={bmr}
         trainingTypes={trainingTypes}
         trainingCalories={trainingCalories}

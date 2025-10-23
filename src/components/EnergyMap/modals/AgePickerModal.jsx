@@ -33,7 +33,12 @@ export const AgePickerModal = ({ isOpen, isClosing, value, onChange, onCancel, o
   );
 
   return (
-    <ModalShell isOpen={isOpen} isClosing={isClosing} contentClassName="p-6 w-full max-w-sm">
+    <ModalShell
+      isOpen={isOpen}
+      isClosing={isClosing}
+      overlayClassName="z-[70]"
+      contentClassName="p-6 w-full max-w-sm"
+    >
       <h3 className="text-white font-bold text-xl mb-4 text-center">Select Age</h3>
 
       <div className="relative h-48 overflow-hidden">

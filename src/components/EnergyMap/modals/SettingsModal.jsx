@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Save } from 'lucide-react';
+import { Save, ChevronsUpDown } from 'lucide-react';
 import { DEFAULT_ACTIVITY_MULTIPLIERS, getActivityPresetByKey } from '../../../constants/activityPresets';
 import { ModalShell } from '../common/ModalShell';
 import { formatDurationLabel, roundDurationHours } from '../../../utils/time';
@@ -15,6 +15,8 @@ export const SettingsModal = ({
   onTrainingTypeClick,
   onTrainingDurationClick,
   onDailyActivityClick,
+  onAgePickerClick,
+  onWeightPickerClick,
   onCancel,
   onSave
 }) => (
@@ -25,12 +27,22 @@ export const SettingsModal = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
         <div>
           <label className="text-slate-300 text-sm block mb-2">Age</label>
-          <input
-            type="number"
-            value={userData.age}
-            onChange={(event) => onChange('age', parseInt(event.target.value, 10) || 0)}
-            className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-lg"
-          />
+          <div className="relative">
+            <input
+              type="number"
+              value={userData.age}
+              onChange={(event) => onChange('age', parseInt(event.target.value, 10) || 0)}
+              className="w-full bg-slate-700 text-white px-4 pr-14 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-lg"
+            />
+            <button
+              type="button"
+              onClick={() => onAgePickerClick?.()}
+              className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-600/80 hover:bg-slate-500 text-white transition focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-800"
+              aria-label="Open age picker"
+            >
+              <ChevronsUpDown size={16} />
+            </button>
+          </div>
         </div>
 
         <div>
@@ -63,12 +75,22 @@ export const SettingsModal = ({
 
         <div>
           <label className="text-slate-300 text-sm block mb-2">Weight (kg)</label>
-          <input
-            type="number"
-            value={userData.weight}
-            onChange={(event) => onChange('weight', parseFloat(event.target.value) || 0)}
-            className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-lg"
-          />
+          <div className="relative">
+            <input
+              type="number"
+              value={userData.weight}
+              onChange={(event) => onChange('weight', parseFloat(event.target.value) || 0)}
+              className="w-full bg-slate-700 text-white px-4 pr-14 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-lg"
+            />
+            <button
+              type="button"
+              onClick={() => onWeightPickerClick?.()}
+              className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-600/80 hover:bg-slate-500 text-white transition focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-800"
+              aria-label="Open weight picker"
+            >
+              <ChevronsUpDown size={16} />
+            </button>
+          </div>
         </div>
 
         <div>
