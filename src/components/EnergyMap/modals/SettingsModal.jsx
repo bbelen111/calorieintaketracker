@@ -17,6 +17,7 @@ export const SettingsModal = ({
   onDailyActivityClick,
   onAgePickerClick,
   onWeightPickerClick,
+  onHeightPickerClick,
   onCancel,
   onSave
 }) => (
@@ -95,12 +96,22 @@ export const SettingsModal = ({
 
         <div>
           <label className="text-slate-300 text-sm block mb-2">Height (cm)</label>
-          <input
-            type="number"
-            value={userData.height}
-            onChange={(event) => onChange('height', parseFloat(event.target.value) || 0)}
-            className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-lg"
-          />
+          <div className="relative">
+            <input
+              type="number"
+              value={userData.height}
+              onChange={(event) => onChange('height', parseFloat(event.target.value) || 0)}
+              className="w-full bg-slate-700 text-white px-4 pr-14 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-lg"
+            />
+            <button
+              type="button"
+              onClick={() => onHeightPickerClick?.()}
+              className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-600/80 hover:bg-slate-500 text-white transition focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-800"
+              aria-label="Open height picker"
+            >
+              <ChevronsUpDown size={16} />
+            </button>
+          </div>
         </div>
       </div>
 

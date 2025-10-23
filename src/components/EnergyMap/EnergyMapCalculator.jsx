@@ -14,6 +14,7 @@ import { InsightsScreen } from './screens/InsightsScreen';
 import { GoalModal } from './modals/GoalModal';
 import { BmrInfoModal } from './modals/BmrInfoModal';
 import { AgePickerModal } from './modals/AgePickerModal';
+import { HeightPickerModal } from './modals/HeightPickerModal';
 import { WeightPickerModal } from './modals/WeightPickerModal';
 import { TrainingTypeModal } from './modals/TrainingTypeModal';
 import { TrainingTypeEditorModal } from './modals/TrainingTypeEditorModal';
@@ -69,6 +70,7 @@ export const EnergyMapCalculator = () => {
   const [tempSelectedGoal, setTempSelectedGoal] = useState('maintenance');
   const [selectedDay, setSelectedDayState] = useState(() => loadSelectedDay());
   const [tempAge, setTempAge] = useState(userData.age);
+  const [tempHeight, setTempHeight] = useState(userData.height);
   const [tempWeight, setTempWeight] = useState(userData.weight);
   const [tempTrainingType, setTempTrainingType] = useState(userData.trainingType);
   const [tempTrainingDuration, setTempTrainingDuration] = useState(userData.trainingDuration);
@@ -90,6 +92,7 @@ export const EnergyMapCalculator = () => {
   const goalModal = useAnimatedModal();
   const bmrModal = useAnimatedModal();
   const ageModal = useAnimatedModal();
+  const heightModal = useAnimatedModal();
   const weightModal = useAnimatedModal();
   const trainingTypeModal = useAnimatedModal();
   const trainingTypeEditorModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
@@ -110,6 +113,10 @@ export const EnergyMapCalculator = () => {
   useEffect(() => {
     setTempAge(userData.age);
   }, [userData.age]);
+
+  useEffect(() => {
+    setTempHeight(userData.height);
+  }, [userData.height]);
 
   useEffect(() => {
     setTempWeight(userData.weight);
@@ -154,6 +161,11 @@ export const EnergyMapCalculator = () => {
     setTempAge(userData.age);
     ageModal.open();
   }, [ageModal, userData.age]);
+
+  const openHeightModal = useCallback(() => {
+    setTempHeight(userData.height);
+    heightModal.open();
+  }, [heightModal, userData.height]);
 
   const openWeightModal = useCallback(() => {
     setTempWeight(userData.weight);
@@ -426,6 +438,11 @@ export const EnergyMapCalculator = () => {
     ageModal.requestClose();
   }, [ageModal, handleUserDataChange, tempAge]);
 
+  const handleHeightSave = useCallback(() => {
+    handleUserDataChange('height', tempHeight);
+    heightModal.requestClose();
+  }, [handleUserDataChange, heightModal, tempHeight]);
+
   const handleWeightSave = useCallback(() => {
     handleUserDataChange('weight', tempWeight);
     weightModal.requestClose();
@@ -511,6 +528,7 @@ export const EnergyMapCalculator = () => {
                   onGoalClick={openGoalModal}
                   onSettingsClick={settingsModal.open}
                   onAgeClick={openAgeModal}
+                  onHeightClick={openHeightModal}
                   onWeightClick={openWeightModal}
                   onBmrClick={bmrModal.open}
                   selectedDay={selectedDay}
@@ -590,6 +608,15 @@ export const EnergyMapCalculator = () => {
         onSave={handleAgeSave}
       />
 
+      <HeightPickerModal
+        isOpen={heightModal.isOpen}
+        isClosing={heightModal.isClosing}
+        value={tempHeight}
+        onChange={setTempHeight}
+        onCancel={heightModal.requestClose}
+        onSave={handleHeightSave}
+      />
+
       <WeightPickerModal
         isOpen={weightModal.isOpen}
         isClosing={weightModal.isClosing}
@@ -629,8 +656,9 @@ export const EnergyMapCalculator = () => {
         isClosing={settingsModal.isClosing}
         userData={userData}
         onChange={handleUserDataChange}
-  onAgePickerClick={openAgeModal}
-  onWeightPickerClick={openWeightModal}
+        onAgePickerClick={openAgeModal}
+        onHeightPickerClick={openHeightModal}
+        onWeightPickerClick={openWeightModal}
         bmr={bmr}
         trainingTypes={trainingTypes}
         trainingCalories={trainingCalories}

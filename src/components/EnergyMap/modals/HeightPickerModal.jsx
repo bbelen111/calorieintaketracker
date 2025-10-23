@@ -3,14 +3,28 @@ import { Save } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import { alignScrollContainerToValue, createPickerScrollHandler } from '../../../utils/scroll';
 
-const AGE_VALUES = Array.from({ length: 83 }, (_, i) => i + 15);
+const MIN_HEIGHT = 120;
+const MAX_HEIGHT = 220;
+const HEIGHT_VALUES = Array.from({ length: MAX_HEIGHT - MIN_HEIGHT + 1 }, (_, index) => MIN_HEIGHT + index);
 
-export const AgePickerModal = ({ isOpen, isClosing, value, onChange, onCancel, onSave }) => {
+const clampHeight = (value) => {
+  if (!Number.isFinite(value)) {
+    return MIN_HEIGHT;
+  }
+  return Math.min(Math.max(Math.round(value), MIN_HEIGHT), MAX_HEIGHT);
+};
+
+export const HeightPickerModal = ({ isOpen, isClosing, value, onChange, onCancel, onSave }) => {
   const scrollRef = useRef(null);
   const timeoutRef = useRef(null);
   const hasAlignedRef = useRef(false);
 
-  useEffect(() => () => clearTimeout(timeoutRef.current), []);
+  useEffect(
+    () => () => {
+      clearTimeout(timeoutRef.current);
+    },
+    []
+  );
 
   useEffect(() => {
     if (!isOpen || !scrollRef.current) {
@@ -21,16 +35,25 @@ export const AgePickerModal = ({ isOpen, isClosing, value, onChange, onCancel, o
     const behavior = hasAlignedRef.current ? 'smooth' : 'instant';
     hasAlignedRef.current = true;
 
+    const sanitizedValue = clampHeight(value);
     const frame = requestAnimationFrame(() => {
-      alignScrollContainerToValue(scrollRef.current, value, behavior);
+      alignScrollContainerToValue(scrollRef.current, sanitizedValue, behavior);
     });
+
     return () => cancelAnimationFrame(frame);
   }, [isOpen, value]);
 
   const handleScroll = useMemo(
-    () => createPickerScrollHandler(scrollRef, timeoutRef, (v) => parseInt(v, 10), onChange),
+    () =>
+      createPickerScrollHandler(scrollRef, timeoutRef, (nextValue) => clampHeight(parseInt(nextValue, 10)), (nextHeight) => {
+        if (onChange) {
+          onChange(nextHeight);
+        }
+      }),
     [onChange]
   );
+
+  const sanitizedValue = clampHeight(value);
 
   return (
     <ModalShell
@@ -39,8 +62,8 @@ export const AgePickerModal = ({ isOpen, isClosing, value, onChange, onCancel, o
       overlayClassName="z-[70]"
       contentClassName="p-6 w-full max-w-sm"
     >
-      <h3 className="text-white font-bold text-xl mb-4 text-center">Select Age</h3>
-      <p className="text-slate-400 text-xs text-center mb-2 uppercase tracking-wide">Years</p>
+      <h3 className="text-white font-bold text-xl mb-4 text-center">Select Height</h3>
+      <p className="text-slate-400 text-xs text-center mb-2 uppercase tracking-wide">Centimeters</p>
 
       <div className="relative h-48 overflow-hidden">
         <div className="absolute inset-0 pointer-events-none z-10">
@@ -50,27 +73,24 @@ export const AgePickerModal = ({ isOpen, isClosing, value, onChange, onCancel, o
         </div>
         <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400 pointer-events-none z-10" />
 
-        <div
-          ref={scrollRef}
-          className="h-full overflow-y-auto scrollbar-hide"
-          onScroll={handleScroll}
-        >
+        <div ref={scrollRef} className="h-full overflow-y-auto scrollbar-hide" onScroll={handleScroll}>
           <div className="h-16" />
-          {AGE_VALUES.map((age) => (
+          {HEIGHT_VALUES.map((height) => (
             <div
-              key={age}
-              data-value={age}
+              key={height}
+              data-value={height}
               onClick={() => {
-                onChange(age);
-                if (scrollRef.current) {
-                  alignScrollContainerToValue(scrollRef.current, age, 'smooth');
+                if (!scrollRef.current) return;
+                alignScrollContainerToValue(scrollRef.current, height, 'smooth');
+                if (onChange) {
+                  onChange(height);
                 }
               }}
               className={`py-3 px-6 text-2xl font-semibold transition-all snap-center cursor-pointer text-center ${
-                value === age ? 'text-white scale-110' : 'text-slate-500'
+                sanitizedValue === height ? 'text-white scale-110' : 'text-slate-500'
               }`}
             >
-              {age}
+              {height}
             </div>
           ))}
           <div className="h-16" />
@@ -86,7 +106,7 @@ export const AgePickerModal = ({ isOpen, isClosing, value, onChange, onCancel, o
           Cancel
         </button>
         <button
-          onClick={onSave}
+          onClick={() => onSave?.()}
           type="button"
           className="flex-1 bg-blue-600 active:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
         >

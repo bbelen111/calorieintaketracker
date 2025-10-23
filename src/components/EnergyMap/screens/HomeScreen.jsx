@@ -19,6 +19,7 @@ export const HomeScreen = ({
   onGoalClick,
   onSettingsClick,
   onAgeClick,
+  onHeightClick,
   onWeightClick,
   onBmrClick,
   selectedDay,
@@ -78,10 +79,17 @@ export const HomeScreen = ({
             </div>
             <p className="text-white font-semibold text-lg">{userData.weight} kg</p>
           </button>
-          <div className="bg-slate-700/50 rounded-lg p-3">
-            <p className="text-slate-400">Height</p>
+          <button
+            onClick={onHeightClick}
+            type="button"
+            className="bg-slate-700/50 hover:bg-slate-700 rounded-lg p-3 transition-all text-left group"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-slate-400">Height</p>
+              <Edit3 size={14} className="text-slate-500 group-hover:text-blue-400 transition-colors" />
+            </div>
             <p className="text-white font-semibold text-lg">{userData.height} cm</p>
-          </div>
+          </button>
           <button
             onClick={onBmrClick}
             type="button"
