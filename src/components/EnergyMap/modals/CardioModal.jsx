@@ -3,12 +3,16 @@ import { Plus } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
 import { CardioTypePickerModal } from './CardioTypePickerModal';
+import { CustomCardioTypeModal } from './CustomCardioTypeModal';
 import { calculateCardioCalories } from '../../../utils/calculations';
 
 export const CardioModal = ({
   isOpen,
   isClosing,
   cardioTypes,
+  customCardioTypes,
+  onAddCustomCardioType,
+  onDeleteCustomCardioType,
   session,
   onChange,
   onCancel,
@@ -42,7 +46,24 @@ export const CardioModal = ({
     requestClose: requestTypePickerClose,
     forceClose: forceTypePickerClose
   } = useAnimatedModal(false);
-  const selectedCardio = cardioTypes[session.type] ?? null;
+  const {
+    isOpen: isCustomModalOpen,
+    isClosing: isCustomModalClosing,
+    open: openCustomModal,
+    requestClose: requestCustomModalClose,
+    forceClose: forceCustomModalClose
+  } = useAnimatedModal(false);
+  const [customName, setCustomName] = React.useState('');
+  const [customMetLight, setCustomMetLight] = React.useState('');
+  const [customMetModerate, setCustomMetModerate] = React.useState('');
+  const [customMetVigorous, setCustomMetVigorous] = React.useState('');
+  const resetCustomState = React.useCallback(() => {
+    setCustomName('');
+    setCustomMetLight('');
+    setCustomMetModerate('');
+    setCustomMetVigorous('');
+  }, []);
+  const selectedCardio = cardioTypes?.[session.type] ?? null;
   const formatMetValue = (value) => (typeof value === 'number' ? value.toFixed(1) : '--');
   const selectedMetSummary = selectedCardio
     ? `Light ${formatMetValue(selectedCardio.met?.light)} • Moderate ${formatMetValue(
@@ -58,8 +79,15 @@ export const CardioModal = ({
   React.useEffect(() => {
     if (!isOpen) {
       forceTypePickerClose();
+      forceCustomModalClose();
     }
-  }, [forceTypePickerClose, isOpen]);
+  }, [forceCustomModalClose, forceTypePickerClose, isOpen]);
+
+  React.useEffect(() => {
+    if (!isCustomModalOpen && !isCustomModalClosing) {
+      resetCustomState();
+    }
+  }, [isCustomModalClosing, isCustomModalOpen, resetCustomState]);
 
   const handleDurationChange = (event) => {
     const { value } = event.target;
@@ -118,100 +146,150 @@ export const CardioModal = ({
         : 'bg-slate-700 text-slate-300 border-slate-600 hover:border-blue-400 hover:text-white'
     }`;
 
+  const handleOpenCustomCardioModal = () => {
+    resetCustomState();
+    openCustomModal();
+  };
+
+  const customModalCanSave =
+    Boolean(customName.trim()) &&
+    [customMetLight, customMetModerate, customMetVigorous].every((value) => {
+      const numeric = Number(value);
+      return Number.isFinite(numeric) && numeric > 0;
+    });
+
+  const handleCustomCardioSave = () => {
+    if (!customModalCanSave || !onAddCustomCardioType) {
+      return;
+    }
+
+    const newKey = onAddCustomCardioType({
+      label: customName,
+      met: {
+        light: Number(customMetLight),
+        moderate: Number(customMetModerate),
+        vigorous: Number(customMetVigorous)
+      }
+    });
+
+    if (newKey) {
+      handleCardioTypeSelect(newKey);
+    }
+
+    requestCustomModalClose();
+  };
+
+  const handleCustomCardioCancel = () => {
+    requestCustomModalClose();
+  };
+
+  const handleDeleteCustomCardioType = (typeKey) => {
+    if (!onDeleteCustomCardioType) {
+      return;
+    }
+
+    const alternativeType = Object.keys(cardioTypes ?? {}).filter((key) => key !== typeKey)[0] ?? 'treadmill_walk';
+    onDeleteCustomCardioType(typeKey);
+
+    if (session.type === typeKey) {
+      onChange({ ...session, type: alternativeType });
+    }
+  };
+
   return (
     <>
       <ModalShell isOpen={isOpen} isClosing={isClosing} contentClassName="p-6 max-w-md w-full">
-      <h3 className="text-white font-bold text-xl mb-4">Add Cardio Session</h3>
+        <h3 className="text-white font-bold text-xl mb-4">Add Cardio Session</h3>
 
-      <div className="space-y-4">
-        <div>
-          <label className="text-slate-300 text-sm block mb-2">Cardio Type</label>
-          <button
-            type="button"
-            onClick={() => openTypePicker()}
-            className="w-full px-3 py-2 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1"
-          >
-            <span className="font-semibold text-sm md:text-base">
-              {selectedCardio?.label ?? 'Select Cardio Type'}
-            </span>
-            <span className="text-xs opacity-90 basis-full sm:basis-auto">
-              {selectedMetSummary}
-            </span>
-            <span className="text-[11px] opacity-75 ml-auto">Tap to change</span>
-          </button>
-        </div>
-
-        <div>
-          <label className="text-slate-300 text-sm block mb-2">Duration (minutes)</label>
-          <input
-            type="number"
-            min="0"
-            value={session.duration === '' ? '' : session.duration}
-            onChange={handleDurationChange}
-            className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none"
-          />
-        </div>
-
-        <div>
-          <label className="text-slate-300 text-sm block mb-2">Effort Tracking</label>
-          <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-4">
+          <div>
+            <label className="text-slate-300 text-sm block mb-2">Cardio Type</label>
             <button
               type="button"
-              className={effortButtonClass('intensity')}
-              onClick={() => handleEffortTypeChange('intensity')}
+              onClick={() => openTypePicker()}
+              className="w-full px-3 py-2 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1"
             >
-              Intensity
-            </button>
-            <button
-              type="button"
-              className={effortButtonClass('heartRate')}
-              onClick={() => handleEffortTypeChange('heartRate')}
-            >
-              Average Heart Rate
+              <span className="font-semibold text-sm md:text-base">
+                {selectedCardio?.label ?? 'Select Cardio Type'}
+              </span>
+              <span className="text-xs opacity-90 basis-full sm:basis-auto">
+                {selectedMetSummary}
+              </span>
+              <span className="text-[11px] opacity-75 ml-auto">Tap to change</span>
             </button>
           </div>
-          <p className="text-xs text-slate-400 mt-2">
-            Use heart rate for wearable-based estimates or intensity for quick selections.
-          </p>
-        </div>
 
-        {effortType === 'intensity' ? (
           <div>
-            <label className="text-slate-300 text-sm block mb-2">Intensity</label>
-            <select
-              value={intensityValue}
-              onChange={handleIntensityChange}
-              className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none"
-            >
-              <option value="light">Light</option>
-              <option value="moderate">Moderate</option>
-              <option value="vigorous">Vigorous</option>
-            </select>
-            <p className="text-xs text-slate-400 mt-2">
-              Pick the perceived exertion level that best matches the session.
-            </p>
-          </div>
-        ) : (
-          <div>
-            <label className="text-slate-300 text-sm block mb-2">Average Heart Rate (bpm)</label>
+            <label className="text-slate-300 text-sm block mb-2">Duration (minutes)</label>
             <input
               type="number"
               min="0"
-              value={heartRateValue}
-              onChange={handleHeartRateChange}
+              value={session.duration === '' ? '' : session.duration}
+              onChange={handleDurationChange}
               className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none"
             />
+          </div>
+
+          <div>
+            <label className="text-slate-300 text-sm block mb-2">Effort Tracking</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                className={effortButtonClass('intensity')}
+                onClick={() => handleEffortTypeChange('intensity')}
+              >
+                Intensity
+              </button>
+              <button
+                type="button"
+                className={effortButtonClass('heartRate')}
+                onClick={() => handleEffortTypeChange('heartRate')}
+              >
+                Average Heart Rate
+              </button>
+            </div>
             <p className="text-xs text-slate-400 mt-2">
-              Enter the average beats per minute recorded during this session.
+              Use heart rate for wearable-based estimates or intensity for quick selections.
             </p>
           </div>
-        )}
 
-        <div className="bg-slate-700/50 rounded-lg p-3">
-          <p className="text-slate-300 text-sm">Estimated Burn:</p>
-          <p className="text-white font-bold text-xl">~{estimatedBurn} calories</p>
+          {effortType === 'intensity' ? (
+            <div>
+              <label className="text-slate-300 text-sm block mb-2">Intensity</label>
+              <select
+                value={intensityValue}
+                onChange={handleIntensityChange}
+                className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none"
+              >
+                <option value="light">Light</option>
+                <option value="moderate">Moderate</option>
+                <option value="vigorous">Vigorous</option>
+              </select>
+              <p className="text-xs text-slate-400 mt-2">
+                Pick the perceived exertion level that best matches the session.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <label className="text-slate-300 text-sm block mb-2">Average Heart Rate (bpm)</label>
+              <input
+                type="number"
+                min="0"
+                value={heartRateValue}
+                onChange={handleHeartRateChange}
+                className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none"
+              />
+              <p className="text-xs text-slate-400 mt-2">
+                Enter the average beats per minute recorded during this session.
+              </p>
+            </div>
+          )}
+
+          <div className="bg-slate-700/50 rounded-lg p-3">
+            <p className="text-slate-300 text-sm">Estimated Burn:</p>
+            <p className="text-white font-bold text-xl">~{estimatedBurn} calories</p>
+          </div>
         </div>
-      </div>
 
         <div className="flex gap-3 mt-6">
           <button
@@ -239,9 +317,28 @@ export const CardioModal = ({
         isOpen={isTypePickerOpen}
         isClosing={isTypePickerClosing}
         cardioTypes={cardioTypes}
+        customCardioTypes={customCardioTypes}
         selectedType={session.type}
         onSelect={handleCardioTypeSelect}
         onClose={requestTypePickerClose}
+        onCreateCustomCardioType={handleOpenCustomCardioModal}
+        onDeleteCustomCardioType={handleDeleteCustomCardioType}
+      />
+
+      <CustomCardioTypeModal
+        isOpen={isCustomModalOpen}
+        isClosing={isCustomModalClosing}
+        name={customName}
+        metLight={customMetLight}
+        metModerate={customMetModerate}
+        metVigorous={customMetVigorous}
+        onNameChange={setCustomName}
+        onMetLightChange={setCustomMetLight}
+        onMetModerateChange={setCustomMetModerate}
+        onMetVigorousChange={setCustomMetVigorous}
+        onCancel={handleCustomCardioCancel}
+        onSave={handleCustomCardioSave}
+        canSave={customModalCanSave}
       />
     </>
   );

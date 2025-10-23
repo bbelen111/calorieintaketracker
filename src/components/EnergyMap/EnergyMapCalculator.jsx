@@ -48,6 +48,7 @@ export const EnergyMapCalculator = () => {
     userData,
     trainingTypes,
     cardioTypes,
+    customCardioTypes,
     bmr,
     trainingCalories,
     totalCardioBurn,
@@ -57,6 +58,8 @@ export const EnergyMapCalculator = () => {
     addCardioSession,
     removeCardioSession,
     updateTrainingType,
+    addCustomCardioType,
+    removeCustomCardioType,
     calculateBreakdown,
     calculateTargetForGoal,
     calculateCardioSessionCalories
@@ -771,6 +774,9 @@ export const EnergyMapCalculator = () => {
         isOpen={cardioModal.isOpen}
         isClosing={cardioModal.isClosing}
         cardioTypes={cardioTypes}
+        customCardioTypes={customCardioTypes}
+        onAddCustomCardioType={addCustomCardioType}
+        onDeleteCustomCardioType={removeCustomCardioType}
         session={cardioDraft}
         onChange={setCardioDraft}
         onCancel={cardioModal.requestClose}

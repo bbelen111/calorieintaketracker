@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { trainingTypes as baseTrainingTypes } from '../constants/trainingTypes';
-import { cardioTypes } from '../constants/cardioTypes';
+import { cardioTypes as baseCardioTypes } from '../constants/cardioTypes';
 import { calculateBMR, calculateCalorieBreakdown, calculateCardioCalories, calculateGoalCalories, getTotalCardioBurn, getTrainingCalories } from '../utils/calculations';
 import { getStepRangeSortValue } from '../utils/steps';
 import { loadEnergyMapData, saveEnergyMapData } from '../utils/storage';
@@ -39,12 +39,23 @@ export const useEnergyMapData = () => {
     return merged;
   }, [userData.trainingTypeOverrides]);
 
+  const resolvedCardioTypes = useMemo(
+    () => ({
+      ...baseCardioTypes,
+      ...(userData.customCardioTypes ?? {})
+    }),
+    [userData.customCardioTypes]
+  );
+
   const bmr = useMemo(() => calculateBMR(userData), [userData]);
   const trainingCalories = useMemo(
     () => getTrainingCalories(userData, resolvedTrainingTypes),
     [resolvedTrainingTypes, userData]
   );
-  const totalCardioBurn = useMemo(() => getTotalCardioBurn(userData, cardioTypes), [userData]);
+  const totalCardioBurn = useMemo(
+    () => getTotalCardioBurn(userData, resolvedCardioTypes),
+    [resolvedCardioTypes, userData]
+  );
 
   const calculateBreakdown = useCallback(
     (steps, isTrainingDay) =>
@@ -53,10 +64,10 @@ export const useEnergyMapData = () => {
         isTrainingDay,
         userData,
         bmr,
-        cardioTypes,
+        cardioTypes: resolvedCardioTypes,
         trainingTypes: resolvedTrainingTypes
       }),
-    [bmr, resolvedTrainingTypes, userData]
+    [bmr, resolvedCardioTypes, resolvedTrainingTypes, userData]
   );
 
   const calculateTargetForGoal = useCallback(
@@ -135,14 +146,68 @@ export const useEnergyMapData = () => {
   }, []);
 
   const calculateCardioSessionCalories = useCallback(
-    (session) => calculateCardioCalories(session, userData, cardioTypes),
-    [userData]
+    (session) => calculateCardioCalories(session, userData, resolvedCardioTypes),
+    [resolvedCardioTypes, userData]
   );
+
+  const addCustomCardioType = useCallback(({ label, met }) => {
+    const fallbackLabel = 'Custom Cardio';
+    const sanitizedLabel = String(label ?? '').trim() || fallbackLabel;
+    const parseMet = (value, fallback) => {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric) || numeric <= 0) {
+        return fallback;
+      }
+      return Math.round(numeric * 10) / 10;
+    };
+    const nextMet = {
+      light: parseMet(met?.light, 3),
+      moderate: parseMet(met?.moderate, 5),
+      vigorous: parseMet(met?.vigorous, 7)
+    };
+    const key = `custom_cardio_${Date.now()}_${Math.round(Math.random() * 1000)}`;
+
+    setUserData((prev) => ({
+      ...prev,
+      customCardioTypes: {
+        ...(prev.customCardioTypes ?? {}),
+        [key]: {
+          label: sanitizedLabel,
+          met: nextMet
+        }
+      }
+    }));
+
+    return key;
+  }, []);
+
+  const removeCustomCardioType = useCallback((key) => {
+    if (!key) return;
+    setUserData((prev) => {
+      const nextCustom = { ...(prev.customCardioTypes ?? {}) };
+      if (!nextCustom[key]) {
+        return prev;
+      }
+      delete nextCustom[key];
+
+      const fallbackType = 'treadmill_walk';
+      const nextSessions = prev.cardioSessions.map((session) =>
+        session.type === key ? { ...session, type: fallbackType } : session
+      );
+
+      return {
+        ...prev,
+        customCardioTypes: nextCustom,
+        cardioSessions: nextSessions
+      };
+    });
+  }, []);
 
   return {
     userData,
-  trainingTypes: resolvedTrainingTypes,
-    cardioTypes,
+    trainingTypes: resolvedTrainingTypes,
+    cardioTypes: resolvedCardioTypes,
+    customCardioTypes: userData.customCardioTypes ?? {},
     bmr,
     trainingCalories,
     totalCardioBurn,
@@ -152,6 +217,8 @@ export const useEnergyMapData = () => {
     addCardioSession,
     removeCardioSession,
     updateTrainingType,
+    addCustomCardioType,
+    removeCustomCardioType,
     calculateBreakdown,
     calculateTargetForGoal,
     calculateCardioSessionCalories

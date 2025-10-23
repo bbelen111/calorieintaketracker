@@ -64,6 +64,7 @@ export const getDefaultEnergyMapData = () => ({
   trainingDuration: 2,
   stepRanges: ['<10k', '10k', '12k', '14k', '16k', '18k', '20k', '>20k'],
   cardioSessions: [],
+  customCardioTypes: {},
   trainingTypeOverrides: {
     bodybuilding: {
       label: 'Bodybuilding',
@@ -134,6 +135,10 @@ function mergeWithDefaults(data) {
     customActivityMultipliers: {
       ...defaults.customActivityMultipliers,
       ...(data.customActivityMultipliers ?? {})
+    },
+    customCardioTypes: {
+      ...defaults.customCardioTypes,
+      ...(data.customCardioTypes ?? {})
     },
     stepRanges: Array.isArray(data.stepRanges) ? data.stepRanges : defaults.stepRanges,
     cardioSessions: Array.isArray(data.cardioSessions)

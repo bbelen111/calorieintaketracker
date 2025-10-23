@@ -1,14 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Flame, Search } from 'lucide-react';
+import { Flame, Plus, Search, Trash2 } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 
 export const CardioTypePickerModal = ({
   isOpen,
   isClosing,
   cardioTypes,
+  customCardioTypes,
   selectedType,
   onSelect,
-  onClose
+  onClose,
+  onCreateCustomCardioType,
+  onDeleteCustomCardioType
 }) => {
   const [query, setQuery] = useState('');
 
@@ -43,8 +46,22 @@ export const CardioTypePickerModal = ({
       contentClassName="p-4 md:p-6 w-full md:max-w-2xl"
     >
       <div className="flex flex-col gap-4 md:gap-6 h-full">
-        <div className="flex flex-col gap-2">
-          <h3 className="text-white font-bold text-xl md:text-2xl mb-2">Browse Cardio Types</h3>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-white font-bold text-xl md:text-2xl mb-3">Browse Cardio Types</h3>
+            </div>
+            {onCreateCustomCardioType && (
+              <button
+                type="button"
+                onClick={() => onCreateCustomCardioType()}
+                className="p-2 rounded-lg border border-slate-600 bg-slate-800 text-slate-200 hover:border-indigo-400 hover:text-white transition-colors"
+                aria-label="Add custom cardio type"
+              >
+                <Plus size={18} />
+              </button>
+            )}
+          </div>
           <div className="relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -57,7 +74,7 @@ export const CardioTypePickerModal = ({
           </div>
         </div>
 
-  <div className="space-y-3 overflow-y-auto pr-1 max-h-[60vh]" role="list">
+        <div className="space-y-3 overflow-y-auto pr-1 max-h-[60vh]" role="list">
           {filteredTypes.length === 0 ? (
             <div className="text-center text-slate-400 text-sm py-6">
               No cardio types match that search. Try a different keyword.
@@ -66,19 +83,25 @@ export const CardioTypePickerModal = ({
             filteredTypes.map(([key, type]) => {
               const isActive = selectedType === key;
               const { light, moderate, vigorous } = type.met ?? {};
+              const isCustom = Boolean(customCardioTypes?.[key]);
 
               return (
                 <button
                   type="button"
                   key={key}
                   onClick={() => onSelect(key)}
-                  className={`w-full text-left p-4 rounded-xl border-2 transition-all active:scale-[0.98] flex flex-col gap-2 ${
+                  className={`relative w-full text-left p-4 rounded-xl border-2 transition-all active:scale-[0.98] flex flex-col gap-2 ${
                     isActive
                       ? 'bg-purple-600 border-purple-400 text-white shadow-lg'
                       : 'bg-slate-700 border-slate-600 text-slate-200 hover:border-blue-400'
                   }`}
                   role="listitem"
                 >
+                  {isCustom && (
+                    <span className="absolute top-3 right-3 text-[11px] uppercase tracking-wide bg-white/10 px-2 py-1 rounded-full text-white">
+                      Custom
+                    </span>
+                  )}
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0">
                       <Flame size={24} />
@@ -89,6 +112,19 @@ export const CardioTypePickerModal = ({
                         Light {renderMetValue(light)} • Moderate {renderMetValue(moderate)} • Vigorous {renderMetValue(vigorous)} METs
                       </p>
                     </div>
+                    {isCustom && (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onDeleteCustomCardioType?.(key);
+                        }}
+                        className="flex-shrink-0 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
+                        aria-label="Delete custom cardio type"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                   </div>
                 </button>
               );
