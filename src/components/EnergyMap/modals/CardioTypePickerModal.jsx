@@ -1,0 +1,117 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { Flame, Search } from 'lucide-react';
+import { ModalShell } from '../common/ModalShell';
+
+export const CardioTypePickerModal = ({
+  isOpen,
+  isClosing,
+  cardioTypes,
+  selectedType,
+  onSelect,
+  onClose
+}) => {
+  const [query, setQuery] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) {
+      setQuery('');
+    }
+  }, [isOpen]);
+
+  const filteredTypes = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    const entries = Object.entries(cardioTypes);
+
+    if (!normalizedQuery) {
+      return entries;
+    }
+
+    return entries.filter(([key, type]) => {
+      const labelMatch = type.label.toLowerCase().includes(normalizedQuery);
+      const keyMatch = key.replace(/[_-]/g, ' ').toLowerCase().includes(normalizedQuery);
+      return labelMatch || keyMatch;
+    });
+  }, [cardioTypes, query]);
+
+  const renderMetValue = (value) => (typeof value === 'number' ? value.toFixed(1) : '--');
+
+  return (
+    <ModalShell
+      isOpen={isOpen}
+      isClosing={isClosing}
+      overlayClassName="bg-black/80 z-[70]"
+      contentClassName="p-4 md:p-6 w-full md:max-w-2xl"
+    >
+      <div className="flex flex-col gap-4 md:gap-6 h-full">
+        <div className="flex flex-col gap-2">
+          <h3 className="text-white font-bold text-xl md:text-2xl">Browse Cardio Library</h3>
+          <p className="text-slate-300 text-sm md:text-base">
+            Search or scroll through expanded cardio options with quick MET references for each intensity level.
+          </p>
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search by name, equipment, or intensity"
+              className="w-full bg-slate-800 text-white placeholder:text-slate-500 pl-10 pr-4 py-2 rounded-lg border border-slate-700 focus:border-blue-400 focus:outline-none"
+              type="text"
+            />
+          </div>
+        </div>
+
+  <div className="space-y-3 overflow-y-auto pr-1 max-h-[60vh]" role="list">
+          {filteredTypes.length === 0 ? (
+            <div className="text-center text-slate-400 text-sm py-6">
+              No cardio types match that search. Try a different keyword.
+            </div>
+          ) : (
+            filteredTypes.map(([key, type]) => {
+              const isActive = selectedType === key;
+              const { light, moderate, vigorous } = type.met ?? {};
+
+              return (
+                <button
+                  type="button"
+                  key={key}
+                  onClick={() => onSelect(key)}
+                  className={`w-full text-left p-4 rounded-xl border-2 transition-all active:scale-[0.98] flex flex-col gap-2 ${
+                    isActive
+                      ? 'bg-purple-600 border-purple-400 text-white shadow-lg'
+                      : 'bg-slate-700 border-slate-600 text-slate-200 hover:border-blue-400'
+                  }`}
+                  role="listitem"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0">
+                      <Flame size={24} />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-base md:text-lg leading-tight">{type.label}</p>
+                      <p className="text-xs md:text-sm opacity-80">
+                        Light {renderMetValue(light)} • Moderate {renderMetValue(moderate)} • Vigorous {renderMetValue(vigorous)} METs
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs md:text-sm text-slate-200/80">
+                    Ideal for varied training plans including treadmill work, interval sessions, outdoor efforts, and more.
+                  </p>
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            type="button"
+            className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-4 py-3 rounded-lg transition-all active:scale-95 font-medium"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+};

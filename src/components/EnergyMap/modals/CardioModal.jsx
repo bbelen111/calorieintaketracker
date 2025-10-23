@@ -1,6 +1,8 @@
 import React from 'react';
 import { Plus } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
+import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
+import { CardioTypePickerModal } from './CardioTypePickerModal';
 import { calculateCardioCalories } from '../../../utils/calculations';
 
 export const CardioModal = ({
@@ -32,6 +34,32 @@ export const CardioModal = ({
     session.averageHeartRate === '' || session.averageHeartRate == null
       ? ''
       : session.averageHeartRate;
+
+  const {
+    isOpen: isTypePickerOpen,
+    isClosing: isTypePickerClosing,
+    open: openTypePicker,
+    requestClose: requestTypePickerClose,
+    forceClose: forceTypePickerClose
+  } = useAnimatedModal(false);
+  const selectedCardio = cardioTypes[session.type] ?? null;
+  const formatMetValue = (value) => (typeof value === 'number' ? value.toFixed(1) : '--');
+  const selectedMetSummary = selectedCardio
+    ? `Light ${formatMetValue(selectedCardio.met?.light)} • Moderate ${formatMetValue(
+        selectedCardio.met?.moderate
+      )} • Vigorous ${formatMetValue(selectedCardio.met?.vigorous)} METs`
+    : 'Browse the full cardio library to find the best match.';
+
+  const handleCardioTypeSelect = (typeKey) => {
+    onChange({ ...session, type: typeKey });
+    requestTypePickerClose();
+  };
+
+  React.useEffect(() => {
+    if (!isOpen) {
+      forceTypePickerClose();
+    }
+  }, [forceTypePickerClose, isOpen]);
 
   const handleDurationChange = (event) => {
     const { value } = event.target;
@@ -91,23 +119,26 @@ export const CardioModal = ({
     }`;
 
   return (
-    <ModalShell isOpen={isOpen} isClosing={isClosing} contentClassName="p-6 max-w-md w-full">
+    <>
+      <ModalShell isOpen={isOpen} isClosing={isClosing} contentClassName="p-6 max-w-md w-full">
       <h3 className="text-white font-bold text-xl mb-4">Add Cardio Session</h3>
 
       <div className="space-y-4">
         <div>
           <label className="text-slate-300 text-sm block mb-2">Cardio Type</label>
-          <select
-            value={session.type}
-            onChange={(event) => onChange({ ...session, type: event.target.value })}
-            className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none"
+          <button
+            type="button"
+            onClick={() => openTypePicker()}
+            className="w-full px-3 py-2 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1"
           >
-            {Object.entries(cardioTypes).map(([key, type]) => (
-              <option key={key} value={key}>
-                {type.label}
-              </option>
-            ))}
-          </select>
+            <span className="font-semibold text-sm md:text-base">
+              {selectedCardio?.label ?? 'Select Cardio Type'}
+            </span>
+            <span className="text-xs opacity-90 basis-full sm:basis-auto">
+              {selectedMetSummary}
+            </span>
+            <span className="text-[11px] opacity-75 ml-auto">Tap to change</span>
+          </button>
         </div>
 
         <div>
@@ -182,26 +213,36 @@ export const CardioModal = ({
         </div>
       </div>
 
-      <div className="flex gap-3 mt-6">
-        <button
-          onClick={onCancel}
-          type="button"
-          className="flex-1 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-all"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={onSave}
-          type="button"
-          disabled={!canSave}
-          className={`flex-1 text-white px-4 py-2 rounded-lg transition-all flex items-center justify-center gap-2 ${
-            canSave ? 'bg-red-600 hover:bg-red-500' : 'bg-red-600/60 cursor-not-allowed opacity-70'
-          }`}
-        >
-          <Plus size={20} />
-          Add Session
-        </button>
-      </div>
-    </ModalShell>
+        <div className="flex gap-3 mt-6">
+          <button
+            onClick={onCancel}
+            type="button"
+            className="flex-1 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onSave}
+            type="button"
+            disabled={!canSave}
+            className={`flex-1 text-white px-4 py-2 rounded-lg transition-all flex items-center justify-center gap-2 ${
+              canSave ? 'bg-red-600 hover:bg-red-500' : 'bg-red-600/60 cursor-not-allowed opacity-70'
+            }`}
+          >
+            <Plus size={20} />
+            Add Session
+          </button>
+        </div>
+      </ModalShell>
+
+      <CardioTypePickerModal
+        isOpen={isTypePickerOpen}
+        isClosing={isTypePickerClosing}
+        cardioTypes={cardioTypes}
+        selectedType={session.type}
+        onSelect={handleCardioTypeSelect}
+        onClose={requestTypePickerClose}
+      />
+    </>
   );
 };
