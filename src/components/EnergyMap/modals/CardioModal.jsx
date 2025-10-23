@@ -1,5 +1,5 @@
 import React from 'react';
-import { Save, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 
 const getEstimatedBurn = (cardioTypes, session, weight) => {
@@ -7,7 +7,9 @@ const getEstimatedBurn = (cardioTypes, session, weight) => {
   if (!type) return 0;
   const met = type.met[session.intensity];
   if (!met) return 0;
-  const hours = session.duration / 60;
+  const duration = Number(session.duration);
+  if (!Number.isFinite(duration) || duration <= 0) return 0;
+  const hours = duration / 60;
   return Math.round(met * weight * hours);
 };
 
@@ -22,6 +24,19 @@ export const CardioModal = ({
   userWeight
 }) => {
   const estimatedBurn = getEstimatedBurn(cardioTypes, session, userWeight);
+  const hasValidDuration = Number.isFinite(Number(session.duration)) && Number(session.duration) > 0;
+
+  const handleDurationChange = (event) => {
+    const { value } = event.target;
+    if (value === '') {
+      onChange({ ...session, duration: '' });
+      return;
+    }
+
+    const parsed = Number.parseInt(value, 10);
+    const sanitized = Number.isFinite(parsed) ? Math.max(parsed, 0) : 0;
+    onChange({ ...session, duration: sanitized });
+  };
 
   return (
     <ModalShell isOpen={isOpen} isClosing={isClosing} contentClassName="p-6 max-w-md w-full">
@@ -47,8 +62,9 @@ export const CardioModal = ({
           <label className="text-slate-300 text-sm block mb-2">Duration (minutes)</label>
           <input
             type="number"
-            value={session.duration}
-            onChange={(event) => onChange({ ...session, duration: parseInt(event.target.value, 10) || 0 })}
+            min="0"
+            value={session.duration === '' ? '' : session.duration}
+            onChange={handleDurationChange}
             className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none"
           />
         </div>
@@ -83,7 +99,12 @@ export const CardioModal = ({
         <button
           onClick={onSave}
           type="button"
-          className="flex-1 bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg transition-all flex items-center justify-center gap-2"
+          disabled={!hasValidDuration}
+          className={`flex-1 text-white px-4 py-2 rounded-lg transition-all flex items-center justify-center gap-2 ${
+            hasValidDuration
+              ? 'bg-red-600 hover:bg-red-500'
+              : 'bg-red-600/60 cursor-not-allowed opacity-70'
+          }`}
         >
           <Plus size={20} />
           Add Session

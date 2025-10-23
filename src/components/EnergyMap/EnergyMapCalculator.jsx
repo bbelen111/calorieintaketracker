@@ -423,7 +423,16 @@ export const EnergyMapCalculator = () => {
   );
 
   const handleCardioSave = useCallback(() => {
-    addCardioSession(cardioDraft);
+    const parsedDuration = Number.parseInt(cardioDraft.duration, 10);
+    const sanitizedDuration = Number.isFinite(parsedDuration) ? Math.max(parsedDuration, 0) : 0;
+    if (!sanitizedDuration) {
+      return;
+    }
+
+    addCardioSession({
+      ...cardioDraft,
+      duration: sanitizedDuration
+    });
     setCardioDraft(defaultCardioSession);
     cardioModal.requestClose();
   }, [addCardioSession, cardioDraft, cardioModal]);
