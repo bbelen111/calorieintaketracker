@@ -274,7 +274,7 @@ export const CardioModal = ({
                 min="0"
                 value={session.duration === '' ? '' : session.duration}
                 onChange={handleDurationChange}
-                className="w-full bg-slate-700 text-white px-4 pr-14 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none"
+                className="w-full bg-slate-700 text-white px-4 pr-14 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-base"
               />
               <button
                 type="button"

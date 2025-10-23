@@ -4,8 +4,8 @@ import { ModalShell } from '../common/ModalShell';
 import { alignScrollContainerToValue, createPickerScrollHandler } from '../../../utils/scroll';
 import { formatDurationLabel, roundDurationHours } from '../../../utils/time';
 
-const MAX_HOURS = 6;
-const MINUTE_STEP = 5;
+const MAX_HOURS = 24;
+const MINUTE_STEP = 1;
 const HOUR_VALUES = Array.from({ length: MAX_HOURS + 1 }, (_, index) => index);
 const MINUTE_VALUES = Array.from({ length: Math.floor(60 / MINUTE_STEP) }, (_, index) => index * MINUTE_STEP);
 
