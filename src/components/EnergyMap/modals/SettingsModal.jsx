@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Save } from 'lucide-react';
 import { DEFAULT_ACTIVITY_MULTIPLIERS, getActivityPresetByKey } from '../../../constants/activityPresets';
 import { ModalShell } from '../common/ModalShell';
+import { formatDurationLabel, roundDurationHours } from '../../../utils/time';
 
 export const SettingsModal = ({
   isOpen,
@@ -12,6 +13,7 @@ export const SettingsModal = ({
   trainingTypes,
   trainingCalories,
   onTrainingTypeClick,
+  onTrainingDurationClick,
   onDailyActivityClick,
   onCancel,
   onSave
@@ -103,12 +105,9 @@ export const SettingsModal = ({
 
       <div>
         <label className="text-slate-300 text-sm block mb-2">Training Duration (hours)</label>
-        <input
-          type="number"
-          step="0.5"
-          value={userData.trainingDuration}
-          onChange={(event) => onChange('trainingDuration', parseFloat(event.target.value) || 0)}
-          className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-lg"
+        <DurationButton
+          duration={userData.trainingDuration}
+          onClick={onTrainingDurationClick}
         />
         <p className="text-slate-400 text-xs mt-1">Training session burn: ~{Math.round(trainingCalories)} calories</p>
       </div>
@@ -133,6 +132,23 @@ export const SettingsModal = ({
     </div>
   </ModalShell>
 );
+
+const DurationButton = ({ duration, onClick }) => {
+  const formatted = useMemo(() => formatDurationLabel(duration), [duration]);
+  const rounded = useMemo(() => roundDurationHours(duration), [duration]);
+
+  return (
+    <button
+      onClick={onClick}
+      type="button"
+      className="w-full text-left p-3 md:p-4 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98]"
+    >
+      <div className="font-semibold text-base">{formatted}</div>
+      <div className="text-xs md:text-sm opacity-90 mt-0.5">~{rounded.toFixed(2)} hours</div>
+      <div className="text-xs opacity-75 mt-2">Tap to change</div>
+    </button>
+  );
+};
 
 const formatMultiplier = (value) => {
   if (!Number.isFinite(value)) {

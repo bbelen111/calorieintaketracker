@@ -1,9 +1,7 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useMemo } from 'react';
 import { Save, Edit3 } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
-import { alignScrollContainerToValue, createPickerScrollHandler } from '../../../utils/scroll';
-
-const DURATION_VALUES = Array.from({ length: 60 }, (_, index) => (index + 1) * 0.5);
+import { formatDurationLabel, roundDurationHours } from '../../../utils/time';
 
 export const QuickTrainingModal = ({
   isOpen,
@@ -13,46 +11,16 @@ export const QuickTrainingModal = ({
   tempTrainingDuration,
   onTrainingTypeSelect,
   onEditTrainingType,
-  onDurationChange,
+  onDurationClick,
   onCancel,
   onSave
 }) => {
-  const scrollRef = useRef(null);
-  const timeoutRef = useRef(null);
-  const hasAlignedRef = useRef(false);
-
-  useEffect(() => () => clearTimeout(timeoutRef.current), []);
-
-  useEffect(() => {
-    if (!isOpen || !scrollRef.current) {
-      hasAlignedRef.current = false;
-      return undefined;
-    }
-
-    const behavior = hasAlignedRef.current ? 'smooth' : 'instant';
-    hasAlignedRef.current = true;
-
-    const frame = requestAnimationFrame(() => {
-      alignScrollContainerToValue(scrollRef.current, tempTrainingDuration.toFixed(1), behavior);
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [isOpen, tempTrainingDuration]);
-
-  const handleScroll = useMemo(
-    () =>
-      createPickerScrollHandler(
-        scrollRef,
-        timeoutRef,
-        (value) => parseFloat(value),
-        onDurationChange
-      ),
-    [onDurationChange]
-  );
-
   const selectedTraining = trainingTypes[tempTrainingType];
   const caloriesPerHour = selectedTraining?.caloriesPerHour ?? 0;
 
   const estimatedBurn = Math.round(caloriesPerHour * tempTrainingDuration);
+  const formattedDuration = formatDurationLabel(tempTrainingDuration);
+  const roundedDuration = useMemo(() => roundDurationHours(tempTrainingDuration), [tempTrainingDuration]);
 
   return (
     <ModalShell isOpen={isOpen} isClosing={isClosing} contentClassName="p-6 w-full max-w-md">
@@ -99,38 +67,15 @@ export const QuickTrainingModal = ({
 
         <div>
           <label className="text-slate-300 text-sm block mb-2">Training Duration (hours)</label>
-          <div className="relative h-48 overflow-hidden">
-            <div className="absolute inset-0 pointer-events-none z-10">
-              <div className="h-16 bg-gradient-to-b from-slate-800 to-transparent" />
-              <div className="h-16 bg-transparent" />
-              <div className="h-16 bg-gradient-to-t from-slate-800 to-transparent" />
-            </div>
-            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400 pointer-events-none z-10" />
-
-            <div ref={scrollRef} className="h-full overflow-y-auto scrollbar-hide" onScroll={handleScroll}>
-              <div className="h-16" />
-              {DURATION_VALUES.map((duration) => (
-                <div
-                  key={duration}
-                  data-value={duration.toFixed(1)}
-                  className={`h-16 flex items-center justify-center text-2xl font-bold snap-center transition-all text-center ${
-                    Math.abs(tempTrainingDuration - duration) < 0.01
-                      ? 'text-white scale-110'
-                      : 'text-slate-500'
-                  }`}
-                  onClick={() => {
-                    onDurationChange(duration);
-                    if (scrollRef.current) {
-                      alignScrollContainerToValue(scrollRef.current, duration.toFixed(1), 'smooth');
-                    }
-                  }}
-                >
-                  {duration.toFixed(1)}
-                </div>
-              ))}
-              <div className="h-16" />
-            </div>
-          </div>
+          <button
+            onClick={onDurationClick}
+            type="button"
+            className="w-full text-left p-3 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98]"
+          >
+            <div className="font-semibold text-base">{formattedDuration}</div>
+            <div className="text-xs opacity-90 mt-1">~{roundedDuration.toFixed(2)} hours</div>
+            <div className="text-xs opacity-75 mt-2">Tap to change</div>
+          </button>
           <div className="bg-slate-700/50 rounded-lg p-3 mt-3">
             <p className="text-slate-400 text-xs text-center mb-1">Estimated Burn:</p>
             <p className="text-white font-bold text-xl text-center">~{estimatedBurn} calories</p>
