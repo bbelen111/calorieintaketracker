@@ -44,10 +44,7 @@ export const CardioTypePickerModal = ({
     >
       <div className="flex flex-col gap-4 md:gap-6 h-full">
         <div className="flex flex-col gap-2">
-          <h3 className="text-white font-bold text-xl md:text-2xl">Browse Cardio Library</h3>
-          <p className="text-slate-300 text-sm md:text-base">
-            Search or scroll through expanded cardio options with quick MET references for each intensity level.
-          </p>
+          <h3 className="text-white font-bold text-xl md:text-2xl mb-2">Browse Cardio Types</h3>
           <div className="relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -93,9 +90,6 @@ export const CardioTypePickerModal = ({
                       </p>
                     </div>
                   </div>
-                  <p className="text-xs md:text-sm text-slate-200/80">
-                    Ideal for varied training plans including treadmill work, interval sessions, outdoor efforts, and more.
-                  </p>
                 </button>
               );
             })

@@ -50,5 +50,19 @@ export const cardioTypes = {
   speed_rope_tricks: { label: 'Jump Rope (Tricks)', met: { light: 9.0, moderate: 11.0, vigorous: 13.0 } },
   agility_drills: { label: 'Agility Drills', met: { light: 6.0, moderate: 7.5, vigorous: 9.0 } },
   shuttle_runs: { label: 'Shuttle Runs', met: { light: 8.5, moderate: 10.5, vigorous: 12.5 } },
-  soccer_drills: { label: 'Soccer Drills', met: { light: 6.5, moderate: 8.0, vigorous: 9.5 } }
+  soccer_drills: { label: 'Soccer Drills', met: { light: 6.5, moderate: 8.0, vigorous: 9.5 } },
+  soccer_match: { label: 'Soccer Match', met: { light: 7.0, moderate: 10.0, vigorous: 12.0 } },
+  futsal: { label: 'Futsal', met: { light: 6.0, moderate: 8.5, vigorous: 10.5 } },
+  basketball_game: { label: 'Basketball Game', met: { light: 5.5, moderate: 8.0, vigorous: 10.0 } },
+  basketball_drills: { label: 'Basketball Drills', met: { light: 5.0, moderate: 6.5, vigorous: 8.5 } },
+  rugby_training: { label: 'Rugby Training', met: { light: 6.0, moderate: 8.5, vigorous: 10.5 } },
+  rugby_match: { label: 'Rugby Match', met: { light: 7.0, moderate: 9.5, vigorous: 12.0 } },
+  american_football: { label: 'American Football', met: { light: 6.0, moderate: 8.0, vigorous: 9.5 } },
+  field_hockey: { label: 'Field Hockey', met: { light: 6.5, moderate: 8.5, vigorous: 10.0 } },
+  lacrosse: { label: 'Lacrosse', met: { light: 6.5, moderate: 8.5, vigorous: 10.5 } },
+  ultimate_frisbee: { label: 'Ultimate Frisbee', met: { light: 6.0, moderate: 8.3, vigorous: 10.5 } },
+  tennis_singles: { label: 'Tennis (Singles)', met: { light: 5.0, moderate: 7.3, vigorous: 10.0 } },
+  tennis_doubles: { label: 'Tennis (Doubles)', met: { light: 4.5, moderate: 6.0, vigorous: 7.5 } },
+  volleyball: { label: 'Volleyball', met: { light: 3.0, moderate: 4.5, vigorous: 6.0 } },
+  handball: { label: 'Handball', met: { light: 6.0, moderate: 8.0, vigorous: 10.5 } }
 };
