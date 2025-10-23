@@ -84,7 +84,7 @@ export const CardioModal = ({
   };
 
   const effortButtonClass = (type) =>
-    `w-full rounded-lg border px-4 py-2 transition-all ${
+    `w-full rounded-lg border px-3 py-1.5 text-sm transition-all ${
       effortType === type
         ? 'bg-red-600 text-white border-red-500 shadow-lg shadow-red-900/30'
         : 'bg-slate-700 text-slate-300 border-slate-600 hover:border-blue-400 hover:text-white'
@@ -156,6 +156,9 @@ export const CardioModal = ({
               <option value="moderate">Moderate</option>
               <option value="vigorous">Vigorous</option>
             </select>
+            <p className="text-xs text-slate-400 mt-2">
+              Pick the perceived exertion level that best matches the session.
+            </p>
           </div>
         ) : (
           <div>
