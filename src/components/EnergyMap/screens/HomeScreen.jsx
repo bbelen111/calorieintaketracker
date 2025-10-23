@@ -122,7 +122,8 @@ export const HomeScreen = ({
       <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
         <h2 className="text-xl font-bold text-white mb-4">Day Type</h2>
         <div className="grid grid-cols-2 gap-4">
-          <button
+          <motion.button
+            layout
             onClick={onTrainingDayClick}
             type="button"
             className={`p-4 rounded-xl border-2 transition-all relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 ${
@@ -130,33 +131,58 @@ export const HomeScreen = ({
                 ? 'bg-purple-600 border-white text-white shadow-xl transform scale-105'
                 : 'bg-slate-700 border-slate-600 text-slate-200 hover:border-purple-400 hover:shadow-lg hover:scale-[1.03]'
             }`}
+            transition={{ type: 'spring', stiffness: 260, damping: 24 }}
           >
-            {selectedDay === 'training' && (
-              <Edit3 size={14} className="absolute top-2 right-2 opacity-80" />
-            )}
+            <AnimatePresence initial={false}>
+              {selectedDay === 'training' && (
+                <motion.span
+                  key="training-edit"
+                  initial={{ opacity: 0, scale: 0.6, y: -6 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.6, y: -6 }}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                  className="absolute top-2 right-2 text-white/80"
+                >
+                  <Edit3 size={14} />
+                </motion.span>
+              )}
+            </AnimatePresence>
             <Dumbbell className="mx-auto mb-2" size={28} />
             <p className="font-bold text-lg">Training Day</p>
             <p className="text-xs md:text-sm opacity-80">
               {userData.trainingDuration}hrs {trainingTypes[userData.trainingType].label}
             </p>
             <p className="text-[11px] opacity-70 mt-1">~{Math.round(trainingCalories)} cal burn</p>
-            {selectedDay === 'training' && (
-              <p className="text-[11px] opacity-80 mt-2 tracking-wide">Tap again to adjust</p>
-            )}
-          </button>
-          <button
+            <AnimatePresence initial={false}>
+              {selectedDay === 'training' && (
+                <motion.div
+                  key="training-adjust"
+                  initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                  animate={{ opacity: 0.85, height: 'auto', marginTop: 8 }}
+                  exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                  className="overflow-hidden"
+                >
+                  <p className="text-[11px] tracking-wide">Tap again to adjust</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.button>
+          <motion.button
+            layout
             onClick={onRestDayClick}
             type="button"
-            className={`p-4 rounded-xl border-2 transition-all relative grid grid-rows-[auto_auto_auto_auto] place-items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 ${
+            className={`p-4 rounded-xl border-2 transition-all grid grid-rows-[auto_auto_auto] place-items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 ${
               selectedDay === 'rest'
                 ? 'bg-indigo-600 border-white text-white shadow-lg transform scale-105'
                 : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
             }`}
+            transition={{ type: 'spring', stiffness: 260, damping: 24 }}
           >
             <Activity className="mb-2" size={28} />
             <p className="font-bold text-lg">Rest Day</p>
             <p className="text-xs md:text-sm opacity-80">No training</p>
-          </button>
+          </motion.button>
         </div>
       </div>
 
