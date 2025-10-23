@@ -2,6 +2,8 @@ import React from 'react';
 import { Save } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import { trainingTypes as baseTrainingTypes } from '../../../constants/trainingTypes';
+import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
+import { CaloriesPerHourGuideModal } from './CaloriesPerHourGuideModal';
 
 const getDefaultValuesForType = (typeKey) => {
   if (!typeKey) return { label: '', caloriesPerHour: 0, description: '' };
@@ -25,6 +27,7 @@ export const TrainingTypeEditorModal = ({
   const safeName = name ?? '';
   const safeDescription = description ?? '';
   const safeCalories = Number.isFinite(Number(calories)) ? calories : defaults.caloriesPerHour;
+  const infoModal = useAnimatedModal(false, 220);
 
   return (
     <ModalShell
@@ -69,7 +72,13 @@ export const TrainingTypeEditorModal = ({
             placeholder={defaults.caloriesPerHour}
             className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-base"
           />
-          <p className="text-slate-400 text-xs mt-1">Typical range: 180-300 cal/hr</p>
+          <button
+            type="button"
+            onClick={infoModal.open}
+            className="mt-2 text-xs text-blue-300 hover:text-blue-200 underline underline-offset-2 transition-colors"
+          >
+            Not sure what number fits? View the quick guide.
+          </button>
         </div>
       </div>
 
@@ -90,6 +99,11 @@ export const TrainingTypeEditorModal = ({
           Save
         </button>
       </div>
+      <CaloriesPerHourGuideModal
+        isOpen={infoModal.isOpen}
+        isClosing={infoModal.isClosing}
+        onClose={infoModal.requestClose}
+      />
     </ModalShell>
   );
 };
