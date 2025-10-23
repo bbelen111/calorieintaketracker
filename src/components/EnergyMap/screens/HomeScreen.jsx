@@ -125,32 +125,37 @@ export const HomeScreen = ({
           <button
             onClick={onTrainingDayClick}
             type="button"
-            className={`p-4 rounded-xl border-2 transition-all relative ${
+            className={`p-4 rounded-xl border-2 transition-all relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 ${
               selectedDay === 'training'
-                ? 'bg-purple-600 border-white text-white shadow-lg transform scale-105'
-                : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
+                ? 'bg-purple-600 border-white text-white shadow-xl transform scale-105'
+                : 'bg-slate-700 border-slate-600 text-slate-200 hover:border-purple-400 hover:shadow-lg hover:scale-[1.03]'
             }`}
           >
-            <Edit3 size={14} className="absolute top-2 right-2 opacity-75" />
+            {selectedDay === 'training' && (
+              <Edit3 size={14} className="absolute top-2 right-2 opacity-80" />
+            )}
             <Dumbbell className="mx-auto mb-2" size={28} />
             <p className="font-bold text-lg">Training Day</p>
-            <p className="text-sm opacity-90">
+            <p className="text-xs md:text-sm opacity-80">
               {userData.trainingDuration}hrs {trainingTypes[userData.trainingType].label}
             </p>
-            <p className="text-xs opacity-75 mt-1">~{Math.round(trainingCalories)} cal burn</p>
+            <p className="text-[11px] opacity-70 mt-1">~{Math.round(trainingCalories)} cal burn</p>
+            {selectedDay === 'training' && (
+              <p className="text-[11px] opacity-80 mt-2 tracking-wide">Tap again to adjust</p>
+            )}
           </button>
           <button
             onClick={onRestDayClick}
             type="button"
-            className={`p-4 rounded-xl border-2 transition-all ${
+            className={`p-4 rounded-xl border-2 transition-all relative grid grid-rows-[auto_auto_auto_auto] place-items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 ${
               selectedDay === 'rest'
                 ? 'bg-indigo-600 border-white text-white shadow-lg transform scale-105'
                 : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
             }`}
           >
-            <Activity className="mx-auto mb-2" size={28} />
+            <Activity className="mb-2" size={28} />
             <p className="font-bold text-lg">Rest Day</p>
-            <p className="text-sm opacity-90">No training</p>
+            <p className="text-xs md:text-sm opacity-80">No training</p>
           </button>
         </div>
       </div>
