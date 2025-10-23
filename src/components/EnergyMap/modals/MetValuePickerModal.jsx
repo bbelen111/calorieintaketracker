@@ -65,14 +65,23 @@ export const MetValuePickerModal = ({
     [decimals]
   );
 
-  const commitValue = useCallback(
-    (nextValue, behavior = 'smooth') => {
+  const updateValue = useCallback(
+    (nextValue, { shouldAlign = true, alignBehavior = 'smooth', emitChange = true } = {}) => {
       const clamped = clampValue(nextValue, min, max);
-      setSelectedValue(clamped);
-      if (onChange) {
+      setSelectedValue((previous) => {
+        if (Math.abs(previous - clamped) < 0.0001) {
+          return previous;
+        }
+        return clamped;
+      });
+
+      if (emitChange && onChange) {
         onChange(clamped);
       }
-      alignToValue(clamped, behavior);
+
+      if (shouldAlign) {
+        alignToValue(clamped, alignBehavior);
+      }
     },
     [alignToValue, max, min, onChange]
   );
@@ -87,11 +96,11 @@ export const MetValuePickerModal = ({
     hasAlignedRef.current = true;
 
     const frame = requestAnimationFrame(() => {
-      commitValue(normalizedValue, behavior);
+      updateValue(normalizedValue, { shouldAlign: true, alignBehavior: behavior });
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [commitValue, isOpen, normalizedValue]);
+  }, [isOpen, normalizedValue, updateValue]);
 
   useEffect(() => () => clearTimeout(timeoutRef.current), []);
 
@@ -101,9 +110,9 @@ export const MetValuePickerModal = ({
         scrollRef,
         timeoutRef,
         (raw) => parseFloat(raw),
-        (next) => commitValue(next, 'smooth')
+        (next) => updateValue(next, { shouldAlign: false })
       ),
-    [commitValue]
+    [updateValue]
   );
 
   return (
@@ -133,7 +142,7 @@ export const MetValuePickerModal = ({
               <div
                 key={formattedValue}
                 data-value={formattedValue}
-                onClick={() => commitValue(option)}
+                onClick={() => updateValue(option)}
                 className={`py-3 px-6 text-2xl font-semibold transition-all snap-center cursor-pointer text-center ${
                   isSelected ? 'text-white scale-110' : 'text-slate-500'
                 }`}
@@ -155,7 +164,10 @@ export const MetValuePickerModal = ({
           Cancel
         </button>
         <button
-          onClick={() => onSave?.(selectedValue)}
+          onClick={() => {
+            updateValue(selectedValue);
+            onSave?.(selectedValue);
+          }}
           type="button"
           className="flex-1 bg-green-600 active:bg-green-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
         >
