@@ -1,17 +1,7 @@
 import React from 'react';
 import { Plus } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
-
-const getEstimatedBurn = (cardioTypes, session, weight) => {
-  const type = cardioTypes[session.type];
-  if (!type) return 0;
-  const met = type.met[session.intensity];
-  if (!met) return 0;
-  const duration = Number(session.duration);
-  if (!Number.isFinite(duration) || duration <= 0) return 0;
-  const hours = duration / 60;
-  return Math.round(met * weight * hours);
-};
+import { calculateCardioCalories } from '../../../utils/calculations';
 
 export const CardioModal = ({
   isOpen,
@@ -21,10 +11,27 @@ export const CardioModal = ({
   onChange,
   onCancel,
   onSave,
-  userWeight
+  userWeight,
+  userAge,
+  userGender
 }) => {
-  const estimatedBurn = getEstimatedBurn(cardioTypes, session, userWeight);
+  const effortType = session.effortType ?? 'intensity';
+  const estimatedBurn = calculateCardioCalories(
+    session,
+    { weight: userWeight, age: userAge, gender: userGender },
+    cardioTypes
+  );
   const hasValidDuration = Number.isFinite(Number(session.duration)) && Number(session.duration) > 0;
+  const hasValidHeartRate =
+    effortType === 'heartRate'
+      ? Number.isFinite(Number(session.averageHeartRate)) && Number(session.averageHeartRate) > 0
+      : true;
+  const canSave = hasValidDuration && hasValidHeartRate;
+  const intensityValue = session.intensity ?? 'moderate';
+  const heartRateValue =
+    session.averageHeartRate === '' || session.averageHeartRate == null
+      ? ''
+      : session.averageHeartRate;
 
   const handleDurationChange = (event) => {
     const { value } = event.target;
@@ -37,6 +44,51 @@ export const CardioModal = ({
     const sanitized = Number.isFinite(parsed) ? Math.max(parsed, 0) : 0;
     onChange({ ...session, duration: sanitized });
   };
+
+  const handleEffortTypeChange = (nextType) => {
+    if (nextType === effortType) {
+      return;
+    }
+
+    if (nextType === 'heartRate') {
+      onChange({
+        ...session,
+        effortType: 'heartRate',
+        averageHeartRate: session.averageHeartRate ?? ''
+      });
+      return;
+    }
+
+    onChange({
+      ...session,
+      effortType: 'intensity',
+      intensity: session.intensity ?? 'moderate',
+      averageHeartRate: ''
+    });
+  };
+
+  const handleIntensityChange = (event) => {
+    onChange({ ...session, intensity: event.target.value });
+  };
+
+  const handleHeartRateChange = (event) => {
+    const { value } = event.target;
+    if (value === '') {
+      onChange({ ...session, averageHeartRate: '' });
+      return;
+    }
+
+    const parsed = Number.parseInt(value, 10);
+    const sanitized = Number.isFinite(parsed) ? Math.max(parsed, 0) : 0;
+    onChange({ ...session, averageHeartRate: sanitized });
+  };
+
+  const effortButtonClass = (type) =>
+    `w-full rounded-lg border px-4 py-2 transition-all ${
+      effortType === type
+        ? 'bg-red-600 text-white border-red-500 shadow-lg shadow-red-900/30'
+        : 'bg-slate-700 text-slate-300 border-slate-600 hover:border-blue-400 hover:text-white'
+    }`;
 
   return (
     <ModalShell isOpen={isOpen} isClosing={isClosing} contentClassName="p-6 max-w-md w-full">
@@ -70,17 +122,56 @@ export const CardioModal = ({
         </div>
 
         <div>
-          <label className="text-slate-300 text-sm block mb-2">Intensity</label>
-          <select
-            value={session.intensity}
-            onChange={(event) => onChange({ ...session, intensity: event.target.value })}
-            className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none"
-          >
-            <option value="light">Light</option>
-            <option value="moderate">Moderate</option>
-            <option value="vigorous">Vigorous</option>
-          </select>
+          <label className="text-slate-300 text-sm block mb-2">Effort Tracking</label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              className={effortButtonClass('intensity')}
+              onClick={() => handleEffortTypeChange('intensity')}
+            >
+              Intensity
+            </button>
+            <button
+              type="button"
+              className={effortButtonClass('heartRate')}
+              onClick={() => handleEffortTypeChange('heartRate')}
+            >
+              Average Heart Rate
+            </button>
+          </div>
+          <p className="text-xs text-slate-400 mt-2">
+            Use heart rate for wearable-based estimates or intensity for quick selections.
+          </p>
         </div>
+
+        {effortType === 'intensity' ? (
+          <div>
+            <label className="text-slate-300 text-sm block mb-2">Intensity</label>
+            <select
+              value={intensityValue}
+              onChange={handleIntensityChange}
+              className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none"
+            >
+              <option value="light">Light</option>
+              <option value="moderate">Moderate</option>
+              <option value="vigorous">Vigorous</option>
+            </select>
+          </div>
+        ) : (
+          <div>
+            <label className="text-slate-300 text-sm block mb-2">Average Heart Rate (bpm)</label>
+            <input
+              type="number"
+              min="0"
+              value={heartRateValue}
+              onChange={handleHeartRateChange}
+              className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none"
+            />
+            <p className="text-xs text-slate-400 mt-2">
+              Enter the average beats per minute recorded during this session.
+            </p>
+          </div>
+        )}
 
         <div className="bg-slate-700/50 rounded-lg p-3">
           <p className="text-slate-300 text-sm">Estimated Burn:</p>
@@ -99,11 +190,9 @@ export const CardioModal = ({
         <button
           onClick={onSave}
           type="button"
-          disabled={!hasValidDuration}
+          disabled={!canSave}
           className={`flex-1 text-white px-4 py-2 rounded-lg transition-all flex items-center justify-center gap-2 ${
-            hasValidDuration
-              ? 'bg-red-600 hover:bg-red-500'
-              : 'bg-red-600/60 cursor-not-allowed opacity-70'
+            canSave ? 'bg-red-600 hover:bg-red-500' : 'bg-red-600/60 cursor-not-allowed opacity-70'
           }`}
         >
           <Plus size={20} />

@@ -38,7 +38,9 @@ const screenTabs = [
 const defaultCardioSession = {
   type: 'treadmill_walk',
   duration: 30,
-  intensity: 'moderate'
+  intensity: 'moderate',
+  effortType: 'intensity',
+  averageHeartRate: ''
 };
 
 export const EnergyMapCalculator = () => {
@@ -429,10 +431,30 @@ export const EnergyMapCalculator = () => {
       return;
     }
 
-    addCardioSession({
+    let sanitizedHeartRate = '';
+    if (cardioDraft.effortType === 'heartRate') {
+      const parsedHeartRate = Number.parseInt(cardioDraft.averageHeartRate, 10);
+      const heartRateValue = Number.isFinite(parsedHeartRate) ? Math.max(parsedHeartRate, 0) : 0;
+      if (!heartRateValue) {
+        return;
+      }
+      sanitizedHeartRate = heartRateValue;
+    }
+
+    const sessionToSave = {
       ...cardioDraft,
-      duration: sanitizedDuration
-    });
+      duration: sanitizedDuration,
+      intensity: cardioDraft.intensity ?? 'moderate',
+      effortType: cardioDraft.effortType ?? 'intensity'
+    };
+
+    if (sessionToSave.effortType === 'heartRate') {
+      sessionToSave.averageHeartRate = sanitizedHeartRate;
+    } else {
+      delete sessionToSave.averageHeartRate;
+    }
+
+    addCardioSession(sessionToSave);
     setCardioDraft(defaultCardioSession);
     cardioModal.requestClose();
   }, [addCardioSession, cardioDraft, cardioModal]);
@@ -754,6 +776,8 @@ export const EnergyMapCalculator = () => {
         onCancel={cardioModal.requestClose}
         onSave={handleCardioSave}
         userWeight={userData.weight}
+        userAge={userData.age}
+        userGender={userData.gender}
       />
     </div>
   );

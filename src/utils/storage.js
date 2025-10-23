@@ -136,6 +136,11 @@ function mergeWithDefaults(data) {
       ...(data.customActivityMultipliers ?? {})
     },
     stepRanges: Array.isArray(data.stepRanges) ? data.stepRanges : defaults.stepRanges,
-    cardioSessions: Array.isArray(data.cardioSessions) ? data.cardioSessions : defaults.cardioSessions
+    cardioSessions: Array.isArray(data.cardioSessions)
+      ? data.cardioSessions.map((session) => ({
+          ...session,
+          effortType: session?.effortType ?? 'intensity'
+        }))
+      : defaults.cardioSessions
   };
 }

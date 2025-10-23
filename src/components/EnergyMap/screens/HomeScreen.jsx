@@ -242,6 +242,18 @@ export const HomeScreen = ({
                       ? Number(session.duration)
                       : 0;
                     const calories = calculateCardioCalories(session);
+                    const effortType = session.effortType ?? 'intensity';
+                    const heartRate = Number(session.averageHeartRate);
+                    const hasHeartRate = Number.isFinite(heartRate) && heartRate > 0;
+                    const intensityLabel = session.intensity
+                      ? `${session.intensity.charAt(0).toUpperCase()}${session.intensity.slice(1)}`
+                      : 'Moderate';
+                    const effortDisplay =
+                      effortType === 'heartRate'
+                        ? hasHeartRate
+                          ? `${heartRate} bpm`
+                          : 'N/A bpm'
+                        : intensityLabel;
                     const showMissingTypeWarning = !cardioType;
 
                     return (
@@ -257,7 +269,7 @@ export const HomeScreen = ({
                         <div>
                           <p className="text-white font-semibold">{label}</p>
                           <p className="text-slate-400 text-sm">
-                            {durationValue} min • {session.intensity} • ~{calories} cal
+                            {durationValue} min • {effortDisplay} • ~{calories} cal
                           </p>
                           {showMissingTypeWarning && (
                             <p className="text-amber-300 text-xs mt-1">
