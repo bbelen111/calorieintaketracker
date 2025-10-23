@@ -183,8 +183,7 @@ export const TrainingDurationPickerModal = ({
 
   return (
     <ModalShell isOpen={isOpen} isClosing={isClosing} contentClassName="p-6 w-full max-w-md">
-      <h3 className="text-white font-bold text-xl mb-2 text-center">{title}</h3>
-      <p className="text-slate-300 text-sm text-center mb-4">Use the scroll wheels to adjust hours and minutes.</p>
+      <h3 className="text-white font-bold text-xl mb-4 text-center">{title}</h3>
 
       <div className="flex gap-6">
         <div className="flex-1">
