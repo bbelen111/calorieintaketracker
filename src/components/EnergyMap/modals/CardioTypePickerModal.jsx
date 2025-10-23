@@ -26,15 +26,31 @@ export const CardioTypePickerModal = ({
     const entries = Object.entries(cardioTypes);
 
     if (!normalizedQuery) {
-      return entries;
+      return entries.sort((a, b) => {
+        const aCustom = Boolean(customCardioTypes?.[a[0]]);
+        const bCustom = Boolean(customCardioTypes?.[b[0]]);
+        if (aCustom !== bCustom) {
+          return aCustom ? -1 : 1;
+        }
+        return a[1].label.localeCompare(b[1].label);
+      });
     }
 
-    return entries.filter(([key, type]) => {
+    const filtered = entries.filter(([key, type]) => {
       const labelMatch = type.label.toLowerCase().includes(normalizedQuery);
       const keyMatch = key.replace(/[_-]/g, ' ').toLowerCase().includes(normalizedQuery);
       return labelMatch || keyMatch;
     });
-  }, [cardioTypes, query]);
+
+    return filtered.sort((a, b) => {
+      const aCustom = Boolean(customCardioTypes?.[a[0]]);
+      const bCustom = Boolean(customCardioTypes?.[b[0]]);
+      if (aCustom !== bCustom) {
+        return aCustom ? -1 : 1;
+      }
+      return a[1].label.localeCompare(b[1].label);
+    });
+  }, [cardioTypes, customCardioTypes, query]);
 
   const renderMetValue = (value) => (typeof value === 'number' ? value.toFixed(1) : '--');
 
@@ -97,11 +113,6 @@ export const CardioTypePickerModal = ({
                   }`}
                   role="listitem"
                 >
-                  {isCustom && (
-                    <span className="absolute top-3 right-3 text-[11px] uppercase tracking-wide bg-white/10 px-2 py-1 rounded-full text-white">
-                      Custom
-                    </span>
-                  )}
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0">
                       <Flame size={24} />
@@ -119,10 +130,10 @@ export const CardioTypePickerModal = ({
                           event.stopPropagation();
                           onDeleteCustomCardioType?.(key);
                         }}
-                        className="flex-shrink-0 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
+                        className="flex-shrink-0 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
                         aria-label="Delete custom cardio type"
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={14} />
                       </button>
                     )}
                   </div>
