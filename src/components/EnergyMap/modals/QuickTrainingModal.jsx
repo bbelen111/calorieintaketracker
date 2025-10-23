@@ -70,11 +70,11 @@ export const QuickTrainingModal = ({
           <button
             onClick={onDurationClick}
             type="button"
-            className="w-full text-left p-3 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98]"
+            className="w-full px-3 py-2 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1"
           >
-            <div className="font-semibold text-base">{formattedDuration}</div>
-            <div className="text-xs opacity-90 mt-1">~{roundedDuration.toFixed(2)} hours</div>
-            <div className="text-xs opacity-75 mt-2">Tap to change</div>
+            <span className="font-semibold text-sm md:text-base">{formattedDuration}</span>
+            <span className="text-xs opacity-90">~{roundedDuration.toFixed(2)} hours</span>
+            <span className="text-[11px] opacity-75 ml-auto">Tap to change</span>
           </button>
           <div className="bg-slate-700/50 rounded-lg p-3 mt-3">
             <p className="text-slate-400 text-xs text-center mb-1">Estimated Burn:</p>

@@ -141,11 +141,11 @@ const DurationButton = ({ duration, onClick }) => {
     <button
       onClick={onClick}
       type="button"
-      className="w-full text-left p-3 md:p-4 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98]"
+      className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1"
     >
-      <div className="font-semibold text-base">{formatted}</div>
-      <div className="text-xs md:text-sm opacity-90 mt-0.5">~{rounded.toFixed(2)} hours</div>
-      <div className="text-xs opacity-75 mt-2">Tap to change</div>
+      <span className="font-semibold text-sm md:text-base">{formatted}</span>
+      <span className="text-xs opacity-90">~{rounded.toFixed(2)} hours</span>
+      <span className="text-[11px] opacity-75 ml-auto">Tap to change</span>
     </button>
   );
 };
