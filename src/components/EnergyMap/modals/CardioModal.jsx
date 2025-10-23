@@ -212,15 +212,20 @@ export const CardioModal = ({
             <button
               type="button"
               onClick={() => openTypePicker()}
-              className="w-full px-3 py-2 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1"
+              className="w-full px-3 py-2 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98] flex items-start justify-between gap-3"
             >
-              <span className="font-semibold text-sm md:text-base">
-                {selectedCardio?.label ?? 'Select Cardio Type'}
+              <span className="flex min-w-0 flex-1 flex-col text-left">
+                <span className="font-semibold text-sm md:text-base truncate">
+                  {selectedCardio?.label ?? 'Select Cardio Type'}
+                </span>
+                <span
+                  className="text-[11px] md:text-xs opacity-90 truncate whitespace-nowrap leading-tight"
+                  title={selectedMetSummary}
+                >
+                  {selectedMetSummary}
+                </span>
               </span>
-              <span className="text-xs opacity-90 basis-full sm:basis-auto">
-                {selectedMetSummary}
-              </span>
-              <span className="text-[11px] opacity-75 ml-auto">Tap to change</span>
+              <span className="text-[11px] opacity-75 whitespace-nowrap">Tap to change</span>
             </button>
           </div>
 

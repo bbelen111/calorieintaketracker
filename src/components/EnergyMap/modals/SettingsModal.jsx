@@ -229,11 +229,11 @@ const DailyActivitySection = ({ userData, bmr, onDailyActivityClick }) => {
         className="relative w-full text-left p-3 md:p-4 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98]"
       >
         <div className="min-w-0 pr-24 md:pr-28">
-          <div className="font-semibold text-base">Training Day • {trainingLabel}</div>
+          <div className="font-semibold text-sm md:text-base">Training Day • {trainingLabel}</div>
           <div className="text-xs md:text-sm opacity-90">
             NEAT offset: {formatMultiplier(trainingMultiplier)}
           </div>
-          <div className="font-semibold text-base mt-3">Rest Day • {restLabel}</div>
+          <div className="font-semibold text-sm md:text-base mt-3">Rest Day • {restLabel}</div>
           <div className="text-xs md:text-sm opacity-90">
             NEAT offset: {formatMultiplier(restMultiplier)}
           </div>
