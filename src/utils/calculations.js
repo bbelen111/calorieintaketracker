@@ -66,7 +66,7 @@ export const calculateGoalCalories = (tdee, goal) => {
     case 'aggressive_bulk':
       return Math.round(tdee + 500);
     case 'bulking':
-      return Math.round(tdee + 350);
+      return Math.round(tdee + 300);
     case 'cutting':
       return Math.round(tdee - 300);
     case 'aggressive_cut':

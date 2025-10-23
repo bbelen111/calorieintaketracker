@@ -12,7 +12,7 @@ export const goals = {
     color: 'bg-green-500',
     icon: TrendingUp,
     label: 'Lean Bulk',
-    desc: '+350 cal surplus',
+    desc: '+300 cal surplus',
     warning: null
   },
   maintenance: {
