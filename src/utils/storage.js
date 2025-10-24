@@ -1,3 +1,5 @@
+import { sortWeightEntries } from './weight';
+
 const DATA_KEY = 'energyMapData';
 const SELECTED_DAY_KEY = 'energyMapSelectedDay';
 
@@ -59,6 +61,7 @@ export const getDefaultEnergyMapData = () => ({
   age: 21,
   weight: 74,
   height: 168,
+  weightEntries: [],
   gender: 'male',
   trainingType: 'bodybuilding',
   trainingDuration: 2,
@@ -153,6 +156,7 @@ function mergeWithDefaults(data) {
           ...session,
           effortType: session?.effortType ?? 'intensity'
         }))
-      : defaults.cardioFavourites
+      : defaults.cardioFavourites,
+    weightEntries: sortWeightEntries(data.weightEntries ?? defaults.weightEntries)
   };
 }

@@ -8,7 +8,8 @@ import {
   Dumbbell,
   Heart,
   Plus,
-  Trash2
+  Trash2,
+  Scale
 } from 'lucide-react';
 
 export const HomeScreen = ({
@@ -21,6 +22,9 @@ export const HomeScreen = ({
   onAgeClick,
   onHeightClick,
   onWeightClick,
+  weightDisplay,
+  weightButtonLabel,
+  weightButtonSubtitle,
   onBmrClick,
   selectedDay,
   onTrainingDayClick,
@@ -38,6 +42,9 @@ export const HomeScreen = ({
   isSwiping
 }) => {
   const goalConfig = goals[selectedGoal];
+  const weightTileLabel = weightButtonLabel ?? 'Add Entry';
+  const weightTileValue = weightDisplay ?? `${userData.weight} kg`;
+  const weightTileSubtitle = weightButtonSubtitle ?? 'Tap to start logging';
 
   return (
     <div className="space-y-6 pb-10">
@@ -78,7 +85,7 @@ export const HomeScreen = ({
               <p className="text-slate-400">Weight</p>
               <Edit3 size={14} className="text-slate-500 group-hover:text-blue-400 transition-colors" />
             </div>
-            <p className="text-white font-semibold text-lg">{userData.weight} kg</p>
+            <p className="text-white font-semibold text-lg">{weightTileValue}</p>
           </button>
           <button
             onClick={onHeightClick}

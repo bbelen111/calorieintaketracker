@@ -4,6 +4,7 @@ import { cardioTypes as baseCardioTypes } from '../constants/cardioTypes';
 import { calculateBMR, calculateCalorieBreakdown, calculateCardioCalories, calculateGoalCalories, getTotalCardioBurn, getTrainingCalories } from '../utils/calculations';
 import { getStepRangeSortValue } from '../utils/steps';
 import { loadEnergyMapData, saveEnergyMapData } from '../utils/storage';
+import { clampWeight, normalizeDateKey, sortWeightEntries } from '../utils/weight';
 
 export const useEnergyMapData = () => {
   const [userData, setUserData] = useState(() => loadEnergyMapData());
@@ -55,6 +56,11 @@ export const useEnergyMapData = () => {
   const totalCardioBurn = useMemo(
     () => getTotalCardioBurn(userData, resolvedCardioTypes),
     [resolvedCardioTypes, userData]
+  );
+
+  const weightEntries = useMemo(
+    () => sortWeightEntries(userData.weightEntries ?? []),
+    [userData.weightEntries]
   );
 
   const calculateBreakdown = useCallback(
@@ -236,8 +242,82 @@ export const useEnergyMapData = () => {
     });
   }, []);
 
+  const saveWeightEntry = useCallback(({ date, weight }, originalDate) => {
+    const normalizedDate = normalizeDateKey(date);
+    const sanitizedWeight = clampWeight(weight);
+    const normalizedOriginal = normalizeDateKey(originalDate);
+
+    if (!normalizedDate || sanitizedWeight == null) {
+      return;
+    }
+
+    setUserData((prev) => {
+      const existingEntries = Array.isArray(prev.weightEntries) ? prev.weightEntries : [];
+
+      const filtered = existingEntries.filter((entry) => {
+        if (!entry || typeof entry !== 'object') {
+          return false;
+        }
+        const entryDate = normalizeDateKey(entry.date);
+        if (!entryDate) {
+          return false;
+        }
+        if (entryDate === normalizedDate) {
+          return false;
+        }
+        if (normalizedOriginal && entryDate === normalizedOriginal) {
+          return false;
+        }
+        return true;
+      });
+
+      const nextEntries = sortWeightEntries([
+        ...filtered,
+        { date: normalizedDate, weight: sanitizedWeight }
+      ]);
+
+      const latestWeight = nextEntries.length
+        ? nextEntries[nextEntries.length - 1].weight
+        : prev.weight;
+
+      return {
+        ...prev,
+        weight: latestWeight ?? prev.weight,
+        weightEntries: nextEntries
+      };
+    });
+  }, []);
+
+  const deleteWeightEntry = useCallback((date) => {
+    const normalizedDate = normalizeDateKey(date);
+    if (!normalizedDate) {
+      return;
+    }
+
+    setUserData((prev) => {
+      const existingEntries = Array.isArray(prev.weightEntries) ? prev.weightEntries : [];
+      const filtered = existingEntries.filter((entry) => normalizeDateKey(entry?.date) !== normalizedDate);
+
+      if (filtered.length === existingEntries.length) {
+        return prev;
+      }
+
+      const nextEntries = sortWeightEntries(filtered);
+      const latestWeight = nextEntries.length
+        ? nextEntries[nextEntries.length - 1].weight
+        : prev.weight;
+
+      return {
+        ...prev,
+        weight: nextEntries.length ? latestWeight : prev.weight,
+        weightEntries: nextEntries
+      };
+    });
+  }, []);
+
   return {
     userData,
+    weightEntries,
     trainingTypes: resolvedTrainingTypes,
     cardioTypes: resolvedCardioTypes,
     customCardioTypes: userData.customCardioTypes ?? {},
@@ -249,8 +329,8 @@ export const useEnergyMapData = () => {
     addStepRange,
     removeStepRange,
     addCardioSession,
-  removeCardioSession,
-  updateCardioSession,
+    removeCardioSession,
+    updateCardioSession,
     addCardioFavourite,
     removeCardioFavourite,
     updateTrainingType,
@@ -258,6 +338,8 @@ export const useEnergyMapData = () => {
     removeCustomCardioType,
     calculateBreakdown,
     calculateTargetForGoal,
-    calculateCardioSessionCalories
+    calculateCardioSessionCalories,
+    saveWeightEntry,
+    deleteWeightEntry
   };
 };

@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react';
-import { Save, ChevronsUpDown } from 'lucide-react';
+import { Save, ChevronsUpDown, Scale } from 'lucide-react';
 import { DEFAULT_ACTIVITY_MULTIPLIERS, getActivityPresetByKey } from '../../../constants/activityPresets';
 import { ModalShell } from '../common/ModalShell';
 import { formatDurationLabel, roundDurationHours } from '../../../utils/time';
+import { formatDateLabel, formatWeight } from '../../../utils/weight';
 
 export const SettingsModal = ({
   isOpen,
@@ -16,12 +17,32 @@ export const SettingsModal = ({
   onTrainingDurationClick,
   onDailyActivityClick,
   onAgePickerClick,
-  onWeightPickerClick,
   onHeightPickerClick,
+  onManageWeightClick,
+  weightEntries,
   onCancel,
   onSave
-}) => (
-  <ModalShell isOpen={isOpen} isClosing={isClosing} contentClassName="p-4 md:p-6 w-full md:max-w-2xl">
+}) => {
+  const latestWeightEntry = useMemo(
+    () => (Array.isArray(weightEntries) && weightEntries.length ? weightEntries[weightEntries.length - 1] : null),
+    [weightEntries]
+  );
+
+  const displayedWeight = useMemo(() => {
+    const resolved = latestWeightEntry?.weight ?? userData.weight;
+    const formatted = formatWeight(resolved);
+    return formatted ?? '—';
+  }, [latestWeightEntry?.weight, userData.weight]);
+
+  const lastLoggedLabel = useMemo(() => {
+    if (!latestWeightEntry?.date) {
+      return 'No entries yet';
+    }
+    return `Last logged ${formatDateLabel(latestWeightEntry.date, { month: 'short', day: 'numeric' })}`;
+  }, [latestWeightEntry?.date]);
+
+  return (
+    <ModalShell isOpen={isOpen} isClosing={isClosing} contentClassName="p-4 md:p-6 w-full md:max-w-2xl">
     <h3 className="text-white font-bold text-xl md:text-2xl mb-4 md:mb-6">Personal Settings</h3>
 
     <div className="space-y-4 md:space-y-6">
@@ -76,22 +97,22 @@ export const SettingsModal = ({
 
         <div>
           <label className="text-slate-300 text-sm block mb-2">Weight (kg)</label>
-          <div className="relative">
-            <input
-              type="number"
-              value={userData.weight}
-              onChange={(event) => onChange('weight', parseFloat(event.target.value) || 0)}
-              className="w-full bg-slate-700 text-white px-4 pr-14 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-lg"
-            />
-            <button
-              type="button"
-              onClick={() => onWeightPickerClick?.()}
-              className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-600/80 hover:bg-slate-500 text-white transition focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-800"
-              aria-label="Open weight picker"
-            >
-              <ChevronsUpDown size={16} />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => onManageWeightClick?.()}
+            className="w-full flex items-center justify-between gap-4 rounded-lg border-2 border-blue-500/40 bg-slate-700/70 hover:bg-slate-700 transition-all px-4 py-3 text-left"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-900/50 border border-blue-600/50">
+                <Scale size={22} className="text-blue-300" />
+              </div>
+              <div>
+                <p className="text-white font-semibold text-lg">{displayedWeight} kg</p>
+                <p className="text-slate-400 text-xs uppercase tracking-wide">Manage weight log</p>
+              </div>
+            </div>
+            <p className="text-slate-400 text-xs whitespace-nowrap">{lastLoggedLabel}</p>
+          </button>
         </div>
 
         <div>
@@ -166,7 +187,8 @@ export const SettingsModal = ({
       </button>
     </div>
   </ModalShell>
-);
+  );
+};
 
 const DurationButton = ({ duration, onClick }) => {
   const formatted = useMemo(() => formatDurationLabel(duration), [duration]);

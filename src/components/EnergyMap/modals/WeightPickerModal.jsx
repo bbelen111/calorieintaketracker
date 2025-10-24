@@ -2,9 +2,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Save } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import { alignScrollContainerToValue, createPickerScrollHandler } from '../../../utils/scroll';
+import { MAX_WEIGHT_KG, MIN_WEIGHT_KG } from '../../../utils/weight';
 
-const MIN_WEIGHT = 30;
-const MAX_WEIGHT = 210;
+const MIN_WEIGHT = MIN_WEIGHT_KG;
+const MAX_WEIGHT = MAX_WEIGHT_KG;
 const WEIGHT_VALUES = Array.from({ length: MAX_WEIGHT - MIN_WEIGHT + 1 }, (_, index) => MIN_WEIGHT + index);
 const DECIMAL_VALUES = Array.from({ length: 10 }, (_, index) => index);
 
