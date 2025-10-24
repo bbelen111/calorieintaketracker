@@ -30,6 +30,24 @@ const getTrendToneClass = (direction) => {
 const DATE_COLUMN_WIDTH = 66;
 const DATE_COLUMN_GAP = 8;
 const Y_TICK_COUNT = 7;
+const GRID_LINE_INSET_PERCENT = 1.1;
+
+const clampPercent = (value) => Math.max(0, Math.min(100, value));
+
+const getAnchoredLinePercent = (basePercent, index, totalCount) => {
+  if (!Number.isFinite(basePercent) || totalCount <= 0) {
+    return clampPercent(basePercent);
+  }
+
+  const mid = (totalCount - 1) / 2;
+  const distanceFromMid = index - mid;
+  if (Math.abs(distanceFromMid) < 1e-3) {
+    return clampPercent(basePercent);
+  }
+
+  const offset = distanceFromMid * GRID_LINE_INSET_PERCENT;
+  return clampPercent(basePercent + offset);
+};
 
 const getColumnsWidth = (count) => {
   if (count <= 0) {
@@ -174,7 +192,6 @@ export const WeightTrackerModal = ({
     const sign = trend.delta > 0 ? '+' : '';
     return `${sign}${trend.delta.toFixed(1)} kg`;
   })();
-
   const weeklyRateDisplay = (() => {
     if (!Number.isFinite(trend.weeklyRate) || trend.weeklyRate === 0) {
       return '0.0 kg/wk';
@@ -207,6 +224,18 @@ export const WeightTrackerModal = ({
       chartData.maxWeight - (chartData.range / steps) * index
     ));
   }, [chartData]);
+
+  const yTickPositions = useMemo(() => {
+    if (!chartData) {
+      return [];
+    }
+
+    return yTicks.map((weight, index) => {
+      const normalized = (weight - chartData.minWeight) / chartData.range;
+      const yPercent = (1 - normalized) * 100;
+      return { weight, index, yPercent };
+    });
+  }, [chartData, yTicks]);
 
   const handleDateClick = (date, event) => {
     const entry = entriesMap[date];
@@ -310,25 +339,25 @@ export const WeightTrackerModal = ({
                       </defs>
                       
                       {/* Grid lines */}
-                      <g className="opacity-25">
-                        {(() => {
-                          const steps = Math.max(yTicks.length - 1, 1);
-                          return yTicks.map((_, index) => {
-                            const percent = (index / steps) * 100;
-                            return (
-                              <line
-                                key={`grid-${index}`}
-                                x1="0"
-                                y1={`${percent}%`}
-                                x2={chartWidth}
-                                y2={`${percent}%`}
-                                stroke="currentColor"
-                                strokeWidth="1"
-                                className="text-white"
-                              />
-                            );
-                          });
-                        })()}
+                      <g>
+                        {yTickPositions.map(({ index, yPercent }) => {
+                          const isBottom = index === yTickPositions.length - 1;
+                          const lineYPercent = getAnchoredLinePercent(yPercent, index, yTickPositions.length);
+
+                          return (
+                            <line
+                              key={`grid-${index}`}
+                              x1="0"
+                              y1={`${lineYPercent}%`}
+                              x2={chartWidth}
+                              y2={`${lineYPercent}%`}
+                              stroke="currentColor"
+                              strokeWidth={isBottom ? 1.5 : 1}
+                              strokeDasharray={isBottom ? undefined : '4 6'}
+                              className={isBottom ? 'text-white opacity-80' : 'text-slate-500 opacity-60'}
+                            />
+                          );
+                        })}
                       </g>
 
                       {/* Line graph */}
@@ -413,27 +442,25 @@ export const WeightTrackerModal = ({
               <div className="rounded-r-lg w-14 flex-shrink-0 relative">
                 <div className="absolute inset-0 px-2 py-4">
                   {chartData ? (
-                    (() => {
-                      const steps = Math.max(yTicks.length - 1, 1);
-                      return yTicks.map((weight, index) => {
-                        const percent = (index / steps) * 100;
-                        let translateY = '-50%';
-                        if (index === 0) {
-                          translateY = '0%';
-                        } else if (index === yTicks.length - 1) {
-                          translateY = '-100%';
-                        }
-                        return (
-                          <div
-                            key={`tick-${index}`}
-                            className="absolute right-2 text-sm font-semibold text-slate-100 tracking-tight text-right"
-                            style={{ top: `${percent}%`, transform: `translateY(${translateY})` }}
-                          >
-                            {formatWeight(weight)}
-                          </div>
-                        );
-                      });
-                    })()
+                    yTickPositions.map(({ weight, index, yPercent }) => {
+                      const isTop = index === 0;
+                      const isBottom = index === yTickPositions.length - 1;
+                      let translateY = '-50%';
+                      if (isTop) {
+                        translateY = '0%';
+                      } else if (isBottom) {
+                        translateY = '-100%';
+                      }
+                      return (
+                        <div
+                          key={`tick-${index}`}
+                          className="absolute right-2 text-sm font-semibold text-slate-100 tracking-tight text-right"
+                          style={{ top: `${yPercent}%`, transform: `translateY(${translateY})` }}
+                        >
+                          {formatWeight(weight)}
+                        </div>
+                      );
+                    })
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center text-slate-600 text-xs">kg</div>
                   )}
