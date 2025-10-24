@@ -97,6 +97,9 @@ export const WeightTrackerModal = ({
   const [graphViewportWidth, setGraphViewportWidth] = useState(() => (
     typeof window !== 'undefined' ? window.innerWidth : 0
   ));
+  const [graphViewportHeight, setGraphViewportHeight] = useState(() => (
+    typeof window !== 'undefined' ? window.innerHeight * 0.35 : 0
+  ));
   
   const sortedEntries = useMemo(() => sortWeightEntries(entries ?? []), [entries]);
   const trend = useMemo(() => calculateWeightTrend(sortedEntries), [sortedEntries]);
@@ -107,18 +110,22 @@ export const WeightTrackerModal = ({
       return undefined;
     }
 
-    const updateWidth = () => setGraphViewportWidth(node.clientWidth);
-    updateWidth();
+    const updateDimensions = () => {
+      setGraphViewportWidth(node.clientWidth);
+      setGraphViewportHeight(node.clientHeight);
+    };
+    updateDimensions();
 
     if (typeof ResizeObserver === 'undefined') {
-      window.addEventListener('resize', updateWidth);
-      return () => window.removeEventListener('resize', updateWidth);
+      window.addEventListener('resize', updateDimensions);
+      return () => window.removeEventListener('resize', updateDimensions);
     }
 
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (entry) {
         setGraphViewportWidth(entry.contentRect.width);
+        setGraphViewportHeight(entry.contentRect.height);
       }
     });
     observer.observe(node);
@@ -139,6 +146,13 @@ export const WeightTrackerModal = ({
   const shouldStretchAcrossViewport = useMemo(() => (
     chartWidth > baseChartWidth
   ), [chartWidth, baseChartWidth]);
+
+  const chartHeight = useMemo(() => {
+    if (graphViewportHeight && graphViewportHeight > 0) {
+      return graphViewportHeight;
+    }
+    return 320;
+  }, [graphViewportHeight]);
 
   const hasHorizontalOverflow = useMemo(() => {
     if (!graphViewportWidth) {
@@ -376,7 +390,12 @@ export const WeightTrackerModal = ({
               >
                 <div className="p-4 pr-6 h-full" style={{ width: `${chartWidth}px` }}>
                   {chartData ? (
-                    <svg width={chartWidth} height="100%" preserveAspectRatio="none">
+                    <svg
+                      width={chartWidth}
+                      height={chartHeight}
+                      viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                      preserveAspectRatio="none"
+                    >
                       <defs>
                         <linearGradient id="areaGradient" x1="0" x2="0" y1="0" y2="1">
                           <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
@@ -389,14 +408,15 @@ export const WeightTrackerModal = ({
                         {yTickPositions.map(({ index, yPercent }) => {
                           const isBottom = index === yTickPositions.length - 1;
                           const lineYPercent = getAnchoredLinePercent(yPercent, index, yTickPositions.length);
+                          const lineY = (lineYPercent / 100) * chartHeight;
 
                           return (
                             <line
                               key={`grid-${index}`}
                               x1="0"
-                              y1={`${lineYPercent}%`}
+                              y1={lineY}
                               x2={chartWidth}
-                              y2={`${lineYPercent}%`}
+                              y2={lineY}
                               stroke="currentColor"
                               strokeWidth={isBottom ? 1.5 : 1}
                               strokeDasharray={isBottom ? undefined : '4 6'}
@@ -415,29 +435,30 @@ export const WeightTrackerModal = ({
                           const x = xPositions[index] ?? 0;
                           const normalized = (weight - chartData.minWeight) / chartData.range;
                           const yPercent = (1 - normalized) * 100;
-                          return { x, yPercent, date };
+                          const y = (yPercent / 100) * chartHeight;
+                          return { x, yPercent, y, date };
                         });
 
                         if (points.length === 1 && shouldStretchAcrossViewport) {
                           const singlePoint = points[0];
                           const startX = 0;
                           const endX = chartWidth;
-                          pathData = `M ${startX} ${singlePoint.yPercent}% L ${endX} ${singlePoint.yPercent}%`;
-                          areaData = `M ${startX} 100% L ${startX} ${singlePoint.yPercent}% L ${endX} ${singlePoint.yPercent}% L ${endX} 100% Z`;
+                          pathData = `M ${startX} ${singlePoint.y} L ${endX} ${singlePoint.y}`;
+                          areaData = `M ${startX} ${chartHeight} L ${startX} ${singlePoint.y} L ${endX} ${singlePoint.y} L ${endX} ${chartHeight} Z`;
                         } else {
-                          points.forEach(({ x, yPercent }, index) => {
-                            if (index === 0) {
-                              pathData = `M ${x} ${yPercent}%`;
-                              areaData = `M ${x} 100% L ${x} ${yPercent}%`;
+                          points.forEach(({ x, y }, idx) => {
+                            if (idx === 0) {
+                              pathData = `M ${x} ${y}`;
+                              areaData = `M ${x} ${chartHeight} L ${x} ${y}`;
                             } else {
-                              pathData += ` L ${x} ${yPercent}%`;
-                              areaData += ` L ${x} ${yPercent}%`;
+                              pathData += ` L ${x} ${y}`;
+                              areaData += ` L ${x} ${y}`;
                             }
                           });
 
                           if (points.length > 0) {
                             const lastPoint = points[points.length - 1];
-                            areaData += ` L ${lastPoint.x} 100% Z`;
+                            areaData += ` L ${lastPoint.x} ${chartHeight} Z`;
                           }
                         }
 
@@ -464,11 +485,11 @@ export const WeightTrackerModal = ({
                             )}
                             
                             {/* Points */}
-                              {points.map(({ x, yPercent, date }) => (
+                              {points.map(({ x, y, date }) => (
                               <g key={date}>
                                 <circle
                                   cx={x}
-                                  cy={`${yPercent}%`}
+                                    cy={y}
                                   r="6"
                                   fill="#1e293b"
                                   stroke="#3b82f6"
