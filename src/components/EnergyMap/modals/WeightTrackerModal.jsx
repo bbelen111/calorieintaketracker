@@ -30,28 +30,12 @@ const getTrendToneClass = (direction) => {
 const DATE_COLUMN_WIDTH = 66;
 const DATE_COLUMN_GAP = 8;
 const Y_TICK_COUNT = 7;
-const GRID_LINE_INSET_PERCENT = 1.1;
 const STRETCH_EDGE_PADDING = 96;
 const MIN_VISIBLE_WEIGHT_RANGE = 6;
 const MIN_RANGE_PADDING = 0.5;
 const TIMELINE_TRACK_HEIGHT = 56;
 
 const clampPercent = (value) => Math.max(0, Math.min(100, value));
-
-const getAnchoredLinePercent = (basePercent, index, totalCount) => {
-  if (!Number.isFinite(basePercent) || totalCount <= 0) {
-    return clampPercent(basePercent);
-  }
-
-  const mid = (totalCount - 1) / 2;
-  const distanceFromMid = index - mid;
-  if (Math.abs(distanceFromMid) < 1e-3) {
-    return clampPercent(basePercent);
-  }
-
-  const offset = distanceFromMid * GRID_LINE_INSET_PERCENT;
-  return clampPercent(basePercent + offset);
-};
 
 const getColumnsWidth = (count) => {
   if (count <= 0) {
@@ -176,9 +160,9 @@ export const WeightTrackerModal = ({
       return [chartWidth / 2];
     }
 
-  const minimumEdge = DATE_COLUMN_WIDTH * 0.75;
-  const dynamicEdge = Math.min(STRETCH_EDGE_PADDING, chartWidth * 0.12);
-  const edgePadding = Math.min(chartWidth / 2, Math.max(minimumEdge, dynamicEdge));
+    const minimumEdge = DATE_COLUMN_WIDTH * 0.75;
+    const dynamicEdge = Math.min(STRETCH_EDGE_PADDING, chartWidth * 0.12);
+    const edgePadding = Math.min(chartWidth / 2, Math.max(minimumEdge, dynamicEdge));
     const usableWidth = Math.max(chartWidth - edgePadding * 2, 0);
     const step = entryCount > 1 ? usableWidth / (entryCount - 1) : 0;
     return sortedEntries.map((_, index) => edgePadding + step * index);
@@ -286,16 +270,29 @@ export const WeightTrackerModal = ({
   }, [chartData]);
 
   const yTickPositions = useMemo(() => {
-    if (!chartData) {
+    if (!chartData || chartHeight <= 0) {
       return [];
     }
 
+    const totalTicks = Math.max(yTicks.length, 1);
+
     return yTicks.map((weight, index) => {
       const normalized = (weight - chartData.minWeight) / chartData.range;
-      const yPercent = (1 - normalized) * 100;
-      return { weight, index, yPercent };
+      const bounded = Math.min(Math.max(normalized, 0), 1);
+      const y = (1 - bounded) * chartHeight;
+      const isTop = index === 0;
+      const isBottom = index === totalTicks - 1;
+      const lineY = isTop ? 0 : isBottom ? chartHeight : y;
+      const labelPercent = clampPercent(chartHeight === 0 ? 0 : (lineY / chartHeight) * 100);
+
+      return {
+        weight,
+        index,
+        lineY,
+        labelPercent
+      };
     });
-  }, [chartData, yTicks]);
+  }, [chartData, chartHeight, yTicks]);
 
   const handleDateClick = (date, event) => {
     const entry = entriesMap[date];
@@ -405,25 +402,19 @@ export const WeightTrackerModal = ({
                       
                       {/* Grid lines */}
                       <g>
-                        {yTickPositions.map(({ index, yPercent }) => {
-                          const isBottom = index === yTickPositions.length - 1;
-                          const lineYPercent = getAnchoredLinePercent(yPercent, index, yTickPositions.length);
-                          const lineY = (lineYPercent / 100) * chartHeight;
-
-                          return (
-                            <line
-                              key={`grid-${index}`}
-                              x1="0"
-                              y1={lineY}
-                              x2={chartWidth}
-                              y2={lineY}
-                              stroke="currentColor"
-                              strokeWidth={isBottom ? 1.5 : 1}
-                              strokeDasharray={isBottom ? undefined : '4 6'}
-                              className={isBottom ? 'text-white opacity-80' : 'text-slate-500 opacity-60'}
-                            />
-                          );
-                        })}
+                        {yTickPositions.slice(0, -1).map(({ index, lineY }) => (
+                          <line
+                            key={`grid-${index}`}
+                            x1="0"
+                            y1={lineY}
+                            x2={chartWidth}
+                            y2={lineY}
+                            stroke="currentColor"
+                            strokeWidth={1}
+                            strokeDasharray="4 6"
+                            className="text-slate-500 opacity-60"
+                          />
+                        ))}
                       </g>
 
                       {/* Line graph */}
@@ -438,6 +429,9 @@ export const WeightTrackerModal = ({
                           const y = (yPercent / 100) * chartHeight;
                           return { x, yPercent, y, date };
                         });
+                        const baselineY = yTickPositions.length > 0
+                          ? yTickPositions[yTickPositions.length - 1].lineY
+                          : chartHeight;
 
                         if (points.length === 1 && shouldStretchAcrossViewport) {
                           const singlePoint = points[0];
@@ -454,6 +448,17 @@ export const WeightTrackerModal = ({
                               pathData += ` L ${x} ${y}`;
                               areaData += ` L ${x} ${y}`;
                             }
+                            {baselineY != null && (
+                              <line
+                                x1="0"
+                                y1={baselineY}
+                                x2={chartWidth}
+                                y2={baselineY}
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                className="text-white opacity-80"
+                              />
+                            )}
                           });
 
                           if (points.length > 0) {
@@ -514,20 +519,16 @@ export const WeightTrackerModal = ({
               <div className="rounded-r-lg w-14 flex-shrink-0 relative">
                 <div className="absolute inset-0 px-2 py-4">
                   {chartData ? (
-                    yTickPositions.map(({ weight, index, yPercent }) => {
+                    yTickPositions.map(({ weight, index, labelPercent }) => {
                       const isTop = index === 0;
                       const isBottom = index === yTickPositions.length - 1;
-                      let translateY = '-50%';
-                      if (isTop) {
-                        translateY = '0%';
-                      } else if (isBottom) {
-                        translateY = '-100%';
-                      }
+                      const offsetPx = isTop ? 10 : isBottom ? -10 : 15;
+                      const translateY = `translateY(calc(-50% + ${offsetPx}px))`;
                       return (
                         <div
                           key={`tick-${index}`}
                           className="absolute right-2 text-sm font-semibold text-slate-100 tracking-tight text-right"
-                          style={{ top: `${yPercent}%`, transform: `translateY(${translateY})` }}
+                          style={{ top: `${labelPercent}%`, transform: translateY }}
                         >
                           {formatWeight(weight)}
                         </div>
