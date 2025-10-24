@@ -27,8 +27,17 @@ const getTrendToneClass = (direction) => {
   return 'text-slate-300';
 };
 
-const DATE_COLUMN_WIDTH = 50;
+const DATE_COLUMN_WIDTH = 66;
+const DATE_COLUMN_GAP = 8;
 const Y_TICK_COUNT = 7;
+
+const getColumnsWidth = (count) => {
+  if (count <= 0) {
+    return 0;
+  }
+  const gaps = Math.max(0, count - 1) * DATE_COLUMN_GAP;
+  return count * DATE_COLUMN_WIDTH + gaps;
+};
 
 // Helper to get day name
 
@@ -95,17 +104,18 @@ export const WeightTrackerModal = ({
     if (!graphViewportWidth) {
       return 1;
     }
-    return Math.max(Math.ceil(graphViewportWidth / DATE_COLUMN_WIDTH), 1);
+    const columnSpan = DATE_COLUMN_WIDTH + DATE_COLUMN_GAP;
+    return Math.max(Math.ceil((graphViewportWidth + DATE_COLUMN_GAP) / columnSpan), 1);
   }, [graphViewportWidth]);
 
   const chartWidth = useMemo(() => {
-    const entryColumns = sortedEntries.length || 1;
+    const entryColumns = Math.max(sortedEntries.length, 1);
     const totalColumns = Math.max(entryColumns, columnsNeededForViewport);
-    return totalColumns * DATE_COLUMN_WIDTH;
+    return getColumnsWidth(totalColumns);
   }, [columnsNeededForViewport, sortedEntries]);
 
   const chartOffset = useMemo(() => {
-    const usedWidth = sortedEntries.length * DATE_COLUMN_WIDTH;
+    const usedWidth = getColumnsWidth(sortedEntries.length);
     return Math.max(chartWidth - usedWidth, 0);
   }, [chartWidth, sortedEntries]);
 
@@ -113,7 +123,7 @@ export const WeightTrackerModal = ({
     if (!graphViewportWidth) {
       return false;
     }
-    const usedWidth = sortedEntries.length * DATE_COLUMN_WIDTH;
+    const usedWidth = getColumnsWidth(sortedEntries.length);
     return usedWidth > graphViewportWidth;
   }, [graphViewportWidth, sortedEntries]);
 
@@ -331,7 +341,7 @@ export const WeightTrackerModal = ({
 
                         sortedEntries.forEach((entry, index) => {
                           const { date, weight } = entry;
-                          const x = chartOffset + (index * dateWidth) + (dateWidth / 2);
+                          const x = chartOffset + (index * (dateWidth + DATE_COLUMN_GAP)) + (dateWidth / 2);
                           const normalized = (weight - chartData.minWeight) / chartData.range;
                           const yPercent = (1 - normalized) * 100;
 
@@ -444,7 +454,7 @@ export const WeightTrackerModal = ({
                 }}
               >
                 <div className="px-4 pr-6 py-3" style={{ width: `${chartWidth}px` }}>
-                  <div className="flex" style={{ width: `${chartWidth}px` }}>
+                  <div className="flex" style={{ width: `${chartWidth}px`, gap: `${DATE_COLUMN_GAP}px` }}>
                     {sortedEntries.map((entry, index) => {
                       const { date } = entry;
                       const isToday = date === today;
@@ -462,14 +472,13 @@ export const WeightTrackerModal = ({
                           <button
                             type="button"
                             onClick={(event) => handleDateClick(date, event)}
-                            className={`w-full flex flex-col items-center gap-1 py-1 px-2 rounded-md border transition-colors text-xs font-semibold cursor-pointer ${
+                            className={`w-full flex flex-col items-center gap-1 py-2 px-3 rounded-md border transition-colors text-xs font-semibold cursor-pointer ${
                               isToday
                                 ? 'bg-blue-600 border-blue-500 text-white'
                                 : 'bg-transparent border-slate-600 text-slate-100 hover:bg-slate-800/40'
                             } ${selectedDate === date ? 'ring-2 ring-blue-400' : ''}`}
                           >
                             <span>{label}</span>
-                            <div className="w-1 h-1 rounded-full bg-green-400" />
                           </button>
                         </div>
                       );

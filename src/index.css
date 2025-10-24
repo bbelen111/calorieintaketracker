@@ -11,6 +11,18 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Global scrollbar suppression while preserving scroll behaviour */
+*,
+*::before,
+*::after {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+}
+
 /* Hide scrollbar for Chrome, Safari and Opera */
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
