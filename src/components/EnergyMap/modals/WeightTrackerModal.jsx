@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import {
@@ -29,18 +29,6 @@ const getTrendToneClass = (direction) => {
 
 const DATE_COLUMN_WIDTH = 50;
 const Y_TICK_COUNT = 7;
-
-// Generate date range (30 days before today to today)
-const generateDateRange = () => {
-  const dates = [];
-  const today = new Date();
-  for (let i = 29; i >= 0; i--) {
-    const date = new Date(today);
-    date.setDate(date.getDate() - i);
-    dates.push(date.toISOString().split('T')[0]);
-  }
-  return dates;
-};
 
 // Helper to get day name
 
@@ -73,12 +61,81 @@ export const WeightTrackerModal = ({
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const graphScrollRef = useRef(null);
   const timelineScrollRef = useRef(null);
+  const [graphViewportWidth, setGraphViewportWidth] = useState(0);
   
   const sortedEntries = useMemo(() => sortWeightEntries(entries ?? []), [entries]);
   const trend = useMemo(() => calculateWeightTrend(sortedEntries), [sortedEntries]);
-  
-  const dateRange = useMemo(() => generateDateRange(), []);
-  const chartWidth = dateRange.length * DATE_COLUMN_WIDTH;
+
+  useEffect(() => {
+    const node = graphScrollRef.current;
+    if (!node) {
+      return undefined;
+    }
+
+    const updateWidth = () => setGraphViewportWidth(node.clientWidth);
+    updateWidth();
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateWidth);
+      return () => window.removeEventListener('resize', updateWidth);
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        setGraphViewportWidth(entry.contentRect.width);
+      }
+    });
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }, []);
+
+  const columnsNeededForViewport = useMemo(() => {
+    if (!graphViewportWidth) {
+      return 1;
+    }
+    return Math.max(Math.ceil(graphViewportWidth / DATE_COLUMN_WIDTH), 1);
+  }, [graphViewportWidth]);
+
+  const chartWidth = useMemo(() => {
+    const entryColumns = sortedEntries.length || 1;
+    const totalColumns = Math.max(entryColumns, columnsNeededForViewport);
+    return totalColumns * DATE_COLUMN_WIDTH;
+  }, [columnsNeededForViewport, sortedEntries]);
+
+  const chartOffset = useMemo(() => {
+    const usedWidth = sortedEntries.length * DATE_COLUMN_WIDTH;
+    return Math.max(chartWidth - usedWidth, 0);
+  }, [chartWidth, sortedEntries]);
+
+  const hasHorizontalOverflow = useMemo(() => {
+    if (!graphViewportWidth) {
+      return false;
+    }
+    const usedWidth = sortedEntries.length * DATE_COLUMN_WIDTH;
+    return usedWidth > graphViewportWidth;
+  }, [graphViewportWidth, sortedEntries]);
+
+  useEffect(() => {
+    const scrollToLatest = () => {
+      const graphNode = graphScrollRef.current;
+      if (graphNode) {
+        const target = Math.max(graphNode.scrollWidth - graphNode.clientWidth, 0);
+        graphNode.scrollLeft = target;
+      }
+
+      const timelineNode = timelineScrollRef.current;
+      if (timelineNode) {
+        const target = Math.max(timelineNode.scrollWidth - timelineNode.clientWidth, 0);
+        timelineNode.scrollLeft = target;
+      }
+    };
+
+    // Schedule to allow layout to settle before scrolling.
+    const frame = requestAnimationFrame(scrollToLatest);
+    return () => cancelAnimationFrame(frame);
+  }, [chartWidth, sortedEntries.length]);
   
   // Map entries by date for quick lookup
   const entriesMap = useMemo(() => {
@@ -221,10 +278,10 @@ export const WeightTrackerModal = ({
 
           {/* Graph and Timeline Section - Synchronized scrolling */}
           <div className="flex-1 flex flex-col min-h-0">
-            <div className="flex-1 px-6 pb-4 overflow-hidden flex gap-2">
+            <div className="flex-1 px-6 pb-4 overflow-hidden flex gap-1">
               <div
                 ref={graphScrollRef}
-                className="relative bg-slate-900/60 rounded-l-lg flex-1 overflow-x-auto overflow-y-hidden"
+                className={`relative rounded-l-lg flex-1 overflow-y-hidden ${hasHorizontalOverflow ? 'overflow-x-auto' : 'overflow-x-hidden'}`}
                 onScroll={(e) => {
                   const nextScrollLeft = e.currentTarget.scrollLeft;
                   if (timelineScrollRef.current && timelineScrollRef.current.scrollLeft !== nextScrollLeft) {
@@ -232,7 +289,7 @@ export const WeightTrackerModal = ({
                   }
                 }}
               >
-                <div className="p-4 h-full" style={{ width: `${chartWidth}px` }}>
+                <div className="p-4 pr-6 h-full" style={{ width: `${chartWidth}px` }}>
                   {chartData ? (
                     <svg width={chartWidth} height="100%" preserveAspectRatio="none">
                       <defs>
@@ -243,7 +300,7 @@ export const WeightTrackerModal = ({
                       </defs>
                       
                       {/* Grid lines */}
-                      <g className="opacity-20">
+                      <g className="opacity-25">
                         {(() => {
                           const steps = Math.max(yTicks.length - 1, 1);
                           return yTicks.map((_, index) => {
@@ -257,7 +314,7 @@ export const WeightTrackerModal = ({
                                 y2={`${percent}%`}
                                 stroke="currentColor"
                                 strokeWidth="1"
-                                className="text-slate-600"
+                                className="text-white"
                               />
                             );
                           });
@@ -267,31 +324,28 @@ export const WeightTrackerModal = ({
                       {/* Line graph */}
                       {(() => {
                         const dateWidth = DATE_COLUMN_WIDTH;
-                        
+
                         let pathData = '';
                         let areaData = '';
                         let points = [];
-                        
-                        dateRange.forEach((date, index) => {
-                          const entry = entriesMap[date];
-                          if (entry) {
-                            // Center each point in its date column
-                            const x = (index * dateWidth) + (dateWidth / 2);
-                            const normalized = (entry.weight - chartData.minWeight) / chartData.range;
-                            const yPercent = (1 - normalized) * 100;
-                            
-                            points.push({ x, yPercent, date });
-                            
-                            if (pathData === '') {
-                              pathData = `M ${x} ${yPercent}%`;
-                              areaData = `M ${x} 100% L ${x} ${yPercent}%`;
-                            } else {
-                              pathData += ` L ${x} ${yPercent}%`;
-                              areaData += ` L ${x} ${yPercent}%`;
-                            }
+
+                        sortedEntries.forEach((entry, index) => {
+                          const { date, weight } = entry;
+                          const x = chartOffset + (index * dateWidth) + (dateWidth / 2);
+                          const normalized = (weight - chartData.minWeight) / chartData.range;
+                          const yPercent = (1 - normalized) * 100;
+
+                          points.push({ x, yPercent, date });
+
+                          if (pathData === '') {
+                            pathData = `M ${x} ${yPercent}%`;
+                            areaData = `M ${x} 100% L ${x} ${yPercent}%`;
+                          } else {
+                            pathData += ` L ${x} ${yPercent}%`;
+                            areaData += ` L ${x} ${yPercent}%`;
                           }
                         });
-                        
+
                         if (points.length > 0) {
                           const lastPoint = points[points.length - 1];
                           areaData += ` L ${lastPoint.x} 100% Z`;
@@ -346,7 +400,7 @@ export const WeightTrackerModal = ({
               </div>
 
               {/* Y-axis - Fixed on right side */}
-              <div className="bg-slate-900/60 rounded-r-lg w-16 flex-shrink-0 relative">
+              <div className="rounded-r-lg w-14 flex-shrink-0 relative">
                 <div className="absolute inset-0 px-2 py-4">
                   {chartData ? (
                     (() => {
@@ -362,7 +416,7 @@ export const WeightTrackerModal = ({
                         return (
                           <div
                             key={`tick-${index}`}
-                            className="absolute right-2 text-[11px] font-semibold text-slate-100 tracking-tight text-right"
+                            className="absolute right-2 text-sm font-semibold text-slate-100 tracking-tight text-right"
                             style={{ top: `${percent}%`, transform: `translateY(${translateY})` }}
                           >
                             {formatWeight(weight)}
@@ -377,11 +431,11 @@ export const WeightTrackerModal = ({
               </div>
             </div>
 
-            <div className="px-6 pb-6 flex gap-2 flex-shrink-0">
+            <div className="px-6 pb-6 flex gap-1 flex-shrink-0">
               <div
                 id="timeline-scroll"
                 ref={timelineScrollRef}
-                className="overflow-x-auto overflow-y-hidden flex-1 bg-slate-900/60 rounded-lg border border-slate-700/60"
+                className={`overflow-y-hidden flex-1 rounded-lg ${hasHorizontalOverflow ? 'overflow-x-auto' : 'overflow-x-hidden'}`}
                 onScroll={(e) => {
                   const nextScrollLeft = e.currentTarget.scrollLeft;
                   if (graphScrollRef.current && graphScrollRef.current.scrollLeft !== nextScrollLeft) {
@@ -389,32 +443,33 @@ export const WeightTrackerModal = ({
                   }
                 }}
               >
-                <div className="px-4 py-3" style={{ width: `${chartWidth}px` }}>
+                <div className="px-4 pr-6 py-3" style={{ width: `${chartWidth}px` }}>
                   <div className="flex" style={{ width: `${chartWidth}px` }}>
-                    {dateRange.map((date) => {
-                      const entry = entriesMap[date];
-                      const hasEntry = !!entry;
+                    {sortedEntries.map((entry, index) => {
+                      const { date } = entry;
                       const isToday = date === today;
                       const label = formatTimelineLabel(date);
-                      
+
                       return (
-                        <div key={date} className="flex items-center justify-center" style={{ width: `${DATE_COLUMN_WIDTH}px` }}>
+                        <div
+                          key={`${date}-${index}`}
+                          className="flex items-center justify-center"
+                          style={{
+                            width: `${DATE_COLUMN_WIDTH}px`,
+                            marginLeft: index === 0 ? `${chartOffset}px` : undefined
+                          }}
+                        >
                           <button
                             type="button"
-                            onClick={(event) => hasEntry && handleDateClick(date, event)}
-                            disabled={!hasEntry}
-                            className={`w-full flex flex-col items-center gap-1 py-1 px-2 rounded-md border transition-colors text-xs font-semibold ${
-                              isToday 
-                                ? 'bg-blue-600 border-blue-500 text-white' 
-                                : hasEntry 
-                                  ? 'bg-slate-800/70 border-slate-600 text-slate-100 hover:bg-slate-700/70 cursor-pointer' 
-                                  : 'bg-transparent border-slate-700/50 text-slate-500 cursor-default'
+                            onClick={(event) => handleDateClick(date, event)}
+                            className={`w-full flex flex-col items-center gap-1 py-1 px-2 rounded-md border transition-colors text-xs font-semibold cursor-pointer ${
+                              isToday
+                                ? 'bg-blue-600 border-blue-500 text-white'
+                                : 'bg-transparent border-slate-600 text-slate-100 hover:bg-slate-800/40'
                             } ${selectedDate === date ? 'ring-2 ring-blue-400' : ''}`}
                           >
                             <span>{label}</span>
-                            {hasEntry && (
-                              <div className="w-1 h-1 rounded-full bg-green-400" />
-                            )}
+                            <div className="w-1 h-1 rounded-full bg-green-400" />
                           </button>
                         </div>
                       );
@@ -422,7 +477,7 @@ export const WeightTrackerModal = ({
                   </div>
                 </div>
               </div>
-              <div className="w-16 flex-shrink-0" />
+              <div className="w-14 flex-shrink-0" />
             </div>
           </div>
         </div>
