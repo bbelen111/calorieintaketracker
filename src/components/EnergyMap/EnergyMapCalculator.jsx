@@ -40,6 +40,8 @@ const screenTabs = [
   { key: 'insights', label: 'Insights', icon: BarChart3 }
 ];
 
+const homeIndex = screenTabs.findIndex(tab => tab.key === 'home');
+
 const defaultCardioSession = {
   type: 'treadmill_walk',
   duration: 30,
@@ -118,7 +120,8 @@ export const EnergyMapCalculator = () => {
   const viewportRef = useRef(null);
   const { currentScreen, sliderStyle, handlers, goToScreen, isSwiping } = useSwipeableScreens(
     screenTabs.length,
-    viewportRef
+    viewportRef,
+    homeIndex
   );
 
   const [selectedGoal, setSelectedGoal] = useState('maintenance');

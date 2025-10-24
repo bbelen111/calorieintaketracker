@@ -2,8 +2,8 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 const BASE_SWIPE_THRESHOLD = 130;
 
-export const useSwipeableScreens = (totalScreens, viewportRef) => {
-  const [currentScreen, setCurrentScreen] = useState(0);
+export const useSwipeableScreens = (totalScreens, viewportRef, initialScreen = 0) => {
+  const [currentScreen, setCurrentScreen] = useState(initialScreen);
   const [dragOffset, setDragOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
 
