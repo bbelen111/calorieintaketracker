@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import {
@@ -31,6 +31,10 @@ const DATE_COLUMN_WIDTH = 66;
 const DATE_COLUMN_GAP = 8;
 const Y_TICK_COUNT = 7;
 const GRID_LINE_INSET_PERCENT = 1.1;
+const STRETCH_EDGE_PADDING = 96;
+const MIN_VISIBLE_WEIGHT_RANGE = 6;
+const MIN_RANGE_PADDING = 0.5;
+const TIMELINE_TRACK_HEIGHT = 56;
 
 const clampPercent = (value) => Math.max(0, Math.min(100, value));
 
@@ -56,6 +60,8 @@ const getColumnsWidth = (count) => {
   const gaps = Math.max(0, count - 1) * DATE_COLUMN_GAP;
   return count * DATE_COLUMN_WIDTH + gaps;
 };
+
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 // Helper to get day name
 
@@ -88,12 +94,14 @@ export const WeightTrackerModal = ({
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const graphScrollRef = useRef(null);
   const timelineScrollRef = useRef(null);
-  const [graphViewportWidth, setGraphViewportWidth] = useState(0);
+  const [graphViewportWidth, setGraphViewportWidth] = useState(() => (
+    typeof window !== 'undefined' ? window.innerWidth : 0
+  ));
   
   const sortedEntries = useMemo(() => sortWeightEntries(entries ?? []), [entries]);
   const trend = useMemo(() => calculateWeightTrend(sortedEntries), [sortedEntries]);
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const node = graphScrollRef.current;
     if (!node) {
       return undefined;
@@ -116,34 +124,51 @@ export const WeightTrackerModal = ({
     observer.observe(node);
 
     return () => observer.disconnect();
-  }, []);
+  }, [isOpen]);
 
-  const columnsNeededForViewport = useMemo(() => {
-    if (!graphViewportWidth) {
-      return 1;
-    }
-    const columnSpan = DATE_COLUMN_WIDTH + DATE_COLUMN_GAP;
-    return Math.max(Math.ceil((graphViewportWidth + DATE_COLUMN_GAP) / columnSpan), 1);
-  }, [graphViewportWidth]);
+  const entryCount = sortedEntries.length;
 
-  const chartWidth = useMemo(() => {
-    const entryColumns = Math.max(sortedEntries.length, 1);
-    const totalColumns = Math.max(entryColumns, columnsNeededForViewport);
-    return getColumnsWidth(totalColumns);
-  }, [columnsNeededForViewport, sortedEntries]);
+  const baseChartWidth = useMemo(() => (
+    getColumnsWidth(Math.max(entryCount, 1))
+  ), [entryCount]);
 
-  const chartOffset = useMemo(() => {
-    const usedWidth = getColumnsWidth(sortedEntries.length);
-    return Math.max(chartWidth - usedWidth, 0);
-  }, [chartWidth, sortedEntries]);
+  const chartWidth = useMemo(() => (
+    Math.max(baseChartWidth, graphViewportWidth || 0)
+  ), [baseChartWidth, graphViewportWidth]);
+
+  const shouldStretchAcrossViewport = useMemo(() => (
+    chartWidth > baseChartWidth
+  ), [chartWidth, baseChartWidth]);
 
   const hasHorizontalOverflow = useMemo(() => {
     if (!graphViewportWidth) {
       return false;
     }
-    const usedWidth = getColumnsWidth(sortedEntries.length);
-    return usedWidth > graphViewportWidth;
-  }, [graphViewportWidth, sortedEntries]);
+    return chartWidth > graphViewportWidth;
+  }, [chartWidth, graphViewportWidth]);
+
+  const xPositions = useMemo(() => {
+    if (entryCount === 0) {
+      return [];
+    }
+
+    if (!shouldStretchAcrossViewport) {
+      const start = DATE_COLUMN_WIDTH / 2;
+      const step = DATE_COLUMN_WIDTH + DATE_COLUMN_GAP;
+      return sortedEntries.map((_, index) => start + index * step);
+    }
+
+    if (entryCount === 1) {
+      return [chartWidth / 2];
+    }
+
+  const minimumEdge = DATE_COLUMN_WIDTH * 0.75;
+  const dynamicEdge = Math.min(STRETCH_EDGE_PADDING, chartWidth * 0.12);
+  const edgePadding = Math.min(chartWidth / 2, Math.max(minimumEdge, dynamicEdge));
+    const usableWidth = Math.max(chartWidth - edgePadding * 2, 0);
+    const step = entryCount > 1 ? usableWidth / (entryCount - 1) : 0;
+    return sortedEntries.map((_, index) => edgePadding + step * index);
+  }, [chartWidth, entryCount, shouldStretchAcrossViewport, sortedEntries]);
 
   useEffect(() => {
     const scrollToLatest = () => {
@@ -202,18 +227,39 @@ export const WeightTrackerModal = ({
 
   // Calculate chart data
   const chartData = useMemo(() => {
-    if (sortedEntries.length === 0) return null;
-    
-    const weights = sortedEntries.map(e => e.weight);
-    const minWeight = Math.min(...weights);
-    const maxWeight = Math.max(...weights);
-    const range = maxWeight - minWeight || 1;
-    const padding = range * 0.1;
-    
+    if (sortedEntries.length === 0) {
+      return null;
+    }
+
+    const weights = sortedEntries.map((entry) => entry.weight);
+    let minWeight = Math.min(...weights);
+    let maxWeight = Math.max(...weights);
+    let range = maxWeight - minWeight;
+
+    if (range === 0) {
+      range = Math.max(MIN_VISIBLE_WEIGHT_RANGE, MIN_RANGE_PADDING * 2);
+      const halfRange = range / 2;
+      minWeight -= halfRange;
+      maxWeight += halfRange;
+    } else {
+      const padding = Math.max(range * 0.1, MIN_RANGE_PADDING);
+      minWeight -= padding;
+      maxWeight += padding;
+      range = maxWeight - minWeight;
+
+      if (range < MIN_VISIBLE_WEIGHT_RANGE) {
+        const targetRange = Math.max(MIN_VISIBLE_WEIGHT_RANGE, MIN_RANGE_PADDING * 2);
+        const midpoint = (maxWeight + minWeight) / 2;
+        minWeight = midpoint - targetRange / 2;
+        maxWeight = midpoint + targetRange / 2;
+        range = targetRange;
+      }
+    }
+
     return {
-      minWeight: minWeight - padding,
-      maxWeight: maxWeight + padding,
-      range: range + (padding * 2)
+      minWeight,
+      maxWeight,
+      range
     };
   }, [sortedEntries]);
 
@@ -362,32 +408,37 @@ export const WeightTrackerModal = ({
 
                       {/* Line graph */}
                       {(() => {
-                        const dateWidth = DATE_COLUMN_WIDTH;
-
                         let pathData = '';
                         let areaData = '';
-                        let points = [];
-
-                        sortedEntries.forEach((entry, index) => {
+                        const points = sortedEntries.map((entry, index) => {
                           const { date, weight } = entry;
-                          const x = chartOffset + (index * (dateWidth + DATE_COLUMN_GAP)) + (dateWidth / 2);
+                          const x = xPositions[index] ?? 0;
                           const normalized = (weight - chartData.minWeight) / chartData.range;
                           const yPercent = (1 - normalized) * 100;
-
-                          points.push({ x, yPercent, date });
-
-                          if (pathData === '') {
-                            pathData = `M ${x} ${yPercent}%`;
-                            areaData = `M ${x} 100% L ${x} ${yPercent}%`;
-                          } else {
-                            pathData += ` L ${x} ${yPercent}%`;
-                            areaData += ` L ${x} ${yPercent}%`;
-                          }
+                          return { x, yPercent, date };
                         });
 
-                        if (points.length > 0) {
-                          const lastPoint = points[points.length - 1];
-                          areaData += ` L ${lastPoint.x} 100% Z`;
+                        if (points.length === 1 && shouldStretchAcrossViewport) {
+                          const singlePoint = points[0];
+                          const startX = 0;
+                          const endX = chartWidth;
+                          pathData = `M ${startX} ${singlePoint.yPercent}% L ${endX} ${singlePoint.yPercent}%`;
+                          areaData = `M ${startX} 100% L ${startX} ${singlePoint.yPercent}% L ${endX} ${singlePoint.yPercent}% L ${endX} 100% Z`;
+                        } else {
+                          points.forEach(({ x, yPercent }, index) => {
+                            if (index === 0) {
+                              pathData = `M ${x} ${yPercent}%`;
+                              areaData = `M ${x} 100% L ${x} ${yPercent}%`;
+                            } else {
+                              pathData += ` L ${x} ${yPercent}%`;
+                              areaData += ` L ${x} ${yPercent}%`;
+                            }
+                          });
+
+                          if (points.length > 0) {
+                            const lastPoint = points[points.length - 1];
+                            areaData += ` L ${lastPoint.x} 100% Z`;
+                          }
                         }
 
                         return (
@@ -413,7 +464,7 @@ export const WeightTrackerModal = ({
                             )}
                             
                             {/* Points */}
-                            {points.map(({ x, yPercent, date }) => (
+                              {points.map(({ x, yPercent, date }) => (
                               <g key={date}>
                                 <circle
                                   cx={x}
@@ -481,19 +532,40 @@ export const WeightTrackerModal = ({
                 }}
               >
                 <div className="px-4 pr-6 py-3" style={{ width: `${chartWidth}px` }}>
-                  <div className="flex" style={{ width: `${chartWidth}px`, gap: `${DATE_COLUMN_GAP}px` }}>
+                  <div
+                    className="relative"
+                    style={{
+                      width: `${chartWidth}px`,
+                      height: `${TIMELINE_TRACK_HEIGHT}px`
+                    }}
+                  >
                     {sortedEntries.map((entry, index) => {
                       const { date } = entry;
                       const isToday = date === today;
                       const label = formatTimelineLabel(date);
+                      const x = xPositions[index] ?? 0;
+                      const prevX = index > 0 ? xPositions[index - 1] : null;
+                      const nextX = index < xPositions.length - 1 ? xPositions[index + 1] : null;
+
+                      const leftBoundary = prevX != null ? (prevX + x) / 2 : 0;
+                      const rightBoundary = nextX != null ? (nextX + x) / 2 : chartWidth;
+                      const availableWidth = Math.max(rightBoundary - leftBoundary, DATE_COLUMN_WIDTH);
+                      const stretchedWidth = Math.max(availableWidth - 12, DATE_COLUMN_WIDTH);
+                      const proposedWidth = shouldStretchAcrossViewport
+                        ? stretchedWidth
+                        : DATE_COLUMN_WIDTH;
+                      const leftSpace = Math.max(x - leftBoundary, DATE_COLUMN_WIDTH / 2);
+                      const rightSpace = Math.max(rightBoundary - x, DATE_COLUMN_WIDTH / 2);
+                      const constrainedWidth = Math.min(proposedWidth, leftSpace * 2, rightSpace * 2);
+                      const buttonWidth = Math.max(constrainedWidth, DATE_COLUMN_WIDTH);
 
                       return (
                         <div
                           key={`${date}-${index}`}
-                          className="flex items-center justify-center"
+                          className="absolute top-1/2 transform -translate-y-1/2 -translate-x-1/2"
                           style={{
-                            width: `${DATE_COLUMN_WIDTH}px`,
-                            marginLeft: index === 0 ? `${chartOffset}px` : undefined
+                            left: `${x}px`,
+                            width: `${buttonWidth}px`
                           }}
                         >
                           <button
@@ -505,7 +577,7 @@ export const WeightTrackerModal = ({
                                 : 'bg-transparent border-slate-600 text-slate-100 hover:bg-slate-800/40'
                             } ${selectedDate === date ? 'ring-2 ring-blue-400' : ''}`}
                           >
-                            <span>{label}</span>
+                            <span className="w-full text-center">{label}</span>
                           </button>
                         </div>
                       );
