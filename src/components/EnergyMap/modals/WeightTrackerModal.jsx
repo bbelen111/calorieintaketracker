@@ -91,8 +91,8 @@ export const WeightTrackerModal = ({
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
-      overlayClassName="z-[50]"
-      contentClassName="w-full max-w-4xl p-6 md:p-8 bg-slate-900/95"
+  overlayClassName="!z-[80] fixed inset-0 bg-black/70 !p-0 !flex-none !items-stretch !justify-stretch"
+      contentClassName="fixed inset-0 w-screen h-screen overflow-y-auto p-6 md:p-8 bg-slate-900 rounded-none border-none !max-h-none"
     >
       <div className="flex flex-col gap-6">
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
