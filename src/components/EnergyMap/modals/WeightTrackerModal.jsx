@@ -1,16 +1,11 @@
-import React, { useMemo } from 'react';
-import { Plus, TrendingUp, TrendingDown, Minus, Edit3, Trash2 } from 'lucide-react';
+import React, { useMemo, useRef, useState } from 'react';
+import { ChevronLeft, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import {
   calculateWeightTrend,
-  createSparklinePoints,
-  formatDateLabel,
   formatWeight,
   sortWeightEntries
 } from '../../../utils/weight';
-
-const CHART_WIDTH = 560;
-const CHART_HEIGHT = 200;
 
 const TrendIcon = ({ direction }) => {
   if (direction === 'up') {
@@ -32,33 +27,70 @@ const getTrendToneClass = (direction) => {
   return 'text-slate-300';
 };
 
+const DATE_COLUMN_WIDTH = 50;
+const Y_TICK_COUNT = 7;
+
+// Generate date range (30 days before today to today)
+const generateDateRange = () => {
+  const dates = [];
+  const today = new Date();
+  for (let i = 29; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    dates.push(date.toISOString().split('T')[0]);
+  }
+  return dates;
+};
+
+// Helper to get day name
+
+const formatTimelineLabel = (dateStr) => {
+  const date = new Date(dateStr + 'T00:00:00');
+  return date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
+};
+
+// Helper to format date for tooltip
+const formatTooltipDate = (dateStr) => {
+  const date = new Date(dateStr + 'T00:00:00');
+  return date.toLocaleDateString('en-US', { 
+    weekday: 'short', 
+    day: 'numeric', 
+    month: 'short', 
+    year: 'numeric' 
+  });
+};
+
 export const WeightTrackerModal = ({
   isOpen,
   isClosing,
   entries,
   latestWeight,
-  hasTodayEntry,
-  todayEntry,
   onClose,
-  onPrimaryAction,
-  primaryActionLabel,
   onAddEntry,
-  onEditEntry,
-  onDeleteEntry
+  onEditEntry
 }) => {
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+  const graphScrollRef = useRef(null);
+  const timelineScrollRef = useRef(null);
+  
   const sortedEntries = useMemo(() => sortWeightEntries(entries ?? []), [entries]);
-  const reversedEntries = useMemo(() => [...sortedEntries].reverse(), [sortedEntries]);
   const trend = useMemo(() => calculateWeightTrend(sortedEntries), [sortedEntries]);
-  const chart = useMemo(
-    () =>
-      createSparklinePoints(sortedEntries, {
-        width: CHART_WIDTH,
-        height: CHART_HEIGHT,
-        padding: 12,
-        limit: 120
-      }),
-    [sortedEntries]
-  );
+  
+  const dateRange = useMemo(() => generateDateRange(), []);
+  const chartWidth = dateRange.length * DATE_COLUMN_WIDTH;
+  
+  // Map entries by date for quick lookup
+  const entriesMap = useMemo(() => {
+    const map = {};
+    sortedEntries.forEach(entry => {
+      map[entry.date] = entry;
+    });
+    return map;
+  }, [sortedEntries]);
+  
+  // Get today's date
+  const today = new Date().toISOString().split('T')[0];
 
   const currentWeightValue = sortedEntries.length
     ? sortedEntries[sortedEntries.length - 1].weight
@@ -84,187 +116,355 @@ export const WeightTrackerModal = ({
     return `${sign}${trend.weeklyRate.toFixed(2)} kg/wk`;
   })();
 
-  const hasEntries = sortedEntries.length > 0;
-  const PrimaryIcon = hasTodayEntry ? Edit3 : Plus;
+  // Calculate chart data
+  const chartData = useMemo(() => {
+    if (sortedEntries.length === 0) return null;
+    
+    const weights = sortedEntries.map(e => e.weight);
+    const minWeight = Math.min(...weights);
+    const maxWeight = Math.max(...weights);
+    const range = maxWeight - minWeight || 1;
+    const padding = range * 0.1;
+    
+    return {
+      minWeight: minWeight - padding,
+      maxWeight: maxWeight + padding,
+      range: range + (padding * 2)
+    };
+  }, [sortedEntries]);
+
+  const yTicks = useMemo(() => {
+    if (!chartData) return [];
+    const steps = Math.max(Y_TICK_COUNT - 1, 1);
+    return Array.from({ length: Y_TICK_COUNT }, (_, index) => (
+      chartData.maxWeight - (chartData.range / steps) * index
+    ));
+  }, [chartData]);
+
+  const handleDateClick = (date, event) => {
+    const entry = entriesMap[date];
+    if (!entry) return; // Don't register clicks on dates without entries
+    
+    const rect = event.currentTarget.getBoundingClientRect();
+    setTooltipPosition({
+      x: rect.left + rect.width / 2,
+      y: rect.top - 10
+    });
+    
+    if (selectedDate === date) {
+      // Second click - open edit modal
+      onEditEntry?.(entry);
+      setSelectedDate(null);
+    } else {
+      // First click - show tooltip
+      setSelectedDate(date);
+    }
+  };
+
+  const closeTooltip = () => {
+    setSelectedDate(null);
+  };
 
   return (
-    <ModalShell
-      isOpen={isOpen}
-      isClosing={isClosing}
-  overlayClassName="!z-[80] fixed inset-0 bg-black/70 !p-0 !flex-none !items-stretch !justify-stretch"
-      contentClassName="fixed inset-0 w-screen h-screen overflow-y-auto p-6 md:p-8 bg-slate-900 rounded-none border-none !max-h-none"
-    >
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-          <div>
+    <>
+      <ModalShell
+        isOpen={isOpen}
+        isClosing={isClosing}
+        overlayClassName="!z-[80] fixed inset-0 bg-black/70 !p-0 !flex-none !items-stretch !justify-stretch"
+        contentClassName="fixed inset-0 w-screen h-screen p-0 bg-slate-900 rounded-none border-none !max-h-none flex flex-col"
+      >
+        {/* Header with back button */}
+        <div className="flex items-center justify-between px-6 py-4 bg-slate-900 border-b border-slate-700 flex-shrink-0">
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-slate-300 hover:text-white transition-all"
+            >
+              <ChevronLeft size={24} />
+            </button>
             <h3 className="text-white font-bold text-2xl">Weight Tracker</h3>
-            <p className="text-slate-400 text-sm">
-              Visualise your weight trend and manage daily logs.
-            </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => onPrimaryAction?.()}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-all"
-            >
-              <PrimaryIcon size={18} />
-              {primaryActionLabel}
-            </button>
-            <button
-              type="button"
-              onClick={() => onAddEntry?.()}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-600 text-slate-200 hover:bg-slate-800 transition-all"
-            >
-              Add Entry for Another Day
-            </button>
-          </div>
-        </div>
-
-        <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-5">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="md:col-span-1 flex flex-col justify-between">
-              <div>
-                <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">Current Weight</p>
-                <p className="text-white text-3xl font-bold">{currentWeightDisplay}</p>
-              </div>
-              <div className="mt-4 space-y-2 text-sm">
-                <p className="text-slate-300">
-                  <span className="text-slate-400 uppercase text-[11px] tracking-wide">Change</span>
-                  <br />
-                  {totalChangeDisplay}
-                </p>
-                <p className="text-slate-300">
-                  <span className="text-slate-400 uppercase text-[11px] tracking-wide">Weekly Rate</span>
-                  <br />
-                  {weeklyRateDisplay}
-                </p>
-                <p className={`${getTrendToneClass(trend.direction)} font-semibold flex items-center gap-2`}>
-                  <TrendIcon direction={trend.direction} />
-                  {trend.label}
-                </p>
-              </div>
-            </div>
-            <div className="md:col-span-3">
-              <div className="relative">
-                <svg
-                  width="100%"
-                  height="100%"
-                  viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-                  className="w-full h-48"
-                  preserveAspectRatio="none"
-                >
-                  <defs>
-                    <linearGradient id="weightLine" x1="0" x2="0" y1="0" y2="1">
-                      <stop offset="0%" stopColor="#60a5fa" stopOpacity="0.9" />
-                      <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.2" />
-                    </linearGradient>
-                  </defs>
-                  <rect width="100%" height="100%" className="fill-slate-900/40" />
-                  {chart.points ? (
-                    <polyline
-                      points={chart.points}
-                      fill="none"
-                      stroke="url(#weightLine)"
-                      strokeWidth={3}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  ) : (
-                    <text x="50%" y="50%" textAnchor="middle" className="fill-slate-500 text-sm">
-                      No weight data yet
-                    </text>
-                  )}
-                </svg>
-              </div>
-              {chart.min != null && chart.max != null && (
-                <div className="flex justify-between text-xs text-slate-400 mt-2">
-                  <span>Min: {formatWeight(chart.min)} kg</span>
-                  <span>Max: {formatWeight(chart.max)} kg</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-white font-semibold">Entries</p>
-            <p className="text-slate-400 text-xs uppercase tracking-wide">One entry per day</p>
-          </div>
-
-          {hasEntries ? (
-            <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-              {reversedEntries.map((entry, index) => {
-                const dateLabel = formatDateLabel(entry.date, { month: 'short', day: 'numeric', year: 'numeric' });
-                const weightLabel = formatWeight(entry.weight);
-                const prev = reversedEntries[index + 1];
-                const delta = prev ? entry.weight - prev.weight : null;
-                const deltaLabel = (() => {
-                  if (delta == null || delta === 0) {
-                    return null;
-                  }
-                  const sign = delta > 0 ? '+' : '';
-                  return `${sign}${delta.toFixed(1)} kg`;
-                })();
-
-                const isToday = todayEntry?.date === entry.date;
-
-                return (
-                  <div
-                    key={entry.date}
-                    className={`flex items-center gap-4 rounded-lg border border-slate-700 px-4 py-3 bg-slate-900/40 ${
-                      isToday ? 'border-blue-500/70 bg-blue-900/20' : ''
-                    }`}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white font-semibold text-base leading-tight">
-                        {weightLabel ? `${weightLabel} kg` : '—'}
-                        {deltaLabel && (
-                          <span className={`ml-2 text-xs ${delta > 0 ? 'text-amber-300' : 'text-emerald-300'}`}>
-                            {deltaLabel}
-                          </span>
-                        )}
-                      </p>
-                      <p className="text-slate-400 text-sm">{dateLabel}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => onEditEntry?.(entry)}
-                        className="text-slate-300 hover:text-white transition-all"
-                      >
-                        <Edit3 size={18} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onDeleteEntry?.(entry)}
-                        className="text-red-300 hover:text-red-200 transition-all"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center text-slate-400 text-sm py-10 border border-dashed border-slate-700 rounded-xl">
-              No entries yet. Tap "Add Entry" to log your first weight.
-            </div>
-          )}
-        </div>
-
-        <div className="flex justify-end">
           <button
             type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-slate-700 text-white hover:bg-slate-600 transition-all"
+            onClick={() => onAddEntry?.()}
+            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-all text-sm font-medium"
           >
-            Close
+            Add Entry
           </button>
         </div>
-      </div>
-    </ModalShell>
+
+    {/* Combined Timeline and Current Weight Section - Takes full remaining space */}
+    <div className="flex-1 bg-slate-800 border-t border-slate-700 overflow-y-auto flex flex-col">
+          {/* Stats Section */}
+          <div className="px-6 pt-6 pb-4 grid grid-cols-2 md:grid-cols-4 gap-4 flex-shrink-0">
+            <div>
+              <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">Current Weight</p>
+              <p className="text-white text-3xl font-bold">{currentWeightDisplay}</p>
+            </div>
+            <div>
+              <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">Total Change</p>
+              <p className="text-white text-2xl font-semibold">{totalChangeDisplay}</p>
+            </div>
+            <div>
+              <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">Weekly Rate</p>
+              <p className="text-white text-2xl font-semibold">{weeklyRateDisplay}</p>
+            </div>
+            <div>
+              <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">Trend</p>
+              <p className={`${getTrendToneClass(trend.direction)} font-semibold text-lg flex items-center gap-2`}>
+                <TrendIcon direction={trend.direction} />
+                {trend.label}
+              </p>
+            </div>
+          </div>
+
+          {/* Graph and Timeline Section - Synchronized scrolling */}
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="flex-1 px-6 pb-4 overflow-hidden flex gap-2">
+              <div
+                ref={graphScrollRef}
+                className="relative bg-slate-900/60 rounded-l-lg flex-1 overflow-x-auto overflow-y-hidden"
+                onScroll={(e) => {
+                  const nextScrollLeft = e.currentTarget.scrollLeft;
+                  if (timelineScrollRef.current && timelineScrollRef.current.scrollLeft !== nextScrollLeft) {
+                    timelineScrollRef.current.scrollLeft = nextScrollLeft;
+                  }
+                }}
+              >
+                <div className="p-4 h-full" style={{ width: `${chartWidth}px` }}>
+                  {chartData ? (
+                    <svg width={chartWidth} height="100%" preserveAspectRatio="none">
+                      <defs>
+                        <linearGradient id="areaGradient" x1="0" x2="0" y1="0" y2="1">
+                          <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
+                          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.05" />
+                        </linearGradient>
+                      </defs>
+                      
+                      {/* Grid lines */}
+                      <g className="opacity-20">
+                        {(() => {
+                          const steps = Math.max(yTicks.length - 1, 1);
+                          return yTicks.map((_, index) => {
+                            const percent = (index / steps) * 100;
+                            return (
+                              <line
+                                key={`grid-${index}`}
+                                x1="0"
+                                y1={`${percent}%`}
+                                x2={chartWidth}
+                                y2={`${percent}%`}
+                                stroke="currentColor"
+                                strokeWidth="1"
+                                className="text-slate-600"
+                              />
+                            );
+                          });
+                        })()}
+                      </g>
+
+                      {/* Line graph */}
+                      {(() => {
+                        const dateWidth = DATE_COLUMN_WIDTH;
+                        
+                        let pathData = '';
+                        let areaData = '';
+                        let points = [];
+                        
+                        dateRange.forEach((date, index) => {
+                          const entry = entriesMap[date];
+                          if (entry) {
+                            // Center each point in its date column
+                            const x = (index * dateWidth) + (dateWidth / 2);
+                            const normalized = (entry.weight - chartData.minWeight) / chartData.range;
+                            const yPercent = (1 - normalized) * 100;
+                            
+                            points.push({ x, yPercent, date });
+                            
+                            if (pathData === '') {
+                              pathData = `M ${x} ${yPercent}%`;
+                              areaData = `M ${x} 100% L ${x} ${yPercent}%`;
+                            } else {
+                              pathData += ` L ${x} ${yPercent}%`;
+                              areaData += ` L ${x} ${yPercent}%`;
+                            }
+                          }
+                        });
+                        
+                        if (points.length > 0) {
+                          const lastPoint = points[points.length - 1];
+                          areaData += ` L ${lastPoint.x} 100% Z`;
+                        }
+
+                        return (
+                          <>
+                            {/* Area fill */}
+                            {areaData && (
+                              <path
+                                d={areaData}
+                                fill="url(#areaGradient)"
+                              />
+                            )}
+                            
+                            {/* Line */}
+                            {pathData && (
+                              <path
+                                d={pathData}
+                                fill="none"
+                                stroke="#3b82f6"
+                                strokeWidth="3"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            )}
+                            
+                            {/* Points */}
+                            {points.map(({ x, yPercent, date }) => (
+                              <g key={date}>
+                                <circle
+                                  cx={x}
+                                  cy={`${yPercent}%`}
+                                  r="6"
+                                  fill="#1e293b"
+                                  stroke="#3b82f6"
+                                  strokeWidth="2"
+                                  className="cursor-pointer hover:r-8 transition-all"
+                                />
+                              </g>
+                            ))}
+                          </>
+                        );
+                      })()}
+                    </svg>
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <p className="text-slate-500 text-lg">No weight data yet. Start tracking to see your progress!</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Y-axis - Fixed on right side */}
+              <div className="bg-slate-900/60 rounded-r-lg w-16 flex-shrink-0 relative">
+                <div className="absolute inset-0 px-2 py-4">
+                  {chartData ? (
+                    (() => {
+                      const steps = Math.max(yTicks.length - 1, 1);
+                      return yTicks.map((weight, index) => {
+                        const percent = (index / steps) * 100;
+                        let translateY = '-50%';
+                        if (index === 0) {
+                          translateY = '0%';
+                        } else if (index === yTicks.length - 1) {
+                          translateY = '-100%';
+                        }
+                        return (
+                          <div
+                            key={`tick-${index}`}
+                            className="absolute right-2 text-[11px] font-semibold text-slate-100 tracking-tight text-right"
+                            style={{ top: `${percent}%`, transform: `translateY(${translateY})` }}
+                          >
+                            {formatWeight(weight)}
+                          </div>
+                        );
+                      });
+                    })()
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-slate-600 text-xs">kg</div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 pb-6 flex gap-2 flex-shrink-0">
+              <div
+                id="timeline-scroll"
+                ref={timelineScrollRef}
+                className="overflow-x-auto overflow-y-hidden flex-1 bg-slate-900/60 rounded-lg border border-slate-700/60"
+                onScroll={(e) => {
+                  const nextScrollLeft = e.currentTarget.scrollLeft;
+                  if (graphScrollRef.current && graphScrollRef.current.scrollLeft !== nextScrollLeft) {
+                    graphScrollRef.current.scrollLeft = nextScrollLeft;
+                  }
+                }}
+              >
+                <div className="px-4 py-3" style={{ width: `${chartWidth}px` }}>
+                  <div className="flex" style={{ width: `${chartWidth}px` }}>
+                    {dateRange.map((date) => {
+                      const entry = entriesMap[date];
+                      const hasEntry = !!entry;
+                      const isToday = date === today;
+                      const label = formatTimelineLabel(date);
+                      
+                      return (
+                        <div key={date} className="flex items-center justify-center" style={{ width: `${DATE_COLUMN_WIDTH}px` }}>
+                          <button
+                            type="button"
+                            onClick={(event) => hasEntry && handleDateClick(date, event)}
+                            disabled={!hasEntry}
+                            className={`w-full flex flex-col items-center gap-1 py-1 px-2 rounded-md border transition-colors text-xs font-semibold ${
+                              isToday 
+                                ? 'bg-blue-600 border-blue-500 text-white' 
+                                : hasEntry 
+                                  ? 'bg-slate-800/70 border-slate-600 text-slate-100 hover:bg-slate-700/70 cursor-pointer' 
+                                  : 'bg-transparent border-slate-700/50 text-slate-500 cursor-default'
+                            } ${selectedDate === date ? 'ring-2 ring-blue-400' : ''}`}
+                          >
+                            <span>{label}</span>
+                            {hasEntry && (
+                              <div className="w-1 h-1 rounded-full bg-green-400" />
+                            )}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+              <div className="w-16 flex-shrink-0" />
+            </div>
+          </div>
+        </div>
+      </ModalShell>
+
+      {/* Tooltip */}
+      {selectedDate && entriesMap[selectedDate] && (
+        <div
+          className="fixed z-[100] bg-slate-800 border border-slate-600 rounded-lg shadow-2xl p-4 transform -translate-x-1/2 -translate-y-full pointer-events-auto"
+          style={{
+            left: `${tooltipPosition.x}px`,
+            top: `${tooltipPosition.y}px`,
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            const entry = entriesMap[selectedDate];
+            onEditEntry?.(entry);
+            closeTooltip();
+          }}
+        >
+          <div className="cursor-pointer hover:bg-slate-700/50 rounded p-2 transition-all">
+            <p className="text-slate-400 text-xs mb-1">{formatTooltipDate(selectedDate)}</p>
+            <p className="text-white text-2xl font-bold">
+              {formatWeight(entriesMap[selectedDate].weight)} kg
+            </p>
+            <p className="text-slate-500 text-[10px] mt-2 uppercase tracking-wide">Tap to edit</p>
+          </div>
+          
+          {/* Arrow */}
+          <div
+            className="absolute left-1/2 transform -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-slate-600"
+          ></div>
+        </div>
+      )}
+
+      {/* Overlay to close tooltip */}
+      {selectedDate && (
+        <div
+          className="fixed inset-0 z-[95]"
+          onClick={closeTooltip}
+        />
+      )}
+    </>
   );
 };
