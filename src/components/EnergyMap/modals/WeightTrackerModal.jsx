@@ -29,11 +29,15 @@ const getTrendToneClass = (direction) => {
 
 const DATE_COLUMN_WIDTH = 66;
 const DATE_COLUMN_GAP = 8;
-const Y_TICK_COUNT = 7;
+const Y_TICK_COUNT = 8;
 const STRETCH_EDGE_PADDING = 96;
 const MIN_VISIBLE_WEIGHT_RANGE = 6;
 const MIN_RANGE_PADDING = 0.5;
 const TIMELINE_TRACK_HEIGHT = 56;
+const BASELINE_Y_OFFSET = 18;
+
+
+const getBaselineY = (defaultY) => defaultY - BASELINE_Y_OFFSET;
 
 const clampPercent = (value) => Math.max(0, Math.min(100, value));
 
@@ -400,24 +404,7 @@ export const WeightTrackerModal = ({
                         </linearGradient>
                       </defs>
                       
-                      {/* Grid lines */}
-                      <g>
-                        {yTickPositions.slice(0, -1).map(({ index, lineY }) => (
-                          <line
-                            key={`grid-${index}`}
-                            x1="0"
-                            y1={lineY}
-                            x2={chartWidth}
-                            y2={lineY}
-                            stroke="currentColor"
-                            strokeWidth={1}
-                            strokeDasharray="4 6"
-                            className="text-slate-500 opacity-60"
-                          />
-                        ))}
-                      </g>
-
-                      {/* Line graph */}
+                      {/* Line graph, area, and grid */}
                       {(() => {
                         let pathData = '';
                         let areaData = '';
@@ -448,17 +435,6 @@ export const WeightTrackerModal = ({
                               pathData += ` L ${x} ${y}`;
                               areaData += ` L ${x} ${y}`;
                             }
-                            {baselineY != null && (
-                              <line
-                                x1="0"
-                                y1={baselineY}
-                                x2={chartWidth}
-                                y2={baselineY}
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                className="text-white opacity-80"
-                              />
-                            )}
                           });
 
                           if (points.length > 0) {
@@ -477,6 +453,27 @@ export const WeightTrackerModal = ({
                               />
                             )}
                             
+                            {/* Grid lines */}
+                            <g>
+                              {yTickPositions.map(({ index, lineY }) => {
+                                const isBaseline = index === yTickPositions.length - 1;
+                                const yValue = isBaseline ? getBaselineY(lineY) : lineY;
+                                return (
+                                  <line
+                                    key={`grid-${index}`}
+                                    x1="0"
+                                    y1={yValue}
+                                    x2={chartWidth}
+                                    y2={yValue}
+                                    stroke={isBaseline ? '#fff' : 'currentColor'}
+                                    strokeWidth={isBaseline ? 2 : 1}
+                                    strokeDasharray={isBaseline ? 'none' : '4 6'}
+                                    className={isBaseline ? 'opacity-80' : 'text-slate-500 opacity-60'}
+                                  />
+                                );
+                              })}
+                            </g>
+
                             {/* Line */}
                             {pathData && (
                               <path
@@ -490,16 +487,22 @@ export const WeightTrackerModal = ({
                             )}
                             
                             {/* Points */}
-                              {points.map(({ x, y, date }) => (
-                              <g key={date}>
+                            {points.map(({ x, y, date }) => (
+                              <g
+                                key={date}
+                                onClick={(event) => handleDateClick(date, event)}
+                                className="cursor-pointer"
+                              >
+                                {/* Larger invisible circle for easier clicking */}
+                                <circle cx={x} cy={y} r="12" fill="transparent" />
                                 <circle
                                   cx={x}
-                                    cy={y}
+                                  cy={y}
                                   r="6"
                                   fill="#1e293b"
                                   stroke="#3b82f6"
                                   strokeWidth="2"
-                                  className="cursor-pointer hover:r-8 transition-all"
+                                  className="transition-all"
                                 />
                               </g>
                             ))}
