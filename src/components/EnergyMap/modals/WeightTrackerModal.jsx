@@ -31,15 +31,16 @@ const DATE_COLUMN_WIDTH = 66;
 const DATE_COLUMN_GAP = 8;
 const Y_TICK_COUNT = 8;
 // Visual padding when stretching across the viewport
-// Keep left very tight to satisfy "fill the screen all the way to the left"
-const LEFT_EDGE_PADDING_GRAPH = 8; // tiny so points aren't clipped
+const LEFT_EDGE_PADDING_GRAPH = 8; // tiny base value; additional leading space applied below
 const RIGHT_EDGE_PADDING_GRAPH = 16; // small extra so the line/area can extend slightly
-const LEFT_EDGE_PADDING_TIMELINE = DATE_COLUMN_WIDTH / 2; // ensure first label's left edge rests on screen left
+const LEFT_EDGE_PADDING_TIMELINE = DATE_COLUMN_WIDTH / 2; // base offset; combined with leading space for earliest entry
 const RIGHT_EDGE_PADDING_TIMELINE = 16;
 const MIN_VISIBLE_WEIGHT_RANGE = 6;
 const MIN_RANGE_PADDING = 0.5;
 const TIMELINE_TRACK_HEIGHT = 56;
 const BASELINE_Y_OFFSET = 18;
+const LEADING_ENTRY_SPACE = 45;
+const FIRST_ENTRY_CENTER_OFFSET = LEADING_ENTRY_SPACE + DATE_COLUMN_WIDTH / 2;
 
 
 const getBaselineY = (defaultY) => defaultY - BASELINE_Y_OFFSET;
@@ -128,9 +129,13 @@ export const WeightTrackerModal = ({
 
   const entryCount = sortedEntries.length;
 
-  const baseChartWidth = useMemo(() => (
-    getColumnsWidth(Math.max(entryCount, 1))
-  ), [entryCount]);
+  const baseChartWidth = useMemo(() => {
+    const baseWidth = getColumnsWidth(Math.max(entryCount, 1));
+    if (entryCount > 0) {
+      return baseWidth + LEADING_ENTRY_SPACE;
+    }
+    return baseWidth;
+  }, [entryCount]);
 
   const chartWidth = useMemo(() => (
     Math.max(baseChartWidth, graphViewportWidth || 0)
@@ -154,25 +159,24 @@ export const WeightTrackerModal = ({
     return chartWidth > graphViewportWidth;
   }, [chartWidth, graphViewportWidth]);
 
-  const EXTRA_LEFT_SPACE = 32; // px, adjust as needed
   const xPositions = useMemo(() => {
     if (entryCount === 0) {
       return [];
     }
 
     if (!shouldStretchAcrossViewport) {
-      const start = DATE_COLUMN_WIDTH / 2 + EXTRA_LEFT_SPACE;
+      const start = FIRST_ENTRY_CENTER_OFFSET;
       const step = DATE_COLUMN_WIDTH + DATE_COLUMN_GAP;
       return sortedEntries.map((_, index) => start + index * step);
     }
 
     if (entryCount === 1) {
       // Keep the point slightly inset from the left
-      return [Math.max(LEFT_EDGE_PADDING_GRAPH + EXTRA_LEFT_SPACE, chartWidth / 2)];
+      return [Math.max(FIRST_ENTRY_CENTER_OFFSET, chartWidth / 2)];
     }
 
     // Stretch to fill: minimal left padding, slight right padding
-    const leftPad = LEFT_EDGE_PADDING_GRAPH + EXTRA_LEFT_SPACE;
+    const leftPad = Math.max(LEFT_EDGE_PADDING_GRAPH, FIRST_ENTRY_CENTER_OFFSET);
     const rightPad = RIGHT_EDGE_PADDING_GRAPH;
     const usableWidth = Math.max(chartWidth - leftPad - rightPad, 0);
     const step = entryCount > 1 ? usableWidth / (entryCount - 1) : 0;
@@ -184,16 +188,16 @@ export const WeightTrackerModal = ({
     if (entryCount === 0) return [];
 
     if (!shouldStretchAcrossViewport) {
-      const start = DATE_COLUMN_WIDTH / 2 + EXTRA_LEFT_SPACE;
+      const start = FIRST_ENTRY_CENTER_OFFSET;
       const step = DATE_COLUMN_WIDTH + DATE_COLUMN_GAP;
       return sortedEntries.map((_, index) => start + index * step);
     }
 
     if (entryCount === 1) {
-      return [Math.max(LEFT_EDGE_PADDING_TIMELINE + EXTRA_LEFT_SPACE, chartWidth / 2)];
+      return [Math.max(FIRST_ENTRY_CENTER_OFFSET, chartWidth / 2)];
     }
 
-    const leftPad = LEFT_EDGE_PADDING_TIMELINE + EXTRA_LEFT_SPACE;
+    const leftPad = Math.max(LEFT_EDGE_PADDING_TIMELINE, FIRST_ENTRY_CENTER_OFFSET);
     const rightPad = RIGHT_EDGE_PADDING_TIMELINE;
     const usableWidth = Math.max(chartWidth - leftPad - rightPad, 0);
     const step = entryCount > 1 ? usableWidth / (entryCount - 1) : 0;
