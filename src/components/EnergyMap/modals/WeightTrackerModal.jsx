@@ -217,7 +217,7 @@ export const WeightTrackerModal = ({
     // Schedule to allow layout to settle before scrolling.
     const frame = requestAnimationFrame(scrollToLatest);
     return () => cancelAnimationFrame(frame);
-  }, [chartWidth, sortedEntries.length]);
+    }, [chartWidth, sortedEntries.length, isOpen]);
   
   // Map entries by date for quick lookup
   const entriesMap = useMemo(() => {
