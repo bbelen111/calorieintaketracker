@@ -1,0 +1,101 @@
+# Node.js
+node_modules/
+
+# Build output
+/dist/
+/.next/
+/.vercel/
+
+# Vite
+/.vite/
+
+# Tailwind
+/tailwind.out.css
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Env files
+.env
+.env.*
+
+# Misc
+*.local
+*.log
+*.tmp
+
+# Coverage
+coverage/
+
+# Others
+*.swp
+*.bak
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Mac
+*.DS_Store
+
+# Windows
+*.exe
+*.dll
+*.db
+
+# Optional: ignore test output
+/test-output/
+
+# Optional: ignore vercel
+.vercel/
+
+# Optional: ignore package-lock
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Optional: ignore generated files
+*.tsbuildinfo
+
+# Optional: ignore error reports
+error.log
+
+# Optional: ignore npm cache
+.npm/
+
+# Optional: ignore coverage
+coverage/
+
+# Optional: ignore temporary files
+*.tmp
+*.temp
+
+# Optional: ignore backup files
+*.bak
+
+# Optional: ignore editor folders
+.vscode/
+.idea/
+
+# Optional: ignore OS files
+.DS_Store
+Thumbs.db
+
+# Optional: ignore environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
