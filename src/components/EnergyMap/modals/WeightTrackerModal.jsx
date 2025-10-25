@@ -29,7 +29,7 @@ const getTrendToneClass = (direction) => {
 
 const DATE_COLUMN_WIDTH = 66;
 const DATE_COLUMN_GAP = 8;
-const Y_TICK_COUNT = 8;
+const Y_TICK_COUNT = 7;
 // Visual padding when stretching across the viewport
 const LEFT_EDGE_PADDING_GRAPH = 8; // tiny base value; additional leading space applied below
 const RIGHT_EDGE_PADDING_GRAPH = 16; // small extra so the line/area can extend slightly
@@ -389,10 +389,17 @@ export const WeightTrackerModal = ({
 
     const handlePointerDown = (event) => {
       const tooltipNode = tooltipRef.current;
-      // Only keep tooltip open if click is inside the tooltip itself
-      if (tooltipNode?.contains(event.target)) {
+      const graphNode = graphScrollRef.current;
+      const timelineNode = timelineScrollRef.current;
+
+      if (
+        tooltipNode?.contains(event.target) ||
+        graphNode?.contains(event.target) ||
+        timelineNode?.contains(event.target)
+      ) {
         return;
       }
+
       closeTooltip();
     };
 
@@ -552,6 +559,7 @@ export const WeightTrackerModal = ({
                       
                       {/* Line graph, area, and grid */}
                       {(() => {
+
                         let pathData = '';
                         let areaData = '';
                         const points = chartPoints;
@@ -565,23 +573,26 @@ export const WeightTrackerModal = ({
                           const endX = chartWidth;
                           pathData = `M ${startX} ${singlePoint.y} L ${endX} ${singlePoint.y}`;
                           areaData = `M ${startX} ${chartHeight} L ${startX} ${singlePoint.y} L ${endX} ${singlePoint.y} L ${endX} ${chartHeight} Z`;
-                        } else {
+                        } else if (points.length > 1) {
+                          // Connect to left edge first
+                          const firstPoint = points[0];
+                          pathData = `M 0 ${firstPoint.y} L ${firstPoint.x} ${firstPoint.y}`;
+                          areaData = `M 0 ${chartHeight} L 0 ${firstPoint.y} L ${firstPoint.x} ${firstPoint.y}`;
                           points.forEach(({ x, y }, idx) => {
-                            if (idx === 0) {
-                              pathData = `M ${x} ${y}`;
-                              areaData = `M ${x} ${chartHeight} L ${x} ${y}`;
-                            } else {
-                              pathData += ` L ${x} ${y}`;
-                              areaData += ` L ${x} ${y}`;
-                            }
+                            if (idx === 0) return; // already handled first point
+                            pathData += ` L ${x} ${y}`;
+                            areaData += ` L ${x} ${y}`;
                           });
-
                           if (points.length > 0) {
                             const lastPoint = points[points.length - 1];
-                            // Extend the line slightly to the right edge for a nicer finish
+                            // Extend the line to the right edge
                             pathData += ` L ${chartWidth} ${lastPoint.y}`;
                             areaData += ` L ${chartWidth} ${lastPoint.y} L ${chartWidth} ${chartHeight} Z`;
                           }
+                        } else {
+                          // fallback for 0 points
+                          pathData = '';
+                          areaData = '';
                         }
 
                         return (
