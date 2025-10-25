@@ -389,17 +389,10 @@ export const WeightTrackerModal = ({
 
     const handlePointerDown = (event) => {
       const tooltipNode = tooltipRef.current;
-      const graphNode = graphScrollRef.current;
-      const timelineNode = timelineScrollRef.current;
-
-      if (
-        tooltipNode?.contains(event.target) ||
-        graphNode?.contains(event.target) ||
-        timelineNode?.contains(event.target)
-      ) {
+      // Only keep tooltip open if click is inside the tooltip itself
+      if (tooltipNode?.contains(event.target)) {
         return;
       }
-
       closeTooltip();
     };
 
