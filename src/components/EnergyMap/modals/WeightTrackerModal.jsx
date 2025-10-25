@@ -97,7 +97,7 @@ export const WeightTrackerModal = ({
     typeof window !== 'undefined' ? window.innerWidth : 0
   ));
   const [graphViewportHeight, setGraphViewportHeight] = useState(() => (
-    typeof window !== 'undefined' ? window.innerHeight * 0.35 : 0
+    typeof window !== 'undefined' ? window.innerHeight * 0.3 : 0
   ));
   
   const sortedEntries = useMemo(() => sortWeightEntries(entries ?? []), [entries]);
@@ -154,7 +154,7 @@ export const WeightTrackerModal = ({
     if (graphViewportHeight && graphViewportHeight > 0) {
       return graphViewportHeight;
     }
-    return 320;
+    return 280;
   }, [graphViewportHeight]);
 
   const hasHorizontalOverflow = useMemo(() => {
@@ -487,13 +487,6 @@ export const WeightTrackerModal = ({
             </button>
             <h3 className="text-white font-bold text-2xl">Weight Tracker</h3>
           </div>
-          <button
-            type="button"
-            onClick={() => onAddEntry?.()}
-            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-all text-sm font-medium"
-          >
-            Add Entry
-          </button>
         </div>
 
     {/* Combined Timeline and Current Weight Section - Takes full remaining space */}
@@ -519,6 +512,16 @@ export const WeightTrackerModal = ({
                 {trend.label}
               </p>
             </div>
+          </div>
+
+          <div className="px-6 pb-4 flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => onAddEntry?.()}
+              className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-all text-sm font-medium"
+            >
+              Add Entry
+            </button>
           </div>
 
           {/* Graph and Timeline Section - Synchronized scrolling */}
