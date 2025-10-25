@@ -518,7 +518,7 @@ export const WeightTrackerModal = ({
             <button
               type="button"
               onClick={() => onAddEntry?.()}
-              className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-all text-sm font-medium"
+              className="px-5 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all font-semibold text-base hover:bg-blue-500/90"
             >
               Add Entry
             </button>
