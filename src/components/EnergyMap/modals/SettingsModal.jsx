@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Save, ChevronsUpDown, Scale } from 'lucide-react';
+import { Save, ChevronsUpDown } from 'lucide-react';
 import { DEFAULT_ACTIVITY_MULTIPLIERS, getActivityPresetByKey } from '../../../constants/activityPresets';
 import { ModalShell } from '../common/ModalShell';
 import { formatDurationLabel, roundDurationHours } from '../../../utils/time';
@@ -100,18 +100,13 @@ export const SettingsModal = ({
           <button
             type="button"
             onClick={() => onManageWeightClick?.()}
-            className="w-full flex items-center justify-between gap-4 rounded-lg border-2 border-blue-500/40 bg-slate-700/70 hover:bg-slate-700 transition-all px-4 py-3 text-left"
+            className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1 text-left hover:bg-blue-500/90"
           >
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-900/50 border border-blue-600/50">
-                <Scale size={22} className="text-blue-300" />
-              </div>
-              <div>
-                <p className="text-white font-semibold text-lg">{displayedWeight} kg</p>
-                <p className="text-slate-400 text-xs uppercase tracking-wide">Manage weight log</p>
-              </div>
-            </div>
-            <p className="text-slate-400 text-xs whitespace-nowrap">{lastLoggedLabel}</p>
+            <span className="font-semibold text-sm md:text-base">
+              {displayedWeight !== '—' ? `${displayedWeight}kg` : '—'}
+            </span>
+            <span className="text-xs md:text-sm opacity-90">{lastLoggedLabel}</span>
+            <span className="text-[11px] opacity-80 ml-auto whitespace-nowrap">Tap to manage</span>
           </button>
         </div>
 
