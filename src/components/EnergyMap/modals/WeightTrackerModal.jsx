@@ -154,24 +154,25 @@ export const WeightTrackerModal = ({
     return chartWidth > graphViewportWidth;
   }, [chartWidth, graphViewportWidth]);
 
+  const EXTRA_LEFT_SPACE = 32; // px, adjust as needed
   const xPositions = useMemo(() => {
     if (entryCount === 0) {
       return [];
     }
 
     if (!shouldStretchAcrossViewport) {
-      const start = DATE_COLUMN_WIDTH / 2;
+      const start = DATE_COLUMN_WIDTH / 2 + EXTRA_LEFT_SPACE;
       const step = DATE_COLUMN_WIDTH + DATE_COLUMN_GAP;
       return sortedEntries.map((_, index) => start + index * step);
     }
 
     if (entryCount === 1) {
       // Keep the point slightly inset from the left
-      return [Math.max(LEFT_EDGE_PADDING_GRAPH, chartWidth / 2)];
+      return [Math.max(LEFT_EDGE_PADDING_GRAPH + EXTRA_LEFT_SPACE, chartWidth / 2)];
     }
 
     // Stretch to fill: minimal left padding, slight right padding
-    const leftPad = LEFT_EDGE_PADDING_GRAPH;
+    const leftPad = LEFT_EDGE_PADDING_GRAPH + EXTRA_LEFT_SPACE;
     const rightPad = RIGHT_EDGE_PADDING_GRAPH;
     const usableWidth = Math.max(chartWidth - leftPad - rightPad, 0);
     const step = entryCount > 1 ? usableWidth / (entryCount - 1) : 0;
@@ -183,16 +184,16 @@ export const WeightTrackerModal = ({
     if (entryCount === 0) return [];
 
     if (!shouldStretchAcrossViewport) {
-      const start = DATE_COLUMN_WIDTH / 2;
+      const start = DATE_COLUMN_WIDTH / 2 + EXTRA_LEFT_SPACE;
       const step = DATE_COLUMN_WIDTH + DATE_COLUMN_GAP;
       return sortedEntries.map((_, index) => start + index * step);
     }
 
     if (entryCount === 1) {
-      return [Math.max(LEFT_EDGE_PADDING_TIMELINE, chartWidth / 2)];
+      return [Math.max(LEFT_EDGE_PADDING_TIMELINE + EXTRA_LEFT_SPACE, chartWidth / 2)];
     }
 
-    const leftPad = LEFT_EDGE_PADDING_TIMELINE;
+    const leftPad = LEFT_EDGE_PADDING_TIMELINE + EXTRA_LEFT_SPACE;
     const rightPad = RIGHT_EDGE_PADDING_TIMELINE;
     const usableWidth = Math.max(chartWidth - leftPad - rightPad, 0);
     const step = entryCount > 1 ? usableWidth / (entryCount - 1) : 0;
@@ -228,8 +229,8 @@ export const WeightTrackerModal = ({
     return map;
   }, [sortedEntries]);
   
-  // Get today's date
-  const today = new Date().toISOString().split('T')[0];
+  // Get latest entry date
+  const latestDate = sortedEntries.length ? sortedEntries[sortedEntries.length - 1].date : null;
 
   const currentWeightValue = sortedEntries.length
     ? sortedEntries[sortedEntries.length - 1].weight
@@ -603,7 +604,7 @@ export const WeightTrackerModal = ({
                   >
                     {sortedEntries.map((entry, index) => {
                       const { date } = entry;
-                      const isToday = date === today;
+                      const isLatest = date === latestDate;
                       const label = formatTimelineLabel(date);
                       const x = timelineXPositions[index] ?? 0;
                       const prevX = index > 0 ? timelineXPositions[index - 1] : null;
@@ -632,12 +633,13 @@ export const WeightTrackerModal = ({
                         >
                           <button
                             type="button"
-                            onClick={(event) => handleDateClick(date, event)}
-                            className={`w-full flex flex-col items-center gap-1 py-2 px-3 rounded-md border transition-colors text-xs font-semibold cursor-pointer ${
-                              isToday
+                            tabIndex={-1}
+                            className={`w-full flex flex-col items-center gap-1 py-2 px-3 rounded-md border transition-colors text-xs font-semibold ${
+                              isLatest
                                 ? 'bg-blue-600 border-blue-500 text-white'
-                                : 'bg-transparent border-slate-600 text-slate-100 hover:bg-slate-800/40'
+                                : 'bg-transparent border-slate-600 text-slate-100'
                             } ${selectedDate === date ? 'ring-2 ring-blue-400' : ''}`}
+                            disabled
                           >
                             <span className="w-full text-center">{label}</span>
                           </button>
