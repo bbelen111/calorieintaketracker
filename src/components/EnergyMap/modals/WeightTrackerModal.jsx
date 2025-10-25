@@ -690,7 +690,7 @@ export const WeightTrackerModal = ({
                       );
                     })
                   ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-slate-600 text-xs">kg</div>
+                    <div className="absolute inset-0 flex items-center justify-center text-slate-600 text-xs">No data</div>
                   )}
                 </div>
               </div>
@@ -729,17 +729,8 @@ export const WeightTrackerModal = ({
                       const prevX = index > 0 ? timelineXPositions[index - 1] : null;
                       const nextX = index < timelineXPositions.length - 1 ? timelineXPositions[index + 1] : null;
 
-                      const leftBoundary = prevX != null ? (prevX + x) / 2 : 0;
-                      const rightBoundary = nextX != null ? (nextX + x) / 2 : chartWidth;
-                      const availableWidth = Math.max(rightBoundary - leftBoundary, DATE_COLUMN_WIDTH);
-                      const stretchedWidth = Math.max(availableWidth - 12, DATE_COLUMN_WIDTH);
-                      const proposedWidth = shouldStretchAcrossViewport
-                        ? stretchedWidth
-                        : DATE_COLUMN_WIDTH;
-                      const leftSpace = Math.max(x - leftBoundary, DATE_COLUMN_WIDTH / 2);
-                      const rightSpace = Math.max(rightBoundary - x, DATE_COLUMN_WIDTH / 2);
-                      const constrainedWidth = Math.min(proposedWidth, leftSpace * 2, rightSpace * 2);
-                      const buttonWidth = Math.max(constrainedWidth, DATE_COLUMN_WIDTH);
+                      // Fixed width for timeline label boxes
+                      const buttonWidth = DATE_COLUMN_WIDTH;
 
                       return (
                         <div
