@@ -30,7 +30,12 @@ const getTrendToneClass = (direction) => {
 const DATE_COLUMN_WIDTH = 66;
 const DATE_COLUMN_GAP = 8;
 const Y_TICK_COUNT = 8;
-const STRETCH_EDGE_PADDING = 96;
+// Visual padding when stretching across the viewport
+// Keep left very tight to satisfy "fill the screen all the way to the left"
+const LEFT_EDGE_PADDING_GRAPH = 8; // tiny so points aren't clipped
+const RIGHT_EDGE_PADDING_GRAPH = 16; // small extra so the line/area can extend slightly
+const LEFT_EDGE_PADDING_TIMELINE = DATE_COLUMN_WIDTH / 2; // ensure first label's left edge rests on screen left
+const RIGHT_EDGE_PADDING_TIMELINE = 16;
 const MIN_VISIBLE_WEIGHT_RANGE = 6;
 const MIN_RANGE_PADDING = 0.5;
 const TIMELINE_TRACK_HEIGHT = 56;
@@ -161,15 +166,37 @@ export const WeightTrackerModal = ({
     }
 
     if (entryCount === 1) {
-      return [chartWidth / 2];
+      // Keep the point slightly inset from the left
+      return [Math.max(LEFT_EDGE_PADDING_GRAPH, chartWidth / 2)];
     }
 
-    const minimumEdge = DATE_COLUMN_WIDTH * 0.75;
-    const dynamicEdge = Math.min(STRETCH_EDGE_PADDING, chartWidth * 0.12);
-    const edgePadding = Math.min(chartWidth / 2, Math.max(minimumEdge, dynamicEdge));
-    const usableWidth = Math.max(chartWidth - edgePadding * 2, 0);
+    // Stretch to fill: minimal left padding, slight right padding
+    const leftPad = LEFT_EDGE_PADDING_GRAPH;
+    const rightPad = RIGHT_EDGE_PADDING_GRAPH;
+    const usableWidth = Math.max(chartWidth - leftPad - rightPad, 0);
     const step = entryCount > 1 ? usableWidth / (entryCount - 1) : 0;
-    return sortedEntries.map((_, index) => edgePadding + step * index);
+    return sortedEntries.map((_, index) => leftPad + step * index);
+  }, [chartWidth, entryCount, shouldStretchAcrossViewport, sortedEntries]);
+
+  // Separate X positions for timeline labels so the first label rests flush on the left
+  const timelineXPositions = useMemo(() => {
+    if (entryCount === 0) return [];
+
+    if (!shouldStretchAcrossViewport) {
+      const start = DATE_COLUMN_WIDTH / 2;
+      const step = DATE_COLUMN_WIDTH + DATE_COLUMN_GAP;
+      return sortedEntries.map((_, index) => start + index * step);
+    }
+
+    if (entryCount === 1) {
+      return [Math.max(LEFT_EDGE_PADDING_TIMELINE, chartWidth / 2)];
+    }
+
+    const leftPad = LEFT_EDGE_PADDING_TIMELINE;
+    const rightPad = RIGHT_EDGE_PADDING_TIMELINE;
+    const usableWidth = Math.max(chartWidth - leftPad - rightPad, 0);
+    const step = entryCount > 1 ? usableWidth / (entryCount - 1) : 0;
+    return sortedEntries.map((_, index) => leftPad + step * index);
   }, [chartWidth, entryCount, shouldStretchAcrossViewport, sortedEntries]);
 
   useEffect(() => {
@@ -377,19 +404,21 @@ export const WeightTrackerModal = ({
           </div>
 
           {/* Graph and Timeline Section - Synchronized scrolling */}
-          <div className="flex-1 flex flex-col min-h-0">
-            <div className="flex-1 px-6 pb-4 overflow-hidden flex gap-1">
-              <div
-                ref={graphScrollRef}
-                className={`relative rounded-l-lg flex-1 overflow-y-hidden ${hasHorizontalOverflow ? 'overflow-x-auto' : 'overflow-x-hidden'}`}
-                onScroll={(e) => {
-                  const nextScrollLeft = e.currentTarget.scrollLeft;
-                  if (timelineScrollRef.current && timelineScrollRef.current.scrollLeft !== nextScrollLeft) {
-                    timelineScrollRef.current.scrollLeft = nextScrollLeft;
-                  }
-                }}
-              >
-                <div className="p-4 pr-6 h-full" style={{ width: `${chartWidth}px` }}>
+            <div className="flex-1 flex flex-col min-h-0">
+            <div className="flex-1 pr-6 pb-4 overflow-hidden flex gap-1">
+              {/* Graph viewport wrapper to pin overlay fades */}
+              <div className="relative rounded-l-lg flex-1 overflow-hidden">
+                <div
+                  ref={graphScrollRef}
+                  className={`${hasHorizontalOverflow ? 'overflow-x-auto' : 'overflow-x-hidden'} overflow-y-hidden h-full`}
+                  onScroll={(e) => {
+                    const nextScrollLeft = e.currentTarget.scrollLeft;
+                    if (timelineScrollRef.current && timelineScrollRef.current.scrollLeft !== nextScrollLeft) {
+                      timelineScrollRef.current.scrollLeft = nextScrollLeft;
+                    }
+                  }}
+                >
+                  <div className="py-4 pr-6 pl-0 h-full" style={{ width: `${chartWidth}px` }}>
                   {chartData ? (
                     <svg
                       width={chartWidth}
@@ -439,7 +468,9 @@ export const WeightTrackerModal = ({
 
                           if (points.length > 0) {
                             const lastPoint = points[points.length - 1];
-                            areaData += ` L ${lastPoint.x} ${chartHeight} Z`;
+                            // Extend the line slightly to the right edge for a nicer finish
+                            pathData += ` L ${chartWidth} ${lastPoint.y}`;
+                            areaData += ` L ${chartWidth} ${lastPoint.y} L ${chartWidth} ${chartHeight} Z`;
                           }
                         }
 
@@ -516,6 +547,10 @@ export const WeightTrackerModal = ({
                     </div>
                   )}
                 </div>
+                {/* Close scroll container before adding overlay */}
+                </div>
+                {/* Right edge soft fade pinned to viewport of graph */}
+                <div className="pointer-events-none absolute right-0 -mr-1 top-0 h-full w-5 bg-gradient-to-l from-slate-800/95 to-transparent" />
               </div>
 
               {/* Y-axis - Fixed on right side */}
@@ -544,19 +579,21 @@ export const WeightTrackerModal = ({
               </div>
             </div>
 
-            <div className="px-6 pb-6 flex gap-1 flex-shrink-0">
-              <div
-                id="timeline-scroll"
-                ref={timelineScrollRef}
-                className={`overflow-y-hidden flex-1 rounded-lg ${hasHorizontalOverflow ? 'overflow-x-auto' : 'overflow-x-hidden'}`}
-                onScroll={(e) => {
-                  const nextScrollLeft = e.currentTarget.scrollLeft;
-                  if (graphScrollRef.current && graphScrollRef.current.scrollLeft !== nextScrollLeft) {
-                    graphScrollRef.current.scrollLeft = nextScrollLeft;
-                  }
-                }}
-              >
-                <div className="px-4 pr-6 py-3" style={{ width: `${chartWidth}px` }}>
+            <div className="pr-6 pb-6 flex gap-1 flex-shrink-0">
+              {/* Timeline viewport wrapper to pin overlay fades */}
+              <div className="relative flex-1 rounded-lg overflow-hidden">
+                <div
+                  id="timeline-scroll"
+                  ref={timelineScrollRef}
+                  className={`${hasHorizontalOverflow ? 'overflow-x-auto' : 'overflow-x-hidden'} overflow-y-hidden`}
+                  onScroll={(e) => {
+                    const nextScrollLeft = e.currentTarget.scrollLeft;
+                    if (graphScrollRef.current && graphScrollRef.current.scrollLeft !== nextScrollLeft) {
+                      graphScrollRef.current.scrollLeft = nextScrollLeft;
+                    }
+                  }}
+                >
+                  <div className="pl-0 pr-6 py-3" style={{ width: `${chartWidth}px` }}>
                   <div
                     className="relative"
                     style={{
@@ -568,9 +605,9 @@ export const WeightTrackerModal = ({
                       const { date } = entry;
                       const isToday = date === today;
                       const label = formatTimelineLabel(date);
-                      const x = xPositions[index] ?? 0;
-                      const prevX = index > 0 ? xPositions[index - 1] : null;
-                      const nextX = index < xPositions.length - 1 ? xPositions[index + 1] : null;
+                      const x = timelineXPositions[index] ?? 0;
+                      const prevX = index > 0 ? timelineXPositions[index - 1] : null;
+                      const nextX = index < timelineXPositions.length - 1 ? timelineXPositions[index + 1] : null;
 
                       const leftBoundary = prevX != null ? (prevX + x) / 2 : 0;
                       const rightBoundary = nextX != null ? (nextX + x) / 2 : chartWidth;
@@ -609,6 +646,10 @@ export const WeightTrackerModal = ({
                     })}
                   </div>
                 </div>
+                {/* Close inner wrapper and scroll container before overlay */}
+                </div>
+                {/* Right edge soft fade pinned to viewport of timeline */}
+                <div className="pointer-events-none absolute right-0 -mr-1 top-0 h-full w-5 bg-gradient-to-l from-slate-800/95 to-transparent" />
               </div>
               <div className="w-14 flex-shrink-0" />
             </div>
