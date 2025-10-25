@@ -660,7 +660,7 @@ export const WeightTrackerModal = ({
                     </svg>
                   ) : (
                     <div className="flex items-center justify-center h-full">
-                      <p className="text-slate-500 text-lg">No weight data yet. Start tracking to see your progress!</p>
+                      <p className="text-slate-500 text-lg">No weight data yet.</p>
                     </div>
                   )}
                 </div>
@@ -689,9 +689,7 @@ export const WeightTrackerModal = ({
                         </div>
                       );
                     })
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-slate-600 text-xs">No data</div>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>
