@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import {
@@ -41,6 +41,8 @@ const TIMELINE_TRACK_HEIGHT = 56;
 const BASELINE_Y_OFFSET = 18;
 const LEADING_ENTRY_SPACE = 45;
 const FIRST_ENTRY_CENTER_OFFSET = LEADING_ENTRY_SPACE + DATE_COLUMN_WIDTH / 2;
+const TOOLTIP_WIDTH = 144;
+const TOOLTIP_VERTICAL_OFFSET = 24;
 
 
 const getBaselineY = (defaultY) => defaultY - BASELINE_Y_OFFSET;
@@ -85,9 +87,12 @@ export const WeightTrackerModal = ({
   onEditEntry
 }) => {
   const [selectedDate, setSelectedDate] = useState(null);
+  const [tooltipEntered, setTooltipEntered] = useState(false);
+  const [tooltipClosing, setTooltipClosing] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const graphScrollRef = useRef(null);
   const timelineScrollRef = useRef(null);
+  const tooltipRef = useRef(null);
   const [graphViewportWidth, setGraphViewportWidth] = useState(() => (
     typeof window !== 'undefined' ? window.innerWidth : 0
   ));
@@ -204,6 +209,71 @@ export const WeightTrackerModal = ({
     return sortedEntries.map((_, index) => leftPad + step * index);
   }, [chartWidth, entryCount, shouldStretchAcrossViewport, sortedEntries]);
 
+  const chartData = useMemo(() => {
+    if (sortedEntries.length === 0) {
+      return null;
+    }
+
+    const weights = sortedEntries.map((entry) => entry.weight);
+    let minWeight = Math.min(...weights);
+    let maxWeight = Math.max(...weights);
+    let range = maxWeight - minWeight;
+
+    if (range === 0) {
+      range = Math.max(MIN_VISIBLE_WEIGHT_RANGE, MIN_RANGE_PADDING * 2);
+      const halfRange = range / 2;
+      minWeight -= halfRange;
+      maxWeight += halfRange;
+    } else {
+      const padding = Math.max(range * 0.1, MIN_RANGE_PADDING);
+      minWeight -= padding;
+      maxWeight += padding;
+      range = maxWeight - minWeight;
+
+      if (range < MIN_VISIBLE_WEIGHT_RANGE) {
+        const targetRange = Math.max(MIN_VISIBLE_WEIGHT_RANGE, MIN_RANGE_PADDING * 2);
+        const midpoint = (maxWeight + minWeight) / 2;
+        minWeight = midpoint - targetRange / 2;
+        maxWeight = midpoint + targetRange / 2;
+        range = targetRange;
+      }
+    }
+
+    return {
+      minWeight,
+      maxWeight,
+      range
+    };
+  }, [sortedEntries]);
+
+  const chartPoints = useMemo(() => {
+    if (!chartData) {
+      return [];
+    }
+
+    return sortedEntries.map((entry, index) => {
+      const x = xPositions[index] ?? 0;
+      const normalized = (entry.weight - chartData.minWeight) / chartData.range;
+      const bounded = Math.min(Math.max(normalized, 0), 1);
+      const y = (1 - bounded) * chartHeight;
+
+      return {
+        date: entry.date,
+        weight: entry.weight,
+        x,
+        y,
+        bounded
+      };
+    });
+  }, [chartData, chartHeight, sortedEntries, xPositions]);
+
+  const selectedPoint = useMemo(() => {
+    if (!selectedDate) {
+      return null;
+    }
+    return chartPoints.find((point) => point.date === selectedDate) ?? null;
+  }, [chartPoints, selectedDate]);
+
   useEffect(() => {
     const scrollToLatest = () => {
       const graphNode = graphScrollRef.current;
@@ -259,44 +329,6 @@ export const WeightTrackerModal = ({
     return `${sign}${trend.weeklyRate.toFixed(2)} kg/wk`;
   })();
 
-  // Calculate chart data
-  const chartData = useMemo(() => {
-    if (sortedEntries.length === 0) {
-      return null;
-    }
-
-    const weights = sortedEntries.map((entry) => entry.weight);
-    let minWeight = Math.min(...weights);
-    let maxWeight = Math.max(...weights);
-    let range = maxWeight - minWeight;
-
-    if (range === 0) {
-      range = Math.max(MIN_VISIBLE_WEIGHT_RANGE, MIN_RANGE_PADDING * 2);
-      const halfRange = range / 2;
-      minWeight -= halfRange;
-      maxWeight += halfRange;
-    } else {
-      const padding = Math.max(range * 0.1, MIN_RANGE_PADDING);
-      minWeight -= padding;
-      maxWeight += padding;
-      range = maxWeight - minWeight;
-
-      if (range < MIN_VISIBLE_WEIGHT_RANGE) {
-        const targetRange = Math.max(MIN_VISIBLE_WEIGHT_RANGE, MIN_RANGE_PADDING * 2);
-        const midpoint = (maxWeight + minWeight) / 2;
-        minWeight = midpoint - targetRange / 2;
-        maxWeight = midpoint + targetRange / 2;
-        range = targetRange;
-      }
-    }
-
-    return {
-      minWeight,
-      maxWeight,
-      range
-    };
-  }, [sortedEntries]);
-
   const yTicks = useMemo(() => {
     if (!chartData) return [];
     const steps = Math.max(Y_TICK_COUNT - 1, 1);
@@ -330,29 +362,110 @@ export const WeightTrackerModal = ({
     });
   }, [chartData, chartHeight, yTicks]);
 
-  const handleDateClick = (date, event) => {
-    const entry = entriesMap[date];
-    if (!entry) return; // Don't register clicks on dates without entries
-    
-    const rect = event.currentTarget.getBoundingClientRect();
-    setTooltipPosition({
-      x: rect.left + rect.width / 2,
-      y: rect.top - 10
-    });
-    
-    if (selectedDate === date) {
-      // Second click - open edit modal
-      onEditEntry?.(entry);
+  const closeTooltip = useCallback(() => {
+    setTooltipClosing(true);
+    setTimeout(() => {
       setSelectedDate(null);
+      setTooltipClosing(false);
+    }, 150);
+  }, []);
+
+  const handleDateClick = (date) => {
+    const entry = entriesMap[date];
+    if (!entry) return;
+
+    if (selectedDate === date) {
+      onEditEntry?.(entry);
+      closeTooltip();
     } else {
-      // First click - show tooltip
       setSelectedDate(date);
     }
   };
 
-  const closeTooltip = () => {
-    setSelectedDate(null);
-  };
+  useEffect(() => {
+    if (!selectedDate) {
+      return undefined;
+    }
+
+    const handlePointerDown = (event) => {
+      const tooltipNode = tooltipRef.current;
+      const graphNode = graphScrollRef.current;
+      const timelineNode = timelineScrollRef.current;
+
+      if (
+        tooltipNode?.contains(event.target) ||
+        graphNode?.contains(event.target) ||
+        timelineNode?.contains(event.target)
+      ) {
+        return;
+      }
+
+      closeTooltip();
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [closeTooltip, selectedDate]);
+
+  useEffect(() => {
+    if (selectedDate && !tooltipClosing) {
+      const frame = requestAnimationFrame(() => setTooltipEntered(true));
+      return () => {
+        cancelAnimationFrame(frame);
+        setTooltipEntered(false);
+      };
+    }
+    if (!selectedDate) {
+      setTooltipEntered(false);
+    }
+    return undefined;
+  }, [selectedDate, tooltipClosing]);
+
+  const updateTooltipPosition = useCallback(() => {
+    if (!selectedPoint) {
+      return;
+    }
+
+    const graphNode = graphScrollRef.current;
+    if (!graphNode) {
+      return;
+    }
+
+    const svgNode = graphNode.querySelector('svg');
+    if (!svgNode) {
+      return;
+    }
+
+    const svgRect = svgNode.getBoundingClientRect();
+    const rawX = svgRect.left + selectedPoint.x;
+    const rawY = svgRect.top + selectedPoint.y;
+
+    setTooltipPosition({ x: rawX, y: rawY });
+  }, [selectedPoint]);
+
+  useIsomorphicLayoutEffect(() => {
+    if (!selectedPoint) {
+      return undefined;
+    }
+
+    updateTooltipPosition();
+
+  const handleScroll = () => closeTooltip();
+  const handleResize = () => updateTooltipPosition();
+
+    const graphNode = graphScrollRef.current;
+    const timelineNode = timelineScrollRef.current;
+
+    graphNode?.addEventListener('scroll', handleScroll);
+    timelineNode?.addEventListener('scroll', handleScroll);
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      graphNode?.removeEventListener('scroll', handleScroll);
+      timelineNode?.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [closeTooltip, selectedPoint, updateTooltipPosition]);
 
   return (
     <>
@@ -421,6 +534,9 @@ export const WeightTrackerModal = ({
                     if (timelineScrollRef.current && timelineScrollRef.current.scrollLeft !== nextScrollLeft) {
                       timelineScrollRef.current.scrollLeft = nextScrollLeft;
                     }
+                    if (selectedDate) {
+                      closeTooltip();
+                    }
                   }}
                 >
                   <div className="py-4 pr-6 pl-0 h-full" style={{ width: `${chartWidth}px` }}>
@@ -442,14 +558,7 @@ export const WeightTrackerModal = ({
                       {(() => {
                         let pathData = '';
                         let areaData = '';
-                        const points = sortedEntries.map((entry, index) => {
-                          const { date, weight } = entry;
-                          const x = xPositions[index] ?? 0;
-                          const normalized = (weight - chartData.minWeight) / chartData.range;
-                          const yPercent = (1 - normalized) * 100;
-                          const y = (yPercent / 100) * chartHeight;
-                          return { x, yPercent, y, date };
-                        });
+                        const points = chartPoints;
                         const baselineY = yTickPositions.length > 0
                           ? yTickPositions[yTickPositions.length - 1].lineY
                           : chartHeight;
@@ -526,7 +635,7 @@ export const WeightTrackerModal = ({
                             {points.map(({ x, y, date }) => (
                               <g
                                 key={date}
-                                onClick={(event) => handleDateClick(date, event)}
+                                onClick={() => handleDateClick(date)}
                                 className="cursor-pointer"
                               >
                                 {/* Larger invisible circle for easier clicking */}
@@ -596,6 +705,9 @@ export const WeightTrackerModal = ({
                     if (graphScrollRef.current && graphScrollRef.current.scrollLeft !== nextScrollLeft) {
                       graphScrollRef.current.scrollLeft = nextScrollLeft;
                     }
+                    if (selectedDate) {
+                      closeTooltip();
+                    }
                   }}
                 >
                   <div className="pl-0 pr-6 py-3" style={{ width: `${chartWidth}px` }}>
@@ -664,12 +776,16 @@ export const WeightTrackerModal = ({
       </ModalShell>
 
       {/* Tooltip */}
-      {selectedDate && entriesMap[selectedDate] && (
+      {selectedPoint && selectedDate && entriesMap[selectedDate] && (
         <div
-          className="fixed z-[100] bg-slate-800 border border-slate-600 rounded-lg shadow-2xl p-4 transform -translate-x-1/2 -translate-y-full pointer-events-auto"
+          ref={tooltipRef}
+          className={`fixed z-[100] bg-slate-800 border border-slate-600 rounded-lg shadow-2xl p-4 transform -translate-x-1/2 -translate-y-full pointer-events-auto transition duration-150 ease-out ${
+            tooltipEntered && !tooltipClosing ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+          }`}
           style={{
             left: `${tooltipPosition.x}px`,
-            top: `${tooltipPosition.y}px`,
+            top: `${tooltipPosition.y - TOOLTIP_VERTICAL_OFFSET}px`,
+            width: `${TOOLTIP_WIDTH}px`,
           }}
           onClick={(e) => {
             e.stopPropagation();
@@ -691,14 +807,6 @@ export const WeightTrackerModal = ({
             className="absolute left-1/2 transform -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-slate-600"
           ></div>
         </div>
-      )}
-
-      {/* Overlay to close tooltip */}
-      {selectedDate && (
-        <div
-          className="fixed inset-0 z-[95]"
-          onClick={closeTooltip}
-        />
       )}
     </>
   );
