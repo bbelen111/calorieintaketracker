@@ -10,7 +10,7 @@ export const CaloriesPerHourGuideModal = ({ isOpen, isClosing, onClose }) => (
     contentClassName="p-6 max-w-lg w-full"
   >
     <div className="flex items-center gap-3 mb-4">
-      <Info size={28} className="text-orange-300" />
+      <Info size={28} className="text-blue-400" />
       <h3 className="text-white font-bold text-xl">Choosing Calories Per Hour</h3>
     </div>
 
