@@ -53,12 +53,9 @@ export const WeightEntryModal = ({
   overlayClassName="!z-[90]"
       contentClassName="p-6 w-full max-w-lg"
     >
-      <h3 className="text-white font-bold text-xl text-center mb-2">
+      <h3 className="text-white font-bold text-xl text-center mb-6">
         {isEdit ? 'Edit Weight Entry' : 'Add Weight Entry'}
       </h3>
-      <p className="text-slate-400 text-sm text-center mb-6">
-        Log one weight per day to keep your progress up to date.
-      </p>
 
       <div className="space-y-5">
         <div>
@@ -69,11 +66,10 @@ export const WeightEntryModal = ({
               value={date ?? ''}
               onChange={handleDateChange}
               disabled={isDateLocked}
-              className={`w-full bg-slate-700 text-white px-4 pr-12 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-800 ${
+              className={`w-full bg-slate-700 text-white px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-800 ${
                 isDateLocked ? 'border-slate-600 opacity-80 cursor-not-allowed' : 'border-slate-600 focus:border-blue-400'
               }`}
             />
-            <Calendar size={18} className="text-slate-400 absolute top-1/2 -translate-y-1/2 right-3" />
           </div>
           {isDateLocked && (
             <p className="text-slate-500 text-xs mt-1">Date locked because today\'s entry already exists.</p>
