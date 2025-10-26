@@ -7,7 +7,12 @@ import {
   formatWeight
 } from '../../../utils/weight';
 
-const getTrendToneClass = (direction) => {
+const getTrendToneClass = (direction, label) => {
+  // If no meaningful data, show white
+  if (label === 'Need more data' || label === 'No data yet') {
+    return 'text-white';
+  }
+  
   if (direction === 'down') {
     return 'text-orange-400'; // Matches cutting/weight loss goals
   }
@@ -70,7 +75,7 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
               <LineChart size={16} className="text-blue-300" />
               Weight Snapshot
             </p>
-            <p className={`text-xl font-semibold ${getTrendToneClass(trend.direction)}`}>{trend.label}</p>
+            <p className={`text-xl font-semibold ${getTrendToneClass(trend.direction, trend.label)}`}>{trend.label}</p>
             <p className="text-slate-300 text-sm mt-1">
               {currentWeight ? `${currentWeight} kg` : '—'} • {lastLoggedLabel}
             </p>

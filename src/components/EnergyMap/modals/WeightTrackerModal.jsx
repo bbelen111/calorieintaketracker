@@ -17,7 +17,12 @@ const TrendIcon = ({ direction }) => {
   return <Minus size={18} />;
 };
 
-const getTrendToneClass = (direction) => {
+const getTrendToneClass = (direction, label) => {
+  // If no meaningful data, show white
+  if (label === 'Need more data' || label === 'No data yet') {
+    return 'text-white';
+  }
+  
   if (direction === 'down') {
     return 'text-orange-400'; // Matches cutting/weight loss goals
   }
@@ -500,7 +505,7 @@ export const WeightTrackerModal = ({
             </div>
             <div>
               <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">Trend</p>
-              <p className={`${getTrendToneClass(trend.direction)} font-semibold text-lg flex items-center gap-2`}>
+              <p className={`${getTrendToneClass(trend.direction, trend.label)} font-semibold text-lg flex items-center gap-2`}>
                 <TrendIcon direction={trend.direction} />
                 {trend.label}
               </p>
