@@ -190,7 +190,6 @@ export const WeightTrackerModal = ({
   const graphScrollRef = useRef(null);
   const timelineScrollRef = useRef(null);
   const tooltipRef = useRef(null);
-  const isClickingPointRef = useRef(false);
   const [graphViewportWidth, setGraphViewportWidth] = useState(0);
   const [graphViewportHeight, setGraphViewportHeight] = useState(0);
   
@@ -467,25 +466,27 @@ export const WeightTrackerModal = ({
     }, 150);
   }, []);
 
-  const handleDateClick = (date) => {
+  const handleDateClick = useCallback((date, event) => {
     const entry = entriesMap[date];
     if (!entry) return;
 
-    // Mark that we're clicking a point to prevent the pointerdown handler from closing
-    isClickingPointRef.current = true;
+    // Stop propagation so pointerdown handler doesn't interfere
+    event?.stopPropagation();
 
     if (selectedDate === date) {
       onEditEntry?.(entry);
       closeTooltip();
     } else {
+      // Close any existing tooltip first
+      if (selectedDate) {
+        setTooltipClosing(true);
+        setTooltipEntered(false);
+      }
+      // Then open the new one
       setSelectedDate(date);
+      setTooltipClosing(false);
     }
-
-    // Reset the flag after a brief delay
-    setTimeout(() => {
-      isClickingPointRef.current = false;
-    }, 0);
-  };
+  }, [entriesMap, selectedDate, onEditEntry, closeTooltip]);
 
   useEffect(() => {
     if (!selectedDate) {
@@ -493,21 +494,26 @@ export const WeightTrackerModal = ({
     }
 
     const handlePointerDown = (event) => {
-      // If we're clicking a point, don't close the tooltip
-      if (isClickingPointRef.current) {
-        return;
-      }
-
       const tooltipNode = tooltipRef.current;
-      // Only keep tooltip open if click is inside the tooltip itself
+      
+      // Check if click is inside tooltip
       if (tooltipNode?.contains(event.target)) {
         return;
       }
+
+      // Check if click is on a chart point (SVG circle element)
+      const target = event.target;
+      if (target.tagName === 'circle' || target.tagName === 'g') {
+        // Let the handleDateClick handle it
+        return;
+      }
+
+      // Close tooltip if clicking outside
       closeTooltip();
     };
 
-    document.addEventListener('pointerdown', handlePointerDown);
-    return () => document.removeEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    return () => document.removeEventListener('pointerdown', handlePointerDown, true);
   }, [closeTooltip, selectedDate]);
 
   useEffect(() => {
@@ -816,7 +822,7 @@ export const WeightTrackerModal = ({
                             {points.map(({ x, y, date }) => (
                               <g
                                 key={date}
-                                onClick={() => handleDateClick(date)}
+                                onClick={(e) => handleDateClick(date, e)}
                                 className="cursor-pointer"
                               >
                                 {/* Larger invisible circle for easier clicking */}
