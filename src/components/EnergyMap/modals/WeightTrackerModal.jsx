@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
+import { goals } from '../../../constants/goals';
 import {
   calculateWeightTrend,
   formatWeight,
@@ -53,6 +54,74 @@ const getTrendToneClass = (direction, label) => {
   }
   
   return 'text-blue-400'; // Stable/maintenance
+};
+
+const getGoalAlignmentText = (weeklyRate, selectedGoal) => {
+  const absRate = Math.abs(weeklyRate);
+  const goal = goals[selectedGoal];
+  
+  // Map goals to expected weekly rates (rough estimates in kg/week)
+  const goalExpectations = {
+    aggressive_bulk: { min: 0.5, max: 1.0, direction: 'up' },
+    bulking: { min: 0.25, max: 0.5, direction: 'up' },
+    maintenance: { min: -0.1, max: 0.1, direction: 'flat' },
+    cutting: { min: 0.25, max: 0.5, direction: 'down' },
+    aggressive_cut: { min: 0.5, max: 1.0, direction: 'down' }
+  };
+  
+  const expectation = goalExpectations[selectedGoal];
+  if (!expectation) return null;
+  
+  // Determine actual direction
+  let actualDirection = 'flat';
+  if (weeklyRate < -0.1) actualDirection = 'down';
+  else if (weeklyRate > 0.1) actualDirection = 'up';
+  
+  // Check if direction matches goal
+  if (actualDirection !== expectation.direction && expectation.direction !== 'flat') {
+    if (expectation.direction === 'up') {
+      return { text: 'Not gaining as expected', color: 'text-yellow-400' };
+    }
+    if (expectation.direction === 'down') {
+      return { text: 'Not losing as expected', color: 'text-yellow-400' };
+    }
+  }
+  
+  // Check if rate is within expected range
+  if (expectation.direction === 'flat') {
+    if (absRate <= 0.1) {
+      return { text: 'On track with goal', color: 'text-green-400' };
+    }
+    return { text: 'Deviating from maintenance', color: 'text-yellow-400' };
+  }
+  
+  const expectedRate = expectation.direction === 'down' ? -weeklyRate : weeklyRate;
+  
+  if (expectedRate >= expectation.min && expectedRate <= expectation.max) {
+    return { text: 'On track with goal', color: 'text-green-400' };
+  }
+  
+  if (expectedRate < expectation.min) {
+    return { text: 'Slower than goal target', color: 'text-blue-400' };
+  }
+  
+  if (expectedRate > expectation.max) {
+    return { text: 'Faster than goal target', color: 'text-yellow-400' };
+  }
+  
+  return null;
+};
+
+const getGoalWeeklyTarget = (selectedGoal) => {
+  const goalTargets = {
+    aggressive_bulk: '+0.5-1.0 kg/wk',
+    bulking: '+0.25-0.5 kg/wk',
+    maintenance: '0.0 kg/wk',
+    cutting: '-0.25-0.5 kg/wk',
+    aggressive_cut: '-0.5-1.0 kg/wk'
+  };
+  
+  return goalTargets[selectedGoal] || '0.0 kg/wk';
 };
 
 const DATE_COLUMN_WIDTH = 66;
@@ -110,6 +179,7 @@ export const WeightTrackerModal = ({
   isClosing,
   entries,
   latestWeight,
+  selectedGoal = 'maintenance',
   onClose,
   onAddEntry,
   onEditEntry
@@ -121,6 +191,7 @@ export const WeightTrackerModal = ({
   const graphScrollRef = useRef(null);
   const timelineScrollRef = useRef(null);
   const tooltipRef = useRef(null);
+  const isClickingPointRef = useRef(false);
   const [graphViewportWidth, setGraphViewportWidth] = useState(() => (
     typeof window !== 'undefined' ? window.innerWidth : 0
   ));
@@ -130,6 +201,7 @@ export const WeightTrackerModal = ({
   
   const sortedEntries = useMemo(() => sortWeightEntries(entries ?? []), [entries]);
   const trend = useMemo(() => calculateWeightTrend(sortedEntries), [sortedEntries]);
+  const goalAlignment = useMemo(() => getGoalAlignmentText(trend.weeklyRate, selectedGoal), [trend.weeklyRate, selectedGoal]);
 
   useIsomorphicLayoutEffect(() => {
     const node = graphScrollRef.current;
@@ -402,12 +474,20 @@ export const WeightTrackerModal = ({
     const entry = entriesMap[date];
     if (!entry) return;
 
+    // Mark that we're clicking a point to prevent the pointerdown handler from closing
+    isClickingPointRef.current = true;
+
     if (selectedDate === date) {
       onEditEntry?.(entry);
       closeTooltip();
     } else {
       setSelectedDate(date);
     }
+
+    // Reset the flag after a brief delay
+    setTimeout(() => {
+      isClickingPointRef.current = false;
+    }, 0);
   };
 
   useEffect(() => {
@@ -416,6 +496,11 @@ export const WeightTrackerModal = ({
     }
 
     const handlePointerDown = (event) => {
+      // If we're clicking a point, don't close the tooltip
+      if (isClickingPointRef.current) {
+        return;
+      }
+
       const tooltipNode = tooltipRef.current;
       // Only keep tooltip open if click is inside the tooltip itself
       if (tooltipNode?.contains(event.target)) {
@@ -513,25 +598,32 @@ export const WeightTrackerModal = ({
     {/* Combined Timeline and Current Weight Section - Takes full remaining space */}
     <div className="flex-1 bg-slate-800 border-t border-slate-700 overflow-y-auto flex flex-col">
           {/* Stats Section */}
-          <div className="px-6 pt-6 pb-4 grid grid-cols-2 md:grid-cols-4 gap-4 flex-shrink-0">
+          <div className="px-6 pt-6 pb-4 grid grid-cols-2 md:grid-cols-3 gap-4 flex-shrink-0">
             <div>
               <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">Current Weight</p>
               <p className="text-white text-3xl font-bold">{currentWeightDisplay}</p>
-            </div>
-            <div>
-              <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">Total Change</p>
-              <p className="text-white text-2xl font-semibold">{totalChangeDisplay}</p>
+              <p className="text-slate-400 text-xs mt-1 text-sm">
+                {latestDate ? `as of ${formatTooltipDate(latestDate)}` : ''}
+              </p>
             </div>
             <div>
               <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">Weekly Rate</p>
               <p className="text-white text-2xl font-semibold">{weeklyRateDisplay}</p>
+              <p className="text-slate-400 text-xs mt-1">
+                Goal: {getGoalWeeklyTarget(selectedGoal)}
+              </p>
             </div>
-            <div>
+            <div className="col-span-2 md:col-span-1">
               <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">Trend</p>
               <p className={`${getTrendToneClass(trend.direction, trend.label)} font-semibold text-lg flex items-center gap-2`}>
                 <TrendIcon direction={trend.direction} />
                 {trend.label}
               </p>
+              {goalAlignment && (
+                <p className={`${goalAlignment.color} text-xs mt-1 font-medium`}>
+                  {goalAlignment.text}
+                </p>
+              )}
             </div>
           </div>
 

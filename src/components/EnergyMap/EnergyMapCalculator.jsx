@@ -1041,6 +1041,7 @@ export const EnergyMapCalculator = () => {
         latestWeight={userData.weight}
         hasTodayEntry={hasTodayWeightEntry}
         todayEntry={todayWeightEntry}
+        selectedGoal={selectedGoal}
         onClose={weightTrackerModal.requestClose}
         onPrimaryAction={handlePrimaryWeightEntry}
         primaryActionLabel={weightPrimaryActionLabel}

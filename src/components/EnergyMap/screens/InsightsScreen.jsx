@@ -92,7 +92,7 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
         onClick={onOpenWeightTracker}
         className="w-full bg-slate-800 rounded-2xl border border-blue-600/40 shadow-2xl p-5 md:p-6 text-left transition-all hover:border-blue-400/70 hover:bg-slate-800/90"
       >
-        <div className="flex items-center justify-between gap-6">
+        <div className="flex items-center justify-between gap-1">
           <div>
             <p className="text-slate-400 text-xs uppercase tracking-wide mb-2 flex items-center gap-2">
               <LineChart size={16} className="text-blue-300" />
@@ -103,7 +103,7 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
               {currentWeight ? `${currentWeight} kg` : '—'} • {lastLoggedLabel}
             </p>
             <p className="text-slate-500 text-xs mt-3">
-              Δ {formatDelta(trend.delta)} • {formatWeeklyRate(trend.weeklyRate)}
+              {formatWeeklyRate(trend.weeklyRate)}
             </p>
           </div>
           {sparkline.points && sortedEntries.length > 1 && (
