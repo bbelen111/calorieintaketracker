@@ -19,12 +19,12 @@ const TrendIcon = ({ direction }) => {
 
 const getTrendToneClass = (direction) => {
   if (direction === 'down') {
-    return 'text-emerald-300';
+    return 'text-orange-400'; // Matches cutting/weight loss goals
   }
   if (direction === 'up') {
-    return 'text-amber-300';
+    return 'text-green-400'; // Matches bulking/weight gain goals
   }
-  return 'text-slate-300';
+  return 'text-blue-400'; // Matches maintenance goal
 };
 
 const DATE_COLUMN_WIDTH = 66;
@@ -545,8 +545,22 @@ export const WeightTrackerModal = ({
                     >
                       <defs>
                         <linearGradient id="areaGradient" x1="0" x2="0" y1="0" y2="1">
-                          <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
-                          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.05" />
+                          {trend.direction === 'down' ? (
+                            <>
+                              <stop offset="0%" stopColor="#fb923c" stopOpacity="0.3" />
+                              <stop offset="100%" stopColor="#fb923c" stopOpacity="0.05" />
+                            </>
+                          ) : trend.direction === 'up' ? (
+                            <>
+                              <stop offset="0%" stopColor="#4ade80" stopOpacity="0.3" />
+                              <stop offset="100%" stopColor="#4ade80" stopOpacity="0.05" />
+                            </>
+                          ) : (
+                            <>
+                              <stop offset="0%" stopColor="#60a5fa" stopOpacity="0.3" />
+                              <stop offset="100%" stopColor="#60a5fa" stopOpacity="0.05" />
+                            </>
+                          )}
                         </linearGradient>
                       </defs>
                       
@@ -624,7 +638,7 @@ export const WeightTrackerModal = ({
                               <path
                                 d={pathData}
                                 fill="none"
-                                stroke="#3b82f6"
+                                stroke={trend.direction === 'down' ? '#fb923c' : trend.direction === 'up' ? '#4ade80' : '#60a5fa'}
                                 strokeWidth="3"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
@@ -645,7 +659,7 @@ export const WeightTrackerModal = ({
                                   cy={y}
                                   r="6"
                                   fill="#1e293b"
-                                  stroke="#3b82f6"
+                                  stroke={trend.direction === 'down' ? '#fb923c' : trend.direction === 'up' ? '#4ade80' : '#60a5fa'}
                                   strokeWidth="2"
                                   className="transition-all"
                                 />

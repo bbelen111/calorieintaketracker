@@ -9,12 +9,12 @@ import {
 
 const getTrendToneClass = (direction) => {
   if (direction === 'down') {
-    return 'text-emerald-300';
+    return 'text-orange-400'; // Matches cutting/weight loss goals
   }
   if (direction === 'up') {
-    return 'text-amber-300';
+    return 'text-green-400'; // Matches bulking/weight gain goals
   }
-  return 'text-slate-300';
+  return 'text-blue-400'; // Matches maintenance goal
 };
 
 const formatDelta = (value) => {
@@ -89,12 +89,40 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
               >
                 <defs>
                   <linearGradient id="weightSparklineGradient" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor="#60a5fa" stopOpacity="0.4" />
-                    <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.05" />
+                    {trend.direction === 'down' ? (
+                      <>
+                        <stop offset="0%" stopColor="#fb923c" stopOpacity="0.4" />
+                        <stop offset="100%" stopColor="#fb923c" stopOpacity="0.05" />
+                      </>
+                    ) : trend.direction === 'up' ? (
+                      <>
+                        <stop offset="0%" stopColor="#4ade80" stopOpacity="0.4" />
+                        <stop offset="100%" stopColor="#4ade80" stopOpacity="0.05" />
+                      </>
+                    ) : (
+                      <>
+                        <stop offset="0%" stopColor="#60a5fa" stopOpacity="0.4" />
+                        <stop offset="100%" stopColor="#60a5fa" stopOpacity="0.05" />
+                      </>
+                    )}
                   </linearGradient>
                   <linearGradient id="weightSparklineStroke" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor="#60a5fa" stopOpacity="1" />
-                    <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.8" />
+                    {trend.direction === 'down' ? (
+                      <>
+                        <stop offset="0%" stopColor="#fb923c" stopOpacity="1" />
+                        <stop offset="100%" stopColor="#fb923c" stopOpacity="0.8" />
+                      </>
+                    ) : trend.direction === 'up' ? (
+                      <>
+                        <stop offset="0%" stopColor="#4ade80" stopOpacity="1" />
+                        <stop offset="100%" stopColor="#4ade80" stopOpacity="0.8" />
+                      </>
+                    ) : (
+                      <>
+                        <stop offset="0%" stopColor="#60a5fa" stopOpacity="1" />
+                        <stop offset="100%" stopColor="#60a5fa" stopOpacity="0.8" />
+                      </>
+                    )}
                   </linearGradient>
                 </defs>
                 
@@ -117,16 +145,19 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
                 />
                 
                 {/* Data points */}
-                {sparkline.coordinates?.map((coord, index) => (
-                  <circle
-                    key={index}
-                    cx={coord.x}
-                    cy={coord.y}
-                    r="2.5"
-                    fill="#60a5fa"
-                    className="drop-shadow-sm"
-                  />
-                ))}
+                {sparkline.coordinates?.map((coord, index) => {
+                  const fillColor = trend.direction === 'down' ? '#fb923c' : trend.direction === 'up' ? '#4ade80' : '#60a5fa';
+                  return (
+                    <circle
+                      key={index}
+                      cx={coord.x}
+                      cy={coord.y}
+                      r="2.5"
+                      fill={fillColor}
+                      className="drop-shadow-sm"
+                    />
+                  );
+                })}
               </svg>
               {/* Left fade */}
               <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-slate-800 to-transparent pointer-events-none" />
