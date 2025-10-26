@@ -14,10 +14,10 @@ const getTrendToneClass = (direction, label) => {
   }
   
   // Check for aggressive states
-  if (label.includes('Aggressive weight loss') || label.includes('Rapid weight loss')) {
+  if (label.includes('Aggressive weight loss') || label.includes('Severe weight loss')) {
     return 'text-red-500'; // Matches aggressive_cut goal
   }
-  if (label.includes('Aggressive weight gain') || label.includes('Rapid weight gain')) {
+  if (label.includes('Aggressive weight gain') || label.includes('Severe weight gain')) {
     return 'text-purple-500'; // Matches aggressive_bulk goal
   }
   
@@ -103,12 +103,12 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
               >
                 <defs>
                   <linearGradient id="weightSparklineGradient" x1="0" x2="0" y1="0" y2="1">
-                    {trend.label.includes('Aggressive weight loss') || trend.label.includes('Rapid weight loss') ? (
+                    {trend.label.includes('Aggressive weight loss') || trend.label.includes('Severe weight loss') ? (
                       <>
                         <stop offset="0%" stopColor="#ef4444" stopOpacity="0.4" />
                         <stop offset="100%" stopColor="#ef4444" stopOpacity="0.05" />
                       </>
-                    ) : trend.label.includes('Aggressive weight gain') || trend.label.includes('Rapid weight gain') ? (
+                    ) : trend.label.includes('Aggressive weight gain') || trend.label.includes('Severe weight gain') ? (
                       <>
                         <stop offset="0%" stopColor="#a855f7" stopOpacity="0.4" />
                         <stop offset="100%" stopColor="#a855f7" stopOpacity="0.05" />
@@ -131,12 +131,12 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
                     )}
                   </linearGradient>
                   <linearGradient id="weightSparklineStroke" x1="0" x2="0" y1="0" y2="1">
-                    {trend.label.includes('Aggressive weight loss') || trend.label.includes('Rapid weight loss') ? (
+                    {trend.label.includes('Aggressive weight loss') || trend.label.includes('Severe weight loss') ? (
                       <>
                         <stop offset="0%" stopColor="#ef4444" stopOpacity="1" />
                         <stop offset="100%" stopColor="#ef4444" stopOpacity="0.8" />
                       </>
-                    ) : trend.label.includes('Aggressive weight gain') || trend.label.includes('Rapid weight gain') ? (
+                    ) : trend.label.includes('Aggressive weight gain') || trend.label.includes('Severe weight gain') ? (
                       <>
                         <stop offset="0%" stopColor="#a855f7" stopOpacity="1" />
                         <stop offset="100%" stopColor="#a855f7" stopOpacity="0.8" />
@@ -180,9 +180,9 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
                 
                 {/* Data points */}
                 {sparkline.coordinates?.map((coord, index) => {
-                  const fillColor = trend.label.includes('Aggressive weight loss') || trend.label.includes('Rapid weight loss') 
+                  const fillColor = trend.label.includes('Aggressive weight loss') || trend.label.includes('Severe weight loss') 
                     ? '#ef4444' 
-                    : trend.label.includes('Aggressive weight gain') || trend.label.includes('Rapid weight gain')
+                    : trend.label.includes('Aggressive weight gain') || trend.label.includes('Severe weight gain')
                     ? '#a855f7'
                     : trend.direction === 'down' 
                     ? '#fb923c' 

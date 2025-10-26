@@ -24,10 +24,10 @@ const getTrendToneClass = (direction, label) => {
   }
   
   // Check for aggressive states
-  if (label.includes('Aggressive weight loss') || label.includes('Rapid weight loss')) {
+  if (label.includes('Aggressive weight loss') || label.includes('Severe weight loss')) {
     return 'text-red-500'; // Matches aggressive_cut goal
   }
-  if (label.includes('Aggressive weight gain') || label.includes('Rapid weight gain')) {
+  if (label.includes('Aggressive weight gain') || label.includes('Severe weight gain')) {
     return 'text-purple-500'; // Matches aggressive_bulk goal
   }
   
@@ -559,12 +559,12 @@ export const WeightTrackerModal = ({
                     >
                       <defs>
                         <linearGradient id="areaGradient" x1="0" x2="0" y1="0" y2="1">
-                          {trend.label.includes('Aggressive weight loss') || trend.label.includes('Rapid weight loss') ? (
+                          {trend.label.includes('Aggressive weight loss') || trend.label.includes('Severe weight loss') ? (
                             <>
                               <stop offset="0%" stopColor="#ef4444" stopOpacity="0.3" />
                               <stop offset="100%" stopColor="#ef4444" stopOpacity="0.05" />
                             </>
-                          ) : trend.label.includes('Aggressive weight gain') || trend.label.includes('Rapid weight gain') ? (
+                          ) : trend.label.includes('Aggressive weight gain') || trend.label.includes('Severe weight gain') ? (
                             <>
                               <stop offset="0%" stopColor="#a855f7" stopOpacity="0.3" />
                               <stop offset="100%" stopColor="#a855f7" stopOpacity="0.05" />
@@ -663,9 +663,9 @@ export const WeightTrackerModal = ({
                                 d={pathData}
                                 fill="none"
                                 stroke={
-                                  trend.label.includes('Aggressive weight loss') || trend.label.includes('Rapid weight loss') 
+                                  trend.label.includes('Aggressive weight loss') || trend.label.includes('Severe weight loss') 
                                     ? '#ef4444' 
-                                    : trend.label.includes('Aggressive weight gain') || trend.label.includes('Rapid weight gain')
+                                    : trend.label.includes('Aggressive weight gain') || trend.label.includes('Severe weight gain')
                                     ? '#a855f7'
                                     : trend.direction === 'down' 
                                     ? '#fb923c' 
@@ -694,9 +694,9 @@ export const WeightTrackerModal = ({
                                   r="6"
                                   fill="#1e293b"
                                   stroke={
-                                    trend.label.includes('Aggressive weight loss') || trend.label.includes('Rapid weight loss') 
-                                      ? '#ef4444' 
-                                      : trend.label.includes('Aggressive weight gain') || trend.label.includes('Rapid weight gain')
+                                    trend.label.includes('Aggressive weight loss') || trend.label.includes('Severe weight loss')
+                                      ? '#ef4444'
+                                      : trend.label.includes('Aggressive weight gain') || trend.label.includes('Severe weight gain')
                                       ? '#a855f7'
                                       : trend.direction === 'down' 
                                       ? '#fb923c' 

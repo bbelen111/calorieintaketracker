@@ -96,13 +96,13 @@ const resolveTrendLabel = (weeklyRate) => {
   }
 
   if (weeklyRate < 0) {
-    if (weeklyRate <= -1.2) return 'Rapid weight loss';
+    if (weeklyRate <= -1.2) return 'Severe weight loss';
     if (weeklyRate <= -0.8) return 'Aggressive weight loss';
     if (weeklyRate <= -0.45) return 'Moderate weight loss';
     return 'Gradual weight loss';
   }
 
-  if (weeklyRate >= 1.2) return 'Rapid weight gain';
+  if (weeklyRate >= 1.2) return 'Severe weight gain';
   if (weeklyRate >= 0.8) return 'Aggressive weight gain';
   if (weeklyRate >= 0.45) return 'Moderate weight gain';
   return 'Gradual weight gain';
