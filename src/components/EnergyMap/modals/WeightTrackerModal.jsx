@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { ChevronLeft, TrendingUp, TrendingDown, Minus, Info } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import { goals } from '../../../constants/goals';
 import {
@@ -7,6 +7,8 @@ import {
   formatWeight,
   sortWeightEntries
 } from '../../../utils/weight';
+import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
+import { WeightTrendInfoModal } from './WeightTrendInfoModal';
 
 const TrendIcon = ({ direction }) => {
   if (direction === 'up') {
@@ -192,6 +194,14 @@ export const WeightTrackerModal = ({
   const tooltipRef = useRef(null);
   const [graphViewportWidth, setGraphViewportWidth] = useState(0);
   const [graphViewportHeight, setGraphViewportHeight] = useState(0);
+  
+  // Weight Trend Info Modal
+  const {
+    isOpen: isTrendInfoOpen,
+    isClosing: isTrendInfoClosing,
+    open: openTrendInfo,
+    requestClose: closeTrendInfo
+  } = useAnimatedModal();
   
   const sortedEntries = useMemo(() => sortWeightEntries(entries ?? []), [entries]);
   const trend = useMemo(() => calculateWeightTrend(sortedEntries), [sortedEntries]);
@@ -619,14 +629,28 @@ export const WeightTrackerModal = ({
               </p>
             </div>
             <div>
-              <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">Weekly Rate</p>
+              <button
+                type="button"
+                onClick={openTrendInfo}
+                className="text-slate-400 text-xs uppercase tracking-wide mb-1 hover:text-slate-200 transition-colors cursor-pointer flex items-center gap-1 group"
+              >
+                Weekly Rate
+                <Info size={14} className="opacity-60 group-hover:opacity-100 transition-opacity" />
+              </button>
               <p className="text-white text-2xl font-semibold">{weeklyRateDisplay}</p>
               <p className="text-slate-400 text-xs mt-1">
                 Goal: {getGoalWeeklyTarget(selectedGoal)}
               </p>
             </div>
             <div className="col-span-2 md:col-span-1">
-              <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">Trend</p>
+              <button
+                type="button"
+                onClick={openTrendInfo}
+                className="text-slate-400 text-xs uppercase tracking-wide mb-1 hover:text-slate-200 transition-colors cursor-pointer flex items-center gap-1 group"
+              >
+                Trend
+                <Info size={14} className="opacity-60 group-hover:opacity-100 transition-opacity" />
+              </button>
               <p className={`${getTrendToneClass(trend.direction, trend.label)} font-semibold text-lg flex items-center gap-2`}>
                 <TrendIcon direction={trend.direction} />
                 {trend.label}
@@ -995,6 +1019,14 @@ export const WeightTrackerModal = ({
           ></div>
         </div>
       )}
+
+      {/* Weight Trend Info Modal */}
+      <WeightTrendInfoModal
+        isOpen={isTrendInfoOpen}
+        isClosing={isTrendInfoClosing}
+        trend={trend}
+        onClose={closeTrendInfo}
+      />
     </>
   );
 };
