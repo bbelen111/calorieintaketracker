@@ -183,32 +183,77 @@ export const createSparklinePoints = (entries, {
   if (!recent.length) {
     return {
       points: '',
+      areaPath: '',
       min: null,
       max: null,
+      range: 0,
       values: []
     };
   }
 
-  const min = recent.reduce((acc, entry) => Math.min(acc, entry.weight), Number.POSITIVE_INFINITY);
-  const max = recent.reduce((acc, entry) => Math.max(acc, entry.weight), Number.NEGATIVE_INFINITY);
-  const range = max - min || 1;
+  const weights = recent.map(entry => entry.weight);
+  const min = Math.min(...weights);
+  const max = Math.max(...weights);
+  let range = max - min;
+  
+  // For stable weight (small or zero range), create a visible range
+  // This ensures the graph is still drawn with some visual variation
+  const minVisibleRange = 2; // kg - minimum range to show on the graph
+  let effectiveMin = min;
+  let effectiveMax = max;
+  
+  if (range < minVisibleRange) {
+    const midpoint = (min + max) / 2;
+    effectiveMin = midpoint - minVisibleRange / 2;
+    effectiveMax = midpoint + minVisibleRange / 2;
+    range = minVisibleRange;
+  }
+
   const usableWidth = Math.max(width - padding * 2, 1);
   const usableHeight = Math.max(height - padding * 2, 1);
   const step = recent.length === 1 ? 0 : usableWidth / (recent.length - 1);
 
-  const points = recent
-    .map((entry, index) => {
-      const x = padding + step * index;
-      const normalized = (entry.weight - min) / range;
-      const y = padding + (1 - normalized) * usableHeight;
-      return `${x.toFixed(2)},${y.toFixed(2)}`;
-    })
+  // Calculate baseline Y position (bottom of the chart)
+  const baselineY = height - padding;
+
+  const coordinates = recent.map((entry, index) => {
+    const x = padding + step * index;
+    const normalized = (entry.weight - effectiveMin) / range;
+    const y = padding + (1 - normalized) * usableHeight;
+    return { x, y, weight: entry.weight };
+  });
+
+  // Create line points
+  const points = coordinates
+    .map(coord => `${coord.x.toFixed(2)},${coord.y.toFixed(2)}`)
     .join(' ');
+
+  // Create area path (line + fill to baseline)
+  let areaPath = '';
+  if (coordinates.length > 0) {
+    // Start at bottom-left
+    areaPath = `M ${coordinates[0].x},${baselineY}`;
+    // Line up to first point
+    areaPath += ` L ${coordinates[0].x},${coordinates[0].y}`;
+    // Draw through all points
+    coordinates.forEach(coord => {
+      areaPath += ` L ${coord.x},${coord.y}`;
+    });
+    // Line down to bottom-right
+    areaPath += ` L ${coordinates[coordinates.length - 1].x},${baselineY}`;
+    // Close path back to start
+    areaPath += ' Z';
+  }
 
   return {
     points,
+    areaPath,
     min,
     max,
+    range: max - min,
+    effectiveMin,
+    effectiveMax,
+    coordinates,
     values: recent
   };
 };

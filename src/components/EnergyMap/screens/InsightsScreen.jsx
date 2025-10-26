@@ -78,35 +78,62 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
               Δ {formatDelta(trend.delta)} • {formatWeeklyRate(trend.weeklyRate)}
             </p>
           </div>
-          <div className="w-36 h-16">
-            {sparkline.points ? (
+          {sparkline.points && sortedEntries.length > 1 && (
+            <div className="w-36 h-16 relative">
               <svg
                 width="100%"
                 height="100%"
                 viewBox="0 0 160 56"
                 preserveAspectRatio="none"
+                className="overflow-visible"
               >
                 <defs>
-                  <linearGradient id="weightSparkline" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor="#60a5fa" stopOpacity="0.9" />
-                    <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.2" />
+                  <linearGradient id="weightSparklineGradient" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor="#60a5fa" stopOpacity="0.4" />
+                    <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.05" />
+                  </linearGradient>
+                  <linearGradient id="weightSparklineStroke" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor="#60a5fa" stopOpacity="1" />
+                    <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.8" />
                   </linearGradient>
                 </defs>
+                
+                {/* Area fill */}
+                {sparkline.areaPath && (
+                  <path
+                    d={sparkline.areaPath}
+                    fill="url(#weightSparklineGradient)"
+                  />
+                )}
+                
+                {/* Line */}
                 <polyline
                   points={sparkline.points}
                   fill="none"
-                  stroke="url(#weightSparkline)"
-                  strokeWidth={3}
+                  stroke="url(#weightSparklineStroke)"
+                  strokeWidth={2.5}
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
+                
+                {/* Data points */}
+                {sparkline.coordinates?.map((coord, index) => (
+                  <circle
+                    key={index}
+                    cx={coord.x}
+                    cy={coord.y}
+                    r="2.5"
+                    fill="#60a5fa"
+                    className="drop-shadow-sm"
+                  />
+                ))}
               </svg>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-slate-500 text-xs border border-dashed border-slate-700 rounded-lg">
-                No data
-              </div>
-            )}
-          </div>
+              {/* Left fade */}
+              <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-slate-800 to-transparent pointer-events-none" />
+              {/* Right fade */}
+              <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-slate-800 to-transparent pointer-events-none" />
+            </div>
+          )}
         </div>
         <p className="text-blue-300 text-xs uppercase tracking-wide mt-4">Tap to open weight tracker</p>
       </button>
