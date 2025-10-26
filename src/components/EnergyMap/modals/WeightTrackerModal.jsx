@@ -23,22 +23,36 @@ const getTrendToneClass = (direction, label) => {
     return 'text-white';
   }
   
-  // Check for aggressive states
-  if (label.includes('Aggressive weight loss') || label.includes('Severe weight loss')) {
-    return 'text-red-500'; // Matches aggressive_cut goal
+  // Severe states (most extreme) - Red
+  if (label.includes('Severe')) {
+    return 'text-red-500';
   }
-  if (label.includes('Aggressive weight gain') || label.includes('Severe weight gain')) {
+  
+  // Aggressive states
+  if (label.includes('Aggressive weight loss')) {
+    return 'text-orange-500'; // Matches aggressive_cut goal
+  }
+  if (label.includes('Aggressive weight gain')) {
     return 'text-purple-500'; // Matches aggressive_bulk goal
   }
   
-  // Standard trend colors
+  // Moderate states
+  if (label.includes('Moderate weight loss')) {
+    return 'text-yellow-500'; // Matches cutting goal
+  }
+  if (label.includes('Moderate weight gain')) {
+    return 'text-green-500'; // Matches bulking/lean bulk goal
+  }
+  
+  // Gradual states - use slightly muted versions
   if (direction === 'down') {
-    return 'text-orange-400'; // Matches cutting/weight loss goals
+    return 'text-yellow-400'; // Gradual loss
   }
   if (direction === 'up') {
-    return 'text-green-400'; // Matches bulking/weight gain goals
+    return 'text-green-400'; // Gradual gain
   }
-  return 'text-blue-400'; // Matches maintenance goal
+  
+  return 'text-blue-400'; // Stable/maintenance
 };
 
 const DATE_COLUMN_WIDTH = 66;
@@ -559,25 +573,40 @@ export const WeightTrackerModal = ({
                     >
                       <defs>
                         <linearGradient id="areaGradient" x1="0" x2="0" y1="0" y2="1">
-                          {trend.label.includes('Aggressive weight loss') || trend.label.includes('Severe weight loss') ? (
+                          {trend.label.includes('Severe') ? (
                             <>
                               <stop offset="0%" stopColor="#ef4444" stopOpacity="0.3" />
                               <stop offset="100%" stopColor="#ef4444" stopOpacity="0.05" />
                             </>
-                          ) : trend.label.includes('Aggressive weight gain') || trend.label.includes('Severe weight gain') ? (
+                          ) : trend.label.includes('Aggressive weight loss') ? (
+                            <>
+                              <stop offset="0%" stopColor="#f97316" stopOpacity="0.3" />
+                              <stop offset="100%" stopColor="#f97316" stopOpacity="0.05" />
+                            </>
+                          ) : trend.label.includes('Aggressive weight gain') ? (
                             <>
                               <stop offset="0%" stopColor="#a855f7" stopOpacity="0.3" />
                               <stop offset="100%" stopColor="#a855f7" stopOpacity="0.05" />
                             </>
+                          ) : trend.label.includes('Moderate weight loss') ? (
+                            <>
+                              <stop offset="0%" stopColor="#eab308" stopOpacity="0.3" />
+                              <stop offset="100%" stopColor="#eab308" stopOpacity="0.05" />
+                            </>
+                          ) : trend.label.includes('Moderate weight gain') ? (
+                            <>
+                              <stop offset="0%" stopColor="#22c55e" stopOpacity="0.3" />
+                              <stop offset="100%" stopColor="#22c55e" stopOpacity="0.05" />
+                            </>
                           ) : trend.direction === 'down' ? (
                             <>
-                              <stop offset="0%" stopColor="#fb923c" stopOpacity="0.3" />
-                              <stop offset="100%" stopColor="#fb923c" stopOpacity="0.05" />
+                              <stop offset="0%" stopColor="#eab308" stopOpacity="0.25" />
+                              <stop offset="100%" stopColor="#eab308" stopOpacity="0.05" />
                             </>
                           ) : trend.direction === 'up' ? (
                             <>
-                              <stop offset="0%" stopColor="#4ade80" stopOpacity="0.3" />
-                              <stop offset="100%" stopColor="#4ade80" stopOpacity="0.05" />
+                              <stop offset="0%" stopColor="#22c55e" stopOpacity="0.25" />
+                              <stop offset="100%" stopColor="#22c55e" stopOpacity="0.05" />
                             </>
                           ) : (
                             <>
@@ -663,14 +692,20 @@ export const WeightTrackerModal = ({
                                 d={pathData}
                                 fill="none"
                                 stroke={
-                                  trend.label.includes('Aggressive weight loss') || trend.label.includes('Severe weight loss') 
-                                    ? '#ef4444' 
-                                    : trend.label.includes('Aggressive weight gain') || trend.label.includes('Severe weight gain')
+                                  trend.label.includes('Severe')
+                                    ? '#ef4444'
+                                    : trend.label.includes('Aggressive weight loss')
+                                    ? '#f97316'
+                                    : trend.label.includes('Aggressive weight gain')
                                     ? '#a855f7'
+                                    : trend.label.includes('Moderate weight loss')
+                                    ? '#eab308'
+                                    : trend.label.includes('Moderate weight gain')
+                                    ? '#22c55e'
                                     : trend.direction === 'down' 
-                                    ? '#fb923c' 
+                                    ? '#eab308' 
                                     : trend.direction === 'up' 
-                                    ? '#4ade80' 
+                                    ? '#22c55e' 
                                     : '#60a5fa'
                                 }
                                 strokeWidth="3"
@@ -694,14 +729,20 @@ export const WeightTrackerModal = ({
                                   r="6"
                                   fill="#1e293b"
                                   stroke={
-                                    trend.label.includes('Aggressive weight loss') || trend.label.includes('Severe weight loss')
+                                    trend.label.includes('Severe')
                                       ? '#ef4444'
-                                      : trend.label.includes('Aggressive weight gain') || trend.label.includes('Severe weight gain')
+                                      : trend.label.includes('Aggressive weight loss')
+                                      ? '#f97316'
+                                      : trend.label.includes('Aggressive weight gain')
                                       ? '#a855f7'
+                                      : trend.label.includes('Moderate weight loss')
+                                      ? '#eab308'
+                                      : trend.label.includes('Moderate weight gain')
+                                      ? '#22c55e'
                                       : trend.direction === 'down' 
-                                      ? '#fb923c' 
+                                      ? '#eab308' 
                                       : trend.direction === 'up' 
-                                      ? '#4ade80' 
+                                      ? '#22c55e' 
                                       : '#60a5fa'
                                   }
                                   strokeWidth="2"

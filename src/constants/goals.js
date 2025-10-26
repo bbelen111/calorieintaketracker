@@ -23,14 +23,14 @@ export const goals = {
     warning: null
   },
   cutting: {
-    color: 'bg-orange-500',
+    color: 'bg-yellow-500',
     icon: TrendingDown,
     label: 'Moderate Cut',
     desc: '-300 cal deficit',
     warning: null
   },
   aggressive_cut: {
-    color: 'bg-red-600',
+    color: 'bg-orange-500',
     icon: TrendingDown,
     label: 'Aggressive Cut',
     desc: '-500 cal deficit',
