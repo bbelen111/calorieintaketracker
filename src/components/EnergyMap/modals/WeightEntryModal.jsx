@@ -1,7 +1,9 @@
-import React from 'react';
-import { Calendar, Scale, Trash2, Save } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { Calendar, Trash2, Save } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import { formatWeight } from '../../../utils/weight';
+import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
+import { ConfirmActionModal } from './ConfirmActionModal';
 
 export const WeightEntryModal = ({
   isOpen,
@@ -22,6 +24,20 @@ export const WeightEntryModal = ({
     const normalized = formatWeight(weight);
     return normalized ? `${normalized} kg` : 'Select weight';
   })();
+
+  const {
+    isOpen: isConfirmOpen,
+    isClosing: isConfirmClosing,
+    open: openConfirm,
+    requestClose: requestConfirmClose,
+    forceClose: forceConfirmClose
+  } = useAnimatedModal(false);
+
+  useEffect(() => {
+    if (!isOpen) {
+      forceConfirmClose();
+    }
+  }, [forceConfirmClose, isOpen]);
 
   const handleDateChange = (event) => {
     if (isDateLocked) {
@@ -83,7 +99,7 @@ export const WeightEntryModal = ({
         {isEdit && onDelete && (
           <button
             type="button"
-            onClick={onDelete}
+            onClick={() => openConfirm()}
             className="inline-flex items-center bg-red-900/30 justify-center gap-2 px-4 py-2 rounded-lg border border-red-600/80 text-red-300 hover:bg-red-900/30 transition-all"
           >
             <Trash2 size={18} />
@@ -105,6 +121,21 @@ export const WeightEntryModal = ({
           Save Entry
         </button>
       </div>
+
+      <ConfirmActionModal
+        isOpen={isConfirmOpen}
+        isClosing={isConfirmClosing}
+        title="Delete weight entry?"
+        description="This will remove the logged weight for the selected day."
+        confirmLabel="Delete"
+        cancelLabel="Keep Entry"
+        tone="danger"
+        onConfirm={() => {
+          requestConfirmClose();
+          onDelete?.();
+        }}
+        onCancel={() => requestConfirmClose()}
+      />
     </ModalShell>
   );
 };

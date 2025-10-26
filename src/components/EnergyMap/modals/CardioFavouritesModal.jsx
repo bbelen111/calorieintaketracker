@@ -1,6 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Heart, Plus, Trash2 } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
+import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
+import { ConfirmActionModal } from './ConfirmActionModal';
 
 const getCardioLabel = (cardioTypes, type) => cardioTypes?.[type]?.label ?? 'Custom Cardio';
 
@@ -84,6 +86,15 @@ export const CardioFavouritesModal = ({
   onClose,
   calculateCardioCalories
 }) => {
+  const [pendingDeleteId, setPendingDeleteId] = useState(null);
+  const {
+    isOpen: isConfirmOpen,
+    isClosing: isConfirmClosing,
+    open: openConfirm,
+    requestClose: requestConfirmClose,
+    forceClose: forceConfirmClose
+  } = useAnimatedModal(false);
+
   const sortedFavourites = useMemo(() => {
     if (!Array.isArray(favourites)) {
       return [];
@@ -107,6 +118,19 @@ export const CardioFavouritesModal = ({
   }, [cardioTypes, favourites]);
 
   const hasFavourites = sortedFavourites.length > 0;
+
+  useEffect(() => {
+    if (!isOpen) {
+      forceConfirmClose();
+      setPendingDeleteId(null);
+    }
+  }, [forceConfirmClose, isOpen]);
+
+  useEffect(() => {
+    if (!isConfirmOpen && !isConfirmClosing) {
+      setPendingDeleteId(null);
+    }
+  }, [isConfirmClosing, isConfirmOpen]);
 
   return (
     <ModalShell
@@ -172,7 +196,8 @@ export const CardioFavouritesModal = ({
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
-                          onDeleteFavourite(favourite.id);
+                          setPendingDeleteId(favourite.id);
+                          openConfirm();
                         }}
                         className="flex-shrink-0 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
                         aria-label="Delete favourite cardio session"
@@ -201,6 +226,23 @@ export const CardioFavouritesModal = ({
           </button>
         </div>
       </div>
+
+      <ConfirmActionModal
+        isOpen={isConfirmOpen}
+        isClosing={isConfirmClosing}
+        title="Remove favourite session?"
+        description={pendingDeleteId != null ? 'This favourite will be removed from your quick list. You can recreate it anytime from a session.' : 'This favourite will be removed from your quick list.'}
+        confirmLabel="Delete"
+        cancelLabel="Keep"
+        tone="danger"
+        onConfirm={() => {
+          requestConfirmClose();
+          if (pendingDeleteId != null) {
+            onDeleteFavourite?.(pendingDeleteId);
+          }
+        }}
+        onCancel={() => requestConfirmClose()}
+      />
     </ModalShell>
   );
 };
