@@ -40,7 +40,7 @@ export const WeightEntryModal = ({
   }, [forceConfirmClose, isOpen]);
 
   const handleDateChange = (event) => {
-    if (isDateLocked) {
+    if (isEdit || isDateLocked) {
       return;
     }
     onDateChange?.(event.target.value);
@@ -65,13 +65,16 @@ export const WeightEntryModal = ({
               type="date"
               value={date ?? ''}
               onChange={handleDateChange}
-              disabled={isDateLocked}
-              className={`w-full bg-slate-700 text-white px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-800 ${
-                isDateLocked ? 'border-slate-600 opacity-80 cursor-not-allowed' : 'border-slate-600 focus:border-blue-400'
+              disabled={isEdit || isDateLocked}
+              className={`w-full bg-slate-700 text-white px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-800 ${
+                isEdit || isDateLocked ? 'border-slate-600 opacity-80 cursor-not-allowed' : 'border-slate-600 focus:border-blue-400'
               }`}
             />
           </div>
-          {isDateLocked && (
+          {isEdit && (
+            <p className="text-slate-500 text-xs mt-1">Date cannot be changed when editing an entry.</p>
+          )}
+          {!isEdit && isDateLocked && (
             <p className="text-slate-500 text-xs mt-1">Date locked because today\'s entry already exists.</p>
           )}
         </div>

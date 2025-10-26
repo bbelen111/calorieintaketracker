@@ -23,7 +23,7 @@ export const CalorieBreakdownModal = ({
 
   return (
     <ModalShell isOpen={isOpen} isClosing={isClosing}>
-      <div className="p-5 md:p-6 w-full max-w-lg">
+      <div className="p-5 md:p-6 w-full max-w-xlg">
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
             <h3 className="text-white font-bold text-xl">Calorie Breakdown</h3>
