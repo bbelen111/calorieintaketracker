@@ -140,7 +140,8 @@ const LEADING_ENTRY_SPACE = 45;
 const FIRST_ENTRY_CENTER_OFFSET = LEADING_ENTRY_SPACE + DATE_COLUMN_WIDTH / 2;
 const TOOLTIP_WIDTH = 144;
 const TOOLTIP_VERTICAL_OFFSET = 24;
-
+const POINT_RADIUS = 6;
+const POINT_HIT_RADIUS = 12;
 
 const getBaselineY = (defaultY) => defaultY - BASELINE_Y_OFFSET;
 
@@ -155,8 +156,6 @@ const getColumnsWidth = (count) => {
 };
 
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
-
-// Helper to get day name
 
 const formatTimelineLabel = (dateStr) => {
   const date = new Date(dateStr + 'T00:00:00');
@@ -192,12 +191,8 @@ export const WeightTrackerModal = ({
   const timelineScrollRef = useRef(null);
   const tooltipRef = useRef(null);
   const isClickingPointRef = useRef(false);
-  const [graphViewportWidth, setGraphViewportWidth] = useState(() => (
-    typeof window !== 'undefined' ? window.innerWidth : 0
-  ));
-  const [graphViewportHeight, setGraphViewportHeight] = useState(() => (
-    typeof window !== 'undefined' ? window.innerHeight * 0.3 : 0
-  ));
+  const [graphViewportWidth, setGraphViewportWidth] = useState(0);
+  const [graphViewportHeight, setGraphViewportHeight] = useState(0);
   
   const sortedEntries = useMemo(() => sortWeightEntries(entries ?? []), [entries]);
   const trend = useMemo(() => calculateWeightTrend(sortedEntries), [sortedEntries]);
@@ -375,6 +370,8 @@ export const WeightTrackerModal = ({
   }, [chartPoints, selectedDate]);
 
   useEffect(() => {
+    if (!isOpen) return;
+    
     const scrollToLatest = () => {
       const graphNode = graphScrollRef.current;
       if (graphNode) {
@@ -392,7 +389,7 @@ export const WeightTrackerModal = ({
     // Schedule to allow layout to settle before scrolling.
     const frame = requestAnimationFrame(scrollToLatest);
     return () => cancelAnimationFrame(frame);
-    }, [chartWidth, sortedEntries.length, isOpen]);
+  }, [isOpen]);
   
   // Map entries by date for quick lookup
   const entriesMap = useMemo(() => {
@@ -527,6 +524,15 @@ export const WeightTrackerModal = ({
     return undefined;
   }, [selectedDate, tooltipClosing]);
 
+  const handleTooltipClick = useCallback((e) => {
+    e.stopPropagation();
+    if (selectedDate) {
+      const entry = entriesMap[selectedDate];
+      onEditEntry?.(entry);
+      closeTooltip();
+    }
+  }, [selectedDate, entriesMap, onEditEntry, closeTooltip]);
+
   const updateTooltipPosition = useCallback(() => {
     if (!selectedPoint) {
       return;
@@ -586,7 +592,7 @@ export const WeightTrackerModal = ({
           <div className="flex items-center gap-4">
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => onClose?.()}
               className="text-slate-300 hover:text-white transition-all"
             >
               <ChevronLeft size={24} />
@@ -814,11 +820,11 @@ export const WeightTrackerModal = ({
                                 className="cursor-pointer"
                               >
                                 {/* Larger invisible circle for easier clicking */}
-                                <circle cx={x} cy={y} r="12" fill="transparent" />
+                                <circle cx={x} cy={y} r={POINT_HIT_RADIUS} fill="transparent" />
                                 <circle
                                   cx={x}
                                   cy={y}
-                                  r="6"
+                                  r={POINT_RADIUS}
                                   fill="#1e293b"
                                   stroke={
                                     trend.label.includes('Severe')
@@ -967,12 +973,7 @@ export const WeightTrackerModal = ({
             top: `${tooltipPosition.y - TOOLTIP_VERTICAL_OFFSET}px`,
             width: `${TOOLTIP_WIDTH}px`,
           }}
-          onClick={(e) => {
-            e.stopPropagation();
-            const entry = entriesMap[selectedDate];
-            onEditEntry?.(entry);
-            closeTooltip();
-          }}
+          onClick={handleTooltipClick}
         >
           <div className="cursor-pointer hover:bg-slate-700/50 rounded p-2 transition-all">
             <p className="text-slate-400 text-xs mb-1">{formatTooltipDate(selectedDate)}</p>
