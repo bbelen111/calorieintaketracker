@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { ClipboardList, Plus, Calendar, TrendingUp, Target, Archive } from 'lucide-react';
 import { goals } from '../../../constants/goals';
 import { formatWeight } from '../../../utils/weight';
+import { calculatePhaseMetrics } from '../../../utils/phases';
 
 const getPhaseStatusBadge = (status) => {
   switch (status) {
@@ -52,21 +53,20 @@ const calculateCurrentDay = (startDate) => {
   return diffDays;
 };
 
-const PhaseCard = ({ phase, onPhaseClick }) => {
+const PhaseCard = ({ phase, weightEntries, onPhaseClick }) => {
   const goal = goals[phase.goalType] || goals.maintenance;
-  // Helper for goal badge color classes
-  const getGoalBadgeClass = () => {
-    if (!goal || !goal.color) return 'bg-slate-700 text-slate-300 border-slate-600';
-    return `${goal.color} text-white border-2 ${goal.color.replace('bg-', 'border-')}`;
-  };
   const isActive = phase.status === 'active';
   const totalDays = phase.endDate ? calculatePhaseDays(phase.startDate, phase.endDate) : null;
   const currentDay = calculateCurrentDay(phase.startDate);
   
-  const weightChange = phase.metrics?.weightChange || 0;
-  const weightChangeDisplay = weightChange === 0 
+  const metrics = useMemo(
+    () => calculatePhaseMetrics(phase, weightEntries),
+    [phase, weightEntries]
+  );
+
+  const weightChangeDisplay = metrics.weightChange === 0 
     ? '—' 
-    : `${weightChange > 0 ? '+' : ''}${formatWeight(weightChange)} kg`;
+    : `${metrics.weightChange > 0 ? '+' : ''}${formatWeight(Math.abs(metrics.weightChange))} kg`;
 
   return (
     <button
@@ -83,7 +83,9 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
           <h3 className="text-white font-bold text-lg mb-1">{phase.name}</h3>
           <div className="flex items-center gap-2 flex-wrap">
             {getPhaseStatusBadge(phase.status)}
-            <span className={`px-2 py-1 rounded-md text-xs font-semibold ${getGoalBadgeClass()}`}>{goal.label}</span>
+            <span className={`px-2 py-1 rounded-md text-xs font-semibold ${goal.bgColor} ${goal.textColor} border ${goal.borderColor}`}>
+              {goal.label}
+            </span>
           </div>
         </div>
         <ClipboardList className={isActive ? 'text-blue-400' : 'text-slate-500'} size={24} />
@@ -114,17 +116,17 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
           </span>
         </div>
 
-        {phase.metrics?.activeDays > 0 && (
+        {metrics.activeDays > 0 && (
           <div className="mt-3 pt-3 border-t border-slate-700">
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
                 <span className="text-slate-500">Logged Days:</span>
-                <span className="ml-1 text-white font-semibold">{phase.metrics.activeDays}</span>
+                <span className="ml-1 text-white font-semibold">{metrics.activeDays}</span>
               </div>
-              {phase.metrics.avgCalories > 0 && (
+              {metrics.avgCalories > 0 && (
                 <div>
                   <span className="text-slate-500">Avg Calories:</span>
-                  <span className="ml-1 text-white font-semibold">{Math.round(phase.metrics.avgCalories)}</span>
+                  <span className="ml-1 text-white font-semibold">{Math.round(metrics.avgCalories)}</span>
                 </div>
               )}
             </div>
@@ -135,7 +137,7 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
   );
 };
 
-export const LogbookScreen = ({ phases = [], onCreatePhase, onPhaseClick }) => {
+export const LogbookScreen = ({ phases = [], weightEntries = [], onCreatePhase, onPhaseClick }) => {
   const activePhases = useMemo(
     () => phases.filter((phase) => phase.status === 'active'),
     [phases]
@@ -200,7 +202,7 @@ export const LogbookScreen = ({ phases = [], onCreatePhase, onPhaseClick }) => {
           <h2 className="text-white font-bold text-lg mb-3 px-1">Active Phases</h2>
           <div className="space-y-3">
             {activePhases.map((phase) => (
-              <PhaseCard key={phase.id} phase={phase} onPhaseClick={onPhaseClick} />
+              <PhaseCard key={phase.id} phase={phase} weightEntries={weightEntries} onPhaseClick={onPhaseClick} />
             ))}
           </div>
         </div>
@@ -215,7 +217,7 @@ export const LogbookScreen = ({ phases = [], onCreatePhase, onPhaseClick }) => {
           </h2>
           <div className="space-y-3">
             {completedPhases.map((phase) => (
-              <PhaseCard key={phase.id} phase={phase} onPhaseClick={onPhaseClick} />
+              <PhaseCard key={phase.id} phase={phase} weightEntries={weightEntries} onPhaseClick={onPhaseClick} />
             ))}
           </div>
         </div>

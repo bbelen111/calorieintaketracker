@@ -13,6 +13,7 @@ import { TrackerScreen } from './screens/TrackerScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import { CalorieMapScreen } from './screens/CalorieMapScreen';
 import { InsightsScreen } from './screens/InsightsScreen';
+import { PhaseDetailScreen } from './screens/PhaseDetailScreen';
 import { GoalModal } from './modals/GoalModal';
 import { BmrInfoModal } from './modals/BmrInfoModal';
 import { AgePickerModal } from './modals/AgePickerModal';
@@ -33,6 +34,7 @@ import { DailyActivityModal } from './modals/DailyActivityModal';
 import { DailyActivityEditorModal } from './modals/DailyActivityEditorModal';
 import { DailyActivityCustomModal } from './modals/DailyActivityCustomModal';
 import { PhaseCreationModal } from './modals/PhaseCreationModal';
+import { DailyLogModal } from './modals/DailyLogModal';
 import { clampWeight, normalizeDateKey, formatWeight, formatDateLabel } from '../../utils/weight';
 
 const MODAL_CLOSE_DELAY = 200;
@@ -190,6 +192,20 @@ export const EnergyMapCalculator = () => {
   const [phaseGoalType, setPhaseGoalType] = useState('maintenance');
   const [phaseTargetWeight, setPhaseTargetWeight] = useState('');
   const [phaseError, setPhaseError] = useState('');
+  const [selectedPhase, setSelectedPhase] = useState(null);
+
+  // Daily log state
+  const [dailyLogDate, setDailyLogDate] = useState(getTodayDateString());
+  const [dailyLogCalories, setDailyLogCalories] = useState('');
+  const [dailyLogProtein, setDailyLogProtein] = useState('');
+  const [dailyLogCarbs, setDailyLogCarbs] = useState('');
+  const [dailyLogFats, setDailyLogFats] = useState('');
+  const [dailyLogSteps, setDailyLogSteps] = useState('');
+  const [dailyLogNotes, setDailyLogNotes] = useState('');
+  const [dailyLogCompleted, setDailyLogCompleted] = useState(false);
+  const [dailyLogMode, setDailyLogMode] = useState('add');
+  const [dailyLogError, setDailyLogError] = useState('');
+  const [dailyLogDateLocked, setDailyLogDateLocked] = useState(false);
 
   const goalModal = useAnimatedModal();
   const bmrModal = useAnimatedModal();
@@ -212,6 +228,7 @@ export const EnergyMapCalculator = () => {
   const cardioFavouriteEditorModal = useAnimatedModal();
   const calorieBreakdownModal = useAnimatedModal();
   const phaseCreationModal = useAnimatedModal();
+  const dailyLogModal = useAnimatedModal();
 
   useEffect(() => {
     saveSelectedDay(selectedDay);
@@ -939,9 +956,141 @@ export const EnergyMapCalculator = () => {
   }, [createPhase, phaseCreationModal, phaseEndDate, phaseGoalType, phaseName, phaseStartDate, phaseTargetWeight]);
 
   const handlePhaseClick = useCallback((phase) => {
-    // TODO: Navigate to phase detail view in Phase 2
-    console.log('Phase clicked:', phase);
+    setSelectedPhase(phase);
   }, []);
+
+  const handleBackToLogbook = useCallback(() => {
+    setSelectedPhase(null);
+  }, []);
+
+  // Daily log handlers
+  const openDailyLogModal = useCallback((date = null) => {
+    const targetDate = date || getTodayDateString();
+    setDailyLogDate(targetDate);
+    setDailyLogCalories('');
+    setDailyLogProtein('');
+    setDailyLogCarbs('');
+    setDailyLogFats('');
+    setDailyLogSteps('');
+    setDailyLogNotes('');
+    setDailyLogCompleted(false);
+    setDailyLogMode('add');
+    setDailyLogError('');
+    setDailyLogDateLocked(false);
+    dailyLogModal.open();
+  }, [dailyLogModal]);
+
+  const openEditDailyLogModal = useCallback((log) => {
+    if (!log) return;
+    
+    setDailyLogDate(log.date);
+    setDailyLogCalories(String(log.calories || ''));
+    setDailyLogProtein(String(log.protein || ''));
+    setDailyLogCarbs(String(log.carbs || ''));
+    setDailyLogFats(String(log.fats || ''));
+    setDailyLogSteps(String(log.steps || ''));
+    setDailyLogNotes(log.notes || '');
+    setDailyLogCompleted(log.completed || false);
+    setDailyLogMode('edit');
+    setDailyLogError('');
+    setDailyLogDateLocked(true);
+    dailyLogModal.open();
+  }, [dailyLogModal]);
+
+  const handleDailyLogSave = useCallback(() => {
+    if (!selectedPhase) {
+      setDailyLogError('No phase selected');
+      return;
+    }
+
+    // Validate calories
+    const caloriesNum = Number(dailyLogCalories);
+    if (!dailyLogCalories || !Number.isFinite(caloriesNum) || caloriesNum <= 0) {
+      setDailyLogError('Please enter valid calories');
+      return;
+    }
+
+    if (caloriesNum > 10000) {
+      setDailyLogError('Calories must be less than 10,000');
+      return;
+    }
+
+    // Validate date
+    if (!dailyLogDate) {
+      setDailyLogError('Please select a date');
+      return;
+    }
+
+    // Parse optional fields
+    const proteinNum = dailyLogProtein ? Number(dailyLogProtein) : 0;
+    const carbsNum = dailyLogCarbs ? Number(dailyLogCarbs) : 0;
+    const fatsNum = dailyLogFats ? Number(dailyLogFats) : 0;
+    const stepsNum = dailyLogSteps ? Number(dailyLogSteps) : 0;
+
+    const logData = {
+      calories: Math.round(caloriesNum),
+      protein: proteinNum > 0 ? Math.round(proteinNum) : 0,
+      carbs: carbsNum > 0 ? Math.round(carbsNum) : 0,
+      fats: fatsNum > 0 ? Math.round(fatsNum) : 0,
+      steps: stepsNum > 0 ? Math.round(stepsNum) : 0,
+      notes: dailyLogNotes.trim(),
+      completed: dailyLogCompleted
+    };
+
+    if (dailyLogMode === 'add') {
+      addDailyLog(selectedPhase.id, dailyLogDate, logData);
+    } else {
+      updateDailyLog(selectedPhase.id, dailyLogDate, logData);
+    }
+
+    setDailyLogError('');
+    dailyLogModal.requestClose();
+  }, [
+    addDailyLog,
+    dailyLogCalories,
+    dailyLogCarbs,
+    dailyLogCompleted,
+    dailyLogDate,
+    dailyLogFats,
+    dailyLogModal,
+    dailyLogMode,
+    dailyLogNotes,
+    dailyLogProtein,
+    dailyLogSteps,
+    selectedPhase,
+    updateDailyLog
+  ]);
+
+  const handleDailyLogDelete = useCallback(() => {
+    if (!selectedPhase || !dailyLogDate) {
+      dailyLogModal.requestClose();
+      return;
+    }
+
+    deleteDailyLog(selectedPhase.id, dailyLogDate);
+    dailyLogModal.requestClose();
+  }, [dailyLogDate, dailyLogModal, deleteDailyLog, selectedPhase]);
+
+  const handleViewPhaseInsights = useCallback(() => {
+    // TODO: Phase 3 - Open insights modal or navigate to insights view
+    console.log('View insights for phase:', selectedPhase);
+  }, [selectedPhase]);
+
+  useEffect(() => {
+    if (!dailyLogModal.isOpen && !dailyLogModal.isClosing) {
+      setDailyLogDate(getTodayDateString());
+      setDailyLogCalories('');
+      setDailyLogProtein('');
+      setDailyLogCarbs('');
+      setDailyLogFats('');
+      setDailyLogSteps('');
+      setDailyLogNotes('');
+      setDailyLogCompleted(false);
+      setDailyLogMode('add');
+      setDailyLogError('');
+      setDailyLogDateLocked(false);
+    }
+  }, [dailyLogModal.isClosing, dailyLogModal.isOpen]);
 
   useEffect(() => {
     if (!phaseCreationModal.isOpen && !phaseCreationModal.isClosing) {
@@ -1000,11 +1149,23 @@ export const EnergyMapCalculator = () => {
           >
             <div className="flex w-full" style={sliderStyle}>
               <div className="w-full flex-shrink-0 px-2 sm:px-4 md:px-6">
-                <LogbookScreen 
-                  phases={phases}
-                  onCreatePhase={openPhaseCreationModal}
-                  onPhaseClick={handlePhaseClick}
-                />
+                {selectedPhase ? (
+                  <PhaseDetailScreen
+                    phase={selectedPhase}
+                    weightEntries={weightEntries}
+                    onBack={handleBackToLogbook}
+                    onAddLog={openDailyLogModal}
+                    onEditLog={openEditDailyLogModal}
+                    onViewInsights={handleViewPhaseInsights}
+                  />
+                ) : (
+                  <LogbookScreen 
+                    phases={phases}
+                    weightEntries={weightEntries}
+                    onCreatePhase={openPhaseCreationModal}
+                    onPhaseClick={handlePhaseClick}
+                  />
+                )}
               </div>
 
               <div className="w-full flex-shrink-0 px-2 sm:px-4 md:px-6">
@@ -1336,6 +1497,33 @@ export const EnergyMapCalculator = () => {
         onCancel={phaseCreationModal.requestClose}
         onSave={handlePhaseCreationSave}
         error={phaseError}
+      />
+
+      <DailyLogModal
+        isOpen={dailyLogModal.isOpen}
+        isClosing={dailyLogModal.isClosing}
+        mode={dailyLogMode}
+        date={dailyLogDate}
+        calories={dailyLogCalories}
+        protein={dailyLogProtein}
+        carbs={dailyLogCarbs}
+        fats={dailyLogFats}
+        steps={dailyLogSteps}
+        notes={dailyLogNotes}
+        completed={dailyLogCompleted}
+        onDateChange={setDailyLogDate}
+        onCaloriesChange={setDailyLogCalories}
+        onProteinChange={setDailyLogProtein}
+        onCarbsChange={setDailyLogCarbs}
+        onFatsChange={setDailyLogFats}
+        onStepsChange={setDailyLogSteps}
+        onNotesChange={setDailyLogNotes}
+        onCompletedChange={setDailyLogCompleted}
+        onCancel={dailyLogModal.requestClose}
+        onSave={handleDailyLogSave}
+        onDelete={dailyLogMode === 'edit' ? handleDailyLogDelete : undefined}
+        error={dailyLogError}
+        isDateLocked={dailyLogDateLocked}
       />
     </div>
   );
