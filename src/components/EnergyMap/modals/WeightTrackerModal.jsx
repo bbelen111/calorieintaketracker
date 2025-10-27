@@ -197,6 +197,7 @@ export const WeightTrackerModal = ({
   const [tooltipEntered, setTooltipEntered] = useState(false);
   const [tooltipClosing, setTooltipClosing] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+  const [selectedTimeframe, setSelectedTimeframe] = useState('30d');
   const graphScrollRef = useRef(null);
   const timelineScrollRef = useRef(null);
   const tooltipRef = useRef(null);
@@ -212,7 +213,35 @@ export const WeightTrackerModal = ({
   } = useAnimatedModal();
   
   const sortedEntries = useMemo(() => sortWeightEntries(entries ?? []), [entries]);
-  const trend = useMemo(() => calculateWeightTrend(sortedEntries), [sortedEntries]);
+  
+  // Filter entries based on selected timeframe
+  const filteredEntries = useMemo(() => {
+    if (!sortedEntries.length) return [];
+    if (selectedTimeframe === 'all') return sortedEntries;
+    
+    const latestEntry = sortedEntries[sortedEntries.length - 1];
+    const latestDate = new Date(latestEntry.date + 'T00:00:00');
+    
+    const daysMap = {
+      '7d': 7,
+      '14d': 14,
+      '30d': 30,
+      '90d': 90
+    };
+    
+    const daysToSubtract = daysMap[selectedTimeframe];
+    if (!daysToSubtract) return sortedEntries;
+    
+    const cutoffDate = new Date(latestDate);
+    cutoffDate.setDate(cutoffDate.getDate() - daysToSubtract);
+    
+    return sortedEntries.filter(entry => {
+      const entryDate = new Date(entry.date + 'T00:00:00');
+      return entryDate >= cutoffDate;
+    });
+  }, [sortedEntries, selectedTimeframe]);
+  
+  const trend = useMemo(() => calculateWeightTrend(filteredEntries), [filteredEntries]);
   const goalAlignment = useMemo(() => getGoalAlignmentText(trend.weeklyRate, selectedGoal), [trend.weeklyRate, selectedGoal]);
 
   useIsomorphicLayoutEffect(() => {
@@ -245,14 +274,15 @@ export const WeightTrackerModal = ({
   }, [isOpen]);
 
   const entryCount = sortedEntries.length;
+  const filteredEntryCount = filteredEntries.length;
 
   const baseChartWidth = useMemo(() => {
-    const baseWidth = getColumnsWidth(Math.max(entryCount, 1));
-    if (entryCount > 0) {
+    const baseWidth = getColumnsWidth(Math.max(filteredEntryCount, 1));
+    if (filteredEntryCount > 0) {
       return baseWidth + LEADING_ENTRY_SPACE;
     }
     return baseWidth;
-  }, [entryCount]);
+  }, [filteredEntryCount]);
 
   const chartWidth = useMemo(() => (
     Math.max(baseChartWidth, graphViewportWidth || 0)
@@ -277,17 +307,17 @@ export const WeightTrackerModal = ({
   }, [chartWidth, graphViewportWidth]);
 
   const xPositions = useMemo(() => {
-    if (entryCount === 0) {
+    if (filteredEntryCount === 0) {
       return [];
     }
 
     if (!shouldStretchAcrossViewport) {
       const start = FIRST_ENTRY_CENTER_OFFSET;
       const step = DATE_COLUMN_WIDTH + DATE_COLUMN_GAP;
-      return sortedEntries.map((_, index) => start + index * step);
+      return filteredEntries.map((_, index) => start + index * step);
     }
 
-    if (entryCount === 1) {
+    if (filteredEntryCount === 1) {
       // Keep the point slightly inset from the left
       return [Math.max(FIRST_ENTRY_CENTER_OFFSET, chartWidth / 2)];
     }
@@ -296,37 +326,37 @@ export const WeightTrackerModal = ({
     const leftPad = Math.max(LEFT_EDGE_PADDING_GRAPH, FIRST_ENTRY_CENTER_OFFSET);
     const rightPad = RIGHT_EDGE_PADDING_GRAPH;
     const usableWidth = Math.max(chartWidth - leftPad - rightPad, 0);
-    const step = entryCount > 1 ? usableWidth / (entryCount - 1) : 0;
-    return sortedEntries.map((_, index) => leftPad + step * index);
-  }, [chartWidth, entryCount, shouldStretchAcrossViewport, sortedEntries]);
+    const step = filteredEntryCount > 1 ? usableWidth / (filteredEntryCount - 1) : 0;
+    return filteredEntries.map((_, index) => leftPad + step * index);
+  }, [chartWidth, filteredEntryCount, shouldStretchAcrossViewport, filteredEntries]);
 
   // Separate X positions for timeline labels so the first label rests flush on the left
   const timelineXPositions = useMemo(() => {
-    if (entryCount === 0) return [];
+    if (filteredEntryCount === 0) return [];
 
     if (!shouldStretchAcrossViewport) {
       const start = FIRST_ENTRY_CENTER_OFFSET;
       const step = DATE_COLUMN_WIDTH + DATE_COLUMN_GAP;
-      return sortedEntries.map((_, index) => start + index * step);
+      return filteredEntries.map((_, index) => start + index * step);
     }
 
-    if (entryCount === 1) {
+    if (filteredEntryCount === 1) {
       return [Math.max(FIRST_ENTRY_CENTER_OFFSET, chartWidth / 2)];
     }
 
     const leftPad = Math.max(LEFT_EDGE_PADDING_TIMELINE, FIRST_ENTRY_CENTER_OFFSET);
     const rightPad = RIGHT_EDGE_PADDING_TIMELINE;
     const usableWidth = Math.max(chartWidth - leftPad - rightPad, 0);
-    const step = entryCount > 1 ? usableWidth / (entryCount - 1) : 0;
-    return sortedEntries.map((_, index) => leftPad + step * index);
-  }, [chartWidth, entryCount, shouldStretchAcrossViewport, sortedEntries]);
+    const step = filteredEntryCount > 1 ? usableWidth / (filteredEntryCount - 1) : 0;
+    return filteredEntries.map((_, index) => leftPad + step * index);
+  }, [chartWidth, filteredEntryCount, shouldStretchAcrossViewport, filteredEntries]);
 
   const chartData = useMemo(() => {
-    if (sortedEntries.length === 0) {
+    if (filteredEntries.length === 0) {
       return null;
     }
 
-    const weights = sortedEntries.map((entry) => entry.weight);
+    const weights = filteredEntries.map((entry) => entry.weight);
     let minWeight = Math.min(...weights);
     let maxWeight = Math.max(...weights);
     let range = maxWeight - minWeight;
@@ -356,14 +386,14 @@ export const WeightTrackerModal = ({
       maxWeight,
       range
     };
-  }, [sortedEntries]);
+  }, [filteredEntries]);
 
   const chartPoints = useMemo(() => {
     if (!chartData) {
       return [];
     }
 
-    return sortedEntries.map((entry, index) => {
+    return filteredEntries.map((entry, index) => {
       const x = xPositions[index] ?? 0;
       const normalized = (entry.weight - chartData.minWeight) / chartData.range;
       const bounded = Math.min(Math.max(normalized, 0), 1);
@@ -377,7 +407,7 @@ export const WeightTrackerModal = ({
         bounded
       };
     });
-  }, [chartData, chartHeight, sortedEntries, xPositions]);
+  }, [chartData, chartHeight, filteredEntries, xPositions]);
 
   const selectedPoint = useMemo(() => {
     if (!selectedDate) {
@@ -411,28 +441,40 @@ export const WeightTrackerModal = ({
   // Map entries by date for quick lookup
   const entriesMap = useMemo(() => {
     const map = {};
-    sortedEntries.forEach(entry => {
+    filteredEntries.forEach(entry => {
       map[entry.date] = entry;
     });
     return map;
-  }, [sortedEntries]);
+  }, [filteredEntries]);
   
   // Get latest entry date
-  const latestDate = sortedEntries.length ? sortedEntries[sortedEntries.length - 1].date : null;
+  const latestDate = filteredEntries.length ? filteredEntries[filteredEntries.length - 1].date : null;
 
-  // Earliest entry date and timeframe details for the 30-day trend summary
-  const earliestDate = sortedEntries.length ? sortedEntries[0].date : null;
-  const entriesCount = sortedEntries.length;
+  // Earliest entry date and timeframe details for the trend summary
+  const earliestDate = filteredEntries.length ? filteredEntries[0].date : null;
+  const entriesCount = filteredEntries.length;
   const daysRange = (earliestDate && latestDate)
     ? Math.round((new Date(latestDate + 'T00:00:00') - new Date(earliestDate + 'T00:00:00')) / (1000 * 60 * 60 * 24))
     : 0;
   const timeframeRangeLine = earliestDate && latestDate
     ? `${formatShortDate(earliestDate)} - ${formatShortDate(latestDate)}`
     : '';
-  const timeframeMain = `30-day trend (${entriesCount} ${entriesCount === 1 ? 'entry' : 'entries'}${earliestDate && latestDate ? ` over ${daysRange} days` : ''})`;
+  
+  const timeframeLabel = (() => {
+    switch (selectedTimeframe) {
+      case '7d': return '7-day';
+      case '14d': return '14-day';
+      case '30d': return '30-day';
+      case '90d': return '90-day';
+      case 'all': return 'All-time';
+      default: return '30-day';
+    }
+  })();
+  
+  const timeframeMain = `${timeframeLabel} trend (${entriesCount} ${entriesCount === 1 ? 'entry' : 'entries'}${earliestDate && latestDate ? ` over ${daysRange} days` : ''})`;
 
-  const currentWeightValue = sortedEntries.length
-    ? sortedEntries[sortedEntries.length - 1].weight
+  const currentWeightValue = filteredEntries.length
+    ? filteredEntries[filteredEntries.length - 1].weight
     : latestWeight;
   const currentWeightDisplay = (() => {
     const formatted = formatWeight(currentWeightValue);
@@ -688,13 +730,39 @@ export const WeightTrackerModal = ({
           </div>
 
           <div className="px-6 pb-1 flex-shrink-0">
-            <button
-              type="button"
-              onClick={() => onAddEntry?.()}
-              className="px-5 py-1 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all font-semibold text-base hover:bg-blue-500/90"
-            >
-              Add Entry
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onAddEntry?.()}
+                className="px-5 py-1 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all font-semibold text-base hover:bg-blue-500/90"
+              >
+                Add Entry
+              </button>
+              
+              {/* Timeframe Selector */}
+              <div className="flex gap-1.5">
+                {[
+                  { value: '7d', label: '7D' },
+                  { value: '14d', label: '14D' },
+                  { value: '30d', label: '30D' },
+                  { value: '90d', label: '90D' },
+                  { value: 'all', label: 'All' }
+                ].map(({ value, label }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setSelectedTimeframe(value)}
+                    className={`px-3 py-1.5 md:py-2.5 rounded-md font-semibold text-xs transition-all whitespace-nowrap ${
+                      selectedTimeframe === value
+                        ? 'bg-blue-600 text-white border border-blue-400'
+                        : 'bg-slate-700 text-slate-300 border border-slate-600 hover:bg-slate-600'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Graph and Timeline Section - Synchronized scrolling */}
@@ -967,7 +1035,7 @@ export const WeightTrackerModal = ({
                       height: `${TIMELINE_TRACK_HEIGHT}px`
                     }}
                   >
-                    {sortedEntries.map((entry, index) => {
+                    {filteredEntries.map((entry, index) => {
                       const { date } = entry;
                       const isLatest = date === latestDate;
                       const label = formatTimelineLabel(date);
