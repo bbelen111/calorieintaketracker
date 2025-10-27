@@ -1030,7 +1030,7 @@ export const WeightTrackerModal = ({
           onClick={handleTooltipClick}
         >
           <div className="cursor-pointer hover:bg-slate-700/50 rounded p-2 transition-all">
-            <p className="text-slate-400 text-xs mb-1">{formatTooltipDate(selectedDate)}</p>
+            <p className="text-slate-400 text-[11.5px] mb-1">{formatTooltipDate(selectedDate)}</p>
             <p className="text-white text-2xl font-bold">
               {formatWeight(entriesMap[selectedDate].weight)} kg
             </p>
