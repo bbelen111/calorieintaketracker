@@ -62,7 +62,15 @@ const formatWeeklyRate = (value) => {
 };
 
 export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onOpenWeightTracker }) => {
-  const sortedEntries = useMemo(() => weightEntries, [weightEntries]);
+  // Only keep entries from the last 7 days
+  const sortedEntries = useMemo(() => {
+    if (!weightEntries.length) return [];
+    const now = new Date();
+    return weightEntries.filter(entry => {
+      const entryDate = new Date(entry.date + 'T00:00:00');
+      return (now - entryDate) / (1000 * 60 * 60 * 24) <= 7;
+    });
+  }, [weightEntries]);
   const trend = useMemo(() => calculateWeightTrend(sortedEntries), [sortedEntries]);
   const sparkline = useMemo(
     () =>
@@ -70,7 +78,7 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
         width: 160,
         height: 56,
         padding: 6,
-        limit: 14
+        limit: 7 // Only show up to 7 entries
       }),
     [sortedEntries]
   );
@@ -80,23 +88,7 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
     [sortedEntries]
   );
 
-  // Timeframe details for the 30-day trend summary (earliest -> latest among displayed entries)
-  const earliestEntry = useMemo(() => (sortedEntries.length ? sortedEntries[0] : null), [sortedEntries]);
-  const entriesCount = sortedEntries.length;
-  const formatShortDate = (dateStr) => {
-    if (!dateStr) return '';
-    const date = new Date(dateStr + 'T00:00:00');
-    const parts = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    return parts.replace(/^[A-Za-z]{3}/, (m) => m.toUpperCase());
-  };
-
-  const daysRange = (earliestEntry && latestEntry)
-    ? Math.round((new Date(latestEntry.date + 'T00:00:00') - new Date(earliestEntry.date + 'T00:00:00')) / (1000 * 60 * 60 * 24))
-    : 0;
-  const timeframeRangeLine = earliestEntry && latestEntry
-    ? `${formatShortDate(earliestEntry.date)} - ${formatShortDate(latestEntry.date)}`
-    : '';
-  const timeframeMain = `30-day trend (${entriesCount} ${entriesCount === 1 ? 'entry' : 'entries'}${earliestEntry && latestEntry ? ` over ${daysRange} days` : ''})`;
+  // ...existing code...
 
   const currentWeight = formatWeight(latestEntry?.weight ?? userData.weight);
   const lastLoggedLabel = latestEntry?.date
@@ -123,8 +115,6 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
             <p className="text-slate-500 text-xs mt-3">
               {formatWeeklyRate(trend.weeklyRate)}
             </p>
-            <p className="text-white text-sm mt-2 font-semibold">{timeframeRangeLine}</p>
-            <p className="text-slate-300 text-xs mt-1">{timeframeMain}</p>
           </div>
           {sparkline.points && sortedEntries.length > 1 && (
             <div className="w-36 h-16 relative">
@@ -223,7 +213,6 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
                     )}
                   </linearGradient>
                 </defs>
-                
                 {/* Area fill */}
                 {sparkline.areaPath && (
                   <path
@@ -231,7 +220,6 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
                     fill="url(#weightSparklineGradient)"
                   />
                 )}
-                
                 {/* Line */}
                 <polyline
                   points={sparkline.points}
@@ -241,7 +229,6 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
-                
                 {/* Data points */}
                 {sparkline.coordinates?.map((coord, index) => {
                   const fillColor = trend.label.includes('Severe')
@@ -313,7 +300,6 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
           </div>
         )}
       </div>
-
       <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
         <h2 className="text-xl font-bold text-white mb-4">Tips</h2>
         <ul className="space-y-2 text-slate-300">
