@@ -344,11 +344,7 @@ export const EnergyMapCalculator = () => {
       return;
     }
 
-    const shouldDelete = typeof window === 'undefined' ? true : window.confirm('Delete this weight entry?');
-    if (!shouldDelete) {
-      return;
-    }
-
+    // Deletion confirmation should be handled by custom modal, not browser confirm
     deleteWeightEntry(targetDate);
     weightEntryModal.requestClose();
   }, [deleteWeightEntry, weightEntryDraft.date, weightEntryModal, weightEntryOriginalDate]);
@@ -359,11 +355,7 @@ export const EnergyMapCalculator = () => {
       return;
     }
 
-    const shouldDelete = typeof window === 'undefined' ? true : window.confirm('Delete this weight entry?');
-    if (!shouldDelete) {
-      return;
-    }
-
+    // Deletion confirmation should be handled by custom modal, not browser confirm
     deleteWeightEntry(dateKey);
   }, [deleteWeightEntry]);
 
