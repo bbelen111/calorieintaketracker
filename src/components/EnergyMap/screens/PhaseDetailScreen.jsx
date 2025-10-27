@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ChevronLeft, Plus, TrendingUp, Calendar, Target, Zap, Activity, BarChart3 } from 'lucide-react';
+import { ChevronLeft, Plus, TrendingUp, Calendar, Target, Zap, Activity, BarChart3, Download } from 'lucide-react';
 import { goals } from '../../../constants/goals';
 import { formatWeight } from '../../../utils/weight';
 import { calculatePhaseMetrics, getPhaseCalendarData, getRecentDailyLogs } from '../../../utils/phases';
@@ -185,7 +185,8 @@ export const PhaseDetailScreen = ({
   onBack, 
   onAddLog, 
   onEditLog,
-  onViewInsights
+  onViewInsights,
+  onExport
 }) => {
   const metrics = useMemo(
     () => calculatePhaseMetrics(phase, weightEntries),
@@ -321,7 +322,7 @@ export const PhaseDetailScreen = ({
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <button
           type="button"
           onClick={() => onAddLog()}
@@ -337,6 +338,14 @@ export const PhaseDetailScreen = ({
         >
           <BarChart3 size={20} />
           View Insights
+        </button>
+        <button
+          type="button"
+          onClick={onExport}
+          className="px-6 py-4 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+        >
+          <Download size={20} />
+          Export Data
         </button>
       </div>
 

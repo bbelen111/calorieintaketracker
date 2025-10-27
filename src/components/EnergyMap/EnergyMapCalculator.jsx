@@ -35,7 +35,9 @@ import { DailyActivityEditorModal } from './modals/DailyActivityEditorModal';
 import { DailyActivityCustomModal } from './modals/DailyActivityCustomModal';
 import { PhaseCreationModal } from './modals/PhaseCreationModal';
 import { DailyLogModal } from './modals/DailyLogModal';
+import { PhaseInsightsModal } from './modals/PhaseInsightsModal';
 import { clampWeight, normalizeDateKey, formatWeight, formatDateLabel } from '../../utils/weight';
+import { exportPhaseAsCSV, exportPhaseAsJSON } from '../../utils/export';
 
 const MODAL_CLOSE_DELAY = 200;
 const screenTabs = [
@@ -229,6 +231,7 @@ export const EnergyMapCalculator = () => {
   const calorieBreakdownModal = useAnimatedModal();
   const phaseCreationModal = useAnimatedModal();
   const dailyLogModal = useAnimatedModal();
+  const phaseInsightsModal = useAnimatedModal();
 
   useEffect(() => {
     saveSelectedDay(selectedDay);
@@ -1071,10 +1074,21 @@ export const EnergyMapCalculator = () => {
     dailyLogModal.requestClose();
   }, [dailyLogDate, dailyLogModal, deleteDailyLog, selectedPhase]);
 
+  // Phase insights handlers
   const handleViewPhaseInsights = useCallback(() => {
-    // TODO: Phase 3 - Open insights modal or navigate to insights view
-    console.log('View insights for phase:', selectedPhase);
-  }, [selectedPhase]);
+    if (!selectedPhase) return;
+    phaseInsightsModal.open();
+  }, [selectedPhase, phaseInsightsModal]);
+
+  const handleExportPhase = useCallback((format = 'csv') => {
+    if (!selectedPhase) return;
+    
+    if (format === 'json') {
+      exportPhaseAsJSON(selectedPhase, weightEntries);
+    } else {
+      exportPhaseAsCSV(selectedPhase, weightEntries);
+    }
+  }, [selectedPhase, weightEntries]);
 
   useEffect(() => {
     if (!dailyLogModal.isOpen && !dailyLogModal.isClosing) {
@@ -1102,6 +1116,16 @@ export const EnergyMapCalculator = () => {
       setPhaseError('');
     }
   }, [phaseCreationModal.isClosing, phaseCreationModal.isOpen]);
+
+  // Sync selectedPhase with phases array to keep it up-to-date
+  useEffect(() => {
+    if (selectedPhase) {
+      const updatedPhase = phases.find(p => p.id === selectedPhase.id);
+      if (updatedPhase) {
+        setSelectedPhase(updatedPhase);
+      }
+    }
+  }, [phases, selectedPhase?.id]);
 
   useEffect(() => {
     if (!cardioModal.isOpen && !cardioModal.isClosing) {
@@ -1157,6 +1181,7 @@ export const EnergyMapCalculator = () => {
                     onAddLog={openDailyLogModal}
                     onEditLog={openEditDailyLogModal}
                     onViewInsights={handleViewPhaseInsights}
+                    onExport={() => handleExportPhase('csv')}
                   />
                 ) : (
                   <LogbookScreen 
@@ -1489,6 +1514,7 @@ export const EnergyMapCalculator = () => {
         endDate={phaseEndDate}
         goalType={phaseGoalType}
         targetWeight={phaseTargetWeight}
+        currentWeight={latestWeightEntry?.weight || userData.weight}
         onNameChange={setPhaseName}
         onStartDateChange={setPhaseStartDate}
         onEndDateChange={setPhaseEndDate}
@@ -1524,6 +1550,15 @@ export const EnergyMapCalculator = () => {
         onDelete={dailyLogMode === 'edit' ? handleDailyLogDelete : undefined}
         error={dailyLogError}
         isDateLocked={dailyLogDateLocked}
+      />
+
+      <PhaseInsightsModal
+        isOpen={phaseInsightsModal.isOpen}
+        isClosing={phaseInsightsModal.isClosing}
+        phase={selectedPhase}
+        weightEntries={weightEntries}
+        onClose={phaseInsightsModal.requestClose}
+        onExport={() => handleExportPhase('csv')}
       />
     </div>
   );
