@@ -1,25 +1,21 @@
 import React from 'react';
 import { ModalShell } from '../common/ModalShell';
-import { Calendar, Zap, Activity, StickyNote, Check } from 'lucide-react';
+import { Calendar, Scale, Utensils, StickyNote, Check, AlertCircle } from 'lucide-react';
+import { formatWeight } from '../../../utils/weight';
 
 export const DailyLogModal = ({
   isOpen,
   isClosing,
   mode = 'add',
   date,
-  calories,
-  protein,
-  carbs,
-  fats,
-  steps,
+  weightRef,
+  nutritionRef,
   notes,
   completed,
+  availableWeightEntries = [],
   onDateChange,
-  onCaloriesChange,
-  onProteinChange,
-  onCarbsChange,
-  onFatsChange,
-  onStepsChange,
+  onWeightRefChange,
+  onNutritionRefChange,
   onNotesChange,
   onCompletedChange,
   onCancel,
@@ -28,6 +24,9 @@ export const DailyLogModal = ({
   error,
   isDateLocked = false
 }) => {
+  // Find selected weight entry
+  const selectedWeight = availableWeightEntries.find(entry => entry.date === weightRef);
+  
   const formatDateForInput = (dateStr) => {
     if (!dateStr) return '';
     return dateStr; // Already in YYYY-MM-DD format
@@ -45,12 +44,12 @@ export const DailyLogModal = ({
   };
 
   return (
-    <ModalShell isOpen={isOpen} isClosing={isClosing} contentClassName="w-full md:max-w-3xl p-6 max-h-[90vh] overflow-y-auto">
+    <ModalShell isOpen={isOpen} isClosing={isClosing} contentClassName="w-full md:max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
       <h3 className="text-white font-bold text-xl mb-4">
         {mode === 'edit' ? 'Edit Daily Log' : 'Add Daily Log'}
       </h3>
       
-      <div className="space-y-4">
+      <div className="space-y-5">
         {/* Date */}
         <div>
           <label className="block text-slate-300 text-sm font-semibold mb-2 flex items-center gap-2">
@@ -71,127 +70,89 @@ export const DailyLogModal = ({
           )}
         </div>
 
-        {/* Calories */}
-        <div>
-          <label className="block text-slate-300 text-sm font-semibold mb-2 flex items-center gap-2">
-            <Zap size={16} className="text-yellow-400" />
-            Calories <span className="text-red-400">*</span>
+        {/* Weight Section */}
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
+          <label className="block text-slate-300 text-sm font-semibold mb-3 flex items-center gap-2">
+            <Scale size={16} className="text-purple-400" />
+            Weight Entry
           </label>
-          <input
-            type="number"
-            value={calories}
-            onChange={(e) => onCaloriesChange(e.target.value)}
-            placeholder="e.g., 3200"
-            min="0"
-            max="10000"
-            step="1"
-            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          
+          {availableWeightEntries.length > 0 ? (
+            <>
+              <select
+                value={weightRef || ''}
+                onChange={(e) => onWeightRefChange(e.target.value)}
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
+              >
+                <option value="">No weight entry selected</option>
+                {availableWeightEntries.map((entry) => (
+                  <option key={entry.date} value={entry.date}>
+                    {formatDateLabel(entry.date)} - {formatWeight(entry.weight)} kg
+                  </option>
+                ))}
+              </select>
+              
+              {selectedWeight && (
+                <div className="bg-slate-900 rounded-lg p-3 border border-slate-600">
+                  <div className="text-slate-400 text-xs mb-1">Selected Weight:</div>
+                  <div className="text-white text-lg font-bold">{formatWeight(selectedWeight.weight)} kg</div>
+                  <div className="text-slate-500 text-xs mt-1">{formatDateLabel(selectedWeight.date)}</div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-slate-400 text-sm py-3 text-center">
+              No weight entries available. Log your weight first in the Weight Tracker.
+            </div>
+          )}
         </div>
 
-        {/* Macros */}
-        <div>
-          <label className="block text-slate-300 text-sm font-semibold mb-2">
-            Macros <span className="text-slate-400 text-xs font-normal">(optional)</span>
+        {/* Nutrition Section - Coming Soon */}
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 opacity-60">
+          <label className="block text-slate-300 text-sm font-semibold mb-3 flex items-center gap-2">
+            <Utensils size={16} className="text-green-400" />
+            Nutrition Log
+            <span className="ml-auto text-xs bg-blue-900/30 text-blue-300 px-2 py-1 rounded">Coming Soon</span>
           </label>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="block text-slate-400 text-xs mb-1">Protein (g)</label>
-              <input
-                type="number"
-                value={protein}
-                onChange={(e) => onProteinChange(e.target.value)}
-                placeholder="160"
-                min="0"
-                max="1000"
-                step="1"
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500"
-              />
-            </div>
-            <div>
-              <label className="block text-slate-400 text-xs mb-1">Carbs (g)</label>
-              <input
-                type="number"
-                value={carbs}
-                onChange={(e) => onCarbsChange(e.target.value)}
-                placeholder="400"
-                min="0"
-                max="2000"
-                step="1"
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-slate-400 text-xs mb-1">Fats (g)</label>
-              <input
-                type="number"
-                value={fats}
-                onChange={(e) => onFatsChange(e.target.value)}
-                placeholder="89"
-                min="0"
-                max="500"
-                step="1"
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-              />
-            </div>
+          
+          <div className="text-slate-400 text-sm py-6 text-center border-2 border-dashed border-slate-600 rounded-lg">
+            <AlertCircle size={32} className="mx-auto mb-2 text-slate-500" />
+            <div className="font-semibold mb-1">Nutrition Tracker Not Built Yet</div>
+            <div className="text-xs">Build the calorie/macro tracker first, then link entries here</div>
           </div>
-        </div>
-
-        {/* Steps */}
-        <div>
-          <label className="block text-slate-300 text-sm font-semibold mb-2 flex items-center gap-2">
-            <Activity size={16} className="text-blue-400" />
-            Steps <span className="text-slate-400 text-xs font-normal">(optional)</span>
-          </label>
-          <input
-            type="number"
-            value={steps}
-            onChange={(e) => onStepsChange(e.target.value)}
-            placeholder="e.g., 12000"
-            min="0"
-            max="100000"
-            step="100"
-            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
         </div>
 
         {/* Notes */}
         <div>
           <label className="block text-slate-300 text-sm font-semibold mb-2 flex items-center gap-2">
-            <StickyNote size={16} className="text-purple-400" />
+            <StickyNote size={16} />
             Notes <span className="text-slate-400 text-xs font-normal">(optional)</span>
           </label>
           <textarea
             value={notes}
             onChange={(e) => onNotesChange(e.target.value)}
-            placeholder="How was your day? Training notes, energy levels, etc."
+            placeholder="Any notes about this day..."
             rows={3}
             maxLength={500}
             className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
           />
-          <p className="text-slate-500 text-xs mt-1">
+          <div className="text-slate-500 text-xs mt-1 text-right">
             {notes.length}/500 characters
-          </p>
+          </div>
         </div>
 
-        {/* Completed Toggle */}
-        <div className="bg-slate-700 border border-slate-600 rounded-lg p-4">
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={completed}
-              onChange={(e) => onCompletedChange(e.target.checked)}
-              className="w-5 h-5 rounded border-slate-500 bg-slate-800 text-green-600 focus:ring-2 focus:ring-green-500"
-            />
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <Check size={16} className="text-green-400" />
-                <span className="text-white font-semibold">Mark as Complete</span>
-              </div>
-              <p className="text-slate-400 text-xs mt-0.5">
-                Check this when you've finished logging all data for this day
-              </p>
-            </div>
+        {/* Completed Checkbox */}
+        <div className="flex items-center gap-3 bg-slate-800 border border-slate-700 rounded-lg p-4">
+          <input
+            type="checkbox"
+            id="completed"
+            checked={completed}
+            onChange={(e) => onCompletedChange(e.target.checked)}
+            className="w-5 h-5 rounded border-slate-600 text-blue-600 focus:ring-blue-500 focus:ring-2 bg-slate-700"
+          />
+          <label htmlFor="completed" className="flex items-center gap-2 text-slate-300 font-medium cursor-pointer">
+            <Check size={18} className="text-green-400" />
+            Mark this day as completed
           </label>
         </div>
 
@@ -201,6 +162,14 @@ export const DailyLogModal = ({
             <p className="text-red-300 text-sm">{error}</p>
           </div>
         )}
+
+        {/* Info Message */}
+        <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-3">
+          <p className="text-blue-200 text-xs">
+            💡 <strong>How it works:</strong> The logbook links to existing data from your Weight Tracker and Nutrition Tracker.
+            It doesn't store duplicate data - just references to keep everything organized by phases.
+          </p>
+        </div>
       </div>
 
       {/* Actions */}

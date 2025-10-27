@@ -1,4 +1,4 @@
-import { X, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { X, TrendingUp, TrendingDown, Minus, AlertCircle } from 'lucide-react';
 import { useMemo } from 'react';
 import { ModalShell } from '../common/ModalShell';
 import { calculatePhaseMetrics } from '../../../utils/phases';
@@ -104,43 +104,24 @@ const PhaseInsightsModal = ({ isOpen, isClosing, phase, weightEntries, onClose, 
       value: entry.weight
     }));
 
-    // Calorie trend data
-    const calorieTrendData = logs
-      .filter(log => log.calories != null)
-      .map(log => ({
-        date: log.date,
-        value: log.calories
-      }));
+    // NOTE: Calorie and macro data not available until nutrition tracker is built
+    // Daily logs use reference system (weightRef, nutritionRef), not raw data
+    const calorieTrendData = [];
+    const avgProtein = 0;
+    const avgCarbs = 0;
+    const avgFats = 0;
 
-    // Calculate averages
-    const totalProtein = logs.reduce((sum, log) => sum + (log.protein || 0), 0);
-    const totalCarbs = logs.reduce((sum, log) => sum + (log.carbs || 0), 0);
-    const totalFats = logs.reduce((sum, log) => sum + (log.fats || 0), 0);
-    const macroCount = logs.filter(log => log.protein || log.carbs || log.fats).length;
-
-    const avgProtein = macroCount > 0 ? totalProtein / macroCount : 0;
-    const avgCarbs = macroCount > 0 ? totalCarbs / macroCount : 0;
-    const avgFats = macroCount > 0 ? totalFats / macroCount : 0;
-
-    // Weekly breakdown
+    // Weekly breakdown (weight-based only)
     const weeklyData = [];
     let currentWeek = [];
     logs.forEach((log, i) => {
       currentWeek.push(log);
       if ((i + 1) % 7 === 0 || i === logs.length - 1) {
-        const weekLogs = currentWeek.filter(l => l.calories != null);
-        const weekCalories = weekLogs.reduce((sum, l) => sum + l.calories, 0);
-        const weekSteps = currentWeek.filter(l => l.steps != null).reduce((sum, l) => sum + l.steps, 0);
-        const weekAvgCalories = weekLogs.length > 0 ? weekCalories / weekLogs.length : 0;
-        const weekAvgSteps = currentWeek.filter(l => l.steps != null).length > 0 
-          ? weekSteps / currentWeek.filter(l => l.steps != null).length 
-          : 0;
-
         weeklyData.push({
           weekNum: weeklyData.length + 1,
-          avgCalories: weekAvgCalories,
-          avgSteps: weekAvgSteps,
-          compliance: currentWeek.filter(l => l.completed).length
+          compliance: currentWeek.filter(l => l.completed).length,
+          logsWithWeight: currentWeek.filter(l => l.weightRef && l.weightRef.trim() !== '').length,
+          logsWithNutrition: currentWeek.filter(l => l.nutritionRef && l.nutritionRef.trim() !== '').length
         });
         currentWeek = [];
       }
@@ -189,17 +170,7 @@ const PhaseInsightsModal = ({ isOpen, isClosing, phase, weightEntries, onClose, 
         </div>
 
         {/* Summary Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
-            <div className="text-slate-400 text-xs mb-1">Avg Calories</div>
-            <div className="text-white text-2xl font-bold">{metrics.avgCalories.toFixed(0)}</div>
-            <div className="text-slate-500 text-xs mt-1">per day</div>
-          </div>
-          <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
-            <div className="text-slate-400 text-xs mb-1">Avg Steps</div>
-            <div className="text-white text-2xl font-bold">{metrics.avgSteps.toFixed(0)}</div>
-            <div className="text-slate-500 text-xs mt-1">per day</div>
-          </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
           <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
             <div className="text-slate-400 text-xs mb-1 flex items-center gap-1">
               Weight Change {weightTrendIcon}
@@ -217,6 +188,11 @@ const PhaseInsightsModal = ({ isOpen, isClosing, phase, weightEntries, onClose, 
             <div className="text-slate-400 text-xs mb-1">Compliance</div>
             <div className="text-white text-2xl font-bold">{metrics.completionRate.toFixed(0)}%</div>
             <div className="text-slate-500 text-xs mt-1">days completed</div>
+          </div>
+          <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+            <div className="text-slate-400 text-xs mb-1">Active Days</div>
+            <div className="text-white text-2xl font-bold">{metrics.activeDays}</div>
+            <div className="text-slate-500 text-xs mt-1">of {metrics.totalDays} days</div>
           </div>
         </div>
 
@@ -238,34 +214,28 @@ const PhaseInsightsModal = ({ isOpen, isClosing, phase, weightEntries, onClose, 
           )}
         </div>
 
-        {/* Calorie Trend Chart */}
-        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 mb-4">
-          <h4 className="text-white font-semibold mb-3">Calorie Trend</h4>
-          {calorieTrendData.length > 0 ? (
-            <>
-              <MiniLineChart data={calorieTrendData} color="blue" height={120} />
-              <div className="flex justify-between text-xs text-slate-400 mt-2">
-                <span>{calorieTrendData[0]?.date}</span>
-                <span>{calorieTrendData[calorieTrendData.length - 1]?.date}</span>
-              </div>
-            </>
-          ) : (
-            <div className="h-20 flex items-center justify-center text-slate-500 text-sm">
-              No calorie data logged
-            </div>
-          )}
+        {/* Calorie Trend Chart - Disabled until nutrition tracker built */}
+        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 mb-4 opacity-60">
+          <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
+            Calorie Trend
+            <AlertCircle className="w-4 h-4 text-amber-400" />
+          </h4>
+          <div className="h-32 flex flex-col items-center justify-center text-slate-400 text-sm space-y-2">
+            <p className="font-medium">Nutrition Tracker Not Built Yet</p>
+            <p className="text-xs text-slate-500">Daily logs link to nutrition data - build tracker to enable this chart</p>
+          </div>
         </div>
 
-        {/* Macro Breakdown */}
-        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 mb-4">
-          <h4 className="text-white font-semibold mb-3">Average Macro Breakdown</h4>
-          {avgProtein > 0 || avgCarbs > 0 || avgFats > 0 ? (
-            <MacroBarChart protein={avgProtein} carbs={avgCarbs} fats={avgFats} />
-          ) : (
-            <div className="h-20 flex items-center justify-center text-slate-500 text-sm">
-              No macro data logged
-            </div>
-          )}
+        {/* Macro Breakdown - Disabled until nutrition tracker built */}
+        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 mb-4 opacity-60">
+          <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
+            Average Macro Breakdown
+            <AlertCircle className="w-4 h-4 text-amber-400" />
+          </h4>
+          <div className="h-32 flex flex-col items-center justify-center text-slate-400 text-sm space-y-2">
+            <p className="font-medium">Nutrition Tracker Not Built Yet</p>
+            <p className="text-xs text-slate-500">Daily logs link to nutrition data - build tracker to enable this chart</p>
+          </div>
         </div>
 
         {/* Weekly Breakdown */}
@@ -278,12 +248,12 @@ const PhaseInsightsModal = ({ isOpen, isClosing, phase, weightEntries, onClose, 
                   <div className="w-16 text-slate-400">Week {week.weekNum}</div>
                   <div className="flex-1 grid grid-cols-3 gap-2">
                     <div className="bg-slate-900 px-3 py-1 rounded">
-                      <span className="text-slate-500">Cal: </span>
-                      <span className="text-white">{week.avgCalories.toFixed(0)}</span>
+                      <span className="text-slate-500">Weight: </span>
+                      <span className="text-white">{week.logsWithWeight}/7</span>
                     </div>
                     <div className="bg-slate-900 px-3 py-1 rounded">
-                      <span className="text-slate-500">Steps: </span>
-                      <span className="text-white">{week.avgSteps.toFixed(0)}</span>
+                      <span className="text-slate-500">Nutrition: </span>
+                      <span className="text-white">{week.logsWithNutrition}/7</span>
                     </div>
                     <div className="bg-slate-900 px-3 py-1 rounded">
                       <span className="text-slate-500">Done: </span>

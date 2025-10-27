@@ -197,13 +197,10 @@ export const EnergyMapCalculator = () => {
   const [phaseError, setPhaseError] = useState('');
   const [selectedPhase, setSelectedPhase] = useState(null);
 
-  // Daily log state
+  // Daily log state (reference-based)
   const [dailyLogDate, setDailyLogDate] = useState(getTodayDateString());
-  const [dailyLogCalories, setDailyLogCalories] = useState('');
-  const [dailyLogProtein, setDailyLogProtein] = useState('');
-  const [dailyLogCarbs, setDailyLogCarbs] = useState('');
-  const [dailyLogFats, setDailyLogFats] = useState('');
-  const [dailyLogSteps, setDailyLogSteps] = useState('');
+  const [dailyLogWeightRef, setDailyLogWeightRef] = useState('');
+  const [dailyLogNutritionRef, setDailyLogNutritionRef] = useState('');
   const [dailyLogNotes, setDailyLogNotes] = useState('');
   const [dailyLogCompleted, setDailyLogCompleted] = useState(false);
   const [dailyLogMode, setDailyLogMode] = useState('add');
@@ -975,15 +972,12 @@ export const EnergyMapCalculator = () => {
     setSelectedPhase(null);
   }, []);
 
-  // Daily log handlers
+  // Daily log handlers (reference-based)
   const openDailyLogModal = useCallback((date = null) => {
     const targetDate = date || getTodayDateString();
     setDailyLogDate(targetDate);
-    setDailyLogCalories('');
-    setDailyLogProtein('');
-    setDailyLogCarbs('');
-    setDailyLogFats('');
-    setDailyLogSteps('');
+    setDailyLogWeightRef('');
+    setDailyLogNutritionRef('');
     setDailyLogNotes('');
     setDailyLogCompleted(false);
     setDailyLogMode('add');
@@ -996,11 +990,8 @@ export const EnergyMapCalculator = () => {
     if (!log) return;
     
     setDailyLogDate(log.date);
-    setDailyLogCalories(String(log.calories || ''));
-    setDailyLogProtein(String(log.protein || ''));
-    setDailyLogCarbs(String(log.carbs || ''));
-    setDailyLogFats(String(log.fats || ''));
-    setDailyLogSteps(String(log.steps || ''));
+    setDailyLogWeightRef(log.weightRef || '');
+    setDailyLogNutritionRef(log.nutritionRef || '');
     setDailyLogNotes(log.notes || '');
     setDailyLogCompleted(log.completed || false);
     setDailyLogMode('edit');
@@ -1015,36 +1006,16 @@ export const EnergyMapCalculator = () => {
       return;
     }
 
-    // Validate calories
-    const caloriesNum = Number(dailyLogCalories);
-    if (!dailyLogCalories || !Number.isFinite(caloriesNum) || caloriesNum <= 0) {
-      setDailyLogError('Please enter valid calories');
-      return;
-    }
-
-    if (caloriesNum > 10000) {
-      setDailyLogError('Calories must be less than 10,000');
-      return;
-    }
-
     // Validate date
     if (!dailyLogDate) {
       setDailyLogError('Please select a date');
       return;
     }
 
-    // Parse optional fields
-    const proteinNum = dailyLogProtein ? Number(dailyLogProtein) : 0;
-    const carbsNum = dailyLogCarbs ? Number(dailyLogCarbs) : 0;
-    const fatsNum = dailyLogFats ? Number(dailyLogFats) : 0;
-    const stepsNum = dailyLogSteps ? Number(dailyLogSteps) : 0;
-
+    // Build log data with references
     const logData = {
-      calories: Math.round(caloriesNum),
-      protein: proteinNum > 0 ? Math.round(proteinNum) : 0,
-      carbs: carbsNum > 0 ? Math.round(carbsNum) : 0,
-      fats: fatsNum > 0 ? Math.round(fatsNum) : 0,
-      steps: stepsNum > 0 ? Math.round(stepsNum) : 0,
+      weightRef: dailyLogWeightRef || null,
+      nutritionRef: dailyLogNutritionRef || null,
       notes: dailyLogNotes.trim(),
       completed: dailyLogCompleted
     };
@@ -1059,16 +1030,13 @@ export const EnergyMapCalculator = () => {
     dailyLogModal.requestClose();
   }, [
     addDailyLog,
-    dailyLogCalories,
-    dailyLogCarbs,
     dailyLogCompleted,
     dailyLogDate,
-    dailyLogFats,
     dailyLogModal,
     dailyLogMode,
     dailyLogNotes,
-    dailyLogProtein,
-    dailyLogSteps,
+    dailyLogNutritionRef,
+    dailyLogWeightRef,
     selectedPhase,
     updateDailyLog
   ]);
@@ -1133,11 +1101,8 @@ export const EnergyMapCalculator = () => {
   useEffect(() => {
     if (!dailyLogModal.isOpen && !dailyLogModal.isClosing) {
       setDailyLogDate(getTodayDateString());
-      setDailyLogCalories('');
-      setDailyLogProtein('');
-      setDailyLogCarbs('');
-      setDailyLogFats('');
-      setDailyLogSteps('');
+      setDailyLogWeightRef('');
+      setDailyLogNutritionRef('');
       setDailyLogNotes('');
       setDailyLogCompleted(false);
       setDailyLogMode('add');
@@ -1572,19 +1537,14 @@ export const EnergyMapCalculator = () => {
         isClosing={dailyLogModal.isClosing}
         mode={dailyLogMode}
         date={dailyLogDate}
-        calories={dailyLogCalories}
-        protein={dailyLogProtein}
-        carbs={dailyLogCarbs}
-        fats={dailyLogFats}
-        steps={dailyLogSteps}
+        weightRef={dailyLogWeightRef}
+        nutritionRef={dailyLogNutritionRef}
         notes={dailyLogNotes}
         completed={dailyLogCompleted}
+        availableWeightEntries={weightEntries}
         onDateChange={setDailyLogDate}
-        onCaloriesChange={setDailyLogCalories}
-        onProteinChange={setDailyLogProtein}
-        onCarbsChange={setDailyLogCarbs}
-        onFatsChange={setDailyLogFats}
-        onStepsChange={setDailyLogSteps}
+        onWeightRefChange={setDailyLogWeightRef}
+        onNutritionRefChange={setDailyLogNutritionRef}
         onNotesChange={setDailyLogNotes}
         onCompletedChange={setDailyLogCompleted}
         onCancel={dailyLogModal.requestClose}

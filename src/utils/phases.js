@@ -1,5 +1,6 @@
 /**
  * Calculate comprehensive metrics for a phase based on daily logs and weight entries
+ * NOTE: Uses reference-based system - logs store weightRef/nutritionRef, not raw data
  */
 export const calculatePhaseMetrics = (phase, weightEntries = []) => {
   if (!phase || !phase.dailyLogs) {
@@ -18,15 +19,10 @@ export const calculatePhaseMetrics = (phase, weightEntries = []) => {
   const logs = Object.values(phase.dailyLogs);
   const activeDays = logs.length;
 
-  // Calculate average calories (only from logs that have calories)
-  const logsWithCalories = logs.filter(log => log.calories && log.calories > 0);
-  const totalCalories = logsWithCalories.reduce((sum, log) => sum + (log.calories || 0), 0);
-  const avgCalories = logsWithCalories.length > 0 ? Math.round(totalCalories / logsWithCalories.length) : 0;
-
-  // Calculate average steps (only from logs that have steps)
-  const logsWithSteps = logs.filter(log => log.steps && log.steps > 0);
-  const totalSteps = logsWithSteps.reduce((sum, log) => sum + (log.steps || 0), 0);
-  const avgSteps = logsWithSteps.length > 0 ? Math.round(totalSteps / logsWithSteps.length) : 0;
+  // Calorie/step averages are 0 until nutrition tracker is built
+  // Daily logs only store references (weightRef, nutritionRef), not raw data
+  const avgCalories = 0;
+  const avgSteps = 0;
 
   // Calculate total days (from start date to end date or today)
   const startDate = new Date(phase.startDate + 'T00:00:00');
@@ -37,7 +33,7 @@ export const calculatePhaseMetrics = (phase, weightEntries = []) => {
   // Calculate completion rate
   const completionRate = totalDays > 0 ? Math.round((activeDays / totalDays) * 100) : 0;
 
-  // Calculate weight change
+  // Calculate weight change using referenced weight entries
   const phaseWeightEntries = weightEntries.filter(entry => {
     const entryDate = new Date(entry.date + 'T00:00:00');
     const isAfterStart = entryDate >= startDate;
@@ -72,8 +68,8 @@ export const calculatePhaseMetrics = (phase, weightEntries = []) => {
   return {
     totalDays,
     activeDays,
-    avgCalories,
-    avgSteps,
+    avgCalories, // Always 0 until nutrition tracker built
+    avgSteps, // Always 0 until nutrition tracker built
     weightChange,
     avgWeeklyRate,
     currentWeight,
@@ -83,6 +79,7 @@ export const calculatePhaseMetrics = (phase, weightEntries = []) => {
 
 /**
  * Get calendar data for a phase - which days have logs and their status
+ * NOTE: Status based on reference presence (weightRef, nutritionRef), not raw data
  */
 export const getPhaseCalendarData = (phase) => {
   if (!phase || !phase.startDate) {
@@ -101,7 +98,17 @@ export const getPhaseCalendarData = (phase) => {
     
     let status = 'empty';
     if (log) {
-      status = log.completed ? 'completed' : 'partial';
+      // Check if references exist (weightRef, nutritionRef)
+      const hasWeight = log.weightRef && log.weightRef.trim() !== '';
+      const hasNutrition = log.nutritionRef && log.nutritionRef.trim() !== '';
+      
+      // Completed if marked complete OR has both references
+      if (log.completed || (hasWeight && hasNutrition)) {
+        status = 'completed';
+      } else if (hasWeight || hasNutrition) {
+        // Partial if has at least one reference
+        status = 'partial';
+      }
     }
 
     calendar.push({

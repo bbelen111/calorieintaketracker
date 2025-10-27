@@ -23,18 +23,18 @@ export const exportPhaseAsCSV = (phase, weightEntries) => {
   
   // Phase metrics
   csv += 'PHASE METRICS\n';
-  csv += `Average Calories,${metrics.avgCalories.toFixed(0)}\n`;
-  csv += `Average Steps,${metrics.avgSteps.toFixed(0)}\n`;
   csv += `Weight Change,${metrics.weightChange.toFixed(2)} kg\n`;
   csv += `Average Weekly Rate,${metrics.avgWeeklyRate.toFixed(2)} kg/week\n`;
   csv += `Completion Rate,${metrics.completionRate.toFixed(1)}%\n`;
-  csv += `Starting Weight,${metrics.startingWeight ? metrics.startingWeight.toFixed(1) + ' kg' : 'Not recorded'}\n`;
+  csv += `Starting Weight,${phase.startingWeight ? phase.startingWeight.toFixed(1) + ' kg' : 'Not recorded'}\n`;
   csv += `Current Weight,${metrics.currentWeight ? metrics.currentWeight.toFixed(1) + ' kg' : 'Not recorded'}\n`;
+  csv += `Active Days,${metrics.activeDays}\n`;
+  csv += `Total Days,${metrics.totalDays}\n`;
   csv += '\n';
   
-  // Daily logs
+  // Daily logs - reference-based system (links to weight/nutrition data, not raw values)
   csv += 'DAILY LOGS\n';
-  csv += 'Date,Calories,Protein (g),Carbs (g),Fats (g),Steps,Completed,Notes\n';
+  csv += 'Date,Weight Ref,Nutrition Ref,Completed,Notes\n';
   
   const logs = Object.entries(phase.dailyLogs || {})
     .map(([date, log]) => ({ date, ...log }))
@@ -43,11 +43,8 @@ export const exportPhaseAsCSV = (phase, weightEntries) => {
   logs.forEach(log => {
     const row = [
       log.date,
-      log.calories || '',
-      log.protein || '',
-      log.carbs || '',
-      log.fats || '',
-      log.steps || '',
+      log.weightRef || 'Not linked',
+      log.nutritionRef || 'Not linked',
       log.completed ? 'Yes' : 'No',
       log.notes ? `"${log.notes.replace(/"/g, '""')}"` : ''
     ];
@@ -112,13 +109,13 @@ export const exportPhaseAsJSON = (phase, weightEntries) => {
       completedAt: phase.completedAt || null
     },
     metrics: {
-      avgCalories: parseFloat(metrics.avgCalories.toFixed(2)),
-      avgSteps: parseFloat(metrics.avgSteps.toFixed(2)),
       weightChange: parseFloat(metrics.weightChange.toFixed(2)),
       avgWeeklyRate: parseFloat(metrics.avgWeeklyRate.toFixed(3)),
       completionRate: parseFloat(metrics.completionRate.toFixed(2)),
-      startingWeight: metrics.startingWeight ? parseFloat(metrics.startingWeight.toFixed(2)) : null,
-      currentWeight: metrics.currentWeight ? parseFloat(metrics.currentWeight.toFixed(2)) : null
+      startingWeight: phase.startingWeight ? parseFloat(phase.startingWeight.toFixed(2)) : null,
+      currentWeight: metrics.currentWeight ? parseFloat(metrics.currentWeight.toFixed(2)) : null,
+      activeDays: metrics.activeDays,
+      totalDays: metrics.totalDays
     },
     dailyLogs: Object.entries(phase.dailyLogs || {})
       .map(([date, log]) => ({ date, ...log }))
