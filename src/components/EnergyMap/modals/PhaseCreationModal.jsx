@@ -1,6 +1,13 @@
 import React from 'react';
 import { ModalShell } from '../common/ModalShell';
 import { goals } from '../../../constants/goals';
+const getGoalClasses = (key, selected) => {
+  const goal = goals[key];
+  if (!goal) return 'border-slate-600 bg-slate-700 text-slate-300 hover:border-slate-500';
+  if (!selected) return 'border-slate-600 bg-slate-700 text-slate-300 hover:border-slate-500';
+  // Use color for bg, border, and text
+  return `${goal.color} border-2 ${goal.color.replace('bg-', 'border-')} text-white`;
+};
 
 export const PhaseCreationModal = ({
   isOpen,
@@ -78,14 +85,10 @@ export const PhaseCreationModal = ({
                 key={key}
                 type="button"
                 onClick={() => onGoalTypeChange(key)}
-                className={`p-3 rounded-lg border-2 transition-all text-left ${
-                  goalType === key
-                    ? `${goal.borderColor} ${goal.bgColor} ${goal.textColor}`
-                    : 'border-slate-600 bg-slate-700 text-slate-300 hover:border-slate-500'
-                }`}
+                className={`p-3 rounded-lg transition-all text-left ${getGoalClasses(key, goalType === key)}`}
               >
                 <div className="font-semibold text-sm">{goal.label}</div>
-                <div className="text-xs opacity-80 mt-0.5">{goal.subtitle}</div>
+                <div className="text-xs opacity-80 mt-0.5">{goal.desc}</div>
               </button>
             ))}
           </div>
