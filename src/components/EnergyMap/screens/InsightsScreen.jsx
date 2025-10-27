@@ -94,7 +94,7 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
       >
         <div className="flex items-center justify-between gap-1">
           <div>
-            <p className="text-slate-400 text-xs uppercase tracking-wide mb-2 flex items-center gap-2">
+            <p className="text-slate-400 text-xs tracking-wide mb-2 flex items-center gap-2">
               <LineChart size={16} className="text-blue-300" />
               Weight Snapshot
             </p>
@@ -258,7 +258,7 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
             </div>
           )}
         </div>
-        <p className="text-blue-300 text-xs uppercase tracking-wide mt-4">Tap to open weight tracker</p>
+        <p className="text-blue-300 text-xs tracking-wide mt-4">Tap to open weight tracker</p>
       </button>
 
       <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
