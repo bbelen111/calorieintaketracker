@@ -126,7 +126,7 @@ const getGoalWeeklyTarget = (selectedGoal) => {
   return goalTargets[selectedGoal] || '0.0 kg/wk';
 };
 
-const DATE_COLUMN_WIDTH = 66;
+const DATE_COLUMN_WIDTH = 55;
 const DATE_COLUMN_GAP = 8;
 const Y_TICK_COUNT = 7;
 // Visual padding when stretching across the viewport
@@ -141,7 +141,7 @@ const BASELINE_Y_OFFSET = 18;
 const LEADING_ENTRY_SPACE = 45;
 const FIRST_ENTRY_CENTER_OFFSET = LEADING_ENTRY_SPACE + DATE_COLUMN_WIDTH / 2;
 const TOOLTIP_WIDTH = 144;
-const TOOLTIP_VERTICAL_OFFSET = 24;
+const TOOLTIP_VERTICAL_OFFSET = 17;
 const POINT_RADIUS = 6;
 const POINT_HIT_RADIUS = 12;
 
@@ -164,6 +164,14 @@ const formatTimelineLabel = (dateStr) => {
   return date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
 };
 
+// Short uppercase month date format e.g. "OCT 10, 2025"
+const formatShortDate = (dateStr) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr + 'T00:00:00');
+  const parts = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  // Uppercase the month abbreviation (first token)
+  return parts.replace(/^[A-Za-z]{3}/, (m) => m.toUpperCase());
+};
 // Helper to format date for tooltip
 const formatTooltipDate = (dateStr) => {
   const date = new Date(dateStr + 'T00:00:00');
@@ -412,6 +420,17 @@ export const WeightTrackerModal = ({
   // Get latest entry date
   const latestDate = sortedEntries.length ? sortedEntries[sortedEntries.length - 1].date : null;
 
+  // Earliest entry date and timeframe details for the 30-day trend summary
+  const earliestDate = sortedEntries.length ? sortedEntries[0].date : null;
+  const entriesCount = sortedEntries.length;
+  const daysRange = (earliestDate && latestDate)
+    ? Math.round((new Date(latestDate + 'T00:00:00') - new Date(earliestDate + 'T00:00:00')) / (1000 * 60 * 60 * 24))
+    : 0;
+  const timeframeRangeLine = earliestDate && latestDate
+    ? `${formatShortDate(earliestDate)} - ${formatShortDate(latestDate)}`
+    : '';
+  const timeframeMain = `30-day trend (${entriesCount} ${entriesCount === 1 ? 'entry' : 'entries'}${earliestDate && latestDate ? ` over ${daysRange} days` : ''})`;
+
   const currentWeightValue = sortedEntries.length
     ? sortedEntries[sortedEntries.length - 1].weight
     : latestWeight;
@@ -620,7 +639,7 @@ export const WeightTrackerModal = ({
     {/* Combined Timeline and Current Weight Section - Takes full remaining space */}
     <div className="flex-1 bg-slate-800 border-t border-slate-700 overflow-y-auto flex flex-col">
           {/* Stats Section */}
-          <div className="px-6 pt-6 pb-4 grid grid-cols-2 md:grid-cols-3 gap-4 flex-shrink-0">
+          <div className="px-6 pt-6 pb-4 grid grid-cols-2 md:grid-cols-4 gap-4 flex-shrink-0">
             <div>
               <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">Current Weight</p>
               <p className="text-white text-3xl font-bold">{currentWeightDisplay}</p>
@@ -637,12 +656,12 @@ export const WeightTrackerModal = ({
                 Weekly Rate
                 <Info size={14} className="opacity-60 group-hover:opacity-100 transition-opacity" />
               </button>
-              <p className="text-white text-2xl font-semibold">{weeklyRateDisplay}</p>
+              <p className="text-white text-lg font-semibold">{weeklyRateDisplay}</p>
               <p className="text-slate-400 text-xs mt-1">
                 Goal: {getGoalWeeklyTarget(selectedGoal)}
               </p>
             </div>
-            <div className="col-span-2 md:col-span-1">
+            <div>
               <button
                 type="button"
                 onClick={openTrendInfo}
@@ -651,7 +670,7 @@ export const WeightTrackerModal = ({
                 Trend
                 <Info size={14} className="opacity-60 group-hover:opacity-100 transition-opacity" />
               </button>
-              <p className={`${getTrendToneClass(trend.direction, trend.label)} font-semibold text-lg flex items-center gap-2`}>
+              <p className={`${getTrendToneClass(trend.direction, trend.label)} font-semibold text-l flex items-center gap-2`}>
                 <TrendIcon direction={trend.direction} />
                 {trend.label}
               </p>
@@ -661,13 +680,18 @@ export const WeightTrackerModal = ({
                 </p>
               )}
             </div>
+            <div>
+              <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">Timeframe</p>
+              <p className="text-white text-sm font-semibold">{timeframeRangeLine}</p>
+              <p className="text-slate-400 text-[11px] mt-1">{timeframeMain}</p>
+            </div>
           </div>
 
-          <div className="px-6 pb-4 flex-shrink-0">
+          <div className="px-6 pb-1 flex-shrink-0">
             <button
               type="button"
               onClick={() => onAddEntry?.()}
-              className="px-5 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all font-semibold text-base hover:bg-blue-500/90"
+              className="px-5 py-1 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all font-semibold text-base hover:bg-blue-500/90"
             >
               Add Entry
             </button>
@@ -675,7 +699,7 @@ export const WeightTrackerModal = ({
 
           {/* Graph and Timeline Section - Synchronized scrolling */}
             <div className="flex-1 flex flex-col min-h-0">
-            <div className="flex-1 pr-6 pb-4 overflow-hidden flex gap-1">
+            <div className="flex-1 pr-3 pb-1 overflow-hidden flex">
               {/* Graph viewport wrapper to pin overlay fades */}
               <div className="relative rounded-l-lg flex-1 overflow-hidden">
                 <div
@@ -918,7 +942,7 @@ export const WeightTrackerModal = ({
               </div>
             </div>
 
-            <div className="pr-6 pb-6 flex gap-1 flex-shrink-0">
+            <div className="pr-1 pb-1 flex gap-1 flex-shrink-0">
               {/* Timeline viewport wrapper to pin overlay fades */}
               <div className="relative flex-1 rounded-lg overflow-hidden">
                 <div

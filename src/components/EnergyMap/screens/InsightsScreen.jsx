@@ -80,6 +80,24 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
     [sortedEntries]
   );
 
+  // Timeframe details for the 30-day trend summary (earliest -> latest among displayed entries)
+  const earliestEntry = useMemo(() => (sortedEntries.length ? sortedEntries[0] : null), [sortedEntries]);
+  const entriesCount = sortedEntries.length;
+  const formatShortDate = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr + 'T00:00:00');
+    const parts = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return parts.replace(/^[A-Za-z]{3}/, (m) => m.toUpperCase());
+  };
+
+  const daysRange = (earliestEntry && latestEntry)
+    ? Math.round((new Date(latestEntry.date + 'T00:00:00') - new Date(earliestEntry.date + 'T00:00:00')) / (1000 * 60 * 60 * 24))
+    : 0;
+  const timeframeRangeLine = earliestEntry && latestEntry
+    ? `${formatShortDate(earliestEntry.date)} - ${formatShortDate(latestEntry.date)}`
+    : '';
+  const timeframeMain = `30-day trend (${entriesCount} ${entriesCount === 1 ? 'entry' : 'entries'}${earliestEntry && latestEntry ? ` over ${daysRange} days` : ''})`;
+
   const currentWeight = formatWeight(latestEntry?.weight ?? userData.weight);
   const lastLoggedLabel = latestEntry?.date
     ? formatDateLabel(latestEntry.date, { month: 'short', day: 'numeric' })
@@ -105,6 +123,8 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
             <p className="text-slate-500 text-xs mt-3">
               {formatWeeklyRate(trend.weeklyRate)}
             </p>
+            <p className="text-white text-sm mt-2 font-semibold">{timeframeRangeLine}</p>
+            <p className="text-slate-300 text-xs mt-1">{timeframeMain}</p>
           </div>
           {sparkline.points && sortedEntries.length > 1 && (
             <div className="w-36 h-16 relative">
