@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ChevronLeft, Plus, TrendingUp, Calendar, Target, Zap, Activity, BarChart3, Download } from 'lucide-react';
+import { ChevronLeft, Plus, TrendingUp, Calendar, Target, Zap, Activity, BarChart3, Download, Archive, Trash2 } from 'lucide-react';
 import { goals } from '../../../constants/goals';
 import { formatWeight } from '../../../utils/weight';
 import { calculatePhaseMetrics, getPhaseCalendarData, getRecentDailyLogs } from '../../../utils/phases';
@@ -186,7 +186,9 @@ export const PhaseDetailScreen = ({
   onAddLog, 
   onEditLog,
   onViewInsights,
-  onExport
+  onExport,
+  onArchive,
+  onDelete
 }) => {
   const metrics = useMemo(
     () => calculatePhaseMetrics(phase, weightEntries),
@@ -258,6 +260,26 @@ export const PhaseDetailScreen = ({
                 {goal.label}
               </span>
             </div>
+          </div>
+          
+          {/* Phase Actions */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onArchive}
+              className="p-2 text-slate-400 hover:text-green-400 hover:bg-slate-700 rounded-lg transition-all"
+              title="Archive Phase"
+            >
+              <Archive size={20} />
+            </button>
+            <button
+              type="button"
+              onClick={onDelete}
+              className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded-lg transition-all"
+              title="Delete Phase"
+            >
+              <Trash2 size={20} />
+            </button>
           </div>
         </div>
 

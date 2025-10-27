@@ -36,6 +36,7 @@ import { DailyActivityCustomModal } from './modals/DailyActivityCustomModal';
 import { PhaseCreationModal } from './modals/PhaseCreationModal';
 import { DailyLogModal } from './modals/DailyLogModal';
 import { PhaseInsightsModal } from './modals/PhaseInsightsModal';
+import { ConfirmActionModal } from './modals/ConfirmActionModal';
 import { clampWeight, normalizeDateKey, formatWeight, formatDateLabel } from '../../utils/weight';
 import { exportPhaseAsCSV, exportPhaseAsJSON } from '../../utils/export';
 
@@ -209,6 +210,13 @@ export const EnergyMapCalculator = () => {
   const [dailyLogError, setDailyLogError] = useState('');
   const [dailyLogDateLocked, setDailyLogDateLocked] = useState(false);
 
+  // Confirm action state
+  const [confirmActionTitle, setConfirmActionTitle] = useState('');
+  const [confirmActionDescription, setConfirmActionDescription] = useState('');
+  const [confirmActionLabel, setConfirmActionLabel] = useState('Confirm');
+  const [confirmActionTone, setConfirmActionTone] = useState('danger');
+  const [confirmActionCallback, setConfirmActionCallback] = useState(null);
+
   const goalModal = useAnimatedModal();
   const bmrModal = useAnimatedModal();
   const ageModal = useAnimatedModal();
@@ -232,6 +240,7 @@ export const EnergyMapCalculator = () => {
   const phaseCreationModal = useAnimatedModal();
   const dailyLogModal = useAnimatedModal();
   const phaseInsightsModal = useAnimatedModal();
+  const confirmActionModal = useAnimatedModal();
 
   useEffect(() => {
     saveSelectedDay(selectedDay);
@@ -1090,6 +1099,37 @@ export const EnergyMapCalculator = () => {
     }
   }, [selectedPhase, weightEntries]);
 
+  // Phase archive/delete handlers
+  const handleArchivePhase = useCallback(() => {
+    if (!selectedPhase) return;
+    
+    setConfirmActionTitle('Archive Phase');
+    setConfirmActionDescription(`Are you sure you want to archive "${selectedPhase.name}"? You can still view it later, but it will be moved to completed phases.`);
+    setConfirmActionLabel('Archive');
+    setConfirmActionTone('success');
+    setConfirmActionCallback(() => () => {
+      archivePhase(selectedPhase.id);
+      setSelectedPhase(null);
+      confirmActionModal.requestClose();
+    });
+    confirmActionModal.open();
+  }, [selectedPhase, archivePhase, confirmActionModal]);
+
+  const handleDeletePhase = useCallback(() => {
+    if (!selectedPhase) return;
+    
+    setConfirmActionTitle('Delete Phase');
+    setConfirmActionDescription(`Are you sure you want to permanently delete "${selectedPhase.name}"? This will remove all daily logs and cannot be undone.`);
+    setConfirmActionLabel('Delete');
+    setConfirmActionTone('danger');
+    setConfirmActionCallback(() => () => {
+      deletePhase(selectedPhase.id);
+      setSelectedPhase(null);
+      confirmActionModal.requestClose();
+    });
+    confirmActionModal.open();
+  }, [selectedPhase, deletePhase, confirmActionModal]);
+
   useEffect(() => {
     if (!dailyLogModal.isOpen && !dailyLogModal.isClosing) {
       setDailyLogDate(getTodayDateString());
@@ -1182,6 +1222,8 @@ export const EnergyMapCalculator = () => {
                     onEditLog={openEditDailyLogModal}
                     onViewInsights={handleViewPhaseInsights}
                     onExport={() => handleExportPhase('csv')}
+                    onArchive={handleArchivePhase}
+                    onDelete={handleDeletePhase}
                   />
                 ) : (
                   <LogbookScreen 
@@ -1559,6 +1601,17 @@ export const EnergyMapCalculator = () => {
         weightEntries={weightEntries}
         onClose={phaseInsightsModal.requestClose}
         onExport={() => handleExportPhase('csv')}
+      />
+
+      <ConfirmActionModal
+        isOpen={confirmActionModal.isOpen}
+        isClosing={confirmActionModal.isClosing}
+        title={confirmActionTitle}
+        description={confirmActionDescription}
+        confirmLabel={confirmActionLabel}
+        tone={confirmActionTone}
+        onConfirm={confirmActionCallback}
+        onCancel={confirmActionModal.requestClose}
       />
     </div>
   );
