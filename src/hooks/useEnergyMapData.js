@@ -315,6 +315,153 @@ export const useEnergyMapData = () => {
     });
   }, []);
 
+  const createPhase = useCallback((phaseData) => {
+    const latestEntry = weightEntries.length ? weightEntries[weightEntries.length - 1] : null;
+    const startingWeight = latestEntry?.weight ?? userData.weight;
+    
+    const newPhase = {
+      id: Date.now(),
+      name: phaseData.name || 'New Phase',
+      startDate: phaseData.startDate,
+      endDate: phaseData.endDate || null,
+      goalType: phaseData.goalType || 'maintenance',
+      targetWeight: phaseData.targetWeight || null,
+      startingWeight,
+      status: 'active',
+      color: phaseData.color || '#3b82f6',
+      dailyLogs: {},
+      metrics: {
+        totalDays: 0,
+        activeDays: 0,
+        avgCalories: 0,
+        avgSteps: 0,
+        weightChange: 0,
+        avgWeeklyRate: 0
+      },
+      createdAt: Date.now()
+    };
+    
+    setUserData((prev) => ({
+      ...prev,
+      phases: [...prev.phases, newPhase],
+      activePhaseId: newPhase.id
+    }));
+    
+    return newPhase.id;
+  }, [weightEntries, userData.weight]);
+
+  const updatePhase = useCallback((phaseId, updates) => {
+    if (phaseId == null) {
+      return;
+    }
+
+    setUserData((prev) => ({
+      ...prev,
+      phases: prev.phases.map((phase) =>
+        phase.id === phaseId ? { ...phase, ...updates } : phase
+      )
+    }));
+  }, []);
+
+  const deletePhase = useCallback((phaseId) => {
+    if (phaseId == null) {
+      return;
+    }
+
+    setUserData((prev) => {
+      const nextPhases = prev.phases.filter((phase) => phase.id !== phaseId);
+      const nextActiveId = prev.activePhaseId === phaseId ? null : prev.activePhaseId;
+      
+      return {
+        ...prev,
+        phases: nextPhases,
+        activePhaseId: nextActiveId
+      };
+    });
+  }, []);
+
+  const archivePhase = useCallback((phaseId) => {
+    updatePhase(phaseId, { status: 'completed' });
+  }, [updatePhase]);
+
+  const setActivePhase = useCallback((phaseId) => {
+    setUserData((prev) => ({
+      ...prev,
+      activePhaseId: phaseId
+    }));
+  }, []);
+
+  const addDailyLog = useCallback((phaseId, date, logData) => {
+    if (!phaseId || !date) {
+      return;
+    }
+
+    setUserData((prev) => ({
+      ...prev,
+      phases: prev.phases.map((phase) => {
+        if (phase.id !== phaseId) {
+          return phase;
+        }
+        
+        return {
+          ...phase,
+          dailyLogs: {
+            ...phase.dailyLogs,
+            [date]: { ...logData, date }
+          }
+        };
+      })
+    }));
+  }, []);
+
+  const updateDailyLog = useCallback((phaseId, date, updates) => {
+    if (!phaseId || !date) {
+      return;
+    }
+
+    setUserData((prev) => ({
+      ...prev,
+      phases: prev.phases.map((phase) => {
+        if (phase.id !== phaseId) {
+          return phase;
+        }
+        
+        const existingLog = phase.dailyLogs[date] || {};
+        
+        return {
+          ...phase,
+          dailyLogs: {
+            ...phase.dailyLogs,
+            [date]: { ...existingLog, ...updates, date }
+          }
+        };
+      })
+    }));
+  }, []);
+
+  const deleteDailyLog = useCallback((phaseId, date) => {
+    if (!phaseId || !date) {
+      return;
+    }
+
+    setUserData((prev) => ({
+      ...prev,
+      phases: prev.phases.map((phase) => {
+        if (phase.id !== phaseId) {
+          return phase;
+        }
+        
+        const nextLogs = { ...phase.dailyLogs };
+        delete nextLogs[date];
+        
+        return {
+          ...phase,
+          dailyLogs: nextLogs
+        };
+      })
+    }));
+  }, []);
+
   return {
     userData,
     weightEntries,
@@ -322,6 +469,8 @@ export const useEnergyMapData = () => {
     cardioTypes: resolvedCardioTypes,
     customCardioTypes: userData.customCardioTypes ?? {},
     cardioFavourites: userData.cardioFavourites ?? [],
+    phases: userData.phases ?? [],
+    activePhaseId: userData.activePhaseId,
     bmr,
     trainingCalories,
     totalCardioBurn,
@@ -340,6 +489,14 @@ export const useEnergyMapData = () => {
     calculateTargetForGoal,
     calculateCardioSessionCalories,
     saveWeightEntry,
-    deleteWeightEntry
+    deleteWeightEntry,
+    createPhase,
+    updatePhase,
+    deletePhase,
+    archivePhase,
+    setActivePhase,
+    addDailyLog,
+    updateDailyLog,
+    deleteDailyLog
   };
 };

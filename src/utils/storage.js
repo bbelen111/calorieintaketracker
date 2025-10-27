@@ -115,7 +115,9 @@ export const getDefaultEnergyMapData = () => ({
   customActivityMultipliers: {
     training: 0.35,
     rest: 0.28
-  }
+  },
+  phases: [],
+  activePhaseId: null
 });
 
 function mergeWithDefaults(data) {
@@ -157,6 +159,8 @@ function mergeWithDefaults(data) {
           effortType: session?.effortType ?? 'intensity'
         }))
       : defaults.cardioFavourites,
-    weightEntries: sortWeightEntries(data.weightEntries ?? defaults.weightEntries)
+    weightEntries: sortWeightEntries(data.weightEntries ?? defaults.weightEntries),
+    phases: Array.isArray(data.phases) ? data.phases : defaults.phases,
+    activePhaseId: data.activePhaseId ?? defaults.activePhaseId
   };
 }
