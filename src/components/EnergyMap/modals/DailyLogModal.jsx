@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ModalShell } from '../common/ModalShell';
-import { Calendar, Scale, Utensils, StickyNote, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Save, Trash2, Calendar, Scale, Utensils, StickyNote, CheckCircle2, AlertCircle } from 'lucide-react';
 import { formatWeight } from '../../../utils/weight';
 
 export const DailyLogModal = ({
@@ -230,7 +230,7 @@ export const DailyLogModal = ({
             onClick={onDelete}
             className="px-4 py-3 bg-red-900 hover:bg-red-800 text-red-200 rounded-lg font-semibold transition-all"
           >
-            Delete
+            <Trash2 size={18} />
           </button>
         )}
         <button
@@ -243,7 +243,7 @@ export const DailyLogModal = ({
         <button
           type="button"
           onClick={onSave}
-          className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-all"
+          className="flex-1 px-4 py-3 bg-green-700 hover:bg-green-600 text-white rounded-lg font-semibold transition-all"
         >
           {mode === 'edit' ? 'Save Changes' : 'Add Log'}
         </button>
