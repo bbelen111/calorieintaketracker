@@ -70,8 +70,11 @@ export const DailyLogModal = ({
             Date
           </label>
           {isDateLocked ? (
-            <div className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-slate-300">
-              {formatDateLabel(date)}
+            <div>
+              <div className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-slate-300">
+                {formatDateLabel(date)}
+              </div>
+              <p className="text-slate-500 text-xs mt-1">Date cannot be changed when editing a log.</p>
             </div>
           ) : (
             <input
