@@ -140,41 +140,48 @@ export const DailyLogModal = ({
         </div>
 
         {/* Notes Toggle */}
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <input
-              type="checkbox"
-              id="showNotes"
-              checked={showNotes}
-              onChange={(e) => {
-                setShowNotes(e.target.checked);
-                if (!e.target.checked) {
-                  onNotesChange('');
-                }
-              }}
-              className="w-4 h-4 rounded border-slate-600 text-blue-600 focus:ring-blue-500 focus:ring-2 bg-slate-700"
-            />
-            <label htmlFor="showNotes" className="flex items-center gap-2 text-slate-300 text-sm font-semibold cursor-pointer">
-              <StickyNote size={16} />
-              Add Notes <span className="text-slate-400 text-xs font-normal">(optional)</span>
-            </label>
-          </div>
+        <div className="!mt-8">
+          <button
+            type="button"
+            onClick={() => {
+              setShowNotes(!showNotes);
+              if (showNotes) {
+                onNotesChange('');
+              }
+            }}
+            className={`w-full px-4 py-3 rounded-lg border-2 transition-all active:scale-[0.98] flex items-center gap-3 font-semibold ${
+              showNotes
+                ? 'bg-indigo-600 border-indigo-400 text-white'
+                : 'bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-750 hover:border-slate-500'
+            }`}
+          >
+            <StickyNote size={18} className={showNotes ? 'text-white' : 'text-indigo-400'} />
+            <span>
+              {showNotes ? 'Notes Added' : 'Add Notes'} <span className="text-xs opacity-75">(optional)</span>
+            </span>
+            {showNotes && (
+              <span className="ml-auto text-xs opacity-90">✓</span>
+            )}
+          </button>
           
-          {showNotes && (
-            <div className="mt-3">
-              <textarea
-                value={notes}
-                onChange={(e) => onNotesChange(e.target.value)}
-                placeholder="Any notes about this day..."
-                rows={3}
-                maxLength={500}
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-              />
-              <div className="text-slate-500 text-xs mt-1 text-right">
-                {notes.length}/500 characters
-              </div>
+          <div 
+            className={`overflow-hidden transition-all duration-300 ease-in-out ${
+              showNotes ? 'max-h-48 opacity-100 mt-3' : 'max-h-0 opacity-0'
+            }`}
+          >
+            <textarea
+              value={notes}
+              onChange={(e) => onNotesChange(e.target.value)}
+              placeholder="Any notes about this day..."
+              rows={3}
+              maxLength={500}
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              autoFocus={showNotes}
+            />
+            <div className="text-slate-500 text-xs mt-1 text-right">
+              {notes.length}/500 characters
             </div>
-          )}
+          </div>
         </div>
 
         {/* Mark as Completed Button */}
