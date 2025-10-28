@@ -143,7 +143,7 @@ export const DailyLogModal = ({
         </div>
 
         {/* Notes Toggle */}
-        <div className="!mt-8">
+        <div className="!mt-10">
           <button
             type="button"
             onClick={() => {
