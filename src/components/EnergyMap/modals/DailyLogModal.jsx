@@ -18,14 +18,15 @@ export const DailyLogModal = ({
   onNutritionRefChange,
   onNotesChange,
   onCompletedChange,
+  onManageWeightClick,
   onCancel,
   onSave,
   onDelete,
   error,
   isDateLocked = false
 }) => {
-  // Find selected weight entry
-  const selectedWeight = availableWeightEntries.find(entry => entry.date === weightRef);
+  // Find weight entry that matches the selected date
+  const matchingWeight = availableWeightEntries.find(entry => entry.date === date);
   
   const formatDateForInput = (dateStr) => {
     if (!dateStr) return '';
@@ -40,6 +41,15 @@ export const DailyLogModal = ({
       month: 'long', 
       day: 'numeric', 
       year: 'numeric' 
+    });
+  };
+
+  const formatShortDate = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr + 'T00:00:00');
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric' 
     });
   };
 
@@ -71,40 +81,37 @@ export const DailyLogModal = ({
         </div>
 
         {/* Weight Section */}
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
-          <label className="block text-slate-300 text-sm font-semibold mb-3 flex items-center gap-2">
+        <div>
+          <label className="block text-slate-300 text-sm font-semibold mb-2 flex items-center gap-2">
             <Scale size={16} className="text-purple-400" />
             Weight Entry
           </label>
           
-          {availableWeightEntries.length > 0 ? (
-            <>
-              <select
-                value={weightRef || ''}
-                onChange={(e) => onWeightRefChange(e.target.value)}
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
-              >
-                <option value="">No weight entry selected</option>
-                {availableWeightEntries.map((entry) => (
-                  <option key={entry.date} value={entry.date}>
-                    {formatDateLabel(entry.date)} - {formatWeight(entry.weight)} kg
-                  </option>
-                ))}
-              </select>
-              
-              {selectedWeight && (
-                <div className="bg-slate-900 rounded-lg p-3 border border-slate-600">
-                  <div className="text-slate-400 text-xs mb-1">Selected Weight:</div>
-                  <div className="text-white text-lg font-bold">{formatWeight(selectedWeight.weight)} kg</div>
-                  <div className="text-slate-500 text-xs mt-1">{formatDateLabel(selectedWeight.date)}</div>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="text-slate-400 text-sm py-3 text-center">
-              No weight entries available. Log your weight first in the Weight Tracker.
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={() => onManageWeightClick?.()}
+            className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1 text-left hover:bg-blue-500/90"
+          >
+            {matchingWeight ? (
+              <>
+                <span className="font-semibold text-sm md:text-base">
+                  {formatWeight(matchingWeight.weight)}kg
+                </span>
+                <span className="text-xs md:text-sm opacity-90 ml-auto whitespace-nowrap">
+                  {formatShortDate(matchingWeight.date)}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="font-semibold text-sm md:text-base opacity-80">
+                  No weight entry
+                </span>
+                <span className="text-[11px] opacity-80 ml-auto whitespace-nowrap">
+                  Tap to manage
+                </span>
+              </>
+            )}
+          </button>
         </div>
 
         {/* Nutrition Section - Coming Soon */}

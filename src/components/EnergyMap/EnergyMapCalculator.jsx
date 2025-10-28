@@ -1012,9 +1012,13 @@ export const EnergyMapCalculator = () => {
       return;
     }
 
+    // Auto-set weightRef to matching date if weight entry exists
+    const matchingWeight = weightEntries.find(entry => entry.date === dailyLogDate);
+    const finalWeightRef = matchingWeight ? matchingWeight.date : null;
+
     // Build log data with references
     const logData = {
-      weightRef: dailyLogWeightRef || null,
+      weightRef: finalWeightRef,
       nutritionRef: dailyLogNutritionRef || null,
       notes: dailyLogNotes.trim(),
       completed: dailyLogCompleted
@@ -1036,9 +1040,9 @@ export const EnergyMapCalculator = () => {
     dailyLogMode,
     dailyLogNotes,
     dailyLogNutritionRef,
-    dailyLogWeightRef,
     selectedPhase,
-    updateDailyLog
+    updateDailyLog,
+    weightEntries
   ]);
 
   const handleDailyLogDelete = useCallback(() => {
@@ -1547,6 +1551,7 @@ export const EnergyMapCalculator = () => {
         onNutritionRefChange={setDailyLogNutritionRef}
         onNotesChange={setDailyLogNotes}
         onCompletedChange={setDailyLogCompleted}
+        onManageWeightClick={weightTrackerModal.open}
         onCancel={dailyLogModal.requestClose}
         onSave={handleDailyLogSave}
         onDelete={dailyLogMode === 'edit' ? handleDailyLogDelete : undefined}
