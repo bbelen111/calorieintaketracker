@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Sparkles } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import { goals } from '../../../constants/goals';
-import { PHASE_TEMPLATES, applyTemplate } from '../../../constants/phaseTemplates';
 const getGoalClasses = (key, selected) => {
   const goal = goals[key];
   if (!goal) return 'border-slate-600 bg-slate-700 text-slate-300 hover:border-slate-500';
@@ -25,73 +24,26 @@ export const PhaseCreationModal = ({
   onEndDateChange,
   onGoalTypeChange,
   onTargetWeightChange,
+  onTemplatesClick,
   onCancel,
   onSave,
   error
 }) => {
-  const [showTemplates, setShowTemplates] = useState(true);
-
-  const handleTemplateSelect = (template) => {
-    const applied = applyTemplate(template, currentWeight);
-    onNameChange(applied.name || '');
-    onStartDateChange(applied.startDate || '');
-    onEndDateChange(applied.endDate || '');
-    onGoalTypeChange(applied.goalType || 'maintenance');
-    onTargetWeightChange(applied.targetWeight ? String(applied.targetWeight) : '');
-    setShowTemplates(false);
-  };
-
   return (
     <ModalShell isOpen={isOpen} isClosing={isClosing} contentClassName="w-full md:max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
-      <h3 className="text-white font-bold text-xl mb-4">Create New Phase</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-white font-bold text-xl">Create New Phase</h3>
+        <button
+          type="button"
+          onClick={onTemplatesClick}
+          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-semibold transition-all text-sm"
+        >
+          <Sparkles className="w-4 h-4" />
+          Templates
+        </button>
+      </div>
       
       <div className="space-y-4">
-        {/* Template Selection */}
-        {showTemplates && (
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="w-5 h-5 text-yellow-400" />
-              <h4 className="text-white font-semibold">Start from Template</h4>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
-              {PHASE_TEMPLATES.map((template) => (
-                <button
-                  key={template.id}
-                  type="button"
-                  onClick={() => handleTemplateSelect(template)}
-                  className="text-left p-3 bg-slate-900 hover:bg-slate-700 border border-slate-700 hover:border-slate-500 rounded-lg transition-all"
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xl">{template.icon}</span>
-                    <span className="text-white font-semibold text-sm">{template.name}</span>
-                  </div>
-                  <p className="text-slate-400 text-xs">{template.description}</p>
-                  <p className="text-slate-500 text-xs mt-1">
-                    {template.suggestedDuration} days • {template.goalType}
-                  </p>
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowTemplates(false)}
-              className="text-blue-400 hover:text-blue-300 text-sm transition-colors"
-            >
-              Or create manually →
-            </button>
-          </div>
-        )}
-
-        {!showTemplates && (
-          <button
-            type="button"
-            onClick={() => setShowTemplates(true)}
-            className="text-slate-400 hover:text-white text-sm flex items-center gap-1 transition-colors"
-          >
-            <Sparkles className="w-4 h-4" />
-            Show templates
-          </button>
-        )}
         {/* Phase Name */}
         <div>
           <label className="block text-slate-300 text-sm font-semibold mb-2">
@@ -185,7 +137,7 @@ export const PhaseCreationModal = ({
         {/* Info */}
         <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-3">
           <p className="text-blue-200 text-xs">
-            💡 Phases help you organize your fitness journey into specific time periods with dedicated goals.
+            Phases help you organize your fitness journey into specific time periods with dedicated goals.
             You can track daily calories, weight, and view unified insights for each phase.
           </p>
         </div>

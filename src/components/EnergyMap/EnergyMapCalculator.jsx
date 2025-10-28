@@ -34,6 +34,7 @@ import { DailyActivityModal } from './modals/DailyActivityModal';
 import { DailyActivityEditorModal } from './modals/DailyActivityEditorModal';
 import { DailyActivityCustomModal } from './modals/DailyActivityCustomModal';
 import { PhaseCreationModal } from './modals/PhaseCreationModal';
+import { TemplatePickerModal } from './modals/TemplatePickerModal';
 import { DailyLogModal } from './modals/DailyLogModal';
 import { PhaseInsightsModal } from './modals/PhaseInsightsModal';
 import { ConfirmActionModal } from './modals/ConfirmActionModal';
@@ -235,6 +236,7 @@ export const EnergyMapCalculator = () => {
   const cardioFavouriteEditorModal = useAnimatedModal();
   const calorieBreakdownModal = useAnimatedModal();
   const phaseCreationModal = useAnimatedModal();
+  const templatePickerModal = useAnimatedModal();
   const dailyLogModal = useAnimatedModal();
   const phaseInsightsModal = useAnimatedModal();
   const confirmActionModal = useAnimatedModal();
@@ -964,6 +966,29 @@ export const EnergyMapCalculator = () => {
     phaseCreationModal.requestClose();
   }, [createPhase, phaseCreationModal, phaseEndDate, phaseGoalType, phaseName, phaseStartDate, phaseTargetWeight]);
 
+  const handleTemplateSelect = useCallback((template) => {
+    if (!template) return;
+    
+    const today = new Date();
+    const startDate = today.toISOString().split('T')[0];
+    
+    const endDate = new Date(today);
+    endDate.setDate(endDate.getDate() + template.suggestedDuration);
+    
+    let targetWeight = '';
+    const currentWeight = latestWeightEntry?.weight ?? userData.weight;
+    if (currentWeight && template.targetWeightChange !== 0) {
+      const calculated = currentWeight + template.targetWeightChange;
+      targetWeight = String(Math.max(30, Math.min(210, calculated)));
+    }
+    
+    setPhaseName(template.defaultName);
+    setPhaseStartDate(startDate);
+    setPhaseEndDate(endDate.toISOString().split('T')[0]);
+    setPhaseGoalType(template.goalType);
+    setPhaseTargetWeight(targetWeight);
+  }, [latestWeightEntry, userData.weight]);
+
   const handlePhaseClick = useCallback((phase) => {
     setSelectedPhase(phase);
   }, []);
@@ -1531,9 +1556,17 @@ export const EnergyMapCalculator = () => {
         onEndDateChange={setPhaseEndDate}
         onGoalTypeChange={setPhaseGoalType}
         onTargetWeightChange={setPhaseTargetWeight}
+        onTemplatesClick={templatePickerModal.open}
         onCancel={phaseCreationModal.requestClose}
         onSave={handlePhaseCreationSave}
         error={phaseError}
+      />
+
+      <TemplatePickerModal
+        isOpen={templatePickerModal.isOpen}
+        isClosing={templatePickerModal.isClosing}
+        onSelectTemplate={handleTemplateSelect}
+        onClose={templatePickerModal.requestClose}
       />
 
       <DailyLogModal
