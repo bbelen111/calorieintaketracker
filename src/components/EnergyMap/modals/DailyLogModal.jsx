@@ -211,12 +211,12 @@ export const DailyLogModal = ({
         )}
 
         {/* Info Message */}
-        <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-3">
+        {/* <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-3">
           <p className="text-blue-200 text-xs">
             💡 <strong>How it works:</strong> The logbook links to existing data from your Weight Tracker and Nutrition Tracker.
             It doesn't store duplicate data - just references to keep everything organized by phases.
           </p>
-        </div>
+        </div> */}
       </div>
 
       {/* Actions */}
