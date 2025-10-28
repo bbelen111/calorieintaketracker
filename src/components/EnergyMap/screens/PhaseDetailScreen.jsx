@@ -206,6 +206,11 @@ export const PhaseDetailScreen = ({
   );
 
   const goal = goals[phase.goalType] || goals.maintenance;
+  // Helper for goal badge color classes
+  const getGoalBadgeClass = () => {
+    if (!goal || !goal.color) return 'bg-slate-700 text-slate-300 border-slate-600';
+    return `${goal.color} text-white border-2 ${goal.color.replace('bg-', 'border-')}`;
+  };
   const isActive = phase.status === 'active';
 
   const handleCalendarDateClick = (date, existingLog) => {
@@ -256,9 +261,7 @@ export const PhaseDetailScreen = ({
                   ACTIVE
                 </span>
               )}
-              <span className={`px-2 py-1 rounded-md text-xs font-semibold ${goal.bgColor} ${goal.textColor} border ${goal.borderColor}`}>
-                {goal.label}
-              </span>
+              <span className={`px-2 py-1 rounded-md text-xs font-semibold ${getGoalBadgeClass()}`}>{goal.label}</span>
             </div>
           </div>
           
