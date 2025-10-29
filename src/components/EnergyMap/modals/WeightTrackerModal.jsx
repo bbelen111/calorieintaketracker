@@ -889,11 +889,23 @@ export const WeightTrackerModal = ({
                           const firstPoint = points[0];
                           pathData = `M 0 ${firstPoint.y} L ${firstPoint.x} ${firstPoint.y}`;
                           areaData = `M 0 ${chartHeight} L 0 ${firstPoint.y} L ${firstPoint.x} ${firstPoint.y}`;
-                          points.forEach(({ x, y }, idx) => {
-                            if (idx === 0) return; // already handled first point
-                            pathData += ` L ${x} ${y}`;
-                            areaData += ` L ${x} ${y}`;
-                          });
+                          
+                          // Create smooth curves between points using cubic Bézier
+                          for (let i = 0; i < points.length - 1; i++) {
+                            const current = points[i];
+                            const next = points[i + 1];
+                            
+                            // Calculate control points for smooth cubic Bézier curve
+                            const cp1x = current.x + (next.x - current.x) * 0.4;
+                            const cp1y = current.y;
+                            const cp2x = next.x - (next.x - current.x) * 0.4;
+                            const cp2y = next.y;
+                            
+                            // Use cubic Bézier curve for both line and area
+                            pathData += ` C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${next.x} ${next.y}`;
+                            areaData += ` C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${next.x} ${next.y}`;
+                          }
+                          
                           if (points.length > 0) {
                             const lastPoint = points[points.length - 1];
                             // Extend the line to the right edge
