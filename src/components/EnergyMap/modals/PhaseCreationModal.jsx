@@ -6,8 +6,8 @@ const getGoalClasses = (key, selected) => {
   const goal = goals[key];
   if (!goal) return 'border-slate-600 bg-slate-700 text-slate-300 hover:border-slate-500';
   if (!selected) return 'border-slate-600 bg-slate-700 text-slate-300 hover:border-slate-500';
-  // Use color for bg, border, and text
-  return `${goal.color} border-2 ${goal.color.replace('bg-', 'border-')} text-white`;
+  // Use color for bg, white border, and text
+  return `${goal.color} border-2 border-white text-white`;
 };
 
 export const PhaseCreationModal = ({
