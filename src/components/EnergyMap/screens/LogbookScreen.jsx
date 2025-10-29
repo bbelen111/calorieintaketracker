@@ -152,7 +152,7 @@ export const LogbookScreen = ({ phases = [], onCreatePhase, onPhaseClick }) => {
     <div className="space-y-6 pb-10">
       {/* Header */}
       <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
-        <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <ClipboardList className="text-blue-400" size={32} />
             <h1 className="text-2xl md:text-3xl font-bold text-white">Logbook</h1>
@@ -166,9 +166,6 @@ export const LogbookScreen = ({ phases = [], onCreatePhase, onPhaseClick }) => {
             <span className="hidden sm:inline">New Phase</span>
           </button>
         </div>
-        <p className="text-slate-300 text-sm">
-          Track your fitness journey through dedicated phases. Each phase contains daily logs, weight tracking, and unified insights.
-        </p>
       </div>
 
       {/* Empty State */}

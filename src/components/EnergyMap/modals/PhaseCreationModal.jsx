@@ -135,12 +135,12 @@ export const PhaseCreationModal = ({
         )}
 
         {/* Info */}
-        <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-3">
+        {/* <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-3">
           <p className="text-blue-200 text-xs">
             Phases help you organize your fitness journey into specific time periods with dedicated goals.
             You can track daily calories, weight, and view unified insights for each phase.
           </p>
-        </div>
+        </div> */}
       </div>
 
       {/* Actions */}

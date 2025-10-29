@@ -50,11 +50,11 @@ export const TemplatePickerModal = ({
         ))}
       </div>
 
-      <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-3 mb-4">
+      {/* <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-3 mb-4">
         <p className="text-blue-200 text-xs">
           Templates provide pre-configured phases with suggested duration and weight targets based on common fitness goals.
         </p>
-      </div>
+      </div> */}
 
       <button
         type="button"
