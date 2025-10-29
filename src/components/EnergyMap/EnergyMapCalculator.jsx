@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Home, Map, BarChart3, ClipboardList, Target } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { goals } from '../../constants/goals';
 import { DEFAULT_ACTIVITY_MULTIPLIERS } from '../../constants/activityPresets';
 import { trainingTypes as presetTrainingTypes } from '../../constants/trainingTypes';
@@ -1207,26 +1208,52 @@ export const EnergyMapCalculator = () => {
           >
             <div className="flex w-full" style={sliderStyle}>
               <div className="w-full flex-shrink-0 px-2 sm:px-4 md:px-6">
-                {selectedPhase ? (
-                  <PhaseDetailScreen
-                    phase={selectedPhase}
-                    weightEntries={weightEntries}
-                    onBack={handleBackToLogbook}
-                    onAddLog={openDailyLogModal}
-                    onEditLog={openEditDailyLogModal}
-                    onViewInsights={handleViewPhaseInsights}
-                    onExport={() => handleExportPhase('csv')}
-                    onArchive={handleArchivePhase}
-                    onDelete={handleDeletePhase}
-                  />
-                ) : (
-                  <LogbookScreen 
-                    phases={phases}
-                    weightEntries={weightEntries}
-                    onCreatePhase={openPhaseCreationModal}
-                    onPhaseClick={handlePhaseClick}
-                  />
-                )}
+                <div className="relative overflow-hidden">
+                  <AnimatePresence mode="wait" initial={false}>
+                    {selectedPhase ? (
+                      <motion.div
+                        key="phase-detail"
+                        initial={{ x: 300, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: -300, opacity: 0 }}
+                        transition={{ 
+                          duration: 0.2,
+                          ease: [0.4, 0, 0.2, 1]
+                        }}
+                      >
+                        <PhaseDetailScreen
+                          phase={selectedPhase}
+                          weightEntries={weightEntries}
+                          onBack={handleBackToLogbook}
+                          onAddLog={openDailyLogModal}
+                          onEditLog={openEditDailyLogModal}
+                          onViewInsights={handleViewPhaseInsights}
+                          onExport={() => handleExportPhase('csv')}
+                          onArchive={handleArchivePhase}
+                          onDelete={handleDeletePhase}
+                        />
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="logbook"
+                        initial={{ x: -300, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: 300, opacity: 0 }}
+                        transition={{ 
+                          duration: 0.2,
+                          ease: [0.4, 0, 0.2, 1]
+                        }}
+                      >
+                        <LogbookScreen 
+                          phases={phases}
+                          weightEntries={weightEntries}
+                          onCreatePhase={openPhaseCreationModal}
+                          onPhaseClick={handlePhaseClick}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
 
               <div className="w-full flex-shrink-0 px-2 sm:px-4 md:px-6">
