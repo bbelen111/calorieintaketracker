@@ -189,6 +189,7 @@ export const WeightTrackerModal = ({
   entries,
   latestWeight,
   selectedGoal = 'maintenance',
+  phases = [],
   onClose,
   onAddEntry,
   onEditEntry
@@ -199,10 +200,13 @@ export const WeightTrackerModal = ({
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [selectedTimeframe, setSelectedTimeframe] = useState('30d');
   const [isTimeframeDropdownOpen, setIsTimeframeDropdownOpen] = useState(false);
+  const [selectedPhaseId, setSelectedPhaseId] = useState(null);
+  const [isPhaseDropdownOpen, setIsPhaseDropdownOpen] = useState(false);
   const graphScrollRef = useRef(null);
   const timelineScrollRef = useRef(null);
   const tooltipRef = useRef(null);
   const timeframeDropdownRef = useRef(null);
+  const phaseDropdownRef = useRef(null);
   const [graphViewportWidth, setGraphViewportWidth] = useState(0);
   const [graphViewportHeight, setGraphViewportHeight] = useState(0);
   const prevEntriesLengthRef = useRef(entries?.length ?? 0);
@@ -217,12 +221,49 @@ export const WeightTrackerModal = ({
   
   const sortedEntries = useMemo(() => sortWeightEntries(entries ?? []), [entries]);
   
-  // Filter entries based on selected timeframe
-  const filteredEntries = useMemo(() => {
-    if (!sortedEntries.length) return [];
-    if (selectedTimeframe === 'all') return sortedEntries;
+  // Get selected phase object
+  const selectedPhase = useMemo(() => {
+    if (!selectedPhaseId) return null;
+    return phases.find(p => p.id === selectedPhaseId) || null;
+  }, [selectedPhaseId, phases]);
+  
+  // Filter entries based on selected phase - read from daily logs if phase selected
+  const phaseFilteredEntries = useMemo(() => {
+    if (!selectedPhase) return sortedEntries;
     
-    const latestEntry = sortedEntries[sortedEntries.length - 1];
+    // Build weight entries from daily logs' weightRef
+    const weightEntriesMap = new Map();
+    sortedEntries.forEach(entry => {
+      weightEntriesMap.set(entry.date, entry);
+    });
+    
+    const phaseWeightEntries = [];
+    const dailyLogs = selectedPhase.dailyLogs || {};
+    
+    Object.values(dailyLogs).forEach(log => {
+      if (log.weightRef && log.weightRef.trim() !== '') {
+        const weightEntry = weightEntriesMap.get(log.weightRef);
+        if (weightEntry) {
+          // Only add if not already included
+          if (!phaseWeightEntries.find(e => e.date === weightEntry.date)) {
+            phaseWeightEntries.push(weightEntry);
+          }
+        }
+      }
+    });
+    
+    // Sort by date
+    return phaseWeightEntries.sort((a, b) => a.date.localeCompare(b.date));
+  }, [sortedEntries, selectedPhase]);
+  
+  // Filter entries based on selected timeframe (within phase if selected)
+  const filteredEntries = useMemo(() => {
+    if (!phaseFilteredEntries.length) return [];
+    if (selectedTimeframe === 'all') return phaseFilteredEntries;
+    if (!phaseFilteredEntries.length) return [];
+    if (selectedTimeframe === 'all') return phaseFilteredEntries;
+    
+    const latestEntry = phaseFilteredEntries[phaseFilteredEntries.length - 1];
     const latestDate = new Date(latestEntry.date + 'T00:00:00');
     
     const daysMap = {
@@ -233,16 +274,16 @@ export const WeightTrackerModal = ({
     };
     
     const daysToSubtract = daysMap[selectedTimeframe];
-    if (!daysToSubtract) return sortedEntries;
+    if (!daysToSubtract) return phaseFilteredEntries;
     
     const cutoffDate = new Date(latestDate);
     cutoffDate.setDate(cutoffDate.getDate() - daysToSubtract);
     
-    return sortedEntries.filter(entry => {
+    return phaseFilteredEntries.filter(entry => {
       const entryDate = new Date(entry.date + 'T00:00:00');
       return entryDate >= cutoffDate;
     });
-  }, [sortedEntries, selectedTimeframe]);
+  }, [phaseFilteredEntries, selectedTimeframe]);
   
   const trend = useMemo(() => calculateWeightTrend(filteredEntries), [filteredEntries]);
   const goalAlignment = useMemo(() => getGoalAlignmentText(trend.weeklyRate, selectedGoal), [trend.weeklyRate, selectedGoal]);
@@ -471,6 +512,29 @@ export const WeightTrackerModal = ({
     prevEntriesLengthRef.current = currentLength;
   }, [entries?.length, isOpen]);
   
+  // Auto-scroll to latest entry when phase selection or timeframe changes
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const scrollToLatest = () => {
+      const graphNode = graphScrollRef.current;
+      if (graphNode) {
+        const target = Math.max(graphNode.scrollWidth - graphNode.clientWidth, 0);
+        graphNode.scrollTo({ left: target, behavior: 'smooth' });
+      }
+
+      const timelineNode = timelineScrollRef.current;
+      if (timelineNode) {
+        const target = Math.max(timelineNode.scrollWidth - timelineNode.clientWidth, 0);
+        timelineNode.scrollTo({ left: target, behavior: 'smooth' });
+      }
+    };
+
+    // Small delay to ensure DOM has updated with filtered entries
+    const timeout = setTimeout(scrollToLatest, 100);
+    return () => clearTimeout(timeout);
+  }, [selectedPhaseId, selectedTimeframe, isOpen]);
+  
   // Map entries by date for quick lookup
   const entriesMap = useMemo(() => {
     const map = {};
@@ -494,6 +558,21 @@ export const WeightTrackerModal = ({
     : '';
   
   const timeframeLabel = (() => {
+    if (selectedPhase) {
+      // When a phase is selected, show phase-aware label
+      if (selectedTimeframe === 'all') {
+        return `${selectedPhase.name}`;
+      }
+      switch (selectedTimeframe) {
+        case '7d': return `Last 7 days in ${selectedPhase.name}`;
+        case '14d': return `Last 14 days in ${selectedPhase.name}`;
+        case '30d': return `Last 30 days in ${selectedPhase.name}`;
+        case '90d': return `Last 90 days in ${selectedPhase.name}`;
+        default: return selectedPhase.name;
+      }
+    }
+    
+    // Default labels when no phase selected
     switch (selectedTimeframe) {
       case '7d': return '7-day';
       case '14d': return '14-day';
@@ -504,7 +583,16 @@ export const WeightTrackerModal = ({
     }
   })();
   
-  const timeframeMain = `${timeframeLabel} trend (${entriesCount} ${entriesCount === 1 ? 'entry' : 'entries'}${earliestDate && latestDate ? ` over ${daysRange} days` : ''})`;
+  const timeframeMain = (() => {
+    const entriesText = `${entriesCount} ${entriesCount === 1 ? 'entry' : 'entries'}`;
+    const daysText = earliestDate && latestDate ? ` over ${daysRange} days` : '';
+    
+    if (selectedPhase) {
+      return `${entriesText}${daysText}`;
+    }
+    
+    return `${timeframeLabel} trend (${entriesText}${daysText})`;
+  })();
 
   const currentWeightValue = filteredEntries.length
     ? filteredEntries[filteredEntries.length - 1].weight
@@ -691,6 +779,25 @@ export const WeightTrackerModal = ({
     };
   }, [closeTooltip, selectedPoint, updateTooltipPosition]);
 
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (timeframeDropdownRef.current && !timeframeDropdownRef.current.contains(event.target)) {
+        setIsTimeframeDropdownOpen(false);
+      }
+      if (phaseDropdownRef.current && !phaseDropdownRef.current.contains(event.target)) {
+        setIsPhaseDropdownOpen(false);
+      }
+    };
+
+    if (isTimeframeDropdownOpen || isPhaseDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+    
+    return undefined;
+  }, [isTimeframeDropdownOpen, isPhaseDropdownOpen]);
+
   return (
     <>
       <ModalShell
@@ -758,14 +865,16 @@ export const WeightTrackerModal = ({
               )}
             </div>
             <div>
-              <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">Timeframe</p>
+              <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">
+                {selectedPhase ? 'Phase Range' : 'Timeframe'}
+              </p>
               <p className="text-white text-sm font-semibold">{timeframeRangeLine}</p>
               <p className="text-slate-400 text-[11px] mt-1">{timeframeMain}</p>
             </div>
           </div>
 
           <div className="px-6 pb-1 flex-shrink-0">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
               <button
                 type="button"
                 onClick={() => onAddEntry?.()}
@@ -774,57 +883,118 @@ export const WeightTrackerModal = ({
                 Add Entry
               </button>
               
-              {/* Timeframe Selector - Expandable Dropdown */}
-              <div className="relative" ref={timeframeDropdownRef}>
-                <button
-                  type="button"
-                  onClick={() => setIsTimeframeDropdownOpen(!isTimeframeDropdownOpen)}
-                  className="px-4 py-1.5 md:py-2.5 rounded-md font-semibold text-sm transition-all whitespace-nowrap bg-blue-600 text-white border border-blue-400 hover:bg-blue-500 flex items-center gap-2"
-                >
-                  <span>{(() => {
-                    switch (selectedTimeframe) {
-                      case '7d': return '7 Days';
-                      case '14d': return '14 Days';
-                      case '30d': return '30 Days';
-                      case '90d': return '90 Days';
-                      case 'all': return 'All Time';
-                      default: return '30 Days';
-                    }
-                  })()}</span>
-                  <ChevronLeft 
-                    size={16} 
-                    className={`transition-transform duration-200 ${isTimeframeDropdownOpen ? 'rotate-90' : '-rotate-90'}`} 
-                  />
-                </button>
-                
-                {/* Dropdown Menu */}
-                {isTimeframeDropdownOpen && (
-                  <div className="absolute right-0 top-full mt-1 bg-slate-700 border border-slate-600 rounded-md shadow-lg z-10 min-w-[120px]">
-                    {[
-                      { value: '7d', label: '7 Days' },
-                      { value: '14d', label: '14 Days' },
-                      { value: '30d', label: '30 Days' },
-                      { value: '90d', label: '90 Days' },
-                      { value: 'all', label: 'All Time' }
-                    ].map(({ value, label }) => (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => {
-                          setSelectedTimeframe(value);
-                          setIsTimeframeDropdownOpen(false);
-                        }}
-                        className={`w-full px-4 py-2 text-left text-sm font-medium transition-colors hover:bg-slate-600 first:rounded-t-md last:rounded-b-md ${
-                          selectedTimeframe === value
-                            ? 'bg-blue-600 text-white'
-                            : 'text-slate-200'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
+              <div className="flex items-center gap-2">
+                {/* Phase Selector - Expandable Dropdown */}
+                {phases.length > 0 && (
+                  <div className="relative" ref={phaseDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setIsPhaseDropdownOpen(!isPhaseDropdownOpen)}
+                      className="px-4 py-1.5 md:py-2.5 rounded-md font-semibold text-sm transition-all whitespace-nowrap bg-slate-700 text-white border border-slate-600 hover:bg-slate-600 flex items-center gap-2"
+                    >
+                      <span>{selectedPhase ? selectedPhase.name : 'All Data'}</span>
+                      <ChevronLeft 
+                        size={16} 
+                        className={`transition-transform duration-200 ${isPhaseDropdownOpen ? 'rotate-90' : '-rotate-90'}`} 
+                      />
+                    </button>
+                    
+                    {/* Dropdown Menu */}
+                    {isPhaseDropdownOpen && (
+                      <div className="absolute right-0 top-full mt-1 bg-slate-700 border border-slate-600 rounded-md shadow-lg z-10 min-w-[160px] max-h-[300px] overflow-y-auto">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedPhaseId(null);
+                            setIsPhaseDropdownOpen(false);
+                          }}
+                          className={`w-full px-4 py-2 text-left text-sm font-medium transition-colors hover:bg-slate-600 first:rounded-t-md ${
+                            !selectedPhaseId
+                              ? 'bg-blue-600 text-white'
+                              : 'text-slate-200'
+                          }`}
+                        >
+                          All Data
+                        </button>
+                        {phases.map((phase) => (
+                          <button
+                            key={phase.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedPhaseId(phase.id);
+                              setIsPhaseDropdownOpen(false);
+                            }}
+                            className={`w-full px-4 py-2 text-left text-sm font-medium transition-colors hover:bg-slate-600 last:rounded-b-md ${
+                              selectedPhaseId === phase.id
+                                ? 'bg-blue-600 text-white'
+                                : 'text-slate-200'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="truncate">{phase.name}</span>
+                              {phase.status === 'active' && (
+                                <span className="flex-shrink-0 w-2 h-2 bg-green-400 rounded-full" />
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
+                
+                {/* Timeframe Selector - Expandable Dropdown */}
+                <div className="relative" ref={timeframeDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsTimeframeDropdownOpen(!isTimeframeDropdownOpen)}
+                    className="px-4 py-1.5 md:py-2.5 rounded-md font-semibold text-sm transition-all whitespace-nowrap bg-blue-600 text-white border border-blue-400 hover:bg-blue-500 flex items-center gap-2"
+                  >
+                    <span>{(() => {
+                      switch (selectedTimeframe) {
+                        case '7d': return '7 Days';
+                        case '14d': return '14 Days';
+                        case '30d': return '30 Days';
+                        case '90d': return '90 Days';
+                        case 'all': return 'All Time';
+                        default: return '30 Days';
+                      }
+                    })()}</span>
+                    <ChevronLeft 
+                      size={16} 
+                      className={`transition-transform duration-200 ${isTimeframeDropdownOpen ? 'rotate-90' : '-rotate-90'}`} 
+                    />
+                  </button>
+                  
+                  {/* Dropdown Menu */}
+                  {isTimeframeDropdownOpen && (
+                    <div className="absolute right-0 top-full mt-1 bg-slate-700 border border-slate-600 rounded-md shadow-lg z-10 min-w-[120px]">
+                      {[
+                        { value: '7d', label: '7 Days' },
+                        { value: '14d', label: '14 Days' },
+                        { value: '30d', label: '30 Days' },
+                        { value: '90d', label: '90 Days' },
+                        { value: 'all', label: 'All Time' }
+                      ].map(({ value, label }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => {
+                            setSelectedTimeframe(value);
+                            setIsTimeframeDropdownOpen(false);
+                          }}
+                          className={`w-full px-4 py-2 text-left text-sm font-medium transition-colors hover:bg-slate-600 first:rounded-t-md last:rounded-b-md ${
+                            selectedTimeframe === value
+                              ? 'bg-blue-600 text-white'
+                              : 'text-slate-200'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
