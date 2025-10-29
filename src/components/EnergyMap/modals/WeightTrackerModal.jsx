@@ -203,6 +203,7 @@ export const WeightTrackerModal = ({
   const tooltipRef = useRef(null);
   const [graphViewportWidth, setGraphViewportWidth] = useState(0);
   const [graphViewportHeight, setGraphViewportHeight] = useState(0);
+  const prevEntriesLengthRef = useRef(entries?.length ?? 0);
   
   // Weight Trend Info Modal
   const {
@@ -423,13 +424,13 @@ export const WeightTrackerModal = ({
       const graphNode = graphScrollRef.current;
       if (graphNode) {
         const target = Math.max(graphNode.scrollWidth - graphNode.clientWidth, 0);
-        graphNode.scrollLeft = target;
+        graphNode.scrollTo({ left: target, behavior: 'smooth' });
       }
 
       const timelineNode = timelineScrollRef.current;
       if (timelineNode) {
         const target = Math.max(timelineNode.scrollWidth - timelineNode.clientWidth, 0);
-        timelineNode.scrollLeft = target;
+        timelineNode.scrollTo({ left: target, behavior: 'smooth' });
       }
     };
 
@@ -437,6 +438,36 @@ export const WeightTrackerModal = ({
     const frame = requestAnimationFrame(scrollToLatest);
     return () => cancelAnimationFrame(frame);
   }, [isOpen]);
+  
+  // Auto-scroll to latest entry when a new entry is added
+  useEffect(() => {
+    const currentLength = entries?.length ?? 0;
+    const prevLength = prevEntriesLengthRef.current;
+    
+    // Only scroll if modal is open, entries increased, and we have entries
+    if (isOpen && currentLength > prevLength && currentLength > 0) {
+      const scrollToLatest = () => {
+        const graphNode = graphScrollRef.current;
+        if (graphNode) {
+          const target = Math.max(graphNode.scrollWidth - graphNode.clientWidth, 0);
+          graphNode.scrollTo({ left: target, behavior: 'smooth' });
+        }
+
+        const timelineNode = timelineScrollRef.current;
+        if (timelineNode) {
+          const target = Math.max(timelineNode.scrollWidth - timelineNode.clientWidth, 0);
+          timelineNode.scrollTo({ left: target, behavior: 'smooth' });
+        }
+      };
+
+      // Small delay to ensure DOM has updated with new entry
+      const timeout = setTimeout(scrollToLatest, 100);
+      return () => clearTimeout(timeout);
+    }
+    
+    // Update the ref with current length
+    prevEntriesLengthRef.current = currentLength;
+  }, [entries?.length, isOpen]);
   
   // Map entries by date for quick lookup
   const entriesMap = useMemo(() => {
