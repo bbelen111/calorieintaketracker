@@ -81,7 +81,7 @@ const MacroBarChart = ({ protein, carbs, fats }) => {
   );
 };
 
-const PhaseInsightsModal = ({ isOpen, isClosing, phase, weightEntries, onClose, onExport }) => {
+const PhaseInsightsModal = ({ isOpen, isClosing, phase, weightEntries, onClose }) => {
   const insights = useMemo(() => {
     if (!phase) return null;
 
@@ -269,14 +269,8 @@ const PhaseInsightsModal = ({ isOpen, isClosing, phase, weightEntries, onClose, 
         {/* Actions */}
         <div className="flex gap-3">
           <button
-            onClick={onExport}
-            className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-xl font-medium transition-colors"
-          >
-            Export Phase Data
-          </button>
-          <button
             onClick={onClose}
-            className="px-6 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl font-medium transition-colors"
+            className="w-full bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl font-medium transition-colors"
           >
             Close
           </button>
