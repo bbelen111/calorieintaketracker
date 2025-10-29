@@ -1556,7 +1556,9 @@ export const EnergyMapCalculator = () => {
         onEndDateChange={setPhaseEndDate}
         onGoalTypeChange={setPhaseGoalType}
         onTargetWeightChange={setPhaseTargetWeight}
-        onTemplatesClick={templatePickerModal.open}
+        onTemplatesClick={() => {
+          templatePickerModal.open();
+        }}
         onCancel={phaseCreationModal.requestClose}
         onSave={handlePhaseCreationSave}
         error={phaseError}
@@ -1565,7 +1567,10 @@ export const EnergyMapCalculator = () => {
       <TemplatePickerModal
         isOpen={templatePickerModal.isOpen}
         isClosing={templatePickerModal.isClosing}
-        onSelectTemplate={handleTemplateSelect}
+        onSelectTemplate={(template) => {
+          handleTemplateSelect(template);
+          templatePickerModal.requestClose();
+        }}
         onClose={templatePickerModal.requestClose}
       />
 

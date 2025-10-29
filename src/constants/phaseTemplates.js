@@ -10,7 +10,7 @@ export const PHASE_TEMPLATES = [
     icon: '💪',
     defaultName: 'Bulk',
     suggestedDuration: 90, // days
-    goalType: 'bulk',
+    goalType: 'bulking',
     targetWeightChange: +8, // kg
     tips: [
       'Aim for 0.25-0.5 kg weight gain per week',
@@ -26,7 +26,7 @@ export const PHASE_TEMPLATES = [
     icon: '🔥',
     defaultName: 'Cut',
     suggestedDuration: 60, // days
-    goalType: 'cut',
+    goalType: 'cutting',
     targetWeightChange: -5, // kg
     tips: [
       'Aim for 0.5-1% bodyweight loss per week',
@@ -42,7 +42,7 @@ export const PHASE_TEMPLATES = [
     icon: '⚖️',
     defaultName: 'Maintenance',
     suggestedDuration: 30, // days
-    goalType: 'maintain',
+    goalType: 'maintenance',
     targetWeightChange: 0, // kg
     tips: [
       'Focus on consistency over perfection',
@@ -58,7 +58,7 @@ export const PHASE_TEMPLATES = [
     icon: '📈',
     defaultName: 'Lean Bulk',
     suggestedDuration: 120, // days
-    goalType: 'bulk',
+    goalType: 'bulking',
     targetWeightChange: +4, // kg
     tips: [
       'Aim for slower gain: 0.25 kg per week',
@@ -74,7 +74,7 @@ export const PHASE_TEMPLATES = [
     icon: '⚡',
     defaultName: 'Mini Cut',
     suggestedDuration: 21, // days
-    goalType: 'cut',
+    goalType: 'cutting',
     targetWeightChange: -2, // kg
     tips: [
       '2-4 week aggressive deficit',
@@ -90,7 +90,7 @@ export const PHASE_TEMPLATES = [
     icon: '🔄',
     defaultName: 'Reverse Diet',
     suggestedDuration: 45, // days
-    goalType: 'maintain',
+    goalType: 'maintenance',
     targetWeightChange: +1, // kg
     tips: [
       'Increase calories by 50-100 per week',

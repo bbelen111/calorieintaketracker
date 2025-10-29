@@ -92,6 +92,13 @@ export const PhaseCreationModal = ({
           <label className="block text-slate-300 text-sm font-semibold mb-2">
             Goal <span className="text-red-400">*</span>
           </label>
+          {/* DEBUG LOG: Remove after testing
+          {process.env.NODE_ENV !== 'production' && (
+            <div className="text-xs text-yellow-300 mb-2">
+              <pre>{`goalType: ${goalType}`}</pre>
+              <pre>{`goal keys: ${Object.keys(goals).join(', ')}`}</pre>
+            </div>
+          )} */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {Object.entries(goals).map(([key, goal]) => (
               <button
