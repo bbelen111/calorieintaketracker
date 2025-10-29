@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Info, LineChart } from 'lucide-react';
+import { Info, LineChart, PieChart, Lightbulb } from 'lucide-react';
 import {
   calculateWeightTrend,
   createSparklinePoints,
@@ -104,8 +104,8 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
       >
         <div className="flex items-center justify-between gap-1">
           <div>
-            <p className="text-slate-400 text-xs tracking-wide mb-2 flex items-center gap-2">
-              <LineChart size={16} className="text-blue-300" />
+            <p className="font-bold text-white text-lg mb-2 flex items-center gap-2">
+              <LineChart size={26} className="text-blue-300" />
               Weight Snapshot
             </p>
             <p className={`text-xl font-semibold ${getTrendToneClass(trend.direction, trend.label)}`}>{trend.label}</p>
@@ -269,7 +269,10 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
       </button>
 
       <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
-        <h2 className="text-xl font-bold text-white mb-4">Macro Recommendations</h2>
+        <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+          <PieChart className="text-blue-400" size={18} />
+          Macro Recommendations
+        </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-red-900/30 border border-red-700 rounded-xl p-4">
             <p className="text-red-400 font-bold mb-2">Protein</p>
@@ -301,7 +304,10 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
         )}
       </div>
       <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
-        <h2 className="text-xl font-bold text-white mb-4">Tips</h2>
+        <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+          <Lightbulb className="text-blue-400" size={18} />
+          Tips
+        </h2>
         <ul className="space-y-2 text-slate-300">
           <li className="flex items-start gap-2">
             <span className="text-blue-400 mt-1">•</span>

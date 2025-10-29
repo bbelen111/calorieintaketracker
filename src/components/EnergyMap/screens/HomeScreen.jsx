@@ -6,6 +6,8 @@ import {
   Edit3,
   Info,
   Dumbbell,
+  Target,
+  Calendar,
   Heart,
   Plus,
   Trash2,
@@ -57,7 +59,7 @@ export const HomeScreen = ({
           <button
             onClick={onSettingsClick}
             type="button"
-            className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-all"
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg transition-all"
           >
             <Settings size={20} />
             <span className="hidden md:inline">Settings</span>
@@ -113,7 +115,10 @@ export const HomeScreen = ({
       </div>
 
       <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
-        <h2 className="text-xl font-bold text-white mb-4">Your Goal</h2>
+        <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+          <Target className="text-blue-400" size={18} />
+          Your Goal
+        </h2>
         <button
           onClick={onGoalClick}
           type="button"
@@ -136,7 +141,10 @@ export const HomeScreen = ({
       </div>
 
       <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
-        <h2 className="text-xl font-bold text-white mb-4">Day Type</h2>
+        <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+          <Calendar className="text-blue-400" size={18} />
+          Day Type
+        </h2>
         <div className="grid grid-cols-2 gap-4">
           <motion.button
             layout

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Info, ListChecks } from 'lucide-react';
+import { Info, ListChecks, Map } from 'lucide-react';
 
 export const CalorieMapScreen = ({
   stepRanges,
@@ -15,13 +15,18 @@ export const CalorieMapScreen = ({
     <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
-          <p className="text-blue-300 text-sm uppercase tracking-widest font-semibold">Calorie Targets</p>
-          <h2 className="text-2xl font-bold text-white mt-1">
-            {goals[selectedGoal].label}
+          <div className="flex items-start gap-3">
+            <Map className="text-blue-400" size={32} />
+            <h1 className="text-2xl font-bold text-white">Calorie Map</h1>
+          </div>
+          <div className="mt-1">
+            <span className="text-blue-300 text-sm tracking-widest font-semibold uppercase">
+              {goals[selectedGoal].label}
+            </span>
             <span className="text-slate-400 text-base font-normal ml-2">
               ({selectedDay === 'training' ? 'Training Day' : 'Rest Day'})
             </span>
-          </h2>
+          </div>
         </div>
         <button
           type="button"

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ClipboardList, Plus, Calendar, TrendingUp, Target, Archive } from 'lucide-react';
+import { ClipboardList, Plus, Calendar, TrendingUp, Target, Play, Archive } from 'lucide-react';
 import { goals } from '../../../constants/goals';
 import { formatWeight } from '../../../utils/weight';
 
@@ -194,7 +194,10 @@ export const LogbookScreen = ({ phases = [], onCreatePhase, onPhaseClick }) => {
       {/* Active Phases */}
       {activePhases.length > 0 && (
         <div>
-          <h2 className="text-white font-bold text-lg mb-3 px-1">Active Phases</h2>
+          <h2 className="text-white font-bold text-lg mb-3 px-1 flex items-center gap-2">
+            <Play className="text-blue-400" size={18} />
+            Active Phases
+          </h2>
           <div className="space-y-3">
             {activePhases.map((phase) => (
               <PhaseCard key={phase.id} phase={phase} onPhaseClick={onPhaseClick} />
