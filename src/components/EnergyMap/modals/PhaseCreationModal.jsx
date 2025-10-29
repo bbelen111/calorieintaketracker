@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles } from 'lucide-react';
+import { Star } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import { goals } from '../../../constants/goals';
 const getGoalClasses = (key, selected) => {
@@ -36,9 +36,9 @@ export const PhaseCreationModal = ({
         <button
           type="button"
           onClick={onTemplatesClick}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-semibold transition-all text-sm"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-700 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-100 transition-colors hover:border-amber-400 hover:text-white"
         >
-          <Sparkles className="w-4 h-4" />
+          <Star size={14} />
           Templates
         </button>
       </div>
