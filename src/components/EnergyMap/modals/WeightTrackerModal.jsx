@@ -198,9 +198,11 @@ export const WeightTrackerModal = ({
   const [tooltipClosing, setTooltipClosing] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [selectedTimeframe, setSelectedTimeframe] = useState('30d');
+  const [isTimeframeDropdownOpen, setIsTimeframeDropdownOpen] = useState(false);
   const graphScrollRef = useRef(null);
   const timelineScrollRef = useRef(null);
   const tooltipRef = useRef(null);
+  const timeframeDropdownRef = useRef(null);
   const [graphViewportWidth, setGraphViewportWidth] = useState(0);
   const [graphViewportHeight, setGraphViewportHeight] = useState(0);
   const prevEntriesLengthRef = useRef(entries?.length ?? 0);
@@ -597,9 +599,10 @@ export const WeightTrackerModal = ({
 
     const handlePointerDown = (event) => {
       const tooltipNode = tooltipRef.current;
+      const timeframeDropdownNode = timeframeDropdownRef.current;
       
-      // Check if click is inside tooltip
-      if (tooltipNode?.contains(event.target)) {
+      // Check if click is inside tooltip or timeframe dropdown
+      if (tooltipNode?.contains(event.target) || timeframeDropdownNode?.contains(event.target)) {
         return;
       }
 
@@ -610,8 +613,9 @@ export const WeightTrackerModal = ({
         return;
       }
 
-      // Close tooltip if clicking outside
+      // Close tooltip and timeframe dropdown if clicking outside
       closeTooltip();
+      setIsTimeframeDropdownOpen(false);
     };
 
     document.addEventListener('pointerdown', handlePointerDown, true);
@@ -770,28 +774,57 @@ export const WeightTrackerModal = ({
                 Add Entry
               </button>
               
-              {/* Timeframe Selector */}
-              <div className="flex gap-1.5">
-                {[
-                  { value: '7d', label: '7D' },
-                  { value: '14d', label: '14D' },
-                  { value: '30d', label: '30D' },
-                  { value: '90d', label: '90D' },
-                  { value: 'all', label: 'All' }
-                ].map(({ value, label }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setSelectedTimeframe(value)}
-                    className={`px-3 py-1.5 md:py-2.5 rounded-md font-semibold text-xs transition-all whitespace-nowrap ${
-                      selectedTimeframe === value
-                        ? 'bg-blue-600 text-white border border-blue-400'
-                        : 'bg-slate-700 text-slate-300 border border-slate-600 hover:bg-slate-600'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
+              {/* Timeframe Selector - Expandable Dropdown */}
+              <div className="relative" ref={timeframeDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsTimeframeDropdownOpen(!isTimeframeDropdownOpen)}
+                  className="px-4 py-1.5 md:py-2.5 rounded-md font-semibold text-sm transition-all whitespace-nowrap bg-blue-600 text-white border border-blue-400 hover:bg-blue-500 flex items-center gap-2"
+                >
+                  <span>{(() => {
+                    switch (selectedTimeframe) {
+                      case '7d': return '7 Days';
+                      case '14d': return '14 Days';
+                      case '30d': return '30 Days';
+                      case '90d': return '90 Days';
+                      case 'all': return 'All Time';
+                      default: return '30 Days';
+                    }
+                  })()}</span>
+                  <ChevronLeft 
+                    size={16} 
+                    className={`transition-transform duration-200 ${isTimeframeDropdownOpen ? 'rotate-90' : '-rotate-90'}`} 
+                  />
+                </button>
+                
+                {/* Dropdown Menu */}
+                {isTimeframeDropdownOpen && (
+                  <div className="absolute right-0 top-full mt-1 bg-slate-700 border border-slate-600 rounded-md shadow-lg z-10 min-w-[120px]">
+                    {[
+                      { value: '7d', label: '7 Days' },
+                      { value: '14d', label: '14 Days' },
+                      { value: '30d', label: '30 Days' },
+                      { value: '90d', label: '90 Days' },
+                      { value: 'all', label: 'All Time' }
+                    ].map(({ value, label }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => {
+                          setSelectedTimeframe(value);
+                          setIsTimeframeDropdownOpen(false);
+                        }}
+                        className={`w-full px-4 py-2 text-left text-sm font-medium transition-colors hover:bg-slate-600 first:rounded-t-md last:rounded-b-md ${
+                          selectedTimeframe === value
+                            ? 'bg-blue-600 text-white'
+                            : 'text-slate-200'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
