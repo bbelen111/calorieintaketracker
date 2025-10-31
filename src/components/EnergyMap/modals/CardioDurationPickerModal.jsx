@@ -266,10 +266,11 @@ export const CardioDurationPickerModal = (props) => {
                   onClick={() =>
                     applySelection(hour, selectionRef.current.minutes, 'smooth')
                   }
-                  className={`h-16 flex items-center justify-center text-2xl font-bold snap-center transition-all text-center cursor-pointer ${selectedHours === hour
+                  className={`h-16 flex items-center justify-center text-2xl font-bold snap-center transition-all text-center cursor-pointer ${
+                    selectedHours === hour
                       ? 'text-white scale-110'
                       : 'text-slate-500'
-                    }`}
+                  }`}
                 >
                   {hour}
                 </div>
@@ -311,10 +312,11 @@ export const CardioDurationPickerModal = (props) => {
                         'smooth'
                       );
                     }}
-                    className={`h-16 flex items-center justify-center text-2xl font-bold snap-center transition-all text-center cursor-pointer ${selectedMinutes === minute
+                    className={`h-16 flex items-center justify-center text-2xl font-bold snap-center transition-all text-center cursor-pointer ${
+                      selectedMinutes === minute
                         ? 'text-white scale-110'
                         : 'text-slate-500'
-                      } ${isDisabled ? 'opacity-40 pointer-events-none' : ''}`}
+                    } ${isDisabled ? 'opacity-40 pointer-events-none' : ''}`}
                   >
                     {minute.toString().padStart(2, '0')}
                   </div>
