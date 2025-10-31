@@ -68,15 +68,16 @@ const convertMinutesToParts = (totalMinutes) => {
   return { hours, minutes };
 };
 
-export const CardioDurationPickerModal = ({
-  isOpen,
-  isClosing,
-  title = 'Cardio Duration',
-  minutes = 0,
-  onCancel,
-  onChange,
-  onSave,
-}) => {
+export const CardioDurationPickerModal = (props) => {
+  const {
+    isOpen,
+    isClosing,
+    title = 'Cardio Duration',
+    minutes = 0,
+    onCancel,
+    onChange,
+    onSave,
+  } = props;
   const hoursRef = useRef(null);
   const minutesRef = useRef(null);
   const hoursTimeoutRef = useRef(null);
@@ -198,27 +199,24 @@ export const CardioDurationPickerModal = ({
     [emitDurationChange]
   );
 
-  const handleHoursScroll = useMemo(
-    () =>
-      createPickerScrollHandler(
-        hoursRef,
-        hoursTimeoutRef,
-        (value) => parseInt(value, 10),
-        handleHoursChange
-      ),
-    [handleHoursChange]
-  );
+  // Avoid accessing refs during render. Create scroll handlers inline.
+  const handleHoursScroll = (e) => {
+    createPickerScrollHandler(
+      hoursRef,
+      hoursTimeoutRef,
+      (value) => parseInt(value, 10),
+      handleHoursChange
+    )(e);
+  };
 
-  const handleMinutesScroll = useMemo(
-    () =>
-      createPickerScrollHandler(
-        minutesRef,
-        minutesTimeoutRef,
-        (value) => parseInt(value, 10),
-        handleMinutesChange
-      ),
-    [handleMinutesChange]
-  );
+  const handleMinutesScroll = (e) => {
+    createPickerScrollHandler(
+      minutesRef,
+      minutesTimeoutRef,
+      (value) => parseInt(value, 10),
+      handleMinutesChange
+    )(e);
+  };
 
   const totalMinutes = useMemo(
     () => selectedHours * 60 + selectedMinutes,
@@ -268,11 +266,10 @@ export const CardioDurationPickerModal = ({
                   onClick={() =>
                     applySelection(hour, selectionRef.current.minutes, 'smooth')
                   }
-                  className={`h-16 flex items-center justify-center text-2xl font-bold snap-center transition-all text-center cursor-pointer ${
-                    selectedHours === hour
+                  className={`h-16 flex items-center justify-center text-2xl font-bold snap-center transition-all text-center cursor-pointer ${selectedHours === hour
                       ? 'text-white scale-110'
                       : 'text-slate-500'
-                  }`}
+                    }`}
                 >
                   {hour}
                 </div>
@@ -314,11 +311,10 @@ export const CardioDurationPickerModal = ({
                         'smooth'
                       );
                     }}
-                    className={`h-16 flex items-center justify-center text-2xl font-bold snap-center transition-all text-center cursor-pointer ${
-                      selectedMinutes === minute
+                    className={`h-16 flex items-center justify-center text-2xl font-bold snap-center transition-all text-center cursor-pointer ${selectedMinutes === minute
                         ? 'text-white scale-110'
                         : 'text-slate-500'
-                    } ${isDisabled ? 'opacity-40 pointer-events-none' : ''}`}
+                      } ${isDisabled ? 'opacity-40 pointer-events-none' : ''}`}
                   >
                     {minute.toString().padStart(2, '0')}
                   </div>
