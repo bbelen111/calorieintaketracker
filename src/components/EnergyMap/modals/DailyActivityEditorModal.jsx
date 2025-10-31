@@ -90,7 +90,7 @@ export const DailyActivityEditorModal = ({
           onClick={() => onSelectCustom(dayType, customSelected)}
           className={`w-full p-4 rounded-xl border-2 transition-all text-left flex items-start gap-3 active:scale-[0.98] ${
             customSelected
-              ? 'bg-amber-600 border-amber-400 text-white shadow-lg'
+              ? 'bg-blue-600 border-blue-400 text-white shadow-lg'
               : 'bg-slate-700 border-slate-600 text-slate-300'
           }`}
         >

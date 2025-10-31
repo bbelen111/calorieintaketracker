@@ -259,7 +259,7 @@ export const DailyLogModal = ({
         <button
           type="button"
           onClick={onSave}
-          className="flex-1 px-4 py-3 bg-green-700 hover:bg-green-600 text-white rounded-lg font-semibold transition-all"
+          className="flex-1 px-4 py-3 bg-blue-700 hover:bg-blue-600 text-white rounded-lg font-semibold transition-all"
         >
           {mode === 'edit' ? 'Save Changes' : 'Add Log'}
         </button>

@@ -330,7 +330,7 @@ export const TrainingDurationPickerModal = ({
         <button
           onClick={() => onSave?.(decimalDuration)}
           type="button"
-          className="flex-1 bg-green-600 active:bg-green-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
+          className="flex-1 bg-blue-600 active:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
         >
           <Save size={20} />
           Save

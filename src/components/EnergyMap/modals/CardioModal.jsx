@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, ChevronsUpDown, Star } from 'lucide-react';
+import { Save, ChevronsUpDown, Star } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
 import { CardioTypePickerModal } from './CardioTypePickerModal';
@@ -417,14 +417,14 @@ export const CardioModal = ({
             className={`flex-1 text-white px-4 py-2 rounded-lg transition-all flex items-center justify-center gap-2 ${
               canSave
                 ? isEditing
-                  ? 'bg-emerald-600 hover:bg-emerald-500'
-                  : 'bg-red-600 hover:bg-red-500'
+                  ? 'bg-blue-600 hover:bg-blue-500'
+                  : 'bg-blue-600 hover:bg-blue-500'
                 : isEditing
-                  ? 'bg-emerald-600/60 cursor-not-allowed opacity-70'
-                  : 'bg-red-600/60 cursor-not-allowed opacity-70'
+                  ? 'bg-blue-600/60 cursor-not-allowed opacity-70'
+                  : 'bg-blue-600/60 cursor-not-allowed opacity-70'
             }`}
           >
-            <Check size={20} />
+            <Save size={20} />
             {saveLabel}
           </button>
         </div>
