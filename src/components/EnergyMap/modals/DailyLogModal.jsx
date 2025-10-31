@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
 import { ModalShell } from '../common/ModalShell';
 import {
-  Save,
   Trash2,
   Calendar,
   Scale,
   Utensils,
   StickyNote,
   CheckCircle2,
-  AlertCircle,
 } from 'lucide-react';
 import { formatWeight } from '../../../utils/weight';
 
@@ -17,14 +15,10 @@ export const DailyLogModal = ({
   isClosing,
   mode = 'add',
   date,
-  weightRef,
-  nutritionRef,
   notes,
   completed,
   availableWeightEntries = [],
   onDateChange,
-  onWeightRefChange,
-  onNutritionRefChange,
   onNotesChange,
   onCompletedChange,
   onManageWeightClick,
