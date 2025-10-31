@@ -2,6 +2,17 @@ import React from 'react';
 import { Info, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 
+// Move TrendIcon outside of component to avoid recreating during render
+const TrendIcon = ({ direction }) => {
+  if (direction === 'up') {
+    return <TrendingUp size={20} />;
+  }
+  if (direction === 'down') {
+    return <TrendingDown size={20} />;
+  }
+  return <Minus size={20} />;
+};
+
 export const WeightTrendInfoModal = ({ isOpen, isClosing, trend, onClose }) => {
   const getTrendColor = (label) => {
     if (label === 'Need more data' || label === 'No data yet') {
@@ -29,16 +40,6 @@ export const WeightTrendInfoModal = ({ isOpen, isClosing, trend, onClose }) => {
       return 'text-green-400';
     }
     return 'text-blue-400';
-  };
-
-  const TrendIcon = ({ direction }) => {
-    if (direction === 'up') {
-      return <TrendingUp size={20} />;
-    }
-    if (direction === 'down') {
-      return <TrendingDown size={20} />;
-    }
-    return <Minus size={20} />;
   };
 
   return (
@@ -164,7 +165,8 @@ export const WeightTrendInfoModal = ({ isOpen, isClosing, trend, onClose }) => {
             </li>
             <li>More data points provide more accurate trend analysis</li>
             <li>
-              Compare your trend to your goal's target rate for best results
+              Compare your trend to your goal&apos;s target rate for best
+              results
             </li>
             <li>Severe rates may not be sustainable or healthy long-term</li>
           </ul>

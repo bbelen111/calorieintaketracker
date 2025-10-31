@@ -20,7 +20,6 @@ export const PhaseCreationModal = ({
   endDate,
   goalType,
   targetWeight,
-  currentWeight,
   onNameChange,
   onStartDateChange,
   onEndDateChange,

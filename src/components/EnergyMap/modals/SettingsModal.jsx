@@ -45,7 +45,7 @@ export const SettingsModal = ({
       return 'No entries yet';
     }
     return `Last logged ${formatDateLabel(latestWeightEntry.date, { month: 'short', day: 'numeric' })}`;
-  }, [latestWeightEntry?.date]);
+  }, [latestWeightEntry]);
 
   return (
     <ModalShell

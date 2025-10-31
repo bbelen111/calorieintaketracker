@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 
 const BASE_SWIPE_THRESHOLD = 130;
 
@@ -10,11 +10,24 @@ export const useSwipeableScreens = (
   const [currentScreen, setCurrentScreen] = useState(initialScreen);
   const [dragOffset, setDragOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
+  const [viewportWidth, setViewportWidth] = useState(1);
 
   const swipeStartX = useRef(null);
   const swipeStartY = useRef(null);
   const isSwipeActive = useRef(false);
   const hasSwipeDirection = useRef(false);
+
+  useEffect(() => {
+    const element = viewportRef.current;
+    if (!element) return;
+
+    const observer = new ResizeObserver(() => {
+      setViewportWidth(element.clientWidth);
+    });
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, [viewportRef]);
 
   const beginSwipe = useCallback((clientX, clientY) => {
     swipeStartX.current = clientX;
@@ -141,7 +154,6 @@ export const useSwipeableScreens = (
   );
 
   const sliderStyle = useMemo(() => {
-    const viewportWidth = viewportRef.current?.clientWidth || 1;
     const sliderTranslatePercent =
       -currentScreen * 100 + (dragOffset / viewportWidth) * 100;
     const sliderTransition = isSwiping
@@ -152,7 +164,7 @@ export const useSwipeableScreens = (
       transform: `translateX(${sliderTranslatePercent}%)`,
       transition: sliderTransition,
     };
-  }, [currentScreen, dragOffset, isSwiping, viewportRef]);
+  }, [currentScreen, dragOffset, isSwiping, viewportWidth]);
 
   const handlers = {
     onTouchStart: handleTouchStart,

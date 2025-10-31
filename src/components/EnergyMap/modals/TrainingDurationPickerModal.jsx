@@ -90,6 +90,8 @@ export const TrainingDurationPickerModal = ({
 
   const [selectedHours, setSelectedHours] = useState(0);
   const [selectedMinutes, setSelectedMinutes] = useState(0);
+  const [handleHoursScroll, setHandleHoursScroll] = useState(null);
+  const [handleMinutesScroll, setHandleMinutesScroll] = useState(null);
 
   const applySelection = useCallback((hours, minutes, behavior = 'instant') => {
     const normalizedHours = Math.min(Math.max(hours, 0), MAX_HOURS);
@@ -175,27 +177,31 @@ export const TrainingDurationPickerModal = ({
     setSelectedMinutes(sanitizedMinutes);
   }, []);
 
-  const handleHoursScroll = useMemo(
-    () =>
-      createPickerScrollHandler(
-        hoursRef,
-        hoursTimeoutRef,
-        (value) => parseInt(value, 10),
-        handleHoursChange
-      ),
-    [handleHoursChange]
-  );
+  useEffect(() => {
+    setHandleHoursScroll(() =>
+      hoursRef.current
+        ? createPickerScrollHandler(
+            hoursRef,
+            hoursTimeoutRef,
+            (value) => parseInt(value, 10),
+            handleHoursChange
+          )
+        : null
+    );
+  }, [handleHoursChange]);
 
-  const handleMinutesScroll = useMemo(
-    () =>
-      createPickerScrollHandler(
-        minutesRef,
-        minutesTimeoutRef,
-        (value) => parseInt(value, 10),
-        handleMinutesChange
-      ),
-    [handleMinutesChange]
-  );
+  useEffect(() => {
+    setHandleMinutesScroll(() =>
+      minutesRef.current
+        ? createPickerScrollHandler(
+            minutesRef,
+            minutesTimeoutRef,
+            (value) => parseInt(value, 10),
+            handleMinutesChange
+          )
+        : null
+    );
+  }, [handleMinutesChange]);
 
   const decimalDuration = useMemo(() => {
     const totalMinutes = selectedHours * 60 + selectedMinutes;

@@ -1,9 +1,12 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Save } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
+
 import {
   alignScrollContainerToValue,
-  createPickerScrollHandler,
+  SCROLL_SETTLE_DELAY,
+  findClosestScrollItem,
+  alignScrollContainerToElement,
 } from '../../../utils/scroll';
 
 const MIN_HEIGHT = 120;
@@ -32,44 +35,51 @@ export const HeightPickerModal = ({
   const timeoutRef = useRef(null);
   const hasAlignedRef = useRef(false);
 
-  useEffect(
-    () => () => {
-      clearTimeout(timeoutRef.current);
-    },
-    []
-  );
+  useEffect(() => {
+    let timeout = timeoutRef.current;
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isOpen || !scrollRef.current) {
       hasAlignedRef.current = false;
       return undefined;
     }
-
     const behavior = hasAlignedRef.current ? 'smooth' : 'instant';
     hasAlignedRef.current = true;
-
     const sanitizedValue = clampHeight(value);
     const frame = requestAnimationFrame(() => {
       alignScrollContainerToValue(scrollRef.current, sanitizedValue, behavior);
     });
-
     return () => cancelAnimationFrame(frame);
   }, [isOpen, value]);
 
-  const handleScroll = useMemo(
-    () =>
-      createPickerScrollHandler(
-        scrollRef,
-        timeoutRef,
-        (nextValue) => clampHeight(parseInt(nextValue, 10)),
-        (nextHeight) => {
-          if (onChange) {
-            onChange(nextHeight);
-          }
+  // Inline scroll handler for full lint compliance
+  const handleScroll = (event) => {
+    const container = event.currentTarget;
+    const closestItem = findClosestScrollItem(container);
+    if (closestItem) {
+      const parsedValue = clampHeight(parseInt(closestItem.dataset.value, 10));
+      if (!Number.isNaN(parsedValue)) {
+        if (onChange) {
+          onChange(parsedValue);
         }
-      ),
-    [onChange]
-  );
+      }
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = setTimeout(() => {
+      const containerEl = scrollRef.current || container;
+      if (!containerEl) return;
+      const target = findClosestScrollItem(containerEl);
+      if (target) {
+        alignScrollContainerToElement(containerEl, target, 'smooth');
+      }
+    }, SCROLL_SETTLE_DELAY);
+  };
 
   const sanitizedValue = clampHeight(value);
 

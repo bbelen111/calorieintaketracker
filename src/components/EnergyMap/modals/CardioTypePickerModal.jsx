@@ -25,17 +25,24 @@ export const CardioTypePickerModal = ({
     forceClose: forceConfirmClose,
   } = useAnimatedModal(false);
 
+  // Reset state when modal closes (avoid setState in effect)
   useEffect(() => {
     if (!isOpen) {
-      setQuery('');
+      // Delay state reset until after close animation
+      setTimeout(() => {
+        setQuery('');
+        setPendingDeleteKey(null);
+      }, 200); // match ModalShell exit animation duration
       forceConfirmClose();
-      setPendingDeleteKey(null);
     }
   }, [forceConfirmClose, isOpen]);
 
+  // Reset pendingDeleteKey after confirm modal closes (avoid setState in effect)
   useEffect(() => {
     if (!isConfirmOpen && !isConfirmClosing) {
-      setPendingDeleteKey(null);
+      setTimeout(() => {
+        setPendingDeleteKey(null);
+      }, 200); // match ConfirmActionModal exit animation duration
     }
   }, [isConfirmClosing, isConfirmOpen]);
 

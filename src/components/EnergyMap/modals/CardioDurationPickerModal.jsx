@@ -68,15 +68,16 @@ const convertMinutesToParts = (totalMinutes) => {
   return { hours, minutes };
 };
 
-export const CardioDurationPickerModal = ({
-  isOpen,
-  isClosing,
-  title = 'Cardio Duration',
-  minutes = 0,
-  onCancel,
-  onChange,
-  onSave,
-}) => {
+export const CardioDurationPickerModal = (props) => {
+  const {
+    isOpen,
+    isClosing,
+    title = 'Cardio Duration',
+    minutes = 0,
+    onCancel,
+    onChange,
+    onSave,
+  } = props;
   const hoursRef = useRef(null);
   const minutesRef = useRef(null);
   const hoursTimeoutRef = useRef(null);
@@ -198,27 +199,24 @@ export const CardioDurationPickerModal = ({
     [emitDurationChange]
   );
 
-  const handleHoursScroll = useMemo(
-    () =>
-      createPickerScrollHandler(
-        hoursRef,
-        hoursTimeoutRef,
-        (value) => parseInt(value, 10),
-        handleHoursChange
-      ),
-    [handleHoursChange]
-  );
+  // Avoid accessing refs during render. Create scroll handlers inline.
+  const handleHoursScroll = (e) => {
+    createPickerScrollHandler(
+      hoursRef,
+      hoursTimeoutRef,
+      (value) => parseInt(value, 10),
+      handleHoursChange
+    )(e);
+  };
 
-  const handleMinutesScroll = useMemo(
-    () =>
-      createPickerScrollHandler(
-        minutesRef,
-        minutesTimeoutRef,
-        (value) => parseInt(value, 10),
-        handleMinutesChange
-      ),
-    [handleMinutesChange]
-  );
+  const handleMinutesScroll = (e) => {
+    createPickerScrollHandler(
+      minutesRef,
+      minutesTimeoutRef,
+      (value) => parseInt(value, 10),
+      handleMinutesChange
+    )(e);
+  };
 
   const totalMinutes = useMemo(
     () => selectedHours * 60 + selectedMinutes,

@@ -7,10 +7,7 @@ import React, {
 } from 'react';
 import { Save } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
-import {
-  alignScrollContainerToValue,
-  createPickerScrollHandler,
-} from '../../../utils/scroll';
+import { alignScrollContainerToValue } from '../../../utils/scroll';
 
 const clampValue = (value, min, max) => {
   if (!Number.isFinite(value)) {
@@ -119,18 +116,61 @@ export const MetValuePickerModal = ({
     return () => cancelAnimationFrame(frame);
   }, [isOpen, normalizedValue, updateValue]);
 
-  useEffect(() => () => clearTimeout(timeoutRef.current), []);
+  useEffect(() => {
+    let timeout = timeoutRef.current;
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, []);
 
-  const handleScroll = useMemo(
-    () =>
-      createPickerScrollHandler(
-        scrollRef,
-        timeoutRef,
-        (raw) => parseFloat(raw),
-        (next) => updateValue(next, { shouldAlign: false })
-      ),
-    [updateValue]
-  );
+  // Inline scroll handler for lint compliance
+  const handleScroll = (event) => {
+    const container = event.currentTarget;
+    const closestItem = container.querySelectorAll('[data-value]');
+    let closest = null;
+    let closestDistance = Infinity;
+    const containerCenter = container.scrollTop + container.clientHeight / 2;
+    closestItem.forEach((item) => {
+      const itemCenter = item.offsetTop + item.offsetHeight / 2;
+      const distance = Math.abs(containerCenter - itemCenter);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closest = item;
+      }
+    });
+    if (closest) {
+      const parsedValue = parseFloat(closest.dataset.value);
+      if (!Number.isNaN(parsedValue)) {
+        updateValue(parsedValue, { shouldAlign: false });
+      }
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = setTimeout(() => {
+      const containerEl = scrollRef.current || container;
+      if (!containerEl) return;
+      // Find closest again for alignment
+      let closestAlign = null;
+      let closestAlignDistance = Infinity;
+      const center = containerEl.scrollTop + containerEl.clientHeight / 2;
+      containerEl.querySelectorAll('[data-value]').forEach((item) => {
+        const itemCenter = item.offsetTop + item.offsetHeight / 2;
+        const distance = Math.abs(center - itemCenter);
+        if (distance < closestAlignDistance) {
+          closestAlignDistance = distance;
+          closestAlign = item;
+        }
+      });
+      if (closestAlign) {
+        const targetScrollTop =
+          closestAlign.offsetTop -
+          containerEl.clientHeight / 2 +
+          closestAlign.offsetHeight / 2;
+        containerEl.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
+      }
+    }, 140);
+  };
 
   return (
     <ModalShell

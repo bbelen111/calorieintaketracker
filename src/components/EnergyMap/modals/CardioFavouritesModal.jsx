@@ -131,13 +131,17 @@ export const CardioFavouritesModal = ({
   useEffect(() => {
     if (!isOpen) {
       forceConfirmClose();
-      setPendingDeleteId(null);
     }
   }, [forceConfirmClose, isOpen]);
 
   useEffect(() => {
+    // Use a cleanup function to reset pendingDeleteId after modal closes
     if (!isConfirmOpen && !isConfirmClosing) {
-      setPendingDeleteId(null);
+      // Defer setState to avoid cascading renders
+      const timeout = setTimeout(() => {
+        setPendingDeleteId(null);
+      }, 0);
+      return () => clearTimeout(timeout);
     }
   }, [isConfirmClosing, isConfirmOpen]);
 

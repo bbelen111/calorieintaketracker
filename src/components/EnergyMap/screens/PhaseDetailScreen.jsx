@@ -7,7 +7,6 @@ import {
   Target,
   Zap,
   Activity,
-  BarChart3,
   Archive,
   Trash2,
 } from 'lucide-react';
@@ -41,7 +40,7 @@ const CalendarHeatmap = ({ calendarData, onDateClick }) => {
     const weekArray = [];
     let currentWeek = [];
 
-    calendarData.forEach((day, index) => {
+    calendarData.forEach((day) => {
       // Start new week on Sunday (dayOfWeek === 0)
       if (day.dayOfWeek === 0 && currentWeek.length > 0) {
         weekArray.push(currentWeek);
@@ -209,7 +208,6 @@ export const PhaseDetailScreen = ({
   onBack,
   onAddLog,
   onEditLog,
-  onViewInsights,
   onArchive,
   onDelete,
 }) => {
@@ -385,14 +383,6 @@ export const PhaseDetailScreen = ({
         >
           <Plus size={20} />
           Log Today
-        </button>
-        <button
-          type="button"
-          onClick={onViewInsights}
-          className="px-6 py-4 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
-        >
-          <BarChart3 size={20} />
-          View Insights
         </button>
       </div>
 
