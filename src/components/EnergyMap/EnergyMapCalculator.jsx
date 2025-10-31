@@ -581,10 +581,10 @@ export const EnergyMapCalculator = () => {
     (typeKey) => {
       const current = trainingTypes[typeKey] ??
         presetTrainingTypes[typeKey] ?? {
-        label: typeKey,
-        description: '',
-        caloriesPerHour: 0,
-      };
+          label: typeKey,
+          description: '',
+          caloriesPerHour: 0,
+        };
 
       const initialCalories = Number(current.caloriesPerHour ?? 0);
 
