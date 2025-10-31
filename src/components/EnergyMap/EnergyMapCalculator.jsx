@@ -134,7 +134,6 @@ export const EnergyMapCalculator = () => {
     customCardioTypes,
     cardioFavourites,
     phases,
-    activePhaseId,
     bmr,
     trainingCalories,
     totalCardioBurn,
@@ -149,16 +148,13 @@ export const EnergyMapCalculator = () => {
     updateTrainingType,
     addCustomCardioType,
     removeCustomCardioType,
-    calculateBreakdown,
     calculateTargetForGoal,
     calculateCardioSessionCalories,
     saveWeightEntry,
     deleteWeightEntry,
     createPhase,
-    updatePhase,
     deletePhase,
     archivePhase,
-    setActivePhase,
     addDailyLog,
     updateDailyLog,
     deleteDailyLog,
@@ -268,14 +264,17 @@ export const EnergyMapCalculator = () => {
   }, [selectedDay]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTempAge(userData.age);
   }, [userData.age]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTempHeight(userData.height);
   }, [userData.height]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTempTrainingType(userData.trainingType);
     setTempTrainingDuration(userData.trainingDuration);
   }, [userData.trainingDuration, userData.trainingType]);
@@ -310,6 +309,7 @@ export const EnergyMapCalculator = () => {
     return '—';
   }, [latestWeightEntry?.weight, userData.weight]);
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const weightButtonSubtitle = useMemo(() => {
     if (hasTodayWeightEntry) {
       return 'Logged today';
@@ -512,6 +512,7 @@ export const EnergyMapCalculator = () => {
     }
 
     const fallbackWeight = clampWeight(userData.weight) ?? userData.weight;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setWeightEntryDraft({ date: getTodayDateString(), weight: fallbackWeight });
     setWeightEntryMode('add');
     setWeightEntryOriginalDate(null);
@@ -640,12 +641,6 @@ export const EnergyMapCalculator = () => {
     tempTrainingType,
     updateTrainingType,
   ]);
-
-  const openQuickTrainingModal = useCallback(() => {
-    setTempTrainingType(userData.trainingType);
-    setTempTrainingDuration(userData.trainingDuration);
-    quickTrainingModal.open();
-  }, [quickTrainingModal, userData.trainingDuration, userData.trainingType]);
 
   const openDailyActivitySettings = useCallback(() => {
     setActivityEditorDay(null);
@@ -1270,6 +1265,7 @@ export const EnergyMapCalculator = () => {
 
   useEffect(() => {
     if (!dailyLogModal.isOpen && !dailyLogModal.isClosing) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDailyLogDate(getTodayDateString());
       setDailyLogWeightRef('');
       setDailyLogNutritionRef('');
@@ -1283,6 +1279,7 @@ export const EnergyMapCalculator = () => {
 
   useEffect(() => {
     if (!phaseCreationModal.isOpen && !phaseCreationModal.isClosing) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPhaseName('');
       setPhaseStartDate(getTodayDateString());
       setPhaseEndDate('');
@@ -1297,13 +1294,15 @@ export const EnergyMapCalculator = () => {
     if (selectedPhase) {
       const updatedPhase = phases.find((p) => p.id === selectedPhase.id);
       if (updatedPhase) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSelectedPhase(updatedPhase);
       }
     }
-  }, [phases, selectedPhase?.id]);
+  }, [phases, selectedPhase?.id, selectedPhase]);
 
   useEffect(() => {
     if (!cardioModal.isOpen && !cardioModal.isClosing) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCardioDraft(defaultCardioSession);
       setEditingCardioId(null);
       setCardioModalMode('add');
@@ -1315,6 +1314,7 @@ export const EnergyMapCalculator = () => {
       !cardioFavouriteEditorModal.isOpen &&
       !cardioFavouriteEditorModal.isClosing
     ) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFavouriteDraft(defaultCardioSession);
     }
   }, [cardioFavouriteEditorModal.isClosing, cardioFavouriteEditorModal.isOpen]);
