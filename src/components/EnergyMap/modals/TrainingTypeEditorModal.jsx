@@ -45,7 +45,7 @@ export const TrainingTypeEditorModal = ({
       contentClassName="p-6 w-full max-w-md"
     >
       <h3 className="text-white font-bold text-xl mb-4 text-center">
-        {typeKey ? `Edit ${defaults.label}` : 'Edit Training Type'}
+        Edit Training Type
       </h3>
 
       <div className="space-y-4">
