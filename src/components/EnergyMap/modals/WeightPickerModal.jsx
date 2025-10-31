@@ -200,27 +200,32 @@ export const WeightPickerModal = ({
     [notifyChange]
   );
 
-  const handleWholeScroll = useMemo(
-    () =>
+  const [handleWholeScroll, setHandleWholeScroll] = useState(() => () => {});
+  const [handleDecimalScroll, setHandleDecimalScroll] = useState(
+    () => () => {}
+  );
+
+  useEffect(() => {
+    setHandleWholeScroll(() =>
       createPickerScrollHandler(
         wholeRef,
         wholeTimeoutRef,
         (value) => parseInt(value, 10),
         handleWholeChange
-      ),
-    [handleWholeChange]
-  );
+      )
+    );
+  }, [handleWholeChange]);
 
-  const handleDecimalScroll = useMemo(
-    () =>
+  useEffect(() => {
+    setHandleDecimalScroll(() =>
       createPickerScrollHandler(
         decimalRef,
         decimalTimeoutRef,
         (value) => parseInt(value, 10),
         handleDecimalChange
-      ),
-    [handleDecimalChange]
-  );
+      )
+    );
+  }, [handleDecimalChange]);
 
   const selectedWeight = useMemo(
     () => buildWeightValue(selectedWhole, selectedDecimal),
