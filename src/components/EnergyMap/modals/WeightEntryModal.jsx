@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Calendar, Trash2, Save } from 'lucide-react';
+import { Trash2, Save } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import { formatWeight } from '../../../utils/weight';
 import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
@@ -82,7 +82,7 @@ export const WeightEntryModal = ({
           )}
           {!isEdit && isDateLocked && (
             <p className="text-slate-500 text-xs mt-1">
-              Date locked because today\'s entry already exists.
+              Date locked because today&apos;s entry already exists.
             </p>
           )}
         </div>
