@@ -7,7 +7,6 @@ import {
   Target,
   Zap,
   Activity,
-  BarChart3,
   Archive,
   Trash2,
 } from 'lucide-react';
@@ -41,7 +40,7 @@ const CalendarHeatmap = ({ calendarData, onDateClick }) => {
     const weekArray = [];
     let currentWeek = [];
 
-    calendarData.forEach((day, index) => {
+    calendarData.forEach((day) => {
       // Start new week on Sunday (dayOfWeek === 0)
       if (day.dayOfWeek === 0 && currentWeek.length > 0) {
         weekArray.push(currentWeek);
