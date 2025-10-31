@@ -13,18 +13,27 @@ export const QuickTrainingModal = ({
   onEditTrainingType,
   onDurationClick,
   onCancel,
-  onSave
+  onSave,
 }) => {
   const selectedTraining = trainingTypes[tempTrainingType];
   const caloriesPerHour = selectedTraining?.caloriesPerHour ?? 0;
 
   const estimatedBurn = Math.round(caloriesPerHour * tempTrainingDuration);
   const formattedDuration = formatDurationLabel(tempTrainingDuration);
-  const roundedDuration = useMemo(() => roundDurationHours(tempTrainingDuration), [tempTrainingDuration]);
+  const roundedDuration = useMemo(
+    () => roundDurationHours(tempTrainingDuration),
+    [tempTrainingDuration]
+  );
 
   return (
-    <ModalShell isOpen={isOpen} isClosing={isClosing} contentClassName="p-6 w-full max-w-md">
-      <h3 className="text-white font-bold text-xl mb-4 text-center">Training Settings</h3>
+    <ModalShell
+      isOpen={isOpen}
+      isClosing={isClosing}
+      contentClassName="p-6 w-full max-w-md"
+    >
+      <h3 className="text-white font-bold text-xl mb-4 text-center">
+        Training Settings
+      </h3>
 
       <div className="space-y-6">
         <div>
@@ -43,7 +52,9 @@ export const QuickTrainingModal = ({
                   }}
                   type="button"
                   className={`p-3 rounded-lg border-2 transition-all text-sm relative text-left ${
-                    isActive ? 'bg-purple-600 border-purple-400 text-white' : 'bg-slate-700 border-slate-600 text-slate-300 active:bg-slate-600'
+                    isActive
+                      ? 'bg-purple-600 border-purple-400 text-white'
+                      : 'bg-slate-700 border-slate-600 text-slate-300 active:bg-slate-600'
                   }`}
                 >
                   <span
@@ -56,8 +67,12 @@ export const QuickTrainingModal = ({
                     <Edit3 size={12} />
                   </span>
                   <div className="pr-10 space-y-1">
-                    <div className="font-bold text-base leading-tight">{type.label}</div>
-                    <div className="text-xs opacity-75 leading-tight">{type.caloriesPerHour} cal/hr</div>
+                    <div className="font-bold text-base leading-tight">
+                      {type.label}
+                    </div>
+                    <div className="text-xs opacity-75 leading-tight">
+                      {type.caloriesPerHour} cal/hr
+                    </div>
                   </div>
                 </button>
               );
@@ -66,19 +81,31 @@ export const QuickTrainingModal = ({
         </div>
 
         <div>
-          <label className="text-slate-300 text-sm block mb-2">Training Duration (hours)</label>
+          <label className="text-slate-300 text-sm block mb-2">
+            Training Duration (hours)
+          </label>
           <button
             onClick={onDurationClick}
             type="button"
             className="w-full px-3 py-2 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1"
           >
-            <span className="font-semibold text-sm md:text-base">{formattedDuration}</span>
-            <span className="text-xs opacity-90">~{roundedDuration.toFixed(2)} hours</span>
-            <span className="text-[11px] opacity-75 ml-auto">Tap to change</span>
+            <span className="font-semibold text-sm md:text-base">
+              {formattedDuration}
+            </span>
+            <span className="text-xs opacity-90">
+              ~{roundedDuration.toFixed(2)} hours
+            </span>
+            <span className="text-[11px] opacity-75 ml-auto">
+              Tap to change
+            </span>
           </button>
           <div className="bg-slate-700/50 rounded-lg p-3 mt-3">
-            <p className="text-slate-400 text-xs text-center mb-1">Estimated Burn:</p>
-            <p className="text-white font-bold text-xl text-center">~{estimatedBurn} calories</p>
+            <p className="text-slate-400 text-xs text-center mb-1">
+              Estimated Burn:
+            </p>
+            <p className="text-white font-bold text-xl text-center">
+              ~{estimatedBurn} calories
+            </p>
           </div>
         </div>
       </div>

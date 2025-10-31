@@ -1,11 +1,14 @@
 import React from 'react';
 import { Check, PenLine } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
-import { ACTIVITY_PRESET_OPTIONS, DEFAULT_ACTIVITY_MULTIPLIERS } from '../../../constants/activityPresets';
+import {
+  ACTIVITY_PRESET_OPTIONS,
+  DEFAULT_ACTIVITY_MULTIPLIERS,
+} from '../../../constants/activityPresets';
 
 const titles = {
   training: 'Training Day NEAT',
-  rest: 'Rest Day NEAT'
+  rest: 'Rest Day NEAT',
 };
 
 const formatMultiplier = (value) => {
@@ -15,7 +18,9 @@ const formatMultiplier = (value) => {
 
   const percent = value * 100;
   const rounded = Math.round(percent * 10) / 10;
-  return Number.isInteger(rounded) ? `${rounded.toFixed(0)}%` : `${rounded.toFixed(1)}%`;
+  return Number.isInteger(rounded)
+    ? `${rounded.toFixed(0)}%`
+    : `${rounded.toFixed(1)}%`;
 };
 
 export const DailyActivityEditorModal = ({
@@ -26,7 +31,7 @@ export const DailyActivityEditorModal = ({
   currentMultiplier,
   onSelectPreset,
   onSelectCustom,
-  onClose
+  onClose,
 }) => {
   if (!isOpen || !dayType) {
     return null;
@@ -45,7 +50,9 @@ export const DailyActivityEditorModal = ({
       contentClassName="p-4 md:p-6 w-full md:max-w-xl"
     >
       <div className="flex items-center justify-between mb-4 md:mb-6">
-        <h3 className="text-white font-bold text-xl md:text-2xl">{titles[dayType]}</h3>
+        <h3 className="text-white font-bold text-xl md:text-2xl">
+          {titles[dayType]}
+        </h3>
       </div>
 
       <div className="space-y-3">
@@ -57,13 +64,17 @@ export const DailyActivityEditorModal = ({
               type="button"
               onClick={() => onSelectPreset(dayType, option.key, option.value)}
               className={`w-full p-4 rounded-xl border-2 transition-all text-left flex items-start gap-3 active:scale-[0.98] ${
-                isActive ? 'bg-blue-600 border-blue-400 text-white shadow-lg' : 'bg-slate-700 border-slate-600 text-slate-300'
+                isActive
+                  ? 'bg-blue-600 border-blue-400 text-white shadow-lg'
+                  : 'bg-slate-700 border-slate-600 text-slate-300'
               }`}
             >
               <div className="flex-1">
                 <p className="font-semibold text-lg">{option.label}</p>
                 <p className="text-sm opacity-90 mt-1">{option.description}</p>
-                <p className="text-xs opacity-75 mt-3">NEAT offset: {formatMultiplier(option.value)}</p>
+                <p className="text-xs opacity-75 mt-3">
+                  NEAT offset: {formatMultiplier(option.value)}
+                </p>
               </div>
               {isActive && (
                 <span className="flex items-center justify-center w-8 h-8 rounded-full bg-white/20">
@@ -78,15 +89,20 @@ export const DailyActivityEditorModal = ({
           type="button"
           onClick={() => onSelectCustom(dayType, customSelected)}
           className={`w-full p-4 rounded-xl border-2 transition-all text-left flex items-start gap-3 active:scale-[0.98] ${
-            customSelected ? 'bg-amber-600 border-amber-400 text-white shadow-lg' : 'bg-slate-700 border-slate-600 text-slate-300'
+            customSelected
+              ? 'bg-amber-600 border-amber-400 text-white shadow-lg'
+              : 'bg-slate-700 border-slate-600 text-slate-300'
           }`}
         >
           <div className="flex-1">
             <p className="font-semibold text-lg">Custom</p>
             <p className="text-sm opacity-90 mt-1">
-              Set your own NEAT offset when the presets do not match your routine.
+              Set your own NEAT offset when the presets do not match your
+              routine.
             </p>
-            <p className="text-xs opacity-75 mt-3">Current NEAT offset: {formatMultiplier(multiplier)}</p>
+            <p className="text-xs opacity-75 mt-3">
+              Current NEAT offset: {formatMultiplier(multiplier)}
+            </p>
             {customSelected && (
               <p className="text-xs opacity-75 mt-2 flex items-center gap-1">
                 <PenLine size={14} />

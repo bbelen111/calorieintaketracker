@@ -1,13 +1,32 @@
 import React, { useMemo } from 'react';
-import { ChevronLeft, Plus, TrendingUp, Calendar, Target, Zap, Activity, BarChart3, Archive, Trash2 } from 'lucide-react';
+import {
+  ChevronLeft,
+  Plus,
+  TrendingUp,
+  Calendar,
+  Target,
+  Zap,
+  Activity,
+  BarChart3,
+  Archive,
+  Trash2,
+} from 'lucide-react';
 import { goals } from '../../../constants/goals';
 import { formatWeight } from '../../../utils/weight';
-import { calculatePhaseMetrics, getPhaseCalendarData, getRecentDailyLogs } from '../../../utils/phases';
+import {
+  calculatePhaseMetrics,
+  getPhaseCalendarData,
+  getRecentDailyLogs,
+} from '../../../utils/phases';
 
 const formatDate = (dateStr) => {
   if (!dateStr) return '';
   const date = new Date(dateStr + 'T00:00:00');
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 };
 
 const formatDateShort = (dateStr) => {
@@ -21,7 +40,7 @@ const CalendarHeatmap = ({ calendarData, onDateClick }) => {
   const weeks = useMemo(() => {
     const weekArray = [];
     let currentWeek = [];
-    
+
     calendarData.forEach((day, index) => {
       // Start new week on Sunday (dayOfWeek === 0)
       if (day.dayOfWeek === 0 && currentWeek.length > 0) {
@@ -30,12 +49,12 @@ const CalendarHeatmap = ({ calendarData, onDateClick }) => {
       }
       currentWeek.push(day);
     });
-    
+
     // Push last week if it has days
     if (currentWeek.length > 0) {
       weekArray.push(currentWeek);
     }
-    
+
     return weekArray;
   }, [calendarData]);
 
@@ -76,7 +95,10 @@ const CalendarHeatmap = ({ calendarData, onDateClick }) => {
       {/* Day labels */}
       <div className="grid grid-cols-7 gap-2 mb-1">
         {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
-          <div key={i} className="text-slate-500 text-xs text-center font-semibold">
+          <div
+            key={i}
+            className="text-slate-500 text-xs text-center font-semibold"
+          >
             {day}
           </div>
         ))}
@@ -86,12 +108,12 @@ const CalendarHeatmap = ({ calendarData, onDateClick }) => {
       {weeks.map((week, weekIndex) => (
         <div key={weekIndex} className="grid grid-cols-7 gap-2">
           {/* Pad start of first week if doesn't start on Sunday */}
-          {weekIndex === 0 && week[0].dayOfWeek !== 0 && 
+          {weekIndex === 0 &&
+            week[0].dayOfWeek !== 0 &&
             Array.from({ length: week[0].dayOfWeek }).map((_, i) => (
               <div key={`pad-${i}`} />
-            ))
-          }
-          
+            ))}
+
           {week.map((day) => (
             <button
               key={day.date}
@@ -127,7 +149,7 @@ const CalendarHeatmap = ({ calendarData, onDateClick }) => {
 
 const DailyLogCard = ({ log, onEdit }) => {
   const hasMacros = log.protein || log.carbs || log.fats;
-  
+
   return (
     <button
       type="button"
@@ -137,14 +159,16 @@ const DailyLogCard = ({ log, onEdit }) => {
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-white font-semibold">{formatDate(log.date)}</span>
+            <span className="text-white font-semibold">
+              {formatDate(log.date)}
+            </span>
             {log.completed && (
               <span className="px-2 py-0.5 bg-green-900/30 border border-green-700 rounded text-green-300 text-xs font-semibold">
                 ✓ Complete
               </span>
             )}
           </div>
-          
+
           <div className="flex items-center gap-4 text-sm text-slate-400 flex-wrap">
             {log.calories && (
               <div className="flex items-center gap-1">
@@ -179,35 +203,30 @@ const DailyLogCard = ({ log, onEdit }) => {
   );
 };
 
-export const PhaseDetailScreen = ({ 
-  phase, 
+export const PhaseDetailScreen = ({
+  phase,
   weightEntries = [],
-  onBack, 
-  onAddLog, 
+  onBack,
+  onAddLog,
   onEditLog,
   onViewInsights,
   onArchive,
-  onDelete
+  onDelete,
 }) => {
   const metrics = useMemo(
     () => calculatePhaseMetrics(phase, weightEntries),
     [phase, weightEntries]
   );
 
-  const calendarData = useMemo(
-    () => getPhaseCalendarData(phase),
-    [phase]
-  );
+  const calendarData = useMemo(() => getPhaseCalendarData(phase), [phase]);
 
-  const recentLogs = useMemo(
-    () => getRecentDailyLogs(phase, 7),
-    [phase]
-  );
+  const recentLogs = useMemo(() => getRecentDailyLogs(phase, 7), [phase]);
 
   const goal = goals[phase.goalType] || goals.maintenance;
   // Helper for goal badge color classes
   const getGoalBadgeClass = () => {
-    if (!goal || !goal.color) return 'bg-slate-700 text-slate-300 border-slate-600';
+    if (!goal || !goal.color)
+      return 'bg-slate-700 text-slate-300 border-slate-600';
     return `${goal.color} text-white border-2 ${goal.color.replace('bg-', 'border-')}`;
   };
   const isActive = phase.status === 'active';
@@ -229,13 +248,15 @@ export const PhaseDetailScreen = ({
     return diffDays;
   }, [phase.startDate]);
 
-  const weightChangeDisplay = metrics.weightChange === 0 
-    ? '—' 
-    : `${metrics.weightChange > 0 ? '+' : ''}${formatWeight(Math.abs(metrics.weightChange))} kg`;
+  const weightChangeDisplay =
+    metrics.weightChange === 0
+      ? '—'
+      : `${metrics.weightChange > 0 ? '+' : ''}${formatWeight(Math.abs(metrics.weightChange))} kg`;
 
-  const weeklyRateDisplay = metrics.avgWeeklyRate === 0
-    ? '0.0 kg/wk'
-    : `${metrics.avgWeeklyRate > 0 ? '+' : ''}${metrics.avgWeeklyRate.toFixed(2)} kg/wk`;
+  const weeklyRateDisplay =
+    metrics.avgWeeklyRate === 0
+      ? '0.0 kg/wk'
+      : `${metrics.avgWeeklyRate > 0 ? '+' : ''}${metrics.avgWeeklyRate.toFixed(2)} kg/wk`;
 
   return (
     <div className="space-y-6 pb-10">
@@ -252,7 +273,9 @@ export const PhaseDetailScreen = ({
 
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="flex-1">
-            <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">{phase.name}</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
+              {phase.name}
+            </h1>
             <div className="flex items-center gap-2 flex-wrap">
               {isActive && (
                 <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-900/30 border border-green-700 rounded-md text-green-300 text-xs font-semibold">
@@ -260,10 +283,14 @@ export const PhaseDetailScreen = ({
                   ACTIVE
                 </span>
               )}
-              <span className={`px-2 py-1 rounded-md text-xs font-semibold ${getGoalBadgeClass()}`}>{goal.label}</span>
+              <span
+                className={`px-2 py-1 rounded-md text-xs font-semibold ${getGoalBadgeClass()}`}
+              >
+                {goal.label}
+              </span>
             </div>
           </div>
-          
+
           {/* Phase Actions */}
           <div className="flex items-center gap-2">
             <button
@@ -293,7 +320,9 @@ export const PhaseDetailScreen = ({
             </div>
             <div className="text-white font-semibold">
               {formatDateShort(phase.startDate)}
-              {phase.endDate ? ` - ${formatDateShort(phase.endDate)}` : ' - Ongoing'}
+              {phase.endDate
+                ? ` - ${formatDateShort(phase.endDate)}`
+                : ' - Ongoing'}
             </div>
             {isActive && metrics.totalDays > 0 && (
               <div className="text-slate-400 text-xs mt-1">
@@ -334,7 +363,9 @@ export const PhaseDetailScreen = ({
               <span>Avg Calories</span>
             </div>
             <div className="text-white font-semibold">
-              {metrics.avgCalories > 0 ? metrics.avgCalories.toLocaleString() : '—'}
+              {metrics.avgCalories > 0
+                ? metrics.avgCalories.toLocaleString()
+                : '—'}
             </div>
             {metrics.avgSteps > 0 && (
               <div className="text-slate-400 text-xs mt-1">
@@ -371,7 +402,10 @@ export const PhaseDetailScreen = ({
           <Calendar size={20} className="text-blue-400" />
           Daily Log Calendar
         </h2>
-        <CalendarHeatmap calendarData={calendarData} onDateClick={handleCalendarDateClick} />
+        <CalendarHeatmap
+          calendarData={calendarData}
+          onDateClick={handleCalendarDateClick}
+        />
       </div>
 
       {/* Recent Logs */}

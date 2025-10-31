@@ -4,7 +4,7 @@ import {
   calculateWeightTrend,
   createSparklinePoints,
   formatDateLabel,
-  formatWeight
+  formatWeight,
 } from '../../../utils/weight';
 
 const getTrendToneClass = (direction, label) => {
@@ -12,12 +12,12 @@ const getTrendToneClass = (direction, label) => {
   if (label === 'Need more data' || label === 'No data yet') {
     return 'text-white';
   }
-  
+
   // Severe states (most extreme) - Red
   if (label.includes('Severe')) {
     return 'text-red-500';
   }
-  
+
   // Aggressive states
   if (label.includes('Aggressive weight loss')) {
     return 'text-orange-500'; // Matches aggressive_cut goal
@@ -25,7 +25,7 @@ const getTrendToneClass = (direction, label) => {
   if (label.includes('Aggressive weight gain')) {
     return 'text-purple-500'; // Matches aggressive_bulk goal
   }
-  
+
   // Moderate states
   if (label.includes('Moderate weight loss')) {
     return 'text-yellow-500'; // Matches cutting goal
@@ -33,7 +33,7 @@ const getTrendToneClass = (direction, label) => {
   if (label.includes('Moderate weight gain')) {
     return 'text-green-500'; // Matches bulking/lean bulk goal
   }
-  
+
   // Gradual states - use slightly muted versions
   if (direction === 'down') {
     return 'text-yellow-400'; // Gradual loss
@@ -41,7 +41,7 @@ const getTrendToneClass = (direction, label) => {
   if (direction === 'up') {
     return 'text-green-400'; // Gradual gain
   }
-  
+
   return 'text-blue-400'; // Stable/maintenance
 };
 
@@ -61,30 +61,39 @@ const formatWeeklyRate = (value) => {
   return `${sign}${value.toFixed(2)} kg/wk`;
 };
 
-export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onOpenWeightTracker }) => {
+export const InsightsScreen = ({
+  userData,
+  selectedGoal,
+  weightEntries = [],
+  onOpenWeightTracker,
+}) => {
   // Only keep entries from the last 7 days
   const sortedEntries = useMemo(() => {
     if (!weightEntries.length) return [];
     const now = new Date();
-    return weightEntries.filter(entry => {
+    return weightEntries.filter((entry) => {
       const entryDate = new Date(entry.date + 'T00:00:00');
       return (now - entryDate) / (1000 * 60 * 60 * 24) <= 7;
     });
   }, [weightEntries]);
-  const trend = useMemo(() => calculateWeightTrend(sortedEntries), [sortedEntries]);
+  const trend = useMemo(
+    () => calculateWeightTrend(sortedEntries),
+    [sortedEntries]
+  );
   const sparkline = useMemo(
     () =>
       createSparklinePoints(sortedEntries, {
         width: 160,
         height: 56,
         padding: 6,
-        limit: 7 // Only show up to 7 entries
+        limit: 7, // Only show up to 7 entries
       }),
     [sortedEntries]
   );
 
   const latestEntry = useMemo(
-    () => (sortedEntries.length ? sortedEntries[sortedEntries.length - 1] : null),
+    () =>
+      sortedEntries.length ? sortedEntries[sortedEntries.length - 1] : null,
     [sortedEntries]
   );
 
@@ -108,7 +117,11 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
               <LineChart size={26} className="text-blue-300" />
               Weight Snapshot
             </p>
-            <p className={`text-xl font-semibold ${getTrendToneClass(trend.direction, trend.label)}`}>{trend.label}</p>
+            <p
+              className={`text-xl font-semibold ${getTrendToneClass(trend.direction, trend.label)}`}
+            >
+              {trend.label}
+            </p>
             <p className="text-slate-300 text-sm mt-1">
               {currentWeight ? `${currentWeight} kg` : '—'} • {lastLoggedLabel}
             </p>
@@ -126,89 +139,205 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
                 className="overflow-visible"
               >
                 <defs>
-                  <linearGradient id="weightSparklineGradient" x1="0" x2="0" y1="0" y2="1">
+                  <linearGradient
+                    id="weightSparklineGradient"
+                    x1="0"
+                    x2="0"
+                    y1="0"
+                    y2="1"
+                  >
                     {trend.label.includes('Severe') ? (
                       <>
-                        <stop offset="0%" stopColor="#ef4444" stopOpacity="0.4" />
-                        <stop offset="100%" stopColor="#ef4444" stopOpacity="0.05" />
+                        <stop
+                          offset="0%"
+                          stopColor="#ef4444"
+                          stopOpacity="0.4"
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor="#ef4444"
+                          stopOpacity="0.05"
+                        />
                       </>
                     ) : trend.label.includes('Aggressive weight loss') ? (
                       <>
-                        <stop offset="0%" stopColor="#f97316" stopOpacity="0.4" />
-                        <stop offset="100%" stopColor="#f97316" stopOpacity="0.05" />
+                        <stop
+                          offset="0%"
+                          stopColor="#f97316"
+                          stopOpacity="0.4"
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor="#f97316"
+                          stopOpacity="0.05"
+                        />
                       </>
                     ) : trend.label.includes('Aggressive weight gain') ? (
                       <>
-                        <stop offset="0%" stopColor="#a855f7" stopOpacity="0.4" />
-                        <stop offset="100%" stopColor="#a855f7" stopOpacity="0.05" />
+                        <stop
+                          offset="0%"
+                          stopColor="#a855f7"
+                          stopOpacity="0.4"
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor="#a855f7"
+                          stopOpacity="0.05"
+                        />
                       </>
                     ) : trend.label.includes('Moderate weight loss') ? (
                       <>
-                        <stop offset="0%" stopColor="#eab308" stopOpacity="0.4" />
-                        <stop offset="100%" stopColor="#eab308" stopOpacity="0.05" />
+                        <stop
+                          offset="0%"
+                          stopColor="#eab308"
+                          stopOpacity="0.4"
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor="#eab308"
+                          stopOpacity="0.05"
+                        />
                       </>
                     ) : trend.label.includes('Moderate weight gain') ? (
                       <>
-                        <stop offset="0%" stopColor="#22c55e" stopOpacity="0.4" />
-                        <stop offset="100%" stopColor="#22c55e" stopOpacity="0.05" />
+                        <stop
+                          offset="0%"
+                          stopColor="#22c55e"
+                          stopOpacity="0.4"
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor="#22c55e"
+                          stopOpacity="0.05"
+                        />
                       </>
                     ) : trend.direction === 'down' ? (
                       <>
-                        <stop offset="0%" stopColor="#eab308" stopOpacity="0.3" />
-                        <stop offset="100%" stopColor="#eab308" stopOpacity="0.05" />
+                        <stop
+                          offset="0%"
+                          stopColor="#eab308"
+                          stopOpacity="0.3"
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor="#eab308"
+                          stopOpacity="0.05"
+                        />
                       </>
                     ) : trend.direction === 'up' ? (
                       <>
-                        <stop offset="0%" stopColor="#22c55e" stopOpacity="0.3" />
-                        <stop offset="100%" stopColor="#22c55e" stopOpacity="0.05" />
+                        <stop
+                          offset="0%"
+                          stopColor="#22c55e"
+                          stopOpacity="0.3"
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor="#22c55e"
+                          stopOpacity="0.05"
+                        />
                       </>
                     ) : (
                       <>
-                        <stop offset="0%" stopColor="#60a5fa" stopOpacity="0.4" />
-                        <stop offset="100%" stopColor="#60a5fa" stopOpacity="0.05" />
+                        <stop
+                          offset="0%"
+                          stopColor="#60a5fa"
+                          stopOpacity="0.4"
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor="#60a5fa"
+                          stopOpacity="0.05"
+                        />
                       </>
                     )}
                   </linearGradient>
-                  <linearGradient id="weightSparklineStroke" x1="0" x2="0" y1="0" y2="1">
+                  <linearGradient
+                    id="weightSparklineStroke"
+                    x1="0"
+                    x2="0"
+                    y1="0"
+                    y2="1"
+                  >
                     {trend.label.includes('Severe') ? (
                       <>
                         <stop offset="0%" stopColor="#ef4444" stopOpacity="1" />
-                        <stop offset="100%" stopColor="#ef4444" stopOpacity="0.8" />
+                        <stop
+                          offset="100%"
+                          stopColor="#ef4444"
+                          stopOpacity="0.8"
+                        />
                       </>
                     ) : trend.label.includes('Aggressive weight loss') ? (
                       <>
                         <stop offset="0%" stopColor="#f97316" stopOpacity="1" />
-                        <stop offset="100%" stopColor="#f97316" stopOpacity="0.8" />
+                        <stop
+                          offset="100%"
+                          stopColor="#f97316"
+                          stopOpacity="0.8"
+                        />
                       </>
                     ) : trend.label.includes('Aggressive weight gain') ? (
                       <>
                         <stop offset="0%" stopColor="#a855f7" stopOpacity="1" />
-                        <stop offset="100%" stopColor="#a855f7" stopOpacity="0.8" />
+                        <stop
+                          offset="100%"
+                          stopColor="#a855f7"
+                          stopOpacity="0.8"
+                        />
                       </>
                     ) : trend.label.includes('Moderate weight loss') ? (
                       <>
                         <stop offset="0%" stopColor="#eab308" stopOpacity="1" />
-                        <stop offset="100%" stopColor="#eab308" stopOpacity="0.8" />
+                        <stop
+                          offset="100%"
+                          stopColor="#eab308"
+                          stopOpacity="0.8"
+                        />
                       </>
                     ) : trend.label.includes('Moderate weight gain') ? (
                       <>
                         <stop offset="0%" stopColor="#22c55e" stopOpacity="1" />
-                        <stop offset="100%" stopColor="#22c55e" stopOpacity="0.8" />
+                        <stop
+                          offset="100%"
+                          stopColor="#22c55e"
+                          stopOpacity="0.8"
+                        />
                       </>
                     ) : trend.direction === 'down' ? (
                       <>
-                        <stop offset="0%" stopColor="#eab308" stopOpacity="0.8" />
-                        <stop offset="100%" stopColor="#eab308" stopOpacity="0.6" />
+                        <stop
+                          offset="0%"
+                          stopColor="#eab308"
+                          stopOpacity="0.8"
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor="#eab308"
+                          stopOpacity="0.6"
+                        />
                       </>
                     ) : trend.direction === 'up' ? (
                       <>
-                        <stop offset="0%" stopColor="#22c55e" stopOpacity="0.8" />
-                        <stop offset="100%" stopColor="#22c55e" stopOpacity="0.6" />
+                        <stop
+                          offset="0%"
+                          stopColor="#22c55e"
+                          stopOpacity="0.8"
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor="#22c55e"
+                          stopOpacity="0.6"
+                        />
                       </>
                     ) : (
                       <>
                         <stop offset="0%" stopColor="#60a5fa" stopOpacity="1" />
-                        <stop offset="100%" stopColor="#60a5fa" stopOpacity="0.8" />
+                        <stop
+                          offset="100%"
+                          stopColor="#60a5fa"
+                          stopOpacity="0.8"
+                        />
                       </>
                     )}
                   </linearGradient>
@@ -234,18 +363,18 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
                   const fillColor = trend.label.includes('Severe')
                     ? '#ef4444'
                     : trend.label.includes('Aggressive weight loss')
-                    ? '#f97316'
-                    : trend.label.includes('Aggressive weight gain')
-                    ? '#a855f7'
-                    : trend.label.includes('Moderate weight loss')
-                    ? '#eab308'
-                    : trend.label.includes('Moderate weight gain')
-                    ? '#22c55e'
-                    : trend.direction === 'down' 
-                    ? '#eab308' 
-                    : trend.direction === 'up' 
-                    ? '#22c55e' 
-                    : '#60a5fa';
+                      ? '#f97316'
+                      : trend.label.includes('Aggressive weight gain')
+                        ? '#a855f7'
+                        : trend.label.includes('Moderate weight loss')
+                          ? '#eab308'
+                          : trend.label.includes('Moderate weight gain')
+                            ? '#22c55e'
+                            : trend.direction === 'down'
+                              ? '#eab308'
+                              : trend.direction === 'up'
+                                ? '#22c55e'
+                                : '#60a5fa';
                   return (
                     <circle
                       key={index}
@@ -265,7 +394,9 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
             </div>
           )}
         </div>
-        <p className="text-blue-300 text-xs tracking-wide mt-4">Tap to open weight tracker</p>
+        <p className="text-blue-300 text-xs tracking-wide mt-4">
+          Tap to open weight tracker
+        </p>
       </button>
 
       <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
@@ -277,28 +408,35 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
           <div className="bg-red-900/30 border border-red-700 rounded-xl p-4">
             <p className="text-red-400 font-bold mb-2">Protein</p>
             <p className="text-white text-2xl font-bold">
-              {Math.round(userData.weight * 2.0)}-{Math.round(userData.weight * 2.4)}g
+              {Math.round(userData.weight * 2.0)}-
+              {Math.round(userData.weight * 2.4)}g
             </p>
             <p className="text-slate-400 text-sm">2.0-2.4g per kg bodyweight</p>
           </div>
           <div className="bg-yellow-900/30 border border-yellow-700 rounded-xl p-4">
             <p className="text-yellow-400 font-bold mb-2">Fats</p>
             <p className="text-white text-2xl font-bold">
-              {Math.round(userData.weight * 0.8)}-{Math.round(userData.weight * 1.0)}g
+              {Math.round(userData.weight * 0.8)}-
+              {Math.round(userData.weight * 1.0)}g
             </p>
             <p className="text-slate-400 text-sm">0.8-1.0g per kg bodyweight</p>
           </div>
           <div className="bg-blue-900/30 border border-blue-700 rounded-xl p-4">
             <p className="text-blue-400 font-bold mb-2">Carbs</p>
             <p className="text-white text-lg font-bold">Remaining calories</p>
-            <p className="text-slate-400 text-sm">Adjust based on energy needs</p>
+            <p className="text-slate-400 text-sm">
+              Adjust based on energy needs
+            </p>
           </div>
         </div>
         {selectedGoal === 'aggressive_cut' && (
           <div className="mt-4 bg-red-900/40 border border-red-600/80 rounded-xl p-4 flex items-start gap-3">
             <Info size={20} className="text-red-300 flex-shrink-0 mt-0.5" />
             <p className="text-red-100 text-sm">
-              During an aggressive cut, push protein to the upper end of the {Math.round(userData.weight * 2.4)}g+ range to help preserve lean mass. Consider exceeding this slightly if recovery or satiety suffer.
+              During an aggressive cut, push protein to the upper end of the{' '}
+              {Math.round(userData.weight * 2.4)}g+ range to help preserve lean
+              mass. Consider exceeding this slightly if recovery or satiety
+              suffer.
             </p>
           </div>
         )}
@@ -311,31 +449,49 @@ export const InsightsScreen = ({ userData, selectedGoal, weightEntries = [], onO
         <ul className="space-y-2 text-slate-300">
           <li className="flex items-start gap-2">
             <span className="text-blue-400 mt-1">•</span>
-            <span>Track your steps daily to use the accurate calorie target</span>
+            <span>
+              Track your steps daily to use the accurate calorie target
+            </span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-blue-400 mt-1">•</span>
-            <span>On training days, fuel your sessions properly with higher carbs pre-workout</span>
+            <span>
+              On training days, fuel your sessions properly with higher carbs
+              pre-workout
+            </span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-blue-400 mt-1">•</span>
-            <span>Cardio burns are calculated using MET values based on your weight</span>
+            <span>
+              Cardio burns are calculated using MET values based on your weight
+            </span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-blue-400 mt-1">•</span>
-            <span>Different training types burn calories at different rates - adjust accordingly</span>
+            <span>
+              Different training types burn calories at different rates - adjust
+              accordingly
+            </span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-blue-400 mt-1">•</span>
-            <span>Weigh yourself weekly and adjust if progress stalls for 2+ weeks</span>
+            <span>
+              Weigh yourself weekly and adjust if progress stalls for 2+ weeks
+            </span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-blue-400 mt-1">•</span>
-            <span>For lean bulk: aim for 0.25-0.5kg gain per week. For aggressive bulk: 0.5-1kg per week</span>
+            <span>
+              For lean bulk: aim for 0.25-0.5kg gain per week. For aggressive
+              bulk: 0.5-1kg per week
+            </span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-blue-400 mt-1">•</span>
-            <span>For moderate cut: aim for 0.5kg loss per week. For aggressive cut: 0.75-1kg per week</span>
+            <span>
+              For moderate cut: aim for 0.5kg loss per week. For aggressive cut:
+              0.75-1kg per week
+            </span>
           </li>
         </ul>
       </div>

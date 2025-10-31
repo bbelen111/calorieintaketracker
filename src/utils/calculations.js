@@ -6,21 +6,27 @@ const HEART_RATE_COEFFICIENTS = {
     base: -55.0969,
     heartRate: 0.6309,
     weight: 0.1988,
-    age: 0.2017
+    age: 0.2017,
   },
   female: {
     base: -20.4022,
     heartRate: 0.4472,
     weight: -0.1263,
-    age: 0.074
-  }
+    age: 0.074,
+  },
 };
 
-const calculateCaloriesPerMinuteFromHeartRate = ({ heartRate, weightKg, ageYears, gender }) => {
+const calculateCaloriesPerMinuteFromHeartRate = ({
+  heartRate,
+  weightKg,
+  ageYears,
+  gender,
+}) => {
   const safeHeartRate = Number.isFinite(heartRate) ? heartRate : 0;
   const safeWeight = Number.isFinite(weightKg) ? weightKg : 0;
   const safeAge = Number.isFinite(ageYears) ? ageYears : 0;
-  const coefficients = HEART_RATE_COEFFICIENTS[gender === 'female' ? 'female' : 'male'];
+  const coefficients =
+    HEART_RATE_COEFFICIENTS[gender === 'female' ? 'female' : 'male'];
   const rawCalories =
     coefficients.base +
     coefficients.heartRate * safeHeartRate +
@@ -37,7 +43,11 @@ export const calculateBMR = ({ age, weight, height, gender }) => {
   return Math.round(10 * weight + 6.25 * height - 5 * age - 161);
 };
 
-export const calculateCardioCalories = (cardioSession, userData, cardioTypes) => {
+export const calculateCardioCalories = (
+  cardioSession,
+  userData,
+  cardioTypes
+) => {
   if (!cardioSession) {
     return 0;
   }
@@ -63,7 +73,7 @@ export const calculateCardioCalories = (cardioSession, userData, cardioTypes) =>
       heartRate,
       weightKg: weight,
       ageYears: age,
-      gender
+      gender,
     });
 
     return Math.round(caloriesPerMinute * durationMinutes);
@@ -83,7 +93,8 @@ export const calculateCardioCalories = (cardioSession, userData, cardioTypes) =>
 
 export const getTotalCardioBurn = (userData, cardioTypes) =>
   userData.cardioSessions.reduce(
-    (total, session) => total + calculateCardioCalories(session, userData, cardioTypes),
+    (total, session) =>
+      total + calculateCardioCalories(session, userData, cardioTypes),
     0
   );
 
@@ -91,7 +102,8 @@ export const getTrainingCaloriesPerHour = (userData, trainingTypes) =>
   trainingTypes[userData.trainingType]?.caloriesPerHour ?? 0;
 
 export const getTrainingCalories = (userData, trainingTypes) =>
-  userData.trainingDuration * getTrainingCaloriesPerHour(userData, trainingTypes);
+  userData.trainingDuration *
+  getTrainingCaloriesPerHour(userData, trainingTypes);
 
 export const calculateCalorieBreakdown = ({
   steps,
@@ -99,17 +111,22 @@ export const calculateCalorieBreakdown = ({
   userData,
   bmr,
   cardioTypes,
-  trainingTypes
+  trainingTypes,
 }) => {
   const stepDetails = getStepDetails(steps, userData);
-  const multipliers = userData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS;
+  const multipliers =
+    userData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS;
   const activityMultiplier = isTrainingDay
-    ? multipliers.training ?? DEFAULT_ACTIVITY_MULTIPLIERS.training
-    : multipliers.rest ?? DEFAULT_ACTIVITY_MULTIPLIERS.rest;
+    ? (multipliers.training ?? DEFAULT_ACTIVITY_MULTIPLIERS.training)
+    : (multipliers.rest ?? DEFAULT_ACTIVITY_MULTIPLIERS.rest);
   const baseActivity = Math.round(bmr * activityMultiplier);
-  const trainingBurn = Math.round(isTrainingDay ? getTrainingCalories(userData, trainingTypes) : 0);
+  const trainingBurn = Math.round(
+    isTrainingDay ? getTrainingCalories(userData, trainingTypes) : 0
+  );
   const cardioBurn = Math.round(getTotalCardioBurn(userData, cardioTypes));
-  const total = Math.round(bmr + baseActivity + stepDetails.calories + trainingBurn + cardioBurn);
+  const total = Math.round(
+    bmr + baseActivity + stepDetails.calories + trainingBurn + cardioBurn
+  );
 
   return {
     total,
@@ -119,11 +136,12 @@ export const calculateCalorieBreakdown = ({
     stepCalories: stepDetails.calories,
     estimatedSteps: stepDetails.estimatedSteps,
     trainingBurn,
-    cardioBurn
+    cardioBurn,
   };
 };
 
-export const calculateTDEE = (options) => calculateCalorieBreakdown(options).total;
+export const calculateTDEE = (options) =>
+  calculateCalorieBreakdown(options).total;
 
 export const calculateGoalCalories = (tdee, goal) => {
   switch (goal) {

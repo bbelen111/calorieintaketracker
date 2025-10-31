@@ -16,8 +16,8 @@ export const PHASE_TEMPLATES = [
       'Aim for 0.25-0.5 kg weight gain per week',
       'Focus on progressive overload in training',
       'Prioritize protein intake (2g per kg bodyweight)',
-      'Track measurements beyond just weight'
-    ]
+      'Track measurements beyond just weight',
+    ],
   },
   {
     id: 'cut',
@@ -32,8 +32,8 @@ export const PHASE_TEMPLATES = [
       'Aim for 0.5-1% bodyweight loss per week',
       'Maintain high protein to preserve muscle',
       'Consider diet breaks every 4-6 weeks',
-      'Focus on strength maintenance'
-    ]
+      'Focus on strength maintenance',
+    ],
   },
   {
     id: 'maintenance',
@@ -48,8 +48,8 @@ export const PHASE_TEMPLATES = [
       'Focus on consistency over perfection',
       'Great for building sustainable habits',
       'Perfect between bulk/cut phases',
-      'Monitor energy levels and performance'
-    ]
+      'Monitor energy levels and performance',
+    ],
   },
   {
     id: 'lean-bulk',
@@ -64,8 +64,8 @@ export const PHASE_TEMPLATES = [
       'Aim for slower gain: 0.25 kg per week',
       'Keep calorie surplus moderate (200-300)',
       'Track body composition regularly',
-      'Adjust if gaining too fast'
-    ]
+      'Adjust if gaining too fast',
+    ],
   },
   {
     id: 'mini-cut',
@@ -80,8 +80,8 @@ export const PHASE_TEMPLATES = [
       '2-4 week aggressive deficit',
       'Higher protein to preserve muscle',
       'Reduce training volume if needed',
-      'Great for getting lean quickly'
-    ]
+      'Great for getting lean quickly',
+    ],
   },
   {
     id: 'reverse-diet',
@@ -96,16 +96,16 @@ export const PHASE_TEMPLATES = [
       'Increase calories by 50-100 per week',
       'Minimize fat regain post-diet',
       'Monitor weight and measurements',
-      'Patience is key for metabolic recovery'
-    ]
-  }
+      'Patience is key for metabolic recovery',
+    ],
+  },
 ];
 
 /**
  * Get template by ID
  */
 export const getTemplateById = (id) => {
-  return PHASE_TEMPLATES.find(t => t.id === id);
+  return PHASE_TEMPLATES.find((t) => t.id === id);
 };
 
 /**
@@ -114,25 +114,25 @@ export const getTemplateById = (id) => {
  */
 export const applyTemplate = (template, currentWeight) => {
   if (!template) return {};
-  
+
   const today = new Date();
   const startDate = today.toISOString().split('T')[0];
-  
+
   const endDate = new Date(today);
   endDate.setDate(endDate.getDate() + template.suggestedDuration);
-  
+
   let targetWeight = null;
   if (currentWeight && template.targetWeightChange !== 0) {
     targetWeight = currentWeight + template.targetWeightChange;
     // Clamp to valid range
     targetWeight = Math.max(30, Math.min(210, targetWeight));
   }
-  
+
   return {
     name: template.defaultName,
     startDate,
     endDate: endDate.toISOString().split('T')[0],
     goalType: template.goalType,
-    targetWeight
+    targetWeight,
   };
 };

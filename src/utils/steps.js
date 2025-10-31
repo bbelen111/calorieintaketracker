@@ -54,7 +54,7 @@ export const parseStepRange = (rawRange) => {
       return {
         min: Math.min(min, max),
         max: Math.max(min, max),
-        operator: 'range'
+        operator: 'range',
       };
     }
   }
@@ -63,7 +63,7 @@ export const parseStepRange = (rawRange) => {
   return {
     min: value ?? 0,
     max: value ?? null,
-    operator: 'exact'
+    operator: 'exact',
   };
 };
 
@@ -99,7 +99,10 @@ export const estimateStepsFromRange = (rangeDetails) => {
   return 0;
 };
 
-export const calculateCaloriesFromSteps = (stepCount, { weight, height, gender }) => {
+export const calculateCaloriesFromSteps = (
+  stepCount,
+  { weight, height, gender }
+) => {
   if (!stepCount || stepCount <= 0) {
     return 0;
   }
@@ -107,7 +110,10 @@ export const calculateCaloriesFromSteps = (stepCount, { weight, height, gender }
   const weightKg = weight > 0 ? weight : 70;
   const heightCm = height > 0 ? height : 175;
   const heightMeters = heightCm / 100;
-  const strideLengthMeters = heightMeters > 0 ? heightMeters * (gender === 'female' ? 0.413 : 0.415) : 0.75;
+  const strideLengthMeters =
+    heightMeters > 0
+      ? heightMeters * (gender === 'female' ? 0.413 : 0.415)
+      : 0.75;
   const effectiveStride = strideLengthMeters > 0 ? strideLengthMeters : 0.75;
   const stepsPerMile = 1609.34 / effectiveStride;
   const distanceMiles = stepCount / stepsPerMile;
@@ -120,12 +126,14 @@ export const calculateCaloriesFromSteps = (stepCount, { weight, height, gender }
 export const getStepDetails = (stepRange, userData) => {
   const parsedRange = parseStepRange(stepRange);
   const estimatedSteps = estimateStepsFromRange(parsedRange);
-  const calories = Math.round(calculateCaloriesFromSteps(estimatedSteps, userData));
+  const calories = Math.round(
+    calculateCaloriesFromSteps(estimatedSteps, userData)
+  );
 
   return {
     parsedRange,
     estimatedSteps,
-    calories
+    calories,
   };
 };
 

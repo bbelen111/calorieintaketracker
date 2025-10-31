@@ -10,7 +10,7 @@ export const StepRangesModal = ({
   onNewStepRangeChange,
   onAddRange,
   onRemoveRange,
-  onClose
+  onClose,
 }) => (
   <ModalShell
     isOpen={isOpen}
@@ -18,11 +18,15 @@ export const StepRangesModal = ({
     overlayClassName="z-[60]"
     contentClassName="p-6 max-w-md w-full"
   >
-    <h3 className="text-white font-bold text-xl mb-4">Edit Step Count Ranges</h3>
+    <h3 className="text-white font-bold text-xl mb-4">
+      Edit Step Count Ranges
+    </h3>
 
     <div className="space-y-4">
       <div>
-        <label className="text-slate-300 text-sm block mb-2">Add New Range</label>
+        <label className="text-slate-300 text-sm block mb-2">
+          Add New Range
+        </label>
         <div className="flex gap-2 mb-3">
           <input
             type="text"
@@ -43,13 +47,20 @@ export const StepRangesModal = ({
       </div>
 
       <div>
-        <label className="text-slate-300 text-sm block mb-2">Current Ranges</label>
+        <label className="text-slate-300 text-sm block mb-2">
+          Current Ranges
+        </label>
         {stepRanges.length === 0 ? (
-          <p className="text-slate-400 text-sm italic">No step ranges configured yet</p>
+          <p className="text-slate-400 text-sm italic">
+            No step ranges configured yet
+          </p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {stepRanges.map((step) => (
-              <div key={step} className="bg-slate-700 text-white px-3 py-2 rounded-lg flex items-center gap-2">
+              <div
+                key={step}
+                className="bg-slate-700 text-white px-3 py-2 rounded-lg flex items-center gap-2"
+              >
                 <span className="text-sm">{step}</span>
                 <button
                   onClick={() => onRemoveRange(step)}

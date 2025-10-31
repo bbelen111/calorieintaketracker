@@ -1,11 +1,17 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Save } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
-import { alignScrollContainerToValue, createPickerScrollHandler } from '../../../utils/scroll';
+import {
+  alignScrollContainerToValue,
+  createPickerScrollHandler,
+} from '../../../utils/scroll';
 
 const MIN_HEIGHT = 120;
 const MAX_HEIGHT = 220;
-const HEIGHT_VALUES = Array.from({ length: MAX_HEIGHT - MIN_HEIGHT + 1 }, (_, index) => MIN_HEIGHT + index);
+const HEIGHT_VALUES = Array.from(
+  { length: MAX_HEIGHT - MIN_HEIGHT + 1 },
+  (_, index) => MIN_HEIGHT + index
+);
 
 const clampHeight = (value) => {
   if (!Number.isFinite(value)) {
@@ -14,7 +20,14 @@ const clampHeight = (value) => {
   return Math.min(Math.max(Math.round(value), MIN_HEIGHT), MAX_HEIGHT);
 };
 
-export const HeightPickerModal = ({ isOpen, isClosing, value, onChange, onCancel, onSave }) => {
+export const HeightPickerModal = ({
+  isOpen,
+  isClosing,
+  value,
+  onChange,
+  onCancel,
+  onSave,
+}) => {
   const scrollRef = useRef(null);
   const timeoutRef = useRef(null);
   const hasAlignedRef = useRef(false);
@@ -45,11 +58,16 @@ export const HeightPickerModal = ({ isOpen, isClosing, value, onChange, onCancel
 
   const handleScroll = useMemo(
     () =>
-      createPickerScrollHandler(scrollRef, timeoutRef, (nextValue) => clampHeight(parseInt(nextValue, 10)), (nextHeight) => {
-        if (onChange) {
-          onChange(nextHeight);
+      createPickerScrollHandler(
+        scrollRef,
+        timeoutRef,
+        (nextValue) => clampHeight(parseInt(nextValue, 10)),
+        (nextHeight) => {
+          if (onChange) {
+            onChange(nextHeight);
+          }
         }
-      }),
+      ),
     [onChange]
   );
 
@@ -62,8 +80,12 @@ export const HeightPickerModal = ({ isOpen, isClosing, value, onChange, onCancel
       overlayClassName="z-[70]"
       contentClassName="p-6 w-full max-w-sm"
     >
-      <h3 className="text-white font-bold text-xl mb-4 text-center">Select Height</h3>
-      <p className="text-slate-400 text-xs text-center mb-2 uppercase tracking-wide">Centimeters</p>
+      <h3 className="text-white font-bold text-xl mb-4 text-center">
+        Select Height
+      </h3>
+      <p className="text-slate-400 text-xs text-center mb-2 uppercase tracking-wide">
+        Centimeters
+      </p>
 
       <div className="relative h-48 overflow-hidden">
         <div className="absolute inset-0 pointer-events-none z-10">
@@ -73,7 +95,11 @@ export const HeightPickerModal = ({ isOpen, isClosing, value, onChange, onCancel
         </div>
         <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400 pointer-events-none z-10" />
 
-        <div ref={scrollRef} className="h-full overflow-y-auto scrollbar-hide" onScroll={handleScroll}>
+        <div
+          ref={scrollRef}
+          className="h-full overflow-y-auto scrollbar-hide"
+          onScroll={handleScroll}
+        >
           <div className="h-16" />
           {HEIGHT_VALUES.map((height) => (
             <div
@@ -81,13 +107,19 @@ export const HeightPickerModal = ({ isOpen, isClosing, value, onChange, onCancel
               data-value={height}
               onClick={() => {
                 if (!scrollRef.current) return;
-                alignScrollContainerToValue(scrollRef.current, height, 'smooth');
+                alignScrollContainerToValue(
+                  scrollRef.current,
+                  height,
+                  'smooth'
+                );
                 if (onChange) {
                   onChange(height);
                 }
               }}
               className={`py-3 px-6 text-2xl font-semibold transition-all snap-center cursor-pointer text-center ${
-                sanitizedValue === height ? 'text-white scale-110' : 'text-slate-500'
+                sanitizedValue === height
+                  ? 'text-white scale-110'
+                  : 'text-slate-500'
               }`}
             >
               {height}

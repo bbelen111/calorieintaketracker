@@ -9,7 +9,8 @@ export const TrackerScreen = () => (
         <h1 className="text-2xl md:text-3xl font-bold text-white">Tracker</h1>
       </div>
       <p className="text-slate-300 text-sm md:text-base">
-        Build out real-time tracking widgets and progress summaries here when you are ready to flesh out the tracker experience.
+        Build out real-time tracking widgets and progress summaries here when
+        you are ready to flesh out the tracker experience.
       </p>
     </div>
   </div>

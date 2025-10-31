@@ -20,14 +20,23 @@ export const findClosestScrollItem = (container) => {
   return closestItem;
 };
 
-export const alignScrollContainerToElement = (container, element, behavior = 'smooth') => {
+export const alignScrollContainerToElement = (
+  container,
+  element,
+  behavior = 'smooth'
+) => {
   if (!container || !element) return;
 
-  const targetScrollTop = element.offsetTop - container.clientHeight / 2 + element.offsetHeight / 2;
+  const targetScrollTop =
+    element.offsetTop - container.clientHeight / 2 + element.offsetHeight / 2;
   container.scrollTo({ top: targetScrollTop, behavior });
 };
 
-export const alignScrollContainerToValue = (container, value, behavior = 'smooth') => {
+export const alignScrollContainerToValue = (
+  container,
+  value,
+  behavior = 'smooth'
+) => {
   if (!container || value === undefined || value === null) return;
 
   const selector = `[data-value="${value}"]`;
@@ -37,28 +46,29 @@ export const alignScrollContainerToValue = (container, value, behavior = 'smooth
   }
 };
 
-export const createPickerScrollHandler = (containerRef, timeoutRef, parseFn, setter) => (event) => {
-  const container = event.currentTarget;
-  const closestItem = findClosestScrollItem(container);
+export const createPickerScrollHandler =
+  (containerRef, timeoutRef, parseFn, setter) => (event) => {
+    const container = event.currentTarget;
+    const closestItem = findClosestScrollItem(container);
 
-  if (closestItem) {
-    const parsedValue = parseFn(closestItem.dataset.value);
-    if (!Number.isNaN(parsedValue)) {
-      setter(parsedValue);
+    if (closestItem) {
+      const parsedValue = parseFn(closestItem.dataset.value);
+      if (!Number.isNaN(parsedValue)) {
+        setter(parsedValue);
+      }
     }
-  }
 
-  if (timeoutRef.current) {
-    clearTimeout(timeoutRef.current);
-  }
-
-  timeoutRef.current = setTimeout(() => {
-    const containerEl = containerRef.current || container;
-    if (!containerEl) return;
-
-    const target = findClosestScrollItem(containerEl);
-    if (target) {
-      alignScrollContainerToElement(containerEl, target, 'smooth');
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
     }
-  }, SCROLL_SETTLE_DELAY);
-};
+
+    timeoutRef.current = setTimeout(() => {
+      const containerEl = containerRef.current || container;
+      if (!containerEl) return;
+
+      const target = findClosestScrollItem(containerEl);
+      if (target) {
+        alignScrollContainerToElement(containerEl, target, 'smooth');
+      }
+    }, SCROLL_SETTLE_DELAY);
+  };

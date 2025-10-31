@@ -39,6 +39,6 @@ export const splitDurationIntoParts = (value) => {
   const minutes = totalMinutes % 60;
   return {
     hours,
-    minutes
+    minutes,
   };
 };

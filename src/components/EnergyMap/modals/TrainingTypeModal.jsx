@@ -10,7 +10,7 @@ export const TrainingTypeModal = ({
   onSelect,
   onEditTrainingType,
   onCancel,
-  onSave
+  onSave,
 }) => (
   <ModalShell
     isOpen={isOpen}
@@ -19,7 +19,9 @@ export const TrainingTypeModal = ({
     contentClassName="p-4 md:p-6 w-full md:max-w-2xl"
   >
     <div className="flex items-center justify-between mb-4 md:mb-6">
-      <h3 className="text-white font-bold text-xl md:text-2xl">Select Training Type</h3>
+      <h3 className="text-white font-bold text-xl md:text-2xl">
+        Select Training Type
+      </h3>
     </div>
 
     <div className="grid grid-cols-1 gap-3">
@@ -31,7 +33,9 @@ export const TrainingTypeModal = ({
             key={key}
             onClick={() => onSelect(key)}
             className={`p-4 rounded-xl border-2 transition-all active:scale-[0.98] text-left relative flex items-center gap-4 ${
-              isActive ? 'bg-blue-600 border-blue-400 text-white shadow-lg' : 'bg-slate-700 border-slate-600 text-slate-300'
+              isActive
+                ? 'bg-blue-600 border-blue-400 text-white shadow-lg'
+                : 'bg-slate-700 border-slate-600 text-slate-300'
             }`}
             type="button"
           >

@@ -79,11 +79,14 @@ export const formatDateLabel = (dateKey, options) => {
     return '';
   }
 
-  const formatter = new Intl.DateTimeFormat(undefined, options ?? {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  });
+  const formatter = new Intl.DateTimeFormat(
+    undefined,
+    options ?? {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }
+  );
 
   return formatter.format(date);
 };
@@ -116,7 +119,7 @@ export const calculateWeightTrend = (entries, windowDays = 30) => {
       delta: 0,
       weeklyRate: 0,
       direction: 'flat',
-      sampleRange: sorted
+      sampleRange: sorted,
     };
   }
 
@@ -128,7 +131,7 @@ export const calculateWeightTrend = (entries, windowDays = 30) => {
       delta: 0,
       weeklyRate: 0,
       direction: 'flat',
-      sampleRange: sorted.slice(-2)
+      sampleRange: sorted.slice(-2),
     };
   }
 
@@ -153,11 +156,14 @@ export const calculateWeightTrend = (entries, windowDays = 30) => {
       delta: 0,
       weeklyRate: 0,
       direction: 'flat',
-      sampleRange: sample
+      sampleRange: sample,
     };
   }
 
-  const dayCount = Math.max(Math.round((finalDate.getTime() - firstDate.getTime()) / MS_PER_DAY), 1);
+  const dayCount = Math.max(
+    Math.round((finalDate.getTime() - firstDate.getTime()) / MS_PER_DAY),
+    1
+  );
   const delta = final.weight - first.weight;
   const weeklyRate = (delta / dayCount) * 7;
   const direction = delta === 0 ? 'flat' : delta > 0 ? 'up' : 'down';
@@ -168,16 +174,14 @@ export const calculateWeightTrend = (entries, windowDays = 30) => {
     delta,
     weeklyRate,
     direction,
-    sampleRange: sample
+    sampleRange: sample,
   };
 };
 
-export const createSparklinePoints = (entries, {
-  width = 100,
-  height = 32,
-  padding = 4,
-  limit = 8
-} = {}) => {
+export const createSparklinePoints = (
+  entries,
+  { width = 100, height = 32, padding = 4, limit = 8 } = {}
+) => {
   const sorted = sortWeightEntries(entries);
   const recent = sorted.slice(-limit);
   if (!recent.length) {
@@ -187,21 +191,21 @@ export const createSparklinePoints = (entries, {
       min: null,
       max: null,
       range: 0,
-      values: []
+      values: [],
     };
   }
 
-  const weights = recent.map(entry => entry.weight);
+  const weights = recent.map((entry) => entry.weight);
   const min = Math.min(...weights);
   const max = Math.max(...weights);
   let range = max - min;
-  
+
   // For stable weight (small or zero range), create a visible range
   // This ensures the graph is still drawn with some visual variation
   const minVisibleRange = 2; // kg - minimum range to show on the graph
   let effectiveMin = min;
   let effectiveMax = max;
-  
+
   if (range < minVisibleRange) {
     const midpoint = (min + max) / 2;
     effectiveMin = midpoint - minVisibleRange / 2;
@@ -225,7 +229,7 @@ export const createSparklinePoints = (entries, {
 
   // Create line points
   const points = coordinates
-    .map(coord => `${coord.x.toFixed(2)},${coord.y.toFixed(2)}`)
+    .map((coord) => `${coord.x.toFixed(2)},${coord.y.toFixed(2)}`)
     .join(' ');
 
   // Create area path (line + fill to baseline)
@@ -236,7 +240,7 @@ export const createSparklinePoints = (entries, {
     // Line up to first point
     areaPath += ` L ${coordinates[0].x},${coordinates[0].y}`;
     // Draw through all points
-    coordinates.forEach(coord => {
+    coordinates.forEach((coord) => {
       areaPath += ` L ${coord.x},${coord.y}`;
     });
     // Line down to bottom-right
@@ -254,7 +258,7 @@ export const createSparklinePoints = (entries, {
     effectiveMin,
     effectiveMax,
     coordinates,
-    values: recent
+    values: recent,
   };
 };
 

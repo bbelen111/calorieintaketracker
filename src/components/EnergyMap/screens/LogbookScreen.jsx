@@ -1,5 +1,13 @@
 import React, { useMemo } from 'react';
-import { ClipboardList, Plus, Calendar, TrendingUp, Target, Play, Archive } from 'lucide-react';
+import {
+  ClipboardList,
+  Plus,
+  Calendar,
+  TrendingUp,
+  Target,
+  Play,
+  Archive,
+} from 'lucide-react';
 import { goals } from '../../../constants/goals';
 import { formatWeight } from '../../../utils/weight';
 
@@ -33,7 +41,11 @@ const getPhaseStatusBadge = (status) => {
 const formatDate = (dateStr) => {
   if (!dateStr) return '';
   const date = new Date(dateStr + 'T00:00:00');
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 };
 
 const calculatePhaseDays = (startDate, endDate) => {
@@ -56,17 +68,21 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
   const goal = goals[phase.goalType] || goals.maintenance;
   // Helper for goal badge color classes
   const getGoalBadgeClass = () => {
-    if (!goal || !goal.color) return 'bg-slate-700 text-slate-300 border-slate-600';
+    if (!goal || !goal.color)
+      return 'bg-slate-700 text-slate-300 border-slate-600';
     return `${goal.color} text-white border-2 ${goal.color.replace('bg-', 'border-')}`;
   };
   const isActive = phase.status === 'active';
-  const totalDays = phase.endDate ? calculatePhaseDays(phase.startDate, phase.endDate) : null;
+  const totalDays = phase.endDate
+    ? calculatePhaseDays(phase.startDate, phase.endDate)
+    : null;
   const currentDay = calculateCurrentDay(phase.startDate);
-  
+
   const weightChange = phase.metrics?.weightChange || 0;
-  const weightChangeDisplay = weightChange === 0 
-    ? '—' 
-    : `${weightChange > 0 ? '+' : ''}${formatWeight(weightChange)} kg`;
+  const weightChangeDisplay =
+    weightChange === 0
+      ? '—'
+      : `${weightChange > 0 ? '+' : ''}${formatWeight(weightChange)} kg`;
 
   return (
     <button
@@ -83,10 +99,17 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
           <h3 className="text-white font-bold text-lg mb-1">{phase.name}</h3>
           <div className="flex items-center gap-2 flex-wrap">
             {getPhaseStatusBadge(phase.status)}
-            <span className={`px-2 py-1 rounded-md text-xs font-semibold ${getGoalBadgeClass()}`}>{goal.label}</span>
+            <span
+              className={`px-2 py-1 rounded-md text-xs font-semibold ${getGoalBadgeClass()}`}
+            >
+              {goal.label}
+            </span>
           </div>
         </div>
-        <ClipboardList className={isActive ? 'text-blue-400' : 'text-slate-500'} size={24} />
+        <ClipboardList
+          className={isActive ? 'text-blue-400' : 'text-slate-500'}
+          size={24}
+        />
       </div>
 
       <div className="space-y-2">
@@ -102,7 +125,9 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
         {isActive && totalDays && (
           <div className="flex items-center gap-2 text-sm text-slate-300">
             <Target size={14} className="text-slate-500" />
-            <span>Day {currentDay} of {totalDays}</span>
+            <span>
+              Day {currentDay} of {totalDays}
+            </span>
           </div>
         )}
 
@@ -110,7 +135,8 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
           <TrendingUp size={14} className="text-slate-500" />
           <span>
             {formatWeight(phase.startingWeight)} kg → {weightChangeDisplay}
-            {phase.targetWeight && ` (Target: ${formatWeight(phase.targetWeight)} kg)`}
+            {phase.targetWeight &&
+              ` (Target: ${formatWeight(phase.targetWeight)} kg)`}
           </span>
         </div>
 
@@ -119,12 +145,16 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
                 <span className="text-slate-500">Logged Days:</span>
-                <span className="ml-1 text-white font-semibold">{phase.metrics.activeDays}</span>
+                <span className="ml-1 text-white font-semibold">
+                  {phase.metrics.activeDays}
+                </span>
               </div>
               {phase.metrics.avgCalories > 0 && (
                 <div>
                   <span className="text-slate-500">Avg Calories:</span>
-                  <span className="ml-1 text-white font-semibold">{Math.round(phase.metrics.avgCalories)}</span>
+                  <span className="ml-1 text-white font-semibold">
+                    {Math.round(phase.metrics.avgCalories)}
+                  </span>
                 </div>
               )}
             </div>
@@ -140,7 +170,7 @@ export const LogbookScreen = ({ phases = [], onCreatePhase, onPhaseClick }) => {
     () => phases.filter((phase) => phase.status === 'active'),
     [phases]
   );
-  
+
   const completedPhases = useMemo(
     () => phases.filter((phase) => phase.status === 'completed'),
     [phases]
@@ -155,7 +185,9 @@ export const LogbookScreen = ({ phases = [], onCreatePhase, onPhaseClick }) => {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <ClipboardList className="text-blue-400" size={32} />
-            <h1 className="text-2xl md:text-3xl font-bold text-white">Logbook</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-white">
+              Logbook
+            </h1>
           </div>
           <button
             type="button"
@@ -177,7 +209,9 @@ export const LogbookScreen = ({ phases = [], onCreatePhase, onPhaseClick }) => {
             </div>
             <h3 className="text-white font-bold text-xl mb-2">No Phases Yet</h3>
             <p className="text-slate-400 text-sm mb-6">
-              Create your first phase to start organizing your fitness journey. Phases help you track specific goals like bulking, cutting, or maintaining over time.
+              Create your first phase to start organizing your fitness journey.
+              Phases help you track specific goals like bulking, cutting, or
+              maintaining over time.
             </p>
             <button
               type="button"
@@ -200,7 +234,11 @@ export const LogbookScreen = ({ phases = [], onCreatePhase, onPhaseClick }) => {
           </h2>
           <div className="space-y-3">
             {activePhases.map((phase) => (
-              <PhaseCard key={phase.id} phase={phase} onPhaseClick={onPhaseClick} />
+              <PhaseCard
+                key={phase.id}
+                phase={phase}
+                onPhaseClick={onPhaseClick}
+              />
             ))}
           </div>
         </div>
@@ -215,7 +253,11 @@ export const LogbookScreen = ({ phases = [], onCreatePhase, onPhaseClick }) => {
           </h2>
           <div className="space-y-3">
             {completedPhases.map((phase) => (
-              <PhaseCard key={phase.id} phase={phase} onPhaseClick={onPhaseClick} />
+              <PhaseCard
+                key={phase.id}
+                phase={phase}
+                onPhaseClick={onPhaseClick}
+              />
             ))}
           </div>
         </div>

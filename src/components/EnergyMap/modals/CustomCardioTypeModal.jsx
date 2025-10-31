@@ -21,14 +21,14 @@ export const CustomCardioTypeModal = ({
   onMetVigorousChange,
   onCancel,
   onSave,
-  canSave
+  canSave,
 }) => {
   const {
     isOpen: isMetPickerOpen,
     isClosing: isMetPickerClosing,
     open: openMetPicker,
     requestClose: requestMetPickerClose,
-    forceClose: forceMetPickerClose
+    forceClose: forceMetPickerClose,
   } = useAnimatedModal(false);
   const [activeField, setActiveField] = React.useState(null);
 
@@ -36,16 +36,35 @@ export const CustomCardioTypeModal = ({
     (fieldKey) => {
       switch (fieldKey) {
         case 'light':
-          return { label: 'Light MET', value: metLight, onChange: onMetLightChange };
+          return {
+            label: 'Light MET',
+            value: metLight,
+            onChange: onMetLightChange,
+          };
         case 'moderate':
-          return { label: 'Moderate MET', value: metModerate, onChange: onMetModerateChange };
+          return {
+            label: 'Moderate MET',
+            value: metModerate,
+            onChange: onMetModerateChange,
+          };
         case 'vigorous':
-          return { label: 'Vigorous MET', value: metVigorous, onChange: onMetVigorousChange };
+          return {
+            label: 'Vigorous MET',
+            value: metVigorous,
+            onChange: onMetVigorousChange,
+          };
         default:
           return null;
       }
     },
-    [metLight, metModerate, metVigorous, onMetLightChange, onMetModerateChange, onMetVigorousChange]
+    [
+      metLight,
+      metModerate,
+      metVigorous,
+      onMetLightChange,
+      onMetModerateChange,
+      onMetVigorousChange,
+    ]
   );
 
   const parseMetValue = React.useCallback((rawValue) => {
@@ -74,7 +93,10 @@ export const CustomCardioTypeModal = ({
 
       const formatted = nextValue.toFixed(1);
       const currentNumeric = Number.parseFloat(fieldConfig.value);
-      if (Number.isFinite(currentNumeric) && Math.abs(currentNumeric - nextValue) < 0.0001) {
+      if (
+        Number.isFinite(currentNumeric) &&
+        Math.abs(currentNumeric - nextValue) < 0.0001
+      ) {
         return;
       }
 
@@ -125,7 +147,9 @@ export const CustomCardioTypeModal = ({
   }, [isMetPickerClosing, isMetPickerOpen]);
 
   const activeConfig = activeField ? getFieldConfig(activeField) : null;
-  const activeMetValue = activeConfig ? parseMetValue(activeConfig.value) : MET_MIN_VALUE;
+  const activeMetValue = activeConfig
+    ? parseMetValue(activeConfig.value)
+    : MET_MIN_VALUE;
 
   return (
     <>
@@ -135,11 +159,15 @@ export const CustomCardioTypeModal = ({
         overlayClassName="bg-black/90 z-[80]"
         contentClassName="p-6 w-full max-w-md"
       >
-        <h3 className="text-white font-bold text-xl mb-4 text-center">Create Custom Cardio</h3>
+        <h3 className="text-white font-bold text-xl mb-4 text-center">
+          Create Custom Cardio
+        </h3>
 
         <div className="space-y-4">
           <div>
-            <label className="text-slate-300 text-sm block mb-2">Cardio Name</label>
+            <label className="text-slate-300 text-sm block mb-2">
+              Cardio Name
+            </label>
             <input
               type="text"
               value={name}
@@ -151,7 +179,9 @@ export const CustomCardioTypeModal = ({
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
-              <label className="text-slate-300 text-sm block mb-2">Light MET</label>
+              <label className="text-slate-300 text-sm block mb-2">
+                Light MET
+              </label>
               <div className="relative">
                 <input
                   type="number"
@@ -172,7 +202,9 @@ export const CustomCardioTypeModal = ({
               </div>
             </div>
             <div>
-              <label className="text-slate-300 text-sm block mb-2">Moderate MET</label>
+              <label className="text-slate-300 text-sm block mb-2">
+                Moderate MET
+              </label>
               <div className="relative">
                 <input
                   type="number"
@@ -193,7 +225,9 @@ export const CustomCardioTypeModal = ({
               </div>
             </div>
             <div>
-              <label className="text-slate-300 text-sm block mb-2">Vigorous MET</label>
+              <label className="text-slate-300 text-sm block mb-2">
+                Vigorous MET
+              </label>
               <div className="relative">
                 <input
                   type="number"
@@ -216,7 +250,8 @@ export const CustomCardioTypeModal = ({
           </div>
 
           <p className="text-xs text-slate-400 text-center">
-            MET values estimate intensity: light for easy pace, moderate for steady work, vigorous for all-out efforts.
+            MET values estimate intensity: light for easy pace, moderate for
+            steady work, vigorous for all-out efforts.
           </p>
         </div>
 
@@ -245,7 +280,9 @@ export const CustomCardioTypeModal = ({
       <MetValuePickerModal
         isOpen={isMetPickerOpen}
         isClosing={isMetPickerClosing}
-        title={activeConfig ? `Select ${activeConfig.label}` : 'Select MET Value'}
+        title={
+          activeConfig ? `Select ${activeConfig.label}` : 'Select MET Value'
+        }
         value={activeMetValue}
         min={MET_MIN_VALUE}
         max={MET_MAX_VALUE}

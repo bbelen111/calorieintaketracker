@@ -13,7 +13,7 @@ export const CardioTypePickerModal = ({
   onSelect,
   onClose,
   onCreateCustomCardioType,
-  onDeleteCustomCardioType
+  onDeleteCustomCardioType,
 }) => {
   const [query, setQuery] = useState('');
   const [pendingDeleteKey, setPendingDeleteKey] = useState(null);
@@ -22,7 +22,7 @@ export const CardioTypePickerModal = ({
     isClosing: isConfirmClosing,
     open: openConfirm,
     requestClose: requestConfirmClose,
-    forceClose: forceConfirmClose
+    forceClose: forceConfirmClose,
   } = useAnimatedModal(false);
 
   useEffect(() => {
@@ -56,7 +56,10 @@ export const CardioTypePickerModal = ({
 
     const filtered = entries.filter(([key, type]) => {
       const labelMatch = type.label.toLowerCase().includes(normalizedQuery);
-      const keyMatch = key.replace(/[_-]/g, ' ').toLowerCase().includes(normalizedQuery);
+      const keyMatch = key
+        .replace(/[_-]/g, ' ')
+        .toLowerCase()
+        .includes(normalizedQuery);
       return labelMatch || keyMatch;
     });
 
@@ -70,7 +73,8 @@ export const CardioTypePickerModal = ({
     });
   }, [cardioTypes, customCardioTypes, query]);
 
-  const renderMetValue = (value) => (typeof value === 'number' ? value.toFixed(1) : '--');
+  const renderMetValue = (value) =>
+    typeof value === 'number' ? value.toFixed(1) : '--';
 
   return (
     <ModalShell
@@ -83,7 +87,9 @@ export const CardioTypePickerModal = ({
         <div className="flex flex-col gap-3">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h3 className="text-white font-bold text-xl md:text-2xl mb-3">Browse Cardio Types</h3>
+              <h3 className="text-white font-bold text-xl md:text-2xl mb-3">
+                Browse Cardio Types
+              </h3>
             </div>
             {onCreateCustomCardioType && (
               <button
@@ -97,7 +103,10 @@ export const CardioTypePickerModal = ({
             )}
           </div>
           <div className="relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            />
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -108,7 +117,10 @@ export const CardioTypePickerModal = ({
           </div>
         </div>
 
-        <div className="space-y-3 overflow-y-auto pr-1 max-h-[60vh]" role="list">
+        <div
+          className="space-y-3 overflow-y-auto pr-1 max-h-[60vh]"
+          role="list"
+        >
           {filteredTypes.length === 0 ? (
             <div className="text-center text-slate-400 text-sm py-6">
               No cardio types match that search. Try a different keyword.
@@ -136,9 +148,13 @@ export const CardioTypePickerModal = ({
                       <Flame size={24} />
                     </div>
                     <div className="flex-1">
-                      <p className="font-semibold text-base md:text-lg leading-tight">{type.label}</p>
+                      <p className="font-semibold text-base md:text-lg leading-tight">
+                        {type.label}
+                      </p>
                       <p className="text-xs md:text-sm opacity-80">
-                        Light {renderMetValue(light)} • Moderate {renderMetValue(moderate)} • Vigorous {renderMetValue(vigorous)} METs
+                        Light {renderMetValue(light)} • Moderate{' '}
+                        {renderMetValue(moderate)} • Vigorous{' '}
+                        {renderMetValue(vigorous)} METs
                       </p>
                     </div>
                     {isCustom && (
@@ -180,7 +196,11 @@ export const CardioTypePickerModal = ({
         isOpen={isConfirmOpen}
         isClosing={isConfirmClosing}
         title="Delete cardio type?"
-        description={pendingDeleteKey ? `This will remove ${cardioTypes[pendingDeleteKey]?.label ?? 'the selected option'} from your library. Any sessions using it will revert to a default.` : 'This will remove the selected cardio type.'}
+        description={
+          pendingDeleteKey
+            ? `This will remove ${cardioTypes[pendingDeleteKey]?.label ?? 'the selected option'} from your library. Any sessions using it will revert to a default.`
+            : 'This will remove the selected cardio type.'
+        }
         confirmLabel="Delete"
         cancelLabel="Keep"
         tone="danger"

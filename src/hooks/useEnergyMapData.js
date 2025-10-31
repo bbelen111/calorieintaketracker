@@ -1,10 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { trainingTypes as baseTrainingTypes } from '../constants/trainingTypes';
 import { cardioTypes as baseCardioTypes } from '../constants/cardioTypes';
-import { calculateBMR, calculateCalorieBreakdown, calculateCardioCalories, calculateGoalCalories, getTotalCardioBurn, getTrainingCalories } from '../utils/calculations';
+import {
+  calculateBMR,
+  calculateCalorieBreakdown,
+  calculateCardioCalories,
+  calculateGoalCalories,
+  getTotalCardioBurn,
+  getTrainingCalories,
+} from '../utils/calculations';
 import { getStepRangeSortValue } from '../utils/steps';
 import { loadEnergyMapData, saveEnergyMapData } from '../utils/storage';
-import { clampWeight, normalizeDateKey, sortWeightEntries } from '../utils/weight';
+import {
+  clampWeight,
+  normalizeDateKey,
+  sortWeightEntries,
+} from '../utils/weight';
 
 export const useEnergyMapData = () => {
   const [userData, setUserData] = useState(() => loadEnergyMapData());
@@ -19,13 +30,16 @@ export const useEnergyMapData = () => {
 
   const resolvedTrainingTypes = useMemo(() => {
     const overrides = userData.trainingTypeOverrides ?? {};
-    const merged = Object.entries(baseTrainingTypes).reduce((acc, [key, type]) => {
-      acc[key] = {
-        ...type,
-        ...(overrides[key] ?? {})
-      };
-      return acc;
-    }, {});
+    const merged = Object.entries(baseTrainingTypes).reduce(
+      (acc, [key, type]) => {
+        acc[key] = {
+          ...type,
+          ...(overrides[key] ?? {}),
+        };
+        return acc;
+      },
+      {}
+    );
 
     Object.keys(overrides).forEach((key) => {
       if (merged[key]) return;
@@ -33,7 +47,7 @@ export const useEnergyMapData = () => {
       merged[key] = {
         label: override.label ?? key,
         description: override.description ?? '',
-        caloriesPerHour: override.caloriesPerHour ?? 0
+        caloriesPerHour: override.caloriesPerHour ?? 0,
       };
     });
 
@@ -43,7 +57,7 @@ export const useEnergyMapData = () => {
   const resolvedCardioTypes = useMemo(
     () => ({
       ...baseCardioTypes,
-      ...(userData.customCardioTypes ?? {})
+      ...(userData.customCardioTypes ?? {}),
     }),
     [userData.customCardioTypes]
   );
@@ -71,7 +85,7 @@ export const useEnergyMapData = () => {
         userData,
         bmr,
         cardioTypes: resolvedCardioTypes,
-        trainingTypes: resolvedTrainingTypes
+        trainingTypes: resolvedTrainingTypes,
       }),
     [bmr, resolvedCardioTypes, resolvedTrainingTypes, userData]
   );
@@ -83,7 +97,7 @@ export const useEnergyMapData = () => {
       return {
         breakdown,
         targetCalories,
-        difference: targetCalories - breakdown.total
+        difference: targetCalories - breakdown.total,
       };
     },
     [calculateBreakdown]
@@ -105,14 +119,14 @@ export const useEnergyMapData = () => {
   const removeStepRange = useCallback((stepRange) => {
     setUserData((prev) => ({
       ...prev,
-      stepRanges: prev.stepRanges.filter((range) => range !== stepRange)
+      stepRanges: prev.stepRanges.filter((range) => range !== stepRange),
     }));
   }, []);
 
   const addCardioSession = useCallback((session) => {
     setUserData((prev) => ({
       ...prev,
-      cardioSessions: [...prev.cardioSessions, { ...session, id: Date.now() }]
+      cardioSessions: [...prev.cardioSessions, { ...session, id: Date.now() }],
     }));
   }, []);
 
@@ -123,9 +137,9 @@ export const useEnergyMapData = () => {
         ...(prev.cardioFavourites ?? []),
         {
           ...session,
-          id: Date.now()
-        }
-      ]
+          id: Date.now(),
+        },
+      ],
     }));
   }, []);
 
@@ -138,54 +152,64 @@ export const useEnergyMapData = () => {
       ...prev,
       cardioSessions: prev.cardioSessions.map((session) =>
         session.id === id ? { ...session, ...updates, id: session.id } : session
-      )
+      ),
     }));
   }, []);
 
   const removeCardioSession = useCallback((id) => {
     setUserData((prev) => ({
       ...prev,
-      cardioSessions: prev.cardioSessions.filter((session) => session.id !== id)
+      cardioSessions: prev.cardioSessions.filter(
+        (session) => session.id !== id
+      ),
     }));
   }, []);
 
   const removeCardioFavourite = useCallback((id) => {
     setUserData((prev) => ({
       ...prev,
-      cardioFavourites: (prev.cardioFavourites ?? []).filter((session) => session.id !== id)
+      cardioFavourites: (prev.cardioFavourites ?? []).filter(
+        (session) => session.id !== id
+      ),
     }));
   }, []);
 
-  const updateTrainingType = useCallback((key, { name, calories, description }) => {
-    setUserData((prev) => {
-      const numericCalories = Number(calories);
-      const normalizedCalories = Number.isFinite(numericCalories) ? Math.max(0, numericCalories) : 0;
-      const nextOverrides = {
-        ...(prev.trainingTypeOverrides ?? {}),
-        [key]: {
-          label: name,
-          description,
-          caloriesPerHour: normalizedCalories
+  const updateTrainingType = useCallback(
+    (key, { name, calories, description }) => {
+      setUserData((prev) => {
+        const numericCalories = Number(calories);
+        const normalizedCalories = Number.isFinite(numericCalories)
+          ? Math.max(0, numericCalories)
+          : 0;
+        const nextOverrides = {
+          ...(prev.trainingTypeOverrides ?? {}),
+          [key]: {
+            label: name,
+            description,
+            caloriesPerHour: normalizedCalories,
+          },
+        };
+
+        const nextState = {
+          ...prev,
+          trainingTypeOverrides: nextOverrides,
+        };
+
+        if (key === 'custom') {
+          nextState.customTrainingName = name;
+          nextState.customTrainingCalories = normalizedCalories;
+          nextState.customTrainingDescription = description;
         }
-      };
 
-      const nextState = {
-        ...prev,
-        trainingTypeOverrides: nextOverrides
-      };
-
-      if (key === 'custom') {
-        nextState.customTrainingName = name;
-        nextState.customTrainingCalories = normalizedCalories;
-        nextState.customTrainingDescription = description;
-      }
-
-      return nextState;
-    });
-  }, []);
+        return nextState;
+      });
+    },
+    []
+  );
 
   const calculateCardioSessionCalories = useCallback(
-    (session) => calculateCardioCalories(session, userData, resolvedCardioTypes),
+    (session) =>
+      calculateCardioCalories(session, userData, resolvedCardioTypes),
     [resolvedCardioTypes, userData]
   );
 
@@ -202,7 +226,7 @@ export const useEnergyMapData = () => {
     const nextMet = {
       light: parseMet(met?.light, 3),
       moderate: parseMet(met?.moderate, 5),
-      vigorous: parseMet(met?.vigorous, 7)
+      vigorous: parseMet(met?.vigorous, 7),
     };
     const key = `custom_cardio_${Date.now()}_${Math.round(Math.random() * 1000)}`;
 
@@ -212,9 +236,9 @@ export const useEnergyMapData = () => {
         ...(prev.customCardioTypes ?? {}),
         [key]: {
           label: sanitizedLabel,
-          met: nextMet
-        }
-      }
+          met: nextMet,
+        },
+      },
     }));
 
     return key;
@@ -237,7 +261,7 @@ export const useEnergyMapData = () => {
       return {
         ...prev,
         customCardioTypes: nextCustom,
-        cardioSessions: nextSessions
+        cardioSessions: nextSessions,
       };
     });
   }, []);
@@ -252,7 +276,9 @@ export const useEnergyMapData = () => {
     }
 
     setUserData((prev) => {
-      const existingEntries = Array.isArray(prev.weightEntries) ? prev.weightEntries : [];
+      const existingEntries = Array.isArray(prev.weightEntries)
+        ? prev.weightEntries
+        : [];
 
       const filtered = existingEntries.filter((entry) => {
         if (!entry || typeof entry !== 'object') {
@@ -273,7 +299,7 @@ export const useEnergyMapData = () => {
 
       const nextEntries = sortWeightEntries([
         ...filtered,
-        { date: normalizedDate, weight: sanitizedWeight }
+        { date: normalizedDate, weight: sanitizedWeight },
       ]);
 
       const latestWeight = nextEntries.length
@@ -283,7 +309,7 @@ export const useEnergyMapData = () => {
       return {
         ...prev,
         weight: latestWeight ?? prev.weight,
-        weightEntries: nextEntries
+        weightEntries: nextEntries,
       };
     });
   }, []);
@@ -295,8 +321,12 @@ export const useEnergyMapData = () => {
     }
 
     setUserData((prev) => {
-      const existingEntries = Array.isArray(prev.weightEntries) ? prev.weightEntries : [];
-      const filtered = existingEntries.filter((entry) => normalizeDateKey(entry?.date) !== normalizedDate);
+      const existingEntries = Array.isArray(prev.weightEntries)
+        ? prev.weightEntries
+        : [];
+      const filtered = existingEntries.filter(
+        (entry) => normalizeDateKey(entry?.date) !== normalizedDate
+      );
 
       if (filtered.length === existingEntries.length) {
         return prev;
@@ -310,45 +340,50 @@ export const useEnergyMapData = () => {
       return {
         ...prev,
         weight: nextEntries.length ? latestWeight : prev.weight,
-        weightEntries: nextEntries
+        weightEntries: nextEntries,
       };
     });
   }, []);
 
-  const createPhase = useCallback((phaseData) => {
-    const latestEntry = weightEntries.length ? weightEntries[weightEntries.length - 1] : null;
-    const startingWeight = latestEntry?.weight ?? userData.weight;
-    
-    const newPhase = {
-      id: Date.now(),
-      name: phaseData.name || 'New Phase',
-      startDate: phaseData.startDate,
-      endDate: phaseData.endDate || null,
-      goalType: phaseData.goalType || 'maintenance',
-      targetWeight: phaseData.targetWeight || null,
-      startingWeight,
-      status: 'active',
-      color: phaseData.color || '#3b82f6',
-      dailyLogs: {},
-      metrics: {
-        totalDays: 0,
-        activeDays: 0,
-        avgCalories: 0,
-        avgSteps: 0,
-        weightChange: 0,
-        avgWeeklyRate: 0
-      },
-      createdAt: Date.now()
-    };
-    
-    setUserData((prev) => ({
-      ...prev,
-      phases: [...prev.phases, newPhase],
-      activePhaseId: newPhase.id
-    }));
-    
-    return newPhase.id;
-  }, [weightEntries, userData.weight]);
+  const createPhase = useCallback(
+    (phaseData) => {
+      const latestEntry = weightEntries.length
+        ? weightEntries[weightEntries.length - 1]
+        : null;
+      const startingWeight = latestEntry?.weight ?? userData.weight;
+
+      const newPhase = {
+        id: Date.now(),
+        name: phaseData.name || 'New Phase',
+        startDate: phaseData.startDate,
+        endDate: phaseData.endDate || null,
+        goalType: phaseData.goalType || 'maintenance',
+        targetWeight: phaseData.targetWeight || null,
+        startingWeight,
+        status: 'active',
+        color: phaseData.color || '#3b82f6',
+        dailyLogs: {},
+        metrics: {
+          totalDays: 0,
+          activeDays: 0,
+          avgCalories: 0,
+          avgSteps: 0,
+          weightChange: 0,
+          avgWeeklyRate: 0,
+        },
+        createdAt: Date.now(),
+      };
+
+      setUserData((prev) => ({
+        ...prev,
+        phases: [...prev.phases, newPhase],
+        activePhaseId: newPhase.id,
+      }));
+
+      return newPhase.id;
+    },
+    [weightEntries, userData.weight]
+  );
 
   const updatePhase = useCallback((phaseId, updates) => {
     if (phaseId == null) {
@@ -359,7 +394,7 @@ export const useEnergyMapData = () => {
       ...prev,
       phases: prev.phases.map((phase) =>
         phase.id === phaseId ? { ...phase, ...updates } : phase
-      )
+      ),
     }));
   }, []);
 
@@ -370,24 +405,28 @@ export const useEnergyMapData = () => {
 
     setUserData((prev) => {
       const nextPhases = prev.phases.filter((phase) => phase.id !== phaseId);
-      const nextActiveId = prev.activePhaseId === phaseId ? null : prev.activePhaseId;
-      
+      const nextActiveId =
+        prev.activePhaseId === phaseId ? null : prev.activePhaseId;
+
       return {
         ...prev,
         phases: nextPhases,
-        activePhaseId: nextActiveId
+        activePhaseId: nextActiveId,
       };
     });
   }, []);
 
-  const archivePhase = useCallback((phaseId) => {
-    updatePhase(phaseId, { status: 'completed' });
-  }, [updatePhase]);
+  const archivePhase = useCallback(
+    (phaseId) => {
+      updatePhase(phaseId, { status: 'completed' });
+    },
+    [updatePhase]
+  );
 
   const setActivePhase = useCallback((phaseId) => {
     setUserData((prev) => ({
       ...prev,
-      activePhaseId: phaseId
+      activePhaseId: phaseId,
     }));
   }, []);
 
@@ -402,15 +441,15 @@ export const useEnergyMapData = () => {
         if (phase.id !== phaseId) {
           return phase;
         }
-        
+
         return {
           ...phase,
           dailyLogs: {
             ...phase.dailyLogs,
-            [date]: { ...logData, date }
-          }
+            [date]: { ...logData, date },
+          },
         };
-      })
+      }),
     }));
   }, []);
 
@@ -425,17 +464,17 @@ export const useEnergyMapData = () => {
         if (phase.id !== phaseId) {
           return phase;
         }
-        
+
         const existingLog = phase.dailyLogs[date] || {};
-        
+
         return {
           ...phase,
           dailyLogs: {
             ...phase.dailyLogs,
-            [date]: { ...existingLog, ...updates, date }
-          }
+            [date]: { ...existingLog, ...updates, date },
+          },
         };
-      })
+      }),
     }));
   }, []);
 
@@ -450,15 +489,15 @@ export const useEnergyMapData = () => {
         if (phase.id !== phaseId) {
           return phase;
         }
-        
+
         const nextLogs = { ...phase.dailyLogs };
         delete nextLogs[date];
-        
+
         return {
           ...phase,
-          dailyLogs: nextLogs
+          dailyLogs: nextLogs,
         };
-      })
+      }),
     }));
   }, []);
 
@@ -497,6 +536,6 @@ export const useEnergyMapData = () => {
     setActivePhase,
     addDailyLog,
     updateDailyLog,
-    deleteDailyLog
+    deleteDailyLog,
   };
 };

@@ -1,6 +1,15 @@
 import React, { useState } from 'react';
 import { ModalShell } from '../common/ModalShell';
-import { Save, Trash2, Calendar, Scale, Utensils, StickyNote, CheckCircle2, AlertCircle } from 'lucide-react';
+import {
+  Save,
+  Trash2,
+  Calendar,
+  Scale,
+  Utensils,
+  StickyNote,
+  CheckCircle2,
+  AlertCircle,
+} from 'lucide-react';
 import { formatWeight } from '../../../utils/weight';
 
 export const DailyLogModal = ({
@@ -23,14 +32,16 @@ export const DailyLogModal = ({
   onSave,
   onDelete,
   error,
-  isDateLocked = false
+  isDateLocked = false,
 }) => {
   // Find weight entry that matches the selected date
-  const matchingWeight = availableWeightEntries.find(entry => entry.date === date);
-  
+  const matchingWeight = availableWeightEntries.find(
+    (entry) => entry.date === date
+  );
+
   // State for notes toggle
   const [showNotes, setShowNotes] = useState(!!notes);
-  
+
   const formatDateForInput = (dateStr) => {
     if (!dateStr) return '';
     return dateStr; // Already in YYYY-MM-DD format
@@ -39,29 +50,33 @@ export const DailyLogModal = ({
   const formatDateLabel = (dateStr) => {
     if (!dateStr) return '';
     const date = new Date(dateStr + 'T00:00:00');
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      month: 'long', 
-      day: 'numeric', 
-      year: 'numeric' 
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
     });
   };
 
   const formatShortDate = (dateStr) => {
     if (!dateStr) return '';
     const date = new Date(dateStr + 'T00:00:00');
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric' 
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
     });
   };
 
   return (
-    <ModalShell isOpen={isOpen} isClosing={isClosing} contentClassName="w-full md:max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+    <ModalShell
+      isOpen={isOpen}
+      isClosing={isClosing}
+      contentClassName="w-full md:max-w-2xl p-6 max-h-[90vh] overflow-y-auto"
+    >
       <h3 className="text-white font-bold text-xl mb-4">
         {mode === 'edit' ? 'Edit Daily Log' : 'Add Daily Log'}
       </h3>
-      
+
       <div className="space-y-5">
         {/* Date */}
         <div>
@@ -74,7 +89,9 @@ export const DailyLogModal = ({
               <div className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-slate-300">
                 {formatDateLabel(date)}
               </div>
-              <p className="text-slate-500 text-xs mt-1">Date cannot be changed when editing a log.</p>
+              <p className="text-slate-500 text-xs mt-1">
+                Date cannot be changed when editing a log.
+              </p>
             </div>
           ) : (
             <input
@@ -92,7 +109,7 @@ export const DailyLogModal = ({
             <Scale size={16} className="text-purple-400" />
             Weight Entry
           </label>
-          
+
           <button
             type="button"
             onClick={() => onManageWeightClick?.()}
@@ -125,9 +142,11 @@ export const DailyLogModal = ({
           <label className="block text-slate-300 text-sm font-semibold mb-2 flex items-center gap-2">
             <Utensils size={16} className="text-green-400" />
             Nutrition Log
-            <span className="ml-2 text-xs bg-amber-900/30 text-amber-300 px-2 py-1 rounded">Coming Soon</span>
+            <span className="ml-2 text-xs bg-amber-900/30 text-amber-300 px-2 py-1 rounded">
+              Coming Soon
+            </span>
           </label>
-          
+
           <button
             type="button"
             disabled
@@ -158,16 +177,18 @@ export const DailyLogModal = ({
                 : 'bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-750 hover:border-slate-500'
             }`}
           >
-            <StickyNote size={18} className={showNotes ? 'text-white' : 'text-indigo-400'} />
+            <StickyNote
+              size={18}
+              className={showNotes ? 'text-white' : 'text-indigo-400'}
+            />
             <span>
-              {showNotes ? 'Notes Added' : 'Add Notes'} <span className="text-xs opacity-75">(optional)</span>
+              {showNotes ? 'Notes Added' : 'Add Notes'}{' '}
+              <span className="text-xs opacity-75">(optional)</span>
             </span>
-            {showNotes && (
-              <span className="ml-auto text-xs opacity-90">✓</span>
-            )}
+            {showNotes && <span className="ml-auto text-xs opacity-90">✓</span>}
           </button>
-          
-          <div 
+
+          <div
             className={`overflow-hidden transition-all duration-300 ease-in-out ${
               showNotes ? 'max-h-48 opacity-100 mt-3' : 'max-h-0 opacity-0'
             }`}
@@ -197,13 +218,14 @@ export const DailyLogModal = ({
               : 'bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-750 hover:border-slate-500'
           }`}
         >
-          <CheckCircle2 size={20} className={completed ? 'text-white' : 'text-green-400'} />
+          <CheckCircle2
+            size={20}
+            className={completed ? 'text-white' : 'text-green-400'}
+          />
           <span>
             {completed ? 'Day Marked as Completed' : 'Mark Day as Completed'}
           </span>
-          {completed && (
-            <span className="ml-auto text-xs opacity-90">✓</span>
-          )}
+          {completed && <span className="ml-auto text-xs opacity-90">✓</span>}
         </button>
 
         {/* Error Message */}

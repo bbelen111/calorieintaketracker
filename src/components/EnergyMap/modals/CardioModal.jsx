@@ -24,16 +24,16 @@ export const CardioModal = ({
   onOpenFavourites,
   showFavouritesButton = false,
   mode = 'session',
-  isEditing: isEditingProp
+  isEditing: isEditingProp,
 }) => {
   const effortType = session.effortType ?? 'intensity';
-  const isEditing = Boolean(isEditingProp ?? (session?.id != null));
+  const isEditing = Boolean(isEditingProp ?? session?.id != null);
   const isFavouriteMode = mode === 'favourite';
   const headerTitle = isFavouriteMode
     ? 'Add Favourite Cardio Session'
     : isEditing
-    ? 'Edit Cardio Session'
-    : 'Add Cardio Session';
+      ? 'Edit Cardio Session'
+      : 'Add Cardio Session';
   const saveLabel = isFavouriteMode ? 'Save Favourite' : 'Save';
   const overlayClassName = isFavouriteMode ? 'z-[80]' : '';
   const estimatedBurn = calculateCardioCalories(
@@ -41,10 +41,12 @@ export const CardioModal = ({
     { weight: userWeight, age: userAge, gender: userGender },
     cardioTypes
   );
-  const hasValidDuration = Number.isFinite(Number(session.duration)) && Number(session.duration) > 0;
+  const hasValidDuration =
+    Number.isFinite(Number(session.duration)) && Number(session.duration) > 0;
   const hasValidHeartRate =
     effortType === 'heartRate'
-      ? Number.isFinite(Number(session.averageHeartRate)) && Number(session.averageHeartRate) > 0
+      ? Number.isFinite(Number(session.averageHeartRate)) &&
+        Number(session.averageHeartRate) > 0
       : true;
   const canSave = hasValidDuration && hasValidHeartRate;
   const intensityValue = session.intensity ?? 'moderate';
@@ -62,21 +64,21 @@ export const CardioModal = ({
     isClosing: isTypePickerClosing,
     open: openTypePicker,
     requestClose: requestTypePickerClose,
-    forceClose: forceTypePickerClose
+    forceClose: forceTypePickerClose,
   } = useAnimatedModal(false);
   const {
     isOpen: isCustomModalOpen,
     isClosing: isCustomModalClosing,
     open: openCustomModal,
     requestClose: requestCustomModalClose,
-    forceClose: forceCustomModalClose
+    forceClose: forceCustomModalClose,
   } = useAnimatedModal(false);
   const {
     isOpen: isDurationPickerOpen,
     isClosing: isDurationPickerClosing,
     open: openDurationPicker,
     requestClose: requestDurationPickerClose,
-    forceClose: forceDurationPickerClose
+    forceClose: forceDurationPickerClose,
   } = useAnimatedModal(false);
   const [customName, setCustomName] = React.useState('');
   const [customMetLight, setCustomMetLight] = React.useState('');
@@ -89,7 +91,8 @@ export const CardioModal = ({
     setCustomMetVigorous('');
   }, []);
   const selectedCardio = cardioTypes?.[session.type] ?? null;
-  const formatMetValue = (value) => (typeof value === 'number' ? value.toFixed(1) : '--');
+  const formatMetValue = (value) =>
+    typeof value === 'number' ? value.toFixed(1) : '--';
   const selectedMetSummary = selectedCardio
     ? `Light ${formatMetValue(selectedCardio.met?.light)} • Moderate ${formatMetValue(
         selectedCardio.met?.moderate
@@ -107,7 +110,12 @@ export const CardioModal = ({
       forceCustomModalClose();
       forceDurationPickerClose();
     }
-  }, [forceCustomModalClose, forceDurationPickerClose, forceTypePickerClose, isOpen]);
+  }, [
+    forceCustomModalClose,
+    forceDurationPickerClose,
+    forceTypePickerClose,
+    isOpen,
+  ]);
 
   React.useEffect(() => {
     if (!isCustomModalOpen && !isCustomModalClosing) {
@@ -134,7 +142,11 @@ export const CardioModal = ({
       }
 
       const currentValue = Number(session.duration);
-      if (session.duration !== '' && Number.isFinite(currentValue) && currentValue === minutes) {
+      if (
+        session.duration !== '' &&
+        Number.isFinite(currentValue) &&
+        currentValue === minutes
+      ) {
         return;
       }
 
@@ -160,7 +172,7 @@ export const CardioModal = ({
       onChange({
         ...session,
         effortType: 'heartRate',
-        averageHeartRate: session.averageHeartRate ?? ''
+        averageHeartRate: session.averageHeartRate ?? '',
       });
       return;
     }
@@ -169,7 +181,7 @@ export const CardioModal = ({
       ...session,
       effortType: 'intensity',
       intensity: session.intensity ?? 'moderate',
-      averageHeartRate: ''
+      averageHeartRate: '',
     });
   };
 
@@ -218,8 +230,8 @@ export const CardioModal = ({
       met: {
         light: Number(customMetLight),
         moderate: Number(customMetModerate),
-        vigorous: Number(customMetVigorous)
-      }
+        vigorous: Number(customMetVigorous),
+      },
     });
 
     if (newKey) {
@@ -238,7 +250,9 @@ export const CardioModal = ({
       return;
     }
 
-    const alternativeType = Object.keys(cardioTypes ?? {}).filter((key) => key !== typeKey)[0] ?? 'treadmill_walk';
+    const alternativeType =
+      Object.keys(cardioTypes ?? {}).filter((key) => key !== typeKey)[0] ??
+      'treadmill_walk';
     onDeleteCustomCardioType(typeKey);
 
     if (session.type === typeKey) {
@@ -270,7 +284,9 @@ export const CardioModal = ({
 
         <div className="space-y-4">
           <div>
-            <label className="text-slate-300 text-sm block mb-2">Cardio Type</label>
+            <label className="text-slate-300 text-sm block mb-2">
+              Cardio Type
+            </label>
             <button
               type="button"
               onClick={() => openTypePicker()}
@@ -287,12 +303,16 @@ export const CardioModal = ({
                   {selectedMetSummary}
                 </span>
               </span>
-              <span className="text-[11px] opacity-75 whitespace-nowrap">Tap to change</span>
+              <span className="text-[11px] opacity-75 whitespace-nowrap">
+                Tap to change
+              </span>
             </button>
           </div>
 
           <div>
-            <label className="text-slate-300 text-sm block mb-2">Duration (minutes)</label>
+            <label className="text-slate-300 text-sm block mb-2">
+              Duration (minutes)
+            </label>
             <div className="relative">
               <input
                 type="number"
@@ -313,7 +333,9 @@ export const CardioModal = ({
           </div>
 
           <div>
-            <label className="text-slate-300 text-sm block mb-2">Effort Tracking</label>
+            <label className="text-slate-300 text-sm block mb-2">
+              Effort Tracking
+            </label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
@@ -331,13 +353,16 @@ export const CardioModal = ({
               </button>
             </div>
             <p className="text-xs text-slate-400 mt-2">
-              Use heart rate for wearable-based estimates or intensity for quick selections.
+              Use heart rate for wearable-based estimates or intensity for quick
+              selections.
             </p>
           </div>
 
           {effortType === 'intensity' ? (
             <div>
-              <label className="text-slate-300 text-sm block mb-2">Intensity</label>
+              <label className="text-slate-300 text-sm block mb-2">
+                Intensity
+              </label>
               <select
                 value={intensityValue}
                 onChange={handleIntensityChange}
@@ -353,7 +378,9 @@ export const CardioModal = ({
             </div>
           ) : (
             <div>
-              <label className="text-slate-300 text-sm block mb-2">Average Heart Rate (bpm)</label>
+              <label className="text-slate-300 text-sm block mb-2">
+                Average Heart Rate (bpm)
+              </label>
               <input
                 type="number"
                 min="0"
@@ -369,7 +396,9 @@ export const CardioModal = ({
 
           <div className="bg-slate-700/50 rounded-lg p-3">
             <p className="text-slate-300 text-sm">Estimated Burn:</p>
-            <p className="text-white font-bold text-xl">~{estimatedBurn} calories</p>
+            <p className="text-white font-bold text-xl">
+              ~{estimatedBurn} calories
+            </p>
           </div>
         </div>
 
@@ -391,8 +420,8 @@ export const CardioModal = ({
                   ? 'bg-emerald-600 hover:bg-emerald-500'
                   : 'bg-red-600 hover:bg-red-500'
                 : isEditing
-                ? 'bg-emerald-600/60 cursor-not-allowed opacity-70'
-                : 'bg-red-600/60 cursor-not-allowed opacity-70'
+                  ? 'bg-emerald-600/60 cursor-not-allowed opacity-70'
+                  : 'bg-red-600/60 cursor-not-allowed opacity-70'
             }`}
           >
             <Check size={20} />

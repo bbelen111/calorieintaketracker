@@ -1,13 +1,25 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Save } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
-import { alignScrollContainerToValue, createPickerScrollHandler } from '../../../utils/scroll';
+import {
+  alignScrollContainerToValue,
+  createPickerScrollHandler,
+} from '../../../utils/scroll';
 import { formatDurationLabel, roundDurationHours } from '../../../utils/time';
 
 const MAX_HOURS = 24;
 const MINUTE_STEP = 1;
 const HOUR_VALUES = Array.from({ length: MAX_HOURS + 1 }, (_, index) => index);
-const MINUTE_VALUES = Array.from({ length: Math.floor(60 / MINUTE_STEP) }, (_, index) => index * MINUTE_STEP);
+const MINUTE_VALUES = Array.from(
+  { length: Math.floor(60 / MINUTE_STEP) },
+  (_, index) => index * MINUTE_STEP
+);
 
 const clampMinutes = (minutes) => {
   if (!Number.isFinite(minutes)) {
@@ -63,7 +75,7 @@ export const CardioDurationPickerModal = ({
   minutes = 0,
   onCancel,
   onChange,
-  onSave
+  onSave,
 }) => {
   const hoursRef = useRef(null);
   const minutesRef = useRef(null);
@@ -88,21 +100,30 @@ export const CardioDurationPickerModal = ({
   const applySelection = useCallback(
     (hours, minutesValue, behavior = 'instant') => {
       const normalizedHours = Math.min(Math.max(hours, 0), MAX_HOURS);
-      const normalizedMinutes = normalizedHours === MAX_HOURS ? 0 : clampMinutes(minutesValue);
+      const normalizedMinutes =
+        normalizedHours === MAX_HOURS ? 0 : clampMinutes(minutesValue);
 
       selectionRef.current = {
         hours: normalizedHours,
-        minutes: normalizedMinutes
+        minutes: normalizedMinutes,
       };
 
       setSelectedHours(normalizedHours);
       setSelectedMinutes(normalizedMinutes);
 
       if (hoursRef.current) {
-        alignScrollContainerToValue(hoursRef.current, normalizedHours.toString(), behavior);
+        alignScrollContainerToValue(
+          hoursRef.current,
+          normalizedHours.toString(),
+          behavior
+        );
       }
       if (minutesRef.current) {
-        alignScrollContainerToValue(minutesRef.current, normalizedMinutes.toString(), behavior);
+        alignScrollContainerToValue(
+          minutesRef.current,
+          normalizedMinutes.toString(),
+          behavior
+        );
       }
 
       emitDurationChange(normalizedHours, normalizedMinutes);
@@ -139,11 +160,12 @@ export const CardioDurationPickerModal = ({
   const handleHoursChange = useCallback(
     (nextHours) => {
       const clampedHours = Math.min(Math.max(nextHours, 0), MAX_HOURS);
-      const nextMinutes = clampedHours === MAX_HOURS ? 0 : selectionRef.current.minutes;
+      const nextMinutes =
+        clampedHours === MAX_HOURS ? 0 : selectionRef.current.minutes;
 
       selectionRef.current = {
         hours: clampedHours,
-        minutes: nextMinutes
+        minutes: nextMinutes,
       };
 
       setSelectedHours(clampedHours);
@@ -160,11 +182,14 @@ export const CardioDurationPickerModal = ({
 
   const handleMinutesChange = useCallback(
     (nextMinutes) => {
-      const sanitizedMinutes = selectionRef.current.hours === MAX_HOURS ? 0 : clampMinutes(nextMinutes);
+      const sanitizedMinutes =
+        selectionRef.current.hours === MAX_HOURS
+          ? 0
+          : clampMinutes(nextMinutes);
 
       selectionRef.current = {
         hours: selectionRef.current.hours,
-        minutes: sanitizedMinutes
+        minutes: sanitizedMinutes,
       };
 
       setSelectedMinutes(sanitizedMinutes);
@@ -200,16 +225,28 @@ export const CardioDurationPickerModal = ({
     [selectedHours, selectedMinutes]
   );
 
-  const totalHoursDecimal = useMemo(() => roundDurationHours(totalMinutes / 60), [totalMinutes]);
-  const formattedDuration = useMemo(() => formatDurationLabel(totalHoursDecimal), [totalHoursDecimal]);
+  const totalHoursDecimal = useMemo(
+    () => roundDurationHours(totalMinutes / 60),
+    [totalMinutes]
+  );
+  const formattedDuration = useMemo(
+    () => formatDurationLabel(totalHoursDecimal),
+    [totalHoursDecimal]
+  );
 
   return (
-    <ModalShell isOpen={isOpen} isClosing={isClosing} contentClassName="p-6 w-full max-w-md">
+    <ModalShell
+      isOpen={isOpen}
+      isClosing={isClosing}
+      contentClassName="p-6 w-full max-w-md"
+    >
       <h3 className="text-white font-bold text-xl mb-4 text-center">{title}</h3>
 
       <div className="flex gap-6">
         <div className="flex-1">
-          <p className="text-slate-400 text-xs text-center mb-2 uppercase tracking-wide">Hours</p>
+          <p className="text-slate-400 text-xs text-center mb-2 uppercase tracking-wide">
+            Hours
+          </p>
           <div className="relative h-48 overflow-hidden">
             <div className="absolute inset-0 pointer-events-none z-10">
               <div className="h-16 bg-gradient-to-b from-slate-800 to-transparent" />
@@ -218,15 +255,23 @@ export const CardioDurationPickerModal = ({
             </div>
             <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400 pointer-events-none z-10" />
 
-            <div ref={hoursRef} className="h-full overflow-y-auto scrollbar-hide" onScroll={handleHoursScroll}>
+            <div
+              ref={hoursRef}
+              className="h-full overflow-y-auto scrollbar-hide"
+              onScroll={handleHoursScroll}
+            >
               <div className="h-16" />
               {HOUR_VALUES.map((hour) => (
                 <div
                   key={hour}
                   data-value={hour}
-                  onClick={() => applySelection(hour, selectionRef.current.minutes, 'smooth')}
+                  onClick={() =>
+                    applySelection(hour, selectionRef.current.minutes, 'smooth')
+                  }
                   className={`h-16 flex items-center justify-center text-2xl font-bold snap-center transition-all text-center cursor-pointer ${
-                    selectedHours === hour ? 'text-white scale-110' : 'text-slate-500'
+                    selectedHours === hour
+                      ? 'text-white scale-110'
+                      : 'text-slate-500'
                   }`}
                 >
                   {hour}
@@ -238,7 +283,9 @@ export const CardioDurationPickerModal = ({
         </div>
 
         <div className="flex-1">
-          <p className="text-slate-400 text-xs text-center mb-2 uppercase tracking-wide">Minutes</p>
+          <p className="text-slate-400 text-xs text-center mb-2 uppercase tracking-wide">
+            Minutes
+          </p>
           <div className="relative h-48 overflow-hidden">
             <div className="absolute inset-0 pointer-events-none z-10">
               <div className="h-16 bg-gradient-to-b from-slate-800 to-transparent" />
@@ -247,7 +294,11 @@ export const CardioDurationPickerModal = ({
             </div>
             <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400 pointer-events-none z-10" />
 
-            <div ref={minutesRef} className="h-full overflow-y-auto scrollbar-hide" onScroll={handleMinutesScroll}>
+            <div
+              ref={minutesRef}
+              className="h-full overflow-y-auto scrollbar-hide"
+              onScroll={handleMinutesScroll}
+            >
               <div className="h-16" />
               {MINUTE_VALUES.map((minute) => {
                 const isDisabled = selectedHours === MAX_HOURS && minute !== 0;
@@ -257,10 +308,16 @@ export const CardioDurationPickerModal = ({
                     data-value={minute}
                     onClick={() => {
                       if (isDisabled) return;
-                      applySelection(selectionRef.current.hours, minute, 'smooth');
+                      applySelection(
+                        selectionRef.current.hours,
+                        minute,
+                        'smooth'
+                      );
                     }}
                     className={`h-16 flex items-center justify-center text-2xl font-bold snap-center transition-all text-center cursor-pointer ${
-                      selectedMinutes === minute ? 'text-white scale-110' : 'text-slate-500'
+                      selectedMinutes === minute
+                        ? 'text-white scale-110'
+                        : 'text-slate-500'
                     } ${isDisabled ? 'opacity-40 pointer-events-none' : ''}`}
                   >
                     {minute.toString().padStart(2, '0')}
@@ -275,8 +332,12 @@ export const CardioDurationPickerModal = ({
 
       <div className="bg-slate-700/50 rounded-lg p-3 mt-4 text-center">
         <p className="text-slate-300 text-sm">Selected Duration</p>
-        <p className="text-white text-lg font-semibold mt-1">{formattedDuration}</p>
-        <p className="text-slate-400 text-xs mt-1">~{totalMinutes} minutes • ~{totalHoursDecimal.toFixed(2)} hours</p>
+        <p className="text-white text-lg font-semibold mt-1">
+          {formattedDuration}
+        </p>
+        <p className="text-slate-400 text-xs mt-1">
+          ~{totalMinutes} minutes • ~{totalHoursDecimal.toFixed(2)} hours
+        </p>
       </div>
 
       <div className="flex gap-3 mt-6">

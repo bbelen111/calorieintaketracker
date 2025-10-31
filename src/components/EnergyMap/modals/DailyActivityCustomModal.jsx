@@ -4,7 +4,7 @@ import { ModalShell } from '../common/ModalShell';
 
 const titles = {
   training: 'Custom Training Day NEAT',
-  rest: 'Custom Rest Day NEAT'
+  rest: 'Custom Rest Day NEAT',
 };
 
 export const DailyActivityCustomModal = ({
@@ -14,7 +14,7 @@ export const DailyActivityCustomModal = ({
   value,
   onChange,
   onCancel,
-  onSave
+  onSave,
 }) => {
   if (!isOpen || !dayType) {
     return null;
@@ -33,15 +33,21 @@ export const DailyActivityCustomModal = ({
       contentClassName="p-4 md:p-6 w-full md:max-w-md"
     >
       <div className="mb-4 md:mb-6">
-        <h3 className="text-white font-bold text-xl md:text-2xl">{titles[dayType]}</h3>
+        <h3 className="text-white font-bold text-xl md:text-2xl">
+          {titles[dayType]}
+        </h3>
         <p className="text-slate-300 text-sm mt-2">
-          Enter the percentage of your BMR that represents non-exercise movement on this day. This should exclude
-          intentional workouts, cardio sessions, and tracked steps—those are calculated separately.
+          Enter the percentage of your BMR that represents non-exercise movement
+          on this day. This should exclude intentional workouts, cardio
+          sessions, and tracked steps—those are calculated separately.
         </p>
       </div>
 
       <div className="space-y-2">
-        <label className="text-slate-300 text-sm block" htmlFor="custom-activity-input">
+        <label
+          className="text-slate-300 text-sm block"
+          htmlFor="custom-activity-input"
+        >
           NEAT offset (% of BMR)
         </label>
         <input
@@ -55,8 +61,8 @@ export const DailyActivityCustomModal = ({
           className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-lg"
         />
         <p className="text-slate-400 text-xs">
-          Recommended range: 20% - 45% for most lifestyles. Values are capped between 0% and 100% and should reflect
-          only incidental movement.
+          Recommended range: 20% - 45% for most lifestyles. Values are capped
+          between 0% and 100% and should reflect only incidental movement.
         </p>
       </div>
 

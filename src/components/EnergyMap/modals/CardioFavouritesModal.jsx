@@ -4,7 +4,8 @@ import { ModalShell } from '../common/ModalShell';
 import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
 import { ConfirmActionModal } from './ConfirmActionModal';
 
-const getCardioLabel = (cardioTypes, type) => cardioTypes?.[type]?.label ?? 'Custom Cardio';
+const getCardioLabel = (cardioTypes, type) =>
+  cardioTypes?.[type]?.label ?? 'Custom Cardio';
 
 const formatDuration = (value) => {
   const numeric = Number(value);
@@ -47,7 +48,9 @@ const isSameSession = (current, favourite) => {
   const currentEffort = current.effortType ?? 'intensity';
   const favouriteEffort = favourite.effortType ?? 'intensity';
 
-  if ((current.type ?? 'treadmill_walk') !== (favourite.type ?? 'treadmill_walk')) {
+  if (
+    (current.type ?? 'treadmill_walk') !== (favourite.type ?? 'treadmill_walk')
+  ) {
     return false;
   }
 
@@ -71,7 +74,9 @@ const isSameSession = (current, favourite) => {
     return currentHeartRate === favouriteHeartRate;
   }
 
-  return (current.intensity ?? 'moderate') === (favourite.intensity ?? 'moderate');
+  return (
+    (current.intensity ?? 'moderate') === (favourite.intensity ?? 'moderate')
+  );
 };
 
 export const CardioFavouritesModal = ({
@@ -84,7 +89,7 @@ export const CardioFavouritesModal = ({
   onCreateFavourite,
   onDeleteFavourite,
   onClose,
-  calculateCardioCalories
+  calculateCardioCalories,
 }) => {
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
   const {
@@ -92,7 +97,7 @@ export const CardioFavouritesModal = ({
     isClosing: isConfirmClosing,
     open: openConfirm,
     requestClose: requestConfirmClose,
-    forceClose: forceConfirmClose
+    forceClose: forceConfirmClose,
   } = useAnimatedModal(false);
 
   const sortedFavourites = useMemo(() => {
@@ -109,8 +114,12 @@ export const CardioFavouritesModal = ({
         if (labelA === labelB) {
           const durationValueA = Number(a.duration);
           const durationValueB = Number(b.duration);
-          const safeDurationA = Number.isFinite(durationValueA) ? durationValueA : 0;
-          const safeDurationB = Number.isFinite(durationValueB) ? durationValueB : 0;
+          const safeDurationA = Number.isFinite(durationValueA)
+            ? durationValueA
+            : 0;
+          const safeDurationB = Number.isFinite(durationValueB)
+            ? durationValueB
+            : 0;
           return safeDurationA - safeDurationB;
         }
         return labelA.localeCompare(labelB);
@@ -142,7 +151,9 @@ export const CardioFavouritesModal = ({
       <div className="flex flex-col gap-4 md:gap-6">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-white font-bold text-xl md:text-2xl">Favourite Cardio Sessions</h3>
+            <h3 className="text-white font-bold text-xl md:text-2xl">
+              Favourite Cardio Sessions
+            </h3>
             <p className="text-slate-400 text-sm md:text-base mt-1">
               Save your go-to workouts for quick reuse.
             </p>
@@ -159,13 +170,20 @@ export const CardioFavouritesModal = ({
           )}
         </div>
 
-        <div className="space-y-3 overflow-y-auto pr-1 max-h-[60vh]" role="list">
+        <div
+          className="space-y-3 overflow-y-auto pr-1 max-h-[60vh]"
+          role="list"
+        >
           {hasFavourites ? (
             sortedFavourites.map((favourite) => {
-              const key = favourite.id ?? `${favourite.type}-${favourite.duration}`;
+              const key =
+                favourite.id ?? `${favourite.type}-${favourite.duration}`;
               const label = getCardioLabel(cardioTypes, favourite.type);
               const effortSummary = formatEffortSummary(favourite);
-              const caloriesSummary = getCaloriesSummary(calculateCardioCalories, favourite);
+              const caloriesSummary = getCaloriesSummary(
+                calculateCardioCalories,
+                favourite
+              );
               const active = isSameSession(currentSession, favourite);
 
               return (
@@ -181,30 +199,35 @@ export const CardioFavouritesModal = ({
                   role="listitem"
                 >
                   <div className="flex items-start gap-3">
-                    <div className={`flex-shrink-0 rounded-full p-2 ${active ? 'bg-white/15' : 'bg-white/10'}`}>
+                    <div
+                      className={`flex-shrink-0 rounded-full p-2 ${active ? 'bg-white/15' : 'bg-white/10'}`}
+                    >
                       <Heart size={18} />
                     </div>
                     <div className="flex-1">
-                      <p className="font-semibold text-base md:text-lg leading-tight">{label}</p>
+                      <p className="font-semibold text-base md:text-lg leading-tight">
+                        {label}
+                      </p>
                       <p className="text-xs md:text-sm opacity-80">
                         {formatDuration(favourite.duration)} • {effortSummary}
                         {caloriesSummary ? ` • ${caloriesSummary}` : ''}
                       </p>
                     </div>
-                    {typeof onDeleteFavourite === 'function' && favourite.id != null && (
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setPendingDeleteId(favourite.id);
-                          openConfirm();
-                        }}
-                        className="flex-shrink-0 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
-                        aria-label="Delete favourite cardio session"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    )}
+                    {typeof onDeleteFavourite === 'function' &&
+                      favourite.id != null && (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setPendingDeleteId(favourite.id);
+                            openConfirm();
+                          }}
+                          className="flex-shrink-0 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
+                          aria-label="Delete favourite cardio session"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
                   </div>
                 </button>
               );
@@ -231,7 +254,11 @@ export const CardioFavouritesModal = ({
         isOpen={isConfirmOpen}
         isClosing={isConfirmClosing}
         title="Remove favourite session?"
-        description={pendingDeleteId != null ? 'This favourite will be removed from your quick list. You can recreate it anytime from a session.' : 'This favourite will be removed from your quick list.'}
+        description={
+          pendingDeleteId != null
+            ? 'This favourite will be removed from your quick list. You can recreate it anytime from a session.'
+            : 'This favourite will be removed from your quick list.'
+        }
         confirmLabel="Delete"
         cancelLabel="Keep"
         tone="danger"

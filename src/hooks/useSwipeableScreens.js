@@ -2,7 +2,11 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 const BASE_SWIPE_THRESHOLD = 130;
 
-export const useSwipeableScreens = (totalScreens, viewportRef, initialScreen = 0) => {
+export const useSwipeableScreens = (
+  totalScreens,
+  viewportRef,
+  initialScreen = 0
+) => {
   const [currentScreen, setCurrentScreen] = useState(initialScreen);
   const [dragOffset, setDragOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
@@ -21,36 +25,33 @@ export const useSwipeableScreens = (totalScreens, viewportRef, initialScreen = 0
     setDragOffset(0);
   }, []);
 
-  const updateSwipePosition = useCallback(
-    (clientX, clientY) => {
-      if (!isSwipeActive.current || swipeStartX.current === null) return;
+  const updateSwipePosition = useCallback((clientX, clientY) => {
+    if (!isSwipeActive.current || swipeStartX.current === null) return;
 
-      const deltaX = clientX - swipeStartX.current;
-      const startY = swipeStartY.current ?? clientY;
-      const deltaY = clientY - startY;
+    const deltaX = clientX - swipeStartX.current;
+    const startY = swipeStartY.current ?? clientY;
+    const deltaY = clientY - startY;
 
-      if (!hasSwipeDirection.current) {
-        if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 10) {
-          isSwipeActive.current = false;
-          swipeStartX.current = null;
-          swipeStartY.current = null;
-          setIsSwiping(false);
-          setDragOffset(0);
-          return;
-        }
-
-        if (Math.abs(deltaX) > 12) {
-          hasSwipeDirection.current = true;
-          setIsSwiping(true);
-        } else {
-          return;
-        }
+    if (!hasSwipeDirection.current) {
+      if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 10) {
+        isSwipeActive.current = false;
+        swipeStartX.current = null;
+        swipeStartY.current = null;
+        setIsSwiping(false);
+        setDragOffset(0);
+        return;
       }
 
-      setDragOffset(deltaX);
-    },
-    []
-  );
+      if (Math.abs(deltaX) > 12) {
+        hasSwipeDirection.current = true;
+        setIsSwiping(true);
+      } else {
+        return;
+      }
+    }
+
+    setDragOffset(deltaX);
+  }, []);
 
   const finishSwipe = useCallback(() => {
     if (swipeStartX.current === null) {
@@ -59,7 +60,9 @@ export const useSwipeableScreens = (totalScreens, viewportRef, initialScreen = 0
 
     if (hasSwipeDirection.current) {
       const width = viewportRef.current?.clientWidth || 0;
-      const threshold = width ? Math.min(width * 0.25, BASE_SWIPE_THRESHOLD) : BASE_SWIPE_THRESHOLD;
+      const threshold = width
+        ? Math.min(width * 0.25, BASE_SWIPE_THRESHOLD)
+        : BASE_SWIPE_THRESHOLD;
       const delta = dragOffset;
 
       if (delta < -threshold && currentScreen < totalScreens - 1) {
@@ -139,12 +142,15 @@ export const useSwipeableScreens = (totalScreens, viewportRef, initialScreen = 0
 
   const sliderStyle = useMemo(() => {
     const viewportWidth = viewportRef.current?.clientWidth || 1;
-    const sliderTranslatePercent = -currentScreen * 100 + (dragOffset / viewportWidth) * 100;
-    const sliderTransition = isSwiping ? 'none' : 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)';
+    const sliderTranslatePercent =
+      -currentScreen * 100 + (dragOffset / viewportWidth) * 100;
+    const sliderTransition = isSwiping
+      ? 'none'
+      : 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)';
 
     return {
       transform: `translateX(${sliderTranslatePercent}%)`,
-      transition: sliderTransition
+      transition: sliderTransition,
     };
   }, [currentScreen, dragOffset, isSwiping, viewportRef]);
 
@@ -156,7 +162,7 @@ export const useSwipeableScreens = (totalScreens, viewportRef, initialScreen = 0
     onMouseDown: handleMouseDown,
     onMouseMove: handleMouseMove,
     onMouseUp: handleMouseUp,
-    onMouseLeave: handleMouseLeave
+    onMouseLeave: handleMouseLeave,
   };
 
   return {
@@ -165,6 +171,6 @@ export const useSwipeableScreens = (totalScreens, viewportRef, initialScreen = 0
     isSwiping,
     goToScreen,
     sliderStyle,
-    handlers
+    handlers,
   };
 };

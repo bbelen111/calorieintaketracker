@@ -11,7 +11,7 @@ import {
   Heart,
   Plus,
   Trash2,
-  Scale
+  Scale,
 } from 'lucide-react';
 
 export const HomeScreen = ({
@@ -41,7 +41,7 @@ export const HomeScreen = ({
   calculateCardioCalories,
   onRemoveCardioSession,
   totalCardioBurn,
-  isSwiping
+  isSwiping,
 }) => {
   const goalConfig = goals[selectedGoal];
   const weightTileLabel = weightButtonLabel ?? 'Add Entry';
@@ -54,7 +54,9 @@ export const HomeScreen = ({
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <Activity className="text-blue-400" size={32} />
-            <h1 className="text-2xl md:text-3xl font-bold text-white">Your Energy Map</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-white">
+              Your Energy Map
+            </h1>
           </div>
           <button
             onClick={onSettingsClick}
@@ -74,9 +76,14 @@ export const HomeScreen = ({
           >
             <div className="flex items-center justify-between">
               <p className="text-slate-400">Age</p>
-              <Edit3 size={14} className="text-slate-500 group-hover:text-blue-400 transition-colors" />
+              <Edit3
+                size={14}
+                className="text-slate-500 group-hover:text-blue-400 transition-colors"
+              />
             </div>
-            <p className="text-white font-semibold text-lg">{userData.age} years</p>
+            <p className="text-white font-semibold text-lg">
+              {userData.age} years
+            </p>
           </button>
           <button
             onClick={onWeightClick}
@@ -85,9 +92,14 @@ export const HomeScreen = ({
           >
             <div className="flex items-center justify-between">
               <p className="text-slate-400">Weight</p>
-              <Edit3 size={14} className="text-slate-500 group-hover:text-blue-400 transition-colors" />
+              <Edit3
+                size={14}
+                className="text-slate-500 group-hover:text-blue-400 transition-colors"
+              />
             </div>
-            <p className="text-white font-semibold text-lg">{weightTileValue}</p>
+            <p className="text-white font-semibold text-lg">
+              {weightTileValue}
+            </p>
           </button>
           <button
             onClick={onHeightClick}
@@ -96,9 +108,14 @@ export const HomeScreen = ({
           >
             <div className="flex items-center justify-between">
               <p className="text-slate-400">Height</p>
-              <Edit3 size={14} className="text-slate-500 group-hover:text-blue-400 transition-colors" />
+              <Edit3
+                size={14}
+                className="text-slate-500 group-hover:text-blue-400 transition-colors"
+              />
             </div>
-            <p className="text-white font-semibold text-lg">{userData.height} cm</p>
+            <p className="text-white font-semibold text-lg">
+              {userData.height} cm
+            </p>
           </button>
           <button
             onClick={onBmrClick}
@@ -107,7 +124,10 @@ export const HomeScreen = ({
           >
             <div className="flex items-center justify-between">
               <p className="text-slate-400">BMR</p>
-              <Info size={14} className="text-slate-500 group-hover:text-blue-400 transition-colors" />
+              <Info
+                size={14}
+                className="text-slate-500 group-hover:text-blue-400 transition-colors"
+              />
             </div>
             <p className="text-white font-semibold text-lg">{bmr} cal</p>
           </button>
@@ -135,7 +155,9 @@ export const HomeScreen = ({
 
         {goalConfig.warning && (
           <div className="mt-4 bg-yellow-900/30 border-2 border-yellow-600 rounded-xl p-4">
-            <p className="text-yellow-300 text-sm font-medium">{goalConfig.warning}</p>
+            <p className="text-yellow-300 text-sm font-medium">
+              {goalConfig.warning}
+            </p>
           </div>
         )}
       </div>
@@ -174,9 +196,12 @@ export const HomeScreen = ({
             <Dumbbell className="mx-auto mb-2" size={28} />
             <p className="font-bold text-lg">Training Day</p>
             <p className="text-xs md:text-sm opacity-80">
-              {userData.trainingDuration}hrs {trainingTypes[userData.trainingType].label}
+              {userData.trainingDuration}hrs{' '}
+              {trainingTypes[userData.trainingType].label}
             </p>
-            <p className="text-[11px] opacity-70 mt-1">~{Math.round(trainingCalories)} cal burn</p>
+            <p className="text-[11px] opacity-70 mt-1">
+              ~{Math.round(trainingCalories)} cal burn
+            </p>
             <AnimatePresence initial={false}>
               {selectedDay === 'training' && (
                 <motion.div
@@ -187,7 +212,9 @@ export const HomeScreen = ({
                   transition={{ duration: 0.2, ease: 'easeOut' }}
                   className="overflow-hidden"
                 >
-                  <p className="text-[11px] tracking-wide">Tap again to adjust</p>
+                  <p className="text-[11px] tracking-wide">
+                    Tap again to adjust
+                  </p>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -235,7 +262,9 @@ export const HomeScreen = ({
               >
                 <div className="flex items-center gap-2">
                   <Heart className="text-red-400" size={24} />
-                  <h2 className="text-xl font-bold text-white">Cardio Sessions</h2>
+                  <h2 className="text-xl font-bold text-white">
+                    Cardio Sessions
+                  </h2>
                 </div>
                 <motion.button
                   onClick={onAddCardioClick}
@@ -249,18 +278,24 @@ export const HomeScreen = ({
                 </motion.button>
               </motion.div>
 
-              <motion.div layout={!isSwiping} className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+              <motion.div
+                layout={!isSwiping}
+                className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4"
+              >
                 <AnimatePresence initial={false}>
                   {cardioSessions.map((session) => {
                     const cardioType = cardioTypes[session.type];
                     const label = cardioType?.label ?? 'Unknown cardio type';
-                    const durationValue = Number.isFinite(Number(session.duration))
+                    const durationValue = Number.isFinite(
+                      Number(session.duration)
+                    )
                       ? Number(session.duration)
                       : 0;
                     const calories = calculateCardioCalories(session);
                     const effortType = session.effortType ?? 'intensity';
                     const heartRate = Number(session.averageHeartRate);
-                    const hasHeartRate = Number.isFinite(heartRate) && heartRate > 0;
+                    const hasHeartRate =
+                      Number.isFinite(heartRate) && heartRate > 0;
                     const intensityLabel = session.intensity
                       ? `${session.intensity.charAt(0).toUpperCase()}${session.intensity.slice(1)}`
                       : 'Moderate';
@@ -285,11 +320,13 @@ export const HomeScreen = ({
                         <div>
                           <p className="text-white font-semibold">{label}</p>
                           <p className="text-slate-400 text-sm">
-                            {durationValue} min • {effortDisplay} • ~{calories} cal
+                            {durationValue} min • {effortDisplay} • ~{calories}{' '}
+                            cal
                           </p>
                           {showMissingTypeWarning && (
                             <p className="text-amber-300 text-xs mt-1">
-                              Cardio type removed; consider replacing this session.
+                              Cardio type removed; consider replacing this
+                              session.
                             </p>
                           )}
                         </div>
@@ -327,7 +364,9 @@ export const HomeScreen = ({
                 transition={{ duration: 0.3, ease: 'easeOut' }}
                 className="bg-red-900/30 border border-red-700 rounded-lg p-3"
               >
-                <p className="text-red-300 font-semibold">Total Cardio Burn: {totalCardioBurn} calories</p>
+                <p className="text-red-300 font-semibold">
+                  Total Cardio Burn: {totalCardioBurn} calories
+                </p>
               </motion.div>
             </motion.div>
           ) : (
@@ -348,11 +387,18 @@ export const HomeScreen = ({
                 <div className="flex items-center gap-3">
                   <Heart className="text-red-400" size={24} />
                   <div className="text-left">
-                    <h2 className="text-lg font-bold text-white">Add Cardio Session</h2>
-                    <p className="text-slate-400 text-sm">Track your cardio activities</p>
+                    <h2 className="text-lg font-bold text-white">
+                      Add Cardio Session
+                    </h2>
+                    <p className="text-slate-400 text-sm">
+                      Track your cardio activities
+                    </p>
                   </div>
                 </div>
-                <Plus className="text-slate-400 group-hover:text-red-400 transition-colors" size={24} />
+                <Plus
+                  className="text-slate-400 group-hover:text-red-400 transition-colors"
+                  size={24}
+                />
               </motion.button>
             </motion.div>
           )}

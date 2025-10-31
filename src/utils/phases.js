@@ -12,7 +12,7 @@ export const calculatePhaseMetrics = (phase, weightEntries = []) => {
       weightChange: 0,
       avgWeeklyRate: 0,
       currentWeight: null,
-      completionRate: 0
+      completionRate: 0,
     };
   }
 
@@ -26,15 +26,18 @@ export const calculatePhaseMetrics = (phase, weightEntries = []) => {
 
   // Calculate total days (from start date to end date or today)
   const startDate = new Date(phase.startDate + 'T00:00:00');
-  const endDate = phase.endDate ? new Date(phase.endDate + 'T00:00:00') : new Date();
+  const endDate = phase.endDate
+    ? new Date(phase.endDate + 'T00:00:00')
+    : new Date();
   const diffTime = Math.abs(endDate - startDate);
   const totalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include start day
 
   // Calculate completion rate
-  const completionRate = totalDays > 0 ? Math.round((activeDays / totalDays) * 100) : 0;
+  const completionRate =
+    totalDays > 0 ? Math.round((activeDays / totalDays) * 100) : 0;
 
   // Calculate weight change using referenced weight entries
-  const phaseWeightEntries = weightEntries.filter(entry => {
+  const phaseWeightEntries = weightEntries.filter((entry) => {
     const entryDate = new Date(entry.date + 'T00:00:00');
     const isAfterStart = entryDate >= startDate;
     const isBeforeEnd = phase.endDate ? entryDate <= endDate : true;
@@ -46,17 +49,23 @@ export const calculatePhaseMetrics = (phase, weightEntries = []) => {
   let currentWeight = null;
 
   if (phaseWeightEntries.length > 0) {
-    const sortedEntries = [...phaseWeightEntries].sort((a, b) => a.date.localeCompare(b.date));
+    const sortedEntries = [...phaseWeightEntries].sort((a, b) =>
+      a.date.localeCompare(b.date)
+    );
     const firstEntry = sortedEntries[0];
     const lastEntry = sortedEntries[sortedEntries.length - 1];
-    
+
     currentWeight = lastEntry.weight;
-    weightChange = lastEntry.weight - (phase.startingWeight || firstEntry.weight);
+    weightChange =
+      lastEntry.weight - (phase.startingWeight || firstEntry.weight);
 
     // Calculate weekly rate
     const firstDate = new Date(firstEntry.date + 'T00:00:00');
     const lastDate = new Date(lastEntry.date + 'T00:00:00');
-    const daysBetween = Math.max((lastDate - firstDate) / (1000 * 60 * 60 * 24), 1);
+    const daysBetween = Math.max(
+      (lastDate - firstDate) / (1000 * 60 * 60 * 24),
+      1
+    );
     avgWeeklyRate = (weightChange / daysBetween) * 7;
   } else if (phase.startingWeight) {
     // No weight entries in phase, use starting weight
@@ -73,7 +82,7 @@ export const calculatePhaseMetrics = (phase, weightEntries = []) => {
     weightChange,
     avgWeeklyRate,
     currentWeight,
-    completionRate
+    completionRate,
   };
 };
 
@@ -87,21 +96,23 @@ export const getPhaseCalendarData = (phase) => {
   }
 
   const startDate = new Date(phase.startDate + 'T00:00:00');
-  const endDate = phase.endDate ? new Date(phase.endDate + 'T00:00:00') : new Date();
-  
+  const endDate = phase.endDate
+    ? new Date(phase.endDate + 'T00:00:00')
+    : new Date();
+
   const calendar = [];
   const currentDate = new Date(startDate);
 
   while (currentDate <= endDate) {
     const dateStr = currentDate.toISOString().split('T')[0];
     const log = phase.dailyLogs?.[dateStr];
-    
+
     let status = 'empty';
     if (log) {
       // Check if references exist (weightRef, nutritionRef)
       const hasWeight = log.weightRef && log.weightRef.trim() !== '';
       const hasNutrition = log.nutritionRef && log.nutritionRef.trim() !== '';
-      
+
       // Completed if marked complete OR has both references
       if (log.completed || (hasWeight && hasNutrition)) {
         status = 'completed';
@@ -116,7 +127,7 @@ export const getPhaseCalendarData = (phase) => {
       dayOfWeek: currentDate.getDay(),
       dayOfMonth: currentDate.getDate(),
       status,
-      log
+      log,
     });
 
     currentDate.setDate(currentDate.getDate() + 1);

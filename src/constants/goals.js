@@ -6,34 +6,34 @@ export const goals = {
     icon: TrendingUp,
     label: 'Aggressive Bulk',
     desc: '+500 cal surplus',
-    warning: 'May lead to increased fat gain. Monitor progress closely.'
+    warning: 'May lead to increased fat gain. Monitor progress closely.',
   },
   bulking: {
     color: 'bg-green-500',
     icon: TrendingUp,
     label: 'Lean Bulk',
     desc: '+300 cal surplus',
-    warning: null
+    warning: null,
   },
   maintenance: {
     color: 'bg-blue-500',
     icon: Minus,
     label: 'Maintenance',
     desc: 'At TDEE',
-    warning: null
+    warning: null,
   },
   cutting: {
     color: 'bg-yellow-500',
     icon: TrendingDown,
     label: 'Moderate Cut',
     desc: '-300 cal deficit',
-    warning: null
+    warning: null,
   },
   aggressive_cut: {
     color: 'bg-orange-500',
     icon: TrendingDown,
     label: 'Aggressive Cut',
     desc: '-500 cal deficit',
-    warning: 'Risk of muscle loss and fatigue. Ensure high protein intake.'
-  }
+    warning: 'Risk of muscle loss and fatigue. Ensure high protein intake.',
+  },
 };

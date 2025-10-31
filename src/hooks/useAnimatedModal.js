@@ -2,7 +2,10 @@ import { useCallback, useRef, useState } from 'react';
 
 const DEFAULT_DURATION = 200;
 
-export const useAnimatedModal = (initiallyOpen = false, animationDuration = DEFAULT_DURATION) => {
+export const useAnimatedModal = (
+  initiallyOpen = false,
+  animationDuration = DEFAULT_DURATION
+) => {
   const [isOpen, setIsOpen] = useState(initiallyOpen);
   const [isClosing, setIsClosing] = useState(false);
   const closeTimeoutRef = useRef(null);
@@ -41,6 +44,6 @@ export const useAnimatedModal = (initiallyOpen = false, animationDuration = DEFA
     isClosing,
     open,
     requestClose,
-    forceClose
+    forceClose,
   };
 };

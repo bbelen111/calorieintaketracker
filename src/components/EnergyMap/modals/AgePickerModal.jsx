@@ -1,11 +1,21 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Save } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
-import { alignScrollContainerToValue, createPickerScrollHandler } from '../../../utils/scroll';
+import {
+  alignScrollContainerToValue,
+  createPickerScrollHandler,
+} from '../../../utils/scroll';
 
 const AGE_VALUES = Array.from({ length: 83 }, (_, i) => i + 15);
 
-export const AgePickerModal = ({ isOpen, isClosing, value, onChange, onCancel, onSave }) => {
+export const AgePickerModal = ({
+  isOpen,
+  isClosing,
+  value,
+  onChange,
+  onCancel,
+  onSave,
+}) => {
   const scrollRef = useRef(null);
   const timeoutRef = useRef(null);
   const hasAlignedRef = useRef(false);
@@ -28,7 +38,13 @@ export const AgePickerModal = ({ isOpen, isClosing, value, onChange, onCancel, o
   }, [isOpen, value]);
 
   const handleScroll = useMemo(
-    () => createPickerScrollHandler(scrollRef, timeoutRef, (v) => parseInt(v, 10), onChange),
+    () =>
+      createPickerScrollHandler(
+        scrollRef,
+        timeoutRef,
+        (v) => parseInt(v, 10),
+        onChange
+      ),
     [onChange]
   );
 
@@ -39,8 +55,12 @@ export const AgePickerModal = ({ isOpen, isClosing, value, onChange, onCancel, o
       overlayClassName="z-[70]"
       contentClassName="p-6 w-full max-w-sm"
     >
-      <h3 className="text-white font-bold text-xl mb-4 text-center">Select Age</h3>
-      <p className="text-slate-400 text-xs text-center mb-2 uppercase tracking-wide">Years</p>
+      <h3 className="text-white font-bold text-xl mb-4 text-center">
+        Select Age
+      </h3>
+      <p className="text-slate-400 text-xs text-center mb-2 uppercase tracking-wide">
+        Years
+      </p>
 
       <div className="relative h-48 overflow-hidden">
         <div className="absolute inset-0 pointer-events-none z-10">

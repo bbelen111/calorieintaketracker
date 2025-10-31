@@ -20,7 +20,7 @@ export const ConfirmActionModal = ({
   cancelLabel = 'Cancel',
   tone = 'danger',
   onConfirm,
-  onCancel
+  onCancel,
 }) => {
   const confirmClasses = getConfirmStyles(tone);
 
@@ -35,7 +35,9 @@ export const ConfirmActionModal = ({
         <div className="space-y-2">
           <h3 className="text-white font-bold text-xl text-center">{title}</h3>
           {description ? (
-            <p className="text-slate-300 text-sm text-center leading-relaxed">{description}</p>
+            <p className="text-slate-300 text-sm text-center leading-relaxed">
+              {description}
+            </p>
           ) : null}
         </div>
 

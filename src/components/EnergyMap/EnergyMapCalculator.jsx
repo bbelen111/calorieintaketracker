@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Home, Map, BarChart3, ClipboardList, Target } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { goals } from '../../constants/goals';
@@ -39,7 +45,12 @@ import { TemplatePickerModal } from './modals/TemplatePickerModal';
 import { DailyLogModal } from './modals/DailyLogModal';
 import { PhaseInsightsModal } from './modals/PhaseInsightsModal';
 import { ConfirmActionModal } from './modals/ConfirmActionModal';
-import { clampWeight, normalizeDateKey, formatWeight, formatDateLabel } from '../../utils/weight';
+import {
+  clampWeight,
+  normalizeDateKey,
+  formatWeight,
+  formatDateLabel,
+} from '../../utils/weight';
 import { exportPhaseAsCSV, exportPhaseAsJSON } from '../../utils/export';
 
 const MODAL_CLOSE_DELAY = 200;
@@ -48,17 +59,17 @@ const screenTabs = [
   { key: 'tracker', label: 'Tracker', icon: Target },
   { key: 'home', label: 'Home', icon: Home },
   { key: 'calorie-map', label: 'Calorie Map', icon: Map },
-  { key: 'insights', label: 'Insights', icon: BarChart3 }
+  { key: 'insights', label: 'Insights', icon: BarChart3 },
 ];
 
-const homeIndex = screenTabs.findIndex(tab => tab.key === 'home');
+const homeIndex = screenTabs.findIndex((tab) => tab.key === 'home');
 
 const defaultCardioSession = {
   type: 'treadmill_walk',
   duration: 30,
   intensity: 'moderate',
   effortType: 'intensity',
-  averageHeartRate: ''
+  averageHeartRate: '',
 };
 
 const sanitizeCardioDraft = (draft) => {
@@ -67,7 +78,9 @@ const sanitizeCardioDraft = (draft) => {
   }
 
   const parsedDuration = Number.parseInt(draft.duration, 10);
-  const duration = Number.isFinite(parsedDuration) ? Math.max(parsedDuration, 0) : 0;
+  const duration = Number.isFinite(parsedDuration)
+    ? Math.max(parsedDuration, 0)
+    : 0;
 
   if (!duration) {
     return null;
@@ -79,12 +92,14 @@ const sanitizeCardioDraft = (draft) => {
     ...draft,
     duration,
     intensity: draft.intensity ?? 'moderate',
-    effortType
+    effortType,
   };
 
   if (effortType === 'heartRate') {
     const parsedHeartRate = Number.parseInt(draft.averageHeartRate, 10);
-    const heartRate = Number.isFinite(parsedHeartRate) ? Math.max(parsedHeartRate, 0) : 0;
+    const heartRate = Number.isFinite(parsedHeartRate)
+      ? Math.max(parsedHeartRate, 0)
+      : 0;
 
     if (!heartRate) {
       return null;
@@ -146,23 +161,24 @@ export const EnergyMapCalculator = () => {
     setActivePhase,
     addDailyLog,
     updateDailyLog,
-    deleteDailyLog
+    deleteDailyLog,
   } = useEnergyMapData();
 
   const viewportRef = useRef(null);
-  const { currentScreen, sliderStyle, handlers, goToScreen, isSwiping } = useSwipeableScreens(
-    screenTabs.length,
-    viewportRef,
-    homeIndex
-  );
+  const { currentScreen, sliderStyle, handlers, goToScreen, isSwiping } =
+    useSwipeableScreens(screenTabs.length, viewportRef, homeIndex);
 
   const [selectedGoal, setSelectedGoal] = useState('maintenance');
   const [tempSelectedGoal, setTempSelectedGoal] = useState('maintenance');
   const [selectedDay, setSelectedDayState] = useState(() => loadSelectedDay());
   const [tempAge, setTempAge] = useState(userData.age);
   const [tempHeight, setTempHeight] = useState(userData.height);
-  const [tempTrainingType, setTempTrainingType] = useState(userData.trainingType);
-  const [tempTrainingDuration, setTempTrainingDuration] = useState(userData.trainingDuration);
+  const [tempTrainingType, setTempTrainingType] = useState(
+    userData.trainingType
+  );
+  const [tempTrainingDuration, setTempTrainingDuration] = useState(
+    userData.trainingDuration
+  );
   const [editingTrainingType, setEditingTrainingType] = useState(null);
   const [tempPresetName, setTempPresetName] = useState('');
   const [tempPresetCalories, setTempPresetCalories] = useState(0);
@@ -176,19 +192,24 @@ export const EnergyMapCalculator = () => {
   const [customActivityPercent, setCustomActivityPercent] = useState(
     Math.round(DEFAULT_ACTIVITY_MULTIPLIERS.training * 100)
   );
-  const [durationPickerValue, setDurationPickerValue] = useState(userData.trainingDuration);
-  const [durationPickerTitle, setDurationPickerTitle] = useState('Training Duration');
+  const [durationPickerValue, setDurationPickerValue] = useState(
+    userData.trainingDuration
+  );
+  const [durationPickerTitle, setDurationPickerTitle] =
+    useState('Training Duration');
   const durationPickerOnSaveRef = useRef(null);
   const [editingCardioId, setEditingCardioId] = useState(null);
   const [weightEntryDraft, setWeightEntryDraft] = useState(() => ({
     date: getTodayDateString(),
-    weight: clampWeight(userData.weight) ?? userData.weight
+    weight: clampWeight(userData.weight) ?? userData.weight,
   }));
   const [weightEntryMode, setWeightEntryMode] = useState('add');
   const [weightEntryOriginalDate, setWeightEntryOriginalDate] = useState(null);
   const [isWeightDateLocked, setIsWeightDateLocked] = useState(false);
   const [weightEntryError, setWeightEntryError] = useState('');
-  const [weightPickerValue, setWeightPickerValue] = useState(clampWeight(userData.weight) ?? userData.weight);
+  const [weightPickerValue, setWeightPickerValue] = useState(
+    clampWeight(userData.weight) ?? userData.weight
+  );
 
   // Phase-related state
   const [phaseName, setPhaseName] = useState('');
@@ -266,7 +287,8 @@ export const EnergyMapCalculator = () => {
   }, [durationPickerModal.isOpen]);
 
   const latestWeightEntry = useMemo(
-    () => (weightEntries.length ? weightEntries[weightEntries.length - 1] : null),
+    () =>
+      weightEntries.length ? weightEntries[weightEntries.length - 1] : null,
     [weightEntries]
   );
 
@@ -293,12 +315,19 @@ export const EnergyMapCalculator = () => {
       return 'Logged today';
     }
     if (latestWeightEntry?.date) {
-      const formattedDate = formatDateLabel(latestWeightEntry.date, { month: 'short', day: 'numeric' });
-      return formattedDate ? `Last entry ${formattedDate}` : 'Last entry recorded';
+      const formattedDate = formatDateLabel(latestWeightEntry.date, {
+        month: 'short',
+        day: 'numeric',
+      });
+      return formattedDate
+        ? `Last entry ${formattedDate}`
+        : 'Last entry recorded';
     }
     return 'Tap to start logging';
   }, [hasTodayWeightEntry, latestWeightEntry?.date]);
-  const weightPrimaryActionLabel = hasTodayWeightEntry ? 'Edit Entry' : 'Add Entry';
+  const weightPrimaryActionLabel = hasTodayWeightEntry
+    ? 'Edit Entry'
+    : 'Add Entry';
 
   const openWeightTracker = useCallback(() => {
     setWeightEntryError('');
@@ -307,7 +336,9 @@ export const EnergyMapCalculator = () => {
 
   const openAddWeightEntryModal = useCallback(() => {
     const todayKey = getTodayDateString();
-    const fallbackWeight = clampWeight(latestWeightEntry?.weight ?? userData.weight) ?? userData.weight;
+    const fallbackWeight =
+      clampWeight(latestWeightEntry?.weight ?? userData.weight) ??
+      userData.weight;
 
     setWeightEntryMode('add');
     setWeightEntryDraft({ date: todayKey, weight: fallbackWeight });
@@ -318,27 +349,30 @@ export const EnergyMapCalculator = () => {
     weightEntryModal.open();
   }, [latestWeightEntry, userData.weight, weightEntryModal]);
 
-  const openEditWeightEntryModal = useCallback((entry) => {
-    if (!entry) {
-      return;
-    }
+  const openEditWeightEntryModal = useCallback(
+    (entry) => {
+      if (!entry) {
+        return;
+      }
 
-    const dateKey = normalizeDateKey(entry.date);
-    if (!dateKey) {
-      return;
-    }
+      const dateKey = normalizeDateKey(entry.date);
+      if (!dateKey) {
+        return;
+      }
 
-    const fallbackWeight = clampWeight(entry.weight) ?? userData.weight;
-    const isToday = dateKey === getTodayDateString();
+      const fallbackWeight = clampWeight(entry.weight) ?? userData.weight;
+      const isToday = dateKey === getTodayDateString();
 
-    setWeightEntryMode('edit');
-    setWeightEntryDraft({ date: dateKey, weight: fallbackWeight });
-    setWeightEntryOriginalDate(dateKey);
-    setIsWeightDateLocked(isToday);
-    setWeightEntryError('');
-    setWeightPickerValue(fallbackWeight);
-    weightEntryModal.open();
-  }, [userData.weight, weightEntryModal]);
+      setWeightEntryMode('edit');
+      setWeightEntryDraft({ date: dateKey, weight: fallbackWeight });
+      setWeightEntryOriginalDate(dateKey);
+      setIsWeightDateLocked(isToday);
+      setWeightEntryError('');
+      setWeightPickerValue(fallbackWeight);
+      weightEntryModal.open();
+    },
+    [userData.weight, weightEntryModal]
+  );
 
   const handlePrimaryWeightEntry = useCallback(() => {
     if (todayWeightEntry) {
@@ -361,7 +395,8 @@ export const EnergyMapCalculator = () => {
       return;
     }
 
-    const originalDateKey = weightEntryMode === 'edit' ? weightEntryOriginalDate : null;
+    const originalDateKey =
+      weightEntryMode === 'edit' ? weightEntryOriginalDate : null;
     const hasConflict = weightEntries.some((entry) => {
       if (!entry?.date) {
         return false;
@@ -373,7 +408,9 @@ export const EnergyMapCalculator = () => {
     });
 
     if (hasConflict) {
-      setWeightEntryError('An entry already exists for this date. Edit that entry instead.');
+      setWeightEntryError(
+        'An entry already exists for this date. Edit that entry instead.'
+      );
       return;
     }
 
@@ -384,10 +421,20 @@ export const EnergyMapCalculator = () => {
 
     setWeightEntryError('');
     weightEntryModal.requestClose();
-  }, [saveWeightEntry, weightEntries, weightEntryDraft.date, weightEntryDraft.weight, weightEntryMode, weightEntryOriginalDate, weightEntryModal]);
+  }, [
+    saveWeightEntry,
+    weightEntries,
+    weightEntryDraft.date,
+    weightEntryDraft.weight,
+    weightEntryMode,
+    weightEntryOriginalDate,
+    weightEntryModal,
+  ]);
 
   const handleWeightEntryDelete = useCallback(() => {
-    const targetDate = normalizeDateKey(weightEntryOriginalDate ?? weightEntryDraft.date);
+    const targetDate = normalizeDateKey(
+      weightEntryOriginalDate ?? weightEntryDraft.date
+    );
     if (!targetDate) {
       weightEntryModal.requestClose();
       return;
@@ -396,21 +443,32 @@ export const EnergyMapCalculator = () => {
     // Deletion confirmation should be handled by custom modal, not browser confirm
     deleteWeightEntry(targetDate);
     weightEntryModal.requestClose();
-  }, [deleteWeightEntry, weightEntryDraft.date, weightEntryModal, weightEntryOriginalDate]);
+  }, [
+    deleteWeightEntry,
+    weightEntryDraft.date,
+    weightEntryModal,
+    weightEntryOriginalDate,
+  ]);
 
-  const handleWeightEntryFromListDelete = useCallback((entry) => {
-    const dateKey = normalizeDateKey(entry?.date);
-    if (!dateKey) {
-      return;
-    }
+  const handleWeightEntryFromListDelete = useCallback(
+    (entry) => {
+      const dateKey = normalizeDateKey(entry?.date);
+      if (!dateKey) {
+        return;
+      }
 
-    // Deletion confirmation should be handled by custom modal, not browser confirm
-    deleteWeightEntry(dateKey);
-  }, [deleteWeightEntry]);
+      // Deletion confirmation should be handled by custom modal, not browser confirm
+      deleteWeightEntry(dateKey);
+    },
+    [deleteWeightEntry]
+  );
 
-  const handleWeightEntryFromListEdit = useCallback((entry) => {
-    openEditWeightEntryModal(entry);
-  }, [openEditWeightEntryModal]);
+  const handleWeightEntryFromListEdit = useCallback(
+    (entry) => {
+      openEditWeightEntryModal(entry);
+    },
+    [openEditWeightEntryModal]
+  );
 
   const handleWeightEntryDateChange = useCallback((value) => {
     setWeightEntryDraft((prev) => ({ ...prev, date: value }));
@@ -418,7 +476,8 @@ export const EnergyMapCalculator = () => {
   }, []);
 
   const openWeightPicker = useCallback(() => {
-    const fallbackWeight = clampWeight(weightEntryDraft.weight) ?? userData.weight;
+    const fallbackWeight =
+      clampWeight(weightEntryDraft.weight) ?? userData.weight;
     setWeightPickerValue(fallbackWeight);
     weightPickerModal.open();
   }, [weightEntryDraft.weight, userData.weight, weightPickerModal]);
@@ -427,18 +486,21 @@ export const EnergyMapCalculator = () => {
     setWeightPickerValue(value);
   }, []);
 
-  const handleWeightPickerSave = useCallback((value) => {
-    const sanitized = clampWeight(value);
-    if (sanitized == null) {
-      weightPickerModal.requestClose();
-      return;
-    }
+  const handleWeightPickerSave = useCallback(
+    (value) => {
+      const sanitized = clampWeight(value);
+      if (sanitized == null) {
+        weightPickerModal.requestClose();
+        return;
+      }
 
-    setWeightEntryDraft((prev) => ({ ...prev, weight: sanitized }));
-    setWeightPickerValue(sanitized);
-    setWeightEntryError('');
-    weightPickerModal.requestClose();
-  }, [weightPickerModal]);
+      setWeightEntryDraft((prev) => ({ ...prev, weight: sanitized }));
+      setWeightPickerValue(sanitized);
+      setWeightEntryError('');
+      weightPickerModal.requestClose();
+    },
+    [weightPickerModal]
+  );
 
   const handleWeightPickerCancel = useCallback(() => {
     weightPickerModal.requestClose();
@@ -458,7 +520,6 @@ export const EnergyMapCalculator = () => {
     setWeightPickerValue(fallbackWeight);
   }, [userData.weight, weightEntryModal.isClosing, weightEntryModal.isOpen]);
 
-
   const updateSelectedDay = useCallback((day) => {
     setSelectedDayState(day);
   }, []);
@@ -471,7 +532,13 @@ export const EnergyMapCalculator = () => {
     } else {
       updateSelectedDay('training');
     }
-  }, [quickTrainingModal, selectedDay, updateSelectedDay, userData.trainingDuration, userData.trainingType]);
+  }, [
+    quickTrainingModal,
+    selectedDay,
+    updateSelectedDay,
+    userData.trainingDuration,
+    userData.trainingType,
+  ]);
 
   const handleRestDayClick = useCallback(() => {
     updateSelectedDay('rest');
@@ -511,18 +578,21 @@ export const EnergyMapCalculator = () => {
 
   const openTrainingTypeEditor = useCallback(
     (typeKey) => {
-      const current = trainingTypes[typeKey] ?? presetTrainingTypes[typeKey] ?? {
-        label: typeKey,
-        description: '',
-        caloriesPerHour: 0
-      };
+      const current = trainingTypes[typeKey] ??
+        presetTrainingTypes[typeKey] ?? {
+          label: typeKey,
+          description: '',
+          caloriesPerHour: 0,
+        };
 
       const initialCalories = Number(current.caloriesPerHour ?? 0);
 
       setEditingTrainingType(typeKey);
       setTempPresetName(current.label ?? '');
       setTempPresetDescription(current.description ?? '');
-      setTempPresetCalories(Number.isFinite(initialCalories) ? initialCalories : 0);
+      setTempPresetCalories(
+        Number.isFinite(initialCalories) ? initialCalories : 0
+      );
       trainingTypeEditorModal.open();
     },
     [trainingTypeEditorModal, trainingTypes]
@@ -537,18 +607,23 @@ export const EnergyMapCalculator = () => {
     const fallback = presetTrainingTypes[editingTrainingType] ?? {
       label: editingTrainingType,
       description: '',
-      caloriesPerHour: 0
+      caloriesPerHour: 0,
     };
 
     const nextName = tempPresetName.trim() || fallback.label;
-    const nextDescription = tempPresetDescription.trim() || fallback.description;
-    const sanitizedCalories = Number.isFinite(tempPresetCalories) ? Math.max(0, tempPresetCalories) : NaN;
-    const nextCalories = Number.isFinite(sanitizedCalories) ? sanitizedCalories : fallback.caloriesPerHour;
+    const nextDescription =
+      tempPresetDescription.trim() || fallback.description;
+    const sanitizedCalories = Number.isFinite(tempPresetCalories)
+      ? Math.max(0, tempPresetCalories)
+      : NaN;
+    const nextCalories = Number.isFinite(sanitizedCalories)
+      ? sanitizedCalories
+      : fallback.caloriesPerHour;
 
     updateTrainingType(editingTrainingType, {
       name: nextName,
       description: nextDescription,
-      calories: nextCalories
+      calories: nextCalories,
     });
 
     if (editingTrainingType === tempTrainingType) {
@@ -563,7 +638,7 @@ export const EnergyMapCalculator = () => {
     tempPresetDescription,
     tempPresetName,
     tempTrainingType,
-    updateTrainingType
+    updateTrainingType,
   ]);
 
   const openQuickTrainingModal = useCallback(() => {
@@ -608,33 +683,40 @@ export const EnergyMapCalculator = () => {
   const handleDailyActivityPresetSelect = useCallback(
     (dayType, presetKey, multiplier) => {
       const nextPresets = {
-        ...(userData.activityPresets ?? { training: 'default', rest: 'default' }),
-        [dayType]: presetKey
+        ...(userData.activityPresets ?? {
+          training: 'default',
+          rest: 'default',
+        }),
+        [dayType]: presetKey,
       };
 
       handleUserDataChange('activityPresets', nextPresets);
 
       if (presetKey === 'custom') {
         const existingCustom = userData.customActivityMultipliers?.[dayType];
-        const fallback = userData.activityMultipliers?.[dayType] ?? DEFAULT_ACTIVITY_MULTIPLIERS[dayType];
-        const resolved = Number.isFinite(existingCustom) ? existingCustom : fallback;
+        const fallback =
+          userData.activityMultipliers?.[dayType] ??
+          DEFAULT_ACTIVITY_MULTIPLIERS[dayType];
+        const resolved = Number.isFinite(existingCustom)
+          ? existingCustom
+          : fallback;
 
         handleUserDataChange('customActivityMultipliers', {
           ...(userData.customActivityMultipliers ?? {
             training: DEFAULT_ACTIVITY_MULTIPLIERS.training,
-            rest: DEFAULT_ACTIVITY_MULTIPLIERS.rest
+            rest: DEFAULT_ACTIVITY_MULTIPLIERS.rest,
           }),
-          [dayType]: resolved
+          [dayType]: resolved,
         });
 
         handleUserDataChange('activityMultipliers', {
           ...(userData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS),
-          [dayType]: resolved
+          [dayType]: resolved,
         });
       } else if (Number.isFinite(multiplier)) {
         handleUserDataChange('activityMultipliers', {
           ...(userData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS),
-          [dayType]: multiplier
+          [dayType]: multiplier,
         });
       }
     },
@@ -644,14 +726,20 @@ export const EnergyMapCalculator = () => {
   const handleDailyActivityCustomSelect = useCallback(
     (dayType, alreadySelected) => {
       const existingCustom = userData.customActivityMultipliers?.[dayType];
-      const fallback = userData.activityMultipliers?.[dayType] ?? DEFAULT_ACTIVITY_MULTIPLIERS[dayType];
-      const resolvedMultiplier = Number.isFinite(existingCustom) ? existingCustom : fallback;
+      const fallback =
+        userData.activityMultipliers?.[dayType] ??
+        DEFAULT_ACTIVITY_MULTIPLIERS[dayType];
+      const resolvedMultiplier = Number.isFinite(existingCustom)
+        ? existingCustom
+        : fallback;
 
       handleDailyActivityPresetSelect(dayType, 'custom');
 
       const percentValue = Math.round(resolvedMultiplier * 1000) / 10;
       setActivityEditorDay(dayType);
-      setCustomActivityPercent(Number.isFinite(percentValue) ? percentValue : 0);
+      setCustomActivityPercent(
+        Number.isFinite(percentValue) ? percentValue : 0
+      );
 
       if (alreadySelected || !Number.isFinite(existingCustom)) {
         dailyActivityCustomModal.open();
@@ -681,24 +769,30 @@ export const EnergyMapCalculator = () => {
     const nextCustoms = {
       ...(userData.customActivityMultipliers ?? {
         training: DEFAULT_ACTIVITY_MULTIPLIERS.training,
-        rest: DEFAULT_ACTIVITY_MULTIPLIERS.rest
+        rest: DEFAULT_ACTIVITY_MULTIPLIERS.rest,
       }),
-      [activityEditorDay]: multiplier
+      [activityEditorDay]: multiplier,
     };
 
     handleUserDataChange('customActivityMultipliers', nextCustoms);
     handleUserDataChange('activityPresets', {
       ...(userData.activityPresets ?? { training: 'default', rest: 'default' }),
-      [activityEditorDay]: 'custom'
+      [activityEditorDay]: 'custom',
     });
     handleUserDataChange('activityMultipliers', {
       ...(userData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS),
-      [activityEditorDay]: multiplier
+      [activityEditorDay]: multiplier,
     });
 
     setCustomActivityPercent(Math.round(clampedPercent * 10) / 10);
     dailyActivityCustomModal.requestClose();
-  }, [activityEditorDay, customActivityPercent, dailyActivityCustomModal, handleUserDataChange, userData]);
+  }, [
+    activityEditorDay,
+    customActivityPercent,
+    dailyActivityCustomModal,
+    handleUserDataChange,
+    userData,
+  ]);
 
   const openCardioModal = useCallback(() => {
     setEditingCardioId(null);
@@ -709,7 +803,9 @@ export const EnergyMapCalculator = () => {
 
   const handleEditCardioSession = useCallback(
     (sessionId) => {
-      const existing = userData.cardioSessions.find((session) => session.id === sessionId);
+      const existing = userData.cardioSessions.find(
+        (session) => session.id === sessionId
+      );
       if (!existing) {
         return;
       }
@@ -722,7 +818,10 @@ export const EnergyMapCalculator = () => {
         duration: existing.duration ?? defaultCardioSession.duration,
         intensity: existing.intensity ?? defaultCardioSession.intensity,
         effortType: normalizedEffortType,
-        averageHeartRate: normalizedEffortType === 'heartRate' ? existing.averageHeartRate ?? '' : ''
+        averageHeartRate:
+          normalizedEffortType === 'heartRate'
+            ? (existing.averageHeartRate ?? '')
+            : '',
       };
 
       setCardioDraft(draft);
@@ -757,11 +856,16 @@ export const EnergyMapCalculator = () => {
 
   const selectedRangeData = useMemo(() => {
     if (!selectedStepRange) return null;
-    return calculateTargetForGoal(selectedStepRange, selectedDay === 'training', selectedGoal);
+    return calculateTargetForGoal(
+      selectedStepRange,
+      selectedDay === 'training',
+      selectedGoal
+    );
   }, [calculateTargetForGoal, selectedDay, selectedGoal, selectedStepRange]);
 
   const getRangeDetails = useCallback(
-    (steps) => calculateTargetForGoal(steps, selectedDay === 'training', selectedGoal),
+    (steps) =>
+      calculateTargetForGoal(steps, selectedDay === 'training', selectedGoal),
     [calculateTargetForGoal, selectedDay, selectedGoal]
   );
 
@@ -783,7 +887,13 @@ export const EnergyMapCalculator = () => {
     }
 
     cardioModal.requestClose();
-  }, [addCardioSession, cardioDraft, cardioModal, editingCardioId, updateCardioSession]);
+  }, [
+    addCardioSession,
+    cardioDraft,
+    cardioModal,
+    editingCardioId,
+    updateCardioSession,
+  ]);
 
   const handleFavouriteSave = useCallback(() => {
     const favouriteToSave = sanitizeCardioDraft(favouriteDraft);
@@ -806,7 +916,8 @@ export const EnergyMapCalculator = () => {
       setCardioDraft({
         ...defaultCardioSession,
         ...sanitized,
-        averageHeartRate: effortType === 'heartRate' ? sanitized.averageHeartRate ?? '' : ''
+        averageHeartRate:
+          effortType === 'heartRate' ? (sanitized.averageHeartRate ?? '') : '',
       });
 
       if (cardioModalMode === 'edit' && editingCardioId != null) {
@@ -824,7 +935,7 @@ export const EnergyMapCalculator = () => {
       cardioModal,
       cardioModalMode,
       editingCardioId,
-      updateCardioSession
+      updateCardioSession,
     ]
   );
 
@@ -840,7 +951,8 @@ export const EnergyMapCalculator = () => {
         ...defaultCardioSession,
         ...source,
         effortType,
-        averageHeartRate: effortType === 'heartRate' ? source?.averageHeartRate ?? '' : ''
+        averageHeartRate:
+          effortType === 'heartRate' ? (source?.averageHeartRate ?? '') : '',
       };
       if (nextDraft.id !== undefined) {
         delete nextDraft.id;
@@ -882,7 +994,12 @@ export const EnergyMapCalculator = () => {
     handleUserDataChange('trainingType', tempTrainingType);
     handleUserDataChange('trainingDuration', tempTrainingDuration);
     quickTrainingModal.requestClose();
-  }, [handleUserDataChange, quickTrainingModal, tempTrainingDuration, tempTrainingType]);
+  }, [
+    handleUserDataChange,
+    quickTrainingModal,
+    tempTrainingDuration,
+    tempTrainingType,
+  ]);
 
   const openDurationPicker = useCallback(
     (initialValue, onConfirm, title = 'Training Duration') => {
@@ -960,35 +1077,46 @@ export const EnergyMapCalculator = () => {
       startDate: phaseStartDate,
       endDate: phaseEndDate || null,
       goalType: phaseGoalType,
-      targetWeight
+      targetWeight,
     });
 
     setPhaseError('');
     phaseCreationModal.requestClose();
-  }, [createPhase, phaseCreationModal, phaseEndDate, phaseGoalType, phaseName, phaseStartDate, phaseTargetWeight]);
+  }, [
+    createPhase,
+    phaseCreationModal,
+    phaseEndDate,
+    phaseGoalType,
+    phaseName,
+    phaseStartDate,
+    phaseTargetWeight,
+  ]);
 
-  const handleTemplateSelect = useCallback((template) => {
-    if (!template) return;
-    
-    const today = new Date();
-    const startDate = today.toISOString().split('T')[0];
-    
-    const endDate = new Date(today);
-    endDate.setDate(endDate.getDate() + template.suggestedDuration);
-    
-    let targetWeight = '';
-    const currentWeight = latestWeightEntry?.weight ?? userData.weight;
-    if (currentWeight && template.targetWeightChange !== 0) {
-      const calculated = currentWeight + template.targetWeightChange;
-      targetWeight = String(Math.max(30, Math.min(210, calculated)));
-    }
-    
-    setPhaseName(template.defaultName);
-    setPhaseStartDate(startDate);
-    setPhaseEndDate(endDate.toISOString().split('T')[0]);
-    setPhaseGoalType(template.goalType);
-    setPhaseTargetWeight(targetWeight);
-  }, [latestWeightEntry, userData.weight]);
+  const handleTemplateSelect = useCallback(
+    (template) => {
+      if (!template) return;
+
+      const today = new Date();
+      const startDate = today.toISOString().split('T')[0];
+
+      const endDate = new Date(today);
+      endDate.setDate(endDate.getDate() + template.suggestedDuration);
+
+      let targetWeight = '';
+      const currentWeight = latestWeightEntry?.weight ?? userData.weight;
+      if (currentWeight && template.targetWeightChange !== 0) {
+        const calculated = currentWeight + template.targetWeightChange;
+        targetWeight = String(Math.max(30, Math.min(210, calculated)));
+      }
+
+      setPhaseName(template.defaultName);
+      setPhaseStartDate(startDate);
+      setPhaseEndDate(endDate.toISOString().split('T')[0]);
+      setPhaseGoalType(template.goalType);
+      setPhaseTargetWeight(targetWeight);
+    },
+    [latestWeightEntry, userData.weight]
+  );
 
   const handlePhaseClick = useCallback((phase) => {
     setSelectedPhase(phase);
@@ -999,32 +1127,38 @@ export const EnergyMapCalculator = () => {
   }, []);
 
   // Daily log handlers (reference-based)
-  const openDailyLogModal = useCallback((date = null) => {
-    const targetDate = date || getTodayDateString();
-    setDailyLogDate(targetDate);
-    setDailyLogWeightRef('');
-    setDailyLogNutritionRef('');
-    setDailyLogNotes('');
-    setDailyLogCompleted(false);
-    setDailyLogMode('add');
-    setDailyLogError('');
-    setDailyLogDateLocked(false);
-    dailyLogModal.open();
-  }, [dailyLogModal]);
+  const openDailyLogModal = useCallback(
+    (date = null) => {
+      const targetDate = date || getTodayDateString();
+      setDailyLogDate(targetDate);
+      setDailyLogWeightRef('');
+      setDailyLogNutritionRef('');
+      setDailyLogNotes('');
+      setDailyLogCompleted(false);
+      setDailyLogMode('add');
+      setDailyLogError('');
+      setDailyLogDateLocked(false);
+      dailyLogModal.open();
+    },
+    [dailyLogModal]
+  );
 
-  const openEditDailyLogModal = useCallback((log) => {
-    if (!log) return;
-    
-    setDailyLogDate(log.date);
-    setDailyLogWeightRef(log.weightRef || '');
-    setDailyLogNutritionRef(log.nutritionRef || '');
-    setDailyLogNotes(log.notes || '');
-    setDailyLogCompleted(log.completed || false);
-    setDailyLogMode('edit');
-    setDailyLogError('');
-    setDailyLogDateLocked(true);
-    dailyLogModal.open();
-  }, [dailyLogModal]);
+  const openEditDailyLogModal = useCallback(
+    (log) => {
+      if (!log) return;
+
+      setDailyLogDate(log.date);
+      setDailyLogWeightRef(log.weightRef || '');
+      setDailyLogNutritionRef(log.nutritionRef || '');
+      setDailyLogNotes(log.notes || '');
+      setDailyLogCompleted(log.completed || false);
+      setDailyLogMode('edit');
+      setDailyLogError('');
+      setDailyLogDateLocked(true);
+      dailyLogModal.open();
+    },
+    [dailyLogModal]
+  );
 
   const handleDailyLogSave = useCallback(() => {
     if (!selectedPhase) {
@@ -1039,7 +1173,9 @@ export const EnergyMapCalculator = () => {
     }
 
     // Auto-set weightRef to matching date if weight entry exists
-    const matchingWeight = weightEntries.find(entry => entry.date === dailyLogDate);
+    const matchingWeight = weightEntries.find(
+      (entry) => entry.date === dailyLogDate
+    );
     const finalWeightRef = matchingWeight ? matchingWeight.date : null;
 
     // Build log data with references
@@ -1047,7 +1183,7 @@ export const EnergyMapCalculator = () => {
       weightRef: finalWeightRef,
       nutritionRef: dailyLogNutritionRef || null,
       notes: dailyLogNotes.trim(),
-      completed: dailyLogCompleted
+      completed: dailyLogCompleted,
     };
 
     if (dailyLogMode === 'add') {
@@ -1068,7 +1204,7 @@ export const EnergyMapCalculator = () => {
     dailyLogNutritionRef,
     selectedPhase,
     updateDailyLog,
-    weightEntries
+    weightEntries,
   ]);
 
   const handleDailyLogDelete = useCallback(() => {
@@ -1087,22 +1223,27 @@ export const EnergyMapCalculator = () => {
     phaseInsightsModal.open();
   }, [selectedPhase, phaseInsightsModal]);
 
-  const handleExportPhase = useCallback((format = 'csv') => {
-    if (!selectedPhase) return;
-    
-    if (format === 'json') {
-      exportPhaseAsJSON(selectedPhase, weightEntries);
-    } else {
-      exportPhaseAsCSV(selectedPhase, weightEntries);
-    }
-  }, [selectedPhase, weightEntries]);
+  const handleExportPhase = useCallback(
+    (format = 'csv') => {
+      if (!selectedPhase) return;
+
+      if (format === 'json') {
+        exportPhaseAsJSON(selectedPhase, weightEntries);
+      } else {
+        exportPhaseAsCSV(selectedPhase, weightEntries);
+      }
+    },
+    [selectedPhase, weightEntries]
+  );
 
   // Phase archive/delete handlers
   const handleArchivePhase = useCallback(() => {
     if (!selectedPhase) return;
-    
+
     setConfirmActionTitle('Archive Phase');
-    setConfirmActionDescription(`Are you sure you want to archive "${selectedPhase.name}"? You can still view it later, but it will be moved to completed phases.`);
+    setConfirmActionDescription(
+      `Are you sure you want to archive "${selectedPhase.name}"? You can still view it later, but it will be moved to completed phases.`
+    );
     setConfirmActionLabel('Archive');
     setConfirmActionTone('success');
     setConfirmActionCallback(() => () => {
@@ -1115,9 +1256,11 @@ export const EnergyMapCalculator = () => {
 
   const handleDeletePhase = useCallback(() => {
     if (!selectedPhase) return;
-    
+
     setConfirmActionTitle('Delete Phase');
-    setConfirmActionDescription(`Are you sure you want to permanently delete "${selectedPhase.name}"? This will remove all daily logs and cannot be undone.`);
+    setConfirmActionDescription(
+      `Are you sure you want to permanently delete "${selectedPhase.name}"? This will remove all daily logs and cannot be undone.`
+    );
     setConfirmActionLabel('Delete');
     setConfirmActionTone('danger');
     setConfirmActionCallback(() => () => {
@@ -1155,7 +1298,7 @@ export const EnergyMapCalculator = () => {
   // Sync selectedPhase with phases array to keep it up-to-date
   useEffect(() => {
     if (selectedPhase) {
-      const updatedPhase = phases.find(p => p.id === selectedPhase.id);
+      const updatedPhase = phases.find((p) => p.id === selectedPhase.id);
       if (updatedPhase) {
         setSelectedPhase(updatedPhase);
       }
@@ -1171,7 +1314,10 @@ export const EnergyMapCalculator = () => {
   }, [cardioModal.isClosing, cardioModal.isOpen]);
 
   useEffect(() => {
-    if (!cardioFavouriteEditorModal.isOpen && !cardioFavouriteEditorModal.isClosing) {
+    if (
+      !cardioFavouriteEditorModal.isOpen &&
+      !cardioFavouriteEditorModal.isClosing
+    ) {
       setFavouriteDraft(defaultCardioSession);
     }
   }, [cardioFavouriteEditorModal.isClosing, cardioFavouriteEditorModal.isOpen]);
@@ -1180,26 +1326,34 @@ export const EnergyMapCalculator = () => {
   const activityPresets = useMemo(
     () => ({
       training: userData.activityPresets?.training ?? 'default',
-      rest: userData.activityPresets?.rest ?? 'default'
+      rest: userData.activityPresets?.rest ?? 'default',
     }),
     [userData.activityPresets]
   );
 
   const activityMultipliers = useMemo(
     () => ({
-      training: userData.activityMultipliers?.training ?? DEFAULT_ACTIVITY_MULTIPLIERS.training,
-      rest: userData.activityMultipliers?.rest ?? DEFAULT_ACTIVITY_MULTIPLIERS.rest
+      training:
+        userData.activityMultipliers?.training ??
+        DEFAULT_ACTIVITY_MULTIPLIERS.training,
+      rest:
+        userData.activityMultipliers?.rest ?? DEFAULT_ACTIVITY_MULTIPLIERS.rest,
     }),
     [userData.activityMultipliers]
   );
 
-  const showFavouritesButton = cardioModalMode !== 'edit' && !cardioFavouriteEditorModal.isOpen;
+  const showFavouritesButton =
+    cardioModalMode !== 'edit' && !cardioFavouriteEditorModal.isOpen;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 md:p-6">
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="relative">
-          <ScreenTabs tabs={screenTabs} currentScreen={currentScreen} onSelect={goToScreen} />
+          <ScreenTabs
+            tabs={screenTabs}
+            currentScreen={currentScreen}
+            onSelect={goToScreen}
+          />
 
           <div
             ref={viewportRef}
@@ -1216,9 +1370,9 @@ export const EnergyMapCalculator = () => {
                         initial={{ x: 300, opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
                         exit={{ x: -300, opacity: 0 }}
-                        transition={{ 
+                        transition={{
                           duration: 0.2,
-                          ease: [0.4, 0, 0.2, 1]
+                          ease: [0.4, 0, 0.2, 1],
                         }}
                       >
                         <PhaseDetailScreen
@@ -1239,12 +1393,12 @@ export const EnergyMapCalculator = () => {
                         initial={{ x: -300, opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
                         exit={{ x: 300, opacity: 0 }}
-                        transition={{ 
+                        transition={{
                           duration: 0.2,
-                          ease: [0.4, 0, 0.2, 1]
+                          ease: [0.4, 0, 0.2, 1],
                         }}
                       >
-                        <LogbookScreen 
+                        <LogbookScreen
                           phases={phases}
                           weightEntries={weightEntries}
                           onCreatePhase={openPhaseCreationModal}
@@ -1396,7 +1550,9 @@ export const EnergyMapCalculator = () => {
         onRequestWeightPicker={openWeightPicker}
         onCancel={weightEntryModal.requestClose}
         onSave={handleWeightEntrySave}
-        onDelete={weightEntryMode === 'edit' ? handleWeightEntryDelete : undefined}
+        onDelete={
+          weightEntryMode === 'edit' ? handleWeightEntryDelete : undefined
+        }
       />
 
       <WeightPickerModal
@@ -1469,8 +1625,12 @@ export const EnergyMapCalculator = () => {
         isOpen={dailyActivityEditorModal.isOpen}
         isClosing={dailyActivityEditorModal.isClosing}
         dayType={activityEditorDay}
-        currentPreset={activityEditorDay ? activityPresets[activityEditorDay] : 'default'}
-        currentMultiplier={activityEditorDay ? activityMultipliers[activityEditorDay] : undefined}
+        currentPreset={
+          activityEditorDay ? activityPresets[activityEditorDay] : 'default'
+        }
+        currentMultiplier={
+          activityEditorDay ? activityMultipliers[activityEditorDay] : undefined
+        }
         onSelectPreset={handleDailyActivityPresetSelect}
         onSelectCustom={handleDailyActivityCustomSelect}
         onClose={closeDailyActivityEditor}
@@ -1505,7 +1665,9 @@ export const EnergyMapCalculator = () => {
         tempTrainingDuration={tempTrainingDuration}
         onTrainingTypeSelect={setTempTrainingType}
         onEditTrainingType={openTrainingTypeEditor}
-        onDurationClick={() => openDurationPicker(tempTrainingDuration, setTempTrainingDuration)}
+        onDurationClick={() =>
+          openDurationPicker(tempTrainingDuration, setTempTrainingDuration)
+        }
         onCancel={quickTrainingModal.requestClose}
         onSave={handleQuickTrainingSave}
       />

@@ -9,13 +9,14 @@ export const ModalShell = ({
   isClosing,
   children,
   overlayClassName = '',
-  contentClassName = ''
+  contentClassName = '',
 }) => {
   useEffect(() => {
     if (!isOpen) return undefined;
 
     const body = document.body;
-    const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
+    const scrollBarWidth =
+      window.innerWidth - document.documentElement.clientWidth;
 
     openModalCount += 1;
 

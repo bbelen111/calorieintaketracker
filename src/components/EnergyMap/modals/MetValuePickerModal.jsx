@@ -1,7 +1,16 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Save } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
-import { alignScrollContainerToValue, createPickerScrollHandler } from '../../../utils/scroll';
+import {
+  alignScrollContainerToValue,
+  createPickerScrollHandler,
+} from '../../../utils/scroll';
 
 const clampValue = (value, min, max) => {
   if (!Number.isFinite(value)) {
@@ -14,7 +23,9 @@ const clampValue = (value, min, max) => {
 const determineDecimalPlaces = (step) => {
   const stepString = step.toString();
   const decimalPointIndex = stepString.indexOf('.');
-  return decimalPointIndex === -1 ? 0 : stepString.length - decimalPointIndex - 1;
+  return decimalPointIndex === -1
+    ? 0
+    : stepString.length - decimalPointIndex - 1;
 };
 
 const formatValue = (value, decimals) => value.toFixed(decimals);
@@ -30,7 +41,7 @@ export const MetValuePickerModal = ({
   unitLabel = 'METs',
   onCancel,
   onChange,
-  onSave
+  onSave,
 }) => {
   const scrollRef = useRef(null);
   const timeoutRef = useRef(null);
@@ -66,7 +77,10 @@ export const MetValuePickerModal = ({
   );
 
   const updateValue = useCallback(
-    (nextValue, { shouldAlign = true, alignBehavior = 'smooth', emitChange = true } = {}) => {
+    (
+      nextValue,
+      { shouldAlign = true, alignBehavior = 'smooth', emitChange = true } = {}
+    ) => {
       const clamped = clampValue(nextValue, min, max);
       setSelectedValue((previous) => {
         if (Math.abs(previous - clamped) < 0.0001) {
@@ -96,7 +110,10 @@ export const MetValuePickerModal = ({
     hasAlignedRef.current = true;
 
     const frame = requestAnimationFrame(() => {
-      updateValue(normalizedValue, { shouldAlign: true, alignBehavior: behavior });
+      updateValue(normalizedValue, {
+        shouldAlign: true,
+        alignBehavior: behavior,
+      });
     });
 
     return () => cancelAnimationFrame(frame);
@@ -123,7 +140,9 @@ export const MetValuePickerModal = ({
       contentClassName="p-6 w-full max-w-sm"
     >
       <h3 className="text-white font-bold text-xl mb-4 text-center">{title}</h3>
-      <p className="text-slate-400 text-xs text-center mb-2 uppercase tracking-wide">{unitLabel}</p>
+      <p className="text-slate-400 text-xs text-center mb-2 uppercase tracking-wide">
+        {unitLabel}
+      </p>
 
       <div className="relative h-48 overflow-hidden">
         <div className="absolute inset-0 pointer-events-none z-10">
@@ -133,11 +152,16 @@ export const MetValuePickerModal = ({
         </div>
         <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400 pointer-events-none z-10" />
 
-        <div ref={scrollRef} className="h-full overflow-y-auto scrollbar-hide" onScroll={handleScroll}>
+        <div
+          ref={scrollRef}
+          className="h-full overflow-y-auto scrollbar-hide"
+          onScroll={handleScroll}
+        >
           <div className="h-16" />
           {values.map((option) => {
             const formattedValue = formatValue(option, decimals);
-            const isSelected = formatValue(selectedValue, decimals) === formattedValue;
+            const isSelected =
+              formatValue(selectedValue, decimals) === formattedValue;
             return (
               <div
                 key={formattedValue}

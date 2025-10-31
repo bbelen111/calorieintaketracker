@@ -3,7 +3,8 @@ import { sortWeightEntries } from './weight';
 const DATA_KEY = 'energyMapData';
 const SELECTED_DAY_KEY = 'energyMapSelectedDay';
 
-const hasLocalStorage = () => typeof window !== 'undefined' && window.localStorage;
+const hasLocalStorage = () =>
+  typeof window !== 'undefined' && window.localStorage;
 
 export const loadEnergyMapData = () => {
   if (!hasLocalStorage()) {
@@ -73,51 +74,51 @@ export const getDefaultEnergyMapData = () => ({
     bodybuilding: {
       label: 'Bodybuilding',
       description: 'Hypertrophy focus, moderate rest periods',
-      caloriesPerHour: 220
+      caloriesPerHour: 220,
     },
     powerlifting: {
       label: 'Powerlifting',
       description: 'Heavy compounds, longer rest periods',
-      caloriesPerHour: 180
+      caloriesPerHour: 180,
     },
     strongman: {
       label: 'Strongman',
       description: 'High intensity events, carries, pushes',
-      caloriesPerHour: 280
+      caloriesPerHour: 280,
     },
     crossfit: {
       label: 'CrossFit',
       description: 'High intensity, metabolic conditioning',
-      caloriesPerHour: 300
+      caloriesPerHour: 300,
     },
     calisthenics: {
       label: 'Calisthenics',
       description: 'Bodyweight movements, skill work',
-      caloriesPerHour: 240
+      caloriesPerHour: 240,
     },
     custom: {
       label: 'My Training',
       description: 'Custom training style',
-      caloriesPerHour: 220
-    }
+      caloriesPerHour: 220,
+    },
   },
   customTrainingName: 'My Training',
   customTrainingCalories: 220,
   customTrainingDescription: 'Custom training style',
   activityPresets: {
     training: 'default',
-    rest: 'default'
+    rest: 'default',
   },
   activityMultipliers: {
     training: 0.35,
-    rest: 0.28
+    rest: 0.28,
   },
   customActivityMultipliers: {
     training: 0.35,
-    rest: 0.28
+    rest: 0.28,
   },
   phases: [],
-  activePhaseId: null
+  activePhaseId: null,
 });
 
 function mergeWithDefaults(data) {
@@ -128,39 +129,43 @@ function mergeWithDefaults(data) {
     ...data,
     trainingTypeOverrides: {
       ...defaults.trainingTypeOverrides,
-      ...(data.trainingTypeOverrides ?? {})
+      ...(data.trainingTypeOverrides ?? {}),
     },
     activityPresets: {
       ...defaults.activityPresets,
-      ...(data.activityPresets ?? {})
+      ...(data.activityPresets ?? {}),
     },
     activityMultipliers: {
       ...defaults.activityMultipliers,
-      ...(data.activityMultipliers ?? {})
+      ...(data.activityMultipliers ?? {}),
     },
     customActivityMultipliers: {
       ...defaults.customActivityMultipliers,
-      ...(data.customActivityMultipliers ?? {})
+      ...(data.customActivityMultipliers ?? {}),
     },
     customCardioTypes: {
       ...defaults.customCardioTypes,
-      ...(data.customCardioTypes ?? {})
+      ...(data.customCardioTypes ?? {}),
     },
-    stepRanges: Array.isArray(data.stepRanges) ? data.stepRanges : defaults.stepRanges,
+    stepRanges: Array.isArray(data.stepRanges)
+      ? data.stepRanges
+      : defaults.stepRanges,
     cardioSessions: Array.isArray(data.cardioSessions)
       ? data.cardioSessions.map((session) => ({
           ...session,
-          effortType: session?.effortType ?? 'intensity'
+          effortType: session?.effortType ?? 'intensity',
         }))
       : defaults.cardioSessions,
     cardioFavourites: Array.isArray(data.cardioFavourites)
       ? data.cardioFavourites.map((session) => ({
           ...session,
-          effortType: session?.effortType ?? 'intensity'
+          effortType: session?.effortType ?? 'intensity',
         }))
       : defaults.cardioFavourites,
-    weightEntries: sortWeightEntries(data.weightEntries ?? defaults.weightEntries),
+    weightEntries: sortWeightEntries(
+      data.weightEntries ?? defaults.weightEntries
+    ),
     phases: Array.isArray(data.phases) ? data.phases : defaults.phases,
-    activePhaseId: data.activePhaseId ?? defaults.activePhaseId
+    activePhaseId: data.activePhaseId ?? defaults.activePhaseId,
   };
 }

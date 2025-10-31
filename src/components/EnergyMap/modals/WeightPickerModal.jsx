@@ -1,12 +1,24 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Save } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
-import { alignScrollContainerToValue, createPickerScrollHandler } from '../../../utils/scroll';
+import {
+  alignScrollContainerToValue,
+  createPickerScrollHandler,
+} from '../../../utils/scroll';
 import { MAX_WEIGHT_KG, MIN_WEIGHT_KG } from '../../../utils/weight';
 
 const MIN_WEIGHT = MIN_WEIGHT_KG;
 const MAX_WEIGHT = MAX_WEIGHT_KG;
-const WEIGHT_VALUES = Array.from({ length: MAX_WEIGHT - MIN_WEIGHT + 1 }, (_, index) => MIN_WEIGHT + index);
+const WEIGHT_VALUES = Array.from(
+  { length: MAX_WEIGHT - MIN_WEIGHT + 1 },
+  (_, index) => MIN_WEIGHT + index
+);
 const DECIMAL_VALUES = Array.from({ length: 10 }, (_, index) => index);
 
 const clampWhole = (value) => {
@@ -46,7 +58,7 @@ const convertWeightToParts = (weight) => {
 
   return {
     whole,
-    decimal
+    decimal,
   };
 };
 
@@ -56,7 +68,14 @@ const buildWeightValue = (whole, decimal) => {
   return Math.round((clampedWhole + safeDecimal / 10) * 10) / 10;
 };
 
-export const WeightPickerModal = ({ isOpen, isClosing, value, onChange, onCancel, onSave }) => {
+export const WeightPickerModal = ({
+  isOpen,
+  isClosing,
+  value,
+  onChange,
+  onCancel,
+  onSave,
+}) => {
   const wholeRef = useRef(null);
   const decimalRef = useRef(null);
   const wholeTimeoutRef = useRef(null);
@@ -80,22 +99,31 @@ export const WeightPickerModal = ({ isOpen, isClosing, value, onChange, onCancel
   const applySelection = useCallback(
     (whole, decimal, behavior = 'instant', shouldNotify = false) => {
       const clampedWhole = clampWhole(whole);
-      const clampedDecimal = clampedWhole === MAX_WEIGHT ? 0 : clampDecimal(decimal);
+      const clampedDecimal =
+        clampedWhole === MAX_WEIGHT ? 0 : clampDecimal(decimal);
 
       selectionRef.current = {
         whole: clampedWhole,
-        decimal: clampedDecimal
+        decimal: clampedDecimal,
       };
 
       setSelectedWhole(clampedWhole);
       setSelectedDecimal(clampedDecimal);
 
       if (wholeRef.current) {
-        alignScrollContainerToValue(wholeRef.current, clampedWhole.toString(), behavior);
+        alignScrollContainerToValue(
+          wholeRef.current,
+          clampedWhole.toString(),
+          behavior
+        );
       }
 
       if (decimalRef.current) {
-        alignScrollContainerToValue(decimalRef.current, clampedDecimal.toString(), behavior);
+        alignScrollContainerToValue(
+          decimalRef.current,
+          clampedDecimal.toString(),
+          behavior
+        );
       }
 
       if (shouldNotify) {
@@ -134,11 +162,12 @@ export const WeightPickerModal = ({ isOpen, isClosing, value, onChange, onCancel
   const handleWholeChange = useCallback(
     (nextWhole) => {
       const clampedWhole = clampWhole(nextWhole);
-      const nextDecimal = clampedWhole === MAX_WEIGHT ? 0 : selectionRef.current.decimal;
+      const nextDecimal =
+        clampedWhole === MAX_WEIGHT ? 0 : selectionRef.current.decimal;
 
       selectionRef.current = {
         whole: clampedWhole,
-        decimal: nextDecimal
+        decimal: nextDecimal,
       };
 
       setSelectedWhole(clampedWhole);
@@ -155,11 +184,14 @@ export const WeightPickerModal = ({ isOpen, isClosing, value, onChange, onCancel
 
   const handleDecimalChange = useCallback(
     (nextDecimal) => {
-      const clampedDecimal = selectionRef.current.whole === MAX_WEIGHT ? 0 : clampDecimal(nextDecimal);
+      const clampedDecimal =
+        selectionRef.current.whole === MAX_WEIGHT
+          ? 0
+          : clampDecimal(nextDecimal);
 
       selectionRef.current = {
         whole: selectionRef.current.whole,
-        decimal: clampedDecimal
+        decimal: clampedDecimal,
       };
 
       setSelectedDecimal(clampedDecimal);
@@ -169,26 +201,45 @@ export const WeightPickerModal = ({ isOpen, isClosing, value, onChange, onCancel
   );
 
   const handleWholeScroll = useMemo(
-    () => createPickerScrollHandler(wholeRef, wholeTimeoutRef, (value) => parseInt(value, 10), handleWholeChange),
+    () =>
+      createPickerScrollHandler(
+        wholeRef,
+        wholeTimeoutRef,
+        (value) => parseInt(value, 10),
+        handleWholeChange
+      ),
     [handleWholeChange]
   );
 
   const handleDecimalScroll = useMemo(
-    () => createPickerScrollHandler(decimalRef, decimalTimeoutRef, (value) => parseInt(value, 10), handleDecimalChange),
+    () =>
+      createPickerScrollHandler(
+        decimalRef,
+        decimalTimeoutRef,
+        (value) => parseInt(value, 10),
+        handleDecimalChange
+      ),
     [handleDecimalChange]
   );
 
-  const selectedWeight = useMemo(() => buildWeightValue(selectedWhole, selectedDecimal), [selectedDecimal, selectedWhole]);
+  const selectedWeight = useMemo(
+    () => buildWeightValue(selectedWhole, selectedDecimal),
+    [selectedDecimal, selectedWhole]
+  );
 
   return (
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
-  overlayClassName="!z-[100]"
+      overlayClassName="!z-[100]"
       contentClassName="p-6 w-full max-w-md"
     >
-      <h3 className="text-white font-bold text-xl mb-4 text-center">Select Weight</h3>
-      <p className="text-slate-400 text-xs text-center mb-2 uppercase tracking-wide">Kilograms</p>
+      <h3 className="text-white font-bold text-xl mb-4 text-center">
+        Select Weight
+      </h3>
+      <p className="text-slate-400 text-xs text-center mb-2 uppercase tracking-wide">
+        Kilograms
+      </p>
 
       <div className="flex gap-4">
         <div className="flex-1">
@@ -200,15 +251,28 @@ export const WeightPickerModal = ({ isOpen, isClosing, value, onChange, onCancel
             </div>
             <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400 pointer-events-none z-10" />
 
-            <div ref={wholeRef} className="h-full overflow-y-auto scrollbar-hide" onScroll={handleWholeScroll}>
+            <div
+              ref={wholeRef}
+              className="h-full overflow-y-auto scrollbar-hide"
+              onScroll={handleWholeScroll}
+            >
               <div className="h-16" />
               {WEIGHT_VALUES.map((weight) => (
                 <div
                   key={weight}
                   data-value={weight}
-                  onClick={() => applySelection(weight, selectionRef.current.decimal, 'smooth', true)}
+                  onClick={() =>
+                    applySelection(
+                      weight,
+                      selectionRef.current.decimal,
+                      'smooth',
+                      true
+                    )
+                  }
                   className={`h-16 flex items-center justify-center text-2xl font-bold snap-center transition-all text-center cursor-pointer ${
-                    selectedWhole === weight ? 'text-white scale-110' : 'text-slate-500'
+                    selectedWhole === weight
+                      ? 'text-white scale-110'
+                      : 'text-slate-500'
                   }`}
                 >
                   {weight}
@@ -228,20 +292,32 @@ export const WeightPickerModal = ({ isOpen, isClosing, value, onChange, onCancel
             </div>
             <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400 pointer-events-none z-10" />
 
-            <div ref={decimalRef} className="h-full overflow-y-auto scrollbar-hide" onScroll={handleDecimalScroll}>
+            <div
+              ref={decimalRef}
+              className="h-full overflow-y-auto scrollbar-hide"
+              onScroll={handleDecimalScroll}
+            >
               <div className="h-16" />
               {DECIMAL_VALUES.map((decimal) => {
-                const isDisabled = selectedWhole === MAX_WEIGHT && decimal !== 0;
+                const isDisabled =
+                  selectedWhole === MAX_WEIGHT && decimal !== 0;
                 return (
                   <div
                     key={decimal}
                     data-value={decimal}
                     onClick={() => {
                       if (isDisabled) return;
-                      applySelection(selectionRef.current.whole, decimal, 'smooth', true);
+                      applySelection(
+                        selectionRef.current.whole,
+                        decimal,
+                        'smooth',
+                        true
+                      );
                     }}
                     className={`h-16 flex items-center justify-center text-2xl font-bold snap-center transition-all text-center cursor-pointer ${
-                      selectedDecimal === decimal ? 'text-white scale-110' : 'text-slate-500'
+                      selectedDecimal === decimal
+                        ? 'text-white scale-110'
+                        : 'text-slate-500'
                     } ${isDisabled ? 'opacity-40 pointer-events-none' : ''}`}
                   >
                     .{decimal}

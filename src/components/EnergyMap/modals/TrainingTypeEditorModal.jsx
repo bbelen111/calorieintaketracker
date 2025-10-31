@@ -7,7 +7,13 @@ import { CaloriesPerHourGuideModal } from './CaloriesPerHourGuideModal';
 
 const getDefaultValuesForType = (typeKey) => {
   if (!typeKey) return { label: '', caloriesPerHour: 0, description: '' };
-  return baseTrainingTypes[typeKey] ?? { label: typeKey, caloriesPerHour: 0, description: '' };
+  return (
+    baseTrainingTypes[typeKey] ?? {
+      label: typeKey,
+      caloriesPerHour: 0,
+      description: '',
+    }
+  );
 };
 
 export const TrainingTypeEditorModal = ({
@@ -21,12 +27,14 @@ export const TrainingTypeEditorModal = ({
   onCaloriesChange,
   onDescriptionChange,
   onCancel,
-  onSave
+  onSave,
 }) => {
   const defaults = getDefaultValuesForType(typeKey);
   const safeName = name ?? '';
   const safeDescription = description ?? '';
-  const safeCalories = Number.isFinite(Number(calories)) ? calories : defaults.caloriesPerHour;
+  const safeCalories = Number.isFinite(Number(calories))
+    ? calories
+    : defaults.caloriesPerHour;
   const infoModal = useAnimatedModal(false, 220);
 
   return (
@@ -42,7 +50,9 @@ export const TrainingTypeEditorModal = ({
 
       <div className="space-y-4">
         <div>
-          <label className="text-slate-300 text-sm block mb-2">Training Name</label>
+          <label className="text-slate-300 text-sm block mb-2">
+            Training Name
+          </label>
           <input
             type="text"
             value={safeName}
@@ -53,7 +63,9 @@ export const TrainingTypeEditorModal = ({
         </div>
 
         <div>
-          <label className="text-slate-300 text-sm block mb-2">Description</label>
+          <label className="text-slate-300 text-sm block mb-2">
+            Description
+          </label>
           <input
             type="text"
             value={safeDescription}
@@ -64,11 +76,15 @@ export const TrainingTypeEditorModal = ({
         </div>
 
         <div>
-          <label className="text-slate-300 text-sm block mb-2">Calories Per Hour</label>
+          <label className="text-slate-300 text-sm block mb-2">
+            Calories Per Hour
+          </label>
           <input
             type="number"
             value={safeCalories}
-            onChange={(event) => onCaloriesChange(parseFloat(event.target.value))}
+            onChange={(event) =>
+              onCaloriesChange(parseFloat(event.target.value))
+            }
             placeholder={defaults.caloriesPerHour}
             className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-base"
           />

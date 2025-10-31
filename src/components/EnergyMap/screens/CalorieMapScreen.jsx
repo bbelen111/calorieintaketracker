@@ -9,7 +9,7 @@ export const CalorieMapScreen = ({
   onManageStepRanges,
   onOpenBreakdown,
   getRangeDetails,
-  isSelectedRange
+  isSelectedRange,
 }) => (
   <div className="space-y-6 pb-10">
     <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
@@ -39,7 +39,8 @@ export const CalorieMapScreen = ({
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {stepRanges.map((steps) => {
-          const { breakdown, targetCalories, difference } = getRangeDetails(steps);
+          const { breakdown, targetCalories, difference } =
+            getRangeDetails(steps);
           const isActive = isSelectedRange(steps);
 
           return (
@@ -48,7 +49,9 @@ export const CalorieMapScreen = ({
               type="button"
               onClick={() => onOpenBreakdown(steps)}
               className={`group relative w-full text-left bg-slate-700 rounded-xl p-4 transition-all ${
-                isActive ? 'ring-2 ring-blue-400 bg-slate-700/90' : 'hover:bg-slate-600'
+                isActive
+                  ? 'ring-2 ring-blue-400 bg-slate-700/90'
+                  : 'hover:bg-slate-600'
               }`}
               aria-expanded={isActive}
               aria-label={`View calorie breakdown for ${steps} steps`}
@@ -63,13 +66,21 @@ export const CalorieMapScreen = ({
                   className={`mt-1 ${isActive ? 'text-blue-300' : 'text-slate-400 group-hover:text-blue-300'}`}
                 />
               </div>
-              <div className={`${goals[selectedGoal].color} rounded-lg p-3 mb-2 text-center`}>
-                <p className="text-white text-2xl font-bold">{targetCalories.toLocaleString()}</p>
+              <div
+                className={`${goals[selectedGoal].color} rounded-lg p-3 mb-2 text-center`}
+              >
+                <p className="text-white text-2xl font-bold">
+                  {targetCalories.toLocaleString()}
+                </p>
                 <p className="text-white text-xs opacity-90">calories</p>
               </div>
-              <p className="text-slate-400 text-xs">TDEE: {breakdown.total.toLocaleString()}</p>
+              <p className="text-slate-400 text-xs">
+                TDEE: {breakdown.total.toLocaleString()}
+              </p>
               {difference !== 0 && (
-                <p className={`text-xs font-semibold mt-1 ${difference > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                <p
+                  className={`text-xs font-semibold mt-1 ${difference > 0 ? 'text-green-400' : 'text-red-400'}`}
+                >
                   {difference > 0 ? '+' : ''}
                   {difference.toLocaleString()} cal
                 </p>

@@ -4,8 +4,10 @@ import { ModalShell } from '../common/ModalShell';
 import { goals } from '../../../constants/goals';
 const getGoalClasses = (key, selected) => {
   const goal = goals[key];
-  if (!goal) return 'border-slate-600 bg-slate-700 text-slate-300 hover:border-slate-500';
-  if (!selected) return 'border-slate-600 bg-slate-700 text-slate-300 hover:border-slate-500';
+  if (!goal)
+    return 'border-slate-600 bg-slate-700 text-slate-300 hover:border-slate-500';
+  if (!selected)
+    return 'border-slate-600 bg-slate-700 text-slate-300 hover:border-slate-500';
   // Use color for bg, white border, and text
   return `${goal.color} border-2 border-white text-white`;
 };
@@ -27,10 +29,14 @@ export const PhaseCreationModal = ({
   onTemplatesClick,
   onCancel,
   onSave,
-  error
+  error,
 }) => {
   return (
-    <ModalShell isOpen={isOpen} isClosing={isClosing} contentClassName="w-full md:max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+    <ModalShell
+      isOpen={isOpen}
+      isClosing={isClosing}
+      contentClassName="w-full md:max-w-2xl p-6 max-h-[90vh] overflow-y-auto"
+    >
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-white font-bold text-xl">Create New Phase</h3>
         <button
@@ -42,7 +48,7 @@ export const PhaseCreationModal = ({
           Templates
         </button>
       </div>
-      
+
       <div className="space-y-4">
         {/* Phase Name */}
         <div>
@@ -72,10 +78,13 @@ export const PhaseCreationModal = ({
               className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          
+
           <div>
             <label className="block text-slate-300 text-sm font-semibold mb-2">
-              End Date <span className="text-slate-400 text-xs font-normal">(optional)</span>
+              End Date{' '}
+              <span className="text-slate-400 text-xs font-normal">
+                (optional)
+              </span>
             </label>
             <input
               type="date"
@@ -117,7 +126,10 @@ export const PhaseCreationModal = ({
         {/* Target Weight */}
         <div>
           <label className="block text-slate-300 text-sm font-semibold mb-2">
-            Target Weight (kg) <span className="text-slate-400 text-xs font-normal">(optional)</span>
+            Target Weight (kg){' '}
+            <span className="text-slate-400 text-xs font-normal">
+              (optional)
+            </span>
           </label>
           <input
             type="number"

@@ -17,7 +17,7 @@ export const WeightEntryModal = ({
   onRequestWeightPicker,
   onCancel,
   onSave,
-  onDelete
+  onDelete,
 }) => {
   const isEdit = mode === 'edit';
   const formattedWeight = (() => {
@@ -30,7 +30,7 @@ export const WeightEntryModal = ({
     isClosing: isConfirmClosing,
     open: openConfirm,
     requestClose: requestConfirmClose,
-    forceClose: forceConfirmClose
+    forceClose: forceConfirmClose,
   } = useAnimatedModal(false);
 
   useEffect(() => {
@@ -50,7 +50,7 @@ export const WeightEntryModal = ({
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
-  overlayClassName="!z-[90]"
+      overlayClassName="!z-[90]"
       contentClassName="p-6 w-full max-w-lg"
     >
       <h3 className="text-white font-bold text-xl text-center mb-6">
@@ -59,7 +59,9 @@ export const WeightEntryModal = ({
 
       <div className="space-y-5">
         <div>
-          <label className="text-slate-300 text-sm block mb-2">Entry Date</label>
+          <label className="text-slate-300 text-sm block mb-2">
+            Entry Date
+          </label>
           <div className="relative">
             <input
               type="date"
@@ -67,15 +69,21 @@ export const WeightEntryModal = ({
               onChange={handleDateChange}
               disabled={isEdit || isDateLocked}
               className={`w-full bg-slate-700 text-white px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-800 ${
-                isEdit || isDateLocked ? 'border-slate-600 opacity-80 cursor-not-allowed' : 'border-slate-600 focus:border-blue-400'
+                isEdit || isDateLocked
+                  ? 'border-slate-600 opacity-80 cursor-not-allowed'
+                  : 'border-slate-600 focus:border-blue-400'
               }`}
             />
           </div>
           {isEdit && (
-            <p className="text-slate-500 text-xs mt-1">Date cannot be changed when editing an entry.</p>
+            <p className="text-slate-500 text-xs mt-1">
+              Date cannot be changed when editing an entry.
+            </p>
           )}
           {!isEdit && isDateLocked && (
-            <p className="text-slate-500 text-xs mt-1">Date locked because today\'s entry already exists.</p>
+            <p className="text-slate-500 text-xs mt-1">
+              Date locked because today\'s entry already exists.
+            </p>
           )}
         </div>
 
@@ -87,7 +95,9 @@ export const WeightEntryModal = ({
             className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1 text-left hover:bg-blue-500/90 font-semibold text-base"
           >
             <span className="font-semibold text-base">{formattedWeight}</span>
-            <span className="text-[11px] opacity-80 ml-auto whitespace-nowrap">Tap to adjust</span>
+            <span className="text-[11px] opacity-80 ml-auto whitespace-nowrap">
+              Tap to adjust
+            </span>
           </button>
         </div>
       </div>
