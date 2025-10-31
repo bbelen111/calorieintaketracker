@@ -197,7 +197,7 @@ export const CardioFavouritesModal = ({
                   onClick={() => onSelectFavourite?.(favourite)}
                   className={`w-full text-left p-4 rounded-xl border-2 transition-all active:scale-[0.98] flex flex-col gap-2 ${
                     active
-                      ? 'bg-red-600/80 border-red-400 text-white shadow-lg'
+                      ? 'bg-blue-600/80 border-blue-400 text-white shadow-lg'
                       : 'bg-slate-700 border-slate-600 text-slate-200 hover:border-blue-400'
                   }`}
                   role="listitem"
