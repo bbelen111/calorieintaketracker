@@ -45,14 +45,6 @@ const getTrendToneClass = (direction, label) => {
   return 'text-blue-400'; // Stable/maintenance
 };
 
-const formatDelta = (value) => {
-  if (!Number.isFinite(value) || value === 0) {
-    return '0.0 kg';
-  }
-  const sign = value > 0 ? '+' : '';
-  return `${sign}${value.toFixed(1)} kg`;
-};
-
 const formatWeeklyRate = (value) => {
   if (!Number.isFinite(value) || value === 0) {
     return '0.0 kg/wk';
