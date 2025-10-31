@@ -43,7 +43,7 @@ import { DailyActivityCustomModal } from './modals/DailyActivityCustomModal';
 import { PhaseCreationModal } from './modals/PhaseCreationModal';
 import { TemplatePickerModal } from './modals/TemplatePickerModal';
 import { DailyLogModal } from './modals/DailyLogModal';
-import { PhaseInsightsModal } from './modals/PhaseInsightsModal';
+// ...existing code...
 import { ConfirmActionModal } from './modals/ConfirmActionModal';
 import {
   clampWeight,
@@ -260,7 +260,7 @@ export const EnergyMapCalculator = () => {
   const phaseCreationModal = useAnimatedModal();
   const templatePickerModal = useAnimatedModal();
   const dailyLogModal = useAnimatedModal();
-  const phaseInsightsModal = useAnimatedModal();
+  // ...existing code...
   const confirmActionModal = useAnimatedModal();
 
   useEffect(() => {
@@ -580,10 +580,10 @@ export const EnergyMapCalculator = () => {
     (typeKey) => {
       const current = trainingTypes[typeKey] ??
         presetTrainingTypes[typeKey] ?? {
-          label: typeKey,
-          description: '',
-          caloriesPerHour: 0,
-        };
+        label: typeKey,
+        description: '',
+        caloriesPerHour: 0,
+      };
 
       const initialCalories = Number(current.caloriesPerHour ?? 0);
 
@@ -1218,10 +1218,7 @@ export const EnergyMapCalculator = () => {
   }, [dailyLogDate, dailyLogModal, deleteDailyLog, selectedPhase]);
 
   // Phase insights handlers
-  const handleViewPhaseInsights = useCallback(() => {
-    if (!selectedPhase) return;
-    phaseInsightsModal.open();
-  }, [selectedPhase, phaseInsightsModal]);
+  // Phase insights modal removed
 
   const handleExportPhase = useCallback(
     (format = 'csv') => {
@@ -1381,7 +1378,7 @@ export const EnergyMapCalculator = () => {
                           onBack={handleBackToLogbook}
                           onAddLog={openDailyLogModal}
                           onEditLog={openEditDailyLogModal}
-                          onViewInsights={handleViewPhaseInsights}
+                          // onViewInsights removed
                           onExport={() => handleExportPhase('csv')}
                           onArchive={handleArchivePhase}
                           onDelete={handleDeletePhase}
@@ -1787,14 +1784,7 @@ export const EnergyMapCalculator = () => {
         isDateLocked={dailyLogDateLocked}
       />
 
-      <PhaseInsightsModal
-        isOpen={phaseInsightsModal.isOpen}
-        isClosing={phaseInsightsModal.isClosing}
-        phase={selectedPhase}
-        weightEntries={weightEntries}
-        onClose={phaseInsightsModal.requestClose}
-        onExport={() => handleExportPhase('csv')}
-      />
+      {/* PhaseInsightsModal removed */}
 
       <ConfirmActionModal
         isOpen={confirmActionModal.isOpen}
