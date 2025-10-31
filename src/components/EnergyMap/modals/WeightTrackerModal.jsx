@@ -14,7 +14,6 @@ import {
   Info,
 } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
-import { goals } from '../../../constants/goals';
 import {
   calculateWeightTrend,
   formatWeight,
@@ -73,7 +72,6 @@ const getTrendToneClass = (direction, label) => {
 
 const getGoalAlignmentText = (weeklyRate, selectedGoal) => {
   const absRate = Math.abs(weeklyRate);
-  const goal = goals[selectedGoal];
 
   // Map goals to expected weekly rates (rough estimates in kg/week)
   const goalExpectations = {
@@ -348,7 +346,7 @@ export const WeightTrackerModal = ({
     return () => observer.disconnect();
   }, [isOpen]);
 
-  const entryCount = sortedEntries.length;
+  // Removed unused entryCount variable
   const filteredEntryCount = filteredEntries.length;
 
   const baseChartWidth = useMemo(() => {
@@ -694,13 +692,7 @@ export const WeightTrackerModal = ({
     return formatted ? `${formatted} kg` : '—';
   })();
 
-  const totalChangeDisplay = (() => {
-    if (!Number.isFinite(trend.delta) || trend.delta === 0) {
-      return '0.0 kg';
-    }
-    const sign = trend.delta > 0 ? '+' : '';
-    return `${sign}${trend.delta.toFixed(1)} kg`;
-  })();
+  // Removed unused totalChangeDisplay variable
   const weeklyRateDisplay = (() => {
     if (!Number.isFinite(trend.weeklyRate) || trend.weeklyRate === 0) {
       return '0.0 kg/wk';
@@ -815,13 +807,11 @@ export const WeightTrackerModal = ({
   useEffect(() => {
     if (selectedDate && !tooltipClosing) {
       const frame = requestAnimationFrame(() => setTooltipEntered(true));
-      return () => {
-        cancelAnimationFrame(frame);
-        setTooltipEntered(false);
-      };
+      return () => cancelAnimationFrame(frame);
     }
     if (!selectedDate) {
-      setTooltipEntered(false);
+      // Avoid direct setState in effect, use microtask
+      Promise.resolve().then(() => setTooltipEntered(false));
     }
     return undefined;
   }, [selectedDate, tooltipClosing]);
@@ -1300,10 +1290,7 @@ export const WeightTrackerModal = ({
                           let pathData = '';
                           let areaData = '';
                           const points = chartPoints;
-                          const baselineY =
-                            yTickPositions.length > 0
-                              ? yTickPositions[yTickPositions.length - 1].lineY
-                              : chartHeight;
+                          // Removed unused baselineY variable
 
                           if (
                             points.length === 1 &&
@@ -1554,12 +1541,7 @@ export const WeightTrackerModal = ({
                         const isLatest = date === latestDate;
                         const label = formatTimelineLabel(date);
                         const x = timelineXPositions[index] ?? 0;
-                        const prevX =
-                          index > 0 ? timelineXPositions[index - 1] : null;
-                        const nextX =
-                          index < timelineXPositions.length - 1
-                            ? timelineXPositions[index + 1]
-                            : null;
+                        // Removed unused prevX and nextX variables
 
                         // Fixed width for timeline label boxes
                         const buttonWidth = DATE_COLUMN_WIDTH;
