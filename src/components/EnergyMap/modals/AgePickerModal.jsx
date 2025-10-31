@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { Save } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import {
@@ -37,16 +37,26 @@ export const AgePickerModal = ({
     return () => cancelAnimationFrame(frame);
   }, [isOpen, value]);
 
-  const handleScroll = useMemo(
-    () =>
-      createPickerScrollHandler(
-        scrollRef,
-        timeoutRef,
-        (v) => parseInt(v, 10),
-        onChange
-      ),
-    [onChange]
-  );
+  const handlerRef = useRef(null);
+
+  useEffect(() => {
+    // Create the scroll handler after render to avoid accessing ref.current during render
+    handlerRef.current = createPickerScrollHandler(
+      scrollRef,
+      timeoutRef,
+      (v) => parseInt(v, 10),
+      onChange
+    );
+    return () => {
+      handlerRef.current = null;
+    };
+  }, [onChange]);
+
+  const handleScroll = useCallback((...args) => {
+    if (handlerRef.current) {
+      handlerRef.current(...args);
+    }
+  }, []);
 
   return (
     <ModalShell
@@ -86,9 +96,7 @@ export const AgePickerModal = ({
                   alignScrollContainerToValue(scrollRef.current, age, 'smooth');
                 }
               }}
-              className={`py-3 px-6 text-2xl font-semibold transition-all snap-center cursor-pointer text-center ${
-                value === age ? 'text-white scale-110' : 'text-slate-500'
-              }`}
+              className={`py-3 px-6 text-2xl font-semibold transition-all snap-center cursor-pointer text-center ${value === age ? 'text-white scale-110' : 'text-slate-500'}`}
             >
               {age}
             </div>
