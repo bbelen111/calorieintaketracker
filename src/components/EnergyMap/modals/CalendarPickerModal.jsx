@@ -14,6 +14,7 @@ const CalendarHeatmap = ({
   selectedDate,
   onKeyboardSelect,
   slideDirection,
+  nutritionData,
 }) => {
   const [focusedDate, setFocusedDate] = useState(
     selectedDate || calendarData[0]?.date || null
@@ -88,19 +89,9 @@ const CalendarHeatmap = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [focusedDate, calendarData, onKeyboardSelect]);
 
-  const getStatusColor = (date, hasEntries) => {
+  const getStatusColor = (date) => {
     const isSelected = date === selectedDate;
     const isFocused = date === focusedDate;
-
-    if (hasEntries) {
-      if (isSelected) {
-        return 'bg-emerald-500 border-emerald-400 ring-2 ring-emerald-300 shadow-lg';
-      }
-      if (isFocused) {
-        return 'bg-emerald-600 border-emerald-400 ring-2 ring-emerald-500 hover:bg-emerald-500';
-      }
-      return 'bg-emerald-600 border-emerald-500 hover:bg-emerald-500';
-    }
 
     if (isSelected) {
       return 'bg-blue-500 border-blue-400 ring-2 ring-blue-300 shadow-lg';
@@ -111,17 +102,21 @@ const CalendarHeatmap = ({
     return 'bg-slate-700 border-slate-600 hover:bg-slate-600';
   };
 
-  const getStatusSymbol = (date, hasEntries) => {
-    const isSelected = date === selectedDate;
-    // By appending 'Z', we ensure the date is parsed as UTC
-    const dayNum = new Date(date + 'T00:00:00Z').getUTCDate();
-    if (isSelected) {
-      return dayNum;
-    }
-    if (hasEntries) {
-      return '✓';
-    }
-    return dayNum;
+  const getCaloriesForDate = (date) => {
+    const entries = nutritionData[date] || [];
+    if (!Array.isArray(entries) || entries.length === 0) return 0;
+
+    return entries.reduce((total, entry) => total + (entry.calories || 0), 0);
+  };
+
+  const getDayNumber = (date) => {
+    return new Date(date + 'T00:00:00Z').getUTCDate();
+  };
+
+  const formatCaloriesDisplay = (calories) => {
+    if (calories === 0) return null;
+    // Show exact number with commas for readability
+    return calories.toLocaleString();
   };
 
   const handleDateClick = (date) => {
@@ -144,7 +139,9 @@ const CalendarHeatmap = ({
         {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
           <div
             key={i}
-            className="text-slate-400 text-xs text-center font-semibold"
+            className={`text-xs text-center font-semibold ${
+              i === 0 ? 'text-red-400' : 'text-slate-400'
+            }`}
           >
             {day}
           </div>
@@ -169,34 +166,50 @@ const CalendarHeatmap = ({
                   <div key={`pad-${i}`} />
                 ))}
 
-              {week.map((day) => (
-                <motion.button
-                  key={day.date}
-                  type="button"
-                  onClick={() => handleDateClick(day.date)}
-                  onMouseEnter={() => setFocusedDate(day.date)}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.98 }}
-                  transition={{ duration: 0.15 }}
-                  className={`aspect-square rounded-lg border-2 flex items-center justify-center text-xs font-bold transition-colors ${getStatusColor(day.date, day.hasEntries)}`}
-                  aria-label={`Select ${new Date(day.date + 'T00:00:00').toLocaleDateString()}`}
-                  aria-pressed={day.date === selectedDate}
-                >
-                  <span className="text-white">
-                    {getStatusSymbol(day.date, day.hasEntries)}
-                  </span>
-                </motion.button>
-              ))}
+              {week.map((day) => {
+                const calories = getCaloriesForDate(day.date);
+                const caloriesText = formatCaloriesDisplay(calories);
+                const dayNum = getDayNumber(day.date);
+
+                return (
+                  <motion.button
+                    key={day.date}
+                    type="button"
+                    onClick={() => handleDateClick(day.date)}
+                    onMouseEnter={() => setFocusedDate(day.date)}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ duration: 0.15 }}
+                    className={`aspect-square rounded-lg border-2 flex flex-col items-center justify-center gap-0.5 text-xs font-bold transition-colors relative ${getStatusColor(day.date)}`}
+                    aria-label={`Select ${new Date(day.date + 'T00:00:00').toLocaleDateString()}${caloriesText ? `, ${caloriesText} calories` : ''}`}
+                    aria-pressed={day.date === selectedDate}
+                  >
+                    {day.hasEntries && (
+                      <div className="absolute top-1 right-1 w-2 h-2 bg-emerald-500 rounded-full border border-emerald-400 shadow-sm" />
+                    )}
+                    <span className="text-white text-sm">{dayNum}</span>
+                    {caloriesText && (
+                      <span className="text-white text-[8px] leading-none opacity-80">
+                        {caloriesText}
+                      </span>
+                    )}
+                  </motion.button>
+                );
+              })}
             </div>
           ))}
         </motion.div>
       </AnimatePresence>
 
-      {/* Legend */}
+      {/* Legend
       <div className="flex items-center justify-center gap-4 pt-4 text-xs text-slate-400 border-t border-slate-700 mt-4">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-emerald-600 border-2 border-emerald-500 flex items-center justify-center shadow-sm">
-            <span className="text-white font-bold text-xs">✓</span>
+          <div className="w-6 h-6 rounded-lg bg-slate-700 border-2 border-slate-600 flex flex-col items-center justify-center gap-0.5 shadow-sm relative">
+            <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-emerald-500 rounded-full border border-emerald-400" />
+            <span className="text-white font-bold text-[10px]">15</span>
+            <span className="text-white text-[6px] leading-none opacity-80">
+              2k
+            </span>
           </div>
           <span>Has entries</span>
         </div>
@@ -212,7 +225,7 @@ const CalendarHeatmap = ({
           </div>
           <span>Selected</span>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 };
@@ -538,6 +551,7 @@ export const CalendarPickerModal = ({
             onKeyboardSelect={handleKeyboardSelect}
             selectedDate={selectedDate}
             slideDirection={slideDirection}
+            nutritionData={nutritionData}
           />
         </div>
 
