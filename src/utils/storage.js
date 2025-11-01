@@ -70,6 +70,7 @@ export const getDefaultEnergyMapData = () => ({
   cardioSessions: [],
   cardioFavourites: [],
   customCardioTypes: {},
+  nutritionData: {},
   trainingTypeOverrides: {
     bodybuilding: {
       label: 'Bodybuilding',
@@ -127,6 +128,7 @@ function mergeWithDefaults(data) {
   return {
     ...defaults,
     ...data,
+    nutritionData: data.nutritionData ?? defaults.nutritionData,
     trainingTypeOverrides: {
       ...defaults.trainingTypeOverrides,
       ...(data.trainingTypeOverrides ?? {}),

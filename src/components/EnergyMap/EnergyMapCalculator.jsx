@@ -152,6 +152,10 @@ export const EnergyMapCalculator = () => {
     calculateCardioSessionCalories,
     saveWeightEntry,
     deleteWeightEntry,
+    nutritionData,
+    addFoodEntry,
+    updateFoodEntry,
+    deleteFoodEntry,
     createPhase,
     deletePhase,
     archivePhase,
@@ -1408,7 +1412,20 @@ export const EnergyMapCalculator = () => {
               </div>
 
               <div className="w-full flex-shrink-0 px-2 sm:px-4 md:px-6">
-                <TrackerScreen />
+                <TrackerScreen
+                  nutritionData={nutritionData}
+                  onAddFoodEntry={addFoodEntry}
+                  onUpdateFoodEntry={updateFoodEntry}
+                  onDeleteFoodEntry={deleteFoodEntry}
+                  targetCalories={
+                    selectedRangeData?.targetCalories ??
+                    calculateTargetForGoal(
+                      '12k',
+                      selectedDay === 'training',
+                      selectedGoal
+                    ).targetCalories
+                  }
+                />
               </div>
 
               <div className="w-full flex-shrink-0 px-2 sm:px-4 md:px-6">

@@ -501,6 +501,68 @@ export const useEnergyMapData = () => {
     }));
   }, []);
 
+  const addFoodEntry = useCallback((date, entry) => {
+    if (!date || !entry) {
+      return;
+    }
+
+    setUserData((prev) => {
+      const dateEntries = Array.isArray(prev.nutritionData[date])
+        ? prev.nutritionData[date]
+        : [];
+
+      return {
+        ...prev,
+        nutritionData: {
+          ...prev.nutritionData,
+          [date]: [...dateEntries, entry],
+        },
+      };
+    });
+  }, []);
+
+  const updateFoodEntry = useCallback((date, updatedEntry) => {
+    if (!date || !updatedEntry) {
+      return;
+    }
+
+    setUserData((prev) => {
+      const dateEntries = Array.isArray(prev.nutritionData[date])
+        ? prev.nutritionData[date]
+        : [];
+
+      return {
+        ...prev,
+        nutritionData: {
+          ...prev.nutritionData,
+          [date]: dateEntries.map((entry) =>
+            entry.id === updatedEntry.id ? updatedEntry : entry
+          ),
+        },
+      };
+    });
+  }, []);
+
+  const deleteFoodEntry = useCallback((date, entryId) => {
+    if (!date || entryId == null) {
+      return;
+    }
+
+    setUserData((prev) => {
+      const dateEntries = Array.isArray(prev.nutritionData[date])
+        ? prev.nutritionData[date]
+        : [];
+
+      return {
+        ...prev,
+        nutritionData: {
+          ...prev.nutritionData,
+          [date]: dateEntries.filter((entry) => entry.id !== entryId),
+        },
+      };
+    });
+  }, []);
+
   return {
     userData,
     weightEntries,
@@ -508,6 +570,7 @@ export const useEnergyMapData = () => {
     cardioTypes: resolvedCardioTypes,
     customCardioTypes: userData.customCardioTypes ?? {},
     cardioFavourites: userData.cardioFavourites ?? [],
+    nutritionData: userData.nutritionData ?? {},
     phases: userData.phases ?? [],
     activePhaseId: userData.activePhaseId,
     bmr,
@@ -537,5 +600,8 @@ export const useEnergyMapData = () => {
     addDailyLog,
     updateDailyLog,
     deleteDailyLog,
+    addFoodEntry,
+    updateFoodEntry,
+    deleteFoodEntry,
   };
 };
