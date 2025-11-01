@@ -13,6 +13,7 @@ const CalendarHeatmap = ({
   onDateClick,
   selectedDate,
   onKeyboardSelect,
+  slideDirection,
 }) => {
   const [focusedDate, setFocusedDate] = useState(
     selectedDate || calendarData[0]?.date || null
@@ -154,9 +155,9 @@ const CalendarHeatmap = ({
       <AnimatePresence mode="wait">
         <motion.div
           key={`${calendarData[0]?.date || 'empty'}`}
-          initial={{ opacity: 0, x: -10 }}
+          initial={{ opacity: 0, x: slideDirection * 20 }}
           animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: 10 }}
+          exit={{ opacity: 0, x: slideDirection * -20 }}
           transition={{ duration: 0.2 }}
         >
           {weeks.map((week, weekIndex) => (
@@ -229,6 +230,9 @@ export const CalendarPickerModal = ({
 }) => {
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showYearPicker, setShowYearPicker] = useState(false);
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
+  const [slideDirection, setSlideDirection] = useState(0); // -1 for left, 1 for right
 
   const today = useMemo(() => new Date(), []);
   const todayStr = useMemo(() => today.toISOString().split('T')[0], [today]);
@@ -296,6 +300,7 @@ export const CalendarPickerModal = ({
   };
 
   const handlePrevMonth = () => {
+    setSlideDirection(-1);
     if (currentMonth === 0) {
       onMonthChange(11, currentYear - 1);
     } else {
@@ -304,6 +309,7 @@ export const CalendarPickerModal = ({
   };
 
   const handleNextMonth = () => {
+    setSlideDirection(1);
     if (currentMonth === 11) {
       onMonthChange(0, currentYear + 1);
     } else {
@@ -329,6 +335,32 @@ export const CalendarPickerModal = ({
       onSelectDate(todayStr);
       onClose();
     }, 100);
+  };
+
+  // Swipe handlers for calendar navigation
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe) {
+      handleNextMonth();
+    } else if (isRightSwipe) {
+      handlePrevMonth();
+    }
   };
 
   return (
@@ -494,12 +526,20 @@ export const CalendarPickerModal = ({
         </AnimatePresence>
 
         {/* Calendar */}
-        <CalendarHeatmap
-          calendarData={calendarData}
-          onDateClick={handleDateClick}
-          onKeyboardSelect={handleKeyboardSelect}
-          selectedDate={selectedDate}
-        />
+        <div
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+          className="touch-pan-y select-none"
+        >
+          <CalendarHeatmap
+            calendarData={calendarData}
+            onDateClick={handleDateClick}
+            onKeyboardSelect={handleKeyboardSelect}
+            selectedDate={selectedDate}
+            slideDirection={slideDirection}
+          />
+        </div>
 
         {/* Close Button */}
         <motion.button
