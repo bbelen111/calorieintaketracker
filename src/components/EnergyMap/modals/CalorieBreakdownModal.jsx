@@ -62,8 +62,9 @@ export const CalorieBreakdownModal = ({
           </p>
           {formattedDifference !== null && formattedDifference !== 0 && (
             <p
-              className={`text-sm font-semibold mt-2 ${formattedDifference > 0 ? 'text-green-200' : 'text-red-200'
-                }`}
+              className={`text-sm font-semibold mt-2 ${
+                formattedDifference > 0 ? 'text-green-200' : 'text-red-200'
+              }`}
             >
               {formattedDifference > 0 ? '+' : ''}
               {formattedDifference.toLocaleString()} cal from TDEE
@@ -200,8 +201,9 @@ const BreakdownItem = ({
         <span className="text-slate-400 flex items-center gap-2">
           {label}
           <span
-            className={`text-white transition-transform duration-300 ${expanded ? 'rotate-180' : 'rotate-0'
-              }`}
+            className={`text-white transition-transform duration-300 ${
+              expanded ? 'rotate-180' : 'rotate-0'
+            }`}
           >
             <ChevronDown size={16} />
           </span>
@@ -212,8 +214,9 @@ const BreakdownItem = ({
         </span>
       </button>
       <div
-        className={`overflow-hidden transition-all duration-300 ${expanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-          }`}
+        className={`overflow-hidden transition-all duration-300 ${
+          expanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+        }`}
       >
         <div className="px-4 pb-3 pt-1 border-t border-slate-600/50 space-y-2">
           {children}
