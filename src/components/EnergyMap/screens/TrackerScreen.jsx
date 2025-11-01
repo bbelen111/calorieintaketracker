@@ -135,6 +135,18 @@ export const TrackerScreen = ({
     Math.round((totals.calories / targetCalories) * 100)
   );
 
+  // Calculate target carbs from remaining calories after protein and fats
+  // Protein: 4 cal/g, Fats: 9 cal/g, Carbs: 4 cal/g
+  const proteinCalories = targetProtein * 4;
+  const fatsCalories = targetFats * 9;
+  const remainingCaloriesForCarbs =
+    targetCalories - proteinCalories - fatsCalories;
+  const targetCarbs = Math.max(0, Math.round(remainingCaloriesForCarbs / 4));
+  const carbsPercent = Math.min(
+    100,
+    Math.round((totals.carbs / targetCarbs) * 100)
+  );
+
   const resetForm = () => {
     setFoodName('');
     setCalories('');
@@ -272,7 +284,7 @@ export const TrackerScreen = ({
               </div>
               <ChevronDown
                 size={18}
-                className={`text-slate-400 transition-transform ${
+                className={`text-white transition-transform duration-300 ${
                   showCalorieTargetPicker ? 'rotate-180' : ''
                 }`}
               />
@@ -280,7 +292,7 @@ export const TrackerScreen = ({
 
             {/* Dropdown */}
             {showCalorieTargetPicker && (
-              <div className="absolute z-10 w-full mt-2 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl max-h-64 overflow-y-auto">
+              <div className="absolute z-10 w-full mt-2 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl max-h-64 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
                 {stepRanges.map((range) => {
                   const rangeData = getRangeDetails?.(range);
                   const isSelected = range === selectedStepRange;
@@ -421,7 +433,7 @@ export const TrackerScreen = ({
           <div className="flex flex-col items-center">
             <div className="relative">
               <CircularProgress
-                percent={100}
+                percent={carbsPercent}
                 color="text-amber-500"
                 size={100}
                 strokeWidth={8}
@@ -432,7 +444,13 @@ export const TrackerScreen = ({
               </div>
             </div>
             <p className="text-slate-300 text-xs font-semibold mt-2">Carbs</p>
-            <p className="text-slate-400 text-xs">No target</p>
+            <p className="text-slate-400 text-xs">
+              {targetCarbs > 0 ? (
+                <span>~{targetCarbs}g</span>
+              ) : (
+                <span>No room</span>
+              )}
+            </p>
           </div>
         </div>
       </div>
