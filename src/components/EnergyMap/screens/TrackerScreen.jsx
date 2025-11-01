@@ -224,11 +224,11 @@ export const TrackerScreen = ({
     <div className="space-y-6 pb-10">
       {/* Header - Weekly Snapshot */}
       <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Target className="text-blue-400" size={32} />
             <h1 className="text-2xl md:text-3xl font-bold text-white">
-              Weekly Snapshot
+              Calorie Tracker
             </h1>
           </div>
           <button
@@ -238,11 +238,6 @@ export const TrackerScreen = ({
             <Calendar size={20} />
             <span className="hidden md:inline">Calendar</span>
           </button>
-        </div>
-
-        {/* Date Display - Read Only */}
-        <div className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white">
-          {formatDate(selectedDate)}
         </div>
       </div>
 
