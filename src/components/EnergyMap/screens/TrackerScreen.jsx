@@ -9,6 +9,7 @@ import {
   Droplet,
   Trash2,
   Edit2,
+  ChevronDown,
 } from 'lucide-react';
 
 const getTodayDate = () => {
@@ -61,11 +62,17 @@ export const TrackerScreen = ({
   onDeleteFoodEntry,
   targetProtein = 150,
   targetFats = 70,
+  stepRanges = [],
+  selectedGoal = 'maintenance',
+  selectedDay = 'training',
+  getRangeDetails,
 }) => {
   const today = getTodayDate();
   const [selectedDate, setSelectedDate] = useState(today);
   const [isAddingFood, setIsAddingFood] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
+  const [selectedStepRange, setSelectedStepRange] = useState('12k');
+  const [showCalorieTargetPicker, setShowCalorieTargetPicker] = useState(false);
 
   // Form state
   const [foodName, setFoodName] = useState('');
@@ -114,6 +121,19 @@ export const TrackerScreen = ({
   const proteinInRange =
     totals.protein >= proteinMin && totals.protein <= proteinMax;
   const fatsInRange = totals.fats >= fatsMin && totals.fats <= fatsMax;
+
+  // Get calorie target from selected step range
+  const calorieTargetData = useMemo(() => {
+    if (!getRangeDetails || !selectedStepRange) return null;
+    return getRangeDetails(selectedStepRange);
+  }, [getRangeDetails, selectedStepRange]);
+
+  const targetCalories = calorieTargetData?.targetCalories || 2500;
+  const caloriesRemaining = targetCalories - totals.calories;
+  const caloriesPercent = Math.min(
+    100,
+    Math.round((totals.calories / targetCalories) * 100)
+  );
 
   const resetForm = () => {
     setFoodName('');
@@ -223,7 +243,7 @@ export const TrackerScreen = ({
 
         {/* Total Calories - No Target */}
         <div className="bg-slate-700 rounded-lg p-4 border border-slate-600 mb-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Flame className="text-orange-400" size={20} />
               <span className="text-slate-300 text-sm font-semibold">
@@ -231,6 +251,111 @@ export const TrackerScreen = ({
               </span>
             </div>
             <p className="text-white font-bold text-2xl">{totals.calories}</p>
+          </div>
+
+          {/* Calorie Target Selector */}
+          <div className="relative">
+            <button
+              onClick={() =>
+                setShowCalorieTargetPicker(!showCalorieTargetPicker)
+              }
+              className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-left flex items-center justify-between hover:bg-slate-750 transition-all"
+            >
+              <div className="flex-1">
+                <p className="text-slate-400 text-xs mb-0.5">Target</p>
+                <p className="text-white text-sm font-semibold">
+                  {targetCalories} cal
+                  <span className="text-slate-400 font-normal ml-2">
+                    ({selectedStepRange} steps)
+                  </span>
+                </p>
+              </div>
+              <ChevronDown
+                size={18}
+                className={`text-slate-400 transition-transform ${
+                  showCalorieTargetPicker ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+
+            {/* Dropdown */}
+            {showCalorieTargetPicker && (
+              <div className="absolute z-10 w-full mt-2 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl max-h-64 overflow-y-auto">
+                {stepRanges.map((range) => {
+                  const rangeData = getRangeDetails?.(range);
+                  const isSelected = range === selectedStepRange;
+                  return (
+                    <button
+                      key={range}
+                      onClick={() => {
+                        setSelectedStepRange(range);
+                        setShowCalorieTargetPicker(false);
+                      }}
+                      className={`w-full px-4 py-3 text-left hover:bg-slate-700 transition-all border-b border-slate-700 last:border-b-0 ${
+                        isSelected ? 'bg-slate-700' : ''
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-white font-semibold text-sm">
+                            {range} steps
+                          </p>
+                          <p className="text-slate-400 text-xs">
+                            {selectedGoal === 'maintenance'
+                              ? 'Maintain weight'
+                              : selectedGoal === 'bulking'
+                                ? 'Lean bulk'
+                                : selectedGoal === 'aggressive_bulk'
+                                  ? 'Aggressive bulk'
+                                  : selectedGoal === 'cutting'
+                                    ? 'Moderate cut'
+                                    : selectedGoal === 'aggressive_cut'
+                                      ? 'Aggressive cut'
+                                      : 'Unknown'}{' '}
+                            • {selectedDay === 'training' ? 'Training' : 'Rest'}{' '}
+                            day
+                          </p>
+                        </div>
+                        <p
+                          className={`font-bold ${isSelected ? 'text-emerald-400' : 'text-slate-300'}`}
+                        >
+                          {rangeData?.targetCalories || 0}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Progress Bar */}
+          <div className="mt-3">
+            <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+              <div
+                className={`h-full transition-all duration-300 ${
+                  caloriesPercent >= 100 ? 'bg-red-500' : 'bg-emerald-500'
+                }`}
+                style={{ width: `${caloriesPercent}%` }}
+              />
+            </div>
+            <p className="text-slate-400 text-xs mt-1">
+              {caloriesRemaining >= 0 ? (
+                <>
+                  <span className="text-emerald-400 font-semibold">
+                    {caloriesRemaining}
+                  </span>{' '}
+                  remaining
+                </>
+              ) : (
+                <>
+                  <span className="text-red-400 font-semibold">
+                    {Math.abs(caloriesRemaining)}
+                  </span>{' '}
+                  over target
+                </>
+              )}
+            </p>
           </div>
         </div>
 
