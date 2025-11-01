@@ -223,14 +223,14 @@ export const TrackerScreen = ({
       <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <Target className="text-emerald-400" size={32} />
+            <Target className="text-blue-400" size={32} />
             <h1 className="text-2xl md:text-3xl font-bold text-white">
               Calorie Tracker
             </h1>
           </div>
           <button
             onClick={handleStartAdd}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-semibold transition-all active:scale-95 flex items-center gap-2"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-all active:scale-95 flex items-center gap-2"
           >
             <Plus size={20} />
             <span className="hidden md:inline">Add Food</span>
@@ -252,8 +252,7 @@ export const TrackerScreen = ({
           <Flame className="text-orange-400" size={20} />
           Daily Summary - {formatDate(selectedDate)}
         </h2>
-
-        {/* Total Calories - No Target */}
+        {/* Total Calories */}
         <div className="bg-slate-700 rounded-lg p-4 border border-slate-600 mb-6">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">

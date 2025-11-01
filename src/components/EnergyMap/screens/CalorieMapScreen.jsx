@@ -13,7 +13,7 @@ export const CalorieMapScreen = ({
 }) => (
   <div className="space-y-6 pb-10">
     <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div className="flex items-start justify-between mb-4">
         <div>
           <div className="flex items-start gap-3">
             <Map className="text-blue-400" size={32} />
@@ -28,14 +28,16 @@ export const CalorieMapScreen = ({
             </span>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onManageStepRanges}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-all flex items-center gap-2"
-        >
-          <ListChecks size={20} />
-          <span className="hidden sm:inline">Manage Step Ranges</span>
-        </button>
+        <div className="flex-1 flex justify-end items-start">
+          <button
+            type="button"
+            onClick={onManageStepRanges}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-all flex items-center gap-2"
+          >
+            <ListChecks size={20} />
+            <span className="hidden sm:inline">Manage Step Ranges</span>
+          </button>
+        </div>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {stepRanges.map((steps) => {
