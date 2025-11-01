@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import {
+  Bookmark,
   Target,
   Plus,
   Utensils,
@@ -10,6 +11,7 @@ import {
   Trash2,
   Edit2,
   ChevronDown,
+  Calendar,
 } from 'lucide-react';
 
 const getTodayDate = () => {
@@ -66,9 +68,10 @@ export const TrackerScreen = ({
   selectedGoal = 'maintenance',
   selectedDay = 'training',
   getRangeDetails,
+  calendarModal,
+  selectedDate: selectedDateProp,
 }) => {
-  const today = getTodayDate();
-  const [selectedDate, setSelectedDate] = useState(today);
+  const selectedDate = selectedDateProp || getTodayDate();
   const [isAddingFood, setIsAddingFood] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
   const [selectedStepRange, setSelectedStepRange] = useState('12k');
@@ -219,44 +222,41 @@ export const TrackerScreen = ({
 
   return (
     <div className="space-y-6 pb-10">
-      {/* Header */}
+      {/* Header - Weekly Snapshot */}
       <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <Target className="text-blue-400" size={32} />
             <h1 className="text-2xl md:text-3xl font-bold text-white">
-              Calorie Tracker
+              Weekly Snapshot
             </h1>
           </div>
           <button
-            onClick={handleStartAdd}
+            onClick={() => calendarModal?.open()}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-all active:scale-95 flex items-center gap-2"
           >
-            <Plus size={20} />
-            <span className="hidden md:inline">Add Food</span>
+            <Calendar size={20} />
+            <span className="hidden md:inline">Calendar</span>
           </button>
         </div>
 
-        {/* Date Selector */}
-        <input
-          type="date"
-          value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
-          className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-        />
+        {/* Date Display - Read Only */}
+        <div className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white">
+          {formatDate(selectedDate)}
+        </div>
       </div>
 
       {/* Daily Summary */}
       <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
         <h2 className="text-white font-bold text-lg mb-6 flex items-center gap-2">
-          <Flame className="text-orange-400" size={20} />
+          <Bookmark className="text-blue-400" size={20} />
           Daily Summary - {formatDate(selectedDate)}
         </h2>
         {/* Total Calories */}
         <div className="bg-slate-700 rounded-lg p-4 border border-slate-600 mb-6">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Flame className="text-orange-400" size={20} />
+              <Flame className="text-blue-400" size={20} />
               <span className="text-slate-300 text-sm font-semibold">
                 Total Calories
               </span>
@@ -554,10 +554,19 @@ export const TrackerScreen = ({
 
       {/* Food Entries List */}
       <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
-        <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
-          <Utensils className="text-blue-400" size={20} />
-          Food Entries ({dayEntries.length})
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-white font-bold text-lg flex items-center gap-2">
+            <Utensils className="text-blue-400" size={20} />
+            Food Entries ({dayEntries.length})
+          </h3>
+          <button
+            onClick={handleStartAdd}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-semibold transition-all active:scale-95 flex items-center gap-2"
+          >
+            <Plus size={18} />
+            <span className="hidden md:inline">Add Meal</span>
+          </button>
+        </div>
 
         {dayEntries.length === 0 ? (
           <div className="text-center py-8">
