@@ -1417,14 +1417,8 @@ export const EnergyMapCalculator = () => {
                   onAddFoodEntry={addFoodEntry}
                   onUpdateFoodEntry={updateFoodEntry}
                   onDeleteFoodEntry={deleteFoodEntry}
-                  targetCalories={
-                    selectedRangeData?.targetCalories ??
-                    calculateTargetForGoal(
-                      '12k',
-                      selectedDay === 'training',
-                      selectedGoal
-                    ).targetCalories
-                  }
+                  targetProtein={Math.round(userData.weight * 2)}
+                  targetFats={Math.round(userData.weight * 0.8)}
                 />
               </div>
 

@@ -16,12 +16,51 @@ const getTodayDate = () => {
   return today.toISOString().split('T')[0];
 };
 
+// Circular progress bar component
+const CircularProgress = ({ percent, color, size = 120, strokeWidth = 10 }) => {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (percent / 100) * circumference;
+
+  return (
+    <svg width={size} height={size} className="transform -rotate-90">
+      {/* Background circle */}
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        fill="none"
+        className="text-slate-700"
+      />
+      {/* Progress circle */}
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        fill="none"
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        className={color}
+        strokeLinecap="round"
+        style={{
+          transition: 'stroke-dashoffset 0.5s ease',
+        }}
+      />
+    </svg>
+  );
+};
+
 export const TrackerScreen = ({
   nutritionData = {},
   onAddFoodEntry,
   onUpdateFoodEntry,
   onDeleteFoodEntry,
-  targetCalories = 2500,
+  targetProtein = 150,
+  targetFats = 70,
 }) => {
   const today = getTodayDate();
   const [selectedDate, setSelectedDate] = useState(today);
@@ -34,6 +73,12 @@ export const TrackerScreen = ({
   const [protein, setProtein] = useState('');
   const [carbs, setCarbs] = useState('');
   const [fats, setFats] = useState('');
+
+  // Calculate ranges (min-max)
+  const proteinMin = Math.round(targetProtein * 0.9); // 90% of target
+  const proteinMax = Math.round(targetProtein * 1.1); // 110% of target
+  const fatsMin = Math.round(targetFats * 0.9); // 90% of target
+  const fatsMax = Math.round(targetFats * 1.1); // 110% of target
 
   // Get entries for selected date
   const dayEntries = useMemo(() => {
@@ -54,11 +99,19 @@ export const TrackerScreen = ({
     );
   }, [dayEntries]);
 
-  const caloriesRemaining = targetCalories - totals.calories;
-  const caloriesPercent = Math.min(
+  const proteinPercent = Math.min(
     100,
-    Math.round((totals.calories / targetCalories) * 100)
+    Math.round((totals.protein / targetProtein) * 100)
   );
+  const fatsPercent = Math.min(
+    100,
+    Math.round((totals.fats / targetFats) * 100)
+  );
+
+  // Check if within range
+  const proteinInRange =
+    totals.protein >= proteinMin && totals.protein <= proteinMax;
+  const fatsInRange = totals.fats >= fatsMin && totals.fats <= fatsMax;
 
   const resetForm = () => {
     setFoodName('');
@@ -161,80 +214,98 @@ export const TrackerScreen = ({
 
       {/* Daily Summary */}
       <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
-        <h2 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
+        <h2 className="text-white font-bold text-lg mb-6 flex items-center gap-2">
           <Flame className="text-orange-400" size={20} />
           Daily Summary - {formatDate(selectedDate)}
         </h2>
 
-        {/* Calorie Progress Bar */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-slate-300 text-sm font-semibold">
-              Calories
-            </span>
-            <span
-              className={`font-bold ${
-                caloriesRemaining >= 0 ? 'text-emerald-400' : 'text-red-400'
-              }`}
-            >
-              {totals.calories} / {targetCalories}
-            </span>
+        {/* Total Calories - No Target */}
+        <div className="bg-slate-700 rounded-lg p-4 border border-slate-600 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Flame className="text-orange-400" size={20} />
+              <span className="text-slate-300 text-sm font-semibold">
+                Total Calories
+              </span>
+            </div>
+            <p className="text-white font-bold text-2xl">{totals.calories}</p>
           </div>
-          <div className="w-full bg-slate-700 rounded-full h-4 overflow-hidden">
-            <div
-              className={`h-full transition-all duration-300 ${
-                caloriesPercent >= 100 ? 'bg-red-500' : 'bg-emerald-500'
-              }`}
-              style={{ width: `${caloriesPercent}%` }}
-            />
-          </div>
-          <p className="text-slate-400 text-xs mt-1">
-            {caloriesRemaining >= 0 ? (
-              <>
-                <span className="text-emerald-400 font-semibold">
-                  {caloriesRemaining}
-                </span>{' '}
-                calories remaining
-              </>
-            ) : (
-              <>
-                <span className="text-red-400 font-semibold">
-                  {Math.abs(caloriesRemaining)}
-                </span>{' '}
-                calories over target
-              </>
-            )}
-          </p>
         </div>
 
-        {/* Macros Grid */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-slate-700 rounded-lg p-4 border border-slate-600">
-            <div className="flex items-center gap-2 mb-2">
-              <Beef className="text-red-400" size={16} />
-              <span className="text-slate-300 text-xs font-semibold">
-                Protein
-              </span>
+        {/* Macros - Circular Progress */}
+        <div className="grid grid-cols-3 gap-4">
+          {/* Protein */}
+          <div className="flex flex-col items-center">
+            <div className="relative">
+              <CircularProgress
+                percent={proteinPercent}
+                color="text-red-500"
+                size={100}
+                strokeWidth={8}
+              />
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <Beef className="text-red-400 mb-1" size={20} />
+                <p className="text-white font-bold text-lg">{totals.protein}</p>
+              </div>
             </div>
-            <p className="text-white font-bold text-xl">{totals.protein}g</p>
+            <p className="text-slate-300 text-xs font-semibold mt-2">Protein</p>
+            <p className="text-slate-400 text-xs">
+              {proteinInRange ? (
+                <span className="text-emerald-400">
+                  ✓ {proteinMin}-{proteinMax}g
+                </span>
+              ) : (
+                <span>
+                  {proteinMin}-{proteinMax}g
+                </span>
+              )}
+            </p>
           </div>
 
-          <div className="bg-slate-700 rounded-lg p-4 border border-slate-600">
-            <div className="flex items-center gap-2 mb-2">
-              <Cookie className="text-amber-400" size={16} />
-              <span className="text-slate-300 text-xs font-semibold">
-                Carbs
-              </span>
+          {/* Fats */}
+          <div className="flex flex-col items-center">
+            <div className="relative">
+              <CircularProgress
+                percent={fatsPercent}
+                color="text-yellow-500"
+                size={100}
+                strokeWidth={8}
+              />
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <Droplet className="text-yellow-400 mb-1" size={20} />
+                <p className="text-white font-bold text-lg">{totals.fats}</p>
+              </div>
             </div>
-            <p className="text-white font-bold text-xl">{totals.carbs}g</p>
+            <p className="text-slate-300 text-xs font-semibold mt-2">Fats</p>
+            <p className="text-slate-400 text-xs">
+              {fatsInRange ? (
+                <span className="text-emerald-400">
+                  ✓ {fatsMin}-{fatsMax}g
+                </span>
+              ) : (
+                <span>
+                  {fatsMin}-{fatsMax}g
+                </span>
+              )}
+            </p>
           </div>
 
-          <div className="bg-slate-700 rounded-lg p-4 border border-slate-600">
-            <div className="flex items-center gap-2 mb-2">
-              <Droplet className="text-yellow-400" size={16} />
-              <span className="text-slate-300 text-xs font-semibold">Fats</span>
+          {/* Carbs */}
+          <div className="flex flex-col items-center">
+            <div className="relative">
+              <CircularProgress
+                percent={100}
+                color="text-amber-500"
+                size={100}
+                strokeWidth={8}
+              />
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <Cookie className="text-amber-400 mb-1" size={20} />
+                <p className="text-white font-bold text-lg">{totals.carbs}</p>
+              </div>
             </div>
-            <p className="text-white font-bold text-xl">{totals.fats}g</p>
+            <p className="text-slate-300 text-xs font-semibold mt-2">Carbs</p>
+            <p className="text-slate-400 text-xs">No target</p>
           </div>
         </div>
       </div>
