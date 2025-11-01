@@ -43,6 +43,7 @@ import { DailyActivityCustomModal } from './modals/DailyActivityCustomModal';
 import { PhaseCreationModal } from './modals/PhaseCreationModal';
 import { TemplatePickerModal } from './modals/TemplatePickerModal';
 import { DailyLogModal } from './modals/DailyLogModal';
+import { CalendarPickerModal } from './modals/CalendarPickerModal';
 // ...existing code...
 import { ConfirmActionModal } from './modals/ConfirmActionModal';
 import {
@@ -152,6 +153,10 @@ export const EnergyMapCalculator = () => {
     calculateCardioSessionCalories,
     saveWeightEntry,
     deleteWeightEntry,
+    nutritionData,
+    addFoodEntry,
+    updateFoodEntry,
+    deleteFoodEntry,
     createPhase,
     deletePhase,
     archivePhase,
@@ -226,6 +231,12 @@ export const EnergyMapCalculator = () => {
   const [dailyLogError, setDailyLogError] = useState('');
   const [dailyLogDateLocked, setDailyLogDateLocked] = useState(false);
 
+  // Calendar picker state
+  const [trackerSelectedDate, setTrackerSelectedDate] =
+    useState(getTodayDateString());
+  const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
+  const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
+
   // Confirm action state
   const [confirmActionTitle, setConfirmActionTitle] = useState('');
   const [confirmActionDescription, setConfirmActionDescription] = useState('');
@@ -256,6 +267,7 @@ export const EnergyMapCalculator = () => {
   const phaseCreationModal = useAnimatedModal();
   const templatePickerModal = useAnimatedModal();
   const dailyLogModal = useAnimatedModal();
+  const calendarPickerModal = useAnimatedModal();
   // ...existing code...
   const confirmActionModal = useAnimatedModal();
 
@@ -1408,7 +1420,20 @@ export const EnergyMapCalculator = () => {
               </div>
 
               <div className="w-full flex-shrink-0 px-2 sm:px-4 md:px-6">
-                <TrackerScreen />
+                <TrackerScreen
+                  nutritionData={nutritionData}
+                  onAddFoodEntry={addFoodEntry}
+                  onUpdateFoodEntry={updateFoodEntry}
+                  onDeleteFoodEntry={deleteFoodEntry}
+                  targetProtein={Math.round(userData.weight * 2)}
+                  targetFats={Math.round(userData.weight * 0.8)}
+                  stepRanges={userData.stepRanges}
+                  selectedGoal={selectedGoal}
+                  selectedDay={selectedDay}
+                  getRangeDetails={getRangeDetails}
+                  calendarModal={calendarPickerModal}
+                  selectedDate={trackerSelectedDate}
+                />
               </div>
 
               <div className="w-full flex-shrink-0 px-2 sm:px-4 md:px-6">
@@ -1782,6 +1807,21 @@ export const EnergyMapCalculator = () => {
         onDelete={dailyLogMode === 'edit' ? handleDailyLogDelete : undefined}
         error={dailyLogError}
         isDateLocked={dailyLogDateLocked}
+      />
+
+      <CalendarPickerModal
+        isOpen={calendarPickerModal.isOpen}
+        isClosing={calendarPickerModal.isClosing}
+        onClose={calendarPickerModal.requestClose}
+        onSelectDate={setTrackerSelectedDate}
+        nutritionData={nutritionData}
+        selectedDate={trackerSelectedDate}
+        currentMonth={calendarMonth}
+        currentYear={calendarYear}
+        onMonthChange={(month, year) => {
+          setCalendarMonth(month);
+          setCalendarYear(year);
+        }}
       />
 
       {/* PhaseInsightsModal removed */}
