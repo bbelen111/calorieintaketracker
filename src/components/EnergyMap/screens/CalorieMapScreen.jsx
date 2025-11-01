@@ -31,10 +31,10 @@ export const CalorieMapScreen = ({
         <button
           type="button"
           onClick={onManageStepRanges}
-          className="inline-flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-lg text-sm font-semibold transition-all"
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-all flex items-center gap-2"
         >
-          <ListChecks size={16} />
-          Manage Step Ranges
+          <ListChecks size={20} />
+          <span className="hidden sm:inline">Manage Step Ranges</span>
         </button>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
