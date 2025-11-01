@@ -74,11 +74,13 @@ export const TrackerScreen = ({
   const [carbs, setCarbs] = useState('');
   const [fats, setFats] = useState('');
 
-  // Calculate ranges (min-max)
-  const proteinMin = Math.round(targetProtein * 0.9); // 90% of target
-  const proteinMax = Math.round(targetProtein * 1.1); // 110% of target
-  const fatsMin = Math.round(targetFats * 0.9); // 90% of target
-  const fatsMax = Math.round(targetFats * 1.1); // 110% of target
+  // Calculate ranges based on bodyweight (matching InsightsScreen)
+  // targetProtein is passed as weight * 2, so range is weight * 2.0 to weight * 2.4
+  // targetFats is passed as weight * 0.8, so range is weight * 0.8 to weight * 1.0
+  const proteinMin = Math.round(targetProtein); // 2.0g per kg (already calculated)
+  const proteinMax = Math.round(targetProtein * 1.2); // 2.4g per kg (2 * 1.2 = 2.4)
+  const fatsMin = Math.round(targetFats); // 0.8g per kg (already calculated)
+  const fatsMax = Math.round(targetFats * 1.25); // 1.0g per kg (0.8 * 1.25 = 1.0)
 
   // Get entries for selected date
   const dayEntries = useMemo(() => {
