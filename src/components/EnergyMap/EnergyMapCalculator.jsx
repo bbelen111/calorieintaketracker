@@ -1364,11 +1364,11 @@ export const EnergyMapCalculator = () => {
                     {selectedPhase ? (
                       <motion.div
                         key="phase-detail"
-                        initial={{ x: 300, opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        exit={{ x: -300, opacity: 0 }}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
                         transition={{
-                          duration: 0.2,
+                          duration: 0.25,
                           ease: [0.4, 0, 0.2, 1],
                         }}
                       >
@@ -1387,11 +1387,11 @@ export const EnergyMapCalculator = () => {
                     ) : (
                       <motion.div
                         key="logbook"
-                        initial={{ x: -300, opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        exit={{ x: 300, opacity: 0 }}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
                         transition={{
-                          duration: 0.2,
+                          duration: 0.25,
                           ease: [0.4, 0, 0.2, 1],
                         }}
                       >

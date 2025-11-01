@@ -1,5 +1,5 @@
 import React from 'react';
-import { Info, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Info, TrendingUp, TrendingDown, Minus, X } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 
 // Move TrendIcon outside of component to avoid recreating during render
@@ -49,11 +49,18 @@ export const WeightTrendInfoModal = ({ isOpen, isClosing, trend, onClose }) => {
       overlayClassName="bg-black/90 z-[85]"
       contentClassName="p-6 max-w-lg w-full"
     >
-      <div className="flex items-center gap-3 mb-4">
-        <Info size={28} className="text-blue-400" />
-        <h3 className="text-white font-bold text-xl">
-          Understanding Weight Trends
-        </h3>
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div className="flex items-center gap-3">
+          <Info size={28} className="text-blue-400" />
+          <h3 className="text-white font-bold text-xl">Weight Trends</h3>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-slate-400 hover:text-white transition-colors"
+        >
+          <X size={20} />
+        </button>
       </div>
 
       <div className="space-y-4 text-slate-300">
