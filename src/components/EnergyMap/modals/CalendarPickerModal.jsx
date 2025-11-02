@@ -47,7 +47,7 @@ const CalendarHeatmap = ({
     const handleKeyDown = (e) => {
       if (!focusedDate) return;
 
-      const currentDate = new Date(focusedDate + 'T00:00:00');
+      const currentDate = new Date(focusedDate + 'T00:00:00Z');
       let newDate = new Date(currentDate);
 
       switch (e.key) {
@@ -186,7 +186,7 @@ const CalendarHeatmap = ({
                     whileTap={{ scale: 0.98 }}
                     transition={{ duration: 0.15 }}
                     className={`aspect-square rounded-lg border-2 flex flex-col items-center justify-center gap-0.5 text-xs font-bold transition-colors relative ${getStatusColor(day.date)}`}
-                    aria-label={`Select ${new Date(day.date + 'T00:00:00').toLocaleDateString()}${caloriesText ? `, ${caloriesText} calories` : ''}`}
+                    aria-label={`Select ${new Date(day.date + 'T00:00:00Z').toLocaleDateString()}${caloriesText ? `, ${caloriesText} calories` : ''}`}
                     aria-pressed={day.date === selectedDate}
                   >
                     {day.hasEntries && (

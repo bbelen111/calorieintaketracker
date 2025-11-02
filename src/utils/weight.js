@@ -58,7 +58,8 @@ const getDateFromKey = (dateKey) => {
     return null;
   }
 
-  const date = new Date(`${normalized}T00:00:00`);
+  // Always parse as UTC midnight to avoid DST/timezone issues
+  const date = new Date(`${normalized}T00:00:00Z`);
   if (Number.isNaN(date.getTime())) {
     return null;
   }

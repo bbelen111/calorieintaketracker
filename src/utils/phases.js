@@ -25,9 +25,9 @@ export const calculatePhaseMetrics = (phase, weightEntries = []) => {
   const avgSteps = 0;
 
   // Calculate total days (from start date to end date or today)
-  const startDate = new Date(phase.startDate + 'T00:00:00');
+  const startDate = new Date(phase.startDate + 'T00:00:00Z');
   const endDate = phase.endDate
-    ? new Date(phase.endDate + 'T00:00:00')
+    ? new Date(phase.endDate + 'T00:00:00Z')
     : new Date();
   const diffTime = Math.abs(endDate - startDate);
   const totalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include start day
@@ -38,7 +38,7 @@ export const calculatePhaseMetrics = (phase, weightEntries = []) => {
 
   // Calculate weight change using referenced weight entries
   const phaseWeightEntries = weightEntries.filter((entry) => {
-    const entryDate = new Date(entry.date + 'T00:00:00');
+    const entryDate = new Date(entry.date + 'T00:00:00Z');
     const isAfterStart = entryDate >= startDate;
     const isBeforeEnd = phase.endDate ? entryDate <= endDate : true;
     return isAfterStart && isBeforeEnd;
@@ -60,8 +60,8 @@ export const calculatePhaseMetrics = (phase, weightEntries = []) => {
       lastEntry.weight - (phase.startingWeight || firstEntry.weight);
 
     // Calculate weekly rate
-    const firstDate = new Date(firstEntry.date + 'T00:00:00');
-    const lastDate = new Date(lastEntry.date + 'T00:00:00');
+    const firstDate = new Date(firstEntry.date + 'T00:00:00Z');
+    const lastDate = new Date(lastEntry.date + 'T00:00:00Z');
     const daysBetween = Math.max(
       (lastDate - firstDate) / (1000 * 60 * 60 * 24),
       1
@@ -95,9 +95,9 @@ export const getPhaseCalendarData = (phase) => {
     return [];
   }
 
-  const startDate = new Date(phase.startDate + 'T00:00:00');
+  const startDate = new Date(phase.startDate + 'T00:00:00Z');
   const endDate = phase.endDate
-    ? new Date(phase.endDate + 'T00:00:00')
+    ? new Date(phase.endDate + 'T00:00:00Z')
     : new Date();
 
   const calendar = [];

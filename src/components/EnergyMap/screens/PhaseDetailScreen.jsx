@@ -20,7 +20,7 @@ import {
 
 const formatDate = (dateStr) => {
   if (!dateStr) return '';
-  const date = new Date(dateStr + 'T00:00:00');
+  const date = new Date(dateStr + 'T00:00:00Z');
   return date.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -30,7 +30,7 @@ const formatDate = (dateStr) => {
 
 const formatDateShort = (dateStr) => {
   if (!dateStr) return '';
-  const date = new Date(dateStr + 'T00:00:00');
+  const date = new Date(dateStr + 'T00:00:00Z');
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
@@ -239,7 +239,7 @@ export const PhaseDetailScreen = ({
 
   const currentDay = useMemo(() => {
     if (!phase.startDate) return 1;
-    const start = new Date(phase.startDate + 'T00:00:00');
+    const start = new Date(phase.startDate + 'T00:00:00Z');
     const now = new Date();
     const diffTime = Math.abs(now - start);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));

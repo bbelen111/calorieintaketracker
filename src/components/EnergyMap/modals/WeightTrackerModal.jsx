@@ -176,14 +176,14 @@ const useIsomorphicLayoutEffect =
   typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 const formatTimelineLabel = (dateStr) => {
-  const date = new Date(dateStr + 'T00:00:00');
+  const date = new Date(dateStr + 'T00:00:00Z');
   return date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
 };
 
 // Short uppercase month date format e.g. "OCT 10, 2025"
 const formatShortDate = (dateStr) => {
   if (!dateStr) return '';
-  const date = new Date(dateStr + 'T00:00:00');
+  const date = new Date(dateStr + 'T00:00:00Z');
   const parts = date.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -194,7 +194,7 @@ const formatShortDate = (dateStr) => {
 };
 // Helper to format date for tooltip
 const formatTooltipDate = (dateStr) => {
-  const date = new Date(dateStr + 'T00:00:00');
+  const date = new Date(dateStr + 'T00:00:00Z');
   return date.toLocaleDateString('en-US', {
     weekday: 'short',
     day: 'numeric',
@@ -287,7 +287,7 @@ export const WeightTrackerModal = ({
     if (selectedTimeframe === 'all') return phaseFilteredEntries;
 
     const latestEntry = phaseFilteredEntries[phaseFilteredEntries.length - 1];
-    const latestDate = new Date(latestEntry.date + 'T00:00:00');
+    const latestDate = new Date(latestEntry.date + 'T00:00:00Z');
 
     const daysMap = {
       '7d': 7,
@@ -303,7 +303,7 @@ export const WeightTrackerModal = ({
     cutoffDate.setDate(cutoffDate.getDate() - daysToSubtract);
 
     return phaseFilteredEntries.filter((entry) => {
-      const entryDate = new Date(entry.date + 'T00:00:00');
+      const entryDate = new Date(entry.date + 'T00:00:00Z');
       return entryDate >= cutoffDate;
     });
   }, [phaseFilteredEntries, selectedTimeframe]);
@@ -625,8 +625,8 @@ export const WeightTrackerModal = ({
   const daysRange =
     earliestDate && latestDate
       ? Math.round(
-          (new Date(latestDate + 'T00:00:00') -
-            new Date(earliestDate + 'T00:00:00')) /
+          (new Date(latestDate + 'T00:00:00Z') -
+            new Date(earliestDate + 'T00:00:00Z')) /
             (1000 * 60 * 60 * 24)
         )
       : 0;

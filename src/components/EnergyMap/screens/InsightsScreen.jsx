@@ -70,14 +70,14 @@ export const InsightsScreen = ({
 
     // Get the latest entry date
     const latestEntry = sorted[sorted.length - 1];
-    const latestDate = new Date(latestEntry.date + 'T00:00:00');
+    const latestDate = new Date(latestEntry.date + 'T00:00:00Z');
 
     // Calculate cutoff date (7 days before latest entry)
     const cutoffDate = new Date(latestDate.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     // Filter entries within the 7-day window
     return sorted.filter((entry) => {
-      const entryDate = new Date(entry.date + 'T00:00:00');
+      const entryDate = new Date(entry.date + 'T00:00:00Z');
       return entryDate >= cutoffDate;
     });
   }, [weightEntries]);
