@@ -59,13 +59,26 @@ export const InsightsScreen = ({
   weightEntries = [],
   onOpenWeightTracker,
 }) => {
-  // Only keep entries from the last 7 days
+  // Only keep entries from the last 7 days (from latest entry backward)
   const sortedEntries = useMemo(() => {
     if (!weightEntries.length) return [];
-    const now = new Date();
-    return weightEntries.filter((entry) => {
+
+    // Sort entries first
+    const sorted = [...weightEntries].sort((a, b) =>
+      a.date.localeCompare(b.date)
+    );
+
+    // Get the latest entry date
+    const latestEntry = sorted[sorted.length - 1];
+    const latestDate = new Date(latestEntry.date + 'T00:00:00');
+
+    // Calculate cutoff date (7 days before latest entry)
+    const cutoffDate = new Date(latestDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    // Filter entries within the 7-day window
+    return sorted.filter((entry) => {
       const entryDate = new Date(entry.date + 'T00:00:00');
-      return (now - entryDate) / (1000 * 60 * 60 * 24) <= 7;
+      return entryDate >= cutoffDate;
     });
   }, [weightEntries]);
   const trend = useMemo(
