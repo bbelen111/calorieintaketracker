@@ -103,10 +103,15 @@ const CalendarHeatmap = ({
   };
 
   const getCaloriesForDate = (date) => {
-    const entries = nutritionData[date] || [];
-    if (!Array.isArray(entries) || entries.length === 0) return 0;
+    const dateData = nutritionData[date] || {};
+    // nutritionData is now nested: { date: { mealType: [entries] } }
+    const allEntries = Object.values(dateData).flat();
+    if (allEntries.length === 0) return 0;
 
-    return entries.reduce((total, entry) => total + (entry.calories || 0), 0);
+    return allEntries.reduce(
+      (total, entry) => total + (entry.calories || 0),
+      0
+    );
   };
 
   const getDayNumber = (date) => {
@@ -289,8 +294,11 @@ export const CalendarPickerModal = ({
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(Date.UTC(year, month, day));
       const dateStr = date.toISOString().split('T')[0];
-      const hasEntries =
-        nutritionData[dateStr] && nutritionData[dateStr].length > 0;
+      const dateData = nutritionData[dateStr] || {};
+      // Check if any meal type has entries
+      const hasEntries = Object.values(dateData).some(
+        (entries) => Array.isArray(entries) && entries.length > 0
+      );
 
       data.push({
         date: dateStr,
