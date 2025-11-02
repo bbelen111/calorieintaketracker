@@ -44,6 +44,7 @@ import { PhaseCreationModal } from './modals/PhaseCreationModal';
 import { TemplatePickerModal } from './modals/TemplatePickerModal';
 import { DailyLogModal } from './modals/DailyLogModal';
 import { CalendarPickerModal } from './modals/CalendarPickerModal';
+import { FoodEntryModal } from './modals/FoodEntryModal';
 // ...existing code...
 import { ConfirmActionModal } from './modals/ConfirmActionModal';
 import {
@@ -237,6 +238,18 @@ export const EnergyMapCalculator = () => {
   const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
 
+  // Food entry state
+  const [foodEntryMode, setFoodEntryMode] = useState('add'); // 'add' or 'edit'
+  const [editingFoodEntryId, setEditingFoodEntryId] = useState(null);
+  const [foodName, setFoodName] = useState('');
+  const [foodCalories, setFoodCalories] = useState('');
+  const [foodProtein, setFoodProtein] = useState('');
+  const [foodCarbs, setFoodCarbs] = useState('');
+  const [foodFats, setFoodFats] = useState('');
+  const [trackerStepRange, setTrackerStepRange] = useState('12k');
+  const [showTrackerCaloriePicker, setShowTrackerCaloriePicker] =
+    useState(false);
+
   // Confirm action state
   const [confirmActionTitle, setConfirmActionTitle] = useState('');
   const [confirmActionDescription, setConfirmActionDescription] = useState('');
@@ -268,6 +281,7 @@ export const EnergyMapCalculator = () => {
   const templatePickerModal = useAnimatedModal();
   const dailyLogModal = useAnimatedModal();
   const calendarPickerModal = useAnimatedModal();
+  const foodEntryModal = useAnimatedModal();
   // ...existing code...
   const confirmActionModal = useAnimatedModal();
 
@@ -950,6 +964,91 @@ export const EnergyMapCalculator = () => {
     cardioFavouritesModal.open();
   }, [cardioFavouritesModal]);
 
+  // Food Entry Handlers (following CardioSession pattern)
+  const resetFoodEntryForm = useCallback(() => {
+    setFoodName('');
+    setFoodCalories('');
+    setFoodProtein('');
+    setFoodCarbs('');
+    setFoodFats('');
+    setEditingFoodEntryId(null);
+    setFoodEntryMode('add');
+  }, []);
+
+  const openFoodEntryModal = useCallback(() => {
+    resetFoodEntryForm();
+    foodEntryModal.open();
+  }, [foodEntryModal, resetFoodEntryForm]);
+
+  const handleEditFoodEntry = useCallback(
+    (entryId) => {
+      const dateEntries = nutritionData[trackerSelectedDate] || [];
+      const existing = dateEntries.find((entry) => entry.id === entryId);
+      if (!existing) {
+        return;
+      }
+
+      setFoodName(existing.name || '');
+      setFoodCalories(String(existing.calories || ''));
+      setFoodProtein(String(existing.protein || ''));
+      setFoodCarbs(String(existing.carbs || ''));
+      setFoodFats(String(existing.fats || ''));
+      setEditingFoodEntryId(entryId);
+      setFoodEntryMode('edit');
+      foodEntryModal.open();
+    },
+    [foodEntryModal, nutritionData, trackerSelectedDate]
+  );
+
+  const handleFoodEntrySave = useCallback(() => {
+    const entry = {
+      id: editingFoodEntryId || Date.now(),
+      name: foodName.trim(),
+      calories: parseFloat(foodCalories) || 0,
+      protein: parseFloat(foodProtein) || 0,
+      carbs: parseFloat(foodCarbs) || 0,
+      fats: parseFloat(foodFats) || 0,
+      timestamp: new Date().toISOString(),
+    };
+
+    if (editingFoodEntryId) {
+      updateFoodEntry(trackerSelectedDate, entry);
+    } else {
+      addFoodEntry(trackerSelectedDate, entry);
+    }
+
+    foodEntryModal.requestClose();
+  }, [
+    addFoodEntry,
+    editingFoodEntryId,
+    foodCalories,
+    foodCarbs,
+    foodEntryModal,
+    foodFats,
+    foodName,
+    foodProtein,
+    trackerSelectedDate,
+    updateFoodEntry,
+  ]);
+
+  const handleToggleTrackerCaloriePicker = useCallback(() => {
+    setShowTrackerCaloriePicker((prev) => !prev);
+  }, []);
+
+  const handleTrackerStepRangeChange = useCallback((range) => {
+    setTrackerStepRange(range);
+    setShowTrackerCaloriePicker(false);
+  }, []);
+
+  useEffect(() => {
+    if (foodEntryModal.isClosing) {
+      const timer = setTimeout(() => {
+        resetFoodEntryForm();
+      }, MODAL_CLOSE_DELAY);
+      return () => clearTimeout(timer);
+    }
+  }, [foodEntryModal.isClosing, resetFoodEntryForm]);
+
   const handleCreateFavourite = useCallback(
     (template) => {
       const source = template ?? cardioDraft;
@@ -1422,8 +1521,8 @@ export const EnergyMapCalculator = () => {
               <div className="w-full flex-shrink-0 px-2 sm:px-4 md:px-6">
                 <TrackerScreen
                   nutritionData={nutritionData}
-                  onAddFoodEntry={addFoodEntry}
-                  onUpdateFoodEntry={updateFoodEntry}
+                  onAddFoodEntry={openFoodEntryModal}
+                  onEditFoodEntry={handleEditFoodEntry}
                   onDeleteFoodEntry={deleteFoodEntry}
                   targetProtein={Math.round(userData.weight * 2)}
                   targetFats={Math.round(userData.weight * 0.8)}
@@ -1433,6 +1532,11 @@ export const EnergyMapCalculator = () => {
                   getRangeDetails={getRangeDetails}
                   calendarModal={calendarPickerModal}
                   selectedDate={trackerSelectedDate}
+                  selectedStepRange={trackerStepRange}
+                  onStepRangeChange={handleTrackerStepRangeChange}
+                  showCalorieTargetPicker={showTrackerCaloriePicker}
+                  onToggleCalorieTargetPicker={handleToggleTrackerCaloriePicker}
+                  isSwiping={isSwiping}
                 />
               </div>
 
@@ -1822,6 +1926,24 @@ export const EnergyMapCalculator = () => {
           setCalendarMonth(month);
           setCalendarYear(year);
         }}
+      />
+
+      <FoodEntryModal
+        isOpen={foodEntryModal.isOpen}
+        isClosing={foodEntryModal.isClosing}
+        onClose={foodEntryModal.requestClose}
+        onSave={handleFoodEntrySave}
+        foodName={foodName}
+        setFoodName={setFoodName}
+        calories={foodCalories}
+        setCalories={setFoodCalories}
+        protein={foodProtein}
+        setProtein={setFoodProtein}
+        carbs={foodCarbs}
+        setCarbs={setFoodCarbs}
+        fats={foodFats}
+        setFats={setFoodFats}
+        isEditing={foodEntryMode === 'edit'}
       />
 
       {/* PhaseInsightsModal removed */}

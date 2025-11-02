@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Target,
   Plus,
@@ -11,6 +12,7 @@ import {
   Edit2,
   ChevronDown,
   Calendar,
+  CalendarCog,
 } from 'lucide-react';
 
 const getTodayDate = () => {
@@ -59,7 +61,7 @@ const CircularProgress = ({ percent, color, size = 120, strokeWidth = 10 }) => {
 export const TrackerScreen = ({
   nutritionData = {},
   onAddFoodEntry,
-  onUpdateFoodEntry,
+  onEditFoodEntry,
   onDeleteFoodEntry,
   targetProtein = 150,
   targetFats = 70,
@@ -69,19 +71,13 @@ export const TrackerScreen = ({
   getRangeDetails,
   calendarModal,
   selectedDate: selectedDateProp,
+  selectedStepRange,
+  onStepRangeChange,
+  showCalorieTargetPicker,
+  onToggleCalorieTargetPicker,
+  isSwiping,
 }) => {
   const selectedDate = selectedDateProp || getTodayDate();
-  const [isAddingFood, setIsAddingFood] = useState(false);
-  const [editingEntry, setEditingEntry] = useState(null);
-  const [selectedStepRange, setSelectedStepRange] = useState('12k');
-  const [showCalorieTargetPicker, setShowCalorieTargetPicker] = useState(false);
-
-  // Form state
-  const [foodName, setFoodName] = useState('');
-  const [calories, setCalories] = useState('');
-  const [protein, setProtein] = useState('');
-  const [carbs, setCarbs] = useState('');
-  const [fats, setFats] = useState('');
 
   // Calculate ranges based on bodyweight (matching InsightsScreen)
   // targetProtein is passed as weight * 2, so range is weight * 2.0 to weight * 2.4
@@ -96,6 +92,8 @@ export const TrackerScreen = ({
     const entries = nutritionData[selectedDate] || [];
     return Array.isArray(entries) ? entries : [];
   }, [nutritionData, selectedDate]);
+
+  const hasFoodEntries = dayEntries.length > 0;
 
   // Calculate totals
   const totals = useMemo(() => {
@@ -149,61 +147,6 @@ export const TrackerScreen = ({
     Math.round((totals.carbs / targetCarbs) * 100)
   );
 
-  const resetForm = () => {
-    setFoodName('');
-    setCalories('');
-    setProtein('');
-    setCarbs('');
-    setFats('');
-    setEditingEntry(null);
-  };
-
-  const handleStartAdd = () => {
-    resetForm();
-    setIsAddingFood(true);
-  };
-
-  const handleStartEdit = (entry) => {
-    setFoodName(entry.name);
-    setCalories(String(entry.calories || ''));
-    setProtein(String(entry.protein || ''));
-    setCarbs(String(entry.carbs || ''));
-    setFats(String(entry.fats || ''));
-    setEditingEntry(entry);
-    setIsAddingFood(true);
-  };
-
-  const handleCancel = () => {
-    setIsAddingFood(false);
-    resetForm();
-  };
-
-  const handleSave = () => {
-    if (!foodName.trim()) {
-      window.alert('Please enter a food name');
-      return;
-    }
-
-    const entry = {
-      id: editingEntry?.id || Date.now(),
-      name: foodName.trim(),
-      calories: parseFloat(calories) || 0,
-      protein: parseFloat(protein) || 0,
-      carbs: parseFloat(carbs) || 0,
-      fats: parseFloat(fats) || 0,
-      timestamp: editingEntry?.timestamp || new Date().toISOString(),
-    };
-
-    if (editingEntry) {
-      onUpdateFoodEntry?.(selectedDate, entry);
-    } else {
-      onAddFoodEntry?.(selectedDate, entry);
-    }
-
-    setIsAddingFood(false);
-    resetForm();
-  };
-
   const handleDelete = (entryId) => {
     if (window.confirm('Delete this food entry?')) {
       onDeleteFoodEntry?.(selectedDate, entryId);
@@ -234,7 +177,7 @@ export const TrackerScreen = ({
             onClick={() => calendarModal?.open()}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-all active:scale-95 flex items-center gap-2"
           >
-            <Calendar size={20} />
+            <CalendarCog size={20} />
             <span className="hidden md:inline">Calendar</span>
           </button>
         </div>
@@ -263,7 +206,7 @@ export const TrackerScreen = ({
         {/* Calorie Target Selector */}
         <div className="relative">
           <button
-            onClick={() => setShowCalorieTargetPicker(!showCalorieTargetPicker)}
+            onClick={() => onToggleCalorieTargetPicker?.()}
             className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-left flex items-center justify-between hover:bg-slate-750 transition-all"
           >
             <div className="flex-1">
@@ -293,8 +236,7 @@ export const TrackerScreen = ({
                   <button
                     key={range}
                     onClick={() => {
-                      setSelectedStepRange(range);
-                      setShowCalorieTargetPicker(false);
+                      onStepRangeChange?.(range);
                     }}
                     className={`w-full px-4 py-3 text-left hover:bg-slate-700 transition-all border-b border-slate-700 last:border-b-0 ${
                       isSelected ? 'bg-slate-700' : ''
@@ -449,200 +391,163 @@ export const TrackerScreen = ({
         </div>
       </div>
 
-      {/* Add/Edit Food Form */}
-      {isAddingFood && (
-        <div className="bg-slate-800 rounded-2xl p-6 border border-emerald-500 shadow-2xl">
-          <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
-            <Utensils className="text-emerald-400" size={20} />
-            {editingEntry ? 'Edit Food Entry' : 'Add Food Entry'}
-          </h3>
-
-          <div className="space-y-4">
-            {/* Food Name */}
-            <div>
-              <label className="block text-slate-300 text-sm font-semibold mb-2">
-                Food Name
-              </label>
-              <input
-                type="text"
-                value={foodName}
-                onChange={(e) => setFoodName(e.target.value)}
-                placeholder="e.g., Chicken Breast"
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-
-            {/* Calories */}
-            <div>
-              <label className="block text-slate-300 text-sm font-semibold mb-2">
-                Calories
-              </label>
-              <input
-                type="number"
-                value={calories}
-                onChange={(e) => setCalories(e.target.value)}
-                placeholder="0"
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-
-            {/* Macros Grid */}
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className="block text-slate-300 text-xs font-semibold mb-2">
-                  Protein (g)
-                </label>
-                <input
-                  type="number"
-                  value={protein}
-                  onChange={(e) => setProtein(e.target.value)}
-                  placeholder="0"
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-300 text-xs font-semibold mb-2">
-                  Carbs (g)
-                </label>
-                <input
-                  type="number"
-                  value={carbs}
-                  onChange={(e) => setCarbs(e.target.value)}
-                  placeholder="0"
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-300 text-xs font-semibold mb-2">
-                  Fats (g)
-                </label>
-                <input
-                  type="number"
-                  value={fats}
-                  onChange={(e) => setFats(e.target.value)}
-                  placeholder="0"
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={handleCancel}
-                className="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                className="flex-1 px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-semibold transition-all"
-              >
-                {editingEntry ? 'Save Changes' : 'Add Food'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Food Entries List */}
-      <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-white font-bold text-lg flex items-center gap-2">
-            <Utensils className="text-blue-400" size={20} />
-            Food Entries ({dayEntries.length})
-          </h3>
-          <button
-            onClick={handleStartAdd}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-semibold transition-all active:scale-95 flex items-center gap-2"
-          >
-            <Plus size={18} />
-            <span className="hidden md:inline">Add Meal</span>
-          </button>
-        </div>
-
-        {dayEntries.length === 0 ? (
-          <div className="text-center py-8">
-            <Utensils className="mx-auto text-slate-600 mb-3" size={48} />
-            <p className="text-slate-400 text-sm">
-              No food entries for this day yet
-            </p>
-            <button
-              onClick={handleStartAdd}
-              className="mt-4 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-semibold transition-all active:scale-95 inline-flex items-center gap-2"
+      {/* Food Entries Section - Following HomeScreen Cardio Pattern */}
+      <motion.div
+        className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl"
+        layout={!isSwiping}
+        initial={false}
+        transition={{ type: 'spring', stiffness: 120, damping: 18 }}
+      >
+        <AnimatePresence mode="wait" initial={false}>
+          {hasFoodEntries ? (
+            <motion.div
+              key="food-list"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
             >
-              <Plus size={16} />
-              Add First Entry
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {dayEntries.map((entry) => (
-              <div
-                key={entry.id}
-                className="bg-slate-700 rounded-lg p-4 border border-slate-600 hover:border-slate-500 transition-all"
+              <motion.div
+                className="flex items-center justify-between mb-4"
+                layout={isSwiping ? false : 'position'}
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
               >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <h4 className="text-white font-semibold text-base">
-                      {entry.name}
-                    </h4>
-                    <p className="text-slate-400 text-xs mt-1">
-                      {new Date(entry.timestamp).toLocaleTimeString('en-US', {
-                        hour: 'numeric',
-                        minute: '2-digit',
-                      })}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleStartEdit(entry)}
-                      className="p-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-all active:scale-95"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(entry.id)}
-                      className="p-2 bg-red-600 hover:bg-red-500 text-white rounded-lg transition-all active:scale-95"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <Utensils className="text-emerald-400" size={24} />
+                  <h2 className="text-xl font-bold text-white">
+                    Food Entries ({dayEntries.length})
+                  </h2>
                 </div>
+                <motion.button
+                  onClick={() => onAddFoodEntry?.()}
+                  type="button"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all"
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  <Plus size={20} />
+                  Add
+                </motion.button>
+              </motion.div>
 
-                <div className="grid grid-cols-4 gap-2 text-center">
-                  <div>
-                    <p className="text-orange-400 font-bold text-lg">
-                      {entry.calories}
+              <motion.div layout={!isSwiping} className="space-y-3">
+                <AnimatePresence initial={false}>
+                  {dayEntries.map((entry) => (
+                    <motion.div
+                      key={entry.id}
+                      layout={!isSwiping}
+                      initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -12, scale: 0.95 }}
+                      transition={{ duration: 0.25, ease: 'easeOut' }}
+                      className="bg-slate-700 rounded-lg p-4 shadow-lg shadow-slate-900/20"
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h4 className="text-white font-semibold text-base">
+                            {entry.name}
+                          </h4>
+                          <p className="text-slate-400 text-xs mt-1">
+                            {new Date(entry.timestamp).toLocaleTimeString(
+                              'en-US',
+                              {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                              }
+                            )}
+                          </p>
+                        </div>
+                        <div className="flex items-end gap-3 pt-1">
+                          <motion.button
+                            onClick={() => onEditFoodEntry?.(entry.id)}
+                            type="button"
+                            className="text-slate-200 hover:text-white transition-all"
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                          >
+                            <Edit2 size={22} />
+                          </motion.button>
+                          <motion.button
+                            onClick={() => handleDelete(entry.id)}
+                            type="button"
+                            className="text-red-400 hover:text-red-300 transition-all"
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                          >
+                            <Trash2 size={22} />
+                          </motion.button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-2 text-center">
+                        <div>
+                          <p className="text-orange-400 font-bold text-lg">
+                            {entry.calories}
+                          </p>
+                          <p className="text-slate-400 text-xs">cal</p>
+                        </div>
+                        <div>
+                          <p className="text-red-400 font-bold text-lg">
+                            {entry.protein}
+                          </p>
+                          <p className="text-slate-400 text-xs">protein</p>
+                        </div>
+                        <div>
+                          <p className="text-amber-400 font-bold text-lg">
+                            {entry.carbs}
+                          </p>
+                          <p className="text-slate-400 text-xs">carbs</p>
+                        </div>
+                        <div>
+                          <p className="text-yellow-400 font-bold text-lg">
+                            {entry.fats}
+                          </p>
+                          <p className="text-slate-400 text-xs">fats</p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </motion.div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="food-empty"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+            >
+              <motion.button
+                onClick={() => onAddFoodEntry?.()}
+                type="button"
+                className="w-full flex items-center justify-between p-4 hover:bg-slate-700/50 rounded-xl transition-all group"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
+              >
+                <div className="flex items-center gap-3">
+                  <Utensils className="text-emerald-400" size={24} />
+                  <div className="text-left">
+                    <h2 className="text-lg font-bold text-white">
+                      Add Food Entry
+                    </h2>
+                    <p className="text-slate-400 text-sm">
+                      Track your meals and nutrition
                     </p>
-                    <p className="text-slate-400 text-xs">cal</p>
-                  </div>
-                  <div>
-                    <p className="text-red-400 font-bold text-lg">
-                      {entry.protein}
-                    </p>
-                    <p className="text-slate-400 text-xs">protein</p>
-                  </div>
-                  <div>
-                    <p className="text-amber-400 font-bold text-lg">
-                      {entry.carbs}
-                    </p>
-                    <p className="text-slate-400 text-xs">carbs</p>
-                  </div>
-                  <div>
-                    <p className="text-yellow-400 font-bold text-lg">
-                      {entry.fats}
-                    </p>
-                    <p className="text-slate-400 text-xs">fats</p>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+                <Plus
+                  className="text-slate-400 group-hover:text-emerald-400 transition-colors"
+                  size={24}
+                />
+              </motion.button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
     </div>
   );
 };
