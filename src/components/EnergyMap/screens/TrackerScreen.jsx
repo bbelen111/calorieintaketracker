@@ -200,7 +200,9 @@ export const TrackerScreen = ({
               Total Calories
             </span>
           </div>
-          <p className="text-blue-300 font-bold text-2xl">{totals.calories}</p>
+          <p className="text-emerald-400 font-bold text-2xl">
+            {totals.calories}
+          </p>
         </div>
 
         {/* Calorie Target Selector */}
@@ -277,7 +279,7 @@ export const TrackerScreen = ({
         </div>
 
         {/* Progress Bar */}
-        <div className="mt-4">
+        <div className="mt-4 mb-6">
           <div className="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
             <div
               className={`h-full transition-all duration-300 ${
@@ -304,10 +306,6 @@ export const TrackerScreen = ({
             )}
           </p>
         </div>
-      </div>
-
-      {/* Macros */}
-      <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
         <div className="grid grid-cols-3 gap-4">
           {/* Protein */}
           <div className="flex flex-col items-center">
@@ -484,7 +482,7 @@ export const TrackerScreen = ({
 
                       <div className="grid grid-cols-4 gap-2 text-center">
                         <div>
-                          <p className="text-orange-400 font-bold text-lg">
+                          <p className="text-emerald-400 font-bold text-lg">
                             {entry.calories}
                           </p>
                           <p className="text-slate-400 text-xs">cal</p>
