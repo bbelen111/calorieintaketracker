@@ -238,11 +238,13 @@ export const TrackerScreen = ({
             <span className="hidden md:inline">Calendar</span>
           </button>
         </div>
-        <div className="flex items-center gap-2 text-slate-300">
-          <Calendar size={18} className="text-blue-400" />
-          <span className="text-lg font-semibold">
-            {formatDate(selectedDate)}
-          </span>
+        <div className="bg-slate-700 rounded-lg px-4 py-2 border border-slate-600">
+          <div className="flex items-center gap-2">
+            <Calendar size={18} className="text-blue-400" />
+            <span className="text-white text-md font-semibold">
+              {formatDate(selectedDate)}
+            </span>
+          </div>
         </div>
       </div>
 
