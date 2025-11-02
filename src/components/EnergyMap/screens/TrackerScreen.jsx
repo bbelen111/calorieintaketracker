@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import {
-  Bookmark,
   Target,
   Plus,
   Utensils,
@@ -222,9 +221,9 @@ export const TrackerScreen = ({
 
   return (
     <div className="space-y-6 pb-10">
-      {/* Header - Weekly Snapshot */}
+      {/* Header */}
       <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <Target className="text-blue-400" size={32} />
             <h1 className="text-2xl md:text-3xl font-bold text-white">
@@ -239,133 +238,132 @@ export const TrackerScreen = ({
             <span className="hidden md:inline">Calendar</span>
           </button>
         </div>
+        <div className="flex items-center gap-2 text-slate-300">
+          <Calendar size={18} className="text-blue-400" />
+          <span className="text-lg font-semibold">
+            {formatDate(selectedDate)}
+          </span>
+        </div>
       </div>
 
-      {/* Daily Summary */}
+      {/* Total Calories */}
       <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
-        <h2 className="text-white font-bold text-lg mb-6 flex items-center gap-2">
-          <Bookmark className="text-blue-400" size={20} />
-          Daily Summary - {formatDate(selectedDate)}
-        </h2>
-        {/* Total Calories */}
-        <div className="bg-slate-700 rounded-lg p-4 border border-slate-600 mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Flame className="text-blue-400" size={20} />
-              <span className="text-slate-300 text-sm font-semibold">
-                Total Calories
-              </span>
-            </div>
-            <p className="text-white font-bold text-2xl">{totals.calories}</p>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Flame className="text-blue-400" size={20} />
+            <span className="text-white text-lg font-bold tracking-wide">
+              Total Calories
+            </span>
           </div>
-
-          {/* Calorie Target Selector */}
-          <div className="relative">
-            <button
-              onClick={() =>
-                setShowCalorieTargetPicker(!showCalorieTargetPicker)
-              }
-              className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-left flex items-center justify-between hover:bg-slate-750 transition-all"
-            >
-              <div className="flex-1">
-                <p className="text-slate-400 text-xs mb-0.5">Target</p>
-                <p className="text-white text-sm font-semibold">
-                  {targetCalories} cal
-                  <span className="text-slate-400 font-normal ml-2">
-                    ({selectedStepRange} steps)
-                  </span>
-                </p>
-              </div>
-              <ChevronDown
-                size={18}
-                className={`text-white transition-transform duration-300 ${
-                  showCalorieTargetPicker ? 'rotate-180' : ''
-                }`}
-              />
-            </button>
-
-            {/* Dropdown */}
-            {showCalorieTargetPicker && (
-              <div className="absolute z-10 w-full mt-2 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl max-h-64 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
-                {stepRanges.map((range) => {
-                  const rangeData = getRangeDetails?.(range);
-                  const isSelected = range === selectedStepRange;
-                  return (
-                    <button
-                      key={range}
-                      onClick={() => {
-                        setSelectedStepRange(range);
-                        setShowCalorieTargetPicker(false);
-                      }}
-                      className={`w-full px-4 py-3 text-left hover:bg-slate-700 transition-all border-b border-slate-700 last:border-b-0 ${
-                        isSelected ? 'bg-slate-700' : ''
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-white font-semibold text-sm">
-                            {range} steps
-                          </p>
-                          <p className="text-slate-400 text-xs">
-                            {selectedGoal === 'maintenance'
-                              ? 'Maintain weight'
-                              : selectedGoal === 'bulking'
-                                ? 'Lean bulk'
-                                : selectedGoal === 'aggressive_bulk'
-                                  ? 'Aggressive bulk'
-                                  : selectedGoal === 'cutting'
-                                    ? 'Moderate cut'
-                                    : selectedGoal === 'aggressive_cut'
-                                      ? 'Aggressive cut'
-                                      : 'Unknown'}{' '}
-                            • {selectedDay === 'training' ? 'Training' : 'Rest'}{' '}
-                            day
-                          </p>
-                        </div>
-                        <p
-                          className={`font-bold ${isSelected ? 'text-emerald-400' : 'text-slate-300'}`}
-                        >
-                          {rangeData?.targetCalories || 0}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Progress Bar */}
-          <div className="mt-3">
-            <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
-              <div
-                className={`h-full transition-all duration-300 ${
-                  caloriesPercent >= 100 ? 'bg-red-500' : 'bg-emerald-500'
-                }`}
-                style={{ width: `${caloriesPercent}%` }}
-              />
-            </div>
-            <p className="text-slate-400 text-xs mt-1">
-              {caloriesRemaining >= 0 ? (
-                <>
-                  <span className="text-emerald-400 font-semibold">
-                    {caloriesRemaining}
-                  </span>{' '}
-                  remaining
-                </>
-              ) : (
-                <>
-                  <span className="text-red-400 font-semibold">
-                    {Math.abs(caloriesRemaining)}
-                  </span>{' '}
-                  over target
-                </>
-              )}
-            </p>
-          </div>
+          <p className="text-blue-300 font-bold text-2xl">{totals.calories}</p>
         </div>
 
-        {/* Macros - Circular Progress */}
+        {/* Calorie Target Selector */}
+        <div className="relative">
+          <button
+            onClick={() => setShowCalorieTargetPicker(!showCalorieTargetPicker)}
+            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-left flex items-center justify-between hover:bg-slate-750 transition-all"
+          >
+            <div className="flex-1">
+              <p className="text-slate-400 text-xs mb-0.5">Target</p>
+              <p className="text-white text-sm font-semibold">
+                {targetCalories} cal
+                <span className="text-slate-400 font-normal ml-2">
+                  ({selectedStepRange} steps)
+                </span>
+              </p>
+            </div>
+            <ChevronDown
+              size={18}
+              className={`text-white transition-transform duration-300 ${
+                showCalorieTargetPicker ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
+
+          {/* Dropdown */}
+          {showCalorieTargetPicker && (
+            <div className="absolute z-10 w-full mt-2 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl max-h-64 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
+              {stepRanges.map((range) => {
+                const rangeData = getRangeDetails?.(range);
+                const isSelected = range === selectedStepRange;
+                return (
+                  <button
+                    key={range}
+                    onClick={() => {
+                      setSelectedStepRange(range);
+                      setShowCalorieTargetPicker(false);
+                    }}
+                    className={`w-full px-4 py-3 text-left hover:bg-slate-700 transition-all border-b border-slate-700 last:border-b-0 ${
+                      isSelected ? 'bg-slate-700' : ''
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-white font-semibold text-sm">
+                          {range} steps
+                        </p>
+                        <p className="text-slate-400 text-xs">
+                          {selectedGoal === 'maintenance'
+                            ? 'Maintain weight'
+                            : selectedGoal === 'bulking'
+                              ? 'Lean bulk'
+                              : selectedGoal === 'aggressive_bulk'
+                                ? 'Aggressive bulk'
+                                : selectedGoal === 'cutting'
+                                  ? 'Moderate cut'
+                                  : selectedGoal === 'aggressive_cut'
+                                    ? 'Aggressive cut'
+                                    : 'Unknown'}{' '}
+                          • {selectedDay === 'training' ? 'Training' : 'Rest'}{' '}
+                          day
+                        </p>
+                      </div>
+                      <p
+                        className={`font-bold ${isSelected ? 'text-emerald-400' : 'text-slate-300'}`}
+                      >
+                        {rangeData?.targetCalories || 0}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Progress Bar */}
+        <div className="mt-4">
+          <div className="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
+            <div
+              className={`h-full transition-all duration-300 ${
+                caloriesPercent >= 100 ? 'bg-red-500' : 'bg-emerald-500'
+              }`}
+              style={{ width: `${caloriesPercent}%` }}
+            />
+          </div>
+          <p className="text-slate-400 text-xs mt-1">
+            {caloriesRemaining >= 0 ? (
+              <>
+                <span className="text-emerald-400 font-semibold">
+                  {caloriesRemaining}
+                </span>{' '}
+                remaining
+              </>
+            ) : (
+              <>
+                <span className="text-red-400 font-semibold">
+                  {Math.abs(caloriesRemaining)}
+                </span>{' '}
+                over target
+              </>
+            )}
+          </p>
+        </div>
+      </div>
+
+      {/* Macros */}
+      <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
         <div className="grid grid-cols-3 gap-4">
           {/* Protein */}
           <div className="flex flex-col items-center">
