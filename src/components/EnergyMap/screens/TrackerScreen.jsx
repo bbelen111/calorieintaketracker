@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Target,
@@ -13,7 +13,9 @@ import {
   ChevronDown,
   Calendar,
   CalendarCog,
+  ChevronUp,
 } from 'lucide-react';
+import { MEAL_TYPE_ORDER, getMealTypeById } from '../../../constants/mealTypes';
 
 const getTodayDate = () => {
   const today = new Date();
@@ -63,6 +65,7 @@ export const TrackerScreen = ({
   onAddFoodEntry,
   onEditFoodEntry,
   onDeleteFoodEntry,
+  onDeleteMeal,
   targetProtein = 150,
   targetFats = 70,
   stepRanges = [],
@@ -78,6 +81,7 @@ export const TrackerScreen = ({
   isSwiping,
 }) => {
   const selectedDate = selectedDateProp || getTodayDate();
+  const [collapsedMeals, setCollapsedMeals] = useState({});
 
   // Calculate ranges based on bodyweight (matching InsightsScreen)
   // targetProtein is passed as weight * 2, so range is weight * 2.0 to weight * 2.4
@@ -87,17 +91,30 @@ export const TrackerScreen = ({
   const fatsMin = Math.round(targetFats); // 0.8g per kg (already calculated)
   const fatsMax = Math.round(targetFats * 1.25); // 1.0g per kg (0.8 * 1.25 = 1.0)
 
-  // Get entries for selected date
-  const dayEntries = useMemo(() => {
-    const entries = nutritionData[selectedDate] || [];
-    return Array.isArray(entries) ? entries : [];
+  // Get data for selected date - now nested by meal type
+  const dayData = useMemo(() => {
+    const data = nutritionData[selectedDate] || {};
+    // Organize meals by type with entries
+    const meals = {};
+    let hasEntries = false;
+
+    MEAL_TYPE_ORDER.forEach((mealTypeId) => {
+      const entries = Array.isArray(data[mealTypeId]) ? data[mealTypeId] : [];
+      if (entries.length > 0) {
+        meals[mealTypeId] = entries;
+        hasEntries = true;
+      }
+    });
+
+    return { meals, hasEntries };
   }, [nutritionData, selectedDate]);
 
-  const hasFoodEntries = dayEntries.length > 0;
+  const { meals, hasEntries: hasFoodEntries } = dayData;
 
-  // Calculate totals
+  // Calculate totals across all meals
   const totals = useMemo(() => {
-    return dayEntries.reduce(
+    const allEntries = Object.values(meals).flat();
+    return allEntries.reduce(
       (acc, entry) => ({
         calories: acc.calories + (entry.calories || 0),
         protein: acc.protein + (entry.protein || 0),
@@ -106,7 +123,7 @@ export const TrackerScreen = ({
       }),
       { calories: 0, protein: 0, carbs: 0, fats: 0 }
     );
-  }, [dayEntries]);
+  }, [meals]);
 
   const proteinPercent = Math.min(
     100,
@@ -147,10 +164,25 @@ export const TrackerScreen = ({
     Math.round((totals.carbs / targetCarbs) * 100)
   );
 
-  const handleDelete = (entryId) => {
+  const handleDelete = (mealType, entryId) => {
     if (window.confirm('Delete this food entry?')) {
-      onDeleteFoodEntry?.(selectedDate, entryId);
+      onDeleteFoodEntry?.(selectedDate, mealType, entryId);
     }
+  };
+
+  const handleDeleteMeal = (mealType) => {
+    if (
+      window.confirm(`Delete all ${getMealTypeById(mealType).label} entries?`)
+    ) {
+      onDeleteMeal?.(selectedDate, mealType);
+    }
+  };
+
+  const toggleMealCollapse = (mealType) => {
+    setCollapsedMeals((prev) => ({
+      ...prev,
+      [mealType]: !prev[mealType],
+    }));
   };
 
   const formatDate = (dateStr) => {
@@ -389,7 +421,7 @@ export const TrackerScreen = ({
         </div>
       </div>
 
-      {/* Food Entries Section - Following HomeScreen Cardio Pattern */}
+      {/* Food Entries Section - Grouped by Meal Type */}
       <motion.div
         className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl"
         layout={!isSwiping}
@@ -415,9 +447,7 @@ export const TrackerScreen = ({
               >
                 <div className="flex items-center gap-2">
                   <Utensils className="text-emerald-400" size={24} />
-                  <h2 className="text-xl font-bold text-white">
-                    Food Entries ({dayEntries.length})
-                  </h2>
+                  <h2 className="text-xl font-bold text-white">Meals</h2>
                 </div>
                 <motion.button
                   onClick={() => onAddFoodEntry?.()}
@@ -431,84 +461,181 @@ export const TrackerScreen = ({
                 </motion.button>
               </motion.div>
 
-              <motion.div layout={!isSwiping} className="space-y-3">
-                <AnimatePresence initial={false}>
-                  {dayEntries.map((entry) => (
-                    <motion.div
-                      key={entry.id}
-                      layout={!isSwiping}
-                      initial={{ opacity: 0, y: 12, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -12, scale: 0.95 }}
-                      transition={{ duration: 0.25, ease: 'easeOut' }}
-                      className="bg-slate-700 rounded-lg p-4 shadow-lg shadow-slate-900/20"
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <h4 className="text-white font-semibold text-base">
-                            {entry.name}
-                          </h4>
-                          <p className="text-slate-400 text-xs mt-1">
-                            {new Date(entry.timestamp).toLocaleTimeString(
-                              'en-US',
-                              {
-                                hour: 'numeric',
-                                minute: '2-digit',
-                              }
-                            )}
-                          </p>
-                        </div>
-                        <div className="flex items-end gap-3 pt-1">
-                          <motion.button
-                            onClick={() => onEditFoodEntry?.(entry.id)}
-                            type="button"
-                            className="text-slate-200 hover:text-white transition-all"
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                          >
-                            <Edit2 size={22} />
-                          </motion.button>
-                          <motion.button
-                            onClick={() => handleDelete(entry.id)}
-                            type="button"
-                            className="text-red-400 hover:text-red-300 transition-all"
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                          >
-                            <Trash2 size={22} />
-                          </motion.button>
-                        </div>
-                      </div>
+              <motion.div layout={!isSwiping} className="space-y-4">
+                {MEAL_TYPE_ORDER.map((mealTypeId) => {
+                  const mealEntries = meals[mealTypeId];
+                  if (!mealEntries || mealEntries.length === 0) return null;
 
-                      <div className="grid grid-cols-4 gap-2 text-center">
-                        <div>
-                          <p className="text-emerald-400 font-bold text-lg">
-                            {entry.calories}
-                          </p>
-                          <p className="text-slate-400 text-xs">cal</p>
+                  const mealType = getMealTypeById(mealTypeId);
+                  const isCollapsed = collapsedMeals[mealTypeId] || false;
+
+                  // Calculate meal totals
+                  const mealTotals = mealEntries.reduce(
+                    (acc, entry) => ({
+                      calories: acc.calories + (entry.calories || 0),
+                      protein: acc.protein + (entry.protein || 0),
+                      carbs: acc.carbs + (entry.carbs || 0),
+                      fats: acc.fats + (entry.fats || 0),
+                    }),
+                    { calories: 0, protein: 0, carbs: 0, fats: 0 }
+                  );
+
+                  return (
+                    <div
+                      key={mealTypeId}
+                      className="border-b border-slate-700 last:border-b-0 pb-4 last:pb-0"
+                    >
+                      {/* Meal Header */}
+                      <button
+                        onClick={() => toggleMealCollapse(mealTypeId)}
+                        className="w-full flex items-center justify-between hover:bg-slate-700/30 p-2 rounded-lg transition-all mb-2"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">{mealType.icon}</span>
+                          <div className="text-left">
+                            <h3 className="text-white font-bold text-base">
+                              {mealType.label}
+                            </h3>
+                            <p className="text-slate-400 text-xs">
+                              {mealEntries.length} item
+                              {mealEntries.length !== 1 ? 's' : ''} •{' '}
+                              {mealTotals.calories} cal
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-red-400 font-bold text-lg">
-                            {entry.protein}
-                          </p>
-                          <p className="text-slate-400 text-xs">protein</p>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteMeal(mealTypeId);
+                            }}
+                            className="p-1.5 hover:bg-red-500/20 rounded-lg transition-all"
+                            title="Delete meal"
+                          >
+                            <Trash2 className="text-red-400" size={18} />
+                          </button>
+                          {isCollapsed ? (
+                            <ChevronDown className="text-slate-400" size={20} />
+                          ) : (
+                            <ChevronUp className="text-slate-400" size={20} />
+                          )}
                         </div>
-                        <div>
-                          <p className="text-amber-400 font-bold text-lg">
-                            {entry.carbs}
-                          </p>
-                          <p className="text-slate-400 text-xs">carbs</p>
-                        </div>
-                        <div>
-                          <p className="text-yellow-400 font-bold text-lg">
-                            {entry.fats}
-                          </p>
-                          <p className="text-slate-400 text-xs">fats</p>
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
+                      </button>
+
+                      {/* Food Items */}
+                      <AnimatePresence initial={false}>
+                        {!isCollapsed && (
+                          <motion.div
+                            key={`meal-${mealTypeId}`}
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{
+                              duration: 0.3,
+                              ease: [0.4, 0, 0.2, 1],
+                            }}
+                            className="space-y-3 mt-2 overflow-hidden"
+                          >
+                            <div className="space-y-3">
+                              {mealEntries.map((entry) => (
+                                <div
+                                  key={entry.id}
+                                  className="bg-slate-700 rounded-lg p-4 shadow-lg shadow-slate-900/20"
+                                >
+                                  <div className="flex items-start justify-between mb-3">
+                                    <div className="flex-1">
+                                      <h4 className="text-white font-semibold text-base">
+                                        {entry.name}
+                                      </h4>
+                                      <p className="text-slate-400 text-xs mt-1">
+                                        {new Date(
+                                          entry.timestamp
+                                        ).toLocaleTimeString('en-US', {
+                                          hour: 'numeric',
+                                          minute: '2-digit',
+                                        })}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-end gap-3 pt-1">
+                                      <button
+                                        onClick={() =>
+                                          onEditFoodEntry?.(
+                                            mealTypeId,
+                                            entry.id
+                                          )
+                                        }
+                                        type="button"
+                                        className="text-slate-200 hover:text-white transition-colors hover:scale-110 active:scale-95"
+                                      >
+                                        <Edit2 size={22} />
+                                      </button>
+                                      <button
+                                        onClick={() =>
+                                          handleDelete(mealTypeId, entry.id)
+                                        }
+                                        type="button"
+                                        className="text-red-400 hover:text-red-300 transition-colors hover:scale-110 active:scale-95"
+                                      >
+                                        <Trash2 size={22} />
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-4 gap-2 text-center">
+                                    <div>
+                                      <p className="text-emerald-400 font-bold text-lg">
+                                        {entry.calories}
+                                      </p>
+                                      <p className="text-slate-400 text-xs">
+                                        cal
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p className="text-red-400 font-bold text-lg">
+                                        {entry.protein}
+                                      </p>
+                                      <p className="text-slate-400 text-xs">
+                                        protein
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p className="text-amber-400 font-bold text-lg">
+                                        {entry.carbs}
+                                      </p>
+                                      <p className="text-slate-400 text-xs">
+                                        carbs
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p className="text-yellow-400 font-bold text-lg">
+                                        {entry.fats}
+                                      </p>
+                                      <p className="text-slate-400 text-xs">
+                                        fats
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Add to This Meal Button */}
+                            <button
+                              onClick={() => onAddFoodEntry?.(mealTypeId)}
+                              type="button"
+                              className="w-full py-2 border-2 border-dashed border-slate-600 hover:border-emerald-500 rounded-lg text-slate-400 hover:text-emerald-400 transition-all flex items-center justify-center gap-2"
+                            >
+                              <Plus size={16} />
+                              <span className="text-sm font-semibold">
+                                Add to {mealType.label}
+                              </span>
+                            </button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  );
+                })}
               </motion.div>
             </motion.div>
           ) : (

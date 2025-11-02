@@ -501,63 +501,95 @@ export const useEnergyMapData = () => {
     }));
   }, []);
 
-  const addFoodEntry = useCallback((date, entry) => {
-    if (!date || !entry) {
+  const addFoodEntry = useCallback((date, mealType, entry) => {
+    if (!date || !mealType || !entry) {
       return;
     }
 
     setUserData((prev) => {
-      const dateEntries = Array.isArray(prev.nutritionData[date])
-        ? prev.nutritionData[date]
+      const dateData = prev.nutritionData[date] || {};
+      const mealEntries = Array.isArray(dateData[mealType])
+        ? dateData[mealType]
         : [];
 
       return {
         ...prev,
         nutritionData: {
           ...prev.nutritionData,
-          [date]: [...dateEntries, entry],
+          [date]: {
+            ...dateData,
+            [mealType]: [...mealEntries, entry],
+          },
         },
       };
     });
   }, []);
 
-  const updateFoodEntry = useCallback((date, updatedEntry) => {
-    if (!date || !updatedEntry) {
+  const updateFoodEntry = useCallback((date, mealType, updatedEntry) => {
+    if (!date || !mealType || !updatedEntry) {
       return;
     }
 
     setUserData((prev) => {
-      const dateEntries = Array.isArray(prev.nutritionData[date])
-        ? prev.nutritionData[date]
+      const dateData = prev.nutritionData[date] || {};
+      const mealEntries = Array.isArray(dateData[mealType])
+        ? dateData[mealType]
         : [];
 
       return {
         ...prev,
         nutritionData: {
           ...prev.nutritionData,
-          [date]: dateEntries.map((entry) =>
-            entry.id === updatedEntry.id ? updatedEntry : entry
-          ),
+          [date]: {
+            ...dateData,
+            [mealType]: mealEntries.map((entry) =>
+              entry.id === updatedEntry.id ? updatedEntry : entry
+            ),
+          },
         },
       };
     });
   }, []);
 
-  const deleteFoodEntry = useCallback((date, entryId) => {
-    if (!date || entryId == null) {
+  const deleteFoodEntry = useCallback((date, mealType, entryId) => {
+    if (!date || !mealType || entryId == null) {
       return;
     }
 
     setUserData((prev) => {
-      const dateEntries = Array.isArray(prev.nutritionData[date])
-        ? prev.nutritionData[date]
+      const dateData = prev.nutritionData[date] || {};
+      const mealEntries = Array.isArray(dateData[mealType])
+        ? dateData[mealType]
         : [];
 
       return {
         ...prev,
         nutritionData: {
           ...prev.nutritionData,
-          [date]: dateEntries.filter((entry) => entry.id !== entryId),
+          [date]: {
+            ...dateData,
+            [mealType]: mealEntries.filter((entry) => entry.id !== entryId),
+          },
+        },
+      };
+    });
+  }, []);
+
+  const deleteMeal = useCallback((date, mealType) => {
+    if (!date || !mealType) {
+      return;
+    }
+
+    setUserData((prev) => {
+      const dateData = prev.nutritionData[date] || {};
+      // eslint-disable-next-line no-unused-vars
+      const { [mealType]: _, ...remainingMeals } = dateData;
+
+      return {
+        ...prev,
+        nutritionData: {
+          ...prev.nutritionData,
+          [date]: remainingMeals,
         },
       };
     });
@@ -603,5 +635,6 @@ export const useEnergyMapData = () => {
     addFoodEntry,
     updateFoodEntry,
     deleteFoodEntry,
+    deleteMeal,
   };
 };

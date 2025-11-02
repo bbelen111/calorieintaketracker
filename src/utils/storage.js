@@ -71,6 +71,7 @@ export const getDefaultEnergyMapData = () => ({
   cardioFavourites: [],
   customCardioTypes: {},
   nutritionData: {},
+  // nutritionData structure: { 'YYYY-MM-DD': { mealType: [{ id, name, calories, protein, carbs, fats, timestamp }] } }
   trainingTypeOverrides: {
     bodybuilding: {
       label: 'Bodybuilding',
