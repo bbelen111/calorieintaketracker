@@ -493,15 +493,31 @@ export const TrackerScreen = ({
                     { calories: 0, protein: 0, carbs: 0, fats: 0 }
                   );
 
+                  // Get the latest timestamp from entries
+                  const latestTimestamp = mealEntries.reduce(
+                    (latest, entry) => {
+                      const entryTime = new Date(entry.timestamp).getTime();
+                      return entryTime > latest ? entryTime : latest;
+                    },
+                    0
+                  );
+                  const mealTime = new Date(latestTimestamp).toLocaleTimeString(
+                    'en-US',
+                    {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    }
+                  );
+
                   return (
                     <div
                       key={mealTypeId}
-                      className="bg-slate-700 rounded-xl p-4 border border-slate-600"
+                      className="bg-slate-700 rounded-xl p-2 border border-slate-600"
                     >
                       {/* Meal Header */}
                       <button
                         onClick={() => toggleMealCollapse(mealTypeId)}
-                        className="w-full flex items-center justify-between hover:bg-slate-600/50 p-2 rounded-lg transition-all mb-2"
+                        className="w-full flex items-center justify-between hover:bg-slate-600/50 p-2 rounded-lg transition-all"
                       >
                         <div className="flex items-center gap-3">
                           <span className="text-2xl">{mealType.icon}</span>
@@ -512,7 +528,10 @@ export const TrackerScreen = ({
                             <p className="text-slate-400 text-xs">
                               {mealEntries.length} item
                               {mealEntries.length !== 1 ? 's' : ''} •{' '}
-                              {mealTotals.calories} cal
+                              <span className="text-emerald-400">
+                                {mealTotals.calories} cal
+                              </span>{' '}
+                              • {mealTime}
                             </p>
                           </div>
                         </div>
@@ -553,77 +572,49 @@ export const TrackerScreen = ({
                               {mealEntries.map((entry) => (
                                 <div
                                   key={entry.id}
-                                  className="bg-slate-800/50 rounded-lg p-3 border border-slate-600/50"
+                                  className="bg-slate-800/50 rounded-lg p-3 border border-slate-600/50 flex justify-between items-start gap-3 shadow-lg shadow-slate-900/20"
                                 >
-                                  <div className="flex items-center justify-between mb-2">
-                                    <div className="flex-1 min-w-0">
-                                      <h4 className="text-white font-semibold text-sm truncate">
-                                        {entry.name}
-                                      </h4>
-                                      <p className="text-slate-400 text-xs">
-                                        {new Date(
-                                          entry.timestamp
-                                        ).toLocaleTimeString('en-US', {
-                                          hour: 'numeric',
-                                          minute: '2-digit',
-                                        })}
-                                      </p>
-                                    </div>
-                                    <div className="flex items-center gap-2 ml-3">
-                                      <button
-                                        onClick={() =>
-                                          handleEditFood(mealTypeId, entry.id)
-                                        }
-                                        type="button"
-                                        className="text-slate-300 hover:text-white transition-colors hover:scale-110 active:scale-95"
-                                      >
-                                        <Edit2 size={16} />
-                                      </button>
-                                      <button
-                                        onClick={() =>
-                                          handleDeleteFood(mealTypeId, entry.id)
-                                        }
-                                        type="button"
-                                        className="text-red-400 hover:text-red-300 transition-colors hover:scale-110 active:scale-95"
-                                      >
-                                        <Trash2 size={16} />
-                                      </button>
-                                    </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-white font-semibold text-sm truncate">
+                                      {entry.name}
+                                    </p>
+                                    <p className="text-slate-400 text-xs">
+                                      <span className="text-emerald-400">
+                                        {entry.calories} cal
+                                      </span>
+                                      {' • '}
+                                      <span className="text-red-400">
+                                        {entry.protein}p
+                                      </span>
+                                      {' • '}
+                                      <span className="text-yellow-400">
+                                        {entry.fats}f
+                                      </span>
+                                      {' • '}
+                                      <span className="text-amber-400">
+                                        {entry.carbs}c
+                                      </span>
+                                    </p>
                                   </div>
-
-                                  <div className="grid grid-cols-4 gap-2 text-center">
-                                    <div>
-                                      <p className="text-emerald-400 font-bold text-sm">
-                                        {entry.calories}
-                                      </p>
-                                      <p className="text-slate-500 text-xs">
-                                        cal
-                                      </p>
-                                    </div>
-                                    <div>
-                                      <p className="text-red-400 font-bold text-sm">
-                                        {entry.protein}
-                                      </p>
-                                      <p className="text-slate-500 text-xs">
-                                        pro
-                                      </p>
-                                    </div>
-                                    <div>
-                                      <p className="text-yellow-400 font-bold text-sm">
-                                        {entry.fats}
-                                      </p>
-                                      <p className="text-slate-500 text-xs">
-                                        fat
-                                      </p>
-                                    </div>
-                                    <div>
-                                      <p className="text-amber-400 font-bold text-sm">
-                                        {entry.carbs}
-                                      </p>
-                                      <p className="text-slate-500 text-xs">
-                                        carb
-                                      </p>
-                                    </div>
+                                  <div className="flex items-end gap-2">
+                                    <button
+                                      onClick={() =>
+                                        handleEditFood(mealTypeId, entry.id)
+                                      }
+                                      type="button"
+                                      className="text-slate-200 hover:text-white transition-all hover:scale-110 active:scale-95"
+                                    >
+                                      <Edit2 size={18} />
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        handleDeleteFood(mealTypeId, entry.id)
+                                      }
+                                      type="button"
+                                      className="text-red-400 hover:text-red-300 transition-all hover:scale-110 active:scale-95"
+                                    >
+                                      <Trash2 size={18} />
+                                    </button>
                                   </div>
                                 </div>
                               ))}
