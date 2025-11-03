@@ -129,9 +129,11 @@ const CalendarHeatmap = ({
     return new Date(date + 'T00:00:00Z').getUTCDate();
   };
 
-  const formatMacroDisplay = (value) => {
-    if (value === 0) return null;
-    // Show abbreviated numbers
+  const formatMacroDisplay = (value, hasData) => {
+    // Only display if there is data for the day
+    if (!hasData) return null;
+    // Show 0 if value is 0 and hasData is true
+    if (value === 0) return '0';
     if (value >= 1000) {
       return (value / 1000).toFixed(1) + 'k';
     }
@@ -190,6 +192,8 @@ const CalendarHeatmap = ({
                   const macros = getMacrosForDate(day.date);
                   const dayNum = getDayNumber(day.date);
 
+                  // Only show macro insights if there is data for the day
+                  const hasData = day.hasEntries;
                   return (
                     <motion.button
                       key={day.date}
@@ -200,7 +204,7 @@ const CalendarHeatmap = ({
                       whileTap={{ scale: 0.98 }}
                       transition={{ duration: 0.15 }}
                       className={`aspect-square rounded-lg border-2 flex flex-col items-center justify-center gap-0.5 text-xs font-bold transition-colors relative ${getStatusColor(day.date)}`}
-                      aria-label={`Select ${new Date(day.date + 'T00:00:00Z').toLocaleDateString()}${macros.calories > 0 ? `, ${macros.calories} calories` : ''}`}
+                      aria-label={`Select ${new Date(day.date + 'T00:00:00Z').toLocaleDateString()}${hasData ? `, ${macros.calories} calories` : ''}`}
                       aria-pressed={day.date === selectedDate}
                     >
                       {day.hasEntries && (
@@ -209,20 +213,20 @@ const CalendarHeatmap = ({
                       <span className="text-white text-sm font-bold">
                         {dayNum}
                       </span>
-                      {macros.calories > 0 && (
+                      {hasData && (
                         <div className="flex flex-col gap-0 leading-none w-full px-1">
                           <span className="text-emerald-400 text-[9px] font-semibold">
-                            {formatMacroDisplay(macros.calories)}
+                            {formatMacroDisplay(macros.calories, hasData)}
                           </span>
                           <div className="flex items-center justify-between gap-0.5">
                             <span className="text-red-400 text-[7px] font-medium">
-                              P{formatMacroDisplay(macros.protein)}
-                            </span>
-                            <span className="text-amber-400 text-[7px] font-medium">
-                              C{formatMacroDisplay(macros.carbs)}
+                              P:{formatMacroDisplay(macros.protein, hasData)}
                             </span>
                             <span className="text-yellow-400 text-[7px] font-medium">
-                              F{formatMacroDisplay(macros.fats)}
+                              F:{formatMacroDisplay(macros.fats, hasData)}
+                            </span>
+                            <span className="text-amber-400 text-[7px] font-medium">
+                              C:{formatMacroDisplay(macros.carbs, hasData)}
                             </span>
                           </div>
                         </div>
@@ -713,23 +717,6 @@ export const CalendarPickerModal = ({
               </div>
             </div>
 
-            {/* Carbs */}
-            <div className="flex flex-col items-center">
-              <div className="bg-slate-800 rounded-lg p-2 w-full flex flex-col items-center border border-slate-600">
-                <Cookie className="text-amber-400 mb-1" size={16} />
-                <motion.p
-                  className="text-amber-400 font-bold text-base"
-                  key={monthlyInsights.avgCarbs}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.5 }}
-                >
-                  <AnimatedNumber value={monthlyInsights.avgCarbs} />
-                </motion.p>
-                <p className="text-slate-400 text-[9px] font-medium">carbs</p>
-              </div>
-            </div>
-
             {/* Fats */}
             <div className="flex flex-col items-center">
               <div className="bg-slate-800 rounded-lg p-2 w-full flex flex-col items-center border border-slate-600">
@@ -744,6 +731,23 @@ export const CalendarPickerModal = ({
                   <AnimatedNumber value={monthlyInsights.avgFats} />
                 </motion.p>
                 <p className="text-slate-400 text-[9px] font-medium">fats</p>
+              </div>
+            </div>
+
+            {/* Carbs */}
+            <div className="flex flex-col items-center">
+              <div className="bg-slate-800 rounded-lg p-2 w-full flex flex-col items-center border border-slate-600">
+                <Cookie className="text-amber-400 mb-1" size={16} />
+                <motion.p
+                  className="text-amber-400 font-bold text-base"
+                  key={monthlyInsights.avgCarbs}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <AnimatedNumber value={monthlyInsights.avgCarbs} />
+                </motion.p>
+                <p className="text-slate-400 text-[9px] font-medium">carbs</p>
               </div>
             </div>
           </div>
