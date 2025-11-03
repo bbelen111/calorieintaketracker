@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calendar,
@@ -658,16 +658,24 @@ export const CalendarPickerModal = ({
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp className="text-blue-400" size={18} />
             <h4 className="text-white font-bold text-sm">Monthly Average</h4>
-            <span className="text-slate-400 text-xs ml-auto">
+            <motion.span
+              className="text-slate-400 text-xs ml-auto"
+              key={monthlyInsights.daysWithData}
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
               {monthlyInsights.daysWithData > 0 ? (
                 <>
                   {monthlyInsights.daysWithData} day
-                  {monthlyInsights.daysWithData !== 1 ? 's' : ''} tracked
+                  {monthlyInsights.daysWithData === 1
+                    ? ' tracked'
+                    : 's tracked'}
                 </>
               ) : (
                 'No data yet'
               )}
-            </span>
+            </motion.span>
           </div>
 
           <div className="grid grid-cols-4 gap-3">
@@ -675,9 +683,15 @@ export const CalendarPickerModal = ({
             <div className="flex flex-col items-center">
               <div className="bg-slate-800 rounded-lg p-2 w-full flex flex-col items-center border border-slate-600">
                 <Flame className="text-emerald-400 mb-1" size={16} />
-                <p className="text-emerald-400 font-bold text-base">
-                  {monthlyInsights.avgCalories}
-                </p>
+                <motion.p
+                  className="text-emerald-400 font-bold text-base"
+                  key={monthlyInsights.avgCalories}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <AnimatedNumber value={monthlyInsights.avgCalories} />
+                </motion.p>
                 <p className="text-slate-400 text-[9px] font-medium">cal</p>
               </div>
             </div>
@@ -686,9 +700,15 @@ export const CalendarPickerModal = ({
             <div className="flex flex-col items-center">
               <div className="bg-slate-800 rounded-lg p-2 w-full flex flex-col items-center border border-slate-600">
                 <Beef className="text-red-400 mb-1" size={16} />
-                <p className="text-red-400 font-bold text-base">
-                  {monthlyInsights.avgProtein}
-                </p>
+                <motion.p
+                  className="text-red-400 font-bold text-base"
+                  key={monthlyInsights.avgProtein}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <AnimatedNumber value={monthlyInsights.avgProtein} />
+                </motion.p>
                 <p className="text-slate-400 text-[9px] font-medium">protein</p>
               </div>
             </div>
@@ -697,9 +717,15 @@ export const CalendarPickerModal = ({
             <div className="flex flex-col items-center">
               <div className="bg-slate-800 rounded-lg p-2 w-full flex flex-col items-center border border-slate-600">
                 <Cookie className="text-amber-400 mb-1" size={16} />
-                <p className="text-amber-400 font-bold text-base">
-                  {monthlyInsights.avgCarbs}
-                </p>
+                <motion.p
+                  className="text-amber-400 font-bold text-base"
+                  key={monthlyInsights.avgCarbs}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <AnimatedNumber value={monthlyInsights.avgCarbs} />
+                </motion.p>
                 <p className="text-slate-400 text-[9px] font-medium">carbs</p>
               </div>
             </div>
@@ -708,9 +734,15 @@ export const CalendarPickerModal = ({
             <div className="flex flex-col items-center">
               <div className="bg-slate-800 rounded-lg p-2 w-full flex flex-col items-center border border-slate-600">
                 <Droplet className="text-yellow-400 mb-1" size={16} />
-                <p className="text-yellow-400 font-bold text-base">
-                  {monthlyInsights.avgFats}
-                </p>
+                <motion.p
+                  className="text-yellow-400 font-bold text-base"
+                  key={monthlyInsights.avgFats}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <AnimatedNumber value={monthlyInsights.avgFats} />
+                </motion.p>
                 <p className="text-slate-400 text-[9px] font-medium">fats</p>
               </div>
             </div>
@@ -729,4 +761,37 @@ export const CalendarPickerModal = ({
       </div>
     </ModalShell>
   );
+
+  // AnimatedNumber component for smooth transitions
+  function AnimatedNumber({ value, duration = 500 }) {
+    const [displayValue, setDisplayValue] = useState(value);
+    const rafRef = useRef();
+    const startValueRef = useRef(value);
+    const startTimeRef = useRef();
+
+    useEffect(() => {
+      if (value === displayValue) return;
+      startValueRef.current = displayValue;
+      startTimeRef.current = window.performance.now();
+
+      const animate = (now) => {
+        const elapsed = now - startTimeRef.current;
+        if (elapsed >= duration) {
+          setDisplayValue(value);
+          return;
+        }
+        const progress = Math.min(elapsed / duration, 1);
+        const newValue = Math.round(
+          startValueRef.current + (value - startValueRef.current) * progress
+        );
+        setDisplayValue(newValue);
+        rafRef.current = requestAnimationFrame(animate);
+      };
+      rafRef.current = requestAnimationFrame(animate);
+      return () => cancelAnimationFrame(rafRef.current);
+      // eslint-disable-next-line
+  }, [value]);
+
+    return <span>{displayValue}</span>;
+  }
 };
