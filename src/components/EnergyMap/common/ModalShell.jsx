@@ -50,7 +50,7 @@ export const ModalShell = ({
       } ${overlayClassName}`}
     >
       <div
-        className={`modal-content bg-slate-800 rounded-2xl border border-slate-700 max-h-[90vh] overflow-y-auto ${
+        className={`modal-content bg-slate-800 rounded-2xl border border-slate-700 max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800 transition-[height,max-height] duration-300 ease-in-out ${
           isClosing ? 'closing' : ''
         } ${contentClassName}`}
       >

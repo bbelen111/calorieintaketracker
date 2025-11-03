@@ -138,7 +138,7 @@ const CalendarHeatmap = ({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 transition-all duration-300 ease-in-out">
       {/* Day labels */}
       <div className="grid grid-cols-7 gap-2 mb-1">
         {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
@@ -154,57 +154,59 @@ const CalendarHeatmap = ({
       </div>
 
       {/* Weeks */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={`${calendarData[0]?.date || 'empty'}`}
-          initial={{ opacity: 0, x: slideDirection * 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: slideDirection * -20 }}
-          transition={{ duration: 0.2 }}
-        >
-          {weeks.map((week, weekIndex) => (
-            <div key={weekIndex} className="grid grid-cols-7 gap-2 mb-2">
-              {/* Pad start of first week if doesn't start on Sunday */}
-              {weekIndex === 0 &&
-                week[0].dayOfWeek !== 0 &&
-                Array.from({ length: week[0].dayOfWeek }).map((_, i) => (
-                  <div key={`pad-${i}`} />
-                ))}
+      <div className="relative min-h-[280px] transition-all duration-300 ease-in-out">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={`${calendarData[0]?.date || 'empty'}`}
+            initial={{ opacity: 0, x: slideDirection * 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: slideDirection * -20 }}
+            transition={{ duration: 0.2, ease: 'easeInOut' }}
+          >
+            {weeks.map((week, weekIndex) => (
+              <div key={weekIndex} className="grid grid-cols-7 gap-2 mb-2">
+                {/* Pad start of first week if doesn't start on Sunday */}
+                {weekIndex === 0 &&
+                  week[0].dayOfWeek !== 0 &&
+                  Array.from({ length: week[0].dayOfWeek }).map((_, i) => (
+                    <div key={`pad-${i}`} />
+                  ))}
 
-              {week.map((day) => {
-                const calories = getCaloriesForDate(day.date);
-                const caloriesText = formatCaloriesDisplay(calories);
-                const dayNum = getDayNumber(day.date);
+                {week.map((day) => {
+                  const calories = getCaloriesForDate(day.date);
+                  const caloriesText = formatCaloriesDisplay(calories);
+                  const dayNum = getDayNumber(day.date);
 
-                return (
-                  <motion.button
-                    key={day.date}
-                    type="button"
-                    onClick={() => handleDateClick(day.date)}
-                    onMouseEnter={() => setFocusedDate(day.date)}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.98 }}
-                    transition={{ duration: 0.15 }}
-                    className={`aspect-square rounded-lg border-2 flex flex-col items-center justify-center gap-0.5 text-xs font-bold transition-colors relative ${getStatusColor(day.date)}`}
-                    aria-label={`Select ${new Date(day.date + 'T00:00:00Z').toLocaleDateString()}${caloriesText ? `, ${caloriesText} calories` : ''}`}
-                    aria-pressed={day.date === selectedDate}
-                  >
-                    {day.hasEntries && (
-                      <div className="absolute top-1 right-1 w-2 h-2 bg-emerald-500 rounded-full border border-emerald-400 shadow-sm" />
-                    )}
-                    <span className="text-white text-sm">{dayNum}</span>
-                    {caloriesText && (
-                      <span className="text-white text-[8px] leading-none opacity-80">
-                        {caloriesText}
-                      </span>
-                    )}
-                  </motion.button>
-                );
-              })}
-            </div>
-          ))}
-        </motion.div>
-      </AnimatePresence>
+                  return (
+                    <motion.button
+                      key={day.date}
+                      type="button"
+                      onClick={() => handleDateClick(day.date)}
+                      onMouseEnter={() => setFocusedDate(day.date)}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.98 }}
+                      transition={{ duration: 0.15 }}
+                      className={`aspect-square rounded-lg border-2 flex flex-col items-center justify-center gap-0.5 text-xs font-bold transition-colors relative ${getStatusColor(day.date)}`}
+                      aria-label={`Select ${new Date(day.date + 'T00:00:00Z').toLocaleDateString()}${caloriesText ? `, ${caloriesText} calories` : ''}`}
+                      aria-pressed={day.date === selectedDate}
+                    >
+                      {day.hasEntries && (
+                        <div className="absolute top-1 right-1 w-2 h-2 bg-emerald-500 rounded-full border border-emerald-400 shadow-sm" />
+                      )}
+                      <span className="text-white text-sm">{dayNum}</span>
+                      {caloriesText && (
+                        <span className="text-white text-[8px] leading-none opacity-80">
+                          {caloriesText}
+                        </span>
+                      )}
+                    </motion.button>
+                  );
+                })}
+              </div>
+            ))}
+          </motion.div>
+        </AnimatePresence>
+      </div>
 
       {/* Legend
       <div className="flex items-center justify-center gap-4 pt-4 text-xs text-slate-400 border-t border-slate-700 mt-4">
@@ -255,15 +257,14 @@ export const CalendarPickerModal = ({
   const today = useMemo(() => new Date(), []);
   const todayStr = useMemo(() => today.toISOString().split('T')[0], [today]);
 
-  // Generate year range (5 years back, 1 year forward)
+  // Generate year range dynamically based on selected year (4 years before, current, 3 years after)
   const yearRange = useMemo(() => {
-    const currentYearNum = today.getFullYear();
     const years = [];
-    for (let i = currentYearNum - 5; i <= currentYearNum + 1; i++) {
+    for (let i = currentYear - 4; i <= currentYear + 3; i++) {
       years.push(i);
     }
     return years;
-  }, [today]);
+  }, [currentYear]);
 
   // Month names
   const monthNames = useMemo(
@@ -391,7 +392,7 @@ export const CalendarPickerModal = ({
       onClose={onClose}
       contentClassName="w-full max-w-lg"
     >
-      <div className="p-6 relative">
+      <div className="p-6 relative transition-all duration-300 ease-in-out">
         <div className="flex items-center justify-between mb-6 gap-2">
           <h3 className="text-white font-bold text-xl flex items-center gap-2">
             <Calendar className="text-blue-400" size={24} />
@@ -521,7 +522,7 @@ export const CalendarPickerModal = ({
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -10 }}
                 transition={{ duration: 0.2 }}
-                className="absolute left-1/3 -translate-x-1/2 top-29 z-50"
+                className="absolute left-1/2 -translate-x-1/2 top-29 z-50"
               >
                 <div className="grid grid-cols-4 gap-2 p-4 bg-slate-800 rounded-lg border-2 border-slate-700 shadow-2xl w-56">
                   {yearRange.map((year) => (
