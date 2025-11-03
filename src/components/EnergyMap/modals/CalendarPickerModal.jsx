@@ -152,7 +152,7 @@ const CalendarHeatmap = ({
   }
 
   return (
-    <div className="space-y-2 transition-all min-h-[350px] duration-300 ease-in-out">
+    <div className="space-y-2 transition-all min-h-[318px] duration-300 ease-in-out">
       {/* Day labels */}
       <div className="grid grid-cols-7 gap-2 mb-1">
         {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
@@ -649,71 +649,73 @@ export const CalendarPickerModal = ({
         </div>
 
         {/* Monthly Insights */}
-        {monthlyInsights.daysWithData > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="mt-6 bg-slate-700 rounded-lg p-4 border border-slate-600"
-          >
-            <div className="flex items-center gap-2 mb-3">
-              <TrendingUp className="text-blue-400" size={18} />
-              <h4 className="text-white font-bold text-sm">Monthly Average</h4>
-              <span className="text-slate-400 text-xs ml-auto">
-                {monthlyInsights.daysWithData} day
-                {monthlyInsights.daysWithData !== 1 ? 's' : ''} tracked
-              </span>
-            </div>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="mt-6 bg-slate-700 rounded-lg p-4 border border-slate-600"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <TrendingUp className="text-blue-400" size={18} />
+            <h4 className="text-white font-bold text-sm">Monthly Average</h4>
+            <span className="text-slate-400 text-xs ml-auto">
+              {monthlyInsights.daysWithData > 0 ? (
+                <>
+                  {monthlyInsights.daysWithData} day
+                  {monthlyInsights.daysWithData !== 1 ? 's' : ''} tracked
+                </>
+              ) : (
+                'No data yet'
+              )}
+            </span>
+          </div>
 
-            <div className="grid grid-cols-4 gap-3">
-              {/* Calories */}
-              <div className="flex flex-col items-center">
-                <div className="bg-slate-800 rounded-lg p-2 w-full flex flex-col items-center border border-slate-600">
-                  <Flame className="text-emerald-400 mb-1" size={16} />
-                  <p className="text-emerald-400 font-bold text-base">
-                    {monthlyInsights.avgCalories}
-                  </p>
-                  <p className="text-slate-400 text-[9px] font-medium">cal</p>
-                </div>
-              </div>
-
-              {/* Protein */}
-              <div className="flex flex-col items-center">
-                <div className="bg-slate-800 rounded-lg p-2 w-full flex flex-col items-center border border-slate-600">
-                  <Beef className="text-red-400 mb-1" size={16} />
-                  <p className="text-red-400 font-bold text-base">
-                    {monthlyInsights.avgProtein}
-                  </p>
-                  <p className="text-slate-400 text-[9px] font-medium">
-                    protein
-                  </p>
-                </div>
-              </div>
-
-              {/* Carbs */}
-              <div className="flex flex-col items-center">
-                <div className="bg-slate-800 rounded-lg p-2 w-full flex flex-col items-center border border-slate-600">
-                  <Cookie className="text-amber-400 mb-1" size={16} />
-                  <p className="text-amber-400 font-bold text-base">
-                    {monthlyInsights.avgCarbs}
-                  </p>
-                  <p className="text-slate-400 text-[9px] font-medium">carbs</p>
-                </div>
-              </div>
-
-              {/* Fats */}
-              <div className="flex flex-col items-center">
-                <div className="bg-slate-800 rounded-lg p-2 w-full flex flex-col items-center border border-slate-600">
-                  <Droplet className="text-yellow-400 mb-1" size={16} />
-                  <p className="text-yellow-400 font-bold text-base">
-                    {monthlyInsights.avgFats}
-                  </p>
-                  <p className="text-slate-400 text-[9px] font-medium">fats</p>
-                </div>
+          <div className="grid grid-cols-4 gap-3">
+            {/* Calories */}
+            <div className="flex flex-col items-center">
+              <div className="bg-slate-800 rounded-lg p-2 w-full flex flex-col items-center border border-slate-600">
+                <Flame className="text-emerald-400 mb-1" size={16} />
+                <p className="text-emerald-400 font-bold text-base">
+                  {monthlyInsights.avgCalories}
+                </p>
+                <p className="text-slate-400 text-[9px] font-medium">cal</p>
               </div>
             </div>
-          </motion.div>
-        )}
+
+            {/* Protein */}
+            <div className="flex flex-col items-center">
+              <div className="bg-slate-800 rounded-lg p-2 w-full flex flex-col items-center border border-slate-600">
+                <Beef className="text-red-400 mb-1" size={16} />
+                <p className="text-red-400 font-bold text-base">
+                  {monthlyInsights.avgProtein}
+                </p>
+                <p className="text-slate-400 text-[9px] font-medium">protein</p>
+              </div>
+            </div>
+
+            {/* Carbs */}
+            <div className="flex flex-col items-center">
+              <div className="bg-slate-800 rounded-lg p-2 w-full flex flex-col items-center border border-slate-600">
+                <Cookie className="text-amber-400 mb-1" size={16} />
+                <p className="text-amber-400 font-bold text-base">
+                  {monthlyInsights.avgCarbs}
+                </p>
+                <p className="text-slate-400 text-[9px] font-medium">carbs</p>
+              </div>
+            </div>
+
+            {/* Fats */}
+            <div className="flex flex-col items-center">
+              <div className="bg-slate-800 rounded-lg p-2 w-full flex flex-col items-center border border-slate-600">
+                <Droplet className="text-yellow-400 mb-1" size={16} />
+                <p className="text-yellow-400 font-bold text-base">
+                  {monthlyInsights.avgFats}
+                </p>
+                <p className="text-slate-400 text-[9px] font-medium">fats</p>
+              </div>
+            </div>
+          </div>
+        </motion.div>
 
         {/* Close Button */}
         <motion.button
