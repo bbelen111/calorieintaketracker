@@ -152,7 +152,7 @@ const CalendarHeatmap = ({
   }
 
   return (
-    <div className="space-y-2 transition-all min-h-[318px] duration-300 ease-in-out">
+    <div className="space-y-2 transition-all min-h-[500px] duration-300 ease-in-out">
       {/* Day labels */}
       <div className="grid grid-cols-7 gap-2 mb-1">
         {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
