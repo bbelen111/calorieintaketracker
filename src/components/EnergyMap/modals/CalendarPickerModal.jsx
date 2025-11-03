@@ -152,7 +152,7 @@ const CalendarHeatmap = ({
   }
 
   return (
-    <div className="space-y-2 transition-all min-h-[500px] duration-300 ease-in-out">
+    <div className="space-y-2 transition-all duration-300 ease-in-out">
       {/* Day labels */}
       <div className="grid grid-cols-7 gap-2 mb-1">
         {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
@@ -167,8 +167,8 @@ const CalendarHeatmap = ({
         ))}
       </div>
 
-      {/* Weeks */}
-      <div className="relative transition-all duration-300 ease-in-out">
+      {/* Weeks - Fixed height for 6 weeks */}
+      <div className="relative h-[372px]">
         <AnimatePresence mode="wait">
           <motion.div
             key={`${calendarData[0]?.date || 'empty'}`}
@@ -653,7 +653,7 @@ export const CalendarPickerModal = ({
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="mt-6 bg-slate-700 rounded-lg p-4 border border-slate-600"
+          className="mt-12 bg-slate-700 rounded-lg p-4 border border-slate-600"
         >
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp className="text-blue-400" size={18} />
