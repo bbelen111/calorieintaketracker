@@ -71,38 +71,33 @@ export const MealEntryModal = ({
         </div>
 
         {/* Meal Summary */}
+        {/* Meal Summary */}
         {mealTypeData && foodEntries.length > 0 && (
-          <div className="bg-slate-700 rounded-lg p-4 border border-slate-600">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-white font-semibold text-sm">Meal Summary</h4>
-              <span className="text-slate-400 text-xs">
-                {foodEntries.length} item{foodEntries.length !== 1 ? 's' : ''}
-              </span>
-            </div>
-            <div className="grid grid-cols-4 gap-3">
-              <div className="text-center">
-                <p className="text-emerald-400 font-bold text-lg">
+          <div className="bg-slate-700/50 rounded-lg p-3 border border-slate-600">
+            <div className="grid grid-cols-4 gap-3 text-center">
+              <div>
+                <p className="text-emerald-400 font-bold text-base">
                   {Math.round(mealTotals.calories)}
                 </p>
-                <p className="text-slate-400 text-xs">Calories</p>
+                <p className="text-slate-400 text-xs">cal</p>
               </div>
-              <div className="text-center">
-                <p className="text-blue-400 font-bold text-lg">
+              <div>
+                <p className="text-red-400 font-bold text-base">
                   {Math.round(mealTotals.protein)}g
                 </p>
-                <p className="text-slate-400 text-xs">Protein</p>
+                <p className="text-slate-400 text-xs">protein</p>
               </div>
-              <div className="text-center">
-                <p className="text-amber-400 font-bold text-lg">
-                  {Math.round(mealTotals.carbs)}g
-                </p>
-                <p className="text-slate-400 text-xs">Carbs</p>
-              </div>
-              <div className="text-center">
-                <p className="text-purple-400 font-bold text-lg">
+              <div>
+                <p className="text-yellow-400 font-bold text-base">
                   {Math.round(mealTotals.fats)}g
                 </p>
-                <p className="text-slate-400 text-xs">Fats</p>
+                <p className="text-slate-400 text-xs">fats</p>
+              </div>
+              <div>
+                <p className="text-amber-400 font-bold text-base">
+                  {Math.round(mealTotals.carbs)}g
+                </p>
+                <p className="text-slate-400 text-xs">carbs</p>
               </div>
             </div>
           </div>
@@ -185,22 +180,22 @@ export const MealEntryModal = ({
                         <p className="text-slate-400 text-xs">cal</p>
                       </div>
                       <div>
-                        <p className="text-blue-400 font-semibold text-sm">
+                        <p className="text-red-400 font-semibold text-sm">
                           {entry.protein || 0}g
                         </p>
                         <p className="text-slate-400 text-xs">protein</p>
+                      </div>
+                      <div>
+                        <p className="text-yellow-400 font-semibold text-sm">
+                          {entry.fats || 0}g
+                        </p>
+                        <p className="text-slate-400 text-xs">fats</p>
                       </div>
                       <div>
                         <p className="text-amber-400 font-semibold text-sm">
                           {entry.carbs || 0}g
                         </p>
                         <p className="text-slate-400 text-xs">carbs</p>
-                      </div>
-                      <div>
-                        <p className="text-purple-400 font-semibold text-sm">
-                          {entry.fats || 0}g
-                        </p>
-                        <p className="text-slate-400 text-xs">fats</p>
                       </div>
                     </div>
                   </div>

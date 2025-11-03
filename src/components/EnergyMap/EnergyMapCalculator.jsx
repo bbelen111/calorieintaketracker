@@ -1023,6 +1023,32 @@ export const EnergyMapCalculator = () => {
     [foodEntryModal, nutritionData, trackerSelectedDate, foodMealType]
   );
 
+  // Edit food entry from TrackerScreen (legacy support)
+  const handleEditFoodEntry = useCallback(
+    (mealType, entryId) => {
+      const dateData = nutritionData[trackerSelectedDate] || {};
+      const mealEntries = Array.isArray(dateData[mealType])
+        ? dateData[mealType]
+        : [];
+      const existing = mealEntries.find((entry) => entry.id === entryId);
+      if (!existing) {
+        return;
+      }
+
+      setFoodMealType(mealType);
+      setFoodName(existing.name || '');
+      setFoodCalories(String(existing.calories || ''));
+      setFoodProtein(String(existing.protein || ''));
+      setFoodCarbs(String(existing.carbs || ''));
+      setFoodFats(String(existing.fats || ''));
+      setEditingFoodEntryId(entryId);
+      setEditingMealType(mealType);
+      setFoodEntryMode('edit');
+      foodEntryModal.open();
+    },
+    [foodEntryModal, nutritionData, trackerSelectedDate]
+  );
+
   // Delete food entry from meal
   const handleDeleteFoodFromMeal = useCallback(
     (entryId) => {
@@ -1566,6 +1592,8 @@ export const EnergyMapCalculator = () => {
                 <TrackerScreen
                   nutritionData={nutritionData}
                   onAddMealEntry={openMealEntryModal}
+                  onEditFoodEntry={handleEditFoodEntry}
+                  onDeleteFoodEntry={deleteFoodEntry}
                   onDeleteMeal={deleteMeal}
                   targetProtein={Math.round(userData.weight * 2)}
                   targetFats={Math.round(userData.weight * 0.8)}

@@ -63,6 +63,8 @@ const CircularProgress = ({ percent, color, size = 120, strokeWidth = 10 }) => {
 export const TrackerScreen = ({
   nutritionData = {},
   onAddMealEntry,
+  onEditFoodEntry,
+  onDeleteFoodEntry,
   onDeleteMeal,
   targetProtein = 150,
   targetFats = 70,
@@ -161,6 +163,16 @@ export const TrackerScreen = ({
     100,
     Math.round((totals.carbs / targetCarbs) * 100)
   );
+
+  const handleEditFood = (mealType, entryId) => {
+    onEditFoodEntry?.(mealType, entryId);
+  };
+
+  const handleDeleteFood = (mealType, entryId) => {
+    if (window.confirm('Delete this food entry?')) {
+      onDeleteFoodEntry?.(selectedDate, mealType, entryId);
+    }
+  };
 
   const handleDeleteMeal = (mealType) => {
     if (
@@ -508,16 +520,6 @@ export const TrackerScreen = ({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              onAddMealEntry?.(mealTypeId);
-                            }}
-                            className="p-1.5 hover:bg-emerald-500/20 rounded-lg transition-all"
-                            title="Edit meal"
-                          >
-                            <Edit2 className="text-emerald-400" size={18} />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
                               handleDeleteMeal(mealTypeId);
                             }}
                             className="p-1.5 hover:bg-red-500/20 rounded-lg transition-all"
@@ -567,6 +569,26 @@ export const TrackerScreen = ({
                                         })}
                                       </p>
                                     </div>
+                                    <div className="flex items-end gap-3 pt-1">
+                                      <button
+                                        onClick={() =>
+                                          handleEditFood(mealTypeId, entry.id)
+                                        }
+                                        type="button"
+                                        className="text-slate-200 hover:text-white transition-colors hover:scale-110 active:scale-95"
+                                      >
+                                        <Edit2 size={22} />
+                                      </button>
+                                      <button
+                                        onClick={() =>
+                                          handleDeleteFood(mealTypeId, entry.id)
+                                        }
+                                        type="button"
+                                        className="text-red-400 hover:text-red-300 transition-colors hover:scale-110 active:scale-95"
+                                      >
+                                        <Trash2 size={22} />
+                                      </button>
+                                    </div>
                                   </div>
 
                                   <div className="grid grid-cols-4 gap-2 text-center">
@@ -587,19 +609,19 @@ export const TrackerScreen = ({
                                       </p>
                                     </div>
                                     <div>
-                                      <p className="text-amber-400 font-bold text-lg">
-                                        {entry.carbs}
-                                      </p>
-                                      <p className="text-slate-400 text-xs">
-                                        carbs
-                                      </p>
-                                    </div>
-                                    <div>
                                       <p className="text-yellow-400 font-bold text-lg">
                                         {entry.fats}
                                       </p>
                                       <p className="text-slate-400 text-xs">
                                         fats
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p className="text-amber-400 font-bold text-lg">
+                                        {entry.carbs}
+                                      </p>
+                                      <p className="text-slate-400 text-xs">
+                                        carbs
                                       </p>
                                     </div>
                                   </div>
