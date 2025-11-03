@@ -5,6 +5,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar as CalendarIcon,
+  TrendingUp,
+  Flame,
+  Beef,
+  Cookie,
+  Droplet,
 } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 
@@ -102,15 +107,21 @@ const CalendarHeatmap = ({
     return 'bg-slate-700 border-slate-600 hover:bg-slate-600';
   };
 
-  const getCaloriesForDate = (date) => {
+  const getMacrosForDate = (date) => {
     const dateData = nutritionData[date] || {};
     // nutritionData is now nested: { date: { mealType: [entries] } }
     const allEntries = Object.values(dateData).flat();
-    if (allEntries.length === 0) return 0;
+    if (allEntries.length === 0)
+      return { calories: 0, protein: 0, carbs: 0, fats: 0 };
 
     return allEntries.reduce(
-      (total, entry) => total + (entry.calories || 0),
-      0
+      (acc, entry) => ({
+        calories: acc.calories + (entry.calories || 0),
+        protein: acc.protein + (entry.protein || 0),
+        carbs: acc.carbs + (entry.carbs || 0),
+        fats: acc.fats + (entry.fats || 0),
+      }),
+      { calories: 0, protein: 0, carbs: 0, fats: 0 }
     );
   };
 
@@ -118,10 +129,13 @@ const CalendarHeatmap = ({
     return new Date(date + 'T00:00:00Z').getUTCDate();
   };
 
-  const formatCaloriesDisplay = (calories) => {
-    if (calories === 0) return null;
-    // Show exact number with commas for readability
-    return calories.toLocaleString();
+  const formatMacroDisplay = (value) => {
+    if (value === 0) return null;
+    // Show abbreviated numbers
+    if (value >= 1000) {
+      return (value / 1000).toFixed(1) + 'k';
+    }
+    return Math.round(value).toString();
   };
 
   const handleDateClick = (date) => {
@@ -173,8 +187,7 @@ const CalendarHeatmap = ({
                   ))}
 
                 {week.map((day) => {
-                  const calories = getCaloriesForDate(day.date);
-                  const caloriesText = formatCaloriesDisplay(calories);
+                  const macros = getMacrosForDate(day.date);
                   const dayNum = getDayNumber(day.date);
 
                   return (
@@ -187,17 +200,32 @@ const CalendarHeatmap = ({
                       whileTap={{ scale: 0.98 }}
                       transition={{ duration: 0.15 }}
                       className={`aspect-square rounded-lg border-2 flex flex-col items-center justify-center gap-0.5 text-xs font-bold transition-colors relative ${getStatusColor(day.date)}`}
-                      aria-label={`Select ${new Date(day.date + 'T00:00:00Z').toLocaleDateString()}${caloriesText ? `, ${caloriesText} calories` : ''}`}
+                      aria-label={`Select ${new Date(day.date + 'T00:00:00Z').toLocaleDateString()}${macros.calories > 0 ? `, ${macros.calories} calories` : ''}`}
                       aria-pressed={day.date === selectedDate}
                     >
                       {day.hasEntries && (
                         <div className="absolute top-1 right-1 w-2 h-2 bg-emerald-500 rounded-full border border-emerald-400 shadow-sm" />
                       )}
-                      <span className="text-white text-sm">{dayNum}</span>
-                      {caloriesText && (
-                        <span className="text-white text-[8px] leading-none opacity-80">
-                          {caloriesText}
-                        </span>
+                      <span className="text-white text-sm font-bold">
+                        {dayNum}
+                      </span>
+                      {macros.calories > 0 && (
+                        <div className="flex flex-col gap-0 leading-none w-full px-1">
+                          <span className="text-emerald-400 text-[9px] font-semibold">
+                            {formatMacroDisplay(macros.calories)}
+                          </span>
+                          <div className="flex items-center justify-between gap-0.5">
+                            <span className="text-red-400 text-[7px] font-medium">
+                              P{formatMacroDisplay(macros.protein)}
+                            </span>
+                            <span className="text-amber-400 text-[7px] font-medium">
+                              C{formatMacroDisplay(macros.carbs)}
+                            </span>
+                            <span className="text-yellow-400 text-[7px] font-medium">
+                              F{formatMacroDisplay(macros.fats)}
+                            </span>
+                          </div>
+                        </div>
                       )}
                     </motion.button>
                   );
@@ -284,6 +312,62 @@ export const CalendarPickerModal = ({
     ],
     []
   );
+
+  // Calculate monthly insights
+  const monthlyInsights = useMemo(() => {
+    const year = currentYear;
+    const month = currentMonth;
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+
+    let totalCalories = 0;
+    let totalProtein = 0;
+    let totalCarbs = 0;
+    let totalFats = 0;
+    let daysWithData = 0;
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(Date.UTC(year, month, day));
+      const dateStr = date.toISOString().split('T')[0];
+      const dateData = nutritionData[dateStr] || {};
+      const allEntries = Object.values(dateData).flat();
+
+      if (allEntries.length > 0) {
+        daysWithData++;
+        const dayMacros = allEntries.reduce(
+          (acc, entry) => ({
+            calories: acc.calories + (entry.calories || 0),
+            protein: acc.protein + (entry.protein || 0),
+            carbs: acc.carbs + (entry.carbs || 0),
+            fats: acc.fats + (entry.fats || 0),
+          }),
+          { calories: 0, protein: 0, carbs: 0, fats: 0 }
+        );
+        totalCalories += dayMacros.calories;
+        totalProtein += dayMacros.protein;
+        totalCarbs += dayMacros.carbs;
+        totalFats += dayMacros.fats;
+      }
+    }
+
+    if (daysWithData === 0) {
+      return {
+        avgCalories: 0,
+        avgProtein: 0,
+        avgCarbs: 0,
+        avgFats: 0,
+        daysWithData: 0,
+      };
+    }
+
+    return {
+      avgCalories: Math.round(totalCalories / daysWithData),
+      avgProtein: Math.round(totalProtein / daysWithData),
+      avgCarbs: Math.round(totalCarbs / daysWithData),
+      avgFats: Math.round(totalFats / daysWithData),
+      daysWithData,
+    };
+  }, [currentMonth, currentYear, nutritionData]);
   // Generate calendar data for the current month
   const calendarData = useMemo(() => {
     const year = currentYear;
@@ -563,6 +647,73 @@ export const CalendarPickerModal = ({
             nutritionData={nutritionData}
           />
         </div>
+
+        {/* Monthly Insights */}
+        {monthlyInsights.daysWithData > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="mt-6 bg-slate-700 rounded-lg p-4 border border-slate-600"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp className="text-blue-400" size={18} />
+              <h4 className="text-white font-bold text-sm">Monthly Average</h4>
+              <span className="text-slate-400 text-xs ml-auto">
+                {monthlyInsights.daysWithData} day
+                {monthlyInsights.daysWithData !== 1 ? 's' : ''} tracked
+              </span>
+            </div>
+
+            <div className="grid grid-cols-4 gap-3">
+              {/* Calories */}
+              <div className="flex flex-col items-center">
+                <div className="bg-slate-800 rounded-lg p-2 w-full flex flex-col items-center border border-slate-600">
+                  <Flame className="text-emerald-400 mb-1" size={16} />
+                  <p className="text-emerald-400 font-bold text-base">
+                    {monthlyInsights.avgCalories}
+                  </p>
+                  <p className="text-slate-400 text-[9px] font-medium">cal</p>
+                </div>
+              </div>
+
+              {/* Protein */}
+              <div className="flex flex-col items-center">
+                <div className="bg-slate-800 rounded-lg p-2 w-full flex flex-col items-center border border-slate-600">
+                  <Beef className="text-red-400 mb-1" size={16} />
+                  <p className="text-red-400 font-bold text-base">
+                    {monthlyInsights.avgProtein}
+                  </p>
+                  <p className="text-slate-400 text-[9px] font-medium">
+                    protein
+                  </p>
+                </div>
+              </div>
+
+              {/* Carbs */}
+              <div className="flex flex-col items-center">
+                <div className="bg-slate-800 rounded-lg p-2 w-full flex flex-col items-center border border-slate-600">
+                  <Cookie className="text-amber-400 mb-1" size={16} />
+                  <p className="text-amber-400 font-bold text-base">
+                    {monthlyInsights.avgCarbs}
+                  </p>
+                  <p className="text-slate-400 text-[9px] font-medium">carbs</p>
+                </div>
+              </div>
+
+              {/* Fats */}
+              <div className="flex flex-col items-center">
+                <div className="bg-slate-800 rounded-lg p-2 w-full flex flex-col items-center border border-slate-600">
+                  <Droplet className="text-yellow-400 mb-1" size={16} />
+                  <p className="text-yellow-400 font-bold text-base">
+                    {monthlyInsights.avgFats}
+                  </p>
+                  <p className="text-slate-400 text-[9px] font-medium">fats</p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Close Button */}
         <motion.button
