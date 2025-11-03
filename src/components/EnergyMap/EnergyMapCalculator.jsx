@@ -987,7 +987,25 @@ export const EnergyMapCalculator = () => {
   const openMealEntryModal = useCallback(
     (mealType = '') => {
       setFoodMealType(mealType);
-      mealEntryModal.open();
+      if (mealType) {
+        // If meal type is provided, open meal entry modal directly
+        mealEntryModal.open();
+      } else {
+        // If no meal type, open picker first
+        mealTypePickerModal.open();
+      }
+    },
+    [mealEntryModal, mealTypePickerModal]
+  );
+
+  // Handle meal type selection from picker modal
+  const handleMealTypeSelect = useCallback(
+    (mealType) => {
+      setFoodMealType(mealType);
+      // Close picker with delay, then open meal entry modal
+      setTimeout(() => {
+        mealEntryModal.open();
+      }, 200); // Match MODAL_CLOSE_DELAY
     },
     [mealEntryModal]
   );
@@ -2033,7 +2051,7 @@ export const EnergyMapCalculator = () => {
         isOpen={mealTypePickerModal.isOpen}
         isClosing={mealTypePickerModal.isClosing}
         onClose={mealTypePickerModal.requestClose}
-        onSelect={setFoodMealType}
+        onSelect={handleMealTypeSelect}
         selectedMealType={foodMealType}
       />
 
