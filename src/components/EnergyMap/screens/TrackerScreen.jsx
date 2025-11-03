@@ -62,9 +62,7 @@ const CircularProgress = ({ percent, color, size = 120, strokeWidth = 10 }) => {
 
 export const TrackerScreen = ({
   nutritionData = {},
-  onAddFoodEntry,
-  onEditFoodEntry,
-  onDeleteFoodEntry,
+  onAddMealEntry,
   onDeleteMeal,
   targetProtein = 150,
   targetFats = 70,
@@ -163,12 +161,6 @@ export const TrackerScreen = ({
     100,
     Math.round((totals.carbs / targetCarbs) * 100)
   );
-
-  const handleDelete = (mealType, entryId) => {
-    if (window.confirm('Delete this food entry?')) {
-      onDeleteFoodEntry?.(selectedDate, mealType, entryId);
-    }
-  };
 
   const handleDeleteMeal = (mealType) => {
     if (
@@ -459,7 +451,7 @@ export const TrackerScreen = ({
                   <h2 className="text-xl font-bold text-white">Meals</h2>
                 </div>
                 <motion.button
-                  onClick={() => onAddFoodEntry?.()}
+                  onClick={() => onAddMealEntry?.('')}
                   type="button"
                   className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all"
                   whileHover={{ scale: 1.03 }}
@@ -516,6 +508,16 @@ export const TrackerScreen = ({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
+                              onAddMealEntry?.(mealTypeId);
+                            }}
+                            className="p-1.5 hover:bg-emerald-500/20 rounded-lg transition-all"
+                            title="Edit meal"
+                          >
+                            <Edit2 className="text-emerald-400" size={18} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
                               handleDeleteMeal(mealTypeId);
                             }}
                             className="p-1.5 hover:bg-red-500/20 rounded-lg transition-all"
@@ -565,29 +567,6 @@ export const TrackerScreen = ({
                                         })}
                                       </p>
                                     </div>
-                                    <div className="flex items-end gap-3 pt-1">
-                                      <button
-                                        onClick={() =>
-                                          onEditFoodEntry?.(
-                                            mealTypeId,
-                                            entry.id
-                                          )
-                                        }
-                                        type="button"
-                                        className="text-slate-200 hover:text-white transition-colors hover:scale-110 active:scale-95"
-                                      >
-                                        <Edit2 size={22} />
-                                      </button>
-                                      <button
-                                        onClick={() =>
-                                          handleDelete(mealTypeId, entry.id)
-                                        }
-                                        type="button"
-                                        className="text-red-400 hover:text-red-300 transition-colors hover:scale-110 active:scale-95"
-                                      >
-                                        <Trash2 size={22} />
-                                      </button>
-                                    </div>
                                   </div>
 
                                   <div className="grid grid-cols-4 gap-2 text-center">
@@ -630,7 +609,7 @@ export const TrackerScreen = ({
 
                             {/* Add to This Meal Button */}
                             <button
-                              onClick={() => onAddFoodEntry?.(mealTypeId)}
+                              onClick={() => onAddMealEntry?.(mealTypeId)}
                               type="button"
                               className="w-full py-2 border-2 border-dashed border-slate-600 hover:border-emerald-500 rounded-lg text-slate-400 hover:text-emerald-400 transition-all flex items-center justify-center gap-2"
                             >
@@ -656,7 +635,7 @@ export const TrackerScreen = ({
               transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
             >
               <motion.button
-                onClick={() => onAddFoodEntry?.()}
+                onClick={() => onAddMealEntry?.('')}
                 type="button"
                 className="w-full flex items-center justify-between p-4 hover:bg-slate-700/50 rounded-xl transition-all group"
                 whileHover={{ scale: 1.02 }}

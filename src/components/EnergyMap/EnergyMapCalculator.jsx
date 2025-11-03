@@ -45,6 +45,7 @@ import { TemplatePickerModal } from './modals/TemplatePickerModal';
 import { DailyLogModal } from './modals/DailyLogModal';
 import { CalendarPickerModal } from './modals/CalendarPickerModal';
 import { FoodEntryModal } from './modals/FoodEntryModal';
+import { MealEntryModal } from './modals/MealEntryModal';
 import { MealTypePickerModal } from './modals/MealTypePickerModal';
 // ...existing code...
 import { ConfirmActionModal } from './modals/ConfirmActionModal';
@@ -285,6 +286,7 @@ export const EnergyMapCalculator = () => {
   const templatePickerModal = useAnimatedModal();
   const dailyLogModal = useAnimatedModal();
   const calendarPickerModal = useAnimatedModal();
+  const mealEntryModal = useAnimatedModal();
   const foodEntryModal = useAnimatedModal();
   const mealTypePickerModal = useAnimatedModal();
   // ...existing code...
@@ -971,7 +973,6 @@ export const EnergyMapCalculator = () => {
 
   // Food Entry Handlers (following CardioSession pattern)
   const resetFoodEntryForm = useCallback(() => {
-    setFoodMealType('');
     setFoodName('');
     setFoodCalories('');
     setFoodProtein('');
@@ -982,38 +983,54 @@ export const EnergyMapCalculator = () => {
     setFoodEntryMode('add');
   }, []);
 
-  const openFoodEntryModal = useCallback(
+  // Open MealEntryModal with a specific meal type
+  const openMealEntryModal = useCallback(
     (mealType = '') => {
-      resetFoodEntryForm();
       setFoodMealType(mealType);
-      foodEntryModal.open();
+      mealEntryModal.open();
     },
-    [foodEntryModal, resetFoodEntryForm]
+    [mealEntryModal]
   );
 
-  const handleEditFoodEntry = useCallback(
-    (mealType, entryId) => {
+  // Open FoodEntryModal from within MealEntryModal (for adding new food)
+  const handleAddFoodToMeal = useCallback(() => {
+    resetFoodEntryForm();
+    foodEntryModal.open();
+  }, [foodEntryModal, resetFoodEntryForm]);
+
+  // Open FoodEntryModal for editing existing food entry
+  const handleEditFoodInMeal = useCallback(
+    (entryId) => {
       const dateData = nutritionData[trackerSelectedDate] || {};
-      const mealEntries = Array.isArray(dateData[mealType])
-        ? dateData[mealType]
+      const mealEntries = Array.isArray(dateData[foodMealType])
+        ? dateData[foodMealType]
         : [];
       const existing = mealEntries.find((entry) => entry.id === entryId);
       if (!existing) {
         return;
       }
 
-      setFoodMealType(mealType);
       setFoodName(existing.name || '');
       setFoodCalories(String(existing.calories || ''));
       setFoodProtein(String(existing.protein || ''));
       setFoodCarbs(String(existing.carbs || ''));
       setFoodFats(String(existing.fats || ''));
       setEditingFoodEntryId(entryId);
-      setEditingMealType(mealType);
+      setEditingMealType(foodMealType);
       setFoodEntryMode('edit');
       foodEntryModal.open();
     },
-    [foodEntryModal, nutritionData, trackerSelectedDate]
+    [foodEntryModal, nutritionData, trackerSelectedDate, foodMealType]
+  );
+
+  // Delete food entry from meal
+  const handleDeleteFoodFromMeal = useCallback(
+    (entryId) => {
+      if (foodMealType) {
+        deleteFoodEntry(trackerSelectedDate, foodMealType, entryId);
+      }
+    },
+    [deleteFoodEntry, foodMealType, trackerSelectedDate]
   );
 
   const handleFoodEntrySave = useCallback(() => {
@@ -1066,6 +1083,15 @@ export const EnergyMapCalculator = () => {
       return () => clearTimeout(timer);
     }
   }, [foodEntryModal.isClosing, resetFoodEntryForm]);
+
+  useEffect(() => {
+    if (mealEntryModal.isClosing) {
+      const timer = setTimeout(() => {
+        setFoodMealType('');
+      }, MODAL_CLOSE_DELAY + 100); // Slightly longer to allow child modal to close
+      return () => clearTimeout(timer);
+    }
+  }, [mealEntryModal.isClosing]);
 
   const handleCreateFavourite = useCallback(
     (template) => {
@@ -1539,9 +1565,7 @@ export const EnergyMapCalculator = () => {
               <div className="w-full flex-shrink-0 px-2 sm:px-4 md:px-6">
                 <TrackerScreen
                   nutritionData={nutritionData}
-                  onAddFoodEntry={openFoodEntryModal}
-                  onEditFoodEntry={handleEditFoodEntry}
-                  onDeleteFoodEntry={deleteFoodEntry}
+                  onAddMealEntry={openMealEntryModal}
                   onDeleteMeal={deleteMeal}
                   targetProtein={Math.round(userData.weight * 2)}
                   targetFats={Math.round(userData.weight * 0.8)}
@@ -1947,6 +1971,18 @@ export const EnergyMapCalculator = () => {
         }}
       />
 
+      <MealEntryModal
+        isOpen={mealEntryModal.isOpen}
+        isClosing={mealEntryModal.isClosing}
+        onClose={mealEntryModal.requestClose}
+        mealType={foodMealType}
+        onMealTypeClick={mealTypePickerModal.open}
+        foodEntries={nutritionData[trackerSelectedDate]?.[foodMealType] || []}
+        onAddFood={handleAddFoodToMeal}
+        onEditFood={handleEditFoodInMeal}
+        onDeleteFood={handleDeleteFoodFromMeal}
+      />
+
       <FoodEntryModal
         isOpen={foodEntryModal.isOpen}
         isClosing={foodEntryModal.isClosing}
@@ -1962,8 +1998,6 @@ export const EnergyMapCalculator = () => {
         setCarbs={setFoodCarbs}
         fats={foodFats}
         setFats={setFoodFats}
-        mealType={foodMealType}
-        onMealTypeClick={mealTypePickerModal.open}
         isEditing={foodEntryMode === 'edit'}
       />
 

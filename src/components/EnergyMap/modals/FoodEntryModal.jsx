@@ -1,7 +1,6 @@
 import React from 'react';
-import { Utensils, Save, ChevronRight } from 'lucide-react';
+import { Utensils, Save } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
-import { getMealTypeById } from '../../../constants/mealTypes';
 
 export const FoodEntryModal = ({
   isOpen,
@@ -18,8 +17,6 @@ export const FoodEntryModal = ({
   setCarbs,
   fats,
   setFats,
-  mealType,
-  onMealTypeClick,
   isEditing = false,
 }) => {
   const handleSave = () => {
@@ -28,15 +25,8 @@ export const FoodEntryModal = ({
       return;
     }
 
-    if (!mealType) {
-      window.alert('Please select a meal type');
-      return;
-    }
-
     onSave?.();
   };
-
-  const mealTypeData = getMealTypeById(mealType);
 
   return (
     <ModalShell
@@ -53,30 +43,6 @@ export const FoodEntryModal = ({
       </div>
 
       <div className="space-y-4">
-        {/* Meal Type Selector */}
-        <div>
-          <label className="block text-slate-300 text-sm font-semibold mb-2">
-            Meal Type
-          </label>
-          <button
-            type="button"
-            onClick={onMealTypeClick}
-            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-left hover:bg-slate-600 transition-all flex items-center justify-between"
-          >
-            {mealType ? (
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">{mealTypeData.icon}</span>
-                <span className="text-white font-semibold">
-                  {mealTypeData.label}
-                </span>
-              </div>
-            ) : (
-              <span className="text-slate-400">Select meal type...</span>
-            )}
-            <ChevronRight className="text-slate-400" size={20} />
-          </button>
-        </div>
-
         {/* Food Name */}
         <div>
           <label className="block text-slate-300 text-sm font-semibold mb-2">
