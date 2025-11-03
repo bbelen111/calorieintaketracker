@@ -53,13 +53,14 @@ export const MealTypePickerModal = ({
           const mealType = getMealTypeById(mealTypeId);
           const isSelected = selectedMealType === mealTypeId;
 
+          const Icon = mealType.icon;
           return (
             <button
               key={mealTypeId}
               onClick={() => handleSelect(mealTypeId)}
               className={`w-full p-4 rounded-lg border-2 transition-all flex items-center gap-4 ${getColorClasses(mealType.color, isSelected)}`}
             >
-              <span className="text-3xl">{mealType.icon}</span>
+              <Icon className="text-white" size={24} />
               <div className="flex-1 text-left">
                 <h4 className="text-white font-semibold text-lg">
                   {mealType.label}

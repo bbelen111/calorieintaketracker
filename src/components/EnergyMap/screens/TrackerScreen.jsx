@@ -520,7 +520,10 @@ export const TrackerScreen = ({
                         className="w-full flex items-center justify-between hover:bg-slate-600/50 p-2 rounded-lg transition-all"
                       >
                         <div className="flex items-center gap-3">
-                          <span className="text-2xl">{mealType.icon}</span>
+                          {React.createElement(mealType.icon, {
+                            className: 'text-white',
+                            size: 20,
+                          })}
                           <div className="text-left">
                             <h3 className="text-white font-bold text-base">
                               {mealType.label}

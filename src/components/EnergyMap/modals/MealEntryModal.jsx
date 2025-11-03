@@ -58,7 +58,10 @@ export const MealEntryModal = ({
           >
             {mealTypeData ? (
               <div className="flex items-center gap-3">
-                <span className="text-2xl">{mealTypeData.icon}</span>
+                {React.createElement(mealTypeData.icon, {
+                  className: 'text-white',
+                  size: 20,
+                })}
                 <span className="text-white font-semibold">
                   {mealTypeData.label}
                 </span>

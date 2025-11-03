@@ -1,36 +1,38 @@
+import { Coffee, Sun, Moon, Apple, Utensils } from 'lucide-react';
+
 export const MEAL_TYPES = {
   breakfast: {
     id: 'breakfast',
     label: 'Breakfast',
-    icon: '🌅',
+    icon: Coffee,
     color: 'orange',
     order: 1,
   },
   lunch: {
     id: 'lunch',
     label: 'Lunch',
-    icon: '☀️',
+    icon: Sun,
     color: 'yellow',
     order: 2,
   },
   dinner: {
     id: 'dinner',
     label: 'Dinner',
-    icon: '🌙',
+    icon: Moon,
     color: 'indigo',
     order: 3,
   },
   snacks: {
     id: 'snacks',
     label: 'Snacks',
-    icon: '🍎',
+    icon: Apple,
     color: 'green',
     order: 4,
   },
   other: {
     id: 'other',
     label: 'Other',
-    icon: '🍽️',
+    icon: Utensils,
     color: 'slate',
     order: 5,
   },
