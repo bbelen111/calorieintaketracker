@@ -185,12 +185,16 @@ export const TrackerScreen = ({
     }));
   };
 
-  const formatDate = (dateStr) => {
+  const getWeekday = (dateStr) => {
+    const date = new Date(dateStr + 'T00:00:00Z');
+    return date.toLocaleDateString('en-US', { weekday: 'long' });
+  };
+  const getMonthDayYear = (dateStr) => {
     const date = new Date(dateStr + 'T00:00:00Z');
     return date.toLocaleDateString('en-US', {
-      weekday: 'short',
       month: 'short',
       day: 'numeric',
+      year: 'numeric',
     });
   };
 
@@ -213,11 +217,16 @@ export const TrackerScreen = ({
             <span className="hidden md:inline">Calendar</span>
           </button>
         </div>
-        <div className="bg-slate-700 rounded-lg px-4 py-2 border border-slate-600">
-          <div className="flex items-center gap-2">
-            <Calendar size={18} className="text-blue-400" />
+        <div className="bg-slate-700 rounded-lg px-4 py-2 border border-slate-600 flex items-center justify-between">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-2">
+              <Calendar size={18} className="text-blue-400" />
+              <span className="text-white text-md font-semibold">
+                {getWeekday(selectedDate)}
+              </span>
+            </div>
             <span className="text-white text-md font-semibold">
-              {formatDate(selectedDate)}
+              {getMonthDayYear(selectedDate)}
             </span>
           </div>
         </div>
