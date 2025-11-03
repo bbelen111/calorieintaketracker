@@ -154,7 +154,7 @@ const CalendarHeatmap = ({
       </div>
 
       {/* Weeks */}
-      <div className="relative min-h-[280px] transition-all duration-300 ease-in-out">
+      <div className="relative transition-all duration-300 ease-in-out">
         <AnimatePresence mode="wait">
           <motion.div
             key={`${calendarData[0]?.date || 'empty'}`}
