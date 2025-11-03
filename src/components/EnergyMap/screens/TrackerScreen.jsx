@@ -474,7 +474,7 @@ export const TrackerScreen = ({
                 </motion.button>
               </motion.div>
 
-              <motion.div layout={!isSwiping} className="space-y-4">
+              <motion.div layout={!isSwiping} className="space-y-3">
                 {MEAL_TYPE_ORDER.map((mealTypeId) => {
                   const mealEntries = meals[mealTypeId];
                   if (!mealEntries || mealEntries.length === 0) return null;
@@ -496,12 +496,12 @@ export const TrackerScreen = ({
                   return (
                     <div
                       key={mealTypeId}
-                      className="border-b border-slate-700 last:border-b-0 pb-4 last:pb-0"
+                      className="bg-slate-700 rounded-xl p-4 border border-slate-600"
                     >
                       {/* Meal Header */}
                       <button
                         onClick={() => toggleMealCollapse(mealTypeId)}
-                        className="w-full flex items-center justify-between hover:bg-slate-700/30 p-2 rounded-lg transition-all mb-2"
+                        className="w-full flex items-center justify-between hover:bg-slate-600/50 p-2 rounded-lg transition-all mb-2"
                       >
                         <div className="flex items-center gap-3">
                           <span className="text-2xl">{mealType.icon}</span>
@@ -547,20 +547,20 @@ export const TrackerScreen = ({
                               duration: 0.3,
                               ease: [0.4, 0, 0.2, 1],
                             }}
-                            className="space-y-3 mt-2 overflow-hidden"
+                            className="space-y-2 mt-2 overflow-hidden"
                           >
-                            <div className="space-y-3">
+                            <div className="space-y-2">
                               {mealEntries.map((entry) => (
                                 <div
                                   key={entry.id}
-                                  className="bg-slate-700 rounded-lg p-4 shadow-lg shadow-slate-900/20"
+                                  className="bg-slate-800/50 rounded-lg p-3 border border-slate-600/50"
                                 >
-                                  <div className="flex items-start justify-between mb-3">
-                                    <div className="flex-1">
-                                      <h4 className="text-white font-semibold text-base">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="flex-1 min-w-0">
+                                      <h4 className="text-white font-semibold text-sm truncate">
                                         {entry.name}
                                       </h4>
-                                      <p className="text-slate-400 text-xs mt-1">
+                                      <p className="text-slate-400 text-xs">
                                         {new Date(
                                           entry.timestamp
                                         ).toLocaleTimeString('en-US', {
@@ -569,15 +569,15 @@ export const TrackerScreen = ({
                                         })}
                                       </p>
                                     </div>
-                                    <div className="flex items-end gap-3 pt-1">
+                                    <div className="flex items-center gap-2 ml-3">
                                       <button
                                         onClick={() =>
                                           handleEditFood(mealTypeId, entry.id)
                                         }
                                         type="button"
-                                        className="text-slate-200 hover:text-white transition-colors hover:scale-110 active:scale-95"
+                                        className="text-slate-300 hover:text-white transition-colors hover:scale-110 active:scale-95"
                                       >
-                                        <Edit2 size={22} />
+                                        <Edit2 size={16} />
                                       </button>
                                       <button
                                         onClick={() =>
@@ -586,42 +586,42 @@ export const TrackerScreen = ({
                                         type="button"
                                         className="text-red-400 hover:text-red-300 transition-colors hover:scale-110 active:scale-95"
                                       >
-                                        <Trash2 size={22} />
+                                        <Trash2 size={16} />
                                       </button>
                                     </div>
                                   </div>
 
                                   <div className="grid grid-cols-4 gap-2 text-center">
                                     <div>
-                                      <p className="text-emerald-400 font-bold text-lg">
+                                      <p className="text-emerald-400 font-bold text-sm">
                                         {entry.calories}
                                       </p>
-                                      <p className="text-slate-400 text-xs">
+                                      <p className="text-slate-500 text-xs">
                                         cal
                                       </p>
                                     </div>
                                     <div>
-                                      <p className="text-red-400 font-bold text-lg">
+                                      <p className="text-red-400 font-bold text-sm">
                                         {entry.protein}
                                       </p>
-                                      <p className="text-slate-400 text-xs">
-                                        protein
+                                      <p className="text-slate-500 text-xs">
+                                        pro
                                       </p>
                                     </div>
                                     <div>
-                                      <p className="text-yellow-400 font-bold text-lg">
+                                      <p className="text-yellow-400 font-bold text-sm">
                                         {entry.fats}
                                       </p>
-                                      <p className="text-slate-400 text-xs">
-                                        fats
+                                      <p className="text-slate-500 text-xs">
+                                        fat
                                       </p>
                                     </div>
                                     <div>
-                                      <p className="text-amber-400 font-bold text-lg">
+                                      <p className="text-amber-400 font-bold text-sm">
                                         {entry.carbs}
                                       </p>
-                                      <p className="text-slate-400 text-xs">
-                                        carbs
+                                      <p className="text-slate-500 text-xs">
+                                        carb
                                       </p>
                                     </div>
                                   </div>
@@ -633,7 +633,7 @@ export const TrackerScreen = ({
                             <button
                               onClick={() => onAddMealEntry?.(mealTypeId)}
                               type="button"
-                              className="w-full py-2 border-2 border-dashed border-slate-600 hover:border-emerald-500 rounded-lg text-slate-400 hover:text-emerald-400 transition-all flex items-center justify-center gap-2"
+                              className="w-full py-2 border-2 border-dashed border-slate-600 hover:border-emerald-500 rounded-lg text-slate-400 hover:text-emerald-400 transition-all flex items-center justify-center gap-2 mt-3"
                             >
                               <Plus size={16} />
                               <span className="text-sm font-semibold">
