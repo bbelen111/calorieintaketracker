@@ -9,7 +9,7 @@ import {
   Cookie,
   Droplet,
   Trash2,
-  Edit2,
+  Edit3,
   ChevronDown,
   Calendar,
   CalendarCog,
@@ -643,7 +643,7 @@ export const TrackerScreen = ({
                                       type="button"
                                       className="text-slate-200 hover:text-white transition-all hover:scale-110 active:scale-95"
                                     >
-                                      <Edit2 size={22} />
+                                      <Edit3 size={22} />
                                     </button>
                                     <button
                                       onClick={() =>

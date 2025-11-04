@@ -27,6 +27,19 @@ export const MealEntryModal = ({
     { calories: 0, protein: 0, carbs: 0, fats: 0 }
   );
 
+  // Latest timestamp for this meal (used in unified header)
+  const latestTimestamp = foodEntries.reduce((latest, entry) => {
+    const t =
+      entry && entry.timestamp ? new Date(entry.timestamp).getTime() : 0;
+    return t > latest ? t : latest;
+  }, 0);
+  const mealTime = latestTimestamp
+    ? new Date(latestTimestamp).toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+      })
+    : null;
+
   const handleDeleteFood = (entryId) => {
     if (window.confirm('Delete this food entry?')) {
       onDeleteFood?.(entryId);
@@ -46,65 +59,78 @@ export const MealEntryModal = ({
       </div>
 
       <div className="space-y-6">
-        {/* Meal Type Selector */}
+        {/* Meal Type + Summary (unified) */}
         <div>
           <label className="block text-slate-300 text-sm font-semibold mb-2">
-            Meal Type
+            Meal
           </label>
-          <button
-            type="button"
-            onClick={onMealTypeClick}
-            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-left hover:bg-slate-600 transition-all flex items-center justify-between"
-          >
-            {mealTypeData ? (
-              <div className="flex items-center gap-3">
-                {React.createElement(mealTypeData.icon, {
-                  className: 'text-white',
-                  size: 20,
-                })}
-                <span className="text-white font-semibold">
-                  {mealTypeData.label}
-                </span>
-              </div>
-            ) : (
-              <span className="text-slate-400">Select meal type...</span>
-            )}
-            <ChevronRight className="text-slate-400" size={20} />
-          </button>
-        </div>
+          {/* Unified container so selector and totals look like one box */}
+          <div className="">
+            <div className="bg-slate-700/50 rounded-lg border border-slate-600 overflow-hidden">
+              <div className="flex flex-col md:flex-row items-stretch">
+                <button
+                  type="button"
+                  onClick={onMealTypeClick}
+                  className="w-full md:w-64 bg-transparent px-4 py-3 md:pr-4 text-left hover:bg-slate-700/25 transition-all flex items-center justify-between md:border-r md:border-slate-600/50"
+                >
+                  {mealTypeData ? (
+                    <div className="flex items-center gap-3">
+                      {React.createElement(mealTypeData.icon, {
+                        className: 'text-white',
+                        size: 20,
+                      })}
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-white font-semibold">
+                          {mealTypeData.label}
+                        </span>
+                        {mealTime && (
+                          <span className="text-slate-400 text-xs">
+                            {mealTime}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-slate-400">Select meal type...</span>
+                  )}
+                  <ChevronRight className="text-slate-400" size={20} />
+                </button>
 
-        {/* Meal Summary */}
-        {/* Meal Summary */}
-        {mealTypeData && foodEntries.length > 0 && (
-          <div className="bg-slate-700/50 rounded-lg p-3 border border-slate-600">
-            <div className="grid grid-cols-4 gap-3 text-center">
-              <div>
-                <p className="text-emerald-400 font-bold text-base">
-                  {Math.round(mealTotals.calories)}
-                </p>
-                <p className="text-slate-400 text-xs">cal</p>
-              </div>
-              <div>
-                <p className="text-red-400 font-bold text-base">
-                  {Math.round(mealTotals.protein)}g
-                </p>
-                <p className="text-slate-400 text-xs">protein</p>
-              </div>
-              <div>
-                <p className="text-yellow-400 font-bold text-base">
-                  {Math.round(mealTotals.fats)}g
-                </p>
-                <p className="text-slate-400 text-xs">fats</p>
-              </div>
-              <div>
-                <p className="text-amber-400 font-bold text-base">
-                  {Math.round(mealTotals.carbs)}g
-                </p>
-                <p className="text-slate-400 text-xs">carbs</p>
+                {mealTypeData && foodEntries.length > 0 && (
+                  <div className="p-3 flex-1">
+                    <div className="grid grid-cols-4 gap-3 text-center">
+                      <div>
+                        <p className="text-emerald-400 font-bold text-base">
+                          {Math.round(mealTotals.calories)}
+                        </p>
+                        <p className="text-slate-400 text-xs">cal</p>
+                      </div>
+                      <div>
+                        <p className="text-red-400 font-bold text-base">
+                          {Math.round(mealTotals.protein)}g
+                        </p>
+                        <p className="text-slate-400 text-xs">protein</p>
+                      </div>
+                      <div>
+                        <p className="text-yellow-400 font-bold text-base">
+                          {Math.round(mealTotals.fats)}g
+                        </p>
+                        <p className="text-slate-400 text-xs">fats</p>
+                      </div>
+                      <div>
+                        <p className="text-amber-400 font-bold text-base">
+                          {Math.round(mealTotals.carbs)}g
+                        </p>
+                        <p className="text-slate-400 text-xs">carbs</p>
+                      </div>
+                    </div>
+                    {/* mealTime moved beside meal type for cleaner layout */}
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        )}
+        </div>
 
         {/* Food Entries */}
         {mealTypeData && (
@@ -144,17 +170,6 @@ export const MealEntryModal = ({
                         <h4 className="text-white font-semibold text-base">
                           {entry.name}
                         </h4>
-                        {entry.timestamp && (
-                          <p className="text-slate-400 text-xs mt-1">
-                            {new Date(entry.timestamp).toLocaleTimeString(
-                              'en-US',
-                              {
-                                hour: 'numeric',
-                                minute: '2-digit',
-                              }
-                            )}
-                          </p>
-                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <button
