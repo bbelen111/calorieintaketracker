@@ -32,7 +32,7 @@ export const MealTypePickerModal = ({
       contentClassName="w-full md:max-w-md p-6"
     >
       <div className="flex items-center gap-3 mb-6">
-        <Utensils className="text-emerald-400" size={28} />
+        <Utensils className="text-blue-400" size={28} />
         <h3 className="text-white font-bold text-2xl">Select Meal Type</h3>
       </div>
 

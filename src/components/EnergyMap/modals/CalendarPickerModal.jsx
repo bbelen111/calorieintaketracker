@@ -208,7 +208,7 @@ const CalendarHeatmap = ({
                       aria-pressed={day.date === selectedDate}
                     >
                       {day.hasEntries && (
-                        <div className="absolute top-1 right-1 w-2 h-2 bg-emerald-500 rounded-full border border-emerald-400 shadow-sm" />
+                        <div className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full border border-blue-400 shadow-sm" />
                       )}
                       <span className="text-white text-sm font-bold">
                         {dayNum}
@@ -216,7 +216,7 @@ const CalendarHeatmap = ({
                       {hasData && (
                         <div className="flex flex-col gap-0 leading-none w-full px-1">
                           <span className="text-emerald-400 text-[9px] font-semibold">
-                            {formatMacroDisplay(macros.calories, hasData)}
+                            Cal:{formatMacroDisplay(macros.calories, hasData)}
                           </span>
                           <div className="flex items-center justify-between gap-0.5">
                             <span className="text-red-400 text-[7px] font-medium">
@@ -242,9 +242,9 @@ const CalendarHeatmap = ({
 
       {/* Legend
       <div className="flex items-center justify-center gap-4 pt-4 text-xs text-slate-400 border-t border-slate-700 mt-4">
-        <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-lg bg-slate-700 border-2 border-slate-600 flex flex-col items-center justify-center gap-0.5 shadow-sm relative">
-            <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-emerald-500 rounded-full border border-emerald-400" />
+            <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-blue-500 rounded-full border border-blue-400" />
             <span className="text-white font-bold text-[10px]">15</span>
             <span className="text-white text-[6px] leading-none opacity-80">
               2k

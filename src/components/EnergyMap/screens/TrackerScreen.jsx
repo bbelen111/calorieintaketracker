@@ -403,7 +403,7 @@ export const TrackerScreen = ({
             <p className="text-slate-300 text-xs font-semibold mt-2">Protein</p>
             <p className="text-slate-400 text-xs">
               {proteinInRange ? (
-                <span className="text-emerald-400">
+                <span className="text-blue-400">
                   ✓ {proteinMin}-{proteinMax}g
                 </span>
               ) : (
@@ -431,7 +431,7 @@ export const TrackerScreen = ({
             <p className="text-slate-300 text-xs font-semibold mt-2">Fats</p>
             <p className="text-slate-400 text-xs">
               {fatsInRange ? (
-                <span className="text-emerald-400">
+                <span className="text-blue-400">
                   ✓ {fatsMin}-{fatsMax}g
                 </span>
               ) : (
@@ -493,13 +493,13 @@ export const TrackerScreen = ({
                 transition={{ duration: 0.3, ease: 'easeOut' }}
               >
                 <div className="flex items-center gap-2">
-                  <Utensils className="text-emerald-400" size={24} />
+                  <Utensils className="text-blue-400" size={24} />
                   <h2 className="text-xl font-bold text-white">Meals</h2>
                 </div>
                 <motion.button
                   onClick={() => onAddMealEntry?.('')}
                   type="button"
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all"
+                  className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all"
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
                 >
@@ -663,7 +663,7 @@ export const TrackerScreen = ({
                             <button
                               onClick={() => onAddMealEntry?.(mealTypeId)}
                               type="button"
-                              className="w-full py-2 border-2 border-dashed border-slate-600 hover:border-emerald-500 rounded-lg text-slate-400 hover:text-emerald-400 transition-all flex items-center justify-center gap-2 mt-3"
+                              className="w-full py-2 border-2 border-dashed border-slate-600 hover:border-blue-500 rounded-lg text-slate-400 hover:text-blue-400 transition-all flex items-center justify-center gap-2 mt-3"
                             >
                               <Plus size={16} />
                               <span className="text-sm font-semibold">
@@ -694,7 +694,7 @@ export const TrackerScreen = ({
                 whileTap={{ scale: 0.97 }}
               >
                 <div className="flex items-center gap-3">
-                  <Utensils className="text-emerald-400" size={24} />
+                  <Utensils className="text-blue-400" size={24} />
                   <div className="text-left">
                     <h2 className="text-lg font-bold text-white">
                       Add Food Entry
@@ -705,7 +705,7 @@ export const TrackerScreen = ({
                   </div>
                 </div>
                 <Plus
-                  className="text-slate-400 group-hover:text-emerald-400 transition-colors"
+                  className="text-slate-400 group-hover:text-blue-400 transition-colors"
                   size={24}
                 />
               </motion.button>

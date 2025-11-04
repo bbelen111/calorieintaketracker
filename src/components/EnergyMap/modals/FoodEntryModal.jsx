@@ -36,7 +36,7 @@ export const FoodEntryModal = ({
       contentClassName="w-full md:max-w-2xl p-6"
     >
       <div className="flex items-center gap-3 mb-6">
-        <Utensils className="text-emerald-400" size={28} />
+        <Utensils className="text-blue-400" size={28} />
         <h3 className="text-white font-bold text-2xl">
           {isEditing ? 'Edit Food Entry' : 'Add Food Entry'}
         </h3>
@@ -53,7 +53,7 @@ export const FoodEntryModal = ({
             value={foodName}
             onChange={(e) => setFoodName(e.target.value)}
             placeholder="e.g., Chicken Breast"
-            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
             autoFocus
           />
         </div>
@@ -83,7 +83,7 @@ export const FoodEntryModal = ({
               value={protein}
               onChange={(e) => setProtein(e.target.value)}
               placeholder="0"
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
           </div>
 
@@ -96,7 +96,7 @@ export const FoodEntryModal = ({
               value={carbs}
               onChange={(e) => setCarbs(e.target.value)}
               placeholder="0"
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
           </div>
 
@@ -109,7 +109,7 @@ export const FoodEntryModal = ({
               value={fats}
               onChange={(e) => setFats(e.target.value)}
               placeholder="0"
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
           </div>
         </div>
@@ -124,7 +124,7 @@ export const FoodEntryModal = ({
           </button>
           <button
             onClick={handleSave}
-            className="flex-1 px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-semibold transition-all flex items-center justify-center gap-2"
+            className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-all flex items-center justify-center gap-2"
           >
             <Save size={18} />
             {isEditing ? 'Save Changes' : 'Add Food'}

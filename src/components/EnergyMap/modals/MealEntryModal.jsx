@@ -41,7 +41,7 @@ export const MealEntryModal = ({
       contentClassName="w-full md:max-w-3xl p-6"
     >
       <div className="flex items-center gap-3 mb-6">
-        <Utensils className="text-emerald-400" size={28} />
+        <Utensils className="text-blue-400" size={28} />
         <h3 className="text-white font-bold text-2xl">Meal Entry</h3>
       </div>
 
@@ -115,7 +115,7 @@ export const MealEntryModal = ({
               </label>
               <button
                 onClick={onAddFood}
-                className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-semibold transition-all"
+                className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-semibold transition-all"
               >
                 <Plus size={16} />
                 Add Food
