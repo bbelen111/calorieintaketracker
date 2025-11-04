@@ -1,5 +1,5 @@
 import React from 'react';
-import { Utensils, Plus, Edit2, Trash2, ChevronRight } from 'lucide-react';
+import { Utensils, Plus, Edit3, Trash2, ChevronRight } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import { getMealTypeById } from '../../../constants/mealTypes';
 
@@ -97,7 +97,7 @@ export const MealEntryModal = ({
                 </button>
 
                 {mealTypeData && foodEntries.length > 0 && (
-                  <div className="p-3 flex-1">
+                  <div className="p-3 flex-1 border-t border-slate-600">
                     <div className="grid grid-cols-4 gap-3 text-center">
                       <div>
                         <p className="text-emerald-400 font-bold text-base">
@@ -177,14 +177,14 @@ export const MealEntryModal = ({
                           className="p-2 hover:bg-blue-500/20 rounded-lg transition-all"
                           title="Edit food"
                         >
-                          <Edit2 className="text-blue-400" size={16} />
+                          <Edit3 className="text-white" size={22} />
                         </button>
                         <button
                           onClick={() => handleDeleteFood(entry.id)}
                           className="p-2 hover:bg-red-500/20 rounded-lg transition-all"
                           title="Delete food"
                         >
-                          <Trash2 className="text-red-400" size={16} />
+                          <Trash2 className="text-red-400" size={22} />
                         </button>
                       </div>
                     </div>
