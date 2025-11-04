@@ -13,7 +13,6 @@ import {
   ChevronDown,
   Calendar,
   CalendarCog,
-  ChevronUp,
 } from 'lucide-react';
 import { MEAL_TYPE_ORDER, getMealTypeById } from '../../../constants/mealTypes';
 
@@ -258,98 +257,133 @@ export const TrackerScreen = ({
           >
             <div className="flex-1">
               <p className="text-slate-400 text-xs mb-0.5">Target</p>
-              <p className="text-white text-sm font-semibold">
-                {targetCalories} cal
-                <span className="text-slate-400 font-normal ml-2">
-                  ({selectedStepRange} steps)
-                </span>
-              </p>
+              {/* Animate only the text when the selection/target changes */}
+              <div className="relative h-6">
+                <AnimatePresence mode="wait">
+                  <motion.p
+                    key={`${targetCalories}-${selectedStepRange}`}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.22 }}
+                    className="text-white text-sm font-semibold absolute left-0"
+                  >
+                    {targetCalories} cal
+                    <span className="text-slate-400 font-normal ml-2">
+                      ({selectedStepRange} steps)
+                    </span>
+                  </motion.p>
+                </AnimatePresence>
+              </div>
             </div>
             <ChevronDown
-              size={18}
+              size={22}
               className={`text-white transition-transform duration-300 ${
                 showCalorieTargetPicker ? 'rotate-180' : ''
               }`}
             />
           </button>
 
-          {/* Dropdown */}
-          {showCalorieTargetPicker && (
-            <div className="absolute z-10 w-full mt-2 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl max-h-64 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
-              {stepRanges.map((range) => {
-                const rangeData = getRangeDetails?.(range);
-                const isSelected = range === selectedStepRange;
-                return (
-                  <button
-                    key={range}
-                    onClick={() => {
-                      onStepRangeChange?.(range);
-                    }}
-                    className={`w-full px-4 py-3 text-left hover:bg-slate-700 transition-all border-b border-slate-700 last:border-b-0 ${
-                      isSelected ? 'bg-slate-700' : ''
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-white font-semibold text-sm">
-                          {range} steps
-                        </p>
-                        <p className="text-slate-400 text-xs">
-                          {selectedGoal === 'maintenance'
-                            ? 'Maintain weight'
-                            : selectedGoal === 'bulking'
-                              ? 'Lean bulk'
-                              : selectedGoal === 'aggressive_bulk'
-                                ? 'Aggressive bulk'
-                                : selectedGoal === 'cutting'
-                                  ? 'Moderate cut'
-                                  : selectedGoal === 'aggressive_cut'
-                                    ? 'Aggressive cut'
-                                    : 'Unknown'}{' '}
-                          • {selectedDay === 'training' ? 'Training' : 'Rest'}{' '}
-                          day
+          {/* Dropdown - animate both open and close */}
+          <AnimatePresence>
+            {showCalorieTargetPicker && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.18 }}
+                className="absolute z-10 w-full mt-2 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl max-h-64 overflow-y-auto"
+                style={{ transformOrigin: 'top center' }}
+              >
+                {stepRanges.map((range) => {
+                  const rangeData = getRangeDetails?.(range);
+                  const isSelected = range === selectedStepRange;
+                  return (
+                    <button
+                      key={range}
+                      onClick={() => {
+                        onStepRangeChange?.(range);
+                      }}
+                      className={`w-full px-4 py-3 text-left hover:bg-slate-700 transition-all border-b border-slate-700 last:border-b-0 ${
+                        isSelected ? 'bg-slate-700' : ''
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-white font-semibold text-sm">
+                            {range} steps
+                          </p>
+                          <p className="text-slate-400 text-xs">
+                            {selectedGoal === 'maintenance'
+                              ? 'Maintain weight'
+                              : selectedGoal === 'bulking'
+                                ? 'Lean bulk'
+                                : selectedGoal === 'aggressive_bulk'
+                                  ? 'Aggressive bulk'
+                                  : selectedGoal === 'cutting'
+                                    ? 'Moderate cut'
+                                    : selectedGoal === 'aggressive_cut'
+                                      ? 'Aggressive cut'
+                                      : 'Unknown'}{' '}
+                            • {selectedDay === 'training' ? 'Training' : 'Rest'}{' '}
+                            day
+                          </p>
+                        </div>
+                        <p
+                          className={`font-bold ${isSelected ? 'text-emerald-400' : 'text-slate-300'}`}
+                        >
+                          {rangeData?.targetCalories || 0}
                         </p>
                       </div>
-                      <p
-                        className={`font-bold ${isSelected ? 'text-emerald-400' : 'text-slate-300'}`}
-                      >
-                        {rangeData?.targetCalories || 0}
-                      </p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+                    </button>
+                  );
+                })}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Progress Bar */}
         <div className="mt-4 mb-6">
           <div className="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
             <div
-              className={`h-full transition-all duration-300 ${
+              className={`h-full ${
                 caloriesPercent >= 100 ? 'bg-red-500' : 'bg-emerald-500'
               }`}
-              style={{ width: `${caloriesPercent}%` }}
+              style={{
+                width: `${caloriesPercent}%`,
+                transition: 'width 220ms ease',
+              }}
             />
           </div>
-          <p className="text-slate-400 text-xs mt-1">
-            {caloriesRemaining >= 0 ? (
-              <>
-                <span className="text-emerald-400 font-semibold">
-                  {caloriesRemaining}
-                </span>{' '}
-                remaining
-              </>
-            ) : (
-              <>
-                <span className="text-red-400 font-semibold">
-                  {Math.abs(caloriesRemaining)}
-                </span>{' '}
-                over target
-              </>
-            )}
-          </p>
+          <div className="text-slate-400 text-xs mt-1">
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={caloriesRemaining}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.22 }}
+                className="inline-block"
+              >
+                {caloriesRemaining >= 0 ? (
+                  <>
+                    <span className="text-emerald-400 font-semibold">
+                      {caloriesRemaining}
+                    </span>{' '}
+                    remaining
+                  </>
+                ) : (
+                  <>
+                    <span className="text-red-400 font-semibold">
+                      {Math.abs(caloriesRemaining)}
+                    </span>{' '}
+                    over target
+                  </>
+                )}
+              </motion.span>
+            </AnimatePresence>
+          </div>
         </div>
         <div className="grid grid-cols-3 gap-4">
           {/* Protein */}
@@ -517,7 +551,7 @@ export const TrackerScreen = ({
                       {/* Meal Header */}
                       <button
                         onClick={() => toggleMealCollapse(mealTypeId)}
-                        className="w-full flex items-center justify-between hover:bg-slate-600/50 p-2 rounded-lg transition-all"
+                        className="w-full flex items-center justify-between p-2 rounded-lg transition-all"
                       >
                         <div className="flex items-center gap-3">
                           {React.createElement(mealType.icon, {
@@ -549,11 +583,13 @@ export const TrackerScreen = ({
                           >
                             <Trash2 className="text-red-400" size={22} />
                           </button>
-                          {isCollapsed ? (
-                            <ChevronDown className="text-white" size={22} />
-                          ) : (
-                            <ChevronUp className="text-white" size={22} />
-                          )}
+                          {/* Animate the meal chevron by rotating a single icon instead of swapping icons */}
+                          <ChevronDown
+                            className={`text-white transition-transform duration-300 ${
+                              !isCollapsed ? 'rotate-180' : ''
+                            }`}
+                            size={22}
+                          />
                         </div>
                       </button>
 
