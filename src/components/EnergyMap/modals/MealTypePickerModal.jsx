@@ -9,31 +9,19 @@ export const MealTypePickerModal = ({
   onClose,
   onSelect,
   selectedMealType,
+  mealTypeItemCounts = {}, // { [mealTypeId]: number }
 }) => {
   const handleSelect = (mealTypeId) => {
     onSelect?.(mealTypeId);
     onClose?.();
   };
 
+  // Unify focus/hover color to blue
   const getColorClasses = (color, isSelected) => {
-    const colors = {
-      orange: isSelected
-        ? 'bg-orange-600 border-orange-500'
-        : 'bg-slate-700 border-slate-600 hover:bg-orange-600/20 hover:border-orange-500/50',
-      yellow: isSelected
-        ? 'bg-yellow-600 border-yellow-500'
-        : 'bg-slate-700 border-slate-600 hover:bg-yellow-600/20 hover:border-yellow-500/50',
-      indigo: isSelected
-        ? 'bg-indigo-600 border-indigo-500'
-        : 'bg-slate-700 border-slate-600 hover:bg-indigo-600/20 hover:border-indigo-500/50',
-      green: isSelected
-        ? 'bg-green-600 border-green-500'
-        : 'bg-slate-700 border-slate-600 hover:bg-green-600/20 hover:border-green-500/50',
-      slate: isSelected
-        ? 'bg-slate-600 border-slate-500'
-        : 'bg-slate-700 border-slate-600 hover:bg-slate-600/80 hover:border-slate-500/50',
-    };
-    return colors[color] || colors.slate;
+    const base = isSelected
+      ? 'bg-blue-600 border-blue-500'
+      : 'bg-slate-700 border-slate-600 hover:bg-blue-600/20 hover:border-blue-500/50 focus:ring-2 focus:ring-blue-400';
+    return base;
   };
 
   return (
@@ -52,13 +40,14 @@ export const MealTypePickerModal = ({
         {MEAL_TYPE_ORDER.map((mealTypeId) => {
           const mealType = getMealTypeById(mealTypeId);
           const isSelected = selectedMealType === mealTypeId;
-
           const Icon = mealType.icon;
+          const itemCount = mealTypeItemCounts[mealTypeId] || 0;
           return (
             <button
               key={mealTypeId}
               onClick={() => handleSelect(mealTypeId)}
               className={`w-full p-4 rounded-lg border-2 transition-all flex items-center gap-4 ${getColorClasses(mealType.color, isSelected)}`}
+              tabIndex={0}
             >
               <Icon className="text-white" size={24} />
               <div className="flex-1 text-left">
@@ -66,11 +55,13 @@ export const MealTypePickerModal = ({
                   {mealType.label}
                 </h4>
               </div>
-              {isSelected && (
-                <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center">
-                  <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                </div>
+              {/* Item count on right if > 0, subtle style */}
+              {itemCount > 0 && (
+                <span className="ml-2 text-xs text-slate-400 font-medium px-2 py-1 rounded bg-slate-800/60">
+                  {itemCount} food {itemCount === 1 ? 'item' : 'items'}
+                </span>
               )}
+              {/* Removed selection circle for selected meal type */}
             </button>
           );
         })}

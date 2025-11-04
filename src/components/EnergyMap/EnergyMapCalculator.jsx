@@ -24,6 +24,7 @@ import { PhaseDetailScreen } from './screens/PhaseDetailScreen';
 import { GoalModal } from './modals/GoalModal';
 import { BmrInfoModal } from './modals/BmrInfoModal';
 import { AgePickerModal } from './modals/AgePickerModal';
+import { MEAL_TYPE_ORDER } from '../../constants/mealTypes';
 import { HeightPickerModal } from './modals/HeightPickerModal';
 import { WeightPickerModal } from './modals/WeightPickerModal';
 import { WeightEntryModal } from './modals/WeightEntryModal';
@@ -2053,6 +2054,16 @@ export const EnergyMapCalculator = () => {
         onClose={mealTypePickerModal.requestClose}
         onSelect={handleMealTypeSelect}
         selectedMealType={foodMealType}
+        mealTypeItemCounts={(() => {
+          const dateData = nutritionData[trackerSelectedDate] || {};
+          const counts = {};
+          for (const mealTypeId of MEAL_TYPE_ORDER) {
+            counts[mealTypeId] = Array.isArray(dateData[mealTypeId])
+              ? dateData[mealTypeId].length
+              : 0;
+          }
+          return counts;
+        })()}
       />
 
       {/* PhaseInsightsModal removed */}
