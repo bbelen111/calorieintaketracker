@@ -163,57 +163,60 @@ export const MealEntryModal = ({
                 {foodEntries.map((entry) => (
                   <div
                     key={entry.id}
-                    className="bg-slate-700 border border-slate-600 rounded-lg p-4 hover:bg-slate-600/50 transition-all"
+                    className="bg-slate-700/50 rounded-lg border border-slate-600 overflow-hidden"
                   >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <h4 className="text-white font-semibold text-base">
-                          {entry.name}
-                        </h4>
+                    <div className="flex flex-col md:flex-row items-stretch">
+                      <div className="w-full md:w-64 bg-transparent px-4 py-3 md:pr-4 text-left flex items-start justify-between md:border-r md:border-slate-600/50">
+                        <div className="flex-1">
+                          <h4 className="text-white font-semibold text-base">
+                            {entry.name}
+                          </h4>
+                        </div>
+                        <div className="flex items-center gap-2 ml-3">
+                          <button
+                            onClick={() => onEditFood?.(entry.id)}
+                            className="p-2 hover:bg-blue-500/20 rounded-lg transition-all"
+                            title="Edit food"
+                          >
+                            <Edit3 className="text-white" size={22} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteFood(entry.id)}
+                            className="p-2 hover:bg-red-500/20 rounded-lg transition-all"
+                            title="Delete food"
+                          >
+                            <Trash2 className="text-red-400" size={22} />
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => onEditFood?.(entry.id)}
-                          className="p-2 hover:bg-blue-500/20 rounded-lg transition-all"
-                          title="Edit food"
-                        >
-                          <Edit3 className="text-white" size={22} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteFood(entry.id)}
-                          className="p-2 hover:bg-red-500/20 rounded-lg transition-all"
-                          title="Delete food"
-                        >
-                          <Trash2 className="text-red-400" size={22} />
-                        </button>
-                      </div>
-                    </div>
 
-                    {/* Nutrition Info */}
-                    <div className="grid grid-cols-4 gap-2 text-center pt-3 border-t border-slate-600">
-                      <div>
-                        <p className="text-emerald-400 font-semibold text-sm">
-                          {entry.calories || 0}
-                        </p>
-                        <p className="text-slate-400 text-xs">cal</p>
-                      </div>
-                      <div>
-                        <p className="text-red-400 font-semibold text-sm">
-                          {entry.protein || 0}g
-                        </p>
-                        <p className="text-slate-400 text-xs">protein</p>
-                      </div>
-                      <div>
-                        <p className="text-yellow-400 font-semibold text-sm">
-                          {entry.fats || 0}g
-                        </p>
-                        <p className="text-slate-400 text-xs">fats</p>
-                      </div>
-                      <div>
-                        <p className="text-amber-400 font-semibold text-sm">
-                          {entry.carbs || 0}g
-                        </p>
-                        <p className="text-slate-400 text-xs">carbs</p>
+                      <div className="p-3 flex-1 border-t md:border-t-0 md:border-l border-slate-600">
+                        <div className="grid grid-cols-4 gap-2 text-center">
+                          <div>
+                            <p className="text-emerald-400 font-semibold text-sm">
+                              {entry.calories || 0}
+                            </p>
+                            <p className="text-slate-400 text-xs">cal</p>
+                          </div>
+                          <div>
+                            <p className="text-red-400 font-semibold text-sm">
+                              {entry.protein || 0}g
+                            </p>
+                            <p className="text-slate-400 text-xs">protein</p>
+                          </div>
+                          <div>
+                            <p className="text-yellow-400 font-semibold text-sm">
+                              {entry.fats || 0}g
+                            </p>
+                            <p className="text-slate-400 text-xs">fats</p>
+                          </div>
+                          <div>
+                            <p className="text-amber-400 font-semibold text-sm">
+                              {entry.carbs || 0}g
+                            </p>
+                            <p className="text-slate-400 text-xs">carbs</p>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
