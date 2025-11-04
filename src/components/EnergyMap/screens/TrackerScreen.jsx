@@ -538,7 +538,7 @@ export const TrackerScreen = ({
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -547,12 +547,12 @@ export const TrackerScreen = ({
                             className="p-1.5 hover:bg-red-500/20 rounded-lg transition-all"
                             title="Delete meal"
                           >
-                            <Trash2 className="text-red-400" size={18} />
+                            <Trash2 className="text-red-400" size={22} />
                           </button>
                           {isCollapsed ? (
-                            <ChevronDown className="text-slate-400" size={20} />
+                            <ChevronDown className="text-white" size={22} />
                           ) : (
-                            <ChevronUp className="text-slate-400" size={20} />
+                            <ChevronUp className="text-white" size={22} />
                           )}
                         </div>
                       </button>
@@ -587,19 +587,19 @@ export const TrackerScreen = ({
                                       </span>
                                       {' • '}
                                       <span className="text-red-400">
-                                        {entry.protein}p
+                                        {entry.protein} p
                                       </span>
                                       {' • '}
                                       <span className="text-yellow-400">
-                                        {entry.fats}f
+                                        {entry.fats} f
                                       </span>
                                       {' • '}
                                       <span className="text-amber-400">
-                                        {entry.carbs}c
+                                        {entry.carbs} c
                                       </span>
                                     </p>
                                   </div>
-                                  <div className="flex items-end gap-2">
+                                  <div className="flex items-end gap-3">
                                     <button
                                       onClick={() =>
                                         handleEditFood(mealTypeId, entry.id)
@@ -607,7 +607,7 @@ export const TrackerScreen = ({
                                       type="button"
                                       className="text-slate-200 hover:text-white transition-all hover:scale-110 active:scale-95"
                                     >
-                                      <Edit2 size={18} />
+                                      <Edit2 size={22} />
                                     </button>
                                     <button
                                       onClick={() =>
@@ -616,7 +616,7 @@ export const TrackerScreen = ({
                                       type="button"
                                       className="text-red-400 hover:text-red-300 transition-all hover:scale-110 active:scale-95"
                                     >
-                                      <Trash2 size={18} />
+                                      <Trash2 size={22} />
                                     </button>
                                   </div>
                                 </div>
