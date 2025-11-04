@@ -159,11 +159,11 @@ export const MealEntryModal = ({
                 </p>
               </div>
             ) : (
-              <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+              <div className="space-y-3 max-h-96 overflow-y-auto">
                 {foodEntries.map((entry) => (
                   <div
                     key={entry.id}
-                    className="bg-slate-700/50 rounded-lg border border-slate-600 overflow-hidden"
+                    className="w-full bg-slate-700/50 rounded-lg border border-slate-600 overflow-hidden"
                   >
                     <div className="flex flex-col md:flex-row items-stretch">
                       <div className="w-full md:w-64 bg-transparent px-4 py-3 md:pr-4 text-left flex items-start justify-between md:border-r md:border-slate-600/50">
