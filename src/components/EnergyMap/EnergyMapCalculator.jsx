@@ -1622,6 +1622,7 @@ export const EnergyMapCalculator = () => {
                   getRangeDetails={getRangeDetails}
                   calendarModal={calendarPickerModal}
                   selectedDate={trackerSelectedDate}
+                  onSelectedDateChange={setTrackerSelectedDate}
                   selectedStepRange={trackerStepRange}
                   onStepRangeChange={handleTrackerStepRangeChange}
                   showCalorieTargetPicker={showTrackerCaloriePicker}
