@@ -50,7 +50,7 @@ export const CalorieMapScreen = ({
               key={steps}
               type="button"
               onClick={() => onOpenBreakdown(steps)}
-              className={`group relative w-full text-left bg-slate-700 rounded-xl p-4 transition-all ${
+              className={`group relative w-full text-left bg-slate-700/50 rounded-xl p-4 transition-all border border-slate-600/50 ${
                 isActive
                   ? 'ring-2 ring-blue-400 bg-slate-700/90'
                   : 'hover:bg-slate-600'

@@ -267,7 +267,7 @@ export const TrackerScreen = ({
             <span className="hidden md:inline">Calendar</span>
           </button>
         </div>
-        <div className="bg-slate-700 rounded-lg py-1 border border-slate-600 flex items-center justify-between relative">
+        <div className="bg-slate-700/50 rounded-lg py-1 border border-slate-600/50 flex items-center justify-between relative shadow-lg shadow-slate-900/20">
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center">
               <button
@@ -358,7 +358,7 @@ export const TrackerScreen = ({
         <div className="relative">
           <button
             onClick={() => onToggleCalorieTargetPicker?.()}
-            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-left flex items-center justify-between hover:bg-slate-750 transition-all"
+            className="w-full bg-slate-700/50 border border-slate-600/50 rounded-lg px-3 py-2 text-left flex items-center justify-between hover:bg-slate-750 transition-all  shadow-lg shadow-slate-900/20"
           >
             <div className="flex-1">
               <p className="text-slate-400 text-xs mb-0.5">Target</p>
@@ -397,7 +397,7 @@ export const TrackerScreen = ({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.18 }}
-                className="absolute z-10 w-full mt-2 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl max-h-64 overflow-y-auto"
+                className="absolute z-10 w-full mt-2 bg-slate-800 border border-slate-600/50 rounded-lg shadow-2xl max-h-64 overflow-y-auto"
                 style={{ transformOrigin: 'top center' }}
               >
                 {stepRanges.map((range) => {
@@ -409,8 +409,8 @@ export const TrackerScreen = ({
                       onClick={() => {
                         onStepRangeChange?.(range);
                       }}
-                      className={`w-full px-4 py-3 text-left hover:bg-slate-700 transition-all border-b border-slate-700 last:border-b-0 ${
-                        isSelected ? 'bg-slate-700' : ''
+                      className={`w-full px-4 py-3 text-left hover:bg-slate-700 transition-all border-b border-slate-700/50 last:border-b-0 ${
+                        isSelected ? 'bg-slate-700/60' : ''
                       }`}
                     >
                       <div className="flex items-center justify-between">
@@ -684,7 +684,7 @@ export const TrackerScreen = ({
                   return (
                     <div
                       key={mealTypeId}
-                      className="bg-slate-700 rounded-xl p-2 border border-slate-600"
+                      className="bg-slate-700/50 rounded-xl p-2 border border-slate-600/50 shadow-lg shadow-slate-900/20"
                     >
                       {/* Meal Header */}
                       <button
@@ -749,7 +749,7 @@ export const TrackerScreen = ({
                               {mealEntries.map((entry) => (
                                 <div
                                   key={entry.id}
-                                  className="bg-slate-800/50 rounded-lg p-3 border border-slate-600/50 flex justify-between items-start gap-3 shadow-lg shadow-slate-900/20"
+                                  className="bg-slate-700/50 rounded-lg p-3 border border-slate-600/50 flex justify-between items-start gap-3 shadow-lg shadow-slate-900/20"
                                 >
                                   <div className="flex-1 min-w-0">
                                     <p className="text-white font-semibold text-sm truncate">
