@@ -244,9 +244,20 @@ export const TrackerScreen = ({
               Total Calories
             </span>
           </div>
-          <p className="text-emerald-400 font-bold text-2xl">
-            {totals.calories}
-          </p>
+          <div className="h-8">
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={totals.calories}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.22 }}
+                className="text-emerald-400 font-bold text-2xl"
+              >
+                {totals.calories}
+              </motion.p>
+            </AnimatePresence>
+          </div>
         </div>
 
         {/* Calorie Target Selector */}
@@ -397,7 +408,18 @@ export const TrackerScreen = ({
               />
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <Beef className="text-red-400 mb-1" size={20} />
-                <p className="text-white font-bold text-lg">{totals.protein}</p>
+                <AnimatePresence mode="wait">
+                  <motion.p
+                    key={totals.protein}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.22 }}
+                    className="text-white font-bold text-lg"
+                  >
+                    {totals.protein}
+                  </motion.p>
+                </AnimatePresence>
               </div>
             </div>
             <p className="text-slate-300 text-xs font-semibold mt-2">Protein</p>
@@ -425,7 +447,18 @@ export const TrackerScreen = ({
               />
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <Droplet className="text-yellow-400 mb-1" size={20} />
-                <p className="text-white font-bold text-lg">{totals.fats}</p>
+                <AnimatePresence mode="wait">
+                  <motion.p
+                    key={totals.fats}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.22 }}
+                    className="text-white font-bold text-lg"
+                  >
+                    {totals.fats}
+                  </motion.p>
+                </AnimatePresence>
               </div>
             </div>
             <p className="text-slate-300 text-xs font-semibold mt-2">Fats</p>
@@ -453,7 +486,18 @@ export const TrackerScreen = ({
               />
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <Cookie className="text-amber-400 mb-1" size={20} />
-                <p className="text-white font-bold text-lg">{totals.carbs}</p>
+                <AnimatePresence mode="wait">
+                  <motion.p
+                    key={totals.carbs}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.22 }}
+                    className="text-white font-bold text-lg"
+                  >
+                    {totals.carbs}
+                  </motion.p>
+                </AnimatePresence>
               </div>
             </div>
             <p className="text-slate-300 text-xs font-semibold mt-2">Carbs</p>
