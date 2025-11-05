@@ -11,6 +11,8 @@ import {
   Trash2,
   Edit3,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Calendar,
   CalendarCog,
 } from 'lucide-react';
@@ -73,13 +75,24 @@ export const TrackerScreen = ({
   getRangeDetails,
   calendarModal,
   selectedDate: selectedDateProp,
+  onSelectedDateChange,
   selectedStepRange,
   onStepRangeChange,
   showCalorieTargetPicker,
   onToggleCalorieTargetPicker,
   isSwiping,
 }) => {
-  const selectedDate = selectedDateProp || getTodayDate();
+  // Support controlled (selectedDateProp + onSelectedDateChange) or uncontrolled mode
+  const [internalSelectedDate, setInternalSelectedDate] = useState(
+    selectedDateProp || getTodayDate()
+  );
+
+  // Treat as controlled only if parent provided both a value and an updater.
+  const isControlled = Boolean(
+    selectedDateProp !== undefined && typeof onSelectedDateChange === 'function'
+  );
+
+  const selectedDate = isControlled ? selectedDateProp : internalSelectedDate;
   const [collapsedMeals, setCollapsedMeals] = useState({});
 
   // Calculate ranges based on bodyweight (matching InsightsScreen)
@@ -201,6 +214,18 @@ export const TrackerScreen = ({
     });
   };
 
+  const changeDateBy = (offset) => {
+    const base = selectedDate || getTodayDate();
+    const date = new Date(base + 'T00:00:00Z');
+    date.setUTCDate(date.getUTCDate() + offset);
+    const iso = date.toISOString().split('T')[0];
+    if (typeof onSelectedDateChange === 'function') {
+      onSelectedDateChange(iso);
+    } else {
+      setInternalSelectedDate(iso);
+    }
+  };
+
   return (
     <div className="space-y-6 pb-10">
       {/* Header */}
@@ -220,17 +245,35 @@ export const TrackerScreen = ({
             <span className="hidden md:inline">Calendar</span>
           </button>
         </div>
-        <div className="bg-slate-700 rounded-lg px-4 py-2 border border-slate-600 flex items-center justify-between">
+        <div className="bg-slate-700 rounded-lg py-2 border border-slate-600 flex items-center justify-between">
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => changeDateBy(-1)}
+                type="button"
+                className="p-1 rounded transition-colors"
+                title="Previous day"
+              >
+                <ChevronLeft className="text-slate-300" size={16} />
+              </button>
               <Calendar size={18} className="text-blue-400" />
               <span className="text-white text-md font-semibold">
                 {getWeekday(selectedDate)}
               </span>
             </div>
-            <span className="text-white text-md font-semibold">
-              {getMonthDayYear(selectedDate)}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-white text-md font-semibold">
+                {getMonthDayYear(selectedDate)}
+              </span>
+              <button
+                onClick={() => changeDateBy(1)}
+                type="button"
+                className="p-1 rounded transition-colors"
+                title="Next day"
+              >
+                <ChevronRight className="text-slate-300" size={16} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
