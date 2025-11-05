@@ -267,7 +267,7 @@ export const TrackerScreen = ({
             <span className="hidden md:inline">Calendar</span>
           </button>
         </div>
-        <div className="bg-slate-700 rounded-lg py-2 border border-slate-600 flex items-center justify-between relative">
+        <div className="bg-slate-700 rounded-lg py-1 border border-slate-600 flex items-center justify-between relative">
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center">
               <button
@@ -276,7 +276,7 @@ export const TrackerScreen = ({
                 className="p-1 rounded transition-colors"
                 title="Previous day"
               >
-                <ChevronLeft className="text-slate-300" size={16} />
+                <ChevronLeft className="text-slate-300" size={22} />
               </button>
               <Calendar size={18} className="text-blue-400" />
               <div className="relative h-6 ml-1">
@@ -320,7 +320,7 @@ export const TrackerScreen = ({
                 className="p-1 rounded transition-colors"
                 title="Next day"
               >
-                <ChevronRight className="text-slate-300" size={16} />
+                <ChevronRight className="text-slate-300" size={22} />
               </button>
             </div>
           </div>

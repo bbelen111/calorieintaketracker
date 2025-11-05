@@ -513,19 +513,22 @@ export const CalendarPickerModal = ({
             <ChevronLeft size={20} />
           </motion.button>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 relative w-full justify-center">
             <button
               type="button"
               onClick={() => {
                 setShowMonthPicker(!showMonthPicker);
                 setShowYearPicker(false);
               }}
-              className="text-white font-semibold text-lg hover:text-blue-400 transition-colors cursor-pointer underline underline-offset-4"
+              className="text-white font-semibold text-lg hover:text-blue-400 transition-colors cursor-pointer underline underline-offset-4 mr-auto"
             >
               {monthNames[currentMonth]}
             </button>
 
-            <span className="text-slate-500">•</span>
+            {/* Centered separator dot */}
+            <span className="text-slate-500 absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none select-none">
+              •
+            </span>
 
             <button
               type="button"
@@ -533,7 +536,7 @@ export const CalendarPickerModal = ({
                 setShowYearPicker(!showYearPicker);
                 setShowMonthPicker(false);
               }}
-              className="text-white font-semibold text-lg hover:text-blue-400 transition-colors cursor-pointer underline underline-offset-4"
+              className="text-white font-semibold text-lg hover:text-blue-400 transition-colors cursor-pointer underline underline-offset-4 ml-auto"
             >
               {currentYear}
             </button>
