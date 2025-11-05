@@ -247,7 +247,7 @@ export const TrackerScreen = ({
         </div>
         <div className="bg-slate-700 rounded-lg py-2 border border-slate-600 flex items-center justify-between">
           <div className="flex items-center justify-between w-full">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center">
               <button
                 onClick={() => changeDateBy(-1)}
                 type="button"
@@ -257,14 +257,36 @@ export const TrackerScreen = ({
                 <ChevronLeft className="text-slate-300" size={16} />
               </button>
               <Calendar size={18} className="text-blue-400" />
-              <span className="text-white text-md font-semibold">
-                {getWeekday(selectedDate)}
-              </span>
+              <div className="relative h-6 ml-1">
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={`${selectedDate}-weekday`}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.22 }}
+                    className="text-white text-md font-semibold block"
+                  >
+                    {getWeekday(selectedDate)}
+                  </motion.span>
+                </AnimatePresence>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-white text-md font-semibold">
-                {getMonthDayYear(selectedDate)}
-              </span>
+            <div className="flex items-center">
+              <div className="relative h-6">
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={`${selectedDate}-monthday`}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.22 }}
+                    className="text-white text-md font-semibold block"
+                  >
+                    {getMonthDayYear(selectedDate)}
+                  </motion.span>
+                </AnimatePresence>
+              </div>
               <button
                 onClick={() => changeDateBy(1)}
                 type="button"
