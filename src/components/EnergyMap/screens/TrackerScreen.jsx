@@ -94,6 +94,28 @@ export const TrackerScreen = ({
 
   const selectedDate = isControlled ? selectedDateProp : internalSelectedDate;
   const [collapsedMeals, setCollapsedMeals] = useState({});
+  // Whether the current selected date is today (used to show an indicator)
+  const isTodaySelected = selectedDate === getTodayDate();
+
+  // Days difference between selected date and today (UTC days)
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const selectedDateObj = new Date(selectedDate + 'T00:00:00Z');
+  const todayDateObj = new Date(getTodayDate() + 'T00:00:00Z');
+  const dayDifference = Math.round(
+    (selectedDateObj.getTime() - todayDateObj.getTime()) / msPerDay
+  );
+
+  // Badge text for past/future
+  let dateBadgeText = '';
+  if (dayDifference === 0) {
+    dateBadgeText = '';
+  } else if (dayDifference < 0) {
+    const days = Math.abs(dayDifference);
+    dateBadgeText = days === 1 ? '1 day ago' : `${days} days ago`;
+  } else {
+    dateBadgeText =
+      dayDifference === 1 ? 'in 1 day' : `in ${dayDifference} days`;
+  }
 
   // Calculate ranges based on bodyweight (matching InsightsScreen)
   // targetProtein is passed as weight * 2, so range is weight * 2.0 to weight * 2.4
@@ -245,7 +267,7 @@ export const TrackerScreen = ({
             <span className="hidden md:inline">Calendar</span>
           </button>
         </div>
-        <div className="bg-slate-700 rounded-lg py-2 border border-slate-600 flex items-center justify-between">
+        <div className="bg-slate-700 rounded-lg py-2 border border-slate-600 flex items-center justify-between relative">
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center">
               <button
@@ -268,6 +290,11 @@ export const TrackerScreen = ({
                     className="text-white text-md font-semibold block"
                   >
                     {getWeekday(selectedDate)}
+                    {!isTodaySelected && (
+                      <span className="ml-2 text-slate-400 text-xs font-normal">
+                        {dateBadgeText}
+                      </span>
+                    )}
                   </motion.span>
                 </AnimatePresence>
               </div>
@@ -297,6 +324,8 @@ export const TrackerScreen = ({
               </button>
             </div>
           </div>
+
+          {/* relative-day text moved next to weekday (see weekday span) */}
         </div>
       </div>
 
