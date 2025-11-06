@@ -27,7 +27,7 @@ export const FoodPortionModal = ({
   const startXRef = useRef(0);
   const scrollLeftRef = useRef(0);
 
-  const ITEM_WIDTH = 44;
+  const ITEM_WIDTH = 22;
 
   // Generate gram values from 10 to 1000 including 0.1 g steps
   const gramValues = useMemo(() => {
@@ -122,15 +122,21 @@ export const FoodPortionModal = ({
   useEffect(() => {
     if (!isOpen || !selectedFood) return undefined;
 
-    const timer = setTimeout(() => {
+    const rafId = requestAnimationFrame(() => {
       setGrams(100);
+    });
+
+    const timer = setTimeout(() => {
       centerOnValue(100);
       if (scrollerRef.current) {
         setScrollLeft(scrollerRef.current.scrollLeft);
       }
     }, 80);
 
-    return () => clearTimeout(timer);
+    return () => {
+      cancelAnimationFrame(rafId);
+      clearTimeout(timer);
+    };
   }, [centerOnValue, isOpen, selectedFood]);
 
   const handleScroll = useCallback(() => {
@@ -361,7 +367,7 @@ export const FoodPortionModal = ({
         <div className="text-center mb-4">
           <div className="inline-flex items-baseline gap-2 rounded-lg px-6 py-3">
             <span className="text-4xl font-bold text-white">
-              {Number.isInteger(grams) ? grams : grams.toFixed(1)}
+              {grams.toFixed(1)}
             </span>
           </div>
         </div>
@@ -414,9 +420,7 @@ export const FoodPortionModal = ({
                 selectedHeight = 'h-16';
               }
               const shouldShowLabel = isMajor || isHalf;
-              const displayValue = isMajor
-                ? value.toFixed(0)
-                : value.toFixed(1);
+              const displayValue = value.toFixed(1);
               const barClassName = isSelected
                 ? `${selectedHeight} bg-blue-400`
                 : `${baseHeight} ${
@@ -470,7 +474,7 @@ export const FoodPortionModal = ({
       {nutrition && (
         <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6 shadow-lg shadow-slate-900/20">
           <p className="text-slate-400 text-xs mb-3 text-center">
-            For {nutrition.grams}g:
+            For {grams.toFixed(1)}g:
           </p>
           <div className="grid grid-cols-4 gap-3 text-center">
             <div>
