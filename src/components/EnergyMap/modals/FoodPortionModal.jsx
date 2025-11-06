@@ -1,4 +1,11 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+  useLayoutEffect,
+} from 'react';
 import { Plus, X } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import { FOOD_CATEGORIES } from '../../../constants/foodDatabase';
@@ -11,115 +18,164 @@ export const FoodPortionModal = ({
   selectedFood,
 }) => {
   const [grams, setGrams] = useState(100);
+  const [sidePadding, setSidePadding] = useState(0);
   const scrollerRef = useRef(null);
   const isDraggingRef = useRef(false);
   const startXRef = useRef(0);
   const scrollLeftRef = useRef(0);
 
+  const ITEM_WIDTH = 80;
+
   // Generate gram values from 10 to 1000
-  const gramValues = Array.from({ length: 100 }, (_, i) => 10 + i * 10);
+  const gramValues = useMemo(
+    () => Array.from({ length: 100 }, (_, i) => 10 + i * 10),
+    []
+  );
 
   const centerOnValue = useCallback(
-    (value) => {
+    (value, behavior = 'auto') => {
       if (!scrollerRef.current) return;
       const index = gramValues.indexOf(value);
       if (index === -1) return;
 
-      const itemWidth = 80; // Width of each item
       const containerWidth = scrollerRef.current.offsetWidth;
       const scrollPosition =
-        index * itemWidth - containerWidth / 2 + itemWidth / 2;
+        sidePadding + index * ITEM_WIDTH + ITEM_WIDTH / 2 - containerWidth / 2;
 
-      scrollerRef.current.scrollLeft = scrollPosition;
+      scrollerRef.current.scrollTo({
+        left: scrollPosition,
+        behavior,
+      });
     },
-    [gramValues]
+    [ITEM_WIDTH, gramValues, sidePadding]
   );
+
+  const getNearestIndex = useCallback(() => {
+    if (!scrollerRef.current) return 0;
+
+    const containerWidth = scrollerRef.current.offsetWidth;
+    const scrollLeft = scrollerRef.current.scrollLeft;
+    const centerPosition = scrollLeft + containerWidth / 2;
+    const relative = centerPosition - sidePadding - ITEM_WIDTH / 2;
+    const rawIndex = Math.round(relative / ITEM_WIDTH);
+
+    return Math.max(0, Math.min(rawIndex, gramValues.length - 1));
+  }, [ITEM_WIDTH, gramValues.length, sidePadding]);
+
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+
+    const updatePadding = () => {
+      if (!scrollerRef.current) return;
+      const containerWidth = scrollerRef.current.offsetWidth;
+      const padding = Math.max(0, containerWidth / 2 - ITEM_WIDTH / 2);
+      setSidePadding(padding);
+    };
+
+    updatePadding();
+
+    let observer;
+    if (typeof ResizeObserver !== 'undefined' && scrollerRef.current) {
+      observer = new ResizeObserver(updatePadding);
+      observer.observe(scrollerRef.current);
+    }
+
+    window.addEventListener('resize', updatePadding);
+
+    return () => {
+      window.removeEventListener('resize', updatePadding);
+      if (observer) observer.disconnect();
+    };
+  }, [ITEM_WIDTH, isOpen]);
 
   // Reset to 100g when modal opens
   useEffect(() => {
-    if (isOpen && selectedFood) {
-      // Reset state after modal is visible
-      const timer = setTimeout(() => {
-        setGrams(100);
-        centerOnValue(100);
-      }, 50);
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen, selectedFood, centerOnValue]);
+    if (!isOpen || !selectedFood) return undefined;
 
-  const handleScroll = () => {
-    if (!scrollerRef.current) return;
+    const timer = setTimeout(() => {
+      setGrams(100);
+      centerOnValue(100);
+    }, 80);
 
-    const scrollLeft = scrollerRef.current.scrollLeft;
-    const itemWidth = 80;
-    const containerWidth = scrollerRef.current.offsetWidth;
-    const centerPosition = scrollLeft + containerWidth / 2;
-    const index = Math.round(centerPosition / itemWidth);
-    const clampedIndex = Math.max(0, Math.min(index, gramValues.length - 1));
+    return () => clearTimeout(timer);
+  }, [centerOnValue, isOpen, selectedFood]);
 
-    setGrams(gramValues[clampedIndex]);
-  };
+  const handleScroll = useCallback(() => {
+    const index = getNearestIndex();
+    const value = gramValues[index];
 
-  const handleMouseDown = (e) => {
+    setGrams((prev) => (prev === value ? prev : value));
+  }, [getNearestIndex, gramValues]);
+
+  const handleMouseDown = useCallback((e) => {
     if (!scrollerRef.current) return;
     isDraggingRef.current = true;
     startXRef.current = e.pageX - scrollerRef.current.offsetLeft;
     scrollLeftRef.current = scrollerRef.current.scrollLeft;
     scrollerRef.current.style.cursor = 'grabbing';
-  };
+  }, []);
 
-  const handleMouseMove = (e) => {
+  const handleMouseMove = useCallback((e) => {
     if (!isDraggingRef.current || !scrollerRef.current) return;
     e.preventDefault();
     const x = e.pageX - scrollerRef.current.offsetLeft;
     const walk = (x - startXRef.current) * 1.5;
     scrollerRef.current.scrollLeft = scrollLeftRef.current - walk;
-  };
+  }, []);
 
-  const handleMouseUp = () => {
+  const handleMouseUp = useCallback(() => {
+    if (!isDraggingRef.current) return;
     isDraggingRef.current = false;
+
     if (scrollerRef.current) {
       scrollerRef.current.style.cursor = 'grab';
-      // Snap to nearest value
-      const scrollLeft = scrollerRef.current.scrollLeft;
-      const itemWidth = 80;
-      const containerWidth = scrollerRef.current.offsetWidth;
-      const centerPosition = scrollLeft + containerWidth / 2;
-      const index = Math.round(centerPosition / itemWidth);
-      const clampedIndex = Math.max(0, Math.min(index, gramValues.length - 1));
-
-      centerOnValue(gramValues[clampedIndex]);
     }
-  };
 
-  const handleTouchStart = (e) => {
+    const targetValue = gramValues[getNearestIndex()];
+    centerOnValue(targetValue, 'smooth');
+    setGrams(targetValue);
+  }, [centerOnValue, getNearestIndex, gramValues]);
+
+  const handleTouchStart = useCallback((e) => {
     if (!scrollerRef.current) return;
     isDraggingRef.current = true;
     startXRef.current = e.touches[0].pageX - scrollerRef.current.offsetLeft;
     scrollLeftRef.current = scrollerRef.current.scrollLeft;
-  };
+  }, []);
 
-  const handleTouchMove = (e) => {
+  const handleTouchMove = useCallback((e) => {
     if (!isDraggingRef.current || !scrollerRef.current) return;
+    e.preventDefault();
     const x = e.touches[0].pageX - scrollerRef.current.offsetLeft;
     const walk = (x - startXRef.current) * 1.5;
     scrollerRef.current.scrollLeft = scrollLeftRef.current - walk;
-  };
+  }, []);
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = useCallback(() => {
+    if (!isDraggingRef.current) return;
     isDraggingRef.current = false;
-    if (scrollerRef.current) {
-      // Snap to nearest value
-      const scrollLeft = scrollerRef.current.scrollLeft;
-      const itemWidth = 80;
-      const containerWidth = scrollerRef.current.offsetWidth;
-      const centerPosition = scrollLeft + containerWidth / 2;
-      const index = Math.round(centerPosition / itemWidth);
-      const clampedIndex = Math.max(0, Math.min(index, gramValues.length - 1));
 
-      centerOnValue(gramValues[clampedIndex]);
-    }
-  };
+    const targetValue = gramValues[getNearestIndex()];
+    centerOnValue(targetValue, 'smooth');
+    setGrams(targetValue);
+  }, [centerOnValue, getNearestIndex, gramValues]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const handleWindowMouseUp = () => handleMouseUp();
+    const handleWindowTouchEnd = () => handleTouchEnd();
+
+    window.addEventListener('mouseup', handleWindowMouseUp);
+    window.addEventListener('touchend', handleWindowTouchEnd);
+    window.addEventListener('touchcancel', handleWindowTouchEnd);
+
+    return () => {
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+      window.removeEventListener('touchend', handleWindowTouchEnd);
+      window.removeEventListener('touchcancel', handleWindowTouchEnd);
+    };
+  }, [handleMouseUp, handleTouchEnd, isOpen]);
 
   const calculateNutrition = () => {
     if (!selectedFood) return null;
@@ -254,6 +310,7 @@ export const FoodPortionModal = ({
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchEnd}
             className="flex overflow-x-auto scrollbar-hide cursor-grab select-none"
             style={{
               scrollSnapType: 'x mandatory',
@@ -261,10 +318,7 @@ export const FoodPortionModal = ({
             }}
           >
             {/* Left padding */}
-            <div
-              className="flex-shrink-0"
-              style={{ width: 'calc(50% - 40px)' }}
-            />
+            <div className="flex-shrink-0" style={{ width: sidePadding }} />
 
             {/* Gram values */}
             {gramValues.map((value) => {
@@ -272,8 +326,8 @@ export const FoodPortionModal = ({
               return (
                 <div
                   key={value}
-                  className="flex-shrink-0 flex flex-col items-center justify-end"
-                  style={{ width: '80px', scrollSnapAlign: 'center' }}
+                  className="flex-shrink-0 flex flex-col items-center justify-end h-24"
+                  style={{ width: ITEM_WIDTH, scrollSnapAlign: 'center' }}
                 >
                   {/* Tick mark */}
                   <div
@@ -295,10 +349,7 @@ export const FoodPortionModal = ({
             })}
 
             {/* Right padding */}
-            <div
-              className="flex-shrink-0"
-              style={{ width: 'calc(50% - 40px)' }}
-            />
+            <div className="flex-shrink-0" style={{ width: sidePadding }} />
           </div>
         </div>
       </div>
