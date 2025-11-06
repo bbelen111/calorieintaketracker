@@ -624,11 +624,11 @@ export const WeightTrackerModal = ({
   const entriesCount = filteredEntries.length;
   const daysRange =
     earliestDate && latestDate
-      ? Math.round(
+      ? Math.floor(
           (new Date(latestDate + 'T00:00:00Z') -
             new Date(earliestDate + 'T00:00:00Z')) /
             (1000 * 60 * 60 * 24)
-        )
+        ) + 1
       : 0;
   const timeframeRangeLine =
     earliestDate && latestDate
