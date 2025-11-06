@@ -103,7 +103,7 @@ export const MealEntryModal = ({
                         <p className="text-emerald-400 font-bold text-base">
                           {Math.round(mealTotals.calories)}
                         </p>
-                        <p className="text-slate-400 text-xs">cal</p>
+                        <p className="text-slate-400 text-xs">kcal</p>
                       </div>
                       <div>
                         <p className="text-red-400 font-bold text-base">
@@ -196,7 +196,7 @@ export const MealEntryModal = ({
                             <p className="text-emerald-400 font-semibold text-sm">
                               {entry.calories || 0}
                             </p>
-                            <p className="text-slate-400 text-xs">cal</p>
+                            <p className="text-slate-400 text-xs">kcal</p>
                           </div>
                           <div>
                             <p className="text-red-400 font-semibold text-sm">

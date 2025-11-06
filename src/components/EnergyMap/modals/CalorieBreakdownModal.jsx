@@ -67,7 +67,7 @@ export const CalorieBreakdownModal = ({
               }`}
             >
               {formattedDifference > 0 ? '+' : ''}
-              {formattedDifference.toLocaleString()} cal from TDEE
+              {formattedDifference.toLocaleString()} kcal from TDEE
             </p>
           )}
         </div>
@@ -106,7 +106,7 @@ export const CalorieBreakdownModal = ({
               <br />
               {breakdown.bmr.toLocaleString()} ×{' '}
               {breakdown.activityMultiplier.toFixed(2)} ={' '}
-              {breakdown.baseActivity.toLocaleString()} cal
+              {breakdown.baseActivity.toLocaleString()} kcal
             </p>
           </BreakdownItem>
 
@@ -164,7 +164,7 @@ export const CalorieBreakdownModal = ({
           <div className="border border-slate-600 rounded-lg px-4 py-3 flex items-center justify-between">
             <span className="text-slate-300 font-semibold">Total TDEE</span>
             <span className="text-white font-bold text-lg">
-              {breakdown.total.toLocaleString()} cal
+              {breakdown.total.toLocaleString()} kcal
             </span>
           </div>
         </div>
@@ -210,7 +210,7 @@ const BreakdownItem = ({
         </span>
         <span className="text-white font-semibold flex items-center gap-3">
           <span className="text-slate-400 text-xs">{percentage}%</span>
-          {value.toLocaleString()} cal
+          {value.toLocaleString()} kcal
         </span>
       </button>
       <div

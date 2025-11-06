@@ -71,7 +71,7 @@ export const QuickTrainingModal = ({
                       {type.label}
                     </div>
                     <div className="text-xs opacity-75 leading-tight">
-                      {type.caloriesPerHour} cal/hr
+                      {type.caloriesPerHour} kcal/hr
                     </div>
                   </div>
                 </button>

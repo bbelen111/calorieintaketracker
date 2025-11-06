@@ -216,7 +216,7 @@ const CalendarHeatmap = ({
                       {hasData && (
                         <div className="flex flex-col gap-0 leading-none w-full px-1">
                           <span className="text-emerald-400 text-[9px] font-semibold">
-                            Cal:{formatMacroDisplay(macros.calories, hasData)}
+                            kcal:{formatMacroDisplay(macros.calories, hasData)}
                           </span>
                           <div className="flex items-center justify-between gap-0.5">
                             <span className="text-red-400 text-[7px] font-medium">
@@ -699,7 +699,7 @@ export const CalendarPickerModal = ({
                 >
                   <AnimatedNumber value={monthlyInsights.avgCalories} />
                 </motion.p>
-                <p className="text-slate-400 text-[9px] font-medium">cal</p>
+                <p className="text-slate-400 text-[9px] font-medium">kcal</p>
               </div>
             </div>
 

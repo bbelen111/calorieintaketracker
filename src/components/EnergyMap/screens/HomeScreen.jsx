@@ -124,7 +124,7 @@ export const HomeScreen = ({
                 className="text-slate-500 group-hover:text-blue-400 transition-colors"
               />
             </div>
-            <p className="text-white font-semibold text-lg">{bmr} cal</p>
+            <p className="text-white font-semibold text-lg">{bmr} kcal</p>
           </button>
         </div>
       </div>
@@ -195,7 +195,7 @@ export const HomeScreen = ({
               {trainingTypes[userData.trainingType].label}
             </p>
             <p className="text-[11px] opacity-70 mt-1">
-              ~{Math.round(trainingCalories)} cal burn
+              ~{Math.round(trainingCalories)} kcal burn
             </p>
             <AnimatePresence initial={false}>
               {selectedDay === 'training' && (
@@ -316,7 +316,7 @@ export const HomeScreen = ({
                           <p className="text-white font-semibold">{label}</p>
                           <p className="text-slate-400 text-sm">
                             {durationValue} min • {effortDisplay} • ~{calories}{' '}
-                            cal
+                            kcal
                           </p>
                           {showMissingTypeWarning && (
                             <p className="text-amber-300 text-xs mt-1">

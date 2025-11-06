@@ -373,7 +373,7 @@ export const TrackerScreen = ({
                     transition={{ duration: 0.22 }}
                     className="text-white text-sm font-semibold absolute left-0"
                   >
-                    {targetCalories} cal
+                    {targetCalories} kcal
                     <span className="text-slate-400 font-normal ml-2">
                       ({selectedStepRange} steps)
                     </span>
@@ -704,7 +704,7 @@ export const TrackerScreen = ({
                               {mealEntries.length} item
                               {mealEntries.length !== 1 ? 's' : ''} •{' '}
                               <span className="text-emerald-400">
-                                {mealTotals.calories} cal
+                                {mealTotals.calories} kcal
                               </span>{' '}
                               • {mealTime}
                             </p>
@@ -757,7 +757,7 @@ export const TrackerScreen = ({
                                     </p>
                                     <p className="text-slate-400 text-xs">
                                       <span className="text-emerald-400">
-                                        {entry.calories} cal
+                                        {entry.calories} kcal
                                       </span>
                                       {' • '}
                                       <span className="text-red-400">
