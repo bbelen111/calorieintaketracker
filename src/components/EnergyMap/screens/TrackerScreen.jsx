@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Target,
@@ -94,6 +94,7 @@ export const TrackerScreen = ({
 
   const selectedDate = isControlled ? selectedDateProp : internalSelectedDate;
   const [collapsedMeals, setCollapsedMeals] = useState({});
+  const previousDateRef = useRef(selectedDate);
   // Whether the current selected date is today (used to show an indicator)
   const isTodaySelected = selectedDate === getTodayDate();
 
@@ -144,6 +145,25 @@ export const TrackerScreen = ({
   }, [nutritionData, selectedDate]);
 
   const { meals, hasEntries: hasFoodEntries } = dayData;
+
+  useEffect(() => {
+    if (previousDateRef.current === selectedDate) {
+      return;
+    }
+
+    previousDateRef.current = selectedDate;
+
+    let frame = requestAnimationFrame(() => {
+      setCollapsedMeals({});
+      frame = null;
+    });
+
+    return () => {
+      if (frame != null) {
+        cancelAnimationFrame(frame);
+      }
+    };
+  }, [selectedDate]);
 
   // Calculate totals across all meals
   const totals = useMemo(() => {
@@ -217,10 +237,13 @@ export const TrackerScreen = ({
   };
 
   const toggleMealCollapse = (mealType) => {
-    setCollapsedMeals((prev) => ({
-      ...prev,
-      [mealType]: !prev[mealType],
-    }));
+    setCollapsedMeals((prev) => {
+      const current = prev[mealType] ?? true;
+      return {
+        ...prev,
+        [mealType]: !current,
+      };
+    });
   };
 
   const getWeekday = (dateStr) => {
@@ -344,8 +367,6 @@ export const TrackerScreen = ({
                 key={totals.calories}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.22 }}
                 className="text-emerald-400 font-bold text-2xl"
               >
                 {totals.calories}
@@ -616,7 +637,7 @@ export const TrackerScreen = ({
         <AnimatePresence mode="wait" initial={false}>
           {hasFoodEntries ? (
             <motion.div
-              key="food-list"
+              key={`food-list-${selectedDate}`}
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
@@ -652,7 +673,7 @@ export const TrackerScreen = ({
                   if (!mealEntries || mealEntries.length === 0) return null;
 
                   const mealType = getMealTypeById(mealTypeId);
-                  const isCollapsed = collapsedMeals[mealTypeId] || false;
+                  const isCollapsed = collapsedMeals[mealTypeId] ?? true;
 
                   // Calculate meal totals
                   const mealTotals = mealEntries.reduce(
@@ -818,7 +839,7 @@ export const TrackerScreen = ({
             </motion.div>
           ) : (
             <motion.div
-              key="food-empty"
+              key={`food-empty-${selectedDate}`}
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
