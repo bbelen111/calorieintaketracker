@@ -18,6 +18,7 @@ export const FoodPortionModal = ({
   selectedFood,
 }) => {
   const [grams, setGrams] = useState(100);
+  const [isDragging, setIsDragging] = useState(false);
   const [sidePadding, setSidePadding] = useState(0);
   const scrollerRef = useRef(null);
   const isDraggingRef = useRef(false);
@@ -113,19 +114,21 @@ export const FoodPortionModal = ({
     startXRef.current = e.pageX - scrollerRef.current.offsetLeft;
     scrollLeftRef.current = scrollerRef.current.scrollLeft;
     scrollerRef.current.style.cursor = 'grabbing';
+    setIsDragging(true);
   }, []);
 
   const handleMouseMove = useCallback((e) => {
     if (!isDraggingRef.current || !scrollerRef.current) return;
-    e.preventDefault();
+    if (e.cancelable) e.preventDefault();
     const x = e.pageX - scrollerRef.current.offsetLeft;
-    const walk = (x - startXRef.current) * 1.5;
+    const walk = (x - startXRef.current) * 1;
     scrollerRef.current.scrollLeft = scrollLeftRef.current - walk;
   }, []);
 
   const handleMouseUp = useCallback(() => {
     if (!isDraggingRef.current) return;
     isDraggingRef.current = false;
+    setIsDragging(false);
 
     if (scrollerRef.current) {
       scrollerRef.current.style.cursor = 'grab';
@@ -141,19 +144,21 @@ export const FoodPortionModal = ({
     isDraggingRef.current = true;
     startXRef.current = e.touches[0].pageX - scrollerRef.current.offsetLeft;
     scrollLeftRef.current = scrollerRef.current.scrollLeft;
+    setIsDragging(true);
   }, []);
 
   const handleTouchMove = useCallback((e) => {
     if (!isDraggingRef.current || !scrollerRef.current) return;
-    e.preventDefault();
+    if (e.cancelable) e.preventDefault();
     const x = e.touches[0].pageX - scrollerRef.current.offsetLeft;
-    const walk = (x - startXRef.current) * 1.5;
+    const walk = (x - startXRef.current) * 1;
     scrollerRef.current.scrollLeft = scrollLeftRef.current - walk;
   }, []);
 
   const handleTouchEnd = useCallback(() => {
     if (!isDraggingRef.current) return;
     isDraggingRef.current = false;
+    setIsDragging(false);
 
     const targetValue = gramValues[getNearestIndex()];
     centerOnValue(targetValue, 'smooth');
@@ -313,7 +318,7 @@ export const FoodPortionModal = ({
             onTouchCancel={handleTouchEnd}
             className="flex overflow-x-auto scrollbar-hide cursor-grab select-none"
             style={{
-              scrollSnapType: 'x mandatory',
+              scrollSnapType: isDragging ? 'none' : 'x mandatory',
               WebkitOverflowScrolling: 'touch',
             }}
           >
