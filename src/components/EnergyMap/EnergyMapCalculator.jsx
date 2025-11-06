@@ -48,7 +48,6 @@ import { CalendarPickerModal } from './modals/CalendarPickerModal';
 import { FoodEntryModal } from './modals/FoodEntryModal';
 import { MealEntryModal } from './modals/MealEntryModal';
 import { MealTypePickerModal } from './modals/MealTypePickerModal';
-import { FoodInputMethodModal } from './modals/FoodInputMethodModal';
 import { FoodSearchModal } from './modals/FoodSearchModal';
 // ...existing code...
 import { ConfirmActionModal } from './modals/ConfirmActionModal';
@@ -292,7 +291,6 @@ export const EnergyMapCalculator = () => {
   const mealEntryModal = useAnimatedModal();
   const foodEntryModal = useAnimatedModal();
   const mealTypePickerModal = useAnimatedModal();
-  const foodInputMethodModal = useAnimatedModal();
   const foodSearchModal = useAnimatedModal();
   // ...existing code...
   const confirmActionModal = useAnimatedModal();
@@ -1015,11 +1013,11 @@ export const EnergyMapCalculator = () => {
     [mealEntryModal]
   );
 
-  // Open FoodInputMethodModal from within MealEntryModal (for adding new food)
+  // Open FoodSearchModal from within MealEntryModal (for adding new food)
   const handleAddFoodToMeal = useCallback(() => {
     resetFoodEntryForm();
-    foodInputMethodModal.open();
-  }, [foodInputMethodModal, resetFoodEntryForm]);
+    foodSearchModal.open();
+  }, [foodSearchModal, resetFoodEntryForm]);
 
   // Open FoodEntryModal for editing existing food entry
   const handleEditFoodInMeal = useCallback(
@@ -1115,22 +1113,7 @@ export const EnergyMapCalculator = () => {
     updateFoodEntry,
   ]);
 
-  // Handle food input method selection
-  const handleFoodInputMethodSelect = useCallback(
-    (method) => {
-      foodInputMethodModal.requestClose();
-      setTimeout(() => {
-        if (method === 'search') {
-          foodSearchModal.open();
-        } else if (method === 'manual') {
-          foodEntryModal.open();
-        }
-      }, MODAL_CLOSE_DELAY);
-    },
-    [foodInputMethodModal, foodSearchModal, foodEntryModal]
-  );
-
-  // Handle adding food from search modal
+  // Handle adding food from search modal (now handles both search and manual)
   const handleAddFoodFromSearch = useCallback(
     (foodEntry) => {
       if (foodMealType) {
@@ -1167,12 +1150,6 @@ export const EnergyMapCalculator = () => {
       return () => clearTimeout(timer);
     }
   }, [mealEntryModal.isClosing]);
-
-  useEffect(() => {
-    if (foodInputMethodModal.isClosing) {
-      // No cleanup needed for this modal
-    }
-  }, [foodInputMethodModal.isClosing]);
 
   useEffect(() => {
     if (foodSearchModal.isClosing) {
@@ -2109,18 +2086,21 @@ export const EnergyMapCalculator = () => {
         })()}
       />
 
-      <FoodInputMethodModal
-        isOpen={foodInputMethodModal.isOpen}
-        isClosing={foodInputMethodModal.isClosing}
-        onClose={foodInputMethodModal.requestClose}
-        onSelectMethod={handleFoodInputMethodSelect}
-      />
-
       <FoodSearchModal
         isOpen={foodSearchModal.isOpen}
         isClosing={foodSearchModal.isClosing}
         onClose={foodSearchModal.requestClose}
         onAddFood={handleAddFoodFromSearch}
+        foodName={foodName}
+        setFoodName={setFoodName}
+        calories={foodCalories}
+        setCalories={setFoodCalories}
+        protein={foodProtein}
+        setProtein={setFoodProtein}
+        carbs={foodCarbs}
+        setCarbs={setFoodCarbs}
+        fats={foodFats}
+        setFats={setFoodFats}
       />
 
       {/* PhaseInsightsModal removed */}
