@@ -25,18 +25,35 @@ export const FoodPortionModal = ({
   const startXRef = useRef(0);
   const scrollLeftRef = useRef(0);
 
-  const ITEM_WIDTH = 80;
+  const ITEM_WIDTH = 56;
 
-  // Generate gram values from 10 to 1000
-  const gramValues = useMemo(
-    () => Array.from({ length: 100 }, (_, i) => 10 + i * 10),
-    []
+  // Generate gram values from 10 to 1000 including 0.5 g steps
+  const gramValues = useMemo(() => {
+    const values = [];
+    const start = 10;
+    const end = 1000;
+    const totalSteps = Math.round((end - start) * 2);
+
+    for (let step = 0; step <= totalSteps; step += 1) {
+      const rawValue = start + step * 0.5;
+      const value = Math.round(rawValue * 10) / 10;
+      const isMajor = Number.isInteger(value);
+      values.push({ value, isMajor });
+    }
+
+    return values;
+  }, []);
+
+  const findValueIndex = useCallback(
+    (target) =>
+      gramValues.findIndex(({ value }) => Math.abs(value - target) < 0.0001),
+    [gramValues]
   );
 
   const centerOnValue = useCallback(
     (value, behavior = 'auto') => {
       if (!scrollerRef.current) return;
-      const index = gramValues.indexOf(value);
+      const index = findValueIndex(value);
       if (index === -1) return;
 
       const containerWidth = scrollerRef.current.offsetWidth;
@@ -48,7 +65,7 @@ export const FoodPortionModal = ({
         behavior,
       });
     },
-    [ITEM_WIDTH, gramValues, sidePadding]
+    [ITEM_WIDTH, findValueIndex, sidePadding]
   );
 
   const getNearestIndex = useCallback(() => {
@@ -103,7 +120,9 @@ export const FoodPortionModal = ({
 
   const handleScroll = useCallback(() => {
     const index = getNearestIndex();
-    const value = gramValues[index];
+    const entry = gramValues[index];
+    if (!entry) return;
+    const value = Math.round(entry.value * 10) / 10;
 
     setGrams((prev) => (prev === value ? prev : value));
   }, [getNearestIndex, gramValues]);
@@ -134,9 +153,11 @@ export const FoodPortionModal = ({
       scrollerRef.current.style.cursor = 'grab';
     }
 
-    const targetValue = gramValues[getNearestIndex()];
-    centerOnValue(targetValue, 'smooth');
-    setGrams(targetValue);
+    const targetEntry = gramValues[getNearestIndex()];
+    if (!targetEntry) return;
+    const sanitizedValue = Math.round(targetEntry.value * 10) / 10;
+    centerOnValue(sanitizedValue, 'smooth');
+    setGrams(sanitizedValue);
   }, [centerOnValue, getNearestIndex, gramValues]);
 
   const handleTouchStart = useCallback((e) => {
@@ -160,9 +181,11 @@ export const FoodPortionModal = ({
     isDraggingRef.current = false;
     setIsDragging(false);
 
-    const targetValue = gramValues[getNearestIndex()];
-    centerOnValue(targetValue, 'smooth');
-    setGrams(targetValue);
+    const targetEntry = gramValues[getNearestIndex()];
+    if (!targetEntry) return;
+    const sanitizedValue = Math.round(targetEntry.value * 10) / 10;
+    centerOnValue(sanitizedValue, 'smooth');
+    setGrams(sanitizedValue);
   }, [centerOnValue, getNearestIndex, gramValues]);
 
   useEffect(() => {
@@ -291,19 +314,21 @@ export const FoodPortionModal = ({
         {/* Current selected value display */}
         <div className="text-center mb-4">
           <div className="inline-flex items-baseline gap-2 bg-slate-700/50 border border-slate-600 rounded-lg px-6 py-3">
-            <span className="text-4xl font-bold text-white">{grams}</span>
+            <span className="text-4xl font-bold text-white">
+              {Number.isInteger(grams) ? grams : grams.toFixed(1)}
+            </span>
             <span className="text-lg text-slate-400">grams</span>
           </div>
         </div>
 
         {/* Horizontal scroller */}
-        <div className="relative">
+        <div className="relative rounded-xl bg-slate-800/80 py-4">
           {/* Center indicator line */}
           <div className="absolute top-0 bottom-0 left-1/2 w-0.5 bg-blue-400 z-10 pointer-events-none" />
 
           {/* Gradient overlays */}
-          <div className="absolute top-0 bottom-0 left-0 w-20 bg-gradient-to-r from-slate-800 to-transparent z-10 pointer-events-none" />
-          <div className="absolute top-0 bottom-0 right-0 w-20 bg-gradient-to-l from-slate-800 to-transparent z-10 pointer-events-none" />
+          <div className="absolute top-0 bottom-0 left-0 w-20 bg-gradient-to-r from-slate-800 via-slate-800/80 to-transparent z-10 pointer-events-none" />
+          <div className="absolute top-0 bottom-0 right-0 w-20 bg-gradient-to-l from-slate-800 via-slate-800/80 to-transparent z-10 pointer-events-none" />
 
           <div
             ref={scrollerRef}
@@ -326,8 +351,22 @@ export const FoodPortionModal = ({
             <div className="flex-shrink-0" style={{ width: sidePadding }} />
 
             {/* Gram values */}
-            {gramValues.map((value) => {
+            {gramValues.map(({ value, isMajor }) => {
               const isSelected = value === grams;
+              const baseHeight = isMajor ? 'h-12' : 'h-8';
+              const selectedHeight = isMajor ? 'h-20' : 'h-14';
+              const displayValue = Number.isInteger(value)
+                ? value
+                : value.toFixed(1);
+              const labelClassName = [
+                'mt-2 text-[11px]',
+                'transition-colors transition-opacity duration-200',
+                isSelected
+                  ? 'text-blue-400 font-semibold opacity-0'
+                  : isMajor
+                    ? 'text-slate-300 opacity-80'
+                    : 'text-slate-500 opacity-60',
+              ].join(' ');
               return (
                 <div
                   key={value}
@@ -336,19 +375,16 @@ export const FoodPortionModal = ({
                 >
                   {/* Tick mark */}
                   <div
-                    className={`transition-all ${
-                      isSelected ? 'h-16 bg-blue-400' : 'h-8 bg-slate-600'
+                    className={`w-px rounded-full transition-all ${
+                      isSelected
+                        ? `${selectedHeight} bg-blue-400`
+                        : `${baseHeight} ${
+                            isMajor ? 'bg-slate-500' : 'bg-slate-600'
+                          }`
                     }`}
-                    style={{ width: '2px' }}
                   />
                   {/* Value label */}
-                  <span
-                    className={`text-xs mt-2 transition-all ${
-                      isSelected ? 'text-blue-400 font-bold' : 'text-slate-500'
-                    }`}
-                  >
-                    {value}
-                  </span>
+                  <span className={labelClassName}>{displayValue}</span>
                 </div>
               );
             })}
