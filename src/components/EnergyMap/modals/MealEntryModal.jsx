@@ -177,7 +177,7 @@ export const MealEntryModal = ({
                       </p>
                     </div>
 
-                    <div className="flex items-end gap-3">
+                    <div className="flex items-end gap-6">
                       <button
                         onClick={() => onEditFood?.(entry.id)}
                         type="button"
@@ -203,7 +203,7 @@ export const MealEntryModal = ({
         )}
 
         {!mealTypeData && (
-          <div className="bg-slate-700/50 border border-slate-600 border-dashed rounded-lg p-8 text-center">
+          <div className="rounded-lg p-8 text-center">
             <Utensils className="mx-auto text-slate-500 mb-3" size={32} />
             <p className="text-slate-400 text-sm">
               Select a meal type to start adding food items
