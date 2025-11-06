@@ -426,8 +426,8 @@ export const InsightsScreen = ({
             </p>
             <p className="text-slate-400 text-sm">0.8-1.0g per kg bodyweight</p>
           </div>
-          <div className="bg-blue-900/30 border border-blue-700 rounded-xl p-4">
-            <p className="text-blue-400 font-bold mb-2">Carbs</p>
+          <div className="bg-amber-900/30 border border-amber-700 rounded-xl p-4">
+            <p className="text-amber-400 font-bold mb-2">Carbs</p>
             <p className="text-white text-lg font-bold">Remaining calories</p>
             <p className="text-slate-400 text-sm">
               Adjust based on energy needs
