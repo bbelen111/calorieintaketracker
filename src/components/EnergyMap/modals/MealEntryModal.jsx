@@ -63,7 +63,7 @@ export const MealEntryModal = ({
         <div>
           {/* Unified container so selector and totals look like one box */}
           <div className="">
-            <div className="bg-slate-700/50 rounded-lg border border-slate-600 overflow-hidden">
+            <div className="bg-slate-700/50 rounded-lg border border-slate-600 overflow-hidden shadow-lg shadow-slate-900/20">
               <div className="flex flex-col md:flex-row items-stretch">
                 <button
                   type="button"

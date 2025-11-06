@@ -46,7 +46,7 @@ export const MealTypePickerModal = ({
             <button
               key={mealTypeId}
               onClick={() => handleSelect(mealTypeId)}
-              className={`w-full p-4 rounded-lg border-2 transition-all flex items-center gap-4 ${getColorClasses(mealType.color, isSelected)}`}
+              className={`w-full p-4 rounded-lg border-2 transition-all flex items-center gap-4 shadow-lg shadow-slate-900/20 ${getColorClasses(mealType.color, isSelected)}`}
               tabIndex={0}
             >
               <Icon className="text-white" size={24} />

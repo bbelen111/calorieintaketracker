@@ -20,25 +20,26 @@ export const FoodPortionModal = ({
   const [grams, setGrams] = useState(100);
   const [isDragging, setIsDragging] = useState(false);
   const [sidePadding, setSidePadding] = useState(0);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
   const scrollerRef = useRef(null);
   const isDraggingRef = useRef(false);
   const startXRef = useRef(0);
   const scrollLeftRef = useRef(0);
 
-  const ITEM_WIDTH = 56;
+  const ITEM_WIDTH = 44;
 
-  // Generate gram values from 10 to 1000 including 0.5 g steps
+  // Generate gram values from 10 to 1000 including 0.1 g steps
   const gramValues = useMemo(() => {
     const values = [];
-    const start = 10;
-    const end = 1000;
-    const totalSteps = Math.round((end - start) * 2);
+    const scaledStart = Math.round(10 * 10); // 10 g
+    const scaledEnd = Math.round(1000 * 10); // 1000 g
 
-    for (let step = 0; step <= totalSteps; step += 1) {
-      const rawValue = start + step * 0.5;
-      const value = Math.round(rawValue * 10) / 10;
-      const isMajor = Number.isInteger(value);
-      values.push({ value, isMajor });
+    for (let scaled = scaledStart; scaled <= scaledEnd; scaled += 1) {
+      const value = Number((scaled / 10).toFixed(1));
+      const isMajor = scaled % 10 === 0;
+      const isHalf = !isMajor && scaled % 5 === 0;
+      values.push({ value, isMajor, isHalf });
     }
 
     return values;
@@ -64,6 +65,16 @@ export const FoodPortionModal = ({
         left: scrollPosition,
         behavior,
       });
+
+      if (behavior === 'auto') {
+        setScrollLeft(scrollPosition);
+      } else {
+        requestAnimationFrame(() => {
+          if (scrollerRef.current) {
+            setScrollLeft(scrollerRef.current.scrollLeft);
+          }
+        });
+      }
     },
     [ITEM_WIDTH, findValueIndex, sidePadding]
   );
@@ -85,8 +96,9 @@ export const FoodPortionModal = ({
 
     const updatePadding = () => {
       if (!scrollerRef.current) return;
-      const containerWidth = scrollerRef.current.offsetWidth;
-      const padding = Math.max(0, containerWidth / 2 - ITEM_WIDTH / 2);
+      const containerWidthValue = scrollerRef.current.offsetWidth;
+      setContainerWidth(containerWidthValue);
+      const padding = Math.max(0, containerWidthValue / 2 - ITEM_WIDTH / 2);
       setSidePadding(padding);
     };
 
@@ -113,12 +125,19 @@ export const FoodPortionModal = ({
     const timer = setTimeout(() => {
       setGrams(100);
       centerOnValue(100);
+      if (scrollerRef.current) {
+        setScrollLeft(scrollerRef.current.scrollLeft);
+      }
     }, 80);
 
     return () => clearTimeout(timer);
   }, [centerOnValue, isOpen, selectedFood]);
 
   const handleScroll = useCallback(() => {
+    if (!scrollerRef.current) return;
+
+    setScrollLeft(scrollerRef.current.scrollLeft);
+
     const index = getNearestIndex();
     const entry = gramValues[index];
     if (!entry) return;
@@ -204,6 +223,35 @@ export const FoodPortionModal = ({
       window.removeEventListener('touchcancel', handleWindowTouchEnd);
     };
   }, [handleMouseUp, handleTouchEnd, isOpen]);
+
+  const VIRTUALIZATION_BUFFER = 12;
+
+  const { startIndex, endIndex } = useMemo(() => {
+    if (!gramValues.length) {
+      return { startIndex: 0, endIndex: 0 };
+    }
+
+    const effectiveScroll = Math.max(0, scrollLeft - Math.max(0, sidePadding));
+    const firstVisibleIndex = Math.max(
+      0,
+      Math.floor(effectiveScroll / ITEM_WIDTH)
+    );
+    const visibleCount = containerWidth
+      ? Math.ceil(containerWidth / ITEM_WIDTH)
+      : 0;
+    const start = Math.max(0, firstVisibleIndex - VIRTUALIZATION_BUFFER);
+    const end = Math.min(
+      gramValues.length,
+      firstVisibleIndex + visibleCount + VIRTUALIZATION_BUFFER
+    );
+
+    return { startIndex: start, endIndex: end };
+  }, [containerWidth, gramValues.length, scrollLeft, sidePadding, ITEM_WIDTH]);
+
+  const beforeSpacerWidth = startIndex * ITEM_WIDTH;
+  const afterSpacerWidth =
+    Math.max(0, gramValues.length - endIndex) * ITEM_WIDTH;
+  const visibleValues = gramValues.slice(startIndex, endIndex);
 
   const calculateNutrition = () => {
     if (!selectedFood) return null;
@@ -347,23 +395,49 @@ export const FoodPortionModal = ({
             {/* Left padding */}
             <div className="flex-shrink-0" style={{ width: sidePadding }} />
 
+            {/* Leading virtual spacer */}
+            <div
+              className="flex-shrink-0"
+              style={{ width: beforeSpacerWidth }}
+            />
+
             {/* Gram values */}
-            {gramValues.map(({ value, isMajor }) => {
+            {visibleValues.map(({ value, isMajor, isHalf }) => {
               const isSelected = value === grams;
-              const baseHeight = isMajor ? 'h-12' : 'h-8';
-              const selectedHeight = isMajor ? 'h-20' : 'h-14';
-              const displayValue = Number.isInteger(value)
-                ? value
+              let baseHeight = 'h-6';
+              let selectedHeight = 'h-10';
+              if (isMajor) {
+                baseHeight = 'h-16';
+                selectedHeight = 'h-24';
+              } else if (isHalf) {
+                baseHeight = 'h-10';
+                selectedHeight = 'h-16';
+              }
+              const shouldShowLabel = isMajor || isHalf;
+              const displayValue = isMajor
+                ? value.toFixed(0)
                 : value.toFixed(1);
+              const barClassName = isSelected
+                ? `${selectedHeight} bg-blue-400`
+                : `${baseHeight} ${
+                    isMajor
+                      ? 'bg-slate-300'
+                      : isHalf
+                        ? 'bg-slate-500'
+                        : 'bg-slate-700/80'
+                  }`;
               const labelClassName = [
-                'mt-2 text-[13px]',
+                'mt-2 text-[11px]',
                 'transition-colors transition-opacity duration-200',
                 isSelected
                   ? 'text-blue-400 font-semibold opacity-0'
-                  : isMajor
-                    ? 'text-slate-300 opacity-80'
-                    : 'text-slate-500 opacity-60',
+                  : shouldShowLabel
+                    ? isMajor
+                      ? 'text-slate-200 opacity-90'
+                      : 'text-slate-400 opacity-75'
+                    : 'opacity-0 text-transparent select-none pointer-events-none',
               ].join(' ');
+              const labelContent = shouldShowLabel ? displayValue : '\u00a0';
               return (
                 <div
                   key={value}
@@ -372,19 +446,19 @@ export const FoodPortionModal = ({
                 >
                   {/* Tick mark */}
                   <div
-                    className={`w-px rounded-full transition-all ${
-                      isSelected
-                        ? `${selectedHeight} bg-blue-400 opacity-30`
-                        : `${baseHeight} ${
-                            isMajor ? 'bg-slate-500' : 'bg-slate-600'
-                          }`
-                    }`}
+                    className={`w-px rounded-full transition-all ${barClassName}`}
                   />
                   {/* Value label */}
-                  <span className={labelClassName}>{displayValue}</span>
+                  <span className={labelClassName}>{labelContent}</span>
                 </div>
               );
             })}
+
+            {/* Trailing virtual spacer */}
+            <div
+              className="flex-shrink-0"
+              style={{ width: afterSpacerWidth }}
+            />
 
             {/* Right padding */}
             <div className="flex-shrink-0" style={{ width: sidePadding }} />
