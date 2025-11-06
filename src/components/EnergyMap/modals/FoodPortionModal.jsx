@@ -6,7 +6,7 @@ import React, {
   useMemo,
   useLayoutEffect,
 } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import { FOOD_CATEGORIES } from '../../../constants/foodDatabase';
 
@@ -252,54 +252,49 @@ export const FoodPortionModal = ({
       onClose={onClose}
       contentClassName="w-full md:max-w-2xl p-6"
     >
-      {/* Header (now part of the modal content) */}
-      <div className="mb-6">
-        <div className="flex items-start justify-between mb-2">
-          <div>
-            <h3 className="text-white font-bold text-xl">
+      {/* Header */}
+      <div className="mb-4">
+        <div className="bg-slate-700/50 border border-slate-600/50 rounded-lg p-3 flex items-center gap-4 shadow-lg shadow-slate-900/20">
+          {/* Food name and category */}
+          <div className="flex-1 min-w-0">
+            <h3 className="text-white font-semibold text-sm truncate">
               {selectedFood.name}
             </h3>
-            <span
-              className={`inline-block text-xs px-2 py-0.5 bg-${getCategoryColor(selectedFood.category)}-500/20 text-${getCategoryColor(selectedFood.category)}-400 rounded mt-1`}
-            >
-              {FOOD_CATEGORIES[selectedFood.category]?.label}
-            </span>
+            <div className="flex items-center gap-2 mt-1">
+              <span
+                className={`text-xs px-2 py-0.5 bg-${getCategoryColor(selectedFood.category)}-500/20 text-${getCategoryColor(selectedFood.category)}-400 rounded-full`}
+              >
+                {FOOD_CATEGORIES[selectedFood.category]?.label}
+              </span>
+              <span className="text-slate-400 text-xs">per 100g</span>
+            </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-white transition-all"
-          >
-            <X size={20} />
-          </button>
-        </div>
 
-        {/* Reference nutrition (per 100g) */}
-        <div className="mt-3 pt-3 border-t border-slate-600">
-          <p className="text-slate-400 text-xs mb-2">Per 100g:</p>
-          <div className="grid grid-cols-4 gap-2 text-center">
-            <div>
-              <p className="text-emerald-400 font-bold text-sm">
+          {/* Nutrition inline */}
+          <div className="flex items-center gap-2 text-xs flex-shrink-0">
+            <div className="text-center">
+              <p className="text-emerald-400 font-bold">
                 {selectedFood.per100g.calories}
               </p>
-              <p className="text-slate-500 text-xs">kcal</p>
+              <p className="text-slate-400">kcal</p>
             </div>
-            <div>
-              <p className="text-red-400 font-bold text-sm">
+            <div className="text-center">
+              <p className="text-red-400 font-bold">
                 {selectedFood.per100g.protein}g
               </p>
-              <p className="text-slate-500 text-xs">protein</p>
+              <p className="text-slate-400">protein</p>
             </div>
-            <div>
-              <p className="text-amber-400 font-bold text-sm">
+            <div className="text-center">
+              <p className="text-amber-400 font-bold">
                 {selectedFood.per100g.carbs}g
               </p>
-              <p className="text-slate-500 text-xs">carbs</p>
+              <p className="text-slate-400">carbs</p>
             </div>
-            <div>
-              <p className="text-yellow-400 font-bold text-sm">
+            <div className="text-center">
+              <p className="text-yellow-400 font-bold">
                 {selectedFood.per100g.fats}g
               </p>
-              <p className="text-slate-500 text-xs">fats</p>
+              <p className="text-slate-400">fat</p>
             </div>
           </div>
         </div>
@@ -307,6 +302,9 @@ export const FoodPortionModal = ({
 
       {/* Portion Selector */}
       <div className="mb-6">
+        <h3 className="text-white font-bold text-xl mb-4 text-center">
+          Select Portion Size
+        </h3>
         <label className="text-slate-400 text-xs text-center mb-2 uppercase tracking-wide block">
           Grammes
         </label>
@@ -396,7 +394,7 @@ export const FoodPortionModal = ({
 
       {/* Calculated Nutrition */}
       {nutrition && (
-        <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
+        <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6 shadow-lg shadow-slate-900/20">
           <p className="text-slate-400 text-xs mb-3 text-center">
             For {nutrition.grams}g:
           </p>
