@@ -49,6 +49,7 @@ import { FoodEntryModal } from './modals/FoodEntryModal';
 import { MealEntryModal } from './modals/MealEntryModal';
 import { MealTypePickerModal } from './modals/MealTypePickerModal';
 import { FoodSearchModal } from './modals/FoodSearchModal';
+import { FoodPortionModal } from './modals/FoodPortionModal';
 // ...existing code...
 import { ConfirmActionModal } from './modals/ConfirmActionModal';
 import {
@@ -253,6 +254,7 @@ export const EnergyMapCalculator = () => {
   const [foodProtein, setFoodProtein] = useState('');
   const [foodCarbs, setFoodCarbs] = useState('');
   const [foodFats, setFoodFats] = useState('');
+  const [selectedFoodForPortion, setSelectedFoodForPortion] = useState(null);
   const [trackerStepRange, setTrackerStepRange] = useState('12k');
   const [showTrackerCaloriePicker, setShowTrackerCaloriePicker] =
     useState(false);
@@ -292,6 +294,7 @@ export const EnergyMapCalculator = () => {
   const foodEntryModal = useAnimatedModal();
   const mealTypePickerModal = useAnimatedModal();
   const foodSearchModal = useAnimatedModal();
+  const foodPortionModal = useAnimatedModal();
   // ...existing code...
   const confirmActionModal = useAnimatedModal();
 
@@ -1019,6 +1022,43 @@ export const EnergyMapCalculator = () => {
     foodSearchModal.open();
   }, [foodSearchModal, resetFoodEntryForm]);
 
+  // Handle selecting a food from search - opens portion modal
+  const handleSelectFoodFromSearch = useCallback(
+    (food) => {
+      setSelectedFoodForPortion(food);
+      foodPortionModal.open();
+    },
+    [foodPortionModal]
+  );
+
+  // Handle opening manual entry from search modal
+  const handleOpenManualEntry = useCallback(() => {
+    resetFoodEntryForm();
+    setFoodEntryMode('add');
+    foodEntryModal.open();
+  }, [foodEntryModal, resetFoodEntryForm]);
+
+  // Handle adding food from portion modal
+  const handleAddFoodFromPortion = useCallback(
+    (foodEntry) => {
+      if (foodMealType) {
+        addFoodEntry(trackerSelectedDate, foodMealType, foodEntry);
+      }
+      foodPortionModal.requestClose();
+      // Close search modal after a delay
+      setTimeout(() => {
+        foodSearchModal.requestClose();
+      }, 250);
+    },
+    [
+      addFoodEntry,
+      foodMealType,
+      foodPortionModal,
+      foodSearchModal,
+      trackerSelectedDate,
+    ]
+  );
+
   // Open FoodEntryModal for editing existing food entry
   const handleEditFoodInMeal = useCallback(
     (entryId) => {
@@ -1098,6 +1138,12 @@ export const EnergyMapCalculator = () => {
     }
 
     foodEntryModal.requestClose();
+    // Close search modal after a delay when adding new food
+    if (!editingFoodEntryId) {
+      setTimeout(() => {
+        foodSearchModal.requestClose();
+      }, 250);
+    }
   }, [
     addFoodEntry,
     editingFoodEntryId,
@@ -1109,20 +1155,10 @@ export const EnergyMapCalculator = () => {
     foodMealType,
     foodName,
     foodProtein,
+    foodSearchModal,
     trackerSelectedDate,
     updateFoodEntry,
   ]);
-
-  // Handle adding food from search modal (now handles both search and manual)
-  const handleAddFoodFromSearch = useCallback(
-    (foodEntry) => {
-      if (foodMealType) {
-        addFoodEntry(trackerSelectedDate, foodMealType, foodEntry);
-      }
-      foodSearchModal.requestClose();
-    },
-    [addFoodEntry, foodMealType, foodSearchModal, trackerSelectedDate]
-  );
 
   const handleToggleTrackerCaloriePicker = useCallback(() => {
     setShowTrackerCaloriePicker((prev) => !prev);
@@ -1156,6 +1192,15 @@ export const EnergyMapCalculator = () => {
       // No cleanup needed for this modal
     }
   }, [foodSearchModal.isClosing]);
+
+  useEffect(() => {
+    if (foodPortionModal.isClosing) {
+      const timer = setTimeout(() => {
+        setSelectedFoodForPortion(null);
+      }, MODAL_CLOSE_DELAY + 50); // Slightly longer for nested modal
+      return () => clearTimeout(timer);
+    }
+  }, [foodPortionModal.isClosing]);
 
   const handleCreateFavourite = useCallback(
     (template) => {
@@ -2090,17 +2135,16 @@ export const EnergyMapCalculator = () => {
         isOpen={foodSearchModal.isOpen}
         isClosing={foodSearchModal.isClosing}
         onClose={foodSearchModal.requestClose}
-        onAddFood={handleAddFoodFromSearch}
-        foodName={foodName}
-        setFoodName={setFoodName}
-        calories={foodCalories}
-        setCalories={setFoodCalories}
-        protein={foodProtein}
-        setProtein={setFoodProtein}
-        carbs={foodCarbs}
-        setCarbs={setFoodCarbs}
-        fats={foodFats}
-        setFats={setFoodFats}
+        onSelectFood={handleSelectFoodFromSearch}
+        onOpenManualEntry={handleOpenManualEntry}
+      />
+
+      <FoodPortionModal
+        isOpen={foodPortionModal.isOpen}
+        isClosing={foodPortionModal.isClosing}
+        onClose={foodPortionModal.requestClose}
+        onAddFood={handleAddFoodFromPortion}
+        selectedFood={selectedFoodForPortion}
       />
 
       {/* PhaseInsightsModal removed */}
