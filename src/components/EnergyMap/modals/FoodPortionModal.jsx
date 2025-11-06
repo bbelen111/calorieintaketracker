@@ -252,8 +252,8 @@ export const FoodPortionModal = ({
       onClose={onClose}
       contentClassName="w-full md:max-w-2xl p-6"
     >
-      {/* Header with food details */}
-      <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
+      {/* Header (now part of the modal content) */}
+      <div className="mb-6">
         <div className="flex items-start justify-between mb-2">
           <div>
             <h3 className="text-white font-bold text-xl">
@@ -307,17 +307,16 @@ export const FoodPortionModal = ({
 
       {/* Portion Selector */}
       <div className="mb-6">
-        <label className="block text-slate-300 text-sm font-semibold mb-3 text-center">
-          Select Portion
+        <label className="text-slate-400 text-xs text-center mb-2 uppercase tracking-wide block">
+          Grammes
         </label>
 
         {/* Current selected value display */}
         <div className="text-center mb-4">
-          <div className="inline-flex items-baseline gap-2 bg-slate-700/50 border border-slate-600 rounded-lg px-6 py-3">
+          <div className="inline-flex items-baseline gap-2 rounded-lg px-6 py-3">
             <span className="text-4xl font-bold text-white">
               {Number.isInteger(grams) ? grams : grams.toFixed(1)}
             </span>
-            <span className="text-lg text-slate-400">grams</span>
           </div>
         </div>
 
@@ -359,7 +358,7 @@ export const FoodPortionModal = ({
                 ? value
                 : value.toFixed(1);
               const labelClassName = [
-                'mt-2 text-[11px]',
+                'mt-2 text-[13px]',
                 'transition-colors transition-opacity duration-200',
                 isSelected
                   ? 'text-blue-400 font-semibold opacity-0'
@@ -377,7 +376,7 @@ export const FoodPortionModal = ({
                   <div
                     className={`w-px rounded-full transition-all ${
                       isSelected
-                        ? `${selectedHeight} bg-blue-400`
+                        ? `${selectedHeight} bg-blue-400 opacity-30`
                         : `${baseHeight} ${
                             isMajor ? 'bg-slate-500' : 'bg-slate-600'
                           }`
