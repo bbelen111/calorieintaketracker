@@ -1,8 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 let openModalCount = 0;
 let originalBodyOverflow = '';
 let originalBodyPaddingRight = '';
+
+// base z-index for modals; each modal instance will add its index so newer
+// modals get a higher z-index and appear on top.
+const BASE_Z_INDEX = 1000;
 
 export const ModalShell = ({
   isOpen,
@@ -11,6 +16,9 @@ export const ModalShell = ({
   overlayClassName = '',
   contentClassName = '',
 }) => {
+  const modalIndexRef = useRef(0);
+  const [zIndexValue, setZIndexValue] = useState(BASE_Z_INDEX);
+
   useEffect(() => {
     if (!isOpen) return undefined;
 
@@ -19,6 +27,10 @@ export const ModalShell = ({
       window.innerWidth - document.documentElement.clientWidth;
 
     openModalCount += 1;
+    // capture this modal's stack index
+    modalIndexRef.current = openModalCount;
+    // update renderable z-index once we know our index
+    setZIndexValue(BASE_Z_INDEX + modalIndexRef.current);
 
     if (openModalCount === 1) {
       originalBodyOverflow = body.style.overflow;
@@ -43,9 +55,10 @@ export const ModalShell = ({
 
   if (!isOpen) return null;
 
-  return (
+  const overlay = (
     <div
-      className={`modal-overlay fixed inset-0 !mt-0 bg-black/70 flex items-center justify-center z-50 p-4 ${
+      style={{ zIndex: zIndexValue }}
+      className={`modal-overlay fixed inset-0 !mt-0 bg-black/70 flex items-center justify-center p-4 ${
         isClosing ? 'closing' : ''
       } ${overlayClassName}`}
     >
@@ -58,4 +71,6 @@ export const ModalShell = ({
       </div>
     </div>
   );
+
+  return createPortal(overlay, document.body);
 };
