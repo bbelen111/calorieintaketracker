@@ -1022,6 +1022,19 @@ export const EnergyMapCalculator = () => {
     foodSearchModal.open();
   }, [foodSearchModal, resetFoodEntryForm]);
 
+  const openFoodSearchForMeal = useCallback(
+    (mealType) => {
+      if (!mealType) {
+        openMealEntryModal('');
+        return;
+      }
+
+      setFoodMealType(mealType);
+      handleAddFoodToMeal();
+    },
+    [handleAddFoodToMeal, openMealEntryModal]
+  );
+
   // Handle selecting a food from search - opens portion modal
   const handleSelectFoodFromSearch = useCallback(
     (food) => {
@@ -1677,6 +1690,7 @@ export const EnergyMapCalculator = () => {
                 <TrackerScreen
                   nutritionData={nutritionData}
                   onAddMealEntry={openMealEntryModal}
+                  onAddFoodToMeal={openFoodSearchForMeal}
                   onEditFoodEntry={handleEditFoodEntry}
                   onDeleteFoodEntry={deleteFoodEntry}
                   onDeleteMeal={deleteMeal}

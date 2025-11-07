@@ -65,6 +65,7 @@ const CircularProgress = ({ percent, color, size = 120, strokeWidth = 10 }) => {
 export const TrackerScreen = ({
   nutritionData = {},
   onAddMealEntry,
+  onAddFoodToMeal,
   onEditFoodEntry,
   onDeleteFoodEntry,
   onDeleteMeal,
@@ -234,6 +235,14 @@ export const TrackerScreen = ({
       window.confirm(`Delete all ${getMealTypeById(mealType).label} entries?`)
     ) {
       onDeleteMeal?.(selectedDate, mealType);
+    }
+  };
+
+  const handleAddFoodToMealClick = (mealType) => {
+    if (onAddFoodToMeal) {
+      onAddFoodToMeal(mealType);
+    } else {
+      onAddMealEntry?.(mealType);
     }
   };
 
@@ -823,14 +832,13 @@ export const TrackerScreen = ({
 
                             {/* Add to This Meal Button */}
                             <button
-                              onClick={() => onAddMealEntry?.(mealTypeId)}
+                              onClick={() =>
+                                handleAddFoodToMealClick(mealTypeId)
+                              }
                               type="button"
-                              className="w-full py-2 border-2 border-dashed border-slate-600 hover:border-blue-500 rounded-lg text-slate-400 hover:text-blue-400 transition-all flex items-center justify-center gap-2 mt-3"
+                              className="w-full py-1 border-2 border-slate-600/50 hover:border-blue-500 rounded-lg text-slate-400 hover:text-blue-400 transition-all flex items-center justify-center gap-2 mt-3"
                             >
                               <Plus size={16} />
-                              <span className="text-sm font-semibold">
-                                Add to {mealType.label}
-                              </span>
                             </button>
                           </motion.div>
                         )}
