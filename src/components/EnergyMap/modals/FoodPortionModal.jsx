@@ -1,14 +1,69 @@
-import React, {
-  useState,
-  useRef,
-  useEffect,
-  useCallback,
-  useMemo,
-  useLayoutEffect,
-} from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Plus } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import { FOOD_CATEGORIES } from '../../../constants/foodDatabase';
+import {
+  alignScrollContainerToValue,
+  createPickerScrollHandler,
+} from '../../../utils/scroll';
+
+const MIN_GRAMS = 10;
+const MAX_GRAMS = 1000;
+const DEFAULT_GRAMS = 100;
+
+const GRAM_VALUES = Array.from(
+  { length: MAX_GRAMS - MIN_GRAMS + 1 },
+  (_, index) => MIN_GRAMS + index
+);
+
+const DECIMAL_VALUES = Array.from({ length: 10 }, (_, index) => index);
+
+const clampWhole = (value) => {
+  if (!Number.isFinite(value)) {
+    return MIN_GRAMS;
+  }
+  return Math.min(Math.max(Math.round(value), MIN_GRAMS), MAX_GRAMS);
+};
+
+const clampDecimal = (value) => {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.min(Math.max(Math.round(value), 0), 9);
+};
+
+const normalizeGrams = (grams) => {
+  if (!Number.isFinite(grams)) {
+    return MIN_GRAMS;
+  }
+  return Math.min(Math.max(grams, MIN_GRAMS), MAX_GRAMS);
+};
+
+const convertGramsToParts = (grams) => {
+  const normalized = Math.round(normalizeGrams(grams) * 10) / 10;
+  let whole = Math.floor(normalized);
+  let decimal = Math.round((normalized - whole) * 10);
+
+  if (decimal === 10) {
+    whole = Math.min(whole + 1, MAX_GRAMS);
+    decimal = 0;
+  }
+
+  if (whole === MAX_GRAMS) {
+    decimal = 0;
+  }
+
+  return {
+    whole,
+    decimal,
+  };
+};
+
+const buildGramValue = (whole, decimal) => {
+  const clampedWhole = clampWhole(whole);
+  const safeDecimal = clampedWhole === MAX_GRAMS ? 0 : clampDecimal(decimal);
+  return Math.round((clampedWhole + safeDecimal / 10) * 10) / 10;
+};
 
 export const FoodPortionModal = ({
   isOpen,
@@ -17,247 +72,139 @@ export const FoodPortionModal = ({
   onAddFood,
   selectedFood,
 }) => {
-  const [grams, setGrams] = useState(100);
-  const [isDragging, setIsDragging] = useState(false);
-  const [sidePadding, setSidePadding] = useState(0);
-  const [containerWidth, setContainerWidth] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
-  const scrollerRef = useRef(null);
-  const isDraggingRef = useRef(false);
-  const startXRef = useRef(0);
-  const scrollLeftRef = useRef(0);
+  const wholeRef = useRef(null);
+  const decimalRef = useRef(null);
+  const wholeTimeoutRef = useRef(null);
+  const decimalTimeoutRef = useRef(null);
+  const hasAlignedRef = useRef(false);
+  const selectionRef = useRef(convertGramsToParts(DEFAULT_GRAMS));
 
-  const ITEM_WIDTH = 22;
+  const [selectedWhole, setSelectedWhole] = useState(DEFAULT_GRAMS);
+  const [selectedDecimal, setSelectedDecimal] = useState(0);
+  const [grams, setGrams] = useState(DEFAULT_GRAMS);
 
-  // Generate gram values from 10 to 1000 including 0.1 g steps
-  const gramValues = useMemo(() => {
-    const values = [];
-    const scaledStart = Math.round(10 * 10); // 10 g
-    const scaledEnd = Math.round(1000 * 10); // 1000 g
-
-    for (let scaled = scaledStart; scaled <= scaledEnd; scaled += 1) {
-      const value = Number((scaled / 10).toFixed(1));
-      const isMajor = scaled % 10 === 0;
-      const isHalf = !isMajor && scaled % 5 === 0;
-      values.push({ value, isMajor, isHalf });
-    }
-
-    return values;
-  }, []);
-
-  const findValueIndex = useCallback(
-    (target) =>
-      gramValues.findIndex(({ value }) => Math.abs(value - target) < 0.0001),
-    [gramValues]
+  const [handleWholeScroll, setHandleWholeScroll] = useState(() => () => {});
+  const [handleDecimalScroll, setHandleDecimalScroll] = useState(
+    () => () => {}
   );
 
-  const centerOnValue = useCallback(
-    (value, behavior = 'auto') => {
-      if (!scrollerRef.current) return;
-      const index = findValueIndex(value);
-      if (index === -1) return;
+  const applySelection = useCallback(
+    (whole, decimal, behavior = 'instant', shouldUpdate = true) => {
+      const clampedWhole = clampWhole(whole);
+      const clampedDecimal =
+        clampedWhole === MAX_GRAMS ? 0 : clampDecimal(decimal);
 
-      const containerWidth = scrollerRef.current.offsetWidth;
-      const scrollPosition =
-        sidePadding + index * ITEM_WIDTH + ITEM_WIDTH / 2 - containerWidth / 2;
+      selectionRef.current = {
+        whole: clampedWhole,
+        decimal: clampedDecimal,
+      };
 
-      scrollerRef.current.scrollTo({
-        left: scrollPosition,
-        behavior,
-      });
+      setSelectedWhole(clampedWhole);
+      setSelectedDecimal(clampedDecimal);
 
-      if (behavior === 'auto') {
-        setScrollLeft(scrollPosition);
-      } else {
-        requestAnimationFrame(() => {
-          if (scrollerRef.current) {
-            setScrollLeft(scrollerRef.current.scrollLeft);
-          }
-        });
+      if (wholeRef.current) {
+        alignScrollContainerToValue(
+          wholeRef.current,
+          clampedWhole.toString(),
+          behavior
+        );
+      }
+
+      if (decimalRef.current) {
+        alignScrollContainerToValue(
+          decimalRef.current,
+          clampedDecimal.toString(),
+          behavior
+        );
+      }
+
+      if (shouldUpdate) {
+        setGrams(buildGramValue(clampedWhole, clampedDecimal));
       }
     },
-    [ITEM_WIDTH, findValueIndex, sidePadding]
+    []
   );
 
-  const getNearestIndex = useCallback(() => {
-    if (!scrollerRef.current) return 0;
+  useEffect(
+    () => () => {
+      clearTimeout(wholeTimeoutRef.current);
+      clearTimeout(decimalTimeoutRef.current);
+    },
+    []
+  );
 
-    const containerWidth = scrollerRef.current.offsetWidth;
-    const scrollLeft = scrollerRef.current.scrollLeft;
-    const centerPosition = scrollLeft + containerWidth / 2;
-    const relative = centerPosition - sidePadding - ITEM_WIDTH / 2;
-    const rawIndex = Math.round(relative / ITEM_WIDTH);
-
-    return Math.max(0, Math.min(rawIndex, gramValues.length - 1));
-  }, [ITEM_WIDTH, gramValues.length, sidePadding]);
-
-  useLayoutEffect(() => {
-    if (!isOpen) return;
-
-    const updatePadding = () => {
-      if (!scrollerRef.current) return;
-      const containerWidthValue = scrollerRef.current.offsetWidth;
-      setContainerWidth(containerWidthValue);
-      const padding = Math.max(0, containerWidthValue / 2 - ITEM_WIDTH / 2);
-      setSidePadding(padding);
-    };
-
-    updatePadding();
-
-    let observer;
-    if (typeof ResizeObserver !== 'undefined' && scrollerRef.current) {
-      observer = new ResizeObserver(updatePadding);
-      observer.observe(scrollerRef.current);
+  useEffect(() => {
+    if (!isOpen || !selectedFood) {
+      hasAlignedRef.current = false;
+      return undefined;
     }
 
-    window.addEventListener('resize', updatePadding);
+    const behavior = hasAlignedRef.current ? 'smooth' : 'instant';
+    hasAlignedRef.current = true;
 
-    return () => {
-      window.removeEventListener('resize', updatePadding);
-      if (observer) observer.disconnect();
-    };
-  }, [ITEM_WIDTH, isOpen]);
+    const parts = convertGramsToParts(DEFAULT_GRAMS);
 
-  // Reset to 100g when modal opens
-  useEffect(() => {
-    if (!isOpen || !selectedFood) return undefined;
-
-    const rafId = requestAnimationFrame(() => {
-      setGrams(100);
+    const frame = requestAnimationFrame(() => {
+      applySelection(parts.whole, parts.decimal, behavior, true);
     });
 
-    const timer = setTimeout(() => {
-      centerOnValue(100);
-      if (scrollerRef.current) {
-        setScrollLeft(scrollerRef.current.scrollLeft);
-      }
-    }, 80);
+    return () => cancelAnimationFrame(frame);
+  }, [applySelection, isOpen, selectedFood]);
 
-    return () => {
-      cancelAnimationFrame(rafId);
-      clearTimeout(timer);
+  const handleWholeChange = useCallback((nextWhole) => {
+    const clampedWhole = clampWhole(nextWhole);
+    const nextDecimal =
+      clampedWhole === MAX_GRAMS ? 0 : selectionRef.current.decimal;
+
+    selectionRef.current = {
+      whole: clampedWhole,
+      decimal: nextDecimal,
     };
-  }, [centerOnValue, isOpen, selectedFood]);
 
-  const handleScroll = useCallback(() => {
-    if (!scrollerRef.current) return;
+    setSelectedWhole(clampedWhole);
+    setSelectedDecimal(nextDecimal);
 
-    setScrollLeft(scrollerRef.current.scrollLeft);
-
-    const index = getNearestIndex();
-    const entry = gramValues[index];
-    if (!entry) return;
-    const value = Math.round(entry.value * 10) / 10;
-
-    setGrams((prev) => (prev === value ? prev : value));
-  }, [getNearestIndex, gramValues]);
-
-  const handleMouseDown = useCallback((e) => {
-    if (!scrollerRef.current) return;
-    isDraggingRef.current = true;
-    startXRef.current = e.pageX - scrollerRef.current.offsetLeft;
-    scrollLeftRef.current = scrollerRef.current.scrollLeft;
-    scrollerRef.current.style.cursor = 'grabbing';
-    setIsDragging(true);
-  }, []);
-
-  const handleMouseMove = useCallback((e) => {
-    if (!isDraggingRef.current || !scrollerRef.current) return;
-    if (e.cancelable) e.preventDefault();
-    const x = e.pageX - scrollerRef.current.offsetLeft;
-    const walk = (x - startXRef.current) * 1;
-    scrollerRef.current.scrollLeft = scrollLeftRef.current - walk;
-  }, []);
-
-  const handleMouseUp = useCallback(() => {
-    if (!isDraggingRef.current) return;
-    isDraggingRef.current = false;
-    setIsDragging(false);
-
-    if (scrollerRef.current) {
-      scrollerRef.current.style.cursor = 'grab';
+    if (clampedWhole === MAX_GRAMS && decimalRef.current) {
+      alignScrollContainerToValue(decimalRef.current, '0', 'smooth');
     }
 
-    const targetEntry = gramValues[getNearestIndex()];
-    if (!targetEntry) return;
-    const sanitizedValue = Math.round(targetEntry.value * 10) / 10;
-    centerOnValue(sanitizedValue, 'smooth');
-    setGrams(sanitizedValue);
-  }, [centerOnValue, getNearestIndex, gramValues]);
-
-  const handleTouchStart = useCallback((e) => {
-    if (!scrollerRef.current) return;
-    isDraggingRef.current = true;
-    startXRef.current = e.touches[0].pageX - scrollerRef.current.offsetLeft;
-    scrollLeftRef.current = scrollerRef.current.scrollLeft;
-    setIsDragging(true);
+    setGrams(buildGramValue(clampedWhole, nextDecimal));
   }, []);
 
-  const handleTouchMove = useCallback((e) => {
-    if (!isDraggingRef.current || !scrollerRef.current) return;
-    if (e.cancelable) e.preventDefault();
-    const x = e.touches[0].pageX - scrollerRef.current.offsetLeft;
-    const walk = (x - startXRef.current) * 1;
-    scrollerRef.current.scrollLeft = scrollLeftRef.current - walk;
+  const handleDecimalChange = useCallback((nextDecimal) => {
+    const clampedDecimal =
+      selectionRef.current.whole === MAX_GRAMS ? 0 : clampDecimal(nextDecimal);
+
+    selectionRef.current = {
+      whole: selectionRef.current.whole,
+      decimal: clampedDecimal,
+    };
+
+    setSelectedDecimal(clampedDecimal);
+    setGrams(buildGramValue(selectionRef.current.whole, clampedDecimal));
   }, []);
-
-  const handleTouchEnd = useCallback(() => {
-    if (!isDraggingRef.current) return;
-    isDraggingRef.current = false;
-    setIsDragging(false);
-
-    const targetEntry = gramValues[getNearestIndex()];
-    if (!targetEntry) return;
-    const sanitizedValue = Math.round(targetEntry.value * 10) / 10;
-    centerOnValue(sanitizedValue, 'smooth');
-    setGrams(sanitizedValue);
-  }, [centerOnValue, getNearestIndex, gramValues]);
 
   useEffect(() => {
-    if (!isOpen) return undefined;
-
-    const handleWindowMouseUp = () => handleMouseUp();
-    const handleWindowTouchEnd = () => handleTouchEnd();
-
-    window.addEventListener('mouseup', handleWindowMouseUp);
-    window.addEventListener('touchend', handleWindowTouchEnd);
-    window.addEventListener('touchcancel', handleWindowTouchEnd);
-
-    return () => {
-      window.removeEventListener('mouseup', handleWindowMouseUp);
-      window.removeEventListener('touchend', handleWindowTouchEnd);
-      window.removeEventListener('touchcancel', handleWindowTouchEnd);
-    };
-  }, [handleMouseUp, handleTouchEnd, isOpen]);
-
-  const VIRTUALIZATION_BUFFER = 12;
-
-  const { startIndex, endIndex } = useMemo(() => {
-    if (!gramValues.length) {
-      return { startIndex: 0, endIndex: 0 };
-    }
-
-    const effectiveScroll = Math.max(0, scrollLeft - Math.max(0, sidePadding));
-    const firstVisibleIndex = Math.max(
-      0,
-      Math.floor(effectiveScroll / ITEM_WIDTH)
+    setHandleWholeScroll(() =>
+      createPickerScrollHandler(
+        wholeRef,
+        wholeTimeoutRef,
+        (value) => parseInt(value, 10),
+        handleWholeChange
+      )
     );
-    const visibleCount = containerWidth
-      ? Math.ceil(containerWidth / ITEM_WIDTH)
-      : 0;
-    const start = Math.max(0, firstVisibleIndex - VIRTUALIZATION_BUFFER);
-    const end = Math.min(
-      gramValues.length,
-      firstVisibleIndex + visibleCount + VIRTUALIZATION_BUFFER
+  }, [handleWholeChange]);
+
+  useEffect(() => {
+    setHandleDecimalScroll(() =>
+      createPickerScrollHandler(
+        decimalRef,
+        decimalTimeoutRef,
+        (value) => parseInt(value, 10),
+        handleDecimalChange
+      )
     );
-
-    return { startIndex: start, endIndex: end };
-  }, [containerWidth, gramValues.length, scrollLeft, sidePadding, ITEM_WIDTH]);
-
-  const beforeSpacerWidth = startIndex * ITEM_WIDTH;
-  const afterSpacerWidth =
-    Math.max(0, gramValues.length - endIndex) * ITEM_WIDTH;
-  const visibleValues = gramValues.slice(startIndex, endIndex);
+  }, [handleDecimalChange]);
 
   const calculateNutrition = () => {
     if (!selectedFood) return null;
@@ -304,7 +251,8 @@ export const FoodPortionModal = ({
       isOpen={isOpen}
       isClosing={isClosing}
       onClose={onClose}
-      contentClassName="w-full md:max-w-2xl p-6"
+      overlayClassName="!z-[100]"
+      contentClassName="p-6 w-full max-w-md"
     >
       {/* Header */}
       <div className="mb-4">
@@ -363,109 +311,92 @@ export const FoodPortionModal = ({
           Grammes
         </label>
 
-        {/* Current selected value display */}
-        <div className="text-center mb-4">
-          <div className="inline-flex items-baseline gap-2 rounded-lg px-6 py-3">
-            <span className="text-4xl font-bold text-white">
-              {grams.toFixed(1)}
-            </span>
-          </div>
-        </div>
+        <div className="flex justify-center items-center">
+          <div className="w-[220px]">
+            <div className="relative h-48 overflow-hidden rounded-xl bg-slate-800/80">
+              <div className="absolute inset-0 pointer-events-none z-10">
+                <div className="h-16 bg-gradient-to-b from-slate-800 to-transparent" />
+                <div className="h-16 bg-transparent" />
+                <div className="h-16 bg-gradient-to-t from-slate-800 to-transparent" />
+              </div>
+              <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400/70 pointer-events-none z-10" />
 
-        {/* Horizontal scroller */}
-        <div className="relative rounded-xl bg-slate-800/80 py-4">
-          {/* Center indicator line */}
-          <div className="absolute top-0 bottom-0 left-1/2 w-0.5 bg-blue-400 z-10 pointer-events-none" />
-
-          {/* Gradient overlays */}
-          <div className="absolute top-0 bottom-0 left-0 w-20 bg-gradient-to-r from-slate-800 via-slate-800/80 to-transparent z-10 pointer-events-none" />
-          <div className="absolute top-0 bottom-0 right-0 w-20 bg-gradient-to-l from-slate-800 via-slate-800/80 to-transparent z-10 pointer-events-none" />
-
-          <div
-            ref={scrollerRef}
-            onScroll={handleScroll}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            onTouchCancel={handleTouchEnd}
-            className="flex overflow-x-auto scrollbar-hide cursor-grab select-none"
-            style={{
-              scrollSnapType: isDragging ? 'none' : 'x mandatory',
-              WebkitOverflowScrolling: 'touch',
-            }}
-          >
-            {/* Left padding */}
-            <div className="flex-shrink-0" style={{ width: sidePadding }} />
-
-            {/* Leading virtual spacer */}
-            <div
-              className="flex-shrink-0"
-              style={{ width: beforeSpacerWidth }}
-            />
-
-            {/* Gram values */}
-            {visibleValues.map(({ value, isMajor, isHalf }) => {
-              const isSelected = value === grams;
-              let baseHeight = 'h-6';
-              let selectedHeight = 'h-10';
-              if (isMajor) {
-                baseHeight = 'h-16';
-                selectedHeight = 'h-24';
-              } else if (isHalf) {
-                baseHeight = 'h-10';
-                selectedHeight = 'h-16';
-              }
-              const shouldShowLabel = isMajor || isHalf;
-              const displayValue = value.toFixed(1);
-              const barClassName = isSelected
-                ? `${selectedHeight} bg-blue-400`
-                : `${baseHeight} ${
-                    isMajor
-                      ? 'bg-slate-300'
-                      : isHalf
-                        ? 'bg-slate-500'
-                        : 'bg-slate-700/80'
-                  }`;
-              const labelClassName = [
-                'mt-2 text-[11px]',
-                'transition-colors transition-opacity duration-200',
-                isSelected
-                  ? 'text-blue-400 font-semibold opacity-0'
-                  : shouldShowLabel
-                    ? isMajor
-                      ? 'text-slate-200 opacity-90'
-                      : 'text-slate-400 opacity-75'
-                    : 'opacity-0 text-transparent select-none pointer-events-none',
-              ].join(' ');
-              const labelContent = shouldShowLabel ? displayValue : '\u00a0';
-              return (
-                <div
-                  key={value}
-                  className="flex-shrink-0 flex flex-col items-center justify-end h-24"
-                  style={{ width: ITEM_WIDTH, scrollSnapAlign: 'center' }}
-                >
-                  {/* Tick mark */}
+              <div
+                ref={wholeRef}
+                className="h-full overflow-y-auto scrollbar-hide"
+                onScroll={handleWholeScroll}
+              >
+                <div className="h-16" />
+                {GRAM_VALUES.map((value) => (
                   <div
-                    className={`w-px rounded-full transition-all ${barClassName}`}
-                  />
-                  {/* Value label */}
-                  <span className={labelClassName}>{labelContent}</span>
-                </div>
-              );
-            })}
+                    key={value}
+                    data-value={value}
+                    onClick={() =>
+                      applySelection(
+                        value,
+                        selectionRef.current.decimal,
+                        'smooth',
+                        true
+                      )
+                    }
+                    className={`h-16 flex items-center justify-center text-2xl font-bold snap-center transition-all text-center cursor-pointer ${
+                      selectedWhole === value
+                        ? 'text-white scale-110'
+                        : 'text-slate-500'
+                    }`}
+                  >
+                    {value}
+                  </div>
+                ))}
+                <div className="h-16" />
+              </div>
+            </div>
+          </div>
 
-            {/* Trailing virtual spacer */}
-            <div
-              className="flex-shrink-0"
-              style={{ width: afterSpacerWidth }}
-            />
+          <div className="w-24 flex-shrink-0">
+            <div className="relative h-48 overflow-hidden rounded-xl bg-slate-800/80">
+              <div className="absolute inset-0 pointer-events-none z-10">
+                <div className="h-16 bg-gradient-to-b from-slate-800 to-transparent" />
+                <div className="h-16 bg-transparent" />
+                <div className="h-16 bg-gradient-to-t from-slate-800 to-transparent" />
+              </div>
+              <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400/70 pointer-events-none z-10" />
 
-            {/* Right padding */}
-            <div className="flex-shrink-0" style={{ width: sidePadding }} />
+              <div
+                ref={decimalRef}
+                className="h-full overflow-y-auto scrollbar-hide"
+                onScroll={handleDecimalScroll}
+              >
+                <div className="h-16" />
+                {DECIMAL_VALUES.map((decimal) => {
+                  const isDisabled =
+                    selectedWhole === MAX_GRAMS && decimal !== 0;
+                  return (
+                    <div
+                      key={decimal}
+                      data-value={decimal}
+                      onClick={() => {
+                        if (isDisabled) return;
+                        applySelection(
+                          selectionRef.current.whole,
+                          decimal,
+                          'smooth',
+                          true
+                        );
+                      }}
+                      className={`h-16 flex items-center justify-center text-2xl font-bold snap-center transition-all text-center cursor-pointer ${
+                        selectedDecimal === decimal
+                          ? 'text-white scale-110'
+                          : 'text-slate-500'
+                      } ${isDisabled ? 'opacity-40 pointer-events-none' : ''}`}
+                    >
+                      .{decimal}
+                    </div>
+                  );
+                })}
+                <div className="h-16" />
+              </div>
+            </div>
           </div>
         </div>
       </div>
