@@ -182,6 +182,8 @@ export const ModalShell = ({
 
   const isTopmost = modalIndex === stackCount;
 
+  const shouldDimContent = !isTopmost && stackCount > 0;
+
   const overlay = (
     <div
       style={{ zIndex: zIndexValue }}
@@ -193,10 +195,13 @@ export const ModalShell = ({
       } flex items-center justify-center p-4 ${isClosing ? 'closing' : ''} ${overlayClassName}`}
     >
       <div
-        className={`modal-content bg-slate-800 rounded-2xl border border-slate-700 max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800 transition-[height,max-height] duration-300 ease-in-out ${
+        className={`modal-content relative bg-slate-800 rounded-2xl border border-slate-700 max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800 transition-[height,max-height] duration-300 ease-in-out ${
           isClosing ? 'closing' : ''
         } ${contentClassName}`}
       >
+        {shouldDimContent ? (
+          <div className="pointer-events-none absolute inset-0 rounded-2xl bg-black/60" />
+        ) : null}
         {children}
       </div>
     </div>
