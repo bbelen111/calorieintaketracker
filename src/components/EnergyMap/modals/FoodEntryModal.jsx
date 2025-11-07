@@ -54,7 +54,6 @@ export const FoodEntryModal = ({
             onChange={(e) => setFoodName(e.target.value)}
             placeholder="e.g., Chicken Breast"
             className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
-            autoFocus
           />
         </div>
 
