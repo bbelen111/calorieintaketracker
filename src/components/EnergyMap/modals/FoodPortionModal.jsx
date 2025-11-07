@@ -257,7 +257,6 @@ export const FoodPortionModal = ({
       isOpen={isOpen}
       isClosing={isClosing}
       onClose={onClose}
-      overlayClassName="!z-[100]"
       contentClassName="p-6 w-full max-w-md"
     >
       {/* Header */}
