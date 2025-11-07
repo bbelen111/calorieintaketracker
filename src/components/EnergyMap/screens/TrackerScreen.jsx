@@ -770,7 +770,14 @@ export const TrackerScreen = ({
                                 >
                                   <div className="flex-1 min-w-0">
                                     <p className="text-white font-semibold text-sm truncate">
-                                      {entry.name}
+                                      <span className="align-middle">
+                                        {entry.name}
+                                      </span>
+                                      {entry && entry.grams != null && (
+                                        <span className="ml-2 text-slate-400 text-xs align-middle">
+                                          {formatOne(entry.grams)} g
+                                        </span>
+                                      )}
                                     </p>
                                     <p className="text-slate-400 text-xs">
                                       <span className="text-emerald-400">
