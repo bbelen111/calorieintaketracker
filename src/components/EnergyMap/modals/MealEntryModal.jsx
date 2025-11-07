@@ -2,6 +2,7 @@ import React from 'react';
 import { Utensils, Plus, Edit3, Trash2, ChevronRight } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import { getMealTypeById } from '../../../constants/mealTypes';
+import { formatOne } from '../../../utils/format';
 
 export const MealEntryModal = ({
   isOpen,
@@ -95,28 +96,28 @@ export const MealEntryModal = ({
 
                 {mealTypeData && foodEntries.length > 0 && (
                   <div className="p-3 flex-1 border-t border-slate-600">
-                    <div className="grid grid-cols-4 gap-3 text-center">
+                    <div className="flex items-center justify-between text-center">
                       <div>
                         <p className="text-emerald-400 font-bold text-base">
-                          {Math.round(mealTotals.calories)}
+                          {formatOne(mealTotals.calories)}
                         </p>
                         <p className="text-slate-400 text-xs">kcal</p>
                       </div>
                       <div>
                         <p className="text-red-400 font-bold text-base">
-                          {Math.round(mealTotals.protein)}g
+                          {formatOne(mealTotals.protein)}g
                         </p>
                         <p className="text-slate-400 text-xs">protein</p>
                       </div>
                       <div>
                         <p className="text-yellow-400 font-bold text-base">
-                          {Math.round(mealTotals.fats)}g
+                          {formatOne(mealTotals.fats)}g
                         </p>
                         <p className="text-slate-400 text-xs">fats</p>
                       </div>
                       <div>
                         <p className="text-amber-400 font-bold text-base">
-                          {Math.round(mealTotals.carbs)}g
+                          {formatOne(mealTotals.carbs)}g
                         </p>
                         <p className="text-slate-400 text-xs">carbs</p>
                       </div>
@@ -167,13 +168,21 @@ export const MealEntryModal = ({
                         {entry.name}
                       </p>
                       <p className="text-slate-400 text-xs">
-                        <span className="text-emerald-400">{`${entry.calories || 0} kcal`}</span>
-                        {' • '}
-                        <span className="text-red-400">{`${entry.protein || 0} p`}</span>
-                        {' • '}
-                        <span className="text-yellow-400">{`${entry.fats || 0} f`}</span>
-                        {' • '}
-                        <span className="text-amber-400">{`${entry.carbs || 0} c`}</span>
+                        <span className="text-emerald-400">
+                          {formatOne(entry.calories || 0)} kcal
+                        </span>
+                        {' - '}
+                        <span className="text-red-400">
+                          {formatOne(entry.protein || 0)} p
+                        </span>
+                        {' - '}
+                        <span className="text-yellow-400">
+                          {formatOne(entry.fats || 0)} f
+                        </span>
+                        {' - '}
+                        <span className="text-amber-400">
+                          {formatOne(entry.carbs || 0)} c
+                        </span>
                       </p>
                     </div>
 

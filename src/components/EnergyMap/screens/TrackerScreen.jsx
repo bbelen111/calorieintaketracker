@@ -17,6 +17,7 @@ import {
   CalendarCog,
 } from 'lucide-react';
 import { MEAL_TYPE_ORDER, getMealTypeById } from '../../../constants/mealTypes';
+import { formatOne } from '../../../utils/format';
 
 const getTodayDate = () => {
   const today = new Date();
@@ -369,7 +370,7 @@ export const TrackerScreen = ({
                 animate={{ opacity: 1, y: 0 }}
                 className="text-emerald-400 font-bold text-2xl"
               >
-                {totals.calories}
+                {formatOne(totals.calories)}
               </motion.p>
             </AnimatePresence>
           </div>
@@ -394,7 +395,7 @@ export const TrackerScreen = ({
                     transition={{ duration: 0.22 }}
                     className="text-white text-sm font-semibold absolute left-0"
                   >
-                    {targetCalories} kcal
+                    {formatOne(targetCalories)} kcal
                     <span className="text-slate-400 font-normal ml-2">
                       ({selectedStepRange} steps)
                     </span>
@@ -451,14 +452,14 @@ export const TrackerScreen = ({
                                     : selectedGoal === 'aggressive_cut'
                                       ? 'Aggressive cut'
                                       : 'Unknown'}{' '}
-                            • {selectedDay === 'training' ? 'Training' : 'Rest'}{' '}
+                            - {selectedDay === 'training' ? 'Training' : 'Rest'}{' '}
                             day
                           </p>
                         </div>
                         <p
                           className={`font-bold ${isSelected ? 'text-emerald-400' : 'text-slate-300'}`}
                         >
-                          {rangeData?.targetCalories || 0}
+                          {formatOne(rangeData?.targetCalories || 0)}
                         </p>
                       </div>
                     </button>
@@ -495,14 +496,14 @@ export const TrackerScreen = ({
                 {caloriesRemaining >= 0 ? (
                   <>
                     <span className="text-emerald-400 font-semibold">
-                      {caloriesRemaining}
+                      {formatOne(caloriesRemaining)}
                     </span>{' '}
                     remaining
                   </>
                 ) : (
                   <>
                     <span className="text-red-400 font-semibold">
-                      {Math.abs(caloriesRemaining)}
+                      {formatOne(Math.abs(caloriesRemaining))}
                     </span>{' '}
                     over target
                   </>
@@ -532,7 +533,7 @@ export const TrackerScreen = ({
                     transition={{ duration: 0.22 }}
                     className="text-white font-bold text-lg"
                   >
-                    {totals.protein}
+                    {formatOne(totals.protein)}
                   </motion.p>
                 </AnimatePresence>
               </div>
@@ -541,11 +542,11 @@ export const TrackerScreen = ({
             <p className="text-slate-400 text-xs">
               {proteinInRange ? (
                 <span className="text-blue-400">
-                  ✓ {proteinMin}-{proteinMax}g
+                  ✓ {formatOne(proteinMin)}-{formatOne(proteinMax)}g
                 </span>
               ) : (
                 <span>
-                  {proteinMin}-{proteinMax}g
+                  {formatOne(proteinMin)}-{formatOne(proteinMax)}g
                 </span>
               )}
             </p>
@@ -571,7 +572,7 @@ export const TrackerScreen = ({
                     transition={{ duration: 0.22 }}
                     className="text-white font-bold text-lg"
                   >
-                    {totals.fats}
+                    {formatOne(totals.fats)}
                   </motion.p>
                 </AnimatePresence>
               </div>
@@ -580,11 +581,11 @@ export const TrackerScreen = ({
             <p className="text-slate-400 text-xs">
               {fatsInRange ? (
                 <span className="text-blue-400">
-                  ✓ {fatsMin}-{fatsMax}g
+                  ✓ {formatOne(fatsMin)}-{formatOne(fatsMax)}g
                 </span>
               ) : (
                 <span>
-                  {fatsMin}-{fatsMax}g
+                  {formatOne(fatsMin)}-{formatOne(fatsMax)}g
                 </span>
               )}
             </p>
@@ -610,7 +611,7 @@ export const TrackerScreen = ({
                     transition={{ duration: 0.22 }}
                     className="text-white font-bold text-lg"
                   >
-                    {totals.carbs}
+                    {formatOne(totals.carbs)}
                   </motion.p>
                 </AnimatePresence>
               </div>
@@ -618,7 +619,7 @@ export const TrackerScreen = ({
             <p className="text-slate-300 text-xs font-semibold mt-2">Carbs</p>
             <p className="text-slate-400 text-xs">
               {targetCarbs > 0 ? (
-                <span>~{targetCarbs}g</span>
+                <span>~{formatOne(targetCarbs)}g</span>
               ) : (
                 <span>No room</span>
               )}
@@ -722,12 +723,7 @@ export const TrackerScreen = ({
                               {mealType.label}
                             </h3>
                             <p className="text-slate-400 text-xs">
-                              {mealEntries.length} item
-                              {mealEntries.length !== 1 ? 's' : ''} •{' '}
-                              <span className="text-emerald-400">
-                                {mealTotals.calories} kcal
-                              </span>{' '}
-                              • {mealTime}
+                              {`${mealEntries.length} item${mealEntries.length !== 1 ? 's' : ''} - ${formatOne(mealTotals.calories)} kcal - ${mealTime}`}
                             </p>
                           </div>
                         </div>
@@ -778,19 +774,19 @@ export const TrackerScreen = ({
                                     </p>
                                     <p className="text-slate-400 text-xs">
                                       <span className="text-emerald-400">
-                                        {entry.calories} kcal
+                                        {formatOne(entry.calories)} kcal
                                       </span>
-                                      {' • '}
+                                      {' - '}
                                       <span className="text-red-400">
-                                        {entry.protein} p
+                                        {formatOne(entry.protein)} p
                                       </span>
-                                      {' • '}
+                                      {' - '}
                                       <span className="text-yellow-400">
-                                        {entry.fats} f
+                                        {formatOne(entry.fats)} f
                                       </span>
-                                      {' • '}
+                                      {' - '}
                                       <span className="text-amber-400">
-                                        {entry.carbs} c
+                                        {formatOne(entry.carbs)} c
                                       </span>
                                     </p>
                                   </div>

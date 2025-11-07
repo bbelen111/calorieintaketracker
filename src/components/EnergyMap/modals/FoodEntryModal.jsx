@@ -28,6 +28,18 @@ export const FoodEntryModal = ({
     onSave?.();
   };
 
+  const sanitizeNumericInput = (value) => {
+    // allow empty string
+    if (value === '') return '';
+    // remove any characters except digits and dot
+    const cleaned = String(value).replace(/[^0-9.]/g, '');
+    // if there's no dot or only one, return as-is (but keep only digits and single dot)
+    const parts = cleaned.split('.');
+    if (parts.length <= 1) return parts[0];
+    // keep first dot only, join the rest (prevents multiple dots)
+    return parts.shift() + '.' + parts.join('');
+  };
+
   return (
     <ModalShell
       isOpen={isOpen}
@@ -63,9 +75,10 @@ export const FoodEntryModal = ({
             Calories
           </label>
           <input
-            type="number"
+            type="text"
+            inputMode="decimal"
             value={calories}
-            onChange={(e) => setCalories(e.target.value)}
+            onChange={(e) => setCalories(sanitizeNumericInput(e.target.value))}
             placeholder="0"
             className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
           />
@@ -78,9 +91,10 @@ export const FoodEntryModal = ({
               Protein (g)
             </label>
             <input
-              type="number"
+              type="text"
+              inputMode="decimal"
               value={protein}
-              onChange={(e) => setProtein(e.target.value)}
+              onChange={(e) => setProtein(sanitizeNumericInput(e.target.value))}
               placeholder="0"
               className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
             />
@@ -91,9 +105,10 @@ export const FoodEntryModal = ({
               Carbs (g)
             </label>
             <input
-              type="number"
+              type="text"
+              inputMode="decimal"
               value={carbs}
-              onChange={(e) => setCarbs(e.target.value)}
+              onChange={(e) => setCarbs(sanitizeNumericInput(e.target.value))}
               placeholder="0"
               className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
             />
@@ -104,9 +119,10 @@ export const FoodEntryModal = ({
               Fats (g)
             </label>
             <input
-              type="number"
+              type="text"
+              inputMode="decimal"
               value={fats}
-              onChange={(e) => setFats(e.target.value)}
+              onChange={(e) => setFats(sanitizeNumericInput(e.target.value))}
               placeholder="0"
               className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
             />

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Search, Edit3 } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import { searchFoods, FOOD_CATEGORIES } from '../../../constants/foodDatabase';
+import { formatOne } from '../../../utils/format';
 
 export const FoodSearchModal = ({
   isOpen,
@@ -98,25 +99,25 @@ export const FoodSearchModal = ({
                   <div className="flex items-center gap-3 text-xs">
                     <div className="text-center">
                       <p className="text-emerald-400 font-bold">
-                        {food.per100g.calories}
+                        {formatOne(food.per100g.calories)}
                       </p>
                       <p className="text-slate-500">cal</p>
                     </div>
                     <div className="text-center">
                       <p className="text-red-400 font-bold">
-                        {food.per100g.protein}g
+                        {formatOne(food.per100g.protein)}g
                       </p>
                       <p className="text-slate-500">prot</p>
                     </div>
                     <div className="text-center">
                       <p className="text-amber-400 font-bold">
-                        {food.per100g.carbs}g
+                        {formatOne(food.per100g.carbs)}g
                       </p>
                       <p className="text-slate-500">carb</p>
                     </div>
                     <div className="text-center">
                       <p className="text-yellow-400 font-bold">
-                        {food.per100g.fats}g
+                        {formatOne(food.per100g.fats)}g
                       </p>
                       <p className="text-slate-500">fat</p>
                     </div>

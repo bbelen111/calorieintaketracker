@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Plus } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import { FOOD_CATEGORIES } from '../../../constants/foodDatabase';
+import { formatOne } from '../../../utils/format';
 import {
   alignScrollContainerToValue,
   createPickerScrollHandler,
@@ -76,6 +77,7 @@ export const FoodPortionModal = ({
   const decimalRef = useRef(null);
   const wholeTimeoutRef = useRef(null);
   const decimalTimeoutRef = useRef(null);
+  const idCounterRef = useRef(0);
   const hasAlignedRef = useRef(false);
   const selectionRef = useRef(convertGramsToParts(DEFAULT_GRAMS));
 
@@ -228,7 +230,10 @@ export const FoodPortionModal = ({
     if (!nutrition) return;
 
     const foodEntry = {
-      id: Date.now(),
+      id: (() => {
+        idCounterRef.current += 1;
+        return idCounterRef.current;
+      })(),
       name: nutrition.name,
       calories: nutrition.calories,
       protein: nutrition.protein,
@@ -405,30 +410,30 @@ export const FoodPortionModal = ({
       {nutrition && (
         <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6 shadow-lg shadow-slate-900/20">
           <p className="text-slate-400 text-xs mb-3 text-center">
-            For {grams.toFixed(1)}g:
+            For {formatOne(grams)}g:
           </p>
           <div className="grid grid-cols-4 gap-3 text-center">
             <div>
               <p className="text-emerald-400 font-bold text-2xl">
-                {nutrition.calories}
+                {formatOne(nutrition.calories)}
               </p>
               <p className="text-slate-400 text-xs">kcal</p>
             </div>
             <div>
               <p className="text-red-400 font-bold text-2xl">
-                {nutrition.protein}g
+                {formatOne(nutrition.protein)}g
               </p>
               <p className="text-slate-400 text-xs">protein</p>
             </div>
             <div>
               <p className="text-amber-400 font-bold text-2xl">
-                {nutrition.carbs}g
+                {formatOne(nutrition.carbs)}g
               </p>
               <p className="text-slate-400 text-xs">carbs</p>
             </div>
             <div>
               <p className="text-yellow-400 font-bold text-2xl">
-                {nutrition.fats}g
+                {formatOne(nutrition.fats)}g
               </p>
               <p className="text-slate-400 text-xs">fats</p>
             </div>
