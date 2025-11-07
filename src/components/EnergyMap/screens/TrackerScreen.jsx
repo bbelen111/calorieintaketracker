@@ -374,7 +374,7 @@ export const TrackerScreen = ({
           <div className="h-8">
             <AnimatePresence mode="wait">
               <motion.p
-                key={totals.calories}
+                key={`totals-cal-${totals.calories}`}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="text-emerald-400 font-bold text-2xl"
@@ -397,7 +397,7 @@ export const TrackerScreen = ({
               <div className="relative h-6">
                 <AnimatePresence mode="wait">
                   <motion.p
-                    key={`${targetCalories}-${selectedStepRange}`}
+                    key={`target-${targetCalories}-${selectedStepRange}`}
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
@@ -436,7 +436,7 @@ export const TrackerScreen = ({
                   const isSelected = range === selectedStepRange;
                   return (
                     <button
-                      key={range}
+                      key={`range-${range}`}
                       onClick={() => {
                         onStepRangeChange?.(range);
                       }}
@@ -495,7 +495,7 @@ export const TrackerScreen = ({
           <div className="text-slate-400 text-xs mt-1">
             <AnimatePresence mode="wait">
               <motion.span
-                key={caloriesRemaining}
+                key={`remaining-${caloriesRemaining}`}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
@@ -535,7 +535,7 @@ export const TrackerScreen = ({
                 <Beef className="text-red-400 mb-1" size={20} />
                 <AnimatePresence mode="wait">
                   <motion.p
-                    key={totals.protein}
+                    key={`protein-${totals.protein}`}
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
@@ -574,7 +574,7 @@ export const TrackerScreen = ({
                 <Droplet className="text-yellow-400 mb-1" size={20} />
                 <AnimatePresence mode="wait">
                   <motion.p
-                    key={totals.fats}
+                    key={`fats-${totals.fats}`}
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
@@ -613,7 +613,7 @@ export const TrackerScreen = ({
                 <Cookie className="text-amber-400 mb-1" size={20} />
                 <AnimatePresence mode="wait">
                   <motion.p
-                    key={totals.carbs}
+                    key={`carbs-${totals.carbs}`}
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
@@ -714,7 +714,7 @@ export const TrackerScreen = ({
 
                   return (
                     <div
-                      key={mealTypeId}
+                      key={`meal-${mealTypeId}`}
                       className="bg-slate-700/50 rounded-xl p-2 border border-slate-600/50 shadow-lg shadow-slate-900/20"
                     >
                       {/* Meal Header */}
@@ -772,9 +772,9 @@ export const TrackerScreen = ({
                             className="space-y-2 mt-2 overflow-hidden"
                           >
                             <div className="space-y-2">
-                              {mealEntries.map((entry) => (
+                              {mealEntries.map((entry, idx) => (
                                 <div
-                                  key={entry.id}
+                                  key={`entry-${entry.id}-${idx}`}
                                   className="bg-slate-700/50 rounded-lg p-3 border border-slate-600/50 flex justify-between items-start gap-3 shadow-lg shadow-slate-900/20"
                                 >
                                   <div className="flex-1 min-w-0">

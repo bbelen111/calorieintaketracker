@@ -44,7 +44,7 @@ export const MealTypePickerModal = ({
           const itemCount = mealTypeItemCounts[mealTypeId] || 0;
           return (
             <button
-              key={mealTypeId}
+              key={`meal-${mealTypeId}`}
               onClick={() => handleSelect(mealTypeId)}
               className={`w-full p-4 rounded-lg border-2 transition-all flex items-center gap-4 shadow-lg shadow-slate-900/20 ${getColorClasses(mealType.color, isSelected)}`}
               tabIndex={0}

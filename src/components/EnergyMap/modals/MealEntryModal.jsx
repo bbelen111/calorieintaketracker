@@ -158,9 +158,9 @@ export const MealEntryModal = ({
               </div>
             ) : (
               <div className="space-y-3 max-h-96 overflow-y-auto">
-                {foodEntries.map((entry) => (
+                {foodEntries.map((entry, idx) => (
                   <div
-                    key={entry.id}
+                    key={`entry-${entry.id}-${idx}`}
                     className="bg-slate-700/50 rounded-lg p-3 border border-slate-600/50 flex justify-between items-start gap-3 shadow-lg shadow-slate-900/20"
                   >
                     <div className="flex-1 min-w-0">
