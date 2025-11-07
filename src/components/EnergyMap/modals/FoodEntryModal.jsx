@@ -53,7 +53,7 @@ export const FoodEntryModal = ({
             value={foodName}
             onChange={(e) => setFoodName(e.target.value)}
             placeholder="e.g., Chicken Breast"
-            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
           />
         </div>
 
@@ -67,7 +67,7 @@ export const FoodEntryModal = ({
             value={calories}
             onChange={(e) => setCalories(e.target.value)}
             placeholder="0"
-            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
           />
         </div>
 
@@ -82,7 +82,7 @@ export const FoodEntryModal = ({
               value={protein}
               onChange={(e) => setProtein(e.target.value)}
               placeholder="0"
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
             />
           </div>
 
@@ -95,7 +95,7 @@ export const FoodEntryModal = ({
               value={carbs}
               onChange={(e) => setCarbs(e.target.value)}
               placeholder="0"
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
             />
           </div>
 
@@ -108,7 +108,7 @@ export const FoodEntryModal = ({
               value={fats}
               onChange={(e) => setFats(e.target.value)}
               placeholder="0"
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
             />
           </div>
         </div>
