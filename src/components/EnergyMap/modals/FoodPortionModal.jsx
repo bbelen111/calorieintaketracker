@@ -239,6 +239,7 @@ export const FoodPortionModal = ({
       protein: nutrition.protein,
       carbs: nutrition.carbs,
       fats: nutrition.fats,
+      grams: grams,
       timestamp: new Date().toISOString(),
     };
 

@@ -1128,6 +1128,8 @@ export const EnergyMapCalculator = () => {
       protein: parseFloat(foodProtein) || 0,
       carbs: parseFloat(foodCarbs) || 0,
       fats: parseFloat(foodFats) || 0,
+      // Manual entries do not have a measured gram amount by default.
+      grams: null,
       timestamp: new Date().toISOString(),
     };
 

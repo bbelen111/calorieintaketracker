@@ -125,11 +125,40 @@ export const getDefaultEnergyMapData = () => ({
 
 function mergeWithDefaults(data) {
   const defaults = getDefaultEnergyMapData();
+  const normalizeNutritionData = (raw) => {
+    if (!raw || typeof raw !== 'object') return defaults.nutritionData;
+
+    const normalized = {};
+
+    for (const [date, meals] of Object.entries(raw)) {
+      normalized[date] = {};
+      if (!meals || typeof meals !== 'object') continue;
+
+      for (const [mealType, entries] of Object.entries(meals)) {
+        normalized[date][mealType] = Array.isArray(entries)
+          ? entries.map((entry) => {
+              // Ensure a grams key exists so consumers can rely on the shape.
+              if (!entry || typeof entry !== 'object') {
+                return { ...entry, grams: null };
+              }
+              if (!('grams' in entry)) {
+                return { ...entry, grams: null };
+              }
+              return entry;
+            })
+          : [];
+      }
+    }
+
+    return normalized;
+  };
 
   return {
     ...defaults,
     ...data,
-    nutritionData: data.nutritionData ?? defaults.nutritionData,
+    nutritionData: normalizeNutritionData(
+      data.nutritionData ?? defaults.nutritionData
+    ),
     trainingTypeOverrides: {
       ...defaults.trainingTypeOverrides,
       ...(data.trainingTypeOverrides ?? {}),
