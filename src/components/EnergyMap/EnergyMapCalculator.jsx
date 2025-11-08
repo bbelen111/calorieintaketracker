@@ -1050,11 +1050,9 @@ export const EnergyMapCalculator = () => {
 
       addFoodEntry(trackerSelectedDate, foodMealType, foodEntry);
 
+      // Close both modals simultaneously for faster UX
       foodPortionModal.requestClose();
-      // Close search modal after a delay so nested modal animations finish
-      setTimeout(() => {
-        foodSearchModal.requestClose();
-      }, 250);
+      foodSearchModal.requestClose();
     },
     [
       addFoodEntry,
