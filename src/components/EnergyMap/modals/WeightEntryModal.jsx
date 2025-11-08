@@ -50,7 +50,6 @@ export const WeightEntryModal = ({
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
-      overlayClassName="!z-[90]"
       contentClassName="p-6 w-full max-w-lg"
     >
       <h3 className="text-white font-bold text-xl text-center mb-6">

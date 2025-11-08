@@ -905,7 +905,7 @@ export const WeightTrackerModal = ({
       <ModalShell
         isOpen={isOpen}
         isClosing={isClosing}
-        overlayClassName="!z-[80] fixed inset-0 bg-black/70 !p-0 !flex-none !items-stretch !justify-stretch"
+        overlayClassName="fixed inset-0 bg-black/70 !p-0 !flex-none !items-stretch !justify-stretch"
         contentClassName="fixed inset-0 w-screen h-screen p-0 bg-slate-900 rounded-none border-none !max-h-none flex flex-col"
       >
         {/* Header with back button */}
@@ -1589,7 +1589,7 @@ export const WeightTrackerModal = ({
       {selectedPoint && selectedDate && entriesMap[selectedDate] && (
         <div
           ref={tooltipRef}
-          className={`fixed z-[100] bg-slate-800 border border-slate-600 rounded-lg shadow-2xl p-4 transform -translate-x-1/2 -translate-y-full pointer-events-auto transition duration-150 ease-out ${
+          className={`fixed z-[1200] bg-slate-800 border border-slate-600 rounded-lg shadow-2xl p-4 transform -translate-x-1/2 -translate-y-full pointer-events-auto transition duration-150 ease-out ${
             tooltipEntered && !tooltipClosing
               ? 'opacity-100 scale-100'
               : 'opacity-0 scale-95'

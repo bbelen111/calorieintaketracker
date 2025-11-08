@@ -236,7 +236,6 @@ export const WeightPickerModal = ({
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
-      overlayClassName="!z-[100]"
       contentClassName="p-6 w-full max-w-md"
     >
       <h3 className="text-white font-bold text-xl mb-4 text-center">
