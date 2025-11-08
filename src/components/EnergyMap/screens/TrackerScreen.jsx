@@ -983,7 +983,13 @@ export const TrackerScreen = ({
                                 {mealType.label}
                               </h3>
                               <p className="text-slate-400 text-xs">
-                                {`${mealEntries.length} item${mealEntries.length !== 1 ? 's' : ''} - ${formatOne(mealTotals.calories)} kcal - ${mealTime}`}
+                                <span>
+                                  {`${mealEntries.length} item${mealEntries.length !== 1 ? 's' : ''} - `}
+                                </span>
+                                <span className="text-emerald-400">
+                                  {formatOne(mealTotals.calories)} kcal
+                                </span>
+                                <span>{` - ${mealTime}`}</span>
                               </p>
                             </div>
                           </div>
