@@ -10,6 +10,8 @@ let originalBodyPaddingRight = '';
 // stacking modals which prevents cumulative darkening and flicker.
 let sharedOverlayNode = null;
 const OVERLAY_FADE_MS = 200;
+let overlayHideTimeout = null;
+let overlayShowTimeout = null;
 
 function createSharedOverlay() {
   if (typeof document === 'undefined') return null;
@@ -19,8 +21,11 @@ function createSharedOverlay() {
   node.className = 'shared-modal-overlay fixed inset-0 bg-black';
   // start hidden
   node.style.opacity = '0';
-  node.style.transition = `opacity ${OVERLAY_FADE_MS}ms ease`;
-  node.style.pointerEvents = 'auto';
+  node.style.transition = `opacity ${OVERLAY_FADE_MS}ms ease-out`;
+  node.style.pointerEvents = 'none'; // never intercept clicks
+  node.style.willChange = 'opacity'; // optimize animation
+  node.style.backfaceVisibility = 'hidden'; // prevent flicker on some devices
+  node.style.transform = 'translateZ(0)'; // force GPU acceleration
   document.body.appendChild(node);
   sharedOverlayNode = node;
   return node;
@@ -29,32 +34,72 @@ function createSharedOverlay() {
 function showSharedOverlay(belowZIndex) {
   const node = createSharedOverlay();
   if (!node) return;
-  // place it underneath the top modal
+
+  // Clear any pending hide timeout
+  if (overlayHideTimeout) {
+    clearTimeout(overlayHideTimeout);
+    overlayHideTimeout = null;
+  }
+
+  // Clear any pending show timeout
+  if (overlayShowTimeout) {
+    clearTimeout(overlayShowTimeout);
+    overlayShowTimeout = null;
+  }
+
+  // Set z-index immediately to prevent flickering
   node.style.zIndex = String(Math.max(0, (belowZIndex || BASE_Z_INDEX) - 1));
-  // ensure it's visible (defer to next frame for transition)
-  requestAnimationFrame(() => {
+
+  // If already visible, just ensure it stays visible - no animation retrigger
+  if (node.style.opacity === '0.7') {
+    return;
+  }
+
+  // If opacity is transitioning (between 0 and 0.7), force it to target immediately
+  // to prevent flicker when opening nested modals rapidly
+  const currentOpacity = parseFloat(node.style.opacity);
+  if (currentOpacity > 0 && currentOpacity < 0.7) {
     node.style.opacity = '0.7';
+    return;
+  }
+
+  // Use single rAF for faster response when opening nested modals
+  requestAnimationFrame(() => {
+    if (node) node.style.opacity = '0.7';
   });
 }
 
 function updateSharedOverlayZ(belowZIndex) {
   if (!sharedOverlayNode) return;
-  sharedOverlayNode.style.zIndex = String(
-    Math.max(0, (belowZIndex || BASE_Z_INDEX) - 1)
-  );
+  // Only update z-index if we're not mid-animation
+  const newZIndex = String(Math.max(0, (belowZIndex || BASE_Z_INDEX) - 1));
+  if (sharedOverlayNode.style.zIndex !== newZIndex) {
+    sharedOverlayNode.style.zIndex = newZIndex;
+  }
 }
 
 function hideSharedOverlayIfIdle() {
   if (!sharedOverlayNode) return;
+
+  // Clear any pending timeouts
+  if (overlayHideTimeout) {
+    clearTimeout(overlayHideTimeout);
+    overlayHideTimeout = null;
+  }
+
   if (openModalCount > 0) {
-    // still open modals, update z-index to current top
+    // still open modals, ensure overlay stays visible at correct z-index
     updateSharedOverlayZ(BASE_Z_INDEX + openModalCount);
+    // Make sure it's visible
+    if (sharedOverlayNode.style.opacity !== '0.7') {
+      sharedOverlayNode.style.opacity = '0.7';
+    }
     return;
   }
 
-  // fade out then remove
+  // fade out then remove - but only if no modals opened during fade
   sharedOverlayNode.style.opacity = '0';
-  setTimeout(() => {
+  overlayHideTimeout = setTimeout(() => {
     if (sharedOverlayNode && openModalCount === 0) {
       try {
         sharedOverlayNode.remove();
@@ -63,7 +108,8 @@ function hideSharedOverlayIfIdle() {
       }
       sharedOverlayNode = null;
     }
-  }, OVERLAY_FADE_MS + 20);
+    overlayHideTimeout = null;
+  }, OVERLAY_FADE_MS + 50);
 }
 
 // base z-index for modals; each modal instance will add its index so newer
@@ -92,16 +138,16 @@ export const ModalShell = ({
       window.innerWidth - document.documentElement.clientWidth;
 
     openModalCount += 1;
-    // capture this modal's stack index
-    modalIndexRef.current = openModalCount;
-    // schedule state update to avoid synchronous setState inside effect
-    setTimeout(() => setModalIndex(openModalCount), 0);
-    // update renderable z-index once we know our index
-    setZIndexValue(BASE_Z_INDEX + modalIndexRef.current);
+    const myIndex = openModalCount;
 
-    // notify other modal instances about the new stack count so they can
-    // re-render and hide their overlays if they are not topmost. We use a
-    // CustomEvent so we don't need a global state library.
+    // capture this modal's stack index
+    modalIndexRef.current = myIndex;
+
+    // Update state immediately to avoid flicker
+    setModalIndex(myIndex);
+    setZIndexValue(BASE_Z_INDEX + myIndex);
+
+    // Notify other modals synchronously before showing overlay
     try {
       if (
         typeof window !== 'undefined' &&
@@ -117,10 +163,8 @@ export const ModalShell = ({
       void err;
     }
 
-    // ensure the single shared overlay exists and sits underneath the new
-    // topmost modal. This prevents multiple overlays stacking and reduces
-    // flicker when opening/closing nested modals.
-    showSharedOverlay(BASE_Z_INDEX + modalIndexRef.current);
+    // Show overlay after state updates complete
+    showSharedOverlay(BASE_Z_INDEX + myIndex);
 
     if (openModalCount === 1) {
       originalBodyOverflow = body.style.overflow;
@@ -151,8 +195,10 @@ export const ModalShell = ({
         void err;
       }
 
-      // update or hide the shared overlay now that one modal closed
-      hideSharedOverlayIfIdle();
+      // Delay overlay update slightly to let closing animation start
+      requestAnimationFrame(() => {
+        hideSharedOverlayIfIdle();
+      });
 
       if (openModalCount === 0) {
         body.style.overflow = originalBodyOverflow;
@@ -167,14 +213,15 @@ export const ModalShell = ({
   useEffect(() => {
     const wrapped = (e) => {
       const count = e?.detail?.count ?? 0;
+      // Update immediately for smooth nested modal transitions
       setStackCount(count);
       if (count > 0) updateSharedOverlayZ(BASE_Z_INDEX + count);
       else hideSharedOverlayIfIdle();
     };
 
     window.addEventListener('modalStackChange', wrapped);
-    // initialize to current value (defer to avoid sync setState in effect)
-    setTimeout(() => setStackCount(openModalCount), 0);
+    // Initialize stack count
+    setStackCount(openModalCount);
     return () => window.removeEventListener('modalStackChange', wrapped);
   }, []);
 
@@ -186,21 +233,34 @@ export const ModalShell = ({
 
   const overlay = (
     <div
-      style={{ zIndex: zIndexValue }}
-      className={`modal-overlay fixed inset-0 !mt-0 ${
+      style={{
+        zIndex: zIndexValue,
+        // Hint to browser that this layer will have z-index changes
+        isolation: 'isolate',
+      }}
+      className={`modal-overlay-wrapper fixed inset-0 !mt-0 ${
         // visual dimming now comes from the shared overlay. Keep this
         // per-modal layer transparent. Only the topmost modal should
         // accept pointer events; underlying modals must not block them.
         isTopmost ? 'bg-transparent' : 'bg-transparent pointer-events-none'
-      } flex items-center justify-center p-4 ${isClosing ? 'closing' : ''} ${overlayClassName}`}
+      } flex items-center justify-center p-4 ${overlayClassName}`}
     >
       <div
         className={`modal-content relative bg-slate-800 rounded-2xl border border-slate-700 max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800 transition-[height,max-height] duration-300 ease-in-out ${
           isClosing ? 'closing' : ''
         } ${contentClassName}`}
+        style={{ willChange: isClosing ? 'transform, opacity' : 'auto' }}
       >
         {shouldDimContent ? (
-          <div className="pointer-events-none absolute inset-0 rounded-2xl bg-black/60" />
+          <div
+            className="pointer-events-none absolute inset-0 rounded-2xl bg-black/50"
+            style={{
+              // Instant transition when becoming dimmed (nested modal opens)
+              // Smooth transition when un-dimming (nested modal closes)
+              transition: shouldDimContent ? 'none' : 'opacity 200ms ease-out',
+              opacity: shouldDimContent ? 1 : 0,
+            }}
+          />
         ) : null}
         {children}
       </div>

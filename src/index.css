@@ -37,30 +37,10 @@ body {
 }
 
 /* Modal animations */
-@keyframes modalFadeIn {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes modalFadeOut {
-  from {
-    opacity: 1;
-  }
-
-  to {
-    opacity: 0;
-  }
-}
-
 @keyframes modalSlideUp {
   from {
     opacity: 0;
-    transform: translateY(20px) scale(0.95);
+    transform: translateY(16px) scale(0.97);
   }
 
   to {
@@ -77,24 +57,17 @@ body {
 
   to {
     opacity: 0;
-    transform: translateY(20px) scale(0.95);
+    transform: translateY(16px) scale(0.97);
   }
 }
 
-.modal-overlay {
-  animation: modalFadeIn 0.2s ease-out;
-}
-
-.modal-overlay.closing {
-  animation: modalFadeOut 0.2s ease-out;
-}
-
+/* Modal content animations only - overlay wrapper has no animation */
 .modal-content {
-  animation: modalSlideUp 0.3s ease-out;
+  animation: modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .modal-content.closing {
-  animation: modalSlideDown 0.2s ease-out;
+  animation: modalSlideDown 0.2s cubic-bezier(0.4, 0, 1, 1);
 }
 
 /* Dropdown animations */
