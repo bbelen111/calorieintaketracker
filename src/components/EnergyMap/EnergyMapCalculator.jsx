@@ -46,7 +46,6 @@ import { TemplatePickerModal } from './modals/TemplatePickerModal';
 import { DailyLogModal } from './modals/DailyLogModal';
 import { CalendarPickerModal } from './modals/CalendarPickerModal';
 import { FoodEntryModal } from './modals/FoodEntryModal';
-import { MealEntryModal } from './modals/MealEntryModal';
 import { MealTypePickerModal } from './modals/MealTypePickerModal';
 import { FoodSearchModal } from './modals/FoodSearchModal';
 import { FoodPortionModal } from './modals/FoodPortionModal';
@@ -255,8 +254,6 @@ export const EnergyMapCalculator = () => {
   const [foodCarbs, setFoodCarbs] = useState('');
   const [foodFats, setFoodFats] = useState('');
   const [selectedFoodForPortion, setSelectedFoodForPortion] = useState(null);
-  const [pendingMealEntryAfterAdd, setPendingMealEntryAfterAdd] =
-    useState(false);
   const [trackerStepRange, setTrackerStepRange] = useState('12k');
   const [showTrackerCaloriePicker, setShowTrackerCaloriePicker] =
     useState(false);
@@ -292,7 +289,6 @@ export const EnergyMapCalculator = () => {
   const templatePickerModal = useAnimatedModal();
   const dailyLogModal = useAnimatedModal();
   const calendarPickerModal = useAnimatedModal();
-  const mealEntryModal = useAnimatedModal();
   const foodEntryModal = useAnimatedModal();
   const mealTypePickerModal = useAnimatedModal();
   const foodSearchModal = useAnimatedModal();
@@ -991,8 +987,8 @@ export const EnergyMapCalculator = () => {
     setFoodEntryMode('add');
   }, []);
 
-  // Open MealEntryModal with a specific meal type
-  const openMealEntryModal = useCallback(
+  // Begin meal entry flow by ensuring meal type is selected, then opening search
+  const startMealEntryFlow = useCallback(
     (mealType = '') => {
       if (!mealType) {
         mealTypePickerModal.open();
@@ -1000,30 +996,10 @@ export const EnergyMapCalculator = () => {
       }
 
       setFoodMealType(mealType);
-
-      const dateData = nutritionData[trackerSelectedDate] || {};
-      const entries = Array.isArray(dateData[mealType])
-        ? dateData[mealType]
-        : [];
-
-      if (entries.length > 0) {
-        setPendingMealEntryAfterAdd(false);
-        mealEntryModal.open();
-        return;
-      }
-
-      setPendingMealEntryAfterAdd(true);
       resetFoodEntryForm();
       foodSearchModal.open();
     },
-    [
-      foodSearchModal,
-      mealEntryModal,
-      mealTypePickerModal,
-      nutritionData,
-      resetFoodEntryForm,
-      trackerSelectedDate,
-    ]
+    [foodSearchModal, mealTypePickerModal, resetFoodEntryForm]
   );
 
   // Handle meal type selection from picker modal
@@ -1034,31 +1010,19 @@ export const EnergyMapCalculator = () => {
       }
 
       setFoodMealType(mealType);
-      // Close picker with delay, then open appropriate follow-up modal
+      // Close picker with delay, then open search for the chosen meal
       setTimeout(() => {
-        openMealEntryModal(mealType);
+        startMealEntryFlow(mealType);
       }, MODAL_CLOSE_DELAY);
     },
-    [openMealEntryModal]
+    [startMealEntryFlow]
   );
-
-  // Open FoodSearchModal from within MealEntryModal (for adding new food)
-  const handleAddFoodToMeal = useCallback(() => {
-    resetFoodEntryForm();
-    foodSearchModal.open();
-  }, [foodSearchModal, resetFoodEntryForm]);
 
   const openFoodSearchForMeal = useCallback(
     (mealType) => {
-      if (!mealType) {
-        openMealEntryModal('');
-        return;
-      }
-
-      setFoodMealType(mealType);
-      handleAddFoodToMeal();
+      startMealEntryFlow(mealType);
     },
-    [handleAddFoodToMeal, openMealEntryModal]
+    [startMealEntryFlow]
   );
 
   // Handle selecting a food from search - opens portion modal
@@ -1086,21 +1050,10 @@ export const EnergyMapCalculator = () => {
 
       addFoodEntry(trackerSelectedDate, foodMealType, foodEntry);
 
-      const shouldOpenMealEntry = pendingMealEntryAfterAdd;
-      if (shouldOpenMealEntry) {
-        setPendingMealEntryAfterAdd(false);
-      }
-
       foodPortionModal.requestClose();
-      // Close search modal after a delay, then optionally open the meal entry modal
+      // Close search modal after a delay so nested modal animations finish
       setTimeout(() => {
         foodSearchModal.requestClose();
-
-        if (shouldOpenMealEntry) {
-          setTimeout(() => {
-            mealEntryModal.open();
-          }, MODAL_CLOSE_DELAY);
-        }
       }, 250);
     },
     [
@@ -1108,35 +1061,8 @@ export const EnergyMapCalculator = () => {
       foodMealType,
       foodPortionModal,
       foodSearchModal,
-      mealEntryModal,
-      pendingMealEntryAfterAdd,
       trackerSelectedDate,
     ]
-  );
-
-  // Open FoodEntryModal for editing existing food entry
-  const handleEditFoodInMeal = useCallback(
-    (entryId) => {
-      const dateData = nutritionData[trackerSelectedDate] || {};
-      const mealEntries = Array.isArray(dateData[foodMealType])
-        ? dateData[foodMealType]
-        : [];
-      const existing = mealEntries.find((entry) => entry.id === entryId);
-      if (!existing) {
-        return;
-      }
-
-      setFoodName(existing.name || '');
-      setFoodCalories(String(existing.calories || ''));
-      setFoodProtein(String(existing.protein || ''));
-      setFoodCarbs(String(existing.carbs || ''));
-      setFoodFats(String(existing.fats || ''));
-      setEditingFoodEntryId(entryId);
-      setEditingMealType(foodMealType);
-      setFoodEntryMode('edit');
-      foodEntryModal.open();
-    },
-    [foodEntryModal, nutritionData, trackerSelectedDate, foodMealType]
   );
 
   // Edit food entry from TrackerScreen (legacy support)
@@ -1166,15 +1092,6 @@ export const EnergyMapCalculator = () => {
   );
 
   // Delete food entry from meal
-  const handleDeleteFoodFromMeal = useCallback(
-    (entryId) => {
-      if (foodMealType) {
-        deleteFoodEntry(trackerSelectedDate, foodMealType, entryId);
-      }
-    },
-    [deleteFoodEntry, foodMealType, trackerSelectedDate]
-  );
-
   const handleFoodEntrySave = useCallback(() => {
     const entry = {
       id: editingFoodEntryId || Date.now(),
@@ -1195,24 +1112,11 @@ export const EnergyMapCalculator = () => {
     }
 
     foodEntryModal.requestClose();
-    // Close search modal after a delay when adding new food
+    // Close search modal after a short delay so nested modals finish closing
     if (!editingFoodEntryId) {
-      const shouldOpenMealEntry = pendingMealEntryAfterAdd;
-      if (shouldOpenMealEntry) {
-        setPendingMealEntryAfterAdd(false);
-      }
-
       setTimeout(() => {
         foodSearchModal.requestClose();
-
-        if (shouldOpenMealEntry) {
-          setTimeout(() => {
-            mealEntryModal.open();
-          }, MODAL_CLOSE_DELAY);
-        }
       }, 250);
-    } else if (pendingMealEntryAfterAdd) {
-      setPendingMealEntryAfterAdd(false);
     }
   }, [
     addFoodEntry,
@@ -1226,8 +1130,6 @@ export const EnergyMapCalculator = () => {
     foodName,
     foodProtein,
     foodSearchModal,
-    mealEntryModal,
-    pendingMealEntryAfterAdd,
     trackerSelectedDate,
     updateFoodEntry,
   ]);
@@ -1251,22 +1153,12 @@ export const EnergyMapCalculator = () => {
   }, [foodEntryModal.isClosing, resetFoodEntryForm]);
 
   useEffect(() => {
-    if (mealEntryModal.isClosing) {
-      const timer = setTimeout(() => {
-        setFoodMealType('');
-      }, MODAL_CLOSE_DELAY + 100); // Slightly longer to allow child modal to close
-      return () => clearTimeout(timer);
-    }
-  }, [mealEntryModal.isClosing]);
-
-  useEffect(() => {
     if (foodSearchModal.isClosing) {
       // No cleanup needed for this modal
     }
   }, [foodSearchModal.isClosing]);
 
   const handleFoodSearchCancel = useCallback(() => {
-    setPendingMealEntryAfterAdd(false);
     foodSearchModal.requestClose();
   }, [foodSearchModal]);
 
@@ -1751,7 +1643,7 @@ export const EnergyMapCalculator = () => {
               <div className="w-full flex-shrink-0 px-2 sm:px-4 md:px-6">
                 <TrackerScreen
                   nutritionData={nutritionData}
-                  onAddMealEntry={openMealEntryModal}
+                  onAddMealEntry={startMealEntryFlow}
                   onAddFoodToMeal={openFoodSearchForMeal}
                   onEditFoodEntry={handleEditFoodEntry}
                   onDeleteFoodEntry={deleteFoodEntry}
@@ -2160,19 +2052,6 @@ export const EnergyMapCalculator = () => {
           setCalendarYear(year);
         }}
       />
-
-      <MealEntryModal
-        isOpen={mealEntryModal.isOpen}
-        isClosing={mealEntryModal.isClosing}
-        onClose={mealEntryModal.requestClose}
-        mealType={foodMealType}
-        onMealTypeClick={mealTypePickerModal.open}
-        foodEntries={nutritionData[trackerSelectedDate]?.[foodMealType] || []}
-        onAddFood={handleAddFoodToMeal}
-        onEditFood={handleEditFoodInMeal}
-        onDeleteFood={handleDeleteFoodFromMeal}
-      />
-
       <FoodEntryModal
         isOpen={foodEntryModal.isOpen}
         isClosing={foodEntryModal.isClosing}
