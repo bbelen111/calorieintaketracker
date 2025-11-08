@@ -1,5 +1,13 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Search, Edit3, SlidersHorizontal, X } from 'lucide-react';
+import {
+  Star,
+  BotMessageSquare,
+  ScanBarcode,
+  Search,
+  Edit3,
+  SlidersHorizontal,
+  X,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ModalShell } from '../common/ModalShell';
 import {
@@ -131,10 +139,35 @@ export const FoodSearchModal = ({
       <div className="flex gap-3 mb-3">
         <button
           onClick={onOpenManualEntry}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-all"
+          aria-label="Manual Entry"
+          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-all"
+        >
+          <Star size={18} />
+          <span className="hidden md:inline">Favorites</span>
+        </button>
+        <button
+          onClick={onOpenManualEntry}
+          aria-label="Manual Entry"
+          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-all"
         >
           <Edit3 size={18} />
-          Manual Entry
+          <span className="hidden md:inline">Manual Entry</span>
+        </button>
+        <button
+          onClick={() => {}}
+          aria-label="Barcode Scan"
+          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-all"
+        >
+          <ScanBarcode size={18} />
+          <span className="hidden md:inline">Barcode Scan</span>
+        </button>
+        <button
+          onClick={() => {}}
+          aria-label="AI Chatbot"
+          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-all"
+        >
+          <BotMessageSquare size={18} />
+          <span className="hidden md:inline">AI Chatbot</span>
         </button>
       </div>
 
