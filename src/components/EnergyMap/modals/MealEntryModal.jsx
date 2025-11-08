@@ -95,7 +95,7 @@ export const MealEntryModal = ({
                 </button>
 
                 {mealTypeData && foodEntries.length > 0 && (
-                  <div className="p-3 flex-1 border-t border-slate-600">
+                  <div className="py-2 px-5 flex-1 border-t border-slate-600">
                     <div className="flex items-center justify-between text-center">
                       <div>
                         <p className="text-emerald-400 font-bold text-base">
@@ -191,7 +191,7 @@ export const MealEntryModal = ({
                       </p>
                     </div>
 
-                    <div className="flex items-end gap-8">
+                    <div className="flex items-end gap-6">
                       <button
                         onClick={() => onEditFood?.(entry.id)}
                         type="button"
