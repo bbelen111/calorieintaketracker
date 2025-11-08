@@ -8,7 +8,6 @@ export const MealTypePickerModal = ({
   isClosing,
   onClose,
   onSelect,
-  selectedMealType,
   mealTypeItemCounts = {}, // { [mealTypeId]: number }
 }) => {
   const handleSelect = (mealTypeId) => {
@@ -16,13 +15,7 @@ export const MealTypePickerModal = ({
     onClose?.();
   };
 
-  // Unify focus/hover color to blue
-  const getColorClasses = (color, isSelected) => {
-    const base = isSelected
-      ? 'bg-blue-600 border-blue-500'
-      : 'bg-slate-700 border-slate-600 hover:bg-blue-600/20 hover:border-blue-500/50 focus:ring-2 focus:ring-blue-400';
-    return base;
-  };
+  // Inline color/focus classes (simplified)
 
   return (
     <ModalShell
@@ -39,14 +32,13 @@ export const MealTypePickerModal = ({
       <div className="space-y-3">
         {MEAL_TYPE_ORDER.map((mealTypeId) => {
           const mealType = getMealTypeById(mealTypeId);
-          const isSelected = selectedMealType === mealTypeId;
           const Icon = mealType.icon;
           const itemCount = mealTypeItemCounts[mealTypeId] || 0;
           return (
             <button
               key={`meal-${mealTypeId}`}
               onClick={() => handleSelect(mealTypeId)}
-              className={`w-full p-4 rounded-lg border-2 transition-all flex items-center gap-4 shadow-lg shadow-slate-900/20 ${getColorClasses(mealType.color, isSelected)}`}
+              className="w-full p-4 rounded-lg border-2 transition-all flex items-center gap-4 shadow-lg shadow-slate-900/20 bg-slate-700 border-slate-600 hover:border-blue-500/50 focus:ring-2 focus:ring-blue-400"
               tabIndex={0}
             >
               <Icon className="text-white" size={24} />

@@ -32,14 +32,7 @@ export const FoodSearchModal = ({
       </div>
 
       {/* Action Buttons */}
-      <div className="flex gap-3 mb-6">
-        <button
-          onClick={() => {}}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg font-semibold transition-all"
-        >
-          <Search size={18} />
-          Search Database
-        </button>
+      <div className="flex gap-3 mb-3">
         <button
           onClick={onOpenManualEntry}
           className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-all"
@@ -50,7 +43,7 @@ export const FoodSearchModal = ({
       </div>
 
       {/* Search Input */}
-      <div className="mb-4">
+      <div className="mb-3">
         <div className="relative">
           <Search
             className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
