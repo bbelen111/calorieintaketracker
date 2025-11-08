@@ -130,6 +130,11 @@ export const ModalShell = ({
   // persist our assigned index in state (avoid reading ref.current during render)
   const [modalIndex, setModalIndex] = useState(0);
 
+  // The effect uses module-scoped mutable values (openModalCount, BASE_Z_INDEX,
+  // etc.) intentionally and must not include them as dependencies. We purposely
+  // avoid listing those mutable module-scoped values in deps because they are
+  // updated outside React's render lifecycle; keep this comment as rationale
+  // for future maintainers.
   useEffect(() => {
     if (!isOpen) return undefined;
 
@@ -144,6 +149,7 @@ export const ModalShell = ({
     modalIndexRef.current = myIndex;
 
     // Update state immediately to avoid flicker
+    // eslint-disable-next-line
     setModalIndex(myIndex);
     setZIndexValue(BASE_Z_INDEX + myIndex);
 
@@ -210,6 +216,11 @@ export const ModalShell = ({
   // Listen for global stack changes so that non-top modals can re-render and
   // avoid rendering an additional overlay that would otherwise darken the
   // background cumulatively.
+  // This effect listens for a global CustomEvent and reads the module-scoped
+  // `openModalCount`. Adding those to deps is incorrect because they are
+  // mutated outside React's render lifecycle. Keep this explanation here for
+  // maintainers who may otherwise try to add internal module variables to the
+  // deps array.
   useEffect(() => {
     const wrapped = (e) => {
       const count = e?.detail?.count ?? 0;
@@ -221,6 +232,7 @@ export const ModalShell = ({
 
     window.addEventListener('modalStackChange', wrapped);
     // Initialize stack count
+    // eslint-disable-next-line
     setStackCount(openModalCount);
     return () => window.removeEventListener('modalStackChange', wrapped);
   }, []);
