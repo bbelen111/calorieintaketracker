@@ -138,9 +138,9 @@ export const FoodSearchModal = ({
       {/* Action Buttons */}
       <div className="flex gap-3 mb-3">
         <button
-          onClick={onOpenManualEntry}
-          aria-label="Manual Entry"
-          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-all"
+          onClick={() => {}}
+          aria-label="Favorites"
+          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-lg font-semibold transition-all shadow-md shadow-blue-500/20"
         >
           <Star size={18} />
           <span className="hidden md:inline">Favorites</span>
@@ -148,7 +148,7 @@ export const FoodSearchModal = ({
         <button
           onClick={onOpenManualEntry}
           aria-label="Manual Entry"
-          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-all"
+          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-lg font-semibold transition-all shadow-md shadow-blue-500/20"
         >
           <Edit3 size={18} />
           <span className="hidden md:inline">Manual Entry</span>
@@ -156,7 +156,7 @@ export const FoodSearchModal = ({
         <button
           onClick={() => {}}
           aria-label="Barcode Scan"
-          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-all"
+          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-lg font-semibold transition-all shadow-md shadow-blue-500/20"
         >
           <ScanBarcode size={18} />
           <span className="hidden md:inline">Barcode Scan</span>
@@ -164,7 +164,7 @@ export const FoodSearchModal = ({
         <button
           onClick={() => {}}
           aria-label="AI Chatbot"
-          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-all"
+          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-lg font-semibold transition-all shadow-md shadow-blue-500/20"
         >
           <BotMessageSquare size={18} />
           <span className="hidden md:inline">AI Chatbot</span>
