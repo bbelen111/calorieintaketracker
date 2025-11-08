@@ -191,7 +191,7 @@ export const MealEntryModal = ({
                       </p>
                     </div>
 
-                    <div className="flex items-end gap-6">
+                    <div className="flex items-end gap-8">
                       <button
                         onClick={() => onEditFood?.(entry.id)}
                         type="button"

@@ -325,7 +325,7 @@ export const HomeScreen = ({
                             </p>
                           )}
                         </div>
-                        <div className="flex items-end gap-3 pt-1">
+                        <div className="flex items-end gap-8 pt-1">
                           <motion.button
                             onClick={() => onEditCardioSession?.(session.id)}
                             type="button"

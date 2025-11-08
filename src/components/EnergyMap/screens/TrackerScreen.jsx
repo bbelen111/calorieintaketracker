@@ -987,7 +987,7 @@ export const TrackerScreen = ({
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-8">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1057,7 +1057,7 @@ export const TrackerScreen = ({
                                         </span>
                                       </p>
                                     </div>
-                                    <div className="flex items-end gap-3">
+                                    <div className="flex items-end gap-8">
                                       <button
                                         onClick={() =>
                                           handleEditFood(mealTypeId, entry.id)
