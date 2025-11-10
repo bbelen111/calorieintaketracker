@@ -14,6 +14,11 @@ export const FOOD_DATABASE = [
       carbs: 0,
       fats: 3.6,
     },
+    portions: [
+      { id: 'small', label: '1 Small Breast', grams: 120 },
+      { id: 'medium', label: '1 Medium Breast', grams: 174 },
+      { id: 'large', label: '1 Large Breast', grams: 250 },
+    ],
   },
   {
     id: 'chicken_thigh',
@@ -196,6 +201,13 @@ export const FOOD_DATABASE = [
       carbs: 1.1,
       fats: 11,
     },
+    portions: [
+      { id: 'small', label: '1 Small Egg', grams: 38 },
+      { id: 'medium', label: '1 Medium Egg', grams: 44 },
+      { id: 'large', label: '1 Large Egg', grams: 50 },
+      { id: 'xlarge', label: '1 Extra Large Egg', grams: 56 },
+      { id: 'jumbo', label: '1 Jumbo Egg', grams: 63 },
+    ],
   },
   {
     id: 'egg_whites',
@@ -208,6 +220,11 @@ export const FOOD_DATABASE = [
       carbs: 0.7,
       fats: 0.2,
     },
+    portions: [
+      { id: 'one_white', label: '1 Egg White', grams: 33 },
+      { id: 'two_whites', label: '2 Egg Whites', grams: 66 },
+      { id: 'three_whites', label: '3 Egg Whites', grams: 99 },
+    ],
   },
   {
     id: 'greek_yogurt',
@@ -452,6 +469,10 @@ export const FOOD_DATABASE = [
       carbs: 66,
       fats: 6.9,
     },
+    portions: [
+      { id: 'half_cup', label: '½ Cup (Dry)', grams: 40 },
+      { id: 'one_cup', label: '1 Cup (Dry)', grams: 80 },
+    ],
   },
   {
     id: 'cereal_corn_flakes',
@@ -488,6 +509,10 @@ export const FOOD_DATABASE = [
       carbs: 49,
       fats: 3.2,
     },
+    portions: [
+      { id: 'slice', label: '1 Slice', grams: 28 },
+      { id: 'two_slices', label: '2 Slices', grams: 56 },
+    ],
   },
   {
     id: 'bread_whole_wheat',
@@ -500,6 +525,10 @@ export const FOOD_DATABASE = [
       carbs: 41,
       fats: 3.4,
     },
+    portions: [
+      { id: 'slice', label: '1 Slice', grams: 28 },
+      { id: 'two_slices', label: '2 Slices', grams: 56 },
+    ],
   },
   {
     id: 'bagel_plain',
@@ -612,6 +641,11 @@ export const FOOD_DATABASE = [
       carbs: 23,
       fats: 0.3,
     },
+    portions: [
+      { id: 'small', label: '1 Small Banana', grams: 90 },
+      { id: 'medium', label: '1 Medium Banana', grams: 118 },
+      { id: 'large', label: '1 Large Banana', grams: 136 },
+    ],
   },
   {
     id: 'apple',
@@ -624,6 +658,11 @@ export const FOOD_DATABASE = [
       carbs: 14,
       fats: 0.2,
     },
+    portions: [
+      { id: 'small', label: '1 Small Apple', grams: 149 },
+      { id: 'medium', label: '1 Medium Apple', grams: 182 },
+      { id: 'large', label: '1 Large Apple', grams: 223 },
+    ],
   },
   {
     id: 'orange',
@@ -636,6 +675,11 @@ export const FOOD_DATABASE = [
       carbs: 12,
       fats: 0.1,
     },
+    portions: [
+      { id: 'small', label: '1 Small Orange', grams: 96 },
+      { id: 'medium', label: '1 Medium Orange', grams: 131 },
+      { id: 'large', label: '1 Large Orange', grams: 184 },
+    ],
   },
   {
     id: 'strawberries',
@@ -928,6 +972,10 @@ export const FOOD_DATABASE = [
       carbs: 9,
       fats: 15,
     },
+    portions: [
+      { id: 'half', label: '½ Medium Avocado', grams: 68 },
+      { id: 'whole', label: '1 Medium Avocado', grams: 136 },
+    ],
   },
   {
     id: 'olives_black',
@@ -1036,6 +1084,11 @@ export const FOOD_DATABASE = [
       carbs: 20,
       fats: 50,
     },
+    portions: [
+      { id: 'tsp', label: '1 Teaspoon', grams: 5 },
+      { id: 'tbsp', label: '1 Tablespoon', grams: 16 },
+      { id: 'two_tbsp', label: '2 Tablespoons', grams: 32 },
+    ],
   },
   {
     id: 'walnuts',
@@ -1134,6 +1187,10 @@ export const FOOD_DATABASE = [
       carbs: 8,
       fats: 5,
     },
+    portions: [
+      { id: 'scoop', label: '1 Scoop', grams: 30 },
+      { id: 'two_scoops', label: '2 Scoops', grams: 60 },
+    ],
   },
   {
     id: 'casein_protein',

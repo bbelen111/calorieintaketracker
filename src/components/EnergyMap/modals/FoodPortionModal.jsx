@@ -1,5 +1,11 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Plus } from 'lucide-react';
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+} from 'react';
+import { Plus, ChevronDown } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import { FOOD_CATEGORIES } from '../../../constants/foodDatabase';
 import { formatOne } from '../../../utils/format';
@@ -8,7 +14,7 @@ import {
   createPickerScrollHandler,
 } from '../../../utils/scroll';
 
-const MIN_GRAMS = 10;
+const MIN_GRAMS = 1;
 const MAX_GRAMS = 1000;
 const DEFAULT_GRAMS = 100;
 
@@ -81,50 +87,19 @@ export const FoodPortionModal = ({
   const hasAlignedRef = useRef(false);
   const selectionRef = useRef(convertGramsToParts(DEFAULT_GRAMS));
 
+  // Determine if food has custom portions
+  const hasCustomPortions = useMemo(
+    () => selectedFood?.portions && selectedFood.portions.length > 0,
+    [selectedFood]
+  );
+
+  const [selectedUnit, setSelectedUnit] = useState('grams'); // 'grams' or portion id
   const [selectedWhole, setSelectedWhole] = useState(DEFAULT_GRAMS);
   const [selectedDecimal, setSelectedDecimal] = useState(0);
-  const [grams, setGrams] = useState(DEFAULT_GRAMS);
 
   const [handleWholeScroll, setHandleWholeScroll] = useState(() => () => {});
   const [handleDecimalScroll, setHandleDecimalScroll] = useState(
     () => () => {}
-  );
-
-  const applySelection = useCallback(
-    (whole, decimal, behavior = 'instant', shouldUpdate = true) => {
-      const clampedWhole = clampWhole(whole);
-      const clampedDecimal =
-        clampedWhole === MAX_GRAMS ? 0 : clampDecimal(decimal);
-
-      selectionRef.current = {
-        whole: clampedWhole,
-        decimal: clampedDecimal,
-      };
-
-      setSelectedWhole(clampedWhole);
-      setSelectedDecimal(clampedDecimal);
-
-      if (wholeRef.current) {
-        alignScrollContainerToValue(
-          wholeRef.current,
-          clampedWhole.toString(),
-          behavior
-        );
-      }
-
-      if (decimalRef.current) {
-        alignScrollContainerToValue(
-          decimalRef.current,
-          clampedDecimal.toString(),
-          behavior
-        );
-      }
-
-      if (shouldUpdate) {
-        setGrams(buildGramValue(clampedWhole, clampedDecimal));
-      }
-    },
-    []
   );
 
   useEffect(
@@ -135,9 +110,88 @@ export const FoodPortionModal = ({
     []
   );
 
+  // Get current portion object if using custom unit
+  const currentPortion = useMemo(() => {
+    if (selectedUnit === 'grams' || !selectedFood?.portions) return null;
+    return selectedFood.portions.find((p) => p.id === selectedUnit);
+  }, [selectedUnit, selectedFood]);
+
+  const computeGramsFromParts = useCallback(
+    (whole, decimal, unitOverride, portionOverride) => {
+      const quantity = buildGramValue(whole, decimal);
+      const targetUnit = unitOverride ?? selectedUnit;
+
+      if (targetUnit === 'grams') {
+        return quantity;
+      }
+
+      const resolvedPortion =
+        portionOverride ??
+        (targetUnit === selectedUnit
+          ? currentPortion
+          : selectedFood?.portions?.find((portion) => {
+              return portion.id === targetUnit;
+            }));
+
+      if (!resolvedPortion) {
+        return quantity;
+      }
+
+      return Math.round(quantity * resolvedPortion.grams * 10) / 10;
+    },
+    [selectedUnit, currentPortion, selectedFood]
+  );
+
+  const applySelection = useCallback((whole, decimal, behavior = 'instant') => {
+    const clampedWhole = clampWhole(whole);
+    const clampedDecimal =
+      clampedWhole === MAX_GRAMS ? 0 : clampDecimal(decimal);
+
+    selectionRef.current = {
+      whole: clampedWhole,
+      decimal: clampedDecimal,
+    };
+
+    setSelectedWhole(clampedWhole);
+    setSelectedDecimal(clampedDecimal);
+
+    if (wholeRef.current) {
+      alignScrollContainerToValue(
+        wholeRef.current,
+        clampedWhole.toString(),
+        behavior
+      );
+    }
+
+    if (decimalRef.current) {
+      alignScrollContainerToValue(
+        decimalRef.current,
+        clampedDecimal.toString(),
+        behavior
+      );
+    }
+  }, []);
+
+  const grams = useMemo(() => {
+    return computeGramsFromParts(selectedWhole, selectedDecimal);
+  }, [computeGramsFromParts, selectedWhole, selectedDecimal]);
+
+  // Reset state when modal opens with new food
+  useEffect(() => {
+    hasAlignedRef.current = false;
+
+    if (!isOpen || !selectedFood) {
+      const frame = requestAnimationFrame(() => setSelectedUnit('grams'));
+      return () => cancelAnimationFrame(frame);
+    }
+
+    const frame = requestAnimationFrame(() => setSelectedUnit('grams'));
+    return () => cancelAnimationFrame(frame);
+  }, [isOpen, selectedFood, setSelectedUnit]);
+
+  // Sync picker to default position on open
   useEffect(() => {
     if (!isOpen || !selectedFood) {
-      hasAlignedRef.current = false;
       return undefined;
     }
 
@@ -147,7 +201,7 @@ export const FoodPortionModal = ({
     const parts = convertGramsToParts(DEFAULT_GRAMS);
 
     const frame = requestAnimationFrame(() => {
-      applySelection(parts.whole, parts.decimal, behavior, true);
+      applySelection(parts.whole, parts.decimal, behavior);
     });
 
     return () => cancelAnimationFrame(frame);
@@ -169,8 +223,6 @@ export const FoodPortionModal = ({
     if (clampedWhole === MAX_GRAMS && decimalRef.current) {
       alignScrollContainerToValue(decimalRef.current, '0', 'smooth');
     }
-
-    setGrams(buildGramValue(clampedWhole, nextDecimal));
   }, []);
 
   const handleDecimalChange = useCallback((nextDecimal) => {
@@ -183,8 +235,27 @@ export const FoodPortionModal = ({
     };
 
     setSelectedDecimal(clampedDecimal);
-    setGrams(buildGramValue(selectionRef.current.whole, clampedDecimal));
   }, []);
+
+  const handleUnitChange = useCallback(
+    (event) => {
+      const newUnit = event.target.value;
+
+      if (newUnit === selectedUnit) {
+        return;
+      }
+
+      setSelectedUnit(newUnit);
+
+      if (newUnit === 'grams') {
+        applySelection(DEFAULT_GRAMS, 0, 'smooth');
+        return;
+      }
+
+      applySelection(1, 0, 'smooth');
+    },
+    [applySelection, selectedUnit]
+  );
 
   useEffect(() => {
     setHandleWholeScroll(() =>
@@ -208,7 +279,7 @@ export const FoodPortionModal = ({
     );
   }, [handleDecimalChange]);
 
-  const calculateNutrition = () => {
+  const calculateNutrition = useCallback(() => {
     if (!selectedFood) return null;
 
     const per100g = selectedFood.per100g;
@@ -220,11 +291,16 @@ export const FoodPortionModal = ({
       protein: Math.round(per100g.protein * multiplier * 10) / 10,
       carbs: Math.round(per100g.carbs * multiplier * 10) / 10,
       fats: Math.round(per100g.fats * multiplier * 10) / 10,
-      grams: grams,
+      grams,
     };
-  };
+  }, [selectedFood, grams]);
 
   const nutrition = selectedFood ? calculateNutrition() : null;
+
+  // Get display quantity (what shows in the picker)
+  const displayQuantity = useMemo(() => {
+    return buildGramValue(selectedWhole, selectedDecimal);
+  }, [selectedWhole, selectedDecimal]);
 
   const handleAddFood = () => {
     if (!nutrition) return;
@@ -239,7 +315,7 @@ export const FoodPortionModal = ({
       protein: nutrition.protein,
       carbs: nutrition.carbs,
       fats: nutrition.fats,
-      grams: grams,
+      grams,
       timestamp: new Date().toISOString(),
     };
 
@@ -312,10 +388,36 @@ export const FoodPortionModal = ({
         <h3 className="text-white font-bold text-xl mb-4 text-center">
           Select Portion Size
         </h3>
-        <label className="text-slate-400 text-xs text-center mb-2 uppercase tracking-wide block">
-          Grammes
-        </label>
 
+        {/* Unit Selector Label with Dropdown */}
+        <div className="flex items-center justify-center gap-2 mb-2">
+          {hasCustomPortions ? (
+            <div className="relative">
+              <select
+                value={selectedUnit}
+                onChange={handleUnitChange}
+                className="bg-slate-700/50 border border-slate-600 rounded px-3 py-1.5 pr-8 text-slate-400 text-xs uppercase tracking-wide appearance-none focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer hover:bg-slate-700 transition-all"
+              >
+                <option value="grams">Grammes</option>
+                {selectedFood.portions.map((portion) => (
+                  <option key={portion.id} value={portion.id}>
+                    {portion.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                size={14}
+              />
+            </div>
+          ) : (
+            <label className="text-slate-400 text-xs uppercase tracking-wide">
+              Grammes
+            </label>
+          )}
+        </div>
+
+        {/* Picker - always visible */}
         <div className="flex justify-center items-center">
           <div className="w-[220px]">
             <div className="relative h-48 overflow-hidden rounded-xl bg-slate-800/80">
@@ -340,8 +442,7 @@ export const FoodPortionModal = ({
                       applySelection(
                         value,
                         selectionRef.current.decimal,
-                        'smooth',
-                        true
+                        'smooth'
                       )
                     }
                     className={`h-16 flex items-center justify-center text-2xl font-bold snap-center transition-all text-center cursor-pointer ${
@@ -385,8 +486,7 @@ export const FoodPortionModal = ({
                         applySelection(
                           selectionRef.current.whole,
                           decimal,
-                          'smooth',
-                          true
+                          'smooth'
                         );
                       }}
                       className={`h-16 flex items-center justify-center text-2xl font-bold snap-center transition-all text-center cursor-pointer ${
@@ -403,6 +503,23 @@ export const FoodPortionModal = ({
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Display selected quantity and equivalent grams */}
+        <div className="text-center mt-4">
+          <p className="text-white font-bold text-3xl">
+            {formatOne(displayQuantity)}{' '}
+            <span className="text-slate-400 text-lg font-normal">
+              {selectedUnit === 'grams'
+                ? 'g'
+                : currentPortion?.label.toLowerCase() || ''}
+            </span>
+          </p>
+          {selectedUnit !== 'grams' && (
+            <p className="text-slate-400 text-sm mt-1">
+              = {formatOne(grams)}g total
+            </p>
+          )}
         </div>
       </div>
 
