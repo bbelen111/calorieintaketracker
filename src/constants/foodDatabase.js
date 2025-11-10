@@ -2803,6 +2803,196 @@ export const FOOD_DATABASE = [
       fats: 6,
     },
   },
+
+  // Cooked Egg Variations
+  {
+    id: 'egg_boiled',
+    name: 'Egg (Boiled)',
+    category: 'protein',
+    subcategory: 'eggs',
+    per100g: {
+      calories: 155,
+      protein: 13,
+      carbs: 1.1,
+      fats: 11,
+    },
+    portions: [
+      { id: 'large', label: '1 Large Boiled Egg (50g)', grams: 50 },
+      { id: 'two_large', label: '2 Large Boiled Eggs (100g)', grams: 100 },
+    ],
+  },
+  {
+    id: 'egg_fried',
+    name: 'Egg (Fried)',
+    category: 'protein',
+    subcategory: 'eggs',
+    per100g: {
+      calories: 196,
+      protein: 14,
+      carbs: 0.8,
+      fats: 15,
+    },
+    portions: [
+      { id: 'large', label: '1 Large Fried Egg (46g)', grams: 46 },
+      { id: 'two_large', label: '2 Large Fried Eggs (92g)', grams: 92 },
+    ],
+  },
+  {
+    id: 'egg_scrambled',
+    name: 'Egg (Scrambled)',
+    category: 'protein',
+    subcategory: 'eggs',
+    per100g: {
+      calories: 149,
+      protein: 10,
+      carbs: 1.6,
+      fats: 11,
+    },
+    portions: [
+      { id: 'one_egg', label: 'From 1 Large Egg (~61g)', grams: 61 },
+      { id: 'two_eggs', label: 'From 2 Large Eggs (~122g)', grams: 122 },
+    ],
+  },
+  {
+    id: 'egg_omelette_plain',
+    name: 'Omelette (Plain)',
+    category: 'protein',
+    subcategory: 'eggs',
+    per100g: {
+      calories: 154,
+      protein: 11,
+      carbs: 1,
+      fats: 11,
+    },
+    portions: [
+      { id: 'two_egg', label: '2-Egg Omelette (~120g)', grams: 120 },
+      { id: 'three_egg', label: '3-Egg Omelette (~180g)', grams: 180 },
+    ],
+  },
+
+  // Cooked Meat & Fish Variations
+  {
+    id: 'chicken_breast_grilled',
+    name: 'Chicken Breast (Grilled)',
+    category: 'protein',
+    subcategory: 'poultry',
+    per100g: {
+      calories: 165,
+      protein: 31,
+      carbs: 0,
+      fats: 3.6,
+    },
+  },
+  {
+    id: 'chicken_breast_fried',
+    name: 'Chicken Breast (Fried, Breaded)',
+    category: 'protein',
+    subcategory: 'poultry',
+    per100g: {
+      calories: 220,
+      protein: 28,
+      carbs: 10,
+      fats: 7,
+    },
+  },
+  {
+    id: 'salmon_smoked',
+    name: 'Salmon (Smoked)',
+    category: 'protein',
+    subcategory: 'fish',
+    per100g: {
+      calories: 117,
+      protein: 18,
+      carbs: 0,
+      fats: 4.3,
+    },
+  },
+  {
+    id: 'tuna_salad',
+    name: 'Tuna Salad',
+    category: 'protein',
+    subcategory: 'fish',
+    per100g: {
+      calories: 198,
+      protein: 12,
+      carbs: 6,
+      fats: 14,
+    },
+  },
+  {
+    id: 'meatballs_beef',
+    name: 'Meatballs (Beef)',
+    category: 'protein',
+    subcategory: 'beef',
+    per100g: {
+      calories: 280,
+      protein: 18,
+      carbs: 8,
+      fats: 19,
+    },
+  },
+
+  // Cooked Vegetable & Carb Variations
+  {
+    id: 'mashed_potatoes',
+    name: 'Mashed Potatoes',
+    category: 'carbs',
+    subcategory: 'potato',
+    per100g: {
+      calories: 83,
+      protein: 1.7,
+      carbs: 18,
+      fats: 0.9,
+    },
+  },
+  {
+    id: 'roasted_potatoes',
+    name: 'Roasted Potatoes',
+    category: 'carbs',
+    subcategory: 'potato',
+    per100g: {
+      calories: 140,
+      protein: 2.5,
+      carbs: 25,
+      fats: 3.5,
+    },
+  },
+  {
+    id: 'broccoli_steamed',
+    name: 'Broccoli (Steamed)',
+    category: 'vegetables',
+    subcategory: 'green',
+    per100g: {
+      calories: 35,
+      protein: 2.4,
+      carbs: 7,
+      fats: 0.4,
+    },
+  },
+  {
+    id: 'carrots_cooked',
+    name: 'Carrots (Cooked, Boiled)',
+    category: 'vegetables',
+    subcategory: 'root',
+    per100g: {
+      calories: 35,
+      protein: 0.8,
+      carbs: 8,
+      fats: 0.2,
+    },
+  },
+  {
+    id: 'spinach_cooked',
+    name: 'Spinach (Cooked, Boiled)',
+    category: 'vegetables',
+    subcategory: 'green',
+    per100g: {
+      calories: 23,
+      protein: 3,
+      carbs: 3.6,
+      fats: 0.3,
+    },
+  },
 ];
 
 export const FOOD_CATEGORIES = {
