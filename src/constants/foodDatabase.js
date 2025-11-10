@@ -1,8 +1,6 @@
 // Food database with nutritional information per 100g
 // All values are per 100 grams of the food item
 
-import { p } from 'framer-motion/client';
-
 export const FOOD_DATABASE = [
   // Proteins - Meat
   {

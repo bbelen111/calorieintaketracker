@@ -750,8 +750,16 @@ export const TrackerScreen = ({
                       key={`meal-${mealTypeId}`}
                       className="bg-slate-700/50 rounded-xl p-2 border border-slate-600/50 shadow-lg shadow-slate-900/20"
                     >
-                      <button
+                      <div
+                        role="button"
+                        tabIndex={0}
                         onClick={() => toggleMealCollapse(mealTypeId)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            toggleMealCollapse(mealTypeId);
+                          }
+                        }}
                         className="w-full flex items-center justify-between p-2 rounded-lg transition-all"
                       >
                         <div className="flex items-center gap-3">
@@ -786,7 +794,7 @@ export const TrackerScreen = ({
                             size={22}
                           />
                         </div>
-                      </button>
+                      </div>
 
                       {!isCollapsed && (
                         <div className="space-y-2 mt-2 overflow-hidden">
@@ -969,8 +977,16 @@ export const TrackerScreen = ({
                         className="bg-slate-700/50 rounded-xl p-2 border border-slate-600/50 shadow-lg shadow-slate-900/20"
                       >
                         {/* Meal Header */}
-                        <button
+                        <div
+                          role="button"
+                          tabIndex={0}
                           onClick={() => toggleMealCollapse(mealTypeId)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              toggleMealCollapse(mealTypeId);
+                            }
+                          }}
                           className="w-full flex items-center justify-between p-2 rounded-lg transition-all"
                         >
                           <div className="flex items-center gap-3">
@@ -1012,7 +1028,7 @@ export const TrackerScreen = ({
                               size={22}
                             />
                           </div>
-                        </button>
+                        </div>
 
                         {/* Food Items */}
                         <AnimatePresence initial={false}>
