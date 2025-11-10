@@ -297,11 +297,6 @@ export const FoodPortionModal = ({
 
   const nutrition = selectedFood ? calculateNutrition() : null;
 
-  // Get display quantity (what shows in the picker)
-  const displayQuantity = useMemo(() => {
-    return buildGramValue(selectedWhole, selectedDecimal);
-  }, [selectedWhole, selectedDecimal]);
-
   const handleAddFood = () => {
     if (!nutrition) return;
 
@@ -505,7 +500,7 @@ export const FoodPortionModal = ({
           </div>
         </div>
 
-        {/* Display selected quantity and equivalent grams */}
+        {/* Display selected quantity and equivalent grams
         <div className="text-center mt-4">
           <p className="text-white font-bold text-3xl">
             {formatOne(displayQuantity)}{' '}
@@ -520,7 +515,7 @@ export const FoodPortionModal = ({
               = {formatOne(grams)}g total
             </p>
           )}
-        </div>
+        </div> */}
       </div>
 
       {/* Calculated Nutrition */}
