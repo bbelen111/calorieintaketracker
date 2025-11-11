@@ -1,6 +1,8 @@
 // Food database with nutritional information per 100g
 // All values are per 100 grams of the food item
 
+import { p } from "framer-motion/client";
+
 export const FOOD_DATABASE = [
   // Proteins - Meat
   {
@@ -2194,6 +2196,7 @@ export const FOOD_DATABASE = [
       carbs: 9,
       fats: 15,
     },
+    portions: [{ id: 'half_avocado', label: 'Half Avocado (100g)', grams: 100 }],
   },
 
   // Vegetables (More)
@@ -2208,6 +2211,7 @@ export const FOOD_DATABASE = [
       carbs: 9,
       fats: 0.3,
     },
+    portions: [{ id: 'cup_cooked', label: 'Cup (156g)', grams: 156 }],
   },
   {
     id: 'bok_choy',
@@ -2220,6 +2224,7 @@ export const FOOD_DATABASE = [
       carbs: 2.2,
       fats: 0.2,
     },
+    portions: [{ id: 'cup_cooked', label: 'Cup (156g)', grams: 156 }],
   },
   {
     id: 'cabbage_green',
@@ -2232,6 +2237,7 @@ export const FOOD_DATABASE = [
       carbs: 6,
       fats: 0.1,
     },
+    portions: [{ id: 'cup_cooked', label: 'Cup (156g)', grams: 156 }],
   },
   {
     id: 'red_cabbage',
@@ -2244,6 +2250,7 @@ export const FOOD_DATABASE = [
       carbs: 7,
       fats: 0.2,
     },
+    portions: [{ id: 'cup_cooked', label: 'Cup (156g)', grams: 156 }],
   },
   {
     id: 'beets_cooked',
@@ -2256,6 +2263,7 @@ export const FOOD_DATABASE = [
       carbs: 10,
       fats: 0.2,
     },
+    portions: [{ id: 'cup_cooked', label: 'Cup (156g)', grams: 156 }],
   },
   {
     id: 'turnip_cooked',
@@ -2268,6 +2276,7 @@ export const FOOD_DATABASE = [
       carbs: 5,
       fats: 0.1,
     },
+    portions: [{ id: 'cup_cooked', label: 'Cup (156g)', grams: 156 }],
   },
   {
     id: 'parsnip_cooked',
@@ -2280,6 +2289,7 @@ export const FOOD_DATABASE = [
       carbs: 17,
       fats: 0.3,
     },
+    portions: [{ id: 'cup_cooked', label: 'Cup (156g)', grams: 156 }],
   },
   {
     id: 'eggplant',
@@ -2292,6 +2302,7 @@ export const FOOD_DATABASE = [
       carbs: 6,
       fats: 0.2,
     },
+    portions: [{ id: 'cup_cooked', label: 'Cup (156g)', grams: 156 }],
   },
   {
     id: 'celery',
@@ -2304,6 +2315,7 @@ export const FOOD_DATABASE = [
       carbs: 3,
       fats: 0.2,
     },
+    portions: [{ id: 'cup_chopped', label: 'Cup Chopped (101g)', grams: 101 }],
   },
   {
     id: 'radish',
@@ -2316,6 +2328,7 @@ export const FOOD_DATABASE = [
       carbs: 3.4,
       fats: 0.1,
     },
+    portions: [{ id: 'cup_sliced', label: 'Cup Sliced (116g)', grams: 116 }],
   },
   {
     id: 'artichoke',
@@ -2328,6 +2341,7 @@ export const FOOD_DATABASE = [
       carbs: 11,
       fats: 0.2,
     },
+    portions: [{ id: 'cup_cooked', label: 'Cup (156g)', grams: 156 }],
   },
   {
     id: 'okra',
@@ -2340,6 +2354,7 @@ export const FOOD_DATABASE = [
       carbs: 7,
       fats: 0.2,
     },
+    portions: [{ id: 'cup_cooked', label: 'Cup (100g)', grams: 100 }],
   },
   {
     id: 'leek',
@@ -2352,6 +2367,7 @@ export const FOOD_DATABASE = [
       carbs: 14,
       fats: 0.3,
     },
+    portions: [{ id: 'cup_cooked', label: 'Cup (89g)', grams: 89 }],
   },
   {
     id: 'sweet_corn_canned',
@@ -2364,6 +2380,10 @@ export const FOOD_DATABASE = [
       carbs: 14,
       fats: 1,
     },
+    portions: [
+      { id: 'half_cup', label: '½ Cup (82g)', grams: 82 },
+      { id: 'cup', label: 'Cup (164g)', grams: 164 }
+    ],
   },
 
   // Fats - Oils & Nuts (More)
