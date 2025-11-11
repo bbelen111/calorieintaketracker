@@ -7,8 +7,7 @@ import {
   Edit3,
   SlidersHorizontal,
   X,
-  Pin,
-  Pin,
+  Pin
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ModalShell } from '../common/ModalShell';
@@ -476,7 +475,7 @@ export const FoodSearchModal = ({
                 onTouchCancel={handlePressEnd}
                 className={`w-full bg-slate-700/50 border rounded-lg p-3 text-left transition-all ${
                   isLongPressing
-                    ? 'border-blue-400 scale-[0.98] bg-slate-700'
+                    ? 'border-blue-400 scale-[0.98]'
                     : 'border-slate-600 active:scale-[0.99]'
                 }`}
               >
