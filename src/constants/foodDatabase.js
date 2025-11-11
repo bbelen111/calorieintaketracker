@@ -176,7 +176,7 @@ export const FOOD_DATABASE = [
       carbs: 0,
       fats: 2.7,
     },
-    portions: [{ id: 'filet', label: '1 Filet (113g / 4oz)', grams: 113 }],
+    portions: [{ id: 'filet', label: 'Filet (113g / 4oz)', grams: 113 }],
   },
   {
     id: 'cod',
@@ -189,7 +189,7 @@ export const FOOD_DATABASE = [
       carbs: 0,
       fats: 0.7,
     },
-    portions: [{ id: 'filet', label: '1 Filet (113g / 4oz)', grams: 113 }],
+    portions: [{ id: 'filet', label: 'Filet (113g / 4oz)', grams: 113 }],
   },
   {
     id: 'shrimp',
@@ -203,7 +203,7 @@ export const FOOD_DATABASE = [
       fats: 0.3,
     },
     portions: [
-      { id: 'shrimp_med', label: '1 Medium Shrimp (5g)', grams: 5 },
+      { id: 'shrimp_med', label: 'Medium Shrimp (5g)', grams: 5 },
       { id: 'oz_3', label: '3 oz (85g)', grams: 85 },
     ],
   },
@@ -234,7 +234,7 @@ export const FOOD_DATABASE = [
       carbs: 1.4,
       fats: 42,
     },
-    portions: [{ id: 'slice', label: '1 Slice (8g)', grams: 8 }],
+    portions: [{ id: 'slice', label: 'Slice (8g)', grams: 8 }],
   },
 
   // Proteins - Eggs & Dairy
@@ -270,7 +270,7 @@ export const FOOD_DATABASE = [
     },
     portions: [
       { id: 'tbsp', label: 'Tablespoon (15g)', grams: 15 },
-      { id: 'from_large_egg', label: '1 Large Egg (33g)', grams: 33 },
+      { id: 'from_large_egg', label: 'Large Egg (33g)', grams: 33 },
       { id: 'half_cup', label: '½ Cup (120g)', grams: 120 },
     ],
   },
@@ -287,7 +287,7 @@ export const FOOD_DATABASE = [
     },
     portions: [
       { id: 'container_s', label: 'Small Container (150g)', grams: 150 },
-      { id: 'cup', label: '1 Cup (227g)', grams: 227 },
+      { id: 'cup', label: 'Cup (227g)', grams: 227 },
     ],
   },
   {
@@ -316,7 +316,7 @@ export const FOOD_DATABASE = [
     },
     portions: [
       { id: 'tbsp', label: 'Tablespoon (15g)', grams: 15 },
-      { id: 'cup', label: '1 Cup (244g)', grams: 244 },
+      { id: 'cup', label: 'Cup (244g)', grams: 244 },
     ],
   },
   {
@@ -332,7 +332,7 @@ export const FOOD_DATABASE = [
     },
     portions: [
       { id: 'tbsp', label: 'Tablespoon (15g)', grams: 15 },
-      { id: 'cup', label: '1 Cup (245g)', grams: 245 },
+      { id: 'cup', label: 'Cup (245g)', grams: 245 },
     ],
   },
   {
@@ -346,7 +346,7 @@ export const FOOD_DATABASE = [
       carbs: 0.6,
       fats: 1.1,
     },
-    portions: [{ id: 'cup', label: '1 Cup (240g)', grams: 240 }],
+    portions: [{ id: 'cup', label: 'Cup (240g)', grams: 240 }],
   },
   {
     id: 'cheese_cheddar',
@@ -360,8 +360,8 @@ export const FOOD_DATABASE = [
       fats: 33,
     },
     portions: [
-      { id: 'slice', label: '1 Slice (28g)', grams: 28 },
-      { id: 'cup_shredded', label: '1 Cup Shredded (113g)', grams: 113 },
+      { id: 'slice', label: 'Slice (28g)', grams: 28 },
+      { id: 'cup_shredded', label: 'Cup Shredded (113g)', grams: 113 },
     ],
   },
   {
@@ -376,8 +376,8 @@ export const FOOD_DATABASE = [
       fats: 17,
     },
     portions: [
-      { id: 'slice', label: '1 Slice (28g)', grams: 28 },
-      { id: 'cup_shredded', label: '1 Cup Shredded (113g)', grams: 113 },
+      { id: 'slice', label: 'Slice (28g)', grams: 28 },
+      { id: 'cup_shredded', label: 'Cup Shredded (113g)', grams: 113 },
     ],
   },
   {
@@ -406,7 +406,7 @@ export const FOOD_DATABASE = [
       carbs: 5.4,
       fats: 28,
     },
-    portions: [{ id: 'slice', label: '1 Slice (28g)', grams: 28 }],
+    portions: [{ id: 'slice', label: 'Slice (28g)', grams: 28 }],
   },
 
   // Proteins - Plant-Based
@@ -447,7 +447,7 @@ export const FOOD_DATABASE = [
       carbs: 20,
       fats: 0.4,
     },
-    portions: [{ id: 'cup', label: '1 Cup (198g)', grams: 198 }],
+    portions: [{ id: 'cup', label: 'Cup (198g)', grams: 198 }],
   },
   {
     id: 'chickpeas_cooked',
@@ -460,7 +460,7 @@ export const FOOD_DATABASE = [
       carbs: 27,
       fats: 2.6,
     },
-    portions: [{ id: 'cup', label: '1 Cup (164g)', grams: 164 }],
+    portions: [{ id: 'cup', label: 'Cup (164g)', grams: 164 }],
   },
   {
     id: 'black_beans_cooked',
@@ -473,7 +473,7 @@ export const FOOD_DATABASE = [
       carbs: 24,
       fats: 0.5,
     },
-    portions: [{ id: 'cup', label: '1 Cup (172g)', grams: 172 }],
+    portions: [{ id: 'cup', label: 'Cup (172g)', grams: 172 }],
   },
   {
     id: 'kidney_beans_cooked',
@@ -486,7 +486,7 @@ export const FOOD_DATABASE = [
       carbs: 23,
       fats: 0.5,
     },
-    portions: [{ id: 'cup', label: '1 Cup (177g)', grams: 177 }],
+    portions: [{ id: 'cup', label: 'Cup (177g)', grams: 177 }],
   },
 
   // Carbs - Grains
@@ -503,7 +503,7 @@ export const FOOD_DATABASE = [
     },
     portions: [
       { id: 'half_cup', label: '½ Cup Cooked (78g)', grams: 78 },
-      { id: 'cup', label: '1 Cup Cooked (156g)', grams: 156 },
+      { id: 'cup', label: 'Cup Cooked (156g)', grams: 156 },
     ],
   },
   {
@@ -642,7 +642,7 @@ export const FOOD_DATABASE = [
       carbs: 49,
       fats: 1.5,
     },
-    portions: [{ id: 'bagel', label: '1 Bagel (98g)', grams: 98 }],
+    portions: [{ id: 'bagel', label: 'Bagel (98g)', grams: 98 }],
   },
   {
     id: 'tortilla_flour',
@@ -730,7 +730,7 @@ export const FOOD_DATABASE = [
     },
     portions: [
       { id: 'ear', label: '1 Ear (90g)', grams: 90 },
-      { id: 'cup', label: '1 Cup (164g)', grams: 164 },
+      { id: 'cup', label: 'Cup (164g)', grams: 164 },
     ],
   },
   {
@@ -746,7 +746,7 @@ export const FOOD_DATABASE = [
     },
     portions: [
       { id: 'half_cup', label: '½ Cup (80g)', grams: 80 },
-      { id: 'cup', label: '1 Cup (160g)', grams: 160 },
+      { id: 'cup', label: 'Cup (160g)', grams: 160 },
     ],
   },
 
@@ -763,9 +763,9 @@ export const FOOD_DATABASE = [
       fats: 0.3,
     },
     portions: [
-      { id: 'small', label: '1 Small Banana', grams: 90 },
-      { id: 'medium', label: '1 Medium Banana', grams: 118 },
-      { id: 'large', label: '1 Large Banana', grams: 136 },
+      { id: 'small', label: 'Small Banana', grams: 90 },
+      { id: 'medium', label: 'Medium Banana', grams: 118 },
+      { id: 'large', label: 'Large Banana', grams: 136 },
     ],
   },
   {
