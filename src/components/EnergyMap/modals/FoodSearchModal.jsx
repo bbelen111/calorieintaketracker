@@ -8,6 +8,7 @@ import {
   SlidersHorizontal,
   X,
   Pin,
+  Pin,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ModalShell } from '../common/ModalShell';
