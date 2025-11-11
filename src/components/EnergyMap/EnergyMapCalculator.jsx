@@ -159,10 +159,12 @@ export const EnergyMapCalculator = () => {
     saveWeightEntry,
     deleteWeightEntry,
     nutritionData,
+    pinnedFoods,
     addFoodEntry,
     updateFoodEntry,
     deleteFoodEntry,
     deleteMeal,
+    togglePinnedFood,
     createPhase,
     deletePhase,
     archivePhase,
@@ -2092,6 +2094,8 @@ export const EnergyMapCalculator = () => {
         onClose={handleFoodSearchCancel}
         onSelectFood={handleSelectFoodFromSearch}
         onOpenManualEntry={handleOpenManualEntry}
+        pinnedFoods={pinnedFoods}
+        onTogglePin={togglePinnedFood}
       />
 
       <FoodPortionModal

@@ -71,6 +71,7 @@ export const getDefaultEnergyMapData = () => ({
   cardioFavourites: [],
   customCardioTypes: {},
   nutritionData: {},
+  pinnedFoods: [],
   // nutritionData structure: { 'YYYY-MM-DD': { mealType: [{ id, name, calories, protein, carbs, fats, timestamp }] } }
   trainingTypeOverrides: {
     bodybuilding: {
@@ -199,5 +200,8 @@ function mergeWithDefaults(data) {
     ),
     phases: Array.isArray(data.phases) ? data.phases : defaults.phases,
     activePhaseId: data.activePhaseId ?? defaults.activePhaseId,
+    pinnedFoods: Array.isArray(data.pinnedFoods)
+      ? data.pinnedFoods
+      : defaults.pinnedFoods,
   };
 }

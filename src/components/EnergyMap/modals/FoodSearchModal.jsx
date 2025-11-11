@@ -7,6 +7,7 @@ import {
   Edit3,
   SlidersHorizontal,
   X,
+  Pin,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ModalShell } from '../common/ModalShell';
@@ -23,6 +24,8 @@ export const FoodSearchModal = ({
   onClose,
   onSelectFood,
   onOpenManualEntry,
+  pinnedFoods = [],
+  onTogglePin,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -31,6 +34,8 @@ export const FoodSearchModal = ({
   const [sortOrder, setSortOrder] = useState('asc'); // asc, desc
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const longPressTimerRef = useRef(null);
+  const [longPressingId, setLongPressingId] = useState(null);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -46,6 +51,34 @@ export const FoodSearchModal = ({
         document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [isFilterOpen]);
+
+  // Long-press handlers
+  const handlePressStart = (foodId) => {
+    setLongPressingId(foodId);
+    longPressTimerRef.current = setTimeout(() => {
+      if (onTogglePin) {
+        onTogglePin(foodId);
+      }
+      setLongPressingId(null);
+    }, 750); // 750ms hold duration
+  };
+
+  const handlePressEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    setLongPressingId(null);
+  };
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
+    };
+  }, []);
 
   // Get unique subcategories for selected category
   const availableSubcategories = useMemo(() => {
@@ -91,8 +124,17 @@ export const FoodSearchModal = ({
       return sortOrder === 'asc' ? compareValue : -compareValue;
     });
 
+    // Sort pinned foods to the top
+    results = [...results].sort((a, b) => {
+      const aIsPinned = pinnedFoods.includes(a.id);
+      const bIsPinned = pinnedFoods.includes(b.id);
+      if (aIsPinned && !bIsPinned) return -1;
+      if (!aIsPinned && bIsPinned) return 1;
+      return 0;
+    });
+
     return results;
-  }, [searchQuery, selectedCategory, selectedSubcategory, sortBy, sortOrder]);
+  }, [searchQuery, selectedCategory, selectedSubcategory, sortBy, sortOrder, pinnedFoods]);
 
   const getCategoryColor = (category) => {
     return FOOD_CATEGORIES[category]?.color || 'slate';
@@ -419,17 +461,38 @@ export const FoodSearchModal = ({
         ) : (
           searchResults.map((food) => {
             const categoryColor = getCategoryColor(food.category);
+            const isPinned = pinnedFoods.includes(food.id);
+            const isLongPressing = longPressingId === food.id;
             return (
               <button
                 key={food.id}
                 onClick={() => onSelectFood?.(food)}
-                className="w-full bg-slate-700/50 hover:bg-slate-700 border border-slate-600 rounded-lg p-3 text-left transition-all active:scale-[0.99]"
+                onMouseDown={() => handlePressStart(food.id)}
+                onMouseUp={handlePressEnd}
+                onMouseLeave={handlePressEnd}
+                onTouchStart={() => handlePressStart(food.id)}
+                onTouchEnd={handlePressEnd}
+                onTouchCancel={handlePressEnd}
+                className={`w-full bg-slate-700/50 border rounded-lg p-3 text-left transition-all ${
+                  isLongPressing
+                    ? 'border-blue-400 scale-[0.98] bg-slate-700'
+                    : 'border-slate-600 active:scale-[0.99]'
+                }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <h4 className="text-white font-semibold text-sm truncate">
-                      {food.name}
-                    </h4>
+                    <div className="flex items-center gap-2">
+                      {isPinned && (
+                        <Pin
+                          size={14}
+                          className="text-blue-400 flex-shrink-0"
+                          fill="currentColor"
+                        />
+                      )}
+                      <h4 className="text-white font-semibold text-sm truncate">
+                        {food.name}
+                      </h4>
+                    </div>
                     <div className="flex items-center gap-2 mt-1">
                       <span
                         className={`text-xs px-2 py-0.5 bg-${categoryColor}-500/20 text-${categoryColor}-400 rounded`}
