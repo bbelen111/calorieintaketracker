@@ -62,6 +62,13 @@ const CircularProgress = ({ percent, color, size = 120, strokeWidth = 10 }) => {
   );
 };
 
+// Shorten a long name for UI while keeping full name available via title
+const shortenName = (name, maxLength = 36) => {
+  if (typeof name !== 'string') return name ?? '';
+  if (name.length <= maxLength) return name;
+  return name.slice(0, maxLength - 1) + '…';
+};
+
 export const TrackerScreen = ({
   nutritionData = {},
   onAddMealEntry,
@@ -806,9 +813,9 @@ export const TrackerScreen = ({
                               >
                                 <div className="flex-1 min-w-0">
                                   <p className="text-white font-semibold text-sm truncate">
-                                    <span className="align-middle">
-                                      {entry.name}
-                                    </span>
+                                          <span className="align-middle" title={entry.name}>
+                                            {shortenName(entry.name)}
+                                          </span>
                                     {entry && entry.grams != null && (
                                       <span className="ml-2 text-slate-400 text-xs align-middle">
                                         {formatOne(entry.grams)} g
@@ -1052,8 +1059,8 @@ export const TrackerScreen = ({
                                   >
                                     <div className="flex-1 min-w-0">
                                       <p className="text-white font-semibold text-sm truncate">
-                                        <span className="align-middle">
-                                          {entry.name}
+                                        <span className="align-middle" title={entry.name}>
+                                          {shortenName(entry.name)}
                                         </span>
                                         {entry && entry.grams != null && (
                                           <span className="ml-2 text-slate-400 text-xs align-middle">
