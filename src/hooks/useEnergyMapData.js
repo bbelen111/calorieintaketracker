@@ -595,6 +595,22 @@ export const useEnergyMapData = () => {
     });
   }, []);
 
+  const togglePinnedFood = useCallback((foodId) => {
+    if (!foodId) return;
+
+    setUserData((prev) => {
+      const currentPinned = prev.pinnedFoods ?? [];
+      const isPinned = currentPinned.includes(foodId);
+
+      return {
+        ...prev,
+        pinnedFoods: isPinned
+          ? currentPinned.filter((id) => id !== foodId)
+          : [...currentPinned, foodId],
+      };
+    });
+  }, []);
+
   return {
     userData,
     weightEntries,
@@ -603,6 +619,7 @@ export const useEnergyMapData = () => {
     customCardioTypes: userData.customCardioTypes ?? {},
     cardioFavourites: userData.cardioFavourites ?? [],
     nutritionData: userData.nutritionData ?? {},
+    pinnedFoods: userData.pinnedFoods ?? [],
     phases: userData.phases ?? [],
     activePhaseId: userData.activePhaseId,
     bmr,
@@ -636,5 +653,6 @@ export const useEnergyMapData = () => {
     updateFoodEntry,
     deleteFoodEntry,
     deleteMeal,
+    togglePinnedFood,
   };
 };
