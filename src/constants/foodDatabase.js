@@ -501,6 +501,10 @@ export const FOOD_DATABASE = [
       carbs: 28,
       fats: 0.3,
     },
+    portions: [
+      { id: 'half_cup', label: '½ Cup Cooked (78g)', grams: 78 },
+      { id: 'cup', label: '1 Cup Cooked (156g)', grams: 156 },
+    ],
   },
   {
     id: 'brown_rice_cooked',
@@ -513,6 +517,10 @@ export const FOOD_DATABASE = [
       carbs: 24,
       fats: 0.9,
     },
+    portions: [
+      { id: 'half_cup', label: '½ Cup Cooked (98g)', grams: 98 },
+      { id: 'cup', label: '1 Cup Cooked (195g)', grams: 195 },
+    ],
   },
   {
     id: 'pasta_cooked',
@@ -525,6 +533,10 @@ export const FOOD_DATABASE = [
       carbs: 25,
       fats: 1.1,
     },
+    portions: [
+      { id: 'half_cup', label: '½ Cup Cooked (70g)', grams: 70 },
+      { id: 'cup', label: '1 Cup Cooked (140g)', grams: 140 },
+    ],
   },
   {
     id: 'quinoa_cooked',
@@ -537,6 +549,10 @@ export const FOOD_DATABASE = [
       carbs: 21,
       fats: 1.9,
     },
+    portions: [
+      { id: 'half_cup', label: '½ Cup Cooked (93g)', grams: 93 },
+      { id: 'cup', label: '1 Cup Cooked (185g)', grams: 185 },
+    ],
   },
   {
     id: 'oats_dry',
@@ -728,6 +744,10 @@ export const FOOD_DATABASE = [
       carbs: 14,
       fats: 0.4,
     },
+    portions: [
+      { id: 'half_cup', label: '½ Cup (80g)', grams: 80 },
+      { id: 'cup', label: '1 Cup (160g)', grams: 160 },
+    ],
   },
 
   // Fruits
@@ -1400,6 +1420,10 @@ export const FOOD_DATABASE = [
       carbs: 0,
       fats: 17,
     },
+    portions: [
+      { id: 'wing', label: '1 Wing (35g)', grams: 35 },
+      { id: 'serving_3_wings', label: '3 Wings (105g)', grams: 105 },
+    ],
   },
   {
     id: 'duck_meat',
@@ -1412,6 +1436,7 @@ export const FOOD_DATABASE = [
       carbs: 0,
       fats: 28,
     },
+    portions: [{ id: 'serving_3oz', label: '3 oz Serving (85g)', grams: 85 }],
   },
   {
     id: 'goose_meat',
@@ -1424,6 +1449,7 @@ export const FOOD_DATABASE = [
       carbs: 0,
       fats: 21,
     },
+    portions: [{ id: 'serving_3oz', label: '3 oz Serving (85g)', grams: 85 }],
   },
   {
     id: 'lamb_leg_roasted',
@@ -1436,6 +1462,7 @@ export const FOOD_DATABASE = [
       carbs: 0,
       fats: 10,
     },
+    portions: [{ id: 'serving_3oz', label: '3 oz Serving (85g)', grams: 85 }],
   },
   {
     id: 'lamb_shoulder_roasted',
@@ -1448,6 +1475,7 @@ export const FOOD_DATABASE = [
       carbs: 0,
       fats: 17,
     },
+    portions: [{ id: 'serving_3oz', label: '3 oz Serving (85g)', grams: 85 }],
   },
   {
     id: 'venison',
@@ -1460,6 +1488,7 @@ export const FOOD_DATABASE = [
       carbs: 0,
       fats: 3.2,
     },
+    portions: [{ id: 'serving_3oz', label: '3 oz Serving (85g)', grams: 85 }],
   },
   {
     id: 'bison_ground_90_10',
@@ -1472,6 +1501,7 @@ export const FOOD_DATABASE = [
       carbs: 0,
       fats: 8,
     },
+    portions: [{ id: 'serving_4oz', label: '4 oz Serving (113g)', grams: 113 }],
   },
   {
     id: 'ham_lean',
@@ -1484,6 +1514,7 @@ export const FOOD_DATABASE = [
       carbs: 1.5,
       fats: 6,
     },
+    portions: [{ id: 'slice_1oz', label: '1 oz Slice (28g)', grams: 28 }],
   },
   {
     id: 'prosciutto',
@@ -1496,6 +1527,7 @@ export const FOOD_DATABASE = [
       carbs: 0,
       fats: 14,
     },
+    portions: [{ id: 'slice', label: '1 Slice (15g)', grams: 15 }],
   },
   {
     id: 'turkey_bacon',
@@ -1508,6 +1540,7 @@ export const FOOD_DATABASE = [
       carbs: 3.1,
       fats: 28,
     },
+    portions: [{ id: 'slice', label: '1 Slice (15g)', grams: 15 }],
   },
   {
     id: 'beef_brisket',
@@ -1520,6 +1553,7 @@ export const FOOD_DATABASE = [
       carbs: 0,
       fats: 16,
     },
+    portions: [{ id: 'serving_3oz', label: '3 oz Serving (85g)', grams: 85 }],
   },
   {
     id: 'beef_ribeye',
@@ -1532,6 +1566,7 @@ export const FOOD_DATABASE = [
       carbs: 0,
       fats: 21,
     },
+    portions: [{ id: 'steak_6oz', label: '6 oz Steak (170g)', grams: 170 }],
   },
   {
     id: 'beef_round_roast',
@@ -1544,6 +1579,7 @@ export const FOOD_DATABASE = [
       carbs: 0,
       fats: 9,
     },
+    portions: [{ id: 'serving_3oz', label: '3 oz Serving (85g)', grams: 85 }],
   },
 
   // Proteins - Fish & Seafood
@@ -2342,6 +2378,7 @@ export const FOOD_DATABASE = [
       carbs: 0,
       fats: 100,
     },
+    portions: [{ id: 'one_tbsp', label: '1 Tbsp (14g)', grams: 14 }],
   },
   {
     id: 'avocado_oil',
@@ -2354,6 +2391,7 @@ export const FOOD_DATABASE = [
       carbs: 0,
       fats: 100,
     },
+    portions: [{ id: 'one_tbsp', label: '1 Tbsp (14g)', grams: 14 }],
   },
   {
     id: 'sesame_oil',
@@ -2366,6 +2404,7 @@ export const FOOD_DATABASE = [
       carbs: 0,
       fats: 100,
     },
+    portions: [{ id: 'one_tbsp', label: '1 Tbsp (14g)', grams: 14 }],
   },
   {
     id: 'pistachios',
@@ -2378,6 +2417,7 @@ export const FOOD_DATABASE = [
       carbs: 28,
       fats: 45,
     },
+    portions: [{ id: 'one_nut', label: '1 Pistachio (1g)', grams: 1 }],
   },
   {
     id: 'hazelnuts',
@@ -2390,6 +2430,7 @@ export const FOOD_DATABASE = [
       carbs: 17,
       fats: 61,
     },
+    portions: [{ id: 'one_nut', label: '1 Hazelnut (2g)', grams: 2 }],
   },
   {
     id: 'macadamia_nuts',
@@ -2402,6 +2443,7 @@ export const FOOD_DATABASE = [
       carbs: 14,
       fats: 76,
     },
+    portions: [{ id: 'one_nut', label: '1 Macadamia Nut (2g)', grams: 2 }],
   },
   {
     id: 'brazil_nuts',
@@ -2414,6 +2456,7 @@ export const FOOD_DATABASE = [
       carbs: 12,
       fats: 67,
     },
+    portions: [{ id: 'one_nut', label: '1 Brazil Nut (5g)', grams: 5 }],
   },
   {
     id: 'pine_nuts',
@@ -2426,6 +2469,7 @@ export const FOOD_DATABASE = [
       carbs: 13,
       fats: 68,
     },
+    portions: [{ id: 'one_nut', label: '1 Pine Nut (1g)', grams: 1 }],
   },
   {
     id: 'hemp_seeds',
@@ -2462,6 +2506,7 @@ export const FOOD_DATABASE = [
       carbs: 21,
       fats: 53,
     },
+    portions: [{ id: 'one_tbsp', label: '1 Tbsp (15g)', grams: 15 }],
   },
 
   // Carbs - Sweets & Condiments (macros-based)
@@ -2476,6 +2521,7 @@ export const FOOD_DATABASE = [
       carbs: 82,
       fats: 0,
     },
+    portions: [{ id: 'one_tbsp', label: '1 Tbsp (15g)', grams: 15 }],
   },
   {
     id: 'maple_syrup',
@@ -2488,6 +2534,7 @@ export const FOOD_DATABASE = [
       carbs: 67,
       fats: 0,
     },
+    portions: [{ id: 'one_tbsp', label: '1 Tbsp (15g)', grams: 15 }],
   },
   {
     id: 'jam_strawberry',
@@ -2500,6 +2547,7 @@ export const FOOD_DATABASE = [
       carbs: 65,
       fats: 0.2,
     },
+    portions: [{ id: 'one_tbsp', label: '1 Tbsp (15g)', grams: 15 }],
   },
   {
     id: 'ketchup',
@@ -2512,6 +2560,7 @@ export const FOOD_DATABASE = [
       carbs: 26,
       fats: 0.2,
     },
+    portions: [{ id: 'one_tbsp', label: '1 Tbsp (15g)', grams: 15 }],
   },
   {
     id: 'mustard',
@@ -2524,6 +2573,7 @@ export const FOOD_DATABASE = [
       carbs: 5.8,
       fats: 3.6,
     },
+    portions: [{ id: 'one_tbsp', label: '1 Tbsp (15g)', grams: 15 }],
   },
   {
     id: 'soy_sauce',
@@ -2536,6 +2586,7 @@ export const FOOD_DATABASE = [
       carbs: 4.9,
       fats: 0.1,
     },
+    portions: [{ id: 'one_tbsp', label: '1 Tbsp (15g)', grams: 15 }],
   },
   {
     id: 'sriracha',
@@ -2548,6 +2599,7 @@ export const FOOD_DATABASE = [
       carbs: 20,
       fats: 1,
     },
+    portions: [{ id: 'one_tbsp', label: '1 Tbsp (15g)', grams: 15 }],
   },
   {
     id: 'bbq_sauce',
@@ -2560,6 +2612,7 @@ export const FOOD_DATABASE = [
       carbs: 39,
       fats: 0.4,
     },
+    portions: [{ id: 'one_tbsp', label: '1 Tbsp (15g)', grams: 15 }],
   },
 
   // Carbs - Beverages (Non-alcoholic)
@@ -2600,22 +2653,28 @@ export const FOOD_DATABASE = [
       carbs: 14.8,
       fats: 0.1,
     },
+    portions: [{ id: 'cup', label: '1 Cup (248g)', grams: 248 }],
   },
   {
-    id: 'cola_regular',
-    name: 'Cola (Regular)',
+    id: 'coca_cola',
+    name: 'Coca-Cola (Regular)',
     category: 'carbs',
     subcategory: 'beverages',
     per100g: {
-      calories: 42,
+      calories: 39,
       protein: 0,
       carbs: 10.6,
       fats: 0,
     },
+    portions: [
+      { id: 'can_12oz', label: '12 oz Can/Bottle (355g)', grams: 355 },
+      { id: 'bottle_20oz', label: '20 oz Bottle (567g)', grams: 567 },
+      { id: 'bottle_2l', label: '2 L Bottle (2000g)', grams: 2000 },
+    ],
   },
   {
-    id: 'cola_diet',
-    name: 'Cola (Diet)',
+    id: 'coca_cola_diet',
+    name: 'Coca-Cola (Diet)',
     category: 'carbs',
     subcategory: 'beverages',
     per100g: {
@@ -2624,18 +2683,27 @@ export const FOOD_DATABASE = [
       carbs: 0,
       fats: 0,
     },
+    portions: [
+      { id: 'can_12oz', label: '12 oz Can/Bottle (355g)', grams: 355 },
+      { id: 'bottle_20oz', label: '20 oz Bottle (567g)', grams: 567 },
+      { id: 'bottle_2l', label: '2 L Bottle (2000g)', grams: 2000 },
+    ],
   },
   {
-    id: 'sports_drink',
-    name: 'Sports Drink',
+    id: 'gatorade',
+    name: 'Gatorade (Lemon-Lime)',
     category: 'carbs',
     subcategory: 'beverages',
     per100g: {
-      calories: 26,
+      calories: 20,
       protein: 0,
-      carbs: 6.4,
+      carbs: 5.5,
       fats: 0,
     },
+    portions: [
+      { id: 'bottle_20oz', label: '20 oz Bottle (567g)', grams: 567 },
+      { id: 'bottle_32oz', label: '32 oz Bottle (946g)', grams: 946 },
+    ],
   },
   {
     id: 'coconut_water',
@@ -2648,6 +2716,10 @@ export const FOOD_DATABASE = [
       carbs: 3.7,
       fats: 0.2,
     },
+    portions: [
+      { id: 'one_cup', label: '1 Cup (240g)', grams: 240 },
+      { id: 'one_coconut', label: 'From 1 Coconut (400g)', grams: 400 },
+    ],
   },
   {
     id: 'coffee_black',
@@ -2660,6 +2732,9 @@ export const FOOD_DATABASE = [
       carbs: 0,
       fats: 0,
     },
+    portions: [
+      { id: 'one_cup', label: '1 Cup (240g)', grams: 240 },
+    ],
   },
   {
     id: 'tea_black',
@@ -2688,6 +2763,7 @@ export const FOOD_DATABASE = [
     },
     portions: [
       { id: 'can_12oz', label: '12 oz Can/Bottle (355g)', grams: 355 },
+      { id: 'pint_16oz', label: '16 oz Pint (473g)', grams: 473 },
     ],
   },
   {
@@ -2742,6 +2818,7 @@ export const FOOD_DATABASE = [
       carbs: 5,
       fats: 0.5,
     },
+    portions: [{ id: 'scoop', label: '1 Scoop (10g)', grams: 10 }],
   },
   {
     id: 'preworkout_powder',
@@ -2754,6 +2831,7 @@ export const FOOD_DATABASE = [
       carbs: 50,
       fats: 0,
     },
+    portions: [{ id: 'scoop', label: '1 Scoop (10g)', grams: 10 }],
   },
   {
     id: 'fish_oil_capsules',
@@ -2766,6 +2844,7 @@ export const FOOD_DATABASE = [
       carbs: 0,
       fats: 100,
     },
+    portions: [{ id: 'one_capsule', label: '1 Capsule (1g)', grams: 1 }],
   },
   {
     id: 'electrolyte_mix',
@@ -2778,6 +2857,7 @@ export const FOOD_DATABASE = [
       carbs: 30,
       fats: 0,
     },
+    portions: [{ id: 'scoop', label: '1 Scoop (10g)', grams: 10 }],
   },
   {
     id: 'collagen_peptides',
@@ -2790,6 +2870,7 @@ export const FOOD_DATABASE = [
       carbs: 0,
       fats: 0,
     },
+    portions: [{ id: 'scoop', label: '1 Scoop (30g)', grams: 30 }],
   },
   {
     id: 'pea_protein',
@@ -2802,6 +2883,7 @@ export const FOOD_DATABASE = [
       carbs: 5,
       fats: 6,
     },
+    portions: [{ id: 'scoop', label: '1 Scoop (30g)', grams: 30 }],
   },
 
   // Cooked Egg Variations
@@ -2818,7 +2900,6 @@ export const FOOD_DATABASE = [
     },
     portions: [
       { id: 'large', label: '1 Large Boiled Egg (50g)', grams: 50 },
-      { id: 'two_large', label: '2 Large Boiled Eggs (100g)', grams: 100 },
     ],
   },
   {
@@ -2834,7 +2915,6 @@ export const FOOD_DATABASE = [
     },
     portions: [
       { id: 'large', label: '1 Large Fried Egg (46g)', grams: 46 },
-      { id: 'two_large', label: '2 Large Fried Eggs (92g)', grams: 92 },
     ],
   },
   {
@@ -2850,7 +2930,6 @@ export const FOOD_DATABASE = [
     },
     portions: [
       { id: 'one_egg', label: 'From 1 Large Egg (~61g)', grams: 61 },
-      { id: 'two_eggs', label: 'From 2 Large Eggs (~122g)', grams: 122 },
     ],
   },
   {
@@ -2865,8 +2944,7 @@ export const FOOD_DATABASE = [
       fats: 11,
     },
     portions: [
-      { id: 'two_egg', label: '2-Egg Omelette (~120g)', grams: 120 },
-      { id: 'three_egg', label: '3-Egg Omelette (~180g)', grams: 180 },
+      { id: 'one_egg', label: 'From 1 Large Egg (~61g)', grams: 61 },
     ],
   },
 
@@ -2882,6 +2960,7 @@ export const FOOD_DATABASE = [
       carbs: 0,
       fats: 3.6,
     },
+    portions: [{ id: 'one_piece', label: '1 Piece (120g)', grams: 120 }],
   },
   {
     id: 'chicken_breast_fried',
@@ -2894,6 +2973,7 @@ export const FOOD_DATABASE = [
       carbs: 10,
       fats: 7,
     },
+    portions: [{ id: 'one_piece', label: '1 Piece (120g)', grams: 120 }],
   },
   {
     id: 'salmon_smoked',
@@ -2906,6 +2986,7 @@ export const FOOD_DATABASE = [
       carbs: 0,
       fats: 4.3,
     },
+    portions: [{ id: 'slice', label: '1 Slice (28g)', grams: 28 }],
   },
   {
     id: 'tuna_salad',
@@ -2930,6 +3011,7 @@ export const FOOD_DATABASE = [
       carbs: 8,
       fats: 19,
     },
+    portions: [{ id: 'one_meatball', label: '1 Meatball (28g)', grams: 28 }],
   },
 
   // Cooked Vegetable & Carb Variations
@@ -2944,6 +3026,7 @@ export const FOOD_DATABASE = [
       carbs: 18,
       fats: 0.9,
     },
+    portions: [{ id: 'one_cup', label: '1 Cup (210g)', grams: 210 }],
   },
   {
     id: 'roasted_potatoes',
@@ -2956,6 +3039,7 @@ export const FOOD_DATABASE = [
       carbs: 25,
       fats: 3.5,
     },
+    portions: [{ id: 'one_cup', label: '1 Cup (150g)', grams: 150 }],
   },
   {
     id: 'broccoli_steamed',
@@ -2968,6 +3052,7 @@ export const FOOD_DATABASE = [
       carbs: 7,
       fats: 0.4,
     },
+    portions: [{ id: 'one_cup', label: '1 Cup (156g)', grams: 156 }],
   },
   {
     id: 'carrots_cooked',
@@ -2980,6 +3065,7 @@ export const FOOD_DATABASE = [
       carbs: 8,
       fats: 0.2,
     },
+    portions: [{ id: 'one_cup', label: '1 Cup (156g)', grams: 156 }],
   },
   {
     id: 'spinach_cooked',
@@ -2992,6 +3078,7 @@ export const FOOD_DATABASE = [
       carbs: 3.6,
       fats: 0.3,
     },
+    portions: [{ id: 'one_cup', label: '1 Cup (180g)', grams: 180 }],
   },
 ];
 
