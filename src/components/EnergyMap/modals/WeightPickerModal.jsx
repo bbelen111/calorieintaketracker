@@ -257,7 +257,7 @@ export const WeightPickerModal = ({
 
             <div
               ref={wholeRef}
-              className="h-full overflow-y-auto scrollbar-hide"
+              className="h-full overflow-y-auto overflow-x-hidden scrollbar-hide touch-action-pan-y"
               onScroll={handleWholeScroll}
             >
               <div className="h-16" />
@@ -298,7 +298,7 @@ export const WeightPickerModal = ({
 
             <div
               ref={decimalRef}
-              className="h-full overflow-y-auto scrollbar-hide"
+              className="h-full overflow-y-auto overflow-x-hidden scrollbar-hide touch-action-pan-y"
               onScroll={handleDecimalScroll}
             >
               <div className="h-16" />

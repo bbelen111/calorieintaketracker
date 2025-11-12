@@ -272,7 +272,7 @@ export const FoodSearchModal = ({
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -6, scale: 0.98 }}
                 transition={{ duration: 0.18, ease: 'easeOut' }}
-                className="absolute right-0 top-full mt-2 w-80 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl z-50 max-h-[500px] overflow-y-auto"
+                className="absolute right-0 top-full mt-2 w-80 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl z-50 max-h-[500px] overflow-y-auto overflow-x-hidden touch-action-pan-y"
               >
                 <div className="p-4 space-y-4">
                   {/* Header */}
@@ -465,7 +465,7 @@ export const FoodSearchModal = ({
       </div>
 
       {/* Search Results */}
-      <div className="space-y-2 max-h-[500px] min-h-[500px] overflow-y-auto">
+      <div className="space-y-2 max-h-[500px] min-h-[500px] overflow-y-auto overflow-x-hidden touch-action-pan-y">
         {searchResults.length === 0 ? (
           <div className="bg-slate-700/50 border border-slate-600 border-dashed rounded-lg p-8 text-center">
             <Search className="mx-auto text-slate-500 mb-3" size={32} />

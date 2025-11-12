@@ -236,7 +236,7 @@ export const TrainingDurationPickerModal = ({
 
             <div
               ref={hoursRef}
-              className="h-full overflow-y-auto scrollbar-hide"
+              className="h-full overflow-y-auto overflow-x-hidden scrollbar-hide touch-action-pan-y"
               onScroll={handleHoursScroll}
             >
               <div className="h-16" />
@@ -275,7 +275,7 @@ export const TrainingDurationPickerModal = ({
 
             <div
               ref={minutesRef}
-              className="h-full overflow-y-auto scrollbar-hide"
+              className="h-full overflow-y-auto overflow-x-hidden scrollbar-hide touch-action-pan-y"
               onScroll={handleMinutesScroll}
             >
               <div className="h-16" />

@@ -194,7 +194,7 @@ export const MetValuePickerModal = ({
 
         <div
           ref={scrollRef}
-          className="h-full overflow-y-auto scrollbar-hide"
+          className="h-full overflow-y-auto overflow-x-hidden scrollbar-hide touch-action-pan-y"
           onScroll={handleScroll}
         >
           <div className="h-16" />
