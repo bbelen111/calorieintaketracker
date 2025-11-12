@@ -332,47 +332,50 @@ export const FoodPortionModal = ({
     >
       {/* Header */}
       <div className="mb-4">
-        <div className="bg-slate-700/50 border border-slate-600/50 rounded-lg p-3 flex items-center gap-4 shadow-lg shadow-slate-900/20">
-          {/* Food name and category */}
-          <div className="flex-1 min-w-0">
-            <h3 className="text-white font-semibold text-sm truncate">
-              {selectedFood.name}
-            </h3>
-            <div className="flex items-center gap-2 mt-1">
-              <span
-                className={`text-xs px-2 py-0.5 bg-${getCategoryColor(selectedFood.category)}-500/20 text-${getCategoryColor(selectedFood.category)}-400 rounded-full`}
-              >
-                {FOOD_CATEGORIES[selectedFood.category]?.label}
+        <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <h4 className="text-white font-semibold text-sm truncate">
+                {selectedFood.name}
+              </h4>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <span
+                  className={`text-xs px-2 py-0.5 rounded bg-${getCategoryColor(selectedFood.category)}-500/20 text-${getCategoryColor(selectedFood.category)}-400`}
+                >
+                  {FOOD_CATEGORIES[selectedFood.category]?.label}
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-col items-end gap-1">
+              <span className="text-slate-500 text-[10px] font-medium">
+                per 100g
               </span>
-              <span className="text-slate-400 text-xs">per 100g</span>
-            </div>
-          </div>
-
-          {/* Nutrition inline */}
-          <div className="flex items-center gap-2 text-xs flex-shrink-0">
-            <div className="text-center">
-              <p className="text-emerald-400 font-bold">
-                {selectedFood.per100g.calories}
-              </p>
-              <p className="text-slate-400">kcal</p>
-            </div>
-            <div className="text-center">
-              <p className="text-red-400 font-bold">
-                {selectedFood.per100g.protein}g
-              </p>
-              <p className="text-slate-400">protein</p>
-            </div>
-            <div className="text-center">
-              <p className="text-amber-400 font-bold">
-                {selectedFood.per100g.carbs}g
-              </p>
-              <p className="text-slate-400">carbs</p>
-            </div>
-            <div className="text-center">
-              <p className="text-yellow-400 font-bold">
-                {selectedFood.per100g.fats}g
-              </p>
-              <p className="text-slate-400">fat</p>
+              <div className="flex items-center gap-3 text-xs">
+                <div className="text-center">
+                  <p className="text-emerald-400 font-bold">
+                    {formatOne(selectedFood.per100g.calories)}
+                  </p>
+                  <p className="text-slate-500">cal</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-red-400 font-bold">
+                    {formatOne(selectedFood.per100g.protein)}g
+                  </p>
+                  <p className="text-slate-500">prot</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-amber-400 font-bold">
+                    {formatOne(selectedFood.per100g.carbs)}g
+                  </p>
+                  <p className="text-slate-500">carb</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-yellow-400 font-bold">
+                    {formatOne(selectedFood.per100g.fats)}g
+                  </p>
+                  <p className="text-slate-500">fat</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
