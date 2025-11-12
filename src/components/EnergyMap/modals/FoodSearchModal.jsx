@@ -7,7 +7,6 @@ import {
   Edit3,
   SlidersHorizontal,
   X,
-  Pin,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ModalShell } from '../common/ModalShell';
@@ -476,6 +475,15 @@ export const FoodSearchModal = ({
           searchResults.map((food) => {
             const isPinned = pinnedFoods.includes(food.id);
             const isLongPressing = longPressingId === food.id;
+            // Compose border and shadow classes for pinned state
+            let borderClass = '';
+            let shadowClass = '';
+            if (isPinned) {
+              borderClass = 'border-blue-400';
+            } else {
+              borderClass = 'border-slate-600';
+              shadowClass = '';
+            }
             return (
               <button
                 key={food.id}
@@ -489,19 +497,13 @@ export const FoodSearchModal = ({
                 className={`w-full bg-slate-700/50 border rounded-lg p-3 text-left transition-all ${
                   isLongPressing
                     ? 'border-blue-400 scale-[0.98]'
-                    : 'border-slate-600 active:scale-[0.99]'
-                }`}
+                    : `${borderClass} active:scale-[0.99]`
+                } ${shadowClass}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      {isPinned && (
-                        <Pin
-                          size={14}
-                          className="text-blue-400 flex-shrink-0"
-                          fill="currentColor"
-                        />
-                      )}
+                      {/* No pin icon, just blue border for pinned */}
                       <h4 className="text-white font-semibold text-sm truncate">
                         {food.name}
                       </h4>
