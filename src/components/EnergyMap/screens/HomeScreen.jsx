@@ -164,7 +164,6 @@ export const HomeScreen = ({
         </h2>
         <div className="grid grid-cols-2 gap-4">
           <motion.button
-            layout
             onClick={onTrainingDayClick}
             type="button"
             className={`p-4 rounded-xl border-2 transition-all relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 ${
@@ -215,7 +214,6 @@ export const HomeScreen = ({
             </AnimatePresence>
           </motion.button>
           <motion.button
-            layout
             onClick={onRestDayClick}
             type="button"
             className={`p-4 rounded-xl border-2 transition-all grid grid-rows-[auto_auto_auto] place-items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 ${
