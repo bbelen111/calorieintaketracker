@@ -7,7 +7,7 @@ import {
   Edit3,
   SlidersHorizontal,
   X,
-  Pin
+  Pin,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ModalShell } from '../common/ModalShell';
@@ -134,10 +134,24 @@ export const FoodSearchModal = ({
     });
 
     return results;
-  }, [searchQuery, selectedCategory, selectedSubcategory, sortBy, sortOrder, pinnedFoods]);
+  }, [
+    searchQuery,
+    selectedCategory,
+    selectedSubcategory,
+    sortBy,
+    sortOrder,
+    pinnedFoods,
+  ]);
 
-  const getCategoryColor = (category) => {
-    return FOOD_CATEGORIES[category]?.color || 'slate';
+  const getCategoryClasses = (category) => {
+    const colorMap = {
+      protein: 'bg-red-500/20 text-red-400',
+      carbs: 'bg-amber-500/20 text-amber-400',
+      vegetables: 'bg-green-500/20 text-green-400',
+      fats: 'bg-yellow-500/20 text-yellow-400',
+      supplements: 'bg-purple-500/20 text-purple-400',
+    };
+    return colorMap[category] || 'bg-slate-500/20 text-slate-400';
   };
 
   const clearFilters = () => {
@@ -460,7 +474,6 @@ export const FoodSearchModal = ({
           </div>
         ) : (
           searchResults.map((food) => {
-            const categoryColor = getCategoryColor(food.category);
             const isPinned = pinnedFoods.includes(food.id);
             const isLongPressing = longPressingId === food.id;
             return (
@@ -493,39 +506,49 @@ export const FoodSearchModal = ({
                         {food.name}
                       </h4>
                     </div>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <span
-                        className={`text-xs px-2 py-0.5 bg-${categoryColor}-500/20 text-${categoryColor}-400 rounded`}
+                        className={`text-xs px-2 py-0.5 rounded ${getCategoryClasses(food.category)}`}
                       >
                         {FOOD_CATEGORIES[food.category]?.label}
                       </span>
-                      <span className="text-slate-400 text-xs">per 100g</span>
+                      {food.portions && food.portions.length > 0 && (
+                        <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded">
+                          {food.portions.length}{' '}
+                          {food.portions.length === 1 ? 'portion' : 'portions'}
+                        </span>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 text-xs">
-                    <div className="text-center">
-                      <p className="text-emerald-400 font-bold">
-                        {formatOne(food.per100g.calories)}
-                      </p>
-                      <p className="text-slate-500">cal</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-red-400 font-bold">
-                        {formatOne(food.per100g.protein)}g
-                      </p>
-                      <p className="text-slate-500">prot</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-amber-400 font-bold">
-                        {formatOne(food.per100g.carbs)}g
-                      </p>
-                      <p className="text-slate-500">carb</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-yellow-400 font-bold">
-                        {formatOne(food.per100g.fats)}g
-                      </p>
-                      <p className="text-slate-500">fat</p>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-slate-500 text-[10px] font-medium">
+                      per 100g
+                    </span>
+                    <div className="flex items-center gap-3 text-xs">
+                      <div className="text-center">
+                        <p className="text-emerald-400 font-bold">
+                          {formatOne(food.per100g.calories)}
+                        </p>
+                        <p className="text-slate-500">cal</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-red-400 font-bold">
+                          {formatOne(food.per100g.protein)}g
+                        </p>
+                        <p className="text-slate-500">prot</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-amber-400 font-bold">
+                          {formatOne(food.per100g.carbs)}g
+                        </p>
+                        <p className="text-slate-500">carb</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-yellow-400 font-bold">
+                          {formatOne(food.per100g.fats)}g
+                        </p>
+                        <p className="text-slate-500">fat</p>
+                      </div>
                     </div>
                   </div>
                 </div>
