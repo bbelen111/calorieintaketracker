@@ -50,7 +50,7 @@ export const FoodEntryModal = ({
       <div className="flex items-center gap-3 mb-6">
         <Utensils className="text-blue-400" size={28} />
         <h3 className="text-white font-bold text-2xl">
-          {isEditing ? 'Edit Food Entry' : 'Add Food Entry'}
+          {isEditing ? 'Edit Food Entry' : 'Custom Food Entry'}
         </h3>
       </div>
 

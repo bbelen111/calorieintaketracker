@@ -1,8 +1,6 @@
 // Food database with nutritional information per 100g
 // All values are per 100 grams of the food item
 
-import { p } from "framer-motion/client";
-
 export const FOOD_DATABASE = [
   // Proteins - Meat
   {
@@ -2196,7 +2194,9 @@ export const FOOD_DATABASE = [
       carbs: 9,
       fats: 15,
     },
-    portions: [{ id: 'half_avocado', label: 'Half Avocado (100g)', grams: 100 }],
+    portions: [
+      { id: 'half_avocado', label: 'Half Avocado (100g)', grams: 100 },
+    ],
   },
 
   // Vegetables (More)
@@ -2382,7 +2382,7 @@ export const FOOD_DATABASE = [
     },
     portions: [
       { id: 'half_cup', label: '½ Cup (82g)', grams: 82 },
-      { id: 'cup', label: 'Cup (164g)', grams: 164 }
+      { id: 'cup', label: 'Cup (164g)', grams: 164 },
     ],
   },
 
@@ -2752,9 +2752,7 @@ export const FOOD_DATABASE = [
       carbs: 0,
       fats: 0,
     },
-    portions: [
-      { id: 'one_cup', label: '1 Cup (240g)', grams: 240 },
-    ],
+    portions: [{ id: 'one_cup', label: '1 Cup (240g)', grams: 240 }],
   },
   {
     id: 'tea_black',
@@ -2918,9 +2916,7 @@ export const FOOD_DATABASE = [
       carbs: 1.1,
       fats: 11,
     },
-    portions: [
-      { id: 'large', label: '1 Large Boiled Egg (50g)', grams: 50 },
-    ],
+    portions: [{ id: 'large', label: '1 Large Boiled Egg (50g)', grams: 50 }],
   },
   {
     id: 'egg_fried',
@@ -2933,9 +2929,7 @@ export const FOOD_DATABASE = [
       carbs: 0.8,
       fats: 15,
     },
-    portions: [
-      { id: 'large', label: '1 Large Fried Egg (46g)', grams: 46 },
-    ],
+    portions: [{ id: 'large', label: '1 Large Fried Egg (46g)', grams: 46 }],
   },
   {
     id: 'egg_scrambled',
@@ -2948,9 +2942,7 @@ export const FOOD_DATABASE = [
       carbs: 1.6,
       fats: 11,
     },
-    portions: [
-      { id: 'one_egg', label: 'From 1 Large Egg (~61g)', grams: 61 },
-    ],
+    portions: [{ id: 'one_egg', label: 'From 1 Large Egg (~61g)', grams: 61 }],
   },
   {
     id: 'egg_omelette_plain',
@@ -2963,9 +2955,7 @@ export const FOOD_DATABASE = [
       carbs: 1,
       fats: 11,
     },
-    portions: [
-      { id: 'one_egg', label: 'From 1 Large Egg (~61g)', grams: 61 },
-    ],
+    portions: [{ id: 'one_egg', label: 'From 1 Large Egg (~61g)', grams: 61 }],
   },
 
   // Cooked Meat & Fish Variations
