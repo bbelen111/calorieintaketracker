@@ -355,6 +355,8 @@ export const ModalShell = ({
       });
 
       scrollLockManager.unlock();
+      setIsTopmost(false);
+      setShouldDimContent(false);
     };
   }, [isOpen]);
 

@@ -87,11 +87,11 @@ export const TrainingDurationPickerModal = ({
   const minutesTimeoutRef = useRef(null);
   const hasAlignedRef = useRef(false);
   const selectionRef = useRef({ hours: 0, minutes: 0 });
+  const hoursScrollHandlerRef = useRef(null);
+  const minutesScrollHandlerRef = useRef(null);
 
   const [selectedHours, setSelectedHours] = useState(0);
   const [selectedMinutes, setSelectedMinutes] = useState(0);
-  const [handleHoursScroll, setHandleHoursScroll] = useState(null);
-  const [handleMinutesScroll, setHandleMinutesScroll] = useState(null);
 
   const applySelection = useCallback((hours, minutes, behavior = 'instant') => {
     const normalizedHours = Math.min(Math.max(hours, 0), MAX_HOURS);
@@ -178,30 +178,36 @@ export const TrainingDurationPickerModal = ({
   }, []);
 
   useEffect(() => {
-    setHandleHoursScroll(() =>
-      hoursRef.current
-        ? createPickerScrollHandler(
-            hoursRef,
-            hoursTimeoutRef,
-            (value) => parseInt(value, 10),
-            handleHoursChange
-          )
-        : null
+    hoursScrollHandlerRef.current = createPickerScrollHandler(
+      hoursRef,
+      hoursTimeoutRef,
+      (value) => parseInt(value, 10),
+      handleHoursChange
     );
+    return () => {
+      hoursScrollHandlerRef.current = null;
+    };
   }, [handleHoursChange]);
 
   useEffect(() => {
-    setHandleMinutesScroll(() =>
-      minutesRef.current
-        ? createPickerScrollHandler(
-            minutesRef,
-            minutesTimeoutRef,
-            (value) => parseInt(value, 10),
-            handleMinutesChange
-          )
-        : null
+    minutesScrollHandlerRef.current = createPickerScrollHandler(
+      minutesRef,
+      minutesTimeoutRef,
+      (value) => parseInt(value, 10),
+      handleMinutesChange
     );
+    return () => {
+      minutesScrollHandlerRef.current = null;
+    };
   }, [handleMinutesChange]);
+
+  const handleHoursScroll = useCallback((event) => {
+    hoursScrollHandlerRef.current?.(event);
+  }, []);
+
+  const handleMinutesScroll = useCallback((event) => {
+    minutesScrollHandlerRef.current?.(event);
+  }, []);
 
   const decimalDuration = useMemo(() => {
     const totalMinutes = selectedHours * 60 + selectedMinutes;
