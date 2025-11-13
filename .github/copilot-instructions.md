@@ -37,7 +37,7 @@ Manages 5-screen carousel (Logbook, Tracker, Home, Calorie Map, Insights). Retur
 1. **Use `ModalShell`** wrapper for all modals - handles overlay, animations, scroll-lock
 2. **Pass `isOpen` AND `isClosing`** props to every modal component
 3. **Temporary state** lives in parent (`EnergyMapCalculator`), not modal components
-4. **Reset temp state** in `useEffect` watching `isClosing` - delay by animation duration
+4. **Reset temp state** in `useEffect` watching `isClosing` - delay by `MODAL_CLOSE_DELAY` (200ms)
 5. **Nested modals:** Child modals have longer close delays to prevent flickering
 
 **Example Modal Structure:**
@@ -51,6 +51,23 @@ Manages 5-screen carousel (Logbook, Tracker, Home, Calorie Map, Insights). Retur
   </div>
 </ModalShell>
 ```
+
+**Example Temp State Reset:**
+```jsx
+useEffect(() => {
+  if (isClosing) {
+    setTimeout(() => setTempDraft(null), MODAL_CLOSE_DELAY);
+  }
+}, [isClosing]);
+```
+
+### ModalShell Architecture
+`ModalShell` uses **singleton managers** for sophisticated cross-modal coordination:
+- **ModalStackManager:** Tracks z-index stack, ensures topmost modal receives events/escape key
+- **SharedOverlayManager:** Single overlay element shared across all modals, prevents flicker during transitions
+- **BodyScrollLockManager:** Reference-counted scroll lock, preserves scrollbar width compensation
+
+Modals register on mount, receive dynamic z-index (`BASE_Z_INDEX + stackPosition`), and auto-dim when not topmost. Focus trap and escape key handling only active for topmost modal.
 
 ## Calculation System
 
@@ -73,11 +90,55 @@ Manages 5-screen carousel (Logbook, Tracker, Home, Calorie Map, Insights). Retur
   cardioSessions: [{ id, type, duration, intensity, effortType }],
   weightEntries: [{ date: 'YYYY-MM-DD', weight }],
   activityMultipliers: { training: 0.35, rest: 0.28 },
+  nutritionData: { 'YYYY-MM-DD': { mealType: [foodEntry, ...] } },
+  phases: [{ id, name, startDate, endDate, goal, dailyLogs }],
+  pinnedFoods: ['food_id1', ...],
   // ... 10+ more fields
 }
 ```
 
 **Weight entries:** Always normalized with `normalizeDateKey()`, sorted with `sortWeightEntries()`, validated with `clampWeight()`. See `utils/weight.js` for helpers.
+
+### Phase/Logbook System
+Phases use **reference-based architecture** - daily logs store `weightRef`/`nutritionRef` pointing to `weightEntries`/`nutritionData`, not embedded copies. This prevents data duplication and ensures single source of truth.
+
+**Phase structure:**
+```javascript
+{
+  id: 'uuid',
+  name: 'Bulking Phase',
+  startDate: 'YYYY-MM-DD',
+  endDate: 'YYYY-MM-DD', // null for active phases
+  goal: 'bulk',
+  startingWeight: 74,
+  dailyLogs: {
+    'YYYY-MM-DD': { 
+      weightRef: true,      // Indicates weight exists in weightEntries
+      nutritionRef: true,   // Indicates nutrition exists in nutritionData
+      notes: 'Optional'
+    }
+  }
+}
+```
+
+Use `calculatePhaseMetrics()` from `utils/phases.js` to compute weight change, weekly rate, completion percentage.
+
+### Food Tracking System
+Food entries stored in `nutritionData` keyed by ISO date, then by meal type (breakfast, lunch, dinner, snacks - see `MEAL_TYPE_ORDER`):
+
+```javascript
+nutritionData: {
+  '2025-11-13': {
+    breakfast: [
+      { id: 'uuid', foodId: 'chicken_breast', name: 'Chicken Breast', 
+        grams: 174, calories: 287, protein: 54, carbs: 0, fats: 6.3, 
+        timestamp: 1699876543210 }
+    ]
+  }
+}
+```
+
+Food database (`constants/foodDatabase.js`) contains 3000+ items with per-100g macros and preset portions. Use `pinnedFoods` array for quick access favorites.
 
 ## Styling Conventions
 
@@ -110,9 +171,9 @@ npm run preview    # Test production build locally
 
 - **`/screens`** - Full-page views within carousel, receive props from `EnergyMapCalculator`
 - **`/modals`** - Self-contained dialogs, all use `ModalShell` wrapper
-- **`/modals/common`** - Only `ModalShell` (core wrapper) lives here, not other shared components
-- **`/constants`** - Static lookup tables (goals, cardio types, training presets)
-- **`/utils`** - Pure functions for calculations, parsing, formatting
+- **`/common`** - Only `ModalShell` (core wrapper) and `ScreenTabs` live here, not other shared components
+- **`/constants`** - Static lookup tables (goals, cardio types, training presets, 3000+ food items)
+- **`/utils`** - Pure functions for calculations, parsing, formatting, export (CSV/JSON)
 - **`/hooks`** - Stateful logic extraction (modals, data, swiping)
 
 ## Key Files to Reference
