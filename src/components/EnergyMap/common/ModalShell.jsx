@@ -1,180 +1,221 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import PropTypes from 'prop-types';
 
-let openModalCount = 0;
-let originalBodyOverflow = '';
-let originalBodyPaddingRight = '';
+// ============================================================================
+// CONSTANTS
+// ============================================================================
 
-// Shared overlay singleton node and helpers. Using a single DOM node for the
-// dimming backdrop avoids creating/removing multiple background layers when
-// stacking modals which prevents cumulative darkening and flicker.
-let sharedOverlayNode = null;
-const OVERLAY_FADE_MS = 200;
-let overlayHideTimeout = null;
-let overlayShowTimeout = null;
-
-function createSharedOverlay() {
-  if (typeof document === 'undefined') return null;
-  if (sharedOverlayNode) return sharedOverlayNode;
-
-  const node = document.createElement('div');
-  node.className = 'shared-modal-overlay fixed inset-0 bg-black';
-  // start hidden
-  node.style.opacity = '0';
-  node.style.transition = `opacity ${OVERLAY_FADE_MS}ms ease-out`;
-  node.style.pointerEvents = 'none'; // never intercept clicks
-  node.style.willChange = 'opacity'; // optimize animation
-  node.style.backfaceVisibility = 'hidden'; // prevent flicker on some devices
-  node.style.transform = 'translateZ(0)'; // force GPU acceleration
-  document.body.appendChild(node);
-  sharedOverlayNode = node;
-  return node;
-}
-
-function showSharedOverlay(belowZIndex) {
-  const node = createSharedOverlay();
-  if (!node) return;
-
-  // Clear any pending hide timeout
-  if (overlayHideTimeout) {
-    clearTimeout(overlayHideTimeout);
-    overlayHideTimeout = null;
-  }
-
-  // Clear any pending show timeout
-  if (overlayShowTimeout) {
-    clearTimeout(overlayShowTimeout);
-    overlayShowTimeout = null;
-  }
-
-  // Set z-index immediately to prevent flickering
-  node.style.zIndex = String(Math.max(0, (belowZIndex || BASE_Z_INDEX) - 1));
-
-  // If already visible, just ensure it stays visible - no animation retrigger
-  if (node.style.opacity === '0.7') {
-    return;
-  }
-
-  // If opacity is transitioning (between 0 and 0.7), force it to target immediately
-  // to prevent flicker when opening nested modals rapidly
-  const currentOpacity = parseFloat(node.style.opacity);
-  if (currentOpacity > 0 && currentOpacity < 0.7) {
-    node.style.opacity = '0.7';
-    return;
-  }
-
-  // Use single rAF for faster response when opening nested modals
-  requestAnimationFrame(() => {
-    if (node) node.style.opacity = '0.7';
-  });
-}
-
-function updateSharedOverlayZ(belowZIndex) {
-  if (!sharedOverlayNode) return;
-  // Only update z-index if we're not mid-animation
-  const newZIndex = String(Math.max(0, (belowZIndex || BASE_Z_INDEX) - 1));
-  if (sharedOverlayNode.style.zIndex !== newZIndex) {
-    sharedOverlayNode.style.zIndex = newZIndex;
-  }
-}
-
-function hideSharedOverlayIfIdle() {
-  if (!sharedOverlayNode) return;
-
-  // Clear any pending timeouts
-  if (overlayHideTimeout) {
-    clearTimeout(overlayHideTimeout);
-    overlayHideTimeout = null;
-  }
-
-  if (openModalCount > 0) {
-    // still open modals, ensure overlay stays visible at correct z-index
-    updateSharedOverlayZ(BASE_Z_INDEX + openModalCount);
-    // Make sure it's visible
-    if (sharedOverlayNode.style.opacity !== '0.7') {
-      sharedOverlayNode.style.opacity = '0.7';
-    }
-    return;
-  }
-
-  // fade out then remove - but only if no modals opened during fade
-  sharedOverlayNode.style.opacity = '0';
-  overlayHideTimeout = setTimeout(() => {
-    if (sharedOverlayNode && openModalCount === 0) {
-      try {
-        sharedOverlayNode.remove();
-      } catch (err) {
-        void err;
-      }
-      sharedOverlayNode = null;
-    }
-    overlayHideTimeout = null;
-  }, OVERLAY_FADE_MS + 50);
-}
-
-// base z-index for modals; each modal instance will add its index so newer
-// modals get a higher z-index and appear on top.
 const BASE_Z_INDEX = 1000;
+const OVERLAY_FADE_MS = 200;
+const OVERLAY_FADE_BUFFER_MS = 50;
+const OVERLAY_OPACITY = 0.7;
+const OPACITY_COMPARISON_THRESHOLD = 0.01;
 
-export const ModalShell = ({
-  isOpen,
-  isClosing,
-  children,
-  overlayClassName = '',
-  contentClassName = '',
-}) => {
-  const modalIndexRef = useRef(0);
-  const [zIndexValue, setZIndexValue] = useState(BASE_Z_INDEX);
-  // track current global stack count so we can know which modal is topmost
-  const [stackCount, setStackCount] = useState(openModalCount);
-  // persist our assigned index in state (avoid reading ref.current during render)
-  const [modalIndex, setModalIndex] = useState(0);
+// ============================================================================
+// MODAL STACK MANAGER (Replaces module-level state with a singleton class)
+// ============================================================================
 
-  // The effect uses module-scoped mutable values (openModalCount, BASE_Z_INDEX,
-  // etc.) intentionally and must not include them as dependencies. We purposely
-  // avoid listing those mutable module-scoped values in deps because they are
-  // updated outside React's render lifecycle; keep this comment as rationale
-  // for future maintainers.
-  useEffect(() => {
-    if (!isOpen) return undefined;
+class ModalStackManager {
+  constructor() {
+    this.stack = new Set();
+    this.nextIndex = 1;
+    this.listeners = new Set();
+  }
 
-    const body = document.body;
-    const scrollBarWidth =
-      window.innerWidth - document.documentElement.clientWidth;
+  register() {
+    const index = this.nextIndex++;
+    this.stack.add(index);
+    this.notifyListeners();
+    return index;
+  }
 
-    openModalCount += 1;
-    const myIndex = openModalCount;
+  unregister(index) {
+    this.stack.delete(index);
+    this.notifyListeners();
+  }
 
-    // capture this modal's stack index
-    modalIndexRef.current = myIndex;
+  getTopIndex() {
+    return Math.max(...Array.from(this.stack), 0);
+  }
 
-    // Update state immediately to avoid flicker
-    // eslint-disable-next-line
-    setModalIndex(myIndex);
-    setZIndexValue(BASE_Z_INDEX + myIndex);
+  getCount() {
+    return this.stack.size;
+  }
 
-    // Notify other modals synchronously before showing overlay
-    try {
-      if (
-        typeof window !== 'undefined' &&
-        typeof window.CustomEvent === 'function'
-      ) {
-        window.dispatchEvent(
-          new window.CustomEvent('modalStackChange', {
-            detail: { count: openModalCount },
-          })
-        );
-      }
-    } catch (err) {
-      void err;
+  subscribe(listener) {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  notifyListeners() {
+    this.listeners.forEach((listener) => listener());
+  }
+}
+
+// Singleton instance
+const modalStackManager = new ModalStackManager();
+
+// ============================================================================
+// SHARED OVERLAY MANAGER
+// ============================================================================
+
+class SharedOverlayManager {
+  constructor() {
+    this.overlayNode = null;
+    this.hideTimeoutId = null;
+    this.showTimeoutId = null;
+  }
+
+  isServer() {
+    return typeof document === 'undefined';
+  }
+
+  createOverlay() {
+    if (this.isServer()) return null;
+    if (this.overlayNode) return this.overlayNode;
+
+    const node = document.createElement('div');
+    node.className = 'shared-modal-overlay';
+    node.style.cssText = `
+      position: fixed;
+      inset: 0;
+      background-color: black;
+      opacity: 0;
+      transition: opacity ${OVERLAY_FADE_MS}ms ease-out;
+      pointer-events: none;
+      will-change: opacity;
+      backface-visibility: hidden;
+      transform: translateZ(0);
+    `;
+
+    document.body.appendChild(node);
+    this.overlayNode = node;
+    return node;
+  }
+
+  show(belowZIndex) {
+    const node = this.createOverlay();
+    if (!node) return;
+
+    this.clearTimeouts();
+
+    // Set z-index immediately
+    node.style.zIndex = String(Math.max(0, belowZIndex - 1));
+
+    const currentOpacity = parseFloat(node.style.opacity) || 0;
+
+    // Already at target opacity
+    if (
+      Math.abs(currentOpacity - OVERLAY_OPACITY) < OPACITY_COMPARISON_THRESHOLD
+    ) {
+      return;
     }
 
-    // Show overlay after state updates complete
-    showSharedOverlay(BASE_Z_INDEX + myIndex);
+    // Mid-transition - jump to target
+    if (currentOpacity > 0 && currentOpacity < OVERLAY_OPACITY) {
+      node.style.opacity = String(OVERLAY_OPACITY);
+      return;
+    }
 
-    if (openModalCount === 1) {
-      originalBodyOverflow = body.style.overflow;
-      originalBodyPaddingRight = body.style.paddingRight;
+    // Fade in
+    requestAnimationFrame(() => {
+      if (node) node.style.opacity = String(OVERLAY_OPACITY);
+    });
+  }
+
+  updateZIndex(belowZIndex) {
+    if (!this.overlayNode) return;
+    const newZIndex = String(Math.max(0, belowZIndex - 1));
+    if (this.overlayNode.style.zIndex !== newZIndex) {
+      this.overlayNode.style.zIndex = newZIndex;
+    }
+  }
+
+  hide(modalCount, topZIndex) {
+    if (!this.overlayNode) return;
+
+    this.clearTimeouts();
+
+    if (modalCount > 0) {
+      // Keep visible at correct z-index
+      this.updateZIndex(topZIndex);
+      const currentOpacity = parseFloat(this.overlayNode.style.opacity) || 0;
+      if (
+        Math.abs(currentOpacity - OVERLAY_OPACITY) >=
+        OPACITY_COMPARISON_THRESHOLD
+      ) {
+        this.overlayNode.style.opacity = String(OVERLAY_OPACITY);
+      }
+      return;
+    }
+
+    // Fade out
+    this.overlayNode.style.opacity = '0';
+
+    this.hideTimeoutId = window.setTimeout(() => {
+      if (this.overlayNode && modalCount === 0) {
+        try {
+          this.overlayNode.remove();
+        } catch (err) {
+          console.warn('Failed to remove overlay node:', err);
+        }
+        this.overlayNode = null;
+      }
+      this.hideTimeoutId = null;
+    }, OVERLAY_FADE_MS + OVERLAY_FADE_BUFFER_MS);
+  }
+
+  clearTimeouts() {
+    if (this.hideTimeoutId !== null) {
+      clearTimeout(this.hideTimeoutId);
+      this.hideTimeoutId = null;
+    }
+    if (this.showTimeoutId !== null) {
+      clearTimeout(this.showTimeoutId);
+      this.showTimeoutId = null;
+    }
+  }
+
+  cleanup() {
+    this.clearTimeouts();
+    if (this.overlayNode) {
+      try {
+        this.overlayNode.remove();
+      } catch (err) {
+        console.warn('Failed to cleanup overlay node:', err);
+      }
+      this.overlayNode = null;
+    }
+  }
+}
+
+// Singleton instance
+const overlayManager = new SharedOverlayManager();
+
+// ============================================================================
+// BODY SCROLL LOCK MANAGER
+// ============================================================================
+
+class BodyScrollLockManager {
+  constructor() {
+    this.lockCount = 0;
+    this.originalOverflow = '';
+    this.originalPaddingRight = '';
+  }
+
+  lock() {
+    if (typeof document === 'undefined') return;
+
+    this.lockCount++;
+
+    if (this.lockCount === 1) {
+      const body = document.body;
+      const scrollBarWidth =
+        window.innerWidth - document.documentElement.clientWidth;
+
+      this.originalOverflow = body.style.overflow;
+      this.originalPaddingRight = body.style.paddingRight;
 
       body.style.overflow = 'hidden';
 
@@ -182,98 +223,218 @@ export const ModalShell = ({
         body.style.paddingRight = `${scrollBarWidth}px`;
       }
     }
+  }
+
+  unlock() {
+    if (typeof document === 'undefined') return;
+
+    this.lockCount = Math.max(0, this.lockCount - 1);
+
+    if (this.lockCount === 0) {
+      const body = document.body;
+      body.style.overflow = this.originalOverflow;
+      body.style.paddingRight = this.originalPaddingRight;
+    }
+  }
+
+  cleanup() {
+    if (typeof document === 'undefined') return;
+    if (this.lockCount > 0) {
+      const body = document.body;
+      body.style.overflow = this.originalOverflow;
+      body.style.paddingRight = this.originalPaddingRight;
+      this.lockCount = 0;
+    }
+  }
+}
+
+// Singleton instance
+const scrollLockManager = new BodyScrollLockManager();
+
+// ============================================================================
+// MODAL SHELL COMPONENT
+// ============================================================================
+
+export const ModalShell = ({
+  isOpen,
+  isClosing = false,
+  children,
+  overlayClassName = '',
+  contentClassName = '',
+  onClose = null,
+  closeOnEscape = true,
+  closeOnOverlayClick = true,
+}) => {
+  const modalIndexRef = useRef(null);
+  const overlayRef = useRef(null);
+  const [isTopmost, setIsTopmost] = useState(false);
+  const [shouldDimContent, setShouldDimContent] = useState(false);
+  const contentRef = useRef(null);
+
+  // Handle escape key
+  useEffect(() => {
+    if (!isOpen || !closeOnEscape || !onClose) return;
+
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isTopmost) {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isOpen, closeOnEscape, onClose, isTopmost]);
+
+  // Focus trap
+  useEffect(() => {
+    if (!isOpen || !contentRef.current) return;
+
+    const focusableElements = contentRef.current.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+
+    const handleTab = (e) => {
+      if (e.key !== 'Tab') return;
+
+      if (e.shiftKey) {
+        if (document.activeElement === firstElement) {
+          lastElement?.focus();
+          e.preventDefault();
+        }
+      } else {
+        if (document.activeElement === lastElement) {
+          firstElement?.focus();
+          e.preventDefault();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleTab);
+
+    // Focus first element after a brief delay to ensure modal is rendered
+    const focusTimeout = setTimeout(() => {
+      firstElement?.focus();
+    }, 50);
 
     return () => {
-      openModalCount = Math.max(openModalCount - 1, 0);
-
-      try {
-        if (
-          typeof window !== 'undefined' &&
-          typeof window.CustomEvent === 'function'
-        ) {
-          window.dispatchEvent(
-            new window.CustomEvent('modalStackChange', {
-              detail: { count: openModalCount },
-            })
-          );
-        }
-      } catch (err) {
-        void err;
-      }
-
-      // Delay overlay update slightly to let closing animation start
-      requestAnimationFrame(() => {
-        hideSharedOverlayIfIdle();
-      });
-
-      if (openModalCount === 0) {
-        body.style.overflow = originalBodyOverflow;
-        body.style.paddingRight = originalBodyPaddingRight;
-      }
+      document.removeEventListener('keydown', handleTab);
+      clearTimeout(focusTimeout);
     };
   }, [isOpen]);
 
-  // Listen for global stack changes so that non-top modals can re-render and
-  // avoid rendering an additional overlay that would otherwise darken the
-  // background cumulatively.
-  // This effect listens for a global CustomEvent and reads the module-scoped
-  // `openModalCount`. Adding those to deps is incorrect because they are
-  // mutated outside React's render lifecycle. Keep this explanation here for
-  // maintainers who may otherwise try to add internal module variables to the
-  // deps array.
+  // Register modal and manage lifecycle
   useEffect(() => {
-    const wrapped = (e) => {
-      const count = e?.detail?.count ?? 0;
-      // Update immediately for smooth nested modal transitions
-      setStackCount(count);
-      if (count > 0) updateSharedOverlayZ(BASE_Z_INDEX + count);
-      else hideSharedOverlayIfIdle();
+    if (!isOpen) return;
+
+    const myIndex = modalStackManager.register();
+    modalIndexRef.current = myIndex;
+
+    const zIndex = BASE_Z_INDEX + myIndex;
+
+    // Update z-index via direct DOM manipulation to avoid React render issues
+    if (overlayRef.current) {
+      overlayRef.current.style.zIndex = String(zIndex);
+    }
+
+    overlayManager.show(zIndex);
+    scrollLockManager.lock();
+
+    return () => {
+      if (modalIndexRef.current !== null) {
+        modalStackManager.unregister(modalIndexRef.current);
+        modalIndexRef.current = null;
+      }
+
+      requestAnimationFrame(() => {
+        const count = modalStackManager.getCount();
+        const topIndex = modalStackManager.getTopIndex();
+        overlayManager.hide(count, BASE_Z_INDEX + topIndex);
+      });
+
+      scrollLockManager.unlock();
+    };
+  }, [isOpen]);
+
+  // Subscribe to modal stack changes
+  useEffect(() => {
+    const updateState = () => {
+      const topIndex = modalStackManager.getTopIndex();
+      const count = modalStackManager.getCount();
+      const myIndex = modalIndexRef.current;
+
+      if (myIndex !== null) {
+        const amTopmost = myIndex === topIndex;
+        setIsTopmost(amTopmost);
+        setShouldDimContent(!amTopmost && count > 0);
+
+        if (count > 0) {
+          overlayManager.updateZIndex(BASE_Z_INDEX + topIndex);
+        } else {
+          overlayManager.hide(count, BASE_Z_INDEX + topIndex);
+        }
+      }
     };
 
-    window.addEventListener('modalStackChange', wrapped);
-    // Initialize stack count
-    // eslint-disable-next-line
-    setStackCount(openModalCount);
-    return () => window.removeEventListener('modalStackChange', wrapped);
+    // Initial state
+    updateState();
+
+    // Subscribe to changes
+    const unsubscribe = modalStackManager.subscribe(updateState);
+    return unsubscribe;
   }, []);
 
-  if (!isOpen) return null;
+  // Handle overlay click
+  const handleOverlayClick = useCallback(
+    (e) => {
+      if (
+        closeOnOverlayClick &&
+        onClose &&
+        isTopmost &&
+        e.target === e.currentTarget
+      ) {
+        onClose();
+      }
+    },
+    [closeOnOverlayClick, onClose, isTopmost]
+  );
 
-  const isTopmost = modalIndex === stackCount;
-
-  const shouldDimContent = !isTopmost && stackCount > 0;
+  if (!isOpen || typeof document === 'undefined') return null;
 
   const overlay = (
     <div
+      ref={overlayRef}
+      role="dialog"
+      aria-modal="true"
       style={{
-        zIndex: zIndexValue,
-        // Hint to browser that this layer will have z-index changes
+        zIndex: BASE_Z_INDEX,
         isolation: 'isolate',
+        pointerEvents: isTopmost ? 'auto' : 'none',
       }}
-      className={`modal-overlay-wrapper fixed inset-0 !mt-0 ${
-        // visual dimming now comes from the shared overlay. Keep this
-        // per-modal layer transparent. Only the topmost modal should
-        // accept pointer events; underlying modals must not block them.
-        isTopmost ? 'bg-transparent' : 'bg-transparent pointer-events-none'
-      } flex items-center justify-center p-4 ${overlayClassName}`}
+      className={`modal-overlay-wrapper fixed inset-0 !mt-0 bg-transparent flex items-center justify-center p-4 ${overlayClassName}`}
+      onClick={handleOverlayClick}
     >
       <div
+        ref={contentRef}
         className={`modal-content relative bg-slate-800 rounded-2xl border border-slate-700 max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800 transition-[height,max-height] duration-300 ease-in-out ${
           isClosing ? 'closing' : ''
         } ${contentClassName}`}
-        style={{ willChange: isClosing ? 'transform, opacity' : 'auto' }}
+        style={{
+          willChange: isClosing ? 'transform, opacity' : 'auto',
+          pointerEvents: 'auto',
+        }}
       >
-        {shouldDimContent ? (
+        {shouldDimContent && (
           <div
             className="pointer-events-none absolute inset-0 rounded-2xl bg-black/50"
             style={{
-              // Instant transition when becoming dimmed (nested modal opens)
-              // Smooth transition when un-dimming (nested modal closes)
               transition: shouldDimContent ? 'none' : 'opacity 200ms ease-out',
               opacity: shouldDimContent ? 1 : 0,
             }}
           />
-        ) : null}
+        )}
         {children}
       </div>
     </div>
@@ -281,3 +442,25 @@ export const ModalShell = ({
 
   return createPortal(overlay, document.body);
 };
+
+ModalShell.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  isClosing: PropTypes.bool,
+  children: PropTypes.node.isRequired,
+  overlayClassName: PropTypes.string,
+  contentClassName: PropTypes.string,
+  onClose: PropTypes.func,
+  closeOnEscape: PropTypes.bool,
+  closeOnOverlayClick: PropTypes.bool,
+};
+
+// ============================================================================
+// CLEANUP ON MODULE UNLOAD (for HMR/Fast Refresh)
+// ============================================================================
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    overlayManager.cleanup();
+    scrollLockManager.cleanup();
+  });
+}
