@@ -26,6 +26,7 @@ export const FoodSearchModal = ({
   pinnedFoods = [],
   onTogglePin,
 }) => {
+  const LONG_PRESS_DURATION = 650;
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState(null);
@@ -34,6 +35,7 @@ export const FoodSearchModal = ({
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const dropdownRef = useRef(null);
   const longPressTimerRef = useRef(null);
+  const skipNextClickRef = useRef(false);
   const [longPressingId, setLongPressingId] = useState(null);
 
   // Close dropdown when clicking outside
@@ -52,22 +54,47 @@ export const FoodSearchModal = ({
   }, [isFilterOpen]);
 
   // Long-press handlers
-  const handlePressStart = (foodId) => {
+  const handlePressStart = (foodId, event) => {
+    if (event?.pointerType === 'mouse' && event.button !== 0) {
+      return;
+    }
+
     setLongPressingId(foodId);
+    skipNextClickRef.current = false;
+
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
+
     longPressTimerRef.current = setTimeout(() => {
       if (onTogglePin) {
         onTogglePin(foodId);
+        skipNextClickRef.current = true;
       }
       setLongPressingId(null);
-    }, 750); // 750ms hold duration
+      longPressTimerRef.current = null;
+    }, LONG_PRESS_DURATION);
   };
 
-  const handlePressEnd = () => {
+  const handlePressEnd = (shouldResetSkip = false) => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
     setLongPressingId(null);
+
+    if (shouldResetSkip) {
+      skipNextClickRef.current = false;
+    }
+  };
+
+  const handleFoodClick = (food) => {
+    if (skipNextClickRef.current) {
+      skipNextClickRef.current = false;
+      return;
+    }
+
+    onSelectFood?.(food);
   };
 
   // Cleanup timer on unmount
@@ -487,13 +514,12 @@ export const FoodSearchModal = ({
             return (
               <button
                 key={food.id}
-                onClick={() => onSelectFood?.(food)}
-                onMouseDown={() => handlePressStart(food.id)}
-                onMouseUp={handlePressEnd}
-                onMouseLeave={handlePressEnd}
-                onTouchStart={() => handlePressStart(food.id)}
-                onTouchEnd={handlePressEnd}
-                onTouchCancel={handlePressEnd}
+                onClick={() => handleFoodClick(food)}
+                onPointerDown={(event) => handlePressStart(food.id, event)}
+                onPointerUp={() => handlePressEnd(false)}
+                onPointerLeave={() => handlePressEnd(true)}
+                onPointerCancel={() => handlePressEnd(true)}
+                onContextMenu={(event) => event.preventDefault()}
                 className={`w-full bg-slate-700/50 border rounded-lg p-3 text-left transition-all ${
                   isLongPressing
                     ? 'border-blue-400 scale-[0.98]'
