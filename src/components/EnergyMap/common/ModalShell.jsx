@@ -314,14 +314,8 @@ export const ModalShell = ({
 
     document.addEventListener('keydown', handleTab);
 
-    // Focus first element after a brief delay to ensure modal is rendered
-    const focusTimeout = setTimeout(() => {
-      firstElement?.focus();
-    }, 50);
-
     return () => {
       document.removeEventListener('keydown', handleTab);
-      clearTimeout(focusTimeout);
     };
   }, [isOpen]);
 
