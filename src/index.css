@@ -17,10 +17,24 @@ body {
 *::after {
   -ms-overflow-style: none;
   scrollbar-width: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
 }
 
 *::-webkit-scrollbar {
   display: none;
+}
+
+/* Re-enable selection where text input is necessary */
+input,
+textarea,
+select,
+[contenteditable="true"],
+.allow-text-selection {
+  -webkit-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
 }
 
 /* Hide scrollbar for Chrome, Safari and Opera */
