@@ -711,7 +711,7 @@ export const CalendarPickerModal = ({
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="mt-12 bg-slate-700 rounded-lg p-4 border border-slate-600"
+          className="mt-6 bg-slate-700 rounded-lg p-4 border border-slate-600"
         >
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp className="text-blue-400" size={18} />
