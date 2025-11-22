@@ -20,30 +20,18 @@ const CalendarHeatmap = ({
   onKeyboardSelect,
   slideDirection,
   nutritionData,
+  monthNames,
 }) => {
   const [focusedDate, setFocusedDate] = useState(
     selectedDate || calendarData[0]?.date || null
   );
 
-  // Group by weeks
+  // Group by weeks (now always 6 weeks with 42 cells)
   const weeks = useMemo(() => {
     const weekArray = [];
-    let currentWeek = [];
-
-    calendarData.forEach((day) => {
-      // Start new week on Sunday (dayOfWeek === 0)
-      if (day.dayOfWeek === 0 && currentWeek.length > 0) {
-        weekArray.push(currentWeek);
-        currentWeek = [];
-      }
-      currentWeek.push(day);
-    });
-
-    // Push last week if it has days
-    if (currentWeek.length > 0) {
-      weekArray.push(currentWeek);
+    for (let i = 0; i < 6; i++) {
+      weekArray.push(calendarData.slice(i * 7, (i + 1) * 7));
     }
-
     return weekArray;
   }, [calendarData]);
 
@@ -94,10 +82,13 @@ const CalendarHeatmap = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [focusedDate, calendarData, onKeyboardSelect]);
 
-  const getStatusColor = (date) => {
+  const getStatusColor = (date, isGhost) => {
     const isSelected = date === selectedDate;
     const isFocused = date === focusedDate;
 
+    if (isGhost) {
+      return 'bg-slate-800/30 border-slate-700/30 cursor-default';
+    }
     if (isSelected) {
       return 'bg-blue-500 border-blue-400 ring-2 ring-blue-300 shadow-lg';
     }
@@ -181,39 +172,54 @@ const CalendarHeatmap = ({
           >
             {weeks.map((week, weekIndex) => (
               <div key={weekIndex} className="grid grid-cols-7 gap-2 mb-2">
-                {/* Pad start of first week if doesn't start on Sunday */}
-                {weekIndex === 0 &&
-                  week[0].dayOfWeek !== 0 &&
-                  Array.from({ length: week[0].dayOfWeek }).map((_, i) => (
-                    <div key={`pad-${i}`} />
-                  ))}
-
                 {week.map((day) => {
                   const macros = getMacrosForDate(day.date);
                   const dayNum = getDayNumber(day.date);
 
                   // Only show macro insights if there is data for the day
                   const hasData = day.hasEntries;
+                  const isGhost = day.isGhost;
+
+                  // Get month abbreviation for ghost cells
+                  const ghostMonthAbbr = isGhost
+                    ? monthNames[
+                        new Date(day.date + 'T00:00:00Z').getUTCMonth()
+                      ].slice(0, 3)
+                    : '';
+
                   return (
                     <motion.button
                       key={day.date}
                       type="button"
-                      onClick={() => handleDateClick(day.date)}
-                      onMouseEnter={() => setFocusedDate(day.date)}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.98 }}
+                      onClick={() => !isGhost && handleDateClick(day.date)}
+                      onMouseEnter={() => !isGhost && setFocusedDate(day.date)}
+                      whileHover={!isGhost ? { scale: 1.05 } : {}}
+                      whileTap={!isGhost ? { scale: 0.98 } : {}}
                       transition={{ duration: 0.15 }}
-                      className={`aspect-square rounded-lg border-2 flex flex-col items-center justify-center gap-0.5 text-xs font-bold transition-colors relative ${getStatusColor(day.date)}`}
-                      aria-label={`Select ${new Date(day.date + 'T00:00:00Z').toLocaleDateString()}${hasData ? `, ${macros.calories} calories` : ''}`}
+                      disabled={isGhost}
+                      className={`aspect-square rounded-lg border-2 flex flex-col items-center justify-center gap-0.5 text-xs font-bold transition-colors relative ${getStatusColor(day.date, isGhost)}`}
+                      aria-label={
+                        isGhost
+                          ? `${new Date(day.date + 'T00:00:00Z').toLocaleDateString()} (outside current month)`
+                          : `Select ${new Date(day.date + 'T00:00:00Z').toLocaleDateString()}${hasData ? `, ${macros.calories} calories` : ''}`
+                      }
                       aria-pressed={day.date === selectedDate}
+                      aria-disabled={isGhost}
                     >
-                      {day.hasEntries && (
+                      {day.hasEntries && !isGhost && (
                         <div className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full border border-blue-400 shadow-sm" />
                       )}
-                      <span className="text-white text-sm font-bold">
+                      <span
+                        className={`text-sm font-bold ${isGhost ? 'text-slate-600' : 'text-white'}`}
+                      >
                         {dayNum}
                       </span>
-                      {hasData && (
+                      {isGhost && (
+                        <span className="text-slate-600 text-[8px] font-medium mt-0.5">
+                          {ghostMonthAbbr}
+                        </span>
+                      )}
+                      {hasData && !isGhost && (
                         <div className="flex flex-col gap-0 leading-none w-full px-1">
                           <span className="text-emerald-400 text-[9px] font-semibold">
                             kcal:{formatMacroDisplay(macros.calories, hasData)}
@@ -372,14 +378,38 @@ export const CalendarPickerModal = ({
       daysWithData,
     };
   }, [currentMonth, currentYear, nutritionData]);
-  // Generate calendar data for the current month
+  // Generate calendar data for the current month with ghost cells
   const calendarData = useMemo(() => {
     const year = currentYear;
     const month = currentMonth;
+    const firstDay = new Date(Date.UTC(year, month, 1));
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
+    const firstDayOfWeek = firstDay.getUTCDay();
 
     const data = [];
+
+    // Add ghost cells for previous month
+    if (firstDayOfWeek > 0) {
+      const prevMonth = month === 0 ? 11 : month - 1;
+      const prevYear = month === 0 ? year - 1 : year;
+      const prevMonthLastDay = new Date(prevYear, prevMonth + 1, 0).getDate();
+
+      for (let i = firstDayOfWeek - 1; i >= 0; i--) {
+        const day = prevMonthLastDay - i;
+        const date = new Date(Date.UTC(prevYear, prevMonth, day));
+        const dateStr = date.toISOString().split('T')[0];
+        data.push({
+          date: dateStr,
+          dayOfWeek: date.getUTCDay(),
+          hasEntries: false,
+          isGhost: true,
+          isPrevMonth: true,
+        });
+      }
+    }
+
+    // Add current month days
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(Date.UTC(year, month, day));
       const dateStr = date.toISOString().split('T')[0];
@@ -393,7 +423,27 @@ export const CalendarPickerModal = ({
         date: dateStr,
         dayOfWeek: date.getUTCDay(),
         hasEntries,
+        isGhost: false,
       });
+    }
+
+    // Add ghost cells for next month to complete 6 weeks (42 cells)
+    const remainingCells = 42 - data.length;
+    if (remainingCells > 0) {
+      const nextMonth = month === 11 ? 0 : month + 1;
+      const nextYear = month === 11 ? year + 1 : year;
+
+      for (let day = 1; day <= remainingCells; day++) {
+        const date = new Date(Date.UTC(nextYear, nextMonth, day));
+        const dateStr = date.toISOString().split('T')[0];
+        data.push({
+          date: dateStr,
+          dayOfWeek: date.getUTCDay(),
+          hasEntries: false,
+          isGhost: true,
+          isNextMonth: true,
+        });
+      }
     }
 
     return data;
@@ -652,6 +702,7 @@ export const CalendarPickerModal = ({
             selectedDate={selectedDate}
             slideDirection={slideDirection}
             nutritionData={nutritionData}
+            monthNames={monthNames}
           />
         </div>
 
