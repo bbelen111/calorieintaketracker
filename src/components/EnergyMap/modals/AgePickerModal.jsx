@@ -6,7 +6,7 @@ import {
   createPickerScrollHandler,
 } from '../../../utils/scroll';
 
-const AGE_VALUES = Array.from({ length: 83 }, (_, i) => i + 15);
+const AGE_VALUES = Array.from({ length: 83 }, (_, i) => i + 1);
 
 export const AgePickerModal = ({
   isOpen,
