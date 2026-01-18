@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 
-const TOOLTIP_WIDTH = 190;
+const TOOLTIP_MAX_WIDTH = 170;
 const TOOLTIP_VERTICAL_OFFSET = 12;
 
 const getMacrosForDate = (date, nutritionData) => {
@@ -895,7 +895,7 @@ export const CalendarPickerModal = ({
       {tooltipDate && (
         <div
           ref={tooltipRef}
-          className={`fixed z-[1200] bg-slate-800 border border-slate-600 rounded-lg shadow-2xl p-3 transform -translate-x-1/2 -translate-y-full pointer-events-auto transition duration-150 ease-out ${
+          className={`fixed z-[1200] bg-slate-800 border border-slate-600 rounded-lg shadow-2xl p-2.5 transform -translate-x-1/2 -translate-y-full pointer-events-auto transition duration-150 ease-out max-w-[170px] w-fit ${
             tooltipEntered && !tooltipClosing
               ? 'opacity-100 scale-100'
               : 'opacity-0 scale-95'
@@ -903,7 +903,7 @@ export const CalendarPickerModal = ({
           style={{
             left: `${tooltipPosition.x}px`,
             top: `${tooltipPosition.y - TOOLTIP_VERTICAL_OFFSET}px`,
-            width: `${TOOLTIP_WIDTH}px`,
+            maxWidth: `${TOOLTIP_MAX_WIDTH}px`,
           }}
           onClick={handleTooltipClick}
         >
@@ -921,28 +921,19 @@ export const CalendarPickerModal = ({
             </p>
             {hasTooltipData ? (
               <>
-                <p className="text-white text-lg font-bold">
+                <p className="text-emerald-400 text-lg font-bold">
                   {Math.round(tooltipMacros.calories)} kcal
                 </p>
-                <div className="mt-2 grid grid-cols-3 gap-2 text-[11px] text-slate-200">
-                  <div className="flex flex-col items-center rounded-md bg-slate-700/60 p-2">
-                    <span className="text-red-400 font-semibold">
-                      {Math.round(tooltipMacros.protein)}g
-                    </span>
-                    <span className="text-slate-400">Protein</span>
-                  </div>
-                  <div className="flex flex-col items-center rounded-md bg-slate-700/60 p-2">
-                    <span className="text-amber-400 font-semibold">
-                      {Math.round(tooltipMacros.carbs)}g
-                    </span>
-                    <span className="text-slate-400">Carbs</span>
-                  </div>
-                  <div className="flex flex-col items-center rounded-md bg-slate-700/60 p-2">
-                    <span className="text-yellow-400 font-semibold">
-                      {Math.round(tooltipMacros.fats)}g
-                    </span>
-                    <span className="text-slate-400">Fats</span>
-                  </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+                  <span className="text-red-400 font-semibold">
+                    P {Math.round(tooltipMacros.protein)}g
+                  </span>
+                  <span className="text-amber-400 font-semibold">
+                    C {Math.round(tooltipMacros.carbs)}g
+                  </span>
+                  <span className="text-yellow-400 font-semibold">
+                    F {Math.round(tooltipMacros.fats)}g
+                  </span>
                 </div>
               </>
             ) : (
