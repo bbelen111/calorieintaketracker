@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 import React, { useMemo } from 'react';
-import { Info, LineChart, PieChart, Lightbulb } from 'lucide-react';
+import { Info, PieChart, Lightbulb, LineChart  } from 'lucide-react';
 import {
   calculateWeightTrend,
   createSparklinePoints,
@@ -156,588 +156,587 @@ export const InsightsScreen = ({
 
   return (
     <div className="space-y-6 pb-10">
-      <button
-        type="button"
-        onClick={onOpenWeightTracker}
-        className="w-full bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl p-5 md:p-6 text-left transition-all hover:border-blue-400/70 hover:bg-slate-800/90"
-      >
-        <div className="flex items-center justify-between gap-1">
-          <div>
-            <p className="font-bold text-white text-lg mb-2 flex items-center gap-2">
-              <LineChart size={26} className="text-blue-300" />
-              Weight Snapshot
-            </p>
-            <p
-              className={`text-xl font-semibold ${getTrendToneClass(trend.direction, trend.label)}`}
-            >
-              {trend.label}
-            </p>
-            <p className="text-slate-300 text-sm mt-1">
-              {currentWeight ? `${currentWeight} kg` : '—'} • {lastLoggedLabel}
-            </p>
-              <p className="text-slate-300 text-sm mt-2">
-                {formatWeeklyRate(trend.weeklyRate)} over last 7 entries
-              </p>
-          </div>
-          {sparkline.points && sortedEntries.length > 1 && (
-            <div className="w-36 h-16 relative">
-              <svg
-                width="100%"
-                height="100%"
-                viewBox="0 0 160 56"
-                preserveAspectRatio="none"
-                className="overflow-visible"
-              >
-                <defs>
-                  <linearGradient
-                    id="weightSparklineGradient"
-                    x1="0"
-                    x2="0"
-                    y1="0"
-                    y2="1"
+      <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl p-5 md:p-6">
+        <div className="flex items-center mb-4 gap-2">
+          <LineChart className="text-blue-400" size={18} />
+          <h2 className="text-xl font-bold text-white">Body Composition</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={onOpenWeightTracker}
+            className="w-full rounded-xl border border-slate-700 bg-slate-900/40 p-4 text-left transition-all hover:border-blue-400/70 hover:bg-slate-900"
+          >
+            <div className="flex items-center justify-between gap-1">
+              <div>
+                <p className="font-semibold text-white text-base mb-2">Weight Snapshot</p>
+                <p
+                  className={`text-lg font-semibold ${getTrendToneClass(trend.direction, trend.label)}`}
+                >
+                  {trend.label}
+                </p>
+                <p className="text-slate-300 text-sm mt-1">
+                  {currentWeight ? `${currentWeight} kg` : '—'} • {lastLoggedLabel}
+                </p>
+                <p className="text-slate-300 text-sm mt-2">
+                  {formatWeeklyRate(trend.weeklyRate)} over last 7 entries
+                </p>
+              </div>
+              {sparkline.points && sortedEntries.length > 1 && (
+                <div className="w-36 h-16 relative">
+                  <svg
+                    width="100%"
+                    height="100%"
+                    viewBox="0 0 160 56"
+                    preserveAspectRatio="none"
+                    className="overflow-visible"
                   >
-                    {trend.label.includes('Severe') ? (
-                      <>
-                        <stop
-                          offset="0%"
-                          stopColor="#ef4444"
-                          stopOpacity="0.4"
-                        />
-                        <stop
-                          offset="100%"
-                          stopColor="#ef4444"
-                          stopOpacity="0.05"
-                        />
-                      </>
-                    ) : trend.label.includes('Aggressive weight loss') ? (
-                      <>
-                        <stop
-                          offset="0%"
-                          stopColor="#f97316"
-                          stopOpacity="0.4"
-                        />
-                        <stop
-                          offset="100%"
-                          stopColor="#f97316"
-                          stopOpacity="0.05"
-                        />
-                      </>
-                    ) : trend.label.includes('Aggressive weight gain') ? (
-                      <>
-                        <stop
-                          offset="0%"
-                          stopColor="#a855f7"
-                          stopOpacity="0.4"
-                        />
-                        <stop
-                          offset="100%"
-                          stopColor="#a855f7"
-                          stopOpacity="0.05"
-                        />
-                      </>
-                    ) : trend.label.includes('Moderate weight loss') ? (
-                      <>
-                        <stop
-                          offset="0%"
-                          stopColor="#eab308"
-                          stopOpacity="0.4"
-                        />
-                        <stop
-                          offset="100%"
-                          stopColor="#eab308"
-                          stopOpacity="0.05"
-                        />
-                      </>
-                    ) : trend.label.includes('Moderate weight gain') ? (
-                      <>
-                        <stop
-                          offset="0%"
-                          stopColor="#22c55e"
-                          stopOpacity="0.4"
-                        />
-                        <stop
-                          offset="100%"
-                          stopColor="#22c55e"
-                          stopOpacity="0.05"
-                        />
-                      </>
-                    ) : trend.direction === 'down' ? (
-                      <>
-                        <stop
-                          offset="0%"
-                          stopColor="#eab308"
-                          stopOpacity="0.3"
-                        />
-                        <stop
-                          offset="100%"
-                          stopColor="#eab308"
-                          stopOpacity="0.05"
-                        />
-                      </>
-                    ) : trend.direction === 'up' ? (
-                      <>
-                        <stop
-                          offset="0%"
-                          stopColor="#22c55e"
-                          stopOpacity="0.3"
-                        />
-                        <stop
-                          offset="100%"
-                          stopColor="#22c55e"
-                          stopOpacity="0.05"
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <stop
-                          offset="0%"
-                          stopColor="#60a5fa"
-                          stopOpacity="0.4"
-                        />
-                        <stop
-                          offset="100%"
-                          stopColor="#60a5fa"
-                          stopOpacity="0.05"
-                        />
-                      </>
+                    <defs>
+                      <linearGradient
+                        id="weightSparklineGradient"
+                        x1="0"
+                        x2="0"
+                        y1="0"
+                        y2="1"
+                      >
+                        {trend.label.includes('Severe') ? (
+                          <>
+                            <stop
+                              offset="0%"
+                              stopColor="#ef4444"
+                              stopOpacity="0.4"
+                            />
+                            <stop
+                              offset="100%"
+                              stopColor="#ef4444"
+                              stopOpacity="0.05"
+                            />
+                          </>
+                        ) : trend.label.includes('Aggressive weight loss') ? (
+                          <>
+                            <stop
+                              offset="0%"
+                              stopColor="#f97316"
+                              stopOpacity="0.4"
+                            />
+                            <stop
+                              offset="100%"
+                              stopColor="#f97316"
+                              stopOpacity="0.05"
+                            />
+                          </>
+                        ) : trend.label.includes('Aggressive weight gain') ? (
+                          <>
+                            <stop
+                              offset="0%"
+                              stopColor="#a855f7"
+                              stopOpacity="0.4"
+                            />
+                            <stop
+                              offset="100%"
+                              stopColor="#a855f7"
+                              stopOpacity="0.05"
+                            />
+                          </>
+                        ) : trend.label.includes('Moderate weight loss') ? (
+                          <>
+                            <stop
+                              offset="0%"
+                              stopColor="#eab308"
+                              stopOpacity="0.4"
+                            />
+                            <stop
+                              offset="100%"
+                              stopColor="#eab308"
+                              stopOpacity="0.05"
+                            />
+                          </>
+                        ) : trend.label.includes('Moderate weight gain') ? (
+                          <>
+                            <stop
+                              offset="0%"
+                              stopColor="#22c55e"
+                              stopOpacity="0.4"
+                            />
+                            <stop
+                              offset="100%"
+                              stopColor="#22c55e"
+                              stopOpacity="0.05"
+                            />
+                          </>
+                        ) : trend.direction === 'down' ? (
+                          <>
+                            <stop
+                              offset="0%"
+                              stopColor="#eab308"
+                              stopOpacity="0.3"
+                            />
+                            <stop
+                              offset="100%"
+                              stopColor="#eab308"
+                              stopOpacity="0.05"
+                            />
+                          </>
+                        ) : trend.direction === 'up' ? (
+                          <>
+                            <stop
+                              offset="0%"
+                              stopColor="#22c55e"
+                              stopOpacity="0.3"
+                            />
+                            <stop
+                              offset="100%"
+                              stopColor="#22c55e"
+                              stopOpacity="0.05"
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <stop
+                              offset="0%"
+                              stopColor="#60a5fa"
+                              stopOpacity="0.4"
+                            />
+                            <stop
+                              offset="100%"
+                              stopColor="#60a5fa"
+                              stopOpacity="0.05"
+                            />
+                          </>
+                        )}
+                      </linearGradient>
+                      <linearGradient
+                        id="weightSparklineStroke"
+                        x1="0"
+                        x2="0"
+                        y1="0"
+                        y2="1"
+                      >
+                        {trend.label.includes('Severe') ? (
+                          <>
+                            <stop offset="0%" stopColor="#ef4444" stopOpacity="1" />
+                            <stop
+                              offset="100%"
+                              stopColor="#ef4444"
+                              stopOpacity="0.8"
+                            />
+                          </>
+                        ) : trend.label.includes('Aggressive weight loss') ? (
+                          <>
+                            <stop offset="0%" stopColor="#f97316" stopOpacity="1" />
+                            <stop
+                              offset="100%"
+                              stopColor="#f97316"
+                              stopOpacity="0.8"
+                            />
+                          </>
+                        ) : trend.label.includes('Aggressive weight gain') ? (
+                          <>
+                            <stop offset="0%" stopColor="#a855f7" stopOpacity="1" />
+                            <stop
+                              offset="100%"
+                              stopColor="#a855f7"
+                              stopOpacity="0.8"
+                            />
+                          </>
+                        ) : trend.label.includes('Moderate weight loss') ? (
+                          <>
+                            <stop offset="0%" stopColor="#eab308" stopOpacity="1" />
+                            <stop
+                              offset="100%"
+                              stopColor="#eab308"
+                              stopOpacity="0.8"
+                            />
+                          </>
+                        ) : trend.label.includes('Moderate weight gain') ? (
+                          <>
+                            <stop offset="0%" stopColor="#22c55e" stopOpacity="1" />
+                            <stop
+                              offset="100%"
+                              stopColor="#22c55e"
+                              stopOpacity="0.8"
+                            />
+                          </>
+                        ) : trend.direction === 'down' ? (
+                          <>
+                            <stop
+                              offset="0%"
+                              stopColor="#eab308"
+                              stopOpacity="0.8"
+                            />
+                            <stop
+                              offset="100%"
+                              stopColor="#eab308"
+                              stopOpacity="0.6"
+                            />
+                          </>
+                        ) : trend.direction === 'up' ? (
+                          <>
+                            <stop
+                              offset="0%"
+                              stopColor="#22c55e"
+                              stopOpacity="0.8"
+                            />
+                            <stop
+                              offset="100%"
+                              stopColor="#22c55e"
+                              stopOpacity="0.6"
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <stop offset="0%" stopColor="#60a5fa" stopOpacity="1" />
+                            <stop
+                              offset="100%"
+                              stopColor="#60a5fa"
+                              stopOpacity="0.8"
+                            />
+                          </>
+                        )}
+                      </linearGradient>
+                    </defs>
+                    {sparkline.areaPath && (
+                      <path
+                        d={sparkline.areaPath}
+                        fill="url(#weightSparklineGradient)"
+                      />
                     )}
-                  </linearGradient>
-                  <linearGradient
-                    id="weightSparklineStroke"
-                    x1="0"
-                    x2="0"
-                    y1="0"
-                    y2="1"
-                  >
-                    {trend.label.includes('Severe') ? (
-                      <>
-                        <stop offset="0%" stopColor="#ef4444" stopOpacity="1" />
-                        <stop
-                          offset="100%"
-                          stopColor="#ef4444"
-                          stopOpacity="0.8"
-                        />
-                      </>
-                    ) : trend.label.includes('Aggressive weight loss') ? (
-                      <>
-                        <stop offset="0%" stopColor="#f97316" stopOpacity="1" />
-                        <stop
-                          offset="100%"
-                          stopColor="#f97316"
-                          stopOpacity="0.8"
-                        />
-                      </>
-                    ) : trend.label.includes('Aggressive weight gain') ? (
-                      <>
-                        <stop offset="0%" stopColor="#a855f7" stopOpacity="1" />
-                        <stop
-                          offset="100%"
-                          stopColor="#a855f7"
-                          stopOpacity="0.8"
-                        />
-                      </>
-                    ) : trend.label.includes('Moderate weight loss') ? (
-                      <>
-                        <stop offset="0%" stopColor="#eab308" stopOpacity="1" />
-                        <stop
-                          offset="100%"
-                          stopColor="#eab308"
-                          stopOpacity="0.8"
-                        />
-                      </>
-                    ) : trend.label.includes('Moderate weight gain') ? (
-                      <>
-                        <stop offset="0%" stopColor="#22c55e" stopOpacity="1" />
-                        <stop
-                          offset="100%"
-                          stopColor="#22c55e"
-                          stopOpacity="0.8"
-                        />
-                      </>
-                    ) : trend.direction === 'down' ? (
-                      <>
-                        <stop
-                          offset="0%"
-                          stopColor="#eab308"
-                          stopOpacity="0.8"
-                        />
-                        <stop
-                          offset="100%"
-                          stopColor="#eab308"
-                          stopOpacity="0.6"
-                        />
-                      </>
-                    ) : trend.direction === 'up' ? (
-                      <>
-                        <stop
-                          offset="0%"
-                          stopColor="#22c55e"
-                          stopOpacity="0.8"
-                        />
-                        <stop
-                          offset="100%"
-                          stopColor="#22c55e"
-                          stopOpacity="0.6"
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <stop offset="0%" stopColor="#60a5fa" stopOpacity="1" />
-                        <stop
-                          offset="100%"
-                          stopColor="#60a5fa"
-                          stopOpacity="0.8"
-                        />
-                      </>
-                    )}
-                  </linearGradient>
-                </defs>
-                {/* Area fill */}
-                {sparkline.areaPath && (
-                  <path
-                    d={sparkline.areaPath}
-                    fill="url(#weightSparklineGradient)"
-                  />
-                )}
-                {/* Line */}
-                <polyline
-                  points={sparkline.points}
-                  fill="none"
-                  stroke="url(#weightSparklineStroke)"
-                  strokeWidth={2.5}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                {/* Data points */}
-                {sparkline.coordinates?.map((coord, index) => {
-                  const fillColor = trend.label.includes('Severe')
-                    ? '#ef4444'
-                    : trend.label.includes('Aggressive weight loss')
-                      ? '#f97316'
-                      : trend.label.includes('Aggressive weight gain')
-                        ? '#a855f7'
-                        : trend.label.includes('Moderate weight loss')
-                          ? '#eab308'
-                          : trend.label.includes('Moderate weight gain')
-                            ? '#22c55e'
-                            : trend.direction === 'down'
-                              ? '#eab308'
-                              : trend.direction === 'up'
-                                ? '#22c55e'
-                                : '#60a5fa';
-                  return (
-                    <circle
-                      key={index}
-                      cx={coord.x}
-                      cy={coord.y}
-                      r="2.5"
-                      fill={fillColor}
-                      className="drop-shadow-sm"
+                    <polyline
+                      points={sparkline.points}
+                      fill="none"
+                      stroke="url(#weightSparklineStroke)"
+                      strokeWidth={2.5}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
                     />
-                  );
-                })}
-              </svg>
-              {/* Left fade */}
-              <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-slate-800 to-transparent pointer-events-none" />
-              {/* Right fade */}
-              <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-slate-800 to-transparent pointer-events-none" />
+                    {sparkline.coordinates?.map((coord, index) => {
+                      const fillColor = trend.label.includes('Severe')
+                        ? '#ef4444'
+                        : trend.label.includes('Aggressive weight loss')
+                          ? '#f97316'
+                          : trend.label.includes('Aggressive weight gain')
+                            ? '#a855f7'
+                            : trend.label.includes('Moderate weight loss')
+                              ? '#eab308'
+                              : trend.label.includes('Moderate weight gain')
+                                ? '#22c55e'
+                                : trend.direction === 'down'
+                                  ? '#eab308'
+                                  : trend.direction === 'up'
+                                    ? '#22c55e'
+                                    : '#60a5fa';
+                      return (
+                        <circle
+                          key={index}
+                          cx={coord.x}
+                          cy={coord.y}
+                          r="2.5"
+                          fill={fillColor}
+                          className="drop-shadow-sm"
+                        />
+                      );
+                    })}
+                  </svg>
+                  <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-slate-900/80 to-transparent pointer-events-none" />
+                  <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-slate-900/80 to-transparent pointer-events-none" />
+                </div>
+              )}
             </div>
+            <p className="text-blue-300 text-xs tracking-wide mt-3">
+              Tap to open weight tracker
+            </p>
+          </button>
+
+          {bodyFatTrackingEnabled && (
+            <button
+              type="button"
+              onClick={onOpenBodyFatTracker}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900/40 p-4 text-left transition-all hover:border-emerald-400/70 hover:bg-slate-900"
+            >
+              <div className="flex items-center justify-between gap-1">
+                <div>
+                  <p className="font-semibold text-white text-base mb-2">
+                    Body Fat Snapshot
+                  </p>
+                  <p
+                    className={`text-lg font-semibold ${getTrendToneClass(bodyFatTrend.direction, bodyFatTrend.label)}`}
+                  >
+                    {bodyFatTrend.label}
+                  </p>
+                  <p className="text-slate-300 text-sm mt-1">
+                    {currentBodyFat ? `${currentBodyFat}%` : '—'} • {bodyFatLoggedLabel}
+                  </p>
+                  <p className="text-slate-300 text-sm mt-2">
+                    {formatBodyFatWeeklyRate(bodyFatTrend.weeklyRate)} over last 7 entries
+                  </p>
+                </div>
+                {bodyFatSparkline.points && sortedBodyFatEntries.length > 1 && (
+                  <div className="w-36 h-16 relative">
+                    <svg
+                      width="100%"
+                      height="100%"
+                      viewBox="0 0 160 56"
+                      preserveAspectRatio="none"
+                      className="overflow-visible"
+                    >
+                      <defs>
+                        <linearGradient
+                          id="bodyFatSparklineGradient"
+                          x1="0"
+                          x2="0"
+                          y1="0"
+                          y2="1"
+                        >
+                          {bodyFatTrend.label.includes('Severe') ? (
+                            <>
+                              <stop
+                                offset="0%"
+                                stopColor="#ef4444"
+                                stopOpacity="0.4"
+                              />
+                              <stop
+                                offset="100%"
+                                stopColor="#ef4444"
+                                stopOpacity="0.05"
+                              />
+                            </>
+                          ) : bodyFatTrend.label.includes('Aggressive body fat loss') ? (
+                            <>
+                              <stop
+                                offset="0%"
+                                stopColor="#f97316"
+                                stopOpacity="0.4"
+                              />
+                              <stop
+                                offset="100%"
+                                stopColor="#f97316"
+                                stopOpacity="0.05"
+                              />
+                            </>
+                          ) : bodyFatTrend.label.includes('Aggressive body fat gain') ? (
+                            <>
+                              <stop
+                                offset="0%"
+                                stopColor="#a855f7"
+                                stopOpacity="0.4"
+                              />
+                              <stop
+                                offset="100%"
+                                stopColor="#a855f7"
+                                stopOpacity="0.05"
+                              />
+                            </>
+                          ) : bodyFatTrend.label.includes('Moderate body fat loss') ? (
+                            <>
+                              <stop
+                                offset="0%"
+                                stopColor="#eab308"
+                                stopOpacity="0.4"
+                              />
+                              <stop
+                                offset="100%"
+                                stopColor="#eab308"
+                                stopOpacity="0.05"
+                              />
+                            </>
+                          ) : bodyFatTrend.label.includes('Moderate body fat gain') ? (
+                            <>
+                              <stop
+                                offset="0%"
+                                stopColor="#22c55e"
+                                stopOpacity="0.4"
+                              />
+                              <stop
+                                offset="100%"
+                                stopColor="#22c55e"
+                                stopOpacity="0.05"
+                              />
+                            </>
+                          ) : bodyFatTrend.direction === 'down' ? (
+                            <>
+                              <stop
+                                offset="0%"
+                                stopColor="#eab308"
+                                stopOpacity="0.3"
+                              />
+                              <stop
+                                offset="100%"
+                                stopColor="#eab308"
+                                stopOpacity="0.05"
+                              />
+                            </>
+                          ) : bodyFatTrend.direction === 'up' ? (
+                            <>
+                              <stop
+                                offset="0%"
+                                stopColor="#22c55e"
+                                stopOpacity="0.3"
+                              />
+                              <stop
+                                offset="100%"
+                                stopColor="#22c55e"
+                                stopOpacity="0.05"
+                              />
+                            </>
+                          ) : (
+                            <>
+                              <stop
+                                offset="0%"
+                                stopColor="#60a5fa"
+                                stopOpacity="0.4"
+                              />
+                              <stop
+                                offset="100%"
+                                stopColor="#60a5fa"
+                                stopOpacity="0.05"
+                              />
+                            </>
+                          )}
+                        </linearGradient>
+                        <linearGradient
+                          id="bodyFatSparklineStroke"
+                          x1="0"
+                          x2="0"
+                          y1="0"
+                          y2="1"
+                        >
+                          {bodyFatTrend.label.includes('Severe') ? (
+                            <>
+                              <stop offset="0%" stopColor="#ef4444" stopOpacity="1" />
+                              <stop
+                                offset="100%"
+                                stopColor="#ef4444"
+                                stopOpacity="0.8"
+                              />
+                            </>
+                          ) : bodyFatTrend.label.includes('Aggressive body fat loss') ? (
+                            <>
+                              <stop offset="0%" stopColor="#f97316" stopOpacity="1" />
+                              <stop
+                                offset="100%"
+                                stopColor="#f97316"
+                                stopOpacity="0.8"
+                              />
+                            </>
+                          ) : bodyFatTrend.label.includes('Aggressive body fat gain') ? (
+                            <>
+                              <stop offset="0%" stopColor="#a855f7" stopOpacity="1" />
+                              <stop
+                                offset="100%"
+                                stopColor="#a855f7"
+                                stopOpacity="0.8"
+                              />
+                            </>
+                          ) : bodyFatTrend.label.includes('Moderate body fat loss') ? (
+                            <>
+                              <stop offset="0%" stopColor="#eab308" stopOpacity="1" />
+                              <stop
+                                offset="100%"
+                                stopColor="#eab308"
+                                stopOpacity="0.8"
+                              />
+                            </>
+                          ) : bodyFatTrend.label.includes('Moderate body fat gain') ? (
+                            <>
+                              <stop offset="0%" stopColor="#22c55e" stopOpacity="1" />
+                              <stop
+                                offset="100%"
+                                stopColor="#22c55e"
+                                stopOpacity="0.8"
+                              />
+                            </>
+                          ) : bodyFatTrend.direction === 'down' ? (
+                            <>
+                              <stop
+                                offset="0%"
+                                stopColor="#eab308"
+                                stopOpacity="0.8"
+                              />
+                              <stop
+                                offset="100%"
+                                stopColor="#eab308"
+                                stopOpacity="0.6"
+                              />
+                            </>
+                          ) : bodyFatTrend.direction === 'up' ? (
+                            <>
+                              <stop
+                                offset="0%"
+                                stopColor="#22c55e"
+                                stopOpacity="0.8"
+                              />
+                              <stop
+                                offset="100%"
+                                stopColor="#22c55e"
+                                stopOpacity="0.6"
+                              />
+                            </>
+                          ) : (
+                            <>
+                              <stop offset="0%" stopColor="#60a5fa" stopOpacity="1" />
+                              <stop
+                                offset="100%"
+                                stopColor="#60a5fa"
+                                stopOpacity="0.8"
+                              />
+                            </>
+                          )}
+                        </linearGradient>
+                      </defs>
+                      {bodyFatSparkline.areaPath && (
+                        <path
+                          d={bodyFatSparkline.areaPath}
+                          fill="url(#bodyFatSparklineGradient)"
+                        />
+                      )}
+                      <polyline
+                        points={bodyFatSparkline.points}
+                        fill="none"
+                        stroke="url(#bodyFatSparklineStroke)"
+                        strokeWidth={2.5}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      {bodyFatSparkline.coordinates?.map((coord, index) => {
+                        const fillColor = bodyFatTrend.label.includes('Severe')
+                          ? '#ef4444'
+                          : bodyFatTrend.label.includes('Aggressive body fat loss')
+                            ? '#f97316'
+                            : bodyFatTrend.label.includes('Aggressive body fat gain')
+                              ? '#a855f7'
+                              : bodyFatTrend.label.includes('Moderate body fat loss')
+                                ? '#eab308'
+                                : bodyFatTrend.label.includes('Moderate body fat gain')
+                                  ? '#22c55e'
+                                  : bodyFatTrend.direction === 'down'
+                                    ? '#eab308'
+                                    : bodyFatTrend.direction === 'up'
+                                      ? '#22c55e'
+                                      : '#60a5fa';
+                        return (
+                          <circle
+                            key={index}
+                            cx={coord.x}
+                            cy={coord.y}
+                            r="2.5"
+                            fill={fillColor}
+                            className="drop-shadow-sm"
+                          />
+                        );
+                      })}
+                    </svg>
+                    <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-slate-900/80 to-transparent pointer-events-none" />
+                    <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-slate-900/80 to-transparent pointer-events-none" />
+                  </div>
+                )}
+              </div>
+              <p className="text-emerald-300 text-xs tracking-wide mt-3">
+                Tap to open body fat tracker
+              </p>
+            </button>
           )}
         </div>
-        <p className="text-blue-300 text-xs tracking-wide mt-4">
-          Tap to open weight tracker
-        </p>
-      </button>
-
-      {bodyFatTrackingEnabled && (
-        <button
-          type="button"
-          onClick={onOpenBodyFatTracker}
-          className="w-full rounded-2xl border shadow-2xl p-5 md:p-6 text-left transition-all bg-slate-800 border-slate-700 hover:border-emerald-400/70 hover:bg-slate-800/90"
-        >
-          <div className="flex items-center justify-between gap-1">
-            <div>
-              <p className="font-bold text-white text-lg mb-2 flex items-center gap-2">
-                <LineChart size={26} className="text-emerald-300" />
-                Body Fat Snapshot
-              </p>
-              <p
-                className={`text-xl font-semibold ${getTrendToneClass(bodyFatTrend.direction, bodyFatTrend.label)}`}
-              >
-                {bodyFatTrend.label}
-              </p>
-              <p className="text-slate-300 text-sm mt-1">
-                {currentBodyFat ? `${currentBodyFat}%` : '—'} • {bodyFatLoggedLabel}
-              </p>
-              <p className="text-slate-300 text-sm mt-2">
-                {formatBodyFatWeeklyRate(bodyFatTrend.weeklyRate)} over last 7 entries
-              </p>
-            </div>
-            {bodyFatSparkline.points && sortedBodyFatEntries.length > 1 && (
-              <div className="w-36 h-16 relative">
-                <svg
-                  width="100%"
-                  height="100%"
-                  viewBox="0 0 160 56"
-                  preserveAspectRatio="none"
-                  className="overflow-visible"
-                >
-                  <defs>
-                    <linearGradient
-                      id="bodyFatSparklineGradient"
-                      x1="0"
-                      x2="0"
-                      y1="0"
-                      y2="1"
-                    >
-                      {bodyFatTrend.label.includes('Severe') ? (
-                        <>
-                          <stop
-                            offset="0%"
-                            stopColor="#ef4444"
-                            stopOpacity="0.4"
-                          />
-                          <stop
-                            offset="100%"
-                            stopColor="#ef4444"
-                            stopOpacity="0.05"
-                          />
-                        </>
-                      ) : bodyFatTrend.label.includes('Aggressive body fat loss') ? (
-                        <>
-                          <stop
-                            offset="0%"
-                            stopColor="#f97316"
-                            stopOpacity="0.4"
-                          />
-                          <stop
-                            offset="100%"
-                            stopColor="#f97316"
-                            stopOpacity="0.05"
-                          />
-                        </>
-                      ) : bodyFatTrend.label.includes('Aggressive body fat gain') ? (
-                        <>
-                          <stop
-                            offset="0%"
-                            stopColor="#a855f7"
-                            stopOpacity="0.4"
-                          />
-                          <stop
-                            offset="100%"
-                            stopColor="#a855f7"
-                            stopOpacity="0.05"
-                          />
-                        </>
-                      ) : bodyFatTrend.label.includes('Moderate body fat loss') ? (
-                        <>
-                          <stop
-                            offset="0%"
-                            stopColor="#eab308"
-                            stopOpacity="0.4"
-                          />
-                          <stop
-                            offset="100%"
-                            stopColor="#eab308"
-                            stopOpacity="0.05"
-                          />
-                        </>
-                      ) : bodyFatTrend.label.includes('Moderate body fat gain') ? (
-                        <>
-                          <stop
-                            offset="0%"
-                            stopColor="#22c55e"
-                            stopOpacity="0.4"
-                          />
-                          <stop
-                            offset="100%"
-                            stopColor="#22c55e"
-                            stopOpacity="0.05"
-                          />
-                        </>
-                      ) : bodyFatTrend.direction === 'down' ? (
-                        <>
-                          <stop
-                            offset="0%"
-                            stopColor="#eab308"
-                            stopOpacity="0.3"
-                          />
-                          <stop
-                            offset="100%"
-                            stopColor="#eab308"
-                            stopOpacity="0.05"
-                          />
-                        </>
-                      ) : bodyFatTrend.direction === 'up' ? (
-                        <>
-                          <stop
-                            offset="0%"
-                            stopColor="#22c55e"
-                            stopOpacity="0.3"
-                          />
-                          <stop
-                            offset="100%"
-                            stopColor="#22c55e"
-                            stopOpacity="0.05"
-                          />
-                        </>
-                      ) : (
-                        <>
-                          <stop
-                            offset="0%"
-                            stopColor="#60a5fa"
-                            stopOpacity="0.4"
-                          />
-                          <stop
-                            offset="100%"
-                            stopColor="#60a5fa"
-                            stopOpacity="0.05"
-                          />
-                        </>
-                      )}
-                    </linearGradient>
-                    <linearGradient
-                      id="bodyFatSparklineStroke"
-                      x1="0"
-                      x2="0"
-                      y1="0"
-                      y2="1"
-                    >
-                      {bodyFatTrend.label.includes('Severe') ? (
-                        <>
-                          <stop offset="0%" stopColor="#ef4444" stopOpacity="1" />
-                          <stop
-                            offset="100%"
-                            stopColor="#ef4444"
-                            stopOpacity="0.8"
-                          />
-                        </>
-                      ) : bodyFatTrend.label.includes('Aggressive body fat loss') ? (
-                        <>
-                          <stop offset="0%" stopColor="#f97316" stopOpacity="1" />
-                          <stop
-                            offset="100%"
-                            stopColor="#f97316"
-                            stopOpacity="0.8"
-                          />
-                        </>
-                      ) : bodyFatTrend.label.includes('Aggressive body fat gain') ? (
-                        <>
-                          <stop offset="0%" stopColor="#a855f7" stopOpacity="1" />
-                          <stop
-                            offset="100%"
-                            stopColor="#a855f7"
-                            stopOpacity="0.8"
-                          />
-                        </>
-                      ) : bodyFatTrend.label.includes('Moderate body fat loss') ? (
-                        <>
-                          <stop offset="0%" stopColor="#eab308" stopOpacity="1" />
-                          <stop
-                            offset="100%"
-                            stopColor="#eab308"
-                            stopOpacity="0.8"
-                          />
-                        </>
-                      ) : bodyFatTrend.label.includes('Moderate body fat gain') ? (
-                        <>
-                          <stop offset="0%" stopColor="#22c55e" stopOpacity="1" />
-                          <stop
-                            offset="100%"
-                            stopColor="#22c55e"
-                            stopOpacity="0.8"
-                          />
-                        </>
-                      ) : bodyFatTrend.direction === 'down' ? (
-                        <>
-                          <stop
-                            offset="0%"
-                            stopColor="#eab308"
-                            stopOpacity="0.8"
-                          />
-                          <stop
-                            offset="100%"
-                            stopColor="#eab308"
-                            stopOpacity="0.6"
-                          />
-                        </>
-                      ) : bodyFatTrend.direction === 'up' ? (
-                        <>
-                          <stop
-                            offset="0%"
-                            stopColor="#22c55e"
-                            stopOpacity="0.8"
-                          />
-                          <stop
-                            offset="100%"
-                            stopColor="#22c55e"
-                            stopOpacity="0.6"
-                          />
-                        </>
-                      ) : (
-                        <>
-                          <stop offset="0%" stopColor="#60a5fa" stopOpacity="1" />
-                          <stop
-                            offset="100%"
-                            stopColor="#60a5fa"
-                            stopOpacity="0.8"
-                          />
-                        </>
-                      )}
-                    </linearGradient>
-                  </defs>
-                  {bodyFatSparkline.areaPath && (
-                    <path
-                      d={bodyFatSparkline.areaPath}
-                      fill="url(#bodyFatSparklineGradient)"
-                    />
-                  )}
-                  <polyline
-                    points={bodyFatSparkline.points}
-                    fill="none"
-                    stroke="url(#bodyFatSparklineStroke)"
-                    strokeWidth={2.5}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  {bodyFatSparkline.coordinates?.map((coord, index) => {
-                    const fillColor = bodyFatTrend.label.includes('Severe')
-                      ? '#ef4444'
-                      : bodyFatTrend.label.includes('Aggressive body fat loss')
-                        ? '#f97316'
-                        : bodyFatTrend.label.includes('Aggressive body fat gain')
-                          ? '#a855f7'
-                          : bodyFatTrend.label.includes('Moderate body fat loss')
-                            ? '#eab308'
-                            : bodyFatTrend.label.includes('Moderate body fat gain')
-                              ? '#22c55e'
-                              : bodyFatTrend.direction === 'down'
-                                ? '#eab308'
-                                : bodyFatTrend.direction === 'up'
-                                  ? '#22c55e'
-                                  : '#60a5fa';
-                    return (
-                      <circle
-                        key={index}
-                        cx={coord.x}
-                        cy={coord.y}
-                        r="2.5"
-                        fill={fillColor}
-                        className="drop-shadow-sm"
-                      />
-                    );
-                  })}
-                </svg>
-                <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-slate-800 to-transparent pointer-events-none" />
-                <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-slate-800 to-transparent pointer-events-none" />
-              </div>
-            )}
-          </div>
-          <p className="text-emerald-300 text-xs tracking-wide mt-4">
-            Tap to open body fat tracker
-          </p>
-        </button>
-      )}
+      </div>
 
       <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
         <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">

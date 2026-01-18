@@ -23,6 +23,23 @@ export const CalorieBreakdownModal = ({
   const goal = goals[selectedGoal];
   const formattedDifference =
     difference !== null && difference !== undefined ? difference : null;
+  const bmrDetails = breakdown.bmrDetails ?? {};
+  const usesBodyFat = bmrDetails.method === 'katch-mcardle';
+  const formatNumber = (value, digits = 1) =>
+    Number.isFinite(value) ? value.toFixed(digits) : '—';
+  const formatWhole = (value) =>
+    Number.isFinite(value) ? Math.round(value).toLocaleString() : '—';
+  const stepDetails = breakdown.stepDetails ?? {};
+  const trainingDuration = breakdown.trainingDuration ?? 0;
+  const trainingCaloriesPerHour = breakdown.trainingCaloriesPerHour ?? 0;
+  const trainingHours = trainingDuration / 60;
+  const showTrainingFormula =
+    selectedDay === 'training' &&
+    trainingDuration > 0 &&
+    breakdown.trainingBurn > 0;
+  const cardioDetails = Array.isArray(breakdown.cardioDetails)
+    ? breakdown.cardioDetails
+    : [];
 
   const toggleExpanded = (itemKey) => {
     setExpandedItem(expandedItem === itemKey ? null : itemKey);
@@ -83,12 +100,28 @@ export const CalorieBreakdownModal = ({
             <p className="text-slate-400 text-xs">
               Calories burned at complete rest for vital functions.
             </p>
-            <p className="text-slate-300 text-xs mt-2">
-              <strong>Formula:</strong> Mifflin-St Jeor equation
-              <br />
-              (10 × weight) + (6.25 × height) - (5 × age) ±{' '}
-              {breakdown.bmr > 2000 ? '5' : '161'}
-            </p>
+            {usesBodyFat ? (
+              <p className="text-slate-300 text-xs mt-2">
+                <strong>Formula:</strong>
+                <br />
+                Lean mass = {formatNumber(bmrDetails.weight, 1)} × (1 −{' '}
+                {formatNumber(bmrDetails.bodyFat, 1)}%) ={' '}
+                {formatNumber(bmrDetails.leanMass, 1)} kg
+                <br />
+                BMR = 370 + 21.6 × {formatNumber(bmrDetails.leanMass, 1)} ={' '}
+                {breakdown.bmr.toLocaleString()} kcal
+              </p>
+            ) : (
+              <p className="text-slate-300 text-xs mt-2">
+                <strong>Formula:</strong> Mifflin-St Jeor equation
+                <br />
+                (10 × {formatWhole(bmrDetails.weight)}) + (6.25 ×{' '}
+                {formatWhole(bmrDetails.height)}) - (5 ×{' '}
+                {formatWhole(bmrDetails.age)}){' '}
+                {bmrDetails.gender === 'male' ? '+ 5' : '- 161'} ={' '}
+                {breakdown.bmr.toLocaleString()} kcal
+              </p>
+            )}
           </BreakdownItem>
 
           <BreakdownItem
@@ -104,7 +137,7 @@ export const CalorieBreakdownModal = ({
             <p className="text-slate-300 text-xs mt-2">
               <strong>Calculation:</strong>
               <br />
-              {breakdown.bmr.toLocaleString()} ×{' '}
+              {breakdown.bmr.toLocaleString()} (BMR) ×{' '}
               {breakdown.activityMultiplier.toFixed(2)} ={' '}
               {breakdown.baseActivity.toLocaleString()} kcal
             </p>
@@ -123,7 +156,17 @@ export const CalorieBreakdownModal = ({
             <p className="text-slate-300 text-xs mt-2">
               <strong>Calculation:</strong>
               <br />
-              Stride length × weight × steps × efficiency factor
+              {breakdown.estimatedSteps.toLocaleString()} steps ÷{' '}
+              {formatWhole(stepDetails.stepsPerMile)} steps/mi ={' '}
+              {formatNumber(stepDetails.distanceMiles, 2)} mi
+              <br />
+              {formatNumber(stepDetails.distanceMiles, 2)} mi ×{' '}
+              {formatNumber(stepDetails.caloriesPerMile, 1)} kcal/mi ={' '}
+              {breakdown.stepCalories.toLocaleString()} kcal
+            </p>
+            <p className="text-slate-400 text-xs mt-2">
+              Stride length: {formatNumber(stepDetails.strideLengthMeters, 2)} m
+              • Weight used: {formatNumber(stepDetails.weightKg, 1)} kg
             </p>
           </BreakdownItem>
 
@@ -137,11 +180,19 @@ export const CalorieBreakdownModal = ({
             <p className="text-slate-400 text-xs">
               Structured training session (resistance, weights, etc.).
             </p>
-            <p className="text-slate-300 text-xs mt-2">
-              <strong>Calculation:</strong>
-              <br />
-              Calories per hour × training duration
-            </p>
+            {showTrainingFormula ? (
+              <p className="text-slate-300 text-xs mt-2">
+                <strong>Calculation:</strong>
+                <br />
+                {formatWhole(trainingCaloriesPerHour)} kcal/hr ×{' '}
+                {formatNumber(trainingDuration, 0)} min ÷ 60 ={' '}
+                {breakdown.trainingBurn.toLocaleString()} kcal
+              </p>
+            ) : (
+              <p className="text-slate-400 text-xs mt-2">
+                Rest day — no training calories.
+              </p>
+            )}
           </BreakdownItem>
 
           <BreakdownItem
@@ -154,11 +205,38 @@ export const CalorieBreakdownModal = ({
             <p className="text-slate-400 text-xs">
               Cardio sessions (running, cycling, swimming, etc.).
             </p>
-            <p className="text-slate-300 text-xs mt-2">
-              <strong>Calculation:</strong>
-              <br />
-              MET × weight × hours OR heart rate formula
-            </p>
+            {cardioDetails.length ? (
+              <div className="text-slate-300 text-xs mt-2 space-y-2">
+                <p className="font-semibold text-slate-200">
+                  Calculation:
+                </p>
+                {cardioDetails.map((detail, index) =>
+                  detail.effortType === 'heartRate' ? (
+                    <p key={`${detail.typeKey}-${index}`}>
+                      <strong>{detail.typeLabel}</strong>: {formatNumber(
+                        detail.caloriesPerMinute,
+                        2
+                      )}{' '}
+                      kcal/min × {formatWhole(detail.durationMinutes)} min ={' '}
+                      {detail.calories.toLocaleString()} kcal (avg HR{' '}
+                      {formatWhole(detail.averageHeartRate)} bpm)
+                    </p>
+                  ) : (
+                    <p key={`${detail.typeKey}-${index}`}>
+                      <strong>{detail.typeLabel}</strong> ({detail.intensityKey}){' '}
+                      MET {formatNumber(detail.met, 1)} ×{' '}
+                      {formatNumber(detail.weightKg, 1)} kg ×{' '}
+                      {formatNumber(detail.hours, 2)} hr ={' '}
+                      {detail.calories.toLocaleString()} kcal
+                    </p>
+                  )
+                )}
+              </div>
+            ) : (
+              <p className="text-slate-400 text-xs mt-2">
+                No cardio sessions logged.
+              </p>
+            )}
           </BreakdownItem>
 
           <div className="border border-slate-600 rounded-lg px-4 py-3 flex items-center justify-between">

@@ -36,6 +36,48 @@ const calculateCaloriesPerMinuteFromHeartRate = ({
   return Math.max(0, rawCalories / 4.184);
 };
 
+const resolveBmrDetails = ({
+  age,
+  weight,
+  height,
+  gender,
+  bodyFatEntries,
+  bodyFatTrackingEnabled,
+}) => {
+  const safeAge = Number(age);
+  const safeWeight = Number(weight);
+  const safeHeight = Number(height);
+  const resolvedGender = gender === 'female' ? 'female' : 'male';
+  const details = {
+    method: 'mifflin-st-jeor',
+    age: safeAge,
+    weight: safeWeight,
+    height: safeHeight,
+    gender: resolvedGender,
+    bodyFat: null,
+    leanMass: null,
+  };
+
+  if (
+    bodyFatTrackingEnabled &&
+    Array.isArray(bodyFatEntries) &&
+    bodyFatEntries.length
+  ) {
+    const latestEntry = bodyFatEntries[bodyFatEntries.length - 1];
+    const bodyFat = Number(latestEntry?.bodyFat);
+    if (Number.isFinite(bodyFat) && Number.isFinite(safeWeight)) {
+      const leanMass = safeWeight * (1 - bodyFat / 100);
+      if (Number.isFinite(leanMass) && leanMass > 0) {
+        details.method = 'katch-mcardle';
+        details.bodyFat = bodyFat;
+        details.leanMass = leanMass;
+      }
+    }
+  }
+
+  return details;
+};
+
 export const calculateBMR = ({
   age,
   weight,
@@ -44,23 +86,20 @@ export const calculateBMR = ({
   bodyFatEntries,
   bodyFatTrackingEnabled,
 }) => {
-  if (
-    bodyFatTrackingEnabled &&
-    Array.isArray(bodyFatEntries) &&
-    bodyFatEntries.length
-  ) {
-    const latestEntry = bodyFatEntries[bodyFatEntries.length - 1];
-    const bodyFat = Number(latestEntry?.bodyFat);
-    const safeWeight = Number(weight);
-    if (Number.isFinite(bodyFat) && Number.isFinite(safeWeight)) {
-      const leanMass = safeWeight * (1 - bodyFat / 100);
-      if (Number.isFinite(leanMass) && leanMass > 0) {
-        return Math.round(370 + 21.6 * leanMass);
-      }
-    }
+  const details = resolveBmrDetails({
+    age,
+    weight,
+    height,
+    gender,
+    bodyFatEntries,
+    bodyFatTrackingEnabled,
+  });
+
+  if (details.method === 'katch-mcardle' && details.leanMass != null) {
+    return Math.round(370 + 21.6 * details.leanMass);
   }
 
-  if (gender === 'male') {
+  if (details.gender === 'male') {
     return Math.round(10 * weight + 6.25 * height - 5 * age + 5);
   }
   return Math.round(10 * weight + 6.25 * height - 5 * age - 161);
@@ -137,6 +176,20 @@ export const calculateCalorieBreakdown = ({
   trainingTypes,
 }) => {
   const stepDetails = getStepDetails(steps, userData);
+  const bmrDetails = resolveBmrDetails(userData);
+  const trainingTypeKey = userData?.trainingType;
+  const trainingType = trainingTypes?.[trainingTypeKey] ?? null;
+  const trainingDuration = Number.isFinite(userData?.trainingDuration)
+    ? userData.trainingDuration
+    : 0;
+  const trainingCaloriesPerHour = Number.isFinite(
+    trainingType?.caloriesPerHour
+  )
+    ? trainingType.caloriesPerHour
+    : 0;
+  const cardioSessions = Array.isArray(userData?.cardioSessions)
+    ? userData.cardioSessions
+    : [];
   const multipliers =
     userData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS;
   const activityMultiplier = isTrainingDay
@@ -147,6 +200,65 @@ export const calculateCalorieBreakdown = ({
     isTrainingDay ? getTrainingCalories(userData, trainingTypes) : 0
   );
   const cardioBurn = Math.round(getTotalCardioBurn(userData, cardioTypes));
+  const cardioDetails = cardioSessions
+    .map((session) => {
+      const rawDuration = Number(session?.duration);
+      const durationMinutes = Number.isFinite(rawDuration)
+        ? rawDuration
+        : 0;
+      if (durationMinutes <= 0) {
+        return null;
+      }
+
+      const effortType = session?.effortType ?? 'intensity';
+      const calories = calculateCardioCalories(session, userData, cardioTypes);
+      const typeKey = session?.type;
+      const cardioType = cardioTypes?.[typeKey];
+      const typeLabel = cardioType?.label ?? typeKey ?? 'Cardio';
+
+      if (effortType === 'heartRate') {
+        const heartRate = Number(session?.averageHeartRate);
+        const weightKg = Number(userData?.weight);
+        const ageYears = Number(userData?.age);
+        const gender = userData?.gender;
+        const caloriesPerMinute = calculateCaloriesPerMinuteFromHeartRate({
+          heartRate,
+          weightKg,
+          ageYears,
+          gender,
+        });
+
+        return {
+          typeKey,
+          typeLabel,
+          effortType,
+          durationMinutes,
+          averageHeartRate: Number.isFinite(heartRate) ? heartRate : 0,
+          calories,
+          caloriesPerMinute,
+          weightKg,
+          ageYears,
+          gender,
+        };
+      }
+
+      const intensityKey = session?.intensity ?? 'moderate';
+      const met = cardioType?.met?.[intensityKey] ?? null;
+      const hours = durationMinutes / 60;
+
+      return {
+        typeKey,
+        typeLabel,
+        effortType,
+        intensityKey,
+        met,
+        hours,
+        durationMinutes,
+        calories,
+        weightKg: Number(userData?.weight),
+      };
+    })
+    .filter(Boolean);
   const total = Math.round(
     bmr + baseActivity + stepDetails.calories + trainingBurn + cardioBurn
   );
@@ -157,9 +269,15 @@ export const calculateCalorieBreakdown = ({
     baseActivity,
     activityMultiplier,
     stepCalories: stepDetails.calories,
+    stepDetails,
     estimatedSteps: stepDetails.estimatedSteps,
     trainingBurn,
+    trainingDuration,
+    trainingCaloriesPerHour,
+    trainingTypeLabel: trainingType?.label ?? trainingTypeKey ?? 'Training',
     cardioBurn,
+    cardioDetails,
+    bmrDetails,
   };
 };
 
