@@ -82,7 +82,7 @@ const CalendarHeatmap = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [focusedDate, calendarData, onKeyboardSelect]);
 
-  const getStatusColor = (date, isGhost) => {
+  const getStatusColor = (date, isGhost, hasEntries) => {
     const isSelected = date === selectedDate;
     const isFocused = date === focusedDate;
 
@@ -94,6 +94,9 @@ const CalendarHeatmap = ({
     }
     if (isFocused) {
       return 'bg-slate-600 border-slate-400 ring-2 ring-slate-500 hover:bg-slate-500';
+    }
+    if (hasEntries) {
+      return 'bg-slate-700 border-blue-400 hover:bg-slate-600';
     }
     return 'bg-slate-700 border-slate-600 hover:bg-slate-600';
   };
@@ -197,7 +200,7 @@ const CalendarHeatmap = ({
                       whileTap={!isGhost ? { scale: 0.98 } : {}}
                       transition={{ duration: 0.15 }}
                       disabled={isGhost}
-                      className={`aspect-square rounded-lg border-2 flex flex-col items-center justify-center gap-0.5 text-xs font-bold transition-colors relative ${getStatusColor(day.date, isGhost)}`}
+                      className={`aspect-square rounded-lg border-2 flex flex-col items-center justify-center text-xs font-bold transition-colors relative ${getStatusColor(day.date, isGhost, hasData)}`}
                       aria-label={
                         isGhost
                           ? `${new Date(day.date + 'T00:00:00Z').toLocaleDateString()} (outside current month)`
@@ -206,8 +209,10 @@ const CalendarHeatmap = ({
                       aria-pressed={day.date === selectedDate}
                       aria-disabled={isGhost}
                     >
-                      {day.hasEntries && !isGhost && (
-                        <div className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full border border-blue-400 shadow-sm" />
+                      {hasData && !isGhost && (
+                        <span className="text-emerald-400 text-[9px] font-semibold absolute top-1">
+                          kcal:{formatMacroDisplay(macros.calories, hasData)}
+                        </span>
                       )}
                       <span
                         className={`text-sm font-bold ${isGhost ? 'text-slate-600' : 'text-white'}`}
@@ -215,26 +220,21 @@ const CalendarHeatmap = ({
                         {dayNum}
                       </span>
                       {isGhost && (
-                        <span className="text-slate-600 text-[8px] font-medium mt-0.5">
+                        <span className="text-slate-600 text-[8px] font-medium absolute bottom-1">
                           {ghostMonthAbbr}
                         </span>
                       )}
                       {hasData && !isGhost && (
-                        <div className="flex flex-col gap-0 leading-none w-full px-1">
-                          <span className="text-emerald-400 text-[9px] font-semibold">
-                            kcal:{formatMacroDisplay(macros.calories, hasData)}
+                        <div className="flex items-center justify-between gap-0.5 w-full px-1 absolute bottom-1">
+                          <span className="text-red-400 text-[7px] font-medium">
+                            P:{formatMacroDisplay(macros.protein, hasData)}
                           </span>
-                          <div className="flex items-center justify-between gap-0.5">
-                            <span className="text-red-400 text-[7px] font-medium">
-                              P:{formatMacroDisplay(macros.protein, hasData)}
-                            </span>
-                            <span className="text-yellow-400 text-[7px] font-medium">
-                              F:{formatMacroDisplay(macros.fats, hasData)}
-                            </span>
-                            <span className="text-amber-400 text-[7px] font-medium">
-                              C:{formatMacroDisplay(macros.carbs, hasData)}
-                            </span>
-                          </div>
+                          <span className="text-yellow-400 text-[7px] font-medium">
+                            F:{formatMacroDisplay(macros.fats, hasData)}
+                          </span>
+                          <span className="text-amber-400 text-[7px] font-medium">
+                            C:{formatMacroDisplay(macros.carbs, hasData)}
+                          </span>
                         </div>
                       )}
                     </motion.button>
@@ -711,7 +711,7 @@ export const CalendarPickerModal = ({
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="mt-6 bg-slate-700 rounded-lg p-4 border border-slate-600"
+          className="mt-10 bg-slate-700 rounded-lg p-4 border border-slate-600"
         >
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp className="text-blue-400" size={18} />
