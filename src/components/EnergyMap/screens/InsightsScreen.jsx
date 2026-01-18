@@ -175,9 +175,9 @@ export const InsightsScreen = ({
             <p className="text-slate-300 text-sm mt-1">
               {currentWeight ? `${currentWeight} kg` : '—'} • {lastLoggedLabel}
             </p>
-            <p className="text-slate-500 text-xs mt-3">
-              {formatWeeklyRate(trend.weeklyRate)} over last 7 entries
-            </p>
+              <p className="text-slate-300 text-sm mt-2">
+                {formatWeeklyRate(trend.weeklyRate)} over last 7 entries
+              </p>
           </div>
           {sparkline.points && sortedEntries.length > 1 && (
             <div className="w-36 h-16 relative">
@@ -469,7 +469,7 @@ export const InsightsScreen = ({
               <p className="text-slate-300 text-sm mt-1">
                 {currentBodyFat ? `${currentBodyFat}%` : '—'} • {bodyFatLoggedLabel}
               </p>
-              <p className="text-slate-500 text-xs mt-3">
+              <p className="text-slate-300 text-sm mt-2">
                 {formatBodyFatWeeklyRate(bodyFatTrend.weeklyRate)} over last 7 entries
               </p>
             </div>
