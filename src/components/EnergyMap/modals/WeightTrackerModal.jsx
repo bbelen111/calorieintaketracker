@@ -239,6 +239,8 @@ export const WeightTrackerModal = ({
   onClose,
   onAddEntry,
   onEditEntry,
+  canSwitchToBodyFat = false,
+  onSwitchToBodyFat,
 }) => {
   const [selectedDate, setSelectedDate] = useState(null);
   const [tooltipEntered, setTooltipEntered] = useState(false);
@@ -981,6 +983,16 @@ export const WeightTrackerModal = ({
             </button>
             <h3 className="text-white font-bold text-xl">Weight Tracker</h3>
           </div>
+          {canSwitchToBodyFat && (
+            <button
+              type="button"
+              onClick={() => onSwitchToBodyFat?.()}
+              className="px-3 py-1.5 rounded-md border border-slate-600 bg-slate-800 text-slate-100 text-xs font-semibold hover:bg-slate-700 transition-colors"
+              aria-label="Switch to body fat tracker"
+            >
+              Body Fat
+            </button>
+          )}
         </div>
 
         {/* Combined Timeline and Current Weight Section - Takes full remaining space */}

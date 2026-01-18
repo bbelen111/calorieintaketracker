@@ -473,6 +473,19 @@ export const EnergyMapCalculator = () => {
     bodyFatTrackerModal.open();
   }, [bodyFatTrackerModal, userData.bodyFatTrackingEnabled]);
 
+  const handleSwitchToBodyFat = useCallback(() => {
+    if (!userData.bodyFatTrackingEnabled) {
+      return;
+    }
+    weightTrackerModal.requestClose();
+    openBodyFatTracker();
+  }, [openBodyFatTracker, userData.bodyFatTrackingEnabled, weightTrackerModal]);
+
+  const handleSwitchToWeight = useCallback(() => {
+    bodyFatTrackerModal.requestClose();
+    openWeightTracker();
+  }, [bodyFatTrackerModal, openWeightTracker]);
+
   const openAddWeightEntryModal = useCallback(() => {
     const todayKey = getTodayDateString();
     const fallbackWeight =
@@ -2023,6 +2036,9 @@ export const EnergyMapCalculator = () => {
                   selectedGoal={selectedGoal}
                   weightEntries={weightEntries}
                   onOpenWeightTracker={openWeightTracker}
+                  bodyFatEntries={bodyFatEntries}
+                  bodyFatTrackingEnabled={userData.bodyFatTrackingEnabled}
+                  onOpenBodyFatTracker={openBodyFatTracker}
                 />
               </div>
             </div>
@@ -2094,6 +2110,8 @@ export const EnergyMapCalculator = () => {
         onAddEntry={openAddWeightEntryModal}
         onEditEntry={handleWeightEntryFromListEdit}
         onDeleteEntry={handleWeightEntryFromListDelete}
+        canSwitchToBodyFat={userData.bodyFatTrackingEnabled}
+        onSwitchToBodyFat={handleSwitchToBodyFat}
       />
 
       {userData.bodyFatTrackingEnabled && (
@@ -2107,6 +2125,7 @@ export const EnergyMapCalculator = () => {
           onClose={bodyFatTrackerModal.requestClose}
           onAddEntry={openAddBodyFatEntryModal}
           onEditEntry={handleBodyFatEntryFromListEdit}
+          onSwitchToWeight={handleSwitchToWeight}
         />
       )}
 

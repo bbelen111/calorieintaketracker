@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import React, { useMemo } from 'react';
 import { Info, LineChart, PieChart, Lightbulb } from 'lucide-react';
 import {
@@ -6,6 +7,10 @@ import {
   formatDateLabel,
   formatWeight,
 } from '../../../utils/weight';
+import {
+  calculateBodyFatTrend,
+  formatBodyFat,
+} from '../../../utils/bodyFat';
 
 const getTrendToneClass = (direction, label) => {
   // If no meaningful data, show white
@@ -53,11 +58,22 @@ const formatWeeklyRate = (value) => {
   return `${sign}${value.toFixed(2)} kg/wk`;
 };
 
+const formatBodyFatWeeklyRate = (value) => {
+  if (!Number.isFinite(value) || value === 0) {
+    return '0.0 %/wk';
+  }
+  const sign = value > 0 ? '+' : '';
+  return `${sign}${value.toFixed(2)} %/wk`;
+};
+
 export const InsightsScreen = ({
   userData,
   selectedGoal,
   weightEntries = [],
   onOpenWeightTracker,
+  bodyFatEntries = [],
+  bodyFatTrackingEnabled = true,
+  onOpenBodyFatTracker,
 }) => {
   // Only keep entries from the last 7 days (from latest entry backward)
   const sortedEntries = useMemo(() => {
@@ -102,11 +118,59 @@ export const InsightsScreen = ({
     [sortedEntries]
   );
 
+  const sortedBodyFatEntries = useMemo(() => {
+    if (!bodyFatEntries.length) return [];
+
+    const sorted = [...bodyFatEntries].sort((a, b) =>
+      a.date.localeCompare(b.date)
+    );
+
+    const latestEntry = sorted[sorted.length - 1];
+    const latestDate = new Date(latestEntry.date + 'T00:00:00Z');
+    const cutoffDate = new Date(latestDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    return sorted.filter((entry) => {
+      const entryDate = new Date(entry.date + 'T00:00:00Z');
+      return entryDate >= cutoffDate;
+    });
+  }, [bodyFatEntries]);
+
+  const bodyFatTrend = useMemo(
+    () => calculateBodyFatTrend(sortedBodyFatEntries),
+    [sortedBodyFatEntries]
+  );
+
+  const bodyFatSparkline = useMemo(() => {
+    const sparklineEntries = sortedBodyFatEntries.map((entry) => ({
+      date: entry.date,
+      weight: entry.bodyFat,
+    }));
+    return createSparklinePoints(sparklineEntries, {
+      width: 160,
+      height: 56,
+      padding: 6,
+      limit: 7,
+    });
+  }, [sortedBodyFatEntries]);
+
+  const latestBodyFatEntry = useMemo(
+    () =>
+      sortedBodyFatEntries.length
+        ? sortedBodyFatEntries[sortedBodyFatEntries.length - 1]
+        : null,
+    [sortedBodyFatEntries]
+  );
+
   // ...existing code...
 
   const currentWeight = formatWeight(latestEntry?.weight ?? userData.weight);
   const lastLoggedLabel = latestEntry?.date
     ? formatDateLabel(latestEntry.date, { month: 'short', day: 'numeric' })
+    : 'No entries yet';
+
+  const currentBodyFat = formatBodyFat(latestBodyFatEntry?.bodyFat);
+  const bodyFatLoggedLabel = latestBodyFatEntry?.date
+    ? formatDateLabel(latestBodyFatEntry.date, { month: 'short', day: 'numeric' })
     : 'No entries yet';
 
   return (
@@ -403,6 +467,296 @@ export const InsightsScreen = ({
           Tap to open weight tracker
         </p>
       </button>
+
+      {bodyFatTrackingEnabled && (
+        <button
+          type="button"
+          onClick={onOpenBodyFatTracker}
+          className="w-full rounded-2xl border shadow-2xl p-5 md:p-6 text-left transition-all bg-slate-800 border-slate-700 hover:border-emerald-400/70 hover:bg-slate-800/90"
+        >
+          <div className="flex items-center justify-between gap-1">
+            <div>
+              <p className="font-bold text-white text-lg mb-2 flex items-center gap-2">
+                <LineChart size={26} className="text-emerald-300" />
+                Body Fat Snapshot
+              </p>
+              <p
+                className={`text-xl font-semibold ${getTrendToneClass(bodyFatTrend.direction, bodyFatTrend.label)}`}
+              >
+                {bodyFatTrend.label}
+              </p>
+              <p className="text-slate-300 text-sm mt-1">
+                {currentBodyFat ? `${currentBodyFat}%` : '—'} • {bodyFatLoggedLabel}
+              </p>
+              <p className="text-slate-500 text-xs mt-3">
+                {formatBodyFatWeeklyRate(bodyFatTrend.weeklyRate)} over last 7 days
+              </p>
+            </div>
+            {bodyFatSparkline.points && sortedBodyFatEntries.length > 1 && (
+              <div className="w-36 h-16 relative">
+                <svg
+                  width="100%"
+                  height="100%"
+                  viewBox="0 0 160 56"
+                  preserveAspectRatio="none"
+                  className="overflow-visible"
+                >
+                  <defs>
+                    <linearGradient
+                      id="bodyFatSparklineGradient"
+                      x1="0"
+                      x2="0"
+                      y1="0"
+                      y2="1"
+                    >
+                      {bodyFatTrend.label.includes('Severe') ? (
+                        <>
+                          <stop
+                            offset="0%"
+                            stopColor="#ef4444"
+                            stopOpacity="0.4"
+                          />
+                          <stop
+                            offset="100%"
+                            stopColor="#ef4444"
+                            stopOpacity="0.05"
+                          />
+                        </>
+                      ) : bodyFatTrend.label.includes('Aggressive body fat loss') ? (
+                        <>
+                          <stop
+                            offset="0%"
+                            stopColor="#f97316"
+                            stopOpacity="0.4"
+                          />
+                          <stop
+                            offset="100%"
+                            stopColor="#f97316"
+                            stopOpacity="0.05"
+                          />
+                        </>
+                      ) : bodyFatTrend.label.includes('Aggressive body fat gain') ? (
+                        <>
+                          <stop
+                            offset="0%"
+                            stopColor="#a855f7"
+                            stopOpacity="0.4"
+                          />
+                          <stop
+                            offset="100%"
+                            stopColor="#a855f7"
+                            stopOpacity="0.05"
+                          />
+                        </>
+                      ) : bodyFatTrend.label.includes('Moderate body fat loss') ? (
+                        <>
+                          <stop
+                            offset="0%"
+                            stopColor="#eab308"
+                            stopOpacity="0.4"
+                          />
+                          <stop
+                            offset="100%"
+                            stopColor="#eab308"
+                            stopOpacity="0.05"
+                          />
+                        </>
+                      ) : bodyFatTrend.label.includes('Moderate body fat gain') ? (
+                        <>
+                          <stop
+                            offset="0%"
+                            stopColor="#22c55e"
+                            stopOpacity="0.4"
+                          />
+                          <stop
+                            offset="100%"
+                            stopColor="#22c55e"
+                            stopOpacity="0.05"
+                          />
+                        </>
+                      ) : bodyFatTrend.direction === 'down' ? (
+                        <>
+                          <stop
+                            offset="0%"
+                            stopColor="#eab308"
+                            stopOpacity="0.3"
+                          />
+                          <stop
+                            offset="100%"
+                            stopColor="#eab308"
+                            stopOpacity="0.05"
+                          />
+                        </>
+                      ) : bodyFatTrend.direction === 'up' ? (
+                        <>
+                          <stop
+                            offset="0%"
+                            stopColor="#22c55e"
+                            stopOpacity="0.3"
+                          />
+                          <stop
+                            offset="100%"
+                            stopColor="#22c55e"
+                            stopOpacity="0.05"
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <stop
+                            offset="0%"
+                            stopColor="#60a5fa"
+                            stopOpacity="0.4"
+                          />
+                          <stop
+                            offset="100%"
+                            stopColor="#60a5fa"
+                            stopOpacity="0.05"
+                          />
+                        </>
+                      )}
+                    </linearGradient>
+                    <linearGradient
+                      id="bodyFatSparklineStroke"
+                      x1="0"
+                      x2="0"
+                      y1="0"
+                      y2="1"
+                    >
+                      {bodyFatTrend.label.includes('Severe') ? (
+                        <>
+                          <stop offset="0%" stopColor="#ef4444" stopOpacity="1" />
+                          <stop
+                            offset="100%"
+                            stopColor="#ef4444"
+                            stopOpacity="0.8"
+                          />
+                        </>
+                      ) : bodyFatTrend.label.includes('Aggressive body fat loss') ? (
+                        <>
+                          <stop offset="0%" stopColor="#f97316" stopOpacity="1" />
+                          <stop
+                            offset="100%"
+                            stopColor="#f97316"
+                            stopOpacity="0.8"
+                          />
+                        </>
+                      ) : bodyFatTrend.label.includes('Aggressive body fat gain') ? (
+                        <>
+                          <stop offset="0%" stopColor="#a855f7" stopOpacity="1" />
+                          <stop
+                            offset="100%"
+                            stopColor="#a855f7"
+                            stopOpacity="0.8"
+                          />
+                        </>
+                      ) : bodyFatTrend.label.includes('Moderate body fat loss') ? (
+                        <>
+                          <stop offset="0%" stopColor="#eab308" stopOpacity="1" />
+                          <stop
+                            offset="100%"
+                            stopColor="#eab308"
+                            stopOpacity="0.8"
+                          />
+                        </>
+                      ) : bodyFatTrend.label.includes('Moderate body fat gain') ? (
+                        <>
+                          <stop offset="0%" stopColor="#22c55e" stopOpacity="1" />
+                          <stop
+                            offset="100%"
+                            stopColor="#22c55e"
+                            stopOpacity="0.8"
+                          />
+                        </>
+                      ) : bodyFatTrend.direction === 'down' ? (
+                        <>
+                          <stop
+                            offset="0%"
+                            stopColor="#eab308"
+                            stopOpacity="0.8"
+                          />
+                          <stop
+                            offset="100%"
+                            stopColor="#eab308"
+                            stopOpacity="0.6"
+                          />
+                        </>
+                      ) : bodyFatTrend.direction === 'up' ? (
+                        <>
+                          <stop
+                            offset="0%"
+                            stopColor="#22c55e"
+                            stopOpacity="0.8"
+                          />
+                          <stop
+                            offset="100%"
+                            stopColor="#22c55e"
+                            stopOpacity="0.6"
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <stop offset="0%" stopColor="#60a5fa" stopOpacity="1" />
+                          <stop
+                            offset="100%"
+                            stopColor="#60a5fa"
+                            stopOpacity="0.8"
+                          />
+                        </>
+                      )}
+                    </linearGradient>
+                  </defs>
+                  {bodyFatSparkline.areaPath && (
+                    <path
+                      d={bodyFatSparkline.areaPath}
+                      fill="url(#bodyFatSparklineGradient)"
+                    />
+                  )}
+                  <polyline
+                    points={bodyFatSparkline.points}
+                    fill="none"
+                    stroke="url(#bodyFatSparklineStroke)"
+                    strokeWidth={2.5}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  {bodyFatSparkline.coordinates?.map((coord, index) => {
+                    const fillColor = bodyFatTrend.label.includes('Severe')
+                      ? '#ef4444'
+                      : bodyFatTrend.label.includes('Aggressive body fat loss')
+                        ? '#f97316'
+                        : bodyFatTrend.label.includes('Aggressive body fat gain')
+                          ? '#a855f7'
+                          : bodyFatTrend.label.includes('Moderate body fat loss')
+                            ? '#eab308'
+                            : bodyFatTrend.label.includes('Moderate body fat gain')
+                              ? '#22c55e'
+                              : bodyFatTrend.direction === 'down'
+                                ? '#eab308'
+                                : bodyFatTrend.direction === 'up'
+                                  ? '#22c55e'
+                                  : '#60a5fa';
+                    return (
+                      <circle
+                        key={index}
+                        cx={coord.x}
+                        cy={coord.y}
+                        r="2.5"
+                        fill={fillColor}
+                        className="drop-shadow-sm"
+                      />
+                    );
+                  })}
+                </svg>
+                <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-slate-800 to-transparent pointer-events-none" />
+                <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-slate-800 to-transparent pointer-events-none" />
+              </div>
+            )}
+          </div>
+          <p className="text-emerald-300 text-xs tracking-wide mt-4">
+            Tap to open body fat tracker
+          </p>
+        </button>
+      )}
 
       <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
         <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
