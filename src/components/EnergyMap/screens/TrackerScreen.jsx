@@ -813,9 +813,12 @@ export const TrackerScreen = ({
                               >
                                 <div className="flex-1 min-w-0">
                                   <p className="text-white font-semibold text-sm truncate">
-                                          <span className="align-middle" title={entry.name}>
-                                            {shortenName(entry.name)}
-                                          </span>
+                                    <span
+                                      className="align-middle"
+                                      title={entry.name}
+                                    >
+                                      {shortenName(entry.name)}
+                                    </span>
                                     {entry && entry.grams != null && (
                                       <span className="ml-2 text-slate-400 text-xs align-middle">
                                         {formatOne(entry.grams)} g
@@ -1059,7 +1062,10 @@ export const TrackerScreen = ({
                                   >
                                     <div className="flex-1 min-w-0">
                                       <p className="text-white font-semibold text-sm truncate">
-                                        <span className="align-middle" title={entry.name}>
+                                        <span
+                                          className="align-middle"
+                                          title={entry.name}
+                                        >
                                           {shortenName(entry.name)}
                                         </span>
                                         {entry && entry.grams != null && (

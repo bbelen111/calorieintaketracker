@@ -25,6 +25,7 @@ import { GoalModal } from './modals/GoalModal';
 import { BmrInfoModal } from './modals/BmrInfoModal';
 import { AgePickerModal } from './modals/AgePickerModal';
 import { MEAL_TYPE_ORDER } from '../../constants/mealTypes';
+import { FOOD_DATABASE } from '../../constants/foodDatabase';
 import { HeightPickerModal } from './modals/HeightPickerModal';
 import { WeightPickerModal } from './modals/WeightPickerModal';
 import { WeightEntryModal } from './modals/WeightEntryModal';
@@ -129,6 +130,63 @@ const getTodayDateString = () => {
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+};
+
+const DEFAULT_PORTION_GRAMS = 100;
+
+const resolveFoodForEntry = (entry) => {
+  if (!entry) {
+    return null;
+  }
+
+  if (entry.foodId) {
+    const byId = FOOD_DATABASE.find((food) => food.id === entry.foodId);
+    if (byId) {
+      return byId;
+    }
+  }
+
+  const name = String(entry.name ?? '').trim();
+  if (!name) {
+    return null;
+  }
+
+  const normalized = name.toLowerCase();
+  const exactMatch = FOOD_DATABASE.find(
+    (food) => food.name.toLowerCase() === normalized
+  );
+  if (exactMatch) {
+    return exactMatch;
+  }
+
+  return (
+    FOOD_DATABASE.find((food) =>
+      food.name.toLowerCase().includes(normalized)
+    ) ?? null
+  );
+};
+
+const buildFallbackFoodFromEntry = (entry) => {
+  const safeNumber = (value) => (Number.isFinite(value) ? value : 0);
+  const name = String(entry?.name ?? '').trim() || 'Custom food';
+  const grams =
+    Number.isFinite(entry?.grams) && entry.grams > 0
+      ? entry.grams
+      : DEFAULT_PORTION_GRAMS;
+  const scale = grams ? 100 / grams : 1;
+
+  return {
+    id: `manual_${entry?.id ?? Date.now()}`,
+    name,
+    category: 'supplements',
+    per100g: {
+      calories: Math.round(safeNumber(entry?.calories) * scale),
+      protein: Math.round(safeNumber(entry?.protein) * scale * 10) / 10,
+      carbs: Math.round(safeNumber(entry?.carbs) * scale * 10) / 10,
+      fats: Math.round(safeNumber(entry?.fats) * scale * 10) / 10,
+    },
+    portions: [],
+  };
 };
 
 export const EnergyMapCalculator = () => {
@@ -256,6 +314,8 @@ export const EnergyMapCalculator = () => {
   const [foodCarbs, setFoodCarbs] = useState('');
   const [foodFats, setFoodFats] = useState('');
   const [selectedFoodForPortion, setSelectedFoodForPortion] = useState(null);
+  const [editingPortionEntry, setEditingPortionEntry] = useState(null);
+  const [portionInitialGrams, setPortionInitialGrams] = useState(null);
   const [trackerStepRange, setTrackerStepRange] = useState('12k');
   const [showTrackerCaloriePicker, setShowTrackerCaloriePicker] =
     useState(false);
@@ -1046,6 +1106,26 @@ export const EnergyMapCalculator = () => {
   // Handle adding food from portion modal
   const handleAddFoodFromPortion = useCallback(
     (foodEntry) => {
+      if (editingPortionEntry) {
+        const targetMealType = editingPortionEntry.mealType || foodMealType;
+        if (!targetMealType) {
+          return;
+        }
+
+        updateFoodEntry(trackerSelectedDate, targetMealType, {
+          ...foodEntry,
+          id: editingPortionEntry.id,
+          timestamp: editingPortionEntry.timestamp ?? foodEntry.timestamp,
+          foodId:
+            foodEntry.foodId ??
+            selectedFoodForPortion?.id ??
+            editingPortionEntry.foodId,
+        });
+
+        foodPortionModal.requestClose();
+        return;
+      }
+
       if (!foodMealType) {
         return;
       }
@@ -1058,10 +1138,13 @@ export const EnergyMapCalculator = () => {
     },
     [
       addFoodEntry,
+      editingPortionEntry,
       foodMealType,
       foodPortionModal,
       foodSearchModal,
+      selectedFoodForPortion?.id,
       trackerSelectedDate,
+      updateFoodEntry,
     ]
   );
 
@@ -1077,18 +1160,20 @@ export const EnergyMapCalculator = () => {
         return;
       }
 
+      const resolvedFood =
+        resolveFoodForEntry(existing) || buildFallbackFoodFromEntry(existing);
+
       setFoodMealType(mealType);
-      setFoodName(existing.name || '');
-      setFoodCalories(String(existing.calories || ''));
-      setFoodProtein(String(existing.protein || ''));
-      setFoodCarbs(String(existing.carbs || ''));
-      setFoodFats(String(existing.fats || ''));
-      setEditingFoodEntryId(entryId);
-      setEditingMealType(mealType);
-      setFoodEntryMode('edit');
-      foodEntryModal.open();
+      setSelectedFoodForPortion(resolvedFood);
+      setEditingPortionEntry({ ...existing, mealType });
+      setPortionInitialGrams(
+        Number.isFinite(existing.grams) && existing.grams > 0
+          ? existing.grams
+          : DEFAULT_PORTION_GRAMS
+      );
+      foodPortionModal.open();
     },
-    [foodEntryModal, nutritionData, trackerSelectedDate]
+    [nutritionData, trackerSelectedDate, foodPortionModal]
   );
 
   // Delete food entry from meal
@@ -1166,6 +1251,8 @@ export const EnergyMapCalculator = () => {
     if (foodPortionModal.isClosing) {
       const timer = setTimeout(() => {
         setSelectedFoodForPortion(null);
+        setEditingPortionEntry(null);
+        setPortionInitialGrams(null);
       }, MODAL_CLOSE_DELAY + 50); // Slightly longer for nested modal
       return () => clearTimeout(timer);
     }
@@ -2104,6 +2191,8 @@ export const EnergyMapCalculator = () => {
         onClose={foodPortionModal.requestClose}
         onAddFood={handleAddFoodFromPortion}
         selectedFood={selectedFoodForPortion}
+        initialGrams={portionInitialGrams ?? undefined}
+        isEditing={Boolean(editingPortionEntry)}
       />
 
       {/* PhaseInsightsModal removed */}

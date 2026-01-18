@@ -78,6 +78,8 @@ export const FoodPortionModal = ({
   onClose,
   onAddFood,
   selectedFood,
+  initialGrams = DEFAULT_GRAMS,
+  isEditing = false,
 }) => {
   const wholeRef = useRef(null);
   const decimalRef = useRef(null);
@@ -85,13 +87,21 @@ export const FoodPortionModal = ({
   const decimalTimeoutRef = useRef(null);
   const idCounterRef = useRef(0);
   const hasAlignedRef = useRef(false);
-  const selectionRef = useRef(convertGramsToParts(DEFAULT_GRAMS));
+  const selectionRef = useRef(convertGramsToParts(initialGrams));
 
   // Determine if food has custom portions
   const hasCustomPortions = useMemo(
     () => selectedFood?.portions && selectedFood.portions.length > 0,
     [selectedFood]
   );
+
+  const initialGramsValue = useMemo(() => {
+    const numeric = Number(initialGrams);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      return DEFAULT_GRAMS;
+    }
+    return normalizeGrams(numeric);
+  }, [initialGrams]);
 
   const [selectedUnit, setSelectedUnit] = useState('grams'); // 'grams' or portion id
   const [selectedWhole, setSelectedWhole] = useState(DEFAULT_GRAMS);
@@ -198,14 +208,14 @@ export const FoodPortionModal = ({
     const behavior = hasAlignedRef.current ? 'smooth' : 'instant';
     hasAlignedRef.current = true;
 
-    const parts = convertGramsToParts(DEFAULT_GRAMS);
+    const parts = convertGramsToParts(initialGramsValue);
 
     const frame = requestAnimationFrame(() => {
       applySelection(parts.whole, parts.decimal, behavior);
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [applySelection, isOpen, selectedFood]);
+  }, [applySelection, initialGramsValue, isOpen, selectedFood]);
 
   const handleWholeChange = useCallback((nextWhole) => {
     const clampedWhole = clampWhole(nextWhole);
@@ -305,6 +315,7 @@ export const FoodPortionModal = ({
         idCounterRef.current += 1;
         return idCounterRef.current;
       })(),
+      foodId: selectedFood?.id,
       name: nutrition.name,
       calories: nutrition.calories,
       protein: nutrition.protein,
@@ -313,7 +324,6 @@ export const FoodPortionModal = ({
       grams,
       timestamp: new Date().toISOString(),
     };
-
     onAddFood?.(foodEntry);
   };
 
@@ -570,7 +580,7 @@ export const FoodPortionModal = ({
           className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-all flex items-center justify-center gap-2"
         >
           <Plus size={18} />
-          Add Food
+          {isEditing ? 'Save Changes' : 'Add Food'}
         </button>
       </div>
     </ModalShell>

@@ -32,7 +32,6 @@ body {
 *::before,
 *::after {
   -ms-overflow-style: none;
-  scrollbar-width: none;
   -webkit-user-select: none;
   -ms-user-select: none;
   user-select: none;
@@ -62,8 +61,6 @@ select,
 .scrollbar-hide {
   -ms-overflow-style: none;
   /* IE and Edge */
-  scrollbar-width: none;
-  /* Firefox */
 }
 
 /* Modal animations */
