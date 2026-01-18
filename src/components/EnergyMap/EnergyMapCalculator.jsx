@@ -23,6 +23,8 @@ import { InsightsScreen } from './screens/InsightsScreen';
 import { PhaseDetailScreen } from './screens/PhaseDetailScreen';
 import { GoalModal } from './modals/GoalModal';
 import { BmrInfoModal } from './modals/BmrInfoModal';
+import { BmiInfoModal } from './modals/BmiInfoModal';
+import { FfmiInfoModal } from './modals/FfmiInfoModal';
 import { AgePickerModal } from './modals/AgePickerModal';
 import { MEAL_TYPE_ORDER } from '../../constants/mealTypes';
 import { FOOD_DATABASE } from '../../constants/foodDatabase';
@@ -349,6 +351,8 @@ export const EnergyMapCalculator = () => {
 
   const goalModal = useAnimatedModal();
   const bmrModal = useAnimatedModal();
+  const bmiModal = useAnimatedModal();
+  const ffmiModal = useAnimatedModal();
   const ageModal = useAnimatedModal();
   const heightModal = useAnimatedModal();
   const weightTrackerModal = useAnimatedModal();
@@ -2039,6 +2043,8 @@ export const EnergyMapCalculator = () => {
                   bodyFatEntries={bodyFatEntries}
                   bodyFatTrackingEnabled={userData.bodyFatTrackingEnabled}
                   onOpenBodyFatTracker={openBodyFatTracker}
+                  onOpenBmiInfo={bmiModal.open}
+                  onOpenFfmiInfo={ffmiModal.open}
                 />
               </div>
             </div>
@@ -2075,6 +2081,20 @@ export const EnergyMapCalculator = () => {
         userData={userData}
         bmr={bmr}
         onClose={bmrModal.requestClose}
+      />
+
+      <BmiInfoModal
+        isOpen={bmiModal.isOpen}
+        isClosing={bmiModal.isClosing}
+        userData={userData}
+        onClose={bmiModal.requestClose}
+      />
+
+      <FfmiInfoModal
+        isOpen={ffmiModal.isOpen}
+        isClosing={ffmiModal.isClosing}
+        userData={userData}
+        onClose={ffmiModal.requestClose}
       />
 
       <AgePickerModal

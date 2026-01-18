@@ -299,3 +299,81 @@ export const calculateGoalCalories = (tdee, goal) => {
       return Math.round(tdee);
   }
 };
+
+/**
+ * Calculate BMI (Body Mass Index)
+ * Formula: weight (kg) / height (m)²
+ */
+export const calculateBMI = (weight, height) => {
+  const safeWeight = Number(weight);
+  const safeHeight = Number(height);
+  if (!Number.isFinite(safeWeight) || !Number.isFinite(safeHeight) || safeHeight <= 0) {
+    return null;
+  }
+  const heightInMeters = safeHeight / 100;
+  return safeWeight / (heightInMeters * heightInMeters);
+};
+
+/**
+ * Get BMI category based on value
+ */
+export const getBMICategory = (bmi) => {
+  if (!Number.isFinite(bmi)) return { label: 'Unknown', color: 'slate' };
+  if (bmi < 18.5) return { label: 'Underweight', color: 'blue' };
+  if (bmi < 25) return { label: 'Normal', color: 'green' };
+  if (bmi < 30) return { label: 'Overweight', color: 'yellow' };
+  return { label: 'Obese', color: 'red' };
+};
+
+/**
+ * Calculate FFMI (Fat-Free Mass Index)
+ * Formula: lean mass (kg) / height (m)² + 6.1 × (1.8 - height in m)
+ * Requires body fat percentage to calculate lean mass
+ */
+export const calculateFFMI = (weight, height, bodyFatPercent) => {
+  const safeWeight = Number(weight);
+  const safeHeight = Number(height);
+  const safeBodyFat = Number(bodyFatPercent);
+  
+  if (
+    !Number.isFinite(safeWeight) ||
+    !Number.isFinite(safeHeight) ||
+    !Number.isFinite(safeBodyFat) ||
+    safeHeight <= 0 ||
+    safeBodyFat < 0 ||
+    safeBodyFat >= 100
+  ) {
+    return null;
+  }
+  
+  const heightInMeters = safeHeight / 100;
+  const leanMass = safeWeight * (1 - safeBodyFat / 100);
+  const rawFFMI = leanMass / (heightInMeters * heightInMeters);
+  // Normalized FFMI (adjusted for height)
+  const normalizedFFMI = rawFFMI + 6.1 * (1.8 - heightInMeters);
+  
+  return {
+    raw: rawFFMI,
+    normalized: normalizedFFMI,
+    leanMass,
+  };
+};
+
+/**
+ * Get FFMI category based on normalized value (for males)
+ * Female ranges are roughly 2-3 points lower
+ */
+export const getFFMICategory = (ffmi, gender = 'male') => {
+  if (!Number.isFinite(ffmi)) return { label: 'Unknown', color: 'slate' };
+  
+  // Adjust thresholds for females (roughly 2-3 points lower)
+  const offset = gender === 'female' ? 2.5 : 0;
+  
+  if (ffmi < 18 - offset) return { label: 'Below average', color: 'blue' };
+  if (ffmi < 20 - offset) return { label: 'Average', color: 'slate' };
+  if (ffmi < 22 - offset) return { label: 'Above average', color: 'green' };
+  if (ffmi < 23 - offset) return { label: 'Excellent', color: 'emerald' };
+  if (ffmi < 25 - offset) return { label: 'Elite', color: 'purple' };
+  if (ffmi < 27 - offset) return { label: 'Pro-level', color: 'amber' };
+  return { label: 'Suspiciously high', color: 'red' };
+};

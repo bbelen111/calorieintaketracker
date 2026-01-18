@@ -12,6 +12,12 @@ import {
   createBodyFatSparklinePoints,
   formatBodyFat,
 } from '../../../utils/bodyFat';
+import {
+  calculateBMI,
+  getBMICategory,
+  calculateFFMI,
+  getFFMICategory,
+} from '../../../utils/calculations';
 
 const getTrendToneClass = (direction, label) => {
   // If no meaningful data, show white
@@ -75,6 +81,8 @@ export const InsightsScreen = ({
   bodyFatEntries = [],
   bodyFatTrackingEnabled = true,
   onOpenBodyFatTracker,
+  onOpenBmiInfo,
+  onOpenFfmiInfo,
 }) => {
   // Only keep the last 7 entries
   const sortedEntries = useMemo(() => {
@@ -142,7 +150,27 @@ export const InsightsScreen = ({
     [sortedBodyFatEntries]
   );
 
-  // ...existing code...
+  // BMI calculation
+  const bmi = useMemo(
+    () => calculateBMI(latestEntry?.weight ?? userData.weight, userData.height),
+    [latestEntry, userData.weight, userData.height]
+  );
+  const bmiCategory = useMemo(() => getBMICategory(bmi), [bmi]);
+
+  // FFMI calculation (requires body fat)
+  const ffmiData = useMemo(
+    () =>
+      calculateFFMI(
+        latestEntry?.weight ?? userData.weight,
+        userData.height,
+        latestBodyFatEntry?.bodyFat
+      ),
+    [latestEntry, userData.weight, userData.height, latestBodyFatEntry]
+  );
+  const ffmiCategory = useMemo(
+    () => getFFMICategory(ffmiData?.normalized, userData.gender),
+    [ffmiData, userData.gender]
+  );
 
   const currentWeight = formatWeight(latestEntry?.weight ?? userData.weight);
   const lastLoggedLabel = latestEntry?.date
@@ -153,6 +181,24 @@ export const InsightsScreen = ({
   const bodyFatLoggedLabel = latestBodyFatEntry?.date
     ? formatDateLabel(latestBodyFatEntry.date, { month: 'short', day: 'numeric' })
     : 'No entries yet';
+
+  const bmiColorMap = {
+    blue: { text: 'text-blue-400', border: 'border-blue-500/50', bg: 'bg-blue-500/20' },
+    green: { text: 'text-green-400', border: 'border-green-500/50', bg: 'bg-green-500/20' },
+    yellow: { text: 'text-yellow-400', border: 'border-yellow-500/50', bg: 'bg-yellow-500/20' },
+    red: { text: 'text-red-400', border: 'border-red-500/50', bg: 'bg-red-500/20' },
+    slate: { text: 'text-slate-400', border: 'border-slate-500/50', bg: 'bg-slate-500/20' },
+  };
+
+  const ffmiColorMap = {
+    blue: { text: 'text-blue-400', border: 'border-blue-500/50', bg: 'bg-blue-500/20' },
+    green: { text: 'text-green-400', border: 'border-green-500/50', bg: 'bg-green-500/20' },
+    emerald: { text: 'text-emerald-400', border: 'border-emerald-500/50', bg: 'bg-emerald-500/20' },
+    purple: { text: 'text-purple-400', border: 'border-purple-500/50', bg: 'bg-purple-500/20' },
+    amber: { text: 'text-amber-400', border: 'border-amber-500/50', bg: 'bg-amber-500/20' },
+    red: { text: 'text-red-400', border: 'border-red-500/50', bg: 'bg-red-500/20' },
+    slate: { text: 'text-slate-400', border: 'border-slate-500/50', bg: 'bg-slate-500/20' },
+  };
 
   return (
     <div className="space-y-6 pb-10">
@@ -735,6 +781,56 @@ export const InsightsScreen = ({
               </p>
             </button>
           )}
+
+          {/* BMI Card */}
+          <button
+            type="button"
+            onClick={onOpenBmiInfo}
+            className={`w-full rounded-xl border ${bmiColorMap[bmiCategory.color]?.border || 'border-slate-700'} bg-slate-900/40 p-4 text-left transition-all hover:bg-slate-900`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="font-semibold text-white text-base mb-1">BMI</p>
+                <p className={`text-2xl font-bold ${bmiColorMap[bmiCategory.color]?.text || 'text-slate-400'}`}>
+                  {bmi ? bmi.toFixed(1) : '—'}
+                </p>
+                <p className={`text-sm mt-1 ${bmiColorMap[bmiCategory.color]?.text || 'text-slate-400'}`}>
+                  {bmiCategory.label}
+                </p>
+              </div>
+              <div className={`p-2 rounded-lg ${bmiColorMap[bmiCategory.color]?.bg || 'bg-slate-500/20'}`}>
+                <Info size={20} className={bmiColorMap[bmiCategory.color]?.text || 'text-slate-400'} />
+              </div>
+            </div>
+            <p className="text-blue-300 text-xs tracking-wide mt-3">
+              Tap for more info
+            </p>
+          </button>
+
+          {/* FFMI Card */}
+          <button
+            type="button"
+            onClick={onOpenFfmiInfo}
+            className={`w-full rounded-xl border ${ffmiData ? (ffmiColorMap[ffmiCategory.color]?.border || 'border-slate-700') : 'border-slate-700'} bg-slate-900/40 p-4 text-left transition-all hover:bg-slate-900`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="font-semibold text-white text-base mb-1">FFMI</p>
+                <p className={`text-2xl font-bold ${ffmiData ? (ffmiColorMap[ffmiCategory.color]?.text || 'text-slate-400') : 'text-slate-500'}`}>
+                  {ffmiData ? ffmiData.normalized.toFixed(1) : '—'}
+                </p>
+                <p className={`text-sm mt-1 ${ffmiData ? (ffmiColorMap[ffmiCategory.color]?.text || 'text-slate-400') : 'text-slate-500'}`}>
+                  {ffmiData ? ffmiCategory.label : 'Requires body fat data'}
+                </p>
+              </div>
+              <div className={`p-2 rounded-lg ${ffmiData ? (ffmiColorMap[ffmiCategory.color]?.bg || 'bg-slate-500/20') : 'bg-slate-500/20'}`}>
+                <Info size={20} className={ffmiData ? (ffmiColorMap[ffmiCategory.color]?.text || 'text-slate-400') : 'text-slate-500'} />
+              </div>
+            </div>
+            <p className="text-emerald-300 text-xs tracking-wide mt-3">
+              Tap for more info
+            </p>
+          </button>
         </div>
       </div>
 
