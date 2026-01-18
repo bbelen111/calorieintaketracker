@@ -26,6 +26,7 @@ export const SettingsModal = ({
   onManageBodyFatClick,
   weightEntries,
   bodyFatEntries,
+  bodyFatTrackingEnabled = true,
   onCancel,
   onSave,
 }) => {
@@ -160,16 +161,23 @@ export const SettingsModal = ({
             <button
               type="button"
               onClick={() => onManageBodyFatClick?.()}
-              className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1 text-left hover:bg-indigo-500/90"
+              disabled={!bodyFatTrackingEnabled}
+              className={`w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1 text-left font-semibold ${
+                bodyFatTrackingEnabled
+                  ? 'bg-indigo-600 border-indigo-400 text-white hover:bg-indigo-500/90'
+                  : 'bg-slate-700 border-slate-600 text-slate-400 cursor-not-allowed'
+              }`}
             >
               <span className="font-semibold text-sm md:text-base">
                 {displayedBodyFat !== '—' ? `${displayedBodyFat}%` : '—'}
               </span>
               <span className="text-xs md:text-sm opacity-90">
-                {bodyFatLoggedLabel}
+                {bodyFatTrackingEnabled
+                  ? bodyFatLoggedLabel
+                  : 'Tracking disabled'}
               </span>
               <span className="text-[11px] opacity-80 ml-auto whitespace-nowrap">
-                Tap to manage
+                {bodyFatTrackingEnabled ? 'Tap to manage' : 'Enable to use'}
               </span>
             </button>
           </div>
@@ -197,6 +205,32 @@ export const SettingsModal = ({
               </button>
             </div>
           </div>
+        </div>
+
+        <div>
+          <label className="text-slate-300 text-sm block mb-2">
+            Body Fat Module
+          </label>
+          <button
+            type="button"
+            onClick={() =>
+              onChange('bodyFatTrackingEnabled', !bodyFatTrackingEnabled)
+            }
+            className={`w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 transition-all active:scale-[0.98] flex items-center justify-between gap-3 ${
+              bodyFatTrackingEnabled
+                ? 'bg-emerald-600 border-emerald-400 text-white'
+                : 'bg-slate-700 border-slate-600 text-slate-300'
+            }`}
+          >
+            <span className="font-semibold text-sm md:text-base">
+              {bodyFatTrackingEnabled ? 'Enabled' : 'Disabled'}
+            </span>
+            <span className="text-xs opacity-90">
+              {bodyFatTrackingEnabled
+                ? 'Body fat entries included in BMR'
+                : 'BMR uses standard formula'}
+            </span>
+          </button>
         </div>
 
         <DailyActivitySection

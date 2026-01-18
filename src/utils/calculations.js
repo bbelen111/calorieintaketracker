@@ -36,7 +36,30 @@ const calculateCaloriesPerMinuteFromHeartRate = ({
   return Math.max(0, rawCalories / 4.184);
 };
 
-export const calculateBMR = ({ age, weight, height, gender }) => {
+export const calculateBMR = ({
+  age,
+  weight,
+  height,
+  gender,
+  bodyFatEntries,
+  bodyFatTrackingEnabled,
+}) => {
+  if (
+    bodyFatTrackingEnabled &&
+    Array.isArray(bodyFatEntries) &&
+    bodyFatEntries.length
+  ) {
+    const latestEntry = bodyFatEntries[bodyFatEntries.length - 1];
+    const bodyFat = Number(latestEntry?.bodyFat);
+    const safeWeight = Number(weight);
+    if (Number.isFinite(bodyFat) && Number.isFinite(safeWeight)) {
+      const leanMass = safeWeight * (1 - bodyFat / 100);
+      if (Number.isFinite(leanMass) && leanMass > 0) {
+        return Math.round(370 + 21.6 * leanMass);
+      }
+    }
+  }
+
   if (gender === 'male') {
     return Math.round(10 * weight + 6.25 * height - 5 * age + 5);
   }

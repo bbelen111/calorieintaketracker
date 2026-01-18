@@ -466,9 +466,12 @@ export const EnergyMapCalculator = () => {
   }, [weightTrackerModal]);
 
   const openBodyFatTracker = useCallback(() => {
+    if (!userData.bodyFatTrackingEnabled) {
+      return;
+    }
     setBodyFatEntryError('');
     bodyFatTrackerModal.open();
-  }, [bodyFatTrackerModal]);
+  }, [bodyFatTrackerModal, userData.bodyFatTrackingEnabled]);
 
   const openAddWeightEntryModal = useCallback(() => {
     const todayKey = getTodayDateString();
@@ -2093,17 +2096,19 @@ export const EnergyMapCalculator = () => {
         onDeleteEntry={handleWeightEntryFromListDelete}
       />
 
-      <BodyFatTrackerModal
-        isOpen={bodyFatTrackerModal.isOpen}
-        isClosing={bodyFatTrackerModal.isClosing}
-        entries={bodyFatEntries}
-        latestBodyFat={latestBodyFatEntry?.bodyFat}
-        selectedGoal={selectedGoal}
-        phases={phases}
-        onClose={bodyFatTrackerModal.requestClose}
-        onAddEntry={openAddBodyFatEntryModal}
-        onEditEntry={handleBodyFatEntryFromListEdit}
-      />
+      {userData.bodyFatTrackingEnabled && (
+        <BodyFatTrackerModal
+          isOpen={bodyFatTrackerModal.isOpen}
+          isClosing={bodyFatTrackerModal.isClosing}
+          entries={bodyFatEntries}
+          latestBodyFat={latestBodyFatEntry?.bodyFat}
+          selectedGoal={selectedGoal}
+          phases={phases}
+          onClose={bodyFatTrackerModal.requestClose}
+          onAddEntry={openAddBodyFatEntryModal}
+          onEditEntry={handleBodyFatEntryFromListEdit}
+        />
+      )}
 
       <WeightEntryModal
         isOpen={weightEntryModal.isOpen}
@@ -2122,22 +2127,24 @@ export const EnergyMapCalculator = () => {
         }
       />
 
-      <BodyFatEntryModal
-        isOpen={bodyFatEntryModal.isOpen}
-        isClosing={bodyFatEntryModal.isClosing}
-        mode={bodyFatEntryMode}
-        date={bodyFatEntryDraft.date}
-        bodyFat={bodyFatEntryDraft.bodyFat}
-        isDateLocked={isBodyFatDateLocked}
-        error={bodyFatEntryError}
-        onDateChange={handleBodyFatEntryDateChange}
-        onRequestBodyFatPicker={openBodyFatPicker}
-        onCancel={bodyFatEntryModal.requestClose}
-        onSave={handleBodyFatEntrySave}
-        onDelete={
-          bodyFatEntryMode === 'edit' ? handleBodyFatEntryDelete : undefined
-        }
-      />
+      {userData.bodyFatTrackingEnabled && (
+        <BodyFatEntryModal
+          isOpen={bodyFatEntryModal.isOpen}
+          isClosing={bodyFatEntryModal.isClosing}
+          mode={bodyFatEntryMode}
+          date={bodyFatEntryDraft.date}
+          bodyFat={bodyFatEntryDraft.bodyFat}
+          isDateLocked={isBodyFatDateLocked}
+          error={bodyFatEntryError}
+          onDateChange={handleBodyFatEntryDateChange}
+          onRequestBodyFatPicker={openBodyFatPicker}
+          onCancel={bodyFatEntryModal.requestClose}
+          onSave={handleBodyFatEntrySave}
+          onDelete={
+            bodyFatEntryMode === 'edit' ? handleBodyFatEntryDelete : undefined
+          }
+        />
+      )}
 
       <WeightPickerModal
         isOpen={weightPickerModal.isOpen}
@@ -2148,14 +2155,16 @@ export const EnergyMapCalculator = () => {
         onSave={handleWeightPickerSave}
       />
 
-      <BodyFatPickerModal
-        isOpen={bodyFatPickerModal.isOpen}
-        isClosing={bodyFatPickerModal.isClosing}
-        value={bodyFatPickerValue}
-        onChange={handleBodyFatPickerChange}
-        onCancel={handleBodyFatPickerCancel}
-        onSave={handleBodyFatPickerSave}
-      />
+      {userData.bodyFatTrackingEnabled && (
+        <BodyFatPickerModal
+          isOpen={bodyFatPickerModal.isOpen}
+          isClosing={bodyFatPickerModal.isClosing}
+          value={bodyFatPickerValue}
+          onChange={handleBodyFatPickerChange}
+          onCancel={handleBodyFatPickerCancel}
+          onSave={handleBodyFatPickerSave}
+        />
+      )}
 
       <TrainingTypeModal
         isOpen={trainingTypeModal.isOpen}
@@ -2193,6 +2202,7 @@ export const EnergyMapCalculator = () => {
         onManageBodyFatClick={openBodyFatTracker}
         weightEntries={weightEntries}
         bodyFatEntries={bodyFatEntries}
+        bodyFatTrackingEnabled={userData.bodyFatTrackingEnabled}
         bmr={bmr}
         trainingTypes={trainingTypes}
         trainingCalories={trainingCalories}

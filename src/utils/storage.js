@@ -65,6 +65,7 @@ export const getDefaultEnergyMapData = () => ({
   height: 168,
   weightEntries: [],
   bodyFatEntries: [],
+  bodyFatTrackingEnabled: true,
   gender: 'male',
   trainingType: 'bodybuilding',
   trainingDuration: 2,
@@ -203,6 +204,8 @@ function mergeWithDefaults(data) {
     bodyFatEntries: sortBodyFatEntries(
       data.bodyFatEntries ?? defaults.bodyFatEntries
     ),
+    bodyFatTrackingEnabled:
+      data.bodyFatTrackingEnabled ?? defaults.bodyFatTrackingEnabled,
     phases: Array.isArray(data.phases) ? data.phases : defaults.phases,
     activePhaseId: data.activePhaseId ?? defaults.activePhaseId,
     pinnedFoods: Array.isArray(data.pinnedFoods)
