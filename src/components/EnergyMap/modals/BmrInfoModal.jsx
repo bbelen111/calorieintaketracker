@@ -1,7 +1,7 @@
 import React from 'react';
 import { Info, X } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
-import { formatDateLabel } from '../../../utils/weight';
+import { formatDateLabel, formatWeight } from '../../../utils/weight';
 import { formatBodyFat } from '../../../utils/bodyFat';
 
 export const BmrInfoModal = ({ isOpen, isClosing, userData, bmr, onClose }) => {
@@ -14,6 +14,21 @@ export const BmrInfoModal = ({ isOpen, isClosing, userData, bmr, onClose }) => {
   const latestBodyFatLabel = latestBodyFatEntry
     ? `${formatBodyFat(latestBodyFatEntry.bodyFat)}% • ${formatDateLabel(
         latestBodyFatEntry.date,
+        {
+          month: 'short',
+          day: 'numeric',
+        }
+      )}`
+    : 'No entries yet';
+  const weightEntries = Array.isArray(userData?.weightEntries)
+    ? userData.weightEntries
+    : [];
+  const latestWeightEntry = weightEntries.length
+    ? [...weightEntries].sort((a, b) => a.date.localeCompare(b.date)).at(-1)
+    : null;
+  const latestWeightLabel = latestWeightEntry
+    ? `${formatWeight(latestWeightEntry.weight) ?? latestWeightEntry.weight} kg • ${formatDateLabel(
+        latestWeightEntry.date,
         {
           month: 'short',
           day: 'numeric',
@@ -99,9 +114,17 @@ export const BmrInfoModal = ({ isOpen, isClosing, userData, bmr, onClose }) => {
             <p>
               Weight:{' '}
               <span className="text-white font-semibold">
-                {userData.weight} kg
+                {latestWeightLabel}
               </span>
             </p>
+            {userData.bodyFatTrackingEnabled && (
+              <p>
+                Body fat:{' '}
+                <span className="text-white font-semibold">
+                  {latestBodyFatLabel}
+                </span>
+              </p>
+            )}
             <p>
               Height:{' '}
               <span className="text-white font-semibold">
@@ -118,12 +141,6 @@ export const BmrInfoModal = ({ isOpen, isClosing, userData, bmr, onClose }) => {
               Gender:{' '}
               <span className="text-white font-semibold capitalize">
                 {userData.gender}
-              </span>
-            </p>
-            <p>
-              Body fat:{' '}
-              <span className="text-white font-semibold">
-                {latestBodyFatLabel}
               </span>
             </p>
             <div className="border-t border-blue-700/50 mt-2 pt-2">

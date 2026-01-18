@@ -456,7 +456,7 @@ export const InsightsScreen = ({
               <div className="flex items-center justify-between gap-1">
                 <div>
                   <p className="font-semibold text-white text-base mb-2">
-                    Body Fat Snapshot
+                    Body Fat % Snapshot
                   </p>
                   <p
                     className={`text-lg font-semibold ${getTrendToneClass(bodyFatTrend.direction, bodyFatTrend.label)}`}
