@@ -12,6 +12,7 @@ import {
   TrendingDown,
   Minus,
   Info,
+  Repeat,
 } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import {
@@ -987,9 +988,10 @@ export const WeightTrackerModal = ({
             <button
               type="button"
               onClick={() => onSwitchToBodyFat?.()}
-              className="px-3 py-1.5 rounded-md border border-slate-600 bg-slate-800 text-slate-100 text-xs font-semibold hover:bg-slate-700 transition-colors"
+              className="px-4 py-2 md:px-4 md:py-2 rounded-md bg-blue-600 border border-blue-400 text-white text-sm font-semibold hover:bg-blue-500 transition-colors flex items-center"
               aria-label="Switch to body fat tracker"
             >
+              <Repeat size={16} className="mr-2 opacity-90" />
               Body Fat
             </button>
           )}
