@@ -150,11 +150,11 @@ const CalendarHeatmap = ({
   return (
     <div className="space-y-2 transition-all duration-300 ease-in-out">
       {/* Day labels */}
-      <div className="grid grid-cols-7 gap-2 mb-1">
+      <div className="grid grid-cols-7 gap-1 mb-1">
         {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
           <div
             key={i}
-            className={`text-xs text-center font-semibold ${
+            className={`text-[10px] text-center font-semibold ${
               i === 0 ? 'text-red-400' : 'text-slate-400'
             }`}
           >
@@ -163,8 +163,8 @@ const CalendarHeatmap = ({
         ))}
       </div>
 
-      {/* Weeks - Fixed height for 6 weeks */}
-      <div className="relative h-[372px]">
+      {/* Weeks - Auto height based on content density */}
+      <div className="relative min-h-[260px]">
         <AnimatePresence mode="wait">
           <motion.div
             key={`${calendarData[0]?.date || 'empty'}`}
@@ -174,7 +174,7 @@ const CalendarHeatmap = ({
             transition={{ duration: 0.2, ease: 'easeInOut' }}
           >
             {weeks.map((week, weekIndex) => (
-              <div key={weekIndex} className="grid grid-cols-7 gap-2 mb-2">
+              <div key={weekIndex} className="grid grid-cols-7 gap-1 mb-1">
                 {week.map((day) => {
                   const macros = getMacrosForDate(day.date);
                   const dayNum = getDayNumber(day.date);

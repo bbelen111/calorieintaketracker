@@ -1,5 +1,13 @@
 # Energy Map Calorie Tracker - AI Coding Instructions
 
+## Target Platform: Mobile (Capacitor)
+This app is designed to be wrapped by Capacitor for mobile deployment (iOS/Android).
+- **Mobile-First Design:** All UI must fit comfortably on standard mobile viewports (360px-390px width).
+- **High Density:** Avoid large, airy desktop-style padding. Prefer tighter spacing (e.g., `p-4` instead of `p-6`, `gap-2` instead of `gap-4`).
+- **Touch Targets:** Buttons must be tappable, but visual density should be high to fit information on small screens.
+- **Overscroll/Bounce:** Capacitor handles bounce, but the app should manage its own scrolling containers responsibly.
+- **Safe Areas:** Be mindful of top (status bar) and bottom (home indicator) safe areas.
+
 ## Project Overview
 React + Vite single-page app for fitness calorie tracking. Uses Framer Motion for animations, Tailwind for styling, and localStorage for persistence. **No backend, no API calls, no routing** - pure client-side state management.
 
