@@ -30,6 +30,9 @@ import { HeightPickerModal } from './modals/HeightPickerModal';
 import { WeightPickerModal } from './modals/WeightPickerModal';
 import { WeightEntryModal } from './modals/WeightEntryModal';
 import { WeightTrackerModal } from './modals/WeightTrackerModal';
+import { BodyFatTrackerModal } from './modals/BodyFatTrackerModal';
+import { BodyFatEntryModal } from './modals/BodyFatEntryModal';
+import { BodyFatPickerModal } from './modals/BodyFatPickerModal';
 import { TrainingTypeModal } from './modals/TrainingTypeModal';
 import { TrainingTypeEditorModal } from './modals/TrainingTypeEditorModal';
 import { SettingsModal } from './modals/SettingsModal';
@@ -58,6 +61,7 @@ import {
   formatWeight,
   formatDateLabel,
 } from '../../utils/weight';
+import { clampBodyFat } from '../../utils/bodyFat';
 import { exportPhaseAsCSV, exportPhaseAsJSON } from '../../utils/export';
 
 const MODAL_CLOSE_DELAY = 200;
@@ -193,6 +197,7 @@ export const EnergyMapCalculator = () => {
   const {
     userData,
     weightEntries,
+    bodyFatEntries,
     trainingTypes,
     cardioTypes,
     customCardioTypes,
@@ -216,6 +221,8 @@ export const EnergyMapCalculator = () => {
     calculateCardioSessionCalories,
     saveWeightEntry,
     deleteWeightEntry,
+    saveBodyFatEntry,
+    deleteBodyFatEntry,
     nutritionData,
     pinnedFoods,
     addFoodEntry,
@@ -278,6 +285,19 @@ export const EnergyMapCalculator = () => {
     clampWeight(userData.weight) ?? userData.weight
   );
 
+  const [bodyFatEntryDraft, setBodyFatEntryDraft] = useState(() => ({
+    date: getTodayDateString(),
+    bodyFat: clampBodyFat(18) ?? 18,
+  }));
+  const [bodyFatEntryMode, setBodyFatEntryMode] = useState('add');
+  const [bodyFatEntryOriginalDate, setBodyFatEntryOriginalDate] =
+    useState(null);
+  const [isBodyFatDateLocked, setIsBodyFatDateLocked] = useState(false);
+  const [bodyFatEntryError, setBodyFatEntryError] = useState('');
+  const [bodyFatPickerValue, setBodyFatPickerValue] = useState(
+    clampBodyFat(18) ?? 18
+  );
+
   // Phase-related state
   const [phaseName, setPhaseName] = useState('');
   const [phaseStartDate, setPhaseStartDate] = useState(getTodayDateString());
@@ -334,6 +354,9 @@ export const EnergyMapCalculator = () => {
   const weightTrackerModal = useAnimatedModal();
   const weightEntryModal = useAnimatedModal();
   const weightPickerModal = useAnimatedModal();
+  const bodyFatTrackerModal = useAnimatedModal();
+  const bodyFatEntryModal = useAnimatedModal();
+  const bodyFatPickerModal = useAnimatedModal();
   const trainingTypeModal = useAnimatedModal();
   const trainingTypeEditorModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
   const settingsModal = useAnimatedModal();
@@ -428,10 +451,24 @@ export const EnergyMapCalculator = () => {
     ? 'Edit Entry'
     : 'Add Entry';
 
+  const latestBodyFatEntry = useMemo(
+    () =>
+      bodyFatEntries.length
+        ? bodyFatEntries[bodyFatEntries.length - 1]
+        : null,
+    [bodyFatEntries]
+  );
+
+
   const openWeightTracker = useCallback(() => {
     setWeightEntryError('');
     weightTrackerModal.open();
   }, [weightTrackerModal]);
+
+  const openBodyFatTracker = useCallback(() => {
+    setBodyFatEntryError('');
+    bodyFatTrackerModal.open();
+  }, [bodyFatTrackerModal]);
 
   const openAddWeightEntryModal = useCallback(() => {
     const todayKey = getTodayDateString();
@@ -447,6 +484,20 @@ export const EnergyMapCalculator = () => {
     setWeightPickerValue(fallbackWeight);
     weightEntryModal.open();
   }, [latestWeightEntry, userData.weight, weightEntryModal]);
+
+  const openAddBodyFatEntryModal = useCallback(() => {
+    const todayKey = getTodayDateString();
+    const fallbackBodyFat =
+      clampBodyFat(latestBodyFatEntry?.bodyFat ?? 18) ?? 18;
+
+    setBodyFatEntryMode('add');
+    setBodyFatEntryDraft({ date: todayKey, bodyFat: fallbackBodyFat });
+    setBodyFatEntryOriginalDate(null);
+    setIsBodyFatDateLocked(false);
+    setBodyFatEntryError('');
+    setBodyFatPickerValue(fallbackBodyFat);
+    bodyFatEntryModal.open();
+  }, [bodyFatEntryModal, latestBodyFatEntry?.bodyFat]);
 
   const openEditWeightEntryModal = useCallback(
     (entry) => {
@@ -473,6 +524,31 @@ export const EnergyMapCalculator = () => {
     [userData.weight, weightEntryModal]
   );
 
+  const openEditBodyFatEntryModal = useCallback(
+    (entry) => {
+      if (!entry) {
+        return;
+      }
+
+      const dateKey = normalizeDateKey(entry.date);
+      if (!dateKey) {
+        return;
+      }
+
+      const fallbackBodyFat = clampBodyFat(entry.bodyFat) ?? 18;
+      const isToday = dateKey === getTodayDateString();
+
+      setBodyFatEntryMode('edit');
+      setBodyFatEntryDraft({ date: dateKey, bodyFat: fallbackBodyFat });
+      setBodyFatEntryOriginalDate(dateKey);
+      setIsBodyFatDateLocked(isToday);
+      setBodyFatEntryError('');
+      setBodyFatPickerValue(fallbackBodyFat);
+      bodyFatEntryModal.open();
+    },
+    [bodyFatEntryModal]
+  );
+
   const handlePrimaryWeightEntry = useCallback(() => {
     if (todayWeightEntry) {
       openEditWeightEntryModal(todayWeightEntry);
@@ -480,6 +556,7 @@ export const EnergyMapCalculator = () => {
       openAddWeightEntryModal();
     }
   }, [openAddWeightEntryModal, openEditWeightEntryModal, todayWeightEntry]);
+
 
   const handleWeightEntrySave = useCallback(() => {
     const normalizedDate = normalizeDateKey(weightEntryDraft.date);
@@ -530,6 +607,55 @@ export const EnergyMapCalculator = () => {
     weightEntryModal,
   ]);
 
+  const handleBodyFatEntrySave = useCallback(() => {
+    const normalizedDate = normalizeDateKey(bodyFatEntryDraft.date);
+    if (!normalizedDate) {
+      setBodyFatEntryError('Select a valid date.');
+      return;
+    }
+
+    const normalizedBodyFat = clampBodyFat(bodyFatEntryDraft.bodyFat);
+    if (normalizedBodyFat == null) {
+      setBodyFatEntryError('Select a valid body fat percentage.');
+      return;
+    }
+
+    const originalDateKey =
+      bodyFatEntryMode === 'edit' ? bodyFatEntryOriginalDate : null;
+    const hasConflict = bodyFatEntries.some((entry) => {
+      if (!entry?.date) {
+        return false;
+      }
+      if (originalDateKey && entry.date === originalDateKey) {
+        return false;
+      }
+      return entry.date === normalizedDate;
+    });
+
+    if (hasConflict) {
+      setBodyFatEntryError(
+        'An entry already exists for this date. Edit that entry instead.'
+      );
+      return;
+    }
+
+    saveBodyFatEntry(
+      { date: normalizedDate, bodyFat: normalizedBodyFat },
+      originalDateKey
+    );
+
+    setBodyFatEntryError('');
+    bodyFatEntryModal.requestClose();
+  }, [
+    bodyFatEntries,
+    bodyFatEntryDraft.bodyFat,
+    bodyFatEntryDraft.date,
+    bodyFatEntryMode,
+    bodyFatEntryOriginalDate,
+    bodyFatEntryModal,
+    saveBodyFatEntry,
+  ]);
+
   const handleWeightEntryDelete = useCallback(() => {
     const targetDate = normalizeDateKey(
       weightEntryOriginalDate ?? weightEntryDraft.date
@@ -549,6 +675,24 @@ export const EnergyMapCalculator = () => {
     weightEntryOriginalDate,
   ]);
 
+  const handleBodyFatEntryDelete = useCallback(() => {
+    const targetDate = normalizeDateKey(
+      bodyFatEntryOriginalDate ?? bodyFatEntryDraft.date
+    );
+    if (!targetDate) {
+      bodyFatEntryModal.requestClose();
+      return;
+    }
+
+    deleteBodyFatEntry(targetDate);
+    bodyFatEntryModal.requestClose();
+  }, [
+    bodyFatEntryDraft.date,
+    bodyFatEntryModal,
+    bodyFatEntryOriginalDate,
+    deleteBodyFatEntry,
+  ]);
+
   const handleWeightEntryFromListDelete = useCallback(
     (entry) => {
       const dateKey = normalizeDateKey(entry?.date);
@@ -562,6 +706,18 @@ export const EnergyMapCalculator = () => {
     [deleteWeightEntry]
   );
 
+  const handleBodyFatEntryFromListDelete = useCallback(
+    (entry) => {
+      const dateKey = normalizeDateKey(entry?.date);
+      if (!dateKey) {
+        return;
+      }
+
+      deleteBodyFatEntry(dateKey);
+    },
+    [deleteBodyFatEntry]
+  );
+
   const handleWeightEntryFromListEdit = useCallback(
     (entry) => {
       openEditWeightEntryModal(entry);
@@ -569,9 +725,21 @@ export const EnergyMapCalculator = () => {
     [openEditWeightEntryModal]
   );
 
+  const handleBodyFatEntryFromListEdit = useCallback(
+    (entry) => {
+      openEditBodyFatEntryModal(entry);
+    },
+    [openEditBodyFatEntryModal]
+  );
+
   const handleWeightEntryDateChange = useCallback((value) => {
     setWeightEntryDraft((prev) => ({ ...prev, date: value }));
     setWeightEntryError('');
+  }, []);
+
+  const handleBodyFatEntryDateChange = useCallback((value) => {
+    setBodyFatEntryDraft((prev) => ({ ...prev, date: value }));
+    setBodyFatEntryError('');
   }, []);
 
   const openWeightPicker = useCallback(() => {
@@ -581,8 +749,18 @@ export const EnergyMapCalculator = () => {
     weightPickerModal.open();
   }, [weightEntryDraft.weight, userData.weight, weightPickerModal]);
 
+  const openBodyFatPicker = useCallback(() => {
+    const fallbackBodyFat = clampBodyFat(bodyFatEntryDraft.bodyFat) ?? 18;
+    setBodyFatPickerValue(fallbackBodyFat);
+    bodyFatPickerModal.open();
+  }, [bodyFatEntryDraft.bodyFat, bodyFatPickerModal]);
+
   const handleWeightPickerChange = useCallback((value) => {
     setWeightPickerValue(value);
+  }, []);
+
+  const handleBodyFatPickerChange = useCallback((value) => {
+    setBodyFatPickerValue(value);
   }, []);
 
   const handleWeightPickerSave = useCallback(
@@ -601,9 +779,29 @@ export const EnergyMapCalculator = () => {
     [weightPickerModal]
   );
 
+  const handleBodyFatPickerSave = useCallback(
+    (value) => {
+      const sanitized = clampBodyFat(value);
+      if (sanitized == null) {
+        bodyFatPickerModal.requestClose();
+        return;
+      }
+
+      setBodyFatEntryDraft((prev) => ({ ...prev, bodyFat: sanitized }));
+      setBodyFatPickerValue(sanitized);
+      setBodyFatEntryError('');
+      bodyFatPickerModal.requestClose();
+    },
+    [bodyFatPickerModal]
+  );
+
   const handleWeightPickerCancel = useCallback(() => {
     weightPickerModal.requestClose();
   }, [weightPickerModal]);
+
+  const handleBodyFatPickerCancel = useCallback(() => {
+    bodyFatPickerModal.requestClose();
+  }, [bodyFatPickerModal]);
 
   useEffect(() => {
     if (weightEntryModal.isOpen || weightEntryModal.isClosing) {
@@ -619,6 +817,25 @@ export const EnergyMapCalculator = () => {
     setWeightEntryError('');
     setWeightPickerValue(fallbackWeight);
   }, [userData.weight, weightEntryModal.isClosing, weightEntryModal.isOpen]);
+
+  useEffect(() => {
+    if (bodyFatEntryModal.isOpen || bodyFatEntryModal.isClosing) {
+      return;
+    }
+
+    const fallbackBodyFat =
+      clampBodyFat(latestBodyFatEntry?.bodyFat ?? 18) ?? 18;
+    setBodyFatEntryDraft({ date: getTodayDateString(), bodyFat: fallbackBodyFat });
+    setBodyFatEntryMode('add');
+    setBodyFatEntryOriginalDate(null);
+    setIsBodyFatDateLocked(false);
+    setBodyFatEntryError('');
+    setBodyFatPickerValue(fallbackBodyFat);
+  }, [
+    bodyFatEntryModal.isClosing,
+    bodyFatEntryModal.isOpen,
+    latestBodyFatEntry?.bodyFat,
+  ]);
 
   const updateSelectedDay = useCallback((day) => {
     setSelectedDayState(day);
@@ -1876,6 +2093,18 @@ export const EnergyMapCalculator = () => {
         onDeleteEntry={handleWeightEntryFromListDelete}
       />
 
+      <BodyFatTrackerModal
+        isOpen={bodyFatTrackerModal.isOpen}
+        isClosing={bodyFatTrackerModal.isClosing}
+        entries={bodyFatEntries}
+        latestBodyFat={latestBodyFatEntry?.bodyFat}
+        selectedGoal={selectedGoal}
+        phases={phases}
+        onClose={bodyFatTrackerModal.requestClose}
+        onAddEntry={openAddBodyFatEntryModal}
+        onEditEntry={handleBodyFatEntryFromListEdit}
+      />
+
       <WeightEntryModal
         isOpen={weightEntryModal.isOpen}
         isClosing={weightEntryModal.isClosing}
@@ -1893,6 +2122,23 @@ export const EnergyMapCalculator = () => {
         }
       />
 
+      <BodyFatEntryModal
+        isOpen={bodyFatEntryModal.isOpen}
+        isClosing={bodyFatEntryModal.isClosing}
+        mode={bodyFatEntryMode}
+        date={bodyFatEntryDraft.date}
+        bodyFat={bodyFatEntryDraft.bodyFat}
+        isDateLocked={isBodyFatDateLocked}
+        error={bodyFatEntryError}
+        onDateChange={handleBodyFatEntryDateChange}
+        onRequestBodyFatPicker={openBodyFatPicker}
+        onCancel={bodyFatEntryModal.requestClose}
+        onSave={handleBodyFatEntrySave}
+        onDelete={
+          bodyFatEntryMode === 'edit' ? handleBodyFatEntryDelete : undefined
+        }
+      />
+
       <WeightPickerModal
         isOpen={weightPickerModal.isOpen}
         isClosing={weightPickerModal.isClosing}
@@ -1900,6 +2146,15 @@ export const EnergyMapCalculator = () => {
         onChange={handleWeightPickerChange}
         onCancel={handleWeightPickerCancel}
         onSave={handleWeightPickerSave}
+      />
+
+      <BodyFatPickerModal
+        isOpen={bodyFatPickerModal.isOpen}
+        isClosing={bodyFatPickerModal.isClosing}
+        value={bodyFatPickerValue}
+        onChange={handleBodyFatPickerChange}
+        onCancel={handleBodyFatPickerCancel}
+        onSave={handleBodyFatPickerSave}
       />
 
       <TrainingTypeModal
@@ -1935,7 +2190,9 @@ export const EnergyMapCalculator = () => {
         onAgePickerClick={openAgeModal}
         onHeightPickerClick={openHeightModal}
         onManageWeightClick={openWeightTracker}
+        onManageBodyFatClick={openBodyFatTracker}
         weightEntries={weightEntries}
+        bodyFatEntries={bodyFatEntries}
         bmr={bmr}
         trainingTypes={trainingTypes}
         trainingCalories={trainingCalories}

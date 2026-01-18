@@ -1,4 +1,5 @@
 import { sortWeightEntries } from './weight';
+import { sortBodyFatEntries } from './bodyFat';
 
 const DATA_KEY = 'energyMapData';
 const SELECTED_DAY_KEY = 'energyMapSelectedDay';
@@ -63,6 +64,7 @@ export const getDefaultEnergyMapData = () => ({
   weight: 74,
   height: 168,
   weightEntries: [],
+  bodyFatEntries: [],
   gender: 'male',
   trainingType: 'bodybuilding',
   trainingDuration: 2,
@@ -197,6 +199,9 @@ function mergeWithDefaults(data) {
       : defaults.cardioFavourites,
     weightEntries: sortWeightEntries(
       data.weightEntries ?? defaults.weightEntries
+    ),
+    bodyFatEntries: sortBodyFatEntries(
+      data.bodyFatEntries ?? defaults.bodyFatEntries
     ),
     phases: Array.isArray(data.phases) ? data.phases : defaults.phases,
     activePhaseId: data.activePhaseId ?? defaults.activePhaseId,

@@ -7,6 +7,7 @@ import {
 import { ModalShell } from '../common/ModalShell';
 import { formatDurationLabel, roundDurationHours } from '../../../utils/time';
 import { formatDateLabel, formatWeight } from '../../../utils/weight';
+import { formatBodyFat } from '../../../utils/bodyFat';
 
 export const SettingsModal = ({
   isOpen,
@@ -22,7 +23,9 @@ export const SettingsModal = ({
   onAgePickerClick,
   onHeightPickerClick,
   onManageWeightClick,
+  onManageBodyFatClick,
   weightEntries,
+  bodyFatEntries,
   onCancel,
   onSave,
 }) => {
@@ -46,6 +49,26 @@ export const SettingsModal = ({
     }
     return `Last logged ${formatDateLabel(latestWeightEntry.date, { month: 'short', day: 'numeric' })}`;
   }, [latestWeightEntry]);
+
+  const latestBodyFatEntry = useMemo(
+    () =>
+      Array.isArray(bodyFatEntries) && bodyFatEntries.length
+        ? bodyFatEntries[bodyFatEntries.length - 1]
+        : null,
+    [bodyFatEntries]
+  );
+
+  const displayedBodyFat = useMemo(() => {
+    const formatted = formatBodyFat(latestBodyFatEntry?.bodyFat);
+    return formatted ?? '—';
+  }, [latestBodyFatEntry?.bodyFat]);
+
+  const bodyFatLoggedLabel = useMemo(() => {
+    if (!latestBodyFatEntry?.date) {
+      return 'No entries yet';
+    }
+    return `Last logged ${formatDateLabel(latestBodyFatEntry.date, { month: 'short', day: 'numeric' })}`;
+  }, [latestBodyFatEntry]);
 
   return (
     <ModalShell
@@ -123,6 +146,27 @@ export const SettingsModal = ({
               </span>
               <span className="text-xs md:text-sm opacity-90">
                 {lastLoggedLabel}
+              </span>
+              <span className="text-[11px] opacity-80 ml-auto whitespace-nowrap">
+                Tap to manage
+              </span>
+            </button>
+          </div>
+
+          <div>
+            <label className="text-slate-300 text-sm block mb-2">
+              Body Fat (%)
+            </label>
+            <button
+              type="button"
+              onClick={() => onManageBodyFatClick?.()}
+              className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1 text-left hover:bg-indigo-500/90"
+            >
+              <span className="font-semibold text-sm md:text-base">
+                {displayedBodyFat !== '—' ? `${displayedBodyFat}%` : '—'}
+              </span>
+              <span className="text-xs md:text-sm opacity-90">
+                {bodyFatLoggedLabel}
               </span>
               <span className="text-[11px] opacity-80 ml-auto whitespace-nowrap">
                 Tap to manage

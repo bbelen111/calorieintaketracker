@@ -16,6 +16,10 @@ import {
   normalizeDateKey,
   sortWeightEntries,
 } from '../utils/weight';
+import {
+  clampBodyFat,
+  sortBodyFatEntries,
+} from '../utils/bodyFat';
 
 export const useEnergyMapData = () => {
   const [userData, setUserData] = useState(() => loadEnergyMapData());
@@ -75,6 +79,11 @@ export const useEnergyMapData = () => {
   const weightEntries = useMemo(
     () => sortWeightEntries(userData.weightEntries ?? []),
     [userData.weightEntries]
+  );
+
+  const bodyFatEntries = useMemo(
+    () => sortBodyFatEntries(userData.bodyFatEntries ?? []),
+    [userData.bodyFatEntries]
   );
 
   const calculateBreakdown = useCallback(
@@ -341,6 +350,76 @@ export const useEnergyMapData = () => {
         ...prev,
         weight: nextEntries.length ? latestWeight : prev.weight,
         weightEntries: nextEntries,
+      };
+    });
+  }, []);
+
+  const saveBodyFatEntry = useCallback(({ date, bodyFat }, originalDate) => {
+    const normalizedDate = normalizeDateKey(date);
+    const sanitizedBodyFat = clampBodyFat(bodyFat);
+    const normalizedOriginal = normalizeDateKey(originalDate);
+
+    if (!normalizedDate || sanitizedBodyFat == null) {
+      return;
+    }
+
+    setUserData((prev) => {
+      const existingEntries = Array.isArray(prev.bodyFatEntries)
+        ? prev.bodyFatEntries
+        : [];
+
+      const filtered = existingEntries.filter((entry) => {
+        if (!entry || typeof entry !== 'object') {
+          return false;
+        }
+        const entryDate = normalizeDateKey(entry.date);
+        if (!entryDate) {
+          return false;
+        }
+        if (entryDate === normalizedDate) {
+          return false;
+        }
+        if (normalizedOriginal && entryDate === normalizedOriginal) {
+          return false;
+        }
+        return true;
+      });
+
+      const nextEntries = sortBodyFatEntries([
+        ...filtered,
+        { date: normalizedDate, bodyFat: sanitizedBodyFat },
+      ]);
+
+      return {
+        ...prev,
+        bodyFatEntries: nextEntries,
+      };
+    });
+  }, []);
+
+  const deleteBodyFatEntry = useCallback((date) => {
+    const normalizedDate = normalizeDateKey(date);
+    if (!normalizedDate) {
+      return;
+    }
+
+    setUserData((prev) => {
+      const existingEntries = Array.isArray(prev.bodyFatEntries)
+        ? prev.bodyFatEntries
+        : [];
+      const filtered = existingEntries.filter(
+        (entry) => normalizeDateKey(entry?.date) !== normalizedDate
+      );
+
+      if (filtered.length === existingEntries.length) {
+        return prev;
+      }
+
+      const nextEntries = sortBodyFatEntries(filtered);
+
+      return {
+        ...prev,
+        bodyFatEntries: nextEntries,
       };
     });
   }, []);
@@ -614,6 +693,7 @@ export const useEnergyMapData = () => {
   return {
     userData,
     weightEntries,
+    bodyFatEntries,
     trainingTypes: resolvedTrainingTypes,
     cardioTypes: resolvedCardioTypes,
     customCardioTypes: userData.customCardioTypes ?? {},
@@ -641,6 +721,8 @@ export const useEnergyMapData = () => {
     calculateCardioSessionCalories,
     saveWeightEntry,
     deleteWeightEntry,
+    saveBodyFatEntry,
+    deleteBodyFatEntry,
     createPhase,
     updatePhase,
     deletePhase,

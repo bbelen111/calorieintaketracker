@@ -38,7 +38,12 @@ export default [
             prettier,
         },
         rules: {
-            'prettier/prettier': 'error',
+            'prettier/prettier': [
+                'error',
+                {
+                    endOfLine: 'auto',
+                },
+            ],
             'react/prop-types': 'off',
         },
         settings: {
