@@ -149,3 +149,76 @@ export const calculateBodyFatTrend = (entries, windowDays = 30) => {
     sampleRange: sample,
   };
 };
+
+export const createBodyFatSparklinePoints = (
+  entries,
+  { width = 100, height = 32, padding = 4, limit = 8 } = {}
+) => {
+  const sorted = sortBodyFatEntries(entries);
+  const recent = sorted.slice(-limit);
+  if (!recent.length) {
+    return {
+      points: '',
+      areaPath: '',
+      min: null,
+      max: null,
+      range: 0,
+      values: [],
+    };
+  }
+
+  const values = recent.map((entry) => entry.bodyFat);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  let range = max - min;
+
+  const minVisibleRange = 2;
+  let effectiveMin = min;
+  let effectiveMax = max;
+
+  if (range < minVisibleRange) {
+    const midpoint = (min + max) / 2;
+    effectiveMin = midpoint - minVisibleRange / 2;
+    effectiveMax = midpoint + minVisibleRange / 2;
+    range = minVisibleRange;
+  }
+
+  const usableWidth = Math.max(width - padding * 2, 1);
+  const usableHeight = Math.max(height - padding * 2, 1);
+  const step = recent.length === 1 ? 0 : usableWidth / (recent.length - 1);
+  const baselineY = height - padding;
+
+  const coordinates = recent.map((entry, index) => {
+    const x = padding + step * index;
+    const normalized = (entry.bodyFat - effectiveMin) / range;
+    const y = padding + (1 - normalized) * usableHeight;
+    return { x, y, bodyFat: entry.bodyFat };
+  });
+
+  const points = coordinates
+    .map((coord) => `${coord.x.toFixed(2)},${coord.y.toFixed(2)}`)
+    .join(' ');
+
+  let areaPath = '';
+  if (coordinates.length > 0) {
+    areaPath = `M ${coordinates[0].x},${baselineY}`;
+    areaPath += ` L ${coordinates[0].x},${coordinates[0].y}`;
+    coordinates.forEach((coord) => {
+      areaPath += ` L ${coord.x},${coord.y}`;
+    });
+    areaPath += ` L ${coordinates[coordinates.length - 1].x},${baselineY}`;
+    areaPath += ' Z';
+  }
+
+  return {
+    points,
+    areaPath,
+    min,
+    max,
+    range: max - min,
+    effectiveMin,
+    effectiveMax,
+    coordinates,
+    values: recent,
+  };
+};

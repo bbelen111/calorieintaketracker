@@ -9,6 +9,7 @@ import {
 } from '../../../utils/weight';
 import {
   calculateBodyFatTrend,
+  createBodyFatSparklinePoints,
   formatBodyFat,
 } from '../../../utils/bodyFat';
 
@@ -140,18 +141,16 @@ export const InsightsScreen = ({
     [sortedBodyFatEntries]
   );
 
-  const bodyFatSparkline = useMemo(() => {
-    const sparklineEntries = sortedBodyFatEntries.map((entry) => ({
-      date: entry.date,
-      weight: entry.bodyFat,
-    }));
-    return createSparklinePoints(sparklineEntries, {
-      width: 160,
-      height: 56,
-      padding: 6,
-      limit: 7,
-    });
-  }, [sortedBodyFatEntries]);
+  const bodyFatSparkline = useMemo(
+    () =>
+      createBodyFatSparklinePoints(sortedBodyFatEntries, {
+        width: 160,
+        height: 56,
+        padding: 6,
+        limit: 7,
+      }),
+    [sortedBodyFatEntries]
+  );
 
   const latestBodyFatEntry = useMemo(
     () =>
