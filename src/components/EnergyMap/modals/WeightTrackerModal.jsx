@@ -146,19 +146,45 @@ const DATE_COLUMN_GAP = 8;
 const Y_TICK_COUNT = 7;
 // Visual padding when stretching across the viewport
 const LEFT_EDGE_PADDING_GRAPH = 8; // tiny base value; additional leading space applied below
-const RIGHT_EDGE_PADDING_GRAPH = 16; // small extra so the line/area can extend slightly
+const RIGHT_EDGE_PADDING_GRAPH = 10; // small extra so the line/area can extend slightly
 const LEFT_EDGE_PADDING_TIMELINE = DATE_COLUMN_WIDTH / 2; // base offset; combined with leading space for earliest entry
 const RIGHT_EDGE_PADDING_TIMELINE = 16;
 const MIN_VISIBLE_WEIGHT_RANGE = 6;
 const MIN_RANGE_PADDING = 0.5;
 const TIMELINE_TRACK_HEIGHT = 56;
 const BASELINE_Y_OFFSET = 18;
+const Y_AXIS_PADDING = 16;
 const LEADING_ENTRY_SPACE = 45;
 const FIRST_ENTRY_CENTER_OFFSET = LEADING_ENTRY_SPACE + DATE_COLUMN_WIDTH / 2;
 const TOOLTIP_WIDTH = 144;
 const TOOLTIP_VERTICAL_OFFSET = 17;
 const POINT_RADIUS = 6;
 const POINT_HIT_RADIUS = 12;
+
+const getTrendVisualStyle = (trend) => {
+  if (trend.label.includes('Severe')) {
+    return { color: '#ef4444', topOpacity: 0.3, bottomOpacity: 0.05 };
+  }
+  if (trend.label.includes('Aggressive weight loss')) {
+    return { color: '#f97316', topOpacity: 0.3, bottomOpacity: 0.05 };
+  }
+  if (trend.label.includes('Aggressive weight gain')) {
+    return { color: '#a855f7', topOpacity: 0.3, bottomOpacity: 0.05 };
+  }
+  if (trend.label.includes('Moderate weight loss')) {
+    return { color: '#eab308', topOpacity: 0.3, bottomOpacity: 0.05 };
+  }
+  if (trend.label.includes('Moderate weight gain')) {
+    return { color: '#22c55e', topOpacity: 0.3, bottomOpacity: 0.05 };
+  }
+  if (trend.direction === 'down') {
+    return { color: '#eab308', topOpacity: 0.25, bottomOpacity: 0.05 };
+  }
+  if (trend.direction === 'up') {
+    return { color: '#22c55e', topOpacity: 0.25, bottomOpacity: 0.05 };
+  }
+  return { color: '#60a5fa', topOpacity: 0.3, bottomOpacity: 0.05 };
+};
 
 const getBaselineY = (defaultY) => defaultY - BASELINE_Y_OFFSET;
 
@@ -227,6 +253,7 @@ export const WeightTrackerModal = ({
   const tooltipRef = useRef(null);
   const timeframeDropdownRef = useRef(null);
   const phaseDropdownRef = useRef(null);
+  const scrollCloseTimeoutRef = useRef(null);
   const [graphViewportWidth, setGraphViewportWidth] = useState(0);
   const [graphViewportHeight, setGraphViewportHeight] = useState(0);
   const prevEntriesLengthRef = useRef(entries?.length ?? 0);
@@ -261,6 +288,7 @@ export const WeightTrackerModal = ({
     });
 
     const phaseWeightEntries = [];
+    const includedDates = new Set();
     const dailyLogs = selectedPhase.dailyLogs || {};
 
     Object.values(dailyLogs).forEach((log) => {
@@ -268,7 +296,8 @@ export const WeightTrackerModal = ({
         const weightEntry = weightEntriesMap.get(log.weightRef);
         if (weightEntry) {
           // Only add if not already included
-          if (!phaseWeightEntries.find((e) => e.date === weightEntry.date)) {
+          if (!includedDates.has(weightEntry.date)) {
+            includedDates.add(weightEntry.date);
             phaseWeightEntries.push(weightEntry);
           }
         }
@@ -281,8 +310,6 @@ export const WeightTrackerModal = ({
 
   // Filter entries based on selected timeframe (within phase if selected)
   const filteredEntries = useMemo(() => {
-    if (!phaseFilteredEntries.length) return [];
-    if (selectedTimeframe === 'all') return phaseFilteredEntries;
     if (!phaseFilteredEntries.length) return [];
     if (selectedTimeframe === 'all') return phaseFilteredEntries;
 
@@ -312,6 +339,7 @@ export const WeightTrackerModal = ({
     () => calculateWeightTrend(filteredEntries),
     [filteredEntries]
   );
+  const trendVisual = useMemo(() => getTrendVisualStyle(trend), [trend]);
   const goalAlignment = useMemo(
     () => getGoalAlignmentText(trend.weeklyRate, selectedGoal),
     [trend.weeklyRate, selectedGoal]
@@ -701,6 +729,20 @@ export const WeightTrackerModal = ({
     return `${sign}${trend.weeklyRate.toFixed(2)} kg/wk`;
   })();
 
+  const currentWeightTick = useMemo(() => {
+    if (!chartData || !Number.isFinite(currentWeightValue)) {
+      return null;
+    }
+    const normalized =
+      (currentWeightValue - chartData.minWeight) / chartData.range;
+    const bounded = Math.min(Math.max(normalized, 0), 1);
+    const y = (1 - bounded) * chartHeight;
+    return {
+      yPx: y + Y_AXIS_PADDING - 4, // adjust for label height
+      weight: currentWeightValue,
+    };
+  }, [chartData, chartHeight, currentWeightValue]);
+
   const yTicks = useMemo(() => {
     if (!chartData) return [];
     const steps = Math.max(Y_TICK_COUNT - 1, 1);
@@ -743,6 +785,24 @@ export const WeightTrackerModal = ({
       setSelectedDate(null);
       setTooltipClosing(false);
     }, 150);
+  }, []);
+
+  const scheduleTooltipClose = useCallback(() => {
+    if (!selectedDate) return;
+    if (scrollCloseTimeoutRef.current) {
+      clearTimeout(scrollCloseTimeoutRef.current);
+    }
+    scrollCloseTimeoutRef.current = setTimeout(() => {
+      closeTooltip();
+    }, 120);
+  }, [closeTooltip, selectedDate]);
+
+  useEffect(() => {
+    return () => {
+      if (scrollCloseTimeoutRef.current) {
+        clearTimeout(scrollCloseTimeoutRef.current);
+      }
+    };
   }, []);
 
   const handleDateClick = useCallback(
@@ -857,7 +917,7 @@ export const WeightTrackerModal = ({
 
     updateTooltipPosition();
 
-    const handleScroll = () => closeTooltip();
+    const handleScroll = () => scheduleTooltipClose();
     const handleResize = () => updateTooltipPosition();
 
     const graphNode = graphScrollRef.current;
@@ -872,7 +932,7 @@ export const WeightTrackerModal = ({
       timelineNode?.removeEventListener('scroll', handleScroll);
       window.removeEventListener('resize', handleResize);
     };
-  }, [closeTooltip, selectedPoint, updateTooltipPosition]);
+  }, [scheduleTooltipClose, selectedPoint, updateTooltipPosition]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -892,9 +952,9 @@ export const WeightTrackerModal = ({
     };
 
     if (isTimeframeDropdownOpen || isPhaseDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('pointerdown', handleClickOutside);
       return () =>
-        document.removeEventListener('mousedown', handleClickOutside);
+        document.removeEventListener('pointerdown', handleClickOutside);
     }
 
     return undefined;
@@ -909,31 +969,32 @@ export const WeightTrackerModal = ({
         contentClassName="fixed inset-0 w-screen h-screen p-0 bg-slate-900 rounded-none border-none !max-h-none flex flex-col"
       >
         {/* Header with back button */}
-        <div className="flex items-center justify-between px-6 py-4 bg-slate-900 border-b border-slate-700 flex-shrink-0">
-          <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-700 flex-shrink-0">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => onClose?.()}
+              aria-label="Back"
               className="text-slate-300 hover:text-white transition-all"
             >
               <ChevronLeft size={24} />
             </button>
-            <h3 className="text-white font-bold text-2xl">Weight Tracker</h3>
+            <h3 className="text-white font-bold text-xl">Weight Tracker</h3>
           </div>
         </div>
 
         {/* Combined Timeline and Current Weight Section - Takes full remaining space */}
         <div className="flex-1 bg-slate-800 border-t border-slate-700 overflow-y-auto flex flex-col">
           {/* Stats Section */}
-          <div className="px-6 pt-6 pb-4 grid grid-cols-2 md:grid-cols-4 gap-4 flex-shrink-0">
+          <div className="px-4 pt-4 pb-3 grid grid-cols-2 md:grid-cols-4 gap-3 flex-shrink-0">
             <div>
               <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">
                 Current Weight
               </p>
-              <p className="text-white text-3xl font-bold">
+              <p className="text-white text-2xl font-bold">
                 {currentWeightDisplay}
               </p>
-              <p className="text-slate-400 text-xs mt-1 text-sm">
+              <p className="text-slate-400 text-[11px] mt-1">
                 {latestDate ? `as of ${formatTooltipDate(latestDate)}` : ''}
               </p>
             </div>
@@ -941,6 +1002,7 @@ export const WeightTrackerModal = ({
               <button
                 type="button"
                 onClick={openTrendInfo}
+                aria-label="Weekly rate details"
                 className="text-slate-400 text-xs uppercase tracking-wide mb-1 hover:text-slate-200 transition-colors cursor-pointer flex items-center gap-1 group"
               >
                 Weekly Rate
@@ -960,6 +1022,7 @@ export const WeightTrackerModal = ({
               <button
                 type="button"
                 onClick={openTrendInfo}
+                aria-label="Trend details"
                 className="text-slate-400 text-xs uppercase tracking-wide mb-1 hover:text-slate-200 transition-colors cursor-pointer flex items-center gap-1 group"
               >
                 Trend
@@ -969,7 +1032,7 @@ export const WeightTrackerModal = ({
                 />
               </button>
               <p
-                className={`${getTrendToneClass(trend.direction, trend.label)} font-semibold text-l flex items-center gap-2`}
+                className={`${getTrendToneClass(trend.direction, trend.label)} font-semibold text-lg flex items-center gap-2`}
               >
                 <TrendIcon direction={trend.direction} />
                 {trend.label}
@@ -993,12 +1056,12 @@ export const WeightTrackerModal = ({
             </div>
           </div>
 
-          <div className="px-6 pb-1 flex-shrink-0">
+          <div className="sticky top-0 z-10 px-4 py-2 bg-slate-800/95 backdrop-blur border-b border-slate-700 flex-shrink-0">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <button
                 type="button"
                 onClick={() => onAddEntry?.()}
-                className="px-5 py-1 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all font-semibold text-base hover:bg-blue-500/90"
+                className="px-4 py-1.5 md:px-4 md:py-2.5 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all font-semibold text-sm hover:bg-blue-500/90"
               >
                 Add Entry
               </button>
@@ -1012,7 +1075,7 @@ export const WeightTrackerModal = ({
                       onClick={() =>
                         setIsPhaseDropdownOpen(!isPhaseDropdownOpen)
                       }
-                      className="px-4 py-1.5 md:py-2.5 rounded-md font-semibold text-sm transition-all whitespace-nowrap bg-slate-700 text-white border border-slate-600 hover:bg-slate-600 flex items-center gap-2"
+                      className="px-3 py-1.5 md:py-2.5 rounded-md font-semibold text-sm transition-all whitespace-nowrap bg-slate-700 text-white border border-slate-600 hover:bg-slate-600 flex items-center gap-2"
                     >
                       <span>
                         {selectedPhase ? selectedPhase.name : 'All Data'}
@@ -1074,7 +1137,7 @@ export const WeightTrackerModal = ({
                     onClick={() =>
                       setIsTimeframeDropdownOpen(!isTimeframeDropdownOpen)
                     }
-                    className="px-4 py-1.5 md:py-2.5 rounded-md font-semibold text-sm transition-all whitespace-nowrap bg-blue-600 text-white border border-blue-400 hover:bg-blue-500 flex items-center gap-2"
+                    className="px-3 py-1.5 md:py-2.5 rounded-md font-semibold text-sm transition-all whitespace-nowrap bg-blue-600 text-white border border-blue-400 hover:bg-blue-500 flex items-center gap-2"
                   >
                     <span>
                       {(() => {
@@ -1149,9 +1212,7 @@ export const WeightTrackerModal = ({
                     ) {
                       timelineScrollRef.current.scrollLeft = nextScrollLeft;
                     }
-                    if (selectedDate) {
-                      closeTooltip();
-                    }
+                    scheduleTooltipClose();
                   }}
                 >
                   <div
@@ -1173,115 +1234,18 @@ export const WeightTrackerModal = ({
                             y1="0"
                             y2="1"
                           >
-                            {trend.label.includes('Severe') ? (
-                              <>
-                                <stop
-                                  offset="0%"
-                                  stopColor="#ef4444"
-                                  stopOpacity="0.3"
-                                />
-                                <stop
-                                  offset="100%"
-                                  stopColor="#ef4444"
-                                  stopOpacity="0.05"
-                                />
-                              </>
-                            ) : trend.label.includes(
-                                'Aggressive weight loss'
-                              ) ? (
-                              <>
-                                <stop
-                                  offset="0%"
-                                  stopColor="#f97316"
-                                  stopOpacity="0.3"
-                                />
-                                <stop
-                                  offset="100%"
-                                  stopColor="#f97316"
-                                  stopOpacity="0.05"
-                                />
-                              </>
-                            ) : trend.label.includes(
-                                'Aggressive weight gain'
-                              ) ? (
-                              <>
-                                <stop
-                                  offset="0%"
-                                  stopColor="#a855f7"
-                                  stopOpacity="0.3"
-                                />
-                                <stop
-                                  offset="100%"
-                                  stopColor="#a855f7"
-                                  stopOpacity="0.05"
-                                />
-                              </>
-                            ) : trend.label.includes('Moderate weight loss') ? (
-                              <>
-                                <stop
-                                  offset="0%"
-                                  stopColor="#eab308"
-                                  stopOpacity="0.3"
-                                />
-                                <stop
-                                  offset="100%"
-                                  stopColor="#eab308"
-                                  stopOpacity="0.05"
-                                />
-                              </>
-                            ) : trend.label.includes('Moderate weight gain') ? (
-                              <>
-                                <stop
-                                  offset="0%"
-                                  stopColor="#22c55e"
-                                  stopOpacity="0.3"
-                                />
-                                <stop
-                                  offset="100%"
-                                  stopColor="#22c55e"
-                                  stopOpacity="0.05"
-                                />
-                              </>
-                            ) : trend.direction === 'down' ? (
-                              <>
-                                <stop
-                                  offset="0%"
-                                  stopColor="#eab308"
-                                  stopOpacity="0.25"
-                                />
-                                <stop
-                                  offset="100%"
-                                  stopColor="#eab308"
-                                  stopOpacity="0.05"
-                                />
-                              </>
-                            ) : trend.direction === 'up' ? (
-                              <>
-                                <stop
-                                  offset="0%"
-                                  stopColor="#22c55e"
-                                  stopOpacity="0.25"
-                                />
-                                <stop
-                                  offset="100%"
-                                  stopColor="#22c55e"
-                                  stopOpacity="0.05"
-                                />
-                              </>
-                            ) : (
-                              <>
-                                <stop
-                                  offset="0%"
-                                  stopColor="#60a5fa"
-                                  stopOpacity="0.3"
-                                />
-                                <stop
-                                  offset="100%"
-                                  stopColor="#60a5fa"
-                                  stopOpacity="0.05"
-                                />
-                              </>
-                            )}
+                            <>
+                              <stop
+                                offset="0%"
+                                stopColor={trendVisual.color}
+                                stopOpacity={trendVisual.topOpacity}
+                              />
+                              <stop
+                                offset="100%"
+                                stopColor={trendVisual.color}
+                                stopOpacity={trendVisual.bottomOpacity}
+                              />
+                            </>
                           </linearGradient>
                         </defs>
 
@@ -1380,31 +1344,7 @@ export const WeightTrackerModal = ({
                                 <path
                                   d={pathData}
                                   fill="none"
-                                  stroke={
-                                    trend.label.includes('Severe')
-                                      ? '#ef4444'
-                                      : trend.label.includes(
-                                            'Aggressive weight loss'
-                                          )
-                                        ? '#f97316'
-                                        : trend.label.includes(
-                                              'Aggressive weight gain'
-                                            )
-                                          ? '#a855f7'
-                                          : trend.label.includes(
-                                                'Moderate weight loss'
-                                              )
-                                            ? '#eab308'
-                                            : trend.label.includes(
-                                                  'Moderate weight gain'
-                                                )
-                                              ? '#22c55e'
-                                              : trend.direction === 'down'
-                                                ? '#eab308'
-                                                : trend.direction === 'up'
-                                                  ? '#22c55e'
-                                                  : '#60a5fa'
-                                  }
+                                  stroke={trendVisual.color}
                                   strokeWidth="3"
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
@@ -1430,31 +1370,7 @@ export const WeightTrackerModal = ({
                                     cy={y}
                                     r={POINT_RADIUS}
                                     fill="#1e293b"
-                                    stroke={
-                                      trend.label.includes('Severe')
-                                        ? '#ef4444'
-                                        : trend.label.includes(
-                                              'Aggressive weight loss'
-                                            )
-                                          ? '#f97316'
-                                          : trend.label.includes(
-                                                'Aggressive weight gain'
-                                              )
-                                            ? '#a855f7'
-                                            : trend.label.includes(
-                                                  'Moderate weight loss'
-                                                )
-                                              ? '#eab308'
-                                              : trend.label.includes(
-                                                    'Moderate weight gain'
-                                                  )
-                                                ? '#22c55e'
-                                                : trend.direction === 'down'
-                                                  ? '#eab308'
-                                                  : trend.direction === 'up'
-                                                    ? '#22c55e'
-                                                    : '#60a5fa'
-                                    }
+                                    stroke={trendVisual.color}
                                     strokeWidth="2"
                                     className="transition-all"
                                   />
@@ -1475,7 +1391,7 @@ export const WeightTrackerModal = ({
                   {/* Close scroll container before adding overlay */}
                 </div>
                 {/* Right edge soft fade pinned to viewport of graph */}
-                <div className="pointer-events-none absolute right-0 -mr-1 top-0 h-full w-5 bg-gradient-to-l from-slate-800/95 to-transparent" />
+                <div className="pointer-events-none absolute right-0 -mr-1 top-0 h-full w-3 bg-gradient-to-l from-slate-800/90 to-transparent" />
               </div>
 
               {/* Y-axis - Fixed on right side */}
@@ -1490,7 +1406,7 @@ export const WeightTrackerModal = ({
                         return (
                           <div
                             key={`tick-${index}`}
-                            className="absolute right-2 text-sm font-semibold text-slate-100 tracking-tight text-right"
+                            className="absolute right-2 text-sm font-semibold text-slate-100/70 tracking-tight text-right"
                             style={{
                               top: `${labelPercent}%`,
                               transform: translateY,
@@ -1501,6 +1417,20 @@ export const WeightTrackerModal = ({
                         );
                       })
                     : null}
+                  {currentWeightTick && (
+                    <div
+                      className="absolute right-0.5 up px-2.5 py-1 rounded-lg text-[12px] font-bold text-white shadow-md"
+                      style={{
+                        top: `${currentWeightTick.yPx}px`,
+                        transform: 'translateY(-50%)',
+                        backgroundColor: `${trendVisual.color}cc`,
+                        borderColor: trendVisual.color,
+                        borderWidth: '1px',
+                      }}
+                    >
+                      {formatWeight(currentWeightTick.weight)}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1520,9 +1450,7 @@ export const WeightTrackerModal = ({
                     ) {
                       graphScrollRef.current.scrollLeft = nextScrollLeft;
                     }
-                    if (selectedDate) {
-                      closeTooltip();
-                    }
+                    scheduleTooltipClose();
                   }}
                 >
                   <div
@@ -1557,13 +1485,13 @@ export const WeightTrackerModal = ({
                           >
                             <button
                               type="button"
-                              tabIndex={-1}
+                              onClick={(e) => handleDateClick(date, e)}
+                              aria-pressed={selectedDate === date}
                               className={`w-full flex flex-col items-center gap-1 py-2 px-3 rounded-md border transition-colors text-xs font-semibold ${
                                 isLatest
                                   ? 'bg-blue-600 border-blue-500 text-white'
                                   : 'bg-transparent border-slate-600 text-slate-100'
                               } ${selectedDate === date ? 'ring-2 ring-blue-400' : ''}`}
-                              disabled
                             >
                               <span className="w-full text-center">
                                 {label}
@@ -1577,7 +1505,7 @@ export const WeightTrackerModal = ({
                   {/* Close inner wrapper and scroll container before overlay */}
                 </div>
                 {/* Right edge soft fade pinned to viewport of timeline */}
-                <div className="pointer-events-none absolute right-0 -mr-1 top-0 h-full w-5 bg-gradient-to-l from-slate-800/95 to-transparent" />
+                <div className="pointer-events-none absolute right-0 -mr-1 top-0 h-full w-3 bg-gradient-to-l from-slate-800/90 to-transparent" />
               </div>
               <div className="w-14 flex-shrink-0" />
             </div>
@@ -1599,7 +1527,16 @@ export const WeightTrackerModal = ({
             top: `${tooltipPosition.y - TOOLTIP_VERTICAL_OFFSET}px`,
             width: `${TOOLTIP_WIDTH}px`,
           }}
+          role="button"
+          tabIndex={0}
+          aria-label="Edit weight entry"
           onClick={handleTooltipClick}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              handleTooltipClick(event);
+            }
+          }}
         >
           <div className="cursor-pointer hover:bg-slate-700/50 rounded p-2 transition-all">
             <p className="text-slate-400 text-[11.5px] mb-1">
@@ -1608,7 +1545,7 @@ export const WeightTrackerModal = ({
             <p className="text-white text-2xl font-bold">
               {formatWeight(entriesMap[selectedDate].weight)} kg
             </p>
-            <p className="text-slate-500 text-[10px] mt-2 uppercase tracking-wide">
+            <p className="text-slate-300 text-[10px] mt-2 uppercase tracking-wide">
               Tap to edit
             </p>
           </div>
