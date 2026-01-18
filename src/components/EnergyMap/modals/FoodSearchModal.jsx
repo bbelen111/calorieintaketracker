@@ -520,12 +520,15 @@ export const FoodSearchModal = ({
                 onPointerLeave={() => handlePressEnd(true)}
                 onPointerCancel={() => handlePressEnd(true)}
                 onContextMenu={(event) => event.preventDefault()}
-                className={`w-full bg-slate-700/50 border rounded-lg p-3 text-left transition-all ${
+                className={`relative w-full bg-slate-700/50 border rounded-lg p-3 text-left transition-all ${
                   isLongPressing
                     ? 'border-blue-400 scale-[0.98]'
                     : `${borderClass} active:scale-[0.99]`
                 } ${shadowClass}`}
               >
+                {isPinned && (
+                  <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
+                )}
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
