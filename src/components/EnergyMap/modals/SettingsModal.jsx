@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Save, ChevronsUpDown } from 'lucide-react';
+import { Save, ChevronsUpDown, Mars, Venus } from 'lucide-react';
 import {
   DEFAULT_ACTIVITY_MULTIPLIERS,
   getActivityPresetByKey,
@@ -111,24 +111,26 @@ export const SettingsModal = ({
               <button
                 onClick={() => onChange('gender', 'male')}
                 type="button"
-                className={`py-3 px-2 rounded-lg border-2 transition-all font-semibold ${
+                className={`py-3 px-2 rounded-lg border-2 transition-all font-semibold flex items-center justify-center gap-2 ${
                   userData.gender === 'male'
                     ? 'bg-blue-600 border-blue-400 text-white'
                     : 'bg-slate-700 border-slate-600 text-slate-300 active:scale-95'
                 }`}
               >
-                Male
+                <Mars size={16} />
+                <span>Male</span>
               </button>
               <button
                 onClick={() => onChange('gender', 'female')}
                 type="button"
-                className={`py-3 px-2 rounded-lg border-2 transition-all font-semibold ${
+                className={`py-3 px-2 rounded-lg border-2 transition-all font-semibold flex items-center justify-center gap-2 ${
                   userData.gender === 'female'
-                    ? 'bg-blue-600 border-blue-400 text-white'
+                    ? 'bg-indigo-600 border-indigo-400 text-white'
                     : 'bg-slate-700 border-slate-600 text-slate-300 active:scale-95'
                 }`}
               >
-                Female
+                <Venus size={16} />
+                <span>Female</span>
               </button>
             </div>
           </div>
