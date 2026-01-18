@@ -76,7 +76,7 @@ export const InsightsScreen = ({
   bodyFatTrackingEnabled = true,
   onOpenBodyFatTracker,
 }) => {
-  // Only keep entries from the last 7 days (from latest entry backward)
+  // Only keep the last 7 entries
   const sortedEntries = useMemo(() => {
     if (!weightEntries.length) return [];
 
@@ -85,18 +85,7 @@ export const InsightsScreen = ({
       a.date.localeCompare(b.date)
     );
 
-    // Get the latest entry date
-    const latestEntry = sorted[sorted.length - 1];
-    const latestDate = new Date(latestEntry.date + 'T00:00:00Z');
-
-    // Calculate cutoff date (7 days before latest entry)
-    const cutoffDate = new Date(latestDate.getTime() - 7 * 24 * 60 * 60 * 1000);
-
-    // Filter entries within the 7-day window
-    return sorted.filter((entry) => {
-      const entryDate = new Date(entry.date + 'T00:00:00Z');
-      return entryDate >= cutoffDate;
-    });
+    return sorted.slice(-7);
   }, [weightEntries]);
   const trend = useMemo(
     () => calculateWeightTrend(sortedEntries),
@@ -126,14 +115,7 @@ export const InsightsScreen = ({
       a.date.localeCompare(b.date)
     );
 
-    const latestEntry = sorted[sorted.length - 1];
-    const latestDate = new Date(latestEntry.date + 'T00:00:00Z');
-    const cutoffDate = new Date(latestDate.getTime() - 7 * 24 * 60 * 60 * 1000);
-
-    return sorted.filter((entry) => {
-      const entryDate = new Date(entry.date + 'T00:00:00Z');
-      return entryDate >= cutoffDate;
-    });
+    return sorted.slice(-7);
   }, [bodyFatEntries]);
 
   const bodyFatTrend = useMemo(
@@ -194,7 +176,7 @@ export const InsightsScreen = ({
               {currentWeight ? `${currentWeight} kg` : '—'} • {lastLoggedLabel}
             </p>
             <p className="text-slate-500 text-xs mt-3">
-              {formatWeeklyRate(trend.weeklyRate)} over last 7 days
+              {formatWeeklyRate(trend.weeklyRate)} over last 7 entries
             </p>
           </div>
           {sparkline.points && sortedEntries.length > 1 && (
@@ -488,7 +470,7 @@ export const InsightsScreen = ({
                 {currentBodyFat ? `${currentBodyFat}%` : '—'} • {bodyFatLoggedLabel}
               </p>
               <p className="text-slate-500 text-xs mt-3">
-                {formatBodyFatWeeklyRate(bodyFatTrend.weeklyRate)} over last 7 days
+                {formatBodyFatWeeklyRate(bodyFatTrend.weeklyRate)} over last 7 entries
               </p>
             </div>
             {bodyFatSparkline.points && sortedBodyFatEntries.length > 1 && (
