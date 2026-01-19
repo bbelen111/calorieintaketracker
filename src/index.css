@@ -4,17 +4,15 @@
 
 /* 
   Mobile Density Fix:
-  User developed at 70% zoom. To replicate this density on actual mobile devices
-  (which are essentially 100% zoom), we scale the root font size down.
   16px * 0.75 = 12px.
 */
 html {
-  font-size: 12px;
+  font-size: 14px;
 }
 
 @media (min-width: 768px) {
   html {
-    font-size: 16px;
+    font-size: 18px;
   }
 }
 
