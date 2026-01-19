@@ -55,6 +55,7 @@ import { FoodEntryModal } from './modals/FoodEntryModal';
 import { MealTypePickerModal } from './modals/MealTypePickerModal';
 import { FoodSearchModal } from './modals/FoodSearchModal';
 import { FoodPortionModal } from './modals/FoodPortionModal';
+import { FoodFavouritesModal } from './modals/FoodFavouritesModal';
 // ...existing code...
 import { ConfirmActionModal } from './modals/ConfirmActionModal';
 import {
@@ -204,6 +205,7 @@ export const EnergyMapCalculator = () => {
     cardioTypes,
     customCardioTypes,
     cardioFavourites,
+    foodFavourites,
     phases,
     bmr,
     trainingCalories,
@@ -232,6 +234,8 @@ export const EnergyMapCalculator = () => {
     deleteFoodEntry,
     deleteMeal,
     togglePinnedFood,
+    addFoodFavourite,
+    removeFoodFavourite,
     createPhase,
     deletePhase,
     archivePhase,
@@ -382,6 +386,7 @@ export const EnergyMapCalculator = () => {
   const mealTypePickerModal = useAnimatedModal();
   const foodSearchModal = useAnimatedModal();
   const foodPortionModal = useAnimatedModal();
+  const foodFavouritesModal = useAnimatedModal();
   // ...existing code...
   const confirmActionModal = useAnimatedModal();
 
@@ -1484,6 +1489,72 @@ export const EnergyMapCalculator = () => {
     foodSearchModal.requestClose();
   }, [foodSearchModal]);
 
+  // Food Favourites Handlers
+  const handleOpenFoodFavourites = useCallback(() => {
+    foodFavouritesModal.open();
+  }, [foodFavouritesModal]);
+
+  // When user clicks "Quick Add" on a favourite - instantly add to meal
+  const handleSelectFoodFavourite = useCallback(
+    (foodEntry) => {
+      if (!foodMealType) {
+        // No meal type selected - can't add
+        return;
+      }
+
+      addFoodEntry(trackerSelectedDate, foodMealType, foodEntry);
+
+      // Close both modals
+      foodFavouritesModal.requestClose();
+      foodSearchModal.requestClose();
+    },
+    [
+      addFoodEntry,
+      foodFavouritesModal,
+      foodMealType,
+      foodSearchModal,
+      trackerSelectedDate,
+    ]
+  );
+
+  // When user clicks "Edit" on a favourite - open portion modal to customize
+  const handleEditFoodFavourite = useCallback(
+    (displayFood, favourite) => {
+      setSelectedFoodForPortion(displayFood);
+      setPortionInitialGrams(favourite?.grams ?? DEFAULT_PORTION_GRAMS);
+      foodFavouritesModal.requestClose();
+      // Small delay to let favourites modal close before opening portion modal
+      setTimeout(() => {
+        foodPortionModal.open();
+      }, 50);
+    },
+    [foodFavouritesModal, foodPortionModal]
+  );
+
+  // When user wants to create a new favourite from the current food/portion
+  const handleCreateFoodFavourite = useCallback(
+    (foodEntry, sourceFood) => {
+      if (!foodEntry) return;
+
+      const favourite = {
+        foodId: foodEntry.foodId || sourceFood?.id || null,
+        name: foodEntry.name || sourceFood?.name || 'Custom Food',
+        category: sourceFood?.category || 'supplements',
+        grams: foodEntry.grams,
+        calories: foodEntry.calories || 0,
+        protein: foodEntry.protein || 0,
+        carbs: foodEntry.carbs || 0,
+        fats: foodEntry.fats || 0,
+        isCustom: !foodEntry.foodId && !sourceFood?.id,
+        per100g: sourceFood?.per100g || null,
+        portions: sourceFood?.portions || [],
+      };
+
+      addFoodFavourite(favourite);
+    },
+    [addFoodFavourite]
+  );
+
   useEffect(() => {
     if (foodPortionModal.isClosing) {
       const timer = setTimeout(() => {
@@ -2450,6 +2521,9 @@ export const EnergyMapCalculator = () => {
         isClosing={foodEntryModal.isClosing}
         onClose={foodEntryModal.requestClose}
         onSave={handleFoodEntrySave}
+        onSaveAsFavourite={(favourite) => {
+          addFoodFavourite(favourite);
+        }}
         foodName={foodName}
         setFoodName={setFoodName}
         calories={foodCalories}
@@ -2487,8 +2561,19 @@ export const EnergyMapCalculator = () => {
         onClose={handleFoodSearchCancel}
         onSelectFood={handleSelectFoodFromSearch}
         onOpenManualEntry={handleOpenManualEntry}
+        onOpenFavourites={handleOpenFoodFavourites}
         pinnedFoods={pinnedFoods}
         onTogglePin={togglePinnedFood}
+      />
+
+      <FoodFavouritesModal
+        isOpen={foodFavouritesModal.isOpen}
+        isClosing={foodFavouritesModal.isClosing}
+        favourites={foodFavourites}
+        onSelectFavourite={handleSelectFoodFavourite}
+        onEditFavourite={handleEditFoodFavourite}
+        onDeleteFavourite={removeFoodFavourite}
+        onClose={foodFavouritesModal.requestClose}
       />
 
       <FoodPortionModal
@@ -2496,6 +2581,7 @@ export const EnergyMapCalculator = () => {
         isClosing={foodPortionModal.isClosing}
         onClose={foodPortionModal.requestClose}
         onAddFood={handleAddFoodFromPortion}
+        onSaveAsFavourite={handleCreateFoodFavourite}
         selectedFood={selectedFoodForPortion}
         initialGrams={portionInitialGrams ?? undefined}
         isEditing={Boolean(editingPortionEntry)}

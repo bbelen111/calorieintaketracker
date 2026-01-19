@@ -690,6 +690,43 @@ export const useEnergyMapData = () => {
     });
   }, []);
 
+  const addFoodFavourite = useCallback((foodFavourite) => {
+    if (!foodFavourite) return;
+
+    setUserData((prev) => ({
+      ...prev,
+      foodFavourites: [
+        ...(prev.foodFavourites ?? []),
+        {
+          ...foodFavourite,
+          id: Date.now(),
+        },
+      ],
+    }));
+  }, []);
+
+  const removeFoodFavourite = useCallback((id) => {
+    if (id == null) return;
+
+    setUserData((prev) => ({
+      ...prev,
+      foodFavourites: (prev.foodFavourites ?? []).filter(
+        (fav) => fav.id !== id
+      ),
+    }));
+  }, []);
+
+  const updateFoodFavourite = useCallback((id, updates) => {
+    if (id == null) return;
+
+    setUserData((prev) => ({
+      ...prev,
+      foodFavourites: (prev.foodFavourites ?? []).map((fav) =>
+        fav.id === id ? { ...fav, ...updates, id: fav.id } : fav
+      ),
+    }));
+  }, []);
+
   return {
     userData,
     weightEntries,
@@ -698,6 +735,7 @@ export const useEnergyMapData = () => {
     cardioTypes: resolvedCardioTypes,
     customCardioTypes: userData.customCardioTypes ?? {},
     cardioFavourites: userData.cardioFavourites ?? [],
+    foodFavourites: userData.foodFavourites ?? [],
     nutritionData: userData.nutritionData ?? {},
     pinnedFoods: userData.pinnedFoods ?? [],
     phases: userData.phases ?? [],
@@ -736,5 +774,8 @@ export const useEnergyMapData = () => {
     deleteFoodEntry,
     deleteMeal,
     togglePinnedFood,
+    addFoodFavourite,
+    removeFoodFavourite,
+    updateFoodFavourite,
   };
 };

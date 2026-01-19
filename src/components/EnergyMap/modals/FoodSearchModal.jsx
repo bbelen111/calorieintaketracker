@@ -23,6 +23,7 @@ export const FoodSearchModal = ({
   onClose,
   onSelectFood,
   onOpenManualEntry,
+  onOpenFavourites,
   pinnedFoods = [],
   onTogglePin,
 }) => {
@@ -220,7 +221,7 @@ export const FoodSearchModal = ({
       {/* Action Buttons */}
       <div className="flex gap-3 mb-3">
         <button
-          onClick={() => {}}
+          onClick={onOpenFavourites}
           aria-label="Favorites"
           className="flex-1 flex items-center justify-center gap-2 px-3 py-3 bg-blue-600 hover:bg-blue-600/50 text-white rounded-lg font-semibold transition-all shadow-md shadow-blue-500/20"
         >

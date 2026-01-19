@@ -72,6 +72,7 @@ export const getDefaultEnergyMapData = () => ({
   stepRanges: ['<10k', '10k', '12k', '14k', '16k', '18k', '20k', '>20k'],
   cardioSessions: [],
   cardioFavourites: [],
+  foodFavourites: [],
   customCardioTypes: {},
   nutritionData: {},
   pinnedFoods: [],
@@ -211,5 +212,8 @@ function mergeWithDefaults(data) {
     pinnedFoods: Array.isArray(data.pinnedFoods)
       ? data.pinnedFoods
       : defaults.pinnedFoods,
+    foodFavourites: Array.isArray(data.foodFavourites)
+      ? data.foodFavourites
+      : defaults.foodFavourites,
   };
 }

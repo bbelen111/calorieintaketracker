@@ -1,5 +1,5 @@
 import React from 'react';
-import { Utensils, Save } from 'lucide-react';
+import { Utensils, Save, Heart } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 
 export const FoodEntryModal = ({
@@ -7,6 +7,7 @@ export const FoodEntryModal = ({
   isClosing,
   onClose,
   onSave,
+  onSaveAsFavourite,
   foodName,
   setFoodName,
   calories,
@@ -26,6 +27,31 @@ export const FoodEntryModal = ({
     }
 
     onSave?.();
+  };
+
+  const handleSaveAsFavourite = () => {
+    if (!foodName.trim()) {
+      window.alert('Please enter a food name');
+      return;
+    }
+
+    if (typeof onSaveAsFavourite !== 'function') return;
+
+    const favourite = {
+      foodId: null, // Custom food, no database ID
+      name: foodName.trim(),
+      category: 'supplements', // Default category for custom foods
+      grams: null, // Custom entries don't have grams
+      calories: parseFloat(calories) || 0,
+      protein: parseFloat(protein) || 0,
+      carbs: parseFloat(carbs) || 0,
+      fats: parseFloat(fats) || 0,
+      isCustom: true,
+      per100g: null,
+      portions: [],
+    };
+
+    onSaveAsFavourite(favourite);
   };
 
   const sanitizeNumericInput = (value) => {
@@ -130,20 +156,34 @@ export const FoodEntryModal = ({
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 pt-2">
-          <button
-            onClick={onClose}
-            className="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-all"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-all flex items-center justify-center gap-2"
-          >
-            <Save size={18} />
-            {isEditing ? 'Save Changes' : 'Add Food'}
-          </button>
+        <div className="flex flex-col gap-3 pt-2">
+          {/* Save as Favourite - only show when callback provided and not editing */}
+          {typeof onSaveAsFavourite === 'function' && !isEditing && (
+            <button
+              onClick={handleSaveAsFavourite}
+              disabled={!foodName.trim()}
+              className="w-full px-4 py-2.5 bg-amber-600/20 hover:bg-amber-600/30 border border-amber-600/50 disabled:bg-slate-600/20 disabled:border-slate-600/50 disabled:cursor-not-allowed text-amber-400 disabled:text-slate-500 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm"
+            >
+              <Heart size={16} />
+              Save as Favourite
+            </button>
+          )}
+
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-all flex items-center justify-center gap-2"
+            >
+              <Save size={18} />
+              {isEditing ? 'Save Changes' : 'Add Food'}
+            </button>
+          </div>
         </div>
       </div>
     </ModalShell>
