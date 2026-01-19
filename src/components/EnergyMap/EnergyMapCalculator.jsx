@@ -1332,6 +1332,9 @@ export const EnergyMapCalculator = () => {
   // Handle selecting a food from search - opens portion modal
   const handleSelectFoodFromSearch = useCallback(
     (food) => {
+      // Reset editing state to ensure we're in "add" mode
+      setEditingPortionEntry(null);
+      setPortionInitialGrams(null);
       setSelectedFoodForPortion(food);
       foodPortionModal.open();
     },
@@ -1402,20 +1405,35 @@ export const EnergyMapCalculator = () => {
         return;
       }
 
+      // Check if this is a manual entry (no grams value)
+      const isManualEntry = !Number.isFinite(existing.grams) || existing.grams <= 0;
+
+      if (isManualEntry) {
+        // Open FoodEntryModal for manual entries
+        setFoodMealType(mealType);
+        setEditingMealType(mealType);
+        setEditingFoodEntryId(existing.id);
+        setFoodName(existing.name || '');
+        setFoodCalories(String(existing.calories || ''));
+        setFoodProtein(String(existing.protein || ''));
+        setFoodCarbs(String(existing.carbs || ''));
+        setFoodFats(String(existing.fats || ''));
+        setFoodEntryMode('edit');
+        foodEntryModal.open();
+        return;
+      }
+
+      // Open FoodPortionModal for entries with grams
       const resolvedFood =
         resolveFoodForEntry(existing) || buildFallbackFoodFromEntry(existing);
 
       setFoodMealType(mealType);
       setSelectedFoodForPortion(resolvedFood);
       setEditingPortionEntry({ ...existing, mealType });
-      setPortionInitialGrams(
-        Number.isFinite(existing.grams) && existing.grams > 0
-          ? existing.grams
-          : DEFAULT_PORTION_GRAMS
-      );
+      setPortionInitialGrams(existing.grams);
       foodPortionModal.open();
     },
-    [nutritionData, trackerSelectedDate, foodPortionModal]
+    [nutritionData, trackerSelectedDate, foodPortionModal, foodEntryModal]
   );
 
   // Delete food entry from meal
