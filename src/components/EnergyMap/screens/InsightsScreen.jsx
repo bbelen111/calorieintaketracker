@@ -776,61 +776,61 @@ export const InsightsScreen = ({
                   </div>
                 )}
               </div>
-              <p className="text-emerald-300 text-xs tracking-wide mt-3">
+              <p className="text-blue-300 text-xs tracking-wide mt-3">
                 Tap to open body fat tracker
               </p>
             </button>
           )}
 
-          {/* BMI Card */}
-          <button
-            type="button"
-            onClick={onOpenBmiInfo}
-            className={`w-full rounded-xl border ${bmiColorMap[bmiCategory.color]?.border || 'border-slate-700'} bg-slate-900/40 p-4 text-left transition-all hover:bg-slate-900`}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <p className="font-semibold text-white text-base mb-1">BMI</p>
-                <p className={`text-2xl font-bold ${bmiColorMap[bmiCategory.color]?.text || 'text-slate-400'}`}>
-                  {bmi ? bmi.toFixed(1) : '—'}
-                </p>
-                <p className={`text-sm mt-1 ${bmiColorMap[bmiCategory.color]?.text || 'text-slate-400'}`}>
-                  {bmiCategory.label}
-                </p>
+          {!bodyFatTrackingEnabled ? (
+            <button
+              type="button"
+              onClick={onOpenBmiInfo}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900/40 p-3 text-left transition-all hover:bg-slate-900"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="font-semibold text-white text-sm mb-1">BMI</p>
+                  <p className={`text-xl font-bold ${bmiColorMap[bmiCategory.color]?.text || 'text-slate-400'}`}>
+                    {bmi ? bmi.toFixed(1) : '—'}
+                  </p>
+                  <p className={`text-xs mt-1 ${bmiColorMap[bmiCategory.color]?.text || 'text-slate-400'}`}>
+                    {bmiCategory.label}
+                  </p>
+                </div>
+                <div className={`p-2 rounded-lg ${bmiColorMap[bmiCategory.color]?.bg || 'bg-slate-500/20'}`}>
+                  <Info size={18} className={bmiColorMap[bmiCategory.color]?.text || 'text-slate-400'} />
+                </div>
               </div>
-              <div className={`p-2 rounded-lg ${bmiColorMap[bmiCategory.color]?.bg || 'bg-slate-500/20'}`}>
-                <Info size={20} className={bmiColorMap[bmiCategory.color]?.text || 'text-slate-400'} />
+              <p className="text-blue-300 text-[11px] tracking-wide mt-2">
+                Tap for more info
+              </p>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onOpenFfmiInfo}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900/40 p-3 text-left transition-all hover:bg-slate-900"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="font-semibold text-white text-sm mb-1">FFMI</p>
+                  <p className={`text-xl font-bold ${ffmiData ? (ffmiColorMap[ffmiCategory.color]?.text || 'text-slate-400') : 'text-slate-500'}`}>
+                    {ffmiData ? ffmiData.normalized.toFixed(1) : '—'}
+                  </p>
+                  <p className={`text-xs mt-1 ${ffmiData ? (ffmiColorMap[ffmiCategory.color]?.text || 'text-slate-400') : 'text-slate-500'}`}>
+                    {ffmiData ? ffmiCategory.label : 'Requires body fat data'}
+                  </p>
+                </div>
+                <div className={`p-2 rounded-lg ${ffmiData ? (ffmiColorMap[ffmiCategory.color]?.bg || 'bg-slate-500/20') : 'bg-slate-500/20'}`}>
+                  <Info size={18} className={ffmiData ? (ffmiColorMap[ffmiCategory.color]?.text || 'text-slate-400') : 'text-slate-500'} />
+                </div>
               </div>
-            </div>
-            <p className="text-blue-300 text-xs tracking-wide mt-3">
-              Tap for more info
-            </p>
-          </button>
-
-          {/* FFMI Card */}
-          <button
-            type="button"
-            onClick={onOpenFfmiInfo}
-            className={`w-full rounded-xl border ${ffmiData ? (ffmiColorMap[ffmiCategory.color]?.border || 'border-slate-700') : 'border-slate-700'} bg-slate-900/40 p-4 text-left transition-all hover:bg-slate-900`}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <p className="font-semibold text-white text-base mb-1">FFMI</p>
-                <p className={`text-2xl font-bold ${ffmiData ? (ffmiColorMap[ffmiCategory.color]?.text || 'text-slate-400') : 'text-slate-500'}`}>
-                  {ffmiData ? ffmiData.normalized.toFixed(1) : '—'}
-                </p>
-                <p className={`text-sm mt-1 ${ffmiData ? (ffmiColorMap[ffmiCategory.color]?.text || 'text-slate-400') : 'text-slate-500'}`}>
-                  {ffmiData ? ffmiCategory.label : 'Requires body fat data'}
-                </p>
-              </div>
-              <div className={`p-2 rounded-lg ${ffmiData ? (ffmiColorMap[ffmiCategory.color]?.bg || 'bg-slate-500/20') : 'bg-slate-500/20'}`}>
-                <Info size={20} className={ffmiData ? (ffmiColorMap[ffmiCategory.color]?.text || 'text-slate-400') : 'text-slate-500'} />
-              </div>
-            </div>
-            <p className="text-emerald-300 text-xs tracking-wide mt-3">
-              Tap for more info
-            </p>
-          </button>
+              <p className="text-blue-300 text-[11px] tracking-wide mt-2">
+                Tap for more info
+              </p>
+            </button>
+          )}
         </div>
       </div>
 
