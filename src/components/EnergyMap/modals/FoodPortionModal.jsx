@@ -341,6 +341,8 @@ export const FoodPortionModal = ({
       grams,
     };
     onSaveAsFavourite(foodEntry, selectedFood);
+    handleAddFood();
+    onClose?.();
   };
 
   const getCategoryColor = (category) => {
@@ -583,34 +585,37 @@ export const FoodPortionModal = ({
       )}
 
       {/* Actions */}
-      <div className="flex flex-col gap-3">
-        {/* Save as Favourite - only show when callback provided and not editing */}
-        {typeof onSaveAsFavourite === 'function' && !isEditing && (
-          <button
-            onClick={handleSaveAsFavourite}
-            disabled={!nutrition || nutrition.calories === 0}
-            className="w-full px-4 py-2.5 bg-amber-600/20 hover:bg-amber-600/30 border border-amber-600/50 disabled:bg-slate-600/20 disabled:border-slate-600/50 disabled:cursor-not-allowed text-amber-400 disabled:text-slate-500 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm"
-          >
-            <Heart size={16} />
-            Save as Favourite
-          </button>
-        )}
-
-        <div className="flex gap-3">
+      <div className="flex flex-col gap-2">
+        <div className="flex gap-2 items-center">
+          {/* Save as Favourite - only show when callback provided and not editing */}
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-all"
+            className="flex-1 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-all text-sm"
           >
             Cancel
           </button>
           <button
             onClick={handleAddFood}
             disabled={!nutrition || nutrition.calories === 0}
-            className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-all flex items-center justify-center gap-2"
+            className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm"
           >
             <Plus size={18} />
             {isEditing ? 'Save Changes' : 'Add Food'}
           </button>
+          {typeof onSaveAsFavourite === 'function' && !isEditing && (
+            <button
+              onClick={handleSaveAsFavourite}
+              disabled={!nutrition || nutrition.calories === 0}
+              aria-label="Save favourite and add"
+              title="Save favourite and add"
+              className="w-10 h-10 ml-1 bg-indigo-600 hover:bg-indigo-600 border border-indigo-600/50 disabled:bg-slate-600/20 disabled:border-slate-600/50 disabled:cursor-not-allowed text-indigo-400 disabled:text-slate-500 rounded-lg font-medium transition-all flex items-center justify-center"
+            >
+              <span className="relative inline-flex h-5 w-5 items-center justify-center text-white">
+                <Heart size={18} />
+                <Plus size={10} className="absolute -bottom-1 -right-1" />
+              </span>
+            </button>
+          )}
         </div>
       </div>
     </ModalShell>
