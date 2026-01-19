@@ -179,7 +179,7 @@ export const SettingsModal = ({
               disabled={!bodyFatTrackingEnabled}
               className={`w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1 text-left font-semibold ${
                 bodyFatTrackingEnabled
-                  ? 'bg-indigo-600 border-indigo-400 text-white hover:bg-indigo-500/90'
+                  ? 'bg-blue-600 border-blue-400 text-white hover:bg-blue-500/90'
                   : 'bg-slate-700 border-slate-600 text-slate-400 cursor-not-allowed'
               }`}
             >
@@ -235,7 +235,7 @@ export const SettingsModal = ({
           <button
             onClick={onTrainingTypeClick}
             type="button"
-            className="relative w-full text-left p-3 md:p-4 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all active:scale-[0.98]"
+            className="relative w-full text-left p-3 md:p-4 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98] hover:bg-indigo-500/90"
           >
             <div className="min-w-0 pr-24 md:pr-28">
               <div className="font-semibold text-base">
@@ -295,7 +295,7 @@ const DurationButton = ({ duration, onClick }) => {
     <button
       onClick={onClick}
       type="button"
-      className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1"
+      className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1"
     >
       <span className="font-semibold text-sm md:text-base">{formatted}</span>
       <span className="text-xs opacity-90">~{rounded.toFixed(2)} hours</span>
