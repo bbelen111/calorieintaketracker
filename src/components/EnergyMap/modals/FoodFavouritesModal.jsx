@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Heart, Plus, Trash2, Edit3, Utensils } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
@@ -87,6 +87,7 @@ export const FoodFavouritesModal = ({
   onClose,
 }) => {
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
+  const entryIdRef = useRef(1);
   const {
     isOpen: isConfirmOpen,
     isClosing: isConfirmClosing,
@@ -133,9 +134,12 @@ export const FoodFavouritesModal = ({
   const handleInstantAdd = (favourite, event) => {
     event?.stopPropagation();
 
+    const entryId = entryIdRef.current;
+    entryIdRef.current += 1;
+
     // Build food entry for instant add
     const foodEntry = {
-      id: Date.now(),
+      id: entryId,
       foodId: favourite.foodId,
       name: favourite.name,
       calories: favourite.calories || 0,
@@ -203,15 +207,23 @@ export const FoodFavouritesModal = ({
               return (
                 <div
                   key={key}
-                  className="w-full text-left p-4 rounded-xl border-2 transition-all bg-slate-700 border-slate-600 text-slate-200 hover:border-blue-400"
-                  role="listitem"
+                  className="w-full text-left p-4 rounded-xl border-2 transition-all bg-emerald-500/60 border-emerald-500 text-slate-200 hover:border-blue-400 focus-visible:border-blue-400 focus-visible:ring-2 focus-visible:ring-blue-400/40 cursor-pointer"
+                  role="button"
+                  tabIndex={0}
+                  onClick={(event) => handleInstantAdd(favourite, event)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      handleInstantAdd(favourite, event);
+                    }
+                  }}
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0 rounded-full p-2 bg-white/10">
                       {isCustom ? (
-                        <Utensils size={18} className="text-purple-400" />
+                        <Utensils size={18} className="text-white" />
                       ) : (
-                        <Heart size={18} className="text-red-400" />
+                        <Heart size={18} className="text-white" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -239,8 +251,8 @@ export const FoodFavouritesModal = ({
 
                       {/* Nutrition summary */}
                       <div className="flex items-center gap-3 mt-2 text-xs">
-                        <span className="text-emerald-400 font-medium">
-                          {formatOne(favourite.calories || 0)} cal
+                        <span className="text-green-400 font-medium">
+                          {formatOne(favourite.calories || 0)} kcal
                         </span>
                         <span className="text-red-400 font-medium">
                           {formatOne(favourite.protein || 0)}g P
@@ -254,16 +266,16 @@ export const FoodFavouritesModal = ({
                       </div>
                     </div>
 
-                    <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
                       {/* Edit portion button */}
                       <button
                         type="button"
                         onClick={(e) => handleEditPortion(favourite, e)}
-                        className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-500/20 hover:bg-blue-500/30 transition-colors flex items-center justify-center"
+                        className="flex-shrink-0 w-10 h-10 rounded-full bg-white/10 hover:bg-blue-500/30 transition-colors flex items-center justify-center"
                         aria-label="Edit portion before adding"
                         title="Edit portion"
                       >
-                        <Edit3 size={14} className="text-blue-400" />
+                        <Edit3 size={18} className="text-white" />
                       </button>
 
                       {/* Delete button */}
@@ -276,28 +288,18 @@ export const FoodFavouritesModal = ({
                               setPendingDeleteId(favourite.id);
                               openConfirm();
                             }}
-                            className="flex-shrink-0 w-8 h-8 rounded-full bg-white/10 hover:bg-red-500/20 transition-colors flex items-center justify-center"
+                            className="flex-shrink-0 w-10 h-10 rounded-full bg-white/10 hover:bg-red-500/20 transition-colors flex items-center justify-center"
                             aria-label="Delete favourite food"
                             title="Remove from favourites"
                           >
                             <Trash2
-                              size={14}
-                              className="text-slate-400 hover:text-red-400"
+                              size={18}
+                              className="text-white hover:text-red-400"
                             />
                           </button>
                         )}
                     </div>
                   </div>
-
-                  {/* Quick add button - full width at bottom */}
-                  <button
-                    type="button"
-                    onClick={(e) => handleInstantAdd(favourite, e)}
-                    className="w-full mt-3 py-2 bg-emerald-600/80 hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-                  >
-                    <Plus size={16} />
-                    Quick Add
-                  </button>
                 </div>
               );
             })
