@@ -7,6 +7,8 @@ import React, {
 } from 'react';
 import { Home, Map, BarChart3, ClipboardList, Target } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { App } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 import { goals } from '../../constants/goals';
 import { DEFAULT_ACTIVITY_MULTIPLIERS } from '../../constants/activityPresets';
 import { trainingTypes as presetTrainingTypes } from '../../constants/trainingTypes';
@@ -389,6 +391,114 @@ export const EnergyMapCalculator = () => {
   const foodFavouritesModal = useAnimatedModal();
   // ...existing code...
   const confirmActionModal = useAnimatedModal();
+
+  const closeTopmostModal = useCallback(() => {
+    const modalStack = [
+      confirmActionModal,
+      foodPortionModal,
+      foodFavouritesModal,
+      foodEntryModal,
+      foodSearchModal,
+      mealTypePickerModal,
+      calendarPickerModal,
+      dailyLogModal,
+      templatePickerModal,
+      phaseCreationModal,
+      calorieBreakdownModal,
+      cardioFavouriteEditorModal,
+      cardioFavouritesModal,
+      cardioModal,
+      durationPickerModal,
+      quickTrainingModal,
+      stepRangesModal,
+      dailyActivityCustomModal,
+      dailyActivityEditorModal,
+      dailyActivityModal,
+      settingsModal,
+      trainingTypeEditorModal,
+      trainingTypeModal,
+      bodyFatPickerModal,
+      bodyFatEntryModal,
+      bodyFatTrackerModal,
+      weightPickerModal,
+      weightEntryModal,
+      weightTrackerModal,
+      heightModal,
+      ageModal,
+      ffmiModal,
+      bmiModal,
+      bmrModal,
+      goalModal,
+    ];
+
+    for (const modal of modalStack) {
+      if (modal?.isOpen && !modal.isClosing) {
+        modal.requestClose();
+        return true;
+      }
+    }
+
+    return false;
+  }, [
+    ageModal,
+    bmiModal,
+    bmrModal,
+    bodyFatEntryModal,
+    bodyFatPickerModal,
+    bodyFatTrackerModal,
+    calorieBreakdownModal,
+    calendarPickerModal,
+    cardioFavouriteEditorModal,
+    cardioFavouritesModal,
+    cardioModal,
+    confirmActionModal,
+    dailyActivityCustomModal,
+    dailyActivityEditorModal,
+    dailyActivityModal,
+    dailyLogModal,
+    durationPickerModal,
+    ffmiModal,
+    foodEntryModal,
+    foodFavouritesModal,
+    foodPortionModal,
+    foodSearchModal,
+    goalModal,
+    heightModal,
+    mealTypePickerModal,
+    phaseCreationModal,
+    quickTrainingModal,
+    settingsModal,
+    stepRangesModal,
+    templatePickerModal,
+    trainingTypeEditorModal,
+    trainingTypeModal,
+    weightEntryModal,
+    weightPickerModal,
+    weightTrackerModal,
+  ]);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) {
+      return undefined;
+    }
+
+    const removeListener = App.addListener('backButton', ({ canGoBack }) => {
+      const didCloseModal = closeTopmostModal();
+      if (didCloseModal) {
+        return;
+      }
+
+      if (canGoBack) {
+        window.history.back();
+      } else {
+        App.exitApp();
+      }
+    });
+
+    return () => {
+      removeListener?.remove?.();
+    };
+  }, [closeTopmostModal]);
 
   useEffect(() => {
     saveSelectedDay(selectedDay);
