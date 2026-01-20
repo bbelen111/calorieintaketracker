@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import PropTypes from 'prop-types';
 
@@ -8,39 +8,77 @@ import PropTypes from 'prop-types';
 
 const BASE_Z_INDEX = 1000;
 const OVERLAY_FADE_MS = 200;
-const OVERLAY_FADE_BUFFER_MS = 50;
 const OVERLAY_OPACITY = 0.7;
-const OPACITY_COMPARISON_THRESHOLD = 0.01;
 
 // ============================================================================
-// MODAL STACK MANAGER (Replaces module-level state with a singleton class)
+// MODAL STACK MANAGER - Tracks all open modals with stable ordering
 // ============================================================================
 
 class ModalStackManager {
   constructor() {
-    this.stack = new Set();
-    this.nextIndex = 1;
+    // Map of modalId -> { zIndex, isClosing }
+    this.modals = new Map();
+    this.nextId = 1;
     this.listeners = new Set();
   }
 
-  register() {
-    const index = this.nextIndex++;
-    this.stack.add(index);
+  register(isClosing = false) {
+    const id = this.nextId++;
+    // Calculate z-index based on current stack size
+    const zIndex = BASE_Z_INDEX + this.modals.size + 1;
+    this.modals.set(id, { zIndex, isClosing });
     this.notifyListeners();
-    return index;
+    return { id, zIndex };
   }
 
-  unregister(index) {
-    this.stack.delete(index);
+  unregister(id) {
+    if (!this.modals.has(id)) return;
+    this.modals.delete(id);
     this.notifyListeners();
   }
 
-  getTopIndex() {
-    return Math.max(...Array.from(this.stack), 0);
+  setClosing(id, isClosing) {
+    const modal = this.modals.get(id);
+    if (modal) {
+      modal.isClosing = isClosing;
+      this.notifyListeners();
+    }
   }
 
-  getCount() {
-    return this.stack.size;
+  getTopModal() {
+    let topId = null;
+    let topZIndex = 0;
+    
+    for (const [id, data] of this.modals) {
+      // Only consider non-closing modals for "topmost" status
+      if (!data.isClosing && data.zIndex > topZIndex) {
+        topZIndex = data.zIndex;
+        topId = id;
+      }
+    }
+    
+    return { id: topId, zIndex: topZIndex };
+  }
+
+  getActiveCount() {
+    // Count modals that are not in closing state
+    let count = 0;
+    for (const data of this.modals.values()) {
+      if (!data.isClosing) count++;
+    }
+    return count;
+  }
+
+  getTotalCount() {
+    return this.modals.size;
+  }
+
+  getHighestZIndex() {
+    let highest = BASE_Z_INDEX;
+    for (const data of this.modals.values()) {
+      if (data.zIndex > highest) highest = data.zIndex;
+    }
+    return highest;
   }
 
   subscribe(listener) {
@@ -49,7 +87,10 @@ class ModalStackManager {
   }
 
   notifyListeners() {
-    this.listeners.forEach((listener) => listener());
+    // Use microtask to batch notifications
+    queueMicrotask(() => {
+      this.listeners.forEach((listener) => listener());
+    });
   }
 }
 
@@ -57,24 +98,29 @@ class ModalStackManager {
 const modalStackManager = new ModalStackManager();
 
 // ============================================================================
-// SHARED OVERLAY MANAGER
+// SHARED OVERLAY MANAGER - Single overlay element for all modals
 // ============================================================================
 
 class SharedOverlayManager {
   constructor() {
     this.overlayNode = null;
-    this.hideTimeoutId = null;
-    this.showTimeoutId = null;
+    this.targetOpacity = 0;
+    this.currentZIndex = BASE_Z_INDEX;
+    this.pendingUpdate = null;
   }
 
   isServer() {
     return typeof document === 'undefined';
   }
 
-  createOverlay() {
+  getOrCreateOverlay() {
     if (this.isServer()) return null;
-    if (this.overlayNode) return this.overlayNode;
+    
+    if (this.overlayNode && this.overlayNode.parentNode) {
+      return this.overlayNode;
+    }
 
+    // Create fresh overlay
     const node = document.createElement('div');
     node.className = 'shared-modal-overlay';
     node.style.cssText = `
@@ -84,9 +130,8 @@ class SharedOverlayManager {
       opacity: 0;
       transition: opacity ${OVERLAY_FADE_MS}ms ease-out;
       pointer-events: none;
+      z-index: ${this.currentZIndex};
       will-change: opacity;
-      backface-visibility: hidden;
-      transform: translateZ(0);
     `;
 
     document.body.appendChild(node);
@@ -94,99 +139,60 @@ class SharedOverlayManager {
     return node;
   }
 
-  show(belowZIndex) {
-    const node = this.createOverlay();
-    if (!node) return;
-
-    this.clearTimeouts();
-
-    // Set z-index immediately
-    node.style.zIndex = String(Math.max(0, belowZIndex - 1));
-
-    const currentOpacity = parseFloat(node.style.opacity) || 0;
-
-    // Already at target opacity
-    if (
-      Math.abs(currentOpacity - OVERLAY_OPACITY) < OPACITY_COMPARISON_THRESHOLD
-    ) {
-      return;
+  update(activeModalCount, highestZIndex) {
+    // Cancel any pending update
+    if (this.pendingUpdate) {
+      cancelAnimationFrame(this.pendingUpdate);
+      this.pendingUpdate = null;
     }
 
-    // Mid-transition - jump to target
-    if (currentOpacity > 0 && currentOpacity < OVERLAY_OPACITY) {
-      node.style.opacity = String(OVERLAY_OPACITY);
-      return;
-    }
+    const newTargetOpacity = activeModalCount > 0 ? OVERLAY_OPACITY : 0;
+    const newZIndex = Math.max(BASE_Z_INDEX, highestZIndex - 1);
 
-    // Fade in
-    requestAnimationFrame(() => {
-      if (node) node.style.opacity = String(OVERLAY_OPACITY);
+    // Batch DOM updates in a single rAF
+    this.pendingUpdate = requestAnimationFrame(() => {
+      this.pendingUpdate = null;
+      
+      if (activeModalCount > 0) {
+        const node = this.getOrCreateOverlay();
+        if (!node) return;
+
+        // Update z-index immediately (no transition)
+        if (this.currentZIndex !== newZIndex) {
+          node.style.zIndex = String(newZIndex);
+          this.currentZIndex = newZIndex;
+        }
+
+        // Update opacity (with transition)
+        if (this.targetOpacity !== newTargetOpacity) {
+          node.style.opacity = String(newTargetOpacity);
+          this.targetOpacity = newTargetOpacity;
+        }
+      } else {
+        // No active modals - fade out
+        if (this.overlayNode) {
+          this.overlayNode.style.opacity = '0';
+          this.targetOpacity = 0;
+        }
+      }
     });
   }
 
-  updateZIndex(belowZIndex) {
-    if (!this.overlayNode) return;
-    const newZIndex = String(Math.max(0, belowZIndex - 1));
-    if (this.overlayNode.style.zIndex !== newZIndex) {
-      this.overlayNode.style.zIndex = newZIndex;
-    }
-  }
-
-  hide(modalCount, topZIndex) {
-    if (!this.overlayNode) return;
-
-    this.clearTimeouts();
-
-    if (modalCount > 0) {
-      // Keep visible at correct z-index
-      this.updateZIndex(topZIndex);
-      const currentOpacity = parseFloat(this.overlayNode.style.opacity) || 0;
-      if (
-        Math.abs(currentOpacity - OVERLAY_OPACITY) >=
-        OPACITY_COMPARISON_THRESHOLD
-      ) {
-        this.overlayNode.style.opacity = String(OVERLAY_OPACITY);
-      }
-      return;
-    }
-
-    // Fade out
-    this.overlayNode.style.opacity = '0';
-
-    this.hideTimeoutId = window.setTimeout(() => {
-      if (this.overlayNode && modalCount === 0) {
-        try {
-          this.overlayNode.remove();
-        } catch (err) {
-          console.warn('Failed to remove overlay node:', err);
-        }
-        this.overlayNode = null;
-      }
-      this.hideTimeoutId = null;
-    }, OVERLAY_FADE_MS + OVERLAY_FADE_BUFFER_MS);
-  }
-
-  clearTimeouts() {
-    if (this.hideTimeoutId !== null) {
-      clearTimeout(this.hideTimeoutId);
-      this.hideTimeoutId = null;
-    }
-    if (this.showTimeoutId !== null) {
-      clearTimeout(this.showTimeoutId);
-      this.showTimeoutId = null;
-    }
-  }
-
   cleanup() {
-    this.clearTimeouts();
+    if (this.pendingUpdate) {
+      cancelAnimationFrame(this.pendingUpdate);
+      this.pendingUpdate = null;
+    }
     if (this.overlayNode) {
       try {
         this.overlayNode.remove();
       } catch (err) {
-        console.warn('Failed to cleanup overlay node:', err);
+        // Ignore removal errors
       }
       this.overlayNode = null;
     }
+    this.targetOpacity = 0;
+    this.currentZIndex = BASE_Z_INDEX;
   }
 }
 
@@ -194,14 +200,13 @@ class SharedOverlayManager {
 const overlayManager = new SharedOverlayManager();
 
 // ============================================================================
-// BODY SCROLL LOCK MANAGER
+// BODY SCROLL LOCK MANAGER - Reference counted scroll lock
 // ============================================================================
 
 class BodyScrollLockManager {
   constructor() {
     this.lockCount = 0;
-    this.originalOverflow = '';
-    this.originalPaddingRight = '';
+    this.originalStyles = null;
   }
 
   lock() {
@@ -211,14 +216,16 @@ class BodyScrollLockManager {
 
     if (this.lockCount === 1) {
       const body = document.body;
-      const scrollBarWidth =
-        window.innerWidth - document.documentElement.clientWidth;
+      const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
 
-      this.originalOverflow = body.style.overflow;
-      this.originalPaddingRight = body.style.paddingRight;
+      // Store original styles
+      this.originalStyles = {
+        overflow: body.style.overflow,
+        paddingRight: body.style.paddingRight,
+      };
 
+      // Apply lock
       body.style.overflow = 'hidden';
-
       if (scrollBarWidth > 0) {
         body.style.paddingRight = `${scrollBarWidth}px`;
       }
@@ -230,19 +237,21 @@ class BodyScrollLockManager {
 
     this.lockCount = Math.max(0, this.lockCount - 1);
 
-    if (this.lockCount === 0) {
+    if (this.lockCount === 0 && this.originalStyles) {
       const body = document.body;
-      body.style.overflow = this.originalOverflow;
-      body.style.paddingRight = this.originalPaddingRight;
+      body.style.overflow = this.originalStyles.overflow;
+      body.style.paddingRight = this.originalStyles.paddingRight;
+      this.originalStyles = null;
     }
   }
 
   cleanup() {
     if (typeof document === 'undefined') return;
-    if (this.lockCount > 0) {
+    if (this.lockCount > 0 && this.originalStyles) {
       const body = document.body;
-      body.style.overflow = this.originalOverflow;
-      body.style.paddingRight = this.originalPaddingRight;
+      body.style.overflow = this.originalStyles.overflow;
+      body.style.paddingRight = this.originalStyles.paddingRight;
+      this.originalStyles = null;
       this.lockCount = 0;
     }
   }
@@ -265,39 +274,123 @@ export const ModalShell = ({
   closeOnEscape = true,
   closeOnOverlayClick = true,
 }) => {
-  const modalIndexRef = useRef(null);
+  const modalIdRef = useRef(null);
+  const zIndexRef = useRef(BASE_Z_INDEX);
   const overlayRef = useRef(null);
+  const contentRef = useRef(null);
   const [isTopmost, setIsTopmost] = useState(false);
   const [shouldDimContent, setShouldDimContent] = useState(false);
-  const contentRef = useRef(null);
+  const hasRegisteredRef = useRef(false);
+
+  // Synchronous z-index update helper
+  const updateZIndex = useCallback((newZIndex) => {
+    zIndexRef.current = newZIndex;
+    if (overlayRef.current) {
+      overlayRef.current.style.zIndex = String(newZIndex);
+    }
+  }, []);
+
+  // Register modal on mount (useLayoutEffect for synchronous execution)
+  useLayoutEffect(() => {
+    if (!isOpen || hasRegisteredRef.current) return;
+
+    const { id, zIndex } = modalStackManager.register(isClosing);
+    modalIdRef.current = id;
+    zIndexRef.current = zIndex;
+    hasRegisteredRef.current = true;
+
+    // Lock scroll
+    scrollLockManager.lock();
+
+    // Update overlay
+    const activeCount = modalStackManager.getActiveCount();
+    const highestZ = modalStackManager.getHighestZIndex();
+    overlayManager.update(activeCount, highestZ);
+
+    return () => {
+      if (modalIdRef.current !== null) {
+        modalStackManager.unregister(modalIdRef.current);
+        modalIdRef.current = null;
+        hasRegisteredRef.current = false;
+      }
+
+      scrollLockManager.unlock();
+
+      // Update overlay after unregister
+      const newActiveCount = modalStackManager.getActiveCount();
+      const newHighestZ = modalStackManager.getHighestZIndex();
+      overlayManager.update(newActiveCount, newHighestZ);
+    };
+  }, [isOpen, isClosing]);
+
+  // Handle isClosing state changes
+  useLayoutEffect(() => {
+    if (modalIdRef.current !== null) {
+      modalStackManager.setClosing(modalIdRef.current, isClosing);
+      
+      // Update overlay when closing state changes
+      const activeCount = modalStackManager.getActiveCount();
+      const highestZ = modalStackManager.getHighestZIndex();
+      overlayManager.update(activeCount, highestZ);
+    }
+  }, [isClosing]);
+
+  // Subscribe to stack changes for topmost calculation
+  useEffect(() => {
+    const updateTopmostState = () => {
+      const myId = modalIdRef.current;
+      if (myId === null) return;
+
+      const { id: topId } = modalStackManager.getTopModal();
+      const amTopmost = myId === topId;
+      
+      setIsTopmost(amTopmost);
+      setShouldDimContent(!amTopmost && modalStackManager.getActiveCount() > 1);
+    };
+
+    // Initial calculation
+    updateTopmostState();
+
+    // Subscribe to changes
+    const unsubscribe = modalStackManager.subscribe(updateTopmostState);
+    return unsubscribe;
+  }, [isOpen]);
 
   // Handle escape key
   useEffect(() => {
     if (!isOpen || !closeOnEscape || !onClose) return;
 
     const handleEscape = (e) => {
-      if (e.key === 'Escape' && isTopmost) {
+      if (e.key === 'Escape' && isTopmost && !isClosing) {
+        e.preventDefault();
+        e.stopPropagation();
         onClose();
       }
     };
 
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, [isOpen, closeOnEscape, onClose, isTopmost]);
+    document.addEventListener('keydown', handleEscape, true);
+    return () => document.removeEventListener('keydown', handleEscape, true);
+  }, [isOpen, closeOnEscape, onClose, isTopmost, isClosing]);
 
   // Focus trap
   useEffect(() => {
-    if (!isOpen || !contentRef.current) return;
+    if (!isOpen || !contentRef.current || !isTopmost) return;
 
-    const focusableElements = contentRef.current.querySelectorAll(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    );
-
-    const firstElement = focusableElements[0];
-    const lastElement = focusableElements[focusableElements.length - 1];
+    const focusableSelector = 
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])';
+    
+    const getFocusableElements = () => {
+      return contentRef.current?.querySelectorAll(focusableSelector) || [];
+    };
 
     const handleTab = (e) => {
-      if (e.key !== 'Tab') return;
+      if (e.key !== 'Tab' || !isTopmost) return;
+
+      const focusableElements = getFocusableElements();
+      if (focusableElements.length === 0) return;
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
 
       if (e.shiftKey) {
         if (document.activeElement === firstElement) {
@@ -313,74 +406,8 @@ export const ModalShell = ({
     };
 
     document.addEventListener('keydown', handleTab);
-
-    return () => {
-      document.removeEventListener('keydown', handleTab);
-    };
-  }, [isOpen]);
-
-  // Register modal and manage lifecycle
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const myIndex = modalStackManager.register();
-    modalIndexRef.current = myIndex;
-
-    const zIndex = BASE_Z_INDEX + myIndex;
-
-    // Update z-index via direct DOM manipulation to avoid React render issues
-    if (overlayRef.current) {
-      overlayRef.current.style.zIndex = String(zIndex);
-    }
-
-    overlayManager.show(zIndex);
-    scrollLockManager.lock();
-
-    return () => {
-      if (modalIndexRef.current !== null) {
-        modalStackManager.unregister(modalIndexRef.current);
-        modalIndexRef.current = null;
-      }
-
-      requestAnimationFrame(() => {
-        const count = modalStackManager.getCount();
-        const topIndex = modalStackManager.getTopIndex();
-        overlayManager.hide(count, BASE_Z_INDEX + topIndex);
-      });
-
-      scrollLockManager.unlock();
-      setIsTopmost(false);
-      setShouldDimContent(false);
-    };
-  }, [isOpen]);
-
-  // Subscribe to modal stack changes
-  useEffect(() => {
-    const updateState = () => {
-      const topIndex = modalStackManager.getTopIndex();
-      const count = modalStackManager.getCount();
-      const myIndex = modalIndexRef.current;
-
-      if (myIndex !== null) {
-        const amTopmost = myIndex === topIndex;
-        setIsTopmost(amTopmost);
-        setShouldDimContent(!amTopmost && count > 0);
-
-        if (count > 0) {
-          overlayManager.updateZIndex(BASE_Z_INDEX + topIndex);
-        } else {
-          overlayManager.hide(count, BASE_Z_INDEX + topIndex);
-        }
-      }
-    };
-
-    // Initial state
-    updateState();
-
-    // Subscribe to changes
-    const unsubscribe = modalStackManager.subscribe(updateState);
-    return unsubscribe;
-  }, []);
+    return () => document.removeEventListener('keydown', handleTab);
+  }, [isOpen, isTopmost]);
 
   // Handle overlay click
   const handleOverlayClick = useCallback(
@@ -389,14 +416,16 @@ export const ModalShell = ({
         closeOnOverlayClick &&
         onClose &&
         isTopmost &&
+        !isClosing &&
         e.target === e.currentTarget
       ) {
         onClose();
       }
     },
-    [closeOnOverlayClick, onClose, isTopmost]
+    [closeOnOverlayClick, onClose, isTopmost, isClosing]
   );
 
+  // Early return if not open
   if (!isOpen || typeof document === 'undefined') return null;
 
   const overlay = (
@@ -405,30 +434,25 @@ export const ModalShell = ({
       role="dialog"
       aria-modal="true"
       style={{
-        zIndex: BASE_Z_INDEX,
+        zIndex: zIndexRef.current,
         isolation: 'isolate',
-        pointerEvents: isTopmost ? 'auto' : 'none',
       }}
       className={`modal-overlay-wrapper fixed inset-0 !mt-0 bg-transparent flex items-center justify-center p-4 ${overlayClassName}`}
       onClick={handleOverlayClick}
     >
       <div
         ref={contentRef}
-        className={`modal-content relative bg-slate-800 rounded-2xl border border-slate-700 max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800 transition-[height,max-height] duration-300 ease-in-out ${
+        className={`modal-content relative bg-slate-800 rounded-2xl border border-slate-700 max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800 ${
           isClosing ? 'closing' : ''
         } ${contentClassName}`}
         style={{
-          willChange: isClosing ? 'transform, opacity' : 'auto',
-          pointerEvents: 'auto',
+          pointerEvents: isTopmost || isClosing ? 'auto' : 'none',
         }}
       >
-        {shouldDimContent && (
+        {shouldDimContent && !isClosing && (
           <div
-            className="pointer-events-none absolute inset-0 rounded-2xl bg-black/50"
-            style={{
-              transition: shouldDimContent ? 'none' : 'opacity 200ms ease-out',
-              opacity: shouldDimContent ? 1 : 0,
-            }}
+            className="pointer-events-none absolute inset-0 rounded-2xl bg-black/40 z-10"
+            style={{ transition: 'opacity 150ms ease-out' }}
           />
         )}
         {children}

@@ -67,7 +67,7 @@ import {
 import { clampBodyFat } from '../../utils/bodyFat';
 import { exportPhaseAsCSV, exportPhaseAsJSON } from '../../utils/export';
 
-const MODAL_CLOSE_DELAY = 200;
+const MODAL_CLOSE_DELAY = 180; // Match CSS animation duration (150ms) + buffer
 const screenTabs = [
   { key: 'logbook', label: 'Logbook', icon: ClipboardList },
   { key: 'tracker', label: 'Tracker', icon: Target },

@@ -1,10 +1,11 @@
 import { useCallback, useRef, useState } from 'react';
 
-const DEFAULT_DURATION = 200;
+// Match the CSS animation duration for close (150ms) + small buffer
+const DEFAULT_CLOSE_DURATION = 180;
 
 export const useAnimatedModal = (
   initiallyOpen = false,
-  animationDuration = DEFAULT_DURATION
+  animationDuration = DEFAULT_CLOSE_DURATION
 ) => {
   const [isOpen, setIsOpen] = useState(initiallyOpen);
   const [isClosing, setIsClosing] = useState(false);
@@ -19,19 +20,24 @@ export const useAnimatedModal = (
 
   const open = useCallback(() => {
     clearCloseTimeout();
+    // Ensure clean state before opening
     setIsClosing(false);
     setIsOpen(true);
   }, [clearCloseTimeout]);
 
   const requestClose = useCallback(() => {
+    // Prevent double-close
+    if (!isOpen || isClosing) return;
+    
     setIsClosing(true);
     clearCloseTimeout();
+    
     closeTimeoutRef.current = setTimeout(() => {
       setIsOpen(false);
       setIsClosing(false);
       closeTimeoutRef.current = null;
     }, animationDuration);
-  }, [animationDuration, clearCloseTimeout]);
+  }, [animationDuration, clearCloseTimeout, isOpen, isClosing]);
 
   const forceClose = useCallback(() => {
     clearCloseTimeout();
