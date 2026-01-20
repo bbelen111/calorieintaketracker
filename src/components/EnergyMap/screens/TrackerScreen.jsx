@@ -408,14 +408,38 @@ export const TrackerScreen = ({
               >
                 <ChevronLeft className="text-slate-300" size={22} />
               </button>
-              <div className="flex items-center gap-1 text-slate-200 text-[15px] font-semibold">
+              <div className="flex items-center gap-1 text-slate-200 text-[15px] font-semibold leading-none">
                 <Calendar size={16} className="text-blue-400" />
-                <span>{selectedMonthLabel}</span>
+                <div className="relative h-4 flex items-center">
+                  <AnimatePresence mode="wait">
+                    <motion.span
+                      key={`month-${selectedMonthLabel}`}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.22 }}
+                      className="text-slate-200 text-[15px] font-semibold block leading-none"
+                    >
+                      {selectedMonthLabel}
+                    </motion.span>
+                  </AnimatePresence>
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-1">
-              <div className="text-slate-200 text-[15px] font-semibold">
-                {selectedWeekLabel}
+              <div className="relative h-4 flex items-center">
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={`week-${selectedWeekLabel}`}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.22 }}
+                    className="text-slate-200 text-[15px] font-semibold block leading-none"
+                  >
+                    {selectedWeekLabel}
+                  </motion.span>
+                </AnimatePresence>
               </div>
               <button
                 onClick={() => changeDateBy(7)}
