@@ -401,14 +401,14 @@ export const TrackerScreen = ({
         </div>
         <div className="p-0">
           <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5 h-6">
               <button
                 onClick={() => changeDateBy(-7)}
                 type="button"
-                className="p-1 rounded transition-colors"
+                className="p-1 rounded transition-colors flex items-center"
                 title="Previous week"
               >
-                <ChevronLeft className="text-slate-300" size={22} />
+                <ChevronLeft className="text-slate-300" size={20} />
               </button>
               <div className="flex items-center gap-1 text-slate-200 text-[15px] font-semibold leading-none">
                 <Calendar size={16} className="text-blue-400" />
@@ -428,7 +428,7 @@ export const TrackerScreen = ({
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5 h-6">
               <div className="relative h-4 flex items-center">
                 <AnimatePresence mode="wait">
                   <motion.span
@@ -446,10 +446,10 @@ export const TrackerScreen = ({
               <button
                 onClick={() => changeDateBy(7)}
                 type="button"
-                className="p-1 rounded transition-colors"
+                className="p-1 rounded transition-colors flex items-center"
                 title="Next week"
               >
-                <ChevronRight className="text-slate-300" size={22} />
+                <ChevronRight className="text-slate-300" size={20} />
               </button>
             </div>
           </div>
