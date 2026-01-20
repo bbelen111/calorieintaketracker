@@ -204,7 +204,7 @@ export const CardioModal = ({
   const effortButtonClass = (type) =>
     `w-full rounded-lg border px-3 py-1.5 text-sm transition-all ${
       effortType === type
-        ? 'bg-red-600 text-white border-red-500 shadow-lg shadow-red-900/30'
+        ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-900/30'
         : 'bg-slate-700 text-slate-300 border-slate-600 hover:border-blue-400 hover:text-white'
     }`;
 

@@ -32,7 +32,6 @@ export const CalorieBreakdownModal = ({
   const stepDetails = breakdown.stepDetails ?? {};
   const trainingDuration = breakdown.trainingDuration ?? 0;
   const trainingCaloriesPerHour = breakdown.trainingCaloriesPerHour ?? 0;
-  const trainingHours = trainingDuration / 60;
   const showTrainingFormula =
     selectedDay === 'training' &&
     trainingDuration > 0 &&
@@ -207,24 +206,20 @@ export const CalorieBreakdownModal = ({
             </p>
             {cardioDetails.length ? (
               <div className="text-slate-300 text-xs mt-2 space-y-2">
-                <p className="font-semibold text-slate-200">
-                  Calculation:
-                </p>
+                <p className="font-semibold text-slate-200">Calculation:</p>
                 {cardioDetails.map((detail, index) =>
                   detail.effortType === 'heartRate' ? (
                     <p key={`${detail.typeKey}-${index}`}>
-                      <strong>{detail.typeLabel}</strong>: {formatNumber(
-                        detail.caloriesPerMinute,
-                        2
-                      )}{' '}
-                      kcal/min × {formatWhole(detail.durationMinutes)} min ={' '}
+                      <strong>{detail.typeLabel}</strong>:{' '}
+                      {formatNumber(detail.caloriesPerMinute, 2)} kcal/min ×{' '}
+                      {formatWhole(detail.durationMinutes)} min ={' '}
                       {detail.calories.toLocaleString()} kcal (avg HR{' '}
                       {formatWhole(detail.averageHeartRate)} bpm)
                     </p>
                   ) : (
                     <p key={`${detail.typeKey}-${index}`}>
-                      <strong>{detail.typeLabel}</strong> ({detail.intensityKey}){' '}
-                      MET {formatNumber(detail.met, 1)} ×{' '}
+                      <strong>{detail.typeLabel}</strong> ({detail.intensityKey}
+                      ) MET {formatNumber(detail.met, 1)} ×{' '}
                       {formatNumber(detail.weightKg, 1)} kg ×{' '}
                       {formatNumber(detail.hours, 2)} hr ={' '}
                       {detail.calories.toLocaleString()} kcal

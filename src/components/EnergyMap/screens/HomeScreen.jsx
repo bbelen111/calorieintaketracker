@@ -254,7 +254,7 @@ export const HomeScreen = ({
                 transition={{ duration: 0.3, ease: 'easeOut' }}
               >
                 <div className="flex items-center gap-2">
-                  <Heart className="text-red-400" size={24} />
+                  <Heart className="text-blue-400" size={24} />
                   <h2 className="text-xl font-bold text-white">
                     Cardio Sessions
                   </h2>
@@ -262,7 +262,7 @@ export const HomeScreen = ({
                 <motion.button
                   onClick={onAddCardioClick}
                   type="button"
-                  className="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all"
+                  className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all"
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
                 >
@@ -355,9 +355,9 @@ export const HomeScreen = ({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}
                 transition={{ duration: 0.3, ease: 'easeOut' }}
-                className="bg-red-900/30 border border-red-700 rounded-lg p-3"
+                className="bg-blue-900/30 border border-blue-700 rounded-lg p-3"
               >
-                <p className="text-red-300 font-semibold">
+                <p className="text-blue-300 font-semibold">
                   Total Cardio Burn: {totalCardioBurn} calories
                 </p>
               </motion.div>
@@ -378,7 +378,7 @@ export const HomeScreen = ({
                 whileTap={{ scale: 0.97 }}
               >
                 <div className="flex items-center gap-3">
-                  <Heart className="text-red-400" size={24} />
+                  <Heart className="text-blue-400" size={24} />
                   <div className="text-left">
                     <h2 className="text-lg font-bold text-white">
                       Add Cardio Session
@@ -389,7 +389,7 @@ export const HomeScreen = ({
                   </div>
                 </div>
                 <Plus
-                  className="text-slate-400 group-hover:text-red-400 transition-colors"
+                  className="text-slate-400 group-hover:text-blue-400 transition-colors"
                   size={24}
                 />
               </motion.button>
