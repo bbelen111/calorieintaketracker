@@ -107,12 +107,39 @@ export const TrackerScreen = ({
   const todayKey = getTodayDate();
   const parseDateKey = (dateStr) => new Date(`${dateStr}T00:00:00Z`);
   const toDateKey = (date) => date.toISOString().split('T')[0];
+  const getIsoWeekYear = (date) => {
+    const d = new Date(
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+    );
+    d.setUTCDate(d.getUTCDate() + 3 - ((d.getUTCDay() + 6) % 7));
+    return d.getUTCFullYear();
+  };
+  const getIsoWeekNumber = (date) => {
+    const d = new Date(
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+    );
+    d.setUTCDate(d.getUTCDate() + 3 - ((d.getUTCDay() + 6) % 7));
+    const week1 = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+    return (
+      1 +
+      Math.round(
+        ((d.getTime() - week1.getTime()) / 86400000 -
+          3 +
+          ((week1.getUTCDay() + 6) % 7)) /
+          7
+      )
+    );
+  };
   const getWeekStartDate = (dateStr) => {
     const date = parseDateKey(dateStr);
     const day = date.getUTCDay();
     date.setUTCDate(date.getUTCDate() - day);
     return date;
   };
+  const weekStartKey = useMemo(() => {
+    const start = getWeekStartDate(selectedDate);
+    return toDateKey(start);
+  }, [selectedDate]);
   const weekDates = useMemo(() => {
     const start = getWeekStartDate(selectedDate);
     return Array.from({ length: 7 }, (_, index) => {
@@ -121,6 +148,7 @@ export const TrackerScreen = ({
       return {
         key: toDateKey(date),
         day: date.getUTCDate(),
+        weekday: date.toLocaleDateString('en-US', { weekday: 'short' }),
       };
     });
   }, [selectedDate]);
@@ -130,6 +158,12 @@ export const TrackerScreen = ({
       month: 'short',
       year: 'numeric',
     });
+  }, [selectedDate]);
+  const selectedWeekLabel = useMemo(() => {
+    const date = parseDateKey(selectedDate);
+    const weekNumber = getIsoWeekNumber(date);
+    const weekYear = getIsoWeekYear(date);
+    return `Week ${weekNumber}${weekYear !== date.getUTCFullYear() ? ` • ${weekYear}` : ''}`;
   }, [selectedDate]);
 
   // Calculate ranges based on bodyweight (matching InsightsScreen)
@@ -365,59 +399,78 @@ export const TrackerScreen = ({
         </div>
         <div className="bg-slate-700/50 rounded-lg p-2 border border-slate-600/50 shadow-lg shadow-slate-900/20">
           <div className="flex items-center justify-between mb-2">
-            <button
-              onClick={() => changeDateBy(-7)}
-              type="button"
-              className="p-1 rounded transition-colors"
-              title="Previous week"
-            >
-              <ChevronLeft className="text-slate-300" size={22} />
-            </button>
-            <div className="flex items-center gap-2 text-slate-300 text-xs font-semibold">
-              <Calendar size={16} className="text-blue-400" />
-              <span>{selectedMonthLabel}</span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => changeDateBy(-7)}
+                type="button"
+                className="p-1 rounded transition-colors"
+                title="Previous week"
+              >
+                <ChevronLeft className="text-slate-300" size={22} />
+              </button>
+              <div className="flex items-center gap-1 text-slate-200 text-[15px] font-semibold">
+                <Calendar size={16} className="text-blue-400" />
+                <span>{selectedMonthLabel}</span>
+              </div>
             </div>
-            <button
-              onClick={() => changeDateBy(7)}
-              type="button"
-              className="p-1 rounded transition-colors"
-              title="Next week"
+            <div className="flex items-center gap-1">
+              <div className="text-slate-200 text-[15px] font-semibold">
+                {selectedWeekLabel}
+              </div>
+              <button
+                onClick={() => changeDateBy(7)}
+                type="button"
+                className="p-1 rounded transition-colors"
+                title="Next week"
+              >
+                <ChevronRight className="text-slate-300" size={22} />
+              </button>
+            </div>
+          </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={weekStartKey}
+              initial={{ opacity: 0, x: 18 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -18 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="grid grid-cols-7 gap-1.5"
             >
-              <ChevronRight className="text-slate-300" size={22} />
-            </button>
-          </div>
-          <div className="grid grid-cols-7 gap-1">
-            {weekDates.map((weekDate) => {
-              const isSelected = weekDate.key === selectedDate;
-              const isToday = weekDate.key === todayKey;
-              const hasEntries = hasEntriesForDate(weekDate.key);
-              return (
-                <button
-                  key={`week-${weekDate.key}`}
-                  type="button"
-                  onClick={() => {
-                    if (typeof onSelectedDateChange === 'function') {
-                      onSelectedDateChange(weekDate.key);
-                    } else {
-                      setInternalSelectedDate(weekDate.key);
-                    }
-                  }}
-                  className={`relative flex flex-col items-center justify-center rounded-md border py-1.5 text-xs font-semibold transition-all active:scale-95 ${
-                    isSelected
-                      ? 'bg-blue-600 border-blue-400 text-white'
-                      : 'bg-slate-800/70 border-slate-600/50 text-slate-200 hover:bg-slate-700/70'
-                  } ${isToday && !isSelected ? 'ring-1 ring-blue-400/70' : ''}`}
-                >
-                  <span>{weekDate.day}</span>
-                  <span
-                    className={`absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full ${
-                      hasEntries ? 'bg-emerald-400' : 'bg-transparent'
-                    }`}
-                  />
-                </button>
-              );
-            })}
-          </div>
+              {weekDates.map((weekDate) => {
+                const isSelected = weekDate.key === selectedDate;
+                const isToday = weekDate.key === todayKey;
+                const hasEntries = hasEntriesForDate(weekDate.key);
+                return (
+                  <button
+                    key={`week-${weekDate.key}`}
+                    type="button"
+                    onClick={() => {
+                      if (typeof onSelectedDateChange === 'function') {
+                        onSelectedDateChange(weekDate.key);
+                      } else {
+                        setInternalSelectedDate(weekDate.key);
+                      }
+                    }}
+                    className={`relative flex flex-col items-center justify-center rounded-md border py-2.5 text-[15px] font-semibold transition-all active:scale-95 ${
+                      isSelected
+                        ? 'bg-blue-600 border-blue-400 text-white'
+                        : 'bg-slate-800/70 border-slate-600/50 text-slate-200 hover:bg-slate-700/70'
+                    } ${isToday && !isSelected ? 'ring-1 ring-blue-400/70' : ''}`}
+                  >
+                    <span className="text-[12px] text-slate-400">
+                      {weekDate.weekday}
+                    </span>
+                    <span>{weekDate.day}</span>
+                    <span
+                      className={`absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full ${
+                        hasEntries ? 'bg-emerald-400' : 'bg-transparent'
+                      }`}
+                    />
+                  </button>
+                );
+              })}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
 
