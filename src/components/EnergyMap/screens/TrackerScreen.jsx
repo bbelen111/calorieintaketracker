@@ -399,7 +399,7 @@ export const TrackerScreen = ({
             <span className="hidden md:inline">Calendar</span>
           </button>
         </div>
-        <div className="bg-slate-700/50 rounded-lg p-2 border border-slate-600/50 shadow-lg shadow-slate-900/20">
+        <div className="p-0">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-1">
               <button
@@ -480,7 +480,7 @@ export const TrackerScreen = ({
                     className={`relative flex flex-col items-center justify-center rounded-md border py-2 text-[15px] font-semibold transition-all active:scale-95 ${
                       isSelected
                         ? 'bg-blue-600 border-blue-400 text-white'
-                        : 'bg-slate-800/70 border-slate-600/50 text-slate-200 hover:bg-slate-700/70'
+                        : 'bg-slate-700/60 border-slate-600/50 text-slate-200 hover:bg-slate-700/70'
                     } ${isToday && !isSelected ? 'ring-1 ring-blue-400/70' : ''}`}
                   >
                     <span className="text-[10px] text-slate-400">
