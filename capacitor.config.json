@@ -1,0 +1,5 @@
+{
+  "appId": "com.energymap.tracker",
+  "appName": "Energy Map",
+  "webDir": "dist"
+}
