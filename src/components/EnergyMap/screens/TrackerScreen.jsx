@@ -104,28 +104,33 @@ export const TrackerScreen = ({
   const selectedDate = isControlled ? selectedDateProp : internalSelectedDate;
   const [collapsedMeals, setCollapsedMeals] = useState({});
   const previousDateRef = useRef(selectedDate);
-  // Whether the current selected date is today (used to show an indicator)
-  const isTodaySelected = selectedDate === getTodayDate();
-
-  // Days difference between selected date and today (UTC days)
-  const msPerDay = 24 * 60 * 60 * 1000;
-  const selectedDateObj = new Date(selectedDate + 'T00:00:00Z');
-  const todayDateObj = new Date(getTodayDate() + 'T00:00:00Z');
-  const dayDifference = Math.round(
-    (selectedDateObj.getTime() - todayDateObj.getTime()) / msPerDay
-  );
-
-  // Badge text for past/future
-  let dateBadgeText = '';
-  if (dayDifference === 0) {
-    dateBadgeText = '';
-  } else if (dayDifference < 0) {
-    const days = Math.abs(dayDifference);
-    dateBadgeText = days === 1 ? '1 day ago' : `${days} days ago`;
-  } else {
-    dateBadgeText =
-      dayDifference === 1 ? 'in 1 day' : `in ${dayDifference} days`;
-  }
+  const todayKey = getTodayDate();
+  const parseDateKey = (dateStr) => new Date(`${dateStr}T00:00:00Z`);
+  const toDateKey = (date) => date.toISOString().split('T')[0];
+  const getWeekStartDate = (dateStr) => {
+    const date = parseDateKey(dateStr);
+    const day = date.getUTCDay();
+    date.setUTCDate(date.getUTCDate() - day);
+    return date;
+  };
+  const weekDates = useMemo(() => {
+    const start = getWeekStartDate(selectedDate);
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(start);
+      date.setUTCDate(start.getUTCDate() + index);
+      return {
+        key: toDateKey(date),
+        day: date.getUTCDate(),
+      };
+    });
+  }, [selectedDate]);
+  const selectedMonthLabel = useMemo(() => {
+    const date = parseDateKey(selectedDate);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      year: 'numeric',
+    });
+  }, [selectedDate]);
 
   // Calculate ranges based on bodyweight (matching InsightsScreen)
   // targetProtein is passed as weight * 2, so range is weight * 2.0 to weight * 2.4
@@ -318,19 +323,6 @@ export const TrackerScreen = ({
     });
   };
 
-  const getWeekday = (dateStr) => {
-    const date = new Date(dateStr + 'T00:00:00Z');
-    return date.toLocaleDateString('en-US', { weekday: 'long' });
-  };
-  const getMonthDayYear = (dateStr) => {
-    const date = new Date(dateStr + 'T00:00:00Z');
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
-
   const changeDateBy = (offset) => {
     const base = selectedDate || getTodayDate();
     const date = new Date(base + 'T00:00:00Z');
@@ -341,6 +333,15 @@ export const TrackerScreen = ({
     } else {
       setInternalSelectedDate(iso);
     }
+  };
+
+  const hasEntriesForDate = (dateKey) => {
+    const data = nutritionData[dateKey];
+    if (!data) return false;
+    return MEAL_TYPE_ORDER.some((mealTypeId) => {
+      const entries = Array.isArray(data[mealTypeId]) ? data[mealTypeId] : [];
+      return entries.length > 0;
+    });
   };
 
   return (
@@ -362,65 +363,61 @@ export const TrackerScreen = ({
             <span className="hidden md:inline">Calendar</span>
           </button>
         </div>
-        <div className="bg-slate-700/50 rounded-lg py-1 border border-slate-600/50 flex items-center justify-between relative shadow-lg shadow-slate-900/20">
-          <div className="flex items-center justify-between w-full">
-            <div className="flex items-center">
-              <button
-                onClick={() => changeDateBy(-1)}
-                type="button"
-                className="p-1 rounded transition-colors"
-                title="Previous day"
-              >
-                <ChevronLeft className="text-slate-300" size={22} />
-              </button>
-              <Calendar size={18} className="text-blue-400" />
-              <div className="relative h-6 ml-1">
-                <AnimatePresence mode="wait">
-                  <motion.span
-                    key={`${selectedDate}-weekday`}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.22 }}
-                    className="text-white text-md font-semibold block"
-                  >
-                    {getWeekday(selectedDate)}
-                    {!isTodaySelected && (
-                      <span className="ml-2 text-slate-400 text-xs font-normal">
-                        {dateBadgeText}
-                      </span>
-                    )}
-                  </motion.span>
-                </AnimatePresence>
-              </div>
+        <div className="bg-slate-700/50 rounded-lg p-2 border border-slate-600/50 shadow-lg shadow-slate-900/20">
+          <div className="flex items-center justify-between mb-2">
+            <button
+              onClick={() => changeDateBy(-7)}
+              type="button"
+              className="p-1 rounded transition-colors"
+              title="Previous week"
+            >
+              <ChevronLeft className="text-slate-300" size={22} />
+            </button>
+            <div className="flex items-center gap-2 text-slate-300 text-xs font-semibold">
+              <Calendar size={16} className="text-blue-400" />
+              <span>{selectedMonthLabel}</span>
             </div>
-            <div className="flex items-center">
-              <div className="relative h-6">
-                <AnimatePresence mode="wait">
-                  <motion.span
-                    key={`${selectedDate}-monthday`}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.22 }}
-                    className="text-white text-md font-semibold block"
-                  >
-                    {getMonthDayYear(selectedDate)}
-                  </motion.span>
-                </AnimatePresence>
-              </div>
-              <button
-                onClick={() => changeDateBy(1)}
-                type="button"
-                className="p-1 rounded transition-colors"
-                title="Next day"
-              >
-                <ChevronRight className="text-slate-300" size={22} />
-              </button>
-            </div>
+            <button
+              onClick={() => changeDateBy(7)}
+              type="button"
+              className="p-1 rounded transition-colors"
+              title="Next week"
+            >
+              <ChevronRight className="text-slate-300" size={22} />
+            </button>
           </div>
-
-          {/* relative-day text moved next to weekday (see weekday span) */}
+          <div className="grid grid-cols-7 gap-1">
+            {weekDates.map((weekDate) => {
+              const isSelected = weekDate.key === selectedDate;
+              const isToday = weekDate.key === todayKey;
+              const hasEntries = hasEntriesForDate(weekDate.key);
+              return (
+                <button
+                  key={`week-${weekDate.key}`}
+                  type="button"
+                  onClick={() => {
+                    if (typeof onSelectedDateChange === 'function') {
+                      onSelectedDateChange(weekDate.key);
+                    } else {
+                      setInternalSelectedDate(weekDate.key);
+                    }
+                  }}
+                  className={`relative flex flex-col items-center justify-center rounded-md border py-1.5 text-xs font-semibold transition-all active:scale-95 ${
+                    isSelected
+                      ? 'bg-blue-600 border-blue-400 text-white'
+                      : 'bg-slate-800/70 border-slate-600/50 text-slate-200 hover:bg-slate-700/70'
+                  } ${isToday && !isSelected ? 'ring-1 ring-blue-400/70' : ''}`}
+                >
+                  <span>{weekDate.day}</span>
+                  <span
+                    className={`absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full ${
+                      hasEntries ? 'bg-emerald-400' : 'bg-transparent'
+                    }`}
+                  />
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
