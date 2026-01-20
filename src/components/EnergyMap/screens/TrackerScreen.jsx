@@ -525,7 +525,10 @@ export const TrackerScreen = ({
                 key={`totals-cal-${totals.calories}`}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="text-emerald-400 font-bold text-2xl"
+                className={`
+                    ${caloriesRemaining < 0 ? 'text-red-400' : 'text-emerald-400'}
+                    font-bold text-2xl
+                  `}
               >
                 {formatOne(totals.calories)}
               </motion.p>
