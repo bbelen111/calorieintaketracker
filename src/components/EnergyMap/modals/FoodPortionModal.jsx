@@ -259,11 +259,11 @@ export const FoodPortionModal = ({
       setSelectedUnit(newUnit);
 
       if (newUnit === 'grams') {
-        applySelection(DEFAULT_GRAMS, 0, 'smooth');
+        applySelection(DEFAULT_GRAMS, 0, 'instant');
         return;
       }
 
-      applySelection(1, 0, 'smooth');
+      applySelection(1, 0, 'instant');
     },
     [applySelection, selectedUnit]
   );
