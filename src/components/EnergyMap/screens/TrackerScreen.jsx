@@ -405,10 +405,12 @@ export const TrackerScreen = ({
               <button
                 onClick={() => changeDateBy(-7)}
                 type="button"
-                className="p-1 rounded transition-colors flex items-center"
+                className="rounded transition-colors flex items-center"
                 title="Previous week"
               >
-                <ChevronLeft className="text-slate-300" size={20} />
+                <div className="border border-slate-600/50 rounded-md p-1 hover:bg-slate-700/50">
+                  <ChevronLeft className="text-slate-300" size={20} />
+                </div>
               </button>
               <div className="flex items-center gap-1 text-slate-200 text-[15px] font-semibold leading-none">
                 <Calendar size={16} className="text-blue-400" />
@@ -446,10 +448,12 @@ export const TrackerScreen = ({
               <button
                 onClick={() => changeDateBy(7)}
                 type="button"
-                className="p-1 rounded transition-colors flex items-center"
+                className="rounded transition-colors flex items-center"
                 title="Next week"
               >
-                <ChevronRight className="text-slate-300" size={20} />
+                <div className="border border-slate-600/50 rounded-md p-1 hover:bg-slate-700/50 ">
+                  <ChevronRight className="text-slate-300" size={20} />
+                </div>
               </button>
             </div>
           </div>
