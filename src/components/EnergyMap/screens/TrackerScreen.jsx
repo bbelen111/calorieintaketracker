@@ -5,6 +5,7 @@ import {
   Plus,
   Utensils,
   Flame,
+  AlertTriangle,
   Beef,
   Cookie,
   Droplet,
@@ -296,6 +297,8 @@ export const TrackerScreen = ({
   const proteinInRange =
     totals.protein >= proteinMin && totals.protein <= proteinMax;
   const fatsInRange = totals.fats >= fatsMin && totals.fats <= fatsMax;
+  const proteinOver = totals.protein > proteinMax;
+  const fatsOver = totals.fats > fatsMax;
 
   // Get calorie target from selected step range
   const calorieTargetData = useMemo(() => {
@@ -317,10 +320,11 @@ export const TrackerScreen = ({
   const remainingCaloriesForCarbs =
     targetCalories - proteinCalories - fatsCalories;
   const targetCarbs = Math.max(0, Math.round(remainingCaloriesForCarbs / 4));
-  const carbsPercent = Math.min(
-    100,
-    Math.round((totals.carbs / targetCarbs) * 100)
-  );
+  const carbsPercent =
+    targetCarbs > 0
+      ? Math.min(100, Math.round((totals.carbs / targetCarbs) * 100))
+      : 0;
+  const carbsOver = targetCarbs > 0 && totals.carbs > targetCarbs;
 
   const handleEditFood = (mealType, entryId) => {
     onEditFoodEntry?.(mealType, entryId);
@@ -408,7 +412,7 @@ export const TrackerScreen = ({
                 className="rounded transition-colors flex items-center"
                 title="Previous week"
               >
-                <div className="border border-slate-600/50 rounded-md p-1 hover:bg-slate-700/50">
+                <div className="border border-slate-600/50 rounded-md p-1">
                   <ChevronLeft className="text-slate-300" size={20} />
                 </div>
               </button>
@@ -451,7 +455,7 @@ export const TrackerScreen = ({
                 className="rounded transition-colors flex items-center"
                 title="Next week"
               >
-                <div className="border border-slate-600/50 rounded-md p-1 hover:bg-slate-700/50 ">
+                <div className="border border-slate-600/50 rounded-md p-1">
                   <ChevronRight className="text-slate-300" size={20} />
                 </div>
               </button>
@@ -671,7 +675,7 @@ export const TrackerScreen = ({
             <div className="relative">
               <CircularProgress
                 percent={proteinPercent}
-                color="text-red-500"
+                color={proteinOver ? 'text-red-500' : 'text-red-500'}
                 size={100}
                 strokeWidth={8}
               />
@@ -689,19 +693,18 @@ export const TrackerScreen = ({
                     {formatOne(totals.protein)}
                   </motion.p>
                 </AnimatePresence>
+                {proteinOver ? (
+                  <AlertTriangle className="mt-1 text-red-400" size={12} />
+                ) : proteinInRange ? (
+                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                ) : null}
               </div>
             </div>
             <p className="text-slate-300 text-xs font-semibold mt-2">Protein</p>
             <p className="text-slate-400 text-xs">
-              {proteinInRange ? (
-                <span className="text-blue-400">
-                  ✓ {formatOne(proteinMin)}-{formatOne(proteinMax)}g
-                </span>
-              ) : (
-                <span>
-                  {formatOne(proteinMin)}-{formatOne(proteinMax)}g
-                </span>
-              )}
+              <span>
+                {formatOne(proteinMin)}-{formatOne(proteinMax)}g
+              </span>
             </p>
           </div>
 
@@ -710,7 +713,7 @@ export const TrackerScreen = ({
             <div className="relative">
               <CircularProgress
                 percent={fatsPercent}
-                color="text-yellow-500"
+                color={fatsOver ? 'text-red-500' : 'text-yellow-500'}
                 size={100}
                 strokeWidth={8}
               />
@@ -728,19 +731,18 @@ export const TrackerScreen = ({
                     {formatOne(totals.fats)}
                   </motion.p>
                 </AnimatePresence>
+                {fatsOver ? (
+                  <AlertTriangle className="mt-1 text-red-400" size={12} />
+                ) : fatsInRange ? (
+                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                ) : null}
               </div>
             </div>
             <p className="text-slate-300 text-xs font-semibold mt-2">Fats</p>
             <p className="text-slate-400 text-xs">
-              {fatsInRange ? (
-                <span className="text-blue-400">
-                  ✓ {formatOne(fatsMin)}-{formatOne(fatsMax)}g
-                </span>
-              ) : (
-                <span>
-                  {formatOne(fatsMin)}-{formatOne(fatsMax)}g
-                </span>
-              )}
+              <span>
+                {formatOne(fatsMin)}-{formatOne(fatsMax)}g
+              </span>
             </p>
           </div>
 
@@ -749,7 +751,7 @@ export const TrackerScreen = ({
             <div className="relative">
               <CircularProgress
                 percent={carbsPercent}
-                color="text-amber-500"
+                color={carbsOver ? 'text-red-500' : 'text-amber-500'}
                 size={100}
                 strokeWidth={8}
               />
@@ -767,6 +769,9 @@ export const TrackerScreen = ({
                     {formatOne(totals.carbs)}
                   </motion.p>
                 </AnimatePresence>
+                {carbsOver ? (
+                  <AlertTriangle className="mt-1 text-red-400" size={12} />
+                ) : null}
               </div>
             </div>
             <p className="text-slate-300 text-xs font-semibold mt-2">Carbs</p>
