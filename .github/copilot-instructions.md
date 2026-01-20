@@ -6,7 +6,8 @@ This app is designed to be wrapped by Capacitor for mobile deployment (iOS/Andro
 - **High Density:** Avoid large, airy desktop-style padding. Prefer tighter spacing (e.g., `p-4` instead of `p-6`, `gap-2` instead of `gap-4`).
 - **Touch Targets:** Buttons must be tappable, but visual density should be high to fit information on small screens.
 - **Overscroll/Bounce:** Capacitor handles bounce, but the app should manage its own scrolling containers responsibly.
-- **Safe Areas:** Be mindful of top (status bar) and bottom (home indicator) safe areas.
+- **Safe Areas:** Be mindful of top (status bar) and bottom (home indicator) safe areas. Used `env(safe-area-inset-*)` variables in global styles.
+- **Project Structure:** `dist` folder is synced to native projects.
 
 ## Project Overview
 React + Vite single-page app for fitness calorie tracking. Uses Framer Motion for animations, Tailwind for styling, and localStorage for persistence. **No backend, no API calls, no routing** - pure client-side state management.
@@ -163,14 +164,17 @@ Food database (`constants/foodDatabase.js`) contains 3000+ items with per-100g m
 3. **Cardio effort types:** `'intensity'` (MET-based) vs `'heartRate'` (formula-based) - check `effortType` field
 4. **Training type overrides:** Merged in `useEnergyMapData`, not raw from constants
 5. **Modal nesting:** Parent must delay cleanup to prevent child unmounting early
+6. **Safe Area padding:** When modifying full-screen layouts, ensure `padding-top/bottom` includes `var(--sat)` / `var(--sab)` for notch support.
 
 ## Development Workflow
 
 ```powershell
-npm install        # First time setup
-npm run dev        # Start Vite dev server (localhost:5173)
-npm run build      # Production build to dist/
-npm run preview    # Test production build locally
+npm install            # First time setup
+npm run dev            # Start Vite dev server (localhost:5173)
+npm run build          # Production build to dist/
+npx cap sync           # Sync build to native projects
+npx cap open android   # Open Android Studio
+npx cap open ios       # Open Xcode (Mac only)
 ```
 
 **No tests, no linters, no CI** - manual testing required. Check browser console for localStorage warnings.
