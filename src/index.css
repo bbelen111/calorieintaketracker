@@ -143,3 +143,24 @@ select,
     animation: slideInFromTop 0.2s ease-out;
   }
 }
+
+  @media (hover: none) and (pointer: coarse) {
+    .modal-content *,
+    .modal-overlay-wrapper * {
+      -webkit-tap-highlight-color: transparent;
+      transition-property: none !important;
+    }
+
+    .modal-content *:hover,
+    .modal-overlay-wrapper *:hover {
+      background-color: inherit !important;
+      color: inherit !important;
+      border-color: inherit !important;
+      box-shadow: none !important;
+      text-decoration-color: inherit !important;
+      text-decoration-line: none !important;
+      transform: none !important;
+      opacity: 1 !important;
+      filter: none !important;
+    }
+  }
