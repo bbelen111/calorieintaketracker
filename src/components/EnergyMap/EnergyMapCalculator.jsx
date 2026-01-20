@@ -1989,7 +1989,15 @@ export const EnergyMapCalculator = () => {
     cardioModalMode !== 'edit' && !cardioFavouriteEditorModal.isOpen;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 md:p-6">
+    <div
+      className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 md:p-6"
+      style={{
+        paddingTop: 'calc(1rem + var(--sat))',
+        paddingBottom: 'calc(1rem + var(--sab))',
+        paddingLeft: 'calc(1rem + var(--sal))',
+        paddingRight: 'calc(1rem + var(--sar))',
+      }}
+    >
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="relative">
           <ScreenTabs
