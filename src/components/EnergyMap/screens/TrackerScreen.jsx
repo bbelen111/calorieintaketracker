@@ -779,7 +779,26 @@ export const TrackerScreen = ({
                               {mealType.label}
                             </h3>
                             <p className="text-slate-400 text-xs">
-                              {`${mealEntries.length} item${mealEntries.length !== 1 ? 's' : ''} - ${formatOne(mealTotals.calories)} kcal - ${mealTime}`}
+                              <span>
+                                {`${mealEntries.length} item${mealEntries.length !== 1 ? 's' : ''} - `}
+                              </span>
+                              <span className="text-emerald-400">
+                                {formatOne(mealTotals.calories)} kcal
+                              </span>
+                              <span>{` - ${mealTime}`}</span>
+                            </p>
+                            <p className="text-slate-400 text-xs mt-0.5">
+                              <span className="text-red-400">
+                                {formatOne(mealTotals.protein)}p
+                              </span>
+                              <span className="mx-1">•</span>
+                              <span className="text-yellow-400">
+                                {formatOne(mealTotals.fats)}f
+                              </span>
+                              <span className="mx-1">•</span>
+                              <span className="text-amber-400">
+                                {formatOne(mealTotals.carbs)}c
+                              </span>
                             </p>
                           </div>
                         </div>
@@ -794,13 +813,20 @@ export const TrackerScreen = ({
                           >
                             <Trash2 className="text-red-400" size={22} />
                           </button>
-                          <ChevronDown
-                            className={`text-white transition-transform duration-300 ${
-                              !isCollapsed ? 'rotate-180' : ''
-                            }`}
-                            size={22}
-                          />
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAddFoodToMealClick(mealTypeId);
+                            }}
+                            className="p-1.5 hover:bg-blue-500/20 rounded-lg transition-all"
+                            title="Add food"
+                          >
+                            <Plus className="text-blue-400" size={22} />
+                          </button>
                         </div>
+                      </div>
+                      <div className="flex justify-center pb-1">
+                        <span className="h-1 w-10 rounded-full bg-slate-600/70" />
                       </div>
 
                       {!isCollapsed && (
@@ -866,14 +892,6 @@ export const TrackerScreen = ({
                               </div>
                             ))}
                           </div>
-
-                          <button
-                            onClick={() => handleAddFoodToMealClick(mealTypeId)}
-                            type="button"
-                            className="w-full py-1 border-2 border-slate-600/50 hover:border-blue-500 rounded-lg text-slate-400 hover:text-blue-400 transition-all flex items-center justify-center gap-2 mt-3"
-                          >
-                            <Plus size={16} />
-                          </button>
                         </div>
                       )}
                     </div>
@@ -1017,9 +1035,32 @@ export const TrackerScreen = ({
                                 </span>
                                 <span>{` - ${mealTime}`}</span>
                               </p>
+                              <p className="text-slate-400 text-xs mt-0.5">
+                                <span className="text-red-400">
+                                  {formatOne(mealTotals.protein)}p
+                                </span>
+                                <span className="mx-1">•</span>
+                                <span className="text-yellow-400">
+                                  {formatOne(mealTotals.fats)}f
+                                </span>
+                                <span className="mx-1">•</span>
+                                <span className="text-amber-400">
+                                  {formatOne(mealTotals.carbs)}c
+                                </span>
+                              </p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-6">
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAddFoodToMealClick(mealTypeId);
+                              }}
+                              className="p-1.5 hover:bg-blue-500/20 rounded-lg transition-all"
+                              title="Add food"
+                            >
+                              <Plus className="text-white" size={22} />
+                            </button>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1030,14 +1071,10 @@ export const TrackerScreen = ({
                             >
                               <Trash2 className="text-red-400" size={22} />
                             </button>
-                            {/* Animate the meal chevron by rotating a single icon instead of swapping icons */}
-                            <ChevronDown
-                              className={`text-white transition-transform duration-300 ${
-                                !isCollapsed ? 'rotate-180' : ''
-                              }`}
-                              size={22}
-                            />
                           </div>
+                        </div>
+                        <div className="flex justify-center">
+                          <span className="h-1 w-20 rounded-full bg-slate-500/70" />
                         </div>
 
                         {/* Food Items */}
@@ -1115,17 +1152,6 @@ export const TrackerScreen = ({
                                   </div>
                                 ))}
                               </div>
-
-                              {/* Add to This Meal Button */}
-                              <button
-                                onClick={() =>
-                                  handleAddFoodToMealClick(mealTypeId)
-                                }
-                                type="button"
-                                className="w-full py-1 border-2 border-slate-600/50 hover:border-blue-500 rounded-lg text-slate-400 hover:text-blue-400 transition-all flex items-center justify-center gap-2 mt-3"
-                              >
-                                <Plus size={16} />
-                              </button>
                             </motion.div>
                           )}
                         </AnimatePresence>
