@@ -6,21 +6,32 @@ This app is designed to be wrapped by Capacitor for mobile deployment (iOS/Andro
 - **High Density:** Avoid large, airy desktop-style padding. Prefer tighter spacing (e.g., `p-4` instead of `p-6`, `gap-2` instead of `gap-4`).
 - **Touch Targets:** Buttons must be tappable, but visual density should be high to fit information on small screens.
 - **Overscroll/Bounce:** Capacitor handles bounce, but the app should manage its own scrolling containers responsibly.
-- **Safe Areas:** Be mindful of top (status bar) and bottom (home indicator) safe areas. Used `env(safe-area-inset-*)` variables in global styles.
-- **Project Structure:** `dist` folder is synced to native projects.
+- **Safe Areas:** Be mindful of top (status bar) and bottom (home indicator) safe areas. Use `env(safe-area-inset-*)` variables in global styles (`var(--sat)`, `var(--sab)`, `var(--sal)`, `var(--sar)`).
+- **Project Structure:** `dist` folder is synced to native projects via `npx cap sync`.
+- **Font Scaling:** Base font size is 13px on mobile, 17px on desktop (768px+) for increased density.
+- **App ID:** `com.energymap.tracker` - defined in `capacitor.config.json` as the bundle identifier for native builds.
 
 ## Project Overview
 React + Vite single-page app for fitness calorie tracking. Uses Framer Motion for animations, Tailwind for styling, and localStorage for persistence. **No backend, no API calls, no routing** - pure client-side state management.
 
+**Tech Stack:**
+- React 18.3.1 + Vite 5.4.11
+- Capacitor 8.0.1 (iOS/Android)
+- Framer Motion 12.23.24 (animations)
+- Tailwind 3.4.17 (styling)
+- Lucide React (icons)
+
 ## Architecture Pattern: Centralized State Coordinator
 
-**`EnergyMapCalculator.jsx`** is the single source of truth - a 900+ line orchestrator managing:
-- All modal states via `useAnimatedModal` hook (20+ modals)
+**`EnergyMapCalculator.jsx`** is the single source of truth - a 2700+ line orchestrator managing:
+- All modal states via `useAnimatedModal` hook (40+ modals total)
 - User data via `useEnergyMapData` hook (localStorage-backed)
-- Screen navigation via `useSwipeableScreens` hook
-- Temporary UI state for pickers, drafts, and forms
+- Screen navigation via `useSwipeableScreens` hook (6 screens: Logbook, Tracker, Home, Calorie Map, Insights, Phase Detail)
+- Temporary UI state for pickers, drafts, and forms (e.g., `tempCardioDraft`, `tempPhaseData`)
 
 **Data flow:** User action → Modal state change → `useEnergyMapData` hook → localStorage → Re-render
+
+**File stats:** 2700+ lines managing 40+ modal instances, 6 screen components, and all inter-component state coordination.
 
 ## Custom Hook Patterns
 
@@ -46,8 +57,8 @@ Manages 5-screen carousel (Logbook, Tracker, Home, Calorie Map, Insights). Retur
 1. **Use `ModalShell`** wrapper for all modals - handles overlay, animations, scroll-lock
 2. **Pass `isOpen` AND `isClosing`** props to every modal component
 3. **Temporary state** lives in parent (`EnergyMapCalculator`), not modal components
-4. **Reset temp state** in `useEffect` watching `isClosing` - delay by `MODAL_CLOSE_DELAY` (200ms)
-5. **Nested modals:** Child modals have longer close delays to prevent flickering
+4. **Reset temp state** in `useEffect` watching `isClosing` - delay by `MODAL_CLOSE_DELAY` (180ms in parent, 200ms in ModalShell)
+5. **Nested modals:** Child modals have longer close delays (+50ms) to prevent flickering during parent modal closing
 
 **Example Modal Structure:**
 ```jsx
@@ -80,11 +91,11 @@ Modals register on mount, receive dynamic z-index (`BASE_Z_INDEX + stackPosition
 
 ## Calculation System
 
-- **BMR:** Mifflin-St Jeor equation in `calculations.js`
-- **Step calories:** Custom heuristics based on stride length (height × 0.415/0.413) and weight
-- **Cardio calories:** MET-based OR heart rate formula (gender-specific coefficients)
-- **Training calories:** Preset types with `caloriesPerHour` values, multiplied by duration
-- **Goal adjustments:** ±300/500 calorie modifiers applied to TDEE
+- **BMR:** Mifflin-St Jeor equation for basic BMR, auto-upgrades to Katch-McArdle when body fat tracking is enabled with valid entries
+- **Step calories:** Custom heuristics based on stride length (height × 0.415 for male / 0.413 for female) and weight
+- **Cardio calories:** MET-based OR heart rate formula (gender-specific coefficients in `HEART_RATE_COEFFICIENTS`)
+- **Training calories:** Preset types with `caloriesPerHour` values in `trainingTypeOverrides`, multiplied by duration
+- **Goal adjustments:** ±300/500 calorie modifiers applied to TDEE based on goal selection (maintenance, bulk, cut, etc.)
 
 **Never hardcode calculations** - all formulas live in `utils/calculations.js`.
 
@@ -177,7 +188,14 @@ npx cap open android   # Open Android Studio
 npx cap open ios       # Open Xcode (Mac only)
 ```
 
-**No tests, no linters, no CI** - manual testing required. Check browser console for localStorage warnings.
+**Linting:**
+```powershell
+npm run lint           # Check code style
+npm run lint:fix       # Auto-fix linting issues
+npm run format         # Run Prettier formatting
+```
+
+**No tests, no CI** - manual testing required. Check browser console for localStorage warnings.
 
 ## File Organization Logic
 
