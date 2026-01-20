@@ -103,6 +103,7 @@ export const TrackerScreen = ({
 
   const selectedDate = isControlled ? selectedDateProp : internalSelectedDate;
   const [collapsedMeals, setCollapsedMeals] = useState({});
+  const [weekSlideDirection, setWeekSlideDirection] = useState(1);
   const previousDateRef = useRef(selectedDate);
   const todayKey = getTodayDate();
   const parseDateKey = (dateStr) => new Date(`${dateStr}T00:00:00Z`);
@@ -362,6 +363,7 @@ export const TrackerScreen = ({
     const date = new Date(base + 'T00:00:00Z');
     date.setUTCDate(date.getUTCDate() + offset);
     const iso = date.toISOString().split('T')[0];
+    setWeekSlideDirection(offset >= 0 ? 1 : -1);
     if (typeof onSelectedDateChange === 'function') {
       onSelectedDateChange(iso);
     } else {
@@ -454,11 +456,11 @@ export const TrackerScreen = ({
           <AnimatePresence mode="wait">
             <motion.div
               key={weekStartKey}
-              initial={{ opacity: 0, x: 18 }}
+              initial={{ opacity: 0, x: 18 * weekSlideDirection }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -18 }}
+              exit={{ opacity: 0, x: -18 * weekSlideDirection }}
               transition={{ duration: 0.2, ease: 'easeOut' }}
-              className="grid grid-cols-7 gap-1.5"
+              className="grid grid-cols-7 gap-1"
             >
               {weekDates.map((weekDate) => {
                 const isSelected = weekDate.key === selectedDate;
@@ -475,16 +477,18 @@ export const TrackerScreen = ({
                         setInternalSelectedDate(weekDate.key);
                       }
                     }}
-                    className={`relative flex flex-col items-center justify-center rounded-md border py-2.5 text-[15px] font-semibold transition-all active:scale-95 ${
+                    className={`relative flex flex-col items-center justify-center rounded-md border py-2 text-[15px] font-semibold transition-all active:scale-95 ${
                       isSelected
                         ? 'bg-blue-600 border-blue-400 text-white'
                         : 'bg-slate-800/70 border-slate-600/50 text-slate-200 hover:bg-slate-700/70'
                     } ${isToday && !isSelected ? 'ring-1 ring-blue-400/70' : ''}`}
                   >
-                    <span className="text-[12px] text-slate-400">
+                    <span className="text-[10px] text-slate-400">
                       {weekDate.weekday}
                     </span>
-                    <span>{weekDate.day}</span>
+                    <span className="text-[13px] font-semibold">
+                      {weekDate.day}
+                    </span>
                     <span
                       className={`absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full ${
                         hasEntries ? 'bg-emerald-400' : 'bg-transparent'
