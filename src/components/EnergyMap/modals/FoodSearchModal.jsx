@@ -7,6 +7,8 @@ import {
   Edit3,
   SlidersHorizontal,
   X,
+  Plus,
+  Utensils,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ModalShell } from '../common/ModalShell';
@@ -38,6 +40,10 @@ export const FoodSearchModal = ({
   const longPressTimerRef = useRef(null);
   const skipNextClickRef = useRef(false);
   const [longPressingId, setLongPressingId] = useState(null);
+  // Scroll/fade overlays for action buttons
+  const actionScrollRef = useRef(null);
+  const [showLeftFade, setShowLeftFade] = useState(false);
+  const [showRightFade, setShowRightFade] = useState(false);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -106,6 +112,27 @@ export const FoodSearchModal = ({
       }
     };
   }, []);
+
+  // Show small fade overlays on scrollable action buttons container
+  useEffect(() => {
+    const el = actionScrollRef.current;
+    if (!el) return;
+
+    const updateFades = () => {
+      const { scrollLeft, scrollWidth, clientWidth } = el;
+      setShowLeftFade(scrollLeft > 6);
+      setShowRightFade(scrollLeft + clientWidth < scrollWidth - 6);
+    };
+
+    updateFades();
+    el.addEventListener('scroll', updateFades, { passive: true });
+    window.addEventListener('resize', updateFades);
+
+    return () => {
+      el.removeEventListener('scroll', updateFades);
+      window.removeEventListener('resize', updateFades);
+    };
+  }, [isOpen]);
 
   // Get unique subcategories for selected category
   const availableSubcategories = useMemo(() => {
@@ -218,40 +245,84 @@ export const FoodSearchModal = ({
         <h3 className="text-white font-bold text-2xl">Add Food</h3>
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex gap-3 mb-3">
-        <button
-          onClick={onOpenFavourites}
-          aria-label="Favorites"
-          className="flex-1 flex items-center justify-center gap-2 px-3 py-3 bg-blue-600 hover:bg-blue-600/50 text-white rounded-lg font-semibold transition-all shadow-md shadow-blue-500/20"
+      {/* Action Buttons: small pill-style, always show text, horizontally scrollable */}
+      <div className="mb-3 relative">
+        <div
+          ref={actionScrollRef}
+          className="overflow-x-auto touch-action-pan-x scrollbar-hide"
         >
-          <Star size={18} />
-          <span className="hidden md:inline">Favorites</span>
-        </button>
-        <button
-          onClick={onOpenManualEntry}
-          aria-label="Manual Entry"
-          className="flex-1 flex items-center justify-center gap-2 px-3 py-3 bg-blue-600 hover:bg-blue-600/50 text-white rounded-lg font-semibold transition-all shadow-md shadow-blue-500/20"
+          <div className="flex gap-2 w-max">
+            <button
+              onClick={onOpenFavourites}
+              aria-label="Favorites"
+              className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
+            >
+              <Star size={16} />
+              <span>Favorites</span>
+            </button>
+
+            <button
+              onClick={() => {}}
+              aria-label="Meal"
+              className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
+            >
+              <Utensils size={16} />
+              <span>Meal</span>
+            </button>
+
+            <button
+              onClick={() => {}}
+              aria-label="Add Food"
+              className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
+            >
+              <Plus size={16} />
+              <span>Add Food</span>
+            </button>
+
+            <button
+              onClick={onOpenManualEntry}
+              aria-label="Manual Entry"
+              className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
+            >
+              <Edit3 size={16} />
+              <span>Manual Entry</span>
+            </button>
+
+            <button
+              onClick={() => {}}
+              aria-label="Barcode Scan"
+              className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
+            >
+              <ScanBarcode size={16} />
+              <span>Barcode Scan</span>
+            </button>
+
+            <button
+              onClick={() => {}}
+              aria-label="AI Chatbot"
+              className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
+            >
+              <BotMessageSquare size={16} />
+              <span>AI Chatbot</span>
+            </button>
+          </div>
+        </div>
+
+        <div
+          className={`pointer-events-none absolute -left-1 top-0 -bottom-1 w-2 z-20 transition-opacity duration-200 will-change-[opacity] ${
+            showLeftFade ? 'opacity-100' : 'opacity-0'
+          }`}
         >
-          <Edit3 size={18} />
-          <span className="hidden md:inline">Manual Entry</span>
-        </button>
-        <button
-          onClick={() => {}}
-          aria-label="Barcode Scan"
-          className="flex-1 flex items-center justify-center gap-2 px-3 py-3 bg-blue-600 hover:bg-blue-600/50 text-white rounded-lg font-semibold transition-all shadow-md shadow-blue-500/20"
+          <div className="h-full w-full bg-gradient-to-r from-slate-800 via-slate-800/75 to-transparent" />
+        </div>
+
+        <div
+          className={`pointer-events-none absolute -right-1 top-0 -bottom-1 w-2 z-20 transition-opacity duration-200 will-change-[opacity] ${
+            showRightFade ? 'opacity-100' : 'opacity-0'
+          }`}
         >
-          <ScanBarcode size={18} />
-          <span className="hidden md:inline">Barcode Scan</span>
-        </button>
-        <button
-          onClick={() => {}}
-          aria-label="AI Chatbot"
-          className="flex-1 flex items-center justify-center gap-2 px-3 py-3 bg-blue-600 hover:bg-blue-600/50 text-white rounded-lg font-semibold transition-all shadow-md shadow-blue-500/20"
-        >
-          <BotMessageSquare size={18} />
-          <span className="hidden md:inline">AI Chatbot</span>
-        </button>
+          <div className="h-full w-full bg-gradient-to-l from-slate-800 via-slate-800/75 to-transparent" />
+        </div>
       </div>
 
       {/* Search Input */}
