@@ -10,6 +10,7 @@ import {
   BotMessageSquare,
   ScanBarcode,
   Search,
+  ChevronLeft,
   Edit3,
   SlidersHorizontal,
   X,
@@ -414,652 +415,656 @@ export const FoodSearchModal = ({
       isOpen={isOpen}
       isClosing={isClosing}
       onClose={onClose}
-      contentClassName="w-full md:max-w-3xl p-6"
+      fullHeight
+      overlayClassName="fixed inset-0 bg-black/70 !p-0 !flex-none !items-stretch !justify-stretch"
+      contentClassName="fixed inset-0 w-screen h-screen p-0 bg-slate-900 rounded-none border-none !max-h-none flex flex-col overflow-x-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
     >
-      <div className="flex items-center gap-3 mb-4">
-        <Search className="text-blue-400" size={28} />
-        <h3 className="text-white font-bold text-2xl">Add Food</h3>
+      <div className="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-700 flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => onClose?.()}
+            aria-label="Back"
+            className="text-slate-300 hover:text-white transition-all"
+          >
+            <ChevronLeft size={24} />
+          </button>
+          <div className="flex items-center gap-2">
+            <Search className="text-blue-400" size={24} />
+            <h3 className="text-white font-bold text-xl">Add Food</h3>
+          </div>
+        </div>
       </div>
 
-      {/* Search Mode Toggle */}
-      <div className="mb-3">
-        <div className="flex items-center gap-2 p-1 bg-slate-700/50 rounded-lg">
-          <button
-            onClick={() => setSearchMode('local')}
-            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
-              searchMode === 'local'
-                ? 'bg-blue-500 text-white shadow-md'
-                : 'text-slate-400 hover:text-white hover:bg-slate-600/50'
+      <div className="flex-1 bg-slate-800 border-t border-slate-700 overflow-y-auto flex flex-col">
+        {/* Search Mode Toggle */}
+        <div className="px-4 pt-4">
+          <div className="flex items-center gap-2 p-1 bg-slate-700/50 rounded-lg">
+            <button
+              onClick={() => setSearchMode('local')}
+              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
+                searchMode === 'local'
+                  ? 'bg-blue-500 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-600/50'
+              }`}
+            >
+              <Database size={16} />
+              <span>Local</span>
+              {cachedFoods.length > 0 && (
+                <span className="text-xs opacity-75">
+                  (+{cachedFoods.length})
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => isOnline && setSearchMode('online')}
+              disabled={!isOnline}
+              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
+                searchMode === 'online'
+                  ? 'bg-emerald-500 text-white shadow-md'
+                  : isOnline
+                    ? 'text-slate-400 hover:text-white hover:bg-slate-600/50'
+                    : 'text-slate-500 cursor-not-allowed opacity-50'
+              }`}
+            >
+              {isOnline ? <Globe size={16} /> : <WifiOff size={16} />}
+              <span>Online</span>
+            </button>
+          </div>
+          {!isOnline && (
+            <div className="mt-2 flex items-center gap-2 px-3 py-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+              <CloudOff size={16} className="text-amber-400 flex-shrink-0" />
+              <p className="text-amber-400 text-xs">
+                You&apos;re offline. Online search requires an internet
+                connection.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Action Buttons */}
+        <div className="px-4 mt-3 relative">
+          <div
+            ref={actionScrollRef}
+            className="overflow-x-auto touch-action-pan-x scrollbar-hide"
+          >
+            <div className="flex gap-2 w-max">
+              <button
+                onClick={onOpenFavourites}
+                aria-label="Favorites"
+                className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
+              >
+                <Star size={16} />
+                <span>Favorites</span>
+              </button>
+
+              <button
+                onClick={() => {}}
+                aria-label="Meal"
+                className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
+              >
+                <Utensils size={16} />
+                <span>Meal</span>
+              </button>
+
+              <button
+                onClick={() => {}}
+                aria-label="Add Food"
+                className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
+              >
+                <Plus size={16} />
+                <span>Add Food</span>
+              </button>
+
+              <button
+                onClick={onOpenManualEntry}
+                aria-label="Manual Entry"
+                className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
+              >
+                <Edit3 size={16} />
+                <span>Manual Entry</span>
+              </button>
+
+              <button
+                onClick={() => {}}
+                aria-label="Barcode Scan"
+                className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
+              >
+                <ScanBarcode size={16} />
+                <span>Barcode Scan</span>
+              </button>
+
+              <button
+                onClick={() => {}}
+                aria-label="AI Chatbot"
+                className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
+              >
+                <BotMessageSquare size={16} />
+                <span>AI Chatbot</span>
+              </button>
+            </div>
+          </div>
+
+          <div
+            className={`pointer-events-none absolute -left-1 top-0 -bottom-1 w-2 z-20 transition-opacity duration-200 will-change-[opacity] ${
+              showLeftFade ? 'opacity-100' : 'opacity-0'
             }`}
           >
-            <Database size={16} />
-            <span>Local</span>
-            {cachedFoods.length > 0 && (
-              <span className="text-xs opacity-75">
-                (+{cachedFoods.length})
-              </span>
+            <div className="h-full w-full bg-gradient-to-r from-slate-800 via-slate-800/75 to-transparent" />
+          </div>
+
+          <div
+            className={`pointer-events-none absolute -right-1 top-0 -bottom-1 w-2 z-20 transition-opacity duration-200 will-change-[opacity] ${
+              showRightFade ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            <div className="h-full w-full bg-gradient-to-l from-slate-800 via-slate-800/75 to-transparent" />
+          </div>
+        </div>
+
+        {/* Search Input */}
+        <div className="px-4 mt-3">
+          <div className="relative">
+            {isSearching ? (
+              <Loader2
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 animate-spin"
+                size={20}
+              />
+            ) : (
+              <Search
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                size={20}
+              />
             )}
-          </button>
-          <button
-            onClick={() => isOnline && setSearchMode('online')}
-            disabled={!isOnline}
-            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
-              searchMode === 'online'
-                ? 'bg-emerald-500 text-white shadow-md'
-                : isOnline
-                  ? 'text-slate-400 hover:text-white hover:bg-slate-600/50'
-                  : 'text-slate-500 cursor-not-allowed opacity-50'
-            }`}
-          >
-            {isOnline ? <Globe size={16} /> : <WifiOff size={16} />}
-            <span>Online</span>
-          </button>
-        </div>
-        {/* Offline warning when trying to use online mode */}
-        {!isOnline && (
-          <div className="mt-2 flex items-center gap-2 px-3 py-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-            <CloudOff size={16} className="text-amber-400 flex-shrink-0" />
-            <p className="text-amber-400 text-xs">
-              You&apos;re offline. Online search requires an internet
-              connection.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Action Buttons: small pill-style, always show text, horizontally scrollable */}
-      <div className="mb-3 relative">
-        <div
-          ref={actionScrollRef}
-          className="overflow-x-auto touch-action-pan-x scrollbar-hide"
-        >
-          <div className="flex gap-2 w-max">
-            <button
-              onClick={onOpenFavourites}
-              aria-label="Favorites"
-              className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
-            >
-              <Star size={16} />
-              <span>Favorites</span>
-            </button>
-
-            <button
-              onClick={() => {}}
-              aria-label="Meal"
-              className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
-            >
-              <Utensils size={16} />
-              <span>Meal</span>
-            </button>
-
-            <button
-              onClick={() => {}}
-              aria-label="Add Food"
-              className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
-            >
-              <Plus size={16} />
-              <span>Add Food</span>
-            </button>
-
-            <button
-              onClick={onOpenManualEntry}
-              aria-label="Manual Entry"
-              className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
-            >
-              <Edit3 size={16} />
-              <span>Manual Entry</span>
-            </button>
-
-            <button
-              onClick={() => {}}
-              aria-label="Barcode Scan"
-              className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
-            >
-              <ScanBarcode size={16} />
-              <span>Barcode Scan</span>
-            </button>
-
-            <button
-              onClick={() => {}}
-              aria-label="AI Chatbot"
-              className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
-            >
-              <BotMessageSquare size={16} />
-              <span>AI Chatbot</span>
-            </button>
-          </div>
-        </div>
-
-        <div
-          className={`pointer-events-none absolute -left-1 top-0 -bottom-1 w-2 z-20 transition-opacity duration-200 will-change-[opacity] ${
-            showLeftFade ? 'opacity-100' : 'opacity-0'
-          }`}
-        >
-          <div className="h-full w-full bg-gradient-to-r from-slate-800 via-slate-800/75 to-transparent" />
-        </div>
-
-        <div
-          className={`pointer-events-none absolute -right-1 top-0 -bottom-1 w-2 z-20 transition-opacity duration-200 will-change-[opacity] ${
-            showRightFade ? 'opacity-100' : 'opacity-0'
-          }`}
-        >
-          <div className="h-full w-full bg-gradient-to-l from-slate-800 via-slate-800/75 to-transparent" />
-        </div>
-      </div>
-
-      {/* Search Input */}
-      <div className="mb-3">
-        <div className="relative">
-          {isSearching ? (
-            <Loader2
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 animate-spin"
-              size={20}
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={
+                searchMode === 'online'
+                  ? 'Search FatSecret database...'
+                  : 'Search local foods...'
+              }
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg pl-11 pr-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
             />
-          ) : (
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              size={20}
-            />
-          )}
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={
-              searchMode === 'online'
-                ? 'Search FatSecret database...'
-                : 'Search local foods...'
-            }
-            className="w-full bg-slate-700 border border-slate-600 rounded-lg pl-11 pr-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-            >
-              <X size={18} />
-            </button>
-          )}
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+              >
+                <X size={18} />
+              </button>
+            )}
+          </div>
+          {searchMode === 'online' &&
+            searchQuery.length > 0 &&
+            searchQuery.length < 2 && (
+              <p className="mt-1 text-slate-500 text-xs">
+                Type at least 2 characters to search
+              </p>
+            )}
         </div>
-        {/* Online mode hint */}
-        {searchMode === 'online' &&
-          searchQuery.length > 0 &&
-          searchQuery.length < 2 && (
-            <p className="mt-1 text-slate-500 text-xs">
-              Type at least 2 characters to search
-            </p>
-          )}
-      </div>
 
-      {/* Results Count & Filter Button */}
-      <div className="mb-3 flex items-center justify-between">
-        <p className="text-slate-400 text-sm">
-          {searchMode === 'online' ? (
-            isSearching ? (
-              'Searching...'
+        {/* Results Count & Filter Button */}
+        <div className="px-4 mt-3 flex items-center justify-between">
+          <p className="text-slate-400 text-sm">
+            {searchMode === 'online' ? (
+              isSearching ? (
+                'Searching...'
+              ) : (
+                <>
+                  {displayResults.length}{' '}
+                  {displayResults.length === 1 ? 'result' : 'results'}
+                </>
+              )
             ) : (
               <>
                 {displayResults.length}{' '}
-                {displayResults.length === 1 ? 'result' : 'results'}
+                {displayResults.length === 1 ? 'food' : 'foods'} found
               </>
-            )
-          ) : (
-            <>
-              {displayResults.length}{' '}
-              {displayResults.length === 1 ? 'food' : 'foods'} found
-            </>
-          )}
-        </p>
+            )}
+          </p>
 
-        {/* Compact Filter Button - only show for local mode */}
-        {searchMode === 'local' && (
-          <div className="relative" ref={dropdownRef}>
-            <button
-              onClick={() => setIsFilterOpen(!isFilterOpen)}
-              className={`text-sm font-medium flex items-center gap-1 transition-colors ${
-                hasActiveFilters
-                  ? 'text-blue-400 hover:text-blue-300'
-                  : 'text-slate-400 hover:text-slate-300'
-              }`}
-            >
-              <SlidersHorizontal size={14} />
-              {hasActiveFilters ? 'View Filters' : 'Filters'}
-            </button>
+          {searchMode === 'local' && (
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                className={`text-sm font-medium flex items-center gap-1 transition-colors ${
+                  hasActiveFilters
+                    ? 'text-blue-400 hover:text-blue-300'
+                    : 'text-slate-400 hover:text-slate-300'
+                }`}
+              >
+                <SlidersHorizontal size={14} />
+                {hasActiveFilters ? 'View Filters' : 'Filters'}
+              </button>
 
-            {/* Dropdown Overlay */}
-            <AnimatePresence>
-              {isFilterOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: -8, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                  transition={{ duration: 0.18, ease: 'easeOut' }}
-                  className="absolute right-0 top-full mt-2 w-80 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl z-50 max-h-[500px] overflow-y-auto overflow-x-hidden touch-action-pan-y"
-                >
-                  <div className="p-4 space-y-4">
-                    {/* Header */}
-                    <div className="flex items-center justify-between pb-3 border-b border-slate-700">
-                      <h4 className="text-white font-bold text-lg">
-                        Filters & Sort
-                      </h4>
-                      <button
-                        onClick={clearFilters}
-                        className="text-sm text-blue-400 hover:text-blue-300 font-medium"
-                      >
-                        Clear All
-                      </button>
-                    </div>
-
-                    {/* Category Filter */}
-                    <div>
-                      <label className="text-slate-300 font-semibold text-sm block mb-2">
-                        Category
-                      </label>
-                      <div className="space-y-1.5">
+              <AnimatePresence>
+                {isFilterOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                    transition={{ duration: 0.18, ease: 'easeOut' }}
+                    className="absolute right-0 top-full mt-2 w-80 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl z-50 max-h-[500px] overflow-y-auto overflow-x-hidden touch-action-pan-y"
+                  >
+                    <div className="p-4 space-y-4">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-700">
+                        <h4 className="text-white font-bold text-lg">
+                          Filters & Sort
+                        </h4>
                         <button
-                          onClick={() => {
-                            setSelectedCategory(null);
-                            setSelectedSubcategory(null);
-                          }}
-                          className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
-                            selectedCategory === null
-                              ? 'bg-blue-500 text-white'
-                              : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
-                          }`}
+                          onClick={clearFilters}
+                          className="text-sm text-blue-400 hover:text-blue-300 font-medium"
                         >
-                          All Categories
+                          Clear All
                         </button>
-                        {Object.entries(FOOD_CATEGORIES).map(
-                          ([key, { label, color }]) => (
-                            <button
-                              key={key}
-                              onClick={() => {
-                                setSelectedCategory(key);
-                                setSelectedSubcategory(null);
-                              }}
-                              className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
-                                selectedCategory === key
-                                  ? `bg-${color}-500 text-white`
-                                  : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
-                              }`}
-                            >
-                              {label}
-                            </button>
-                          )
-                        )}
                       </div>
-                    </div>
 
-                    {/* Subcategory Filter */}
-                    {availableSubcategories.length > 0 && (
                       <div>
                         <label className="text-slate-300 font-semibold text-sm block mb-2">
-                          Subcategory
+                          Category
                         </label>
                         <div className="space-y-1.5">
                           <button
-                            onClick={() => setSelectedSubcategory(null)}
+                            onClick={() => {
+                              setSelectedCategory(null);
+                              setSelectedSubcategory(null);
+                            }}
                             className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
-                              selectedSubcategory === null
+                              selectedCategory === null
                                 ? 'bg-blue-500 text-white'
                                 : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
                             }`}
                           >
-                            All Subcategories
+                            All Categories
                           </button>
-                          {availableSubcategories.map((subcat) => (
+                          {Object.entries(FOOD_CATEGORIES).map(
+                            ([key, { label, color }]) => (
+                              <button
+                                key={key}
+                                onClick={() => {
+                                  setSelectedCategory(key);
+                                  setSelectedSubcategory(null);
+                                }}
+                                className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
+                                  selectedCategory === key
+                                    ? `bg-${color}-500 text-white`
+                                    : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            )
+                          )}
+                        </div>
+                      </div>
+
+                      {availableSubcategories.length > 0 && (
+                        <div>
+                          <label className="text-slate-300 font-semibold text-sm block mb-2">
+                            Subcategory
+                          </label>
+                          <div className="space-y-1.5">
                             <button
-                              key={subcat}
-                              onClick={() => setSelectedSubcategory(subcat)}
-                              className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all capitalize ${
-                                selectedSubcategory === subcat
+                              onClick={() => setSelectedSubcategory(null)}
+                              className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
+                                selectedSubcategory === null
                                   ? 'bg-blue-500 text-white'
                                   : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
                               }`}
                             >
-                              {subcat.replace(/-/g, ' ')}
+                              All Subcategories
+                            </button>
+                            {availableSubcategories.map((subcat) => (
+                              <button
+                                key={subcat}
+                                onClick={() => setSelectedSubcategory(subcat)}
+                                className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all capitalize ${
+                                  selectedSubcategory === subcat
+                                    ? 'bg-blue-500 text-white'
+                                    : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                                }`}
+                              >
+                                {subcat.replace(/-/g, ' ')}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="text-slate-300 font-semibold text-sm block mb-2">
+                          Sort By
+                        </label>
+                        <div className="space-y-1.5">
+                          {[
+                            { value: 'name', label: 'Name (A-Z)' },
+                            { value: 'calories', label: 'Calories' },
+                            { value: 'protein', label: 'Protein' },
+                            { value: 'carbs', label: 'Carbs' },
+                            { value: 'fats', label: 'Fats' },
+                          ].map((option) => (
+                            <button
+                              key={option.value}
+                              onClick={() => setSortBy(option.value)}
+                              className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
+                                sortBy === option.value
+                                  ? 'bg-emerald-500 text-white'
+                                  : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                              }`}
+                            >
+                              {option.label}
                             </button>
                           ))}
                         </div>
                       </div>
-                    )}
 
-                    {/* Sort By */}
-                    <div>
-                      <label className="text-slate-300 font-semibold text-sm block mb-2">
-                        Sort By
-                      </label>
-                      <div className="space-y-1.5">
-                        {[
-                          { value: 'name', label: 'Name (A-Z)' },
-                          { value: 'calories', label: 'Calories' },
-                          { value: 'protein', label: 'Protein' },
-                          { value: 'carbs', label: 'Carbs' },
-                          { value: 'fats', label: 'Fats' },
-                        ].map((option) => (
+                      <div>
+                        <label className="text-slate-300 font-semibold text-sm block mb-2">
+                          Sort Order
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
                           <button
-                            key={option.value}
-                            onClick={() => setSortBy(option.value)}
-                            className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
-                              sortBy === option.value
+                            onClick={() => setSortOrder('asc')}
+                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                              sortOrder === 'asc'
                                 ? 'bg-emerald-500 text-white'
                                 : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
                             }`}
                           >
-                            {option.label}
+                            ↑ Ascending
                           </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Sort Order */}
-                    <div>
-                      <label className="text-slate-300 font-semibold text-sm block mb-2">
-                        Sort Order
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          onClick={() => setSortOrder('asc')}
-                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                            sortOrder === 'asc'
-                              ? 'bg-emerald-500 text-white'
-                              : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
-                          }`}
-                        >
-                          ↑ Ascending
-                        </button>
-                        <button
-                          onClick={() => setSortOrder('desc')}
-                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                            sortOrder === 'desc'
-                              ? 'bg-emerald-500 text-white'
-                              : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
-                          }`}
-                        >
-                          ↓ Descending
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Active Filters Summary */}
-                    {hasActiveFilters && (
-                      <div className="pt-3 border-t border-slate-700">
-                        <p className="text-slate-400 text-xs mb-2">
-                          Active Filters:
-                        </p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {selectedCategory && (
-                            <span className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs flex items-center gap-1">
-                              {FOOD_CATEGORIES[selectedCategory]?.label}
-                              <X
-                                size={12}
-                                className="cursor-pointer hover:text-white"
-                                onClick={() => {
-                                  setSelectedCategory(null);
-                                  setSelectedSubcategory(null);
-                                }}
-                              />
-                            </span>
-                          )}
-                          {selectedSubcategory && (
-                            <span className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs flex items-center gap-1 capitalize">
-                              {selectedSubcategory.replace(/-/g, ' ')}
-                              <X
-                                size={12}
-                                className="cursor-pointer hover:text-white"
-                                onClick={() => setSelectedSubcategory(null)}
-                              />
-                            </span>
-                          )}
-                          {(sortBy !== 'name' || sortOrder !== 'asc') && (
-                            <span className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs">
-                              {getSortLabel()}
-                            </span>
-                          )}
+                          <button
+                            onClick={() => setSortOrder('desc')}
+                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                              sortOrder === 'desc'
+                                ? 'bg-emerald-500 text-white'
+                                : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                            }`}
+                          >
+                            ↓ Descending
+                          </button>
                         </div>
+                      </div>
+
+                      {hasActiveFilters && (
+                        <div className="pt-3 border-t border-slate-700">
+                          <p className="text-slate-400 text-xs mb-2">
+                            Active Filters:
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {selectedCategory && (
+                              <span className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs flex items-center gap-1">
+                                {FOOD_CATEGORIES[selectedCategory]?.label}
+                                <X
+                                  size={12}
+                                  className="cursor-pointer hover:text-white"
+                                  onClick={() => {
+                                    setSelectedCategory(null);
+                                    setSelectedSubcategory(null);
+                                  }}
+                                />
+                              </span>
+                            )}
+                            {selectedSubcategory && (
+                              <span className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs flex items-center gap-1 capitalize">
+                                {selectedSubcategory.replace(/-/g, ' ')}
+                                <X
+                                  size={12}
+                                  className="cursor-pointer hover:text-white"
+                                  onClick={() => setSelectedSubcategory(null)}
+                                />
+                              </span>
+                            )}
+                            {(sortBy !== 'name' || sortOrder !== 'asc') && (
+                              <span className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs">
+                                {getSortLabel()}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+        </div>
+
+        {/* Search Results */}
+        <div className="flex-1 min-h-0 px-4 py-4 relative">
+          <div className="h-full overflow-y-auto overflow-x-hidden touch-action-pan-y space-y-2">
+            {/* Error State */}
+            {searchError && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-start gap-3">
+                <AlertCircle
+                  size={20}
+                  className="text-red-400 flex-shrink-0 mt-0.5"
+                />
+                <div>
+                  <p className="text-red-400 font-medium text-sm">
+                    {searchError}
+                  </p>
+                  <button
+                    onClick={() => performOnlineSearch(searchQuery)}
+                    className="mt-2 text-xs text-red-400 hover:text-red-300 underline"
+                  >
+                    Try again
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Loading State for Online Search */}
+            {searchMode === 'online' && isSearching && (
+              <div className="flex flex-col items-center justify-center py-12">
+                <Loader2 size={32} className="text-blue-400 animate-spin mb-3" />
+                <p className="text-slate-400 text-sm">
+                  Searching FatSecret database...
+                </p>
+              </div>
+            )}
+
+            {/* Empty State */}
+            {!isSearching && !searchError && displayResults.length === 0 ? (
+              <div className="bg-slate-700/50 border border-slate-600 border-dashed rounded-lg p-8 text-center">
+                {searchMode === 'online' ? (
+                  <>
+                    <Globe className="mx-auto text-slate-500 mb-3" size={32} />
+                    <p className="text-slate-400 text-sm">
+                      {searchQuery.length < 2
+                        ? 'Enter a search term to find foods online'
+                        : 'No results found. Try a different search term.'}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <Search className="mx-auto text-slate-500 mb-3" size={32} />
+                    <p className="text-slate-400 text-sm">No foods found</p>
+                  </>
+                )}
+              </div>
+            ) : searchMode === 'online' && !isSearching ? (
+              /* Online Results */
+              onlineResults.map((food) => {
+                const isLoading = loadingFoodId === food.id;
+                return (
+                  <button
+                    key={food.id}
+                    onClick={() => !isLoading && handleOnlineFoodSelect(food)}
+                    disabled={isLoading}
+                    className={`relative w-full bg-slate-700/50 border border-slate-600 rounded-lg p-3 text-left transition-all ${
+                      isLoading
+                        ? 'opacity-70 cursor-wait'
+                        : 'active:scale-[0.99] hover:border-emerald-500/50'
+                    }`}
+                  >
+                    {isLoading && (
+                      <div className="absolute inset-0 bg-slate-800/50 rounded-lg flex items-center justify-center z-10">
+                        <Loader2
+                          size={24}
+                          className="text-blue-400 animate-spin"
+                        />
                       </div>
                     )}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        )}
-      </div>
-
-      {/* Search Results */}
-      <div className="space-y-2 max-h-[500px] min-h-[500px] overflow-y-auto overflow-x-hidden touch-action-pan-y">
-        {/* Error State */}
-        {searchError && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-start gap-3">
-            <AlertCircle
-              size={20}
-              className="text-red-400 flex-shrink-0 mt-0.5"
-            />
-            <div>
-              <p className="text-red-400 font-medium text-sm">{searchError}</p>
-              <button
-                onClick={() => performOnlineSearch(searchQuery)}
-                className="mt-2 text-xs text-red-400 hover:text-red-300 underline"
-              >
-                Try again
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Loading State for Online Search */}
-        {searchMode === 'online' && isSearching && (
-          <div className="flex flex-col items-center justify-center py-12">
-            <Loader2 size={32} className="text-blue-400 animate-spin mb-3" />
-            <p className="text-slate-400 text-sm">
-              Searching FatSecret database...
-            </p>
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!isSearching && !searchError && displayResults.length === 0 ? (
-          <div className="bg-slate-700/50 border border-slate-600 border-dashed rounded-lg p-8 text-center">
-            {searchMode === 'online' ? (
-              <>
-                <Globe className="mx-auto text-slate-500 mb-3" size={32} />
-                <p className="text-slate-400 text-sm">
-                  {searchQuery.length < 2
-                    ? 'Enter a search term to find foods online'
-                    : 'No results found. Try a different search term.'}
-                </p>
-              </>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-white font-semibold text-sm truncate">
+                            {food.name}
+                          </h4>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          {food.brand && (
+                            <span className="text-xs px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded truncate max-w-[150px]">
+                              {food.brand}
+                            </span>
+                          )}
+                          <span className="text-xs px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded">
+                            {food.type === 'Brand' ? 'Branded' : 'Generic'}
+                          </span>
+                          <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded flex items-center gap-1">
+                            <Globe size={10} />
+                            Online
+                          </span>
+                        </div>
+                      </div>
+                      {food.previewMacros && (
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="text-slate-500 text-[10px] font-medium">
+                            {food.previewMacros.servingInfo || 'per serving'}
+                          </span>
+                          <div className="flex items-center gap-2 text-xs">
+                            <div className="text-center">
+                              <p className="text-emerald-400 font-bold">
+                                {Math.round(food.previewMacros.calories)}
+                              </p>
+                              <p className="text-slate-500">cal</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-red-400 font-bold">
+                                {formatOne(food.previewMacros.protein)}g
+                              </p>
+                              <p className="text-slate-500">prot</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })
             ) : (
-              <>
-                <Search className="mx-auto text-slate-500 mb-3" size={32} />
-                <p className="text-slate-400 text-sm">No foods found</p>
-              </>
+              /* Local Results */
+              !isSearching &&
+              displayResults.map((food) => {
+                const isPinned = pinnedFoods.includes(food.id);
+                const isLongPressing = longPressingId === food.id;
+                let borderClass = '';
+                let shadowClass = '';
+                if (isPinned) {
+                  borderClass = 'border-blue-400';
+                } else {
+                  borderClass = 'border-slate-600';
+                  shadowClass = '';
+                }
+                return (
+                  <button
+                    key={food.id}
+                    onClick={() => handleFoodClick(food)}
+                    onPointerDown={(event) => handlePressStart(food.id, event)}
+                    onPointerUp={() => handlePressEnd(false)}
+                    onPointerLeave={() => handlePressEnd(true)}
+                    onPointerCancel={() => handlePressEnd(true)}
+                    onContextMenu={(event) => event.preventDefault()}
+                    className={`relative w-full bg-slate-700/50 border rounded-lg p-3 text-left transition-all ${
+                      isLongPressing
+                        ? 'border-blue-400 scale-[0.98]'
+                        : `${borderClass} active:scale-[0.99]`
+                    } ${shadowClass}`}
+                  >
+                    {isPinned && (
+                      <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
+                    )}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-white font-semibold text-sm truncate">
+                            {food.name}
+                          </h4>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded ${getCategoryClasses(food.category)}`}
+                          >
+                            {FOOD_CATEGORIES[food.category]?.label ||
+                              (food.source === 'fatsecret'
+                                ? 'Cached'
+                                : food.category)}
+                          </span>
+                          {food.brand && (
+                            <span className="text-xs px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded truncate max-w-[100px]">
+                              {food.brand}
+                            </span>
+                          )}
+                          {food.source === 'fatsecret' && (
+                            <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded flex items-center gap-1">
+                              <Globe size={10} />
+                              Cached
+                            </span>
+                          )}
+                          {food.portions && food.portions.length > 0 && (
+                            <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded">
+                              {food.portions.length}{' '}
+                              {food.portions.length === 1
+                                ? 'portion'
+                                : 'portions'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="text-slate-500 text-[10px] font-medium">
+                          per 100g
+                        </span>
+                        <div className="flex items-center gap-3 text-xs">
+                          <div className="text-center">
+                            <p className="text-emerald-400 font-bold">
+                              {formatOne(food.per100g.calories)}
+                            </p>
+                            <p className="text-slate-500">cal</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-red-400 font-bold">
+                              {formatOne(food.per100g.protein)}g
+                            </p>
+                            <p className="text-slate-500">prot</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-amber-400 font-bold">
+                              {formatOne(food.per100g.carbs)}g
+                            </p>
+                            <p className="text-slate-500">carb</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-yellow-400 font-bold">
+                              {formatOne(food.per100g.fats)}g
+                            </p>
+                            <p className="text-slate-500">fat</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })
             )}
           </div>
-        ) : searchMode === 'online' && !isSearching ? (
-          /* Online Results */
-          onlineResults.map((food) => {
-            const isLoading = loadingFoodId === food.id;
-            return (
-              <button
-                key={food.id}
-                onClick={() => !isLoading && handleOnlineFoodSelect(food)}
-                disabled={isLoading}
-                className={`relative w-full bg-slate-700/50 border border-slate-600 rounded-lg p-3 text-left transition-all ${
-                  isLoading
-                    ? 'opacity-70 cursor-wait'
-                    : 'active:scale-[0.99] hover:border-emerald-500/50'
-                }`}
-              >
-                {isLoading && (
-                  <div className="absolute inset-0 bg-slate-800/50 rounded-lg flex items-center justify-center z-10">
-                    <Loader2 size={24} className="text-blue-400 animate-spin" />
-                  </div>
-                )}
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-white font-semibold text-sm truncate">
-                        {food.name}
-                      </h4>
-                    </div>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      {food.brand && (
-                        <span className="text-xs px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded truncate max-w-[150px]">
-                          {food.brand}
-                        </span>
-                      )}
-                      <span className="text-xs px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded">
-                        {food.type === 'Brand' ? 'Branded' : 'Generic'}
-                      </span>
-                      <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded flex items-center gap-1">
-                        <Globe size={10} />
-                        Online
-                      </span>
-                    </div>
-                  </div>
-                  {/* Preview macros from search result */}
-                  {food.previewMacros && (
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="text-slate-500 text-[10px] font-medium">
-                        {food.previewMacros.servingInfo || 'per serving'}
-                      </span>
-                      <div className="flex items-center gap-2 text-xs">
-                        <div className="text-center">
-                          <p className="text-emerald-400 font-bold">
-                            {Math.round(food.previewMacros.calories)}
-                          </p>
-                          <p className="text-slate-500">cal</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-red-400 font-bold">
-                            {formatOne(food.previewMacros.protein)}g
-                          </p>
-                          <p className="text-slate-500">prot</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </button>
-            );
-          })
-        ) : (
-          /* Local Results */
-          !isSearching &&
-          displayResults.map((food) => {
-            const isPinned = pinnedFoods.includes(food.id);
-            const isLongPressing = longPressingId === food.id;
-            // Compose border and shadow classes for pinned state
-            let borderClass = '';
-            let shadowClass = '';
-            if (isPinned) {
-              borderClass = 'border-blue-400';
-            } else {
-              borderClass = 'border-slate-600';
-              shadowClass = '';
-            }
-            return (
-              <button
-                key={food.id}
-                onClick={() => handleFoodClick(food)}
-                onPointerDown={(event) => handlePressStart(food.id, event)}
-                onPointerUp={() => handlePressEnd(false)}
-                onPointerLeave={() => handlePressEnd(true)}
-                onPointerCancel={() => handlePressEnd(true)}
-                onContextMenu={(event) => event.preventDefault()}
-                className={`relative w-full bg-slate-700/50 border rounded-lg p-3 text-left transition-all ${
-                  isLongPressing
-                    ? 'border-blue-400 scale-[0.98]'
-                    : `${borderClass} active:scale-[0.99]`
-                } ${shadowClass}`}
-              >
-                {isPinned && (
-                  <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
-                )}
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      {/* No pin icon, just blue border for pinned */}
-                      <h4 className="text-white font-semibold text-sm truncate">
-                        {food.name}
-                      </h4>
-                    </div>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded ${getCategoryClasses(food.category)}`}
-                      >
-                        {FOOD_CATEGORIES[food.category]?.label ||
-                          (food.source === 'fatsecret'
-                            ? 'Cached'
-                            : food.category)}
-                      </span>
-                      {food.brand && (
-                        <span className="text-xs px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded truncate max-w-[100px]">
-                          {food.brand}
-                        </span>
-                      )}
-                      {food.source === 'fatsecret' && (
-                        <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded flex items-center gap-1">
-                          <Globe size={10} />
-                          Cached
-                        </span>
-                      )}
-                      {food.portions && food.portions.length > 0 && (
-                        <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded">
-                          {food.portions.length}{' '}
-                          {food.portions.length === 1 ? 'portion' : 'portions'}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <span className="text-slate-500 text-[10px] font-medium">
-                      per 100g
-                    </span>
-                    <div className="flex items-center gap-3 text-xs">
-                      <div className="text-center">
-                        <p className="text-emerald-400 font-bold">
-                          {formatOne(food.per100g.calories)}
-                        </p>
-                        <p className="text-slate-500">cal</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-red-400 font-bold">
-                          {formatOne(food.per100g.protein)}g
-                        </p>
-                        <p className="text-slate-500">prot</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-amber-400 font-bold">
-                          {formatOne(food.per100g.carbs)}g
-                        </p>
-                        <p className="text-slate-500">carb</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-yellow-400 font-bold">
-                          {formatOne(food.per100g.fats)}g
-                        </p>
-                        <p className="text-slate-500">fat</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </button>
-            );
-          })
-        )}
-      </div>
-
-      {/* Cancel Button */}
-      <div className="mt-4">
-        <button
-          onClick={onClose}
-          className="w-full px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-all"
-        >
-          Cancel
-        </button>
+          <div className="pointer-events-none absolute left-0 right-0 top-0 h-3 bg-gradient-to-b from-slate-800/90 to-transparent" />
+          <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-3 bg-gradient-to-t from-slate-800/90 to-transparent" />
+        </div>
       </div>
     </ModalShell>
   );

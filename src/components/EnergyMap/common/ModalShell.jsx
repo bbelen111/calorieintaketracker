@@ -7,6 +7,7 @@ import React, {
 } from 'react';
 import { createPortal } from 'react-dom';
 import PropTypes from 'prop-types';
+import { Capacitor } from '@capacitor/core';
 
 // ============================================================================
 // CONSTANTS
@@ -15,6 +16,10 @@ import PropTypes from 'prop-types';
 const BASE_Z_INDEX = 1000;
 const OVERLAY_FADE_MS = 200;
 const OVERLAY_OPACITY = 0.7;
+const queueTask =
+  typeof globalThis.queueMicrotask === 'function'
+    ? globalThis.queueMicrotask
+    : (cb) => Promise.resolve().then(cb);
 
 // ============================================================================
 // MODAL STACK MANAGER - Tracks all open modals with stable ordering
@@ -94,7 +99,7 @@ class ModalStackManager {
 
   notifyListeners() {
     // Use microtask to batch notifications
-    queueMicrotask(() => {
+    queueTask(() => {
       this.listeners.forEach((listener) => listener());
     });
   }
@@ -192,7 +197,7 @@ class SharedOverlayManager {
     if (this.overlayNode) {
       try {
         this.overlayNode.remove();
-      } catch (err) {
+      } catch {
         // Ignore removal errors
       }
       this.overlayNode = null;
@@ -280,6 +285,7 @@ export const ModalShell = ({
   onClose = null,
   closeOnEscape = true,
   closeOnOverlayClick = true,
+  fullHeight = false,
 }) => {
   const modalIdRef = useRef(null);
   const zIndexRef = useRef(BASE_Z_INDEX);
@@ -288,14 +294,10 @@ export const ModalShell = ({
   const [isTopmost, setIsTopmost] = useState(false);
   const [shouldDimContent, setShouldDimContent] = useState(false);
   const hasRegisteredRef = useRef(false);
-
-  // Synchronous z-index update helper
-  const updateZIndex = useCallback((newZIndex) => {
-    zIndexRef.current = newZIndex;
-    if (overlayRef.current) {
-      overlayRef.current.style.zIndex = String(newZIndex);
-    }
-  }, []);
+  const lockedViewportHeightRef = useRef(null);
+  const baseViewportHeightRef = useRef(null);
+  const isNative = Capacitor.isNativePlatform();
+  const shouldFullHeight = fullHeight && isNative;
 
   // Register modal on mount (useLayoutEffect for synchronous execution)
   useLayoutEffect(() => {
@@ -305,6 +307,9 @@ export const ModalShell = ({
     modalIdRef.current = id;
     zIndexRef.current = zIndex;
     hasRegisteredRef.current = true;
+    if (overlayRef.current) {
+      overlayRef.current.style.zIndex = String(zIndex);
+    }
 
     // Lock scroll
     scrollLockManager.lock();
@@ -432,6 +437,69 @@ export const ModalShell = ({
     [closeOnOverlayClick, onClose, isTopmost, isClosing]
   );
 
+  // Lock viewport height on native to prevent keyboard resize squish
+  useEffect(() => {
+    if (!isOpen || typeof window === 'undefined') return undefined;
+    if (!isNative) return undefined;
+
+    const overlayNode = overlayRef.current;
+    const contentNode = contentRef.current;
+
+    const getViewportHeight = () =>
+      Math.round(window.visualViewport?.height || window.innerHeight || 0);
+
+    const initialHeight = getViewportHeight();
+    baseViewportHeightRef.current = initialHeight;
+    lockedViewportHeightRef.current = initialHeight || null;
+
+    const applyHeight = (height) => {
+      if (!overlayNode || !contentNode) return;
+      overlayNode.style.height = height ? `${height}px` : '';
+
+      if (shouldFullHeight) {
+        contentNode.style.height = height ? `${height}px` : '';
+        contentNode.style.maxHeight = '';
+      } else {
+        contentNode.style.height = '';
+        contentNode.style.maxHeight = height
+          ? `${Math.round(height * 0.9)}px`
+          : '';
+      }
+    };
+
+    applyHeight(initialHeight);
+
+    const handleResize = () => {
+      const currentHeight = getViewportHeight();
+      const baseHeight = baseViewportHeightRef.current || currentHeight;
+      const diff = Math.abs(currentHeight - baseHeight);
+
+      // Ignore keyboard resize (usually ~250-350px), update on large changes
+      if (diff > 320) {
+        baseViewportHeightRef.current = currentHeight;
+        lockedViewportHeightRef.current = currentHeight || null;
+        applyHeight(currentHeight);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    window.visualViewport?.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.visualViewport?.removeEventListener('resize', handleResize);
+      baseViewportHeightRef.current = null;
+      lockedViewportHeightRef.current = null;
+      if (overlayNode) {
+        overlayNode.style.height = '';
+      }
+      if (contentNode) {
+        contentNode.style.height = '';
+        contentNode.style.maxHeight = '';
+      }
+    };
+  }, [isOpen, isNative, shouldFullHeight]);
+
   // Early return if not open
   if (!isOpen || typeof document === 'undefined') return null;
 
@@ -441,16 +509,21 @@ export const ModalShell = ({
       role="dialog"
       aria-modal="true"
       style={{
-        zIndex: zIndexRef.current,
         isolation: 'isolate',
       }}
-      className={`modal-overlay-wrapper fixed inset-0 !mt-0 bg-transparent flex items-center justify-center p-4 ${overlayClassName}`}
+      className={`modal-overlay-wrapper fixed left-0 right-0 top-0 !mt-0 bg-transparent flex justify-center ${
+        shouldFullHeight ? 'items-stretch p-0' : 'items-center p-4'
+      } ${overlayClassName}`}
       onClick={handleOverlayClick}
     >
       <div
         ref={contentRef}
-        className={`modal-content relative bg-slate-800 rounded-2xl border border-slate-700 max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800 ${
+        className={`modal-content relative bg-slate-800 border border-slate-700 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800 ${
           isClosing ? 'closing' : ''
+        } ${
+          shouldFullHeight
+            ? 'h-full w-full rounded-none border-0'
+            : 'max-h-[90dvh] rounded-2xl'
         } ${contentClassName}`}
         style={{
           pointerEvents: isTopmost || isClosing ? 'auto' : 'none',
@@ -479,6 +552,7 @@ ModalShell.propTypes = {
   onClose: PropTypes.func,
   closeOnEscape: PropTypes.bool,
   closeOnOverlayClick: PropTypes.bool,
+  fullHeight: PropTypes.bool,
 };
 
 // ============================================================================
