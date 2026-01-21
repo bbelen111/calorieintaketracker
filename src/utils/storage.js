@@ -141,6 +141,7 @@ export const getDefaultEnergyMapData = () => ({
   customCardioTypes: {},
   nutritionData: {},
   pinnedFoods: [],
+  cachedFoods: [], // Foods fetched from online APIs (FatSecret, etc.)
   // nutritionData structure: { 'YYYY-MM-DD': { mealType: [{ id, name, calories, protein, carbs, fats, timestamp }] } }
   trainingTypeOverrides: {
     bodybuilding: {
@@ -280,5 +281,8 @@ function mergeWithDefaults(data) {
     foodFavourites: Array.isArray(data.foodFavourites)
       ? data.foodFavourites
       : defaults.foodFavourites,
+    cachedFoods: Array.isArray(data.cachedFoods)
+      ? data.cachedFoods
+      : defaults.cachedFoods,
   };
 }

@@ -182,9 +182,7 @@ export const calculateCalorieBreakdown = ({
   const trainingDuration = Number.isFinite(userData?.trainingDuration)
     ? userData.trainingDuration
     : 0;
-  const trainingCaloriesPerHour = Number.isFinite(
-    trainingType?.caloriesPerHour
-  )
+  const trainingCaloriesPerHour = Number.isFinite(trainingType?.caloriesPerHour)
     ? trainingType.caloriesPerHour
     : 0;
   const cardioSessions = Array.isArray(userData?.cardioSessions)
@@ -203,9 +201,7 @@ export const calculateCalorieBreakdown = ({
   const cardioDetails = cardioSessions
     .map((session) => {
       const rawDuration = Number(session?.duration);
-      const durationMinutes = Number.isFinite(rawDuration)
-        ? rawDuration
-        : 0;
+      const durationMinutes = Number.isFinite(rawDuration) ? rawDuration : 0;
       if (durationMinutes <= 0) {
         return null;
       }
@@ -307,7 +303,11 @@ export const calculateGoalCalories = (tdee, goal) => {
 export const calculateBMI = (weight, height) => {
   const safeWeight = Number(weight);
   const safeHeight = Number(height);
-  if (!Number.isFinite(safeWeight) || !Number.isFinite(safeHeight) || safeHeight <= 0) {
+  if (
+    !Number.isFinite(safeWeight) ||
+    !Number.isFinite(safeHeight) ||
+    safeHeight <= 0
+  ) {
     return null;
   }
   const heightInMeters = safeHeight / 100;
@@ -334,7 +334,7 @@ export const calculateFFMI = (weight, height, bodyFatPercent) => {
   const safeWeight = Number(weight);
   const safeHeight = Number(height);
   const safeBodyFat = Number(bodyFatPercent);
-  
+
   if (
     !Number.isFinite(safeWeight) ||
     !Number.isFinite(safeHeight) ||
@@ -345,13 +345,13 @@ export const calculateFFMI = (weight, height, bodyFatPercent) => {
   ) {
     return null;
   }
-  
+
   const heightInMeters = safeHeight / 100;
   const leanMass = safeWeight * (1 - safeBodyFat / 100);
   const rawFFMI = leanMass / (heightInMeters * heightInMeters);
   // Normalized FFMI (adjusted for height)
   const normalizedFFMI = rawFFMI + 6.1 * (1.8 - heightInMeters);
-  
+
   return {
     raw: rawFFMI,
     normalized: normalizedFFMI,
@@ -365,10 +365,10 @@ export const calculateFFMI = (weight, height, bodyFatPercent) => {
  */
 export const getFFMICategory = (ffmi, gender = 'male') => {
   if (!Number.isFinite(ffmi)) return { label: 'Unknown', color: 'slate' };
-  
+
   // Adjust thresholds for females (roughly 2-3 points lower)
   const offset = gender === 'female' ? 2.5 : 0;
-  
+
   if (ffmi < 18 - offset) return { label: 'Below average', color: 'blue' };
   if (ffmi < 20 - offset) return { label: 'Average', color: 'slate' };
   if (ffmi < 22 - offset) return { label: 'Above average', color: 'green' };

@@ -101,3 +101,5 @@ Thumbs.db
 .env.production.local
 
 .fake
+.vercel
+.env*.local

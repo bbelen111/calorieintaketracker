@@ -28,10 +28,10 @@ export const useAnimatedModal = (
   const requestClose = useCallback(() => {
     // Prevent double-close
     if (!isOpen || isClosing) return;
-    
+
     setIsClosing(true);
     clearCloseTimeout();
-    
+
     closeTimeoutRef.current = setTimeout(() => {
       setIsOpen(false);
       setIsClosing(false);

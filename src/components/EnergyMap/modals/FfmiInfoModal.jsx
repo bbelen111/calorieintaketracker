@@ -10,7 +10,7 @@ export const FfmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
   const weight = userData?.weight;
   const height = userData?.height;
   const gender = userData?.gender || 'male';
-  
+
   const bodyFatEntries = Array.isArray(userData?.bodyFatEntries)
     ? userData.bodyFatEntries
     : [];
@@ -18,7 +18,7 @@ export const FfmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
     ? [...bodyFatEntries].sort((a, b) => a.date.localeCompare(b.date)).at(-1)
     : null;
   const bodyFatPercent = latestBodyFatEntry?.bodyFat;
-  
+
   const ffmiData = calculateFFMI(weight, height, bodyFatPercent);
   const category = getFFMICategory(ffmiData?.normalized, gender);
 
@@ -56,9 +56,12 @@ export const FfmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
 
       <div className="space-y-4 text-slate-300">
         <p>
-          <span className="font-bold text-white">FFMI (Fat-Free Mass Index)</span>{' '}
+          <span className="font-bold text-white">
+            FFMI (Fat-Free Mass Index)
+          </span>{' '}
           is a measure of how much muscle you carry relative to your height.
-          Unlike BMI, it accounts for body composition by only considering lean mass.
+          Unlike BMI, it accounts for body composition by only considering lean
+          mass.
         </p>
 
         <div className="bg-slate-700/50 rounded-lg p-4">
@@ -164,7 +167,8 @@ export const FfmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
 
         <p className="text-sm italic text-slate-400">
           Note: An FFMI above 25 for natural athletes is extremely rare. Values
-          above 27 are typically only achievable with performance-enhancing drugs.
+          above 27 are typically only achievable with performance-enhancing
+          drugs.
         </p>
       </div>
 

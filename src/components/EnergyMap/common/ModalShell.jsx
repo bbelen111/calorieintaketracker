@@ -1,4 +1,10 @@
-import React, { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react';
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  useLayoutEffect,
+} from 'react';
 import { createPortal } from 'react-dom';
 import PropTypes from 'prop-types';
 
@@ -48,7 +54,7 @@ class ModalStackManager {
   getTopModal() {
     let topId = null;
     let topZIndex = 0;
-    
+
     for (const [id, data] of this.modals) {
       // Only consider non-closing modals for "topmost" status
       if (!data.isClosing && data.zIndex > topZIndex) {
@@ -56,7 +62,7 @@ class ModalStackManager {
         topId = id;
       }
     }
-    
+
     return { id: topId, zIndex: topZIndex };
   }
 
@@ -115,7 +121,7 @@ class SharedOverlayManager {
 
   getOrCreateOverlay() {
     if (this.isServer()) return null;
-    
+
     if (this.overlayNode && this.overlayNode.parentNode) {
       return this.overlayNode;
     }
@@ -152,7 +158,7 @@ class SharedOverlayManager {
     // Batch DOM updates in a single rAF
     this.pendingUpdate = requestAnimationFrame(() => {
       this.pendingUpdate = null;
-      
+
       if (activeModalCount > 0) {
         const node = this.getOrCreateOverlay();
         if (!node) return;
@@ -216,7 +222,8 @@ class BodyScrollLockManager {
 
     if (this.lockCount === 1) {
       const body = document.body;
-      const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
+      const scrollBarWidth =
+        window.innerWidth - document.documentElement.clientWidth;
 
       // Store original styles
       this.originalStyles = {
@@ -327,7 +334,7 @@ export const ModalShell = ({
   useLayoutEffect(() => {
     if (modalIdRef.current !== null) {
       modalStackManager.setClosing(modalIdRef.current, isClosing);
-      
+
       // Update overlay when closing state changes
       const activeCount = modalStackManager.getActiveCount();
       const highestZ = modalStackManager.getHighestZIndex();
@@ -343,7 +350,7 @@ export const ModalShell = ({
 
       const { id: topId } = modalStackManager.getTopModal();
       const amTopmost = myId === topId;
-      
+
       setIsTopmost(amTopmost);
       setShouldDimContent(!amTopmost && modalStackManager.getActiveCount() > 1);
     };
@@ -376,9 +383,9 @@ export const ModalShell = ({
   useEffect(() => {
     if (!isOpen || !contentRef.current || !isTopmost) return;
 
-    const focusableSelector = 
+    const focusableSelector =
       'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])';
-    
+
     const getFocusableElements = () => {
       return contentRef.current?.querySelectorAll(focusableSelector) || [];
     };

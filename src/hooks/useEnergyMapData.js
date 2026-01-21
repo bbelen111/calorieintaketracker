@@ -10,20 +10,17 @@ import {
   getTrainingCalories,
 } from '../utils/calculations';
 import { getStepRangeSortValue } from '../utils/steps';
-import { 
-  loadEnergyMapData, 
-  saveEnergyMapData, 
-  getDefaultEnergyMapData 
+import {
+  loadEnergyMapData,
+  saveEnergyMapData,
+  getDefaultEnergyMapData,
 } from '../utils/storage';
 import {
   clampWeight,
   normalizeDateKey,
   sortWeightEntries,
 } from '../utils/weight';
-import {
-  clampBodyFat,
-  sortBodyFatEntries,
-} from '../utils/bodyFat';
+import { clampBodyFat, sortBodyFatEntries } from '../utils/bodyFat';
 
 export const useEnergyMapData = () => {
   const [userData, setUserData] = useState(() => getDefaultEnergyMapData());
@@ -41,7 +38,9 @@ export const useEnergyMapData = () => {
       }
     };
     initData();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // Debounced save
@@ -762,6 +761,14 @@ export const useEnergyMapData = () => {
     }));
   }, []);
 
+  // Update cached foods (from online API searches)
+  const updateCachedFoods = useCallback((newCachedFoods) => {
+    setUserData((prev) => ({
+      ...prev,
+      cachedFoods: newCachedFoods,
+    }));
+  }, []);
+
   return {
     userData,
     weightEntries,
@@ -773,6 +780,7 @@ export const useEnergyMapData = () => {
     foodFavourites: userData.foodFavourites ?? [],
     nutritionData: userData.nutritionData ?? {},
     pinnedFoods: userData.pinnedFoods ?? [],
+    cachedFoods: userData.cachedFoods ?? [],
     phases: userData.phases ?? [],
     activePhaseId: userData.activePhaseId,
     bmr,
@@ -812,5 +820,6 @@ export const useEnergyMapData = () => {
     addFoodFavourite,
     removeFoodFavourite,
     updateFoodFavourite,
+    updateCachedFoods,
   };
 };

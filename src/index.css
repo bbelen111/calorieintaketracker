@@ -36,9 +36,9 @@ body {
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',
+    'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   user-select: none;
@@ -68,7 +68,7 @@ body {
 input,
 textarea,
 select,
-[contenteditable="true"],
+[contenteditable='true'],
 .allow-text-selection {
   -webkit-user-select: text;
   -ms-user-select: text;
@@ -148,7 +148,9 @@ select,
 }
 
 .animate-in {
-  animation: fadeIn 0.2s ease-out, slideInFromTop 0.2s ease-out;
+  animation:
+    fadeIn 0.2s ease-out,
+    slideInFromTop 0.2s ease-out;
 }
 
 @layer utilities {

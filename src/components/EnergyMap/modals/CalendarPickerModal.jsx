@@ -978,7 +978,7 @@ export const CalendarPickerModal = ({
       rafRef.current = requestAnimationFrame(animate);
       return () => cancelAnimationFrame(rafRef.current);
       // eslint-disable-next-line
-  }, [value]);
+    }, [value]);
 
     return <span>{displayValue}</span>;
   }

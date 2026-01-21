@@ -7,5 +7,12 @@ export default defineConfig({
   // Ensure dev server is accessible on the LAN (same as running `vite --host`)
   server: {
     host: true,
+    // Proxy API requests to Vercel dev server during local development
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+    },
   },
 });

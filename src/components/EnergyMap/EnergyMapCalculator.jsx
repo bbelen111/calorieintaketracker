@@ -231,6 +231,7 @@ export const EnergyMapCalculator = () => {
     deleteBodyFatEntry,
     nutritionData,
     pinnedFoods,
+    cachedFoods,
     addFoodEntry,
     updateFoodEntry,
     deleteFoodEntry,
@@ -238,6 +239,7 @@ export const EnergyMapCalculator = () => {
     togglePinnedFood,
     addFoodFavourite,
     removeFoodFavourite,
+    updateCachedFoods,
     createPhase,
     deletePhase,
     archivePhase,
@@ -263,7 +265,9 @@ export const EnergyMapCalculator = () => {
         setIsDayLoaded(true);
       }
     });
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, []);
   const [tempAge, setTempAge] = useState(userData.age);
   const [tempHeight, setTempHeight] = useState(userData.height);
@@ -586,12 +590,9 @@ export const EnergyMapCalculator = () => {
 
   const latestBodyFatEntry = useMemo(
     () =>
-      bodyFatEntries.length
-        ? bodyFatEntries[bodyFatEntries.length - 1]
-        : null,
+      bodyFatEntries.length ? bodyFatEntries[bodyFatEntries.length - 1] : null,
     [bodyFatEntries]
   );
-
 
   const openWeightTracker = useCallback(() => {
     setWeightEntryError('');
@@ -705,7 +706,6 @@ export const EnergyMapCalculator = () => {
       openAddWeightEntryModal();
     }
   }, [openAddWeightEntryModal, openEditWeightEntryModal, todayWeightEntry]);
-
 
   const handleWeightEntrySave = useCallback(() => {
     const normalizedDate = normalizeDateKey(weightEntryDraft.date);
@@ -974,7 +974,10 @@ export const EnergyMapCalculator = () => {
 
     const fallbackBodyFat =
       clampBodyFat(latestBodyFatEntry?.bodyFat ?? 18) ?? 18;
-    setBodyFatEntryDraft({ date: getTodayDateString(), bodyFat: fallbackBodyFat });
+    setBodyFatEntryDraft({
+      date: getTodayDateString(),
+      bodyFat: fallbackBodyFat,
+    });
     setBodyFatEntryMode('add');
     setBodyFatEntryOriginalDate(null);
     setIsBodyFatDateLocked(false);
@@ -1530,7 +1533,8 @@ export const EnergyMapCalculator = () => {
       }
 
       // Check if this is a manual entry (no grams value)
-      const isManualEntry = !Number.isFinite(existing.grams) || existing.grams <= 0;
+      const isManualEntry =
+        !Number.isFinite(existing.grams) || existing.grams <= 0;
 
       if (isManualEntry) {
         // Open FoodEntryModal for manual entries
@@ -2714,6 +2718,8 @@ export const EnergyMapCalculator = () => {
         onOpenFavourites={handleOpenFoodFavourites}
         pinnedFoods={pinnedFoods}
         onTogglePin={togglePinnedFood}
+        cachedFoods={cachedFoods}
+        onUpdateCachedFoods={updateCachedFoods}
       />
 
       <FoodFavouritesModal
