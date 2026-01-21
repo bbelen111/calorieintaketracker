@@ -165,9 +165,6 @@ select,
   .modal-content *:hover *,
   .modal-overlay-wrapper *:hover,
   .modal-overlay-wrapper *:hover * {
-    background-color: inherit !important;
-    color: inherit !important;
-    border-color: inherit !important;
     box-shadow: none !important;
     text-decoration-color: inherit !important;
     text-decoration-line: none !important;

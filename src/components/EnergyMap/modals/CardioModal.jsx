@@ -185,8 +185,12 @@ export const CardioModal = ({
     });
   };
 
-  const handleIntensityChange = (event) => {
-    onChange({ ...session, intensity: event.target.value });
+  const handleIntensityChange = (nextIntensity) => {
+    if (nextIntensity === intensityValue) {
+      return;
+    }
+
+    onChange({ ...session, intensity: nextIntensity });
   };
 
   const handleHeartRateChange = (event) => {
@@ -206,6 +210,13 @@ export const CardioModal = ({
       effortType === type
         ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-900/30'
         : 'bg-slate-700 text-slate-300 border-slate-600 hover:border-blue-400 hover:text-white'
+    }`;
+
+  const intensityButtonClass = (level) =>
+    `w-full rounded-lg border px-3 py-2 text-sm transition-all ${
+      intensityValue === level
+        ? 'bg-indigo-600 text-white border-indigo-400 shadow-lg shadow-indigo-900/30'
+        : 'bg-slate-700 text-slate-300 border-slate-600 hover:border-indigo-400 hover:text-white'
     }`;
 
   const handleOpenCustomCardioModal = () => {
@@ -363,15 +374,29 @@ export const CardioModal = ({
               <label className="text-slate-300 text-sm block mb-2">
                 Intensity
               </label>
-              <select
-                value={intensityValue}
-                onChange={handleIntensityChange}
-                className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none"
-              >
-                <option value="light">Light</option>
-                <option value="moderate">Moderate</option>
-                <option value="vigorous">Vigorous</option>
-              </select>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  className={intensityButtonClass('light')}
+                  onClick={() => handleIntensityChange('light')}
+                >
+                  Light
+                </button>
+                <button
+                  type="button"
+                  className={intensityButtonClass('moderate')}
+                  onClick={() => handleIntensityChange('moderate')}
+                >
+                  Moderate
+                </button>
+                <button
+                  type="button"
+                  className={intensityButtonClass('vigorous')}
+                  onClick={() => handleIntensityChange('vigorous')}
+                >
+                  Vigorous
+                </button>
+              </div>
               <p className="text-xs text-slate-400 mt-2">
                 Pick the perceived exertion level that best matches the session.
               </p>
