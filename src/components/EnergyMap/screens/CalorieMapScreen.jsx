@@ -15,9 +15,11 @@ export const CalorieMapScreen = ({
     <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
       <div className="flex items-start justify-between mb-4">
         <div>
-          <div className="flex items-start gap-3">
+          <div className="flex items-center gap-3">
             <Map className="text-blue-400" size={32} />
-            <h1 className="text-2xl font-bold text-white">Calorie Map</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-white">
+              Calorie Map
+            </h1>
           </div>
           <div className="mt-1">
             <span className="text-blue-300 text-sm tracking-widest font-semibold uppercase">
