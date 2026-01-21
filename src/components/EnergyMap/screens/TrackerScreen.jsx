@@ -404,7 +404,7 @@ export const TrackerScreen = ({
           </button>
         </div>
         <div className="p-0">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mt-5 mb-3 border border-slate-600/50 rounded-md px-1 py-1.5 bg-slate-700/50">
             <div className="flex items-center gap-1.5 h-6">
               <button
                 onClick={() => changeDateBy(-7)}
@@ -412,7 +412,7 @@ export const TrackerScreen = ({
                 className="rounded transition-colors flex items-center"
                 title="Previous week"
               >
-                <div className="border border-slate-600/50 rounded-md p-1">
+                <div>
                   <ChevronLeft className="text-slate-300" size={20} />
                 </div>
               </button>
@@ -455,7 +455,7 @@ export const TrackerScreen = ({
                 className="rounded transition-colors flex items-center"
                 title="Next week"
               >
-                <div className="border border-slate-600/50 rounded-md p-1">
+                <div>
                   <ChevronRight className="text-slate-300" size={20} />
                 </div>
               </button>
