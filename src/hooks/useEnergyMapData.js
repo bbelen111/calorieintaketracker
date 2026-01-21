@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { trainingTypes as baseTrainingTypes } from '../constants/trainingTypes';
 import { cardioTypes as baseCardioTypes } from '../constants/cardioTypes';
 import {
@@ -10,7 +10,11 @@ import {
   getTrainingCalories,
 } from '../utils/calculations';
 import { getStepRangeSortValue } from '../utils/steps';
-import { loadEnergyMapData, saveEnergyMapData } from '../utils/storage';
+import { 
+  loadEnergyMapData, 
+  saveEnergyMapData, 
+  getDefaultEnergyMapData 
+} from '../utils/storage';
 import {
   clampWeight,
   normalizeDateKey,
@@ -22,11 +26,42 @@ import {
 } from '../utils/bodyFat';
 
 export const useEnergyMapData = () => {
-  const [userData, setUserData] = useState(() => loadEnergyMapData());
+  const [userData, setUserData] = useState(() => getDefaultEnergyMapData());
+  const [isLoaded, setIsLoaded] = useState(false);
+  const saveTimeoutRef = useRef(null);
 
+  // Initial load
   useEffect(() => {
-    saveEnergyMapData(userData);
-  }, [userData]);
+    let mounted = true;
+    const initData = async () => {
+      const data = await loadEnergyMapData();
+      if (mounted) {
+        setUserData(data);
+        setIsLoaded(true);
+      }
+    };
+    initData();
+    return () => { mounted = false; };
+  }, []);
+
+  // Debounced save
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(() => {
+      saveEnergyMapData(userData);
+    }, 1000); // 1 second debounce
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [userData, isLoaded]);
 
   const handleUserDataChange = useCallback((field, value) => {
     setUserData((prev) => ({ ...prev, [field]: value }));

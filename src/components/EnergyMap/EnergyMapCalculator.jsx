@@ -252,7 +252,19 @@ export const EnergyMapCalculator = () => {
 
   const [selectedGoal, setSelectedGoal] = useState('maintenance');
   const [tempSelectedGoal, setTempSelectedGoal] = useState('maintenance');
-  const [selectedDay, setSelectedDayState] = useState(() => loadSelectedDay());
+  const [selectedDay, setSelectedDayState] = useState('training');
+  const [isDayLoaded, setIsDayLoaded] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    loadSelectedDay().then((day) => {
+      if (mounted) {
+        setSelectedDayState(day);
+        setIsDayLoaded(true);
+      }
+    });
+    return () => { mounted = false; };
+  }, []);
   const [tempAge, setTempAge] = useState(userData.age);
   const [tempHeight, setTempHeight] = useState(userData.height);
   const [tempTrainingType, setTempTrainingType] = useState(
@@ -501,8 +513,10 @@ export const EnergyMapCalculator = () => {
   }, [closeTopmostModal]);
 
   useEffect(() => {
-    saveSelectedDay(selectedDay);
-  }, [selectedDay]);
+    if (isDayLoaded) {
+      saveSelectedDay(selectedDay);
+    }
+  }, [selectedDay, isDayLoaded]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

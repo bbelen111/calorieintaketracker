@@ -1,59 +1,124 @@
+import { Preferences } from '@capacitor/preferences';
 import { sortWeightEntries } from './weight';
 import { sortBodyFatEntries } from './bodyFat';
 
-const DATA_KEY = 'energyMapData';
+// Legacy key for migration
+const LEGACY_DATA_KEY = 'energyMapData';
+
+// Split keys for performance
+const PROFILE_KEY = 'energyMapData_profile'; // Settings, preferences, small lists
+const HISTORY_KEY = 'energyMapData_history'; // Heavy logs: nutrition, weight, phases
+
 const SELECTED_DAY_KEY = 'energyMapSelectedDay';
+
+const HISTORY_FIELDS = [
+  'weightEntries',
+  'bodyFatEntries',
+  'nutritionData',
+  'phases',
+  'cardioSessions',
+];
 
 const hasLocalStorage = () =>
   typeof window !== 'undefined' && window.localStorage;
 
-export const loadEnergyMapData = () => {
-  if (!hasLocalStorage()) {
-    return getDefaultEnergyMapData();
-  }
+// Helper to migrate legacy localStorage data to Capacitor Preferences
+async function migrateFromLocalStorage() {
+  if (!hasLocalStorage()) return null;
 
   try {
-    const saved = window.localStorage.getItem(DATA_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed && typeof parsed === 'object') {
-        return mergeWithDefaults(parsed);
-      }
+    const legacy = window.localStorage.getItem(LEGACY_DATA_KEY);
+    if (legacy) {
+      console.log(
+        'Migrating legacy localStorage data to Capacitor Preferences...'
+      );
+      const parsed = JSON.parse(legacy);
+
+      // Save to new storage
+      await saveEnergyMapData(parsed);
+
+      // Clear legacy
+      window.localStorage.removeItem(LEGACY_DATA_KEY);
+      return parsed;
     }
+  } catch (err) {
+    console.error('Migration failed:', err);
+  }
+  return null;
+}
+
+export const loadEnergyMapData = async () => {
+  try {
+    // 1. Try to migrate first
+    const migratedData = await migrateFromLocalStorage();
+    if (migratedData) {
+      return mergeWithDefaults(migratedData);
+    }
+
+    // 2. Load from Capacitor Preferences
+    const profileRes = await Preferences.get({ key: PROFILE_KEY });
+    const historyRes = await Preferences.get({ key: HISTORY_KEY });
+
+    if (!profileRes.value && !historyRes.value) {
+      return getDefaultEnergyMapData();
+    }
+
+    const profileData = profileRes.value ? JSON.parse(profileRes.value) : {};
+    const historyData = historyRes.value ? JSON.parse(historyRes.value) : {};
+
+    // Merge everything
+    return mergeWithDefaults({
+      ...profileData,
+      ...historyData,
+    });
   } catch (error) {
     console.warn('Failed to load energy map data from storage', error);
+    return getDefaultEnergyMapData();
   }
-
-  return getDefaultEnergyMapData();
 };
 
-export const saveEnergyMapData = (data) => {
-  if (!hasLocalStorage()) return;
+export const saveEnergyMapData = async (data) => {
   try {
-    window.localStorage.setItem(DATA_KEY, JSON.stringify(data));
+    const profileData = {};
+    const historyData = {};
+
+    // Split data into profile (settings) and history (heavy logs)
+    Object.keys(data).forEach((key) => {
+      if (HISTORY_FIELDS.includes(key)) {
+        historyData[key] = data[key];
+      } else {
+        profileData[key] = data[key];
+      }
+    });
+
+    await Promise.all([
+      Preferences.set({
+        key: PROFILE_KEY,
+        value: JSON.stringify(profileData),
+      }),
+      Preferences.set({
+        key: HISTORY_KEY,
+        value: JSON.stringify(historyData),
+      }),
+    ]);
   } catch (error) {
     console.warn('Failed to save energy map data to storage', error);
   }
 };
 
-export const loadSelectedDay = () => {
-  if (!hasLocalStorage()) {
-    return 'training';
-  }
-
+export const loadSelectedDay = async () => {
   try {
-    const savedDay = window.localStorage.getItem(SELECTED_DAY_KEY);
-    return savedDay === 'rest' ? 'rest' : 'training';
+    const { value } = await Preferences.get({ key: SELECTED_DAY_KEY });
+    return value === 'rest' ? 'rest' : 'training';
   } catch (error) {
     console.warn('Failed to load selected day from storage', error);
     return 'training';
   }
 };
 
-export const saveSelectedDay = (day) => {
-  if (!hasLocalStorage()) return;
+export const saveSelectedDay = async (day) => {
   try {
-    window.localStorage.setItem(SELECTED_DAY_KEY, day);
+    await Preferences.set({ key: SELECTED_DAY_KEY, value: day });
   } catch (error) {
     console.warn('Failed to save selected day to storage', error);
   }

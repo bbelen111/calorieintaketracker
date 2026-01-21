@@ -12,24 +12,31 @@ This app is designed to be wrapped by Capacitor for mobile deployment (iOS/Andro
 - **App ID:** `com.energymap.tracker` - defined in `capacitor.config.json` as the bundle identifier for native builds.
 
 ## Project Overview
-React + Vite single-page app for fitness calorie tracking. Uses Framer Motion for animations, Tailwind for styling, and localStorage for persistence. **No backend, no API calls, no routing** - pure client-side state management.
+React + Vite single-page app for fitness calorie tracking. Uses Framer Motion for animations, Tailwind for styling, and Capacitor Preferences for native persistence. **No backend, no API calls, no routing** - pure client-side state management. Fully offline-capable local-first architecture.
 
 **Tech Stack:**
 - React 18.3.1 + Vite 5.4.11
 - Capacitor 8.0.1 (iOS/Android)
+- **Persistence:** `@capacitor/preferences` (Native storage, NOT localStorage)
 - Framer Motion 12.23.24 (animations)
 - Tailwind 3.4.17 (styling)
 - Lucide React (icons)
+
+**Key Plugins:**
+- `@capacitor/preferences` (Data storage)
+- `@capacitor/status-bar` (System UI styling)
+- `@capacitor/keyboard` (Input handling)
+- `@capacitor/splash-screen` (Launch experience)
 
 ## Architecture Pattern: Centralized State Coordinator
 
 **`EnergyMapCalculator.jsx`** is the single source of truth - a 2700+ line orchestrator managing:
 - All modal states via `useAnimatedModal` hook (40+ modals total)
-- User data via `useEnergyMapData` hook (localStorage-backed)
+- User data via `useEnergyMapData` hook (preferences-backed, debounced)
 - Screen navigation via `useSwipeableScreens` hook (6 screens: Logbook, Tracker, Home, Calorie Map, Insights, Phase Detail)
 - Temporary UI state for pickers, drafts, and forms (e.g., `tempCardioDraft`, `tempPhaseData`)
 
-**Data flow:** User action → Modal state change → `useEnergyMapData` hook → localStorage → Re-render
+**Data flow:** User action → Modal state change → `useEnergyMapData` hook → Debounced Save (1s) → Native Preferences → Re-render
 
 **File stats:** 2700+ lines managing 40+ modal instances, 6 screen components, and all inter-component state coordination.
 
@@ -48,6 +55,8 @@ const myModal = useAnimatedModal();
 
 ### `useEnergyMapData` - Single State Hook
 Encapsulates all business logic: BMR calculations, cardio sessions, weight tracking, step ranges. Returns derived values (`bmr`, `trainingCalories`, `totalCardioBurn`) that auto-update when `userData` changes. **Never duplicate calculation logic** - use the hook's exported functions.
+- **Important:** Handles asynchronous loading/saving to native preferences.
+- **Debouncing:** Saves are delayed by 1 second to prevent UI stuttering on input.
 
 ### `useSwipeableScreens` - Horizontal Swiping
 Manages 5-screen carousel (Logbook, Tracker, Home, Calorie Map, Insights). Returns `currentScreen`, `sliderStyle`, and touch `handlers`. All screens render simultaneously with `flex-shrink-0 w-full` - visibility controlled by transform.
@@ -99,21 +108,31 @@ Modals register on mount, receive dynamic z-index (`BASE_Z_INDEX + stackPosition
 
 **Never hardcode calculations** - all formulas live in `utils/calculations.js`.
 
-## Storage Architecture
+## Storage Architecture (Native Preferences)
 
-`userData` schema (see `storage.js` defaults):
+Data is split into two keys to optimize performance and prevent dropped frames on large datasets:
+
+1.  **`energyMapData_profile`**: Settings, user stats, preferences.
+2.  **`energyMapData_history`**: Heavy data (Weight entries, Nutrition logs, Phases).
+
+**Migration:** Automated migration from `localStorage` (`energyMapData`) triggers on first run via `saveEnergyMapData` in `utils/storage.js`.
+
+`userData` schema (merged in memory):
 ```javascript
 {
+  // Profile Data
   age, weight, height, gender,
   trainingType, trainingDuration,
-  stepRanges: ['<10k', '10k', '12k', ...],
-  cardioSessions: [{ id, type, duration, intensity, effortType }],
-  weightEntries: [{ date: 'YYYY-MM-DD', weight }],
+  stepRanges: ['<10k', '10k', ...],
   activityMultipliers: { training: 0.35, rest: 0.28 },
+  pinnedFoods: ['food_id1', ...],
+
+  // History Data
+  cardioSessions: [{ id, type, duration, intensity, effortType }],
+  weightEntries: [{ date: 'YYYY-MM-DD', weight }], // Always normalized & sorted
+  bodyFatEntries: [{ date, bodyFat }],
   nutritionData: { 'YYYY-MM-DD': { mealType: [foodEntry, ...] } },
   phases: [{ id, name, startDate, endDate, goal, dailyLogs }],
-  pinnedFoods: ['food_id1', ...],
-  // ... 10+ more fields
 }
 ```
 
@@ -163,14 +182,17 @@ Food database (`constants/foodDatabase.js`) contains 3000+ items with per-100g m
 ## Styling Conventions
 
 - **Tailwind-only** - no custom CSS except animations in `index.css`
+- **User Select:** `user-select: none` enabled globally to prevent app text selection.
 - **Dark theme:** `slate-800/900` backgrounds, `slate-700` borders, `slate-400` muted text
 - **Interactive states:** `hover:bg-*` on desktop, `active:scale-95` for mobile feedback
 - **Responsive:** Grid layouts with `md:` breakpoints, `hidden md:inline` for labels
 - **Icons:** Lucide React at 20px default, 32px for headers
 
 ## Common Pitfalls
-
-1. **Don't call `forceClose()`** unless absolutely necessary - breaks exit animations
+ **Async Storage:** Unlike localStorage, `Preferences` are async. **Always await** load/save operations or use the handled `useEnergyMapData` hook.
+2.  **Debouncing:** Do not remove the `setTimeout` in `useEnergyMapData`. Saving 2MB of JSON on every keystroke will freeze the UI.
+3.  **Don't call `forceClose()`** unless absolutely necessary - breaks exit animations
+4.  **Don't call `forceClose()`** unless absolutely necessary - breaks exit animations
 2. **Step range parsing** is complex - use `parseStepRange()` from `utils/steps.js`, supports `<10k`, `>20k`, `10k-15k` formats
 3. **Cardio effort types:** `'intensity'` (MET-based) vs `'heartRate'` (formula-based) - check `effortType` field
 4. **Training type overrides:** Merged in `useEnergyMapData`, not raw from constants
@@ -207,9 +229,9 @@ npm run format         # Run Prettier formatting
 - **`/hooks`** - Stateful logic extraction (modals, data, swiping)
 
 ## Key Files to Reference
-
-- **`EnergyMapCalculator.jsx`** - Pattern for state management and modal orchestration
-- **`useEnergyMapData.js`** - Pattern for localStorage hooks with derived state
+Preferences-backed hooks with derived state and debouncing
 - **`calculations.js`** - Canonical calculation implementations
+- **`ModalShell.jsx`** - Scroll-lock and animation handling
+- **`storage.js`** - Data schema, default values, and migrationplementations
 - **`ModalShell.jsx`** - Scroll-lock and animation handling
 - **`storage.js`** - Default data schema and merge logic
