@@ -1,4 +1,5 @@
 /* eslint-disable no-undef */
+import { Capacitor } from '@capacitor/core';
 /**
  * FatSecret API Service
  *
@@ -6,8 +7,11 @@
  * Handles search, food details, barcode lookup, and response mapping
  */
 
-// Always use relative URL - Vite proxy handles dev, Vercel handles prod
-const API_BASE = '/api/fatsecret';
+// Use env override for native builds or custom deployments
+const API_BASE = (
+  import.meta.env.VITE_FATSECRET_API_BASE ||
+  'https://calorieintaketracker.vercel.app/api/fatsecret'
+).trim();
 
 /**
  * Custom error class for API errors
@@ -25,7 +29,18 @@ export class FatSecretError extends Error {
  * Make request to our FatSecret proxy
  */
 async function apiRequest(action, params = {}) {
-  const url = new URL(API_BASE, window.location.origin);
+  const resolvedBase = API_BASE || '/api/fatsecret';
+
+  if (Capacitor.isNativePlatform() && resolvedBase.startsWith('/')) {
+    throw new FatSecretError(
+      'FatSecret API base not configured for native. Set VITE_FATSECRET_API_BASE to your deployed URL.',
+      0
+    );
+  }
+
+  const url = resolvedBase.startsWith('http')
+    ? new URL(resolvedBase)
+    : new URL(resolvedBase, window.location.origin);
   url.searchParams.set('action', action);
 
   Object.entries(params).forEach(([key, value]) => {
