@@ -53,8 +53,13 @@ body {
   user-select: none;
 }
 
+/* Hide scrollbar for EVERYTHING */
 *::-webkit-scrollbar {
-  display: none;
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+  -webkit-appearance: none !important;
 }
 
 /* Re-enable selection where text input is necessary */
