@@ -80,8 +80,6 @@ export const FoodSearchModal = ({
 
   // Scroll/fade overlays for action buttons
   const actionScrollRef = useRef(null);
-  const [showLeftFade, setShowLeftFade] = useState(false);
-  const [showRightFade, setShowRightFade] = useState(false);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -131,7 +129,6 @@ export const FoodSearchModal = ({
 
     setIsSearching(true);
     setSearchError(null);
-
     try {
       const result = await searchOnlineFoods(query);
       setOnlineResults(result.foods || []);
@@ -269,25 +266,6 @@ export const FoodSearchModal = ({
   }, []);
 
   // Show small fade overlays on scrollable action buttons container
-  useEffect(() => {
-    const el = actionScrollRef.current;
-    if (!el) return;
-
-    const updateFades = () => {
-      const { scrollLeft, scrollWidth, clientWidth } = el;
-      setShowLeftFade(scrollLeft > 6);
-      setShowRightFade(scrollLeft + clientWidth < scrollWidth - 6);
-    };
-
-    updateFades();
-    el.addEventListener('scroll', updateFades, { passive: true });
-    window.addEventListener('resize', updateFades);
-
-    return () => {
-      el.removeEventListener('scroll', updateFades);
-      window.removeEventListener('resize', updateFades);
-    };
-  }, [isOpen]);
 
   // Get unique subcategories for selected category
   const availableSubcategories = useMemo(() => {
@@ -483,99 +461,88 @@ export const FoodSearchModal = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="px-4 mt-3 relative">
-          <div
-            ref={actionScrollRef}
-            className="overflow-x-auto touch-action-pan-x scrollbar-hide"
-          >
-            <div className="flex gap-2 w-max">
-              <button
-                onClick={onOpenFavourites}
-                aria-label="Favorites"
-                className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
-              >
-                <Star size={16} />
-                <span>Favorites</span>
-              </button>
+        <div className="px-4 mt-3">
+          <div className="relative overflow-hidden">
+            <div
+              ref={actionScrollRef}
+              className="relative overflow-x-auto touch-action-pan-x scrollbar-hide"
+            >
+              <div className="flex gap-2 w-max">
+                <button
+                  onClick={onOpenFavourites}
+                  aria-label="Favorites"
+                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
+                >
+                  <Star size={16} />
+                  <span>Favorites</span>
+                </button>
 
-              <button
-                onClick={() => {}}
-                aria-label="Meal"
-                className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
-              >
-                <Utensils size={16} />
-                <span>Meal</span>
-              </button>
+                <button
+                  onClick={() => {}}
+                  aria-label="Meal"
+                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
+                >
+                  <Utensils size={16} />
+                  <span>Meal</span>
+                </button>
 
-              <button
-                onClick={() => {}}
-                aria-label="Add Food"
-                className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
-              >
-                <Plus size={16} />
-                <span>Add Food</span>
-              </button>
+                <button
+                  onClick={() => {}}
+                  aria-label="Add Food"
+                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
+                >
+                  <Plus size={16} />
+                  <span>Add Food</span>
+                </button>
 
-              <button
-                onClick={onOpenManualEntry}
-                aria-label="Manual Entry"
-                className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
-              >
-                <Edit3 size={16} />
-                <span>Manual Entry</span>
-              </button>
+                <button
+                  onClick={onOpenManualEntry}
+                  aria-label="Manual Entry"
+                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
+                >
+                  <Edit3 size={16} />
+                  <span>Manual Entry</span>
+                </button>
 
-              <button
-                onClick={() => {}}
-                aria-label="Barcode Scan"
-                className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
-              >
-                <ScanBarcode size={16} />
-                <span>Barcode Scan</span>
-              </button>
+                <button
+                  onClick={() => {}}
+                  aria-label="Barcode Scan"
+                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
+                >
+                  <ScanBarcode size={16} />
+                  <span>Barcode Scan</span>
+                </button>
 
-              <button
-                onClick={() => {}}
-                aria-label="AI Chatbot"
-                className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
-              >
-                <BotMessageSquare size={16} />
-                <span>AI Chatbot</span>
-              </button>
+                <button
+                  onClick={() => {}}
+                  aria-label="AI Chatbot"
+                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
+                >
+                  <BotMessageSquare size={16} />
+                  <span>AI Chatbot</span>
+                </button>
+              </div>
             </div>
-          </div>
 
-          <div
-            className={`pointer-events-none absolute -left-1 top-0 -bottom-1 w-2 z-20 transition-opacity duration-200 will-change-[opacity] ${
-              showLeftFade ? 'opacity-100' : 'opacity-0'
-            }`}
-          >
-            <div className="h-full w-full bg-gradient-to-r from-slate-800 via-slate-800/75 to-transparent" />
-          </div>
+            <div className="pointer-events-none absolute inset-y-0 -left-px w-10 z-20">
+              <div className="absolute inset-y-0 left-0 w-2 bg-slate-800" />
+              <div className="absolute inset-y-0 left-2 right-0 bg-gradient-to-r from-slate-800 via-slate-800/80 to-transparent" />
+            </div>
 
-          <div
-            className={`pointer-events-none absolute -right-1 top-0 -bottom-1 w-2 z-20 transition-opacity duration-200 will-change-[opacity] ${
-              showRightFade ? 'opacity-100' : 'opacity-0'
-            }`}
-          >
-            <div className="h-full w-full bg-gradient-to-l from-slate-800 via-slate-800/75 to-transparent" />
+            <div className="pointer-events-none absolute inset-y-0 -right-px w-10 z-20">
+              <div className="absolute inset-y-0 right-0 w-2 bg-slate-800" />
+              <div className="absolute inset-y-0 left-0 right-2 bg-gradient-to-l from-slate-800 via-slate-800/80 to-transparent" />
+            </div>
           </div>
         </div>
 
         {/* Search Input */}
         <div className="px-4 mt-3">
           <div className="relative">
-            {isSearching ? (
-              <Loader2
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 animate-spin"
-                size={20}
-              />
-            ) : (
-              <Search
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                size={20}
-              />
-            )}
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              size={20}
+            />
             <input
               type="text"
               value={searchQuery}
@@ -860,7 +827,10 @@ export const FoodSearchModal = ({
             {/* Loading State for Online Search */}
             {searchMode === 'online' && isSearching && (
               <div className="flex flex-col items-center justify-center py-12">
-                <Loader2 size={32} className="text-blue-400 animate-spin mb-3" />
+                <Loader2
+                  size={32}
+                  className="text-blue-400 animate-spin mb-3"
+                />
                 <p className="text-slate-400 text-sm">
                   Searching FatSecret database...
                 </p>
@@ -869,7 +839,7 @@ export const FoodSearchModal = ({
 
             {/* Empty State */}
             {!isSearching && !searchError && displayResults.length === 0 ? (
-              <div className="bg-slate-700/50 border border-slate-600 border-dashed rounded-lg p-8 text-center">
+              <div className="p-20 text-center">
                 {searchMode === 'online' ? (
                   <>
                     <Globe className="mx-auto text-slate-500 mb-3" size={32} />
