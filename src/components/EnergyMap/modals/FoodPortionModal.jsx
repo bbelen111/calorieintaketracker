@@ -345,11 +345,18 @@ export const FoodPortionModal = ({
     onClose?.();
   };
 
+  if (!selectedFood) return null;
+
   const getCategoryColor = (category) => {
+    if (category === 'cached' || selectedFood?.source === 'fatsecret') {
+      return 'purple';
+    }
     return FOOD_CATEGORIES[category]?.color || 'slate';
   };
 
-  if (!selectedFood) return null;
+  const categoryLabel =
+    FOOD_CATEGORIES[selectedFood.category]?.label ||
+    (selectedFood.source === 'fatsecret' ? 'Cached' : selectedFood.category);
 
   return (
     <ModalShell
@@ -370,8 +377,31 @@ export const FoodPortionModal = ({
                 <span
                   className={`text-xs px-2 py-0.5 rounded bg-${getCategoryColor(selectedFood.category)}-500/20 text-${getCategoryColor(selectedFood.category)}-400`}
                 >
-                  {FOOD_CATEGORIES[selectedFood.category]?.label}
+                  {categoryLabel}
                 </span>
+                {selectedFood.subcategory && (
+                  <span className="text-xs px-2 py-0.5 bg-slate-600/40 text-slate-300 rounded capitalize">
+                    {selectedFood.subcategory.replace(/-/g, ' ')}
+                  </span>
+                )}
+                {selectedFood.brand && (
+                  <span className="text-xs px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded truncate max-w-[140px]">
+                    {selectedFood.brand}
+                  </span>
+                )}
+                {selectedFood.source === 'fatsecret' && (
+                  <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded">
+                    Cached
+                  </span>
+                )}
+                {selectedFood.portions && selectedFood.portions.length > 0 && (
+                  <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded">
+                    {selectedFood.portions.length}{' '}
+                    {selectedFood.portions.length === 1
+                      ? 'portion'
+                      : 'portions'}
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex flex-col items-end gap-1">

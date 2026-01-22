@@ -53,6 +53,10 @@ export const FoodSearchModal = ({
 }) => {
   const LONG_PRESS_DURATION = 650;
   const DEBOUNCE_DELAY = 500;
+  const ONLINE_CATEGORIES = {
+    Brand: { label: 'Branded', color: 'blue' },
+    Generic: { label: 'Generic', color: 'slate' },
+  };
 
   // Search mode: 'local' or 'online'
   const [searchMode, setSearchMode] = useState('local');
@@ -117,6 +121,9 @@ export const FoodSearchModal = ({
   useEffect(() => {
     setOnlineResults([]);
     setSearchError(null);
+    setSelectedCategory(null);
+    setSelectedSubcategory(null);
+    setIsFilterOpen(false);
   }, [searchMode]);
 
   // Debounced online search
@@ -267,9 +274,33 @@ export const FoodSearchModal = ({
 
   // Show small fade overlays on scrollable action buttons container
 
+  const localCategoryOptions = useMemo(() => {
+    const merged = { ...FOOD_CATEGORIES };
+    if (cachedFoods.length > 0) {
+      merged.cached = { label: 'Cached', color: 'purple' };
+    }
+    return merged;
+  }, [cachedFoods]);
+
+  const categoryOptions =
+    searchMode === 'online' ? ONLINE_CATEGORIES : localCategoryOptions;
+
   // Get unique subcategories for selected category
   const availableSubcategories = useMemo(() => {
     if (!selectedCategory) return [];
+
+    if (searchMode === 'online') {
+      const servingSet = new Set();
+      onlineResults.forEach((food) => {
+        if (food.type === selectedCategory) {
+          const servingInfo = food.previewMacros?.servingInfo;
+          if (servingInfo) {
+            servingSet.add(servingInfo);
+          }
+        }
+      });
+      return Array.from(servingSet).sort();
+    }
 
     // Include both static DB and cached foods
     const allFoods = [...FOOD_DATABASE, ...cachedFoods];
@@ -280,7 +311,7 @@ export const FoodSearchModal = ({
       }
     });
     return Array.from(subcats).sort();
-  }, [selectedCategory, cachedFoods]);
+  }, [selectedCategory, searchMode, onlineResults, cachedFoods]);
 
   // Apply search, filter, and sort for LOCAL mode
   const localSearchResults = useMemo(() => {
@@ -348,9 +379,39 @@ export const FoodSearchModal = ({
     cachedFoods,
   ]);
 
+  const onlineSearchResults = useMemo(() => {
+    let results = [...onlineResults];
+
+    if (selectedCategory) {
+      results = results.filter((food) => food.type === selectedCategory);
+    }
+
+    if (selectedSubcategory) {
+      results = results.filter(
+        (food) => food.previewMacros?.servingInfo === selectedSubcategory
+      );
+    }
+
+    results = [...results].sort((a, b) => {
+      let compareValue = 0;
+
+      if (sortBy === 'name') {
+        compareValue = a.name.localeCompare(b.name);
+      } else {
+        const aValue = a.previewMacros?.[sortBy] || 0;
+        const bValue = b.previewMacros?.[sortBy] || 0;
+        compareValue = aValue - bValue;
+      }
+
+      return sortOrder === 'asc' ? compareValue : -compareValue;
+    });
+
+    return results;
+  }, [onlineResults, selectedCategory, selectedSubcategory, sortBy, sortOrder]);
+
   // Current results based on mode
   const displayResults =
-    searchMode === 'local' ? localSearchResults : onlineResults;
+    searchMode === 'local' ? localSearchResults : onlineSearchResults;
 
   const getCategoryClasses = (category) => {
     const colorMap = {
@@ -359,6 +420,7 @@ export const FoodSearchModal = ({
       vegetables: 'bg-green-500/20 text-green-400',
       fats: 'bg-yellow-500/20 text-yellow-400',
       supplements: 'bg-purple-500/20 text-purple-400',
+      cached: 'bg-purple-500/20 text-purple-400',
     };
     return colorMap[category] || 'bg-slate-500/20 text-slate-400';
   };
@@ -592,212 +654,219 @@ export const FoodSearchModal = ({
             )}
           </p>
 
-          {searchMode === 'local' && (
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setIsFilterOpen(!isFilterOpen)}
-                className={`text-sm font-medium flex items-center gap-1 transition-colors ${
-                  hasActiveFilters
-                    ? 'text-blue-400 hover:text-blue-300'
-                    : 'text-slate-400 hover:text-slate-300'
-                }`}
-              >
-                <SlidersHorizontal size={14} />
-                {hasActiveFilters ? 'View Filters' : 'Filters'}
-              </button>
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
+              className={`text-sm font-medium flex items-center gap-1 transition-colors ${
+                hasActiveFilters
+                  ? 'text-blue-400 hover:text-blue-300'
+                  : 'text-slate-400 hover:text-slate-300'
+              }`}
+            >
+              <SlidersHorizontal size={14} />
+              {hasActiveFilters ? 'View Filters' : 'Filters'}
+            </button>
 
-              <AnimatePresence>
-                {isFilterOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -8, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                    transition={{ duration: 0.18, ease: 'easeOut' }}
-                    className="absolute right-0 top-full mt-2 w-80 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl z-50 max-h-[500px] overflow-y-auto overflow-x-hidden touch-action-pan-y"
-                  >
-                    <div className="p-4 space-y-4">
-                      <div className="flex items-center justify-between pb-3 border-b border-slate-700">
-                        <h4 className="text-white font-bold text-lg">
-                          Filters & Sort
-                        </h4>
+            <AnimatePresence>
+              {isFilterOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                  className="absolute right-0 top-full mt-2 w-80 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl z-50 max-h-[500px] overflow-y-auto overflow-x-hidden touch-action-pan-y"
+                >
+                  <div className="p-4 space-y-4">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-700">
+                      <h4 className="text-white font-bold text-lg">
+                        Filters & Sort
+                      </h4>
+                      <button
+                        onClick={clearFilters}
+                        className="text-sm text-blue-400 hover:text-blue-300 font-medium"
+                      >
+                        Clear All
+                      </button>
+                    </div>
+
+                    <div>
+                      <label className="text-slate-300 font-semibold text-sm block mb-2">
+                        {searchMode === 'online' ? 'Type' : 'Category'}
+                      </label>
+                      <div className="space-y-1.5">
                         <button
-                          onClick={clearFilters}
-                          className="text-sm text-blue-400 hover:text-blue-300 font-medium"
+                          onClick={() => {
+                            setSelectedCategory(null);
+                            setSelectedSubcategory(null);
+                          }}
+                          className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
+                            selectedCategory === null
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                          }`}
                         >
-                          Clear All
+                          {searchMode === 'online'
+                            ? 'All Types'
+                            : 'All Categories'}
                         </button>
+                        {Object.entries(categoryOptions).map(
+                          ([key, { label, color }]) => (
+                            <button
+                              key={key}
+                              onClick={() => {
+                                setSelectedCategory(key);
+                                setSelectedSubcategory(null);
+                              }}
+                              className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
+                                selectedCategory === key
+                                  ? `bg-${color}-500 text-white`
+                                  : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          )
+                        )}
                       </div>
+                    </div>
 
+                    {availableSubcategories.length > 0 && (
                       <div>
                         <label className="text-slate-300 font-semibold text-sm block mb-2">
-                          Category
+                          {searchMode === 'online' ? 'Serving' : 'Subcategory'}
                         </label>
                         <div className="space-y-1.5">
                           <button
-                            onClick={() => {
-                              setSelectedCategory(null);
-                              setSelectedSubcategory(null);
-                            }}
+                            onClick={() => setSelectedSubcategory(null)}
                             className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
-                              selectedCategory === null
+                              selectedSubcategory === null
                                 ? 'bg-blue-500 text-white'
                                 : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
                             }`}
                           >
-                            All Categories
+                            {searchMode === 'online'
+                              ? 'All Servings'
+                              : 'All Subcategories'}
                           </button>
-                          {Object.entries(FOOD_CATEGORIES).map(
-                            ([key, { label, color }]) => (
-                              <button
-                                key={key}
-                                onClick={() => {
-                                  setSelectedCategory(key);
-                                  setSelectedSubcategory(null);
-                                }}
-                                className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
-                                  selectedCategory === key
-                                    ? `bg-${color}-500 text-white`
-                                    : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
-                                }`}
-                              >
-                                {label}
-                              </button>
-                            )
-                          )}
-                        </div>
-                      </div>
-
-                      {availableSubcategories.length > 0 && (
-                        <div>
-                          <label className="text-slate-300 font-semibold text-sm block mb-2">
-                            Subcategory
-                          </label>
-                          <div className="space-y-1.5">
+                          {availableSubcategories.map((subcat) => (
                             <button
-                              onClick={() => setSelectedSubcategory(null)}
+                              key={subcat}
+                              onClick={() => setSelectedSubcategory(subcat)}
                               className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
-                                selectedSubcategory === null
+                                selectedSubcategory === subcat
                                   ? 'bg-blue-500 text-white'
                                   : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
                               }`}
                             >
-                              All Subcategories
-                            </button>
-                            {availableSubcategories.map((subcat) => (
-                              <button
-                                key={subcat}
-                                onClick={() => setSelectedSubcategory(subcat)}
-                                className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all capitalize ${
-                                  selectedSubcategory === subcat
-                                    ? 'bg-blue-500 text-white'
-                                    : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
-                                }`}
-                              >
-                                {subcat.replace(/-/g, ' ')}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      <div>
-                        <label className="text-slate-300 font-semibold text-sm block mb-2">
-                          Sort By
-                        </label>
-                        <div className="space-y-1.5">
-                          {[
-                            { value: 'name', label: 'Name (A-Z)' },
-                            { value: 'calories', label: 'Calories' },
-                            { value: 'protein', label: 'Protein' },
-                            { value: 'carbs', label: 'Carbs' },
-                            { value: 'fats', label: 'Fats' },
-                          ].map((option) => (
-                            <button
-                              key={option.value}
-                              onClick={() => setSortBy(option.value)}
-                              className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
-                                sortBy === option.value
-                                  ? 'bg-emerald-500 text-white'
-                                  : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
-                              }`}
-                            >
-                              {option.label}
+                              {searchMode === 'online'
+                                ? subcat
+                                : subcat.replace(/-/g, ' ')}
                             </button>
                           ))}
                         </div>
                       </div>
+                    )}
 
-                      <div>
-                        <label className="text-slate-300 font-semibold text-sm block mb-2">
-                          Sort Order
-                        </label>
-                        <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-slate-300 font-semibold text-sm block mb-2">
+                        Sort By
+                      </label>
+                      <div className="space-y-1.5">
+                        {[
+                          { value: 'name', label: 'Name (A-Z)' },
+                          { value: 'calories', label: 'Calories' },
+                          { value: 'protein', label: 'Protein' },
+                          { value: 'carbs', label: 'Carbs' },
+                          { value: 'fats', label: 'Fats' },
+                        ].map((option) => (
                           <button
-                            onClick={() => setSortOrder('asc')}
-                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                              sortOrder === 'asc'
+                            key={option.value}
+                            onClick={() => setSortBy(option.value)}
+                            className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
+                              sortBy === option.value
                                 ? 'bg-emerald-500 text-white'
                                 : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
                             }`}
                           >
-                            ↑ Ascending
+                            {option.label}
                           </button>
-                          <button
-                            onClick={() => setSortOrder('desc')}
-                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                              sortOrder === 'desc'
-                                ? 'bg-emerald-500 text-white'
-                                : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
-                            }`}
-                          >
-                            ↓ Descending
-                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-slate-300 font-semibold text-sm block mb-2">
+                        Sort Order
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => setSortOrder('asc')}
+                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                            sortOrder === 'asc'
+                              ? 'bg-emerald-500 text-white'
+                              : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                          }`}
+                        >
+                          ↑ Ascending
+                        </button>
+                        <button
+                          onClick={() => setSortOrder('desc')}
+                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                            sortOrder === 'desc'
+                              ? 'bg-emerald-500 text-white'
+                              : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                          }`}
+                        >
+                          ↓ Descending
+                        </button>
+                      </div>
+                    </div>
+
+                    {hasActiveFilters && (
+                      <div className="pt-3 border-t border-slate-700">
+                        <p className="text-slate-400 text-xs mb-2">
+                          Active Filters:
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {selectedCategory && (
+                            <span className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs flex items-center gap-1">
+                              {categoryOptions[selectedCategory]?.label ||
+                                selectedCategory}
+                              <X
+                                size={12}
+                                className="cursor-pointer hover:text-white"
+                                onClick={() => {
+                                  setSelectedCategory(null);
+                                  setSelectedSubcategory(null);
+                                }}
+                              />
+                            </span>
+                          )}
+                          {selectedSubcategory && (
+                            <span className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs flex items-center gap-1">
+                              {searchMode === 'online'
+                                ? selectedSubcategory
+                                : selectedSubcategory.replace(/-/g, ' ')}
+                              <X
+                                size={12}
+                                className="cursor-pointer hover:text-white"
+                                onClick={() => setSelectedSubcategory(null)}
+                              />
+                            </span>
+                          )}
+                          {(sortBy !== 'name' || sortOrder !== 'asc') && (
+                            <span className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs">
+                              {getSortLabel()}
+                            </span>
+                          )}
                         </div>
                       </div>
-
-                      {hasActiveFilters && (
-                        <div className="pt-3 border-t border-slate-700">
-                          <p className="text-slate-400 text-xs mb-2">
-                            Active Filters:
-                          </p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {selectedCategory && (
-                              <span className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs flex items-center gap-1">
-                                {FOOD_CATEGORIES[selectedCategory]?.label}
-                                <X
-                                  size={12}
-                                  className="cursor-pointer hover:text-white"
-                                  onClick={() => {
-                                    setSelectedCategory(null);
-                                    setSelectedSubcategory(null);
-                                  }}
-                                />
-                              </span>
-                            )}
-                            {selectedSubcategory && (
-                              <span className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs flex items-center gap-1 capitalize">
-                                {selectedSubcategory.replace(/-/g, ' ')}
-                                <X
-                                  size={12}
-                                  className="cursor-pointer hover:text-white"
-                                  onClick={() => setSelectedSubcategory(null)}
-                                />
-                              </span>
-                            )}
-                            {(sortBy !== 'name' || sortOrder !== 'asc') && (
-                              <span className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs">
-                                {getSortLabel()}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          )}
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
         {/* Search Results */}
@@ -923,6 +992,18 @@ export const FoodSearchModal = ({
                                 {formatOne(food.previewMacros.protein)}g
                               </p>
                               <p className="text-slate-500">prot</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-amber-400 font-bold">
+                                {formatOne(food.previewMacros.carbs)}g
+                              </p>
+                              <p className="text-slate-500">carb</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-yellow-400 font-bold">
+                                {formatOne(food.previewMacros.fats)}g
+                              </p>
+                              <p className="text-slate-500">fat</p>
                             </div>
                           </div>
                         </div>
