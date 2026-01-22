@@ -417,31 +417,33 @@ export const FoodSearchModal = ({
       <div className="flex-1 bg-slate-800 border-t border-slate-700 overflow-y-auto flex flex-col">
         {/* Search Mode Toggle */}
         <div className="px-4 pt-4">
-          <div className="flex items-center gap-2 p-1 bg-slate-700/50 rounded-lg">
+          <div className="relative flex items-center gap-2 p-1 bg-slate-700/50 rounded-lg">
+            <motion.div
+              className={`absolute inset-y-1 w-1/2 rounded-md shadow-md ${
+                searchMode === 'local' ? 'bg-blue-500' : 'bg-emerald-500'
+              }`}
+              animate={{ x: searchMode === 'local' ? '0%' : '100%' }}
+              transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+            />
             <button
               onClick={() => setSearchMode('local')}
-              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
+              className={`relative z-10 flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                 searchMode === 'local'
-                  ? 'bg-blue-500 text-white shadow-md'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-600/50'
+                  ? 'text-white'
+                  : 'text-slate-400 hover:text-white'
               }`}
             >
               <Database size={16} />
               <span>Local</span>
-              {cachedFoods.length > 0 && (
-                <span className="text-xs opacity-75">
-                  (+{cachedFoods.length})
-                </span>
-              )}
             </button>
             <button
               onClick={() => isOnline && setSearchMode('online')}
               disabled={!isOnline}
-              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
+              className={`relative z-10 flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                 searchMode === 'online'
-                  ? 'bg-emerald-500 text-white shadow-md'
+                  ? 'text-white'
                   : isOnline
-                    ? 'text-slate-400 hover:text-white hover:bg-slate-600/50'
+                    ? 'text-slate-400 hover:text-white'
                     : 'text-slate-500 cursor-not-allowed opacity-50'
               }`}
             >
@@ -524,7 +526,7 @@ export const FoodSearchModal = ({
               </div>
             </div>
 
-            <div className="pointer-events-none absolute inset-y-0 -left-px w-10 z-20">
+            <div className="pointer-events-none absolute inset-y-0 -left-px w-3 z-20">
               <div className="absolute inset-y-0 left-0 w-2 bg-slate-800" />
               <div className="absolute inset-y-0 left-2 right-0 bg-gradient-to-r from-slate-800 via-slate-800/80 to-transparent" />
             </div>
@@ -563,13 +565,6 @@ export const FoodSearchModal = ({
               </button>
             )}
           </div>
-          {searchMode === 'online' &&
-            searchQuery.length > 0 &&
-            searchQuery.length < 2 && (
-              <p className="mt-1 text-slate-500 text-xs">
-                Type at least 2 characters to search
-              </p>
-            )}
         </div>
 
         {/* Results Count & Filter Button */}
@@ -588,6 +583,11 @@ export const FoodSearchModal = ({
               <>
                 {displayResults.length}{' '}
                 {displayResults.length === 1 ? 'food' : 'foods'} found
+                {cachedFoods.length > 0 && (
+                  <span className="ml-2 text-xs text-slate-500">
+                    (+{cachedFoods.length} cached)
+                  </span>
+                )}
               </>
             )}
           </p>
@@ -848,6 +848,11 @@ export const FoodSearchModal = ({
                         ? 'Enter a search term to find foods online'
                         : 'No results found. Try a different search term.'}
                     </p>
+                    {searchQuery.length > 0 && searchQuery.length < 2 && (
+                      <p className="mt-1 text-slate-500 text-xs">
+                        Type at least 2 characters to search
+                      </p>
+                    )}
                   </>
                 ) : (
                   <>
