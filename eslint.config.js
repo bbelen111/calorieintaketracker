@@ -5,51 +5,51 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import prettier from 'eslint-plugin-prettier';
 
 export default [
-    js.configs.recommended,
-    react.configs.flat.recommended,
-    reactHooks.configs.flat.recommended,
-    {
-        files: ['**/*.js', '**/*.jsx'],
-        languageOptions: {
-            parser: babelParser,
-            parserOptions: {
-                requireConfigFile: false,
-                babelOptions: {
-                    presets: ['@babel/preset-react'],
-                },
-                ecmaFeatures: {
-                    jsx: true,
-                },
-            },
-            globals: {
-                window: 'readonly',
-                document: 'readonly',
-                console: 'readonly',
-                setTimeout: 'readonly',
-                clearTimeout: 'readonly',
-                Blob: 'readonly',
-                URL: 'readonly',
-                requestAnimationFrame: 'readonly',
-                cancelAnimationFrame: 'readonly',
-                ResizeObserver: 'readonly',
-            },
+  js.configs.recommended,
+  react.configs.flat.recommended,
+  reactHooks.configs.flat.recommended,
+  {
+    files: ['**/*.js', '**/*.jsx'],
+    languageOptions: {
+      parser: babelParser,
+      parserOptions: {
+        requireConfigFile: false,
+        babelOptions: {
+          presets: ['@babel/preset-react'],
         },
-        plugins: {
-            prettier,
+        ecmaFeatures: {
+          jsx: true,
         },
-        rules: {
-            'prettier/prettier': [
-                'error',
-                {
-                    endOfLine: 'auto',
-                },
-            ],
-            'react/prop-types': 'off',
-        },
-        settings: {
-            react: {
-                version: 'detect',
-            },
-        },
+      },
+      globals: {
+        window: 'readonly',
+        document: 'readonly',
+        console: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        Blob: 'readonly',
+        URL: 'readonly',
+        requestAnimationFrame: 'readonly',
+        cancelAnimationFrame: 'readonly',
+        ResizeObserver: 'readonly',
+      },
     },
+    plugins: {
+      prettier,
+    },
+    rules: {
+      'prettier/prettier': [
+        'error',
+        {
+          endOfLine: 'auto',
+        },
+      ],
+      'react/prop-types': 'off',
+    },
+    settings: {
+      react: {
+        version: 'detect',
+      },
+    },
+  },
 ];

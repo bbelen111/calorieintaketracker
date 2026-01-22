@@ -527,13 +527,13 @@ export const FoodSearchModal = ({
             </div>
 
             <div className="pointer-events-none absolute inset-y-0 -left-px w-3 z-20">
-              <div className="absolute inset-y-0 left-0 w-2 bg-slate-800" />
-              <div className="absolute inset-y-0 left-2 right-0 bg-gradient-to-r from-slate-800 via-slate-800/80 to-transparent" />
+              <div className="absolute inset-y-0 left-0 w-1 bg-slate-800" />
+              <div className="absolute inset-y-0 left-1 right-0 bg-gradient-to-r from-slate-800 via-slate-800/80 to-transparent" />
             </div>
 
-            <div className="pointer-events-none absolute inset-y-0 -right-px w-10 z-20">
-              <div className="absolute inset-y-0 right-0 w-2 bg-slate-800" />
-              <div className="absolute inset-y-0 left-0 right-2 bg-gradient-to-l from-slate-800 via-slate-800/80 to-transparent" />
+            <div className="pointer-events-none absolute inset-y-0 -right-px w-3 z-20">
+              <div className="absolute inset-y-0 right-0 w-1 bg-slate-800" />
+              <div className="absolute inset-y-0 left-0 right-1 bg-gradient-to-l from-slate-800 via-slate-800/80 to-transparent" />
             </div>
           </div>
         </div>

@@ -4,15 +4,16 @@ import react from '@vitejs/plugin-react';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  // Ensure dev server is accessible on the LAN (same as running `vite --host`)
   server: {
-    host: true,
-    // Proxy API requests to Vercel dev server during local development
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-      },
-    },
+    host: true, // This is fine to keep
+    port: 5173, // Enforce port 5173 explicitly
+    strictPort: true, // Don't let it switch to 5174 if 5173 is busy
+    // Only keep this proxy if you are ACTUALLY running a separate backend server on port 3000
+    // proxy: {
+    //   '/api': {
+    //     target: 'http://localhost:3000',
+    //     changeOrigin: true,
+    //   },
+    // },
   },
 });
