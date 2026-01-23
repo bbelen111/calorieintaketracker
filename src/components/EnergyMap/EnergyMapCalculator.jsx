@@ -15,6 +15,10 @@ import { trainingTypes as presetTrainingTypes } from '../../constants/trainingTy
 import { useEnergyMapData } from '../../hooks/useEnergyMapData';
 import { useSwipeableScreens } from '../../hooks/useSwipeableScreens';
 import { useAnimatedModal } from '../../hooks/useAnimatedModal';
+import {
+  useHealthConnect,
+  HealthConnectStatus,
+} from '../../hooks/useHealthConnect';
 import { loadSelectedDay, saveSelectedDay } from '../../utils/storage';
 import { ScreenTabs } from './common/ScreenTabs';
 import { LogbookScreen } from './screens/LogbookScreen';
@@ -246,6 +250,9 @@ export const EnergyMapCalculator = () => {
     updateDailyLog,
     deleteDailyLog,
   } = useEnergyMapData();
+
+  // Health Connect integration for live step tracking
+  const healthConnect = useHealthConnect();
 
   const viewportRef = useRef(null);
   const { currentScreen, sliderStyle, handlers, goToScreen, isSwiping } =
@@ -1333,6 +1340,38 @@ export const EnergyMapCalculator = () => {
     [calorieBreakdownModal.isOpen, selectedStepRange]
   );
 
+  // Live step data from Health Connect
+  const liveStepData = useMemo(() => {
+    if (
+      healthConnect.status !== HealthConnectStatus.CONNECTED ||
+      healthConnect.steps === null
+    ) {
+      return null;
+    }
+
+    const stepCount = healthConnect.steps;
+    const details = calculateTargetForGoal(
+      stepCount, // Pass raw step count instead of range string
+      selectedDay === 'training',
+      selectedGoal
+    );
+
+    return {
+      stepCount,
+      breakdown: details.breakdown,
+      targetCalories: details.targetCalories,
+      difference: details.difference,
+      lastSynced: healthConnect.lastSynced,
+    };
+  }, [
+    healthConnect.status,
+    healthConnect.steps,
+    healthConnect.lastSynced,
+    calculateTargetForGoal,
+    selectedDay,
+    selectedGoal,
+  ]);
+
   const handleCardioSave = useCallback(() => {
     const sessionToSave = sanitizeCardioDraft(cardioDraft);
     if (!sessionToSave) {
@@ -2237,6 +2276,12 @@ export const EnergyMapCalculator = () => {
                   onOpenBreakdown={openCalorieBreakdown}
                   getRangeDetails={getRangeDetails}
                   isSelectedRange={isSelectedRange}
+                  liveStepData={liveStepData}
+                  healthConnectStatus={healthConnect.status}
+                  healthConnectLoading={healthConnect.isLoading}
+                  healthConnectError={healthConnect.error}
+                  onConnectHealth={healthConnect.connect}
+                  onRefreshSteps={healthConnect.refresh}
                 />
               </div>
 

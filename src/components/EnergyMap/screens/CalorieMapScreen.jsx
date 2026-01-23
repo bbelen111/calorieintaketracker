@@ -1,5 +1,271 @@
 import React from 'react';
-import { Info, ListChecks, Map } from 'lucide-react';
+import {
+  Info,
+  ListChecks,
+  Map,
+  Activity,
+  RefreshCw,
+  Link2,
+  Link2Off,
+  Loader2,
+  AlertCircle,
+  Footprints,
+} from 'lucide-react';
+
+// Status constants imported from hook - duplicated here to avoid circular import
+const HealthConnectStatus = {
+  UNAVAILABLE: 'unavailable',
+  NOT_INSTALLED: 'not_installed',
+  DISCONNECTED: 'disconnected',
+  CONNECTING: 'connecting',
+  CONNECTED: 'connected',
+  ERROR: 'error',
+};
+
+const formatLastSynced = (date) => {
+  if (!date) return '';
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return date.toLocaleDateString();
+};
+
+const formatStepCount = (count) => {
+  if (count >= 1000) {
+    return `${(count / 1000).toFixed(1).replace(/\.0$/, '')}k`;
+  }
+  return count.toLocaleString();
+};
+
+/**
+ * Live Steps Hero Card - shows current step data from Health Connect
+ */
+const LiveStepsCard = ({
+  liveStepData,
+  healthConnectStatus,
+  healthConnectLoading,
+  healthConnectError,
+  onConnectHealth,
+  onRefreshSteps,
+  onOpenBreakdown,
+  goals,
+  selectedGoal,
+}) => {
+  const isConnected = healthConnectStatus === HealthConnectStatus.CONNECTED;
+  const isUnavailable = healthConnectStatus === HealthConnectStatus.UNAVAILABLE;
+  const isNotInstalled =
+    healthConnectStatus === HealthConnectStatus.NOT_INSTALLED;
+  const isDisconnected =
+    healthConnectStatus === HealthConnectStatus.DISCONNECTED;
+  const isConnecting = healthConnectStatus === HealthConnectStatus.CONNECTING;
+  const hasError = healthConnectStatus === HealthConnectStatus.ERROR;
+
+  // Don't show anything if Health Connect is unavailable (web platform)
+  if (isUnavailable) {
+    return null;
+  }
+
+  // Health Connect not installed prompt
+  if (isNotInstalled) {
+    return (
+      <div className="bg-gradient-to-br from-slate-700/80 to-slate-800/80 rounded-2xl p-5 border border-slate-600/50 mb-4">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="p-2 bg-amber-500/20 rounded-xl">
+            <AlertCircle className="text-amber-400" size={24} />
+          </div>
+          <div>
+            <h3 className="text-white font-semibold">
+              Health Connect Required
+            </h3>
+            <p className="text-slate-400 text-sm">
+              Install Health Connect to track your steps
+            </p>
+          </div>
+        </div>
+        <p className="text-slate-400 text-xs mb-3">
+          Health Connect syncs steps from your phone, smartwatch, and fitness
+          apps like Garmin, Fitbit, Samsung Health, and more.
+        </p>
+        <a
+          href="https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium text-sm transition-all"
+        >
+          <Link2 size={16} />
+          Get Health Connect
+        </a>
+      </div>
+    );
+  }
+
+  // Disconnected - prompt to connect
+  if (isDisconnected || hasError) {
+    return (
+      <div className="bg-gradient-to-br from-slate-700/80 to-slate-800/80 rounded-2xl p-5 border border-slate-600/50 mb-4">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="p-2 bg-blue-500/20 rounded-xl">
+            <Footprints className="text-blue-400" size={24} />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-white font-semibold">Track Your Steps</h3>
+            <p className="text-slate-400 text-sm">
+              Connect to see your real step count
+            </p>
+          </div>
+        </div>
+        {hasError && healthConnectError && (
+          <p className="text-red-400 text-xs mb-3 flex items-center gap-1">
+            <AlertCircle size={12} />
+            {healthConnectError}
+          </p>
+        )}
+        <p className="text-slate-400 text-xs mb-3">
+          Sync steps from wearables and fitness apps via Health Connect.
+        </p>
+        <button
+          type="button"
+          onClick={onConnectHealth}
+          disabled={healthConnectLoading}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium text-sm transition-all"
+        >
+          {healthConnectLoading ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <Link2 size={16} />
+          )}
+          {healthConnectLoading ? 'Connecting...' : 'Connect Health Data'}
+        </button>
+      </div>
+    );
+  }
+
+  // Connecting state
+  if (isConnecting) {
+    return (
+      <div className="bg-gradient-to-br from-blue-900/30 to-slate-800/80 rounded-2xl p-5 border border-blue-500/30 mb-4">
+        <div className="flex items-center gap-3">
+          <Loader2 className="text-blue-400 animate-spin" size={24} />
+          <span className="text-white font-medium">
+            Connecting to Health Connect...
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // Connected with live data
+  if (isConnected && liveStepData) {
+    const { stepCount, targetCalories, breakdown, difference, lastSynced } =
+      liveStepData;
+
+    return (
+      <button
+        type="button"
+        onClick={() => onOpenBreakdown(stepCount)}
+        className="w-full bg-gradient-to-br from-emerald-900/40 to-slate-800/90 rounded-2xl p-5 border border-emerald-500/30 mb-4 text-left hover:border-emerald-400/50 transition-all group"
+      >
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-emerald-500/20 rounded-xl">
+              <Activity className="text-emerald-400" size={26} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-white font-bold text-lg">Today's Steps</h3>
+                <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold rounded-full uppercase tracking-wider">
+                  Live
+                </span>
+              </div>
+              <p className="text-slate-400 text-xs flex items-center gap-1.5 mt-0.5">
+                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+                Synced {formatLastSynced(lastSynced)}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRefreshSteps();
+            }}
+            disabled={healthConnectLoading}
+            className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all"
+            aria-label="Refresh steps"
+          >
+            <RefreshCw
+              size={18}
+              className={healthConnectLoading ? 'animate-spin' : ''}
+            />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          {/* Step Count */}
+          <div className="bg-slate-700/50 rounded-xl p-3">
+            <p className="text-slate-400 text-xs mb-1">Steps</p>
+            <p className="text-white font-bold text-2xl">
+              {stepCount.toLocaleString()}
+            </p>
+            <p className="text-slate-500 text-xs">
+              ~{formatStepCount(stepCount)} steps
+            </p>
+          </div>
+
+          {/* Target Calories */}
+          <div
+            className={`${goals[selectedGoal].color} rounded-xl p-3 text-center`}
+          >
+            <p className="text-white/80 text-xs mb-1">Target</p>
+            <p className="text-white font-bold text-2xl">
+              {targetCalories.toLocaleString()}
+            </p>
+            <p className="text-white/70 text-xs">calories</p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-700/50">
+          <p className="text-slate-400 text-xs">
+            TDEE: {breakdown.total.toLocaleString()} cal
+          </p>
+          <div className="flex items-center gap-2">
+            {difference !== 0 && (
+              <span
+                className={`text-xs font-semibold ${difference > 0 ? 'text-green-400' : 'text-red-400'}`}
+              >
+                {difference > 0 ? '+' : ''}
+                {difference.toLocaleString()} cal
+              </span>
+            )}
+            <Info
+              size={16}
+              className="text-slate-400 group-hover:text-emerald-300 transition-colors"
+            />
+          </div>
+        </div>
+      </button>
+    );
+  }
+
+  // Fallback - loading initial state
+  if (healthConnectLoading) {
+    return (
+      <div className="bg-gradient-to-br from-slate-700/80 to-slate-800/80 rounded-2xl p-5 border border-slate-600/50 mb-4">
+        <div className="flex items-center gap-3">
+          <Loader2 className="text-blue-400 animate-spin" size={24} />
+          <span className="text-white font-medium">Loading step data...</span>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+};
 
 export const CalorieMapScreen = ({
   stepRanges,
@@ -10,6 +276,13 @@ export const CalorieMapScreen = ({
   onOpenBreakdown,
   getRangeDetails,
   isSelectedRange,
+  // Health Connect props
+  liveStepData,
+  healthConnectStatus,
+  healthConnectLoading,
+  healthConnectError,
+  onConnectHealth,
+  onRefreshSteps,
 }) => (
   <div className="space-y-6 pb-10">
     <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
@@ -41,6 +314,32 @@ export const CalorieMapScreen = ({
           </button>
         </div>
       </div>
+
+      {/* Live Steps Hero Card */}
+      <LiveStepsCard
+        liveStepData={liveStepData}
+        healthConnectStatus={healthConnectStatus}
+        healthConnectLoading={healthConnectLoading}
+        healthConnectError={healthConnectError}
+        onConnectHealth={onConnectHealth}
+        onRefreshSteps={onRefreshSteps}
+        onOpenBreakdown={onOpenBreakdown}
+        goals={goals}
+        selectedGoal={selectedGoal}
+      />
+
+      {/* Step Range Section Header */}
+      {healthConnectStatus === HealthConnectStatus.CONNECTED && (
+        <div className="flex items-center gap-2 mb-3">
+          <div className="h-px flex-1 bg-slate-700" />
+          <span className="text-slate-500 text-xs font-medium uppercase tracking-wider">
+            Quick Estimates
+          </span>
+          <div className="h-px flex-1 bg-slate-700" />
+        </div>
+      )}
+
+      {/* Step Range Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {stepRanges.map((steps) => {
           const { breakdown, targetCalories, difference } =
