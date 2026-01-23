@@ -501,21 +501,27 @@ export const EnergyMapCalculator = () => {
       return undefined;
     }
 
-    const removeListener = App.addListener('backButton', ({ canGoBack }) => {
-      const didCloseModal = closeTopmostModal();
-      if (didCloseModal) {
-        return;
-      }
+    let listener = null;
 
-      if (canGoBack) {
-        window.history.back();
-      } else {
-        App.exitApp();
-      }
-    });
+    const setup = async () => {
+      listener = await App.addListener('backButton', ({ canGoBack }) => {
+        const didCloseModal = closeTopmostModal();
+        if (didCloseModal) {
+          return;
+        }
+
+        if (canGoBack) {
+          window.history.back();
+        } else {
+          App.exitApp();
+        }
+      });
+    };
+
+    setup();
 
     return () => {
-      removeListener?.remove?.();
+      listener?.remove?.();
     };
   }, [closeTopmostModal]);
 
@@ -1321,7 +1327,9 @@ export const EnergyMapCalculator = () => {
   }, [calorieBreakdownModal]);
 
   const selectedRangeData = useMemo(() => {
-    if (!selectedStepRange) return null;
+    // Check for null/undefined explicitly, not falsy (0 is a valid step count)
+    if (selectedStepRange === null || selectedStepRange === undefined)
+      return null;
     return calculateTargetForGoal(
       selectedStepRange,
       selectedDay === 'training',

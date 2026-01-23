@@ -2,10 +2,6 @@
   "appId": "com.energymap.tracker",
   "appName": "Energy Map",
   "webDir": "dist",
-  "server": {
-    "url": "http://localhost:5173",
-    "cleartext": true
-  },
   "plugins": {
     "Keyboard": {
       "resize": "none"

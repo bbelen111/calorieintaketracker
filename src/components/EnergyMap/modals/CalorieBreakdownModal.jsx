@@ -55,7 +55,7 @@ export const CalorieBreakdownModal = ({
           <div>
             <h3 className="text-white font-bold text-xl">Calorie Breakdown</h3>
             <p className="text-slate-400 text-sm mt-1">
-              {stepRange} steps •{' '}
+              {typeof stepRange === 'number' ? stepRange.toLocaleString() : stepRange} steps •{' '}
               {selectedDay === 'training' ? 'Training' : 'Rest'} day •{' '}
               {goal.label}
             </p>

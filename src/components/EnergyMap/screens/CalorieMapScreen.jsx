@@ -57,7 +57,9 @@ const LiveStepsCard = ({
   selectedGoal,
 }) => {
   const isConnected = healthConnectStatus === HealthConnectStatus.CONNECTED;
-  const isUnavailable = healthConnectStatus === HealthConnectStatus.UNAVAILABLE;
+  const isUnavailable =
+    healthConnectStatus === HealthConnectStatus.UNAVAILABLE ||
+    healthConnectStatus === undefined;
   const isNotInstalled =
     healthConnectStatus === HealthConnectStatus.NOT_INSTALLED;
   const isDisconnected =
@@ -164,10 +166,14 @@ const LiveStepsCard = ({
     const { stepCount, targetCalories, breakdown, difference, lastSynced } =
       liveStepData;
 
+    const handleCardClick = () => {
+      onOpenBreakdown?.(stepCount);
+    };
+
     return (
       <button
         type="button"
-        onClick={() => onOpenBreakdown(stepCount)}
+        onClick={handleCardClick}
         className="w-full bg-gradient-to-br from-emerald-900/40 to-slate-800/90 rounded-2xl p-5 border border-emerald-500/30 mb-4 text-left hover:border-emerald-400/50 transition-all group"
       >
         <div className="flex items-start justify-between mb-3">

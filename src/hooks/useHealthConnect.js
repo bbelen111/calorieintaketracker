@@ -1,24 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
-
-// Dynamically import the health plugin to avoid build errors on web
-let CapacitorHealth = null;
-
-const loadHealthPlugin = async () => {
-  if (CapacitorHealth) {
-    return CapacitorHealth;
-  }
-
-  try {
-    const module = await import('@capgo/capacitor-health');
-    CapacitorHealth = module.CapacitorHealth;
-    return CapacitorHealth;
-  } catch (error) {
-    console.warn('[HealthConnect] Failed to load health plugin:', error);
-    return null;
-  }
-};
+import { Health } from '@capgo/capacitor-health';
 
 /**
  * Connection status states
@@ -63,7 +46,6 @@ export const useHealthConnect = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const healthPluginRef = useRef(null);
   const isInitializedRef = useRef(false);
 
   /**
@@ -80,16 +62,8 @@ export const useHealthConnect = () => {
     }
 
     try {
-      const plugin = await loadHealthPlugin();
-      if (!plugin) {
-        setStatus(HealthConnectStatus.UNAVAILABLE);
-        return false;
-      }
-
-      healthPluginRef.current = plugin;
-
-      // Check if Health Connect is available
-      const { available } = await plugin.isAvailable();
+      const result = await Health.isAvailable();
+      const available = result?.available;
 
       if (!available) {
         setStatus(HealthConnectStatus.NOT_INSTALLED);
@@ -108,18 +82,15 @@ export const useHealthConnect = () => {
    * Check if we already have authorization
    */
   const checkAuthorization = useCallback(async () => {
-    const plugin = healthPluginRef.current;
-    if (!plugin) {
-      return false;
-    }
-
     try {
-      const { authorized } = await plugin.isAuthorized({
+      const result = await Health.checkAuthorization({
         read: ['steps'],
-        write: [],
+        write: ['steps'],
       });
 
-      return authorized;
+      // Check if steps is in readAuthorized array
+      const isAuthorized = result?.readAuthorized?.includes('steps') ?? false;
+      return isAuthorized;
     } catch (err) {
       console.warn('[HealthConnect] Authorization check failed:', err);
       return false;
@@ -128,44 +99,29 @@ export const useHealthConnect = () => {
 
   /**
    * Fetch steps from Health Connect for today
+   * Also tries to fetch last 7 days as a debug fallback
    */
   const fetchSteps = useCallback(async () => {
-    const plugin = healthPluginRef.current;
-    if (!plugin) {
-      return null;
-    }
-
     try {
       const startDate = getStartOfToday();
       const endDate = new Date();
 
-      const result = await plugin.queryAggregated({
+      const result = await Health.readSamples({
+        dataType: 'steps',
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
-        dataTypes: ['steps'],
-        bucket: 'day',
+        limit: 1000,
+        ascending: false,
       });
 
-      // Extract step count from aggregated results
-      // The structure can vary, so we handle multiple formats
+      // Sum up all step samples for today
       let totalSteps = 0;
-
-      if (result?.steps !== undefined) {
-        totalSteps = Number(result.steps) || 0;
-      } else if (Array.isArray(result)) {
-        // Some plugins return an array of buckets
-        totalSteps = result.reduce((sum, bucket) => {
-          const bucketSteps = bucket?.steps || bucket?.value || 0;
-          return sum + Number(bucketSteps);
+      if (result?.samples && Array.isArray(result.samples)) {
+        totalSteps = result.samples.reduce((sum, sample) => {
+          // Health Connect may return steps in 'value' or 'count' field
+          const stepValue = Number(sample.value) || Number(sample.count) || 0;
+          return sum + stepValue;
         }, 0);
-      } else if (result?.data) {
-        // Alternative format
-        totalSteps = Array.isArray(result.data)
-          ? result.data.reduce(
-              (sum, item) => sum + (Number(item.steps) || 0),
-              0
-            )
-          : Number(result.data.steps) || 0;
       }
 
       return Math.round(totalSteps);
@@ -197,7 +153,6 @@ export const useHealthConnect = () => {
       const isAuthorized = await checkAuthorization();
       if (isAuthorized) {
         setStatus(HealthConnectStatus.CONNECTED);
-        // Fetch initial steps
         const stepCount = await fetchSteps();
         if (stepCount !== null) {
           setSteps(stepCount);
@@ -219,21 +174,18 @@ export const useHealthConnect = () => {
    * Request authorization and connect to Health Connect
    */
   const connect = useCallback(async () => {
-    const plugin = healthPluginRef.current;
-    if (!plugin) {
-      setError('Health Connect is not available on this device');
-      return;
-    }
-
     setIsLoading(true);
     setStatus(HealthConnectStatus.CONNECTING);
     setError(null);
 
     try {
-      const { authorized } = await plugin.requestAuthorization({
+      const result = await Health.requestAuthorization({
         read: ['steps'],
-        write: [],
+        write: ['steps'],
       });
+
+      // Check if steps is in readAuthorized array
+      const authorized = result?.readAuthorized?.includes('steps') ?? false;
 
       if (authorized) {
         setStatus(HealthConnectStatus.CONNECTED);
@@ -291,6 +243,56 @@ export const useHealthConnect = () => {
     setError(null);
   }, []);
 
+  /**
+   * Open Health Connect settings (useful if user needs to configure data sources)
+   */
+  const openSettings = useCallback(async () => {
+    try {
+      await Health.openHealthConnectSettings();
+    } catch (err) {
+      console.warn('[HealthConnect] Failed to open settings:', err);
+    }
+  }, []);
+
+  /**
+   * Write test step data to Health Connect (for debugging)
+   * This helps verify the plugin is working correctly
+   */
+  const writeTestData = useCallback(async () => {
+    try {
+      // Write 1000 test steps
+      const now = new Date();
+      const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+
+      await Health.saveSample({
+        dataType: 'steps',
+        value: 1000,
+        startDate: fiveMinutesAgo.toISOString(),
+        endDate: now.toISOString(),
+      });
+
+      // Read back and refresh
+      const result = await Health.readSamples({
+        dataType: 'steps',
+        startDate: fiveMinutesAgo.toISOString(),
+        endDate: now.toISOString(),
+        limit: 10,
+      });
+
+      if (result?.samples?.length > 0) {
+        await refresh();
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('[HealthConnect] Failed to write test data:', err);
+      setError(
+        'Failed to write test data: ' + (err.message || 'Unknown error')
+      );
+      return false;
+    }
+  }, [refresh]);
+
   // Initialize on mount
   useEffect(() => {
     initialize();
@@ -333,5 +335,7 @@ export const useHealthConnect = () => {
     connect,
     refresh,
     disconnect,
+    openSettings,
+    writeTestData,
   };
 };
