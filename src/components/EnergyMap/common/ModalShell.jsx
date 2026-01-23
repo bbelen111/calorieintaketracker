@@ -15,11 +15,32 @@ import { Capacitor } from '@capacitor/core';
 
 const BASE_Z_INDEX = 1000;
 const OVERLAY_FADE_MS = 200;
-const OVERLAY_OPACITY = 0.7;
+
+// Overlay opacity configuration - increases with modal depth for visual hierarchy
+const OVERLAY_BASE_OPACITY = 0.65; // Single modal backdrop
+const OVERLAY_STACKED_INCREMENT = 0.12; // Additional darkness per nested modal
+const OVERLAY_MAX_OPACITY = 0.92; // Cap to prevent complete blackout
+
 const queueTask =
   typeof globalThis.queueMicrotask === 'function'
     ? globalThis.queueMicrotask
     : (cb) => Promise.resolve().then(cb);
+
+/**
+ * Calculate overlay opacity based on active modal count.
+ * First modal gets base opacity, each additional modal increases darkness.
+ */
+const calculateOverlayOpacity = (activeCount) => {
+  if (activeCount <= 0) return 0;
+  if (activeCount === 1) return OVERLAY_BASE_OPACITY;
+
+  // Progressive darkening: base + (increment * additional modals)
+  const additionalModals = activeCount - 1;
+  const calculatedOpacity =
+    OVERLAY_BASE_OPACITY + OVERLAY_STACKED_INCREMENT * additionalModals;
+
+  return Math.min(calculatedOpacity, OVERLAY_MAX_OPACITY);
+};
 
 // ============================================================================
 // MODAL STACK MANAGER - Tracks all open modals with stable ordering
@@ -118,6 +139,7 @@ class SharedOverlayManager {
     this.targetOpacity = 0;
     this.currentZIndex = BASE_Z_INDEX;
     this.pendingUpdate = null;
+    this.lastActiveCount = 0;
   }
 
   isServer() {
@@ -157,7 +179,7 @@ class SharedOverlayManager {
       this.pendingUpdate = null;
     }
 
-    const newTargetOpacity = activeModalCount > 0 ? OVERLAY_OPACITY : 0;
+    const newTargetOpacity = calculateOverlayOpacity(activeModalCount);
     const newZIndex = Math.max(BASE_Z_INDEX, highestZIndex - 1);
 
     // Batch DOM updates in a single rAF
@@ -174,17 +196,27 @@ class SharedOverlayManager {
           this.currentZIndex = newZIndex;
         }
 
-        // Update opacity (with transition)
+        // Update opacity with appropriate transition
         if (this.targetOpacity !== newTargetOpacity) {
+          // Faster transition when adding modals (darkening), slower when removing
+          const isGettingDarker = newTargetOpacity > this.targetOpacity;
+          const transitionMs = isGettingDarker
+            ? OVERLAY_FADE_MS * 0.75
+            : OVERLAY_FADE_MS;
+          node.style.transition = `opacity ${transitionMs}ms ease-out`;
           node.style.opacity = String(newTargetOpacity);
           this.targetOpacity = newTargetOpacity;
         }
+
+        this.lastActiveCount = activeModalCount;
       } else {
         // No active modals - fade out
         if (this.overlayNode) {
+          this.overlayNode.style.transition = `opacity ${OVERLAY_FADE_MS}ms ease-out`;
           this.overlayNode.style.opacity = '0';
           this.targetOpacity = 0;
         }
+        this.lastActiveCount = 0;
       }
     });
   }
@@ -204,6 +236,7 @@ class SharedOverlayManager {
     }
     this.targetOpacity = 0;
     this.currentZIndex = BASE_Z_INDEX;
+    this.lastActiveCount = 0;
   }
 }
 
@@ -531,8 +564,9 @@ export const ModalShell = ({
       >
         {shouldDimContent && !isClosing && (
           <div
-            className="pointer-events-none absolute inset-0 rounded-2xl bg-black/40 z-10"
+            className="pointer-events-none absolute inset-0 rounded-2xl bg-black/50 z-10"
             style={{ transition: 'opacity 150ms ease-out' }}
+            aria-hidden="true"
           />
         )}
         {children}
