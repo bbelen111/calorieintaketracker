@@ -56,8 +56,8 @@ class ModalStackManager {
 
   register(isClosing = false) {
     const id = this.nextId++;
-    // Calculate z-index based on current stack size
-    const zIndex = BASE_Z_INDEX + this.modals.size + 1;
+    // Calculate z-index based on current highest value to avoid duplicates
+    const zIndex = this.getHighestZIndex() + 1;
     this.modals.set(id, { zIndex, isClosing });
     this.notifyListeners();
     return { id, zIndex };
@@ -564,7 +564,7 @@ export const ModalShell = ({
       >
         {shouldDimContent && !isClosing && (
           <div
-            className="pointer-events-none absolute inset-0 rounded-2xl bg-black/50 z-10"
+            className="pointer-events-none absolute inset-0 rounded-2xl bg-black/50 z-30"
             style={{ transition: 'opacity 150ms ease-out' }}
             aria-hidden="true"
           />
