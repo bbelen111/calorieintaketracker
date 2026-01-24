@@ -11,32 +11,55 @@ export const useSwipeableScreens = (
   const [dragOffset, setDragOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(1);
+  const [viewportElement, setViewportElement] = useState(null);
 
   const swipeStartX = useRef(null);
   const swipeStartY = useRef(null);
   const isSwipeActive = useRef(false);
   const hasSwipeDirection = useRef(false);
+  const readViewportWidth = useCallback(() => {
+    const elementWidth = viewportRef.current?.clientWidth;
+    if (Number.isFinite(elementWidth) && elementWidth > 0) {
+      return elementWidth;
+    }
+    return viewportWidth || 1;
+  }, [viewportRef, viewportWidth]);
 
   useEffect(() => {
-    const element = viewportRef.current;
-    if (!element) return;
+    if (viewportRef.current && viewportRef.current !== viewportElement) {
+      setViewportElement(viewportRef.current);
+    }
+  }, [viewportElement, viewportRef]);
+
+  useEffect(() => {
+    if (!viewportElement) return;
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setViewportWidth(viewportElement.clientWidth || 1);
 
     const observer = new ResizeObserver(() => {
-      setViewportWidth(element.clientWidth);
+      setViewportWidth(viewportElement.clientWidth || 1);
     });
-    observer.observe(element);
+    observer.observe(viewportElement);
 
     return () => observer.disconnect();
-  }, [viewportRef]);
+  }, [viewportElement]);
 
-  const beginSwipe = useCallback((clientX, clientY) => {
-    swipeStartX.current = clientX;
-    swipeStartY.current = clientY;
-    isSwipeActive.current = true;
-    hasSwipeDirection.current = false;
-    setIsSwiping(false);
-    setDragOffset(0);
-  }, []);
+  const beginSwipe = useCallback(
+    (clientX, clientY) => {
+      const width = readViewportWidth();
+      if (width !== viewportWidth) {
+        setViewportWidth(width);
+      }
+      swipeStartX.current = clientX;
+      swipeStartY.current = clientY;
+      isSwipeActive.current = true;
+      hasSwipeDirection.current = false;
+      setIsSwiping(false);
+      setDragOffset(0);
+    },
+    [readViewportWidth, viewportWidth]
+  );
 
   const updateSwipePosition = useCallback((clientX, clientY) => {
     if (!isSwipeActive.current || swipeStartX.current === null) return;
@@ -72,7 +95,7 @@ export const useSwipeableScreens = (
     }
 
     if (hasSwipeDirection.current) {
-      const width = viewportRef.current?.clientWidth || 0;
+      const width = viewportWidth || readViewportWidth();
       const threshold = width
         ? Math.min(width * 0.25, BASE_SWIPE_THRESHOLD)
         : BASE_SWIPE_THRESHOLD;
@@ -91,7 +114,13 @@ export const useSwipeableScreens = (
     hasSwipeDirection.current = false;
     swipeStartX.current = null;
     swipeStartY.current = null;
-  }, [currentScreen, dragOffset, totalScreens, viewportRef]);
+  }, [
+    currentScreen,
+    dragOffset,
+    readViewportWidth,
+    totalScreens,
+    viewportWidth,
+  ]);
 
   const handleTouchStart = useCallback(
     (event) => {
