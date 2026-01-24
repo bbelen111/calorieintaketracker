@@ -12,6 +12,9 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react';
+import { shallow } from 'zustand/shallow';
+import { goals as baseGoals } from '../../../constants/goals';
+import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 
 export const HomeScreen = ({
   userData,
@@ -40,8 +43,34 @@ export const HomeScreen = ({
   totalCardioBurn,
   isSwiping,
 }) => {
-  const goalConfig = goals[selectedGoal];
-  const weightTileValue = weightDisplay ?? `${userData.weight} kg`;
+  const store = useEnergyMapStore(
+    (state) => ({
+      userData: state.userData,
+      bmr: state.bmr,
+      trainingCalories: state.trainingCalories,
+      trainingTypes: state.trainingTypes,
+      cardioTypes: state.cardioTypes,
+      totalCardioBurn: state.totalCardioBurn,
+      cardioSessions: state.userData.cardioSessions ?? [],
+    }),
+    shallow
+  );
+
+  const resolvedUserData = userData ?? store.userData;
+  const resolvedBmr = bmr ?? store.bmr;
+  const resolvedTrainingCalories = trainingCalories ?? store.trainingCalories;
+  const resolvedTrainingTypes = trainingTypes ?? store.trainingTypes;
+  const resolvedCardioTypes = cardioTypes ?? store.cardioTypes;
+  const resolvedCardioSessions = cardioSessions ?? store.cardioSessions;
+  const resolvedTotalCardioBurn = totalCardioBurn ?? store.totalCardioBurn;
+  const resolvedGoals = goals ?? baseGoals;
+  const resolvedHasCardioSessions =
+    typeof hasCardioSessions === 'boolean'
+      ? hasCardioSessions
+      : resolvedCardioSessions.length > 0;
+
+  const goalConfig = resolvedGoals[selectedGoal];
+  const weightTileValue = weightDisplay ?? `${resolvedUserData.weight} kg`;
 
   return (
     <div className="space-y-6 pb-10">
@@ -77,7 +106,7 @@ export const HomeScreen = ({
               />
             </div>
             <p className="text-white font-semibold text-lg">
-              {userData.age} years
+              {resolvedUserData.age} years
             </p>
           </button>
           <button
@@ -109,7 +138,7 @@ export const HomeScreen = ({
               />
             </div>
             <p className="text-white font-semibold text-lg">
-              {userData.height} cm
+              {resolvedUserData.height} cm
             </p>
           </button>
           <button
@@ -124,7 +153,9 @@ export const HomeScreen = ({
                 className="text-slate-500 group-hover:text-blue-400 transition-colors"
               />
             </div>
-            <p className="text-white font-semibold text-lg">{bmr} kcal</p>
+            <p className="text-white font-semibold text-lg">
+              {resolvedBmr} kcal
+            </p>
           </button>
         </div>
       </div>
@@ -190,11 +221,11 @@ export const HomeScreen = ({
             <Dumbbell className="mx-auto mb-2" size={28} />
             <p className="font-bold text-lg">Training Day</p>
             <p className="text-xs md:text-sm opacity-80">
-              {userData.trainingDuration}hrs{' '}
-              {trainingTypes[userData.trainingType].label}
+              {resolvedUserData.trainingDuration}hrs{' '}
+              {resolvedTrainingTypes[resolvedUserData.trainingType].label}
             </p>
             <p className="text-[11px] opacity-70 mt-1">
-              ~{Math.round(trainingCalories)} kcal burn
+              ~{Math.round(resolvedTrainingCalories)} kcal burn
             </p>
             <AnimatePresence initial={false}>
               {selectedDay === 'training' && (
@@ -237,7 +268,7 @@ export const HomeScreen = ({
         transition={{ type: 'spring', stiffness: 120, damping: 18 }}
       >
         <AnimatePresence mode="wait" initial={false}>
-          {hasCardioSessions ? (
+          {resolvedHasCardioSessions ? (
             <motion.div
               key="cardio-list"
               initial={{ opacity: 0, height: 0 }}
@@ -276,8 +307,8 @@ export const HomeScreen = ({
                 className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4"
               >
                 <AnimatePresence initial={false}>
-                  {cardioSessions.map((session) => {
-                    const cardioType = cardioTypes[session.type];
+                  {resolvedCardioSessions.map((session) => {
+                    const cardioType = resolvedCardioTypes[session.type];
                     const label = cardioType?.label ?? 'Unknown cardio type';
                     const durationValue = Number.isFinite(
                       Number(session.duration)
@@ -358,7 +389,7 @@ export const HomeScreen = ({
                 className="bg-blue-900/30 border border-blue-700 rounded-lg p-3"
               >
                 <p className="text-blue-300 font-semibold">
-                  Total Cardio Burn: {totalCardioBurn} calories
+                  Total Cardio Burn: {resolvedTotalCardioBurn} calories
                 </p>
               </motion.div>
             </motion.div>

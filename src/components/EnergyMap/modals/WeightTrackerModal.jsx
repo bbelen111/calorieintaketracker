@@ -22,6 +22,8 @@ import {
 } from '../../../utils/weight';
 import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
 import { WeightTrendInfoModal } from './WeightTrendInfoModal';
+import { shallow } from 'zustand/shallow';
+import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 
 const TrendIcon = ({ direction }) => {
   if (direction === 'up') {
@@ -236,13 +238,24 @@ export const WeightTrackerModal = ({
   entries,
   latestWeight,
   selectedGoal = 'maintenance',
-  phases = [],
+  phases,
   onClose,
   onAddEntry,
   onEditEntry,
   canSwitchToBodyFat = false,
   onSwitchToBodyFat,
 }) => {
+  const store = useEnergyMapStore(
+    (state) => ({
+      weightEntries: state.weightEntries ?? [],
+      phases: state.phases ?? [],
+      latestWeight: state.userData.weight,
+    }),
+    shallow
+  );
+  const resolvedEntries = entries ?? store.weightEntries;
+  const resolvedPhases = phases ?? store.phases;
+  const resolvedLatestWeight = latestWeight ?? store.latestWeight;
   const [selectedDate, setSelectedDate] = useState(null);
   const [tooltipEntered, setTooltipEntered] = useState(false);
   const [tooltipClosing, setTooltipClosing] = useState(false);
@@ -259,7 +272,7 @@ export const WeightTrackerModal = ({
   const scrollCloseTimeoutRef = useRef(null);
   const [graphViewportWidth, setGraphViewportWidth] = useState(0);
   const [graphViewportHeight, setGraphViewportHeight] = useState(0);
-  const prevEntriesLengthRef = useRef(entries?.length ?? 0);
+  const prevEntriesLengthRef = useRef(resolvedEntries?.length ?? 0);
 
   // Weight Trend Info Modal
   const {
@@ -270,15 +283,15 @@ export const WeightTrackerModal = ({
   } = useAnimatedModal();
 
   const sortedEntries = useMemo(
-    () => sortWeightEntries(entries ?? []),
-    [entries]
+    () => sortWeightEntries(resolvedEntries ?? []),
+    [resolvedEntries]
   );
 
   // Get selected phase object
   const selectedPhase = useMemo(() => {
     if (!selectedPhaseId) return null;
-    return phases.find((p) => p.id === selectedPhaseId) || null;
-  }, [selectedPhaseId, phases]);
+    return resolvedPhases.find((p) => p.id === selectedPhaseId) || null;
+  }, [resolvedPhases, selectedPhaseId]);
 
   // Filter entries based on selected phase - read from daily logs if phase selected
   const phaseFilteredEntries = useMemo(() => {
@@ -573,7 +586,7 @@ export const WeightTrackerModal = ({
 
   // Auto-scroll to latest entry when a new entry is added
   useEffect(() => {
-    const currentLength = entries?.length ?? 0;
+    const currentLength = resolvedEntries?.length ?? 0;
     const prevLength = prevEntriesLengthRef.current;
 
     // Only scroll if modal is open, entries increased, and we have entries
@@ -605,7 +618,7 @@ export const WeightTrackerModal = ({
 
     // Update the ref with current length
     prevEntriesLengthRef.current = currentLength;
-  }, [entries?.length, isOpen]);
+  }, [isOpen, resolvedEntries?.length]);
 
   // Auto-scroll to latest entry when phase selection or timeframe changes
   useEffect(() => {
@@ -717,7 +730,7 @@ export const WeightTrackerModal = ({
 
   const currentWeightValue = filteredEntries.length
     ? filteredEntries[filteredEntries.length - 1].weight
-    : latestWeight;
+    : resolvedLatestWeight;
   const currentWeightDisplay = (() => {
     const formatted = formatWeight(currentWeightValue);
     return formatted ? `${formatted} kg` : '—';
@@ -1082,7 +1095,7 @@ export const WeightTrackerModal = ({
 
               <div className="flex items-center gap-2">
                 {/* Phase Selector - Expandable Dropdown */}
-                {phases.length > 0 && (
+                {resolvedPhases.length > 0 && (
                   <div className="relative" ref={phaseDropdownRef}>
                     <button
                       type="button"
@@ -1117,7 +1130,7 @@ export const WeightTrackerModal = ({
                         >
                           All Data
                         </button>
-                        {phases.map((phase) => (
+                        {resolvedPhases.map((phase) => (
                           <button
                             key={phase.id}
                             type="button"

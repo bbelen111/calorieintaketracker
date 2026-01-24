@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { goals } from '../../../constants/goals';
 import { formatWeight } from '../../../utils/weight';
+import { shallow } from 'zustand/shallow';
+import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 
 const getPhaseStatusBadge = (status) => {
   switch (status) {
@@ -165,18 +167,23 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
   );
 };
 
-export const LogbookScreen = ({ phases = [], onCreatePhase, onPhaseClick }) => {
+export const LogbookScreen = ({ phases, onCreatePhase, onPhaseClick }) => {
+  const store = useEnergyMapStore(
+    (state) => ({ phases: state.phases ?? [] }),
+    shallow
+  );
+  const resolvedPhases = phases ?? store.phases;
   const activePhases = useMemo(
-    () => phases.filter((phase) => phase.status === 'active'),
-    [phases]
+    () => resolvedPhases.filter((phase) => phase.status === 'active'),
+    [resolvedPhases]
   );
 
   const completedPhases = useMemo(
-    () => phases.filter((phase) => phase.status === 'completed'),
-    [phases]
+    () => resolvedPhases.filter((phase) => phase.status === 'completed'),
+    [resolvedPhases]
   );
 
-  const hasPhases = phases.length > 0;
+  const hasPhases = resolvedPhases.length > 0;
 
   return (
     <div className="space-y-6 pb-10">

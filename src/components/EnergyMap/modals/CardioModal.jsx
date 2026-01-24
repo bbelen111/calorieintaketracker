@@ -1,10 +1,12 @@
 import React from 'react';
 import { Save, ChevronsUpDown, Star } from 'lucide-react';
+import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../common/ModalShell';
 import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
 import { CardioTypePickerModal } from './CardioTypePickerModal';
 import { CustomCardioTypeModal } from './CustomCardioTypeModal';
 import { CardioDurationPickerModal } from './CardioDurationPickerModal';
+import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 import { calculateCardioCalories } from '../../../utils/calculations';
 
 export const CardioModal = ({
@@ -26,6 +28,23 @@ export const CardioModal = ({
   mode = 'session',
   isEditing: isEditingProp,
 }) => {
+  const {
+    cardioTypes: storeCardioTypes,
+    customCardioTypes: storeCustomTypes,
+    userData,
+  } = useEnergyMapStore(
+    (state) => ({
+      cardioTypes: state.cardioTypes,
+      customCardioTypes: state.userData?.customCardioTypes,
+      userData: state.userData,
+    }),
+    shallow
+  );
+  const resolvedCardioTypes = cardioTypes ?? storeCardioTypes;
+  const resolvedCustomCardioTypes = customCardioTypes ?? storeCustomTypes;
+  const resolvedUserWeight = userWeight ?? userData?.weight;
+  const resolvedUserAge = userAge ?? userData?.age;
+  const resolvedUserGender = userGender ?? userData?.gender;
   const effortType = session.effortType ?? 'intensity';
   const isEditing = Boolean(isEditingProp ?? session?.id != null);
   const isFavouriteMode = mode === 'favourite';
@@ -38,8 +57,12 @@ export const CardioModal = ({
   const overlayClassName = isFavouriteMode ? 'z-[80]' : '';
   const estimatedBurn = calculateCardioCalories(
     session,
-    { weight: userWeight, age: userAge, gender: userGender },
-    cardioTypes
+    {
+      weight: resolvedUserWeight,
+      age: resolvedUserAge,
+      gender: resolvedUserGender,
+    },
+    resolvedCardioTypes
   );
   const hasValidDuration =
     Number.isFinite(Number(session.duration)) && Number(session.duration) > 0;
@@ -90,7 +113,7 @@ export const CardioModal = ({
     setCustomMetModerate('');
     setCustomMetVigorous('');
   }, []);
-  const selectedCardio = cardioTypes?.[session.type] ?? null;
+  const selectedCardio = resolvedCardioTypes?.[session.type] ?? null;
   const formatMetValue = (value) =>
     typeof value === 'number' ? value.toFixed(1) : '--';
   const selectedMetSummary = selectedCardio
@@ -262,8 +285,9 @@ export const CardioModal = ({
     }
 
     const alternativeType =
-      Object.keys(cardioTypes ?? {}).filter((key) => key !== typeKey)[0] ??
-      'treadmill_walk';
+      Object.keys(resolvedCardioTypes ?? {}).filter(
+        (key) => key !== typeKey
+      )[0] ?? 'treadmill_walk';
     onDeleteCustomCardioType(typeKey);
 
     if (session.type === typeKey) {
@@ -467,8 +491,8 @@ export const CardioModal = ({
       <CardioTypePickerModal
         isOpen={isTypePickerOpen}
         isClosing={isTypePickerClosing}
-        cardioTypes={cardioTypes}
-        customCardioTypes={customCardioTypes}
+        cardioTypes={resolvedCardioTypes}
+        customCardioTypes={resolvedCustomCardioTypes}
         selectedType={session.type}
         onSelect={handleCardioTypeSelect}
         onClose={requestTypePickerClose}

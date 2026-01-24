@@ -22,6 +22,8 @@ import {
 } from '../../../utils/bodyFat';
 import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
 import { BodyFatTrendInfoModal } from './BodyFatTrendInfoModal';
+import { shallow } from 'zustand/shallow';
+import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 
 const TrendIcon = ({ direction }) => {
   if (direction === 'up') {
@@ -224,12 +226,23 @@ export const BodyFatTrackerModal = ({
   entries,
   latestBodyFat,
   selectedGoal = 'maintenance',
-  phases = [],
+  phases,
   onClose,
   onAddEntry,
   onEditEntry,
   onSwitchToWeight,
 }) => {
+  const store = useEnergyMapStore(
+    (state) => ({
+      bodyFatEntries: state.bodyFatEntries ?? [],
+      phases: state.phases ?? [],
+      latestBodyFat: state.userData.bodyFatEntries?.at?.(-1)?.bodyFat ?? null,
+    }),
+    shallow
+  );
+  const resolvedEntries = entries ?? store.bodyFatEntries;
+  const resolvedPhases = phases ?? store.phases;
+  const resolvedLatestBodyFat = latestBodyFat ?? store.latestBodyFat;
   const [selectedDate, setSelectedDate] = useState(null);
   const [tooltipEntered, setTooltipEntered] = useState(false);
   const [tooltipClosing, setTooltipClosing] = useState(false);
@@ -246,7 +259,7 @@ export const BodyFatTrackerModal = ({
   const scrollCloseTimeoutRef = useRef(null);
   const [graphViewportWidth, setGraphViewportWidth] = useState(0);
   const [graphViewportHeight, setGraphViewportHeight] = useState(0);
-  const prevEntriesLengthRef = useRef(entries?.length ?? 0);
+  const prevEntriesLengthRef = useRef(resolvedEntries?.length ?? 0);
 
   const {
     isOpen: isTrendInfoOpen,
@@ -256,14 +269,14 @@ export const BodyFatTrackerModal = ({
   } = useAnimatedModal();
 
   const sortedEntries = useMemo(
-    () => sortBodyFatEntries(entries ?? []),
-    [entries]
+    () => sortBodyFatEntries(resolvedEntries ?? []),
+    [resolvedEntries]
   );
 
   const selectedPhase = useMemo(() => {
     if (!selectedPhaseId) return null;
-    return phases.find((p) => p.id === selectedPhaseId) || null;
-  }, [selectedPhaseId, phases]);
+    return resolvedPhases.find((p) => p.id === selectedPhaseId) || null;
+  }, [resolvedPhases, selectedPhaseId]);
 
   const phaseFilteredEntries = useMemo(() => {
     if (!selectedPhase) return sortedEntries;
@@ -537,7 +550,7 @@ export const BodyFatTrackerModal = ({
   }, [isOpen]);
 
   useEffect(() => {
-    const currentLength = entries?.length ?? 0;
+    const currentLength = resolvedEntries?.length ?? 0;
     const prevLength = prevEntriesLengthRef.current;
 
     if (isOpen && currentLength > prevLength && currentLength > 0) {
@@ -566,7 +579,7 @@ export const BodyFatTrackerModal = ({
     }
 
     prevEntriesLengthRef.current = currentLength;
-  }, [entries?.length, isOpen]);
+  }, [isOpen, resolvedEntries?.length]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -671,7 +684,7 @@ export const BodyFatTrackerModal = ({
 
   const currentBodyFatValue = filteredEntries.length
     ? filteredEntries[filteredEntries.length - 1].bodyFat
-    : latestBodyFat;
+    : resolvedLatestBodyFat;
   const currentBodyFatDisplay = (() => {
     const formatted = formatBodyFat(currentBodyFatValue);
     return formatted ? `${formatted}%` : '—';
@@ -1022,7 +1035,7 @@ export const BodyFatTrackerModal = ({
               </button>
 
               <div className="flex items-center gap-2">
-                {phases.length > 0 && (
+                {resolvedPhases.length > 0 && (
                   <div className="relative" ref={phaseDropdownRef}>
                     <button
                       type="button"
@@ -1056,7 +1069,7 @@ export const BodyFatTrackerModal = ({
                         >
                           All Data
                         </button>
-                        {phases.map((phase) => (
+                        {resolvedPhases.map((phase) => (
                           <button
                             key={phase.id}
                             type="button"

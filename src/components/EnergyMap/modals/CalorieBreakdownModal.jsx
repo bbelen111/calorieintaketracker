@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, ChevronDown } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
+import { goals as baseGoals } from '../../../constants/goals';
 
 export const CalorieBreakdownModal = ({
   isOpen,
@@ -15,12 +16,13 @@ export const CalorieBreakdownModal = ({
   onClose,
 }) => {
   const [expandedItem, setExpandedItem] = useState(null);
+  const resolvedGoals = goals ?? baseGoals;
 
   if (!isOpen || !breakdown) {
     return null;
   }
 
-  const goal = goals[selectedGoal];
+  const goal = resolvedGoals[selectedGoal];
   const formattedDifference =
     difference !== null && difference !== undefined ? difference : null;
   const bmrDetails = breakdown.bmrDetails ?? {};
@@ -55,8 +57,10 @@ export const CalorieBreakdownModal = ({
           <div>
             <h3 className="text-white font-bold text-xl">Calorie Breakdown</h3>
             <p className="text-slate-400 text-sm mt-1">
-              {typeof stepRange === 'number' ? stepRange.toLocaleString() : stepRange} steps •{' '}
-              {selectedDay === 'training' ? 'Training' : 'Rest'} day •{' '}
+              {typeof stepRange === 'number'
+                ? stepRange.toLocaleString()
+                : stepRange}{' '}
+              steps • {selectedDay === 'training' ? 'Training' : 'Rest'} day •{' '}
               {goal.label}
             </p>
           </div>

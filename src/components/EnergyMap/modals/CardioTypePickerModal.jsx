@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Flame, Plus, Search, Trash2 } from 'lucide-react';
+import { shallow } from 'zustand/shallow';
 import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
 import { ModalShell } from '../common/ModalShell';
+import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 import { ConfirmActionModal } from './ConfirmActionModal';
 
 export const CardioTypePickerModal = ({
@@ -15,6 +17,15 @@ export const CardioTypePickerModal = ({
   onCreateCustomCardioType,
   onDeleteCustomCardioType,
 }) => {
+  const { storeCardioTypes, storeCustomTypes } = useEnergyMapStore(
+    (state) => ({
+      storeCardioTypes: state.cardioTypes,
+      storeCustomTypes: state.userData?.customCardioTypes,
+    }),
+    shallow
+  );
+  const resolvedCardioTypes = cardioTypes ?? storeCardioTypes;
+  const resolvedCustomTypes = customCardioTypes ?? storeCustomTypes;
   const [query, setQuery] = useState('');
   const [pendingDeleteKey, setPendingDeleteKey] = useState(null);
   const {
@@ -48,12 +59,12 @@ export const CardioTypePickerModal = ({
 
   const filteredTypes = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    const entries = Object.entries(cardioTypes);
+    const entries = Object.entries(resolvedCardioTypes ?? {});
 
     if (!normalizedQuery) {
       return entries.sort((a, b) => {
-        const aCustom = Boolean(customCardioTypes?.[a[0]]);
-        const bCustom = Boolean(customCardioTypes?.[b[0]]);
+        const aCustom = Boolean(resolvedCustomTypes?.[a[0]]);
+        const bCustom = Boolean(resolvedCustomTypes?.[b[0]]);
         if (aCustom !== bCustom) {
           return aCustom ? -1 : 1;
         }
@@ -71,14 +82,14 @@ export const CardioTypePickerModal = ({
     });
 
     return filtered.sort((a, b) => {
-      const aCustom = Boolean(customCardioTypes?.[a[0]]);
-      const bCustom = Boolean(customCardioTypes?.[b[0]]);
+      const aCustom = Boolean(resolvedCustomTypes?.[a[0]]);
+      const bCustom = Boolean(resolvedCustomTypes?.[b[0]]);
       if (aCustom !== bCustom) {
         return aCustom ? -1 : 1;
       }
       return a[1].label.localeCompare(b[1].label);
     });
-  }, [cardioTypes, customCardioTypes, query]);
+  }, [resolvedCardioTypes, resolvedCustomTypes, query]);
 
   const renderMetValue = (value) =>
     typeof value === 'number' ? value.toFixed(1) : '--';
@@ -136,7 +147,7 @@ export const CardioTypePickerModal = ({
             filteredTypes.map(([key, type]) => {
               const isActive = selectedType === key;
               const { light, moderate, vigorous } = type.met ?? {};
-              const isCustom = Boolean(customCardioTypes?.[key]);
+              const isCustom = Boolean(resolvedCustomTypes?.[key]);
 
               return (
                 <button
@@ -205,7 +216,7 @@ export const CardioTypePickerModal = ({
         title="Delete cardio type?"
         description={
           pendingDeleteKey
-            ? `This will remove ${cardioTypes[pendingDeleteKey]?.label ?? 'the selected option'} from your library. Any sessions using it will revert to a default.`
+            ? `This will remove ${resolvedCardioTypes?.[pendingDeleteKey]?.label ?? 'the selected option'} from your library. Any sessions using it will revert to a default.`
             : 'This will remove the selected cardio type.'
         }
         confirmLabel="Delete"

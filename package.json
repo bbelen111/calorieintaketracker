@@ -25,7 +25,8 @@
     "framer-motion": "^12.23.24",
     "lucide-react": "^0.562.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "zustand": "^4.5.5"
   },
   "devDependencies": {
     "@babel/core": "^7.28.5",

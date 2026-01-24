@@ -2,6 +2,8 @@ import React, { useMemo } from 'react';
 import { Save, Edit3 } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import { formatDurationLabel, roundDurationHours } from '../../../utils/time';
+import { shallow } from 'zustand/shallow';
+import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 
 export const QuickTrainingModal = ({
   isOpen,
@@ -15,7 +17,12 @@ export const QuickTrainingModal = ({
   onCancel,
   onSave,
 }) => {
-  const selectedTraining = trainingTypes[tempTrainingType];
+  const store = useEnergyMapStore(
+    (state) => ({ trainingTypes: state.trainingTypes ?? {} }),
+    shallow
+  );
+  const resolvedTrainingTypes = trainingTypes ?? store.trainingTypes;
+  const selectedTraining = resolvedTrainingTypes[tempTrainingType];
   const caloriesPerHour = selectedTraining?.caloriesPerHour ?? 0;
 
   const estimatedBurn = Math.round(caloriesPerHour * tempTrainingDuration);
@@ -41,7 +48,7 @@ export const QuickTrainingModal = ({
             <label className="text-slate-300 text-sm">Training Type</label>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            {Object.entries(trainingTypes).map(([key, type]) => {
+            {Object.entries(resolvedTrainingTypes).map(([key, type]) => {
               const isActive = tempTrainingType === key;
 
               return (

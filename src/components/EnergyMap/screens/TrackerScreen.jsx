@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { MEAL_TYPE_ORDER, getMealTypeById } from '../../../constants/mealTypes';
 import { formatOne } from '../../../utils/format';
+import { shallow } from 'zustand/shallow';
+import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 
 const getTodayDate = () => {
   const today = new Date();
@@ -70,16 +72,52 @@ const shortenName = (name, maxLength = 36) => {
   return name.slice(0, maxLength - 1) + '…';
 };
 
+const parseDateKey = (dateStr) => new Date(`${dateStr}T00:00:00Z`);
+
+const toDateKey = (date) => date.toISOString().split('T')[0];
+
+const getIsoWeekYear = (date) => {
+  const d = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+  );
+  d.setUTCDate(d.getUTCDate() + 3 - ((d.getUTCDay() + 6) % 7));
+  return d.getUTCFullYear();
+};
+
+const getIsoWeekNumber = (date) => {
+  const d = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+  );
+  d.setUTCDate(d.getUTCDate() + 3 - ((d.getUTCDay() + 6) % 7));
+  const week1 = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+  return (
+    1 +
+    Math.round(
+      ((d.getTime() - week1.getTime()) / 86400000 -
+        3 +
+        ((week1.getUTCDay() + 6) % 7)) /
+        7
+    )
+  );
+};
+
+const getWeekStartDate = (dateStr) => {
+  const date = parseDateKey(dateStr);
+  const day = date.getUTCDay();
+  date.setUTCDate(date.getUTCDate() - day);
+  return date;
+};
+
 export const TrackerScreen = ({
-  nutritionData = {},
+  nutritionData,
   onAddMealEntry,
   onAddFoodToMeal,
   onEditFoodEntry,
   onDeleteFoodEntry,
   onDeleteMeal,
-  targetProtein = 150,
-  targetFats = 70,
-  stepRanges = [],
+  targetProtein,
+  targetFats,
+  stepRanges,
   selectedGoal = 'maintenance',
   selectedDay = 'training',
   getRangeDetails,
@@ -92,6 +130,34 @@ export const TrackerScreen = ({
   onToggleCalorieTargetPicker,
   isSwiping,
 }) => {
+  const store = useEnergyMapStore(
+    (state) => ({
+      nutritionData: state.nutritionData ?? {},
+      stepRanges: state.userData.stepRanges ?? [],
+      weight: state.userData.weight,
+      calculateTargetForGoal: state.calculateTargetForGoal,
+    }),
+    shallow
+  );
+
+  const resolvedNutritionData = nutritionData ?? store.nutritionData;
+  const resolvedStepRanges = stepRanges ?? store.stepRanges;
+  const resolvedTargetProtein =
+    targetProtein ?? Math.round((Number(store.weight) || 0) * 2);
+  const resolvedTargetFats =
+    targetFats ?? Math.round((Number(store.weight) || 0) * 0.8);
+  const resolvedCalculateTargetForGoal = store.calculateTargetForGoal;
+  const resolvedGetRangeDetails = useMemo(
+    () =>
+      getRangeDetails ??
+      ((steps) =>
+        resolvedCalculateTargetForGoal?.(
+          steps,
+          selectedDay === 'training',
+          selectedGoal
+        )),
+    [getRangeDetails, selectedDay, selectedGoal, resolvedCalculateTargetForGoal]
+  );
   // Support controlled (selectedDateProp + onSelectedDateChange) or uncontrolled mode
   const [internalSelectedDate, setInternalSelectedDate] = useState(
     selectedDateProp || getTodayDate()
@@ -107,37 +173,6 @@ export const TrackerScreen = ({
   const [weekSlideDirection, setWeekSlideDirection] = useState(1);
   const previousDateRef = useRef(selectedDate);
   const todayKey = getTodayDate();
-  const parseDateKey = (dateStr) => new Date(`${dateStr}T00:00:00Z`);
-  const toDateKey = (date) => date.toISOString().split('T')[0];
-  const getIsoWeekYear = (date) => {
-    const d = new Date(
-      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
-    );
-    d.setUTCDate(d.getUTCDate() + 3 - ((d.getUTCDay() + 6) % 7));
-    return d.getUTCFullYear();
-  };
-  const getIsoWeekNumber = (date) => {
-    const d = new Date(
-      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
-    );
-    d.setUTCDate(d.getUTCDate() + 3 - ((d.getUTCDay() + 6) % 7));
-    const week1 = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
-    return (
-      1 +
-      Math.round(
-        ((d.getTime() - week1.getTime()) / 86400000 -
-          3 +
-          ((week1.getUTCDay() + 6) % 7)) /
-          7
-      )
-    );
-  };
-  const getWeekStartDate = (dateStr) => {
-    const date = parseDateKey(dateStr);
-    const day = date.getUTCDay();
-    date.setUTCDate(date.getUTCDate() - day);
-    return date;
-  };
   const weekStartKey = useMemo(() => {
     const start = getWeekStartDate(selectedDate);
     return toDateKey(start);
@@ -171,14 +206,14 @@ export const TrackerScreen = ({
   // Calculate ranges based on bodyweight (matching InsightsScreen)
   // targetProtein is passed as weight * 2, so range is weight * 2.0 to weight * 2.4
   // targetFats is passed as weight * 0.8, so range is weight * 0.8 to weight * 1.0
-  const proteinMin = Math.round(targetProtein); // 2.0g per kg (already calculated)
-  const proteinMax = Math.round(targetProtein * 1.2); // 2.4g per kg (2 * 1.2 = 2.4)
-  const fatsMin = Math.round(targetFats); // 0.8g per kg (already calculated)
-  const fatsMax = Math.round(targetFats * 1.25); // 1.0g per kg (0.8 * 1.25 = 1.0)
+  const proteinMin = Math.round(resolvedTargetProtein); // 2.0g per kg (already calculated)
+  const proteinMax = Math.round(resolvedTargetProtein * 1.2); // 2.4g per kg (2 * 1.2 = 2.4)
+  const fatsMin = Math.round(resolvedTargetFats); // 0.8g per kg (already calculated)
+  const fatsMax = Math.round(resolvedTargetFats * 1.25); // 1.0g per kg (0.8 * 1.25 = 1.0)
 
   // Get data for selected date - now nested by meal type
   const dayData = useMemo(() => {
-    const data = nutritionData[selectedDate] || {};
+    const data = resolvedNutritionData[selectedDate] || {};
     // Organize meals by type with entries
     const meals = {};
     let hasEntries = false;
@@ -192,7 +227,7 @@ export const TrackerScreen = ({
     });
 
     return { meals, hasEntries };
-  }, [nutritionData, selectedDate]);
+  }, [resolvedNutritionData, selectedDate]);
 
   const { meals, hasEntries: hasFoodEntries } = dayData;
 
@@ -206,8 +241,8 @@ export const TrackerScreen = ({
     }
 
     // Determine if previous and current dates both have zero entries and update flag
-    const prevData = nutritionData[previousDateRef.current] || {};
-    const currData = nutritionData[selectedDate] || {};
+    const prevData = resolvedNutritionData[previousDateRef.current] || {};
+    const currData = resolvedNutritionData[selectedDate] || {};
     const prevCount = MEAL_TYPE_ORDER.reduce((n, mealTypeId) => {
       const arr = Array.isArray(prevData[mealTypeId])
         ? prevData[mealTypeId]
@@ -256,7 +291,7 @@ export const TrackerScreen = ({
         cancelAnimationFrame(allowRaf);
       }
     };
-  }, [selectedDate, nutritionData, skipMealAnimation]);
+  }, [resolvedNutritionData, selectedDate, skipMealAnimation]);
 
   // Reset the allowInitialAnimation flag after one frame so initial animations only run once
   useEffect(() => {
@@ -286,11 +321,11 @@ export const TrackerScreen = ({
 
   const proteinPercent = Math.min(
     100,
-    Math.round((totals.protein / targetProtein) * 100)
+    Math.round((totals.protein / resolvedTargetProtein) * 100)
   );
   const fatsPercent = Math.min(
     100,
-    Math.round((totals.fats / targetFats) * 100)
+    Math.round((totals.fats / resolvedTargetFats) * 100)
   );
 
   // Check if within range
@@ -302,9 +337,9 @@ export const TrackerScreen = ({
 
   // Get calorie target from selected step range
   const calorieTargetData = useMemo(() => {
-    if (!getRangeDetails || !selectedStepRange) return null;
-    return getRangeDetails(selectedStepRange);
-  }, [getRangeDetails, selectedStepRange]);
+    if (!resolvedGetRangeDetails || !selectedStepRange) return null;
+    return resolvedGetRangeDetails(selectedStepRange);
+  }, [resolvedGetRangeDetails, selectedStepRange]);
 
   const targetCalories = calorieTargetData?.targetCalories || 2500;
   const caloriesRemaining = targetCalories - totals.calories;
@@ -315,8 +350,8 @@ export const TrackerScreen = ({
 
   // Calculate target carbs from remaining calories after protein and fats
   // Protein: 4 cal/g, Fats: 9 cal/g, Carbs: 4 cal/g
-  const proteinCalories = targetProtein * 4;
-  const fatsCalories = targetFats * 9;
+  const proteinCalories = resolvedTargetProtein * 4;
+  const fatsCalories = resolvedTargetFats * 9;
   const remainingCaloriesForCarbs =
     targetCalories - proteinCalories - fatsCalories;
   const targetCarbs = Math.max(0, Math.round(remainingCaloriesForCarbs / 4));
@@ -376,7 +411,7 @@ export const TrackerScreen = ({
   };
 
   const hasEntriesForDate = (dateKey) => {
-    const data = nutritionData[dateKey];
+    const data = resolvedNutritionData[dateKey];
     if (!data) return false;
     return MEAL_TYPE_ORDER.some((mealTypeId) => {
       const entries = Array.isArray(data[mealTypeId]) ? data[mealTypeId] : [];
@@ -582,8 +617,8 @@ export const TrackerScreen = ({
                 className="absolute z-10 w-full mt-2 bg-slate-800 border border-slate-600/50 rounded-lg shadow-2xl max-h-64 overflow-y-auto"
                 style={{ transformOrigin: 'top center' }}
               >
-                {stepRanges.map((range) => {
-                  const rangeData = getRangeDetails?.(range);
+                {resolvedStepRanges.map((range) => {
+                  const rangeData = resolvedGetRangeDetails?.(range);
                   const isSelected = range === selectedStepRange;
                   return (
                     <button

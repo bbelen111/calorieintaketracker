@@ -1,18 +1,24 @@
-/* eslint-disable prettier/prettier */
 import React from 'react';
 import { Info, X } from 'lucide-react';
+import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../common/ModalShell';
 import { formatWeight } from '../../../utils/weight';
 import { formatBodyFat } from '../../../utils/bodyFat';
 import { calculateFFMI, getFFMICategory } from '../../../utils/calculations';
+import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 
 export const FfmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
-  const weight = userData?.weight;
-  const height = userData?.height;
-  const gender = userData?.gender || 'male';
+  const { storeUserData } = useEnergyMapStore(
+    (state) => ({ storeUserData: state.userData }),
+    shallow
+  );
+  const resolvedUserData = userData ?? storeUserData;
+  const weight = resolvedUserData?.weight;
+  const height = resolvedUserData?.height;
+  const gender = resolvedUserData?.gender || 'male';
 
-  const bodyFatEntries = Array.isArray(userData?.bodyFatEntries)
-    ? userData.bodyFatEntries
+  const bodyFatEntries = Array.isArray(resolvedUserData?.bodyFatEntries)
+    ? resolvedUserData.bodyFatEntries
     : [];
   const latestBodyFatEntry = bodyFatEntries.length
     ? [...bodyFatEntries].sort((a, b) => a.date.localeCompare(b.date)).at(-1)

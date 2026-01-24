@@ -1,10 +1,12 @@
 import React from 'react';
 import { Check, PenLine } from 'lucide-react';
+import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../common/ModalShell';
 import {
   ACTIVITY_PRESET_OPTIONS,
   DEFAULT_ACTIVITY_MULTIPLIERS,
 } from '../../../constants/activityPresets';
+import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 
 const titles = {
   training: 'Training Day NEAT',
@@ -33,13 +35,23 @@ export const DailyActivityEditorModal = ({
   onSelectCustom,
   onClose,
 }) => {
+  const { userPresets, userMultipliers } = useEnergyMapStore(
+    (state) => ({
+      userPresets: state.userData?.activityPresets,
+      userMultipliers: state.userData?.activityMultipliers,
+    }),
+    shallow
+  );
   if (!isOpen || !dayType) {
     return null;
   }
 
   const options = ACTIVITY_PRESET_OPTIONS[dayType] ?? [];
-  const activePreset = currentPreset ?? 'default';
-  const multiplier = currentMultiplier ?? DEFAULT_ACTIVITY_MULTIPLIERS[dayType];
+  const resolvedPreset = currentPreset ?? userPresets?.[dayType];
+  const resolvedMultiplier = currentMultiplier ?? userMultipliers?.[dayType];
+  const activePreset = resolvedPreset ?? 'default';
+  const multiplier =
+    resolvedMultiplier ?? DEFAULT_ACTIVITY_MULTIPLIERS[dayType];
   const customSelected = activePreset === 'custom';
 
   return (

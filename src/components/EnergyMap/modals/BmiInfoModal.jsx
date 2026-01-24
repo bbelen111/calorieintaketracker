@@ -1,12 +1,19 @@
 import React from 'react';
 import { Info, X } from 'lucide-react';
+import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../common/ModalShell';
 import { formatWeight } from '../../../utils/weight';
 import { calculateBMI, getBMICategory } from '../../../utils/calculations';
+import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 
 export const BmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
-  const weight = userData?.weight;
-  const height = userData?.height;
+  const { storeUserData } = useEnergyMapStore(
+    (state) => ({ storeUserData: state.userData }),
+    shallow
+  );
+  const resolvedUserData = userData ?? storeUserData;
+  const weight = resolvedUserData?.weight;
+  const height = resolvedUserData?.height;
   const bmi = calculateBMI(weight, height);
   const category = getBMICategory(bmi);
 

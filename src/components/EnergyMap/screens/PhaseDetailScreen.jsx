@@ -17,6 +17,8 @@ import {
   getPhaseCalendarData,
   getRecentDailyLogs,
 } from '../../../utils/phases';
+import { shallow } from 'zustand/shallow';
+import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 
 const formatDate = (dateStr) => {
   if (!dateStr) return '';
@@ -204,16 +206,21 @@ const DailyLogCard = ({ log, onEdit }) => {
 
 export const PhaseDetailScreen = ({
   phase,
-  weightEntries = [],
+  weightEntries,
   onBack,
   onAddLog,
   onEditLog,
   onArchive,
   onDelete,
 }) => {
+  const store = useEnergyMapStore(
+    (state) => ({ weightEntries: state.weightEntries ?? [] }),
+    shallow
+  );
+  const resolvedWeightEntries = weightEntries ?? store.weightEntries;
   const metrics = useMemo(
-    () => calculatePhaseMetrics(phase, weightEntries),
-    [phase, weightEntries]
+    () => calculatePhaseMetrics(phase, resolvedWeightEntries),
+    [phase, resolvedWeightEntries]
   );
 
   const calendarData = useMemo(() => getPhaseCalendarData(phase), [phase]);

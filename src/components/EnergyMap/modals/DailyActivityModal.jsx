@@ -1,10 +1,12 @@
 import React from 'react';
 import { BedDouble, Dumbbell, ChevronRight } from 'lucide-react';
+import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../common/ModalShell';
 import {
   DEFAULT_ACTIVITY_MULTIPLIERS,
   getActivityPresetByKey,
 } from '../../../constants/activityPresets';
+import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 
 const dayConfig = {
   training: {
@@ -39,12 +41,21 @@ export const DailyActivityModal = ({
   onSelectDay,
   onClose,
 }) => {
+  const { userPresets, userMultipliers } = useEnergyMapStore(
+    (state) => ({
+      userPresets: state.userData?.activityPresets,
+      userMultipliers: state.userData?.activityMultipliers,
+    }),
+    shallow
+  );
+  const resolvedPresets = activityPresets ?? userPresets;
+  const resolvedMultipliers = activityMultipliers ?? userMultipliers;
   if (!isOpen) {
     return null;
   }
 
-  const presets = activityPresets ?? { training: 'default', rest: 'default' };
-  const multipliers = activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS;
+  const presets = resolvedPresets ?? { training: 'default', rest: 'default' };
+  const multipliers = resolvedMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS;
 
   return (
     <ModalShell

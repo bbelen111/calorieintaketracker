@@ -9,10 +9,14 @@ import { Home, Map, BarChart3, ClipboardList, Target } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
+import { shallow } from 'zustand/shallow';
 import { goals } from '../../constants/goals';
 import { DEFAULT_ACTIVITY_MULTIPLIERS } from '../../constants/activityPresets';
 import { trainingTypes as presetTrainingTypes } from '../../constants/trainingTypes';
-import { useEnergyMapData } from '../../hooks/useEnergyMapData';
+import {
+  setupEnergyMapStore,
+  useEnergyMapStore,
+} from '../../store/useEnergyMapStore';
 import { useSwipeableScreens } from '../../hooks/useSwipeableScreens';
 import { useAnimatedModal } from '../../hooks/useAnimatedModal';
 import {
@@ -202,7 +206,12 @@ const buildFallbackFoodFromEntry = (entry) => {
 };
 
 export const EnergyMapCalculator = () => {
+  useEffect(() => {
+    setupEnergyMapStore();
+  }, []);
+
   const {
+    isLoaded,
     userData,
     weightEntries,
     bodyFatEntries,
@@ -249,7 +258,58 @@ export const EnergyMapCalculator = () => {
     addDailyLog,
     updateDailyLog,
     deleteDailyLog,
-  } = useEnergyMapData();
+  } = useEnergyMapStore(
+    (state) => ({
+      isLoaded: state.isLoaded,
+      userData: state.userData,
+      weightEntries: state.weightEntries,
+      bodyFatEntries: state.bodyFatEntries,
+      trainingTypes: state.trainingTypes,
+      cardioTypes: state.cardioTypes,
+      customCardioTypes: state.customCardioTypes,
+      cardioFavourites: state.cardioFavourites,
+      foodFavourites: state.foodFavourites,
+      phases: state.phases,
+      bmr: state.bmr,
+      trainingCalories: state.trainingCalories,
+      totalCardioBurn: state.totalCardioBurn,
+      handleUserDataChange: state.handleUserDataChange,
+      addStepRange: state.addStepRange,
+      removeStepRange: state.removeStepRange,
+      addCardioSession: state.addCardioSession,
+      removeCardioSession: state.removeCardioSession,
+      updateCardioSession: state.updateCardioSession,
+      addCardioFavourite: state.addCardioFavourite,
+      removeCardioFavourite: state.removeCardioFavourite,
+      updateTrainingType: state.updateTrainingType,
+      addCustomCardioType: state.addCustomCardioType,
+      removeCustomCardioType: state.removeCustomCardioType,
+      calculateTargetForGoal: state.calculateTargetForGoal,
+      calculateCardioSessionCalories: state.calculateCardioSessionCalories,
+      saveWeightEntry: state.saveWeightEntry,
+      deleteWeightEntry: state.deleteWeightEntry,
+      saveBodyFatEntry: state.saveBodyFatEntry,
+      deleteBodyFatEntry: state.deleteBodyFatEntry,
+      nutritionData: state.nutritionData,
+      pinnedFoods: state.pinnedFoods,
+      cachedFoods: state.cachedFoods,
+      addFoodEntry: state.addFoodEntry,
+      updateFoodEntry: state.updateFoodEntry,
+      deleteFoodEntry: state.deleteFoodEntry,
+      deleteMeal: state.deleteMeal,
+      togglePinnedFood: state.togglePinnedFood,
+      addFoodFavourite: state.addFoodFavourite,
+      removeFoodFavourite: state.removeFoodFavourite,
+      updateCachedFoods: state.updateCachedFoods,
+      createPhase: state.createPhase,
+      deletePhase: state.deletePhase,
+      archivePhase: state.archivePhase,
+      addDailyLog: state.addDailyLog,
+      updateDailyLog: state.updateDailyLog,
+      deleteDailyLog: state.deleteDailyLog,
+    }),
+    shallow
+  );
 
   // Health Connect integration for live step tracking
   const healthConnect = useHealthConnect();
@@ -864,18 +924,6 @@ export const EnergyMapCalculator = () => {
     [deleteWeightEntry]
   );
 
-  const handleBodyFatEntryFromListDelete = useCallback(
-    (entry) => {
-      const dateKey = normalizeDateKey(entry?.date);
-      if (!dateKey) {
-        return;
-      }
-
-      deleteBodyFatEntry(dateKey);
-    },
-    [deleteBodyFatEntry]
-  );
-
   const handleWeightEntryFromListEdit = useCallback(
     (entry) => {
       openEditWeightEntryModal(entry);
@@ -983,6 +1031,7 @@ export const EnergyMapCalculator = () => {
 
     const fallbackBodyFat =
       clampBodyFat(latestBodyFatEntry?.bodyFat ?? 18) ?? 18;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setBodyFatEntryDraft({
       date: getTodayDateString(),
       bodyFat: fallbackBodyFat,
@@ -2143,6 +2192,25 @@ export const EnergyMapCalculator = () => {
 
   const showFavouritesButton =
     cardioModalMode !== 'edit' && !cardioFavouriteEditorModal.isOpen;
+
+  if (!isLoaded) {
+    return (
+      <div
+        className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 md:p-6 flex items-center justify-center"
+        style={{
+          paddingTop: 'calc(1rem + var(--sat))',
+          paddingBottom: 'calc(1rem + var(--sab))',
+          paddingLeft: 'calc(1rem + var(--sal))',
+          paddingRight: 'calc(1rem + var(--sar))',
+        }}
+      >
+        <div className="flex flex-col items-center gap-3 text-slate-300">
+          <div className="h-10 w-10 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
+          <p className="text-sm">Loading your data…</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

@@ -26,6 +26,7 @@ import {
   CloudOff,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../common/ModalShell';
 import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
 import { ConfirmActionModal } from './ConfirmActionModal';
@@ -35,6 +36,7 @@ import {
 } from '../../../constants/foodDatabase';
 import { formatOne } from '../../../utils/format';
 import { useNetworkStatus } from '../../../hooks/useNetworkStatus';
+import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 import {
   searchFoods as searchOnlineFoods,
   getFoodDetails,
@@ -58,6 +60,27 @@ export const FoodSearchModal = ({
   cachedFoods = [],
   onUpdateCachedFoods,
 }) => {
+  const {
+    foodFavourites,
+    pinnedFoods: storePinnedFoods,
+    cachedFoods: storeCachedFoods,
+    togglePinnedFood,
+    updateCachedFoods,
+  } = useEnergyMapStore(
+    (state) => ({
+      foodFavourites: state.foodFavourites,
+      pinnedFoods: state.pinnedFoods,
+      cachedFoods: state.cachedFoods,
+      togglePinnedFood: state.togglePinnedFood,
+      updateCachedFoods: state.updateCachedFoods,
+    }),
+    shallow
+  );
+  const resolvedFavourites = favourites ?? foodFavourites;
+  const resolvedPinnedFoods = pinnedFoods ?? storePinnedFoods;
+  const resolvedCachedFoods = cachedFoods ?? storeCachedFoods;
+  const resolvedTogglePin = onTogglePin ?? togglePinnedFood;
+  const resolvedUpdateCachedFoods = onUpdateCachedFoods ?? updateCachedFoods;
   const LONG_PRESS_DURATION = 650;
   const DEBOUNCE_DELAY = 500;
   const ONLINE_CATEGORIES = {
@@ -228,10 +251,10 @@ export const FoodSearchModal = ({
       const fullFood = await getFoodDetails(previewFood.fatSecretId);
 
       // Add to cache
-      if (onUpdateCachedFoods) {
-        const updatedCache = addToFoodCache(cachedFoods, fullFood);
+      if (resolvedUpdateCachedFoods) {
+        const updatedCache = addToFoodCache(resolvedCachedFoods, fullFood);
         const trimmedCache = trimFoodCache(updatedCache, 200);
-        onUpdateCachedFoods(trimmedCache);
+        resolvedUpdateCachedFoods(trimmedCache);
       }
 
       // Pass to parent
@@ -262,8 +285,8 @@ export const FoodSearchModal = ({
     }
 
     longPressTimerRef.current = setTimeout(() => {
-      if (onTogglePin) {
-        onTogglePin(foodId);
+      if (resolvedTogglePin) {
+        resolvedTogglePin(foodId);
         skipNextClickRef.current = true;
       }
       setLongPressingId(null);
@@ -375,9 +398,9 @@ export const FoodSearchModal = ({
   };
 
   const sortedFavourites = useMemo(() => {
-    if (!Array.isArray(favourites)) return [];
+    if (!Array.isArray(resolvedFavourites)) return [];
 
-    return favourites
+    return resolvedFavourites
       .filter(Boolean)
       .slice()
       .sort((a, b) => {
@@ -388,7 +411,7 @@ export const FoodSearchModal = ({
         }
         return nameA.localeCompare(nameB);
       });
-  }, [favourites]);
+  }, [resolvedFavourites]);
 
   const hasFavourites = sortedFavourites.length > 0;
 
@@ -405,11 +428,11 @@ export const FoodSearchModal = ({
 
   const localCategoryOptions = useMemo(() => {
     const merged = { ...FOOD_CATEGORIES };
-    if (cachedFoods.length > 0) {
+    if (resolvedCachedFoods.length > 0) {
       merged.cached = { label: 'Cached', color: 'purple' };
     }
     return merged;
-  }, [cachedFoods]);
+  }, [resolvedCachedFoods]);
 
   const categoryOptions =
     searchMode === 'online' ? ONLINE_CATEGORIES : localCategoryOptions;
@@ -432,7 +455,7 @@ export const FoodSearchModal = ({
     }
 
     // Include both static DB and cached foods
-    const allFoods = [...FOOD_DATABASE, ...cachedFoods];
+    const allFoods = [...FOOD_DATABASE, ...resolvedCachedFoods];
     const subcats = new Set();
     allFoods.forEach((food) => {
       if (food.category === selectedCategory && food.subcategory) {
@@ -440,12 +463,12 @@ export const FoodSearchModal = ({
       }
     });
     return Array.from(subcats).sort();
-  }, [selectedCategory, searchMode, onlineResults, cachedFoods]);
+  }, [selectedCategory, searchMode, onlineResults, resolvedCachedFoods]);
 
   // Apply search, filter, and sort for LOCAL mode
   const localSearchResults = useMemo(() => {
     // Merge static database with cached online foods
-    const allLocalFoods = [...FOOD_DATABASE, ...cachedFoods];
+    const allLocalFoods = [...FOOD_DATABASE, ...resolvedCachedFoods];
 
     // Search using local search function, but on merged array
     let results;
@@ -490,8 +513,8 @@ export const FoodSearchModal = ({
 
     // Sort pinned foods to the top
     results = [...results].sort((a, b) => {
-      const aIsPinned = pinnedFoods.includes(a.id);
-      const bIsPinned = pinnedFoods.includes(b.id);
+      const aIsPinned = resolvedPinnedFoods.includes(a.id);
+      const bIsPinned = resolvedPinnedFoods.includes(b.id);
       if (aIsPinned && !bIsPinned) return -1;
       if (!aIsPinned && bIsPinned) return 1;
       return 0;
@@ -504,8 +527,8 @@ export const FoodSearchModal = ({
     selectedSubcategory,
     sortBy,
     sortOrder,
-    pinnedFoods,
-    cachedFoods,
+    resolvedPinnedFoods,
+    resolvedCachedFoods,
   ]);
 
   const onlineSearchResults = useMemo(() => {
@@ -796,9 +819,9 @@ export const FoodSearchModal = ({
               <>
                 {displayResults.length}{' '}
                 {displayResults.length === 1 ? 'food' : 'foods'} found
-                {cachedFoods.length > 0 && (
+                {resolvedCachedFoods.length > 0 && (
                   <span className="ml-2 text-xs text-slate-500">
-                    (+{cachedFoods.length} cached)
+                    (+{resolvedCachedFoods.length} cached)
                   </span>
                 )}
               </>
@@ -1297,7 +1320,7 @@ export const FoodSearchModal = ({
                   /* Local Results */
                   !isSearching &&
                   displayResults.map((food) => {
-                    const isPinned = pinnedFoods.includes(food.id);
+                    const isPinned = resolvedPinnedFoods.includes(food.id);
                     const isLongPressing = longPressingId === food.id;
                     let borderClass = '';
                     let shadowClass = '';

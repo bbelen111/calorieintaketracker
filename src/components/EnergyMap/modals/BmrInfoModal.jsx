@@ -1,12 +1,23 @@
 import React from 'react';
 import { Info, X } from 'lucide-react';
+import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../common/ModalShell';
 import { formatDateLabel, formatWeight } from '../../../utils/weight';
 import { formatBodyFat } from '../../../utils/bodyFat';
+import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 
 export const BmrInfoModal = ({ isOpen, isClosing, userData, bmr, onClose }) => {
-  const bodyFatEntries = Array.isArray(userData?.bodyFatEntries)
-    ? userData.bodyFatEntries
+  const { storeUserData, storeBmr } = useEnergyMapStore(
+    (state) => ({
+      storeUserData: state.userData,
+      storeBmr: state.bmr,
+    }),
+    shallow
+  );
+  const resolvedUserData = userData ?? storeUserData;
+  const resolvedBmr = bmr ?? storeBmr;
+  const bodyFatEntries = Array.isArray(resolvedUserData?.bodyFatEntries)
+    ? resolvedUserData.bodyFatEntries
     : [];
   const latestBodyFatEntry = bodyFatEntries.length
     ? [...bodyFatEntries].sort((a, b) => a.date.localeCompare(b.date)).at(-1)
@@ -20,8 +31,8 @@ export const BmrInfoModal = ({ isOpen, isClosing, userData, bmr, onClose }) => {
         }
       )}`
     : 'No entries yet';
-  const weightEntries = Array.isArray(userData?.weightEntries)
-    ? userData.weightEntries
+  const weightEntries = Array.isArray(resolvedUserData?.weightEntries)
+    ? resolvedUserData.weightEntries
     : [];
   const latestWeightEntry = weightEntries.length
     ? [...weightEntries].sort((a, b) => a.date.localeCompare(b.date)).at(-1)
@@ -88,7 +99,7 @@ export const BmrInfoModal = ({ isOpen, isClosing, userData, bmr, onClose }) => {
                 Lean mass = weight × (1 − body fat %)
               </p>
             </div>
-            {userData.gender === 'male' ? (
+            {resolvedUserData?.gender === 'male' ? (
               <div>
                 <p className="text-green-400">Mifflin-St Jeor (Men):</p>
                 <p className="mt-1">
@@ -117,7 +128,7 @@ export const BmrInfoModal = ({ isOpen, isClosing, userData, bmr, onClose }) => {
                 {latestWeightLabel}
               </span>
             </p>
-            {userData.bodyFatTrackingEnabled && (
+            {resolvedUserData?.bodyFatTrackingEnabled && (
               <p>
                 Body fat:{' '}
                 <span className="text-white font-semibold">
@@ -128,25 +139,27 @@ export const BmrInfoModal = ({ isOpen, isClosing, userData, bmr, onClose }) => {
             <p>
               Height:{' '}
               <span className="text-white font-semibold">
-                {userData.height} cm
+                {resolvedUserData?.height} cm
               </span>
             </p>
             <p>
               Age:{' '}
               <span className="text-white font-semibold">
-                {userData.age} years
+                {resolvedUserData?.age} years
               </span>
             </p>
             <p>
               Gender:{' '}
               <span className="text-white font-semibold capitalize">
-                {userData.gender}
+                {resolvedUserData?.gender}
               </span>
             </p>
             <div className="border-t border-blue-700/50 mt-2 pt-2">
               <p className="text-lg">
                 Your BMR:{' '}
-                <span className="text-white font-bold">{bmr} calories/day</span>
+                <span className="text-white font-bold">
+                  {resolvedBmr} calories/day
+                </span>
               </p>
             </div>
           </div>

@@ -8,6 +8,8 @@ import { ModalShell } from '../common/ModalShell';
 import { formatDurationLabel, roundDurationHours } from '../../../utils/time';
 import { formatDateLabel, formatWeight } from '../../../utils/weight';
 import { formatBodyFat } from '../../../utils/bodyFat';
+import { shallow } from 'zustand/shallow';
+import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 
 export const SettingsModal = ({
   isOpen,
@@ -26,23 +28,46 @@ export const SettingsModal = ({
   onManageBodyFatClick,
   weightEntries,
   bodyFatEntries,
-  bodyFatTrackingEnabled = true,
+  bodyFatTrackingEnabled,
   onCancel,
   onSave,
 }) => {
+  const store = useEnergyMapStore(
+    (state) => ({
+      userData: state.userData,
+      bmr: state.bmr,
+      trainingTypes: state.trainingTypes,
+      trainingCalories: state.trainingCalories,
+      weightEntries: state.weightEntries ?? [],
+      bodyFatEntries: state.bodyFatEntries ?? [],
+    }),
+    shallow
+  );
+
+  const resolvedUserData = userData ?? store.userData;
+  const resolvedBmr = bmr ?? store.bmr;
+  const resolvedTrainingTypes = trainingTypes ?? store.trainingTypes;
+  const resolvedTrainingCalories = trainingCalories ?? store.trainingCalories;
+  const resolvedWeightEntries = weightEntries ?? store.weightEntries;
+  const resolvedBodyFatEntries = bodyFatEntries ?? store.bodyFatEntries;
+  const resolvedBodyFatTrackingEnabled =
+    typeof bodyFatTrackingEnabled === 'boolean'
+      ? bodyFatTrackingEnabled
+      : resolvedUserData.bodyFatTrackingEnabled;
+
   const latestWeightEntry = useMemo(
     () =>
-      Array.isArray(weightEntries) && weightEntries.length
-        ? weightEntries[weightEntries.length - 1]
+      Array.isArray(resolvedWeightEntries) && resolvedWeightEntries.length
+        ? resolvedWeightEntries[resolvedWeightEntries.length - 1]
         : null,
-    [weightEntries]
+    [resolvedWeightEntries]
   );
 
   const displayedWeight = useMemo(() => {
-    const resolved = latestWeightEntry?.weight ?? userData.weight;
+    const resolved = latestWeightEntry?.weight ?? resolvedUserData.weight;
     const formatted = formatWeight(resolved);
     return formatted ?? '—';
-  }, [latestWeightEntry?.weight, userData.weight]);
+  }, [latestWeightEntry?.weight, resolvedUserData.weight]);
 
   const lastLoggedLabel = useMemo(() => {
     if (!latestWeightEntry?.date) {
@@ -53,10 +78,10 @@ export const SettingsModal = ({
 
   const latestBodyFatEntry = useMemo(
     () =>
-      Array.isArray(bodyFatEntries) && bodyFatEntries.length
-        ? bodyFatEntries[bodyFatEntries.length - 1]
+      Array.isArray(resolvedBodyFatEntries) && resolvedBodyFatEntries.length
+        ? resolvedBodyFatEntries[resolvedBodyFatEntries.length - 1]
         : null,
-    [bodyFatEntries]
+    [resolvedBodyFatEntries]
   );
 
   const displayedBodyFat = useMemo(() => {
@@ -88,7 +113,7 @@ export const SettingsModal = ({
             <div className="relative">
               <input
                 type="number"
-                value={userData.age}
+                value={resolvedUserData.age}
                 onChange={(event) =>
                   onChange('age', parseInt(event.target.value, 10) || 0)
                 }
@@ -112,7 +137,7 @@ export const SettingsModal = ({
                 onClick={() => onChange('gender', 'male')}
                 type="button"
                 className={`py-3 px-2 rounded-lg border-2 transition-all font-semibold flex items-center justify-center gap-2 ${
-                  userData.gender === 'male'
+                  resolvedUserData.gender === 'male'
                     ? 'bg-blue-600 border-blue-400 text-white'
                     : 'bg-slate-700 border-slate-600 text-slate-300 active:scale-95'
                 }`}
@@ -124,7 +149,7 @@ export const SettingsModal = ({
                 onClick={() => onChange('gender', 'female')}
                 type="button"
                 className={`py-3 px-2 rounded-lg border-2 transition-all font-semibold flex items-center justify-center gap-2 ${
-                  userData.gender === 'female'
+                  resolvedUserData.gender === 'female'
                     ? 'bg-indigo-600 border-indigo-400 text-white'
                     : 'bg-slate-700 border-slate-600 text-slate-300 active:scale-95'
                 }`}
@@ -162,23 +187,26 @@ export const SettingsModal = ({
               <button
                 type="button"
                 onClick={() =>
-                  onChange('bodyFatTrackingEnabled', !bodyFatTrackingEnabled)
+                  onChange(
+                    'bodyFatTrackingEnabled',
+                    !resolvedBodyFatTrackingEnabled
+                  )
                 }
                 className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all ${
-                  bodyFatTrackingEnabled
+                  resolvedBodyFatTrackingEnabled
                     ? 'bg-emerald-600/20 border-emerald-400 text-emerald-200'
                     : 'bg-slate-700 border-slate-600 text-slate-300'
                 }`}
               >
-                {bodyFatTrackingEnabled ? 'Enabled' : 'Disabled'}
+                {resolvedBodyFatTrackingEnabled ? 'Enabled' : 'Disabled'}
               </button>
             </div>
             <button
               type="button"
               onClick={() => onManageBodyFatClick?.()}
-              disabled={!bodyFatTrackingEnabled}
+              disabled={!resolvedBodyFatTrackingEnabled}
               className={`w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1 text-left font-semibold ${
-                bodyFatTrackingEnabled
+                resolvedBodyFatTrackingEnabled
                   ? 'bg-blue-600 border-blue-400 text-white hover:bg-blue-500/90'
                   : 'bg-slate-700 border-slate-600 text-slate-400 cursor-not-allowed'
               }`}
@@ -187,12 +215,14 @@ export const SettingsModal = ({
                 {displayedBodyFat !== '—' ? `${displayedBodyFat}%` : '—'}
               </span>
               <span className="text-xs md:text-sm opacity-90">
-                {bodyFatTrackingEnabled
+                {resolvedBodyFatTrackingEnabled
                   ? bodyFatLoggedLabel
                   : 'Tracking disabled'}
               </span>
               <span className="text-[11px] opacity-80 ml-auto whitespace-nowrap">
-                {bodyFatTrackingEnabled ? 'Tap to manage' : 'Enable to use'}
+                {resolvedBodyFatTrackingEnabled
+                  ? 'Tap to manage'
+                  : 'Enable to use'}
               </span>
             </button>
           </div>
@@ -204,7 +234,7 @@ export const SettingsModal = ({
             <div className="relative">
               <input
                 type="number"
-                value={userData.height}
+                value={resolvedUserData.height}
                 onChange={(event) =>
                   onChange('height', parseFloat(event.target.value) || 0)
                 }
@@ -223,8 +253,8 @@ export const SettingsModal = ({
         </div>
 
         <DailyActivitySection
-          userData={userData}
-          bmr={bmr}
+          userData={resolvedUserData}
+          bmr={resolvedBmr}
           onDailyActivityClick={onDailyActivityClick}
         />
 
@@ -239,11 +269,18 @@ export const SettingsModal = ({
           >
             <div className="min-w-0 pr-24 md:pr-28">
               <div className="font-semibold text-base">
-                {trainingTypes[userData.trainingType].label}
+                {resolvedTrainingTypes[resolvedUserData.trainingType].label}
               </div>
               <div className="text-xs md:text-sm opacity-90 mt-0.5">
-                {trainingTypes[userData.trainingType].caloriesPerHour} cal/hr •{' '}
-                {trainingTypes[userData.trainingType].description}
+                {
+                  resolvedTrainingTypes[resolvedUserData.trainingType]
+                    .caloriesPerHour
+                }{' '}
+                cal/hr •{' '}
+                {
+                  resolvedTrainingTypes[resolvedUserData.trainingType]
+                    .description
+                }
               </div>
             </div>
             <span className="pointer-events-none absolute top-3 right-3 md:top-4 md:right-4 text-[11px] opacity-75 whitespace-nowrap">
@@ -257,11 +294,12 @@ export const SettingsModal = ({
             Training Duration (hours)
           </label>
           <DurationButton
-            duration={userData.trainingDuration}
+            duration={resolvedUserData.trainingDuration}
             onClick={onTrainingDurationClick}
           />
           <p className="text-slate-400 text-xs mt-1">
-            Training session burn: ~{Math.round(trainingCalories)} calories
+            Training session burn: ~{Math.round(resolvedTrainingCalories)}{' '}
+            calories
           </p>
         </div>
       </div>

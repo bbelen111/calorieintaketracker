@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Heart, Plus, Trash2, Edit3, Utensils } from 'lucide-react';
+import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../common/ModalShell';
 import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
+import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 import { ConfirmActionModal } from './ConfirmActionModal';
 import {
   FOOD_CATEGORIES,
@@ -86,6 +88,15 @@ export const FoodFavouritesModal = ({
   onDeleteFavourite,
   onClose,
 }) => {
+  const { foodFavourites, removeFoodFavourite } = useEnergyMapStore(
+    (state) => ({
+      foodFavourites: state.foodFavourites,
+      removeFoodFavourite: state.removeFoodFavourite,
+    }),
+    shallow
+  );
+  const resolvedFavourites = favourites ?? foodFavourites;
+  const resolvedDeleteFavourite = onDeleteFavourite ?? removeFoodFavourite;
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
   const entryIdRef = useRef(1);
   const {
@@ -97,11 +108,11 @@ export const FoodFavouritesModal = ({
   } = useAnimatedModal(false);
 
   const sortedFavourites = useMemo(() => {
-    if (!Array.isArray(favourites)) {
+    if (!Array.isArray(resolvedFavourites)) {
       return [];
     }
 
-    return favourites
+    return resolvedFavourites
       .filter(Boolean)
       .slice()
       .sort((a, b) => {
@@ -112,7 +123,7 @@ export const FoodFavouritesModal = ({
         }
         return nameA.localeCompare(nameB);
       });
-  }, [favourites]);
+  }, [resolvedFavourites]);
 
   const hasFavourites = sortedFavourites.length > 0;
 
@@ -279,7 +290,7 @@ export const FoodFavouritesModal = ({
                       </button>
 
                       {/* Delete button */}
-                      {typeof onDeleteFavourite === 'function' &&
+                      {typeof resolvedDeleteFavourite === 'function' &&
                         favourite.id != null && (
                           <button
                             type="button"
@@ -336,7 +347,7 @@ export const FoodFavouritesModal = ({
         onConfirm={() => {
           requestConfirmClose();
           if (pendingDeleteId != null) {
-            onDeleteFavourite?.(pendingDeleteId);
+            resolvedDeleteFavourite?.(pendingDeleteId);
           }
         }}
         onCancel={() => requestConfirmClose()}

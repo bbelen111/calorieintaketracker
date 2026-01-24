@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../common/ModalShell';
 import {
   Trash2,
@@ -9,6 +10,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { formatWeight } from '../../../utils/weight';
+import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 
 export const DailyLogModal = ({
   isOpen,
@@ -28,8 +30,13 @@ export const DailyLogModal = ({
   error,
   isDateLocked = false,
 }) => {
+  const { weightEntries } = useEnergyMapStore(
+    (state) => ({ weightEntries: state.weightEntries }),
+    shallow
+  );
+  const resolvedWeightEntries = availableWeightEntries ?? weightEntries;
   // Find weight entry that matches the selected date
-  const matchingWeight = availableWeightEntries.find(
+  const matchingWeight = resolvedWeightEntries.find(
     (entry) => entry.date === date
   );
 

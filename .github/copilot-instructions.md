@@ -12,12 +12,13 @@ This app is designed to be wrapped by Capacitor for mobile deployment (iOS/Andro
 - **App ID:** `com.energymap.tracker` - defined in `capacitor.config.json` as the bundle identifier for native builds.
 
 ## Project Overview
-React + Vite single-page app for fitness calorie tracking. Uses Framer Motion for animations, Tailwind for styling, and Capacitor Preferences for native persistence. **No backend, no API calls, no routing** - pure client-side state management. Fully offline-capable local-first architecture.
+React + Vite single-page app for fitness calorie tracking. Uses Framer Motion for animations, Tailwind for styling, **Zustand for state**, and Capacitor Preferences for native persistence. **No backend, no API calls, no routing** - pure client-side state management. Fully offline-capable local-first architecture.
 
 **Tech Stack:**
 - React 18.3.1 + Vite 5.4.11
 - Capacitor 8.0.1 (iOS/Android)
 - **Persistence:** `@capacitor/preferences` (Native storage, NOT localStorage)
+- **State:** `zustand` store (centralized, debounced persistence)
 - Framer Motion 12.23.24 (animations)
 - Tailwind 3.4.17 (styling)
 - Lucide React (icons)
@@ -28,15 +29,17 @@ React + Vite single-page app for fitness calorie tracking. Uses Framer Motion fo
 - `@capacitor/keyboard` (Input handling)
 - `@capacitor/splash-screen` (Launch experience)
 
-## Architecture Pattern: Centralized State Coordinator
+## Architecture Pattern: Store + Orchestrator
 
-**`EnergyMapCalculator.jsx`** is the single source of truth - a 2700+ line orchestrator managing:
+**`EnergyMapCalculator.jsx`** is the UI orchestrator managing:
 - All modal states via `useAnimatedModal` hook (40+ modals total)
-- User data via `useEnergyMapData` hook (preferences-backed, debounced)
-- Screen navigation via `useSwipeableScreens` hook (6 screens: Logbook, Tracker, Home, Calorie Map, Insights, Phase Detail)
+- Store-backed user data via `useEnergyMapStore` (preferences-backed, debounced)
+- Screen navigation via `useSwipeableScreens` hook (5 screens: Logbook, Tracker, Home, Calorie Map, Insights)
 - Temporary UI state for pickers, drafts, and forms (e.g., `tempCardioDraft`, `tempPhaseData`)
 
-**Data flow:** User action → Modal state change → `useEnergyMapData` hook → Debounced Save (1s) → Native Preferences → Re-render
+**Data flow:** User action → Store update → Debounced Save (1s) → Native Preferences → Re-render
+
+**Hydration gate:** `EnergyMapCalculator` waits for `useEnergyMapStore().isLoaded` before rendering to prevent initial flash.
 
 **File stats:** 2700+ lines managing 40+ modal instances, 6 screen components, and all inter-component state coordination.
 
@@ -53,10 +56,13 @@ const myModal = useAnimatedModal();
 <MyModal isOpen={myModal.isOpen} isClosing={myModal.isClosing} />
 ```
 
-### `useEnergyMapData` - Single State Hook
-Encapsulates all business logic: BMR calculations, cardio sessions, weight tracking, step ranges. Returns derived values (`bmr`, `trainingCalories`, `totalCardioBurn`) that auto-update when `userData` changes. **Never duplicate calculation logic** - use the hook's exported functions.
+### `useEnergyMapStore` - Centralized State
+Encapsulates all business logic: BMR calculations, cardio sessions, weight tracking, step ranges. Returns derived values (`bmr`, `trainingCalories`, `totalCardioBurn`) that auto-update when `userData` changes. **Never duplicate calculation logic** - use the store's selectors/actions.
 - **Important:** Handles asynchronous loading/saving to native preferences.
 - **Debouncing:** Saves are delayed by 1 second to prevent UI stuttering on input.
+
+### `useEnergyMapData` - Legacy Wrapper
+Thin compatibility wrapper around the store. Prefer direct store selectors in new code.
 
 ### `useSwipeableScreens` - Horizontal Swiping
 Manages 5-screen carousel (Logbook, Tracker, Home, Calorie Map, Insights). Returns `currentScreen`, `sliderStyle`, and touch `handlers`. All screens render simultaneously with `flex-shrink-0 w-full` - visibility controlled by transform.
@@ -189,15 +195,14 @@ Food database (`constants/foodDatabase.js`) contains 3000+ items with per-100g m
 - **Icons:** Lucide React at 20px default, 32px for headers
 
 ## Common Pitfalls
- **Async Storage:** Unlike localStorage, `Preferences` are async. **Always await** load/save operations or use the handled `useEnergyMapData` hook.
-2.  **Debouncing:** Do not remove the `setTimeout` in `useEnergyMapData`. Saving 2MB of JSON on every keystroke will freeze the UI.
-3.  **Don't call `forceClose()`** unless absolutely necessary - breaks exit animations
-4.  **Don't call `forceClose()`** unless absolutely necessary - breaks exit animations
-2. **Step range parsing** is complex - use `parseStepRange()` from `utils/steps.js`, supports `<10k`, `>20k`, `10k-15k` formats
-3. **Cardio effort types:** `'intensity'` (MET-based) vs `'heartRate'` (formula-based) - check `effortType` field
-4. **Training type overrides:** Merged in `useEnergyMapData`, not raw from constants
-5. **Modal nesting:** Parent must delay cleanup to prevent child unmounting early
-6. **Safe Area padding:** When modifying full-screen layouts, ensure `padding-top/bottom` includes `var(--sat)` / `var(--sab)` for notch support.
+1. **Async Storage:** Unlike localStorage, `Preferences` are async. **Always await** load/save operations or use the handled store.
+2. **Debouncing:** Do not remove the debounce in `useEnergyMapStore` setup. Saving 2MB of JSON on every keystroke will freeze the UI.
+3. **Don't call `forceClose()`** unless absolutely necessary - breaks exit animations.
+4. **Step range parsing** is complex - use `parseStepRange()` from `utils/steps.js`, supports `<10k`, `>20k`, `10k-15k` formats.
+5. **Cardio effort types:** `'intensity'` (MET-based) vs `'heartRate'` (formula-based) - check `effortType` field.
+6. **Training type overrides:** Merged in `useEnergyMapStore`, not raw from constants.
+7. **Modal nesting:** Parent must delay cleanup to prevent child unmounting early.
+8. **Safe Area padding:** When modifying full-screen layouts, ensure `padding-top/bottom` includes `var(--sat)` / `var(--sab)` for notch support.
 
 ## Development Workflow
 
@@ -227,11 +232,11 @@ npm run format         # Run Prettier formatting
 - **`/constants`** - Static lookup tables (goals, cardio types, training presets, 3000+ food items)
 - **`/utils`** - Pure functions for calculations, parsing, formatting, export (CSV/JSON)
 - **`/hooks`** - Stateful logic extraction (modals, data, swiping)
+- **`/store`** - Zustand store (hydration, actions, derived state)
 
 ## Key Files to Reference
 Preferences-backed hooks with derived state and debouncing
 - **`calculations.js`** - Canonical calculation implementations
 - **`ModalShell.jsx`** - Scroll-lock and animation handling
-- **`storage.js`** - Data schema, default values, and migrationplementations
-- **`ModalShell.jsx`** - Scroll-lock and animation handling
-- **`storage.js`** - Default data schema and merge logic
+- **`storage.js`** - Data schema, default values, and migration implementations
+- **`useEnergyMapStore.js`** - Zustand state, selectors, derived values, and persistence

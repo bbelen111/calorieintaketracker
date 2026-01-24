@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Heart, Plus, Trash2 } from 'lucide-react';
+import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../common/ModalShell';
 import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
+import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 import { ConfirmActionModal } from './ConfirmActionModal';
 
 const getCardioLabel = (cardioTypes, type) =>
@@ -91,6 +93,22 @@ export const CardioFavouritesModal = ({
   onClose,
   calculateCardioCalories,
 }) => {
+  const {
+    cardioTypes: storeCardioTypes,
+    cardioFavourites,
+    calculateCardioSessionCalories,
+  } = useEnergyMapStore(
+    (state) => ({
+      cardioTypes: state.cardioTypes,
+      cardioFavourites: state.cardioFavourites,
+      calculateCardioSessionCalories: state.calculateCardioSessionCalories,
+    }),
+    shallow
+  );
+  const resolvedCardioTypes = cardioTypes ?? storeCardioTypes;
+  const resolvedFavourites = favourites ?? cardioFavourites;
+  const resolvedCalculateCalories =
+    calculateCardioCalories ?? calculateCardioSessionCalories;
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
   const {
     isOpen: isConfirmOpen,
@@ -101,16 +119,22 @@ export const CardioFavouritesModal = ({
   } = useAnimatedModal(false);
 
   const sortedFavourites = useMemo(() => {
-    if (!Array.isArray(favourites)) {
+    if (!Array.isArray(resolvedFavourites)) {
       return [];
     }
 
-    return favourites
+    return resolvedFavourites
       .filter(Boolean)
       .slice()
       .sort((a, b) => {
-        const labelA = getCardioLabel(cardioTypes, a.type).toLowerCase();
-        const labelB = getCardioLabel(cardioTypes, b.type).toLowerCase();
+        const labelA = getCardioLabel(
+          resolvedCardioTypes,
+          a.type
+        ).toLowerCase();
+        const labelB = getCardioLabel(
+          resolvedCardioTypes,
+          b.type
+        ).toLowerCase();
         if (labelA === labelB) {
           const durationValueA = Number(a.duration);
           const durationValueB = Number(b.duration);
@@ -124,7 +148,7 @@ export const CardioFavouritesModal = ({
         }
         return labelA.localeCompare(labelB);
       });
-  }, [cardioTypes, favourites]);
+  }, [resolvedCardioTypes, resolvedFavourites]);
 
   const hasFavourites = sortedFavourites.length > 0;
 
@@ -182,10 +206,10 @@ export const CardioFavouritesModal = ({
             sortedFavourites.map((favourite) => {
               const key =
                 favourite.id ?? `${favourite.type}-${favourite.duration}`;
-              const label = getCardioLabel(cardioTypes, favourite.type);
+              const label = getCardioLabel(resolvedCardioTypes, favourite.type);
               const effortSummary = formatEffortSummary(favourite);
               const caloriesSummary = getCaloriesSummary(
-                calculateCardioCalories,
+                resolvedCalculateCalories,
                 favourite
               );
               const active = isSameSession(currentSession, favourite);

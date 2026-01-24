@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier */
 import React, { useMemo } from 'react';
 import { Info, PieChart, Lightbulb, LineChart } from 'lucide-react';
 import {
@@ -18,6 +17,8 @@ import {
   calculateFFMI,
   getFFMICategory,
 } from '../../../utils/calculations';
+import { shallow } from 'zustand/shallow';
+import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 
 const getTrendToneClass = (direction, label) => {
   // If no meaningful data, show white
@@ -76,25 +77,42 @@ const formatBodyFatWeeklyRate = (value) => {
 export const InsightsScreen = ({
   userData,
   selectedGoal,
-  weightEntries = [],
+  weightEntries,
   onOpenWeightTracker,
-  bodyFatEntries = [],
-  bodyFatTrackingEnabled = true,
+  bodyFatEntries,
+  bodyFatTrackingEnabled,
   onOpenBodyFatTracker,
   onOpenBmiInfo,
   onOpenFfmiInfo,
 }) => {
+  const store = useEnergyMapStore(
+    (state) => ({
+      userData: state.userData,
+      weightEntries: state.weightEntries ?? [],
+      bodyFatEntries: state.bodyFatEntries ?? [],
+    }),
+    shallow
+  );
+
+  const resolvedUserData = userData ?? store.userData;
+  const resolvedWeightEntries = weightEntries ?? store.weightEntries;
+  const resolvedBodyFatEntries = bodyFatEntries ?? store.bodyFatEntries;
+  const resolvedBodyFatTrackingEnabled =
+    typeof bodyFatTrackingEnabled === 'boolean'
+      ? bodyFatTrackingEnabled
+      : resolvedUserData.bodyFatTrackingEnabled;
+
   // Only keep the last 7 entries
   const sortedEntries = useMemo(() => {
-    if (!weightEntries.length) return [];
+    if (!resolvedWeightEntries.length) return [];
 
     // Sort entries first
-    const sorted = [...weightEntries].sort((a, b) =>
+    const sorted = [...resolvedWeightEntries].sort((a, b) =>
       a.date.localeCompare(b.date)
     );
 
     return sorted.slice(-7);
-  }, [weightEntries]);
+  }, [resolvedWeightEntries]);
   const trend = useMemo(
     () => calculateWeightTrend(sortedEntries),
     [sortedEntries]
@@ -117,14 +135,14 @@ export const InsightsScreen = ({
   );
 
   const sortedBodyFatEntries = useMemo(() => {
-    if (!bodyFatEntries.length) return [];
+    if (!resolvedBodyFatEntries.length) return [];
 
-    const sorted = [...bodyFatEntries].sort((a, b) =>
+    const sorted = [...resolvedBodyFatEntries].sort((a, b) =>
       a.date.localeCompare(b.date)
     );
 
     return sorted.slice(-7);
-  }, [bodyFatEntries]);
+  }, [resolvedBodyFatEntries]);
 
   const bodyFatTrend = useMemo(
     () => calculateBodyFatTrend(sortedBodyFatEntries),
@@ -152,8 +170,12 @@ export const InsightsScreen = ({
 
   // BMI calculation
   const bmi = useMemo(
-    () => calculateBMI(latestEntry?.weight ?? userData.weight, userData.height),
-    [latestEntry, userData.weight, userData.height]
+    () =>
+      calculateBMI(
+        latestEntry?.weight ?? resolvedUserData.weight,
+        resolvedUserData.height
+      ),
+    [latestEntry, resolvedUserData.height, resolvedUserData.weight]
   );
   const bmiCategory = useMemo(() => getBMICategory(bmi), [bmi]);
 
@@ -161,18 +183,25 @@ export const InsightsScreen = ({
   const ffmiData = useMemo(
     () =>
       calculateFFMI(
-        latestEntry?.weight ?? userData.weight,
-        userData.height,
+        latestEntry?.weight ?? resolvedUserData.weight,
+        resolvedUserData.height,
         latestBodyFatEntry?.bodyFat
       ),
-    [latestEntry, userData.weight, userData.height, latestBodyFatEntry]
+    [
+      latestEntry,
+      latestBodyFatEntry,
+      resolvedUserData.height,
+      resolvedUserData.weight,
+    ]
   );
   const ffmiCategory = useMemo(
-    () => getFFMICategory(ffmiData?.normalized, userData.gender),
-    [ffmiData, userData.gender]
+    () => getFFMICategory(ffmiData?.normalized, resolvedUserData.gender),
+    [ffmiData, resolvedUserData.gender]
   );
 
-  const currentWeight = formatWeight(latestEntry?.weight ?? userData.weight);
+  const currentWeight = formatWeight(
+    latestEntry?.weight ?? resolvedUserData.weight
+  );
   const lastLoggedLabel = latestEntry?.date
     ? formatDateLabel(latestEntry.date, { month: 'short', day: 'numeric' })
     : 'No entries yet';
@@ -571,7 +600,7 @@ export const InsightsScreen = ({
             </p>
           </button>
 
-          {bodyFatTrackingEnabled && (
+          {resolvedBodyFatTrackingEnabled && (
             <button
               type="button"
               onClick={onOpenBodyFatTracker}
@@ -910,7 +939,7 @@ export const InsightsScreen = ({
             </button>
           )}
 
-          {!bodyFatTrackingEnabled ? (
+          {!resolvedBodyFatTrackingEnabled ? (
             <button
               type="button"
               onClick={onOpenBmiInfo}
@@ -996,16 +1025,16 @@ export const InsightsScreen = ({
           <div className="bg-red-900/30 border border-red-700 rounded-xl p-4">
             <p className="text-red-400 font-bold mb-2">Protein</p>
             <p className="text-white text-2xl font-bold">
-              {Math.round(userData.weight * 2.0)}-
-              {Math.round(userData.weight * 2.4)}g
+              {Math.round(resolvedUserData.weight * 2.0)}-
+              {Math.round(resolvedUserData.weight * 2.4)}g
             </p>
             <p className="text-slate-400 text-sm">2.0-2.4g per kg bodyweight</p>
           </div>
           <div className="bg-yellow-900/30 border border-yellow-700 rounded-xl p-4">
             <p className="text-yellow-400 font-bold mb-2">Fats</p>
             <p className="text-white text-2xl font-bold">
-              {Math.round(userData.weight * 0.8)}-
-              {Math.round(userData.weight * 1.0)}g
+              {Math.round(resolvedUserData.weight * 0.8)}-
+              {Math.round(resolvedUserData.weight * 1.0)}g
             </p>
             <p className="text-slate-400 text-sm">0.8-1.0g per kg bodyweight</p>
           </div>
@@ -1022,9 +1051,9 @@ export const InsightsScreen = ({
             <Info size={20} className="text-red-300 flex-shrink-0 mt-0.5" />
             <p className="text-red-100 text-sm">
               During an aggressive cut, push protein to the upper end of the{' '}
-              {Math.round(userData.weight * 2.4)}g+ range to help preserve lean
-              mass. Consider exceeding this slightly if recovery or satiety
-              suffer.
+              {Math.round(resolvedUserData.weight * 2.4)}g+ range to help
+              preserve lean mass. Consider exceeding this slightly if recovery
+              or satiety suffer.
             </p>
           </div>
         )}
