@@ -519,42 +519,7 @@ export const EnergyMapCalculator = () => {
     }
 
     return false;
-  }, [
-    ageModal,
-    bmiModal,
-    bmrModal,
-    bodyFatEntryModal,
-    bodyFatPickerModal,
-    bodyFatTrackerModal,
-    calorieBreakdownModal,
-    calendarPickerModal,
-    cardioFavouriteEditorModal,
-    cardioFavouritesModal,
-    cardioModal,
-    confirmActionModal,
-    dailyActivityCustomModal,
-    dailyActivityEditorModal,
-    dailyActivityModal,
-    dailyLogModal,
-    durationPickerModal,
-    ffmiModal,
-    foodEntryModal,
-    foodPortionModal,
-    foodSearchModal,
-    goalModal,
-    heightModal,
-    mealTypePickerModal,
-    phaseCreationModal,
-    quickTrainingModal,
-    settingsModal,
-    stepRangesModal,
-    templatePickerModal,
-    trainingTypeEditorModal,
-    trainingTypeModal,
-    weightEntryModal,
-    weightPickerModal,
-    weightTrackerModal,
-  ]);
+  }, []); // Empty deps - modal refs are stable
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) {
