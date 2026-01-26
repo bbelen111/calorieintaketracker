@@ -432,7 +432,7 @@ export const TrackerScreen = ({
           </div>
           <button
             onClick={() => calendarModal?.open()}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-all active:scale-95 flex items-center gap-2"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold transition-all active:scale-95 flex items-center gap-2 press-feedback focus-ring md:hover:bg-blue-500"
           >
             <CalendarCog size={20} />
             <span className="hidden md:inline">Calendar</span>
@@ -520,10 +520,10 @@ export const TrackerScreen = ({
                         setInternalSelectedDate(weekDate.key);
                       }
                     }}
-                    className={`relative flex flex-col items-center justify-center rounded-md border py-2 text-[15px] font-semibold transition-all active:scale-95 ${
+                        className={`relative flex flex-col items-center justify-center rounded-md border py-2 text-[15px] font-semibold transition-all active:scale-95 focus-ring ${
                       isSelected
                         ? 'bg-blue-600 border-blue-400 text-white'
-                        : 'bg-slate-700/60 border-slate-600/50 text-slate-200 hover:bg-slate-700/70'
+                        : 'bg-slate-700/60 border-slate-600/50 text-slate-200 md:hover:bg-slate-700/70'
                     } ${isToday && !isSelected ? 'ring-1 ring-blue-400/70' : ''}`}
                   >
                     <span className="text-[10px] text-slate-400">
@@ -575,7 +575,7 @@ export const TrackerScreen = ({
         <div className="relative">
           <button
             onClick={() => onToggleCalorieTargetPicker?.()}
-            className="w-full bg-slate-700/50 border border-slate-600/50 rounded-lg px-3 py-2 text-left flex items-center justify-between hover:bg-slate-750 transition-all  shadow-lg shadow-slate-900/20"
+            className="w-full bg-slate-700/50 border border-slate-600/50 rounded-lg px-3 py-2 text-left flex items-center justify-between md:hover:bg-slate-750 transition-all shadow-lg shadow-slate-900/20 pressable-card focus-ring"
           >
             <div className="flex-1">
               <p className="text-slate-400 text-xs mb-0.5">Target</p>
@@ -626,7 +626,7 @@ export const TrackerScreen = ({
                       onClick={() => {
                         onStepRangeChange?.(range);
                       }}
-                      className={`w-full px-4 py-3 text-left hover:bg-slate-700 transition-all border-b border-slate-700/50 last:border-b-0 ${
+                      className={`w-full px-4 py-3 text-left md:hover:bg-slate-700 transition-all border-b border-slate-700/50 last:border-b-0 pressable-card focus-ring ${
                         isSelected ? 'bg-slate-700/60' : ''
                       }`}
                     >
@@ -837,7 +837,7 @@ export const TrackerScreen = ({
                 <button
                   onClick={() => onAddMealEntry?.('')}
                   type="button"
-                  className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all"
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all press-feedback focus-ring md:hover:bg-blue-500"
                 >
                   <Plus size={20} />
                   Add
@@ -892,7 +892,7 @@ export const TrackerScreen = ({
                             toggleMealCollapse(mealTypeId);
                           }
                         }}
-                        className="w-full flex items-center justify-between p-2 rounded-lg transition-all"
+                        className="w-full flex items-center justify-between p-2 rounded-lg transition-all pressable-card focus-ring"
                       >
                         <div className="flex items-center gap-3">
                           {React.createElement(mealType.icon, {
@@ -933,7 +933,7 @@ export const TrackerScreen = ({
                               e.stopPropagation();
                               handleDeleteMeal(mealTypeId);
                             }}
-                            className="p-1.5 hover:bg-red-500/20 rounded-lg transition-all"
+                            className="p-1.5 rounded-lg transition-all pressable-inline focus-ring md:hover:bg-red-500/20"
                             title="Delete meal"
                           >
                             <Trash2 className="text-red-400" size={22} />
@@ -943,7 +943,7 @@ export const TrackerScreen = ({
                               e.stopPropagation();
                               handleAddFoodToMealClick(mealTypeId);
                             }}
-                            className="p-1.5 hover:bg-blue-500/20 rounded-lg transition-all"
+                            className="p-1.5 rounded-lg transition-all pressable-inline focus-ring md:hover:bg-blue-500/20"
                             title="Add food"
                           >
                             <Plus className="text-blue-400" size={22} />
@@ -1000,7 +1000,7 @@ export const TrackerScreen = ({
                                       handleEditFood(mealTypeId, entry.id)
                                     }
                                     type="button"
-                                    className="text-slate-200 hover:text-white transition-all hover:scale-110 active:scale-95"
+                                    className="text-slate-200 transition-all active:scale-95 pressable-inline focus-ring md:hover:text-white md:hover:scale-110"
                                   >
                                     <Edit3 size={22} />
                                   </button>
@@ -1009,7 +1009,7 @@ export const TrackerScreen = ({
                                       handleDeleteFood(mealTypeId, entry.id)
                                     }
                                     type="button"
-                                    className="text-red-400 hover:text-red-300 transition-all hover:scale-110 active:scale-95"
+                                    className="text-red-400 transition-all active:scale-95 pressable-inline focus-ring md:hover:text-red-300 md:hover:scale-110"
                                   >
                                     <Trash2 size={22} />
                                   </button>
@@ -1029,7 +1029,7 @@ export const TrackerScreen = ({
               <button
                 onClick={() => onAddMealEntry?.('')}
                 type="button"
-                className="w-full flex items-center justify-between p-4 hover:bg-slate-700/50 rounded-xl transition-all group"
+                className="w-full flex items-center justify-between p-4 rounded-xl transition-all group pressable-card focus-ring md:hover:bg-slate-700/50"
               >
                 <div className="flex items-center gap-3">
                   <Utensils className="text-blue-400" size={24} />
@@ -1043,7 +1043,7 @@ export const TrackerScreen = ({
                   </div>
                 </div>
                 <Plus
-                  className="text-slate-400 group-hover:text-blue-400 transition-colors"
+                    className="text-slate-400 md:group-hover:text-blue-400 transition-colors"
                   size={24}
                 />
               </button>
@@ -1081,7 +1081,7 @@ export const TrackerScreen = ({
                   <motion.button
                     onClick={() => onAddMealEntry?.('')}
                     type="button"
-                    className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all"
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all press-feedback focus-ring md:hover:bg-blue-500"
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
                   >
@@ -1140,7 +1140,7 @@ export const TrackerScreen = ({
                               toggleMealCollapse(mealTypeId);
                             }
                           }}
-                          className="w-full flex items-center justify-between p-2 rounded-lg transition-all"
+                          className="w-full flex items-center justify-between p-2 rounded-lg transition-all pressable-card focus-ring"
                         >
                           <div className="flex items-center gap-3">
                             {React.createElement(mealType.icon, {
@@ -1181,7 +1181,7 @@ export const TrackerScreen = ({
                                 e.stopPropagation();
                                 handleAddFoodToMealClick(mealTypeId);
                               }}
-                              className="p-1.5 hover:bg-blue-500/20 rounded-lg transition-all"
+                              className="p-1.5 rounded-lg transition-all pressable-inline focus-ring md:hover:bg-blue-500/20"
                               title="Add food"
                             >
                               <Plus className="text-white" size={22} />
@@ -1191,7 +1191,7 @@ export const TrackerScreen = ({
                                 e.stopPropagation();
                                 handleDeleteMeal(mealTypeId);
                               }}
-                              className="p-1.5 hover:bg-red-500/20 rounded-lg transition-all"
+                              className="p-1.5 rounded-lg transition-all pressable-inline focus-ring md:hover:bg-red-500/20"
                               title="Delete meal"
                             >
                               <Trash2 className="text-red-400" size={22} />
@@ -1260,7 +1260,7 @@ export const TrackerScreen = ({
                                           handleEditFood(mealTypeId, entry.id)
                                         }
                                         type="button"
-                                        className="text-slate-200 hover:text-white transition-all hover:scale-110 active:scale-95"
+                                        className="text-slate-200 transition-all active:scale-95 pressable-inline focus-ring md:hover:text-white md:hover:scale-110"
                                       >
                                         <Edit3 size={22} />
                                       </button>
@@ -1269,7 +1269,7 @@ export const TrackerScreen = ({
                                           handleDeleteFood(mealTypeId, entry.id)
                                         }
                                         type="button"
-                                        className="text-red-400 hover:text-red-300 transition-all hover:scale-110 active:scale-95"
+                                        className="text-red-400 transition-all active:scale-95 pressable-inline focus-ring md:hover:text-red-300 md:hover:scale-110"
                                       >
                                         <Trash2 size={22} />
                                       </button>
@@ -1296,7 +1296,7 @@ export const TrackerScreen = ({
                 <motion.button
                   onClick={() => onAddMealEntry?.('')}
                   type="button"
-                  className="w-full flex items-center justify-between p-4 hover:bg-slate-700/50 rounded-xl transition-all group"
+                  className="w-full flex items-center justify-between p-4 rounded-xl transition-all group pressable-card focus-ring md:hover:bg-slate-700/50"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.97 }}
                 >
@@ -1312,7 +1312,7 @@ export const TrackerScreen = ({
                     </div>
                   </div>
                   <Plus
-                    className="text-slate-400 group-hover:text-blue-400 transition-colors"
+                    className="text-slate-400 md:group-hover:text-blue-400 transition-colors"
                     size={24}
                   />
                 </motion.button>

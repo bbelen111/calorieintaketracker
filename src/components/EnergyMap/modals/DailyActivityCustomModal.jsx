@@ -70,14 +70,14 @@ export const DailyActivityCustomModal = ({
         <button
           onClick={onCancel}
           type="button"
-          className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg transition-all active:scale-95 font-medium"
+          className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback"
         >
           Cancel
         </button>
         <button
           onClick={onSave}
           type="button"
-          className="flex-1 bg-blue-600 active:bg-blue-700 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
+          className="flex-1 bg-blue-600 active:bg-blue-700 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback"
         >
           <Save size={20} />
           Save

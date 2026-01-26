@@ -46,6 +46,55 @@ body {
   -webkit-user-select: none;
 }
 
+@layer base {
+  :focus-visible {
+    outline: 2px solid rgb(96 165 250);
+    outline-offset: 3px;
+    border-radius: 12px;
+  }
+
+  button,
+  [role='button'],
+  input[type='button'],
+  input[type='submit'],
+  input[type='reset'] {
+    @apply transition-transform active:scale-[0.985];
+  }
+
+  .pressable,
+  .pressable-inline {
+    @apply transition-transform active:scale-[0.985];
+  }
+
+  .pressable-card {
+    @apply transition-transform active:scale-[0.99];
+  }
+}
+
+@layer components {
+  .focus-ring {
+    @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400 focus-visible:outline-offset-2 focus-visible:ring-0;
+  }
+
+  .press-feedback {
+    @apply transition-transform active:scale-[0.98] active:brightness-110;
+  }
+
+  .surface-active {
+    @apply active:brightness-105 active:border-blue-400/80 active:shadow-inner;
+  }
+}
+
+@media (hover: hover) {
+  .hover-supported\:surface:hover {
+    filter: brightness(1.05);
+  }
+
+  .hover-supported\:lift:hover {
+    transform: translateY(-1px);
+  }
+}
+
 /* Global scrollbar suppression while preserving scroll behaviour */
 *,
 *::before,

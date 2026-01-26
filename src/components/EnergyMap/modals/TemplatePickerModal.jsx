@@ -42,7 +42,7 @@ export const TemplatePickerModal = ({
                   onSelectTemplate(template);
                   onClose();
                 }}
-                className={`w-full text-left p-4 rounded-xl border-2 transition-all active:scale-[0.98] flex flex-col gap-2 bg-blue-600 border-blue-400 text-white hover:bg-blue-500/90`}
+                className={`w-full text-left p-4 rounded-xl border-2 transition-all active:scale-[0.98] flex flex-col gap-2 bg-blue-600 border-blue-400 text-white md:hover:bg-blue-500/90 focus-ring pressable`}
                 role="listitem"
               >
                 <div className="flex items-start gap-3">
@@ -83,7 +83,7 @@ export const TemplatePickerModal = ({
           <button
             onClick={onClose}
             type="button"
-            className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-4 py-3 rounded-lg transition-all active:scale-95 font-medium"
+            className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-4 py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback"
           >
             Close
           </button>

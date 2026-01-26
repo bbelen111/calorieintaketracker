@@ -194,7 +194,7 @@ export const CustomCardioTypeModal = ({
                 <button
                   type="button"
                   onClick={() => handleOpenMetPicker('light')}
-                  className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-600/80 hover:bg-slate-500 text-white transition focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-800"
+                  className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-600/80 md:hover:bg-slate-500 text-white transition focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-800 focus-ring pressable"
                   aria-label="Open light MET picker"
                 >
                   <ChevronsUpDown size={16} />

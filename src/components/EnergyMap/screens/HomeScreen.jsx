@@ -85,7 +85,7 @@ export const HomeScreen = ({
           <button
             onClick={onSettingsClick}
             type="button"
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg transition-all"
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg transition-all press-feedback focus-ring md:hover:bg-blue-500"
           >
             <Settings size={20} />
             <span className="hidden md:inline">Settings</span>
@@ -96,13 +96,13 @@ export const HomeScreen = ({
           <button
             onClick={onAgeClick}
             type="button"
-            className="bg-slate-700/50 border border-slate-600/50 hover:bg-slate-700 rounded-lg p-3 transition-all text-left group shadow-lg shadow-slate-900/20"
+            className="bg-slate-700/50 border border-slate-600/50 md:hover:bg-slate-700 rounded-lg p-3 transition-all text-left group shadow-lg shadow-slate-900/20 pressable-card focus-ring"
           >
             <div className="flex items-center justify-between">
               <p className="text-slate-400">Age</p>
               <Edit3
                 size={14}
-                className="text-slate-500 group-hover:text-blue-400 transition-colors"
+                className="text-slate-500 md:group-hover:text-blue-400 transition-colors"
               />
             </div>
             <p className="text-white font-semibold text-lg">
@@ -112,13 +112,13 @@ export const HomeScreen = ({
           <button
             onClick={onWeightClick}
             type="button"
-            className="bg-slate-700/50 border border-slate-600/50 hover:bg-slate-700 rounded-lg p-3 transition-all text-left group shadow-lg shadow-slate-900/20"
+            className="bg-slate-700/50 border border-slate-600/50 md:hover:bg-slate-700 rounded-lg p-3 transition-all text-left group shadow-lg shadow-slate-900/20 pressable-card focus-ring"
           >
             <div className="flex items-center justify-between">
               <p className="text-slate-400">Weight</p>
               <Edit3
                 size={14}
-                className="text-slate-500 group-hover:text-blue-400 transition-colors"
+                className="text-slate-500 md:group-hover:text-blue-400 transition-colors"
               />
             </div>
             <p className="text-white font-semibold text-lg">
@@ -128,13 +128,13 @@ export const HomeScreen = ({
           <button
             onClick={onHeightClick}
             type="button"
-            className="bg-slate-700/50 border border-slate-600/50 hover:bg-slate-700 rounded-lg p-3 transition-all text-left group shadow-lg shadow-slate-900/20"
+            className="bg-slate-700/50 border border-slate-600/50 md:hover:bg-slate-700 rounded-lg p-3 transition-all text-left group shadow-lg shadow-slate-900/20 pressable-card focus-ring"
           >
             <div className="flex items-center justify-between">
               <p className="text-slate-400">Height</p>
               <Edit3
                 size={14}
-                className="text-slate-500 group-hover:text-blue-400 transition-colors"
+                className="text-slate-500 md:group-hover:text-blue-400 transition-colors"
               />
             </div>
             <p className="text-white font-semibold text-lg">
@@ -144,13 +144,13 @@ export const HomeScreen = ({
           <button
             onClick={onBmrClick}
             type="button"
-            className="bg-slate-700/50 border border-slate-600/50 hover:bg-slate-700 rounded-lg p-3 transition-all text-left group shadow-lg shadow-slate-900/20"
+            className="bg-slate-700/50 border border-slate-600/50 md:hover:bg-slate-700 rounded-lg p-3 transition-all text-left group shadow-lg shadow-slate-900/20 pressable-card focus-ring"
           >
             <div className="flex items-center justify-between">
               <p className="text-slate-400">BMR</p>
               <Info
                 size={14}
-                className="text-slate-500 group-hover:text-blue-400 transition-colors"
+                className="text-slate-500 md:group-hover:text-blue-400 transition-colors"
               />
             </div>
             <p className="text-white font-semibold text-lg">
@@ -168,7 +168,7 @@ export const HomeScreen = ({
         <button
           onClick={onGoalClick}
           type="button"
-          className={`w-full p-4 rounded-xl border-2 transition-all relative ${goalConfig.color} border-white text-white shadow-lg hover:scale-[1.02] active:scale-[0.98]`}
+          className={`w-full p-4 rounded-xl border-2 transition-all relative ${goalConfig.color} border-white text-white shadow-lg md:hover:scale-[1.02] active:scale-[0.98] focus-ring pressable-card`}
         >
           {(() => {
             const Icon = goalConfig.icon;
@@ -200,7 +200,7 @@ export const HomeScreen = ({
             className={`p-4 rounded-xl border-2 transition-all relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 ${
               selectedDay === 'training'
                 ? 'bg-purple-600 border-white text-white shadow-xl transform scale-105'
-                : 'bg-slate-700/50 border-slate-600/50 text-slate-200 hover:border-purple-400 hover:shadow-lg hover:scale-[1.03]'
+                : 'bg-slate-700/50 border-slate-600/50 text-slate-200 md:hover:border-purple-400 md:hover:shadow-lg md:hover:scale-[1.03]'
             }`}
             transition={{ type: 'spring', stiffness: 260, damping: 24 }}
           >
@@ -250,7 +250,7 @@ export const HomeScreen = ({
             className={`p-4 rounded-xl border-2 transition-all grid grid-rows-[auto_auto_auto] place-items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 ${
               selectedDay === 'rest'
                 ? 'bg-indigo-600 border-white text-white shadow-lg transform scale-105'
-                : 'bg-slate-700/50 border-slate-600/50 text-slate-300 hover:border-slate-500'
+                : 'bg-slate-700/50 border-slate-600/50 text-slate-300 md:hover:border-slate-500'
             }`}
             transition={{ type: 'spring', stiffness: 260, damping: 24 }}
           >
@@ -293,7 +293,7 @@ export const HomeScreen = ({
                 <motion.button
                   onClick={onAddCardioClick}
                   type="button"
-                  className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all"
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all press-feedback focus-ring md:hover:bg-blue-500"
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
                 >
@@ -358,7 +358,7 @@ export const HomeScreen = ({
                           <motion.button
                             onClick={() => onEditCardioSession?.(session.id)}
                             type="button"
-                            className="text-slate-200 hover:text-white transition-all"
+                            className="text-slate-200 transition-all pressable-inline focus-ring md:hover:text-white"
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
                           >
@@ -367,7 +367,7 @@ export const HomeScreen = ({
                           <motion.button
                             onClick={() => onRemoveCardioSession(session.id)}
                             type="button"
-                            className="text-red-400 hover:text-red-300 transition-all"
+                            className="text-red-400 transition-all pressable-inline focus-ring md:hover:text-red-300"
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
                           >
@@ -404,7 +404,7 @@ export const HomeScreen = ({
               <motion.button
                 onClick={onAddCardioClick}
                 type="button"
-                className="w-full flex items-center justify-between p-4 hover:bg-slate-700/50 rounded-xl transition-all group"
+                className="w-full flex items-center justify-between p-4 rounded-xl transition-all group pressable-card focus-ring md:hover:bg-slate-700/50"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.97 }}
               >
@@ -420,7 +420,7 @@ export const HomeScreen = ({
                   </div>
                 </div>
                 <Plus
-                  className="text-slate-400 group-hover:text-blue-400 transition-colors"
+                  className="text-slate-400 md:group-hover:text-blue-400 transition-colors"
                   size={24}
                 />
               </motion.button>

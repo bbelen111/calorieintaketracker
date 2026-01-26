@@ -58,10 +58,10 @@ export const QuickTrainingModal = ({
                     onTrainingTypeSelect(key);
                   }}
                   type="button"
-                  className={`p-3 rounded-lg border-2 transition-all text-sm relative text-left ${
+                  className={`p-3 rounded-lg border-2 transition-all text-sm relative text-left focus-ring pressable ${
                     isActive
                       ? 'bg-purple-600 border-purple-400 text-white'
-                      : 'bg-slate-700 border-slate-600 text-slate-300 active:bg-slate-600'
+                      : 'bg-slate-700 border-slate-600 text-slate-300 active:bg-slate-600 md:hover:border-purple-400'
                   }`}
                 >
                   <span
@@ -94,7 +94,7 @@ export const QuickTrainingModal = ({
           <button
             onClick={onDurationClick}
             type="button"
-            className="w-full px-3 py-2 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1"
+            className="w-full px-3 py-2 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1 focus-ring press-feedback"
           >
             <span className="font-semibold text-sm md:text-base">
               {formattedDuration}
@@ -121,14 +121,14 @@ export const QuickTrainingModal = ({
         <button
           onClick={onCancel}
           type="button"
-          className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium"
+          className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback"
         >
           Cancel
         </button>
         <button
           onClick={onSave}
           type="button"
-          className="flex-1 bg-blue-600 active:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
+          className="flex-1 bg-blue-600 active:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback"
         >
           <Save size={20} />
           Save

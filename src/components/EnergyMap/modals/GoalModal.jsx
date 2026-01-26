@@ -32,10 +32,10 @@ export const GoalModal = ({
             <button
               key={key}
               onClick={() => onSelect(key)}
-              className={`p-4 rounded-xl border-2 transition-all active:scale-[0.98] text-left ${
+              className={`p-4 rounded-xl border-2 transition-all active:scale-[0.98] text-left focus-ring pressable ${
                 isActive
                   ? `${goal.color} border-white text-white shadow-lg`
-                  : 'bg-slate-700 border-slate-600 text-slate-300'
+                  : 'bg-slate-700 border-slate-600 text-slate-300 md:hover:border-blue-400'
               }`}
               type="button"
             >
@@ -65,14 +65,14 @@ export const GoalModal = ({
         <button
           onClick={onCancel}
           type="button"
-          className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg transition-all active:scale-95 font-medium"
+          className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback"
         >
           Cancel
         </button>
         <button
           onClick={onSave}
           type="button"
-          className="flex-1 bg-blue-600 active:bg-blue-700 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
+          className="flex-1 bg-blue-600 active:bg-blue-700 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback"
         >
           <Save size={20} />
           <span className="hidden sm:inline">Save &amp;</span> Close

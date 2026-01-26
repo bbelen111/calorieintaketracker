@@ -154,10 +154,10 @@ export const CardioTypePickerModal = ({
                   type="button"
                   key={key}
                   onClick={() => onSelect(key)}
-                  className={`relative w-full text-left p-4 rounded-xl border-2 transition-all active:scale-[0.98] flex flex-col gap-2 ${
+                  className={`relative w-full text-left p-4 rounded-xl border-2 transition-all active:scale-[0.98] flex flex-col gap-2 focus-ring ${
                     isActive
                       ? 'bg-purple-600 border-purple-400 text-white shadow-lg'
-                      : 'bg-slate-700 border-slate-600 text-slate-200 hover:border-blue-400'
+                      : 'bg-slate-700 border-slate-600 text-slate-200 md:hover:border-blue-400'
                   }`}
                   role="listitem"
                 >
@@ -186,7 +186,7 @@ export const CardioTypePickerModal = ({
                           setPendingDeleteKey(key);
                           openConfirm();
                         }}
-                        className="flex-shrink-0 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
+                        className="flex-shrink-0 w-8 h-8 rounded-full bg-white/10 md:hover:bg-white/20 transition-colors flex items-center justify-center focus-ring pressable"
                         aria-label="Delete custom cardio type"
                       >
                         <Trash2 size={14} />

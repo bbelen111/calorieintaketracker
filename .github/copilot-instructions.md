@@ -190,9 +190,78 @@ Food database (`constants/foodDatabase.js`) contains 3000+ items with per-100g m
 - **Tailwind-only** - no custom CSS except animations in `index.css`
 - **User Select:** `user-select: none` enabled globally to prevent app text selection.
 - **Dark theme:** `slate-800/900` backgrounds, `slate-700` borders, `slate-400` muted text
-- **Interactive states:** `hover:bg-*` on desktop, `active:scale-95` for mobile feedback
-- **Responsive:** Grid layouts with `md:` breakpoints, `hidden md:inline` for labels
 - **Icons:** Lucide React at 20px default, 32px for headers
+
+## Touch-First Interactive Patterns (Critical)
+
+This is a **mobile-first, touch-first app**. All interactive feedback must prioritize touch devices:
+
+### Hover Gating Pattern ⚠️
+**NEVER** use bare `hover:` classes. Always gate to desktop only:
+```css
+/* ❌ WRONG - affects all devices including touch */
+className="hover:bg-blue-600"
+
+/* ✅ CORRECT - desktop only (768px+) */
+className="md:hover:bg-blue-600"
+```
+
+The same pattern applies to `group-hover:`:
+```css
+/* ❌ WRONG */
+className="group-hover:text-white"
+
+/* ✅ CORRECT */
+className="md:group-hover:text-white"
+```
+
+### Press Feedback (All Devices)
+Every button must have visual press feedback using utility classes:
+
+```css
+/* Primary buttons - strong feedback */
+className="press-feedback"              /* scale-0.98 + brightness-110 */
+
+/* Secondary/card buttons - moderate feedback */
+className="pressable-card"              /* scale-0.99 */
+
+/* Icon buttons - subtle feedback */
+className="pressable-inline"            /* scale-0.985 */
+
+/* Generic fallback - subtle */
+className="pressable"                   /* scale-0.985 */
+```
+
+### Focus Ring Accessibility (Keyboard Navigation)
+All interactive elements must have `.focus-ring`:
+```css
+className="focus-ring"                  /* Blue outline on keyboard focus */
+```
+
+### Complete Interactive Element Pattern
+```jsx
+{/* Primary button */}
+<button className="bg-blue-600 md:hover:bg-blue-500 press-feedback focus-ring">
+  Save
+</button>
+
+{/* Card with interaction */}
+<button className="border border-slate-700 md:hover:border-slate-600 pressable-card focus-ring">
+  Card
+</button>
+
+{/* Icon button */}
+<button className="rounded-lg p-2 md:hover:bg-slate-700/50 pressable-inline focus-ring">
+  <Icon />
+</button>
+```
+
+### Responsive Breakpoint
+The `md:` prefix (768px) is the boundary:
+- **< 768px (Mobile):** Touch press feedback only, no hover
+- **≥ 768px (Desktop):** Press feedback + hover enhancements
+
+See `TOUCH_FIRST_REFACTOR_GUIDE.md` for complete pattern documentation.
 
 ## Common Pitfalls
 1. **Async Storage:** Unlike localStorage, `Preferences` are async. **Always await** load/save operations or use the handled store.

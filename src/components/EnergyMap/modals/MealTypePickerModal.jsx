@@ -38,7 +38,7 @@ export const MealTypePickerModal = ({
             <button
               key={`meal-${mealTypeId}`}
               onClick={() => handleSelect(mealTypeId)}
-              className="w-full p-4 rounded-lg border-2 transition-all flex items-center gap-4 shadow-lg shadow-slate-900/20 bg-slate-700 border-slate-600 hover:border-blue-500/50 focus:ring-2 focus:ring-blue-400"
+              className="w-full p-4 rounded-lg border-2 transition-all flex items-center gap-4 shadow-lg shadow-slate-900/20 bg-slate-700 border-slate-600 md:hover:border-blue-500/50 focus-ring pressable-card"
               tabIndex={0}
             >
               <Icon className="text-white" size={24} />
@@ -62,7 +62,7 @@ export const MealTypePickerModal = ({
       <div className="flex gap-3 mt-6">
         <button
           onClick={onClose}
-          className="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-all"
+          className="flex-1 px-4 py-3 bg-slate-700 text-white rounded-lg font-semibold transition-all press-feedback focus-ring md:hover:bg-slate-600"
         >
           Cancel
         </button>

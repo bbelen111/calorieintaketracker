@@ -97,7 +97,7 @@ const LiveStepsCard = ({
           href="https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium text-sm transition-all"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm transition-all press-feedback focus-ring md:hover:bg-blue-500"
         >
           <Link2 size={16} />
           Get Health Connect
@@ -134,7 +134,7 @@ const LiveStepsCard = ({
           type="button"
           onClick={onConnectHealth}
           disabled={healthConnectLoading}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium text-sm transition-all"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium text-sm transition-all press-feedback focus-ring md:hover:bg-blue-500"
         >
           {healthConnectLoading ? (
             <Loader2 size={16} className="animate-spin" />
@@ -174,7 +174,7 @@ const LiveStepsCard = ({
       <button
         type="button"
         onClick={handleCardClick}
-        className="w-full bg-gradient-to-br from-emerald-900/40 to-slate-800/90 rounded-2xl p-5 border border-emerald-500/30 mb-4 text-left hover:border-emerald-400/50 transition-all group"
+        className="w-full bg-gradient-to-br from-emerald-900/40 to-slate-800/90 rounded-2xl p-5 border border-emerald-500/30 mb-4 text-left md:hover:border-emerald-400/50 transition-all group pressable-card focus-ring"
       >
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-3">
@@ -201,7 +201,7 @@ const LiveStepsCard = ({
               onRefreshSteps();
             }}
             disabled={healthConnectLoading}
-            className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all"
+            className="p-2 text-slate-400 rounded-lg transition-all pressable-inline focus-ring md:hover:text-white md:hover:bg-slate-700/50"
             aria-label="Refresh steps"
           >
             <RefreshCw
@@ -321,7 +321,7 @@ export const CalorieMapScreen = ({
             <button
               type="button"
               onClick={onManageStepRanges}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-all flex items-center gap-2"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold transition-all flex items-center gap-2 press-feedback focus-ring md:hover:bg-blue-500"
             >
               <ListChecks size={20} />
               <span className="hidden sm:inline">Manage Step Ranges</span>
@@ -365,10 +365,10 @@ export const CalorieMapScreen = ({
                 key={steps}
                 type="button"
                 onClick={() => onOpenBreakdown(steps)}
-                className={`group relative w-full text-left bg-slate-700/50 rounded-xl p-4 transition-all border border-slate-600/50 ${
+                className={`group relative w-full text-left bg-slate-700/50 rounded-xl p-4 transition-all border border-slate-600/50 active:scale-[0.99] pressable-card focus-ring ${
                   isActive
                     ? 'ring-2 ring-blue-400 bg-slate-700/90'
-                    : 'hover:bg-slate-600'
+                    : 'md:hover:bg-slate-600'
                 }`}
                 aria-expanded={isActive}
                 aria-label={`View calorie breakdown for ${steps} steps`}
@@ -380,7 +380,7 @@ export const CalorieMapScreen = ({
                   </div>
                   <Info
                     size={18}
-                    className={`mt-1 ${isActive ? 'text-blue-300' : 'text-slate-400 group-hover:text-blue-300'}`}
+                    className={`mt-1 ${isActive ? 'text-blue-300' : 'text-slate-400 md:group-hover:text-blue-300'}`}
                   />
                 </div>
                 <div

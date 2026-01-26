@@ -61,7 +61,7 @@ export const BodyFatTrendInfoModal = ({
         <button
           type="button"
           onClick={onClose}
-          className="text-slate-400 hover:text-white transition-colors"
+          className="text-slate-400 md:hover:text-white transition-colors focus-ring"
         >
           <X size={20} />
         </button>

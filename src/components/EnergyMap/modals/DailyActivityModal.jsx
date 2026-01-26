@@ -91,7 +91,7 @@ export const DailyActivityModal = ({
               key={day}
               onClick={() => onSelectDay(day)}
               type="button"
-              className={`w-full p-4 md:p-5 rounded-xl border-2 transition-all text-left flex items-center gap-4 ${config.accent} text-white active:scale-[0.98]`}
+              className={`w-full p-4 md:p-5 rounded-xl border-2 transition-all text-left flex items-center gap-4 ${config.accent} text-white active:scale-[0.98] focus-ring pressable`}
             >
               <span className="flex items-center justify-center w-12 h-12 rounded-full bg-white/15">
                 <Icon size={26} />

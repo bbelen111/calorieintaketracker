@@ -122,7 +122,7 @@ export const SettingsModal = ({
               <button
                 type="button"
                 onClick={() => onAgePickerClick?.()}
-                className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-600/80 hover:bg-slate-500 text-white transition focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-800"
+                className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-600/80 md:hover:bg-slate-500 text-white transition focus-ring"
                 aria-label="Open age picker"
               >
                 <ChevronsUpDown size={16} />
@@ -136,10 +136,10 @@ export const SettingsModal = ({
               <button
                 onClick={() => onChange('gender', 'male')}
                 type="button"
-                className={`py-3 px-2 rounded-lg border-2 transition-all font-semibold flex items-center justify-center gap-2 ${
+                className={`py-3 px-2 rounded-lg border-2 transition-all font-semibold flex items-center justify-center gap-2 focus-ring pressable-inline ${
                   resolvedUserData.gender === 'male'
                     ? 'bg-blue-600 border-blue-400 text-white'
-                    : 'bg-slate-700 border-slate-600 text-slate-300 active:scale-95'
+                    : 'bg-slate-700 border-slate-600 text-slate-300'
                 }`}
               >
                 <Mars size={16} />
@@ -148,10 +148,10 @@ export const SettingsModal = ({
               <button
                 onClick={() => onChange('gender', 'female')}
                 type="button"
-                className={`py-3 px-2 rounded-lg border-2 transition-all font-semibold flex items-center justify-center gap-2 ${
+                className={`py-3 px-2 rounded-lg border-2 transition-all font-semibold flex items-center justify-center gap-2 focus-ring pressable-inline ${
                   resolvedUserData.gender === 'female'
                     ? 'bg-indigo-600 border-indigo-400 text-white'
-                    : 'bg-slate-700 border-slate-600 text-slate-300 active:scale-95'
+                    : 'bg-slate-700 border-slate-600 text-slate-300'
                 }`}
               >
                 <Venus size={16} />
@@ -167,7 +167,7 @@ export const SettingsModal = ({
             <button
               type="button"
               onClick={() => onManageWeightClick?.()}
-              className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1 text-left hover:bg-blue-500/90"
+              className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all press-feedback flex flex-wrap items-center gap-x-3 gap-y-1 text-left focus-ring md:hover:bg-blue-500/90"
             >
               <span className="font-semibold text-sm md:text-base">
                 {displayedWeight !== '—' ? `${displayedWeight}kg` : '—'}
@@ -192,7 +192,7 @@ export const SettingsModal = ({
                     !resolvedBodyFatTrackingEnabled
                   )
                 }
-                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all ${
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all focus-ring pressable-inline ${
                   resolvedBodyFatTrackingEnabled
                     ? 'bg-emerald-600/20 border-emerald-400 text-emerald-200'
                     : 'bg-slate-700 border-slate-600 text-slate-300'
@@ -205,9 +205,9 @@ export const SettingsModal = ({
               type="button"
               onClick={() => onManageBodyFatClick?.()}
               disabled={!resolvedBodyFatTrackingEnabled}
-              className={`w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1 text-left font-semibold ${
+              className={`w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 transition-all press-feedback flex flex-wrap items-center gap-x-3 gap-y-1 text-left font-semibold focus-ring ${
                 resolvedBodyFatTrackingEnabled
-                  ? 'bg-blue-600 border-blue-400 text-white hover:bg-blue-500/90'
+                  ? 'bg-blue-600 border-blue-400 text-white md:hover:bg-blue-500/90'
                   : 'bg-slate-700 border-slate-600 text-slate-400 cursor-not-allowed'
               }`}
             >
@@ -243,7 +243,7 @@ export const SettingsModal = ({
               <button
                 type="button"
                 onClick={() => onHeightPickerClick?.()}
-                className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-600/80 hover:bg-slate-500 text-white transition focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-800"
+                className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-600/80 md:hover:bg-slate-500 text-white transition focus-ring"
                 aria-label="Open height picker"
               >
                 <ChevronsUpDown size={16} />
@@ -265,7 +265,7 @@ export const SettingsModal = ({
           <button
             onClick={onTrainingTypeClick}
             type="button"
-            className="relative w-full text-left p-3 md:p-4 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98] hover:bg-indigo-500/90"
+            className="relative w-full text-left p-3 md:p-4 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all press-feedback focus-ring md:hover:bg-indigo-500/90"
           >
             <div className="min-w-0 pr-24 md:pr-28">
               <div className="font-semibold text-base">
@@ -308,14 +308,14 @@ export const SettingsModal = ({
         <button
           onClick={onCancel}
           type="button"
-          className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg transition-all active:scale-95 font-medium"
+          className="flex-1 bg-slate-700 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg transition-all press-feedback focus-ring font-medium"
         >
           Cancel
         </button>
         <button
           onClick={onSave}
           type="button"
-          className="flex-1 bg-blue-600 active:bg-blue-700 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
+          className="flex-1 bg-blue-600 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg flex items-center justify-center gap-2 transition-all press-feedback focus-ring font-medium"
         >
           <Save size={20} />
           Save
@@ -333,7 +333,7 @@ const DurationButton = ({ duration, onClick }) => {
     <button
       onClick={onClick}
       type="button"
-      className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1"
+      className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all press-feedback focus-ring flex flex-wrap items-center gap-x-3 gap-y-1"
     >
       <span className="font-semibold text-sm md:text-base">{formatted}</span>
       <span className="text-xs opacity-90">~{rounded.toFixed(2)} hours</span>
@@ -389,7 +389,7 @@ const DailyActivitySection = ({ userData, bmr, onDailyActivityClick }) => {
       <button
         onClick={onDailyActivityClick}
         type="button"
-        className="relative w-full text-left p-3 md:p-4 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98]"
+        className="relative w-full text-left p-3 md:p-4 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all press-feedback focus-ring"
       >
         <div className="min-w-0 pr-24 md:pr-28">
           <div className="font-semibold text-sm md:text-base">

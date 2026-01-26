@@ -194,7 +194,7 @@ export const FoodFavouritesModal = ({
             <button
               type="button"
               onClick={() => onCreateFavourite?.()}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm font-medium text-slate-100 transition-colors hover:border-amber-400 hover:text-white"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm font-medium text-slate-100 transition-colors md:hover:border-amber-400 md:hover:text-white focus-ring pressable"
             >
               <Plus size={16} />
               Add

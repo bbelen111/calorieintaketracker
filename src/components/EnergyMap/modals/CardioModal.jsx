@@ -229,17 +229,17 @@ export const CardioModal = ({
   };
 
   const effortButtonClass = (type) =>
-    `w-full rounded-lg border px-3 py-1.5 text-sm transition-all ${
+    `w-full rounded-lg border px-3 py-1.5 text-sm transition-all focus-ring pressable-inline ${
       effortType === type
         ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-900/30'
-        : 'bg-slate-700 text-slate-300 border-slate-600 hover:border-blue-400 hover:text-white'
+        : 'bg-slate-700 text-slate-300 border-slate-600 md:hover:border-blue-400 md:hover:text-white'
     }`;
 
   const intensityButtonClass = (level) =>
-    `w-full rounded-lg border px-3 py-2 text-sm transition-all ${
+    `w-full rounded-lg border px-3 py-2 text-sm transition-all focus-ring pressable-inline ${
       intensityValue === level
         ? 'bg-indigo-600 text-white border-indigo-400 shadow-lg shadow-indigo-900/30'
-        : 'bg-slate-700 text-slate-300 border-slate-600 hover:border-indigo-400 hover:text-white'
+        : 'bg-slate-700 text-slate-300 border-slate-600 md:hover:border-indigo-400 md:hover:text-white'
     }`;
 
   const handleOpenCustomCardioModal = () => {
@@ -309,7 +309,7 @@ export const CardioModal = ({
             <button
               type="button"
               onClick={onOpenFavourites}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-700 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-100 transition-colors hover:border-amber-400 hover:text-white"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-700 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-100 transition-colors press-feedback focus-ring md:hover:border-amber-400 md:hover:text-white"
             >
               <Star size={14} />
               Favourites
@@ -325,7 +325,7 @@ export const CardioModal = ({
             <button
               type="button"
               onClick={() => openTypePicker()}
-              className="w-full px-3 py-2 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98] flex items-start justify-between gap-3"
+              className="w-full px-3 py-2 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all press-feedback focus-ring flex items-start justify-between gap-3"
             >
               <span className="flex min-w-0 flex-1 flex-col text-left">
                 <span className="font-semibold text-sm md:text-base truncate">
@@ -359,7 +359,7 @@ export const CardioModal = ({
               <button
                 type="button"
                 onClick={openDurationPicker}
-                className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-600/80 hover:bg-slate-500 text-white transition focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-800"
+                className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-600/80 md:hover:bg-slate-500 text-white transition focus-ring"
                 aria-label="Open duration picker"
               >
                 <ChevronsUpDown size={16} />
@@ -455,7 +455,7 @@ export const CardioModal = ({
           <button
             onClick={onCancel}
             type="button"
-            className="flex-1 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-all"
+            className="flex-1 bg-slate-700 text-white px-4 py-2 rounded-lg transition-all press-feedback focus-ring md:hover:bg-slate-600"
           >
             Cancel
           </button>
@@ -463,11 +463,11 @@ export const CardioModal = ({
             onClick={onSave}
             type="button"
             disabled={!canSave}
-            className={`flex-1 text-white px-4 py-2 rounded-lg transition-all flex items-center justify-center gap-2 ${
+            className={`flex-1 text-white px-4 py-2 rounded-lg transition-all flex items-center justify-center gap-2 focus-ring press-feedback ${
               canSave
                 ? isEditing
-                  ? 'bg-blue-600 hover:bg-blue-500'
-                  : 'bg-blue-600 hover:bg-blue-500'
+                  ? 'bg-blue-600 md:hover:bg-blue-500'
+                  : 'bg-blue-600 md:hover:bg-blue-500'
                 : isEditing
                   ? 'bg-blue-600/60 cursor-not-allowed opacity-70'
                   : 'bg-blue-600/60 cursor-not-allowed opacity-70'

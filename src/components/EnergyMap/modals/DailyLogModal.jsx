@@ -114,7 +114,7 @@ export const DailyLogModal = ({
           <button
             type="button"
             onClick={() => onManageWeightClick?.()}
-            className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1 text-left hover:bg-blue-500/90"
+            className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all press-feedback flex flex-wrap items-center gap-x-3 gap-y-1 text-left focus-ring md:hover:bg-blue-500/90"
           >
             {matchingWeight ? (
               <>
@@ -172,10 +172,10 @@ export const DailyLogModal = ({
                 onNotesChange('');
               }
             }}
-            className={`w-full px-4 py-3 rounded-lg border-2 transition-all active:scale-[0.98] flex items-center gap-3 font-semibold ${
+            className={`w-full px-4 py-3 rounded-lg border-2 transition-all press-feedback focus-ring flex items-center gap-3 font-semibold ${
               showNotes
                 ? 'bg-indigo-600 border-indigo-400 text-white'
-                : 'bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-750 hover:border-slate-500'
+                : 'bg-slate-800 border-slate-600 text-slate-300 md:hover:bg-slate-750 md:hover:border-slate-500'
             }`}
           >
             <StickyNote
@@ -213,10 +213,10 @@ export const DailyLogModal = ({
         <button
           type="button"
           onClick={() => onCompletedChange(!completed)}
-          className={`w-full px-4 py-4 rounded-lg border-2 transition-all active:scale-[0.98] flex items-center gap-3 font-semibold ${
+          className={`w-full px-4 py-4 rounded-lg border-2 transition-all press-feedback focus-ring flex items-center gap-3 font-semibold ${
             completed
               ? 'bg-green-600 border-green-400 text-white'
-              : 'bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-750 hover:border-slate-500'
+              : 'bg-slate-800 border-slate-600 text-slate-300 md:hover:bg-slate-750 md:hover:border-slate-500'
           }`}
         >
           <CheckCircle2
@@ -251,7 +251,7 @@ export const DailyLogModal = ({
           <button
             type="button"
             onClick={onDelete}
-            className="px-4 py-3 bg-red-900 hover:bg-red-800 text-red-200 rounded-lg font-semibold transition-all"
+            className="px-4 py-3 bg-red-900 text-red-200 rounded-lg font-semibold transition-all press-feedback focus-ring md:hover:bg-red-800"
           >
             <Trash2 size={18} />
           </button>
@@ -259,14 +259,14 @@ export const DailyLogModal = ({
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-all"
+          className="flex-1 px-4 py-3 bg-slate-700 text-white rounded-lg font-semibold transition-all press-feedback focus-ring md:hover:bg-slate-600"
         >
           Cancel
         </button>
         <button
           type="button"
           onClick={onSave}
-          className="flex-1 px-4 py-3 bg-blue-700 hover:bg-blue-600 text-white rounded-lg font-semibold transition-all"
+          className="flex-1 px-4 py-3 bg-blue-700 text-white rounded-lg font-semibold transition-all press-feedback focus-ring md:hover:bg-blue-600"
         >
           {mode === 'edit' ? 'Save Changes' : 'Add Log'}
         </button>

@@ -207,7 +207,7 @@ export const MetValuePickerModal = ({
                 key={formattedValue}
                 data-value={formattedValue}
                 onClick={() => updateValue(option)}
-                className={`py-3 px-6 text-2xl font-semibold transition-all snap-center cursor-pointer text-center ${
+                className={`py-3 px-6 text-2xl font-semibold transition-all snap-center cursor-pointer text-center focus-ring pressable ${
                   isSelected ? 'text-white scale-110' : 'text-slate-500'
                 }`}
               >
@@ -223,7 +223,7 @@ export const MetValuePickerModal = ({
         <button
           onClick={onCancel}
           type="button"
-          className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium"
+          className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback"
         >
           Cancel
         </button>
@@ -233,7 +233,7 @@ export const MetValuePickerModal = ({
             onSave?.(selectedValue);
           }}
           type="button"
-          className="flex-1 bg-green-600 active:bg-green-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
+          className="flex-1 bg-green-600 active:bg-green-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback"
         >
           <Save size={20} />
           Save

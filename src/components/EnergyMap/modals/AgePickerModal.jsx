@@ -96,7 +96,7 @@ export const AgePickerModal = ({
                   alignScrollContainerToValue(scrollRef.current, age, 'smooth');
                 }
               }}
-              className={`py-3 px-6 text-2xl font-semibold transition-all snap-center cursor-pointer text-center ${value === age ? 'text-white scale-110' : 'text-slate-500'}`}
+              className={`py-3 px-6 text-2xl font-semibold transition-all snap-center cursor-pointer text-center focus-ring pressable ${value === age ? 'text-white scale-110' : 'text-slate-500'}`}
             >
               {age}
             </div>

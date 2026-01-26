@@ -91,7 +91,7 @@ export const WeightEntryModal = ({
           <button
             type="button"
             onClick={() => onRequestWeightPicker?.()}
-            className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1 text-left hover:bg-blue-500/90 font-semibold text-base"
+            className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1 text-left md:hover:bg-blue-500/90 font-semibold text-base focus-ring press-feedback"
           >
             <span className="font-semibold text-base">{formattedWeight}</span>
             <span className="text-[11px] opacity-80 ml-auto whitespace-nowrap">
@@ -108,7 +108,7 @@ export const WeightEntryModal = ({
           <button
             type="button"
             onClick={() => openConfirm()}
-            className="inline-flex items-center bg-red-900/30 justify-center gap-2 px-4 py-2 rounded-lg border border-red-600/80 text-red-300 hover:bg-red-900/30 transition-all"
+            className="inline-flex items-center bg-red-900/30 justify-center gap-2 px-4 py-2 rounded-lg border border-red-600/80 text-red-300 md:hover:bg-red-900/30 transition-all focus-ring pressable"
           >
             <Trash2 size={18} />
           </button>
@@ -116,14 +116,14 @@ export const WeightEntryModal = ({
         <button
           type="button"
           onClick={onCancel}
-          className={`flex-1 bg-slate-700 active:bg-slate-600 text-white ${isEdit ? 'px-3' : 'px-6'} py-3 rounded-lg transition-all active:scale-95 font-medium`}
+          className={`flex-1 bg-slate-700 active:bg-slate-600 text-white ${isEdit ? 'px-3' : 'px-6'} py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback`}
         >
           Cancel
         </button>
         <button
           type="button"
           onClick={onSave}
-          className={`flex-1 bg-blue-600 active:bg-blue-700 text-white ${isEdit ? 'px-3' : 'px-6'} py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium`}
+          className={`flex-1 bg-blue-600 active:bg-blue-700 text-white ${isEdit ? 'px-3' : 'px-6'} py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback`}
         >
           <Save size={20} />
           Save

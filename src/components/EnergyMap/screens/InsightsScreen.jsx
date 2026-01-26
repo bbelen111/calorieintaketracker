@@ -291,7 +291,7 @@ export const InsightsScreen = ({
           <button
             type="button"
             onClick={onOpenWeightTracker}
-            className="w-full rounded-xl border border-slate-700 bg-slate-900/40 p-4 text-left transition-all hover:border-blue-400/70 hover:bg-slate-900"
+            className="w-full rounded-xl border border-slate-700 bg-slate-900/40 p-4 text-left transition-all md:hover:border-blue-400/70 md:hover:bg-slate-900 pressable-card focus-ring"
           >
             <div className="flex items-center justify-between gap-1">
               <div>
@@ -604,7 +604,7 @@ export const InsightsScreen = ({
             <button
               type="button"
               onClick={onOpenBodyFatTracker}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900/40 p-4 text-left transition-all hover:border-emerald-400/70 hover:bg-slate-900"
+              className="w-full rounded-xl border border-slate-700 bg-slate-900/40 p-4 text-left transition-all md:hover:border-emerald-400/70 md:hover:bg-slate-900 pressable-card focus-ring"
             >
               <div className="flex items-center justify-between gap-1">
                 <div>
@@ -943,7 +943,7 @@ export const InsightsScreen = ({
             <button
               type="button"
               onClick={onOpenBmiInfo}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900/40 p-3 text-left transition-all hover:bg-slate-900"
+              className="w-full rounded-xl border border-slate-700 bg-slate-900/40 p-3 text-left transition-all md:hover:bg-slate-900 pressable-card focus-ring"
             >
               <div className="flex items-center justify-between gap-2">
                 <div>
@@ -978,7 +978,7 @@ export const InsightsScreen = ({
             <button
               type="button"
               onClick={onOpenFfmiInfo}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900/40 p-3 text-left transition-all hover:bg-slate-900"
+              className="w-full rounded-xl border border-slate-700 bg-slate-900/40 p-3 text-left transition-all md:hover:bg-slate-900 pressable-card focus-ring"
             >
               <div className="flex items-center justify-between gap-2">
                 <div>

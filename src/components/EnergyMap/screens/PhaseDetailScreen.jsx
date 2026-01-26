@@ -62,12 +62,12 @@ const CalendarHeatmap = ({ calendarData, onDateClick }) => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'completed':
-        return 'bg-green-600 border-green-500 hover:bg-green-500';
+        return 'bg-green-600 border-green-500 md:hover:bg-green-500';
       case 'partial':
-        return 'bg-yellow-600 border-yellow-500 hover:bg-yellow-500';
+        return 'bg-yellow-600 border-yellow-500 md:hover:bg-yellow-500';
       case 'empty':
       default:
-        return 'bg-slate-700 border-slate-600 hover:bg-slate-600';
+        return 'bg-slate-700 border-slate-600 md:hover:bg-slate-600';
     }
   };
 
@@ -120,7 +120,7 @@ const CalendarHeatmap = ({ calendarData, onDateClick }) => {
               key={day.date}
               type="button"
               onClick={() => onDateClick(day.date, day.log)}
-              className={`aspect-square rounded-md border-2 flex items-center justify-center text-xs font-bold transition-all ${getStatusColor(day.status)}`}
+              className={`aspect-square rounded-md border-2 flex items-center justify-center text-xs font-bold transition-all active:scale-95 pressable-card focus-ring ${getStatusColor(day.status)}`}
               title={`${formatDate(day.date)} - ${day.status}`}
             >
               <span className="text-white">{getStatusSymbol(day.status)}</span>
@@ -155,7 +155,7 @@ const DailyLogCard = ({ log, onEdit }) => {
     <button
       type="button"
       onClick={() => onEdit(log)}
-      className="w-full text-left bg-slate-800 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-all"
+      className="w-full text-left bg-slate-800 border border-slate-700 rounded-lg p-4 md:hover:border-slate-600 transition-all pressable-card focus-ring"
     >
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex-1">
@@ -270,7 +270,7 @@ export const PhaseDetailScreen = ({
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-4"
+          className="flex items-center gap-2 text-slate-400 transition-colors mb-4 press-feedback focus-ring md:hover:text-white"
         >
           <ChevronLeft size={20} />
           <span className="font-semibold">Back to Logbook</span>
@@ -301,7 +301,7 @@ export const PhaseDetailScreen = ({
             <button
               type="button"
               onClick={onArchive}
-              className="p-2 text-slate-400 hover:text-green-400 hover:bg-slate-700 rounded-lg transition-all"
+              className="p-2 text-slate-400 rounded-lg transition-all pressable-inline focus-ring md:hover:text-green-400 md:hover:bg-slate-700"
               title="Archive Phase"
             >
               <Archive size={20} />
@@ -309,7 +309,7 @@ export const PhaseDetailScreen = ({
             <button
               type="button"
               onClick={onDelete}
-              className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded-lg transition-all"
+              className="p-2 text-slate-400 rounded-lg transition-all pressable-inline focus-ring md:hover:text-red-400 md:hover:bg-slate-700"
               title="Delete Phase"
             >
               <Trash2 size={20} />
@@ -386,7 +386,7 @@ export const PhaseDetailScreen = ({
         <button
           type="button"
           onClick={() => onAddLog()}
-          className="px-6 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+          className="px-6 py-4 bg-blue-600 text-white rounded-xl font-semibold transition-all flex items-center justify-center gap-2 press-feedback focus-ring md:hover:bg-blue-500"
         >
           <Plus size={20} />
           Log Today
@@ -431,7 +431,7 @@ export const PhaseDetailScreen = ({
             <button
               type="button"
               onClick={() => onAddLog()}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-all inline-flex items-center gap-2"
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold transition-all inline-flex items-center gap-2 press-feedback focus-ring md:hover:bg-blue-500"
             >
               <Plus size={20} />
               Add First Log

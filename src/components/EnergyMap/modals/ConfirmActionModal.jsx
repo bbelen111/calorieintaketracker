@@ -3,12 +3,12 @@ import { ModalShell } from '../common/ModalShell';
 
 const getConfirmStyles = (tone) => {
   if (tone === 'danger') {
-    return 'bg-red-600 hover:bg-red-500 active:bg-red-700 text-white';
+    return 'bg-red-600 active:bg-red-700 text-white press-feedback focus-ring md:hover:bg-red-500';
   }
   if (tone === 'success') {
-    return 'bg-green-600 hover:bg-green-500 active:bg-green-700 text-white';
+    return 'bg-green-600 active:bg-green-700 text-white press-feedback focus-ring md:hover:bg-green-500';
   }
-  return 'bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white';
+  return 'bg-blue-600 active:bg-blue-700 text-white press-feedback focus-ring md:hover:bg-blue-500';
 };
 
 export const ConfirmActionModal = ({
@@ -45,7 +45,7 @@ export const ConfirmActionModal = ({
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white px-4 py-3 rounded-lg transition-all active:scale-95"
+            className="flex-1 bg-slate-700 active:bg-slate-500 text-white px-4 py-3 rounded-lg transition-all active:scale-95 press-feedback focus-ring md:hover:bg-slate-600"
           >
             {cancelLabel}
           </button>

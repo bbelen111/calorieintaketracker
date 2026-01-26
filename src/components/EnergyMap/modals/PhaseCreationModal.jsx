@@ -41,7 +41,7 @@ export const PhaseCreationModal = ({
         <button
           type="button"
           onClick={onTemplatesClick}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-700 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-100 transition-colors hover:border-amber-400 hover:text-white"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-700 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-100 transition-colors md:hover:border-amber-400 md:hover:text-white focus-ring pressable"
         >
           <Star size={14} />
           Templates
@@ -166,14 +166,14 @@ export const PhaseCreationModal = ({
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-all"
+          className="flex-1 px-4 py-3 bg-slate-700 md:hover:bg-slate-600 text-white rounded-lg font-semibold transition-all focus-ring press-feedback"
         >
           Cancel
         </button>
         <button
           type="button"
           onClick={onSave}
-          className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-all"
+          className="flex-1 px-4 py-3 bg-blue-600 md:hover:bg-blue-500 text-white rounded-lg font-semibold transition-all focus-ring press-feedback"
         >
           Create Phase
         </button>

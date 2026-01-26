@@ -617,7 +617,7 @@ export const FoodSearchModal = ({
             type="button"
             onClick={() => onClose?.()}
             aria-label="Back"
-            className="text-slate-300 hover:text-white transition-all"
+            className="text-slate-300 md:hover:text-white transition-all pressable-inline focus-ring"
           >
             <ChevronLeft size={24} />
           </button>
@@ -644,7 +644,7 @@ export const FoodSearchModal = ({
               className={`relative z-10 flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                 searchMode === 'local'
                   ? 'text-white'
-                  : 'text-slate-400 hover:text-white'
+                  : 'text-slate-400 md:hover:text-white'
               }`}
             >
               <Database size={16} />
@@ -657,7 +657,7 @@ export const FoodSearchModal = ({
                 searchMode === 'online'
                   ? 'text-white'
                   : isOnline
-                    ? 'text-slate-400 hover:text-white'
+                    ? 'text-slate-400 md:hover:text-white'
                     : 'text-slate-500 cursor-not-allowed opacity-50'
               }`}
             >
@@ -694,7 +694,7 @@ export const FoodSearchModal = ({
                   className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-full text-sm font-semibold transition-all shadow-md whitespace-nowrap ${
                     viewMode === 'favourites'
                       ? 'bg-emerald-500 text-white shadow-emerald-500/30'
-                      : 'bg-blue-600 text-white shadow-blue-500/20 hover:bg-blue-600/50'
+                      : 'bg-blue-600 text-white shadow-blue-500/20 md:hover:bg-blue-600/50'
                   }`}
                 >
                   <Star size={16} />
@@ -706,7 +706,7 @@ export const FoodSearchModal = ({
                 <button
                   onClick={() => {}}
                   aria-label="Meal"
-                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
+                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 md:hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap press-feedback focus-ring"
                 >
                   <Utensils size={16} />
                   <span>Meal</span>
@@ -715,7 +715,7 @@ export const FoodSearchModal = ({
                 <button
                   onClick={() => {}}
                   aria-label="Add Food"
-                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
+                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 md:hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap press-feedback focus-ring"
                 >
                   <Plus size={16} />
                   <span>Add Food</span>
@@ -724,7 +724,7 @@ export const FoodSearchModal = ({
                 <button
                   onClick={onOpenManualEntry}
                   aria-label="Manual Entry"
-                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
+                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 md:hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap press-feedback focus-ring"
                 >
                   <Edit3 size={16} />
                   <span>Manual Entry</span>
@@ -733,7 +733,7 @@ export const FoodSearchModal = ({
                 <button
                   onClick={() => {}}
                   aria-label="Barcode Scan"
-                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
+                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 md:hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap press-feedback focus-ring"
                 >
                   <ScanBarcode size={16} />
                   <span>Barcode Scan</span>
@@ -742,7 +742,7 @@ export const FoodSearchModal = ({
                 <button
                   onClick={() => {}}
                   aria-label="AI Chatbot"
-                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
+                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 md:hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap press-feedback focus-ring"
                 >
                   <BotMessageSquare size={16} />
                   <span>AI Chatbot</span>
@@ -789,7 +789,7 @@ export const FoodSearchModal = ({
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 md:hover:text-white pressable-inline focus-ring"
                 >
                   <X size={18} />
                 </button>
@@ -834,8 +834,8 @@ export const FoodSearchModal = ({
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
                 className={`text-sm font-medium flex items-center gap-1 transition-colors ${
                   hasActiveFilters
-                    ? 'text-blue-400 hover:text-blue-300'
-                    : 'text-slate-400 hover:text-slate-300'
+                    ? 'text-blue-400 md:hover:text-blue-300'
+                    : 'text-slate-400 md:hover:text-slate-300'
                 }`}
               >
                 <SlidersHorizontal size={14} />
@@ -858,7 +858,7 @@ export const FoodSearchModal = ({
                         </h4>
                         <button
                           onClick={clearFilters}
-                          className="text-sm text-blue-400 hover:text-blue-300 font-medium"
+                          className="text-sm text-blue-400 md:hover:text-blue-300 font-medium focus-ring"
                         >
                           Clear All
                         </button>
@@ -876,7 +876,7 @@ export const FoodSearchModal = ({
                             className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
                               selectedCategory === null
                                 ? 'bg-blue-500 text-white'
-                                : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                                : 'bg-slate-700/50 text-slate-300 md:hover:bg-slate-700'
                             }`}
                           >
                             {searchMode === 'online'
@@ -894,7 +894,7 @@ export const FoodSearchModal = ({
                                 className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
                                   selectedCategory === key
                                     ? `bg-${color}-500 text-white`
-                                    : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                                    : 'bg-slate-700/50 text-slate-300 md:hover:bg-slate-700'
                                 }`}
                               >
                                 {label}
@@ -917,7 +917,7 @@ export const FoodSearchModal = ({
                               className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
                                 selectedSubcategory === null
                                   ? 'bg-blue-500 text-white'
-                                  : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                                  : 'bg-slate-700/50 text-slate-300 md:hover:bg-slate-700'
                               }`}
                             >
                               {searchMode === 'online'
@@ -931,7 +931,7 @@ export const FoodSearchModal = ({
                                 className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
                                   selectedSubcategory === subcat
                                     ? 'bg-blue-500 text-white'
-                                    : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                                    : 'bg-slate-700/50 text-slate-300 md:hover:bg-slate-700'
                                 }`}
                               >
                                 {searchMode === 'online'
@@ -961,7 +961,7 @@ export const FoodSearchModal = ({
                               className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
                                 sortBy === option.value
                                   ? 'bg-emerald-500 text-white'
-                                  : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                                  : 'bg-slate-700/50 text-slate-300 md:hover:bg-slate-700'
                               }`}
                             >
                               {option.label}
@@ -980,7 +980,7 @@ export const FoodSearchModal = ({
                             className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                               sortOrder === 'asc'
                                 ? 'bg-emerald-500 text-white'
-                                : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                                : 'bg-slate-700/50 text-slate-300 md:hover:bg-slate-700'
                             }`}
                           >
                             ↑ Ascending
@@ -990,7 +990,7 @@ export const FoodSearchModal = ({
                             className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                               sortOrder === 'desc'
                                 ? 'bg-emerald-500 text-white'
-                                : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                                : 'bg-slate-700/50 text-slate-300 md:hover:bg-slate-700'
                             }`}
                           >
                             ↓ Descending
@@ -1010,7 +1010,7 @@ export const FoodSearchModal = ({
                                   selectedCategory}
                                 <X
                                   size={12}
-                                  className="cursor-pointer hover:text-white"
+                                  className="cursor-pointer md:hover:text-white pressable-inline focus-ring"
                                   onClick={() => {
                                     setSelectedCategory(null);
                                     setSelectedSubcategory(null);
@@ -1025,7 +1025,7 @@ export const FoodSearchModal = ({
                                   : selectedSubcategory.replace(/-/g, ' ')}
                                 <X
                                   size={12}
-                                  className="cursor-pointer hover:text-white"
+                                  className="cursor-pointer md:hover:text-white pressable-inline focus-ring"
                                   onClick={() => setSelectedSubcategory(null)}
                                 />
                               </span>

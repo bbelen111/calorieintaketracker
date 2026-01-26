@@ -90,10 +90,10 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
     <button
       type="button"
       onClick={() => onPhaseClick(phase)}
-      className={`w-full text-left p-5 rounded-xl border-2 transition-all hover:scale-[1.02] ${
+      className={`w-full text-left p-5 rounded-xl border-2 transition-all md:hover:scale-[1.02] pressable-card focus-ring ${
         isActive
           ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-blue-500 shadow-lg shadow-blue-900/20'
-          : 'bg-slate-800 border-slate-700 hover:border-slate-600'
+          : 'bg-slate-800 border-slate-700 md:hover:border-slate-600'
       }`}
     >
       <div className="flex items-start justify-between gap-3 mb-3">
@@ -199,7 +199,7 @@ export const LogbookScreen = ({ phases, onCreatePhase, onPhaseClick }) => {
           <button
             type="button"
             onClick={onCreatePhase}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-all flex items-center gap-2"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold transition-all flex items-center gap-2 press-feedback focus-ring md:hover:bg-blue-500"
           >
             <Plus size={20} />
             <span className="hidden sm:inline">New Phase</span>
@@ -223,7 +223,7 @@ export const LogbookScreen = ({ phases, onCreatePhase, onPhaseClick }) => {
             <button
               type="button"
               onClick={onCreatePhase}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-all inline-flex items-center gap-2"
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold transition-all inline-flex items-center gap-2 press-feedback focus-ring md:hover:bg-blue-500"
             >
               <Plus size={20} />
               Create Your First Phase

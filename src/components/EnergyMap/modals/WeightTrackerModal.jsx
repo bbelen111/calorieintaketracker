@@ -991,7 +991,7 @@ export const WeightTrackerModal = ({
               type="button"
               onClick={() => onClose?.()}
               aria-label="Back"
-              className="text-slate-300 hover:text-white transition-all"
+              className="text-slate-300 md:hover:text-white transition-all pressable-inline focus-ring"
             >
               <ChevronLeft size={24} />
             </button>
@@ -1001,7 +1001,7 @@ export const WeightTrackerModal = ({
             <button
               type="button"
               onClick={() => onSwitchToBodyFat?.()}
-              className="px-4 py-2 md:px-4 md:py-2 rounded-md bg-blue-600 border border-blue-400 text-white text-sm font-semibold hover:bg-blue-500 transition-colors flex items-center"
+              className="px-4 py-2 md:px-4 md:py-2 rounded-md bg-blue-600 border border-blue-400 text-white text-sm font-semibold md:hover:bg-blue-500 transition-colors flex items-center press-feedback focus-ring"
               aria-label="Switch to body fat tracker"
             >
               <Repeat size={16} className="mr-2 opacity-90" />
@@ -1030,12 +1030,12 @@ export const WeightTrackerModal = ({
                 type="button"
                 onClick={openTrendInfo}
                 aria-label="Weekly rate details"
-                className="text-slate-400 text-xs uppercase tracking-wide mb-1 hover:text-slate-200 transition-colors cursor-pointer flex items-center gap-1 group"
+                className="text-slate-400 text-xs uppercase tracking-wide mb-1 md:hover:text-slate-200 transition-colors cursor-pointer flex items-center gap-1 group focus-ring"
               >
                 Weekly Rate
                 <Info
                   size={14}
-                  className="opacity-60 group-hover:opacity-100 transition-opacity"
+                  className="opacity-60 md:group-hover:opacity-100 transition-opacity"
                 />
               </button>
               <p className="text-white text-lg font-semibold">
@@ -1050,12 +1050,12 @@ export const WeightTrackerModal = ({
                 type="button"
                 onClick={openTrendInfo}
                 aria-label="Trend details"
-                className="text-slate-400 text-xs uppercase tracking-wide mb-1 hover:text-slate-200 transition-colors cursor-pointer flex items-center gap-1 group"
+                className="text-slate-400 text-xs uppercase tracking-wide mb-1 md:hover:text-slate-200 transition-colors cursor-pointer flex items-center gap-1 group focus-ring"
               >
                 Trend
                 <Info
                   size={14}
-                  className="opacity-60 group-hover:opacity-100 transition-opacity"
+                  className="opacity-60 md:group-hover:opacity-100 transition-opacity"
                 />
               </button>
               <p
@@ -1088,7 +1088,7 @@ export const WeightTrackerModal = ({
               <button
                 type="button"
                 onClick={() => onAddEntry?.()}
-                className="px-4 py-1.5 md:px-4 md:py-2.5 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all font-semibold text-sm hover:bg-blue-500/90"
+                className="px-4 py-1.5 md:px-4 md:py-2.5 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all font-semibold text-sm md:hover:bg-blue-500/90 press-feedback focus-ring"
               >
                 Add Entry
               </button>
@@ -1102,7 +1102,7 @@ export const WeightTrackerModal = ({
                       onClick={() =>
                         setIsPhaseDropdownOpen(!isPhaseDropdownOpen)
                       }
-                      className="px-3 py-1.5 md:py-2.5 rounded-md font-semibold text-sm transition-all whitespace-nowrap bg-slate-700 text-white border border-slate-600 hover:bg-slate-600 flex items-center gap-2"
+                      className="px-3 py-1.5 md:py-2.5 rounded-md font-semibold text-sm transition-all whitespace-nowrap bg-slate-700 text-white border border-slate-600 md:hover:bg-slate-600 flex items-center gap-2 focus-ring press-feedback"
                     >
                       <span>
                         {selectedPhase ? selectedPhase.name : 'All Data'}
@@ -1122,7 +1122,7 @@ export const WeightTrackerModal = ({
                             setSelectedPhaseId(null);
                             setIsPhaseDropdownOpen(false);
                           }}
-                          className={`w-full px-4 py-2 text-left text-sm font-medium transition-colors hover:bg-slate-600 first:rounded-t-md ${
+                          className={`w-full px-4 py-2 text-left text-sm font-medium transition-colors md:hover:bg-slate-600 first:rounded-t-md ${
                             !selectedPhaseId
                               ? 'bg-blue-600 text-white'
                               : 'text-slate-200'
@@ -1138,7 +1138,7 @@ export const WeightTrackerModal = ({
                               setSelectedPhaseId(phase.id);
                               setIsPhaseDropdownOpen(false);
                             }}
-                            className={`w-full px-4 py-2 text-left text-sm font-medium transition-colors hover:bg-slate-600 last:rounded-b-md ${
+                            className={`w-full px-4 py-2 text-left text-sm font-medium transition-colors md:hover:bg-slate-600 last:rounded-b-md ${
                               selectedPhaseId === phase.id
                                 ? 'bg-blue-600 text-white'
                                 : 'text-slate-200'
@@ -1164,7 +1164,7 @@ export const WeightTrackerModal = ({
                     onClick={() =>
                       setIsTimeframeDropdownOpen(!isTimeframeDropdownOpen)
                     }
-                    className="px-3 py-1.5 md:py-2.5 rounded-md font-semibold text-sm transition-all whitespace-nowrap bg-blue-600 text-white border border-blue-400 hover:bg-blue-500 flex items-center gap-2"
+                    className="px-3 py-1.5 md:py-2.5 rounded-md font-semibold text-sm transition-all whitespace-nowrap bg-blue-600 text-white border border-blue-400 md:hover:bg-blue-500 flex items-center gap-2 focus-ring press-feedback"
                   >
                     <span>
                       {(() => {
@@ -1207,7 +1207,7 @@ export const WeightTrackerModal = ({
                             setSelectedTimeframe(value);
                             setIsTimeframeDropdownOpen(false);
                           }}
-                          className={`w-full px-4 py-2 text-left text-sm font-medium transition-colors hover:bg-slate-600 first:rounded-t-md last:rounded-b-md ${
+                          className={`w-full px-4 py-2 text-left text-sm font-medium transition-colors md:hover:bg-slate-600 first:rounded-t-md last:rounded-b-md ${
                             selectedTimeframe === value
                               ? 'bg-blue-600 text-white'
                               : 'text-slate-200'
@@ -1565,7 +1565,7 @@ export const WeightTrackerModal = ({
             }
           }}
         >
-          <div className="cursor-pointer hover:bg-slate-700/50 rounded p-2 transition-all">
+          <div className="cursor-pointer md:hover:bg-slate-700/50 rounded p-2 transition-all pressable focus-ring">
             <p className="text-slate-400 text-[11.5px] mb-1">
               {formatTooltipDate(selectedDate)}
             </p>

@@ -75,10 +75,10 @@ export const DailyActivityEditorModal = ({
               key={option.key}
               type="button"
               onClick={() => onSelectPreset(dayType, option.key, option.value)}
-              className={`w-full p-4 rounded-xl border-2 transition-all text-left flex items-start gap-3 active:scale-[0.98] ${
+              className={`w-full p-4 rounded-xl border-2 transition-all text-left flex items-start gap-3 active:scale-[0.98] focus-ring ${
                 isActive
                   ? 'bg-blue-600 border-blue-400 text-white shadow-lg'
-                  : 'bg-slate-700 border-slate-600 text-slate-300'
+                  : 'bg-slate-700 border-slate-600 text-slate-300 md:hover:border-blue-400'
               }`}
             >
               <div className="flex-1">

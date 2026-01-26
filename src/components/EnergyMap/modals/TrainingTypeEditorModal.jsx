@@ -91,7 +91,7 @@ export const TrainingTypeEditorModal = ({
           <button
             type="button"
             onClick={infoModal.open}
-            className="mt-2 text-xs text-blue-300 hover:text-blue-200 underline underline-offset-2 transition-colors"
+            className="mt-2 text-xs text-blue-300 md:hover:text-blue-200 underline underline-offset-2 transition-colors focus-ring"
           >
             Not sure what number fits? View the quick guide.
           </button>
@@ -102,14 +102,14 @@ export const TrainingTypeEditorModal = ({
         <button
           onClick={onCancel}
           type="button"
-          className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium"
+          className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback"
         >
           Cancel
         </button>
         <button
           onClick={onSave}
           type="button"
-          className="flex-1 bg-blue-600 active:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
+          className="flex-1 bg-blue-600 active:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback"
         >
           <Save size={20} />
           Save
