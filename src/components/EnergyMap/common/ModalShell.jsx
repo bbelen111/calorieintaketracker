@@ -544,7 +544,7 @@ export const ModalShell = ({
       style={{
         isolation: 'isolate',
       }}
-      className={`modal-overlay-wrapper fixed left-0 right-0 top-0 !mt-0 bg-transparent flex justify-center ${
+      className={`modal-overlay-wrapper fixed inset-0 !mt-0 bg-transparent flex justify-center ${
         shouldFullHeight ? 'items-stretch p-0' : 'items-center p-4'
       } ${overlayClassName}`}
       onClick={handleOverlayClick}

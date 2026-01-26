@@ -473,53 +473,59 @@ export const EnergyMapCalculator = () => {
   // ...existing code...
   const confirmActionModal = useAnimatedModal();
 
-  const closeTopmostModal = useCallback(() => {
-    const modalStack = [
-      confirmActionModal,
-      foodPortionModal,
-      foodEntryModal,
-      foodSearchModal,
-      mealTypePickerModal,
-      calendarPickerModal,
-      dailyLogModal,
-      templatePickerModal,
-      phaseCreationModal,
-      calorieBreakdownModal,
-      cardioFavouriteEditorModal,
-      cardioFavouritesModal,
-      cardioModal,
-      durationPickerModal,
-      quickTrainingModal,
-      stepRangesModal,
-      dailyActivityCustomModal,
-      dailyActivityEditorModal,
-      dailyActivityModal,
-      settingsModal,
-      trainingTypeEditorModal,
-      trainingTypeModal,
-      bodyFatPickerModal,
-      bodyFatEntryModal,
-      bodyFatTrackerModal,
-      weightPickerModal,
-      weightEntryModal,
-      weightTrackerModal,
-      heightModal,
-      ageModal,
-      ffmiModal,
-      bmiModal,
-      bmrModal,
-      goalModal,
-    ];
+  // Keep a ref to the latest modal state so the back gesture handler never reads stale values
+  const closeTopmostModalRef = useRef(() => false);
 
-    for (const modal of modalStack) {
-      if (modal?.isOpen && !modal.isClosing) {
-        modal.requestClose();
-        return true;
+  // Update the ref every render with the current modal stack
+  useEffect(() => {
+    closeTopmostModalRef.current = () => {
+      const modalStack = [
+        confirmActionModal,
+        foodPortionModal,
+        foodEntryModal,
+        foodSearchModal,
+        mealTypePickerModal,
+        calendarPickerModal,
+        dailyLogModal,
+        templatePickerModal,
+        phaseCreationModal,
+        calorieBreakdownModal,
+        cardioFavouriteEditorModal,
+        cardioFavouritesModal,
+        cardioModal,
+        durationPickerModal,
+        quickTrainingModal,
+        stepRangesModal,
+        dailyActivityCustomModal,
+        dailyActivityEditorModal,
+        dailyActivityModal,
+        settingsModal,
+        trainingTypeEditorModal,
+        trainingTypeModal,
+        bodyFatPickerModal,
+        bodyFatEntryModal,
+        bodyFatTrackerModal,
+        weightPickerModal,
+        weightEntryModal,
+        weightTrackerModal,
+        heightModal,
+        ageModal,
+        ffmiModal,
+        bmiModal,
+        bmrModal,
+        goalModal,
+      ];
+
+      for (const modal of modalStack) {
+        if (modal?.isOpen && !modal.isClosing) {
+          modal.requestClose();
+          return true;
+        }
       }
-    }
 
-    return false;
-  }, []); // Empty deps - modal refs are stable
+      return false;
+    };
+  });
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) {
@@ -530,7 +536,7 @@ export const EnergyMapCalculator = () => {
 
     const setup = async () => {
       listener = await App.addListener('backButton', ({ canGoBack }) => {
-        const didCloseModal = closeTopmostModal();
+        const didCloseModal = closeTopmostModalRef.current?.() ?? false;
         if (didCloseModal) {
           return;
         }
@@ -548,7 +554,7 @@ export const EnergyMapCalculator = () => {
     return () => {
       listener?.remove?.();
     };
-  }, [closeTopmostModal]);
+  }, []);
 
   useEffect(() => {
     if (isDayLoaded) {
