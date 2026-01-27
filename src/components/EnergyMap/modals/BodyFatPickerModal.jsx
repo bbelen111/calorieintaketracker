@@ -89,18 +89,13 @@ export const BodyFatPickerModal = ({
   const [selectedWhole, setSelectedWhole] = useState(MIN_BODY_FAT);
   const [selectedDecimal, setSelectedDecimal] = useState(0);
 
-  const notifyChange = useCallback(
-    (whole, decimal) => {
-      if (!onChange) {
-        return;
-      }
-      onChange(buildBodyFatValue(whole, decimal));
-    },
-    [onChange]
+  const [handleWholeScroll, setHandleWholeScroll] = useState(() => () => {});
+  const [handleDecimalScroll, setHandleDecimalScroll] = useState(
+    () => () => {}
   );
 
   const applySelection = useCallback(
-    (whole, decimal, behavior = 'instant', shouldNotify = false) => {
+    (whole, decimal, behavior = 'instant') => {
       const clampedWhole = clampWhole(whole);
       const clampedDecimal =
         clampedWhole === MAX_BODY_FAT ? 0 : clampDecimal(decimal);
@@ -128,12 +123,8 @@ export const BodyFatPickerModal = ({
           behavior
         );
       }
-
-      if (shouldNotify) {
-        notifyChange(clampedWhole, clampedDecimal);
-      }
     },
-    [notifyChange]
+    []
   );
 
   useEffect(
@@ -156,64 +147,58 @@ export const BodyFatPickerModal = ({
     const parts = convertBodyFatToParts(value);
 
     const frame = requestAnimationFrame(() => {
-      applySelection(parts.whole, parts.decimal, behavior);
+      selectionRef.current = { whole: parts.whole, decimal: parts.decimal };
+      setSelectedWhole(parts.whole);
+      setSelectedDecimal(parts.decimal);
+      if (wholeRef.current) {
+        alignScrollContainerToValue(wholeRef.current, parts.whole.toString(), behavior);
+      }
+      if (decimalRef.current) {
+        alignScrollContainerToValue(decimalRef.current, parts.decimal.toString(), behavior);
+      }
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [applySelection, isOpen, value]);
+  }, [isOpen, value]);
 
-  const handleWholeChange = useCallback(
-    (nextWhole) => {
-      const clampedWhole = clampWhole(nextWhole);
-      const nextDecimal =
-        clampedWhole === MAX_BODY_FAT ? 0 : selectionRef.current.decimal;
+  const handleWholeChange = useCallback((nextWhole) => {
+    const clampedWhole = clampWhole(nextWhole);
+    const nextDecimal =
+      clampedWhole === MAX_BODY_FAT ? 0 : selectionRef.current.decimal;
 
-      selectionRef.current = {
-        whole: clampedWhole,
-        decimal: nextDecimal,
-      };
+    selectionRef.current = {
+      whole: clampedWhole,
+      decimal: nextDecimal,
+    };
 
-      setSelectedWhole(clampedWhole);
-      setSelectedDecimal(nextDecimal);
+    setSelectedWhole(clampedWhole);
+    setSelectedDecimal(nextDecimal);
 
-      if (clampedWhole === MAX_BODY_FAT && decimalRef.current) {
-        alignScrollContainerToValue(decimalRef.current, '0', 'smooth');
-      }
+    if (clampedWhole === MAX_BODY_FAT && decimalRef.current) {
+      alignScrollContainerToValue(decimalRef.current, '0', 'smooth');
+    }
+  }, []);
 
-      notifyChange(clampedWhole, nextDecimal);
-    },
-    [notifyChange]
-  );
+  const handleDecimalChange = useCallback((nextDecimal) => {
+    const clampedDecimal =
+      selectionRef.current.whole === MAX_BODY_FAT
+        ? 0
+        : clampDecimal(nextDecimal);
 
-  const handleDecimalChange = useCallback(
-    (nextDecimal) => {
-      const clampedDecimal =
-        selectionRef.current.whole === MAX_BODY_FAT
-          ? 0
-          : clampDecimal(nextDecimal);
+    selectionRef.current = {
+      whole: selectionRef.current.whole,
+      decimal: clampedDecimal,
+    };
 
-      selectionRef.current = {
-        whole: selectionRef.current.whole,
-        decimal: clampedDecimal,
-      };
-
-      setSelectedDecimal(clampedDecimal);
-      notifyChange(selectionRef.current.whole, clampedDecimal);
-    },
-    [notifyChange]
-  );
-
-  const [handleWholeScroll, setHandleWholeScroll] = useState(() => () => {});
-  const [handleDecimalScroll, setHandleDecimalScroll] = useState(
-    () => () => {}
-  );
+    setSelectedDecimal(clampedDecimal);
+  }, []);
 
   useEffect(() => {
     setHandleWholeScroll(() =>
       createPickerScrollHandler(
         wholeRef,
         wholeTimeoutRef,
-        (value) => parseInt(value, 10),
+        (val) => parseInt(val, 10),
         handleWholeChange
       )
     );
@@ -224,7 +209,7 @@ export const BodyFatPickerModal = ({
       createPickerScrollHandler(
         decimalRef,
         decimalTimeoutRef,
-        (value) => parseInt(value, 10),
+        (val) => parseInt(val, 10),
         handleDecimalChange
       )
     );
@@ -234,6 +219,10 @@ export const BodyFatPickerModal = ({
     () => buildBodyFatValue(selectedWhole, selectedDecimal),
     [selectedDecimal, selectedWhole]
   );
+
+  const handleSave = useCallback(() => {
+    onSave?.(selectedBodyFat);
+  }, [onSave, selectedBodyFat]);
 
   return (
     <ModalShell
@@ -250,13 +239,13 @@ export const BodyFatPickerModal = ({
 
       <div className="flex gap-4">
         <div className="flex-1">
-          <div className="relative h-48 overflow-hidden">
+          <div className="relative h-48 overflow-hidden rounded-xl bg-slate-800/80">
             <div className="absolute inset-0 pointer-events-none z-10">
               <div className="h-16 bg-gradient-to-b from-slate-800 to-transparent" />
               <div className="h-16 bg-transparent" />
               <div className="h-16 bg-gradient-to-t from-slate-800 to-transparent" />
             </div>
-            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400 pointer-events-none z-10" />
+            <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400/70 pointer-events-none z-10" />
 
             <div
               ref={wholeRef}
@@ -264,25 +253,25 @@ export const BodyFatPickerModal = ({
               onScroll={handleWholeScroll}
             >
               <div className="h-16" />
-              {BODY_FAT_VALUES.map((value) => (
+              {BODY_FAT_VALUES.map((bodyFatValue) => (
                 <div
-                  key={value}
-                  data-value={value}
+                  key={bodyFatValue}
+                  data-value={bodyFatValue}
                   onClick={() =>
                     applySelection(
-                      value,
+                      bodyFatValue,
                       selectionRef.current.decimal,
                       'smooth',
                       true
                     )
                   }
-                  className={`h-16 flex items-center justify-center text-2xl font-bold snap-center transition-all text-center cursor-pointer ${
-                    selectedWhole === value
+                  className={`h-16 flex items-center justify-center text-2xl font-bold snap-center cursor-pointer transition-all ${
+                    selectedWhole === bodyFatValue
                       ? 'text-white scale-110'
                       : 'text-slate-500'
                   }`}
                 >
-                  {value}
+                  {bodyFatValue}
                 </div>
               ))}
               <div className="h-16" />
@@ -291,13 +280,13 @@ export const BodyFatPickerModal = ({
         </div>
 
         <div className="w-20 flex-shrink-0">
-          <div className="relative h-48 overflow-hidden">
+          <div className="relative h-48 overflow-hidden rounded-xl bg-slate-800/80">
             <div className="absolute inset-0 pointer-events-none z-10">
               <div className="h-16 bg-gradient-to-b from-slate-800 to-transparent" />
               <div className="h-16 bg-transparent" />
               <div className="h-16 bg-gradient-to-t from-slate-800 to-transparent" />
             </div>
-            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400 pointer-events-none z-10" />
+            <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400/70 pointer-events-none z-10" />
 
             <div
               ref={decimalRef}
@@ -321,7 +310,7 @@ export const BodyFatPickerModal = ({
                         true
                       );
                     }}
-                    className={`h-16 flex items-center justify-center text-2xl font-bold snap-center transition-all text-center cursor-pointer ${
+                    className={`h-16 flex items-center justify-center text-2xl font-bold snap-center cursor-pointer transition-all ${
                       selectedDecimal === decimal
                         ? 'text-white scale-110'
                         : 'text-slate-500'
@@ -346,7 +335,7 @@ export const BodyFatPickerModal = ({
           Cancel
         </button>
         <button
-          onClick={onSave}
+          onClick={handleSave}
           type="button"
           className="flex-1 bg-blue-600 active:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback"
         >

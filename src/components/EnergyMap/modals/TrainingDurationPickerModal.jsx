@@ -87,11 +87,14 @@ export const TrainingDurationPickerModal = ({
   const minutesTimeoutRef = useRef(null);
   const hasAlignedRef = useRef(false);
   const selectionRef = useRef({ hours: 0, minutes: 0 });
-  const hoursScrollHandlerRef = useRef(null);
-  const minutesScrollHandlerRef = useRef(null);
 
   const [selectedHours, setSelectedHours] = useState(0);
   const [selectedMinutes, setSelectedMinutes] = useState(0);
+
+  const [handleHoursScroll, setHandleHoursScroll] = useState(() => () => {});
+  const [handleMinutesScroll, setHandleMinutesScroll] = useState(
+    () => () => {}
+  );
 
   const applySelection = useCallback((hours, minutes, behavior = 'instant') => {
     const normalizedHours = Math.min(Math.max(hours, 0), MAX_HOURS);
@@ -141,11 +144,19 @@ export const TrainingDurationPickerModal = ({
     const parts = convertDurationToParts(initialDuration);
 
     const frame = requestAnimationFrame(() => {
-      applySelection(parts.hours, parts.minutes, behavior);
+      selectionRef.current = { hours: parts.hours, minutes: parts.minutes };
+      setSelectedHours(parts.hours);
+      setSelectedMinutes(parts.minutes);
+      if (hoursRef.current) {
+        alignScrollContainerToValue(hoursRef.current, parts.hours.toString(), behavior);
+      }
+      if (minutesRef.current) {
+        alignScrollContainerToValue(minutesRef.current, parts.minutes.toString(), behavior);
+      }
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [applySelection, initialDuration, isOpen]);
+  }, [initialDuration, isOpen]);
 
   const handleHoursChange = useCallback((nextHours) => {
     const clampedHours = Math.min(Math.max(nextHours, 0), MAX_HOURS);
@@ -178,36 +189,26 @@ export const TrainingDurationPickerModal = ({
   }, []);
 
   useEffect(() => {
-    hoursScrollHandlerRef.current = createPickerScrollHandler(
-      hoursRef,
-      hoursTimeoutRef,
-      (value) => parseInt(value, 10),
-      handleHoursChange
+    setHandleHoursScroll(() =>
+      createPickerScrollHandler(
+        hoursRef,
+        hoursTimeoutRef,
+        (val) => parseInt(val, 10),
+        handleHoursChange
+      )
     );
-    return () => {
-      hoursScrollHandlerRef.current = null;
-    };
   }, [handleHoursChange]);
 
   useEffect(() => {
-    minutesScrollHandlerRef.current = createPickerScrollHandler(
-      minutesRef,
-      minutesTimeoutRef,
-      (value) => parseInt(value, 10),
-      handleMinutesChange
+    setHandleMinutesScroll(() =>
+      createPickerScrollHandler(
+        minutesRef,
+        minutesTimeoutRef,
+        (val) => parseInt(val, 10),
+        handleMinutesChange
+      )
     );
-    return () => {
-      minutesScrollHandlerRef.current = null;
-    };
   }, [handleMinutesChange]);
-
-  const handleHoursScroll = useCallback((event) => {
-    hoursScrollHandlerRef.current?.(event);
-  }, []);
-
-  const handleMinutesScroll = useCallback((event) => {
-    minutesScrollHandlerRef.current?.(event);
-  }, []);
 
   const decimalDuration = useMemo(() => {
     const totalMinutes = selectedHours * 60 + selectedMinutes;
@@ -218,6 +219,10 @@ export const TrainingDurationPickerModal = ({
     () => formatDurationLabel(decimalDuration),
     [decimalDuration]
   );
+
+  const handleSave = useCallback(() => {
+    onSave?.(decimalDuration);
+  }, [onSave, decimalDuration]);
 
   return (
     <ModalShell
@@ -232,13 +237,13 @@ export const TrainingDurationPickerModal = ({
           <p className="text-slate-400 text-xs text-center mb-2 uppercase tracking-wide">
             Hours
           </p>
-          <div className="relative h-48 overflow-hidden">
+          <div className="relative h-48 overflow-hidden rounded-xl bg-slate-800/80">
             <div className="absolute inset-0 pointer-events-none z-10">
               <div className="h-16 bg-gradient-to-b from-slate-800 to-transparent" />
               <div className="h-16 bg-transparent" />
               <div className="h-16 bg-gradient-to-t from-slate-800 to-transparent" />
             </div>
-            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400 pointer-events-none z-10" />
+            <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400/70 pointer-events-none z-10" />
 
             <div
               ref={hoursRef}
@@ -253,7 +258,7 @@ export const TrainingDurationPickerModal = ({
                   onClick={() =>
                     applySelection(hour, selectionRef.current.minutes, 'smooth')
                   }
-                  className={`h-16 flex items-center justify-center text-2xl font-bold snap-center transition-all text-center cursor-pointer ${
+                  className={`h-16 flex items-center justify-center text-2xl font-bold snap-center cursor-pointer transition-all ${
                     selectedHours === hour
                       ? 'text-white scale-110'
                       : 'text-slate-500'
@@ -271,13 +276,13 @@ export const TrainingDurationPickerModal = ({
           <p className="text-slate-400 text-xs text-center mb-2 uppercase tracking-wide">
             Minutes
           </p>
-          <div className="relative h-48 overflow-hidden">
+          <div className="relative h-48 overflow-hidden rounded-xl bg-slate-800/80">
             <div className="absolute inset-0 pointer-events-none z-10">
               <div className="h-16 bg-gradient-to-b from-slate-800 to-transparent" />
               <div className="h-16 bg-transparent" />
               <div className="h-16 bg-gradient-to-t from-slate-800 to-transparent" />
             </div>
-            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400 pointer-events-none z-10" />
+            <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400/70 pointer-events-none z-10" />
 
             <div
               ref={minutesRef}
@@ -299,7 +304,7 @@ export const TrainingDurationPickerModal = ({
                         'smooth'
                       );
                     }}
-                    className={`h-16 flex items-center justify-center text-2xl font-bold snap-center transition-all text-center cursor-pointer ${
+                    className={`h-16 flex items-center justify-center text-2xl font-bold snap-center cursor-pointer transition-all ${
                       selectedMinutes === minute
                         ? 'text-white scale-110'
                         : 'text-slate-500'
@@ -334,7 +339,7 @@ export const TrainingDurationPickerModal = ({
           Cancel
         </button>
         <button
-          onClick={onSave}
+          onClick={handleSave}
           type="button"
           className="flex-1 bg-blue-600 active:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback"
         >

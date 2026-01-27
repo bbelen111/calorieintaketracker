@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { Save } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import {
@@ -19,6 +19,9 @@ export const AgePickerModal = ({
   const scrollRef = useRef(null);
   const timeoutRef = useRef(null);
   const hasAlignedRef = useRef(false);
+  const [selectedAge, setSelectedAge] = useState(value || 25);
+
+  const [handleScroll, setHandleScroll] = useState(() => () => {});
 
   useEffect(() => () => clearTimeout(timeoutRef.current), []);
 
@@ -32,31 +35,39 @@ export const AgePickerModal = ({
     hasAlignedRef.current = true;
 
     const frame = requestAnimationFrame(() => {
-      alignScrollContainerToValue(scrollRef.current, value, behavior);
+      alignScrollContainerToValue(scrollRef.current, value || 25, behavior);
     });
     return () => cancelAnimationFrame(frame);
   }, [isOpen, value]);
 
-  const handlerRef = useRef(null);
+  const handleAgeChange = useCallback((nextAge) => {
+    setSelectedAge(nextAge);
+  }, []);
 
   useEffect(() => {
-    // Create the scroll handler after render to avoid accessing ref.current during render
-    handlerRef.current = createPickerScrollHandler(
-      scrollRef,
-      timeoutRef,
-      (v) => parseInt(v, 10),
-      onChange
+    setHandleScroll(() =>
+      createPickerScrollHandler(
+        scrollRef,
+        timeoutRef,
+        (val) => parseInt(val, 10),
+        handleAgeChange
+      )
     );
-    return () => {
-      handlerRef.current = null;
-    };
-  }, [onChange]);
+  }, [handleAgeChange]);
 
-  const handleScroll = useCallback((...args) => {
-    if (handlerRef.current) {
-      handlerRef.current(...args);
-    }
-  }, []);
+  const handleItemClick = useCallback(
+    (age) => {
+      setSelectedAge(age);
+      if (scrollRef.current) {
+        alignScrollContainerToValue(scrollRef.current, age, 'smooth');
+      }
+    },
+    []
+  );
+
+  const handleSave = useCallback(() => {
+    onSave?.(selectedAge);
+  }, [onSave, selectedAge]);
 
   return (
     <ModalShell
@@ -72,13 +83,13 @@ export const AgePickerModal = ({
         Years
       </p>
 
-      <div className="relative h-48 overflow-hidden">
+      <div className="relative h-48 overflow-hidden rounded-xl bg-slate-800/80">
         <div className="absolute inset-0 pointer-events-none z-10">
           <div className="h-16 bg-gradient-to-b from-slate-800 to-transparent" />
           <div className="h-16 bg-transparent" />
           <div className="h-16 bg-gradient-to-t from-slate-800 to-transparent" />
         </div>
-        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400 pointer-events-none z-10" />
+        <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400/70 pointer-events-none z-10" />
 
         <div
           ref={scrollRef}
@@ -90,13 +101,12 @@ export const AgePickerModal = ({
             <div
               key={age}
               data-value={age}
-              onClick={() => {
-                onChange(age);
-                if (scrollRef.current) {
-                  alignScrollContainerToValue(scrollRef.current, age, 'smooth');
-                }
-              }}
-              className={`py-3 px-6 text-2xl font-semibold transition-all snap-center cursor-pointer text-center focus-ring pressable ${value === age ? 'text-white scale-110' : 'text-slate-500'}`}
+              onClick={() => handleItemClick(age)}
+              className={`h-16 flex items-center justify-center text-2xl font-semibold snap-center cursor-pointer transition-all ${
+                selectedAge === age
+                  ? 'text-white scale-110'
+                  : 'text-slate-500'
+              }`}
             >
               {age}
             </div>
@@ -109,14 +119,14 @@ export const AgePickerModal = ({
         <button
           onClick={onCancel}
           type="button"
-          className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium"
+          className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback"
         >
           Cancel
         </button>
         <button
-          onClick={onSave}
+          onClick={handleSave}
           type="button"
-          className="flex-1 bg-blue-600 active:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium"
+          className="flex-1 bg-blue-600 active:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback"
         >
           <Save size={20} />
           Save

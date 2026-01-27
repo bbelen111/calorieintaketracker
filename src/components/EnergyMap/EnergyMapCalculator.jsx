@@ -1792,15 +1792,25 @@ export const EnergyMapCalculator = () => {
     goalModal.requestClose();
   }, [goalModal, tempSelectedGoal]);
 
-  const handleAgeSave = useCallback(() => {
-    handleUserDataChange('age', tempAge);
-    ageModal.requestClose();
-  }, [ageModal, handleUserDataChange, tempAge]);
+  const handleAgeSave = useCallback(
+    (value) => {
+      // Accept value from picker or fallback to temp state
+      const age = value ?? tempAge;
+      handleUserDataChange('age', age);
+      ageModal.requestClose();
+    },
+    [ageModal, handleUserDataChange, tempAge]
+  );
 
-  const handleHeightSave = useCallback(() => {
-    handleUserDataChange('height', tempHeight);
-    heightModal.requestClose();
-  }, [handleUserDataChange, heightModal, tempHeight]);
+  const handleHeightSave = useCallback(
+    (value) => {
+      // Accept value from picker or fallback to temp state
+      const height = value ?? tempHeight;
+      handleUserDataChange('height', height);
+      heightModal.requestClose();
+    },
+    [handleUserDataChange, heightModal, tempHeight]
+  );
 
   const handleTrainingTypeSave = useCallback(() => {
     handleUserDataChange('trainingType', tempTrainingType);
