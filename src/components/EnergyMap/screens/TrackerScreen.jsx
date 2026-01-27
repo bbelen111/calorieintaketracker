@@ -520,7 +520,7 @@ export const TrackerScreen = ({
                         setInternalSelectedDate(weekDate.key);
                       }
                     }}
-                        className={`relative flex flex-col items-center justify-center rounded-md border py-2 text-[15px] font-semibold transition-all active:scale-95 focus-ring ${
+                    className={`relative flex flex-col items-center justify-center rounded-md border py-2 text-[15px] font-semibold transition-all active:scale-95 focus-ring ${
                       isSelected
                         ? 'bg-blue-600 border-blue-400 text-white'
                         : 'bg-slate-700/60 border-slate-600/50 text-slate-200 md:hover:bg-slate-700/70'
@@ -1043,7 +1043,7 @@ export const TrackerScreen = ({
                   </div>
                 </div>
                 <Plus
-                    className="text-slate-400 md:group-hover:text-blue-400 transition-colors"
+                  className="text-slate-400 md:group-hover:text-blue-400 transition-colors"
                   size={24}
                 />
               </button>

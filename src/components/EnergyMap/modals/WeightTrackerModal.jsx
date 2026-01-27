@@ -20,6 +20,10 @@ import {
   formatWeight,
   sortWeightEntries,
 } from '../../../utils/weight';
+import {
+  getGoalAlignedStyle,
+  getGoalAlignedTextClass,
+} from '../../../utils/goalAlignment';
 import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
 import { WeightTrendInfoModal } from './WeightTrendInfoModal';
 import { shallow } from 'zustand/shallow';
@@ -35,42 +39,17 @@ const TrendIcon = ({ direction }) => {
   return <Minus size={18} />;
 };
 
-const getTrendToneClass = (direction, label) => {
+const getTrendToneClass = (trend, selectedGoal) => {
   // If no meaningful data, show white
-  if (label === 'Need more data' || label === 'No data yet') {
+  if (
+    !trend ||
+    trend.label === 'Need more data' ||
+    trend.label === 'No data yet'
+  ) {
     return 'text-white';
   }
 
-  // Severe states (most extreme) - Red
-  if (label.includes('Severe')) {
-    return 'text-red-500';
-  }
-
-  // Aggressive states
-  if (label.includes('Aggressive weight loss')) {
-    return 'text-orange-500'; // Matches aggressive_cut goal
-  }
-  if (label.includes('Aggressive weight gain')) {
-    return 'text-purple-500'; // Matches aggressive_bulk goal
-  }
-
-  // Moderate states
-  if (label.includes('Moderate weight loss')) {
-    return 'text-yellow-500'; // Matches cutting goal
-  }
-  if (label.includes('Moderate weight gain')) {
-    return 'text-green-500'; // Matches bulking/lean bulk goal
-  }
-
-  // Gradual states - use slightly muted versions
-  if (direction === 'down') {
-    return 'text-yellow-400'; // Gradual loss
-  }
-  if (direction === 'up') {
-    return 'text-green-400'; // Gradual gain
-  }
-
-  return 'text-blue-400'; // Stable/maintenance
+  return getGoalAlignedTextClass(trend, selectedGoal, 'weight');
 };
 
 const getGoalAlignmentText = (weeklyRate, selectedGoal) => {
@@ -163,31 +142,6 @@ const TOOLTIP_WIDTH = 144;
 const TOOLTIP_VERTICAL_OFFSET = 17;
 const POINT_RADIUS = 6;
 const POINT_HIT_RADIUS = 12;
-
-const getTrendVisualStyle = (trend) => {
-  if (trend.label.includes('Severe')) {
-    return { color: '#ef4444', topOpacity: 0.3, bottomOpacity: 0.05 };
-  }
-  if (trend.label.includes('Aggressive weight loss')) {
-    return { color: '#f97316', topOpacity: 0.3, bottomOpacity: 0.05 };
-  }
-  if (trend.label.includes('Aggressive weight gain')) {
-    return { color: '#a855f7', topOpacity: 0.3, bottomOpacity: 0.05 };
-  }
-  if (trend.label.includes('Moderate weight loss')) {
-    return { color: '#eab308', topOpacity: 0.3, bottomOpacity: 0.05 };
-  }
-  if (trend.label.includes('Moderate weight gain')) {
-    return { color: '#22c55e', topOpacity: 0.3, bottomOpacity: 0.05 };
-  }
-  if (trend.direction === 'down') {
-    return { color: '#eab308', topOpacity: 0.25, bottomOpacity: 0.05 };
-  }
-  if (trend.direction === 'up') {
-    return { color: '#22c55e', topOpacity: 0.25, bottomOpacity: 0.05 };
-  }
-  return { color: '#60a5fa', topOpacity: 0.3, bottomOpacity: 0.05 };
-};
 
 const getBaselineY = (defaultY) => defaultY - BASELINE_Y_OFFSET;
 
@@ -355,7 +309,10 @@ export const WeightTrackerModal = ({
     () => calculateWeightTrend(filteredEntries),
     [filteredEntries]
   );
-  const trendVisual = useMemo(() => getTrendVisualStyle(trend), [trend]);
+  const trendVisual = useMemo(
+    () => getGoalAlignedStyle(trend, selectedGoal, 'weight'),
+    [trend, selectedGoal]
+  );
   const goalAlignment = useMemo(
     () => getGoalAlignmentText(trend.weeklyRate, selectedGoal),
     [trend.weeklyRate, selectedGoal]
@@ -1059,7 +1016,7 @@ export const WeightTrackerModal = ({
                 />
               </button>
               <p
-                className={`${getTrendToneClass(trend.direction, trend.label)} font-semibold text-lg flex items-center gap-2`}
+                className={`${getTrendToneClass(trend, selectedGoal)} font-semibold text-lg flex items-center gap-2`}
               >
                 <TrendIcon direction={trend.direction} />
                 {trend.label}
@@ -1587,6 +1544,7 @@ export const WeightTrackerModal = ({
         isOpen={isTrendInfoOpen}
         isClosing={isTrendInfoClosing}
         trend={trend}
+        selectedGoal={selectedGoal}
         onClose={closeTrendInfo}
       />
     </>

@@ -125,149 +125,151 @@ export const SettingsModal = ({
         <div className="flex-1 overflow-y-auto">
           <div className="p-4 space-y-4 md:space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-          <div>
-            <label className="text-slate-300 text-sm block mb-2">Age</label>
-            <div className="relative">
-              <input
-                type="number"
-                value={resolvedUserData.age}
-                onChange={(event) =>
-                  onChange('age', parseInt(event.target.value, 10) || 0)
-                }
-                className="w-full bg-slate-700 text-white px-4 pr-14 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-lg"
-              />
-              <button
-                type="button"
-                onClick={() => onAgePickerClick?.()}
-                className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-600/80 md:hover:bg-slate-500 text-white transition focus-ring"
-                aria-label="Open age picker"
-              >
-                <ChevronsUpDown size={16} />
-              </button>
-            </div>
-          </div>
+              <div>
+                <label className="text-slate-300 text-sm block mb-2">Age</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    value={resolvedUserData.age}
+                    onChange={(event) =>
+                      onChange('age', parseInt(event.target.value, 10) || 0)
+                    }
+                    className="w-full bg-slate-700 text-white px-4 pr-14 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-lg"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => onAgePickerClick?.()}
+                    className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-600/80 md:hover:bg-slate-500 text-white transition focus-ring"
+                    aria-label="Open age picker"
+                  >
+                    <ChevronsUpDown size={16} />
+                  </button>
+                </div>
+              </div>
 
-          <div>
-            <label className="text-slate-300 text-sm block mb-2">Gender</label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => onChange('gender', 'male')}
-                type="button"
-                className={`py-3 px-2 rounded-lg border-2 transition-all font-semibold flex items-center justify-center gap-2 focus-ring pressable-inline ${
-                  resolvedUserData.gender === 'male'
-                    ? 'bg-blue-600 border-blue-400 text-white'
-                    : 'bg-slate-700 border-slate-600 text-slate-300'
-                }`}
-              >
-                <Mars size={16} />
-                <span>Male</span>
-              </button>
-              <button
-                onClick={() => onChange('gender', 'female')}
-                type="button"
-                className={`py-3 px-2 rounded-lg border-2 transition-all font-semibold flex items-center justify-center gap-2 focus-ring pressable-inline ${
-                  resolvedUserData.gender === 'female'
-                    ? 'bg-indigo-600 border-indigo-400 text-white'
-                    : 'bg-slate-700 border-slate-600 text-slate-300'
-                }`}
-              >
-                <Venus size={16} />
-                <span>Female</span>
-              </button>
-            </div>
-          </div>
+              <div>
+                <label className="text-slate-300 text-sm block mb-2">
+                  Gender
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => onChange('gender', 'male')}
+                    type="button"
+                    className={`py-3 px-2 rounded-lg border-2 transition-all font-semibold flex items-center justify-center gap-2 focus-ring pressable-inline ${
+                      resolvedUserData.gender === 'male'
+                        ? 'bg-blue-600 border-blue-400 text-white'
+                        : 'bg-slate-700 border-slate-600 text-slate-300'
+                    }`}
+                  >
+                    <Mars size={16} />
+                    <span>Male</span>
+                  </button>
+                  <button
+                    onClick={() => onChange('gender', 'female')}
+                    type="button"
+                    className={`py-3 px-2 rounded-lg border-2 transition-all font-semibold flex items-center justify-center gap-2 focus-ring pressable-inline ${
+                      resolvedUserData.gender === 'female'
+                        ? 'bg-indigo-600 border-indigo-400 text-white'
+                        : 'bg-slate-700 border-slate-600 text-slate-300'
+                    }`}
+                  >
+                    <Venus size={16} />
+                    <span>Female</span>
+                  </button>
+                </div>
+              </div>
 
-          <div>
-            <label className="text-slate-300 text-sm block mb-2">
-              Weight (kg)
-            </label>
-            <button
-              type="button"
-              onClick={() => onManageWeightClick?.()}
-              className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all press-feedback flex flex-wrap items-center gap-x-3 gap-y-1 text-left focus-ring md:hover:bg-blue-500/90"
-            >
-              <span className="font-semibold text-sm md:text-base">
-                {displayedWeight !== '—' ? `${displayedWeight}kg` : '—'}
-              </span>
-              <span className="text-xs md:text-sm opacity-90">
-                {lastLoggedLabel}
-              </span>
-              <span className="text-[11px] opacity-80 ml-auto whitespace-nowrap">
-                Tap to manage
-              </span>
-            </button>
-          </div>
+              <div>
+                <label className="text-slate-300 text-sm block mb-2">
+                  Weight (kg)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => onManageWeightClick?.()}
+                  className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all press-feedback flex flex-wrap items-center gap-x-3 gap-y-1 text-left focus-ring md:hover:bg-blue-500/90"
+                >
+                  <span className="font-semibold text-sm md:text-base">
+                    {displayedWeight !== '—' ? `${displayedWeight}kg` : '—'}
+                  </span>
+                  <span className="text-xs md:text-sm opacity-90">
+                    {lastLoggedLabel}
+                  </span>
+                  <span className="text-[11px] opacity-80 ml-auto whitespace-nowrap">
+                    Tap to manage
+                  </span>
+                </button>
+              </div>
 
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-slate-300 text-sm">Body Fat (%)</label>
-              <button
-                type="button"
-                onClick={() =>
-                  onChange(
-                    'bodyFatTrackingEnabled',
-                    !resolvedBodyFatTrackingEnabled
-                  )
-                }
-                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all focus-ring pressable-inline ${
-                  resolvedBodyFatTrackingEnabled
-                    ? 'bg-emerald-600/20 border-emerald-400 text-emerald-200'
-                    : 'bg-slate-700 border-slate-600 text-slate-300'
-                }`}
-              >
-                {resolvedBodyFatTrackingEnabled ? 'Enabled' : 'Disabled'}
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={() => onManageBodyFatClick?.()}
-              disabled={!resolvedBodyFatTrackingEnabled}
-              className={`w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 transition-all press-feedback flex flex-wrap items-center gap-x-3 gap-y-1 text-left font-semibold focus-ring ${
-                resolvedBodyFatTrackingEnabled
-                  ? 'bg-blue-600 border-blue-400 text-white md:hover:bg-blue-500/90'
-                  : 'bg-slate-700 border-slate-600 text-slate-400 cursor-not-allowed'
-              }`}
-            >
-              <span className="font-semibold text-sm md:text-base">
-                {displayedBodyFat !== '—' ? `${displayedBodyFat}%` : '—'}
-              </span>
-              <span className="text-xs md:text-sm opacity-90">
-                {resolvedBodyFatTrackingEnabled
-                  ? bodyFatLoggedLabel
-                  : 'Tracking disabled'}
-              </span>
-              <span className="text-[11px] opacity-80 ml-auto whitespace-nowrap">
-                {resolvedBodyFatTrackingEnabled
-                  ? 'Tap to manage'
-                  : 'Enable to use'}
-              </span>
-            </button>
-          </div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-slate-300 text-sm">Body Fat (%)</label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onChange(
+                        'bodyFatTrackingEnabled',
+                        !resolvedBodyFatTrackingEnabled
+                      )
+                    }
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all focus-ring pressable-inline ${
+                      resolvedBodyFatTrackingEnabled
+                        ? 'bg-emerald-600/20 border-emerald-400 text-emerald-200'
+                        : 'bg-slate-700 border-slate-600 text-slate-300'
+                    }`}
+                  >
+                    {resolvedBodyFatTrackingEnabled ? 'Enabled' : 'Disabled'}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onManageBodyFatClick?.()}
+                  disabled={!resolvedBodyFatTrackingEnabled}
+                  className={`w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 transition-all press-feedback flex flex-wrap items-center gap-x-3 gap-y-1 text-left font-semibold focus-ring ${
+                    resolvedBodyFatTrackingEnabled
+                      ? 'bg-blue-600 border-blue-400 text-white md:hover:bg-blue-500/90'
+                      : 'bg-slate-700 border-slate-600 text-slate-400 cursor-not-allowed'
+                  }`}
+                >
+                  <span className="font-semibold text-sm md:text-base">
+                    {displayedBodyFat !== '—' ? `${displayedBodyFat}%` : '—'}
+                  </span>
+                  <span className="text-xs md:text-sm opacity-90">
+                    {resolvedBodyFatTrackingEnabled
+                      ? bodyFatLoggedLabel
+                      : 'Tracking disabled'}
+                  </span>
+                  <span className="text-[11px] opacity-80 ml-auto whitespace-nowrap">
+                    {resolvedBodyFatTrackingEnabled
+                      ? 'Tap to manage'
+                      : 'Enable to use'}
+                  </span>
+                </button>
+              </div>
 
-          <div>
-            <label className="text-slate-300 text-sm block mb-2">
-              Height (cm)
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                value={resolvedUserData.height}
-                onChange={(event) =>
-                  onChange('height', parseFloat(event.target.value) || 0)
-                }
-                className="w-full bg-slate-700 text-white px-4 pr-14 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-lg"
-              />
-              <button
-                type="button"
-                onClick={() => onHeightPickerClick?.()}
-                className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-600/80 md:hover:bg-slate-500 text-white transition focus-ring"
-                aria-label="Open height picker"
-              >
-                <ChevronsUpDown size={16} />
-              </button>
+              <div>
+                <label className="text-slate-300 text-sm block mb-2">
+                  Height (cm)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    value={resolvedUserData.height}
+                    onChange={(event) =>
+                      onChange('height', parseFloat(event.target.value) || 0)
+                    }
+                    className="w-full bg-slate-700 text-white px-4 pr-14 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-lg"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => onHeightPickerClick?.()}
+                    className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-600/80 md:hover:bg-slate-500 text-white transition focus-ring"
+                    aria-label="Open height picker"
+                  >
+                    <ChevronsUpDown size={16} />
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
 
             <DailyActivitySection
               userData={resolvedUserData}

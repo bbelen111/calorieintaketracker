@@ -55,15 +55,12 @@ export const AgePickerModal = ({
     );
   }, [handleAgeChange]);
 
-  const handleItemClick = useCallback(
-    (age) => {
-      setSelectedAge(age);
-      if (scrollRef.current) {
-        alignScrollContainerToValue(scrollRef.current, age, 'smooth');
-      }
-    },
-    []
-  );
+  const handleItemClick = useCallback((age) => {
+    setSelectedAge(age);
+    if (scrollRef.current) {
+      alignScrollContainerToValue(scrollRef.current, age, 'smooth');
+    }
+  }, []);
 
   const handleSave = useCallback(() => {
     onSave?.(selectedAge);
@@ -103,9 +100,7 @@ export const AgePickerModal = ({
               data-value={age}
               onClick={() => handleItemClick(age)}
               className={`h-16 flex items-center justify-center text-2xl font-semibold snap-center cursor-pointer transition-all ${
-                selectedAge === age
-                  ? 'text-white scale-110'
-                  : 'text-slate-500'
+                selectedAge === age ? 'text-white scale-110' : 'text-slate-500'
               }`}
             >
               {age}

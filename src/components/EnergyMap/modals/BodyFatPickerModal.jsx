@@ -94,38 +94,35 @@ export const BodyFatPickerModal = ({
     () => () => {}
   );
 
-  const applySelection = useCallback(
-    (whole, decimal, behavior = 'instant') => {
-      const clampedWhole = clampWhole(whole);
-      const clampedDecimal =
-        clampedWhole === MAX_BODY_FAT ? 0 : clampDecimal(decimal);
+  const applySelection = useCallback((whole, decimal, behavior = 'instant') => {
+    const clampedWhole = clampWhole(whole);
+    const clampedDecimal =
+      clampedWhole === MAX_BODY_FAT ? 0 : clampDecimal(decimal);
 
-      selectionRef.current = {
-        whole: clampedWhole,
-        decimal: clampedDecimal,
-      };
+    selectionRef.current = {
+      whole: clampedWhole,
+      decimal: clampedDecimal,
+    };
 
-      setSelectedWhole(clampedWhole);
-      setSelectedDecimal(clampedDecimal);
+    setSelectedWhole(clampedWhole);
+    setSelectedDecimal(clampedDecimal);
 
-      if (wholeRef.current) {
-        alignScrollContainerToValue(
-          wholeRef.current,
-          clampedWhole.toString(),
-          behavior
-        );
-      }
+    if (wholeRef.current) {
+      alignScrollContainerToValue(
+        wholeRef.current,
+        clampedWhole.toString(),
+        behavior
+      );
+    }
 
-      if (decimalRef.current) {
-        alignScrollContainerToValue(
-          decimalRef.current,
-          clampedDecimal.toString(),
-          behavior
-        );
-      }
-    },
-    []
-  );
+    if (decimalRef.current) {
+      alignScrollContainerToValue(
+        decimalRef.current,
+        clampedDecimal.toString(),
+        behavior
+      );
+    }
+  }, []);
 
   useEffect(
     () => () => {
@@ -151,10 +148,18 @@ export const BodyFatPickerModal = ({
       setSelectedWhole(parts.whole);
       setSelectedDecimal(parts.decimal);
       if (wholeRef.current) {
-        alignScrollContainerToValue(wholeRef.current, parts.whole.toString(), behavior);
+        alignScrollContainerToValue(
+          wholeRef.current,
+          parts.whole.toString(),
+          behavior
+        );
       }
       if (decimalRef.current) {
-        alignScrollContainerToValue(decimalRef.current, parts.decimal.toString(), behavior);
+        alignScrollContainerToValue(
+          decimalRef.current,
+          parts.decimal.toString(),
+          behavior
+        );
       }
     });
 

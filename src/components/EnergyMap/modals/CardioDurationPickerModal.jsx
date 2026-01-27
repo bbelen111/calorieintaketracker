@@ -149,10 +149,18 @@ export const CardioDurationPickerModal = (props) => {
       setSelectedHours(parts.hours);
       setSelectedMinutes(parts.minutes);
       if (hoursRef.current) {
-        alignScrollContainerToValue(hoursRef.current, parts.hours.toString(), behavior);
+        alignScrollContainerToValue(
+          hoursRef.current,
+          parts.hours.toString(),
+          behavior
+        );
       }
       if (minutesRef.current) {
-        alignScrollContainerToValue(minutesRef.current, parts.minutes.toString(), behavior);
+        alignScrollContainerToValue(
+          minutesRef.current,
+          parts.minutes.toString(),
+          behavior
+        );
       }
     });
 
@@ -179,9 +187,7 @@ export const CardioDurationPickerModal = (props) => {
 
   const handleMinutesChange = useCallback((nextMinutes) => {
     const sanitizedMinutes =
-      selectionRef.current.hours === MAX_HOURS
-        ? 0
-        : clampMinutes(nextMinutes);
+      selectionRef.current.hours === MAX_HOURS ? 0 : clampMinutes(nextMinutes);
 
     selectionRef.current = {
       hours: selectionRef.current.hours,

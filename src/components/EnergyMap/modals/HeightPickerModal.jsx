@@ -53,7 +53,11 @@ export const HeightPickerModal = ({
     const behavior = hasAlignedRef.current ? 'smooth' : 'instant';
     hasAlignedRef.current = true;
     const frame = requestAnimationFrame(() => {
-      alignScrollContainerToValue(scrollRef.current, clampHeight(value), behavior);
+      alignScrollContainerToValue(
+        scrollRef.current,
+        clampHeight(value),
+        behavior
+      );
     });
     return () => cancelAnimationFrame(frame);
   }, [isOpen, value]);

@@ -20,6 +20,10 @@ import {
   formatBodyFat,
   sortBodyFatEntries,
 } from '../../../utils/bodyFat';
+import {
+  getGoalAlignedStyle,
+  getGoalAlignedTextClass,
+} from '../../../utils/goalAlignment';
 import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
 import { BodyFatTrendInfoModal } from './BodyFatTrendInfoModal';
 import { shallow } from 'zustand/shallow';
@@ -35,37 +39,16 @@ const TrendIcon = ({ direction }) => {
   return <Minus size={18} />;
 };
 
-const getTrendToneClass = (direction, label) => {
-  if (label === 'Need more data' || label === 'No data yet') {
+const getTrendToneClass = (trend, selectedGoal) => {
+  if (
+    !trend ||
+    trend.label === 'Need more data' ||
+    trend.label === 'No data yet'
+  ) {
     return 'text-white';
   }
 
-  if (label.includes('Severe')) {
-    return 'text-red-500';
-  }
-
-  if (label.includes('Aggressive body fat loss')) {
-    return 'text-orange-500';
-  }
-  if (label.includes('Aggressive body fat gain')) {
-    return 'text-purple-500';
-  }
-
-  if (label.includes('Moderate body fat loss')) {
-    return 'text-yellow-500';
-  }
-  if (label.includes('Moderate body fat gain')) {
-    return 'text-green-500';
-  }
-
-  if (direction === 'down') {
-    return 'text-yellow-400';
-  }
-  if (direction === 'up') {
-    return 'text-green-400';
-  }
-
-  return 'text-blue-400';
+  return getGoalAlignedTextClass(trend, selectedGoal, 'bodyFat');
 };
 
 const getGoalAlignmentText = (weeklyRate, selectedGoal) => {
@@ -153,31 +136,6 @@ const TOOLTIP_WIDTH = 144;
 const TOOLTIP_VERTICAL_OFFSET = 17;
 const POINT_RADIUS = 6;
 const POINT_HIT_RADIUS = 12;
-
-const getTrendVisualStyle = (trend) => {
-  if (trend.label.includes('Severe')) {
-    return { color: '#ef4444', topOpacity: 0.3, bottomOpacity: 0.05 };
-  }
-  if (trend.label.includes('Aggressive body fat loss')) {
-    return { color: '#f97316', topOpacity: 0.3, bottomOpacity: 0.05 };
-  }
-  if (trend.label.includes('Aggressive body fat gain')) {
-    return { color: '#a855f7', topOpacity: 0.3, bottomOpacity: 0.05 };
-  }
-  if (trend.label.includes('Moderate body fat loss')) {
-    return { color: '#eab308', topOpacity: 0.3, bottomOpacity: 0.05 };
-  }
-  if (trend.label.includes('Moderate body fat gain')) {
-    return { color: '#22c55e', topOpacity: 0.3, bottomOpacity: 0.05 };
-  }
-  if (trend.direction === 'down') {
-    return { color: '#eab308', topOpacity: 0.25, bottomOpacity: 0.05 };
-  }
-  if (trend.direction === 'up') {
-    return { color: '#22c55e', topOpacity: 0.25, bottomOpacity: 0.05 };
-  }
-  return { color: '#60a5fa', topOpacity: 0.3, bottomOpacity: 0.05 };
-};
 
 const getBaselineY = (defaultY) => defaultY - BASELINE_Y_OFFSET;
 
@@ -325,7 +283,10 @@ export const BodyFatTrackerModal = ({
     () => calculateBodyFatTrend(filteredEntries),
     [filteredEntries]
   );
-  const trendVisual = useMemo(() => getTrendVisualStyle(trend), [trend]);
+  const trendVisual = useMemo(
+    () => getGoalAlignedStyle(trend, selectedGoal, 'bodyFat'),
+    [trend, selectedGoal]
+  );
   const goalAlignment = useMemo(
     () => getGoalAlignmentText(trend.weeklyRate, selectedGoal),
     [trend.weeklyRate, selectedGoal]
@@ -1000,7 +961,7 @@ export const BodyFatTrackerModal = ({
                 />
               </button>
               <p
-                className={`${getTrendToneClass(trend.direction, trend.label)} font-semibold text-lg flex items-center gap-2`}
+                className={`${getTrendToneClass(trend, selectedGoal)} font-semibold text-lg flex items-center gap-2`}
               >
                 <TrendIcon direction={trend.direction} />
                 {trend.label}
@@ -1498,6 +1459,7 @@ export const BodyFatTrackerModal = ({
         isOpen={isTrendInfoOpen}
         isClosing={isTrendInfoClosing}
         trend={trend}
+        selectedGoal={selectedGoal}
         onClose={closeTrendInfo}
       />
     </>

@@ -1,6 +1,8 @@
 import React from 'react';
 import { Info, TrendingUp, TrendingDown, Minus, X } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
+import { getGoalAlignedTextClass } from '../../../utils/goalAlignment';
+import { goals } from '../../../constants/goals';
 
 const TrendIcon = ({ direction }) => {
   if (direction === 'up') {
@@ -16,34 +18,14 @@ export const BodyFatTrendInfoModal = ({
   isOpen,
   isClosing,
   trend,
+  selectedGoal = 'maintenance',
   onClose,
 }) => {
-  const getTrendColor = (label) => {
-    if (label === 'Need more data' || label === 'No data yet') {
+  const getTrendColor = () => {
+    if (!trend || trend.label === 'Need more data' || trend.label === 'No data yet') {
       return 'text-white';
     }
-    if (label.includes('Severe')) {
-      return 'text-red-500';
-    }
-    if (label.includes('Aggressive body fat loss')) {
-      return 'text-orange-500';
-    }
-    if (label.includes('Aggressive body fat gain')) {
-      return 'text-purple-500';
-    }
-    if (label.includes('Moderate body fat loss')) {
-      return 'text-yellow-500';
-    }
-    if (label.includes('Moderate body fat gain')) {
-      return 'text-green-500';
-    }
-    if (label.includes('Gradual body fat loss')) {
-      return 'text-yellow-400';
-    }
-    if (label.includes('Gradual body fat gain')) {
-      return 'text-green-400';
-    }
-    return 'text-blue-400';
+    return getGoalAlignedTextClass(trend, selectedGoal, 'bodyFat');
   };
 
   return (
@@ -80,16 +62,19 @@ export const BodyFatTrendInfoModal = ({
           <div className="text-sm space-y-2">
             <p>
               We analyze your body fat entries over a{' '}
-              <span className="text-blue-400 font-semibold">selectable time window</span>{' '}
+              <span className="text-blue-400 font-semibold">
+                selectable time window
+              </span>{' '}
               (30 days, 90 days, 6 months, or all available data).
             </p>
             <p>
-              The trend compares your earliest and latest entries in the selected window
-              to calculate your{' '}
+              The trend compares your earliest and latest entries in the
+              selected window to calculate your{' '}
               <span className="text-blue-400 font-semibold">
                 weekly rate of change
               </span>
-              . Longer timeframes provide more stable trends, while shorter windows highlight recent progress.
+              . Longer timeframes provide more stable trends, while shorter
+              windows highlight recent progress.
             </p>
           </div>
         </div>
@@ -98,7 +83,7 @@ export const BodyFatTrendInfoModal = ({
           <p className="font-bold text-blue-300 mb-3">Your Current Trend:</p>
           <div className="flex items-center gap-3 mb-3">
             <span
-              className={`${getTrendColor(trend.label)} font-semibold text-lg flex items-center gap-2`}
+              className={`${getTrendColor()} font-semibold text-lg flex items-center gap-2`}
             >
               <TrendIcon direction={trend.direction} />
               {trend.label}
@@ -127,6 +112,86 @@ export const BodyFatTrendInfoModal = ({
                 </span>
               </p>
             )}
+          </div>
+        </div>
+
+        <div className="bg-emerald-900/20 border border-emerald-700/50 rounded-lg p-4">
+          <p className="font-bold text-emerald-300 mb-3">Goal Alignment:</p>
+          <div className="text-sm space-y-2">
+            <p>
+              Your selected goal is{' '}
+              <span className="text-white font-semibold">
+                {goals[selectedGoal]?.label || 'Maintenance'}
+              </span>
+              .
+            </p>
+            <p>
+              Target rate:{' '}
+              <span className="text-white font-semibold">
+                {selectedGoal === 'aggressive_bulk'
+                  ? '+0.15 to +0.3 %/week'
+                  : selectedGoal === 'bulking'
+                    ? '+0.08 to +0.15 %/week'
+                    : selectedGoal === 'maintenance'
+                      ? '-0.1 to +0.1 %/week'
+                      : selectedGoal === 'cutting'
+                        ? '-0.15 to -0.08 %/week'
+                        : '-0.3 to -0.15 %/week'}
+              </span>
+            </p>
+            <p>
+              Your current rate:{' '}
+              <span className={`${getTrendColor()} font-semibold`}>
+                {trend.weeklyRate >= 0 ? '+' : ''}
+                {trend.weeklyRate.toFixed(2)} %/week
+              </span>
+            </p>
+            <div className="mt-3 pt-3 border-t border-emerald-700/30">
+              <p className="text-emerald-200">
+                {(() => {
+                  const rate = trend.weeklyRate;
+                  const absRate = Math.abs(rate);
+
+                  if (selectedGoal === 'maintenance') {
+                    if (absRate <= 0.1) return '✓ Perfect! Your body fat is stable.';
+                    if (absRate <= 0.15) return '⚠ Slightly off track, but close to maintenance.';
+                    return '✗ Significant deviation from maintenance goal.';
+                  }
+
+                  const isGain = selectedGoal.includes('bulk');
+                  const isCut = selectedGoal.includes('cut');
+                  const movingWrong = (isGain && rate < -0.1) || (isCut && rate > 0.1);
+
+                  if (movingWrong) return '✗ Moving in the opposite direction of your goal.';
+
+                  if (selectedGoal === 'aggressive_bulk') {
+                    if (rate >= 0.15 && rate <= 0.3) return '✓ Perfectly on track for aggressive bulk!';
+                    if (rate < 0.15) return '⚠ Gaining slower than target. May need more calories.';
+                    return '⚠ Gaining faster than target. May be accumulating excess fat.';
+                  }
+
+                  if (selectedGoal === 'bulking') {
+                    if (rate >= 0.08 && rate <= 0.15) return '✓ Perfectly on track for lean bulk!';
+                    if (rate < 0.08) return '⚠ Gaining slower than target. May need more calories.';
+                    return '⚠ Gaining faster than target. May be accumulating excess fat.';
+                  }
+
+                  if (selectedGoal === 'cutting') {
+                    if (rate <= -0.08 && rate >= -0.15) return '✓ Perfectly on track for moderate cut!';
+                    if (rate > -0.08) return '⚠ Losing slower than target. May need larger deficit.';
+                    return '⚠ Losing faster than target. Risk of muscle loss.';
+                  }
+
+                  if (selectedGoal === 'aggressive_cut') {
+                    if (rate <= -0.15 && rate >= -0.3) return '✓ Perfectly on track for aggressive cut!';
+                    if (rate > -0.15) return '⚠ Losing slower than target. May need larger deficit.';
+                    return '⚠ Losing faster than target. High risk of muscle loss.';
+                  }
+
+                  return 'Track consistently to establish your trend.';
+                })()}
+              </p>
+            </div>
           </div>
         </div>
 

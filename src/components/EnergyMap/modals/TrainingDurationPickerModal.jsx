@@ -148,10 +148,18 @@ export const TrainingDurationPickerModal = ({
       setSelectedHours(parts.hours);
       setSelectedMinutes(parts.minutes);
       if (hoursRef.current) {
-        alignScrollContainerToValue(hoursRef.current, parts.hours.toString(), behavior);
+        alignScrollContainerToValue(
+          hoursRef.current,
+          parts.hours.toString(),
+          behavior
+        );
       }
       if (minutesRef.current) {
-        alignScrollContainerToValue(minutesRef.current, parts.minutes.toString(), behavior);
+        alignScrollContainerToValue(
+          minutesRef.current,
+          parts.minutes.toString(),
+          behavior
+        );
       }
     });
 
