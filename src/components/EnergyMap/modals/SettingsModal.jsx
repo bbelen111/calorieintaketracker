@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Save, ChevronsUpDown, Mars, Venus } from 'lucide-react';
+import { Save, ChevronsUpDown, Mars, Venus, ChevronLeft } from 'lucide-react';
 import {
   DEFAULT_ACTIVITY_MULTIPLIERS,
   getActivityPresetByKey,
@@ -100,14 +100,31 @@ export const SettingsModal = ({
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
-      contentClassName="p-4 md:p-6 w-full md:max-w-2xl"
+      onClose={onCancel}
+      fullHeight
+      overlayClassName="fixed inset-0 bg-black/70 !p-0 !flex-none !items-stretch !justify-stretch"
+      contentClassName="fixed inset-0 w-screen h-screen p-0 bg-slate-900 rounded-none border-none !max-h-none flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
     >
-      <h3 className="text-white font-bold text-xl md:text-2xl mb-4 md:mb-6">
-        Personal Settings
-      </h3>
+      <div className="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-700 flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Back"
+            className="text-slate-300 md:hover:text-white transition-all pressable-inline focus-ring"
+          >
+            <ChevronLeft size={24} />
+          </button>
+          <h3 className="text-white font-bold text-xl md:text-2xl">
+            Personal Settings
+          </h3>
+        </div>
+      </div>
 
-      <div className="space-y-4 md:space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+      <div className="flex-1 bg-slate-800 border-t border-slate-700 flex flex-col">
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-4 space-y-4 md:space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
           <div>
             <label className="text-slate-300 text-sm block mb-2">Age</label>
             <div className="relative">
@@ -252,74 +269,76 @@ export const SettingsModal = ({
           </div>
         </div>
 
-        <DailyActivitySection
-          userData={resolvedUserData}
-          bmr={resolvedBmr}
-          onDailyActivityClick={onDailyActivityClick}
-        />
+            <DailyActivitySection
+              userData={resolvedUserData}
+              bmr={resolvedBmr}
+              onDailyActivityClick={onDailyActivityClick}
+            />
 
-        <div>
-          <label className="text-slate-300 text-sm block mb-2">
-            Training Type
-          </label>
-          <button
-            onClick={onTrainingTypeClick}
-            type="button"
-            className="relative w-full text-left p-3 md:p-4 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all press-feedback focus-ring md:hover:bg-indigo-500/90"
-          >
-            <div className="min-w-0 pr-24 md:pr-28">
-              <div className="font-semibold text-base">
-                {resolvedTrainingTypes[resolvedUserData.trainingType].label}
-              </div>
-              <div className="text-xs md:text-sm opacity-90 mt-0.5">
-                {
-                  resolvedTrainingTypes[resolvedUserData.trainingType]
-                    .caloriesPerHour
-                }{' '}
-                cal/hr •{' '}
-                {
-                  resolvedTrainingTypes[resolvedUserData.trainingType]
-                    .description
-                }
-              </div>
+            <div>
+              <label className="text-slate-300 text-sm block mb-2">
+                Training Type
+              </label>
+              <button
+                onClick={onTrainingTypeClick}
+                type="button"
+                className="relative w-full text-left p-3 md:p-4 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all press-feedback focus-ring md:hover:bg-indigo-500/90"
+              >
+                <div className="min-w-0 pr-24 md:pr-28">
+                  <div className="font-semibold text-base">
+                    {resolvedTrainingTypes[resolvedUserData.trainingType].label}
+                  </div>
+                  <div className="text-xs md:text-sm opacity-90 mt-0.5">
+                    {
+                      resolvedTrainingTypes[resolvedUserData.trainingType]
+                        .caloriesPerHour
+                    }{' '}
+                    cal/hr •{' '}
+                    {
+                      resolvedTrainingTypes[resolvedUserData.trainingType]
+                        .description
+                    }
+                  </div>
+                </div>
+                <span className="pointer-events-none absolute top-3 right-3 md:top-4 md:right-4 text-[11px] opacity-75 whitespace-nowrap">
+                  Tap to change
+                </span>
+              </button>
             </div>
-            <span className="pointer-events-none absolute top-3 right-3 md:top-4 md:right-4 text-[11px] opacity-75 whitespace-nowrap">
-              Tap to change
-            </span>
+
+            <div>
+              <label className="text-slate-300 text-sm block mb-2">
+                Training Duration (hours)
+              </label>
+              <DurationButton
+                duration={resolvedUserData.trainingDuration}
+                onClick={onTrainingDurationClick}
+              />
+              <p className="text-slate-400 text-xs mt-1">
+                Training session burn: ~{Math.round(resolvedTrainingCalories)}{' '}
+                calories
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-2 md:gap-3 p-4 border-t border-slate-700 bg-slate-900/60">
+          <button
+            onClick={onCancel}
+            type="button"
+            className="flex-1 bg-slate-700 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg transition-all press-feedback focus-ring font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onSave}
+            type="button"
+            className="flex-1 bg-blue-600 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg flex items-center justify-center gap-2 transition-all press-feedback focus-ring font-medium"
+          >
+            <Save size={20} />
+            Save
           </button>
         </div>
-
-        <div>
-          <label className="text-slate-300 text-sm block mb-2">
-            Training Duration (hours)
-          </label>
-          <DurationButton
-            duration={resolvedUserData.trainingDuration}
-            onClick={onTrainingDurationClick}
-          />
-          <p className="text-slate-400 text-xs mt-1">
-            Training session burn: ~{Math.round(resolvedTrainingCalories)}{' '}
-            calories
-          </p>
-        </div>
-      </div>
-
-      <div className="flex gap-2 md:gap-3 mt-6">
-        <button
-          onClick={onCancel}
-          type="button"
-          className="flex-1 bg-slate-700 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg transition-all press-feedback focus-ring font-medium"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={onSave}
-          type="button"
-          className="flex-1 bg-blue-600 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg flex items-center justify-center gap-2 transition-all press-feedback focus-ring font-medium"
-        >
-          <Save size={20} />
-          Save
-        </button>
       </div>
     </ModalShell>
   );
