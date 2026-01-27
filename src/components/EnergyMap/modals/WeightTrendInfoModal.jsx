@@ -75,17 +75,17 @@ export const WeightTrendInfoModal = ({ isOpen, isClosing, trend, onClose }) => {
           </p>
           <div className="text-sm space-y-2">
             <p>
-              We look at your weight entries over the{' '}
-              <span className="text-blue-400 font-semibold">last 30 days</span>{' '}
-              (or all available data if you have less).
+              We analyze your weight entries over a{' '}
+              <span className="text-blue-400 font-semibold">selectable time window</span>{' '}
+              (30 days, 90 days, 6 months, or all available data).
             </p>
             <p>
-              The trend compares your earliest and latest weights in this window
+              The trend compares your earliest and latest weights in the selected window
               to calculate your{' '}
               <span className="text-blue-400 font-semibold">
                 weekly rate of change
               </span>
-              .
+              . Longer timeframes provide more stable trends, while shorter windows highlight recent progress.
             </p>
           </div>
         </div>
