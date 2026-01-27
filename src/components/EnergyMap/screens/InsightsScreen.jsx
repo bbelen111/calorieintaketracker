@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Info, PieChart, Lightbulb, LineChart } from 'lucide-react';
+import { Info, PieChart, Lightbulb, LineChart, CheckCircle2, AlertCircle, XCircle, HelpCircle } from 'lucide-react';
 import {
   calculateWeightTrend,
   createSparklinePoints,
@@ -33,6 +33,126 @@ const getTrendToneClass = (trend, selectedGoal, metricType) => {
     return 'text-white';
   }
   return getGoalAlignedTextClass(trend, selectedGoal, metricType);
+};
+
+const IconComponent = ({ icon }) => {
+  if (icon === 'check') return <CheckCircle2 size={14} className="inline" />;
+  if (icon === 'warning') return <AlertCircle size={14} className="inline" />;
+  if (icon === 'error') return <XCircle size={14} className="inline" />;
+  return <HelpCircle size={14} className="inline" />;
+};
+
+const getOnTrackStatus = (trend, selectedGoal, metricType = 'weight') => {
+  if (
+    !trend ||
+    trend.label === 'Need more data' ||
+    trend.label === 'No data yet' ||
+    !Number.isFinite(trend.weeklyRate)
+  ) {
+    return { icon: 'help', text: 'Insufficient data', color: 'text-slate-400' };
+  }
+
+  const rate = trend.weeklyRate;
+
+  if (selectedGoal === 'maintenance') {
+    const absRate = Math.abs(rate);
+    if (absRate <= 0.1) {
+      return { icon: 'check', text: 'On track', color: 'text-green-400' };
+    }
+    if (absRate <= 0.25) {
+      return { icon: 'warning', text: 'Close', color: 'text-yellow-400' };
+    }
+    return { icon: 'error', text: 'Off track', color: 'text-orange-400' };
+  }
+
+  const isBulk = selectedGoal.includes('bulk');
+  const isCut = selectedGoal.includes('cut');
+  const movingRight =
+    (isBulk && rate > 0.1) || (isCut && rate < -0.1) || false;
+
+  if (!movingRight) {
+    return { icon: 'error', text: 'Wrong direction', color: 'text-red-400' };
+  }
+
+  const absRate = Math.abs(rate);
+
+  if (selectedGoal === 'aggressive_bulk') {
+    if (absRate >= 0.5 && absRate <= 1.0) {
+      return { icon: 'check', text: 'On track', color: 'text-green-400' };
+    }
+    if (absRate < 0.5) {
+      return {
+        icon: 'warning',
+        text: 'Slower than target',
+        color: 'text-yellow-400',
+      };
+    }
+    return {
+      icon: 'warning',
+      text: 'Faster than target',
+      color: 'text-yellow-400',
+    };
+  }
+
+  if (selectedGoal === 'bulking') {
+    if (absRate >= 0.25 && absRate <= 0.5) {
+      return { icon: 'check', text: 'On track', color: 'text-green-400' };
+    }
+    if (absRate < 0.25) {
+      return {
+        icon: 'warning',
+        text: 'Slower than target',
+        color: 'text-yellow-400',
+      };
+    }
+    return {
+      icon: 'warning',
+      text: 'Faster than target',
+      color: 'text-yellow-400',
+    };
+  }
+
+  if (selectedGoal === 'cutting') {
+    if (absRate >= 0.25 && absRate <= 0.5) {
+      return { icon: 'check', text: 'On track', color: 'text-green-400' };
+    }
+    if (absRate < 0.25) {
+      return {
+        icon: 'warning',
+        text: 'Slower than target',
+        color: 'text-yellow-400',
+      };
+    }
+    return {
+      icon: 'warning',
+      text: 'Faster than target',
+      color: 'text-orange-400',
+    };
+  }
+
+  if (selectedGoal === 'aggressive_cut') {
+    if (absRate >= 0.5 && absRate <= 1.0) {
+      return { icon: 'check', text: 'On track', color: 'text-green-400' };
+    }
+    if (absRate < 0.5) {
+      return {
+        icon: 'warning',
+        text: 'Slower than target',
+        color: 'text-yellow-400',
+      };
+    }
+    return {
+      icon: 'warning',
+      text: 'Faster than target',
+      color: 'text-orange-400',
+    };
+  }
+
+  return {
+    icon: 'help',
+    text: 'Track your progress',
+    color: 'text-slate-400',
+  };
 };
 
 const formatWeeklyRate = (value) => {
@@ -292,11 +412,17 @@ export const InsightsScreen = ({
                   {trend.label}
                 </p>
                 <p className="text-slate-300 text-sm mt-1">
-                  {currentWeight ? `${currentWeight} kg` : '—'} •{' '}
+                  <span className="font-bold text-white">{currentWeight ? `${currentWeight} kg` : '—'}</span> •{' '}
                   {lastLoggedLabel}
                 </p>
                 <p className="text-slate-300 text-sm mt-2">
-                  {formatWeeklyRate(trend.weeklyRate)} over last 7 entries
+                  <span className="font-bold text-white">{formatWeeklyRate(trend.weeklyRate)}</span> over last 7 entries
+                </p>
+                <p
+                  className={`text-sm font-semibold mt-3 ${getOnTrackStatus(trend, selectedGoal, 'weight').color} flex items-center gap-2`}
+                >
+                  <IconComponent icon={getOnTrackStatus(trend, selectedGoal, 'weight').icon} />
+                  {getOnTrackStatus(trend, selectedGoal, 'weight').text}
                 </p>
               </div>
               {sparkline.points && sortedEntries.length > 1 && (
@@ -398,12 +524,18 @@ export const InsightsScreen = ({
                     {bodyFatTrend.label}
                   </p>
                   <p className="text-slate-300 text-sm mt-1">
-                    {currentBodyFat ? `${currentBodyFat}%` : '—'} •{' '}
+                    <span className="font-bold text-white">{currentBodyFat ? `${currentBodyFat}%` : '—'}</span> •{' '}
                     {bodyFatLoggedLabel}
                   </p>
                   <p className="text-slate-300 text-sm mt-2">
-                    {formatBodyFatWeeklyRate(bodyFatTrend.weeklyRate)} over last
+                    <span className="font-bold text-white">{formatBodyFatWeeklyRate(bodyFatTrend.weeklyRate)}</span> over last
                     7 entries
+                  </p>
+                  <p
+                    className={`text-sm font-semibold mt-3 ${getOnTrackStatus(bodyFatTrend, selectedGoal, 'bodyFat').color} flex items-center gap-2`}
+                  >
+                    <IconComponent icon={getOnTrackStatus(bodyFatTrend, selectedGoal, 'bodyFat').icon} />
+                    {getOnTrackStatus(bodyFatTrend, selectedGoal, 'bodyFat').text}
                   </p>
                 </div>
                 {bodyFatSparkline.points && sortedBodyFatEntries.length > 1 && (

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Info, TrendingUp, TrendingDown, Minus, X } from 'lucide-react';
+import { Info, TrendingUp, TrendingDown, Minus, X, CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import { getGoalAlignedTextClass } from '../../../utils/goalAlignment';
 import { goals } from '../../../constants/goals';
@@ -147,50 +147,137 @@ export const BodyFatTrendInfoModal = ({
               </span>
             </p>
             <div className="mt-3 pt-3 border-t border-emerald-700/30">
-              <p className="text-emerald-200">
-                {(() => {
-                  const rate = trend.weeklyRate;
-                  const absRate = Math.abs(rate);
+              <div className="flex items-center gap-3">
+                <span className="flex-shrink-0">
+                  {(() => {
+                    const rate = trend.weeklyRate;
+                    const absRate = Math.abs(rate);
 
-                  if (selectedGoal === 'maintenance') {
-                    if (absRate <= 0.1) return '✓ Perfect! Your body fat is stable.';
-                    if (absRate <= 0.15) return '⚠ Slightly off track, but close to maintenance.';
-                    return '✗ Significant deviation from maintenance goal.';
-                  }
+                    if (selectedGoal === 'maintenance') {
+                      if (absRate <= 0.1) return <CheckCircle2 size={16} className="text-green-400" />;
+                      if (absRate <= 0.15) return <AlertCircle size={16} className="text-yellow-400" />;
+                      return <XCircle size={16} className="text-red-400" />;
+                    }
 
-                  const isGain = selectedGoal.includes('bulk');
-                  const isCut = selectedGoal.includes('cut');
-                  const movingWrong = (isGain && rate < -0.1) || (isCut && rate > 0.1);
+                    const isGain = selectedGoal.includes('bulk');
+                    const isCut = selectedGoal.includes('cut');
+                    const movingWrong = (isGain && rate < -0.1) || (isCut && rate > 0.1);
 
-                  if (movingWrong) return '✗ Moving in the opposite direction of your goal.';
+                    if (movingWrong) return <XCircle size={16} className="text-red-400" />;
 
-                  if (selectedGoal === 'aggressive_bulk') {
-                    if (rate >= 0.15 && rate <= 0.3) return '✓ Perfectly on track for aggressive bulk!';
-                    if (rate < 0.15) return '⚠ Gaining slower than target. May need more calories.';
-                    return '⚠ Gaining faster than target. May be accumulating excess fat.';
-                  }
+                    if (selectedGoal === 'aggressive_bulk') {
+                      if (rate >= 0.15 && rate <= 0.3) return <CheckCircle2 size={16} className="text-green-400" />;
+                      if (rate < 0.15) return <AlertCircle size={16} className="text-yellow-400" />;
+                      return <AlertCircle size={16} className="text-yellow-400" />;
+                    }
 
-                  if (selectedGoal === 'bulking') {
-                    if (rate >= 0.08 && rate <= 0.15) return '✓ Perfectly on track for lean bulk!';
-                    if (rate < 0.08) return '⚠ Gaining slower than target. May need more calories.';
-                    return '⚠ Gaining faster than target. May be accumulating excess fat.';
-                  }
+                    if (selectedGoal === 'bulking') {
+                      if (rate >= 0.08 && rate <= 0.15) return <CheckCircle2 size={16} className="text-green-400" />;
+                      if (rate < 0.08) return <AlertCircle size={16} className="text-yellow-400" />;
+                      return <AlertCircle size={16} className="text-yellow-400" />;
+                    }
 
-                  if (selectedGoal === 'cutting') {
-                    if (rate <= -0.08 && rate >= -0.15) return '✓ Perfectly on track for moderate cut!';
-                    if (rate > -0.08) return '⚠ Losing slower than target. May need larger deficit.';
-                    return '⚠ Losing faster than target. Risk of muscle loss.';
-                  }
+                    if (selectedGoal === 'cutting') {
+                      if (rate <= -0.08 && rate >= -0.15) return <CheckCircle2 size={16} className="text-green-400" />;
+                      if (rate > -0.08) return <AlertCircle size={16} className="text-yellow-400" />;
+                      return <AlertCircle size={16} className="text-orange-400" />;
+                    }
 
-                  if (selectedGoal === 'aggressive_cut') {
-                    if (rate <= -0.15 && rate >= -0.3) return '✓ Perfectly on track for aggressive cut!';
-                    if (rate > -0.15) return '⚠ Losing slower than target. May need larger deficit.';
-                    return '⚠ Losing faster than target. High risk of muscle loss.';
-                  }
+                    if (selectedGoal === 'aggressive_cut') {
+                      if (rate <= -0.15 && rate >= -0.3) return <CheckCircle2 size={16} className="text-green-400" />;
+                      if (rate > -0.15) return <AlertCircle size={16} className="text-yellow-400" />;
+                      return <AlertCircle size={16} className="text-orange-400" />;
+                    }
 
-                  return 'Track consistently to establish your trend.';
-                })()}
-              </p>
+                    return <AlertCircle size={16} className="text-slate-400" />;
+                  })()}
+                </span>
+                <p className={(() => {
+                    const rate = trend.weeklyRate;
+                    const absRate = Math.abs(rate);
+
+                    if (selectedGoal === 'maintenance') {
+                      if (absRate <= 0.1) return 'text-emerald-200';
+                      if (absRate <= 0.15) return 'text-yellow-300';
+                      return 'text-red-300';
+                    }
+
+                    const isGain = selectedGoal.includes('bulk');
+                    const isCut = selectedGoal.includes('cut');
+                    const movingWrong = (isGain && rate < -0.1) || (isCut && rate > 0.1);
+
+                    if (movingWrong) return 'text-red-300';
+
+                    if (selectedGoal === 'aggressive_bulk') {
+                      if (rate >= 0.15 && rate <= 0.3) return 'text-green-300';
+                      if (rate < 0.15) return 'text-yellow-300';
+                      return 'text-yellow-300';
+                    }
+
+                    if (selectedGoal === 'bulking') {
+                      if (rate >= 0.08 && rate <= 0.15) return 'text-green-300';
+                      if (rate < 0.08) return 'text-yellow-300';
+                      return 'text-yellow-300';
+                    }
+
+                    if (selectedGoal === 'cutting') {
+                      if (rate <= -0.08 && rate >= -0.15) return 'text-green-300';
+                      if (rate > -0.08) return 'text-yellow-300';
+                      return 'text-orange-300';
+                    }
+
+                    if (selectedGoal === 'aggressive_cut') {
+                      if (rate <= -0.15 && rate >= -0.3) return 'text-green-300';
+                      if (rate > -0.15) return 'text-yellow-300';
+                      return 'text-orange-300';
+                    }
+
+                    return 'text-slate-300';
+                  })()}>
+                  {(() => {
+                    const rate = trend.weeklyRate;
+                    const absRate = Math.abs(rate);
+
+                    if (selectedGoal === 'maintenance') {
+                      if (absRate <= 0.1) return 'Perfect! Your body fat is stable.';
+                      if (absRate <= 0.15) return 'Slightly off track, but close to maintenance.';
+                      return 'Significant deviation from maintenance goal.';
+                    }
+
+                    const isGain = selectedGoal.includes('bulk');
+                    const isCut = selectedGoal.includes('cut');
+                    const movingWrong = (isGain && rate < -0.1) || (isCut && rate > 0.1);
+
+                    if (movingWrong) return 'Moving in the opposite direction of your goal.';
+
+                    if (selectedGoal === 'aggressive_bulk') {
+                      if (rate >= 0.15 && rate <= 0.3) return 'Perfectly on track for aggressive bulk!';
+                      if (rate < 0.15) return 'Gaining slower than target. May need more calories.';
+                      return 'Gaining faster than target. May be accumulating excess fat.';
+                    }
+
+                    if (selectedGoal === 'bulking') {
+                      if (rate >= 0.08 && rate <= 0.15) return 'Perfectly on track for lean bulk!';
+                      if (rate < 0.08) return 'Gaining slower than target. May need more calories.';
+                      return 'Gaining faster than target. May be accumulating excess fat.';
+                    }
+
+                    if (selectedGoal === 'cutting') {
+                      if (rate <= -0.08 && rate >= -0.15) return 'Perfectly on track for moderate cut!';
+                      if (rate > -0.08) return 'Losing slower than target. May need larger deficit.';
+                      return 'Losing faster than target. Risk of muscle loss.';
+                    }
+
+                    if (selectedGoal === 'aggressive_cut') {
+                      if (rate <= -0.15 && rate >= -0.3) return 'Perfectly on track for aggressive cut!';
+                      if (rate > -0.15) return 'Losing slower than target. May need larger deficit.';
+                      return 'Losing faster than target. High risk of muscle loss.';
+                    }
+
+                    return 'Track consistently to establish your trend.';
+                  })()}
+                </p>
+              </div>
             </div>
           </div>
         </div>
