@@ -70,6 +70,7 @@ const deriveState = (userData) => {
   const weightEntries = sortWeightEntries(userData.weightEntries ?? []);
   const bodyFatEntries = sortBodyFatEntries(userData.bodyFatEntries ?? []);
   const stepEntries = sortStepEntries(userData.stepEntries ?? []);
+  const stepGoal = userData.stepGoal ?? 10000;
 
   return {
     trainingTypes,
@@ -80,6 +81,7 @@ const deriveState = (userData) => {
     weightEntries,
     bodyFatEntries,
     stepEntries,
+    stepGoal,
     customCardioTypes: userData.customCardioTypes ?? {},
     cardioFavourites: userData.cardioFavourites ?? [],
     foodFavourites: userData.foodFavourites ?? [],
@@ -489,6 +491,16 @@ export const useEnergyMapStore = create(
           stepEntries: nextEntries,
         };
       });
+    },
+
+    setStepGoal: (goal) => {
+      const sanitizedGoal =
+        Number.isFinite(goal) && goal >= 0 ? Math.round(goal) : 10000;
+
+      updateUserData(set, get, (prev) => ({
+        ...prev,
+        stepGoal: sanitizedGoal,
+      }));
     },
 
     createPhase: (phaseData) => {

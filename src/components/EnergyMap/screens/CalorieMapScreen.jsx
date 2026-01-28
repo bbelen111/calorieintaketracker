@@ -54,6 +54,7 @@ const LiveStepsCard = ({
   onRefreshSteps,
   onOpenBreakdown,
   onOpenStepTracker,
+  stepGoal = 10000,
 }) => {
   const isConnected = healthConnectStatus === HealthConnectStatus.CONNECTED;
   const isUnavailable =
@@ -203,7 +204,11 @@ const LiveStepsCard = ({
           {/* Step Count */}
           <div className="bg-slate-600/50 rounded-xl p-3 text-center">
             <p className="text-white/80 text-xs mb-1">Steps</p>
-            <p className="text-white font-bold text-2xl">
+            <p
+              className={`font-bold text-2xl ${
+                stepCount >= stepGoal ? 'text-green-400' : 'text-blue-400'
+              }`}
+            >
               {stepCount.toLocaleString()}
             </p>
             <p className="text-white/70 text-xs">
@@ -229,7 +234,35 @@ const LiveStepsCard = ({
           </button>
         </div>
 
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-700/50">
+        {/* Step Goal Progress Bar */}
+        {stepGoal > 0 && (
+          <div className="mt-3">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-slate-400 text-xs">
+                Goal: {stepGoal.toLocaleString()} steps
+              </p>
+              <p
+                className={`text-xs font-semibold ${
+                  stepCount >= stepGoal ? 'text-green-400' : 'text-blue-400'
+                }`}
+              >
+                {Math.round((stepCount / stepGoal) * 100)}%
+              </p>
+            </div>
+            <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+              <div
+                className={`h-full transition-all duration-300 ${
+                  stepCount >= stepGoal ? 'bg-green-500' : 'bg-blue-600'
+                }`}
+                style={{
+                  width: `${Math.min(100, (stepCount / stepGoal) * 100)}%`,
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between mt-2 pt-3 border-t border-slate-700/50">
           <p className="text-slate-400 text-xs">
             TDEE: {breakdown.total.toLocaleString()} cal
             {difference !== 0 && (
@@ -241,7 +274,7 @@ const LiveStepsCard = ({
               </span>
             )}
           </p>
-          <p className="text-blue-300 text-xs tracking-wide mt-3">
+          <p className="text-blue-300 text-xs tracking-wide">
             Tap to open step tracker
           </p>
         </div>
@@ -281,12 +314,17 @@ export const CalorieMapScreen = ({
   onConnectHealth,
   onRefreshSteps,
   onOpenStepTracker,
+  stepGoal,
 }) => {
   const store = useEnergyMapStore(
-    (state) => ({ stepRanges: state.userData.stepRanges ?? [] }),
+    (state) => ({
+      stepRanges: state.userData.stepRanges ?? [],
+      stepGoal: state.stepGoal ?? 10000,
+    }),
     shallow
   );
   const resolvedStepRanges = stepRanges ?? store.stepRanges;
+  const resolvedStepGoal = stepGoal ?? store.stepGoal;
   const resolvedGoals = goals ?? baseGoals;
   const goalTextClasses = {
     aggressive_bulk: 'text-purple-400',
@@ -341,6 +379,7 @@ export const CalorieMapScreen = ({
           onRefreshSteps={onRefreshSteps}
           onOpenBreakdown={onOpenBreakdown}
           onOpenStepTracker={onOpenStepTracker}
+          stepGoal={resolvedStepGoal}
         />
 
         {/* Step Range Section Header */}

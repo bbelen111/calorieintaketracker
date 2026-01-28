@@ -28,6 +28,7 @@ React + Vite single-page app for fitness calorie tracking. Uses Framer Motion fo
 - `@capacitor/status-bar` (System UI styling)
 - `@capacitor/keyboard` (Input handling)
 - `@capacitor/splash-screen` (Launch experience)
+- `@anthropic-ai/anthropic-capacitor-plugin` (Health Connect integration)
 
 ## Architecture Pattern: Store + Orchestrator
 
@@ -66,6 +67,9 @@ Thin compatibility wrapper around the store. Prefer direct store selectors in ne
 
 ### `useSwipeableScreens` - Horizontal Swiping
 Manages 5-screen carousel (Logbook, Tracker, Home, Calorie Map, Insights). Returns `currentScreen`, `sliderStyle`, and touch `handlers`. All screens render simultaneously with `flex-shrink-0 w-full` - visibility controlled by transform.
+
+### `useHealthConnect` - Health Connect Integration
+Manages Android Health Connect connection for live step data. Returns `{ status, stepData, error, loading, connect, refreshSteps }`. Status values: `'unavailable'`, `'not_installed'`, `'disconnected'`, `'connecting'`, `'connected'`, `'error'`. Only available on Android - returns `'unavailable'` on web/iOS.
 
 ## Modal Development Guidelines
 
@@ -107,7 +111,7 @@ Modals register on mount, receive dynamic z-index (`BASE_Z_INDEX + stackPosition
 ## Calculation System
 
 - **BMR:** Mifflin-St Jeor equation for basic BMR, auto-upgrades to Katch-McArdle when body fat tracking is enabled with valid entries
-- **Step calories:** Custom heuristics based on stride length (height × 0.415 for male / 0.413 for female) and weight
+- **Step calories:** Custom heuristics based on stride length (height × 0.415 for male / 0.413 for female) and weight. Use `getStepCaloriesDetails(stepCount, { weight, height, gender })` from `utils/steps.js` - returns `{ distanceMiles, calories, strideLengthMeters }`.
 - **Cardio calories:** MET-based OR heart rate formula (gender-specific coefficients in `HEART_RATE_COEFFICIENTS`)
 - **Training calories:** Preset types with `caloriesPerHour` values in `trainingTypeOverrides`, multiplied by duration
 - **Goal adjustments:** ±300/500 calorie modifiers applied to TDEE based on goal selection (maintenance, bulk, cut, etc.)
@@ -132,6 +136,7 @@ Data is split into two keys to optimize performance and prevent dropped frames o
   stepRanges: ['<10k', '10k', ...],
   activityMultipliers: { training: 0.35, rest: 0.28 },
   pinnedFoods: ['food_id1', ...],
+  stepGoal: 10000, // Daily step target (default 10000)
 
   // History Data
   cardioSessions: [{ id, type, duration, intensity, effortType }],
@@ -139,6 +144,7 @@ Data is split into two keys to optimize performance and prevent dropped frames o
   bodyFatEntries: [{ date, bodyFat }],
   nutritionData: { 'YYYY-MM-DD': { mealType: [foodEntry, ...] } },
   phases: [{ id, name, startDate, endDate, goal, dailyLogs }],
+  stepEntries: [{ date: 'YYYY-MM-DD', steps, source: 'healthConnect'|'manual' }],
 }
 ```
 
@@ -184,6 +190,23 @@ nutritionData: {
 ```
 
 Food database (`constants/foodDatabase.js`) contains 3000+ items with per-100g macros and preset portions. Use `pinnedFoods` array for quick access favorites.
+
+### Step Tracking System
+Step data integrates with Health Connect on Android for automatic syncing:
+
+**Step entries** stored in `stepEntries` array:
+```javascript
+stepEntries: [
+  { date: '2025-01-28', steps: 12543, source: 'healthConnect' }
+]
+```
+
+**Key components:**
+- **`StepTrackerModal`** - Full-screen bar graph visualization with timeframe filtering, goal progress, distance/calories stats
+- **`StepGoalPickerModal`** - Scroller-based picker for setting daily step goal (1k-50k in 500 increments)
+- **`LiveStepsCard`** (in CalorieMapScreen) - Hero card showing real-time steps with progress bar
+
+**Store actions:** `setStepGoal(goal)`, `addStepEntry(entry)`, `updateStepEntry(date, steps, source)`
 
 ## Styling Conventions
 
