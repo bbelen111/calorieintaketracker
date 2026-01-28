@@ -675,7 +675,7 @@ export const InsightsScreen = ({
                   />
                 </div>
               </div>
-              <p className="text-blue-300 text-[11px] tracking-wide mt-2">
+              <p className="text-blue-300 text-[10px] tracking-wide mt-2">
                 Tap for more info
               </p>
             </button>
@@ -713,7 +713,7 @@ export const InsightsScreen = ({
                   />
                 </div>
               </div>
-              <p className="text-blue-300 text-[11px] tracking-wide mt-2">
+              <p className="text-blue-300 text-[10px] tracking-wide mt-2">
                 Tap for more info
               </p>
             </button>

@@ -6,26 +6,11 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import {
-  ChevronLeft,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  Footprints,
-} from 'lucide-react';
+import { ChevronLeft, Footprints } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
-
-const TrendIcon = ({ direction }) => {
-  if (direction === 'up') {
-    return <TrendingUp size={18} />;
-  }
-  if (direction === 'down') {
-    return <TrendingDown size={18} />;
-  }
-  return <Minus size={18} />;
-};
+import { getStepCaloriesDetails } from '../../../utils/steps';
 
 const DATE_COLUMN_WIDTH = 48;
 const DATE_COLUMN_GAP = 6;
@@ -59,17 +44,6 @@ const useIsomorphicLayoutEffect =
 const formatTimelineLabel = (dateStr) => {
   const date = new Date(dateStr + 'T00:00:00Z');
   return date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
-};
-
-const formatShortDate = (dateStr) => {
-  if (!dateStr) return '';
-  const date = new Date(dateStr + 'T00:00:00Z');
-  const parts = date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-  return parts.replace(/^[A-Za-z]{3}/, (m) => m.toUpperCase());
 };
 
 const formatTooltipDate = (dateStr) => {
@@ -163,24 +137,11 @@ const calculateStepTrend = (entries) => {
   };
 };
 
-const getTrendColorClass = (trend) => {
-  if (trend.direction === 'up') {
-    return 'text-green-400';
+const getBarColor = (steps, goal) => {
+  if (steps >= goal) {
+    return '#22c55e'; // green-500 - goal achieved
   }
-  if (trend.direction === 'down') {
-    return 'text-yellow-400';
-  }
-  return 'text-blue-400';
-};
-
-const getBarColor = (steps, average) => {
-  if (steps >= average * 1.2) {
-    return '#22c55e'; // green-500
-  }
-  if (steps >= average * 0.8) {
-    return '#3b82f6'; // blue-500
-  }
-  return '#f59e0b'; // amber-500
+  return '#3b82f6'; // blue-500 - not yet at goal
 };
 
 export const StepTrackerModal = ({
@@ -188,25 +149,31 @@ export const StepTrackerModal = ({
   isClosing,
   entries,
   todaySteps,
+  stepGoal,
   onClose,
+  onSetGoal,
 }) => {
   const store = useEnergyMapStore(
     (state) => ({
       stepEntries: state.stepEntries ?? [],
+      stepGoal: state.stepGoal ?? 10000,
+      userData: state.userData ?? {},
     }),
     shallow
   );
   const resolvedEntries = entries ?? store.stepEntries;
+  const resolvedStepGoal = stepGoal ?? store.stepGoal;
+  const { weight, height, gender } = store.userData;
   const [selectedDate, setSelectedDate] = useState(null);
   const [tooltipEntered, setTooltipEntered] = useState(false);
   const [tooltipClosing, setTooltipClosing] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
-  const [selectedTimeframe, setSelectedTimeframe] = useState('30d');
+  const [selectedTimeframe, setSelectedTimeframe] = useState('all');
   const [isTimeframeDropdownOpen, setIsTimeframeDropdownOpen] = useState(false);
+  const timeframeDropdownRef = useRef(null);
   const graphScrollRef = useRef(null);
   const timelineScrollRef = useRef(null);
   const tooltipRef = useRef(null);
-  const timeframeDropdownRef = useRef(null);
   const scrollCloseTimeoutRef = useRef(null);
   const [graphViewportWidth, setGraphViewportWidth] = useState(0);
   const [graphViewportHeight, setGraphViewportHeight] = useState(0);
@@ -516,45 +483,6 @@ export const StepTrackerModal = ({
     ? filteredEntries[filteredEntries.length - 1].date
     : null;
 
-  const earliestDate = filteredEntries.length ? filteredEntries[0].date : null;
-  const entriesCount = filteredEntries.length;
-  const daysRange =
-    earliestDate && latestDate
-      ? Math.floor(
-          (new Date(latestDate + 'T00:00:00Z') -
-            new Date(earliestDate + 'T00:00:00Z')) /
-            (1000 * 60 * 60 * 24)
-        ) + 1
-      : 0;
-  const timeframeRangeLine =
-    earliestDate && latestDate
-      ? `${formatShortDate(earliestDate)} - ${formatShortDate(latestDate)}`
-      : '';
-
-  const timeframeLabel = (() => {
-    switch (selectedTimeframe) {
-      case '7d':
-        return '7-day';
-      case '14d':
-        return '14-day';
-      case '30d':
-        return '30-day';
-      case '90d':
-        return '90-day';
-      case 'all':
-        return 'All-time';
-      default:
-        return '30-day';
-    }
-  })();
-
-  const timeframeMain = (() => {
-    const entriesText = `${entriesCount} ${entriesCount === 1 ? 'entry' : 'entries'}`;
-    const daysText =
-      earliestDate && latestDate ? ` over ${daysRange} days` : '';
-    return `${timeframeLabel} trend (${entriesText}${daysText})`;
-  })();
-
   const currentStepsValue =
     todaySteps ??
     (filteredEntries.length
@@ -563,12 +491,17 @@ export const StepTrackerModal = ({
   const currentStepsDisplay =
     currentStepsValue > 0 ? currentStepsValue.toLocaleString() : '—';
 
-  const weeklyAverageDisplay = (() => {
-    if (!trend.weeklyAverage || trend.weeklyAverage === 0) {
-      return '—';
+  // Calculate distance and calories for current steps
+  const todayStepDetails = useMemo(() => {
+    if (!currentStepsValue || !weight || !height) {
+      return { distanceMiles: 0, calories: 0 };
     }
-    return formatStepCount(trend.weeklyAverage);
-  })();
+    return getStepCaloriesDetails(currentStepsValue, {
+      weight,
+      height,
+      gender: gender || 'male',
+    });
+  }, [currentStepsValue, weight, height, gender]);
 
   const yTicks = useMemo(() => {
     if (!chartData) return [];
@@ -665,12 +598,8 @@ export const StepTrackerModal = ({
 
     const handlePointerDown = (event) => {
       const tooltipNode = tooltipRef.current;
-      const timeframeDropdownNode = timeframeDropdownRef.current;
 
-      if (
-        tooltipNode?.contains(event.target) ||
-        timeframeDropdownNode?.contains(event.target)
-      ) {
+      if (tooltipNode?.contains(event.target)) {
         return;
       }
 
@@ -680,7 +609,6 @@ export const StepTrackerModal = ({
       }
 
       closeTooltip();
-      setIsTimeframeDropdownOpen(false);
     };
 
     document.addEventListener('pointerdown', handlePointerDown, true);
@@ -745,25 +673,6 @@ export const StepTrackerModal = ({
     };
   }, [scheduleTooltipClose, selectedBar, updateTooltipPosition]);
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (
-        timeframeDropdownRef.current &&
-        !timeframeDropdownRef.current.contains(event.target)
-      ) {
-        setIsTimeframeDropdownOpen(false);
-      }
-    };
-
-    if (isTimeframeDropdownOpen) {
-      document.addEventListener('pointerdown', handleClickOutside);
-      return () =>
-        document.removeEventListener('pointerdown', handleClickOutside);
-    }
-
-    return undefined;
-  }, [isTimeframeDropdownOpen]);
-
   return (
     <>
       <ModalShell
@@ -784,8 +693,7 @@ export const StepTrackerModal = ({
               <ChevronLeft size={24} />
             </button>
             <div className="flex items-center gap-2">
-              <Footprints size={22} className="text-blue-400" />
-              <h3 className="text-white font-bold text-xl">Step History</h3>
+              <h3 className="text-white font-bold text-xl">Step Tracker</h3>
             </div>
           </div>
         </div>
@@ -793,7 +701,8 @@ export const StepTrackerModal = ({
         {/* Stats and Chart Section */}
         <div className="flex-1 bg-slate-800 border-t border-slate-700 overflow-y-auto flex flex-col">
           {/* Stats Section */}
-          <div className="px-4 pt-4 pb-3 grid grid-cols-2 md:grid-cols-4 gap-3 flex-shrink-0">
+          <div className="px-4 pt-4 pb-3 grid grid-cols-2 gap-3 flex-shrink-0">
+            {/* Today's Steps */}
             <div>
               <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">
                 {todaySteps != null ? "Today's Steps" : 'Latest'}
@@ -807,117 +716,138 @@ export const StepTrackerModal = ({
                   : 'steps'}
               </p>
             </div>
+            {/* 7-Day Average */}
             <div>
               <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">
                 7-Day Average
               </p>
-              <p className="text-white text-lg font-semibold">
-                {weeklyAverageDisplay}
+              <p className="text-white text-2xl font-bold">
+                {trend.weeklyAverage > 0
+                  ? trend.weeklyAverage.toLocaleString()
+                  : '—'}
               </p>
-              <p className="text-slate-400 text-xs mt-1">steps/day</p>
+              <p className="text-slate-400 text-[11px] mt-1">steps/day</p>
             </div>
+            {/* Goal & Progress Combined */}
             <div>
               <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">
-                Trend
+                Goal Progress
               </p>
               <p
-                className={`${getTrendColorClass(trend)} font-semibold text-lg flex items-center gap-2`}
+                className={`text-2xl font-bold ${
+                  currentStepsValue >= resolvedStepGoal
+                    ? 'text-green-400'
+                    : 'text-blue-400'
+                }`}
               >
-                <TrendIcon direction={trend.direction} />
-                {trend.label}
+                {resolvedStepGoal > 0
+                  ? `${Math.round((currentStepsValue / resolvedStepGoal) * 100)}%`
+                  : '—'}
               </p>
-              {trend.changePercent !== undefined &&
-                trend.changePercent !== 0 && (
-                  <p
-                    className={`${trend.changePercent > 0 ? 'text-green-400' : 'text-yellow-400'} text-xs mt-1 font-medium`}
-                  >
-                    {trend.changePercent > 0 ? '+' : ''}
-                    {trend.changePercent}% vs last week
-                  </p>
-                )}
+              <p
+                className={`text-[11px] mt-1 ${
+                  currentStepsValue >= resolvedStepGoal
+                    ? 'text-green-400'
+                    : 'text-slate-400'
+                }`}
+              >
+                {currentStepsValue >= resolvedStepGoal
+                  ? `${(currentStepsValue - resolvedStepGoal).toLocaleString()} steps over target`
+                  : `${Math.max(0, resolvedStepGoal - currentStepsValue).toLocaleString()} steps left`}
+              </p>
             </div>
+            {/* Distance & Calories */}
             <div>
               <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">
-                Timeframe
+                Distance & Calories
               </p>
-              <p className="text-white text-sm font-semibold">
-                {timeframeRangeLine}
+              <p className="text-white text-2xl font-bold">
+                {todayStepDetails.distanceMiles > 0
+                  ? `${todayStepDetails.distanceMiles.toFixed(1)} mi`
+                  : '—'}
               </p>
-              <p className="text-slate-400 text-[11px] mt-1">{timeframeMain}</p>
+              <p className="text-slate-400 text-[11px] mt-1">
+                {todayStepDetails.calories > 0
+                  ? `${Math.round(todayStepDetails.calories)} cal burned`
+                  : 'from steps'}
+              </p>
             </div>
           </div>
 
           <div className="sticky top-0 z-10 px-4 py-2 bg-slate-800/95 backdrop-blur border-b border-slate-700 flex-shrink-0">
             <div className="flex items-center justify-between gap-2 flex-wrap">
-              <p className="text-slate-400 text-sm">
-                {filteredEntries.length > 0
-                  ? `${trend.averageSteps.toLocaleString()} avg steps`
-                  : 'No step data recorded yet'}
-              </p>
+              <button
+                type="button"
+                onClick={() => onSetGoal?.()}
+                className="px-4 py-1.5 md:px-4 md:py-2.5 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all font-semibold text-sm md:hover:bg-blue-500/90 press-feedback focus-ring"
+              >
+                Set Goal
+              </button>
 
-              <div className="flex items-center gap-2">
-                {/* Timeframe Selector */}
-                <div className="relative" ref={timeframeDropdownRef}>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setIsTimeframeDropdownOpen(!isTimeframeDropdownOpen)
-                    }
-                    className="px-3 py-1.5 md:py-2.5 rounded-md font-semibold text-sm transition-all whitespace-nowrap bg-blue-600 text-white border border-blue-400 md:hover:bg-blue-500 flex items-center gap-2 focus-ring press-feedback"
-                  >
-                    <span>
-                      {(() => {
-                        switch (selectedTimeframe) {
-                          case '7d':
-                            return '7 Days';
-                          case '14d':
-                            return '14 Days';
-                          case '30d':
-                            return '30 Days';
-                          case '90d':
-                            return '90 Days';
-                          case 'all':
-                            return 'All Time';
-                          default:
-                            return '30 Days';
-                        }
-                      })()}
-                    </span>
-                    <ChevronLeft
-                      size={16}
-                      className={`transition-transform duration-200 ${isTimeframeDropdownOpen ? 'rotate-90' : '-rotate-90'}`}
-                    />
-                  </button>
+              {/* Spacer to push dropdown right */}
+              <div className="flex-1" />
 
-                  {/* Dropdown Menu */}
-                  {isTimeframeDropdownOpen && (
-                    <div className="absolute right-0 top-full mt-1 bg-slate-700 border border-slate-600 rounded-md shadow-lg z-10 min-w-[120px]">
-                      {[
-                        { value: '7d', label: '7 Days' },
-                        { value: '14d', label: '14 Days' },
-                        { value: '30d', label: '30 Days' },
-                        { value: '90d', label: '90 Days' },
-                        { value: 'all', label: 'All Time' },
-                      ].map(({ value, label }) => (
-                        <button
-                          key={value}
-                          type="button"
-                          onClick={() => {
-                            setSelectedTimeframe(value);
-                            setIsTimeframeDropdownOpen(false);
-                          }}
-                          className={`w-full px-4 py-2 text-left text-sm font-medium transition-colors md:hover:bg-slate-600 first:rounded-t-md last:rounded-b-md ${
-                            selectedTimeframe === value
-                              ? 'bg-blue-600 text-white'
-                              : 'text-slate-200'
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+              {/* Timeframe Selector - Expandable Dropdown */}
+              <div className="relative" ref={timeframeDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setIsTimeframeDropdownOpen(!isTimeframeDropdownOpen)
+                  }
+                  className="px-3 py-1.5 md:py-2.5 rounded-md font-semibold text-sm transition-all whitespace-nowrap bg-blue-600 text-white border border-blue-400 md:hover:bg-blue-500 flex items-center gap-2 focus-ring press-feedback"
+                >
+                  <span>
+                    {(() => {
+                      switch (selectedTimeframe) {
+                        case '7d':
+                          return '7 Days';
+                        case '14d':
+                          return '14 Days';
+                        case '30d':
+                          return '30 Days';
+                        case '90d':
+                          return '90 Days';
+                        case 'all':
+                          return 'All Time';
+                        default:
+                          return 'All Time';
+                      }
+                    })()}
+                  </span>
+                  <ChevronLeft
+                    size={16}
+                    className={`transition-transform duration-200 ${isTimeframeDropdownOpen ? 'rotate-90' : '-rotate-90'}`}
+                  />
+                </button>
+
+                {/* Dropdown Menu */}
+                {isTimeframeDropdownOpen && (
+                  <div className="absolute right-0 top-full mt-1 bg-slate-700 border border-slate-600 rounded-md shadow-lg z-10 min-w-[120px]">
+                    {[
+                      { value: '7d', label: '7 Days' },
+                      { value: '14d', label: '14 Days' },
+                      { value: '30d', label: '30 Days' },
+                      { value: '90d', label: '90 Days' },
+                      { value: 'all', label: 'All Time' },
+                    ].map(({ value, label }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => {
+                          setSelectedTimeframe(value);
+                          setIsTimeframeDropdownOpen(false);
+                        }}
+                        className={`w-full px-4 py-2 text-left text-sm font-medium transition-colors md:hover:bg-slate-600 first:rounded-t-md last:rounded-b-md ${
+                          selectedTimeframe === value
+                            ? 'bg-blue-600 text-white'
+                            : 'text-slate-200'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -978,51 +908,60 @@ export const StepTrackerModal = ({
                         </g>
 
                         {/* Bars */}
-                        {chartBars.map(({ x, y, height, date, steps }) => (
-                          <g
-                            key={date}
-                            onClick={(e) => handleDateClick(date, e)}
-                            className="cursor-pointer"
-                          >
-                            {/* Invisible larger hit area */}
-                            <rect
-                              x={x - DATE_COLUMN_WIDTH / 2}
-                              y={Y_AXIS_PADDING}
-                              width={DATE_COLUMN_WIDTH}
-                              height={chartHeight - Y_AXIS_PADDING * 2}
-                              fill="transparent"
-                            />
-                            {/* Visible bar */}
-                            <rect
-                              x={x - BAR_WIDTH / 2}
-                              y={y}
-                              width={BAR_WIDTH}
-                              height={Math.max(height, 2)}
-                              rx={BAR_RADIUS}
-                              ry={BAR_RADIUS}
-                              fill={getBarColor(steps, trend.averageSteps)}
-                              className={`transition-opacity ${
-                                selectedDate === date
-                                  ? 'opacity-100'
-                                  : 'opacity-80 md:hover:opacity-100'
-                              }`}
-                            />
-                            {/* Selection ring */}
-                            {selectedDate === date && (
+                        {chartBars.map(({ x, y, height, date, steps }) => {
+                          const barColor = getBarColor(steps, resolvedStepGoal);
+                          const isGoalAchieved = steps >= resolvedStepGoal;
+                          return (
+                            <g
+                              key={date}
+                              onClick={(e) => handleDateClick(date, e)}
+                              className="cursor-pointer"
+                            >
+                              {/* Invisible larger hit area */}
                               <rect
-                                x={x - BAR_WIDTH / 2 - 2}
-                                y={y - 2}
-                                width={BAR_WIDTH + 4}
-                                height={Math.max(height, 2) + 4}
-                                rx={BAR_RADIUS + 1}
-                                ry={BAR_RADIUS + 1}
-                                fill="none"
-                                stroke="#60a5fa"
-                                strokeWidth="2"
+                                x={x - DATE_COLUMN_WIDTH / 2}
+                                y={Y_AXIS_PADDING}
+                                width={DATE_COLUMN_WIDTH}
+                                height={chartHeight - Y_AXIS_PADDING * 2}
+                                fill="transparent"
                               />
-                            )}
-                          </g>
-                        ))}
+                              {/* Visible bar - opaque with drop shadow glow */}
+                              <rect
+                                x={x - BAR_WIDTH / 2}
+                                y={y}
+                                width={BAR_WIDTH}
+                                height={Math.max(height, 2)}
+                                rx={BAR_RADIUS}
+                                ry={BAR_RADIUS}
+                                fill={barColor}
+                                className={`transition-opacity ${
+                                  selectedDate === date
+                                    ? 'opacity-100'
+                                    : 'md:hover:opacity-90'
+                                }`}
+                                style={{
+                                  filter: isGoalAchieved
+                                    ? 'drop-shadow(0 0 4px rgba(34, 197, 94, 0.5))'
+                                    : 'drop-shadow(0 0 4px rgba(59, 130, 246, 0.5))',
+                                }}
+                              />
+                              {/* Selection ring */}
+                              {selectedDate === date && (
+                                <rect
+                                  x={x - BAR_WIDTH / 2 - 2}
+                                  y={y - 2}
+                                  width={BAR_WIDTH + 4}
+                                  height={Math.max(height, 2) + 4}
+                                  rx={BAR_RADIUS + 1}
+                                  ry={BAR_RADIUS + 1}
+                                  fill="none"
+                                  stroke="#60a5fa"
+                                  strokeWidth="2"
+                                />
+                              )}
+                            </g>
+                          );
+                        })}
                       </svg>
                     ) : (
                       <div className="flex items-center justify-center h-full">
@@ -1168,16 +1107,41 @@ export const StepTrackerModal = ({
               {formatTooltipDate(selectedDate)}
             </p>
             <p className="text-white text-2xl font-bold">
-              {entriesMap[selectedDate].steps.toLocaleString()}
+              {entriesMap[selectedDate].steps.toLocaleString()}{' '}
+              <span className="text-slate-400 text-sm font-normal">steps</span>
             </p>
-            <p className="text-slate-400 text-sm">steps</p>
-            {entriesMap[selectedDate].source && (
-              <p className="text-slate-500 text-[10px] mt-2 uppercase tracking-wide">
-                via{' '}
-                {entriesMap[selectedDate].source === 'healthConnect'
-                  ? 'Health Connect'
-                  : 'manual'}
-              </p>
+            {/* Distance and calories for this day */}
+            {weight && height && (
+              <div className="mt-2 pt-2 border-t border-slate-700 flex justify-between text-sm">
+                <div>
+                  <p className="text-slate-400 text-[10px] uppercase">
+                    Distance
+                  </p>
+                  <p className="text-white font-semibold">
+                    {getStepCaloriesDetails(entriesMap[selectedDate].steps, {
+                      weight,
+                      height,
+                      gender: gender || 'male',
+                    }).distanceMiles.toFixed(2)}{' '}
+                    mi
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-slate-400 text-[10px] uppercase">
+                    Calories
+                  </p>
+                  <p className="text-white font-semibold">
+                    {Math.round(
+                      getStepCaloriesDetails(entriesMap[selectedDate].steps, {
+                        weight,
+                        height,
+                        gender: gender || 'male',
+                      }).calories
+                    )}{' '}
+                    cal
+                  </p>
+                </div>
+              </div>
             )}
           </div>
 

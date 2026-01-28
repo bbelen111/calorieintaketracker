@@ -132,6 +132,7 @@ export const getDefaultEnergyMapData = () => ({
   weightEntries: [],
   bodyFatEntries: [],
   stepEntries: [], // { date: 'YYYY-MM-DD', steps: number, source: 'manual' | 'healthConnect' }
+  stepGoal: 10000, // Daily step goal
   bodyFatTrackingEnabled: true,
   gender: 'male',
   trainingType: 'bodybuilding',

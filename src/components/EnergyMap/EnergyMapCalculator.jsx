@@ -66,6 +66,7 @@ import { MealTypePickerModal } from './modals/MealTypePickerModal';
 import { FoodSearchModal } from './modals/FoodSearchModal';
 import { FoodPortionModal } from './modals/FoodPortionModal';
 import { StepTrackerModal } from './modals/StepTrackerModal';
+import { StepGoalPickerModal } from './modals/StepGoalPickerModal';
 // ...existing code...
 import { ConfirmActionModal } from './modals/ConfirmActionModal';
 import {
@@ -217,6 +218,7 @@ export const EnergyMapCalculator = () => {
     weightEntries,
     bodyFatEntries,
     stepEntries,
+    stepGoal,
     trainingTypes,
     cardioTypes,
     customCardioTypes,
@@ -244,6 +246,7 @@ export const EnergyMapCalculator = () => {
     saveBodyFatEntry,
     deleteBodyFatEntry,
     saveStepEntry,
+    setStepGoal,
     nutritionData,
     pinnedFoods,
     cachedFoods,
@@ -268,6 +271,7 @@ export const EnergyMapCalculator = () => {
       weightEntries: state.weightEntries,
       bodyFatEntries: state.bodyFatEntries,
       stepEntries: state.stepEntries,
+      stepGoal: state.stepGoal,
       trainingTypes: state.trainingTypes,
       cardioTypes: state.cardioTypes,
       customCardioTypes: state.customCardioTypes,
@@ -295,6 +299,7 @@ export const EnergyMapCalculator = () => {
       saveBodyFatEntry: state.saveBodyFatEntry,
       deleteBodyFatEntry: state.deleteBodyFatEntry,
       saveStepEntry: state.saveStepEntry,
+      setStepGoal: state.setStepGoal,
       nutritionData: state.nutritionData,
       pinnedFoods: state.pinnedFoods,
       cachedFoods: state.cachedFoods,
@@ -476,6 +481,7 @@ export const EnergyMapCalculator = () => {
   const foodSearchModal = useAnimatedModal();
   const foodPortionModal = useAnimatedModal();
   const stepTrackerModal = useAnimatedModal();
+  const stepGoalPickerModal = useAnimatedModal();
   // ...existing code...
   const confirmActionModal = useAnimatedModal();
 
@@ -503,6 +509,7 @@ export const EnergyMapCalculator = () => {
         quickTrainingModal,
         stepRangesModal,
         stepTrackerModal,
+        stepGoalPickerModal,
         dailyActivityCustomModal,
         dailyActivityEditorModal,
         dailyActivityModal,
@@ -1426,6 +1433,18 @@ export const EnergyMapCalculator = () => {
   const openStepTracker = useCallback(() => {
     stepTrackerModal.open();
   }, [stepTrackerModal]);
+
+  const openStepGoalPicker = useCallback(() => {
+    stepGoalPickerModal.open();
+  }, [stepGoalPickerModal]);
+
+  const handleStepGoalSave = useCallback(
+    (newGoal) => {
+      setStepGoal(newGoal);
+      stepGoalPickerModal.requestClose();
+    },
+    [setStepGoal, stepGoalPickerModal]
+  );
 
   const handleCardioSave = useCallback(() => {
     const sessionToSave = sanitizeCardioDraft(cardioDraft);
@@ -2490,7 +2509,17 @@ export const EnergyMapCalculator = () => {
         isClosing={stepTrackerModal.isClosing}
         entries={stepEntries}
         todaySteps={healthConnect.steps}
+        stepGoal={stepGoal}
         onClose={stepTrackerModal.requestClose}
+        onSetGoal={openStepGoalPicker}
+      />
+
+      <StepGoalPickerModal
+        isOpen={stepGoalPickerModal.isOpen}
+        isClosing={stepGoalPickerModal.isClosing}
+        value={stepGoal}
+        onCancel={stepGoalPickerModal.requestClose}
+        onSave={handleStepGoalSave}
       />
 
       <WeightEntryModal
