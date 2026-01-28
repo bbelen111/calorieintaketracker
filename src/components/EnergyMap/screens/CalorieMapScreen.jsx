@@ -3,7 +3,6 @@ import {
   Info,
   ListChecks,
   Map,
-  Activity,
   RefreshCw,
   Link2,
   Loader2,
@@ -54,8 +53,6 @@ const LiveStepsCard = ({
   onConnectHealth,
   onRefreshSteps,
   onOpenBreakdown,
-  goals,
-  selectedGoal,
 }) => {
   const isConnected = healthConnectStatus === HealthConnectStatus.CONNECTED;
   const isUnavailable =
@@ -174,25 +171,15 @@ const LiveStepsCard = ({
       <button
         type="button"
         onClick={handleCardClick}
-        className="w-full bg-gradient-to-br from-emerald-900/40 to-slate-800/90 rounded-2xl p-5 border border-emerald-500/30 mb-4 text-left md:hover:border-emerald-400/50 transition-all group pressable-card focus-ring"
+        className="w-full bg-slate-700/60 rounded-2xl p-5 border border-slate-600/50 mb-4 text-left md:hover:border-blue-400/40 transition-all group pressable-card focus-ring"
       >
         <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-500/20 rounded-xl">
-              <Activity className="text-emerald-400" size={26} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-white font-bold text-lg">Today’s Steps</h3>
-                <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold rounded-full uppercase tracking-wider">
-                  Live
-                </span>
-              </div>
-              <p className="text-slate-400 text-xs flex items-center gap-1.5 mt-0.5">
-                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-                Synced {formatLastSynced(lastSynced)}
-              </p>
-            </div>
+          <div>
+            <h3 className="text-white font-bold text-lg">Today’s Steps</h3>
+            <p className="text-slate-400 text-xs flex items-center gap-1.5 mt-0.5">
+              <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse" />
+              Synced {formatLastSynced(lastSynced)}
+            </p>
           </div>
           <button
             type="button"
@@ -201,7 +188,7 @@ const LiveStepsCard = ({
               onRefreshSteps();
             }}
             disabled={healthConnectLoading}
-            className="p-2 text-slate-400 rounded-lg transition-all pressable-inline focus-ring md:hover:text-white md:hover:bg-slate-700/50"
+            className="p-2 text-slate-300 rounded-lg border border-slate-600/60 bg-slate-700/40 transition-all pressable-inline focus-ring md:hover:text-white md:hover:bg-slate-600/60"
             aria-label="Refresh steps"
           >
             <RefreshCw
@@ -213,20 +200,18 @@ const LiveStepsCard = ({
 
         <div className="grid grid-cols-2 gap-3">
           {/* Step Count */}
-          <div className="bg-slate-700/50 rounded-xl p-3">
-            <p className="text-slate-400 text-xs mb-1">Steps</p>
+          <div className="bg-slate-600/50 rounded-xl p-3 text-center">
+            <p className="text-white/80 text-xs mb-1">Steps</p>
             <p className="text-white font-bold text-2xl">
               {stepCount.toLocaleString()}
             </p>
-            <p className="text-slate-500 text-xs">
+            <p className="text-white/70 text-xs">
               ~{formatStepCount(stepCount)} steps
             </p>
           </div>
 
           {/* Target Calories */}
-          <div
-            className={`${goals[selectedGoal].color} rounded-xl p-3 text-center`}
-          >
+          <div className="bg-blue-600 rounded-xl p-3 text-center">
             <p className="text-white/80 text-xs mb-1">Target</p>
             <p className="text-white font-bold text-2xl">
               {targetCalories.toLocaleString()}
@@ -238,19 +223,19 @@ const LiveStepsCard = ({
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-700/50">
           <p className="text-slate-400 text-xs">
             TDEE: {breakdown.total.toLocaleString()} cal
-          </p>
-          <div className="flex items-center gap-2">
             {difference !== 0 && (
               <span
-                className={`text-xs font-semibold ${difference > 0 ? 'text-green-400' : 'text-red-400'}`}
+                className={`ml-2 font-semibold ${difference > 0 ? 'text-green-400' : 'text-red-400'}`}
               >
                 {difference > 0 ? '+' : ''}
                 {difference.toLocaleString()} cal
               </span>
             )}
+          </p>
+          <div className="flex items-center gap-2">
             <Info
               size={16}
-              className="text-slate-400 group-hover:text-emerald-300 transition-colors"
+              className="text-slate-400 md:group-hover:text-blue-300 transition-colors"
             />
           </div>
         </div>
@@ -296,6 +281,14 @@ export const CalorieMapScreen = ({
   );
   const resolvedStepRanges = stepRanges ?? store.stepRanges;
   const resolvedGoals = goals ?? baseGoals;
+  const goalTextClasses = {
+    aggressive_bulk: 'text-purple-400',
+    bulking: 'text-green-400',
+    maintenance: 'text-blue-300',
+    cutting: 'text-yellow-400',
+    aggressive_cut: 'text-orange-400',
+  };
+  const goalTextClass = goalTextClasses[selectedGoal] ?? 'text-blue-300';
 
   return (
     <div className="space-y-6 pb-10">
@@ -309,7 +302,9 @@ export const CalorieMapScreen = ({
               </h1>
             </div>
             <div className="mt-1">
-              <span className="text-blue-300 text-sm tracking-widest font-semibold uppercase">
+              <span
+                className={`${goalTextClass} text-sm tracking-widest font-semibold uppercase`}
+              >
                 {resolvedGoals[selectedGoal].label}
               </span>
               <span className="text-slate-400 text-base font-normal ml-2">
@@ -338,8 +333,6 @@ export const CalorieMapScreen = ({
           onConnectHealth={onConnectHealth}
           onRefreshSteps={onRefreshSteps}
           onOpenBreakdown={onOpenBreakdown}
-          goals={resolvedGoals}
-          selectedGoal={selectedGoal}
         />
 
         {/* Step Range Section Header */}
@@ -383,9 +376,7 @@ export const CalorieMapScreen = ({
                     className={`mt-1 ${isActive ? 'text-blue-300' : 'text-slate-400 md:group-hover:text-blue-300'}`}
                   />
                 </div>
-                <div
-                  className={`${resolvedGoals[selectedGoal].color} rounded-lg p-3 mb-2 text-center`}
-                >
+                <div className="bg-blue-600 rounded-lg p-3 mb-2 text-center">
                   <p className="text-white text-2xl font-bold">
                     {targetCalories.toLocaleString()}
                   </p>
@@ -393,15 +384,15 @@ export const CalorieMapScreen = ({
                 </div>
                 <p className="text-slate-400 text-xs">
                   TDEE: {breakdown.total.toLocaleString()}
+                  {difference !== 0 && (
+                    <span
+                      className={`ml-2 font-semibold ${difference > 0 ? 'text-green-400' : 'text-red-400'}`}
+                    >
+                      {difference > 0 ? '+' : ''}
+                      {difference.toLocaleString()} cal
+                    </span>
+                  )}
                 </p>
-                {difference !== 0 && (
-                  <p
-                    className={`text-xs font-semibold mt-1 ${difference > 0 ? 'text-green-400' : 'text-red-400'}`}
-                  >
-                    {difference > 0 ? '+' : ''}
-                    {difference.toLocaleString()} cal
-                  </p>
-                )}
               </button>
             );
           })}

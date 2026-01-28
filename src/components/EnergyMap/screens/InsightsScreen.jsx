@@ -1,5 +1,14 @@
 import React, { useMemo } from 'react';
-import { Info, PieChart, Lightbulb, LineChart, CheckCircle2, AlertCircle, XCircle, HelpCircle } from 'lucide-react';
+import {
+  Info,
+  PieChart,
+  Lightbulb,
+  LineChart,
+  CheckCircle2,
+  AlertCircle,
+  XCircle,
+  HelpCircle,
+} from 'lucide-react';
 import {
   calculateWeightTrend,
   createSparklinePoints,
@@ -42,7 +51,7 @@ const IconComponent = ({ icon }) => {
   return <HelpCircle size={14} className="inline" />;
 };
 
-const getOnTrackStatus = (trend, selectedGoal, metricType = 'weight') => {
+const getOnTrackStatus = (trend, selectedGoal) => {
   if (
     !trend ||
     trend.label === 'Need more data' ||
@@ -57,100 +66,99 @@ const getOnTrackStatus = (trend, selectedGoal, metricType = 'weight') => {
   if (selectedGoal === 'maintenance') {
     const absRate = Math.abs(rate);
     if (absRate <= 0.1) {
-      return { icon: 'check', text: 'On track', color: 'text-green-400' };
+      return { icon: 'check', text: 'On target', color: 'text-green-400' };
     }
     if (absRate <= 0.25) {
-      return { icon: 'warning', text: 'Close', color: 'text-yellow-400' };
+      return { icon: 'warning', text: 'Near target', color: 'text-yellow-400' };
     }
-    return { icon: 'error', text: 'Off track', color: 'text-orange-400' };
+    return { icon: 'error', text: 'Off target', color: 'text-orange-400' };
   }
 
   const isBulk = selectedGoal.includes('bulk');
   const isCut = selectedGoal.includes('cut');
-  const movingRight =
-    (isBulk && rate > 0.1) || (isCut && rate < -0.1) || false;
+  const movingRight = (isBulk && rate > 0.1) || (isCut && rate < -0.1) || false;
 
   if (!movingRight) {
-    return { icon: 'error', text: 'Wrong direction', color: 'text-red-400' };
+    return { icon: 'error', text: 'Opposite trend', color: 'text-red-400' };
   }
 
   const absRate = Math.abs(rate);
 
   if (selectedGoal === 'aggressive_bulk') {
     if (absRate >= 0.5 && absRate <= 1.0) {
-      return { icon: 'check', text: 'On track', color: 'text-green-400' };
+      return { icon: 'check', text: 'On target', color: 'text-green-400' };
     }
     if (absRate < 0.5) {
       return {
         icon: 'warning',
-        text: 'Slower than target',
+        text: 'Below target rate',
         color: 'text-yellow-400',
       };
     }
     return {
       icon: 'warning',
-      text: 'Faster than target',
+      text: 'Above target rate',
       color: 'text-yellow-400',
     };
   }
 
   if (selectedGoal === 'bulking') {
     if (absRate >= 0.25 && absRate <= 0.5) {
-      return { icon: 'check', text: 'On track', color: 'text-green-400' };
+      return { icon: 'check', text: 'On target', color: 'text-green-400' };
     }
     if (absRate < 0.25) {
       return {
         icon: 'warning',
-        text: 'Slower than target',
+        text: 'Below target rate',
         color: 'text-yellow-400',
       };
     }
     return {
       icon: 'warning',
-      text: 'Faster than target',
+      text: 'Above target rate',
       color: 'text-yellow-400',
     };
   }
 
   if (selectedGoal === 'cutting') {
     if (absRate >= 0.25 && absRate <= 0.5) {
-      return { icon: 'check', text: 'On track', color: 'text-green-400' };
+      return { icon: 'check', text: 'On target', color: 'text-green-400' };
     }
     if (absRate < 0.25) {
       return {
         icon: 'warning',
-        text: 'Slower than target',
+        text: 'Below target rate',
         color: 'text-yellow-400',
       };
     }
     return {
       icon: 'warning',
-      text: 'Faster than target',
+      text: 'Above target rate',
       color: 'text-orange-400',
     };
   }
 
   if (selectedGoal === 'aggressive_cut') {
     if (absRate >= 0.5 && absRate <= 1.0) {
-      return { icon: 'check', text: 'On track', color: 'text-green-400' };
+      return { icon: 'check', text: 'On target', color: 'text-green-400' };
     }
     if (absRate < 0.5) {
       return {
         icon: 'warning',
-        text: 'Slower than target',
+        text: 'Below target rate',
         color: 'text-yellow-400',
       };
     }
     return {
       icon: 'warning',
-      text: 'Faster than target',
+      text: 'Above target rate',
       color: 'text-orange-400',
     };
   }
 
   return {
     icon: 'help',
-    text: 'Track your progress',
+    text: 'Track to assess',
     color: 'text-slate-400',
   };
 };
@@ -214,6 +222,7 @@ export const InsightsScreen = ({
     () => calculateWeightTrend(sortedEntries),
     [sortedEntries]
   );
+  const weightStatus = getOnTrackStatus(trend, selectedGoal, 'weight');
   const sparkline = useMemo(
     () =>
       createSparklinePoints(sortedEntries, {
@@ -245,6 +254,7 @@ export const InsightsScreen = ({
     () => calculateBodyFatTrend(sortedBodyFatEntries),
     [sortedBodyFatEntries]
   );
+  const bodyFatStatus = getOnTrackStatus(bodyFatTrend, selectedGoal, 'bodyFat');
 
   const bodyFatSparkline = useMemo(
     () =>
@@ -399,30 +409,37 @@ export const InsightsScreen = ({
           <button
             type="button"
             onClick={onOpenWeightTracker}
-            className="w-full rounded-xl border border-slate-700 bg-slate-900/40 p-4 text-left transition-all md:hover:border-blue-400/70 md:hover:bg-slate-900 pressable-card focus-ring"
+            className="group relative w-full text-left bg-slate-700/50 rounded-xl p-4 transition-all border border-slate-600/50 active:scale-[0.99] pressable-card focus-ring md:hover:bg-slate-600 md:hover:border-slate-500/80"
           >
-            <div className="flex items-center justify-between gap-1">
+            <div className="flex items-start justify-between mb-2">
+              <p className="font-semibold text-white text-base">
+                Weight Snapshot
+              </p>
+              <span
+                className={`text-xs font-semibold ${weightStatus.color} flex items-center gap-1.5`}
+              >
+                <IconComponent icon={weightStatus.icon} />
+                {weightStatus.text}
+              </span>
+            </div>
+            <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="font-semibold text-white text-base mb-2">
-                  Weight Snapshot
-                </p>
                 <p
                   className={`text-lg font-semibold ${getTrendToneClass(trend, selectedGoal, 'weight')}`}
                 >
                   {trend.label}
                 </p>
                 <p className="text-slate-300 text-sm mt-1">
-                  <span className="font-bold text-white">{currentWeight ? `${currentWeight} kg` : '—'}</span> •{' '}
-                  {lastLoggedLabel}
+                  <span className="font-bold text-white">
+                    {currentWeight ? `${currentWeight} kg` : '—'}
+                  </span>{' '}
+                  • {lastLoggedLabel}
                 </p>
                 <p className="text-slate-300 text-sm mt-2">
-                  <span className="font-bold text-white">{formatWeeklyRate(trend.weeklyRate)}</span> over last 7 entries
-                </p>
-                <p
-                  className={`text-sm font-semibold mt-3 ${getOnTrackStatus(trend, selectedGoal, 'weight').color} flex items-center gap-2`}
-                >
-                  <IconComponent icon={getOnTrackStatus(trend, selectedGoal, 'weight').icon} />
-                  {getOnTrackStatus(trend, selectedGoal, 'weight').text}
+                  <span className="font-bold text-white">
+                    {formatWeeklyRate(trend.weeklyRate)}
+                  </span>{' '}
+                  over last 7 entries
                 </p>
               </div>
               {sparkline.points && sortedEntries.length > 1 && (
@@ -497,8 +514,8 @@ export const InsightsScreen = ({
                       />
                     ))}
                   </svg>
-                  <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-slate-900/80 to-transparent pointer-events-none" />
-                  <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-slate-900/80 to-transparent pointer-events-none" />
+                  <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-slate-800/80 to-transparent pointer-events-none" />
+                  <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-slate-800/80 to-transparent pointer-events-none" />
                 </div>
               )}
             </div>
@@ -511,31 +528,37 @@ export const InsightsScreen = ({
             <button
               type="button"
               onClick={onOpenBodyFatTracker}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900/40 p-4 text-left transition-all md:hover:border-emerald-400/70 md:hover:bg-slate-900 pressable-card focus-ring"
+              className="group relative w-full text-left bg-slate-700/50 rounded-xl p-4 transition-all border border-slate-600/50 active:scale-[0.99] pressable-card focus-ring md:hover:bg-slate-600 md:hover:border-slate-500/80"
             >
-              <div className="flex items-center justify-between gap-1">
+              <div className="flex items-start justify-between mb-2">
+                <p className="font-semibold text-white text-base">
+                  Body Fat % Snapshot
+                </p>
+                <span
+                  className={`text-xs font-semibold ${bodyFatStatus.color} flex items-center gap-1.5`}
+                >
+                  <IconComponent icon={bodyFatStatus.icon} />
+                  {bodyFatStatus.text}
+                </span>
+              </div>
+              <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="font-semibold text-white text-base mb-2">
-                    Body Fat % Snapshot
-                  </p>
                   <p
                     className={`text-lg font-semibold ${getTrendToneClass(bodyFatTrend, selectedGoal, 'bodyFat')}`}
                   >
                     {bodyFatTrend.label}
                   </p>
                   <p className="text-slate-300 text-sm mt-1">
-                    <span className="font-bold text-white">{currentBodyFat ? `${currentBodyFat}%` : '—'}</span> •{' '}
-                    {bodyFatLoggedLabel}
+                    <span className="font-bold text-white">
+                      {currentBodyFat ? `${currentBodyFat}%` : '—'}
+                    </span>{' '}
+                    • {bodyFatLoggedLabel}
                   </p>
                   <p className="text-slate-300 text-sm mt-2">
-                    <span className="font-bold text-white">{formatBodyFatWeeklyRate(bodyFatTrend.weeklyRate)}</span> over last
-                    7 entries
-                  </p>
-                  <p
-                    className={`text-sm font-semibold mt-3 ${getOnTrackStatus(bodyFatTrend, selectedGoal, 'bodyFat').color} flex items-center gap-2`}
-                  >
-                    <IconComponent icon={getOnTrackStatus(bodyFatTrend, selectedGoal, 'bodyFat').icon} />
-                    {getOnTrackStatus(bodyFatTrend, selectedGoal, 'bodyFat').text}
+                    <span className="font-bold text-white">
+                      {formatBodyFatWeeklyRate(bodyFatTrend.weeklyRate)}
+                    </span>{' '}
+                    over last 7 entries
                   </p>
                 </div>
                 {bodyFatSparkline.points && sortedBodyFatEntries.length > 1 && (
@@ -610,8 +633,8 @@ export const InsightsScreen = ({
                         />
                       ))}
                     </svg>
-                    <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-slate-900/80 to-transparent pointer-events-none" />
-                    <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-slate-900/80 to-transparent pointer-events-none" />
+                    <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-slate-800/80 to-transparent pointer-events-none" />
+                    <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-slate-800/80 to-transparent pointer-events-none" />
                   </div>
                 )}
               </div>
@@ -625,7 +648,7 @@ export const InsightsScreen = ({
             <button
               type="button"
               onClick={onOpenBmiInfo}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900/40 p-3 text-left transition-all md:hover:bg-slate-900 pressable-card focus-ring"
+              className="group relative w-full text-left bg-slate-700/50 rounded-xl p-4 transition-all border border-slate-600/50 active:scale-[0.99] pressable-card focus-ring md:hover:bg-slate-600 md:hover:border-slate-500/80"
             >
               <div className="flex items-center justify-between gap-2">
                 <div>
@@ -660,7 +683,7 @@ export const InsightsScreen = ({
             <button
               type="button"
               onClick={onOpenFfmiInfo}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900/40 p-3 text-left transition-all md:hover:bg-slate-900 pressable-card focus-ring"
+              className="group relative w-full text-left bg-slate-700/50 rounded-xl p-4 transition-all border border-slate-600/50 active:scale-[0.99] pressable-card focus-ring md:hover:bg-slate-600 md:hover:border-slate-500/80"
             >
               <div className="flex items-center justify-between gap-2">
                 <div>
