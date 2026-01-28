@@ -56,6 +56,11 @@ const resolveCardioTypes = (userData) => ({
   ...(userData.customCardioTypes ?? {}),
 });
 
+const sortStepEntries = (entries) => {
+  if (!Array.isArray(entries)) return [];
+  return [...entries].sort((a, b) => a.date.localeCompare(b.date));
+};
+
 const deriveState = (userData) => {
   const trainingTypes = resolveTrainingTypes(userData);
   const cardioTypes = resolveCardioTypes(userData);
@@ -64,6 +69,7 @@ const deriveState = (userData) => {
   const totalCardioBurn = getTotalCardioBurn(userData, cardioTypes);
   const weightEntries = sortWeightEntries(userData.weightEntries ?? []);
   const bodyFatEntries = sortBodyFatEntries(userData.bodyFatEntries ?? []);
+  const stepEntries = sortStepEntries(userData.stepEntries ?? []);
 
   return {
     trainingTypes,
@@ -73,6 +79,7 @@ const deriveState = (userData) => {
     totalCardioBurn,
     weightEntries,
     bodyFatEntries,
+    stepEntries,
     customCardioTypes: userData.customCardioTypes ?? {},
     cardioFavourites: userData.cardioFavourites ?? [],
     foodFavourites: userData.foodFavourites ?? [],
@@ -449,6 +456,37 @@ export const useEnergyMapStore = create(
         return {
           ...prev,
           bodyFatEntries: nextEntries,
+        };
+      });
+    },
+
+    saveStepEntry: ({ date, steps, source = 'healthConnect' }) => {
+      const normalizedDate = normalizeDateKey(date);
+      const sanitizedSteps =
+        Number.isFinite(steps) && steps >= 0 ? Math.round(steps) : 0;
+
+      if (!normalizedDate) {
+        return;
+      }
+
+      updateUserData(set, get, (prev) => {
+        const existingEntries = Array.isArray(prev.stepEntries)
+          ? prev.stepEntries
+          : [];
+
+        // Remove any existing entry for the same date
+        const filtered = existingEntries.filter(
+          (entry) => normalizeDateKey(entry?.date) !== normalizedDate
+        );
+
+        const nextEntries = sortStepEntries([
+          ...filtered,
+          { date: normalizedDate, steps: sanitizedSteps, source },
+        ]);
+
+        return {
+          ...prev,
+          stepEntries: nextEntries,
         };
       });
     },

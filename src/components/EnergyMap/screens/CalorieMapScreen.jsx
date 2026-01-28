@@ -53,6 +53,7 @@ const LiveStepsCard = ({
   onConnectHealth,
   onRefreshSteps,
   onOpenBreakdown,
+  onOpenStepTracker,
 }) => {
   const isConnected = healthConnectStatus === HealthConnectStatus.CONNECTED;
   const isUnavailable =
@@ -164,7 +165,7 @@ const LiveStepsCard = ({
       liveStepData;
 
     const handleCardClick = () => {
-      onOpenBreakdown?.(stepCount);
+      onOpenStepTracker?.();
     };
 
     return (
@@ -211,13 +212,21 @@ const LiveStepsCard = ({
           </div>
 
           {/* Target Calories */}
-          <div className="bg-blue-600 rounded-xl p-3 text-center">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenBreakdown?.(stepCount);
+            }}
+            className="bg-blue-600 rounded-xl p-3 text-center relative pressable-card focus-ring md:hover:bg-blue-500 transition-all"
+          >
+            <Info size={12} className="absolute top-2 right-2 text-white/60" />
             <p className="text-white/80 text-xs mb-1">Target</p>
             <p className="text-white font-bold text-2xl">
               {targetCalories.toLocaleString()}
             </p>
             <p className="text-white/70 text-xs">calories</p>
-          </div>
+          </button>
         </div>
 
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-700/50">
@@ -232,12 +241,9 @@ const LiveStepsCard = ({
               </span>
             )}
           </p>
-          <div className="flex items-center gap-2">
-            <Info
-              size={16}
-              className="text-slate-400 md:group-hover:text-blue-300 transition-colors"
-            />
-          </div>
+          <p className="text-blue-300 text-xs tracking-wide mt-3">
+            Tap to open step tracker
+          </p>
         </div>
       </button>
     );
@@ -274,6 +280,7 @@ export const CalorieMapScreen = ({
   healthConnectError,
   onConnectHealth,
   onRefreshSteps,
+  onOpenStepTracker,
 }) => {
   const store = useEnergyMapStore(
     (state) => ({ stepRanges: state.userData.stepRanges ?? [] }),
@@ -333,6 +340,7 @@ export const CalorieMapScreen = ({
           onConnectHealth={onConnectHealth}
           onRefreshSteps={onRefreshSteps}
           onOpenBreakdown={onOpenBreakdown}
+          onOpenStepTracker={onOpenStepTracker}
         />
 
         {/* Step Range Section Header */}

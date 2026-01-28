@@ -14,6 +14,7 @@ const SELECTED_DAY_KEY = 'energyMapSelectedDay';
 const HISTORY_FIELDS = [
   'weightEntries',
   'bodyFatEntries',
+  'stepEntries',
   'nutritionData',
   'phases',
   'cardioSessions',
@@ -130,6 +131,7 @@ export const getDefaultEnergyMapData = () => ({
   height: 168,
   weightEntries: [],
   bodyFatEntries: [],
+  stepEntries: [], // { date: 'YYYY-MM-DD', steps: number, source: 'manual' | 'healthConnect' }
   bodyFatTrackingEnabled: true,
   gender: 'male',
   trainingType: 'bodybuilding',
@@ -271,6 +273,9 @@ function mergeWithDefaults(data) {
     bodyFatEntries: sortBodyFatEntries(
       data.bodyFatEntries ?? defaults.bodyFatEntries
     ),
+    stepEntries: Array.isArray(data.stepEntries)
+      ? data.stepEntries.sort((a, b) => a.date.localeCompare(b.date))
+      : defaults.stepEntries,
     bodyFatTrackingEnabled:
       data.bodyFatTrackingEnabled ?? defaults.bodyFatTrackingEnabled,
     phases: Array.isArray(data.phases) ? data.phases : defaults.phases,
