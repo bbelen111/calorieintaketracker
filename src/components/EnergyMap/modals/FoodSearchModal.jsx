@@ -21,7 +21,6 @@ import {
   WifiOff,
   Database,
   Globe,
-  Loader2,
   AlertCircle,
   CloudOff,
 } from 'lucide-react';
@@ -632,12 +631,14 @@ export const FoodSearchModal = ({
         {/* Search Mode Toggle */}
         <div className="px-4 pt-4">
           <div className="relative flex items-center gap-2 p-1 bg-slate-700/50 rounded-lg">
-            <motion.div
+            <div
               className={`absolute inset-y-1 w-1/2 rounded-md shadow-md ${
                 searchMode === 'local' ? 'bg-blue-500' : 'bg-emerald-500'
               }`}
-              animate={{ x: searchMode === 'local' ? '0%' : '100%' }}
-              transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+              style={{
+                left: searchMode === 'local' ? '4px' : 'calc(50% + 4px)',
+                transition: 'left 0.2s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.2s ease-out',
+              }}
             />
             <button
               onClick={() => setSearchMode('local')}
@@ -765,9 +766,9 @@ export const FoodSearchModal = ({
         {/* Search Input */}
         {viewMode === 'search' && (
           <div className="px-4 mt-3">
-            <div className="relative">
+            <div className="relative flex items-center">
               <Search
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                className="absolute left-3 text-slate-400 flex-shrink-0 pointer-events-none"
                 size={20}
               />
               <input
@@ -784,12 +785,13 @@ export const FoodSearchModal = ({
                     ? 'Search FatSecret database...'
                     : 'Search local foods...'
                 }
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg pl-11 pr-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg pl-11 pr-10 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 md:hover:text-white pressable-inline focus-ring"
+                  className="absolute right-3 text-slate-400 md:hover:text-white pressable-inline focus-ring flex-shrink-0"
+                  aria-label="Clear search"
                 >
                   <X size={18} />
                 </button>
@@ -1191,10 +1193,10 @@ export const FoodSearchModal = ({
                 {/* Loading State for Online Search */}
                 {searchMode === 'online' && isSearching && (
                   <div className="flex flex-col items-center justify-center py-12">
-                    <Loader2
-                      size={32}
-                      className="text-blue-400 animate-spin mb-3"
-                    />
+                    <div className="relative w-8 h-8 mb-3">
+                      <div className="absolute inset-0 border-4 border-slate-700 rounded-full" />
+                      <div className="absolute inset-0 border-4 border-transparent border-t-blue-400 rounded-full animate-spin-fast" />
+                    </div>
                     <p className="text-slate-400 text-sm">
                       Searching FatSecret database...
                     </p>
@@ -1250,10 +1252,10 @@ export const FoodSearchModal = ({
                       >
                         {isLoading && (
                           <div className="absolute inset-0 bg-slate-800/50 rounded-lg flex items-center justify-center z-10">
-                            <Loader2
-                              size={24}
-                              className="text-blue-400 animate-spin"
-                            />
+                            <div className="relative w-6 h-6">
+                              <div className="absolute inset-0 border-3 border-slate-600 rounded-full" />
+                              <div className="absolute inset-0 border-3 border-transparent border-t-blue-400 rounded-full animate-spin-fast" />
+                            </div>
                           </div>
                         )}
                         <div className="flex items-start justify-between gap-3">

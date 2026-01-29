@@ -211,6 +211,23 @@ select,
   .slide-in-from-top-2 {
     animation: slideInFromTop 0.2s ease-out;
   }
+
+  /* Optimized spinner animation for better device compatibility */
+  .animate-spin-fast {
+    animation: optimizedSpin 0.8s linear infinite;
+    transform-origin: center center;
+  }
+}
+
+/* Optimized spin animation using transform instead of full rotation */
+@keyframes optimizedSpin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (hover: none) and (pointer: coarse) {
