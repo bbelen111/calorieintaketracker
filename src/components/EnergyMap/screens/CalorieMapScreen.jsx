@@ -170,10 +170,9 @@ const LiveStepsCard = ({
     };
 
     return (
-      <button
-        type="button"
+      <div
         onClick={handleCardClick}
-        className="w-full bg-slate-700/60 rounded-2xl p-5 border border-slate-600/50 mb-4 text-left md:hover:border-blue-400/40 transition-all group pressable-card focus-ring"
+        className="w-full bg-slate-700/60 rounded-2xl p-5 border border-slate-600/50 mb-4 text-left md:hover:border-blue-400/40 transition-all focus-ring cursor-pointer active:scale-[0.99]"
       >
         <div className="flex items-start justify-between mb-3">
           <div>
@@ -183,21 +182,20 @@ const LiveStepsCard = ({
               Synced {formatLastSynced(lastSynced)}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onRefreshSteps();
-            }}
-            disabled={healthConnectLoading}
-            className="p-2 text-slate-300 rounded-lg border border-slate-600/60 bg-slate-700/40 transition-all pressable-inline focus-ring md:hover:text-white md:hover:bg-slate-600/60"
-            aria-label="Refresh steps"
-          >
-            <RefreshCw
-              size={18}
-              className={healthConnectLoading ? 'animate-spin' : ''}
-            />
-          </button>
+          <div onClick={(e) => e.stopPropagation()} className="contents">
+            <button
+              type="button"
+              onClick={onRefreshSteps}
+              disabled={healthConnectLoading}
+              className="p-2 text-slate-300 rounded-lg border border-slate-600/60 bg-slate-700/40 transition-colors focus-ring md:hover:text-white md:hover:bg-slate-600/60 disabled:opacity-50 disabled:cursor-not-allowed active:!scale-100"
+              aria-label="Refresh steps"
+            >
+              <RefreshCw
+                size={18}
+                className={healthConnectLoading ? 'animate-spin' : ''}
+              />
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -278,7 +276,7 @@ const LiveStepsCard = ({
             Tap to open step tracker
           </p>
         </div>
-      </button>
+      </div>
     );
   }
 

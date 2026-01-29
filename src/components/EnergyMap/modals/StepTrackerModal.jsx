@@ -16,13 +16,12 @@ const DATE_COLUMN_WIDTH = 48;
 const DATE_COLUMN_GAP = 6;
 const Y_TICK_COUNT = 6;
 const LEFT_EDGE_PADDING_GRAPH = 12;
-const RIGHT_EDGE_PADDING_GRAPH = 12;
+const RIGHT_EDGE_PADDING_GRAPH = 24;
 const MIN_VISIBLE_STEP_RANGE = 5000;
 const MIN_RANGE_PADDING = 500;
 const TIMELINE_TRACK_HEIGHT = 56;
 const Y_AXIS_PADDING = 16;
 const LEADING_ENTRY_SPACE = 24;
-const FIRST_ENTRY_CENTER_OFFSET = LEADING_ENTRY_SPACE + DATE_COLUMN_WIDTH / 2;
 const TOOLTIP_WIDTH = 144;
 const TOOLTIP_VERTICAL_OFFSET = 17;
 const BAR_WIDTH = 32;
@@ -265,11 +264,6 @@ export const StepTrackerModal = ({
     [baseChartWidth, graphViewportWidth]
   );
 
-  const shouldStretchAcrossViewport = useMemo(
-    () => chartWidth > baseChartWidth,
-    [chartWidth, baseChartWidth]
-  );
-
   const chartHeight = useMemo(() => {
     if (graphViewportHeight && graphViewportHeight > 0) {
       return graphViewportHeight;
@@ -289,57 +283,28 @@ export const StepTrackerModal = ({
       return [];
     }
 
-    if (!shouldStretchAcrossViewport) {
-      const start = FIRST_ENTRY_CENTER_OFFSET;
-      const step = DATE_COLUMN_WIDTH + DATE_COLUMN_GAP;
-      return filteredEntries.map((_, index) => start + index * step);
-    }
+    const step = DATE_COLUMN_WIDTH + DATE_COLUMN_GAP;
+    const rightEdgeX = chartWidth - RIGHT_EDGE_PADDING_GRAPH;
 
-    if (filteredEntryCount === 1) {
-      return [Math.max(FIRST_ENTRY_CENTER_OFFSET, chartWidth / 2)];
-    }
-
-    const leftPad = Math.max(
-      LEFT_EDGE_PADDING_GRAPH,
-      FIRST_ENTRY_CENTER_OFFSET
-    );
-    const rightPad = RIGHT_EDGE_PADDING_GRAPH;
-    const usableWidth = Math.max(chartWidth - leftPad - rightPad, 0);
-    const step =
-      filteredEntryCount > 1 ? usableWidth / (filteredEntryCount - 1) : 0;
-    return filteredEntries.map((_, index) => leftPad + step * index);
-  }, [
-    chartWidth,
-    filteredEntryCount,
-    shouldStretchAcrossViewport,
-    filteredEntries,
-  ]);
+    // Latest entry (last in array) always positions at the right
+    return filteredEntries.map((_, index) => {
+      const distanceFromEnd = filteredEntryCount - 1 - index;
+      return rightEdgeX - distanceFromEnd * step;
+    });
+  }, [chartWidth, filteredEntryCount, filteredEntries]);
 
   const timelineXPositions = useMemo(() => {
     if (filteredEntryCount === 0) return [];
 
-    if (!shouldStretchAcrossViewport) {
-      const start = FIRST_ENTRY_CENTER_OFFSET;
-      const step = DATE_COLUMN_WIDTH + DATE_COLUMN_GAP;
-      return filteredEntries.map((_, index) => start + index * step);
-    }
+    const step = DATE_COLUMN_WIDTH + DATE_COLUMN_GAP;
+    const rightEdgeX = chartWidth - RIGHT_EDGE_PADDING_GRAPH;
 
-    if (filteredEntryCount === 1) {
-      return [Math.max(FIRST_ENTRY_CENTER_OFFSET, chartWidth / 2)];
-    }
-
-    const leftPad = Math.max(DATE_COLUMN_WIDTH / 2, FIRST_ENTRY_CENTER_OFFSET);
-    const rightPad = 16;
-    const usableWidth = Math.max(chartWidth - leftPad - rightPad, 0);
-    const step =
-      filteredEntryCount > 1 ? usableWidth / (filteredEntryCount - 1) : 0;
-    return filteredEntries.map((_, index) => leftPad + step * index);
-  }, [
-    chartWidth,
-    filteredEntryCount,
-    shouldStretchAcrossViewport,
-    filteredEntries,
-  ]);
+    // Same logic as xPositions - latest entry at right edge
+    return filteredEntries.map((_, index) => {
+      const distanceFromEnd = filteredEntryCount - 1 - index;
+      return rightEdgeX - distanceFromEnd * step;
+    });
+  }, [chartWidth, filteredEntryCount, filteredEntries]);
 
   const chartData = useMemo(() => {
     if (filteredEntries.length === 0) {
