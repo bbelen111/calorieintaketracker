@@ -26,6 +26,8 @@ const TOOLTIP_WIDTH = 144;
 const TOOLTIP_VERTICAL_OFFSET = 17;
 const BAR_WIDTH = 32;
 const BAR_RADIUS = 6;
+const WEEK_BRACKET_HEIGHT = 32;
+const WEEK_BRACKET_TOP_PADDING = 8;
 
 const clampPercent = (value) => Math.max(0, Math.min(100, value));
 
@@ -266,9 +268,9 @@ export const StepTrackerModal = ({
 
   const chartHeight = useMemo(() => {
     if (graphViewportHeight && graphViewportHeight > 0) {
-      return graphViewportHeight;
+      return graphViewportHeight - WEEK_BRACKET_HEIGHT - WEEK_BRACKET_TOP_PADDING;
     }
-    return 280;
+    return 280 - WEEK_BRACKET_HEIGHT - WEEK_BRACKET_TOP_PADDING;
   }, [graphViewportHeight]);
 
   const hasHorizontalOverflow = useMemo(() => {
@@ -381,6 +383,70 @@ export const StepTrackerModal = ({
     }
     return chartBars.find((bar) => bar.date === selectedDate) ?? null;
   }, [chartBars, selectedDate]);
+
+  // Calculate week brackets for grouping bars
+  const weekBrackets = useMemo(() => {
+    if (chartBars.length === 0) return [];
+
+    const brackets = [];
+    let currentWeek = [];
+    let currentWeekStart = null;
+
+    // Group bars by week (Sunday to Saturday)
+    chartBars.forEach((bar, index) => {
+      const date = new Date(bar.date + 'T00:00:00Z');
+      const dayOfWeek = date.getUTCDay(); // 0 = Sunday
+
+      if (currentWeekStart === null) {
+        currentWeekStart = date;
+        currentWeek = [{ ...bar, index }];
+      } else {
+        // Check if this is a new week (Sunday)
+        const prevDate = new Date(chartBars[index - 1].date + 'T00:00:00Z');
+        const daysSince = Math.floor((date - prevDate) / (1000 * 60 * 60 * 24));
+        const crossedSunday = dayOfWeek < prevDate.getUTCDay() || daysSince >= 7;
+
+        if (crossedSunday) {
+          // Save current week and start new one
+          if (currentWeek.length > 0) {
+            const avgSteps = Math.round(
+              currentWeek.reduce((sum, b) => sum + b.steps, 0) / currentWeek.length
+            );
+            const firstBar = currentWeek[0];
+            const lastBar = currentWeek[currentWeek.length - 1];
+            brackets.push({
+              startX: firstBar.x,
+              endX: lastBar.x,
+              avgSteps,
+              entryCount: currentWeek.length,
+            });
+          }
+          currentWeekStart = date;
+          currentWeek = [{ ...bar, index }];
+        } else {
+          currentWeek.push({ ...bar, index });
+        }
+      }
+    });
+
+    // Don't forget the last week
+    if (currentWeek.length > 0) {
+      const avgSteps = Math.round(
+        currentWeek.reduce((sum, b) => sum + b.steps, 0) / currentWeek.length
+      );
+      const firstBar = currentWeek[0];
+      const lastBar = currentWeek[currentWeek.length - 1];
+      brackets.push({
+        startX: firstBar.x,
+        endX: lastBar.x,
+        avgSteps,
+        entryCount: currentWeek.length,
+        isCurrentWeek: true,
+      });
+    }
+
+    return brackets;
+  }, [chartBars]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -841,12 +907,96 @@ export const StepTrackerModal = ({
                     style={{ width: `${chartWidth}px` }}
                   >
                     {chartData ? (
-                      <svg
-                        width={chartWidth}
-                        height={chartHeight}
-                        viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-                        preserveAspectRatio="none"
-                      >
+                      <div className="relative" style={{ height: chartHeight + WEEK_BRACKET_HEIGHT + WEEK_BRACKET_TOP_PADDING }}>
+                        {/* Week Brackets */}
+                        {weekBrackets.length > 0 && (
+                          <div 
+                            className="absolute left-0 right-0 pointer-events-none"
+                            style={{ height: WEEK_BRACKET_HEIGHT, top: WEEK_BRACKET_TOP_PADDING }}
+                          >
+                            <svg
+                              width={chartWidth}
+                              height={WEEK_BRACKET_HEIGHT}
+                              viewBox={`0 0 ${chartWidth} ${WEEK_BRACKET_HEIGHT}`}
+                              preserveAspectRatio="none"
+                            >
+                              {weekBrackets.map((bracket, idx) => {
+                                const bracketWidth = bracket.endX - bracket.startX;
+                                const midX = bracket.startX + bracketWidth / 2;
+                                const legHeight = 8;
+                                const textY = 12;
+                                const lineY = WEEK_BRACKET_HEIGHT - 6;
+                                
+                                return (
+                                  <g key={idx}>
+                                    {/* Left leg */}
+                                    <line
+                                      x1={bracket.startX}
+                                      y1={lineY}
+                                      x2={bracket.startX}
+                                      y2={lineY - legHeight}
+                                      stroke="#64748b"
+                                      strokeWidth="1.5"
+                                    />
+                                    {/* Right leg */}
+                                    <line
+                                      x1={bracket.endX}
+                                      y1={lineY}
+                                      x2={bracket.endX}
+                                      y2={lineY - legHeight}
+                                      stroke="#64748b"
+                                      strokeWidth="1.5"
+                                    />
+                                    {/* Horizontal line - left half */}
+                                    <line
+                                      x1={bracket.startX}
+                                      y1={lineY - legHeight}
+                                      x2={midX - 28}
+                                      y2={lineY - legHeight}
+                                      stroke="#64748b"
+                                      strokeWidth="1.5"
+                                    />
+                                    {/* Horizontal line - right half */}
+                                    <line
+                                      x1={midX + 28}
+                                      y1={lineY - legHeight}
+                                      x2={bracket.endX}
+                                      y2={lineY - legHeight}
+                                      stroke="#64748b"
+                                      strokeWidth="1.5"
+                                    />
+                                    {/* Average text */}
+                                    <text
+                                      x={midX}
+                                      y={textY}
+                                      textAnchor="middle"
+                                      className="fill-slate-300 text-[10px] font-semibold"
+                                    >
+                                      {formatStepCount(bracket.avgSteps)}
+                                    </text>
+                                    <text
+                                      x={midX}
+                                      y={textY + 11}
+                                      textAnchor="middle"
+                                      className="fill-slate-500 text-[8px]"
+                                    >
+                                      avg
+                                    </text>
+                                  </g>
+                                );
+                              })}
+                            </svg>
+                          </div>
+                        )}
+                        
+                        {/* Main Chart */}
+                        <svg
+                          width={chartWidth}
+                          height={chartHeight}
+                          viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                          preserveAspectRatio="none"
+                          style={{ position: 'absolute', top: WEEK_BRACKET_HEIGHT + WEEK_BRACKET_TOP_PADDING, left: 0 }}
+                        >
                         {/* Grid lines */}
                         <g>
                           {yTickPositions.map(({ index, lineY }) => {
@@ -928,6 +1078,7 @@ export const StepTrackerModal = ({
                           );
                         })}
                       </svg>
+                      </div>
                     ) : (
                       <div className="flex items-center justify-center h-full">
                         <div className="text-center">

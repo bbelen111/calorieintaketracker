@@ -91,6 +91,11 @@ export const FoodSearchModal = ({
   const [searchMode, setSearchMode] = useState('local');
   const [viewMode, setViewMode] = useState('search');
   const [searchQuery, setSearchQuery] = useState('');
+  const [favouritesSearchQuery, setFavouritesSearchQuery] = useState('');
+  const [favouritesSortBy, setFavouritesSortBy] = useState('name');
+  const [favouritesSortOrder, setFavouritesSortOrder] = useState('asc');
+  const [isFavouritesFilterOpen, setIsFavouritesFilterOpen] = useState(false);
+  const favouritesDropdownRef = useRef(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState(null);
   const [sortBy, setSortBy] = useState('name'); // name, calories, protein, carbs, fats
@@ -130,14 +135,17 @@ export const FoodSearchModal = ({
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsFilterOpen(false);
       }
+      if (favouritesDropdownRef.current && !favouritesDropdownRef.current.contains(event.target)) {
+        setIsFavouritesFilterOpen(false);
+      }
     };
 
-    if (isFilterOpen) {
+    if (isFilterOpen || isFavouritesFilterOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       return () =>
         document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [isFilterOpen]);
+  }, [isFilterOpen, isFavouritesFilterOpen]);
 
   // Reset state when modal closes
   useEffect(() => {
@@ -148,6 +156,10 @@ export const FoodSearchModal = ({
       setIsSearching(false);
       setLoadingFoodId(null);
       setViewMode('search');
+      setFavouritesSearchQuery('');
+      setFavouritesSortBy('name');
+      setFavouritesSortOrder('asc');
+      setIsFavouritesFilterOpen(false);
       forceDeleteConfirmClose();
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
@@ -399,18 +411,37 @@ export const FoodSearchModal = ({
   const sortedFavourites = useMemo(() => {
     if (!Array.isArray(resolvedFavourites)) return [];
 
-    return resolvedFavourites
-      .filter(Boolean)
-      .slice()
-      .sort((a, b) => {
+    let results = resolvedFavourites.filter(Boolean);
+
+    // Apply search filter
+    if (favouritesSearchQuery.trim()) {
+      const query = favouritesSearchQuery.toLowerCase().trim();
+      results = results.filter(
+        (fav) =>
+          fav.name?.toLowerCase().includes(query) ||
+          fav.category?.toLowerCase().includes(query)
+      );
+    }
+
+    // Apply sorting
+    results = [...results].sort((a, b) => {
+      let compareValue = 0;
+
+      if (favouritesSortBy === 'name') {
         const nameA = (a.name || '').toLowerCase();
         const nameB = (b.name || '').toLowerCase();
-        if (nameA === nameB) {
-          return (a.grams || 0) - (b.grams || 0);
-        }
-        return nameA.localeCompare(nameB);
-      });
-  }, [resolvedFavourites]);
+        compareValue = nameA.localeCompare(nameB);
+      } else {
+        const aValue = a[favouritesSortBy] || 0;
+        const bValue = b[favouritesSortBy] || 0;
+        compareValue = aValue - bValue;
+      }
+
+      return favouritesSortOrder === 'asc' ? compareValue : -compareValue;
+    });
+
+    return results;
+  }, [resolvedFavourites, favouritesSearchQuery, favouritesSortBy, favouritesSortOrder]);
 
   const hasFavourites = sortedFavourites.length > 0;
 
@@ -589,6 +620,26 @@ export const FoodSearchModal = ({
     sortBy !== 'name' ||
     sortOrder !== 'asc';
 
+  const hasActiveFavouritesFilters =
+    favouritesSortBy !== 'name' || favouritesSortOrder !== 'asc';
+
+  const clearFavouritesFilters = () => {
+    setFavouritesSortBy('name');
+    setFavouritesSortOrder('asc');
+  };
+
+  const getFavouritesSortLabel = () => {
+    const labels = {
+      name: 'Name',
+      calories: 'Calories',
+      protein: 'Protein',
+      carbs: 'Carbs',
+      fats: 'Fats',
+    };
+    const orderLabel = favouritesSortOrder === 'asc' ? '↑' : '↓';
+    return `${labels[favouritesSortBy]} ${orderLabel}`;
+  };
+
   const getSortLabel = () => {
     const labels = {
       name: 'Name',
@@ -628,57 +679,8 @@ export const FoodSearchModal = ({
       </div>
 
       <div className="flex-1 bg-slate-800 border-t border-slate-700 overflow-y-auto flex flex-col">
-        {/* Search Mode Toggle */}
+        {/* Action Buttons - Always on top */}
         <div className="px-4 pt-4">
-          <div className="relative flex items-center gap-2 p-1 bg-slate-700/50 rounded-lg">
-            <div
-              className={`absolute inset-y-1 w-1/2 rounded-md shadow-md ${
-                searchMode === 'local' ? 'bg-blue-500' : 'bg-emerald-500'
-              }`}
-              style={{
-                left: searchMode === 'local' ? '4px' : 'calc(50% + 4px)',
-                transition: 'left 0.2s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.2s ease-out',
-              }}
-            />
-            <button
-              onClick={() => setSearchMode('local')}
-              className={`relative z-10 flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                searchMode === 'local'
-                  ? 'text-white'
-                  : 'text-slate-400 md:hover:text-white'
-              }`}
-            >
-              <Database size={16} />
-              <span>Local</span>
-            </button>
-            <button
-              onClick={() => isOnline && setSearchMode('online')}
-              disabled={!isOnline}
-              className={`relative z-10 flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                searchMode === 'online'
-                  ? 'text-white'
-                  : isOnline
-                    ? 'text-slate-400 md:hover:text-white'
-                    : 'text-slate-500 cursor-not-allowed opacity-50'
-              }`}
-            >
-              {isOnline ? <Globe size={16} /> : <WifiOff size={16} />}
-              <span>Online</span>
-            </button>
-          </div>
-          {!isOnline && (
-            <div className="mt-2 flex items-center gap-2 px-3 py-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-              <CloudOff size={16} className="text-amber-400 flex-shrink-0" />
-              <p className="text-amber-400 text-xs">
-                You&apos;re offline. Online search requires an internet
-                connection.
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Action Buttons */}
-        <div className="px-4 mt-3">
           <div className="relative overflow-hidden">
             <div
               ref={actionScrollRef}
@@ -686,11 +688,20 @@ export const FoodSearchModal = ({
             >
               <div className="flex gap-2 w-max mx-2 py-1">
                 <button
-                  onClick={() =>
-                    setViewMode((prev) =>
-                      prev === 'favourites' ? 'search' : 'favourites'
-                    )
-                  }
+                  onClick={() => setViewMode('search')}
+                  aria-label="Search"
+                  className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-full text-sm font-semibold transition-all shadow-md whitespace-nowrap ${
+                    viewMode === 'search'
+                      ? 'bg-emerald-500 text-white shadow-emerald-500/30'
+                      : 'bg-blue-600 text-white shadow-blue-500/20 md:hover:bg-blue-600/50'
+                  }`}
+                >
+                  <Search size={16} />
+                  <span>Search</span>
+                </button>
+
+                <button
+                  onClick={() => setViewMode('favourites')}
                   aria-label="Favorites"
                   className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-full text-sm font-semibold transition-all shadow-md whitespace-nowrap ${
                     viewMode === 'favourites'
@@ -699,9 +710,7 @@ export const FoodSearchModal = ({
                   }`}
                 >
                   <Star size={16} />
-                  <span>
-                    {viewMode === 'favourites' ? 'All Foods' : 'Favorites'}
-                  </span>
+                  <span>Favorites</span>
                 </button>
 
                 <button
@@ -763,7 +772,7 @@ export const FoodSearchModal = ({
           </div>
         </div>
 
-        {/* Search Input */}
+        {/* Search Input - for search mode */}
         {viewMode === 'search' && (
           <div className="px-4 mt-3">
             <div className="relative flex items-center">
@@ -776,9 +785,6 @@ export const FoodSearchModal = ({
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
-                  if (viewMode !== 'search') {
-                    setViewMode('search');
-                  }
                 }}
                 placeholder={
                   searchMode === 'online'
@@ -800,6 +806,86 @@ export const FoodSearchModal = ({
           </div>
         )}
 
+        {/* Search Input - for favourites mode */}
+        {viewMode === 'favourites' && (
+          <div className="px-4 mt-3">
+            <div className="relative flex items-center">
+              <Search
+                className="absolute left-3 text-slate-400 flex-shrink-0 pointer-events-none"
+                size={20}
+              />
+              <input
+                type="text"
+                value={favouritesSearchQuery}
+                onChange={(e) => setFavouritesSearchQuery(e.target.value)}
+                placeholder="Search favourites..."
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg pl-11 pr-10 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+              />
+              {favouritesSearchQuery && (
+                <button
+                  onClick={() => setFavouritesSearchQuery('')}
+                  className="absolute right-3 text-slate-400 md:hover:text-white pressable-inline focus-ring flex-shrink-0"
+                  aria-label="Clear search"
+                >
+                  <X size={18} />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Local/Online Toggle - only for search mode */}
+        {viewMode === 'search' && (
+          <div className="px-4 mt-3">
+            <div className="relative flex items-center gap-2 p-1 bg-slate-700/50 rounded-lg">
+              <div
+                className={`absolute inset-y-1 w-1/2 rounded-md shadow-md ${
+                  searchMode === 'local' ? 'bg-blue-500' : 'bg-emerald-500'
+                }`}
+                style={{
+                  left: searchMode === 'local' ? '4px' : 'calc(50% + 4px)',
+                  transition:
+                    'left 0.2s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.2s ease-out',
+                }}
+              />
+              <button
+                onClick={() => setSearchMode('local')}
+                className={`relative z-10 flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  searchMode === 'local'
+                    ? 'text-white'
+                    : 'text-slate-400 md:hover:text-white'
+                }`}
+              >
+                <Database size={16} />
+                <span>Local</span>
+              </button>
+              <button
+                onClick={() => isOnline && setSearchMode('online')}
+                disabled={!isOnline}
+                className={`relative z-10 flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  searchMode === 'online'
+                    ? 'text-white'
+                    : isOnline
+                      ? 'text-slate-400 md:hover:text-white'
+                      : 'text-slate-500 cursor-not-allowed opacity-50'
+                }`}
+              >
+                {isOnline ? <Globe size={16} /> : <WifiOff size={16} />}
+                <span>Online</span>
+              </button>
+            </div>
+            {!isOnline && (
+              <div className="mt-2 flex items-center gap-2 px-3 py-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                <CloudOff size={16} className="text-amber-400 flex-shrink-0" />
+                <p className="text-amber-400 text-xs">
+                  You&apos;re offline. Online search requires an internet
+                  connection.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Results Count & Filter Button */}
         <div className="px-4 mt-3 flex items-center justify-between">
           <p className="text-slate-400 text-sm">
@@ -807,6 +893,11 @@ export const FoodSearchModal = ({
               <>
                 {sortedFavourites.length}{' '}
                 {sortedFavourites.length === 1 ? 'favourite' : 'favourites'}
+                {favouritesSearchQuery && resolvedFavourites.length !== sortedFavourites.length && (
+                  <span className="ml-1 text-xs text-slate-500">
+                    (of {resolvedFavourites.filter(Boolean).length})
+                  </span>
+                )}
               </>
             ) : searchMode === 'online' ? (
               isSearching ? (
@@ -829,6 +920,116 @@ export const FoodSearchModal = ({
               </>
             )}
           </p>
+
+          {viewMode === 'favourites' && (
+            <div className="relative" ref={favouritesDropdownRef}>
+              <button
+                onClick={() => setIsFavouritesFilterOpen(!isFavouritesFilterOpen)}
+                className={`text-sm font-medium flex items-center gap-1 transition-colors ${
+                  hasActiveFavouritesFilters
+                    ? 'text-blue-400 md:hover:text-blue-300'
+                    : 'text-slate-400 md:hover:text-slate-300'
+                }`}
+              >
+                <SlidersHorizontal size={14} />
+                {hasActiveFavouritesFilters ? 'View Filters' : 'Filters'}
+              </button>
+
+              <AnimatePresence>
+                {isFavouritesFilterOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                    transition={{ duration: 0.18, ease: 'easeOut' }}
+                    className="absolute right-0 top-full mt-2 w-72 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl z-50 max-h-[400px] overflow-y-auto overflow-x-hidden touch-action-pan-y"
+                  >
+                    <div className="p-4 space-y-4">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-700">
+                        <h4 className="text-white font-bold text-lg">
+                          Sort Favourites
+                        </h4>
+                        <button
+                          onClick={clearFavouritesFilters}
+                          className="text-sm text-blue-400 md:hover:text-blue-300 font-medium focus-ring"
+                        >
+                          Clear
+                        </button>
+                      </div>
+
+                      <div>
+                        <label className="text-slate-300 font-semibold text-sm block mb-2">
+                          Sort By
+                        </label>
+                        <div className="space-y-1.5">
+                          {[
+                            { value: 'name', label: 'Name (A-Z)' },
+                            { value: 'calories', label: 'Calories' },
+                            { value: 'protein', label: 'Protein' },
+                            { value: 'carbs', label: 'Carbs' },
+                            { value: 'fats', label: 'Fats' },
+                          ].map((option) => (
+                            <button
+                              key={option.value}
+                              onClick={() => setFavouritesSortBy(option.value)}
+                              className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
+                                favouritesSortBy === option.value
+                                  ? 'bg-emerald-500 text-white'
+                                  : 'bg-slate-700/50 text-slate-300 md:hover:bg-slate-700'
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-slate-300 font-semibold text-sm block mb-2">
+                          Sort Order
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => setFavouritesSortOrder('asc')}
+                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                              favouritesSortOrder === 'asc'
+                                ? 'bg-emerald-500 text-white'
+                                : 'bg-slate-700/50 text-slate-300 md:hover:bg-slate-700'
+                            }`}
+                          >
+                            ↑ Ascending
+                          </button>
+                          <button
+                            onClick={() => setFavouritesSortOrder('desc')}
+                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                              favouritesSortOrder === 'desc'
+                                ? 'bg-emerald-500 text-white'
+                                : 'bg-slate-700/50 text-slate-300 md:hover:bg-slate-700'
+                            }`}
+                          >
+                            ↓ Descending
+                          </button>
+                        </div>
+                      </div>
+
+                      {hasActiveFavouritesFilters && (
+                        <div className="pt-3 border-t border-slate-700">
+                          <p className="text-slate-400 text-xs mb-2">
+                            Active Sorting:
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            <span className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs">
+                              {getFavouritesSortLabel()}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
 
           {viewMode === 'search' && (
             <div className="relative" ref={dropdownRef}>
