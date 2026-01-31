@@ -257,6 +257,7 @@ export const EnergyMapCalculator = () => {
     togglePinnedFood,
     addFoodFavourite,
     removeFoodFavourite,
+    updateFoodFavourite,
     updateCachedFoods,
     createPhase,
     deletePhase,
@@ -310,6 +311,7 @@ export const EnergyMapCalculator = () => {
       togglePinnedFood: state.togglePinnedFood,
       addFoodFavourite: state.addFoodFavourite,
       removeFoodFavourite: state.removeFoodFavourite,
+      updateFoodFavourite: state.updateFoodFavourite,
       updateCachedFoods: state.updateCachedFoods,
       createPhase: state.createPhase,
       deletePhase: state.deletePhase,
@@ -427,6 +429,8 @@ export const EnergyMapCalculator = () => {
   const [foodEntryMode, setFoodEntryMode] = useState('add'); // 'add' or 'edit'
   const [editingFoodEntryId, setEditingFoodEntryId] = useState(null);
   const [editingMealType, setEditingMealType] = useState(null);
+  const [editingManualFavouriteId, setEditingManualFavouriteId] =
+    useState(null);
   const [foodMealType, setFoodMealType] = useState('');
   const [foodName, setFoodName] = useState('');
   const [foodCalories, setFoodCalories] = useState('');
@@ -1524,6 +1528,7 @@ export const EnergyMapCalculator = () => {
     setFoodFats('');
     setEditingFoodEntryId(null);
     setEditingMealType(null);
+    setEditingManualFavouriteId(null);
     setFoodEntryMode('add');
   }, []);
 
@@ -1675,6 +1680,39 @@ export const EnergyMapCalculator = () => {
 
   // Delete food entry from meal
   const handleFoodEntrySave = useCallback(() => {
+    // If editing a manual favourite, update the favourite AND add to tracker
+    if (editingManualFavouriteId) {
+      // Update the favourite
+      updateFoodFavourite(editingManualFavouriteId, {
+        calories: parseFloat(foodCalories) || 0,
+        protein: parseFloat(foodProtein) || 0,
+        carbs: parseFloat(foodCarbs) || 0,
+        fats: parseFloat(foodFats) || 0,
+      });
+
+      // Also add to tracker if we have a meal type
+      if (foodMealType) {
+        const entry = {
+          id: Date.now(),
+          name: foodName.trim(),
+          calories: parseFloat(foodCalories) || 0,
+          protein: parseFloat(foodProtein) || 0,
+          carbs: parseFloat(foodCarbs) || 0,
+          fats: parseFloat(foodFats) || 0,
+          grams: null,
+          timestamp: new Date().toISOString(),
+        };
+        addFoodEntry(trackerSelectedDate, foodMealType, entry);
+      }
+
+      foodEntryModal.requestClose();
+      // Close search modal after editing favourite
+      setTimeout(() => {
+        foodSearchModal.requestClose();
+      }, 250);
+      return;
+    }
+
     const entry = {
       id: editingFoodEntryId || Date.now(),
       name: foodName.trim(),
@@ -1703,6 +1741,7 @@ export const EnergyMapCalculator = () => {
   }, [
     addFoodEntry,
     editingFoodEntryId,
+    editingManualFavouriteId,
     editingMealType,
     foodCalories,
     foodCarbs,
@@ -1714,6 +1753,7 @@ export const EnergyMapCalculator = () => {
     foodSearchModal,
     trackerSelectedDate,
     updateFoodEntry,
+    updateFoodFavourite,
   ]);
 
   const handleToggleTrackerCaloriePicker = useCallback(() => {
@@ -1790,20 +1830,53 @@ export const EnergyMapCalculator = () => {
     [addFoodEntry, foodMealType, foodSearchModal, trackerSelectedDate]
   );
 
-  // When user clicks "Edit" on a favourite - open portion modal to customize
+  // Check if a food with given name already exists in favourites
+  const checkFoodExistsInFavourites = useCallback(
+    (foodName) => {
+      if (!foodName) return false;
+      const lowerName = foodName.toLowerCase().trim();
+      return foodFavourites.some(
+        (fav) => fav.name?.toLowerCase().trim() === lowerName
+      );
+    },
+    [foodFavourites]
+  );
+
+  // When user clicks "Edit" on a favourite - open portion modal to customize (or FoodEntryModal for manual)
   const handleEditFoodFavourite = useCallback(
     (displayFood, favourite) => {
+      // For manual entries, open FoodEntryModal in edit mode
+      if (favourite?.source === 'manual' || favourite?.category === 'manual') {
+        setFoodName(favourite.name || '');
+        setFoodCalories(String(favourite.calories || ''));
+        setFoodProtein(String(favourite.protein || ''));
+        setFoodCarbs(String(favourite.carbs || ''));
+        setFoodFats(String(favourite.fats || ''));
+        setFoodEntryMode('edit');
+        setEditingManualFavouriteId(favourite.id);
+        foodEntryModal.open();
+        return;
+      }
+
+      // For other foods, open portion modal
       setSelectedFoodForPortion(displayFood);
       setPortionInitialGrams(favourite?.grams ?? DEFAULT_PORTION_GRAMS);
       foodPortionModal.open();
     },
-    [foodPortionModal]
+    [foodPortionModal, foodEntryModal]
   );
 
   // When user wants to create a new favourite from the current food/portion
   const handleCreateFoodFavourite = useCallback(
     (foodEntry, sourceFood) => {
       if (!foodEntry) return;
+
+      // Determine source properly:
+      // - 'fatsecret' for cached online foods
+      // - 'manual' for manual entries (from FoodEntryModal)
+      // - 'user' for custom foods (from AddCustomFoodModal)
+      // - null for local database foods
+      const source = foodEntry.source || sourceFood?.source || null;
 
       const favourite = {
         foodId: foodEntry.foodId || sourceFood?.id || null,
@@ -1814,9 +1887,12 @@ export const EnergyMapCalculator = () => {
         protein: foodEntry.protein || 0,
         carbs: foodEntry.carbs || 0,
         fats: foodEntry.fats || 0,
-        isCustom: !foodEntry.foodId && !sourceFood?.id,
+        isCustom: !foodEntry.foodId && !sourceFood?.id && !source,
+        source,
         per100g: sourceFood?.per100g || null,
         portions: sourceFood?.portions || [],
+        // Smart portion info - remember what portion was selected
+        ...(foodEntry.portionInfo && { portionInfo: foodEntry.portionInfo }),
       };
 
       addFoodFavourite(favourite);
@@ -2855,6 +2931,7 @@ export const EnergyMapCalculator = () => {
         onSaveAsFavourite={(favourite) => {
           addFoodFavourite(favourite);
         }}
+        onCheckFoodExists={checkFoodExistsInFavourites}
         foodName={foodName}
         setFoodName={setFoodName}
         calories={foodCalories}
@@ -2917,8 +2994,12 @@ export const EnergyMapCalculator = () => {
           selectedFoodForPortion
             ? foodFavourites.some(
                 (fav) =>
-                  fav.foodId === selectedFoodForPortion.id ||
-                  (fav.name === selectedFoodForPortion.name && fav.isCustom)
+                  // Check by foodId first for database foods
+                  (selectedFoodForPortion.id &&
+                    fav.foodId === selectedFoodForPortion.id) ||
+                  // Check by name for all foods (prevents duplicates)
+                  fav.name?.toLowerCase() ===
+                    selectedFoodForPortion.name?.toLowerCase()
               )
             : false
         }

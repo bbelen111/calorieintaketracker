@@ -710,39 +710,44 @@ export const FoodSearchModal = ({
               ref={actionScrollRef}
               className="relative overflow-x-auto touch-action-pan-x scrollbar-hide"
             >
-              <div className="flex gap-2 w-max mx-2 py-1">
-                <div className="relative flex items-center">
+              <div className="flex gap-2 w-max mx-2 py-2">
+                {/* Search + Add Food as single pill when search is active */}
+                <motion.div
+                  className="relative flex items-center bg-blue-600 rounded-full shadow-md shadow-blue-500/30 overflow-hidden"
+                  animate={{ width: 'auto' }}
+                  transition={{ duration: 0.15, ease: 'easeOut' }}
+                >
                   <button
                     onClick={() => setViewMode('search')}
                     aria-label="Search"
-                    className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-full text-sm font-semibold transition-all shadow-md whitespace-nowrap ${
+                    className={`relative flex items-center gap-2 px-3 py-2 text-sm font-semibold transition-all whitespace-nowrap ${
                       viewMode === 'search'
-                        ? 'bg-blue-600 text-white border border-white/70 shadow-blue-500/30'
-                        : 'bg-blue-600 text-white border border-transparent shadow-blue-500/20 md:hover:bg-blue-600/50'
+                        ? 'text-white border border-white/70 rounded-full bg-blue-600'
+                        : 'text-white/80 md:hover:text-white'
                     }`}
                   >
                     <Search size={16} />
                     <span>Search</span>
                   </button>
 
-                  {/* Add Food button - pops out from Search when search is active */}
+                  {/* Add Food button - inside the pill when search is active */}
                   <AnimatePresence>
                     {viewMode === 'search' && (
                       <motion.button
-                        initial={{ opacity: 0, scale: 0.8, x: -10 }}
-                        animate={{ opacity: 1, scale: 1, x: 0 }}
-                        exit={{ opacity: 0, scale: 0.8, x: -10 }}
+                        initial={{ opacity: 0, width: 0 }}
+                        animate={{ opacity: 1, width: 'auto' }}
+                        exit={{ opacity: 0, width: 0 }}
                         transition={{ duration: 0.15, ease: 'easeOut' }}
                         onClick={openAddCustomFood}
                         aria-label="Add Food"
-                        className="ml-2 flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 md:hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-colors shadow-md shadow-blue-500/20 whitespace-nowrap press-feedback focus-ring border border-transparent"
+                        className="flex items-center gap-2 px-3 py-2 text-white/80 md:hover:text-white text-sm font-semibold transition-colors whitespace-nowrap press-feedback focus-ring border-l border-white/20"
                       >
                         <Plus size={16} />
                         <span>Add Food</span>
                       </motion.button>
                     )}
                   </AnimatePresence>
-                </div>
+                </motion.div>
 
                 <button
                   onClick={() => setViewMode('favourites')}
@@ -1295,14 +1300,17 @@ export const FoodSearchModal = ({
                 sortedFavourites.map((favourite) => {
                   const key =
                     favourite.id ?? `${favourite.name}-${favourite.grams}`;
-                  // Determine type: manual (from FoodEntryModal), custom (from AddCustomFoodModal), or regular favourite
-                  const isManual =
-                    favourite.source === 'manual' ||
-                    favourite.category === 'manual';
-                  const isCustom =
-                    favourite.source === 'user' ||
-                    (favourite.isCustom && !isManual);
+                  // Determine type priority: cached > manual > custom > regular
+                  // A food can only be ONE type - check in priority order
                   const isCached = favourite.source === 'fatsecret';
+                  const isManual =
+                    !isCached &&
+                    (favourite.source === 'manual' ||
+                      favourite.category === 'manual');
+                  const isCustom =
+                    !isCached &&
+                    !isManual &&
+                    (favourite.source === 'user' || favourite.isCustom);
 
                   return (
                     <div
@@ -1326,6 +1334,8 @@ export const FoodSearchModal = ({
                             <Edit3 size={18} className="text-white" />
                           ) : isCustom ? (
                             <Utensils size={18} className="text-white" />
+                          ) : isCached ? (
+                            <Database size={18} className="text-white" />
                           ) : (
                             <Heart size={18} className="text-white" />
                           )}
@@ -1335,26 +1345,23 @@ export const FoodSearchModal = ({
                             {favourite.name || 'Unnamed Food'}
                           </p>
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
-                            <span
-                              className={`text-xs px-2 py-0.5 rounded ${getCategoryClasses(
-                                favourite.category || 'supplements'
-                              )}`}
-                            >
-                              {FOOD_CATEGORIES[favourite.category]?.label ||
-                                'Custom'}
-                            </span>
-                            {/* Show grams for regular favourites, per 100g for custom */}
-                            {isCustom && favourite.per100g && (
-                              <span className="text-xs text-slate-400">
-                                per 100g
+                            {/* Category tag - skip for manual since it shows 'Manual' which duplicates the type tag */}
+                            {!isManual && (
+                              <span
+                                className={`text-xs px-2 py-0.5 rounded ${getCategoryClasses(
+                                  favourite.category || 'supplements'
+                                )}`}
+                              >
+                                {FOOD_CATEGORIES[favourite.category]?.label ||
+                                  (isCached ? 'Cached' : 'Custom')}
                               </span>
                             )}
-                            {!isCustom && !isManual && favourite.grams && (
-                              <span className="text-xs text-slate-400">
-                                {formatOne(favourite.grams)}g
+                            {/* Type tags - only ONE: Cached, Manual, or Custom */}
+                            {isCached && (
+                              <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded">
+                                Cached
                               </span>
                             )}
-                            {/* Type tags - only one: Manual, Custom, or Cached */}
                             {isManual && (
                               <span className="text-xs px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded">
                                 Manual
@@ -1365,11 +1372,21 @@ export const FoodSearchModal = ({
                                 Custom
                               </span>
                             )}
-                            {isCached && (
-                              <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded">
-                                Cached
+                            {/* Portion/grams info - ALWAYS at the end */}
+                            {favourite.portionInfo ? (
+                              <span className="text-xs text-slate-400">
+                                {favourite.portionInfo.portionMultiplier}{' '}
+                                {favourite.portionInfo.portionName}
                               </span>
-                            )}
+                            ) : isCustom && favourite.per100g ? (
+                              <span className="text-xs text-slate-400">
+                                per 100g
+                              </span>
+                            ) : !isManual && favourite.grams ? (
+                              <span className="text-xs text-slate-400">
+                                {formatOne(favourite.grams)}g
+                              </span>
+                            ) : null}
                           </div>
 
                           <div className="flex items-center gap-3 mt-2 text-xs">
@@ -1409,18 +1426,20 @@ export const FoodSearchModal = ({
                         </div>
 
                         <div className="flex items-center gap-2">
-                          {/* Edit button - only show for non-manual foods (manual entries can't be edited) */}
-                          {!isManual && (
-                            <button
-                              type="button"
-                              onClick={(e) => handleFavouriteEdit(favourite, e)}
-                              className="flex-shrink-0 w-9 h-9 rounded-full bg-white/10 hover:bg-blue-500/30 transition-colors flex items-center justify-center"
-                              aria-label="Edit portion before adding"
-                              title="Edit portion"
-                            >
-                              <Edit3 size={16} className="text-white" />
-                            </button>
-                          )}
+                          {/* Edit button - show for all foods */}
+                          <button
+                            type="button"
+                            onClick={(e) => handleFavouriteEdit(favourite, e)}
+                            className="flex-shrink-0 w-9 h-9 rounded-full bg-white/10 hover:bg-blue-500/30 transition-colors flex items-center justify-center"
+                            aria-label={
+                              isManual
+                                ? 'Edit manual entry'
+                                : 'Edit portion before adding'
+                            }
+                            title={isManual ? 'Edit entry' : 'Edit portion'}
+                          >
+                            <Edit3 size={16} className="text-white" />
+                          </button>
 
                           {typeof onDeleteFavourite === 'function' &&
                             favourite.id != null && (

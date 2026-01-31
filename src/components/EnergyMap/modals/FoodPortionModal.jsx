@@ -346,6 +346,16 @@ export const FoodPortionModal = ({
     // If already favourited (either from props or marked during this session), do nothing
     if (isFoodFavourited || markedAsFavourite) return;
 
+    // Build portion info for smart favouriting
+    const portionInfo = currentPortion
+      ? {
+          portionId: currentPortion.id,
+          portionName: currentPortion.name,
+          portionMultiplier: buildGramValue(selectedWhole, selectedDecimal),
+          portionGrams: currentPortion.grams,
+        }
+      : null;
+
     const foodEntry = {
       foodId: selectedFood?.id,
       name: nutrition.name,
@@ -354,6 +364,10 @@ export const FoodPortionModal = ({
       carbs: nutrition.carbs,
       fats: nutrition.fats,
       grams,
+      // Include source from the food for proper tagging
+      source: selectedFood?.source || null,
+      // Include portion info for smart favouriting
+      ...(portionInfo && { portionInfo }),
     };
     onSaveAsFavourite(foodEntry, selectedFood);
     setMarkedAsFavourite(true);

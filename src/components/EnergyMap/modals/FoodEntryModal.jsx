@@ -1,5 +1,5 @@
-import React from 'react';
-import { Utensils, Save, Heart } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Utensils, Save, Heart, Check } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 
 export const FoodEntryModal = ({
@@ -8,6 +8,7 @@ export const FoodEntryModal = ({
   onClose,
   onSave,
   onSaveAsFavourite,
+  onCheckFoodExists,
   foodName,
   setFoodName,
   calories,
@@ -20,12 +21,34 @@ export const FoodEntryModal = ({
   setFats,
   isEditing = false,
 }) => {
+  const [markedAsFavourite, setMarkedAsFavourite] = useState(false);
+  const [alreadyExists, setAlreadyExists] = useState(false);
+
+  // Reset state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setMarkedAsFavourite(false);
+      setAlreadyExists(false);
+    }
+  }, [isOpen]);
+
+  // Auto-hide "already exists" message after 3 seconds
+  useEffect(() => {
+    if (alreadyExists) {
+      const timer = setTimeout(() => {
+        setAlreadyExists(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [alreadyExists]);
+
   const handleSave = () => {
     if (!foodName.trim()) {
       window.alert('Please enter a food name');
       return;
     }
 
+    // Just save - no duplicate check dialog needed
     onSave?.();
   };
 
@@ -36,6 +59,15 @@ export const FoodEntryModal = ({
     }
 
     if (typeof onSaveAsFavourite !== 'function') return;
+
+    // Check if already favourited this session
+    if (markedAsFavourite) return;
+
+    // Check if food already exists by name
+    if (onCheckFoodExists?.(foodName.trim())) {
+      setAlreadyExists(true);
+      return;
+    }
 
     const favourite = {
       foodId: null, // Manual food, no database ID
@@ -53,8 +85,8 @@ export const FoodEntryModal = ({
     };
 
     onSaveAsFavourite(favourite);
-    onSave?.();
-    onClose?.();
+    setMarkedAsFavourite(true);
+    // Don't close - just mark as favourited
   };
 
   const sanitizeNumericInput = (value) => {
@@ -92,9 +124,10 @@ export const FoodEntryModal = ({
           <input
             type="text"
             value={foodName}
-            onChange={(e) => setFoodName(e.target.value)}
+            onChange={(e) => !isEditing && setFoodName(e.target.value)}
             placeholder="e.g., Chicken Breast"
-            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus-ring"
+            readOnly={isEditing}
+            className={`w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus-ring ${isEditing ? 'opacity-60 cursor-not-allowed' : ''}`}
           />
         </div>
 
@@ -160,6 +193,11 @@ export const FoodEntryModal = ({
 
         {/* Actions */}
         <div className="flex flex-col gap-2 pt-2">
+          {alreadyExists && (
+            <p className="text-amber-400 text-sm text-center">
+              A food with this name already exists in favourites.
+            </p>
+          )}
           <div className="flex gap-2 items-center">
             {/* Save as Favourite - only show when callback provided and not editing */}
             <button
@@ -174,17 +212,21 @@ export const FoodEntryModal = ({
               className="flex-1 h-10 px-4 bg-blue-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring md:hover:bg-blue-500"
             >
               <Save size={18} />
-              {isEditing ? 'Save Changes' : 'Add Food'}
+              {isEditing ? 'Add & Save' : 'Add Food'}
             </button>
             {typeof onSaveAsFavourite === 'function' && !isEditing && (
               <button
                 onClick={handleSaveAsFavourite}
-                disabled={!foodName.trim()}
-                aria-label="Save as favourite"
-                title="Save as favourite"
-                className="w-10 h-10 ml-1 bg-indigo-600 md:hover:bg-indigo-500 border border-indigo-600/50 disabled:bg-slate-600/20 disabled:border-slate-600/50 disabled:cursor-not-allowed text-white disabled:text-slate-500 rounded-lg font-medium transition-all flex items-center justify-center press-feedback focus-ring"
+                disabled={!foodName.trim() || markedAsFavourite}
+                aria-label={markedAsFavourite ? 'Added to favourites' : 'Save as favourite'}
+                title={markedAsFavourite ? 'Added to favourites' : 'Save as favourite'}
+                className={`w-10 h-10 ml-1 border disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all flex items-center justify-center press-feedback focus-ring ${
+                  markedAsFavourite
+                    ? 'bg-green-600 border-green-500/50'
+                    : 'bg-indigo-600 md:hover:bg-indigo-500 border-indigo-600/50 disabled:bg-slate-600/20 disabled:border-slate-600/50 disabled:text-slate-500'
+                }`}
               >
-                <Heart size={20} />
+                {markedAsFavourite ? <Check size={20} /> : <Heart size={20} />}
               </button>
             )}
           </div>
