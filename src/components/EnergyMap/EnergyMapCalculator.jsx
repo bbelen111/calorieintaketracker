@@ -1744,6 +1744,35 @@ export const EnergyMapCalculator = () => {
     foodSearchModal.requestClose();
   }, [foodSearchModal]);
 
+  // Custom foods state (in-memory, added via AddCustomFoodModal)
+  const [customFoods, setCustomFoods] = useState([]);
+
+  // Handle adding a custom food - adds to customFoods list AND auto-favourites
+  const handleAddCustomFood = useCallback(
+    (customFood) => {
+      // Add to custom foods list for search
+      setCustomFoods((prev) => [...prev, customFood]);
+
+      // Auto-add to favourites with proper structure
+      const favourite = {
+        foodId: customFood.id,
+        name: customFood.name,
+        category: customFood.category || 'custom',
+        grams: 100, // Default to 100g since it's per 100g
+        calories: customFood.per100g?.calories || 0,
+        protein: customFood.per100g?.protein || 0,
+        carbs: customFood.per100g?.carbs || 0,
+        fats: customFood.per100g?.fats || 0,
+        isCustom: true,
+        source: 'user',
+        per100g: customFood.per100g,
+        portions: customFood.portions || [],
+      };
+      addFoodFavourite(favourite);
+    },
+    [addFoodFavourite]
+  );
+
   // Food Favourites Handlers
   // When user clicks "Quick Add" on a favourite - instantly add to meal
   const handleSelectFoodFavourite = useCallback(
@@ -2871,6 +2900,8 @@ export const EnergyMapCalculator = () => {
         onTogglePin={togglePinnedFood}
         cachedFoods={cachedFoods}
         onUpdateCachedFoods={updateCachedFoods}
+        customFoods={customFoods}
+        onAddCustomFood={handleAddCustomFood}
       />
 
       <FoodPortionModal

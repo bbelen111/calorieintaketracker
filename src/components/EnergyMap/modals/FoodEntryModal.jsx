@@ -38,15 +38,15 @@ export const FoodEntryModal = ({
     if (typeof onSaveAsFavourite !== 'function') return;
 
     const favourite = {
-      foodId: null, // Custom food, no database ID
+      foodId: null, // Manual food, no database ID
       name: foodName.trim(),
-      category: 'manual', // Manual entries get 'manual' tag
-      grams: null, // Custom entries don't have grams
+      category: 'manual', // Manual entries get 'manual' category
+      grams: null, // Manual entries don't have grams
       calories: parseFloat(calories) || 0,
       protein: parseFloat(protein) || 0,
       carbs: parseFloat(carbs) || 0,
       fats: parseFloat(fats) || 0,
-      isCustom: true,
+      isCustom: false, // Not a custom food, it's a manual entry
       source: 'manual',
       per100g: null,
       portions: [],
@@ -79,7 +79,7 @@ export const FoodEntryModal = ({
       <div className="flex items-center gap-3 mb-6">
         <Utensils className="text-blue-400" size={28} />
         <h3 className="text-white font-bold text-2xl">
-          {isEditing ? 'Edit Food Entry' : 'Custom Food Entry'}
+          {isEditing ? 'Edit Food Entry' : 'Manual Food Entry'}
         </h3>
       </div>
 

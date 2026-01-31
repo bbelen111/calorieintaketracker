@@ -711,26 +711,46 @@ export const FoodSearchModal = ({
               className="relative overflow-x-auto touch-action-pan-x scrollbar-hide"
             >
               <div className="flex gap-2 w-max mx-2 py-1">
-                <button
-                  onClick={() => setViewMode('search')}
-                  aria-label="Search"
-                  className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-full text-sm font-semibold transition-all shadow-md whitespace-nowrap ${
-                    viewMode === 'search'
-                      ? 'bg-emerald-500 text-white shadow-emerald-500/30'
-                      : 'bg-blue-600 text-white shadow-blue-500/20 md:hover:bg-blue-600/50'
-                  }`}
-                >
-                  <Search size={16} />
-                  <span>Search</span>
-                </button>
+                <div className="relative flex items-center">
+                  <button
+                    onClick={() => setViewMode('search')}
+                    aria-label="Search"
+                    className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-full text-sm font-semibold transition-all shadow-md whitespace-nowrap ${
+                      viewMode === 'search'
+                        ? 'bg-blue-600 text-white border border-white/70 shadow-blue-500/30'
+                        : 'bg-blue-600 text-white border border-transparent shadow-blue-500/20 md:hover:bg-blue-600/50'
+                    }`}
+                  >
+                    <Search size={16} />
+                    <span>Search</span>
+                  </button>
+
+                  {/* Add Food button - pops out from Search when search is active */}
+                  <AnimatePresence>
+                    {viewMode === 'search' && (
+                      <motion.button
+                        initial={{ opacity: 0, scale: 0.8, x: -10 }}
+                        animate={{ opacity: 1, scale: 1, x: 0 }}
+                        exit={{ opacity: 0, scale: 0.8, x: -10 }}
+                        transition={{ duration: 0.15, ease: 'easeOut' }}
+                        onClick={openAddCustomFood}
+                        aria-label="Add Food"
+                        className="ml-2 flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 md:hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-colors shadow-md shadow-blue-500/20 whitespace-nowrap press-feedback focus-ring border border-transparent"
+                      >
+                        <Plus size={16} />
+                        <span>Add Food</span>
+                      </motion.button>
+                    )}
+                  </AnimatePresence>
+                </div>
 
                 <button
                   onClick={() => setViewMode('favourites')}
                   aria-label="Favorites"
                   className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-full text-sm font-semibold transition-all shadow-md whitespace-nowrap ${
                     viewMode === 'favourites'
-                      ? 'bg-emerald-500 text-white shadow-emerald-500/30'
-                      : 'bg-blue-600 text-white shadow-blue-500/20 md:hover:bg-blue-600/50'
+                      ? 'bg-blue-600 text-white border border-white/70 shadow-blue-500/30'
+                      : 'bg-blue-600 text-white border border-transparent shadow-blue-500/20 md:hover:bg-blue-600/50'
                   }`}
                 >
                   <Star size={16} />
@@ -740,25 +760,16 @@ export const FoodSearchModal = ({
                 <button
                   onClick={() => {}}
                   aria-label="Meal"
-                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 md:hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap press-feedback focus-ring"
+                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 md:hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap press-feedback focus-ring border border-transparent"
                 >
                   <Utensils size={16} />
                   <span>Meal</span>
                 </button>
 
                 <button
-                  onClick={openAddCustomFood}
-                  aria-label="Add Food"
-                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 md:hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap press-feedback focus-ring"
-                >
-                  <Plus size={16} />
-                  <span>Add Food</span>
-                </button>
-
-                <button
                   onClick={onOpenManualEntry}
                   aria-label="Manual Entry"
-                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 md:hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap press-feedback focus-ring"
+                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 md:hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap press-feedback focus-ring border border-transparent"
                 >
                   <Edit3 size={16} />
                   <span>Manual Entry</span>
@@ -767,7 +778,7 @@ export const FoodSearchModal = ({
                 <button
                   onClick={() => {}}
                   aria-label="Barcode Scan"
-                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 md:hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap press-feedback focus-ring"
+                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 md:hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap press-feedback focus-ring border border-transparent"
                 >
                   <ScanBarcode size={16} />
                   <span>Barcode Scan</span>
@@ -776,7 +787,7 @@ export const FoodSearchModal = ({
                 <button
                   onClick={() => {}}
                   aria-label="AI Chatbot"
-                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 md:hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap press-feedback focus-ring"
+                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 md:hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap press-feedback focus-ring border border-transparent"
                 >
                   <BotMessageSquare size={16} />
                   <span>AI Chatbot</span>
@@ -1284,7 +1295,14 @@ export const FoodSearchModal = ({
                 sortedFavourites.map((favourite) => {
                   const key =
                     favourite.id ?? `${favourite.name}-${favourite.grams}`;
-                  const isCustom = favourite.isCustom || !favourite.foodId;
+                  // Determine type: manual (from FoodEntryModal), custom (from AddCustomFoodModal), or regular favourite
+                  const isManual =
+                    favourite.source === 'manual' ||
+                    favourite.category === 'manual';
+                  const isCustom =
+                    favourite.source === 'user' ||
+                    (favourite.isCustom && !isManual);
+                  const isCached = favourite.source === 'fatsecret';
 
                   return (
                     <div
@@ -1304,7 +1322,9 @@ export const FoodSearchModal = ({
                     >
                       <div className="flex items-start gap-3">
                         <div className="flex-shrink-0 rounded-full p-2 bg-white/10">
-                          {isCustom ? (
+                          {isManual ? (
+                            <Edit3 size={18} className="text-white" />
+                          ) : isCustom ? (
                             <Utensils size={18} className="text-white" />
                           ) : (
                             <Heart size={18} className="text-white" />
@@ -1323,44 +1343,84 @@ export const FoodSearchModal = ({
                               {FOOD_CATEGORIES[favourite.category]?.label ||
                                 'Custom'}
                             </span>
-                            {favourite.grams && (
+                            {/* Show grams for regular favourites, per 100g for custom */}
+                            {isCustom && favourite.per100g && (
+                              <span className="text-xs text-slate-400">
+                                per 100g
+                              </span>
+                            )}
+                            {!isCustom && !isManual && favourite.grams && (
                               <span className="text-xs text-slate-400">
                                 {formatOne(favourite.grams)}g
                               </span>
                             )}
+                            {/* Type tags - only one: Manual, Custom, or Cached */}
+                            {isManual && (
+                              <span className="text-xs px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded">
+                                Manual
+                              </span>
+                            )}
                             {isCustom && (
-                              <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded">
+                              <span className="text-xs px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded">
                                 Custom
+                              </span>
+                            )}
+                            {isCached && (
+                              <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded">
+                                Cached
                               </span>
                             )}
                           </div>
 
                           <div className="flex items-center gap-3 mt-2 text-xs">
                             <span className="text-green-400 font-medium">
-                              {formatOne(favourite.calories || 0)} kcal
+                              {formatOne(
+                                isCustom && favourite.per100g
+                                  ? favourite.per100g.calories
+                                  : favourite.calories || 0
+                              )}{' '}
+                              kcal
                             </span>
                             <span className="text-red-400 font-medium">
-                              {formatOne(favourite.protein || 0)}g P
+                              {formatOne(
+                                isCustom && favourite.per100g
+                                  ? favourite.per100g.protein
+                                  : favourite.protein || 0
+                              )}
+                              g P
                             </span>
                             <span className="text-amber-400 font-medium">
-                              {formatOne(favourite.carbs || 0)}g C
+                              {formatOne(
+                                isCustom && favourite.per100g
+                                  ? favourite.per100g.carbs
+                                  : favourite.carbs || 0
+                              )}
+                              g C
                             </span>
                             <span className="text-yellow-400 font-medium">
-                              {formatOne(favourite.fats || 0)}g F
+                              {formatOne(
+                                isCustom && favourite.per100g
+                                  ? favourite.per100g.fats
+                                  : favourite.fats || 0
+                              )}
+                              g F
                             </span>
                           </div>
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={(e) => handleFavouriteEdit(favourite, e)}
-                            className="flex-shrink-0 w-9 h-9 rounded-full bg-white/10 hover:bg-blue-500/30 transition-colors flex items-center justify-center"
-                            aria-label="Edit portion before adding"
-                            title="Edit portion"
-                          >
-                            <Edit3 size={16} className="text-white" />
-                          </button>
+                          {/* Edit button - only show for non-manual foods (manual entries can't be edited) */}
+                          {!isManual && (
+                            <button
+                              type="button"
+                              onClick={(e) => handleFavouriteEdit(favourite, e)}
+                              className="flex-shrink-0 w-9 h-9 rounded-full bg-white/10 hover:bg-blue-500/30 transition-colors flex items-center justify-center"
+                              aria-label="Edit portion before adding"
+                              title="Edit portion"
+                            >
+                              <Edit3 size={16} className="text-white" />
+                            </button>
+                          )}
 
                           {typeof onDeleteFavourite === 'function' &&
                             favourite.id != null && (
@@ -1501,10 +1561,6 @@ export const FoodSearchModal = ({
                               )}
                               <span className="text-xs px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded">
                                 {food.type === 'Brand' ? 'Branded' : 'Generic'}
-                              </span>
-                              <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded flex items-center gap-1">
-                                <Globe size={10} />
-                                Online
                               </span>
                             </div>
                           </div>
