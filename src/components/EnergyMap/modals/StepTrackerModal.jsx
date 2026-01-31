@@ -268,7 +268,9 @@ export const StepTrackerModal = ({
 
   const chartHeight = useMemo(() => {
     if (graphViewportHeight && graphViewportHeight > 0) {
-      return graphViewportHeight - WEEK_BRACKET_HEIGHT - WEEK_BRACKET_TOP_PADDING;
+      return (
+        graphViewportHeight - WEEK_BRACKET_HEIGHT - WEEK_BRACKET_TOP_PADDING
+      );
     }
     return 280 - WEEK_BRACKET_HEIGHT - WEEK_BRACKET_TOP_PADDING;
   }, [graphViewportHeight]);
@@ -404,13 +406,15 @@ export const StepTrackerModal = ({
         // Check if this is a new week (Sunday)
         const prevDate = new Date(chartBars[index - 1].date + 'T00:00:00Z');
         const daysSince = Math.floor((date - prevDate) / (1000 * 60 * 60 * 24));
-        const crossedSunday = dayOfWeek < prevDate.getUTCDay() || daysSince >= 7;
+        const crossedSunday =
+          dayOfWeek < prevDate.getUTCDay() || daysSince >= 7;
 
         if (crossedSunday) {
           // Save current week and start new one
           if (currentWeek.length > 0) {
             const avgSteps = Math.round(
-              currentWeek.reduce((sum, b) => sum + b.steps, 0) / currentWeek.length
+              currentWeek.reduce((sum, b) => sum + b.steps, 0) /
+                currentWeek.length
             );
             const firstBar = currentWeek[0];
             const lastBar = currentWeek[currentWeek.length - 1];
@@ -525,7 +529,7 @@ export const StepTrackerModal = ({
   // Calculate distance and calories for current steps
   const todayStepDetails = useMemo(() => {
     if (!currentStepsValue || !weight || !height) {
-      return { distanceMiles: 0, calories: 0 };
+      return { distanceKm: 0, calories: 0 };
     }
     return getStepCaloriesDetails(currentStepsValue, {
       weight,
@@ -793,8 +797,8 @@ export const StepTrackerModal = ({
                 Distance & Calories
               </p>
               <p className="text-white text-2xl font-bold">
-                {todayStepDetails.distanceMiles > 0
-                  ? `${todayStepDetails.distanceMiles.toFixed(1)} mi`
+                {todayStepDetails.distanceKm > 0
+                  ? `${todayStepDetails.distanceKm.toFixed(1)} km`
                   : '—'}
               </p>
               <p className="text-slate-400 text-[11px] mt-1">
@@ -907,12 +911,23 @@ export const StepTrackerModal = ({
                     style={{ width: `${chartWidth}px` }}
                   >
                     {chartData ? (
-                      <div className="relative" style={{ height: chartHeight + WEEK_BRACKET_HEIGHT + WEEK_BRACKET_TOP_PADDING }}>
+                      <div
+                        className="relative"
+                        style={{
+                          height:
+                            chartHeight +
+                            WEEK_BRACKET_HEIGHT +
+                            WEEK_BRACKET_TOP_PADDING,
+                        }}
+                      >
                         {/* Week Brackets */}
                         {weekBrackets.length > 0 && (
-                          <div 
+                          <div
                             className="absolute left-0 right-0 pointer-events-none"
-                            style={{ height: WEEK_BRACKET_HEIGHT, top: WEEK_BRACKET_TOP_PADDING }}
+                            style={{
+                              height: WEEK_BRACKET_HEIGHT,
+                              top: WEEK_BRACKET_TOP_PADDING,
+                            }}
                           >
                             <svg
                               width={chartWidth}
@@ -921,12 +936,13 @@ export const StepTrackerModal = ({
                               preserveAspectRatio="none"
                             >
                               {weekBrackets.map((bracket, idx) => {
-                                const bracketWidth = bracket.endX - bracket.startX;
+                                const bracketWidth =
+                                  bracket.endX - bracket.startX;
                                 const midX = bracket.startX + bracketWidth / 2;
                                 const legHeight = 8;
                                 const textY = 12;
                                 const lineY = WEEK_BRACKET_HEIGHT - 6;
-                                
+
                                 return (
                                   <g key={idx}>
                                     {/* Left leg */}
@@ -988,96 +1004,103 @@ export const StepTrackerModal = ({
                             </svg>
                           </div>
                         )}
-                        
+
                         {/* Main Chart */}
                         <svg
                           width={chartWidth}
                           height={chartHeight}
                           viewBox={`0 0 ${chartWidth} ${chartHeight}`}
                           preserveAspectRatio="none"
-                          style={{ position: 'absolute', top: WEEK_BRACKET_HEIGHT + WEEK_BRACKET_TOP_PADDING, left: 0 }}
+                          style={{
+                            position: 'absolute',
+                            top: WEEK_BRACKET_HEIGHT + WEEK_BRACKET_TOP_PADDING,
+                            left: 0,
+                          }}
                         >
-                        {/* Grid lines */}
-                        <g>
-                          {yTickPositions.map(({ index, lineY }) => {
-                            const isBaseline =
-                              index === yTickPositions.length - 1;
+                          {/* Grid lines */}
+                          <g>
+                            {yTickPositions.map(({ index, lineY }) => {
+                              const isBaseline =
+                                index === yTickPositions.length - 1;
+                              return (
+                                <line
+                                  key={`grid-${index}`}
+                                  x1="0"
+                                  y1={lineY}
+                                  x2={chartWidth}
+                                  y2={lineY}
+                                  stroke={isBaseline ? '#fff' : 'currentColor'}
+                                  strokeWidth={isBaseline ? 2 : 1}
+                                  strokeDasharray={isBaseline ? 'none' : '4 6'}
+                                  className={
+                                    isBaseline
+                                      ? 'opacity-80'
+                                      : 'text-slate-500 opacity-60'
+                                  }
+                                />
+                              );
+                            })}
+                          </g>
+
+                          {/* Bars */}
+                          {chartBars.map(({ x, y, height, date, steps }) => {
+                            const barColor = getBarColor(
+                              steps,
+                              resolvedStepGoal
+                            );
+                            const isGoalAchieved = steps >= resolvedStepGoal;
                             return (
-                              <line
-                                key={`grid-${index}`}
-                                x1="0"
-                                y1={lineY}
-                                x2={chartWidth}
-                                y2={lineY}
-                                stroke={isBaseline ? '#fff' : 'currentColor'}
-                                strokeWidth={isBaseline ? 2 : 1}
-                                strokeDasharray={isBaseline ? 'none' : '4 6'}
-                                className={
-                                  isBaseline
-                                    ? 'opacity-80'
-                                    : 'text-slate-500 opacity-60'
-                                }
-                              />
+                              <g
+                                key={date}
+                                onClick={(e) => handleDateClick(date, e)}
+                                className="cursor-pointer"
+                              >
+                                {/* Invisible larger hit area */}
+                                <rect
+                                  x={x - DATE_COLUMN_WIDTH / 2}
+                                  y={Y_AXIS_PADDING}
+                                  width={DATE_COLUMN_WIDTH}
+                                  height={chartHeight - Y_AXIS_PADDING * 2}
+                                  fill="transparent"
+                                />
+                                {/* Visible bar - opaque with drop shadow glow */}
+                                <rect
+                                  x={x - BAR_WIDTH / 2}
+                                  y={y}
+                                  width={BAR_WIDTH}
+                                  height={Math.max(height, 2)}
+                                  rx={BAR_RADIUS}
+                                  ry={BAR_RADIUS}
+                                  fill={barColor}
+                                  className={`transition-opacity ${
+                                    selectedDate === date
+                                      ? 'opacity-100'
+                                      : 'md:hover:opacity-90'
+                                  }`}
+                                  style={{
+                                    filter: isGoalAchieved
+                                      ? 'drop-shadow(0 0 4px rgba(34, 197, 94, 0.5))'
+                                      : 'drop-shadow(0 0 4px rgba(59, 130, 246, 0.5))',
+                                  }}
+                                />
+                                {/* Selection ring */}
+                                {selectedDate === date && (
+                                  <rect
+                                    x={x - BAR_WIDTH / 2 - 2}
+                                    y={y - 2}
+                                    width={BAR_WIDTH + 4}
+                                    height={Math.max(height, 2) + 4}
+                                    rx={BAR_RADIUS + 1}
+                                    ry={BAR_RADIUS + 1}
+                                    fill="none"
+                                    stroke="#60a5fa"
+                                    strokeWidth="2"
+                                  />
+                                )}
+                              </g>
                             );
                           })}
-                        </g>
-
-                        {/* Bars */}
-                        {chartBars.map(({ x, y, height, date, steps }) => {
-                          const barColor = getBarColor(steps, resolvedStepGoal);
-                          const isGoalAchieved = steps >= resolvedStepGoal;
-                          return (
-                            <g
-                              key={date}
-                              onClick={(e) => handleDateClick(date, e)}
-                              className="cursor-pointer"
-                            >
-                              {/* Invisible larger hit area */}
-                              <rect
-                                x={x - DATE_COLUMN_WIDTH / 2}
-                                y={Y_AXIS_PADDING}
-                                width={DATE_COLUMN_WIDTH}
-                                height={chartHeight - Y_AXIS_PADDING * 2}
-                                fill="transparent"
-                              />
-                              {/* Visible bar - opaque with drop shadow glow */}
-                              <rect
-                                x={x - BAR_WIDTH / 2}
-                                y={y}
-                                width={BAR_WIDTH}
-                                height={Math.max(height, 2)}
-                                rx={BAR_RADIUS}
-                                ry={BAR_RADIUS}
-                                fill={barColor}
-                                className={`transition-opacity ${
-                                  selectedDate === date
-                                    ? 'opacity-100'
-                                    : 'md:hover:opacity-90'
-                                }`}
-                                style={{
-                                  filter: isGoalAchieved
-                                    ? 'drop-shadow(0 0 4px rgba(34, 197, 94, 0.5))'
-                                    : 'drop-shadow(0 0 4px rgba(59, 130, 246, 0.5))',
-                                }}
-                              />
-                              {/* Selection ring */}
-                              {selectedDate === date && (
-                                <rect
-                                  x={x - BAR_WIDTH / 2 - 2}
-                                  y={y - 2}
-                                  width={BAR_WIDTH + 4}
-                                  height={Math.max(height, 2) + 4}
-                                  rx={BAR_RADIUS + 1}
-                                  ry={BAR_RADIUS + 1}
-                                  fill="none"
-                                  stroke="#60a5fa"
-                                  strokeWidth="2"
-                                />
-                              )}
-                            </g>
-                          );
-                        })}
-                      </svg>
+                        </svg>
                       </div>
                     ) : (
                       <div className="flex items-center justify-center h-full">
@@ -1238,8 +1261,8 @@ export const StepTrackerModal = ({
                       weight,
                       height,
                       gender: gender || 'male',
-                    }).distanceMiles.toFixed(2)}{' '}
-                    mi
+                    }).distanceKm.toFixed(2)}{' '}
+                    km
                   </p>
                 </div>
                 <div className="text-right">
@@ -1254,7 +1277,7 @@ export const StepTrackerModal = ({
                         gender: gender || 'male',
                       }).calories
                     )}{' '}
-                    cal
+                    kcal
                   </p>
                 </div>
               </div>

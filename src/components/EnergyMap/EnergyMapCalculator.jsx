@@ -2882,6 +2882,15 @@ export const EnergyMapCalculator = () => {
         selectedFood={selectedFoodForPortion}
         initialGrams={portionInitialGrams ?? undefined}
         isEditing={Boolean(editingPortionEntry)}
+        isFoodFavourited={
+          selectedFoodForPortion
+            ? foodFavourites.some(
+                (fav) =>
+                  fav.foodId === selectedFoodForPortion.id ||
+                  (fav.name === selectedFoodForPortion.name && fav.isCustom)
+              )
+            : false
+        }
       />
 
       {/* PhaseInsightsModal removed */}

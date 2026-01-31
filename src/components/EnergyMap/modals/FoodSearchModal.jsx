@@ -29,6 +29,7 @@ import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../common/ModalShell';
 import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
 import { ConfirmActionModal } from './ConfirmActionModal';
+import { AddCustomFoodModal } from './AddCustomFoodModal';
 import {
   FOOD_CATEGORIES,
   FOOD_DATABASE,
@@ -50,6 +51,7 @@ export const FoodSearchModal = ({
   onClose,
   onSelectFood,
   onOpenManualEntry,
+  onAddCustomFood,
   favourites = [],
   onSelectFavourite,
   onEditFavourite,
@@ -58,6 +60,7 @@ export const FoodSearchModal = ({
   onTogglePin,
   cachedFoods = [],
   onUpdateCachedFoods,
+  customFoods = [],
 }) => {
   const {
     foodFavourites,
@@ -115,6 +118,15 @@ export const FoodSearchModal = ({
     forceClose: forceDeleteConfirmClose,
   } = useAnimatedModal(false);
 
+  // Add Custom Food modal state
+  const {
+    isOpen: isAddCustomFoodOpen,
+    isClosing: isAddCustomFoodClosing,
+    open: openAddCustomFood,
+    requestClose: requestAddCustomFoodClose,
+    forceClose: forceAddCustomFoodClose,
+  } = useAnimatedModal(false);
+
   // Online search state
   const [onlineResults, setOnlineResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -135,7 +147,10 @@ export const FoodSearchModal = ({
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsFilterOpen(false);
       }
-      if (favouritesDropdownRef.current && !favouritesDropdownRef.current.contains(event.target)) {
+      if (
+        favouritesDropdownRef.current &&
+        !favouritesDropdownRef.current.contains(event.target)
+      ) {
         setIsFavouritesFilterOpen(false);
       }
     };
@@ -161,6 +176,7 @@ export const FoodSearchModal = ({
       setFavouritesSortOrder('asc');
       setIsFavouritesFilterOpen(false);
       forceDeleteConfirmClose();
+      forceAddCustomFoodClose();
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
@@ -441,7 +457,12 @@ export const FoodSearchModal = ({
     });
 
     return results;
-  }, [resolvedFavourites, favouritesSearchQuery, favouritesSortBy, favouritesSortOrder]);
+  }, [
+    resolvedFavourites,
+    favouritesSearchQuery,
+    favouritesSortBy,
+    favouritesSortOrder,
+  ]);
 
   const hasFavourites = sortedFavourites.length > 0;
 
@@ -497,8 +518,12 @@ export const FoodSearchModal = ({
 
   // Apply search, filter, and sort for LOCAL mode
   const localSearchResults = useMemo(() => {
-    // Merge static database with cached online foods
-    const allLocalFoods = [...FOOD_DATABASE, ...resolvedCachedFoods];
+    // Merge static database with cached online foods and custom foods
+    const allLocalFoods = [
+      ...FOOD_DATABASE,
+      ...resolvedCachedFoods,
+      ...customFoods,
+    ];
 
     // Search using local search function, but on merged array
     let results;
@@ -672,7 +697,6 @@ export const FoodSearchModal = ({
             <ChevronLeft size={24} />
           </button>
           <div className="flex items-center gap-2">
-            <Search className="text-blue-400" size={24} />
             <h3 className="text-white font-bold text-xl">Add Food</h3>
           </div>
         </div>
@@ -723,7 +747,7 @@ export const FoodSearchModal = ({
                 </button>
 
                 <button
-                  onClick={() => {}}
+                  onClick={openAddCustomFood}
                   aria-label="Add Food"
                   className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 md:hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap press-feedback focus-ring"
                 >
@@ -893,11 +917,12 @@ export const FoodSearchModal = ({
               <>
                 {sortedFavourites.length}{' '}
                 {sortedFavourites.length === 1 ? 'favourite' : 'favourites'}
-                {favouritesSearchQuery && resolvedFavourites.length !== sortedFavourites.length && (
-                  <span className="ml-1 text-xs text-slate-500">
-                    (of {resolvedFavourites.filter(Boolean).length})
-                  </span>
-                )}
+                {favouritesSearchQuery &&
+                  resolvedFavourites.length !== sortedFavourites.length && (
+                    <span className="ml-1 text-xs text-slate-500">
+                      (of {resolvedFavourites.filter(Boolean).length})
+                    </span>
+                  )}
               </>
             ) : searchMode === 'online' ? (
               isSearching ? (
@@ -924,7 +949,9 @@ export const FoodSearchModal = ({
           {viewMode === 'favourites' && (
             <div className="relative" ref={favouritesDropdownRef}>
               <button
-                onClick={() => setIsFavouritesFilterOpen(!isFavouritesFilterOpen)}
+                onClick={() =>
+                  setIsFavouritesFilterOpen(!isFavouritesFilterOpen)
+                }
                 className={`text-sm font-medium flex items-center gap-1 transition-colors ${
                   hasActiveFavouritesFilters
                     ? 'text-blue-400 md:hover:text-blue-300'
@@ -1649,6 +1676,15 @@ export const FoodSearchModal = ({
           }
         }}
         onCancel={() => requestDeleteConfirmClose()}
+      />
+
+      <AddCustomFoodModal
+        isOpen={isAddCustomFoodOpen}
+        isClosing={isAddCustomFoodClosing}
+        onClose={requestAddCustomFoodClose}
+        onSaveFood={(customFood) => {
+          onAddCustomFood?.(customFood);
+        }}
       />
     </ModalShell>
   );

@@ -3098,6 +3098,8 @@ export const FOOD_CATEGORIES = {
   vegetables: { label: 'Vegetables', color: 'green' },
   fats: { label: 'Fats', color: 'yellow' },
   supplements: { label: 'Supplements', color: 'purple' },
+  custom: { label: 'Custom', color: 'blue' },
+  manual: { label: 'Manual', color: 'indigo' },
 };
 
 // Helper to search foods

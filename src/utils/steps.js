@@ -114,6 +114,7 @@ export const getStepCaloriesDetails = (
   const effectiveStride = strideLengthMeters > 0 ? strideLengthMeters : 0.75;
   const stepsPerMile = 1609.34 / effectiveStride;
   const distanceMiles = stepsPerMile > 0 ? safeSteps / stepsPerMile : 0;
+  const distanceKm = distanceMiles * 1.60934;
   const weightLbs = weightKg * 2.20462;
   const caloriesPerMile = 0.57 * weightLbs;
   const calories = distanceMiles * caloriesPerMile;
@@ -126,6 +127,7 @@ export const getStepCaloriesDetails = (
     strideLengthMeters,
     stepsPerMile,
     distanceMiles,
+    distanceKm,
     weightLbs,
     caloriesPerMile,
     calories,

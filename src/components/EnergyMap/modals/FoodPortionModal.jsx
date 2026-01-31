@@ -78,9 +78,11 @@ export const FoodPortionModal = ({
   onClose,
   onAddFood,
   onSaveAsFavourite,
+  onRemoveFavourite,
   selectedFood,
   initialGrams = DEFAULT_GRAMS,
   isEditing = false,
+  isFoodFavourited = false,
 }) => {
   const wholeRef = useRef(null);
   const decimalRef = useRef(null);
@@ -89,6 +91,16 @@ export const FoodPortionModal = ({
   const idCounterRef = useRef(0);
   const hasAlignedRef = useRef(false);
   const selectionRef = useRef(convertGramsToParts(initialGrams));
+  
+  // Track if user has marked this as favourite during this session
+  const [markedAsFavourite, setMarkedAsFavourite] = useState(false);
+  
+  // Reset markedAsFavourite when modal opens with new food
+  useEffect(() => {
+    if (isOpen) {
+      setMarkedAsFavourite(false);
+    }
+  }, [isOpen, selectedFood?.id]);
 
   // Determine if food has custom portions
   const hasCustomPortions = useMemo(
@@ -331,6 +343,9 @@ export const FoodPortionModal = ({
   const handleSaveAsFavourite = () => {
     if (!nutrition || typeof onSaveAsFavourite !== 'function') return;
 
+    // If already favourited (either from props or marked during this session), do nothing
+    if (isFoodFavourited || markedAsFavourite) return;
+
     const foodEntry = {
       foodId: selectedFood?.id,
       name: nutrition.name,
@@ -341,9 +356,12 @@ export const FoodPortionModal = ({
       grams,
     };
     onSaveAsFavourite(foodEntry, selectedFood);
-    handleAddFood();
-    onClose?.();
+    setMarkedAsFavourite(true);
+    // Don't close or add food - just mark as favourite
   };
+
+  // Determine if currently favourited (either pre-existing or just marked)
+  const isCurrentlyFavourited = isFoodFavourited || markedAsFavourite;
 
   if (!selectedFood) return null;
 
@@ -620,14 +638,14 @@ export const FoodPortionModal = ({
           {/* Save as Favourite - only show when callback provided and not editing */}
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2.5 bg-slate-700 md:hover:bg-slate-600 text-white rounded-lg font-semibold transition-all text-sm press-feedback focus-ring"
+            className="flex-1 h-10 px-4 bg-slate-700 md:hover:bg-slate-600 text-white rounded-lg font-semibold transition-all text-sm press-feedback focus-ring"
           >
             Cancel
           </button>
           <button
             onClick={handleAddFood}
             disabled={!nutrition || nutrition.calories === 0}
-            className="flex-1 px-4 py-2.5 bg-blue-600 md:hover:bg-blue-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring"
+            className="flex-1 h-10 px-4 bg-blue-600 md:hover:bg-blue-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring"
           >
             <Plus size={18} />
             {isEditing ? 'Save Changes' : 'Add Food'}
@@ -635,15 +653,20 @@ export const FoodPortionModal = ({
           {typeof onSaveAsFavourite === 'function' && !isEditing && (
             <button
               onClick={handleSaveAsFavourite}
-              disabled={!nutrition || nutrition.calories === 0}
-              aria-label="Save favourite and add"
-              title="Save favourite and add"
-              className="w-10 h-10 ml-1 bg-indigo-600 md:hover:bg-indigo-600 border border-indigo-600/50 disabled:bg-slate-600/20 disabled:border-slate-600/50 disabled:cursor-not-allowed text-indigo-400 disabled:text-slate-500 rounded-lg font-medium transition-all flex items-center justify-center press-feedback focus-ring"
+              disabled={isCurrentlyFavourited || !nutrition || nutrition.calories === 0}
+              aria-label={isCurrentlyFavourited ? 'Already favourited' : 'Save as favourite'}
+              title={isCurrentlyFavourited ? 'Already favourited' : 'Save as favourite'}
+              className={`w-10 h-10 ml-1 border rounded-lg font-medium transition-all flex items-center justify-center press-feedback focus-ring ${
+                isCurrentlyFavourited
+                  ? 'bg-indigo-600/30 border-indigo-500/50 text-indigo-300 cursor-default'
+                  : 'bg-indigo-600 md:hover:bg-indigo-500 border-indigo-600/50 text-white disabled:bg-slate-600/20 disabled:border-slate-600/50 disabled:cursor-not-allowed disabled:text-slate-500'
+              }`}
             >
-              <span className="relative inline-flex h-5 w-5 items-center justify-center text-white">
-                <Heart size={18} />
-                <Plus size={10} className="absolute -bottom-1 -right-1" />
-              </span>
+              <Heart 
+                size={20} 
+                fill={isCurrentlyFavourited ? 'currentColor' : 'none'} 
+                className={isCurrentlyFavourited ? 'text-indigo-300' : ''}
+              />
             </button>
           )}
         </div>
