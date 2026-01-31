@@ -184,7 +184,7 @@ export const FoodSearchModal = ({
         abortControllerRef.current.abort();
       }
     }
-  }, [forceDeleteConfirmClose, isClosing]);
+  }, [forceDeleteConfirmClose, forceAddCustomFoodClose, isClosing]);
 
   // Clear online results when switching modes
   useEffect(() => {
@@ -584,6 +584,7 @@ export const FoodSearchModal = ({
     sortOrder,
     resolvedPinnedFoods,
     resolvedCachedFoods,
+    customFoods,
   ]);
 
   const onlineSearchResults = useMemo(() => {
@@ -714,12 +715,15 @@ export const FoodSearchModal = ({
                 {/* Search + Add Food as single pill when search is active */}
                 <motion.div
                   className="relative flex items-center bg-blue-600 rounded-full shadow-md shadow-blue-500/30 overflow-hidden"
-                  animate={{ width: 'auto' }}
-                  transition={{ duration: 0.15, ease: 'easeOut' }}
+                  initial={false}
+                  layout
+                  transition={{ type: 'spring', stiffness: 350, damping: 30 }}
                 >
-                  <button
+                  <motion.button
                     onClick={() => setViewMode('search')}
                     aria-label="Search"
+                    whileTap={{ scale: 0.98 }}
+                    whileHover={{ y: -1 }}
                     className={`relative flex items-center gap-2 px-3 py-2 text-sm font-semibold transition-all whitespace-nowrap ${
                       viewMode === 'search'
                         ? 'text-white border border-white/70 rounded-full bg-blue-600'
@@ -728,25 +732,40 @@ export const FoodSearchModal = ({
                   >
                     <Search size={16} />
                     <span>Search</span>
-                  </button>
+                  </motion.button>
 
-                  {/* Add Food button - inside the pill when search is active */}
-                  <AnimatePresence>
-                    {viewMode === 'search' && (
-                      <motion.button
-                        initial={{ opacity: 0, width: 0 }}
-                        animate={{ opacity: 1, width: 'auto' }}
-                        exit={{ opacity: 0, width: 0 }}
-                        transition={{ duration: 0.15, ease: 'easeOut' }}
-                        onClick={openAddCustomFood}
-                        aria-label="Add Food"
-                        className="flex items-center gap-2 px-3 py-2 text-white/80 md:hover:text-white text-sm font-semibold transition-colors whitespace-nowrap press-feedback focus-ring border-l border-white/20"
-                      >
-                        <Plus size={16} />
-                        <span>Add Food</span>
-                      </motion.button>
-                    )}
-                  </AnimatePresence>
+                  {/* Add Food button - animate width + slide in to push layout */}
+                  <motion.div
+                    className="overflow-hidden"
+                    initial={false}
+                    animate={
+                      viewMode === 'search'
+                        ? {
+                            maxWidth: 160,
+                            opacity: 1,
+                            pointerEvents: 'auto',
+                          }
+                        : {
+                            maxWidth: 0,
+                            opacity: 0,
+                            marginLeft: 0,
+                            pointerEvents: 'none',
+                          }
+                    }
+                    transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+                    style={{ display: 'inline-flex' }}
+                  >
+                    <motion.button
+                      onClick={openAddCustomFood}
+                      aria-label="Add Food"
+                      whileHover={{ y: -2 }}
+                      whileTap={{ scale: 0.99 }}
+                      className="flex items-center gap-2 px-3 py-2 text-white/80 md:hover:text-white text-sm font-semibold transition-colors whitespace-nowrap press-feedback focus-ring"
+                    >
+                      <Plus size={16} />
+                      <span className="whitespace-nowrap">Add Food</span>
+                    </motion.button>
+                  </motion.div>
                 </motion.div>
 
                 <button
@@ -1315,7 +1334,7 @@ export const FoodSearchModal = ({
                   return (
                     <div
                       key={key}
-                      className="w-full text-left p-4 rounded-xl border border-slate-700/80 bg-slate-700/40 transition-all hover:border-emerald-500/40 cursor-pointer"
+                      className="w-full text-left p-4 rounded-lg border border-slate-600 bg-slate-700/50 transition-all hover:border-emerald-500/40 cursor-pointer"
                       role="button"
                       tabIndex={0}
                       onClick={(event) =>
@@ -1329,31 +1348,20 @@ export const FoodSearchModal = ({
                       }}
                     >
                       <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 rounded-full p-2 bg-white/10">
-                          {isManual ? (
-                            <Edit3 size={18} className="text-white" />
-                          ) : isCustom ? (
-                            <Utensils size={18} className="text-white" />
-                          ) : isCached ? (
-                            <Database size={18} className="text-white" />
-                          ) : (
-                            <Heart size={18} className="text-white" />
-                          )}
-                        </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-sm leading-tight text-white truncate">
                             {favourite.name || 'Unnamed Food'}
                           </p>
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
-                            {/* Category tag - skip for manual since it shows 'Manual' which duplicates the type tag */}
-                            {!isManual && (
+                            {/* Category tag - only show when explicit category exists and item is NOT cached (consolidate Cached badge) */}
+                            {!isManual && !isCached && favourite.category && (
                               <span
                                 className={`text-xs px-2 py-0.5 rounded ${getCategoryClasses(
-                                  favourite.category || 'supplements'
+                                  favourite.category
                                 )}`}
                               >
                                 {FOOD_CATEGORIES[favourite.category]?.label ||
-                                  (isCached ? 'Cached' : 'Custom')}
+                                  favourite.category}
                               </span>
                             )}
                             {/* Type tags - only ONE: Cached, Manual, or Custom */}
