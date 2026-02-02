@@ -9,6 +9,7 @@ import { Home, Map, BarChart3, ClipboardList, Target } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
+import { setLightStatusBar } from '../../native/statusBar';
 import { shallow } from 'zustand/shallow';
 import { goals } from '../../constants/goals';
 import { DEFAULT_ACTIVITY_MULTIPLIERS } from '../../constants/activityPresets';
@@ -24,7 +25,8 @@ import {
   HealthConnectStatus,
 } from '../../hooks/useHealthConnect';
 import { loadSelectedDay, saveSelectedDay } from '../../utils/storage';
-import { ScreenTabs } from './common/ScreenTabs';
+import { useScrollOffScreen } from '../../hooks/useScrollOffScreen';
+import { ScreenTabs, FloatingScreenTabs } from './common/ScreenTabs';
 import { LogbookScreen } from './screens/LogbookScreen';
 import { TrackerScreen } from './screens/TrackerScreen';
 import { HomeScreen } from './screens/HomeScreen';
@@ -327,6 +329,8 @@ export const EnergyMapCalculator = () => {
   const healthConnect = useHealthConnect();
 
   const viewportRef = useRef(null);
+  const screenTabsRef = useRef(null);
+  const isTabsOffScreen = useScrollOffScreen(screenTabsRef);
   const { currentScreen, sliderStyle, handlers, goToScreen, isSwiping } =
     useSwipeableScreens(screenTabs.length, viewportRef, homeIndex);
 
@@ -343,6 +347,24 @@ export const EnergyMapCalculator = () => {
         setIsDayLoaded(true);
       }
     });
+
+    // Setup status bar styling for dark mode (light icons)
+    // Using dynamic wrapper - call setLightStatusBar(true) for dark theme
+    const setupStatusBar = async () => {
+      if (!Capacitor.isNativePlatform()) {
+        return;
+      }
+
+      try {
+        // true = dark background, light/white icons (current app theme)
+        await setLightStatusBar(true);
+      } catch (error) {
+        console.error('Failed to setup status bar:', error);
+      }
+    };
+
+    setupStatusBar();
+
     return () => {
       mounted = false;
     };
@@ -2354,9 +2376,21 @@ export const EnergyMapCalculator = () => {
         paddingRight: 'calc(1rem + var(--sar))',
       }}
     >
+      {/* Status bar vignette overlay */}
+      <div className="status-bar-vignette" aria-hidden="true" />
+
+      {/* Floating ScreenTabs - appears when original tabs scroll off screen */}
+      <FloatingScreenTabs
+        tabs={screenTabs}
+        currentScreen={currentScreen}
+        onSelect={goToScreen}
+        isVisible={isTabsOffScreen}
+      />
+
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="relative">
           <ScreenTabs
+            ref={screenTabsRef}
             tabs={screenTabs}
             currentScreen={currentScreen}
             onSelect={goToScreen}
