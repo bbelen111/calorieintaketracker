@@ -1,5 +1,8 @@
 import React, { forwardRef } from 'react';
+import React, { forwardRef } from 'react';
 
+export const ScreenTabs = forwardRef(({ tabs, currentScreen, onSelect }, ref) => (
+  <div ref={ref} className="mx-auto mb-6 flex w-full max-w-md items-end gap-3">
 export const ScreenTabs = forwardRef(({ tabs, currentScreen, onSelect }, ref) => (
   <div ref={ref} className="mx-auto mb-6 flex w-full max-w-md items-end gap-3">
     {tabs.map(({ key, label, icon: Icon }, index) => {
