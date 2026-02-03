@@ -74,11 +74,11 @@ export const HomeScreen = ({
 
   return (
     <div className="space-y-6 pb-10">
-      <div className="bg-slate-800 rounded-2xl p-6 md:p-8 border border-slate-700 shadow-2xl">
+      <div className="bg-surface rounded-2xl p-6 md:p-8 border border-border shadow-2xl">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <Activity className="text-blue-400" size={32} />
-            <h1 className="text-2xl md:text-3xl font-bold text-white">
+            <Activity className="text-primary" size={32} />
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">
               Your Energy Map
             </h1>
           </div>
@@ -96,73 +96,73 @@ export const HomeScreen = ({
           <button
             onClick={onAgeClick}
             type="button"
-            className="bg-slate-700/50 border border-slate-600/50 md:hover:bg-slate-700 rounded-lg p-3 transition-all text-left group shadow-lg shadow-slate-900/20 pressable-card focus-ring"
+            className="bg-surface-highlight/50 border border-border/50 md:hover:bg-surface-highlight rounded-lg p-3 transition-all text-left group shadow-lg shadow-background/20 pressable-card focus-ring"
           >
             <div className="flex items-center justify-between">
-              <p className="text-slate-400">Age</p>
+              <p className="text-muted">Age</p>
               <Edit3
                 size={14}
-                className="text-slate-500 md:group-hover:text-blue-400 transition-colors"
+                className="text-muted/70 md:group-hover:text-primary transition-colors"
               />
             </div>
-            <p className="text-white font-semibold text-lg">
+            <p className="text-foreground font-semibold text-lg">
               {resolvedUserData.age} years
             </p>
           </button>
           <button
             onClick={onWeightClick}
             type="button"
-            className="bg-slate-700/50 border border-slate-600/50 md:hover:bg-slate-700 rounded-lg p-3 transition-all text-left group shadow-lg shadow-slate-900/20 pressable-card focus-ring"
+            className="bg-surface-highlight/50 border border-border/50 md:hover:bg-surface-highlight rounded-lg p-3 transition-all text-left group shadow-lg shadow-background/20 pressable-card focus-ring"
           >
             <div className="flex items-center justify-between">
-              <p className="text-slate-400">Weight</p>
+              <p className="text-muted">Weight</p>
               <Edit3
                 size={14}
-                className="text-slate-500 md:group-hover:text-blue-400 transition-colors"
+                className="text-muted/70 md:group-hover:text-primary transition-colors"
               />
             </div>
-            <p className="text-white font-semibold text-lg">
+            <p className="text-foreground font-semibold text-lg">
               {weightTileValue}
             </p>
           </button>
           <button
             onClick={onHeightClick}
             type="button"
-            className="bg-slate-700/50 border border-slate-600/50 md:hover:bg-slate-700 rounded-lg p-3 transition-all text-left group shadow-lg shadow-slate-900/20 pressable-card focus-ring"
+            className="bg-surface-highlight/50 border border-border/50 md:hover:bg-surface-highlight rounded-lg p-3 transition-all text-left group shadow-lg shadow-background/20 pressable-card focus-ring"
           >
             <div className="flex items-center justify-between">
-              <p className="text-slate-400">Height</p>
+              <p className="text-muted">Height</p>
               <Edit3
                 size={14}
-                className="text-slate-500 md:group-hover:text-blue-400 transition-colors"
+                className="text-muted/70 md:group-hover:text-primary transition-colors"
               />
             </div>
-            <p className="text-white font-semibold text-lg">
+            <p className="text-foreground font-semibold text-lg">
               {resolvedUserData.height} cm
             </p>
           </button>
           <button
             onClick={onBmrClick}
             type="button"
-            className="bg-slate-700/50 border border-slate-600/50 md:hover:bg-slate-700 rounded-lg p-3 transition-all text-left group shadow-lg shadow-slate-900/20 pressable-card focus-ring"
+            className="bg-surface-highlight/50 border border-border/50 md:hover:bg-surface-highlight rounded-lg p-3 transition-all text-left group shadow-lg shadow-background/20 pressable-card focus-ring"
           >
             <div className="flex items-center justify-between">
-              <p className="text-slate-400">BMR</p>
+              <p className="text-muted">BMR</p>
               <Info
                 size={14}
-                className="text-slate-500 md:group-hover:text-blue-400 transition-colors"
+                className="text-muted/70 md:group-hover:text-primary transition-colors"
               />
             </div>
-            <p className="text-white font-semibold text-lg">
+            <p className="text-foreground font-semibold text-lg">
               {resolvedBmr} kcal
             </p>
           </button>
         </div>
       </div>
 
-      <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
-        <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-          <Target className="text-blue-400" size={18} />
+      <div className="bg-surface rounded-2xl p-6 border border-border shadow-2xl">
+        <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
+          <Target className="text-primary" size={18} />
           Your Goal
         </h2>
         <button
@@ -188,19 +188,19 @@ export const HomeScreen = ({
         )}
       </div>
 
-      <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
-        <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-          <Calendar className="text-blue-400" size={18} />
+      <div className="bg-surface rounded-2xl p-6 border border-border shadow-2xl">
+        <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
+          <Calendar className="text-primary" size={18} />
           Day Type
         </h2>
         <div className="grid grid-cols-2 gap-4">
           <motion.button
             onClick={onTrainingDayClick}
             type="button"
-            className={`p-4 rounded-xl border-2 transition-all relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 ${
+            className={`p-4 rounded-xl border-2 transition-all relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
               selectedDay === 'training'
                 ? 'bg-purple-600 border-white text-white shadow-xl transform scale-105'
-                : 'bg-slate-700/50 border-slate-600/50 text-slate-200 md:hover:border-purple-400 md:hover:shadow-lg md:hover:scale-[1.03]'
+                : 'bg-surface-highlight/50 border-border/50 text-foreground/90 md:hover:border-purple-400 md:hover:shadow-lg md:hover:scale-[1.03]'
             }`}
             transition={{ type: 'spring', stiffness: 260, damping: 24 }}
           >
@@ -247,10 +247,10 @@ export const HomeScreen = ({
           <motion.button
             onClick={onRestDayClick}
             type="button"
-            className={`p-4 rounded-xl border-2 transition-all grid grid-rows-[auto_auto_auto] place-items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 ${
+            className={`p-4 rounded-xl border-2 transition-all grid grid-rows-[auto_auto_auto] place-items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
               selectedDay === 'rest'
                 ? 'bg-indigo-600 border-white text-white shadow-lg transform scale-105'
-                : 'bg-slate-700/50 border-slate-600/50 text-slate-300 md:hover:border-slate-500'
+                : 'bg-surface-highlight/50 border-border/50 text-muted md:hover:border-muted'
             }`}
             transition={{ type: 'spring', stiffness: 260, damping: 24 }}
           >
@@ -262,7 +262,7 @@ export const HomeScreen = ({
       </div>
 
       <motion.div
-        className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl"
+        className="bg-surface rounded-2xl p-6 border border-border shadow-2xl"
         layout={!isSwiping}
         initial={false}
         transition={{ type: 'spring', stiffness: 120, damping: 18 }}
@@ -285,8 +285,8 @@ export const HomeScreen = ({
                 transition={{ duration: 0.3, ease: 'easeOut' }}
               >
                 <div className="flex items-center gap-2">
-                  <Heart className="text-blue-400" size={24} />
-                  <h2 className="text-xl font-bold text-white">
+                  <Heart className="text-primary" size={24} />
+                  <h2 className="text-xl font-bold text-foreground">
                     Cardio Sessions
                   </h2>
                 </div>
@@ -339,11 +339,11 @@ export const HomeScreen = ({
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -12, scale: 0.95 }}
                         transition={{ duration: 0.25, ease: 'easeOut' }}
-                        className="bg-slate-700/50 rounded-lg p-4 border border-slate-600/50 flex justify-between items-start gap-4 shadow-lg shadow-slate-900/20"
+                        className="bg-surface-highlight/50 rounded-lg p-4 border border-border/50 flex justify-between items-start gap-4 shadow-lg shadow-background/20"
                       >
                         <div>
-                          <p className="text-white font-semibold">{label}</p>
-                          <p className="text-slate-400 text-sm">
+                          <p className="text-foreground font-semibold">{label}</p>
+                          <p className="text-muted text-sm">
                             {durationValue} min • {effortDisplay} • ~{calories}{' '}
                             kcal
                           </p>
@@ -358,7 +358,7 @@ export const HomeScreen = ({
                           <motion.button
                             onClick={() => onEditCardioSession?.(session.id)}
                             type="button"
-                            className="text-slate-200 transition-all pressable-inline focus-ring md:hover:text-white"
+                            className="text-foreground/80 transition-all pressable-inline focus-ring md:hover:text-foreground"
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
                           >
@@ -404,23 +404,23 @@ export const HomeScreen = ({
               <motion.button
                 onClick={onAddCardioClick}
                 type="button"
-                className="w-full flex items-center justify-between p-4 rounded-xl transition-all group pressable-card focus-ring md:hover:bg-slate-700/50"
+                className="w-full flex items-center justify-between p-4 rounded-xl transition-all group pressable-card focus-ring md:hover:bg-surface-highlight/50"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.97 }}
               >
                 <div className="flex items-center gap-3">
-                  <Heart className="text-blue-400" size={24} />
+                  <Heart className="text-primary" size={24} />
                   <div className="text-left">
-                    <h2 className="text-lg font-bold text-white">
+                    <h2 className="text-lg font-bold text-foreground">
                       Add Cardio Session
                     </h2>
-                    <p className="text-slate-400 text-sm">
+                    <p className="text-muted text-sm">
                       Track your cardio activities
                     </p>
                   </div>
                 </div>
                 <Plus
-                  className="text-slate-400 md:group-hover:text-blue-400 transition-colors"
+                  className="text-muted md:group-hover:text-primary transition-colors"
                   size={24}
                 />
               </motion.button>

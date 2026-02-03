@@ -135,6 +135,7 @@ export const getDefaultEnergyMapData = () => ({
   stepGoal: 10000, // Daily step goal
   bodyFatTrackingEnabled: true,
   gender: 'male',
+  theme: 'dark', // 'dark' | 'light' | 'amoled_dark' | 'amoled_light'
   trainingType: 'bodybuilding',
   trainingDuration: 2,
   stepRanges: ['<10k', '10k', '12k', '14k', '16k', '18k', '20k', '>20k'],

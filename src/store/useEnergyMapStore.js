@@ -90,6 +90,7 @@ const deriveState = (userData) => {
     cachedFoods: userData.cachedFoods ?? [],
     phases: userData.phases ?? [],
     activePhaseId: userData.activePhaseId,
+    theme: userData.theme ?? 'dark',
   };
 };
 

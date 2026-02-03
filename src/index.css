@@ -8,6 +8,40 @@
   --sab: env(safe-area-inset-bottom);
   --sal: env(safe-area-inset-left);
   --sar: env(safe-area-inset-right);
+
+  /* Semantic Theme Variables - Dark (Default) */
+  --background: 15 23 42;       /* Slate 900 */
+  --surface: 30 41 59;          /* Slate 800 */
+  --surface-highlight: 51 65 85; /* Slate 700 */
+  --primary: 37 99 235;         /* Blue 600 */
+  --primary-foreground: 255 255 255;
+  --muted: 148 163 184;         /* Slate 400 */
+  --border: 51 65 85;           /* Slate 700 */
+  --foreground: 255 255 255;    /* White */
+}
+
+/* Light Theme */
+.theme-light {
+  --background: 241 245 249;    /* Slate 100 */
+  --surface: 255 255 255;       /* White */
+  --surface-highlight: 226 232 240; /* Slate 200 */
+  --primary: 37 99 235;         /* Blue 600 */
+  --primary-foreground: 255 255 255;
+  --muted: 100 116 139;         /* Slate 500 */
+  --border: 226 232 240;        /* Slate 200 */
+  --foreground: 15 23 42;       /* Slate 900 (Dark text) */
+}
+
+/* AMOLED Dark Theme (True Black) */
+.theme-amoled-dark {
+  --background: 0 0 0;          /* Pure Black */
+  --surface: 22 22 22;          /* Gray 900 */
+  --surface-highlight: 38 38 38; /* Gray 800 */
+  --primary: 59 130 246;        /* Blue 500 */
+  --primary-foreground: 255 255 255;
+  --muted: 163 163 163;         /* Neutral 400 */
+  --border: 38 38 38;           /* Gray 800 */
+  --foreground: 255 255 255;    /* White */
 }
 
 /* Status bar vignette - gradient overlay at top of screen */
@@ -19,9 +53,9 @@
   height: calc(var(--sat, 0px) + 24px);
   background: linear-gradient(
     to bottom,
-    rgba(15, 23, 42, 0.95) 0%,
-    rgba(15, 23, 42, 0.8) 40%,
-    rgba(15, 23, 42, 0.4) 70%,
+    rgb(var(--background) / 0.95) 0%,
+    rgb(var(--background) / 0.8) 40%,
+    rgb(var(--background) / 0.4) 70%,
     transparent 100%
   );
   pointer-events: none;
