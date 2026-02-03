@@ -39,7 +39,7 @@ const getTrendToneClass = (trend, selectedGoal, metricType) => {
     trend.label === 'Need more data' ||
     trend.label === 'No data yet'
   ) {
-    return 'text-white';
+    return 'text-foreground';
   }
   return getGoalAlignedTextClass(trend, selectedGoal, metricType);
 };
@@ -58,7 +58,7 @@ const getOnTrackStatus = (trend, selectedGoal) => {
     trend.label === 'No data yet' ||
     !Number.isFinite(trend.weeklyRate)
   ) {
-    return { icon: 'help', text: 'Insufficient data', color: 'text-slate-400' };
+    return { icon: 'help', text: 'Insufficient data', color: 'text-muted' };
   }
 
   const rate = trend.weeklyRate;
@@ -159,7 +159,7 @@ const getOnTrackStatus = (trend, selectedGoal) => {
   return {
     icon: 'help',
     text: 'Track to assess',
-    color: 'text-slate-400',
+    color: 'text-muted',
   };
 };
 
@@ -400,19 +400,19 @@ export const InsightsScreen = ({
 
   return (
     <div className="space-y-6 pb-10">
-      <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl p-5 md:p-6">
+      <div className="bg-surface rounded-2xl border border-border shadow-2xl p-5 md:p-6">
         <div className="flex items-center mb-4 gap-2">
           <LineChart className="text-blue-400" size={18} />
-          <h2 className="text-xl font-bold text-white">Body Composition</h2>
+          <h2 className="text-xl font-bold text-foreground">Body Composition</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <button
             type="button"
             onClick={onOpenWeightTracker}
-            className="group relative w-full text-left bg-slate-700/50 rounded-xl p-4 transition-all border border-slate-600/50 active:scale-[0.99] pressable-card focus-ring md:hover:bg-slate-600 md:hover:border-slate-500/80"
+            className="group relative w-full text-left bg-surface-highlight/50 rounded-xl p-4 transition-all border border-border/50 active:scale-[0.99] pressable-card focus-ring md:hover:bg-surface-highlight md:hover:border-border/80"
           >
             <div className="flex items-start justify-between mb-2">
-              <p className="font-semibold text-white text-base">
+              <p className="font-semibold text-foreground text-base">
                 Weight Snapshot
               </p>
               <span
@@ -429,14 +429,14 @@ export const InsightsScreen = ({
                 >
                   {trend.label}
                 </p>
-                <p className="text-slate-300 text-sm mt-1">
-                  <span className="font-bold text-white">
+                <p className="text-muted text-sm mt-1">
+                  <span className="font-bold text-foreground">
                     {currentWeight ? `${currentWeight} kg` : '—'}
                   </span>{' '}
                   • {lastLoggedLabel}
                 </p>
-                <p className="text-slate-300 text-sm mt-2">
-                  <span className="font-bold text-white">
+                <p className="text-muted text-sm mt-2">
+                  <span className="font-bold text-foreground">
                     {formatWeeklyRate(trend.weeklyRate)}
                   </span>{' '}
                   over last 7 entries
@@ -514,8 +514,8 @@ export const InsightsScreen = ({
                       />
                     ))}
                   </svg>
-                  <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-slate-800/80 to-transparent pointer-events-none" />
-                  <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-slate-800/80 to-transparent pointer-events-none" />
+                  <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-surface/80 to-transparent pointer-events-none" />
+                  <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-surface/80 to-transparent pointer-events-none" />
                 </div>
               )}
             </div>
@@ -528,10 +528,10 @@ export const InsightsScreen = ({
             <button
               type="button"
               onClick={onOpenBodyFatTracker}
-              className="group relative w-full text-left bg-slate-700/50 rounded-xl p-4 transition-all border border-slate-600/50 active:scale-[0.99] pressable-card focus-ring md:hover:bg-slate-600 md:hover:border-slate-500/80"
+              className="group relative w-full text-left bg-surface-highlight/50 rounded-xl p-4 transition-all border border-border/50 active:scale-[0.99] pressable-card focus-ring md:hover:bg-surface-highlight md:hover:border-border/80"
             >
               <div className="flex items-start justify-between mb-2">
-                <p className="font-semibold text-white text-base">
+                <p className="font-semibold text-foreground text-base">
                   Body Fat % Snapshot
                 </p>
                 <span
@@ -548,14 +548,14 @@ export const InsightsScreen = ({
                   >
                     {bodyFatTrend.label}
                   </p>
-                  <p className="text-slate-300 text-sm mt-1">
-                    <span className="font-bold text-white">
+                  <p className="text-muted text-sm mt-1">
+                    <span className="font-bold text-foreground">
                       {currentBodyFat ? `${currentBodyFat}%` : '—'}
                     </span>{' '}
                     • {bodyFatLoggedLabel}
                   </p>
-                  <p className="text-slate-300 text-sm mt-2">
-                    <span className="font-bold text-white">
+                  <p className="text-muted text-sm mt-2">
+                    <span className="font-bold text-foreground">
                       {formatBodyFatWeeklyRate(bodyFatTrend.weeklyRate)}
                     </span>{' '}
                     over last 7 entries
@@ -633,8 +633,8 @@ export const InsightsScreen = ({
                         />
                       ))}
                     </svg>
-                    <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-slate-800/80 to-transparent pointer-events-none" />
-                    <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-slate-800/80 to-transparent pointer-events-none" />
+                    <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-surface/80 to-transparent pointer-events-none" />
+                    <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-surface/80 to-transparent pointer-events-none" />
                   </div>
                 )}
               </div>
@@ -648,11 +648,11 @@ export const InsightsScreen = ({
             <button
               type="button"
               onClick={onOpenBmiInfo}
-              className="group relative w-full text-left bg-slate-700/50 rounded-xl p-4 transition-all border border-slate-600/50 active:scale-[0.99] pressable-card focus-ring md:hover:bg-slate-600 md:hover:border-slate-500/80"
+              className="group relative w-full text-left bg-surface-highlight/50 rounded-xl p-4 transition-all border border-border/50 active:scale-[0.99] pressable-card focus-ring md:hover:bg-surface-highlight md:hover:border-border/80"
             >
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="font-semibold text-white text-sm mb-1">BMI</p>
+                  <p className="font-semibold text-foreground text-sm mb-1">BMI</p>
                   <p
                     className={`text-xl font-bold ${bmiColorMap[bmiCategory.color]?.text || 'text-slate-400'}`}
                   >
@@ -683,18 +683,18 @@ export const InsightsScreen = ({
             <button
               type="button"
               onClick={onOpenFfmiInfo}
-              className="group relative w-full text-left bg-slate-700/50 rounded-xl p-4 transition-all border border-slate-600/50 active:scale-[0.99] pressable-card focus-ring md:hover:bg-slate-600 md:hover:border-slate-500/80"
+              className="group relative w-full text-left bg-surface-highlight/50 rounded-xl p-4 transition-all border border-border/50 active:scale-[0.99] pressable-card focus-ring md:hover:bg-surface-highlight md:hover:border-border/80"
             >
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="font-semibold text-white text-sm mb-1">FFMI</p>
+                  <p className="font-semibold text-foreground text-sm mb-1">FFMI</p>
                   <p
-                    className={`text-xl font-bold ${ffmiData ? ffmiColorMap[ffmiCategory.color]?.text || 'text-slate-400' : 'text-slate-500'}`}
+                    className={`text-xl font-bold ${ffmiData ? ffmiColorMap[ffmiCategory.color]?.text || 'text-slate-400' : 'text-muted'}`}
                   >
                     {ffmiData ? ffmiData.normalized.toFixed(1) : '—'}
                   </p>
                   <p
-                    className={`text-xs mt-1 ${ffmiData ? ffmiColorMap[ffmiCategory.color]?.text || 'text-slate-400' : 'text-slate-500'}`}
+                    className={`text-xs mt-1 ${ffmiData ? ffmiColorMap[ffmiCategory.color]?.text || 'text-slate-400' : 'text-muted'}`}
                   >
                     {ffmiData ? ffmiCategory.label : 'Requires body fat data'}
                   </p>
@@ -721,32 +721,32 @@ export const InsightsScreen = ({
         </div>
       </div>
 
-      <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
-        <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+      <div className="bg-surface rounded-2xl p-6 border border-border shadow-2xl">
+        <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
           <PieChart className="text-blue-400" size={18} />
           Macro Recommendations
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-red-900/30 border border-red-700 rounded-xl p-4">
             <p className="text-red-400 font-bold mb-2">Protein</p>
-            <p className="text-white text-2xl font-bold">
+            <p className="text-foreground text-2xl font-bold">
               {Math.round(resolvedUserData.weight * 2.0)}-
               {Math.round(resolvedUserData.weight * 2.4)}g
             </p>
-            <p className="text-slate-400 text-sm">2.0-2.4g per kg bodyweight</p>
+            <p className="text-muted text-sm">2.0-2.4g per kg bodyweight</p>
           </div>
           <div className="bg-yellow-900/30 border border-yellow-700 rounded-xl p-4">
             <p className="text-yellow-400 font-bold mb-2">Fats</p>
-            <p className="text-white text-2xl font-bold">
+            <p className="text-foreground text-2xl font-bold">
               {Math.round(resolvedUserData.weight * 0.8)}-
               {Math.round(resolvedUserData.weight * 1.0)}g
             </p>
-            <p className="text-slate-400 text-sm">0.8-1.0g per kg bodyweight</p>
+            <p className="text-muted text-sm">0.8-1.0g per kg bodyweight</p>
           </div>
           <div className="bg-amber-900/30 border border-amber-700 rounded-xl p-4">
             <p className="text-amber-400 font-bold mb-2">Carbs</p>
-            <p className="text-white text-lg font-bold">Remaining calories</p>
-            <p className="text-slate-400 text-sm">
+            <p className="text-foreground text-lg font-bold">Remaining calories</p>
+            <p className="text-muted text-sm">
               Adjust based on energy needs
             </p>
           </div>
@@ -763,12 +763,12 @@ export const InsightsScreen = ({
           </div>
         )}
       </div>
-      <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
-        <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+      <div className="bg-surface rounded-2xl p-6 border border-border shadow-2xl">
+        <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
           <Lightbulb className="text-blue-400" size={18} />
           Tips
         </h2>
-        <ul className="space-y-2 text-slate-300">
+        <ul className="space-y-2 text-muted">
           <li className="flex items-start gap-2">
             <span className="text-blue-400 mt-1">•</span>
             <span>

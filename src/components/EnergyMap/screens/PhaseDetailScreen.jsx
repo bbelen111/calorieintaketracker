@@ -67,7 +67,7 @@ const CalendarHeatmap = ({ calendarData, onDateClick }) => {
         return 'bg-yellow-600 border-yellow-500 md:hover:bg-yellow-500';
       case 'empty':
       default:
-        return 'bg-slate-700 border-slate-600 md:hover:bg-slate-600';
+        return 'bg-surface-highlight border-border md:hover:border-border';
     }
   };
 
@@ -85,7 +85,7 @@ const CalendarHeatmap = ({ calendarData, onDateClick }) => {
 
   if (weeks.length === 0) {
     return (
-      <div className="text-slate-400 text-sm text-center py-4">
+      <div className="text-muted text-sm text-center py-4">
         No calendar data available
       </div>
     );
@@ -98,7 +98,7 @@ const CalendarHeatmap = ({ calendarData, onDateClick }) => {
         {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
           <div
             key={i}
-            className="text-slate-500 text-xs text-center font-semibold"
+            className="text-muted text-xs text-center font-semibold"
           >
             {day}
           </div>
@@ -123,14 +123,16 @@ const CalendarHeatmap = ({ calendarData, onDateClick }) => {
               className={`aspect-square rounded-md border-2 flex items-center justify-center text-xs font-bold transition-all active:scale-95 pressable-card focus-ring ${getStatusColor(day.status)}`}
               title={`${formatDate(day.date)} - ${day.status}`}
             >
-              <span className="text-white">{getStatusSymbol(day.status)}</span>
+              <span className="text-foreground">
+                {getStatusSymbol(day.status)}
+              </span>
             </button>
           ))}
         </div>
       ))}
 
       {/* Legend */}
-      <div className="flex items-center justify-center gap-4 pt-2 text-xs text-slate-400">
+      <div className="flex items-center justify-center gap-4 pt-2 text-xs text-muted">
         <div className="flex items-center gap-1">
           <div className="w-4 h-4 rounded bg-green-600 border border-green-500" />
           <span>Completed</span>
@@ -140,7 +142,7 @@ const CalendarHeatmap = ({ calendarData, onDateClick }) => {
           <span>Partial</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-4 h-4 rounded bg-slate-700 border border-slate-600" />
+          <div className="w-4 h-4 rounded bg-surface-highlight border border-border" />
           <span>Empty</span>
         </div>
       </div>
@@ -155,12 +157,12 @@ const DailyLogCard = ({ log, onEdit }) => {
     <button
       type="button"
       onClick={() => onEdit(log)}
-      className="w-full text-left bg-slate-800 border border-slate-700 rounded-lg p-4 md:hover:border-slate-600 transition-all pressable-card focus-ring"
+      className="w-full text-left bg-surface border border-border rounded-lg p-4 md:hover:border-border transition-all pressable-card focus-ring"
     >
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-white font-semibold">
+            <span className="text-foreground font-semibold">
               {formatDate(log.date)}
             </span>
             {log.completed && (
@@ -170,7 +172,7 @@ const DailyLogCard = ({ log, onEdit }) => {
             )}
           </div>
 
-          <div className="flex items-center gap-4 text-sm text-slate-400 flex-wrap">
+          <div className="flex items-center gap-4 text-sm text-muted flex-wrap">
             {log.calories && (
               <div className="flex items-center gap-1">
                 <Zap size={14} className="text-yellow-400" />
@@ -188,7 +190,7 @@ const DailyLogCard = ({ log, onEdit }) => {
       </div>
 
       {hasMacros && (
-        <div className="flex items-center gap-3 text-xs text-slate-400 mt-2">
+        <div className="flex items-center gap-3 text-xs text-muted mt-2">
           {log.protein > 0 && <span>P: {log.protein}g</span>}
           {log.carbs > 0 && <span>C: {log.carbs}g</span>}
           {log.fats > 0 && <span>F: {log.fats}g</span>}
@@ -196,7 +198,7 @@ const DailyLogCard = ({ log, onEdit }) => {
       )}
 
       {log.notes && (
-        <div className="mt-2 text-xs text-slate-400 line-clamp-2">
+        <div className="mt-2 text-xs text-muted line-clamp-2">
           {log.notes}
         </div>
       )}
@@ -231,7 +233,7 @@ export const PhaseDetailScreen = ({
   // Helper for goal badge color classes
   const getGoalBadgeClass = () => {
     if (!goal || !goal.color)
-      return 'bg-slate-700 text-slate-300 border-slate-600';
+      return 'bg-surface-highlight text-muted border-border';
     return `${goal.color} text-white border-2 ${goal.color.replace('bg-', 'border-')}`;
   };
   const isActive = phase.status === 'active';
@@ -266,11 +268,11 @@ export const PhaseDetailScreen = ({
   return (
     <div className="space-y-6 pb-10">
       {/* Header */}
-      <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
+      <div className="bg-surface rounded-2xl p-6 border border-border shadow-2xl">
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-2 text-slate-400 transition-colors mb-4 press-feedback focus-ring md:hover:text-white"
+          className="flex items-center gap-2 text-muted transition-colors mb-4 press-feedback focus-ring md:hover:text-foreground"
         >
           <ChevronLeft size={20} />
           <span className="font-semibold">Back to Logbook</span>
@@ -278,7 +280,7 @@ export const PhaseDetailScreen = ({
 
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="flex-1">
-            <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
               {phase.name}
             </h1>
             <div className="flex items-center gap-2 flex-wrap">
@@ -301,7 +303,7 @@ export const PhaseDetailScreen = ({
             <button
               type="button"
               onClick={onArchive}
-              className="p-2 text-slate-400 rounded-lg transition-all pressable-inline focus-ring md:hover:text-green-400 md:hover:bg-slate-700"
+              className="p-2 text-muted rounded-lg transition-all pressable-inline focus-ring md:hover:text-green-400 md:hover:bg-surface-highlight"
               title="Archive Phase"
             >
               <Archive size={20} />
@@ -309,7 +311,7 @@ export const PhaseDetailScreen = ({
             <button
               type="button"
               onClick={onDelete}
-              className="p-2 text-slate-400 rounded-lg transition-all pressable-inline focus-ring md:hover:text-red-400 md:hover:bg-slate-700"
+              className="p-2 text-muted rounded-lg transition-all pressable-inline focus-ring md:hover:text-red-400 md:hover:bg-surface-highlight"
               title="Delete Phase"
             >
               <Trash2 size={20} />
@@ -319,61 +321,61 @@ export const PhaseDetailScreen = ({
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div>
-            <div className="flex items-center gap-1 text-slate-400 mb-1">
+            <div className="flex items-center gap-1 text-muted mb-1">
               <Calendar size={14} />
               <span>Period</span>
             </div>
-            <div className="text-white font-semibold">
+            <div className="text-foreground font-semibold">
               {formatDateShort(phase.startDate)}
               {phase.endDate
                 ? ` - ${formatDateShort(phase.endDate)}`
                 : ' - Ongoing'}
             </div>
             {isActive && metrics.totalDays > 0 && (
-              <div className="text-slate-400 text-xs mt-1">
+              <div className="text-muted text-xs mt-1">
                 Day {currentDay} of {metrics.totalDays}
               </div>
             )}
           </div>
 
           <div>
-            <div className="flex items-center gap-1 text-slate-400 mb-1">
+            <div className="flex items-center gap-1 text-muted mb-1">
               <TrendingUp size={14} />
               <span>Weight</span>
             </div>
-            <div className="text-white font-semibold">
+            <div className="text-foreground font-semibold">
               {weightChangeDisplay}
             </div>
-            <div className="text-slate-400 text-xs mt-1">
+            <div className="text-muted text-xs mt-1">
               {weeklyRateDisplay}
             </div>
           </div>
 
           <div>
-            <div className="flex items-center gap-1 text-slate-400 mb-1">
+            <div className="flex items-center gap-1 text-muted mb-1">
               <Target size={14} />
               <span>Progress</span>
             </div>
-            <div className="text-white font-semibold">
+            <div className="text-foreground font-semibold">
               {metrics.activeDays} / {metrics.totalDays} days
             </div>
-            <div className="text-slate-400 text-xs mt-1">
+            <div className="text-muted text-xs mt-1">
               {metrics.completionRate}% logged
             </div>
           </div>
 
           <div>
-            <div className="flex items-center gap-1 text-slate-400 mb-1">
+            <div className="flex items-center gap-1 text-muted mb-1">
               <Zap size={14} />
               <span>Avg Calories</span>
             </div>
-            <div className="text-white font-semibold">
+            <div className="text-foreground font-semibold">
               {metrics.avgCalories > 0
                 ? metrics.avgCalories.toLocaleString()
                 : '—'}
             </div>
             {metrics.avgSteps > 0 && (
-              <div className="text-slate-400 text-xs mt-1">
+              <div className="text-muted text-xs mt-1">
                 {metrics.avgSteps.toLocaleString()} steps
               </div>
             )}
@@ -394,8 +396,8 @@ export const PhaseDetailScreen = ({
       </div>
 
       {/* Calendar */}
-      <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
-        <h2 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
+      <div className="bg-surface rounded-2xl p-6 border border-border shadow-2xl">
+        <h2 className="text-foreground font-bold text-lg mb-4 flex items-center gap-2">
           <Calendar size={20} className="text-blue-400" />
           Daily Log Calendar
         </h2>
@@ -407,8 +409,8 @@ export const PhaseDetailScreen = ({
 
       {/* Recent Logs */}
       {recentLogs.length > 0 && (
-        <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
-          <h2 className="text-white font-bold text-lg mb-4">Recent Logs</h2>
+        <div className="bg-surface rounded-2xl p-6 border border-border shadow-2xl">
+          <h2 className="text-foreground font-bold text-lg mb-4">Recent Logs</h2>
           <div className="space-y-3">
             {recentLogs.map((log) => (
               <DailyLogCard key={log.date} log={log} onEdit={onEditLog} />
@@ -419,13 +421,15 @@ export const PhaseDetailScreen = ({
 
       {/* Empty State for Logs */}
       {recentLogs.length === 0 && (
-        <div className="bg-slate-800 rounded-2xl p-8 border border-slate-700 text-center">
+        <div className="bg-surface rounded-2xl p-8 border border-border text-center">
           <div className="max-w-md mx-auto">
-            <div className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Calendar className="text-slate-400" size={32} />
+            <div className="w-16 h-16 bg-surface-highlight rounded-full flex items-center justify-center mx-auto mb-4">
+              <Calendar className="text-muted" size={32} />
             </div>
-            <h3 className="text-white font-bold text-xl mb-2">No Logs Yet</h3>
-            <p className="text-slate-400 text-sm mb-6">
+            <h3 className="text-foreground font-bold text-xl mb-2">
+              No Logs Yet
+            </h3>
+            <p className="text-muted text-sm mb-6">
               Start tracking your progress by adding your first daily log.
             </p>
             <button

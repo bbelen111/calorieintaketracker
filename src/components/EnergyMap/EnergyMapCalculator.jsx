@@ -2350,7 +2350,7 @@ export const EnergyMapCalculator = () => {
   if (!isLoaded) {
     return (
       <div
-        className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 md:p-6 flex items-center justify-center"
+        className="min-h-screen bg-gradient-to-br from-background via-surface to-background p-4 md:p-6 flex items-center justify-center"
         style={{
           paddingTop: 'calc(1rem + var(--sat))',
           paddingBottom: 'calc(1rem + var(--sab))',
@@ -2358,7 +2358,7 @@ export const EnergyMapCalculator = () => {
           paddingRight: 'calc(1rem + var(--sar))',
         }}
       >
-        <div className="flex flex-col items-center gap-3 text-slate-300">
+        <div className="flex flex-col items-center gap-3 text-muted">
           <div className="h-10 w-10 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
           <p className="text-sm">Loading your data…</p>
         </div>
@@ -2368,7 +2368,7 @@ export const EnergyMapCalculator = () => {
 
   return (
     <div
-      className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 md:p-6"
+      className="min-h-screen bg-gradient-to-br from-background via-surface to-background p-4 md:p-6"
       style={{
         paddingTop: 'calc(1rem + var(--sat))',
         paddingBottom: 'calc(1rem + var(--sab))',

@@ -1,5 +1,15 @@
 import React, { useMemo } from 'react';
-import { Save, ChevronsUpDown, Mars, Venus, ChevronLeft, Sun, Moon, Smartphone } from 'lucide-react';
+import {
+  Save,
+  ChevronsUpDown,
+  Mars,
+  Venus,
+  ChevronLeft,
+  Sun,
+  Moon,
+  Smartphone,
+  Monitor,
+} from 'lucide-react';
 import {
   DEFAULT_ACTIVITY_MULTIPLIERS,
   getActivityPresetByKey,
@@ -12,6 +22,7 @@ import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 
 const THEME_OPTIONS = [
+  { value: 'auto', label: 'Auto', icon: Monitor },
   { value: 'dark', label: 'Dark', icon: Moon },
   { value: 'light', label: 'Light', icon: Sun },
   { value: 'amoled_dark', label: 'AMOLED', icon: Smartphone },
@@ -154,9 +165,7 @@ export const SettingsModal = ({
               </div>
 
               <div>
-                <label className="text-muted text-sm block mb-2">
-                  Gender
-                </label>
+                <label className="text-muted text-sm block mb-2">Gender</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => onChange('gender', 'male')}
@@ -186,9 +195,7 @@ export const SettingsModal = ({
               </div>
 
               <div>
-                <label className="text-muted text-sm block mb-2">
-                  Theme
-                </label>
+                <label className="text-muted text-sm block mb-2">Theme</label>
                 <div className="grid grid-cols-2 gap-2">
                   {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
                     <button

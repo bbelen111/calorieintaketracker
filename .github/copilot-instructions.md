@@ -30,6 +30,49 @@ React + Vite single-page app for fitness calorie tracking. Uses Framer Motion fo
 - `@capacitor/keyboard` (Input handling)
 - `@capacitor/splash-screen` (Launch experience)
 - `@capgo/capacitor-health` (Health Connect integration on Android)
+- `@capgo/capacitor-navigation-bar` (Android navigation bar theming)
+
+## Theme System
+
+The app supports 4 theme modes with full native platform integration:
+
+**Theme Options:** `'auto'` | `'dark'` | `'light'` | `'amoled_dark'`
+
+- **Auto (default):** Follows system `prefers-color-scheme`, updates in real-time when OS theme changes
+- **Dark:** Slate 900 background, standard dark mode
+- **Light:** Slate 100 background, dark text
+- **AMOLED:** Pure black (#000000) background for OLED screens
+
+**Architecture:**
+- **CSS Variables:** Defined in `index.css` (`:root` for dark, `.theme-light`, `.theme-amoled-dark`)
+- **Tailwind:** Semantic color utilities (`bg-background`, `bg-surface`, `text-foreground`, `text-muted`, `border-border`)
+- **Native Integration:** `utils/theme.js` handles status bar, navigation bar, and keyboard styling
+- **Theme Switching:** `App.jsx` listens to `userData.theme` and system preference changes
+
+**Semantic Color Mapping:**
+| Utility | Dark | Light | AMOLED |
+|---------|------|-------|--------|
+| `bg-background` | Slate 900 | Slate 100 | Pure Black |
+| `bg-surface` | Slate 800 | White | Gray 900 |
+| `bg-surface-highlight` | Slate 700 | Slate 200 | Gray 800 |
+| `text-foreground` | White | Slate 900 | White |
+| `text-muted` | Slate 400 | Slate 500 | Neutral 400 |
+| `border-border` | Slate 700 | Slate 200 | Gray 800 |
+
+**Usage:**
+```jsx
+// ❌ WRONG - hardcoded colors
+className="bg-slate-800 text-white border-slate-700"
+
+// ✅ CORRECT - semantic theme colors
+className="bg-surface text-foreground border-border"
+```
+
+**Key Functions (`utils/theme.js`):**
+- `applyNativeTheme(theme)` - Updates status bar, nav bar, keyboard
+- `resolveTheme(theme)` - Resolves 'auto' to actual theme based on system
+- `getThemeClass(theme)` - Returns CSS class name for body
+- `isDarkTheme(theme)` - Check if theme is dark variant
 
 ## Architecture Pattern: Store + Orchestrator
 
@@ -133,6 +176,7 @@ Data is split into two keys to optimize performance and prevent dropped frames o
 {
   // Profile Data
   age, weight, height, gender,
+  theme: 'auto', // 'auto' | 'dark' | 'light' | 'amoled_dark'
   trainingType, trainingDuration,
   stepRanges: ['<10k', '10k', ...],
   activityMultipliers: { training: 0.35, rest: 0.28 },
@@ -239,7 +283,7 @@ stepEntries: [
 
 - **Tailwind-only** - no custom CSS except animations in `index.css`
 - **User Select:** `user-select: none` enabled globally to prevent app text selection.
-- **Dark theme:** `slate-800/900` backgrounds, `slate-700` borders, `slate-400` muted text
+- **Semantic Theme Colors:** Use `bg-background`, `bg-surface`, `text-foreground`, `text-muted`, `border-border` - NOT hardcoded slate colors
 - **Icons:** Lucide React at 20px default, 32px for headers
 
 ## Touch-First Interactive Patterns (Critical)
@@ -357,3 +401,4 @@ Preferences-backed hooks with derived state and debouncing
 - **`ModalShell.jsx`** - Scroll-lock and animation handling
 - **`storage.js`** - Data schema, default values, and migration implementations
 - **`useEnergyMapStore.js`** - Zustand state, selectors, derived values, and persistence
+- **`theme.js`** - Theme utilities, native platform integration, CSS class resolution

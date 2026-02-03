@@ -24,7 +24,7 @@ const getPhaseStatusBadge = (status) => {
       );
     case 'completed':
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-700 border border-slate-600 rounded-md text-slate-400 text-xs font-semibold">
+        <span className="inline-flex items-center gap-1 px-2 py-1 bg-surface-highlight border border-border rounded-md text-muted text-xs font-semibold">
           <Archive size={12} />
           COMPLETED
         </span>
@@ -71,7 +71,7 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
   // Helper for goal badge color classes
   const getGoalBadgeClass = () => {
     if (!goal || !goal.color)
-      return 'bg-slate-700 text-slate-300 border-slate-600';
+      return 'bg-surface-highlight text-muted border-border';
     return `${goal.color} text-white border-2 ${goal.color.replace('bg-', 'border-')}`;
   };
   const isActive = phase.status === 'active';
@@ -92,13 +92,13 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
       onClick={() => onPhaseClick(phase)}
       className={`w-full text-left p-5 rounded-xl border-2 transition-all md:hover:scale-[1.02] pressable-card focus-ring ${
         isActive
-          ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-blue-500 shadow-lg shadow-blue-900/20'
-          : 'bg-slate-800 border-slate-700 md:hover:border-slate-600'
+          ? 'bg-gradient-to-br from-surface to-background border-blue-500 shadow-lg shadow-blue-900/20'
+          : 'bg-surface border-border md:hover:border-border'
       }`}
     >
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex-1">
-          <h3 className="text-white font-bold text-lg mb-1">{phase.name}</h3>
+          <h3 className="text-foreground font-bold text-lg mb-1">{phase.name}</h3>
           <div className="flex items-center gap-2 flex-wrap">
             {getPhaseStatusBadge(phase.status)}
             <span
@@ -109,14 +109,14 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
           </div>
         </div>
         <ClipboardList
-          className={isActive ? 'text-blue-400' : 'text-slate-500'}
+          className={isActive ? 'text-blue-400' : 'text-muted'}
           size={24}
         />
       </div>
 
       <div className="space-y-2">
-        <div className="flex items-center gap-2 text-sm text-slate-300">
-          <Calendar size={14} className="text-slate-500" />
+        <div className="flex items-center gap-2 text-sm text-muted">
+          <Calendar size={14} className="text-muted" />
           <span>
             {formatDate(phase.startDate)}
             {phase.endDate && ` - ${formatDate(phase.endDate)}`}
@@ -125,16 +125,16 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
         </div>
 
         {isActive && totalDays && (
-          <div className="flex items-center gap-2 text-sm text-slate-300">
-            <Target size={14} className="text-slate-500" />
+          <div className="flex items-center gap-2 text-sm text-muted">
+            <Target size={14} className="text-muted" />
             <span>
               Day {currentDay} of {totalDays}
             </span>
           </div>
         )}
 
-        <div className="flex items-center gap-2 text-sm text-slate-300">
-          <TrendingUp size={14} className="text-slate-500" />
+        <div className="flex items-center gap-2 text-sm text-muted">
+          <TrendingUp size={14} className="text-muted" />
           <span>
             {formatWeight(phase.startingWeight)} kg → {weightChangeDisplay}
             {phase.targetWeight &&
@@ -143,18 +143,18 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
         </div>
 
         {phase.metrics?.activeDays > 0 && (
-          <div className="mt-3 pt-3 border-t border-slate-700">
+          <div className="mt-3 pt-3 border-t border-border">
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
-                <span className="text-slate-500">Logged Days:</span>
-                <span className="ml-1 text-white font-semibold">
+                <span className="text-muted">Logged Days:</span>
+                <span className="ml-1 text-foreground font-semibold">
                   {phase.metrics.activeDays}
                 </span>
               </div>
               {phase.metrics.avgCalories > 0 && (
                 <div>
-                  <span className="text-slate-500">Avg Calories:</span>
-                  <span className="ml-1 text-white font-semibold">
+                  <span className="text-muted">Avg Calories:</span>
+                  <span className="ml-1 text-foreground font-semibold">
                     {Math.round(phase.metrics.avgCalories)}
                   </span>
                 </div>
@@ -188,11 +188,11 @@ export const LogbookScreen = ({ phases, onCreatePhase, onPhaseClick }) => {
   return (
     <div className="space-y-6 pb-10">
       {/* Header */}
-      <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-2xl">
+      <div className="bg-surface rounded-2xl p-6 border border-border shadow-2xl">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <ClipboardList className="text-blue-400" size={32} />
-            <h1 className="text-2xl md:text-3xl font-bold text-white">
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">
               Logbook
             </h1>
           </div>
@@ -209,13 +209,13 @@ export const LogbookScreen = ({ phases, onCreatePhase, onPhaseClick }) => {
 
       {/* Empty State */}
       {!hasPhases && (
-        <div className="bg-slate-800 rounded-2xl p-8 md:p-12 border border-slate-700 text-center">
+        <div className="bg-surface rounded-2xl p-8 md:p-12 border border-border text-center">
           <div className="max-w-md mx-auto">
-            <div className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
-              <ClipboardList className="text-slate-400" size={32} />
+            <div className="w-16 h-16 bg-surface-highlight rounded-full flex items-center justify-center mx-auto mb-4">
+              <ClipboardList className="text-muted" size={32} />
             </div>
-            <h3 className="text-white font-bold text-xl mb-2">No Phases Yet</h3>
-            <p className="text-slate-400 text-sm mb-6">
+            <h3 className="text-foreground font-bold text-xl mb-2">No Phases Yet</h3>
+            <p className="text-muted text-sm mb-6">
               Create your first phase to start organizing your fitness journey.
               Phases help you track specific goals like bulking, cutting, or
               maintaining over time.
@@ -235,7 +235,7 @@ export const LogbookScreen = ({ phases, onCreatePhase, onPhaseClick }) => {
       {/* Active Phases */}
       {activePhases.length > 0 && (
         <div>
-          <h2 className="text-white font-bold text-lg mb-3 px-1 flex items-center gap-2">
+          <h2 className="text-foreground font-bold text-lg mb-3 px-1 flex items-center gap-2">
             <Play className="text-blue-400" size={18} />
             Active Phases
           </h2>
@@ -254,7 +254,7 @@ export const LogbookScreen = ({ phases, onCreatePhase, onPhaseClick }) => {
       {/* Completed Phases */}
       {completedPhases.length > 0 && (
         <div>
-          <h2 className="text-slate-400 font-bold text-lg mb-3 px-1 flex items-center gap-2">
+          <h2 className="text-muted font-bold text-lg mb-3 px-1 flex items-center gap-2">
             <Archive size={18} />
             Completed Phases
           </h2>

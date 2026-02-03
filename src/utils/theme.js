@@ -37,15 +37,39 @@ const THEME_CONFIG = {
 };
 
 /**
+ * Get the system's preferred color scheme
+ * @returns {'dark' | 'light'} The system theme preference
+ */
+export const getSystemTheme = () => {
+  if (typeof window === 'undefined') return 'dark';
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+    ? 'dark'
+    : 'light';
+};
+
+/**
+ * Resolve 'auto' theme to actual theme based on system preference
+ * @param {string} theme - Theme key including 'auto'
+ * @returns {string} Resolved theme key ('dark' | 'light' | 'amoled_dark')
+ */
+export const resolveTheme = (theme) => {
+  if (theme === 'auto') {
+    return getSystemTheme();
+  }
+  return theme;
+};
+
+/**
  * Apply theme to all native platform components
- * @param {string} theme - Theme key: 'dark' | 'light' | 'amoled_dark'
+ * @param {string} theme - Theme key: 'auto' | 'dark' | 'light' | 'amoled_dark'
  */
 export const applyNativeTheme = async (theme) => {
   if (!Capacitor.isNativePlatform()) {
     return { success: false, message: 'Not on native platform' };
   }
 
-  const config = THEME_CONFIG[theme] ?? THEME_CONFIG.dark;
+  const resolvedTheme = resolveTheme(theme);
+  const config = THEME_CONFIG[resolvedTheme] ?? THEME_CONFIG.dark;
   const results = {
     statusBar: null,
     navigationBar: null,
@@ -67,7 +91,6 @@ export const applyNativeTheme = async (theme) => {
   if (Capacitor.getPlatform() === 'android') {
     try {
       await NavigationBar.setColor({ color: config.navigationBarColor });
-      // Dark theme = light navigation bar icons (white), Light theme = dark icons
       await NavigationBar.setTransparency({ isTransparent: false });
       results.navigationBar = { success: true };
     } catch (error) {
@@ -95,7 +118,8 @@ export const applyNativeTheme = async (theme) => {
  * @returns {string} RGB color string for use in gradients
  */
 export const getVignetteColor = (theme) => {
-  switch (theme) {
+  const resolvedTheme = resolveTheme(theme);
+  switch (resolvedTheme) {
     case 'light':
       return '241, 245, 249'; // slate-100
     case 'amoled_dark':
@@ -112,6 +136,25 @@ export const getVignetteColor = (theme) => {
  * @returns {boolean}
  */
 export const isDarkTheme = (theme) => {
-  const config = THEME_CONFIG[theme];
+  const resolvedTheme = resolveTheme(theme);
+  const config = THEME_CONFIG[resolvedTheme];
   return config?.isDark ?? true;
+};
+
+/**
+ * Get the CSS class name for a theme
+ * @param {string} theme - Theme key including 'auto'
+ * @returns {string | null} CSS class name or null for default dark theme
+ */
+export const getThemeClass = (theme) => {
+  const resolvedTheme = resolveTheme(theme);
+  switch (resolvedTheme) {
+    case 'light':
+      return 'theme-light';
+    case 'amoled_dark':
+      return 'theme-amoled-dark';
+    case 'dark':
+    default:
+      return null; // Default theme uses :root, no class needed
+  }
 };
