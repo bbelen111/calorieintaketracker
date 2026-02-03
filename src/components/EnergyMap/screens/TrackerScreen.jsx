@@ -21,6 +21,8 @@ import { MEAL_TYPE_ORDER, getMealTypeById } from '../../../constants/mealTypes';
 import { formatOne } from '../../../utils/format';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
+import { ConfirmActionModal } from '../modals/ConfirmActionModal';
+import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
 
 const getTodayDate = () => {
   const today = new Date();
@@ -171,6 +173,12 @@ export const TrackerScreen = ({
   const selectedDate = isControlled ? selectedDateProp : internalSelectedDate;
   const [collapsedMeals, setCollapsedMeals] = useState({});
   const [weekSlideDirection, setWeekSlideDirection] = useState(1);
+
+  // Confirm modals for delete actions
+  const deleteFoodConfirmModal = useAnimatedModal();
+  const deleteMealConfirmModal = useAnimatedModal();
+  const [pendingFoodDelete, setPendingFoodDelete] = useState(null);
+  const [pendingMealDelete, setPendingMealDelete] = useState(null);
   const previousDateRef = useRef(selectedDate);
   const todayKey = getTodayDate();
   const weekStartKey = useMemo(() => {
@@ -305,6 +313,21 @@ export const TrackerScreen = ({
     };
   }, [allowInitialAnimation]);
 
+  // Clean up pending deletion state when modals close
+  useEffect(() => {
+    if (deleteFoodConfirmModal.isClosing) {
+      const timer = setTimeout(() => setPendingFoodDelete(null), 200);
+      return () => clearTimeout(timer);
+    }
+  }, [deleteFoodConfirmModal.isClosing]);
+
+  useEffect(() => {
+    if (deleteMealConfirmModal.isClosing) {
+      const timer = setTimeout(() => setPendingMealDelete(null), 200);
+      return () => clearTimeout(timer);
+    }
+  }, [deleteMealConfirmModal.isClosing]);
+
   // Calculate totals across all meals
   const totals = useMemo(() => {
     const allEntries = Object.values(meals).flat();
@@ -366,17 +389,39 @@ export const TrackerScreen = ({
   };
 
   const handleDeleteFood = (mealType, entryId) => {
-    if (window.confirm('Delete this food entry?')) {
-      onDeleteFoodEntry?.(selectedDate, mealType, entryId);
+    setPendingFoodDelete({ mealType, entryId });
+    deleteFoodConfirmModal.open();
+  };
+
+  const confirmDeleteFood = () => {
+    if (pendingFoodDelete) {
+      onDeleteFoodEntry?.(
+        selectedDate,
+        pendingFoodDelete.mealType,
+        pendingFoodDelete.entryId
+      );
     }
+    deleteFoodConfirmModal.requestClose();
+  };
+
+  const cancelDeleteFood = () => {
+    deleteFoodConfirmModal.requestClose();
   };
 
   const handleDeleteMeal = (mealType) => {
-    if (
-      window.confirm(`Delete all ${getMealTypeById(mealType).label} entries?`)
-    ) {
-      onDeleteMeal?.(selectedDate, mealType);
+    setPendingMealDelete(mealType);
+    deleteMealConfirmModal.open();
+  };
+
+  const confirmDeleteMeal = () => {
+    if (pendingMealDelete) {
+      onDeleteMeal?.(selectedDate, pendingMealDelete);
     }
+    deleteMealConfirmModal.requestClose();
+  };
+
+  const cancelDeleteMeal = () => {
+    deleteMealConfirmModal.requestClose();
   };
 
   const handleAddFoodToMealClick = (mealType) => {
@@ -390,9 +435,18 @@ export const TrackerScreen = ({
   const toggleMealCollapse = (mealType) => {
     setCollapsedMeals((prev) => {
       const current = prev[mealType] ?? true;
+      // If opening this meal, close all others
+      if (current) {
+        const newState = {};
+        MEAL_TYPE_ORDER.forEach((id) => {
+          newState[id] = id === mealType ? false : true;
+        });
+        return newState;
+      }
+      // If closing, just close this one
       return {
         ...prev,
-        [mealType]: !current,
+        [mealType]: true,
       };
     });
   };
@@ -1321,6 +1375,36 @@ export const TrackerScreen = ({
           </AnimatePresence>
         </motion.div>
       )}
+
+      {/* Confirm Delete Food Modal */}
+      <ConfirmActionModal
+        isOpen={deleteFoodConfirmModal.isOpen}
+        isClosing={deleteFoodConfirmModal.isClosing}
+        title="Delete Food Entry"
+        description="Are you sure you want to delete this food entry? This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        tone="danger"
+        onConfirm={confirmDeleteFood}
+        onCancel={cancelDeleteFood}
+      />
+
+      {/* Confirm Delete Meal Modal */}
+      <ConfirmActionModal
+        isOpen={deleteMealConfirmModal.isOpen}
+        isClosing={deleteMealConfirmModal.isClosing}
+        title="Delete Entire Meal"
+        description={
+          pendingMealDelete
+            ? `Are you sure you want to delete all ${getMealTypeById(pendingMealDelete).label} entries? This action cannot be undone.`
+            : ''
+        }
+        confirmLabel="Delete All"
+        cancelLabel="Cancel"
+        tone="danger"
+        onConfirm={confirmDeleteMeal}
+        onCancel={cancelDeleteMeal}
+      />
     </div>
   );
 };

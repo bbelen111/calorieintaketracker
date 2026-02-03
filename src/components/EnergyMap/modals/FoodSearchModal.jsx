@@ -1671,14 +1671,17 @@ export const FoodSearchModal = ({
                               </h4>
                             </div>
                             <div className="flex items-center gap-2 mt-1 flex-wrap">
-                              <span
-                                className={`text-xs px-2 py-0.5 rounded ${getCategoryClasses(food.category)}`}
-                              >
-                                {FOOD_CATEGORIES[food.category]?.label ||
-                                  (food.source === 'fatsecret'
-                                    ? 'Cached'
-                                    : food.category)}
-                              </span>
+                              {food.source !== 'fatsecret' &&
+                                food.category !== 'cached' && (
+                                  <span
+                                    className={`text-xs px-2 py-0.5 rounded ${getCategoryClasses(
+                                      food.category
+                                    )}`}
+                                  >
+                                    {FOOD_CATEGORIES[food.category]?.label ||
+                                      food.category}
+                                  </span>
+                                )}
                               {food.brand && (
                                 <span className="text-xs px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded truncate max-w-[100px]">
                                   {food.brand}

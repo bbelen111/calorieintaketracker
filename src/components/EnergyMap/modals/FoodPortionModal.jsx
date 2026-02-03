@@ -78,7 +78,6 @@ export const FoodPortionModal = ({
   onClose,
   onAddFood,
   onSaveAsFavourite,
-  onRemoveFavourite,
   selectedFood,
   initialGrams = DEFAULT_GRAMS,
   isEditing = false,
@@ -91,16 +90,14 @@ export const FoodPortionModal = ({
   const idCounterRef = useRef(0);
   const hasAlignedRef = useRef(false);
   const selectionRef = useRef(convertGramsToParts(initialGrams));
-  
+
   // Track if user has marked this as favourite during this session
   const [markedAsFavourite, setMarkedAsFavourite] = useState(false);
-  
-  // Reset markedAsFavourite when modal opens with new food
-  useEffect(() => {
-    if (isOpen) {
-      setMarkedAsFavourite(false);
-    }
-  }, [isOpen, selectedFood?.id]);
+
+  const handleClose = useCallback(() => {
+    setMarkedAsFavourite(false);
+    onClose?.();
+  }, [onClose]);
 
   // Determine if food has custom portions
   const hasCustomPortions = useMemo(
@@ -379,6 +376,9 @@ export const FoodPortionModal = ({
 
   if (!selectedFood) return null;
 
+  const isCached =
+    selectedFood?.source === 'fatsecret' || selectedFood?.category === 'cached';
+
   const getCategoryColor = (category) => {
     if (category === 'cached' || selectedFood?.source === 'fatsecret') {
       return 'purple';
@@ -387,14 +387,13 @@ export const FoodPortionModal = ({
   };
 
   const categoryLabel =
-    FOOD_CATEGORIES[selectedFood.category]?.label ||
-    (selectedFood.source === 'fatsecret' ? 'Cached' : selectedFood.category);
+    FOOD_CATEGORIES[selectedFood.category]?.label || selectedFood.category;
 
   return (
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
-      onClose={onClose}
+      onClose={handleClose}
       contentClassName="p-6 w-full max-w-md"
     >
       {/* Header */}
@@ -406,11 +405,13 @@ export const FoodPortionModal = ({
                 {selectedFood.name}
               </h4>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
-                <span
-                  className={`text-xs px-2 py-0.5 rounded bg-${getCategoryColor(selectedFood.category)}-500/20 text-${getCategoryColor(selectedFood.category)}-400`}
-                >
-                  {categoryLabel}
-                </span>
+                {!isCached && (
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded bg-${getCategoryColor(selectedFood.category)}-500/20 text-${getCategoryColor(selectedFood.category)}-400`}
+                  >
+                    {categoryLabel}
+                  </span>
+                )}
                 {selectedFood.subcategory && (
                   <span className="text-xs px-2 py-0.5 bg-slate-600/40 text-slate-300 rounded capitalize">
                     {selectedFood.subcategory.replace(/-/g, ' ')}
@@ -421,7 +422,7 @@ export const FoodPortionModal = ({
                     {selectedFood.brand}
                   </span>
                 )}
-                {selectedFood.source === 'fatsecret' && (
+                {isCached && (
                   <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded">
                     Cached
                   </span>
@@ -651,7 +652,7 @@ export const FoodPortionModal = ({
         <div className="flex gap-2 items-center">
           {/* Save as Favourite - only show when callback provided and not editing */}
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="flex-1 h-10 px-4 bg-slate-700 md:hover:bg-slate-600 text-white rounded-lg font-semibold transition-all text-sm press-feedback focus-ring"
           >
             Cancel
@@ -667,18 +668,28 @@ export const FoodPortionModal = ({
           {typeof onSaveAsFavourite === 'function' && !isEditing && (
             <button
               onClick={handleSaveAsFavourite}
-              disabled={isCurrentlyFavourited || !nutrition || nutrition.calories === 0}
-              aria-label={isCurrentlyFavourited ? 'Already favourited' : 'Save as favourite'}
-              title={isCurrentlyFavourited ? 'Already favourited' : 'Save as favourite'}
+              disabled={
+                isCurrentlyFavourited || !nutrition || nutrition.calories === 0
+              }
+              aria-label={
+                isCurrentlyFavourited
+                  ? 'Already favourited'
+                  : 'Save as favourite'
+              }
+              title={
+                isCurrentlyFavourited
+                  ? 'Already favourited'
+                  : 'Save as favourite'
+              }
               className={`w-10 h-10 ml-1 border rounded-lg font-medium transition-all flex items-center justify-center press-feedback focus-ring ${
                 isCurrentlyFavourited
                   ? 'bg-indigo-600/30 border-indigo-500/50 text-indigo-300 cursor-default'
                   : 'bg-indigo-600 md:hover:bg-indigo-500 border-indigo-600/50 text-white disabled:bg-slate-600/20 disabled:border-slate-600/50 disabled:cursor-not-allowed disabled:text-slate-500'
               }`}
             >
-              <Heart 
-                size={20} 
-                fill={isCurrentlyFavourited ? 'currentColor' : 'none'} 
+              <Heart
+                size={20}
+                fill={isCurrentlyFavourited ? 'currentColor' : 'none'}
                 className={isCurrentlyFavourited ? 'text-indigo-300' : ''}
               />
             </button>
