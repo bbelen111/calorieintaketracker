@@ -12,7 +12,7 @@ This app is designed to be wrapped by Capacitor for mobile deployment (iOS/Andro
 - **App ID:** `com.energymap.tracker` - defined in `capacitor.config.json` as the bundle identifier for native builds.
 
 ## Project Overview
-React + Vite single-page app for fitness calorie tracking. Uses Framer Motion for animations, Tailwind for styling, **Zustand for state**, and Capacitor Preferences for native persistence. **No backend, no API calls, no routing** - pure client-side state management. Fully offline-capable local-first architecture.
+React + Vite single-page app for fitness calorie tracking. Uses Framer Motion for animations, Tailwind for styling, **Zustand for state**, and Capacitor Preferences for native persistence. Local-first architecture with optional FatSecret API integration for food search.
 
 **Tech Stack:**
 - React 18.3.1 + Vite 5.4.11
@@ -22,13 +22,14 @@ React + Vite single-page app for fitness calorie tracking. Uses Framer Motion fo
 - Framer Motion 12.23.24 (animations)
 - Tailwind 3.4.17 (styling)
 - Lucide React (icons)
+- **External API:** FatSecret (optional, via Vercel serverless proxy)
 
 **Key Plugins:**
 - `@capacitor/preferences` (Data storage)
 - `@capacitor/status-bar` (System UI styling)
 - `@capacitor/keyboard` (Input handling)
 - `@capacitor/splash-screen` (Launch experience)
-- `@anthropic-ai/anthropic-capacitor-plugin` (Health Connect integration)
+- `@capgo/capacitor-health` (Health Connect integration on Android)
 
 ## Architecture Pattern: Store + Orchestrator
 
@@ -42,7 +43,7 @@ React + Vite single-page app for fitness calorie tracking. Uses Framer Motion fo
 
 **Hydration gate:** `EnergyMapCalculator` waits for `useEnergyMapStore().isLoaded` before rendering to prevent initial flash.
 
-**File stats:** 2700+ lines managing 40+ modal instances, 6 screen components, and all inter-component state coordination.
+**File stats:** 3000+ lines managing 40+ modal instances, 6 screen components, and all inter-component state coordination.
 
 ## Custom Hook Patterns
 
@@ -191,6 +192,32 @@ nutritionData: {
 
 Food database (`constants/foodDatabase.js`) contains 3000+ items with per-100g macros and preset portions. Use `pinnedFoods` array for quick access favorites.
 
+### FatSecret API Integration
+Optional online food search via FatSecret API, proxied through a Vercel serverless function for secure credential handling.
+
+**Architecture:**
+- **Client service:** `services/fatSecret.js` - search, barcode lookup, food details
+- **Serverless proxy:** `api/fatsecret.js` - OAuth 2.0 token management, Vercel deployment
+- **Caching:** Found foods cached in `userData.cachedFoods` to reduce API calls
+
+**Configuration:**
+- Set `VITE_FATSECRET_API_BASE` env var for native builds (defaults to Vercel deployment)
+- Requires `FATSECRET_CLIENT_ID` and `FATSECRET_CLIENT_SECRET` env vars on Vercel
+
+**Key functions:**
+```javascript
+import { searchFoods, getFoodDetails, searchByBarcode } from './services/fatSecret';
+
+// Search returns mapped results with per-100g macros
+const results = await searchFoods('chicken breast', { page: 0, maxResults: 20 });
+
+// Get full food details including portions
+const food = await getFoodDetails(foodId);
+
+// Barcode lookup (UPC/EAN)
+const food = await searchByBarcode('012345678901');
+```
+
 ### Step Tracking System
 Step data integrates with Health Connect on Android for automatic syncing:
 
@@ -206,7 +233,7 @@ stepEntries: [
 - **`StepGoalPickerModal`** - Scroller-based picker for setting daily step goal (1k-50k in 500 increments)
 - **`LiveStepsCard`** (in CalorieMapScreen) - Hero card showing real-time steps with progress bar
 
-**Store actions:** `setStepGoal(goal)`, `addStepEntry(entry)`, `updateStepEntry(date, steps, source)`
+**Store actions:** `setStepGoal(goal)`, `saveStepEntry({ date, steps, source })`
 
 ## Styling Conventions
 
@@ -283,8 +310,6 @@ className="focus-ring"                  /* Blue outline on keyboard focus */
 The `md:` prefix (768px) is the boundary:
 - **< 768px (Mobile):** Touch press feedback only, no hover
 - **≥ 768px (Desktop):** Press feedback + hover enhancements
-
-See `TOUCH_FIRST_REFACTOR_GUIDE.md` for complete pattern documentation.
 
 ## Common Pitfalls
 1. **Async Storage:** Unlike localStorage, `Preferences` are async. **Always await** load/save operations or use the handled store.
