@@ -96,10 +96,7 @@ const CalendarHeatmap = ({ calendarData, onDateClick }) => {
       {/* Day labels */}
       <div className="grid grid-cols-7 gap-2 mb-1">
         {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
-          <div
-            key={i}
-            className="text-muted text-xs text-center font-semibold"
-          >
+          <div key={i} className="text-muted text-xs text-center font-semibold">
             {day}
           </div>
         ))}
@@ -166,7 +163,7 @@ const DailyLogCard = ({ log, onEdit }) => {
               {formatDate(log.date)}
             </span>
             {log.completed && (
-              <span className="px-2 py-0.5 bg-green-900/30 border border-green-700 rounded text-green-300 text-xs font-semibold">
+              <span className="px-2 py-0.5 bg-accent-green/15 border border-accent-green/50 rounded text-accent-green text-xs font-semibold">
                 ✓ Complete
               </span>
             )}
@@ -175,13 +172,13 @@ const DailyLogCard = ({ log, onEdit }) => {
           <div className="flex items-center gap-4 text-sm text-muted flex-wrap">
             {log.calories && (
               <div className="flex items-center gap-1">
-                <Zap size={14} className="text-yellow-400" />
+                <Zap size={14} className="text-accent-yellow" />
                 <span>{log.calories} cal</span>
               </div>
             )}
             {log.steps && (
               <div className="flex items-center gap-1">
-                <Activity size={14} className="text-blue-400" />
+                <Activity size={14} className="text-accent-blue" />
                 <span>{log.steps.toLocaleString()} steps</span>
               </div>
             )}
@@ -198,9 +195,7 @@ const DailyLogCard = ({ log, onEdit }) => {
       )}
 
       {log.notes && (
-        <div className="mt-2 text-xs text-muted line-clamp-2">
-          {log.notes}
-        </div>
+        <div className="mt-2 text-xs text-muted line-clamp-2">{log.notes}</div>
       )}
     </button>
   );
@@ -268,7 +263,7 @@ export const PhaseDetailScreen = ({
   return (
     <div className="space-y-6 pb-10">
       {/* Header */}
-      <div className="bg-surface rounded-2xl p-6 border border-border shadow-2xl">
+      <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
         <button
           type="button"
           onClick={onBack}
@@ -285,8 +280,8 @@ export const PhaseDetailScreen = ({
             </h1>
             <div className="flex items-center gap-2 flex-wrap">
               {isActive && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-900/30 border border-green-700 rounded-md text-green-300 text-xs font-semibold">
-                  <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-accent-green/15 border border-accent-green/50 rounded-md text-accent-green text-xs font-semibold">
+                  <span className="w-2 h-2 bg-accent-green rounded-full animate-pulse" />
                   ACTIVE
                 </span>
               )}
@@ -303,7 +298,7 @@ export const PhaseDetailScreen = ({
             <button
               type="button"
               onClick={onArchive}
-              className="p-2 text-muted rounded-lg transition-all pressable-inline focus-ring md:hover:text-green-400 md:hover:bg-surface-highlight"
+              className="p-2 text-muted rounded-lg transition-all pressable-inline focus-ring md:hover:text-accent-green md:hover:bg-surface-highlight"
               title="Archive Phase"
             >
               <Archive size={20} />
@@ -311,7 +306,7 @@ export const PhaseDetailScreen = ({
             <button
               type="button"
               onClick={onDelete}
-              className="p-2 text-muted rounded-lg transition-all pressable-inline focus-ring md:hover:text-red-400 md:hover:bg-surface-highlight"
+              className="p-2 text-muted rounded-lg transition-all pressable-inline focus-ring md:hover:text-accent-red md:hover:bg-surface-highlight"
               title="Delete Phase"
             >
               <Trash2 size={20} />
@@ -346,9 +341,7 @@ export const PhaseDetailScreen = ({
             <div className="text-foreground font-semibold">
               {weightChangeDisplay}
             </div>
-            <div className="text-muted text-xs mt-1">
-              {weeklyRateDisplay}
-            </div>
+            <div className="text-muted text-xs mt-1">{weeklyRateDisplay}</div>
           </div>
 
           <div>
@@ -396,9 +389,9 @@ export const PhaseDetailScreen = ({
       </div>
 
       {/* Calendar */}
-      <div className="bg-surface rounded-2xl p-6 border border-border shadow-2xl">
+      <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
         <h2 className="text-foreground font-bold text-lg mb-4 flex items-center gap-2">
-          <Calendar size={20} className="text-blue-400" />
+          <Calendar size={20} className="text-accent-blue" />
           Daily Log Calendar
         </h2>
         <CalendarHeatmap
@@ -409,8 +402,10 @@ export const PhaseDetailScreen = ({
 
       {/* Recent Logs */}
       {recentLogs.length > 0 && (
-        <div className="bg-surface rounded-2xl p-6 border border-border shadow-2xl">
-          <h2 className="text-foreground font-bold text-lg mb-4">Recent Logs</h2>
+        <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
+          <h2 className="text-foreground font-bold text-lg mb-4">
+            Recent Logs
+          </h2>
           <div className="space-y-3">
             {recentLogs.map((log) => (
               <DailyLogCard key={log.date} log={log} onEdit={onEditLog} />

@@ -17,8 +17,8 @@ const getPhaseStatusBadge = (status) => {
   switch (status) {
     case 'active':
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-900/30 border border-green-700 rounded-md text-green-300 text-xs font-semibold">
-          <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+        <span className="inline-flex items-center gap-1 px-2 py-1 bg-accent-green/15 border border-accent-green/50 rounded-md text-accent-green text-xs font-semibold">
+          <span className="w-2 h-2 bg-accent-green rounded-full animate-pulse" />
           ACTIVE
         </span>
       );
@@ -31,7 +31,7 @@ const getPhaseStatusBadge = (status) => {
       );
     case 'paused':
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-900/30 border border-yellow-700 rounded-md text-yellow-300 text-xs font-semibold">
+        <span className="inline-flex items-center gap-1 px-2 py-1 bg-accent-yellow/15 border border-accent-yellow/50 rounded-md text-accent-yellow text-xs font-semibold">
           PAUSED
         </span>
       );
@@ -98,7 +98,9 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
     >
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex-1">
-          <h3 className="text-foreground font-bold text-lg mb-1">{phase.name}</h3>
+          <h3 className="text-foreground font-bold text-lg mb-1">
+            {phase.name}
+          </h3>
           <div className="flex items-center gap-2 flex-wrap">
             {getPhaseStatusBadge(phase.status)}
             <span
@@ -109,7 +111,7 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
           </div>
         </div>
         <ClipboardList
-          className={isActive ? 'text-blue-400' : 'text-muted'}
+          className={isActive ? 'text-accent-blue' : 'text-muted'}
           size={24}
         />
       </div>
@@ -188,10 +190,10 @@ export const LogbookScreen = ({ phases, onCreatePhase, onPhaseClick }) => {
   return (
     <div className="space-y-6 pb-10">
       {/* Header */}
-      <div className="bg-surface rounded-2xl p-6 border border-border shadow-2xl">
+      <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <ClipboardList className="text-blue-400" size={32} />
+            <ClipboardList className="text-accent-blue" size={32} />
             <h1 className="text-2xl md:text-3xl font-bold text-foreground">
               Logbook
             </h1>
@@ -214,7 +216,9 @@ export const LogbookScreen = ({ phases, onCreatePhase, onPhaseClick }) => {
             <div className="w-16 h-16 bg-surface-highlight rounded-full flex items-center justify-center mx-auto mb-4">
               <ClipboardList className="text-muted" size={32} />
             </div>
-            <h3 className="text-foreground font-bold text-xl mb-2">No Phases Yet</h3>
+            <h3 className="text-foreground font-bold text-xl mb-2">
+              No Phases Yet
+            </h3>
             <p className="text-muted text-sm mb-6">
               Create your first phase to start organizing your fitness journey.
               Phases help you track specific goals like bulking, cutting, or
@@ -236,7 +240,7 @@ export const LogbookScreen = ({ phases, onCreatePhase, onPhaseClick }) => {
       {activePhases.length > 0 && (
         <div>
           <h2 className="text-foreground font-bold text-lg mb-3 px-1 flex items-center gap-2">
-            <Play className="text-blue-400" size={18} />
+            <Play className="text-accent-blue" size={18} />
             Active Phases
           </h2>
           <div className="space-y-3">

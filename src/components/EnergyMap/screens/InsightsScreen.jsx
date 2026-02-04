@@ -66,12 +66,16 @@ const getOnTrackStatus = (trend, selectedGoal) => {
   if (selectedGoal === 'maintenance') {
     const absRate = Math.abs(rate);
     if (absRate <= 0.1) {
-      return { icon: 'check', text: 'On target', color: 'text-green-400' };
+      return { icon: 'check', text: 'On target', color: 'text-accent-green' };
     }
     if (absRate <= 0.25) {
-      return { icon: 'warning', text: 'Near target', color: 'text-yellow-400' };
+      return {
+        icon: 'warning',
+        text: 'Near target',
+        color: 'text-accent-yellow',
+      };
     }
-    return { icon: 'error', text: 'Off target', color: 'text-orange-400' };
+    return { icon: 'error', text: 'Off target', color: 'text-accent-orange' };
   }
 
   const isBulk = selectedGoal.includes('bulk');
@@ -79,80 +83,80 @@ const getOnTrackStatus = (trend, selectedGoal) => {
   const movingRight = (isBulk && rate > 0.1) || (isCut && rate < -0.1) || false;
 
   if (!movingRight) {
-    return { icon: 'error', text: 'Opposite trend', color: 'text-red-400' };
+    return { icon: 'error', text: 'Opposite trend', color: 'text-accent-red' };
   }
 
   const absRate = Math.abs(rate);
 
   if (selectedGoal === 'aggressive_bulk') {
     if (absRate >= 0.5 && absRate <= 1.0) {
-      return { icon: 'check', text: 'On target', color: 'text-green-400' };
+      return { icon: 'check', text: 'On target', color: 'text-accent-green' };
     }
     if (absRate < 0.5) {
       return {
         icon: 'warning',
         text: 'Below target rate',
-        color: 'text-yellow-400',
+        color: 'text-accent-yellow',
       };
     }
     return {
       icon: 'warning',
       text: 'Above target rate',
-      color: 'text-yellow-400',
+      color: 'text-accent-yellow',
     };
   }
 
   if (selectedGoal === 'bulking') {
     if (absRate >= 0.25 && absRate <= 0.5) {
-      return { icon: 'check', text: 'On target', color: 'text-green-400' };
+      return { icon: 'check', text: 'On target', color: 'text-accent-green' };
     }
     if (absRate < 0.25) {
       return {
         icon: 'warning',
         text: 'Below target rate',
-        color: 'text-yellow-400',
+        color: 'text-accent-yellow',
       };
     }
     return {
       icon: 'warning',
       text: 'Above target rate',
-      color: 'text-yellow-400',
+      color: 'text-accent-yellow',
     };
   }
 
   if (selectedGoal === 'cutting') {
     if (absRate >= 0.25 && absRate <= 0.5) {
-      return { icon: 'check', text: 'On target', color: 'text-green-400' };
+      return { icon: 'check', text: 'On target', color: 'text-accent-green' };
     }
     if (absRate < 0.25) {
       return {
         icon: 'warning',
         text: 'Below target rate',
-        color: 'text-yellow-400',
+        color: 'text-accent-yellow',
       };
     }
     return {
       icon: 'warning',
       text: 'Above target rate',
-      color: 'text-orange-400',
+      color: 'text-accent-orange',
     };
   }
 
   if (selectedGoal === 'aggressive_cut') {
     if (absRate >= 0.5 && absRate <= 1.0) {
-      return { icon: 'check', text: 'On target', color: 'text-green-400' };
+      return { icon: 'check', text: 'On target', color: 'text-accent-green' };
     }
     if (absRate < 0.5) {
       return {
         icon: 'warning',
         text: 'Below target rate',
-        color: 'text-yellow-400',
+        color: 'text-accent-yellow',
       };
     }
     return {
       icon: 'warning',
       text: 'Above target rate',
-      color: 'text-orange-400',
+      color: 'text-accent-orange',
     };
   }
 
@@ -334,76 +338,78 @@ export const InsightsScreen = ({
 
   const bmiColorMap = {
     blue: {
-      text: 'text-blue-400',
-      border: 'border-blue-500/50',
-      bg: 'bg-blue-500/20',
+      text: 'text-accent-blue',
+      border: 'border-accent-blue/50',
+      bg: 'bg-accent-blue/20',
     },
     green: {
-      text: 'text-green-400',
-      border: 'border-green-500/50',
-      bg: 'bg-green-500/20',
+      text: 'text-accent-green',
+      border: 'border-accent-green/50',
+      bg: 'bg-accent-green/20',
     },
     yellow: {
-      text: 'text-yellow-400',
-      border: 'border-yellow-500/50',
-      bg: 'bg-yellow-500/20',
+      text: 'text-accent-yellow',
+      border: 'border-accent-yellow/50',
+      bg: 'bg-accent-yellow/20',
     },
     red: {
-      text: 'text-red-400',
-      border: 'border-red-500/50',
-      bg: 'bg-red-500/20',
+      text: 'text-accent-red',
+      border: 'border-accent-red/50',
+      bg: 'bg-accent-red/20',
     },
     slate: {
-      text: 'text-slate-400',
-      border: 'border-slate-500/50',
-      bg: 'bg-slate-500/20',
+      text: 'text-accent-slate',
+      border: 'border-accent-slate/50',
+      bg: 'bg-accent-slate/20',
     },
   };
 
   const ffmiColorMap = {
     blue: {
-      text: 'text-blue-400',
-      border: 'border-blue-500/50',
-      bg: 'bg-blue-500/20',
+      text: 'text-accent-blue',
+      border: 'border-accent-blue/50',
+      bg: 'bg-accent-blue/20',
     },
     green: {
-      text: 'text-green-400',
-      border: 'border-green-500/50',
-      bg: 'bg-green-500/20',
+      text: 'text-accent-green',
+      border: 'border-accent-green/50',
+      bg: 'bg-accent-green/20',
     },
     emerald: {
-      text: 'text-emerald-400',
-      border: 'border-emerald-500/50',
-      bg: 'bg-emerald-500/20',
+      text: 'text-accent-emerald',
+      border: 'border-accent-emerald/50',
+      bg: 'bg-accent-emerald/20',
     },
     purple: {
-      text: 'text-purple-400',
-      border: 'border-purple-500/50',
-      bg: 'bg-purple-500/20',
+      text: 'text-accent-purple',
+      border: 'border-accent-purple/50',
+      bg: 'bg-accent-purple/20',
     },
     amber: {
-      text: 'text-amber-400',
-      border: 'border-amber-500/50',
-      bg: 'bg-amber-500/20',
+      text: 'text-accent-amber',
+      border: 'border-accent-amber/50',
+      bg: 'bg-accent-amber/20',
     },
     red: {
-      text: 'text-red-400',
-      border: 'border-red-500/50',
-      bg: 'bg-red-500/20',
+      text: 'text-accent-red',
+      border: 'border-accent-red/50',
+      bg: 'bg-accent-red/20',
     },
     slate: {
-      text: 'text-slate-400',
-      border: 'border-slate-500/50',
-      bg: 'bg-slate-500/20',
+      text: 'text-accent-slate',
+      border: 'border-accent-slate/50',
+      bg: 'bg-accent-slate/20',
     },
   };
 
   return (
     <div className="space-y-6 pb-10">
-      <div className="bg-surface rounded-2xl border border-border shadow-2xl p-5 md:p-6">
+      <div className="bg-surface rounded-2xl border border-border shadow-lg p-5 md:p-6">
         <div className="flex items-center mb-4 gap-2">
-          <LineChart className="text-blue-400" size={18} />
-          <h2 className="text-xl font-bold text-foreground">Body Composition</h2>
+          <LineChart className="text-accent-blue" size={18} />
+          <h2 className="text-xl font-bold text-foreground">
+            Body Composition
+          </h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <button
@@ -443,7 +449,7 @@ export const InsightsScreen = ({
                 </p>
               </div>
               {sparkline.points && sortedEntries.length > 1 && (
-                <div className="w-36 h-16 relative">
+                <div className="w-36 h-16 relative [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
                   <svg
                     width="100%"
                     height="100%"
@@ -514,12 +520,10 @@ export const InsightsScreen = ({
                       />
                     ))}
                   </svg>
-                  <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-surface/80 to-transparent pointer-events-none" />
-                  <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-surface/80 to-transparent pointer-events-none" />
                 </div>
               )}
             </div>
-            <p className="text-blue-300 text-xs tracking-wide mt-3">
+            <p className="text-accent-blue/80 text-xs tracking-wide mt-3">
               Tap to open weight tracker
             </p>
           </button>
@@ -562,7 +566,7 @@ export const InsightsScreen = ({
                   </p>
                 </div>
                 {bodyFatSparkline.points && sortedBodyFatEntries.length > 1 && (
-                  <div className="w-36 h-16 relative">
+                  <div className="w-36 h-16 relative [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
                     <svg
                       width="100%"
                       height="100%"
@@ -633,12 +637,10 @@ export const InsightsScreen = ({
                         />
                       ))}
                     </svg>
-                    <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-surface/80 to-transparent pointer-events-none" />
-                    <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-surface/80 to-transparent pointer-events-none" />
                   </div>
                 )}
               </div>
-              <p className="text-blue-300 text-xs tracking-wide mt-3">
+              <p className="text-accent-blue/80 text-xs tracking-wide mt-3">
                 Tap to open body fat tracker
               </p>
             </button>
@@ -652,30 +654,33 @@ export const InsightsScreen = ({
             >
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="font-semibold text-foreground text-sm mb-1">BMI</p>
+                  <p className="font-semibold text-foreground text-sm mb-1">
+                    BMI
+                  </p>
                   <p
-                    className={`text-xl font-bold ${bmiColorMap[bmiCategory.color]?.text || 'text-slate-400'}`}
+                    className={`text-xl font-bold ${bmiColorMap[bmiCategory.color]?.text || 'text-accent-slate'}`}
                   >
                     {bmi ? bmi.toFixed(1) : '—'}
                   </p>
                   <p
-                    className={`text-xs mt-1 ${bmiColorMap[bmiCategory.color]?.text || 'text-slate-400'}`}
+                    className={`text-xs mt-1 ${bmiColorMap[bmiCategory.color]?.text || 'text-accent-slate'}`}
                   >
                     {bmiCategory.label}
                   </p>
                 </div>
                 <div
-                  className={`p-2 rounded-lg ${bmiColorMap[bmiCategory.color]?.bg || 'bg-slate-500/20'}`}
+                  className={`p-2 rounded-lg ${bmiColorMap[bmiCategory.color]?.bg || 'bg-accent-slate/20'}`}
                 >
                   <Info
                     size={18}
                     className={
-                      bmiColorMap[bmiCategory.color]?.text || 'text-slate-400'
+                      bmiColorMap[bmiCategory.color]?.text ||
+                      'text-accent-slate'
                     }
                   />
                 </div>
               </div>
-              <p className="text-blue-300 text-[10px] tracking-wide mt-2">
+              <p className="text-accent-blue/80 text-[10px] tracking-wide mt-2">
                 Tap for more info
               </p>
             </button>
@@ -687,33 +692,35 @@ export const InsightsScreen = ({
             >
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="font-semibold text-foreground text-sm mb-1">FFMI</p>
+                  <p className="font-semibold text-foreground text-sm mb-1">
+                    FFMI
+                  </p>
                   <p
-                    className={`text-xl font-bold ${ffmiData ? ffmiColorMap[ffmiCategory.color]?.text || 'text-slate-400' : 'text-muted'}`}
+                    className={`text-xl font-bold ${ffmiData ? ffmiColorMap[ffmiCategory.color]?.text || 'text-accent-slate' : 'text-muted'}`}
                   >
                     {ffmiData ? ffmiData.normalized.toFixed(1) : '—'}
                   </p>
                   <p
-                    className={`text-xs mt-1 ${ffmiData ? ffmiColorMap[ffmiCategory.color]?.text || 'text-slate-400' : 'text-muted'}`}
+                    className={`text-xs mt-1 ${ffmiData ? ffmiColorMap[ffmiCategory.color]?.text || 'text-accent-slate' : 'text-muted'}`}
                   >
                     {ffmiData ? ffmiCategory.label : 'Requires body fat data'}
                   </p>
                 </div>
                 <div
-                  className={`p-2 rounded-lg ${ffmiData ? ffmiColorMap[ffmiCategory.color]?.bg || 'bg-slate-500/20' : 'bg-slate-500/20'}`}
+                  className={`p-2 rounded-lg ${ffmiData ? ffmiColorMap[ffmiCategory.color]?.bg || 'bg-accent-slate/20' : 'bg-accent-slate/20'}`}
                 >
                   <Info
                     size={18}
                     className={
                       ffmiData
                         ? ffmiColorMap[ffmiCategory.color]?.text ||
-                          'text-slate-400'
-                        : 'text-slate-500'
+                          'text-accent-slate'
+                        : 'text-accent-slate'
                     }
                   />
                 </div>
               </div>
-              <p className="text-blue-300 text-[10px] tracking-wide mt-2">
+              <p className="text-accent-blue/80 text-[10px] tracking-wide mt-2">
                 Tap for more info
               </p>
             </button>
@@ -721,40 +728,40 @@ export const InsightsScreen = ({
         </div>
       </div>
 
-      <div className="bg-surface rounded-2xl p-6 border border-border shadow-2xl">
+      <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
         <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-          <PieChart className="text-blue-400" size={18} />
+          <PieChart className="text-accent-blue" size={18} />
           Macro Recommendations
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-red-900/30 border border-red-700 rounded-xl p-4">
-            <p className="text-red-400 font-bold mb-2">Protein</p>
+          <div className="bg-accent-red/15 border border-accent-red/50 rounded-xl p-4">
+            <p className="text-accent-red font-bold mb-2">Protein</p>
             <p className="text-foreground text-2xl font-bold">
               {Math.round(resolvedUserData.weight * 2.0)}-
               {Math.round(resolvedUserData.weight * 2.4)}g
             </p>
             <p className="text-muted text-sm">2.0-2.4g per kg bodyweight</p>
           </div>
-          <div className="bg-yellow-900/30 border border-yellow-700 rounded-xl p-4">
-            <p className="text-yellow-400 font-bold mb-2">Fats</p>
+          <div className="bg-accent-yellow/15 border border-accent-yellow/50 rounded-xl p-4">
+            <p className="text-accent-yellow font-bold mb-2">Fats</p>
             <p className="text-foreground text-2xl font-bold">
               {Math.round(resolvedUserData.weight * 0.8)}-
               {Math.round(resolvedUserData.weight * 1.0)}g
             </p>
             <p className="text-muted text-sm">0.8-1.0g per kg bodyweight</p>
           </div>
-          <div className="bg-amber-900/30 border border-amber-700 rounded-xl p-4">
-            <p className="text-amber-400 font-bold mb-2">Carbs</p>
-            <p className="text-foreground text-lg font-bold">Remaining calories</p>
-            <p className="text-muted text-sm">
-              Adjust based on energy needs
+          <div className="bg-accent-amber/15 border border-accent-amber/50 rounded-xl p-4">
+            <p className="text-accent-amber font-bold mb-2">Carbs</p>
+            <p className="text-foreground text-lg font-bold">
+              Remaining calories
             </p>
+            <p className="text-muted text-sm">Adjust based on energy needs</p>
           </div>
         </div>
         {selectedGoal === 'aggressive_cut' && (
-          <div className="mt-4 bg-red-900/40 border border-red-600/80 rounded-xl p-4 flex items-start gap-3">
-            <Info size={20} className="text-red-300 flex-shrink-0 mt-0.5" />
-            <p className="text-red-100 text-sm">
+          <div className="mt-4 bg-accent-red/15 border border-accent-red/60 rounded-xl p-4 flex items-start gap-3">
+            <Info size={20} className="text-accent-red flex-shrink-0 mt-0.5" />
+            <p className="text-foreground text-sm">
               During an aggressive cut, push protein to the upper end of the{' '}
               {Math.round(resolvedUserData.weight * 2.4)}g+ range to help
               preserve lean mass. Consider exceeding this slightly if recovery
@@ -763,53 +770,53 @@ export const InsightsScreen = ({
           </div>
         )}
       </div>
-      <div className="bg-surface rounded-2xl p-6 border border-border shadow-2xl">
+      <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
         <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-          <Lightbulb className="text-blue-400" size={18} />
+          <Lightbulb className="text-accent-blue" size={18} />
           Tips
         </h2>
         <ul className="space-y-2 text-muted">
           <li className="flex items-start gap-2">
-            <span className="text-blue-400 mt-1">•</span>
+            <span className="text-accent-blue mt-1">•</span>
             <span>
               Track your steps daily to use the accurate calorie target
             </span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-blue-400 mt-1">•</span>
+            <span className="text-accent-blue mt-1">•</span>
             <span>
               On training days, fuel your sessions properly with higher carbs
               pre-workout
             </span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-blue-400 mt-1">•</span>
+            <span className="text-accent-blue mt-1">•</span>
             <span>
               Cardio burns are calculated using MET values based on your weight
             </span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-blue-400 mt-1">•</span>
+            <span className="text-accent-blue mt-1">•</span>
             <span>
               Different training types burn calories at different rates - adjust
               accordingly
             </span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-blue-400 mt-1">•</span>
+            <span className="text-accent-blue mt-1">•</span>
             <span>
               Weigh yourself weekly and adjust if progress stalls for 2+ weeks
             </span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-blue-400 mt-1">•</span>
+            <span className="text-accent-blue mt-1">•</span>
             <span>
               For lean bulk: aim for 0.25-0.5kg gain per week. For aggressive
               bulk: 0.5-1kg per week
             </span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-blue-400 mt-1">•</span>
+            <span className="text-accent-blue mt-1">•</span>
             <span>
               For moderate cut: aim for 0.5kg loss per week. For aggressive cut:
               0.75-1kg per week

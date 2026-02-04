@@ -476,7 +476,7 @@ export const TrackerScreen = ({
   return (
     <div className="space-y-6 pb-10">
       {/* Header */}
-      <div className="bg-surface rounded-2xl p-6 border border-border shadow-2xl">
+      <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <Target className="text-blue-400" size={32} />
@@ -600,7 +600,7 @@ export const TrackerScreen = ({
       </div>
 
       {/* Total Calories */}
-      <div className="bg-surface rounded-2xl p-6 border border-border shadow-2xl">
+      <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Flame className="text-blue-400" size={20} />
@@ -880,7 +880,7 @@ export const TrackerScreen = ({
 
       {/* Food Entries Section - Grouped by Meal Type */}
       {skipMealAnimation ? (
-        <div className="bg-surface rounded-2xl p-6 border border-border shadow-2xl">
+        <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
           {hasFoodEntries ? (
             <div>
               <div className="flex items-center justify-between mb-4">

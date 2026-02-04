@@ -77,7 +77,7 @@ const LiveStepsCard = ({
       <div className="bg-gradient-to-br from-surface-highlight/80 to-surface/80 rounded-2xl p-5 border border-border/50 mb-4">
         <div className="flex items-center gap-3 mb-3">
           <div className="p-2 bg-amber-500/20 rounded-xl">
-            <AlertCircle className="text-amber-400" size={24} />
+            <AlertCircle className="text-accent-amber" size={24} />
           </div>
           <div>
             <h3 className="text-foreground font-semibold">
@@ -111,7 +111,7 @@ const LiveStepsCard = ({
       <div className="bg-gradient-to-br from-surface-highlight/80 to-surface/80 rounded-2xl p-5 border border-border/50 mb-4">
         <div className="flex items-center gap-3 mb-3">
           <div className="p-2 bg-blue-500/20 rounded-xl">
-            <Footprints className="text-blue-400" size={24} />
+            <Footprints className="text-accent-blue" size={24} />
           </div>
           <div className="flex-1">
             <h3 className="text-foreground font-semibold">Track Your Steps</h3>
@@ -121,7 +121,7 @@ const LiveStepsCard = ({
           </div>
         </div>
         {hasError && healthConnectError && (
-          <p className="text-red-400 text-xs mb-3 flex items-center gap-1">
+          <p className="text-accent-red text-xs mb-3 flex items-center gap-1">
             <AlertCircle size={12} />
             {healthConnectError}
           </p>
@@ -149,10 +149,10 @@ const LiveStepsCard = ({
   // Connecting state
   if (isConnecting) {
     return (
-      <div className="bg-gradient-to-br from-blue-900/30 to-surface/80 rounded-2xl p-5 border border-blue-500/30 mb-4">
+      <div className="bg-gradient-to-br from-accent-blue/15 to-surface/80 rounded-2xl p-5 border border-accent-blue/30 mb-4">
         <div className="flex items-center gap-3">
-          <Loader2 className="text-blue-400 animate-spin" size={24} />
-          <span className="text-white font-medium">
+          <Loader2 className="text-accent-blue animate-spin" size={24} />
+          <span className="text-foreground font-medium">
             Connecting to Health Connect...
           </span>
         </div>
@@ -172,13 +172,15 @@ const LiveStepsCard = ({
     return (
       <div
         onClick={handleCardClick}
-        className="w-full bg-surface-highlight/60 rounded-2xl p-5 border border-border/50 mb-4 text-left md:hover:border-blue-400/40 transition-all focus-ring cursor-pointer active:scale-[0.99]"
+        className="w-full bg-surface-highlight/60 rounded-2xl p-5 border border-border/50 mb-4 text-left md:hover:border-accent-blue/40 transition-all focus-ring cursor-pointer active:scale-[0.99]"
       >
         <div className="flex items-start justify-between mb-3">
           <div>
-            <h3 className="text-foreground font-bold text-lg">Today's Steps</h3>
+            <h3 className="text-foreground font-bold text-lg">
+              Today&apos;s Steps
+            </h3>
             <p className="text-muted text-xs flex items-center gap-1.5 mt-0.5">
-              <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse" />
+              <span className="w-1.5 h-1.5 bg-accent-blue rounded-full animate-pulse" />
               Synced {formatLastSynced(lastSynced)}
             </p>
           </div>
@@ -200,16 +202,16 @@ const LiveStepsCard = ({
 
         <div className="grid grid-cols-2 gap-3">
           {/* Step Count */}
-          <div className="bg-border/50 rounded-xl p-3 text-center">
-            <p className="text-white/80 text-xs mb-1">Steps</p>
+          <div className="bg-surface/80 rounded-xl p-3 text-center">
+            <p className="text-foreground text-xs mb-1">Steps</p>
             <p
               className={`font-bold text-2xl ${
-                stepCount >= stepGoal ? 'text-green-400' : 'text-blue-400'
+                stepCount >= stepGoal ? 'text-accent-green' : 'text-accent-blue'
               }`}
             >
               {stepCount.toLocaleString()}
             </p>
-            <p className="text-white/70 text-xs">
+            <p className="text-foreground/70 text-xs">
               ~{formatStepCount(stepCount)} steps
             </p>
           </div>
@@ -241,7 +243,9 @@ const LiveStepsCard = ({
               </p>
               <p
                 className={`text-xs font-semibold ${
-                  stepCount >= stepGoal ? 'text-green-400' : 'text-blue-400'
+                  stepCount >= stepGoal
+                    ? 'text-accent-green'
+                    : 'text-accent-blue'
                 }`}
               >
                 {Math.round((stepCount / stepGoal) * 100)}%
@@ -265,14 +269,14 @@ const LiveStepsCard = ({
             TDEE: {breakdown.total.toLocaleString()} cal
             {difference !== 0 && (
               <span
-                className={`ml-2 font-semibold ${difference > 0 ? 'text-green-400' : 'text-red-400'}`}
+                className={`ml-2 font-semibold ${difference > 0 ? 'text-accent-green' : 'text-accent-red'}`}
               >
                 {difference > 0 ? '+' : ''}
                 {difference.toLocaleString()} cal
               </span>
             )}
           </p>
-          <p className="text-blue-300 text-xs tracking-wide">
+          <p className="text-accent-blue/80 text-xs tracking-wide">
             Tap to open step tracker
           </p>
         </div>
@@ -285,8 +289,10 @@ const LiveStepsCard = ({
     return (
       <div className="bg-gradient-to-br from-surface-highlight/80 to-surface/80 rounded-2xl p-5 border border-border/50 mb-4">
         <div className="flex items-center gap-3">
-          <Loader2 className="text-blue-400 animate-spin" size={24} />
-          <span className="text-white font-medium">Loading step data...</span>
+          <Loader2 className="text-accent-blue animate-spin" size={24} />
+          <span className="text-foreground font-medium">
+            Loading step data...
+          </span>
         </div>
       </div>
     );
@@ -325,21 +331,21 @@ export const CalorieMapScreen = ({
   const resolvedStepGoal = stepGoal ?? store.stepGoal;
   const resolvedGoals = goals ?? baseGoals;
   const goalTextClasses = {
-    aggressive_bulk: 'text-purple-400',
-    bulking: 'text-green-400',
-    maintenance: 'text-blue-300',
-    cutting: 'text-yellow-400',
-    aggressive_cut: 'text-orange-400',
+    aggressive_bulk: 'text-accent-purple',
+    bulking: 'text-accent-green',
+    maintenance: 'text-accent-blue/80',
+    cutting: 'text-accent-yellow',
+    aggressive_cut: 'text-accent-orange',
   };
-  const goalTextClass = goalTextClasses[selectedGoal] ?? 'text-blue-300';
+  const goalTextClass = goalTextClasses[selectedGoal] ?? 'text-accent-blue/80';
 
   return (
     <div className="space-y-6 pb-10">
-      <div className="bg-surface rounded-2xl p-6 border border-border shadow-2xl">
+      <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
         <div className="flex items-start justify-between mb-4">
           <div>
             <div className="flex items-center gap-3">
-              <Map className="text-blue-400" size={32} />
+              <Map className="text-accent-blue" size={32} />
               <h1 className="text-2xl md:text-3xl font-bold text-foreground">
                 Calorie Map
               </h1>
@@ -405,7 +411,7 @@ export const CalorieMapScreen = ({
                 onClick={() => onOpenBreakdown(steps)}
                 className={`group relative w-full text-left bg-surface-highlight/50 rounded-xl p-4 transition-all border border-border/50 active:scale-[0.99] pressable-card focus-ring ${
                   isActive
-                    ? 'ring-2 ring-blue-400 bg-surface-highlight/90'
+                    ? 'ring-2 ring-accent-blue bg-surface-highlight/90'
                     : 'md:hover:bg-border'
                 }`}
                 aria-expanded={isActive}
@@ -418,7 +424,7 @@ export const CalorieMapScreen = ({
                   </div>
                   <Info
                     size={18}
-                    className={`mt-1 ${isActive ? 'text-blue-300' : 'text-muted md:group-hover:text-blue-300'}`}
+                    className={`mt-1 ${isActive ? 'text-accent-blue/80' : 'text-muted md:group-hover:text-accent-blue/80'}`}
                   />
                 </div>
                 <div className="bg-blue-600 rounded-lg p-3 mb-2 text-center">
@@ -431,7 +437,7 @@ export const CalorieMapScreen = ({
                   TDEE: {breakdown.total.toLocaleString()}
                   {difference !== 0 && (
                     <span
-                      className={`ml-2 font-semibold ${difference > 0 ? 'text-green-400' : 'text-red-400'}`}
+                      className={`ml-2 font-semibold ${difference > 0 ? 'text-accent-green' : 'text-accent-red'}`}
                     >
                       {difference > 0 ? '+' : ''}
                       {difference.toLocaleString()} cal

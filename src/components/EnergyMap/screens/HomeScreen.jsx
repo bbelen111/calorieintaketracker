@@ -74,7 +74,7 @@ export const HomeScreen = ({
 
   return (
     <div className="space-y-6 pb-10">
-      <div className="bg-surface rounded-2xl p-6 md:p-8 border border-border shadow-2xl">
+      <div className="bg-surface rounded-2xl p-6 md:p-8 border border-border shadow-lg">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <Activity className="text-primary" size={32} />
@@ -160,7 +160,7 @@ export const HomeScreen = ({
         </div>
       </div>
 
-      <div className="bg-surface rounded-2xl p-6 border border-border shadow-2xl">
+      <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
         <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
           <Target className="text-primary" size={18} />
           Your Goal
@@ -180,15 +180,15 @@ export const HomeScreen = ({
         </button>
 
         {goalConfig.warning && (
-          <div className="mt-4 bg-yellow-900/30 border-2 border-yellow-600 rounded-xl p-4">
-            <p className="text-yellow-300 text-sm font-medium">
+          <div className="mt-4 bg-accent-yellow/15 border-2 border-accent-yellow/60 rounded-xl p-4">
+            <p className="text-accent-yellow text-sm font-medium">
               {goalConfig.warning}
             </p>
           </div>
         )}
       </div>
 
-      <div className="bg-surface rounded-2xl p-6 border border-border shadow-2xl">
+      <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
         <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
           <Calendar className="text-primary" size={18} />
           Day Type
@@ -262,7 +262,7 @@ export const HomeScreen = ({
       </div>
 
       <motion.div
-        className="bg-surface rounded-2xl p-6 border border-border shadow-2xl"
+        className="bg-surface rounded-2xl p-6 border border-border shadow-lg"
         layout={!isSwiping}
         initial={false}
         transition={{ type: 'spring', stiffness: 120, damping: 18 }}
@@ -342,7 +342,9 @@ export const HomeScreen = ({
                         className="bg-surface-highlight/50 rounded-lg p-4 border border-border/50 flex justify-between items-start gap-4 shadow-lg shadow-background/20"
                       >
                         <div>
-                          <p className="text-foreground font-semibold">{label}</p>
+                          <p className="text-foreground font-semibold">
+                            {label}
+                          </p>
                           <p className="text-muted text-sm">
                             {durationValue} min • {effortDisplay} • ~{calories}{' '}
                             kcal

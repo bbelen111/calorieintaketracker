@@ -313,14 +313,14 @@ export const getGoalAlignedTextClass = (
   const style = getGoalAlignedStyle(trend, selectedGoal, metricType);
 
   const colorMap = {
-    '#ef4444': 'text-red-500',
-    '#f97316': 'text-orange-500',
-    '#eab308': 'text-yellow-500',
-    '#a3e635': 'text-lime-400',
-    '#84cc16': 'text-lime-500',
-    '#22c55e': 'text-green-500',
-    '#60a5fa': 'text-blue-400',
+    '#ef4444': 'text-accent-red',
+    '#f97316': 'text-accent-orange',
+    '#eab308': 'text-accent-yellow',
+    '#a3e635': 'text-accent-lime',
+    '#84cc16': 'text-accent-lime',
+    '#22c55e': 'text-accent-green',
+    '#60a5fa': 'text-accent-blue',
   };
 
-  return colorMap[style.color] || 'text-slate-400';
+  return colorMap[style.color] || 'text-accent-slate';
 };
