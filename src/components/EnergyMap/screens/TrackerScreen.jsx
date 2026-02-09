@@ -479,8 +479,8 @@ export const TrackerScreen = ({
       <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <Target className="text-blue-400" size={32} />
-            <h1 className="text-2xl md:text-3xl font-bold text-white">
+            <Target className="text-accent-blue" size={32} />
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">
               Calorie Tracker
             </h1>
           </div>
@@ -493,7 +493,7 @@ export const TrackerScreen = ({
           </button>
         </div>
         <div className="p-0">
-          <div className="flex items-center justify-between mt-5 mb-3 border border-border/50 rounded-md px-1 py-1.5 bg-surface-highlight/50">
+          <div className="flex items-center justify-between mt-5 mb-3 border border-border/50 rounded-md px-1 py-1.5 bg-surface-highlight/50 shadow-sm shadow-slate-900/20">
             <div className="flex items-center gap-1.5 h-6">
               <button
                 onClick={() => changeDateBy(-7)}
@@ -506,7 +506,7 @@ export const TrackerScreen = ({
                 </div>
               </button>
               <div className="flex items-center gap-1 text-slate-200 text-[15px] font-semibold leading-none">
-                <Calendar size={16} className="text-blue-400" />
+                <Calendar size={16} className="text-accent-blue" />
                 <div className="relative h-4 flex items-center">
                   <AnimatePresence mode="wait">
                     <motion.span
@@ -574,15 +574,13 @@ export const TrackerScreen = ({
                         setInternalSelectedDate(weekDate.key);
                       }
                     }}
-                    className={`relative flex flex-col items-center justify-center rounded-md border py-2 text-[15px] font-semibold transition-all active:scale-95 focus-ring ${
+                    className={`relative flex flex-col items-center justify-center rounded-md border py-2 text-[15px] font-semibold transition-all active:scale-95 focus-ring shadow-sm shadow-slate-900/20 ${
                       isSelected
                         ? 'bg-blue-600 border-blue-400 text-white'
                         : 'bg-surface-highlight/60 border-border/50 text-foreground md:hover:bg-surface-highlight/70'
-                    } ${isToday && !isSelected ? 'ring-1 ring-blue-400/70' : ''}`}
+                    } ${isToday && !isSelected ? 'ring-1 ring-accent-blue/70' : ''}`}
                   >
-                    <span className="text-[10px] text-muted">
-                      {weekDate.weekday}
-                    </span>
+                    <span className="text-[10px]">{weekDate.weekday}</span>
                     <span className="text-[13px] font-semibold">
                       {weekDate.day}
                     </span>
@@ -603,8 +601,8 @@ export const TrackerScreen = ({
       <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Flame className="text-blue-400" size={20} />
-            <span className="text-white text-lg font-bold tracking-wide">
+            <Flame className="text-accent-blue" size={20} />
+            <span className="text-foreground text-lg font-bold tracking-wide">
               Total Calories
             </span>
           </div>
@@ -615,7 +613,7 @@ export const TrackerScreen = ({
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 className={`
-                    ${caloriesRemaining < 0 ? 'text-red-400' : 'text-emerald-400'}
+                    ${caloriesRemaining < 0 ? 'text-accent-red' : 'text-accent-emerald'}
                     font-bold text-2xl
                   `}
               >
@@ -629,7 +627,7 @@ export const TrackerScreen = ({
         <div className="relative">
           <button
             onClick={() => onToggleCalorieTargetPicker?.()}
-            className="w-full bg-surface-highlight/50 border border-border/50 rounded-lg px-3 py-2 text-left flex items-center justify-between md:hover:bg-surface-highlight transition-all shadow-lg shadow-slate-900/20 pressable-card focus-ring"
+            className="w-full bg-surface-highlight/50 border border-border/50 rounded-lg px-3 py-2 text-left flex items-center justify-between md:hover:bg-surface-highlight transition-all shadow-sm shadow-slate-900/20 pressable-card focus-ring"
           >
             <div className="flex-1">
               <p className="text-muted text-xs mb-0.5">Target</p>
@@ -654,7 +652,7 @@ export const TrackerScreen = ({
             </div>
             <ChevronDown
               size={22}
-              className={`text-white transition-transform duration-300 ${
+              className={`text-foreground transition-transform duration-300 ${
                 showCalorieTargetPicker ? 'rotate-180' : ''
               }`}
             />
@@ -706,7 +704,7 @@ export const TrackerScreen = ({
                           </p>
                         </div>
                         <p
-                          className={`font-bold ${isSelected ? 'text-emerald-400' : 'text-muted'}`}
+                          className={`font-bold ${isSelected ? 'text-accent-emerald' : 'text-muted'}`}
                         >
                           {formatOne(rangeData?.targetCalories || 0)}
                         </p>
@@ -724,7 +722,7 @@ export const TrackerScreen = ({
           <div className="w-full bg-surface-highlight rounded-full h-3 overflow-hidden">
             <div
               className={`h-full ${
-                caloriesPercent >= 100 ? 'bg-red-500' : 'bg-emerald-500'
+                caloriesPercent >= 100 ? 'bg-red-500' : 'bg-accent-emerald'
               }`}
               style={{
                 width: `${caloriesPercent}%`,
@@ -744,7 +742,7 @@ export const TrackerScreen = ({
               >
                 {caloriesRemaining >= 0 ? (
                   <>
-                    <span className="text-emerald-400 font-semibold">
+                    <span className="text-accent-emerald font-semibold">
                       {formatOne(caloriesRemaining)}
                     </span>{' '}
                     remaining
@@ -767,12 +765,12 @@ export const TrackerScreen = ({
             <div className="relative">
               <CircularProgress
                 percent={proteinPercent}
-                color={proteinOver ? 'text-red-500' : 'text-red-500'}
+                color={proteinOver ? 'text-accent-red' : 'text-accent-red'}
                 size={100}
                 strokeWidth={8}
               />
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <Beef className="text-red-400 mb-1" size={20} />
+                <Beef className="text-accent-red mb-1" size={20} />
                 <AnimatePresence mode="wait">
                   <motion.p
                     key={`protein-${totals.protein}`}
@@ -780,15 +778,15 @@ export const TrackerScreen = ({
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
                     transition={{ duration: 0.22 }}
-                    className="text-white font-bold text-lg"
+                    className="text-foreground/80 font-bold text-lg"
                   >
                     {formatOne(totals.protein)}
                   </motion.p>
                 </AnimatePresence>
                 {proteinOver ? (
-                  <AlertTriangle className="mt-1 text-red-400" size={12} />
+                  <AlertTriangle className="mt-1 text-accent-red" size={12} />
                 ) : proteinInRange ? (
-                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-accent-emerald" />
                 ) : null}
               </div>
             </div>
@@ -805,12 +803,12 @@ export const TrackerScreen = ({
             <div className="relative">
               <CircularProgress
                 percent={fatsPercent}
-                color={fatsOver ? 'text-red-500' : 'text-yellow-500'}
+                color={fatsOver ? 'text-accent-red' : 'text-accent-yellow'}
                 size={100}
                 strokeWidth={8}
               />
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <Droplet className="text-yellow-400 mb-1" size={20} />
+                <Droplet className="text-accent-yellow mb-1" size={20} />
                 <AnimatePresence mode="wait">
                   <motion.p
                     key={`fats-${totals.fats}`}
@@ -818,15 +816,15 @@ export const TrackerScreen = ({
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
                     transition={{ duration: 0.22 }}
-                    className="text-white font-bold text-lg"
+                    className="text-foreground/80 font-bold text-lg"
                   >
                     {formatOne(totals.fats)}
                   </motion.p>
                 </AnimatePresence>
                 {fatsOver ? (
-                  <AlertTriangle className="mt-1 text-red-400" size={12} />
+                  <AlertTriangle className="mt-1 text-accent-red" size={12} />
                 ) : fatsInRange ? (
-                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-accent-emerald" />
                 ) : null}
               </div>
             </div>
@@ -843,12 +841,12 @@ export const TrackerScreen = ({
             <div className="relative">
               <CircularProgress
                 percent={carbsPercent}
-                color={carbsOver ? 'text-red-500' : 'text-amber-500'}
+                color={carbsOver ? 'text-accent-red' : 'text-accent-amber'}
                 size={100}
                 strokeWidth={8}
               />
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <Cookie className="text-amber-400 mb-1" size={20} />
+                <Cookie className="text-accent-amber mb-1" size={20} />
                 <AnimatePresence mode="wait">
                   <motion.p
                     key={`carbs-${totals.carbs}`}
@@ -856,13 +854,13 @@ export const TrackerScreen = ({
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
                     transition={{ duration: 0.22 }}
-                    className="text-white font-bold text-lg"
+                    className="text-foreground/80 font-bold text-lg"
                   >
                     {formatOne(totals.carbs)}
                   </motion.p>
                 </AnimatePresence>
                 {carbsOver ? (
-                  <AlertTriangle className="mt-1 text-red-400" size={12} />
+                  <AlertTriangle className="mt-1 text-accent-red" size={12} />
                 ) : null}
               </div>
             </div>
@@ -885,8 +883,8 @@ export const TrackerScreen = ({
             <div>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <Utensils className="text-blue-400" size={24} />
-                  <h2 className="text-xl font-bold text-white">Meals</h2>
+                  <Utensils className="text-accent-blue" size={24} />
+                  <h2 className="text-xl font-bold text-foreground">Meals</h2>
                 </div>
                 <button
                   onClick={() => onAddMealEntry?.('')}
@@ -934,7 +932,7 @@ export const TrackerScreen = ({
                   return (
                     <div
                       key={`meal-${mealTypeId}`}
-                      className="bg-surface-highlight/50 rounded-xl p-2 border border-border/50 shadow-lg shadow-slate-900/20"
+                      className="bg-surface-highlight/50 rounded-xl p-2 border border-border/50 shadow-md shadow-slate-900/20"
                     >
                       <div
                         role="button"
@@ -950,32 +948,32 @@ export const TrackerScreen = ({
                       >
                         <div className="flex items-center gap-3">
                           {React.createElement(mealType.icon, {
-                            className: 'text-white',
+                            className: 'text-foreground/80',
                             size: 20,
                           })}
                           <div className="text-left">
-                            <h3 className="text-white font-bold text-base">
+                            <h3 className="text-foreground/80 font-bold text-base">
                               {mealType.label}
                             </h3>
-                            <p className="text-slate-400 text-xs">
+                            <p className="text-muted text-xs">
                               <span>
                                 {`${mealEntries.length} item${mealEntries.length !== 1 ? 's' : ''} - `}
                               </span>
-                              <span className="text-emerald-400">
+                              <span className="text-accent-emerald">
                                 {formatOne(mealTotals.calories)} kcal
                               </span>
                               <span>{` - ${mealTime}`}</span>
                             </p>
-                            <p className="text-slate-400 text-xs mt-0.5">
-                              <span className="text-red-400">
+                            <p className="text-muted text-xs mt-0.5">
+                              <span className="text-accent-red">
                                 {formatOne(mealTotals.protein)}p
                               </span>
                               <span className="mx-1">•</span>
-                              <span className="text-yellow-400">
+                              <span className="text-accent-yellow">
                                 {formatOne(mealTotals.fats)}f
                               </span>
                               <span className="mx-1">•</span>
-                              <span className="text-amber-400">
+                              <span className="text-accent-amber">
                                 {formatOne(mealTotals.carbs)}c
                               </span>
                             </p>
@@ -990,7 +988,7 @@ export const TrackerScreen = ({
                             className="p-1.5 rounded-lg transition-all pressable-inline focus-ring md:hover:bg-red-500/20"
                             title="Delete meal"
                           >
-                            <Trash2 className="text-red-400" size={22} />
+                            <Trash2 className="text-accent-red" size={22} />
                           </button>
                           <button
                             onClick={(e) => {
@@ -1000,7 +998,7 @@ export const TrackerScreen = ({
                             className="p-1.5 rounded-lg transition-all pressable-inline focus-ring md:hover:bg-blue-500/20"
                             title="Add food"
                           >
-                            <Plus className="text-blue-400" size={22} />
+                            <Plus className="text-foreground/80" size={22} />
                           </button>
                         </div>
                       </div>
@@ -1014,10 +1012,10 @@ export const TrackerScreen = ({
                             {mealEntries.map((entry, idx) => (
                               <div
                                 key={`entry-${entry.id}-${idx}`}
-                                className="bg-surface-highlight/50 rounded-lg p-3 border border-border/50 flex justify-between items-start gap-3 shadow-lg shadow-slate-900/20"
+                                className="bg-surface-highlight rounded-lg p-3 border border-border/50 flex justify-between items-start gap-3 shadow-lg shadow-slate-900/20"
                               >
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-white font-semibold text-sm truncate">
+                                  <p className="text-foreground/80 font-semibold text-sm truncate">
                                     <span
                                       className="align-middle"
                                       title={entry.name}
@@ -1025,25 +1023,25 @@ export const TrackerScreen = ({
                                       {shortenName(entry.name)}
                                     </span>
                                     {entry && entry.grams != null && (
-                                      <span className="ml-2 text-slate-400 text-xs align-middle">
+                                      <span className="ml-2 text-foreground/80 text-xs align-middle">
                                         {formatOne(entry.grams)} g
                                       </span>
                                     )}
                                   </p>
-                                  <p className="text-slate-400 text-xs">
-                                    <span className="text-emerald-400">
+                                  <p className="text-foreground/80 text-xs">
+                                    <span className="text-accent-emerald">
                                       {formatOne(entry.calories)} kcal
                                     </span>
                                     {' - '}
-                                    <span className="text-red-400">
+                                    <span className="text-accent-red">
                                       {formatOne(entry.protein)} p
                                     </span>
                                     {' - '}
-                                    <span className="text-yellow-400">
+                                    <span className="text-accent-yellow">
                                       {formatOne(entry.fats)} f
                                     </span>
                                     {' - '}
-                                    <span className="text-amber-400">
+                                    <span className="text-accent-amber">
                                       {formatOne(entry.carbs)} c
                                     </span>
                                   </p>
@@ -1054,7 +1052,7 @@ export const TrackerScreen = ({
                                       handleEditFood(mealTypeId, entry.id)
                                     }
                                     type="button"
-                                    className="text-foreground transition-all active:scale-95 pressable-inline focus-ring md:hover:text-foreground md:hover:scale-110"
+                                    className="text-foreground/80 transition-all active:scale-95 pressable-inline focus-ring md:hover:text-foreground md:hover:scale-110"
                                   >
                                     <Edit3 size={22} />
                                   </button>
@@ -1063,7 +1061,7 @@ export const TrackerScreen = ({
                                       handleDeleteFood(mealTypeId, entry.id)
                                     }
                                     type="button"
-                                    className="text-red-400 transition-all active:scale-95 pressable-inline focus-ring md:hover:text-red-300 md:hover:scale-110"
+                                    className="text-accent-red transition-all active:scale-95 pressable-inline focus-ring md:hover:text-accent-red/80 md:hover:scale-110"
                                   >
                                     <Trash2 size={22} />
                                   </button>
@@ -1086,9 +1084,9 @@ export const TrackerScreen = ({
                 className="w-full flex items-center justify-between p-4 rounded-xl transition-all group pressable-card focus-ring md:hover:bg-surface-highlight/50"
               >
                 <div className="flex items-center gap-3">
-                  <Utensils className="text-blue-400" size={24} />
+                  <Utensils className="text-accent-blue" size={24} />
                   <div className="text-left">
-                    <h2 className="text-lg font-bold text-white">
+                    <h2 className="text-lg font-bold text-foreground">
                       Add Food Entry
                     </h2>
                     <p className="text-muted text-sm">
@@ -1097,7 +1095,7 @@ export const TrackerScreen = ({
                   </div>
                 </div>
                 <Plus
-                  className="text-muted md:group-hover:text-blue-400 transition-colors"
+                  className="text-muted md:group-hover:text-accent-blue transition-colors"
                   size={24}
                 />
               </button>
@@ -1129,8 +1127,8 @@ export const TrackerScreen = ({
                   transition={{ duration: 0.3, ease: 'easeOut' }}
                 >
                   <div className="flex items-center gap-2">
-                    <Utensils className="text-blue-400" size={24} />
-                    <h2 className="text-xl font-bold text-white">Meals</h2>
+                    <Utensils className="text-accent-blue" size={24} />
+                    <h2 className="text-xl font-bold text-foreground">Meals</h2>
                   </div>
                   <motion.button
                     onClick={() => onAddMealEntry?.('')}
@@ -1198,32 +1196,32 @@ export const TrackerScreen = ({
                         >
                           <div className="flex items-center gap-3">
                             {React.createElement(mealType.icon, {
-                              className: 'text-white',
+                              className: 'text-foreground/80',
                               size: 20,
                             })}
                             <div className="text-left">
-                              <h3 className="text-white font-bold text-base">
+                              <h3 className="text-foreground/80 font-bold text-base">
                                 {mealType.label}
                               </h3>
                               <p className="text-muted text-xs">
                                 <span>
                                   {`${mealEntries.length} item${mealEntries.length !== 1 ? 's' : ''} - `}
                                 </span>
-                                <span className="text-emerald-400">
+                                <span className="text-accent-emerald">
                                   {formatOne(mealTotals.calories)} kcal
                                 </span>
                                 <span>{` - ${mealTime}`}</span>
                               </p>
                               <p className="text-muted text-xs mt-0.5">
-                                <span className="text-red-400">
+                                <span className="text-accent-red">
                                   {formatOne(mealTotals.protein)}p
                                 </span>
                                 <span className="mx-1">•</span>
-                                <span className="text-yellow-400">
+                                <span className="text-accent-yellow">
                                   {formatOne(mealTotals.fats)}f
                                 </span>
                                 <span className="mx-1">•</span>
-                                <span className="text-amber-400">
+                                <span className="text-accent-amber">
                                   {formatOne(mealTotals.carbs)}c
                                 </span>
                               </p>
@@ -1238,7 +1236,7 @@ export const TrackerScreen = ({
                               className="p-1.5 rounded-lg transition-all pressable-inline focus-ring md:hover:bg-blue-500/20"
                               title="Add food"
                             >
-                              <Plus className="text-white" size={22} />
+                              <Plus className="text-foreground/80" size={22} />
                             </button>
                             <button
                               onClick={(e) => {
@@ -1248,7 +1246,7 @@ export const TrackerScreen = ({
                               className="p-1.5 rounded-lg transition-all pressable-inline focus-ring md:hover:bg-red-500/20"
                               title="Delete meal"
                             >
-                              <Trash2 className="text-red-400" size={22} />
+                              <Trash2 className="text-accent-red" size={22} />
                             </button>
                           </div>
                         </div>
@@ -1277,7 +1275,7 @@ export const TrackerScreen = ({
                                     className="bg-surface-highlight/50 rounded-lg p-3 border border-border/50 flex justify-between items-start gap-3 shadow-lg shadow-slate-900/20"
                                   >
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-white font-semibold text-sm truncate">
+                                      <p className="text-foreground/80 font-semibold text-sm truncate">
                                         <span
                                           className="align-middle"
                                           title={entry.name}
@@ -1291,19 +1289,19 @@ export const TrackerScreen = ({
                                         )}
                                       </p>
                                       <p className="text-muted text-xs">
-                                        <span className="text-emerald-400">
+                                        <span className="text-accent-emerald">
                                           {formatOne(entry.calories)} kcal
                                         </span>
                                         {' - '}
-                                        <span className="text-red-400">
+                                        <span className="text-accent-red">
                                           {formatOne(entry.protein)} p
                                         </span>
                                         {' - '}
-                                        <span className="text-yellow-400">
+                                        <span className="text-accent-yellow">
                                           {formatOne(entry.fats)} f
                                         </span>
                                         {' - '}
-                                        <span className="text-amber-400">
+                                        <span className="text-accent-amber">
                                           {formatOne(entry.carbs)} c
                                         </span>
                                       </p>
@@ -1314,7 +1312,7 @@ export const TrackerScreen = ({
                                           handleEditFood(mealTypeId, entry.id)
                                         }
                                         type="button"
-                                        className="text-foreground transition-all active:scale-95 pressable-inline focus-ring md:hover:text-foreground md:hover:scale-110"
+                                        className="text-foreground/80 transition-all active:scale-95 pressable-inline focus-ring md:hover:text-foreground md:hover:scale-110"
                                       >
                                         <Edit3 size={22} />
                                       </button>
@@ -1323,7 +1321,7 @@ export const TrackerScreen = ({
                                           handleDeleteFood(mealTypeId, entry.id)
                                         }
                                         type="button"
-                                        className="text-red-400 transition-all active:scale-95 pressable-inline focus-ring md:hover:text-red-300 md:hover:scale-110"
+                                        className="text-accent-red transition-all active:scale-95 pressable-inline focus-ring md:hover:text-accent-red md:hover:scale-110"
                                       >
                                         <Trash2 size={22} />
                                       </button>
@@ -1355,9 +1353,9 @@ export const TrackerScreen = ({
                   whileTap={{ scale: 0.97 }}
                 >
                   <div className="flex items-center gap-3">
-                    <Utensils className="text-blue-400" size={24} />
+                    <Utensils className="text-accent-blue" size={24} />
                     <div className="text-left">
-                      <h2 className="text-lg font-bold text-white">
+                      <h2 className="text-lg font-bold text-foreground">
                         Add Food Entry
                       </h2>
                       <p className="text-muted text-sm">

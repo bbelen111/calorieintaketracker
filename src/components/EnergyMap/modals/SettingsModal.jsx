@@ -143,7 +143,9 @@ export const SettingsModal = ({
           <div className="p-4 space-y-4 md:space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
               <div>
-                <label className="text-muted text-sm block mb-2">Age</label>
+                <label className="text-foreground/80 text-sm block mb-2">
+                  Age
+                </label>
                 <div className="relative">
                   <input
                     type="number"
@@ -156,7 +158,7 @@ export const SettingsModal = ({
                   <button
                     type="button"
                     onClick={() => onAgePickerClick?.()}
-                    className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-border/80 md:hover:bg-muted text-foreground transition focus-ring"
+                    className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-muted/30 md:hover:bg-muted/50 text-foreground transition focus-ring"
                     aria-label="Open age picker"
                   >
                     <ChevronsUpDown size={16} />
@@ -165,7 +167,9 @@ export const SettingsModal = ({
               </div>
 
               <div>
-                <label className="text-muted text-sm block mb-2">Gender</label>
+                <label className="text-foreground/80 text-sm block mb-2">
+                  Gender
+                </label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => onChange('gender', 'male')}
@@ -195,7 +199,9 @@ export const SettingsModal = ({
               </div>
 
               <div>
-                <label className="text-muted text-sm block mb-2">Theme</label>
+                <label className="text-foreground/80 text-sm block mb-2">
+                  Theme
+                </label>
                 <div className="grid grid-cols-2 gap-2">
                   {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
                     <button
@@ -216,7 +222,7 @@ export const SettingsModal = ({
               </div>
 
               <div>
-                <label className="text-muted text-sm block mb-2">
+                <label className="text-foreground/80 text-sm block mb-2">
                   Weight (kg)
                 </label>
                 <button
@@ -238,7 +244,9 @@ export const SettingsModal = ({
 
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-muted text-sm">Body Fat (%)</label>
+                  <label className="text-foreground/80 text-sm">
+                    Body Fat (%)
+                  </label>
                   <button
                     type="button"
                     onClick={() =>
@@ -249,7 +257,7 @@ export const SettingsModal = ({
                     }
                     className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all focus-ring pressable-inline ${
                       resolvedBodyFatTrackingEnabled
-                        ? 'bg-emerald-600/20 border-emerald-400 text-emerald-200'
+                        ? 'bg-accent-emerald/20 border-accent-emerald/60 text-accent-emerald'
                         : 'bg-surface-highlight border-border text-muted'
                     }`}
                   >
@@ -283,7 +291,7 @@ export const SettingsModal = ({
               </div>
 
               <div>
-                <label className="text-muted text-sm block mb-2">
+                <label className="text-foreground/80 text-sm block mb-2">
                   Height (cm)
                 </label>
                 <div className="relative">
@@ -298,7 +306,7 @@ export const SettingsModal = ({
                   <button
                     type="button"
                     onClick={() => onHeightPickerClick?.()}
-                    className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-border/80 md:hover:bg-muted text-foreground transition focus-ring"
+                    className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-muted/30 md:hover:bg-muted/50 text-foreground transition focus-ring"
                     aria-label="Open height picker"
                   >
                     <ChevronsUpDown size={16} />
@@ -314,7 +322,7 @@ export const SettingsModal = ({
             />
 
             <div>
-              <label className="text-muted text-sm block mb-2">
+              <label className="text-foreground/80 text-sm block mb-2">
                 Training Type
               </label>
               <button
@@ -345,14 +353,14 @@ export const SettingsModal = ({
             </div>
 
             <div>
-              <label className="text-muted text-sm block mb-2">
+              <label className="text-foreground/80 text-sm block mb-2">
                 Training Duration (hours)
               </label>
               <DurationButton
                 duration={resolvedUserData.trainingDuration}
                 onClick={onTrainingDurationClick}
               />
-              <p className="text-muted text-xs mt-1">
+              <p className="text-foreground/80 text-xs mt-1">
                 Training session burn: ~{Math.round(resolvedTrainingCalories)}{' '}
                 calories
               </p>
@@ -440,7 +448,7 @@ const DailyActivitySection = ({ userData, bmr, onDailyActivityClick }) => {
 
   return (
     <div>
-      <label className="text-muted text-sm block mb-2">
+      <label className="text-foreground/80 text-sm block mb-2">
         Daily NEAT (Non-Exercise Activity)
       </label>
       <button
@@ -467,7 +475,7 @@ const DailyActivitySection = ({ userData, bmr, onDailyActivityClick }) => {
         </span>
       </button>
       {Number.isFinite(bmr) && (
-        <div className="mt-2 space-y-1 text-xs text-muted">
+        <div className="mt-2 space-y-1 text-xs text-foreground/80">
           {restBaseline !== null && (
             <p>
               Rest day baseline: ~{restBaseline.toLocaleString()} cal (BMR +

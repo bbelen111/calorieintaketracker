@@ -77,7 +77,7 @@ export const HomeScreen = ({
       <div className="bg-surface rounded-2xl p-6 md:p-8 border border-border shadow-lg">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <Activity className="text-primary" size={32} />
+            <Activity className="text-accent-blue" size={32} />
             <h1 className="text-2xl md:text-3xl font-bold text-foreground">
               Your Energy Map
             </h1>
@@ -162,7 +162,7 @@ export const HomeScreen = ({
 
       <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
         <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-          <Target className="text-primary" size={18} />
+          <Target className="text-accent-blue" size={18} />
           Your Goal
         </h2>
         <button
@@ -190,7 +190,7 @@ export const HomeScreen = ({
 
       <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
         <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-          <Calendar className="text-primary" size={18} />
+          <Calendar className="text-accent-blue" size={18} />
           Day Type
         </h2>
         <div className="grid grid-cols-2 gap-4">
@@ -285,7 +285,7 @@ export const HomeScreen = ({
                 transition={{ duration: 0.3, ease: 'easeOut' }}
               >
                 <div className="flex items-center gap-2">
-                  <Heart className="text-primary" size={24} />
+                  <Heart className="text-accent-blue" size={24} />
                   <h2 className="text-xl font-bold text-foreground">
                     Cardio Sessions
                   </h2>
@@ -388,9 +388,9 @@ export const HomeScreen = ({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}
                 transition={{ duration: 0.3, ease: 'easeOut' }}
-                className="bg-blue-900/30 border border-blue-700 rounded-lg p-3"
+                className="bg-accent-blue/30 border border-accent-blue rounded-lg p-3"
               >
-                <p className="text-blue-300 font-semibold">
+                <p className="text-accent-blue font-semibold">
                   Total Cardio Burn: {resolvedTotalCardioBurn} calories
                 </p>
               </motion.div>
@@ -411,7 +411,7 @@ export const HomeScreen = ({
                 whileTap={{ scale: 0.97 }}
               >
                 <div className="flex items-center gap-3">
-                  <Heart className="text-primary" size={24} />
+                  <Heart className="text-accent-blue" size={24} />
                   <div className="text-left">
                     <h2 className="text-lg font-bold text-foreground">
                       Add Cardio Session
