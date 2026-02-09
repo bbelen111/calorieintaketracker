@@ -642,7 +642,7 @@ export const CalendarPickerModal = ({
                   setShowMonthPicker(!showMonthPicker);
                   setShowYearPicker(false);
                 }}
-                className="text-white font-semibold text-lg hover:text-blue-400 transition-colors cursor-pointer underline underline-offset-4 mr-auto"
+                className="text-foreground font-semibold text-lg hover:text-blue-400 transition-colors cursor-pointer underline underline-offset-4 mr-auto"
               >
                 {monthNames[currentMonth]}
               </button>
@@ -658,7 +658,7 @@ export const CalendarPickerModal = ({
                   setShowYearPicker(!showYearPicker);
                   setShowMonthPicker(false);
                 }}
-                className="text-white font-semibold text-lg hover:text-blue-400 transition-colors cursor-pointer underline underline-offset-4 ml-auto"
+                className="text-foreground font-semibold text-lg hover:text-blue-400 transition-colors cursor-pointer underline underline-offset-4 ml-auto"
               >
                 {currentYear}
               </button>

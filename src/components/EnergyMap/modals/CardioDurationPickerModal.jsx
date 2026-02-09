@@ -335,7 +335,7 @@ export const CardioDurationPickerModal = (props) => {
 
       <div className="bg-surface-highlight/50 rounded-lg p-3 mt-4 text-center">
         <p className="text-foreground/80 text-sm">Selected Duration</p>
-        <p className="text-white text-lg font-semibold mt-1">
+        <p className="text-foreground text-lg font-semibold mt-1">
           {formattedDuration}
         </p>
         <p className="text-muted text-xs mt-1">

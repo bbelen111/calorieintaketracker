@@ -24,7 +24,7 @@ export const CaloriesPerHourGuideModal = ({ isOpen, isClosing, onClose }) => (
       </p>
 
       <div className="bg-surface/70 border border-border rounded-lg p-4 space-y-2">
-        <p className="text-white font-semibold text-sm uppercase tracking-wide">
+        <p className="text-foreground font-semibold text-sm uppercase tracking-wide">
           Quick Ladder
         </p>
         <div className="grid gap-2">

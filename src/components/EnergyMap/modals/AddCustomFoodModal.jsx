@@ -333,7 +333,7 @@ export const AddCustomFoodModal = ({
                   className="flex items-center justify-between bg-surface-highlight/50 border border-border/80 rounded-lg px-3 py-2"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-white font-medium text-sm">
+                    <span className="text-foreground font-medium text-sm">
                       {portion.label}
                     </span>
                     <span className="text-muted text-sm">

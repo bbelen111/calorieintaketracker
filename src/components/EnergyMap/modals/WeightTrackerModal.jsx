@@ -995,7 +995,7 @@ export const WeightTrackerModal = ({
                   className="opacity-60 md:group-hover:opacity-100 transition-opacity"
                 />
               </button>
-              <p className="text-white text-lg font-semibold">
+              <p className="text-foreground text-lg font-semibold">
                 {weeklyRateDisplay}
               </p>
               <p className="text-muted text-xs mt-1">
@@ -1033,7 +1033,7 @@ export const WeightTrackerModal = ({
               <p className="text-muted text-xs uppercase tracking-wide mb-1">
                 {selectedPhase ? 'Phase Range' : 'Timeframe'}
               </p>
-              <p className="text-white text-sm font-semibold">
+              <p className="text-foreground text-sm font-semibold">
                 {timeframeRangeLine}
               </p>
               <p className="text-muted text-[11px] mt-1">{timeframeMain}</p>

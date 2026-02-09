@@ -283,7 +283,7 @@ export const BodyFatTrendInfoModal = ({
         </div>
 
         <div className="bg-surface/70 border border-border rounded-lg p-4 space-y-2">
-          <p className="text-white font-semibold text-sm uppercase tracking-wide">
+          <p className="text-foreground font-semibold text-sm uppercase tracking-wide">
             Trend Classifications
           </p>
           <div className="grid gap-2 text-xs md:text-sm">

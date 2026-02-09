@@ -74,10 +74,10 @@ export const CalorieBreakdownModal = ({
         </div>
 
         <div className={`${goal.color} rounded-xl p-4 text-center mb-4`}>
-          <p className="text-white text-sm uppercase tracking-wide">
+          <p className="text-foreground text-sm uppercase tracking-wide">
             Goal Target
           </p>
-          <p className="text-white text-3xl font-extrabold mt-1">
+          <p className="text-foreground text-3xl font-extrabold mt-1">
             {targetCalories?.toLocaleString() ?? '—'}
           </p>
           {formattedDifference !== null && formattedDifference !== 0 && (
