@@ -159,13 +159,13 @@ export const CustomCardioTypeModal = ({
         overlayClassName="bg-black/90 z-[80]"
         contentClassName="p-6 w-full max-w-md"
       >
-        <h3 className="text-white font-bold text-xl mb-4 text-center">
+        <h3 className="text-foreground font-bold text-xl mb-4 text-center">
           Create Custom Cardio
         </h3>
 
         <div className="space-y-4">
           <div>
-            <label className="text-slate-300 text-sm block mb-2">
+            <label className="text-foreground text-sm block mb-2">
               Cardio Name
             </label>
             <input
@@ -173,13 +173,13 @@ export const CustomCardioTypeModal = ({
               value={name}
               onChange={(event) => onNameChange(event.target.value)}
               placeholder="e.g., Outdoor Soccer Scrimmage"
-              className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-base"
+              className="w-full bg-surface text-foreground px-4 py-3 rounded-lg border border-border focus:border-blue-400 focus:outline-none text-base"
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
-              <label className="text-slate-300 text-sm block mb-2">
+              <label className="text-foreground text-sm block mb-2">
                 Light MET
               </label>
               <div className="relative">
@@ -189,12 +189,12 @@ export const CustomCardioTypeModal = ({
                   step="0.1"
                   value={metLight}
                   onChange={(event) => onMetLightChange(event.target.value)}
-                  className="w-full bg-slate-700 text-white px-4 pr-14 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-base"
+                  className="w-full bg-surface text-foreground px-4 pr-14 py-3 rounded-lg border border-border focus:border-blue-400 focus:outline-none text-base"
                 />
                 <button
                   type="button"
                   onClick={() => handleOpenMetPicker('light')}
-                  className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-600/80 md:hover:bg-slate-500 text-white transition focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-800 focus-ring pressable"
+                  className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-surface-highlight/80 md:hover:bg-surface text-foreground transition focus:outline-none focus:ring-2 focus:ring-blue-400 focus-ring pressable"
                   aria-label="Open light MET picker"
                 >
                   <ChevronsUpDown size={16} />
@@ -202,7 +202,7 @@ export const CustomCardioTypeModal = ({
               </div>
             </div>
             <div>
-              <label className="text-slate-300 text-sm block mb-2">
+              <label className="text-foreground text-sm block mb-2">
                 Moderate MET
               </label>
               <div className="relative">
@@ -212,12 +212,12 @@ export const CustomCardioTypeModal = ({
                   step="0.1"
                   value={metModerate}
                   onChange={(event) => onMetModerateChange(event.target.value)}
-                  className="w-full bg-slate-700 text-white px-4 pr-14 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-base"
+                  className="w-full bg-surface text-foreground px-4 pr-14 py-3 rounded-lg border border-border focus:border-blue-400 focus:outline-none text-base"
                 />
                 <button
                   type="button"
                   onClick={() => handleOpenMetPicker('moderate')}
-                  className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-600/80 hover:bg-slate-500 text-white transition focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-800"
+                  className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-surface-highlight/80 md:hover:bg-surface text-foreground transition focus:outline-none focus:ring-2 focus:ring-blue-400"
                   aria-label="Open moderate MET picker"
                 >
                   <ChevronsUpDown size={16} />
@@ -225,7 +225,7 @@ export const CustomCardioTypeModal = ({
               </div>
             </div>
             <div>
-              <label className="text-slate-300 text-sm block mb-2">
+              <label className="text-foreground text-sm block mb-2">
                 Vigorous MET
               </label>
               <div className="relative">
@@ -235,12 +235,12 @@ export const CustomCardioTypeModal = ({
                   step="0.1"
                   value={metVigorous}
                   onChange={(event) => onMetVigorousChange(event.target.value)}
-                  className="w-full bg-slate-700 text-white px-4 pr-14 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-base"
+                  className="w-full bg-surface text-foreground px-4 pr-14 py-3 rounded-lg border border-border focus:border-blue-400 focus:outline-none text-base"
                 />
                 <button
                   type="button"
                   onClick={() => handleOpenMetPicker('vigorous')}
-                  className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-600/80 hover:bg-slate-500 text-white transition focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-800"
+                  className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-surface-highlight/80 md:hover:bg-surface text-foreground transition focus:outline-none focus:ring-2 focus:ring-blue-400"
                   aria-label="Open vigorous MET picker"
                 >
                   <ChevronsUpDown size={16} />
@@ -249,7 +249,7 @@ export const CustomCardioTypeModal = ({
             </div>
           </div>
 
-          <p className="text-xs text-slate-400 text-center">
+          <p className="text-xs text-muted text-center">
             MET values estimate intensity: light for easy pace, moderate for
             steady work, vigorous for all-out efforts.
           </p>
@@ -259,7 +259,7 @@ export const CustomCardioTypeModal = ({
           <button
             onClick={onCancel}
             type="button"
-            className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium"
+            className="flex-1 bg-surface-highlight text-foreground px-6 py-3 rounded-lg transition-all active:scale-95 font-medium"
           >
             Cancel
           </button>

@@ -78,6 +78,22 @@ const getCategoryColor = (category) => {
   return FOOD_CATEGORIES[category]?.color || 'slate';
 };
 
+const getCategoryTagClass = (category) => {
+  const color = getCategoryColor(category);
+  const map = {
+    red: 'bg-accent-red/20 text-accent-red',
+    amber: 'bg-accent-amber/20 text-accent-amber',
+    green: 'bg-accent-green/20 text-accent-green',
+    yellow: 'bg-accent-yellow/20 text-accent-yellow',
+    purple: 'bg-accent-purple/20 text-accent-purple',
+    blue: 'bg-accent-blue/20 text-accent-blue',
+    emerald: 'bg-accent-emerald/20 text-accent-emerald',
+    slate: 'bg-surface-highlight/60 text-muted',
+    indigo: 'bg-accent-blue/20 text-accent-blue',
+  };
+  return map[color] || 'bg-surface-highlight/60 text-muted';
+};
+
 export const FoodFavouritesModal = ({
   isOpen,
   isClosing,
@@ -186,7 +202,7 @@ export const FoodFavouritesModal = ({
             <h3 className="text-white font-bold text-xl md:text-2xl">
               Favourite Foods
             </h3>
-            <p className="text-slate-400 text-sm md:text-base mt-1">
+            <p className="text-muted text-sm md:text-base mt-1">
               Save your go-to foods with preset portions.
             </p>
           </div>
@@ -194,7 +210,7 @@ export const FoodFavouritesModal = ({
             <button
               type="button"
               onClick={() => onCreateFavourite?.()}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm font-medium text-slate-100 transition-colors md:hover:border-amber-400 md:hover:text-white focus-ring pressable"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-highlight px-3 py-2 text-sm font-medium text-foreground transition-colors md:hover:border-accent-amber focus-ring pressable"
             >
               <Plus size={16} />
               Add
@@ -218,7 +234,7 @@ export const FoodFavouritesModal = ({
               return (
                 <div
                   key={key}
-                  className="w-full text-left p-4 rounded-xl border-2 transition-all bg-emerald-500/60 border-emerald-500 text-slate-200 hover:border-blue-400 focus-visible:border-blue-400 focus-visible:ring-2 focus-visible:ring-blue-400/40 cursor-pointer"
+                  className="w-full text-left p-4 rounded-xl border-2 transition-all bg-surface border-border text-foreground md:hover:border-blue-400 focus-visible:border-blue-400 focus-visible:ring-2 focus-visible:ring-blue-400/40 cursor-pointer"
                   role="button"
                   tabIndex={0}
                   onClick={(event) => handleInstantAdd(favourite, event)}
@@ -230,26 +246,28 @@ export const FoodFavouritesModal = ({
                   }}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 rounded-full p-2 bg-white/10">
+                    <div className="flex-shrink-0 rounded-full p-2 bg-foreground/10">
                       {isCustom ? (
-                        <Utensils size={18} className="text-white" />
+                        <Utensils size={18} className="text-foreground" />
                       ) : (
-                        <Heart size={18} className="text-white" />
+                        <Heart size={18} className="text-foreground" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-base md:text-lg leading-tight text-white truncate">
+                      <p className="font-semibold text-base md:text-lg leading-tight text-foreground truncate">
                         {favourite.name || 'Unnamed Food'}
                       </p>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span
-                          className={`text-xs px-2 py-0.5 rounded bg-${categoryColor}-500/20 text-${categoryColor}-400`}
+                          className={`text-xs px-2 py-0.5 rounded ${getCategoryTagClass(
+                            favourite.category || 'supplements'
+                          )}`}
                         >
                           {FOOD_CATEGORIES[favourite.category]?.label ||
                             'Custom'}
                         </span>
                         {favourite.grams && (
-                          <span className="text-xs text-slate-400">
+                          <span className="text-xs text-muted">
                             {formatOne(favourite.grams)}g
                           </span>
                         )}
@@ -282,11 +300,11 @@ export const FoodFavouritesModal = ({
                       <button
                         type="button"
                         onClick={(e) => handleEditPortion(favourite, e)}
-                        className="flex-shrink-0 w-10 h-10 rounded-full bg-white/10 hover:bg-blue-500/30 transition-colors flex items-center justify-center"
+                        className="flex-shrink-0 w-10 h-10 rounded-full bg-foreground/10 md:hover:bg-blue-500/30 transition-colors flex items-center justify-center"
                         aria-label="Edit portion before adding"
                         title="Edit portion"
                       >
-                        <Edit3 size={18} className="text-white" />
+                        <Edit3 size={18} className="text-foreground" />
                       </button>
 
                       {/* Delete button */}
@@ -299,13 +317,13 @@ export const FoodFavouritesModal = ({
                               setPendingDeleteId(favourite.id);
                               openConfirm();
                             }}
-                            className="flex-shrink-0 w-10 h-10 rounded-full bg-white/10 hover:bg-red-500/20 transition-colors flex items-center justify-center"
+                            className="flex-shrink-0 w-10 h-10 rounded-full bg-foreground/10 md:hover:bg-red-500/20 transition-colors flex items-center justify-center"
                             aria-label="Delete favourite food"
                             title="Remove from favourites"
                           >
                             <Trash2
                               size={18}
-                              className="text-white hover:text-red-400"
+                              className="text-foreground md:hover:text-red-400"
                             />
                           </button>
                         )}
@@ -315,8 +333,8 @@ export const FoodFavouritesModal = ({
               );
             })
           ) : (
-            <div className="text-center text-slate-400 text-sm py-10">
-              <Heart className="mx-auto mb-3 text-slate-500" size={32} />
+            <div className="text-center text-muted text-sm py-10">
+              <Heart className="mx-auto mb-3 text-muted" size={32} />
               <p>No favourite foods yet.</p>
               <p className="text-xs mt-1">
                 Add foods to your favourites for quick access.
@@ -329,7 +347,7 @@ export const FoodFavouritesModal = ({
           <button
             onClick={onClose}
             type="button"
-            className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-4 py-3 rounded-lg transition-all active:scale-95 font-medium"
+            className="flex-1 bg-surface-highlight text-foreground px-4 py-3 rounded-lg transition-all active:scale-95 font-medium"
           >
             Close
           </button>

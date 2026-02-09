@@ -232,14 +232,14 @@ export const CardioModal = ({
     `w-full rounded-lg border px-3 py-1.5 text-sm transition-all focus-ring pressable-inline ${
       effortType === type
         ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-900/30'
-        : 'bg-slate-700 text-slate-300 border-slate-600 md:hover:border-blue-400 md:hover:text-white'
+        : 'bg-surface text-foreground border-border md:hover:border-blue-400'
     }`;
 
   const intensityButtonClass = (level) =>
     `w-full rounded-lg border px-3 py-2 text-sm transition-all focus-ring pressable-inline ${
       intensityValue === level
         ? 'bg-indigo-600 text-white border-indigo-400 shadow-lg shadow-indigo-900/30'
-        : 'bg-slate-700 text-slate-300 border-slate-600 md:hover:border-indigo-400 md:hover:text-white'
+        : 'bg-surface text-foreground border-border md:hover:border-indigo-400'
     }`;
 
   const handleOpenCustomCardioModal = () => {
@@ -304,12 +304,12 @@ export const CardioModal = ({
         overlayClassName={overlayClassName}
       >
         <div className="flex items-center justify-between mb-4 gap-3">
-          <h3 className="text-white font-bold text-xl">{headerTitle}</h3>
+          <h3 className="text-foreground font-bold text-xl">{headerTitle}</h3>
           {showFavouritesButton && typeof onOpenFavourites === 'function' && (
             <button
               type="button"
               onClick={onOpenFavourites}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-700 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-100 transition-colors press-feedback focus-ring md:hover:border-amber-400 md:hover:text-white"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-highlight px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-foreground transition-colors press-feedback focus-ring md:hover:border-accent-amber"
             >
               <Star size={14} />
               Favourites
@@ -319,7 +319,7 @@ export const CardioModal = ({
 
         <div className="space-y-4">
           <div>
-            <label className="text-slate-300 text-sm block mb-2">
+            <label className="text-foreground text-sm block mb-2">
               Cardio Type
             </label>
             <button
@@ -345,7 +345,7 @@ export const CardioModal = ({
           </div>
 
           <div>
-            <label className="text-slate-300 text-sm block mb-2">
+            <label className="text-foreground text-sm block mb-2">
               Duration (minutes)
             </label>
             <div className="relative">
@@ -354,12 +354,12 @@ export const CardioModal = ({
                 min="0"
                 value={session.duration === '' ? '' : session.duration}
                 onChange={handleDurationChange}
-                className="w-full bg-slate-700 text-white px-4 pr-14 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-base"
+                className="w-full bg-surface text-foreground px-4 pr-14 py-3 rounded-lg border border-border focus:border-blue-400 focus:outline-none text-base"
               />
               <button
                 type="button"
                 onClick={openDurationPicker}
-                className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-600/80 md:hover:bg-slate-500 text-white transition focus-ring"
+                className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-surface-highlight/80 md:hover:bg-surface text-foreground transition focus-ring"
                 aria-label="Open duration picker"
               >
                 <ChevronsUpDown size={16} />
@@ -368,7 +368,7 @@ export const CardioModal = ({
           </div>
 
           <div>
-            <label className="text-slate-300 text-sm block mb-2">
+            <label className="text-foreground text-sm block mb-2">
               Effort Tracking
             </label>
             <div className="grid grid-cols-2 gap-2">
@@ -387,7 +387,7 @@ export const CardioModal = ({
                 Average Heart Rate
               </button>
             </div>
-            <p className="text-xs text-slate-400 mt-2">
+            <p className="text-xs text-muted mt-2">
               Use heart rate for wearable-based estimates or intensity for quick
               selections.
             </p>
@@ -395,7 +395,7 @@ export const CardioModal = ({
 
           {effortType === 'intensity' ? (
             <div>
-              <label className="text-slate-300 text-sm block mb-2">
+              <label className="text-foreground text-sm block mb-2">
                 Intensity
               </label>
               <div className="grid grid-cols-3 gap-2">
@@ -421,13 +421,13 @@ export const CardioModal = ({
                   Vigorous
                 </button>
               </div>
-              <p className="text-xs text-slate-400 mt-2">
+              <p className="text-xs text-muted mt-2">
                 Pick the perceived exertion level that best matches the session.
               </p>
             </div>
           ) : (
             <div>
-              <label className="text-slate-300 text-sm block mb-2">
+              <label className="text-foreground text-sm block mb-2">
                 Average Heart Rate (bpm)
               </label>
               <input
@@ -435,17 +435,17 @@ export const CardioModal = ({
                 min="0"
                 value={heartRateValue}
                 onChange={handleHeartRateChange}
-                className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none"
+                className="w-full bg-surface text-foreground px-4 py-2 rounded-lg border border-border focus:border-blue-400 focus:outline-none"
               />
-              <p className="text-xs text-slate-400 mt-2">
+              <p className="text-xs text-muted mt-2">
                 Enter the average beats per minute recorded during this session.
               </p>
             </div>
           )}
 
-          <div className="bg-slate-700/50 rounded-lg p-3">
-            <p className="text-slate-300 text-sm">Estimated Burn:</p>
-            <p className="text-white font-bold text-xl">
+          <div className="bg-surface/60 rounded-lg p-3">
+            <p className="text-muted text-sm">Estimated Burn:</p>
+            <p className="text-foreground font-bold text-xl">
               ~{estimatedBurn} calories
             </p>
           </div>
@@ -455,7 +455,7 @@ export const CardioModal = ({
           <button
             onClick={onCancel}
             type="button"
-            className="flex-1 bg-slate-700 text-white px-4 py-2 rounded-lg transition-all press-feedback focus-ring md:hover:bg-slate-600"
+            className="flex-1 bg-surface-highlight text-foreground px-4 py-2 rounded-lg transition-all press-feedback focus-ring md:hover:bg-surface"
           >
             Cancel
           </button>

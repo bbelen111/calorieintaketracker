@@ -55,8 +55,10 @@ export const CalorieBreakdownModal = ({
       <div>
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
-            <h3 className="text-white font-bold text-xl">Calorie Breakdown</h3>
-            <p className="text-slate-400 text-sm mt-1">
+            <h3 className="text-foreground font-bold text-xl">
+              Calorie Breakdown
+            </h3>
+            <p className="text-muted text-sm mt-1">
               {typeof stepRange === 'number'
                 ? stepRange.toLocaleString()
                 : stepRange}{' '}
@@ -67,7 +69,7 @@ export const CalorieBreakdownModal = ({
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 md:hover:text-white transition-colors focus-ring"
+            className="text-muted md:hover:text-foreground transition-colors focus-ring"
           >
             <X size={20} />
           </button>
@@ -83,7 +85,9 @@ export const CalorieBreakdownModal = ({
           {formattedDifference !== null && formattedDifference !== 0 && (
             <p
               className={`text-sm font-semibold mt-2 ${
-                formattedDifference > 0 ? 'text-green-200' : 'text-red-200'
+                formattedDifference > 0
+                  ? 'text-accent-green'
+                  : 'text-accent-red'
               }`}
             >
               {formattedDifference > 0 ? '+' : ''}
@@ -100,11 +104,11 @@ export const CalorieBreakdownModal = ({
             expanded={expandedItem === 'bmr'}
             onToggle={() => toggleExpanded('bmr')}
           >
-            <p className="text-slate-400 text-xs">
+            <p className="text-muted text-xs">
               Calories burned at complete rest for vital functions.
             </p>
             {usesBodyFat ? (
-              <p className="text-slate-300 text-xs mt-2">
+              <p className="text-muted text-xs mt-2">
                 <strong>Formula:</strong>
                 <br />
                 Lean mass = {formatNumber(bmrDetails.weight, 1)} × (1 −{' '}
@@ -115,7 +119,7 @@ export const CalorieBreakdownModal = ({
                 {breakdown.bmr.toLocaleString()} kcal
               </p>
             ) : (
-              <p className="text-slate-300 text-xs mt-2">
+              <p className="text-muted text-xs mt-2">
                 <strong>Formula:</strong> Mifflin-St Jeor equation
                 <br />
                 (10 × {formatWhole(bmrDetails.weight)}) + (6.25 ×{' '}
@@ -134,10 +138,10 @@ export const CalorieBreakdownModal = ({
             expanded={expandedItem === 'neat'}
             onToggle={() => toggleExpanded('neat')}
           >
-            <p className="text-slate-400 text-xs">
+            <p className="text-muted text-xs">
               Non-exercise daily movements (walking, standing, fidgeting).
             </p>
-            <p className="text-slate-300 text-xs mt-2">
+            <p className="text-muted text-xs mt-2">
               <strong>Calculation:</strong>
               <br />
               {breakdown.bmr.toLocaleString()} (BMR) ×{' '}
@@ -153,10 +157,10 @@ export const CalorieBreakdownModal = ({
             expanded={expandedItem === 'steps'}
             onToggle={() => toggleExpanded('steps')}
           >
-            <p className="text-slate-400 text-xs">
+            <p className="text-muted text-xs">
               Calories from walking/running in your step range.
             </p>
-            <p className="text-slate-300 text-xs mt-2">
+            <p className="text-muted text-xs mt-2">
               <strong>Calculation:</strong>
               <br />
               {breakdown.estimatedSteps.toLocaleString()} steps ÷{' '}
@@ -167,7 +171,7 @@ export const CalorieBreakdownModal = ({
               {formatNumber(stepDetails.caloriesPerMile, 1)} kcal/mi ={' '}
               {breakdown.stepCalories.toLocaleString()} kcal
             </p>
-            <p className="text-slate-400 text-xs mt-2">
+            <p className="text-muted text-xs mt-2">
               Stride length: {formatNumber(stepDetails.strideLengthMeters, 2)} m
               • Weight used: {formatNumber(stepDetails.weightKg, 1)} kg
             </p>
@@ -180,11 +184,11 @@ export const CalorieBreakdownModal = ({
             expanded={expandedItem === 'training'}
             onToggle={() => toggleExpanded('training')}
           >
-            <p className="text-slate-400 text-xs">
+            <p className="text-muted text-xs">
               Structured training session (resistance, weights, etc.).
             </p>
             {showTrainingFormula ? (
-              <p className="text-slate-300 text-xs mt-2">
+              <p className="text-muted text-xs mt-2">
                 <strong>Calculation:</strong>
                 <br />
                 {formatWhole(trainingCaloriesPerHour)} kcal/hr ×{' '}
@@ -192,7 +196,7 @@ export const CalorieBreakdownModal = ({
                 {breakdown.trainingBurn.toLocaleString()} kcal
               </p>
             ) : (
-              <p className="text-slate-400 text-xs mt-2">
+              <p className="text-muted text-xs mt-2">
                 Rest day — no training calories.
               </p>
             )}
@@ -205,12 +209,12 @@ export const CalorieBreakdownModal = ({
             expanded={expandedItem === 'cardio'}
             onToggle={() => toggleExpanded('cardio')}
           >
-            <p className="text-slate-400 text-xs">
+            <p className="text-muted text-xs">
               Cardio sessions (running, cycling, swimming, etc.).
             </p>
             {cardioDetails.length ? (
-              <div className="text-slate-300 text-xs mt-2 space-y-2">
-                <p className="font-semibold text-slate-200">Calculation:</p>
+              <div className="text-muted text-xs mt-2 space-y-2">
+                <p className="font-semibold text-foreground">Calculation:</p>
                 {cardioDetails.map((detail, index) =>
                   detail.effortType === 'heartRate' ? (
                     <p key={`${detail.typeKey}-${index}`}>
@@ -232,15 +236,15 @@ export const CalorieBreakdownModal = ({
                 )}
               </div>
             ) : (
-              <p className="text-slate-400 text-xs mt-2">
+              <p className="text-muted text-xs mt-2">
                 No cardio sessions logged.
               </p>
             )}
           </BreakdownItem>
 
-          <div className="border border-slate-600 rounded-lg px-4 py-3 flex items-center justify-between">
-            <span className="text-slate-300 font-semibold">Total TDEE</span>
-            <span className="text-white font-bold text-lg">
+          <div className="border border-border rounded-lg px-4 py-3 flex items-center justify-between">
+            <span className="text-muted font-semibold">Total TDEE</span>
+            <span className="text-foreground font-bold text-lg">
               {breakdown.total.toLocaleString()} kcal
             </span>
           </div>
@@ -249,7 +253,7 @@ export const CalorieBreakdownModal = ({
         <button
           type="button"
           onClick={onClose}
-          className="w-full mt-5 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-lg transition-all"
+          className="w-full mt-5 bg-surface-highlight md:hover:bg-surface-highlight/80 text-foreground py-3 rounded-lg transition-all"
         >
           Close
         </button>
@@ -269,24 +273,24 @@ const BreakdownItem = ({
   const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
 
   return (
-    <div className="bg-slate-700/40 rounded-lg overflow-hidden">
+    <div className="bg-surface-highlight/40 rounded-lg overflow-hidden">
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-700/60 transition-colors text-left active:scale-[0.99]"
+        className="w-full flex items-center justify-between px-4 py-3 md:hover:bg-surface-highlight/60 transition-colors text-left active:scale-[0.99]"
       >
-        <span className="text-slate-400 flex items-center gap-2">
+        <span className="text-muted flex items-center gap-2">
           {label}
           <span
-            className={`text-white transition-transform duration-300 ${
+            className={`text-foreground transition-transform duration-300 ${
               expanded ? 'rotate-180' : 'rotate-0'
             }`}
           >
             <ChevronDown size={16} />
           </span>
         </span>
-        <span className="text-white font-semibold flex items-center gap-3">
-          <span className="text-slate-400 text-xs">{percentage}%</span>
+        <span className="text-foreground font-semibold flex items-center gap-3">
+          <span className="text-muted text-xs">{percentage}%</span>
           {value.toLocaleString()} kcal
         </span>
       </button>
@@ -295,7 +299,7 @@ const BreakdownItem = ({
           expanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
         }`}
       >
-        <div className="px-4 pb-3 pt-1 border-t border-slate-600/50 space-y-2">
+        <div className="px-4 pb-3 pt-1 border-t border-border/50 space-y-2">
           {children}
         </div>
       </div>

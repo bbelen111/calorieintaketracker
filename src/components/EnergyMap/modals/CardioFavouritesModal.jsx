@@ -182,7 +182,7 @@ export const CardioFavouritesModal = ({
             <h3 className="text-white font-bold text-xl md:text-2xl">
               Favourite Cardio Sessions
             </h3>
-            <p className="text-slate-400 text-sm md:text-base mt-1">
+            <p className="text-muted text-sm md:text-base mt-1">
               Save your go-to workouts for quick reuse.
             </p>
           </div>
@@ -190,7 +190,7 @@ export const CardioFavouritesModal = ({
             <button
               type="button"
               onClick={() => onCreateFavourite(currentSession)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm font-medium text-slate-100 transition-colors md:hover:border-amber-400 md:hover:text-white focus-ring pressable"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-highlight px-3 py-2 text-sm font-medium text-foreground transition-colors md:hover:border-accent-amber focus-ring pressable"
             >
               <Plus size={16} />
               Add
@@ -222,7 +222,7 @@ export const CardioFavouritesModal = ({
                   className={`w-full text-left p-4 rounded-xl border-2 transition-all active:scale-[0.98] flex flex-col gap-2 ${
                     active
                       ? 'bg-blue-600/80 border-blue-400 text-white shadow-lg'
-                      : 'bg-slate-700 border-slate-600 text-slate-200 hover:border-blue-400'
+                      : 'bg-surface border-border text-foreground md:hover:border-blue-400'
                   }`}
                   role="listitem"
                 >
@@ -250,7 +250,7 @@ export const CardioFavouritesModal = ({
                             setPendingDeleteId(favourite.id);
                             openConfirm();
                           }}
-                          className="flex-shrink-0 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
+                          className="flex-shrink-0 w-8 h-8 rounded-full bg-white/10 md:hover:bg-white/20 transition-colors flex items-center justify-center"
                           aria-label="Delete favourite cardio session"
                         >
                           <Trash2 size={14} />
@@ -261,7 +261,7 @@ export const CardioFavouritesModal = ({
               );
             })
           ) : (
-            <div className="text-center text-slate-400 text-sm py-10">
+            <div className="text-center text-muted text-sm py-10">
               No favourites yet. Add one to reuse your preferred cardio setup.
             </div>
           )}
@@ -271,7 +271,7 @@ export const CardioFavouritesModal = ({
           <button
             onClick={onClose}
             type="button"
-            className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-4 py-3 rounded-lg transition-all active:scale-95 font-medium"
+            className="flex-1 bg-surface-highlight text-foreground px-4 py-3 rounded-lg transition-all active:scale-95 font-medium"
           >
             Close
           </button>

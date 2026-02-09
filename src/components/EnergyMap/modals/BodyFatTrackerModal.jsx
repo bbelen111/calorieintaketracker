@@ -45,7 +45,7 @@ const getTrendToneClass = (trend, selectedGoal) => {
     trend.label === 'Need more data' ||
     trend.label === 'No data yet'
   ) {
-    return 'text-white';
+    return 'text-foreground';
   }
 
   return getGoalAlignedTextClass(trend, selectedGoal, 'bodyFat');
@@ -74,33 +74,33 @@ const getGoalAlignmentText = (weeklyRate, selectedGoal) => {
     expectation.direction !== 'flat'
   ) {
     if (expectation.direction === 'up') {
-      return { text: 'Not gaining as expected', color: 'text-yellow-400' };
+      return { text: 'Not gaining as expected', color: 'text-accent-yellow' };
     }
     if (expectation.direction === 'down') {
-      return { text: 'Not reducing as expected', color: 'text-yellow-400' };
+      return { text: 'Not reducing as expected', color: 'text-accent-yellow' };
     }
   }
 
   if (expectation.direction === 'flat') {
     if (absRate <= 0.1) {
-      return { text: 'On track with goal', color: 'text-green-400' };
+      return { text: 'On track with goal', color: 'text-accent-green' };
     }
-    return { text: 'Deviating from maintenance', color: 'text-yellow-400' };
+    return { text: 'Deviating from maintenance', color: 'text-accent-yellow' };
   }
 
   const expectedRate =
     expectation.direction === 'down' ? -weeklyRate : weeklyRate;
 
   if (expectedRate >= expectation.min && expectedRate <= expectation.max) {
-    return { text: 'On track with goal', color: 'text-green-400' };
+    return { text: 'On track with goal', color: 'text-accent-green' };
   }
 
   if (expectedRate < expectation.min) {
-    return { text: 'Slower than goal target', color: 'text-blue-400' };
+    return { text: 'Slower than goal target', color: 'text-accent-blue' };
   }
 
   if (expectedRate > expectation.max) {
-    return { text: 'Faster than goal target', color: 'text-yellow-400' };
+    return { text: 'Faster than goal target', color: 'text-accent-yellow' };
   }
 
   return null;
@@ -887,19 +887,19 @@ export const BodyFatTrackerModal = ({
         isOpen={isOpen}
         isClosing={isClosing}
         overlayClassName="fixed inset-0 bg-black/70 !p-0 !flex-none !items-stretch !justify-stretch"
-        contentClassName="fixed inset-0 w-screen h-screen p-0 bg-slate-900 rounded-none border-none !max-h-none flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
+        contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none !max-h-none flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
       >
-        <div className="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-700 flex-shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 bg-background border-b border-border flex-shrink-0">
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => onClose?.()}
               aria-label="Back"
-              className="text-slate-300 md:hover:text-white transition-all focus-ring pressable-inline"
+              className="text-muted md:hover:text-foreground transition-all focus-ring pressable-inline"
             >
               <ChevronLeft size={24} />
             </button>
-            <h3 className="text-white font-bold text-xl">Body Fat % Tracker</h3>
+            <h3 className="text-foreground font-bold text-xl">Body Fat % Tracker</h3>
           </div>
           {onSwitchToWeight && (
             <button
@@ -914,16 +914,16 @@ export const BodyFatTrackerModal = ({
           )}
         </div>
 
-        <div className="flex-1 bg-slate-800 border-t border-slate-700 overflow-y-auto flex flex-col">
+        <div className="flex-1 bg-surface border-t border-border overflow-y-auto flex flex-col">
           <div className="px-4 pt-4 pb-3 grid grid-cols-2 md:grid-cols-4 gap-3 flex-shrink-0">
             <div>
-              <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">
+              <p className="text-muted text-xs uppercase tracking-wide mb-1">
                 Current Body Fat
               </p>
-              <p className="text-white text-2xl font-bold">
+              <p className="text-foreground text-2xl font-bold">
                 {currentBodyFatDisplay}
               </p>
-              <p className="text-slate-400 text-[11px] mt-1">
+              <p className="text-muted text-[11px] mt-1">
                 {latestDate ? `as of ${formatTooltipDate(latestDate)}` : ''}
               </p>
             </div>
@@ -932,18 +932,18 @@ export const BodyFatTrackerModal = ({
                 type="button"
                 onClick={openTrendInfo}
                 aria-label="Weekly rate details"
-                className="text-slate-400 text-xs uppercase tracking-wide mb-1 hover:text-slate-200 transition-colors cursor-pointer flex items-center gap-1 group"
+                className="text-muted text-xs uppercase tracking-wide mb-1 md:hover:text-foreground transition-colors cursor-pointer flex items-center gap-1 group"
               >
                 Weekly Rate
                 <Info
                   size={14}
-                  className="opacity-60 group-hover:opacity-100 transition-opacity"
+                  className="opacity-60 md:group-hover:opacity-100 transition-opacity"
                 />
               </button>
-              <p className="text-white text-lg font-semibold">
+              <p className="text-foreground text-lg font-semibold">
                 {weeklyRateDisplay}
               </p>
-              <p className="text-slate-400 text-xs mt-1">
+              <p className="text-muted text-xs mt-1">
                 Goal: {getGoalWeeklyTarget(selectedGoal)}
               </p>
             </div>
@@ -952,12 +952,12 @@ export const BodyFatTrackerModal = ({
                 type="button"
                 onClick={openTrendInfo}
                 aria-label="Trend details"
-                className="text-slate-400 text-xs uppercase tracking-wide mb-1 hover:text-slate-200 transition-colors cursor-pointer flex items-center gap-1 group"
+                className="text-muted text-xs uppercase tracking-wide mb-1 md:hover:text-foreground transition-colors cursor-pointer flex items-center gap-1 group"
               >
                 Trend
                 <Info
                   size={14}
-                  className="opacity-60 group-hover:opacity-100 transition-opacity"
+                  className="opacity-60 md:group-hover:opacity-100 transition-opacity"
                 />
               </button>
               <p
@@ -975,17 +975,17 @@ export const BodyFatTrackerModal = ({
               )}
             </div>
             <div>
-              <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">
+              <p className="text-muted text-xs uppercase tracking-wide mb-1">
                 {selectedPhase ? 'Phase Range' : 'Timeframe'}
               </p>
-              <p className="text-white text-sm font-semibold">
+              <p className="text-foreground text-sm font-semibold">
                 {timeframeRangeLine}
               </p>
-              <p className="text-slate-400 text-[11px] mt-1">{timeframeMain}</p>
+              <p className="text-muted text-[11px] mt-1">{timeframeMain}</p>
             </div>
           </div>
 
-          <div className="sticky top-0 z-10 px-4 py-2 bg-slate-800/95 backdrop-blur border-b border-slate-700 flex-shrink-0">
+          <div className="sticky top-0 z-10 px-4 py-2 bg-surface/95 backdrop-blur border-b border-border flex-shrink-0">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <button
                 type="button"
@@ -1003,7 +1003,7 @@ export const BodyFatTrackerModal = ({
                       onClick={() =>
                         setIsPhaseDropdownOpen(!isPhaseDropdownOpen)
                       }
-                      className="px-3 py-1.5 md:py-2.5 rounded-md font-semibold text-sm transition-all whitespace-nowrap bg-slate-700 text-white border border-slate-600 md:hover:bg-slate-600 flex items-center gap-2 focus-ring press-feedback"
+                      className="px-3 py-1.5 md:py-2.5 rounded-md font-semibold text-sm transition-all whitespace-nowrap bg-surface-highlight text-foreground border border-border md:hover:bg-surface-highlight/80 flex items-center gap-2 focus-ring press-feedback"
                     >
                       <span>
                         {selectedPhase ? selectedPhase.name : 'All Data'}
@@ -1015,17 +1015,17 @@ export const BodyFatTrackerModal = ({
                     </button>
 
                     {isPhaseDropdownOpen && (
-                      <div className="absolute right-0 top-full mt-1 bg-slate-700 border border-slate-600 rounded-md shadow-lg z-10 min-w-[160px] max-h-[300px] overflow-y-auto">
+                      <div className="absolute right-0 top-full mt-1 bg-surface border border-border rounded-md shadow-lg z-10 min-w-[160px] max-h-[300px] overflow-y-auto">
                         <button
                           type="button"
                           onClick={() => {
                             setSelectedPhaseId(null);
                             setIsPhaseDropdownOpen(false);
                           }}
-                          className={`w-full px-4 py-2 text-left text-sm font-medium transition-colors md:hover:bg-slate-600 first:rounded-t-md focus-ring ${
+                          className={`w-full px-4 py-2 text-left text-sm font-medium transition-colors md:hover:bg-surface-highlight first:rounded-t-md focus-ring ${
                             !selectedPhaseId
                               ? 'bg-blue-600 text-white'
-                              : 'text-slate-200'
+                              : 'text-muted'
                           }`}
                         >
                           All Data
@@ -1038,16 +1038,16 @@ export const BodyFatTrackerModal = ({
                               setSelectedPhaseId(phase.id);
                               setIsPhaseDropdownOpen(false);
                             }}
-                            className={`w-full px-4 py-2 text-left text-sm font-medium transition-colors md:hover:bg-slate-600 last:rounded-b-md focus-ring ${
+                            className={`w-full px-4 py-2 text-left text-sm font-medium transition-colors md:hover:bg-surface-highlight last:rounded-b-md focus-ring ${
                               selectedPhaseId === phase.id
                                 ? 'bg-blue-600 text-white'
-                                : 'text-slate-200'
+                                : 'text-muted'
                             }`}
                           >
                             <div className="flex items-center justify-between gap-2">
                               <span className="truncate">{phase.name}</span>
                               {phase.status === 'active' && (
-                                <span className="flex-shrink-0 w-2 h-2 bg-green-400 rounded-full" />
+                                <span className="flex-shrink-0 w-2 h-2 bg-accent-green rounded-full" />
                               )}
                             </div>
                           </button>
@@ -1090,7 +1090,7 @@ export const BodyFatTrackerModal = ({
                   </button>
 
                   {isTimeframeDropdownOpen && (
-                    <div className="absolute right-0 top-full mt-1 bg-slate-700 border border-slate-600 rounded-md shadow-lg z-10 min-w-[120px]">
+                    <div className="absolute right-0 top-full mt-1 bg-surface border border-border rounded-md shadow-lg z-10 min-w-[120px]">
                       {[
                         { value: '7d', label: '7 Days' },
                         { value: '14d', label: '14 Days' },
@@ -1105,10 +1105,10 @@ export const BodyFatTrackerModal = ({
                             setSelectedTimeframe(value);
                             setIsTimeframeDropdownOpen(false);
                           }}
-                          className={`w-full px-4 py-2 text-left text-sm font-medium transition-colors md:hover:bg-slate-600 first:rounded-t-md last:rounded-b-md focus-ring ${
+                          className={`w-full px-4 py-2 text-left text-sm font-medium transition-colors md:hover:bg-surface-highlight first:rounded-t-md last:rounded-b-md focus-ring ${
                             selectedTimeframe === value
                               ? 'bg-blue-600 text-white'
-                              : 'text-slate-200'
+                              : 'text-muted'
                           }`}
                         >
                           {label}
@@ -1245,7 +1245,7 @@ export const BodyFatTrackerModal = ({
                                       className={
                                         isBaseline
                                           ? 'opacity-80'
-                                          : 'text-slate-500 opacity-60'
+                                          : 'text-muted opacity-60'
                                       }
                                     />
                                   );
@@ -1292,14 +1292,14 @@ export const BodyFatTrackerModal = ({
                       </svg>
                     ) : (
                       <div className="flex items-center justify-center h-full">
-                        <p className="text-slate-500 text-lg">
+                        <p className="text-muted text-lg">
                           No body fat data yet.
                         </p>
                       </div>
                     )}
                   </div>
                 </div>
-                <div className="pointer-events-none absolute right-0 -mr-1 top-0 h-full w-3 bg-gradient-to-l from-slate-800/90 to-transparent" />
+                <div className="pointer-events-none absolute right-0 -mr-1 top-0 h-full w-3 bg-gradient-to-l from-surface/90 to-transparent" />
               </div>
 
               <div className="rounded-r-lg w-14 flex-shrink-0 relative">
@@ -1313,7 +1313,7 @@ export const BodyFatTrackerModal = ({
                         return (
                           <div
                             key={`tick-${index}`}
-                            className="absolute right-2 text-sm font-semibold text-slate-100/70 tracking-tight text-right"
+                            className="absolute right-2 text-sm font-semibold text-foreground/70 tracking-tight text-right"
                             style={{
                               top: `${labelPercent}%`,
                               transform: translateY,
@@ -1394,8 +1394,8 @@ export const BodyFatTrackerModal = ({
                               className={`w-full flex flex-col items-center gap-1 py-2 px-3 rounded-md border transition-colors text-xs font-semibold ${
                                 isLatest
                                   ? 'bg-blue-600 border-blue-500 text-white'
-                                  : 'bg-transparent border-slate-600 text-slate-100'
-                              } ${selectedDate === date ? 'ring-2 ring-blue-400' : ''}`}
+                                  : 'bg-transparent border-border text-foreground'
+                              } ${selectedDate === date ? 'ring-2 ring-accent-blue' : ''}`}
                             >
                               <span className="w-full text-center">
                                 {label}
@@ -1407,7 +1407,7 @@ export const BodyFatTrackerModal = ({
                     </div>
                   </div>
                 </div>
-                <div className="pointer-events-none absolute right-0 -mr-1 top-0 h-full w-3 bg-gradient-to-l from-slate-800/90 to-transparent" />
+                <div className="pointer-events-none absolute right-0 -mr-1 top-0 h-full w-3 bg-gradient-to-l from-surface/90 to-transparent" />
               </div>
               <div className="w-14 flex-shrink-0" />
             </div>
@@ -1418,7 +1418,7 @@ export const BodyFatTrackerModal = ({
       {selectedPoint && selectedDate && entriesMap[selectedDate] && (
         <div
           ref={tooltipRef}
-          className={`fixed z-[1200] bg-slate-800 border border-slate-600 rounded-lg shadow-2xl p-4 transform -translate-x-1/2 -translate-y-full pointer-events-auto transition duration-150 ease-out ${
+          className={`fixed z-[1200] bg-surface border border-border rounded-lg shadow-2xl p-4 transform -translate-x-1/2 -translate-y-full pointer-events-auto transition duration-150 ease-out ${
             tooltipEntered && !tooltipClosing
               ? 'opacity-100 scale-100'
               : 'opacity-0 scale-95'
@@ -1439,19 +1439,19 @@ export const BodyFatTrackerModal = ({
             }
           }}
         >
-          <div className="cursor-pointer md:hover:bg-slate-700/50 rounded p-2 transition-all focus-ring pressable-card">
-            <p className="text-slate-400 text-[11.5px] mb-1">
+          <div className="cursor-pointer md:hover:bg-surface-highlight/50 rounded p-2 transition-all focus-ring pressable-card">
+            <p className="text-muted text-[11.5px] mb-1">
               {formatTooltipDate(selectedDate)}
             </p>
-            <p className="text-white text-2xl font-bold">
+            <p className="text-foreground text-2xl font-bold">
               {formatBodyFat(entriesMap[selectedDate].bodyFat)}%
             </p>
-            <p className="text-slate-300 text-[10px] mt-2 uppercase tracking-wide">
+            <p className="text-muted text-[10px] mt-2 uppercase tracking-wide">
               Tap to edit
             </p>
           </div>
 
-          <div className="absolute left-1/2 transform -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-slate-600"></div>
+          <div className="absolute left-1/2 transform -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-border"></div>
         </div>
       )}
 

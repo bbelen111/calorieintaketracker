@@ -179,16 +179,18 @@ export const MetValuePickerModal = ({
       overlayClassName="z-[85]"
       contentClassName="p-6 w-full max-w-sm"
     >
-      <h3 className="text-white font-bold text-xl mb-4 text-center">{title}</h3>
-      <p className="text-slate-400 text-xs text-center mb-2 uppercase tracking-wide">
+      <h3 className="text-foreground font-bold text-xl mb-4 text-center">
+        {title}
+      </h3>
+      <p className="text-muted text-xs text-center mb-2 uppercase tracking-wide">
         {unitLabel}
       </p>
 
       <div className="relative h-48 overflow-hidden">
         <div className="absolute inset-0 pointer-events-none z-10">
-          <div className="h-16 bg-gradient-to-b from-slate-800 to-transparent" />
+          <div className="h-16 bg-gradient-to-b from-surface to-transparent" />
           <div className="h-16 bg-transparent" />
-          <div className="h-16 bg-gradient-to-t from-slate-800 to-transparent" />
+          <div className="h-16 bg-gradient-to-t from-surface to-transparent" />
         </div>
         <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400 pointer-events-none z-10" />
 
@@ -208,7 +210,7 @@ export const MetValuePickerModal = ({
                 data-value={formattedValue}
                 onClick={() => updateValue(option)}
                 className={`py-3 px-6 text-2xl font-semibold transition-all snap-center cursor-pointer text-center focus-ring pressable ${
-                  isSelected ? 'text-white scale-110' : 'text-slate-500'
+                  isSelected ? 'text-foreground scale-110' : 'text-muted'
                 }`}
               >
                 {formattedValue}
@@ -223,7 +225,7 @@ export const MetValuePickerModal = ({
         <button
           onClick={onCancel}
           type="button"
-          className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback"
+          className="flex-1 bg-surface-highlight text-foreground px-6 py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback md:hover:bg-surface"
         >
           Cancel
         </button>
@@ -233,7 +235,7 @@ export const MetValuePickerModal = ({
             onSave?.(selectedValue);
           }}
           type="button"
-          className="flex-1 bg-green-600 active:bg-green-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback"
+          className="flex-1 bg-accent-green active:bg-accent-green/90 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback"
         >
           <Save size={20} />
           Save

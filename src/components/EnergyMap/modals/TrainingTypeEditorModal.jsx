@@ -44,13 +44,13 @@ export const TrainingTypeEditorModal = ({
       overlayClassName="bg-black/90 z-[70]"
       contentClassName="p-6 w-full max-w-md"
     >
-      <h3 className="text-white font-bold text-xl mb-4 text-center">
+      <h3 className="text-foreground font-bold text-xl mb-4 text-center">
         Edit Training Type
       </h3>
 
       <div className="space-y-4">
         <div>
-          <label className="text-slate-300 text-sm block mb-2">
+          <label className="text-muted text-sm block mb-2">
             Training Name
           </label>
           <input
@@ -58,12 +58,12 @@ export const TrainingTypeEditorModal = ({
             value={safeName}
             onChange={(event) => onNameChange(event.target.value)}
             placeholder={defaults.label}
-            className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-base"
+            className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border focus:border-blue-400 focus:outline-none text-base"
           />
         </div>
 
         <div>
-          <label className="text-slate-300 text-sm block mb-2">
+          <label className="text-muted text-sm block mb-2">
             Description
           </label>
           <input
@@ -71,12 +71,12 @@ export const TrainingTypeEditorModal = ({
             value={safeDescription}
             onChange={(event) => onDescriptionChange(event.target.value)}
             placeholder={defaults.description}
-            className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-base"
+            className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border focus:border-blue-400 focus:outline-none text-base"
           />
         </div>
 
         <div>
-          <label className="text-slate-300 text-sm block mb-2">
+          <label className="text-muted text-sm block mb-2">
             Calories Per Hour
           </label>
           <input
@@ -86,12 +86,12 @@ export const TrainingTypeEditorModal = ({
               onCaloriesChange(parseFloat(event.target.value))
             }
             placeholder={defaults.caloriesPerHour}
-            className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-base"
+            className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border focus:border-blue-400 focus:outline-none text-base"
           />
           <button
             type="button"
             onClick={infoModal.open}
-            className="mt-2 text-xs text-blue-300 md:hover:text-blue-200 underline underline-offset-2 transition-colors focus-ring"
+            className="mt-2 text-xs text-accent-blue/80 md:hover:text-accent-blue underline underline-offset-2 transition-colors focus-ring"
           >
             Not sure what number fits? View the quick guide.
           </button>
@@ -102,7 +102,7 @@ export const TrainingTypeEditorModal = ({
         <button
           onClick={onCancel}
           type="button"
-          className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback"
+          className="flex-1 bg-surface-highlight active:bg-surface-highlight/80 text-foreground px-6 py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback"
         >
           Cancel
         </button>

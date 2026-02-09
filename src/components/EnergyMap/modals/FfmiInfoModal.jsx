@@ -29,13 +29,13 @@ export const FfmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
   const category = getFFMICategory(ffmiData?.normalized, gender);
 
   const colorMap = {
-    blue: 'text-blue-400',
-    green: 'text-green-400',
-    emerald: 'text-emerald-400',
-    purple: 'text-purple-400',
-    amber: 'text-amber-400',
-    red: 'text-red-400',
-    slate: 'text-slate-400',
+    blue: 'text-accent-blue',
+    green: 'text-accent-green',
+    emerald: 'text-accent-emerald',
+    purple: 'text-accent-purple',
+    amber: 'text-accent-amber',
+    red: 'text-accent-red',
+    slate: 'text-accent-slate',
   };
 
   const isMale = gender === 'male';
@@ -48,21 +48,21 @@ export const FfmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
     >
       <div className="flex items-start justify-between gap-4 mb-4">
         <div className="flex items-center gap-3">
-          <Info size={28} className="text-emerald-400" />
-          <h3 className="text-white font-bold text-xl">What is FFMI?</h3>
+          <Info size={28} className="text-accent-emerald" />
+          <h3 className="text-foreground font-bold text-xl">What is FFMI?</h3>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="text-slate-400 md:hover:text-white transition-colors focus-ring"
+          className="text-muted md:hover:text-foreground transition-colors focus-ring"
         >
           <X size={20} />
         </button>
       </div>
 
-      <div className="space-y-4 text-slate-300">
+      <div className="space-y-4 text-muted">
         <p>
-          <span className="font-bold text-white">
+          <span className="font-bold text-foreground">
             FFMI (Fat-Free Mass Index)
           </span>{' '}
           is a measure of how much muscle you carry relative to your height.
@@ -70,73 +70,73 @@ export const FfmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
           mass.
         </p>
 
-        <div className="bg-slate-700/50 rounded-lg p-4">
-          <p className="font-bold text-white mb-2">Formula:</p>
-          <div className="p-3 bg-slate-900/50 rounded font-mono text-xs md:text-sm space-y-2">
-            <p className="text-slate-400">
+        <div className="bg-surface-highlight/50 rounded-lg p-4">
+          <p className="font-bold text-foreground mb-2">Formula:</p>
+          <div className="p-3 bg-background/50 rounded font-mono text-xs md:text-sm space-y-2">
+            <p className="text-muted">
               Lean mass = weight × (1 − body fat %)
             </p>
-            <p className="text-emerald-400">
+            <p className="text-accent-emerald">
               FFMI = lean mass (kg) ÷ height (m)²
             </p>
-            <p className="text-purple-400">
+            <p className="text-accent-purple">
               Normalized = FFMI + 6.1 × (1.8 − height in m)
             </p>
           </div>
         </div>
 
-        <div className="bg-slate-700/50 rounded-lg p-4">
-          <p className="font-bold text-white mb-3">
+        <div className="bg-surface-highlight/50 rounded-lg p-4">
+          <p className="font-bold text-foreground mb-3">
             FFMI Categories ({isMale ? 'Male' : 'Female'}):
           </p>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-blue-400">Below average</span>
+              <span className="text-accent-blue">Below average</span>
               <span>&lt; {isMale ? '18' : '15.5'}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-400">Average</span>
+              <span className="text-muted">Average</span>
               <span>{isMale ? '18 - 19.9' : '15.5 - 17.4'}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-green-400">Above average</span>
+              <span className="text-accent-green">Above average</span>
               <span>{isMale ? '20 - 21.9' : '17.5 - 19.4'}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-emerald-400">Excellent</span>
+              <span className="text-accent-emerald">Excellent</span>
               <span>{isMale ? '22 - 22.9' : '19.5 - 20.4'}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-purple-400">Elite</span>
+              <span className="text-accent-purple">Elite</span>
               <span>{isMale ? '23 - 24.9' : '20.5 - 22.4'}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-amber-400">Pro-level</span>
+              <span className="text-accent-amber">Pro-level</span>
               <span>{isMale ? '25 - 26.9' : '22.5 - 24.4'}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-red-400">Suspiciously high</span>
+              <span className="text-accent-red">Suspiciously high</span>
               <span>≥ {isMale ? '27' : '24.5'}</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-emerald-900/20 border border-emerald-700/50 rounded-lg p-4">
-          <p className="font-bold text-emerald-300 mb-2">Your Current FFMI:</p>
+        <div className="bg-accent-emerald/15 border border-accent-emerald/50 rounded-lg p-4">
+          <p className="font-bold text-accent-emerald mb-2">Your Current FFMI:</p>
           <div className="text-sm space-y-1">
             <p>
               Weight:{' '}
-              <span className="text-white font-semibold">
+              <span className="text-foreground font-semibold">
                 {formatWeight(weight)} kg
               </span>
             </p>
             <p>
               Height:{' '}
-              <span className="text-white font-semibold">{height} cm</span>
+              <span className="text-foreground font-semibold">{height} cm</span>
             </p>
             <p>
               Body fat:{' '}
-              <span className="text-white font-semibold">
+              <span className="text-foreground font-semibold">
                 {bodyFatPercent != null
                   ? `${formatBodyFat(bodyFatPercent)}%`
                   : 'Not tracked'}
@@ -145,15 +145,15 @@ export const FfmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
             {ffmiData && (
               <p>
                 Lean mass:{' '}
-                <span className="text-white font-semibold">
+                <span className="text-foreground font-semibold">
                   {ffmiData.leanMass.toFixed(1)} kg
                 </span>
               </p>
             )}
-            <div className="border-t border-emerald-700/50 mt-2 pt-2">
+            <div className="border-t border-accent-emerald/50 mt-2 pt-2">
               <p className="text-lg">
                 Your FFMI:{' '}
-                <span className="text-white font-bold">
+                <span className="text-foreground font-bold">
                   {ffmiData ? ffmiData.normalized.toFixed(1) : '—'}
                 </span>
                 {ffmiData && category.label !== 'Unknown' && (
@@ -165,13 +165,13 @@ export const FfmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
             </div>
           </div>
           {!ffmiData && (
-            <p className="text-amber-300 text-sm mt-2">
+            <p className="text-accent-amber text-sm mt-2">
               Enable body fat tracking and add an entry to calculate your FFMI.
             </p>
           )}
         </div>
 
-        <p className="text-sm italic text-slate-400">
+        <p className="text-sm italic text-muted">
           Note: An FFMI above 25 for natural athletes is extremely rare. Values
           above 27 are typically only achievable with performance-enhancing
           drugs.

@@ -38,14 +38,14 @@ export const QuickTrainingModal = ({
       isClosing={isClosing}
       contentClassName="p-6 w-full max-w-md"
     >
-      <h3 className="text-white font-bold text-xl mb-4 text-center">
+      <h3 className="text-foreground font-bold text-xl mb-4 text-center">
         Training Settings
       </h3>
 
       <div className="space-y-6">
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-slate-300 text-sm">Training Type</label>
+            <label className="text-muted text-sm">Training Type</label>
           </div>
           <div className="grid grid-cols-2 gap-2">
             {Object.entries(resolvedTrainingTypes).map(([key, type]) => {
@@ -61,7 +61,7 @@ export const QuickTrainingModal = ({
                   className={`p-3 rounded-lg border-2 transition-all text-sm relative text-left focus-ring pressable ${
                     isActive
                       ? 'bg-purple-600 border-purple-400 text-white'
-                      : 'bg-slate-700 border-slate-600 text-slate-300 active:bg-slate-600 md:hover:border-purple-400'
+                      : 'bg-surface-highlight border-border text-muted active:bg-surface-highlight/80 md:hover:border-purple-400'
                   }`}
                 >
                   <span
@@ -88,7 +88,7 @@ export const QuickTrainingModal = ({
         </div>
 
         <div>
-          <label className="text-slate-300 text-sm block mb-2">
+          <label className="text-muted text-sm block mb-2">
             Training Duration (hours)
           </label>
           <button
@@ -106,11 +106,11 @@ export const QuickTrainingModal = ({
               Tap to change
             </span>
           </button>
-          <div className="bg-slate-700/50 rounded-lg p-3 mt-3">
-            <p className="text-slate-400 text-xs text-center mb-1">
+          <div className="bg-surface-highlight/50 rounded-lg p-3 mt-3">
+            <p className="text-muted text-xs text-center mb-1">
               Estimated Burn:
             </p>
-            <p className="text-white font-bold text-xl text-center">
+            <p className="text-foreground font-bold text-xl text-center">
               ~{estimatedBurn} calories
             </p>
           </div>
@@ -121,7 +121,7 @@ export const QuickTrainingModal = ({
         <button
           onClick={onCancel}
           type="button"
-          className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback"
+          className="flex-1 bg-surface-highlight active:bg-surface-highlight/80 text-foreground px-6 py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback"
         >
           Cancel
         </button>

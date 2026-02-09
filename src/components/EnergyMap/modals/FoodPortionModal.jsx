@@ -386,6 +386,22 @@ export const FoodPortionModal = ({
     return FOOD_CATEGORIES[category]?.color || 'slate';
   };
 
+  const getCategoryTagClass = (category) => {
+    const color = getCategoryColor(category);
+    const map = {
+      red: 'bg-accent-red/20 text-accent-red',
+      amber: 'bg-accent-amber/20 text-accent-amber',
+      green: 'bg-accent-green/20 text-accent-green',
+      yellow: 'bg-accent-yellow/20 text-accent-yellow',
+      purple: 'bg-accent-purple/20 text-accent-purple',
+      blue: 'bg-accent-blue/20 text-accent-blue',
+      emerald: 'bg-accent-emerald/20 text-accent-emerald',
+      slate: 'bg-surface-highlight/60 text-muted',
+      indigo: 'bg-accent-blue/20 text-accent-blue',
+    };
+    return map[color] || 'bg-surface-highlight/60 text-muted';
+  };
+
   const categoryLabel =
     FOOD_CATEGORIES[selectedFood.category]?.label || selectedFood.category;
 
@@ -398,22 +414,24 @@ export const FoodPortionModal = ({
     >
       {/* Header */}
       <div className="mb-4">
-        <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-3">
+        <div className="bg-surface/60 border border-border rounded-lg p-3">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <h4 className="text-white font-semibold text-sm truncate">
+              <h4 className="text-foreground font-semibold text-sm truncate">
                 {selectedFood.name}
               </h4>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 {!isCached && (
                   <span
-                    className={`text-xs px-2 py-0.5 rounded bg-${getCategoryColor(selectedFood.category)}-500/20 text-${getCategoryColor(selectedFood.category)}-400`}
+                    className={`text-xs px-2 py-0.5 rounded ${getCategoryTagClass(
+                      selectedFood.category
+                    )}`}
                   >
                     {categoryLabel}
                   </span>
                 )}
                 {selectedFood.subcategory && (
-                  <span className="text-xs px-2 py-0.5 bg-slate-600/40 text-slate-300 rounded capitalize">
+                  <span className="text-xs px-2 py-0.5 bg-surface-highlight/60 text-foreground rounded capitalize">
                     {selectedFood.subcategory.replace(/-/g, ' ')}
                   </span>
                 )}
@@ -438,7 +456,7 @@ export const FoodPortionModal = ({
               </div>
             </div>
             <div className="flex flex-col items-end gap-1">
-              <span className="text-slate-500 text-[10px] font-medium">
+              <span className="text-muted text-[10px] font-medium">
                 per 100g
               </span>
               <div className="flex items-center gap-3 text-xs">
@@ -446,25 +464,25 @@ export const FoodPortionModal = ({
                   <p className="text-emerald-400 font-bold">
                     {formatOne(selectedFood.per100g.calories)}
                   </p>
-                  <p className="text-slate-500">cal</p>
+                  <p className="text-muted">cal</p>
                 </div>
                 <div className="text-center">
                   <p className="text-red-400 font-bold">
                     {formatOne(selectedFood.per100g.protein)}g
                   </p>
-                  <p className="text-slate-500">prot</p>
+                  <p className="text-muted">prot</p>
                 </div>
                 <div className="text-center">
                   <p className="text-amber-400 font-bold">
                     {formatOne(selectedFood.per100g.carbs)}g
                   </p>
-                  <p className="text-slate-500">carb</p>
+                  <p className="text-muted">carb</p>
                 </div>
                 <div className="text-center">
                   <p className="text-yellow-400 font-bold">
                     {formatOne(selectedFood.per100g.fats)}g
                   </p>
-                  <p className="text-slate-500">fat</p>
+                  <p className="text-muted">fat</p>
                 </div>
               </div>
             </div>
@@ -474,7 +492,7 @@ export const FoodPortionModal = ({
 
       {/* Portion Selector */}
       <div className="mb-6">
-        <h3 className="text-white font-bold text-xl mb-4 text-center">
+        <h3 className="text-foreground font-bold text-xl mb-4 text-center">
           Select Portion Size
         </h3>
 
@@ -485,7 +503,7 @@ export const FoodPortionModal = ({
               <select
                 value={selectedUnit}
                 onChange={handleUnitChange}
-                className="bg-slate-700/50 border border-slate-600 rounded px-3 py-1.5 pr-8 text-slate-400 text-xs uppercase tracking-wide appearance-none focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer md:hover:bg-slate-700 transition-all"
+                className="bg-surface/60 border border-border rounded px-3 py-1.5 pr-8 text-muted text-xs uppercase tracking-wide appearance-none focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer md:hover:bg-surface transition-all"
               >
                 <option value="grams">Grammes</option>
                 {selectedFood.portions.map((portion) => (
@@ -495,12 +513,12 @@ export const FoodPortionModal = ({
                 ))}
               </select>
               <ChevronDown
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
                 size={14}
               />
             </div>
           ) : (
-            <label className="text-slate-400 text-xs uppercase tracking-wide">
+            <label className="text-muted text-xs uppercase tracking-wide">
               Grammes
             </label>
           )}
@@ -509,11 +527,11 @@ export const FoodPortionModal = ({
         {/* Picker - always visible */}
         <div className="flex justify-center items-center">
           <div className="w-[220px]">
-            <div className="relative h-48 overflow-hidden rounded-xl bg-slate-800/80">
+            <div className="relative h-48 overflow-hidden rounded-xl bg-surface/80">
               <div className="absolute inset-0 pointer-events-none z-10">
-                <div className="h-16 bg-gradient-to-b from-slate-800 to-transparent" />
+                <div className="h-16 bg-gradient-to-b from-surface to-transparent" />
                 <div className="h-16 bg-transparent" />
-                <div className="h-16 bg-gradient-to-t from-slate-800 to-transparent" />
+                <div className="h-16 bg-gradient-to-t from-surface to-transparent" />
               </div>
               <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400/70 pointer-events-none z-10" />
 
@@ -536,8 +554,8 @@ export const FoodPortionModal = ({
                     }
                     className={`h-16 flex items-center justify-center text-2xl font-bold snap-center transition-all text-center cursor-pointer ${
                       selectedWhole === value
-                        ? 'text-white scale-110'
-                        : 'text-slate-500'
+                        ? 'text-foreground scale-110'
+                        : 'text-muted'
                     }`}
                   >
                     {value}
@@ -549,11 +567,11 @@ export const FoodPortionModal = ({
           </div>
 
           <div className="w-24 flex-shrink-0">
-            <div className="relative h-48 overflow-hidden rounded-xl bg-slate-800/80">
+            <div className="relative h-48 overflow-hidden rounded-xl bg-surface/80">
               <div className="absolute inset-0 pointer-events-none z-10">
-                <div className="h-16 bg-gradient-to-b from-slate-800 to-transparent" />
+                <div className="h-16 bg-gradient-to-b from-surface to-transparent" />
                 <div className="h-16 bg-transparent" />
-                <div className="h-16 bg-gradient-to-t from-slate-800 to-transparent" />
+                <div className="h-16 bg-gradient-to-t from-surface to-transparent" />
               </div>
               <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400/70 pointer-events-none z-10" />
 
@@ -580,8 +598,8 @@ export const FoodPortionModal = ({
                       }}
                       className={`h-16 flex items-center justify-center text-2xl font-bold snap-center transition-all text-center cursor-pointer ${
                         selectedDecimal === decimal
-                          ? 'text-white scale-110'
-                          : 'text-slate-500'
+                          ? 'text-foreground scale-110'
+                          : 'text-muted'
                       } ${isDisabled ? 'opacity-40 pointer-events-none' : ''}`}
                     >
                       .{decimal}
@@ -598,14 +616,14 @@ export const FoodPortionModal = ({
         <div className="text-center mt-4">
           <p className="text-white font-bold text-3xl">
             {formatOne(displayQuantity)}{' '}
-            <span className="text-slate-400 text-lg font-normal">
+            <span className="text-muted text-lg font-normal">
               {selectedUnit === 'grams'
                 ? 'g'
                 : currentPortion?.label.toLowerCase() || ''}
             </span>
           </p>
           {selectedUnit !== 'grams' && (
-            <p className="text-slate-400 text-sm mt-1">
+            <p className="text-muted text-sm mt-1">
               = {formatOne(grams)}g total
             </p>
           )}
@@ -614,8 +632,8 @@ export const FoodPortionModal = ({
 
       {/* Calculated Nutrition */}
       {nutrition && (
-        <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6 shadow-lg shadow-slate-900/20">
-          <p className="text-slate-400 text-xs mb-3 text-center">
+        <div className="bg-surface/60 border border-border rounded-lg p-4 mb-6 shadow-lg shadow-black/20">
+          <p className="text-muted text-xs mb-3 text-center">
             For {formatOne(grams)}g:
           </p>
           <div className="grid grid-cols-4 gap-3 text-center">
@@ -623,25 +641,25 @@ export const FoodPortionModal = ({
               <p className="text-emerald-400 font-bold text-2xl">
                 {formatOne(nutrition.calories)}
               </p>
-              <p className="text-slate-400 text-xs">kcal</p>
+              <p className="text-muted text-xs">kcal</p>
             </div>
             <div>
               <p className="text-red-400 font-bold text-2xl">
                 {formatOne(nutrition.protein)}g
               </p>
-              <p className="text-slate-400 text-xs">protein</p>
+              <p className="text-muted text-xs">protein</p>
             </div>
             <div>
               <p className="text-amber-400 font-bold text-2xl">
                 {formatOne(nutrition.carbs)}g
               </p>
-              <p className="text-slate-400 text-xs">carbs</p>
+              <p className="text-muted text-xs">carbs</p>
             </div>
             <div>
               <p className="text-yellow-400 font-bold text-2xl">
                 {formatOne(nutrition.fats)}g
               </p>
-              <p className="text-slate-400 text-xs">fats</p>
+              <p className="text-muted text-xs">fats</p>
             </div>
           </div>
         </div>
@@ -653,14 +671,14 @@ export const FoodPortionModal = ({
           {/* Save as Favourite - only show when callback provided and not editing */}
           <button
             onClick={handleClose}
-            className="flex-1 h-10 px-4 bg-slate-700 md:hover:bg-slate-600 text-white rounded-lg font-semibold transition-all text-sm press-feedback focus-ring"
+            className="flex-1 h-10 px-4 bg-surface-highlight md:hover:bg-surface text-foreground rounded-lg font-semibold transition-all text-sm press-feedback focus-ring"
           >
             Cancel
           </button>
           <button
             onClick={handleAddFood}
             disabled={!nutrition || nutrition.calories === 0}
-            className="flex-1 h-10 px-4 bg-blue-600 md:hover:bg-blue-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring"
+            className="flex-1 h-10 px-4 bg-blue-600 md:hover:bg-blue-500 disabled:bg-surface-highlight/60 disabled:cursor-not-allowed disabled:text-muted text-white rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring"
           >
             <Plus size={18} />
             {isEditing ? 'Save Changes' : 'Add Food'}
@@ -684,7 +702,7 @@ export const FoodPortionModal = ({
               className={`w-10 h-10 ml-1 border rounded-lg font-medium transition-all flex items-center justify-center press-feedback focus-ring ${
                 isCurrentlyFavourited
                   ? 'bg-indigo-600/30 border-indigo-500/50 text-indigo-300 cursor-default'
-                  : 'bg-indigo-600 md:hover:bg-indigo-500 border-indigo-600/50 text-white disabled:bg-slate-600/20 disabled:border-slate-600/50 disabled:cursor-not-allowed disabled:text-slate-500'
+                  : 'bg-indigo-600 md:hover:bg-indigo-500 border-indigo-600/50 text-white disabled:bg-surface-highlight/30 disabled:border-border/60 disabled:cursor-not-allowed disabled:text-muted'
               }`}
             >
               <Heart

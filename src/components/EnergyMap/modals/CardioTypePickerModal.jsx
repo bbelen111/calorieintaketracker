@@ -105,7 +105,7 @@ export const CardioTypePickerModal = ({
         <div className="flex flex-col gap-3">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h3 className="text-white font-bold text-xl md:text-2xl mb-3">
+              <h3 className="text-foreground font-bold text-xl md:text-2xl mb-3">
                 Browse Cardio Types
               </h3>
             </div>
@@ -113,7 +113,7 @@ export const CardioTypePickerModal = ({
               <button
                 type="button"
                 onClick={() => onCreateCustomCardioType()}
-                className="p-2 rounded-lg border border-slate-600 bg-slate-800 text-slate-200 hover:border-indigo-400 hover:text-white transition-colors"
+                className="p-2 rounded-lg border border-border bg-surface-highlight text-foreground md:hover:border-accent-blue transition-colors"
                 aria-label="Add custom cardio type"
               >
                 <Plus size={18} />
@@ -123,13 +123,13 @@ export const CardioTypePickerModal = ({
           <div className="relative">
             <Search
               size={16}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
             />
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search by name, equipment, or intensity"
-              className="w-full bg-slate-800 text-white placeholder:text-slate-500 pl-10 pr-4 py-2 rounded-lg border border-slate-700 focus:border-blue-400 focus:outline-none"
+              className="w-full bg-surface text-foreground placeholder:text-muted pl-10 pr-4 py-2 rounded-lg border border-border focus:border-blue-400 focus:outline-none"
               type="text"
             />
           </div>
@@ -140,7 +140,7 @@ export const CardioTypePickerModal = ({
           role="list"
         >
           {filteredTypes.length === 0 ? (
-            <div className="text-center text-slate-400 text-sm py-6">
+            <div className="text-center text-muted text-sm py-6">
               No cardio types match that search. Try a different keyword.
             </div>
           ) : (
@@ -156,8 +156,8 @@ export const CardioTypePickerModal = ({
                   onClick={() => onSelect(key)}
                   className={`relative w-full text-left p-4 rounded-xl border-2 transition-all active:scale-[0.98] flex flex-col gap-2 focus-ring ${
                     isActive
-                      ? 'bg-purple-600 border-purple-400 text-white shadow-lg'
-                      : 'bg-slate-700 border-slate-600 text-slate-200 md:hover:border-blue-400'
+                      ? 'bg-accent-purple border-accent-purple text-white shadow-lg'
+                      : 'bg-surface border-border text-foreground md:hover:border-blue-400'
                   }`}
                   role="listitem"
                 >
@@ -186,7 +186,7 @@ export const CardioTypePickerModal = ({
                           setPendingDeleteKey(key);
                           openConfirm();
                         }}
-                        className="flex-shrink-0 w-8 h-8 rounded-full bg-white/10 md:hover:bg-white/20 transition-colors flex items-center justify-center focus-ring pressable"
+                        className="flex-shrink-0 w-8 h-8 rounded-full bg-foreground/10 md:hover:bg-foreground/20 transition-colors flex items-center justify-center focus-ring pressable"
                         aria-label="Delete custom cardio type"
                       >
                         <Trash2 size={14} />
@@ -203,7 +203,7 @@ export const CardioTypePickerModal = ({
           <button
             onClick={onClose}
             type="button"
-            className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-4 py-3 rounded-lg transition-all active:scale-95 font-medium"
+            className="flex-1 bg-surface-highlight text-foreground px-4 py-3 rounded-lg transition-all active:scale-95 font-medium"
           >
             Cancel
           </button>

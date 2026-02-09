@@ -23,7 +23,7 @@ export const BodyFatTrendInfoModal = ({
 }) => {
   const getTrendColor = () => {
     if (!trend || trend.label === 'Need more data' || trend.label === 'No data yet') {
-      return 'text-white';
+      return 'text-foreground';
     }
     return getGoalAlignedTextClass(trend, selectedGoal, 'bodyFat');
   };
@@ -37,32 +37,32 @@ export const BodyFatTrendInfoModal = ({
     >
       <div className="flex items-start justify-between gap-4 mb-4">
         <div className="flex items-center gap-3">
-          <Info size={28} className="text-blue-400" />
-          <h3 className="text-white font-bold text-xl">Body Fat Trends</h3>
+          <Info size={28} className="text-accent-blue" />
+          <h3 className="text-foreground font-bold text-xl">Body Fat Trends</h3>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="text-slate-400 md:hover:text-white transition-colors focus-ring"
+          className="text-muted md:hover:text-foreground transition-colors focus-ring"
         >
           <X size={20} />
         </button>
       </div>
 
-      <div className="space-y-4 text-slate-300">
+      <div className="space-y-4 text-muted">
         <p>
           Your body fat trend is calculated by analyzing your recent entries to
           determine the rate and direction of change over time.
         </p>
 
-        <div className="bg-slate-700/50 rounded-lg p-4">
-          <p className="font-bold text-white mb-2">
+        <div className="bg-surface-highlight/50 rounded-lg p-4">
+          <p className="font-bold text-foreground mb-2">
             How We Calculate Your Trend:
           </p>
           <div className="text-sm space-y-2">
             <p>
               We analyze your body fat entries over a{' '}
-              <span className="text-blue-400 font-semibold">
+              <span className="text-accent-blue font-semibold">
                 selectable time window
               </span>{' '}
               (30 days, 90 days, 6 months, or all available data).
@@ -70,7 +70,7 @@ export const BodyFatTrendInfoModal = ({
             <p>
               The trend compares your earliest and latest entries in the
               selected window to calculate your{' '}
-              <span className="text-blue-400 font-semibold">
+              <span className="text-accent-blue font-semibold">
                 weekly rate of change
               </span>
               . Longer timeframes provide more stable trends, while shorter
@@ -79,8 +79,8 @@ export const BodyFatTrendInfoModal = ({
           </div>
         </div>
 
-        <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-4">
-          <p className="font-bold text-blue-300 mb-3">Your Current Trend:</p>
+        <div className="bg-accent-blue/15 border border-accent-blue/50 rounded-lg p-4">
+          <p className="font-bold text-accent-blue mb-3">Your Current Trend:</p>
           <div className="flex items-center gap-3 mb-3">
             <span
               className={`${getTrendColor()} font-semibold text-lg flex items-center gap-2`}
@@ -92,21 +92,21 @@ export const BodyFatTrendInfoModal = ({
           <div className="text-sm space-y-1">
             <p>
               Weekly Rate:{' '}
-              <span className="text-white font-semibold">
+              <span className="text-foreground font-semibold">
                 {trend.weeklyRate >= 0 ? '+' : ''}
                 {trend.weeklyRate.toFixed(2)} %/week
               </span>
             </p>
             <p>
               Data Points:{' '}
-              <span className="text-white font-semibold">
+              <span className="text-foreground font-semibold">
                 {trend.sampleRange?.length || 0} entries
               </span>
             </p>
             {trend.sampleRange && trend.sampleRange.length >= 2 && (
               <p>
                 Period:{' '}
-                <span className="text-white font-semibold">
+                <span className="text-foreground font-semibold">
                   {trend.sampleRange[0].date} to{' '}
                   {trend.sampleRange[trend.sampleRange.length - 1].date}
                 </span>
@@ -115,19 +115,19 @@ export const BodyFatTrendInfoModal = ({
           </div>
         </div>
 
-        <div className="bg-emerald-900/20 border border-emerald-700/50 rounded-lg p-4">
-          <p className="font-bold text-emerald-300 mb-3">Goal Alignment:</p>
+        <div className="bg-accent-emerald/15 border border-accent-emerald/50 rounded-lg p-4">
+          <p className="font-bold text-accent-emerald mb-3">Goal Alignment:</p>
           <div className="text-sm space-y-2">
             <p>
               Your selected goal is{' '}
-              <span className="text-white font-semibold">
+              <span className="text-foreground font-semibold">
                 {goals[selectedGoal]?.label || 'Maintenance'}
               </span>
               .
             </p>
             <p>
               Target rate:{' '}
-              <span className="text-white font-semibold">
+              <span className="text-foreground font-semibold">
                 {selectedGoal === 'aggressive_bulk'
                   ? '+0.15 to +0.3 %/week'
                   : selectedGoal === 'bulking'
@@ -146,7 +146,7 @@ export const BodyFatTrendInfoModal = ({
                 {trend.weeklyRate.toFixed(2)} %/week
               </span>
             </p>
-            <div className="mt-3 pt-3 border-t border-emerald-700/30">
+            <div className="mt-3 pt-3 border-t border-accent-emerald/30">
               <div className="flex items-center gap-3">
                 <span className="flex-shrink-0">
                   {(() => {
@@ -154,42 +154,42 @@ export const BodyFatTrendInfoModal = ({
                     const absRate = Math.abs(rate);
 
                     if (selectedGoal === 'maintenance') {
-                      if (absRate <= 0.1) return <CheckCircle2 size={16} className="text-green-400" />;
-                      if (absRate <= 0.15) return <AlertCircle size={16} className="text-yellow-400" />;
-                      return <XCircle size={16} className="text-red-400" />;
+                      if (absRate <= 0.1) return <CheckCircle2 size={16} className="text-accent-green" />;
+                      if (absRate <= 0.15) return <AlertCircle size={16} className="text-accent-yellow" />;
+                      return <XCircle size={16} className="text-accent-red" />;
                     }
 
                     const isGain = selectedGoal.includes('bulk');
                     const isCut = selectedGoal.includes('cut');
                     const movingWrong = (isGain && rate < -0.1) || (isCut && rate > 0.1);
 
-                    if (movingWrong) return <XCircle size={16} className="text-red-400" />;
+                    if (movingWrong) return <XCircle size={16} className="text-accent-red" />;
 
                     if (selectedGoal === 'aggressive_bulk') {
-                      if (rate >= 0.15 && rate <= 0.3) return <CheckCircle2 size={16} className="text-green-400" />;
-                      if (rate < 0.15) return <AlertCircle size={16} className="text-yellow-400" />;
-                      return <AlertCircle size={16} className="text-yellow-400" />;
+                      if (rate >= 0.15 && rate <= 0.3) return <CheckCircle2 size={16} className="text-accent-green" />;
+                      if (rate < 0.15) return <AlertCircle size={16} className="text-accent-yellow" />;
+                      return <AlertCircle size={16} className="text-accent-yellow" />;
                     }
 
                     if (selectedGoal === 'bulking') {
-                      if (rate >= 0.08 && rate <= 0.15) return <CheckCircle2 size={16} className="text-green-400" />;
-                      if (rate < 0.08) return <AlertCircle size={16} className="text-yellow-400" />;
-                      return <AlertCircle size={16} className="text-yellow-400" />;
+                      if (rate >= 0.08 && rate <= 0.15) return <CheckCircle2 size={16} className="text-accent-green" />;
+                      if (rate < 0.08) return <AlertCircle size={16} className="text-accent-yellow" />;
+                      return <AlertCircle size={16} className="text-accent-yellow" />;
                     }
 
                     if (selectedGoal === 'cutting') {
-                      if (rate <= -0.08 && rate >= -0.15) return <CheckCircle2 size={16} className="text-green-400" />;
-                      if (rate > -0.08) return <AlertCircle size={16} className="text-yellow-400" />;
-                      return <AlertCircle size={16} className="text-orange-400" />;
+                      if (rate <= -0.08 && rate >= -0.15) return <CheckCircle2 size={16} className="text-accent-green" />;
+                      if (rate > -0.08) return <AlertCircle size={16} className="text-accent-yellow" />;
+                      return <AlertCircle size={16} className="text-accent-orange" />;
                     }
 
                     if (selectedGoal === 'aggressive_cut') {
-                      if (rate <= -0.15 && rate >= -0.3) return <CheckCircle2 size={16} className="text-green-400" />;
-                      if (rate > -0.15) return <AlertCircle size={16} className="text-yellow-400" />;
-                      return <AlertCircle size={16} className="text-orange-400" />;
+                      if (rate <= -0.15 && rate >= -0.3) return <CheckCircle2 size={16} className="text-accent-green" />;
+                      if (rate > -0.15) return <AlertCircle size={16} className="text-accent-yellow" />;
+                      return <AlertCircle size={16} className="text-accent-orange" />;
                     }
 
-                    return <AlertCircle size={16} className="text-slate-400" />;
+                    return <AlertCircle size={16} className="text-accent-slate" />;
                   })()}
                 </span>
                 <p className={(() => {
@@ -197,42 +197,42 @@ export const BodyFatTrendInfoModal = ({
                     const absRate = Math.abs(rate);
 
                     if (selectedGoal === 'maintenance') {
-                      if (absRate <= 0.1) return 'text-emerald-200';
-                      if (absRate <= 0.15) return 'text-yellow-300';
-                      return 'text-red-300';
+                      if (absRate <= 0.1) return 'text-accent-green';
+                      if (absRate <= 0.15) return 'text-accent-yellow';
+                      return 'text-accent-red';
                     }
 
                     const isGain = selectedGoal.includes('bulk');
                     const isCut = selectedGoal.includes('cut');
                     const movingWrong = (isGain && rate < -0.1) || (isCut && rate > 0.1);
 
-                    if (movingWrong) return 'text-red-300';
+                    if (movingWrong) return 'text-accent-red';
 
                     if (selectedGoal === 'aggressive_bulk') {
-                      if (rate >= 0.15 && rate <= 0.3) return 'text-green-300';
-                      if (rate < 0.15) return 'text-yellow-300';
-                      return 'text-yellow-300';
+                      if (rate >= 0.15 && rate <= 0.3) return 'text-accent-green';
+                      if (rate < 0.15) return 'text-accent-yellow';
+                      return 'text-accent-yellow';
                     }
 
                     if (selectedGoal === 'bulking') {
-                      if (rate >= 0.08 && rate <= 0.15) return 'text-green-300';
-                      if (rate < 0.08) return 'text-yellow-300';
-                      return 'text-yellow-300';
+                      if (rate >= 0.08 && rate <= 0.15) return 'text-accent-green';
+                      if (rate < 0.08) return 'text-accent-yellow';
+                      return 'text-accent-yellow';
                     }
 
                     if (selectedGoal === 'cutting') {
-                      if (rate <= -0.08 && rate >= -0.15) return 'text-green-300';
-                      if (rate > -0.08) return 'text-yellow-300';
-                      return 'text-orange-300';
+                      if (rate <= -0.08 && rate >= -0.15) return 'text-accent-green';
+                      if (rate > -0.08) return 'text-accent-yellow';
+                      return 'text-accent-orange';
                     }
 
                     if (selectedGoal === 'aggressive_cut') {
-                      if (rate <= -0.15 && rate >= -0.3) return 'text-green-300';
-                      if (rate > -0.15) return 'text-yellow-300';
-                      return 'text-orange-300';
+                      if (rate <= -0.15 && rate >= -0.3) return 'text-accent-green';
+                      if (rate > -0.15) return 'text-accent-yellow';
+                      return 'text-accent-orange';
                     }
 
-                    return 'text-slate-300';
+                    return 'text-muted';
                   })()}>
                   {(() => {
                     const rate = trend.weeklyRate;
@@ -282,47 +282,47 @@ export const BodyFatTrendInfoModal = ({
           </div>
         </div>
 
-        <div className="bg-slate-800/70 border border-slate-700 rounded-lg p-4 space-y-2">
-          <p className="text-white font-semibold text-sm uppercase tracking-wide">
+        <div className="bg-surface/70 border border-border rounded-lg p-4 space-y-2">
+          <p className="text-foreground font-semibold text-sm uppercase tracking-wide">
             Trend Classifications
           </p>
           <div className="grid gap-2 text-xs md:text-sm">
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Stable</span>
-              <span className="text-blue-400 font-semibold">
+              <span className="text-muted">Stable</span>
+              <span className="text-accent-blue font-semibold">
                 &lt; 0.1 %/week
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Gradual change</span>
-              <span className="text-green-400 font-semibold">
+              <span className="text-muted">Gradual change</span>
+              <span className="text-accent-green font-semibold">
                 0.1 - 0.45 %/week
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Moderate change</span>
-              <span className="text-yellow-500 font-semibold">
+              <span className="text-muted">Moderate change</span>
+              <span className="text-accent-yellow font-semibold">
                 0.45 - 0.8 %/week
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Aggressive change</span>
-              <span className="text-orange-500 font-semibold">
+              <span className="text-muted">Aggressive change</span>
+              <span className="text-accent-orange font-semibold">
                 0.8 - 1.2 %/week
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Severe change</span>
-              <span className="text-red-500 font-semibold">
+              <span className="text-muted">Severe change</span>
+              <span className="text-accent-red font-semibold">
                 &gt; 1.2 %/week
               </span>
             </div>
           </div>
         </div>
 
-        <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-lg p-4 text-xs md:text-sm">
-          <p className="text-yellow-200 font-semibold mb-2">Important Notes</p>
-          <ul className="space-y-1 list-disc list-inside text-yellow-100/90">
+        <div className="bg-accent-yellow/15 border border-accent-yellow/50 rounded-lg p-4 text-xs md:text-sm">
+          <p className="text-accent-yellow font-semibold mb-2">Important Notes</p>
+          <ul className="space-y-1 list-disc list-inside text-foreground/90">
             <li>
               Body fat estimates can vary based on measurement method and timing
             </li>
@@ -335,7 +335,7 @@ export const BodyFatTrendInfoModal = ({
           </ul>
         </div>
 
-        <p className="text-xs md:text-sm text-slate-400 italic">
+        <p className="text-xs md:text-sm text-muted italic">
           Tip: Track body fat with the same method and timing for the most
           consistent trends.
         </p>

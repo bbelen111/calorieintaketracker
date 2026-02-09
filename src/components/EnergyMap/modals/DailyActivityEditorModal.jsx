@@ -62,7 +62,7 @@ export const DailyActivityEditorModal = ({
       contentClassName="p-4 md:p-6 w-full md:max-w-xl"
     >
       <div className="flex items-center justify-between mb-4 md:mb-6">
-        <h3 className="text-white font-bold text-xl md:text-2xl">
+        <h3 className="text-foreground font-bold text-xl md:text-2xl">
           {titles[dayType]}
         </h3>
       </div>
@@ -78,7 +78,7 @@ export const DailyActivityEditorModal = ({
               className={`w-full p-4 rounded-xl border-2 transition-all text-left flex items-start gap-3 active:scale-[0.98] focus-ring ${
                 isActive
                   ? 'bg-blue-600 border-blue-400 text-white shadow-lg'
-                  : 'bg-slate-700 border-slate-600 text-slate-300 md:hover:border-blue-400'
+                  : 'bg-surface border-border text-foreground md:hover:border-blue-400'
               }`}
             >
               <div className="flex-1">
@@ -103,7 +103,7 @@ export const DailyActivityEditorModal = ({
           className={`w-full p-4 rounded-xl border-2 transition-all text-left flex items-start gap-3 active:scale-[0.98] ${
             customSelected
               ? 'bg-blue-600 border-blue-400 text-white shadow-lg'
-              : 'bg-slate-700 border-slate-600 text-slate-300'
+              : 'bg-surface border-border text-foreground'
           }`}
         >
           <div className="flex-1">
@@ -133,7 +133,7 @@ export const DailyActivityEditorModal = ({
       <button
         type="button"
         onClick={onClose}
-        className="w-full mt-5 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-lg transition-all"
+        className="w-full mt-5 bg-surface-highlight md:hover:bg-surface text-foreground py-3 rounded-lg transition-all press-feedback focus-ring"
       >
         Done
       </button>

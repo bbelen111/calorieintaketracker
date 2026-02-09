@@ -97,18 +97,18 @@ export const HeightPickerModal = ({
       overlayClassName="z-[70]"
       contentClassName="p-6 w-full max-w-sm"
     >
-      <h3 className="text-white font-bold text-xl mb-4 text-center">
+      <h3 className="text-foreground font-bold text-xl mb-4 text-center">
         Select Height
       </h3>
-      <p className="text-slate-400 text-xs text-center mb-2 uppercase tracking-wide">
+      <p className="text-muted text-xs text-center mb-2 uppercase tracking-wide">
         Centimeters
       </p>
 
-      <div className="relative h-48 overflow-hidden rounded-xl bg-slate-800/80">
+      <div className="relative h-48 overflow-hidden rounded-xl bg-surface/80">
         <div className="absolute inset-0 pointer-events-none z-10">
-          <div className="h-16 bg-gradient-to-b from-slate-800 to-transparent" />
+          <div className="h-16 bg-gradient-to-b from-surface to-transparent" />
           <div className="h-16 bg-transparent" />
-          <div className="h-16 bg-gradient-to-t from-slate-800 to-transparent" />
+          <div className="h-16 bg-gradient-to-t from-surface to-transparent" />
         </div>
         <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400/70 pointer-events-none z-10" />
 
@@ -125,8 +125,8 @@ export const HeightPickerModal = ({
               onClick={() => handleItemClick(height)}
               className={`h-16 flex items-center justify-center text-2xl font-semibold snap-center cursor-pointer transition-all ${
                 selectedHeight === height
-                  ? 'text-white scale-110'
-                  : 'text-slate-500'
+                    ? 'text-foreground scale-110'
+                    : 'text-muted'
               }`}
             >
               {height}
@@ -140,7 +140,7 @@ export const HeightPickerModal = ({
         <button
           onClick={onCancel}
           type="button"
-          className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback"
+          className="flex-1 bg-surface-highlight active:bg-surface-highlight/80 text-foreground px-6 py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback"
         >
           Cancel
         </button>

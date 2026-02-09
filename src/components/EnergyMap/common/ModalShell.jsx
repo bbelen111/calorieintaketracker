@@ -551,7 +551,7 @@ export const ModalShell = ({
     >
       <div
         ref={contentRef}
-        className={`modal-content relative bg-slate-800 border border-slate-700 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800 ${
+        className={`modal-content relative bg-surface border border-border overflow-y-auto scrollbar-thin scrollbar-thumb-[rgb(var(--border)/0.7)] scrollbar-track-[rgb(var(--surface)/1)] ${
           isClosing ? 'closing' : ''
         } ${
           shouldFullHeight
