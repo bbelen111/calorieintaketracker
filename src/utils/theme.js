@@ -90,8 +90,8 @@ export const applyNativeTheme = async (theme) => {
   // Apply Navigation Bar styling (Android only)
   if (Capacitor.getPlatform() === 'android') {
     try {
-      await NavigationBar.setColor({ color: config.navigationBarColor });
-      await NavigationBar.setTransparency({ isTransparent: false });
+      await NavigationBar.setTransparency({ isTransparent: true });
+      await NavigationBar.setColor({ color: '#00000000' });
       results.navigationBar = { success: true };
     } catch (error) {
       console.warn('Failed to set navigation bar style:', error);
