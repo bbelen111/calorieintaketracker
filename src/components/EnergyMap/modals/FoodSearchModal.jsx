@@ -630,7 +630,7 @@ export const FoodSearchModal = ({
       supplements: 'bg-purple-500/20 text-purple-400',
       cached: 'bg-purple-500/20 text-purple-400',
     };
-    return colorMap[category] || 'bg-slate-500/20 text-slate-400';
+    return colorMap[category] || 'bg-surface-highlight/80/20 text-muted';
   };
 
   const clearFilters = () => {
@@ -685,25 +685,25 @@ export const FoodSearchModal = ({
       onClose={onClose}
       fullHeight
       overlayClassName="fixed inset-0 bg-black/70 !p-0 !flex-none !items-stretch !justify-stretch"
-      contentClassName="fixed inset-0 w-screen h-screen p-0 bg-slate-900 rounded-none border-none !max-h-none flex flex-col overflow-x-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
+      contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none !max-h-none flex flex-col overflow-x-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
     >
-      <div className="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-700 flex-shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 bg-background border-b border-border flex-shrink-0">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => onClose?.()}
             aria-label="Back"
-            className="text-slate-300 md:hover:text-white transition-all pressable-inline focus-ring"
+            className="text-foreground/80 md:hover:text-foreground transition-all pressable-inline focus-ring"
           >
             <ChevronLeft size={24} />
           </button>
           <div className="flex items-center gap-2">
-            <h3 className="text-white font-bold text-xl">Add Food</h3>
+            <h3 className="text-foreground font-bold text-xl">Add Food</h3>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 bg-slate-800 border-t border-slate-700 overflow-y-auto flex flex-col">
+      <div className="flex-1 bg-surface border-t border-border overflow-y-auto flex flex-col">
         {/* Action Buttons - Always on top */}
         <div className="px-4 pt-4">
           <div className="relative overflow-hidden">
@@ -727,7 +727,7 @@ export const FoodSearchModal = ({
                     className={`relative flex items-center gap-2 px-3 py-2 text-sm font-semibold transition-all whitespace-nowrap ${
                       viewMode === 'search'
                         ? 'text-white border border-white/70 rounded-full bg-blue-600'
-                        : 'text-white/80 md:hover:text-white'
+                        : 'text-white/80 md:hover:text-foreground'
                     }`}
                   >
                     <Search size={16} />
@@ -760,7 +760,7 @@ export const FoodSearchModal = ({
                       aria-label="Add Food"
                       whileHover={{ y: -2 }}
                       whileTap={{ scale: 0.99 }}
-                      className="flex items-center gap-2 px-3 py-2 text-white/80 md:hover:text-white text-sm font-semibold transition-colors whitespace-nowrap press-feedback focus-ring"
+                      className="flex items-center gap-2 px-3 py-2 text-white/80 md:hover:text-foreground text-sm font-semibold transition-colors whitespace-nowrap press-feedback focus-ring"
                     >
                       <Plus size={16} />
                       <span className="whitespace-nowrap">Add Food</span>
@@ -820,13 +820,13 @@ export const FoodSearchModal = ({
             </div>
 
             <div className="pointer-events-none absolute inset-y-0 -left-px w-3 z-20">
-              <div className="absolute inset-y-0 left-0 w-1 bg-slate-800" />
-              <div className="absolute inset-y-0 left-1 right-0 bg-gradient-to-r from-slate-800 via-slate-800/80 to-transparent" />
+              <div className="absolute inset-y-0 left-0 w-1 bg-surface" />
+              <div className="absolute inset-y-0 left-1 right-0 bg-gradient-to-r from-surface via-surface/80 to-transparent" />
             </div>
 
             <div className="pointer-events-none absolute inset-y-0 -right-px w-3 z-20">
-              <div className="absolute inset-y-0 right-0 w-1 bg-slate-800" />
-              <div className="absolute inset-y-0 left-0 right-1 bg-gradient-to-l from-slate-800 via-slate-800/80 to-transparent" />
+              <div className="absolute inset-y-0 right-0 w-1 bg-surface" />
+              <div className="absolute inset-y-0 left-0 right-1 bg-gradient-to-l from-surface via-surface/80 to-transparent" />
             </div>
           </div>
         </div>
@@ -836,7 +836,7 @@ export const FoodSearchModal = ({
           <div className="px-4 mt-3">
             <div className="relative flex items-center">
               <Search
-                className="absolute left-3 text-slate-400 flex-shrink-0 pointer-events-none"
+                className="absolute left-3 text-muted flex-shrink-0 pointer-events-none"
                 size={20}
               />
               <input
@@ -850,12 +850,12 @@ export const FoodSearchModal = ({
                     ? 'Search FatSecret database...'
                     : 'Search local foods...'
                 }
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg pl-11 pr-10 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                className="w-full bg-surface-highlight border border-border/80 rounded-lg pl-11 pr-10 py-3 text-foreground placeholder-muted focus:outline-none focus:ring-1 focus:ring-blue-400"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 text-slate-400 md:hover:text-white pressable-inline focus-ring flex-shrink-0"
+                  className="absolute right-3 text-muted md:hover:text-foreground pressable-inline focus-ring flex-shrink-0"
                   aria-label="Clear search"
                 >
                   <X size={18} />
@@ -870,7 +870,7 @@ export const FoodSearchModal = ({
           <div className="px-4 mt-3">
             <div className="relative flex items-center">
               <Search
-                className="absolute left-3 text-slate-400 flex-shrink-0 pointer-events-none"
+                className="absolute left-3 text-muted flex-shrink-0 pointer-events-none"
                 size={20}
               />
               <input
@@ -878,12 +878,12 @@ export const FoodSearchModal = ({
                 value={favouritesSearchQuery}
                 onChange={(e) => setFavouritesSearchQuery(e.target.value)}
                 placeholder="Search favourites..."
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg pl-11 pr-10 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                className="w-full bg-surface-highlight border border-border/80 rounded-lg pl-11 pr-10 py-3 text-foreground placeholder-muted focus:outline-none focus:ring-1 focus:ring-blue-400"
               />
               {favouritesSearchQuery && (
                 <button
                   onClick={() => setFavouritesSearchQuery('')}
-                  className="absolute right-3 text-slate-400 md:hover:text-white pressable-inline focus-ring flex-shrink-0"
+                  className="absolute right-3 text-muted md:hover:text-foreground pressable-inline focus-ring flex-shrink-0"
                   aria-label="Clear search"
                 >
                   <X size={18} />
@@ -896,7 +896,7 @@ export const FoodSearchModal = ({
         {/* Local/Online Toggle - only for search mode */}
         {viewMode === 'search' && (
           <div className="px-4 mt-3">
-            <div className="relative flex items-center gap-2 p-1 bg-slate-700/50 rounded-lg">
+            <div className="relative flex items-center gap-2 p-1 bg-surface-highlight/50 rounded-lg">
               <div
                 className={`absolute inset-y-1 w-1/2 rounded-md shadow-md ${
                   searchMode === 'local' ? 'bg-blue-500' : 'bg-emerald-500'
@@ -912,7 +912,7 @@ export const FoodSearchModal = ({
                 className={`relative z-10 flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                   searchMode === 'local'
                     ? 'text-white'
-                    : 'text-slate-400 md:hover:text-white'
+                    : 'text-muted md:hover:text-foreground'
                 }`}
               >
                 <Database size={16} />
@@ -925,8 +925,8 @@ export const FoodSearchModal = ({
                   searchMode === 'online'
                     ? 'text-white'
                     : isOnline
-                      ? 'text-slate-400 md:hover:text-white'
-                      : 'text-slate-500 cursor-not-allowed opacity-50'
+                      ? 'text-muted md:hover:text-foreground'
+                      : 'text-muted cursor-not-allowed opacity-50'
                 }`}
               >
                 {isOnline ? <Globe size={16} /> : <WifiOff size={16} />}
@@ -947,14 +947,14 @@ export const FoodSearchModal = ({
 
         {/* Results Count & Filter Button */}
         <div className="px-4 mt-3 flex items-center justify-between">
-          <p className="text-slate-400 text-sm">
+          <p className="text-muted text-sm">
             {viewMode === 'favourites' ? (
               <>
                 {sortedFavourites.length}{' '}
                 {sortedFavourites.length === 1 ? 'favourite' : 'favourites'}
                 {favouritesSearchQuery &&
                   resolvedFavourites.length !== sortedFavourites.length && (
-                    <span className="ml-1 text-xs text-slate-500">
+                    <span className="ml-1 text-xs text-muted">
                       (of {resolvedFavourites.filter(Boolean).length})
                     </span>
                   )}
@@ -973,7 +973,7 @@ export const FoodSearchModal = ({
                 {displayResults.length}{' '}
                 {displayResults.length === 1 ? 'food' : 'foods'} found
                 {resolvedCachedFoods.length > 0 && (
-                  <span className="ml-2 text-xs text-slate-500">
+                  <span className="ml-2 text-xs text-muted">
                     (+{resolvedCachedFoods.length} cached)
                   </span>
                 )}
@@ -990,7 +990,7 @@ export const FoodSearchModal = ({
                 className={`text-sm font-medium flex items-center gap-1 transition-colors ${
                   hasActiveFavouritesFilters
                     ? 'text-blue-400 md:hover:text-blue-300'
-                    : 'text-slate-400 md:hover:text-slate-300'
+                    : 'text-muted md:hover:text-foreground/80'
                 }`}
               >
                 <SlidersHorizontal size={14} />
@@ -1004,11 +1004,11 @@ export const FoodSearchModal = ({
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -6, scale: 0.98 }}
                     transition={{ duration: 0.18, ease: 'easeOut' }}
-                    className="absolute right-0 top-full mt-2 w-72 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl z-50 max-h-[400px] overflow-y-auto overflow-x-hidden touch-action-pan-y"
+                    className="absolute right-0 top-full mt-2 w-72 bg-surface border border-border/80 rounded-lg shadow-2xl z-50 max-h-[400px] overflow-y-auto overflow-x-hidden touch-action-pan-y"
                   >
                     <div className="p-4 space-y-4">
-                      <div className="flex items-center justify-between pb-3 border-b border-slate-700">
-                        <h4 className="text-white font-bold text-lg">
+                      <div className="flex items-center justify-between pb-3 border-b border-border">
+                        <h4 className="text-foreground font-bold text-lg">
                           Sort Favourites
                         </h4>
                         <button
@@ -1020,7 +1020,7 @@ export const FoodSearchModal = ({
                       </div>
 
                       <div>
-                        <label className="text-slate-300 font-semibold text-sm block mb-2">
+                        <label className="text-foreground/80 font-semibold text-sm block mb-2">
                           Sort By
                         </label>
                         <div className="space-y-1.5">
@@ -1037,7 +1037,7 @@ export const FoodSearchModal = ({
                               className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
                                 favouritesSortBy === option.value
                                   ? 'bg-emerald-500 text-white'
-                                  : 'bg-slate-700/50 text-slate-300 md:hover:bg-slate-700'
+                                  : 'bg-surface-highlight/50 text-foreground/80 md:hover:bg-surface-highlight'
                               }`}
                             >
                               {option.label}
@@ -1047,7 +1047,7 @@ export const FoodSearchModal = ({
                       </div>
 
                       <div>
-                        <label className="text-slate-300 font-semibold text-sm block mb-2">
+                        <label className="text-foreground/80 font-semibold text-sm block mb-2">
                           Sort Order
                         </label>
                         <div className="grid grid-cols-2 gap-2">
@@ -1056,7 +1056,7 @@ export const FoodSearchModal = ({
                             className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                               favouritesSortOrder === 'asc'
                                 ? 'bg-emerald-500 text-white'
-                                : 'bg-slate-700/50 text-slate-300 md:hover:bg-slate-700'
+                                : 'bg-surface-highlight/50 text-foreground/80 md:hover:bg-surface-highlight'
                             }`}
                           >
                             ↑ Ascending
@@ -1066,7 +1066,7 @@ export const FoodSearchModal = ({
                             className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                               favouritesSortOrder === 'desc'
                                 ? 'bg-emerald-500 text-white'
-                                : 'bg-slate-700/50 text-slate-300 md:hover:bg-slate-700'
+                                : 'bg-surface-highlight/50 text-foreground/80 md:hover:bg-surface-highlight'
                             }`}
                           >
                             ↓ Descending
@@ -1075,12 +1075,12 @@ export const FoodSearchModal = ({
                       </div>
 
                       {hasActiveFavouritesFilters && (
-                        <div className="pt-3 border-t border-slate-700">
-                          <p className="text-slate-400 text-xs mb-2">
+                        <div className="pt-3 border-t border-border">
+                          <p className="text-muted text-xs mb-2">
                             Active Sorting:
                           </p>
                           <div className="flex flex-wrap gap-1.5">
-                            <span className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs">
+                            <span className="px-2 py-1 bg-surface-highlight text-foreground/80 rounded text-xs">
                               {getFavouritesSortLabel()}
                             </span>
                           </div>
@@ -1100,7 +1100,7 @@ export const FoodSearchModal = ({
                 className={`text-sm font-medium flex items-center gap-1 transition-colors ${
                   hasActiveFilters
                     ? 'text-blue-400 md:hover:text-blue-300'
-                    : 'text-slate-400 md:hover:text-slate-300'
+                    : 'text-muted md:hover:text-foreground/80'
                 }`}
               >
                 <SlidersHorizontal size={14} />
@@ -1114,11 +1114,11 @@ export const FoodSearchModal = ({
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -6, scale: 0.98 }}
                     transition={{ duration: 0.18, ease: 'easeOut' }}
-                    className="absolute right-0 top-full mt-2 w-80 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl z-50 max-h-[500px] overflow-y-auto overflow-x-hidden touch-action-pan-y"
+                    className="absolute right-0 top-full mt-2 w-80 bg-surface border border-border/80 rounded-lg shadow-2xl z-50 max-h-[500px] overflow-y-auto overflow-x-hidden touch-action-pan-y"
                   >
                     <div className="p-4 space-y-4">
-                      <div className="flex items-center justify-between pb-3 border-b border-slate-700">
-                        <h4 className="text-white font-bold text-lg">
+                      <div className="flex items-center justify-between pb-3 border-b border-border">
+                        <h4 className="text-foreground font-bold text-lg">
                           Filters & Sort
                         </h4>
                         <button
@@ -1129,7 +1129,7 @@ export const FoodSearchModal = ({
                         </button>
                       </div>
                       <div>
-                        <label className="text-slate-300 font-semibold text-sm block mb-2">
+                        <label className="text-foreground/80 font-semibold text-sm block mb-2">
                           {searchMode === 'online' ? 'Type' : 'Category'}
                         </label>
                         <div className="space-y-1.5">
@@ -1141,7 +1141,7 @@ export const FoodSearchModal = ({
                             className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
                               selectedCategory === null
                                 ? 'bg-blue-500 text-white'
-                                : 'bg-slate-700/50 text-slate-300 md:hover:bg-slate-700'
+                                : 'bg-surface-highlight/50 text-foreground/80 md:hover:bg-surface-highlight'
                             }`}
                           >
                             {searchMode === 'online'
@@ -1159,7 +1159,7 @@ export const FoodSearchModal = ({
                                 className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
                                   selectedCategory === key
                                     ? `bg-${color}-500 text-white`
-                                    : 'bg-slate-700/50 text-slate-300 md:hover:bg-slate-700'
+                                    : 'bg-surface-highlight/50 text-foreground/80 md:hover:bg-surface-highlight'
                                 }`}
                               >
                                 {label}
@@ -1171,7 +1171,7 @@ export const FoodSearchModal = ({
 
                       {availableSubcategories.length > 0 && (
                         <div>
-                          <label className="text-slate-300 font-semibold text-sm block mb-2">
+                          <label className="text-foreground/80 font-semibold text-sm block mb-2">
                             {searchMode === 'online'
                               ? 'Serving'
                               : 'Subcategory'}
@@ -1182,7 +1182,7 @@ export const FoodSearchModal = ({
                               className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
                                 selectedSubcategory === null
                                   ? 'bg-blue-500 text-white'
-                                  : 'bg-slate-700/50 text-slate-300 md:hover:bg-slate-700'
+                                  : 'bg-surface-highlight/50 text-foreground/80 md:hover:bg-surface-highlight'
                               }`}
                             >
                               {searchMode === 'online'
@@ -1196,7 +1196,7 @@ export const FoodSearchModal = ({
                                 className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
                                   selectedSubcategory === subcat
                                     ? 'bg-blue-500 text-white'
-                                    : 'bg-slate-700/50 text-slate-300 md:hover:bg-slate-700'
+                                    : 'bg-surface-highlight/50 text-foreground/80 md:hover:bg-surface-highlight'
                                 }`}
                               >
                                 {searchMode === 'online'
@@ -1209,7 +1209,7 @@ export const FoodSearchModal = ({
                       )}
 
                       <div>
-                        <label className="text-slate-300 font-semibold text-sm block mb-2">
+                        <label className="text-foreground/80 font-semibold text-sm block mb-2">
                           Sort By
                         </label>
                         <div className="space-y-1.5">
@@ -1226,7 +1226,7 @@ export const FoodSearchModal = ({
                               className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
                                 sortBy === option.value
                                   ? 'bg-emerald-500 text-white'
-                                  : 'bg-slate-700/50 text-slate-300 md:hover:bg-slate-700'
+                                  : 'bg-surface-highlight/50 text-foreground/80 md:hover:bg-surface-highlight'
                               }`}
                             >
                               {option.label}
@@ -1236,7 +1236,7 @@ export const FoodSearchModal = ({
                       </div>
 
                       <div>
-                        <label className="text-slate-300 font-semibold text-sm block mb-2">
+                        <label className="text-foreground/80 font-semibold text-sm block mb-2">
                           Sort Order
                         </label>
                         <div className="grid grid-cols-2 gap-2">
@@ -1245,7 +1245,7 @@ export const FoodSearchModal = ({
                             className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                               sortOrder === 'asc'
                                 ? 'bg-emerald-500 text-white'
-                                : 'bg-slate-700/50 text-slate-300 md:hover:bg-slate-700'
+                                : 'bg-surface-highlight/50 text-foreground/80 md:hover:bg-surface-highlight'
                             }`}
                           >
                             ↑ Ascending
@@ -1255,7 +1255,7 @@ export const FoodSearchModal = ({
                             className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                               sortOrder === 'desc'
                                 ? 'bg-emerald-500 text-white'
-                                : 'bg-slate-700/50 text-slate-300 md:hover:bg-slate-700'
+                                : 'bg-surface-highlight/50 text-foreground/80 md:hover:bg-surface-highlight'
                             }`}
                           >
                             ↓ Descending
@@ -1264,18 +1264,18 @@ export const FoodSearchModal = ({
                       </div>
 
                       {hasActiveFilters && (
-                        <div className="pt-3 border-t border-slate-700">
-                          <p className="text-slate-400 text-xs mb-2">
+                        <div className="pt-3 border-t border-border">
+                          <p className="text-muted text-xs mb-2">
                             Active Filters:
                           </p>
                           <div className="flex flex-wrap gap-1.5">
                             {selectedCategory && (
-                              <span className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs flex items-center gap-1">
+                              <span className="px-2 py-1 bg-surface-highlight text-foreground/80 rounded text-xs flex items-center gap-1">
                                 {categoryOptions[selectedCategory]?.label ||
                                   selectedCategory}
                                 <X
                                   size={12}
-                                  className="cursor-pointer md:hover:text-white pressable-inline focus-ring"
+                                  className="cursor-pointer md:hover:text-foreground pressable-inline focus-ring"
                                   onClick={() => {
                                     setSelectedCategory(null);
                                     setSelectedSubcategory(null);
@@ -1284,19 +1284,19 @@ export const FoodSearchModal = ({
                               </span>
                             )}
                             {selectedSubcategory && (
-                              <span className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs flex items-center gap-1">
+                              <span className="px-2 py-1 bg-surface-highlight text-foreground/80 rounded text-xs flex items-center gap-1">
                                 {searchMode === 'online'
                                   ? selectedSubcategory
                                   : selectedSubcategory.replace(/-/g, ' ')}
                                 <X
                                   size={12}
-                                  className="cursor-pointer md:hover:text-white pressable-inline focus-ring"
+                                  className="cursor-pointer md:hover:text-foreground pressable-inline focus-ring"
                                   onClick={() => setSelectedSubcategory(null)}
                                 />
                               </span>
                             )}
                             {(sortBy !== 'name' || sortOrder !== 'asc') && (
-                              <span className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs">
+                              <span className="px-2 py-1 bg-surface-highlight text-foreground/80 rounded text-xs">
                                 {getSortLabel()}
                               </span>
                             )}
@@ -1334,7 +1334,7 @@ export const FoodSearchModal = ({
                   return (
                     <div
                       key={key}
-                      className="w-full text-left p-4 rounded-lg border border-slate-600 bg-slate-700/50 transition-all hover:border-emerald-500/40 cursor-pointer"
+                      className="w-full text-left p-4 rounded-lg border border-border/80 bg-surface-highlight/50 transition-all hover:border-emerald-500/40 cursor-pointer"
                       role="button"
                       tabIndex={0}
                       onClick={(event) =>
@@ -1382,16 +1382,16 @@ export const FoodSearchModal = ({
                             )}
                             {/* Portion/grams info - ALWAYS at the end */}
                             {favourite.portionInfo ? (
-                              <span className="text-xs text-slate-400">
+                              <span className="text-xs text-muted">
                                 {favourite.portionInfo.portionMultiplier}{' '}
                                 {favourite.portionInfo.portionName}
                               </span>
                             ) : isCustom && favourite.per100g ? (
-                              <span className="text-xs text-slate-400">
+                              <span className="text-xs text-muted">
                                 per 100g
                               </span>
                             ) : !isManual && favourite.grams ? (
-                              <span className="text-xs text-slate-400">
+                              <span className="text-xs text-muted">
                                 {formatOne(favourite.grams)}g
                               </span>
                             ) : null}
@@ -1474,8 +1474,8 @@ export const FoodSearchModal = ({
                   );
                 })
               ) : (
-                <div className="text-center text-slate-400 text-sm py-10">
-                  <Heart className="mx-auto mb-3 text-slate-500" size={32} />
+                <div className="text-center text-muted text-sm py-10">
+                  <Heart className="mx-auto mb-3 text-muted" size={32} />
                   <p>No favourite foods yet.</p>
                   <p className="text-xs mt-1">
                     Add foods to your favourites for quick access.
@@ -1509,10 +1509,10 @@ export const FoodSearchModal = ({
                 {searchMode === 'online' && isSearching && (
                   <div className="flex flex-col items-center justify-center py-12">
                     <div className="relative w-8 h-8 mb-3">
-                      <div className="absolute inset-0 border-4 border-slate-700 rounded-full" />
+                      <div className="absolute inset-0 border-4 border-border rounded-full" />
                       <div className="absolute inset-0 border-4 border-transparent border-t-blue-400 rounded-full animate-spin-fast" />
                     </div>
-                    <p className="text-slate-400 text-sm">
+                    <p className="text-muted text-sm">
                       Searching FatSecret database...
                     </p>
                   </div>
@@ -1524,16 +1524,16 @@ export const FoodSearchModal = ({
                     {searchMode === 'online' ? (
                       <>
                         <Globe
-                          className="mx-auto text-slate-500 mb-3"
+                          className="mx-auto text-muted mb-3"
                           size={32}
                         />
-                        <p className="text-slate-400 text-sm">
+                        <p className="text-muted text-sm">
                           {searchQuery.length < 2
                             ? 'Enter a search term to find foods online'
                             : 'No results found. Try a different search term.'}
                         </p>
                         {searchQuery.length > 0 && searchQuery.length < 2 && (
-                          <p className="mt-1 text-slate-500 text-xs">
+                          <p className="mt-1 text-muted text-xs">
                             Type at least 2 characters to search
                           </p>
                         )}
@@ -1541,10 +1541,10 @@ export const FoodSearchModal = ({
                     ) : (
                       <>
                         <Search
-                          className="mx-auto text-slate-500 mb-3"
+                          className="mx-auto text-muted mb-3"
                           size={32}
                         />
-                        <p className="text-slate-400 text-sm">No foods found</p>
+                        <p className="text-muted text-sm">No foods found</p>
                       </>
                     )}
                   </div>
@@ -1559,16 +1559,16 @@ export const FoodSearchModal = ({
                           !isLoading && handleOnlineFoodSelect(food)
                         }
                         disabled={isLoading}
-                        className={`relative w-full bg-slate-700/50 border border-slate-600 rounded-lg p-3 text-left transition-all ${
+                        className={`relative w-full bg-surface-highlight/50 border border-border/80 rounded-lg p-3 text-left transition-all ${
                           isLoading
                             ? 'opacity-70 cursor-wait'
                             : 'active:scale-[0.99] hover:border-emerald-500/50'
                         }`}
                       >
                         {isLoading && (
-                          <div className="absolute inset-0 bg-slate-800/50 rounded-lg flex items-center justify-center z-10">
+                          <div className="absolute inset-0 bg-surface/50 rounded-lg flex items-center justify-center z-10">
                             <div className="relative w-6 h-6">
-                              <div className="absolute inset-0 border-3 border-slate-600 rounded-full" />
+                              <div className="absolute inset-0 border-3 border-border/80 rounded-full" />
                               <div className="absolute inset-0 border-3 border-transparent border-t-blue-400 rounded-full animate-spin-fast" />
                             </div>
                           </div>
@@ -1593,7 +1593,7 @@ export const FoodSearchModal = ({
                           </div>
                           {food.previewMacros && (
                             <div className="flex flex-col items-end gap-1">
-                              <span className="text-slate-500 text-[10px] font-medium">
+                              <span className="text-muted text-[10px] font-medium">
                                 {food.previewMacros.servingInfo ||
                                   'per serving'}
                               </span>
@@ -1602,25 +1602,25 @@ export const FoodSearchModal = ({
                                   <p className="text-emerald-400 font-bold">
                                     {Math.round(food.previewMacros.calories)}
                                   </p>
-                                  <p className="text-slate-500">cal</p>
+                                  <p className="text-muted">cal</p>
                                 </div>
                                 <div className="text-center">
                                   <p className="text-red-400 font-bold">
                                     {formatOne(food.previewMacros.protein)}g
                                   </p>
-                                  <p className="text-slate-500">prot</p>
+                                  <p className="text-muted">prot</p>
                                 </div>
                                 <div className="text-center">
                                   <p className="text-amber-400 font-bold">
                                     {formatOne(food.previewMacros.carbs)}g
                                   </p>
-                                  <p className="text-slate-500">carb</p>
+                                  <p className="text-muted">carb</p>
                                 </div>
                                 <div className="text-center">
                                   <p className="text-yellow-400 font-bold">
                                     {formatOne(food.previewMacros.fats)}g
                                   </p>
-                                  <p className="text-slate-500">fat</p>
+                                  <p className="text-muted">fat</p>
                                 </div>
                               </div>
                             </div>
@@ -1640,7 +1640,7 @@ export const FoodSearchModal = ({
                     if (isPinned) {
                       borderClass = 'border-blue-400';
                     } else {
-                      borderClass = 'border-slate-600';
+                      borderClass = 'border-border/80';
                       shadowClass = '';
                     }
                     return (
@@ -1654,7 +1654,7 @@ export const FoodSearchModal = ({
                         onPointerLeave={() => handlePressEnd(true)}
                         onPointerCancel={() => handlePressEnd(true)}
                         onContextMenu={(event) => event.preventDefault()}
-                        className={`relative w-full bg-slate-700/50 border rounded-lg p-3 text-left transition-all ${
+                        className={`relative w-full bg-surface-highlight/50 border rounded-lg p-3 text-left transition-all ${
                           isLongPressing
                             ? 'border-blue-400 scale-[0.98]'
                             : `${borderClass} active:scale-[0.99]`
@@ -1704,7 +1704,7 @@ export const FoodSearchModal = ({
                             </div>
                           </div>
                           <div className="flex flex-col items-end gap-1">
-                            <span className="text-slate-500 text-[10px] font-medium">
+                            <span className="text-muted text-[10px] font-medium">
                               per 100g
                             </span>
                             <div className="flex items-center gap-3 text-xs">
@@ -1712,25 +1712,25 @@ export const FoodSearchModal = ({
                                 <p className="text-emerald-400 font-bold">
                                   {formatOne(food.per100g.calories)}
                                 </p>
-                                <p className="text-slate-500">cal</p>
+                                <p className="text-muted">cal</p>
                               </div>
                               <div className="text-center">
                                 <p className="text-red-400 font-bold">
                                   {formatOne(food.per100g.protein)}g
                                 </p>
-                                <p className="text-slate-500">prot</p>
+                                <p className="text-muted">prot</p>
                               </div>
                               <div className="text-center">
                                 <p className="text-amber-400 font-bold">
                                   {formatOne(food.per100g.carbs)}g
                                 </p>
-                                <p className="text-slate-500">carb</p>
+                                <p className="text-muted">carb</p>
                               </div>
                               <div className="text-center">
                                 <p className="text-yellow-400 font-bold">
                                   {formatOne(food.per100g.fats)}g
                                 </p>
-                                <p className="text-slate-500">fat</p>
+                                <p className="text-muted">fat</p>
                               </div>
                             </div>
                           </div>
@@ -1742,8 +1742,8 @@ export const FoodSearchModal = ({
               </>
             )}
           </div>
-          <div className="pointer-events-none absolute left-0 right-0 top-0 h-3 bg-gradient-to-b from-slate-800/90 to-transparent" />
-          <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-3 bg-gradient-to-t from-slate-800/90 to-transparent" />
+          <div className="pointer-events-none absolute left-0 right-0 top-0 h-3 bg-gradient-to-b from-surface/90 to-transparent" />
+          <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-3 bg-gradient-to-t from-surface/90 to-transparent" />
         </div>
       </div>
 

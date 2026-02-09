@@ -183,10 +183,10 @@ export const FoodFavouritesModal = ({
       <div className="flex flex-col gap-4 md:gap-6">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-white font-bold text-xl md:text-2xl">
+            <h3 className="text-foreground font-bold text-xl md:text-2xl">
               Favourite Foods
             </h3>
-            <p className="text-slate-400 text-sm md:text-base mt-1">
+            <p className="text-muted text-sm md:text-base mt-1">
               Save your go-to foods with preset portions.
             </p>
           </div>
@@ -194,7 +194,7 @@ export const FoodFavouritesModal = ({
             <button
               type="button"
               onClick={() => onCreateFavourite?.()}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm font-medium text-slate-100 transition-colors md:hover:border-amber-400 md:hover:text-white focus-ring pressable"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-surface px-3 py-2 text-sm font-medium text-foreground transition-colors md:hover:border-amber-400 md:hover:text-foreground focus-ring pressable"
             >
               <Plus size={16} />
               Add
@@ -218,7 +218,7 @@ export const FoodFavouritesModal = ({
               return (
                 <div
                   key={key}
-                  className="w-full text-left p-4 rounded-xl border-2 transition-all bg-emerald-500/60 border-emerald-500 text-slate-200 hover:border-blue-400 focus-visible:border-blue-400 focus-visible:ring-2 focus-visible:ring-blue-400/40 cursor-pointer"
+                  className="w-full text-left p-4 rounded-xl border-2 transition-all bg-emerald-500/60 border-emerald-500 text-foreground/60 hover:border-blue-400 focus-visible:border-blue-400 focus-visible:ring-2 focus-visible:ring-blue-400/40 cursor-pointer"
                   role="button"
                   tabIndex={0}
                   onClick={(event) => handleInstantAdd(favourite, event)}
@@ -249,7 +249,7 @@ export const FoodFavouritesModal = ({
                             'Custom'}
                         </span>
                         {favourite.grams && (
-                          <span className="text-xs text-slate-400">
+                          <span className="text-xs text-muted">
                             {formatOne(favourite.grams)}g
                           </span>
                         )}
@@ -315,8 +315,8 @@ export const FoodFavouritesModal = ({
               );
             })
           ) : (
-            <div className="text-center text-slate-400 text-sm py-10">
-              <Heart className="mx-auto mb-3 text-slate-500" size={32} />
+            <div className="text-center text-muted text-sm py-10">
+              <Heart className="mx-auto mb-3 text-muted" size={32} />
               <p>No favourite foods yet.</p>
               <p className="text-xs mt-1">
                 Add foods to your favourites for quick access.
@@ -329,7 +329,7 @@ export const FoodFavouritesModal = ({
           <button
             onClick={onClose}
             type="button"
-            className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-4 py-3 rounded-lg transition-all active:scale-95 font-medium"
+            className="flex-1 bg-surface-highlight active:bg-surface-highlight/90 text-foreground px-4 py-3 rounded-lg transition-all active:scale-95 font-medium"
           >
             Close
           </button>

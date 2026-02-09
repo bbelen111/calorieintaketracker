@@ -22,25 +22,25 @@ const getTagClasses = (tagId, isSelected) => {
   const colorMap = {
     protein: isSelected
       ? 'bg-red-500/30 text-red-400 border-red-500/50'
-      : 'bg-slate-700/50 text-slate-400 border-slate-600',
+      : 'bg-surface-highlight/50 text-muted border-border/80',
     carbs: isSelected
       ? 'bg-amber-500/30 text-amber-400 border-amber-500/50'
-      : 'bg-slate-700/50 text-slate-400 border-slate-600',
+      : 'bg-surface-highlight/50 text-muted border-border/80',
     vegetables: isSelected
       ? 'bg-green-500/30 text-green-400 border-green-500/50'
-      : 'bg-slate-700/50 text-slate-400 border-slate-600',
+      : 'bg-surface-highlight/50 text-muted border-border/80',
     fats: isSelected
       ? 'bg-yellow-500/30 text-yellow-400 border-yellow-500/50'
-      : 'bg-slate-700/50 text-slate-400 border-slate-600',
+      : 'bg-surface-highlight/50 text-muted border-border/80',
     supplements: isSelected
       ? 'bg-purple-500/30 text-purple-400 border-purple-500/50'
-      : 'bg-slate-700/50 text-slate-400 border-slate-600',
+      : 'bg-surface-highlight/50 text-muted border-border/80',
   };
   return (
     colorMap[tagId] ||
     (isSelected
       ? 'bg-blue-500/30 text-blue-400 border-blue-500/50'
-      : 'bg-slate-700/50 text-slate-400 border-slate-600')
+      : 'bg-surface-highlight/50 text-muted border-border/80')
   );
 };
 
@@ -168,13 +168,13 @@ export const AddCustomFoodModal = ({
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Utensils className="text-blue-400" size={28} />
-        <h3 className="text-white font-bold text-2xl">Add Custom Food</h3>
+        <h3 className="text-foreground font-bold text-2xl">Add Custom Food</h3>
       </div>
 
       <div className="space-y-5">
         {/* Food Name */}
         <div>
-          <label className="block text-slate-300 text-sm font-semibold mb-2">
+          <label className="block text-foreground/80 text-sm font-semibold mb-2">
             Food Name
           </label>
           <input
@@ -182,13 +182,13 @@ export const AddCustomFoodModal = ({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g., Mom's Chicken Curry"
-            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus-ring"
+            className="w-full bg-surface-highlight border border-border/80 rounded-lg px-4 py-3 text-foreground placeholder-muted focus-ring"
           />
         </div>
 
         {/* Tags */}
         <div>
-          <label className="block text-slate-300 text-sm font-semibold mb-2">
+          <label className="block text-foreground/80 text-sm font-semibold mb-2">
             Category
           </label>
           <div className="flex flex-wrap gap-2">
@@ -210,13 +210,13 @@ export const AddCustomFoodModal = ({
 
         {/* Nutrition per 100g */}
         <div>
-          <label className="block text-slate-300 text-sm font-semibold mb-2">
+          <label className="block text-foreground/80 text-sm font-semibold mb-2">
             Nutrition per 100g
           </label>
 
           {/* Calories */}
           <div className="mb-3">
-            <label className="block text-slate-400 text-xs mb-1.5">
+            <label className="block text-muted text-xs mb-1.5">
               Calories
             </label>
             <input
@@ -227,14 +227,14 @@ export const AddCustomFoodModal = ({
                 setCalories(sanitizeNumericInput(e.target.value))
               }
               placeholder="0"
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus-ring"
+              className="w-full bg-surface-highlight border border-border/80 rounded-lg px-4 py-3 text-foreground placeholder-muted focus-ring"
             />
           </div>
 
           {/* Macros Grid */}
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-slate-400 text-xs mb-1.5">
+              <label className="block text-muted text-xs mb-1.5">
                 Protein (g)
               </label>
               <input
@@ -245,11 +245,11 @@ export const AddCustomFoodModal = ({
                   setProtein(sanitizeNumericInput(e.target.value))
                 }
                 placeholder="0"
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus-ring"
+                className="w-full bg-surface-highlight border border-border/80 rounded-lg px-3 py-2 text-foreground placeholder-muted focus-ring"
               />
             </div>
             <div>
-              <label className="block text-slate-400 text-xs mb-1.5">
+              <label className="block text-muted text-xs mb-1.5">
                 Carbs (g)
               </label>
               <input
@@ -258,11 +258,11 @@ export const AddCustomFoodModal = ({
                 value={carbs}
                 onChange={(e) => setCarbs(sanitizeNumericInput(e.target.value))}
                 placeholder="0"
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus-ring"
+                className="w-full bg-surface-highlight border border-border/80 rounded-lg px-3 py-2 text-foreground placeholder-muted focus-ring"
               />
             </div>
             <div>
-              <label className="block text-slate-400 text-xs mb-1.5">
+              <label className="block text-muted text-xs mb-1.5">
                 Fats (g)
               </label>
               <input
@@ -271,7 +271,7 @@ export const AddCustomFoodModal = ({
                 value={fats}
                 onChange={(e) => setFats(sanitizeNumericInput(e.target.value))}
                 placeholder="0"
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus-ring"
+                className="w-full bg-surface-highlight border border-border/80 rounded-lg px-3 py-2 text-foreground placeholder-muted focus-ring"
               />
             </div>
           </div>
@@ -282,8 +282,8 @@ export const AddCustomFoodModal = ({
           parseFloat(protein) > 0 ||
           parseFloat(carbs) > 0 ||
           parseFloat(fats) > 0) && (
-          <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
-            <p className="text-slate-400 text-xs mb-3 text-center">
+          <div className="bg-surface-highlight/50 border border-border/80 rounded-lg p-4">
+            <p className="text-muted text-xs mb-3 text-center">
               Preview (per 100g)
             </p>
             <div className="grid grid-cols-4 gap-3 text-center">
@@ -291,25 +291,25 @@ export const AddCustomFoodModal = ({
                 <p className="text-emerald-400 font-bold text-xl">
                   {formatOne(parseFloat(calories) || 0)}
                 </p>
-                <p className="text-slate-400 text-xs">kcal</p>
+                <p className="text-muted text-xs">kcal</p>
               </div>
               <div>
                 <p className="text-red-400 font-bold text-xl">
                   {formatOne(parseFloat(protein) || 0)}g
                 </p>
-                <p className="text-slate-400 text-xs">protein</p>
+                <p className="text-muted text-xs">protein</p>
               </div>
               <div>
                 <p className="text-amber-400 font-bold text-xl">
                   {formatOne(parseFloat(carbs) || 0)}g
                 </p>
-                <p className="text-slate-400 text-xs">carbs</p>
+                <p className="text-muted text-xs">carbs</p>
               </div>
               <div>
                 <p className="text-yellow-400 font-bold text-xl">
                   {formatOne(parseFloat(fats) || 0)}g
                 </p>
-                <p className="text-slate-400 text-xs">fats</p>
+                <p className="text-muted text-xs">fats</p>
               </div>
             </div>
           </div>
@@ -317,9 +317,9 @@ export const AddCustomFoodModal = ({
 
         {/* Custom Portions */}
         <div>
-          <label className="block text-slate-300 text-sm font-semibold mb-2">
+          <label className="block text-foreground/80 text-sm font-semibold mb-2">
             Custom Portions{' '}
-            <span className="text-slate-500 text-xs font-normal">
+            <span className="text-muted text-xs font-normal">
               (optional)
             </span>
           </label>
@@ -330,20 +330,20 @@ export const AddCustomFoodModal = ({
               {portions.map((portion) => (
                 <div
                   key={portion.id}
-                  className="flex items-center justify-between bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2"
+                  className="flex items-center justify-between bg-surface-highlight/50 border border-border/80 rounded-lg px-3 py-2"
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-white font-medium text-sm">
                       {portion.label}
                     </span>
-                    <span className="text-slate-400 text-sm">
+                    <span className="text-muted text-sm">
                       ({portion.grams}g)
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={() => removePortion(portion.id)}
-                    className="text-slate-400 md:hover:text-red-400 transition-colors pressable-inline focus-ring"
+                    className="text-muted md:hover:text-red-400 transition-colors pressable-inline focus-ring"
                     aria-label={`Remove ${portion.label}`}
                   >
                     <Trash2 size={16} />
@@ -356,7 +356,7 @@ export const AddCustomFoodModal = ({
           {/* Add new portion */}
           <div className="flex items-end gap-2">
             <div className="flex-1">
-              <label className="block text-slate-400 text-xs mb-1.5">
+              <label className="block text-muted text-xs mb-1.5">
                 Portion name
               </label>
               <input
@@ -364,11 +364,11 @@ export const AddCustomFoodModal = ({
                 value={newPortionLabel}
                 onChange={(e) => setNewPortionLabel(e.target.value)}
                 placeholder="e.g., 1 serving"
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2.5 text-white placeholder-slate-400 focus-ring text-sm"
+                className="w-full bg-surface-highlight border border-border/80 rounded-lg px-3 py-2.5 text-foreground placeholder-muted focus-ring text-sm"
               />
             </div>
             <div className="w-24">
-              <label className="block text-slate-400 text-xs mb-1.5">
+              <label className="block text-muted text-xs mb-1.5">
                 Grams
               </label>
               <input
@@ -379,14 +379,14 @@ export const AddCustomFoodModal = ({
                   setNewPortionGrams(sanitizeNumericInput(e.target.value))
                 }
                 placeholder="0"
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2.5 text-white placeholder-slate-400 focus-ring text-sm"
+                className="w-full bg-surface-highlight border border-border/80 rounded-lg px-3 py-2.5 text-foreground placeholder-muted focus-ring text-sm"
               />
             </div>
             <button
               type="button"
               onClick={addPortion}
               disabled={!newPortionLabel.trim() || !newPortionGrams}
-              className="px-3 py-2.5 bg-blue-600 md:hover:bg-blue-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all press-feedback focus-ring"
+              className="px-3 py-2.5 bg-blue-600 md:hover:bg-blue-500 disabled:bg-surface-highlight/90 disabled:cursor-not-allowed text-foreground rounded-lg font-medium transition-all press-feedback focus-ring"
               aria-label="Add portion"
             >
               <Plus size={20} />
@@ -399,7 +399,7 @@ export const AddCustomFoodModal = ({
           <button
             type="button"
             onClick={() => onClose?.()}
-            className="flex-1 h-10 px-4 bg-slate-700 md:hover:bg-slate-600 text-white rounded-lg font-semibold transition-all text-sm press-feedback focus-ring"
+            className="flex-1 h-10 px-4 bg-surface-highlight md:hover:bg-surface-highlight/90 text-foreground rounded-lg font-semibold transition-all text-sm press-feedback focus-ring"
           >
             Cancel
           </button>
@@ -407,7 +407,7 @@ export const AddCustomFoodModal = ({
             type="button"
             onClick={handleSave}
             disabled={!isFormValid}
-            className="flex-1 h-10 px-4 bg-blue-600 md:hover:bg-blue-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring"
+            className="flex-1 h-10 px-4 bg-blue-600 md:hover:bg-blue-500 disabled:bg-surface-highlight/90 disabled:cursor-not-allowed text-foreground rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring"
           >
             <Plus size={18} />
             Save Food

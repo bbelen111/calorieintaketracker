@@ -27,13 +27,13 @@ export const StepRangesModal = ({
       overlayClassName="z-[60]"
       contentClassName="p-6 max-w-md w-full"
     >
-      <h3 className="text-white font-bold text-xl mb-4">
+      <h3 className="text-foreground font-bold text-xl mb-4">
         Edit Step Count Ranges
       </h3>
 
       <div className="space-y-4">
         <div>
-          <label className="text-slate-300 text-sm block mb-2">
+          <label className="text-foreground/80 text-sm block mb-2">
             Add New Range
           </label>
           <div className="flex gap-2 mb-3">
@@ -42,7 +42,7 @@ export const StepRangesModal = ({
               value={newStepRange}
               onChange={(event) => onNewStepRangeChange(event.target.value)}
               placeholder="e.g., 15k or >25k"
-              className="flex-1 bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-base"
+              className="flex-1 bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border/80 focus:border-blue-400 focus:outline-none text-base"
             />
             <button
               onClick={onAddRange}
@@ -56,11 +56,11 @@ export const StepRangesModal = ({
         </div>
 
         <div>
-          <label className="text-slate-300 text-sm block mb-2">
+          <label className="text-foreground/80 text-sm block mb-2">
             Current Ranges
           </label>
           {resolvedStepRanges.length === 0 ? (
-            <p className="text-slate-400 text-sm italic">
+            <p className="text-muted text-sm italic">
               No step ranges configured yet
             </p>
           ) : (
@@ -68,7 +68,7 @@ export const StepRangesModal = ({
               {resolvedStepRanges.map((step) => (
                 <div
                   key={step}
-                  className="bg-slate-700 text-white px-3 py-2 rounded-lg flex items-center gap-2"
+                  className="bg-surface-highlight text-foreground px-3 py-2 rounded-lg flex items-center gap-2"
                 >
                   <span className="text-sm">{step}</span>
                   <button

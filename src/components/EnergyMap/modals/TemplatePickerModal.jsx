@@ -18,10 +18,10 @@ export const TemplatePickerModal = ({
       <div className="flex flex-col gap-4 md:gap-6">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-white font-bold text-xl md:text-2xl">
+            <h3 className="text-foreground font-bold text-xl md:text-2xl">
               Choose a Template
             </h3>
-            <p className="text-slate-400 text-sm md:text-base mt-1">
+            <p className="text-muted text-sm md:text-base mt-1">
               Templates provide pre-configured phases with suggested duration
               and weight targets based on common fitness goals.
             </p>
@@ -83,7 +83,7 @@ export const TemplatePickerModal = ({
           <button
             onClick={onClose}
             type="button"
-            className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-4 py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback"
+            className="flex-1 bg-surface-highlight active:bg-surface-highlight/90 text-foreground px-4 py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback"
           >
             Close
           </button>

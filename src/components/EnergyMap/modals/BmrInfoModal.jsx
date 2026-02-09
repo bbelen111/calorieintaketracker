@@ -56,28 +56,28 @@ export const BmrInfoModal = ({ isOpen, isClosing, userData, bmr, onClose }) => {
       <div className="flex items-start justify-between gap-4 mb-4">
         <div className="flex items-center gap-3">
           <Info size={28} className="text-blue-400" />
-          <h3 className="text-white font-bold text-xl">What is BMR?</h3>
+          <h3 className="text-foreground font-bold text-xl">What is BMR?</h3>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="text-slate-400 md:hover:text-white transition-colors focus-ring"
+          className="text-muted md:hover:text-foreground transition-colors focus-ring"
         >
           <X size={20} />
         </button>
       </div>
 
-      <div className="space-y-4 text-slate-300">
+      <div className="space-y-4 text-foreground/80">
         <p>
-          <span className="font-bold text-white">
+          <span className="font-bold text-foreground">
             BMR (Basal Metabolic Rate)
           </span>{' '}
           is the number of calories your body burns at complete rest to maintain
           basic life functions like breathing, circulation, and cell production.
         </p>
 
-        <div className="bg-slate-700/50 rounded-lg p-4">
-          <p className="font-bold text-white mb-2">
+        <div className="bg-surface-highlight/50 rounded-lg p-4">
+          <p className="font-bold text-foreground mb-2">
             How We Calculate Your BMR:
           </p>
           <p className="text-sm">
@@ -91,11 +91,11 @@ export const BmrInfoModal = ({ isOpen, isClosing, userData, bmr, onClose }) => {
             </span>
             .
           </p>
-          <div className="mt-3 p-3 bg-slate-900/50 rounded font-mono text-xs md:text-sm overflow-x-auto space-y-3">
+          <div className="mt-3 p-3 bg-background/50 rounded font-mono text-xs md:text-sm overflow-x-auto space-y-3">
             <div>
               <p className="text-emerald-300">Katch-McArdle (with body fat):</p>
               <p className="mt-1">BMR = 370 + 21.6 × lean mass</p>
-              <p className="text-slate-400 mt-1">
+              <p className="text-muted mt-1">
                 Lean mass = weight × (1 − body fat %)
               </p>
             </div>
@@ -124,40 +124,40 @@ export const BmrInfoModal = ({ isOpen, isClosing, userData, bmr, onClose }) => {
           <div className="text-sm space-y-1">
             <p>
               Weight:{' '}
-              <span className="text-white font-semibold">
+              <span className="text-foreground font-semibold">
                 {latestWeightLabel}
               </span>
             </p>
             {resolvedUserData?.bodyFatTrackingEnabled && (
               <p>
                 Body fat:{' '}
-                <span className="text-white font-semibold">
+                <span className="text-foreground font-semibold">
                   {latestBodyFatLabel}
                 </span>
               </p>
             )}
             <p>
               Height:{' '}
-              <span className="text-white font-semibold">
+              <span className="text-foreground font-semibold">
                 {resolvedUserData?.height} cm
               </span>
             </p>
             <p>
               Age:{' '}
-              <span className="text-white font-semibold">
+              <span className="text-foreground font-semibold">
                 {resolvedUserData?.age} years
               </span>
             </p>
             <p>
               Gender:{' '}
-              <span className="text-white font-semibold capitalize">
+              <span className="text-foreground font-semibold capitalize">
                 {resolvedUserData?.gender}
               </span>
             </p>
             <div className="border-t border-blue-700/50 mt-2 pt-2">
               <p className="text-lg">
                 Your BMR:{' '}
-                <span className="text-white font-bold">
+                <span className="text-foreground font-bold">
                   {resolvedBmr} calories/day
                 </span>
               </p>
@@ -165,7 +165,7 @@ export const BmrInfoModal = ({ isOpen, isClosing, userData, bmr, onClose }) => {
           </div>
         </div>
 
-        <p className="text-sm italic text-slate-400">
+        <p className="text-sm italic text-muted">
           Note: Your actual daily calorie needs (TDEE) are higher because they
           include daily activity (NEAT), training, and movement (step count)
           throughout the day.

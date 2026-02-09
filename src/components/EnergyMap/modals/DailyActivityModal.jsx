@@ -65,12 +65,12 @@ export const DailyActivityModal = ({
       contentClassName="p-4 md:p-6 w-full md:max-w-xl"
     >
       <div className="flex items-center justify-between mb-4 md:mb-6">
-        <h3 className="text-white font-bold text-xl md:text-2xl">
+        <h3 className="text-foreground font-bold text-xl md:text-2xl">
           Daily Activity Presets
         </h3>
       </div>
 
-      <p className="text-slate-300 text-sm mb-4">
+      <p className="text-foreground/80 text-sm mb-4">
         Configure the non-exercise (NEAT) calories that sit on top of your BMR.
         These presets cover incidental movement outside of intentional training,
         cardio, or tracked steps and are separated for training and rest days.
@@ -112,7 +112,7 @@ export const DailyActivityModal = ({
       <button
         type="button"
         onClick={onClose}
-        className="w-full mt-5 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-lg transition-all"
+        className="w-full mt-5 bg-surface-highlight hover:bg-surface-highlight/90 text-foreground py-3 rounded-lg transition-all"
       >
         Close
       </button>

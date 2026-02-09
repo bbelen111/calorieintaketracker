@@ -74,23 +74,23 @@ export const DailyLogModal = ({
       isClosing={isClosing}
       contentClassName="w-full md:max-w-2xl p-6 max-h-[90vh] overflow-y-auto"
     >
-      <h3 className="text-white font-bold text-xl mb-4">
+      <h3 className="text-foreground font-bold text-xl mb-4">
         {mode === 'edit' ? 'Edit Daily Log' : 'Add Daily Log'}
       </h3>
 
       <div className="space-y-5">
         {/* Date */}
         <div>
-          <label className="block text-slate-300 text-sm font-semibold mb-2 flex items-center gap-2">
+          <label className="block text-foreground/80 text-sm font-semibold mb-2 flex items-center gap-2">
             <Calendar size={16} />
             Date
           </label>
           {isDateLocked ? (
             <div>
-              <div className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-slate-300">
+              <div className="w-full bg-surface border border-border/80 rounded-lg px-4 py-3 text-foreground/80">
                 {formatDateLabel(date)}
               </div>
-              <p className="text-slate-500 text-xs mt-1">
+              <p className="text-muted text-xs mt-1">
                 Date cannot be changed when editing a log.
               </p>
             </div>
@@ -99,14 +99,14 @@ export const DailyLogModal = ({
               type="date"
               value={formatDateForInput(date)}
               onChange={(e) => onDateChange(e.target.value)}
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-surface-highlight border border-border/80 rounded-lg px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           )}
         </div>
 
         {/* Weight Section */}
         <div>
-          <label className="block text-slate-300 text-sm font-semibold mb-2 flex items-center gap-2">
+          <label className="block text-foreground/80 text-sm font-semibold mb-2 flex items-center gap-2">
             <Scale size={16} className="text-purple-400" />
             Weight Entry
           </label>
@@ -140,7 +140,7 @@ export const DailyLogModal = ({
 
         {/* Nutrition Section - Coming Soon */}
         <div>
-          <label className="block text-slate-300 text-sm font-semibold mb-2 flex items-center gap-2">
+          <label className="block text-foreground/80 text-sm font-semibold mb-2 flex items-center gap-2">
             <Utensils size={16} className="text-green-400" />
             Nutrition Log
             <span className="ml-2 text-xs bg-amber-900/30 text-amber-300 px-2 py-1 rounded">
@@ -151,7 +151,7 @@ export const DailyLogModal = ({
           <button
             type="button"
             disabled
-            className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-slate-700 border-slate-600 text-slate-400 transition-all flex flex-wrap items-center gap-x-3 gap-y-1 text-left opacity-60 cursor-not-allowed"
+            className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-surface-highlight border-border/80 text-muted transition-all flex flex-wrap items-center gap-x-3 gap-y-1 text-left opacity-60 cursor-not-allowed"
           >
             <span className="font-semibold text-sm md:text-base">
               No nutrition tracker yet
@@ -175,7 +175,7 @@ export const DailyLogModal = ({
             className={`w-full px-4 py-3 rounded-lg border-2 transition-all press-feedback focus-ring flex items-center gap-3 font-semibold ${
               showNotes
                 ? 'bg-indigo-600 border-indigo-400 text-white'
-                : 'bg-slate-800 border-slate-600 text-slate-300 md:hover:bg-slate-750 md:hover:border-slate-500'
+                : 'bg-surface border-border/80 text-foreground/80 md:hover:bg-surface-highlight/95 md:hover:border-border'
             }`}
           >
             <StickyNote
@@ -200,10 +200,10 @@ export const DailyLogModal = ({
               placeholder="Any notes about this day..."
               rows={3}
               maxLength={500}
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full bg-surface-highlight border border-border/80 rounded-lg px-4 py-3 text-foreground placeholder-muted focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               autoFocus={showNotes}
             />
-            <div className="text-slate-500 text-xs mt-1 text-right">
+            <div className="text-muted text-xs mt-1 text-right">
               {notes.length}/500 characters
             </div>
           </div>
@@ -216,7 +216,7 @@ export const DailyLogModal = ({
           className={`w-full px-4 py-4 rounded-lg border-2 transition-all press-feedback focus-ring flex items-center gap-3 font-semibold ${
             completed
               ? 'bg-green-600 border-green-400 text-white'
-              : 'bg-slate-800 border-slate-600 text-slate-300 md:hover:bg-slate-750 md:hover:border-slate-500'
+              : 'bg-surface border-border/80 text-foreground/80 md:hover:bg-surface-highlight/95 md:hover:border-border'
           }`}
         >
           <CheckCircle2
@@ -259,7 +259,7 @@ export const DailyLogModal = ({
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 px-4 py-3 bg-slate-700 text-white rounded-lg font-semibold transition-all press-feedback focus-ring md:hover:bg-slate-600"
+          className="flex-1 px-4 py-3 bg-surface-highlight text-foreground rounded-lg font-semibold transition-all press-feedback focus-ring md:hover:bg-surface-highlight/90"
         >
           Cancel
         </button>

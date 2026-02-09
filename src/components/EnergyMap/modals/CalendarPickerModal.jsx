@@ -107,18 +107,18 @@ const CalendarHeatmap = ({
     const isFocused = date === focusedDate;
 
     if (isGhost) {
-      return 'bg-slate-800/30 border-slate-700/30 cursor-default';
+      return 'bg-surface/30 border-border/30 cursor-default';
     }
     if (isSelected) {
       return 'bg-blue-500 border-blue-400 ring-2 ring-blue-300 shadow-lg';
     }
     if (isFocused) {
-      return 'bg-slate-600 border-slate-400 ring-2 ring-slate-500 hover:bg-slate-500';
+      return 'bg-surface-highlight/90 border-border/90 ring-2 ring-border hover:bg-surface-highlight/80';
     }
     if (hasEntries) {
-      return 'bg-slate-700 border-blue-400 hover:bg-slate-600';
+      return 'bg-surface-highlight border-blue-400 hover:bg-surface-highlight/90';
     }
-    return 'bg-slate-700 border-slate-600 hover:bg-slate-600';
+    return 'bg-surface-highlight border-border/80 hover:bg-surface-highlight/90';
   };
 
   const getDayNumber = (date) => {
@@ -132,7 +132,7 @@ const CalendarHeatmap = ({
 
   if (weeks.length === 0) {
     return (
-      <div className="text-slate-400 text-sm text-center py-4">
+      <div className="text-muted text-sm text-center py-4">
         No calendar data available
       </div>
     );
@@ -146,7 +146,7 @@ const CalendarHeatmap = ({
           <div
             key={i}
             className={`text-[10px] text-center font-semibold ${
-              i === 0 ? 'text-red-400' : 'text-slate-400'
+              i === 0 ? 'text-red-400' : 'text-muted'
             }`}
           >
             {day}
@@ -206,12 +206,12 @@ const CalendarHeatmap = ({
                         <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-blue-400" />
                       )}
                       <span
-                        className={`text-sm font-bold ${isGhost ? 'text-slate-600' : 'text-white'}`}
+                        className={`text-sm font-bold ${isGhost ? 'text-muted/50' : 'text-foreground'}`}
                       >
                         {dayNum}
                       </span>
                       {isGhost && (
-                        <span className="text-slate-600 text-[8px] font-medium absolute bottom-1">
+                        <span className="text-muted/50 text-[8px] font-medium absolute bottom-1">
                           {ghostMonthAbbr}
                         </span>
                       )}
@@ -225,11 +225,11 @@ const CalendarHeatmap = ({
       </div>
 
       {/* Legend
-      <div className="flex items-center justify-center gap-4 pt-4 text-xs text-slate-400 border-t border-slate-700 mt-4">
+      <div className="flex items-center justify-center gap-4 pt-4 text-xs text-muted border-t border-border mt-4">
             <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-slate-700 border-2 border-slate-600 flex flex-col items-center justify-center gap-0.5 shadow-sm relative">
+          <div className="w-6 h-6 rounded-lg bg-surface-highlight border-2 border-border/80 flex flex-col items-center justify-center gap-0.5 shadow-sm relative">
             <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-blue-500 rounded-full border border-blue-400" />
-            <span className="text-white font-bold text-[10px]">15</span>
+            <span className="text-foreground font-bold text-[10px]">15</span>
             <span className="text-white text-[6px] leading-none opacity-80">
               2k
             </span>
@@ -237,14 +237,14 @@ const CalendarHeatmap = ({
           <span>Has entries</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-slate-700 border-2 border-slate-600 flex items-center justify-center shadow-sm">
-            <span className="text-white font-bold text-xs">1</span>
+          <div className="w-6 h-6 rounded-lg bg-surface-highlight border-2 border-border/80 flex items-center justify-center shadow-sm">
+            <span className="text-foreground font-bold text-xs">1</span>
           </div>
           <span>No entries</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-lg bg-blue-500 border-2 border-blue-400 ring-2 ring-blue-300 flex items-center justify-center shadow-sm">
-            <span className="text-white font-bold text-xs">1</span>
+            <span className="text-foreground font-bold text-xs">1</span>
           </div>
           <span>Selected</span>
         </div>
@@ -604,7 +604,7 @@ export const CalendarPickerModal = ({
       >
         <div className="p-6 relative transition-all duration-300 ease-in-out">
           <div className="flex items-center justify-between mb-6 gap-2">
-            <h3 className="text-white font-bold text-xl flex items-center gap-2">
+            <h3 className="text-foreground font-bold text-xl flex items-center gap-2">
               <Calendar className="text-blue-400" size={24} />
               Select Date
             </h3>
@@ -629,7 +629,7 @@ export const CalendarPickerModal = ({
               onClick={handlePrevMonth}
               whileHover={{ scale: 1.05, x: -2 }}
               whileTap={{ scale: 0.95 }}
-              className="p-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+              className="p-2 bg-surface-highlight hover:bg-surface-highlight/90 text-foreground rounded-lg transition-colors"
               aria-label="Previous month"
             >
               <ChevronLeft size={20} />
@@ -648,7 +648,7 @@ export const CalendarPickerModal = ({
               </button>
 
               {/* Centered separator dot */}
-              <span className="text-slate-500 absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none select-none">
+              <span className="text-muted absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none select-none">
                 •
               </span>
 
@@ -669,7 +669,7 @@ export const CalendarPickerModal = ({
               onClick={handleNextMonth}
               whileHover={{ scale: 1.05, x: 2 }}
               whileTap={{ scale: 0.95 }}
-              className="p-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+              className="p-2 bg-surface-highlight hover:bg-surface-highlight/90 text-foreground rounded-lg transition-colors"
               aria-label="Next month"
             >
               <ChevronRight size={20} />
@@ -695,7 +695,7 @@ export const CalendarPickerModal = ({
                   transition={{ duration: 0.2 }}
                   className="absolute left-1/5 -translate-x-1/2 top-29 z-50"
                 >
-                  <div className="grid grid-cols-3 gap-2 p-4 bg-slate-800 rounded-lg border-2 border-slate-700 shadow-2xl w-64">
+                  <div className="grid grid-cols-3 gap-2 p-4 bg-surface rounded-lg border-2 border-border shadow-2xl w-64">
                     {monthNames.map((month, index) => (
                       <motion.button
                         key={month}
@@ -706,7 +706,7 @@ export const CalendarPickerModal = ({
                         className={`px-3 py-2 rounded-lg font-semibold transition-colors text-sm whitespace-nowrap ${
                           index === currentMonth
                             ? 'bg-blue-600 text-white'
-                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white'
+                            : 'bg-surface-highlight text-foreground/80 hover:bg-surface-highlight/90 hover:text-foreground'
                         }`}
                       >
                         {month.slice(0, 3)}
@@ -737,7 +737,7 @@ export const CalendarPickerModal = ({
                   transition={{ duration: 0.2 }}
                   className="absolute left-1/2 -translate-x-1/2 top-29 z-50"
                 >
-                  <div className="grid grid-cols-4 gap-2 p-4 bg-slate-800 rounded-lg border-2 border-slate-700 shadow-2xl w-56">
+                  <div className="grid grid-cols-4 gap-2 p-4 bg-surface rounded-lg border-2 border-border shadow-2xl w-56">
                     {yearRange.map((year) => (
                       <motion.button
                         key={year}
@@ -748,7 +748,7 @@ export const CalendarPickerModal = ({
                         className={`px-1 py-2 rounded-lg font-semibold transition-colors text-sm ${
                           year === currentYear
                             ? 'bg-blue-600 text-white'
-                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white'
+                            : 'bg-surface-highlight text-foreground/80 hover:bg-surface-highlight/90 hover:text-foreground'
                         }`}
                       >
                         {year}
@@ -782,13 +782,13 @@ export const CalendarPickerModal = ({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="mt-4 bg-slate-700 rounded-lg p-4 border border-slate-600"
+            className="mt-4 bg-surface-highlight rounded-lg p-4 border border-border/80"
           >
             <div className="flex items-center gap-2 mb-3">
               <TrendingUp className="text-blue-400" size={18} />
-              <h4 className="text-white font-bold text-sm">Monthly Average</h4>
+              <h4 className="text-foreground font-bold text-sm">Monthly Average</h4>
               <motion.span
-                className="text-slate-400 text-xs ml-auto"
+                className="text-muted text-xs ml-auto"
                 key={monthlyInsights.daysWithData}
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -810,7 +810,7 @@ export const CalendarPickerModal = ({
             <div className="grid grid-cols-4 gap-3">
               {/* Calories */}
               <div className="flex flex-col items-center">
-                <div className="bg-slate-800 rounded-lg p-2 w-full flex flex-col items-center border border-slate-600">
+                <div className="bg-surface rounded-lg p-2 w-full flex flex-col items-center border border-border/80">
                   <Flame className="text-emerald-400 mb-1" size={16} />
                   <motion.p
                     className="text-emerald-400 font-bold text-base"
@@ -821,13 +821,13 @@ export const CalendarPickerModal = ({
                   >
                     <AnimatedNumber value={monthlyInsights.avgCalories} />
                   </motion.p>
-                  <p className="text-slate-400 text-[9px] font-medium">kcal</p>
+                  <p className="text-muted text-[9px] font-medium">kcal</p>
                 </div>
               </div>
 
               {/* Protein */}
               <div className="flex flex-col items-center">
-                <div className="bg-slate-800 rounded-lg p-2 w-full flex flex-col items-center border border-slate-600">
+                <div className="bg-surface rounded-lg p-2 w-full flex flex-col items-center border border-border/80">
                   <Beef className="text-red-400 mb-1" size={16} />
                   <motion.p
                     className="text-red-400 font-bold text-base"
@@ -838,7 +838,7 @@ export const CalendarPickerModal = ({
                   >
                     <AnimatedNumber value={monthlyInsights.avgProtein} />
                   </motion.p>
-                  <p className="text-slate-400 text-[9px] font-medium">
+                  <p className="text-muted text-[9px] font-medium">
                     protein
                   </p>
                 </div>
@@ -846,7 +846,7 @@ export const CalendarPickerModal = ({
 
               {/* Fats */}
               <div className="flex flex-col items-center">
-                <div className="bg-slate-800 rounded-lg p-2 w-full flex flex-col items-center border border-slate-600">
+                <div className="bg-surface rounded-lg p-2 w-full flex flex-col items-center border border-border/80">
                   <Droplet className="text-yellow-400 mb-1" size={16} />
                   <motion.p
                     className="text-yellow-400 font-bold text-base"
@@ -857,13 +857,13 @@ export const CalendarPickerModal = ({
                   >
                     <AnimatedNumber value={monthlyInsights.avgFats} />
                   </motion.p>
-                  <p className="text-slate-400 text-[9px] font-medium">fats</p>
+                  <p className="text-muted text-[9px] font-medium">fats</p>
                 </div>
               </div>
 
               {/* Carbs */}
               <div className="flex flex-col items-center">
-                <div className="bg-slate-800 rounded-lg p-2 w-full flex flex-col items-center border border-slate-600">
+                <div className="bg-surface rounded-lg p-2 w-full flex flex-col items-center border border-border/80">
                   <Cookie className="text-amber-400 mb-1" size={16} />
                   <motion.p
                     className="text-amber-400 font-bold text-base"
@@ -874,7 +874,7 @@ export const CalendarPickerModal = ({
                   >
                     <AnimatedNumber value={monthlyInsights.avgCarbs} />
                   </motion.p>
-                  <p className="text-slate-400 text-[9px] font-medium">carbs</p>
+                  <p className="text-muted text-[9px] font-medium">carbs</p>
                 </div>
               </div>
             </div>
@@ -885,7 +885,7 @@ export const CalendarPickerModal = ({
             onClick={onClose}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            className="w-full mt-6 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-colors"
+            className="w-full mt-6 px-4 py-3 bg-surface-highlight hover:bg-surface-highlight/90 text-foreground rounded-lg font-semibold transition-colors"
           >
             Close
           </motion.button>
@@ -895,7 +895,7 @@ export const CalendarPickerModal = ({
       {tooltipDate && (
         <div
           ref={tooltipRef}
-          className={`fixed z-[1200] bg-slate-800 border border-slate-600 rounded-lg shadow-2xl p-2.5 transform -translate-x-1/2 -translate-y-full pointer-events-auto transition duration-150 ease-out max-w-[170px] w-fit ${
+          className={`fixed z-[1200] bg-surface border border-border/80 rounded-lg shadow-2xl p-2.5 transform -translate-x-1/2 -translate-y-full pointer-events-auto transition duration-150 ease-out max-w-[170px] w-fit ${
             tooltipEntered && !tooltipClosing
               ? 'opacity-100 scale-100'
               : 'opacity-0 scale-95'
@@ -907,8 +907,8 @@ export const CalendarPickerModal = ({
           }}
           onClick={handleTooltipClick}
         >
-          <div className="cursor-pointer hover:bg-slate-700/50 rounded p-2 transition-all">
-            <p className="text-slate-400 text-[11px] mb-1">
+          <div className="cursor-pointer hover:bg-surface-highlight/50 rounded p-2 transition-all">
+            <p className="text-muted text-[11px] mb-1">
               {new Date(tooltipDate + 'T00:00:00Z').toLocaleDateString(
                 'en-US',
                 {
@@ -937,14 +937,14 @@ export const CalendarPickerModal = ({
                 </div>
               </>
             ) : (
-              <p className="text-slate-300 text-sm font-semibold">No entries</p>
+              <p className="text-foreground/80 text-sm font-semibold">No entries</p>
             )}
-            <p className="text-slate-500 text-[10px] mt-2 uppercase tracking-wide">
+            <p className="text-muted text-[10px] mt-2 uppercase tracking-wide">
               Tap to open day
             </p>
           </div>
 
-          <div className="absolute left-1/2 transform -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-slate-600"></div>
+          <div className="absolute left-1/2 transform -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-border"></div>
         </div>
       )}
     </>

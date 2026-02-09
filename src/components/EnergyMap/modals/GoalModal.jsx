@@ -20,7 +20,7 @@ export const GoalModal = ({
       isClosing={isClosing}
       contentClassName="w-full md:max-w-2xl p-4 md:p-6"
     >
-      <h3 className="text-white font-bold text-xl md:text-2xl mb-4 md:mb-6">
+      <h3 className="text-foreground font-bold text-xl md:text-2xl mb-4 md:mb-6">
         Select Your Goal
       </h3>
 
@@ -35,7 +35,7 @@ export const GoalModal = ({
               className={`p-4 rounded-xl border-2 transition-all active:scale-[0.98] text-left focus-ring pressable ${
                 isActive
                   ? `${goal.color} border-white text-white shadow-lg`
-                  : 'bg-slate-700 border-slate-600 text-slate-300 md:hover:border-blue-400'
+                  : 'bg-surface-highlight border-border/80 text-foreground/80 md:hover:border-blue-400'
               }`}
               type="button"
             >
@@ -65,7 +65,7 @@ export const GoalModal = ({
         <button
           onClick={onCancel}
           type="button"
-          className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback"
+          className="flex-1 bg-surface-highlight active:bg-surface-highlight/90 text-foreground px-4 md:px-6 py-3 md:py-2 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback"
         >
           Cancel
         </button>

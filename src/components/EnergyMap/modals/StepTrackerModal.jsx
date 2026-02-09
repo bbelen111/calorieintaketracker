@@ -714,38 +714,38 @@ export const StepTrackerModal = ({
         isOpen={isOpen}
         isClosing={isClosing}
         overlayClassName="fixed inset-0 bg-black/70 !p-0 !flex-none !items-stretch !justify-stretch"
-        contentClassName="fixed inset-0 w-screen h-screen p-0 bg-slate-900 rounded-none border-none !max-h-none flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
+        contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none !max-h-none flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
       >
         {/* Header with back button */}
-        <div className="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-700 flex-shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 bg-background border-b border-border flex-shrink-0">
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => onClose?.()}
               aria-label="Back"
-              className="text-slate-300 md:hover:text-white transition-all pressable-inline focus-ring"
+              className="text-foreground/80 md:hover:text-foreground transition-all pressable-inline focus-ring"
             >
               <ChevronLeft size={24} />
             </button>
             <div className="flex items-center gap-2">
-              <h3 className="text-white font-bold text-xl">Step Tracker</h3>
+              <h3 className="text-foreground font-bold text-xl">Step Tracker</h3>
             </div>
           </div>
         </div>
 
         {/* Stats and Chart Section */}
-        <div className="flex-1 bg-slate-800 border-t border-slate-700 overflow-y-auto flex flex-col">
+        <div className="flex-1 bg-surface border-t border-border overflow-y-auto flex flex-col">
           {/* Stats Section */}
           <div className="px-4 pt-4 pb-3 grid grid-cols-2 gap-3 flex-shrink-0">
             {/* Today's Steps */}
             <div>
-              <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">
+              <p className="text-muted text-xs uppercase tracking-wide mb-1">
                 {todaySteps != null ? "Today's Steps" : 'Latest'}
               </p>
-              <p className="text-white text-2xl font-bold">
+              <p className="text-foreground text-2xl font-bold">
                 {currentStepsDisplay}
               </p>
-              <p className="text-slate-400 text-[11px] mt-1">
+              <p className="text-muted text-[11px] mt-1">
                 {latestDate && !todaySteps
                   ? `as of ${formatTooltipDate(latestDate)}`
                   : 'steps'}
@@ -753,19 +753,19 @@ export const StepTrackerModal = ({
             </div>
             {/* 7-Day Average */}
             <div>
-              <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">
+              <p className="text-muted text-xs uppercase tracking-wide mb-1">
                 7-Day Average
               </p>
-              <p className="text-white text-2xl font-bold">
+              <p className="text-foreground text-2xl font-bold">
                 {trend.weeklyAverage > 0
                   ? trend.weeklyAverage.toLocaleString()
                   : '—'}
               </p>
-              <p className="text-slate-400 text-[11px] mt-1">steps/day</p>
+              <p className="text-muted text-[11px] mt-1">steps/day</p>
             </div>
             {/* Goal & Progress Combined */}
             <div>
-              <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">
+              <p className="text-muted text-xs uppercase tracking-wide mb-1">
                 Goal Progress
               </p>
               <p
@@ -783,7 +783,7 @@ export const StepTrackerModal = ({
                 className={`text-[11px] mt-1 ${
                   currentStepsValue >= resolvedStepGoal
                     ? 'text-green-400'
-                    : 'text-slate-400'
+                    : 'text-muted'
                 }`}
               >
                 {currentStepsValue >= resolvedStepGoal
@@ -793,15 +793,15 @@ export const StepTrackerModal = ({
             </div>
             {/* Distance & Calories */}
             <div>
-              <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">
+              <p className="text-muted text-xs uppercase tracking-wide mb-1">
                 Distance & Calories
               </p>
-              <p className="text-white text-2xl font-bold">
+              <p className="text-foreground text-2xl font-bold">
                 {todayStepDetails.distanceKm > 0
                   ? `${todayStepDetails.distanceKm.toFixed(1)} km`
                   : '—'}
               </p>
-              <p className="text-slate-400 text-[11px] mt-1">
+              <p className="text-muted text-[11px] mt-1">
                 {todayStepDetails.calories > 0
                   ? `${Math.round(todayStepDetails.calories)} cal burned`
                   : 'from steps'}
@@ -809,7 +809,7 @@ export const StepTrackerModal = ({
             </div>
           </div>
 
-          <div className="sticky top-0 z-10 px-4 py-2 bg-slate-800/95 backdrop-blur border-b border-slate-700 flex-shrink-0">
+          <div className="sticky top-0 z-10 px-4 py-2 bg-surface/95 backdrop-blur border-b border-border flex-shrink-0">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <button
                 type="button"
@@ -857,7 +857,7 @@ export const StepTrackerModal = ({
 
                 {/* Dropdown Menu */}
                 {isTimeframeDropdownOpen && (
-                  <div className="absolute right-0 top-full mt-1 bg-slate-700 border border-slate-600 rounded-md shadow-lg z-10 min-w-[120px]">
+                  <div className="absolute right-0 top-full mt-1 bg-surface-highlight border border-border/80 rounded-md shadow-lg z-10 min-w-[120px]">
                     {[
                       { value: '7d', label: '7 Days' },
                       { value: '14d', label: '14 Days' },
@@ -872,10 +872,10 @@ export const StepTrackerModal = ({
                           setSelectedTimeframe(value);
                           setIsTimeframeDropdownOpen(false);
                         }}
-                        className={`w-full px-4 py-2 text-left text-sm font-medium transition-colors md:hover:bg-slate-600 first:rounded-t-md last:rounded-b-md ${
+                        className={`w-full px-4 py-2 text-left text-sm font-medium transition-colors md:hover:bg-surface-highlight/90 first:rounded-t-md last:rounded-b-md ${
                           selectedTimeframe === value
                             ? 'bg-blue-600 text-white'
-                            : 'text-slate-200'
+                            : 'text-foreground/60'
                         }`}
                       >
                         {label}
@@ -986,7 +986,7 @@ export const StepTrackerModal = ({
                                       x={midX}
                                       y={textY}
                                       textAnchor="middle"
-                                      className="fill-slate-300 text-[10px] font-semibold"
+                                      className="fill-foreground/80 text-[10px] font-semibold"
                                     >
                                       {formatStepCount(bracket.avgSteps)}
                                     </text>
@@ -994,7 +994,7 @@ export const StepTrackerModal = ({
                                       x={midX}
                                       y={textY + 11}
                                       textAnchor="middle"
-                                      className="fill-slate-500 text-[8px]"
+                                      className="fill-muted text-[8px]"
                                     >
                                       avg
                                     </text>
@@ -1035,7 +1035,7 @@ export const StepTrackerModal = ({
                                   className={
                                     isBaseline
                                       ? 'opacity-80'
-                                      : 'text-slate-500 opacity-60'
+                                      : 'text-muted opacity-60'
                                   }
                                 />
                               );
@@ -1107,12 +1107,12 @@ export const StepTrackerModal = ({
                         <div className="text-center">
                           <Footprints
                             size={48}
-                            className="text-slate-600 mx-auto mb-3"
+                            className="text-muted/50 mx-auto mb-3"
                           />
-                          <p className="text-slate-500 text-lg">
+                          <p className="text-muted text-lg">
                             No step data yet
                           </p>
-                          <p className="text-slate-600 text-sm mt-1">
+                          <p className="text-muted/50 text-sm mt-1">
                             Connect Health Connect to start tracking
                           </p>
                         </div>
@@ -1121,7 +1121,7 @@ export const StepTrackerModal = ({
                   </div>
                 </div>
                 {/* Right edge soft fade */}
-                <div className="pointer-events-none absolute right-0 -mr-1 top-0 h-full w-3 bg-gradient-to-l from-slate-800/90 to-transparent" />
+                <div className="pointer-events-none absolute right-0 -mr-1 top-0 h-full w-3 bg-gradient-to-l from-surface/90 to-transparent" />
               </div>
 
               {/* Y-axis - Fixed on right side */}
@@ -1136,7 +1136,7 @@ export const StepTrackerModal = ({
                         return (
                           <div
                             key={`tick-${index}`}
-                            className="absolute right-2 text-xs font-semibold text-slate-100/70 tracking-tight text-right"
+                            className="absolute right-2 text-xs font-semibold text-foreground/70 tracking-tight text-right"
                             style={{
                               top: `${labelPercent}%`,
                               transform: translateY,
@@ -1204,7 +1204,7 @@ export const StepTrackerModal = ({
                               className={`w-full flex flex-col items-center gap-1 py-2 px-2 rounded-md border transition-colors text-[10px] font-semibold ${
                                 isLatest
                                   ? 'bg-blue-600 border-blue-500 text-white'
-                                  : 'bg-transparent border-slate-600 text-slate-100'
+                                  : 'bg-transparent border-border/80 text-foreground'
                               } ${selectedDate === date ? 'ring-2 ring-blue-400' : ''}`}
                             >
                               <span className="w-full text-center">
@@ -1218,7 +1218,7 @@ export const StepTrackerModal = ({
                   </div>
                 </div>
                 {/* Right edge soft fade */}
-                <div className="pointer-events-none absolute right-0 -mr-1 top-0 h-full w-3 bg-gradient-to-l from-slate-800/90 to-transparent" />
+                <div className="pointer-events-none absolute right-0 -mr-1 top-0 h-full w-3 bg-gradient-to-l from-surface/90 to-transparent" />
               </div>
               <div className="w-14 flex-shrink-0" />
             </div>
@@ -1230,7 +1230,7 @@ export const StepTrackerModal = ({
       {selectedBar && selectedDate && entriesMap[selectedDate] && (
         <div
           ref={tooltipRef}
-          className={`fixed z-[1200] bg-slate-800 border border-slate-600 rounded-lg shadow-2xl p-4 transform -translate-x-1/2 -translate-y-full pointer-events-auto transition duration-150 ease-out ${
+          className={`fixed z-[1200] bg-surface border border-border/80 rounded-lg shadow-2xl p-4 transform -translate-x-1/2 -translate-y-full pointer-events-auto transition duration-150 ease-out ${
             tooltipEntered && !tooltipClosing
               ? 'opacity-100 scale-100'
               : 'opacity-0 scale-95'
@@ -1242,18 +1242,18 @@ export const StepTrackerModal = ({
           }}
         >
           <div className="p-2">
-            <p className="text-slate-400 text-[11.5px] mb-1">
+            <p className="text-muted text-[11.5px] mb-1">
               {formatTooltipDate(selectedDate)}
             </p>
-            <p className="text-white text-2xl font-bold">
+            <p className="text-foreground text-2xl font-bold">
               {entriesMap[selectedDate].steps.toLocaleString()}{' '}
-              <span className="text-slate-400 text-sm font-normal">steps</span>
+              <span className="text-muted text-sm font-normal">steps</span>
             </p>
             {/* Distance and calories for this day */}
             {weight && height && (
-              <div className="mt-2 pt-2 border-t border-slate-700 flex justify-between text-sm">
+              <div className="mt-2 pt-2 border-t border-border flex justify-between text-sm">
                 <div>
-                  <p className="text-slate-400 text-[10px] uppercase">
+                  <p className="text-muted text-[10px] uppercase">
                     Distance
                   </p>
                   <p className="text-white font-semibold">
@@ -1266,7 +1266,7 @@ export const StepTrackerModal = ({
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-slate-400 text-[10px] uppercase">
+                  <p className="text-muted text-[10px] uppercase">
                     Calories
                   </p>
                   <p className="text-white font-semibold">
@@ -1285,7 +1285,7 @@ export const StepTrackerModal = ({
           </div>
 
           {/* Arrow */}
-          <div className="absolute left-1/2 transform -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-slate-600"></div>
+          <div className="absolute left-1/2 transform -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-border"></div>
         </div>
       )}
     </>

@@ -110,7 +110,7 @@ export const FoodEntryModal = ({
     >
       <div className="flex items-center gap-3 mb-6">
         <Utensils className="text-blue-400" size={28} />
-        <h3 className="text-white font-bold text-2xl">
+        <h3 className="text-foreground font-bold text-2xl">
           {isEditing ? 'Edit Food Entry' : 'Manual Food Entry'}
         </h3>
       </div>
@@ -118,7 +118,7 @@ export const FoodEntryModal = ({
       <div className="space-y-4">
         {/* Food Name */}
         <div>
-          <label className="block text-slate-300 text-sm font-semibold mb-2">
+          <label className="block text-foreground/80 text-sm font-semibold mb-2">
             Food Name
           </label>
           <input
@@ -127,13 +127,13 @@ export const FoodEntryModal = ({
             onChange={(e) => !isEditing && setFoodName(e.target.value)}
             placeholder="e.g., Chicken Breast"
             readOnly={isEditing}
-            className={`w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus-ring ${isEditing ? 'opacity-60 cursor-not-allowed' : ''}`}
+            className={`w-full bg-surface-highlight border border-border/80 rounded-lg px-4 py-3 text-white placeholder-muted focus-ring ${isEditing ? 'opacity-60 cursor-not-allowed' : ''}`}
           />
         </div>
 
         {/* Calories */}
         <div>
-          <label className="block text-slate-300 text-sm font-semibold mb-2">
+          <label className="block text-foreground/80 text-sm font-semibold mb-2">
             Calories
           </label>
           <input
@@ -142,14 +142,14 @@ export const FoodEntryModal = ({
             value={calories}
             onChange={(e) => setCalories(sanitizeNumericInput(e.target.value))}
             placeholder="0"
-            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus-ring"
+            className="w-full bg-surface-highlight border border-border/80 rounded-lg px-4 py-3 text-foreground placeholder-muted focus-ring"
           />
         </div>
 
         {/* Macros Grid */}
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <label className="block text-slate-300 text-xs font-semibold mb-2">
+            <label className="block text-foreground/80 text-xs font-semibold mb-2">
               Protein (g)
             </label>
             <input
@@ -158,12 +158,12 @@ export const FoodEntryModal = ({
               value={protein}
               onChange={(e) => setProtein(sanitizeNumericInput(e.target.value))}
               placeholder="0"
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus-ring"
+              className="w-full bg-surface-highlight border border-border/80 rounded-lg px-3 py-2 text-foreground placeholder-muted focus-ring"
             />
           </div>
 
           <div>
-            <label className="block text-slate-300 text-xs font-semibold mb-2">
+            <label className="block text-foreground/80 text-xs font-semibold mb-2">
               Carbs (g)
             </label>
             <input
@@ -172,12 +172,12 @@ export const FoodEntryModal = ({
               value={carbs}
               onChange={(e) => setCarbs(sanitizeNumericInput(e.target.value))}
               placeholder="0"
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus-ring"
+              className="w-full bg-surface-highlight border border-border/80 rounded-lg px-3 py-2 text-foreground placeholder-muted focus-ring"
             />
           </div>
 
           <div>
-            <label className="block text-slate-300 text-xs font-semibold mb-2">
+            <label className="block text-foreground/80 text-xs font-semibold mb-2">
               Fats (g)
             </label>
             <input
@@ -186,7 +186,7 @@ export const FoodEntryModal = ({
               value={fats}
               onChange={(e) => setFats(sanitizeNumericInput(e.target.value))}
               placeholder="0"
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus-ring"
+              className="w-full bg-surface-highlight border border-border/80 rounded-lg px-3 py-2 text-foreground placeholder-muted focus-ring"
             />
           </div>
         </div>
@@ -202,14 +202,14 @@ export const FoodEntryModal = ({
             {/* Save as Favourite - only show when callback provided and not editing */}
             <button
               onClick={onClose}
-              className="flex-1 h-10 px-4 bg-slate-700 text-white rounded-lg font-semibold transition-all text-sm press-feedback focus-ring md:hover:bg-slate-600"
+              className="flex-1 h-10 px-4 bg-surface-highlight text-foreground rounded-lg font-semibold transition-all text-sm press-feedback focus-ring md:hover:bg-surface-highlight/90"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
               disabled={!foodName.trim()}
-              className="flex-1 h-10 px-4 bg-blue-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring md:hover:bg-blue-500"
+              className="flex-1 h-10 px-4 bg-blue-600 disabled:bg-surface-highlight/90 disabled:cursor-not-allowed text-foreground rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring md:hover:bg-blue-500"
             >
               <Save size={18} />
               {isEditing ? 'Add & Save' : 'Add Food'}
@@ -223,7 +223,7 @@ export const FoodEntryModal = ({
                 className={`w-10 h-10 ml-1 border disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all flex items-center justify-center press-feedback focus-ring ${
                   markedAsFavourite
                     ? 'bg-green-600 border-green-500/50'
-                    : 'bg-indigo-600 md:hover:bg-indigo-500 border-indigo-600/50 disabled:bg-slate-600/20 disabled:border-slate-600/50 disabled:text-slate-500'
+                    : 'bg-indigo-600 md:hover:bg-indigo-500 border-indigo-600/50 disabled:bg-surface-highlight/90/20 disabled:border-border/80/50 disabled:text-muted'
                 }`}
               >
                 {markedAsFavourite ? <Check size={20} /> : <Heart size={20} />}

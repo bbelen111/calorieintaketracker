@@ -243,18 +243,18 @@ export const CardioDurationPickerModal = (props) => {
       isClosing={isClosing}
       contentClassName="p-6 w-full max-w-md"
     >
-      <h3 className="text-white font-bold text-xl mb-4 text-center">{title}</h3>
+      <h3 className="text-foreground font-bold text-xl mb-4 text-center">{title}</h3>
 
       <div className="flex gap-6">
         <div className="flex-1">
-          <p className="text-slate-400 text-xs text-center mb-2 uppercase tracking-wide">
+          <p className="text-muted text-xs text-center mb-2 uppercase tracking-wide">
             Hours
           </p>
-          <div className="relative h-48 overflow-hidden rounded-xl bg-slate-800/80">
+          <div className="relative h-48 overflow-hidden rounded-xl bg-surface/80">
             <div className="absolute inset-0 pointer-events-none z-10">
-              <div className="h-16 bg-gradient-to-b from-slate-800 to-transparent" />
+              <div className="h-16 bg-gradient-to-b from-surface to-transparent" />
               <div className="h-16 bg-transparent" />
-              <div className="h-16 bg-gradient-to-t from-slate-800 to-transparent" />
+              <div className="h-16 bg-gradient-to-t from-surface to-transparent" />
             </div>
             <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400/70 pointer-events-none z-10" />
 
@@ -273,8 +273,8 @@ export const CardioDurationPickerModal = (props) => {
                   }
                   className={`h-16 flex items-center justify-center text-2xl font-bold snap-center cursor-pointer transition-all ${
                     selectedHours === hour
-                      ? 'text-white scale-110'
-                      : 'text-slate-500'
+                      ? 'text-foreground scale-110'
+                      : 'text-muted'
                   }`}
                 >
                   {hour}
@@ -286,14 +286,14 @@ export const CardioDurationPickerModal = (props) => {
         </div>
 
         <div className="flex-1">
-          <p className="text-slate-400 text-xs text-center mb-2 uppercase tracking-wide">
+          <p className="text-muted text-xs text-center mb-2 uppercase tracking-wide">
             Minutes
           </p>
-          <div className="relative h-48 overflow-hidden rounded-xl bg-slate-800/80">
+          <div className="relative h-48 overflow-hidden rounded-xl bg-surface/80">
             <div className="absolute inset-0 pointer-events-none z-10">
-              <div className="h-16 bg-gradient-to-b from-slate-800 to-transparent" />
+              <div className="h-16 bg-gradient-to-b from-surface to-transparent" />
               <div className="h-16 bg-transparent" />
-              <div className="h-16 bg-gradient-to-t from-slate-800 to-transparent" />
+              <div className="h-16 bg-gradient-to-t from-surface to-transparent" />
             </div>
             <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400/70 pointer-events-none z-10" />
 
@@ -319,8 +319,8 @@ export const CardioDurationPickerModal = (props) => {
                     }}
                     className={`h-16 flex items-center justify-center text-2xl font-bold snap-center cursor-pointer transition-all ${
                       selectedMinutes === minute
-                        ? 'text-white scale-110'
-                        : 'text-slate-500'
+                        ? 'text-foreground scale-110'
+                        : 'text-muted'
                     } ${isDisabled ? 'opacity-40 pointer-events-none' : ''}`}
                   >
                     {minute.toString().padStart(2, '0')}
@@ -333,12 +333,12 @@ export const CardioDurationPickerModal = (props) => {
         </div>
       </div>
 
-      <div className="bg-slate-700/50 rounded-lg p-3 mt-4 text-center">
-        <p className="text-slate-300 text-sm">Selected Duration</p>
+      <div className="bg-surface-highlight/50 rounded-lg p-3 mt-4 text-center">
+        <p className="text-foreground/80 text-sm">Selected Duration</p>
         <p className="text-white text-lg font-semibold mt-1">
           {formattedDuration}
         </p>
-        <p className="text-slate-400 text-xs mt-1">
+        <p className="text-muted text-xs mt-1">
           ~{totalMinutes} minutes • ~{totalHoursDecimal.toFixed(2)} hours
         </p>
       </div>
@@ -347,7 +347,7 @@ export const CardioDurationPickerModal = (props) => {
         <button
           onClick={onCancel}
           type="button"
-          className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback"
+          className="flex-1 bg-surface-highlight active:bg-surface-highlight/90 text-foreground px-6 py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback"
         >
           Cancel
         </button>

@@ -33,10 +33,10 @@ export const DailyActivityCustomModal = ({
       contentClassName="p-4 md:p-6 w-full md:max-w-md"
     >
       <div className="mb-4 md:mb-6">
-        <h3 className="text-white font-bold text-xl md:text-2xl">
+        <h3 className="text-foreground font-bold text-xl md:text-2xl">
           {titles[dayType]}
         </h3>
-        <p className="text-slate-300 text-sm mt-2">
+        <p className="text-foreground/80 text-sm mt-2">
           Enter the percentage of your BMR that represents non-exercise movement
           on this day. This should exclude intentional workouts, cardio
           sessions, and tracked steps—those are calculated separately.
@@ -45,7 +45,7 @@ export const DailyActivityCustomModal = ({
 
       <div className="space-y-2">
         <label
-          className="text-slate-300 text-sm block"
+          className="text-foreground/80 text-sm block"
           htmlFor="custom-activity-input"
         >
           NEAT offset (% of BMR)
@@ -58,9 +58,9 @@ export const DailyActivityCustomModal = ({
           step="0.5"
           value={value}
           onChange={handleInputChange}
-          className="w-full bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600 focus:border-blue-400 focus:outline-none text-lg"
+          className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border/80 focus:border-blue-400 focus:outline-none text-lg"
         />
-        <p className="text-slate-400 text-xs">
+        <p className="text-muted text-xs">
           Recommended range: 20% - 45% for most lifestyles. Values are capped
           between 0% and 100% and should reflect only incidental movement.
         </p>
@@ -70,7 +70,7 @@ export const DailyActivityCustomModal = ({
         <button
           onClick={onCancel}
           type="button"
-          className="flex-1 bg-slate-700 active:bg-slate-600 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback"
+          className="flex-1 bg-surface-highlight active:bg-surface-highlight/90 text-foreground px-4 md:px-6 py-3 md:py-2 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback"
         >
           Cancel
         </button>

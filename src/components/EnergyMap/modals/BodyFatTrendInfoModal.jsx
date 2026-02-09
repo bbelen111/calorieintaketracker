@@ -38,25 +38,25 @@ export const BodyFatTrendInfoModal = ({
       <div className="flex items-start justify-between gap-4 mb-4">
         <div className="flex items-center gap-3">
           <Info size={28} className="text-blue-400" />
-          <h3 className="text-white font-bold text-xl">Body Fat Trends</h3>
+          <h3 className="text-foreground font-bold text-xl">Body Fat Trends</h3>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="text-slate-400 md:hover:text-white transition-colors focus-ring"
+          className="text-muted md:hover:text-foreground transition-colors focus-ring"
         >
           <X size={20} />
         </button>
       </div>
 
-      <div className="space-y-4 text-slate-300">
+      <div className="space-y-4 text-foreground/80">
         <p>
           Your body fat trend is calculated by analyzing your recent entries to
           determine the rate and direction of change over time.
         </p>
 
-        <div className="bg-slate-700/50 rounded-lg p-4">
-          <p className="font-bold text-white mb-2">
+        <div className="bg-surface-highlight/50 rounded-lg p-4">
+          <p className="font-bold text-foreground mb-2">
             How We Calculate Your Trend:
           </p>
           <div className="text-sm space-y-2">
@@ -92,21 +92,21 @@ export const BodyFatTrendInfoModal = ({
           <div className="text-sm space-y-1">
             <p>
               Weekly Rate:{' '}
-              <span className="text-white font-semibold">
+              <span className="text-foreground font-semibold">
                 {trend.weeklyRate >= 0 ? '+' : ''}
                 {trend.weeklyRate.toFixed(2)} %/week
               </span>
             </p>
             <p>
               Data Points:{' '}
-              <span className="text-white font-semibold">
+              <span className="text-foreground font-semibold">
                 {trend.sampleRange?.length || 0} entries
               </span>
             </p>
             {trend.sampleRange && trend.sampleRange.length >= 2 && (
               <p>
                 Period:{' '}
-                <span className="text-white font-semibold">
+                <span className="text-foreground font-semibold">
                   {trend.sampleRange[0].date} to{' '}
                   {trend.sampleRange[trend.sampleRange.length - 1].date}
                 </span>
@@ -120,14 +120,14 @@ export const BodyFatTrendInfoModal = ({
           <div className="text-sm space-y-2">
             <p>
               Your selected goal is{' '}
-              <span className="text-white font-semibold">
+              <span className="text-foreground font-semibold">
                 {goals[selectedGoal]?.label || 'Maintenance'}
               </span>
               .
             </p>
             <p>
               Target rate:{' '}
-              <span className="text-white font-semibold">
+              <span className="text-foreground font-semibold">
                 {selectedGoal === 'aggressive_bulk'
                   ? '+0.15 to +0.3 %/week'
                   : selectedGoal === 'bulking'
@@ -189,7 +189,7 @@ export const BodyFatTrendInfoModal = ({
                       return <AlertCircle size={16} className="text-orange-400" />;
                     }
 
-                    return <AlertCircle size={16} className="text-slate-400" />;
+                    return <AlertCircle size={16} className="text-muted" />;
                   })()}
                 </span>
                 <p className={(() => {
@@ -232,7 +232,7 @@ export const BodyFatTrendInfoModal = ({
                       return 'text-orange-300';
                     }
 
-                    return 'text-slate-300';
+                    return 'text-foreground/80';
                   })()}>
                   {(() => {
                     const rate = trend.weeklyRate;
@@ -282,37 +282,37 @@ export const BodyFatTrendInfoModal = ({
           </div>
         </div>
 
-        <div className="bg-slate-800/70 border border-slate-700 rounded-lg p-4 space-y-2">
+        <div className="bg-surface/70 border border-border rounded-lg p-4 space-y-2">
           <p className="text-white font-semibold text-sm uppercase tracking-wide">
             Trend Classifications
           </p>
           <div className="grid gap-2 text-xs md:text-sm">
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Stable</span>
+              <span className="text-muted">Stable</span>
               <span className="text-blue-400 font-semibold">
                 &lt; 0.1 %/week
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Gradual change</span>
+              <span className="text-muted">Gradual change</span>
               <span className="text-green-400 font-semibold">
                 0.1 - 0.45 %/week
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Moderate change</span>
+              <span className="text-muted">Moderate change</span>
               <span className="text-yellow-500 font-semibold">
                 0.45 - 0.8 %/week
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Aggressive change</span>
+              <span className="text-muted">Aggressive change</span>
               <span className="text-orange-500 font-semibold">
                 0.8 - 1.2 %/week
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Severe change</span>
+              <span className="text-muted">Severe change</span>
               <span className="text-red-500 font-semibold">
                 &gt; 1.2 %/week
               </span>
@@ -335,7 +335,7 @@ export const BodyFatTrendInfoModal = ({
           </ul>
         </div>
 
-        <p className="text-xs md:text-sm text-slate-400 italic">
+        <p className="text-xs md:text-sm text-muted italic">
           Tip: Track body fat with the same method and timing for the most
           consistent trends.
         </p>

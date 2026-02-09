@@ -52,13 +52,13 @@ export const WeightEntryModal = ({
       isClosing={isClosing}
       contentClassName="p-6 w-full max-w-lg"
     >
-      <h3 className="text-white font-bold text-xl text-center mb-6">
+      <h3 className="text-foreground font-bold text-xl text-center mb-6">
         {isEdit ? 'Edit Weight Entry' : 'Add Weight Entry'}
       </h3>
 
       <div className="space-y-5">
         <div>
-          <label className="text-slate-300 text-sm block mb-2">
+          <label className="text-foreground/80 text-sm block mb-2">
             Entry Date
           </label>
           <div className="relative">
@@ -67,27 +67,27 @@ export const WeightEntryModal = ({
               value={date ?? ''}
               onChange={handleDateChange}
               disabled={isEdit || isDateLocked}
-              className={`w-full bg-slate-700 text-white px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-800 ${
+              className={`w-full bg-surface-highlight text-white px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-surface ${
                 isEdit || isDateLocked
-                  ? 'border-slate-600 opacity-80 cursor-not-allowed'
-                  : 'border-slate-600 focus:border-blue-400'
+                  ? 'border-border/80 opacity-80 cursor-not-allowed'
+                  : 'border-border/80 focus:border-blue-400'
               }`}
             />
           </div>
           {isEdit && (
-            <p className="text-slate-500 text-xs mt-1">
+            <p className="text-muted text-xs mt-1">
               Date cannot be changed when editing an entry.
             </p>
           )}
           {!isEdit && isDateLocked && (
-            <p className="text-slate-500 text-xs mt-1">
+            <p className="text-muted text-xs mt-1">
               Date locked because today&apos;s entry already exists.
             </p>
           )}
         </div>
 
         <div>
-          <label className="text-slate-300 text-sm block mb-2">Weight</label>
+          <label className="text-foreground/80 text-sm block mb-2">Weight</label>
           <button
             type="button"
             onClick={() => onRequestWeightPicker?.()}
@@ -116,7 +116,7 @@ export const WeightEntryModal = ({
         <button
           type="button"
           onClick={onCancel}
-          className={`flex-1 bg-slate-700 active:bg-slate-600 text-white ${isEdit ? 'px-3' : 'px-6'} py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback`}
+          className={`flex-1 bg-surface-highlight active:bg-surface-highlight/90 text-white ${isEdit ? 'px-3' : 'px-6'} py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback`}
         >
           Cancel
         </button>
