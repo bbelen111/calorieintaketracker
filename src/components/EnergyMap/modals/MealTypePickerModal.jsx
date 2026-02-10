@@ -26,9 +26,7 @@ export const MealTypePickerModal = ({
     >
       <div className="flex items-center gap-3 mb-6">
         <Utensils className="text-accent-blue" size={28} />
-        <h3 className="text-foreground font-bold text-2xl">
-          Select Meal Type
-        </h3>
+        <h3 className="text-foreground font-bold text-2xl">Select Meal Type</h3>
       </div>
 
       <div className="space-y-3">
@@ -40,7 +38,7 @@ export const MealTypePickerModal = ({
             <button
               key={`meal-${mealTypeId}`}
               onClick={() => handleSelect(mealTypeId)}
-              className="w-full p-4 rounded-lg border-2 transition-all flex items-center gap-4 shadow-lg shadow-black/20 bg-surface border-border md:hover:border-blue-500/50 focus-ring pressable-card"
+              className="w-full p-4 rounded-lg border-2 transition-all flex items-center gap-4 shadow-md shadow-black/20 bg-surface-highlight border-border md:hover:border-blue-500/50 focus-ring pressable-card"
               tabIndex={0}
             >
               <Icon className="text-foreground" size={24} />

@@ -179,7 +179,7 @@ export const CardioFavouritesModal = ({
       <div className="flex flex-col gap-4 md:gap-6">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-white font-bold text-xl md:text-2xl">
+            <h3 className="text-foreground font-bold text-xl md:text-2xl">
               Favourite Cardio Sessions
             </h3>
             <p className="text-muted text-sm md:text-base mt-1">

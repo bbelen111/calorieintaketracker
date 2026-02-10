@@ -127,7 +127,7 @@ export const FoodEntryModal = ({
             onChange={(e) => !isEditing && setFoodName(e.target.value)}
             placeholder="e.g., Chicken Breast"
             readOnly={isEditing}
-            className={`w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus-ring ${isEditing ? 'opacity-60 cursor-not-allowed' : ''}`}
+            className={`w-full bg-surface-highlight border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus-ring ${isEditing ? 'opacity-60 cursor-not-allowed' : ''}`}
           />
         </div>
 
@@ -142,7 +142,7 @@ export const FoodEntryModal = ({
             value={calories}
             onChange={(e) => setCalories(sanitizeNumericInput(e.target.value))}
             placeholder="0"
-            className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus-ring"
+            className="w-full bg-surface-highlight border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus-ring"
           />
         </div>
 
@@ -158,7 +158,7 @@ export const FoodEntryModal = ({
               value={protein}
               onChange={(e) => setProtein(sanitizeNumericInput(e.target.value))}
               placeholder="0"
-              className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
+              className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
             />
           </div>
 
@@ -172,7 +172,7 @@ export const FoodEntryModal = ({
               value={carbs}
               onChange={(e) => setCarbs(sanitizeNumericInput(e.target.value))}
               placeholder="0"
-              className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
+              className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
             />
           </div>
 
@@ -186,7 +186,7 @@ export const FoodEntryModal = ({
               value={fats}
               onChange={(e) => setFats(sanitizeNumericInput(e.target.value))}
               placeholder="0"
-              className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
+              className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
             />
           </div>
         </div>
@@ -194,7 +194,7 @@ export const FoodEntryModal = ({
         {/* Actions */}
         <div className="flex flex-col gap-2 pt-2">
           {alreadyExists && (
-            <p className="text-amber-400 text-sm text-center">
+            <p className="text-accent-yellow text-sm text-center">
               A food with this name already exists in favourites.
             </p>
           )}
@@ -218,8 +218,16 @@ export const FoodEntryModal = ({
               <button
                 onClick={handleSaveAsFavourite}
                 disabled={!foodName.trim() || markedAsFavourite}
-                aria-label={markedAsFavourite ? 'Added to favourites' : 'Save as favourite'}
-                title={markedAsFavourite ? 'Added to favourites' : 'Save as favourite'}
+                aria-label={
+                  markedAsFavourite
+                    ? 'Added to favourites'
+                    : 'Save as favourite'
+                }
+                title={
+                  markedAsFavourite
+                    ? 'Added to favourites'
+                    : 'Save as favourite'
+                }
                 className={`w-10 h-10 ml-1 border disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all flex items-center justify-center press-feedback focus-ring ${
                   markedAsFavourite
                     ? 'bg-green-600 border-green-500/50'

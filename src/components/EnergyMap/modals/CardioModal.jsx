@@ -232,14 +232,14 @@ export const CardioModal = ({
     `w-full rounded-lg border px-3 py-1.5 text-sm transition-all focus-ring pressable-inline ${
       effortType === type
         ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-900/30'
-        : 'bg-surface text-foreground border-border md:hover:border-blue-400'
+        : 'bg-surface-highlight text-muted border-border md:hover:border-blue-400'
     }`;
 
   const intensityButtonClass = (level) =>
     `w-full rounded-lg border px-3 py-2 text-sm transition-all focus-ring pressable-inline ${
       intensityValue === level
         ? 'bg-indigo-600 text-white border-indigo-400 shadow-lg shadow-indigo-900/30'
-        : 'bg-surface text-foreground border-border md:hover:border-indigo-400'
+        : 'bg-surface-highlight text-muted border-border md:hover:border-indigo-400'
     }`;
 
   const handleOpenCustomCardioModal = () => {
@@ -354,12 +354,12 @@ export const CardioModal = ({
                 min="0"
                 value={session.duration === '' ? '' : session.duration}
                 onChange={handleDurationChange}
-                className="w-full bg-surface text-foreground px-4 pr-14 py-3 rounded-lg border border-border focus:border-blue-400 focus:outline-none text-base"
+                className="w-full bg-surface-highlight text-foreground px-4 pr-14 py-3 rounded-lg border border-border focus:border-blue-400 focus:outline-none text-base"
               />
               <button
                 type="button"
                 onClick={openDurationPicker}
-                className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-surface-highlight/80 md:hover:bg-surface text-foreground transition focus-ring"
+                className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-muted/30 md:hover:bg-surface text-foreground transition focus-ring"
                 aria-label="Open duration picker"
               >
                 <ChevronsUpDown size={16} />
@@ -443,7 +443,7 @@ export const CardioModal = ({
             </div>
           )}
 
-          <div className="bg-surface/60 rounded-lg p-3">
+          <div className="bg-surface-highlight rounded-lg p-3">
             <p className="text-muted text-sm">Estimated Burn:</p>
             <p className="text-foreground font-bold text-xl">
               ~{estimatedBurn} calories

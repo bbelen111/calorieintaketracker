@@ -397,7 +397,7 @@ export const FoodPortionModal = ({
       blue: 'bg-accent-blue/20 text-accent-blue',
       emerald: 'bg-accent-emerald/20 text-accent-emerald',
       slate: 'bg-surface-highlight/60 text-muted',
-      indigo: 'bg-accent-blue/20 text-accent-blue',
+      indigo: 'bg-accent-indigo/20 text-accent-indigo',
     };
     return map[color] || 'bg-surface-highlight/60 text-muted';
   };
@@ -414,7 +414,7 @@ export const FoodPortionModal = ({
     >
       {/* Header */}
       <div className="mb-4">
-        <div className="bg-surface/60 border border-border rounded-lg p-3">
+        <div className="bg-surface-highlight border border-border rounded-lg p-3">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <h4 className="text-foreground font-semibold text-sm truncate">
@@ -436,17 +436,17 @@ export const FoodPortionModal = ({
                   </span>
                 )}
                 {selectedFood.brand && (
-                  <span className="text-xs px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded truncate max-w-[140px]">
+                  <span className="text-xs px-2 py-0.5 bg-accent-emerald/20 text-accent-emerald rounded truncate max-w-[140px]">
                     {selectedFood.brand}
                   </span>
                 )}
                 {isCached && (
-                  <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded">
+                  <span className="text-xs px-2 py-0.5 bg-accent-purple/20 text-accent-purple rounded">
                     Cached
                   </span>
                 )}
                 {selectedFood.portions && selectedFood.portions.length > 0 && (
-                  <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded">
+                  <span className="text-xs px-2 py-0.5 bg-accent-purple/20 text-accent-purple rounded">
                     {selectedFood.portions.length}{' '}
                     {selectedFood.portions.length === 1
                       ? 'portion'
@@ -461,25 +461,25 @@ export const FoodPortionModal = ({
               </span>
               <div className="flex items-center gap-3 text-xs">
                 <div className="text-center">
-                  <p className="text-emerald-400 font-bold">
+                  <p className="text-accent-emerald font-bold">
                     {formatOne(selectedFood.per100g.calories)}
                   </p>
                   <p className="text-muted">cal</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-red-400 font-bold">
+                  <p className="text-accent-red font-bold">
                     {formatOne(selectedFood.per100g.protein)}g
                   </p>
                   <p className="text-muted">prot</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-amber-400 font-bold">
+                  <p className="text-accent-amber font-bold">
                     {formatOne(selectedFood.per100g.carbs)}g
                   </p>
                   <p className="text-muted">carb</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-yellow-400 font-bold">
+                  <p className="text-accent-yellow font-bold">
                     {formatOne(selectedFood.per100g.fats)}g
                   </p>
                   <p className="text-muted">fat</p>
@@ -503,7 +503,7 @@ export const FoodPortionModal = ({
               <select
                 value={selectedUnit}
                 onChange={handleUnitChange}
-                className="bg-surface/60 border border-border rounded px-3 py-1.5 pr-8 text-muted text-xs uppercase tracking-wide appearance-none focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer md:hover:bg-surface transition-all"
+                className="bg-surface-highlight border border-border rounded px-3 py-1.5 pr-8 text-muted text-xs uppercase tracking-wide appearance-none focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer md:hover:bg-surface transition-all"
               >
                 <option value="grams">Grammes</option>
                 {selectedFood.portions.map((portion) => (
@@ -632,31 +632,31 @@ export const FoodPortionModal = ({
 
       {/* Calculated Nutrition */}
       {nutrition && (
-        <div className="bg-surface/60 border border-border rounded-lg p-4 mb-6 shadow-lg shadow-black/20">
+        <div className="bg-surface-highlight border border-border rounded-lg p-4 mb-6 shadow-lg shadow-black/20">
           <p className="text-muted text-xs mb-3 text-center">
             For {formatOne(grams)}g:
           </p>
           <div className="grid grid-cols-4 gap-3 text-center">
             <div>
-              <p className="text-emerald-400 font-bold text-2xl">
+              <p className="text-accent-emerald font-bold text-2xl">
                 {formatOne(nutrition.calories)}
               </p>
               <p className="text-muted text-xs">kcal</p>
             </div>
             <div>
-              <p className="text-red-400 font-bold text-2xl">
+              <p className="text-accent-red font-bold text-2xl">
                 {formatOne(nutrition.protein)}g
               </p>
               <p className="text-muted text-xs">protein</p>
             </div>
             <div>
-              <p className="text-amber-400 font-bold text-2xl">
+              <p className="text-accent-amber font-bold text-2xl">
                 {formatOne(nutrition.carbs)}g
               </p>
               <p className="text-muted text-xs">carbs</p>
             </div>
             <div>
-              <p className="text-yellow-400 font-bold text-2xl">
+              <p className="text-accent-yellow font-bold text-2xl">
                 {formatOne(nutrition.fats)}g
               </p>
               <p className="text-muted text-xs">fats</p>

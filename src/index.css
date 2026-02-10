@@ -18,6 +18,7 @@
   --muted: 148 163 184;         /* Slate 400 */
   --border: 51 65 85;           /* Slate 700 */
   --foreground: 255 255 255;    /* White */
+  --action-border: 255 255 255; /* White */
 
   /* Accent Colors - Dark */
   --accent-blue: 96 165 250;    /* Blue 400 */
@@ -30,6 +31,7 @@
   --accent-red: 248 113 113;    /* Red 400 */
   --accent-purple: 192 132 252; /* Purple 400 */
   --accent-slate: 148 163 184;  /* Slate 400 */
+  --accent-indigo: 129 140 248; /* Indigo 400 */
 }
 
 /* Light Theme */
@@ -42,6 +44,7 @@
   --muted: 100 116 139;         /* Slate 500 */
   --border: 226 232 240;        /* Slate 200 */
   --foreground: 15 23 42;       /* Slate 900 (Dark text) */
+  --action-border: 30 64 175; /* Blue 700 (Darker for better contrast) */
 
   /* Accent Colors - Light (darker for contrast) */
   --accent-blue: 37 99 235;     /* Blue 600 */
@@ -54,6 +57,7 @@
   --accent-red: 220 38 38;      /* Red 600 */
   --accent-purple: 147 51 234;  /* Purple 600 */
   --accent-slate: 71 85 105;    /* Slate 600 */
+  --accent-indigo: 79 70 229;   /* Indigo 600 */
 }
 
 /* AMOLED Dark Theme (True Black) */
@@ -66,6 +70,7 @@
   --muted: 163 163 163;         /* Neutral 400 */
   --border: 38 38 38;           /* Gray 800 */
   --foreground: 255 255 255;    /* White */
+  --action-border: 255 255 255; /* White */
 
   /* Accent Colors - AMOLED Dark */
   --accent-blue: 96 165 250;    /* Blue 400 */
@@ -78,6 +83,7 @@
   --accent-red: 248 113 113;    /* Red 400 */
   --accent-purple: 192 132 252; /* Purple 400 */
   --accent-slate: 163 163 163;  /* Neutral 400 */
+  --accent-indigo: 129 140 248; /* Indigo 400 */
 }
 
 /* Status bar vignette - gradient overlay at top of screen */
