@@ -38,7 +38,7 @@ export const MealTypePickerModal = ({
             <button
               key={`meal-${mealTypeId}`}
               onClick={() => handleSelect(mealTypeId)}
-              className="w-full p-4 rounded-lg border-2 transition-all flex items-center gap-4 shadow-md shadow-black/20 bg-surface-highlight border-border md:hover:border-blue-500/50 focus-ring pressable-card"
+              className="w-full p-4 rounded-lg border-2 transition-all flex items-center gap-4 shadow-sm shadow-black/20 bg-surface-highlight border-border md:hover:border-blue-500/50 focus-ring pressable-card"
               tabIndex={0}
             >
               <Icon className="text-foreground" size={24} />
@@ -49,7 +49,7 @@ export const MealTypePickerModal = ({
               </div>
               {/* Item count on right if > 0, subtle style */}
               {itemCount > 0 && (
-                <span className="ml-2 text-xs text-muted font-medium px-2 py-1 rounded bg-surface-highlight/60">
+                <span className="ml-2 text-xs text-muted font-medium px-2 py-1 rounded bg-foreground/10 border border-border">
                   {itemCount} food {itemCount === 1 ? 'item' : 'items'}
                 </span>
               )}

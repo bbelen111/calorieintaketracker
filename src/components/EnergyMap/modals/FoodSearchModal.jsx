@@ -829,15 +829,6 @@ export const FoodSearchModal = ({
                 </button>
 
                 <button
-                  onClick={() => {}}
-                  aria-label="Meal"
-                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 md:hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap press-feedback focus-ring border border-transparent"
-                >
-                  <Utensils size={16} />
-                  <span>Meal</span>
-                </button>
-
-                <button
                   onClick={onOpenManualEntry}
                   aria-label="Manual Entry"
                   className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 md:hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap press-feedback focus-ring border border-transparent"
@@ -853,15 +844,6 @@ export const FoodSearchModal = ({
                 >
                   <ScanBarcode size={16} />
                   <span>Barcode Scan</span>
-                </button>
-
-                <button
-                  onClick={() => {}}
-                  aria-label="AI Chatbot"
-                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 md:hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap press-feedback focus-ring border border-transparent"
-                >
-                  <BotMessageSquare size={16} />
-                  <span>AI Chatbot</span>
                 </button>
               </div>
             </div>
