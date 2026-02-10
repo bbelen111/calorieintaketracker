@@ -2019,6 +2019,7 @@ export const EnergyMapCalculator = () => {
       const favourite = {
         foodId: foodEntry.foodId || sourceFood?.id || null,
         name: foodEntry.name || sourceFood?.name || 'Custom Food',
+        brand: sourceFood?.brand || foodEntry.brand || null,
         category: sourceFood?.category || 'supplements',
         grams: foodEntry.grams,
         calories: foodEntry.calories || 0,

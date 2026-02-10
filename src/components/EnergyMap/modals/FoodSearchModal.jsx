@@ -110,12 +110,21 @@ export const FoodSearchModal = ({
   const [longPressingId, setLongPressingId] = useState(null);
   const entryIdRef = useRef(1);
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
+  const [pendingManualAdd, setPendingManualAdd] = useState(null);
   const {
     isOpen: isDeleteConfirmOpen,
     isClosing: isDeleteConfirmClosing,
     open: openDeleteConfirm,
     requestClose: requestDeleteConfirmClose,
     forceClose: forceDeleteConfirmClose,
+  } = useAnimatedModal(false);
+
+  const {
+    isOpen: isManualAddConfirmOpen,
+    isClosing: isManualAddConfirmClosing,
+    open: openManualAddConfirm,
+    requestClose: requestManualAddConfirmClose,
+    forceClose: forceManualAddConfirmClose,
   } = useAnimatedModal(false);
 
   // Add Custom Food modal state
@@ -176,6 +185,7 @@ export const FoodSearchModal = ({
       setFavouritesSortOrder('asc');
       setIsFavouritesFilterOpen(false);
       forceDeleteConfirmClose();
+      forceManualAddConfirmClose();
       forceAddCustomFoodClose();
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
@@ -204,6 +214,15 @@ export const FoodSearchModal = ({
       return () => clearTimeout(timeout);
     }
   }, [isDeleteConfirmClosing, isDeleteConfirmOpen]);
+
+  useEffect(() => {
+    if (!isManualAddConfirmOpen && !isManualAddConfirmClosing) {
+      const timeout = setTimeout(() => {
+        setPendingManualAdd(null);
+      }, 0);
+      return () => clearTimeout(timeout);
+    }
+  }, [isManualAddConfirmClosing, isManualAddConfirmOpen]);
 
   // Debounced online search
   const performOnlineSearch = useCallback(async (query) => {
@@ -394,6 +413,7 @@ export const FoodSearchModal = ({
       id: favourite.id,
       foodId: favourite.foodId,
       name: favourite.name || 'Custom Food',
+      brand: favourite.brand || null,
       category: favourite.category || 'supplements',
       isCustom: favourite.isCustom ?? true,
       per100g: favourite.per100g || {
@@ -422,6 +442,18 @@ export const FoodSearchModal = ({
     if (!displayFood) return;
 
     onEditFavourite?.(displayFood, favourite);
+  };
+
+  const handleFavouriteCardClick = (favourite, isManual, event) => {
+    event?.stopPropagation();
+
+    if (isManual) {
+      setPendingManualAdd(favourite);
+      openManualAddConfirm();
+      return;
+    }
+
+    handleFavouriteEdit(favourite, event);
   };
 
   const sortedFavourites = useMemo(() => {
@@ -1358,12 +1390,12 @@ export const FoodSearchModal = ({
                       role="button"
                       tabIndex={0}
                       onClick={(event) =>
-                        handleFavouriteInstantAdd(favourite, event)
+                        handleFavouriteCardClick(favourite, isManual, event)
                       }
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' || event.key === ' ') {
                           event.preventDefault();
-                          handleFavouriteInstantAdd(favourite, event);
+                          handleFavouriteCardClick(favourite, isManual, event);
                         }
                       }}
                     >
@@ -1382,6 +1414,11 @@ export const FoodSearchModal = ({
                               >
                                 {FOOD_CATEGORIES[favourite.category]?.label ||
                                   favourite.category}
+                              </span>
+                            )}
+                            {favourite.brand && (
+                              <span className="text-xs px-2 py-0.5 bg-accent-emerald/20 text-accent-emerald rounded truncate max-w-[140px]">
+                                {favourite.brand}
                               </span>
                             )}
                             {/* Type tags - only ONE: Cached, Manual, or Custom */}
@@ -1454,20 +1491,18 @@ export const FoodSearchModal = ({
                         </div>
 
                         <div className="flex items-center gap-2">
-                          {/* Edit button - show for all foods */}
-                          <button
-                            type="button"
-                            onClick={(e) => handleFavouriteEdit(favourite, e)}
-                            className="flex-shrink-0 w-9 h-9 rounded-full bg-foreground/10 md:hover:bg-blue-500/30 transition-colors flex items-center justify-center"
-                            aria-label={
-                              isManual
-                                ? 'Edit manual entry'
-                                : 'Edit portion before adding'
-                            }
-                            title={isManual ? 'Edit entry' : 'Edit portion'}
-                          >
-                            <Edit3 size={16} className="text-foreground" />
-                          </button>
+                          {/* Edit button - manual favourites only */}
+                          {isManual && (
+                            <button
+                              type="button"
+                              onClick={(e) => handleFavouriteEdit(favourite, e)}
+                              className="flex-shrink-0 w-9 h-9 rounded-full bg-foreground/10 md:hover:bg-blue-500/30 transition-colors flex items-center justify-center"
+                              aria-label="Edit manual entry"
+                              title="Edit entry"
+                            >
+                              <Edit3 size={16} className="text-foreground" />
+                            </button>
+                          )}
 
                           {typeof onDeleteFavourite === 'function' &&
                             favourite.id != null && (
@@ -1776,6 +1811,23 @@ export const FoodSearchModal = ({
           }
         }}
         onCancel={() => requestDeleteConfirmClose()}
+      />
+
+      <ConfirmActionModal
+        isOpen={isManualAddConfirmOpen}
+        isClosing={isManualAddConfirmClosing}
+        title="Add manual food now?"
+        description="This will add the manual favourite to the current meal."
+        confirmLabel="Add"
+        cancelLabel="Cancel"
+        tone="success"
+        onConfirm={() => {
+          requestManualAddConfirmClose();
+          if (pendingManualAdd) {
+            handleFavouriteInstantAdd(pendingManualAdd);
+          }
+        }}
+        onCancel={() => requestManualAddConfirmClose()}
       />
 
       <AddCustomFoodModal

@@ -505,7 +505,7 @@ export const TrackerScreen = ({
                   <ChevronLeft className="text-muted" size={20} />
                 </div>
               </button>
-              <div className="flex items-center gap-1 text-slate-200 text-[15px] font-semibold leading-none">
+              <div className="flex items-center gap-1 text-foreground text-[15px] font-semibold leading-none">
                 <Calendar size={16} className="text-accent-blue" />
                 <div className="relative h-4 flex items-center">
                   <AnimatePresence mode="wait">

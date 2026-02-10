@@ -48,6 +48,7 @@ const buildDisplayFood = (favourite) => {
     id: favourite.id,
     foodId: favourite.foodId,
     name: favourite.name || 'Custom Food',
+    brand: favourite.brand || null,
     category: favourite.category || 'supplements',
     isCustom: favourite.isCustom ?? true,
     per100g: favourite.per100g || {
@@ -266,6 +267,11 @@ export const FoodFavouritesModal = ({
                           {FOOD_CATEGORIES[favourite.category]?.label ||
                             'Custom'}
                         </span>
+                        {favourite.brand && (
+                          <span className="text-xs px-2 py-0.5 bg-accent-emerald/20 text-accent-emerald rounded truncate max-w-[140px]">
+                            {favourite.brand}
+                          </span>
+                        )}
                         {favourite.grams && (
                           <span className="text-xs text-muted">
                             {formatOne(favourite.grams)}g

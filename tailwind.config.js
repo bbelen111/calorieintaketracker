@@ -27,6 +27,7 @@ export default {
           red: 'rgb(var(--accent-red) / <alpha-value>)',
           purple: 'rgb(var(--accent-purple) / <alpha-value>)',
           slate: 'rgb(var(--accent-slate) / <alpha-value>)',
+          indigo: 'rgb(var(--accent-indigo) / <alpha-value>)',
         },
       },
     },

@@ -18,14 +18,15 @@ React + Vite single-page app for fitness calorie tracking. Uses Framer Motion fo
 - React 18.3.1 + Vite 5.4.11
 - Capacitor 8.0.1 (iOS/Android)
 - **Persistence:** `@capacitor/preferences` (Native storage, NOT localStorage)
-- **State:** `zustand` store (centralized, debounced persistence)
+- **State:** `zustand` 4.5.5 store (centralized, debounced persistence, `subscribeWithSelector` middleware)
 - Framer Motion 12.23.24 (animations)
 - Tailwind 3.4.17 (styling)
-- Lucide React (icons)
+- Lucide React 0.562.0 (icons)
 - **External API:** FatSecret (optional, via Vercel serverless proxy)
 
 **Key Plugins:**
 - `@capacitor/preferences` (Data storage)
+- `@capacitor/app` (App lifecycle, back button handling)
 - `@capacitor/status-bar` (System UI styling)
 - `@capacitor/keyboard` (Input handling)
 - `@capacitor/splash-screen` (Launch experience)
@@ -55,6 +56,8 @@ The app supports 4 theme modes with full native platform integration:
 | `bg-background` | Slate 900 | Slate 100 | Pure Black |
 | `bg-surface` | Slate 800 | White | Gray 900 |
 | `bg-surface-highlight` | Slate 700 | Slate 200 | Gray 800 |
+| `bg-primary` | Blue 600 | Blue 600 | Blue 500 |
+| `text-primary-foreground` | White | White | White |
 | `text-foreground` | White | Slate 900 | White |
 | `text-muted` | Slate 400 | Slate 500 | Neutral 400 |
 | `border-border` | Slate 700 | Slate 200 | Gray 800 |
@@ -68,25 +71,60 @@ className="bg-slate-800 text-white border-slate-700"
 className="bg-surface text-foreground border-border"
 ```
 
+### Accent Color System
+
+11 accent color tokens are defined, each auto-adjusting per theme (400-level shades for dark/AMOLED, 600-level for light):
+
+| Token | Dark/AMOLED | Light | Semantic Use |
+|-------|-------------|-------|-------------|
+| `accent-blue` | Blue 400 | Blue 600 | Primary accent, icons, headers |
+| `accent-green` | Green 400 | Green 600 | On-target, positive, protein (alt) |
+| `accent-lime` | Lime 400 | Lime 600 | Goal alignment |
+| `accent-emerald` | Emerald 400 | Emerald 600 | Brands, secondary positive |
+| `accent-yellow` | Yellow 400 | Yellow 600 | Fats, caution |
+| `accent-amber` | Amber 400 | Amber 600 | Carbs, calories |
+| `accent-orange` | Orange 400 | Orange 600 | Warning level |
+| `accent-red` | Red 400 | Red 600 | Protein, negative, delete, warnings |
+| `accent-purple` | Purple 400 | Purple 600 | Supplements, aggressive bulk, cached foods |
+| `accent-slate` | Slate 400 | Slate 600 | Neutral, fallback |
+| `accent-indigo` | Indigo 400 | Indigo 600 | Barcode, manual entries |
+
+**Accent Usage Patterns:**
+```jsx
+// Solid accent text
+className="text-accent-blue"
+
+// Badge/tag pattern: tinted background + accent text
+className="bg-accent-red/20 text-accent-red"
+
+// Fallback for unknown categories
+className="bg-surface-highlight/60 text-muted"
+```
+
+**⚠️ `--action-border`:** An additional CSS variable (`--action-border`) is defined for action button borders (White in dark/AMOLED, Blue 700 in light). It is NOT a Tailwind utility — access via arbitrary value: `border-[rgb(var(--action-border))]`.
+
 **Key Functions (`utils/theme.js`):**
 - `applyNativeTheme(theme)` - Updates status bar, nav bar, keyboard
 - `resolveTheme(theme)` - Resolves 'auto' to actual theme based on system
 - `getThemeClass(theme)` - Returns CSS class name for body
 - `isDarkTheme(theme)` - Check if theme is dark variant
+- `getStatusBarStyle(theme)` - Returns appropriate status bar style string
+- `getThemeColors(theme)` - Returns hex color map for native UI elements
 
 ## Architecture Pattern: Store + Orchestrator
 
 **`EnergyMapCalculator.jsx`** is the UI orchestrator managing:
-- All modal states via `useAnimatedModal` hook (40+ modals total)
+- All modal states via `useAnimatedModal` hook (44 modals total)
 - Store-backed user data via `useEnergyMapStore` (preferences-backed, debounced)
-- Screen navigation via `useSwipeableScreens` hook (5 screens: Logbook, Tracker, Home, Calorie Map, Insights)
+- Screen navigation via `useSwipeableScreens` hook (5-screen carousel: Logbook, Tracker, Home, Calorie Map, Insights)
+- `PhaseDetailScreen` as a drill-down sub-screen (navigated to from Logbook, not part of the carousel)
 - Temporary UI state for pickers, drafts, and forms (e.g., `tempCardioDraft`, `tempPhaseData`)
 
 **Data flow:** User action → Store update → Debounced Save (1s) → Native Preferences → Re-render
 
 **Hydration gate:** `EnergyMapCalculator` waits for `useEnergyMapStore().isLoaded` before rendering to prevent initial flash.
 
-**File stats:** 3000+ lines managing 40+ modal instances, 6 screen components, and all inter-component state coordination.
+**File stats:** 3000+ lines managing 44 modal instances, 6 screen components, and all inter-component state coordination.
 
 ## Custom Hook Patterns
 
@@ -126,7 +164,7 @@ Manages Android Health Connect connection for live step data. Returns `{ status,
 **Example Modal Structure:**
 ```jsx
 <ModalShell isOpen={isOpen} isClosing={isClosing} contentClassName="w-full md:max-w-2xl p-6">
-  <h3 className="text-white font-bold text-xl mb-4">Modal Title</h3>
+  <h3 className="text-foreground font-bold text-xl mb-4">Modal Title</h3>
   {/* Content */}
   <div className="flex gap-2 mt-4">
     <button onClick={onCancel}>Cancel</button>
@@ -283,7 +321,8 @@ stepEntries: [
 
 - **Tailwind-only** - no custom CSS except animations in `index.css`
 - **User Select:** `user-select: none` enabled globally to prevent app text selection.
-- **Semantic Theme Colors:** Use `bg-background`, `bg-surface`, `text-foreground`, `text-muted`, `border-border` - NOT hardcoded slate colors
+- **Semantic Theme Colors:** Use `bg-background`, `bg-surface`, `text-foreground`, `text-muted`, `border-border` — **NEVER** use hardcoded `bg-slate-*`, `text-slate-*`, or `border-slate-*` classes. All color references must go through semantic tokens or accent tokens.
+- **Accent Colors:** Use `text-accent-blue`, `bg-accent-red/20`, etc. — never hardcode `text-blue-400` or `bg-red-400`.
 - **Icons:** Lucide React at 20px default, 32px for headers
 
 ## Touch-First Interactive Patterns (Critical)
@@ -335,17 +374,17 @@ className="focus-ring"                  /* Blue outline on keyboard focus */
 ### Complete Interactive Element Pattern
 ```jsx
 {/* Primary button */}
-<button className="bg-blue-600 md:hover:bg-blue-500 press-feedback focus-ring">
+<button className="bg-primary text-primary-foreground md:hover:brightness-110 press-feedback focus-ring">
   Save
 </button>
 
 {/* Card with interaction */}
-<button className="border border-slate-700 md:hover:border-slate-600 pressable-card focus-ring">
+<button className="border border-border md:hover:border-muted/50 pressable-card focus-ring">
   Card
 </button>
 
 {/* Icon button */}
-<button className="rounded-lg p-2 md:hover:bg-slate-700/50 pressable-inline focus-ring">
+<button className="rounded-lg p-2 md:hover:bg-surface-highlight/50 pressable-inline focus-ring">
   <Icon />
 </button>
 ```
@@ -364,6 +403,7 @@ The `md:` prefix (768px) is the boundary:
 6. **Training type overrides:** Merged in `useEnergyMapStore`, not raw from constants.
 7. **Modal nesting:** Parent must delay cleanup to prevent child unmounting early.
 8. **Safe Area padding:** When modifying full-screen layouts, ensure `padding-top/bottom` includes `var(--sat)` / `var(--sab)` for notch support.
+9. **No hardcoded colors:** Never use `bg-slate-*`, `text-white`, `border-slate-*` etc. Always use semantic tokens (`bg-surface`, `text-foreground`, `border-border`) or accent tokens (`text-accent-blue`, `bg-accent-red/20`). The entire codebase has been migrated to semantic theming.
 
 ## Development Workflow
 
@@ -394,6 +434,8 @@ npm run format         # Run Prettier formatting
 - **`/utils`** - Pure functions for calculations, parsing, formatting, export (CSV/JSON)
 - **`/hooks`** - Stateful logic extraction (modals, data, swiping)
 - **`/store`** - Zustand store (hydration, actions, derived state)
+- **`/services`** - External API clients (FatSecret)
+- **`/native`** - Deprecated wrappers (use `utils/theme.js` `applyNativeTheme()` instead)
 
 ## Key Files to Reference
 Preferences-backed hooks with derived state and debouncing
@@ -402,3 +444,6 @@ Preferences-backed hooks with derived state and debouncing
 - **`storage.js`** - Data schema, default values, and migration implementations
 - **`useEnergyMapStore.js`** - Zustand state, selectors, derived values, and persistence
 - **`theme.js`** - Theme utilities, native platform integration, CSS class resolution
+- **`goalAlignment.js`** - Weight trend vs goal alignment logic and styled feedback
+- **`bodyFat.js`** - Body fat percentage validation and Katch-McArdle helpers
+- **`format.js`** - Number/date/macro formatting utilities
