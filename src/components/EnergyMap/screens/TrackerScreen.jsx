@@ -239,46 +239,9 @@ export const TrackerScreen = ({
 
   const { meals, hasEntries: hasFoodEntries } = dayData;
 
-  // (countEntriesForDate inlined inside effect below to avoid hook dependency issues)
-  const [skipMealAnimation, setSkipMealAnimation] = useState(false);
-  const [allowInitialAnimation, setAllowInitialAnimation] = useState(false);
-
   useEffect(() => {
     if (previousDateRef.current === selectedDate) {
       return;
-    }
-
-    // Determine if previous and current dates both have zero entries and update flag
-    const prevData = resolvedNutritionData[previousDateRef.current] || {};
-    const currData = resolvedNutritionData[selectedDate] || {};
-    const prevCount = MEAL_TYPE_ORDER.reduce((n, mealTypeId) => {
-      const arr = Array.isArray(prevData[mealTypeId])
-        ? prevData[mealTypeId]
-        : [];
-      return n + arr.length;
-    }, 0);
-    const currCount = MEAL_TYPE_ORDER.reduce((n, mealTypeId) => {
-      const arr = Array.isArray(currData[mealTypeId])
-        ? currData[mealTypeId]
-        : [];
-      return n + arr.length;
-    }, 0);
-    const bothEmpty =
-      !!previousDateRef.current &&
-      prevCount === 0 &&
-      currCount === 0 &&
-      previousDateRef.current !== selectedDate;
-    let skipRaf = null;
-    if (skipMealAnimation !== bothEmpty) {
-      // Defer state update to next frame to avoid cascading renders within the effect
-      skipRaf = requestAnimationFrame(() => setSkipMealAnimation(bothEmpty));
-    }
-
-    // If we are coming from an empty date into a non-empty date, allow the initial AnimatePresence animation
-    let allowRaf = null;
-    if (prevCount === 0 && currCount > 0) {
-      // Defer this set to next frame so it doesn't cascade with other state updates in this effect
-      allowRaf = requestAnimationFrame(() => setAllowInitialAnimation(true));
     }
 
     previousDateRef.current = selectedDate;
@@ -292,26 +255,8 @@ export const TrackerScreen = ({
       if (frame != null) {
         cancelAnimationFrame(frame);
       }
-      if (skipRaf != null) {
-        cancelAnimationFrame(skipRaf);
-      }
-      if (allowRaf != null) {
-        cancelAnimationFrame(allowRaf);
-      }
     };
-  }, [resolvedNutritionData, selectedDate, skipMealAnimation]);
-
-  // Reset the allowInitialAnimation flag after one frame so initial animations only run once
-  useEffect(() => {
-    if (!allowInitialAnimation) return;
-    let raf = requestAnimationFrame(() => {
-      setAllowInitialAnimation(false);
-      raf = null;
-    });
-    return () => {
-      if (raf != null) cancelAnimationFrame(raf);
-    };
-  }, [allowInitialAnimation]);
+  }, [selectedDate]);
 
   // Clean up pending deletion state when modals close
   useEffect(() => {
@@ -473,6 +418,217 @@ export const TrackerScreen = ({
     });
   };
 
+  const mealsHeaderContent = (
+    <>
+      <div className="flex items-center gap-2">
+        <Utensils className="text-accent-blue" size={24} />
+        <h2 className="text-xl font-bold text-foreground">Meals</h2>
+      </div>
+      <button
+        onClick={() => onAddMealEntry?.('')}
+        type="button"
+        className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all press-feedback focus-ring md:hover:bg-blue-500"
+      >
+        <Plus size={20} />
+        Add
+      </button>
+    </>
+  );
+
+  const mealsListContent = MEAL_TYPE_ORDER.map((mealTypeId) => {
+    const mealEntries = meals[mealTypeId];
+    if (!mealEntries || mealEntries.length === 0) return null;
+
+    const mealType = getMealTypeById(mealTypeId);
+    const isCollapsed = collapsedMeals[mealTypeId] ?? true;
+
+    const mealTotals = mealEntries.reduce(
+      (acc, entry) => ({
+        calories: acc.calories + (entry.calories || 0),
+        protein: acc.protein + (entry.protein || 0),
+        carbs: acc.carbs + (entry.carbs || 0),
+        fats: acc.fats + (entry.fats || 0),
+      }),
+      { calories: 0, protein: 0, carbs: 0, fats: 0 }
+    );
+
+    const latestTimestamp = mealEntries.reduce((latest, entry) => {
+      const entryTime = new Date(entry.timestamp).getTime();
+      return entryTime > latest ? entryTime : latest;
+    }, 0);
+    const mealTime = new Date(latestTimestamp).toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+
+    return (
+      <div
+        key={`meal-${mealTypeId}`}
+        className="bg-surface-highlight/50 rounded-xl p-2 border border-border/50 shadow-sm shadow-slate-900/20"
+      >
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => toggleMealCollapse(mealTypeId)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              toggleMealCollapse(mealTypeId);
+            }
+          }}
+          className="w-full flex items-center justify-between p-2 rounded-lg transition-all pressable-card focus-ring"
+        >
+          <div className="flex items-center gap-3">
+            {React.createElement(mealType.icon, {
+              className: 'text-foreground/80',
+              size: 20,
+            })}
+            <div className="text-left">
+              <h3 className="text-foreground/80 font-bold text-base">
+                {mealType.label}
+              </h3>
+              <p className="text-muted text-xs">
+                <span>
+                  {`${mealEntries.length} item${mealEntries.length !== 1 ? 's' : ''} - `}
+                </span>
+                <span className="text-accent-emerald">
+                  {formatOne(mealTotals.calories)} kcal
+                </span>
+                <span>{` - ${mealTime}`}</span>
+              </p>
+              <p className="text-muted text-xs mt-0.5">
+                <span className="text-accent-red">
+                  {formatOne(mealTotals.protein)}p
+                </span>
+                <span className="mx-1">•</span>
+                <span className="text-accent-yellow">
+                  {formatOne(mealTotals.fats)}f
+                </span>
+                <span className="mx-1">•</span>
+                <span className="text-accent-amber">
+                  {formatOne(mealTotals.carbs)}c
+                </span>
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleAddFoodToMealClick(mealTypeId);
+              }}
+              className="p-1.5 rounded-lg transition-all pressable-inline focus-ring md:hover:bg-blue-500/20"
+              title="Add food"
+            >
+              <Plus className="text-foreground/80" size={22} />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteMeal(mealTypeId);
+              }}
+              className="p-1.5 rounded-lg transition-all pressable-inline focus-ring md:hover:bg-red-500/20"
+              title="Delete meal"
+            >
+              <Trash2 className="text-accent-red" size={22} />
+            </button>
+          </div>
+        </div>
+        <div className="flex justify-center">
+          <span className="h-1 w-20 rounded-full bg-foreground/20" />
+        </div>
+
+        <AnimatePresence initial={false}>
+          {!isCollapsed && (
+            <motion.div
+              key={`meal-${mealTypeId}`}
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+              className="space-y-2 mt-2 overflow-hidden"
+            >
+              <div className="space-y-2">
+                {mealEntries.map((entry, idx) => (
+                  <div
+                    key={`entry-${entry.id}-${idx}`}
+                    className="bg-surface-highlight rounded-lg p-3 border border-border/50 flex justify-between items-start gap-3"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-foreground/80 font-semibold text-sm truncate">
+                        <span className="align-middle" title={entry.name}>
+                          {shortenName(entry.name)}
+                        </span>
+                        {entry && entry.grams != null && (
+                          <span className="ml-2 text-muted text-xs align-middle">
+                            {formatOne(entry.grams)} g
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-muted text-xs">
+                        <span className="text-accent-emerald">
+                          {formatOne(entry.calories)} kcal
+                        </span>
+                        {' - '}
+                        <span className="text-accent-red">
+                          {formatOne(entry.protein)} p
+                        </span>
+                        {' - '}
+                        <span className="text-accent-yellow">
+                          {formatOne(entry.fats)} f
+                        </span>
+                        {' - '}
+                        <span className="text-accent-amber">
+                          {formatOne(entry.carbs)} c
+                        </span>
+                      </p>
+                    </div>
+                    <div className="flex items-end gap-6">
+                      <button
+                        onClick={() => handleEditFood(mealTypeId, entry.id)}
+                        type="button"
+                        className="text-foreground/80 transition-all active:scale-95 pressable-inline focus-ring md:hover:text-foreground md:hover:scale-110"
+                      >
+                        <Edit3 size={22} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteFood(mealTypeId, entry.id)}
+                        type="button"
+                        className="text-accent-red transition-all active:scale-95 pressable-inline focus-ring md:hover:text-accent-red md:hover:scale-110"
+                      >
+                        <Trash2 size={22} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  });
+
+  const emptyMealsContent = (
+    <button
+      onClick={() => onAddMealEntry?.('')}
+      type="button"
+      className="w-full flex items-center justify-between p-4 rounded-xl transition-all group pressable-card focus-ring md:hover:bg-surface-highlight/50"
+    >
+      <div className="flex items-center gap-3">
+        <Utensils className="text-accent-blue" size={24} />
+        <div className="text-left">
+          <h2 className="text-lg font-bold text-foreground">Add Food Entry</h2>
+          <p className="text-muted text-sm">Track your meals and nutrition</p>
+        </div>
+      </div>
+      <Plus
+        className="text-muted md:group-hover:text-accent-blue transition-colors"
+        size={24}
+      />
+    </button>
+  );
+
   return (
     <div className="space-y-6 pb-10">
       {/* Header */}
@@ -493,7 +649,7 @@ export const TrackerScreen = ({
           </button>
         </div>
         <div className="p-0">
-          <div className="flex items-center justify-between mt-5 mb-3 border border-border/50 rounded-md px-1 py-1.5 bg-surface-highlight/50 shadow-sm shadow-slate-900/20">
+          <div className="flex items-center justify-between mt-5 mb-2 border border-border/50 rounded-md px-1 py-1.5 bg-surface-highlight/50 shadow-sm shadow-slate-900/20">
             <div className="flex items-center gap-1.5 h-6">
               <button
                 onClick={() => changeDateBy(-7)}
@@ -515,7 +671,7 @@ export const TrackerScreen = ({
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -6 }}
                       transition={{ duration: 0.22 }}
-                      className="text-foreground text-[15px] font-semibold block leading-none"
+                      className="text-foreground/80 text-[15px] font-semibold block leading-none"
                     >
                       {selectedMonthLabel}
                     </motion.span>
@@ -532,7 +688,7 @@ export const TrackerScreen = ({
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
                     transition={{ duration: 0.22 }}
-                    className="text-foreground text-[15px] font-semibold block leading-none"
+                    className="text-foreground/80 text-[15px] font-semibold block leading-none"
                   >
                     {selectedWeekLabel}
                   </motion.span>
@@ -557,12 +713,13 @@ export const TrackerScreen = ({
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -18 * weekSlideDirection }}
               transition={{ duration: 0.2, ease: 'easeOut' }}
-              className="grid grid-cols-7 gap-1"
+              className="grid grid-cols-7 gap-1.5"
             >
               {weekDates.map((weekDate) => {
                 const isSelected = weekDate.key === selectedDate;
                 const isToday = weekDate.key === todayKey;
                 const hasEntries = hasEntriesForDate(weekDate.key);
+                const isSunday = weekDate.weekday === 'Sun';
                 return (
                   <button
                     key={`week-${weekDate.key}`}
@@ -574,13 +731,17 @@ export const TrackerScreen = ({
                         setInternalSelectedDate(weekDate.key);
                       }
                     }}
-                    className={`relative flex flex-col items-center justify-center rounded-md border py-2 text-[15px] font-semibold transition-all active:scale-95 focus-ring shadow-sm shadow-slate-900/20 ${
+                    className={`relative flex flex-col items-center justify-center rounded-md border py-1.5 text-[15px] font-semibold transition-all active:scale-95 focus-ring shadow-sm shadow-slate-900/20 ${
                       isSelected
                         ? 'bg-blue-600 border-blue-400 text-white'
-                        : 'bg-surface-highlight/60 border-border/50 text-foreground md:hover:bg-surface-highlight/70'
+                        : 'bg-surface-highlight/60 border-border/50 text-foreground/80 md:hover:bg-surface-highlight/70'
                     } ${isToday && !isSelected ? 'ring-1 ring-accent-blue/70' : ''}`}
                   >
-                    <span className="text-[10px]">{weekDate.weekday}</span>
+                    <span
+                      className={`text-[10px] ${isSunday && !isSelected ? 'text-accent-red' : ''}`}
+                    >
+                      {weekDate.weekday}
+                    </span>
                     <span className="text-[13px] font-semibold">
                       {weekDate.day}
                     </span>
@@ -877,502 +1038,59 @@ export const TrackerScreen = ({
       </div>
 
       {/* Food Entries Section - Grouped by Meal Type */}
-      {skipMealAnimation ? (
-        <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
-          {hasFoodEntries ? (
-            <div>
+      <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
+        {/* Header - stable key keeps it static across entries→entries date changes */}
+        <AnimatePresence initial={false}>
+          {hasFoodEntries && (
+            <motion.div
+              key="meals-header"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{
+                height: { type: 'spring', stiffness: 400, damping: 30 },
+                opacity: { duration: 0.15 },
+              }}
+              className="overflow-hidden"
+            >
               <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Utensils className="text-accent-blue" size={24} />
-                  <h2 className="text-xl font-bold text-foreground">Meals</h2>
-                </div>
-                <button
-                  onClick={() => onAddMealEntry?.('')}
-                  type="button"
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all press-feedback focus-ring md:hover:bg-blue-500"
-                >
-                  <Plus size={20} />
-                  Add
-                </button>
+                {mealsHeaderContent}
               </div>
-
-              <div className="space-y-3">
-                {MEAL_TYPE_ORDER.map((mealTypeId) => {
-                  const mealEntries = meals[mealTypeId];
-                  if (!mealEntries || mealEntries.length === 0) return null;
-
-                  const mealType = getMealTypeById(mealTypeId);
-                  const isCollapsed = collapsedMeals[mealTypeId] ?? true;
-
-                  const mealTotals = mealEntries.reduce(
-                    (acc, entry) => ({
-                      calories: acc.calories + (entry.calories || 0),
-                      protein: acc.protein + (entry.protein || 0),
-                      carbs: acc.carbs + (entry.carbs || 0),
-                      fats: acc.fats + (entry.fats || 0),
-                    }),
-                    { calories: 0, protein: 0, carbs: 0, fats: 0 }
-                  );
-
-                  const latestTimestamp = mealEntries.reduce(
-                    (latest, entry) => {
-                      const entryTime = new Date(entry.timestamp).getTime();
-                      return entryTime > latest ? entryTime : latest;
-                    },
-                    0
-                  );
-                  const mealTime = new Date(latestTimestamp).toLocaleTimeString(
-                    'en-US',
-                    {
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    }
-                  );
-
-                  return (
-                    <div
-                      key={`meal-${mealTypeId}`}
-                      className="bg-surface-highlight/50 rounded-xl p-2 border border-border/50 shadow-md shadow-slate-900/20"
-                    >
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => toggleMealCollapse(mealTypeId)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            toggleMealCollapse(mealTypeId);
-                          }
-                        }}
-                        className="w-full flex items-center justify-between p-2 rounded-lg transition-all pressable-card focus-ring"
-                      >
-                        <div className="flex items-center gap-3">
-                          {React.createElement(mealType.icon, {
-                            className: 'text-foreground/80',
-                            size: 20,
-                          })}
-                          <div className="text-left">
-                            <h3 className="text-foreground/80 font-bold text-base">
-                              {mealType.label}
-                            </h3>
-                            <p className="text-muted text-xs">
-                              <span>
-                                {`${mealEntries.length} item${mealEntries.length !== 1 ? 's' : ''} - `}
-                              </span>
-                              <span className="text-accent-emerald">
-                                {formatOne(mealTotals.calories)} kcal
-                              </span>
-                              <span>{` - ${mealTime}`}</span>
-                            </p>
-                            <p className="text-muted text-xs mt-0.5">
-                              <span className="text-accent-red">
-                                {formatOne(mealTotals.protein)}p
-                              </span>
-                              <span className="mx-1">•</span>
-                              <span className="text-accent-yellow">
-                                {formatOne(mealTotals.fats)}f
-                              </span>
-                              <span className="mx-1">•</span>
-                              <span className="text-accent-amber">
-                                {formatOne(mealTotals.carbs)}c
-                              </span>
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteMeal(mealTypeId);
-                            }}
-                            className="p-1.5 rounded-lg transition-all pressable-inline focus-ring md:hover:bg-red-500/20"
-                            title="Delete meal"
-                          >
-                            <Trash2 className="text-accent-red" size={22} />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleAddFoodToMealClick(mealTypeId);
-                            }}
-                            className="p-1.5 rounded-lg transition-all pressable-inline focus-ring md:hover:bg-blue-500/20"
-                            title="Add food"
-                          >
-                            <Plus className="text-foreground/80" size={22} />
-                          </button>
-                        </div>
-                      </div>
-                      <div className="flex justify-center pb-1">
-                        <span className="h-1 w-10 rounded-full bg-border/70" />
-                      </div>
-
-                      {!isCollapsed && (
-                        <div className="space-y-2 mt-2 overflow-hidden">
-                          <div className="space-y-2">
-                            {mealEntries.map((entry, idx) => (
-                              <div
-                                key={`entry-${entry.id}-${idx}`}
-                                className="bg-surface-highlight rounded-lg p-3 border border-border/50 flex justify-between items-start gap-3 shadow-lg shadow-slate-900/20"
-                              >
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-foreground/80 font-semibold text-sm truncate">
-                                    <span
-                                      className="align-middle"
-                                      title={entry.name}
-                                    >
-                                      {shortenName(entry.name)}
-                                    </span>
-                                    {entry && entry.grams != null && (
-                                      <span className="ml-2 text-foreground/80 text-xs align-middle">
-                                        {formatOne(entry.grams)} g
-                                      </span>
-                                    )}
-                                  </p>
-                                  <p className="text-foreground/80 text-xs">
-                                    <span className="text-accent-emerald">
-                                      {formatOne(entry.calories)} kcal
-                                    </span>
-                                    {' - '}
-                                    <span className="text-accent-red">
-                                      {formatOne(entry.protein)} p
-                                    </span>
-                                    {' - '}
-                                    <span className="text-accent-yellow">
-                                      {formatOne(entry.fats)} f
-                                    </span>
-                                    {' - '}
-                                    <span className="text-accent-amber">
-                                      {formatOne(entry.carbs)} c
-                                    </span>
-                                  </p>
-                                </div>
-                                <div className="flex items-end gap-3">
-                                  <button
-                                    onClick={() =>
-                                      handleEditFood(mealTypeId, entry.id)
-                                    }
-                                    type="button"
-                                    className="text-foreground/80 transition-all active:scale-95 pressable-inline focus-ring md:hover:text-foreground md:hover:scale-110"
-                                  >
-                                    <Edit3 size={22} />
-                                  </button>
-                                  <button
-                                    onClick={() =>
-                                      handleDeleteFood(mealTypeId, entry.id)
-                                    }
-                                    type="button"
-                                    className="text-accent-red transition-all active:scale-95 pressable-inline focus-ring md:hover:text-accent-red/80 md:hover:scale-110"
-                                  >
-                                    <Trash2 size={22} />
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
-            <div>
-              <button
-                onClick={() => onAddMealEntry?.('')}
-                type="button"
-                className="w-full flex items-center justify-between p-4 rounded-xl transition-all group pressable-card focus-ring md:hover:bg-surface-highlight/50"
-              >
-                <div className="flex items-center gap-3">
-                  <Utensils className="text-accent-blue" size={24} />
-                  <div className="text-left">
-                    <h2 className="text-lg font-bold text-foreground">
-                      Add Food Entry
-                    </h2>
-                    <p className="text-muted text-sm">
-                      Track your meals and nutrition
-                    </p>
-                  </div>
-                </div>
-                <Plus
-                  className="text-muted md:group-hover:text-accent-blue transition-colors"
-                  size={24}
-                />
-              </button>
-            </div>
+            </motion.div>
           )}
-        </div>
-      ) : (
-        <motion.div
-          className="bg-surface rounded-2xl p-6 border border-border shadow-2xl"
-          layout={!isSwiping}
-          initial={false}
-          transition={{ type: 'spring', stiffness: 120, damping: 18 }}
-        >
-          <AnimatePresence mode="wait" initial={allowInitialAnimation}>
-            {hasFoodEntries ? (
-              <motion.div
-                key={`food-list-${selectedDate}`}
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
-              >
-                <motion.div
-                  className="flex items-center justify-between mb-4"
-                  layout={isSwiping ? false : 'position'}
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.3, ease: 'easeOut' }}
-                >
-                  <div className="flex items-center gap-2">
-                    <Utensils className="text-accent-blue" size={24} />
-                    <h2 className="text-xl font-bold text-foreground">Meals</h2>
-                  </div>
-                  <motion.button
-                    onClick={() => onAddMealEntry?.('')}
-                    type="button"
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all press-feedback focus-ring md:hover:bg-blue-500"
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
-                  >
-                    <Plus size={20} />
-                    Add
-                  </motion.button>
-                </motion.div>
+        </AnimatePresence>
 
-                <motion.div layout={!isSwiping} className="space-y-3">
-                  {MEAL_TYPE_ORDER.map((mealTypeId) => {
-                    const mealEntries = meals[mealTypeId];
-                    if (!mealEntries || mealEntries.length === 0) return null;
-
-                    const mealType = getMealTypeById(mealTypeId);
-                    const isCollapsed = collapsedMeals[mealTypeId] ?? true;
-
-                    // Calculate meal totals
-                    const mealTotals = mealEntries.reduce(
-                      (acc, entry) => ({
-                        calories: acc.calories + (entry.calories || 0),
-                        protein: acc.protein + (entry.protein || 0),
-                        carbs: acc.carbs + (entry.carbs || 0),
-                        fats: acc.fats + (entry.fats || 0),
-                      }),
-                      { calories: 0, protein: 0, carbs: 0, fats: 0 }
-                    );
-
-                    // Get the latest timestamp from entries
-                    const latestTimestamp = mealEntries.reduce(
-                      (latest, entry) => {
-                        const entryTime = new Date(entry.timestamp).getTime();
-                        return entryTime > latest ? entryTime : latest;
-                      },
-                      0
-                    );
-                    const mealTime = new Date(
-                      latestTimestamp
-                    ).toLocaleTimeString('en-US', {
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    });
-
-                    return (
-                      <div
-                        key={`meal-${mealTypeId}`}
-                        className="bg-surface-highlight/50 rounded-xl p-2 border border-border/50 shadow-lg shadow-slate-900/20"
-                      >
-                        {/* Meal Header */}
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => toggleMealCollapse(mealTypeId)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              toggleMealCollapse(mealTypeId);
-                            }
-                          }}
-                          className="w-full flex items-center justify-between p-2 rounded-lg transition-all pressable-card focus-ring"
-                        >
-                          <div className="flex items-center gap-3">
-                            {React.createElement(mealType.icon, {
-                              className: 'text-foreground/80',
-                              size: 20,
-                            })}
-                            <div className="text-left">
-                              <h3 className="text-foreground/80 font-bold text-base">
-                                {mealType.label}
-                              </h3>
-                              <p className="text-muted text-xs">
-                                <span>
-                                  {`${mealEntries.length} item${mealEntries.length !== 1 ? 's' : ''} - `}
-                                </span>
-                                <span className="text-accent-emerald">
-                                  {formatOne(mealTotals.calories)} kcal
-                                </span>
-                                <span>{` - ${mealTime}`}</span>
-                              </p>
-                              <p className="text-muted text-xs mt-0.5">
-                                <span className="text-accent-red">
-                                  {formatOne(mealTotals.protein)}p
-                                </span>
-                                <span className="mx-1">•</span>
-                                <span className="text-accent-yellow">
-                                  {formatOne(mealTotals.fats)}f
-                                </span>
-                                <span className="mx-1">•</span>
-                                <span className="text-accent-amber">
-                                  {formatOne(mealTotals.carbs)}c
-                                </span>
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleAddFoodToMealClick(mealTypeId);
-                              }}
-                              className="p-1.5 rounded-lg transition-all pressable-inline focus-ring md:hover:bg-blue-500/20"
-                              title="Add food"
-                            >
-                              <Plus className="text-foreground/80" size={22} />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteMeal(mealTypeId);
-                              }}
-                              className="p-1.5 rounded-lg transition-all pressable-inline focus-ring md:hover:bg-red-500/20"
-                              title="Delete meal"
-                            >
-                              <Trash2 className="text-accent-red" size={22} />
-                            </button>
-                          </div>
-                        </div>
-                        <div className="flex justify-center">
-                          <span className="h-1 w-20 rounded-full bg-border/70" />
-                        </div>
-
-                        {/* Food Items */}
-                        <AnimatePresence initial={false}>
-                          {!isCollapsed && (
-                            <motion.div
-                              key={`meal-${mealTypeId}`}
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: 'auto' }}
-                              exit={{ opacity: 0, height: 0 }}
-                              transition={{
-                                duration: 0.3,
-                                ease: [0.4, 0, 0.2, 1],
-                              }}
-                              className="space-y-2 mt-2 overflow-hidden"
-                            >
-                              <div className="space-y-2">
-                                {mealEntries.map((entry, idx) => (
-                                  <div
-                                    key={`entry-${entry.id}-${idx}`}
-                                    className="bg-surface-highlight/50 rounded-lg p-3 border border-border/50 flex justify-between items-start gap-3 shadow-lg shadow-slate-900/20"
-                                  >
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-foreground/80 font-semibold text-sm truncate">
-                                        <span
-                                          className="align-middle"
-                                          title={entry.name}
-                                        >
-                                          {shortenName(entry.name)}
-                                        </span>
-                                        {entry && entry.grams != null && (
-                                          <span className="ml-2 text-muted text-xs align-middle">
-                                            {formatOne(entry.grams)} g
-                                          </span>
-                                        )}
-                                      </p>
-                                      <p className="text-muted text-xs">
-                                        <span className="text-accent-emerald">
-                                          {formatOne(entry.calories)} kcal
-                                        </span>
-                                        {' - '}
-                                        <span className="text-accent-red">
-                                          {formatOne(entry.protein)} p
-                                        </span>
-                                        {' - '}
-                                        <span className="text-accent-yellow">
-                                          {formatOne(entry.fats)} f
-                                        </span>
-                                        {' - '}
-                                        <span className="text-accent-amber">
-                                          {formatOne(entry.carbs)} c
-                                        </span>
-                                      </p>
-                                    </div>
-                                    <div className="flex items-end gap-6">
-                                      <button
-                                        onClick={() =>
-                                          handleEditFood(mealTypeId, entry.id)
-                                        }
-                                        type="button"
-                                        className="text-foreground/80 transition-all active:scale-95 pressable-inline focus-ring md:hover:text-foreground md:hover:scale-110"
-                                      >
-                                        <Edit3 size={22} />
-                                      </button>
-                                      <button
-                                        onClick={() =>
-                                          handleDeleteFood(mealTypeId, entry.id)
-                                        }
-                                        type="button"
-                                        className="text-accent-red transition-all active:scale-95 pressable-inline focus-ring md:hover:text-accent-red md:hover:scale-110"
-                                      >
-                                        <Trash2 size={22} />
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    );
-                  })}
-                </motion.div>
-              </motion.div>
-            ) : (
-              <motion.div
-                key={`food-empty-${selectedDate}`}
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-              >
-                <motion.button
-                  onClick={() => onAddMealEntry?.('')}
-                  type="button"
-                  className="w-full flex items-center justify-between p-4 rounded-xl transition-all group pressable-card focus-ring md:hover:bg-surface-highlight/50"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.97 }}
-                >
-                  <div className="flex items-center gap-3">
-                    <Utensils className="text-accent-blue" size={24} />
-                    <div className="text-left">
-                      <h2 className="text-lg font-bold text-foreground">
-                        Add Food Entry
-                      </h2>
-                      <p className="text-muted text-sm">
-                        Track your meals and nutrition
-                      </p>
-                    </div>
-                  </div>
-                  <Plus
-                    className="text-muted md:group-hover:text-blue-400 transition-colors"
-                    size={24}
-                  />
-                </motion.button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-      )}
+        {/* Meal list or empty state */}
+        <AnimatePresence mode="wait" initial={false}>
+          {hasFoodEntries ? (
+            <motion.div
+              key={`food-list-${selectedDate}`}
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{
+                scale: { type: 'spring', stiffness: 400, damping: 28 },
+                opacity: { duration: 0.15 },
+              }}
+            >
+              <div className="space-y-3">{mealsListContent}</div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="food-empty"
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{
+                scale: { type: 'spring', stiffness: 400, damping: 28 },
+                opacity: { duration: 0.15 },
+              }}
+            >
+              {emptyMealsContent}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
       {/* Confirm Delete Food Modal */}
       <ConfirmActionModal

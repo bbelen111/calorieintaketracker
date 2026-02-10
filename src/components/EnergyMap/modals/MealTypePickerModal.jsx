@@ -38,7 +38,7 @@ export const MealTypePickerModal = ({
             <button
               key={`meal-${mealTypeId}`}
               onClick={() => handleSelect(mealTypeId)}
-              className="w-full p-4 rounded-lg border-2 transition-all flex items-center gap-4 shadow-md shadow-black/20 bg-surface-highlight border-border md:hover:border-blue-500/50 focus-ring pressable-card"
+              className="w-full p-4 rounded-lg border-2 transition-all flex items-center gap-4 shadow-sm shadow-black/20 bg-surface-highlight border-border md:hover:border-blue-500/50 focus-ring pressable-card"
               tabIndex={0}
             >
               <Icon className="text-foreground" size={24} />
