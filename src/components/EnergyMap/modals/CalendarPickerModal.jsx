@@ -840,9 +840,7 @@ export const CalendarPickerModal = ({
                   >
                     <AnimatedNumber value={monthlyInsights.avgProtein} />
                   </motion.p>
-                  <p className="text-muted text-[9px] font-medium">
-                    protein
-                  </p>
+                  <p className="text-muted text-[9px] font-medium">protein</p>
                 </div>
               </div>
 

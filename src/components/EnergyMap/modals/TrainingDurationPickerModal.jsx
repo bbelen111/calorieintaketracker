@@ -238,7 +238,9 @@ export const TrainingDurationPickerModal = ({
       isClosing={isClosing}
       contentClassName="p-6 w-full max-w-md"
     >
-      <h3 className="text-foreground font-bold text-xl mb-4 text-center">{title}</h3>
+      <h3 className="text-foreground font-bold text-xl mb-4 text-center">
+        {title}
+      </h3>
 
       <div className="flex gap-6">
         <div className="flex-1">

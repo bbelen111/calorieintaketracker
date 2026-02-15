@@ -93,7 +93,9 @@ export const BmrInfoModal = ({ isOpen, isClosing, userData, bmr, onClose }) => {
           </p>
           <div className="mt-3 p-3 bg-background/50 rounded font-mono text-xs md:text-sm overflow-x-auto space-y-3">
             <div>
-              <p className="text-accent-emerald">Katch-McArdle (with body fat):</p>
+              <p className="text-accent-emerald">
+                Katch-McArdle (with body fat):
+              </p>
               <p className="mt-1">BMR = 370 + 21.6 × lean mass</p>
               <p className="text-muted mt-1">
                 Lean mass = weight × (1 − body fat %)
