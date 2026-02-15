@@ -57,6 +57,12 @@ const formatTooltipDate = (dateStr) => {
   });
 };
 
+// Helper to get weekday from date string
+const getWeekday = (dateStr) => {
+  const date = new Date(dateStr + 'T00:00:00Z');
+  return date.toLocaleDateString('en-US', { weekday: 'short' });
+};
+
 const formatStepCount = (steps) => {
   if (steps >= 1000) {
     return `${(steps / 1000).toFixed(1).replace(/\.0$/, '')}k`;
@@ -1188,6 +1194,8 @@ export const StepTrackerModal = ({
                         const { date } = entry;
                         const isLatest = date === latestDate;
                         const label = formatTimelineLabel(date);
+                        const weekday = getWeekday(date);
+                        const isSunday = weekday === 'Sun';
                         const x = timelineXPositions[index] ?? 0;
 
                         const buttonWidth = DATE_COLUMN_WIDTH;
@@ -1211,7 +1219,7 @@ export const StepTrackerModal = ({
                                   : 'bg-transparent border-border text-foreground'
                               } ${selectedDate === date ? 'ring-2 ring-blue-400' : ''}`}
                             >
-                              <span className="w-full text-center">
+                              <span className={`w-full text-center ${isSunday && !isLatest && selectedDate !== date ? 'text-accent-red' : ''}`}>
                                 {label}
                               </span>
                             </button>

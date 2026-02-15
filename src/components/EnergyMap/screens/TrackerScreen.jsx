@@ -130,7 +130,6 @@ export const TrackerScreen = ({
   onStepRangeChange,
   showCalorieTargetPicker,
   onToggleCalorieTargetPicker,
-  isSwiping,
 }) => {
   const store = useEnergyMapStore(
     (state) => ({
