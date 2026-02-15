@@ -23,10 +23,11 @@ export const HomeScreen = ({
   selectedGoal,
   onGoalClick,
   onSettingsClick,
-  onAgeClick,
+  onBodyFatClick,
   onHeightClick,
   onWeightClick,
   weightDisplay,
+  bodyFatDisplay,
   onBmrClick,
   selectedDay,
   onTrainingDayClick,
@@ -71,6 +72,7 @@ export const HomeScreen = ({
 
   const goalConfig = resolvedGoals[selectedGoal];
   const weightTileValue = weightDisplay ?? `${resolvedUserData.weight} kg`;
+  const bodyFatTileValue = bodyFatDisplay ?? 'Set';
 
   return (
     <div className="space-y-6 pb-10">
@@ -91,22 +93,22 @@ export const HomeScreen = ({
             <span className="hidden md:inline">Settings</span>
           </button>
         </div>
-
+        {/* Quick Settings Tiles */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <button
-            onClick={onAgeClick}
+            onClick={onBodyFatClick}
             type="button"
             className="bg-surface-highlight/50 border border-border/50 md:hover:bg-surface-highlight rounded-lg p-3 transition-all text-left group shadow-lg shadow-background/20 pressable-card focus-ring"
           >
             <div className="flex items-center justify-between">
-              <p className="text-muted">Age</p>
+              <p className="text-muted">Body Fat %</p>
               <Edit3
                 size={14}
                 className="text-muted/70 md:group-hover:text-primary transition-colors"
               />
             </div>
             <p className="text-foreground font-semibold text-lg">
-              {resolvedUserData.age} years
+              {bodyFatTileValue}
             </p>
           </button>
           <button

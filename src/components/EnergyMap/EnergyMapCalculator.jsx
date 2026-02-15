@@ -790,26 +790,33 @@ export const EnergyMapCalculator = () => {
     [bodyFatEntries]
   );
 
+  const bodyFatDisplay = useMemo(() => {
+    if (latestBodyFatEntry?.bodyFat) {
+      return `${latestBodyFatEntry.bodyFat}%`;
+    }
+    return 'Set';
+  }, [latestBodyFatEntry]);
+
   const openWeightTracker = useCallback(() => {
     setWeightEntryError('');
     weightTrackerModal.open();
   }, [weightTrackerModal]);
 
   const openBodyFatTracker = useCallback(() => {
+    // Enable tracking implicitly if accessed via quick tile
     if (!userData.bodyFatTrackingEnabled) {
-      return;
+      // We'll just open it, the modal works without the setting being explicitly on,
+      // or we could dispatch an update here.
+      // For now, let's just open the tracker.
     }
     setBodyFatEntryError('');
     bodyFatTrackerModal.open();
   }, [bodyFatTrackerModal, userData.bodyFatTrackingEnabled]);
 
   const handleSwitchToBodyFat = useCallback(() => {
-    if (!userData.bodyFatTrackingEnabled) {
-      return;
-    }
     weightTrackerModal.requestClose();
     openBodyFatTracker();
-  }, [openBodyFatTracker, userData.bodyFatTrackingEnabled, weightTrackerModal]);
+  }, [openBodyFatTracker, weightTrackerModal]);
 
   const handleSwitchToWeight = useCallback(() => {
     bodyFatTrackerModal.requestClose();
@@ -2604,10 +2611,11 @@ export const EnergyMapCalculator = () => {
                   selectedGoal={selectedGoal}
                   onGoalClick={openGoalModal}
                   onSettingsClick={settingsModal.open}
-                  onAgeClick={openAgeModal}
+                  onBodyFatClick={openBodyFatTracker}
                   onHeightClick={openHeightModal}
                   onWeightClick={openWeightTracker}
                   weightDisplay={weightDisplay}
+                  bodyFatDisplay={bodyFatDisplay}
                   weightButtonLabel={weightPrimaryActionLabel}
                   weightButtonSubtitle={weightButtonSubtitle}
                   onBmrClick={bmrModal.open}
