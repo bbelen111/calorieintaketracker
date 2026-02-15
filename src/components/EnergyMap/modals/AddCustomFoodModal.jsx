@@ -168,9 +168,7 @@ export const AddCustomFoodModal = ({
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Utensils className="text-accent-blue" size={28} />
-        <h3 className="text-foreground font-bold text-2xl">
-          Add Custom Food
-        </h3>
+        <h3 className="text-foreground font-bold text-2xl">Add Custom Food</h3>
       </div>
 
       <div className="space-y-5">
@@ -218,9 +216,7 @@ export const AddCustomFoodModal = ({
 
           {/* Calories */}
           <div className="mb-3">
-            <label className="block text-muted text-xs mb-1.5">
-              Calories
-            </label>
+            <label className="block text-muted text-xs mb-1.5">Calories</label>
             <input
               type="text"
               inputMode="decimal"
@@ -321,9 +317,7 @@ export const AddCustomFoodModal = ({
         <div>
           <label className="block text-foreground text-sm font-semibold mb-2">
             Custom Portions{' '}
-            <span className="text-muted text-xs font-normal">
-              (optional)
-            </span>
+            <span className="text-muted text-xs font-normal">(optional)</span>
           </label>
 
           {/* Existing portions list */}
@@ -370,9 +364,7 @@ export const AddCustomFoodModal = ({
               />
             </div>
             <div className="w-24">
-              <label className="block text-muted text-xs mb-1.5">
-                Grams
-              </label>
+              <label className="block text-muted text-xs mb-1.5">Grams</label>
               <input
                 type="text"
                 inputMode="decimal"

@@ -268,9 +268,7 @@ const LiveStepsCard = ({
           <p className="text-muted text-xs">
             TDEE: {breakdown.total.toLocaleString()} cal
             {difference !== 0 && (
-              <span
-                className={`ml-2 font-semibold ${difference > 0 ? 'text-accent-green' : 'text-accent-red'}`}
-              >
+              <span className={`ml-1 font-semibold text-muted`}>
                 {difference > 0 ? '+' : ''}
                 {difference.toLocaleString()} cal
               </span>
@@ -436,9 +434,7 @@ export const CalorieMapScreen = ({
                 <p className="text-muted text-xs">
                   TDEE: {breakdown.total.toLocaleString()}
                   {difference !== 0 && (
-                    <span
-                      className={`ml-2 font-semibold ${difference > 0 ? 'text-accent-green' : 'text-accent-red'}`}
-                    >
+                    <span className={`ml-1 font-semibold text-muted`}>
                       {difference > 0 ? '+' : ''}
                       {difference.toLocaleString()} cal
                     </span>

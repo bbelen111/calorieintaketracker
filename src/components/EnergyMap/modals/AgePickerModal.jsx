@@ -12,7 +12,6 @@ export const AgePickerModal = ({
   isOpen,
   isClosing,
   value,
-  onChange,
   onCancel,
   onSave,
 }) => {
@@ -100,7 +99,7 @@ export const AgePickerModal = ({
               data-value={age}
               onClick={() => handleItemClick(age)}
               className={`h-16 flex items-center justify-center text-2xl font-semibold snap-center cursor-pointer transition-all ${
-                  selectedAge === age ? 'text-foreground scale-110' : 'text-muted'
+                selectedAge === age ? 'text-foreground scale-110' : 'text-muted'
               }`}
             >
               {age}
