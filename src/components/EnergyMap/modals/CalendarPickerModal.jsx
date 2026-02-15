@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 
-const TOOLTIP_MAX_WIDTH = 170;
 const TOOLTIP_VERTICAL_OFFSET = 12;
 
 const getMacrosForDate = (date, nutritionData) => {
@@ -113,12 +112,12 @@ const CalendarHeatmap = ({
       return 'bg-blue-500 border-blue-400 ring-2 ring-blue-300 shadow-lg';
     }
     if (isFocused) {
-      return 'bg-surface-highlight border-border ring-2 ring-border md:hover:bg-surface';
+      return 'bg-surface-highlight border-accent-blue ring-2 ring-border md:hover:bg-surface';
     }
     if (hasEntries) {
-      return 'bg-surface-highlight border-blue-400 md:hover:bg-surface';
+      return 'bg-surface-highlight border-border md:hover:bg-surface';
     }
-    return 'bg-surface border-border md:hover:bg-surface-highlight';
+    return 'bg-surface-highlight/80 border-border md:hover:bg-surface-highlight';
   };
 
   const getDayNumber = (date) => {
@@ -350,6 +349,7 @@ export const CalendarPickerModal = ({
         avgCarbs: 0,
         avgFats: 0,
         daysWithData: 0,
+        daysInMonth,
       };
     }
 
@@ -359,6 +359,7 @@ export const CalendarPickerModal = ({
       avgCarbs: Math.round(totalCarbs / daysWithData),
       avgFats: Math.round(totalFats / daysWithData),
       daysWithData,
+      daysInMonth,
     };
   }, [currentMonth, currentYear, nutritionData]);
   // Generate calendar data for the current month with ghost cells
@@ -703,7 +704,7 @@ export const CalendarPickerModal = ({
                         onClick={() => handleMonthSelect(index)}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        className={`px-3 py-2 rounded-lg font-semibold transition-colors text-sm whitespace-nowrap ${
+                        className={`px-3 py-2 rounded font-semibold transition-colors text-sm whitespace-nowrap ${
                           index === currentMonth
                             ? 'bg-blue-600 text-white'
                             : 'bg-surface-highlight text-foreground md:hover:bg-surface'
@@ -737,7 +738,7 @@ export const CalendarPickerModal = ({
                   transition={{ duration: 0.2 }}
                   className="absolute left-1/2 -translate-x-1/2 top-29 z-50"
                 >
-                  <div className="grid grid-cols-4 gap-2 p-4 bg-surface rounded-lg border-2 border-border shadow-2xl w-56">
+                  <div className="grid grid-cols-4 gap-1.5 p-3 bg-surface rounded-lg border-2 border-border shadow-2xl w-56">
                     {yearRange.map((year) => (
                       <motion.button
                         key={year}
@@ -745,7 +746,7 @@ export const CalendarPickerModal = ({
                         onClick={() => handleYearSelect(year)}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        className={`px-1 py-2 rounded-lg font-semibold transition-colors text-sm ${
+                        className={`px-1 py-2 rounded font-semibold transition-colors text-sm ${
                           year === currentYear
                             ? 'bg-blue-600 text-white'
                             : 'bg-surface-highlight text-foreground md:hover:bg-surface'
@@ -778,19 +779,14 @@ export const CalendarPickerModal = ({
           </div>
 
           {/* Monthly Insights */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="mt-4 bg-surface rounded-lg p-4 border border-border"
-          >
+          <div className="mt-4 bg-surface-highlight rounded-lg p-4 border border-border">
             <div className="flex items-center gap-2 mb-3">
               <TrendingUp className="text-accent-blue" size={18} />
               <h4 className="text-foreground font-bold text-sm">
                 Monthly Average
               </h4>
               <motion.span
-                className="text-muted text-xs ml-auto"
+                className="text-foreground/80 text-xs ml-auto"
                 key={monthlyInsights.daysWithData}
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -798,10 +794,8 @@ export const CalendarPickerModal = ({
               >
                 {monthlyInsights.daysWithData > 0 ? (
                   <>
-                    {monthlyInsights.daysWithData} day
-                    {monthlyInsights.daysWithData === 1
-                      ? ' tracked'
-                      : 's tracked'}
+                    {monthlyInsights.daysWithData}/{monthlyInsights.daysInMonth}{' '}
+                    days tracked
                   </>
                 ) : (
                   'No data yet'
@@ -813,9 +807,9 @@ export const CalendarPickerModal = ({
               {/* Calories */}
               <div className="flex flex-col items-center">
                 <div className="bg-surface/80 rounded-lg p-2 w-full flex flex-col items-center border border-border">
-                  <Flame className="text-emerald-400 mb-1" size={16} />
+                  <Flame className="text-accent-emerald mb-1" size={16} />
                   <motion.p
-                    className="text-emerald-400 font-bold text-base"
+                    className="text-accent-emerald font-bold text-base"
                     key={monthlyInsights.avgCalories}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -830,9 +824,9 @@ export const CalendarPickerModal = ({
               {/* Protein */}
               <div className="flex flex-col items-center">
                 <div className="bg-surface/80 rounded-lg p-2 w-full flex flex-col items-center border border-border">
-                  <Beef className="text-red-400 mb-1" size={16} />
+                  <Beef className="text-accent-red mb-1" size={16} />
                   <motion.p
-                    className="text-red-400 font-bold text-base"
+                    className="text-accent-red font-bold text-base"
                     key={monthlyInsights.avgProtein}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -847,9 +841,9 @@ export const CalendarPickerModal = ({
               {/* Fats */}
               <div className="flex flex-col items-center">
                 <div className="bg-surface/80 rounded-lg p-2 w-full flex flex-col items-center border border-border">
-                  <Droplet className="text-yellow-400 mb-1" size={16} />
+                  <Droplet className="text-accent-yellow mb-1" size={16} />
                   <motion.p
-                    className="text-yellow-400 font-bold text-base"
+                    className="text-accent-yellow font-bold text-base"
                     key={monthlyInsights.avgFats}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -864,9 +858,9 @@ export const CalendarPickerModal = ({
               {/* Carbs */}
               <div className="flex flex-col items-center">
                 <div className="bg-surface/80 rounded-lg p-2 w-full flex flex-col items-center border border-border">
-                  <Cookie className="text-amber-400 mb-1" size={16} />
+                  <Cookie className="text-accent-amber mb-1" size={16} />
                   <motion.p
-                    className="text-amber-400 font-bold text-base"
+                    className="text-accent-amber font-bold text-base"
                     key={monthlyInsights.avgCarbs}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -878,7 +872,7 @@ export const CalendarPickerModal = ({
                 </div>
               </div>
             </div>
-          </motion.div>
+          </div>
 
           {/* Close Button */}
           <motion.button
@@ -895,7 +889,7 @@ export const CalendarPickerModal = ({
       {tooltipDate && (
         <div
           ref={tooltipRef}
-          className={`fixed z-[1200] bg-surface border border-border rounded-lg shadow-2xl p-2.5 transform -translate-x-1/2 -translate-y-full pointer-events-auto transition duration-150 ease-out max-w-[170px] w-fit ${
+          className={`fixed z-[1200] bg-surface border border-border rounded-lg shadow-2xl p-4 transform -translate-x-1/2 -translate-y-full pointer-events-auto transition duration-150 ease-out min-w-[100px] w-max ${
             tooltipEntered && !tooltipClosing
               ? 'opacity-100 scale-100'
               : 'opacity-0 scale-95'
@@ -903,12 +897,11 @@ export const CalendarPickerModal = ({
           style={{
             left: `${tooltipPosition.x}px`,
             top: `${tooltipPosition.y - TOOLTIP_VERTICAL_OFFSET}px`,
-            maxWidth: `${TOOLTIP_MAX_WIDTH}px`,
           }}
           onClick={handleTooltipClick}
         >
-          <div className="cursor-pointer md:hover:bg-surface-highlight/50 rounded p-2 transition-all">
-            <p className="text-muted text-[11px] mb-1">
+          <div className="p-2">
+            <p className="text-muted text-[11.5px] mb-1 whitespace-nowrap">
               {new Date(tooltipDate + 'T00:00:00Z').toLocaleDateString(
                 'en-US',
                 {
@@ -921,31 +914,42 @@ export const CalendarPickerModal = ({
             </p>
             {hasTooltipData ? (
               <>
-                <p className="text-emerald-400 text-lg font-bold">
-                  {Math.round(tooltipMacros.calories)} kcal
+                <p className="text-accent-emerald text-2xl font-bold whitespace-nowrap">
+                  {Math.round(tooltipMacros.calories)}{' '}
+                  <span className="text-muted text-sm font-normal">kcal</span>
                 </p>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
-                  <span className="text-red-400 font-semibold">
-                    P {Math.round(tooltipMacros.protein)}g
-                  </span>
-                  <span className="text-amber-400 font-semibold">
-                    C {Math.round(tooltipMacros.carbs)}g
-                  </span>
-                  <span className="text-yellow-400 font-semibold">
-                    F {Math.round(tooltipMacros.fats)}g
-                  </span>
+                <div className="mt-2 pt-2 border-t border-border flex justify-between gap-4 text-sm">
+                  <div>
+                    <p className="text-muted text-[10px] uppercase">Prot</p>
+                    <p className="text-accent-red font-semibold whitespace-nowrap">
+                      {Math.round(tooltipMacros.protein)}g
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-muted text-[10px] uppercase">Carb</p>
+                    <p className="text-accent-amber font-semibold whitespace-nowrap">
+                      {Math.round(tooltipMacros.carbs)}g
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-muted text-[10px] uppercase">Fats</p>
+                    <p className="text-accent-yellow font-semibold whitespace-nowrap">
+                      {Math.round(tooltipMacros.fats)}g
+                    </p>
+                  </div>
                 </div>
               </>
             ) : (
-              <p className="text-foreground text-sm font-semibold">
+              <p className="text-foreground text-lg font-semibold whitespace-nowrap">
                 No entries
               </p>
             )}
-            <p className="text-muted text-[10px] mt-2 uppercase tracking-wide">
+            <p className="text-muted text-[10px] mt-2 pt-2 border-t border-border uppercase tracking-wide whitespace-nowrap text-center">
               Tap to open day
             </p>
           </div>
 
+          {/* Arrow */}
           <div className="absolute left-1/2 transform -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-border"></div>
         </div>
       )}
