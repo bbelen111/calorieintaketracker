@@ -1,449 +1,613 @@
 # Energy Map Calorie Tracker - AI Coding Instructions
 
-## Target Platform: Mobile (Capacitor)
-This app is designed to be wrapped by Capacitor for mobile deployment (iOS/Android).
-- **Mobile-First Design:** All UI must fit comfortably on standard mobile viewports (360px-390px width).
-- **High Density:** Avoid large, airy desktop-style padding. Prefer tighter spacing (e.g., `p-4` instead of `p-6`, `gap-2` instead of `gap-4`).
-- **Touch Targets:** Buttons must be tappable, but visual density should be high to fit information on small screens.
-- **Overscroll/Bounce:** Capacitor handles bounce, but the app should manage its own scrolling containers responsibly.
-- **Safe Areas:** Be mindful of top (status bar) and bottom (home indicator) safe areas. Use `env(safe-area-inset-*)` variables in global styles (`var(--sat)`, `var(--sab)`, `var(--sal)`, `var(--sar)`).
-- **Project Structure:** `dist` folder is synced to native projects via `npx cap sync`.
-- **Font Scaling:** Base font size is 13px on mobile, 17px on desktop (768px+) for increased density.
-- **App ID:** `com.energymap.tracker` - defined in `capacitor.config.json` as the bundle identifier for native builds.
-
 ## Project Overview
-React + Vite single-page app for fitness calorie tracking. Uses Framer Motion for animations, Tailwind for styling, **Zustand for state**, and Capacitor Preferences for native persistence. Local-first architecture with optional FatSecret API integration for food search.
+
+React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor for mobile deployment (iOS/Android). Local-first architecture with Zustand state management, Capacitor Preferences for native persistence, and optional FatSecret API for online food search.
 
 **Tech Stack:**
-- React 18.3.1 + Vite 5.4.11
-- Capacitor 8.0.1 (iOS/Android)
-- **Persistence:** `@capacitor/preferences` (Native storage, NOT localStorage)
-- **State:** `zustand` 4.5.5 store (centralized, debounced persistence, `subscribeWithSelector` middleware)
+- React 18.3.1 + Vite 5.4.11 (dev server on `localhost:5173`, `strictPort: true`)
+- Capacitor 8.0.1 (`appId: com.energymap.tracker`, `webDir: dist`)
+- **Persistence:** `@capacitor/preferences` (native key-value storage — **NOT** localStorage)
+- **State:** `zustand` 4.5.5 with `subscribeWithSelector` middleware
 - Framer Motion 12.23.24 (animations)
-- Tailwind 3.4.17 (styling)
+- Tailwind 3.4.17 (styling via CSS variable–based semantic tokens)
 - Lucide React 0.562.0 (icons)
-- **External API:** FatSecret (optional, via Vercel serverless proxy)
+- **External API:** FatSecret (optional, via Vercel serverless proxy at `api/fatsecret.js`)
 
-**Key Plugins:**
-- `@capacitor/preferences` (Data storage)
-- `@capacitor/app` (App lifecycle, back button handling)
-- `@capacitor/status-bar` (System UI styling)
-- `@capacitor/keyboard` (Input handling)
-- `@capacitor/splash-screen` (Launch experience)
-- `@capgo/capacitor-health` (Health Connect integration on Android)
-- `@capgo/capacitor-navigation-bar` (Android navigation bar theming)
+**Key Capacitor Plugins:**
+- `@capacitor/preferences` — Data storage (async, split into profile + history keys)
+- `@capacitor/app` — App lifecycle, hardware back button
+- `@capacitor/status-bar` — Status bar color/style per theme
+- `@capacitor/keyboard` — Input handling (`resize: "none"` in config)
+- `@capacitor/splash-screen` — Launch screen
+- `@capgo/capacitor-health` — Health Connect step sync (Android only)
+- `@capgo/capacitor-navigation-bar` — Android navigation bar theming
 
-## Theme System
+**No test suite, no CI pipeline.** Manual testing only. No router — single-page app with swipeable screen carousel.
 
-The app supports 4 theme modes with full native platform integration:
+---
 
-**Theme Options:** `'auto'` | `'dark'` | `'light'` | `'amoled_dark'`
+## Architecture: Store + Orchestrator Pattern
 
-- **Auto (default):** Follows system `prefers-color-scheme`, updates in real-time when OS theme changes
-- **Dark:** Slate 900 background, standard dark mode
-- **Light:** Slate 100 background, dark text
-- **AMOLED:** Pure black (#000000) background for OLED screens
+### The Big Picture
 
-**Architecture:**
-- **CSS Variables:** Defined in `index.css` (`:root` for dark, `.theme-light`, `.theme-amoled-dark`)
-- **Tailwind:** Semantic color utilities (`bg-background`, `bg-surface`, `text-foreground`, `text-muted`, `border-border`)
-- **Native Integration:** `utils/theme.js` handles status bar, navigation bar, and keyboard styling
-- **Theme Switching:** `App.jsx` listens to `userData.theme` and system preference changes
-
-**Semantic Color Mapping:**
-| Utility | Dark | Light | AMOLED |
-|---------|------|-------|--------|
-| `bg-background` | Slate 900 | Slate 100 | Pure Black |
-| `bg-surface` | Slate 800 | White | Gray 900 |
-| `bg-surface-highlight` | Slate 700 | Slate 200 | Gray 800 |
-| `bg-primary` | Blue 600 | Blue 600 | Blue 500 |
-| `text-primary-foreground` | White | White | White |
-| `text-foreground` | White | Slate 900 | White |
-| `text-muted` | Slate 400 | Slate 500 | Neutral 400 |
-| `border-border` | Slate 700 | Slate 200 | Gray 800 |
-
-**Usage:**
-```jsx
-// ❌ WRONG - hardcoded colors
-className="bg-slate-800 text-white border-slate-700"
-
-// ✅ CORRECT - semantic theme colors
-className="bg-surface text-foreground border-border"
+```
+main.jsx
+  └─ App.jsx (theme management, store hydration gate)
+       └─ EnergyMapCalculator.jsx (3,185 lines — THE orchestrator)
+            ├─ 5-screen carousel (useSwipeableScreens)
+            │   ├─ LogbookScreen
+            │   ├─ TrackerScreen
+            │   ├─ HomeScreen
+            │   ├─ CalorieMapScreen
+            │   └─ InsightsScreen
+            ├─ PhaseDetailScreen (drill-down, not in carousel)
+            └─ 36 top-level useAnimatedModal instances → 44 modal files
+                 └─ ~17 additional child-level modals inside modal components
 ```
 
-### Accent Color System
+### Data Flow
 
-11 accent color tokens are defined, each auto-adjusting per theme (400-level shades for dark/AMOLED, 600-level for light):
-
-| Token | Dark/AMOLED | Light | Semantic Use |
-|-------|-------------|-------|-------------|
-| `accent-blue` | Blue 400 | Blue 600 | Primary accent, icons, headers |
-| `accent-green` | Green 400 | Green 600 | On-target, positive, protein (alt) |
-| `accent-lime` | Lime 400 | Lime 600 | Goal alignment |
-| `accent-emerald` | Emerald 400 | Emerald 600 | Brands, secondary positive |
-| `accent-yellow` | Yellow 400 | Yellow 600 | Fats, caution |
-| `accent-amber` | Amber 400 | Amber 600 | Carbs, calories |
-| `accent-orange` | Orange 400 | Orange 600 | Warning level |
-| `accent-red` | Red 400 | Red 600 | Protein, negative, delete, warnings |
-| `accent-purple` | Purple 400 | Purple 600 | Supplements, aggressive bulk, cached foods |
-| `accent-slate` | Slate 400 | Slate 600 | Neutral, fallback |
-| `accent-indigo` | Indigo 400 | Indigo 600 | Barcode, manual entries |
-
-**Accent Usage Patterns:**
-```jsx
-// Solid accent text
-className="text-accent-blue"
-
-// Badge/tag pattern: tinted background + accent text
-className="bg-accent-red/20 text-accent-red"
-
-// Fallback for unknown categories
-className="bg-surface-highlight/60 text-muted"
+```
+User action → Store action (updateUserData) → deriveState() recalculates
+  → Zustand re-renders subscribers → subscribeWithSelector detects userData change
+  → Debounced save (1s) → saveEnergyMapData() splits into profile/history keys
+  → Capacitor Preferences.set() (async, parallel writes)
 ```
 
-**⚠️ `--action-border`:** An additional CSS variable (`--action-border`) is defined for action button borders (White in dark/AMOLED, Blue 700 in light). It is NOT a Tailwind utility — access via arbitrary value: `border-[rgb(var(--action-border))]`.
+### Key Architectural Decisions
 
-**Key Functions (`utils/theme.js`):**
-- `applyNativeTheme(theme)` - Updates status bar, nav bar, keyboard
-- `resolveTheme(theme)` - Resolves 'auto' to actual theme based on system
-- `getThemeClass(theme)` - Returns CSS class name for body
-- `isDarkTheme(theme)` - Check if theme is dark variant
-- `getStatusBarStyle(theme)` - Returns appropriate status bar style string
-- `getThemeColors(theme)` - Returns hex color map for native UI elements
+1. **Single orchestrator file (`EnergyMapCalculator.jsx`)** owns all modal lifecycle state, temporary form drafts, and screen navigation. At 3,185 lines, it's deliberately centralized — not a candidate for splitting. New modals are instantiated here.
 
-## Architecture Pattern: Store + Orchestrator
+2. **Derived state pattern:** The Zustand store's `deriveState()` function recomputes `bmr`, `trainingCalories`, `totalCardioBurn`, sorted entries, and resolved types on every `userData` mutation. Never duplicate these calculations — consume them from the store.
 
-**`EnergyMapCalculator.jsx`** is the UI orchestrator managing:
-- All modal states via `useAnimatedModal` hook (44 modals total)
-- Store-backed user data via `useEnergyMapStore` (preferences-backed, debounced)
-- Screen navigation via `useSwipeableScreens` hook (5-screen carousel: Logbook, Tracker, Home, Calorie Map, Insights)
-- `PhaseDetailScreen` as a drill-down sub-screen (navigated to from Logbook, not part of the carousel)
-- Temporary UI state for pickers, drafts, and forms (e.g., `tempCardioDraft`, `tempPhaseData`)
+3. **Store initialization is async.** `setupEnergyMapStore()` is called once from `EnergyMapCalculator`, which gates rendering on `isLoaded === true` to prevent flash of default data.
 
-**Data flow:** User action → Store update → Debounced Save (1s) → Native Preferences → Re-render
+4. **`main.jsx` bootstraps** by preventing pinch-to-zoom gestures (gesturestart/change/end + Ctrl+wheel), configuring Capacitor keyboard settings, and rendering `<App />` — no providers, no router.
 
-**Hydration gate:** `EnergyMapCalculator` waits for `useEnergyMapStore().isLoaded` before rendering to prevent initial flash.
+---
 
-**File stats:** 3000+ lines managing 44 modal instances, 6 screen components, and all inter-component state coordination.
+## Zustand Store (`store/useEnergyMapStore.js`)
 
-## Custom Hook Patterns
+### Subscription Patterns ⚠️
 
-### `useAnimatedModal` - Modal Lifecycle Management
-Returns `{ isOpen, isClosing, open, requestClose, forceClose }`. The `isClosing` flag enables CSS exit animations before unmounting. Never call `setIsOpen(false)` directly - always use `requestClose()` to trigger the 200ms animation sequence.
-
-**Example:**
 ```jsx
-const myModal = useAnimatedModal();
-// Opening: myModal.open()
-// Closing: myModal.requestClose() - NOT myModal.forceClose()
-<MyModal isOpen={myModal.isOpen} isClosing={myModal.isClosing} />
+// ✅ CORRECT — selective subscription with shallow comparison (prevents unnecessary re-renders)
+const { bmr, trainingCalories, userData } = useEnergyMapStore(
+  (state) => ({ bmr: state.bmr, trainingCalories: state.trainingCalories, userData: state.userData }),
+  shallow
+);
+
+// ✅ CORRECT — single value selector (no shallow needed)
+const isLoaded = useEnergyMapStore((state) => state.isLoaded);
+
+// ❌ AVOID — spreading entire state (re-renders on every store change)
+const store = useEnergyMapStore((state) => ({ ...state }));
 ```
 
-### `useEnergyMapStore` - Centralized State
-Encapsulates all business logic: BMR calculations, cardio sessions, weight tracking, step ranges. Returns derived values (`bmr`, `trainingCalories`, `totalCardioBurn`) that auto-update when `userData` changes. **Never duplicate calculation logic** - use the store's selectors/actions.
-- **Important:** Handles asynchronous loading/saving to native preferences.
-- **Debouncing:** Saves are delayed by 1 second to prevent UI stuttering on input.
+### Store Actions
 
-### `useEnergyMapData` - Legacy Wrapper
-Thin compatibility wrapper around the store. Prefer direct store selectors in new code.
+All mutations go through `updateUserData(set, get, updater)` which:
+1. Applies the updater function to `state.userData`
+2. Calls `deriveState(nextUserData)` to recompute all derived values
+3. Calls `set()` with both the new `userData` and derived fields
 
-### `useSwipeableScreens` - Horizontal Swiping
-Manages 5-screen carousel (Logbook, Tracker, Home, Calorie Map, Insights). Returns `currentScreen`, `sliderStyle`, and touch `handlers`. All screens render simultaneously with `flex-shrink-0 w-full` - visibility controlled by transform.
-
-### `useHealthConnect` - Health Connect Integration
-Manages Android Health Connect connection for live step data. Returns `{ status, stepData, error, loading, connect, refreshSteps }`. Status values: `'unavailable'`, `'not_installed'`, `'disconnected'`, `'connecting'`, `'connected'`, `'error'`. Only available on Android - returns `'unavailable'` on web/iOS.
-
-## Modal Development Guidelines
-
-1. **Use `ModalShell`** wrapper for all modals - handles overlay, animations, scroll-lock
-2. **Pass `isOpen` AND `isClosing`** props to every modal component
-3. **Temporary state** lives in parent (`EnergyMapCalculator`), not modal components
-4. **Reset temp state** in `useEffect` watching `isClosing` - delay by `MODAL_CLOSE_DELAY` (180ms in parent, 200ms in ModalShell)
-5. **Nested modals:** Child modals have longer close delays (+50ms) to prevent flickering during parent modal closing
-
-**Example Modal Structure:**
-```jsx
-<ModalShell isOpen={isOpen} isClosing={isClosing} contentClassName="w-full md:max-w-2xl p-6">
-  <h3 className="text-foreground font-bold text-xl mb-4">Modal Title</h3>
-  {/* Content */}
-  <div className="flex gap-2 mt-4">
-    <button onClick={onCancel}>Cancel</button>
-    <button onClick={onSave}>Save</button>
-  </div>
-</ModalShell>
+**Adding a new store action:**
+```javascript
+myNewAction: (param) => {
+  updateUserData(set, get, (prev) => ({
+    ...prev,
+    myField: transformedValue,
+  }));
+},
 ```
 
-**Example Temp State Reset:**
+### Persistence Setup
+
+`setupEnergyMapStore()` (called once) does two things:
+1. Calls `initialize()` to load from Preferences
+2. Subscribes to `userData` changes with a 1-second debounced save (`SAVE_DEBOUNCE_MS = 1000`)
+
+**Critical:** Do not remove the debounce — saving 2MB+ JSON on every keystroke freezes the UI.
+
+### Legacy: `useEnergyMapData` Hook
+
+Deprecated 7-line wrapper that spreads the entire store state. Defeats `shallow` comparison. **Prefer direct store selectors** in new code.
+
+---
+
+## Modal System
+
+### Modal Count
+
+- **36 `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
+- **~17 additional child-level modals** declared inside modal components (e.g., delete confirmations, sub-pickers)
+- **44 modal files** in `src/components/EnergyMap/modals/`
+- Total across codebase: ~53 modal instances
+
+### `useAnimatedModal` Hook
+
+```javascript
+const myModal = useAnimatedModal(initiallyOpen = false, animationDuration = 180);
+// Returns: { isOpen, isClosing, open, requestClose, forceClose }
+```
+
+- **`open()`** — Sets `isOpen = true`, clears any pending close timeout
+- **`requestClose()`** — Sets `isClosing = true`, waits 180ms, then sets `isOpen = false`. **Always use this for closing.**
+- **`forceClose()`** — Immediately unmounts. Only for edge cases (breaks exit animation).
+- **`isClosing`** — CSS exit animations key off this flag
+
+### Creating a New Modal
+
+1. Create `modals/MyNewModal.jsx`:
 ```jsx
-useEffect(() => {
-  if (isClosing) {
-    setTimeout(() => setTempDraft(null), MODAL_CLOSE_DELAY);
-  }
-}, [isClosing]);
+import { ModalShell } from '../common/ModalShell';
+
+export const MyNewModal = ({ isOpen, isClosing, onClose, onSave, /* data props */ }) => (
+  <ModalShell isOpen={isOpen} isClosing={isClosing} contentClassName="w-full md:max-w-2xl p-6">
+    <h3 className="text-foreground font-bold text-xl mb-4">Title</h3>
+    {/* Content using semantic theme classes */}
+    <div className="flex gap-2 mt-4">
+      <button onClick={onClose} className="bg-surface text-muted press-feedback focus-ring">Cancel</button>
+      <button onClick={onSave} className="bg-primary text-primary-foreground press-feedback focus-ring">Save</button>
+    </div>
+  </ModalShell>
+);
+```
+
+2. In `EnergyMapCalculator.jsx`:
+```jsx
+import { MyNewModal } from './modals/MyNewModal';
+// ...
+const myNewModal = useAnimatedModal();
+// ...in JSX:
+<MyNewModal
+  isOpen={myNewModal.isOpen}
+  isClosing={myNewModal.isClosing}
+  onClose={myNewModal.requestClose}
+  onSave={handleSave}
+/>
 ```
 
 ### ModalShell Architecture
-`ModalShell` uses **singleton managers** for sophisticated cross-modal coordination:
-- **ModalStackManager:** Tracks z-index stack, ensures topmost modal receives events/escape key
-- **SharedOverlayManager:** Single overlay element shared across all modals, prevents flicker during transitions
-- **BodyScrollLockManager:** Reference-counted scroll lock, preserves scrollbar width compensation
 
-Modals register on mount, receive dynamic z-index (`BASE_Z_INDEX + stackPosition`), and auto-dim when not topmost. Focus trap and escape key handling only active for topmost modal.
+`ModalShell` (`common/ModalShell.jsx`, 602 lines) uses **three singleton managers**:
+- **`ModalStackManager`** — Assigns z-index per modal (`BASE_Z_INDEX=1000 + position`), tracks topmost for escape/focus
+- **`SharedOverlayManager`** — Single backdrop element shared across all modals, progressive darkening per nesting depth
+- **`BodyScrollLockManager`** — Reference-counted scroll lock with scrollbar width compensation
 
-## Calculation System
+Modals auto-register on mount, auto-dim when not topmost. Content uses CSS animations from `index.css` (`modalSlideUp`/`modalSlideDown`).
 
-- **BMR:** Mifflin-St Jeor equation for basic BMR, auto-upgrades to Katch-McArdle when body fat tracking is enabled with valid entries
-- **Step calories:** Custom heuristics based on stride length (height × 0.415 for male / 0.413 for female) and weight. Use `getStepCaloriesDetails(stepCount, { weight, height, gender })` from `utils/steps.js` - returns `{ distanceMiles, calories, strideLengthMeters }`.
-- **Cardio calories:** MET-based OR heart rate formula (gender-specific coefficients in `HEART_RATE_COEFFICIENTS`)
-- **Training calories:** Preset types with `caloriesPerHour` values in `trainingTypeOverrides`, multiplied by duration
-- **Goal adjustments:** ±300/500 calorie modifiers applied to TDEE based on goal selection (maintenance, bulk, cut, etc.)
+### Temporary State Pattern
 
-**Never hardcode calculations** - all formulas live in `utils/calculations.js`.
+Temp state for modal forms lives in `EnergyMapCalculator`, **not** in the modal component:
 
-## Storage Architecture (Native Preferences)
+```jsx
+// In EnergyMapCalculator.jsx
+const [tempDraft, setTempDraft] = useState(null);
 
-Data is split into two keys to optimize performance and prevent dropped frames on large datasets:
-
-1.  **`energyMapData_profile`**: Settings, user stats, preferences.
-2.  **`energyMapData_history`**: Heavy data (Weight entries, Nutrition logs, Phases).
-
-**Migration:** Automated migration from `localStorage` (`energyMapData`) triggers on first run via `saveEnergyMapData` in `utils/storage.js`.
-
-`userData` schema (merged in memory):
-```javascript
-{
-  // Profile Data
-  age, weight, height, gender,
-  theme: 'auto', // 'auto' | 'dark' | 'light' | 'amoled_dark'
-  trainingType, trainingDuration,
-  stepRanges: ['<10k', '10k', ...],
-  activityMultipliers: { training: 0.35, rest: 0.28 },
-  pinnedFoods: ['food_id1', ...],
-  stepGoal: 10000, // Daily step target (default 10000)
-
-  // History Data
-  cardioSessions: [{ id, type, duration, intensity, effortType }],
-  weightEntries: [{ date: 'YYYY-MM-DD', weight }], // Always normalized & sorted
-  bodyFatEntries: [{ date, bodyFat }],
-  nutritionData: { 'YYYY-MM-DD': { mealType: [foodEntry, ...] } },
-  phases: [{ id, name, startDate, endDate, goal, dailyLogs }],
-  stepEntries: [{ date: 'YYYY-MM-DD', steps, source: 'healthConnect'|'manual' }],
-}
-```
-
-**Weight entries:** Always normalized with `normalizeDateKey()`, sorted with `sortWeightEntries()`, validated with `clampWeight()`. See `utils/weight.js` for helpers.
-
-### Phase/Logbook System
-Phases use **reference-based architecture** - daily logs store `weightRef`/`nutritionRef` pointing to `weightEntries`/`nutritionData`, not embedded copies. This prevents data duplication and ensures single source of truth.
-
-**Phase structure:**
-```javascript
-{
-  id: 'uuid',
-  name: 'Bulking Phase',
-  startDate: 'YYYY-MM-DD',
-  endDate: 'YYYY-MM-DD', // null for active phases
-  goal: 'bulk',
-  startingWeight: 74,
-  dailyLogs: {
-    'YYYY-MM-DD': { 
-      weightRef: true,      // Indicates weight exists in weightEntries
-      nutritionRef: true,   // Indicates nutrition exists in nutritionData
-      notes: 'Optional'
-    }
+// Reset temp state on close — delay matches animation duration
+useEffect(() => {
+  if (myModal.isClosing) {
+    setTimeout(() => setTempDraft(null), MODAL_CLOSE_DELAY); // 180ms
   }
-}
+}, [myModal.isClosing]);
 ```
 
-Use `calculatePhaseMetrics()` from `utils/phases.js` to compute weight change, weekly rate, completion percentage.
+### Nested Modal Timing
 
-### Food Tracking System
-Food entries stored in `nutritionData` keyed by ISO date, then by meal type (breakfast, lunch, dinner, snacks - see `MEAL_TYPE_ORDER`):
-
+Child modals should use longer close delays (+50ms) to prevent premature unmounting:
 ```javascript
-nutritionData: {
-  '2025-11-13': {
-    breakfast: [
-      { id: 'uuid', foodId: 'chicken_breast', name: 'Chicken Breast', 
-        grams: 174, calories: 287, protein: 54, carbs: 0, fats: 6.3, 
-        timestamp: 1699876543210 }
-    ]
-  }
-}
+const childModal = useAnimatedModal(false, MODAL_CLOSE_DELAY); // 180ms instead of default
 ```
 
-Food database (`constants/foodDatabase.js`) contains 3000+ items with per-100g macros and preset portions. Use `pinnedFoods` array for quick access favorites.
+### Reusable Confirm Modal
 
-### FatSecret API Integration
-Optional online food search via FatSecret API, proxied through a Vercel serverless function for secure credential handling.
-
-**Architecture:**
-- **Client service:** `services/fatSecret.js` - search, barcode lookup, food details
-- **Serverless proxy:** `api/fatsecret.js` - OAuth 2.0 token management, Vercel deployment
-- **Caching:** Found foods cached in `userData.cachedFoods` to reduce API calls
-
-**Configuration:**
-- Set `VITE_FATSECRET_API_BASE` env var for native builds (defaults to Vercel deployment)
-- Requires `FATSECRET_CLIENT_ID` and `FATSECRET_CLIENT_SECRET` env vars on Vercel
-
-**Key functions:**
-```javascript
-import { searchFoods, getFoodDetails, searchByBarcode } from './services/fatSecret';
-
-// Search returns mapped results with per-100g macros
-const results = await searchFoods('chicken breast', { page: 0, maxResults: 20 });
-
-// Get full food details including portions
-const food = await getFoodDetails(foodId);
-
-// Barcode lookup (UPC/EAN)
-const food = await searchByBarcode('012345678901');
+For delete/destructive actions, use the existing `ConfirmActionModal` pattern:
+```jsx
+// Set state, then open:
+setConfirmActionTitle('Delete Entry?');
+setConfirmActionDescription('This cannot be undone.');
+setConfirmActionLabel('Delete');
+setConfirmActionTone('danger'); // 'danger' | 'success' | default blue
+setConfirmActionCallback(() => () => performDelete());
+confirmActionModal.open();
 ```
 
-### Step Tracking System
-Step data integrates with Health Connect on Android for automatic syncing:
+---
 
-**Step entries** stored in `stepEntries` array:
-```javascript
-stepEntries: [
-  { date: '2025-01-28', steps: 12543, source: 'healthConnect' }
-]
+## Screen Components
+
+### Carousel Structure
+
+`useSwipeableScreens(5, viewportRef, initialScreen=2)` manages a horizontal carousel. All 5 screens render simultaneously with `flex-shrink-0 w-full`, visibility controlled by CSS transform offset.
+
+Screen order (0-indexed): **Logbook → Tracker → Home (default) → Calorie Map → Insights**
+
+`PhaseDetailScreen` is a drill-down from Logbook, not part of the carousel.
+
+### Screen Props Pattern
+
+Screens receive a large props bundle from `EnergyMapCalculator` containing:
+- **Data:** `userData`, `bmr`, `trainingCalories`, `weightEntries`, `bodyFatEntries`, etc.
+- **Modal openers:** Callback functions like `onOpenGoalModal`, `onOpenWeightTracker`, etc.
+- **UI state:** `selectedDay`, display strings, step ranges
+
+Screens also subscribe to the store directly with `shallow` selectors as a fallback pattern. Prefer passing through props for new features.
+
+### Floating Tabs (useScrollOffScreen)
+
+`useScrollOffScreen` detects when the original `ScreenTabs` bar scrolls out of the viewport, triggering a fixed-position `FloatingScreenTabs` overlay. Uses scroll event detection with an 8px threshold.
+
+---
+
+## Theme System
+
+### 4 Theme Modes
+
+`'auto'` | `'dark'` | `'light'` | `'amoled_dark'`
+
+- **Auto (default):** Follows `prefers-color-scheme`, updates in real-time
+- **Dark:** Slate 900 background
+- **Light:** Slate 100 background, dark text
+- **AMOLED:** Pure black (#000000)
+
+### Implementation Chain
+
+1. **CSS Variables** in `index.css`: `:root` = dark, `.theme-light`, `.theme-amoled-dark`
+2. **Tailwind config** maps variables to utilities: `bg-background`, `text-foreground`, etc.
+3. **`App.jsx`** watches `userData.theme` + system preference, applies body class + `applyNativeTheme()`
+4. **`utils/theme.js`** handles native Status Bar, Navigation Bar, Keyboard styling
+
+### Color Rules (MANDATORY)
+
+```jsx
+// ❌ NEVER hardcode colors
+className="bg-slate-800 text-white border-slate-700"
+className="text-blue-400 bg-red-400"
+
+// ✅ ALWAYS use semantic tokens
+className="bg-surface text-foreground border-border"
+
+// ✅ ALWAYS use accent tokens
+className="text-accent-blue"
+className="bg-accent-red/20 text-accent-red"
 ```
 
-**Key components:**
-- **`StepTrackerModal`** - Full-screen bar graph visualization with timeframe filtering, goal progress, distance/calories stats
-- **`StepGoalPickerModal`** - Scroller-based picker for setting daily step goal (1k-50k in 500 increments)
-- **`LiveStepsCard`** (in CalorieMapScreen) - Hero card showing real-time steps with progress bar
+**Semantic tokens:** `bg-background`, `bg-surface`, `bg-surface-highlight`, `bg-primary`, `text-foreground`, `text-muted`, `text-primary-foreground`, `border-border`
 
-**Store actions:** `setStepGoal(goal)`, `saveStepEntry({ date, steps, source })`
+**11 accent tokens:** `accent-blue`, `accent-green`, `accent-lime`, `accent-emerald`, `accent-yellow`, `accent-amber`, `accent-orange`, `accent-red`, `accent-purple`, `accent-slate`, `accent-indigo`
 
-## Styling Conventions
+Accent semantic use:
+| Token | Semantic Use |
+|-------|-------------|
+| `accent-blue` | Primary accent, icons, headers |
+| `accent-green` | On-target, positive |
+| `accent-lime` | Goal alignment |
+| `accent-emerald` | Brands, secondary positive |
+| `accent-yellow` | Fats, caution |
+| `accent-amber` | Carbs, calories |
+| `accent-orange` | Warning level |
+| `accent-red` | Protein, negative, delete, warnings |
+| `accent-purple` | Supplements, aggressive bulk, cached foods |
+| `accent-slate` | Neutral, fallback |
+| `accent-indigo` | Barcode, manual entries |
 
-- **Tailwind-only** - no custom CSS except animations in `index.css`
-- **User Select:** `user-select: none` enabled globally to prevent app text selection.
-- **Semantic Theme Colors:** Use `bg-background`, `bg-surface`, `text-foreground`, `text-muted`, `border-border` — **NEVER** use hardcoded `bg-slate-*`, `text-slate-*`, or `border-slate-*` classes. All color references must go through semantic tokens or accent tokens.
-- **Accent Colors:** Use `text-accent-blue`, `bg-accent-red/20`, etc. — never hardcode `text-blue-400` or `bg-red-400`.
-- **Icons:** Lucide React at 20px default, 32px for headers
+Accents auto-adjust: 400-level shades for dark/AMOLED, 600-level for light.
+
+**`--action-border` exception:** Not a Tailwind utility. Access via: `border-[rgb(var(--action-border))]`
+
+### Key Theme Functions (`utils/theme.js`)
+
+| Function | Purpose |
+|----------|---------|
+| `applyNativeTheme(theme)` | Updates status bar, nav bar, keyboard appearance |
+| `resolveTheme(theme)` | Resolves `'auto'` → `'dark'` or `'light'` based on system |
+| `getThemeClass(theme)` | Returns CSS class name for `<body>` |
+| `isDarkTheme(theme)` | Boolean check for dark variants |
+| `getThemeColors(theme)` | Returns hex color map for native UI |
+
+---
 
 ## Touch-First Interactive Patterns (Critical)
 
-This is a **mobile-first, touch-first app**. All interactive feedback must prioritize touch devices:
+### Hover Gating ⚠️
 
-### Hover Gating Pattern ⚠️
-**NEVER** use bare `hover:` classes. Always gate to desktop only:
-```css
-/* ❌ WRONG - affects all devices including touch */
+**NEVER** use bare `hover:` classes — they cause sticky hover states on touch devices:
+
+```jsx
+// ❌ WRONG
 className="hover:bg-blue-600"
-
-/* ✅ CORRECT - desktop only (768px+) */
-className="md:hover:bg-blue-600"
-```
-
-The same pattern applies to `group-hover:`:
-```css
-/* ❌ WRONG */
 className="group-hover:text-white"
 
-/* ✅ CORRECT */
+// ✅ CORRECT — gated to desktop (768px+)
+className="md:hover:bg-blue-600"
 className="md:group-hover:text-white"
 ```
 
-### Press Feedback (All Devices)
-Every button must have visual press feedback using utility classes:
+### Press Feedback Classes
 
-```css
-/* Primary buttons - strong feedback */
-className="press-feedback"              /* scale-0.98 + brightness-110 */
+Defined in `index.css` `@layer base` and `@layer components`:
 
-/* Secondary/card buttons - moderate feedback */
-className="pressable-card"              /* scale-0.99 */
+| Class | Effect | Use For |
+|-------|--------|---------|
+| `press-feedback` | `scale(0.98)` + `brightness(110%)` | Primary action buttons |
+| `pressable-card` | `scale(0.99)` | Cards, secondary buttons |
+| `pressable-inline` | `scale(0.985)` | Icon buttons |
+| `pressable` | `scale(0.985)` | Generic fallback |
+| `focus-ring` | Blue outline on `:focus-visible` | **All** interactive elements |
 
-/* Icon buttons - subtle feedback */
-className="pressable-inline"            /* scale-0.985 */
+**All buttons get `active:scale-[0.985]` by default** via the base layer reset — the classes above add extra feedback.
 
-/* Generic fallback - subtle */
-className="pressable"                   /* scale-0.985 */
-```
+### Complete Button Pattern
 
-### Focus Ring Accessibility (Keyboard Navigation)
-All interactive elements must have `.focus-ring`:
-```css
-className="focus-ring"                  /* Blue outline on keyboard focus */
-```
-
-### Complete Interactive Element Pattern
 ```jsx
-{/* Primary button */}
 <button className="bg-primary text-primary-foreground md:hover:brightness-110 press-feedback focus-ring">
   Save
 </button>
 
-{/* Card with interaction */}
 <button className="border border-border md:hover:border-muted/50 pressable-card focus-ring">
   Card
 </button>
 
-{/* Icon button */}
 <button className="rounded-lg p-2 md:hover:bg-surface-highlight/50 pressable-inline focus-ring">
-  <Icon />
+  <Icon size={20} />
 </button>
 ```
 
-### Responsive Breakpoint
-The `md:` prefix (768px) is the boundary:
-- **< 768px (Mobile):** Touch press feedback only, no hover
-- **≥ 768px (Desktop):** Press feedback + hover enhancements
+---
 
-## Common Pitfalls
-1. **Async Storage:** Unlike localStorage, `Preferences` are async. **Always await** load/save operations or use the handled store.
-2. **Debouncing:** Do not remove the debounce in `useEnergyMapStore` setup. Saving 2MB of JSON on every keystroke will freeze the UI.
-3. **Don't call `forceClose()`** unless absolutely necessary - breaks exit animations.
-4. **Step range parsing** is complex - use `parseStepRange()` from `utils/steps.js`, supports `<10k`, `>20k`, `10k-15k` formats.
-5. **Cardio effort types:** `'intensity'` (MET-based) vs `'heartRate'` (formula-based) - check `effortType` field.
-6. **Training type overrides:** Merged in `useEnergyMapStore`, not raw from constants.
-7. **Modal nesting:** Parent must delay cleanup to prevent child unmounting early.
-8. **Safe Area padding:** When modifying full-screen layouts, ensure `padding-top/bottom` includes `var(--sat)` / `var(--sab)` for notch support.
-9. **No hardcoded colors:** Never use `bg-slate-*`, `text-white`, `border-slate-*` etc. Always use semantic tokens (`bg-surface`, `text-foreground`, `border-border`) or accent tokens (`text-accent-blue`, `bg-accent-red/20`). The entire codebase has been migrated to semantic theming.
+## Mobile-First Design Rules
+
+- **Viewport:** 360px-390px width target. Prefer `p-4` over `p-6`, `gap-2` over `gap-4`.
+- **Font scaling:** 13px base on mobile, 17px on desktop (768px+) — set in `index.css` `html` rule.
+- **Safe areas:** Use `var(--sat)`, `var(--sab)`, `var(--sal)`, `var(--sar)` for notch/home indicator padding.
+- **Scrollbars:** Globally hidden via CSS (`*::-webkit-scrollbar { display: none }`) — scroll behavior preserved.
+- **User selection:** Disabled globally (`user-select: none`). Re-enabled on `input`, `textarea`, `select`, `[contenteditable]`.
+- **Touch highlight:** Disabled globally (`-webkit-tap-highlight-color: transparent`).
+- **Icons:** Lucide React, 20px default size, 32px for section headers.
+
+---
+
+## Calculation System (`utils/calculations.js`)
+
+All calorie formulas are centralized. **Never duplicate or inline calculations.**
+
+| Calculation | Function | Details |
+|------------|----------|---------|
+| BMR | `calculateBMR(userData)` | Mifflin-St Jeor; auto-upgrades to Katch-McArdle when `bodyFatTrackingEnabled` with valid entries |
+| Step calories | `getStepDetails(steps, userData)` | Stride length heuristic: height × 0.415 (male) / 0.413 (female) |
+| Cardio | `calculateCardioCalories(session, userData, cardioTypes)` | MET-based (`effortType: 'intensity'`) or heart rate formula (`effortType: 'heartRate'`) |
+| Training | `getTrainingCalories(userData, trainingTypes)` | `caloriesPerHour × trainingDuration` from resolved training types |
+| TDEE breakdown | `calculateCalorieBreakdown({...})` | BMR + activity multiplier + training + cardio + steps |
+| Goal target | `calculateGoalCalories(total, goalKey)` | Applies ±300/500 modifier based on goal |
+
+**Training types** are resolved at the store level (`resolveTrainingTypes`) by merging `trainingTypes` constants with `userData.trainingTypeOverrides`. Never use raw constants directly.
+
+---
+
+## Storage Architecture (`utils/storage.js`)
+
+### Split Storage Keys
+
+| Key | Contents | Why |
+|-----|----------|-----|
+| `energyMapData_profile` | Settings, user stats, preferences, small lists | Fast reads for profile data |
+| `energyMapData_history` | Weight entries, nutrition logs, phases, cardio sessions, step entries | Can grow to 2MB+; separated to avoid blocking profile loads |
+
+Split is determined by `HISTORY_FIELDS` array: `weightEntries`, `bodyFatEntries`, `stepEntries`, `nutritionData`, `phases`, `cardioSessions`.
+
+### Data Integrity Helpers
+
+| Utility | Module | Purpose |
+|---------|--------|---------|
+| `normalizeDateKey(value)` | `utils/weight.js` | Validates `YYYY-MM-DD` format, returns `null` on invalid |
+| `clampWeight(value)` | `utils/weight.js` | Clamps to 30-210 kg, rounds to 1 decimal |
+| `sortWeightEntries(entries)` | `utils/weight.js` | Filters invalid entries, sorts by date ascending |
+| `clampBodyFat(value)` | `utils/bodyFat.js` | Validates body fat percentage |
+| `sortBodyFatEntries(entries)` | `utils/bodyFat.js` | Filters and sorts body fat entries |
+| `parseStepRange(range)` | `utils/steps.js` | Parses `<10k`, `>20k`, `10k-15k` formats → `{ min, max, operator }` |
+| `mergeWithDefaults(data)` | `utils/storage.js` | Deep-merges loaded data with defaults, normalizes nutrition entries |
+
+### Migration
+
+Automated one-time migration from `localStorage` key `energyMapData` to Capacitor Preferences. Triggers automatically on first load in `loadEnergyMapData()`.
+
+### Default Data
+
+`getDefaultEnergyMapData()` in `utils/storage.js` defines the full schema with defaults. Key defaults:
+- `age: 21`, `weight: 74`, `height: 168`, `gender: 'male'`, `theme: 'auto'`
+- `stepGoal: 10000`, `trainingType: 'bodybuilding'`, `trainingDuration: 2`
+- 6 preset training types in `trainingTypeOverrides` with calories/hour values
+- `activityMultipliers: { training: 0.35, rest: 0.28 }`
+
+---
+
+## Data Schemas
+
+### `userData` (merged in memory from both storage keys)
+
+```javascript
+{
+  // Profile
+  age, weight, height, gender,
+  theme: 'auto',                    // 'auto' | 'dark' | 'light' | 'amoled_dark'
+  trainingType, trainingDuration,
+  stepRanges: ['<10k', '10k', ...],
+  activityMultipliers: { training: 0.35, rest: 0.28 },
+  trainingTypeOverrides: { bodybuilding: { label, description, caloriesPerHour }, ... },
+  pinnedFoods: ['food_id1', ...],
+  cachedFoods: [],                  // Foods from FatSecret API
+  foodFavourites: [],
+  cardioFavourites: [],
+  customCardioTypes: {},
+  stepGoal: 10000,
+  bodyFatTrackingEnabled: true,
+
+  // History (stored in separate Preferences key)
+  cardioSessions: [{ id, type, duration, intensity, effortType, averageHeartRate? }],
+  weightEntries: [{ date: 'YYYY-MM-DD', weight }],
+  bodyFatEntries: [{ date: 'YYYY-MM-DD', bodyFat }],
+  stepEntries: [{ date: 'YYYY-MM-DD', steps, source: 'healthConnect'|'manual' }],
+  nutritionData: { 'YYYY-MM-DD': { mealType: [foodEntry, ...] } },
+  phases: [{ id, name, startDate, endDate, goal, startingWeight, status, dailyLogs }],
+  activePhaseId: null,
+}
+```
+
+### Food Entry Shape
+
+```javascript
+{ id: 'uuid', foodId: 'chicken_breast', name: 'Chicken Breast',
+  grams: 174, calories: 287, protein: 54, carbs: 0, fats: 6.3,
+  timestamp: 1699876543210 }
+```
+
+Meal types ordered by `MEAL_TYPE_ORDER` constant: breakfast, lunch, dinner, snacks.
+
+### Phase Structure (Reference-Based)
+
+Daily logs store `weightRef`/`nutritionRef` booleans pointing to `weightEntries`/`nutritionData` — **not** embedded copies. This ensures single source of truth.
+
+```javascript
+{
+  id: Date.now(),
+  name: 'Bulking Phase',
+  startDate: 'YYYY-MM-DD',
+  endDate: 'YYYY-MM-DD',       // null for active phases
+  goalType: 'bulk',
+  startingWeight: 74,
+  status: 'active',             // 'active' | 'completed'
+  dailyLogs: {
+    'YYYY-MM-DD': { weightRef: true, nutritionRef: true, notes: 'Optional' }
+  }
+}
+```
+
+Use `calculatePhaseMetrics()` from `utils/phases.js` for weight change, weekly rate, completion stats.
+
+---
+
+## FatSecret API Integration
+
+Optional online food search proxied through Vercel serverless function.
+
+**Architecture:**
+- `services/fatSecret.js` — Client service with 15-second timeout, `FatSecretError` class
+- `api/fatsecret.js` — Vercel serverless proxy handling OAuth 2.0 token management
+
+**Configuration:**
+- Native builds: Set `VITE_FATSECRET_API_BASE` env var to deployed Vercel URL
+- Default: `https://calorieintaketracker.vercel.app/api/fatsecret`
+- Vercel env vars: `FATSECRET_CLIENT_ID`, `FATSECRET_CLIENT_SECRET`
+
+**Key functions:**
+```javascript
+import { searchFoods, getFoodDetails, searchByBarcode } from './services/fatSecret';
+const results = await searchFoods('chicken breast', { page: 0, maxResults: 20 });
+const food = await getFoodDetails(foodId);
+const food = await searchByBarcode('012345678901');
+```
+
+Results cached in `userData.cachedFoods` to reduce API calls.
+
+---
+
+## Health Connect Integration (`hooks/useHealthConnect.js`)
+
+Android-only step data sync via `@capgo/capacitor-health`.
+
+**Status lifecycle:** `'unavailable'` → `'not_installed'` → `'disconnected'` → `'connecting'` → `'connected'` | `'error'`
+
+Returns `{ status, steps, lastSynced, isLoading, error, connect, refresh, disconnect }`.
+
+Always returns `'unavailable'` on web and iOS. Status constants exported as `HealthConnectStatus` enum object.
+
+---
+
+## File Organization
+
+```
+src/
+├─ components/EnergyMap/
+│   ├─ EnergyMapCalculator.jsx   # THE orchestrator (3,185 lines)
+│   ├─ common/
+│   │   ├─ ModalShell.jsx        # Core modal wrapper (602 lines, singleton managers)
+│   │   └─ ScreenTabs.jsx        # Tab bar + floating variant
+│   ├─ modals/                   # 44 modal files, all use ModalShell
+│   ├─ screens/                  # 6 screen components
+│   └─ context/                  # Empty (unused)
+├─ constants/                    # Static lookup tables
+│   ├─ foodDatabase.js           # 3000+ food items (per-100g macros + portions)
+│   ├─ goals.js                  # Goal definitions with calorie modifiers
+│   ├─ cardioTypes.js            # Cardio activities with MET values
+│   ├─ trainingTypes.js          # Training presets with cal/hour
+│   ├─ mealTypes.js              # MEAL_TYPE_ORDER
+│   ├─ activityPresets.js        # DEFAULT_ACTIVITY_MULTIPLIERS
+│   └─ phaseTemplates.js         # Phase creation templates
+├─ hooks/
+│   ├─ useAnimatedModal.js       # Modal lifecycle (isOpen/isClosing/requestClose)
+│   ├─ useEnergyMapData.js       # DEPRECATED — use store directly
+│   ├─ useSwipeableScreens.js    # 5-screen horizontal carousel
+│   ├─ useHealthConnect.js       # Android Health Connect integration
+│   ├─ useNetworkStatus.js       # Online/offline detection
+│   └─ useScrollOffScreen.js     # Floating tab bar trigger
+├─ store/
+│   └─ useEnergyMapStore.js      # Zustand store (843 lines): state, actions, derived values, persistence
+├─ utils/
+│   ├─ calculations.js           # ALL calorie formulas (380 lines)
+│   ├─ storage.js                # Schema, defaults, load/save, migration (296 lines)
+│   ├─ weight.js                 # Date normalization, weight clamping, sorting, trend analysis
+│   ├─ steps.js                  # Step range parsing, step calorie estimation
+│   ├─ bodyFat.js                # Body fat validation, Katch-McArdle helpers
+│   ├─ phases.js                 # Phase metrics calculation
+│   ├─ goalAlignment.js          # Weight trend vs goal alignment evaluation
+│   ├─ theme.js                  # Native theme application (status bar, nav bar, keyboard)
+│   ├─ format.js                 # Number formatting (formatOne: 1 decimal place)
+│   ├─ export.js                 # CSV/JSON export generation
+│   ├─ scroll.js                 # Scroll utilities
+│   └─ time.js                   # Time helpers
+├─ services/
+│   └─ fatSecret.js              # FatSecret API client (403 lines)
+└─ native/                       # DEPRECATED — use utils/theme.js applyNativeTheme() instead
+    ├─ statusBar.js
+    └─ navigationBar.js
+```
+
+---
 
 ## Development Workflow
 
 ```powershell
 npm install            # First time setup
-npm run dev            # Start Vite dev server (localhost:5173)
-npm run build          # Production build to dist/
-npx cap sync           # Sync build to native projects
-npx cap open android   # Open Android Studio
-npx cap open ios       # Open Xcode (Mac only)
+npm run dev            # Vite dev server (localhost:5173, strictPort)
+npm run build          # Production build → dist/
+npx cap sync           # Sync dist/ to native projects
+npx cap open android   # Open in Android Studio
+npx cap open ios       # Open in Xcode (Mac only)
 ```
 
-**Linting:**
 ```powershell
-npm run lint           # Check code style
-npm run lint:fix       # Auto-fix linting issues
-npm run format         # Run Prettier formatting
+npm run lint           # ESLint check (flat config, Babel parser, Prettier integration)
+npm run lint:fix       # Auto-fix lint issues
+npm run format         # Prettier formatting
 ```
 
-**No tests, no CI** - manual testing required. Check browser console for localStorage warnings.
+**ESLint config:** Flat config format (`eslint.config.js`), uses `@babel/eslint-parser` with JSX preset. `react/prop-types` is disabled. Prettier runs as an ESLint rule.
 
-## File Organization Logic
+---
 
-- **`/screens`** - Full-page views within carousel, receive props from `EnergyMapCalculator`
-- **`/modals`** - Self-contained dialogs, all use `ModalShell` wrapper
-- **`/common`** - Only `ModalShell` (core wrapper) and `ScreenTabs` live here, not other shared components
-- **`/constants`** - Static lookup tables (goals, cardio types, training presets, 3000+ food items)
-- **`/utils`** - Pure functions for calculations, parsing, formatting, export (CSV/JSON)
-- **`/hooks`** - Stateful logic extraction (modals, data, swiping)
-- **`/store`** - Zustand store (hydration, actions, derived state)
-- **`/services`** - External API clients (FatSecret)
-- **`/native`** - Deprecated wrappers (use `utils/theme.js` `applyNativeTheme()` instead)
+## Common Pitfalls
 
-## Key Files to Reference
-Preferences-backed hooks with derived state and debouncing
-- **`calculations.js`** - Canonical calculation implementations
-- **`ModalShell.jsx`** - Scroll-lock and animation handling
-- **`storage.js`** - Data schema, default values, and migration implementations
-- **`useEnergyMapStore.js`** - Zustand state, selectors, derived values, and persistence
-- **`theme.js`** - Theme utilities, native platform integration, CSS class resolution
-- **`goalAlignment.js`** - Weight trend vs goal alignment logic and styled feedback
-- **`bodyFat.js`** - Body fat percentage validation and Katch-McArdle helpers
-- **`format.js`** - Number/date/macro formatting utilities
+1. **Async storage:** `Preferences.get()`/`.set()` are async. Always `await` or use the store (which handles it internally).
+2. **Save debounce:** The 1-second debounce in `setupEnergyMapStore` is critical. Removing it causes UI freezes from serializing large JSON on every keystroke.
+3. **Never call `forceClose()`** on modals unless absolutely necessary — it skips exit animations and can cause visual glitches.
+4. **Step range parsing** is complex — always use `parseStepRange()` from `utils/steps.js`. It handles `<10k`, `>20k`, `10k-15k`, `+` suffix formats.
+5. **Cardio effort types:** Check `session.effortType` — `'intensity'` uses MET-based calculation, `'heartRate'` uses gender-specific heart rate coefficients.
+6. **Training type resolution:** Never use raw `trainingTypes` constants. The store's `resolveTrainingTypes()` merges constants with user overrides. Consume `trainingTypes` from the store.
+7. **Modal nesting:** Parent modals must delay state cleanup to prevent child modals from unmounting mid-animation. Use `MODAL_CLOSE_DELAY` (180ms) with `setTimeout`.
+8. **Safe areas:** Full-screen layouts must include `var(--sat)` / `var(--sab)` for notch and home indicator support.
+9. **No hardcoded colors:** Never use `bg-slate-*`, `text-white`, `border-slate-*`, `text-blue-400`, etc. Always use semantic tokens or accent tokens.
+10. **Hover gating:** Never use bare `hover:` — always use `md:hover:` to prevent sticky hover on touch devices.
+11. **Weight entries:** Always normalize dates with `normalizeDateKey()`, validate with `clampWeight()` (30-210 kg range), and sort with `sortWeightEntries()` before storing.
+12. **`native/` folder is deprecated.** Use `utils/theme.js` `applyNativeTheme()` for all native platform styling.
