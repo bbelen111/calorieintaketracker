@@ -1,4 +1,4 @@
-import { DEFAULT_ACTIVITY_MULTIPLIERS } from '../constants/activityPresets';
+import { getLifestyleMultiplier } from '../constants/activityPresets';
 import { getStepDetails } from './steps';
 
 const HEART_RATE_COEFFICIENTS = {
@@ -163,9 +163,59 @@ export const getTotalCardioBurn = (userData, cardioTypes) =>
 export const getTrainingCaloriesPerHour = (userData, trainingTypes) =>
   trainingTypes[userData.trainingType]?.caloriesPerHour ?? 0;
 
-export const getTrainingCalories = (userData, trainingTypes) =>
-  userData.trainingDuration *
-  getTrainingCaloriesPerHour(userData, trainingTypes);
+const TRAINING_INTENSITY_MULTIPLIERS = {
+  light: 0.75,
+  moderate: 1.0,
+  vigorous: 1.25,
+};
+
+export const getTrainingCalories = (
+  userData,
+  trainingTypes,
+  {
+    effortType = 'intensity',
+    trainingIntensity = 'moderate',
+    averageHeartRate = null,
+  } = {}
+) => {
+  const duration = Number(userData?.trainingDuration);
+  if (!Number.isFinite(duration) || duration <= 0) {
+    return 0;
+  }
+
+  const trainingTypeKey = userData?.trainingType;
+  const trainingType = trainingTypes?.[trainingTypeKey];
+  if (!trainingType) {
+    return 0;
+  }
+
+  const baseCaloriesPerHour = Number(trainingType.caloriesPerHour);
+  if (!Number.isFinite(baseCaloriesPerHour) || baseCaloriesPerHour <= 0) {
+    return 0;
+  }
+
+  // Heart rate mode
+  if (effortType === 'heartRate' && averageHeartRate) {
+    const hr = Number(averageHeartRate);
+    if (Number.isFinite(hr) && hr > 0) {
+      const weight = Number(userData?.weight);
+      const age = Number(userData?.age);
+      const gender = userData?.gender;
+      const caloriesPerMinute = calculateCaloriesPerMinuteFromHeartRate({
+        heartRate: hr,
+        weightKg: weight,
+        ageYears: age,
+        gender,
+      });
+      return Math.round(caloriesPerMinute * duration * 60);
+    }
+  }
+
+  // Intensity mode (default)
+  const intensityMultiplier =
+    TRAINING_INTENSITY_MULTIPLIERS[trainingIntensity] ?? 1.0;
+  return Math.round(baseCaloriesPerHour * duration * intensityMultiplier);
+};
 
 export const calculateCalorieBreakdown = ({
   steps,
@@ -174,6 +224,11 @@ export const calculateCalorieBreakdown = ({
   bmr,
   cardioTypes,
   trainingTypes,
+  lifestyleMultiplier = null,
+  trainingEffortType = 'intensity',
+  trainingIntensity = 'moderate',
+  trainingAverageHeartRate = null,
+  cardioSessions = null,
 }) => {
   const stepDetails = getStepDetails(steps, userData);
   const bmrDetails = resolveBmrDetails(userData);
@@ -185,20 +240,46 @@ export const calculateCalorieBreakdown = ({
   const trainingCaloriesPerHour = Number.isFinite(trainingType?.caloriesPerHour)
     ? trainingType.caloriesPerHour
     : 0;
-  const cardioSessions = Array.isArray(userData?.cardioSessions)
-    ? userData.cardioSessions
-    : [];
-  const multipliers =
-    userData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS;
-  const activityMultiplier = isTrainingDay
-    ? (multipliers.training ?? DEFAULT_ACTIVITY_MULTIPLIERS.training)
-    : (multipliers.rest ?? DEFAULT_ACTIVITY_MULTIPLIERS.rest);
-  const baseActivity = Math.round(bmr * activityMultiplier);
+  
+  // Use provided cardio sessions or fall back to userData.cardioSessions
+  const sessions = Array.isArray(cardioSessions)
+    ? cardioSessions
+    : Array.isArray(userData?.cardioSessions)
+      ? userData.cardioSessions
+      : [];
+  
+  // Calculate base using lifestyle multiplier (new approach)
+  // If lifestyleMultiplier not provided, fall back to old activityMultipliers
+  let base;
+  let baseMultiplier;
+  if (lifestyleMultiplier !== null && Number.isFinite(lifestyleMultiplier)) {
+    baseMultiplier = lifestyleMultiplier;
+    base = Math.round(bmr * lifestyleMultiplier);
+  } else {
+    // Legacy fallback
+    const multipliers =
+      userData.activityMultipliers ?? { training: 0.35, rest: 0.28 };
+    const activityMultiplier = isTrainingDay
+      ? (multipliers.training ?? 0.35)
+      : (multipliers.rest ?? 0.28);
+    baseMultiplier = activityMultiplier;
+    base = Math.round(bmr * activityMultiplier);
+  }
+  
   const trainingBurn = Math.round(
-    isTrainingDay ? getTrainingCalories(userData, trainingTypes) : 0
+    isTrainingDay
+      ? getTrainingCalories(userData, trainingTypes, {
+          effortType: trainingEffortType,
+          trainingIntensity,
+          averageHeartRate: trainingAverageHeartRate,
+        })
+      : 0
   );
-  const cardioBurn = Math.round(getTotalCardioBurn(userData, cardioTypes));
-  const cardioDetails = cardioSessions
+  
+  // Calculate cardio step deduction
+  let totalSteps = Number(steps) || 0;
+  let cardioStepDeduction = 0;
+  const cardioDetails = sessions
     .map((session) => {
       const rawDuration = Number(session?.duration);
       const durationMinutes = Number.isFinite(rawDuration) ? rawDuration : 0;
@@ -211,6 +292,21 @@ export const calculateCalorieBreakdown = ({
       const typeKey = session?.type;
       const cardioType = cardioTypes?.[typeKey];
       const typeLabel = cardioType?.label ?? typeKey ?? 'Cardio';
+      
+      // Calculate step deduction
+      let stepsDeducted = 0;
+      if (cardioType?.spm) {
+        let spmValue = 0;
+        if (effortType === 'heartRate') {
+          // Default to moderate for HR mode
+          spmValue = cardioType.spm.moderate ?? 0;
+        } else {
+          const intensityKey = session?.intensity ?? 'moderate';
+          spmValue = cardioType.spm[intensityKey] ?? 0;
+        }
+        stepsDeducted = Math.round(spmValue * durationMinutes);
+      }
+      cardioStepDeduction += stepsDeducted;
 
       if (effortType === 'heartRate') {
         const heartRate = Number(session?.averageHeartRate);
@@ -235,6 +331,7 @@ export const calculateCalorieBreakdown = ({
           weightKg,
           ageYears,
           gender,
+          stepsDeducted,
         };
       }
 
@@ -252,25 +349,40 @@ export const calculateCalorieBreakdown = ({
         durationMinutes,
         calories,
         weightKg: Number(userData?.weight),
+        stepsDeducted,
       };
     })
     .filter(Boolean);
+  
+  const cardioBurn = cardioDetails.reduce((sum, detail) => sum + detail.calories, 0);
+  
+  // Calculate net steps (total steps - cardio deduction, minimum 0)
+  const netSteps = Math.max(0, totalSteps - cardioStepDeduction);
+  const netStepDetails = getStepDetails(netSteps, userData);
+  
   const total = Math.round(
-    bmr + baseActivity + stepDetails.calories + trainingBurn + cardioBurn
+    bmr + base + netStepDetails.calories + trainingBurn + cardioBurn
   );
 
   return {
     total,
     bmr,
-    baseActivity,
-    activityMultiplier,
-    stepCalories: stepDetails.calories,
-    stepDetails,
-    estimatedSteps: stepDetails.estimatedSteps,
+    base,
+    baseMultiplier,
+    baseActivity: base, // Legacy compat
+    activityMultiplier: baseMultiplier, // Legacy compat
+    stepCalories: netStepDetails.calories,
+    stepDetails: netStepDetails,
+    estimatedSteps: netStepDetails.estimatedSteps,
+    grossSteps: totalSteps,
+    netSteps,
+    cardioStepDeduction,
     trainingBurn,
     trainingDuration,
     trainingCaloriesPerHour,
     trainingTypeLabel: trainingType?.label ?? trainingTypeKey ?? 'Training',
+    trainingEffortType,
+    trainingIntensity,
     cardioBurn,
     cardioDetails,
     bmrDetails,
@@ -376,4 +488,54 @@ export const getFFMICategory = (ffmi, gender = 'male') => {
   if (ffmi < 25 - offset) return { label: 'Elite', color: 'purple' };
   if (ffmi < 27 - offset) return { label: 'Pro-level', color: 'amber' };
   return { label: 'Suspiciously high', color: 'red' };
+};
+
+/**
+ * Calculate daily expenditure for a specific date using per-day activity data
+ * 4-layer stack: Base (BMR × lifestyleMultiplier) → Training → Cardio → Net Steps
+ */
+export const getDailyExpenditure = (
+  date,
+  {
+    userData,
+    dailyActivity = {},
+    stepEntries = [],
+    lifestyleTier = 'sedentary',
+    bmr,
+    trainingTypes,
+    cardioTypes,
+  }
+) => {
+  // Get daily activity for this date
+  const dayActivity = dailyActivity[date] || {};
+  
+  // Get lifestyle multiplier
+  const lifestyleMultiplier = getLifestyleMultiplier(lifestyleTier);
+  
+  // Get step count for this date
+  const stepEntry = stepEntries.find((entry) => entry.date === date);
+  const steps = stepEntry?.steps || 0;
+  
+  // Check if training is enabled for this day
+  const isTrainingDay = dayActivity.trainingEnabled ?? false;
+  const trainingEffortType = dayActivity.trainingEffortType ?? 'intensity';
+  const trainingIntensity = dayActivity.trainingIntensity ?? 'moderate';
+  const trainingAverageHeartRate = dayActivity.trainingAverageHeartRate ?? null;
+  
+  // Get cardio sessions for this day
+  const cardioSessions = dayActivity.cardioSessions || [];
+  
+  return calculateCalorieBreakdown({
+    steps,
+    isTrainingDay,
+    userData,
+    bmr,
+    cardioTypes,
+    trainingTypes,
+    lifestyleMultiplier,
+    trainingEffortType,
+    trainingIntensity,
+    trainingAverageHeartRate,
+    cardioSessions,
+  });
 };

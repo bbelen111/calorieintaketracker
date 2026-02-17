@@ -18,6 +18,7 @@ const HISTORY_FIELDS = [
   'nutritionData',
   'phases',
   'cardioSessions',
+  'dailyActivity',
 ];
 
 const hasLocalStorage = () =>
@@ -196,6 +197,30 @@ export const getDefaultEnergyMapData = () => ({
   },
   phases: [],
   activePhaseId: null,
+  // New fields for per-day activity system
+  lifestyleTier: 'sedentary', // 'sedentary' | 'standing' | 'physical'
+  dayTemplates: [
+    {
+      id: 1,
+      name: 'Training Day',
+      trainingEnabled: true,
+      trainingEffortType: 'intensity',
+      trainingIntensity: 'moderate',
+      trainingAverageHeartRate: null,
+      cardioSessions: [],
+    },
+    {
+      id: 2,
+      name: 'Rest Day',
+      trainingEnabled: false,
+      trainingEffortType: 'intensity',
+      trainingIntensity: 'moderate',
+      trainingAverageHeartRate: null,
+      cardioSessions: [],
+    },
+  ],
+  dailyActivity: {}, // { 'YYYY-MM-DD': { trainingEnabled, trainingEffortType, trainingIntensity, trainingAverageHeartRate, cardioSessions } }
+  lastTemplateId: 1,
 });
 
 function mergeWithDefaults(data) {
@@ -226,6 +251,58 @@ function mergeWithDefaults(data) {
     }
 
     return normalized;
+  };
+
+  // Migration helper: convert old activityMultipliers to lifestyleTier
+  const migrateLifestyleTier = (oldData) => {
+    if (oldData.lifestyleTier) {
+      return oldData.lifestyleTier; // Already migrated
+    }
+    
+    // Map old rest multiplier to closest tier
+    const restMultiplier = oldData.activityMultipliers?.rest ?? 0.28;
+    if (restMultiplier <= 0.20) return 'sedentary';
+    if (restMultiplier <= 0.30) return 'standing';
+    return 'physical';
+  };
+
+  // Migration helper: build day templates from old globals
+  const migrateDayTemplates = (oldData) => {
+    if (oldData.dayTemplates && Array.isArray(oldData.dayTemplates)) {
+      return oldData.dayTemplates; // Already migrated
+    }
+    
+    // Build from old global settings
+    return [
+      {
+        id: 1,
+        name: 'Training Day',
+        trainingEnabled: true,
+        trainingEffortType: 'intensity',
+        trainingIntensity: 'moderate',
+        trainingAverageHeartRate: null,
+        cardioSessions: [],
+      },
+      {
+        id: 2,
+        name: 'Rest Day',
+        trainingEnabled: false,
+        trainingEffortType: 'intensity',
+        trainingIntensity: 'moderate',
+        trainingAverageHeartRate: null,
+        cardioSessions: [],
+      },
+    ];
+  };
+
+  // Migration helper: convert selectedDay to lastTemplateId
+  const migrateLastTemplateId = (oldData) => {
+    if (oldData.lastTemplateId !== undefined) {
+      return oldData.lastTemplateId; // Already migrated
+    }
+    // selectedDay was persisted separately, so we can't access it here
+    // Default to template 1 (Training Day)
+    return 1;
   };
 
   return {
@@ -291,5 +368,10 @@ function mergeWithDefaults(data) {
     cachedFoods: Array.isArray(data.cachedFoods)
       ? data.cachedFoods
       : defaults.cachedFoods,
+    // New fields with migration
+    lifestyleTier: migrateLifestyleTier(data),
+    dayTemplates: migrateDayTemplates(data),
+    dailyActivity: data.dailyActivity ?? defaults.dailyActivity,
+    lastTemplateId: migrateLastTemplateId(data),
   };
 }
