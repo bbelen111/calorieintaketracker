@@ -59,6 +59,7 @@ import { CalorieBreakdownModal } from './modals/CalorieBreakdownModal';
 import { DailyActivityModal } from './modals/DailyActivityModal';
 import { DailyActivityEditorModal } from './modals/DailyActivityEditorModal';
 import { DailyActivityCustomModal } from './modals/DailyActivityCustomModal';
+import { DailyActivityTierModal } from './modals/DailyActivityTierModal';
 import { PhaseCreationModal } from './modals/PhaseCreationModal';
 import { TemplatePickerModal } from './modals/TemplatePickerModal';
 import { DailyLogModal } from './modals/DailyLogModal';
@@ -491,6 +492,7 @@ export const EnergyMapCalculator = () => {
   const dailyActivityModal = useAnimatedModal();
   const dailyActivityEditorModal = useAnimatedModal();
   const dailyActivityCustomModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
+  const dailyActivityTierModal = useAnimatedModal();
   const stepRangesModal = useAnimatedModal();
   const quickTrainingModal = useAnimatedModal();
   const durationPickerModal = useAnimatedModal();
@@ -2892,6 +2894,7 @@ export const EnergyMapCalculator = () => {
           )
         }
         onDailyActivityClick={openDailyActivitySettings}
+        onDefaultActivityTierClick={dailyActivityTierModal.open}
         onCancel={settingsModal.requestClose}
         onSave={handleSettingsSave}
       />
@@ -3168,6 +3171,17 @@ export const EnergyMapCalculator = () => {
       />
 
       {/* PhaseInsightsModal removed */}
+
+      <DailyActivityTierModal
+        isOpen={dailyActivityTierModal.isOpen}
+        isClosing={dailyActivityTierModal.isClosing}
+        currentTier={userData.defaultActivityTier || 'standing'}
+        onSelectTier={(tier) => {
+          handleUserDataChange('defaultActivityTier', tier);
+          dailyActivityTierModal.requestClose();
+        }}
+        onClose={dailyActivityTierModal.requestClose}
+      />
 
       <ConfirmActionModal
         isOpen={confirmActionModal.isOpen}
