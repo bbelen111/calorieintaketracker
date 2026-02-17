@@ -51,14 +51,12 @@ import { TrainingTypeModal } from './modals/TrainingTypeModal';
 import { TrainingTypeEditorModal } from './modals/TrainingTypeEditorModal';
 import { SettingsModal } from './modals/SettingsModal';
 import { StepRangesModal } from './modals/StepRangesModal';
-import { QuickTrainingModal } from './modals/QuickTrainingModal';
+import { DayTemplateEditorModal } from './modals/DayTemplateEditorModal';
 import { TrainingDurationPickerModal } from './modals/TrainingDurationPickerModal';
 import { CardioModal } from './modals/CardioModal';
 import { CardioFavouritesModal } from './modals/CardioFavouritesModal';
 import { CalorieBreakdownModal } from './modals/CalorieBreakdownModal';
-import { DailyActivityModal } from './modals/DailyActivityModal';
-import { DailyActivityEditorModal } from './modals/DailyActivityEditorModal';
-import { DailyActivityCustomModal } from './modals/DailyActivityCustomModal';
+import { LifestyleTierModal } from './modals/LifestyleTierModal';
 import { PhaseCreationModal } from './modals/PhaseCreationModal';
 import { TemplatePickerModal } from './modals/TemplatePickerModal';
 import { DailyLogModal } from './modals/DailyLogModal';
@@ -230,7 +228,9 @@ export const EnergyMapCalculator = () => {
     bmr,
     trainingCalories,
     totalCardioBurn,
+    lifestyleTier,
     handleUserDataChange,
+    setLifestyleTier,
     addStepRange,
     removeStepRange,
     addCardioSession,
@@ -284,7 +284,9 @@ export const EnergyMapCalculator = () => {
       bmr: state.bmr,
       trainingCalories: state.trainingCalories,
       totalCardioBurn: state.totalCardioBurn,
+      lifestyleTier: state.lifestyleTier,
       handleUserDataChange: state.handleUserDataChange,
+      setLifestyleTier: state.setLifestyleTier,
       addStepRange: state.addStepRange,
       removeStepRange: state.removeStepRange,
       addCardioSession: state.addCardioSession,
@@ -488,11 +490,9 @@ export const EnergyMapCalculator = () => {
   const trainingTypeModal = useAnimatedModal();
   const trainingTypeEditorModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
   const settingsModal = useAnimatedModal();
-  const dailyActivityModal = useAnimatedModal();
-  const dailyActivityEditorModal = useAnimatedModal();
-  const dailyActivityCustomModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
+  const lifestyleTierModal = useAnimatedModal();
   const stepRangesModal = useAnimatedModal();
-  const quickTrainingModal = useAnimatedModal();
+  const templateEditorModal = useAnimatedModal();
   const durationPickerModal = useAnimatedModal();
   const cardioModal = useAnimatedModal();
   const cardioFavouritesModal = useAnimatedModal();
@@ -528,13 +528,11 @@ export const EnergyMapCalculator = () => {
         cardioFavouritesModal,
         cardioModal,
         durationPickerModal,
-        quickTrainingModal,
+        templateEditorModal,
         stepRangesModal,
         stepTrackerModal,
         stepGoalPickerModal,
-        dailyActivityCustomModal,
-        dailyActivityEditorModal,
-        dailyActivityModal,
+        lifestyleTierModal,
         settingsModal,
         trainingTypeEditorModal,
         trainingTypeModal,
@@ -576,12 +574,8 @@ export const EnergyMapCalculator = () => {
       cardioModal.isOpen,
       confirmActionModal.isClosing,
       confirmActionModal.isOpen,
-      dailyActivityCustomModal.isClosing,
-      dailyActivityCustomModal.isOpen,
-      dailyActivityEditorModal.isClosing,
-      dailyActivityEditorModal.isOpen,
-      dailyActivityModal.isClosing,
-      dailyActivityModal.isOpen,
+      lifestyleTierModal.isClosing,
+      lifestyleTierModal.isOpen,
       dailyLogModal.isClosing,
       dailyLogModal.isOpen,
       durationPickerModal.isClosing,
@@ -602,8 +596,8 @@ export const EnergyMapCalculator = () => {
       mealTypePickerModal.isOpen,
       phaseCreationModal.isClosing,
       phaseCreationModal.isOpen,
-      quickTrainingModal.isClosing,
-      quickTrainingModal.isOpen,
+      templateEditorModal.isClosing,
+      templateEditorModal.isOpen,
       settingsModal.isClosing,
       settingsModal.isOpen,
       stepGoalPickerModal.isClosing,
@@ -1302,152 +1296,52 @@ export const EnergyMapCalculator = () => {
     updateTrainingType,
   ]);
 
+  // Lifestyle Tier handlers (replaces NEAT 3-modal chain)
+  const openLifestyleTierSettings = useCallback(() => {
+    lifestyleTierModal.open();
+  }, [lifestyleTierModal]);
+
+  const handleLifestyleTierSave = useCallback(
+    (tier) => {
+      setLifestyleTier(tier);
+      lifestyleTierModal.requestClose();
+    },
+    [lifestyleTierModal, setLifestyleTier]
+  );
+
+  // LEGACY STUBS - Temporarily map to new lifestyle tier modal
+  // These will be fully removed when all screens are updated
   const openDailyActivitySettings = useCallback(() => {
-    setActivityEditorDay(null);
-    dailyActivityModal.open();
-  }, [dailyActivityModal]);
+    openLifestyleTierSettings();
+  }, [openLifestyleTierSettings]);
 
   const handleDailyActivityModalClose = useCallback(() => {
-    dailyActivityModal.requestClose();
-    if (dailyActivityEditorModal.isOpen) {
-      dailyActivityEditorModal.forceClose();
-    }
-    if (dailyActivityCustomModal.isOpen) {
-      dailyActivityCustomModal.forceClose();
-    }
-    setActivityEditorDay(null);
-  }, [dailyActivityCustomModal, dailyActivityEditorModal, dailyActivityModal]);
+    lifestyleTierModal.requestClose();
+  }, [lifestyleTierModal]);
 
-  const openDailyActivityEditor = useCallback(
-    (dayType) => {
-      setActivityEditorDay(dayType);
-      dailyActivityEditorModal.open();
-    },
-    [dailyActivityEditorModal]
-  );
+  const openDailyActivityEditor = useCallback(() => {
+    openLifestyleTierSettings();
+  }, [openLifestyleTierSettings]);
 
   const closeDailyActivityEditor = useCallback(() => {
-    dailyActivityEditorModal.requestClose();
-    setTimeout(() => {
-      if (!dailyActivityCustomModal.isOpen) {
-        setActivityEditorDay(null);
-      }
-    }, MODAL_CLOSE_DELAY);
-  }, [dailyActivityCustomModal.isOpen, dailyActivityEditorModal]);
+    lifestyleTierModal.requestClose();
+  }, [lifestyleTierModal]);
 
-  const handleDailyActivityPresetSelect = useCallback(
-    (dayType, presetKey, multiplier) => {
-      const nextPresets = {
-        ...(userData.activityPresets ?? {
-          training: 'default',
-          rest: 'default',
-        }),
-        [dayType]: presetKey,
-      };
+  const handleDailyActivityPresetSelect = useCallback(() => {
+    // Legacy - no-op
+  }, []);
 
-      handleUserDataChange('activityPresets', nextPresets);
-
-      if (presetKey === 'custom') {
-        const existingCustom = userData.customActivityMultipliers?.[dayType];
-        const fallback =
-          userData.activityMultipliers?.[dayType] ??
-          DEFAULT_ACTIVITY_MULTIPLIERS[dayType];
-        const resolved = Number.isFinite(existingCustom)
-          ? existingCustom
-          : fallback;
-
-        handleUserDataChange('customActivityMultipliers', {
-          ...(userData.customActivityMultipliers ?? {
-            training: DEFAULT_ACTIVITY_MULTIPLIERS.training,
-            rest: DEFAULT_ACTIVITY_MULTIPLIERS.rest,
-          }),
-          [dayType]: resolved,
-        });
-
-        handleUserDataChange('activityMultipliers', {
-          ...(userData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS),
-          [dayType]: resolved,
-        });
-      } else if (Number.isFinite(multiplier)) {
-        handleUserDataChange('activityMultipliers', {
-          ...(userData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS),
-          [dayType]: multiplier,
-        });
-      }
-    },
-    [handleUserDataChange, userData]
-  );
-
-  const handleDailyActivityCustomSelect = useCallback(
-    (dayType, alreadySelected) => {
-      const existingCustom = userData.customActivityMultipliers?.[dayType];
-      const fallback =
-        userData.activityMultipliers?.[dayType] ??
-        DEFAULT_ACTIVITY_MULTIPLIERS[dayType];
-      const resolvedMultiplier = Number.isFinite(existingCustom)
-        ? existingCustom
-        : fallback;
-
-      handleDailyActivityPresetSelect(dayType, 'custom');
-
-      const percentValue = Math.round(resolvedMultiplier * 1000) / 10;
-      setActivityEditorDay(dayType);
-      setCustomActivityPercent(
-        Number.isFinite(percentValue) ? percentValue : 0
-      );
-
-      if (alreadySelected || !Number.isFinite(existingCustom)) {
-        dailyActivityCustomModal.open();
-      }
-    },
-    [dailyActivityCustomModal, handleDailyActivityPresetSelect, userData]
-  );
+  const handleDailyActivityCustomSelect = useCallback(() => {
+    // Legacy - no-op
+  }, []);
 
   const handleCustomActivityCancel = useCallback(() => {
-    dailyActivityCustomModal.requestClose();
-  }, [dailyActivityCustomModal]);
+    lifestyleTierModal.requestClose();
+  }, [lifestyleTierModal]);
 
   const handleCustomActivitySave = useCallback(() => {
-    if (!activityEditorDay) {
-      dailyActivityCustomModal.requestClose();
-      return;
-    }
-
-    const numericPercent = Number(customActivityPercent);
-    if (!Number.isFinite(numericPercent)) {
-      return;
-    }
-
-    const clampedPercent = Math.min(Math.max(numericPercent, 0), 100);
-    const multiplier = Math.round((clampedPercent / 100) * 1000) / 1000;
-
-    const nextCustoms = {
-      ...(userData.customActivityMultipliers ?? {
-        training: DEFAULT_ACTIVITY_MULTIPLIERS.training,
-        rest: DEFAULT_ACTIVITY_MULTIPLIERS.rest,
-      }),
-      [activityEditorDay]: multiplier,
-    };
-
-    handleUserDataChange('customActivityMultipliers', nextCustoms);
-    handleUserDataChange('activityPresets', {
-      ...(userData.activityPresets ?? { training: 'default', rest: 'default' }),
-      [activityEditorDay]: 'custom',
-    });
-    handleUserDataChange('activityMultipliers', {
-      ...(userData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS),
-      [activityEditorDay]: multiplier,
-    });
-
-    setCustomActivityPercent(Math.round(clampedPercent * 10) / 10);
-    dailyActivityCustomModal.requestClose();
-  }, [
-    activityEditorDay,
-    customActivityPercent,
-    dailyActivityCustomModal,
-    handleUserDataChange,
-    userData,
-  ]);
+    lifestyleTierModal.requestClose();
+  }, [lifestyleTierModal]);
 
   const openCardioModal = useCallback(() => {
     setEditingCardioId(null);
@@ -2896,38 +2790,12 @@ export const EnergyMapCalculator = () => {
         onSave={handleSettingsSave}
       />
 
-      <DailyActivityModal
-        isOpen={dailyActivityModal.isOpen}
-        isClosing={dailyActivityModal.isClosing}
-        activityPresets={activityPresets}
-        activityMultipliers={activityMultipliers}
-        onSelectDay={openDailyActivityEditor}
-        onClose={handleDailyActivityModalClose}
-      />
-
-      <DailyActivityEditorModal
-        isOpen={dailyActivityEditorModal.isOpen}
-        isClosing={dailyActivityEditorModal.isClosing}
-        dayType={activityEditorDay}
-        currentPreset={
-          activityEditorDay ? activityPresets[activityEditorDay] : 'default'
-        }
-        currentMultiplier={
-          activityEditorDay ? activityMultipliers[activityEditorDay] : undefined
-        }
-        onSelectPreset={handleDailyActivityPresetSelect}
-        onSelectCustom={handleDailyActivityCustomSelect}
-        onClose={closeDailyActivityEditor}
-      />
-
-      <DailyActivityCustomModal
-        isOpen={dailyActivityCustomModal.isOpen}
-        isClosing={dailyActivityCustomModal.isClosing}
-        dayType={activityEditorDay}
-        value={customActivityPercent}
-        onChange={setCustomActivityPercent}
-        onCancel={handleCustomActivityCancel}
-        onSave={handleCustomActivitySave}
+      <LifestyleTierModal
+        isOpen={lifestyleTierModal.isOpen}
+        isClosing={lifestyleTierModal.isClosing}
+        currentTier={lifestyleTier}
+        onSave={handleLifestyleTierSave}
+        onClose={lifestyleTierModal.requestClose}
       />
 
       <StepRangesModal
@@ -2941,19 +2809,19 @@ export const EnergyMapCalculator = () => {
         onClose={stepRangesModal.requestClose}
       />
 
-      <QuickTrainingModal
-        isOpen={quickTrainingModal.isOpen}
-        isClosing={quickTrainingModal.isClosing}
+      <DayTemplateEditorModal
+        isOpen={templateEditorModal.isOpen}
+        isClosing={templateEditorModal.isClosing}
+        template={null}
         trainingTypes={trainingTypes}
-        tempTrainingType={tempTrainingType}
-        tempTrainingDuration={tempTrainingDuration}
         onTrainingTypeSelect={setTempTrainingType}
         onEditTrainingType={openTrainingTypeEditor}
         onDurationClick={() =>
           openDurationPicker(tempTrainingDuration, setTempTrainingDuration)
         }
-        onCancel={quickTrainingModal.requestClose}
-        onSave={handleQuickTrainingSave}
+        onOpenCardioModal={openCardioModal}
+        onCancel={templateEditorModal.requestClose}
+        onSave={templateEditorModal.requestClose}
       />
 
       <TrainingDurationPickerModal
