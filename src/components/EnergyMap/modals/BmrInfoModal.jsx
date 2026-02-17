@@ -169,8 +169,8 @@ export const BmrInfoModal = ({ isOpen, isClosing, userData, bmr, onClose }) => {
 
         <p className="text-sm italic text-muted">
           Note: Your actual daily calorie needs (TDEE) are higher because they
-          include daily activity (NEAT), training, and movement (step count)
-          throughout the day.
+          include your lifestyle tier (Base = BMR × Lifestyle Multiplier), plus
+          steps, training, and cardio tracked separately throughout the day.
         </p>
       </div>
 
