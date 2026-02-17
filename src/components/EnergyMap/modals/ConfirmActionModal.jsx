@@ -33,7 +33,9 @@ export const ConfirmActionModal = ({
     >
       <div className="space-y-4">
         <div className="space-y-2">
-          <h3 className="text-foreground font-bold text-xl text-center">{title}</h3>
+          <h3 className="text-foreground font-bold text-xl text-center">
+            {title}
+          </h3>
           {description ? (
             <p className="text-muted text-sm text-center leading-relaxed">
               {description}

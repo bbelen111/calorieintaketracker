@@ -18,6 +18,7 @@ const HISTORY_FIELDS = [
   'nutritionData',
   'phases',
   'cardioSessions',
+  'dailyActivityData',
 ];
 
 const hasLocalStorage = () =>
@@ -147,6 +148,9 @@ export const getDefaultEnergyMapData = () => ({
   pinnedFoods: [],
   cachedFoods: [], // Foods fetched from online APIs (FatSecret, etc.)
   // nutritionData structure: { 'YYYY-MM-DD': { mealType: [{ id, name, calories, protein, carbs, fats, timestamp }] } }
+  // dailyActivityData structure: { 'YYYY-MM-DD': { activityTier: 'sedentary' | 'standing' | 'physical', isTrainingDay: boolean } }
+  dailyActivityData: {},
+  defaultActivityTier: 'standing', // Default activity tier for days without specific data
   trainingTypeOverrides: {
     bodybuilding: {
       label: 'Bodybuilding',

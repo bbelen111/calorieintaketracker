@@ -1,6 +1,6 @@
 /**
  * Status Bar Plugin - Control system status bar icon color (top bar)
- * 
+ *
  * @deprecated Use applyNativeTheme() from utils/theme.js instead for centralized theme management.
  * This file is kept for backward compatibility.
  */
@@ -20,7 +20,7 @@ export const setLightStatusBar = async (light = true) => {
     // light=true means light icons (for dark background) -> Style.Dark
     // light=false means dark icons (for light background) -> Style.Light
     const style = light ? Style.Dark : Style.Light;
-    
+
     await StatusBar.setOverlaysWebView({ overlay: false });
     await StatusBar.setBackgroundColor({ color: '#0f172a' }); // slate-900
     await StatusBar.setStyle({ style });

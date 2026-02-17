@@ -1,4 +1,7 @@
-import { DEFAULT_ACTIVITY_MULTIPLIERS } from '../constants/activityPresets';
+import {
+  DEFAULT_ACTIVITY_MULTIPLIERS,
+  getActivityTierMultiplier,
+} from '../constants/activityPresets';
 import { getStepDetails } from './steps';
 
 const HEART_RATE_COEFFICIENTS = {
@@ -174,6 +177,7 @@ export const calculateCalorieBreakdown = ({
   bmr,
   cardioTypes,
   trainingTypes,
+  activityTier, // New parameter: 'sedentary' | 'standing' | 'physical'
 }) => {
   const stepDetails = getStepDetails(steps, userData);
   const bmrDetails = resolveBmrDetails(userData);
@@ -188,11 +192,21 @@ export const calculateCalorieBreakdown = ({
   const cardioSessions = Array.isArray(userData?.cardioSessions)
     ? userData.cardioSessions
     : [];
-  const multipliers =
-    userData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS;
-  const activityMultiplier = isTrainingDay
-    ? (multipliers.training ?? DEFAULT_ACTIVITY_MULTIPLIERS.training)
-    : (multipliers.rest ?? DEFAULT_ACTIVITY_MULTIPLIERS.rest);
+
+  // Determine activity multiplier
+  let activityMultiplier;
+  if (activityTier) {
+    // Use new activity tier system
+    activityMultiplier = getActivityTierMultiplier(activityTier);
+  } else {
+    // Fall back to legacy training/rest day system for backward compatibility
+    const multipliers =
+      userData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS;
+    activityMultiplier = isTrainingDay
+      ? (multipliers.training ?? DEFAULT_ACTIVITY_MULTIPLIERS.training)
+      : (multipliers.rest ?? DEFAULT_ACTIVITY_MULTIPLIERS.rest);
+  }
+
   const baseActivity = Math.round(bmr * activityMultiplier);
   const trainingBurn = Math.round(
     isTrainingDay ? getTrainingCalories(userData, trainingTypes) : 0
@@ -264,6 +278,7 @@ export const calculateCalorieBreakdown = ({
     bmr,
     baseActivity,
     activityMultiplier,
+    activityTier, // Include the tier in the response
     stepCalories: stepDetails.calories,
     stepDetails,
     estimatedSteps: stepDetails.estimatedSteps,

@@ -734,7 +734,9 @@ export const StepTrackerModal = ({
               <ChevronLeft size={24} />
             </button>
             <div className="flex items-center gap-2">
-              <h3 className="text-foreground font-bold text-xl">Step Tracker</h3>
+              <h3 className="text-foreground font-bold text-xl">
+                Step Tracker
+              </h3>
             </div>
           </div>
         </div>
@@ -1119,9 +1121,7 @@ export const StepTrackerModal = ({
                             size={48}
                             className="text-muted mx-auto mb-3"
                           />
-                          <p className="text-muted text-lg">
-                            No step data yet
-                          </p>
+                          <p className="text-muted text-lg">No step data yet</p>
                           <p className="text-muted text-sm mt-1">
                             Connect Health Connect to start tracking
                           </p>
@@ -1219,7 +1219,9 @@ export const StepTrackerModal = ({
                                   : 'bg-transparent border-border text-foreground'
                               } ${selectedDate === date ? 'ring-2 ring-blue-400' : ''}`}
                             >
-                              <span className={`w-full text-center ${isSunday && !isLatest && selectedDate !== date ? 'text-accent-red' : ''}`}>
+                              <span
+                                className={`w-full text-center ${isSunday && !isLatest && selectedDate !== date ? 'text-accent-red' : ''}`}
+                              >
                                 {label}
                               </span>
                             </button>
@@ -1265,9 +1267,7 @@ export const StepTrackerModal = ({
             {weight && height && (
               <div className="mt-2 pt-2 border-t border-border flex justify-between text-sm">
                 <div>
-                  <p className="text-muted text-[10px] uppercase">
-                    Distance
-                  </p>
+                  <p className="text-muted text-[10px] uppercase">Distance</p>
                   <p className="text-foreground font-semibold">
                     {getStepCaloriesDetails(entriesMap[selectedDate].steps, {
                       weight,
@@ -1278,9 +1278,7 @@ export const StepTrackerModal = ({
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-muted text-[10px] uppercase">
-                    Calories
-                  </p>
+                  <p className="text-muted text-[10px] uppercase">Calories</p>
                   <p className="text-foreground font-semibold">
                     {Math.round(
                       getStepCaloriesDetails(entriesMap[selectedDate].steps, {

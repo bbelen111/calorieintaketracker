@@ -808,6 +808,46 @@ export const useEnergyMapStore = create(
         cachedFoods: newCachedFoods,
       }));
     },
+
+    setDailyActivityData: (date, activityTier, isTrainingDay) => {
+      if (!date) return;
+
+      updateUserData(set, get, (prev) => ({
+        ...prev,
+        dailyActivityData: {
+          ...prev.dailyActivityData,
+          [date]: {
+            activityTier:
+              activityTier || prev.defaultActivityTier || 'standing',
+            isTrainingDay: isTrainingDay ?? false,
+          },
+        },
+      }));
+    },
+
+    getDailyActivityData: (date) => {
+      const { userData } = get();
+      if (!date || !userData.dailyActivityData) {
+        return {
+          activityTier: userData.defaultActivityTier || 'standing',
+          isTrainingDay: false,
+        };
+      }
+
+      return (
+        userData.dailyActivityData[date] ?? {
+          activityTier: userData.defaultActivityTier || 'standing',
+          isTrainingDay: false,
+        }
+      );
+    },
+
+    setDefaultActivityTier: (tier) => {
+      updateUserData(set, get, (prev) => ({
+        ...prev,
+        defaultActivityTier: tier || 'standing',
+      }));
+    },
   }))
 );
 

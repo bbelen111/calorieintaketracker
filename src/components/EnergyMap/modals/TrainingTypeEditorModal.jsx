@@ -50,9 +50,7 @@ export const TrainingTypeEditorModal = ({
 
       <div className="space-y-4">
         <div>
-          <label className="text-muted text-sm block mb-2">
-            Training Name
-          </label>
+          <label className="text-muted text-sm block mb-2">Training Name</label>
           <input
             type="text"
             value={safeName}
@@ -63,9 +61,7 @@ export const TrainingTypeEditorModal = ({
         </div>
 
         <div>
-          <label className="text-muted text-sm block mb-2">
-            Description
-          </label>
+          <label className="text-muted text-sm block mb-2">Description</label>
           <input
             type="text"
             value={safeDescription}

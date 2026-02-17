@@ -58,9 +58,7 @@ export const WeightEntryModal = ({
 
       <div className="space-y-5">
         <div>
-          <label className="text-muted text-sm block mb-2">
-            Entry Date
-          </label>
+          <label className="text-muted text-sm block mb-2">Entry Date</label>
           <div className="relative">
             <input
               type="date"

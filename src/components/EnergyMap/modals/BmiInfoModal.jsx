@@ -47,10 +47,12 @@ export const BmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
 
       <div className="space-y-4 text-muted">
         <p>
-          <span className="font-bold text-foreground">BMI (Body Mass Index)</span> is
-          a simple measure that uses your height and weight to estimate whether
-          you&apos;re at a healthy weight. It&apos;s calculated by dividing your
-          weight in kilograms by your height in meters squared.
+          <span className="font-bold text-foreground">
+            BMI (Body Mass Index)
+          </span>{' '}
+          is a simple measure that uses your height and weight to estimate
+          whether you&apos;re at a healthy weight. It&apos;s calculated by
+          dividing your weight in kilograms by your height in meters squared.
         </p>
 
         <div className="bg-surface-highlight/50 rounded-lg p-4">

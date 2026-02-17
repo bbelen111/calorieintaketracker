@@ -41,9 +41,7 @@ export const CaloriesPerHourGuideModal = ({ isOpen, isClosing, onClose }) => (
             <span className="text-foreground font-semibold">~320-420 kcal</span>
           </div>
           <div className="flex justify-between text-xs md:text-sm">
-            <span className="text-muted">
-              Olympic lifting + accessory work
-            </span>
+            <span className="text-muted">Olympic lifting + accessory work</span>
             <span className="text-foreground font-semibold">~260-360 kcal</span>
           </div>
         </div>
@@ -52,16 +50,16 @@ export const CaloriesPerHourGuideModal = ({ isOpen, isClosing, onClose }) => (
       <div className="bg-accent-blue/15 border border-accent-blue/50 rounded-lg p-4 space-y-2 text-xs md:text-sm">
         <p className="text-accent-blue font-semibold">Fine Tune It</p>
         <p>
-          <span className="text-foreground font-semibold">Body weight:</span> scale
-          the range by your weight ÷ 75 kg.
+          <span className="text-foreground font-semibold">Body weight:</span>{' '}
+          scale the range by your weight ÷ 75 kg.
         </p>
         <p>
-          <span className="text-foreground font-semibold">Pace:</span> work:rest 1:1
-          or faster? nudge the number up 10-20%.
+          <span className="text-foreground font-semibold">Pace:</span> work:rest
+          1:1 or faster? nudge the number up 10-20%.
         </p>
         <p>
-          <span className="text-foreground font-semibold">RPE guide:</span> RPE 5
-          feels easy → lower bound; RPE 8-9 → upper bound.
+          <span className="text-foreground font-semibold">RPE guide:</span> RPE
+          5 feels easy → lower bound; RPE 8-9 → upper bound.
         </p>
       </div>
 

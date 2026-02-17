@@ -33,9 +33,7 @@ export const StepRangesModal = ({
 
       <div className="space-y-4">
         <div>
-          <label className="text-muted text-sm block mb-2">
-            Add New Range
-          </label>
+          <label className="text-muted text-sm block mb-2">Add New Range</label>
           <div className="flex gap-2 mb-3">
             <input
               type="text"

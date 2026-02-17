@@ -1,8 +1,37 @@
+// Legacy default multipliers - kept for backward compatibility
 export const DEFAULT_ACTIVITY_MULTIPLIERS = {
   training: 0.35,
   rest: 0.28,
 };
 
+// New three-tier activity system
+export const ACTIVITY_TIERS = {
+  sedentary: {
+    key: 'sedentary',
+    label: 'Sedentary',
+    description:
+      'Mostly sitting or lying down throughout the day (desk job, minimal movement)',
+    multiplier: 0.2,
+  },
+  standing: {
+    key: 'standing',
+    label: 'Lightly Active',
+    description:
+      'Light activity with some standing and walking (retail, teaching, light housework)',
+    multiplier: 0.3,
+  },
+  physical: {
+    key: 'physical',
+    label: 'Very Active',
+    description:
+      'Physically demanding work or lifestyle (construction, manual labor, very active job)',
+    multiplier: 0.4,
+  },
+};
+
+export const DEFAULT_ACTIVITY_TIER = 'standing';
+
+// Legacy preset options - kept for backward compatibility during migration
 export const ACTIVITY_PRESET_OPTIONS = {
   rest: [
     {
@@ -60,4 +89,13 @@ export const getActivityPresetByKey = (dayType, key) => {
     ACTIVITY_PRESET_OPTIONS[dayType]?.find((option) => option.key === key) ??
     null
   );
+};
+
+export const getActivityTierByKey = (key) => {
+  return ACTIVITY_TIERS[key] ?? ACTIVITY_TIERS[DEFAULT_ACTIVITY_TIER];
+};
+
+export const getActivityTierMultiplier = (key) => {
+  const tier = getActivityTierByKey(key);
+  return tier.multiplier;
 };

@@ -81,9 +81,7 @@ export const PhaseCreationModal = ({
           <div>
             <label className="block text-foreground text-sm font-semibold mb-2">
               End Date{' '}
-              <span className="text-muted text-xs font-normal">
-                (optional)
-              </span>
+              <span className="text-muted text-xs font-normal">(optional)</span>
             </label>
             <input
               type="date"
@@ -126,9 +124,7 @@ export const PhaseCreationModal = ({
         <div>
           <label className="block text-foreground text-sm font-semibold mb-2">
             Target Weight (kg){' '}
-            <span className="text-muted text-xs font-normal">
-              (optional)
-            </span>
+            <span className="text-muted text-xs font-normal">(optional)</span>
           </label>
           <input
             type="number"
