@@ -7,6 +7,7 @@ import {
   calculateCalorieBreakdown,
   calculateCardioCalories,
   calculateGoalCalories,
+  getDailyExpenditure,
   getTotalCardioBurn,
   getTrainingCalories,
 } from '../utils/calculations';
@@ -91,6 +92,11 @@ const deriveState = (userData) => {
     phases: userData.phases ?? [],
     activePhaseId: userData.activePhaseId,
     theme: userData.theme ?? 'dark',
+    // New per-day activity fields
+    lifestyleTier: userData.lifestyleTier ?? 'sedentary',
+    dayTemplates: userData.dayTemplates ?? [],
+    dailyActivity: userData.dailyActivity ?? {},
+    lastTemplateId: userData.lastTemplateId ?? 1,
   };
 };
 
@@ -807,6 +813,162 @@ export const useEnergyMapStore = create(
         ...prev,
         cachedFoods: newCachedFoods,
       }));
+    },
+
+    // Lifestyle Tier
+    setLifestyleTier: (tier) => {
+      updateUserData(set, get, (prev) => ({
+        ...prev,
+        lifestyleTier: tier,
+      }));
+    },
+
+    // Day Templates (max 4)
+    saveTemplate: (template) => {
+      updateUserData(set, get, (prev) => {
+        const templates = prev.dayTemplates ?? [];
+        const existingIndex = templates.findIndex((t) => t.id === template.id);
+        
+        let nextTemplates;
+        if (existingIndex >= 0) {
+          // Update existing template
+          nextTemplates = templates.map((t, idx) =>
+            idx === existingIndex ? template : t
+          );
+        } else {
+          // Add new template (enforce max 4)
+          if (templates.length >= 4) {
+            console.warn('Maximum 4 templates allowed');
+            return prev;
+          }
+          nextTemplates = [...templates, template];
+        }
+        
+        return {
+          ...prev,
+          dayTemplates: nextTemplates,
+        };
+      });
+    },
+
+    deleteTemplate: (templateId) => {
+      updateUserData(set, get, (prev) => ({
+        ...prev,
+        dayTemplates: (prev.dayTemplates ?? []).filter(
+          (t) => t.id !== templateId
+        ),
+      }));
+    },
+
+    // Daily Activity CRUD
+    applyTemplate: (date, templateId) => {
+      updateUserData(set, get, (prev) => {
+        const template = (prev.dayTemplates ?? []).find(
+          (t) => t.id === templateId
+        );
+        if (!template) {
+          console.warn(`Template ${templateId} not found`);
+          return prev;
+        }
+
+        return {
+          ...prev,
+          dailyActivity: {
+            ...prev.dailyActivity,
+            [date]: {
+              trainingEnabled: template.trainingEnabled,
+              trainingEffortType: template.trainingEffortType,
+              trainingIntensity: template.trainingIntensity,
+              trainingAverageHeartRate: template.trainingAverageHeartRate,
+              cardioSessions: template.cardioSessions || [],
+            },
+          },
+          lastTemplateId: templateId,
+        };
+      });
+    },
+
+    setDailyTraining: (date, trainingData) => {
+      updateUserData(set, get, (prev) => {
+        const dayActivity = prev.dailyActivity?.[date] || {};
+        return {
+          ...prev,
+          dailyActivity: {
+            ...prev.dailyActivity,
+            [date]: {
+              ...dayActivity,
+              ...trainingData,
+            },
+          },
+        };
+      });
+    },
+
+    addDailyCardio: (date, cardioSession) => {
+      updateUserData(set, get, (prev) => {
+        const dayActivity = prev.dailyActivity?.[date] || {};
+        const sessions = dayActivity.cardioSessions || [];
+        return {
+          ...prev,
+          dailyActivity: {
+            ...prev.dailyActivity,
+            [date]: {
+              ...dayActivity,
+              cardioSessions: [...sessions, cardioSession],
+            },
+          },
+        };
+      });
+    },
+
+    updateDailyCardio: (date, sessionId, updates) => {
+      updateUserData(set, get, (prev) => {
+        const dayActivity = prev.dailyActivity?.[date] || {};
+        const sessions = dayActivity.cardioSessions || [];
+        return {
+          ...prev,
+          dailyActivity: {
+            ...prev.dailyActivity,
+            [date]: {
+              ...dayActivity,
+              cardioSessions: sessions.map((s) =>
+                s.id === sessionId ? { ...s, ...updates } : s
+              ),
+            },
+          },
+        };
+      });
+    },
+
+    removeDailyCardio: (date, sessionId) => {
+      updateUserData(set, get, (prev) => {
+        const dayActivity = prev.dailyActivity?.[date] || {};
+        const sessions = dayActivity.cardioSessions || [];
+        return {
+          ...prev,
+          dailyActivity: {
+            ...prev.dailyActivity,
+            [date]: {
+              ...dayActivity,
+              cardioSessions: sessions.filter((s) => s.id !== sessionId),
+            },
+          },
+        };
+      });
+    },
+
+    // Daily expenditure calculator
+    getDailyExpenditure: (date) => {
+      const state = get();
+      return getDailyExpenditure(date, {
+        userData: state.userData,
+        dailyActivity: state.dailyActivity,
+        stepEntries: state.stepEntries,
+        lifestyleTier: state.lifestyleTier,
+        bmr: state.bmr,
+        trainingTypes: state.trainingTypes,
+        cardioTypes: state.cardioTypes,
+      });
     },
   }))
 );
