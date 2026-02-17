@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, ChevronDown } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import { goals as baseGoals } from '../../../constants/goals';
+import { ACTIVITY_TIERS } from '../../../constants/activityPresets';
 
 export const CalorieBreakdownModal = ({
   isOpen,
@@ -135,6 +136,13 @@ export const CalorieBreakdownModal = ({
             <p className="text-muted text-xs">
               Non-exercise daily movements (walking, standing, fidgeting).
             </p>
+            {breakdown.activityTier &&
+              ACTIVITY_TIERS[breakdown.activityTier] && (
+                <p className="text-muted text-xs mt-2">
+                  <strong>Activity Level:</strong>{' '}
+                  {ACTIVITY_TIERS[breakdown.activityTier].label}
+                </p>
+              )}
             <p className="text-muted text-xs mt-2">
               <strong>Calculation:</strong>
               <br />
