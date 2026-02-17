@@ -13,6 +13,7 @@ import {
 import {
   DEFAULT_ACTIVITY_MULTIPLIERS,
   getActivityPresetByKey,
+  ACTIVITY_TIERS,
 } from '../../../constants/activityPresets';
 import { ModalShell } from '../common/ModalShell';
 import { formatDurationLabel, roundDurationHours } from '../../../utils/time';
@@ -39,6 +40,7 @@ export const SettingsModal = ({
   onTrainingTypeClick,
   onTrainingDurationClick,
   onDailyActivityClick,
+  onDefaultActivityTierClick,
   onAgePickerClick,
   onHeightPickerClick,
   onManageWeightClick,
@@ -321,6 +323,13 @@ export const SettingsModal = ({
               onDailyActivityClick={onDailyActivityClick}
             />
 
+            {onDefaultActivityTierClick && (
+              <DefaultActivityTierSection
+                userData={resolvedUserData}
+                onDefaultActivityTierClick={onDefaultActivityTierClick}
+              />
+            )}
+
             <div>
               <label className="text-foreground/80 text-sm block mb-2">
                 Training Type
@@ -490,6 +499,48 @@ const DailyActivitySection = ({ userData, bmr, onDailyActivityClick }) => {
           )}
         </div>
       )}
+    </div>
+  );
+};
+
+const DefaultActivityTierSection = ({
+  userData,
+  onDefaultActivityTierClick,
+}) => {
+  const defaultTier = userData.defaultActivityTier || 'standing';
+  const tierInfo = ACTIVITY_TIERS[defaultTier];
+
+  if (!tierInfo) {
+    return null;
+  }
+
+  return (
+    <div>
+      <label className="text-foreground/80 text-sm block mb-2">
+        Default Activity Level
+      </label>
+      <button
+        onClick={onDefaultActivityTierClick}
+        type="button"
+        className="relative w-full text-left p-3 md:p-4 rounded-lg border-2 bg-emerald-600 border-emerald-400 text-white transition-all press-feedback focus-ring md:hover:bg-emerald-500/90"
+      >
+        <div className="min-w-0 pr-24 md:pr-28">
+          <div className="font-semibold text-base">{tierInfo.label}</div>
+          <div className="text-xs md:text-sm opacity-90 mt-0.5">
+            {tierInfo.description}
+          </div>
+          <div className="text-xs mt-2 opacity-75">
+            Multiplier: {Math.round(tierInfo.multiplier * 100)}% of BMR
+          </div>
+        </div>
+        <span className="pointer-events-none absolute top-3 right-3 md:top-4 md:right-4 text-[11px] opacity-75 whitespace-nowrap">
+          Tap to change
+        </span>
+      </button>
+      <p className="mt-2 text-xs text-foreground/80">
+        This is your baseline activity level used for daily calorie
+        calculations. You can override this for specific days.
+      </p>
     </div>
   );
 };
