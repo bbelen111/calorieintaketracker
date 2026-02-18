@@ -58,7 +58,7 @@ export const DailyActivityCustomModal = ({
           step="0.5"
           value={value}
           onChange={handleInputChange}
-          className="w-full bg-surface text-foreground px-4 py-3 rounded-lg border border-border focus:border-blue-400 focus:outline-none text-lg"
+          className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border focus:border-blue-400 focus:outline-none text-lg"
         />
         <p className="text-muted text-xs">
           Recommended range: 20% - 45% for most lifestyles. Values are capped

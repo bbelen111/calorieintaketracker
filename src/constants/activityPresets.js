@@ -1,6 +1,6 @@
 export const DEFAULT_ACTIVITY_MULTIPLIERS = {
-  training: 0.35,
-  rest: 0.28,
+  training: 0.22,
+  rest: 0.22,
 };
 
 export const ACTIVITY_PRESET_OPTIONS = {
@@ -9,7 +9,7 @@ export const ACTIVITY_PRESET_OPTIONS = {
       key: 'default',
       label: 'Moderately Active',
       description:
-        'Regular light movement—walking around, chores, errands, occasional standing tasks.',
+        'Regular light chores, errands, occasional standing tasks.',
       value: DEFAULT_ACTIVITY_MULTIPLIERS.rest,
     },
     {
@@ -17,7 +17,7 @@ export const ACTIVITY_PRESET_OPTIONS = {
       label: 'Sedentary',
       description:
         'Desk-bound most of the day with minimal incidental movement.',
-      value: 0.22,
+      value: 0.14,
     },
     {
       key: 'active',
@@ -39,14 +39,14 @@ export const ACTIVITY_PRESET_OPTIONS = {
       label: 'Sedentary',
       description:
         'Train, then mostly sit—minimal incidental movement beyond the workout.',
-      value: 0.3,
+      value: 0.14,
     },
     {
       key: 'intense',
       label: 'Highly Active',
       description:
         'Training plus a demanding schedule—standing work, manual tasks, or active commuting.',
-      value: 0.4,
+      value: 0.32,
     },
   ],
 };
