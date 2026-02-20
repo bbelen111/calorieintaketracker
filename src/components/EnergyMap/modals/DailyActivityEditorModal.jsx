@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, PenLine } from 'lucide-react';
+import { PenLine, Armchair, Users, Hammer, Settings } from 'lucide-react';
 import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../common/ModalShell';
 import {
@@ -23,6 +23,20 @@ const formatMultiplier = (value) => {
   return Number.isInteger(rounded)
     ? `${rounded.toFixed(0)}%`
     : `${rounded.toFixed(1)}%`;
+};
+
+const getActivityIcon = (key) => {
+  switch (key) {
+    case 'light':
+      return <Armchair size={28} className="flex-shrink-0" />;
+    case 'default':
+      return <Users size={28} className="flex-shrink-0" />;
+    case 'active':
+    case 'intense':
+      return <Hammer size={28} className="flex-shrink-0" />;
+    default:
+      return null;
+  }
 };
 
 export const DailyActivityEditorModal = ({
@@ -75,12 +89,17 @@ export const DailyActivityEditorModal = ({
               key={option.key}
               type="button"
               onClick={() => onSelectPreset(dayType, option.key, option.value)}
-              className={`w-full p-4 rounded-xl border-2 transition-all text-left flex items-start gap-3 active:scale-[0.98] focus-ring ${
+              className={`w-full p-4 rounded-xl border-2 transition-all text-left flex items-start gap-4 active:scale-[0.98] focus-ring ${
                 isActive
                   ? 'bg-blue-600 border-blue-400 text-white shadow-lg'
-                  : 'bg-surface border-border text-foreground md:hover:border-blue-400'
+                  : 'bg-surface-highlight border-border text-foreground md:hover:border-blue-400'
               }`}
             >
+              <div
+                className={`flex items-center justify-center w-12 h-12 rounded-full bg-white/15 flex-shrink-0 ${isActive ? 'text-white' : 'text-foreground/80'}`}
+              >
+                {getActivityIcon(option.key)}
+              </div>
               <div className="flex-1">
                 <p className="font-semibold text-lg">{option.label}</p>
                 <p className="text-sm opacity-90 mt-1">{option.description}</p>
@@ -88,11 +107,6 @@ export const DailyActivityEditorModal = ({
                   NEAT offset: {formatMultiplier(option.value)}
                 </p>
               </div>
-              {isActive && (
-                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-white/20">
-                  <Check size={18} />
-                </span>
-              )}
             </button>
           );
         })}
@@ -100,12 +114,17 @@ export const DailyActivityEditorModal = ({
         <button
           type="button"
           onClick={() => onSelectCustom(dayType, customSelected)}
-          className={`w-full p-4 rounded-xl border-2 transition-all text-left flex items-start gap-3 active:scale-[0.98] ${
+          className={`w-full p-4 rounded-xl border-2 transition-all text-left flex items-start gap-4 active:scale-[0.98] ${
             customSelected
-              ? 'bg-blue-600 border-blue-400 text-white shadow-lg'
-              : 'bg-surface border-border text-foreground'
+              ? 'bg-blue-600 border-blue-400 text-white shadow-lg focus-ring'
+              : 'bg-surface-highlight border-border text-foreground md:hover:border-blue-400 focus-ring'
           }`}
         >
+          <div
+            className={`flex items-center justify-center w-12 h-12 rounded-full bg-white/15 flex-shrink-0 ${customSelected ? 'text-white' : 'text-foreground/80'}`}
+          >
+            <Settings size={28} className="flex-shrink-0" />
+          </div>
           <div className="flex-1">
             <p className="font-semibold text-lg">Custom</p>
             <p className="text-sm opacity-90 mt-1">
@@ -122,11 +141,6 @@ export const DailyActivityEditorModal = ({
               </p>
             )}
           </div>
-          {customSelected && (
-            <span className="flex items-center justify-center w-8 h-8 rounded-full bg-white/20">
-              <Check size={18} />
-            </span>
-          )}
         </button>
       </div>
 

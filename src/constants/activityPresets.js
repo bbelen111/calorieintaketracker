@@ -6,18 +6,18 @@ export const DEFAULT_ACTIVITY_MULTIPLIERS = {
 export const ACTIVITY_PRESET_OPTIONS = {
   rest: [
     {
-      key: 'default',
-      label: 'Moderately Active',
-      description:
-        'Regular light chores, errands, occasional standing tasks.',
-      value: DEFAULT_ACTIVITY_MULTIPLIERS.rest,
-    },
-    {
       key: 'light',
       label: 'Sedentary',
       description:
         'Desk-bound most of the day with minimal incidental movement.',
       value: 0.14,
+    },
+    {
+      key: 'default',
+      label: 'Moderately Active',
+      description:
+        'Regular light chores, errands, occasional standing tasks.',
+      value: DEFAULT_ACTIVITY_MULTIPLIERS.rest,
     },
     {
       key: 'active',
@@ -29,17 +29,17 @@ export const ACTIVITY_PRESET_OPTIONS = {
   ],
   training: [
     {
-      key: 'default',
-      label: 'Moderately Active',
-      description: 'Training plus regular light movement throughout the day.',
-      value: DEFAULT_ACTIVITY_MULTIPLIERS.training,
-    },
-    {
       key: 'light',
       label: 'Sedentary',
       description:
         'Train, then mostly sit—minimal incidental movement beyond the workout.',
       value: 0.14,
+    },
+    {
+      key: 'default',
+      label: 'Moderately Active',
+      description: 'Training plus regular light movement throughout the day.',
+      value: DEFAULT_ACTIVITY_MULTIPLIERS.training,
     },
     {
       key: 'intense',

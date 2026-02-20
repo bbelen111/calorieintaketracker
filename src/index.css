@@ -22,16 +22,16 @@
 
   /* Accent Colors - Dark */
   --accent-blue: 59 130 246;    /* Blue 500 */
-  --accent-green: 74 222 128;   /* Green 400 */
-  --accent-lime: 163 230 53;    /* Lime 400 */
-  --accent-emerald: 52 211 153; /* Emerald 400 */
-  --accent-yellow: 250 204 21;  /* Yellow 400 */
-  --accent-amber: 251 191 36;   /* Amber 400 */
-  --accent-orange: 251 146 60;  /* Orange 400 */
-  --accent-red: 248 113 113;    /* Red 400 */
-  --accent-purple: 168 85 247; /* Purple 500 */
-  --accent-slate: 148 163 184;  /* Slate 400 */
-  --accent-indigo: 129 140 248; /* Indigo 400 */
+  --accent-green: 34 197 94;    /* Green 500 */
+  --accent-lime: 132 204 22;    /* Lime 500 */
+  --accent-emerald: 16 185 129; /* Emerald 500 */
+  --accent-yellow: 234 179 8;   /* Yellow 500 */
+  --accent-amber: 245 158 11;   /* Amber 500 */
+  --accent-orange: 249 115 22;  /* Orange 500 */
+  --accent-red: 239 68 68;      /* Red 500 */
+  --accent-purple: 168 85 247;  /* Purple 500 */
+  --accent-slate: 100 116 139;  /* Slate 500 */
+  --accent-indigo: 99 102 241;  /* Indigo 500 */
 }
 
 /* Light Theme */
@@ -73,17 +73,18 @@
   --action-border: 255 255 255; /* White */
 
   /* Accent Colors - AMOLED Dark */
-  --accent-blue: 96 165 250;    /* Blue 400 */
-  --accent-green: 74 222 128;   /* Green 400 */
-  --accent-lime: 163 230 53;    /* Lime 400 */
-  --accent-emerald: 52 211 153; /* Emerald 400 */
-  --accent-yellow: 250 204 21;  /* Yellow 400 */
-  --accent-amber: 251 191 36;   /* Amber 400 */
-  --accent-orange: 251 146 60;  /* Orange 400 */
-  --accent-red: 248 113 113;    /* Red 400 */
-  --accent-purple: 192 132 252; /* Purple 400 */
-  --accent-slate: 163 163 163;  /* Neutral 400 */
-  --accent-indigo: 129 140 248; /* Indigo 400 */
+  --accent-blue: 59 130 246;    /* Blue 500 */
+  --accent-blue: 59 130 246;     /* Blue 500 */
+  --accent-green: 34 197 94;     /* Green 500 */
+  --accent-lime: 132 204 22;     /* Lime 500 */
+  --accent-emerald: 16 185 129;  /* Emerald 500 */
+  --accent-yellow: 234 179 8;    /* Yellow 500 */
+  --accent-amber: 245 158 11;    /* Amber 500 */
+  --accent-orange: 249 115 22;   /* Orange 500 */
+  --accent-red: 239 68 68;       /* Red 500 */
+  --accent-purple: 168 85 247;   /* Purple 500 */
+  --accent-slate: 100 116 139;   /* Slate 500 */
+  --accent-indigo: 99 102 241;   /* Indigo 500 */
 }
 
 /* Status bar vignette - gradient overlay at top of screen */

@@ -1407,47 +1407,53 @@ export const EnergyMapCalculator = () => {
     dailyActivityCustomModal.requestClose();
   }, [dailyActivityCustomModal]);
 
-  const handleCustomActivitySave = useCallback(() => {
-    if (!activityEditorDay) {
+  const handleCustomActivitySave = useCallback(
+    (percentValue) => {
+      if (!activityEditorDay) {
+        dailyActivityCustomModal.requestClose();
+        return;
+      }
+
+      const numericPercent = Number(percentValue ?? customActivityPercent);
+      if (!Number.isFinite(numericPercent)) {
+        return;
+      }
+
+      const clampedPercent = Math.min(Math.max(numericPercent, 0), 100);
+      const multiplier = Math.round((clampedPercent / 100) * 1000) / 1000;
+
+      const nextCustoms = {
+        ...(userData.customActivityMultipliers ?? {
+          training: DEFAULT_ACTIVITY_MULTIPLIERS.training,
+          rest: DEFAULT_ACTIVITY_MULTIPLIERS.rest,
+        }),
+        [activityEditorDay]: multiplier,
+      };
+
+      handleUserDataChange('customActivityMultipliers', nextCustoms);
+      handleUserDataChange('activityPresets', {
+        ...(userData.activityPresets ?? {
+          training: 'default',
+          rest: 'default',
+        }),
+        [activityEditorDay]: 'custom',
+      });
+      handleUserDataChange('activityMultipliers', {
+        ...(userData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS),
+        [activityEditorDay]: multiplier,
+      });
+
+      setCustomActivityPercent(Math.round(clampedPercent * 10) / 10);
       dailyActivityCustomModal.requestClose();
-      return;
-    }
-
-    const numericPercent = Number(customActivityPercent);
-    if (!Number.isFinite(numericPercent)) {
-      return;
-    }
-
-    const clampedPercent = Math.min(Math.max(numericPercent, 0), 100);
-    const multiplier = Math.round((clampedPercent / 100) * 1000) / 1000;
-
-    const nextCustoms = {
-      ...(userData.customActivityMultipliers ?? {
-        training: DEFAULT_ACTIVITY_MULTIPLIERS.training,
-        rest: DEFAULT_ACTIVITY_MULTIPLIERS.rest,
-      }),
-      [activityEditorDay]: multiplier,
-    };
-
-    handleUserDataChange('customActivityMultipliers', nextCustoms);
-    handleUserDataChange('activityPresets', {
-      ...(userData.activityPresets ?? { training: 'default', rest: 'default' }),
-      [activityEditorDay]: 'custom',
-    });
-    handleUserDataChange('activityMultipliers', {
-      ...(userData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS),
-      [activityEditorDay]: multiplier,
-    });
-
-    setCustomActivityPercent(Math.round(clampedPercent * 10) / 10);
-    dailyActivityCustomModal.requestClose();
-  }, [
-    activityEditorDay,
-    customActivityPercent,
-    dailyActivityCustomModal,
-    handleUserDataChange,
-    userData,
-  ]);
+    },
+    [
+      activityEditorDay,
+      customActivityPercent,
+      dailyActivityCustomModal,
+      handleUserDataChange,
+      userData,
+    ]
+  );
 
   const openCardioModal = useCallback(() => {
     setEditingCardioId(null);
@@ -2925,7 +2931,6 @@ export const EnergyMapCalculator = () => {
         isClosing={dailyActivityCustomModal.isClosing}
         dayType={activityEditorDay}
         value={customActivityPercent}
-        onChange={setCustomActivityPercent}
         onCancel={handleCustomActivityCancel}
         onSave={handleCustomActivitySave}
       />

@@ -12,12 +12,12 @@ const dayConfig = {
   training: {
     label: 'Training Day',
     icon: Dumbbell,
-    accent: 'bg-accent-purple border-accent-purple',
+    accent: 'bg-purple-700 border-accent-purple',
   },
   rest: {
     label: 'Rest Day',
     icon: BedDouble,
-    accent: 'bg-accent-blue border-accent-blue',
+    accent: 'bg-blue-700 border-accent-blue',
   },
 };
 
