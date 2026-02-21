@@ -135,7 +135,6 @@ const MIN_VISIBLE_WEIGHT_RANGE = 6;
 const MIN_RANGE_PADDING = 0.5;
 const TIMELINE_TRACK_HEIGHT = 56;
 const BASELINE_Y_OFFSET = 18;
-const Y_AXIS_PADDING = 16;
 const LEADING_ENTRY_SPACE = 45;
 const FIRST_ENTRY_CENTER_OFFSET = LEADING_ENTRY_SPACE + DATE_COLUMN_WIDTH / 2;
 const TOOLTIP_WIDTH = 144;
@@ -144,8 +143,6 @@ const POINT_RADIUS = 6;
 const POINT_HIT_RADIUS = 12;
 
 const getBaselineY = (defaultY) => defaultY - BASELINE_Y_OFFSET;
-
-const clampPercent = (value) => Math.max(0, Math.min(100, value));
 
 const getColumnsWidth = (count) => {
   if (count <= 0) {
@@ -230,6 +227,7 @@ export const WeightTrackerModal = ({
   const timeframeDropdownRef = useRef(null);
   const phaseDropdownRef = useRef(null);
   const scrollCloseTimeoutRef = useRef(null);
+  const [scrollLeft, setScrollLeft] = useState(0);
   const [graphViewportWidth, setGraphViewportWidth] = useState(0);
   const [graphViewportHeight, setGraphViewportHeight] = useState(0);
   const prevEntriesLengthRef = useRef(resolvedEntries?.length ?? 0);
@@ -456,7 +454,25 @@ export const WeightTrackerModal = ({
       return null;
     }
 
-    const weights = filteredEntries.map((entry) => entry.weight);
+    let visibleEntries = filteredEntries;
+    if (
+      graphViewportWidth > 0 &&
+      xPositions.length === filteredEntries.length
+    ) {
+      const buffer = DATE_COLUMN_WIDTH * 2;
+      visibleEntries = filteredEntries.filter((_, index) => {
+        const x = xPositions[index];
+        return (
+          x >= scrollLeft - buffer &&
+          x <= scrollLeft + graphViewportWidth + buffer
+        );
+      });
+      if (visibleEntries.length === 0) {
+        visibleEntries = filteredEntries;
+      }
+    }
+
+    const weights = visibleEntries.map((entry) => entry.weight);
     let minWeight = Math.min(...weights);
     let maxWeight = Math.max(...weights);
     let range = maxWeight - minWeight;
@@ -489,7 +505,7 @@ export const WeightTrackerModal = ({
       maxWeight,
       range,
     };
-  }, [filteredEntries]);
+  }, [filteredEntries, scrollLeft, graphViewportWidth, xPositions]);
 
   const chartPoints = useMemo(() => {
     if (!chartData) {
@@ -529,7 +545,7 @@ export const WeightTrackerModal = ({
           graphNode.scrollWidth - graphNode.clientWidth,
           0
         );
-        graphNode.scrollTo({ left: target, behavior: 'smooth' });
+        graphNode.scrollTo({ left: target, behavior: 'instant' });
       }
 
       const timelineNode = timelineScrollRef.current;
@@ -538,7 +554,7 @@ export const WeightTrackerModal = ({
           timelineNode.scrollWidth - timelineNode.clientWidth,
           0
         );
-        timelineNode.scrollTo({ left: target, behavior: 'smooth' });
+        timelineNode.scrollTo({ left: target, behavior: 'instant' });
       }
     };
 
@@ -717,7 +733,7 @@ export const WeightTrackerModal = ({
     const bounded = Math.min(Math.max(normalized, 0), 1);
     const y = (1 - bounded) * chartHeight;
     return {
-      yPx: y + Y_AXIS_PADDING - 4, // adjust for label height
+      yPx: y,
       weight: currentWeightValue,
     };
   }, [chartData, chartHeight, currentWeightValue]);
@@ -745,15 +761,11 @@ export const WeightTrackerModal = ({
       const isTop = index === 0;
       const isBottom = index === totalTicks - 1;
       const lineY = isTop ? 0 : isBottom ? chartHeight : y;
-      const labelPercent = clampPercent(
-        chartHeight === 0 ? 0 : (lineY / chartHeight) * 100
-      );
 
       return {
         weight,
         index,
         lineY,
-        labelPercent,
       };
     });
   }, [chartData, chartHeight, yTicks]);
@@ -944,8 +956,8 @@ export const WeightTrackerModal = ({
       <ModalShell
         isOpen={isOpen}
         isClosing={isClosing}
-        overlayClassName="fixed inset-0 bg-black/70 !p-0 !flex-none !items-stretch !justify-stretch"
-        contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none !max-h-none flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
+        overlayClassName="fixed inset-0 bg-black/70 !p-0 !flex-none !items-stretch !justify-stretch z-[1000]"
+        contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none !max-h-none flex flex-col pt-[calc(env(safe-area-inset-top)+16px)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] z-[1001]"
       >
         {/* Header with back button */}
         <div className="flex items-center justify-between px-4 py-3 bg-background border-b border-border flex-shrink-0">
@@ -1198,6 +1210,7 @@ export const WeightTrackerModal = ({
                   className={`${hasHorizontalOverflow ? 'overflow-x-auto' : 'overflow-x-hidden'} overflow-y-hidden h-full`}
                   onScroll={(e) => {
                     const nextScrollLeft = e.currentTarget.scrollLeft;
+                    setScrollLeft(nextScrollLeft);
                     if (
                       timelineScrollRef.current &&
                       timelineScrollRef.current.scrollLeft !== nextScrollLeft
@@ -1388,20 +1401,19 @@ export const WeightTrackerModal = ({
 
               {/* Y-axis - Fixed on right side */}
               <div className="rounded-r-lg w-14 flex-shrink-0 relative">
-                <div className="absolute inset-0 px-2 py-4">
+                <div
+                  className="absolute inset-x-0 px-2"
+                  style={{ top: '16px', height: `${chartHeight}px` }}
+                >
                   {chartData
-                    ? yTickPositions.map(({ weight, index, labelPercent }) => {
-                        const isTop = index === 0;
-                        const isBottom = index === yTickPositions.length - 1;
-                        const offsetPx = isTop ? 10 : isBottom ? -10 : 15;
-                        const translateY = `translateY(calc(-50% + ${offsetPx}px))`;
+                    ? yTickPositions.map(({ weight, index, lineY }) => {
                         return (
                           <div
                             key={`tick-${index}`}
                             className="absolute right-2 text-sm font-semibold text-foreground/70 tracking-tight text-right"
                             style={{
-                              top: `${labelPercent}%`,
-                              transform: translateY,
+                              top: `${lineY}px`,
+                              transform: 'translateY(-50%)',
                             }}
                           >
                             {formatWeight(weight)}
@@ -1411,7 +1423,7 @@ export const WeightTrackerModal = ({
                     : null}
                   {currentWeightTick && (
                     <div
-                      className="absolute right-0.5 up px-2.5 py-1 rounded-lg text-[12px] font-bold text-white shadow-md"
+                      className="absolute right-0.5 px-2.5 py-1 rounded-lg text-[12px] font-bold text-white shadow-md"
                       style={{
                         top: `${currentWeightTick.yPx}px`,
                         transform: 'translateY(-50%)',
@@ -1436,6 +1448,7 @@ export const WeightTrackerModal = ({
                   className={`${hasHorizontalOverflow ? 'overflow-x-auto' : 'overflow-x-hidden'} overflow-y-hidden`}
                   onScroll={(e) => {
                     const nextScrollLeft = e.currentTarget.scrollLeft;
+                    setScrollLeft(nextScrollLeft);
                     if (
                       graphScrollRef.current &&
                       graphScrollRef.current.scrollLeft !== nextScrollLeft

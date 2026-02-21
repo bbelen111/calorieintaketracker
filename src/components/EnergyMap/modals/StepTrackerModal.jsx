@@ -29,8 +29,6 @@ const BAR_RADIUS = 6;
 const WEEK_BRACKET_HEIGHT = 32;
 const WEEK_BRACKET_TOP_PADDING = 8;
 
-const clampPercent = (value) => Math.max(0, Math.min(100, value));
-
 const getColumnsWidth = (count) => {
   if (count <= 0) {
     return 0;
@@ -96,9 +94,9 @@ const calculateStepTrend = (entries) => {
   const totalSteps = entries.reduce((sum, e) => sum + (e.steps || 0), 0);
   const averageSteps = Math.round(totalSteps / entries.length);
 
-  // Calculate 7-day averages for comparison
-  const lastWeekEntries = entries.slice(-7);
-  const prevWeekEntries = entries.slice(-14, -7);
+  // Calculate 14-day averages for comparison
+  const lastWeekEntries = entries.slice(-14);
+  const prevWeekEntries = entries.slice(-28, -14);
 
   const lastWeekAvg = lastWeekEntries.length
     ? lastWeekEntries.reduce((sum, e) => sum + (e.steps || 0), 0) /
@@ -182,6 +180,7 @@ export const StepTrackerModal = ({
   const timelineScrollRef = useRef(null);
   const tooltipRef = useRef(null);
   const scrollCloseTimeoutRef = useRef(null);
+  const [scrollLeft, setScrollLeft] = useState(0);
   const [graphViewportWidth, setGraphViewportWidth] = useState(0);
   const [graphViewportHeight, setGraphViewportHeight] = useState(0);
 
@@ -321,7 +320,25 @@ export const StepTrackerModal = ({
       return null;
     }
 
-    const steps = filteredEntries.map((entry) => entry.steps || 0);
+    let visibleEntries = filteredEntries;
+    if (
+      graphViewportWidth > 0 &&
+      xPositions.length === filteredEntries.length
+    ) {
+      const buffer = DATE_COLUMN_WIDTH * 2;
+      visibleEntries = filteredEntries.filter((_, index) => {
+        const x = xPositions[index];
+        return (
+          x >= scrollLeft - buffer &&
+          x <= scrollLeft + graphViewportWidth + buffer
+        );
+      });
+      if (visibleEntries.length === 0) {
+        visibleEntries = filteredEntries;
+      }
+    }
+
+    const steps = visibleEntries.map((entry) => entry.steps || 0);
     let minSteps = Math.min(...steps);
     let maxSteps = Math.max(...steps);
     let range = maxSteps - minSteps;
@@ -358,7 +375,7 @@ export const StepTrackerModal = ({
       maxSteps,
       range,
     };
-  }, [filteredEntries]);
+  }, [filteredEntries, scrollLeft, graphViewportWidth, xPositions]);
 
   const chartBars = useMemo(() => {
     if (!chartData) {
@@ -417,7 +434,7 @@ export const StepTrackerModal = ({
 
         if (crossedSunday) {
           // Save current week and start new one
-          if (currentWeek.length > 0) {
+          if (currentWeek.length > 2) {
             const avgSteps = Math.round(
               currentWeek.reduce((sum, b) => sum + b.steps, 0) /
                 currentWeek.length
@@ -440,7 +457,7 @@ export const StepTrackerModal = ({
     });
 
     // Don't forget the last week
-    if (currentWeek.length > 0) {
+    if (currentWeek.length > 2) {
       const avgSteps = Math.round(
         currentWeek.reduce((sum, b) => sum + b.steps, 0) / currentWeek.length
       );
@@ -468,7 +485,7 @@ export const StepTrackerModal = ({
           graphNode.scrollWidth - graphNode.clientWidth,
           0
         );
-        graphNode.scrollTo({ left: target, behavior: 'smooth' });
+        graphNode.scrollTo({ left: target, behavior: 'instant' });
       }
 
       const timelineNode = timelineScrollRef.current;
@@ -477,7 +494,7 @@ export const StepTrackerModal = ({
           timelineNode.scrollWidth - timelineNode.clientWidth,
           0
         );
-        timelineNode.scrollTo({ left: target, behavior: 'smooth' });
+        timelineNode.scrollTo({ left: target, behavior: 'instant' });
       }
     };
 
@@ -572,18 +589,29 @@ export const StepTrackerModal = ({
         : isBottom
           ? chartHeight - Y_AXIS_PADDING
           : y;
-      const labelPercent = clampPercent(
-        chartHeight === 0 ? 0 : (lineY / chartHeight) * 100
-      );
 
       return {
         steps,
         index,
         lineY,
-        labelPercent,
       };
     });
   }, [chartData, chartHeight, yTicks]);
+
+  const currentStepsTick = useMemo(() => {
+    if (!chartData || !Number.isFinite(currentStepsValue)) {
+      return null;
+    }
+    const normalized =
+      chartData.range > 0 ? currentStepsValue / chartData.range : 0;
+    const bounded = Math.min(Math.max(normalized, 0), 1);
+    const y =
+      (1 - bounded) * (chartHeight - Y_AXIS_PADDING * 2) + Y_AXIS_PADDING;
+    return {
+      yPx: y,
+      steps: currentStepsValue,
+    };
+  }, [chartData, chartHeight, currentStepsValue]);
 
   const closeTooltip = useCallback(() => {
     setTooltipClosing(true);
@@ -719,8 +747,8 @@ export const StepTrackerModal = ({
       <ModalShell
         isOpen={isOpen}
         isClosing={isClosing}
-        overlayClassName="fixed inset-0 bg-black/70 !p-0 !flex-none !items-stretch !justify-stretch"
-        contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none !max-h-none flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
+        overlayClassName="fixed inset-0 bg-black/70 !p-0 !flex-none !items-stretch !justify-stretch z-[1000]"
+        contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none !max-h-none flex flex-col pt-[calc(env(safe-area-inset-top)+16px)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] z-[1001]"
       >
         {/* Header with back button */}
         <div className="flex items-center justify-between px-4 py-3 bg-background border-b border-border flex-shrink-0">
@@ -759,10 +787,10 @@ export const StepTrackerModal = ({
                   : 'steps'}
               </p>
             </div>
-            {/* 7-Day Average */}
+            {/* 14-Day Average */}
             <div>
               <p className="text-muted text-xs uppercase tracking-wide mb-1">
-                7-Day Average
+                14-Day Average
               </p>
               <p className="text-foreground text-2xl font-bold">
                 {trend.weeklyAverage > 0
@@ -905,6 +933,7 @@ export const StepTrackerModal = ({
                   className={`${hasHorizontalOverflow ? 'overflow-x-auto' : 'overflow-x-hidden'} overflow-y-hidden h-full`}
                   onScroll={(e) => {
                     const nextScrollLeft = e.currentTarget.scrollLeft;
+                    setScrollLeft(nextScrollLeft);
                     if (
                       timelineScrollRef.current &&
                       timelineScrollRef.current.scrollLeft !== nextScrollLeft
@@ -1136,20 +1165,22 @@ export const StepTrackerModal = ({
 
               {/* Y-axis - Fixed on right side */}
               <div className="rounded-r-lg w-14 flex-shrink-0 relative">
-                <div className="absolute inset-0 px-2 py-4">
+                <div
+                  className="absolute inset-x-0 px-2"
+                  style={{
+                    top: `${WEEK_BRACKET_HEIGHT + WEEK_BRACKET_TOP_PADDING + 16}px`,
+                    height: `${chartHeight}px`,
+                  }}
+                >
                   {chartData
-                    ? yTickPositions.map(({ steps, index, labelPercent }) => {
-                        const isTop = index === 0;
-                        const isBottom = index === yTickPositions.length - 1;
-                        const offsetPx = isTop ? 10 : isBottom ? -10 : 15;
-                        const translateY = `translateY(calc(-50% + ${offsetPx}px))`;
+                    ? yTickPositions.map(({ steps, index, lineY }) => {
                         return (
                           <div
                             key={`tick-${index}`}
                             className="absolute right-2 text-xs font-semibold text-muted tracking-tight text-right"
                             style={{
-                              top: `${labelPercent}%`,
-                              transform: translateY,
+                              top: `${lineY}px`,
+                              transform: 'translateY(-50%)',
                             }}
                           >
                             {formatStepCount(Math.round(steps))}
@@ -1157,6 +1188,26 @@ export const StepTrackerModal = ({
                         );
                       })
                     : null}
+                  {currentStepsTick && (
+                    <div
+                      className="absolute right-0.5 px-2.5 py-1 rounded-lg text-[12px] font-bold text-white shadow-md"
+                      style={{
+                        top: `${currentStepsTick.yPx}px`,
+                        transform: 'translateY(-50%)',
+                        backgroundColor: getBarColor(
+                          currentStepsTick.steps,
+                          resolvedStepGoal
+                        ),
+                        borderColor: getBarColor(
+                          currentStepsTick.steps,
+                          resolvedStepGoal
+                        ),
+                        borderWidth: '1px',
+                      }}
+                    >
+                      {formatStepCount(Math.round(currentStepsTick.steps))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1170,6 +1221,7 @@ export const StepTrackerModal = ({
                   className={`${hasHorizontalOverflow ? 'overflow-x-auto' : 'overflow-x-hidden'} overflow-y-hidden`}
                   onScroll={(e) => {
                     const nextScrollLeft = e.currentTarget.scrollLeft;
+                    setScrollLeft(nextScrollLeft);
                     if (
                       graphScrollRef.current &&
                       graphScrollRef.current.scrollLeft !== nextScrollLeft
