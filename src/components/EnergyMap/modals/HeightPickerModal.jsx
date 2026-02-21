@@ -125,8 +125,8 @@ export const HeightPickerModal = ({
               onClick={() => handleItemClick(height)}
               className={`h-16 flex items-center justify-center text-2xl font-semibold snap-center cursor-pointer transition-all ${
                 selectedHeight === height
-                    ? 'text-foreground scale-110'
-                    : 'text-muted'
+                  ? 'text-foreground scale-110'
+                  : 'text-muted'
               }`}
             >
               {height}

@@ -958,7 +958,9 @@ export const WeightTrackerModal = ({
             >
               <ChevronLeft size={24} />
             </button>
-            <h3 className="text-foreground font-bold text-xl">Weight Tracker</h3>
+            <h3 className="text-foreground font-bold text-xl">
+              Weight Tracker
+            </h3>
           </div>
           {canSwitchToBodyFat && (
             <button
@@ -1485,7 +1487,9 @@ export const WeightTrackerModal = ({
                                   : 'bg-transparent border-border text-foreground'
                               } ${selectedDate === date ? 'ring-2 ring-accent-blue' : ''}`}
                             >
-                              <span className={`w-full text-center ${isSunday && !isLatest && selectedDate !== date ? 'text-accent-red' : ''}`}>
+                              <span
+                                className={`w-full text-center ${isSunday && !isLatest && selectedDate !== date ? 'text-accent-red' : ''}`}
+                              >
                                 {label}
                               </span>
                             </button>

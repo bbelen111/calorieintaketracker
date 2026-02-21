@@ -1,6 +1,6 @@
 /**
  * Navigation Bar Plugin - Control system navigation bar icon color (Android 11+)
- * 
+ *
  * @deprecated Use applyNativeTheme() from utils/theme.js instead for centralized theme management.
  * This file is kept for backward compatibility.
  */

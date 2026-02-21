@@ -114,14 +114,26 @@ export const useHealthConnect = () => {
         ascending: false,
       });
 
-      // Sum up all step samples for today
+      // Group by source to prevent double counting from multiple apps (e.g. Samsung Health + Google Fit)
       let totalSteps = 0;
       if (result?.samples && Array.isArray(result.samples)) {
-        totalSteps = result.samples.reduce((sum, sample) => {
+        const stepsBySource = {};
+
+        result.samples.forEach((sample) => {
           // Health Connect may return steps in 'value' or 'count' field
           const stepValue = Number(sample.value) || Number(sample.count) || 0;
-          return sum + stepValue;
-        }, 0);
+          // Use sourceId (package name) or sourceName as the grouping key, fallback to 'unknown'
+          const sourceKey = sample.sourceId || sample.sourceName || 'unknown';
+
+          if (!stepsBySource[sourceKey]) {
+            stepsBySource[sourceKey] = 0;
+          }
+          stepsBySource[sourceKey] += stepValue;
+        });
+
+        // Take the maximum steps from any single source
+        const maxSteps = Math.max(0, ...Object.values(stepsBySource));
+        totalSteps = maxSteps;
       }
 
       return Math.round(totalSteps);

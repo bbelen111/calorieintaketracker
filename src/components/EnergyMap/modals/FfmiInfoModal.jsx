@@ -73,9 +73,7 @@ export const FfmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
         <div className="bg-surface-highlight/50 rounded-lg p-4">
           <p className="font-bold text-foreground mb-2">Formula:</p>
           <div className="p-3 bg-background/50 rounded font-mono text-xs md:text-sm space-y-2">
-            <p className="text-muted">
-              Lean mass = weight × (1 − body fat %)
-            </p>
+            <p className="text-muted">Lean mass = weight × (1 − body fat %)</p>
             <p className="text-accent-emerald">
               FFMI = lean mass (kg) ÷ height (m)²
             </p>
@@ -122,7 +120,9 @@ export const FfmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
         </div>
 
         <div className="bg-accent-emerald/15 border border-accent-emerald/50 rounded-lg p-4">
-          <p className="font-bold text-accent-emerald mb-2">Your Current FFMI:</p>
+          <p className="font-bold text-accent-emerald mb-2">
+            Your Current FFMI:
+          </p>
           <div className="text-sm space-y-1">
             <p>
               Weight:{' '}

@@ -15,8 +15,7 @@ export const ACTIVITY_PRESET_OPTIONS = {
     {
       key: 'default',
       label: 'Moderately Active',
-      description:
-        'Regular light chores, errands, occasional standing tasks.',
+      description: 'Regular light chores, errands, occasional standing tasks.',
       value: DEFAULT_ACTIVITY_MULTIPLIERS.rest,
     },
     {
