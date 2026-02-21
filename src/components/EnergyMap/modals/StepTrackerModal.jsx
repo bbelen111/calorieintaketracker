@@ -944,7 +944,7 @@ export const StepTrackerModal = ({
                   }}
                 >
                   <div
-                    className="py-4 pr-6 pl-0 h-full"
+                    className="py-[16px] pr-6 pl-0 h-full"
                     style={{ width: `${chartWidth}px` }}
                   >
                     {chartData ? (
@@ -1190,14 +1190,14 @@ export const StepTrackerModal = ({
                     : null}
                   {currentStepsTick && (
                     <div
-                      className="absolute right-0.5 px-2.5 py-1 rounded-lg text-[12px] font-bold text-white shadow-md"
+                      className="absolute right-0.5 px-2.5 py-1 rounded-lg text-[12px] font-bold text-white shadow-md flex items-center justify-center leading-none"
                       style={{
                         top: `${currentStepsTick.yPx}px`,
                         transform: 'translateY(-50%)',
                         backgroundColor: getBarColor(
                           currentStepsTick.steps,
                           resolvedStepGoal
-                        ),
+                        ).replace('/ 1)', '/ 0.8)'),
                         borderColor: getBarColor(
                           currentStepsTick.steps,
                           resolvedStepGoal
