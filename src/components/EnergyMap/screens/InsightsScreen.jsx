@@ -668,16 +668,8 @@ export const InsightsScreen = ({
                     {bmiCategory.label}
                   </p>
                 </div>
-                <div
-                  className={`p-2 rounded-lg ${bmiColorMap[bmiCategory.color]?.bg || 'bg-accent-slate/20'}`}
-                >
-                  <Info
-                    size={18}
-                    className={
-                      bmiColorMap[bmiCategory.color]?.text ||
-                      'text-accent-slate'
-                    }
-                  />
+                <div className="p-2 shrink-0">
+                  <Info size={18} className="text-muted" />
                 </div>
               </div>
               <p className="text-accent-blue/80 text-[10px] tracking-wide mt-2">
@@ -685,45 +677,66 @@ export const InsightsScreen = ({
               </p>
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={onOpenFfmiInfo}
-              className="group relative w-full text-left bg-surface-highlight/50 rounded-xl p-4 transition-all border border-border/50 active:scale-[0.99] pressable-card focus-ring md:hover:bg-surface-highlight md:hover:border-border/80"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <p className="font-semibold text-foreground text-sm mb-1">
-                    FFMI
-                  </p>
-                  <p
-                    className={`text-xl font-bold ${ffmiData ? ffmiColorMap[ffmiCategory.color]?.text || 'text-accent-slate' : 'text-muted'}`}
-                  >
-                    {ffmiData ? ffmiData.normalized.toFixed(1) : '—'}
-                  </p>
-                  <p
-                    className={`text-xs mt-1 ${ffmiData ? ffmiColorMap[ffmiCategory.color]?.text || 'text-accent-slate' : 'text-muted'}`}
-                  >
-                    {ffmiData ? ffmiCategory.label : 'Requires body fat data'}
-                  </p>
+            <div className="grid grid-cols-2 gap-3 md:col-span-2">
+              <button
+                type="button"
+                onClick={onOpenBmiInfo}
+                className="group relative w-full text-left bg-surface-highlight/50 rounded-xl p-4 transition-all border border-border/50 active:scale-[0.99] pressable-card focus-ring md:hover:bg-surface-highlight md:hover:border-border/80"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-foreground text-sm mb-1">
+                      BMI
+                    </p>
+                    <p
+                      className={`text-xl font-bold ${bmiColorMap[bmiCategory.color]?.text || 'text-accent-slate'}`}
+                    >
+                      {bmi ? bmi.toFixed(1) : '—'}
+                    </p>
+                    <p
+                      className={`text-xs mt-1 leading-tight ${bmiColorMap[bmiCategory.color]?.text || 'text-accent-slate'}`}
+                    >
+                      {bmiCategory.label}
+                    </p>
+                  </div>
+                  <div className="p-2 shrink-0">
+                    <Info size={18} className="text-muted/80" />
+                  </div>
                 </div>
-                <div
-                  className={`p-2 rounded-lg ${ffmiData ? ffmiColorMap[ffmiCategory.color]?.bg || 'bg-accent-slate/20' : 'bg-accent-slate/20'}`}
-                >
-                  <Info
-                    size={18}
-                    className={
-                      ffmiData
-                        ? ffmiColorMap[ffmiCategory.color]?.text ||
-                          'text-accent-slate'
-                        : 'text-accent-slate'
-                    }
-                  />
+                <p className="text-accent-blue/80 text-[10px] tracking-wide mt-2">
+                  Tap for more info
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={onOpenFfmiInfo}
+                className="group relative w-full text-left bg-surface-highlight/50 rounded-xl p-4 transition-all border border-border/50 active:scale-[0.99] pressable-card focus-ring md:hover:bg-surface-highlight md:hover:border-border/80"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-foreground text-sm mb-1">
+                      FFMI
+                    </p>
+                    <p
+                      className={`text-xl font-bold ${ffmiData ? ffmiColorMap[ffmiCategory.color]?.text || 'text-accent-slate' : 'text-muted'}`}
+                    >
+                      {ffmiData ? ffmiData.normalized.toFixed(1) : '—'}
+                    </p>
+                    <p
+                      className={`text-xs mt-1 leading-tight ${ffmiData ? ffmiColorMap[ffmiCategory.color]?.text || 'text-accent-slate' : 'text-muted'}`}
+                    >
+                      {ffmiData ? ffmiCategory.label : 'Requires body fat data'}
+                    </p>
+                  </div>
+                  <div className="p-2 shrink-0">
+                    <Info size={18} className="text-muted/80" />
+                  </div>
                 </div>
-              </div>
-              <p className="text-accent-blue/80 text-[10px] tracking-wide mt-2">
-                Tap for more info
-              </p>
-            </button>
+                <p className="text-accent-blue/80 text-[10px] tracking-wide mt-2">
+                  Tap for more info
+                </p>
+              </button>
+            </div>
           )}
         </div>
       </div>
