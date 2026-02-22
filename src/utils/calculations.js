@@ -189,7 +189,8 @@ export const getTrainingCalories = (userData, trainingTypes) => {
     return Math.round(calsPerMin * durationMinutes);
   }
   return Math.round(
-    userData.trainingDuration * getTrainingCaloriesPerHour(userData, trainingTypes)
+    userData.trainingDuration *
+      getTrainingCaloriesPerHour(userData, trainingTypes)
   );
 };
 

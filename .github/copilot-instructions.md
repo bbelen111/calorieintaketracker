@@ -124,10 +124,10 @@ Deprecated 7-line wrapper that spreads the entire store state. Defeats `shallow`
 - **~17 additional child-level modals** declared inside modal components (e.g., delete confirmations, sub-pickers)
 - **44 modal files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`:
   - `fullscreen/` — WeightTrackerModal, BodyFatTrackerModal, StepTrackerModal, SettingsModal, FoodSearchModal
-  - `pickers/` — AgePickerModal, BodyFatPickerModal, CalendarPickerModal, CardioDurationPickerModal, CardioTypePickerModal, FoodPortionModal, HeightPickerModal, MealTypePickerModal, MetValuePickerModal, StepGoalPickerModal, TemplatePickerModal, TrainingDurationPickerModal, WeightPickerModal
+  - `pickers/` — AgePickerModal, BodyFatPickerModal, CalendarPickerModal, CardioDurationPickerModal, FoodPortionModal, HeightPickerModal, MealTypePickerModal, MetValuePickerModal, StepGoalPickerModal, TemplatePickerModal, TrainingDurationPickerModal, WeightPickerModal
   - `info/` — BmiInfoModal, BmrInfoModal, BodyFatTrendInfoModal, CalorieBreakdownModal, CaloriesPerHourGuideModal, FfmiInfoModal, WeightTrendInfoModal
   - `forms/` — AddCustomFoodModal, BodyFatEntryModal, CardioModal, CustomCardioTypeModal, DailyActivityCustomModal, DailyActivityEditorModal, DailyActivityModal, DailyLogModal, FoodEntryModal, GoalModal, PhaseCreationModal, QuickTrainingModal, StepRangesModal, TrainingTypeEditorModal, TrainingTypeModal, WeightEntryModal
-  - `lists/` — CardioFavouritesModal, FoodFavouritesModal
+  - `lists/` — CardioFavouritesModal, CardioTypeListModal, FoodFavouritesModal
   - `common/` — ConfirmActionModal
 - Total across codebase: ~53 modal instances
 

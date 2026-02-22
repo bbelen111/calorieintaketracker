@@ -6,7 +6,7 @@ import { ModalShell } from '../../common/ModalShell';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { ConfirmActionModal } from '../common/ConfirmActionModal';
 
-export const CardioTypePickerModal = ({
+export const CardioTypeListModal = ({
   isOpen,
   isClosing,
   cardioTypes,

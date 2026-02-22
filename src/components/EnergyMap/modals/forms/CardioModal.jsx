@@ -3,7 +3,7 @@ import { Save, Star } from 'lucide-react';
 import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
-import { CardioTypePickerModal } from '../pickers/CardioTypePickerModal';
+import { CardioTypeListModal } from '../lists/CardioTypeListModal';
 import { CustomCardioTypeModal } from './CustomCardioTypeModal';
 import { CardioDurationPickerModal } from '../pickers/CardioDurationPickerModal';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
@@ -499,7 +499,7 @@ export const CardioModal = ({
         onSave={handleDurationPickerSave}
       />
 
-      <CardioTypePickerModal
+      <CardioTypeListModal
         isOpen={isTypePickerOpen}
         isClosing={isTypePickerClosing}
         cardioTypes={resolvedCardioTypes}
