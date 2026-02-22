@@ -247,8 +247,8 @@ export const CardioModal = ({
   const intensityButtonClass = (level) =>
     `w-full rounded-lg border px-3 py-2 text-sm transition-all focus-ring pressable-inline ${
       intensityValue === level
-        ? 'bg-indigo-600 text-white border-indigo-400 shadow-sm shadow-indigo-900/30'
-        : 'bg-surface-highlight text-muted border-border md:hover:border-indigo-400'
+        ? 'bg-blue-600 text-white border-blue-500 shadow-sm shadow-blue-900/30'
+        : 'bg-surface-highlight text-muted border-border md:hover:border-blue-400'
     }`;
 
   const handleOpenCustomCardioModal = () => {
@@ -334,7 +334,7 @@ export const CardioModal = ({
             <button
               type="button"
               onClick={() => openTypePicker()}
-              className="w-full px-3 py-2 rounded-lg border-2 bg-purple-600 border-purple-400 text-white transition-all press-feedback focus-ring flex items-start justify-between gap-3"
+              className="w-full px-3 py-2 rounded-lg border-2 bg-indigo-600 border-indigo-500 text-white transition-all press-feedback focus-ring flex items-start justify-between gap-3"
             >
               <span className="flex min-w-0 flex-1 flex-col text-left">
                 <span className="font-semibold text-sm md:text-base truncate">
@@ -360,7 +360,7 @@ export const CardioModal = ({
             <button
               onClick={openDurationPicker}
               type="button"
-              className="w-full px-3 py-2 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98] flex items-center justify-between focus-ring press-feedback"
+              className="w-full px-3 py-2 rounded-lg border-2 bg-blue-600 border-blue-500 text-white transition-all active:scale-[0.98] flex items-center justify-between focus-ring press-feedback"
             >
               <div className="flex items-baseline gap-x-2">
                 <span className="font-semibold text-sm md:text-base">

@@ -179,7 +179,7 @@ export const SettingsModal = ({
                     type="button"
                     className={`py-3 px-2 rounded-lg border-2 transition-all font-semibold flex items-center justify-center gap-2 focus-ring pressable-inline ${
                       resolvedUserData.gender === 'male'
-                        ? 'bg-blue-600 border-blue-400 text-white'
+                        ? 'bg-blue-600 border-blue-500 text-white'
                         : 'bg-surface-highlight border-border text-muted'
                     }`}
                   >
@@ -191,7 +191,7 @@ export const SettingsModal = ({
                     type="button"
                     className={`py-3 px-2 rounded-lg border-2 transition-all font-semibold flex items-center justify-center gap-2 focus-ring pressable-inline ${
                       resolvedUserData.gender === 'female'
-                        ? 'bg-indigo-600 border-indigo-400 text-white'
+                        ? 'bg-indigo-600 border-indigo-500 text-white'
                         : 'bg-surface-highlight border-border text-muted'
                     }`}
                   >
@@ -213,7 +213,7 @@ export const SettingsModal = ({
                       type="button"
                       className={`py-3 px-2 rounded-lg border-2 transition-all font-semibold flex items-center justify-center gap-2 focus-ring pressable-inline ${
                         resolvedUserData.theme === value
-                          ? 'bg-primary border-primary text-primary-foreground'
+                          ? 'bg-blue-600 border-blue-500 text-white'
                           : 'bg-surface-highlight border-border text-muted'
                       }`}
                     >
@@ -231,7 +231,7 @@ export const SettingsModal = ({
                 <button
                   type="button"
                   onClick={() => onManageWeightClick?.()}
-                  className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all press-feedback flex flex-wrap items-center gap-x-3 gap-y-1 text-left focus-ring md:hover:bg-blue-500/90"
+                  className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-500 text-white transition-all press-feedback flex flex-wrap items-center gap-x-3 gap-y-1 text-left focus-ring md:hover:bg-blue-500/90"
                 >
                   <span className="font-semibold text-sm md:text-base">
                     {displayedWeight !== '—' ? `${displayedWeight}kg` : '—'}
@@ -273,7 +273,7 @@ export const SettingsModal = ({
                   disabled={!resolvedBodyFatTrackingEnabled}
                   className={`w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 transition-all press-feedback flex flex-wrap items-center gap-x-3 gap-y-1 text-left font-semibold focus-ring ${
                     resolvedBodyFatTrackingEnabled
-                      ? 'bg-blue-600 border-blue-400 text-white md:hover:bg-blue-500/90'
+                      ? 'bg-blue-600 border-blue-500 text-white md:hover:bg-blue-500/90'
                       : 'bg-surface-highlight border-border text-muted cursor-not-allowed'
                   }`}
                 >
@@ -331,7 +331,7 @@ export const SettingsModal = ({
               <button
                 onClick={onTrainingTypeClick}
                 type="button"
-                className="relative w-full text-left p-3 md:p-4 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all press-feedback focus-ring md:hover:bg-indigo-500/90"
+                className="relative w-full text-left p-3 md:p-4 rounded-lg border-2 bg-indigo-600 border-indigo-500 text-white transition-all press-feedback focus-ring md:hover:bg-indigo-500/90"
               >
                 <div className="min-w-0 pr-24 md:pr-28">
                   <div className="font-semibold text-base">
@@ -401,7 +401,7 @@ const DurationButton = ({ duration, onClick }) => {
     <button
       onClick={onClick}
       type="button"
-      className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all press-feedback focus-ring flex flex-wrap items-center gap-x-3 gap-y-1"
+      className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-500 text-white transition-all press-feedback focus-ring flex flex-wrap items-center gap-x-3 gap-y-1"
     >
       <span className="font-semibold text-sm md:text-base">{formatted}</span>
       <span className="text-xs opacity-90">~{rounded.toFixed(2)} hours</span>
@@ -457,7 +457,7 @@ const DailyActivitySection = ({ userData, bmr, onDailyActivityClick }) => {
       <button
         onClick={onDailyActivityClick}
         type="button"
-        className="relative w-full text-left p-3 md:p-4 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all press-feedback focus-ring"
+        className="relative w-full text-left p-3 md:p-4 rounded-lg border-2 bg-indigo-600 border-indigo-500 text-white transition-all press-feedback focus-ring"
       >
         <div className="min-w-0 pr-24 md:pr-28">
           <div className="font-semibold text-sm md:text-base">

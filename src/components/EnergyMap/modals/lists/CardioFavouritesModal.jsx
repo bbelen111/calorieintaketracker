@@ -221,12 +221,12 @@ export const CardioFavouritesModal = ({
                   onClick={() => onSelectFavourite?.(favourite)}
                   className={`w-full text-left p-4 rounded-xl border-2 transition-all active:scale-[0.98] flex flex-col gap-2 ${
                     active
-                      ? 'bg-blue-600/80 border-blue-400 text-white shadow-lg'
+                      ? 'bg-blue-600/80 border-blue-500 text-white shadow-lg'
                       : 'bg-surface border-border text-foreground md:hover:border-blue-400'
                   }`}
                   role="listitem"
                 >
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-center gap-3">
                     <div
                       className={`flex-shrink-0 rounded-full p-2 ${active ? 'bg-white/15' : 'bg-white/10'}`}
                     >

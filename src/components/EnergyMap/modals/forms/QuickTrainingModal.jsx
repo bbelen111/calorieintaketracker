@@ -96,8 +96,8 @@ export const QuickTrainingModal = ({
   const intensityButtonClass = (level) =>
     `w-full rounded-lg border px-3 py-2 text-sm transition-all focus-ring pressable-inline ${
       intensityValue === level
-        ? 'bg-indigo-600 text-white border-indigo-400 shadow-sm shadow-indigo-900/30'
-        : 'bg-surface-highlight text-muted border-border md:hover:border-indigo-400'
+        ? 'bg-blue-600 text-white border-blue-500 shadow-sm shadow-blue-900/30'
+        : 'bg-surface-highlight text-muted border-border md:hover:border-blue-400'
     }`;
 
   return (
@@ -128,8 +128,8 @@ export const QuickTrainingModal = ({
                   type="button"
                   className={`p-3 rounded-lg border-2 transition-all text-sm relative text-left focus-ring pressable ${
                     isActive
-                      ? 'bg-purple-600 border-purple-400 text-white'
-                      : 'bg-surface-highlight border-border text-muted active:bg-surface-highlight/80 md:hover:border-purple-400'
+                      ? 'bg-indigo-600 border-indigo-500 text-white'
+                      : 'bg-surface-highlight border-border text-muted active:bg-surface-highlight/80 md:hover:border-indigo-400'
                   }`}
                 >
                   <span
@@ -162,7 +162,7 @@ export const QuickTrainingModal = ({
           <button
             onClick={onDurationClick}
             type="button"
-            className="w-full px-3 py-2 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98] flex items-center justify-between focus-ring press-feedback"
+            className="w-full px-3 py-2 rounded-lg border-2 bg-blue-600 border-blue-500 text-white transition-all active:scale-[0.98] flex items-center justify-between focus-ring press-feedback"
           >
             <div className="flex items-baseline gap-x-2">
               <span className="font-semibold text-sm md:text-base">
