@@ -11,10 +11,6 @@ import {
   alignScrollContainerToValue,
   createPickerScrollHandler,
 } from '../../../../utils/scroll';
-import {
-  formatDurationLabel,
-  roundDurationHours,
-} from '../../../../utils/time';
 
 const MAX_HOURS = 24;
 const MINUTE_STEP = 1;
@@ -226,15 +222,6 @@ export const CardioDurationPickerModal = (props) => {
     [selectedHours, selectedMinutes]
   );
 
-  const totalHoursDecimal = useMemo(
-    () => roundDurationHours(totalMinutes / 60),
-    [totalMinutes]
-  );
-  const formattedDuration = useMemo(
-    () => formatDurationLabel(totalHoursDecimal),
-    [totalHoursDecimal]
-  );
-
   const handleSave = useCallback(() => {
     onSave?.(totalMinutes);
   }, [onSave, totalMinutes]);
@@ -243,18 +230,18 @@ export const CardioDurationPickerModal = (props) => {
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
-      contentClassName="p-6 w-full max-w-md"
+      contentClassName="p-6 w-full max-w-sm"
     >
-      <h3 className="text-foreground font-bold text-xl mb-4 text-center">
+      <h3 className="text-foreground font-bold text-xl mb-6 text-center">
         {title}
       </h3>
 
-      <div className="flex gap-6">
+      <div className="flex gap-5">
         <div className="flex-1">
           <p className="text-muted text-xs text-center mb-2 uppercase tracking-wide">
             Hours
           </p>
-          <div className="relative h-48 overflow-hidden rounded-xl bg-surface/80">
+          <div className="relative h-40 overflow-hidden rounded-xl bg-surface/80">
             <div className="absolute inset-0 pointer-events-none z-10">
               <div className="h-16 bg-gradient-to-b from-surface to-transparent" />
               <div className="h-16 bg-transparent" />
@@ -293,7 +280,7 @@ export const CardioDurationPickerModal = (props) => {
           <p className="text-muted text-xs text-center mb-2 uppercase tracking-wide">
             Minutes
           </p>
-          <div className="relative h-48 overflow-hidden rounded-xl bg-surface/80">
+          <div className="relative h-40 overflow-hidden rounded-xl bg-surface/80">
             <div className="absolute inset-0 pointer-events-none z-10">
               <div className="h-16 bg-gradient-to-b from-surface to-transparent" />
               <div className="h-16 bg-transparent" />
@@ -335,16 +322,6 @@ export const CardioDurationPickerModal = (props) => {
             </div>
           </div>
         </div>
-      </div>
-
-      <div className="bg-surface-highlight/50 rounded-lg p-3 mt-4 text-center">
-        <p className="text-muted text-sm">Selected Duration</p>
-        <p className="text-foreground text-lg font-semibold mt-1">
-          {formattedDuration}
-        </p>
-        <p className="text-muted text-xs mt-1">
-          ~{totalMinutes} minutes • ~{totalHoursDecimal.toFixed(2)} hours
-        </p>
       </div>
 
       <div className="flex gap-3 mt-6">
