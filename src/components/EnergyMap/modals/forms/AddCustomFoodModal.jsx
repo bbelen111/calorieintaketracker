@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { Plus, Trash2, Utensils } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
-import { formatOne } from '../../../../utils/format';
 import { FOOD_CATEGORIES } from '../../../../constants/foodDatabase';
 
 // Build tags from FOOD_CATEGORIES, excluding 'custom' and 'manual' as they're auto-applied
@@ -182,7 +181,7 @@ export const AddCustomFoodModal = ({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g., Mom's Chicken Curry"
-            className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus-ring"
+            className="w-full bg-surface-highlight border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus-ring"
           />
         </div>
 
@@ -225,7 +224,7 @@ export const AddCustomFoodModal = ({
                 setCalories(sanitizeNumericInput(e.target.value))
               }
               placeholder="0"
-              className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus-ring"
+              className="w-full bg-surface-highlight border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus-ring"
             />
           </div>
 
@@ -243,7 +242,7 @@ export const AddCustomFoodModal = ({
                   setProtein(sanitizeNumericInput(e.target.value))
                 }
                 placeholder="0"
-                className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
+                className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
               />
             </div>
             <div>
@@ -256,7 +255,7 @@ export const AddCustomFoodModal = ({
                 value={carbs}
                 onChange={(e) => setCarbs(sanitizeNumericInput(e.target.value))}
                 placeholder="0"
-                className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
+                className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
               />
             </div>
             <div>
@@ -269,49 +268,11 @@ export const AddCustomFoodModal = ({
                 value={fats}
                 onChange={(e) => setFats(sanitizeNumericInput(e.target.value))}
                 placeholder="0"
-                className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
+                className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
               />
             </div>
           </div>
         </div>
-
-        {/* Preview Card */}
-        {(parseFloat(calories) > 0 ||
-          parseFloat(protein) > 0 ||
-          parseFloat(carbs) > 0 ||
-          parseFloat(fats) > 0) && (
-          <div className="bg-surface/60 border border-border rounded-lg p-4">
-            <p className="text-muted text-xs mb-3 text-center">
-              Preview (per 100g)
-            </p>
-            <div className="grid grid-cols-4 gap-3 text-center">
-              <div>
-                <p className="text-emerald-400 font-bold text-xl">
-                  {formatOne(parseFloat(calories) || 0)}
-                </p>
-                <p className="text-muted text-xs">kcal</p>
-              </div>
-              <div>
-                <p className="text-red-400 font-bold text-xl">
-                  {formatOne(parseFloat(protein) || 0)}g
-                </p>
-                <p className="text-muted text-xs">protein</p>
-              </div>
-              <div>
-                <p className="text-amber-400 font-bold text-xl">
-                  {formatOne(parseFloat(carbs) || 0)}g
-                </p>
-                <p className="text-muted text-xs">carbs</p>
-              </div>
-              <div>
-                <p className="text-yellow-400 font-bold text-xl">
-                  {formatOne(parseFloat(fats) || 0)}g
-                </p>
-                <p className="text-muted text-xs">fats</p>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Custom Portions */}
         <div>
@@ -360,7 +321,7 @@ export const AddCustomFoodModal = ({
                 value={newPortionLabel}
                 onChange={(e) => setNewPortionLabel(e.target.value)}
                 placeholder="e.g., 1 serving"
-                className="w-full bg-surface border border-border rounded-lg px-3 py-2.5 text-foreground placeholder:text-muted focus-ring text-sm"
+                className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2.5 text-foreground placeholder:text-muted focus-ring text-sm"
               />
             </div>
             <div className="w-24">
@@ -373,7 +334,7 @@ export const AddCustomFoodModal = ({
                   setNewPortionGrams(sanitizeNumericInput(e.target.value))
                 }
                 placeholder="0"
-                className="w-full bg-surface border border-border rounded-lg px-3 py-2.5 text-foreground placeholder:text-muted focus-ring text-sm"
+                className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2.5 text-foreground placeholder:text-muted focus-ring text-sm"
               />
             </div>
             <button

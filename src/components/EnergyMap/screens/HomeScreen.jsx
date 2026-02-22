@@ -206,20 +206,6 @@ export const HomeScreen = ({
             }`}
             transition={{ type: 'spring', stiffness: 260, damping: 24 }}
           >
-            <AnimatePresence initial={false}>
-              {selectedDay === 'training' && (
-                <motion.span
-                  key="training-edit"
-                  initial={{ opacity: 0, scale: 0.6, y: -6 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.6, y: -6 }}
-                  transition={{ duration: 0.18, ease: 'easeOut' }}
-                  className="absolute top-2 right-2 text-white/80"
-                >
-                  <Edit3 size={14} />
-                </motion.span>
-              )}
-            </AnimatePresence>
             <Dumbbell className="mx-auto mb-2" size={28} />
             <p className="font-bold text-lg">Training Day</p>
             <p className="text-xs md:text-sm opacity-80">

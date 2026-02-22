@@ -1,5 +1,5 @@
 import React from 'react';
-import { Save, ChevronsUpDown, Star } from 'lucide-react';
+import { Save, Star } from 'lucide-react';
 import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
@@ -8,6 +8,7 @@ import { CustomCardioTypeModal } from './CustomCardioTypeModal';
 import { CardioDurationPickerModal } from '../pickers/CardioDurationPickerModal';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { calculateCardioCalories } from '../../../../utils/calculations';
+import { roundDurationHours } from '../../../../utils/time';
 
 export const CardioModal = ({
   isOpen,
@@ -82,6 +83,26 @@ export const CardioModal = ({
     return Number.isFinite(numeric) ? numeric : 0;
   }, [session.duration]);
 
+  const sessionDurationHours = React.useMemo(() => {
+    return sessionDurationMinutes / 60;
+  }, [sessionDurationMinutes]);
+
+  const formattedSessionDuration = React.useMemo(() => {
+    if (session.duration === '') return '--';
+    if (sessionDurationMinutes < 60) {
+      return `${sessionDurationMinutes} min`;
+    }
+    const roundedHours = roundDurationHours(sessionDurationHours);
+    return `${roundedHours.toFixed(1)}hrs`;
+  }, [session.duration, sessionDurationMinutes, sessionDurationHours]);
+
+  const formattedSessionDurationMinutes = React.useMemo(() => {
+    if (session.duration === '' || sessionDurationMinutes < 60) {
+      return null;
+    }
+    return `~${sessionDurationMinutes} min`;
+  }, [session.duration, sessionDurationMinutes]);
+
   const {
     isOpen: isTypePickerOpen,
     isClosing: isTypePickerClosing,
@@ -145,18 +166,6 @@ export const CardioModal = ({
       resetCustomState();
     }
   }, [isCustomModalClosing, isCustomModalOpen, resetCustomState]);
-
-  const handleDurationChange = (event) => {
-    const { value } = event.target;
-    if (value === '') {
-      onChange({ ...session, duration: '' });
-      return;
-    }
-
-    const parsed = Number.parseInt(value, 10);
-    const sanitized = Number.isFinite(parsed) ? Math.max(parsed, 0) : 0;
-    onChange({ ...session, duration: sanitized });
-  };
 
   const handleDurationPickerChange = React.useCallback(
     (minutes) => {
@@ -231,14 +240,14 @@ export const CardioModal = ({
   const effortButtonClass = (type) =>
     `w-full rounded-lg border px-3 py-1.5 text-sm transition-all focus-ring pressable-inline ${
       effortType === type
-        ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-900/30'
+        ? 'bg-blue-600 text-white border-blue-500 shadow-sm shadow-blue-900/30'
         : 'bg-surface-highlight text-muted border-border md:hover:border-blue-400'
     }`;
 
   const intensityButtonClass = (level) =>
     `w-full rounded-lg border px-3 py-2 text-sm transition-all focus-ring pressable-inline ${
       intensityValue === level
-        ? 'bg-indigo-600 text-white border-indigo-400 shadow-lg shadow-indigo-900/30'
+        ? 'bg-indigo-600 text-white border-indigo-400 shadow-sm shadow-indigo-900/30'
         : 'bg-surface-highlight text-muted border-border md:hover:border-indigo-400'
     }`;
 
@@ -325,7 +334,7 @@ export const CardioModal = ({
             <button
               type="button"
               onClick={() => openTypePicker()}
-              className="w-full px-3 py-2 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all press-feedback focus-ring flex items-start justify-between gap-3"
+              className="w-full px-3 py-2 rounded-lg border-2 bg-purple-600 border-purple-400 text-white transition-all press-feedback focus-ring flex items-start justify-between gap-3"
             >
               <span className="flex min-w-0 flex-1 flex-col text-left">
                 <span className="font-semibold text-sm md:text-base truncate">
@@ -348,23 +357,23 @@ export const CardioModal = ({
             <label className="text-foreground text-sm block mb-2">
               Duration (minutes)
             </label>
-            <div className="relative">
-              <input
-                type="number"
-                min="0"
-                value={session.duration === '' ? '' : session.duration}
-                onChange={handleDurationChange}
-                className="w-full bg-surface-highlight text-foreground px-4 pr-14 py-3 rounded-lg border border-border focus:border-blue-400 focus:outline-none text-base"
-              />
-              <button
-                type="button"
-                onClick={openDurationPicker}
-                className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-muted/30 md:hover:bg-surface text-foreground transition focus-ring"
-                aria-label="Open duration picker"
-              >
-                <ChevronsUpDown size={16} />
-              </button>
-            </div>
+            <button
+              onClick={openDurationPicker}
+              type="button"
+              className="w-full px-3 py-2 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98] flex items-center justify-between focus-ring press-feedback"
+            >
+              <div className="flex items-baseline gap-x-2">
+                <span className="font-semibold text-sm md:text-base">
+                  {formattedSessionDuration}
+                </span>
+                {formattedSessionDurationMinutes && (
+                  <span className="text-xs opacity-90">
+                    {formattedSessionDurationMinutes}
+                  </span>
+                )}
+              </div>
+              <span className="text-[11px] opacity-75">Tap to change</span>
+            </button>
           </div>
 
           <div>
@@ -435,7 +444,7 @@ export const CardioModal = ({
                 min="0"
                 value={heartRateValue}
                 onChange={handleHeartRateChange}
-                className="w-full bg-surface text-foreground px-4 py-2 rounded-lg border border-border focus:border-blue-400 focus:outline-none"
+                className="w-full bg-surface-highlight text-foreground px-4 py-2 rounded-lg border border-border focus:border-blue-400 focus:outline-none"
               />
               <p className="text-xs text-muted mt-2">
                 Enter the average beats per minute recorded during this session.
@@ -444,8 +453,10 @@ export const CardioModal = ({
           )}
 
           <div className="bg-surface-highlight rounded-lg p-3">
-            <p className="text-muted text-sm">Estimated Burn:</p>
-            <p className="text-foreground font-bold text-xl">
+            <p className="text-foreground/80 text-xs text-center mb-1">
+              Estimated Burn:
+            </p>
+            <p className="text-foreground font-bold text-xl text-center">
               ~{estimatedBurn} calories
             </p>
           </div>

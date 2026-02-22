@@ -89,14 +89,14 @@ export const QuickTrainingModal = ({
   const effortButtonClass = (type) =>
     `w-full rounded-lg border px-3 py-1.5 text-sm transition-all focus-ring pressable-inline ${
       effortType === type
-        ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-900/30'
+        ? 'bg-blue-600 text-white border-blue-500 shadow-sm shadow-blue-900/30'
         : 'bg-surface-highlight text-muted border-border md:hover:border-blue-400'
     }`;
 
   const intensityButtonClass = (level) =>
     `w-full rounded-lg border px-3 py-2 text-sm transition-all focus-ring pressable-inline ${
       intensityValue === level
-        ? 'bg-indigo-600 text-white border-indigo-400 shadow-lg shadow-indigo-900/30'
+        ? 'bg-indigo-600 text-white border-indigo-400 shadow-sm shadow-indigo-900/30'
         : 'bg-surface-highlight text-muted border-border md:hover:border-indigo-400'
     }`;
 
@@ -106,14 +106,14 @@ export const QuickTrainingModal = ({
       isClosing={isClosing}
       contentClassName="p-6 w-full max-w-md"
     >
-      <h3 className="text-foreground font-bold text-xl mb-4 text-center">
+      <h3 className="text-foreground font-bold text-xl mb-4 text-left">
         Training Settings
       </h3>
 
       <div className="space-y-6">
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-muted text-sm">Training Type</label>
+            <label className="text-foreground text-sm">Training Type</label>
           </div>
           <div className="grid grid-cols-2 gap-2">
             {Object.entries(resolvedTrainingTypes).map(([key, type]) => {
@@ -156,23 +156,23 @@ export const QuickTrainingModal = ({
         </div>
 
         <div>
-          <label className="text-muted text-sm block mb-2">
+          <label className="text-foreground text-sm block mb-2">
             Training Duration (hours)
           </label>
           <button
             onClick={onDurationClick}
             type="button"
-            className="w-full px-3 py-2 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1 focus-ring press-feedback"
+            className="w-full px-3 py-2 rounded-lg border-2 bg-indigo-600 border-indigo-400 text-white transition-all active:scale-[0.98] flex items-center justify-between focus-ring press-feedback"
           >
-            <span className="font-semibold text-sm md:text-base">
-              {formattedDuration}
-            </span>
-            <span className="text-xs opacity-90">
-              ~{roundedDuration.toFixed(2)} hours
-            </span>
-            <span className="text-[11px] opacity-75 ml-auto">
-              Tap to change
-            </span>
+            <div className="flex items-baseline gap-x-2">
+              <span className="font-semibold text-sm md:text-base">
+                {formattedDuration}
+              </span>
+              <span className="text-xs opacity-90">
+                ~{roundedDuration.toFixed(2)} hours
+              </span>
+            </div>
+            <span className="text-[11px] opacity-75">Tap to change</span>
           </button>
         </div>
 
@@ -244,7 +244,7 @@ export const QuickTrainingModal = ({
               min="0"
               value={heartRateValue}
               onChange={onHeartRateChange}
-              className="w-full bg-surface text-foreground px-4 py-2 rounded-lg border border-border focus:border-blue-400 focus:outline-none"
+              className="w-full bg-surface-highlight text-foreground px-4 py-2 rounded-lg border border-border focus:border-blue-400 focus:outline-none"
             />
             <p className="text-xs text-muted mt-2">
               Enter the average beats per minute recorded during this session.
@@ -252,8 +252,8 @@ export const QuickTrainingModal = ({
           </div>
         )}
 
-        <div className="bg-surface-highlight/50 rounded-lg p-3">
-          <p className="text-muted text-xs text-center mb-1">
+        <div className="bg-surface-highlight rounded-lg p-3">
+          <p className="text-foreground/80 text-xs text-center mb-1">
             Estimated Burn:
           </p>
           <p className="text-foreground font-bold text-xl text-center">

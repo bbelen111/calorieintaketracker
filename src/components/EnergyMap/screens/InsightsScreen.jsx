@@ -728,9 +728,9 @@ export const InsightsScreen = ({
                     {bmiCategory.label}
                   </p>
                 </div>
-                <div className="p-2 shrink-0">
-                  <Info size={18} className="text-muted" />
-                </div>
+              </div>
+              <div className="absolute top-2 right-2 p-1">
+                <Info size={18} className="text-muted" />
               </div>
               <p className="text-accent-blue/80 text-[10px] tracking-wide mt-2">
                 Tap for more info
@@ -743,25 +743,23 @@ export const InsightsScreen = ({
                 onClick={onOpenBmiInfo}
                 className="group relative w-full text-left bg-surface-highlight/50 rounded-xl p-4 transition-all border border-border/50 active:scale-[0.99] pressable-card focus-ring md:hover:bg-surface-highlight md:hover:border-border/80"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-foreground text-sm mb-1">
-                      BMI
-                    </p>
-                    <p
-                      className={`text-xl font-bold ${bmiColorMap[bmiCategory.color]?.text || 'text-accent-slate'}`}
-                    >
-                      {bmi ? bmi.toFixed(1) : '—'}
-                    </p>
-                    <p
-                      className={`text-xs mt-1 leading-tight ${bmiColorMap[bmiCategory.color]?.text || 'text-accent-slate'}`}
-                    >
-                      {bmiCategory.label}
-                    </p>
-                  </div>
-                  <div className="p-2 shrink-0">
-                    <Info size={18} className="text-muted/80" />
-                  </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-foreground text-sm mb-1">
+                    BMI
+                  </p>
+                  <p
+                    className={`text-xl font-bold ${bmiColorMap[bmiCategory.color]?.text || 'text-accent-slate'}`}
+                  >
+                    {bmi ? bmi.toFixed(1) : '—'}
+                  </p>
+                  <p
+                    className={`text-xs mt-1 leading-tight ${bmiColorMap[bmiCategory.color]?.text || 'text-accent-slate'}`}
+                  >
+                    {bmiCategory.label}
+                  </p>
+                </div>
+                <div className="absolute top-2 right-2 p-1">
+                  <Info size={18} className="text-muted/80" />
                 </div>
                 <p className="text-accent-blue/80 text-[10px] tracking-wide mt-2">
                   Tap for more info
@@ -772,25 +770,23 @@ export const InsightsScreen = ({
                 onClick={onOpenFfmiInfo}
                 className="group relative w-full text-left bg-surface-highlight/50 rounded-xl p-4 transition-all border border-border/50 active:scale-[0.99] pressable-card focus-ring md:hover:bg-surface-highlight md:hover:border-border/80"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-foreground text-sm mb-1">
-                      FFMI
-                    </p>
-                    <p
-                      className={`text-xl font-bold ${ffmiData ? ffmiColorMap[ffmiCategory.color]?.text || 'text-accent-slate' : 'text-muted'}`}
-                    >
-                      {ffmiData ? ffmiData.normalized.toFixed(1) : '—'}
-                    </p>
-                    <p
-                      className={`text-xs mt-1 leading-tight ${ffmiData ? ffmiColorMap[ffmiCategory.color]?.text || 'text-accent-slate' : 'text-muted'}`}
-                    >
-                      {ffmiData ? ffmiCategory.label : 'Requires body fat data'}
-                    </p>
-                  </div>
-                  <div className="p-2 shrink-0">
-                    <Info size={18} className="text-muted/80" />
-                  </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-foreground text-sm mb-1">
+                    FFMI
+                  </p>
+                  <p
+                    className={`text-xl font-bold ${ffmiData ? ffmiColorMap[ffmiCategory.color]?.text || 'text-accent-slate' : 'text-muted'}`}
+                  >
+                    {ffmiData ? ffmiData.normalized.toFixed(1) : '—'}
+                  </p>
+                  <p
+                    className={`text-xs mt-1 leading-tight ${ffmiData ? ffmiColorMap[ffmiCategory.color]?.text || 'text-accent-slate' : 'text-muted'}`}
+                  >
+                    {ffmiData ? ffmiCategory.label : 'Requires body fat data'}
+                  </p>
+                </div>
+                <div className="absolute top-2 right-2 p-1">
+                  <Info size={18} className="text-muted/80" />
                 </div>
                 <p className="text-accent-blue/80 text-[10px] tracking-wide mt-2">
                   Tap for more info

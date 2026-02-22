@@ -129,7 +129,7 @@ export const CardioTypePickerModal = ({
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search by name, equipment, or intensity"
-              className="w-full bg-surface text-foreground placeholder:text-muted pl-10 pr-4 py-2 rounded-lg border border-border focus:border-blue-400 focus:outline-none"
+              className="w-full bg-surface-highlight text-foreground placeholder:text-muted pl-10 pr-4 py-2 rounded-lg border border-border focus:border-blue-400 focus:outline-none"
               type="text"
             />
           </div>
@@ -156,12 +156,12 @@ export const CardioTypePickerModal = ({
                   onClick={() => onSelect(key)}
                   className={`relative w-full text-left p-4 rounded-xl border-2 transition-all active:scale-[0.98] flex flex-col gap-2 focus-ring ${
                     isActive
-                      ? 'bg-accent-purple border-accent-purple text-white shadow-lg'
-                      : 'bg-surface border-border text-foreground md:hover:border-blue-400'
+                      ? 'bg-purple-600 border-purple-400 text-white shadow-sm'
+                      : 'bg-surface-highlight border-border text-foreground md:hover:border-blue-400'
                   }`}
                   role="listitem"
                 >
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-center gap-3">
                     <div className="flex-shrink-0">
                       <Flame size={24} />
                     </div>
