@@ -122,7 +122,13 @@ Deprecated 7-line wrapper that spreads the entire store state. Defeats `shallow`
 
 - **36 `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
 - **~17 additional child-level modals** declared inside modal components (e.g., delete confirmations, sub-pickers)
-- **44 modal files** in `src/components/EnergyMap/modals/`
+- **44 modal files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`:
+  - `fullscreen/` — WeightTrackerModal, BodyFatTrackerModal, StepTrackerModal, SettingsModal, FoodSearchModal
+  - `pickers/` — AgePickerModal, BodyFatPickerModal, CalendarPickerModal, CardioDurationPickerModal, CardioTypePickerModal, FoodPortionModal, HeightPickerModal, MealTypePickerModal, MetValuePickerModal, StepGoalPickerModal, TemplatePickerModal, TrainingDurationPickerModal, WeightPickerModal
+  - `info/` — BmiInfoModal, BmrInfoModal, BodyFatTrendInfoModal, CalorieBreakdownModal, CaloriesPerHourGuideModal, FfmiInfoModal, WeightTrendInfoModal
+  - `forms/` — AddCustomFoodModal, BodyFatEntryModal, CardioModal, CustomCardioTypeModal, DailyActivityCustomModal, DailyActivityEditorModal, DailyActivityModal, DailyLogModal, FoodEntryModal, GoalModal, PhaseCreationModal, QuickTrainingModal, StepRangesModal, TrainingTypeEditorModal, TrainingTypeModal, WeightEntryModal
+  - `lists/` — CardioFavouritesModal, FoodFavouritesModal
+  - `common/` — ConfirmActionModal
 - Total across codebase: ~53 modal instances
 
 ### `useAnimatedModal` Hook
@@ -139,9 +145,17 @@ const myModal = useAnimatedModal(initiallyOpen = false, animationDuration = 180)
 
 ### Creating a New Modal
 
-1. Create `modals/MyNewModal.jsx`:
+1. Choose the right subfolder based on the modal type:
+   - `fullscreen/` — takes up the entire screen (`fixed inset-0 w-screen h-screen`)
+   - `pickers/` — scroll-wheel value selectors (numbers, dates, durations)
+   - `info/` — read-only reference/explanation sheets
+   - `forms/` — data entry / editing dialogs
+   - `lists/` — browseable/selectable lists of items
+   - `common/` — shared utility modals reused across many features (e.g. confirm dialogs)
+
+2. Create `modals/<subfolder>/MyNewModal.jsx` — note `ModalShell` is now two levels up:
 ```jsx
-import { ModalShell } from '../common/ModalShell';
+import { ModalShell } from '../../common/ModalShell';
 
 export const MyNewModal = ({ isOpen, isClosing, onClose, onSave, /* data props */ }) => (
   <ModalShell isOpen={isOpen} isClosing={isClosing} contentClassName="w-full md:max-w-2xl p-6">
@@ -155,9 +169,9 @@ export const MyNewModal = ({ isOpen, isClosing, onClose, onSave, /* data props *
 );
 ```
 
-2. In `EnergyMapCalculator.jsx`:
+3. In `EnergyMapCalculator.jsx`:
 ```jsx
-import { MyNewModal } from './modals/MyNewModal';
+import { MyNewModal } from './modals/<subfolder>/MyNewModal';
 // ...
 const myNewModal = useAnimatedModal();
 // ...in JSX:
@@ -534,7 +548,13 @@ src/
 │   ├─ common/
 │   │   ├─ ModalShell.jsx        # Core modal wrapper (602 lines, singleton managers)
 │   │   └─ ScreenTabs.jsx        # Tab bar + floating variant
-│   ├─ modals/                   # 44 modal files, all use ModalShell
+│   ├─ modals/                   # 44 modal files in 6 subfolders, all use ModalShell
+│   │   ├─ fullscreen/           # Full-screen takeover modals (WeightTracker, BodyFatTracker, StepTracker, Settings, FoodSearch)
+│   │   ├─ pickers/              # Scroll-wheel value pickers (Age, BodyFat, Calendar, Height, Weight, MealType, etc.)
+│   │   ├─ info/                 # Read-only info/reference sheets (BmiInfo, BmrInfo, CalorieBreakdown, etc.)
+│   │   ├─ forms/                # Data entry & editing dialogs (Cardio, Goal, PhaseCreation, WeightEntry, etc.)
+│   │   ├─ lists/                # Browseable/selectable lists (CardioFavourites, FoodFavourites)
+│   │   └─ common/               # Shared utility modals (ConfirmActionModal)
 │   ├─ screens/                  # 6 screen components
 │   └─ context/                  # Empty (unused)
 ├─ constants/                    # Static lookup tables

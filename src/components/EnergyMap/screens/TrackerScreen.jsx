@@ -21,7 +21,7 @@ import { MEAL_TYPE_ORDER, getMealTypeById } from '../../../constants/mealTypes';
 import { formatOne } from '../../../utils/format';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
-import { ConfirmActionModal } from '../modals/ConfirmActionModal';
+import { ConfirmActionModal } from '../modals/common/ConfirmActionModal';
 import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
 
 const getTodayDate = () => {
