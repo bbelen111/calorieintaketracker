@@ -13,6 +13,7 @@ import {
   Minus,
   Info,
   Repeat,
+  AlertCircle,
 } from 'lucide-react';
 import { ModalShell } from '../common/ModalShell';
 import {
@@ -135,6 +136,8 @@ const TOOLTIP_WIDTH = 144;
 const TOOLTIP_VERTICAL_OFFSET = 17;
 const POINT_RADIUS = 6;
 const POINT_HIT_RADIUS = 12;
+const DATA_OLD_WARNING_DAYS = 1;
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 const getBaselineY = (defaultY) => defaultY - BASELINE_Y_OFFSET;
 
@@ -179,6 +182,39 @@ const formatTooltipDate = (dateStr) => {
 const getWeekday = (dateStr) => {
   const date = new Date(dateStr + 'T00:00:00Z');
   return date.toLocaleDateString('en-US', { weekday: 'short' });
+};
+
+const getDataAgeInDays = (dateKey) => {
+  if (!dateKey) return null;
+
+  const entryDate = new Date(`${dateKey}T00:00:00Z`);
+  if (Number.isNaN(entryDate.getTime())) {
+    return null;
+  }
+
+  const now = new Date();
+  const utcToday = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate()
+  );
+  const utcEntry = Date.UTC(
+    entryDate.getUTCFullYear(),
+    entryDate.getUTCMonth(),
+    entryDate.getUTCDate()
+  );
+
+  return Math.max(0, Math.floor((utcToday - utcEntry) / MS_PER_DAY));
+};
+
+const getOldDataWarningText = (dateKey) => {
+  const ageDays = getDataAgeInDays(dateKey);
+  if (!Number.isFinite(ageDays) || ageDays < DATA_OLD_WARNING_DAYS) {
+    return null;
+  }
+
+  const dayLabel = ageDays === 1 ? 'day' : 'days';
+  return `${ageDays} ${dayLabel} old`;
 };
 
 export const BodyFatTrackerModal = ({
@@ -602,6 +638,10 @@ export const BodyFatTrackerModal = ({
   const latestDate = filteredEntries.length
     ? filteredEntries[filteredEntries.length - 1].date
     : null;
+  const oldDataWarningText = useMemo(
+    () => getOldDataWarningText(latestDate),
+    [latestDate]
+  );
 
   const earliestDate = filteredEntries.length ? filteredEntries[0].date : null;
   const entriesCount = filteredEntries.length;
@@ -944,7 +984,19 @@ export const BodyFatTrackerModal = ({
                 {currentBodyFatDisplay}
               </p>
               <p className="text-muted text-[11px] mt-1">
-                {latestDate ? `as of ${formatTooltipDate(latestDate)}` : ''}
+                {latestDate ? (
+                  <span className="inline-flex items-center gap-2">
+                    <span>{formatTooltipDate(latestDate)}</span>
+                    {oldDataWarningText && (
+                      <span className="inline-flex items-center gap-1 text-accent-yellow">
+                        <AlertCircle size={10} className="shrink-0" />
+                        {oldDataWarningText}
+                      </span>
+                    )}
+                  </span>
+                ) : (
+                  ''
+                )}
               </p>
             </div>
             <div>

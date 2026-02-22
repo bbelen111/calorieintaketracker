@@ -183,6 +183,42 @@ const formatBodyFatWeeklyRate = (value) => {
   return `${sign}${value.toFixed(2)} %/wk`;
 };
 
+const DATA_OLD_WARNING_DAYS = 1;
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+const getDataAgeInDays = (dateKey) => {
+  if (!dateKey) return null;
+
+  const entryDate = new Date(`${dateKey}T00:00:00Z`);
+  if (Number.isNaN(entryDate.getTime())) {
+    return null;
+  }
+
+  const now = new Date();
+  const utcToday = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate()
+  );
+  const utcEntry = Date.UTC(
+    entryDate.getUTCFullYear(),
+    entryDate.getUTCMonth(),
+    entryDate.getUTCDate()
+  );
+
+  return Math.max(0, Math.floor((utcToday - utcEntry) / MS_PER_DAY));
+};
+
+const getOldDataWarningText = (dateKey) => {
+  const ageDays = getDataAgeInDays(dateKey);
+  if (!Number.isFinite(ageDays) || ageDays < DATA_OLD_WARNING_DAYS) {
+    return null;
+  }
+
+  const dayLabel = ageDays === 1 ? 'day' : 'days';
+  return `${ageDays} ${dayLabel} old`;
+};
+
 export const InsightsScreen = ({
   userData,
   selectedGoal,
@@ -316,6 +352,10 @@ export const InsightsScreen = ({
   const lastLoggedLabel = latestEntry?.date
     ? formatDateLabel(latestEntry.date, { month: 'short', day: 'numeric' })
     : 'No entries yet';
+  const weightOldDataWarning = useMemo(
+    () => getOldDataWarningText(latestEntry?.date),
+    [latestEntry?.date]
+  );
 
   const currentBodyFat = formatBodyFat(latestBodyFatEntry?.bodyFat);
   const bodyFatLoggedLabel = latestBodyFatEntry?.date
@@ -324,6 +364,10 @@ export const InsightsScreen = ({
         day: 'numeric',
       })
     : 'No entries yet';
+  const bodyFatOldDataWarning = useMemo(
+    () => getOldDataWarningText(latestBodyFatEntry?.date),
+    [latestBodyFatEntry?.date]
+  );
 
   // Calculate goal-aligned visual styles for sparklines
   const weightVisualStyle = useMemo(
@@ -439,7 +483,15 @@ export const InsightsScreen = ({
                   <span className="font-bold text-foreground">
                     {currentWeight ? `${currentWeight} kg` : '—'}
                   </span>{' '}
-                  • {lastLoggedLabel}
+                  <span className="inline-flex items-center gap-2">
+                    <span>• {lastLoggedLabel}</span>
+                    {weightOldDataWarning && (
+                      <span className="inline-flex items-center gap-1 text-accent-yellow">
+                        <AlertCircle size={10} className="shrink-0" />
+                        {weightOldDataWarning}
+                      </span>
+                    )}
+                  </span>
                 </p>
                 <p className="text-muted text-sm mt-2">
                   <span className="font-bold text-foreground">
@@ -556,7 +608,15 @@ export const InsightsScreen = ({
                     <span className="font-bold text-foreground">
                       {currentBodyFat ? `${currentBodyFat}%` : '—'}
                     </span>{' '}
-                    • {bodyFatLoggedLabel}
+                    <span className="inline-flex items-center gap-2">
+                      <span>• {bodyFatLoggedLabel}</span>
+                      {bodyFatOldDataWarning && (
+                        <span className="inline-flex items-center gap-1 text-accent-yellow">
+                          <AlertCircle size={10} className="shrink-0" />
+                          {bodyFatOldDataWarning}
+                        </span>
+                      )}
+                    </span>
                   </p>
                   <p className="text-muted text-sm mt-2">
                     <span className="font-bold text-foreground">
