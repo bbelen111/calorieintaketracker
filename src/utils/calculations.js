@@ -160,12 +160,38 @@ export const getTotalCardioBurn = (userData, cardioTypes) =>
     0
   );
 
-export const getTrainingCaloriesPerHour = (userData, trainingTypes) =>
-  trainingTypes[userData.trainingType]?.caloriesPerHour ?? 0;
+const TRAINING_INTENSITY_MULTIPLIERS = {
+  light: 0.75,
+  moderate: 1.0,
+  vigorous: 1.25,
+};
 
-export const getTrainingCalories = (userData, trainingTypes) =>
-  userData.trainingDuration *
-  getTrainingCaloriesPerHour(userData, trainingTypes);
+export const getTrainingCaloriesPerHour = (userData, trainingTypes) => {
+  const base = trainingTypes[userData.trainingType]?.caloriesPerHour ?? 0;
+  const multiplier =
+    TRAINING_INTENSITY_MULTIPLIERS[userData.trainingIntensity ?? 'moderate'] ??
+    1.0;
+  return base * multiplier;
+};
+
+export const getTrainingCalories = (userData, trainingTypes) => {
+  if (userData.trainingEffortType === 'heartRate') {
+    const heartRate = Number(userData.trainingHeartRate);
+    if (!Number.isFinite(heartRate) || heartRate <= 0) return 0;
+    const durationMinutes = userData.trainingDuration * 60;
+    if (durationMinutes <= 0) return 0;
+    const calsPerMin = calculateCaloriesPerMinuteFromHeartRate({
+      heartRate,
+      weightKg: Number(userData.weight),
+      ageYears: Number(userData.age),
+      gender: userData.gender,
+    });
+    return Math.round(calsPerMin * durationMinutes);
+  }
+  return Math.round(
+    userData.trainingDuration * getTrainingCaloriesPerHour(userData, trainingTypes)
+  );
+};
 
 export const calculateCalorieBreakdown = ({
   steps,

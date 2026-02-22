@@ -5,6 +5,7 @@ import {
   formatDurationLabel,
   roundDurationHours,
 } from '../../../../utils/time';
+import { getTrainingCalories } from '../../../../utils/calculations';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 
@@ -14,26 +15,90 @@ export const QuickTrainingModal = ({
   trainingTypes,
   tempTrainingType,
   tempTrainingDuration,
+  tempTrainingEffortType,
+  tempTrainingIntensity,
+  tempTrainingHeartRate,
   onTrainingTypeSelect,
   onEditTrainingType,
   onDurationClick,
+  onEffortTypeChange,
+  onIntensityChange,
+  onHeartRateChange,
+  userWeight,
+  userAge,
+  userGender,
   onCancel,
   onSave,
 }) => {
   const store = useEnergyMapStore(
-    (state) => ({ trainingTypes: state.trainingTypes ?? {} }),
+    (state) => ({
+      trainingTypes: state.trainingTypes ?? {},
+      userData: state.userData,
+    }),
     shallow
   );
   const resolvedTrainingTypes = trainingTypes ?? store.trainingTypes;
-  const selectedTraining = resolvedTrainingTypes[tempTrainingType];
-  const caloriesPerHour = selectedTraining?.caloriesPerHour ?? 0;
+  const effortType = tempTrainingEffortType ?? 'intensity';
+  const intensityValue = tempTrainingIntensity ?? 'moderate';
+  const heartRateValue =
+    tempTrainingHeartRate === '' || tempTrainingHeartRate == null
+      ? ''
+      : tempTrainingHeartRate;
 
-  const estimatedBurn = Math.round(caloriesPerHour * tempTrainingDuration);
+  const resolvedUserWeight = userWeight ?? store.userData?.weight;
+  const resolvedUserAge = userAge ?? store.userData?.age;
+  const resolvedUserGender = userGender ?? store.userData?.gender;
+
+  const estimatedBurn = useMemo(() => {
+    const pseudoUserData = {
+      trainingType: tempTrainingType,
+      trainingDuration: tempTrainingDuration,
+      trainingEffortType: effortType,
+      trainingIntensity: intensityValue,
+      trainingHeartRate: tempTrainingHeartRate,
+      weight: resolvedUserWeight,
+      age: resolvedUserAge,
+      gender: resolvedUserGender,
+    };
+    return getTrainingCalories(pseudoUserData, resolvedTrainingTypes);
+  }, [
+    tempTrainingType,
+    tempTrainingDuration,
+    effortType,
+    intensityValue,
+    tempTrainingHeartRate,
+    resolvedUserWeight,
+    resolvedUserAge,
+    resolvedUserGender,
+    resolvedTrainingTypes,
+  ]);
+
   const formattedDuration = formatDurationLabel(tempTrainingDuration);
   const roundedDuration = useMemo(
     () => roundDurationHours(tempTrainingDuration),
     [tempTrainingDuration]
   );
+
+  const hasValidHeartRate =
+    effortType === 'heartRate'
+      ? Number.isFinite(Number(tempTrainingHeartRate)) &&
+        Number(tempTrainingHeartRate) > 0
+      : true;
+  const canSave = hasValidHeartRate;
+
+  const effortButtonClass = (type) =>
+    `w-full rounded-lg border px-3 py-1.5 text-sm transition-all focus-ring pressable-inline ${
+      effortType === type
+        ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-900/30'
+        : 'bg-surface-highlight text-muted border-border md:hover:border-blue-400'
+    }`;
+
+  const intensityButtonClass = (level) =>
+    `w-full rounded-lg border px-3 py-2 text-sm transition-all focus-ring pressable-inline ${
+      intensityValue === level
+        ? 'bg-indigo-600 text-white border-indigo-400 shadow-lg shadow-indigo-900/30'
+        : 'bg-surface-highlight text-muted border-border md:hover:border-indigo-400'
+    }`;
 
   return (
     <ModalShell
@@ -109,14 +174,91 @@ export const QuickTrainingModal = ({
               Tap to change
             </span>
           </button>
-          <div className="bg-surface-highlight/50 rounded-lg p-3 mt-3">
-            <p className="text-muted text-xs text-center mb-1">
-              Estimated Burn:
-            </p>
-            <p className="text-foreground font-bold text-xl text-center">
-              ~{estimatedBurn} calories
+        </div>
+
+        <div>
+          <label className="text-foreground text-sm block mb-2">
+            Effort Tracking
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              className={effortButtonClass('intensity')}
+              onClick={() => onEffortTypeChange('intensity')}
+            >
+              Intensity
+            </button>
+            <button
+              type="button"
+              className={effortButtonClass('heartRate')}
+              onClick={() => onEffortTypeChange('heartRate')}
+            >
+              Average Heart Rate
+            </button>
+          </div>
+          <p className="text-xs text-muted mt-2">
+            Use heart rate for wearable-based estimates or intensity for quick
+            selections.
+          </p>
+        </div>
+
+        {effortType === 'intensity' ? (
+          <div>
+            <label className="text-foreground text-sm block mb-2">
+              Intensity
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                className={intensityButtonClass('light')}
+                onClick={() => onIntensityChange('light')}
+              >
+                Light
+              </button>
+              <button
+                type="button"
+                className={intensityButtonClass('moderate')}
+                onClick={() => onIntensityChange('moderate')}
+              >
+                Moderate
+              </button>
+              <button
+                type="button"
+                className={intensityButtonClass('vigorous')}
+                onClick={() => onIntensityChange('vigorous')}
+              >
+                Vigorous
+              </button>
+            </div>
+            <p className="text-xs text-muted mt-2">
+              Pick the perceived exertion level that best matches the session.
             </p>
           </div>
+        ) : (
+          <div>
+            <label className="text-foreground text-sm block mb-2">
+              Average Heart Rate (bpm)
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={heartRateValue}
+              onChange={onHeartRateChange}
+              className="w-full bg-surface text-foreground px-4 py-2 rounded-lg border border-border focus:border-blue-400 focus:outline-none"
+            />
+            <p className="text-xs text-muted mt-2">
+              Enter the average beats per minute recorded during this session.
+            </p>
+          </div>
+        )}
+
+        <div className="bg-surface-highlight/50 rounded-lg p-3">
+          <p className="text-muted text-xs text-center mb-1">
+            Estimated Burn:
+          </p>
+          <p className="text-foreground font-bold text-xl text-center">
+            ~{estimatedBurn} calories
+          </p>
         </div>
       </div>
 
@@ -131,7 +273,12 @@ export const QuickTrainingModal = ({
         <button
           onClick={onSave}
           type="button"
-          className="flex-1 bg-blue-600 active:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback"
+          disabled={!canSave}
+          className={`flex-1 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback ${
+            canSave
+              ? 'bg-blue-600 active:bg-blue-700'
+              : 'bg-blue-600/60 cursor-not-allowed opacity-70'
+          }`}
         >
           <Save size={20} />
           Save

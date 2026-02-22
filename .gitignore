@@ -103,3 +103,6 @@ Thumbs.db
 .fake
 .vercel
 .env*.local
+
+# Claude temp files
+tmpclaude-*/

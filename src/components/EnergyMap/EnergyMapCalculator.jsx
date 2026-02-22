@@ -377,6 +377,15 @@ export const EnergyMapCalculator = () => {
   const [tempTrainingDuration, setTempTrainingDuration] = useState(
     userData.trainingDuration
   );
+  const [tempTrainingEffortType, setTempTrainingEffortType] = useState(
+    userData.trainingEffortType ?? 'intensity'
+  );
+  const [tempTrainingIntensity, setTempTrainingIntensity] = useState(
+    userData.trainingIntensity ?? 'moderate'
+  );
+  const [tempTrainingHeartRate, setTempTrainingHeartRate] = useState(
+    userData.trainingHeartRate ?? ''
+  );
   const [editingTrainingType, setEditingTrainingType] = useState(null);
   const [tempPresetName, setTempPresetName] = useState('');
   const [tempPresetCalories, setTempPresetCalories] = useState(0);
@@ -732,7 +741,16 @@ export const EnergyMapCalculator = () => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setTempTrainingType(userData.trainingType);
     setTempTrainingDuration(userData.trainingDuration);
-  }, [userData.trainingDuration, userData.trainingType]);
+    setTempTrainingEffortType(userData.trainingEffortType ?? 'intensity');
+    setTempTrainingIntensity(userData.trainingIntensity ?? 'moderate');
+    setTempTrainingHeartRate(userData.trainingHeartRate ?? '');
+  }, [
+    userData.trainingDuration,
+    userData.trainingType,
+    userData.trainingEffortType,
+    userData.trainingIntensity,
+    userData.trainingHeartRate,
+  ]);
 
   useEffect(() => {
     if (!durationPickerModal.isOpen) {
@@ -1189,6 +1207,9 @@ export const EnergyMapCalculator = () => {
     if (selectedDay === 'training') {
       setTempTrainingType(userData.trainingType);
       setTempTrainingDuration(userData.trainingDuration);
+      setTempTrainingEffortType(userData.trainingEffortType ?? 'intensity');
+      setTempTrainingIntensity(userData.trainingIntensity ?? 'moderate');
+      setTempTrainingHeartRate(userData.trainingHeartRate ?? '');
       quickTrainingModal.open();
     } else {
       updateSelectedDay('training');
@@ -1199,6 +1220,9 @@ export const EnergyMapCalculator = () => {
     updateSelectedDay,
     userData.trainingDuration,
     userData.trainingType,
+    userData.trainingEffortType,
+    userData.trainingIntensity,
+    userData.trainingHeartRate,
   ]);
 
   const handleRestDayClick = useCallback(() => {
@@ -2123,13 +2147,47 @@ export const EnergyMapCalculator = () => {
   const handleQuickTrainingSave = useCallback(() => {
     handleUserDataChange('trainingType', tempTrainingType);
     handleUserDataChange('trainingDuration', tempTrainingDuration);
+    handleUserDataChange('trainingEffortType', tempTrainingEffortType);
+    handleUserDataChange('trainingIntensity', tempTrainingIntensity);
+    handleUserDataChange('trainingHeartRate', tempTrainingHeartRate);
     quickTrainingModal.requestClose();
   }, [
     handleUserDataChange,
     quickTrainingModal,
     tempTrainingDuration,
     tempTrainingType,
+    tempTrainingEffortType,
+    tempTrainingIntensity,
+    tempTrainingHeartRate,
   ]);
+
+  const handleTrainingEffortTypeChange = useCallback(
+    (nextType) => {
+      if (nextType === tempTrainingEffortType) return;
+      if (nextType === 'heartRate') {
+        setTempTrainingEffortType('heartRate');
+        return;
+      }
+      setTempTrainingEffortType('intensity');
+      setTempTrainingHeartRate('');
+    },
+    [tempTrainingEffortType]
+  );
+
+  const handleTrainingIntensityChange = useCallback((level) => {
+    setTempTrainingIntensity(level);
+  }, []);
+
+  const handleTrainingHeartRateChange = useCallback((event) => {
+    const { value } = event.target;
+    if (value === '') {
+      setTempTrainingHeartRate('');
+      return;
+    }
+    const parsed = Number.parseInt(value, 10);
+    const sanitized = Number.isFinite(parsed) ? Math.max(parsed, 0) : 0;
+    setTempTrainingHeartRate(sanitized);
+  }, []);
 
   const openDurationPicker = useCallback(
     (initialValue, onConfirm, title = 'Training Duration') => {
@@ -2952,11 +3010,17 @@ export const EnergyMapCalculator = () => {
         trainingTypes={trainingTypes}
         tempTrainingType={tempTrainingType}
         tempTrainingDuration={tempTrainingDuration}
+        tempTrainingEffortType={tempTrainingEffortType}
+        tempTrainingIntensity={tempTrainingIntensity}
+        tempTrainingHeartRate={tempTrainingHeartRate}
         onTrainingTypeSelect={setTempTrainingType}
         onEditTrainingType={openTrainingTypeEditor}
         onDurationClick={() =>
           openDurationPicker(tempTrainingDuration, setTempTrainingDuration)
         }
+        onEffortTypeChange={handleTrainingEffortTypeChange}
+        onIntensityChange={handleTrainingIntensityChange}
+        onHeartRateChange={handleTrainingHeartRateChange}
         onCancel={quickTrainingModal.requestClose}
         onSave={handleQuickTrainingSave}
       />

@@ -138,6 +138,9 @@ export const getDefaultEnergyMapData = () => ({
   theme: 'auto', // 'auto' | 'dark' | 'light' | 'amoled_dark'
   trainingType: 'bodybuilding',
   trainingDuration: 2,
+  trainingEffortType: 'intensity',
+  trainingIntensity: 'moderate',
+  trainingHeartRate: '',
   stepRanges: ['<10k', '10k', '12k', '14k', '16k', '18k', '20k', '>20k'],
   cardioSessions: [],
   cardioFavourites: [],
