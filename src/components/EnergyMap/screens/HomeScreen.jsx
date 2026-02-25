@@ -16,6 +16,14 @@ import { shallow } from 'zustand/shallow';
 import { goals as baseGoals } from '../../../constants/goals';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 
+const GOAL_BORDER_CLASS_BY_BG = {
+  'bg-purple-500': 'border-purple-400',
+  'bg-green-500': 'border-green-400',
+  'bg-blue-500': 'border-blue-400',
+  'bg-yellow-500': 'border-yellow-400',
+  'bg-orange-500': 'border-orange-400',
+};
+
 export const HomeScreen = ({
   userData,
   bmr,
@@ -71,6 +79,8 @@ export const HomeScreen = ({
       : resolvedCardioSessions.length > 0;
 
   const goalConfig = resolvedGoals[selectedGoal];
+  const goalBorderClass =
+    GOAL_BORDER_CLASS_BY_BG[goalConfig.color] ?? 'border-white';
   const weightTileValue = weightDisplay ?? `${resolvedUserData.weight} kg`;
   const bodyFatTileValue = bodyFatDisplay ?? 'Set';
 
@@ -170,7 +180,7 @@ export const HomeScreen = ({
         <button
           onClick={onGoalClick}
           type="button"
-          className={`w-full p-4 rounded-xl border-2 transition-all relative ${goalConfig.color} border-white text-white shadow-lg md:hover:scale-[1.02] active:scale-[0.98] focus-ring pressable-card`}
+          className={`w-full p-4 rounded-xl border-2 transition-all relative ${goalConfig.color} ${goalBorderClass} text-white shadow-lg md:hover:scale-[1.02] active:scale-[0.98] focus-ring pressable-card`}
         >
           {(() => {
             const Icon = goalConfig.icon;
@@ -201,7 +211,7 @@ export const HomeScreen = ({
             type="button"
             className={`p-4 rounded-xl border-2 transition-all relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
               selectedDay === 'training'
-                ? 'bg-purple-600 border-white text-white shadow-xl transform scale-105'
+                ? 'bg-purple-600 border-purple-500 text-white shadow-xl transform scale-105'
                 : 'bg-surface-highlight/50 border-border/50 text-foreground/90 md:hover:border-purple-400 md:hover:shadow-lg md:hover:scale-[1.03]'
             }`}
             transition={{ type: 'spring', stiffness: 260, damping: 24 }}
@@ -237,7 +247,7 @@ export const HomeScreen = ({
             type="button"
             className={`p-4 rounded-xl border-2 transition-all grid grid-rows-[auto_auto_auto] place-items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
               selectedDay === 'rest'
-                ? 'bg-indigo-600 border-white text-white shadow-lg transform scale-105'
+                ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg transform scale-105'
                 : 'bg-surface-highlight/50 border-border/50 text-muted md:hover:border-muted'
             }`}
             transition={{ type: 'spring', stiffness: 260, damping: 24 }}

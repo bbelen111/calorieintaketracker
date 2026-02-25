@@ -3,6 +3,14 @@ import { Save } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import { goals as baseGoals } from '../../../../constants/goals';
 
+const GOAL_BORDER_CLASS_BY_BG = {
+  'bg-purple-500': 'border-purple-400',
+  'bg-green-500': 'border-green-400',
+  'bg-blue-500': 'border-blue-400',
+  'bg-yellow-500': 'border-yellow-400',
+  'bg-orange-500': 'border-orange-400',
+};
+
 export const GoalModal = ({
   isOpen,
   isClosing,
@@ -28,13 +36,15 @@ export const GoalModal = ({
         {Object.entries(resolvedGoals).map(([key, goal]) => {
           const Icon = goal.icon;
           const isActive = tempSelectedGoal === key;
+          const goalBorderClass =
+            GOAL_BORDER_CLASS_BY_BG[goal.color] ?? 'border-white';
           return (
             <button
               key={key}
               onClick={() => onSelect(key)}
               className={`p-4 rounded-xl border-2 transition-all active:scale-[0.98] text-left focus-ring pressable ${
                 isActive
-                  ? `${goal.color} border-white text-white shadow-lg`
+                  ? `${goal.color} ${goalBorderClass} text-white shadow-lg`
                   : 'bg-surface-highlight border-border text-muted md:hover:border-accent-blue'
               }`}
               type="button"
