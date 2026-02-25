@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 
 const BASE_SWIPE_THRESHOLD = 130;
+const SWIPE_DIRECTION_LOCK_THRESHOLD = 8;
+const AXIS_DOMINANCE_RATIO = 1.15;
 
 export const useSwipeableScreens = (
   totalScreens,
@@ -17,6 +19,7 @@ export const useSwipeableScreens = (
   const swipeStartY = useRef(null);
   const isSwipeActive = useRef(false);
   const hasSwipeDirection = useRef(false);
+  const lockedAxis = useRef(null);
   const readViewportWidth = useCallback(() => {
     const elementWidth = viewportRef.current?.clientWidth;
     if (Number.isFinite(elementWidth) && elementWidth > 0) {
@@ -55,6 +58,7 @@ export const useSwipeableScreens = (
       swipeStartY.current = clientY;
       isSwipeActive.current = true;
       hasSwipeDirection.current = false;
+      lockedAxis.current = null;
       setIsSwiping(false);
       setDragOffset(0);
     },
@@ -67,18 +71,37 @@ export const useSwipeableScreens = (
     const deltaX = clientX - swipeStartX.current;
     const startY = swipeStartY.current ?? clientY;
     const deltaY = clientY - startY;
+    const absDeltaX = Math.abs(deltaX);
+    const absDeltaY = Math.abs(deltaY);
 
-    if (!hasSwipeDirection.current) {
-      if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 10) {
-        isSwipeActive.current = false;
-        swipeStartX.current = null;
-        swipeStartY.current = null;
-        setIsSwiping(false);
-        setDragOffset(0);
+    if (!lockedAxis.current) {
+      if (
+        absDeltaX < SWIPE_DIRECTION_LOCK_THRESHOLD &&
+        absDeltaY < SWIPE_DIRECTION_LOCK_THRESHOLD
+      ) {
         return;
       }
 
-      if (Math.abs(deltaX) > 12) {
+      if (absDeltaY > absDeltaX * AXIS_DOMINANCE_RATIO) {
+        lockedAxis.current = 'y';
+      } else if (absDeltaX > absDeltaY * AXIS_DOMINANCE_RATIO) {
+        lockedAxis.current = 'x';
+      } else {
+        return;
+      }
+    }
+
+    if (lockedAxis.current === 'y') {
+      isSwipeActive.current = false;
+      swipeStartX.current = null;
+      swipeStartY.current = null;
+      setIsSwiping(false);
+      setDragOffset(0);
+      return;
+    }
+
+    if (!hasSwipeDirection.current) {
+      if (absDeltaX > 6) {
         hasSwipeDirection.current = true;
         setIsSwiping(true);
       } else {
@@ -112,6 +135,7 @@ export const useSwipeableScreens = (
     setIsSwiping(false);
     isSwipeActive.current = false;
     hasSwipeDirection.current = false;
+    lockedAxis.current = null;
     swipeStartX.current = null;
     swipeStartY.current = null;
   }, [
@@ -136,6 +160,13 @@ export const useSwipeableScreens = (
       if (event.touches.length === 0) return;
       const touch = event.touches[0];
       updateSwipePosition(touch.clientX, touch.clientY);
+
+      // Lock vertical page scrolling once horizontal swipe intent is confirmed.
+      // This creates symmetrical axis behavior with the existing vertical-first
+      // cancellation logic.
+      if (lockedAxis.current === 'x' && event.cancelable) {
+        event.preventDefault();
+      }
     },
     [updateSwipePosition]
   );
@@ -176,6 +207,7 @@ export const useSwipeableScreens = (
       setIsSwiping(false);
       isSwipeActive.current = false;
       hasSwipeDirection.current = false;
+      lockedAxis.current = null;
       swipeStartX.current = null;
       swipeStartY.current = null;
     },

@@ -2589,7 +2589,7 @@ export const EnergyMapCalculator = () => {
 
           <div
             ref={viewportRef}
-            className={`overflow-hidden ${isSwiping ? 'cursor-grabbing' : 'cursor-grab'}`}
+            className={`overflow-hidden touch-pan-y ${isSwiping ? 'cursor-grabbing' : 'cursor-grab'}`}
             {...handlers}
           >
             <div className="flex w-full" style={sliderStyle}>
