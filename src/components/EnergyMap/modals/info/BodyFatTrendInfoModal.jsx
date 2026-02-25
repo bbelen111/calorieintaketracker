@@ -386,7 +386,7 @@ export const BodyFatTrendInfoModal = ({
           </div>
         </div>
 
-        <div className="bg-surface/70 border border-border rounded-lg p-4 space-y-2">
+        <div className="bg-surface-highlight/80 border border-border rounded-lg p-4 space-y-2">
           <p className="text-foreground font-semibold text-sm uppercase tracking-wide">
             Trend Classifications
           </p>
@@ -451,7 +451,7 @@ export const BodyFatTrendInfoModal = ({
         <button
           onClick={onClose}
           type="button"
-          className="w-full bg-blue-600 active:bg-blue-700 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium"
+          className="w-full bg-accent-blue active:bg-accent-blue/80 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium"
         >
           Got it!
         </button>

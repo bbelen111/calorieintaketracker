@@ -48,7 +48,7 @@ export const FfmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
     >
       <div className="flex items-start justify-between gap-4 mb-4">
         <div className="flex items-center gap-3">
-          <Info size={28} className="text-accent-emerald" />
+          <Info size={28} className="text-accent-blue" />
           <h3 className="text-foreground font-bold text-xl">What is FFMI?</h3>
         </div>
         <button
@@ -74,7 +74,7 @@ export const FfmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
           <p className="font-bold text-foreground mb-2">Formula:</p>
           <div className="p-3 bg-background/50 rounded font-mono text-xs md:text-sm space-y-2">
             <p className="text-muted">Lean mass = weight × (1 − body fat %)</p>
-            <p className="text-accent-emerald">
+            <p className="text-accent-blue">
               FFMI = lean mass (kg) ÷ height (m)²
             </p>
             <p className="text-accent-purple">
@@ -119,10 +119,8 @@ export const FfmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
           </div>
         </div>
 
-        <div className="bg-accent-emerald/15 border border-accent-emerald/50 rounded-lg p-4">
-          <p className="font-bold text-accent-emerald mb-2">
-            Your Current FFMI:
-          </p>
+        <div className="bg-accent-blue/15 border border-accent-blue/50 rounded-lg p-4">
+          <p className="font-bold text-accent-blue mb-2">Your Current FFMI:</p>
           <div className="text-sm space-y-1">
             <p>
               Weight:{' '}
@@ -150,7 +148,7 @@ export const FfmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
                 </span>
               </p>
             )}
-            <div className="border-t border-accent-emerald/50 mt-2 pt-2">
+            <div className="border-t border-accent-blue/50 mt-2 pt-2">
               <p className="text-lg">
                 Your FFMI:{' '}
                 <span className="text-foreground font-bold">
@@ -182,7 +180,7 @@ export const FfmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
         <button
           onClick={onClose}
           type="button"
-          className="w-full bg-emerald-600 active:bg-emerald-700 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium"
+          className="w-full bg-accent-blue active:bg-accent-blue/80 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium"
         >
           Got it!
         </button>
