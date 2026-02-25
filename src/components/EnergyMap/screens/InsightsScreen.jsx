@@ -500,7 +500,7 @@ export const InsightsScreen = ({
                   over last 7 entries
                 </p>
               </div>
-              {sparkline.points && sortedEntries.length > 1 && (
+              {sparkline.pathData && sortedEntries.length > 1 && (
                 <div className="w-36 h-16 relative [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
                   <svg
                     width="100%"
@@ -553,8 +553,8 @@ export const InsightsScreen = ({
                         fill="url(#weightSparklineGradient)"
                       />
                     )}
-                    <polyline
-                      points={sparkline.points}
+                    <path
+                      d={sparkline.pathData}
                       fill="none"
                       stroke="url(#weightSparklineStroke)"
                       strokeWidth={2.5}
@@ -625,7 +625,7 @@ export const InsightsScreen = ({
                     over last 7 entries
                   </p>
                 </div>
-                {bodyFatSparkline.points && sortedBodyFatEntries.length > 1 && (
+                {bodyFatSparkline.pathData && sortedBodyFatEntries.length > 1 && (
                   <div className="w-36 h-16 relative [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
                     <svg
                       width="100%"
@@ -678,8 +678,8 @@ export const InsightsScreen = ({
                           fill="url(#bodyFatSparklineGradient)"
                         />
                       )}
-                      <polyline
-                        points={bodyFatSparkline.points}
+                      <path
+                        d={bodyFatSparkline.pathData}
                         fill="none"
                         stroke="url(#bodyFatSparklineStroke)"
                         strokeWidth={2.5}

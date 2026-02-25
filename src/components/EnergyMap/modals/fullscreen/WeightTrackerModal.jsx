@@ -29,6 +29,7 @@ import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { WeightTrendInfoModal } from '../info/WeightTrendInfoModal';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
+import { buildBezierPaths } from '../../../../utils/bezierPath';
 
 const TrendIcon = ({ direction }) => {
   if (direction === 'up') {
@@ -1308,54 +1309,15 @@ export const WeightTrackerModal = ({
 
                         {/* Line graph, area, and grid */}
                         {(() => {
-                          let pathData = '';
-                          let areaData = '';
-                          const points = chartPoints;
-                          // Removed unused baselineY variable
-
-                          if (
-                            points.length === 1 &&
-                            shouldStretchAcrossViewport
-                          ) {
-                            const singlePoint = points[0];
-                            const startX = 0;
-                            const endX = chartWidth;
-                            pathData = `M ${startX} ${singlePoint.y} L ${endX} ${singlePoint.y}`;
-                            areaData = `M ${startX} ${chartHeight} L ${startX} ${singlePoint.y} L ${endX} ${singlePoint.y} L ${endX} ${chartHeight} Z`;
-                          } else if (points.length > 1) {
-                            // Connect to left edge first
-                            const firstPoint = points[0];
-                            pathData = `M 0 ${firstPoint.y} L ${firstPoint.x} ${firstPoint.y}`;
-                            areaData = `M 0 ${chartHeight} L 0 ${firstPoint.y} L ${firstPoint.x} ${firstPoint.y}`;
-
-                            // Create smooth curves between points using cubic Bézier
-                            for (let i = 0; i < points.length - 1; i++) {
-                              const current = points[i];
-                              const next = points[i + 1];
-
-                              // Calculate control points for smooth cubic Bézier curve
-                              const cp1x =
-                                current.x + (next.x - current.x) * 0.4;
-                              const cp1y = current.y;
-                              const cp2x = next.x - (next.x - current.x) * 0.4;
-                              const cp2y = next.y;
-
-                              // Use cubic Bézier curve for both line and area
-                              pathData += ` C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${next.x} ${next.y}`;
-                              areaData += ` C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${next.x} ${next.y}`;
+                          const { pathData, areaData } = buildBezierPaths(
+                            chartPoints,
+                            {
+                              chartWidth,
+                              chartHeight,
+                              extendToEdges: true,
+                              singlePointStretch: shouldStretchAcrossViewport,
                             }
-
-                            if (points.length > 0) {
-                              const lastPoint = points[points.length - 1];
-                              // Extend the line to the right edge
-                              pathData += ` L ${chartWidth} ${lastPoint.y}`;
-                              areaData += ` L ${chartWidth} ${lastPoint.y} L ${chartWidth} ${chartHeight} Z`;
-                            }
-                          } else {
-                            // fallback for 0 points
-                            pathData = '';
-                            areaData = '';
-                          }
+                          );
 
                           return (
                             <>
@@ -1409,7 +1371,7 @@ export const WeightTrackerModal = ({
                               )}
 
                               {/* Points */}
-                              {points.map(({ x, y, date }) => (
+                              {chartPoints.map(({ x, y, date }) => (
                                 <g
                                   key={date}
                                   onClick={(e) => handleDateClick(date, e)}

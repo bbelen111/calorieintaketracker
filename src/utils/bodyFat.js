@@ -1,4 +1,5 @@
 import { normalizeDateKey } from './weight';
+import { buildBezierPaths } from './bezierPath';
 
 const MS_PER_DAY = 86_400_000;
 
@@ -195,24 +196,15 @@ export const createBodyFatSparklinePoints = (
     return { x, y, bodyFat: entry.bodyFat };
   });
 
-  const points = coordinates
-    .map((coord) => `${coord.x.toFixed(2)},${coord.y.toFixed(2)}`)
-    .join(' ');
-
-  let areaPath = '';
-  if (coordinates.length > 0) {
-    areaPath = `M ${coordinates[0].x},${baselineY}`;
-    areaPath += ` L ${coordinates[0].x},${coordinates[0].y}`;
-    coordinates.forEach((coord) => {
-      areaPath += ` L ${coord.x},${coord.y}`;
-    });
-    areaPath += ` L ${coordinates[coordinates.length - 1].x},${baselineY}`;
-    areaPath += ' Z';
-  }
+  // Build smooth bezier paths for the sparkline
+  const { pathData, areaData } = buildBezierPaths(coordinates, {
+    chartWidth: width,
+    chartHeight: baselineY,
+  });
 
   return {
-    points,
-    areaPath,
+    pathData,
+    areaPath: areaData,
     min,
     max,
     range: max - min,

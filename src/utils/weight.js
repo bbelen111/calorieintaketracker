@@ -1,3 +1,5 @@
+import { buildBezierPaths } from './bezierPath';
+
 const DATE_KEY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const MS_PER_DAY = 86_400_000;
 
@@ -228,31 +230,15 @@ export const createSparklinePoints = (
     return { x, y, weight: entry.weight };
   });
 
-  // Create line points
-  const points = coordinates
-    .map((coord) => `${coord.x.toFixed(2)},${coord.y.toFixed(2)}`)
-    .join(' ');
-
-  // Create area path (line + fill to baseline)
-  let areaPath = '';
-  if (coordinates.length > 0) {
-    // Start at bottom-left
-    areaPath = `M ${coordinates[0].x},${baselineY}`;
-    // Line up to first point
-    areaPath += ` L ${coordinates[0].x},${coordinates[0].y}`;
-    // Draw through all points
-    coordinates.forEach((coord) => {
-      areaPath += ` L ${coord.x},${coord.y}`;
-    });
-    // Line down to bottom-right
-    areaPath += ` L ${coordinates[coordinates.length - 1].x},${baselineY}`;
-    // Close path back to start
-    areaPath += ' Z';
-  }
+  // Build smooth bezier paths for the sparkline
+  const { pathData, areaData } = buildBezierPaths(coordinates, {
+    chartWidth: width,
+    chartHeight: baselineY,
+  });
 
   return {
-    points,
-    areaPath,
+    pathData,
+    areaPath: areaData,
     min,
     max,
     range: max - min,
