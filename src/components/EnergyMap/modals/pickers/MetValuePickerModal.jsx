@@ -7,7 +7,10 @@ import React, {
 } from 'react';
 import { Save } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
-import { alignScrollContainerToValue } from '../../../../utils/scroll';
+import {
+  alignScrollContainerToValue,
+  createPickerScrollHandler,
+} from '../../../../utils/scroll';
 
 const clampValue = (value, min, max) => {
   if (!Number.isFinite(value)) {
@@ -37,7 +40,6 @@ export const MetValuePickerModal = ({
   step = 0.1,
   unitLabel = 'METs',
   onCancel,
-  onChange,
   onSave,
 }) => {
   const scrollRef = useRef(null);
@@ -61,41 +63,28 @@ export const MetValuePickerModal = ({
     });
   }, [decimals, max, min, step]);
 
-  const alignToValue = useCallback(
-    (nextValue, behavior = 'smooth') => {
-      if (!scrollRef.current) {
-        return;
-      }
-
-      const formatted = formatValue(nextValue, decimals);
-      alignScrollContainerToValue(scrollRef.current, formatted, behavior);
-    },
-    [decimals]
-  );
-
-  const updateValue = useCallback(
-    (
-      nextValue,
-      { shouldAlign = true, alignBehavior = 'smooth', emitChange = true } = {}
-    ) => {
+  const handleValueChange = useCallback(
+    (nextValue) => {
       const clamped = clampValue(nextValue, min, max);
-      setSelectedValue((previous) => {
-        if (Math.abs(previous - clamped) < 0.0001) {
-          return previous;
-        }
-        return clamped;
-      });
-
-      if (emitChange && onChange) {
-        onChange(clamped);
-      }
-
-      if (shouldAlign) {
-        alignToValue(clamped, alignBehavior);
-      }
+      setSelectedValue(clamped);
     },
-    [alignToValue, max, min, onChange]
+    [min, max]
   );
+
+  const [handleScroll, setHandleScroll] = useState(() => () => {});
+
+  useEffect(() => () => clearTimeout(timeoutRef.current), []);
+
+  useEffect(() => {
+    setHandleScroll(() =>
+      createPickerScrollHandler(
+        scrollRef,
+        timeoutRef,
+        (val) => parseFloat(val),
+        handleValueChange
+      )
+    );
+  }, [handleValueChange]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -107,70 +96,31 @@ export const MetValuePickerModal = ({
     hasAlignedRef.current = true;
 
     const frame = requestAnimationFrame(() => {
-      updateValue(normalizedValue, {
-        shouldAlign: true,
-        alignBehavior: behavior,
-      });
+      setSelectedValue(normalizedValue);
+      if (scrollRef.current) {
+        const formatted = formatValue(normalizedValue, decimals);
+        alignScrollContainerToValue(scrollRef.current, formatted, behavior);
+      }
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [isOpen, normalizedValue, updateValue]);
+  }, [isOpen, normalizedValue, decimals]);
 
-  useEffect(() => {
-    let timeout = timeoutRef.current;
-    return () => {
-      clearTimeout(timeout);
-    };
-  }, []);
+  const handleItemClick = useCallback(
+    (option) => {
+      const clamped = clampValue(option, min, max);
+      setSelectedValue(clamped);
+      if (scrollRef.current) {
+        const formatted = formatValue(clamped, decimals);
+        alignScrollContainerToValue(scrollRef.current, formatted, 'smooth');
+      }
+    },
+    [min, max, decimals]
+  );
 
-  // Inline scroll handler for lint compliance
-  const handleScroll = (event) => {
-    const container = event.currentTarget;
-    const closestItem = container.querySelectorAll('[data-value]');
-    let closest = null;
-    let closestDistance = Infinity;
-    const containerCenter = container.scrollTop + container.clientHeight / 2;
-    closestItem.forEach((item) => {
-      const itemCenter = item.offsetTop + item.offsetHeight / 2;
-      const distance = Math.abs(containerCenter - itemCenter);
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closest = item;
-      }
-    });
-    if (closest) {
-      const parsedValue = parseFloat(closest.dataset.value);
-      if (!Number.isNaN(parsedValue)) {
-        updateValue(parsedValue, { shouldAlign: false });
-      }
-    }
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    timeoutRef.current = setTimeout(() => {
-      const containerEl = scrollRef.current || container;
-      if (!containerEl) return;
-      // Find closest again for alignment
-      let closestAlign = null;
-      let closestAlignDistance = Infinity;
-      const center = containerEl.scrollTop + containerEl.clientHeight / 2;
-      containerEl.querySelectorAll('[data-value]').forEach((item) => {
-        const itemCenter = item.offsetTop + item.offsetHeight / 2;
-        const distance = Math.abs(center - itemCenter);
-        if (distance < closestAlignDistance) {
-          closestAlignDistance = distance;
-          closestAlign = item;
-        }
-      });
-      if (closestAlign) {
-        const targetScrollTop =
-          closestAlign.offsetTop -
-          containerEl.clientHeight / 2 +
-          closestAlign.offsetHeight / 2;
-        containerEl.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
-      }
-    }, 140);
-  };
+  const handleSave = useCallback(() => {
+    onSave?.(selectedValue);
+  }, [onSave, selectedValue]);
 
   return (
     <ModalShell
@@ -186,13 +136,13 @@ export const MetValuePickerModal = ({
         {unitLabel}
       </p>
 
-      <div className="relative h-48 overflow-hidden">
+      <div className="relative h-48 overflow-hidden rounded-xl bg-surface/80">
         <div className="absolute inset-0 pointer-events-none z-10">
           <div className="h-16 bg-gradient-to-b from-surface to-transparent" />
           <div className="h-16 bg-transparent" />
           <div className="h-16 bg-gradient-to-t from-surface to-transparent" />
         </div>
-        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400 pointer-events-none z-10" />
+        <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400/70 pointer-events-none z-10" />
 
         <div
           ref={scrollRef}
@@ -208,8 +158,8 @@ export const MetValuePickerModal = ({
               <div
                 key={formattedValue}
                 data-value={formattedValue}
-                onClick={() => updateValue(option)}
-                className={`py-3 px-6 text-2xl font-semibold transition-all snap-center cursor-pointer text-center focus-ring pressable ${
+                onClick={() => handleItemClick(option)}
+                className={`h-16 flex items-center justify-center text-2xl font-semibold snap-center cursor-pointer transition-all ${
                   isSelected ? 'text-foreground scale-110' : 'text-muted'
                 }`}
               >
@@ -225,17 +175,14 @@ export const MetValuePickerModal = ({
         <button
           onClick={onCancel}
           type="button"
-          className="flex-1 bg-surface-highlight text-foreground px-6 py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback md:hover:bg-surface"
+          className="flex-1 bg-surface-highlight active:bg-surface-highlight/80 text-foreground px-6 py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback"
         >
           Cancel
         </button>
         <button
-          onClick={() => {
-            updateValue(selectedValue);
-            onSave?.(selectedValue);
-          }}
+          onClick={handleSave}
           type="button"
-          className="flex-1 bg-accent-green active:bg-accent-green/90 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback"
+          className="flex-1 bg-accent-blue active:bg-accent-blue/90 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback"
         >
           <Save size={20} />
           Save
