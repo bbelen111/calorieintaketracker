@@ -6,6 +6,7 @@ import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { CardioTypeListModal } from '../lists/CardioTypeListModal';
 import { CustomCardioTypeModal } from './CustomCardioTypeModal';
 import { CardioDurationPickerModal } from '../pickers/CardioDurationPickerModal';
+import { HeartRatePickerModal } from '../pickers/HeartRatePickerModal';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { calculateCardioCalories } from '../../../../utils/calculations';
 import { roundDurationHours } from '../../../../utils/time';
@@ -124,6 +125,13 @@ export const CardioModal = ({
     requestClose: requestDurationPickerClose,
     forceClose: forceDurationPickerClose,
   } = useAnimatedModal(false);
+  const {
+    isOpen: isHeartRatePickerOpen,
+    isClosing: isHeartRatePickerClosing,
+    open: openHeartRatePicker,
+    requestClose: requestHeartRatePickerClose,
+    forceClose: forceHeartRatePickerClose,
+  } = useAnimatedModal(false);
   const [customName, setCustomName] = React.useState('');
   const [customMetLight, setCustomMetLight] = React.useState('');
   const [customMetModerate, setCustomMetModerate] = React.useState('');
@@ -153,10 +161,12 @@ export const CardioModal = ({
       forceTypePickerClose();
       forceCustomModalClose();
       forceDurationPickerClose();
+      forceHeartRatePickerClose();
     }
   }, [
     forceCustomModalClose,
     forceDurationPickerClose,
+    forceHeartRatePickerClose,
     forceTypePickerClose,
     isOpen,
   ]);
@@ -225,17 +235,21 @@ export const CardioModal = ({
     onChange({ ...session, intensity: nextIntensity });
   };
 
-  const handleHeartRateChange = (event) => {
-    const { value } = event.target;
-    if (value === '') {
-      onChange({ ...session, averageHeartRate: '' });
-      return;
-    }
+  const handleHeartRatePickerSave = React.useCallback(
+    (bpm) => {
+      onChange({ ...session, averageHeartRate: bpm });
+      requestHeartRatePickerClose();
+    },
+    [onChange, session, requestHeartRatePickerClose]
+  );
 
-    const parsed = Number.parseInt(value, 10);
-    const sanitized = Number.isFinite(parsed) ? Math.max(parsed, 0) : 0;
-    onChange({ ...session, averageHeartRate: sanitized });
-  };
+  const formattedHeartRate = React.useMemo(() => {
+    const numeric = Number(heartRateValue);
+    if (heartRateValue === '' || !Number.isFinite(numeric) || numeric <= 0) {
+      return '--';
+    }
+    return `${numeric} bpm`;
+  }, [heartRateValue]);
 
   const effortButtonClass = (type) =>
     `w-full rounded-lg border px-3 py-1.5 text-sm transition-all focus-ring pressable-inline ${
@@ -439,15 +453,19 @@ export const CardioModal = ({
               <label className="text-foreground text-sm block mb-2">
                 Average Heart Rate (bpm)
               </label>
-              <input
-                type="number"
-                min="0"
-                value={heartRateValue}
-                onChange={handleHeartRateChange}
-                className="w-full bg-surface-highlight text-foreground px-4 py-2 rounded-lg border border-border focus:border-blue-400 focus:outline-none"
-              />
+              <button
+                onClick={openHeartRatePicker}
+                type="button"
+                className="w-full px-3 py-2 rounded-lg border-2 bg-blue-600 border-blue-500 text-white transition-all active:scale-[0.98] flex items-center justify-between focus-ring press-feedback"
+              >
+                <span className="font-semibold text-sm md:text-base">
+                  {formattedHeartRate}
+                </span>
+                <span className="text-[11px] opacity-75">Tap to change</span>
+              </button>
               <p className="text-xs text-muted mt-2">
-                Enter the average beats per minute recorded during this session.
+                Select the average beats per minute recorded during this
+                session.
               </p>
             </div>
           )}
@@ -525,6 +543,14 @@ export const CardioModal = ({
         onCancel={handleCustomCardioCancel}
         onSave={handleCustomCardioSave}
         canSave={customModalCanSave}
+      />
+
+      <HeartRatePickerModal
+        isOpen={isHeartRatePickerOpen}
+        isClosing={isHeartRatePickerClosing}
+        value={heartRateValue}
+        onCancel={requestHeartRatePickerClose}
+        onSave={handleHeartRatePickerSave}
       />
     </>
   );
