@@ -52,7 +52,7 @@ import { TrainingTypeEditorModal } from './modals/forms/TrainingTypeEditorModal'
 import { SettingsModal } from './modals/fullscreen/SettingsModal';
 import { StepRangesModal } from './modals/forms/StepRangesModal';
 import { QuickTrainingModal } from './modals/forms/QuickTrainingModal';
-import { TrainingDurationPickerModal } from './modals/pickers/TrainingDurationPickerModal';
+import { DurationPickerModal } from './modals/pickers/DurationPickerModal';
 import { CardioModal } from './modals/forms/CardioModal';
 import { CardioFavouritesModal } from './modals/lists/CardioFavouritesModal';
 import { CalorieBreakdownModal } from './modals/info/CalorieBreakdownModal';
@@ -3025,9 +3025,10 @@ export const EnergyMapCalculator = () => {
         onSave={handleQuickTrainingSave}
       />
 
-      <TrainingDurationPickerModal
+      <DurationPickerModal
         isOpen={durationPickerModal.isOpen}
         isClosing={durationPickerModal.isClosing}
+        mode="hours"
         title={durationPickerTitle}
         initialDuration={durationPickerValue}
         onCancel={handleDurationPickerCancel}

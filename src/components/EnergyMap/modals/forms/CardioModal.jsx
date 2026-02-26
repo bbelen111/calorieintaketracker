@@ -5,7 +5,7 @@ import { ModalShell } from '../../common/ModalShell';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { CardioTypeListModal } from '../lists/CardioTypeListModal';
 import { CustomCardioTypeModal } from './CustomCardioTypeModal';
-import { CardioDurationPickerModal } from '../pickers/CardioDurationPickerModal';
+import { DurationPickerModal } from '../pickers/DurationPickerModal';
 import { HeartRatePickerModal } from '../pickers/HeartRatePickerModal';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { calculateCardioCalories } from '../../../../utils/calculations';
@@ -508,11 +508,12 @@ export const CardioModal = ({
         </div>
       </ModalShell>
 
-      <CardioDurationPickerModal
+      <DurationPickerModal
         isOpen={isDurationPickerOpen}
         isClosing={isDurationPickerClosing}
+        mode="minutes"
+        title="Cardio Duration"
         minutes={sessionDurationMinutes}
-        onChange={handleDurationPickerChange}
         onCancel={requestDurationPickerClose}
         onSave={handleDurationPickerSave}
       />

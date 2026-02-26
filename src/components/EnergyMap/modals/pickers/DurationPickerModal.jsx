@@ -8,7 +8,7 @@ import React, {
 import { Save } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import {
-  alignScrollContainerToValue,
+  alignScrollContainerToElement,
   createPickerScrollHandler,
 } from '../../../../utils/scroll';
 import {
@@ -16,35 +16,63 @@ import {
   roundDurationHours,
 } from '../../../../utils/time';
 
-const MAX_HOURS = 12;
-const MINUTE_STEP = 5;
-const HOUR_VALUES = Array.from({ length: MAX_HOURS + 1 }, (_, index) => index);
-const MINUTE_VALUES = Array.from(
-  { length: Math.floor(60 / MINUTE_STEP) },
-  (_, index) => index * MINUTE_STEP
-);
+const REPEATS = 20;
 
-const clampMinutes = (minutes) => {
+const alignToNearestValue = (container, value, behavior = 'smooth') => {
+  if (!container) return;
+  const elements = container.querySelectorAll(`[data-value="${value}"]`);
+  if (elements.length === 0) return;
+
+  const containerCenter = container.scrollTop + container.clientHeight / 2;
+  let closest = null;
+  let closestDist = Infinity;
+
+  elements.forEach((el) => {
+    const elCenter = el.offsetTop + el.offsetHeight / 2;
+    const dist = Math.abs(containerCenter - elCenter);
+    if (dist < closestDist) {
+      closestDist = dist;
+      closest = el;
+    }
+  });
+
+  if (closest) {
+    alignScrollContainerToElement(container, closest, behavior);
+  }
+};
+
+const alignToMiddleRepeat = (container, value, behavior = 'smooth') => {
+  if (!container) return;
+  const elements = container.querySelectorAll(`[data-value="${value}"]`);
+  if (elements.length === 0) return;
+
+  const middleIdx = Math.floor(elements.length / 2);
+  alignScrollContainerToElement(container, elements[middleIdx], behavior);
+};
+
+const clampMinutes = (minutes, step) => {
   if (!Number.isFinite(minutes)) {
     return 0;
   }
 
-  const clamped = Math.min(Math.max(minutes, 0), 60 - MINUTE_STEP);
-  const snapped = Math.round(clamped / MINUTE_STEP) * MINUTE_STEP;
-  return Math.min(Math.max(snapped, 0), 60 - MINUTE_STEP);
+  const clamped = Math.min(Math.max(minutes, 0), 60 - step);
+  const snapped = Math.round(clamped / step) * step;
+  return Math.min(Math.max(snapped, 0), 60 - step);
 };
 
-const convertDurationToParts = (duration) => {
-  const normalized = normalizeDurationHours(duration);
-  const totalMinutes = Math.round(normalized * 60);
+const convertToPartsFromMinutes = (totalMinutes, maxHours, minuteStep) => {
+  if (!Number.isFinite(totalMinutes)) {
+    return { hours: 0, minutes: 0 };
+  }
 
-  let hours = Math.floor(totalMinutes / 60);
-  let minutes = totalMinutes - hours * 60;
+  const cappedMinutes = Math.min(Math.max(totalMinutes, 0), maxHours * 60);
+  let hours = Math.floor(cappedMinutes / 60);
+  let minutes = cappedMinutes - hours * 60;
 
-  if (minutes % MINUTE_STEP !== 0) {
-    const remainder = minutes % MINUTE_STEP;
-    if (remainder >= MINUTE_STEP / 2) {
-      minutes += MINUTE_STEP - remainder;
+  const remainder = minutes % minuteStep;
+  if (remainder !== 0) {
+    if (remainder >= minuteStep / 2) {
+      minutes += minuteStep - remainder;
     } else {
       minutes -= remainder;
     }
@@ -55,31 +83,67 @@ const convertDurationToParts = (duration) => {
     minutes -= 60;
   }
 
-  if (hours > MAX_HOURS) {
-    hours = MAX_HOURS;
+  if (hours > maxHours) {
+    hours = maxHours;
     minutes = 0;
   }
 
-  if (hours === MAX_HOURS) {
-    minutes = 0;
-  } else {
-    minutes = clampMinutes(minutes);
-  }
+  minutes = clampMinutes(minutes, minuteStep);
 
-  return {
-    hours,
-    minutes,
-  };
+  return { hours, minutes };
 };
 
-export const TrainingDurationPickerModal = ({
+const convertToPartsFromHours = (duration, maxHours, minuteStep) => {
+  const normalized = normalizeDurationHours(duration);
+  const totalMinutes = Math.round(normalized * 60);
+  return convertToPartsFromMinutes(totalMinutes, maxHours, minuteStep);
+};
+
+/**
+ * Unified duration picker modal.
+ *
+ * @param {'minutes' | 'hours'} mode
+ *   - `'minutes'` — input via `minutes` prop (total minutes), saves total minutes.
+ *   - `'hours'`   — input via `initialDuration` prop (decimal hours), saves decimal hours.
+ * @param {number} maxHours      Maximum selectable hours (default 24 for minutes, 12 for hours).
+ * @param {number} minuteStep    Step size for the minutes column (default 1 for minutes, 5 for hours).
+ */
+export const DurationPickerModal = ({
   isOpen,
   isClosing,
-  title = 'Training Duration',
+  title = 'Duration',
+  mode = 'minutes',
+  minutes: minutesProp = 0,
   initialDuration = 0,
+  maxHours: maxHoursProp,
+  minuteStep: minuteStepProp,
   onCancel,
   onSave,
 }) => {
+  const maxHours = maxHoursProp ?? (mode === 'hours' ? 12 : 24);
+  const minuteStep = minuteStepProp ?? 1;
+
+  const hourValues = useMemo(() => {
+    const base = Array.from({ length: maxHours + 1 }, (_, i) => i);
+    const repeated = [];
+    for (let r = 0; r < REPEATS; r++) {
+      for (const h of base) repeated.push(h);
+    }
+    return repeated;
+  }, [maxHours]);
+
+  const minuteValues = useMemo(() => {
+    const base = Array.from(
+      { length: Math.floor(60 / minuteStep) },
+      (_, i) => i * minuteStep
+    );
+    const repeated = [];
+    for (let r = 0; r < REPEATS; r++) {
+      for (const m of base) repeated.push(m);
+    }
+    return repeated;
+  }, [minuteStep]);
+
   const hoursRef = useRef(null);
   const minutesRef = useRef(null);
   const hoursTimeoutRef = useRef(null);
@@ -95,33 +159,36 @@ export const TrainingDurationPickerModal = ({
     () => () => {}
   );
 
-  const applySelection = useCallback((hours, minutes, behavior = 'instant') => {
-    const normalizedHours = Math.min(Math.max(hours, 0), MAX_HOURS);
-    const normalizedMinutes =
-      normalizedHours === MAX_HOURS ? 0 : clampMinutes(minutes);
+  const applySelection = useCallback(
+    (hours, minutesValue, behavior = 'instant') => {
+      const normalizedHours = Math.min(Math.max(hours, 0), maxHours);
+      const normalizedMinutes = clampMinutes(minutesValue, minuteStep);
 
-    selectionRef.current = {
-      hours: normalizedHours,
-      minutes: normalizedMinutes,
-    };
-    setSelectedHours(normalizedHours);
-    setSelectedMinutes(normalizedMinutes);
+      selectionRef.current = {
+        hours: normalizedHours,
+        minutes: normalizedMinutes,
+      };
 
-    if (hoursRef.current) {
-      alignScrollContainerToValue(
-        hoursRef.current,
-        normalizedHours.toString(),
-        behavior
-      );
-    }
-    if (minutesRef.current) {
-      alignScrollContainerToValue(
-        minutesRef.current,
-        normalizedMinutes.toString(),
-        behavior
-      );
-    }
-  }, []);
+      setSelectedHours(normalizedHours);
+      setSelectedMinutes(normalizedMinutes);
+
+      if (hoursRef.current) {
+        alignToNearestValue(
+          hoursRef.current,
+          normalizedHours.toString(),
+          behavior
+        );
+      }
+      if (minutesRef.current) {
+        alignToNearestValue(
+          minutesRef.current,
+          normalizedMinutes.toString(),
+          behavior
+        );
+      }
+    },
+    [maxHours, minuteStep]
+  );
 
   useEffect(
     () => () => {
@@ -140,21 +207,20 @@ export const TrainingDurationPickerModal = ({
     const behavior = hasAlignedRef.current ? 'smooth' : 'instant';
     hasAlignedRef.current = true;
 
-    const parts = convertDurationToParts(initialDuration);
+    const parts =
+      mode === 'hours'
+        ? convertToPartsFromHours(initialDuration, maxHours, minuteStep)
+        : convertToPartsFromMinutes(minutesProp, maxHours, minuteStep);
 
     const frame = requestAnimationFrame(() => {
       selectionRef.current = { hours: parts.hours, minutes: parts.minutes };
       setSelectedHours(parts.hours);
       setSelectedMinutes(parts.minutes);
       if (hoursRef.current) {
-        alignScrollContainerToValue(
-          hoursRef.current,
-          parts.hours.toString(),
-          behavior
-        );
+        alignToMiddleRepeat(hoursRef.current, parts.hours.toString(), behavior);
       }
       if (minutesRef.current) {
-        alignScrollContainerToValue(
+        alignToMiddleRepeat(
           minutesRef.current,
           parts.minutes.toString(),
           behavior
@@ -163,37 +229,35 @@ export const TrainingDurationPickerModal = ({
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [initialDuration, isOpen]);
+  }, [isOpen, minutesProp, initialDuration, mode, maxHours, minuteStep]);
 
-  const handleHoursChange = useCallback((nextHours) => {
-    const clampedHours = Math.min(Math.max(nextHours, 0), MAX_HOURS);
-    const nextMinutes =
-      clampedHours === MAX_HOURS ? 0 : selectionRef.current.minutes;
+  const handleHoursChange = useCallback(
+    (nextHours) => {
+      const clampedHours = Math.min(Math.max(nextHours, 0), maxHours);
 
-    selectionRef.current = {
-      hours: clampedHours,
-      minutes: nextMinutes,
-    };
+      selectionRef.current = {
+        hours: clampedHours,
+        minutes: selectionRef.current.minutes,
+      };
 
-    setSelectedHours(clampedHours);
-    setSelectedMinutes(nextMinutes);
+      setSelectedHours(clampedHours);
+    },
+    [maxHours]
+  );
 
-    if (clampedHours === MAX_HOURS && minutesRef.current) {
-      alignScrollContainerToValue(minutesRef.current, '0', 'smooth');
-    }
-  }, []);
+  const handleMinutesChange = useCallback(
+    (nextMinutes) => {
+      const sanitizedMinutes = clampMinutes(nextMinutes, minuteStep);
 
-  const handleMinutesChange = useCallback((nextMinutes) => {
-    const sanitizedMinutes =
-      selectionRef.current.hours === MAX_HOURS ? 0 : clampMinutes(nextMinutes);
+      selectionRef.current = {
+        hours: selectionRef.current.hours,
+        minutes: sanitizedMinutes,
+      };
 
-    selectionRef.current = {
-      hours: selectionRef.current.hours,
-      minutes: sanitizedMinutes,
-    };
-
-    setSelectedMinutes(sanitizedMinutes);
-  }, []);
+      setSelectedMinutes(sanitizedMinutes);
+    },
+    [minuteStep]
+  );
 
   useEffect(() => {
     setHandleHoursScroll(() =>
@@ -217,14 +281,20 @@ export const TrainingDurationPickerModal = ({
     );
   }, [handleMinutesChange]);
 
-  const decimalDuration = useMemo(() => {
+  const outputValue = useMemo(() => {
     const totalMinutes = selectedHours * 60 + selectedMinutes;
-    return roundDurationHours(totalMinutes / 60);
-  }, [selectedHours, selectedMinutes]);
+    if (mode === 'hours') {
+      return roundDurationHours(totalMinutes / 60);
+    }
+    return totalMinutes;
+  }, [selectedHours, selectedMinutes, mode]);
+
+  const canSave = outputValue > 0;
 
   const handleSave = useCallback(() => {
-    onSave?.(decimalDuration);
-  }, [onSave, decimalDuration]);
+    if (outputValue <= 0) return;
+    onSave?.(outputValue);
+  }, [onSave, outputValue]);
 
   return (
     <ModalShell
@@ -255,9 +325,9 @@ export const TrainingDurationPickerModal = ({
               onScroll={handleHoursScroll}
             >
               <div className="h-16" />
-              {HOUR_VALUES.map((hour) => (
+              {hourValues.map((hour, index) => (
                 <div
-                  key={hour}
+                  key={index}
                   data-value={hour}
                   onClick={() =>
                     applySelection(hour, selectionRef.current.minutes, 'smooth')
@@ -294,14 +364,12 @@ export const TrainingDurationPickerModal = ({
               onScroll={handleMinutesScroll}
             >
               <div className="h-16" />
-              {MINUTE_VALUES.map((minute) => {
-                const isDisabled = selectedHours === MAX_HOURS && minute !== 0;
+              {minuteValues.map((minute, index) => {
                 return (
                   <div
-                    key={minute}
+                    key={index}
                     data-value={minute}
                     onClick={() => {
-                      if (isDisabled) return;
                       applySelection(
                         selectionRef.current.hours,
                         minute,
@@ -312,7 +380,7 @@ export const TrainingDurationPickerModal = ({
                       selectedMinutes === minute
                         ? 'text-foreground scale-110'
                         : 'text-muted'
-                    } ${isDisabled ? 'opacity-40 pointer-events-none' : ''}`}
+                    }`}
                   >
                     {minute.toString().padStart(2, '0')}
                   </div>
@@ -335,7 +403,12 @@ export const TrainingDurationPickerModal = ({
         <button
           onClick={handleSave}
           type="button"
-          className="flex-1 bg-blue-600 active:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback"
+          disabled={!canSave}
+          className={`flex-1 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback ${
+            canSave
+              ? 'bg-blue-600 active:bg-blue-700'
+              : 'bg-blue-600/60 cursor-not-allowed opacity-70'
+          }`}
         >
           <Save size={20} />
           Save
@@ -344,3 +417,13 @@ export const TrainingDurationPickerModal = ({
     </ModalShell>
   );
 };
+
+/** @deprecated Use DurationPickerModal with mode="minutes" instead */
+export const CardioDurationPickerModal = (props) => (
+  <DurationPickerModal {...props} mode="minutes" />
+);
+
+/** @deprecated Use DurationPickerModal with mode="hours" instead */
+export const TrainingDurationPickerModal = (props) => (
+  <DurationPickerModal {...props} mode="hours" />
+);
