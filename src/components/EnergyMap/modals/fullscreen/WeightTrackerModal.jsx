@@ -875,10 +875,12 @@ export const WeightTrackerModal = ({
       event?.stopPropagation();
       const entry = entriesMap[date];
       if (selectedDate === date) {
-        if (entry) {
-          onEditEntry?.(entry);
-        } else {
-          onAddEntry?.(date);
+        if (viewMode !== '12m') {
+          if (entry) {
+            onEditEntry?.(entry);
+          } else {
+            onAddEntry?.(date);
+          }
         }
         closeTooltip();
       } else {
@@ -890,7 +892,7 @@ export const WeightTrackerModal = ({
         setTooltipClosing(false);
       }
     },
-    [entriesMap, selectedDate, onEditEntry, onAddEntry, closeTooltip]
+    [entriesMap, selectedDate, onEditEntry, onAddEntry, closeTooltip, viewMode]
   );
 
   const handleLabelClick = useCallback(
@@ -942,16 +944,18 @@ export const WeightTrackerModal = ({
     (e) => {
       e.stopPropagation();
       if (selectedDate) {
-        const entry = entriesMap[selectedDate];
-        if (entry) {
-          onEditEntry?.(entry);
-        } else {
-          onAddEntry?.(selectedDate);
+        if (viewMode !== '12m') {
+          const entry = entriesMap[selectedDate];
+          if (entry) {
+            onEditEntry?.(entry);
+          } else {
+            onAddEntry?.(selectedDate);
+          }
         }
         closeTooltip();
       }
     },
-    [selectedDate, entriesMap, onEditEntry, onAddEntry, closeTooltip]
+    [selectedDate, entriesMap, onEditEntry, onAddEntry, closeTooltip, viewMode]
   );
 
   const updateTooltipPosition = useCallback(() => {
@@ -1630,7 +1634,7 @@ export const WeightTrackerModal = ({
                     {activePage && viewMode === '30d'
                       ? `${activePage.entries.length} entries`
                       : activePage && viewMode === '12m'
-                        ? `${activePage.months.length} months`
+                        ? `${activePage.months.reduce((sum, m) => sum + (m.entries?.length || 0), 0)} entries`
                         : ''}
                   </p>
                 </div>
