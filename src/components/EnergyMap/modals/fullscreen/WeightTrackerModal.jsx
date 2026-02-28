@@ -20,6 +20,8 @@ import {
   calculateWeightTrend,
   formatWeight,
   sortWeightEntries,
+  calculateNDayWeightAverage,
+  groupWeightEntriesByMonth,
 } from '../../../../utils/weight';
 import {
   getGoalAlignedStyle,
@@ -31,18 +33,17 @@ import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { buildBezierPaths } from '../../../../utils/bezierPath';
 
+// ---------------------------------------------------------------------------
+// Helper components & functions
+// ---------------------------------------------------------------------------
+
 const TrendIcon = ({ direction }) => {
-  if (direction === 'up') {
-    return <TrendingUp size={18} />;
-  }
-  if (direction === 'down') {
-    return <TrendingDown size={18} />;
-  }
+  if (direction === 'up') return <TrendingUp size={18} />;
+  if (direction === 'down') return <TrendingDown size={18} />;
   return <Minus size={18} />;
 };
 
 const getTrendToneClass = (trend, selectedGoal) => {
-  // If no meaningful data, show white
   if (
     !trend ||
     trend.label === 'Need more data' ||
@@ -50,14 +51,11 @@ const getTrendToneClass = (trend, selectedGoal) => {
   ) {
     return 'text-foreground';
   }
-
   return getGoalAlignedTextClass(trend, selectedGoal, 'weight');
 };
 
 const getGoalAlignmentText = (weeklyRate, selectedGoal) => {
   const absRate = Math.abs(weeklyRate);
-
-  // Map goals to expected weekly rates (rough estimates in kg/week)
   const goalExpectations = {
     aggressive_bulk: { min: 0.5, max: 1.0, direction: 'up' },
     bulking: { min: 0.25, max: 0.5, direction: 'up' },
@@ -65,51 +63,37 @@ const getGoalAlignmentText = (weeklyRate, selectedGoal) => {
     cutting: { min: 0.25, max: 0.5, direction: 'down' },
     aggressive_cut: { min: 0.5, max: 1.0, direction: 'down' },
   };
-
   const expectation = goalExpectations[selectedGoal];
   if (!expectation) return null;
 
-  // Determine actual direction
   let actualDirection = 'flat';
   if (weeklyRate < -0.1) actualDirection = 'down';
   else if (weeklyRate > 0.1) actualDirection = 'up';
 
-  // Check if direction matches goal
   if (
     actualDirection !== expectation.direction &&
     expectation.direction !== 'flat'
   ) {
-    if (expectation.direction === 'up') {
+    if (expectation.direction === 'up')
       return { text: 'Not gaining as expected', color: 'text-accent-yellow' };
-    }
-    if (expectation.direction === 'down') {
+    if (expectation.direction === 'down')
       return { text: 'Not losing as expected', color: 'text-accent-yellow' };
-    }
   }
 
-  // Check if rate is within expected range
   if (expectation.direction === 'flat') {
-    if (absRate <= 0.1) {
+    if (absRate <= 0.1)
       return { text: 'On track with goal', color: 'text-accent-green' };
-    }
     return { text: 'Deviating from maintenance', color: 'text-accent-yellow' };
   }
 
   const expectedRate =
     expectation.direction === 'down' ? -weeklyRate : weeklyRate;
-
-  if (expectedRate >= expectation.min && expectedRate <= expectation.max) {
+  if (expectedRate >= expectation.min && expectedRate <= expectation.max)
     return { text: 'On track with goal', color: 'text-accent-green' };
-  }
-
-  if (expectedRate < expectation.min) {
+  if (expectedRate < expectation.min)
     return { text: 'Slower than goal target', color: 'text-accent-blue' };
-  }
-
-  if (expectedRate > expectation.max) {
+  if (expectedRate > expectation.max)
     return { text: 'Faster than goal target', color: 'text-accent-yellow' };
-  }
-
   return null;
 };
 
@@ -121,50 +105,54 @@ const getGoalWeeklyTarget = (selectedGoal) => {
     cutting: '-0.25-0.5 kg/wk',
     aggressive_cut: '-0.5-1.0 kg/wk',
   };
-
   return goalTargets[selectedGoal] || '0.0 kg/wk';
 };
 
-const DATE_COLUMN_WIDTH = 55;
-const DATE_COLUMN_GAP = 8;
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
 const Y_TICK_COUNT = 7;
-// Visual padding when stretching across the viewport
-const LEFT_EDGE_PADDING_GRAPH = 8; // tiny base value; additional leading space applied below
-const RIGHT_EDGE_PADDING_GRAPH = 10; // small extra so the line/area can extend slightly
-const LEFT_EDGE_PADDING_TIMELINE = DATE_COLUMN_WIDTH / 2; // base offset; combined with leading space for earliest entry
-const RIGHT_EDGE_PADDING_TIMELINE = 16;
 const MIN_VISIBLE_WEIGHT_RANGE = 6;
 const MIN_RANGE_PADDING = 0.5;
-const TIMELINE_TRACK_HEIGHT = 56;
-const BASELINE_Y_OFFSET = 18;
-const LEADING_ENTRY_SPACE = 45;
-const FIRST_ENTRY_CENTER_OFFSET = LEADING_ENTRY_SPACE + DATE_COLUMN_WIDTH / 2;
-const TOOLTIP_WIDTH = 144;
-const TOOLTIP_VERTICAL_OFFSET = 17;
-const POINT_RADIUS = 6;
-const POINT_HIT_RADIUS = 12;
+const BASELINE_Y_OFFSET = 0;
+const TOOLTIP_WIDTH = 120;
+const TOOLTIP_VERTICAL_OFFSET = 27;
 const DATA_OLD_WARNING_DAYS = 1;
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
-const getBaselineY = (defaultY) => defaultY - BASELINE_Y_OFFSET;
-
-const getColumnsWidth = (count) => {
-  if (count <= 0) {
-    return 0;
-  }
-  const gaps = Math.max(0, count - 1) * DATE_COLUMN_GAP;
-  return count * DATE_COLUMN_WIDTH + gaps;
+// Per-mode point sizing
+const MODE_POINT = {
+  '7d': { radius: 6, hitRadius: 12 },
+  '30d': { radius: 3, hitRadius: 8 },
+  '12m': { radius: 6, hitRadius: 12 },
 };
+
+const VIEW_MODES = [
+  { key: '7d', label: '7 Days' },
+  { key: '30d', label: '30 Days' },
+  { key: '12m', label: '12 Months' },
+];
+
+const TIMELINE_TRACK_HEIGHT = 36;
+
+// ---------------------------------------------------------------------------
+// Date helpers
+// ---------------------------------------------------------------------------
+
+const getBaselineY = (defaultY) => defaultY - BASELINE_Y_OFFSET;
 
 const useIsomorphicLayoutEffect =
   typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 const formatTimelineLabel = (dateStr) => {
   const date = new Date(dateStr + 'T00:00:00Z');
-  return date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
+  return date.toLocaleDateString('en-US', {
+    month: 'numeric',
+    day: 'numeric',
+  });
 };
 
-// Short uppercase month date format e.g. "OCT 10, 2025"
 const formatShortDate = (dateStr) => {
   if (!dateStr) return '';
   const date = new Date(dateStr + 'T00:00:00Z');
@@ -173,10 +161,9 @@ const formatShortDate = (dateStr) => {
     day: 'numeric',
     year: 'numeric',
   });
-  // Uppercase the month abbreviation (first token)
   return parts.replace(/^[A-Za-z]{3}/, (m) => m.toUpperCase());
 };
-// Helper to format date for tooltip
+
 const formatTooltipDate = (dateStr) => {
   const date = new Date(dateStr + 'T00:00:00Z');
   return date.toLocaleDateString('en-US', {
@@ -187,7 +174,6 @@ const formatTooltipDate = (dateStr) => {
   });
 };
 
-// Helper to get weekday from date string
 const getWeekday = (dateStr) => {
   const date = new Date(dateStr + 'T00:00:00Z');
   return date.toLocaleDateString('en-US', { weekday: 'short' });
@@ -195,12 +181,8 @@ const getWeekday = (dateStr) => {
 
 const getDataAgeInDays = (dateKey) => {
   if (!dateKey) return null;
-
   const entryDate = new Date(`${dateKey}T00:00:00Z`);
-  if (Number.isNaN(entryDate.getTime())) {
-    return null;
-  }
-
+  if (Number.isNaN(entryDate.getTime())) return null;
   const now = new Date();
   const utcToday = Date.UTC(
     now.getUTCFullYear(),
@@ -212,19 +194,143 @@ const getDataAgeInDays = (dateKey) => {
     entryDate.getUTCMonth(),
     entryDate.getUTCDate()
   );
-
   return Math.max(0, Math.floor((utcToday - utcEntry) / MS_PER_DAY));
 };
 
 const getOldDataWarningText = (dateKey) => {
   const ageDays = getDataAgeInDays(dateKey);
-  if (!Number.isFinite(ageDays) || ageDays < DATA_OLD_WARNING_DAYS) {
-    return null;
-  }
-
+  if (!Number.isFinite(ageDays) || ageDays < DATA_OLD_WARNING_DAYS) return null;
   const dayLabel = ageDays === 1 ? 'day' : 'days';
   return `${ageDays} ${dayLabel} old`;
 };
+
+/** Produce a YYYY-MM-DD string from a Date in UTC */
+const toDateKey = (d) => d.toISOString().slice(0, 10);
+
+// ---------------------------------------------------------------------------
+// Page generation helpers
+// ---------------------------------------------------------------------------
+
+/** Chunk an array into groups of `size`. Last chunk may be smaller. */
+const chunk = (arr, size) => {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) {
+    out.push(arr.slice(i, i + size));
+  }
+  return out;
+};
+
+/**
+ * Build 7-day pages: chunk sorted entries into groups of 7.
+ * Each page = { entries, startDate, endDate, pageIndex }.
+ */
+const build7DayPages = (sortedEntries) => {
+  if (!sortedEntries.length) return [];
+  const chunks = chunk(sortedEntries, 7);
+  return chunks.map((entries, idx) => ({
+    entries,
+    startDate: entries[0].date,
+    endDate: entries[entries.length - 1].date,
+    pageIndex: idx,
+  }));
+};
+
+/**
+ * Build 30-day calendar pages working backwards from the latest entry.
+ * For each 30-day window, produce 30 slots (Entry | null per calendar day).
+ * Line breaks at gaps.
+ */
+const build30DayPages = (sortedEntries) => {
+  if (!sortedEntries.length) return [];
+
+  const earliest = new Date(sortedEntries[0].date + 'T00:00:00Z');
+  const latest = new Date(
+    sortedEntries[sortedEntries.length - 1].date + 'T00:00:00Z'
+  );
+
+  const pages = [];
+  let windowEnd = new Date(latest);
+
+  while (windowEnd >= earliest) {
+    const windowStart = new Date(windowEnd);
+    windowStart.setUTCDate(windowStart.getUTCDate() - 29); // 30 days inclusive
+
+    const startMs = windowStart.getTime();
+    const endMs = windowEnd.getTime();
+    const entries = sortedEntries.filter((e) => {
+      const ms = new Date(e.date + 'T00:00:00Z').getTime();
+      return ms >= startMs && ms <= endMs;
+    });
+
+    if (entries.length > 0) {
+      pages.unshift({
+        entries,
+        startDate: toDateKey(windowStart),
+        endDate: toDateKey(windowEnd),
+        pageIndex: 0,
+      });
+    }
+
+    // Move window back by 30 days
+    windowEnd.setUTCDate(windowEnd.getUTCDate() - 30);
+  }
+
+  pages.forEach((p, i) => {
+    p.pageIndex = i;
+  });
+  return pages;
+};
+
+/**
+ * Build 12-month pages from monthly aggregates.
+ * Each page = 12 monthly points (last page may have < 12).
+ */
+const build12MonthPages = (monthGroups) => {
+  if (!monthGroups.length) return [];
+  const chunks = chunk(monthGroups, 12);
+  return chunks.map((months, idx) => ({
+    months,
+    startDate: months[0].key + '-01',
+    endDate: months[months.length - 1].key + '-28',
+    pageIndex: idx,
+  }));
+};
+
+// ---------------------------------------------------------------------------
+// Chart data helpers (per-page)
+// ---------------------------------------------------------------------------
+
+const computeChartData = (values, minRange = MIN_VISIBLE_WEIGHT_RANGE) => {
+  if (!values.length) return null;
+
+  let minVal = Math.min(...values);
+  let maxVal = Math.max(...values);
+  let range = maxVal - minVal;
+
+  if (range === 0) {
+    range = Math.max(minRange, MIN_RANGE_PADDING * 2);
+    const half = range / 2;
+    minVal -= half;
+    maxVal += half;
+  } else {
+    const padding = Math.max(range * 0.1, MIN_RANGE_PADDING);
+    minVal -= padding;
+    maxVal += padding;
+    range = maxVal - minVal;
+    if (range < minRange) {
+      const mid = (maxVal + minVal) / 2;
+      minVal = mid - minRange / 2;
+      maxVal = mid + minRange / 2;
+      range = minRange;
+    }
+  }
+
+  return { minWeight: minVal, maxWeight: maxVal, range };
+};
+
+// ---------------------------------------------------------------------------
+// COMPONENT
+// ---------------------------------------------------------------------------
 
 export const WeightTrackerModal = ({
   isOpen,
@@ -232,44 +338,39 @@ export const WeightTrackerModal = ({
   entries,
   latestWeight,
   selectedGoal = 'maintenance',
-  phases,
   onClose,
   onAddEntry,
   onEditEntry,
   canSwitchToBodyFat = false,
   onSwitchToBodyFat,
 }) => {
+  // Store fallback
   const store = useEnergyMapStore(
     (state) => ({
       weightEntries: state.weightEntries ?? [],
-      phases: state.phases ?? [],
       latestWeight: state.userData.weight,
     }),
     shallow
   );
   const resolvedEntries = entries ?? store.weightEntries;
-  const resolvedPhases = phases ?? store.phases;
   const resolvedLatestWeight = latestWeight ?? store.latestWeight;
+
+  // --- State ---
+  const [viewMode, setViewMode] = useState('7d'); // '7d' | '30d' | '12m'
+  const [activePageIndex, setActivePageIndex] = useState(-1); // -1 = auto-last
   const [selectedDate, setSelectedDate] = useState(null);
   const [tooltipEntered, setTooltipEntered] = useState(false);
   const [tooltipClosing, setTooltipClosing] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
-  const [selectedTimeframe, setSelectedTimeframe] = useState('all');
-  const [isTimeframeDropdownOpen, setIsTimeframeDropdownOpen] = useState(false);
-  const [selectedPhaseId, setSelectedPhaseId] = useState(null);
-  const [isPhaseDropdownOpen, setIsPhaseDropdownOpen] = useState(false);
-  const graphScrollRef = useRef(null);
-  const timelineScrollRef = useRef(null);
-  const tooltipRef = useRef(null);
-  const timeframeDropdownRef = useRef(null);
-  const phaseDropdownRef = useRef(null);
-  const scrollCloseTimeoutRef = useRef(null);
-  const [scrollLeft, setScrollLeft] = useState(0);
   const [graphViewportWidth, setGraphViewportWidth] = useState(0);
   const [graphViewportHeight, setGraphViewportHeight] = useState(0);
+
+  const carouselRef = useRef(null);
+  const tooltipRef = useRef(null);
+  const scrollCloseTimeoutRef = useRef(null);
   const prevEntriesLengthRef = useRef(resolvedEntries?.length ?? 0);
 
-  // Weight Trend Info Modal
+  // Trend info modal
   const {
     isOpen: isTrendInfoOpen,
     isClosing: isTrendInfoClosing,
@@ -277,78 +378,15 @@ export const WeightTrackerModal = ({
     requestClose: closeTrendInfo,
   } = useAnimatedModal();
 
+  // --- Derived data ---
   const sortedEntries = useMemo(
     () => sortWeightEntries(resolvedEntries ?? []),
     [resolvedEntries]
   );
 
-  // Get selected phase object
-  const selectedPhase = useMemo(() => {
-    if (!selectedPhaseId) return null;
-    return resolvedPhases.find((p) => p.id === selectedPhaseId) || null;
-  }, [resolvedPhases, selectedPhaseId]);
-
-  // Filter entries based on selected phase - read from daily logs if phase selected
-  const phaseFilteredEntries = useMemo(() => {
-    if (!selectedPhase) return sortedEntries;
-
-    // Build weight entries from daily logs' weightRef
-    const weightEntriesMap = new Map();
-    sortedEntries.forEach((entry) => {
-      weightEntriesMap.set(entry.date, entry);
-    });
-
-    const phaseWeightEntries = [];
-    const includedDates = new Set();
-    const dailyLogs = selectedPhase.dailyLogs || {};
-
-    Object.values(dailyLogs).forEach((log) => {
-      if (log.weightRef && log.weightRef.trim() !== '') {
-        const weightEntry = weightEntriesMap.get(log.weightRef);
-        if (weightEntry) {
-          // Only add if not already included
-          if (!includedDates.has(weightEntry.date)) {
-            includedDates.add(weightEntry.date);
-            phaseWeightEntries.push(weightEntry);
-          }
-        }
-      }
-    });
-
-    // Sort by date
-    return phaseWeightEntries.sort((a, b) => a.date.localeCompare(b.date));
-  }, [sortedEntries, selectedPhase]);
-
-  // Filter entries based on selected timeframe (within phase if selected)
-  const filteredEntries = useMemo(() => {
-    if (!phaseFilteredEntries.length) return [];
-    if (selectedTimeframe === 'all') return phaseFilteredEntries;
-
-    const latestEntry = phaseFilteredEntries[phaseFilteredEntries.length - 1];
-    const latestDate = new Date(latestEntry.date + 'T00:00:00Z');
-
-    const daysMap = {
-      '7d': 7,
-      '14d': 14,
-      '30d': 30,
-      '90d': 90,
-    };
-
-    const daysToSubtract = daysMap[selectedTimeframe];
-    if (!daysToSubtract) return phaseFilteredEntries;
-
-    const cutoffDate = new Date(latestDate);
-    cutoffDate.setDate(cutoffDate.getDate() - daysToSubtract);
-
-    return phaseFilteredEntries.filter((entry) => {
-      const entryDate = new Date(entry.date + 'T00:00:00Z');
-      return entryDate >= cutoffDate;
-    });
-  }, [phaseFilteredEntries, selectedTimeframe]);
-
   const trend = useMemo(
-    () => calculateWeightTrend(filteredEntries),
-    [filteredEntries]
+    () => calculateWeightTrend(sortedEntries),
+    [sortedEntries]
   );
   const trendVisual = useMemo(
     () => getGoalAlignedStyle(trend, selectedGoal, 'weight'),
@@ -359,11 +397,79 @@ export const WeightTrackerModal = ({
     [trend.weeklyRate, selectedGoal]
   );
 
-  useIsomorphicLayoutEffect(() => {
-    const node = graphScrollRef.current;
-    if (!node) {
-      return undefined;
+  // Rolling averages (global, not per-page)
+  const avg7 = useMemo(
+    () => calculateNDayWeightAverage(sortedEntries, 7),
+    [sortedEntries]
+  );
+  const avg14 = useMemo(
+    () => calculateNDayWeightAverage(sortedEntries, 14),
+    [sortedEntries]
+  );
+
+  // Monthly groups for 12m mode
+  const monthGroups = useMemo(
+    () => groupWeightEntriesByMonth(sortedEntries),
+    [sortedEntries]
+  );
+
+  // Fill month groups to always span at least 12 months ending at the latest data month
+  const filledMonthGroups = useMemo(() => {
+    if (!monthGroups.length) return [];
+    const last = monthGroups[monthGroups.length - 1];
+    const monthMap = new Map(monthGroups.map((m) => [m.key, m]));
+    const filled = [];
+    // Start 11 months before the last data month (or at the first data month, whichever is earlier)
+    const first = monthGroups[0];
+    const spanStart = new Date(Date.UTC(last.year, last.month - 11, 1));
+    const dataStart = new Date(Date.UTC(first.year, first.month, 1));
+    const d = spanStart < dataStart ? spanStart : dataStart;
+    const endD = new Date(Date.UTC(last.year, last.month, 1));
+    while (d <= endD) {
+      const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+      if (monthMap.has(key)) {
+        filled.push(monthMap.get(key));
+      } else {
+        filled.push({
+          key,
+          label: d.toLocaleDateString('en-US', {
+            month: 'short',
+            timeZone: 'UTC',
+          }),
+          year: d.getUTCFullYear(),
+          month: d.getUTCMonth(),
+          entries: [],
+          avg: null,
+          isEmpty: true,
+        });
+      }
+      d.setUTCMonth(d.getUTCMonth() + 1);
     }
+    return filled;
+  }, [monthGroups]);
+
+  // --- Pages ---
+  const pages = useMemo(() => {
+    if (viewMode === '7d') return build7DayPages(sortedEntries);
+    if (viewMode === '30d') return build30DayPages(sortedEntries);
+    if (viewMode === '12m') return build12MonthPages(filledMonthGroups);
+    return [];
+  }, [viewMode, sortedEntries, filledMonthGroups]);
+
+  const pageCount = pages.length;
+  const resolvedPageIndex = useMemo(() => {
+    if (pageCount === 0) return 0;
+    if (activePageIndex < 0 || activePageIndex >= pageCount)
+      return pageCount - 1;
+    return activePageIndex;
+  }, [activePageIndex, pageCount]);
+
+  const activePage = pages[resolvedPageIndex] ?? null;
+
+  // --- Viewport dimensions ---
+  useIsomorphicLayoutEffect(() => {
+    const node = carouselRef.current;
+    if (!node) return undefined;
 
     const updateDimensions = () => {
       setGraphViewportWidth(node.clientWidth);
@@ -376,440 +482,377 @@ export const WeightTrackerModal = ({
       return () => window.removeEventListener('resize', updateDimensions);
     }
 
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
+    const observer = new ResizeObserver((resizeEntries) => {
+      const entry = resizeEntries[0];
       if (entry) {
         setGraphViewportWidth(entry.contentRect.width);
         setGraphViewportHeight(entry.contentRect.height);
       }
     });
     observer.observe(node);
-
     return () => observer.disconnect();
   }, [isOpen]);
 
-  // Removed unused entryCount variable
-  const filteredEntryCount = filteredEntries.length;
-
-  const baseChartWidth = useMemo(() => {
-    const baseWidth = getColumnsWidth(Math.max(filteredEntryCount, 1));
-    if (filteredEntryCount > 0) {
-      return baseWidth + LEADING_ENTRY_SPACE;
-    }
-    return baseWidth;
-  }, [filteredEntryCount]);
-
-  const chartWidth = useMemo(
-    () => Math.max(baseChartWidth, graphViewportWidth || 0),
-    [baseChartWidth, graphViewportWidth]
+  const chartHeight = useMemo(
+    () =>
+      graphViewportHeight > 0
+        ? Math.max(graphViewportHeight - TIMELINE_TRACK_HEIGHT - 24, 100)
+        : 200,
+    [graphViewportHeight]
   );
 
-  const shouldStretchAcrossViewport = useMemo(
-    () => chartWidth > baseChartWidth,
-    [chartWidth, baseChartWidth]
-  );
-
-  const chartHeight = useMemo(() => {
-    if (graphViewportHeight && graphViewportHeight > 0) {
-      return graphViewportHeight;
-    }
-    return 280;
-  }, [graphViewportHeight]);
-
-  const hasHorizontalOverflow = useMemo(() => {
-    if (!graphViewportWidth) {
-      return false;
-    }
-    return chartWidth > graphViewportWidth;
-  }, [chartWidth, graphViewportWidth]);
-
-  const xPositions = useMemo(() => {
-    if (filteredEntryCount === 0) {
-      return [];
-    }
-
-    if (!shouldStretchAcrossViewport) {
-      const start = FIRST_ENTRY_CENTER_OFFSET;
-      const step = DATE_COLUMN_WIDTH + DATE_COLUMN_GAP;
-      return filteredEntries.map((_, index) => start + index * step);
-    }
-
-    if (filteredEntryCount === 1) {
-      // Keep the point slightly inset from the left
-      return [Math.max(FIRST_ENTRY_CENTER_OFFSET, chartWidth / 2)];
-    }
-
-    // Stretch to fill: minimal left padding, slight right padding
-    const leftPad = Math.max(
-      LEFT_EDGE_PADDING_GRAPH,
-      FIRST_ENTRY_CENTER_OFFSET
-    );
-    const rightPad = RIGHT_EDGE_PADDING_GRAPH;
-    const usableWidth = Math.max(chartWidth - leftPad - rightPad, 0);
-    const step =
-      filteredEntryCount > 1 ? usableWidth / (filteredEntryCount - 1) : 0;
-    return filteredEntries.map((_, index) => leftPad + step * index);
-  }, [
-    chartWidth,
-    filteredEntryCount,
-    shouldStretchAcrossViewport,
-    filteredEntries,
-  ]);
-
-  // Separate X positions for timeline labels so the first label rests flush on the left
-  const timelineXPositions = useMemo(() => {
-    if (filteredEntryCount === 0) return [];
-
-    if (!shouldStretchAcrossViewport) {
-      const start = FIRST_ENTRY_CENTER_OFFSET;
-      const step = DATE_COLUMN_WIDTH + DATE_COLUMN_GAP;
-      return filteredEntries.map((_, index) => start + index * step);
-    }
-
-    if (filteredEntryCount === 1) {
-      return [Math.max(FIRST_ENTRY_CENTER_OFFSET, chartWidth / 2)];
-    }
-
-    const leftPad = Math.max(
-      LEFT_EDGE_PADDING_TIMELINE,
-      FIRST_ENTRY_CENTER_OFFSET
-    );
-    const rightPad = RIGHT_EDGE_PADDING_TIMELINE;
-    const usableWidth = Math.max(chartWidth - leftPad - rightPad, 0);
-    const step =
-      filteredEntryCount > 1 ? usableWidth / (filteredEntryCount - 1) : 0;
-    return filteredEntries.map((_, index) => leftPad + step * index);
-  }, [
-    chartWidth,
-    filteredEntryCount,
-    shouldStretchAcrossViewport,
-    filteredEntries,
-  ]);
-
-  const chartData = useMemo(() => {
-    if (filteredEntries.length === 0) {
-      return null;
-    }
-
-    let visibleEntries = filteredEntries;
-    if (
-      graphViewportWidth > 0 &&
-      xPositions.length === filteredEntries.length
-    ) {
-      const buffer = DATE_COLUMN_WIDTH * 2;
-      visibleEntries = filteredEntries.filter((_, index) => {
-        const x = xPositions[index];
-        return (
-          x >= scrollLeft - buffer &&
-          x <= scrollLeft + graphViewportWidth + buffer
-        );
-      });
-      if (visibleEntries.length === 0) {
-        visibleEntries = filteredEntries;
-      }
-    }
-
-    const weights = visibleEntries.map((entry) => entry.weight);
-    let minWeight = Math.min(...weights);
-    let maxWeight = Math.max(...weights);
-    let range = maxWeight - minWeight;
-
-    if (range === 0) {
-      range = Math.max(MIN_VISIBLE_WEIGHT_RANGE, MIN_RANGE_PADDING * 2);
-      const halfRange = range / 2;
-      minWeight -= halfRange;
-      maxWeight += halfRange;
-    } else {
-      const padding = Math.max(range * 0.1, MIN_RANGE_PADDING);
-      minWeight -= padding;
-      maxWeight += padding;
-      range = maxWeight - minWeight;
-
-      if (range < MIN_VISIBLE_WEIGHT_RANGE) {
-        const targetRange = Math.max(
-          MIN_VISIBLE_WEIGHT_RANGE,
-          MIN_RANGE_PADDING * 2
-        );
-        const midpoint = (maxWeight + minWeight) / 2;
-        minWeight = midpoint - targetRange / 2;
-        maxWeight = midpoint + targetRange / 2;
-        range = targetRange;
-      }
-    }
-
-    return {
-      minWeight,
-      maxWeight,
-      range,
-    };
-  }, [filteredEntries, scrollLeft, graphViewportWidth, xPositions]);
-
-  const chartPoints = useMemo(() => {
-    if (!chartData) {
-      return [];
-    }
-
-    return filteredEntries.map((entry, index) => {
-      const x = xPositions[index] ?? 0;
-      const normalized = (entry.weight - chartData.minWeight) / chartData.range;
-      const bounded = Math.min(Math.max(normalized, 0), 1);
-      const y = (1 - bounded) * chartHeight;
-
-      return {
-        date: entry.date,
-        weight: entry.weight,
-        x,
-        y,
-        bounded,
-      };
-    });
-  }, [chartData, chartHeight, filteredEntries, xPositions]);
-
-  const selectedPoint = useMemo(() => {
-    if (!selectedDate) {
-      return null;
-    }
-    return chartPoints.find((point) => point.date === selectedDate) ?? null;
-  }, [chartPoints, selectedDate]);
-
+  // --- Scroll to last page on open ---
   useEffect(() => {
     if (!isOpen) return;
-
-    const scrollToLatest = () => {
-      const graphNode = graphScrollRef.current;
-      if (graphNode) {
-        const target = Math.max(
-          graphNode.scrollWidth - graphNode.clientWidth,
-          0
-        );
-        graphNode.scrollTo({ left: target, behavior: 'instant' });
+    setActivePageIndex(-1); // auto-last
+    const frame = requestAnimationFrame(() => {
+      const node = carouselRef.current;
+      if (node) {
+        node.scrollTo({
+          left: node.scrollWidth - node.clientWidth,
+          behavior: 'instant',
+        });
       }
-
-      const timelineNode = timelineScrollRef.current;
-      if (timelineNode) {
-        const target = Math.max(
-          timelineNode.scrollWidth - timelineNode.clientWidth,
-          0
-        );
-        timelineNode.scrollTo({ left: target, behavior: 'instant' });
-      }
-    };
-
-    // Schedule to allow layout to settle before scrolling.
-    const frame = requestAnimationFrame(scrollToLatest);
+    });
     return () => cancelAnimationFrame(frame);
   }, [isOpen]);
 
-  // Auto-scroll to latest entry when a new entry is added
+  // Scroll to last page when new entry is added
   useEffect(() => {
-    const currentLength = resolvedEntries?.length ?? 0;
-    const prevLength = prevEntriesLengthRef.current;
-
-    // Only scroll if modal is open, entries increased, and we have entries
-    if (isOpen && currentLength > prevLength && currentLength > 0) {
-      const scrollToLatest = () => {
-        const graphNode = graphScrollRef.current;
-        if (graphNode) {
-          const target = Math.max(
-            graphNode.scrollWidth - graphNode.clientWidth,
-            0
-          );
-          graphNode.scrollTo({ left: target, behavior: 'smooth' });
+    const currentLen = resolvedEntries?.length ?? 0;
+    const prevLen = prevEntriesLengthRef.current;
+    if (isOpen && currentLen > prevLen && currentLen > 0) {
+      setActivePageIndex(-1);
+      const timeout = setTimeout(() => {
+        const node = carouselRef.current;
+        if (node) {
+          node.scrollTo({
+            left: node.scrollWidth - node.clientWidth,
+            behavior: 'smooth',
+          });
         }
-
-        const timelineNode = timelineScrollRef.current;
-        if (timelineNode) {
-          const target = Math.max(
-            timelineNode.scrollWidth - timelineNode.clientWidth,
-            0
-          );
-          timelineNode.scrollTo({ left: target, behavior: 'smooth' });
-        }
-      };
-
-      // Small delay to ensure DOM has updated with new entry
-      const timeout = setTimeout(scrollToLatest, 100);
+      }, 100);
       return () => clearTimeout(timeout);
     }
-
-    // Update the ref with current length
-    prevEntriesLengthRef.current = currentLength;
+    prevEntriesLengthRef.current = currentLen;
   }, [isOpen, resolvedEntries?.length]);
 
-  // Auto-scroll to latest entry when phase selection or timeframe changes
+  // Scroll to last page on view mode change
   useEffect(() => {
     if (!isOpen) return;
-
-    const scrollToLatest = () => {
-      const graphNode = graphScrollRef.current;
-      if (graphNode) {
-        const target = Math.max(
-          graphNode.scrollWidth - graphNode.clientWidth,
-          0
-        );
-        graphNode.scrollTo({ left: target, behavior: 'smooth' });
+    setActivePageIndex(-1);
+    const timeout = setTimeout(() => {
+      const node = carouselRef.current;
+      if (node) {
+        node.scrollTo({
+          left: node.scrollWidth - node.clientWidth,
+          behavior: 'instant',
+        });
       }
-
-      const timelineNode = timelineScrollRef.current;
-      if (timelineNode) {
-        const target = Math.max(
-          timelineNode.scrollWidth - timelineNode.clientWidth,
-          0
-        );
-        timelineNode.scrollTo({ left: target, behavior: 'smooth' });
-      }
-    };
-
-    // Small delay to ensure DOM has updated with filtered entries
-    const timeout = setTimeout(scrollToLatest, 100);
+    }, 50);
     return () => clearTimeout(timeout);
-  }, [selectedPhaseId, selectedTimeframe, isOpen]);
+  }, [viewMode, isOpen]);
 
-  // Map entries by date for quick lookup
+  // --- Snap detection via scroll ---
+  const handleCarouselScroll = useCallback(() => {
+    const node = carouselRef.current;
+    if (!node || !node.clientWidth) return;
+    const idx = Math.round(node.scrollLeft / node.clientWidth);
+    setActivePageIndex(idx);
+    // Close tooltip on scroll
+    if (selectedDate) {
+      setTooltipClosing(true);
+      setTimeout(() => {
+        setSelectedDate(null);
+        setTooltipClosing(false);
+      }, 150);
+    }
+  }, [selectedDate]);
+
+  // --- Global chart data for 7d continuous ---
+  const globalChartData = useMemo(() => {
+    if (viewMode !== '7d' || !sortedEntries.length) return null;
+    return computeChartData(sortedEntries.map((e) => e.weight));
+  }, [viewMode, sortedEntries]);
+
+  // --- Per-page chart data for 30d / 12m ---
+  const pageChartData = useMemo(() => {
+    if (viewMode === '7d') return globalChartData;
+    if (!activePage) return null;
+    let values = [];
+    if (viewMode === '30d') {
+      values = activePage.entries.map((e) => e.weight);
+    } else if (viewMode === '12m') {
+      values = activePage.months
+        .filter((m) => !m.isEmpty && m.avg != null)
+        .map((m) => m.avg);
+    }
+
+    return computeChartData(values);
+  }, [viewMode, activePage, globalChartData]);
+
+  // Chart data used for Y-axis display
+  const effectiveChartData =
+    viewMode === '7d' ? globalChartData : pageChartData;
+
+  // Chart width = viewport width (one page fills the viewport)
+  const chartWidth = graphViewportWidth || 300;
+
+  // 7d continuous: all points in global coordinate space (right-aligned)
+  // Build calendar-based timeline for 7d: includes all days from first to last entry
+  const timeline7d = useMemo(() => {
+    if (viewMode !== '7d' || !sortedEntries.length)
+      return { days: [], snapPageCount: 1 };
+    const firstDate = new Date(sortedEntries[0].date + 'T00:00:00Z');
+    const lastDate7d = new Date(
+      sortedEntries[sortedEntries.length - 1].date + 'T00:00:00Z'
+    );
+    const calendarDays = Math.round((lastDate7d - firstDate) / 86400000) + 1;
+    const snapPages = Math.max(1, Math.ceil(calendarDays / 7));
+    const totalSlots = snapPages * 7;
+    const emptyPadding = totalSlots - calendarDays;
+    const entryMap = new Map(sortedEntries.map((e) => [e.date, e]));
+    const days = [];
+    // Left padding (before first entry date)
+    for (let i = 0; i < emptyPadding; i++) {
+      const d = new Date(firstDate);
+      d.setUTCDate(d.getUTCDate() - (emptyPadding - i));
+      days.push({ date: toDateKey(d), entry: null, isPadding: true });
+    }
+    // Calendar days from first to last entry
+    for (let i = 0; i < calendarDays; i++) {
+      const d = new Date(firstDate);
+      d.setUTCDate(d.getUTCDate() + i);
+      const key = toDateKey(d);
+      days.push({
+        date: key,
+        entry: entryMap.get(key) || null,
+        isPadding: false,
+      });
+    }
+    return { days, snapPageCount: snapPages };
+  }, [viewMode, sortedEntries]);
+
+  const allPoints7d = useMemo(() => {
+    if (viewMode !== '7d' || !sortedEntries.length || !globalChartData)
+      return [];
+    const { days } = timeline7d;
+    const STEP = chartWidth / 7;
+    const PAD = STEP / 2;
+    return days
+      .map((slot, i) => {
+        if (!slot.entry) return null;
+        const x = PAD + i * STEP;
+        const norm =
+          (slot.entry.weight - globalChartData.minWeight) /
+          globalChartData.range;
+        const bounded = Math.min(Math.max(norm, 0), 1);
+        const y = (1 - bounded) * chartHeight;
+        return { date: slot.date, weight: slot.entry.weight, x, y };
+      })
+      .filter(Boolean);
+  }, [
+    viewMode,
+    sortedEntries,
+    globalChartData,
+    chartWidth,
+    chartHeight,
+    timeline7d,
+  ]);
+
+  // 30d/12m: chart points for the active page
+  const chartPoints = useMemo(() => {
+    if (viewMode === '7d') return [];
+    if (!pageChartData || !activePage) return [];
+    const pad = viewMode === '30d' ? 12 : 24;
+    const usable = Math.max(chartWidth - pad * 2, 0);
+
+    if (viewMode === '30d') {
+      const startMs = new Date(activePage.startDate + 'T00:00:00Z').getTime();
+      const endMs = new Date(activePage.endDate + 'T00:00:00Z').getTime();
+      const rangeMs = endMs - startMs || 1;
+
+      return activePage.entries.map((e) => {
+        const ms = new Date(e.date + 'T00:00:00Z').getTime();
+        const fraction = (ms - startMs) / rangeMs;
+        const x = pad + fraction * usable;
+        const norm = (e.weight - pageChartData.minWeight) / pageChartData.range;
+        const bounded = Math.min(Math.max(norm, 0), 1);
+        const y = (1 - bounded) * chartHeight;
+        return { date: e.date, weight: e.weight, x, y, isGap: false };
+      });
+    }
+
+    if (viewMode === '12m') {
+      const count = activePage.months.length;
+      const step = count > 1 ? usable / (count - 1) : 0;
+      return activePage.months.map((m, i) => {
+        const x = pad + step * i;
+        if (m.isEmpty || m.avg == null) {
+          return {
+            date: m.key,
+            weight: null,
+            x,
+            y: 0,
+            isGap: true,
+            label: m.label,
+            isEmpty: true,
+          };
+        }
+        const norm = (m.avg - pageChartData.minWeight) / pageChartData.range;
+        const bounded = Math.min(Math.max(norm, 0), 1);
+        const y = (1 - bounded) * chartHeight;
+        return {
+          date: m.key,
+          weight: m.avg,
+          x,
+          y,
+          isGap: false,
+          label: m.label,
+        };
+      });
+    }
+
+    return [];
+  }, [pageChartData, activePage, viewMode, chartWidth, chartHeight]);
+
+  // Y ticks (use effectiveChartData — global for 7d, per-page for 30d/12m)
+  const yTicks = useMemo(() => {
+    if (!effectiveChartData) return [];
+    const steps = Math.max(Y_TICK_COUNT - 1, 1);
+    return Array.from(
+      { length: Y_TICK_COUNT },
+      (_, i) =>
+        effectiveChartData.maxWeight - (effectiveChartData.range / steps) * i
+    );
+  }, [effectiveChartData]);
+
+  const yTickPositions = useMemo(() => {
+    if (!effectiveChartData || chartHeight <= 0) return [];
+    return yTicks.map((weight, index) => {
+      const norm =
+        (weight - effectiveChartData.minWeight) / effectiveChartData.range;
+      const bounded = Math.min(Math.max(norm, 0), 1);
+      const y = (1 - bounded) * chartHeight;
+      const isTop = index === 0;
+      const isBottom = index === yTicks.length - 1;
+      const lineY = isTop ? 0 : isBottom ? chartHeight : y;
+      return { weight, index, lineY };
+    });
+  }, [effectiveChartData, chartHeight, yTicks]);
+
+  // Current weight tick on y-axis
+  const latestWeight_ = sortedEntries.length
+    ? sortedEntries[sortedEntries.length - 1].weight
+    : resolvedLatestWeight;
+
+  const currentWeightTick = useMemo(() => {
+    if (!effectiveChartData || !Number.isFinite(latestWeight_)) return null;
+    const norm =
+      (latestWeight_ - effectiveChartData.minWeight) / effectiveChartData.range;
+    const bounded = Math.min(Math.max(norm, 0), 1);
+    const y = (1 - bounded) * chartHeight;
+    return { yPx: y, weight: latestWeight_ };
+  }, [effectiveChartData, chartHeight, latestWeight_]);
+
+  // Entries map for tooltip
   const entriesMap = useMemo(() => {
     const map = {};
-    filteredEntries.forEach((entry) => {
+    sortedEntries.forEach((entry) => {
       map[entry.date] = entry;
     });
     return map;
-  }, [filteredEntries]);
+  }, [sortedEntries]);
 
-  // Get latest entry date
-  const latestDate = filteredEntries.length
-    ? filteredEntries[filteredEntries.length - 1].date
+  // Months map for 12m tooltip
+  const monthsMap = useMemo(() => {
+    const map = {};
+    filledMonthGroups.forEach((m) => {
+      map[m.key] = m;
+    });
+    return map;
+  }, [filledMonthGroups]);
+
+  // --- Latest / oldest data for header ---
+  const latestDate = sortedEntries.length
+    ? sortedEntries[sortedEntries.length - 1].date
     : null;
   const oldDataWarningText = useMemo(
     () => getOldDataWarningText(latestDate),
     [latestDate]
   );
 
-  // Earliest entry date and timeframe details for the trend summary
-  const earliestDate = filteredEntries.length ? filteredEntries[0].date : null;
-  const entriesCount = filteredEntries.length;
-  const daysRange =
-    earliestDate && latestDate
-      ? Math.floor(
-          (new Date(latestDate + 'T00:00:00Z') -
-            new Date(earliestDate + 'T00:00:00Z')) /
-            (1000 * 60 * 60 * 24)
-        ) + 1
-      : 0;
-  const timeframeRangeLine =
-    earliestDate && latestDate
-      ? `${formatShortDate(earliestDate)} - ${formatShortDate(latestDate)}`
-      : '';
-
-  const timeframeLabel = (() => {
-    if (selectedPhase) {
-      // When a phase is selected, show phase-aware label
-      if (selectedTimeframe === 'all') {
-        return `${selectedPhase.name}`;
-      }
-      switch (selectedTimeframe) {
-        case '7d':
-          return `Last 7 days in ${selectedPhase.name}`;
-        case '14d':
-          return `Last 14 days in ${selectedPhase.name}`;
-        case '30d':
-          return `Last 30 days in ${selectedPhase.name}`;
-        case '90d':
-          return `Last 90 days in ${selectedPhase.name}`;
-        default:
-          return selectedPhase.name;
-      }
-    }
-
-    // Default labels when no phase selected
-    switch (selectedTimeframe) {
-      case '7d':
-        return '7-day';
-      case '14d':
-        return '14-day';
-      case '30d':
-        return '30-day';
-      case '90d':
-        return '90-day';
-      case 'all':
-        return 'All-time';
-      default:
-        return '30-day';
-    }
-  })();
-
-  const timeframeMain = (() => {
-    const entriesText = `${entriesCount} ${entriesCount === 1 ? 'entry' : 'entries'}`;
-    const daysText =
-      earliestDate && latestDate ? ` over ${daysRange} days` : '';
-
-    if (selectedPhase) {
-      return `${entriesText}${daysText}`;
-    }
-
-    return `${timeframeLabel} trend (${entriesText}${daysText})`;
-  })();
-
-  const currentWeightValue = filteredEntries.length
-    ? filteredEntries[filteredEntries.length - 1].weight
-    : resolvedLatestWeight;
   const currentWeightDisplay = (() => {
-    const formatted = formatWeight(currentWeightValue);
+    const formatted = formatWeight(latestWeight_);
     return formatted ? `${formatted} kg` : '—';
   })();
 
-  // Removed unused totalChangeDisplay variable
   const weeklyRateDisplay = (() => {
-    if (!Number.isFinite(trend.weeklyRate) || trend.weeklyRate === 0) {
+    if (!Number.isFinite(trend.weeklyRate) || trend.weeklyRate === 0)
       return '0.0 kg/wk';
-    }
     const sign = trend.weeklyRate > 0 ? '+' : '';
     return `${sign}${trend.weeklyRate.toFixed(2)} kg/wk`;
   })();
 
-  const currentWeightTick = useMemo(() => {
-    if (!chartData || !Number.isFinite(currentWeightValue)) {
+  // Per-page dynamic stat for 30d and 12m
+  const pageAverage = useMemo(() => {
+    if (!activePage) return null;
+    if (viewMode === '30d') {
+      const vals = activePage.entries.map((e) => e.weight);
+      if (!vals.length) return null;
+      return (
+        Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10
+      );
+    }
+    if (viewMode === '12m') {
+      const vals = activePage.months
+        .filter((m) => m.avg != null)
+        .map((m) => m.avg);
+      if (!vals.length) return null;
+      return (
+        Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10
+      );
+    }
+    return null;
+  }, [activePage, viewMode]);
+
+  const pageTimeframeRange = useMemo(() => {
+    if (!activePage) return '';
+    return `${formatShortDate(activePage.startDate)} - ${formatShortDate(activePage.endDate)}`;
+  }, [activePage]);
+
+  // --- Tooltip ---
+  const selectedPoint = useMemo(() => {
+    if (!selectedDate) return null;
+    if (viewMode === '7d') {
+      // Check real points first
+      const real = allPoints7d.find((p) => p.date === selectedDate);
+      if (real) return real;
+      // Ghost date — find slot x from timeline7d
+      const slotIdx = timeline7d.days.findIndex((d) => d.date === selectedDate);
+      if (slotIdx >= 0) {
+        const STEP = chartWidth / 7;
+        const PAD = STEP / 2;
+        return {
+          date: selectedDate,
+          weight: null,
+          x: PAD + slotIdx * STEP,
+          y: chartHeight,
+          isGhost: true,
+        };
+      }
       return null;
     }
-    const normalized =
-      (currentWeightValue - chartData.minWeight) / chartData.range;
-    const bounded = Math.min(Math.max(normalized, 0), 1);
-    const y = (1 - bounded) * chartHeight;
-    return {
-      yPx: y,
-      weight: currentWeightValue,
-    };
-  }, [chartData, chartHeight, currentWeightValue]);
-
-  const yTicks = useMemo(() => {
-    if (!chartData) return [];
-    const steps = Math.max(Y_TICK_COUNT - 1, 1);
-    return Array.from(
-      { length: Y_TICK_COUNT },
-      (_, index) => chartData.maxWeight - (chartData.range / steps) * index
-    );
-  }, [chartData]);
-
-  const yTickPositions = useMemo(() => {
-    if (!chartData || chartHeight <= 0) {
-      return [];
-    }
-
-    const totalTicks = Math.max(yTicks.length, 1);
-
-    return yTicks.map((weight, index) => {
-      const normalized = (weight - chartData.minWeight) / chartData.range;
-      const bounded = Math.min(Math.max(normalized, 0), 1);
-      const y = (1 - bounded) * chartHeight;
-      const isTop = index === 0;
-      const isBottom = index === totalTicks - 1;
-      const lineY = isTop ? 0 : isBottom ? chartHeight : y;
-
-      return {
-        weight,
-        index,
-        lineY,
-      };
-    });
-  }, [chartData, chartHeight, yTicks]);
+    return chartPoints.find((p) => p.date === selectedDate) ?? null;
+  }, [
+    selectedDate,
+    viewMode,
+    allPoints7d,
+    chartPoints,
+    timeline7d,
+    chartWidth,
+    chartHeight,
+  ]);
 
   const closeTooltip = useCallback(() => {
     setTooltipClosing(true);
@@ -819,90 +862,77 @@ export const WeightTrackerModal = ({
     }, 150);
   }, []);
 
-  const scheduleTooltipClose = useCallback(() => {
-    if (!selectedDate) return;
-    if (scrollCloseTimeoutRef.current) {
-      clearTimeout(scrollCloseTimeoutRef.current);
-    }
-    scrollCloseTimeoutRef.current = setTimeout(() => {
-      closeTooltip();
-    }, 120);
-  }, [closeTooltip, selectedDate]);
-
   useEffect(() => {
+    const timeoutId = scrollCloseTimeoutRef.current;
     return () => {
-      if (scrollCloseTimeoutRef.current) {
-        clearTimeout(scrollCloseTimeoutRef.current);
-      }
+      if (timeoutId) clearTimeout(timeoutId);
     };
   }, []);
 
   const handleDateClick = useCallback(
     (date, event) => {
-      const entry = entriesMap[date];
-      if (!entry) return;
-
-      // Stop propagation so pointerdown handler doesn't interfere
+      if (!date) return;
       event?.stopPropagation();
-
+      const entry = entriesMap[date];
       if (selectedDate === date) {
-        onEditEntry?.(entry);
+        if (entry) {
+          onEditEntry?.(entry);
+        } else {
+          onAddEntry?.(date);
+        }
         closeTooltip();
       } else {
-        // Close any existing tooltip first
         if (selectedDate) {
           setTooltipClosing(true);
           setTooltipEntered(false);
         }
-        // Then open the new one
         setSelectedDate(date);
         setTooltipClosing(false);
       }
     },
-    [entriesMap, selectedDate, onEditEntry, closeTooltip]
+    [entriesMap, selectedDate, onEditEntry, onAddEntry, closeTooltip]
   );
 
+  const handleLabelClick = useCallback(
+    (date, event) => {
+      if (!date) return;
+      event?.stopPropagation();
+      if (selectedDate === date) {
+        closeTooltip();
+      } else {
+        if (selectedDate) {
+          setTooltipClosing(true);
+          setTooltipEntered(false);
+        }
+        setSelectedDate(date);
+        setTooltipClosing(false);
+      }
+    },
+    [selectedDate, closeTooltip]
+  );
+
+  // Close tooltip on outside click
   useEffect(() => {
-    if (!selectedDate) {
-      return undefined;
-    }
-
+    if (!selectedDate) return undefined;
     const handlePointerDown = (event) => {
-      const tooltipNode = tooltipRef.current;
-      const timeframeDropdownNode = timeframeDropdownRef.current;
-
-      // Check if click is inside tooltip or timeframe dropdown
-      if (
-        tooltipNode?.contains(event.target) ||
-        timeframeDropdownNode?.contains(event.target)
-      ) {
-        return;
-      }
-
-      // Check if click is on a chart point (SVG circle element)
+      if (tooltipRef.current?.contains(event.target)) return;
       const target = event.target;
-      if (target.tagName === 'circle' || target.tagName === 'g') {
-        // Let the handleDateClick handle it
-        return;
-      }
-
-      // Close tooltip and timeframe dropdown if clicking outside
+      if (target.tagName === 'circle' || target.tagName === 'g') return;
+      if (target.closest('[data-date-label]')) return;
       closeTooltip();
-      setIsTimeframeDropdownOpen(false);
     };
-
     document.addEventListener('pointerdown', handlePointerDown, true);
     return () =>
       document.removeEventListener('pointerdown', handlePointerDown, true);
   }, [closeTooltip, selectedDate]);
 
+  // Tooltip enter animation
   useEffect(() => {
     if (selectedDate && !tooltipClosing) {
       const frame = requestAnimationFrame(() => setTooltipEntered(true));
       return () => cancelAnimationFrame(frame);
     }
     if (!selectedDate) {
-      // Avoid direct setState in effect, use microtask
       Promise.resolve().then(() => setTooltipEntered(false));
     }
     return undefined;
@@ -913,84 +943,489 @@ export const WeightTrackerModal = ({
       e.stopPropagation();
       if (selectedDate) {
         const entry = entriesMap[selectedDate];
-        onEditEntry?.(entry);
+        if (entry) {
+          onEditEntry?.(entry);
+        } else {
+          onAddEntry?.(selectedDate);
+        }
         closeTooltip();
       }
     },
-    [selectedDate, entriesMap, onEditEntry, closeTooltip]
+    [selectedDate, entriesMap, onEditEntry, onAddEntry, closeTooltip]
   );
 
   const updateTooltipPosition = useCallback(() => {
-    if (!selectedPoint) {
-      return;
+    if (!selectedPoint) return;
+    const node = carouselRef.current;
+    if (!node) return;
+
+    if (viewMode === '7d') {
+      // Continuous chart: account for scroll offset
+      const rect = node.getBoundingClientRect();
+      const rawX = rect.left + selectedPoint.x - node.scrollLeft;
+      const rawY = rect.top + 16 + selectedPoint.y;
+      setTooltipPosition({ x: rawX, y: rawY });
+    } else {
+      const svgNodes = node.querySelectorAll('svg');
+      const svg = svgNodes[resolvedPageIndex];
+      if (!svg) return;
+      const svgRect = svg.getBoundingClientRect();
+      const rawX = svgRect.left + selectedPoint.x;
+      const rawY = svgRect.top + selectedPoint.y;
+      setTooltipPosition({ x: rawX, y: rawY });
     }
-
-    const graphNode = graphScrollRef.current;
-    if (!graphNode) {
-      return;
-    }
-
-    const svgNode = graphNode.querySelector('svg');
-    if (!svgNode) {
-      return;
-    }
-
-    const svgRect = svgNode.getBoundingClientRect();
-    const rawX = svgRect.left + selectedPoint.x;
-    const rawY = svgRect.top + selectedPoint.y;
-
-    setTooltipPosition({ x: rawX, y: rawY });
-  }, [selectedPoint]);
+  }, [selectedPoint, resolvedPageIndex, viewMode]);
 
   useIsomorphicLayoutEffect(() => {
-    if (!selectedPoint) {
-      return undefined;
-    }
-
+    if (!selectedPoint) return undefined;
     updateTooltipPosition();
-
-    const handleScroll = () => scheduleTooltipClose();
     const handleResize = () => updateTooltipPosition();
-
-    const graphNode = graphScrollRef.current;
-    const timelineNode = timelineScrollRef.current;
-
-    graphNode?.addEventListener('scroll', handleScroll);
-    timelineNode?.addEventListener('scroll', handleScroll);
     window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [selectedPoint, updateTooltipPosition]);
 
-    return () => {
-      graphNode?.removeEventListener('scroll', handleScroll);
-      timelineNode?.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('resize', handleResize);
-    };
-  }, [scheduleTooltipClose, selectedPoint, updateTooltipPosition]);
+  // --- Mode-specific point sizing ---
+  const pointRadius = MODE_POINT[viewMode]?.radius ?? 6;
+  const pointHitRadius = MODE_POINT[viewMode]?.hitRadius ?? 12;
 
-  // Close dropdowns when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (
-        timeframeDropdownRef.current &&
-        !timeframeDropdownRef.current.contains(event.target)
-      ) {
-        setIsTimeframeDropdownOpen(false);
-      }
-      if (
-        phaseDropdownRef.current &&
-        !phaseDropdownRef.current.contains(event.target)
-      ) {
-        setIsPhaseDropdownOpen(false);
-      }
-    };
+  // --- Render page graph (30d / 12m only) ---
+  const renderPageGraph = (page, idx) => {
+    let values = [];
+    if (viewMode === '30d') values = page.entries.map((e) => e.weight);
+    else if (viewMode === '12m')
+      values = page.months
+        .filter((m) => !m.isEmpty && m.avg != null)
+        .map((m) => m.avg);
 
-    if (isTimeframeDropdownOpen || isPhaseDropdownOpen) {
-      document.addEventListener('pointerdown', handleClickOutside);
-      return () =>
-        document.removeEventListener('pointerdown', handleClickOutside);
+    const pcd = computeChartData(values);
+    if (!pcd) {
+      return (
+        <div
+          key={idx}
+          className="flex-shrink-0 flex items-center justify-center"
+          style={{ width: `${chartWidth}px`, scrollSnapAlign: 'start' }}
+        >
+          <p className="text-muted text-lg">No data for this period.</p>
+        </div>
+      );
     }
 
-    return undefined;
-  }, [isTimeframeDropdownOpen, isPhaseDropdownOpen]);
+    const pad = viewMode === '30d' ? 12 : 24;
+    const usable = Math.max(chartWidth - pad * 2, 0);
+
+    let pts = [];
+    if (viewMode === '30d') {
+      // Date-proportional x positions
+      const startMs = new Date(page.startDate + 'T00:00:00Z').getTime();
+      const endMs = new Date(page.endDate + 'T00:00:00Z').getTime();
+      const rangeMs = endMs - startMs || 1;
+
+      pts = page.entries.map((e) => {
+        const ms = new Date(e.date + 'T00:00:00Z').getTime();
+        const fraction = (ms - startMs) / rangeMs;
+        const x = pad + fraction * usable;
+        const norm = (e.weight - pcd.minWeight) / pcd.range;
+        const bounded = Math.min(Math.max(norm, 0), 1);
+        const y = (1 - bounded) * chartHeight;
+        return { date: e.date, weight: e.weight, x, y, isGap: false };
+      });
+    } else if (viewMode === '12m') {
+      const count = page.months.length;
+      const step = count > 1 ? usable / (count - 1) : 0;
+      pts = page.months.map((m, i) => {
+        const x = pad + step * i;
+        if (m.isEmpty || m.avg == null) {
+          return {
+            date: m.key,
+            weight: null,
+            x,
+            y: 0,
+            isGap: true,
+            label: m.label,
+            isEmpty: true,
+          };
+        }
+        const norm = (m.avg - pcd.minWeight) / pcd.range;
+        const bounded = Math.min(Math.max(norm, 0), 1);
+        const y = (1 - bounded) * chartHeight;
+        return {
+          date: m.key,
+          weight: m.avg,
+          x,
+          y,
+          isGap: false,
+          label: m.label,
+        };
+      });
+    }
+
+    // Build bezier paths (continuous line)
+    const nonGap = pts.filter((p) => !p.isGap).map((p) => ({ x: p.x, y: p.y }));
+    const { pathData, areaData } = buildBezierPaths(nonGap, {
+      chartWidth,
+      chartHeight,
+      extendToEdges: true,
+      singlePointStretch: nonGap.length === 1,
+    });
+
+    // Y ticks for this page
+    const ySteps = Math.max(Y_TICK_COUNT - 1, 1);
+    const pageTicks = Array.from(
+      { length: Y_TICK_COUNT },
+      (_, i) => pcd.maxWeight - (pcd.range / ySteps) * i
+    );
+    const pageTickPositions = pageTicks.map((w, i) => {
+      const norm = (w - pcd.minWeight) / pcd.range;
+      const bounded = Math.min(Math.max(norm, 0), 1);
+      const y = (1 - bounded) * chartHeight;
+      const isTop = i === 0;
+      const isBottom = i === pageTicks.length - 1;
+      const lineY = isTop ? 0 : isBottom ? chartHeight : y;
+      return { weight: w, index: i, lineY };
+    });
+
+    const gradId = `areaGradient-w-${idx}`;
+
+    // Timeline labels
+    let timelineLabels = [];
+    if (viewMode === '30d') {
+      const startDate = new Date(page.startDate + 'T00:00:00Z');
+      const startMs = startDate.getTime();
+      const endMs = new Date(page.endDate + 'T00:00:00Z').getTime();
+      const rangeMs = endMs - startMs || 1;
+      for (let i = 0; i <= 30; i += 5) {
+        const d = new Date(startDate);
+        d.setUTCDate(d.getUTCDate() + Math.min(i, 29));
+        const fraction = (d.getTime() - startMs) / rangeMs;
+        timelineLabels.push({
+          x: pad + Math.min(fraction, 1) * usable,
+          label: formatTimelineLabel(toDateKey(d)),
+          date: toDateKey(d),
+        });
+      }
+    } else if (viewMode === '12m') {
+      const count = page.months.length;
+      const step = count > 1 ? usable / (count - 1) : 0;
+      timelineLabels = page.months.map((m, i) => ({
+        x: pad + step * i,
+        label: m.label,
+        date: m.key,
+        isEmpty: !!m.isEmpty,
+      }));
+    }
+
+    return (
+      <div
+        key={idx}
+        className="flex-shrink-0 flex flex-col"
+        style={{ width: `${chartWidth}px`, scrollSnapAlign: 'start' }}
+      >
+        {/* SVG Graph */}
+        <div className="flex-1 py-[8px]">
+          <svg
+            width={chartWidth}
+            height={chartHeight}
+            viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+            preserveAspectRatio="none"
+          >
+            <defs>
+              <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
+                <stop
+                  offset="0%"
+                  stopColor={trendVisual.color}
+                  stopOpacity={trendVisual.topOpacity}
+                />
+                <stop
+                  offset="100%"
+                  stopColor={trendVisual.color}
+                  stopOpacity={trendVisual.bottomOpacity}
+                />
+              </linearGradient>
+            </defs>
+
+            {/* Grid lines */}
+            <g>
+              {pageTickPositions.map(({ index: gi, lineY }) => {
+                const isBaseline = gi === pageTickPositions.length - 1;
+                const yVal = isBaseline ? getBaselineY(lineY) : lineY;
+                return (
+                  <line
+                    key={`grid-${gi}`}
+                    x1="0"
+                    y1={yVal}
+                    x2={chartWidth}
+                    y2={yVal}
+                    stroke={isBaseline ? '#fff' : 'currentColor'}
+                    strokeWidth={isBaseline ? 2 : 1}
+                    strokeDasharray={isBaseline ? 'none' : '4 6'}
+                    className={
+                      isBaseline ? 'opacity-80' : 'text-muted opacity-60'
+                    }
+                  />
+                );
+              })}
+            </g>
+
+            {/* Area fill */}
+            {areaData && <path d={areaData} fill={`url(#${gradId})`} />}
+
+            {/* Line */}
+            {pathData && (
+              <path
+                d={pathData}
+                fill="none"
+                stroke={trendVisual.color}
+                strokeWidth={viewMode === '30d' ? '2' : '3'}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            )}
+
+            {/* Points */}
+            {pts
+              .filter((p) => !p.isGap)
+              .map((p) => (
+                <g
+                  key={p.date}
+                  onClick={(e) =>
+                    idx === resolvedPageIndex && handleDateClick(p.date, e)
+                  }
+                  className="cursor-pointer"
+                >
+                  <circle
+                    cx={p.x}
+                    cy={p.y}
+                    r={pointHitRadius}
+                    fill="transparent"
+                  />
+                  <circle
+                    cx={p.x}
+                    cy={p.y}
+                    r={pointRadius}
+                    fill="#1e293b"
+                    stroke={trendVisual.color}
+                    strokeWidth="2"
+                    className="transition-all"
+                  />
+                </g>
+              ))}
+          </svg>
+        </div>
+
+        {/* Timeline labels */}
+        <div className="flex-shrink-0 px-1 pb-2">
+          <div
+            className="relative"
+            style={{ height: `${TIMELINE_TRACK_HEIGHT}px` }}
+          >
+            {timelineLabels.map((l) => (
+              <div
+                key={l.date}
+                className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2"
+                style={{ left: `${l.x}px` }}
+              >
+                <span
+                  className={`text-[13px] font-semibold ${
+                    l.isEmpty ? 'text-muted/30' : 'text-muted'
+                  }`}
+                >
+                  {l.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // --- Render 7d continuous chart ---
+  const render7dContinuous = () => {
+    if (!globalChartData || !allPoints7d.length) {
+      return (
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-muted text-lg">No weight data yet.</p>
+        </div>
+      );
+    }
+
+    const snapPageCount = timeline7d.snapPageCount;
+    const totalWidth = snapPageCount * chartWidth;
+
+    // Build continuous bezier path through all points
+    const pts = allPoints7d.map((p) => ({ x: p.x, y: p.y }));
+    const { pathData, areaData } = buildBezierPaths(pts, {
+      chartWidth: totalWidth,
+      chartHeight,
+      extendToEdges: true,
+      singlePointStretch: pts.length === 1,
+    });
+
+    const gradId = 'areaGradient-w-cont';
+
+    return (
+      <div
+        style={{
+          width: `${totalWidth}px`,
+          height: '100%',
+          position: 'relative',
+        }}
+      >
+        {/* SVG chart layer */}
+        <div
+          className="absolute left-0"
+          style={{
+            top: '8px',
+            width: `${totalWidth}px`,
+            height: `${chartHeight}px`,
+          }}
+        >
+          <svg
+            width={totalWidth}
+            height={chartHeight}
+            viewBox={`0 0 ${totalWidth} ${chartHeight}`}
+            preserveAspectRatio="none"
+          >
+            <defs>
+              <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
+                <stop
+                  offset="0%"
+                  stopColor={trendVisual.color}
+                  stopOpacity={trendVisual.topOpacity}
+                />
+                <stop
+                  offset="100%"
+                  stopColor={trendVisual.color}
+                  stopOpacity={trendVisual.bottomOpacity}
+                />
+              </linearGradient>
+            </defs>
+
+            {/* Grid lines (repeating per snap page) */}
+            {Array.from({ length: snapPageCount }, (_, pi) =>
+              yTickPositions.map(({ index: gi, lineY }) => {
+                const isBaseline = gi === yTickPositions.length - 1;
+                const yVal = isBaseline ? getBaselineY(lineY) : lineY;
+                return (
+                  <line
+                    key={`grid-${pi}-${gi}`}
+                    x1={pi * chartWidth}
+                    y1={yVal}
+                    x2={(pi + 1) * chartWidth}
+                    y2={yVal}
+                    stroke={isBaseline ? '#fff' : 'currentColor'}
+                    strokeWidth={isBaseline ? 2 : 1}
+                    strokeDasharray={isBaseline ? 'none' : '4 6'}
+                    className={
+                      isBaseline ? 'opacity-80' : 'text-muted opacity-60'
+                    }
+                  />
+                );
+              })
+            )}
+
+            {/* Area fill */}
+            {areaData && <path d={areaData} fill={`url(#${gradId})`} />}
+
+            {/* Line */}
+            {pathData && (
+              <path
+                d={pathData}
+                fill="none"
+                stroke={trendVisual.color}
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            )}
+
+            {/* Points */}
+            {allPoints7d.map((p) => (
+              <g
+                key={p.date}
+                onClick={(e) => handleDateClick(p.date, e)}
+                className="cursor-pointer"
+              >
+                <circle
+                  cx={p.x}
+                  cy={p.y}
+                  r={pointHitRadius}
+                  fill="transparent"
+                />
+                <circle
+                  cx={p.x}
+                  cy={p.y}
+                  r={pointRadius}
+                  fill="#1e293b"
+                  stroke={trendVisual.color}
+                  strokeWidth="2"
+                  className="transition-all"
+                />
+              </g>
+            ))}
+          </svg>
+        </div>
+
+        {/* Snap targets + timeline labels */}
+        <div className="flex h-full">
+          {Array.from({ length: snapPageCount }, (_, pi) => {
+            const STEP = chartWidth / 7;
+            const PAD = STEP / 2;
+            const pageSlots = timeline7d.days.slice(pi * 7, pi * 7 + 7);
+
+            return (
+              <div
+                key={pi}
+                className="flex-shrink-0 flex flex-col justify-end"
+                style={{
+                  width: `${chartWidth}px`,
+                  scrollSnapAlign: 'start',
+                }}
+              >
+                <div className="px-1 pb-2">
+                  <div
+                    className="relative"
+                    style={{ height: `${TIMELINE_TRACK_HEIGHT}px` }}
+                  >
+                    {pageSlots.map((s, si) => {
+                      const localX = PAD + si * STEP;
+                      const hasEntry = !!s.entry;
+                      const isEmpty = !hasEntry;
+                      return (
+                        <div
+                          key={s.date}
+                          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-pointer"
+                          data-date-label
+                          style={{ left: `${localX}px` }}
+                          onClick={(e) => handleLabelClick(s.date, e)}
+                        >
+                          <span
+                            className={`text-[13px] font-semibold ${
+                              isEmpty
+                                ? getWeekday(s.date) === 'Sun'
+                                  ? 'text-accent-red/40'
+                                  : 'text-muted/30'
+                                : s.date === latestDate
+                                  ? 'text-accent-blue'
+                                  : getWeekday(s.date) === 'Sun'
+                                    ? 'text-accent-red'
+                                    : 'text-muted'
+                            }`}
+                          >
+                            {formatTimelineLabel(s.date)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -1000,7 +1435,7 @@ export const WeightTrackerModal = ({
         overlayClassName="fixed inset-0 bg-black/70 !p-0 !flex-none !items-stretch !justify-stretch z-[1000]"
         contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none !max-h-none flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] z-[1001]"
       >
-        {/* Header with back button */}
+        {/* Header bar */}
         <div className="flex items-center justify-between px-4 py-3 bg-background border-b border-border flex-shrink-0">
           <div className="flex items-center gap-3">
             <button
@@ -1019,7 +1454,7 @@ export const WeightTrackerModal = ({
             <button
               type="button"
               onClick={() => onSwitchToBodyFat?.()}
-              className="px-4 py-2 md:px-4 md:py-2 rounded-md bg-blue-600 border border-blue-400 text-white text-sm font-semibold md:hover:bg-blue-500 transition-colors flex items-center press-feedback focus-ring"
+              className="px-4 py-2 rounded-md bg-accent-blue text-white text-sm font-semibold md:hover:brightness-110 transition-colors flex items-center press-feedback focus-ring"
               aria-label="Switch to body fat tracker"
             >
               <Repeat size={16} className="mr-2 opacity-90" />
@@ -1028,555 +1463,363 @@ export const WeightTrackerModal = ({
           )}
         </div>
 
-        {/* Combined Timeline and Current Weight Section - Takes full remaining space */}
+        {/* Main content area */}
         <div className="flex-1 bg-surface border-t border-border overflow-y-auto flex flex-col">
-          {/* Stats Section */}
-          <div className="px-4 pt-4 pb-3 grid grid-cols-2 md:grid-cols-4 gap-3 flex-shrink-0">
-            <div>
-              <p className="text-muted text-xs uppercase tracking-wide mb-1">
-                Current Weight
-              </p>
-              <p className="text-foreground text-2xl font-bold">
-                {currentWeightDisplay}
-              </p>
-              <p className="text-muted text-[11px] mt-1">
-                {latestDate ? (
-                  <span className="inline-flex items-center gap-2">
-                    <span>{formatTooltipDate(latestDate)}</span>
-                    {oldDataWarningText && (
-                      <span className="inline-flex items-center gap-1 text-accent-yellow">
-                        <AlertCircle size={10} className="shrink-0" />
-                        {oldDataWarningText}
-                      </span>
-                    )}
-                  </span>
-                ) : (
-                  ''
-                )}
-              </p>
-            </div>
-            <div>
-              <button
-                type="button"
-                onClick={openTrendInfo}
-                aria-label="Weekly rate details"
-                className="text-muted text-xs uppercase tracking-wide mb-1 md:hover:text-foreground transition-colors cursor-pointer flex items-center gap-1 group focus-ring"
-              >
-                Weekly Rate
-                <Info
-                  size={14}
-                  className="opacity-60 md:group-hover:opacity-100 transition-opacity"
-                />
-              </button>
-              <p className="text-foreground text-lg font-semibold">
-                {weeklyRateDisplay}
-              </p>
-              <p className="text-muted text-xs mt-1">
-                Goal: {getGoalWeeklyTarget(selectedGoal)}
-              </p>
-            </div>
-            <div>
-              <button
-                type="button"
-                onClick={openTrendInfo}
-                aria-label="Trend details"
-                className="text-muted text-xs uppercase tracking-wide mb-1 md:hover:text-foreground transition-colors cursor-pointer flex items-center gap-1 group focus-ring"
-              >
-                Trend
-                <Info
-                  size={14}
-                  className="opacity-60 md:group-hover:opacity-100 transition-opacity"
-                />
-              </button>
-              <p
-                className={`${getTrendToneClass(trend, selectedGoal)} font-semibold text-lg flex items-center gap-2`}
-              >
-                <TrendIcon direction={trend.direction} />
-                {trend.label}
-              </p>
-              {goalAlignment && (
-                <p
-                  className={`${goalAlignment.color} text-xs mt-1 font-medium`}
+          {/* View mode toggle */}
+          <div className="px-4 pt-3 pb-1 flex-shrink-0">
+            <div className="relative flex items-center gap-2 p-1 bg-surface-highlight rounded-lg">
+              {/* Sliding pill */}
+              <div
+                className="absolute inset-y-1 rounded-md shadow-md bg-accent-blue"
+                style={{
+                  width: 'calc((100% - 24px) / 3)',
+                  left:
+                    viewMode === '7d'
+                      ? '4px'
+                      : viewMode === '30d'
+                        ? 'calc((100% - 24px) / 3 + 12px)'
+                        : 'calc((100% - 24px) / 3 * 2 + 20px)',
+                  transition:
+                    'left 0.2s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.2s ease-out',
+                }}
+              />
+              {VIEW_MODES.map((mode) => (
+                <button
+                  key={mode.key}
+                  type="button"
+                  onClick={() => setViewMode(mode.key)}
+                  className={`relative z-10 flex-1 flex items-center justify-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    viewMode === mode.key
+                      ? 'text-white'
+                      : 'text-muted md:hover:text-foreground'
+                  }`}
                 >
-                  {goalAlignment.text}
-                </p>
-              )}
-            </div>
-            <div>
-              <p className="text-muted text-xs uppercase tracking-wide mb-1">
-                {selectedPhase ? 'Phase Range' : 'Timeframe'}
-              </p>
-              <p className="text-foreground text-sm font-semibold">
-                {timeframeRangeLine}
-              </p>
-              <p className="text-muted text-[11px] mt-1">{timeframeMain}</p>
+                  {mode.label}
+                </button>
+              ))}
             </div>
           </div>
 
-          <div className="sticky top-0 z-10 px-4 py-2 bg-surface/95 backdrop-blur border-b border-border flex-shrink-0">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
+          {/* Dynamic stat cards */}
+          <div
+            className={`px-4 pt-3 pb-3 grid gap-3 flex-shrink-0 ${
+              viewMode === '7d' ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2'
+            }`}
+          >
+            {viewMode === '7d' ? (
+              <>
+                {/* Current Weight */}
+                <div>
+                  <p className="text-muted text-xs uppercase tracking-wide mb-1">
+                    Current Weight
+                  </p>
+                  <p className="text-foreground text-2xl font-bold">
+                    {currentWeightDisplay}
+                  </p>
+                  <p className="text-muted text-[11px] mt-1">
+                    {latestDate ? (
+                      <span className="inline-flex items-center gap-2">
+                        <span>{formatTooltipDate(latestDate)}</span>
+                        {oldDataWarningText && (
+                          <span className="inline-flex items-center gap-1 text-accent-yellow">
+                            <AlertCircle size={10} className="shrink-0" />
+                            {oldDataWarningText}
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      ''
+                    )}
+                  </p>
+                </div>
+                {/* 7-Day / 14-Day Averages */}
+                <div>
+                  <p className="text-muted text-xs uppercase tracking-wide mb-1">
+                    Averages
+                  </p>
+                  <div className="space-y-1">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-muted text-[11px]">7d</span>
+                      <span className="text-foreground text-lg font-semibold">
+                        {avg7 != null ? `${formatWeight(avg7)} kg` : '—'}
+                      </span>
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-muted text-[11px]">14d</span>
+                      <span className="text-foreground text-sm font-semibold">
+                        {avg14 != null ? `${formatWeight(avg14)} kg` : '—'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                {/* Trend */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={openTrendInfo}
+                    aria-label="Trend details"
+                    className="text-muted text-xs uppercase tracking-wide mb-1 md:hover:text-foreground transition-colors cursor-pointer flex items-center gap-1 group focus-ring"
+                  >
+                    Trend
+                    <Info
+                      size={14}
+                      className="opacity-60 md:group-hover:opacity-100 transition-opacity"
+                    />
+                  </button>
+                  <p
+                    className={`${getTrendToneClass(trend, selectedGoal)} font-semibold text-lg flex items-center gap-2`}
+                  >
+                    <TrendIcon direction={trend.direction} />
+                    {trend.label}
+                  </p>
+                  {goalAlignment && (
+                    <p
+                      className={`${goalAlignment.color} text-xs mt-1 font-medium`}
+                    >
+                      {goalAlignment.text}
+                    </p>
+                  )}
+                </div>
+                {/* Weekly Rate */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={openTrendInfo}
+                    aria-label="Weekly rate details"
+                    className="text-muted text-xs uppercase tracking-wide mb-1 md:hover:text-foreground transition-colors cursor-pointer flex items-center gap-1 group focus-ring"
+                  >
+                    Weekly Rate
+                    <Info
+                      size={14}
+                      className="opacity-60 md:group-hover:opacity-100 transition-opacity"
+                    />
+                  </button>
+                  <p className="text-foreground text-lg font-semibold">
+                    {weeklyRateDisplay}
+                  </p>
+                  <p className="text-muted text-xs mt-1">
+                    Goal: {getGoalWeeklyTarget(selectedGoal)}
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* 30-Day Avg or 12-Month Avg */}
+                <div>
+                  <p className="text-muted text-xs uppercase tracking-wide mb-1">
+                    {viewMode === '30d' ? '30 Day Avg' : '12 Month Avg'}
+                  </p>
+                  <p className="text-foreground text-2xl font-bold">
+                    {pageAverage != null
+                      ? `${formatWeight(pageAverage)} kg`
+                      : '—'}
+                  </p>
+                  <p className="text-muted text-[11px] mt-1">
+                    Current: {currentWeightDisplay}
+                  </p>
+                </div>
+                {/* Timeframe */}
+                <div>
+                  <p className="text-muted text-xs uppercase tracking-wide mb-1">
+                    Timeframe
+                  </p>
+                  <p className="text-foreground text-sm font-semibold">
+                    {pageTimeframeRange}
+                  </p>
+                  <p className="text-muted text-[11px] mt-1">
+                    {activePage && viewMode === '30d'
+                      ? `${activePage.entries.length} entries`
+                      : activePage && viewMode === '12m'
+                        ? `${activePage.months.length} months`
+                        : ''}
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Add Entry button (hidden in 12m mode) */}
+          {viewMode !== '12m' ? (
+            <div className="sticky top-0 z-10 px-4 py-2 bg-surface/95 backdrop-blur border-b border-border flex-shrink-0">
               <button
                 type="button"
                 onClick={() => onAddEntry?.()}
-                className="px-4 py-1.5 md:px-4 md:py-2.5 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all font-semibold text-sm md:hover:bg-blue-500/90 press-feedback focus-ring"
+                className="px-4 py-1.5 md:px-4 md:py-2.5 rounded-lg border-2 bg-accent-blue border-accent-blue/70 text-white transition-all font-semibold text-sm md:hover:brightness-110 press-feedback focus-ring"
               >
                 Add Entry
               </button>
-
-              <div className="flex items-center gap-2">
-                {/* Phase Selector - Expandable Dropdown */}
-                {resolvedPhases.length > 0 && (
-                  <div className="relative" ref={phaseDropdownRef}>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setIsPhaseDropdownOpen(!isPhaseDropdownOpen)
-                      }
-                      className="px-3 py-1.5 md:py-2.5 rounded-md font-semibold text-sm transition-all whitespace-nowrap bg-surface-highlight text-foreground border border-border md:hover:bg-surface-highlight/80 flex items-center gap-2 focus-ring press-feedback"
-                    >
-                      <span>
-                        {selectedPhase ? selectedPhase.name : 'All Data'}
-                      </span>
-                      <ChevronLeft
-                        size={16}
-                        className={`transition-transform duration-200 ${isPhaseDropdownOpen ? 'rotate-90' : '-rotate-90'}`}
-                      />
-                    </button>
-
-                    {/* Dropdown Menu */}
-                    {isPhaseDropdownOpen && (
-                      <div className="absolute right-0 top-full mt-1 bg-surface border border-border rounded-md shadow-lg z-10 min-w-[160px] max-h-[300px] overflow-y-auto">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedPhaseId(null);
-                            setIsPhaseDropdownOpen(false);
-                          }}
-                          className={`w-full px-4 py-2 text-left text-sm font-medium transition-colors md:hover:bg-surface-highlight first:rounded-t-md ${
-                            !selectedPhaseId
-                              ? 'bg-blue-600 text-white'
-                              : 'text-muted'
-                          }`}
-                        >
-                          All Data
-                        </button>
-                        {resolvedPhases.map((phase) => (
-                          <button
-                            key={phase.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedPhaseId(phase.id);
-                              setIsPhaseDropdownOpen(false);
-                            }}
-                            className={`w-full px-4 py-2 text-left text-sm font-medium transition-colors md:hover:bg-surface-highlight last:rounded-b-md ${
-                              selectedPhaseId === phase.id
-                                ? 'bg-blue-600 text-white'
-                                : 'text-muted'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="truncate">{phase.name}</span>
-                              {phase.status === 'active' && (
-                                <span className="flex-shrink-0 w-2 h-2 bg-accent-green rounded-full" />
-                              )}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Timeframe Selector - Expandable Dropdown */}
-                <div className="relative" ref={timeframeDropdownRef}>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setIsTimeframeDropdownOpen(!isTimeframeDropdownOpen)
-                    }
-                    className="px-3 py-1.5 md:py-2.5 rounded-md font-semibold text-sm transition-all whitespace-nowrap bg-blue-600 text-white border border-blue-400 md:hover:bg-blue-500 flex items-center gap-2 focus-ring press-feedback"
-                  >
-                    <span>
-                      {(() => {
-                        switch (selectedTimeframe) {
-                          case '7d':
-                            return '7 Days';
-                          case '14d':
-                            return '14 Days';
-                          case '30d':
-                            return '30 Days';
-                          case '90d':
-                            return '90 Days';
-                          case 'all':
-                            return 'All Time';
-                          default:
-                            return '30 Days';
-                        }
-                      })()}
-                    </span>
-                    <ChevronLeft
-                      size={16}
-                      className={`transition-transform duration-200 ${isTimeframeDropdownOpen ? 'rotate-90' : '-rotate-90'}`}
-                    />
-                  </button>
-
-                  {/* Dropdown Menu */}
-                  {isTimeframeDropdownOpen && (
-                    <div className="absolute right-0 top-full mt-1 bg-surface border border-border rounded-md shadow-lg z-10 min-w-[120px]">
-                      {[
-                        { value: '7d', label: '7 Days' },
-                        { value: '14d', label: '14 Days' },
-                        { value: '30d', label: '30 Days' },
-                        { value: '90d', label: '90 Days' },
-                        { value: 'all', label: 'All Time' },
-                      ].map(({ value, label }) => (
-                        <button
-                          key={value}
-                          type="button"
-                          onClick={() => {
-                            setSelectedTimeframe(value);
-                            setIsTimeframeDropdownOpen(false);
-                          }}
-                          className={`w-full px-4 py-2 text-left text-sm font-medium transition-colors md:hover:bg-surface-highlight first:rounded-t-md last:rounded-b-md ${
-                            selectedTimeframe === value
-                              ? 'bg-blue-600 text-white'
-                              : 'text-muted'
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
             </div>
-          </div>
+          ) : (
+            <div className="border-b border-border flex-shrink-0" />
+          )}
 
-          {/* Graph and Timeline Section - Synchronized scrolling */}
+          {/* Graph carousel + Y-axis */}
           <div className="flex-1 flex flex-col min-h-0">
-            <div className="flex-1 pr-3 pb-1 overflow-hidden flex">
-              {/* Graph viewport wrapper to pin overlay fades */}
+            <div className="flex-1 pr-2 pb-1 overflow-hidden flex">
+              {/* Carousel */}
               <div className="relative rounded-l-lg flex-1 overflow-hidden">
                 <div
-                  ref={graphScrollRef}
-                  className={`${hasHorizontalOverflow ? 'overflow-x-auto' : 'overflow-x-hidden'} overflow-y-hidden h-full`}
-                  onScroll={(e) => {
-                    const nextScrollLeft = e.currentTarget.scrollLeft;
-                    setScrollLeft(nextScrollLeft);
-                    if (
-                      timelineScrollRef.current &&
-                      timelineScrollRef.current.scrollLeft !== nextScrollLeft
-                    ) {
-                      timelineScrollRef.current.scrollLeft = nextScrollLeft;
-                    }
-                    scheduleTooltipClose();
+                  ref={carouselRef}
+                  className="overflow-x-auto overflow-y-hidden h-full flex"
+                  style={{
+                    scrollSnapType: 'x mandatory',
+                    WebkitOverflowScrolling: 'touch',
                   }}
+                  onScroll={handleCarouselScroll}
                 >
-                  <div
-                    className="py-[16px] pr-6 pl-0 h-full"
-                    style={{ width: `${chartWidth}px` }}
-                  >
-                    {chartData ? (
-                      <svg
-                        width={chartWidth}
-                        height={chartHeight}
-                        viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-                        preserveAspectRatio="none"
-                      >
-                        <defs>
-                          <linearGradient
-                            id="areaGradient"
-                            x1="0"
-                            x2="0"
-                            y1="0"
-                            y2="1"
-                          >
-                            <>
-                              <stop
-                                offset="0%"
-                                stopColor={trendVisual.color}
-                                stopOpacity={trendVisual.topOpacity}
-                              />
-                              <stop
-                                offset="100%"
-                                stopColor={trendVisual.color}
-                                stopOpacity={trendVisual.bottomOpacity}
-                              />
-                            </>
-                          </linearGradient>
-                        </defs>
-
-                        {/* Line graph, area, and grid */}
-                        {(() => {
-                          const { pathData, areaData } = buildBezierPaths(
-                            chartPoints,
-                            {
-                              chartWidth,
-                              chartHeight,
-                              extendToEdges: true,
-                              singlePointStretch: shouldStretchAcrossViewport,
-                            }
-                          );
-
-                          return (
-                            <>
-                              {/* Area fill */}
-                              {areaData && (
-                                <path d={areaData} fill="url(#areaGradient)" />
-                              )}
-
-                              {/* Grid lines */}
-                              <g>
-                                {yTickPositions.map(({ index, lineY }) => {
-                                  const isBaseline =
-                                    index === yTickPositions.length - 1;
-                                  const yValue = isBaseline
-                                    ? getBaselineY(lineY)
-                                    : lineY;
-                                  return (
-                                    <line
-                                      key={`grid-${index}`}
-                                      x1="0"
-                                      y1={yValue}
-                                      x2={chartWidth}
-                                      y2={yValue}
-                                      stroke={
-                                        isBaseline ? '#fff' : 'currentColor'
-                                      }
-                                      strokeWidth={isBaseline ? 2 : 1}
-                                      strokeDasharray={
-                                        isBaseline ? 'none' : '4 6'
-                                      }
-                                      className={
-                                        isBaseline
-                                          ? 'opacity-80'
-                                          : 'text-muted opacity-60'
-                                      }
-                                    />
-                                  );
-                                })}
-                              </g>
-
-                              {/* Line */}
-                              {pathData && (
-                                <path
-                                  d={pathData}
-                                  fill="none"
-                                  stroke={trendVisual.color}
-                                  strokeWidth="3"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                />
-                              )}
-
-                              {/* Points */}
-                              {chartPoints.map(({ x, y, date }) => (
-                                <g
-                                  key={date}
-                                  onClick={(e) => handleDateClick(date, e)}
-                                  className="cursor-pointer"
-                                >
-                                  {/* Larger invisible circle for easier clicking */}
-                                  <circle
-                                    cx={x}
-                                    cy={y}
-                                    r={POINT_HIT_RADIUS}
-                                    fill="transparent"
-                                  />
-                                  <circle
-                                    cx={x}
-                                    cy={y}
-                                    r={POINT_RADIUS}
-                                    fill="#1e293b"
-                                    stroke={trendVisual.color}
-                                    strokeWidth="2"
-                                    className="transition-all"
-                                  />
-                                </g>
-                              ))}
-                            </>
-                          );
-                        })()}
-                      </svg>
-                    ) : (
-                      <div className="flex items-center justify-center h-full">
-                        <p className="text-muted text-lg">
-                          No weight data yet.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  {/* Close scroll container before adding overlay */}
-                </div>
-                {/* Right edge soft fade pinned to viewport of graph */}
-                <div className="pointer-events-none absolute right-0 -mr-1 top-0 h-full w-3 bg-gradient-to-l from-surface/90 to-transparent" />
-              </div>
-
-              {/* Y-axis - Fixed on right side */}
-              <div className="rounded-r-lg w-14 flex-shrink-0 relative">
-                <div
-                  className="absolute inset-x-0 px-2"
-                  style={{ top: '16px', height: `${chartHeight}px` }}
-                >
-                  {chartData
-                    ? yTickPositions.map(({ weight, index, lineY }) => {
-                        return (
-                          <div
-                            key={`tick-${index}`}
-                            className="absolute right-2 text-sm font-semibold text-foreground/70 tracking-tight text-right"
-                            style={{
-                              top: `${lineY}px`,
-                              transform: 'translateY(-50%)',
-                            }}
-                          >
-                            {formatWeight(weight)}
-                          </div>
-                        );
-                      })
-                    : null}
-                  {currentWeightTick && (
-                    <div
-                      className="absolute right-0.5 px-2.5 py-1 rounded-lg text-[12px] font-bold text-white shadow-md flex items-center justify-center leading-none"
-                      style={{
-                        top: `${currentWeightTick.yPx}px`,
-                        transform: 'translateY(-50%)',
-                        backgroundColor: `${trendVisual.color}cc`,
-                        borderColor: trendVisual.color,
-                        borderWidth: '1px',
-                      }}
-                    >
-                      {formatWeight(currentWeightTick.weight)}
+                  {viewMode === '7d' ? (
+                    render7dContinuous()
+                  ) : pages.length > 0 ? (
+                    pages.map((page, idx) => renderPageGraph(page, idx))
+                  ) : (
+                    <div className="flex-1 flex items-center justify-center">
+                      <p className="text-muted text-lg">No weight data yet.</p>
                     </div>
                   )}
                 </div>
-              </div>
-            </div>
-
-            <div className="pr-1 pb-1 flex gap-1 flex-shrink-0">
-              {/* Timeline viewport wrapper to pin overlay fades */}
-              <div className="relative flex-1 rounded-lg overflow-hidden">
-                <div
-                  id="timeline-scroll"
-                  ref={timelineScrollRef}
-                  className={`${hasHorizontalOverflow ? 'overflow-x-auto' : 'overflow-x-hidden'} overflow-y-hidden`}
-                  onScroll={(e) => {
-                    const nextScrollLeft = e.currentTarget.scrollLeft;
-                    setScrollLeft(nextScrollLeft);
-                    if (
-                      graphScrollRef.current &&
-                      graphScrollRef.current.scrollLeft !== nextScrollLeft
-                    ) {
-                      graphScrollRef.current.scrollLeft = nextScrollLeft;
-                    }
-                    scheduleTooltipClose();
-                  }}
-                >
-                  <div
-                    className="pl-0 pr-6 py-3"
-                    style={{ width: `${chartWidth}px` }}
-                  >
-                    <div
-                      className="relative"
-                      style={{
-                        width: `${chartWidth}px`,
-                        height: `${TIMELINE_TRACK_HEIGHT}px`,
-                      }}
-                    >
-                      {filteredEntries.map((entry, index) => {
-                        const { date } = entry;
-                        const isLatest = date === latestDate;
-                        const label = formatTimelineLabel(date);
-                        const weekday = getWeekday(date);
-                        const isSunday = weekday === 'Sun';
-                        const x = timelineXPositions[index] ?? 0;
-                        // Removed unused prevX and nextX variables
-
-                        // Fixed width for timeline label boxes
-                        const buttonWidth = DATE_COLUMN_WIDTH;
-
-                        return (
-                          <div
-                            key={`${date}-${index}`}
-                            className="absolute top-1/2 transform -translate-y-1/2 -translate-x-1/2"
-                            style={{
-                              left: `${x}px`,
-                              width: `${buttonWidth}px`,
-                            }}
-                          >
-                            <button
-                              type="button"
-                              onClick={(e) => handleDateClick(date, e)}
-                              aria-pressed={selectedDate === date}
-                              className={`w-full flex flex-col items-center gap-1 py-2 px-3 rounded-md border transition-colors text-xs font-semibold ${
-                                isLatest
-                                  ? 'bg-blue-600 border-blue-500 text-white'
-                                  : 'bg-transparent border-border text-foreground'
-                              } ${selectedDate === date ? 'ring-2 ring-accent-blue' : ''}`}
-                            >
-                              <span
-                                className={`w-full text-center ${isSunday && !isLatest && selectedDate !== date ? 'text-accent-red' : ''}`}
-                              >
-                                {label}
-                              </span>
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  {/* Close inner wrapper and scroll container before overlay */}
-                </div>
-                {/* Right edge soft fade pinned to viewport of timeline */}
                 <div className="pointer-events-none absolute right-0 -mr-1 top-0 h-full w-3 bg-gradient-to-l from-surface/90 to-transparent" />
               </div>
-              <div className="w-14 flex-shrink-0" />
+
+              {/* Y-axis — uses effective chart data with smooth transitions */}
+              <div className="rounded-r-lg w-12 flex-shrink-0 relative">
+                <div
+                  className="absolute inset-x-0 px-1"
+                  style={{ top: '8px', height: `${chartHeight}px` }}
+                >
+                  {effectiveChartData
+                    ? yTickPositions.map(({ weight, index, lineY }) => (
+                        <div
+                          key={`tick-${index}`}
+                          className="absolute right-2 text-sm font-semibold text-foreground/70 tracking-tight text-right"
+                          style={{
+                            top: `${lineY}px`,
+                            transform: 'translateY(-50%)',
+                            transition: 'top 0.3s ease-out',
+                          }}
+                        >
+                          {formatWeight(weight)}
+                        </div>
+                      ))
+                    : null}
+                  {currentWeightTick &&
+                    (viewMode === '7d' || viewMode === '30d') && (
+                      <div
+                        className="absolute right-0.5 px-2.5 py-1 rounded-lg text-[12px] font-bold text-white shadow-md flex items-center justify-center leading-none"
+                        style={{
+                          top: `${currentWeightTick.yPx}px`,
+                          transform: 'translateY(-50%)',
+                          transition: 'top 0.3s ease-out',
+                          backgroundColor: `${trendVisual.color}cc`,
+                          borderColor: trendVisual.color,
+                          borderWidth: '1px',
+                        }}
+                      >
+                        {formatWeight(currentWeightTick.weight)}
+                      </div>
+                    )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </ModalShell>
 
       {/* Tooltip */}
-      {selectedPoint && selectedDate && entriesMap[selectedDate] && (
-        <div
-          ref={tooltipRef}
-          className={`fixed z-[1200] bg-surface border border-border rounded-lg shadow-2xl p-4 transform -translate-x-1/2 -translate-y-full pointer-events-auto transition duration-150 ease-out ${
-            tooltipEntered && !tooltipClosing
-              ? 'opacity-100 scale-100'
-              : 'opacity-0 scale-95'
-          }`}
-          style={{
-            left: `${tooltipPosition.x}px`,
-            top: `${tooltipPosition.y - TOOLTIP_VERTICAL_OFFSET}px`,
-            width: `${TOOLTIP_WIDTH}px`,
-          }}
-          role="button"
-          tabIndex={0}
-          aria-label="Edit weight entry"
-          onClick={handleTooltipClick}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault();
-              handleTooltipClick(event);
+      {selectedPoint &&
+        selectedDate &&
+        (viewMode === '12m'
+          ? !!monthsMap[selectedDate]
+          : entriesMap[selectedDate] || selectedPoint.isGhost) && (
+          <div
+            ref={tooltipRef}
+            className={`fixed z-[1200] bg-surface border border-border rounded-lg shadow-2xl p-4 transform -translate-x-1/2 -translate-y-full pointer-events-auto transition duration-150 ease-out ${
+              tooltipEntered && !tooltipClosing
+                ? 'opacity-100 scale-100'
+                : 'opacity-0 scale-95'
+            }`}
+            style={{
+              left: `${tooltipPosition.x}px`,
+              top: `${tooltipPosition.y - TOOLTIP_VERTICAL_OFFSET}px`,
+              width: `${TOOLTIP_WIDTH}px`,
+            }}
+            role={viewMode === '12m' ? 'status' : 'button'}
+            tabIndex={viewMode === '12m' ? -1 : 0}
+            aria-label={
+              viewMode === '12m'
+                ? 'Month info'
+                : entriesMap[selectedDate]
+                  ? 'Edit weight entry'
+                  : 'Add weight entry'
             }
-          }}
-        >
-          <div className="cursor-pointer md:hover:bg-surface-highlight/50 rounded p-2 transition-all pressable focus-ring">
-            <p className="text-muted text-[11.5px] mb-1">
-              {formatTooltipDate(selectedDate)}
-            </p>
-            <p className="text-foreground text-2xl font-bold">
-              {formatWeight(entriesMap[selectedDate].weight)} kg
-            </p>
-            <p className="text-muted text-[10px] mt-2 uppercase tracking-wide">
-              Tap to edit
-            </p>
+            onClick={viewMode === '12m' ? undefined : handleTooltipClick}
+            onKeyDown={
+              viewMode === '12m'
+                ? undefined
+                : (event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      handleTooltipClick(event);
+                    }
+                  }
+            }
+          >
+            {viewMode === '12m' ? (
+              <div className="rounded p-2">
+                <p className="text-muted text-[11.5px] mb-1">
+                  {(() => {
+                    const m = monthsMap[selectedDate];
+                    if (!m) return selectedDate;
+                    const d = new Date(Date.UTC(m.year, m.month, 1));
+                    return d.toLocaleDateString('en-US', {
+                      month: 'long',
+                      year: 'numeric',
+                      timeZone: 'UTC',
+                    });
+                  })()}
+                </p>
+                {monthsMap[selectedDate]?.avg != null ? (
+                  <>
+                    <p className="text-foreground text-2xl font-bold">
+                      {formatWeight(monthsMap[selectedDate].avg)} kg
+                    </p>
+                    <p className="text-muted text-[10px] mt-2 uppercase tracking-wide">
+                      {monthsMap[selectedDate].entries.length}{' '}
+                      {monthsMap[selectedDate].entries.length === 1
+                        ? 'entry'
+                        : 'entries'}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-muted text-lg font-semibold">No entries</p>
+                )}
+              </div>
+            ) : (
+              <div className="cursor-pointer md:hover:bg-surface-highlight/50 rounded p-2 transition-all pressable focus-ring">
+                <p className="text-muted text-[11.5px] mb-1">
+                  {formatTooltipDate(selectedDate)}
+                </p>
+                {entriesMap[selectedDate] ? (
+                  <>
+                    <p className="text-foreground text-2xl font-bold">
+                      {formatWeight(entriesMap[selectedDate].weight)} kg
+                    </p>
+                    <p className="text-muted text-[10px] mt-2 uppercase tracking-wide">
+                      Tap to edit
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-muted text-lg font-semibold">No entry</p>
+                    <p className="text-accent-blue text-[10px] mt-2 uppercase tracking-wide">
+                      Tap to add
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
+            <div className="absolute left-1/2 transform -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-border" />
           </div>
-
-          {/* Arrow */}
-          <div className="absolute left-1/2 transform -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-border"></div>
-        </div>
-      )}
+        )}
 
       {/* Weight Trend Info Modal */}
       <WeightTrendInfoModal

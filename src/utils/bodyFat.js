@@ -214,3 +214,67 @@ export const createBodyFatSparklinePoints = (
     values: recent,
   };
 };
+
+/**
+ * Calculate the average body fat over the last N calendar days from the latest entry.
+ * @param {Array} entries - Sorted body fat entries
+ * @param {number} n - Number of calendar days to look back
+ * @returns {number|null} Average body fat or null if no entries in window
+ */
+export const calculateNDayBodyFatAverage = (entries, n) => {
+  const sorted = sortBodyFatEntries(entries);
+  if (!sorted.length) return null;
+
+  const latest = sorted[sorted.length - 1];
+  const latestDate = new Date(`${latest.date}T00:00:00Z`);
+  const cutoff = new Date(latestDate);
+  cutoff.setUTCDate(cutoff.getUTCDate() - n);
+
+  const windowEntries = sorted.filter((entry) => {
+    const d = new Date(`${entry.date}T00:00:00Z`);
+    return d >= cutoff;
+  });
+
+  if (!windowEntries.length) return null;
+  const sum = windowEntries.reduce((acc, e) => acc + e.bodyFat, 0);
+  return Math.round((sum / windowEntries.length) * 10) / 10;
+};
+
+/**
+ * Group body fat entries by calendar month and compute monthly averages.
+ * @param {Array} entries - Sorted body fat entries
+ * @returns {Array<{ key: string, label: string, year: number, month: number, avg: number, entries: Array }>}
+ */
+export const groupBodyFatEntriesByMonth = (entries) => {
+  const sorted = sortBodyFatEntries(entries);
+  if (!sorted.length) return [];
+
+  const monthMap = new Map();
+
+  sorted.forEach((entry) => {
+    const key = entry.date.slice(0, 7); // 'YYYY-MM'
+    if (!monthMap.has(key)) {
+      const d = new Date(`${entry.date}T00:00:00Z`);
+      monthMap.set(key, {
+        key,
+        label: d.toLocaleDateString('en-US', {
+          month: 'short',
+          timeZone: 'UTC',
+        }),
+        year: d.getUTCFullYear(),
+        month: d.getUTCMonth(),
+        entries: [],
+        avg: 0,
+      });
+    }
+    monthMap.get(key).entries.push(entry);
+  });
+
+  const groups = Array.from(monthMap.values());
+  groups.forEach((g) => {
+    const sum = g.entries.reduce((acc, e) => acc + e.bodyFat, 0);
+    g.avg = Math.round((sum / g.entries.length) * 10) / 10;
+  });
+
+  return groups;
+};

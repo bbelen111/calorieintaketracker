@@ -114,3 +114,57 @@ export const buildBezierPaths = (points, options = {}) => {
   // Nothing meaningful to draw
   return { pathData: '', areaData: '' };
 };
+
+/**
+ * Build multiple bezier path segments from an array that may contain null gaps.
+ * Splits continuous non-null runs, builds paths for each, returns arrays of SVG path strings.
+ *
+ * @param {(({x: number, y: number})|null)[]} slots - Array where null = gap (missing data day)
+ * @param {object} options - Same options as buildBezierPaths
+ * @returns {{ pathSegments: string[], areaSegments: string[] }}
+ */
+export const buildSegmentedBezierPaths = (slots, options = {}) => {
+  const pathSegments = [];
+  const areaSegments = [];
+
+  if (!slots || slots.length === 0) {
+    return { pathSegments, areaSegments };
+  }
+
+  // Split into contiguous non-null runs
+  let currentRun = [];
+  const runs = [];
+
+  for (let i = 0; i < slots.length; i++) {
+    if (slots[i] !== null) {
+      currentRun.push(slots[i]);
+    } else {
+      if (currentRun.length > 0) {
+        runs.push(currentRun);
+        currentRun = [];
+      }
+    }
+  }
+  if (currentRun.length > 0) {
+    runs.push(currentRun);
+  }
+
+  // Build bezier paths for each run (no edge extension — segments are interior)
+  for (const run of runs) {
+    if (run.length < 2) {
+      // Single point — just record position for dot rendering, no line
+      pathSegments.push('');
+      areaSegments.push('');
+      continue;
+    }
+    const { pathData, areaData } = buildBezierPaths(run, {
+      ...options,
+      extendToEdges: false,
+      singlePointStretch: false,
+    });
+    pathSegments.push(pathData);
+    areaSegments.push(areaData);
+  }
+
+  return { pathSegments, areaSegments };
+};

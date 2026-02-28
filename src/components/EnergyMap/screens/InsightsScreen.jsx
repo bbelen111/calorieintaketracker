@@ -625,80 +625,81 @@ export const InsightsScreen = ({
                     over last 7 entries
                   </p>
                 </div>
-                {bodyFatSparkline.pathData && sortedBodyFatEntries.length > 1 && (
-                  <div className="w-36 h-16 relative [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
-                    <svg
-                      width="100%"
-                      height="100%"
-                      viewBox="0 0 160 56"
-                      preserveAspectRatio="none"
-                      className="overflow-visible"
-                    >
-                      <defs>
-                        <linearGradient
-                          id="bodyFatSparklineGradient"
-                          x1="0"
-                          x2="0"
-                          y1="0"
-                          y2="1"
-                        >
-                          <stop
-                            offset="0%"
-                            stopColor={bodyFatVisualStyle.color}
-                            stopOpacity={bodyFatVisualStyle.topOpacity}
+                {bodyFatSparkline.pathData &&
+                  sortedBodyFatEntries.length > 1 && (
+                    <div className="w-36 h-16 relative [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
+                      <svg
+                        width="100%"
+                        height="100%"
+                        viewBox="0 0 160 56"
+                        preserveAspectRatio="none"
+                        className="overflow-visible"
+                      >
+                        <defs>
+                          <linearGradient
+                            id="bodyFatSparklineGradient"
+                            x1="0"
+                            x2="0"
+                            y1="0"
+                            y2="1"
+                          >
+                            <stop
+                              offset="0%"
+                              stopColor={bodyFatVisualStyle.color}
+                              stopOpacity={bodyFatVisualStyle.topOpacity}
+                            />
+                            <stop
+                              offset="100%"
+                              stopColor={bodyFatVisualStyle.color}
+                              stopOpacity={bodyFatVisualStyle.bottomOpacity}
+                            />
+                          </linearGradient>
+                          <linearGradient
+                            id="bodyFatSparklineStroke"
+                            x1="0"
+                            x2="0"
+                            y1="0"
+                            y2="1"
+                          >
+                            <stop
+                              offset="0%"
+                              stopColor={bodyFatVisualStyle.color}
+                              stopOpacity="1"
+                            />
+                            <stop
+                              offset="100%"
+                              stopColor={bodyFatVisualStyle.color}
+                              stopOpacity="0.8"
+                            />
+                          </linearGradient>
+                        </defs>
+                        {bodyFatSparkline.areaPath && (
+                          <path
+                            d={bodyFatSparkline.areaPath}
+                            fill="url(#bodyFatSparklineGradient)"
                           />
-                          <stop
-                            offset="100%"
-                            stopColor={bodyFatVisualStyle.color}
-                            stopOpacity={bodyFatVisualStyle.bottomOpacity}
-                          />
-                        </linearGradient>
-                        <linearGradient
-                          id="bodyFatSparklineStroke"
-                          x1="0"
-                          x2="0"
-                          y1="0"
-                          y2="1"
-                        >
-                          <stop
-                            offset="0%"
-                            stopColor={bodyFatVisualStyle.color}
-                            stopOpacity="1"
-                          />
-                          <stop
-                            offset="100%"
-                            stopColor={bodyFatVisualStyle.color}
-                            stopOpacity="0.8"
-                          />
-                        </linearGradient>
-                      </defs>
-                      {bodyFatSparkline.areaPath && (
+                        )}
                         <path
-                          d={bodyFatSparkline.areaPath}
-                          fill="url(#bodyFatSparklineGradient)"
+                          d={bodyFatSparkline.pathData}
+                          fill="none"
+                          stroke="url(#bodyFatSparklineStroke)"
+                          strokeWidth={2.5}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
                         />
-                      )}
-                      <path
-                        d={bodyFatSparkline.pathData}
-                        fill="none"
-                        stroke="url(#bodyFatSparklineStroke)"
-                        strokeWidth={2.5}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      {bodyFatSparkline.coordinates?.map((coord, index) => (
-                        <circle
-                          key={index}
-                          cx={coord.x}
-                          cy={coord.y}
-                          r="2.5"
-                          fill={bodyFatVisualStyle.color}
-                          className="drop-shadow-sm"
-                        />
-                      ))}
-                    </svg>
-                  </div>
-                )}
+                        {bodyFatSparkline.coordinates?.map((coord, index) => (
+                          <circle
+                            key={index}
+                            cx={coord.x}
+                            cy={coord.y}
+                            r="2.5"
+                            fill={bodyFatVisualStyle.color}
+                            className="drop-shadow-sm"
+                          />
+                        ))}
+                      </svg>
+                    </div>
+                  )}
               </div>
               <p className="text-accent-blue/80 text-xs tracking-wide mt-3">
                 Tap to open body fat tracker
