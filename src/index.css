@@ -8,6 +8,7 @@
   --sab: env(safe-area-inset-bottom);
   --sal: env(safe-area-inset-left);
   --sar: env(safe-area-inset-right);
+  color-scheme: dark;
 
   /* Semantic Theme Variables - Dark (Default) */
   --background: 15 23 42;       /* Slate 900 */
@@ -36,6 +37,7 @@
 
 /* Light Theme */
 .theme-light {
+  color-scheme: light;
   --background: 241 245 249;    /* Slate 100 */
   --surface: 255 255 255;       /* White */
   --surface-highlight: 226 232 240; /* Slate 200 */
@@ -62,6 +64,7 @@
 
 /* AMOLED Dark Theme (True Black) */
 .theme-amoled-dark {
+  color-scheme: dark;
   --background: 0 0 0;          /* Pure Black */
   --surface: 22 22 22;          /* Gray 900 */
   --surface-highlight: 38 38 38; /* Gray 800 */
@@ -254,6 +257,7 @@ select,
   -webkit-user-select: text;
   -ms-user-select: text;
   user-select: text;
+  caret-color: rgb(var(--accent-blue));
 }
 
 /* Hide scrollbar for Chrome, Safari and Opera */

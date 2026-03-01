@@ -1,29 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <!-- Base application theme. -->
-    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+    <!-- Base application theme (dark, since our app uses dark WebView content). -->
+    <style name="AppTheme" parent="Theme.AppCompat">
         <!-- Customize your theme here. -->
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
+        <item name="colorControlActivated">@color/colorAccent</item>
 
         <item name="android:scrollbars">none</item>
         <item name="android:overScrollMode">never</item>
-        
-        <!-- Navigation Bar Styling for Light Mode -->
-        <item name="android:navigationBarColor">@color/navigationBarLight</item>
-        <item name="android:windowLightNavigationBar">true</item>
+
+        <!-- Navigation Bar Styling -->
+        <item name="android:navigationBarColor">@color/navigationBarDark</item>
+        <item name="android:windowLightNavigationBar">false</item>
     </style>
 
-    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
+    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <item name="colorAccent">@color/colorAccent</item>
+        <item name="colorControlActivated">@color/colorAccent</item>
+        <item name="android:textColorHighlight">#663B82F6</item>
+        <item name="android:textSelectHandle">@drawable/cursor_handle_center</item>
+        <item name="android:textSelectHandleLeft">@drawable/cursor_handle_left</item>
+        <item name="android:textSelectHandleRight">@drawable/cursor_handle_right</item>
         
-        <!-- Navigation Bar Styling for Light Mode -->
-        <item name="android:navigationBarColor">@color/navigationBarLight</item>
-        <item name="android:windowLightNavigationBar">true</item>
+        <!-- Navigation Bar Styling -->
+        <item name="android:navigationBarColor">@color/navigationBarDark</item>
+        <item name="android:windowLightNavigationBar">false</item>
     </style>
 
 

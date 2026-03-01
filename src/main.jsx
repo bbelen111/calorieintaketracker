@@ -26,6 +26,10 @@ if (typeof document !== 'undefined') {
 if (Capacitor.isNativePlatform()) {
   Keyboard.setResizeMode({ mode: 'none' }).catch(() => null);
   Keyboard.setScroll({ isDisabled: true }).catch(() => null);
+
+  // Suppress the broken native context menu (white panel with logo)
+  // on Android WebView. Users can still use keyboard shortcuts.
+  document.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(
