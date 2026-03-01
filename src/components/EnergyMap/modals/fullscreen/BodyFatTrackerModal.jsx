@@ -373,13 +373,26 @@ export const BodyFatTrackerModal = ({
     () => calculateBodyFatTrend(sortedEntries),
     [sortedEntries]
   );
-  const trendVisual = useMemo(
+  const trend7d = useMemo(
+    () => calculateBodyFatTrend(sortedEntries, 7),
+    [sortedEntries]
+  );
+  const trendVisual30d = useMemo(
     () => getGoalAlignedStyle(trend, selectedGoal, 'bodyFat'),
     [trend, selectedGoal]
   );
+  const trendVisual7d = useMemo(
+    () => getGoalAlignedStyle(trend7d, selectedGoal, 'bodyFat'),
+    [trend7d, selectedGoal]
+  );
+  const trendVisual = viewMode === '7d' ? trendVisual7d : trendVisual30d;
   const goalAlignment = useMemo(
     () => getGoalAlignmentText(trend.weeklyRate, selectedGoal),
     [trend.weeklyRate, selectedGoal]
+  );
+  const goalAlignment7d = useMemo(
+    () => getGoalAlignmentText(trend7d.weeklyRate, selectedGoal),
+    [trend7d.weeklyRate, selectedGoal]
   );
 
   // Rolling averages
@@ -768,6 +781,13 @@ export const BodyFatTrackerModal = ({
   const currentBfDisplay = (() => {
     const formatted = formatBodyFat(latestBf);
     return formatted ? `${formatted}%` : '—';
+  })();
+
+  const weeklyRate7dDisplay = (() => {
+    if (!Number.isFinite(trend7d.weeklyRate) || trend7d.weeklyRate === 0)
+      return '0.0 %/wk';
+    const sign = trend7d.weeklyRate > 0 ? '+' : '';
+    return `${sign}${trend7d.weeklyRate.toFixed(2)} %/wk`;
   })();
 
   const weeklyRateDisplay = (() => {
@@ -1484,7 +1504,7 @@ export const BodyFatTrackerModal = ({
           {/* Dynamic stat cards */}
           <div
             className={`px-4 pt-3 pb-3 grid gap-3 flex-shrink-0 ${
-              viewMode === '7d' ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2'
+              viewMode === '12m' ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-4'
             }`}
           >
             {viewMode === '7d' ? (
@@ -1533,50 +1553,50 @@ export const BodyFatTrackerModal = ({
                     </div>
                   </div>
                 </div>
-                {/* Trend */}
+                {/* 7-Day Trend */}
                 <div>
                   <button
                     type="button"
                     onClick={openTrendInfo}
-                    aria-label="Trend details"
+                    aria-label="7-day trend details"
                     className="text-muted text-xs uppercase tracking-wide mb-1 md:hover:text-foreground transition-colors cursor-pointer flex items-center gap-1 group focus-ring"
                   >
-                    Trend
+                    7-Day Trend
                     <Info
                       size={14}
                       className="opacity-60 md:group-hover:opacity-100 transition-opacity"
                     />
                   </button>
                   <p
-                    className={`${getTrendToneClass(trend, selectedGoal)} font-semibold text-lg flex items-center gap-2`}
+                    className={`${getTrendToneClass(trend7d, selectedGoal)} font-semibold text-lg flex items-center gap-2`}
                   >
-                    <TrendIcon direction={trend.direction} />
-                    {trend.label}
+                    <TrendIcon direction={trend7d.direction} />
+                    {trend7d.label}
                   </p>
-                  {goalAlignment && (
+                  {goalAlignment7d && (
                     <p
-                      className={`${goalAlignment.color} text-xs mt-1 font-medium`}
+                      className={`${goalAlignment7d.color} text-xs mt-1 font-medium`}
                     >
-                      {goalAlignment.text}
+                      {goalAlignment7d.text}
                     </p>
                   )}
                 </div>
-                {/* Weekly Rate */}
+                {/* 7-Day Rate */}
                 <div>
                   <button
                     type="button"
                     onClick={openTrendInfo}
-                    aria-label="Weekly rate details"
+                    aria-label="7-day rate details"
                     className="text-muted text-xs uppercase tracking-wide mb-1 md:hover:text-foreground transition-colors cursor-pointer flex items-center gap-1 group focus-ring"
                   >
-                    Weekly Rate
+                    7-Day Rate
                     <Info
                       size={14}
                       className="opacity-60 md:group-hover:opacity-100 transition-opacity"
                     />
                   </button>
                   <p className="text-foreground text-lg font-semibold">
-                    {weeklyRateDisplay}
+                    {weeklyRate7dDisplay}
                   </p>
                   <p className="text-muted text-xs mt-1">
                     Goal: {getGoalWeeklyTarget(selectedGoal)}
@@ -1585,36 +1605,132 @@ export const BodyFatTrackerModal = ({
               </>
             ) : (
               <>
-                {/* Period Average */}
-                <div>
-                  <p className="text-muted text-xs uppercase tracking-wide mb-1">
-                    {viewMode === '30d' ? '30 Day Avg' : '12 Month Avg'}
-                  </p>
-                  <p className="text-foreground text-2xl font-bold">
-                    {pageAverage != null
-                      ? `${formatBodyFat(pageAverage)}%`
-                      : '—'}
-                  </p>
-                  <p className="text-muted text-[11px] mt-1">
-                    Current: {currentBfDisplay}
-                  </p>
-                </div>
-                {/* Timeframe */}
-                <div>
-                  <p className="text-muted text-xs uppercase tracking-wide mb-1">
-                    Timeframe
-                  </p>
-                  <p className="text-foreground text-sm font-semibold">
-                    {pageTimeframeRange}
-                  </p>
-                  <p className="text-muted text-[11px] mt-1">
-                    {activePage && viewMode === '30d'
-                      ? `${activePage.entries.length} entries`
-                      : activePage && viewMode === '12m'
-                        ? `${activePage.months.reduce((sum, m) => sum + (m.entries?.length || 0), 0)} entries`
-                        : ''}
-                  </p>
-                </div>
+                {viewMode === '30d' ? (
+                  <>
+                    {/* Current Body Fat */}
+                    <div>
+                      <p className="text-muted text-xs uppercase tracking-wide mb-1">
+                        Current Body Fat
+                      </p>
+                      <p className="text-foreground text-2xl font-bold">
+                        {currentBfDisplay}
+                      </p>
+                      <p className="text-muted text-[11px] mt-1">
+                        {latestDate ? (
+                          <span className="inline-flex items-center gap-2">
+                            <span>{formatTooltipDate(latestDate)}</span>
+                            {oldDataWarningText && (
+                              <span className="inline-flex items-center gap-1 text-accent-yellow">
+                                <AlertCircle size={10} className="shrink-0" />
+                                {oldDataWarningText}
+                              </span>
+                            )}
+                          </span>
+                        ) : (
+                          ''
+                        )}
+                      </p>
+                    </div>
+                    {/* 30 Day Avg */}
+                    <div>
+                      <p className="text-muted text-xs uppercase tracking-wide mb-1">
+                        30-Day Avg
+                      </p>
+                      <p className="text-foreground text-2xl font-bold">
+                        {pageAverage != null
+                          ? `${formatBodyFat(pageAverage)}%`
+                          : '—'}
+                      </p>
+                      <p className="text-muted text-[11px] mt-1">
+                        {pageTimeframeRange}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* 12 Month Avg */}
+                    <div>
+                      <p className="text-muted text-xs uppercase tracking-wide mb-1">
+                        12 Month Avg
+                      </p>
+                      <p className="text-foreground text-2xl font-bold">
+                        {pageAverage != null
+                          ? `${formatBodyFat(pageAverage)}%`
+                          : '—'}
+                      </p>
+                      <p className="text-muted text-[11px] mt-1">
+                        Current: {currentBfDisplay}
+                      </p>
+                    </div>
+                    {/* Timeframe */}
+                    <div>
+                      <p className="text-muted text-xs uppercase tracking-wide mb-1">
+                        Timeframe
+                      </p>
+                      <p className="text-foreground text-sm font-semibold">
+                        {pageTimeframeRange}
+                      </p>
+                      <p className="text-muted text-[11px] mt-1">
+                        {activePage
+                          ? `${activePage.months.reduce((sum, m) => sum + (m.entries?.length || 0), 0)} entries`
+                          : ''}
+                      </p>
+                    </div>
+                  </>
+                )}
+                {viewMode === '30d' && (
+                  <>
+                    {/* 30-Day Trend */}
+                    <div>
+                      <button
+                        type="button"
+                        onClick={openTrendInfo}
+                        aria-label="30-day trend details"
+                        className="text-muted text-xs uppercase tracking-wide mb-1 md:hover:text-foreground transition-colors cursor-pointer flex items-center gap-1 group focus-ring"
+                      >
+                        30-Day Trend
+                        <Info
+                          size={14}
+                          className="opacity-60 md:group-hover:opacity-100 transition-opacity"
+                        />
+                      </button>
+                      <p
+                        className={`${getTrendToneClass(trend, selectedGoal)} font-semibold text-lg flex items-center gap-2`}
+                      >
+                        <TrendIcon direction={trend.direction} />
+                        {trend.label}
+                      </p>
+                      {goalAlignment && (
+                        <p
+                          className={`${goalAlignment.color} text-xs mt-1 font-medium`}
+                        >
+                          {goalAlignment.text}
+                        </p>
+                      )}
+                    </div>
+                    {/* 30-Day Rate */}
+                    <div>
+                      <button
+                        type="button"
+                        onClick={openTrendInfo}
+                        aria-label="30-day rate details"
+                        className="text-muted text-xs uppercase tracking-wide mb-1 md:hover:text-foreground transition-colors cursor-pointer flex items-center gap-1 group focus-ring"
+                      >
+                        30-Day Rate
+                        <Info
+                          size={14}
+                          className="opacity-60 md:group-hover:opacity-100 transition-opacity"
+                        />
+                      </button>
+                      <p className="text-foreground text-lg font-semibold">
+                        {weeklyRateDisplay}
+                      </p>
+                      <p className="text-muted text-xs mt-1">
+                        Goal: {getGoalWeeklyTarget(selectedGoal)}
+                      </p>
+                    </div>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -1808,7 +1924,7 @@ export const BodyFatTrackerModal = ({
       <BodyFatTrendInfoModal
         isOpen={isTrendInfoOpen}
         isClosing={isTrendInfoClosing}
-        trend={trend}
+        trend={viewMode === '7d' ? trend7d : trend}
         selectedGoal={selectedGoal}
         onClose={closeTrendInfo}
       />
