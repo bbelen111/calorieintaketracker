@@ -34,7 +34,7 @@ React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor 
 ```
 main.jsx
   └─ App.jsx (theme management, store hydration gate)
-       └─ EnergyMapCalculator.jsx (3,185 lines — THE orchestrator)
+       └─ EnergyMapCalculator.jsx (3,254 lines — THE orchestrator)
             ├─ 5-screen carousel (useSwipeableScreens)
             │   ├─ LogbookScreen
             │   ├─ TrackerScreen
@@ -57,7 +57,7 @@ User action → Store action (updateUserData) → deriveState() recalculates
 
 ### Key Architectural Decisions
 
-1. **Single orchestrator file (`EnergyMapCalculator.jsx`)** owns all modal lifecycle state, temporary form drafts, and screen navigation. At 3,185 lines, it's deliberately centralized — not a candidate for splitting. New modals are instantiated here.
+1. **Single orchestrator file (`EnergyMapCalculator.jsx`)** owns all modal lifecycle state, temporary form drafts, and screen navigation. At 3,254 lines, it's deliberately centralized — not a candidate for splitting. New modals are instantiated here.
 
 2. **Derived state pattern:** The Zustand store's `deriveState()` function recomputes `bmr`, `trainingCalories`, `totalCardioBurn`, sorted entries, and resolved types on every `userData` mutation. Never duplicate these calculations — consume them from the store.
 
@@ -124,7 +124,7 @@ Deprecated 7-line wrapper that spreads the entire store state. Defeats `shallow`
 - **~17 additional child-level modals** declared inside modal components (e.g., delete confirmations, sub-pickers)
 - **44 modal files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`:
   - `fullscreen/` — WeightTrackerModal, BodyFatTrackerModal, StepTrackerModal, SettingsModal, FoodSearchModal
-  - `pickers/` — AgePickerModal, BodyFatPickerModal, CalendarPickerModal, CardioDurationPickerModal, FoodPortionModal, HeightPickerModal, MealTypePickerModal, MetValuePickerModal, StepGoalPickerModal, TemplatePickerModal, TrainingDurationPickerModal, WeightPickerModal, HeartRatePickerModal
+  - `pickers/` — AgePickerModal, BodyFatPickerModal, CalendarPickerModal, DurationPickerModal, FoodPortionModal, HeartRatePickerModal, HeightPickerModal, MealTypePickerModal, MetValuePickerModal, StepGoalPickerModal, TemplatePickerModal, WeightPickerModal
   - `info/` — BmiInfoModal, BmrInfoModal, BodyFatTrendInfoModal, CalorieBreakdownModal, CaloriesPerHourGuideModal, FfmiInfoModal, WeightTrendInfoModal
   - `forms/` — AddCustomFoodModal, BodyFatEntryModal, CardioModal, CustomCardioTypeModal, DailyActivityCustomModal, DailyActivityEditorModal, DailyActivityModal, DailyLogModal, FoodEntryModal, GoalModal, PhaseCreationModal, QuickTrainingModal, StepRangesModal, TrainingTypeEditorModal, TrainingTypeModal, WeightEntryModal
   - `lists/` — CardioFavouritesModal, CardioTypeListModal, FoodFavouritesModal
@@ -319,7 +319,7 @@ Accents auto-adjust: 400-level shades for dark/AMOLED, 600-level for light.
 | `resolveTheme(theme)` | Resolves `'auto'` → `'dark'` or `'light'` based on system |
 | `getThemeClass(theme)` | Returns CSS class name for `<body>` |
 | `isDarkTheme(theme)` | Boolean check for dark variants |
-| `getThemeColors(theme)` | Returns hex color map for native UI |
+| `getVignetteColor(theme)` | Returns RGB string for gradient vignettes |
 
 ---
 
@@ -349,6 +349,7 @@ Defined in `index.css` `@layer base` and `@layer components`:
 | `pressable-card` | `scale(0.99)` | Cards, secondary buttons |
 | `pressable-inline` | `scale(0.985)` | Icon buttons |
 | `pressable` | `scale(0.985)` | Generic fallback |
+| `surface-active` | `brightness(105%)` + `border-blue-400/80` + `shadow-inner` | Tappable surface areas |
 | `focus-ring` | Blue outline on `:focus-visible` | **All** interactive elements |
 
 **All buttons get `active:scale-[0.985]` by default** via the base layer reset — the classes above add extra feedback.
@@ -383,24 +384,31 @@ Defined in `index.css` `@layer base` and `@layer components`:
 
 ---
 
-## Calculation System (`utils/calculations.js`)
+## Calculation System (`utils/calculations.js`, 407 lines)
 
 All calorie formulas are centralized. **Never duplicate or inline calculations.**
 
 | Calculation | Function | Details |
 |------------|----------|---------|
 | BMR | `calculateBMR(userData)` | Mifflin-St Jeor; auto-upgrades to Katch-McArdle when `bodyFatTrackingEnabled` with valid entries |
-| Step calories | `getStepDetails(steps, userData)` | Stride length heuristic: height × 0.415 (male) / 0.413 (female) |
-| Cardio | `calculateCardioCalories(session, userData, cardioTypes)` | MET-based (`effortType: 'intensity'`) or heart rate formula (`effortType: 'heartRate'`) |
-| Training | `getTrainingCalories(userData, trainingTypes)` | `caloriesPerHour × trainingDuration` from resolved training types |
-| TDEE breakdown | `calculateCalorieBreakdown({...})` | BMR + activity multiplier + training + cardio + steps |
-| Goal target | `calculateGoalCalories(total, goalKey)` | Applies ±300/500 modifier based on goal |
+| Step calories | `getStepDetails(steps, userData)` | **Lives in `utils/steps.js`**, not calculations.js. Stride length heuristic: height × 0.415 (male) / 0.413 (female) |
+| Cardio (single) | `calculateCardioCalories(session, userData, cardioTypes)` | MET-based (`effortType: 'intensity'`) or heart rate formula (`effortType: 'heartRate'`) |
+| Cardio (total) | `getTotalCardioBurn(userData, cardioTypes)` | Sums `calculateCardioCalories` across all `userData.cardioSessions` |
+| Training cal/hr | `getTrainingCaloriesPerHour(userData, trainingTypes)` | Base cal/hr × intensity multiplier (light 0.75 / moderate 1.0 / vigorous 1.25) |
+| Training (total) | `getTrainingCalories(userData, trainingTypes)` | Supports `trainingEffortType: 'heartRate'` or intensity-based. `caloriesPerHour × trainingDuration` from resolved types |
+| TDEE breakdown | `calculateCalorieBreakdown({...})` | BMR + activity multiplier + training + cardio + steps. Returns `bmrDetails` with method/lean mass info |
+| TDEE (simple) | `calculateTDEE(options)` | Convenience wrapper — returns just `calculateCalorieBreakdown(options).total` |
+| Goal target | `calculateGoalCalories(tdee, goal)` | Applies ±300/500 modifier based on goal |
+| BMI | `calculateBMI(weight, height)` | Standard BMI: weight(kg) / height(m)² |
+| BMI category | `getBMICategory(bmi)` | Returns `{ label, color }` for underweight/normal/overweight/obese |
+| FFMI | `calculateFFMI(weight, height, bodyFatPercent)` | Fat-Free Mass Index — returns `{ raw, normalized, leanMass }` |
+| FFMI category | `getFFMICategory(ffmi, gender)` | Returns `{ label, color }` from "Below average" to "Suspiciously high" |
 
 **Training types** are resolved at the store level (`resolveTrainingTypes`) by merging `trainingTypes` constants with `userData.trainingTypeOverrides`. Never use raw constants directly.
 
 ---
 
-## Storage Architecture (`utils/storage.js`)
+## Storage Architecture (`utils/storage.js`, 299 lines)
 
 ### Split Storage Keys
 
@@ -432,8 +440,12 @@ Automated one-time migration from `localStorage` key `energyMapData` to Capacito
 `getDefaultEnergyMapData()` in `utils/storage.js` defines the full schema with defaults. Key defaults:
 - `age: 21`, `weight: 74`, `height: 168`, `gender: 'male'`, `theme: 'auto'`
 - `stepGoal: 10000`, `trainingType: 'bodybuilding'`, `trainingDuration: 2`
-- 6 preset training types in `trainingTypeOverrides` with calories/hour values
+- `trainingEffortType: 'intensity'`, `trainingIntensity: 'moderate'`, `trainingHeartRate: ''`
+- `customTrainingName: 'My Training'`, `customTrainingCalories: 220`, `customTrainingDescription: 'Custom training style'`
+- 6 preset training types in `trainingTypeOverrides` with calories/hour values (bodybuilding 220, powerlifting 180, strongman 280, crossfit 300, calisthenics 240, custom 220)
 - `activityMultipliers: { training: 0.35, rest: 0.28 }`
+- `activityPresets: { training: 'default', rest: 'default' }`
+- `customActivityMultipliers: { training: 0.35, rest: 0.28 }`
 
 ---
 
@@ -447,8 +459,13 @@ Automated one-time migration from `localStorage` key `energyMapData` to Capacito
   age, weight, height, gender,
   theme: 'auto',                    // 'auto' | 'dark' | 'light' | 'amoled_dark'
   trainingType, trainingDuration,
+  trainingEffortType: 'intensity',  // 'intensity' | 'heartRate'
+  trainingIntensity: 'moderate',    // 'light' | 'moderate' | 'vigorous'
+  trainingHeartRate: '',            // BPM string for HR-based training calc
   stepRanges: ['<10k', '10k', ...],
   activityMultipliers: { training: 0.35, rest: 0.28 },
+  activityPresets: { training: 'default', rest: 'default' },
+  customActivityMultipliers: { training: 0.35, rest: 0.28 },
   trainingTypeOverrides: { bodybuilding: { label, description, caloriesPerHour }, ... },
   pinnedFoods: ['food_id1', ...],
   cachedFoods: [],                  // Foods from FatSecret API
@@ -481,7 +498,7 @@ Meal types ordered by `MEAL_TYPE_ORDER` constant: breakfast, lunch, dinner, snac
 
 ### Phase Structure (Reference-Based)
 
-Daily logs store `weightRef`/`nutritionRef` booleans pointing to `weightEntries`/`nutritionData` — **not** embedded copies. This ensures single source of truth.
+Daily logs store `weightRef`/`nutritionRef` string references pointing to `weightEntries`/`nutritionData` — **not** embedded copies. Status is derived by checking `.trim() !== ''`. This ensures single source of truth.
 
 ```javascript
 {
@@ -493,7 +510,7 @@ Daily logs store `weightRef`/`nutritionRef` booleans pointing to `weightEntries`
   startingWeight: 74,
   status: 'active',             // 'active' | 'completed'
   dailyLogs: {
-    'YYYY-MM-DD': { weightRef: true, nutritionRef: true, notes: 'Optional' }
+    'YYYY-MM-DD': { weightRef: 'YYYY-MM-DD', nutritionRef: 'YYYY-MM-DD', notes: 'Optional' }
   }
 }
 ```
@@ -533,7 +550,12 @@ Android-only step data sync via `@capgo/capacitor-health`.
 
 **Status lifecycle:** `'unavailable'` → `'not_installed'` → `'disconnected'` → `'connecting'` → `'connected'` | `'error'`
 
-Returns `{ status, steps, lastSynced, isLoading, error, connect, refresh, disconnect }`.
+Returns `{ status, steps, lastSynced, isLoading, error, connect, refresh, disconnect, openSettings, writeTestData }`.
+
+- `openSettings()` — Opens Health Connect settings on Android
+- `writeTestData()` — Writes 1000 test steps for debugging
+- Step aggregation uses max-per-source strategy to prevent double counting from multiple health apps
+- Auto-refreshes on app foreground via `App.addListener('appStateChange')`
 
 Always returns `'unavailable'` on web and iOS. Status constants exported as `HealthConnectStatus` enum object.
 
@@ -544,7 +566,7 @@ Always returns `'unavailable'` on web and iOS. Status constants exported as `Hea
 ```
 src/
 ├─ components/EnergyMap/
-│   ├─ EnergyMapCalculator.jsx   # THE orchestrator (3,185 lines)
+│   ├─ EnergyMapCalculator.jsx   # THE orchestrator (3,254 lines)
 │   ├─ common/
 │   │   ├─ ModalShell.jsx        # Core modal wrapper (602 lines, singleton managers)
 │   │   └─ ScreenTabs.jsx        # Tab bar + floating variant
@@ -575,18 +597,19 @@ src/
 ├─ store/
 │   └─ useEnergyMapStore.js      # Zustand store (843 lines): state, actions, derived values, persistence
 ├─ utils/
-│   ├─ calculations.js           # ALL calorie formulas (380 lines)
-│   ├─ storage.js                # Schema, defaults, load/save, migration (296 lines)
-│   ├─ weight.js                 # Date normalization, weight clamping, sorting, trend analysis
-│   ├─ steps.js                  # Step range parsing, step calorie estimation
-│   ├─ bodyFat.js                # Body fat validation, Katch-McArdle helpers
-│   ├─ phases.js                 # Phase metrics calculation
+│   ├─ calculations.js           # ALL calorie formulas (407 lines) — BMR, cardio, training, TDEE, BMI, FFMI
+│   ├─ storage.js                # Schema, defaults, load/save, migration (299 lines)
+│   ├─ weight.js                 # Date normalization, weight clamping, sorting, trend analysis, sparklines (325 lines)
+│   ├─ steps.js                  # Step range parsing, step calorie estimation, getStepDetails (153 lines)
+│   ├─ bodyFat.js                # Body fat validation, trend analysis, sparklines (262 lines)
+│   ├─ bezierPath.js             # SVG cubic Bézier curve interpolation for charts (168 lines)
+│   ├─ phases.js                 # Phase metrics calculation (132 lines)
 │   ├─ goalAlignment.js          # Weight trend vs goal alignment evaluation
-│   ├─ theme.js                  # Native theme application (status bar, nav bar, keyboard)
+│   ├─ theme.js                  # Native theme application (status bar, transparent nav bar, keyboard)
 │   ├─ format.js                 # Number formatting (formatOne: 1 decimal place)
 │   ├─ export.js                 # CSV/JSON export generation
 │   ├─ scroll.js                 # Scroll utilities
-│   └─ time.js                   # Time helpers
+│   └─ time.js                   # Time/duration helpers (normalize, round, format, split)
 ├─ services/
 │   └─ fatSecret.js              # FatSecret API client (403 lines)
 └─ native/                       # DEPRECATED — use utils/theme.js applyNativeTheme() instead
