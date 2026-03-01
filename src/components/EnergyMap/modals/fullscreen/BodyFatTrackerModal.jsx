@@ -1217,7 +1217,7 @@ export const BodyFatTrackerModal = ({
         </div>
 
         {/* Timeline labels */}
-        <div className="flex-shrink-0 px-1 pb-2">
+        <div className="flex-shrink-0 pb-2">
           <div
             className="relative"
             style={{ height: `${TIMELINE_TRACK_HEIGHT}px` }}
@@ -1386,7 +1386,7 @@ export const BodyFatTrackerModal = ({
                   scrollSnapAlign: 'start',
                 }}
               >
-                <div className="px-1 pb-2">
+                <div className="pb-2">
                   <div
                     className="relative"
                     style={{ height: `${TIMELINE_TRACK_HEIGHT}px` }}
