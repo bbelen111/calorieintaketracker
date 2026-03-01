@@ -796,6 +796,33 @@ export const StepTrackerModal = ({
     return `${formatShortDate(activePage.startDate)} - ${formatShortDate(activePage.endDate)}`;
   }, [activePage]);
 
+  // Aggregated distance & calories for 30d/12m pages
+  const pageStepDetails = useMemo(() => {
+    if (!activePage || !weight || !height)
+      return { distanceKm: 0, calories: 0, totalSteps: 0 };
+    let allEntries = [];
+    if (viewMode === '30d') {
+      allEntries = activePage.entries;
+    } else if (viewMode === '12m') {
+      allEntries = activePage.months.flatMap((m) => m.entries || []);
+    }
+    let totalSteps = 0;
+    let totalDistance = 0;
+    let totalCalories = 0;
+    for (const e of allEntries) {
+      const steps = e.steps || 0;
+      totalSteps += steps;
+      const details = getStepCaloriesDetails(steps, {
+        weight,
+        height,
+        gender: gender || 'male',
+      });
+      totalDistance += details.distanceKm;
+      totalCalories += details.calories;
+    }
+    return { distanceKm: totalDistance, calories: totalCalories, totalSteps };
+  }, [activePage, viewMode, weight, height, gender]);
+
   // --- Tooltip ---
   const selectedBar = useMemo(() => {
     if (!selectedDate) return null;
@@ -1163,7 +1190,7 @@ export const StepTrackerModal = ({
             )}
           </svg>
         </div>
-        <div className="flex-shrink-0 px-1 pb-2">
+        <div className="flex-shrink-0 pb-2">
           <div
             className="relative"
             style={{ height: `${TIMELINE_TRACK_HEIGHT}px` }}
@@ -1377,7 +1404,7 @@ export const StepTrackerModal = ({
                   scrollSnapAlign: 'start',
                 }}
               >
-                <div className="px-1 pb-2">
+                <div className="pb-2">
                   <div
                     className="relative"
                     style={{ height: `${TIMELINE_TRACK_HEIGHT}px` }}
@@ -1584,7 +1611,7 @@ export const StepTrackerModal = ({
                 {/* Period Average */}
                 <div>
                   <p className="text-muted text-xs uppercase tracking-wide mb-1">
-                    {viewMode === '30d' ? '30 Day Avg' : '12 Month Avg'}
+                    {viewMode === '30d' ? '30-Day Avg' : '12-Month Avg'}
                   </p>
                   <p
                     className={`text-2xl font-bold ${
@@ -1598,23 +1625,24 @@ export const StepTrackerModal = ({
                       : '\u2014'}
                   </p>
                   <p className="text-muted text-[11px] mt-1">
-                    Goal: {formatStepCount(resolvedStepGoal)}/day
+                    {pageTimeframeRange ||
+                      `Goal: ${formatStepCount(resolvedStepGoal)}/day`}
                   </p>
                 </div>
-                {/* Timeframe */}
+                {/* Total Distance & Calories */}
                 <div>
                   <p className="text-muted text-xs uppercase tracking-wide mb-1">
-                    Timeframe
+                    Total Distance & Calories
                   </p>
-                  <p className="text-foreground text-sm font-semibold">
-                    {pageTimeframeRange}
+                  <p className="text-foreground text-2xl font-bold">
+                    {pageStepDetails.distanceKm > 0
+                      ? `${pageStepDetails.distanceKm.toFixed(1)} km`
+                      : '\u2014'}
                   </p>
                   <p className="text-muted text-[11px] mt-1">
-                    {activePage && viewMode === '30d'
-                      ? `${activePage.entries.length} entries`
-                      : activePage && viewMode === '12m'
-                        ? `${activePage.months.reduce((sum, m) => sum + (m.entries?.length || 0), 0)} entries`
-                        : ''}
+                    {pageStepDetails.calories > 0
+                      ? `${Math.round(pageStepDetails.calories)} kcal`
+                      : 'from steps'}
                   </p>
                 </div>
               </>
@@ -1769,12 +1797,44 @@ export const StepTrackerModal = ({
                         avg/day
                       </span>
                     </p>
-                    <p className="text-muted text-[10px] mt-2 uppercase tracking-wide">
-                      {monthsMap[selectedDate].entries.length}{' '}
-                      {monthsMap[selectedDate].entries.length === 1
-                        ? 'entry'
-                        : 'entries'}
+                    <p className="text-muted text-[10px] mt-1 uppercase tracking-wide">
+                      {monthsMap[selectedDate].entries
+                        .reduce((s, e) => s + (e.steps || 0), 0)
+                        .toLocaleString()}{' '}
+                      total steps
                     </p>
+                    {weight &&
+                      height &&
+                      (() => {
+                        const totalSteps = monthsMap[
+                          selectedDate
+                        ].entries.reduce((s, e) => s + (e.steps || 0), 0);
+                        const d = getStepCaloriesDetails(totalSteps, {
+                          weight,
+                          height,
+                          gender: gender || 'male',
+                        });
+                        return (
+                          <div className="mt-2 pt-2 border-t border-border flex justify-between text-sm">
+                            <div>
+                              <p className="text-muted text-[10px] uppercase">
+                                Distance
+                              </p>
+                              <p className="text-foreground font-semibold">
+                                {d.distanceKm.toFixed(1)} km
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-muted text-[10px] uppercase">
+                                Calories
+                              </p>
+                              <p className="text-foreground font-semibold">
+                                {Math.round(d.calories)} kcal
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })()}
                   </>
                 ) : (
                   <p className="text-muted text-lg font-semibold">No entries</p>

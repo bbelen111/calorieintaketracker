@@ -1651,7 +1651,7 @@ export const BodyFatTrackerModal = ({
                     {/* 12 Month Avg */}
                     <div>
                       <p className="text-muted text-xs uppercase tracking-wide mb-1">
-                        12 Month Avg
+                        12-Month Avg
                       </p>
                       <p className="text-foreground text-2xl font-bold">
                         {pageAverage != null
