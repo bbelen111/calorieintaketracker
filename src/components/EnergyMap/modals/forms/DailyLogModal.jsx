@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
+import { DateInput } from '../../common/DateInput';
 import {
   Trash2,
   Calendar,
@@ -95,10 +96,9 @@ export const DailyLogModal = ({
               </p>
             </div>
           ) : (
-            <input
-              type="date"
+            <DateInput
               value={formatDateForInput(date)}
-              onChange={(e) => onDateChange(e.target.value)}
+              onChange={(val) => onDateChange(val)}
               className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           )}

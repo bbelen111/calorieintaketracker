@@ -1,6 +1,7 @@
 import React from 'react';
 import { Star } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
+import { DateInput } from '../../common/DateInput';
 import { goals } from '../../../../constants/goals';
 const getGoalClasses = (key, selected) => {
   const goal = goals[key];
@@ -70,10 +71,9 @@ export const PhaseCreationModal = ({
             <label className="block text-foreground text-sm font-semibold mb-2">
               Start Date <span className="text-accent-red">*</span>
             </label>
-            <input
-              type="date"
+            <DateInput
               value={startDate}
-              onChange={(e) => onStartDateChange(e.target.value)}
+              onChange={(val) => onStartDateChange(val)}
               className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -83,10 +83,9 @@ export const PhaseCreationModal = ({
               End Date{' '}
               <span className="text-muted text-xs font-normal">(optional)</span>
             </label>
-            <input
-              type="date"
+            <DateInput
               value={endDate}
-              onChange={(e) => onEndDateChange(e.target.value)}
+              onChange={(val) => onEndDateChange(val)}
               min={startDate}
               className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
             />

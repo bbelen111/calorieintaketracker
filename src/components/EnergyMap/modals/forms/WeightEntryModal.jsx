@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Trash2, Save } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
+import { DateInput } from '../../common/DateInput';
 import { formatWeight } from '../../../../utils/weight';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { ConfirmActionModal } from '../common/ConfirmActionModal';
@@ -39,13 +40,6 @@ export const WeightEntryModal = ({
     }
   }, [forceConfirmClose, isOpen]);
 
-  const handleDateChange = (event) => {
-    if (isEdit || isDateLocked) {
-      return;
-    }
-    onDateChange?.(event.target.value);
-  };
-
   return (
     <ModalShell
       isOpen={isOpen}
@@ -60,10 +54,9 @@ export const WeightEntryModal = ({
         <div>
           <label className="text-muted text-sm block mb-2">Entry Date</label>
           <div className="relative">
-            <input
-              type="date"
+            <DateInput
               value={date ?? ''}
-              onChange={handleDateChange}
+              onChange={(val) => onDateChange?.(val)}
               disabled={isEdit || isDateLocked}
               className={`w-full bg-surface-highlight text-foreground px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-background ${
                 isEdit || isDateLocked
