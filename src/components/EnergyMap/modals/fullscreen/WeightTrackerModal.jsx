@@ -6,15 +6,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import {
-  ChevronLeft,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  Info,
-  Repeat,
-  AlertCircle,
-} from 'lucide-react';
+import { ChevronLeft, Info, Repeat, AlertCircle } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import {
   calculateWeightTrend,
@@ -23,90 +15,26 @@ import {
   calculateNDayWeightAverage,
   groupWeightEntriesByMonth,
 } from '../../../../utils/weight';
+import { getGoalAlignedStyle } from '../../../../utils/goalAlignment';
 import {
-  getGoalAlignedStyle,
-  getGoalAlignedTextClass,
-} from '../../../../utils/goalAlignment';
+  TrendIcon,
+  getTrendToneClass,
+  getGoalAlignmentText,
+  getGoalWeeklyTarget,
+  formatWeeklyRate,
+  formatTooltipDate,
+  getOldDataWarningText,
+} from '../../../../utils/trackerHelpers';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { WeightTrendInfoModal } from '../info/WeightTrendInfoModal';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { buildBezierPaths } from '../../../../utils/bezierPath';
 
-// ---------------------------------------------------------------------------
-// Helper components & functions
-// ---------------------------------------------------------------------------
-
-const TrendIcon = ({ direction }) => {
-  if (direction === 'up') return <TrendingUp size={18} />;
-  if (direction === 'down') return <TrendingDown size={18} />;
-  return <Minus size={18} />;
-};
-
-const getTrendToneClass = (trend, selectedGoal) => {
-  if (
-    !trend ||
-    trend.label === 'Need more data' ||
-    trend.label === 'No data yet'
-  ) {
-    return 'text-foreground';
-  }
-  return getGoalAlignedTextClass(trend, selectedGoal, 'weight');
-};
-
-const getGoalAlignmentText = (weeklyRate, selectedGoal) => {
-  const absRate = Math.abs(weeklyRate);
-  const goalExpectations = {
-    aggressive_bulk: { min: 0.5, max: 1.0, direction: 'up' },
-    bulking: { min: 0.25, max: 0.5, direction: 'up' },
-    maintenance: { min: -0.1, max: 0.1, direction: 'flat' },
-    cutting: { min: 0.25, max: 0.5, direction: 'down' },
-    aggressive_cut: { min: 0.5, max: 1.0, direction: 'down' },
-  };
-  const expectation = goalExpectations[selectedGoal];
-  if (!expectation) return null;
-
-  let actualDirection = 'flat';
-  if (weeklyRate < -0.1) actualDirection = 'down';
-  else if (weeklyRate > 0.1) actualDirection = 'up';
-
-  if (
-    actualDirection !== expectation.direction &&
-    expectation.direction !== 'flat'
-  ) {
-    if (expectation.direction === 'up')
-      return { text: 'Not gaining as expected', color: 'text-accent-yellow' };
-    if (expectation.direction === 'down')
-      return { text: 'Not losing as expected', color: 'text-accent-yellow' };
-  }
-
-  if (expectation.direction === 'flat') {
-    if (absRate <= 0.1)
-      return { text: 'On track with goal', color: 'text-accent-green' };
-    return { text: 'Deviating from maintenance', color: 'text-accent-yellow' };
-  }
-
-  const expectedRate =
-    expectation.direction === 'down' ? -weeklyRate : weeklyRate;
-  if (expectedRate >= expectation.min && expectedRate <= expectation.max)
-    return { text: 'On track with goal', color: 'text-accent-green' };
-  if (expectedRate < expectation.min)
-    return { text: 'Slower than goal target', color: 'text-accent-blue' };
-  if (expectedRate > expectation.max)
-    return { text: 'Faster than goal target', color: 'text-accent-yellow' };
-  return null;
-};
-
-const getGoalWeeklyTarget = (selectedGoal) => {
-  const goalTargets = {
-    aggressive_bulk: '+0.5-1.0 kg/wk',
-    bulking: '+0.25-0.5 kg/wk',
-    maintenance: '0.0 kg/wk',
-    cutting: '-0.25-0.5 kg/wk',
-    aggressive_cut: '-0.5-1.0 kg/wk',
-  };
-  return goalTargets[selectedGoal] || '0.0 kg/wk';
-};
+// Local helpers that remain specific to this modal are below.
+// Shared helpers (TrendIcon, getTrendToneClass, getGoalAlignmentText,
+// getGoalWeeklyTarget, formatWeeklyRate, formatTooltipDate,
+// getOldDataWarningText) are imported from utils/trackerHelpers.
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -118,8 +46,6 @@ const MIN_RANGE_PADDING = 0.5;
 const BASELINE_Y_OFFSET = 0;
 const TOOLTIP_WIDTH = 120;
 const TOOLTIP_VERTICAL_OFFSET = 27;
-const DATA_OLD_WARNING_DAYS = 1;
-const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const SCROLL_SETTLE_DELAY_MS = 140;
 
 // Per-mode point sizing
@@ -165,19 +91,16 @@ const formatShortDate = (dateStr) => {
   return parts.replace(/^[A-Za-z]{3}/, (m) => m.toUpperCase());
 };
 
-const formatTooltipDate = (dateStr) => {
-  const date = new Date(dateStr + 'T00:00:00Z');
-  return date.toLocaleDateString('en-US', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-};
+// formatTooltipDate is now imported from utils/trackerHelpers
 
 const getWeekday = (dateStr) => {
   const date = new Date(dateStr + 'T00:00:00Z');
   return date.toLocaleDateString('en-US', { weekday: 'short' });
+};
+
+const isFirstDayOfYearUtc = (dateStr) => {
+  const date = new Date(dateStr + 'T00:00:00Z');
+  return date.getUTCMonth() === 0 && date.getUTCDate() === 1;
 };
 
 const getDaysInMonthUtc = (year, monthIndex) =>
@@ -188,30 +111,7 @@ const getTrackedDaysCount = (entries = []) => {
   return new Set(entries.map((entry) => entry?.date).filter(Boolean)).size;
 };
 
-const getDataAgeInDays = (dateKey) => {
-  if (!dateKey) return null;
-  const entryDate = new Date(`${dateKey}T00:00:00Z`);
-  if (Number.isNaN(entryDate.getTime())) return null;
-  const now = new Date();
-  const utcToday = Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate()
-  );
-  const utcEntry = Date.UTC(
-    entryDate.getUTCFullYear(),
-    entryDate.getUTCMonth(),
-    entryDate.getUTCDate()
-  );
-  return Math.max(0, Math.floor((utcToday - utcEntry) / MS_PER_DAY));
-};
-
-const getOldDataWarningText = (dateKey) => {
-  const ageDays = getDataAgeInDays(dateKey);
-  if (!Number.isFinite(ageDays) || ageDays < DATA_OLD_WARNING_DAYS) return null;
-  const dayLabel = ageDays === 1 ? 'day' : 'days';
-  return `${ageDays} ${dayLabel} old`;
-};
+// getDataAgeInDays + getOldDataWarningText are now imported from utils/trackerHelpers
 
 /** Produce a YYYY-MM-DD string from a Date in UTC */
 const toDateKey = (d) => d.toISOString().slice(0, 10);
@@ -329,11 +229,11 @@ export const WeightTrackerModal = ({
   );
   const trendVisual = viewMode === '7d' ? trendVisual7d : trendVisual30d;
   const goalAlignment = useMemo(
-    () => getGoalAlignmentText(trend.weeklyRate, selectedGoal),
+    () => getGoalAlignmentText(trend.weeklyRate, selectedGoal, 'weight'),
     [trend.weeklyRate, selectedGoal]
   );
   const goalAlignment7d = useMemo(
-    () => getGoalAlignmentText(trend7d.weeklyRate, selectedGoal),
+    () => getGoalAlignmentText(trend7d.weeklyRate, selectedGoal, 'weight'),
     [trend7d.weeklyRate, selectedGoal]
   );
 
@@ -768,19 +668,9 @@ export const WeightTrackerModal = ({
     return formatted ? `${formatted} kg` : '—';
   })();
 
-  const weeklyRate7dDisplay = (() => {
-    if (!Number.isFinite(trend7d.weeklyRate) || trend7d.weeklyRate === 0)
-      return '0.0 kg/wk';
-    const sign = trend7d.weeklyRate > 0 ? '+' : '';
-    return `${sign}${trend7d.weeklyRate.toFixed(2)} kg/wk`;
-  })();
+  const weeklyRate7dDisplay = formatWeeklyRate(trend7d.weeklyRate, 'weight');
 
-  const weeklyRateDisplay = (() => {
-    if (!Number.isFinite(trend.weeklyRate) || trend.weeklyRate === 0)
-      return '0.0 kg/wk';
-    const sign = trend.weeklyRate > 0 ? '+' : '';
-    return `${sign}${trend.weeklyRate.toFixed(2)} kg/wk`;
-  })();
+  const weeklyRateDisplay = formatWeeklyRate(trend.weeklyRate, 'weight');
 
   // Per-page dynamic stat for 30d and 12m
   const pageAverage = useMemo(() => {
@@ -1200,9 +1090,20 @@ export const WeightTrackerModal = ({
     }
 
     const STEP = chartWidth / 7;
+    const firstRenderedDateByYear = new Map();
+    timeline7d.days.forEach((slot) => {
+      const yearKey = slot.date?.slice?.(0, 4);
+      if (yearKey && !firstRenderedDateByYear.has(yearKey)) {
+        firstRenderedDateByYear.set(yearKey, slot.date);
+      }
+    });
     const timelineSlots = timeline7d.days.map((s) => {
       const hasEntry = !!s.entry;
       const isEmpty = !hasEntry;
+      const yearKey = s.date.slice(0, 4);
+      const showYear =
+        isFirstDayOfYearUtc(s.date) ||
+        firstRenderedDateByYear.get(yearKey) === s.date;
       return (
         <div
           key={s.date}
@@ -1220,21 +1121,30 @@ export const WeightTrackerModal = ({
                 style={{ left: `${STEP / 2}px` }}
                 onClick={(e) => handleLabelClick(s.date, e)}
               >
-                <span
-                  className={`text-[13px] font-semibold ${
-                    isEmpty
-                      ? getWeekday(s.date) === 'Sun'
-                        ? 'text-accent-red/40'
-                        : 'text-muted/30'
-                      : s.date === latestDate
-                        ? 'text-accent-blue'
-                        : getWeekday(s.date) === 'Sun'
-                          ? 'text-accent-red'
-                          : 'text-muted'
-                  }`}
-                >
-                  {formatTimelineLabel(s.date)}
-                </span>
+                <div className="flex flex-col items-center leading-none">
+                  <span
+                    className={`text-[13px] font-semibold ${
+                      isEmpty
+                        ? getWeekday(s.date) === 'Sun'
+                          ? 'text-accent-red/40'
+                          : 'text-muted/30'
+                        : s.date === latestDate
+                          ? 'text-accent-blue'
+                          : getWeekday(s.date) === 'Sun'
+                            ? 'text-accent-red'
+                            : 'text-muted'
+                    }`}
+                  >
+                    {formatTimelineLabel(s.date)}
+                  </span>
+                  {showYear && (
+                    <span
+                      className={`mt-0.5 text-[9px] font-medium ${isEmpty ? 'text-muted/30' : 'text-muted/70'}`}
+                    >
+                      {yearKey}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1256,9 +1166,22 @@ export const WeightTrackerModal = ({
     }
 
     const STEP = chartWidth / 30;
+    const firstRenderedDateByYear = new Map();
+    timeline30d.days.forEach((slot, index) => {
+      if (index % 5 !== 0) return;
+      const yearKey = slot.date?.slice?.(0, 4);
+      if (yearKey && !firstRenderedDateByYear.has(yearKey)) {
+        firstRenderedDateByYear.set(yearKey, slot.date);
+      }
+    });
     const timelineSlots = timeline30d.days.map((s, i) => {
       const showLabel = i % 5 === 0;
       const hasEntry = !!s.entry;
+      const yearKey = s.date.slice(0, 4);
+      const showYear =
+        showLabel &&
+        (isFirstDayOfYearUtc(s.date) ||
+          firstRenderedDateByYear.get(yearKey) === s.date);
       return (
         <div
           key={s.date}
@@ -1277,17 +1200,26 @@ export const WeightTrackerModal = ({
                   style={{ left: `${STEP / 2}px` }}
                   onClick={(e) => handleLabelClick(s.date, e)}
                 >
-                  <span
-                    className={`text-[11px] font-semibold whitespace-nowrap ${
-                      !hasEntry
-                        ? 'text-muted/30'
-                        : s.date === latestDate
-                          ? 'text-accent-blue'
-                          : 'text-muted'
-                    }`}
-                  >
-                    {formatTimelineLabel(s.date)}
-                  </span>
+                  <div className="flex flex-col items-center leading-none">
+                    <span
+                      className={`text-[11px] font-semibold whitespace-nowrap ${
+                        !hasEntry
+                          ? 'text-muted/30'
+                          : s.date === latestDate
+                            ? 'text-accent-blue'
+                            : 'text-muted'
+                      }`}
+                    >
+                      {formatTimelineLabel(s.date)}
+                    </span>
+                    {showYear && (
+                      <span
+                        className={`mt-0.5 text-[9px] font-medium ${!hasEntry ? 'text-muted/30' : 'text-muted/70'}`}
+                      >
+                        {yearKey}
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -1333,13 +1265,22 @@ export const WeightTrackerModal = ({
               style={{ left: `${STEP / 2}px` }}
               onClick={(e) => handleLabelClick(m.key, e)}
             >
-              <span
-                className={`text-[11px] font-semibold whitespace-nowrap ${
-                  m.isEmpty ? 'text-muted/30' : 'text-muted'
-                }`}
-              >
-                {m.label}
-              </span>
+              <div className="flex flex-col items-center leading-none">
+                <span
+                  className={`text-[11px] font-semibold whitespace-nowrap ${
+                    m.isEmpty ? 'text-muted/30' : 'text-muted'
+                  }`}
+                >
+                  {m.label}
+                </span>
+                {m.month === 0 && (
+                  <span
+                    className={`mt-0.5 text-[9px] font-medium ${m.isEmpty ? 'text-muted/30' : 'text-muted/70'}`}
+                  >
+                    {m.year}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1495,7 +1436,7 @@ export const WeightTrackerModal = ({
                     />
                   </button>
                   <p
-                    className={`${getTrendToneClass(trend7d, selectedGoal)} font-semibold text-lg flex items-center gap-2`}
+                    className={`${getTrendToneClass(trend7d, selectedGoal, 'weight')} font-semibold text-lg flex items-center gap-2`}
                   >
                     <TrendIcon direction={trend7d.direction} />
                     {trend7d.label}
@@ -1526,7 +1467,7 @@ export const WeightTrackerModal = ({
                     {weeklyRate7dDisplay}
                   </p>
                   <p className="text-muted text-xs mt-1">
-                    Goal: {getGoalWeeklyTarget(selectedGoal)}
+                    Goal: {getGoalWeeklyTarget(selectedGoal, 'weight')}
                   </p>
                 </div>
               </>
@@ -1620,7 +1561,7 @@ export const WeightTrackerModal = ({
                         />
                       </button>
                       <p
-                        className={`${getTrendToneClass(trend, selectedGoal)} font-semibold text-lg flex items-center gap-2`}
+                        className={`${getTrendToneClass(trend, selectedGoal, 'weight')} font-semibold text-lg flex items-center gap-2`}
                       >
                         <TrendIcon direction={trend.direction} />
                         {trend.label}
@@ -1651,7 +1592,7 @@ export const WeightTrackerModal = ({
                         {weeklyRateDisplay}
                       </p>
                       <p className="text-muted text-xs mt-1">
-                        Goal: {getGoalWeeklyTarget(selectedGoal)}
+                        Goal: {getGoalWeeklyTarget(selectedGoal, 'weight')}
                       </p>
                     </div>
                   </>

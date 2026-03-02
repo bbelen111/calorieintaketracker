@@ -126,6 +126,11 @@ const getWeekday = (dateStr) => {
   return date.toLocaleDateString('en-US', { weekday: 'short' });
 };
 
+const isFirstDayOfYearUtc = (dateStr) => {
+  const date = new Date(dateStr + 'T00:00:00Z');
+  return date.getUTCMonth() === 0 && date.getUTCDate() === 1;
+};
+
 const formatStepCount = (steps) => {
   if (steps >= 1000) {
     return `${(steps / 1000).toFixed(1).replace(/\.0$/, '')}k`;
@@ -1182,9 +1187,21 @@ export const StepTrackerModal = ({
     }
 
     const STEP = chartWidth / 30;
+    const firstRenderedDateByYear = new Map();
+    timeline30d.days.forEach((slot, index) => {
+      if (index % 5 !== 0) return;
+      const yearKey = slot.date?.slice?.(0, 4);
+      if (yearKey && !firstRenderedDateByYear.has(yearKey)) {
+        firstRenderedDateByYear.set(yearKey, slot.date);
+      }
+    });
     const timelineSlots = timeline30d.days.map((s, i) => {
       const showLabel = i % 5 === 0;
       const hasEntry = !!s.entry;
+      const yearKey = s.date.slice(0, 4);
+      const showYear =
+        showLabel &&
+        (isFirstDayOfYearUtc(s.date) || firstRenderedDateByYear.get(yearKey) === s.date);
       return (
         <div
           key={s.date}
@@ -1203,17 +1220,24 @@ export const StepTrackerModal = ({
                   style={{ left: `${STEP / 2}px` }}
                   onClick={(e) => handleLabelClick(s.date, e)}
                 >
-                  <span
-                    className={`text-[11px] font-semibold whitespace-nowrap ${
-                      !hasEntry
-                        ? 'text-muted/30'
-                        : s.date === latestDate
-                          ? 'text-accent-blue'
-                          : 'text-muted'
-                    }`}
-                  >
-                    {formatTimelineLabel(s.date)}
-                  </span>
+                  <div className="flex flex-col items-center leading-none">
+                    <span
+                      className={`text-[11px] font-semibold whitespace-nowrap ${
+                        !hasEntry
+                          ? 'text-muted/30'
+                          : s.date === latestDate
+                            ? 'text-accent-blue'
+                            : 'text-muted'
+                      }`}
+                    >
+                      {formatTimelineLabel(s.date)}
+                    </span>
+                    {showYear && (
+                      <span className={`mt-0.5 text-[9px] font-medium ${!hasEntry ? 'text-muted/30' : 'text-muted/70'}`}>
+                        {yearKey}
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -1262,13 +1286,20 @@ export const StepTrackerModal = ({
               style={{ left: `${STEP / 2}px` }}
               onClick={(e) => handleLabelClick(m.key, e)}
             >
-              <span
-                className={`text-[11px] font-semibold whitespace-nowrap ${
-                  m.isEmpty ? 'text-muted/30' : 'text-muted'
-                }`}
-              >
-                {m.label}
-              </span>
+              <div className="flex flex-col items-center leading-none">
+                <span
+                  className={`text-[11px] font-semibold whitespace-nowrap ${
+                    m.isEmpty ? 'text-muted/30' : 'text-muted'
+                  }`}
+                >
+                  {m.label}
+                </span>
+                {m.month === 0 && (
+                  <span className={`mt-0.5 text-[9px] font-medium ${m.isEmpty ? 'text-muted/30' : 'text-muted/70'}`}>
+                    {m.year}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1297,6 +1328,13 @@ export const StepTrackerModal = ({
     const STEP = chartWidth / 7;
     const totalSlots = timeline7d.totalSlots;
     const totalWidth = totalSlots * STEP;
+    const firstRenderedDateByYear = new Map();
+    timeline7d.days.forEach((slot) => {
+      const yearKey = slot.date?.slice?.(0, 4);
+      if (yearKey && !firstRenderedDateByYear.has(yearKey)) {
+        firstRenderedDateByYear.set(yearKey, slot.date);
+      }
+    });
     const bracketAreaHeight =
       weekBrackets.length > 0
         ? WEEK_BRACKET_HEIGHT + WEEK_BRACKET_TOP_PADDING
@@ -1458,6 +1496,10 @@ export const StepTrackerModal = ({
           {timeline7d.days.map((s) => {
             const hasEntry = !!s.entry;
             const isEmpty = !hasEntry;
+            const yearKey = s.date.slice(0, 4);
+            const showYear =
+              isFirstDayOfYearUtc(s.date) ||
+              firstRenderedDateByYear.get(yearKey) === s.date;
             return (
               <div
                 key={s.date}
@@ -1475,21 +1517,28 @@ export const StepTrackerModal = ({
                       style={{ left: `${STEP / 2}px` }}
                       onClick={(e) => handleLabelClick(s.date, e)}
                     >
-                      <span
-                        className={`text-[13px] font-semibold ${
-                          isEmpty
-                            ? getWeekday(s.date) === 'Sun'
-                              ? 'text-accent-red/40'
-                              : 'text-muted/30'
-                            : s.date === latestDate
-                              ? 'text-accent-blue'
-                              : getWeekday(s.date) === 'Sun'
-                                ? 'text-accent-red'
-                                : 'text-muted'
-                        }`}
-                      >
-                        {formatTimelineLabel(s.date)}
-                      </span>
+                      <div className="flex flex-col items-center leading-none">
+                        <span
+                          className={`text-[13px] font-semibold ${
+                            isEmpty
+                              ? getWeekday(s.date) === 'Sun'
+                                ? 'text-accent-red/40'
+                                : 'text-muted/30'
+                              : s.date === latestDate
+                                ? 'text-accent-blue'
+                                : getWeekday(s.date) === 'Sun'
+                                  ? 'text-accent-red'
+                                  : 'text-muted'
+                          }`}
+                        >
+                          {formatTimelineLabel(s.date)}
+                        </span>
+                        {showYear && (
+                          <span className={`mt-0.5 text-[9px] font-medium ${isEmpty ? 'text-muted/30' : 'text-muted/70'}`}>
+                            {yearKey}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

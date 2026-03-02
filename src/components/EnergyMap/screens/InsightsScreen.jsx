@@ -4,20 +4,18 @@ import {
   PieChart,
   Lightbulb,
   LineChart,
-  CheckCircle2,
   AlertCircle,
-  XCircle,
-  HelpCircle,
 } from 'lucide-react';
 import {
   calculateWeightTrend,
   createSparklinePoints,
-  formatDateLabel,
+  sortWeightEntries,
   formatWeight,
 } from '../../../utils/weight';
 import {
   calculateBodyFatTrend,
   createBodyFatSparklinePoints,
+  sortBodyFatEntries,
   formatBodyFat,
 } from '../../../utils/bodyFat';
 import {
@@ -26,198 +24,17 @@ import {
   calculateFFMI,
   getFFMICategory,
 } from '../../../utils/calculations';
+import { getGoalAlignedStyle } from '../../../utils/goalAlignment';
 import {
-  getGoalAlignedStyle,
-  getGoalAlignedTextClass,
-} from '../../../utils/goalAlignment';
+  TrendIcon,
+  getTrendToneClass,
+  getGoalAlignmentText,
+  formatWeeklyRate,
+  formatTooltipDate,
+  getOldDataWarningText,
+} from '../../../utils/trackerHelpers';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
-
-const getTrendToneClass = (trend, selectedGoal, metricType) => {
-  if (
-    !trend ||
-    trend.label === 'Need more data' ||
-    trend.label === 'No data yet'
-  ) {
-    return 'text-foreground';
-  }
-  return getGoalAlignedTextClass(trend, selectedGoal, metricType);
-};
-
-const IconComponent = ({ icon }) => {
-  if (icon === 'check') return <CheckCircle2 size={14} className="inline" />;
-  if (icon === 'warning') return <AlertCircle size={14} className="inline" />;
-  if (icon === 'error') return <XCircle size={14} className="inline" />;
-  return <HelpCircle size={14} className="inline" />;
-};
-
-const getOnTrackStatus = (trend, selectedGoal) => {
-  if (
-    !trend ||
-    trend.label === 'Need more data' ||
-    trend.label === 'No data yet' ||
-    !Number.isFinite(trend.weeklyRate)
-  ) {
-    return { icon: 'help', text: 'Insufficient data', color: 'text-muted' };
-  }
-
-  const rate = trend.weeklyRate;
-
-  if (selectedGoal === 'maintenance') {
-    const absRate = Math.abs(rate);
-    if (absRate <= 0.1) {
-      return { icon: 'check', text: 'On target', color: 'text-accent-green' };
-    }
-    if (absRate <= 0.25) {
-      return {
-        icon: 'warning',
-        text: 'Near target',
-        color: 'text-accent-yellow',
-      };
-    }
-    return { icon: 'error', text: 'Off target', color: 'text-accent-orange' };
-  }
-
-  const isBulk = selectedGoal.includes('bulk');
-  const isCut = selectedGoal.includes('cut');
-  const movingRight = (isBulk && rate > 0.1) || (isCut && rate < -0.1) || false;
-
-  if (!movingRight) {
-    return { icon: 'error', text: 'Opposite trend', color: 'text-accent-red' };
-  }
-
-  const absRate = Math.abs(rate);
-
-  if (selectedGoal === 'aggressive_bulk') {
-    if (absRate >= 0.5 && absRate <= 1.0) {
-      return { icon: 'check', text: 'On target', color: 'text-accent-green' };
-    }
-    if (absRate < 0.5) {
-      return {
-        icon: 'warning',
-        text: 'Below target rate',
-        color: 'text-accent-yellow',
-      };
-    }
-    return {
-      icon: 'warning',
-      text: 'Above target rate',
-      color: 'text-accent-yellow',
-    };
-  }
-
-  if (selectedGoal === 'bulking') {
-    if (absRate >= 0.25 && absRate <= 0.5) {
-      return { icon: 'check', text: 'On target', color: 'text-accent-green' };
-    }
-    if (absRate < 0.25) {
-      return {
-        icon: 'warning',
-        text: 'Below target rate',
-        color: 'text-accent-yellow',
-      };
-    }
-    return {
-      icon: 'warning',
-      text: 'Above target rate',
-      color: 'text-accent-yellow',
-    };
-  }
-
-  if (selectedGoal === 'cutting') {
-    if (absRate >= 0.25 && absRate <= 0.5) {
-      return { icon: 'check', text: 'On target', color: 'text-accent-green' };
-    }
-    if (absRate < 0.25) {
-      return {
-        icon: 'warning',
-        text: 'Below target rate',
-        color: 'text-accent-yellow',
-      };
-    }
-    return {
-      icon: 'warning',
-      text: 'Above target rate',
-      color: 'text-accent-orange',
-    };
-  }
-
-  if (selectedGoal === 'aggressive_cut') {
-    if (absRate >= 0.5 && absRate <= 1.0) {
-      return { icon: 'check', text: 'On target', color: 'text-accent-green' };
-    }
-    if (absRate < 0.5) {
-      return {
-        icon: 'warning',
-        text: 'Below target rate',
-        color: 'text-accent-yellow',
-      };
-    }
-    return {
-      icon: 'warning',
-      text: 'Above target rate',
-      color: 'text-accent-orange',
-    };
-  }
-
-  return {
-    icon: 'help',
-    text: 'Track to assess',
-    color: 'text-muted',
-  };
-};
-
-const formatWeeklyRate = (value) => {
-  if (!Number.isFinite(value) || value === 0) {
-    return '0.0 kg/wk';
-  }
-  const sign = value > 0 ? '+' : '';
-  return `${sign}${value.toFixed(2)} kg/wk`;
-};
-
-const formatBodyFatWeeklyRate = (value) => {
-  if (!Number.isFinite(value) || value === 0) {
-    return '0.0 %/wk';
-  }
-  const sign = value > 0 ? '+' : '';
-  return `${sign}${value.toFixed(2)} %/wk`;
-};
-
-const DATA_OLD_WARNING_DAYS = 1;
-const MS_PER_DAY = 1000 * 60 * 60 * 24;
-
-const getDataAgeInDays = (dateKey) => {
-  if (!dateKey) return null;
-
-  const entryDate = new Date(`${dateKey}T00:00:00Z`);
-  if (Number.isNaN(entryDate.getTime())) {
-    return null;
-  }
-
-  const now = new Date();
-  const utcToday = Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate()
-  );
-  const utcEntry = Date.UTC(
-    entryDate.getUTCFullYear(),
-    entryDate.getUTCMonth(),
-    entryDate.getUTCDate()
-  );
-
-  return Math.max(0, Math.floor((utcToday - utcEntry) / MS_PER_DAY));
-};
-
-const getOldDataWarningText = (dateKey) => {
-  const ageDays = getDataAgeInDays(dateKey);
-  if (!Number.isFinite(ageDays) || ageDays < DATA_OLD_WARNING_DAYS) {
-    return null;
-  }
-
-  const dayLabel = ageDays === 1 ? 'day' : 'days';
-  return `${ageDays} ${dayLabel} old`;
-};
 
 export const InsightsScreen = ({
   userData,
@@ -247,29 +64,28 @@ export const InsightsScreen = ({
       ? bodyFatTrackingEnabled
       : resolvedUserData.bodyFatTrackingEnabled;
 
-  // Only keep the last 7 entries
-  const sortedEntries = useMemo(() => {
-    if (!resolvedWeightEntries.length) return [];
+  // Sort all entries — trend functions handle the 7-day time window internally
+  const sortedEntries = useMemo(
+    () => sortWeightEntries(resolvedWeightEntries ?? []),
+    [resolvedWeightEntries]
+  );
 
-    // Sort entries first
-    const sorted = [...resolvedWeightEntries].sort((a, b) =>
-      a.date.localeCompare(b.date)
-    );
-
-    return sorted.slice(-7);
-  }, [resolvedWeightEntries]);
+  // Use a proper 7-day calendar window (matches the modal's 7d mode exactly)
   const trend = useMemo(
-    () => calculateWeightTrend(sortedEntries),
+    () => calculateWeightTrend(sortedEntries, 7),
     [sortedEntries]
   );
-  const weightStatus = getOnTrackStatus(trend, selectedGoal, 'weight');
+  const weightGoalAlignment = useMemo(
+    () => getGoalAlignmentText(trend.weeklyRate, selectedGoal, 'weight'),
+    [trend.weeklyRate, selectedGoal]
+  );
   const sparkline = useMemo(
     () =>
       createSparklinePoints(sortedEntries, {
         width: 160,
         height: 56,
         padding: 6,
-        limit: 7, // Only show up to 7 entries
+        limit: 7,
       }),
     [sortedEntries]
   );
@@ -280,21 +96,20 @@ export const InsightsScreen = ({
     [sortedEntries]
   );
 
-  const sortedBodyFatEntries = useMemo(() => {
-    if (!resolvedBodyFatEntries.length) return [];
-
-    const sorted = [...resolvedBodyFatEntries].sort((a, b) =>
-      a.date.localeCompare(b.date)
-    );
-
-    return sorted.slice(-7);
-  }, [resolvedBodyFatEntries]);
+  const sortedBodyFatEntries = useMemo(
+    () => sortBodyFatEntries(resolvedBodyFatEntries ?? []),
+    [resolvedBodyFatEntries]
+  );
 
   const bodyFatTrend = useMemo(
-    () => calculateBodyFatTrend(sortedBodyFatEntries),
+    () => calculateBodyFatTrend(sortedBodyFatEntries, 7),
     [sortedBodyFatEntries]
   );
-  const bodyFatStatus = getOnTrackStatus(bodyFatTrend, selectedGoal, 'bodyFat');
+  const bodyFatGoalAlignment = useMemo(
+    () =>
+      getGoalAlignmentText(bodyFatTrend.weeklyRate, selectedGoal, 'bodyFat'),
+    [bodyFatTrend.weeklyRate, selectedGoal]
+  );
 
   const bodyFatSparkline = useMemo(
     () =>
@@ -349,21 +164,12 @@ export const InsightsScreen = ({
   const currentWeight = formatWeight(
     latestEntry?.weight ?? resolvedUserData.weight
   );
-  const lastLoggedLabel = latestEntry?.date
-    ? formatDateLabel(latestEntry.date, { month: 'short', day: 'numeric' })
-    : 'No entries yet';
   const weightOldDataWarning = useMemo(
     () => getOldDataWarningText(latestEntry?.date),
     [latestEntry?.date]
   );
 
   const currentBodyFat = formatBodyFat(latestBodyFatEntry?.bodyFat);
-  const bodyFatLoggedLabel = latestBodyFatEntry?.date
-    ? formatDateLabel(latestBodyFatEntry.date, {
-        month: 'short',
-        day: 'numeric',
-      })
-    : 'No entries yet';
   const bodyFatOldDataWarning = useMemo(
     () => getOldDataWarningText(latestBodyFatEntry?.date),
     [latestBodyFatEntry?.date]
@@ -456,6 +262,7 @@ export const InsightsScreen = ({
           </h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* ── Weight card ── */}
           <button
             type="button"
             onClick={onOpenWeightTracker}
@@ -465,18 +272,20 @@ export const InsightsScreen = ({
               <p className="font-semibold text-foreground text-base">
                 Weight Snapshot
               </p>
-              <span
-                className={`text-xs font-semibold ${weightStatus.color} flex items-center gap-1.5`}
-              >
-                <IconComponent icon={weightStatus.icon} />
-                {weightStatus.text}
-              </span>
+              {weightGoalAlignment && (
+                <p
+                  className={`${weightGoalAlignment.color} text-xs font-medium text-right`}
+                >
+                  {weightGoalAlignment.text}
+                </p>
+              )}
             </div>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p
-                  className={`text-lg font-semibold ${getTrendToneClass(trend, selectedGoal, 'weight')}`}
+                  className={`text-lg font-semibold flex items-center gap-1.5 ${getTrendToneClass(trend, selectedGoal, 'weight')}`}
                 >
+                  <TrendIcon direction={trend.direction} size={16} />
                   {trend.label}
                 </p>
                 <p className="text-muted text-sm mt-1">
@@ -484,7 +293,12 @@ export const InsightsScreen = ({
                     {currentWeight ? `${currentWeight} kg` : '—'}
                   </span>{' '}
                   <span className="inline-flex items-center gap-2">
-                    <span>• {lastLoggedLabel}</span>
+                    <span>
+                      •{' '}
+                      {latestEntry?.date
+                        ? formatTooltipDate(latestEntry.date)
+                        : 'No entries yet'}
+                    </span>
                     {weightOldDataWarning && (
                       <span className="inline-flex items-center gap-1 text-accent-yellow">
                         <AlertCircle size={10} className="shrink-0" />
@@ -495,9 +309,12 @@ export const InsightsScreen = ({
                 </p>
                 <p className="text-muted text-sm mt-2">
                   <span className="font-bold text-foreground">
-                    {formatWeeklyRate(trend.weeklyRate)}
+                    {formatWeeklyRate(trend.weeklyRate, 'weight')}
                   </span>{' '}
-                  over last 7 entries
+                  over last 7 days
+                </p>
+                <p className="text-accent-blue/80 text-[10px] tracking-wide mt-2">
+                  Tap to open weight tracker
                 </p>
               </div>
               {sparkline.pathData && sortedEntries.length > 1 && (
@@ -575,11 +392,9 @@ export const InsightsScreen = ({
                 </div>
               )}
             </div>
-            <p className="text-accent-blue/80 text-xs tracking-wide mt-3">
-              Tap to open weight tracker
-            </p>
           </button>
 
+          {/* ── Body Fat card ── */}
           {resolvedBodyFatTrackingEnabled && (
             <button
               type="button"
@@ -590,18 +405,20 @@ export const InsightsScreen = ({
                 <p className="font-semibold text-foreground text-base">
                   Body Fat % Snapshot
                 </p>
-                <span
-                  className={`text-xs font-semibold ${bodyFatStatus.color} flex items-center gap-1.5`}
-                >
-                  <IconComponent icon={bodyFatStatus.icon} />
-                  {bodyFatStatus.text}
-                </span>
+                {bodyFatGoalAlignment && (
+                  <p
+                    className={`${bodyFatGoalAlignment.color} text-xs font-medium text-right`}
+                  >
+                    {bodyFatGoalAlignment.text}
+                  </p>
+                )}
               </div>
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p
-                    className={`text-lg font-semibold ${getTrendToneClass(bodyFatTrend, selectedGoal, 'bodyFat')}`}
+                    className={`text-lg font-semibold flex items-center gap-1.5 ${getTrendToneClass(bodyFatTrend, selectedGoal, 'bodyFat')}`}
                   >
+                    <TrendIcon direction={bodyFatTrend.direction} size={16} />
                     {bodyFatTrend.label}
                   </p>
                   <p className="text-muted text-sm mt-1">
@@ -609,7 +426,12 @@ export const InsightsScreen = ({
                       {currentBodyFat ? `${currentBodyFat}%` : '—'}
                     </span>{' '}
                     <span className="inline-flex items-center gap-2">
-                      <span>• {bodyFatLoggedLabel}</span>
+                      <span>
+                        •{' '}
+                        {latestBodyFatEntry?.date
+                          ? formatTooltipDate(latestBodyFatEntry.date)
+                          : 'No entries yet'}
+                      </span>
                       {bodyFatOldDataWarning && (
                         <span className="inline-flex items-center gap-1 text-accent-yellow">
                           <AlertCircle size={10} className="shrink-0" />
@@ -620,9 +442,12 @@ export const InsightsScreen = ({
                   </p>
                   <p className="text-muted text-sm mt-2">
                     <span className="font-bold text-foreground">
-                      {formatBodyFatWeeklyRate(bodyFatTrend.weeklyRate)}
+                      {formatWeeklyRate(bodyFatTrend.weeklyRate, 'bodyFat')}
                     </span>{' '}
-                    over last 7 entries
+                    over last 7 days
+                  </p>
+                  <p className="text-accent-blue/80 text-[10px] tracking-wide mt-2">
+                    Tap to open body fat tracker
                   </p>
                 </div>
                 {bodyFatSparkline.pathData &&
@@ -701,9 +526,6 @@ export const InsightsScreen = ({
                     </div>
                   )}
               </div>
-              <p className="text-accent-blue/80 text-xs tracking-wide mt-3">
-                Tap to open body fat tracker
-              </p>
             </button>
           )}
 
