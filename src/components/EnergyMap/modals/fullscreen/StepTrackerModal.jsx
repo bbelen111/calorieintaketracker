@@ -146,62 +146,6 @@ const getBarGlow = (steps, goal) => {
 };
 
 // ---------------------------------------------------------------------------
-// Page generation helpers
-// ---------------------------------------------------------------------------
-
-const chunk = (arr, size) => {
-  const out = [];
-  for (let i = 0; i < arr.length; i += size) {
-    out.push(arr.slice(i, i + size));
-  }
-  return out;
-};
-
-const build30DayPages = (sortedEntries) => {
-  if (!sortedEntries.length) return [];
-  const earliest = new Date(sortedEntries[0].date + 'T00:00:00Z');
-  const latest = new Date(
-    sortedEntries[sortedEntries.length - 1].date + 'T00:00:00Z'
-  );
-  const pages = [];
-  let windowEnd = new Date(latest);
-  while (windowEnd >= earliest) {
-    const windowStart = new Date(windowEnd);
-    windowStart.setUTCDate(windowStart.getUTCDate() - 29);
-    const startMs = windowStart.getTime();
-    const endMs = windowEnd.getTime();
-    const entries = sortedEntries.filter((e) => {
-      const ms = new Date(e.date + 'T00:00:00Z').getTime();
-      return ms >= startMs && ms <= endMs;
-    });
-    if (entries.length > 0) {
-      pages.unshift({
-        entries,
-        startDate: toDateKey(windowStart),
-        endDate: toDateKey(windowEnd),
-        pageIndex: 0,
-      });
-    }
-    windowEnd.setUTCDate(windowEnd.getUTCDate() - 30);
-  }
-  pages.forEach((p, i) => {
-    p.pageIndex = i;
-  });
-  return pages;
-};
-
-const build12MonthPages = (monthGroups) => {
-  if (!monthGroups.length) return [];
-  const chunks = chunk(monthGroups, 12);
-  return chunks.map((months, idx) => ({
-    months,
-    startDate: months[0].key + '-01',
-    endDate: months[months.length - 1].key + '-28',
-    pageIndex: idx,
-  }));
-};
-
-// ---------------------------------------------------------------------------
 // Chart data helpers
 // ---------------------------------------------------------------------------
 
@@ -323,25 +267,7 @@ export const StepTrackerModal = ({
     return filled;
   }, [monthGroups]);
 
-  // --- Pages ---
-  const pages = useMemo(() => {
-    if (viewMode === '7d') return [];
-    if (viewMode === '30d') return build30DayPages(sortedEntries);
-    if (viewMode === '12m') return build12MonthPages(filledMonthGroups);
-    return [];
-  }, [viewMode, sortedEntries, filledMonthGroups]);
-
-  const pageCount = viewMode === '7d' ? 0 : pages.length;
-  const resolvedPageIndex = useMemo(() => {
-    if (viewMode === '7d') return 0;
-    if (pageCount === 0) return 0;
-    if (activePageIndex < 0 || activePageIndex >= pageCount)
-      return pageCount - 1;
-    return activePageIndex;
-  }, [viewMode, activePageIndex, pageCount]);
-
-  const activePage =
-    viewMode === '7d' ? null : (pages[resolvedPageIndex] ?? null);
+  // Pages concept removed — all modes now use continuous sliding windows
 
   // --- Viewport dimensions ---
   useIsomorphicLayoutEffect(() => {
@@ -442,8 +368,11 @@ export const StepTrackerModal = ({
   const handleCarouselScroll = useCallback(() => {
     const node = carouselRef.current;
     if (!node || !node.clientWidth) return;
-    const idx = Math.round(node.scrollLeft / node.clientWidth);
+    const windowSize = viewMode === '7d' ? 7 : viewMode === '30d' ? 30 : 12;
+    const step = node.clientWidth / windowSize;
+    const idx = Math.round(node.scrollLeft / step);
     setActivePageIndex(idx);
+    // Close tooltip on scroll
     if (selectedDate) {
       setTooltipClosing(true);
       setTimeout(() => {
@@ -451,7 +380,7 @@ export const StepTrackerModal = ({
         setTooltipClosing(false);
       }, 150);
     }
-  }, [selectedDate]);
+  }, [selectedDate, viewMode]);
 
   // --- Chart-wide computed data ---
   const chartWidth = graphViewportWidth || 300;
@@ -459,20 +388,19 @@ export const StepTrackerModal = ({
   // 7d continuous: calendar-based timeline
   const timeline7d = useMemo(() => {
     if (viewMode !== '7d' || !sortedEntries.length)
-      return { days: [], snapPageCount: 1 };
+      return { days: [], totalSlots: 0 };
     const firstDate = new Date(sortedEntries[0].date + 'T00:00:00Z');
     const lastDate = new Date(
       sortedEntries[sortedEntries.length - 1].date + 'T00:00:00Z'
     );
     const calendarDays = Math.round((lastDate - firstDate) / 86400000) + 1;
-    const snapPages = Math.max(1, Math.ceil(calendarDays / 7));
-    const totalSlots = snapPages * 7;
-    const emptyPadding = totalSlots - calendarDays;
+    const padding = Math.max(6, 7 - calendarDays);
+    const totalSlots = calendarDays + padding;
     const entryMap = new Map(sortedEntries.map((e) => [e.date, e]));
     const days = [];
-    for (let i = 0; i < emptyPadding; i++) {
+    for (let i = 0; i < padding; i++) {
       const d = new Date(firstDate);
-      d.setUTCDate(d.getUTCDate() - (emptyPadding - i));
+      d.setUTCDate(d.getUTCDate() - (padding - i));
       days.push({ date: toDateKey(d), entry: null, isPadding: true });
     }
     for (let i = 0; i < calendarDays; i++) {
@@ -485,35 +413,87 @@ export const StepTrackerModal = ({
         isPadding: false,
       });
     }
-    return { days, snapPageCount: snapPages };
+    return { days, totalSlots };
   }, [viewMode, sortedEntries]);
 
-  // Global chart data for 7d
+  // Build continuous timeline for 30d mode
+  const timeline30d = useMemo(() => {
+    if (viewMode !== '30d' || !sortedEntries.length)
+      return { days: [], totalSlots: 0 };
+    const firstDate = new Date(sortedEntries[0].date + 'T00:00:00Z');
+    const lastDate = new Date(
+      sortedEntries[sortedEntries.length - 1].date + 'T00:00:00Z'
+    );
+    const calendarDays = Math.round((lastDate - firstDate) / 86400000) + 1;
+    const padding = Math.max(29, 30 - calendarDays);
+    const totalSlots = calendarDays + padding;
+    const entryMap = new Map(sortedEntries.map((e) => [e.date, e]));
+    const days = [];
+    for (let i = 0; i < padding; i++) {
+      const d = new Date(firstDate);
+      d.setUTCDate(d.getUTCDate() - (padding - i));
+      days.push({ date: toDateKey(d), entry: null, isPadding: true });
+    }
+    for (let i = 0; i < calendarDays; i++) {
+      const d = new Date(firstDate);
+      d.setUTCDate(d.getUTCDate() + i);
+      const key = toDateKey(d);
+      days.push({
+        date: key,
+        entry: entryMap.get(key) || null,
+        isPadding: false,
+      });
+    }
+    return { days, totalSlots };
+  }, [viewMode, sortedEntries]);
+
+  // Build continuous timeline for 12m mode
+  const timeline12m = useMemo(() => {
+    if (viewMode !== '12m' || !filledMonthGroups.length)
+      return { months: [], totalSlots: 0 };
+    const padding = Math.max(11, 12 - filledMonthGroups.length);
+    const totalSlots = filledMonthGroups.length + padding;
+    const months = [];
+    const firstGroup = filledMonthGroups[0];
+    for (let i = padding; i > 0; i--) {
+      const d = new Date(Date.UTC(firstGroup.year, firstGroup.month - i, 1));
+      const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+      months.push({
+        key,
+        label: d.toLocaleDateString('en-US', {
+          month: 'short',
+          timeZone: 'UTC',
+        }),
+        year: d.getUTCFullYear(),
+        month: d.getUTCMonth(),
+        entries: [],
+        avg: null,
+        isEmpty: true,
+      });
+    }
+    filledMonthGroups.forEach((m) => {
+      months.push(m);
+    });
+    return { months, totalSlots };
+  }, [viewMode, filledMonthGroups]);
+
+  // --- Global chart data (used for Y-axis in all modes) ---
   const globalChartData = useMemo(() => {
-    if (viewMode !== '7d' || !sortedEntries.length) return null;
+    if (viewMode === '12m') {
+      const values = filledMonthGroups
+        .filter((m) => !m.isEmpty && m.avg != null)
+        .map((m) => m.avg);
+      return values.length ? computeChartData(values, resolvedStepGoal) : null;
+    }
+    if (!sortedEntries.length) return null;
     return computeChartData(
       sortedEntries.map((e) => e.steps || 0),
       resolvedStepGoal
     );
-  }, [viewMode, sortedEntries, resolvedStepGoal]);
+  }, [viewMode, sortedEntries, filledMonthGroups, resolvedStepGoal]);
 
-  // Per-page chart data for 30d/12m
-  const pageChartData = useMemo(() => {
-    if (viewMode === '7d') return globalChartData;
-    if (!activePage) return null;
-    let values = [];
-    if (viewMode === '30d') {
-      values = activePage.entries.map((e) => e.steps || 0);
-    } else if (viewMode === '12m') {
-      values = activePage.months
-        .filter((m) => !m.isEmpty && m.avg != null)
-        .map((m) => m.avg);
-    }
-    return computeChartData(values, resolvedStepGoal);
-  }, [viewMode, activePage, globalChartData, resolvedStepGoal]);
-
-  const effectiveChartData =
-    viewMode === '7d' ? globalChartData : pageChartData;
+  // Chart data used for Y-axis display — always global for smooth continuous scrolling
+  const effectiveChartData = globalChartData;
 
   // 7d continuous: all bars
   const allBars7d = useMemo(() => {
@@ -550,71 +530,85 @@ export const StepTrackerModal = ({
     timeline7d,
   ]);
 
-  // 30d/12m: bars for the active page
-  const chartBars = useMemo(() => {
-    if (viewMode === '7d') return [];
-    if (!pageChartData || !activePage) return [];
-    const pad = viewMode === '30d' ? 12 : 24;
-    const usable = Math.max(chartWidth - pad * 2, 0);
-
-    if (viewMode === '30d') {
-      const startMs = new Date(activePage.startDate + 'T00:00:00Z').getTime();
-      const endMs = new Date(activePage.endDate + 'T00:00:00Z').getTime();
-      const rangeMs = endMs - startMs || 1;
-      return activePage.entries.map((e) => {
-        const ms = new Date(e.date + 'T00:00:00Z').getTime();
-        const fraction = (ms - startMs) / rangeMs;
-        const x = pad + fraction * usable;
-        const steps = e.steps || 0;
-        const norm = pageChartData.range > 0 ? steps / pageChartData.range : 0;
+  // 30d continuous: all bars in global coordinate space
+  const allBars30d = useMemo(() => {
+    if (viewMode !== '30d' || !sortedEntries.length || !globalChartData)
+      return [];
+    const { days } = timeline30d;
+    const STEP = chartWidth / 30;
+    const PAD = STEP / 2;
+    return days
+      .map((slot, i) => {
+        if (!slot.entry) return null;
+        const x = PAD + i * STEP;
+        const steps = slot.entry.steps || 0;
+        const norm =
+          globalChartData.range > 0 ? steps / globalChartData.range : 0;
         const bounded = Math.min(Math.max(norm, 0), 1);
         const barHeight = bounded * chartHeight;
         const y = chartHeight - barHeight;
         return {
-          date: e.date,
+          date: slot.date,
           steps,
-          source: e.source,
+          source: slot.entry.source,
           x,
           y,
           height: barHeight,
         };
-      });
-    }
+      })
+      .filter(Boolean);
+  }, [
+    viewMode,
+    sortedEntries,
+    globalChartData,
+    chartWidth,
+    chartHeight,
+    timeline30d,
+  ]);
 
-    if (viewMode === '12m') {
-      const count = activePage.months.length;
-      const step = count > 1 ? usable / (count - 1) : 0;
-      return activePage.months.map((m, i) => {
-        const x = pad + step * i;
-        if (m.isEmpty || m.avg == null) {
-          return {
-            date: m.key,
-            steps: 0,
-            x,
-            y: chartHeight,
-            height: 0,
-            label: m.label,
-            isEmpty: true,
-          };
-        }
-        const norm = pageChartData.range > 0 ? m.avg / pageChartData.range : 0;
-        const bounded = Math.min(Math.max(norm, 0), 1);
-        const barHeight = bounded * chartHeight;
-        const y = chartHeight - barHeight;
+  // 12m continuous: all bars in global coordinate space
+  const allBars12m = useMemo(() => {
+    if (viewMode !== '12m' || !filledMonthGroups.length || !globalChartData)
+      return [];
+    const { months } = timeline12m;
+    const STEP = chartWidth / 12;
+    const PAD = STEP / 2;
+    return months.map((m, i) => {
+      const x = PAD + i * STEP;
+      if (m.isEmpty || m.avg == null) {
         return {
           date: m.key,
-          steps: m.avg,
+          steps: 0,
           x,
-          y,
-          height: barHeight,
+          y: chartHeight,
+          height: 0,
           label: m.label,
-          entryCount: m.entries.length,
+          isEmpty: true,
         };
-      });
-    }
-
-    return [];
-  }, [pageChartData, activePage, viewMode, chartWidth, chartHeight]);
+      }
+      const norm =
+        globalChartData.range > 0 ? m.avg / globalChartData.range : 0;
+      const bounded = Math.min(Math.max(norm, 0), 1);
+      const barHeight = bounded * chartHeight;
+      const y = chartHeight - barHeight;
+      return {
+        date: m.key,
+        steps: m.avg,
+        x,
+        y,
+        height: barHeight,
+        label: m.label,
+        entryCount: m.entries.length,
+      };
+    });
+  }, [
+    viewMode,
+    filledMonthGroups,
+    globalChartData,
+    chartWidth,
+    chartHeight,
+    timeline12m,
+  ]);
 
   // Y ticks
   const yTicks = useMemo(() => {
@@ -773,38 +767,105 @@ export const StepTrackerModal = ({
     });
   }, [currentStepsValue, weight, height, gender]);
 
-  // Per-page dynamic stat for 30d and 12m
+  // Per-window dynamic stat for 30d and 12m
   const pageAverage = useMemo(() => {
-    if (!activePage) return null;
     if (viewMode === '30d') {
-      const vals = activePage.entries.map((e) => e.steps || 0);
+      const { days } = timeline30d;
+      if (!days.length) return null;
+      const startIdx = Math.max(
+        0,
+        Math.min(
+          activePageIndex >= 0 ? activePageIndex : days.length - 30,
+          days.length - 30
+        )
+      );
+      const windowDays = days.slice(startIdx, startIdx + 30);
+      const vals = windowDays
+        .filter((d) => d.entry)
+        .map((d) => d.entry.steps || 0);
       if (!vals.length) return null;
       return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
     }
     if (viewMode === '12m') {
-      const vals = activePage.months
-        .filter((m) => m.avg != null)
-        .map((m) => m.avg);
+      const { months } = timeline12m;
+      if (!months.length) return null;
+      const startIdx = Math.max(
+        0,
+        Math.min(
+          activePageIndex >= 0 ? activePageIndex : months.length - 12,
+          months.length - 12
+        )
+      );
+      const windowMonths = months.slice(startIdx, startIdx + 12);
+      const vals = windowMonths.filter((m) => m.avg != null).map((m) => m.avg);
       if (!vals.length) return null;
       return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
     }
     return null;
-  }, [activePage, viewMode]);
+  }, [viewMode, timeline30d, timeline12m, activePageIndex]);
 
   const pageTimeframeRange = useMemo(() => {
-    if (!activePage) return '';
-    return `${formatShortDate(activePage.startDate)} - ${formatShortDate(activePage.endDate)}`;
-  }, [activePage]);
+    if (viewMode === '30d') {
+      const { days } = timeline30d;
+      if (!days.length) return '';
+      const startIdx = Math.max(
+        0,
+        Math.min(
+          activePageIndex >= 0 ? activePageIndex : days.length - 30,
+          days.length - 30
+        )
+      );
+      const windowDays = days.slice(startIdx, startIdx + 30);
+      return `${formatShortDate(windowDays[0]?.date)} - ${formatShortDate(windowDays[windowDays.length - 1]?.date)}`;
+    }
+    if (viewMode === '12m') {
+      const { months } = timeline12m;
+      if (!months.length) return '';
+      const startIdx = Math.max(
+        0,
+        Math.min(
+          activePageIndex >= 0 ? activePageIndex : months.length - 12,
+          months.length - 12
+        )
+      );
+      const windowMonths = months.slice(startIdx, startIdx + 12);
+      const firstMonth = windowMonths[0];
+      const lastMonth = windowMonths[windowMonths.length - 1];
+      if (!firstMonth || !lastMonth) return '';
+      return `${formatShortDate(firstMonth.key + '-01')} - ${formatShortDate(lastMonth.key + '-28')}`;
+    }
+    return '';
+  }, [viewMode, timeline30d, timeline12m, activePageIndex]);
 
-  // Aggregated distance & calories for 30d/12m pages
+  // Aggregated distance & calories for 30d/12m windows
   const pageStepDetails = useMemo(() => {
-    if (!activePage || !weight || !height)
+    if (!weight || !height)
       return { distanceKm: 0, calories: 0, totalSteps: 0 };
     let allEntries = [];
     if (viewMode === '30d') {
-      allEntries = activePage.entries;
+      const { days } = timeline30d;
+      if (!days.length) return { distanceKm: 0, calories: 0, totalSteps: 0 };
+      const startIdx = Math.max(
+        0,
+        Math.min(
+          activePageIndex >= 0 ? activePageIndex : days.length - 30,
+          days.length - 30
+        )
+      );
+      const windowDays = days.slice(startIdx, startIdx + 30);
+      allEntries = windowDays.filter((d) => d.entry).map((d) => d.entry);
     } else if (viewMode === '12m') {
-      allEntries = activePage.months.flatMap((m) => m.entries || []);
+      const { months } = timeline12m;
+      if (!months.length) return { distanceKm: 0, calories: 0, totalSteps: 0 };
+      const startIdx = Math.max(
+        0,
+        Math.min(
+          activePageIndex >= 0 ? activePageIndex : months.length - 12,
+          months.length - 12
+        )
+      );
+      const windowMonths = months.slice(startIdx, startIdx + 12);
+      allEntries = windowMonths.flatMap((m) => m.entries || []);
     }
     let totalSteps = 0;
     let totalDistance = 0;
@@ -821,7 +882,15 @@ export const StepTrackerModal = ({
       totalCalories += details.calories;
     }
     return { distanceKm: totalDistance, calories: totalCalories, totalSteps };
-  }, [activePage, viewMode, weight, height, gender]);
+  }, [
+    viewMode,
+    timeline30d,
+    timeline12m,
+    activePageIndex,
+    weight,
+    height,
+    gender,
+  ]);
 
   // --- Tooltip ---
   const selectedBar = useMemo(() => {
@@ -829,8 +898,14 @@ export const StepTrackerModal = ({
     if (viewMode === '7d') {
       return allBars7d.find((b) => b.date === selectedDate) ?? null;
     }
-    return chartBars.find((b) => b.date === selectedDate) ?? null;
-  }, [selectedDate, viewMode, allBars7d, chartBars]);
+    if (viewMode === '30d') {
+      return allBars30d.find((b) => b.date === selectedDate) ?? null;
+    }
+    if (viewMode === '12m') {
+      return allBars12m.find((b) => b.date === selectedDate) ?? null;
+    }
+    return null;
+  }, [selectedDate, viewMode, allBars7d, allBars30d, allBars12m]);
 
   const closeTooltip = useCallback(() => {
     setTooltipClosing(true);
@@ -914,22 +989,16 @@ export const StepTrackerModal = ({
     if (!selectedBar) return;
     const node = carouselRef.current;
     if (!node) return;
-
-    if (viewMode === '7d') {
-      const rect = node.getBoundingClientRect();
-      const rawX = rect.left + selectedBar.x - node.scrollLeft;
-      const rawY = rect.top + 16 + selectedBar.y;
-      setTooltipPosition({ x: rawX, y: rawY });
-    } else {
-      const svgNodes = node.querySelectorAll('svg');
-      const svg = svgNodes[resolvedPageIndex];
-      if (!svg) return;
-      const svgRect = svg.getBoundingClientRect();
-      const rawX = svgRect.left + selectedBar.x;
-      const rawY = svgRect.top + selectedBar.y;
-      setTooltipPosition({ x: rawX, y: rawY });
-    }
-  }, [selectedBar, resolvedPageIndex, viewMode]);
+    // All modes now use continuous scrolling — account for scroll offset
+    const rect = node.getBoundingClientRect();
+    const bracketArea =
+      viewMode === '7d' && weekBrackets.length > 0
+        ? WEEK_BRACKET_HEIGHT + WEEK_BRACKET_TOP_PADDING
+        : 0;
+    const rawX = rect.left + selectedBar.x - node.scrollLeft;
+    const rawY = rect.top + bracketArea + 8 + selectedBar.y;
+    setTooltipPosition({ x: rawX, y: rawY });
+  }, [selectedBar, viewMode, weekBrackets.length]);
 
   useIsomorphicLayoutEffect(() => {
     if (!selectedBar) return undefined;
@@ -1003,216 +1072,189 @@ export const StepTrackerModal = ({
     );
   };
 
-  // --- Render page graph (30d / 12m only) ---
-  const renderPageGraph = (page, idx) => {
-    let values = [];
-    if (viewMode === '30d') values = page.entries.map((e) => e.steps || 0);
-    else if (viewMode === '12m')
-      values = page.months
-        .filter((m) => !m.isEmpty && m.avg != null)
-        .map((m) => m.avg);
-
-    const pcd = computeChartData(values, resolvedStepGoal);
-    if (!pcd) {
-      return (
-        <div
-          key={idx}
-          className="flex-shrink-0 flex items-center justify-center"
-          style={{ width: `${chartWidth}px`, scrollSnapAlign: 'start' }}
-        >
-          <p className="text-muted text-lg">No data for this period.</p>
-        </div>
-      );
-    }
-
-    const pad = viewMode === '30d' ? 12 : 24;
-    const usable = Math.max(chartWidth - pad * 2, 0);
-    const curBarW =
-      viewMode === '12m'
-        ? BAR_WIDTH_12M
-        : viewMode === '30d'
-          ? BAR_WIDTH_30D
-          : BAR_WIDTH;
-    const curBarR =
-      viewMode === '12m'
-        ? BAR_RADIUS_12M
-        : viewMode === '30d'
-          ? BAR_RADIUS_30D
-          : BAR_RADIUS;
-
-    let bars = [];
-    if (viewMode === '30d') {
-      const startMs = new Date(page.startDate + 'T00:00:00Z').getTime();
-      const endMs = new Date(page.endDate + 'T00:00:00Z').getTime();
-      const rangeMs = endMs - startMs || 1;
-      bars = page.entries.map((e) => {
-        const ms = new Date(e.date + 'T00:00:00Z').getTime();
-        const fraction = (ms - startMs) / rangeMs;
-        const x = pad + fraction * usable;
-        const steps = e.steps || 0;
-        const norm = pcd.range > 0 ? steps / pcd.range : 0;
-        const bounded = Math.min(Math.max(norm, 0), 1);
-        const barHeight = bounded * chartHeight;
-        const y = chartHeight - barHeight;
-        return { date: e.date, steps, x, y, height: barHeight };
-      });
-    } else if (viewMode === '12m') {
-      const count = page.months.length;
-      const step = count > 1 ? usable / (count - 1) : 0;
-      bars = page.months.map((m, i) => {
-        const x = pad + step * i;
-        if (m.isEmpty || m.avg == null) {
-          return {
-            date: m.key,
-            steps: 0,
-            x,
-            y: chartHeight,
-            height: 0,
-            label: m.label,
-            isEmpty: true,
-          };
-        }
-        const norm = pcd.range > 0 ? m.avg / pcd.range : 0;
-        const bounded = Math.min(Math.max(norm, 0), 1);
-        const barHeight = bounded * chartHeight;
-        const y = chartHeight - barHeight;
-        return {
-          date: m.key,
-          steps: m.avg,
-          x,
-          y,
-          height: barHeight,
-          label: m.label,
-          entryCount: m.entries.length,
-        };
-      });
-    }
-
-    // Goal line y for this page
-    const pageGoalY =
-      pcd.range > 0
-        ? (1 - Math.min(Math.max(resolvedStepGoal / pcd.range, 0), 1)) *
-          chartHeight
-        : null;
-
-    // Y ticks for this page
-    const ySteps = Math.max(Y_TICK_COUNT - 1, 1);
-    const pageTicks = Array.from(
-      { length: Y_TICK_COUNT },
-      (_, i) => pcd.maxSteps - (pcd.range / ySteps) * i
-    );
-    const pageTickPositions = pageTicks.map((v, i) => {
-      const norm = pcd.range > 0 ? v / pcd.range : 0;
-      const bounded = Math.min(Math.max(norm, 0), 1);
-      const y = (1 - bounded) * chartHeight;
-      const isTop = i === 0;
-      const isBottom = i === pageTicks.length - 1;
-      const lineY = isTop ? 0 : isBottom ? chartHeight : y;
-      return { value: v, index: i, lineY };
-    });
-
-    // Timeline labels
-    let timelineLabels = [];
-    if (viewMode === '30d') {
-      const startDate = new Date(page.startDate + 'T00:00:00Z');
-      const startMs = startDate.getTime();
-      const endMs = new Date(page.endDate + 'T00:00:00Z').getTime();
-      const rangeMs = endMs - startMs || 1;
-      for (let i = 0; i <= 30; i += 5) {
-        const d = new Date(startDate);
-        d.setUTCDate(d.getUTCDate() + Math.min(i, 29));
-        const fraction = (d.getTime() - startMs) / rangeMs;
-        timelineLabels.push({
-          x: pad + Math.min(fraction, 1) * usable,
-          label: formatTimelineLabel(toDateKey(d)),
-          date: toDateKey(d),
-        });
-      }
-    } else if (viewMode === '12m') {
-      const count = page.months.length;
-      const step = count > 1 ? usable / (count - 1) : 0;
-      timelineLabels = page.months.map((m, i) => ({
-        x: pad + step * i,
-        label: m.label,
-        date: m.key,
-        isEmpty: !!m.isEmpty,
-      }));
-    }
+  // --- Render continuous bar chart (shared helper for 30d / 12m) ---
+  const renderContinuousBarChart = (bars, timeline, windowSize, barW, barR) => {
+    const STEP = chartWidth / windowSize;
+    const totalSlots = timeline.length;
+    const totalWidth = totalSlots * STEP;
 
     return (
       <div
-        key={idx}
-        className="flex-shrink-0 flex flex-col"
-        style={{ width: `${chartWidth}px`, scrollSnapAlign: 'start' }}
+        style={{
+          width: `${totalWidth}px`,
+          height: '100%',
+          position: 'relative',
+        }}
       >
-        <div className="flex-1 py-[8px]">
+        {/* SVG chart layer */}
+        <div
+          className="absolute left-0"
+          style={{
+            top: '8px',
+            width: `${totalWidth}px`,
+            height: `${chartHeight}px`,
+          }}
+        >
           <svg
-            width={chartWidth}
+            width={totalWidth}
             height={chartHeight}
-            viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+            viewBox={`0 0 ${totalWidth} ${chartHeight}`}
             preserveAspectRatio="none"
           >
-            <g>
-              {pageTickPositions.map(({ index: gi, lineY }) => {
-                const isBaseline = gi === pageTickPositions.length - 1;
-                const yVal = isBaseline ? getBaselineY(lineY) : lineY;
-                return (
-                  <line
-                    key={`grid-${gi}`}
-                    x1="0"
-                    y1={yVal}
-                    x2={chartWidth}
-                    y2={yVal}
-                    stroke={
-                      isBaseline
-                        ? 'rgb(var(--foreground) / 0.6)'
-                        : 'currentColor'
-                    }
-                    strokeWidth={isBaseline ? 2 : 1}
-                    strokeDasharray={isBaseline ? 'none' : '4 6'}
-                    className={
-                      isBaseline ? 'opacity-80' : 'text-muted opacity-60'
-                    }
-                  />
-                );
-              })}
-            </g>
-            {renderGoalLine(chartWidth, pageGoalY)}
+            {/* Grid lines spanning full width */}
+            {yTickPositions.map(({ index: gi, lineY }) => {
+              const isBaseline = gi === yTickPositions.length - 1;
+              const yVal = isBaseline ? getBaselineY(lineY) : lineY;
+              return (
+                <line
+                  key={`grid-${gi}`}
+                  x1={0}
+                  y1={yVal}
+                  x2={totalWidth}
+                  y2={yVal}
+                  stroke={
+                    isBaseline ? 'rgb(var(--foreground) / 0.6)' : 'currentColor'
+                  }
+                  strokeWidth={isBaseline ? 2 : 1}
+                  strokeDasharray={isBaseline ? 'none' : '4 6'}
+                  className={
+                    isBaseline ? 'opacity-80' : 'text-muted opacity-60'
+                  }
+                />
+              );
+            })}
+            {renderGoalLine(totalWidth, goalLineY)}
             {bars.map((bar) =>
               renderBar(
                 bar,
-                curBarW,
-                curBarR,
-                (date, e) =>
-                  idx === resolvedPageIndex && handleDateClick(date, e),
+                barW,
+                barR,
+                handleDateClick,
                 selectedDate === bar.date
               )
             )}
           </svg>
         </div>
-        <div className="flex-shrink-0 pb-2">
+
+        {/* Per-slot snap targets + timeline labels */}
+        <div className="flex h-full">{timeline.map((slot) => slot)}</div>
+      </div>
+    );
+  };
+
+  // --- Render 30d continuous chart ---
+  const render30dContinuous = () => {
+    if (!globalChartData || !allBars30d.length) {
+      return (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Footprints size={48} className="text-muted mx-auto mb-3" />
+            <p className="text-muted text-lg">No step data yet</p>
+          </div>
+        </div>
+      );
+    }
+
+    const STEP = chartWidth / 30;
+    const timelineSlots = timeline30d.days.map((s, i) => {
+      const showLabel = i % 5 === 0;
+      const hasEntry = !!s.entry;
+      return (
+        <div
+          key={s.date}
+          className="flex-shrink-0 flex flex-col justify-end"
+          style={{ width: `${STEP}px`, scrollSnapAlign: 'start' }}
+        >
+          <div className="pb-2">
+            <div
+              className="relative"
+              style={{ height: `${TIMELINE_TRACK_HEIGHT}px` }}
+            >
+              {showLabel && (
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-pointer"
+                  data-date-label
+                  style={{ left: `${STEP / 2}px` }}
+                  onClick={(e) => handleLabelClick(s.date, e)}
+                >
+                  <span
+                    className={`text-[11px] font-semibold whitespace-nowrap ${
+                      !hasEntry
+                        ? 'text-muted/30'
+                        : s.date === latestDate
+                          ? 'text-accent-blue'
+                          : 'text-muted'
+                    }`}
+                  >
+                    {formatTimelineLabel(s.date)}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    });
+
+    return renderContinuousBarChart(
+      allBars30d,
+      timelineSlots,
+      30,
+      BAR_WIDTH_30D,
+      BAR_RADIUS_30D
+    );
+  };
+
+  // --- Render 12m continuous chart ---
+  const render12mContinuous = () => {
+    if (!globalChartData || !allBars12m.length) {
+      return (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Footprints size={48} className="text-muted mx-auto mb-3" />
+            <p className="text-muted text-lg">No step data yet</p>
+          </div>
+        </div>
+      );
+    }
+
+    const STEP = chartWidth / 12;
+    const timelineSlots = timeline12m.months.map((m) => (
+      <div
+        key={m.key}
+        className="flex-shrink-0 flex flex-col justify-end"
+        style={{ width: `${STEP}px`, scrollSnapAlign: 'start' }}
+      >
+        <div className="pb-2">
           <div
             className="relative"
             style={{ height: `${TIMELINE_TRACK_HEIGHT}px` }}
           >
-            {timelineLabels.map((l) => (
-              <div
-                key={l.date}
-                className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2"
-                style={{ left: `${l.x}px` }}
+            <div
+              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-pointer"
+              data-date-label
+              style={{ left: `${STEP / 2}px` }}
+              onClick={(e) => handleLabelClick(m.key, e)}
+            >
+              <span
+                className={`text-[11px] font-semibold whitespace-nowrap ${
+                  m.isEmpty ? 'text-muted/30' : 'text-muted'
+                }`}
               >
-                <span
-                  className={`text-[13px] font-semibold ${
-                    l.isEmpty ? 'text-muted/30' : 'text-muted'
-                  }`}
-                >
-                  {l.label}
-                </span>
-              </div>
-            ))}
+                {m.label}
+              </span>
+            </div>
           </div>
         </div>
       </div>
+    ));
+
+    return renderContinuousBarChart(
+      allBars12m,
+      timelineSlots,
+      12,
+      BAR_WIDTH_12M,
+      BAR_RADIUS_12M
     );
   };
 
@@ -1226,8 +1268,9 @@ export const StepTrackerModal = ({
       );
     }
 
-    const snapPageCount = timeline7d.snapPageCount;
-    const totalWidth = snapPageCount * chartWidth;
+    const STEP = chartWidth / 7;
+    const totalSlots = timeline7d.totalSlots;
+    const totalWidth = totalSlots * STEP;
     const bracketAreaHeight =
       weekBrackets.length > 0
         ? WEEK_BRACKET_HEIGHT + WEEK_BRACKET_TOP_PADDING
@@ -1352,31 +1395,27 @@ export const StepTrackerModal = ({
             viewBox={`0 0 ${totalWidth} ${chartHeight}`}
             preserveAspectRatio="none"
           >
-            {Array.from({ length: snapPageCount }, (_, pi) =>
-              yTickPositions.map(({ index: gi, lineY }) => {
-                const isBaseline = gi === yTickPositions.length - 1;
-                const yVal = isBaseline ? getBaselineY(lineY) : lineY;
-                return (
-                  <line
-                    key={`grid-${pi}-${gi}`}
-                    x1={pi * chartWidth}
-                    y1={yVal}
-                    x2={(pi + 1) * chartWidth}
-                    y2={yVal}
-                    stroke={
-                      isBaseline
-                        ? 'rgb(var(--foreground) / 0.6)'
-                        : 'currentColor'
-                    }
-                    strokeWidth={isBaseline ? 2 : 1}
-                    strokeDasharray={isBaseline ? 'none' : '4 6'}
-                    className={
-                      isBaseline ? 'opacity-80' : 'text-muted opacity-60'
-                    }
-                  />
-                );
-              })
-            )}
+            {yTickPositions.map(({ index: gi, lineY }) => {
+              const isBaseline = gi === yTickPositions.length - 1;
+              const yVal = isBaseline ? getBaselineY(lineY) : lineY;
+              return (
+                <line
+                  key={`grid-${gi}`}
+                  x1={0}
+                  y1={yVal}
+                  x2={totalWidth}
+                  y2={yVal}
+                  stroke={
+                    isBaseline ? 'rgb(var(--foreground) / 0.6)' : 'currentColor'
+                  }
+                  strokeWidth={isBaseline ? 2 : 1}
+                  strokeDasharray={isBaseline ? 'none' : '4 6'}
+                  className={
+                    isBaseline ? 'opacity-80' : 'text-muted opacity-60'
+                  }
+                />
+              );
+            })}
             {renderGoalLine(totalWidth, goalLineY)}
             {allBars7d.map((bar) =>
               renderBar(
@@ -1390,55 +1429,42 @@ export const StepTrackerModal = ({
           </svg>
         </div>
         <div className="flex h-full">
-          {Array.from({ length: snapPageCount }, (_, pi) => {
-            const STEP = chartWidth / 7;
-            const PAD = STEP / 2;
-            const pageSlots = timeline7d.days.slice(pi * 7, pi * 7 + 7);
-
+          {timeline7d.days.map((s) => {
+            const hasEntry = !!s.entry;
+            const isEmpty = !hasEntry;
             return (
               <div
-                key={pi}
+                key={s.date}
                 className="flex-shrink-0 flex flex-col justify-end"
-                style={{
-                  width: `${chartWidth}px`,
-                  scrollSnapAlign: 'start',
-                }}
+                style={{ width: `${STEP}px`, scrollSnapAlign: 'start' }}
               >
                 <div className="pb-2">
                   <div
                     className="relative"
                     style={{ height: `${TIMELINE_TRACK_HEIGHT}px` }}
                   >
-                    {pageSlots.map((s, si) => {
-                      const localX = PAD + si * STEP;
-                      const hasEntry = !!s.entry;
-                      const isEmpty = !hasEntry;
-                      return (
-                        <div
-                          key={s.date}
-                          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-pointer"
-                          data-date-label
-                          style={{ left: `${localX}px` }}
-                          onClick={(e) => handleLabelClick(s.date, e)}
-                        >
-                          <span
-                            className={`text-[13px] font-semibold ${
-                              isEmpty
-                                ? getWeekday(s.date) === 'Sun'
-                                  ? 'text-accent-red/40'
-                                  : 'text-muted/30'
-                                : s.date === latestDate
-                                  ? 'text-accent-blue'
-                                  : getWeekday(s.date) === 'Sun'
-                                    ? 'text-accent-red'
-                                    : 'text-muted'
-                            }`}
-                          >
-                            {formatTimelineLabel(s.date)}
-                          </span>
-                        </div>
-                      );
-                    })}
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-pointer"
+                      data-date-label
+                      style={{ left: `${STEP / 2}px` }}
+                      onClick={(e) => handleLabelClick(s.date, e)}
+                    >
+                      <span
+                        className={`text-[13px] font-semibold ${
+                          isEmpty
+                            ? getWeekday(s.date) === 'Sun'
+                              ? 'text-accent-red/40'
+                              : 'text-muted/30'
+                            : s.date === latestDate
+                              ? 'text-accent-blue'
+                              : getWeekday(s.date) === 'Sun'
+                                ? 'text-accent-red'
+                                : 'text-muted'
+                        }`}
+                      >
+                        {formatTimelineLabel(s.date)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1661,15 +1687,17 @@ export const StepTrackerModal = ({
                   ref={carouselRef}
                   className="overflow-x-auto overflow-y-hidden h-full flex"
                   style={{
-                    scrollSnapType: 'x mandatory',
+                    scrollSnapType: 'x proximity',
                     WebkitOverflowScrolling: 'touch',
                   }}
                   onScroll={handleCarouselScroll}
                 >
                   {viewMode === '7d' ? (
                     render7dContinuous()
-                  ) : pages.length > 0 ? (
-                    pages.map((page, idx) => renderPageGraph(page, idx))
+                  ) : viewMode === '30d' ? (
+                    render30dContinuous()
+                  ) : viewMode === '12m' ? (
+                    render12mContinuous()
                   ) : (
                     <div className="flex-1 flex items-center justify-center">
                       <div className="text-center">

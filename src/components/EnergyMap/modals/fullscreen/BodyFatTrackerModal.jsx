@@ -208,81 +208,6 @@ const getOldDataWarningText = (dateKey) => {
 const toDateKey = (d) => d.toISOString().slice(0, 10);
 
 // ---------------------------------------------------------------------------
-// Page generation helpers
-// ---------------------------------------------------------------------------
-
-const chunk = (arr, size) => {
-  const out = [];
-  for (let i = 0; i < arr.length; i += size) {
-    out.push(arr.slice(i, i + size));
-  }
-  return out;
-};
-
-const build7DayPages = (sortedEntries) => {
-  if (!sortedEntries.length) return [];
-  const chunks = chunk(sortedEntries, 7);
-  return chunks.map((entries, idx) => ({
-    entries,
-    startDate: entries[0].date,
-    endDate: entries[entries.length - 1].date,
-    pageIndex: idx,
-  }));
-};
-
-const build30DayPages = (sortedEntries) => {
-  if (!sortedEntries.length) return [];
-
-  const earliest = new Date(sortedEntries[0].date + 'T00:00:00Z');
-  const latest = new Date(
-    sortedEntries[sortedEntries.length - 1].date + 'T00:00:00Z'
-  );
-
-  const pages = [];
-  let windowEnd = new Date(latest);
-
-  while (windowEnd >= earliest) {
-    const windowStart = new Date(windowEnd);
-    windowStart.setUTCDate(windowStart.getUTCDate() - 29); // 30 days inclusive
-
-    const startMs = windowStart.getTime();
-    const endMs = windowEnd.getTime();
-    const entries = sortedEntries.filter((e) => {
-      const ms = new Date(e.date + 'T00:00:00Z').getTime();
-      return ms >= startMs && ms <= endMs;
-    });
-
-    if (entries.length > 0) {
-      pages.unshift({
-        entries,
-        startDate: toDateKey(windowStart),
-        endDate: toDateKey(windowEnd),
-        pageIndex: 0,
-      });
-    }
-
-    // Move window back by 30 days
-    windowEnd.setUTCDate(windowEnd.getUTCDate() - 30);
-  }
-
-  pages.forEach((p, i) => {
-    p.pageIndex = i;
-  });
-  return pages;
-};
-
-const build12MonthPages = (monthGroups) => {
-  if (!monthGroups.length) return [];
-  const chunks = chunk(monthGroups, 12);
-  return chunks.map((months, idx) => ({
-    months,
-    startDate: months[0].key + '-01',
-    endDate: months[months.length - 1].key + '-28',
-    pageIndex: idx,
-  }));
-};
-
-// ---------------------------------------------------------------------------
 // Chart data helpers (per-page)
 // ---------------------------------------------------------------------------
 
@@ -645,7 +570,10 @@ export const BodyFatTrackerModal = ({
       const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
       months.push({
         key,
-        label: d.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }),
+        label: d.toLocaleDateString('en-US', {
+          month: 'short',
+          timeZone: 'UTC',
+        }),
         year: d.getUTCFullYear(),
         month: d.getUTCMonth(),
         entries: [],
@@ -705,7 +633,14 @@ export const BodyFatTrackerModal = ({
         return { date: slot.date, value: slot.entry.bodyFat, x, y };
       })
       .filter(Boolean);
-  }, [viewMode, sortedEntries, globalChartData, chartWidth, chartHeight, timeline30d]);
+  }, [
+    viewMode,
+    sortedEntries,
+    globalChartData,
+    chartWidth,
+    chartHeight,
+    timeline30d,
+  ]);
 
   // 12m continuous: all points in global coordinate space
   const allPoints12m = useMemo(() => {
@@ -718,14 +653,20 @@ export const BodyFatTrackerModal = ({
       .map((m, i) => {
         if (m.isEmpty || m.avg == null) return null;
         const x = PAD + i * STEP;
-        const norm =
-          (m.avg - globalChartData.minValue) / globalChartData.range;
+        const norm = (m.avg - globalChartData.minValue) / globalChartData.range;
         const bounded = Math.min(Math.max(norm, 0), 1);
         const y = (1 - bounded) * chartHeight;
         return { date: m.key, value: m.avg, x, y, label: m.label };
       })
       .filter(Boolean);
-  }, [viewMode, filledMonthGroups, globalChartData, chartWidth, chartHeight, timeline12m]);
+  }, [
+    viewMode,
+    filledMonthGroups,
+    globalChartData,
+    chartWidth,
+    chartHeight,
+    timeline12m,
+  ]);
 
   // Y ticks (use effectiveChartData — global for 7d, per-page for 30d/12m)
   const yTicks = useMemo(() => {
@@ -817,26 +758,38 @@ export const BodyFatTrackerModal = ({
     if (viewMode === '30d') {
       const { days } = timeline30d;
       if (!days.length) return null;
-      const startIdx = Math.max(0, Math.min(
-        activePageIndex >= 0 ? activePageIndex : days.length - 30,
-        days.length - 30
-      ));
+      const startIdx = Math.max(
+        0,
+        Math.min(
+          activePageIndex >= 0 ? activePageIndex : days.length - 30,
+          days.length - 30
+        )
+      );
       const windowDays = days.slice(startIdx, startIdx + 30);
-      const vals = windowDays.filter((d) => d.entry).map((d) => d.entry.bodyFat);
+      const vals = windowDays
+        .filter((d) => d.entry)
+        .map((d) => d.entry.bodyFat);
       if (!vals.length) return null;
-      return Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10;
+      return (
+        Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10
+      );
     }
     if (viewMode === '12m') {
       const { months } = timeline12m;
       if (!months.length) return null;
-      const startIdx = Math.max(0, Math.min(
-        activePageIndex >= 0 ? activePageIndex : months.length - 12,
-        months.length - 12
-      ));
+      const startIdx = Math.max(
+        0,
+        Math.min(
+          activePageIndex >= 0 ? activePageIndex : months.length - 12,
+          months.length - 12
+        )
+      );
       const windowMonths = months.slice(startIdx, startIdx + 12);
       const vals = windowMonths.filter((m) => m.avg != null).map((m) => m.avg);
       if (!vals.length) return null;
-      return Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10;
+      return (
+        Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10
+      );
     }
     return null;
   }, [viewMode, timeline30d, timeline12m, activePageIndex]);
@@ -845,10 +798,13 @@ export const BodyFatTrackerModal = ({
     if (viewMode !== '12m') return 0;
     const { months } = timeline12m;
     if (!months.length) return 0;
-    const startIdx = Math.max(0, Math.min(
-      activePageIndex >= 0 ? activePageIndex : months.length - 12,
-      months.length - 12
-    ));
+    const startIdx = Math.max(
+      0,
+      Math.min(
+        activePageIndex >= 0 ? activePageIndex : months.length - 12,
+        months.length - 12
+      )
+    );
     const windowMonths = months.slice(startIdx, startIdx + 12);
     return windowMonths.reduce((sum, m) => sum + (m.entries?.length || 0), 0);
   }, [viewMode, timeline12m, activePageIndex]);
@@ -857,20 +813,26 @@ export const BodyFatTrackerModal = ({
     if (viewMode === '30d') {
       const { days } = timeline30d;
       if (!days.length) return '';
-      const startIdx = Math.max(0, Math.min(
-        activePageIndex >= 0 ? activePageIndex : days.length - 30,
-        days.length - 30
-      ));
+      const startIdx = Math.max(
+        0,
+        Math.min(
+          activePageIndex >= 0 ? activePageIndex : days.length - 30,
+          days.length - 30
+        )
+      );
       const windowDays = days.slice(startIdx, startIdx + 30);
       return `${formatShortDate(windowDays[0]?.date)} - ${formatShortDate(windowDays[windowDays.length - 1]?.date)}`;
     }
     if (viewMode === '12m') {
       const { months } = timeline12m;
       if (!months.length) return '';
-      const startIdx = Math.max(0, Math.min(
-        activePageIndex >= 0 ? activePageIndex : months.length - 12,
-        months.length - 12
-      ));
+      const startIdx = Math.max(
+        0,
+        Math.min(
+          activePageIndex >= 0 ? activePageIndex : months.length - 12,
+          months.length - 12
+        )
+      );
       const windowMonths = months.slice(startIdx, startIdx + 12);
       return `${formatShortDate(windowMonths[0]?.key + '-01')} - ${formatShortDate(windowMonths[windowMonths.length - 1]?.key + '-28')}`;
     }
@@ -900,11 +862,19 @@ export const BodyFatTrackerModal = ({
     if (viewMode === '30d') {
       const real = allPoints30d.find((p) => p.date === selectedDate);
       if (real) return real;
-      const slotIdx = timeline30d.days.findIndex((d) => d.date === selectedDate);
+      const slotIdx = timeline30d.days.findIndex(
+        (d) => d.date === selectedDate
+      );
       if (slotIdx >= 0) {
         const STEP = chartWidth / 30;
         const PAD = STEP / 2;
-        return { date: selectedDate, value: null, x: PAD + slotIdx * STEP, y: chartHeight, isGhost: true };
+        return {
+          date: selectedDate,
+          value: null,
+          x: PAD + slotIdx * STEP,
+          y: chartHeight,
+          isGhost: true,
+        };
       }
       return null;
     }
@@ -912,7 +882,17 @@ export const BodyFatTrackerModal = ({
       return allPoints12m.find((p) => p.date === selectedDate) ?? null;
     }
     return null;
-  }, [selectedDate, viewMode, allPoints7d, allPoints30d, allPoints12m, timeline7d, timeline30d, chartWidth, chartHeight]);
+  }, [
+    selectedDate,
+    viewMode,
+    allPoints7d,
+    allPoints30d,
+    allPoints12m,
+    timeline7d,
+    timeline30d,
+    chartWidth,
+    chartHeight,
+  ]);
 
   const closeTooltip = useCallback(() => {
     setTooltipClosing(true);
@@ -1027,7 +1007,7 @@ export const BodyFatTrackerModal = ({
     const rawX = rect.left + selectedPoint.x - node.scrollLeft;
     const rawY = rect.top + 16 + selectedPoint.y;
     setTooltipPosition({ x: rawX, y: rawY });
-  }, [selectedPoint, viewMode]);
+  }, [selectedPoint]);
 
   useIsomorphicLayoutEffect(() => {
     if (!selectedPoint) return undefined;
@@ -1042,7 +1022,13 @@ export const BodyFatTrackerModal = ({
   const pointHitRadius = MODE_POINT[viewMode]?.hitRadius ?? 12;
 
   // --- Render continuous chart (shared helper) ---
-  const renderContinuousChart = (points, timeline, windowSize, gradIdSuffix, strokeW = '3') => {
+  const renderContinuousChart = (
+    points,
+    timeline,
+    windowSize,
+    gradIdSuffix,
+    strokeW = '3'
+  ) => {
     const STEP = chartWidth / windowSize;
     const totalSlots = timeline.length;
     const totalWidth = totalSlots * STEP;
@@ -1159,9 +1145,7 @@ export const BodyFatTrackerModal = ({
         </div>
 
         {/* Per-slot snap targets + timeline labels */}
-        <div className="flex h-full">
-          {timeline.map((slot) => slot)}
-        </div>
+        <div className="flex h-full">{timeline.map((slot) => slot)}</div>
       </div>
     );
   };
@@ -1273,7 +1257,13 @@ export const BodyFatTrackerModal = ({
       );
     });
 
-    return renderContinuousChart(allPoints30d, timelineSlots, 30, '30d-cont', '2');
+    return renderContinuousChart(
+      allPoints30d,
+      timelineSlots,
+      30,
+      '30d-cont',
+      '2'
+    );
   };
 
   // --- Render 12m continuous chart ---
@@ -1317,7 +1307,13 @@ export const BodyFatTrackerModal = ({
       </div>
     ));
 
-    return renderContinuousChart(allPoints12m, timelineSlots, 12, '12m-cont', '3');
+    return renderContinuousChart(
+      allPoints12m,
+      timelineSlots,
+      12,
+      '12m-cont',
+      '3'
+    );
   };
 
   return (
