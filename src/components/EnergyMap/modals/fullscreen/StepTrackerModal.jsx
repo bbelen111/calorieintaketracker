@@ -73,6 +73,7 @@ const BAR_WIDTH_12M = 22;
 const BAR_RADIUS_12M = 4;
 const WEEK_BRACKET_HEIGHT = 32;
 const WEEK_BRACKET_TOP_PADDING = 8;
+const SCROLL_SETTLE_DELAY_MS = 140;
 
 const VIEW_MODES = [
   { key: '7d', label: '7 Days' },
@@ -197,7 +198,8 @@ export const StepTrackerModal = ({
 
   // --- State ---
   const [viewMode, setViewMode] = useState('7d');
-  const [activePageIndex, setActivePageIndex] = useState(-1);
+  const [, setActivePageIndex] = useState(-1);
+  const [settledPageIndex, setSettledPageIndex] = useState(-1);
   const [selectedDate, setSelectedDate] = useState(null);
   const [tooltipEntered, setTooltipEntered] = useState(false);
   const [tooltipClosing, setTooltipClosing] = useState(false);
@@ -208,6 +210,7 @@ export const StepTrackerModal = ({
   const carouselRef = useRef(null);
   const tooltipRef = useRef(null);
   const scrollCloseTimeoutRef = useRef(null);
+  const headerSettleTimeoutRef = useRef(null);
   const prevEntriesLengthRef = useRef(resolvedEntries?.length ?? 0);
 
   // --- Derived data ---
@@ -316,6 +319,7 @@ export const StepTrackerModal = ({
   useEffect(() => {
     if (!isOpen) return;
     setActivePageIndex(-1);
+    setSettledPageIndex(-1);
     const frame = requestAnimationFrame(() => {
       const node = carouselRef.current;
       if (node) {
@@ -334,6 +338,7 @@ export const StepTrackerModal = ({
     const prevLen = prevEntriesLengthRef.current;
     if (isOpen && currentLen > prevLen && currentLen > 0) {
       setActivePageIndex(-1);
+      setSettledPageIndex(-1);
       const timeout = setTimeout(() => {
         const node = carouselRef.current;
         if (node) {
@@ -352,6 +357,7 @@ export const StepTrackerModal = ({
   useEffect(() => {
     if (!isOpen) return;
     setActivePageIndex(-1);
+    setSettledPageIndex(-1);
     const timeout = setTimeout(() => {
       const node = carouselRef.current;
       if (node) {
@@ -372,6 +378,13 @@ export const StepTrackerModal = ({
     const step = node.clientWidth / windowSize;
     const idx = Math.round(node.scrollLeft / step);
     setActivePageIndex(idx);
+    if (headerSettleTimeoutRef.current) {
+      clearTimeout(headerSettleTimeoutRef.current);
+    }
+    headerSettleTimeoutRef.current = setTimeout(() => {
+      setSettledPageIndex(idx);
+      headerSettleTimeoutRef.current = null;
+    }, SCROLL_SETTLE_DELAY_MS);
     // Close tooltip on scroll
     if (selectedDate) {
       setTooltipClosing(true);
@@ -775,7 +788,7 @@ export const StepTrackerModal = ({
       const startIdx = Math.max(
         0,
         Math.min(
-          activePageIndex >= 0 ? activePageIndex : days.length - 30,
+          settledPageIndex >= 0 ? settledPageIndex : days.length - 30,
           days.length - 30
         )
       );
@@ -792,7 +805,7 @@ export const StepTrackerModal = ({
       const startIdx = Math.max(
         0,
         Math.min(
-          activePageIndex >= 0 ? activePageIndex : months.length - 12,
+          settledPageIndex >= 0 ? settledPageIndex : months.length - 12,
           months.length - 12
         )
       );
@@ -802,7 +815,7 @@ export const StepTrackerModal = ({
       return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
     }
     return null;
-  }, [viewMode, timeline30d, timeline12m, activePageIndex]);
+  }, [viewMode, timeline30d, timeline12m, settledPageIndex]);
 
   const pageTimeframeRange = useMemo(() => {
     if (viewMode === '30d') {
@@ -811,7 +824,7 @@ export const StepTrackerModal = ({
       const startIdx = Math.max(
         0,
         Math.min(
-          activePageIndex >= 0 ? activePageIndex : days.length - 30,
+          settledPageIndex >= 0 ? settledPageIndex : days.length - 30,
           days.length - 30
         )
       );
@@ -824,7 +837,7 @@ export const StepTrackerModal = ({
       const startIdx = Math.max(
         0,
         Math.min(
-          activePageIndex >= 0 ? activePageIndex : months.length - 12,
+          settledPageIndex >= 0 ? settledPageIndex : months.length - 12,
           months.length - 12
         )
       );
@@ -835,7 +848,7 @@ export const StepTrackerModal = ({
       return `${formatShortDate(firstMonth.key + '-01')} - ${formatShortDate(lastMonth.key + '-28')}`;
     }
     return '';
-  }, [viewMode, timeline30d, timeline12m, activePageIndex]);
+  }, [viewMode, timeline30d, timeline12m, settledPageIndex]);
 
   // Aggregated distance & calories for 30d/12m windows
   const pageStepDetails = useMemo(() => {
@@ -848,7 +861,7 @@ export const StepTrackerModal = ({
       const startIdx = Math.max(
         0,
         Math.min(
-          activePageIndex >= 0 ? activePageIndex : days.length - 30,
+          settledPageIndex >= 0 ? settledPageIndex : days.length - 30,
           days.length - 30
         )
       );
@@ -860,7 +873,7 @@ export const StepTrackerModal = ({
       const startIdx = Math.max(
         0,
         Math.min(
-          activePageIndex >= 0 ? activePageIndex : months.length - 12,
+          settledPageIndex >= 0 ? settledPageIndex : months.length - 12,
           months.length - 12
         )
       );
@@ -886,7 +899,7 @@ export const StepTrackerModal = ({
     viewMode,
     timeline30d,
     timeline12m,
-    activePageIndex,
+    settledPageIndex,
     weight,
     height,
     gender,
@@ -922,10 +935,21 @@ export const StepTrackerModal = ({
     };
   }, []);
 
+  useEffect(
+    () => () => {
+      if (headerSettleTimeoutRef.current) {
+        clearTimeout(headerSettleTimeoutRef.current);
+      }
+    },
+    []
+  );
+
   const handleDateClick = useCallback(
     (date, event) => {
       if (!date) return;
       event?.stopPropagation();
+      if (viewMode === '12m' && (monthsMap[date]?.entries?.length ?? 0) === 0)
+        return;
       if (selectedDate === date) {
         closeTooltip();
       } else {
@@ -937,13 +961,15 @@ export const StepTrackerModal = ({
         setTooltipClosing(false);
       }
     },
-    [selectedDate, closeTooltip]
+    [selectedDate, closeTooltip, viewMode, monthsMap]
   );
 
   const handleLabelClick = useCallback(
     (date, event) => {
       if (!date) return;
       event?.stopPropagation();
+      if (viewMode === '12m' && (monthsMap[date]?.entries?.length ?? 0) === 0)
+        return;
       if (selectedDate === date) {
         closeTooltip();
       } else {
@@ -955,7 +981,7 @@ export const StepTrackerModal = ({
         setTooltipClosing(false);
       }
     },
-    [selectedDate, closeTooltip]
+    [selectedDate, closeTooltip, viewMode, monthsMap]
   );
 
   // Close tooltip on outside click
@@ -1786,7 +1812,7 @@ export const StepTrackerModal = ({
       {selectedBar &&
         selectedDate &&
         (viewMode === '12m'
-          ? !!monthsMap[selectedDate]
+          ? (monthsMap[selectedDate]?.entries?.length ?? 0) > 0
           : !!entriesMap[selectedDate] || selectedBar.hasEntry) && (
           <div
             ref={tooltipRef}

@@ -120,6 +120,7 @@ const TOOLTIP_WIDTH = 120;
 const TOOLTIP_VERTICAL_OFFSET = 27;
 const DATA_OLD_WARNING_DAYS = 1;
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
+const SCROLL_SETTLE_DELAY_MS = 140;
 
 // Per-mode point sizing
 const MODE_POINT = {
@@ -177,6 +178,14 @@ const formatTooltipDate = (dateStr) => {
 const getWeekday = (dateStr) => {
   const date = new Date(dateStr + 'T00:00:00Z');
   return date.toLocaleDateString('en-US', { weekday: 'short' });
+};
+
+const getDaysInMonthUtc = (year, monthIndex) =>
+  new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+
+const getTrackedDaysCount = (entries = []) => {
+  if (!entries.length) return 0;
+  return new Set(entries.map((entry) => entry?.date).filter(Boolean)).size;
 };
 
 const getDataAgeInDays = (dateKey) => {
@@ -273,7 +282,8 @@ export const WeightTrackerModal = ({
 
   // --- State ---
   const [viewMode, setViewMode] = useState('7d'); // '7d' | '30d' | '12m'
-  const [activePageIndex, setActivePageIndex] = useState(-1); // -1 = auto-last
+  const [, setActivePageIndex] = useState(-1); // -1 = auto-last
+  const [settledPageIndex, setSettledPageIndex] = useState(-1);
   const [selectedDate, setSelectedDate] = useState(null);
   const [tooltipEntered, setTooltipEntered] = useState(false);
   const [tooltipClosing, setTooltipClosing] = useState(false);
@@ -284,6 +294,7 @@ export const WeightTrackerModal = ({
   const carouselRef = useRef(null);
   const tooltipRef = useRef(null);
   const scrollCloseTimeoutRef = useRef(null);
+  const headerSettleTimeoutRef = useRef(null);
   const prevEntriesLengthRef = useRef(resolvedEntries?.length ?? 0);
 
   // Trend info modal
@@ -418,6 +429,7 @@ export const WeightTrackerModal = ({
   useEffect(() => {
     if (!isOpen) return;
     setActivePageIndex(-1); // auto-last
+    setSettledPageIndex(-1);
     const frame = requestAnimationFrame(() => {
       const node = carouselRef.current;
       if (node) {
@@ -436,6 +448,7 @@ export const WeightTrackerModal = ({
     const prevLen = prevEntriesLengthRef.current;
     if (isOpen && currentLen > prevLen && currentLen > 0) {
       setActivePageIndex(-1);
+      setSettledPageIndex(-1);
       const timeout = setTimeout(() => {
         const node = carouselRef.current;
         if (node) {
@@ -454,6 +467,7 @@ export const WeightTrackerModal = ({
   useEffect(() => {
     if (!isOpen) return;
     setActivePageIndex(-1);
+    setSettledPageIndex(-1);
     const timeout = setTimeout(() => {
       const node = carouselRef.current;
       if (node) {
@@ -474,6 +488,13 @@ export const WeightTrackerModal = ({
     const step = node.clientWidth / windowSize;
     const idx = Math.round(node.scrollLeft / step);
     setActivePageIndex(idx);
+    if (headerSettleTimeoutRef.current) {
+      clearTimeout(headerSettleTimeoutRef.current);
+    }
+    headerSettleTimeoutRef.current = setTimeout(() => {
+      setSettledPageIndex(idx);
+      headerSettleTimeoutRef.current = null;
+    }, SCROLL_SETTLE_DELAY_MS);
     // Close tooltip on scroll
     if (selectedDate) {
       setTooltipClosing(true);
@@ -769,7 +790,7 @@ export const WeightTrackerModal = ({
       const startIdx = Math.max(
         0,
         Math.min(
-          activePageIndex >= 0 ? activePageIndex : days.length - 30,
+          settledPageIndex >= 0 ? settledPageIndex : days.length - 30,
           days.length - 30
         )
       );
@@ -786,7 +807,7 @@ export const WeightTrackerModal = ({
       const startIdx = Math.max(
         0,
         Math.min(
-          activePageIndex >= 0 ? activePageIndex : months.length - 12,
+          settledPageIndex >= 0 ? settledPageIndex : months.length - 12,
           months.length - 12
         )
       );
@@ -798,22 +819,25 @@ export const WeightTrackerModal = ({
       );
     }
     return null;
-  }, [viewMode, timeline30d, timeline12m, activePageIndex]);
+  }, [viewMode, timeline30d, timeline12m, settledPageIndex]);
 
-  const visibleWindowEntryCount = useMemo(() => {
+  const visibleWindowTrackedDays = useMemo(() => {
     if (viewMode !== '12m') return 0;
     const { months } = timeline12m;
     if (!months.length) return 0;
     const startIdx = Math.max(
       0,
       Math.min(
-        activePageIndex >= 0 ? activePageIndex : months.length - 12,
+        settledPageIndex >= 0 ? settledPageIndex : months.length - 12,
         months.length - 12
       )
     );
     const windowMonths = months.slice(startIdx, startIdx + 12);
-    return windowMonths.reduce((sum, m) => sum + (m.entries?.length || 0), 0);
-  }, [viewMode, timeline12m, activePageIndex]);
+    return windowMonths.reduce(
+      (sum, m) => sum + getTrackedDaysCount(m.entries),
+      0
+    );
+  }, [viewMode, timeline12m, settledPageIndex]);
 
   const pageTimeframeRange = useMemo(() => {
     if (viewMode === '30d') {
@@ -822,7 +846,7 @@ export const WeightTrackerModal = ({
       const startIdx = Math.max(
         0,
         Math.min(
-          activePageIndex >= 0 ? activePageIndex : days.length - 30,
+          settledPageIndex >= 0 ? settledPageIndex : days.length - 30,
           days.length - 30
         )
       );
@@ -835,7 +859,7 @@ export const WeightTrackerModal = ({
       const startIdx = Math.max(
         0,
         Math.min(
-          activePageIndex >= 0 ? activePageIndex : months.length - 12,
+          settledPageIndex >= 0 ? settledPageIndex : months.length - 12,
           months.length - 12
         )
       );
@@ -843,7 +867,7 @@ export const WeightTrackerModal = ({
       return `${formatShortDate(windowMonths[0]?.key + '-01')} - ${formatShortDate(windowMonths[windowMonths.length - 1]?.key + '-28')}`;
     }
     return '';
-  }, [viewMode, timeline30d, timeline12m, activePageIndex]);
+  }, [viewMode, timeline30d, timeline12m, settledPageIndex]);
 
   // --- Tooltip ---
   const selectedPoint = useMemo(() => {
@@ -914,6 +938,15 @@ export const WeightTrackerModal = ({
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, []);
+
+  useEffect(
+    () => () => {
+      if (headerSettleTimeoutRef.current) {
+        clearTimeout(headerSettleTimeoutRef.current);
+      }
+    },
+    []
+  );
 
   const handleDateClick = useCallback(
     (date, event) => {
@@ -1565,7 +1598,7 @@ export const WeightTrackerModal = ({
                         {pageTimeframeRange}
                       </p>
                       <p className="text-muted text-[11px] mt-1">
-                        {`${visibleWindowEntryCount} entries`}
+                        {`${visibleWindowTrackedDays} days tracked`}
                       </p>
                     </div>
                   </>
@@ -1774,10 +1807,16 @@ export const WeightTrackerModal = ({
                       {formatWeight(monthsMap[selectedDate].avg)} kg
                     </p>
                     <p className="text-muted text-[10px] mt-2 uppercase tracking-wide">
-                      {monthsMap[selectedDate].entries.length}{' '}
-                      {monthsMap[selectedDate].entries.length === 1
-                        ? 'entry'
-                        : 'entries'}
+                      {(() => {
+                        const month = monthsMap[selectedDate];
+                        if (!month) return '0/0 days tracked';
+                        const trackedDays = getTrackedDaysCount(month.entries);
+                        const daysInMonth = getDaysInMonthUtc(
+                          month.year,
+                          month.month
+                        );
+                        return `${trackedDays}/${daysInMonth} days tracked`;
+                      })()}
                     </p>
                   </>
                 ) : (
