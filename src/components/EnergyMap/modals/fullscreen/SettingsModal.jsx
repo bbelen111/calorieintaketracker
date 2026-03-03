@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Save,
   ChevronsUpDown,
@@ -23,6 +23,14 @@ import { formatDateLabel, formatWeight } from '../../../../utils/weight';
 import { formatBodyFat } from '../../../../utils/bodyFat';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
+import {
+  AGE_MAX,
+  AGE_MIN,
+  HEIGHT_MAX,
+  HEIGHT_MIN,
+  sanitizeAge,
+  sanitizeHeight,
+} from '../../../../utils/profile';
 
 const THEME_OPTIONS = [
   { value: 'auto', label: 'Auto', icon: Monitor },
@@ -75,6 +83,65 @@ export const SettingsModal = ({
       ? bodyFatTrackingEnabled
       : resolvedUserData.bodyFatTrackingEnabled;
 
+  const [ageInput, setAgeInput] = useState(() =>
+    String(sanitizeAge(resolvedUserData.age))
+  );
+  const [heightInput, setHeightInput] = useState(() =>
+    String(sanitizeHeight(resolvedUserData.height))
+  );
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    setAgeInput(String(sanitizeAge(resolvedUserData.age)));
+    setHeightInput(String(sanitizeHeight(resolvedUserData.height)));
+  }, [isOpen, resolvedUserData.age, resolvedUserData.height]);
+
+  const commitAgeInput = useCallback(() => {
+    const nextAge = sanitizeAge(ageInput, resolvedUserData.age);
+    onChange('age', nextAge);
+    setAgeInput(String(nextAge));
+  }, [ageInput, onChange, resolvedUserData.age]);
+
+  const commitHeightInput = useCallback(() => {
+    const nextHeight = sanitizeHeight(heightInput, resolvedUserData.height);
+    onChange('height', nextHeight);
+    setHeightInput(String(nextHeight));
+  }, [heightInput, onChange, resolvedUserData.height]);
+
+  const handleNumericEnter = useCallback((event) => {
+    if (event.key !== 'Enter') {
+      return;
+    }
+
+    event.currentTarget.blur();
+  }, []);
+
+  const handleCancel = useCallback(() => {
+    setAgeInput(String(sanitizeAge(resolvedUserData.age)));
+    setHeightInput(String(sanitizeHeight(resolvedUserData.height)));
+    onCancel?.();
+  }, [onCancel, resolvedUserData.age, resolvedUserData.height]);
+
+  const handleSave = useCallback(() => {
+    const nextAge = sanitizeAge(ageInput, resolvedUserData.age);
+    const nextHeight = sanitizeHeight(heightInput, resolvedUserData.height);
+    onChange('age', nextAge);
+    onChange('height', nextHeight);
+    setAgeInput(String(nextAge));
+    setHeightInput(String(nextHeight));
+    onSave?.();
+  }, [
+    ageInput,
+    heightInput,
+    onChange,
+    onSave,
+    resolvedUserData.age,
+    resolvedUserData.height,
+  ]);
+
   const latestWeightEntry = useMemo(
     () =>
       Array.isArray(resolvedWeightEntries) && resolvedWeightEntries.length
@@ -120,7 +187,7 @@ export const SettingsModal = ({
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
-      onClose={onCancel}
+      onClose={handleCancel}
       fullHeight
       overlayClassName="fixed inset-0 bg-black/70 !p-0 !flex-none !items-stretch !justify-stretch"
       contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none !max-h-none flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
@@ -129,7 +196,7 @@ export const SettingsModal = ({
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={onCancel}
+            onClick={handleCancel}
             aria-label="Back"
             className="text-muted md:hover:text-foreground transition-all pressable-inline focus-ring"
           >
@@ -152,10 +219,14 @@ export const SettingsModal = ({
                 <div className="relative">
                   <input
                     type="number"
-                    value={resolvedUserData.age}
-                    onChange={(event) =>
-                      onChange('age', parseInt(event.target.value, 10) || 0)
-                    }
+                    inputMode="numeric"
+                    min={AGE_MIN}
+                    max={AGE_MAX}
+                    step={1}
+                    value={ageInput}
+                    onChange={(event) => setAgeInput(event.target.value)}
+                    onBlur={commitAgeInput}
+                    onKeyDown={handleNumericEnter}
                     className="w-full bg-surface-highlight text-foreground px-4 pr-14 py-3 rounded-lg border border-border focus:border-primary focus:outline-none text-lg"
                   />
                   <button
@@ -300,10 +371,14 @@ export const SettingsModal = ({
                 <div className="relative">
                   <input
                     type="number"
-                    value={resolvedUserData.height}
-                    onChange={(event) =>
-                      onChange('height', parseFloat(event.target.value) || 0)
-                    }
+                    inputMode="numeric"
+                    min={HEIGHT_MIN}
+                    max={HEIGHT_MAX}
+                    step={1}
+                    value={heightInput}
+                    onChange={(event) => setHeightInput(event.target.value)}
+                    onBlur={commitHeightInput}
+                    onKeyDown={handleNumericEnter}
                     className="w-full bg-surface-highlight text-foreground px-4 pr-14 py-3 rounded-lg border border-border focus:border-primary focus:outline-none text-lg"
                   />
                   <button
@@ -373,14 +448,14 @@ export const SettingsModal = ({
 
         <div className="flex gap-2 md:gap-3 p-4 border-t border-border bg-background/60">
           <button
-            onClick={onCancel}
+            onClick={handleCancel}
             type="button"
             className="flex-1 bg-surface-highlight text-foreground px-4 md:px-6 py-3 md:py-2 rounded-lg transition-all press-feedback focus-ring font-medium"
           >
             Cancel
           </button>
           <button
-            onClick={onSave}
+            onClick={handleSave}
             type="button"
             className="flex-1 bg-blue-600 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg flex items-center justify-center gap-2 transition-all press-feedback focus-ring font-medium"
           >

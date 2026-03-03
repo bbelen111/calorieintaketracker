@@ -6,20 +6,16 @@ import {
   alignScrollContainerToValue,
   createPickerScrollHandler,
 } from '../../../../utils/scroll';
+import {
+  HEIGHT_MAX,
+  HEIGHT_MIN,
+  sanitizeHeight,
+} from '../../../../utils/profile';
 
-const MIN_HEIGHT = 120;
-const MAX_HEIGHT = 220;
 const HEIGHT_VALUES = Array.from(
-  { length: MAX_HEIGHT - MIN_HEIGHT + 1 },
-  (_, index) => MIN_HEIGHT + index
+  { length: HEIGHT_MAX - HEIGHT_MIN + 1 },
+  (_, index) => HEIGHT_MIN + index
 );
-
-const clampHeight = (value) => {
-  if (!Number.isFinite(value)) {
-    return MIN_HEIGHT;
-  }
-  return Math.min(Math.max(Math.round(value), MIN_HEIGHT), MAX_HEIGHT);
-};
 
 export const HeightPickerModal = ({
   isOpen,
@@ -32,7 +28,7 @@ export const HeightPickerModal = ({
   const timeoutRef = useRef(null);
   const hasAlignedRef = useRef(false);
   const [selectedHeight, setSelectedHeight] = useState(() =>
-    clampHeight(value)
+    sanitizeHeight(value)
   );
 
   const [handleScroll, setHandleScroll] = useState(() => () => {});
@@ -52,18 +48,19 @@ export const HeightPickerModal = ({
     const behavior = hasAlignedRef.current ? 'smooth' : 'instant';
     hasAlignedRef.current = true;
     const frame = requestAnimationFrame(() => {
+      const nextHeight = sanitizeHeight(value, selectedHeight);
+      setSelectedHeight(nextHeight);
       alignScrollContainerToValue(
         scrollRef.current,
-        clampHeight(value),
+        nextHeight,
         behavior
       );
     });
     return () => cancelAnimationFrame(frame);
-  }, [isOpen, value]);
+  }, [isOpen, selectedHeight, value]);
 
   const handleHeightChange = useCallback((nextHeight) => {
-    const clamped = clampHeight(nextHeight);
-    setSelectedHeight(clamped);
+    setSelectedHeight(sanitizeHeight(nextHeight));
   }, []);
 
   useEffect(() => {
@@ -78,12 +75,12 @@ export const HeightPickerModal = ({
   }, [handleHeightChange]);
 
   const handleItemClick = useCallback((height) => {
-    const clamped = clampHeight(height);
+    const clamped = sanitizeHeight(height, selectedHeight);
     setSelectedHeight(clamped);
     if (scrollRef.current) {
       alignScrollContainerToValue(scrollRef.current, clamped, 'smooth');
     }
-  }, []);
+  }, [selectedHeight]);
 
   const handleSave = useCallback(() => {
     onSave?.(selectedHeight);

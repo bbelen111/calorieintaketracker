@@ -1,6 +1,7 @@
 import { Preferences } from '@capacitor/preferences';
 import { sortWeightEntries } from './weight';
 import { sortBodyFatEntries } from './bodyFat';
+import { sanitizeAge, sanitizeHeight } from './profile';
 
 // Legacy key for migration
 const LEGACY_DATA_KEY = 'energyMapData';
@@ -234,6 +235,8 @@ function mergeWithDefaults(data) {
   return {
     ...defaults,
     ...data,
+    age: sanitizeAge(data.age, defaults.age),
+    height: sanitizeHeight(data.height, defaults.height),
     nutritionData: normalizeNutritionData(
       data.nutritionData ?? defaults.nutritionData
     ),

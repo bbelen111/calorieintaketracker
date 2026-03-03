@@ -22,6 +22,7 @@ import {
   sortWeightEntries,
 } from '../utils/weight';
 import { clampBodyFat, sortBodyFatEntries } from '../utils/bodyFat';
+import { sanitizeAge, sanitizeHeight } from '../utils/profile';
 
 const SAVE_DEBOUNCE_MS = 1000;
 
@@ -125,7 +126,23 @@ export const useEnergyMapStore = create(
     },
 
     handleUserDataChange: (field, value) => {
-      updateUserData(set, get, (prev) => ({ ...prev, [field]: value }));
+      updateUserData(set, get, (prev) => {
+        if (field === 'age') {
+          return {
+            ...prev,
+            age: sanitizeAge(value, prev.age),
+          };
+        }
+
+        if (field === 'height') {
+          return {
+            ...prev,
+            height: sanitizeHeight(value, prev.height),
+          };
+        }
+
+        return { ...prev, [field]: value };
+      });
     },
 
     addStepRange: (newStepRange) => {

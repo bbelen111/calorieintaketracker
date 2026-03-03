@@ -5,8 +5,12 @@ import {
   alignScrollContainerToValue,
   createPickerScrollHandler,
 } from '../../../../utils/scroll';
+import { AGE_MAX, AGE_MIN, sanitizeAge } from '../../../../utils/profile';
 
-const AGE_VALUES = Array.from({ length: 83 }, (_, i) => i + 1);
+const AGE_VALUES = Array.from(
+  { length: AGE_MAX - AGE_MIN + 1 },
+  (_, i) => AGE_MIN + i
+);
 
 export const AgePickerModal = ({
   isOpen,
@@ -18,7 +22,7 @@ export const AgePickerModal = ({
   const scrollRef = useRef(null);
   const timeoutRef = useRef(null);
   const hasAlignedRef = useRef(false);
-  const [selectedAge, setSelectedAge] = useState(value || 25);
+  const [selectedAge, setSelectedAge] = useState(() => sanitizeAge(value));
 
   const [handleScroll, setHandleScroll] = useState(() => () => {});
 
@@ -34,13 +38,15 @@ export const AgePickerModal = ({
     hasAlignedRef.current = true;
 
     const frame = requestAnimationFrame(() => {
-      alignScrollContainerToValue(scrollRef.current, value || 25, behavior);
+      const nextAge = sanitizeAge(value, selectedAge);
+      setSelectedAge(nextAge);
+      alignScrollContainerToValue(scrollRef.current, nextAge, behavior);
     });
     return () => cancelAnimationFrame(frame);
-  }, [isOpen, value]);
+  }, [isOpen, selectedAge, value]);
 
   const handleAgeChange = useCallback((nextAge) => {
-    setSelectedAge(nextAge);
+    setSelectedAge(sanitizeAge(nextAge));
   }, []);
 
   useEffect(() => {
@@ -55,11 +61,12 @@ export const AgePickerModal = ({
   }, [handleAgeChange]);
 
   const handleItemClick = useCallback((age) => {
-    setSelectedAge(age);
+    const nextAge = sanitizeAge(age, selectedAge);
+    setSelectedAge(nextAge);
     if (scrollRef.current) {
-      alignScrollContainerToValue(scrollRef.current, age, 'smooth');
+      alignScrollContainerToValue(scrollRef.current, nextAge, 'smooth');
     }
-  }, []);
+  }, [selectedAge]);
 
   const handleSave = useCallback(() => {
     onSave?.(selectedAge);
