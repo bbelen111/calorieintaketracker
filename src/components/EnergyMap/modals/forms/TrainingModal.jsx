@@ -11,7 +11,7 @@ import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { HeartRatePickerModal } from '../pickers/HeartRatePickerModal';
 
-export const QuickTrainingModal = ({
+export const TrainingModal = ({
   isOpen,
   isClosing,
   trainingTypes,

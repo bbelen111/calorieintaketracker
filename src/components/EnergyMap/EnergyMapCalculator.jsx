@@ -47,11 +47,10 @@ import { WeightTrackerModal } from './modals/fullscreen/WeightTrackerModal';
 import { BodyFatTrackerModal } from './modals/fullscreen/BodyFatTrackerModal';
 import { BodyFatEntryModal } from './modals/forms/BodyFatEntryModal';
 import { BodyFatPickerModal } from './modals/pickers/BodyFatPickerModal';
-import { TrainingTypeModal } from './modals/forms/TrainingTypeModal';
 import { TrainingTypeEditorModal } from './modals/forms/TrainingTypeEditorModal';
 import { SettingsModal } from './modals/fullscreen/SettingsModal';
 import { StepRangesModal } from './modals/forms/StepRangesModal';
-import { QuickTrainingModal } from './modals/forms/QuickTrainingModal';
+import { TrainingModal } from './modals/forms/TrainingModal';
 import { DurationPickerModal } from './modals/pickers/DurationPickerModal';
 import { CardioModal } from './modals/forms/CardioModal';
 import { CardioFavouritesModal } from './modals/lists/CardioFavouritesModal';
@@ -494,14 +493,13 @@ export const EnergyMapCalculator = () => {
   const bodyFatTrackerModal = useAnimatedModal();
   const bodyFatEntryModal = useAnimatedModal();
   const bodyFatPickerModal = useAnimatedModal();
-  const trainingTypeModal = useAnimatedModal();
   const trainingTypeEditorModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
   const settingsModal = useAnimatedModal();
   const dailyActivityModal = useAnimatedModal();
   const dailyActivityEditorModal = useAnimatedModal();
   const dailyActivityCustomModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
   const stepRangesModal = useAnimatedModal();
-  const quickTrainingModal = useAnimatedModal();
+  const trainingModal = useAnimatedModal();
   const durationPickerModal = useAnimatedModal();
   const cardioModal = useAnimatedModal();
   const cardioFavouritesModal = useAnimatedModal();
@@ -537,7 +535,7 @@ export const EnergyMapCalculator = () => {
         cardioFavouritesModal,
         cardioModal,
         durationPickerModal,
-        quickTrainingModal,
+        trainingModal,
         stepRangesModal,
         stepTrackerModal,
         stepGoalPickerModal,
@@ -546,7 +544,6 @@ export const EnergyMapCalculator = () => {
         dailyActivityModal,
         settingsModal,
         trainingTypeEditorModal,
-        trainingTypeModal,
         bodyFatPickerModal,
         bodyFatEntryModal,
         bodyFatTrackerModal,
@@ -611,8 +608,8 @@ export const EnergyMapCalculator = () => {
       mealTypePickerModal.isOpen,
       phaseCreationModal.isClosing,
       phaseCreationModal.isOpen,
-      quickTrainingModal.isClosing,
-      quickTrainingModal.isOpen,
+      trainingModal.isClosing,
+      trainingModal.isOpen,
       settingsModal.isClosing,
       settingsModal.isOpen,
       stepGoalPickerModal.isClosing,
@@ -625,8 +622,6 @@ export const EnergyMapCalculator = () => {
       templatePickerModal.isOpen,
       trainingTypeEditorModal.isClosing,
       trainingTypeEditorModal.isOpen,
-      trainingTypeModal.isClosing,
-      trainingTypeModal.isOpen,
       weightEntryModal.isClosing,
       weightEntryModal.isOpen,
       weightPickerModal.isClosing,
@@ -657,7 +652,7 @@ export const EnergyMapCalculator = () => {
         cardioFavouritesModal,
         cardioModal,
         durationPickerModal,
-        quickTrainingModal,
+        trainingModal,
         stepRangesModal,
         stepTrackerModal,
         stepGoalPickerModal,
@@ -666,7 +661,6 @@ export const EnergyMapCalculator = () => {
         dailyActivityModal,
         settingsModal,
         trainingTypeEditorModal,
-        trainingTypeModal,
         bodyFatPickerModal,
         bodyFatEntryModal,
         bodyFatTrackerModal,
@@ -1216,13 +1210,13 @@ export const EnergyMapCalculator = () => {
       setTempTrainingEffortType(userData.trainingEffortType ?? 'intensity');
       setTempTrainingIntensity(userData.trainingIntensity ?? 'moderate');
       setTempTrainingHeartRate(userData.trainingHeartRate ?? '');
-      quickTrainingModal.open();
+      trainingModal.open();
     } else {
       updateSelectedDay('training');
     }
   }, [
-    quickTrainingModal,
     selectedDay,
+    trainingModal,
     updateSelectedDay,
     userData.trainingDuration,
     userData.trainingType,
@@ -1250,10 +1244,21 @@ export const EnergyMapCalculator = () => {
     heightModal.open();
   }, [heightModal, userData.height]);
 
-  const openTrainingTypeModal = useCallback(() => {
+  const openTrainingModal = useCallback(() => {
     setTempTrainingType(userData.trainingType);
-    trainingTypeModal.open();
-  }, [trainingTypeModal, userData.trainingType]);
+    setTempTrainingDuration(userData.trainingDuration);
+    setTempTrainingEffortType(userData.trainingEffortType ?? 'intensity');
+    setTempTrainingIntensity(userData.trainingIntensity ?? 'moderate');
+    setTempTrainingHeartRate(userData.trainingHeartRate ?? '');
+    trainingModal.open();
+  }, [
+    trainingModal,
+    userData.trainingDuration,
+    userData.trainingType,
+    userData.trainingEffortType,
+    userData.trainingIntensity,
+    userData.trainingHeartRate,
+  ]);
 
   const resetTrainingTypeEditorState = useCallback(() => {
     setEditingTrainingType(null);
@@ -2145,21 +2150,16 @@ export const EnergyMapCalculator = () => {
     [handleUserDataChange, heightModal, tempHeight]
   );
 
-  const handleTrainingTypeSave = useCallback(() => {
-    handleUserDataChange('trainingType', tempTrainingType);
-    trainingTypeModal.requestClose();
-  }, [handleUserDataChange, tempTrainingType, trainingTypeModal]);
-
-  const handleQuickTrainingSave = useCallback(() => {
+  const handleTrainingSave = useCallback(() => {
     handleUserDataChange('trainingType', tempTrainingType);
     handleUserDataChange('trainingDuration', tempTrainingDuration);
     handleUserDataChange('trainingEffortType', tempTrainingEffortType);
     handleUserDataChange('trainingIntensity', tempTrainingIntensity);
     handleUserDataChange('trainingHeartRate', tempTrainingHeartRate);
-    quickTrainingModal.requestClose();
+    trainingModal.requestClose();
   }, [
     handleUserDataChange,
-    quickTrainingModal,
+    trainingModal,
     tempTrainingDuration,
     tempTrainingType,
     tempTrainingEffortType,
@@ -2908,17 +2908,6 @@ export const EnergyMapCalculator = () => {
         />
       )}
 
-      <TrainingTypeModal
-        isOpen={trainingTypeModal.isOpen}
-        isClosing={trainingTypeModal.isClosing}
-        trainingTypes={trainingTypes}
-        tempTrainingType={tempTrainingType}
-        onSelect={setTempTrainingType}
-        onEditTrainingType={openTrainingTypeEditor}
-        onCancel={trainingTypeModal.requestClose}
-        onSave={handleTrainingTypeSave}
-      />
-
       <TrainingTypeEditorModal
         isOpen={trainingTypeEditorModal.isOpen}
         isClosing={trainingTypeEditorModal.isClosing}
@@ -2948,12 +2937,7 @@ export const EnergyMapCalculator = () => {
         bmr={bmr}
         trainingTypes={trainingTypes}
         trainingCalories={trainingCalories}
-        onTrainingTypeClick={openTrainingTypeModal}
-        onTrainingDurationClick={() =>
-          openDurationPicker(userData.trainingDuration, (value) =>
-            handleUserDataChange('trainingDuration', value)
-          )
-        }
+        onTrainingClick={openTrainingModal}
         onDailyActivityClick={openDailyActivitySettings}
         onCancel={settingsModal.requestClose}
         onSave={handleSettingsSave}
@@ -3003,9 +2987,9 @@ export const EnergyMapCalculator = () => {
         onClose={stepRangesModal.requestClose}
       />
 
-      <QuickTrainingModal
-        isOpen={quickTrainingModal.isOpen}
-        isClosing={quickTrainingModal.isClosing}
+      <TrainingModal
+        isOpen={trainingModal.isOpen}
+        isClosing={trainingModal.isClosing}
         trainingTypes={trainingTypes}
         tempTrainingType={tempTrainingType}
         tempTrainingDuration={tempTrainingDuration}
@@ -3020,8 +3004,8 @@ export const EnergyMapCalculator = () => {
         onEffortTypeChange={handleTrainingEffortTypeChange}
         onIntensityChange={handleTrainingIntensityChange}
         onHeartRateChange={handleTrainingHeartRateChange}
-        onCancel={quickTrainingModal.requestClose}
-        onSave={handleQuickTrainingSave}
+        onCancel={trainingModal.requestClose}
+        onSave={handleTrainingSave}
       />
 
       <DurationPickerModal

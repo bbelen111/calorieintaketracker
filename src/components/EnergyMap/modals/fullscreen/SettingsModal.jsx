@@ -47,8 +47,7 @@ export const SettingsModal = ({
   bmr,
   trainingTypes,
   trainingCalories,
-  onTrainingTypeClick,
-  onTrainingDurationClick,
+  onTrainingClick,
   onDailyActivityClick,
   onAgePickerClick,
   onHeightPickerClick,
@@ -82,6 +81,17 @@ export const SettingsModal = ({
     typeof bodyFatTrackingEnabled === 'boolean'
       ? bodyFatTrackingEnabled
       : resolvedUserData.bodyFatTrackingEnabled;
+
+  const selectedTrainingType =
+    resolvedTrainingTypes?.[resolvedUserData.trainingType] ?? null;
+  const formattedTrainingDuration = useMemo(
+    () => formatDurationLabel(resolvedUserData.trainingDuration),
+    [resolvedUserData.trainingDuration]
+  );
+  const roundedTrainingDuration = useMemo(
+    () => roundDurationHours(resolvedUserData.trainingDuration),
+    [resolvedUserData.trainingDuration]
+  );
 
   const [ageInput, setAgeInput] = useState(() =>
     String(sanitizeAge(resolvedUserData.age))
@@ -401,47 +411,29 @@ export const SettingsModal = ({
 
             <div>
               <label className="text-foreground/80 text-sm block mb-2">
-                Training Type
+                Training
               </label>
               <button
-                onClick={onTrainingTypeClick}
+                onClick={onTrainingClick}
                 type="button"
                 className="relative w-full text-left p-3 md:p-4 rounded-lg border-2 bg-indigo-600 border-indigo-500 text-white transition-all press-feedback focus-ring md:hover:bg-indigo-500/90"
               >
                 <div className="min-w-0 pr-24 md:pr-28">
                   <div className="font-semibold text-base">
-                    {resolvedTrainingTypes[resolvedUserData.trainingType].label}
+                    {selectedTrainingType?.label ?? 'Training'}
                   </div>
                   <div className="text-xs md:text-sm opacity-90 mt-0.5">
-                    {
-                      resolvedTrainingTypes[resolvedUserData.trainingType]
-                        .caloriesPerHour
-                    }{' '}
-                    cal/hr •{' '}
-                    {
-                      resolvedTrainingTypes[resolvedUserData.trainingType]
-                        .description
-                    }
+                    {selectedTrainingType?.caloriesPerHour ?? '—'} cal/hr •{' '}
+                    {formattedTrainingDuration}
+                  </div>
+                  <div className="text-[11px] opacity-80 mt-1">
+                    {`~${roundedTrainingDuration.toFixed(2)} hours • Session burn: ~${Math.round(resolvedTrainingCalories)} calories`}
                   </div>
                 </div>
                 <span className="pointer-events-none absolute top-3 right-3 md:top-4 md:right-4 text-[11px] opacity-75 whitespace-nowrap">
-                  Tap to change
+                  Tap to edit
                 </span>
               </button>
-            </div>
-
-            <div>
-              <label className="text-foreground/80 text-sm block mb-2">
-                Training Duration (hours)
-              </label>
-              <DurationButton
-                duration={resolvedUserData.trainingDuration}
-                onClick={onTrainingDurationClick}
-              />
-              <p className="text-foreground/80 text-xs mt-1">
-                Training session burn: ~{Math.round(resolvedTrainingCalories)}{' '}
-                calories
-              </p>
             </div>
           </div>
         </div>
@@ -465,23 +457,6 @@ export const SettingsModal = ({
         </div>
       </div>
     </ModalShell>
-  );
-};
-
-const DurationButton = ({ duration, onClick }) => {
-  const formatted = useMemo(() => formatDurationLabel(duration), [duration]);
-  const rounded = useMemo(() => roundDurationHours(duration), [duration]);
-
-  return (
-    <button
-      onClick={onClick}
-      type="button"
-      className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-500 text-white transition-all press-feedback focus-ring flex flex-wrap items-center gap-x-3 gap-y-1"
-    >
-      <span className="font-semibold text-sm md:text-base">{formatted}</span>
-      <span className="text-xs opacity-90">~{rounded.toFixed(2)} hours</span>
-      <span className="text-[11px] opacity-75 ml-auto">Tap to change</span>
-    </button>
   );
 };
 
