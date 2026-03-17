@@ -1201,7 +1201,8 @@ export const StepTrackerModal = ({
       const yearKey = s.date.slice(0, 4);
       const showYear =
         showLabel &&
-        (isFirstDayOfYearUtc(s.date) || firstRenderedDateByYear.get(yearKey) === s.date);
+        (isFirstDayOfYearUtc(s.date) ||
+          firstRenderedDateByYear.get(yearKey) === s.date);
       return (
         <div
           key={s.date}
@@ -1233,7 +1234,9 @@ export const StepTrackerModal = ({
                       {formatTimelineLabel(s.date)}
                     </span>
                     {showYear && (
-                      <span className={`mt-0.5 text-[9px] font-medium ${!hasEntry ? 'text-muted/30' : 'text-muted/70'}`}>
+                      <span
+                        className={`mt-0.5 text-[9px] font-medium ${!hasEntry ? 'text-muted/30' : 'text-muted/70'}`}
+                      >
                         {yearKey}
                       </span>
                     )}
@@ -1295,7 +1298,9 @@ export const StepTrackerModal = ({
                   {m.label}
                 </span>
                 {m.month === 0 && (
-                  <span className={`mt-0.5 text-[9px] font-medium ${m.isEmpty ? 'text-muted/30' : 'text-muted/70'}`}>
+                  <span
+                    className={`mt-0.5 text-[9px] font-medium ${m.isEmpty ? 'text-muted/30' : 'text-muted/70'}`}
+                  >
                     {m.year}
                   </span>
                 )}
@@ -1534,7 +1539,9 @@ export const StepTrackerModal = ({
                           {formatTimelineLabel(s.date)}
                         </span>
                         {showYear && (
-                          <span className={`mt-0.5 text-[9px] font-medium ${isEmpty ? 'text-muted/30' : 'text-muted/70'}`}>
+                          <span
+                            className={`mt-0.5 text-[9px] font-medium ${isEmpty ? 'text-muted/30' : 'text-muted/70'}`}
+                          >
                             {yearKey}
                           </span>
                         )}

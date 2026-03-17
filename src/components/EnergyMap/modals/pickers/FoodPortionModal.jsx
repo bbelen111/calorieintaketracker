@@ -443,7 +443,7 @@ export const FoodPortionModal = ({
                   </span>
                 )}
                 {selectedFood.subcategory && (
-                  <span className="text-xs px-2 py-0.5 bg-surface-highlight/60 text-foreground rounded capitalize">
+                  <span className="text-xs px-2 py-0.5 bg-accent-indigo/20 text-accent-indigo rounded capitalize">
                     {selectedFood.subcategory.replace(/-/g, ' ')}
                   </span>
                 )}
