@@ -34,7 +34,7 @@ React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor 
 ```
 main.jsx
   └─ App.jsx (theme management, store hydration gate)
-       └─ EnergyMapCalculator.jsx (3,237 lines — THE orchestrator)
+       └─ EnergyMapCalculator.jsx (3,300+ lines — THE orchestrator)
             ├─ 5-screen carousel (useSwipeableScreens)
             │   ├─ LogbookScreen
             │   ├─ TrackerScreen
@@ -42,7 +42,7 @@ main.jsx
             │   ├─ CalorieMapScreen
             │   └─ InsightsScreen
             ├─ PhaseDetailScreen (drill-down, not in carousel)
-            └─ 36 top-level useAnimatedModal instances → 44 modal files
+            └─ 37 top-level useAnimatedModal instances → 46 modal files
                  └─ ~17 additional child-level modals inside modal components
 ```
 
@@ -120,16 +120,16 @@ Deprecated 7-line wrapper that spreads the entire store state. Defeats `shallow`
 
 ### Modal Count
 
-- **36 `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
+- **37 `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
 - **~17 additional child-level modals** declared inside modal components (e.g., delete confirmations, sub-pickers)
-- **45 modal files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`:
+- **46 modal files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`:
   - `fullscreen/` — WeightTrackerModal, BodyFatTrackerModal, StepTrackerModal, SettingsModal, FoodSearchModal
   - `pickers/` — AgePickerModal, BodyFatPickerModal, CalendarPickerModal, DatePickerModal, DurationPickerModal, FoodPortionModal, HeartRatePickerModal, HeightPickerModal, MealTypePickerModal, MetValuePickerModal, StepGoalPickerModal, TemplatePickerModal, WeightPickerModal
-  - `info/` — BmiInfoModal, BmrInfoModal, BodyFatTrendInfoModal, CalorieBreakdownModal, CaloriesPerHourGuideModal, FfmiInfoModal, WeightTrendInfoModal
+  - `info/` — BmiInfoModal, BmrInfoModal, BodyFatTrendInfoModal, CalorieBreakdownModal, CaloriesPerHourGuideModal, FfmiInfoModal, TefInfoModal, WeightTrendInfoModal
   - `forms/` — AddCustomFoodModal, BodyFatEntryModal, CardioModal, CustomCardioTypeModal, DailyActivityCustomModal, DailyActivityEditorModal, DailyActivityModal, DailyLogModal, FoodEntryModal, GoalModal, PhaseCreationModal, TrainingModal, StepRangesModal, TrainingTypeEditorModal, WeightEntryModal
   - `lists/` — CardioFavouritesModal, CardioTypeListModal, FoodFavouritesModal
   - `common/` — ConfirmActionModal
-- Total across codebase: ~53 modal instances
+- Total across codebase: ~54 modal instances
 
 ### `useAnimatedModal` Hook
 
@@ -384,7 +384,7 @@ Defined in `index.css` `@layer base` and `@layer components`:
 
 ---
 
-## Calculation System (`utils/calculations.js`, 406 lines)
+## Calculation System (`utils/calculations.js`)
 
 All calorie formulas are centralized. **Never duplicate or inline calculations.**
 
@@ -396,13 +396,24 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 | Cardio (total) | `getTotalCardioBurn(userData, cardioTypes)` | Sums `calculateCardioCalories` across all `userData.cardioSessions` |
 | Training cal/hr | `getTrainingCaloriesPerHour(userData, trainingTypes)` | Base cal/hr × intensity multiplier (light 0.75 / moderate 1.0 / vigorous 1.25) |
 | Training (total) | `getTrainingCalories(userData, trainingTypes)` | Supports `trainingEffortType: 'heartRate'` or intensity-based. `caloriesPerHour × trainingDuration` from resolved types |
-| TDEE breakdown | `calculateCalorieBreakdown({...})` | BMR + activity multiplier + training + cardio + steps. Returns `bmrDetails` with method/lean mass info |
+| TDEE breakdown | `calculateCalorieBreakdown({...})` | BMR + activity multiplier + training + cardio + steps. Accepts optional `tefContext`. Returns `bmrDetails`, TEF fields when Smart TEF is enabled |
 | TDEE (simple) | `calculateTDEE(options)` | Convenience wrapper — returns just `calculateCalorieBreakdown(options).total` |
 | Goal target | `calculateGoalCalories(tdee, goal)` | Applies ±300/500 modifier based on goal |
 | BMI | `calculateBMI(weight, height)` | Standard BMI: weight(kg) / height(m)² |
 | BMI category | `getBMICategory(bmi)` | Returns `{ label, color }` for underweight/normal/overweight/obese |
 | FFMI | `calculateFFMI(weight, height, bodyFatPercent)` | Fat-Free Mass Index — returns `{ raw, normalized, leanMass }` |
 | FFMI category | `getFFMICategory(ffmi, gender)` | Returns `{ label, color }` from "Below average" to "Suspiciously high" |
+| TEF (from macros) | `calculateTefFromMacros({proteinGrams, carbsGrams, fatsGrams})` | Protein×25% + Carbs×8% + Fats×2% of caloric content |
+| TEF (target mode) | `calculateTargetTef({targetCalories, weightKg, ...})` | Estimates TEF using weight-derived macro targets |
+| TEF (dynamic mode) | `calculateDynamicTef({totals, ...})` | Uses today's logged macro totals for live TEF estimate |
+
+**TEF constants** exported from `calculations.js`: `TEF_MULTIPLIER_OFFSET = 0.1`, `TEF_PROTEIN_RATE = 0.25`, `TEF_CARB_RATE = 0.08`, `TEF_FAT_RATE = 0.02`.
+
+**Smart TEF mechanic:** When `userData.smartTefEnabled` is true and a `tefContext` is passed, `calculateCalorieBreakdown()` subtracts `TEF_MULTIPLIER_OFFSET` (10%) from the NEAT activity multiplier (`effectiveActivityMultiplier = rawActivityMultiplier - 0.1`) then adds the macro-based TEF back as an explicit line item. Net effect is neutral at default macro ratios but improves accuracy with real logged data. The breakdown return object gains: `rawActivityMultiplier`, `effectiveActivityMultiplier`, `tefOffsetApplied`, `tefMode`, `smartTefCalories`, `smartTefDetails`.
+
+**`tefContext` shape:** `{ mode: 'off' | 'target' | 'dynamic', totals?: {protein, carbs, fats}, targetCalories?: number, weightKg?: number, enabled?: boolean }`
+
+**Target mode chicken-and-egg:** The store's `calculateTargetForGoal()` runs a 2-pass refinement loop — pass 1 seeds `targetCalories` with pre-TEF TDEE; pass 2 uses goal-adjusted result from pass 1. Two iterations converges sufficiently.
 
 **Training types** are resolved at the store level (`resolveTrainingTypes`) by merging `trainingTypes` constants with `userData.trainingTypeOverrides`. Never use raw constants directly.
 
@@ -448,6 +459,7 @@ Automated one-time migration from `localStorage` key `energyMapData` to Capacito
 - `activityMultipliers: { training: 0.35, rest: 0.28 }`
 - `activityPresets: { training: 'default', rest: 'default' }`
 - `customActivityMultipliers: { training: 0.35, rest: 0.28 }`
+- `smartTefEnabled: false`
 
 ---
 
@@ -476,6 +488,7 @@ Automated one-time migration from `localStorage` key `energyMapData` to Capacito
   customCardioTypes: {},
   stepGoal: 10000,
   bodyFatTrackingEnabled: true,
+  smartTefEnabled: false,          // Explicit macro-based TEF replaces implicit 10% in NEAT
 
   // History (stored in separate Preferences key)
   cardioSessions: [{ id, type, duration, intensity, effortType, averageHeartRate? }],
@@ -568,14 +581,14 @@ Always returns `'unavailable'` on web and iOS. Status constants exported as `Hea
 ```
 src/
 ├─ components/EnergyMap/
-│   ├─ EnergyMapCalculator.jsx   # THE orchestrator (3,237 lines)
+│   ├─ EnergyMapCalculator.jsx   # THE orchestrator (3,300+ lines)
 │   ├─ common/
 │   │   ├─ ModalShell.jsx        # Core modal wrapper (601 lines, singleton managers)
 │   │   └─ ScreenTabs.jsx        # Tab bar + floating variant
-│   ├─ modals/                   # 45 modal files in 6 subfolders, all use ModalShell
+│   ├─ modals/                   # 46 modal files in 6 subfolders, all use ModalShell
 │   │   ├─ fullscreen/           # Full-screen takeover modals (WeightTracker, BodyFatTracker, StepTracker, Settings, FoodSearch)
 │   │   ├─ pickers/              # Scroll-wheel value pickers (Age, BodyFat, Calendar, Height, Weight, MealType, etc.)
-│   │   ├─ info/                 # Read-only info/reference sheets (BmiInfo, BmrInfo, CalorieBreakdown, etc.)
+│   │   ├─ info/                 # Read-only info/reference sheets (BmiInfo, BmrInfo, CalorieBreakdown, TefInfo, etc.)
 │   │   ├─ forms/                # Data entry & editing dialogs (Cardio, Goal, PhaseCreation, WeightEntry, etc.)
 │   │   ├─ lists/                # Browseable/selectable lists (CardioFavourites, FoodFavourites)
 │   │   └─ common/               # Shared utility modals (ConfirmActionModal)
@@ -587,7 +600,7 @@ src/
 │   ├─ cardioTypes.js            # Cardio activities with MET values
 │   ├─ trainingTypes.js          # Training presets with cal/hour
 │   ├─ mealTypes.js              # MEAL_TYPE_ORDER
-│   ├─ activityPresets.js        # DEFAULT_ACTIVITY_MULTIPLIERS
+│   ├─ activityPresets.js        # DEFAULT_ACTIVITY_MULTIPLIERS; also exports MIN_CUSTOM_ACTIVITY_MULTIPLIER, clampCustomActivityMultiplier(), clampCustomActivityPercent(), getCustomActivityPercent()
 │   └─ phaseTemplates.js         # Phase creation templates
 ├─ hooks/
 │   ├─ useAnimatedModal.js       # Modal lifecycle (isOpen/isClosing/requestClose)
@@ -597,10 +610,12 @@ src/
 │   ├─ useNetworkStatus.js       # Online/offline detection
 │   └─ useScrollOffScreen.js     # Floating tab bar trigger
 ├─ store/
-│   └─ useEnergyMapStore.js      # Zustand store (859 lines): state, actions, derived values, persistence
+│   └─ useEnergyMapStore.js      # Zustand store: state, actions, derived values, persistence
+│                                #   calculateBreakdown(steps, isTrainingDay, options?) — options.tefContext forwarded to core calc
+│                                #   calculateTargetForGoal(steps, isTrainingDay, goalKey, options?) — 2-pass refinement for target TEF mode
 ├─ utils/
-│   ├─ calculations.js           # ALL calorie formulas (406 lines) — BMR, cardio, training, TDEE, BMI, FFMI
-│   ├─ storage.js                # Schema, defaults, load/save, migration (301 lines)
+│   ├─ calculations.js           # ALL calorie formulas — BMR, cardio, training, TDEE, BMI, FFMI, Smart TEF
+│   ├─ storage.js                # Schema, defaults, load/save, migration; mergeWithDefaults clamps customActivityMultipliers
 │   ├─ profile.js                # Age/height sanitization helpers (sanitizeAge, sanitizeHeight, AGE/HEIGHT min/max constants)
 │   ├─ weight.js                 # Date normalization, weight clamping, sorting, trend analysis, sparklines (325 lines)
 │   ├─ steps.js                  # Step range parsing, step calorie estimation, getStepDetails (153 lines)
@@ -657,3 +672,6 @@ npm run format         # Prettier formatting
 10. **Hover gating:** Never use bare `hover:` — always use `md:hover:` to prevent sticky hover on touch devices.
 11. **Weight entries:** Always normalize dates with `normalizeDateKey()`, validate with `clampWeight()` (30-210 kg range), and sort with `sortWeightEntries()` before storing.
 12. **`native/` folder is deprecated.** Use `utils/theme.js` `applyNativeTheme()` for all native platform styling.
+13. **Smart TEF and NEAT:** When `userData.smartTefEnabled` is true, `calculateCalorieBreakdown()` subtracts `TEF_MULTIPLIER_OFFSET` (0.1) from the activity multiplier and adds macro-derived TEF back explicitly. The displayed NEAT multiplier in `CalorieBreakdownModal` will therefore appear lower than the user's configured value — this is intentional and explained in `TefInfoModal`. Never remove the offset without also disabling TEF.
+14. **Activity multiplier clamping:** Custom activity multipliers have a floor defined by `MIN_CUSTOM_ACTIVITY_MULTIPLIER` in `activityPresets.js`. Always use `clampCustomActivityMultiplier()` when persisting custom NEAT values. The `DailyActivityCustomModal` picker starts at `MIN_CUSTOM_ACTIVITY_PERCENT` (10%), not 0.
+15. **Calorie breakdown request object:** `openCalorieBreakdown()` in the orchestrator accepts either a plain step count (legacy) or a `{ steps, tefContext }` object. `CalorieMapScreen` step cards and the live Health Connect card pass the full object to enable correct TEF mode selection.

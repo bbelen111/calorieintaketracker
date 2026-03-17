@@ -86,7 +86,11 @@ const resolveTargetMacroDetails = ({ targetCalories, weightKg }) => {
   };
 };
 
-export const calculateTefFromMacros = ({ proteinGrams, carbsGrams, fatsGrams }) =>
+export const calculateTefFromMacros = ({
+  proteinGrams,
+  carbsGrams,
+  fatsGrams,
+}) =>
   resolveTefMacroDetails({
     proteinGrams,
     carbsGrams,
@@ -113,7 +117,8 @@ const resolveSmartTef = ({ tefContext, userData, targetCalories }) => {
 
   if (tefMode === 'dynamic') {
     const dynamicDetails = resolveTefMacroDetails({
-      proteinGrams: tefContext?.totals?.proteinGrams ?? tefContext?.totals?.protein,
+      proteinGrams:
+        tefContext?.totals?.proteinGrams ?? tefContext?.totals?.protein,
       carbsGrams: tefContext?.totals?.carbsGrams ?? tefContext?.totals?.carbs,
       fatsGrams: tefContext?.totals?.fatsGrams ?? tefContext?.totals?.fats,
     });
@@ -421,7 +426,8 @@ export const calculateCalorieBreakdown = ({
     })
     .filter(Boolean);
   const tefOffsetApplied =
-    tefContext?.mode && tefContext.mode !== 'off' &&
+    tefContext?.mode &&
+    tefContext.mode !== 'off' &&
     (tefContext?.enabled ?? Boolean(userData?.smartTefEnabled))
       ? TEF_MULTIPLIER_OFFSET
       : 0;
@@ -431,21 +437,18 @@ export const calculateCalorieBreakdown = ({
   );
   const baseActivity = Math.round(bmr * effectiveActivityMultiplier);
   const subtotalBeforeSmartTef = Math.round(
-    bmr +
-      baseActivity +
-      stepDetails.calories +
-      trainingBurn +
-      cardioBurn
+    bmr + baseActivity + stepDetails.calories + trainingBurn + cardioBurn
   );
-  const { tefMode, smartTefCalories, details: smartTefDetails } =
-    resolveSmartTef({
-      tefContext,
-      userData,
-      targetCalories: subtotalBeforeSmartTef,
-    });
-  const total = Math.round(
-    subtotalBeforeSmartTef + smartTefCalories
-  );
+  const {
+    tefMode,
+    smartTefCalories,
+    details: smartTefDetails,
+  } = resolveSmartTef({
+    tefContext,
+    userData,
+    targetCalories: subtotalBeforeSmartTef,
+  });
+  const total = Math.round(subtotalBeforeSmartTef + smartTefCalories);
 
   return {
     total,
