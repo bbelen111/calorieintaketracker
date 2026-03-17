@@ -2,19 +2,23 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Save } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import {
+  clampCustomActivityPercent,
+  MIN_CUSTOM_ACTIVITY_PERCENT,
+} from '../../../../constants/activityPresets';
+import {
   alignScrollContainerToValue,
   createPickerScrollHandler,
 } from '../../../../utils/scroll';
 
-// 0, 0.5, 1.0, … 100.0  →  201 values
+// 10.0, 10.5, 11.0, … 100.0
 const NEAT_VALUES = Array.from(
-  { length: 201 },
-  (_, i) => Math.round(i * 5) / 10
+  { length: Math.round((100 - MIN_CUSTOM_ACTIVITY_PERCENT) * 2) + 1 },
+  (_, i) => Math.round((MIN_CUSTOM_ACTIVITY_PERCENT + i * 0.5) * 10) / 10
 );
 
 const clampNeat = (v) => {
-  if (!Number.isFinite(v)) return 0;
-  return Math.min(Math.max(Math.round(v * 2) / 2, 0), 100);
+  const clampedPercent = clampCustomActivityPercent(v);
+  return Math.round(clampedPercent * 2) / 2;
 };
 
 const titles = {
@@ -138,7 +142,7 @@ export const DailyActivityCustomModal = ({
       </div>
 
       <p className="text-muted text-xs text-center mt-3">
-        Recommended: 20% – 45% for most lifestyles
+        Recommended: 20% – 45% for most lifestyles · Minimum 10%
       </p>
 
       <div className="flex gap-2 md:gap-3 mt-4">

@@ -1,4 +1,5 @@
 import { Preferences } from '@capacitor/preferences';
+import { clampCustomActivityMultiplier } from '../constants/activityPresets';
 import { sortWeightEntries } from './weight';
 import { sortBodyFatEntries } from './bodyFat';
 import { sanitizeAge, sanitizeHeight } from './profile';
@@ -20,6 +21,8 @@ const HISTORY_FIELDS = [
   'phases',
   'cardioSessions',
 ];
+
+const ACTIVITY_DAY_TYPES = ['training', 'rest'];
 
 const hasLocalStorage = () =>
   typeof window !== 'undefined' && window.localStorage;
@@ -137,6 +140,7 @@ export const getDefaultEnergyMapData = () => ({
   bodyFatTrackingEnabled: true,
   gender: 'male',
   theme: 'auto', // 'auto' | 'dark' | 'light' | 'amoled_dark'
+  smartTefEnabled: false,
   trainingType: 'bodybuilding',
   trainingDuration: 2,
   trainingEffortType: 'intensity',
@@ -204,6 +208,34 @@ export const getDefaultEnergyMapData = () => ({
 
 function mergeWithDefaults(data) {
   const defaults = getDefaultEnergyMapData();
+  const activityPresets = {
+    ...defaults.activityPresets,
+    ...(data.activityPresets ?? {}),
+  };
+  const activityMultipliers = {
+    ...defaults.activityMultipliers,
+    ...(data.activityMultipliers ?? {}),
+  };
+  const customActivityMultipliers = {
+    ...defaults.customActivityMultipliers,
+    ...(data.customActivityMultipliers ?? {}),
+  };
+
+  ACTIVITY_DAY_TYPES.forEach((dayType) => {
+    const fallbackCustom = Number.isFinite(customActivityMultipliers[dayType])
+      ? customActivityMultipliers[dayType]
+      : (Number.isFinite(activityMultipliers[dayType])
+          ? activityMultipliers[dayType]
+          : defaults.customActivityMultipliers[dayType]);
+
+    customActivityMultipliers[dayType] =
+      clampCustomActivityMultiplier(fallbackCustom);
+
+    if (activityPresets[dayType] === 'custom') {
+      activityMultipliers[dayType] = customActivityMultipliers[dayType];
+    }
+  });
+
   const normalizeNutritionData = (raw) => {
     if (!raw || typeof raw !== 'object') return defaults.nutritionData;
 
@@ -244,18 +276,9 @@ function mergeWithDefaults(data) {
       ...defaults.trainingTypeOverrides,
       ...(data.trainingTypeOverrides ?? {}),
     },
-    activityPresets: {
-      ...defaults.activityPresets,
-      ...(data.activityPresets ?? {}),
-    },
-    activityMultipliers: {
-      ...defaults.activityMultipliers,
-      ...(data.activityMultipliers ?? {}),
-    },
-    customActivityMultipliers: {
-      ...defaults.customActivityMultipliers,
-      ...(data.customActivityMultipliers ?? {}),
-    },
+    activityPresets,
+    activityMultipliers,
+    customActivityMultipliers,
     customCardioTypes: {
       ...defaults.customCardioTypes,
       ...(data.customCardioTypes ?? {}),

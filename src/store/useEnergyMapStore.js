@@ -304,7 +304,7 @@ export const useEnergyMapStore = create(
       });
     },
 
-    calculateBreakdown: (steps, isTrainingDay) => {
+    calculateBreakdown: (steps, isTrainingDay, options = {}) => {
       const { userData, bmr, cardioTypes, trainingTypes } = get();
       return calculateCalorieBreakdown({
         steps,
@@ -313,11 +313,35 @@ export const useEnergyMapStore = create(
         bmr,
         cardioTypes,
         trainingTypes,
+        tefContext: options?.tefContext,
       });
     },
 
-    calculateTargetForGoal: (steps, isTrainingDay, goalKey) => {
-      const breakdown = get().calculateBreakdown(steps, isTrainingDay);
+    calculateTargetForGoal: (steps, isTrainingDay, goalKey, options = {}) => {
+      const requestedTefContext = options?.tefContext;
+      const shouldResolveTargetCalories =
+        requestedTefContext?.mode === 'target' &&
+        !Number.isFinite(Number(requestedTefContext?.targetCalories));
+
+      let breakdown = get().calculateBreakdown(steps, isTrainingDay, options);
+
+      if (shouldResolveTargetCalories) {
+        for (let pass = 0; pass < 2; pass += 1) {
+          const targetCaloriesForTef = calculateGoalCalories(
+            breakdown.total,
+            goalKey
+          );
+
+          breakdown = get().calculateBreakdown(steps, isTrainingDay, {
+            ...options,
+            tefContext: {
+              ...requestedTefContext,
+              targetCalories: targetCaloriesForTef,
+            },
+          });
+        }
+      }
+
       const targetCalories = calculateGoalCalories(breakdown.total, goalKey);
       return {
         breakdown,

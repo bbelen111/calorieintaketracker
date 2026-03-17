@@ -31,9 +31,27 @@ export const CalorieBreakdownModal = ({
     Number.isFinite(value) ? value.toFixed(digits) : '—';
   const formatWhole = (value) =>
     Number.isFinite(value) ? Math.round(value).toLocaleString() : '—';
+  const formatPercent = (value) => {
+    if (!Number.isFinite(value)) {
+      return '—';
+    }
+
+    const percent = value * 100;
+    return Number.isInteger(percent)
+      ? `${percent.toFixed(0)}%`
+      : `${percent.toFixed(1)}%`;
+  };
   const stepDetails = breakdown.stepDetails ?? {};
   const trainingDuration = breakdown.trainingDuration ?? 0;
   const trainingCaloriesPerHour = breakdown.trainingCaloriesPerHour ?? 0;
+  const rawActivityMultiplier =
+    breakdown.rawActivityMultiplier ?? breakdown.activityMultiplier ?? 0;
+  const effectiveActivityMultiplier =
+    breakdown.effectiveActivityMultiplier ?? breakdown.activityMultiplier ?? 0;
+  const tefOffsetApplied = breakdown.tefOffsetApplied ?? 0;
+  const smartTefCalories = breakdown.smartTefCalories ?? 0;
+  const smartTefDetails = breakdown.smartTefDetails ?? null;
+  const smartTefMode = breakdown.tefMode ?? 'off';
   const showTrainingFormula =
     selectedDay === 'training' &&
     trainingDuration > 0 &&
@@ -126,7 +144,7 @@ export const CalorieBreakdownModal = ({
           </BreakdownItem>
 
           <BreakdownItem
-            label={`Daily Activity NEAT (~${Math.round(breakdown.activityMultiplier * 100)}%)`}
+            label={`Daily Activity NEAT (~${Math.round(effectiveActivityMultiplier * 100)}%)`}
             value={breakdown.baseActivity}
             total={breakdown.total}
             expanded={expandedItem === 'neat'}
@@ -139,9 +157,16 @@ export const CalorieBreakdownModal = ({
               <strong>Calculation:</strong>
               <br />
               {breakdown.bmr.toLocaleString()} (BMR) ×{' '}
-              {breakdown.activityMultiplier.toFixed(2)} ={' '}
+              {effectiveActivityMultiplier.toFixed(2)} ={' '}
               {breakdown.baseActivity.toLocaleString()} kcal
             </p>
+            {tefOffsetApplied > 0 && (
+              <p className="text-muted text-xs mt-2">
+                Selected NEAT: {formatPercent(rawActivityMultiplier)} • TEF
+                offset: -{formatPercent(tefOffsetApplied)} • Effective:{' '}
+                {formatPercent(effectiveActivityMultiplier)}
+              </p>
+            )}
           </BreakdownItem>
 
           <BreakdownItem
@@ -236,6 +261,77 @@ export const CalorieBreakdownModal = ({
             )}
           </BreakdownItem>
 
+          <BreakdownItem
+            label={
+              smartTefMode === 'dynamic'
+                ? 'Smart TEF (Dynamic)'
+                : smartTefMode === 'target'
+                  ? 'Smart TEF (Target)'
+                  : 'Smart TEF'
+            }
+            value={smartTefCalories}
+            total={breakdown.total}
+            expanded={expandedItem === 'smart-tef'}
+            onToggle={() => toggleExpanded('smart-tef')}
+            showPlus
+          >
+            <p className="text-muted text-xs">
+              Thermic effect of food estimated from your macro mix.
+            </p>
+            {smartTefMode === 'off' || !smartTefDetails ? (
+              <p className="text-muted text-xs mt-2">
+                Smart TEF is off, so the default 10% TEF assumption stays
+                bundled into your selected NEAT multiplier.
+              </p>
+            ) : (
+              <div className="text-muted text-xs mt-2 space-y-2">
+                <p>
+                  <strong>
+                    {smartTefMode === 'dynamic' ? 'Dynamic mode:' : 'Target mode:'}
+                  </strong>{' '}
+                  {smartTefMode === 'dynamic'
+                    ? 'Uses the macros you have logged so far.'
+                    : 'Uses your weight-based macro targets and carbs from remaining calories.'}
+                </p>
+                <div className="space-y-1">
+                  <p>
+                    Protein: {formatNumber(smartTefDetails.proteinCalories, 1)}
+                    {' '}kcal × 25% ={' '}
+                    {formatNumber(smartTefDetails.proteinTefCalories, 1)} kcal
+                  </p>
+                  <p>
+                    Carbs: {formatNumber(smartTefDetails.carbCalories, 1)} kcal
+                    {' '}× 8% = {formatNumber(smartTefDetails.carbTefCalories, 1)}
+                    {' '}kcal
+                  </p>
+                  <p>
+                    Fat: {formatNumber(smartTefDetails.fatCalories, 1)} kcal ×
+                    {' '}2% = {formatNumber(smartTefDetails.fatTefCalories, 1)}
+                    {' '}kcal
+                  </p>
+                </div>
+                {smartTefMode === 'target' && (
+                  <p>
+                    Target intake used: {formatWhole(smartTefDetails.targetCalories)}
+                    {' '}kcal • P {formatNumber(smartTefDetails.proteinGrams, 1)}g
+                    {' '}• C {formatNumber(smartTefDetails.carbsGrams, 1)}g • F{' '}
+                    {formatNumber(smartTefDetails.fatsGrams, 1)}g
+                  </p>
+                )}
+                {smartTefMode === 'dynamic' && (
+                  <p>
+                    Logged macros used: P {formatNumber(smartTefDetails.proteinGrams, 1)}g
+                    {' '}• C {formatNumber(smartTefDetails.carbsGrams, 1)}g • F{' '}
+                    {formatNumber(smartTefDetails.fatsGrams, 1)}g
+                  </p>
+                )}
+                <p className="text-foreground font-semibold pt-2 border-t border-border/50">
+                  Sum: +{formatWhole(smartTefCalories)} kcal
+                </p>
+              </div>
+            )}
+          </BreakdownItem>
+
           <div className="border border-border rounded-lg px-4 py-3 flex items-center justify-between">
             <span className="text-muted font-semibold">Total TDEE</span>
             <span className="text-foreground font-bold text-lg">
@@ -263,15 +359,17 @@ const BreakdownItem = ({
   expanded,
   onToggle,
   children,
+  showPlus = false,
 }) => {
   const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+  const displayValue = showPlus && value > 0 ? `+${value.toLocaleString()}` : value.toLocaleString();
 
   return (
     <div className="bg-surface-highlight/40 rounded-lg overflow-hidden">
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center justify-between px-4 py-3 md:hover:bg-surface-highlight/60 transition-colors text-left active:scale-[0.99]"
+        className="w-full flex items-center justify-between px-4 py-3 md:hover:bg-surface-highlight/60 transition-colors text-left active:scale-[0.99] focus-ring"
       >
         <span className="text-muted flex items-center gap-2">
           {label}
@@ -285,7 +383,7 @@ const BreakdownItem = ({
         </span>
         <span className="text-foreground font-semibold flex items-center gap-3">
           <span className="text-muted text-xs">{percentage}%</span>
-          {value.toLocaleString()} kcal
+          {displayValue} kcal
         </span>
       </button>
       <div

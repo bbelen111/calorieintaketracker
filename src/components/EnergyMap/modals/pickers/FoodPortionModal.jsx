@@ -9,6 +9,7 @@ import { Plus, ChevronDown, Heart } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import { FOOD_CATEGORIES } from '../../../../constants/foodDatabase';
 import { formatOne } from '../../../../utils/format';
+import { calculateTefFromMacros } from '../../../../utils/calculations';
 import {
   alignScrollContainerToValue,
   createPickerScrollHandler,
@@ -316,6 +317,17 @@ export const FoodPortionModal = ({
   }, [selectedFood, grams]);
 
   const nutrition = selectedFood ? calculateNutrition() : null;
+  const rawFoodTef = useMemo(
+    () =>
+      nutrition
+        ? calculateTefFromMacros({
+            proteinGrams: nutrition.protein,
+            carbsGrams: nutrition.carbs,
+            fatsGrams: nutrition.fats,
+          })
+        : 0,
+    [nutrition]
+  );
 
   const handleAddFood = () => {
     if (!nutrition) return;
@@ -661,6 +673,11 @@ export const FoodPortionModal = ({
               </p>
               <p className="text-muted text-xs">fats</p>
             </div>
+          </div>
+          <div className="mt-3 pt-3 border-t border-border/50 text-center">
+            <p className="text-accent-orange font-semibold text-sm">
+              🔥 TEF Burn: {rawFoodTef.toLocaleString()} kcal
+            </p>
           </div>
         </div>
       )}

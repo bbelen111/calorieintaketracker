@@ -3,6 +3,48 @@ export const DEFAULT_ACTIVITY_MULTIPLIERS = {
   rest: 0.22,
 };
 
+export const MIN_CUSTOM_ACTIVITY_MULTIPLIER = 0.1;
+export const MIN_CUSTOM_ACTIVITY_PERCENT =
+  MIN_CUSTOM_ACTIVITY_MULTIPLIER * 100;
+
+const MAX_ACTIVITY_MULTIPLIER = 1;
+const MAX_ACTIVITY_PERCENT = 100;
+
+const roundActivityMultiplier = (value) => Math.round(value * 1000) / 1000;
+
+const roundActivityPercent = (value) => Math.round(value * 10) / 10;
+
+export const clampCustomActivityMultiplier = (value) => {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return MIN_CUSTOM_ACTIVITY_MULTIPLIER;
+  }
+
+  return roundActivityMultiplier(
+    Math.min(
+      Math.max(numericValue, MIN_CUSTOM_ACTIVITY_MULTIPLIER),
+      MAX_ACTIVITY_MULTIPLIER
+    )
+  );
+};
+
+export const clampCustomActivityPercent = (value) => {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return MIN_CUSTOM_ACTIVITY_PERCENT;
+  }
+
+  return roundActivityPercent(
+    Math.min(
+      Math.max(numericValue, MIN_CUSTOM_ACTIVITY_PERCENT),
+      MAX_ACTIVITY_PERCENT
+    )
+  );
+};
+
+export const getCustomActivityPercent = (value) =>
+  roundActivityPercent(clampCustomActivityMultiplier(value) * 100);
+
 export const ACTIVITY_PRESET_OPTIONS = {
   rest: [
     {

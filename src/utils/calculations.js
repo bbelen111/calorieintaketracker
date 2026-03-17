@@ -16,6 +16,144 @@ const HEART_RATE_COEFFICIENTS = {
   },
 };
 
+export const TEF_MULTIPLIER_OFFSET = 0.1;
+export const TEF_PROTEIN_RATE = 0.25;
+export const TEF_CARB_RATE = 0.08;
+export const TEF_FAT_RATE = 0.02;
+
+const PROTEIN_CALORIES_PER_GRAM = 4;
+const CARB_CALORIES_PER_GRAM = 4;
+const FAT_CALORIES_PER_GRAM = 9;
+
+const normalizeNonNegativeNumber = (value) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return 0;
+  }
+  return numeric;
+};
+
+const roundToTenth = (value) => Math.round(value * 10) / 10;
+
+const resolveTefMacroDetails = ({ proteinGrams, carbsGrams, fatsGrams }) => {
+  const safeProteinGrams = normalizeNonNegativeNumber(proteinGrams);
+  const safeCarbsGrams = normalizeNonNegativeNumber(carbsGrams);
+  const safeFatsGrams = normalizeNonNegativeNumber(fatsGrams);
+  const proteinCalories = safeProteinGrams * PROTEIN_CALORIES_PER_GRAM;
+  const carbCalories = safeCarbsGrams * CARB_CALORIES_PER_GRAM;
+  const fatCalories = safeFatsGrams * FAT_CALORIES_PER_GRAM;
+  const proteinTefCalories = proteinCalories * TEF_PROTEIN_RATE;
+  const carbTefCalories = carbCalories * TEF_CARB_RATE;
+  const fatTefCalories = fatCalories * TEF_FAT_RATE;
+  const rawTotalCalories =
+    proteinTefCalories + carbTefCalories + fatTefCalories;
+
+  return {
+    proteinGrams: roundToTenth(safeProteinGrams),
+    carbsGrams: roundToTenth(safeCarbsGrams),
+    fatsGrams: roundToTenth(safeFatsGrams),
+    proteinCalories: roundToTenth(proteinCalories),
+    carbCalories: roundToTenth(carbCalories),
+    fatCalories: roundToTenth(fatCalories),
+    proteinTefCalories: roundToTenth(proteinTefCalories),
+    carbTefCalories: roundToTenth(carbTefCalories),
+    fatTefCalories: roundToTenth(fatTefCalories),
+    rawTotalCalories: roundToTenth(rawTotalCalories),
+    totalCalories: Math.round(rawTotalCalories),
+  };
+};
+
+const resolveTargetMacroDetails = ({ targetCalories, weightKg }) => {
+  const safeTargetCalories = normalizeNonNegativeNumber(targetCalories);
+  const safeWeightKg = normalizeNonNegativeNumber(weightKg);
+  const proteinGrams = safeWeightKg * 2;
+  const fatsGrams = safeWeightKg * 0.8;
+  const proteinCalories = proteinGrams * PROTEIN_CALORIES_PER_GRAM;
+  const fatCalories = fatsGrams * FAT_CALORIES_PER_GRAM;
+  const remainingCaloriesForCarbs = Math.max(
+    0,
+    safeTargetCalories - proteinCalories - fatCalories
+  );
+  const carbsGrams = remainingCaloriesForCarbs / CARB_CALORIES_PER_GRAM;
+
+  return {
+    targetCalories: Math.round(safeTargetCalories),
+    weightKg: roundToTenth(safeWeightKg),
+    proteinGrams: roundToTenth(proteinGrams),
+    carbsGrams: roundToTenth(carbsGrams),
+    fatsGrams: roundToTenth(fatsGrams),
+    remainingCaloriesForCarbs: roundToTenth(remainingCaloriesForCarbs),
+  };
+};
+
+export const calculateTefFromMacros = ({ proteinGrams, carbsGrams, fatsGrams }) =>
+  resolveTefMacroDetails({
+    proteinGrams,
+    carbsGrams,
+    fatsGrams,
+  }).totalCalories;
+
+export const calculateTargetTef = ({ targetCalories, weightKg }) => {
+  const macroTargets = resolveTargetMacroDetails({ targetCalories, weightKg });
+  return calculateTefFromMacros(macroTargets);
+};
+
+export const calculateDynamicTef = ({ totals }) =>
+  calculateTefFromMacros({
+    proteinGrams: totals?.proteinGrams ?? totals?.protein ?? 0,
+    carbsGrams: totals?.carbsGrams ?? totals?.carbs ?? 0,
+    fatsGrams: totals?.fatsGrams ?? totals?.fats ?? 0,
+  });
+
+const resolveSmartTef = ({ tefContext, userData, targetCalories }) => {
+  const smartTefEnabled =
+    tefContext?.enabled ?? Boolean(userData?.smartTefEnabled);
+  const requestedMode = tefContext?.mode ?? 'off';
+  const tefMode = smartTefEnabled ? requestedMode : 'off';
+
+  if (tefMode === 'dynamic') {
+    const dynamicDetails = resolveTefMacroDetails({
+      proteinGrams: tefContext?.totals?.proteinGrams ?? tefContext?.totals?.protein,
+      carbsGrams: tefContext?.totals?.carbsGrams ?? tefContext?.totals?.carbs,
+      fatsGrams: tefContext?.totals?.fatsGrams ?? tefContext?.totals?.fats,
+    });
+
+    return {
+      tefMode,
+      smartTefCalories: dynamicDetails.totalCalories,
+      details: {
+        ...dynamicDetails,
+        source: 'logged-macros',
+      },
+    };
+  }
+
+  if (tefMode === 'target') {
+    const targetMacroDetails = resolveTargetMacroDetails({
+      targetCalories:
+        tefContext?.targetCalories ?? tefContext?.target ?? targetCalories,
+      weightKg: tefContext?.weightKg ?? userData?.weight,
+    });
+    const targetTefDetails = resolveTefMacroDetails(targetMacroDetails);
+
+    return {
+      tefMode,
+      smartTefCalories: targetTefDetails.totalCalories,
+      details: {
+        ...targetMacroDetails,
+        ...targetTefDetails,
+        source: 'target-macros',
+      },
+    };
+  }
+
+  return {
+    tefMode: 'off',
+    smartTefCalories: 0,
+    details: null,
+  };
+};
+
 const calculateCaloriesPerMinuteFromHeartRate = ({
   heartRate,
   weightKg,
@@ -201,6 +339,7 @@ export const calculateCalorieBreakdown = ({
   bmr,
   cardioTypes,
   trainingTypes,
+  tefContext,
 }) => {
   const stepDetails = getStepDetails(steps, userData);
   const bmrDetails = resolveBmrDetails(userData);
@@ -217,10 +356,9 @@ export const calculateCalorieBreakdown = ({
     : [];
   const multipliers =
     userData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS;
-  const activityMultiplier = isTrainingDay
+  const rawActivityMultiplier = isTrainingDay
     ? (multipliers.training ?? DEFAULT_ACTIVITY_MULTIPLIERS.training)
     : (multipliers.rest ?? DEFAULT_ACTIVITY_MULTIPLIERS.rest);
-  const baseActivity = Math.round(bmr * activityMultiplier);
   const trainingBurn = Math.round(
     isTrainingDay ? getTrainingCalories(userData, trainingTypes) : 0
   );
@@ -282,15 +420,44 @@ export const calculateCalorieBreakdown = ({
       };
     })
     .filter(Boolean);
+  const tefOffsetApplied =
+    tefContext?.mode && tefContext.mode !== 'off' &&
+    (tefContext?.enabled ?? Boolean(userData?.smartTefEnabled))
+      ? TEF_MULTIPLIER_OFFSET
+      : 0;
+  const effectiveActivityMultiplier = Math.max(
+    0,
+    rawActivityMultiplier - tefOffsetApplied
+  );
+  const baseActivity = Math.round(bmr * effectiveActivityMultiplier);
+  const subtotalBeforeSmartTef = Math.round(
+    bmr +
+      baseActivity +
+      stepDetails.calories +
+      trainingBurn +
+      cardioBurn
+  );
+  const { tefMode, smartTefCalories, details: smartTefDetails } =
+    resolveSmartTef({
+      tefContext,
+      userData,
+      targetCalories: subtotalBeforeSmartTef,
+    });
   const total = Math.round(
-    bmr + baseActivity + stepDetails.calories + trainingBurn + cardioBurn
+    subtotalBeforeSmartTef + smartTefCalories
   );
 
   return {
     total,
     bmr,
     baseActivity,
-    activityMultiplier,
+    activityMultiplier: rawActivityMultiplier,
+    rawActivityMultiplier,
+    effectiveActivityMultiplier,
+    tefOffsetApplied,
+    tefMode,
+    smartTefCalories,
+    smartTefDetails,
     stepCalories: stepDetails.calories,
     stepDetails,
     estimatedSteps: stepDetails.estimatedSteps,

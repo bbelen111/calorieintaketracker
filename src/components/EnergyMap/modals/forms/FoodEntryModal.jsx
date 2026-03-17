@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Utensils, Save, Heart, Check } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
+import { calculateTefFromMacros } from '../../../../utils/calculations';
 
 export const FoodEntryModal = ({
   isOpen,
@@ -105,6 +106,16 @@ export const FoodEntryModal = ({
     return parts.shift() + '.' + parts.join('');
   };
 
+  const rawFoodTef = useMemo(
+    () =>
+      calculateTefFromMacros({
+        proteinGrams: parseFloat(protein) || 0,
+        carbsGrams: parseFloat(carbs) || 0,
+        fatsGrams: parseFloat(fats) || 0,
+      }),
+    [protein, carbs, fats]
+  );
+
   return (
     <ModalShell
       isOpen={isOpen}
@@ -193,6 +204,15 @@ export const FoodEntryModal = ({
               className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
             />
           </div>
+        </div>
+
+        <div className="rounded-lg border border-accent-orange/30 bg-accent-orange/10 px-4 py-3">
+          <p className="text-accent-orange font-semibold text-sm">
+            🔥 TEF Burn: {rawFoodTef.toLocaleString()} kcal
+          </p>
+          <p className="text-muted text-xs mt-1">
+            Live macro-based thermic effect estimate for this entry.
+          </p>
         </div>
 
         {/* Actions */}

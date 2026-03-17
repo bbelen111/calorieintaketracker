@@ -221,7 +221,10 @@ const LiveStepsCard = ({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              onOpenBreakdown?.(stepCount);
+              onOpenBreakdown?.({
+                steps: stepCount,
+                tefContext: liveStepData.tefContext,
+              });
             }}
             className="bg-blue-600 rounded-xl p-3 text-center relative pressable-card focus-ring md:hover:bg-blue-500 transition-all"
           >
@@ -406,7 +409,12 @@ export const CalorieMapScreen = ({
               <button
                 key={steps}
                 type="button"
-                onClick={() => onOpenBreakdown(steps)}
+                onClick={() =>
+                  onOpenBreakdown({
+                    steps,
+                    tefContext: { mode: 'target' },
+                  })
+                }
                 className={`group relative w-full text-left bg-surface-highlight/50 rounded-xl p-4 transition-all border border-border/50 active:scale-[0.99] pressable-card focus-ring ${
                   isActive
                     ? 'ring-2 ring-accent-blue bg-surface-highlight/90'

@@ -9,6 +9,8 @@ import {
   Moon,
   Smartphone,
   Monitor,
+  Flame,
+  Info,
 } from 'lucide-react';
 import {
   DEFAULT_ACTIVITY_MULTIPLIERS,
@@ -56,6 +58,7 @@ export const SettingsModal = ({
   weightEntries,
   bodyFatEntries,
   bodyFatTrackingEnabled,
+  onOpenTefInfo,
   onCancel,
   onSave,
 }) => {
@@ -408,6 +411,65 @@ export const SettingsModal = ({
               bmr={resolvedBmr}
               onDailyActivityClick={onDailyActivityClick}
             />
+
+            <div>
+              <div className="flex items-center justify-between mb-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => onOpenTefInfo?.()}
+                  className="inline-flex items-center gap-2 text-foreground/80 text-sm md:hover:text-foreground transition-colors focus-ring rounded-md"
+                >
+                  <span>Smart TEF</span>
+                  <Info size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onChange(
+                      'smartTefEnabled',
+                      !resolvedUserData.smartTefEnabled
+                    )
+                  }
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all focus-ring pressable-inline ${
+                    resolvedUserData.smartTefEnabled
+                      ? 'bg-accent-orange/20 border-accent-orange/60 text-accent-orange'
+                      : 'bg-surface-highlight border-border text-muted'
+                  }`}
+                >
+                  {resolvedUserData.smartTefEnabled ? 'Enabled' : 'Disabled'}
+                </button>
+              </div>
+
+              <div
+                className={`rounded-lg border p-3 ${
+                  resolvedUserData.smartTefEnabled
+                    ? 'bg-accent-orange/10 border-accent-orange/30'
+                    : 'bg-surface-highlight/40 border-border'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`rounded-lg p-2 ${
+                      resolvedUserData.smartTefEnabled
+                        ? 'bg-accent-orange/20 text-accent-orange'
+                        : 'bg-surface-highlight text-muted'
+                    }`}
+                  >
+                    <Flame size={18} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-foreground text-sm font-semibold">
+                      Replace the built-in 10% TEF estimate with macro-based
+                      Smart TEF.
+                    </p>
+                    <p className="text-muted text-xs mt-1">
+                      Target mode uses your macro targets. Dynamic mode uses the
+                      macros you’ve already logged for today’s live steps card.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <div>
               <label className="text-foreground/80 text-sm block mb-2">

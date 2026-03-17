@@ -12,7 +12,12 @@ import { Capacitor } from '@capacitor/core';
 import { setLightStatusBar } from '../../native/statusBar';
 import { shallow } from 'zustand/shallow';
 import { goals } from '../../constants/goals';
-import { DEFAULT_ACTIVITY_MULTIPLIERS } from '../../constants/activityPresets';
+import {
+  clampCustomActivityMultiplier,
+  clampCustomActivityPercent,
+  DEFAULT_ACTIVITY_MULTIPLIERS,
+  getCustomActivityPercent,
+} from '../../constants/activityPresets';
 import { trainingTypes as presetTrainingTypes } from '../../constants/trainingTypes';
 import {
   setupEnergyMapStore,
@@ -55,6 +60,7 @@ import { DurationPickerModal } from './modals/pickers/DurationPickerModal';
 import { CardioModal } from './modals/forms/CardioModal';
 import { CardioFavouritesModal } from './modals/lists/CardioFavouritesModal';
 import { CalorieBreakdownModal } from './modals/info/CalorieBreakdownModal';
+import { TefInfoModal } from './modals/info/TefInfoModal';
 import { DailyActivityModal } from './modals/forms/DailyActivityModal';
 import { DailyActivityEditorModal } from './modals/forms/DailyActivityEditorModal';
 import { DailyActivityCustomModal } from './modals/forms/DailyActivityCustomModal';
@@ -152,6 +158,38 @@ const getTodayDateString = () => {
 };
 
 const DEFAULT_PORTION_GRAMS = 100;
+
+const EMPTY_MACRO_TOTALS = {
+  calories: 0,
+  protein: 0,
+  carbs: 0,
+  fats: 0,
+};
+
+const sumNutritionTotalsForDate = (nutritionData, dateKey) => {
+  const mealsForDate = nutritionData?.[dateKey];
+  if (!mealsForDate || typeof mealsForDate !== 'object') {
+    return EMPTY_MACRO_TOTALS;
+  }
+
+  return MEAL_TYPE_ORDER.reduce(
+    (totals, mealTypeId) => {
+      const entries = Array.isArray(mealsForDate[mealTypeId])
+        ? mealsForDate[mealTypeId]
+        : [];
+
+      entries.forEach((entry) => {
+        totals.calories += Number(entry?.calories) || 0;
+        totals.protein += Number(entry?.protein) || 0;
+        totals.carbs += Number(entry?.carbs) || 0;
+        totals.fats += Number(entry?.fats) || 0;
+      });
+
+      return totals;
+    },
+    { ...EMPTY_MACRO_TOTALS }
+  );
+};
 
 const resolveFoodForEntry = (entry) => {
   if (!entry) {
@@ -390,7 +428,8 @@ export const EnergyMapCalculator = () => {
   const [tempPresetCalories, setTempPresetCalories] = useState(0);
   const [tempPresetDescription, setTempPresetDescription] = useState('');
   const [newStepRange, setNewStepRange] = useState('');
-  const [selectedStepRange, setSelectedStepRange] = useState(null);
+  const [selectedBreakdownRequest, setSelectedBreakdownRequest] =
+    useState(null);
   const [cardioDraft, setCardioDraft] = useState(defaultCardioSession);
   const [favouriteDraft, setFavouriteDraft] = useState(defaultCardioSession);
   const [cardioModalMode, setCardioModalMode] = useState('add');
@@ -505,6 +544,7 @@ export const EnergyMapCalculator = () => {
   const cardioFavouritesModal = useAnimatedModal();
   const cardioFavouriteEditorModal = useAnimatedModal();
   const calorieBreakdownModal = useAnimatedModal();
+  const tefInfoModal = useAnimatedModal();
   const phaseCreationModal = useAnimatedModal();
   const templatePickerModal = useAnimatedModal();
   const dailyLogModal = useAnimatedModal();
@@ -530,6 +570,7 @@ export const EnergyMapCalculator = () => {
         dailyLogModal,
         templatePickerModal,
         phaseCreationModal,
+        tefInfoModal,
         calorieBreakdownModal,
         cardioFavouriteEditorModal,
         cardioFavouritesModal,
@@ -572,6 +613,8 @@ export const EnergyMapCalculator = () => {
       bodyFatTrackerModal.isOpen,
       calorieBreakdownModal.isClosing,
       calorieBreakdownModal.isOpen,
+      tefInfoModal.isClosing,
+      tefInfoModal.isOpen,
       calendarPickerModal.isClosing,
       calendarPickerModal.isOpen,
       cardioFavouriteEditorModal.isClosing,
@@ -647,6 +690,7 @@ export const EnergyMapCalculator = () => {
         dailyLogModal,
         templatePickerModal,
         phaseCreationModal,
+        tefInfoModal,
         calorieBreakdownModal,
         cardioFavouriteEditorModal,
         cardioFavouritesModal,
@@ -1387,9 +1431,9 @@ export const EnergyMapCalculator = () => {
         const fallback =
           userData.activityMultipliers?.[dayType] ??
           DEFAULT_ACTIVITY_MULTIPLIERS[dayType];
-        const resolved = Number.isFinite(existingCustom)
-          ? existingCustom
-          : fallback;
+        const resolved = clampCustomActivityMultiplier(
+          Number.isFinite(existingCustom) ? existingCustom : fallback
+        );
 
         handleUserDataChange('customActivityMultipliers', {
           ...(userData.customActivityMultipliers ?? {
@@ -1419,17 +1463,15 @@ export const EnergyMapCalculator = () => {
       const fallback =
         userData.activityMultipliers?.[dayType] ??
         DEFAULT_ACTIVITY_MULTIPLIERS[dayType];
-      const resolvedMultiplier = Number.isFinite(existingCustom)
-        ? existingCustom
-        : fallback;
+      const resolvedMultiplier = clampCustomActivityMultiplier(
+        Number.isFinite(existingCustom) ? existingCustom : fallback
+      );
 
       handleDailyActivityPresetSelect(dayType, 'custom');
 
-      const percentValue = Math.round(resolvedMultiplier * 1000) / 10;
+      const percentValue = getCustomActivityPercent(resolvedMultiplier);
       setActivityEditorDay(dayType);
-      setCustomActivityPercent(
-        Number.isFinite(percentValue) ? percentValue : 0
-      );
+      setCustomActivityPercent(percentValue);
 
       if (alreadySelected || !Number.isFinite(existingCustom)) {
         dailyActivityCustomModal.open();
@@ -1454,8 +1496,8 @@ export const EnergyMapCalculator = () => {
         return;
       }
 
-      const clampedPercent = Math.min(Math.max(numericPercent, 0), 100);
-      const multiplier = Math.round((clampedPercent / 100) * 1000) / 1000;
+      const clampedPercent = clampCustomActivityPercent(numericPercent);
+      const multiplier = clampCustomActivityMultiplier(clampedPercent / 100);
 
       const nextCustoms = {
         ...(userData.customActivityMultipliers ?? {
@@ -1478,7 +1520,7 @@ export const EnergyMapCalculator = () => {
         [activityEditorDay]: multiplier,
       });
 
-      setCustomActivityPercent(Math.round(clampedPercent * 10) / 10);
+      setCustomActivityPercent(clampedPercent);
       dailyActivityCustomModal.requestClose();
     },
     [
@@ -1536,8 +1578,16 @@ export const EnergyMapCalculator = () => {
   }, [addStepRange, newStepRange]);
 
   const openCalorieBreakdown = useCallback(
-    (range) => {
-      setSelectedStepRange(range);
+    (requestOrSteps) => {
+      const normalizedRequest =
+        requestOrSteps && typeof requestOrSteps === 'object'
+          ? requestOrSteps
+          : {
+              steps: requestOrSteps,
+              tefContext: { mode: 'target' },
+            };
+
+      setSelectedBreakdownRequest(normalizedRequest);
       calorieBreakdownModal.open();
     },
     [calorieBreakdownModal]
@@ -1546,30 +1596,57 @@ export const EnergyMapCalculator = () => {
   const closeCalorieBreakdown = useCallback(() => {
     calorieBreakdownModal.requestClose();
     setTimeout(() => {
-      setSelectedStepRange(null);
+      setSelectedBreakdownRequest(null);
     }, MODAL_CLOSE_DELAY);
   }, [calorieBreakdownModal]);
 
+  const todayDateKey = getTodayDateString();
+  const macroTotalsByDate = useMemo(
+    () => ({
+      today: sumNutritionTotalsForDate(nutritionData, todayDateKey),
+      trackerSelected: sumNutritionTotalsForDate(
+        nutritionData,
+        trackerSelectedDate
+      ),
+    }),
+    [nutritionData, todayDateKey, trackerSelectedDate]
+  );
+
   const selectedRangeData = useMemo(() => {
-    // Check for null/undefined explicitly, not falsy (0 is a valid step count)
-    if (selectedStepRange === null || selectedStepRange === undefined)
+    const selectedSteps = selectedBreakdownRequest?.steps;
+    if (selectedSteps === null || selectedSteps === undefined) {
       return null;
+    }
+
     return calculateTargetForGoal(
-      selectedStepRange,
+      selectedSteps,
       selectedDay === 'training',
-      selectedGoal
+      selectedGoal,
+      {
+        tefContext: selectedBreakdownRequest?.tefContext,
+      }
     );
-  }, [calculateTargetForGoal, selectedDay, selectedGoal, selectedStepRange]);
+  }, [
+    calculateTargetForGoal,
+    selectedBreakdownRequest,
+    selectedDay,
+    selectedGoal,
+  ]);
 
   const getRangeDetails = useCallback(
     (steps) =>
-      calculateTargetForGoal(steps, selectedDay === 'training', selectedGoal),
+      calculateTargetForGoal(steps, selectedDay === 'training', selectedGoal, {
+        tefContext: { mode: 'target' },
+      }),
     [calculateTargetForGoal, selectedDay, selectedGoal]
   );
 
   const isSelectedRange = useCallback(
-    (range) => calorieBreakdownModal.isOpen && selectedStepRange === range,
-    [calorieBreakdownModal.isOpen, selectedStepRange]
+    (range) =>
+      calorieBreakdownModal.isOpen &&
+      selectedBreakdownRequest?.steps === range &&
+      (selectedBreakdownRequest?.tefContext?.mode ?? 'target') === 'target',
+    [calorieBreakdownModal.isOpen, selectedBreakdownRequest]
   );
 
   // Live step data from Health Connect
@@ -1582,10 +1659,15 @@ export const EnergyMapCalculator = () => {
     }
 
     const stepCount = healthConnect.steps;
+    const tefContext = {
+      mode: 'dynamic',
+      totals: macroTotalsByDate.today,
+    };
     const details = calculateTargetForGoal(
       stepCount, // Pass raw step count instead of range string
       selectedDay === 'training',
-      selectedGoal
+      selectedGoal,
+      { tefContext }
     );
 
     return {
@@ -1594,8 +1676,10 @@ export const EnergyMapCalculator = () => {
       targetCalories: details.targetCalories,
       difference: details.difference,
       lastSynced: healthConnect.lastSynced,
+      tefContext,
     };
   }, [
+    macroTotalsByDate.today,
     healthConnect.status,
     healthConnect.steps,
     healthConnect.lastSynced,
@@ -2747,7 +2831,7 @@ export const EnergyMapCalculator = () => {
       <CalorieBreakdownModal
         isOpen={calorieBreakdownModal.isOpen}
         isClosing={calorieBreakdownModal.isClosing}
-        stepRange={selectedStepRange}
+        stepRange={selectedBreakdownRequest?.steps ?? null}
         selectedDay={selectedDay}
         selectedGoal={selectedGoal}
         goals={goals}
@@ -2773,6 +2857,12 @@ export const EnergyMapCalculator = () => {
         userData={userData}
         bmr={bmr}
         onClose={bmrModal.requestClose}
+      />
+
+      <TefInfoModal
+        isOpen={tefInfoModal.isOpen}
+        isClosing={tefInfoModal.isClosing}
+        onClose={tefInfoModal.requestClose}
       />
 
       <BmiInfoModal
@@ -2939,6 +3029,7 @@ export const EnergyMapCalculator = () => {
         trainingCalories={trainingCalories}
         onTrainingClick={openTrainingModal}
         onDailyActivityClick={openDailyActivitySettings}
+        onOpenTefInfo={tefInfoModal.open}
         onCancel={settingsModal.requestClose}
         onSave={handleSettingsSave}
       />
