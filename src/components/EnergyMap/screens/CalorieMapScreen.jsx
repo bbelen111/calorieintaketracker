@@ -202,8 +202,7 @@ const LiveStepsCard = ({
 
         <div className="grid grid-cols-2 gap-3">
           {/* Step Count */}
-          <div className="bg-surface/80 rounded-xl p-3 text-center">
-            <p className="text-foreground text-xs mb-1">Steps</p>
+          <div className="bg-surface/80 rounded-xl p-4 text-center">
             <p
               className={`font-bold text-2xl ${
                 stepCount >= stepGoal ? 'text-accent-green' : 'text-accent-blue'
@@ -211,9 +210,7 @@ const LiveStepsCard = ({
             >
               {stepCount.toLocaleString()}
             </p>
-            <p className="text-foreground/70 text-xs">
-              ~{formatStepCount(stepCount)} steps
-            </p>
+            <p className="text-white text-xs opacity-90">Steps</p>
           </div>
 
           {/* Target Calories */}
@@ -226,14 +223,13 @@ const LiveStepsCard = ({
                 tefContext: liveStepData.tefContext,
               });
             }}
-            className="bg-blue-600 rounded-xl p-3 text-center relative pressable-card focus-ring md:hover:bg-blue-500 transition-all"
+            className="bg-blue-600 rounded-xl p-4 text-center relative pressable-card focus-ring md:hover:bg-blue-500 transition-all"
           >
             <Info size={12} className="absolute top-2 right-2 text-white/60" />
-            <p className="text-white/80 text-xs mb-1">Target</p>
             <p className="text-white font-bold text-2xl">
               {targetCalories.toLocaleString()}
             </p>
-            <p className="text-white/70 text-xs">calories</p>
+            <p className="text-white text-xs opacity-90">calories</p>
           </button>
         </div>
 

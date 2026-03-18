@@ -2,6 +2,43 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Local numeric font override (digits + numeric punctuation only) */
+@font-face {
+  font-family: 'BarlowDigits';
+  src: url('@fontsource/barlow/files/barlow-latin-400-normal.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range:
+    U+0030-0039,
+    U+0025,
+    U+002B,
+    U+002C,
+    U+002D,
+    U+002E,
+    U+002F,
+    U+003A,
+    U+2212;
+}
+
+@font-face {
+  font-family: 'BarlowDigits';
+  src: url('@fontsource/barlow/files/barlow-latin-700-normal.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  unicode-range:
+    U+0030-0039,
+    U+0025,
+    U+002B,
+    U+002C,
+    U+002D,
+    U+002E,
+    U+002F,
+    U+003A,
+    U+2212;
+}
+
 /* Safe Area Insets for Capacitor/Mobile */
 :root {
   --sat: env(safe-area-inset-top);
@@ -172,7 +209,7 @@ body {
 body {
   margin: 0;
   font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',
+    'BarlowDigits', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',
     'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
