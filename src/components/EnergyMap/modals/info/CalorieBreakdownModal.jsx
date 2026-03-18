@@ -282,7 +282,9 @@ export const CalorieBreakdownModal = ({
                 <div className="text-muted text-xs mt-2 space-y-2">
                   <p>
                     <strong>
-                      {smartTefMode === 'dynamic' ? 'Dynamic mode:' : 'Target mode:'}
+                      {smartTefMode === 'dynamic'
+                        ? 'Dynamic mode:'
+                        : 'Target mode:'}
                     </strong>{' '}
                     {smartTefMode === 'dynamic'
                       ? 'Uses the macros you have logged so far.'
@@ -290,39 +292,39 @@ export const CalorieBreakdownModal = ({
                   </p>
                   <div className="space-y-1">
                     <p>
-                      Protein: {formatNumber(smartTefDetails.proteinCalories, 1)}
-                      {' '}kcal × 25% ={' '}
+                      Protein:{' '}
+                      {formatNumber(smartTefDetails.proteinCalories, 1)} kcal ×
+                      25% ={' '}
                       {formatNumber(smartTefDetails.proteinTefCalories, 1)} kcal
                     </p>
                     <p>
-                      Carbs: {formatNumber(smartTefDetails.carbCalories, 1)} kcal
-                      {' '}× 8% = {formatNumber(smartTefDetails.carbTefCalories, 1)}
-                      {' '}kcal
+                      Carbs: {formatNumber(smartTefDetails.carbCalories, 1)}{' '}
+                      kcal × 8% ={' '}
+                      {formatNumber(smartTefDetails.carbTefCalories, 1)} kcal
                     </p>
                     <p>
-                      Fat: {formatNumber(smartTefDetails.fatCalories, 1)} kcal ×
-                      {' '}2% = {formatNumber(smartTefDetails.fatTefCalories, 1)}
-                      {' '}kcal
+                      Fat: {formatNumber(smartTefDetails.fatCalories, 1)} kcal ×{' '}
+                      2% = {formatNumber(smartTefDetails.fatTefCalories, 1)}{' '}
+                      kcal
                     </p>
                   </div>
                   {smartTefMode === 'target' && (
                     <p>
-                      Target intake used: {formatWhole(smartTefDetails.targetCalories)}
-                      {' '}kcal • P {formatNumber(smartTefDetails.proteinGrams, 1)}g
-                      {' '}• C {formatNumber(smartTefDetails.carbsGrams, 1)}g • F{' '}
+                      Target intake used:{' '}
+                      {formatWhole(smartTefDetails.targetCalories)} kcal • P{' '}
+                      {formatNumber(smartTefDetails.proteinGrams, 1)}g • C{' '}
+                      {formatNumber(smartTefDetails.carbsGrams, 1)}g • F{' '}
                       {formatNumber(smartTefDetails.fatsGrams, 1)}g
                     </p>
                   )}
                   {smartTefMode === 'dynamic' && (
                     <p>
-                      Logged macros used: P {formatNumber(smartTefDetails.proteinGrams, 1)}g
-                      {' '}• C {formatNumber(smartTefDetails.carbsGrams, 1)}g • F{' '}
+                      Logged macros used: P{' '}
+                      {formatNumber(smartTefDetails.proteinGrams, 1)}g • C{' '}
+                      {formatNumber(smartTefDetails.carbsGrams, 1)}g • F{' '}
                       {formatNumber(smartTefDetails.fatsGrams, 1)}g
                     </p>
                   )}
-                  <p className="text-foreground font-semibold pt-2 border-t border-border/50">
-                    Sum: {formatWhole(smartTefCalories)} kcal
-                  </p>
                 </div>
               ) : (
                 <p className="text-muted text-xs mt-2">

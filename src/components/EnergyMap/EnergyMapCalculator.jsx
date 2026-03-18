@@ -1577,29 +1577,6 @@ export const EnergyMapCalculator = () => {
     setNewStepRange('');
   }, [addStepRange, newStepRange]);
 
-  const openCalorieBreakdown = useCallback(
-    (requestOrSteps) => {
-      const normalizedRequest =
-        requestOrSteps && typeof requestOrSteps === 'object'
-          ? requestOrSteps
-          : {
-              steps: requestOrSteps,
-              tefContext: { mode: 'target' },
-            };
-
-      setSelectedBreakdownRequest(normalizedRequest);
-      calorieBreakdownModal.open();
-    },
-    [calorieBreakdownModal]
-  );
-
-  const closeCalorieBreakdown = useCallback(() => {
-    calorieBreakdownModal.requestClose();
-    setTimeout(() => {
-      setSelectedBreakdownRequest(null);
-    }, MODAL_CLOSE_DELAY);
-  }, [calorieBreakdownModal]);
-
   const todayDateKey = getTodayDateString();
   const macroTotalsByDate = useMemo(
     () => ({
@@ -1611,6 +1588,61 @@ export const EnergyMapCalculator = () => {
     }),
     [nutritionData, todayDateKey, trackerSelectedDate]
   );
+
+  const useTargetModeForQuickEstimates =
+    userData.smartTefQuickEstimatesTargetMode ?? true;
+  const useTargetModeForLiveCard =
+    useTargetModeForQuickEstimates &&
+    (userData.smartTefLiveCardTargetMode ?? false);
+
+  const quickEstimateTefContext = useMemo(
+    () =>
+      useTargetModeForQuickEstimates
+        ? { mode: 'target' }
+        : {
+            mode: 'dynamic',
+            totals: macroTotalsByDate.today,
+          },
+    [macroTotalsByDate.today, useTargetModeForQuickEstimates]
+  );
+
+  const liveCardTefContext = useMemo(
+    () =>
+      useTargetModeForLiveCard
+        ? { mode: 'target' }
+        : {
+            mode: 'dynamic',
+            totals: macroTotalsByDate.today,
+          },
+    [macroTotalsByDate.today, useTargetModeForLiveCard]
+  );
+
+  const openCalorieBreakdown = useCallback(
+    (requestOrSteps) => {
+      const normalizedRequest =
+        requestOrSteps && typeof requestOrSteps === 'object'
+          ? {
+              ...requestOrSteps,
+              tefContext:
+                requestOrSteps.tefContext ?? quickEstimateTefContext,
+            }
+          : {
+              steps: requestOrSteps,
+              tefContext: quickEstimateTefContext,
+            };
+
+      setSelectedBreakdownRequest(normalizedRequest);
+      calorieBreakdownModal.open();
+    },
+    [calorieBreakdownModal, quickEstimateTefContext]
+  );
+
+  const closeCalorieBreakdown = useCallback(() => {
+    calorieBreakdownModal.requestClose();
+    setTimeout(() => {
+      setSelectedBreakdownRequest(null);
+    }, MODAL_CLOSE_DELAY);
+  }, [calorieBreakdownModal]);
 
   const selectedRangeData = useMemo(() => {
     const selectedSteps = selectedBreakdownRequest?.steps;
@@ -1636,17 +1668,27 @@ export const EnergyMapCalculator = () => {
   const getRangeDetails = useCallback(
     (steps) =>
       calculateTargetForGoal(steps, selectedDay === 'training', selectedGoal, {
-        tefContext: { mode: 'target' },
+        tefContext: quickEstimateTefContext,
       }),
-    [calculateTargetForGoal, selectedDay, selectedGoal]
+    [
+      calculateTargetForGoal,
+      quickEstimateTefContext,
+      selectedDay,
+      selectedGoal,
+    ]
   );
 
   const isSelectedRange = useCallback(
     (range) =>
       calorieBreakdownModal.isOpen &&
       selectedBreakdownRequest?.steps === range &&
-      (selectedBreakdownRequest?.tefContext?.mode ?? 'target') === 'target',
-    [calorieBreakdownModal.isOpen, selectedBreakdownRequest]
+      (selectedBreakdownRequest?.tefContext?.mode ??
+        quickEstimateTefContext.mode) === quickEstimateTefContext.mode,
+    [
+      calorieBreakdownModal.isOpen,
+      quickEstimateTefContext.mode,
+      selectedBreakdownRequest,
+    ]
   );
 
   // Live step data from Health Connect
@@ -1659,10 +1701,7 @@ export const EnergyMapCalculator = () => {
     }
 
     const stepCount = healthConnect.steps;
-    const tefContext = {
-      mode: 'dynamic',
-      totals: macroTotalsByDate.today,
-    };
+    const tefContext = liveCardTefContext;
     const details = calculateTargetForGoal(
       stepCount, // Pass raw step count instead of range string
       selectedDay === 'training',
@@ -1679,11 +1718,11 @@ export const EnergyMapCalculator = () => {
       tefContext,
     };
   }, [
-    macroTotalsByDate.today,
     healthConnect.status,
     healthConnect.steps,
     healthConnect.lastSynced,
     calculateTargetForGoal,
+    liveCardTefContext,
     selectedDay,
     selectedGoal,
   ]);

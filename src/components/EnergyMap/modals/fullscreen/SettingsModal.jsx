@@ -83,6 +83,11 @@ export const SettingsModal = ({
     typeof bodyFatTrackingEnabled === 'boolean'
       ? bodyFatTrackingEnabled
       : resolvedUserData.bodyFatTrackingEnabled;
+  const useTargetQuickEstimates =
+    resolvedUserData.smartTefQuickEstimatesTargetMode ?? true;
+  const useTargetLiveCard =
+    useTargetQuickEstimates &&
+    (resolvedUserData.smartTefLiveCardTargetMode ?? false);
 
   const selectedTrainingType =
     resolvedTrainingTypes?.[resolvedUserData.trainingType] ?? null;
@@ -467,6 +472,104 @@ export const SettingsModal = ({
                   </span>
                 </button>
               </div>
+
+              {resolvedUserData.smartTefEnabled && (
+                <div className="mt-3 space-y-2">
+                  <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-foreground text-sm font-medium leading-tight">
+                          Use target mode for quick estimates
+                        </p>
+                        <p className="text-muted text-xs mt-0.5">
+                          Step-range estimates use macro targets instead of
+                          today&apos;s logged macros.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={useTargetQuickEstimates}
+                        aria-label="Toggle target mode for quick estimates"
+                        onClick={() => {
+                          const nextUseTargetQuickEstimates =
+                            !useTargetQuickEstimates;
+                          onChange(
+                            'smartTefQuickEstimatesTargetMode',
+                            nextUseTargetQuickEstimates
+                          );
+
+                          if (!nextUseTargetQuickEstimates) {
+                            onChange('smartTefLiveCardTargetMode', false);
+                          }
+                        }}
+                        className="inline-flex items-center rounded-full focus-ring pressable-inline"
+                      >
+                        <span
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-all ${
+                            useTargetQuickEstimates
+                              ? 'bg-accent-emerald border-accent-emerald/70'
+                              : 'bg-surface-highlight border-border'
+                          }`}
+                        >
+                          <span
+                            className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                              useTargetQuickEstimates
+                                ? 'translate-x-6'
+                                : 'translate-x-1'
+                            }`}
+                          />
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {useTargetQuickEstimates && (
+                    <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-foreground text-sm font-medium leading-tight">
+                            Also use target mode for hero/live card
+                          </p>
+                          <p className="text-muted text-xs mt-0.5">
+                            Live step card uses macro targets instead of
+                            today&apos;s logged macros.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={useTargetLiveCard}
+                          aria-label="Toggle target mode for hero/live card"
+                          onClick={() =>
+                            onChange(
+                              'smartTefLiveCardTargetMode',
+                              !useTargetLiveCard
+                            )
+                          }
+                          className="inline-flex items-center rounded-full focus-ring pressable-inline"
+                        >
+                          <span
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-all ${
+                              useTargetLiveCard
+                                ? 'bg-accent-emerald border-accent-emerald/70'
+                                : 'bg-surface-highlight border-border'
+                            }`}
+                          >
+                            <span
+                              className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                                useTargetLiveCard
+                                  ? 'translate-x-6'
+                                  : 'translate-x-1'
+                              }`}
+                            />
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>

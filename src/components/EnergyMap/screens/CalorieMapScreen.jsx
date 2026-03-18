@@ -409,12 +409,7 @@ export const CalorieMapScreen = ({
               <button
                 key={steps}
                 type="button"
-                onClick={() =>
-                  onOpenBreakdown({
-                    steps,
-                    tefContext: { mode: 'target' },
-                  })
-                }
+                onClick={() => onOpenBreakdown(steps)}
                 className={`group relative w-full text-left bg-surface-highlight/50 rounded-xl p-4 transition-all border border-border/50 active:scale-[0.99] pressable-card focus-ring ${
                   isActive
                     ? 'ring-2 ring-accent-blue bg-surface-highlight/90'
