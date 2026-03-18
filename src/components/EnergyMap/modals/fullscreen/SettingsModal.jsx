@@ -9,7 +9,6 @@ import {
   Moon,
   Smartphone,
   Monitor,
-  Flame,
   Info,
 } from 'lucide-react';
 import {
@@ -336,19 +335,32 @@ export const SettingsModal = ({
                   </label>
                   <button
                     type="button"
+                    role="switch"
+                    aria-checked={resolvedBodyFatTrackingEnabled}
+                    aria-label="Toggle body fat tracking"
                     onClick={() =>
                       onChange(
                         'bodyFatTrackingEnabled',
                         !resolvedBodyFatTrackingEnabled
                       )
                     }
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all focus-ring pressable-inline ${
-                      resolvedBodyFatTrackingEnabled
-                        ? 'bg-accent-emerald/20 border-accent-emerald/60 text-accent-emerald'
-                        : 'bg-surface-highlight border-border text-muted'
-                    }`}
+                    className="inline-flex items-center rounded-full focus-ring pressable-inline"
                   >
-                    {resolvedBodyFatTrackingEnabled ? 'Enabled' : 'Disabled'}
+                    <span
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-all ${
+                        resolvedBodyFatTrackingEnabled
+                          ? 'bg-accent-emerald border-accent-emerald/70'
+                          : 'bg-surface-highlight border-border'
+                      }`}
+                    >
+                      <span
+                        className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                          resolvedBodyFatTrackingEnabled
+                            ? 'translate-x-6'
+                            : 'translate-x-1'
+                        }`}
+                      />
+                    </span>
                   </button>
                 </div>
                 <button
@@ -414,60 +426,46 @@ export const SettingsModal = ({
 
             <div>
               <div className="flex items-center justify-between mb-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => onOpenTefInfo?.()}
-                  className="inline-flex items-center gap-2 text-foreground/80 text-sm md:hover:text-foreground transition-colors focus-ring rounded-md"
-                >
+                <div className="inline-flex items-center gap-1.5 text-foreground/80 text-sm">
                   <span>Smart TEF</span>
-                  <Info size={14} />
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => onOpenTefInfo?.()}
+                    aria-label="Open Smart TEF info"
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted md:hover:text-foreground transition-colors focus-ring"
+                  >
+                    <Info size={14} />
+                  </button>
+                </div>
                 <button
                   type="button"
+                  role="switch"
+                  aria-checked={resolvedUserData.smartTefEnabled}
+                  aria-label="Toggle Smart TEF"
                   onClick={() =>
                     onChange(
                       'smartTefEnabled',
                       !resolvedUserData.smartTefEnabled
                     )
                   }
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all focus-ring pressable-inline ${
-                    resolvedUserData.smartTefEnabled
-                      ? 'bg-accent-orange/20 border-accent-orange/60 text-accent-orange'
-                      : 'bg-surface-highlight border-border text-muted'
-                  }`}
+                  className="inline-flex items-center rounded-full focus-ring pressable-inline"
                 >
-                  {resolvedUserData.smartTefEnabled ? 'Enabled' : 'Disabled'}
-                </button>
-              </div>
-
-              <div
-                className={`rounded-lg border p-3 ${
-                  resolvedUserData.smartTefEnabled
-                    ? 'bg-accent-orange/10 border-accent-orange/30'
-                    : 'bg-surface-highlight/40 border-border'
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <div
-                    className={`rounded-lg p-2 ${
+                  <span
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-all ${
                       resolvedUserData.smartTefEnabled
-                        ? 'bg-accent-orange/20 text-accent-orange'
-                        : 'bg-surface-highlight text-muted'
+                        ? 'bg-accent-emerald border-accent-emerald/70'
+                        : 'bg-surface-highlight border-border'
                     }`}
                   >
-                    <Flame size={18} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-foreground text-sm font-semibold">
-                      Replace the built-in 10% TEF estimate with macro-based
-                      Smart TEF.
-                    </p>
-                    <p className="text-muted text-xs mt-1">
-                      Target mode uses your macro targets. Dynamic mode uses the
-                      macros you’ve already logged for today’s live steps card.
-                    </p>
-                  </div>
-                </div>
+                    <span
+                      className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                        resolvedUserData.smartTefEnabled
+                          ? 'translate-x-6'
+                          : 'translate-x-1'
+                      }`}
+                    />
+                  </span>
+                </button>
               </div>
             </div>
 

@@ -674,10 +674,13 @@ export const FoodPortionModal = ({
               <p className="text-muted text-xs">fats</p>
             </div>
           </div>
-          <div className="mt-3 pt-3 border-t border-border/50 text-center">
-            <p className="text-accent-orange font-semibold text-sm">
-              🔥 TEF Burn: {rawFoodTef.toLocaleString()} kcal
-            </p>
+          <div className="mt-4 rounded-lg border border-accent-blue/70 bg-accent-blue px-4 py-2.5">
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-white font-semibold text-sm">TEF Burn</p>
+              <p className="text-white font-bold text-sm whitespace-nowrap">
+                {rawFoodTef.toLocaleString()} kcal
+              </p>
+            </div>
           </div>
         </div>
       )}

@@ -206,13 +206,13 @@ export const FoodEntryModal = ({
           </div>
         </div>
 
-        <div className="rounded-lg border border-accent-orange/30 bg-accent-orange/10 px-4 py-3">
-          <p className="text-accent-orange font-semibold text-sm">
-            🔥 TEF Burn: {rawFoodTef.toLocaleString()} kcal
-          </p>
-          <p className="text-muted text-xs mt-1">
-            Live macro-based thermic effect estimate for this entry.
-          </p>
+        <div className="rounded-lg border border-accent-blue/70 bg-accent-blue px-4 py-3">
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-white font-semibold text-sm">TEF Burn</p>
+            <p className="text-white font-bold text-sm whitespace-nowrap">
+              {rawFoodTef.toLocaleString()} kcal
+            </p>
+          </div>
         </div>
 
         {/* Actions */}
