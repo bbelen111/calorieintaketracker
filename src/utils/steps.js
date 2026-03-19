@@ -155,8 +155,8 @@ export const getStepDetails = (stepRange, userData) => {
   return {
     parsedRange,
     estimatedSteps,
-    calories,
     ...calorieDetails,
+    calories,
   };
 };
 

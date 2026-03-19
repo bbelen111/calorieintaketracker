@@ -1,5 +1,8 @@
 import { Preferences } from '@capacitor/preferences';
-import { clampCustomActivityMultiplier } from '../constants/activityPresets';
+import {
+  clampCustomActivityMultiplier,
+  DEFAULT_ACTIVITY_MULTIPLIERS,
+} from '../constants/activityPresets';
 import { sortWeightEntries } from './weight';
 import { sortBodyFatEntries } from './bodyFat';
 import { sanitizeAge, sanitizeHeight } from './profile';
@@ -198,12 +201,10 @@ export const getDefaultEnergyMapData = () => ({
     rest: 'default',
   },
   activityMultipliers: {
-    training: 0.35,
-    rest: 0.28,
+    ...DEFAULT_ACTIVITY_MULTIPLIERS,
   },
   customActivityMultipliers: {
-    training: 0.35,
-    rest: 0.28,
+    ...DEFAULT_ACTIVITY_MULTIPLIERS,
   },
   phases: [],
   activePhaseId: null,
@@ -227,9 +228,9 @@ function mergeWithDefaults(data) {
   ACTIVITY_DAY_TYPES.forEach((dayType) => {
     const fallbackCustom = Number.isFinite(customActivityMultipliers[dayType])
       ? customActivityMultipliers[dayType]
-      : (Number.isFinite(activityMultipliers[dayType])
-          ? activityMultipliers[dayType]
-          : defaults.customActivityMultipliers[dayType]);
+      : Number.isFinite(activityMultipliers[dayType])
+        ? activityMultipliers[dayType]
+        : defaults.customActivityMultipliers[dayType];
 
     customActivityMultipliers[dayType] =
       clampCustomActivityMultiplier(fallbackCustom);

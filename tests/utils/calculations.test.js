@@ -1,0 +1,145 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import {
+  calculateBMR,
+  calculateCalorieBreakdown,
+  calculateCardioCalories,
+  getTrainingCalories,
+} from '../../src/utils/calculations.js';
+
+const baseUserData = {
+  age: 30,
+  weight: 80,
+  height: 180,
+  gender: 'male',
+  bodyFatEntries: [],
+  bodyFatTrackingEnabled: false,
+  trainingType: 'bodybuilding',
+  trainingDuration: 1.5,
+  trainingEffortType: 'intensity',
+  trainingIntensity: 'moderate',
+  trainingHeartRate: '',
+  activityMultipliers: {
+    training: 0.35,
+    rest: 0.28,
+  },
+  cardioSessions: [],
+  smartTefEnabled: true,
+};
+
+const trainingTypes = {
+  bodybuilding: {
+    label: 'Bodybuilding',
+    caloriesPerHour: 220,
+  },
+};
+
+test('calculateBMR uses normalized details and remains stable for invalid inputs', () => {
+  const bmr = calculateBMR({
+    age: undefined,
+    weight: null,
+    height: 'not-a-number',
+    gender: 'unknown',
+    bodyFatEntries: [],
+    bodyFatTrackingEnabled: false,
+  });
+
+  assert.equal(bmr, 1663);
+});
+
+test('heart-rate calorie calculations reject out-of-range bpm values', () => {
+  const outOfRangeCardioCalories = calculateCardioCalories(
+    {
+      effortType: 'heartRate',
+      averageHeartRate: 300,
+      duration: 30,
+      type: 'run',
+    },
+    baseUserData,
+    {}
+  );
+
+  const validCardioCalories = calculateCardioCalories(
+    {
+      effortType: 'heartRate',
+      averageHeartRate: 150,
+      duration: 30,
+      type: 'run',
+    },
+    baseUserData,
+    {}
+  );
+
+  assert.equal(outOfRangeCardioCalories, 0);
+  assert.ok(validCardioCalories > 0);
+});
+
+test('training heart-rate effort also enforces bpm sanity bounds', () => {
+  const invalidHrTrainingCalories = getTrainingCalories(
+    {
+      ...baseUserData,
+      trainingEffortType: 'heartRate',
+      trainingHeartRate: 250,
+    },
+    trainingTypes
+  );
+
+  const validHrTrainingCalories = getTrainingCalories(
+    {
+      ...baseUserData,
+      trainingEffortType: 'heartRate',
+      trainingHeartRate: 160,
+    },
+    trainingTypes
+  );
+
+  assert.equal(invalidHrTrainingCalories, 0);
+  assert.ok(validHrTrainingCalories > 0);
+});
+
+test('target smart TEF uses seeded refinement when target calories are not provided', () => {
+  const bmr = calculateBMR(baseUserData);
+  const breakdown = calculateCalorieBreakdown({
+    steps: '10k',
+    isTrainingDay: true,
+    userData: baseUserData,
+    bmr,
+    cardioTypes: {},
+    trainingTypes,
+    tefContext: {
+      mode: 'target',
+      enabled: true,
+    },
+  });
+
+  assert.equal(breakdown.tefMode, 'target');
+  assert.equal(
+    breakdown.smartTefDetails?.targetCaloriesSource,
+    'subtotal-seeded'
+  );
+  assert.equal(breakdown.smartTefDetails?.refinementPasses, 2);
+  assert.ok(breakdown.smartTefCalories > 0);
+});
+
+test('target smart TEF honors explicit target calories without refinement passes', () => {
+  const bmr = calculateBMR(baseUserData);
+  const breakdown = calculateCalorieBreakdown({
+    steps: '10k',
+    isTrainingDay: true,
+    userData: baseUserData,
+    bmr,
+    cardioTypes: {},
+    trainingTypes,
+    tefContext: {
+      mode: 'target',
+      enabled: true,
+      targetCalories: 3000,
+    },
+  });
+
+  assert.equal(breakdown.tefMode, 'target');
+  assert.equal(breakdown.smartTefDetails?.targetCaloriesSource, 'context');
+  assert.equal(breakdown.smartTefDetails?.refinementPasses, 0);
+  assert.equal(breakdown.smartTefDetails?.targetCalories, 3000);
+});

@@ -1,5 +1,5 @@
-import { DEFAULT_ACTIVITY_MULTIPLIERS } from '../constants/activityPresets';
-import { getStepDetails } from './steps';
+import { DEFAULT_ACTIVITY_MULTIPLIERS } from '../constants/activityPresets.js';
+import { getStepDetails } from './steps.js';
 
 const HEART_RATE_COEFFICIENTS = {
   male: {
@@ -24,6 +24,14 @@ export const TEF_FAT_RATE = 0.02;
 const PROTEIN_CALORIES_PER_GRAM = 4;
 const CARB_CALORIES_PER_GRAM = 4;
 const FAT_CALORIES_PER_GRAM = 9;
+const DEFAULT_CALCULATION_PROFILE = {
+  age: 21,
+  weight: 70,
+  height: 170,
+  gender: 'male',
+};
+const MIN_HEART_RATE_BPM = 60;
+const MAX_HEART_RATE_BPM = 220;
 
 const normalizeNonNegativeNumber = (value) => {
   const numeric = Number(value);
@@ -34,6 +42,43 @@ const normalizeNonNegativeNumber = (value) => {
 };
 
 const roundToTenth = (value) => Math.round(value * 10) / 10;
+
+const normalizePositiveNumber = (value, fallback) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return fallback;
+  }
+  return numeric;
+};
+
+const normalizeCalculationProfile = (userData = {}) => ({
+  age: normalizePositiveNumber(userData?.age, DEFAULT_CALCULATION_PROFILE.age),
+  weight: normalizePositiveNumber(
+    userData?.weight,
+    DEFAULT_CALCULATION_PROFILE.weight
+  ),
+  height: normalizePositiveNumber(
+    userData?.height,
+    DEFAULT_CALCULATION_PROFILE.height
+  ),
+  gender: userData?.gender === 'female' ? 'female' : 'male',
+  bodyFatEntries: Array.isArray(userData?.bodyFatEntries)
+    ? userData.bodyFatEntries
+    : [],
+  bodyFatTrackingEnabled: Boolean(userData?.bodyFatTrackingEnabled),
+});
+
+const normalizeHeartRate = (value) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+  const rounded = Math.round(numeric);
+  if (rounded < MIN_HEART_RATE_BPM || rounded > MAX_HEART_RATE_BPM) {
+    return null;
+  }
+  return rounded;
+};
 
 const resolveTefMacroDetails = ({ proteinGrams, carbsGrams, fatsGrams }) => {
   const safeProteinGrams = normalizeNonNegativeNumber(proteinGrams);
@@ -109,7 +154,7 @@ export const calculateDynamicTef = ({ totals }) =>
     fatsGrams: totals?.fatsGrams ?? totals?.fats ?? 0,
   });
 
-const resolveSmartTef = ({ tefContext, userData, targetCalories }) => {
+const resolveSmartTef = ({ tefContext, userData, targetCaloriesSeed }) => {
   const smartTefEnabled =
     tefContext?.enabled ?? Boolean(userData?.smartTefEnabled);
   const requestedMode = tefContext?.mode ?? 'off';
@@ -134,9 +179,32 @@ const resolveSmartTef = ({ tefContext, userData, targetCalories }) => {
   }
 
   if (tefMode === 'target') {
+    const explicitTargetCalories = normalizeNonNegativeNumber(
+      tefContext?.targetCalories ?? tefContext?.target
+    );
+    const hasExplicitTargetCalories = explicitTargetCalories > 0;
+
+    const targetCaloriesBase = normalizeNonNegativeNumber(targetCaloriesSeed);
+    let resolvedTargetCalories = hasExplicitTargetCalories
+      ? explicitTargetCalories
+      : targetCaloriesBase;
+
+    // When no explicit target is provided, iteratively seed TEF from the
+    // pre-TEF subtotal to avoid a hidden circular dependency.
+    if (!hasExplicitTargetCalories) {
+      for (let pass = 0; pass < 2; pass += 1) {
+        const seededMacroDetails = resolveTargetMacroDetails({
+          targetCalories: resolvedTargetCalories,
+          weightKg: tefContext?.weightKg ?? userData?.weight,
+        });
+        const seededTefDetails = resolveTefMacroDetails(seededMacroDetails);
+        resolvedTargetCalories =
+          targetCaloriesBase + seededTefDetails.totalCalories;
+      }
+    }
+
     const targetMacroDetails = resolveTargetMacroDetails({
-      targetCalories:
-        tefContext?.targetCalories ?? tefContext?.target ?? targetCalories,
+      targetCalories: resolvedTargetCalories,
       weightKg: tefContext?.weightKg ?? userData?.weight,
     });
     const targetTefDetails = resolveTefMacroDetails(targetMacroDetails);
@@ -148,6 +216,11 @@ const resolveSmartTef = ({ tefContext, userData, targetCalories }) => {
         ...targetMacroDetails,
         ...targetTefDetails,
         source: 'target-macros',
+        targetCaloriesSource: hasExplicitTargetCalories
+          ? 'context'
+          : 'subtotal-seeded',
+        targetCaloriesSeed: Math.round(targetCaloriesBase),
+        refinementPasses: hasExplicitTargetCalories ? 0 : 2,
       },
     };
   }
@@ -165,9 +238,13 @@ const calculateCaloriesPerMinuteFromHeartRate = ({
   ageYears,
   gender,
 }) => {
-  const safeHeartRate = Number.isFinite(heartRate) ? heartRate : 0;
-  const safeWeight = Number.isFinite(weightKg) ? weightKg : 0;
-  const safeAge = Number.isFinite(ageYears) ? ageYears : 0;
+  const safeHeartRate = normalizeHeartRate(heartRate);
+  if (safeHeartRate == null) {
+    return 0;
+  }
+
+  const safeWeight = normalizeNonNegativeNumber(weightKg);
+  const safeAge = normalizeNonNegativeNumber(ageYears);
   const coefficients =
     HEART_RATE_COEFFICIENTS[gender === 'female' ? 'female' : 'male'];
   const rawCalories =
@@ -187,29 +264,36 @@ const resolveBmrDetails = ({
   bodyFatEntries,
   bodyFatTrackingEnabled,
 }) => {
-  const safeAge = Number(age);
-  const safeWeight = Number(weight);
-  const safeHeight = Number(height);
-  const resolvedGender = gender === 'female' ? 'female' : 'male';
+  const normalizedProfile = normalizeCalculationProfile({
+    age,
+    weight,
+    height,
+    gender,
+    bodyFatEntries,
+    bodyFatTrackingEnabled,
+  });
+
   const details = {
     method: 'mifflin-st-jeor',
-    age: safeAge,
-    weight: safeWeight,
-    height: safeHeight,
-    gender: resolvedGender,
+    age: normalizedProfile.age,
+    weight: normalizedProfile.weight,
+    height: normalizedProfile.height,
+    gender: normalizedProfile.gender,
     bodyFat: null,
     leanMass: null,
   };
 
   if (
-    bodyFatTrackingEnabled &&
-    Array.isArray(bodyFatEntries) &&
-    bodyFatEntries.length
+    normalizedProfile.bodyFatTrackingEnabled &&
+    normalizedProfile.bodyFatEntries.length
   ) {
-    const latestEntry = bodyFatEntries[bodyFatEntries.length - 1];
+    const latestEntry =
+      normalizedProfile.bodyFatEntries[
+        normalizedProfile.bodyFatEntries.length - 1
+      ];
     const bodyFat = Number(latestEntry?.bodyFat);
-    if (Number.isFinite(bodyFat) && Number.isFinite(safeWeight)) {
-      const leanMass = safeWeight * (1 - bodyFat / 100);
+    if (Number.isFinite(bodyFat)) {
+      const leanMass = normalizedProfile.weight * (1 - bodyFat / 100);
       if (Number.isFinite(leanMass) && leanMass > 0) {
         details.method = 'katch-mcardle';
         details.bodyFat = bodyFat;
@@ -243,9 +327,13 @@ export const calculateBMR = ({
   }
 
   if (details.gender === 'male') {
-    return Math.round(10 * weight + 6.25 * height - 5 * age + 5);
+    return Math.round(
+      10 * details.weight + 6.25 * details.height - 5 * details.age + 5
+    );
   }
-  return Math.round(10 * weight + 6.25 * height - 5 * age - 161);
+  return Math.round(
+    10 * details.weight + 6.25 * details.height - 5 * details.age - 161
+  );
 };
 
 export const calculateCardioCalories = (
@@ -263,14 +351,14 @@ export const calculateCardioCalories = (
     return 0;
   }
 
-  const weight = Number(userData?.weight);
-  const age = Number(userData?.age);
-  const gender = userData?.gender;
+  const normalizedProfile = normalizeCalculationProfile(userData);
+  const weight = normalizedProfile.weight;
+  const age = normalizedProfile.age;
+  const gender = normalizedProfile.gender;
 
   if (cardioSession.effortType === 'heartRate') {
-    const rawHeartRate = Number(cardioSession.averageHeartRate);
-    const heartRate = Number.isFinite(rawHeartRate) ? rawHeartRate : 0;
-    if (heartRate <= 0) {
+    const heartRate = normalizeHeartRate(cardioSession.averageHeartRate);
+    if (heartRate == null) {
       return 0;
     }
 
@@ -310,7 +398,7 @@ const TRAINING_INTENSITY_MULTIPLIERS = {
 };
 
 export const getTrainingCaloriesPerHour = (userData, trainingTypes) => {
-  const base = trainingTypes[userData.trainingType]?.caloriesPerHour ?? 0;
+  const base = trainingTypes?.[userData.trainingType]?.caloriesPerHour ?? 0;
   const multiplier =
     TRAINING_INTENSITY_MULTIPLIERS[userData.trainingIntensity ?? 'moderate'] ??
     1.0;
@@ -318,22 +406,28 @@ export const getTrainingCaloriesPerHour = (userData, trainingTypes) => {
 };
 
 export const getTrainingCalories = (userData, trainingTypes) => {
+  const durationHours = normalizeNonNegativeNumber(userData.trainingDuration);
+  if (durationHours <= 0) {
+    return 0;
+  }
+
+  const normalizedProfile = normalizeCalculationProfile(userData);
+
   if (userData.trainingEffortType === 'heartRate') {
-    const heartRate = Number(userData.trainingHeartRate);
-    if (!Number.isFinite(heartRate) || heartRate <= 0) return 0;
-    const durationMinutes = userData.trainingDuration * 60;
+    const heartRate = normalizeHeartRate(userData.trainingHeartRate);
+    if (heartRate == null) return 0;
+    const durationMinutes = durationHours * 60;
     if (durationMinutes <= 0) return 0;
     const calsPerMin = calculateCaloriesPerMinuteFromHeartRate({
       heartRate,
-      weightKg: Number(userData.weight),
-      ageYears: Number(userData.age),
-      gender: userData.gender,
+      weightKg: normalizedProfile.weight,
+      ageYears: normalizedProfile.age,
+      gender: normalizedProfile.gender,
     });
     return Math.round(calsPerMin * durationMinutes);
   }
   return Math.round(
-    userData.trainingDuration *
-      getTrainingCaloriesPerHour(userData, trainingTypes)
+    durationHours * getTrainingCaloriesPerHour(userData, trainingTypes)
   );
 };
 
@@ -346,28 +440,36 @@ export const calculateCalorieBreakdown = ({
   trainingTypes,
   tefContext,
 }) => {
-  const stepDetails = getStepDetails(steps, userData);
-  const bmrDetails = resolveBmrDetails(userData);
-  const trainingTypeKey = userData?.trainingType;
+  const normalizedProfile = normalizeCalculationProfile(userData);
+  const normalizedUserData = {
+    ...userData,
+    ...normalizedProfile,
+  };
+
+  const stepDetails = getStepDetails(steps, normalizedUserData);
+  const bmrDetails = resolveBmrDetails(normalizedUserData);
+  const trainingTypeKey = normalizedUserData?.trainingType;
   const trainingType = trainingTypes?.[trainingTypeKey] ?? null;
-  const trainingDuration = Number.isFinite(userData?.trainingDuration)
-    ? userData.trainingDuration
-    : 0;
+  const trainingDuration = normalizeNonNegativeNumber(
+    normalizedUserData?.trainingDuration
+  );
   const trainingCaloriesPerHour = Number.isFinite(trainingType?.caloriesPerHour)
     ? trainingType.caloriesPerHour
     : 0;
-  const cardioSessions = Array.isArray(userData?.cardioSessions)
-    ? userData.cardioSessions
+  const cardioSessions = Array.isArray(normalizedUserData?.cardioSessions)
+    ? normalizedUserData.cardioSessions
     : [];
   const multipliers =
-    userData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS;
+    normalizedUserData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS;
   const rawActivityMultiplier = isTrainingDay
     ? (multipliers.training ?? DEFAULT_ACTIVITY_MULTIPLIERS.training)
     : (multipliers.rest ?? DEFAULT_ACTIVITY_MULTIPLIERS.rest);
   const trainingBurn = Math.round(
-    isTrainingDay ? getTrainingCalories(userData, trainingTypes) : 0
+    isTrainingDay ? getTrainingCalories(normalizedUserData, trainingTypes) : 0
   );
-  const cardioBurn = Math.round(getTotalCardioBurn(userData, cardioTypes));
+  const cardioBurn = Math.round(
+    getTotalCardioBurn(normalizedUserData, cardioTypes)
+  );
   const cardioDetails = cardioSessions
     .map((session) => {
       const rawDuration = Number(session?.duration);
@@ -377,16 +479,20 @@ export const calculateCalorieBreakdown = ({
       }
 
       const effortType = session?.effortType ?? 'intensity';
-      const calories = calculateCardioCalories(session, userData, cardioTypes);
+      const calories = calculateCardioCalories(
+        session,
+        normalizedUserData,
+        cardioTypes
+      );
       const typeKey = session?.type;
       const cardioType = cardioTypes?.[typeKey];
       const typeLabel = cardioType?.label ?? typeKey ?? 'Cardio';
 
       if (effortType === 'heartRate') {
-        const heartRate = Number(session?.averageHeartRate);
-        const weightKg = Number(userData?.weight);
-        const ageYears = Number(userData?.age);
-        const gender = userData?.gender;
+        const heartRate = normalizeHeartRate(session?.averageHeartRate);
+        const weightKg = normalizedProfile.weight;
+        const ageYears = normalizedProfile.age;
+        const gender = normalizedProfile.gender;
         const caloriesPerMinute = calculateCaloriesPerMinuteFromHeartRate({
           heartRate,
           weightKg,
@@ -399,7 +505,7 @@ export const calculateCalorieBreakdown = ({
           typeLabel,
           effortType,
           durationMinutes,
-          averageHeartRate: Number.isFinite(heartRate) ? heartRate : 0,
+          averageHeartRate: heartRate ?? 0,
           calories,
           caloriesPerMinute,
           weightKg,
@@ -421,7 +527,7 @@ export const calculateCalorieBreakdown = ({
         hours,
         durationMinutes,
         calories,
-        weightKg: Number(userData?.weight),
+        weightKg: normalizedProfile.weight,
       };
     })
     .filter(Boolean);
@@ -445,8 +551,8 @@ export const calculateCalorieBreakdown = ({
     details: smartTefDetails,
   } = resolveSmartTef({
     tefContext,
-    userData,
-    targetCalories: subtotalBeforeSmartTef,
+    userData: normalizedUserData,
+    targetCaloriesSeed: subtotalBeforeSmartTef,
   });
   const total = Math.round(subtotalBeforeSmartTef + smartTefCalories);
 
