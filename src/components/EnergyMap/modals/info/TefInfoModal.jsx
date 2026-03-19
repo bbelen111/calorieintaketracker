@@ -99,10 +99,10 @@ export const TefInfoModal = ({ isOpen, isClosing, onClose }) => {
         </div>
 
         <p className="text-sm italic">
-          Because Smart TEF removes the baked-in 10% assumption from NEAT first,
-          your displayed activity multiplier can look lower when the feature is
-          enabled. That’s expected — the calories are being redistributed, not
-          lost in the metabolic couch cushions.
+          Note: Because Smart TEF calculates digestion separately, your overall
+          activity multiplier will appear lower. This is expected behavior—your
+          daily calorie target is being redistributed for better accuracy, not
+          decreased.
         </p>
       </div>
 
