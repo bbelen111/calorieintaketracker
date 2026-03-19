@@ -50,11 +50,7 @@ export const HeightPickerModal = ({
     const frame = requestAnimationFrame(() => {
       const nextHeight = sanitizeHeight(value, selectedHeight);
       setSelectedHeight(nextHeight);
-      alignScrollContainerToValue(
-        scrollRef.current,
-        nextHeight,
-        behavior
-      );
+      alignScrollContainerToValue(scrollRef.current, nextHeight, behavior);
     });
     return () => cancelAnimationFrame(frame);
   }, [isOpen, selectedHeight, value]);
@@ -74,13 +70,16 @@ export const HeightPickerModal = ({
     );
   }, [handleHeightChange]);
 
-  const handleItemClick = useCallback((height) => {
-    const clamped = sanitizeHeight(height, selectedHeight);
-    setSelectedHeight(clamped);
-    if (scrollRef.current) {
-      alignScrollContainerToValue(scrollRef.current, clamped, 'smooth');
-    }
-  }, [selectedHeight]);
+  const handleItemClick = useCallback(
+    (height) => {
+      const clamped = sanitizeHeight(height, selectedHeight);
+      setSelectedHeight(clamped);
+      if (scrollRef.current) {
+        alignScrollContainerToValue(scrollRef.current, clamped, 'smooth');
+      }
+    },
+    [selectedHeight]
+  );
 
   const handleSave = useCallback(() => {
     onSave?.(selectedHeight);

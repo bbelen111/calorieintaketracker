@@ -81,6 +81,7 @@ export const FoodPortionModal = ({
   onSaveAsFavourite,
   selectedFood,
   initialGrams = DEFAULT_GRAMS,
+  smartTefEnabled = false,
   isEditing = false,
   isFoodFavourited = false,
 }) => {
@@ -319,14 +320,14 @@ export const FoodPortionModal = ({
   const nutrition = selectedFood ? calculateNutrition() : null;
   const rawFoodTef = useMemo(
     () =>
-      nutrition
+      smartTefEnabled && nutrition
         ? calculateTefFromMacros({
             proteinGrams: nutrition.protein,
             carbsGrams: nutrition.carbs,
             fatsGrams: nutrition.fats,
           })
         : 0,
-    [nutrition]
+    [nutrition, smartTefEnabled]
   );
 
   const handleAddFood = () => {
@@ -674,14 +675,16 @@ export const FoodPortionModal = ({
               <p className="text-muted text-xs">fats</p>
             </div>
           </div>
-          <div className="mt-4 rounded-lg border border-accent-blue/70 bg-accent-blue px-4 py-2.5">
-            <div className="flex items-center justify-between gap-4">
-              <p className="text-white font-semibold text-sm">TEF Burn</p>
-              <p className="text-white font-bold text-sm whitespace-nowrap">
-                {rawFoodTef.toLocaleString()} kcal
-              </p>
+          {smartTefEnabled && (
+            <div className="mt-4 rounded-lg border border-accent-blue/70 bg-accent-blue px-4 py-2.5">
+              <div className="flex items-center justify-between gap-4">
+                <p className="text-white font-semibold text-sm">TEF Burn</p>
+                <p className="text-white font-bold text-sm whitespace-nowrap">
+                  {rawFoodTef.toLocaleString()} kcal
+                </p>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 

@@ -85,6 +85,8 @@ export const SettingsModal = ({
       : resolvedUserData.bodyFatTrackingEnabled;
   const useTargetQuickEstimates =
     resolvedUserData.smartTefQuickEstimatesTargetMode ?? true;
+  const showFoodModalTefBurn =
+    resolvedUserData.smartTefFoodTefBurnEnabled ?? true;
   const useTargetLiveCard =
     useTargetQuickEstimates &&
     (resolvedUserData.smartTefLiveCardTargetMode ?? false);
@@ -220,7 +222,7 @@ export const SettingsModal = ({
             <ChevronLeft size={24} />
           </button>
           <h3 className="text-foreground font-bold text-xl md:text-2xl">
-            Personal Settings
+            Settings
           </h3>
         </div>
       </div>
@@ -475,6 +477,49 @@ export const SettingsModal = ({
 
               {resolvedUserData.smartTefEnabled && (
                 <div className="mt-3 space-y-2">
+                  <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-foreground text-sm font-medium leading-tight">
+                          Show TEF burn in food modals
+                        </p>
+                        <p className="text-muted text-xs mt-0.5">
+                          Displays TEF burn in manual food entry and portion
+                          modals.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={showFoodModalTefBurn}
+                        aria-label="Toggle TEF burn in food modals"
+                        onClick={() =>
+                          onChange(
+                            'smartTefFoodTefBurnEnabled',
+                            !showFoodModalTefBurn
+                          )
+                        }
+                        className="inline-flex items-center rounded-full focus-ring pressable-inline"
+                      >
+                        <span
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-all ${
+                            showFoodModalTefBurn
+                              ? 'bg-accent-emerald border-accent-emerald/70'
+                              : 'bg-surface-highlight border-border'
+                          }`}
+                        >
+                          <span
+                            className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                              showFoodModalTefBurn
+                                ? 'translate-x-6'
+                                : 'translate-x-1'
+                            }`}
+                          />
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5">
                     <div className="flex items-center justify-between gap-3">
                       <div>

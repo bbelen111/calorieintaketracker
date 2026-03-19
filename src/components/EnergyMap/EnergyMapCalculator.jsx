@@ -3287,6 +3287,10 @@ export const EnergyMapCalculator = () => {
         setCarbs={setFoodCarbs}
         fats={foodFats}
         setFats={setFoodFats}
+        smartTefEnabled={
+          userData.smartTefEnabled &&
+          (userData.smartTefFoodTefBurnEnabled ?? true)
+        }
         isEditing={foodEntryMode === 'edit'}
       />
 
@@ -3334,6 +3338,10 @@ export const EnergyMapCalculator = () => {
         onSaveAsFavourite={handleCreateFoodFavourite}
         selectedFood={selectedFoodForPortion}
         initialGrams={portionInitialGrams ?? undefined}
+        smartTefEnabled={
+          userData.smartTefEnabled &&
+          (userData.smartTefFoodTefBurnEnabled ?? true)
+        }
         isEditing={Boolean(editingPortionEntry)}
         isFoodFavourited={
           selectedFoodForPortion

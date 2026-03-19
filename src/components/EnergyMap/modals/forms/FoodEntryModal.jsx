@@ -20,6 +20,7 @@ export const FoodEntryModal = ({
   setCarbs,
   fats,
   setFats,
+  smartTefEnabled = false,
   isEditing = false,
 }) => {
   const [markedAsFavourite, setMarkedAsFavourite] = useState(false);
@@ -206,14 +207,16 @@ export const FoodEntryModal = ({
           </div>
         </div>
 
-        <div className="rounded-lg border border-accent-blue/70 bg-accent-blue px-4 py-3">
-          <div className="flex items-center justify-between gap-4">
-            <p className="text-white font-semibold text-sm">TEF Burn</p>
-            <p className="text-white font-bold text-sm whitespace-nowrap">
-              {rawFoodTef.toLocaleString()} kcal
-            </p>
+        {smartTefEnabled && (
+          <div className="rounded-lg border border-accent-blue/70 bg-accent-blue px-4 py-3">
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-white font-semibold text-sm">TEF Burn</p>
+              <p className="text-white font-bold text-sm whitespace-nowrap">
+                {rawFoodTef.toLocaleString()} kcal
+              </p>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Actions */}
         <div className="flex flex-col gap-2 pt-2">

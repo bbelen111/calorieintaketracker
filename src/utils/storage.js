@@ -141,6 +141,7 @@ export const getDefaultEnergyMapData = () => ({
   gender: 'male',
   theme: 'auto', // 'auto' | 'dark' | 'light' | 'amoled_dark'
   smartTefEnabled: false,
+  smartTefFoodTefBurnEnabled: true,
   smartTefQuickEstimatesTargetMode: true,
   smartTefLiveCardTargetMode: false,
   trainingType: 'bodybuilding',
@@ -312,6 +313,8 @@ function mergeWithDefaults(data) {
     bodyFatTrackingEnabled:
       data.bodyFatTrackingEnabled ?? defaults.bodyFatTrackingEnabled,
     smartTefEnabled: data.smartTefEnabled ?? defaults.smartTefEnabled,
+    smartTefFoodTefBurnEnabled:
+      data.smartTefFoodTefBurnEnabled ?? defaults.smartTefFoodTefBurnEnabled,
     smartTefQuickEstimatesTargetMode:
       data.smartTefQuickEstimatesTargetMode ??
       defaults.smartTefQuickEstimatesTargetMode,
