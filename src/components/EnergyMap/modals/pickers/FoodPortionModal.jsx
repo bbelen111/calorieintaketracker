@@ -9,7 +9,12 @@ import { Plus, ChevronDown, Heart } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import { FOOD_CATEGORIES } from '../../../../constants/foodDatabase';
 import { formatOne } from '../../../../utils/format';
-import { calculateTefFromMacros } from '../../../../utils/calculations';
+import {
+  calculateTefFromMacros,
+  TEF_PROTEIN_RATE,
+  TEF_CARB_RATE,
+  TEF_FAT_RATE,
+} from '../../../../utils/calculations';
 import {
   alignScrollContainerToValue,
   createPickerScrollHandler,
@@ -85,6 +90,8 @@ export const FoodPortionModal = ({
   isEditing = false,
   isFoodFavourited = false,
 }) => {
+  const roundToTenth = (value) => Math.round(value * 10) / 10;
+
   const wholeRef = useRef(null);
   const decimalRef = useRef(null);
   const wholeTimeoutRef = useRef(null);
@@ -95,9 +102,11 @@ export const FoodPortionModal = ({
 
   // Track if user has marked this as favourite during this session
   const [markedAsFavourite, setMarkedAsFavourite] = useState(false);
+  const [isTefExpanded, setIsTefExpanded] = useState(false);
 
   const handleClose = useCallback(() => {
     setMarkedAsFavourite(false);
+    setIsTefExpanded(false);
     onClose?.();
   }, [onClose]);
 
@@ -318,17 +327,42 @@ export const FoodPortionModal = ({
   }, [selectedFood, grams]);
 
   const nutrition = selectedFood ? calculateNutrition() : null;
-  const rawFoodTef = useMemo(
-    () =>
-      smartTefEnabled && nutrition
-        ? calculateTefFromMacros({
-            proteinGrams: nutrition.protein,
-            carbsGrams: nutrition.carbs,
-            fatsGrams: nutrition.fats,
-          })
-        : 0,
-    [nutrition, smartTefEnabled]
-  );
+  const tefBreakdown = useMemo(() => {
+    if (!smartTefEnabled || !nutrition) {
+      return null;
+    }
+
+    const safeProtein = Math.max(0, Number(nutrition.protein) || 0);
+    const safeCarbs = Math.max(0, Number(nutrition.carbs) || 0);
+    const safeFats = Math.max(0, Number(nutrition.fats) || 0);
+
+    const proteinTefCalories = safeProtein * 4 * TEF_PROTEIN_RATE;
+    const carbsTefCalories = safeCarbs * 4 * TEF_CARB_RATE;
+    const fatsTefCalories = safeFats * 9 * TEF_FAT_RATE;
+    const rawTotalCalories =
+      proteinTefCalories + carbsTefCalories + fatsTefCalories;
+
+    return {
+      proteinGrams: roundToTenth(safeProtein),
+      carbsGrams: roundToTenth(safeCarbs),
+      fatsGrams: roundToTenth(safeFats),
+      proteinTefCalories: roundToTenth(proteinTefCalories),
+      carbsTefCalories: roundToTenth(carbsTefCalories),
+      fatsTefCalories: roundToTenth(fatsTefCalories),
+      rawTotalCalories: roundToTenth(rawTotalCalories),
+      roundedTotalCalories: calculateTefFromMacros({
+        proteinGrams: safeProtein,
+        carbsGrams: safeCarbs,
+        fatsGrams: safeFats,
+      }),
+    };
+  }, [nutrition, smartTefEnabled]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setIsTefExpanded(false);
+    }
+  }, [isOpen, selectedFood?.id]);
 
   const handleAddFood = () => {
     if (!nutrition) return;
@@ -675,13 +709,79 @@ export const FoodPortionModal = ({
               <p className="text-muted text-xs">fats</p>
             </div>
           </div>
-          {smartTefEnabled && (
-            <div className="mt-4 rounded-lg border border-accent-blue/70 bg-accent-blue px-4 py-2.5">
-              <div className="flex items-center justify-between gap-4">
-                <p className="text-white font-semibold text-sm">TEF Burn</p>
-                <p className="text-white font-bold text-sm whitespace-nowrap">
-                  {rawFoodTef.toLocaleString()} kcal
-                </p>
+          {smartTefEnabled && tefBreakdown && (
+            <div className="mt-4 rounded-lg border border-accent-blue/70 bg-accent-blue overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setIsTefExpanded((prev) => !prev)}
+                aria-expanded={isTefExpanded}
+                className="w-full px-4 py-3 text-left transition-all rounded-lg pressable-card focus-ring md:hover:brightness-110"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-white font-semibold text-md">TEF Burn</p>
+                  </div>
+                  <p className="text-white font-bold text-md whitespace-nowrap">
+                    {tefBreakdown.roundedTotalCalories.toLocaleString()} kcal
+                  </p>
+                </div>
+                <div className="flex justify-center mt-2">
+                  <span className="h-1 w-20 rounded-full bg-foreground/20" />
+                </div>
+              </button>
+
+              <div
+                className={`overflow-hidden transition-all duration-300 ease-out px-4 ${
+                  isTefExpanded
+                    ? 'max-h-96 opacity-100 pb-4'
+                    : 'max-h-0 opacity-0'
+                }`}
+              >
+                <div className="rounded-lg border border-border bg-surface p-3 space-y-2 text-xs text-foreground/80">
+                  <div className="flex items-center justify-between gap-3">
+                    <p>
+                      <span className="text-accent-red font-semibold">
+                        Protein
+                      </span>{' '}
+                      = {formatOne(tefBreakdown.proteinGrams)}g × 4 × 25%
+                    </p>
+                    <p className="text-accent-red font-semibold">
+                      {formatOne(tefBreakdown.proteinTefCalories)} kcal
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <p>
+                      <span className="text-accent-amber font-semibold">
+                        Carbs
+                      </span>{' '}
+                      = {formatOne(tefBreakdown.carbsGrams)}g × 4 × 8%
+                    </p>
+                    <p className="text-accent-amber font-semibold">
+                      {formatOne(tefBreakdown.carbsTefCalories)} kcal
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <p>
+                      <span className="text-accent-yellow font-semibold">
+                        Fats
+                      </span>{' '}
+                      = {formatOne(tefBreakdown.fatsGrams)}g × 9 × 2%
+                    </p>
+                    <p className="text-accent-yellow font-semibold">
+                      {formatOne(tefBreakdown.fatsTefCalories)} kcal
+                    </p>
+                  </div>
+                  <div className="pt-2 border-t border-border/60 space-y-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-foreground/90 font-semibold">
+                        TEF subtotal (Rounded)
+                      </p>
+                      <p className="text-foreground/90 font-semibold">
+                        {tefBreakdown.roundedTotalCalories} kcal
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
