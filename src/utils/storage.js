@@ -13,7 +13,6 @@ import { normalizeDateKey, sortWeightEntries } from './weight.js';
 import { clampBodyFat, sortBodyFatEntries } from './bodyFat.js';
 import { sanitizeAge, sanitizeHeight } from './profile.js';
 import {
-  convertLegacyPhasesToPhaseLogV2,
   createDefaultPhaseLogV2State,
   normalizePhaseLogV2State,
 } from './phaseLogV2.js';
@@ -296,11 +295,6 @@ export const reconstructHistoryFromDexieDocuments = (documents = []) => {
 
     if (HISTORY_FIELDS.includes(documentId)) {
       historyData[documentId] = document.payload;
-      return;
-    }
-
-    if (documentId === 'phases' && Array.isArray(document.payload)) {
-      historyData.legacyPhases = document.payload;
       return;
     }
 
@@ -701,28 +695,14 @@ export const getDefaultEnergyMapData = () => ({
 
 function mergeWithDefaults(data) {
   const defaults = getDefaultEnergyMapData();
-  const {
-    phases,
-    activePhaseId,
-    legacyPhases,
-    ...dataWithoutLegacyPhases
-  } = data;
+  const dataWithoutLegacyPhases = { ...(data ?? {}) };
+  delete dataWithoutLegacyPhases.phases;
+  delete dataWithoutLegacyPhases.activePhaseId;
+  delete dataWithoutLegacyPhases.legacyPhases;
 
-  let normalizedPhaseLogV2 = normalizePhaseLogV2State(
+  const normalizedPhaseLogV2 = normalizePhaseLogV2State(
     dataWithoutLegacyPhases.phaseLogV2 ?? defaults.phaseLogV2
   );
-
-  const legacyPhasesSource = Array.isArray(legacyPhases)
-    ? legacyPhases
-    : Array.isArray(phases)
-      ? phases
-      : [];
-
-  if (normalizedPhaseLogV2.phaseOrder.length === 0 && legacyPhasesSource.length) {
-    normalizedPhaseLogV2 = normalizePhaseLogV2State(
-      convertLegacyPhasesToPhaseLogV2(legacyPhasesSource, activePhaseId ?? null)
-    );
-  }
 
   const activityPresets = {
     ...defaults.activityPresets,

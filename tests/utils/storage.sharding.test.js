@@ -144,7 +144,7 @@ test('reconstructHistoryFromDexieDocuments prefers sharded payload over legacy f
   });
 });
 
-test('reconstructHistoryFromDexieDocuments keeps legacy phases payload for one-time migration', () => {
+test('reconstructHistoryFromDexieDocuments ignores legacy phases payload', () => {
   const documents = [
     {
       id: 'phases',
@@ -163,6 +163,6 @@ test('reconstructHistoryFromDexieDocuments keeps legacy phases payload for one-t
 
   const { historyData } = reconstructHistoryFromDexieDocuments(documents);
 
-  assert.ok(Array.isArray(historyData.legacyPhases));
-  assert.equal(historyData.legacyPhases[0]?.name, 'Legacy Phase');
+  assert.equal('legacyPhases' in historyData, false);
+  assert.equal('phaseLogV2' in historyData, false);
 });

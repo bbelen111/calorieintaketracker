@@ -9,7 +9,6 @@ import { Home, Map, BarChart3, ClipboardList, Target } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
-import { setLightStatusBar } from '../../native/statusBar';
 import { shallow } from 'zustand/shallow';
 import { goals } from '../../constants/goals';
 import {
@@ -357,23 +356,6 @@ export const EnergyMapCalculator = () => {
         setIsDayLoaded(true);
       }
     });
-
-    // Setup status bar styling for dark mode (light icons)
-    // Using dynamic wrapper - call setLightStatusBar(true) for dark theme
-    const setupStatusBar = async () => {
-      if (!Capacitor.isNativePlatform()) {
-        return;
-      }
-
-      try {
-        // true = dark background, light/white icons (current app theme)
-        await setLightStatusBar(true);
-      } catch (error) {
-        console.error('Failed to setup status bar:', error);
-      }
-    };
-
-    setupStatusBar();
 
     return () => {
       mounted = false;

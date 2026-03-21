@@ -3,36 +3,48 @@ import test from 'node:test';
 
 import {
   createDefaultPhaseLogV2State,
-  convertLegacyPhasesToPhaseLogV2,
   convertPhaseLogV2ToLegacyPhases,
   deriveDailyLogStatus,
   LOG_COMPLETION_STATUS,
+  normalizePhaseLogV2State,
   upsertPhaseLogV2DailyLog,
   removePhaseLogV2DailyLog,
 } from '../../src/utils/phaseLogV2.js';
 
-test('legacy conversion enforces a single active phase', () => {
+test('v2 normalization enforces a single active phase', () => {
   const now = Date.now();
-  const state = convertLegacyPhasesToPhaseLogV2([
-    {
-      id: 101,
-      name: 'Cut Block',
-      startDate: '2026-01-01',
-      goalType: 'cutting',
-      status: 'active',
-      dailyLogs: {},
-      createdAt: now,
+  const state = normalizePhaseLogV2State({
+    version: 2,
+    phaseOrder: [101, 202],
+    activePhaseId: 101,
+    phasesById: {
+      101: {
+        id: 101,
+        name: 'Cut Block',
+        startDate: '2026-01-01',
+        goalType: 'cutting',
+        status: 'active',
+        createdAt: now,
+      },
+      202: {
+        id: 202,
+        name: 'Bulk Block',
+        startDate: '2026-02-01',
+        goalType: 'bulking',
+        status: 'active',
+        createdAt: now,
+      },
     },
-    {
-      id: 202,
-      name: 'Bulk Block',
-      startDate: '2026-02-01',
-      goalType: 'bulking',
-      status: 'active',
-      dailyLogs: {},
-      createdAt: now,
+    logsById: {},
+    logIdsByPhaseId: {
+      101: [],
+      202: [],
     },
-  ]);
+    logIdByPhaseDate: {
+      101: {},
+      202: {},
+    },
+  });
 
   assert.equal(state.activePhaseId, 101);
   assert.equal(state.phasesById[101].status, 'active');
@@ -41,28 +53,47 @@ test('legacy conversion enforces a single active phase', () => {
 
 test('phase log conversion preserves body fat references', () => {
   const now = Date.now();
-  const v2 = convertLegacyPhasesToPhaseLogV2([
-    {
-      id: 1,
-      name: 'Recomp',
-      startDate: '2026-03-01',
-      goalType: 'maintenance',
-      status: 'active',
-      dailyLogs: {
-        '2026-03-10': {
-          date: '2026-03-10',
-          weightRef: '2026-03-10',
-          bodyFatRef: '2026-03-10',
-          nutritionRef: '',
-          notes: 'Good session',
-          completed: false,
-          createdAt: now,
-          updatedAt: now,
-        },
+  const v2 = normalizePhaseLogV2State({
+    version: 2,
+    phaseOrder: [1],
+    activePhaseId: 1,
+    phasesById: {
+      1: {
+        id: 1,
+        name: 'Recomp',
+        startDate: '2026-03-01',
+        goalType: 'maintenance',
+        status: 'active',
+        createdAt: now,
       },
-      createdAt: now,
     },
-  ]);
+    logsById: {
+      '1:2026-03-10': {
+        id: '1:2026-03-10',
+        phaseId: 1,
+        date: '2026-03-10',
+        links: {
+          weightEntryId: '2026-03-10',
+          bodyFatEntryId: '2026-03-10',
+          nutritionDayKey: null,
+          stepEntryId: null,
+          trainingSessionIds: [],
+        },
+        notes: 'Good session',
+        metadata: {},
+        createdAt: now,
+        updatedAt: now,
+      },
+    },
+    logIdsByPhaseId: {
+      1: ['1:2026-03-10'],
+    },
+    logIdByPhaseDate: {
+      1: {
+        '2026-03-10': '1:2026-03-10',
+      },
+    },
+  });
 
   const legacy = convertPhaseLogV2ToLegacyPhases(v2);
   assert.equal(
@@ -92,17 +123,28 @@ test('deriveDailyLogStatus is body-fat aware', () => {
 });
 
 test('upsert and remove daily log maintain phase-date index integrity', () => {
-  const base = convertLegacyPhasesToPhaseLogV2([
-    {
-      id: 7,
-      name: 'Mini Cut',
-      startDate: '2026-03-01',
-      goalType: 'cutting',
-      status: 'active',
-      dailyLogs: {},
-      createdAt: Date.now(),
+  const base = normalizePhaseLogV2State({
+    version: 2,
+    phaseOrder: [7],
+    activePhaseId: 7,
+    phasesById: {
+      7: {
+        id: 7,
+        name: 'Mini Cut',
+        startDate: '2026-03-01',
+        goalType: 'cutting',
+        status: 'active',
+        createdAt: Date.now(),
+      },
     },
-  ]);
+    logsById: {},
+    logIdsByPhaseId: {
+      7: [],
+    },
+    logIdByPhaseDate: {
+      7: {},
+    },
+  });
 
   const withLog = upsertPhaseLogV2DailyLog(base, 7, '2026-03-15', {
     weightRef: '2026-03-15',

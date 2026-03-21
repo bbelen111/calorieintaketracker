@@ -44,9 +44,6 @@ const isActiveStatus = (status) => status === PHASE_STATUS.ACTIVE;
 const toLegacyPhaseStatus = (status) =>
   status === PHASE_STATUS.ACTIVE ? 'active' : 'completed';
 
-const fromLegacyPhaseStatus = (status) =>
-  status === 'active' ? PHASE_STATUS.ACTIVE : PHASE_STATUS.COMPLETED;
-
 const normalizeTrainingSessionIds = (ids) =>
   Array.isArray(ids)
     ? ids.filter((id) => id != null && String(id).trim() !== '')
@@ -259,70 +256,6 @@ export const deriveDailyLogStatus = (log) => {
   }
 
   return LOG_COMPLETION_STATUS.EMPTY;
-};
-
-export const convertLegacyPhasesToPhaseLogV2 = (
-  phases = [],
-  explicitActivePhaseId = null
-) => {
-  const state = createDefaultPhaseLogV2State();
-
-  if (!Array.isArray(phases) || phases.length === 0) {
-    return state;
-  }
-
-  phases.forEach((phase) => {
-    const phaseId = phase?.id;
-    if (phaseId == null) return;
-
-    const normalizedPhase = normalizePhaseRecord({
-      ...phase,
-      status: fromLegacyPhaseStatus(phase?.status),
-    });
-
-    state.phasesById[phaseId] = normalizedPhase;
-    state.phaseOrder.push(phaseId);
-    state.logIdsByPhaseId[phaseId] = [];
-    state.logIdByPhaseDate[phaseId] = {};
-
-    const dailyLogs = phase?.dailyLogs ?? {};
-    Object.values(dailyLogs).forEach((legacyLog) => {
-      const normalizedDate = normalizeDateKey(legacyLog?.date);
-      if (!normalizedDate) return;
-
-      const logId = buildDailyLogId(phaseId, normalizedDate);
-      const links = normalizeLinks({
-        weightEntryId: legacyLog?.weightRef,
-        bodyFatEntryId: legacyLog?.bodyFatRef,
-        nutritionDayKey: legacyLog?.nutritionRef,
-        stepEntryId: legacyLog?.stepRef,
-        trainingSessionIds: legacyLog?.trainingSessionIds,
-      });
-
-      const nextLog = {
-        id: logId,
-        phaseId,
-        date: normalizedDate,
-        links,
-        notes: typeof legacyLog?.notes === 'string' ? legacyLog.notes : '',
-        metadata: {
-          legacyCompleted: Boolean(legacyLog?.completed),
-        },
-        createdAt: Number.isFinite(legacyLog?.createdAt)
-          ? legacyLog.createdAt
-          : Date.now(),
-        updatedAt: Number.isFinite(legacyLog?.updatedAt)
-          ? legacyLog.updatedAt
-          : Date.now(),
-      };
-
-      state.logsById[logId] = nextLog;
-      state.logIdsByPhaseId[phaseId].push(logId);
-      state.logIdByPhaseDate[phaseId][normalizedDate] = logId;
-    });
-  });
-
-  return normalizeActivePhase(state, explicitActivePhaseId);
 };
 
 export const convertPhaseLogV2ToLegacyPhases = (rawState) => {

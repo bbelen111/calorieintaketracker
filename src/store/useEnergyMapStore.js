@@ -25,7 +25,6 @@ import { clampBodyFat, sortBodyFatEntries } from '../utils/bodyFat';
 import { sanitizeAge, sanitizeHeight } from '../utils/profile';
 import {
   PHASE_STATUS,
-  convertLegacyPhasesToPhaseLogV2,
   convertPhaseLogV2ToLegacyPhases,
   normalizePhaseLogV2State,
   removePhaseLogV2DailyLog,
@@ -84,24 +83,6 @@ const normalizePhaseStateForUserData = (userData) => {
 
 const getLegacyPhaseView = (phaseLogV2) =>
   convertPhaseLogV2ToLegacyPhases(normalizePhaseLogV2State(phaseLogV2));
-
-const initializePhaseLogV2 = (userData) => {
-  const normalizedPhaseLogV2 = normalizePhaseLogV2State(userData.phaseLogV2);
-  if (normalizedPhaseLogV2.phaseOrder.length > 0) {
-    return normalizedPhaseLogV2;
-  }
-
-  if (!Array.isArray(userData.phases) || userData.phases.length === 0) {
-    return normalizedPhaseLogV2;
-  }
-
-  return normalizePhaseLogV2State(
-    convertLegacyPhasesToPhaseLogV2(
-      userData.phases,
-      userData.activePhaseId ?? null
-    )
-  );
-};
 
 const mapPhaseLogs = (rawPhaseLogV2, updater) => {
   const normalized = normalizePhaseLogV2State(rawPhaseLogV2);
@@ -255,10 +236,7 @@ export const useEnergyMapStore = create(
         return;
       }
       const data = await loadEnergyMapData();
-      const nextUserData = normalizePhaseStateForUserData({
-        ...data,
-        phaseLogV2: initializePhaseLogV2(data),
-      });
+      const nextUserData = normalizePhaseStateForUserData(data);
       set({
         userData: nextUserData,
         ...deriveState(nextUserData),

@@ -110,7 +110,7 @@ myNewAction: (param) => {
 ### Persistence Setup
 
 `setupEnergyMapStore()` (called once) does two things:
-1. Calls `initialize()` to load profile from Preferences + history from Dexie (including one-time in-memory conversion of legacy Dexie `phases` docs into `phaseLogV2` when needed)
+1. Calls `initialize()` to load profile from Preferences + history from Dexie
 2. Subscribes to `userData` changes with a 1-second debounced save (`SAVE_DEBOUNCE_MS = 1000`)
 
 **Critical:** Do not remove the debounce — saving 2MB+ JSON on every keystroke freezes the UI.
@@ -119,7 +119,7 @@ myNewAction: (param) => {
 
 ### Legacy: `useEnergyMapData` Hook
 
-Deprecated 7-line wrapper that spreads the entire store state. Defeats `shallow` comparison. **Prefer direct store selectors** in new code.
+Removed from the codebase. **Do not reintroduce** full-store spread wrappers; use direct store selectors with `shallow` where appropriate.
 
 ---
 
@@ -470,8 +470,8 @@ Return semantics are intentionally boolean-oriented for save helpers (`true`/`fa
 
 Migration behavior is now intentionally minimal:
 1. No `localStorage` or Preferences history backfill path is used.
-2. If a legacy Dexie `phases` document exists and `phaseLogV2` is empty, `mergeWithDefaults()` converts it in-memory via `convertLegacyPhasesToPhaseLogV2(...)`.
-3. Subsequent saves persist only `phaseLogV2` for phase history.
+2. Legacy Dexie `phases` documents are ignored (no compatibility import path).
+3. Saves persist only `phaseLogV2` for phase history.
 
 ### Default Data
 
@@ -650,7 +650,6 @@ src/
 │   └─ phaseTemplates.js         # Phase creation templates
 ├─ hooks/
 │   ├─ useAnimatedModal.js       # Modal lifecycle (isOpen/isClosing/requestClose)
-│   ├─ useEnergyMapData.js       # DEPRECATED — use store directly
 │   ├─ useSwipeableScreens.js    # 5-screen horizontal carousel
 │   ├─ useHealthConnect.js       # Android Health Connect integration
 │   ├─ useNetworkStatus.js       # Online/offline detection
@@ -682,9 +681,6 @@ src/
   ├─ constants/
   └─ utils/
     ├─ storage.test.js          # Persistence split + Dexie-first behavior tests
-└─ native/                       # DEPRECATED — use utils/theme.js applyNativeTheme() instead
-    ├─ statusBar.js
-    └─ navigationBar.js
 ```
 
 ---
@@ -724,7 +720,7 @@ npm run test:watch     # Node test runner in watch mode
 3. **Dexie is the only history persistence path:** Do not reintroduce Preferences history fallback/backfill logic.
 4. **Save failure semantics:** If Dexie history write fails, persistence risk warning is expected and should remain explicit.
 5. **Warnings should indicate real risk only:** Avoid noisy warnings unless a write was rejected or explicitly failed.
-6. **Legacy phase compatibility is limited:** Only one-time conversion from legacy Dexie `phases` docs to `phaseLogV2` remains.
+6. **Legacy phase migration path is removed:** Do not add runtime conversion/import logic for legacy `phases` payloads.
 7. **Avoid full rewrite assumptions:** `saveEnergyMapData` writes changed profile/history segments only; avoid changes that force unconditional large writes.
 8. **Food cache retention is intentional:** `cachedFoods` is history-scoped and persisted with dedupe + max cap (currently 500). Keep retention logic if changing cache schema.
 9. **Never call `forceClose()`** on modals unless absolutely necessary — it skips exit animations and can cause visual glitches.
@@ -736,7 +732,7 @@ npm run test:watch     # Node test runner in watch mode
 15. **No hardcoded colors:** Never use `bg-slate-*`, `text-white`, `border-slate-*`, `text-blue-400`, etc. Always use semantic tokens or accent tokens.
 16. **Hover gating:** Never use bare `hover:` — always use `md:hover:` to prevent sticky hover on touch devices.
 17. **Weight entries:** Always normalize dates with `normalizeDateKey()`, validate with `clampWeight()` (30-210 kg range), and sort with `sortWeightEntries()` before storing.
-18. **`native/` folder is deprecated.** Use `utils/theme.js` `applyNativeTheme()` for all native platform styling.
+18. **Native theming is centralized in `utils/theme.js`.** Do not add legacy status/navigation bar wrapper modules.
 19. **Smart TEF and NEAT:** When `userData.smartTefEnabled` is true, `calculateCalorieBreakdown()` subtracts `TEF_MULTIPLIER_OFFSET` (0.1) from the activity multiplier and adds macro-derived TEF back explicitly. The displayed NEAT multiplier in `CalorieBreakdownModal` will therefore appear lower than the user's configured value — this is intentional and explained in `TefInfoModal`. Never remove the offset without also disabling TEF.
 20. **Activity multiplier clamping:** Custom activity multipliers have a floor defined by `MIN_CUSTOM_ACTIVITY_MULTIPLIER` in `activityPresets.js`. Always use `clampCustomActivityMultiplier()` when persisting custom NEAT values. The `DailyActivityCustomModal` picker starts at `MIN_CUSTOM_ACTIVITY_PERCENT` (10%), not 0.
 21. **Calorie breakdown request object:** `openCalorieBreakdown()` in the orchestrator accepts either a plain step count (legacy) or a `{ steps, tefContext }` object. `CalorieMapScreen` step cards and the live Health Connect card pass the full object to enable correct TEF mode selection.
