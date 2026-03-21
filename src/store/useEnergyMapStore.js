@@ -1086,8 +1086,12 @@ export const setupEnergyMapStore = () => {
         clearTimeout(saveTimeoutId);
       }
 
-      saveTimeoutId = setTimeout(() => {
-        saveEnergyMapData(userData);
+      saveTimeoutId = setTimeout(async () => {
+        try {
+          await saveEnergyMapData(userData);
+        } catch (error) {
+          console.error('Failed deferred energy map save', error);
+        }
       }, SAVE_DEBOUNCE_MS);
     }
   );

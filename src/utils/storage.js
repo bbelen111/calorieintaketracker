@@ -2,14 +2,20 @@ import { Preferences } from '@capacitor/preferences';
 import {
   clampCustomActivityMultiplier,
   DEFAULT_ACTIVITY_MULTIPLIERS,
-} from '../constants/activityPresets';
-import { sortWeightEntries } from './weight';
-import { sortBodyFatEntries } from './bodyFat';
-import { sanitizeAge, sanitizeHeight } from './profile';
+} from '../constants/activityPresets.js';
+import {
+  getDexieHistoryMigrationState,
+  loadHistoryFromDexie,
+  saveHistoryToDexie,
+  setDexieHistoryMigrationState,
+} from './historyDatabase.js';
+import { sortWeightEntries } from './weight.js';
+import { sortBodyFatEntries } from './bodyFat.js';
+import { sanitizeAge, sanitizeHeight } from './profile.js';
 import {
   createDefaultPhaseLogV2State,
   normalizePhaseLogV2State,
-} from './phaseLogV2';
+} from './phaseLogV2.js';
 
 // Legacy key for migration
 const LEGACY_DATA_KEY = 'energyMapData';
@@ -35,6 +41,39 @@ const ACTIVITY_DAY_TYPES = ['training', 'rest'];
 const hasLocalStorage = () =>
   typeof window !== 'undefined' && window.localStorage;
 
+const isEnvFlagEnabled = (value, fallback = false) => {
+  if (value == null) {
+    return fallback;
+  }
+
+  const normalized = String(value).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+    return true;
+  }
+  if (['0', 'false', 'no', 'off'].includes(normalized)) {
+    return false;
+  }
+
+  return fallback;
+};
+
+const isDualWriteEnabled = () =>
+  isEnvFlagEnabled(import.meta?.env?.VITE_ENABLE_HISTORY_DUAL_WRITE, false);
+
+const parseJsonOrEmpty = (value) => {
+  if (!value) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (error) {
+    console.warn('Failed to parse stored JSON payload', error);
+    return {};
+  }
+};
+
 // Helper to migrate legacy localStorage data to Capacitor Preferences
 async function migrateFromLocalStorage() {
   if (!hasLocalStorage()) return null;
@@ -42,9 +81,6 @@ async function migrateFromLocalStorage() {
   try {
     const legacy = window.localStorage.getItem(LEGACY_DATA_KEY);
     if (legacy) {
-      console.log(
-        'Migrating legacy localStorage data to Capacitor Preferences...'
-      );
       const parsed = JSON.parse(legacy);
 
       // Save to new storage
@@ -68,18 +104,56 @@ export const loadEnergyMapData = async () => {
       return mergeWithDefaults(migratedData);
     }
 
-    // 2. Load from Capacitor Preferences
+    // 2. Load profile from Capacitor Preferences
     const profileRes = await Preferences.get({ key: PROFILE_KEY });
-    const historyRes = await Preferences.get({ key: HISTORY_KEY });
+    const profileData = parseJsonOrEmpty(profileRes.value);
 
-    if (!profileRes.value && !historyRes.value) {
+    // 3. Load history from Dexie first
+    const dexieResult = await loadHistoryFromDexie(HISTORY_FIELDS);
+    let historyData = dexieResult.historyData;
+
+    // 4. Backfill Dexie from legacy Preferences history if needed
+    if (!dexieResult.hasAnyHistory) {
+      const historyRes = await Preferences.get({ key: HISTORY_KEY });
+      const legacyHistoryData = parseJsonOrEmpty(historyRes.value);
+
+      if (Object.keys(legacyHistoryData).length > 0) {
+        historyData = legacyHistoryData;
+        const didBackfillDexie = await saveHistoryToDexie(legacyHistoryData);
+
+        if (didBackfillDexie) {
+          await setDexieHistoryMigrationState({
+            complete: true,
+            source: 'preferences-history',
+            migratedAt: Date.now(),
+          });
+        } else {
+          await setDexieHistoryMigrationState({
+            complete: false,
+            source: 'preferences-history',
+            failedAt: Date.now(),
+          });
+        }
+      }
+    } else {
+      const migrationState = await getDexieHistoryMigrationState();
+      if (!migrationState?.complete) {
+        await setDexieHistoryMigrationState({
+          complete: true,
+          source: 'dexie-history',
+          migratedAt: Date.now(),
+        });
+      }
+    }
+
+    if (
+      Object.keys(profileData).length === 0 &&
+      Object.keys(historyData).length === 0
+    ) {
       return getDefaultEnergyMapData();
     }
 
-    const profileData = profileRes.value ? JSON.parse(profileRes.value) : {};
-    const historyData = historyRes.value ? JSON.parse(historyRes.value) : {};
-
-    // Merge everything
+    // 5. Merge everything into in-memory shape
     return mergeWithDefaults({
       ...profileData,
       ...historyData,
@@ -104,16 +178,53 @@ export const saveEnergyMapData = async (data) => {
       }
     });
 
-    await Promise.all([
+    const dualWriteEnabled = isDualWriteEnabled();
+
+    const primaryResults = await Promise.allSettled([
       Preferences.set({
         key: PROFILE_KEY,
         value: JSON.stringify(profileData),
       }),
-      Preferences.set({
-        key: HISTORY_KEY,
-        value: JSON.stringify(historyData),
-      }),
+      saveHistoryToDexie(historyData),
     ]);
+
+    const [, dexieResult] = primaryResults;
+    const rejected = primaryResults.filter(
+      (result) => result.status === 'rejected'
+    );
+
+    const dexieSucceeded =
+      dexieResult?.status === 'fulfilled' && dexieResult.value === true;
+    const hasExplicitFailureValue =
+      dexieResult?.status === 'fulfilled' && dexieResult.value === false;
+
+    const shouldWriteLegacyHistory = dualWriteEnabled || !dexieSucceeded;
+    if (shouldWriteLegacyHistory) {
+      const fallbackResult = await Promise.allSettled([
+        Preferences.set({
+          key: HISTORY_KEY,
+          value: JSON.stringify(historyData),
+        }),
+      ]);
+
+      if (fallbackResult[0]?.status === 'rejected') {
+        rejected.push(fallbackResult[0]);
+      }
+    }
+
+    // Warn only when persistence is genuinely at risk:
+    // - any rejected write (profile or fallback history), or
+    // - Dexie explicit failure when we did not (or could not) fallback.
+    const hasPersistenceRisk =
+      rejected.length > 0 ||
+      (hasExplicitFailureValue && !shouldWriteLegacyHistory);
+
+    if (hasPersistenceRisk) {
+      console.warn('One or more storage save operations failed', {
+        rejected,
+        hasExplicitFailureValue,
+      });
+    }
   } catch (error) {
     console.warn('Failed to save energy map data to storage', error);
   }

@@ -1,5 +1,5 @@
-import { normalizeDateKey } from './weight';
-import { buildBezierPaths } from './bezierPath';
+import { normalizeDateKey } from './weight.js';
+import { buildBezierPaths } from './bezierPath.js';
 
 const MS_PER_DAY = 86_400_000;
 
