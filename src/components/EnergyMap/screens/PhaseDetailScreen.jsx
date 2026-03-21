@@ -14,6 +14,7 @@ import { goals } from '../../../constants/goals';
 import { formatWeight } from '../../../utils/weight';
 import {
   calculatePhaseMetrics,
+  getNutritionTotalsForDate,
   getPhaseCalendarData,
   getRecentDailyLogs,
 } from '../../../utils/phases';
@@ -147,8 +148,15 @@ const CalendarHeatmap = ({ calendarData, onDateClick }) => {
   );
 };
 
-const DailyLogCard = ({ log, onEdit }) => {
-  const hasMacros = log.protein || log.carbs || log.fats;
+const DailyLogCard = ({ log, nutritionTotals, onEdit }) => {
+  const hasWeightRef = Boolean(log.weightRef?.trim());
+  const hasBodyFatRef = Boolean(log.bodyFatRef?.trim());
+  const hasNutritionRef = Boolean(log.nutritionRef?.trim());
+  const hasNutritionTotals =
+    Number(nutritionTotals?.calories || 0) > 0 ||
+    Number(nutritionTotals?.protein || 0) > 0 ||
+    Number(nutritionTotals?.carbs || 0) > 0 ||
+    Number(nutritionTotals?.fats || 0) > 0;
 
   return (
     <button
@@ -170,32 +178,33 @@ const DailyLogCard = ({ log, onEdit }) => {
           </div>
 
           <div className="flex items-center gap-4 text-sm text-muted flex-wrap">
-            {log.calories && (
-              <div className="flex items-center gap-1">
-                <Zap size={14} className="text-accent-yellow" />
-                <span>{log.calories} cal</span>
-              </div>
-            )}
-            {log.steps && (
-              <div className="flex items-center gap-1">
-                <Activity size={14} className="text-accent-blue" />
-                <span>{log.steps.toLocaleString()} steps</span>
-              </div>
-            )}
+            <span className="inline-flex items-center gap-1">
+              <Activity size={14} className="text-accent-blue" />
+              <span>Weight {hasWeightRef ? '✓' : '—'}</span>
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Target size={14} className="text-accent-amber" />
+              <span>Body Fat {hasBodyFatRef ? '✓' : '—'}</span>
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Zap size={14} className="text-accent-yellow" />
+              <span>Nutrition {hasNutritionRef ? '✓' : '—'}</span>
+            </span>
           </div>
         </div>
       </div>
 
-      {hasMacros && (
-        <div className="flex items-center gap-3 text-xs text-muted mt-2">
-          {log.protein > 0 && <span>P: {log.protein}g</span>}
-          {log.carbs > 0 && <span>C: {log.carbs}g</span>}
-          {log.fats > 0 && <span>F: {log.fats}g</span>}
-        </div>
-      )}
-
       {log.notes && (
         <div className="mt-2 text-xs text-muted line-clamp-2">{log.notes}</div>
+      )}
+
+      {hasNutritionRef && hasNutritionTotals && (
+        <div className="mt-2 text-xs text-muted">
+          {Math.round(nutritionTotals.calories)} kcal · P{' '}
+          {Math.round(nutritionTotals.protein)}g · C{' '}
+          {Math.round(nutritionTotals.carbs)}g · F{' '}
+          {Math.round(nutritionTotals.fats)}g
+        </div>
       )}
     </button>
   );
@@ -204,6 +213,7 @@ const DailyLogCard = ({ log, onEdit }) => {
 export const PhaseDetailScreen = ({
   phase,
   weightEntries,
+  nutritionData,
   onBack,
   onAddLog,
   onEditLog,
@@ -211,18 +221,42 @@ export const PhaseDetailScreen = ({
   onDelete,
 }) => {
   const store = useEnergyMapStore(
-    (state) => ({ weightEntries: state.weightEntries ?? [] }),
+    (state) => ({
+      weightEntries: state.weightEntries ?? [],
+      nutritionData: state.nutritionData ?? {},
+    }),
     shallow
   );
+
   const resolvedWeightEntries = weightEntries ?? store.weightEntries;
+  const resolvedNutritionData = nutritionData ?? store.nutritionData;
+
   const metrics = useMemo(
-    () => calculatePhaseMetrics(phase, resolvedWeightEntries),
-    [phase, resolvedWeightEntries]
+    () =>
+      calculatePhaseMetrics(
+        phase,
+        resolvedWeightEntries,
+        resolvedNutritionData
+      ),
+    [phase, resolvedNutritionData, resolvedWeightEntries]
   );
 
-  const calendarData = useMemo(() => getPhaseCalendarData(phase), [phase]);
+  const calendarData = useMemo(
+    () => getPhaseCalendarData(phase, resolvedNutritionData),
+    [phase, resolvedNutritionData]
+  );
 
-  const recentLogs = useMemo(() => getRecentDailyLogs(phase, 7), [phase]);
+  const recentLogs = useMemo(
+    () =>
+      getRecentDailyLogs(phase, 7).map((log) => ({
+        ...log,
+        nutritionTotals: getNutritionTotalsForDate(
+          resolvedNutritionData,
+          log.nutritionRef
+        ),
+      })),
+    [phase, resolvedNutritionData]
+  );
 
   const goal = goals[phase.goalType] || goals.maintenance;
   // Helper for goal badge color classes
@@ -367,6 +401,13 @@ export const PhaseDetailScreen = ({
                 ? metrics.avgCalories.toLocaleString()
                 : '—'}
             </div>
+            {metrics.nutritionDays > 0 && (
+              <div className="text-muted text-xs mt-1">
+                P {Math.round(metrics.avgProtein)}g · C{' '}
+                {Math.round(metrics.avgCarbs)}g · F{' '}
+                {Math.round(metrics.avgFats)}g
+              </div>
+            )}
             {metrics.avgSteps > 0 && (
               <div className="text-muted text-xs mt-1">
                 {metrics.avgSteps.toLocaleString()} steps
@@ -408,7 +449,12 @@ export const PhaseDetailScreen = ({
           </h2>
           <div className="space-y-3">
             {recentLogs.map((log) => (
-              <DailyLogCard key={log.date} log={log} onEdit={onEditLog} />
+              <DailyLogCard
+                key={log.date}
+                log={log}
+                nutritionTotals={log.nutritionTotals}
+                onEdit={onEditLog}
+              />
             ))}
           </div>
         </div>

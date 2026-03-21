@@ -84,6 +84,10 @@ import {
 } from '../../utils/weight';
 import { clampBodyFat } from '../../utils/bodyFat';
 import { exportPhaseAsCSV, exportPhaseAsJSON } from '../../utils/export';
+import {
+  getNutritionTotalsForDate,
+  hasNutritionEntriesForDate,
+} from '../../utils/phases';
 
 const MODAL_CLOSE_DELAY = 180; // Match CSS animation duration (150ms) + buffer
 const screenTabs = [
@@ -95,6 +99,7 @@ const screenTabs = [
 ];
 
 const homeIndex = screenTabs.findIndex((tab) => tab.key === 'home');
+const trackerIndex = screenTabs.findIndex((tab) => tab.key === 'tracker');
 
 const defaultCardioSession = {
   type: 'treadmill_walk',
@@ -158,38 +163,6 @@ const getTodayDateString = () => {
 };
 
 const DEFAULT_PORTION_GRAMS = 100;
-
-const EMPTY_MACRO_TOTALS = {
-  calories: 0,
-  protein: 0,
-  carbs: 0,
-  fats: 0,
-};
-
-const sumNutritionTotalsForDate = (nutritionData, dateKey) => {
-  const mealsForDate = nutritionData?.[dateKey];
-  if (!mealsForDate || typeof mealsForDate !== 'object') {
-    return EMPTY_MACRO_TOTALS;
-  }
-
-  return MEAL_TYPE_ORDER.reduce(
-    (totals, mealTypeId) => {
-      const entries = Array.isArray(mealsForDate[mealTypeId])
-        ? mealsForDate[mealTypeId]
-        : [];
-
-      entries.forEach((entry) => {
-        totals.calories += Number(entry?.calories) || 0;
-        totals.protein += Number(entry?.protein) || 0;
-        totals.carbs += Number(entry?.carbs) || 0;
-        totals.fats += Number(entry?.fats) || 0;
-      });
-
-      return totals;
-    },
-    { ...EMPTY_MACRO_TOTALS }
-  );
-};
 
 const resolveFoodForEntry = (entry) => {
   if (!entry) {
@@ -481,6 +454,7 @@ export const EnergyMapCalculator = () => {
   // Daily log state (reference-based)
   const [dailyLogDate, setDailyLogDate] = useState(getTodayDateString());
   const [dailyLogWeightRef, setDailyLogWeightRef] = useState('');
+  const [dailyLogBodyFatRef, setDailyLogBodyFatRef] = useState('');
   const [dailyLogNutritionRef, setDailyLogNutritionRef] = useState('');
   const [dailyLogNotes, setDailyLogNotes] = useState('');
   const [dailyLogCompleted, setDailyLogCompleted] = useState(false);
@@ -964,14 +938,6 @@ export const EnergyMapCalculator = () => {
     [bodyFatEntryModal]
   );
 
-  const handlePrimaryWeightEntry = useCallback(() => {
-    if (todayWeightEntry) {
-      openEditWeightEntryModal(todayWeightEntry);
-    } else {
-      openAddWeightEntryModal();
-    }
-  }, [openAddWeightEntryModal, openEditWeightEntryModal, todayWeightEntry]);
-
   const handleWeightEntrySave = useCallback(() => {
     const normalizedDate = normalizeDateKey(weightEntryDraft.date);
     if (!normalizedDate) {
@@ -1106,19 +1072,6 @@ export const EnergyMapCalculator = () => {
     bodyFatEntryOriginalDate,
     deleteBodyFatEntry,
   ]);
-
-  const handleWeightEntryFromListDelete = useCallback(
-    (entry) => {
-      const dateKey = normalizeDateKey(entry?.date);
-      if (!dateKey) {
-        return;
-      }
-
-      // Deletion confirmation should be handled by custom modal, not browser confirm
-      deleteWeightEntry(dateKey);
-    },
-    [deleteWeightEntry]
-  );
 
   const handleWeightEntryFromListEdit = useCallback(
     (entry) => {
@@ -1580,8 +1533,8 @@ export const EnergyMapCalculator = () => {
   const todayDateKey = getTodayDateString();
   const macroTotalsByDate = useMemo(
     () => ({
-      today: sumNutritionTotalsForDate(nutritionData, todayDateKey),
-      trackerSelected: sumNutritionTotalsForDate(
+      today: getNutritionTotalsForDate(nutritionData, todayDateKey),
+      trackerSelected: getNutritionTotalsForDate(
         nutritionData,
         trackerSelectedDate
       ),
@@ -1623,8 +1576,7 @@ export const EnergyMapCalculator = () => {
         requestOrSteps && typeof requestOrSteps === 'object'
           ? {
               ...requestOrSteps,
-              tefContext:
-                requestOrSteps.tefContext ?? quickEstimateTefContext,
+              tefContext: requestOrSteps.tefContext ?? quickEstimateTefContext,
             }
           : {
               steps: requestOrSteps,
@@ -1670,12 +1622,7 @@ export const EnergyMapCalculator = () => {
       calculateTargetForGoal(steps, selectedDay === 'training', selectedGoal, {
         tefContext: quickEstimateTefContext,
       }),
-    [
-      calculateTargetForGoal,
-      quickEstimateTefContext,
-      selectedDay,
-      selectedGoal,
-    ]
+    [calculateTargetForGoal, quickEstimateTefContext, selectedDay, selectedGoal]
   );
 
   const isSelectedRange = useCallback(
@@ -2449,7 +2396,10 @@ export const EnergyMapCalculator = () => {
       const targetDate = date || getTodayDateString();
       setDailyLogDate(targetDate);
       setDailyLogWeightRef('');
-      setDailyLogNutritionRef('');
+      setDailyLogBodyFatRef('');
+      setDailyLogNutritionRef(
+        hasNutritionEntriesForDate(nutritionData, targetDate) ? targetDate : ''
+      );
       setDailyLogNotes('');
       setDailyLogCompleted(false);
       setDailyLogMode('add');
@@ -2457,7 +2407,7 @@ export const EnergyMapCalculator = () => {
       setDailyLogDateLocked(false);
       dailyLogModal.open();
     },
-    [dailyLogModal]
+    [dailyLogModal, nutritionData]
   );
 
   const openEditDailyLogModal = useCallback(
@@ -2466,7 +2416,11 @@ export const EnergyMapCalculator = () => {
 
       setDailyLogDate(log.date);
       setDailyLogWeightRef(log.weightRef || '');
-      setDailyLogNutritionRef(log.nutritionRef || '');
+      setDailyLogBodyFatRef(log.bodyFatRef || '');
+      setDailyLogNutritionRef(
+        log.nutritionRef ||
+          (hasNutritionEntriesForDate(nutritionData, log.date) ? log.date : '')
+      );
       setDailyLogNotes(log.notes || '');
       setDailyLogCompleted(log.completed || false);
       setDailyLogMode('edit');
@@ -2474,7 +2428,7 @@ export const EnergyMapCalculator = () => {
       setDailyLogDateLocked(true);
       dailyLogModal.open();
     },
-    [dailyLogModal]
+    [dailyLogModal, nutritionData]
   );
 
   const handleDailyLogSave = useCallback(() => {
@@ -2489,16 +2443,32 @@ export const EnergyMapCalculator = () => {
       return;
     }
 
-    // Auto-set weightRef to matching date if weight entry exists
+    // Auto-set entry references to matching date where available
     const matchingWeight = weightEntries.find(
       (entry) => entry.date === dailyLogDate
     );
-    const finalWeightRef = matchingWeight ? matchingWeight.date : null;
+    const matchingBodyFat = bodyFatEntries.find(
+      (entry) => entry.date === dailyLogDate
+    );
+
+    const finalWeightRef = matchingWeight
+      ? matchingWeight.date
+      : dailyLogWeightRef || null;
+    const finalBodyFatRef = matchingBodyFat
+      ? matchingBodyFat.date
+      : dailyLogBodyFatRef || null;
+    const finalNutritionRef = hasNutritionEntriesForDate(
+      nutritionData,
+      dailyLogDate
+    )
+      ? dailyLogDate
+      : dailyLogNutritionRef || null;
 
     // Build log data with references
     const logData = {
       weightRef: finalWeightRef,
-      nutritionRef: dailyLogNutritionRef || null,
+      bodyFatRef: finalBodyFatRef,
+      nutritionRef: finalNutritionRef,
       notes: dailyLogNotes.trim(),
       completed: dailyLogCompleted,
     };
@@ -2513,16 +2483,28 @@ export const EnergyMapCalculator = () => {
     dailyLogModal.requestClose();
   }, [
     addDailyLog,
+    bodyFatEntries,
+    dailyLogBodyFatRef,
     dailyLogCompleted,
     dailyLogDate,
     dailyLogModal,
     dailyLogMode,
     dailyLogNotes,
+    dailyLogWeightRef,
     dailyLogNutritionRef,
     selectedPhase,
     updateDailyLog,
     weightEntries,
+    nutritionData,
   ]);
+
+  const handleManageDailyLogNutrition = useCallback(() => {
+    setTrackerSelectedDate(dailyLogDate || getTodayDateString());
+    dailyLogModal.requestClose();
+    if (trackerIndex >= 0) {
+      goToScreen(trackerIndex);
+    }
+  }, [dailyLogDate, dailyLogModal, goToScreen]);
 
   const handleDailyLogDelete = useCallback(() => {
     if (!selectedPhase || !dailyLogDate) {
@@ -2542,12 +2524,12 @@ export const EnergyMapCalculator = () => {
       if (!selectedPhase) return;
 
       if (format === 'json') {
-        exportPhaseAsJSON(selectedPhase, weightEntries);
+        exportPhaseAsJSON(selectedPhase, weightEntries, nutritionData);
       } else {
-        exportPhaseAsCSV(selectedPhase, weightEntries);
+        exportPhaseAsCSV(selectedPhase, weightEntries, nutritionData);
       }
     },
-    [selectedPhase, weightEntries]
+    [nutritionData, selectedPhase, weightEntries]
   );
 
   // Phase archive/delete handlers
@@ -2590,6 +2572,7 @@ export const EnergyMapCalculator = () => {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setDailyLogDate(getTodayDateString());
       setDailyLogWeightRef('');
+      setDailyLogBodyFatRef('');
       setDailyLogNutritionRef('');
       setDailyLogNotes('');
       setDailyLogCompleted(false);
@@ -2739,6 +2722,7 @@ export const EnergyMapCalculator = () => {
                         <PhaseDetailScreen
                           phase={selectedPhase}
                           weightEntries={weightEntries}
+                          nutritionData={nutritionData}
                           onBack={handleBackToLogbook}
                           onAddLog={openDailyLogModal}
                           onEditLog={openEditDailyLogModal}
@@ -2762,6 +2746,7 @@ export const EnergyMapCalculator = () => {
                         <LogbookScreen
                           phases={phases}
                           weightEntries={weightEntries}
+                          nutritionData={nutritionData}
                           onCreatePhase={openPhaseCreationModal}
                           onPhaseClick={handlePhaseClick}
                         />
@@ -3237,16 +3222,25 @@ export const EnergyMapCalculator = () => {
         mode={dailyLogMode}
         date={dailyLogDate}
         weightRef={dailyLogWeightRef}
+        bodyFatRef={dailyLogBodyFatRef}
         nutritionRef={dailyLogNutritionRef}
         notes={dailyLogNotes}
         completed={dailyLogCompleted}
         availableWeightEntries={weightEntries}
+        availableBodyFatEntries={bodyFatEntries}
+        availableNutritionData={nutritionData}
         onDateChange={setDailyLogDate}
         onWeightRefChange={setDailyLogWeightRef}
+        onBodyFatRefChange={setDailyLogBodyFatRef}
         onNutritionRefChange={setDailyLogNutritionRef}
         onNotesChange={setDailyLogNotes}
         onCompletedChange={setDailyLogCompleted}
         onManageWeightClick={weightTrackerModal.open}
+        onManageBodyFatClick={
+          userData.bodyFatTrackingEnabled ? bodyFatTrackerModal.open : undefined
+        }
+        onManageNutritionClick={handleManageDailyLogNutrition}
+        bodyFatTrackingEnabled={userData.bodyFatTrackingEnabled}
         onCancel={dailyLogModal.requestClose}
         onSave={handleDailyLogSave}
         onDelete={dailyLogMode === 'edit' ? handleDailyLogDelete : undefined}

@@ -1,12 +1,12 @@
-import { calculatePhaseMetrics } from './phases';
+import { calculatePhaseMetrics, getNutritionTotalsForDate } from './phases';
 
 /**
  * Export phase data as CSV
  */
-export const exportPhaseAsCSV = (phase, weightEntries) => {
+export const exportPhaseAsCSV = (phase, weightEntries, nutritionData = {}) => {
   if (!phase) return;
 
-  const metrics = calculatePhaseMetrics(phase, weightEntries);
+  const metrics = calculatePhaseMetrics(phase, weightEntries, nutritionData);
 
   // Build CSV content
   let csv = '';
@@ -30,21 +30,35 @@ export const exportPhaseAsCSV = (phase, weightEntries) => {
   csv += `Current Weight,${metrics.currentWeight ? metrics.currentWeight.toFixed(1) + ' kg' : 'Not recorded'}\n`;
   csv += `Active Days,${metrics.activeDays}\n`;
   csv += `Total Days,${metrics.totalDays}\n`;
+  csv += `Nutrition Logged Days,${metrics.nutritionDays}\n`;
+  csv += `Average Protein,${metrics.avgProtein.toFixed(1)} g\n`;
+  csv += `Average Carbs,${metrics.avgCarbs.toFixed(1)} g\n`;
+  csv += `Average Fats,${metrics.avgFats.toFixed(1)} g\n`;
   csv += '\n';
 
   // Daily logs - reference-based system (links to weight/nutrition data, not raw values)
   csv += 'DAILY LOGS\n';
-  csv += 'Date,Weight Ref,Nutrition Ref,Completed,Notes\n';
+  csv +=
+    'Date,Weight Ref,Body Fat Ref,Nutrition Ref,Calories,Protein,Carbs,Fats,Completed,Notes\n';
 
   const logs = Object.entries(phase.dailyLogs || {})
     .map(([date, log]) => ({ date, ...log }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
   logs.forEach((log) => {
+    const nutritionTotals = getNutritionTotalsForDate(
+      nutritionData,
+      log.nutritionRef
+    );
     const row = [
       log.date,
       log.weightRef || 'Not linked',
+      log.bodyFatRef || 'Not linked',
       log.nutritionRef || 'Not linked',
+      nutritionTotals.calories ? nutritionTotals.calories.toFixed(1) : '',
+      nutritionTotals.protein ? nutritionTotals.protein.toFixed(1) : '',
+      nutritionTotals.carbs ? nutritionTotals.carbs.toFixed(1) : '',
+      nutritionTotals.fats ? nutritionTotals.fats.toFixed(1) : '',
       log.completed ? 'Yes' : 'No',
       log.notes ? `"${log.notes.replace(/"/g, '""')}"` : '',
     ];
@@ -87,10 +101,10 @@ export const exportPhaseAsCSV = (phase, weightEntries) => {
 /**
  * Export phase data as JSON
  */
-export const exportPhaseAsJSON = (phase, weightEntries) => {
+export const exportPhaseAsJSON = (phase, weightEntries, nutritionData = {}) => {
   if (!phase) return;
 
-  const metrics = calculatePhaseMetrics(phase, weightEntries);
+  const metrics = calculatePhaseMetrics(phase, weightEntries, nutritionData);
 
   const phaseWeights = weightEntries
     .filter((entry) => {
@@ -127,9 +141,20 @@ export const exportPhaseAsJSON = (phase, weightEntries) => {
         : null,
       activeDays: metrics.activeDays,
       totalDays: metrics.totalDays,
+      nutritionDays: metrics.nutritionDays,
+      avgProtein: parseFloat(metrics.avgProtein.toFixed(2)),
+      avgCarbs: parseFloat(metrics.avgCarbs.toFixed(2)),
+      avgFats: parseFloat(metrics.avgFats.toFixed(2)),
     },
     dailyLogs: Object.entries(phase.dailyLogs || {})
-      .map(([date, log]) => ({ date, ...log }))
+      .map(([date, log]) => ({
+        date,
+        ...log,
+        nutritionTotals: getNutritionTotalsForDate(
+          nutritionData,
+          log?.nutritionRef
+        ),
+      }))
       .sort((a, b) => a.date.localeCompare(b.date)),
     weightEntries: phaseWeights,
     exportedAt: new Date().toISOString(),

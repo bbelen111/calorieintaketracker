@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { goals } from '../../../constants/goals';
 import { formatWeight } from '../../../utils/weight';
+import { calculatePhaseMetrics } from '../../../utils/phases';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 
@@ -169,23 +170,50 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
   );
 };
 
-export const LogbookScreen = ({ phases, onCreatePhase, onPhaseClick }) => {
+export const LogbookScreen = ({
+  phases,
+  weightEntries,
+  nutritionData,
+  onCreatePhase,
+  onPhaseClick,
+}) => {
   const store = useEnergyMapStore(
-    (state) => ({ phases: state.phases ?? [] }),
+    (state) => ({
+      phases: state.phases ?? [],
+      weightEntries: state.weightEntries ?? [],
+      nutritionData: state.nutritionData ?? {},
+    }),
     shallow
   );
+
   const resolvedPhases = phases ?? store.phases;
+  const resolvedWeightEntries = weightEntries ?? store.weightEntries;
+  const resolvedNutritionData = nutritionData ?? store.nutritionData;
+
+  const phasesWithMetrics = useMemo(
+    () =>
+      resolvedPhases.map((phase) => ({
+        ...phase,
+        metrics: calculatePhaseMetrics(
+          phase,
+          resolvedWeightEntries,
+          resolvedNutritionData
+        ),
+      })),
+    [resolvedNutritionData, resolvedPhases, resolvedWeightEntries]
+  );
+
   const activePhases = useMemo(
-    () => resolvedPhases.filter((phase) => phase.status === 'active'),
-    [resolvedPhases]
+    () => phasesWithMetrics.filter((phase) => phase.status === 'active'),
+    [phasesWithMetrics]
   );
 
   const completedPhases = useMemo(
-    () => resolvedPhases.filter((phase) => phase.status === 'completed'),
-    [resolvedPhases]
+    () => phasesWithMetrics.filter((phase) => phase.status === 'completed'),
+    [phasesWithMetrics]
   );
 
-  const hasPhases = resolvedPhases.length > 0;
+  const hasPhases = phasesWithMetrics.length > 0;
 
   return (
     <div className="space-y-6 pb-10">

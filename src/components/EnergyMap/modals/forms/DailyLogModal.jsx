@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
 import { DateInput } from '../../common/DateInput';
@@ -6,11 +6,18 @@ import {
   Trash2,
   Calendar,
   Scale,
+  Target,
   Utensils,
   StickyNote,
   CheckCircle2,
 } from 'lucide-react';
 import { formatWeight } from '../../../../utils/weight';
+import { formatBodyFat } from '../../../../utils/bodyFat';
+import { formatOne } from '../../../../utils/format';
+import {
+  getNutritionTotalsForDate,
+  hasNutritionEntriesForDate,
+} from '../../../../utils/phases';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 
 export const DailyLogModal = ({
@@ -18,31 +25,103 @@ export const DailyLogModal = ({
   isClosing,
   mode = 'add',
   date,
+  weightRef,
+  bodyFatRef,
+  nutritionRef,
   notes,
   completed,
   availableWeightEntries = [],
+  availableBodyFatEntries = [],
+  availableNutritionData = {},
   onDateChange,
+  onWeightRefChange,
+  onBodyFatRefChange,
+  onNutritionRefChange,
   onNotesChange,
   onCompletedChange,
   onManageWeightClick,
+  onManageBodyFatClick,
+  onManageNutritionClick,
+  bodyFatTrackingEnabled = true,
   onCancel,
   onSave,
   onDelete,
   error,
   isDateLocked = false,
 }) => {
-  const { weightEntries } = useEnergyMapStore(
-    (state) => ({ weightEntries: state.weightEntries }),
+  const { weightEntries, bodyFatEntries } = useEnergyMapStore(
+    (state) => ({
+      weightEntries: state.weightEntries,
+      bodyFatEntries: state.bodyFatEntries,
+    }),
     shallow
   );
+
   const resolvedWeightEntries = availableWeightEntries ?? weightEntries;
+  const resolvedBodyFatEntries = availableBodyFatEntries ?? bodyFatEntries;
+  const resolvedNutritionData =
+    availableNutritionData && typeof availableNutritionData === 'object'
+      ? availableNutritionData
+      : {};
+
   // Find weight entry that matches the selected date
   const matchingWeight = resolvedWeightEntries.find(
     (entry) => entry.date === date
   );
+  const matchingBodyFat = resolvedBodyFatEntries.find(
+    (entry) => entry.date === date
+  );
+  const matchingNutritionRef = hasNutritionEntriesForDate(
+    resolvedNutritionData,
+    date
+  )
+    ? date
+    : '';
+  const nutritionTotals = getNutritionTotalsForDate(
+    resolvedNutritionData,
+    date
+  );
 
   // State for notes toggle
   const [showNotes, setShowNotes] = useState(!!notes);
+
+  useEffect(() => {
+    setShowNotes(Boolean(notes));
+  }, [notes]);
+
+  useEffect(() => {
+    const nextWeightRef = matchingWeight?.date ?? '';
+    if (nextWeightRef !== (weightRef || '')) {
+      onWeightRefChange?.(nextWeightRef);
+    }
+
+    if (matchingNutritionRef !== (nutritionRef || '')) {
+      onNutritionRefChange?.(matchingNutritionRef);
+    }
+
+    if (!bodyFatTrackingEnabled) {
+      if ((bodyFatRef || '') !== '') {
+        onBodyFatRefChange?.('');
+      }
+      return;
+    }
+
+    const nextBodyFatRef = matchingBodyFat?.date ?? '';
+    if (nextBodyFatRef !== (bodyFatRef || '')) {
+      onBodyFatRefChange?.(nextBodyFatRef);
+    }
+  }, [
+    bodyFatRef,
+    bodyFatTrackingEnabled,
+    matchingBodyFat?.date,
+    matchingWeight?.date,
+    onBodyFatRefChange,
+    onNutritionRefChange,
+    onWeightRefChange,
+    nutritionRef,
+    weightRef,
+    matchingNutritionRef,
+  ]);
 
   const formatDateForInput = (dateStr) => {
     if (!dateStr) return '';
@@ -104,6 +183,55 @@ export const DailyLogModal = ({
           )}
         </div>
 
+        {/* Body Fat Section */}
+        <div>
+          <label className="block text-foreground text-sm font-semibold mb-2 flex items-center gap-2">
+            <Target size={16} className="text-accent-amber" />
+            Body Fat Entry
+          </label>
+
+          {bodyFatTrackingEnabled ? (
+            <button
+              type="button"
+              onClick={() => onManageBodyFatClick?.()}
+              className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-accent-amber border-accent-amber/70 text-white transition-all press-feedback flex flex-wrap items-center gap-x-3 gap-y-1 text-left focus-ring md:hover:brightness-110"
+            >
+              {matchingBodyFat ? (
+                <>
+                  <span className="font-semibold text-sm md:text-base">
+                    {formatBodyFat(matchingBodyFat.bodyFat)}%
+                  </span>
+                  <span className="text-xs md:text-sm opacity-90 ml-auto whitespace-nowrap">
+                    {formatShortDate(matchingBodyFat.date)}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="font-semibold text-sm md:text-base opacity-80">
+                    No body fat entry
+                  </span>
+                  <span className="text-[11px] opacity-80 ml-auto whitespace-nowrap">
+                    Tap to manage
+                  </span>
+                </>
+              )}
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-surface-highlight border-border text-muted transition-all flex flex-wrap items-center gap-x-3 gap-y-1 text-left opacity-60 cursor-not-allowed"
+            >
+              <span className="font-semibold text-sm md:text-base">
+                Body fat tracking disabled
+              </span>
+              <span className="text-[11px] opacity-80 ml-auto whitespace-nowrap">
+                Enable in settings
+              </span>
+            </button>
+          )}
+        </div>
+
         {/* Weight Section */}
         <div>
           <label className="block text-foreground text-sm font-semibold mb-2 flex items-center gap-2">
@@ -138,27 +266,44 @@ export const DailyLogModal = ({
           </button>
         </div>
 
-        {/* Nutrition Section - Coming Soon */}
+        {/* Nutrition Section */}
         <div>
           <label className="block text-foreground text-sm font-semibold mb-2 flex items-center gap-2">
             <Utensils size={16} className="text-accent-green" />
             Nutrition Log
-            <span className="ml-2 text-xs bg-amber-900/30 text-amber-300 px-2 py-1 rounded">
-              Coming Soon
-            </span>
           </label>
 
           <button
             type="button"
-            disabled
-            className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-surface-highlight border-border text-muted transition-all flex flex-wrap items-center gap-x-3 gap-y-1 text-left opacity-60 cursor-not-allowed"
+            onClick={() => onManageNutritionClick?.()}
+            className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-accent-green border-accent-green/70 text-white transition-all press-feedback flex flex-wrap items-center gap-x-3 gap-y-1 text-left focus-ring md:hover:brightness-110"
           >
-            <span className="font-semibold text-sm md:text-base">
-              No nutrition tracker yet
-            </span>
-            <span className="text-[11px] opacity-80 ml-auto whitespace-nowrap">
-              Build tracker first
-            </span>
+            {matchingNutritionRef ? (
+              <>
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-semibold text-sm md:text-base">
+                    {formatOne(nutritionTotals.calories)} kcal
+                  </span>
+                  <span className="text-[11px] md:text-xs opacity-90">
+                    P {formatOne(nutritionTotals.protein)}g · C{' '}
+                    {formatOne(nutritionTotals.carbs)}g · F{' '}
+                    {formatOne(nutritionTotals.fats)}g
+                  </span>
+                </div>
+                <span className="text-xs md:text-sm opacity-90 ml-auto whitespace-nowrap">
+                  {formatShortDate(matchingNutritionRef)}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="font-semibold text-sm md:text-base opacity-90">
+                  No nutrition logged
+                </span>
+                <span className="text-[11px] opacity-80 ml-auto whitespace-nowrap">
+                  Tap to manage
+                </span>
+              </>
+            )}
           </button>
         </div>
 
@@ -228,6 +373,21 @@ export const DailyLogModal = ({
           </span>
           {completed && <span className="ml-auto text-xs opacity-90">✓</span>}
         </button>
+
+        <div className="bg-surface-highlight/60 border border-border rounded-lg px-3 py-2 text-xs text-muted">
+          Linked sources:{' '}
+          <span className="font-semibold text-foreground">
+            Weight {weightRef ? '✓' : '—'}
+          </span>
+          {' · '}
+          <span className="font-semibold text-foreground">
+            Body Fat {bodyFatRef ? '✓' : '—'}
+          </span>
+          {' · '}
+          <span className="font-semibold text-foreground">
+            Nutrition {nutritionRef ? '✓' : '—'}
+          </span>
+        </div>
 
         {/* Error Message */}
         {error && (

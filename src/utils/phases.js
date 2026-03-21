@@ -1,13 +1,74 @@
+import { MEAL_TYPE_ORDER } from '../constants/mealTypes.js';
+
+const EMPTY_NUTRITION_TOTALS = {
+  calories: 0,
+  protein: 0,
+  carbs: 0,
+  fats: 0,
+};
+
+export const hasNutritionEntriesForDate = (nutritionData = {}, dateKey) => {
+  if (!dateKey || !nutritionData || typeof nutritionData !== 'object') {
+    return false;
+  }
+
+  const mealsForDate = nutritionData[dateKey];
+  if (!mealsForDate || typeof mealsForDate !== 'object') {
+    return false;
+  }
+
+  return MEAL_TYPE_ORDER.some((mealTypeId) => {
+    const entries = Array.isArray(mealsForDate[mealTypeId])
+      ? mealsForDate[mealTypeId]
+      : [];
+    return entries.length > 0;
+  });
+};
+
+export const getNutritionTotalsForDate = (nutritionData = {}, dateKey) => {
+  if (!hasNutritionEntriesForDate(nutritionData, dateKey)) {
+    return EMPTY_NUTRITION_TOTALS;
+  }
+
+  const mealsForDate = nutritionData[dateKey];
+
+  return MEAL_TYPE_ORDER.reduce(
+    (totals, mealTypeId) => {
+      const entries = Array.isArray(mealsForDate[mealTypeId])
+        ? mealsForDate[mealTypeId]
+        : [];
+
+      entries.forEach((entry) => {
+        totals.calories += Number(entry?.calories) || 0;
+        totals.protein += Number(entry?.protein) || 0;
+        totals.carbs += Number(entry?.carbs) || 0;
+        totals.fats += Number(entry?.fats) || 0;
+      });
+
+      return totals;
+    },
+    { ...EMPTY_NUTRITION_TOTALS }
+  );
+};
+
 /**
  * Calculate comprehensive metrics for a phase based on daily logs and weight entries
  * NOTE: Uses reference-based system - logs store weightRef/nutritionRef, not raw data
  */
-export const calculatePhaseMetrics = (phase, weightEntries = []) => {
+export const calculatePhaseMetrics = (
+  phase,
+  weightEntries = [],
+  nutritionData = {}
+) => {
   if (!phase || !phase.dailyLogs) {
     return {
       totalDays: 0,
       activeDays: 0,
       avgCalories: 0,
+      avgProtein: 0,
+      avgCarbs: 0,
+      avgFats: 0,
+      nutritionDays: 0,
       avgSteps: 0,
       weightChange: 0,
       avgWeeklyRate: 0,
@@ -19,9 +80,40 @@ export const calculatePhaseMetrics = (phase, weightEntries = []) => {
   const logs = Object.values(phase.dailyLogs);
   const activeDays = logs.length;
 
-  // Calorie/step averages are 0 until nutrition tracker is built
-  // Daily logs only store references (weightRef, nutritionRef), not raw data
-  const avgCalories = 0;
+  const nutritionTotals = logs.reduce(
+    (acc, log) => {
+      const nutritionRef = log?.nutritionRef;
+      if (!hasNutritionEntriesForDate(nutritionData, nutritionRef)) {
+        return acc;
+      }
+
+      const totals = getNutritionTotalsForDate(nutritionData, nutritionRef);
+      return {
+        calories: acc.calories + totals.calories,
+        protein: acc.protein + totals.protein,
+        carbs: acc.carbs + totals.carbs,
+        fats: acc.fats + totals.fats,
+        days: acc.days + 1,
+      };
+    },
+    {
+      calories: 0,
+      protein: 0,
+      carbs: 0,
+      fats: 0,
+      days: 0,
+    }
+  );
+
+  const nutritionDays = nutritionTotals.days;
+  const avgCalories =
+    nutritionDays > 0 ? nutritionTotals.calories / nutritionDays : 0;
+  const avgProtein =
+    nutritionDays > 0 ? nutritionTotals.protein / nutritionDays : 0;
+  const avgCarbs =
+    nutritionDays > 0 ? nutritionTotals.carbs / nutritionDays : 0;
+  const avgFats = nutritionDays > 0 ? nutritionTotals.fats / nutritionDays : 0;
+
   const avgSteps = 0;
 
   // Calculate total days (from start date to end date or today)
@@ -77,8 +169,12 @@ export const calculatePhaseMetrics = (phase, weightEntries = []) => {
   return {
     totalDays,
     activeDays,
-    avgCalories, // Always 0 until nutrition tracker built
-    avgSteps, // Always 0 until nutrition tracker built
+    avgCalories,
+    avgProtein,
+    avgCarbs,
+    avgFats,
+    nutritionDays,
+    avgSteps,
     weightChange,
     avgWeeklyRate,
     currentWeight,
@@ -88,9 +184,9 @@ export const calculatePhaseMetrics = (phase, weightEntries = []) => {
 
 /**
  * Get calendar data for a phase - which days have logs and their status
- * NOTE: Status based on reference presence (weightRef, nutritionRef), not raw data
+ * NOTE: Status based on reference presence (weightRef, bodyFatRef, nutritionRef), not raw data
  */
-export const getPhaseCalendarData = (phase) => {
+export const getPhaseCalendarData = (phase, nutritionData = null) => {
   if (!phase || !phase.startDate) {
     return [];
   }
@@ -109,15 +205,23 @@ export const getPhaseCalendarData = (phase) => {
 
     let status = 'empty';
     if (log) {
-      // Check if references exist (weightRef, nutritionRef)
+      // Check if references exist (weightRef, bodyFatRef, nutritionRef)
       const hasWeight = log.weightRef && log.weightRef.trim() !== '';
-      const hasNutrition = log.nutritionRef && log.nutritionRef.trim() !== '';
+      const hasBodyFat = log.bodyFatRef && log.bodyFatRef.trim() !== '';
+      const nutritionRef =
+        typeof log.nutritionRef === 'string' ? log.nutritionRef.trim() : '';
+      const hasNutrition = nutritionRef
+        ? nutritionData == null
+          ? true
+          : hasNutritionEntriesForDate(nutritionData, nutritionRef)
+        : false;
+      const hasPrimaryMetric = hasWeight || hasBodyFat;
 
-      // Completed if marked complete OR has both references
-      if (log.completed || (hasWeight && hasNutrition)) {
+      // Completed if marked complete OR has a primary metric + nutrition.
+      if (log.completed || (hasPrimaryMetric && hasNutrition)) {
         status = 'completed';
-      } else if (hasWeight || hasNutrition) {
-        // Partial if has at least one reference
+      } else if (hasPrimaryMetric || hasNutrition) {
+        // Partial if at least one tracked reference exists.
         status = 'partial';
       }
     }

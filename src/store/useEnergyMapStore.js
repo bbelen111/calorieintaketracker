@@ -23,6 +23,11 @@ import {
 } from '../utils/weight';
 import { clampBodyFat, sortBodyFatEntries } from '../utils/bodyFat';
 import { sanitizeAge, sanitizeHeight } from '../utils/profile';
+import {
+  convertLegacyPhasesToPhaseLogV2,
+  convertPhaseLogV2ToLegacyPhases,
+} from '../utils/phaseLogV2';
+import { hasNutritionEntriesForDate } from '../utils/phases';
 
 const SAVE_DEBOUNCE_MS = 1000;
 
@@ -62,6 +67,146 @@ const sortStepEntries = (entries) => {
   return [...entries].sort((a, b) => a.date.localeCompare(b.date));
 };
 
+const syncPhaseDomainFromLegacy = (nextUserData) => {
+  const phaseLogV2 = convertLegacyPhasesToPhaseLogV2(
+    nextUserData.phases ?? [],
+    nextUserData.activePhaseId ?? null
+  );
+  const syncedLegacy = convertPhaseLogV2ToLegacyPhases(phaseLogV2);
+
+  return {
+    ...nextUserData,
+    phases: syncedLegacy.phases,
+    activePhaseId: syncedLegacy.activePhaseId,
+    phaseLogV2,
+  };
+};
+
+const clearWeightRefsForDate = (phases, dateKey) => {
+  if (!Array.isArray(phases) || !dateKey) {
+    return phases;
+  }
+
+  return phases.map((phase) => {
+    if (!phase?.dailyLogs || typeof phase.dailyLogs !== 'object') {
+      return phase;
+    }
+
+    let hasChanges = false;
+    const nextLogs = Object.entries(phase.dailyLogs).reduce(
+      (acc, [date, log]) => {
+        if (!log || typeof log !== 'object') {
+          acc[date] = log;
+          return acc;
+        }
+
+        if (log.weightRef === dateKey) {
+          hasChanges = true;
+          acc[date] = {
+            ...log,
+            weightRef: '',
+          };
+          return acc;
+        }
+
+        acc[date] = log;
+        return acc;
+      },
+      {}
+    );
+
+    return hasChanges
+      ? {
+          ...phase,
+          dailyLogs: nextLogs,
+        }
+      : phase;
+  });
+};
+
+const clearBodyFatRefsForDate = (phases, dateKey) => {
+  if (!Array.isArray(phases) || !dateKey) {
+    return phases;
+  }
+
+  return phases.map((phase) => {
+    if (!phase?.dailyLogs || typeof phase.dailyLogs !== 'object') {
+      return phase;
+    }
+
+    let hasChanges = false;
+    const nextLogs = Object.entries(phase.dailyLogs).reduce(
+      (acc, [date, log]) => {
+        if (!log || typeof log !== 'object') {
+          acc[date] = log;
+          return acc;
+        }
+
+        if (log.bodyFatRef === dateKey) {
+          hasChanges = true;
+          acc[date] = {
+            ...log,
+            bodyFatRef: '',
+          };
+          return acc;
+        }
+
+        acc[date] = log;
+        return acc;
+      },
+      {}
+    );
+
+    return hasChanges
+      ? {
+          ...phase,
+          dailyLogs: nextLogs,
+        }
+      : phase;
+  });
+};
+
+const syncNutritionRefsForDate = (phases, dateKey, hasNutritionForDate) => {
+  if (!Array.isArray(phases) || !dateKey) {
+    return phases;
+  }
+
+  return phases.map((phase) => {
+    if (!phase?.dailyLogs || typeof phase.dailyLogs !== 'object') {
+      return phase;
+    }
+
+    const targetLog = phase.dailyLogs[dateKey];
+    if (!targetLog || typeof targetLog !== 'object') {
+      return phase;
+    }
+
+    const currentRef =
+      typeof targetLog.nutritionRef === 'string'
+        ? targetLog.nutritionRef.trim()
+        : '';
+
+    if (hasNutritionForDate && currentRef === dateKey) {
+      return phase;
+    }
+
+    if (!hasNutritionForDate && currentRef === '') {
+      return phase;
+    }
+
+    return {
+      ...phase,
+      dailyLogs: {
+        ...phase.dailyLogs,
+        [dateKey]: {
+          ...targetLog,
+          nutritionRef: hasNutritionForDate ? dateKey : '',
+        },
+      },
+    };
+  });
+};
+
 const deriveState = (userData) => {
   const trainingTypes = resolveTrainingTypes(userData);
   const cardioTypes = resolveCardioTypes(userData);
@@ -90,6 +235,7 @@ const deriveState = (userData) => {
     pinnedFoods: userData.pinnedFoods ?? [],
     cachedFoods: userData.cachedFoods ?? [],
     phases: userData.phases ?? [],
+    phaseLogV2: userData.phaseLogV2,
     activePhaseId: userData.activePhaseId,
     theme: userData.theme ?? 'dark',
   };
@@ -118,9 +264,10 @@ export const useEnergyMapStore = create(
         return;
       }
       const data = await loadEnergyMapData();
+      const syncedData = syncPhaseDomainFromLegacy(data);
       set({
-        userData: data,
-        ...deriveState(data),
+        userData: syncedData,
+        ...deriveState(syncedData),
         isLoaded: true,
       });
     },
@@ -426,11 +573,14 @@ export const useEnergyMapStore = create(
           ? nextEntries[nextEntries.length - 1].weight
           : prev.weight;
 
-        return {
+        const nextUserData = {
           ...prev,
           weight: nextEntries.length ? latestWeight : prev.weight,
           weightEntries: nextEntries,
+          phases: clearWeightRefsForDate(prev.phases, normalizedDate),
         };
+
+        return syncPhaseDomainFromLegacy(nextUserData);
       });
     },
 
@@ -497,10 +647,13 @@ export const useEnergyMapStore = create(
 
         const nextEntries = sortBodyFatEntries(filtered);
 
-        return {
+        const nextUserData = {
           ...prev,
           bodyFatEntries: nextEntries,
+          phases: clearBodyFatRefsForDate(prev.phases, normalizedDate),
         };
+
+        return syncPhaseDomainFromLegacy(nextUserData);
       });
     },
 
@@ -574,11 +727,13 @@ export const useEnergyMapStore = create(
         createdAt: Date.now(),
       };
 
-      updateUserData(set, get, (prev) => ({
-        ...prev,
-        phases: [...prev.phases, newPhase],
-        activePhaseId: newPhase.id,
-      }));
+      updateUserData(set, get, (prev) =>
+        syncPhaseDomainFromLegacy({
+          ...prev,
+          phases: [...prev.phases, newPhase],
+          activePhaseId: newPhase.id,
+        })
+      );
 
       return newPhase.id;
     },
@@ -588,12 +743,24 @@ export const useEnergyMapStore = create(
         return;
       }
 
-      updateUserData(set, get, (prev) => ({
-        ...prev,
-        phases: prev.phases.map((phase) =>
+      updateUserData(set, get, (prev) => {
+        const nextPhases = prev.phases.map((phase) =>
           phase.id === phaseId ? { ...phase, ...updates } : phase
-        ),
-      }));
+        );
+
+        const nextActiveId =
+          updates?.status === 'active'
+            ? phaseId
+            : updates?.status === 'completed' && prev.activePhaseId === phaseId
+              ? null
+              : prev.activePhaseId;
+
+        return syncPhaseDomainFromLegacy({
+          ...prev,
+          phases: nextPhases,
+          activePhaseId: nextActiveId,
+        });
+      });
     },
 
     deletePhase: (phaseId) => {
@@ -606,11 +773,11 @@ export const useEnergyMapStore = create(
         const nextActiveId =
           prev.activePhaseId === phaseId ? null : prev.activePhaseId;
 
-        return {
+        return syncPhaseDomainFromLegacy({
           ...prev,
           phases: nextPhases,
           activePhaseId: nextActiveId,
-        };
+        });
       });
     },
 
@@ -619,10 +786,12 @@ export const useEnergyMapStore = create(
     },
 
     setActivePhase: (phaseId) => {
-      updateUserData(set, get, (prev) => ({
-        ...prev,
-        activePhaseId: phaseId,
-      }));
+      updateUserData(set, get, (prev) =>
+        syncPhaseDomainFromLegacy({
+          ...prev,
+          activePhaseId: phaseId ?? null,
+        })
+      );
     },
 
     addDailyLog: (phaseId, date, logData) => {
@@ -630,9 +799,8 @@ export const useEnergyMapStore = create(
         return;
       }
 
-      updateUserData(set, get, (prev) => ({
-        ...prev,
-        phases: prev.phases.map((phase) => {
+      updateUserData(set, get, (prev) => {
+        const nextPhases = prev.phases.map((phase) => {
           if (phase.id !== phaseId) {
             return phase;
           }
@@ -644,8 +812,13 @@ export const useEnergyMapStore = create(
               [date]: { ...logData, date },
             },
           };
-        }),
-      }));
+        });
+
+        return syncPhaseDomainFromLegacy({
+          ...prev,
+          phases: nextPhases,
+        });
+      });
     },
 
     updateDailyLog: (phaseId, date, updates) => {
@@ -653,9 +826,8 @@ export const useEnergyMapStore = create(
         return;
       }
 
-      updateUserData(set, get, (prev) => ({
-        ...prev,
-        phases: prev.phases.map((phase) => {
+      updateUserData(set, get, (prev) => {
+        const nextPhases = prev.phases.map((phase) => {
           if (phase.id !== phaseId) {
             return phase;
           }
@@ -669,8 +841,13 @@ export const useEnergyMapStore = create(
               [date]: { ...existingLog, ...updates, date },
             },
           };
-        }),
-      }));
+        });
+
+        return syncPhaseDomainFromLegacy({
+          ...prev,
+          phases: nextPhases,
+        });
+      });
     },
 
     deleteDailyLog: (phaseId, date) => {
@@ -678,9 +855,8 @@ export const useEnergyMapStore = create(
         return;
       }
 
-      updateUserData(set, get, (prev) => ({
-        ...prev,
-        phases: prev.phases.map((phase) => {
+      updateUserData(set, get, (prev) => {
+        const nextPhases = prev.phases.map((phase) => {
           if (phase.id !== phaseId) {
             return phase;
           }
@@ -692,8 +868,13 @@ export const useEnergyMapStore = create(
             ...phase,
             dailyLogs: nextLogs,
           };
-        }),
-      }));
+        });
+
+        return syncPhaseDomainFromLegacy({
+          ...prev,
+          phases: nextPhases,
+        });
+      });
     },
 
     addFoodEntry: (date, mealType, entry) => {
@@ -707,16 +888,19 @@ export const useEnergyMapStore = create(
           ? dateData[mealType]
           : [];
 
-        return {
-          ...prev,
-          nutritionData: {
-            ...prev.nutritionData,
-            [date]: {
-              ...dateData,
-              [mealType]: [...mealEntries, entry],
-            },
+        const nextNutritionData = {
+          ...prev.nutritionData,
+          [date]: {
+            ...dateData,
+            [mealType]: [...mealEntries, entry],
           },
         };
+
+        return syncPhaseDomainFromLegacy({
+          ...prev,
+          nutritionData: nextNutritionData,
+          phases: syncNutritionRefsForDate(prev.phases, date, true),
+        });
       });
     },
 
@@ -731,18 +915,21 @@ export const useEnergyMapStore = create(
           ? dateData[mealType]
           : [];
 
-        return {
-          ...prev,
-          nutritionData: {
-            ...prev.nutritionData,
-            [date]: {
-              ...dateData,
-              [mealType]: mealEntries.map((entry) =>
-                entry.id === updatedEntry.id ? updatedEntry : entry
-              ),
-            },
+        const nextNutritionData = {
+          ...prev.nutritionData,
+          [date]: {
+            ...dateData,
+            [mealType]: mealEntries.map((entry) =>
+              entry.id === updatedEntry.id ? updatedEntry : entry
+            ),
           },
         };
+
+        return syncPhaseDomainFromLegacy({
+          ...prev,
+          nutritionData: nextNutritionData,
+          phases: syncNutritionRefsForDate(prev.phases, date, true),
+        });
       });
     },
 
@@ -757,16 +944,28 @@ export const useEnergyMapStore = create(
           ? dateData[mealType]
           : [];
 
-        return {
-          ...prev,
-          nutritionData: {
-            ...prev.nutritionData,
-            [date]: {
-              ...dateData,
-              [mealType]: mealEntries.filter((entry) => entry.id !== entryId),
-            },
+        const nextNutritionData = {
+          ...prev.nutritionData,
+          [date]: {
+            ...dateData,
+            [mealType]: mealEntries.filter((entry) => entry.id !== entryId),
           },
         };
+
+        const hasNutritionForDate = hasNutritionEntriesForDate(
+          nextNutritionData,
+          date
+        );
+
+        return syncPhaseDomainFromLegacy({
+          ...prev,
+          nutritionData: nextNutritionData,
+          phases: syncNutritionRefsForDate(
+            prev.phases,
+            date,
+            hasNutritionForDate
+          ),
+        });
       });
     },
 
@@ -780,13 +979,25 @@ export const useEnergyMapStore = create(
         // eslint-disable-next-line no-unused-vars
         const { [mealType]: _, ...remainingMeals } = dateData;
 
-        return {
-          ...prev,
-          nutritionData: {
-            ...prev.nutritionData,
-            [date]: remainingMeals,
-          },
+        const nextNutritionData = {
+          ...prev.nutritionData,
+          [date]: remainingMeals,
         };
+
+        const hasNutritionForDate = hasNutritionEntriesForDate(
+          nextNutritionData,
+          date
+        );
+
+        return syncPhaseDomainFromLegacy({
+          ...prev,
+          nutritionData: nextNutritionData,
+          phases: syncNutritionRefsForDate(
+            prev.phases,
+            date,
+            hasNutritionForDate
+          ),
+        });
       });
     },
 

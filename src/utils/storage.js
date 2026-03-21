@@ -6,6 +6,10 @@ import {
 import { sortWeightEntries } from './weight';
 import { sortBodyFatEntries } from './bodyFat';
 import { sanitizeAge, sanitizeHeight } from './profile';
+import {
+  createDefaultPhaseLogV2State,
+  normalizePhaseLogV2State,
+} from './phaseLogV2';
 
 // Legacy key for migration
 const LEGACY_DATA_KEY = 'energyMapData';
@@ -22,6 +26,7 @@ const HISTORY_FIELDS = [
   'stepEntries',
   'nutritionData',
   'phases',
+  'phaseLogV2',
   'cardioSessions',
 ];
 
@@ -208,6 +213,7 @@ export const getDefaultEnergyMapData = () => ({
   },
   phases: [],
   activePhaseId: null,
+  phaseLogV2: createDefaultPhaseLogV2State(),
 });
 
 function mergeWithDefaults(data) {
@@ -323,6 +329,9 @@ function mergeWithDefaults(data) {
       data.smartTefLiveCardTargetMode ?? defaults.smartTefLiveCardTargetMode,
     phases: Array.isArray(data.phases) ? data.phases : defaults.phases,
     activePhaseId: data.activePhaseId ?? defaults.activePhaseId,
+    phaseLogV2: normalizePhaseLogV2State(
+      data.phaseLogV2 ?? defaults.phaseLogV2
+    ),
     pinnedFoods: Array.isArray(data.pinnedFoods)
       ? data.pinnedFoods
       : defaults.pinnedFoods,
