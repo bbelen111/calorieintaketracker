@@ -24,8 +24,12 @@ import {
 import { clampBodyFat, sortBodyFatEntries } from '../utils/bodyFat';
 import { sanitizeAge, sanitizeHeight } from '../utils/profile';
 import {
+  PHASE_STATUS,
   convertLegacyPhasesToPhaseLogV2,
   convertPhaseLogV2ToLegacyPhases,
+  normalizePhaseLogV2State,
+  removePhaseLogV2DailyLog,
+  upsertPhaseLogV2DailyLog,
 } from '../utils/phaseLogV2';
 import { hasNutritionEntriesForDate } from '../utils/phases';
 
@@ -67,147 +71,133 @@ const sortStepEntries = (entries) => {
   return [...entries].sort((a, b) => a.date.localeCompare(b.date));
 };
 
-const syncPhaseDomainFromLegacy = (nextUserData) => {
-  const phaseLogV2 = convertLegacyPhasesToPhaseLogV2(
-    nextUserData.phases ?? [],
-    nextUserData.activePhaseId ?? null
-  );
-  const syncedLegacy = convertPhaseLogV2ToLegacyPhases(phaseLogV2);
+const getTodayDateKey = () => new Date().toISOString().slice(0, 10);
 
+const normalizePhaseStateForUserData = (userData) => {
+  const normalizedPhaseLogV2 = normalizePhaseLogV2State(userData.phaseLogV2);
+  const { phases, activePhaseId, ...rest } = userData;
   return {
-    ...nextUserData,
-    phases: syncedLegacy.phases,
-    activePhaseId: syncedLegacy.activePhaseId,
-    phaseLogV2,
+    ...rest,
+    phaseLogV2: normalizedPhaseLogV2,
   };
 };
 
-const clearWeightRefsForDate = (phases, dateKey) => {
-  if (!Array.isArray(phases) || !dateKey) {
-    return phases;
+const getLegacyPhaseView = (phaseLogV2) =>
+  convertPhaseLogV2ToLegacyPhases(normalizePhaseLogV2State(phaseLogV2));
+
+const initializePhaseLogV2 = (userData) => {
+  const normalizedPhaseLogV2 = normalizePhaseLogV2State(userData.phaseLogV2);
+  if (normalizedPhaseLogV2.phaseOrder.length > 0) {
+    return normalizedPhaseLogV2;
   }
 
-  return phases.map((phase) => {
-    if (!phase?.dailyLogs || typeof phase.dailyLogs !== 'object') {
-      return phase;
-    }
+  if (!Array.isArray(userData.phases) || userData.phases.length === 0) {
+    return normalizedPhaseLogV2;
+  }
 
-    let hasChanges = false;
-    const nextLogs = Object.entries(phase.dailyLogs).reduce(
-      (acc, [date, log]) => {
-        if (!log || typeof log !== 'object') {
-          acc[date] = log;
-          return acc;
-        }
-
-        if (log.weightRef === dateKey) {
-          hasChanges = true;
-          acc[date] = {
-            ...log,
-            weightRef: '',
-          };
-          return acc;
-        }
-
-        acc[date] = log;
-        return acc;
-      },
-      {}
-    );
-
-    return hasChanges
-      ? {
-          ...phase,
-          dailyLogs: nextLogs,
-        }
-      : phase;
-  });
+  return normalizePhaseLogV2State(
+    convertLegacyPhasesToPhaseLogV2(
+      userData.phases,
+      userData.activePhaseId ?? null
+    )
+  );
 };
 
-const clearBodyFatRefsForDate = (phases, dateKey) => {
-  if (!Array.isArray(phases) || !dateKey) {
-    return phases;
+const mapPhaseLogs = (rawPhaseLogV2, updater) => {
+  const normalized = normalizePhaseLogV2State(rawPhaseLogV2);
+  let hasChanges = false;
+  const nextLogsById = { ...normalized.logsById };
+
+  Object.entries(normalized.logsById).forEach(([logId, log]) => {
+    const nextLog = updater(log);
+    if (nextLog !== log) {
+      hasChanges = true;
+      nextLogsById[logId] = nextLog;
+    }
+  });
+
+  if (!hasChanges) {
+    return normalized;
   }
 
-  return phases.map((phase) => {
-    if (!phase?.dailyLogs || typeof phase.dailyLogs !== 'object') {
-      return phase;
-    }
-
-    let hasChanges = false;
-    const nextLogs = Object.entries(phase.dailyLogs).reduce(
-      (acc, [date, log]) => {
-        if (!log || typeof log !== 'object') {
-          acc[date] = log;
-          return acc;
-        }
-
-        if (log.bodyFatRef === dateKey) {
-          hasChanges = true;
-          acc[date] = {
-            ...log,
-            bodyFatRef: '',
-          };
-          return acc;
-        }
-
-        acc[date] = log;
-        return acc;
-      },
-      {}
-    );
-
-    return hasChanges
-      ? {
-          ...phase,
-          dailyLogs: nextLogs,
-        }
-      : phase;
-  });
+  return {
+    ...normalized,
+    logsById: nextLogsById,
+  };
 };
 
-const syncNutritionRefsForDate = (phases, dateKey, hasNutritionForDate) => {
-  if (!Array.isArray(phases) || !dateKey) {
-    return phases;
+const clearWeightRefsForDate = (phaseLogV2, dateKey) => {
+  if (!dateKey) {
+    return normalizePhaseLogV2State(phaseLogV2);
   }
 
-  return phases.map((phase) => {
-    if (!phase?.dailyLogs || typeof phase.dailyLogs !== 'object') {
-      return phase;
-    }
-
-    const targetLog = phase.dailyLogs[dateKey];
-    if (!targetLog || typeof targetLog !== 'object') {
-      return phase;
-    }
-
-    const currentRef =
-      typeof targetLog.nutritionRef === 'string'
-        ? targetLog.nutritionRef.trim()
-        : '';
-
-    if (hasNutritionForDate && currentRef === dateKey) {
-      return phase;
-    }
-
-    if (!hasNutritionForDate && currentRef === '') {
-      return phase;
+  return mapPhaseLogs(phaseLogV2, (log) => {
+    if (log?.links?.weightEntryId !== dateKey) {
+      return log;
     }
 
     return {
-      ...phase,
-      dailyLogs: {
-        ...phase.dailyLogs,
-        [dateKey]: {
-          ...targetLog,
-          nutritionRef: hasNutritionForDate ? dateKey : '',
-        },
+      ...log,
+      links: {
+        ...log.links,
+        weightEntryId: null,
       },
+      updatedAt: Date.now(),
+    };
+  });
+};
+
+const clearBodyFatRefsForDate = (phaseLogV2, dateKey) => {
+  if (!dateKey) {
+    return normalizePhaseLogV2State(phaseLogV2);
+  }
+
+  return mapPhaseLogs(phaseLogV2, (log) => {
+    if (log?.links?.bodyFatEntryId !== dateKey) {
+      return log;
+    }
+
+    return {
+      ...log,
+      links: {
+        ...log.links,
+        bodyFatEntryId: null,
+      },
+      updatedAt: Date.now(),
+    };
+  });
+};
+
+const syncNutritionRefsForDate = (phaseLogV2, dateKey, hasNutritionForDate) => {
+  if (!dateKey) {
+    return normalizePhaseLogV2State(phaseLogV2);
+  }
+
+  const targetRef = hasNutritionForDate ? dateKey : null;
+
+  return mapPhaseLogs(phaseLogV2, (log) => {
+    if (log.date !== dateKey) {
+      return log;
+    }
+
+    if ((log?.links?.nutritionDayKey ?? null) === targetRef) {
+      return log;
+    }
+
+    return {
+      ...log,
+      links: {
+        ...log.links,
+        nutritionDayKey: targetRef,
+      },
+      updatedAt: Date.now(),
     };
   });
 };
 
 const deriveState = (userData) => {
+  const phaseLogV2 = normalizePhaseLogV2State(userData.phaseLogV2);
+  const legacyPhaseView = getLegacyPhaseView(phaseLogV2);
   const trainingTypes = resolveTrainingTypes(userData);
   const cardioTypes = resolveCardioTypes(userData);
   const bmr = calculateBMR(userData);
@@ -234,17 +224,18 @@ const deriveState = (userData) => {
     nutritionData: userData.nutritionData ?? {},
     pinnedFoods: userData.pinnedFoods ?? [],
     cachedFoods: userData.cachedFoods ?? [],
-    phases: userData.phases ?? [],
-    phaseLogV2: userData.phaseLogV2,
-    activePhaseId: userData.activePhaseId,
+    phases: legacyPhaseView.phases,
+    phaseLogV2,
+    activePhaseId: legacyPhaseView.activePhaseId,
     theme: userData.theme ?? 'dark',
   };
 };
 
 const updateUserData = (set, get, updater) => {
   set((state) => {
-    const nextUserData =
+    const nextUserDataRaw =
       typeof updater === 'function' ? updater(state.userData) : updater;
+    const nextUserData = normalizePhaseStateForUserData(nextUserDataRaw);
 
     return {
       userData: nextUserData,
@@ -264,10 +255,13 @@ export const useEnergyMapStore = create(
         return;
       }
       const data = await loadEnergyMapData();
-      const syncedData = syncPhaseDomainFromLegacy(data);
+      const nextUserData = normalizePhaseStateForUserData({
+        ...data,
+        phaseLogV2: initializePhaseLogV2(data),
+      });
       set({
-        userData: syncedData,
-        ...deriveState(syncedData),
+        userData: nextUserData,
+        ...deriveState(nextUserData),
         isLoaded: true,
       });
     },
@@ -577,10 +571,9 @@ export const useEnergyMapStore = create(
           ...prev,
           weight: nextEntries.length ? latestWeight : prev.weight,
           weightEntries: nextEntries,
-          phases: clearWeightRefsForDate(prev.phases, normalizedDate),
+          phaseLogV2: clearWeightRefsForDate(prev.phaseLogV2, normalizedDate),
         };
-
-        return syncPhaseDomainFromLegacy(nextUserData);
+        return nextUserData;
       });
     },
 
@@ -650,10 +643,12 @@ export const useEnergyMapStore = create(
         const nextUserData = {
           ...prev,
           bodyFatEntries: nextEntries,
-          phases: clearBodyFatRefsForDate(prev.phases, normalizedDate),
+          phaseLogV2: clearBodyFatRefsForDate(
+            prev.phaseLogV2,
+            normalizedDate
+          ),
         };
-
-        return syncPhaseDomainFromLegacy(nextUserData);
+        return nextUserData;
       });
     },
 
@@ -713,27 +708,36 @@ export const useEnergyMapStore = create(
         goalType: phaseData.goalType || 'maintenance',
         targetWeight: phaseData.targetWeight || null,
         startingWeight,
-        status: 'active',
+        status: PHASE_STATUS.ACTIVE,
         color: phaseData.color || '#3b82f6',
-        dailyLogs: {},
-        metrics: {
-          totalDays: 0,
-          activeDays: 0,
-          avgCalories: 0,
-          avgSteps: 0,
-          weightChange: 0,
-          avgWeeklyRate: 0,
-        },
         createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
-      updateUserData(set, get, (prev) =>
-        syncPhaseDomainFromLegacy({
+      updateUserData(set, get, (prev) => {
+        const phaseLogV2 = normalizePhaseLogV2State(prev.phaseLogV2);
+
+        return {
           ...prev,
-          phases: [...prev.phases, newPhase],
-          activePhaseId: newPhase.id,
-        })
-      );
+          phaseLogV2: normalizePhaseLogV2State({
+            ...phaseLogV2,
+            phasesById: {
+              ...phaseLogV2.phasesById,
+              [newPhase.id]: newPhase,
+            },
+            phaseOrder: [...phaseLogV2.phaseOrder, newPhase.id],
+            logIdsByPhaseId: {
+              ...phaseLogV2.logIdsByPhaseId,
+              [newPhase.id]: [],
+            },
+            logIdByPhaseDate: {
+              ...phaseLogV2.logIdByPhaseDate,
+              [newPhase.id]: {},
+            },
+            activePhaseId: newPhase.id,
+          }),
+        };
+      });
 
       return newPhase.id;
     },
@@ -744,22 +748,42 @@ export const useEnergyMapStore = create(
       }
 
       updateUserData(set, get, (prev) => {
-        const nextPhases = prev.phases.map((phase) =>
-          phase.id === phaseId ? { ...phase, ...updates } : phase
-        );
+        const phaseLogV2 = normalizePhaseLogV2State(prev.phaseLogV2);
+        const existingPhase = phaseLogV2.phasesById[phaseId];
+        if (!existingPhase) {
+          return prev;
+        }
 
-        const nextActiveId =
+        const requestedStatus =
           updates?.status === 'active'
-            ? phaseId
-            : updates?.status === 'completed' && prev.activePhaseId === phaseId
-              ? null
-              : prev.activePhaseId;
+            ? PHASE_STATUS.ACTIVE
+            : updates?.status === 'completed'
+              ? PHASE_STATUS.COMPLETED
+              : existingPhase.status;
 
-        return syncPhaseDomainFromLegacy({
+        const nextActivePhaseId =
+          requestedStatus === PHASE_STATUS.ACTIVE
+            ? phaseId
+            : phaseLogV2.activePhaseId === phaseId
+              ? null
+              : phaseLogV2.activePhaseId;
+
+        return {
           ...prev,
-          phases: nextPhases,
-          activePhaseId: nextActiveId,
-        });
+          phaseLogV2: normalizePhaseLogV2State({
+            ...phaseLogV2,
+            phasesById: {
+              ...phaseLogV2.phasesById,
+              [phaseId]: {
+                ...existingPhase,
+                ...updates,
+                status: requestedStatus,
+                updatedAt: Date.now(),
+              },
+            },
+            activePhaseId: nextActivePhaseId,
+          }),
+        };
       });
     },
 
@@ -769,15 +793,39 @@ export const useEnergyMapStore = create(
       }
 
       updateUserData(set, get, (prev) => {
-        const nextPhases = prev.phases.filter((phase) => phase.id !== phaseId);
-        const nextActiveId =
-          prev.activePhaseId === phaseId ? null : prev.activePhaseId;
+        const phaseLogV2 = normalizePhaseLogV2State(prev.phaseLogV2);
+        if (!phaseLogV2.phasesById[phaseId]) {
+          return prev;
+        }
 
-        return syncPhaseDomainFromLegacy({
-          ...prev,
-          phases: nextPhases,
-          activePhaseId: nextActiveId,
+        const nextPhasesById = { ...phaseLogV2.phasesById };
+        const nextLogsById = { ...phaseLogV2.logsById };
+        const nextLogIdsByPhaseId = { ...phaseLogV2.logIdsByPhaseId };
+        const nextLogIdByPhaseDate = { ...phaseLogV2.logIdByPhaseDate };
+
+        (nextLogIdsByPhaseId[phaseId] ?? []).forEach((logId) => {
+          delete nextLogsById[logId];
         });
+
+        delete nextPhasesById[phaseId];
+        delete nextLogIdsByPhaseId[phaseId];
+        delete nextLogIdByPhaseDate[phaseId];
+
+        return {
+          ...prev,
+          phaseLogV2: normalizePhaseLogV2State({
+            ...phaseLogV2,
+            phasesById: nextPhasesById,
+            phaseOrder: phaseLogV2.phaseOrder.filter((id) => id !== phaseId),
+            logsById: nextLogsById,
+            logIdsByPhaseId: nextLogIdsByPhaseId,
+            logIdByPhaseDate: nextLogIdByPhaseDate,
+            activePhaseId:
+              phaseLogV2.activePhaseId === phaseId
+                ? null
+                : phaseLogV2.activePhaseId,
+          }),
+        };
       });
     },
 
@@ -786,12 +834,46 @@ export const useEnergyMapStore = create(
     },
 
     setActivePhase: (phaseId) => {
-      updateUserData(set, get, (prev) =>
-        syncPhaseDomainFromLegacy({
+      updateUserData(set, get, (prev) => {
+        const phaseLogV2 = normalizePhaseLogV2State(prev.phaseLogV2);
+
+        if (phaseId == null) {
+          const nextPhasesById = Object.fromEntries(
+            Object.entries(phaseLogV2.phasesById).map(([id, phase]) => [
+              id,
+              phase.status === PHASE_STATUS.ACTIVE
+                ? {
+                    ...phase,
+                    status: PHASE_STATUS.COMPLETED,
+                    endDate: phase.endDate || getTodayDateKey(),
+                    updatedAt: Date.now(),
+                  }
+                : phase,
+            ])
+          );
+
+          return {
+            ...prev,
+            phaseLogV2: normalizePhaseLogV2State({
+              ...phaseLogV2,
+              phasesById: nextPhasesById,
+              activePhaseId: null,
+            }),
+          };
+        }
+
+        if (!phaseLogV2.phasesById[phaseId]) {
+          return prev;
+        }
+
+        return {
           ...prev,
-          activePhaseId: phaseId ?? null,
-        })
-      );
+          phaseLogV2: normalizePhaseLogV2State({
+            ...phaseLogV2,
+            activePhaseId: phaseId,
+          }),
+        };
+      });
     },
 
     addDailyLog: (phaseId, date, logData) => {
@@ -800,24 +882,15 @@ export const useEnergyMapStore = create(
       }
 
       updateUserData(set, get, (prev) => {
-        const nextPhases = prev.phases.map((phase) => {
-          if (phase.id !== phaseId) {
-            return phase;
-          }
-
-          return {
-            ...phase,
-            dailyLogs: {
-              ...phase.dailyLogs,
-              [date]: { ...logData, date },
-            },
-          };
-        });
-
-        return syncPhaseDomainFromLegacy({
+        return {
           ...prev,
-          phases: nextPhases,
-        });
+          phaseLogV2: upsertPhaseLogV2DailyLog(
+            prev.phaseLogV2,
+            phaseId,
+            date,
+            logData
+          ),
+        };
       });
     },
 
@@ -827,26 +900,15 @@ export const useEnergyMapStore = create(
       }
 
       updateUserData(set, get, (prev) => {
-        const nextPhases = prev.phases.map((phase) => {
-          if (phase.id !== phaseId) {
-            return phase;
-          }
-
-          const existingLog = phase.dailyLogs[date] || {};
-
-          return {
-            ...phase,
-            dailyLogs: {
-              ...phase.dailyLogs,
-              [date]: { ...existingLog, ...updates, date },
-            },
-          };
-        });
-
-        return syncPhaseDomainFromLegacy({
+        return {
           ...prev,
-          phases: nextPhases,
-        });
+          phaseLogV2: upsertPhaseLogV2DailyLog(
+            prev.phaseLogV2,
+            phaseId,
+            date,
+            updates
+          ),
+        };
       });
     },
 
@@ -856,24 +918,10 @@ export const useEnergyMapStore = create(
       }
 
       updateUserData(set, get, (prev) => {
-        const nextPhases = prev.phases.map((phase) => {
-          if (phase.id !== phaseId) {
-            return phase;
-          }
-
-          const nextLogs = { ...phase.dailyLogs };
-          delete nextLogs[date];
-
-          return {
-            ...phase,
-            dailyLogs: nextLogs,
-          };
-        });
-
-        return syncPhaseDomainFromLegacy({
+        return {
           ...prev,
-          phases: nextPhases,
-        });
+          phaseLogV2: removePhaseLogV2DailyLog(prev.phaseLogV2, phaseId, date),
+        };
       });
     },
 
@@ -896,11 +944,11 @@ export const useEnergyMapStore = create(
           },
         };
 
-        return syncPhaseDomainFromLegacy({
+        return {
           ...prev,
           nutritionData: nextNutritionData,
-          phases: syncNutritionRefsForDate(prev.phases, date, true),
-        });
+          phaseLogV2: syncNutritionRefsForDate(prev.phaseLogV2, date, true),
+        };
       });
     },
 
@@ -925,11 +973,11 @@ export const useEnergyMapStore = create(
           },
         };
 
-        return syncPhaseDomainFromLegacy({
+        return {
           ...prev,
           nutritionData: nextNutritionData,
-          phases: syncNutritionRefsForDate(prev.phases, date, true),
-        });
+          phaseLogV2: syncNutritionRefsForDate(prev.phaseLogV2, date, true),
+        };
       });
     },
 
@@ -957,15 +1005,15 @@ export const useEnergyMapStore = create(
           date
         );
 
-        return syncPhaseDomainFromLegacy({
+        return {
           ...prev,
           nutritionData: nextNutritionData,
-          phases: syncNutritionRefsForDate(
-            prev.phases,
+          phaseLogV2: syncNutritionRefsForDate(
+            prev.phaseLogV2,
             date,
             hasNutritionForDate
           ),
-        });
+        };
       });
     },
 
@@ -989,15 +1037,15 @@ export const useEnergyMapStore = create(
           date
         );
 
-        return syncPhaseDomainFromLegacy({
+        return {
           ...prev,
           nutritionData: nextNutritionData,
-          phases: syncNutritionRefsForDate(
-            prev.phases,
+          phaseLogV2: syncNutritionRefsForDate(
+            prev.phaseLogV2,
             date,
             hasNutritionForDate
           ),
-        });
+        };
       });
     },
 

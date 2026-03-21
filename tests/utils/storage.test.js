@@ -7,9 +7,12 @@ import {
   loadEnergyMapData,
   saveEnergyMapData,
 } from '../../src/utils/storage.js';
+import {
+  deleteHistoryDocumentsFromDexie,
+  loadAllHistoryDocuments,
+} from '../../src/utils/historyDatabase.js';
 
 const PROFILE_KEY = 'energyMapData_profile';
-const HISTORY_KEY = 'energyMapData_history';
 
 const createMemoryLocalStorage = () => {
   const store = {};
@@ -43,10 +46,23 @@ const withWindowStorage = async (run) => {
   }
 };
 
-test('saveEnergyMapData writes split profile and history payloads', async () => {
+const clearDexieHistory = async () => {
+  const snapshot = await loadAllHistoryDocuments();
+  if (!snapshot.available || snapshot.documents.length === 0) {
+    return;
+  }
+
+  await deleteHistoryDocumentsFromDexie(
+    snapshot.documents
+      .map((document) => document?.id)
+      .filter((id) => typeof id === 'string')
+  );
+};
+
+test('saveEnergyMapData writes profile payload and attempts Dexie history persistence', async () => {
   await withWindowStorage(async () => {
     await Preferences.remove({ key: PROFILE_KEY });
-    await Preferences.remove({ key: HISTORY_KEY });
+    await clearDexieHistory();
 
     const payload = {
       ...getDefaultEnergyMapData(),
@@ -58,31 +74,31 @@ test('saveEnergyMapData writes split profile and history payloads', async () => 
     await saveEnergyMapData(payload);
 
     const profileRes = await Preferences.get({ key: PROFILE_KEY });
-    const historyRes = await Preferences.get({ key: HISTORY_KEY });
 
     assert.ok(profileRes.value, 'Expected profile payload to be persisted');
-    assert.ok(historyRes.value, 'Expected history payload to be persisted');
 
     const profile = JSON.parse(profileRes.value);
-    const history = JSON.parse(historyRes.value);
 
     assert.equal(profile.age, 29);
     assert.equal(profile.theme, 'dark');
     assert.equal(profile.weightEntries, undefined);
     assert.equal(profile.cachedFoods, undefined);
 
-    assert.deepEqual(history.weightEntries, [
-      { date: '2026-03-20', weight: 80.5 },
-    ]);
-    assert.ok(Array.isArray(history.cardioSessions));
-    assert.ok(Array.isArray(history.cachedFoods));
+    const historySnapshot = await loadAllHistoryDocuments();
+    if (historySnapshot.available) {
+      assert.equal(
+        historySnapshot.hasAnyHistory,
+        true,
+        'Expected Dexie history to contain persisted documents'
+      );
+    }
   });
 });
 
 test('loadEnergyMapData returns defaults when storage is empty', async () => {
   await withWindowStorage(async () => {
     await Preferences.remove({ key: PROFILE_KEY });
-    await Preferences.remove({ key: HISTORY_KEY });
+    await clearDexieHistory();
 
     const loaded = await loadEnergyMapData();
     const defaults = getDefaultEnergyMapData();
@@ -94,55 +110,28 @@ test('loadEnergyMapData returns defaults when storage is empty', async () => {
   });
 });
 
-test('loadEnergyMapData merges profile and history from Preferences fallback', async () => {
+test('loadEnergyMapData merges profile data and keeps default history when unavailable', async () => {
   await withWindowStorage(async () => {
     await Preferences.set({
       key: PROFILE_KEY,
       value: JSON.stringify({ age: 34, theme: 'light', stepGoal: 12000 }),
     });
-
-    await Preferences.set({
-      key: HISTORY_KEY,
-      value: JSON.stringify({
-        weightEntries: [{ date: '2026-03-21', weight: 81 }],
-        nutritionData: {
-          '2026-03-21': {
-            breakfast: [
-              {
-                id: 'food-1',
-                name: 'Eggs',
-                calories: 155,
-                protein: 13,
-                carbs: 1,
-                fats: 11,
-              },
-            ],
-          },
-        },
-      }),
-    });
+    await clearDexieHistory();
 
     const loaded = await loadEnergyMapData();
 
     assert.equal(loaded.age, 34);
     assert.equal(loaded.theme, 'light');
     assert.equal(loaded.stepGoal, 12000);
-    assert.deepEqual(loaded.weightEntries, [
-      { date: '2026-03-21', weight: 81 },
-    ]);
-    assert.equal(loaded.nutritionData['2026-03-21'].breakfast[0].name, 'Eggs');
-    assert.equal(
-      loaded.nutritionData['2026-03-21'].breakfast[0].grams,
-      null,
-      'Nutrition entries should be normalized with grams key'
-    );
+    assert.deepEqual(loaded.weightEntries, []);
+    assert.deepEqual(loaded.nutritionData, {});
   });
 });
 
-test('saveEnergyMapData falls back to Preferences history write without warning when Dexie is unavailable', async () => {
+test('saveEnergyMapData warns when Dexie history write is unavailable', async () => {
   await withWindowStorage(async () => {
     await Preferences.remove({ key: PROFILE_KEY });
-    await Preferences.remove({ key: HISTORY_KEY });
+    await clearDexieHistory();
 
     const originalWarn = console.warn;
     const warnCalls = [];
@@ -160,27 +149,33 @@ test('saveEnergyMapData falls back to Preferences history write without warning 
       console.warn = originalWarn;
     }
 
+    const historySnapshot = await loadAllHistoryDocuments();
     const failureWarn = warnCalls.find(
       (args) => args[0] === 'One or more storage save operations failed'
     );
 
-    assert.equal(
-      failureWarn,
-      undefined,
-      'Did not expect warning when fallback write succeeds'
-    );
+    if (historySnapshot.available) {
+      assert.equal(
+        failureWarn,
+        undefined,
+        'Did not expect warning when Dexie is available'
+      );
+    } else {
+      assert.ok(
+        failureWarn,
+        'Expected warning when history persistence is unavailable'
+      );
+    }
 
     const profileRes = await Preferences.get({ key: PROFILE_KEY });
-    const historyRes = await Preferences.get({ key: HISTORY_KEY });
     assert.ok(profileRes.value, 'Profile write should still succeed');
-    assert.ok(historyRes.value, 'Legacy dual-write should still succeed');
   });
 });
 
-test('saveEnergyMapData trims and deduplicates cached foods before persisting', async () => {
+test('saveEnergyMapData trims and deduplicates cached foods before Dexie persistence', async () => {
   await withWindowStorage(async () => {
     await Preferences.remove({ key: PROFILE_KEY });
-    await Preferences.remove({ key: HISTORY_KEY });
+    await clearDexieHistory();
 
     const cachedFoods = Array.from({ length: 650 }, (_, index) => ({
       id: `food-${index % 420}`,
@@ -196,13 +191,10 @@ test('saveEnergyMapData trims and deduplicates cached foods before persisting', 
     });
 
     const profileRes = await Preferences.get({ key: PROFILE_KEY });
-    const historyRes = await Preferences.get({ key: HISTORY_KEY });
 
     assert.ok(profileRes.value, 'Expected profile payload to be persisted');
-    assert.ok(historyRes.value, 'Expected history payload to be persisted');
 
     const profile = JSON.parse(profileRes.value);
-    const history = JSON.parse(historyRes.value);
 
     assert.equal(
       profile.cachedFoods,
@@ -210,25 +202,33 @@ test('saveEnergyMapData trims and deduplicates cached foods before persisting', 
       'cachedFoods should not be persisted in profile payload'
     );
 
-    assert.ok(Array.isArray(history.cachedFoods));
-    assert.ok(
-      history.cachedFoods.length <= 500,
-      'cachedFoods should be capped to MAX_CACHED_FOODS'
-    );
+    const historySnapshot = await loadAllHistoryDocuments();
+    if (historySnapshot.available) {
+      const cachedFoodDocs = historySnapshot.documents.filter((document) =>
+        String(document?.id).startsWith('cachedFoods:')
+      );
 
-    const ids = history.cachedFoods.map((food) => food?.id).filter(Boolean);
-    assert.equal(
-      ids.length,
-      new Set(ids).size,
-      'cachedFoods should be deduplicated by identity'
-    );
+      assert.ok(
+        cachedFoodDocs.length <= 500,
+        'cachedFoods should be capped to MAX_CACHED_FOODS'
+      );
+
+      const ids = cachedFoodDocs
+        .map((document) => document?.payload?.entry?.id)
+        .filter(Boolean);
+      assert.equal(
+        ids.length,
+        new Set(ids).size,
+        'cachedFoods should be deduplicated by identity'
+      );
+    }
   });
 });
 
 test('saveEnergyMapData skips redundant Preferences writes for unchanged payloads', async () => {
   await withWindowStorage(async () => {
     await Preferences.remove({ key: PROFILE_KEY });
-    await Preferences.remove({ key: HISTORY_KEY });
+    await clearDexieHistory();
 
     const originalSet = Preferences.set.bind(Preferences);
     const setCalls = [];

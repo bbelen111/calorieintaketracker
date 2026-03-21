@@ -143,3 +143,26 @@ test('reconstructHistoryFromDexieDocuments prefers sharded payload over legacy f
     },
   });
 });
+
+test('reconstructHistoryFromDexieDocuments keeps legacy phases payload for one-time migration', () => {
+  const documents = [
+    {
+      id: 'phases',
+      payload: [
+        {
+          id: 101,
+          name: 'Legacy Phase',
+          startDate: '2026-03-01',
+          goalType: 'maintenance',
+          status: 'active',
+          dailyLogs: {},
+        },
+      ],
+    },
+  ];
+
+  const { historyData } = reconstructHistoryFromDexieDocuments(documents);
+
+  assert.ok(Array.isArray(historyData.legacyPhases));
+  assert.equal(historyData.legacyPhases[0]?.name, 'Legacy Phase');
+});

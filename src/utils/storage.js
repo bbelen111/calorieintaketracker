@@ -13,13 +13,13 @@ import { normalizeDateKey, sortWeightEntries } from './weight.js';
 import { clampBodyFat, sortBodyFatEntries } from './bodyFat.js';
 import { sanitizeAge, sanitizeHeight } from './profile.js';
 import {
+  convertLegacyPhasesToPhaseLogV2,
   createDefaultPhaseLogV2State,
   normalizePhaseLogV2State,
 } from './phaseLogV2.js';
 
 // Split keys for performance
 const PROFILE_KEY = 'energyMapData_profile'; // Settings, preferences, small lists
-const HISTORY_KEY = 'energyMapData_history'; // Heavy logs: nutrition, weight, phases
 
 const SELECTED_DAY_KEY = 'energyMapSelectedDay';
 const MAX_CACHED_FOODS = 500;
@@ -29,7 +29,6 @@ const HISTORY_FIELDS = [
   'bodyFatEntries',
   'stepEntries',
   'nutritionData',
-  'phases',
   'phaseLogV2',
   'cardioSessions',
   'cachedFoods',
@@ -230,8 +229,6 @@ const SHARDED_HISTORY_FIELD_CONFIG = {
 const SHARDED_HISTORY_FIELDS = Object.keys(SHARDED_HISTORY_FIELD_CONFIG);
 
 const ACTIVITY_DAY_TYPES = ['training', 'rest'];
-const hasOwnProperty = (obj, key) =>
-  Object.prototype.hasOwnProperty.call(obj, key);
 
 let lastSavedProfileSerialized = null;
 let lastSavedHistorySerializedByField = new Map();
@@ -250,9 +247,6 @@ const parseJsonOrEmpty = (value) => {
     return {};
   }
 };
-
-const getMissingHistoryFields = (historyData) =>
-  HISTORY_FIELDS.filter((field) => !hasOwnProperty(historyData, field));
 
 const encodeShardKey = (value) =>
   encodeURIComponent(String(value ?? '').trim());
@@ -302,6 +296,11 @@ export const reconstructHistoryFromDexieDocuments = (documents = []) => {
 
     if (HISTORY_FIELDS.includes(documentId)) {
       historyData[documentId] = document.payload;
+      return;
+    }
+
+    if (documentId === 'phases' && Array.isArray(document.payload)) {
+      historyData.legacyPhases = document.payload;
       return;
     }
 
@@ -507,36 +506,8 @@ export const loadEnergyMapData = async () => {
       dexieDocumentsResult.documents
     );
     let historyData = { ...(dexieResult.historyData ?? {}) };
-    const missingHistoryFields = getMissingHistoryFields(historyData);
-    const shouldInspectLegacyHistory =
-      !dexieResult.hasAnyHistory || missingHistoryFields.length > 0;
 
     lastSavedShardedDocIdsByField = dexieResult.shardDocIdsByField ?? new Map();
-
-    // 3. Backfill or repair Dexie from legacy Preferences history if needed
-    if (shouldInspectLegacyHistory) {
-      const historyRes = await Preferences.get({ key: HISTORY_KEY });
-      const legacyHistoryData = parseJsonOrEmpty(historyRes.value);
-
-      if (Object.keys(legacyHistoryData).length > 0) {
-        if (!dexieResult.hasAnyHistory) {
-          historyData = legacyHistoryData;
-          await saveHistoryToDexie(legacyHistoryData);
-        } else {
-          const repairedFields = {};
-          missingHistoryFields.forEach((fieldKey) => {
-            if (hasOwnProperty(legacyHistoryData, fieldKey)) {
-              historyData[fieldKey] = legacyHistoryData[fieldKey];
-              repairedFields[fieldKey] = legacyHistoryData[fieldKey];
-            }
-          });
-
-          if (Object.keys(repairedFields).length > 0) {
-            await saveHistoryToDexie(repairedFields);
-          }
-        }
-      }
-    }
 
     historyData = sanitizeHistoryForPersistence(historyData);
 
@@ -608,26 +579,9 @@ export const saveEnergyMapData = async (data) => {
       dexieResult?.status === 'fulfilled' &&
       dexieResult.value === false;
 
-    const shouldWriteLegacyHistory = hasHistoryChanges && !dexieSucceeded;
-    let fallbackHistorySucceeded = false;
-    if (shouldWriteLegacyHistory) {
-      const fallbackResult = await Promise.allSettled([
-        Preferences.set({
-          key: HISTORY_KEY,
-          value: JSON.stringify(normalizedHistoryData),
-        }),
-      ]);
-
-      fallbackHistorySucceeded = fallbackResult[0]?.status === 'fulfilled';
-      if (fallbackResult[0]?.status === 'rejected') {
-        rejected.push(fallbackResult[0]);
-      }
-    }
-
     const profileWriteSucceeded =
       !hasProfileChanges || primaryResults[0]?.status === 'fulfilled';
-    const historyWriteSucceeded =
-      !hasHistoryChanges || dexieSucceeded || fallbackHistorySucceeded;
+    const historyWriteSucceeded = !hasHistoryChanges || dexieSucceeded;
 
     if (profileWriteSucceeded) {
       lastSavedProfileSerialized = profileSerialized;
@@ -636,12 +590,8 @@ export const saveEnergyMapData = async (data) => {
       lastSavedHistorySerializedByField = serializedByField;
     }
 
-    // Warn only when persistence is genuinely at risk:
-    // - any rejected write (profile or fallback history), or
-    // - Dexie explicit failure when we did not (or could not) fallback.
     const hasPersistenceRisk =
-      rejected.length > 0 ||
-      (hasExplicitFailureValue && !shouldWriteLegacyHistory);
+      rejected.length > 0 || hasExplicitFailureValue;
 
     if (hasPersistenceRisk) {
       console.warn('One or more storage save operations failed', {
@@ -746,24 +696,45 @@ export const getDefaultEnergyMapData = () => ({
   customActivityMultipliers: {
     ...DEFAULT_ACTIVITY_MULTIPLIERS,
   },
-  phases: [],
-  activePhaseId: null,
   phaseLogV2: createDefaultPhaseLogV2State(),
 });
 
 function mergeWithDefaults(data) {
   const defaults = getDefaultEnergyMapData();
+  const {
+    phases,
+    activePhaseId,
+    legacyPhases,
+    ...dataWithoutLegacyPhases
+  } = data;
+
+  let normalizedPhaseLogV2 = normalizePhaseLogV2State(
+    dataWithoutLegacyPhases.phaseLogV2 ?? defaults.phaseLogV2
+  );
+
+  const legacyPhasesSource = Array.isArray(legacyPhases)
+    ? legacyPhases
+    : Array.isArray(phases)
+      ? phases
+      : [];
+
+  if (normalizedPhaseLogV2.phaseOrder.length === 0 && legacyPhasesSource.length) {
+    normalizedPhaseLogV2 = normalizePhaseLogV2State(
+      convertLegacyPhasesToPhaseLogV2(legacyPhasesSource, activePhaseId ?? null)
+    );
+  }
+
   const activityPresets = {
     ...defaults.activityPresets,
-    ...(data.activityPresets ?? {}),
+    ...(dataWithoutLegacyPhases.activityPresets ?? {}),
   };
   const activityMultipliers = {
     ...defaults.activityMultipliers,
-    ...(data.activityMultipliers ?? {}),
+    ...(dataWithoutLegacyPhases.activityMultipliers ?? {}),
   };
   const customActivityMultipliers = {
     ...defaults.customActivityMultipliers,
-    ...(data.customActivityMultipliers ?? {}),
+    ...(dataWithoutLegacyPhases.customActivityMultipliers ?? {}),
   };
 
   ACTIVITY_DAY_TYPES.forEach((dayType) => {
@@ -811,70 +782,72 @@ function mergeWithDefaults(data) {
 
   return {
     ...defaults,
-    ...data,
-    age: sanitizeAge(data.age, defaults.age),
-    height: sanitizeHeight(data.height, defaults.height),
+    ...dataWithoutLegacyPhases,
+    age: sanitizeAge(dataWithoutLegacyPhases.age, defaults.age),
+    height: sanitizeHeight(dataWithoutLegacyPhases.height, defaults.height),
     nutritionData: normalizeNutritionData(
-      data.nutritionData ?? defaults.nutritionData
+      dataWithoutLegacyPhases.nutritionData ?? defaults.nutritionData
     ),
     trainingTypeOverrides: {
       ...defaults.trainingTypeOverrides,
-      ...(data.trainingTypeOverrides ?? {}),
+      ...(dataWithoutLegacyPhases.trainingTypeOverrides ?? {}),
     },
     activityPresets,
     activityMultipliers,
     customActivityMultipliers,
     customCardioTypes: {
       ...defaults.customCardioTypes,
-      ...(data.customCardioTypes ?? {}),
+      ...(dataWithoutLegacyPhases.customCardioTypes ?? {}),
     },
-    stepRanges: Array.isArray(data.stepRanges)
-      ? data.stepRanges
+    stepRanges: Array.isArray(dataWithoutLegacyPhases.stepRanges)
+      ? dataWithoutLegacyPhases.stepRanges
       : defaults.stepRanges,
-    cardioSessions: Array.isArray(data.cardioSessions)
-      ? data.cardioSessions.map((session) => ({
+    cardioSessions: Array.isArray(dataWithoutLegacyPhases.cardioSessions)
+      ? dataWithoutLegacyPhases.cardioSessions.map((session) => ({
           ...session,
           effortType: session?.effortType ?? 'intensity',
         }))
       : defaults.cardioSessions,
-    cardioFavourites: Array.isArray(data.cardioFavourites)
-      ? data.cardioFavourites.map((session) => ({
+    cardioFavourites: Array.isArray(dataWithoutLegacyPhases.cardioFavourites)
+      ? dataWithoutLegacyPhases.cardioFavourites.map((session) => ({
           ...session,
           effortType: session?.effortType ?? 'intensity',
         }))
       : defaults.cardioFavourites,
     weightEntries: sortWeightEntries(
-      data.weightEntries ?? defaults.weightEntries
+      dataWithoutLegacyPhases.weightEntries ?? defaults.weightEntries
     ),
     bodyFatEntries: sortBodyFatEntries(
-      data.bodyFatEntries ?? defaults.bodyFatEntries
+      dataWithoutLegacyPhases.bodyFatEntries ?? defaults.bodyFatEntries
     ),
-    stepEntries: Array.isArray(data.stepEntries)
-      ? data.stepEntries.sort((a, b) => a.date.localeCompare(b.date))
+    stepEntries: Array.isArray(dataWithoutLegacyPhases.stepEntries)
+      ? dataWithoutLegacyPhases.stepEntries.sort((a, b) =>
+          a.date.localeCompare(b.date)
+        )
       : defaults.stepEntries,
     bodyFatTrackingEnabled:
-      data.bodyFatTrackingEnabled ?? defaults.bodyFatTrackingEnabled,
-    smartTefEnabled: data.smartTefEnabled ?? defaults.smartTefEnabled,
+      dataWithoutLegacyPhases.bodyFatTrackingEnabled ??
+      defaults.bodyFatTrackingEnabled,
+    smartTefEnabled:
+      dataWithoutLegacyPhases.smartTefEnabled ?? defaults.smartTefEnabled,
     smartTefFoodTefBurnEnabled:
-      data.smartTefFoodTefBurnEnabled ?? defaults.smartTefFoodTefBurnEnabled,
+      dataWithoutLegacyPhases.smartTefFoodTefBurnEnabled ??
+      defaults.smartTefFoodTefBurnEnabled,
     smartTefQuickEstimatesTargetMode:
-      data.smartTefQuickEstimatesTargetMode ??
+      dataWithoutLegacyPhases.smartTefQuickEstimatesTargetMode ??
       defaults.smartTefQuickEstimatesTargetMode,
     smartTefLiveCardTargetMode:
-      data.smartTefLiveCardTargetMode ?? defaults.smartTefLiveCardTargetMode,
-    phases: Array.isArray(data.phases) ? data.phases : defaults.phases,
-    activePhaseId: data.activePhaseId ?? defaults.activePhaseId,
-    phaseLogV2: normalizePhaseLogV2State(
-      data.phaseLogV2 ?? defaults.phaseLogV2
-    ),
-    pinnedFoods: Array.isArray(data.pinnedFoods)
-      ? data.pinnedFoods
+      dataWithoutLegacyPhases.smartTefLiveCardTargetMode ??
+      defaults.smartTefLiveCardTargetMode,
+    phaseLogV2: normalizedPhaseLogV2,
+    pinnedFoods: Array.isArray(dataWithoutLegacyPhases.pinnedFoods)
+      ? dataWithoutLegacyPhases.pinnedFoods
       : defaults.pinnedFoods,
-    foodFavourites: Array.isArray(data.foodFavourites)
-      ? data.foodFavourites
+    foodFavourites: Array.isArray(dataWithoutLegacyPhases.foodFavourites)
+      ? dataWithoutLegacyPhases.foodFavourites
       : defaults.foodFavourites,
-    cachedFoods: Array.isArray(data.cachedFoods)
-      ? normalizeCachedFoodsForPersistence(data.cachedFoods)
+    cachedFoods: Array.isArray(dataWithoutLegacyPhases.cachedFoods)
+      ? normalizeCachedFoodsForPersistence(dataWithoutLegacyPhases.cachedFoods)
       : defaults.cachedFoods,
   };
 }

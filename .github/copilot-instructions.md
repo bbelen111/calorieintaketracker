@@ -7,16 +7,16 @@ React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor 
 **Tech Stack:**
 - React 18.3.1 + Vite 5.4.11 (dev server on `localhost:5173`, `strictPort: true`)
 - Capacitor 8.0.1 (`appId: com.energymap.tracker`, `webDir: dist`)
-- **Persistence (cutover):** Dexie (`IndexedDB`) for history + `@capacitor/preferences` for profile/settings
+- **Persistence:** Dexie (`IndexedDB`) for history + `@capacitor/preferences` for profile/settings
 - **State:** `zustand` 4.5.5 with `subscribeWithSelector` middleware
-- Dexie 4.x (history document store + migration metadata)
+- Dexie 4.x (history document store)
 - Framer Motion 12.23.24 (animations)
 - Tailwind 3.4.17 (styling via CSS variable–based semantic tokens)
 - Lucide React 0.562.0 (icons)
 - **External API:** FatSecret (optional, via Vercel serverless proxy at `api/fatsecret.js`)
 
 **Key Capacitor Plugins:**
-- `@capacitor/preferences` — Profile/settings storage + legacy history fallback key during migration
+- `@capacitor/preferences` — Profile/settings storage
 - `@capacitor/app` — App lifecycle, hardware back button
 - `@capacitor/status-bar` — Status bar color/style per theme
 - `@capacitor/keyboard` — Input handling (`resize: "none"` in config)
@@ -55,7 +55,7 @@ User action → Store action (updateUserData) → deriveState() recalculates
   → Debounced save (1s) → saveEnergyMapData() splits into profile/history
   → Profile save: Capacitor Preferences.set(profile) only when profile payload changed
   → History save: Dexie write of changed history documents only
-  → Legacy fallback save: Preferences.set(history) if dual-write enabled OR Dexie write fails
+  → On Dexie history write failure, app warns and keeps profile save semantics intact
 ```
 
 ### Key Architectural Decisions
@@ -68,7 +68,7 @@ User action → Store action (updateUserData) → deriveState() recalculates
 
 4. **`main.jsx` bootstraps** by preventing pinch-to-zoom gestures (gesturestart/change/end + Ctrl+wheel), configuring Capacitor keyboard settings, and rendering `<App />` — no providers, no router.
 
-5. **Phase domain is currently dual-represented** (legacy `phases` + normalized `phaseLogV2`) and synchronized in store actions. Treat `phaseLogV2` as normalization infrastructure while UI remains legacy-facing.
+5. **Phase domain is `phaseLogV2`-native in the store.** Legacy `phases`/`activePhaseId` are derived projections for UI compatibility and are no longer persisted or mutated directly.
 
 ---
 
@@ -110,7 +110,7 @@ myNewAction: (param) => {
 ### Persistence Setup
 
 `setupEnergyMapStore()` (called once) does two things:
-1. Calls `initialize()` to load profile from Preferences + history from Dexie (with legacy key backfill and partial-history repair fallback)
+1. Calls `initialize()` to load profile from Preferences + history from Dexie (including one-time in-memory conversion of legacy Dexie `phases` docs into `phaseLogV2` when needed)
 2. Subscribes to `userData` changes with a 1-second debounced save (`SAVE_DEBOUNCE_MS = 1000`)
 
 **Critical:** Do not remove the debounce — saving 2MB+ JSON on every keystroke freezes the UI.
@@ -433,24 +433,22 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 | Key | Contents | Why |
 |-----|----------|-----|
 | `energyMapData_profile` | Settings, user stats, preferences, small lists | Primary profile/settings source of truth |
-| `energyMapData_history` | Legacy history mirror/fallback | Used for backfill/fallback during and after cutover |
 
 Primary history store is now Dexie (`energyMapHistory` DB), with document rows keyed by history field name.
 
-Split is determined by `HISTORY_FIELDS` array: `weightEntries`, `bodyFatEntries`, `stepEntries`, `nutritionData`, `phases`, `phaseLogV2`, `cardioSessions`, `cachedFoods`.
+Split is determined by `HISTORY_FIELDS` array: `weightEntries`, `bodyFatEntries`, `stepEntries`, `nutritionData`, `phaseLogV2`, `cardioSessions`, `cachedFoods`.
 
 ### Dexie History Store
 
 `utils/historyDatabase.js` manages:
 - DB name: `energyMapHistory`
-- `historyDocuments` table (`id` = history field key, payload document)
-- `metadata` table (migration markers, e.g. `historyMigrationState`)
+- `historyDocuments` table (`id` = history field key or sharded key, payload document)
 
 Helper surface:
-- `loadHistoryFromDexie(historyFieldKeys)`
+- `loadAllHistoryDocuments()`
 - `saveHistoryToDexie(historyData)`
-- `getDexieHistoryMigrationState()`
-- `setDexieHistoryMigrationState(value)`
+- `saveHistoryDocumentsToDexie(documents)`
+- `deleteHistoryDocumentsFromDexie(documentIds)`
 
 Return semantics are intentionally boolean-oriented for save helpers (`true`/`false`) so callers can handle non-throw failures.
 
@@ -470,11 +468,10 @@ Return semantics are intentionally boolean-oriented for save helpers (`true`/`fa
 
 ### Migration
 
-Migration behavior is layered:
-1. One-time migration from `localStorage` key `energyMapData` into current persistence (`saveEnergyMapData`).
-2. On load, if Dexie history is empty, app backfills from legacy `energyMapData_history` key.
-3. On load, if Dexie history is partially populated (missing history fields), app repairs missing fields from legacy `energyMapData_history` and writes repaired docs back to Dexie.
-4. Migration metadata is written to Dexie `metadata` table (`historyMigrationState`) after backfill/repair attempts.
+Migration behavior is now intentionally minimal:
+1. No `localStorage` or Preferences history backfill path is used.
+2. If a legacy Dexie `phases` document exists and `phaseLogV2` is empty, `mergeWithDefaults()` converts it in-memory via `convertLegacyPhasesToPhaseLogV2(...)`.
+3. Subsequent saves persist only `phaseLogV2` for phase history.
 
 ### Default Data
 
@@ -493,7 +490,7 @@ Migration behavior is layered:
 
 ## Data Schemas
 
-### `userData` (merged in memory from both storage keys)
+### `userData` (profile + Dexie history, merged in memory)
 
 ```javascript
 {
@@ -517,18 +514,18 @@ Migration behavior is layered:
   bodyFatTrackingEnabled: true,
   smartTefEnabled: false,          // Explicit macro-based TEF replaces implicit 10% in NEAT
 
-  // History (primary in Dexie, legacy fallback in Preferences history key)
+  // History (Dexie)
   cardioSessions: [{ id, type, duration, intensity, effortType, averageHeartRate? }],
   weightEntries: [{ date: 'YYYY-MM-DD', weight }],
   bodyFatEntries: [{ date: 'YYYY-MM-DD', bodyFat }],
   stepEntries: [{ date: 'YYYY-MM-DD', steps, source: 'healthConnect'|'manual' }],
   nutritionData: { 'YYYY-MM-DD': { mealType: [foodEntry, ...] } },
   cachedFoods: [],                  // Foods from FatSecret API (history-scoped; deduped + capped on persistence)
-  phases: [{ id, name, startDate, endDate, goal, startingWeight, status, dailyLogs }],
   phaseLogV2: { version, phasesById, phaseOrder, activePhaseId, logsById, logIdsByPhaseId, logIdByPhaseDate },
-  activePhaseId: null,
 }
 ```
+
+`phases` and `activePhaseId` still exist as derived store fields for UI compatibility, but they are projections from `phaseLogV2` (not persisted source-of-truth).
 
 ### Food Entry Shape
 
@@ -567,18 +564,18 @@ Daily logs store reference keys (`weightRef`, `bodyFatRef`, `nutritionRef`) poin
 
 Use `calculatePhaseMetrics()` from `utils/phases.js` for weight change, weekly rate, completion stats, and nutrition rollups (`avgCalories`, `avgProtein`, `avgCarbs`, `avgFats`, `nutritionDays`).
 
-### Phase/Logbook v2 Bridge (`utils/phaseLogV2.js`)
+### Phase/Logbook v2 Model (`utils/phaseLogV2.js`)
 
-The app currently uses a **bridge model**:
+The app now uses a **v2-native model**:
 
-- UI screens and modals still consume legacy `phases[].dailyLogs`.
-- Store normalization synchronizes to/from `phaseLogV2` (`convertLegacyPhasesToPhaseLogV2` and `convertPhaseLogV2ToLegacyPhases`).
+- Store actions mutate `phaseLogV2` directly.
+- UI compatibility views (`phases`, `activePhaseId`) are derived via `convertPhaseLogV2ToLegacyPhases(...)`.
 - Single-active-phase constraints are enforced in normalization (`active` uniqueness).
 
 When editing phase logic:
 
-1. Update legacy behavior used by UI.
-2. Keep conversion semantics intact.
+1. Treat `phaseLogV2` as the only source-of-truth.
+2. Keep `convertPhaseLogV2ToLegacyPhases(...)` stable for UI compatibility until screens are fully v2-native.
 3. Ensure deletions clear dangling references (weight/body-fat/nutrition refs).
 
 ---
@@ -664,15 +661,15 @@ src/
 │                                #   calculateTargetForGoal(steps, isTrainingDay, goalKey, options?) — 2-pass refinement for target TEF mode
 ├─ utils/
 │   ├─ calculations.js           # ALL calorie formulas — BMR, cardio, training, TDEE, BMI, FFMI, Smart TEF
-│   ├─ storage.js                # Orchestrates profile (Preferences) + history (Dexie) persistence and migration fallback
-│   ├─ historyDatabase.js        # Dexie history DB adapter + migration metadata helpers
+│   ├─ storage.js                # Orchestrates profile (Preferences) + history (Dexie) persistence
+│   ├─ historyDatabase.js        # Dexie history DB adapter + sharded document helpers
 │   ├─ profile.js                # Age/height sanitization helpers (sanitizeAge, sanitizeHeight, AGE/HEIGHT min/max constants)
 │   ├─ weight.js                 # Date normalization, weight clamping, sorting, trend analysis, sparklines (325 lines)
 │   ├─ steps.js                  # Step range parsing, step calorie estimation, getStepDetails (153 lines)
 │   ├─ bodyFat.js                # Body fat validation, trend analysis, sparklines (262 lines)
 │   ├─ bezierPath.js             # SVG cubic Bézier curve interpolation for charts (168 lines)
 │   ├─ phases.js                 # Phase metrics calculation (132 lines)
-│   ├─ phaseLogV2.js             # Normalized phase/log domain + legacy bridge conversion
+│   ├─ phaseLogV2.js             # Normalized phase/log domain; source-of-truth for phase state
 │   ├─ goalAlignment.js          # Weight trend vs goal alignment evaluation
 │   ├─ theme.js                  # Native theme application (status bar, transparent nav bar, keyboard)
 │   ├─ format.js                 # Number formatting (formatOne: 1 decimal place)
@@ -684,7 +681,7 @@ src/
 └─ tests/                        # Node test runner suite (`node --test`)
   ├─ constants/
   └─ utils/
-     ├─ storage.test.js          # Persistence split + migration + fallback behavior tests
+    ├─ storage.test.js          # Persistence split + Dexie-first behavior tests
 └─ native/                       # DEPRECATED — use utils/theme.js applyNativeTheme() instead
     ├─ statusBar.js
     └─ navigationBar.js
@@ -724,10 +721,10 @@ npm run test:watch     # Node test runner in watch mode
 
 1. **Async storage:** `Preferences.get()`/`.set()` are async. Always `await` or use the store (which handles it internally).
 2. **Save debounce:** The 1-second debounce in `setupEnergyMapStore` is critical. Removing it causes UI freezes from serializing large JSON on every keystroke.
-3. **Dexie is primary for history now:** Do not treat `energyMapData_history` as primary source; it is fallback/backfill compatibility storage.
-4. **Fallback semantics matter:** If Dexie history save fails, legacy Preferences history write is attempted automatically. Do not remove this fallback without a deliberate cleanup release.
-5. **Warnings should indicate real risk only:** Avoid noisy warnings for successful fallback paths.
-6. **History can be partially missing:** load flow now repairs missing Dexie history fields from legacy fallback when available; preserve this repair behavior.
+3. **Dexie is the only history persistence path:** Do not reintroduce Preferences history fallback/backfill logic.
+4. **Save failure semantics:** If Dexie history write fails, persistence risk warning is expected and should remain explicit.
+5. **Warnings should indicate real risk only:** Avoid noisy warnings unless a write was rejected or explicitly failed.
+6. **Legacy phase compatibility is limited:** Only one-time conversion from legacy Dexie `phases` docs to `phaseLogV2` remains.
 7. **Avoid full rewrite assumptions:** `saveEnergyMapData` writes changed profile/history segments only; avoid changes that force unconditional large writes.
 8. **Food cache retention is intentional:** `cachedFoods` is history-scoped and persisted with dedupe + max cap (currently 500). Keep retention logic if changing cache schema.
 9. **Never call `forceClose()`** on modals unless absolutely necessary — it skips exit animations and can cause visual glitches.
@@ -746,5 +743,5 @@ npm run test:watch     # Node test runner in watch mode
 22. **Nutrition references are data-backed, not cosmetic:** `nutritionRef` should map to a day that actually has entries in `nutritionData`. If meals are deleted for a date, clear stale refs (store sync handles this for food actions).
 23. **Phase metrics are nutrition-aware now:** Never hardcode `avgCalories = 0` in phase UIs. Use `calculatePhaseMetrics(phase, weightEntries, nutritionData)`.
 24. **Daily log nutrition management route:** In logbook flow, nutrition management routes through the Tracker screen date context; preserve selected date handoff when adjusting this UX.
-25. **Dual-write toggle:** `VITE_ENABLE_HISTORY_DUAL_WRITE=false` is the cutover default. Set true only for conservative rollback windows.
+25. **No dual-write toggle exists anymore:** Do not add `VITE_ENABLE_HISTORY_DUAL_WRITE`-style rollback flags back into normal save flow.
 26. **Node ESM import hygiene:** For modules used in tests, keep explicit `.js` file extensions in relative imports to avoid `ERR_MODULE_NOT_FOUND`.
