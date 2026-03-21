@@ -23,7 +23,7 @@ React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor 
 - `@capgo/capacitor-health` — Health Connect step sync (Android only)
 - `@capgo/capacitor-navigation-bar` — Android navigation bar theming
 
-**No test suite, no CI pipeline.** Manual testing only. No router — single-page app with swipeable screen carousel.
+**Testing exists (Node test runner), no CI pipeline yet.** Use automated tests for touched logic and then perform manual UI checks. No router — single-page app with swipeable screen carousel.
 
 ---
 
@@ -64,6 +64,8 @@ User action → Store action (updateUserData) → deriveState() recalculates
 3. **Store initialization is async.** `setupEnergyMapStore()` is called once from `EnergyMapCalculator`, which gates rendering on `isLoaded === true` to prevent flash of default data.
 
 4. **`main.jsx` bootstraps** by preventing pinch-to-zoom gestures (gesturestart/change/end + Ctrl+wheel), configuring Capacitor keyboard settings, and rendering `<App />` — no providers, no router.
+
+5. **Phase domain is currently dual-represented** (legacy `phases` + normalized `phaseLogV2`) and synchronized in store actions. Treat `phaseLogV2` as normalization infrastructure while UI remains legacy-facing.
 
 ---
 
@@ -428,7 +430,7 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 | `energyMapData_profile` | Settings, user stats, preferences, small lists | Fast reads for profile data |
 | `energyMapData_history` | Weight entries, nutrition logs, phases, cardio sessions, step entries | Can grow to 2MB+; separated to avoid blocking profile loads |
 
-Split is determined by `HISTORY_FIELDS` array: `weightEntries`, `bodyFatEntries`, `stepEntries`, `nutritionData`, `phases`, `cardioSessions`.
+Split is determined by `HISTORY_FIELDS` array: `weightEntries`, `bodyFatEntries`, `stepEntries`, `nutritionData`, `phases`, `phaseLogV2`, `cardioSessions`.
 
 ### Data Integrity Helpers
 
@@ -497,6 +499,7 @@ Automated one-time migration from `localStorage` key `energyMapData` to Capacito
   stepEntries: [{ date: 'YYYY-MM-DD', steps, source: 'healthConnect'|'manual' }],
   nutritionData: { 'YYYY-MM-DD': { mealType: [foodEntry, ...] } },
   phases: [{ id, name, startDate, endDate, goal, startingWeight, status, dailyLogs }],
+  phaseLogV2: { version, phasesById, phaseOrder, activePhaseId, logsById, logIdsByPhaseId, logIdByPhaseDate },
   activePhaseId: null,
 }
 ```
@@ -513,7 +516,7 @@ Meal types ordered by `MEAL_TYPE_ORDER` constant: breakfast, lunch, dinner, snac
 
 ### Phase Structure (Reference-Based)
 
-Daily logs store `weightRef`/`nutritionRef` string references pointing to `weightEntries`/`nutritionData` — **not** embedded copies. Status is derived by checking `.trim() !== ''`. This ensures single source of truth.
+Daily logs store reference keys (`weightRef`, `bodyFatRef`, `nutritionRef`) pointing to existing datasets — **not** embedded copies. This keeps single-source-of-truth behavior for trackers and phase analytics.
 
 ```javascript
 {
@@ -525,12 +528,32 @@ Daily logs store `weightRef`/`nutritionRef` string references pointing to `weigh
   startingWeight: 74,
   status: 'active',             // 'active' | 'completed'
   dailyLogs: {
-    'YYYY-MM-DD': { weightRef: 'YYYY-MM-DD', nutritionRef: 'YYYY-MM-DD', notes: 'Optional' }
+    'YYYY-MM-DD': {
+      weightRef: 'YYYY-MM-DD',
+      bodyFatRef: 'YYYY-MM-DD',
+      nutritionRef: 'YYYY-MM-DD',
+      notes: 'Optional',
+      completed: false
+    }
   }
 }
 ```
 
-Use `calculatePhaseMetrics()` from `utils/phases.js` for weight change, weekly rate, completion stats.
+Use `calculatePhaseMetrics()` from `utils/phases.js` for weight change, weekly rate, completion stats, and nutrition rollups (`avgCalories`, `avgProtein`, `avgCarbs`, `avgFats`, `nutritionDays`).
+
+### Phase/Logbook v2 Bridge (`utils/phaseLogV2.js`)
+
+The app currently uses a **bridge model**:
+
+- UI screens and modals still consume legacy `phases[].dailyLogs`.
+- Store normalization synchronizes to/from `phaseLogV2` (`convertLegacyPhasesToPhaseLogV2` and `convertPhaseLogV2ToLegacyPhases`).
+- Single-active-phase constraints are enforced in normalization (`active` uniqueness).
+
+When editing phase logic:
+
+1. Update legacy behavior used by UI.
+2. Keep conversion semantics intact.
+3. Ensure deletions clear dangling references (weight/body-fat/nutrition refs).
 
 ---
 
@@ -622,6 +645,7 @@ src/
 │   ├─ bodyFat.js                # Body fat validation, trend analysis, sparklines (262 lines)
 │   ├─ bezierPath.js             # SVG cubic Bézier curve interpolation for charts (168 lines)
 │   ├─ phases.js                 # Phase metrics calculation (132 lines)
+│   ├─ phaseLogV2.js             # Normalized phase/log domain + legacy bridge conversion
 │   ├─ goalAlignment.js          # Weight trend vs goal alignment evaluation
 │   ├─ theme.js                  # Native theme application (status bar, transparent nav bar, keyboard)
 │   ├─ format.js                 # Number formatting (formatOne: 1 decimal place)
@@ -630,6 +654,9 @@ src/
 │   └─ time.js                   # Time/duration helpers (normalize, round, format, split)
 ├─ services/
 │   └─ fatSecret.js              # FatSecret API client (403 lines)
+└─ tests/                        # Node test runner suite (`node --test`)
+  ├─ constants/
+  └─ utils/
 └─ native/                       # DEPRECATED — use utils/theme.js applyNativeTheme() instead
     ├─ statusBar.js
     └─ navigationBar.js
@@ -652,7 +679,13 @@ npx cap open ios       # Open in Xcode (Mac only)
 npm run lint           # ESLint check (flat config, Babel parser, Prettier integration)
 npm run lint:fix       # Auto-fix lint issues
 npm run format         # Prettier formatting
+npm run test           # Node test runner
+npm run test:watch     # Node test runner in watch mode
 ```
+
+**Testing notes:**
+- Tests use `node --test` with ESM; use explicit `.js` extensions in relative imports for test-executed modules.
+- `npm run lint` can include pre-existing warnings in untouched files. Prefer targeted lint for changed files during incremental work, then full lint when practical.
 
 **ESLint config:** Flat config format (`eslint.config.js`), uses `@babel/eslint-parser` with JSX preset. `react/prop-types` is disabled. Prettier runs as an ESLint rule.
 
@@ -675,3 +708,6 @@ npm run format         # Prettier formatting
 13. **Smart TEF and NEAT:** When `userData.smartTefEnabled` is true, `calculateCalorieBreakdown()` subtracts `TEF_MULTIPLIER_OFFSET` (0.1) from the activity multiplier and adds macro-derived TEF back explicitly. The displayed NEAT multiplier in `CalorieBreakdownModal` will therefore appear lower than the user's configured value — this is intentional and explained in `TefInfoModal`. Never remove the offset without also disabling TEF.
 14. **Activity multiplier clamping:** Custom activity multipliers have a floor defined by `MIN_CUSTOM_ACTIVITY_MULTIPLIER` in `activityPresets.js`. Always use `clampCustomActivityMultiplier()` when persisting custom NEAT values. The `DailyActivityCustomModal` picker starts at `MIN_CUSTOM_ACTIVITY_PERCENT` (10%), not 0.
 15. **Calorie breakdown request object:** `openCalorieBreakdown()` in the orchestrator accepts either a plain step count (legacy) or a `{ steps, tefContext }` object. `CalorieMapScreen` step cards and the live Health Connect card pass the full object to enable correct TEF mode selection.
+16. **Nutrition references are data-backed, not cosmetic:** `nutritionRef` should map to a day that actually has entries in `nutritionData`. If meals are deleted for a date, clear stale refs (store sync handles this for food actions).
+17. **Phase metrics are nutrition-aware now:** Never hardcode `avgCalories = 0` in phase UIs. Use `calculatePhaseMetrics(phase, weightEntries, nutritionData)`.
+18. **Daily log nutrition management route:** In logbook flow, nutrition management routes through the Tracker screen date context; preserve selected date handoff when adjusting this UX.
