@@ -25,6 +25,7 @@ const PROFILE_KEY = 'energyMapData_profile'; // Settings, preferences, small lis
 const HISTORY_KEY = 'energyMapData_history'; // Heavy logs: nutrition, weight, phases
 
 const SELECTED_DAY_KEY = 'energyMapSelectedDay';
+const MAX_CACHED_FOODS = 500;
 
 const HISTORY_FIELDS = [
   'weightEntries',
@@ -34,9 +35,15 @@ const HISTORY_FIELDS = [
   'phases',
   'phaseLogV2',
   'cardioSessions',
+  'cachedFoods',
 ];
 
 const ACTIVITY_DAY_TYPES = ['training', 'rest'];
+const hasOwnProperty = (obj, key) =>
+  Object.prototype.hasOwnProperty.call(obj, key);
+
+let lastSavedProfileSerialized = null;
+let lastSavedHistorySerializedByField = new Map();
 
 const hasLocalStorage = () =>
   typeof window !== 'undefined' && window.localStorage;
@@ -72,6 +79,100 @@ const parseJsonOrEmpty = (value) => {
     console.warn('Failed to parse stored JSON payload', error);
     return {};
   }
+};
+
+const getMissingHistoryFields = (historyData) =>
+  HISTORY_FIELDS.filter((field) => !hasOwnProperty(historyData, field));
+
+const getFoodCacheIdentity = (entry, index) => {
+  if (!entry || typeof entry !== 'object') {
+    return `index:${index}`;
+  }
+
+  const candidateKeys = [
+    entry.id,
+    entry.foodId,
+    entry.food_id,
+    entry.fatsecretId,
+    entry.barcode,
+  ];
+  const primary = candidateKeys.find(
+    (value) => typeof value === 'string' && value.trim().length > 0
+  );
+
+  if (primary) {
+    return primary.trim().toLowerCase();
+  }
+
+  const name =
+    typeof entry.name === 'string' ? entry.name.trim().toLowerCase() : '';
+  const brand =
+    typeof entry.brandName === 'string'
+      ? entry.brandName.trim().toLowerCase()
+      : '';
+
+  if (name || brand) {
+    return `${name}|${brand}`;
+  }
+
+  return `index:${index}`;
+};
+
+const normalizeCachedFoodsForPersistence = (
+  cachedFoods,
+  maxItems = MAX_CACHED_FOODS
+) => {
+  if (!Array.isArray(cachedFoods) || maxItems <= 0) {
+    return [];
+  }
+
+  const recentWindow = cachedFoods.slice(-maxItems * 3);
+  const seen = new Set();
+  const dedupedNewestFirst = [];
+
+  for (let index = recentWindow.length - 1; index >= 0; index -= 1) {
+    const entry = recentWindow[index];
+    const cacheIdentity = getFoodCacheIdentity(entry, index);
+
+    if (seen.has(cacheIdentity)) {
+      continue;
+    }
+
+    seen.add(cacheIdentity);
+    dedupedNewestFirst.push(entry);
+  }
+
+  const dedupedChronological = dedupedNewestFirst.reverse();
+  return dedupedChronological.slice(-maxItems);
+};
+
+const sanitizeHistoryForPersistence = (historyData) => ({
+  ...historyData,
+  cachedFoods: normalizeCachedFoodsForPersistence(historyData.cachedFoods),
+});
+
+const createHistorySerializedMap = (historyData) => {
+  const serializedByField = new Map();
+  Object.entries(historyData).forEach(([field, payload]) => {
+    serializedByField.set(field, JSON.stringify(payload));
+  });
+  return serializedByField;
+};
+
+const getChangedHistoryData = (historyData) => {
+  const changedHistoryData = {};
+  const serializedByField = createHistorySerializedMap(historyData);
+
+  serializedByField.forEach((serialized, field) => {
+    if (lastSavedHistorySerializedByField.get(field) !== serialized) {
+      changedHistoryData[field] = historyData[field];
+    }
+  });
+
+  return {
+    changedHistoryData,
+    serializedByField,
+  };
 };
 
 // Helper to migrate legacy localStorage data to Capacitor Preferences
@@ -110,29 +211,53 @@ export const loadEnergyMapData = async () => {
 
     // 3. Load history from Dexie first
     const dexieResult = await loadHistoryFromDexie(HISTORY_FIELDS);
-    let historyData = dexieResult.historyData;
+    const dexieHistoryData = dexieResult.historyData ?? {};
+    let historyData = { ...dexieHistoryData };
+    const missingHistoryFields = getMissingHistoryFields(historyData);
+    const shouldInspectLegacyHistory =
+      !dexieResult.hasAnyHistory || missingHistoryFields.length > 0;
 
-    // 4. Backfill Dexie from legacy Preferences history if needed
-    if (!dexieResult.hasAnyHistory) {
+    // 4. Backfill or repair Dexie from legacy Preferences history if needed
+    if (shouldInspectLegacyHistory) {
       const historyRes = await Preferences.get({ key: HISTORY_KEY });
       const legacyHistoryData = parseJsonOrEmpty(historyRes.value);
 
       if (Object.keys(legacyHistoryData).length > 0) {
-        historyData = legacyHistoryData;
-        const didBackfillDexie = await saveHistoryToDexie(legacyHistoryData);
+        if (!dexieResult.hasAnyHistory) {
+          historyData = legacyHistoryData;
+          const didBackfillDexie = await saveHistoryToDexie(legacyHistoryData);
 
-        if (didBackfillDexie) {
-          await setDexieHistoryMigrationState({
-            complete: true,
-            source: 'preferences-history',
-            migratedAt: Date.now(),
-          });
+          if (didBackfillDexie) {
+            await setDexieHistoryMigrationState({
+              complete: true,
+              source: 'preferences-history',
+              migratedAt: Date.now(),
+            });
+          } else {
+            await setDexieHistoryMigrationState({
+              complete: false,
+              source: 'preferences-history',
+              failedAt: Date.now(),
+            });
+          }
         } else {
-          await setDexieHistoryMigrationState({
-            complete: false,
-            source: 'preferences-history',
-            failedAt: Date.now(),
+          const repairedFields = {};
+          missingHistoryFields.forEach((fieldKey) => {
+            if (hasOwnProperty(legacyHistoryData, fieldKey)) {
+              historyData[fieldKey] = legacyHistoryData[fieldKey];
+              repairedFields[fieldKey] = legacyHistoryData[fieldKey];
+            }
           });
+
+          if (Object.keys(repairedFields).length > 0) {
+            const didRepairDexie = await saveHistoryToDexie(repairedFields);
+            await setDexieHistoryMigrationState({
+              complete: didRepairDexie,
+              source: 'preferences-history-repair',
+              repairedAt: Date.now(),
+              repairedFields: Object.keys(repairedFields),
+            });
+          }
         }
       }
     } else {
@@ -145,6 +270,8 @@ export const loadEnergyMapData = async () => {
         });
       }
     }
+
+    historyData = sanitizeHistoryForPersistence(historyData);
 
     if (
       Object.keys(profileData).length === 0 &&
@@ -178,14 +305,30 @@ export const saveEnergyMapData = async (data) => {
       }
     });
 
+    const normalizedHistoryData = sanitizeHistoryForPersistence(historyData);
+    const profileSerialized = JSON.stringify(profileData);
+    const { changedHistoryData, serializedByField } = getChangedHistoryData(
+      normalizedHistoryData
+    );
+    const hasProfileChanges = profileSerialized !== lastSavedProfileSerialized;
+    const hasHistoryChanges = Object.keys(changedHistoryData).length > 0;
+
+    if (!hasProfileChanges && !hasHistoryChanges) {
+      return;
+    }
+
     const dualWriteEnabled = isDualWriteEnabled();
 
     const primaryResults = await Promise.allSettled([
-      Preferences.set({
-        key: PROFILE_KEY,
-        value: JSON.stringify(profileData),
-      }),
-      saveHistoryToDexie(historyData),
+      hasProfileChanges
+        ? Preferences.set({
+            key: PROFILE_KEY,
+            value: profileSerialized,
+          })
+        : Promise.resolve('skipped-profile-write'),
+      hasHistoryChanges
+        ? saveHistoryToDexie(changedHistoryData)
+        : Promise.resolve(true),
     ]);
 
     const [, dexieResult] = primaryResults;
@@ -196,20 +339,37 @@ export const saveEnergyMapData = async (data) => {
     const dexieSucceeded =
       dexieResult?.status === 'fulfilled' && dexieResult.value === true;
     const hasExplicitFailureValue =
-      dexieResult?.status === 'fulfilled' && dexieResult.value === false;
+      hasHistoryChanges &&
+      dexieResult?.status === 'fulfilled' &&
+      dexieResult.value === false;
 
-    const shouldWriteLegacyHistory = dualWriteEnabled || !dexieSucceeded;
+    const shouldWriteLegacyHistory =
+      hasHistoryChanges && (dualWriteEnabled || !dexieSucceeded);
+    let fallbackHistorySucceeded = false;
     if (shouldWriteLegacyHistory) {
       const fallbackResult = await Promise.allSettled([
         Preferences.set({
           key: HISTORY_KEY,
-          value: JSON.stringify(historyData),
+          value: JSON.stringify(normalizedHistoryData),
         }),
       ]);
 
+      fallbackHistorySucceeded = fallbackResult[0]?.status === 'fulfilled';
       if (fallbackResult[0]?.status === 'rejected') {
         rejected.push(fallbackResult[0]);
       }
+    }
+
+    const profileWriteSucceeded =
+      !hasProfileChanges || primaryResults[0]?.status === 'fulfilled';
+    const historyWriteSucceeded =
+      !hasHistoryChanges || dexieSucceeded || fallbackHistorySucceeded;
+
+    if (profileWriteSucceeded) {
+      lastSavedProfileSerialized = profileSerialized;
+    }
+    if (historyWriteSucceeded) {
+      lastSavedHistorySerializedByField = serializedByField;
     }
 
     // Warn only when persistence is genuinely at risk:
@@ -450,7 +610,7 @@ function mergeWithDefaults(data) {
       ? data.foodFavourites
       : defaults.foodFavourites,
     cachedFoods: Array.isArray(data.cachedFoods)
-      ? data.cachedFoods
+      ? normalizeCachedFoodsForPersistence(data.cachedFoods)
       : defaults.cachedFoods,
   };
 }

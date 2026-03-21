@@ -69,11 +69,13 @@ test('saveEnergyMapData writes split profile and history payloads', async () => 
     assert.equal(profile.age, 29);
     assert.equal(profile.theme, 'dark');
     assert.equal(profile.weightEntries, undefined);
+    assert.equal(profile.cachedFoods, undefined);
 
     assert.deepEqual(history.weightEntries, [
       { date: '2026-03-20', weight: 80.5 },
     ]);
     assert.ok(Array.isArray(history.cardioSessions));
+    assert.ok(Array.isArray(history.cachedFoods));
   });
 });
 
@@ -202,5 +204,89 @@ test('saveEnergyMapData falls back to legacy history write without warning when 
     const historyRes = await Preferences.get({ key: HISTORY_KEY });
     assert.ok(profileRes.value, 'Profile write should still succeed');
     assert.ok(historyRes.value, 'Legacy dual-write should still succeed');
+  });
+});
+
+test('saveEnergyMapData trims and deduplicates cached foods before persisting', async () => {
+  await withWindowStorage(async () => {
+    await Preferences.remove({ key: PROFILE_KEY });
+    await Preferences.remove({ key: HISTORY_KEY });
+
+    const cachedFoods = Array.from({ length: 650 }, (_, index) => ({
+      id: `food-${index % 420}`,
+      name: `Food ${index % 420}`,
+      calories: 100 + (index % 50),
+      timestamp: 1700000000000 + index,
+    }));
+
+    await saveEnergyMapData({
+      ...getDefaultEnergyMapData(),
+      age: 31,
+      cachedFoods,
+    });
+
+    const profileRes = await Preferences.get({ key: PROFILE_KEY });
+    const historyRes = await Preferences.get({ key: HISTORY_KEY });
+
+    assert.ok(profileRes.value, 'Expected profile payload to be persisted');
+    assert.ok(historyRes.value, 'Expected history payload to be persisted');
+
+    const profile = JSON.parse(profileRes.value);
+    const history = JSON.parse(historyRes.value);
+
+    assert.equal(
+      profile.cachedFoods,
+      undefined,
+      'cachedFoods should not be persisted in profile payload'
+    );
+
+    assert.ok(Array.isArray(history.cachedFoods));
+    assert.ok(
+      history.cachedFoods.length <= 500,
+      'cachedFoods should be capped to MAX_CACHED_FOODS'
+    );
+
+    const ids = history.cachedFoods.map((food) => food?.id).filter(Boolean);
+    assert.equal(
+      ids.length,
+      new Set(ids).size,
+      'cachedFoods should be deduplicated by identity'
+    );
+  });
+});
+
+test('saveEnergyMapData skips redundant Preferences writes for unchanged payloads', async () => {
+  await withWindowStorage(async () => {
+    await Preferences.remove({ key: PROFILE_KEY });
+    await Preferences.remove({ key: HISTORY_KEY });
+
+    const originalSet = Preferences.set.bind(Preferences);
+    const setCalls = [];
+
+    Preferences.set = async (args) => {
+      setCalls.push(args?.key);
+      return originalSet(args);
+    };
+
+    try {
+      const payload = {
+        ...getDefaultEnergyMapData(),
+        age: 52,
+        weightEntries: [{ date: '2026-03-22', weight: 79.2 }],
+      };
+
+      await saveEnergyMapData(payload);
+      const firstSaveCallCount = setCalls.length;
+
+      await saveEnergyMapData(payload);
+
+      assert.equal(
+        setCalls.length,
+        firstSaveCallCount,
+        'Second save with unchanged payload should not trigger additional Preferences writes'
+      );
+    } finally {
+      Preferences.set = originalSet;
+    }
   });
 });

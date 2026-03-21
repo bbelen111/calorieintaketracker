@@ -53,8 +53,8 @@ main.jsx
 User action → Store action (updateUserData) → deriveState() recalculates
   → Zustand re-renders subscribers → subscribeWithSelector detects userData change
   → Debounced save (1s) → saveEnergyMapData() splits into profile/history
-  → Profile save: Capacitor Preferences.set(profile)
-  → History save: Dexie write (default)
+  → Profile save: Capacitor Preferences.set(profile) only when profile payload changed
+  → History save: Dexie write of changed history documents only
   → Legacy fallback save: Preferences.set(history) if dual-write enabled OR Dexie write fails
 ```
 
@@ -110,7 +110,7 @@ myNewAction: (param) => {
 ### Persistence Setup
 
 `setupEnergyMapStore()` (called once) does two things:
-1. Calls `initialize()` to load profile from Preferences + history from Dexie (with legacy key backfill fallback)
+1. Calls `initialize()` to load profile from Preferences + history from Dexie (with legacy key backfill and partial-history repair fallback)
 2. Subscribes to `userData` changes with a 1-second debounced save (`SAVE_DEBOUNCE_MS = 1000`)
 
 **Critical:** Do not remove the debounce — saving 2MB+ JSON on every keystroke freezes the UI.
@@ -437,7 +437,7 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 
 Primary history store is now Dexie (`energyMapHistory` DB), with document rows keyed by history field name.
 
-Split is determined by `HISTORY_FIELDS` array: `weightEntries`, `bodyFatEntries`, `stepEntries`, `nutritionData`, `phases`, `phaseLogV2`, `cardioSessions`.
+Split is determined by `HISTORY_FIELDS` array: `weightEntries`, `bodyFatEntries`, `stepEntries`, `nutritionData`, `phases`, `phaseLogV2`, `cardioSessions`, `cachedFoods`.
 
 ### Dexie History Store
 
@@ -473,7 +473,8 @@ Return semantics are intentionally boolean-oriented for save helpers (`true`/`fa
 Migration behavior is layered:
 1. One-time migration from `localStorage` key `energyMapData` into current persistence (`saveEnergyMapData`).
 2. On load, if Dexie history is empty, app backfills from legacy `energyMapData_history` key.
-3. Migration metadata is written to Dexie `metadata` table (`historyMigrationState`) after confirmed backfill success.
+3. On load, if Dexie history is partially populated (missing history fields), app repairs missing fields from legacy `energyMapData_history` and writes repaired docs back to Dexie.
+4. Migration metadata is written to Dexie `metadata` table (`historyMigrationState`) after backfill/repair attempts.
 
 ### Default Data
 
@@ -509,7 +510,6 @@ Migration behavior is layered:
   customActivityMultipliers: { training: 0.35, rest: 0.28 },
   trainingTypeOverrides: { bodybuilding: { label, description, caloriesPerHour }, ... },
   pinnedFoods: ['food_id1', ...],
-  cachedFoods: [],                  // Foods from FatSecret API
   foodFavourites: [],
   cardioFavourites: [],
   customCardioTypes: {},
@@ -523,6 +523,7 @@ Migration behavior is layered:
   bodyFatEntries: [{ date: 'YYYY-MM-DD', bodyFat }],
   stepEntries: [{ date: 'YYYY-MM-DD', steps, source: 'healthConnect'|'manual' }],
   nutritionData: { 'YYYY-MM-DD': { mealType: [foodEntry, ...] } },
+  cachedFoods: [],                  // Foods from FatSecret API (history-scoped; deduped + capped on persistence)
   phases: [{ id, name, startDate, endDate, goal, startingWeight, status, dailyLogs }],
   phaseLogV2: { version, phasesById, phaseOrder, activePhaseId, logsById, logIdsByPhaseId, logIdByPhaseDate },
   activePhaseId: null,
@@ -726,21 +727,24 @@ npm run test:watch     # Node test runner in watch mode
 3. **Dexie is primary for history now:** Do not treat `energyMapData_history` as primary source; it is fallback/backfill compatibility storage.
 4. **Fallback semantics matter:** If Dexie history save fails, legacy Preferences history write is attempted automatically. Do not remove this fallback without a deliberate cleanup release.
 5. **Warnings should indicate real risk only:** Avoid noisy warnings for successful fallback paths.
-6. **Never call `forceClose()`** on modals unless absolutely necessary — it skips exit animations and can cause visual glitches.
-7. **Step range parsing** is complex — always use `parseStepRange()` from `utils/steps.js`. It handles `<10k`, `>20k`, `10k-15k`, `+` suffix formats.
-8. **Cardio effort types:** Check `session.effortType` — `'intensity'` uses MET-based calculation, `'heartRate'` uses gender-specific heart rate coefficients.
-9. **Training type resolution:** Never use raw `trainingTypes` constants. The store's `resolveTrainingTypes()` merges constants with user overrides. Consume `trainingTypes` from the store.
-10. **Modal nesting:** Parent modals must delay state cleanup to prevent child modals from unmounting mid-animation. Use `MODAL_CLOSE_DELAY` (180ms) with `setTimeout`.
-11. **Safe areas:** Full-screen layouts must include `var(--sat)` / `var(--sab)` for notch and home indicator support.
-12. **No hardcoded colors:** Never use `bg-slate-*`, `text-white`, `border-slate-*`, `text-blue-400`, etc. Always use semantic tokens or accent tokens.
-13. **Hover gating:** Never use bare `hover:` — always use `md:hover:` to prevent sticky hover on touch devices.
-14. **Weight entries:** Always normalize dates with `normalizeDateKey()`, validate with `clampWeight()` (30-210 kg range), and sort with `sortWeightEntries()` before storing.
-15. **`native/` folder is deprecated.** Use `utils/theme.js` `applyNativeTheme()` for all native platform styling.
-16. **Smart TEF and NEAT:** When `userData.smartTefEnabled` is true, `calculateCalorieBreakdown()` subtracts `TEF_MULTIPLIER_OFFSET` (0.1) from the activity multiplier and adds macro-derived TEF back explicitly. The displayed NEAT multiplier in `CalorieBreakdownModal` will therefore appear lower than the user's configured value — this is intentional and explained in `TefInfoModal`. Never remove the offset without also disabling TEF.
-17. **Activity multiplier clamping:** Custom activity multipliers have a floor defined by `MIN_CUSTOM_ACTIVITY_MULTIPLIER` in `activityPresets.js`. Always use `clampCustomActivityMultiplier()` when persisting custom NEAT values. The `DailyActivityCustomModal` picker starts at `MIN_CUSTOM_ACTIVITY_PERCENT` (10%), not 0.
-18. **Calorie breakdown request object:** `openCalorieBreakdown()` in the orchestrator accepts either a plain step count (legacy) or a `{ steps, tefContext }` object. `CalorieMapScreen` step cards and the live Health Connect card pass the full object to enable correct TEF mode selection.
-19. **Nutrition references are data-backed, not cosmetic:** `nutritionRef` should map to a day that actually has entries in `nutritionData`. If meals are deleted for a date, clear stale refs (store sync handles this for food actions).
-20. **Phase metrics are nutrition-aware now:** Never hardcode `avgCalories = 0` in phase UIs. Use `calculatePhaseMetrics(phase, weightEntries, nutritionData)`.
-21. **Daily log nutrition management route:** In logbook flow, nutrition management routes through the Tracker screen date context; preserve selected date handoff when adjusting this UX.
-22. **Dual-write toggle:** `VITE_ENABLE_HISTORY_DUAL_WRITE=false` is the cutover default. Set true only for conservative rollback windows.
-23. **Node ESM import hygiene:** For modules used in tests, keep explicit `.js` file extensions in relative imports to avoid `ERR_MODULE_NOT_FOUND`.
+6. **History can be partially missing:** load flow now repairs missing Dexie history fields from legacy fallback when available; preserve this repair behavior.
+7. **Avoid full rewrite assumptions:** `saveEnergyMapData` writes changed profile/history segments only; avoid changes that force unconditional large writes.
+8. **Food cache retention is intentional:** `cachedFoods` is history-scoped and persisted with dedupe + max cap (currently 500). Keep retention logic if changing cache schema.
+9. **Never call `forceClose()`** on modals unless absolutely necessary — it skips exit animations and can cause visual glitches.
+10. **Step range parsing** is complex — always use `parseStepRange()` from `utils/steps.js`. It handles `<10k`, `>20k`, `10k-15k`, `+` suffix formats.
+11. **Cardio effort types:** Check `session.effortType` — `'intensity'` uses MET-based calculation, `'heartRate'` uses gender-specific heart rate coefficients.
+12. **Training type resolution:** Never use raw `trainingTypes` constants. The store's `resolveTrainingTypes()` merges constants with user overrides. Consume `trainingTypes` from the store.
+13. **Modal nesting:** Parent modals must delay state cleanup to prevent child modals from unmounting mid-animation. Use `MODAL_CLOSE_DELAY` (180ms) with `setTimeout`.
+14. **Safe areas:** Full-screen layouts must include `var(--sat)` / `var(--sab)` for notch and home indicator support.
+15. **No hardcoded colors:** Never use `bg-slate-*`, `text-white`, `border-slate-*`, `text-blue-400`, etc. Always use semantic tokens or accent tokens.
+16. **Hover gating:** Never use bare `hover:` — always use `md:hover:` to prevent sticky hover on touch devices.
+17. **Weight entries:** Always normalize dates with `normalizeDateKey()`, validate with `clampWeight()` (30-210 kg range), and sort with `sortWeightEntries()` before storing.
+18. **`native/` folder is deprecated.** Use `utils/theme.js` `applyNativeTheme()` for all native platform styling.
+19. **Smart TEF and NEAT:** When `userData.smartTefEnabled` is true, `calculateCalorieBreakdown()` subtracts `TEF_MULTIPLIER_OFFSET` (0.1) from the activity multiplier and adds macro-derived TEF back explicitly. The displayed NEAT multiplier in `CalorieBreakdownModal` will therefore appear lower than the user's configured value — this is intentional and explained in `TefInfoModal`. Never remove the offset without also disabling TEF.
+20. **Activity multiplier clamping:** Custom activity multipliers have a floor defined by `MIN_CUSTOM_ACTIVITY_MULTIPLIER` in `activityPresets.js`. Always use `clampCustomActivityMultiplier()` when persisting custom NEAT values. The `DailyActivityCustomModal` picker starts at `MIN_CUSTOM_ACTIVITY_PERCENT` (10%), not 0.
+21. **Calorie breakdown request object:** `openCalorieBreakdown()` in the orchestrator accepts either a plain step count (legacy) or a `{ steps, tefContext }` object. `CalorieMapScreen` step cards and the live Health Connect card pass the full object to enable correct TEF mode selection.
+22. **Nutrition references are data-backed, not cosmetic:** `nutritionRef` should map to a day that actually has entries in `nutritionData`. If meals are deleted for a date, clear stale refs (store sync handles this for food actions).
+23. **Phase metrics are nutrition-aware now:** Never hardcode `avgCalories = 0` in phase UIs. Use `calculatePhaseMetrics(phase, weightEntries, nutritionData)`.
+24. **Daily log nutrition management route:** In logbook flow, nutrition management routes through the Tracker screen date context; preserve selected date handoff when adjusting this UX.
+25. **Dual-write toggle:** `VITE_ENABLE_HISTORY_DUAL_WRITE=false` is the cutover default. Set true only for conservative rollback windows.
+26. **Node ESM import hygiene:** For modules used in tests, keep explicit `.js` file extensions in relative imports to avoid `ERR_MODULE_NOT_FOUND`.
