@@ -139,37 +139,7 @@ test('loadEnergyMapData merges profile and history from Preferences fallback', a
   });
 });
 
-test('loadEnergyMapData migrates legacy localStorage payload when present', async () => {
-  const legacyData = {
-    age: 40,
-    theme: 'amoled_dark',
-    weightEntries: [{ date: '2026-03-01', weight: 83.1 }],
-  };
-
-  await withWindowStorage(async ({ localStorage }) => {
-    localStorage.setItem('energyMapData', JSON.stringify(legacyData));
-
-    const loaded = await loadEnergyMapData();
-
-    assert.equal(loaded.age, 40);
-    assert.equal(loaded.theme, 'amoled_dark');
-    assert.equal(localStorage.getItem('energyMapData'), null);
-
-    const profileRes = await Preferences.get({ key: PROFILE_KEY });
-    const historyRes = await Preferences.get({ key: HISTORY_KEY });
-
-    assert.ok(
-      profileRes.value,
-      'Expected profile payload after legacy migration'
-    );
-    assert.ok(
-      historyRes.value,
-      'Expected history payload after legacy migration'
-    );
-  });
-});
-
-test('saveEnergyMapData falls back to legacy history write without warning when Dexie is unavailable', async () => {
+test('saveEnergyMapData falls back to Preferences history write without warning when Dexie is unavailable', async () => {
   await withWindowStorage(async () => {
     await Preferences.remove({ key: PROFILE_KEY });
     await Preferences.remove({ key: HISTORY_KEY });

@@ -5,11 +5,9 @@ import {
 } from '../constants/activityPresets.js';
 import {
   deleteHistoryDocumentsFromDexie,
-  getDexieHistoryMigrationState,
   loadAllHistoryDocuments,
   saveHistoryToDexie,
   saveHistoryDocumentsToDexie,
-  setDexieHistoryMigrationState,
 } from './historyDatabase.js';
 import { normalizeDateKey, sortWeightEntries } from './weight.js';
 import { clampBodyFat, sortBodyFatEntries } from './bodyFat.js';
@@ -18,9 +16,6 @@ import {
   createDefaultPhaseLogV2State,
   normalizePhaseLogV2State,
 } from './phaseLogV2.js';
-
-// Legacy key for migration
-const LEGACY_DATA_KEY = 'energyMapData';
 
 // Split keys for performance
 const PROFILE_KEY = 'energyMapData_profile'; // Settings, preferences, small lists
@@ -241,28 +236,6 @@ const hasOwnProperty = (obj, key) =>
 let lastSavedProfileSerialized = null;
 let lastSavedHistorySerializedByField = new Map();
 let lastSavedShardedDocIdsByField = new Map();
-
-const hasLocalStorage = () =>
-  typeof window !== 'undefined' && window.localStorage;
-
-const isEnvFlagEnabled = (value, fallback = false) => {
-  if (value == null) {
-    return fallback;
-  }
-
-  const normalized = String(value).trim().toLowerCase();
-  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
-    return true;
-  }
-  if (['0', 'false', 'no', 'off'].includes(normalized)) {
-    return false;
-  }
-
-  return fallback;
-};
-
-const isDualWriteEnabled = () =>
-  isEnvFlagEnabled(import.meta?.env?.VITE_ENABLE_HISTORY_DUAL_WRITE, false);
 
 const parseJsonOrEmpty = (value) => {
   if (!value) {
@@ -522,41 +495,13 @@ const getChangedHistoryData = (historyData) => {
   };
 };
 
-// Helper to migrate legacy localStorage data to Capacitor Preferences
-async function migrateFromLocalStorage() {
-  if (!hasLocalStorage()) return null;
-
-  try {
-    const legacy = window.localStorage.getItem(LEGACY_DATA_KEY);
-    if (legacy) {
-      const parsed = JSON.parse(legacy);
-
-      // Save to new storage
-      await saveEnergyMapData(parsed);
-
-      // Clear legacy
-      window.localStorage.removeItem(LEGACY_DATA_KEY);
-      return parsed;
-    }
-  } catch (err) {
-    console.error('Migration failed:', err);
-  }
-  return null;
-}
-
 export const loadEnergyMapData = async () => {
   try {
-    // 1. Try to migrate first
-    const migratedData = await migrateFromLocalStorage();
-    if (migratedData) {
-      return mergeWithDefaults(migratedData);
-    }
-
-    // 2. Load profile from Capacitor Preferences
+    // 1. Load profile from Capacitor Preferences
     const profileRes = await Preferences.get({ key: PROFILE_KEY });
     const profileData = parseJsonOrEmpty(profileRes.value);
 
-    // 3. Load history from Dexie first (supports both legacy field docs and sharded docs)
+    // 2. Load history from Dexie first (supports both legacy field docs and sharded docs)
     const dexieDocumentsResult = await loadAllHistoryDocuments();
     const dexieResult = reconstructHistoryFromDexieDocuments(
       dexieDocumentsResult.documents
@@ -568,7 +513,7 @@ export const loadEnergyMapData = async () => {
 
     lastSavedShardedDocIdsByField = dexieResult.shardDocIdsByField ?? new Map();
 
-    // 4. Backfill or repair Dexie from legacy Preferences history if needed
+    // 3. Backfill or repair Dexie from legacy Preferences history if needed
     if (shouldInspectLegacyHistory) {
       const historyRes = await Preferences.get({ key: HISTORY_KEY });
       const legacyHistoryData = parseJsonOrEmpty(historyRes.value);
@@ -576,21 +521,7 @@ export const loadEnergyMapData = async () => {
       if (Object.keys(legacyHistoryData).length > 0) {
         if (!dexieResult.hasAnyHistory) {
           historyData = legacyHistoryData;
-          const didBackfillDexie = await saveHistoryToDexie(legacyHistoryData);
-
-          if (didBackfillDexie) {
-            await setDexieHistoryMigrationState({
-              complete: true,
-              source: 'preferences-history',
-              migratedAt: Date.now(),
-            });
-          } else {
-            await setDexieHistoryMigrationState({
-              complete: false,
-              source: 'preferences-history',
-              failedAt: Date.now(),
-            });
-          }
+          await saveHistoryToDexie(legacyHistoryData);
         } else {
           const repairedFields = {};
           missingHistoryFields.forEach((fieldKey) => {
@@ -601,24 +532,9 @@ export const loadEnergyMapData = async () => {
           });
 
           if (Object.keys(repairedFields).length > 0) {
-            const didRepairDexie = await saveHistoryToDexie(repairedFields);
-            await setDexieHistoryMigrationState({
-              complete: didRepairDexie,
-              source: 'preferences-history-repair',
-              repairedAt: Date.now(),
-              repairedFields: Object.keys(repairedFields),
-            });
+            await saveHistoryToDexie(repairedFields);
           }
         }
-      }
-    } else {
-      const migrationState = await getDexieHistoryMigrationState();
-      if (!migrationState?.complete) {
-        await setDexieHistoryMigrationState({
-          complete: true,
-          source: 'dexie-history',
-          migratedAt: Date.now(),
-        });
       }
     }
 
@@ -631,7 +547,7 @@ export const loadEnergyMapData = async () => {
       return getDefaultEnergyMapData();
     }
 
-    // 5. Merge everything into in-memory shape
+    // 4. Merge everything into in-memory shape
     return mergeWithDefaults({
       ...profileData,
       ...historyData,
@@ -668,8 +584,6 @@ export const saveEnergyMapData = async (data) => {
       return;
     }
 
-    const dualWriteEnabled = isDualWriteEnabled();
-
     const primaryResults = await Promise.allSettled([
       hasProfileChanges
         ? Preferences.set({
@@ -694,8 +608,7 @@ export const saveEnergyMapData = async (data) => {
       dexieResult?.status === 'fulfilled' &&
       dexieResult.value === false;
 
-    const shouldWriteLegacyHistory =
-      hasHistoryChanges && (dualWriteEnabled || !dexieSucceeded);
+    const shouldWriteLegacyHistory = hasHistoryChanges && !dexieSucceeded;
     let fallbackHistorySucceeded = false;
     if (shouldWriteLegacyHistory) {
       const fallbackResult = await Promise.allSettled([
