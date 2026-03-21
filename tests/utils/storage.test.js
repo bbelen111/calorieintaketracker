@@ -225,6 +225,88 @@ test('saveEnergyMapData trims and deduplicates cached foods before Dexie persist
   });
 });
 
+test('save/loadEnergyMapData round-trips phaseLogV2 via sharded history documents', async () => {
+  await withWindowStorage(async () => {
+    await Preferences.remove({ key: PROFILE_KEY });
+    await clearDexieHistory();
+
+    const payload = {
+      ...getDefaultEnergyMapData(),
+      phaseLogV2: {
+        version: 2,
+        phasesById: {
+          'phase-1': {
+            id: 'phase-1',
+            name: 'Mini Cut',
+            startDate: '2026-03-01',
+            goalType: 'cutting',
+            status: 'active',
+            createdAt: 1700000000000,
+            updatedAt: 1700000000000,
+          },
+        },
+        phaseOrder: ['phase-1'],
+        activePhaseId: 'phase-1',
+        logsById: {
+          'phase-1:2026-03-21': {
+            id: 'phase-1:2026-03-21',
+            phaseId: 'phase-1',
+            date: '2026-03-21',
+            links: {
+              weightEntryId: '2026-03-21',
+              bodyFatEntryId: null,
+              nutritionDayKey: '2026-03-21',
+              stepEntryId: null,
+              trainingSessionIds: [],
+            },
+            notes: 'Log note',
+            metadata: {},
+            createdAt: 1700000000000,
+            updatedAt: 1700000000000,
+          },
+        },
+        logIdsByPhaseId: {
+          'phase-1': ['phase-1:2026-03-21'],
+        },
+        logIdByPhaseDate: {
+          'phase-1': {
+            '2026-03-21': 'phase-1:2026-03-21',
+          },
+        },
+      },
+    };
+
+    await saveEnergyMapData(payload);
+
+    const historySnapshot = await loadAllHistoryDocuments();
+    if (historySnapshot.available) {
+      const phaseDocs = historySnapshot.documents.filter((document) =>
+        String(document?.id).startsWith('phaseLogV2:')
+      );
+      assert.ok(
+        phaseDocs.length >= 3,
+        'Expected phaseLogV2 to be persisted as sharded documents'
+      );
+    }
+
+    const loaded = await loadEnergyMapData();
+    if (historySnapshot.available) {
+      assert.equal(loaded.phaseLogV2.activePhaseId, 'phase-1');
+      assert.equal(loaded.phaseLogV2.phaseOrder[0], 'phase-1');
+      assert.equal(
+        loaded.phaseLogV2.logsById['phase-1:2026-03-21'].notes,
+        'Log note'
+      );
+    } else {
+      assert.equal(
+        loaded.phaseLogV2.activePhaseId,
+        null,
+        'Expected default phase state when Dexie is unavailable'
+      );
+    }
+  });
+});
+
 test('saveEnergyMapData skips redundant Preferences writes for unchanged payloads', async () => {
   await withWindowStorage(async () => {
     await Preferences.remove({ key: PROFILE_KEY });

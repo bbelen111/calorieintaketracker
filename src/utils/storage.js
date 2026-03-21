@@ -33,6 +33,54 @@ const HISTORY_FIELDS = [
   'cachedFoods',
 ];
 
+const buildPhaseLogV2Indexes = (phaseLogV2State) => {
+  const logIdsByPhaseId = {};
+  const logIdByPhaseDate = {};
+
+  phaseLogV2State.phaseOrder.forEach((phaseId) => {
+    logIdsByPhaseId[phaseId] = [];
+    logIdByPhaseDate[phaseId] = {};
+  });
+
+  Object.values(phaseLogV2State.logsById ?? {}).forEach((log) => {
+    if (!log || typeof log !== 'object') {
+      return;
+    }
+
+    const phaseId = log.phaseId;
+    if (phaseId == null || !phaseLogV2State.phasesById?.[phaseId]) {
+      return;
+    }
+
+    if (!logIdsByPhaseId[phaseId]) {
+      logIdsByPhaseId[phaseId] = [];
+    }
+    if (!logIdByPhaseDate[phaseId]) {
+      logIdByPhaseDate[phaseId] = {};
+    }
+
+    logIdsByPhaseId[phaseId].push(log.id);
+    if (typeof log.date === 'string' && log.date.trim().length > 0) {
+      logIdByPhaseDate[phaseId][log.date] = log.id;
+    }
+  });
+
+  Object.entries(logIdsByPhaseId).forEach(([phaseId, logIds]) => {
+    logIds.sort((a, b) => {
+      const logA = phaseLogV2State.logsById?.[a];
+      const logB = phaseLogV2State.logsById?.[b];
+      const dateA = typeof logA?.date === 'string' ? logA.date : '';
+      const dateB = typeof logB?.date === 'string' ? logB.date : '';
+      return dateA.localeCompare(dateB);
+    });
+  });
+
+  return {
+    logIdsByPhaseId,
+    logIdByPhaseDate,
+  };
+};
+
 const SHARDED_HISTORY_FIELD_CONFIG = {
   nutritionData: {
     prefix: 'nutritionData:',
@@ -223,6 +271,92 @@ const SHARDED_HISTORY_FIELD_CONFIG = {
         .map((payload) => payload?.entry)
         .filter(Boolean),
   },
+  phaseLogV2: {
+    prefix: 'phaseLogV2:',
+    toDocuments: (value) => {
+      const normalized = normalizePhaseLogV2State(value);
+      const documents = [
+        {
+          key: 'meta',
+          payload: {
+            version: normalized.version,
+            phaseOrder: normalized.phaseOrder,
+            activePhaseId: normalized.activePhaseId,
+          },
+        },
+      ];
+
+      Object.entries(normalized.phasesById).forEach(([phaseId, phase]) => {
+        documents.push({
+          key: `phase:${phaseId}`,
+          payload: phase,
+        });
+      });
+
+      Object.entries(normalized.logsById).forEach(([logId, log]) => {
+        documents.push({
+          key: `log:${logId}`,
+          payload: log,
+        });
+      });
+
+      return documents;
+    },
+    fromDocuments: (documents) => {
+      const phasesById = {};
+      const logsById = {};
+      let meta = null;
+
+      documents.forEach(({ key, payload }) => {
+        if (key === 'meta') {
+          meta = payload;
+          return;
+        }
+
+        if (typeof key !== 'string') {
+          return;
+        }
+
+        if (key.startsWith('phase:')) {
+          const phaseId = key.slice('phase:'.length);
+          if (!phaseId) {
+            return;
+          }
+          phasesById[phaseId] = payload;
+          return;
+        }
+
+        if (key.startsWith('log:')) {
+          const logId = key.slice('log:'.length);
+          if (!logId) {
+            return;
+          }
+          logsById[logId] = payload;
+        }
+      });
+
+      const fallbackPhaseOrder = Object.keys(phasesById);
+      const phaseOrder = Array.isArray(meta?.phaseOrder)
+        ? meta.phaseOrder
+        : fallbackPhaseOrder;
+
+      const indexed = buildPhaseLogV2Indexes({
+        phasesById,
+        phaseOrder,
+        logsById,
+      });
+
+      return normalizePhaseLogV2State({
+        version: Number(meta?.version) || undefined,
+        phasesById,
+        phaseOrder,
+        activePhaseId: meta?.activePhaseId ?? null,
+        logsById,
+        logIdsByPhaseId: indexed.logIdsByPhaseId,
+        logIdByPhaseDate: indexed.logIdByPhaseDate,
+      });
+    },
+  },
 };
 
 const SHARDED_HISTORY_FIELDS = Object.keys(SHARDED_HISTORY_FIELD_CONFIG);
@@ -232,6 +366,7 @@ const ACTIVITY_DAY_TYPES = ['training', 'rest'];
 let lastSavedProfileSerialized = null;
 let lastSavedHistorySerializedByField = new Map();
 let lastSavedShardedDocIdsByField = new Map();
+let lastSavedShardedDocSerializedByField = new Map();
 
 const parseJsonOrEmpty = (value) => {
   if (!value) {
@@ -286,6 +421,9 @@ export const reconstructHistoryFromDexieDocuments = (documents = []) => {
   const shardDocIdsByField = new Map(
     SHARDED_HISTORY_FIELDS.map((field) => [field, new Set()])
   );
+  const shardDocSerializedByField = new Map(
+    SHARDED_HISTORY_FIELDS.map((field) => [field, new Map()])
+  );
 
   documents.forEach((document) => {
     const documentId = document?.id;
@@ -309,6 +447,9 @@ export const reconstructHistoryFromDexieDocuments = (documents = []) => {
       payload: document.payload,
     });
     shardDocIdsByField.get(fieldName)?.add(documentId);
+    shardDocSerializedByField
+      .get(fieldName)
+      ?.set(documentId, JSON.stringify(document.payload));
   });
 
   SHARDED_HISTORY_FIELDS.forEach((fieldName) => {
@@ -325,6 +466,7 @@ export const reconstructHistoryFromDexieDocuments = (documents = []) => {
     historyData,
     hasAnyHistory: Array.isArray(documents) && documents.length > 0,
     shardDocIdsByField,
+    shardDocSerializedByField,
   };
 };
 
@@ -345,6 +487,7 @@ const saveHistoryToDexieWithSharding = async (changedHistoryData = {}) => {
   const shardedDocsToSave = [];
   const shardedDocIdsToDelete = [];
   const nextShardedDocIdsByField = new Map();
+  const nextShardedDocSerializedByField = new Map();
 
   Object.entries(changedHistoryData).forEach(([fieldName, fieldValue]) => {
     if (!SHARDED_HISTORY_FIELD_CONFIG[fieldName]) {
@@ -353,9 +496,25 @@ const saveHistoryToDexieWithSharding = async (changedHistoryData = {}) => {
     }
 
     const documents = getShardedFieldDocuments(fieldName, fieldValue);
-    documents.forEach((document) => shardedDocsToSave.push(document));
-
     const nextDocIds = new Set(documents.map((document) => document.id));
+    const nextDocSerializedMap = new Map(
+      documents.map((document) => [
+        document.id,
+        JSON.stringify(document.payload),
+      ])
+    );
+
+    const previousDocSerializedMap =
+      lastSavedShardedDocSerializedByField.get(fieldName) ?? new Map();
+
+    documents.forEach((document) => {
+      const nextSerialized = nextDocSerializedMap.get(document.id);
+      const previousSerialized = previousDocSerializedMap.get(document.id);
+      if (nextSerialized !== previousSerialized) {
+        shardedDocsToSave.push(document);
+      }
+    });
+
     const previousDocIds =
       lastSavedShardedDocIdsByField.get(fieldName) ?? new Set();
 
@@ -366,6 +525,7 @@ const saveHistoryToDexieWithSharding = async (changedHistoryData = {}) => {
     });
 
     nextShardedDocIdsByField.set(fieldName, nextDocIds);
+    nextShardedDocSerializedByField.set(fieldName, nextDocSerializedMap);
   });
 
   const writeOperations = [];
@@ -391,6 +551,9 @@ const saveHistoryToDexieWithSharding = async (changedHistoryData = {}) => {
   if (didSucceed) {
     nextShardedDocIdsByField.forEach((docIds, fieldName) => {
       lastSavedShardedDocIdsByField.set(fieldName, docIds);
+    });
+    nextShardedDocSerializedByField.forEach((docSerialized, fieldName) => {
+      lastSavedShardedDocSerializedByField.set(fieldName, docSerialized);
     });
   }
 
@@ -502,6 +665,8 @@ export const loadEnergyMapData = async () => {
     let historyData = { ...(dexieResult.historyData ?? {}) };
 
     lastSavedShardedDocIdsByField = dexieResult.shardDocIdsByField ?? new Map();
+    lastSavedShardedDocSerializedByField =
+      dexieResult.shardDocSerializedByField ?? new Map();
 
     historyData = sanitizeHistoryForPersistence(historyData);
 

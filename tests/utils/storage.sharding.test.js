@@ -166,3 +166,56 @@ test('reconstructHistoryFromDexieDocuments ignores legacy phases payload', () =>
   assert.equal('legacyPhases' in historyData, false);
   assert.equal('phaseLogV2' in historyData, false);
 });
+
+test('reconstructHistoryFromDexieDocuments rebuilds phaseLogV2 from sharded docs', () => {
+  const documents = [
+    {
+      id: 'phaseLogV2:meta',
+      payload: {
+        version: 2,
+        phaseOrder: ['phase-1'],
+        activePhaseId: 'phase-1',
+      },
+    },
+    {
+      id: 'phaseLogV2:phase%3Aphase-1',
+      payload: {
+        id: 'phase-1',
+        name: 'Lean Bulk',
+        startDate: '2026-03-01',
+        goalType: 'bulking',
+        status: 'active',
+        createdAt: 1700000000000,
+      },
+    },
+    {
+      id: 'phaseLogV2:log%3Aphase-1%3A2026-03-21',
+      payload: {
+        id: 'phase-1:2026-03-21',
+        phaseId: 'phase-1',
+        date: '2026-03-21',
+        links: {
+          weightEntryId: '2026-03-21',
+          bodyFatEntryId: null,
+          nutritionDayKey: '2026-03-21',
+          stepEntryId: null,
+          trainingSessionIds: [],
+        },
+        notes: 'Good day',
+        metadata: {},
+        createdAt: 1700000000000,
+        updatedAt: 1700000000000,
+      },
+    },
+  ];
+
+  const { historyData } = reconstructHistoryFromDexieDocuments(documents);
+
+  assert.equal(historyData.phaseLogV2.activePhaseId, 'phase-1');
+  assert.equal(historyData.phaseLogV2.phaseOrder[0], 'phase-1');
+  assert.equal(historyData.phaseLogV2.logsById['phase-1:2026-03-21'].notes, 'Good day');
+  assert.equal(
+    historyData.phaseLogV2.logIdByPhaseDate['phase-1']['2026-03-21'],
+    'phase-1:2026-03-21'
+  );
+});
