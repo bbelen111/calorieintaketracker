@@ -73,6 +73,33 @@ export const loadHistoryFromDexie = async (historyFieldKeys = []) => {
   }
 };
 
+export const loadAllHistoryDocuments = async () => {
+  const db = getDatabase();
+  if (!db) {
+    return {
+      available: false,
+      hasAnyHistory: false,
+      documents: [],
+    };
+  }
+
+  try {
+    const documents = await db.table(HISTORY_TABLE).toArray();
+    return {
+      available: true,
+      hasAnyHistory: documents.length > 0,
+      documents,
+    };
+  } catch (error) {
+    console.warn('Failed to load all history documents from Dexie', error);
+    return {
+      available: true,
+      hasAnyHistory: false,
+      documents: [],
+    };
+  }
+};
+
 export const saveHistoryToDexie = async (historyData = {}) => {
   const db = getDatabase();
   if (!db) {
@@ -99,6 +126,56 @@ export const saveHistoryToDexie = async (historyData = {}) => {
     return true;
   } catch (error) {
     console.warn('Failed to save history to Dexie', error);
+    return false;
+  }
+};
+
+export const saveHistoryDocumentsToDexie = async (documents = []) => {
+  const db = getDatabase();
+  if (!db) {
+    return false;
+  }
+
+  if (!Array.isArray(documents) || documents.length === 0) {
+    return true;
+  }
+
+  const updatedAt = Date.now();
+
+  try {
+    await db.transaction('rw', db.table(HISTORY_TABLE), async () => {
+      await db.table(HISTORY_TABLE).bulkPut(
+        documents.map((document) => ({
+          id: document.id,
+          payload: document.payload,
+          updatedAt,
+        }))
+      );
+    });
+    return true;
+  } catch (error) {
+    console.warn('Failed to save sharded history documents to Dexie', error);
+    return false;
+  }
+};
+
+export const deleteHistoryDocumentsFromDexie = async (documentIds = []) => {
+  const db = getDatabase();
+  if (!db) {
+    return false;
+  }
+
+  if (!Array.isArray(documentIds) || documentIds.length === 0) {
+    return true;
+  }
+
+  try {
+    await db.transaction('rw', db.table(HISTORY_TABLE), async () => {
+      await db.table(HISTORY_TABLE).bulkDelete(documentIds);
+    });
+    return true;
+  } catch (error) {
+    console.warn('Failed to delete sharded history documents from Dexie', error);
     return false;
   }
 };

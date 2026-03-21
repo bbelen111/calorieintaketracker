@@ -4,13 +4,15 @@ import {
   DEFAULT_ACTIVITY_MULTIPLIERS,
 } from '../constants/activityPresets.js';
 import {
+  deleteHistoryDocumentsFromDexie,
   getDexieHistoryMigrationState,
-  loadHistoryFromDexie,
+  loadAllHistoryDocuments,
   saveHistoryToDexie,
+  saveHistoryDocumentsToDexie,
   setDexieHistoryMigrationState,
 } from './historyDatabase.js';
-import { sortWeightEntries } from './weight.js';
-import { sortBodyFatEntries } from './bodyFat.js';
+import { normalizeDateKey, sortWeightEntries } from './weight.js';
+import { clampBodyFat, sortBodyFatEntries } from './bodyFat.js';
 import { sanitizeAge, sanitizeHeight } from './profile.js';
 import {
   createDefaultPhaseLogV2State,
@@ -38,12 +40,207 @@ const HISTORY_FIELDS = [
   'cachedFoods',
 ];
 
+const SHARDED_HISTORY_FIELD_CONFIG = {
+  nutritionData: {
+    prefix: 'nutritionData:',
+    toDocuments: (value) => {
+      if (!value || typeof value !== 'object') {
+        return [];
+      }
+
+      return Object.entries(value)
+        .filter(([date]) => typeof date === 'string' && date.trim().length > 0)
+        .map(([date, meals]) => ({
+          key: date,
+          payload: meals && typeof meals === 'object' ? meals : {},
+        }));
+    },
+    fromDocuments: (documents) => {
+      const next = {};
+      documents.forEach(({ key, payload }) => {
+        if (!key) return;
+        next[key] = payload && typeof payload === 'object' ? payload : {};
+      });
+      return next;
+    },
+  },
+  weightEntries: {
+    prefix: 'weightEntries:',
+    toDocuments: (value) => {
+      if (!Array.isArray(value)) {
+        return [];
+      }
+
+      return value
+        .map((entry) => {
+          const dateKey = normalizeDateKey(entry?.date);
+          const weightValue = Number(entry?.weight);
+          if (!dateKey || !Number.isFinite(weightValue)) {
+            return null;
+          }
+
+          return {
+            key: dateKey,
+            payload: {
+              date: dateKey,
+              weight: weightValue,
+            },
+          };
+        })
+        .filter(Boolean);
+    },
+    fromDocuments: (documents) =>
+      documents
+        .map(({ payload }) => payload)
+        .filter(
+          (entry) => normalizeDateKey(entry?.date) && entry?.weight != null
+        ),
+  },
+  bodyFatEntries: {
+    prefix: 'bodyFatEntries:',
+    toDocuments: (value) => {
+      if (!Array.isArray(value)) {
+        return [];
+      }
+
+      return value
+        .map((entry) => {
+          const dateKey = normalizeDateKey(entry?.date);
+          const bodyFatValue = clampBodyFat(entry?.bodyFat);
+          if (!dateKey || bodyFatValue == null) {
+            return null;
+          }
+
+          return {
+            key: dateKey,
+            payload: {
+              date: dateKey,
+              bodyFat: bodyFatValue,
+            },
+          };
+        })
+        .filter(Boolean);
+    },
+    fromDocuments: (documents) =>
+      documents
+        .map(({ payload }) => payload)
+        .filter(
+          (entry) =>
+            normalizeDateKey(entry?.date) &&
+            clampBodyFat(entry?.bodyFat) != null
+        ),
+  },
+  stepEntries: {
+    prefix: 'stepEntries:',
+    toDocuments: (value) => {
+      if (!Array.isArray(value)) {
+        return [];
+      }
+
+      return value
+        .map((entry) => {
+          const dateKey = normalizeDateKey(entry?.date);
+          const numericSteps = Number(entry?.steps);
+          if (!dateKey || !Number.isFinite(numericSteps) || numericSteps < 0) {
+            return null;
+          }
+
+          return {
+            key: dateKey,
+            payload: {
+              date: dateKey,
+              steps: Math.round(numericSteps),
+              source: entry?.source ?? 'manual',
+            },
+          };
+        })
+        .filter(Boolean);
+    },
+    fromDocuments: (documents) =>
+      documents
+        .map(({ payload }) => payload)
+        .filter(
+          (entry) =>
+            normalizeDateKey(entry?.date) &&
+            Number.isFinite(Number(entry?.steps)) &&
+            Number(entry?.steps) >= 0
+        ),
+  },
+  cardioSessions: {
+    prefix: 'cardioSessions:',
+    toDocuments: (value) => {
+      if (!Array.isArray(value)) {
+        return [];
+      }
+
+      return value
+        .map((session, index) => {
+          if (!session || typeof session !== 'object') {
+            return null;
+          }
+
+          const sessionId =
+            session.id != null ? String(session.id) : `fallback-${index}`;
+
+          return {
+            key: sessionId,
+            payload: {
+              ...session,
+              id: sessionId,
+              __order: index,
+            },
+          };
+        })
+        .filter(Boolean);
+    },
+    fromDocuments: (documents) =>
+      documents
+        .map(({ payload }) => payload)
+        .filter(Boolean)
+        .sort((a, b) => (a?.__order ?? 0) - (b?.__order ?? 0))
+        .map((payload) => {
+          const session = { ...payload };
+          delete session.__order;
+          return session;
+        }),
+  },
+  cachedFoods: {
+    prefix: 'cachedFoods:',
+    toDocuments: (value) => {
+      const normalized = normalizeCachedFoodsForPersistence(value);
+      if (!Array.isArray(normalized)) {
+        return [];
+      }
+
+      return normalized
+        .map((entry, index) => ({
+          key: getFoodCacheIdentity(entry, index),
+          payload: {
+            entry,
+            __order: index,
+          },
+        }))
+        .filter((doc) => typeof doc.key === 'string' && doc.key.length > 0);
+    },
+    fromDocuments: (documents) =>
+      documents
+        .map(({ payload }) => payload)
+        .filter(Boolean)
+        .sort((a, b) => (a?.__order ?? 0) - (b?.__order ?? 0))
+        .map((payload) => payload?.entry)
+        .filter(Boolean),
+  },
+};
+
+const SHARDED_HISTORY_FIELDS = Object.keys(SHARDED_HISTORY_FIELD_CONFIG);
+
 const ACTIVITY_DAY_TYPES = ['training', 'rest'];
 const hasOwnProperty = (obj, key) =>
   Object.prototype.hasOwnProperty.call(obj, key);
 
 let lastSavedProfileSerialized = null;
 let lastSavedHistorySerializedByField = new Map();
+let lastSavedShardedDocIdsByField = new Map();
 
 const hasLocalStorage = () =>
   typeof window !== 'undefined' && window.localStorage;
@@ -83,6 +280,156 @@ const parseJsonOrEmpty = (value) => {
 
 const getMissingHistoryFields = (historyData) =>
   HISTORY_FIELDS.filter((field) => !hasOwnProperty(historyData, field));
+
+const encodeShardKey = (value) =>
+  encodeURIComponent(String(value ?? '').trim());
+
+const decodeShardKey = (value) => {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
+
+const buildShardedDocumentId = (prefix, key) =>
+  `${prefix}${encodeShardKey(key)}`;
+
+const parseShardedDocument = (id) => {
+  for (const fieldName of SHARDED_HISTORY_FIELDS) {
+    const { prefix } = SHARDED_HISTORY_FIELD_CONFIG[fieldName];
+    if (!String(id).startsWith(prefix)) {
+      continue;
+    }
+
+    const encodedKey = String(id).slice(prefix.length);
+    return {
+      fieldName,
+      key: decodeShardKey(encodedKey),
+    };
+  }
+
+  return null;
+};
+
+export const reconstructHistoryFromDexieDocuments = (documents = []) => {
+  const historyData = {};
+  const shardedBuckets = new Map(
+    SHARDED_HISTORY_FIELDS.map((field) => [field, []])
+  );
+  const shardDocIdsByField = new Map(
+    SHARDED_HISTORY_FIELDS.map((field) => [field, new Set()])
+  );
+
+  documents.forEach((document) => {
+    const documentId = document?.id;
+    if (typeof documentId !== 'string') {
+      return;
+    }
+
+    if (HISTORY_FIELDS.includes(documentId)) {
+      historyData[documentId] = document.payload;
+      return;
+    }
+
+    const parsedShardedDoc = parseShardedDocument(documentId);
+    if (!parsedShardedDoc) {
+      return;
+    }
+
+    const { fieldName, key } = parsedShardedDoc;
+    shardedBuckets.get(fieldName)?.push({
+      key,
+      payload: document.payload,
+    });
+    shardDocIdsByField.get(fieldName)?.add(documentId);
+  });
+
+  SHARDED_HISTORY_FIELDS.forEach((fieldName) => {
+    const bucket = shardedBuckets.get(fieldName) ?? [];
+    if (bucket.length === 0) {
+      return;
+    }
+
+    historyData[fieldName] =
+      SHARDED_HISTORY_FIELD_CONFIG[fieldName].fromDocuments(bucket);
+  });
+
+  return {
+    historyData,
+    hasAnyHistory: Array.isArray(documents) && documents.length > 0,
+    shardDocIdsByField,
+  };
+};
+
+const getShardedFieldDocuments = (fieldName, fieldValue) => {
+  const config = SHARDED_HISTORY_FIELD_CONFIG[fieldName];
+  if (!config) {
+    return [];
+  }
+
+  return config.toDocuments(fieldValue).map(({ key, payload }) => ({
+    id: buildShardedDocumentId(config.prefix, key),
+    payload,
+  }));
+};
+
+const saveHistoryToDexieWithSharding = async (changedHistoryData = {}) => {
+  const standardHistoryUpdates = {};
+  const shardedDocsToSave = [];
+  const shardedDocIdsToDelete = [];
+  const nextShardedDocIdsByField = new Map();
+
+  Object.entries(changedHistoryData).forEach(([fieldName, fieldValue]) => {
+    if (!SHARDED_HISTORY_FIELD_CONFIG[fieldName]) {
+      standardHistoryUpdates[fieldName] = fieldValue;
+      return;
+    }
+
+    const documents = getShardedFieldDocuments(fieldName, fieldValue);
+    documents.forEach((document) => shardedDocsToSave.push(document));
+
+    const nextDocIds = new Set(documents.map((document) => document.id));
+    const previousDocIds =
+      lastSavedShardedDocIdsByField.get(fieldName) ?? new Set();
+
+    previousDocIds.forEach((previousDocId) => {
+      if (!nextDocIds.has(previousDocId)) {
+        shardedDocIdsToDelete.push(previousDocId);
+      }
+    });
+
+    nextShardedDocIdsByField.set(fieldName, nextDocIds);
+  });
+
+  const writeOperations = [];
+  if (Object.keys(standardHistoryUpdates).length > 0) {
+    writeOperations.push(saveHistoryToDexie(standardHistoryUpdates));
+  }
+  if (shardedDocsToSave.length > 0) {
+    writeOperations.push(saveHistoryDocumentsToDexie(shardedDocsToSave));
+  }
+  if (shardedDocIdsToDelete.length > 0) {
+    writeOperations.push(
+      deleteHistoryDocumentsFromDexie(shardedDocIdsToDelete)
+    );
+  }
+
+  if (writeOperations.length === 0) {
+    return true;
+  }
+
+  const writeResults = await Promise.all(writeOperations);
+  const didSucceed = writeResults.every((result) => result === true);
+
+  if (didSucceed) {
+    nextShardedDocIdsByField.forEach((docIds, fieldName) => {
+      lastSavedShardedDocIdsByField.set(fieldName, docIds);
+    });
+  }
+
+  return didSucceed;
+};
 
 const getFoodCacheIdentity = (entry, index) => {
   if (!entry || typeof entry !== 'object') {
@@ -209,13 +556,17 @@ export const loadEnergyMapData = async () => {
     const profileRes = await Preferences.get({ key: PROFILE_KEY });
     const profileData = parseJsonOrEmpty(profileRes.value);
 
-    // 3. Load history from Dexie first
-    const dexieResult = await loadHistoryFromDexie(HISTORY_FIELDS);
-    const dexieHistoryData = dexieResult.historyData ?? {};
-    let historyData = { ...dexieHistoryData };
+    // 3. Load history from Dexie first (supports both legacy field docs and sharded docs)
+    const dexieDocumentsResult = await loadAllHistoryDocuments();
+    const dexieResult = reconstructHistoryFromDexieDocuments(
+      dexieDocumentsResult.documents
+    );
+    let historyData = { ...(dexieResult.historyData ?? {}) };
     const missingHistoryFields = getMissingHistoryFields(historyData);
     const shouldInspectLegacyHistory =
       !dexieResult.hasAnyHistory || missingHistoryFields.length > 0;
+
+    lastSavedShardedDocIdsByField = dexieResult.shardDocIdsByField ?? new Map();
 
     // 4. Backfill or repair Dexie from legacy Preferences history if needed
     if (shouldInspectLegacyHistory) {
@@ -327,7 +678,7 @@ export const saveEnergyMapData = async (data) => {
           })
         : Promise.resolve('skipped-profile-write'),
       hasHistoryChanges
-        ? saveHistoryToDexie(changedHistoryData)
+        ? saveHistoryToDexieWithSharding(changedHistoryData)
         : Promise.resolve(true),
     ]);
 
