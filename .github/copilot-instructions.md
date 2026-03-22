@@ -35,7 +35,7 @@ React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor 
 ```
 main.jsx
   └─ App.jsx (theme management, store hydration gate)
-       └─ EnergyMapCalculator.jsx (3,300+ lines — THE orchestrator)
+       └─ EnergyMapCalculator.jsx (3,400+ lines — THE orchestrator)
             ├─ 5-screen carousel (useSwipeableScreens)
             │   ├─ LogbookScreen
             │   ├─ TrackerScreen
@@ -43,8 +43,8 @@ main.jsx
             │   ├─ CalorieMapScreen
             │   └─ InsightsScreen
             ├─ PhaseDetailScreen (drill-down, not in carousel)
-              └─ 36 top-level useAnimatedModal instances → 45 modal files
-                 └─ ~17 additional child-level modals inside modal components
+              └─ 36 top-level useAnimatedModal instances → 46 modal files
+                 └─ ~21 additional child-level modals inside modal components
 ```
 
 ### Data Flow
@@ -60,7 +60,7 @@ User action → Store action (updateUserData) → deriveState() recalculates
 
 ### Key Architectural Decisions
 
-1. **Single orchestrator file (`EnergyMapCalculator.jsx`)** owns all modal lifecycle state, temporary form drafts, and screen navigation. At 3,300+ lines, it's deliberately centralized — not a candidate for splitting. New modals are instantiated here.
+1. **Single orchestrator file (`EnergyMapCalculator.jsx`)** owns all modal lifecycle state, temporary form drafts, and screen navigation. At 3,400+ lines, it's deliberately centralized — not a candidate for splitting. New modals are instantiated here.
 
 2. **Derived state pattern:** The Zustand store's `deriveState()` function recomputes `bmr`, `trainingCalories`, `totalCardioBurn`, sorted entries, and resolved types on every `userData` mutation. Never duplicate these calculations — consume them from the store.
 
@@ -128,15 +128,15 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 ### Modal Count
 
 - **36 `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
-- **~17 additional child-level modals** declared inside modal components (e.g., delete confirmations, sub-pickers)
-- **45 modal files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`:
+- **~21 additional child-level modals** declared inside modal components (e.g., delete confirmations, sub-pickers)
+- **46 modal files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`:
   - `fullscreen/` — WeightTrackerModal, BodyFatTrackerModal, StepTrackerModal, SettingsModal, FoodSearchModal
-  - `pickers/` — AgePickerModal, BodyFatPickerModal, CalendarPickerModal, DatePickerModal, DurationPickerModal, FoodPortionModal, HeartRatePickerModal, HeightPickerModal, MealTypePickerModal, MetValuePickerModal, StepGoalPickerModal, TemplatePickerModal, WeightPickerModal
+  - `pickers/` — AgePickerModal, BodyFatPickerModal, CalendarPickerModal, **CaloriesPerHourPickerModal**, DatePickerModal, DurationPickerModal, FoodPortionModal, HeartRatePickerModal, HeightPickerModal, MealTypePickerModal, MetValuePickerModal, StepGoalPickerModal, TemplatePickerModal, WeightPickerModal
   - `info/` — BmiInfoModal, BmrInfoModal, BodyFatTrendInfoModal, CalorieBreakdownModal, CaloriesPerHourGuideModal, FfmiInfoModal, TefInfoModal, WeightTrendInfoModal
   - `forms/` — AddCustomFoodModal, BodyFatEntryModal, CardioModal, CustomCardioTypeModal, DailyActivityCustomModal, DailyActivityEditorModal, DailyActivityModal, DailyLogModal, FoodEntryModal, GoalModal, PhaseCreationModal, TrainingModal, StepRangesModal, TrainingTypeEditorModal, WeightEntryModal
   - `lists/` — CardioFavouritesModal, CardioTypeListModal, FoodFavouritesModal
   - `common/` — ConfirmActionModal
-- Total across codebase: ~56 modal instances
+- Total across codebase: ~57 modal hook instances (`useAnimatedModal`)
 
 ### `useAnimatedModal` Hook
 
@@ -192,7 +192,7 @@ const myNewModal = useAnimatedModal();
 
 ### ModalShell Architecture
 
-`ModalShell` (`common/ModalShell.jsx`, 601 lines) uses **three singleton managers**:
+`ModalShell` (`common/ModalShell.jsx`) uses **three singleton managers**:
 - **`ModalStackManager`** — Assigns z-index per modal (`BASE_Z_INDEX=1000 + position`), tracks topmost for escape/focus
 - **`SharedOverlayManager`** — Single backdrop element shared across all modals, progressive darkening per nesting depth
 - **`BodyScrollLockManager`** — Reference-counted scroll lock with scrollbar width compensation
@@ -217,9 +217,9 @@ useEffect(() => {
 
 ### Nested Modal Timing
 
-Child modals should use longer close delays (+50ms) to prevent premature unmounting:
+For nested modal stacks, explicitly pass `MODAL_CLOSE_DELAY` for consistency with parent close timing:
 ```javascript
-const childModal = useAnimatedModal(false, MODAL_CLOSE_DELAY); // 180ms instead of default
+const childModal = useAnimatedModal(false, MODAL_CLOSE_DELAY); // keep close timing aligned
 ```
 
 ### Reusable Confirm Modal
@@ -601,10 +601,11 @@ Optional online food search proxied through Vercel serverless function.
 
 **Key functions:**
 ```javascript
-import { searchFoods, getFoodDetails, searchBarcode } from './services/fatSecret';
-const results = await searchFoods('chicken breast', { page: 0, maxResults: 20 });
+import { searchFoods, getFoodDetails, searchBarcode, getAutocomplete } from './services/fatSecret';
+const results = await searchFoods('chicken breast', 0);
 const food = await getFoodDetails(foodId);
 const food = await searchBarcode('012345678901');
+const suggestions = await getAutocomplete('chick');
 ```
 
 Results cached in `userData.cachedFoods` to reduce API calls.
@@ -633,11 +634,11 @@ Always returns `'unavailable'` on web and iOS. Status constants exported as `Hea
 ```
 src/
 ├─ components/EnergyMap/
-│   ├─ EnergyMapCalculator.jsx   # THE orchestrator (3,300+ lines)
+│   ├─ EnergyMapCalculator.jsx   # THE orchestrator (3,100+ lines)
 │   ├─ common/
-│   │   ├─ ModalShell.jsx        # Core modal wrapper (601 lines, singleton managers)
+│   │   ├─ ModalShell.jsx        # Core modal wrapper (singleton managers)
 │   │   └─ ScreenTabs.jsx        # Tab bar + floating variant
-│   ├─ modals/                   # 45 modal files in 6 subfolders, all use ModalShell
+│   ├─ modals/                   # 46 modal files in 6 subfolders, all use ModalShell
 │   │   ├─ fullscreen/           # Full-screen takeover modals (WeightTracker, BodyFatTracker, StepTracker, Settings, FoodSearch)
 │   │   ├─ pickers/              # Scroll-wheel value pickers (Age, BodyFat, Calendar, Height, Weight, MealType, etc.)
 │   │   ├─ info/                 # Read-only info/reference sheets (BmiInfo, BmrInfo, CalorieBreakdown, TefInfo, etc.)
@@ -669,11 +670,11 @@ src/
 │   ├─ storage.js                # Orchestrates profile (Preferences) + history (Dexie) persistence
 │   ├─ historyDatabase.js        # Dexie history DB adapter + sharded document helpers
 │   ├─ profile.js                # Age/height sanitization helpers (sanitizeAge, sanitizeHeight, AGE/HEIGHT min/max constants)
-│   ├─ weight.js                 # Date normalization, weight clamping, sorting, trend analysis, sparklines (324 lines)
-│   ├─ steps.js                  # Step range parsing, step calorie estimation, getStepDetails (178 lines)
-│   ├─ bodyFat.js                # Body fat validation, trend analysis, sparklines (280 lines)
-│   ├─ bezierPath.js             # SVG cubic Bézier curve interpolation for charts (170 lines)
-│   ├─ phases.js                 # Phase metrics calculation (256 lines)
+│   ├─ weight.js                 # Date normalization, weight clamping, sorting, trend analysis, sparklines
+│   ├─ steps.js                  # Step range parsing, step calorie estimation, getStepDetails
+│   ├─ bodyFat.js                # Body fat validation, trend analysis, sparklines
+│   ├─ bezierPath.js             # SVG cubic Bézier curve interpolation for charts
+│   ├─ phases.js                 # Phase metrics calculation
 │   ├─ phaseLogV2.js             # Normalized phase/log domain; source-of-truth for phase state
 │   ├─ goalAlignment.js          # Weight trend vs goal alignment evaluation
 │   ├─ theme.js                  # Native theme application (status bar, transparent nav bar, keyboard)
@@ -682,7 +683,7 @@ src/
 │   ├─ scroll.js                 # Scroll utilities
 │   └─ time.js                   # Time/duration helpers (normalize, round, format, split)
 ├─ services/
-│   └─ fatSecret.js              # FatSecret API client (403 lines)
+│   └─ fatSecret.js              # FatSecret API client
 └─ tests/                        # Node test runner suite (`node --test`)
   ├─ constants/
   └─ utils/
