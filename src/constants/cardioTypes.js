@@ -324,9 +324,29 @@ const baseCardioTypes = {
     label: 'Treadmill Incline Walk',
     met: { light: 4.5, moderate: 5.5, vigorous: 6.8 },
   },
+  desk_treadmill_walk: {
+    label: 'Desk Treadmill Walk',
+    met: { light: 2.0, moderate: 2.8, vigorous: 3.5 },
+  },
+  race_walking: {
+    label: 'Race Walking',
+    met: { light: 5.0, moderate: 6.5, vigorous: 8.0 },
+  },
   treadmill_hill_run: {
     label: 'Treadmill Hill Run',
     met: { light: 8.5, moderate: 10.0, vigorous: 12.5 },
+  },
+  jog_outdoor_easy: {
+    label: 'Outdoor Jog (Easy)',
+    met: { light: 5.8, moderate: 7.0, vigorous: 8.3 },
+  },
+  road_run: {
+    label: 'Road Running',
+    met: { light: 7.0, moderate: 8.8, vigorous: 10.8 },
+  },
+  track_run_intervals: {
+    label: 'Track Intervals',
+    met: { light: 8.0, moderate: 10.0, vigorous: 12.5 },
   },
   tempo_run: {
     label: 'Tempo Run',
@@ -432,6 +452,14 @@ const baseCardioTypes = {
     label: 'Power Hike',
     met: { light: 6.0, moderate: 7.8, vigorous: 9.8 },
   },
+  ruck_march: {
+    label: 'Ruck March (Weighted Walk)',
+    met: { light: 5.5, moderate: 7.0, vigorous: 8.5 },
+  },
+  trail_power_hike: {
+    label: 'Trail Power Hike',
+    met: { light: 6.0, moderate: 7.8, vigorous: 9.5 },
+  },
   surf_paddling: {
     label: 'Surfing / Paddling',
     met: { light: 4.0, moderate: 5.8, vigorous: 7.5 },
@@ -486,6 +514,36 @@ const AMBULATORY_STEP_PROFILE_OVERRIDES = {
   stair_climb_outdoor: { ambulatory: true, cadence: 148 },
   treadmill_jog: { ambulatory: true, cadence: 152 },
   treadmill_run: { ambulatory: true, cadence: 166 },
+  desk_treadmill_walk: { ambulatory: true, cadence: 108 },
+  race_walking: { ambulatory: true, cadence: 150 },
+  jog_outdoor_easy: { ambulatory: true, cadence: 154 },
+  road_run: { ambulatory: true, cadence: 164 },
+  track_run_intervals: { ambulatory: true, cadence: 176 },
+  ruck_march: { ambulatory: true, cadence: 122 },
+  trail_power_hike: { ambulatory: true, cadence: 130 },
+  shuttle_runs: { ambulatory: true, cadence: 176 },
+  agility_drills: { ambulatory: true, cadence: 154 },
+  soccer_drills: { ambulatory: true, cadence: 162 },
+  soccer_match: { ambulatory: true, cadence: 166 },
+  futsal: { ambulatory: true, cadence: 168 },
+  basketball_drills: { ambulatory: true, cadence: 156 },
+  basketball_game: { ambulatory: true, cadence: 160 },
+  rugby_training: { ambulatory: true, cadence: 154 },
+  rugby_match: { ambulatory: true, cadence: 162 },
+  american_football: { ambulatory: true, cadence: 148 },
+  field_hockey: { ambulatory: true, cadence: 160 },
+  lacrosse: { ambulatory: true, cadence: 164 },
+  ultimate_frisbee: { ambulatory: true, cadence: 158 },
+  tennis_singles: { ambulatory: true, cadence: 146 },
+  tennis_doubles: { ambulatory: true, cadence: 136 },
+  handball: { ambulatory: true, cadence: 156 },
+  obstacle_course: { ambulatory: true, cadence: 162 },
+  parkour: { ambulatory: true, cadence: 160 },
+  bootcamp_circuit: { ambulatory: true, cadence: 148 },
+  cross_country_ski: { ambulatory: true, cadence: 138 },
+  snowshoeing: { ambulatory: true, cadence: 134 },
+  speed_skating: { ambulatory: true, cadence: 160 },
+  inline_skating: { ambulatory: true, cadence: 144 },
 };
 
 const MIN_CADENCE = 0;
