@@ -1,4 +1,133 @@
 const DEFAULT_RESULT = { min: 0, max: null, operator: 'exact' };
+const INTENSITY_CADENCE_MULTIPLIER = {
+  light: 0.9,
+  moderate: 1,
+  vigorous: 1.1,
+};
+
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+const resolveCadenceFromCardioType = (cardioType) => {
+  const explicitCadence = Number(cardioType?.cadence);
+  if (Number.isFinite(explicitCadence) && explicitCadence > 0) {
+    return Math.round(explicitCadence);
+  }
+
+  // Fallback for custom types that may define MET but not cadence.
+  const moderateMet = Number(cardioType?.met?.moderate);
+  if (!Number.isFinite(moderateMet) || moderateMet <= 0) {
+    return 0;
+  }
+
+  return Math.round(clamp(80 + moderateMet * 9, 0, 220));
+};
+
+const getHeartRateCadenceMultiplier = (heartRate) => {
+  const numeric = Number(heartRate);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return 1;
+  }
+
+  // Baseline around 140 bpm, bounded to avoid unrealistic spikes.
+  return clamp(numeric / 140, 0.85, 1.25);
+};
+
+export const isStepBasedCardioType = (typeKey, cardioType) => {
+  if (!typeKey || !cardioType || typeof cardioType !== 'object') {
+    return false;
+  }
+  return Boolean(cardioType.ambulatory);
+};
+
+export const estimateSessionStepsFromCardio = (session, cardioTypes = {}) => {
+  if (!session || typeof session !== 'object') {
+    return 0;
+  }
+
+  const cardioType = cardioTypes?.[session.type] ?? null;
+  if (!isStepBasedCardioType(session.type, cardioType)) {
+    return 0;
+  }
+
+  const durationMinutes = Number(session.duration);
+  if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
+    return 0;
+  }
+
+  const baseCadence = resolveCadenceFromCardioType(cardioType);
+  if (!Number.isFinite(baseCadence) || baseCadence <= 0) {
+    return 0;
+  }
+  const intensityMultiplier =
+    INTENSITY_CADENCE_MULTIPLIER[session.intensity ?? 'moderate'] ?? 1;
+
+  const heartRateMultiplier =
+    session.effortType === 'heartRate'
+      ? getHeartRateCadenceMultiplier(session.averageHeartRate)
+      : 1;
+
+  const cadence = baseCadence * intensityMultiplier * heartRateMultiplier;
+  return Math.round(Math.max(0, cadence * durationMinutes));
+};
+
+export const getStepOverlapFromCardioSessions = ({
+  estimatedSteps,
+  cardioSessions,
+  cardioTypes,
+}) => {
+  const safeEstimatedSteps = Number.isFinite(estimatedSteps)
+    ? Math.max(0, Math.round(estimatedSteps))
+    : 0;
+  const sessions = Array.isArray(cardioSessions) ? cardioSessions : [];
+
+  let rawDeductedSteps = 0;
+  const sessionDetails = [];
+
+  sessions.forEach((session) => {
+    const cardioType = cardioTypes?.[session?.type] ?? null;
+    const isStepBased = isStepBasedCardioType(session?.type, cardioType);
+    if (!isStepBased) {
+      return;
+    }
+
+    const enabled = session?.stepOverlapEnabled ?? true;
+    const estimatedSessionSteps = estimateSessionStepsFromCardio(
+      session,
+      cardioTypes
+    );
+
+    sessionDetails.push({
+      id: session?.id ?? null,
+      type: session?.type ?? null,
+      label: cardioType?.label ?? session?.type ?? 'Cardio',
+      durationMinutes: Number(session?.duration) || 0,
+      effortType: session?.effortType ?? 'intensity',
+      enabled,
+      estimatedSessionSteps,
+    });
+
+    if (enabled) {
+      rawDeductedSteps += estimatedSessionSteps;
+    }
+  });
+
+  const deductedSteps = Math.min(safeEstimatedSteps, rawDeductedSteps);
+  const remainingEstimatedSteps = Math.max(
+    0,
+    safeEstimatedSteps - deductedSteps
+  );
+
+  return {
+    originalEstimatedSteps: safeEstimatedSteps,
+    rawDeductedSteps,
+    deductedSteps,
+    remainingEstimatedSteps,
+    stepOverlapSessionsCount: sessionDetails.filter((detail) => detail.enabled)
+      .length,
+    stepOverlapApplicableSessionsCount: sessionDetails.length,
+    sessionDetails,
+  };
+};
 
 export const parseStepRange = (rawRange) => {
   if (!rawRange) {

@@ -3,6 +3,7 @@ import {
   clampCustomActivityMultiplier,
   DEFAULT_ACTIVITY_MULTIPLIERS,
 } from '../constants/activityPresets.js';
+import { cardioTypes as baseCardioTypes } from '../constants/cardioTypes.js';
 import {
   deleteHistoryDocumentsFromDexie,
   loadAllHistoryDocuments,
@@ -12,6 +13,7 @@ import {
 import { normalizeDateKey, sortWeightEntries } from './weight.js';
 import { clampBodyFat, sortBodyFatEntries } from './bodyFat.js';
 import { sanitizeAge, sanitizeHeight } from './profile.js';
+import { isStepBasedCardioType } from './steps.js';
 import {
   createDefaultPhaseLogV2State,
   normalizePhaseLogV2State,
@@ -881,6 +883,10 @@ function mergeWithDefaults(data) {
     ...defaults.customActivityMultipliers,
     ...(dataWithoutLegacyPhases.customActivityMultipliers ?? {}),
   };
+  const resolvedCardioTypes = {
+    ...baseCardioTypes,
+    ...(dataWithoutLegacyPhases.customCardioTypes ?? {}),
+  };
 
   ACTIVITY_DAY_TYPES.forEach((dayType) => {
     const fallbackCustom = Number.isFinite(customActivityMultipliers[dayType])
@@ -951,12 +957,24 @@ function mergeWithDefaults(data) {
       ? dataWithoutLegacyPhases.cardioSessions.map((session) => ({
           ...session,
           effortType: session?.effortType ?? 'intensity',
+          stepOverlapEnabled: isStepBasedCardioType(
+            session?.type,
+            resolvedCardioTypes?.[session?.type]
+          )
+            ? Boolean(session?.stepOverlapEnabled ?? true)
+            : false,
         }))
       : defaults.cardioSessions,
     cardioFavourites: Array.isArray(dataWithoutLegacyPhases.cardioFavourites)
       ? dataWithoutLegacyPhases.cardioFavourites.map((session) => ({
           ...session,
           effortType: session?.effortType ?? 'intensity',
+          stepOverlapEnabled: isStepBasedCardioType(
+            session?.type,
+            resolvedCardioTypes?.[session?.type]
+          )
+            ? Boolean(session?.stepOverlapEnabled ?? true)
+            : false,
         }))
       : defaults.cardioFavourites,
     weightEntries: sortWeightEntries(

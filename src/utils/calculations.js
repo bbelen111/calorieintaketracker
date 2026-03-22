@@ -1,5 +1,9 @@
 import { DEFAULT_ACTIVITY_MULTIPLIERS } from '../constants/activityPresets.js';
-import { getStepDetails } from './steps.js';
+import {
+  getStepCaloriesDetails,
+  getStepDetails,
+  getStepOverlapFromCardioSessions,
+} from './steps.js';
 
 const HEART_RATE_COEFFICIENTS = {
   male: {
@@ -446,7 +450,7 @@ export const calculateCalorieBreakdown = ({
     ...normalizedProfile,
   };
 
-  const stepDetails = getStepDetails(steps, normalizedUserData);
+  const baseStepDetails = getStepDetails(steps, normalizedUserData);
   const bmrDetails = resolveBmrDetails(normalizedUserData);
   const trainingTypeKey = normalizedUserData?.trainingType;
   const trainingType = trainingTypes?.[trainingTypeKey] ?? null;
@@ -459,6 +463,29 @@ export const calculateCalorieBreakdown = ({
   const cardioSessions = Array.isArray(normalizedUserData?.cardioSessions)
     ? normalizedUserData.cardioSessions
     : [];
+  const stepOverlap = getStepOverlapFromCardioSessions({
+    estimatedSteps: baseStepDetails.estimatedSteps,
+    cardioSessions,
+    cardioTypes,
+  });
+  const adjustedStepCalorieDetails = getStepCaloriesDetails(
+    stepOverlap.remainingEstimatedSteps,
+    normalizedUserData
+  );
+  const stepDetails = {
+    ...baseStepDetails,
+    ...adjustedStepCalorieDetails,
+    calories: Math.round(adjustedStepCalorieDetails.calories),
+    estimatedSteps: stepOverlap.remainingEstimatedSteps,
+    originalEstimatedSteps: stepOverlap.originalEstimatedSteps,
+    deductedSteps: stepOverlap.deductedSteps,
+    rawDeductedSteps: stepOverlap.rawDeductedSteps,
+    remainingEstimatedSteps: stepOverlap.remainingEstimatedSteps,
+    stepOverlapSessionsCount: stepOverlap.stepOverlapSessionsCount,
+    stepOverlapApplicableSessionsCount:
+      stepOverlap.stepOverlapApplicableSessionsCount,
+    stepOverlapSessions: stepOverlap.sessionDetails,
+  };
   const multipliers =
     normalizedUserData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS;
   const rawActivityMultiplier = isTrainingDay
@@ -570,6 +597,13 @@ export const calculateCalorieBreakdown = ({
     stepCalories: stepDetails.calories,
     stepDetails,
     estimatedSteps: stepDetails.estimatedSteps,
+    originalEstimatedSteps: stepDetails.originalEstimatedSteps,
+    deductedSteps: stepDetails.deductedSteps,
+    remainingEstimatedSteps: stepDetails.remainingEstimatedSteps,
+    stepOverlapSessionsCount: stepDetails.stepOverlapSessionsCount,
+    stepOverlapApplicableSessionsCount:
+      stepDetails.stepOverlapApplicableSessionsCount,
+    stepOverlapSessions: stepDetails.stepOverlapSessions,
     trainingBurn,
     trainingDuration,
     trainingCaloriesPerHour,

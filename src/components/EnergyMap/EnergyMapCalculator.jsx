@@ -87,6 +87,7 @@ import {
   getNutritionTotalsForDate,
   hasNutritionEntriesForDate,
 } from '../../utils/phases';
+import { isStepBasedCardioType } from '../../utils/steps';
 
 const MODAL_CLOSE_DELAY = 180; // Match CSS animation duration (150ms) + buffer
 const screenTabs = [
@@ -106,9 +107,10 @@ const defaultCardioSession = {
   intensity: 'moderate',
   effortType: 'intensity',
   averageHeartRate: '',
+  stepOverlapEnabled: true,
 };
 
-const sanitizeCardioDraft = (draft) => {
+const sanitizeCardioDraft = (draft, cardioTypes = {}) => {
   if (!draft) {
     return null;
   }
@@ -145,6 +147,12 @@ const sanitizeCardioDraft = (draft) => {
   } else if (session.averageHeartRate !== undefined) {
     delete session.averageHeartRate;
   }
+
+  const selectedType = cardioTypes?.[session.type];
+  const isStepBased = isStepBasedCardioType(session.type, selectedType);
+  session.stepOverlapEnabled = isStepBased
+    ? Boolean(session.stepOverlapEnabled ?? true)
+    : false;
 
   if (session.id !== undefined) {
     delete session.id;
@@ -1495,6 +1503,12 @@ export const EnergyMapCalculator = () => {
           normalizedEffortType === 'heartRate'
             ? (existing.averageHeartRate ?? '')
             : '',
+        stepOverlapEnabled: isStepBasedCardioType(
+          existing.type,
+          cardioTypes?.[existing.type]
+        )
+          ? (existing.stepOverlapEnabled ?? true)
+          : false,
       };
 
       setCardioDraft(draft);
@@ -1689,7 +1703,7 @@ export const EnergyMapCalculator = () => {
   );
 
   const handleCardioSave = useCallback(() => {
-    const sessionToSave = sanitizeCardioDraft(cardioDraft);
+    const sessionToSave = sanitizeCardioDraft(cardioDraft, cardioTypes);
     if (!sessionToSave) {
       return;
     }
@@ -1703,6 +1717,7 @@ export const EnergyMapCalculator = () => {
     cardioModal.requestClose();
   }, [
     addCardioSession,
+    cardioTypes,
     cardioDraft,
     cardioModal,
     editingCardioId,
@@ -1710,18 +1725,23 @@ export const EnergyMapCalculator = () => {
   ]);
 
   const handleFavouriteSave = useCallback(() => {
-    const favouriteToSave = sanitizeCardioDraft(favouriteDraft);
+    const favouriteToSave = sanitizeCardioDraft(favouriteDraft, cardioTypes);
     if (!favouriteToSave) {
       return;
     }
 
     addCardioFavourite(favouriteToSave);
     cardioFavouriteEditorModal.requestClose();
-  }, [addCardioFavourite, cardioFavouriteEditorModal, favouriteDraft]);
+  }, [
+    addCardioFavourite,
+    cardioFavouriteEditorModal,
+    cardioTypes,
+    favouriteDraft,
+  ]);
 
   const handleApplyFavourite = useCallback(
     (favourite) => {
-      const sanitized = sanitizeCardioDraft(favourite);
+      const sanitized = sanitizeCardioDraft(favourite, cardioTypes);
       if (!sanitized) {
         return;
       }
@@ -1748,6 +1768,7 @@ export const EnergyMapCalculator = () => {
       cardioFavouritesModal,
       cardioModal,
       cardioModalMode,
+      cardioTypes,
       editingCardioId,
       updateCardioSession,
     ]

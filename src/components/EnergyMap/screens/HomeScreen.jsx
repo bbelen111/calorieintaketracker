@@ -15,6 +15,10 @@ import {
 import { shallow } from 'zustand/shallow';
 import { goals as baseGoals } from '../../../constants/goals';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
+import {
+  estimateSessionStepsFromCardio,
+  isStepBasedCardioType,
+} from '../../../utils/steps';
 
 const GOAL_BORDER_CLASS_BY_BG = {
   'bg-purple-500': 'border-purple-400',
@@ -328,6 +332,19 @@ export const HomeScreen = ({
                           : 'N/A bpm'
                         : intensityLabel;
                     const showMissingTypeWarning = !cardioType;
+                    const isStepBased = isStepBasedCardioType(
+                      session.type,
+                      cardioType
+                    );
+                    const stepOverlapEnabled = isStepBased
+                      ? (session.stepOverlapEnabled ?? true)
+                      : false;
+                    const overlapEstimatedSteps = stepOverlapEnabled
+                      ? estimateSessionStepsFromCardio(
+                          session,
+                          resolvedCardioTypes
+                        )
+                      : 0;
 
                     return (
                       <motion.div
@@ -351,6 +368,14 @@ export const HomeScreen = ({
                             <p className="text-amber-300 text-xs mt-1">
                               Cardio type removed; consider replacing this
                               session.
+                            </p>
+                          )}
+                          {isStepBased && (
+                            <p className="text-xs mt-1 text-muted">
+                              Step overlap:{' '}
+                              {stepOverlapEnabled
+                                ? `On${overlapEstimatedSteps > 0 ? ` • ~${overlapEstimatedSteps.toLocaleString()} steps` : ''}`
+                                : 'Off'}
                             </p>
                           )}
                         </div>

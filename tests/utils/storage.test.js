@@ -307,6 +307,46 @@ test('save/loadEnergyMapData round-trips phaseLogV2 via sharded history document
   });
 });
 
+test('loadEnergyMapData normalizes cardio session overlap toggle defaults for legacy payloads', async () => {
+  await withWindowStorage(async () => {
+    await Preferences.remove({ key: PROFILE_KEY });
+    await clearDexieHistory();
+
+    await saveEnergyMapData({
+      ...getDefaultEnergyMapData(),
+      cardioSessions: [
+        {
+          id: 1,
+          type: 'treadmill_walk',
+          duration: 30,
+          intensity: 'moderate',
+          effortType: 'intensity',
+        },
+        {
+          id: 2,
+          type: 'bike_stationary',
+          duration: 30,
+          intensity: 'moderate',
+          effortType: 'intensity',
+        },
+      ],
+    });
+
+    const historySnapshot = await loadAllHistoryDocuments();
+    const loaded = await loadEnergyMapData();
+
+    if (historySnapshot.available) {
+      const walk = loaded.cardioSessions.find((session) => session.id === '1');
+      const bike = loaded.cardioSessions.find((session) => session.id === '2');
+
+      assert.equal(walk?.stepOverlapEnabled, true);
+      assert.equal(bike?.stepOverlapEnabled, false);
+    } else {
+      assert.deepEqual(loaded.cardioSessions, []);
+    }
+  });
+});
+
 test('saveEnergyMapData skips redundant Preferences writes for unchanged payloads', async () => {
   await withWindowStorage(async () => {
     await Preferences.remove({ key: PROFILE_KEY });

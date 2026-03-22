@@ -10,6 +10,7 @@ import { HeartRatePickerModal } from '../pickers/HeartRatePickerModal';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { calculateCardioCalories } from '../../../../utils/calculations';
 import { roundDurationHours } from '../../../../utils/time';
+import { isStepBasedCardioType } from '../../../../utils/steps';
 
 export const CardioModal = ({
   isOpen,
@@ -143,6 +144,13 @@ export const CardioModal = ({
     setCustomMetVigorous('');
   }, []);
   const selectedCardio = resolvedCardioTypes?.[session.type] ?? null;
+  const showStepOverlapToggle = isStepBasedCardioType(
+    session.type,
+    selectedCardio
+  );
+  const stepOverlapEnabled = showStepOverlapToggle
+    ? (session.stepOverlapEnabled ?? true)
+    : false;
   const formatMetValue = (value) =>
     typeof value === 'number' ? value.toFixed(1) : '--';
   const selectedMetSummary = selectedCardio
@@ -152,8 +160,27 @@ export const CardioModal = ({
     : 'Browse the full cardio library to find the best match.';
 
   const handleCardioTypeSelect = (typeKey) => {
-    onChange({ ...session, type: typeKey });
+    const nextType = resolvedCardioTypes?.[typeKey] ?? null;
+    const isStepBased = isStepBasedCardioType(typeKey, nextType);
+    onChange({
+      ...session,
+      type: typeKey,
+      stepOverlapEnabled: isStepBased
+        ? (session.stepOverlapEnabled ?? true)
+        : false,
+    });
     requestTypePickerClose();
+  };
+
+  const handleStepOverlapToggle = () => {
+    if (!showStepOverlapToggle) {
+      return;
+    }
+
+    onChange({
+      ...session,
+      stepOverlapEnabled: !stepOverlapEnabled,
+    });
   };
 
   React.useEffect(() => {
@@ -467,6 +494,35 @@ export const CardioModal = ({
                 Select the average beats per minute recorded during this
                 session.
               </p>
+            </div>
+          )}
+
+          {showStepOverlapToggle && (
+            <div className="rounded-lg border border-border bg-surface-highlight/40 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">
+                    Avoid step double count
+                  </p>
+                  <p className="text-xs text-muted mt-1">
+                    Deduct estimated steps from this session before step
+                    calories are calculated.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={stepOverlapEnabled}
+                  onClick={handleStepOverlapToggle}
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors focus-ring press-feedback ${
+                    stepOverlapEnabled
+                      ? 'border-accent-green bg-accent-green/20 text-accent-green'
+                      : 'border-border bg-surface text-muted md:hover:text-foreground'
+                  }`}
+                >
+                  {stepOverlapEnabled ? 'On' : 'Off'}
+                </button>
+              </div>
             </div>
           )}
 

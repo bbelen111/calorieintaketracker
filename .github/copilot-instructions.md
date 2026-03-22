@@ -398,12 +398,12 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 | Calculation | Function | Details |
 |------------|----------|---------|
 | BMR | `calculateBMR(userData)` | Mifflin-St Jeor; auto-upgrades to Katch-McArdle when `bodyFatTrackingEnabled` with valid entries |
-| Step calories | `getStepDetails(steps, userData)` | **Lives in `utils/steps.js`**, not calculations.js. Stride length heuristic: height × 0.415 (male) / 0.413 (female) |
+| Step calories | `getStepDetails(steps, userData)` | **Lives in `utils/steps.js`**, not calculations.js. Stride length heuristic: height × 0.415 (male) / 0.413 (female). In full breakdown mode, step calories are computed from **remaining steps** after ambulatory-cardio overlap deduction. |
 | Cardio (single) | `calculateCardioCalories(session, userData, cardioTypes)` | MET-based (`effortType: 'intensity'`) or heart rate formula (`effortType: 'heartRate'`) |
 | Cardio (total) | `getTotalCardioBurn(userData, cardioTypes)` | Sums `calculateCardioCalories` across all `userData.cardioSessions` |
 | Training cal/hr | `getTrainingCaloriesPerHour(userData, trainingTypes)` | Base cal/hr × intensity multiplier (light 0.75 / moderate 1.0 / vigorous 1.25) |
 | Training (total) | `getTrainingCalories(userData, trainingTypes)` | Supports `trainingEffortType: 'heartRate'` or intensity-based. `caloriesPerHour × trainingDuration` from resolved types |
-| TDEE breakdown | `calculateCalorieBreakdown({...})` | BMR + activity multiplier + training + cardio + steps. Accepts optional `tefContext`. Returns `bmrDetails`, TEF fields when Smart TEF is enabled |
+| TDEE breakdown | `calculateCalorieBreakdown({...})` | BMR + activity multiplier + training + cardio + steps. Accepts optional `tefContext`. Returns `bmrDetails`, TEF fields when Smart TEF is enabled, plus step-overlap diagnostics (`originalEstimatedSteps`, `deductedSteps`, `remainingEstimatedSteps`, overlap session counts/details). |
 | TDEE (simple) | `calculateTDEE(options)` | Convenience wrapper — returns just `calculateCalorieBreakdown(options).total` |
 | Goal target | `calculateGoalCalories(tdee, goal)` | Applies ±300/500 modifier based on goal |
 | BMI | `calculateBMI(weight, height)` | Standard BMI: weight(kg) / height(m)² |
@@ -423,6 +423,12 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 **Target mode chicken-and-egg:** The store's `calculateTargetForGoal()` runs a 2-pass refinement loop — pass 1 seeds `targetCalories` with pre-TEF TDEE; pass 2 uses goal-adjusted result from pass 1. Two iterations converges sufficiently.
 
 **Training types** are resolved at the store level (`resolveTrainingTypes`) by merging `trainingTypes` constants with `userData.trainingTypeOverrides`. Never use raw constants directly.
+
+**Step/cardio overlap model (Option 2):** `utils/steps.js` handles overlap deduction using explicit cardio-type metadata from `constants/cardioTypes.js`.
+- `cardioTypes[<key>].ambulatory` decides whether a session is step-based.
+- `cardioTypes[<key>].cadence` is the type-specific baseline steps/min used by deduction estimates.
+- Session-level `stepOverlapEnabled` controls whether that specific ambulatory session deducts steps.
+- Cardio burn is preserved; only the step component is reduced to avoid double counting.
 
 ---
 
@@ -515,7 +521,7 @@ Migration behavior is now intentionally minimal:
   smartTefEnabled: false,          // Explicit macro-based TEF replaces implicit 10% in NEAT
 
   // History (Dexie)
-  cardioSessions: [{ id, type, duration, intensity, effortType, averageHeartRate? }],
+  cardioSessions: [{ id, type, duration, intensity, effortType, averageHeartRate?, stepOverlapEnabled? }],
   weightEntries: [{ date: 'YYYY-MM-DD', weight }],
   bodyFatEntries: [{ date: 'YYYY-MM-DD', bodyFat }],
   stepEntries: [{ date: 'YYYY-MM-DD', steps, source: 'healthConnect'|'manual' }],
@@ -643,7 +649,7 @@ src/
 ├─ constants/                    # Static lookup tables
 │   ├─ foodDatabase.js           # 3000+ food items (per-100g macros + portions)
 │   ├─ goals.js                  # Goal definitions with calorie modifiers
-│   ├─ cardioTypes.js            # Cardio activities with MET values
+│   ├─ cardioTypes.js            # Cardio activities with MET values + step-overlap metadata (`ambulatory`, `cadence`)
 │   ├─ trainingTypes.js          # Training presets with cal/hour
 │   ├─ mealTypes.js              # MEAL_TYPE_ORDER
 │   ├─ activityPresets.js        # DEFAULT_ACTIVITY_MULTIPLIERS; also exports MIN_CUSTOM_ACTIVITY_MULTIPLIER, clampCustomActivityMultiplier(), clampCustomActivityPercent(), getCustomActivityPercent()
@@ -726,18 +732,21 @@ npm run test:watch     # Node test runner in watch mode
 9. **Never call `forceClose()`** on modals unless absolutely necessary — it skips exit animations and can cause visual glitches.
 10. **Step range parsing** is complex — always use `parseStepRange()` from `utils/steps.js`. It handles `<10k`, `>20k`, `10k-15k`, `+` suffix formats.
 11. **Cardio effort types:** Check `session.effortType` — `'intensity'` uses MET-based calculation, `'heartRate'` uses gender-specific heart rate coefficients.
-12. **Training type resolution:** Never use raw `trainingTypes` constants. The store's `resolveTrainingTypes()` merges constants with user overrides. Consume `trainingTypes` from the store.
-13. **Modal nesting:** Parent modals must delay state cleanup to prevent child modals from unmounting mid-animation. Use `MODAL_CLOSE_DELAY` (180ms) with `setTimeout`.
-14. **Safe areas:** Full-screen layouts must include `var(--sat)` / `var(--sab)` for notch and home indicator support.
-15. **No hardcoded colors:** Never use `bg-slate-*`, `text-white`, `border-slate-*`, `text-blue-400`, etc. Always use semantic tokens or accent tokens.
-16. **Hover gating:** Never use bare `hover:` — always use `md:hover:` to prevent sticky hover on touch devices.
-17. **Weight entries:** Always normalize dates with `normalizeDateKey()`, validate with `clampWeight()` (30-210 kg range), and sort with `sortWeightEntries()` before storing.
-18. **Native theming is centralized in `utils/theme.js`.** Do not add legacy status/navigation bar wrapper modules.
-19. **Smart TEF and NEAT:** When `userData.smartTefEnabled` is true, `calculateCalorieBreakdown()` subtracts `TEF_MULTIPLIER_OFFSET` (0.1) from the activity multiplier and adds macro-derived TEF back explicitly. The displayed NEAT multiplier in `CalorieBreakdownModal` will therefore appear lower than the user's configured value — this is intentional and explained in `TefInfoModal`. Never remove the offset without also disabling TEF.
-20. **Activity multiplier clamping:** Custom activity multipliers have a floor defined by `MIN_CUSTOM_ACTIVITY_MULTIPLIER` in `activityPresets.js`. Always use `clampCustomActivityMultiplier()` when persisting custom NEAT values. The `DailyActivityCustomModal` picker starts at `MIN_CUSTOM_ACTIVITY_PERCENT` (10%), not 0.
-21. **Calorie breakdown request object:** `openCalorieBreakdown()` in the orchestrator accepts either a plain step count (legacy) or a `{ steps, tefContext }` object. `CalorieMapScreen` step cards and the live Health Connect card pass the full object to enable correct TEF mode selection.
-22. **Nutrition references are data-backed, not cosmetic:** `nutritionRef` should map to a day that actually has entries in `nutritionData`. If meals are deleted for a date, clear stale refs (store sync handles this for food actions).
-23. **Phase metrics are nutrition-aware now:** Never hardcode `avgCalories = 0` in phase UIs. Use `calculatePhaseMetrics(phase, weightEntries, nutritionData)`.
-24. **Daily log nutrition management route:** In logbook flow, nutrition management routes through the Tracker screen date context; preserve selected date handoff when adjusting this UX.
-25. **No dual-write toggle exists anymore:** Do not add `VITE_ENABLE_HISTORY_DUAL_WRITE`-style rollback flags back into normal save flow.
-26. **Node ESM import hygiene:** For modules used in tests, keep explicit `.js` file extensions in relative imports to avoid `ERR_MODULE_NOT_FOUND`.
+12. **Cardio overlap classification is metadata-driven:** Do not infer ambulatory cardio with string matching/keywords. Use `cardioTypes[type].ambulatory`.
+13. **Cadence source of truth:** For overlap estimation, use `cardioTypes[type].cadence` (or defined fallback path in `utils/steps.js` for custom types). Do not hardcode cadence by name in UI/store code.
+14. **Session-level overlap toggle:** Respect `session.stepOverlapEnabled` in overlap deduction; relevant types default on, non-ambulatory types force off.
+15. **Training type resolution:** Never use raw `trainingTypes` constants. The store's `resolveTrainingTypes()` merges constants with user overrides. Consume `trainingTypes` from the store.
+16. **Modal nesting:** Parent modals must delay state cleanup to prevent child modals from unmounting mid-animation. Use `MODAL_CLOSE_DELAY` (180ms) with `setTimeout`.
+17. **Safe areas:** Full-screen layouts must include `var(--sat)` / `var(--sab)` for notch and home indicator support.
+18. **No hardcoded colors:** Never use `bg-slate-*`, `text-white`, `border-slate-*`, `text-blue-400`, etc. Always use semantic tokens or accent tokens.
+19. **Hover gating:** Never use bare `hover:` — always use `md:hover:` to prevent sticky hover on touch devices.
+20. **Weight entries:** Always normalize dates with `normalizeDateKey()`, validate with `clampWeight()` (30-210 kg range), and sort with `sortWeightEntries()` before storing.
+21. **Native theming is centralized in `utils/theme.js`.** Do not add legacy status/navigation bar wrapper modules.
+22. **Smart TEF and NEAT:** When `userData.smartTefEnabled` is true, `calculateCalorieBreakdown()` subtracts `TEF_MULTIPLIER_OFFSET` (0.1) from the activity multiplier and adds macro-derived TEF back explicitly. The displayed NEAT multiplier in `CalorieBreakdownModal` will therefore appear lower than the user's configured value — this is intentional and explained in `TefInfoModal`. Never remove the offset without also disabling TEF.
+23. **Activity multiplier clamping:** Custom activity multipliers have a floor defined by `MIN_CUSTOM_ACTIVITY_MULTIPLIER` in `activityPresets.js`. Always use `clampCustomActivityMultiplier()` when persisting custom NEAT values. The `DailyActivityCustomModal` picker starts at `MIN_CUSTOM_ACTIVITY_PERCENT` (10%), not 0.
+24. **Calorie breakdown request object:** `openCalorieBreakdown()` in the orchestrator accepts either a plain step count (legacy) or a `{ steps, tefContext }` object. `CalorieMapScreen` step cards and the live Health Connect card pass the full object to enable correct TEF mode selection.
+25. **Nutrition references are data-backed, not cosmetic:** `nutritionRef` should map to a day that actually has entries in `nutritionData`. If meals are deleted for a date, clear stale refs (store sync handles this for food actions).
+26. **Phase metrics are nutrition-aware now:** Never hardcode `avgCalories = 0` in phase UIs. Use `calculatePhaseMetrics(phase, weightEntries, nutritionData)`.
+27. **Daily log nutrition management route:** In logbook flow, nutrition management routes through the Tracker screen date context; preserve selected date handoff when adjusting this UX.
+28. **No dual-write toggle exists anymore:** Do not add `VITE_ENABLE_HISTORY_DUAL_WRITE`-style rollback flags back into normal save flow.
+29. **Node ESM import hygiene:** For modules used in tests, keep explicit `.js` file extensions in relative imports to avoid `ERR_MODULE_NOT_FOUND`.

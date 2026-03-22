@@ -42,6 +42,13 @@ export const CalorieBreakdownModal = ({
       : `${percent.toFixed(1)}%`;
   };
   const stepDetails = breakdown.stepDetails ?? {};
+  const originalEstimatedSteps =
+    breakdown.originalEstimatedSteps ?? stepDetails.originalEstimatedSteps;
+  const deductedSteps = breakdown.deductedSteps ?? stepDetails.deductedSteps;
+  const remainingEstimatedSteps =
+    breakdown.remainingEstimatedSteps ?? stepDetails.remainingEstimatedSteps;
+  const hasStepOverlapDeduction =
+    Number.isFinite(deductedSteps) && deductedSteps > 0;
   const trainingDuration = breakdown.trainingDuration ?? 0;
   const trainingCaloriesPerHour = breakdown.trainingCaloriesPerHour ?? 0;
   const rawActivityMultiplier =
@@ -194,6 +201,13 @@ export const CalorieBreakdownModal = ({
               Stride length: {formatNumber(stepDetails.strideLengthMeters, 2)} m
               • Weight used: {formatNumber(stepDetails.weightKg, 1)} kg
             </p>
+            {hasStepOverlapDeduction && (
+              <p className="text-muted text-xs mt-2">
+                Overlap adjustment: {formatWhole(originalEstimatedSteps)} original
+                steps − {formatWhole(deductedSteps)} deducted from cardio ={' '}
+                {formatWhole(remainingEstimatedSteps)} remaining steps.
+              </p>
+            )}
           </BreakdownItem>
 
           <BreakdownItem

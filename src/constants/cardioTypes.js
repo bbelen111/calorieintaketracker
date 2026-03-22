@@ -1,4 +1,4 @@
-export const cardioTypes = {
+const baseCardioTypes = {
   treadmill_walk: {
     label: 'Treadmill Walk',
     met: { light: 3.5, moderate: 4.0, vigorous: 4.5 },
@@ -452,3 +452,91 @@ export const cardioTypes = {
     met: { light: 7.5, moderate: 9.5, vigorous: 12.0 },
   },
 };
+
+const AMBULATORY_STEP_PROFILE_OVERRIDES = {
+  treadmill_walk: { ambulatory: true, cadence: 118 },
+  walking_outdoor: { ambulatory: true, cadence: 112 },
+  walking_hilly: { ambulatory: true, cadence: 122 },
+  hiking_daypack: { ambulatory: true, cadence: 124 },
+  hiking_backpacking: { ambulatory: true, cadence: 120 },
+  running_trail: { ambulatory: true, cadence: 164 },
+  running_interval: { ambulatory: true, cadence: 174 },
+  stair_sprints: { ambulatory: true, cadence: 168 },
+  cardio_step: { ambulatory: true, cadence: 132 },
+  cardio_step_high: { ambulatory: true, cadence: 142 },
+  hill_sprints: { ambulatory: true, cadence: 176 },
+  stadium_stairs: { ambulatory: true, cadence: 152 },
+  fartlek_running: { ambulatory: true, cadence: 168 },
+  speed_walking: { ambulatory: true, cadence: 136 },
+  treadmill_incline_walk: { ambulatory: true, cadence: 132 },
+  treadmill_hill_run: { ambulatory: true, cadence: 172 },
+  tempo_run: { ambulatory: true, cadence: 168 },
+  long_run: { ambulatory: true, cadence: 158 },
+  beach_running: { ambulatory: true, cadence: 170 },
+  sand_running: { ambulatory: true, cadence: 166 },
+  nordic_walking: { ambulatory: true, cadence: 130 },
+  brisk_walking: { ambulatory: true, cadence: 126 },
+  power_walking: { ambulatory: true, cadence: 138 },
+  group_run: { ambulatory: true, cadence: 162 },
+  obstacle_run_intervals: { ambulatory: true, cadence: 172 },
+  incline_hike: { ambulatory: true, cadence: 126 },
+  power_hike: { ambulatory: true, cadence: 132 },
+  stair_climb_outdoor: { ambulatory: true, cadence: 148 },
+  treadmill_jog: { ambulatory: true, cadence: 152 },
+  treadmill_run: { ambulatory: true, cadence: 166 },
+};
+
+const clampCadence = (value) => Math.min(Math.max(Math.round(value), 0), 220);
+
+const deriveCadenceFromModerateMet = (moderateMet) => {
+  const safeMet = Number(moderateMet);
+  if (!Number.isFinite(safeMet) || safeMet <= 0) {
+    return 0;
+  }
+
+  // Specialize cadence per type from its moderate MET while keeping realistic walking/running bounds.
+  return clampCadence(80 + safeMet * 9);
+};
+
+const resolveStepProfileForType = (typeKey, cardioType) => {
+  const override = AMBULATORY_STEP_PROFILE_OVERRIDES[typeKey] ?? null;
+  const ambulatory = Boolean(override?.ambulatory);
+
+  if (!ambulatory) {
+    return { ambulatory: false, cadence: 0 };
+  }
+
+  const cadence =
+    override?.cadence ??
+    deriveCadenceFromModerateMet(cardioType?.met?.moderate);
+
+  return {
+    ambulatory: true,
+    cadence: clampCadence(cadence),
+  };
+};
+
+export const cardioStepProfiles = Object.fromEntries(
+  Object.entries(baseCardioTypes).map(([typeKey, cardioType]) => [
+    typeKey,
+    resolveStepProfileForType(typeKey, cardioType),
+  ])
+);
+
+export const cardioTypes = Object.fromEntries(
+  Object.entries(baseCardioTypes).map(([typeKey, cardioType]) => {
+    const stepProfile = cardioStepProfiles[typeKey] ?? {
+      ambulatory: false,
+      cadence: 0,
+    };
+
+    return [
+      typeKey,
+      {
+        ...cardioType,
+        ambulatory: stepProfile.ambulatory,
+        cadence: stepProfile.cadence,
+      },
+    ];
+  })
+);

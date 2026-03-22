@@ -35,6 +35,19 @@ const trainingTypes = {
   },
 };
 
+const cardioTypes = {
+  treadmill_walk: {
+    label: 'Treadmill Walk',
+    met: {
+      light: 3.5,
+      moderate: 4,
+      vigorous: 4.5,
+    },
+    ambulatory: true,
+    cadence: 118,
+  },
+};
+
 test('calculateBMR uses normalized details and remains stable for invalid inputs', () => {
   const bmr = calculateBMR({
     age: undefined,
@@ -142,4 +155,54 @@ test('target smart TEF honors explicit target calories without refinement passes
   assert.equal(breakdown.smartTefDetails?.targetCaloriesSource, 'context');
   assert.equal(breakdown.smartTefDetails?.refinementPasses, 0);
   assert.equal(breakdown.smartTefDetails?.targetCalories, 3000);
+});
+
+test('step overlap deduction lowers step calories while preserving cardio burn', () => {
+  const userWithCardio = {
+    ...baseUserData,
+    cardioSessions: [
+      {
+        id: 1,
+        type: 'treadmill_walk',
+        duration: 30,
+        intensity: 'moderate',
+        effortType: 'intensity',
+        stepOverlapEnabled: true,
+      },
+    ],
+  };
+  const bmr = calculateBMR(userWithCardio);
+
+  const overlapOn = calculateCalorieBreakdown({
+    steps: '10k',
+    isTrainingDay: false,
+    userData: userWithCardio,
+    bmr,
+    cardioTypes,
+    trainingTypes,
+    tefContext: { mode: 'off', enabled: false },
+  });
+
+  const overlapOff = calculateCalorieBreakdown({
+    steps: '10k',
+    isTrainingDay: false,
+    userData: {
+      ...userWithCardio,
+      cardioSessions: [
+        {
+          ...userWithCardio.cardioSessions[0],
+          stepOverlapEnabled: false,
+        },
+      ],
+    },
+    bmr,
+    cardioTypes,
+    trainingTypes,
+    tefContext: { mode: 'off', enabled: false },
+  });
+
+  assert.equal(overlapOn.cardioBurn, overlapOff.cardioBurn);
+  assert.ok(overlapOn.deductedSteps > 0);
+  assert.ok(overlapOn.stepCalories < overlapOff.stepCalories);
+  assert.ok(overlapOn.remainingEstimatedSteps < overlapOn.originalEstimatedSteps);
 });
