@@ -28,7 +28,11 @@ import {
   useHealthConnect,
   HealthConnectStatus,
 } from '../../hooks/useHealthConnect';
-import { loadSelectedDay, saveSelectedDay } from '../../utils/storage';
+import {
+  loadSelectedDay,
+  saveLastSelectedCardioType,
+  saveSelectedDay,
+} from '../../utils/storage';
 import { useScrollOffScreen } from '../../hooks/useScrollOffScreen';
 import { ScreenTabs, FloatingScreenTabs } from './common/ScreenTabs';
 import { LogbookScreen } from './screens/LogbookScreen';
@@ -108,6 +112,24 @@ const defaultCardioSession = {
   effortType: 'intensity',
   averageHeartRate: '',
   stepOverlapEnabled: true,
+};
+
+const getDefaultCardioSessionForType = (typeKey, cardioTypes = {}) => {
+  const normalizedTypeKey = String(typeKey ?? '').trim();
+  const resolvedType = cardioTypes?.[normalizedTypeKey]
+    ? normalizedTypeKey
+    : defaultCardioSession.type;
+
+  return {
+    ...defaultCardioSession,
+    type: resolvedType,
+    stepOverlapEnabled: isStepBasedCardioType(
+      resolvedType,
+      cardioTypes?.[resolvedType]
+    )
+      ? true
+      : false,
+  };
 };
 
 const sanitizeCardioDraft = (draft, cardioTypes = {}) => {
@@ -393,8 +415,18 @@ export const EnergyMapCalculator = () => {
   const [newStepRange, setNewStepRange] = useState('');
   const [selectedBreakdownRequest, setSelectedBreakdownRequest] =
     useState(null);
-  const [cardioDraft, setCardioDraft] = useState(defaultCardioSession);
-  const [favouriteDraft, setFavouriteDraft] = useState(defaultCardioSession);
+  const [cardioDraft, setCardioDraft] = useState(() =>
+    getDefaultCardioSessionForType(
+      userData?.lastSelectedCardioType,
+      cardioTypes
+    )
+  );
+  const [favouriteDraft, setFavouriteDraft] = useState(() =>
+    getDefaultCardioSessionForType(
+      userData?.lastSelectedCardioType,
+      cardioTypes
+    )
+  );
   const [cardioModalMode, setCardioModalMode] = useState('add');
   const [activityEditorDay, setActivityEditorDay] = useState(null);
   const [customActivityPercent, setCustomActivityPercent] = useState(
@@ -1475,12 +1507,71 @@ export const EnergyMapCalculator = () => {
     ]
   );
 
+  const persistLastSelectedCardioType = useCallback(
+    (typeKey) => {
+      const normalizedTypeKey = String(typeKey ?? '').trim();
+      if (!normalizedTypeKey) {
+        return;
+      }
+
+      handleUserDataChange('lastSelectedCardioType', normalizedTypeKey);
+      void saveLastSelectedCardioType(normalizedTypeKey);
+    },
+    [handleUserDataChange]
+  );
+
+  const handleCardioDraftChange = useCallback(
+    (nextDraft) => {
+      setCardioDraft((prevDraft) => {
+        const resolvedNextDraft =
+          typeof nextDraft === 'function' ? nextDraft(prevDraft) : nextDraft;
+
+        if (!resolvedNextDraft || typeof resolvedNextDraft !== 'object') {
+          return prevDraft;
+        }
+
+        const nextType = String(resolvedNextDraft.type ?? '').trim();
+        const previousType = String(prevDraft?.type ?? '').trim();
+        if (nextType && nextType !== previousType) {
+          persistLastSelectedCardioType(nextType);
+        }
+
+        return resolvedNextDraft;
+      });
+    },
+    [persistLastSelectedCardioType]
+  );
+
+  const handleFavouriteDraftChange = useCallback(
+    (nextDraft) => {
+      setFavouriteDraft((prevDraft) => {
+        const resolvedNextDraft =
+          typeof nextDraft === 'function' ? nextDraft(prevDraft) : nextDraft;
+
+        if (!resolvedNextDraft || typeof resolvedNextDraft !== 'object') {
+          return prevDraft;
+        }
+
+        const nextType = String(resolvedNextDraft.type ?? '').trim();
+        const previousType = String(prevDraft?.type ?? '').trim();
+        if (nextType && nextType !== previousType) {
+          persistLastSelectedCardioType(nextType);
+        }
+
+        return resolvedNextDraft;
+      });
+    },
+    [persistLastSelectedCardioType]
+  );
+
   const openCardioModal = useCallback(() => {
     setEditingCardioId(null);
-    setCardioDraft(defaultCardioSession);
+    setCardioDraft(
+      getDefaultCardioSessionForType(userData?.lastSelectedCardioType, cardioTypes)
+    );
     setCardioModalMode('add');
     cardioModal.open();
-  }, [cardioModal]);
+  }, [cardioModal, cardioTypes, userData?.lastSelectedCardioType]);
 
   const handleEditCardioSession = useCallback(
     (sessionId) => {
@@ -1760,6 +1851,8 @@ export const EnergyMapCalculator = () => {
         addCardioSession(sanitized);
       }
 
+      persistLastSelectedCardioType(sanitized.type);
+
       cardioFavouritesModal.requestClose();
       cardioModal.requestClose();
     },
@@ -1770,6 +1863,7 @@ export const EnergyMapCalculator = () => {
       cardioModalMode,
       cardioTypes,
       editingCardioId,
+      persistLastSelectedCardioType,
       updateCardioSession,
     ]
   );
@@ -2611,11 +2705,21 @@ export const EnergyMapCalculator = () => {
   useEffect(() => {
     if (!cardioModal.isOpen && !cardioModal.isClosing) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setCardioDraft(defaultCardioSession);
+      setCardioDraft(
+        getDefaultCardioSessionForType(
+          userData?.lastSelectedCardioType,
+          cardioTypes
+        )
+      );
       setEditingCardioId(null);
       setCardioModalMode('add');
     }
-  }, [cardioModal.isClosing, cardioModal.isOpen]);
+  }, [
+    cardioModal.isClosing,
+    cardioModal.isOpen,
+    cardioTypes,
+    userData?.lastSelectedCardioType,
+  ]);
 
   useEffect(() => {
     if (
@@ -2623,9 +2727,19 @@ export const EnergyMapCalculator = () => {
       !cardioFavouriteEditorModal.isClosing
     ) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setFavouriteDraft(defaultCardioSession);
+      setFavouriteDraft(
+        getDefaultCardioSessionForType(
+          userData?.lastSelectedCardioType,
+          cardioTypes
+        )
+      );
     }
-  }, [cardioFavouriteEditorModal.isClosing, cardioFavouriteEditorModal.isOpen]);
+  }, [
+    cardioFavouriteEditorModal.isClosing,
+    cardioFavouriteEditorModal.isOpen,
+    cardioTypes,
+    userData?.lastSelectedCardioType,
+  ]);
 
   const hasCardioSessions = userData.cardioSessions.length > 0;
   const activityPresets = useMemo(
@@ -3144,7 +3258,7 @@ export const EnergyMapCalculator = () => {
         onAddCustomCardioType={addCustomCardioType}
         onDeleteCustomCardioType={removeCustomCardioType}
         session={cardioDraft}
-        onChange={setCardioDraft}
+        onChange={handleCardioDraftChange}
         onCancel={cardioModal.requestClose}
         onSave={handleCardioSave}
         userWeight={userData.weight}
@@ -3176,7 +3290,7 @@ export const EnergyMapCalculator = () => {
         onAddCustomCardioType={addCustomCardioType}
         onDeleteCustomCardioType={removeCustomCardioType}
         session={favouriteDraft}
-        onChange={setFavouriteDraft}
+        onChange={handleFavouriteDraftChange}
         onCancel={cardioFavouriteEditorModal.requestClose}
         onSave={handleFavouriteSave}
         userWeight={userData.weight}

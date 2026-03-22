@@ -21,6 +21,7 @@ import {
 
 // Split keys for performance
 const PROFILE_KEY = 'energyMapData_profile'; // Settings, preferences, small lists
+const LAST_SELECTED_CARDIO_TYPE_KEY = 'energyMapLastSelectedCardioType';
 
 const SELECTED_DAY_KEY = 'energyMapSelectedDay';
 const MAX_CACHED_FOODS = 500;
@@ -658,6 +659,15 @@ export const loadEnergyMapData = async () => {
     // 1. Load profile from Capacitor Preferences
     const profileRes = await Preferences.get({ key: PROFILE_KEY });
     const profileData = parseJsonOrEmpty(profileRes.value);
+    const lastSelectedCardioTypeRes = await Preferences.get({
+      key: LAST_SELECTED_CARDIO_TYPE_KEY,
+    });
+    const lastSelectedCardioType = String(
+      lastSelectedCardioTypeRes?.value ?? ''
+    ).trim();
+    if (lastSelectedCardioType) {
+      profileData.lastSelectedCardioType = lastSelectedCardioType;
+    }
 
     // 2. Load history from Dexie first (supports both legacy field docs and sharded docs)
     const dexieDocumentsResult = await loadAllHistoryDocuments();
@@ -783,6 +793,22 @@ export const saveSelectedDay = async (day) => {
   }
 };
 
+export const saveLastSelectedCardioType = async (typeKey) => {
+  const normalizedTypeKey = String(typeKey ?? '').trim();
+  if (!normalizedTypeKey) {
+    return;
+  }
+
+  try {
+    await Preferences.set({
+      key: LAST_SELECTED_CARDIO_TYPE_KEY,
+      value: normalizedTypeKey,
+    });
+  } catch (error) {
+    console.warn('Failed to save last selected cardio type', error);
+  }
+};
+
 export const getDefaultEnergyMapData = () => ({
   age: 21,
   weight: 74,
@@ -805,6 +831,7 @@ export const getDefaultEnergyMapData = () => ({
   trainingHeartRate: '',
   stepRanges: ['<10k', '10k', '12k', '14k', '16k', '18k', '20k', '>20k'],
   cardioSessions: [],
+  lastSelectedCardioType: 'treadmill_walk',
   cardioFavourites: [],
   foodFavourites: [],
   customCardioTypes: {},
@@ -953,6 +980,11 @@ function mergeWithDefaults(data) {
     stepRanges: Array.isArray(dataWithoutLegacyPhases.stepRanges)
       ? dataWithoutLegacyPhases.stepRanges
       : defaults.stepRanges,
+    lastSelectedCardioType:
+      typeof dataWithoutLegacyPhases.lastSelectedCardioType === 'string' &&
+      dataWithoutLegacyPhases.lastSelectedCardioType.trim().length > 0
+        ? dataWithoutLegacyPhases.lastSelectedCardioType.trim()
+        : defaults.lastSelectedCardioType,
     cardioSessions: Array.isArray(dataWithoutLegacyPhases.cardioSessions)
       ? dataWithoutLegacyPhases.cardioSessions.map((session) => ({
           ...session,
