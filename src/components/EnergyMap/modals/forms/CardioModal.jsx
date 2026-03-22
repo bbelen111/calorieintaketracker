@@ -514,13 +514,20 @@ export const CardioModal = ({
                   role="switch"
                   aria-checked={stepOverlapEnabled}
                   onClick={handleStepOverlapToggle}
-                  className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors focus-ring press-feedback ${
-                    stepOverlapEnabled
-                      ? 'border-accent-green bg-accent-green/20 text-accent-green'
-                      : 'border-border bg-surface text-muted md:hover:text-foreground'
-                  }`}
+                  aria-label="Toggle avoid step double count"
+                  className="inline-flex items-center rounded-full focus-ring pressable-inline"
                 >
-                  {stepOverlapEnabled ? 'On' : 'Off'}
+                  <span
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-all ${
+                      stepOverlapEnabled
+                        ? 'bg-accent-green border-accent-green/70'
+                        : 'bg-surface-highlight border-border'
+                    }`}
+                  >
+                    <span
+                      className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${stepOverlapEnabled ? 'translate-x-6' : 'translate-x-1'}`}
+                    />
+                  </span>
                 </button>
               </div>
             </div>

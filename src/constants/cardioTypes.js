@@ -1,3 +1,4 @@
+// Base catalog of cardio activities and MET ranges by effort.
 const baseCardioTypes = {
   treadmill_walk: {
     label: 'Treadmill Walk',
@@ -453,6 +454,7 @@ const baseCardioTypes = {
   },
 };
 
+// Explicitly ambulatory activities used for step/cardio overlap deductions.
 const AMBULATORY_STEP_PROFILE_OVERRIDES = {
   treadmill_walk: { ambulatory: true, cadence: 118 },
   walking_outdoor: { ambulatory: true, cadence: 112 },
@@ -486,7 +488,11 @@ const AMBULATORY_STEP_PROFILE_OVERRIDES = {
   treadmill_run: { ambulatory: true, cadence: 166 },
 };
 
-const clampCadence = (value) => Math.min(Math.max(Math.round(value), 0), 220);
+const MIN_CADENCE = 0;
+const MAX_CADENCE = 220;
+
+const clampCadence = (value) =>
+  Math.min(Math.max(Math.round(value), MIN_CADENCE), MAX_CADENCE);
 
 const deriveCadenceFromModerateMet = (moderateMet) => {
   const safeMet = Number(moderateMet);
@@ -494,7 +500,7 @@ const deriveCadenceFromModerateMet = (moderateMet) => {
     return 0;
   }
 
-  // Specialize cadence per type from its moderate MET while keeping realistic walking/running bounds.
+  // Specialize cadence per type from moderate MET while staying in realistic bounds.
   return clampCadence(80 + safeMet * 9);
 };
 
@@ -516,6 +522,7 @@ const resolveStepProfileForType = (typeKey, cardioType) => {
   };
 };
 
+// Derived table for quick lookup of overlap metadata by cardio type.
 export const cardioStepProfiles = Object.fromEntries(
   Object.entries(baseCardioTypes).map(([typeKey, cardioType]) => [
     typeKey,
@@ -523,6 +530,7 @@ export const cardioStepProfiles = Object.fromEntries(
   ])
 );
 
+// Public cardio map merged with overlap metadata used throughout the app.
 export const cardioTypes = Object.fromEntries(
   Object.entries(baseCardioTypes).map(([typeKey, cardioType]) => {
     const stepProfile = cardioStepProfiles[typeKey] ?? {
