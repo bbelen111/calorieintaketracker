@@ -76,6 +76,15 @@ export const CustomCardioTypeModal = ({
     return Math.min(Math.max(numeric, MET_MIN_VALUE), MET_MAX_VALUE);
   }, []);
 
+  const formatMetDisplay = React.useCallback((rawValue) => {
+    const numeric = Number.parseFloat(rawValue);
+    if (!Number.isFinite(numeric)) {
+      return '--';
+    }
+
+    return numeric.toFixed(1);
+  }, []);
+
   const handleOpenMetPicker = React.useCallback(
     (fieldKey) => {
       setActiveField(fieldKey);
@@ -171,70 +180,49 @@ export const CustomCardioTypeModal = ({
               <label className="text-foreground text-sm block mb-2">
                 Light MET
               </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={metLight}
-                  onChange={(event) => onMetLightChange(event.target.value)}
-                  className="w-full bg-surface-highlight text-foreground px-4 pr-14 py-3 rounded-lg border border-border focus:border-blue-400 focus:outline-none text-base"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleOpenMetPicker('light')}
-                  className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-muted/30 md:hover:bg-muted/50 text-foreground transition focus:outline-none focus:ring-2 focus:ring-blue-400 focus-ring pressable"
-                  aria-label="Open light MET picker"
-                >
-                  <ChevronsUpDown size={16} />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => handleOpenMetPicker('light')}
+                className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
+                aria-label="Open light MET picker"
+              >
+                <span className="font-medium text-base">
+                  {formatMetDisplay(metLight)} MET
+                </span>
+                <ChevronsUpDown size={16} className="text-muted shrink-0" />
+              </button>
             </div>
             <div>
               <label className="text-foreground text-sm block mb-2">
                 Moderate MET
               </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={metModerate}
-                  onChange={(event) => onMetModerateChange(event.target.value)}
-                  className="w-full bg-surface-highlight text-foreground px-4 pr-14 py-3 rounded-lg border border-border focus:border-blue-400 focus:outline-none text-base"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleOpenMetPicker('moderate')}
-                  className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-muted/30 md:hover:bg-muted/50 text-foreground transition focus:outline-none focus:ring-2 focus:ring-blue-400 focus-ring pressable"
-                  aria-label="Open moderate MET picker"
-                >
-                  <ChevronsUpDown size={16} />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => handleOpenMetPicker('moderate')}
+                className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
+                aria-label="Open moderate MET picker"
+              >
+                <span className="font-medium text-base">
+                  {formatMetDisplay(metModerate)} MET
+                </span>
+                <ChevronsUpDown size={16} className="text-muted shrink-0" />
+              </button>
             </div>
             <div>
               <label className="text-foreground text-sm block mb-2">
                 Vigorous MET
               </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={metVigorous}
-                  onChange={(event) => onMetVigorousChange(event.target.value)}
-                  className="w-full bg-surface-highlight text-foreground px-4 pr-14 py-3 rounded-lg border border-border focus:border-blue-400 focus:outline-none text-base"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleOpenMetPicker('vigorous')}
-                  className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-muted/30 md:hover:bg-muted/50 text-foreground transition focus:outline-none focus:ring-2 focus:ring-blue-400 focus-ring pressable"
-                  aria-label="Open vigorous MET picker"
-                >
-                  <ChevronsUpDown size={16} />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => handleOpenMetPicker('vigorous')}
+                className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
+                aria-label="Open vigorous MET picker"
+              >
+                <span className="font-medium text-base">
+                  {formatMetDisplay(metVigorous)} MET
+                </span>
+                <ChevronsUpDown size={16} className="text-muted shrink-0" />
+              </button>
             </div>
           </div>
 

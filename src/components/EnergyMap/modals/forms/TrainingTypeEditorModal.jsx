@@ -1,9 +1,10 @@
 import React from 'react';
-import { Save } from 'lucide-react';
+import { Save, ChevronsUpDown } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import { trainingTypes as baseTrainingTypes } from '../../../../constants/trainingTypes';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { CaloriesPerHourGuideModal } from '../info/CaloriesPerHourGuideModal';
+import { CaloriesPerHourPickerModal } from '../pickers/CaloriesPerHourPickerModal';
 
 const getDefaultValuesForType = (typeKey) => {
   if (!typeKey) return { label: '', caloriesPerHour: 0, description: '' };
@@ -36,6 +37,18 @@ export const TrainingTypeEditorModal = ({
     ? calories
     : defaults.caloriesPerHour;
   const infoModal = useAnimatedModal(false, 220);
+  const caloriesPickerModal = useAnimatedModal(false, 220);
+
+  const formattedCalories = Number.isFinite(Number(safeCalories))
+    ? `${Math.round(Number(safeCalories)).toLocaleString()} kcal/hr`
+    : 'Select calories per hour';
+
+  React.useEffect(() => {
+    if (!isOpen) {
+      infoModal.forceClose();
+      caloriesPickerModal.forceClose();
+    }
+  }, [caloriesPickerModal, infoModal, isOpen]);
 
   return (
     <ModalShell
@@ -75,15 +88,15 @@ export const TrainingTypeEditorModal = ({
           <label className="text-muted text-sm block mb-2">
             Calories Per Hour
           </label>
-          <input
-            type="number"
-            value={safeCalories}
-            onChange={(event) =>
-              onCaloriesChange(parseFloat(event.target.value))
-            }
-            placeholder={defaults.caloriesPerHour}
-            className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border focus:border-blue-400 focus:outline-none text-base"
-          />
+          <button
+            type="button"
+            onClick={caloriesPickerModal.open}
+            className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-3 pressable-inline"
+            aria-label="Open calories per hour picker"
+          >
+            <span className="font-medium text-base">{formattedCalories}</span>
+            <ChevronsUpDown size={16} className="text-muted shrink-0" />
+          </button>
           <button
             type="button"
             onClick={infoModal.open}
@@ -115,6 +128,16 @@ export const TrainingTypeEditorModal = ({
         isOpen={infoModal.isOpen}
         isClosing={infoModal.isClosing}
         onClose={infoModal.requestClose}
+      />
+      <CaloriesPerHourPickerModal
+        isOpen={caloriesPickerModal.isOpen}
+        isClosing={caloriesPickerModal.isClosing}
+        value={safeCalories}
+        onCancel={caloriesPickerModal.requestClose}
+        onSave={(nextCalories) => {
+          onCaloriesChange(nextCalories);
+          caloriesPickerModal.requestClose();
+        }}
       />
     </ModalShell>
   );

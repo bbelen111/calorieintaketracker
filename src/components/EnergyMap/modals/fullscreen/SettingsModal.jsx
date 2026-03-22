@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   Save,
   ChevronsUpDown,
@@ -24,14 +24,7 @@ import { formatDateLabel, formatWeight } from '../../../../utils/weight';
 import { formatBodyFat } from '../../../../utils/bodyFat';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
-import {
-  AGE_MAX,
-  AGE_MIN,
-  HEIGHT_MAX,
-  HEIGHT_MIN,
-  sanitizeAge,
-  sanitizeHeight,
-} from '../../../../utils/profile';
+import { sanitizeAge, sanitizeHeight } from '../../../../utils/profile';
 
 const THEME_OPTIONS = [
   { value: 'auto', label: 'Auto', icon: Monitor },
@@ -102,64 +95,13 @@ export const SettingsModal = ({
     [resolvedUserData.trainingDuration]
   );
 
-  const [ageInput, setAgeInput] = useState(() =>
-    String(sanitizeAge(resolvedUserData.age))
-  );
-  const [heightInput, setHeightInput] = useState(() =>
-    String(sanitizeHeight(resolvedUserData.height))
-  );
-
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    setAgeInput(String(sanitizeAge(resolvedUserData.age)));
-    setHeightInput(String(sanitizeHeight(resolvedUserData.height)));
-  }, [isOpen, resolvedUserData.age, resolvedUserData.height]);
-
-  const commitAgeInput = useCallback(() => {
-    const nextAge = sanitizeAge(ageInput, resolvedUserData.age);
-    onChange('age', nextAge);
-    setAgeInput(String(nextAge));
-  }, [ageInput, onChange, resolvedUserData.age]);
-
-  const commitHeightInput = useCallback(() => {
-    const nextHeight = sanitizeHeight(heightInput, resolvedUserData.height);
-    onChange('height', nextHeight);
-    setHeightInput(String(nextHeight));
-  }, [heightInput, onChange, resolvedUserData.height]);
-
-  const handleNumericEnter = useCallback((event) => {
-    if (event.key !== 'Enter') {
-      return;
-    }
-
-    event.currentTarget.blur();
-  }, []);
-
   const handleCancel = useCallback(() => {
-    setAgeInput(String(sanitizeAge(resolvedUserData.age)));
-    setHeightInput(String(sanitizeHeight(resolvedUserData.height)));
     onCancel?.();
-  }, [onCancel, resolvedUserData.age, resolvedUserData.height]);
+  }, [onCancel]);
 
   const handleSave = useCallback(() => {
-    const nextAge = sanitizeAge(ageInput, resolvedUserData.age);
-    const nextHeight = sanitizeHeight(heightInput, resolvedUserData.height);
-    onChange('age', nextAge);
-    onChange('height', nextHeight);
-    setAgeInput(String(nextAge));
-    setHeightInput(String(nextHeight));
     onSave?.();
-  }, [
-    ageInput,
-    heightInput,
-    onChange,
-    onSave,
-    resolvedUserData.age,
-    resolvedUserData.height,
-  ]);
+  }, [onSave]);
 
   const latestWeightEntry = useMemo(
     () =>
@@ -235,28 +177,17 @@ export const SettingsModal = ({
                 <label className="text-foreground/80 text-sm block mb-2">
                   Age
                 </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min={AGE_MIN}
-                    max={AGE_MAX}
-                    step={1}
-                    value={ageInput}
-                    onChange={(event) => setAgeInput(event.target.value)}
-                    onBlur={commitAgeInput}
-                    onKeyDown={handleNumericEnter}
-                    className="w-full bg-surface-highlight text-foreground px-4 pr-14 py-3 rounded-lg border border-border focus:border-primary focus:outline-none text-lg"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => onAgePickerClick?.()}
-                    className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-muted/30 md:hover:bg-muted/50 text-foreground transition focus-ring"
-                    aria-label="Open age picker"
-                  >
-                    <ChevronsUpDown size={16} />
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => onAgePickerClick?.()}
+                  className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-3 pressable-inline"
+                  aria-label="Open age picker"
+                >
+                  <span className="font-medium text-base">
+                    {sanitizeAge(resolvedUserData.age)} years
+                  </span>
+                  <ChevronsUpDown size={16} className="text-muted shrink-0" />
+                </button>
               </div>
 
               <div>
@@ -400,28 +331,17 @@ export const SettingsModal = ({
                 <label className="text-foreground/80 text-sm block mb-2">
                   Height (cm)
                 </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min={HEIGHT_MIN}
-                    max={HEIGHT_MAX}
-                    step={1}
-                    value={heightInput}
-                    onChange={(event) => setHeightInput(event.target.value)}
-                    onBlur={commitHeightInput}
-                    onKeyDown={handleNumericEnter}
-                    className="w-full bg-surface-highlight text-foreground px-4 pr-14 py-3 rounded-lg border border-border focus:border-primary focus:outline-none text-lg"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => onHeightPickerClick?.()}
-                    className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-muted/30 md:hover:bg-muted/50 text-foreground transition focus-ring"
-                    aria-label="Open height picker"
-                  >
-                    <ChevronsUpDown size={16} />
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => onHeightPickerClick?.()}
+                  className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-3 pressable-inline"
+                  aria-label="Open height picker"
+                >
+                  <span className="font-medium text-base">
+                    {sanitizeHeight(resolvedUserData.height)} cm
+                  </span>
+                  <ChevronsUpDown size={16} className="text-muted shrink-0" />
+                </button>
               </div>
             </div>
 
