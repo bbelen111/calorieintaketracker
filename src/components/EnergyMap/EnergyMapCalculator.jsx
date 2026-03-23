@@ -523,6 +523,21 @@ export const EnergyMapCalculator = () => {
   const [confirmActionLabel, setConfirmActionLabel] = useState('Confirm');
   const [confirmActionTone, setConfirmActionTone] = useState('danger');
   const [confirmActionCallback, setConfirmActionCallback] = useState(null);
+  const confirmActionModal = useAnimatedModal();
+
+  const handleConfirmAction = useCallback(() => {
+    try {
+      if (typeof confirmActionCallback === 'function') {
+        confirmActionCallback();
+      }
+    } finally {
+      confirmActionModal.requestClose();
+    }
+  }, [confirmActionCallback, confirmActionModal]);
+
+  const handleCancelConfirmAction = useCallback(() => {
+    confirmActionModal.requestClose();
+  }, [confirmActionModal]);
 
   const goalModal = useAnimatedModal();
   const bmrModal = useAnimatedModal();
@@ -560,7 +575,6 @@ export const EnergyMapCalculator = () => {
   const stepTrackerModal = useAnimatedModal();
   const stepGoalPickerModal = useAnimatedModal();
   // ...existing code...
-  const confirmActionModal = useAnimatedModal();
 
   const isAnyModalOpen = [
     confirmActionModal,
@@ -725,17 +739,14 @@ export const EnergyMapCalculator = () => {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTempAge(userData.age);
   }, [userData.age]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTempHeight(userData.height);
   }, [userData.height]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTempTrainingType(userData.trainingType);
     setTempTrainingDuration(userData.trainingDuration);
     setTempTrainingEffortType(userData.trainingEffortType ?? 'intensity');
@@ -779,7 +790,6 @@ export const EnergyMapCalculator = () => {
     return '—';
   }, [latestWeightEntry?.weight, userData.weight]);
 
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const weightButtonSubtitle = useMemo(() => {
     if (hasTodayWeightEntry) {
       return 'Logged today';
@@ -1149,7 +1159,7 @@ export const EnergyMapCalculator = () => {
     }
 
     const fallbackWeight = clampWeight(userData.weight) ?? userData.weight;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+
     setWeightEntryDraft({ date: getTodayDateString(), weight: fallbackWeight });
     setWeightEntryMode('add');
     setWeightEntryOriginalDate(null);
@@ -1165,7 +1175,7 @@ export const EnergyMapCalculator = () => {
 
     const fallbackBodyFat =
       clampBodyFat(latestBodyFatEntry?.bodyFat ?? 18) ?? 18;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+
     setBodyFatEntryDraft({
       date: getTodayDateString(),
       bodyFat: fallbackBodyFat,
@@ -1247,7 +1257,6 @@ export const EnergyMapCalculator = () => {
           removeTrainingSession(session.id);
         }
       });
-      confirmActionModal.requestClose();
     });
     confirmActionModal.open();
   }, [confirmActionModal, removeTrainingSession, todayTrainingSessions]);
@@ -1641,7 +1650,6 @@ export const EnergyMapCalculator = () => {
       setConfirmActionTone('danger');
       setConfirmActionCallback(() => () => {
         removeCardioSession(sessionId);
-        confirmActionModal.requestClose();
       });
       confirmActionModal.open();
     },
@@ -2749,7 +2757,6 @@ export const EnergyMapCalculator = () => {
     setConfirmActionCallback(() => () => {
       archivePhase(selectedPhase.id);
       setSelectedPhase(null);
-      confirmActionModal.requestClose();
     });
     confirmActionModal.open();
   }, [selectedPhase, archivePhase, confirmActionModal]);
@@ -2766,14 +2773,12 @@ export const EnergyMapCalculator = () => {
     setConfirmActionCallback(() => () => {
       deletePhase(selectedPhase.id);
       setSelectedPhase(null);
-      confirmActionModal.requestClose();
     });
     confirmActionModal.open();
   }, [selectedPhase, deletePhase, confirmActionModal]);
 
   useEffect(() => {
     if (!dailyLogModal.isOpen && !dailyLogModal.isClosing) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDailyLogDate(getTodayDateString());
       setDailyLogWeightRef('');
       setDailyLogBodyFatRef('');
@@ -2788,7 +2793,6 @@ export const EnergyMapCalculator = () => {
 
   useEffect(() => {
     if (!phaseCreationModal.isOpen && !phaseCreationModal.isClosing) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPhaseName('');
       setPhaseStartDate(getTodayDateString());
       setPhaseEndDate('');
@@ -2803,7 +2807,6 @@ export const EnergyMapCalculator = () => {
     if (selectedPhase) {
       const updatedPhase = phases.find((p) => p.id === selectedPhase.id);
       if (updatedPhase) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSelectedPhase(updatedPhase);
       }
     }
@@ -2811,7 +2814,6 @@ export const EnergyMapCalculator = () => {
 
   useEffect(() => {
     if (!cardioModal.isOpen && !cardioModal.isClosing) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCardioDraft(
         getDefaultCardioSessionForType(
           userData?.lastSelectedCardioType,
@@ -2833,7 +2835,6 @@ export const EnergyMapCalculator = () => {
       !cardioFavouriteEditorModal.isOpen &&
       !cardioFavouriteEditorModal.isClosing
     ) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFavouriteDraft(
         getDefaultCardioSessionForType(
           userData?.lastSelectedCardioType,
@@ -3588,8 +3589,8 @@ export const EnergyMapCalculator = () => {
         description={confirmActionDescription}
         confirmLabel={confirmActionLabel}
         tone={confirmActionTone}
-        onConfirm={confirmActionCallback}
-        onCancel={confirmActionModal.requestClose}
+        onConfirm={handleConfirmAction}
+        onCancel={handleCancelConfirmAction}
       />
     </div>
   );
