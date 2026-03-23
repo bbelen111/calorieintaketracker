@@ -275,6 +275,7 @@ export const EnergyMapCalculator = () => {
     totalCardioBurn,
     trainingSessions,
     handleUserDataChange,
+    setSelectedGoal,
     addStepRange,
     removeStepRange,
     addCardioSession,
@@ -333,6 +334,7 @@ export const EnergyMapCalculator = () => {
       totalCardioBurn: state.totalCardioBurn,
       trainingSessions: state.trainingSessions,
       handleUserDataChange: state.handleUserDataChange,
+      setSelectedGoal: state.setSelectedGoal,
       addStepRange: state.addStepRange,
       removeStepRange: state.removeStepRange,
       addCardioSession: state.addCardioSession,
@@ -385,7 +387,7 @@ export const EnergyMapCalculator = () => {
   const { currentScreen, sliderStyle, handlers, goToScreen, isSwiping } =
     useSwipeableScreens(screenTabs.length, viewportRef, homeIndex);
 
-  const [selectedGoal, setSelectedGoal] = useState('maintenance');
+  const selectedGoal = userData.selectedGoal ?? 'maintenance';
   const [tempSelectedGoal, setTempSelectedGoal] = useState('maintenance');
   const [tempAge, setTempAge] = useState(userData.age);
   const [tempHeight, setTempHeight] = useState(userData.height);

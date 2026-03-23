@@ -447,6 +447,13 @@ const SHARDED_HISTORY_FIELD_CONFIG = {
 const SHARDED_HISTORY_FIELDS = Object.keys(SHARDED_HISTORY_FIELD_CONFIG);
 
 const ACTIVITY_DAY_TYPES = ['training', 'rest'];
+const GOAL_KEYS = new Set([
+  'aggressive_bulk',
+  'bulking',
+  'maintenance',
+  'cutting',
+  'aggressive_cut',
+]);
 
 let lastSavedProfileSerialized = null;
 let lastSavedHistorySerializedByField = new Map();
@@ -465,6 +472,19 @@ const parseJsonOrEmpty = (value) => {
     console.warn('Failed to parse stored JSON payload', error);
     return {};
   }
+};
+
+const normalizeSelectedGoal = (value, fallback = 'maintenance') => {
+  const normalized = String(value ?? '').trim();
+  return GOAL_KEYS.has(normalized) ? normalized : fallback;
+};
+
+const normalizeGoalChangedAt = (value, fallback = Date.now()) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return Math.round(parsed);
 };
 
 const encodeShardKey = (value) =>
@@ -963,6 +983,8 @@ export const getDefaultEnergyMapData = () => ({
   bodyFatTrackingEnabled: true,
   gender: 'male',
   theme: 'auto', // 'auto' | 'dark' | 'light' | 'amoled_dark'
+  selectedGoal: 'maintenance',
+  goalChangedAt: Date.now(),
   smartTefEnabled: false,
   smartTefFoodTefBurnEnabled: true,
   smartTefQuickEstimatesTargetMode: true,
@@ -1127,6 +1149,14 @@ function mergeWithDefaults(data) {
     ...dataWithoutLegacyPhases,
     age: sanitizeAge(dataWithoutLegacyPhases.age, defaults.age),
     height: sanitizeHeight(dataWithoutLegacyPhases.height, defaults.height),
+    selectedGoal: normalizeSelectedGoal(
+      dataWithoutLegacyPhases.selectedGoal,
+      defaults.selectedGoal
+    ),
+    goalChangedAt: normalizeGoalChangedAt(
+      dataWithoutLegacyPhases.goalChangedAt,
+      defaults.goalChangedAt
+    ),
     nutritionData: normalizeNutritionData(
       dataWithoutLegacyPhases.nutritionData ?? defaults.nutritionData
     ),

@@ -16,6 +16,8 @@ const userData = {
   gender: 'male',
   bodyFatEntries: [],
   bodyFatTrackingEnabled: false,
+  selectedGoal: 'cutting',
+  goalChangedAt: 1700000000000,
   smartTefEnabled: true,
   activityMultipliers: {
     training: 0.35,
@@ -103,6 +105,7 @@ test('buildDailySnapshot produces a complete date-scoped snapshot', () => {
   });
 
   assert.equal(snapshot.date, dateKey);
+  assert.equal(snapshot.goalAtSnapshot, 'cutting');
   assert.equal(snapshot.intake, 1200);
   assert.equal(snapshot.stepCount, 11234);
   assert.equal(snapshot.isTrainingDay, true);

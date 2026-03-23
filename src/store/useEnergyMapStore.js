@@ -83,6 +83,23 @@ const getTodayDateKey = () => {
   return `${year}-${month}-${day}`;
 };
 
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+const getGoalDurationDays = (goalChangedAt) => {
+  const changedAt = Number(goalChangedAt);
+  if (!Number.isFinite(changedAt) || changedAt <= 0) {
+    return 0;
+  }
+
+  const now = Date.now();
+  const elapsed = now - changedAt;
+  if (!Number.isFinite(elapsed) || elapsed <= 0) {
+    return 0;
+  }
+
+  return Math.floor(elapsed / MS_PER_DAY);
+};
+
 const normalizeSessionDate = (value) => normalizeDateKey(value);
 
 const normalizePhaseStateForUserData = (userData) => {
@@ -210,6 +227,8 @@ const deriveState = (userData) => {
   const bodyFatEntries = sortBodyFatEntries(userData.bodyFatEntries ?? []);
   const stepEntries = sortStepEntries(userData.stepEntries ?? []);
   const stepGoal = userData.stepGoal ?? 10000;
+  const selectedGoal = userData.selectedGoal ?? 'maintenance';
+  const goalChangedAt = Number(userData.goalChangedAt) || Date.now();
 
   return {
     trainingTypes,
@@ -222,6 +241,9 @@ const deriveState = (userData) => {
     bodyFatEntries,
     stepEntries,
     stepGoal,
+    selectedGoal,
+    goalChangedAt,
+    goalDurationDays: getGoalDurationDays(goalChangedAt),
     customCardioTypes: userData.customCardioTypes ?? {},
     cardioFavourites: userData.cardioFavourites ?? [],
     foodFavourites: userData.foodFavourites ?? [],
@@ -292,6 +314,22 @@ export const useEnergyMapStore = create(
         }
 
         return { ...prev, [field]: value };
+      });
+    },
+
+    setSelectedGoal: (goalKey, changedAt = Date.now()) => {
+      updateUserData(set, get, (prev) => {
+        if (goalKey === prev.selectedGoal) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          selectedGoal: goalKey,
+          goalChangedAt: Number.isFinite(Number(changedAt))
+            ? Math.round(Number(changedAt))
+            : Date.now(),
+        };
       });
     },
 

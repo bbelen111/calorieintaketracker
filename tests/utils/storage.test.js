@@ -112,6 +112,8 @@ test('loadEnergyMapData returns defaults when storage is empty', async () => {
 
     assert.equal(loaded.age, defaults.age);
     assert.equal(loaded.height, defaults.height);
+    assert.equal(loaded.selectedGoal, defaults.selectedGoal);
+    assert.ok(Number.isFinite(loaded.goalChangedAt));
     assert.deepEqual(loaded.weightEntries, defaults.weightEntries);
     assert.deepEqual(loaded.nutritionData, defaults.nutritionData);
   });
@@ -473,5 +475,25 @@ test('saveEnergyMapData skips redundant Preferences writes for unchanged payload
     } finally {
       Preferences.set = originalSet;
     }
+  });
+});
+
+test('save/loadEnergyMapData persists selectedGoal and goalChangedAt in profile scope', async () => {
+  await withWindowStorage(async () => {
+    await Preferences.remove({ key: PROFILE_KEY });
+    await clearDexieHistory();
+
+    const payload = {
+      ...getDefaultEnergyMapData(),
+      selectedGoal: 'cutting',
+      goalChangedAt: 1700000000000,
+      weightEntries: [{ date: '2026-03-22', weight: 79.2 }],
+    };
+
+    await saveEnergyMapData(payload);
+
+    const loaded = await loadEnergyMapData();
+    assert.equal(loaded.selectedGoal, 'cutting');
+    assert.equal(loaded.goalChangedAt, 1700000000000);
   });
 });

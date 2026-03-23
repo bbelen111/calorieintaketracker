@@ -2,6 +2,19 @@ import { calculateBMR, calculateCalorieBreakdown } from './calculations.js';
 import { getNutritionTotalsForDate } from './phases.js';
 import { normalizeDateKey } from './weight.js';
 
+const GOAL_KEYS = new Set([
+  'aggressive_bulk',
+  'bulking',
+  'maintenance',
+  'cutting',
+  'aggressive_cut',
+]);
+
+const normalizeSelectedGoal = (value, fallback = 'maintenance') => {
+  const normalized = String(value ?? '').trim();
+  return GOAL_KEYS.has(normalized) ? normalized : fallback;
+};
+
 const toDateKeyFromDate = (date) => {
   const year = date.getUTCFullYear();
   const month = String(date.getUTCMonth() + 1).padStart(2, '0');
@@ -114,6 +127,7 @@ export const buildDailySnapshot = ({
 
   return {
     date: normalizedDateKey,
+    goalAtSnapshot: normalizeSelectedGoal(userData?.selectedGoal),
     tdee,
     intake,
     deficit: tdee - intake,
