@@ -230,13 +230,10 @@ export const HomeScreen = ({
           >
             <Dumbbell className="mx-auto mb-2" size={28} />
             <p className="font-bold text-lg">Training Day</p>
-            <p className="text-xs md:text-sm opacity-80">
-              {resolvedTodayTrainingSessions.length > 0
-                ? `${resolvedTodayTrainingSessions.length} session${resolvedTodayTrainingSessions.length === 1 ? '' : 's'} today`
-                : 'No sessions logged today'}
-            </p>
             <p className="text-[11px] opacity-70 mt-1">
-              ~{Math.round(resolvedTrainingCalories)} kcal burn
+              {resolvedTodayTrainingSessions.length > 0
+                ? `~${Math.round(resolvedTrainingCalories)} kcal burn`
+                : 'Tap to add session'}
             </p>
             <AnimatePresence initial={false}>
               {selectedDay === 'training' && (
