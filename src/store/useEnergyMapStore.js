@@ -24,6 +24,11 @@ import {
 import { clampBodyFat, sortBodyFatEntries } from '../utils/bodyFat';
 import { sanitizeAge, sanitizeHeight } from '../utils/profile';
 import {
+  areDailySnapshotsEquivalent,
+  buildDailySnapshot,
+  getPreviousDateKey,
+} from '../utils/dailySnapshots';
+import {
   PHASE_STATUS,
   convertPhaseLogV2ToLegacyPhases,
   normalizePhaseLogV2State,
@@ -223,6 +228,7 @@ const deriveState = (userData) => {
     nutritionData: userData.nutritionData ?? {},
     pinnedFoods: userData.pinnedFoods ?? [],
     cachedFoods: userData.cachedFoods ?? [],
+    dailySnapshots: userData.dailySnapshots ?? {},
     phases: legacyPhaseView.phases,
     phaseLogV2,
     activePhaseId: legacyPhaseView.activePhaseId,
@@ -260,6 +266,13 @@ export const useEnergyMapStore = create(
         ...deriveState(nextUserData),
         isLoaded: true,
       });
+
+      const todayDateKey = getTodayDateKey();
+      const previousDateKey = getPreviousDateKey(todayDateKey);
+      if (previousDateKey) {
+        get().upsertDailySnapshot(previousDateKey, { onlyIfMissing: true });
+      }
+      get().upsertDailySnapshot(todayDateKey, { onlyIfMissing: true });
     },
 
     handleUserDataChange: (field, value) => {
@@ -315,6 +328,8 @@ export const useEnergyMapStore = create(
           { ...session, date: normalizedDate, id: Date.now() },
         ],
       }));
+
+      get().upsertDailySnapshot(normalizedDate);
     },
 
     addCardioFavourite: (session) => {
@@ -334,6 +349,11 @@ export const useEnergyMapStore = create(
       if (id == null) {
         return;
       }
+
+      const previousSession = (get().userData.cardioSessions ?? []).find(
+        (session) => session.id === id
+      );
+      const previousDate = normalizeSessionDate(previousSession?.date);
 
       if (Object.prototype.hasOwnProperty.call(updates ?? {}, 'date')) {
         const normalizedDate = normalizeSessionDate(updates?.date);
@@ -357,6 +377,14 @@ export const useEnergyMapStore = create(
             : session
         ),
       }));
+
+      const nextDate = normalizeSessionDate(updates?.date ?? previousDate);
+      if (previousDate) {
+        get().upsertDailySnapshot(previousDate);
+      }
+      if (nextDate && nextDate !== previousDate) {
+        get().upsertDailySnapshot(nextDate);
+      }
     },
 
     addTrainingSession: (session) => {
@@ -376,12 +404,19 @@ export const useEnergyMapStore = create(
           },
         ],
       }));
+
+      get().upsertDailySnapshot(normalizedDate);
     },
 
     updateTrainingSession: (id, updates) => {
       if (id == null) {
         return;
       }
+
+      const previousSession = (get().userData.trainingSessions ?? []).find(
+        (session) => session.id === id
+      );
+      const previousDate = normalizeSessionDate(previousSession?.date);
 
       if (Object.prototype.hasOwnProperty.call(updates ?? {}, 'date')) {
         const normalizedDate = normalizeSessionDate(updates?.date);
@@ -405,24 +440,50 @@ export const useEnergyMapStore = create(
             : session
         ),
       }));
+
+      const nextDate = normalizeSessionDate(updates?.date ?? previousDate);
+      if (previousDate) {
+        get().upsertDailySnapshot(previousDate);
+      }
+      if (nextDate && nextDate !== previousDate) {
+        get().upsertDailySnapshot(nextDate);
+      }
     },
 
     removeTrainingSession: (id) => {
+      const previousSession = (get().userData.trainingSessions ?? []).find(
+        (session) => session.id === id
+      );
+      const previousDate = normalizeSessionDate(previousSession?.date);
+
       updateUserData(set, get, (prev) => ({
         ...prev,
         trainingSessions: (prev.trainingSessions ?? []).filter(
           (session) => session.id !== id
         ),
       }));
+
+      if (previousDate) {
+        get().upsertDailySnapshot(previousDate);
+      }
     },
 
     removeCardioSession: (id) => {
+      const previousSession = (get().userData.cardioSessions ?? []).find(
+        (session) => session.id === id
+      );
+      const previousDate = normalizeSessionDate(previousSession?.date);
+
       updateUserData(set, get, (prev) => ({
         ...prev,
         cardioSessions: prev.cardioSessions.filter(
           (session) => session.id !== id
         ),
       }));
+
+      if (previousDate) {
+        get().upsertDailySnapshot(previousDate);
+      }
     },
 
     removeCardioFavourite: (id) => {
@@ -567,6 +628,47 @@ export const useEnergyMapStore = create(
     calculateCardioSessionCalories: (session) => {
       const { userData, cardioTypes } = get();
       return calculateCardioCalories(session, userData, cardioTypes);
+    },
+
+    upsertDailySnapshot: (dateKey, options = {}) => {
+      const normalizedDate = normalizeDateKey(dateKey);
+      if (!normalizedDate) {
+        return null;
+      }
+
+      const { userData, bmr, cardioTypes, trainingTypes } = get();
+      const existingSnapshot = userData.dailySnapshots?.[normalizedDate];
+
+      if (options.onlyIfMissing && existingSnapshot) {
+        return existingSnapshot;
+      }
+
+      const nextSnapshot = buildDailySnapshot({
+        dateKey: normalizedDate,
+        userData,
+        bmr,
+        cardioTypes,
+        trainingTypes,
+        existingSnapshot,
+      });
+
+      if (!nextSnapshot) {
+        return existingSnapshot ?? null;
+      }
+
+      if (areDailySnapshotsEquivalent(existingSnapshot, nextSnapshot)) {
+        return existingSnapshot ?? nextSnapshot;
+      }
+
+      updateUserData(set, get, (prev) => ({
+        ...prev,
+        dailySnapshots: {
+          ...(prev.dailySnapshots ?? {}),
+          [normalizedDate]: nextSnapshot,
+        },
+      }));
+
+      return nextSnapshot;
     },
 
     saveWeightEntry: ({ date, weight }, originalDate) => {
@@ -754,6 +856,8 @@ export const useEnergyMapStore = create(
           stepEntries: nextEntries,
         };
       });
+
+      get().upsertDailySnapshot(normalizedDate);
     },
 
     setStepGoal: (goal) => {
@@ -1023,6 +1127,11 @@ export const useEnergyMapStore = create(
           phaseLogV2: syncNutritionRefsForDate(prev.phaseLogV2, date, true),
         };
       });
+
+      const normalizedDate = normalizeDateKey(date);
+      if (normalizedDate) {
+        get().upsertDailySnapshot(normalizedDate);
+      }
     },
 
     updateFoodEntry: (date, mealType, updatedEntry) => {
@@ -1052,6 +1161,11 @@ export const useEnergyMapStore = create(
           phaseLogV2: syncNutritionRefsForDate(prev.phaseLogV2, date, true),
         };
       });
+
+      const normalizedDate = normalizeDateKey(date);
+      if (normalizedDate) {
+        get().upsertDailySnapshot(normalizedDate);
+      }
     },
 
     deleteFoodEntry: (date, mealType, entryId) => {
@@ -1088,6 +1202,11 @@ export const useEnergyMapStore = create(
           ),
         };
       });
+
+      const normalizedDate = normalizeDateKey(date);
+      if (normalizedDate) {
+        get().upsertDailySnapshot(normalizedDate);
+      }
     },
 
     deleteMeal: (date, mealType) => {
@@ -1120,6 +1239,11 @@ export const useEnergyMapStore = create(
           ),
         };
       });
+
+      const normalizedDate = normalizeDateKey(date);
+      if (normalizedDate) {
+        get().upsertDailySnapshot(normalizedDate);
+      }
     },
 
     togglePinnedFood: (foodId) => {
@@ -1186,6 +1310,7 @@ export const useEnergyMapStore = create(
 
 let hasSetup = false;
 let saveTimeoutId = null;
+let lastObservedDateKey = getTodayDateKey();
 
 export const setupEnergyMapStore = () => {
   if (hasSetup) {
@@ -1193,14 +1318,23 @@ export const setupEnergyMapStore = () => {
   }
 
   hasSetup = true;
+  lastObservedDateKey = getTodayDateKey();
 
   useEnergyMapStore.getState().initialize();
 
   useEnergyMapStore.subscribe(
     (state) => state.userData,
     (userData) => {
-      if (!useEnergyMapStore.getState().isLoaded) {
+      const storeState = useEnergyMapStore.getState();
+      if (!storeState.isLoaded) {
         return;
+      }
+
+      const todayDateKey = getTodayDateKey();
+      if (todayDateKey !== lastObservedDateKey) {
+        storeState.upsertDailySnapshot(lastObservedDateKey);
+        storeState.upsertDailySnapshot(todayDateKey, { onlyIfMissing: true });
+        lastObservedDateKey = todayDateKey;
       }
 
       if (saveTimeoutId) {

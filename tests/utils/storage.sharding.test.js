@@ -67,6 +67,16 @@ test('reconstructHistoryFromDexieDocuments rebuilds sharded history fields', () 
         __order: 0,
       },
     },
+    {
+      id: 'dailySnapshots:2026-03-21',
+      payload: {
+        date: '2026-03-21',
+        tdee: 3100,
+        intake: 2400,
+        deficit: 700,
+        stepCount: 12654,
+      },
+    },
   ];
 
   const { historyData, hasAnyHistory, shardDocIdsByField } =
@@ -106,6 +116,7 @@ test('reconstructHistoryFromDexieDocuments rebuilds sharded history fields', () 
       name: 'Chicken Breast',
     },
   ]);
+  assert.equal(historyData.dailySnapshots['2026-03-21']?.deficit, 700);
 
   assert.equal(
     shardDocIdsByField.get('nutritionData')?.has('nutritionData:2026-03-21'),
@@ -113,6 +124,12 @@ test('reconstructHistoryFromDexieDocuments rebuilds sharded history fields', () 
   );
   assert.equal(
     shardDocIdsByField.get('cachedFoods')?.has('cachedFoods:chicken%20breast'),
+    true
+  );
+  assert.equal(
+    shardDocIdsByField
+      .get('dailySnapshots')
+      ?.has('dailySnapshots:2026-03-21'),
     true
   );
 });

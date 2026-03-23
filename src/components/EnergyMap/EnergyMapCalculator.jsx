@@ -696,6 +696,44 @@ export const EnergyMapCalculator = () => {
   }, []);
 
   useEffect(() => {
+    if (!Capacitor.isNativePlatform()) {
+      return undefined;
+    }
+
+    let appStateListener = null;
+
+    const setup = async () => {
+      appStateListener = await App.addListener(
+        'appStateChange',
+        ({ isActive }) => {
+          if (!isActive) {
+            return;
+          }
+
+          const store = useEnergyMapStore.getState();
+          if (!store.isLoaded) {
+            return;
+          }
+
+          const todayDateKey = getTodayDateString();
+          const yesterdayDate = new Date(`${todayDateKey}T00:00:00Z`);
+          yesterdayDate.setUTCDate(yesterdayDate.getUTCDate() - 1);
+          const yesterdayDateKey = yesterdayDate.toISOString().split('T')[0];
+
+          store.upsertDailySnapshot(yesterdayDateKey);
+          store.upsertDailySnapshot(todayDateKey);
+        }
+      );
+    };
+
+    setup();
+
+    return () => {
+      appStateListener?.remove?.();
+    };
+  }, []);
+
+  useEffect(() => {
     if (isDayLoaded) {
       saveSelectedDay(selectedDay);
     }

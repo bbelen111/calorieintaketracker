@@ -35,6 +35,7 @@ const HISTORY_FIELDS = [
   'cardioSessions',
   'trainingSessions',
   'cachedFoods',
+  'dailySnapshots',
 ];
 
 const buildPhaseLogV2Indexes = (phaseLogV2State) => {
@@ -69,7 +70,7 @@ const buildPhaseLogV2Indexes = (phaseLogV2State) => {
     }
   });
 
-  Object.entries(logIdsByPhaseId).forEach(([phaseId, logIds]) => {
+  Object.entries(logIdsByPhaseId).forEach(([, logIds]) => {
     logIds.sort((a, b) => {
       const logA = phaseLogV2State.logsById?.[a];
       const logB = phaseLogV2State.logsById?.[b];
@@ -397,6 +398,48 @@ const SHARDED_HISTORY_FIELD_CONFIG = {
         logIdsByPhaseId: indexed.logIdsByPhaseId,
         logIdByPhaseDate: indexed.logIdByPhaseDate,
       });
+    },
+  },
+  dailySnapshots: {
+    prefix: 'dailySnapshots:',
+    toDocuments: (value) => {
+      if (!value || typeof value !== 'object') {
+        return [];
+      }
+
+      return Object.entries(value)
+        .map(([dateKey, snapshot]) => {
+          const normalizedDateKey = normalizeDateKey(dateKey);
+          if (!normalizedDateKey || !snapshot || typeof snapshot !== 'object') {
+            return null;
+          }
+
+          return {
+            key: normalizedDateKey,
+            payload: {
+              ...snapshot,
+              date: normalizedDateKey,
+            },
+          };
+        })
+        .filter(Boolean);
+    },
+    fromDocuments: (documents) => {
+      const next = {};
+
+      documents.forEach(({ key, payload }) => {
+        const normalizedDateKey = normalizeDateKey(key);
+        if (!normalizedDateKey || !payload || typeof payload !== 'object') {
+          return;
+        }
+
+        next[normalizedDateKey] = {
+          ...payload,
+          date: normalizedDateKey,
+        };
+      });
+
+      return next;
     },
   },
 };
@@ -862,8 +905,7 @@ export const saveEnergyMapData = async (data) => {
       lastSavedHistorySerializedByField = serializedByField;
     }
 
-    const hasPersistenceRisk =
-      rejected.length > 0 || hasExplicitFailureValue;
+    const hasPersistenceRisk = rejected.length > 0 || hasExplicitFailureValue;
 
     if (hasPersistenceRisk) {
       console.warn('One or more storage save operations failed', {
@@ -940,6 +982,7 @@ export const getDefaultEnergyMapData = () => ({
   nutritionData: {},
   pinnedFoods: [],
   cachedFoods: [], // Foods fetched from online APIs (FatSecret, etc.)
+  dailySnapshots: {}, // { 'YYYY-MM-DD': { date, tdee, intake, deficit, stepCount, ... } }
   // nutritionData structure: { 'YYYY-MM-DD': { mealType: [{ id, name, calories, protein, carbs, fats, timestamp }] } }
   trainingTypeOverrides: {
     bodybuilding: {
@@ -1060,6 +1103,25 @@ function mergeWithDefaults(data) {
     return normalized;
   };
 
+  const normalizeDailySnapshots = (raw) => {
+    if (!raw || typeof raw !== 'object') {
+      return defaults.dailySnapshots;
+    }
+
+    return Object.entries(raw).reduce((acc, [dateKey, snapshot]) => {
+      const normalizedDateKey = normalizeDateKey(dateKey);
+      if (!normalizedDateKey || !snapshot || typeof snapshot !== 'object') {
+        return acc;
+      }
+
+      acc[normalizedDateKey] = {
+        ...snapshot,
+        date: normalizedDateKey,
+      };
+      return acc;
+    }, {});
+  };
+
   return {
     ...defaults,
     ...dataWithoutLegacyPhases,
@@ -1146,5 +1208,8 @@ function mergeWithDefaults(data) {
     cachedFoods: Array.isArray(dataWithoutLegacyPhases.cachedFoods)
       ? normalizeCachedFoodsForPersistence(dataWithoutLegacyPhases.cachedFoods)
       : defaults.cachedFoods,
+    dailySnapshots: normalizeDailySnapshots(
+      dataWithoutLegacyPhases.dailySnapshots ?? defaults.dailySnapshots
+    ),
   };
 }

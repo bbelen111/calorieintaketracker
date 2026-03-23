@@ -394,6 +394,52 @@ test('save/loadEnergyMapData round-trips trainingSessions via sharded history do
   });
 });
 
+test('save/loadEnergyMapData round-trips dailySnapshots via sharded history documents', async () => {
+  await withWindowStorage(async () => {
+    await Preferences.remove({ key: PROFILE_KEY });
+    await clearDexieHistory();
+
+    const payload = {
+      ...getDefaultEnergyMapData(),
+      dailySnapshots: {
+        '2026-03-20': {
+          date: '2026-03-20',
+          tdee: 3012,
+          intake: 2200,
+          deficit: 812,
+          stepCount: 9876,
+          isTrainingDay: true,
+          bmr: 1720,
+          stepCalories: 220,
+          trainingBurn: 500,
+          cardioBurn: 180,
+          tef: 145,
+          createdAt: 1700000000000,
+          updatedAt: 1700000000000,
+        },
+      },
+    };
+
+    await saveEnergyMapData(payload);
+
+    const historySnapshot = await loadAllHistoryDocuments();
+    if (historySnapshot.available) {
+      const snapshotDocs = historySnapshot.documents.filter((document) =>
+        String(document?.id).startsWith('dailySnapshots:')
+      );
+      assert.ok(snapshotDocs.length >= 1);
+    }
+
+    const loaded = await loadEnergyMapData();
+    if (historySnapshot.available) {
+      assert.equal(loaded.dailySnapshots['2026-03-20']?.tdee, 3012);
+      assert.equal(loaded.dailySnapshots['2026-03-20']?.deficit, 812);
+    } else {
+      assert.deepEqual(loaded.dailySnapshots, {});
+    }
+  });
+});
+
 test('saveEnergyMapData skips redundant Preferences writes for unchanged payloads', async () => {
   await withWindowStorage(async () => {
     await Preferences.remove({ key: PROFILE_KEY });
