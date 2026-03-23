@@ -400,9 +400,11 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 | BMR | `calculateBMR(userData)` | Mifflin-St Jeor; auto-upgrades to Katch-McArdle when `bodyFatTrackingEnabled` with valid entries |
 | Step calories | `getStepDetails(steps, userData)` | **Lives in `utils/steps.js`**, not calculations.js. Stride length heuristic: height × 0.415 (male) / 0.413 (female). In full breakdown mode, step calories are computed from **remaining steps** after ambulatory-cardio overlap deduction. |
 | Cardio (single) | `calculateCardioCalories(session, userData, cardioTypes)` | MET-based (`effortType: 'intensity'`) or heart rate formula (`effortType: 'heartRate'`) |
-| Cardio (total) | `getTotalCardioBurn(userData, cardioTypes)` | Sums `calculateCardioCalories` across all `userData.cardioSessions` |
+| Cardio (total) | `getTotalCardioBurn(userData, cardioTypes)` | Sums `calculateCardioCalories` for **today's date** only |
+| Cardio (for date) | `getTotalCardioBurnForDate(userData, cardioTypes, dateKey)` | Sums cardio calories for a specific `dateKey` |
 | Training cal/hr | `getTrainingCaloriesPerHour(userData, trainingTypes)` | Base cal/hr × intensity multiplier (light 0.75 / moderate 1.0 / vigorous 1.25) |
 | Training (total) | `getTrainingCalories(userData, trainingTypes)` | Supports `trainingEffortType: 'heartRate'` or intensity-based. `caloriesPerHour × trainingDuration` from resolved types |
+| Training (for date) | `getTotalTrainingBurnForDate(userData, trainingTypes, dateKey)` | Sums training-session calories for a specific `dateKey` |
 | TDEE breakdown | `calculateCalorieBreakdown({...})` | BMR + activity multiplier + training + cardio + steps. Accepts optional `tefContext`. Returns `bmrDetails`, TEF fields when Smart TEF is enabled, plus step-overlap diagnostics (`originalEstimatedSteps`, `deductedSteps`, `remainingEstimatedSteps`, overlap session counts/details). |
 | TDEE (simple) | `calculateTDEE(options)` | Convenience wrapper — returns just `calculateCalorieBreakdown(options).total` |
 | Goal target | `calculateGoalCalories(tdee, goal)` | Applies ±300/500 modifier based on goal |
@@ -442,7 +444,7 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 
 Primary history store is now Dexie (`energyMapHistory` DB), with document rows keyed by history field name.
 
-Split is determined by `HISTORY_FIELDS` array: `weightEntries`, `bodyFatEntries`, `stepEntries`, `nutritionData`, `phaseLogV2`, `cardioSessions`, `cachedFoods`.
+Split is determined by `HISTORY_FIELDS` array: `weightEntries`, `bodyFatEntries`, `stepEntries`, `nutritionData`, `phaseLogV2`, `cardioSessions`, `trainingSessions`, `cachedFoods`.
 
 ### Dexie History Store
 
@@ -519,9 +521,13 @@ Migration behavior is now intentionally minimal:
   stepGoal: 10000,
   bodyFatTrackingEnabled: true,
   smartTefEnabled: false,          // Explicit macro-based TEF replaces implicit 10% in NEAT
+  smartTefFoodTefBurnEnabled: true,
+  smartTefQuickEstimatesTargetMode: true,
+  smartTefLiveCardTargetMode: false,
 
   // History (Dexie)
-  cardioSessions: [{ id, type, duration, intensity, effortType, averageHeartRate?, stepOverlapEnabled? }],
+  cardioSessions: [{ id, date, type, duration, intensity, effortType, averageHeartRate?, stepOverlapEnabled? }],
+  trainingSessions: [{ id, date, type, duration, intensity, effortType, averageHeartRate? }],
   weightEntries: [{ date: 'YYYY-MM-DD', weight }],
   bodyFatEntries: [{ date: 'YYYY-MM-DD', bodyFat }],
   stepEntries: [{ date: 'YYYY-MM-DD', steps, source: 'healthConnect'|'manual' }],
@@ -541,7 +547,7 @@ Migration behavior is now intentionally minimal:
   timestamp: 1699876543210 }
 ```
 
-Meal types ordered by `MEAL_TYPE_ORDER` constant: breakfast, lunch, dinner, snacks.
+Meal types are ordered by `MEAL_TYPE_ORDER`: `breakfast`, `morning_snack`, `lunch`, `afternoon_snack`, `dinner`, `evening_snack`, `other`.
 
 ### Phase Structure (Reference-Based)
 
