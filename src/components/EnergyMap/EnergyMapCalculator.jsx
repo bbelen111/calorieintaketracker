@@ -554,121 +554,44 @@ export const EnergyMapCalculator = () => {
   // ...existing code...
   const confirmActionModal = useAnimatedModal();
 
-  const isAnyModalOpen = useMemo(
-    () =>
-      [
-        confirmActionModal,
-        foodPortionModal,
-        foodEntryModal,
-        foodSearchModal,
-        mealTypePickerModal,
-        calendarPickerModal,
-        dailyLogModal,
-        templatePickerModal,
-        phaseCreationModal,
-        tefInfoModal,
-        calorieBreakdownModal,
-        cardioFavouriteEditorModal,
-        cardioFavouritesModal,
-        cardioModal,
-        durationPickerModal,
-        trainingModal,
-        stepRangesModal,
-        stepTrackerModal,
-        stepGoalPickerModal,
-        dailyActivityCustomModal,
-        dailyActivityEditorModal,
-        dailyActivityModal,
-        settingsModal,
-        trainingTypeEditorModal,
-        bodyFatPickerModal,
-        bodyFatEntryModal,
-        bodyFatTrackerModal,
-        weightPickerModal,
-        weightEntryModal,
-        weightTrackerModal,
-        heightModal,
-        ageModal,
-        ffmiModal,
-        bmiModal,
-        bmrModal,
-        goalModal,
-      ].some((modal) => modal?.isOpen || modal?.isClosing),
-    [
-      ageModal.isClosing,
-      ageModal.isOpen,
-      bmiModal.isClosing,
-      bmiModal.isOpen,
-      bmrModal.isClosing,
-      bmrModal.isOpen,
-      bodyFatEntryModal.isClosing,
-      bodyFatEntryModal.isOpen,
-      bodyFatPickerModal.isClosing,
-      bodyFatPickerModal.isOpen,
-      bodyFatTrackerModal.isClosing,
-      bodyFatTrackerModal.isOpen,
-      calorieBreakdownModal.isClosing,
-      calorieBreakdownModal.isOpen,
-      tefInfoModal.isClosing,
-      tefInfoModal.isOpen,
-      calendarPickerModal.isClosing,
-      calendarPickerModal.isOpen,
-      cardioFavouriteEditorModal.isClosing,
-      cardioFavouriteEditorModal.isOpen,
-      cardioFavouritesModal.isClosing,
-      cardioFavouritesModal.isOpen,
-      cardioModal.isClosing,
-      cardioModal.isOpen,
-      confirmActionModal.isClosing,
-      confirmActionModal.isOpen,
-      dailyActivityCustomModal.isClosing,
-      dailyActivityCustomModal.isOpen,
-      dailyActivityEditorModal.isClosing,
-      dailyActivityEditorModal.isOpen,
-      dailyActivityModal.isClosing,
-      dailyActivityModal.isOpen,
-      dailyLogModal.isClosing,
-      dailyLogModal.isOpen,
-      durationPickerModal.isClosing,
-      durationPickerModal.isOpen,
-      ffmiModal.isClosing,
-      ffmiModal.isOpen,
-      foodEntryModal.isClosing,
-      foodEntryModal.isOpen,
-      foodPortionModal.isClosing,
-      foodPortionModal.isOpen,
-      foodSearchModal.isClosing,
-      foodSearchModal.isOpen,
-      goalModal.isClosing,
-      goalModal.isOpen,
-      heightModal.isClosing,
-      heightModal.isOpen,
-      mealTypePickerModal.isClosing,
-      mealTypePickerModal.isOpen,
-      phaseCreationModal.isClosing,
-      phaseCreationModal.isOpen,
-      trainingModal.isClosing,
-      trainingModal.isOpen,
-      settingsModal.isClosing,
-      settingsModal.isOpen,
-      stepGoalPickerModal.isClosing,
-      stepGoalPickerModal.isOpen,
-      stepRangesModal.isClosing,
-      stepRangesModal.isOpen,
-      stepTrackerModal.isClosing,
-      stepTrackerModal.isOpen,
-      templatePickerModal.isClosing,
-      templatePickerModal.isOpen,
-      trainingTypeEditorModal.isClosing,
-      trainingTypeEditorModal.isOpen,
-      weightEntryModal.isClosing,
-      weightEntryModal.isOpen,
-      weightPickerModal.isClosing,
-      weightPickerModal.isOpen,
-      weightTrackerModal.isClosing,
-      weightTrackerModal.isOpen,
-    ]
-  );
+  const isAnyModalOpen = [
+    confirmActionModal,
+    foodPortionModal,
+    foodEntryModal,
+    foodSearchModal,
+    mealTypePickerModal,
+    calendarPickerModal,
+    dailyLogModal,
+    templatePickerModal,
+    phaseCreationModal,
+    tefInfoModal,
+    calorieBreakdownModal,
+    cardioFavouriteEditorModal,
+    cardioFavouritesModal,
+    cardioModal,
+    durationPickerModal,
+    trainingModal,
+    stepRangesModal,
+    stepTrackerModal,
+    stepGoalPickerModal,
+    dailyActivityCustomModal,
+    dailyActivityEditorModal,
+    dailyActivityModal,
+    settingsModal,
+    trainingTypeEditorModal,
+    bodyFatPickerModal,
+    bodyFatEntryModal,
+    bodyFatTrackerModal,
+    weightPickerModal,
+    weightEntryModal,
+    weightTrackerModal,
+    heightModal,
+    ageModal,
+    ffmiModal,
+    bmiModal,
+    bmrModal,
+    goalModal,
+  ].some((modal) => modal?.isOpen || modal?.isClosing);
 
   // Keep a ref to the latest modal state so the back gesture handler never reads stale values
   const closeTopmostModalRef = useRef(() => false);
@@ -1564,14 +1487,16 @@ export const EnergyMapCalculator = () => {
     [persistLastSelectedCardioType]
   );
 
+  const lastSelectedCardioType = userData.lastSelectedCardioType;
+
   const openCardioModal = useCallback(() => {
     setEditingCardioId(null);
     setCardioDraft(
-      getDefaultCardioSessionForType(userData?.lastSelectedCardioType, cardioTypes)
+      getDefaultCardioSessionForType(lastSelectedCardioType, cardioTypes)
     );
     setCardioModalMode('add');
     cardioModal.open();
-  }, [cardioModal, cardioTypes, userData?.lastSelectedCardioType]);
+  }, [cardioModal, cardioTypes, lastSelectedCardioType]);
 
   const handleEditCardioSession = useCallback(
     (sessionId) => {
@@ -1607,7 +1532,42 @@ export const EnergyMapCalculator = () => {
       setCardioModalMode('edit');
       cardioModal.open();
     },
-    [cardioModal, userData.cardioSessions]
+    [cardioModal, cardioTypes, userData.cardioSessions]
+  );
+
+  const handleRemoveCardioSession = useCallback(
+    (sessionId) => {
+      const existing = userData.cardioSessions.find(
+        (session) => session.id === sessionId
+      );
+      if (!existing) {
+        return;
+      }
+
+      const cardioLabel =
+        cardioTypes?.[existing.type]?.label ?? 'this cardio session';
+      const duration = Number.parseInt(existing.duration, 10);
+      const durationText =
+        Number.isFinite(duration) && duration > 0 ? ` (${duration} min)` : '';
+
+      setConfirmActionTitle('Delete Cardio Session');
+      setConfirmActionDescription(
+        `Are you sure you want to delete ${cardioLabel}${durationText}? This action cannot be undone.`
+      );
+      setConfirmActionLabel('Delete');
+      setConfirmActionTone('danger');
+      setConfirmActionCallback(() => () => {
+        removeCardioSession(sessionId);
+        confirmActionModal.requestClose();
+      });
+      confirmActionModal.open();
+    },
+    [
+      cardioTypes,
+      confirmActionModal,
+      removeCardioSession,
+      userData.cardioSessions,
+    ]
   );
 
   const handleAddStepRange = useCallback(() => {
@@ -2925,7 +2885,7 @@ export const EnergyMapCalculator = () => {
                   onEditCardioSession={handleEditCardioSession}
                   cardioSessions={userData.cardioSessions}
                   calculateCardioCalories={calculateCardioSessionCalories}
-                  onRemoveCardioSession={removeCardioSession}
+                  onRemoveCardioSession={handleRemoveCardioSession}
                   totalCardioBurn={totalCardioBurn}
                   isSwiping={isSwiping}
                 />
