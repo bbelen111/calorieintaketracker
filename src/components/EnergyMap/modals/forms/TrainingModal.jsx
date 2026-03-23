@@ -5,7 +5,7 @@ import {
   formatDurationLabel,
   roundDurationHours,
 } from '../../../../utils/time';
-import { getTrainingCalories } from '../../../../utils/calculations';
+import { calculateTrainingSessionCalories } from '../../../../utils/calculations';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
@@ -52,17 +52,28 @@ export const TrainingModal = ({
   const resolvedUserGender = userGender ?? store.userData?.gender;
 
   const estimatedBurn = useMemo(() => {
-    const pseudoUserData = {
-      trainingType: tempTrainingType,
-      trainingDuration: tempTrainingDuration,
-      trainingEffortType: effortType,
-      trainingIntensity: intensityValue,
-      trainingHeartRate: tempTrainingHeartRate,
-      weight: resolvedUserWeight,
-      age: resolvedUserAge,
-      gender: resolvedUserGender,
+    const durationMinutes = Number.isFinite(Number(tempTrainingDuration))
+      ? Math.round(Number(tempTrainingDuration) * 60)
+      : 0;
+
+    const pseudoTrainingSession = {
+      type: tempTrainingType,
+      duration: durationMinutes,
+      effortType,
+      intensity: intensityValue,
+      averageHeartRate:
+        effortType === 'heartRate' ? tempTrainingHeartRate : '',
     };
-    return getTrainingCalories(pseudoUserData, resolvedTrainingTypes);
+
+    return calculateTrainingSessionCalories(
+      pseudoTrainingSession,
+      {
+        weight: resolvedUserWeight,
+        age: resolvedUserAge,
+        gender: resolvedUserGender,
+      },
+      resolvedTrainingTypes
+    );
   }, [
     tempTrainingType,
     tempTrainingDuration,

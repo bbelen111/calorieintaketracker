@@ -90,6 +90,8 @@ import {
 import { isStepBasedCardioType } from '../../utils/steps';
 
 const MODAL_CLOSE_DELAY = 180; // Match CSS animation duration (150ms) + buffer
+const DEFAULT_TRAINING_EFFORT_TYPE = 'intensity';
+const DEFAULT_TRAINING_INTENSITY = 'moderate';
 const screenTabs = [
   { key: 'logbook', label: 'Logbook', icon: ClipboardList },
   { key: 'tracker', label: 'Tracker', icon: Target },
@@ -398,14 +400,12 @@ export const EnergyMapCalculator = () => {
     userData.trainingDuration
   );
   const [tempTrainingEffortType, setTempTrainingEffortType] = useState(
-    userData.trainingEffortType ?? 'intensity'
+    DEFAULT_TRAINING_EFFORT_TYPE
   );
   const [tempTrainingIntensity, setTempTrainingIntensity] = useState(
-    userData.trainingIntensity ?? 'moderate'
+    DEFAULT_TRAINING_INTENSITY
   );
-  const [tempTrainingHeartRate, setTempTrainingHeartRate] = useState(
-    userData.trainingHeartRate ?? ''
-  );
+  const [tempTrainingHeartRate, setTempTrainingHeartRate] = useState('');
   const [trainingModalMode, setTrainingModalMode] = useState('session');
   const [editingTrainingSessionId, setEditingTrainingSessionId] =
     useState(null);
@@ -516,6 +516,14 @@ export const EnergyMapCalculator = () => {
         (session) => normalizeDateKey(session?.date) === getTodayDateString()
       ),
     [trainingSessions]
+  );
+
+  const latestTodayTrainingSession = useMemo(
+    () =>
+      todayTrainingSessions.length > 0
+        ? todayTrainingSessions[todayTrainingSessions.length - 1]
+        : null,
+    [todayTrainingSessions]
   );
   const selectedDay = todayTrainingSessions.length > 0 ? 'training' : 'rest';
 
@@ -751,16 +759,7 @@ export const EnergyMapCalculator = () => {
   useEffect(() => {
     setTempTrainingType(userData.trainingType);
     setTempTrainingDuration(userData.trainingDuration);
-    setTempTrainingEffortType(userData.trainingEffortType ?? 'intensity');
-    setTempTrainingIntensity(userData.trainingIntensity ?? 'moderate');
-    setTempTrainingHeartRate(userData.trainingHeartRate ?? '');
-  }, [
-    userData.trainingDuration,
-    userData.trainingType,
-    userData.trainingEffortType,
-    userData.trainingIntensity,
-    userData.trainingHeartRate,
-  ]);
+  }, [userData.trainingDuration, userData.trainingType]);
 
   useEffect(() => {
     if (!durationPickerModal.isOpen) {
@@ -1213,7 +1212,7 @@ export const EnergyMapCalculator = () => {
       setTempTrainingDuration(durationHours);
       setTempTrainingEffortType(normalizedEffortType);
       setTempTrainingIntensity(
-        latestTodaySession.intensity ?? userData.trainingIntensity ?? 'moderate'
+        latestTodaySession.intensity ?? DEFAULT_TRAINING_INTENSITY
       );
       setTempTrainingHeartRate(
         normalizedEffortType === 'heartRate'
@@ -1228,18 +1227,15 @@ export const EnergyMapCalculator = () => {
     setEditingTrainingSessionId(null);
     setTempTrainingType(userData.trainingType);
     setTempTrainingDuration(userData.trainingDuration);
-    setTempTrainingEffortType(userData.trainingEffortType ?? 'intensity');
-    setTempTrainingIntensity(userData.trainingIntensity ?? 'moderate');
-    setTempTrainingHeartRate(userData.trainingHeartRate ?? '');
+    setTempTrainingEffortType(DEFAULT_TRAINING_EFFORT_TYPE);
+    setTempTrainingIntensity(DEFAULT_TRAINING_INTENSITY);
+    setTempTrainingHeartRate('');
     trainingModal.open();
   }, [
     todayTrainingSessions,
     trainingModal,
     userData.trainingDuration,
     userData.trainingType,
-    userData.trainingEffortType,
-    userData.trainingIntensity,
-    userData.trainingHeartRate,
   ]);
 
   const handleRestDayClick = useCallback(() => {
@@ -1283,17 +1279,25 @@ export const EnergyMapCalculator = () => {
     setEditingTrainingSessionId(null);
     setTempTrainingType(userData.trainingType);
     setTempTrainingDuration(userData.trainingDuration);
-    setTempTrainingEffortType(userData.trainingEffortType ?? 'intensity');
-    setTempTrainingIntensity(userData.trainingIntensity ?? 'moderate');
-    setTempTrainingHeartRate(userData.trainingHeartRate ?? '');
+    const sessionEffortType =
+      latestTodayTrainingSession?.effortType ?? DEFAULT_TRAINING_EFFORT_TYPE;
+    setTempTrainingEffortType(sessionEffortType);
+    setTempTrainingIntensity(
+      latestTodayTrainingSession?.intensity ?? DEFAULT_TRAINING_INTENSITY
+    );
+    setTempTrainingHeartRate(
+      sessionEffortType === 'heartRate'
+        ? (latestTodayTrainingSession?.averageHeartRate ?? '')
+        : ''
+    );
     trainingModal.open();
   }, [
+    latestTodayTrainingSession?.averageHeartRate,
+    latestTodayTrainingSession?.effortType,
+    latestTodayTrainingSession?.intensity,
     trainingModal,
     userData.trainingDuration,
     userData.trainingType,
-    userData.trainingEffortType,
-    userData.trainingIntensity,
-    userData.trainingHeartRate,
   ]);
 
   const resetTrainingTypeEditorState = useCallback(() => {
@@ -2432,9 +2436,6 @@ export const EnergyMapCalculator = () => {
 
     handleUserDataChange('trainingType', tempTrainingType);
     handleUserDataChange('trainingDuration', tempTrainingDuration);
-    handleUserDataChange('trainingEffortType', tempTrainingEffortType);
-    handleUserDataChange('trainingIntensity', tempTrainingIntensity);
-    handleUserDataChange('trainingHeartRate', tempTrainingHeartRate);
     trainingModal.requestClose();
   }, [
     handleUserDataChange,

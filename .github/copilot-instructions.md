@@ -419,7 +419,7 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 | Cardio (total) | `getTotalCardioBurn(userData, cardioTypes)` | Sums `calculateCardioCalories` for **today's date** only |
 | Cardio (for date) | `getTotalCardioBurnForDate(userData, cardioTypes, dateKey)` | Sums cardio calories for a specific `dateKey` |
 | Training cal/hr | `getTrainingCaloriesPerHour(userData, trainingTypes)` | Base cal/hr × intensity multiplier (light 0.75 / moderate 1.0 / vigorous 1.25) |
-| Training (total) | `getTrainingCalories(userData, trainingTypes)` | Supports `trainingEffortType: 'heartRate'` or intensity-based. `caloriesPerHour × trainingDuration` from resolved types |
+| Training (total) | `getTotalTrainingBurnForDate(userData, trainingTypes, dateKey)` | Session-first burn from `trainingSessions` (`effortType` + `averageHeartRate` or `intensity`) |
 | Training (for date) | `getTotalTrainingBurnForDate(userData, trainingTypes, dateKey)` | Sums training-session calories for a specific `dateKey` |
 | TDEE breakdown | `calculateCalorieBreakdown({...})` | BMR + activity multiplier + training + cardio + steps. Accepts optional `tefContext`. Returns `bmrDetails`, TEF fields when Smart TEF is enabled, plus step-overlap diagnostics (`originalEstimatedSteps`, `deductedSteps`, `remainingEstimatedSteps`, overlap session counts/details). |
 | TDEE (simple) | `calculateTDEE(options)` | Convenience wrapper — returns just `calculateCalorieBreakdown(options).total` |
@@ -505,7 +505,6 @@ Migration behavior is now intentionally minimal:
 - `age: 21`, `weight: 74`, `height: 168`, `gender: 'male'`, `theme: 'auto'`
 - `selectedGoal: 'maintenance'`, `goalChangedAt: Date.now()`
 - `stepGoal: 10000`, `trainingType: 'bodybuilding'`, `trainingDuration: 2`
-- `trainingEffortType: 'intensity'`, `trainingIntensity: 'moderate'`, `trainingHeartRate: ''`
 - `customTrainingName: 'My Training'`, `customTrainingCalories: 220`, `customTrainingDescription: 'Custom training style'`
 - 6 preset training types in `trainingTypeOverrides` with calories/hour values (bodybuilding 220, powerlifting 180, strongman 280, crossfit 300, calisthenics 240, custom 220)
 - `activityMultipliers: { training: 0.35, rest: 0.28 }`
@@ -527,9 +526,6 @@ Migration behavior is now intentionally minimal:
   selectedGoal: 'maintenance',      // Canonical current goal key
   goalChangedAt: 1700000000000,     // Epoch ms when selectedGoal last changed (persisted)
   trainingType, trainingDuration,
-  trainingEffortType: 'intensity',  // 'intensity' | 'heartRate'
-  trainingIntensity: 'moderate',    // 'light' | 'moderate' | 'vigorous'
-  trainingHeartRate: '',            // BPM string for HR-based training calc
   stepRanges: ['<10k', '10k', ...],
   activityMultipliers: { training: 0.35, rest: 0.28 },
   activityPresets: { training: 'default', rest: 'default' },
