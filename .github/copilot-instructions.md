@@ -72,6 +72,8 @@ User action → Store action (updateUserData) → deriveState() recalculates
 
 6. **Daily snapshots are derived and date-keyed.** `userData.dailySnapshots` is an auto-maintained history cache (`YYYY-MM-DD` keys), generated from canonical datasets (`nutritionData`, step/training/cardio sessions, and `calculateCalorieBreakdown`) via store action `upsertDailySnapshot(dateKey, options?)`.
 
+7. **Goal state for duration-sensitive logic is profile-canonical.** `selectedGoal` and `goalChangedAt` live in persisted `userData` (profile scope), and any “days in goal” logic should derive from these values (e.g., `goalDurationDays` from the store). Do not rely on local component state or snapshots as the sole source of current goal status.
+
 ---
 
 ## Zustand Store (`store/useEnergyMapStore.js`)
@@ -123,6 +125,7 @@ myNewAction: (param) => {
 
 - Snapshot source-of-truth is **derived**, never authored manually.
 - Store action: `upsertDailySnapshot(dateKey, options?)`.
+- Snapshot includes denormalized goal metadata (`goalAtSnapshot`) for historical charts/debugging; this is analytic context, not canonical goal state.
 - Auto-triggers:
   - Hydration: seed yesterday + today if missing.
   - Mutation-driven updates: food, steps, cardio sessions, training sessions.
@@ -500,6 +503,7 @@ Migration behavior is now intentionally minimal:
 
 `getDefaultEnergyMapData()` in `utils/storage.js` defines the full schema with defaults. Key defaults:
 - `age: 21`, `weight: 74`, `height: 168`, `gender: 'male'`, `theme: 'auto'`
+- `selectedGoal: 'maintenance'`, `goalChangedAt: Date.now()`
 - `stepGoal: 10000`, `trainingType: 'bodybuilding'`, `trainingDuration: 2`
 - `trainingEffortType: 'intensity'`, `trainingIntensity: 'moderate'`, `trainingHeartRate: ''`
 - `customTrainingName: 'My Training'`, `customTrainingCalories: 220`, `customTrainingDescription: 'Custom training style'`
@@ -520,6 +524,8 @@ Migration behavior is now intentionally minimal:
   // Profile
   age, weight, height, gender,
   theme: 'auto',                    // 'auto' | 'dark' | 'light' | 'amoled_dark'
+  selectedGoal: 'maintenance',      // Canonical current goal key
+  goalChangedAt: 1700000000000,     // Epoch ms when selectedGoal last changed (persisted)
   trainingType, trainingDuration,
   trainingEffortType: 'intensity',  // 'intensity' | 'heartRate'
   trainingIntensity: 'moderate',    // 'light' | 'moderate' | 'vigorous'
@@ -554,6 +560,7 @@ Migration behavior is now intentionally minimal:
       tdee,
       intake,
       deficit,                      // positive = deficit, negative = surplus
+      goalAtSnapshot,               // Denormalized copy of selectedGoal for history/analytics
       stepCount,
       isTrainingDay,
       bmr,
@@ -802,3 +809,5 @@ npm run test:watch     # Node test runner in watch mode
 30. **Daily snapshots are cache, not truth:** Never edit `dailySnapshots` directly from UI/form state; always derive via `upsertDailySnapshot(...)`.
 31. **Snapshot TEF naming is intentional:** Snapshot field is `tef` (derived from `smartTefCalories` in breakdown). Do not assume implicit TEF if Smart TEF mode is off.
 32. **Snapshot persistence is sharded by date:** Keep `dailySnapshots` in Dexie sharded documents (`dailySnapshots:<date>`), not in profile payload and not as one monolithic history blob.
+33. **Goal duration logic depends on persisted timestamps:** If implementing coarse/crude staged adjustments (e.g., prolonged cut/bulk handling), base elapsed-day calculations on persisted `goalChangedAt` (and optional phase boundaries), not transient UI state.
+34. **Snapshots are not goal-state authority:** `goalAtSnapshot` is for historical inspection only. Current goal behavior must resolve from `userData.selectedGoal` (+ `goalChangedAt`).
