@@ -70,6 +70,8 @@ User action → Store action (updateUserData) → deriveState() recalculates
 
 5. **Phase domain is `phaseLogV2`-native in the store.** Legacy `phases`/`activePhaseId` are derived projections for UI compatibility and are no longer persisted or mutated directly.
 
+6. **Daily snapshots are derived and date-keyed.** `userData.dailySnapshots` is an auto-maintained history cache (`YYYY-MM-DD` keys), generated from canonical datasets (`nutritionData`, step/training/cardio sessions, and `calculateCalorieBreakdown`) via store action `upsertDailySnapshot(dateKey, options?)`.
+
 ---
 
 ## Zustand Store (`store/useEnergyMapStore.js`)
@@ -116,6 +118,17 @@ myNewAction: (param) => {
 **Critical:** Do not remove the debounce — saving 2MB+ JSON on every keystroke freezes the UI.
 
 **Also critical:** The debounced callback is async and must retain try/catch handling to avoid unhandled save failures.
+
+### Daily Snapshot Lifecycle
+
+- Snapshot source-of-truth is **derived**, never authored manually.
+- Store action: `upsertDailySnapshot(dateKey, options?)`.
+- Auto-triggers:
+  - Hydration: seed yesterday + today if missing.
+  - Mutation-driven updates: food, steps, cardio sessions, training sessions.
+  - Day rollover: finalize previous day + seed current day.
+  - Native app resume: catch up if midnight passed while backgrounded.
+- Equality checks ignore `createdAt` / `updatedAt` metadata so idempotent upserts do not churn writes.
 
 ### Legacy: `useEnergyMapData` Hook
 
@@ -446,6 +459,8 @@ Primary history store is now Dexie (`energyMapHistory` DB), with document rows k
 
 Split is determined by `HISTORY_FIELDS` array: `weightEntries`, `bodyFatEntries`, `stepEntries`, `nutritionData`, `phaseLogV2`, `cardioSessions`, `trainingSessions`, `cachedFoods`.
 
+`dailySnapshots` is also history-scoped and sharded by date document key (`dailySnapshots:YYYY-MM-DD`).
+
 ### Dexie History Store
 
 `utils/historyDatabase.js` manages:
@@ -533,6 +548,24 @@ Migration behavior is now intentionally minimal:
   stepEntries: [{ date: 'YYYY-MM-DD', steps, source: 'healthConnect'|'manual' }],
   nutritionData: { 'YYYY-MM-DD': { mealType: [foodEntry, ...] } },
   cachedFoods: [],                  // Foods from FatSecret API (history-scoped; deduped + capped on persistence)
+  dailySnapshots: {
+    'YYYY-MM-DD': {
+      date,
+      tdee,
+      intake,
+      deficit,                      // positive = deficit, negative = surplus
+      stepCount,
+      isTrainingDay,
+      bmr,
+      stepCalories,
+      trainingBurn,
+      cardioBurn,
+      tef,
+      tefMode,
+      createdAt,
+      updatedAt,
+    }
+  },
   phaseLogV2: { version, phasesById, phaseOrder, activePhaseId, logsById, logIdsByPhaseId, logIdByPhaseDate },
 }
 ```
@@ -673,6 +706,7 @@ src/
 │                                #   calculateTargetForGoal(steps, isTrainingDay, goalKey, options?) — 2-pass refinement for target TEF mode
 ├─ utils/
 │   ├─ calculations.js           # ALL calorie formulas — BMR, cardio, training, TDEE, BMI, FFMI, Smart TEF
+│   ├─ dailySnapshots.js         # Derived daily snapshot builder + equality helpers
 │   ├─ storage.js                # Orchestrates profile (Preferences) + history (Dexie) persistence
 │   ├─ historyDatabase.js        # Dexie history DB adapter + sharded document helpers
 │   ├─ profile.js                # Age/height sanitization helpers (sanitizeAge, sanitizeHeight, AGE/HEIGHT min/max constants)
@@ -694,6 +728,7 @@ src/
   ├─ constants/
   └─ utils/
     ├─ storage.test.js          # Persistence split + Dexie-first behavior tests
+    ├─ dailySnapshots.test.js   # Snapshot derivation and helper behavior tests
 ```
 
 ---
@@ -757,3 +792,6 @@ npm run test:watch     # Node test runner in watch mode
 27. **Daily log nutrition management route:** In logbook flow, nutrition management routes through the Tracker screen date context; preserve selected date handoff when adjusting this UX.
 28. **No dual-write toggle exists anymore:** Do not add `VITE_ENABLE_HISTORY_DUAL_WRITE`-style rollback flags back into normal save flow.
 29. **Node ESM import hygiene:** For modules used in tests, keep explicit `.js` file extensions in relative imports to avoid `ERR_MODULE_NOT_FOUND`.
+30. **Daily snapshots are cache, not truth:** Never edit `dailySnapshots` directly from UI/form state; always derive via `upsertDailySnapshot(...)`.
+31. **Snapshot TEF naming is intentional:** Snapshot field is `tef` (derived from `smartTefCalories` in breakdown). Do not assume implicit TEF if Smart TEF mode is off.
+32. **Snapshot persistence is sharded by date:** Keep `dailySnapshots` in Dexie sharded documents (`dailySnapshots:<date>`), not in profile payload and not as one monolithic history blob.
