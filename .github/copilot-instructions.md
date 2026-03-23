@@ -35,7 +35,7 @@ React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor 
 ```
 main.jsx
   └─ App.jsx (theme management, store hydration gate)
-       └─ EnergyMapCalculator.jsx (3,400+ lines — THE orchestrator)
+       └─ EnergyMapCalculator.jsx (3,500+ lines — THE orchestrator)
             ├─ 5-screen carousel (useSwipeableScreens)
             │   ├─ LogbookScreen
             │   ├─ TrackerScreen
@@ -60,7 +60,7 @@ User action → Store action (updateUserData) → deriveState() recalculates
 
 ### Key Architectural Decisions
 
-1. **Single orchestrator file (`EnergyMapCalculator.jsx`)** owns all modal lifecycle state, temporary form drafts, and screen navigation. At 3,400+ lines, it's deliberately centralized — not a candidate for splitting. New modals are instantiated here.
+1. **Single orchestrator file (`EnergyMapCalculator.jsx`)** owns all modal lifecycle state, temporary form drafts, and screen navigation. At 3,500+ lines, it's deliberately centralized — not a candidate for splitting. New modals are instantiated here.
 
 2. **Derived state pattern:** The Zustand store's `deriveState()` function recomputes `bmr`, `trainingCalories`, `totalCardioBurn`, sorted entries, and resolved types on every `userData` mutation. Never duplicate these calculations — consume them from the store.
 
@@ -457,7 +457,7 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 
 Primary history store is now Dexie (`energyMapHistory` DB), with document rows keyed by history field name.
 
-Split is determined by `HISTORY_FIELDS` array: `weightEntries`, `bodyFatEntries`, `stepEntries`, `nutritionData`, `phaseLogV2`, `cardioSessions`, `trainingSessions`, `cachedFoods`.
+Split is determined by `HISTORY_FIELDS` array: `weightEntries`, `bodyFatEntries`, `stepEntries`, `nutritionData`, `phaseLogV2`, `cardioSessions`, `trainingSessions`, `cachedFoods`, `dailySnapshots`.
 
 `dailySnapshots` is also history-scoped and sharded by date document key (`dailySnapshots:YYYY-MM-DD`).
 
@@ -645,6 +645,7 @@ const results = await searchFoods('chicken breast', 0);
 const food = await getFoodDetails(foodId);
 const food = await searchBarcode('012345678901');
 const suggestions = await getAutocomplete('chick');
+// Utility helpers also exported: isOnlineFood, addToFoodCache, trimFoodCache
 ```
 
 Results cached in `userData.cachedFoods` to reduce API calls.
@@ -673,7 +674,7 @@ Always returns `'unavailable'` on web and iOS. Status constants exported as `Hea
 ```
 src/
 ├─ components/EnergyMap/
-│   ├─ EnergyMapCalculator.jsx   # THE orchestrator (3,100+ lines)
+│   ├─ EnergyMapCalculator.jsx   # THE orchestrator (3,500+ lines)
 │   ├─ common/
 │   │   ├─ ModalShell.jsx        # Core modal wrapper (singleton managers)
 │   │   └─ ScreenTabs.jsx        # Tab bar + floating variant
@@ -726,9 +727,15 @@ src/
 │   └─ fatSecret.js              # FatSecret API client
 └─ tests/                        # Node test runner suite (`node --test`)
   ├─ constants/
+  │   └─ activityPresets.test.js
   └─ utils/
-    ├─ storage.test.js          # Persistence split + Dexie-first behavior tests
+    ├─ calculations.test.js
     ├─ dailySnapshots.test.js   # Snapshot derivation and helper behavior tests
+    ├─ phaseLogV2.test.js
+    ├─ phases.test.js
+    ├─ steps.test.js
+    ├─ storage.sharding.test.js
+    └─ storage.test.js          # Persistence split + Dexie-first behavior tests
 ```
 
 ---

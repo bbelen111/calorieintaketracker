@@ -28,11 +28,7 @@ import {
   useHealthConnect,
   HealthConnectStatus,
 } from '../../hooks/useHealthConnect';
-import {
-  loadSelectedDay,
-  saveLastSelectedCardioType,
-  saveSelectedDay,
-} from '../../utils/storage';
+import { saveLastSelectedCardioType } from '../../utils/storage';
 import { useScrollOffScreen } from '../../hooks/useScrollOffScreen';
 import { ScreenTabs, FloatingScreenTabs } from './common/ScreenTabs';
 import { LogbookScreen } from './screens/LogbookScreen';
@@ -286,6 +282,7 @@ export const EnergyMapCalculator = () => {
     updateCardioSession,
     addTrainingSession,
     updateTrainingSession,
+    removeTrainingSession,
     addCardioFavourite,
     removeCardioFavourite,
     updateTrainingType,
@@ -343,6 +340,7 @@ export const EnergyMapCalculator = () => {
       updateCardioSession: state.updateCardioSession,
       addTrainingSession: state.addTrainingSession,
       updateTrainingSession: state.updateTrainingSession,
+      removeTrainingSession: state.removeTrainingSession,
       addCardioFavourite: state.addCardioFavourite,
       removeCardioFavourite: state.removeCardioFavourite,
       updateTrainingType: state.updateTrainingType,
@@ -389,22 +387,6 @@ export const EnergyMapCalculator = () => {
 
   const [selectedGoal, setSelectedGoal] = useState('maintenance');
   const [tempSelectedGoal, setTempSelectedGoal] = useState('maintenance');
-  const [selectedDay, setSelectedDayState] = useState('training');
-  const [isDayLoaded, setIsDayLoaded] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-    loadSelectedDay().then((day) => {
-      if (mounted) {
-        setSelectedDayState(day);
-        setIsDayLoaded(true);
-      }
-    });
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
   const [tempAge, setTempAge] = useState(userData.age);
   const [tempHeight, setTempHeight] = useState(userData.height);
   const [tempTrainingType, setTempTrainingType] = useState(
@@ -525,6 +507,15 @@ export const EnergyMapCalculator = () => {
   const [trackerStepRange, setTrackerStepRange] = useState('12k');
   const [showTrackerCaloriePicker, setShowTrackerCaloriePicker] =
     useState(false);
+
+  const todayTrainingSessions = useMemo(
+    () =>
+      (trainingSessions ?? []).filter(
+        (session) => normalizeDateKey(session?.date) === getTodayDateString()
+      ),
+    [trainingSessions]
+  );
+  const selectedDay = todayTrainingSessions.length > 0 ? 'training' : 'rest';
 
   // Confirm action state
   const [confirmActionTitle, setConfirmActionTitle] = useState('');
@@ -732,12 +723,6 @@ export const EnergyMapCalculator = () => {
       appStateListener?.remove?.();
     };
   }, []);
-
-  useEffect(() => {
-    if (isDayLoaded) {
-      saveSelectedDay(selectedDay);
-    }
-  }, [selectedDay, isDayLoaded]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -1196,27 +1181,48 @@ export const EnergyMapCalculator = () => {
     latestBodyFatEntry?.bodyFat,
   ]);
 
-  const updateSelectedDay = useCallback((day) => {
-    setSelectedDayState(day);
-  }, []);
-
   const handleTrainingDayClick = useCallback(() => {
-    if (selectedDay === 'training') {
+    const latestTodaySession =
+      todayTrainingSessions.length > 0
+        ? todayTrainingSessions[todayTrainingSessions.length - 1]
+        : null;
+
+    if (latestTodaySession) {
+      const normalizedEffortType = latestTodaySession.effortType ?? 'intensity';
+      const durationMinutes = Number(latestTodaySession.duration);
+      const durationHours =
+        Number.isFinite(durationMinutes) && durationMinutes > 0
+          ? Math.round((durationMinutes / 60) * 10) / 10
+          : userData.trainingDuration;
+
       setTrainingModalMode('session');
-      setEditingTrainingSessionId(null);
-      setTempTrainingType(userData.trainingType);
-      setTempTrainingDuration(userData.trainingDuration);
-      setTempTrainingEffortType(userData.trainingEffortType ?? 'intensity');
-      setTempTrainingIntensity(userData.trainingIntensity ?? 'moderate');
-      setTempTrainingHeartRate(userData.trainingHeartRate ?? '');
+      setEditingTrainingSessionId(latestTodaySession.id ?? null);
+      setTempTrainingType(latestTodaySession.type ?? userData.trainingType);
+      setTempTrainingDuration(durationHours);
+      setTempTrainingEffortType(normalizedEffortType);
+      setTempTrainingIntensity(
+        latestTodaySession.intensity ?? userData.trainingIntensity ?? 'moderate'
+      );
+      setTempTrainingHeartRate(
+        normalizedEffortType === 'heartRate'
+          ? (latestTodaySession.averageHeartRate ?? '')
+          : ''
+      );
       trainingModal.open();
-    } else {
-      updateSelectedDay('training');
+      return;
     }
+
+    setTrainingModalMode('session');
+    setEditingTrainingSessionId(null);
+    setTempTrainingType(userData.trainingType);
+    setTempTrainingDuration(userData.trainingDuration);
+    setTempTrainingEffortType(userData.trainingEffortType ?? 'intensity');
+    setTempTrainingIntensity(userData.trainingIntensity ?? 'moderate');
+    setTempTrainingHeartRate(userData.trainingHeartRate ?? '');
+    trainingModal.open();
   }, [
-    selectedDay,
+    todayTrainingSessions,
     trainingModal,
-    updateSelectedDay,
     userData.trainingDuration,
     userData.trainingType,
     userData.trainingEffortType,
@@ -1225,8 +1231,26 @@ export const EnergyMapCalculator = () => {
   ]);
 
   const handleRestDayClick = useCallback(() => {
-    updateSelectedDay('rest');
-  }, [updateSelectedDay]);
+    if (todayTrainingSessions.length === 0) {
+      return;
+    }
+
+    setConfirmActionTitle('Clear Training Session');
+    setConfirmActionDescription(
+      "Switching to Rest Day will remove today's training session. This cannot be undone."
+    );
+    setConfirmActionLabel('Clear Session');
+    setConfirmActionTone('danger');
+    setConfirmActionCallback(() => () => {
+      todayTrainingSessions.forEach((session) => {
+        if (session?.id != null) {
+          removeTrainingSession(session.id);
+        }
+      });
+      confirmActionModal.requestClose();
+    });
+    confirmActionModal.open();
+  }, [confirmActionModal, removeTrainingSession, todayTrainingSessions]);
 
   const openGoalModal = useCallback(() => {
     setTempSelectedGoal(selectedGoal);
@@ -2379,7 +2403,17 @@ export const EnergyMapCalculator = () => {
       if (editingTrainingSessionId != null) {
         updateTrainingSession(editingTrainingSessionId, sessionPayload);
       } else {
-        addTrainingSession(sessionPayload);
+        const existingTodaySession =
+          todayTrainingSessions.length > 0
+            ? todayTrainingSessions[todayTrainingSessions.length - 1]
+            : null;
+
+        if (existingTodaySession?.id != null) {
+          updateTrainingSession(existingTodaySession.id, sessionPayload);
+          setEditingTrainingSessionId(existingTodaySession.id);
+        } else {
+          addTrainingSession(sessionPayload);
+        }
       }
 
       trainingModal.requestClose();
@@ -2402,6 +2436,7 @@ export const EnergyMapCalculator = () => {
     tempTrainingHeartRate,
     trainingModalMode,
     addTrainingSession,
+    todayTrainingSessions,
     editingTrainingSessionId,
     updateTrainingSession,
   ]);
