@@ -41,7 +41,7 @@ export const HomeScreen = ({
   onTrainingDayClick,
   onRestDayClick,
   trainingCalories,
-  trainingTypes,
+  trainingSessions,
   cardioTypes,
   hasCardioSessions,
   onAddCardioClick,
@@ -57,7 +57,7 @@ export const HomeScreen = ({
       userData: state.userData,
       bmr: state.bmr,
       trainingCalories: state.trainingCalories,
-      trainingTypes: state.trainingTypes,
+      trainingSessions: state.trainingSessions ?? [],
       cardioTypes: state.cardioTypes,
       totalCardioBurn: state.totalCardioBurn,
       cardioSessions: state.userData.cardioSessions ?? [],
@@ -68,11 +68,23 @@ export const HomeScreen = ({
   const resolvedUserData = userData ?? store.userData;
   const resolvedBmr = bmr ?? store.bmr;
   const resolvedTrainingCalories = trainingCalories ?? store.trainingCalories;
-  const resolvedTrainingTypes = trainingTypes ?? store.trainingTypes;
+  const resolvedTrainingSessions = trainingSessions ?? store.trainingSessions;
   const resolvedCardioTypes = cardioTypes ?? store.cardioTypes;
-  const resolvedCardioSessions = cardioSessions ?? store.cardioSessions;
+  const toDateKey = (value) => {
+    if (value == null) return null;
+    const normalized = String(value).trim();
+    return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : null;
+  };
+  const now = new Date();
+  const todayDateKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const resolvedCardioSessions = (cardioSessions ?? store.cardioSessions).filter(
+    (session) => toDateKey(session?.date) === todayDateKey
+  );
   const resolvedTotalCardioBurn = totalCardioBurn ?? store.totalCardioBurn;
   const resolvedGoals = goals ?? baseGoals;
+  const resolvedTodayTrainingSessions = resolvedTrainingSessions.filter(
+    (session) => toDateKey(session?.date) === todayDateKey
+  );
   const resolvedHasCardioSessions =
     typeof hasCardioSessions === 'boolean'
       ? hasCardioSessions
@@ -219,8 +231,9 @@ export const HomeScreen = ({
             <Dumbbell className="mx-auto mb-2" size={28} />
             <p className="font-bold text-lg">Training Day</p>
             <p className="text-xs md:text-sm opacity-80">
-              {resolvedUserData.trainingDuration}hrs{' '}
-              {resolvedTrainingTypes[resolvedUserData.trainingType].label}
+              {resolvedTodayTrainingSessions.length > 0
+                ? `${resolvedTodayTrainingSessions.length} session${resolvedTodayTrainingSessions.length === 1 ? '' : 's'} today`
+                : 'No sessions logged today'}
             </p>
             <p className="text-[11px] opacity-70 mt-1">
               ~{Math.round(resolvedTrainingCalories)} kcal burn

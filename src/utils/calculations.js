@@ -36,6 +36,41 @@ const DEFAULT_CALCULATION_PROFILE = {
 };
 const MIN_HEART_RATE_BPM = 60;
 const MAX_HEART_RATE_BPM = 220;
+const DATE_KEY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+const getTodayDateKey = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const normalizeSessionDateKey = (value) => {
+  if (value == null) {
+    return null;
+  }
+
+  const stringValue = typeof value === 'string' ? value : String(value);
+  const trimmed = stringValue.trim();
+  if (!DATE_KEY_REGEX.test(trimmed)) {
+    return null;
+  }
+
+  return trimmed;
+};
+
+const getSessionsForDate = (sessions, dateKey) => {
+  const normalizedDateKey = normalizeSessionDateKey(dateKey) ?? getTodayDateKey();
+  if (!Array.isArray(sessions)) {
+    return [];
+  }
+
+  return sessions.filter((session) => {
+    const sessionDate = normalizeSessionDateKey(session?.date);
+    return sessionDate === normalizedDateKey;
+  });
+};
 
 const normalizeNonNegativeNumber = (value) => {
   const numeric = Number(value);
@@ -389,7 +424,14 @@ export const calculateCardioCalories = (
 };
 
 export const getTotalCardioBurn = (userData, cardioTypes) =>
-  userData.cardioSessions.reduce(
+  getSessionsForDate(userData.cardioSessions, getTodayDateKey()).reduce(
+    (total, session) =>
+      total + calculateCardioCalories(session, userData, cardioTypes),
+    0
+  );
+
+export const getTotalCardioBurnForDate = (userData, cardioTypes, dateKey) =>
+  getSessionsForDate(userData?.cardioSessions, dateKey).reduce(
     (total, session) =>
       total + calculateCardioCalories(session, userData, cardioTypes),
     0
@@ -435,6 +477,62 @@ export const getTrainingCalories = (userData, trainingTypes) => {
   );
 };
 
+export const calculateTrainingSessionCalories = (
+  trainingSession,
+  userData,
+  trainingTypes
+) => {
+  if (!trainingSession || typeof trainingSession !== 'object') {
+    return 0;
+  }
+
+  const durationHours = normalizeNonNegativeNumber(
+    Number(trainingSession.duration) / 60
+  );
+  if (durationHours <= 0) {
+    return 0;
+  }
+
+  const normalizedProfile = normalizeCalculationProfile(userData);
+  const effortType = trainingSession.effortType ?? 'intensity';
+
+  if (effortType === 'heartRate') {
+    const heartRate = normalizeHeartRate(trainingSession.averageHeartRate);
+    if (heartRate == null) {
+      return 0;
+    }
+
+    const durationMinutes = durationHours * 60;
+    const calsPerMin = calculateCaloriesPerMinuteFromHeartRate({
+      heartRate,
+      weightKg: normalizedProfile.weight,
+      ageYears: normalizedProfile.age,
+      gender: normalizedProfile.gender,
+    });
+
+    return Math.round(calsPerMin * durationMinutes);
+  }
+
+  const base = trainingTypes?.[trainingSession.type]?.caloriesPerHour ?? 0;
+  const multiplier =
+    TRAINING_INTENSITY_MULTIPLIERS[
+      trainingSession.intensity ?? 'moderate'
+    ] ?? 1.0;
+
+  return Math.round(durationHours * base * multiplier);
+};
+
+export const getTotalTrainingBurnForDate = (
+  userData,
+  trainingTypes,
+  dateKey
+) =>
+  getSessionsForDate(userData?.trainingSessions, dateKey).reduce(
+    (total, session) =>
+      total + calculateTrainingSessionCalories(session, userData, trainingTypes),
+    0
+  );
+
 export const calculateCalorieBreakdown = ({
   steps,
   isTrainingDay,
@@ -443,7 +541,9 @@ export const calculateCalorieBreakdown = ({
   cardioTypes,
   trainingTypes,
   tefContext,
+  dateKey,
 }) => {
+  void isTrainingDay;
   const normalizedProfile = normalizeCalculationProfile(userData);
   const normalizedUserData = {
     ...userData,
@@ -452,17 +552,23 @@ export const calculateCalorieBreakdown = ({
 
   const baseStepDetails = getStepDetails(steps, normalizedUserData);
   const bmrDetails = resolveBmrDetails(normalizedUserData);
-  const trainingTypeKey = normalizedUserData?.trainingType;
-  const trainingType = trainingTypes?.[trainingTypeKey] ?? null;
-  const trainingDuration = normalizeNonNegativeNumber(
-    normalizedUserData?.trainingDuration
+  const resolvedDateKey = normalizeSessionDateKey(dateKey) ?? getTodayDateKey();
+  const trainingSessions = getSessionsForDate(
+    normalizedUserData?.trainingSessions,
+    resolvedDateKey
   );
-  const trainingCaloriesPerHour = Number.isFinite(trainingType?.caloriesPerHour)
-    ? trainingType.caloriesPerHour
-    : 0;
-  const cardioSessions = Array.isArray(normalizedUserData?.cardioSessions)
-    ? normalizedUserData.cardioSessions
-    : [];
+  const trainingDurationMinutes = trainingSessions.reduce((total, session) => {
+    const duration = Number(session?.duration);
+    if (!Number.isFinite(duration) || duration <= 0) {
+      return total;
+    }
+    return total + duration;
+  }, 0);
+  const trainingDuration = roundToTenth(trainingDurationMinutes / 60);
+  const cardioSessions = getSessionsForDate(
+    normalizedUserData?.cardioSessions,
+    resolvedDateKey
+  );
   const stepOverlap = getStepOverlapFromCardioSessions({
     estimatedSteps: baseStepDetails.estimatedSteps,
     cardioSessions,
@@ -492,10 +598,22 @@ export const calculateCalorieBreakdown = ({
     ? (multipliers.training ?? DEFAULT_ACTIVITY_MULTIPLIERS.training)
     : (multipliers.rest ?? DEFAULT_ACTIVITY_MULTIPLIERS.rest);
   const trainingBurn = Math.round(
-    isTrainingDay ? getTrainingCalories(normalizedUserData, trainingTypes) : 0
+    getTotalTrainingBurnForDate(normalizedUserData, trainingTypes, resolvedDateKey)
   );
+  const trainingCaloriesPerHour =
+    trainingDuration > 0
+      ? Math.round(trainingBurn / trainingDuration)
+      : 0;
+  const trainingTypeLabel =
+    trainingSessions.length === 0
+      ? 'No Training'
+      : trainingSessions.length === 1
+        ? (trainingTypes?.[trainingSessions[0]?.type]?.label ??
+          trainingSessions[0]?.type ??
+          'Training')
+        : `${trainingSessions.length} sessions`;
   const cardioBurn = Math.round(
-    getTotalCardioBurn(normalizedUserData, cardioTypes)
+    getTotalCardioBurnForDate(normalizedUserData, cardioTypes, resolvedDateKey)
   );
   const cardioDetails = cardioSessions
     .map((session) => {
@@ -607,7 +725,7 @@ export const calculateCalorieBreakdown = ({
     trainingBurn,
     trainingDuration,
     trainingCaloriesPerHour,
-    trainingTypeLabel: trainingType?.label ?? trainingTypeKey ?? 'Training',
+    trainingTypeLabel,
     cardioBurn,
     cardioDetails,
     bmrDetails,

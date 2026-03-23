@@ -7,8 +7,8 @@ import {
   calculateCalorieBreakdown,
   calculateCardioCalories,
   calculateGoalCalories,
-  getTotalCardioBurn,
-  getTrainingCalories,
+  getTotalCardioBurnForDate,
+  getTotalTrainingBurnForDate,
 } from '../utils/calculations';
 import { getStepRangeSortValue } from '../utils/steps';
 import {
@@ -70,7 +70,15 @@ const sortStepEntries = (entries) => {
   return [...entries].sort((a, b) => a.date.localeCompare(b.date));
 };
 
-const getTodayDateKey = () => new Date().toISOString().slice(0, 10);
+const getTodayDateKey = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const normalizeSessionDate = (value) => normalizeDateKey(value);
 
 const normalizePhaseStateForUserData = (userData) => {
   const normalizedPhaseLogV2 = normalizePhaseLogV2State(userData.phaseLogV2);
@@ -181,9 +189,18 @@ const deriveState = (userData) => {
   const legacyPhaseView = getLegacyPhaseView(phaseLogV2);
   const trainingTypes = resolveTrainingTypes(userData);
   const cardioTypes = resolveCardioTypes(userData);
+  const todayDateKey = getTodayDateKey();
   const bmr = calculateBMR(userData);
-  const trainingCalories = getTrainingCalories(userData, trainingTypes);
-  const totalCardioBurn = getTotalCardioBurn(userData, cardioTypes);
+  const trainingCalories = getTotalTrainingBurnForDate(
+    userData,
+    trainingTypes,
+    todayDateKey
+  );
+  const totalCardioBurn = getTotalCardioBurnForDate(
+    userData,
+    cardioTypes,
+    todayDateKey
+  );
   const weightEntries = sortWeightEntries(userData.weightEntries ?? []);
   const bodyFatEntries = sortBodyFatEntries(userData.bodyFatEntries ?? []);
   const stepEntries = sortStepEntries(userData.stepEntries ?? []);
@@ -195,6 +212,7 @@ const deriveState = (userData) => {
     bmr,
     trainingCalories,
     totalCardioBurn,
+    trainingSessions: userData.trainingSessions ?? [],
     weightEntries,
     bodyFatEntries,
     stepEntries,
@@ -285,11 +303,16 @@ export const useEnergyMapStore = create(
     },
 
     addCardioSession: (session) => {
+      const normalizedDate = normalizeSessionDate(session?.date);
+      if (!normalizedDate) {
+        return;
+      }
+
       updateUserData(set, get, (prev) => ({
         ...prev,
         cardioSessions: [
           ...prev.cardioSessions,
-          { ...session, id: Date.now() },
+          { ...session, date: normalizedDate, id: Date.now() },
         ],
       }));
     },
@@ -312,12 +335,83 @@ export const useEnergyMapStore = create(
         return;
       }
 
+      if (Object.prototype.hasOwnProperty.call(updates ?? {}, 'date')) {
+        const normalizedDate = normalizeSessionDate(updates?.date);
+        if (!normalizedDate) {
+          return;
+        }
+      }
+
       updateUserData(set, get, (prev) => ({
         ...prev,
         cardioSessions: prev.cardioSessions.map((session) =>
           session.id === id
-            ? { ...session, ...updates, id: session.id }
+            ? {
+                ...session,
+                ...updates,
+                ...(updates?.date
+                  ? { date: normalizeSessionDate(updates.date) }
+                  : {}),
+                id: session.id,
+              }
             : session
+        ),
+      }));
+    },
+
+    addTrainingSession: (session) => {
+      const normalizedDate = normalizeSessionDate(session?.date);
+      if (!normalizedDate) {
+        return;
+      }
+
+      updateUserData(set, get, (prev) => ({
+        ...prev,
+        trainingSessions: [
+          ...(prev.trainingSessions ?? []),
+          {
+            ...session,
+            date: normalizedDate,
+            id: Date.now(),
+          },
+        ],
+      }));
+    },
+
+    updateTrainingSession: (id, updates) => {
+      if (id == null) {
+        return;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(updates ?? {}, 'date')) {
+        const normalizedDate = normalizeSessionDate(updates?.date);
+        if (!normalizedDate) {
+          return;
+        }
+      }
+
+      updateUserData(set, get, (prev) => ({
+        ...prev,
+        trainingSessions: (prev.trainingSessions ?? []).map((session) =>
+          session.id === id
+            ? {
+                ...session,
+                ...updates,
+                ...(updates?.date
+                  ? { date: normalizeSessionDate(updates.date) }
+                  : {}),
+                id: session.id,
+              }
+            : session
+        ),
+      }));
+    },
+
+    removeTrainingSession: (id) => {
+      updateUserData(set, get, (prev) => ({
+        ...prev,
+        trainingSessions: (prev.trainingSessions ?? []).filter(
+          (session) => session.id !== id
         ),
       }));
     },
@@ -433,6 +527,7 @@ export const useEnergyMapStore = create(
         cardioTypes,
         trainingTypes,
         tefContext: options?.tefContext,
+        dateKey: options?.dateKey,
       });
     },
 

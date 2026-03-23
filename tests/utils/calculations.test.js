@@ -5,8 +5,20 @@ import {
   calculateBMR,
   calculateCalorieBreakdown,
   calculateCardioCalories,
+  calculateTrainingSessionCalories,
+  getTotalTrainingBurnForDate,
   getTrainingCalories,
 } from '../../src/utils/calculations.js';
+
+const getTodayDateKey = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const todayDateKey = getTodayDateKey();
 
 const baseUserData = {
   age: 30,
@@ -25,6 +37,7 @@ const baseUserData = {
     rest: 0.28,
   },
   cardioSessions: [],
+  trainingSessions: [],
   smartTefEnabled: true,
 };
 
@@ -163,6 +176,7 @@ test('step overlap deduction lowers step calories while preserving cardio burn',
     cardioSessions: [
       {
         id: 1,
+        date: todayDateKey,
         type: 'treadmill_walk',
         duration: 30,
         intensity: 'moderate',
@@ -205,4 +219,60 @@ test('step overlap deduction lowers step calories while preserving cardio burn',
   assert.ok(overlapOn.deductedSteps > 0);
   assert.ok(overlapOn.stepCalories < overlapOff.stepCalories);
   assert.ok(overlapOn.remainingEstimatedSteps < overlapOn.originalEstimatedSteps);
+});
+
+test('training session calories are day-scoped and summed by date', () => {
+  const dateA = todayDateKey;
+  const dateB = '2099-01-01';
+  const userWithTrainingSessions = {
+    ...baseUserData,
+    trainingSessions: [
+      {
+        id: 1,
+        date: dateA,
+        type: 'bodybuilding',
+        duration: 60,
+        effortType: 'intensity',
+        intensity: 'moderate',
+      },
+      {
+        id: 2,
+        date: dateA,
+        type: 'bodybuilding',
+        duration: 30,
+        effortType: 'intensity',
+        intensity: 'vigorous',
+      },
+      {
+        id: 3,
+        date: dateB,
+        type: 'bodybuilding',
+        duration: 120,
+        effortType: 'intensity',
+        intensity: 'moderate',
+      },
+    ],
+  };
+
+  const singleSessionCalories = calculateTrainingSessionCalories(
+    userWithTrainingSessions.trainingSessions[0],
+    userWithTrainingSessions,
+    trainingTypes
+  );
+  assert.ok(singleSessionCalories > 0);
+
+  const totalForDateA = getTotalTrainingBurnForDate(
+    userWithTrainingSessions,
+    trainingTypes,
+    dateA
+  );
+  const totalForDateB = getTotalTrainingBurnForDate(
+    userWithTrainingSessions,
+    trainingTypes,
+    dateB
+  );
+
+  assert.ok(totalForDateA > 0);
+  assert.ok(totalForDateB > 0);
+  assert.ok(totalForDateA !== totalForDateB);
 });

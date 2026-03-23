@@ -33,6 +33,7 @@ const HISTORY_FIELDS = [
   'nutritionData',
   'phaseLogV2',
   'cardioSessions',
+  'trainingSessions',
   'cachedFoods',
 ];
 
@@ -212,6 +213,44 @@ const SHARDED_HISTORY_FIELD_CONFIG = {
   },
   cardioSessions: {
     prefix: 'cardioSessions:',
+    toDocuments: (value) => {
+      if (!Array.isArray(value)) {
+        return [];
+      }
+
+      return value
+        .map((session, index) => {
+          if (!session || typeof session !== 'object') {
+            return null;
+          }
+
+          const sessionId =
+            session.id != null ? String(session.id) : `fallback-${index}`;
+
+          return {
+            key: sessionId,
+            payload: {
+              ...session,
+              id: sessionId,
+              __order: index,
+            },
+          };
+        })
+        .filter(Boolean);
+    },
+    fromDocuments: (documents) =>
+      documents
+        .map(({ payload }) => payload)
+        .filter(Boolean)
+        .sort((a, b) => (a?.__order ?? 0) - (b?.__order ?? 0))
+        .map((payload) => {
+          const session = { ...payload };
+          delete session.__order;
+          return session;
+        }),
+  },
+  trainingSessions: {
+    prefix: 'trainingSessions:',
     toDocuments: (value) => {
       if (!Array.isArray(value)) {
         return [];
@@ -625,6 +664,68 @@ const normalizeCachedFoodsForPersistence = (
   return dedupedChronological.slice(-maxItems);
 };
 
+const normalizeCardioSessionForLoad = (session, resolvedCardioTypes) => {
+  if (!session || typeof session !== 'object') {
+    return null;
+  }
+
+  const date = normalizeDateKey(session.date);
+  if (!date) {
+    return null;
+  }
+
+  const type =
+    typeof session.type === 'string' && session.type.trim().length > 0
+      ? session.type
+      : null;
+  if (!type) {
+    return null;
+  }
+
+  return {
+    ...session,
+    date,
+    type,
+    effortType: session?.effortType ?? 'intensity',
+    stepOverlapEnabled: isStepBasedCardioType(type, resolvedCardioTypes?.[type])
+      ? Boolean(session?.stepOverlapEnabled ?? true)
+      : false,
+  };
+};
+
+const normalizeTrainingSessionForLoad = (session) => {
+  if (!session || typeof session !== 'object') {
+    return null;
+  }
+
+  const date = normalizeDateKey(session.date);
+  if (!date) {
+    return null;
+  }
+
+  const type =
+    typeof session.type === 'string' && session.type.trim().length > 0
+      ? session.type
+      : null;
+  if (!type) {
+    return null;
+  }
+
+  const duration = Number(session.duration);
+  if (!Number.isFinite(duration) || duration <= 0) {
+    return null;
+  }
+
+  return {
+    ...session,
+    date,
+    type,
+    duration,
+    effortType: session?.effortType ?? 'intensity',
+    intensity: session?.intensity ?? 'moderate',
+  };
+};
+
 const sanitizeHistoryForPersistence = (historyData) => ({
   ...historyData,
   cachedFoods: normalizeCachedFoodsForPersistence(historyData.cachedFoods),
@@ -831,6 +932,7 @@ export const getDefaultEnergyMapData = () => ({
   trainingHeartRate: '',
   stepRanges: ['<10k', '10k', '12k', '14k', '16k', '18k', '20k', '>20k'],
   cardioSessions: [],
+  trainingSessions: [],
   lastSelectedCardioType: 'treadmill_walk',
   cardioFavourites: [],
   foodFavourites: [],
@@ -986,17 +1088,17 @@ function mergeWithDefaults(data) {
         ? dataWithoutLegacyPhases.lastSelectedCardioType.trim()
         : defaults.lastSelectedCardioType,
     cardioSessions: Array.isArray(dataWithoutLegacyPhases.cardioSessions)
-      ? dataWithoutLegacyPhases.cardioSessions.map((session) => ({
-          ...session,
-          effortType: session?.effortType ?? 'intensity',
-          stepOverlapEnabled: isStepBasedCardioType(
-            session?.type,
-            resolvedCardioTypes?.[session?.type]
+      ? dataWithoutLegacyPhases.cardioSessions
+          .map((session) =>
+            normalizeCardioSessionForLoad(session, resolvedCardioTypes)
           )
-            ? Boolean(session?.stepOverlapEnabled ?? true)
-            : false,
-        }))
+          .filter(Boolean)
       : defaults.cardioSessions,
+    trainingSessions: Array.isArray(dataWithoutLegacyPhases.trainingSessions)
+      ? dataWithoutLegacyPhases.trainingSessions
+          .map((session) => normalizeTrainingSessionForLoad(session))
+          .filter(Boolean)
+      : defaults.trainingSessions,
     cardioFavourites: Array.isArray(dataWithoutLegacyPhases.cardioFavourites)
       ? dataWithoutLegacyPhases.cardioFavourites.map((session) => ({
           ...session,

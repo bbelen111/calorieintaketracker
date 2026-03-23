@@ -13,6 +13,13 @@ import {
 } from '../../src/utils/historyDatabase.js';
 
 const PROFILE_KEY = 'energyMapData_profile';
+const getTodayDateKey = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 const createMemoryLocalStorage = () => {
   const store = {};
@@ -317,6 +324,7 @@ test('loadEnergyMapData normalizes cardio session overlap toggle defaults for le
       cardioSessions: [
         {
           id: 1,
+          date: getTodayDateKey(),
           type: 'treadmill_walk',
           duration: 30,
           intensity: 'moderate',
@@ -324,6 +332,7 @@ test('loadEnergyMapData normalizes cardio session overlap toggle defaults for le
         },
         {
           id: 2,
+          date: getTodayDateKey(),
           type: 'bike_stationary',
           duration: 30,
           intensity: 'moderate',
@@ -343,6 +352,44 @@ test('loadEnergyMapData normalizes cardio session overlap toggle defaults for le
       assert.equal(bike?.stepOverlapEnabled, false);
     } else {
       assert.deepEqual(loaded.cardioSessions, []);
+    }
+  });
+});
+
+test('save/loadEnergyMapData round-trips trainingSessions via sharded history documents', async () => {
+  await withWindowStorage(async () => {
+    await Preferences.remove({ key: PROFILE_KEY });
+    await clearDexieHistory();
+
+    const payload = {
+      ...getDefaultEnergyMapData(),
+      trainingSessions: [
+        {
+          id: 'train-1',
+          date: getTodayDateKey(),
+          type: 'bodybuilding',
+          duration: 90,
+          effortType: 'intensity',
+          intensity: 'moderate',
+        },
+      ],
+    };
+
+    await saveEnergyMapData(payload);
+
+    const historySnapshot = await loadAllHistoryDocuments();
+    if (historySnapshot.available) {
+      const trainingDocs = historySnapshot.documents.filter((document) =>
+        String(document?.id).startsWith('trainingSessions:')
+      );
+      assert.ok(trainingDocs.length >= 1);
+    }
+
+    const loaded = await loadEnergyMapData();
+    if (historySnapshot.available) {
+      assert.equal(loaded.trainingSessions.length, 1);
+      assert.equal(loaded.trainingSessions[0].type, 'bodybuilding');
+      assert.equal(loaded.trainingSessions[0].duration, 90);
     }
   });
 });

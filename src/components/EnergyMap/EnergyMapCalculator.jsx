@@ -106,6 +106,7 @@ const homeIndex = screenTabs.findIndex((tab) => tab.key === 'home');
 const trackerIndex = screenTabs.findIndex((tab) => tab.key === 'tracker');
 
 const defaultCardioSession = {
+  date: '',
   type: 'treadmill_walk',
   duration: 30,
   intensity: 'moderate',
@@ -122,6 +123,7 @@ const getDefaultCardioSessionForType = (typeKey, cardioTypes = {}) => {
 
   return {
     ...defaultCardioSession,
+    date: getTodayDateString(),
     type: resolvedType,
     stepOverlapEnabled: isStepBasedCardioType(
       resolvedType,
@@ -134,6 +136,11 @@ const getDefaultCardioSessionForType = (typeKey, cardioTypes = {}) => {
 
 const sanitizeCardioDraft = (draft, cardioTypes = {}) => {
   if (!draft) {
+    return null;
+  }
+
+  const normalizedDate = normalizeDateKey(draft.date);
+  if (!normalizedDate) {
     return null;
   }
 
@@ -150,6 +157,7 @@ const sanitizeCardioDraft = (draft, cardioTypes = {}) => {
   const session = {
     ...defaultCardioSession,
     ...draft,
+    date: normalizedDate,
     duration,
     intensity: draft.intensity ?? 'moderate',
     effortType,
@@ -269,12 +277,15 @@ export const EnergyMapCalculator = () => {
     bmr,
     trainingCalories,
     totalCardioBurn,
+    trainingSessions,
     handleUserDataChange,
     addStepRange,
     removeStepRange,
     addCardioSession,
     removeCardioSession,
     updateCardioSession,
+    addTrainingSession,
+    updateTrainingSession,
     addCardioFavourite,
     removeCardioFavourite,
     updateTrainingType,
@@ -323,12 +334,15 @@ export const EnergyMapCalculator = () => {
       bmr: state.bmr,
       trainingCalories: state.trainingCalories,
       totalCardioBurn: state.totalCardioBurn,
+      trainingSessions: state.trainingSessions,
       handleUserDataChange: state.handleUserDataChange,
       addStepRange: state.addStepRange,
       removeStepRange: state.removeStepRange,
       addCardioSession: state.addCardioSession,
       removeCardioSession: state.removeCardioSession,
       updateCardioSession: state.updateCardioSession,
+      addTrainingSession: state.addTrainingSession,
+      updateTrainingSession: state.updateTrainingSession,
       addCardioFavourite: state.addCardioFavourite,
       removeCardioFavourite: state.removeCardioFavourite,
       updateTrainingType: state.updateTrainingType,
@@ -408,6 +422,9 @@ export const EnergyMapCalculator = () => {
   const [tempTrainingHeartRate, setTempTrainingHeartRate] = useState(
     userData.trainingHeartRate ?? ''
   );
+  const [trainingModalMode, setTrainingModalMode] = useState('session');
+  const [editingTrainingSessionId, setEditingTrainingSessionId] =
+    useState(null);
   const [editingTrainingType, setEditingTrainingType] = useState(null);
   const [tempPresetName, setTempPresetName] = useState('');
   const [tempPresetCalories, setTempPresetCalories] = useState(0);
@@ -1147,6 +1164,8 @@ export const EnergyMapCalculator = () => {
 
   const handleTrainingDayClick = useCallback(() => {
     if (selectedDay === 'training') {
+      setTrainingModalMode('session');
+      setEditingTrainingSessionId(null);
       setTempTrainingType(userData.trainingType);
       setTempTrainingDuration(userData.trainingDuration);
       setTempTrainingEffortType(userData.trainingEffortType ?? 'intensity');
@@ -1187,6 +1206,8 @@ export const EnergyMapCalculator = () => {
   }, [heightModal, userData.height]);
 
   const openTrainingModal = useCallback(() => {
+    setTrainingModalMode('settings');
+    setEditingTrainingSessionId(null);
     setTempTrainingType(userData.trainingType);
     setTempTrainingDuration(userData.trainingDuration);
     setTempTrainingEffortType(userData.trainingEffortType ?? 'intensity');
@@ -1759,10 +1780,21 @@ export const EnergyMapCalculator = () => {
       return;
     }
 
+    const todayDate = getTodayDateString();
+    const normalizedDraftDate = normalizeDateKey(sessionToSave.date);
+    if (!normalizedDraftDate || normalizedDraftDate !== todayDate) {
+      return;
+    }
+
+    const todaySession = {
+      ...sessionToSave,
+      date: todayDate,
+    };
+
     if (editingCardioId != null) {
-      updateCardioSession(editingCardioId, sessionToSave);
+      updateCardioSession(editingCardioId, todaySession);
     } else {
-      addCardioSession(sessionToSave);
+      addCardioSession(todaySession);
     }
 
     cardioModal.requestClose();
@@ -1792,7 +1824,13 @@ export const EnergyMapCalculator = () => {
 
   const handleApplyFavourite = useCallback(
     (favourite) => {
-      const sanitized = sanitizeCardioDraft(favourite, cardioTypes);
+      const sanitized = sanitizeCardioDraft(
+        {
+          ...favourite,
+          date: getTodayDateString(),
+        },
+        cardioTypes
+      );
       if (!sanitized) {
         return;
       }
@@ -1801,6 +1839,7 @@ export const EnergyMapCalculator = () => {
       setCardioDraft({
         ...defaultCardioSession,
         ...sanitized,
+        date: getTodayDateString(),
         averageHeartRate:
           effortType === 'heartRate' ? (sanitized.averageHeartRate ?? '') : '',
       });
@@ -2278,6 +2317,37 @@ export const EnergyMapCalculator = () => {
   );
 
   const handleTrainingSave = useCallback(() => {
+    if (trainingModalMode === 'session') {
+      const sessionDate = getTodayDateString();
+      const durationHours = Number(tempTrainingDuration);
+      const durationMinutes = Number.isFinite(durationHours)
+        ? Math.round(durationHours * 60)
+        : 0;
+
+      if (durationMinutes <= 0) {
+        return;
+      }
+
+      const sessionPayload = {
+        date: sessionDate,
+        type: tempTrainingType,
+        duration: durationMinutes,
+        effortType: tempTrainingEffortType,
+        intensity: tempTrainingIntensity,
+        averageHeartRate:
+          tempTrainingEffortType === 'heartRate' ? tempTrainingHeartRate : '',
+      };
+
+      if (editingTrainingSessionId != null) {
+        updateTrainingSession(editingTrainingSessionId, sessionPayload);
+      } else {
+        addTrainingSession(sessionPayload);
+      }
+
+      trainingModal.requestClose();
+      return;
+    }
+
     handleUserDataChange('trainingType', tempTrainingType);
     handleUserDataChange('trainingDuration', tempTrainingDuration);
     handleUserDataChange('trainingEffortType', tempTrainingEffortType);
@@ -2292,6 +2362,10 @@ export const EnergyMapCalculator = () => {
     tempTrainingEffortType,
     tempTrainingIntensity,
     tempTrainingHeartRate,
+    trainingModalMode,
+    addTrainingSession,
+    editingTrainingSessionId,
+    updateTrainingSession,
   ]);
 
   const handleTrainingEffortTypeChange = useCallback(
@@ -2701,7 +2775,9 @@ export const EnergyMapCalculator = () => {
     userData?.lastSelectedCardioType,
   ]);
 
-  const hasCardioSessions = userData.cardioSessions.length > 0;
+  const hasCardioSessions = userData.cardioSessions.some(
+    (session) => normalizeDateKey(session?.date) === getTodayDateString()
+  );
   const activityPresets = useMemo(
     () => ({
       training: userData.activityPresets?.training ?? 'default',
@@ -2878,6 +2954,7 @@ export const EnergyMapCalculator = () => {
                   onTrainingDayClick={handleTrainingDayClick}
                   onRestDayClick={handleRestDayClick}
                   trainingCalories={trainingCalories}
+                  trainingSessions={trainingSessions}
                   trainingTypes={trainingTypes}
                   cardioTypes={cardioTypes}
                   hasCardioSessions={hasCardioSessions}
