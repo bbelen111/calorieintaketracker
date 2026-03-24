@@ -44,6 +44,7 @@ export const SettingsModal = ({
   bodyFatEntries,
   bodyFatTrackingEnabled,
   onOpenTefInfo,
+  onOpenAdaptiveThermogenesisInfo,
   onCancel,
   onSave,
 }) => {
@@ -524,9 +525,14 @@ export const SettingsModal = ({
 
             <div>
               <div className="flex items-center justify-between mb-2 gap-3">
-                <div className="inline-flex items-center gap-1.5 text-foreground/80 text-sm">
+                <button
+                  type="button"
+                  onClick={() => onOpenAdaptiveThermogenesisInfo?.()}
+                  className="inline-flex items-center gap-1.5 text-foreground/80 text-sm md:hover:text-foreground transition-colors focus-ring rounded-md px-1 py-0.5 pressable-inline"
+                >
                   <span>Adaptive Thermogenesis</span>
-                </div>
+                  <Info size={14} />
+                </button>
                 <button
                   type="button"
                   role="switch"

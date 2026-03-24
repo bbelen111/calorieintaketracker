@@ -60,6 +60,7 @@ import { CardioModal } from './modals/forms/CardioModal';
 import { CardioFavouritesModal } from './modals/lists/CardioFavouritesModal';
 import { CalorieBreakdownModal } from './modals/info/CalorieBreakdownModal';
 import { TefInfoModal } from './modals/info/TefInfoModal';
+import { AdaptiveThermogenesisInfoModal } from './modals/info/AdaptiveThermogenesisInfoModal';
 import { DailyActivityModal } from './modals/forms/DailyActivityModal';
 import { DailyActivityEditorModal } from './modals/forms/DailyActivityEditorModal';
 import { DailyActivityCustomModal } from './modals/forms/DailyActivityCustomModal';
@@ -574,6 +575,7 @@ export const EnergyMapCalculator = () => {
   const cardioFavouriteEditorModal = useAnimatedModal();
   const calorieBreakdownModal = useAnimatedModal();
   const tefInfoModal = useAnimatedModal();
+  const adaptiveThermogenesisInfoModal = useAnimatedModal();
   const phaseCreationModal = useAnimatedModal();
   const templatePickerModal = useAnimatedModal();
   const dailyLogModal = useAnimatedModal();
@@ -596,6 +598,7 @@ export const EnergyMapCalculator = () => {
     dailyLogModal,
     templatePickerModal,
     phaseCreationModal,
+    adaptiveThermogenesisInfoModal,
     tefInfoModal,
     calorieBreakdownModal,
     cardioFavouriteEditorModal,
@@ -641,6 +644,7 @@ export const EnergyMapCalculator = () => {
         dailyLogModal,
         templatePickerModal,
         phaseCreationModal,
+        adaptiveThermogenesisInfoModal,
         tefInfoModal,
         calorieBreakdownModal,
         cardioFavouriteEditorModal,
@@ -3153,6 +3157,12 @@ export const EnergyMapCalculator = () => {
         onClose={tefInfoModal.requestClose}
       />
 
+      <AdaptiveThermogenesisInfoModal
+        isOpen={adaptiveThermogenesisInfoModal.isOpen}
+        isClosing={adaptiveThermogenesisInfoModal.isClosing}
+        onClose={adaptiveThermogenesisInfoModal.requestClose}
+      />
+
       <BmiInfoModal
         isOpen={bmiModal.isOpen}
         isClosing={bmiModal.isClosing}
@@ -3318,6 +3328,7 @@ export const EnergyMapCalculator = () => {
         onTrainingClick={openTrainingModal}
         onDailyActivityClick={openDailyActivitySettings}
         onOpenTefInfo={tefInfoModal.open}
+        onOpenAdaptiveThermogenesisInfo={adaptiveThermogenesisInfoModal.open}
         onCancel={settingsModal.requestClose}
         onSave={handleSettingsSave}
       />

@@ -98,12 +98,13 @@ export const TefInfoModal = ({ isOpen, isClosing, onClose }) => {
           </p>
         </div>
 
-        <p className="text-sm italic">
-          Note: Because Smart TEF calculates digestion separately, your overall
-          activity multiplier will appear lower. This is expected behavior—your
-          daily calorie target is being redistributed for better accuracy, not
+        <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5 text-xs">
+          <span className="text-foreground font-semibold">Note:</span> Because
+          Smart TEF calculates digestion separately, your overall activity
+          multiplier will appear lower. This is expected behavior—your daily
+          calorie target is being redistributed for better accuracy, not
           decreased.
-        </p>
+        </div>
       </div>
 
       <div className="mt-6">
