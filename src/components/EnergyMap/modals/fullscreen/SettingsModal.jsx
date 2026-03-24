@@ -16,10 +16,6 @@ import {
   getActivityPresetByKey,
 } from '../../../../constants/activityPresets';
 import { ModalShell } from '../../common/ModalShell';
-import {
-  formatDurationLabel,
-  roundDurationHours,
-} from '../../../../utils/time';
 import { formatDateLabel, formatWeight } from '../../../../utils/weight';
 import { formatBodyFat } from '../../../../utils/bodyFat';
 import { shallow } from 'zustand/shallow';
@@ -39,9 +35,6 @@ export const SettingsModal = ({
   userData,
   onChange,
   bmr,
-  trainingTypes,
-  trainingCalories,
-  onTrainingClick,
   onDailyActivityClick,
   onAgePickerClick,
   onHeightPickerClick,
@@ -58,8 +51,6 @@ export const SettingsModal = ({
     (state) => ({
       userData: state.userData,
       bmr: state.bmr,
-      trainingTypes: state.trainingTypes,
-      trainingCalories: state.trainingCalories,
       weightEntries: state.weightEntries ?? [],
       bodyFatEntries: state.bodyFatEntries ?? [],
     }),
@@ -68,8 +59,6 @@ export const SettingsModal = ({
 
   const resolvedUserData = userData ?? store.userData;
   const resolvedBmr = bmr ?? store.bmr;
-  const resolvedTrainingTypes = trainingTypes ?? store.trainingTypes;
-  const resolvedTrainingCalories = trainingCalories ?? store.trainingCalories;
   const resolvedWeightEntries = weightEntries ?? store.weightEntries;
   const resolvedBodyFatEntries = bodyFatEntries ?? store.bodyFatEntries;
   const resolvedBodyFatTrackingEnabled =
@@ -87,17 +76,6 @@ export const SettingsModal = ({
     resolvedUserData.adaptiveThermogenesisEnabled ?? false;
   const adaptiveThermogenesisSmartMode =
     resolvedUserData.adaptiveThermogenesisSmartMode ?? false;
-
-  const selectedTrainingType =
-    resolvedTrainingTypes?.[resolvedUserData.trainingType] ?? null;
-  const formattedTrainingDuration = useMemo(
-    () => formatDurationLabel(resolvedUserData.trainingDuration),
-    [resolvedUserData.trainingDuration]
-  );
-  const roundedTrainingDuration = useMemo(
-    () => roundDurationHours(resolvedUserData.trainingDuration),
-    [resolvedUserData.trainingDuration]
-  );
 
   const handleCancel = useCallback(() => {
     onCancel?.();
@@ -628,33 +606,6 @@ export const SettingsModal = ({
                   </div>
                 </div>
               )}
-            </div>
-
-            <div>
-              <label className="text-foreground/80 text-sm block mb-2">
-                Training
-              </label>
-              <button
-                onClick={onTrainingClick}
-                type="button"
-                className="relative w-full text-left p-3 md:p-4 rounded-lg border-2 bg-indigo-600 border-indigo-500 text-white transition-all press-feedback focus-ring md:hover:bg-indigo-500/90"
-              >
-                <div className="min-w-0 pr-24 md:pr-28">
-                  <div className="font-semibold text-base">
-                    {selectedTrainingType?.label ?? 'Training'}
-                  </div>
-                  <div className="text-xs md:text-sm opacity-90 mt-0.5">
-                    {selectedTrainingType?.caloriesPerHour ?? '—'} cal/hr •{' '}
-                    {formattedTrainingDuration}
-                  </div>
-                  <div className="text-[11px] opacity-80 mt-1">
-                    {`~${roundedTrainingDuration.toFixed(2)} hours • Session burn: ~${Math.round(resolvedTrainingCalories)} calories`}
-                  </div>
-                </div>
-                <span className="pointer-events-none absolute top-3 right-3 md:top-4 md:right-4 text-[11px] opacity-75 whitespace-nowrap">
-                  Tap to edit
-                </span>
-              </button>
             </div>
           </div>
         </div>
