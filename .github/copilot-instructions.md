@@ -209,11 +209,11 @@ const myNewModal = useAnimatedModal();
 ### ModalShell Architecture
 
 `ModalShell` (`common/ModalShell.jsx`) uses **three singleton managers**:
-- **`ModalStackManager`** — Assigns z-index per modal (`BASE_Z_INDEX=1000 + position`), tracks topmost for escape/focus
+- **`ModalStackManager`** — Assigns wrapper z-index in **2-step lanes** (`BASE_Z_INDEX=1000`, then `+2` per stacked modal) so one level is always reserved between modal wrappers.
 - **`SharedOverlayManager`** — Single backdrop element shared across all modals, progressive darkening per nesting depth
 - **`BodyScrollLockManager`** — Reference-counted scroll lock with scrollbar width compensation
 
-Modals auto-register on mount, auto-dim when not topmost. Content uses CSS animations from `index.css` (`modalSlideUp`/`modalSlideDown`).
+Darkening is handled by the shared backdrop only (no per-modal content dim layer). The backdrop sits in the reserved inter-modal z-index lane (`highestZIndex - 1`) so stacking remains: lower modal wrapper < shared backdrop < top modal wrapper. Content uses CSS animations from `index.css` (`modalSlideUp`/`modalSlideDown`).
 
 ### Temporary State Pattern
 
@@ -822,3 +822,4 @@ npm run test:watch     # Node test runner in watch mode
 33. **Goal duration logic depends on persisted timestamps:** If implementing coarse/crude staged adjustments (e.g., prolonged cut/bulk handling), base elapsed-day calculations on persisted `goalChangedAt` (and optional phase boundaries), not transient UI state.
 34. **Snapshots are not goal-state authority:** `goalAtSnapshot` is for historical inspection only. Current goal behavior must resolve from `userData.selectedGoal` (+ `goalChangedAt`).
 35. **AT mode control is settings-driven:** `CalorieBreakdownModal` does not expose an AT mode selector. Mode changes are configured in `SettingsModal` (`adaptiveThermogenesisEnabled` + `adaptiveThermogenesisSmartMode`) and reflected in breakdown output.
+36. **Modal darkening must remain single-path + lane-based:** Do not reintroduce per-modal darkening overlays in `ModalShell`. Keep wrapper z-index allocation in +2 steps and keep shared overlay at `highestZIndex - 1`; changing this causes first-open overlay-over-content bugs or missing nested darkening.

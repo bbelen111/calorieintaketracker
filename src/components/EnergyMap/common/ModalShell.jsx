@@ -17,9 +17,9 @@ const BASE_Z_INDEX = 1000;
 const OVERLAY_FADE_MS = 200;
 
 // Overlay opacity configuration - increases with modal depth for visual hierarchy
-const OVERLAY_BASE_OPACITY = 0.65; // Single modal backdrop
-const OVERLAY_STACKED_INCREMENT = 0.12; // Additional darkness per nested modal
-const OVERLAY_MAX_OPACITY = 0.92; // Cap to prevent complete blackout
+const OVERLAY_BASE_OPACITY = 0.5; // Single modal backdrop
+const OVERLAY_STACKED_INCREMENT = 0.1; // Additional darkness per nested modal
+const OVERLAY_MAX_OPACITY = 0.8; // Cap to prevent complete blackout
 
 const queueTask =
   typeof globalThis.queueMicrotask === 'function'
