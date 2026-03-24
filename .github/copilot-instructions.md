@@ -43,7 +43,7 @@ main.jsx
             │   ├─ CalorieMapScreen
             │   └─ InsightsScreen
             ├─ PhaseDetailScreen (drill-down, not in carousel)
-              └─ 36 top-level useAnimatedModal instances → 46 modal files
+              └─ 37 top-level useAnimatedModal instances → 47 modal files
                  └─ ~21 additional child-level modals inside modal components
 ```
 
@@ -143,12 +143,12 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 
 ### Modal Count
 
-- **36 `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
+- **37 `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
 - **~21 additional child-level modals** declared inside modal components (e.g., delete confirmations, sub-pickers)
-- **46 modal files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`:
+- **47 modal files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`:
   - `fullscreen/` — WeightTrackerModal, BodyFatTrackerModal, StepTrackerModal, SettingsModal, FoodSearchModal
   - `pickers/` — AgePickerModal, BodyFatPickerModal, CalendarPickerModal, **CaloriesPerHourPickerModal**, DatePickerModal, DurationPickerModal, FoodPortionModal, HeartRatePickerModal, HeightPickerModal, MealTypePickerModal, MetValuePickerModal, StepGoalPickerModal, TemplatePickerModal, WeightPickerModal
-  - `info/` — BmiInfoModal, BmrInfoModal, BodyFatTrendInfoModal, CalorieBreakdownModal, CaloriesPerHourGuideModal, FfmiInfoModal, TefInfoModal, WeightTrendInfoModal
+  - `info/` — AdaptiveThermogenesisInfoModal, BmiInfoModal, BmrInfoModal, BodyFatTrendInfoModal, CalorieBreakdownModal, CaloriesPerHourGuideModal, FfmiInfoModal, TefInfoModal, WeightTrendInfoModal
   - `forms/` — AddCustomFoodModal, BodyFatEntryModal, CardioModal, CustomCardioTypeModal, DailyActivityCustomModal, DailyActivityEditorModal, DailyActivityModal, DailyLogModal, FoodEntryModal, GoalModal, PhaseCreationModal, TrainingModal, StepRangesModal, TrainingTypeEditorModal, WeightEntryModal
   - `lists/` — CardioFavouritesModal, CardioTypeListModal, FoodFavouritesModal
   - `common/` — ConfirmActionModal
@@ -446,7 +446,7 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 
 **Adaptive Thermogenesis mechanic:** `calculateCalorieBreakdown()` computes `baselineTotal` first (BMR + NEAT + steps + training + cardio + Smart TEF), then applies AT as a post-formula correction (`total = baselineTotal + adaptiveThermogenesisCorrection`). Returned AT fields include `baselineTotal`, `adjustedTotal`, `adaptiveThermogenesisMode`, `adaptiveThermogenesisCorrection`, and `adaptiveThermogenesis`.
 
-**Training types** are resolved at the store level (`resolveTrainingTypes`) by merging `trainingTypes` constants with `userData.trainingTypeOverrides`. Never use raw constants directly.
+**Training types** are resolved at the store level (`resolveTrainingTypes`) by merging `trainingTypes` constants with `userData.trainingType` (catalog). Never use raw constants directly.
 
 **Step/cardio overlap model (Option 2):** `utils/steps.js` handles overlap deduction using explicit cardio-type metadata from `constants/cardioTypes.js`.
 - `cardioTypes[<key>].ambulatory` decides whether a session is step-based.
@@ -510,9 +510,8 @@ Migration behavior is now intentionally minimal:
 `getDefaultEnergyMapData()` in `utils/storage.js` defines the full schema with defaults. Key defaults:
 - `age: 21`, `weight: 74`, `height: 168`, `gender: 'male'`, `theme: 'auto'`
 - `selectedGoal: 'maintenance'`, `goalChangedAt: Date.now()`
-- `stepGoal: 10000`, `trainingType: 'bodybuilding'`, `trainingDuration: 2`
-- `customTrainingName: 'My Training'`, `customTrainingCalories: 220`, `customTrainingDescription: 'Custom training style'`
-- 6 preset training types in `trainingTypeOverrides` with calories/hour values (bodybuilding 220, powerlifting 180, strongman 280, crossfit 300, calisthenics 240, custom 220)
+- `stepGoal: 10000`, `selectedTrainingType: 'trainingtype_1'`, `trainingDuration: 2`
+- 6 preset training types in `trainingType` with calories/hour values (`trainingtype_1..6` → bodybuilding 220, powerlifting 180, strongman 280, crossfit 300, calisthenics 240, custom 220)
 - `activityMultipliers: { training: 0.35, rest: 0.28 }`
 - `activityPresets: { training: 'default', rest: 'default' }`
 - `customActivityMultipliers: { training: 0.35, rest: 0.28 }`
@@ -533,12 +532,12 @@ Migration behavior is now intentionally minimal:
   theme: 'auto',                    // 'auto' | 'dark' | 'light' | 'amoled_dark'
   selectedGoal: 'maintenance',      // Canonical current goal key
   goalChangedAt: 1700000000000,     // Epoch ms when selectedGoal last changed (persisted)
-  trainingType, trainingDuration,
+  selectedTrainingType, trainingDuration,
   stepRanges: ['<10k', '10k', ...],
   activityMultipliers: { training: 0.35, rest: 0.28 },
   activityPresets: { training: 'default', rest: 'default' },
   customActivityMultipliers: { training: 0.35, rest: 0.28 },
-  trainingTypeOverrides: { bodybuilding: { label, description, caloriesPerHour }, ... },
+  trainingType: { trainingtype_1: { label, caloriesPerHour }, ... },
   pinnedFoods: ['food_id1', ...],
   foodFavourites: [],
   cardioFavourites: [],
@@ -694,10 +693,10 @@ src/
 │   ├─ common/
 │   │   ├─ ModalShell.jsx        # Core modal wrapper (singleton managers)
 │   │   └─ ScreenTabs.jsx        # Tab bar + floating variant
-│   ├─ modals/                   # 46 modal files in 6 subfolders, all use ModalShell
+│   ├─ modals/                   # 47 modal files in 6 subfolders, all use ModalShell
 │   │   ├─ fullscreen/           # Full-screen takeover modals (WeightTracker, BodyFatTracker, StepTracker, Settings, FoodSearch)
 │   │   ├─ pickers/              # Scroll-wheel value pickers (Age, BodyFat, Calendar, Height, Weight, MealType, etc.)
-│   │   ├─ info/                 # Read-only info/reference sheets (BmiInfo, BmrInfo, CalorieBreakdown, TefInfo, etc.)
+│   │   ├─ info/                 # Read-only info/reference sheets (AdaptiveThermogenesisInfo, BmiInfo, BmrInfo, CalorieBreakdown, TefInfo, etc.)
 │   │   ├─ forms/                # Data entry & editing dialogs (Cardio, Goal, PhaseCreation, WeightEntry, etc.)
 │   │   ├─ lists/                # Browseable/selectable lists (CardioFavourites, FoodFavourites)
 │   │   └─ common/               # Shared utility modals (ConfirmActionModal)
@@ -801,7 +800,7 @@ npm run test:watch     # Node test runner in watch mode
 12. **Cardio overlap classification is metadata-driven:** Do not infer ambulatory cardio with string matching/keywords. Use `cardioTypes[type].ambulatory`.
 13. **Cadence source of truth:** For overlap estimation, use `cardioTypes[type].cadence` (or defined fallback path in `utils/steps.js` for custom types). Do not hardcode cadence by name in UI/store code.
 14. **Session-level overlap toggle:** Respect `session.stepOverlapEnabled` in overlap deduction; relevant types default on, non-ambulatory types force off.
-15. **Training type resolution:** Never use raw `trainingTypes` constants. The store's `resolveTrainingTypes()` merges constants with user overrides. Consume `trainingTypes` from the store.
+15. **Training type resolution:** Never use raw `trainingTypes` constants. The store's `resolveTrainingTypes()` merges constants with persisted `userData.trainingType` entries. Consume resolved `trainingTypes` from the store.
 16. **Modal nesting:** Parent modals must delay state cleanup to prevent child modals from unmounting mid-animation. Use `MODAL_CLOSE_DELAY` (180ms) with `setTimeout`.
 17. **Safe areas:** Full-screen layouts must include `var(--sat)` / `var(--sab)` for notch and home indicator support.
 18. **No hardcoded colors:** Never use `bg-slate-*`, `text-white`, `border-slate-*`, `text-blue-400`, etc. Always use semantic tokens or accent tokens.
