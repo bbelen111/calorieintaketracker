@@ -347,10 +347,11 @@ export const InsightsScreen = ({
                       </linearGradient>
                       <linearGradient
                         id="weightSparklineStroke"
+                        gradientUnits="userSpaceOnUse"
                         x1="0"
                         x2="0"
                         y1="0"
-                        y2="1"
+                        y2="56"
                       >
                         <stop
                           offset="0%"
@@ -481,10 +482,11 @@ export const InsightsScreen = ({
                           </linearGradient>
                           <linearGradient
                             id="bodyFatSparklineStroke"
+                            gradientUnits="userSpaceOnUse"
                             x1="0"
                             x2="0"
                             y1="0"
-                            y2="1"
+                            y2="56"
                           >
                             <stop
                               offset="0%"
