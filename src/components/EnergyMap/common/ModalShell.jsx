@@ -56,8 +56,9 @@ class ModalStackManager {
 
   register(isClosing = false) {
     const id = this.nextId++;
-    // Calculate z-index based on current highest value to avoid duplicates
-    const zIndex = this.getHighestZIndex() + 1;
+    // Reserve one z-index lane between modal wrappers for the shared overlay.
+    // This guarantees: lower modal < overlay < top modal.
+    const zIndex = this.getHighestZIndex() + 2;
     this.modals.set(id, { zIndex, isClosing });
     this.notifyListeners();
     return { id, zIndex };
@@ -180,6 +181,7 @@ class SharedOverlayManager {
     }
 
     const newTargetOpacity = calculateOverlayOpacity(activeModalCount);
+    // Place overlay in the reserved lane between stacked modal wrappers.
     const newZIndex = Math.max(BASE_Z_INDEX, highestZIndex - 1);
 
     // Batch DOM updates in a single rAF
@@ -325,7 +327,6 @@ export const ModalShell = ({
   const overlayRef = useRef(null);
   const contentRef = useRef(null);
   const [isTopmost, setIsTopmost] = useState(false);
-  const [shouldDimContent, setShouldDimContent] = useState(false);
   const hasRegisteredRef = useRef(false);
   const lockedViewportHeightRef = useRef(null);
   const baseViewportHeightRef = useRef(null);
@@ -340,8 +341,9 @@ export const ModalShell = ({
     modalIdRef.current = id;
     zIndexRef.current = zIndex;
     hasRegisteredRef.current = true;
-    if (overlayRef.current) {
-      overlayRef.current.style.zIndex = String(zIndex);
+    const overlayNode = overlayRef.current;
+    if (overlayNode) {
+      overlayNode.style.zIndex = String(zIndex);
     }
 
     // Lock scroll
@@ -390,7 +392,6 @@ export const ModalShell = ({
       const amTopmost = myId === topId;
 
       setIsTopmost(amTopmost);
-      setShouldDimContent(!amTopmost && modalStackManager.getActiveCount() > 1);
     };
 
     // Initial calculation
@@ -562,13 +563,6 @@ export const ModalShell = ({
           pointerEvents: isTopmost || isClosing ? 'auto' : 'none',
         }}
       >
-        {shouldDimContent && !isClosing && (
-          <div
-            className="pointer-events-none absolute inset-0 rounded-2xl bg-black/50 z-30"
-            style={{ transition: 'opacity 150ms ease-out' }}
-            aria-hidden="true"
-          />
-        )}
         {children}
       </div>
     </div>
