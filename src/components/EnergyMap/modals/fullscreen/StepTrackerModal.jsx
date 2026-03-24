@@ -307,17 +307,9 @@ export const StepTrackerModal = ({
   const chartHeight = useMemo(
     () =>
       graphViewportHeight > 0
-        ? Math.max(
-            graphViewportHeight -
-              TIMELINE_TRACK_HEIGHT -
-              24 -
-              (viewMode === '7d'
-                ? WEEK_BRACKET_HEIGHT + WEEK_BRACKET_TOP_PADDING
-                : 0),
-            100
-          )
+        ? Math.max(graphViewportHeight - TIMELINE_TRACK_HEIGHT - 24, 100)
         : 200,
-    [graphViewportHeight, viewMode]
+    [graphViewportHeight]
   );
 
   // --- Scroll to last page on open ---

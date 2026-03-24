@@ -1021,7 +1021,9 @@ export const WeightTrackerModal = ({
                   y1={yVal}
                   x2={totalWidth}
                   y2={yVal}
-                  stroke={isBaseline ? '#fff' : 'currentColor'}
+                  stroke={
+                    isBaseline ? 'rgb(var(--foreground) / 0.6)' : 'currentColor'
+                  }
                   strokeWidth={isBaseline ? 2 : 1}
                   strokeDasharray={isBaseline ? 'none' : '4 6'}
                   className={
