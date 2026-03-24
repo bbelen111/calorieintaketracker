@@ -14,7 +14,7 @@ import { Capacitor } from '@capacitor/core';
 // ============================================================================
 
 const BASE_Z_INDEX = 1000;
-const OVERLAY_FADE_MS = 200;
+const OVERLAY_FADE_MS = 180;
 
 // Overlay opacity configuration - increases with modal depth for visual hierarchy
 const OVERLAY_BASE_OPACITY = 0.5; // Single modal backdrop
@@ -94,7 +94,7 @@ class ModalStackManager {
   }
 
   getActiveCount() {
-    // Count modals that are not in closing state
+    // Count modals that are not in closing state (used for topmost logic)
     let count = 0;
     for (const data of this.modals.values()) {
       if (!data.isClosing) count++;
@@ -198,14 +198,9 @@ class SharedOverlayManager {
           this.currentZIndex = newZIndex;
         }
 
-        // Update opacity with appropriate transition
+        // Update opacity with synchronized transition timing
         if (this.targetOpacity !== newTargetOpacity) {
-          // Faster transition when adding modals (darkening), slower when removing
-          const isGettingDarker = newTargetOpacity > this.targetOpacity;
-          const transitionMs = isGettingDarker
-            ? OVERLAY_FADE_MS * 0.75
-            : OVERLAY_FADE_MS;
-          node.style.transition = `opacity ${transitionMs}ms ease-out`;
+          node.style.transition = `opacity ${OVERLAY_FADE_MS}ms ease-out`;
           node.style.opacity = String(newTargetOpacity);
           this.targetOpacity = newTargetOpacity;
         }
@@ -350,7 +345,7 @@ export const ModalShell = ({
     scrollLockManager.lock();
 
     // Update overlay
-    const activeCount = modalStackManager.getActiveCount();
+    const activeCount = modalStackManager.getTotalCount();
     const highestZ = modalStackManager.getHighestZIndex();
     overlayManager.update(activeCount, highestZ);
 
@@ -364,7 +359,7 @@ export const ModalShell = ({
       scrollLockManager.unlock();
 
       // Update overlay after unregister
-      const newActiveCount = modalStackManager.getActiveCount();
+      const newActiveCount = modalStackManager.getTotalCount();
       const newHighestZ = modalStackManager.getHighestZIndex();
       overlayManager.update(newActiveCount, newHighestZ);
     };
@@ -376,7 +371,7 @@ export const ModalShell = ({
       modalStackManager.setClosing(modalIdRef.current, isClosing);
 
       // Update overlay when closing state changes
-      const activeCount = modalStackManager.getActiveCount();
+      const activeCount = modalStackManager.getTotalCount();
       const highestZ = modalStackManager.getHighestZIndex();
       overlayManager.update(activeCount, highestZ);
     }
