@@ -4,6 +4,10 @@ import {
   getStepDetails,
   getStepOverlapFromCardioSessions,
 } from './steps.js';
+import {
+  computeAdaptiveThermogenesis,
+  resolveAdaptiveThermogenesisMode,
+} from './adaptiveThermogenesis.js';
 
 const HEART_RATE_COEFFICIENTS = {
   male: {
@@ -61,7 +65,8 @@ const normalizeSessionDateKey = (value) => {
 };
 
 const getSessionsForDate = (sessions, dateKey) => {
-  const normalizedDateKey = normalizeSessionDateKey(dateKey) ?? getTodayDateKey();
+  const normalizedDateKey =
+    normalizeSessionDateKey(dateKey) ?? getTodayDateKey();
   if (!Array.isArray(sessions)) {
     return [];
   }
@@ -515,21 +520,17 @@ export const calculateTrainingSessionCalories = (
 
   const base = trainingTypes?.[trainingSession.type]?.caloriesPerHour ?? 0;
   const multiplier =
-    TRAINING_INTENSITY_MULTIPLIERS[
-      trainingSession.intensity ?? 'moderate'
-    ] ?? 1.0;
+    TRAINING_INTENSITY_MULTIPLIERS[trainingSession.intensity ?? 'moderate'] ??
+    1.0;
 
   return Math.round(durationHours * base * multiplier);
 };
 
-export const getTotalTrainingBurnForDate = (
-  userData,
-  trainingTypes,
-  dateKey
-) =>
+export const getTotalTrainingBurnForDate = (userData, trainingTypes, dateKey) =>
   getSessionsForDate(userData?.trainingSessions, dateKey).reduce(
     (total, session) =>
-      total + calculateTrainingSessionCalories(session, userData, trainingTypes),
+      total +
+      calculateTrainingSessionCalories(session, userData, trainingTypes),
     0
   );
 
@@ -541,6 +542,7 @@ export const calculateCalorieBreakdown = ({
   cardioTypes,
   trainingTypes,
   tefContext,
+  adaptiveThermogenesisContext,
   dateKey,
 }) => {
   void isTrainingDay;
@@ -598,12 +600,14 @@ export const calculateCalorieBreakdown = ({
     ? (multipliers.training ?? DEFAULT_ACTIVITY_MULTIPLIERS.training)
     : (multipliers.rest ?? DEFAULT_ACTIVITY_MULTIPLIERS.rest);
   const trainingBurn = Math.round(
-    getTotalTrainingBurnForDate(normalizedUserData, trainingTypes, resolvedDateKey)
+    getTotalTrainingBurnForDate(
+      normalizedUserData,
+      trainingTypes,
+      resolvedDateKey
+    )
   );
   const trainingCaloriesPerHour =
-    trainingDuration > 0
-      ? Math.round(trainingBurn / trainingDuration)
-      : 0;
+    trainingDuration > 0 ? Math.round(trainingBurn / trainingDuration) : 0;
   const trainingTypeLabel =
     trainingSessions.length === 0
       ? 'No Training'
@@ -699,10 +703,32 @@ export const calculateCalorieBreakdown = ({
     userData: normalizedUserData,
     targetCaloriesSeed: subtotalBeforeSmartTef,
   });
-  const total = Math.round(subtotalBeforeSmartTef + smartTefCalories);
+  const baselineTotal = Math.round(subtotalBeforeSmartTef + smartTefCalories);
+  const adaptiveThermogenesisMode = resolveAdaptiveThermogenesisMode({
+    userData: normalizedUserData,
+    adaptiveThermogenesisContext,
+  });
+  const adaptiveThermogenesis = computeAdaptiveThermogenesis({
+    mode: adaptiveThermogenesisMode,
+    selectedGoal: normalizedUserData?.selectedGoal,
+    goalDurationDays: normalizedUserData?.goalDurationDays,
+    goalChangedAt: normalizedUserData?.goalChangedAt,
+    dateKey: resolvedDateKey,
+    dailySnapshots: normalizedUserData?.dailySnapshots,
+    weightEntries: normalizedUserData?.weightEntries,
+  });
+  const adaptiveThermogenesisCorrection = Math.round(
+    Number(adaptiveThermogenesis?.correction) || 0
+  );
+  const total = Math.round(baselineTotal + adaptiveThermogenesisCorrection);
 
   return {
     total,
+    baselineTotal,
+    adjustedTotal: total,
+    adaptiveThermogenesisMode,
+    adaptiveThermogenesisCorrection,
+    adaptiveThermogenesis,
     bmr,
     baseActivity,
     activityMultiplier: rawActivityMultiplier,

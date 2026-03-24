@@ -39,6 +39,10 @@ const baseUserData = {
   cardioSessions: [],
   trainingSessions: [],
   smartTefEnabled: true,
+  selectedGoal: 'cutting',
+  goalChangedAt: Date.now() - 90 * 86_400_000,
+  adaptiveThermogenesisEnabled: true,
+  adaptiveThermogenesisSmartMode: false,
 };
 
 const trainingTypes = {
@@ -218,7 +222,9 @@ test('step overlap deduction lowers step calories while preserving cardio burn',
   assert.equal(overlapOn.cardioBurn, overlapOff.cardioBurn);
   assert.ok(overlapOn.deductedSteps > 0);
   assert.ok(overlapOn.stepCalories < overlapOff.stepCalories);
-  assert.ok(overlapOn.remainingEstimatedSteps < overlapOn.originalEstimatedSteps);
+  assert.ok(
+    overlapOn.remainingEstimatedSteps < overlapOn.originalEstimatedSteps
+  );
 });
 
 test('training session calories are day-scoped and summed by date', () => {
@@ -275,4 +281,69 @@ test('training session calories are day-scoped and summed by date', () => {
   assert.ok(totalForDateA > 0);
   assert.ok(totalForDateB > 0);
   assert.ok(totalForDateA !== totalForDateB);
+});
+
+test('adaptive thermogenesis crude mode adjusts final tdee while preserving baseline total', () => {
+  const bmr = calculateBMR(baseUserData);
+  const breakdown = calculateCalorieBreakdown({
+    steps: '10k',
+    isTrainingDay: false,
+    userData: baseUserData,
+    bmr,
+    cardioTypes,
+    trainingTypes,
+    tefContext: { mode: 'off', enabled: false },
+    adaptiveThermogenesisContext: { mode: 'crude' },
+    dateKey: todayDateKey,
+  });
+
+  assert.equal(breakdown.adaptiveThermogenesisMode, 'crude');
+  assert.equal(breakdown.adaptiveThermogenesisCorrection, -250);
+  assert.equal(
+    breakdown.total,
+    breakdown.baselineTotal + breakdown.adaptiveThermogenesisCorrection
+  );
+});
+
+test('adaptive thermogenesis smart mode returns correction from snapshot + weight divergence', () => {
+  const dailySnapshots = {};
+  for (let day = 1; day <= 28; day += 1) {
+    const dateKey = `2026-03-${String(day).padStart(2, '0')}`;
+    dailySnapshots[dateKey] = {
+      date: dateKey,
+      baselineTdee: 2500,
+      tdee: 2500,
+      intake: 2000,
+    };
+  }
+
+  const userData = {
+    ...baseUserData,
+    goalChangedAt: Date.now() - 40 * 86_400_000,
+    adaptiveThermogenesisSmartMode: true,
+    dailySnapshots,
+    weightEntries: [
+      { date: '2026-03-01', weight: 80.0 },
+      { date: '2026-03-10', weight: 79.8 },
+      { date: '2026-03-18', weight: 79.5 },
+      { date: '2026-03-28', weight: 79.0 },
+    ],
+  };
+
+  const bmr = calculateBMR(userData);
+  const breakdown = calculateCalorieBreakdown({
+    steps: '10k',
+    isTrainingDay: false,
+    userData,
+    bmr,
+    cardioTypes,
+    trainingTypes,
+    tefContext: { mode: 'off', enabled: false },
+    adaptiveThermogenesisContext: { mode: 'smart' },
+    dateKey: '2026-03-28',
+  });
+
+  assert.equal(breakdown.adaptiveThermogenesisMode, 'smart');
+  assert.ok(Number.isFinite(breakdown.adaptiveThermogenesisCorrection));
+  assert.ok(breakdown.adaptiveThermogenesisCorrection < 0);
 });

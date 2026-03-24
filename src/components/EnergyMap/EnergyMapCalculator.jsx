@@ -1714,6 +1714,17 @@ export const EnergyMapCalculator = () => {
     [macroTotalsByDate.today, useTargetModeForLiveCard]
   );
 
+  const defaultAdaptiveThermogenesisMode = useMemo(() => {
+    if (!userData.adaptiveThermogenesisEnabled) {
+      return 'off';
+    }
+
+    return userData.adaptiveThermogenesisSmartMode ? 'smart' : 'crude';
+  }, [
+    userData.adaptiveThermogenesisEnabled,
+    userData.adaptiveThermogenesisSmartMode,
+  ]);
+
   const openCalorieBreakdown = useCallback(
     (requestOrSteps) => {
       const normalizedRequest =
@@ -1721,16 +1732,27 @@ export const EnergyMapCalculator = () => {
           ? {
               ...requestOrSteps,
               tefContext: requestOrSteps.tefContext ?? quickEstimateTefContext,
+              adaptiveThermogenesisContext:
+                requestOrSteps.adaptiveThermogenesisContext ?? {
+                  mode: defaultAdaptiveThermogenesisMode,
+                },
             }
           : {
               steps: requestOrSteps,
               tefContext: quickEstimateTefContext,
+              adaptiveThermogenesisContext: {
+                mode: defaultAdaptiveThermogenesisMode,
+              },
             };
 
       setSelectedBreakdownRequest(normalizedRequest);
       calorieBreakdownModal.open();
     },
-    [calorieBreakdownModal, quickEstimateTefContext]
+    [
+      calorieBreakdownModal,
+      defaultAdaptiveThermogenesisMode,
+      quickEstimateTefContext,
+    ]
   );
 
   const closeCalorieBreakdown = useCallback(() => {
@@ -1752,6 +1774,8 @@ export const EnergyMapCalculator = () => {
       selectedGoal,
       {
         tefContext: selectedBreakdownRequest?.tefContext,
+        adaptiveThermogenesisContext:
+          selectedBreakdownRequest?.adaptiveThermogenesisContext,
       }
     );
   }, [
@@ -1765,8 +1789,17 @@ export const EnergyMapCalculator = () => {
     (steps) =>
       calculateTargetForGoal(steps, selectedDay === 'training', selectedGoal, {
         tefContext: quickEstimateTefContext,
+        adaptiveThermogenesisContext: {
+          mode: defaultAdaptiveThermogenesisMode,
+        },
       }),
-    [calculateTargetForGoal, quickEstimateTefContext, selectedDay, selectedGoal]
+    [
+      calculateTargetForGoal,
+      defaultAdaptiveThermogenesisMode,
+      quickEstimateTefContext,
+      selectedDay,
+      selectedGoal,
+    ]
   );
 
   const isSelectedRange = useCallback(

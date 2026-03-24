@@ -83,6 +83,10 @@ export const SettingsModal = ({
   const useTargetLiveCard =
     useTargetQuickEstimates &&
     (resolvedUserData.smartTefLiveCardTargetMode ?? false);
+  const adaptiveThermogenesisEnabled =
+    resolvedUserData.adaptiveThermogenesisEnabled ?? false;
+  const adaptiveThermogenesisSmartMode =
+    resolvedUserData.adaptiveThermogenesisSmartMode ?? false;
 
   const selectedTrainingType =
     resolvedTrainingTypes?.[resolvedUserData.trainingType] ?? null;
@@ -533,6 +537,92 @@ export const SettingsModal = ({
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2 gap-3">
+                <div className="inline-flex items-center gap-1.5 text-foreground/80 text-sm">
+                  <span>Adaptive Thermogenesis</span>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={adaptiveThermogenesisEnabled}
+                  aria-label="Toggle Adaptive Thermogenesis"
+                  onClick={() =>
+                    onChange(
+                      'adaptiveThermogenesisEnabled',
+                      !adaptiveThermogenesisEnabled
+                    )
+                  }
+                  className="inline-flex items-center rounded-full focus-ring pressable-inline"
+                >
+                  <span
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-all ${
+                      adaptiveThermogenesisEnabled
+                        ? 'bg-accent-emerald border-accent-emerald/70'
+                        : 'bg-surface-highlight border-border'
+                    }`}
+                  >
+                    <span
+                      className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                        adaptiveThermogenesisEnabled
+                          ? 'translate-x-6'
+                          : 'translate-x-1'
+                      }`}
+                    />
+                  </span>
+                </button>
+              </div>
+
+              <p className="text-muted text-xs">
+                Adds a metabolic adaptation correction to TDEE. Crude mode uses
+                time-in-goal stages, smart mode uses weight/intake trend signal.
+              </p>
+
+              {adaptiveThermogenesisEnabled && (
+                <div className="mt-3 rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-foreground text-sm font-medium leading-tight">
+                        Use Smart mode
+                      </p>
+                      <p className="text-muted text-xs mt-0.5">
+                        When off, Adaptive Thermogenesis uses Crude staged mode.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={adaptiveThermogenesisSmartMode}
+                      aria-label="Toggle Adaptive Thermogenesis smart mode"
+                      onClick={() =>
+                        onChange(
+                          'adaptiveThermogenesisSmartMode',
+                          !adaptiveThermogenesisSmartMode
+                        )
+                      }
+                      className="inline-flex items-center rounded-full focus-ring pressable-inline"
+                    >
+                      <span
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-all ${
+                          adaptiveThermogenesisSmartMode
+                            ? 'bg-accent-emerald border-accent-emerald/70'
+                            : 'bg-surface-highlight border-border'
+                        }`}
+                      >
+                        <span
+                          className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                            adaptiveThermogenesisSmartMode
+                              ? 'translate-x-6'
+                              : 'translate-x-1'
+                          }`}
+                        />
+                      </span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

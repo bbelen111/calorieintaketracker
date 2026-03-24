@@ -118,17 +118,34 @@ export const buildDailySnapshot = ({
     cardioTypes,
     trainingTypes,
     tefContext,
+    adaptiveThermogenesisContext: {
+      enabled: Boolean(userData?.adaptiveThermogenesisEnabled),
+      mode: userData?.adaptiveThermogenesisEnabled
+        ? userData?.adaptiveThermogenesisSmartMode
+          ? 'smart'
+          : 'crude'
+        : 'off',
+    },
     dateKey: normalizedDateKey,
   });
 
   const intake = Math.round(Number(nutritionTotals?.calories) || 0);
   const tdee = Math.round(Number(breakdown?.total) || 0);
+  const baselineTdee = Math.round(Number(breakdown?.baselineTotal) || tdee);
+  const adaptiveThermogenesisCorrection = Math.round(
+    Number(breakdown?.adaptiveThermogenesisCorrection) || 0
+  );
+  const adaptiveThermogenesisMode =
+    breakdown?.adaptiveThermogenesisMode ?? 'off';
   const now = Date.now();
 
   return {
     date: normalizedDateKey,
     goalAtSnapshot: normalizeSelectedGoal(userData?.selectedGoal),
     tdee,
+    baselineTdee,
+    adaptiveThermogenesisCorrection,
+    adaptiveThermogenesisMode,
     intake,
     deficit: tdee - intake,
     stepCount,

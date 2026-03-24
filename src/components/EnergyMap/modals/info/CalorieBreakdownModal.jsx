@@ -59,6 +59,14 @@ export const CalorieBreakdownModal = ({
   const smartTefCalories = breakdown.smartTefCalories ?? 0;
   const smartTefDetails = breakdown.smartTefDetails ?? null;
   const smartTefMode = breakdown.tefMode ?? 'off';
+  const resolvedAdaptiveMode = breakdown.adaptiveThermogenesisMode ?? 'off';
+  const adaptiveThermogenesisCorrection =
+    breakdown.adaptiveThermogenesisCorrection ?? 0;
+  const adaptiveThermogenesis = breakdown.adaptiveThermogenesis ?? null;
+  const baselineTdee = breakdown.baselineTotal ?? breakdown.total;
+  const showAdaptiveThermogenesisItem =
+    resolvedAdaptiveMode !== 'off' ||
+    Math.abs(adaptiveThermogenesisCorrection) > 0;
   const showTrainingFormula =
     selectedDay === 'training' &&
     trainingDuration > 0 &&
@@ -203,9 +211,9 @@ export const CalorieBreakdownModal = ({
             </p>
             {hasStepOverlapDeduction && (
               <p className="text-muted text-xs mt-2">
-                Overlap adjustment: {formatWhole(originalEstimatedSteps)} original
-                steps − {formatWhole(deductedSteps)} deducted from cardio ={' '}
-                {formatWhole(remainingEstimatedSteps)} remaining steps.
+                Overlap adjustment: {formatWhole(originalEstimatedSteps)}{' '}
+                original steps − {formatWhole(deductedSteps)} deducted from
+                cardio = {formatWhole(remainingEstimatedSteps)} remaining steps.
               </p>
             )}
           </BreakdownItem>
@@ -343,6 +351,48 @@ export const CalorieBreakdownModal = ({
               ) : (
                 <p className="text-muted text-xs mt-2">
                   No macro context available for this Smart TEF view.
+                </p>
+              )}
+            </BreakdownItem>
+          )}
+
+          {showAdaptiveThermogenesisItem && (
+            <BreakdownItem
+              label={`Adaptive Thermogenesis (${resolvedAdaptiveMode === 'smart' ? 'Smart' : resolvedAdaptiveMode === 'crude' ? 'Crude' : 'Off'})`}
+              value={adaptiveThermogenesisCorrection}
+              total={breakdown.total}
+              expanded={expandedItem === 'adaptive-thermogenesis'}
+              onToggle={() => toggleExpanded('adaptive-thermogenesis')}
+            >
+              <p className="text-muted text-xs">
+                Post-formula correction applied to baseline TDEE to account for
+                metabolic adaptation.
+              </p>
+              <p className="text-muted text-xs mt-2">
+                Baseline TDEE: {Math.round(baselineTdee).toLocaleString()} kcal
+                <br />
+                Correction: {adaptiveThermogenesisCorrection > 0 ? '+' : ''}
+                {Math.round(
+                  adaptiveThermogenesisCorrection
+                ).toLocaleString()}{' '}
+                kcal
+                <br />
+                Adjusted TDEE: {Math.round(
+                  breakdown.total
+                ).toLocaleString()}{' '}
+                kcal
+              </p>
+              {adaptiveThermogenesis?.details && (
+                <p className="text-muted text-xs mt-2">
+                  {adaptiveThermogenesis.mode === 'smart'
+                    ? `Confidence: ${Math.round((adaptiveThermogenesis.confidence ?? 0) * 100)}%`
+                    : `Goal duration: ${adaptiveThermogenesis.details.goalDurationDays ?? 0} days`}
+                </p>
+              )}
+              {adaptiveThermogenesis?.insufficientData && (
+                <p className="text-muted text-xs mt-2">
+                  Smart mode needs more weight/intake history before applying a
+                  correction.
                 </p>
               )}
             </BreakdownItem>

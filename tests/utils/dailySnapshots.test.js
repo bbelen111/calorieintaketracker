@@ -19,6 +19,8 @@ const userData = {
   selectedGoal: 'cutting',
   goalChangedAt: 1700000000000,
   smartTefEnabled: true,
+  adaptiveThermogenesisEnabled: true,
+  adaptiveThermogenesisSmartMode: false,
   activityMultipliers: {
     training: 0.35,
     rest: 0.28,
@@ -116,6 +118,9 @@ test('buildDailySnapshot produces a complete date-scoped snapshot', () => {
   assert.ok(Number.isFinite(snapshot.trainingBurn));
   assert.ok(Number.isFinite(snapshot.cardioBurn));
   assert.ok(Number.isFinite(snapshot.tef));
+  assert.ok(Number.isFinite(snapshot.baselineTdee));
+  assert.ok(Number.isFinite(snapshot.adaptiveThermogenesisCorrection));
+  assert.equal(snapshot.adaptiveThermogenesisMode, 'crude');
 });
 
 test('areDailySnapshotsEquivalent ignores createdAt/updatedAt metadata', () => {

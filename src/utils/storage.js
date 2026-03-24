@@ -989,6 +989,8 @@ export const getDefaultEnergyMapData = () => ({
   smartTefFoodTefBurnEnabled: true,
   smartTefQuickEstimatesTargetMode: true,
   smartTefLiveCardTargetMode: false,
+  adaptiveThermogenesisEnabled: false,
+  adaptiveThermogenesisSmartMode: false,
   trainingType: 'bodybuilding',
   trainingDuration: 2,
   stepRanges: ['<10k', '10k', '12k', '14k', '16k', '18k', '20k', '>20k'],
@@ -1225,6 +1227,12 @@ function mergeWithDefaults(data) {
     smartTefLiveCardTargetMode:
       dataWithoutLegacyPhases.smartTefLiveCardTargetMode ??
       defaults.smartTefLiveCardTargetMode,
+    adaptiveThermogenesisEnabled:
+      dataWithoutLegacyPhases.adaptiveThermogenesisEnabled ??
+      defaults.adaptiveThermogenesisEnabled,
+    adaptiveThermogenesisSmartMode:
+      dataWithoutLegacyPhases.adaptiveThermogenesisSmartMode ??
+      defaults.adaptiveThermogenesisSmartMode,
     phaseLogV2: normalizedPhaseLogV2,
     pinnedFoods: Array.isArray(dataWithoutLegacyPhases.pinnedFoods)
       ? dataWithoutLegacyPhases.pinnedFoods

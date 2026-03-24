@@ -104,7 +104,7 @@ const normalizeSessionDate = (value) => normalizeDateKey(value);
 
 const normalizePhaseStateForUserData = (userData) => {
   const normalizedPhaseLogV2 = normalizePhaseLogV2State(userData.phaseLogV2);
-  const { phases, activePhaseId, ...rest } = userData;
+  const { ...rest } = userData;
   return {
     ...rest,
     phaseLogV2: normalizedPhaseLogV2,
@@ -626,6 +626,7 @@ export const useEnergyMapStore = create(
         cardioTypes,
         trainingTypes,
         tefContext: options?.tefContext,
+        adaptiveThermogenesisContext: options?.adaptiveThermogenesisContext,
         dateKey: options?.dateKey,
       });
     },
@@ -856,10 +857,7 @@ export const useEnergyMapStore = create(
         const nextUserData = {
           ...prev,
           bodyFatEntries: nextEntries,
-          phaseLogV2: clearBodyFatRefsForDate(
-            prev.phaseLogV2,
-            normalizedDate
-          ),
+          phaseLogV2: clearBodyFatRefsForDate(prev.phaseLogV2, normalizedDate),
         };
         return nextUserData;
       });
