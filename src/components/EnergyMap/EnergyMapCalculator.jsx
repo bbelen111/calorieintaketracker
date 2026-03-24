@@ -17,7 +17,6 @@ import {
   DEFAULT_ACTIVITY_MULTIPLIERS,
   getCustomActivityPercent,
 } from '../../constants/activityPresets';
-import { trainingTypes as presetTrainingTypes } from '../../constants/trainingTypes';
 import {
   setupEnergyMapStore,
   useEnergyMapStore,
@@ -28,7 +27,10 @@ import {
   useHealthConnect,
   HealthConnectStatus,
 } from '../../hooks/useHealthConnect';
-import { saveLastSelectedCardioType } from '../../utils/storage';
+import {
+  getDefaultEnergyMapData,
+  saveLastSelectedCardioType,
+} from '../../utils/storage';
 import { useScrollOffScreen } from '../../hooks/useScrollOffScreen';
 import { ScreenTabs, FloatingScreenTabs } from './common/ScreenTabs';
 import { LogbookScreen } from './screens/LogbookScreen';
@@ -93,6 +95,8 @@ import { isStepBasedCardioType } from '../../utils/steps';
 const MODAL_CLOSE_DELAY = 180; // Match CSS animation duration (150ms) + buffer
 const DEFAULT_TRAINING_EFFORT_TYPE = 'intensity';
 const DEFAULT_TRAINING_INTENSITY = 'moderate';
+const DEFAULT_TRAINING_TYPE_CATALOG =
+  getDefaultEnergyMapData().trainingType ?? {};
 const screenTabs = [
   { key: 'logbook', label: 'Logbook', icon: ClipboardList },
   { key: 'tracker', label: 'Tracker', icon: Target },
@@ -395,7 +399,7 @@ export const EnergyMapCalculator = () => {
   const [tempAge, setTempAge] = useState(userData.age);
   const [tempHeight, setTempHeight] = useState(userData.height);
   const [tempTrainingType, setTempTrainingType] = useState(
-    userData.trainingType
+    userData.selectedTrainingType
   );
   const [tempTrainingDuration, setTempTrainingDuration] = useState(
     userData.trainingDuration
@@ -413,7 +417,6 @@ export const EnergyMapCalculator = () => {
   const [editingTrainingType, setEditingTrainingType] = useState(null);
   const [tempPresetName, setTempPresetName] = useState('');
   const [tempPresetCalories, setTempPresetCalories] = useState(0);
-  const [tempPresetDescription, setTempPresetDescription] = useState('');
   const [newStepRange, setNewStepRange] = useState('');
   const [selectedBreakdownRequest, setSelectedBreakdownRequest] =
     useState(null);
@@ -761,9 +764,9 @@ export const EnergyMapCalculator = () => {
   }, [userData.height]);
 
   useEffect(() => {
-    setTempTrainingType(userData.trainingType);
+    setTempTrainingType(userData.selectedTrainingType);
     setTempTrainingDuration(userData.trainingDuration);
-  }, [userData.trainingDuration, userData.trainingType]);
+  }, [userData.selectedTrainingType, userData.trainingDuration]);
 
   useEffect(() => {
     if (!durationPickerModal.isOpen) {
@@ -1212,7 +1215,10 @@ export const EnergyMapCalculator = () => {
 
       setTrainingModalMode('session');
       setEditingTrainingSessionId(latestTodaySession.id ?? null);
-      setTempTrainingType(latestTodaySession.type ?? userData.trainingType);
+      setTempTrainingType(
+        latestTodaySession.type ?? userData.selectedTrainingType
+      );
+      
       setTempTrainingDuration(durationHours);
       setTempTrainingEffortType(normalizedEffortType);
       setTempTrainingIntensity(
@@ -1229,7 +1235,7 @@ export const EnergyMapCalculator = () => {
 
     setTrainingModalMode('session');
     setEditingTrainingSessionId(null);
-    setTempTrainingType(userData.trainingType);
+    setTempTrainingType(userData.selectedTrainingType);
     setTempTrainingDuration(userData.trainingDuration);
     setTempTrainingEffortType(DEFAULT_TRAINING_EFFORT_TYPE);
     setTempTrainingIntensity(DEFAULT_TRAINING_INTENSITY);
@@ -1239,7 +1245,7 @@ export const EnergyMapCalculator = () => {
     todayTrainingSessions,
     trainingModal,
     userData.trainingDuration,
-    userData.trainingType,
+    userData.selectedTrainingType,
   ]);
 
   const handleRestDayClick = useCallback(() => {
@@ -1281,7 +1287,7 @@ export const EnergyMapCalculator = () => {
   const openTrainingModal = useCallback(() => {
     setTrainingModalMode('settings');
     setEditingTrainingSessionId(null);
-    setTempTrainingType(userData.trainingType);
+    setTempTrainingType(userData.selectedTrainingType);
     setTempTrainingDuration(userData.trainingDuration);
     const sessionEffortType =
       latestTodayTrainingSession?.effortType ?? DEFAULT_TRAINING_EFFORT_TYPE;
@@ -1301,13 +1307,12 @@ export const EnergyMapCalculator = () => {
     latestTodayTrainingSession?.intensity,
     trainingModal,
     userData.trainingDuration,
-    userData.trainingType,
+    userData.selectedTrainingType,
   ]);
 
   const resetTrainingTypeEditorState = useCallback(() => {
     setEditingTrainingType(null);
     setTempPresetName('');
-    setTempPresetDescription('');
     setTempPresetCalories(0);
   }, []);
 
@@ -1319,9 +1324,8 @@ export const EnergyMapCalculator = () => {
   const openTrainingTypeEditor = useCallback(
     (typeKey) => {
       const current = trainingTypes[typeKey] ??
-        presetTrainingTypes[typeKey] ?? {
+        DEFAULT_TRAINING_TYPE_CATALOG[typeKey] ?? {
           label: typeKey,
-          description: '',
           caloriesPerHour: 0,
         };
 
@@ -1329,7 +1333,6 @@ export const EnergyMapCalculator = () => {
 
       setEditingTrainingType(typeKey);
       setTempPresetName(current.label ?? '');
-      setTempPresetDescription(current.description ?? '');
       setTempPresetCalories(
         Number.isFinite(initialCalories) ? initialCalories : 0
       );
@@ -1344,15 +1347,12 @@ export const EnergyMapCalculator = () => {
       return;
     }
 
-    const fallback = presetTrainingTypes[editingTrainingType] ?? {
+    const fallback = DEFAULT_TRAINING_TYPE_CATALOG[editingTrainingType] ?? {
       label: editingTrainingType,
-      description: '',
       caloriesPerHour: 0,
     };
 
     const nextName = tempPresetName.trim() || fallback.label;
-    const nextDescription =
-      tempPresetDescription.trim() || fallback.description;
     const sanitizedCalories = Number.isFinite(tempPresetCalories)
       ? Math.max(0, tempPresetCalories)
       : NaN;
@@ -1362,7 +1362,6 @@ export const EnergyMapCalculator = () => {
 
     updateTrainingType(editingTrainingType, {
       name: nextName,
-      description: nextDescription,
       calories: nextCalories,
     });
 
@@ -1375,7 +1374,6 @@ export const EnergyMapCalculator = () => {
     closeTrainingTypeEditor,
     editingTrainingType,
     tempPresetCalories,
-    tempPresetDescription,
     tempPresetName,
     tempTrainingType,
     updateTrainingType,
@@ -2099,7 +2097,7 @@ export const EnergyMapCalculator = () => {
     ]
   );
 
-  // Edit food entry from TrackerScreen (legacy support)
+  // Edit food entry from TrackerScreen
   const handleEditFoodEntry = useCallback(
     (mealType, entryId) => {
       const dateData = nutritionData[trackerSelectedDate] || {};
@@ -2471,7 +2469,7 @@ export const EnergyMapCalculator = () => {
       return;
     }
 
-    handleUserDataChange('trainingType', tempTrainingType);
+    handleUserDataChange('selectedTrainingType', tempTrainingType);
     handleUserDataChange('trainingDuration', tempTrainingDuration);
     trainingModal.requestClose();
   }, [
@@ -3305,10 +3303,8 @@ export const EnergyMapCalculator = () => {
         typeKey={editingTrainingType}
         name={tempPresetName}
         calories={tempPresetCalories}
-        description={tempPresetDescription}
         onNameChange={setTempPresetName}
         onCaloriesChange={setTempPresetCalories}
-        onDescriptionChange={setTempPresetDescription}
         onCancel={closeTrainingTypeEditor}
         onSave={handleTrainingPresetSave}
       />

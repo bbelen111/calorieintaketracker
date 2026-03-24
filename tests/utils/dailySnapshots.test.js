@@ -58,7 +58,7 @@ const userData = {
     {
       id: 'tr-1',
       date: dateKey,
-      type: 'bodybuilding',
+      type: 'trainingtype_1',
       duration: 75,
       effortType: 'intensity',
       intensity: 'moderate',
@@ -78,7 +78,7 @@ const userData = {
 };
 
 const trainingTypes = {
-  bodybuilding: {
+  trainingtype_1: {
     label: 'Bodybuilding',
     caloriesPerHour: 220,
   },

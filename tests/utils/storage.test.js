@@ -316,7 +316,7 @@ test('save/loadEnergyMapData round-trips phaseLogV2 via sharded history document
   });
 });
 
-test('loadEnergyMapData normalizes cardio session overlap toggle defaults for legacy payloads', async () => {
+test('loadEnergyMapData normalizes cardio session overlap toggle defaults for existing payloads', async () => {
   await withWindowStorage(async () => {
     await Preferences.remove({ key: PROFILE_KEY });
     await clearDexieHistory();
@@ -369,7 +369,7 @@ test('save/loadEnergyMapData round-trips trainingSessions via sharded history do
         {
           id: 'train-1',
           date: getTodayDateKey(),
-          type: 'bodybuilding',
+          type: 'trainingtype_1',
           duration: 90,
           effortType: 'intensity',
           intensity: 'moderate',
@@ -390,7 +390,7 @@ test('save/loadEnergyMapData round-trips trainingSessions via sharded history do
     const loaded = await loadEnergyMapData();
     if (historySnapshot.available) {
       assert.equal(loaded.trainingSessions.length, 1);
-      assert.equal(loaded.trainingSessions[0].type, 'bodybuilding');
+      assert.equal(loaded.trainingSessions[0].type, 'trainingtype_1');
       assert.equal(loaded.trainingSessions[0].duration, 90);
     }
   });

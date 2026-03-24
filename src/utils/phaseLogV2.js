@@ -41,9 +41,6 @@ const toGoalFamily = (goalType) => {
 
 const isActiveStatus = (status) => status === PHASE_STATUS.ACTIVE;
 
-const toLegacyPhaseStatus = (status) =>
-  status === PHASE_STATUS.ACTIVE ? 'active' : 'completed';
-
 const normalizeTrainingSessionIds = (ids) =>
   Array.isArray(ids)
     ? ids.filter((id) => id != null && String(id).trim() !== '')
@@ -258,68 +255,6 @@ export const deriveDailyLogStatus = (log) => {
   return LOG_COMPLETION_STATUS.EMPTY;
 };
 
-export const convertPhaseLogV2ToLegacyPhases = (rawState) => {
-  const state = normalizePhaseLogV2State(rawState);
-
-  const phases = state.phaseOrder
-    .map((phaseId) => {
-      const phase = state.phasesById[phaseId];
-      if (!phase) return null;
-
-      const dailyLogs = {};
-      const phaseLogIds = state.logIdsByPhaseId[phaseId] ?? [];
-
-      phaseLogIds.forEach((logId) => {
-        const log = state.logsById[logId];
-        if (!log) return;
-
-        const completionStatus = deriveDailyLogStatus(log);
-        dailyLogs[log.date] = {
-          date: log.date,
-          weightRef: log.links.weightEntryId ?? '',
-          bodyFatRef: log.links.bodyFatEntryId ?? '',
-          nutritionRef: log.links.nutritionDayKey ?? '',
-          stepRef: log.links.stepEntryId ?? '',
-          trainingSessionIds: normalizeTrainingSessionIds(
-            log.links.trainingSessionIds
-          ),
-          notes: log.notes ?? '',
-          completed:
-            completionStatus === LOG_COMPLETION_STATUS.COMPLETE ||
-            Boolean(log.metadata?.legacyCompleted),
-        };
-      });
-
-      return {
-        id: phase.id,
-        name: phase.name,
-        startDate: phase.startDate,
-        endDate: phase.endDate,
-        goalType: phase.goalType,
-        targetWeight: phase.targetWeight,
-        startingWeight: phase.startingWeight,
-        status: toLegacyPhaseStatus(phase.status),
-        color: phase.color,
-        dailyLogs,
-        metrics: {
-          totalDays: 0,
-          activeDays: 0,
-          avgCalories: 0,
-          avgSteps: 0,
-          weightChange: 0,
-          avgWeeklyRate: 0,
-        },
-        createdAt: phase.createdAt,
-      };
-    })
-    .filter(Boolean);
-
-  return {
-    phases,
-    activePhaseId: state.activePhaseId,
-  };
-};
-
 export const upsertPhaseLogV2DailyLog = (
   rawState,
   phaseId,
@@ -385,10 +320,6 @@ export const upsertPhaseLogV2DailyLog = (
     metadata: {
       ...(existingLog?.metadata ?? {}),
       ...(logData.metadata ?? {}),
-      legacyCompleted:
-        typeof logData.completed === 'boolean'
-          ? logData.completed
-          : Boolean(existingLog?.metadata?.legacyCompleted),
     },
     createdAt: existingLog?.createdAt ?? Date.now(),
     updatedAt: Date.now(),

@@ -134,13 +134,13 @@ test('reconstructHistoryFromDexieDocuments rebuilds sharded history fields', () 
   );
 });
 
-test('reconstructHistoryFromDexieDocuments prefers sharded payload over legacy field document', () => {
+test('reconstructHistoryFromDexieDocuments prefers sharded payload over unsharded field document', () => {
   const documents = [
     {
       id: 'nutritionData',
       payload: {
         '2026-03-01': {
-          breakfast: [{ id: 'legacy-food' }],
+          breakfast: [{ id: 'unsharded-food' }],
         },
       },
     },
@@ -161,14 +161,14 @@ test('reconstructHistoryFromDexieDocuments prefers sharded payload over legacy f
   });
 });
 
-test('reconstructHistoryFromDexieDocuments ignores legacy phases payload', () => {
+test('reconstructHistoryFromDexieDocuments ignores deprecated phases payload', () => {
   const documents = [
     {
       id: 'phases',
       payload: [
         {
           id: 101,
-          name: 'Legacy Phase',
+          name: 'Deprecated Phase',
           startDate: '2026-03-01',
           goalType: 'maintenance',
           status: 'active',
@@ -180,7 +180,7 @@ test('reconstructHistoryFromDexieDocuments ignores legacy phases payload', () =>
 
   const { historyData } = reconstructHistoryFromDexieDocuments(documents);
 
-  assert.equal('legacyPhases' in historyData, false);
+  assert.equal('deprecatedPhases' in historyData, false);
   assert.equal('phaseLogV2' in historyData, false);
 });
 

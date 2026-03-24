@@ -1,18 +1,20 @@
 import React from 'react';
 import { Save, ChevronsUpDown } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
-import { trainingTypes as baseTrainingTypes } from '../../../../constants/trainingTypes';
+import { getDefaultEnergyMapData } from '../../../../utils/storage';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { CaloriesPerHourGuideModal } from '../info/CaloriesPerHourGuideModal';
 import { CaloriesPerHourPickerModal } from '../pickers/CaloriesPerHourPickerModal';
 
+const defaultTrainingTypeCatalog =
+  getDefaultEnergyMapData().trainingType ?? {};
+
 const getDefaultValuesForType = (typeKey) => {
-  if (!typeKey) return { label: '', caloriesPerHour: 0, description: '' };
+  if (!typeKey) return { label: '', caloriesPerHour: 0 };
   return (
-    baseTrainingTypes[typeKey] ?? {
+    defaultTrainingTypeCatalog[typeKey] ?? {
       label: typeKey,
       caloriesPerHour: 0,
-      description: '',
     }
   );
 };
@@ -23,16 +25,13 @@ export const TrainingTypeEditorModal = ({
   typeKey,
   name,
   calories,
-  description,
   onNameChange,
   onCaloriesChange,
-  onDescriptionChange,
   onCancel,
   onSave,
 }) => {
   const defaults = getDefaultValuesForType(typeKey);
   const safeName = name ?? '';
-  const safeDescription = description ?? '';
   const safeCalories = Number.isFinite(Number(calories))
     ? calories
     : defaults.caloriesPerHour;
@@ -69,17 +68,6 @@ export const TrainingTypeEditorModal = ({
             value={safeName}
             onChange={(event) => onNameChange(event.target.value)}
             placeholder={defaults.label}
-            className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border focus:border-blue-400 focus:outline-none text-base"
-          />
-        </div>
-
-        <div>
-          <label className="text-muted text-sm block mb-2">Description</label>
-          <input
-            type="text"
-            value={safeDescription}
-            onChange={(event) => onDescriptionChange(event.target.value)}
-            placeholder={defaults.description}
             className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border focus:border-blue-400 focus:outline-none text-base"
           />
         </div>

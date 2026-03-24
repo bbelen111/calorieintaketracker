@@ -454,7 +454,6 @@ const GOAL_KEYS = new Set([
   'cutting',
   'aggressive_cut',
 ]);
-
 let lastSavedProfileSerialized = null;
 let lastSavedHistorySerializedByField = new Map();
 let lastSavedShardedDocIdsByField = new Map();
@@ -485,6 +484,62 @@ const normalizeGoalChangedAt = (value, fallback = Date.now()) => {
     return fallback;
   }
   return Math.round(parsed);
+};
+
+const normalizeTrainingTypeKey = (value) => {
+  const normalized = String(value ?? '').trim();
+  if (!normalized) {
+    return null;
+  }
+
+  return normalized;
+};
+
+const normalizeTrainingTypeCatalog = (raw) => {
+  const source =
+    raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+
+  return Object.entries(source).reduce((acc, [typeKey, value]) => {
+    if (!value || typeof value !== 'object') {
+      return acc;
+    }
+
+    const normalizedTypeKey = normalizeTrainingTypeKey(typeKey);
+    if (!normalizedTypeKey) {
+      return acc;
+    }
+
+    const numericCalories = Number(value.caloriesPerHour);
+    acc[normalizedTypeKey] = {
+      label:
+        typeof value.label === 'string' && value.label.trim().length > 0
+          ? value.label.trim()
+          : normalizedTypeKey,
+      caloriesPerHour: Number.isFinite(numericCalories)
+        ? Math.max(0, numericCalories)
+        : 0,
+    };
+
+    return acc;
+  }, {});
+};
+
+const resolveSelectedTrainingType = ({
+  selectedTrainingType,
+  trainingTypeCatalog,
+  fallback,
+}) => {
+  const normalized = normalizeTrainingTypeKey(selectedTrainingType);
+  if (normalized && trainingTypeCatalog[normalized]) {
+    return normalized;
+  }
+
+  if (fallback && trainingTypeCatalog[fallback]) {
+    return fallback;
+  }
+
+  const firstAvailable = Object.keys(trainingTypeCatalog)[0];
+  return firstAvailable || fallback || 'trainingtype_1';
 };
 
 const encodeShardKey = (value) =>
@@ -766,10 +821,7 @@ const normalizeTrainingSessionForLoad = (session) => {
     return null;
   }
 
-  const type =
-    typeof session.type === 'string' && session.type.trim().length > 0
-      ? session.type
-      : null;
+  const type = normalizeTrainingTypeKey(session.type);
   if (!type) {
     return null;
   }
@@ -833,7 +885,7 @@ export const loadEnergyMapData = async () => {
       profileData.lastSelectedCardioType = lastSelectedCardioType;
     }
 
-    // 2. Load history from Dexie first (supports both legacy field docs and sharded docs)
+    // 2. Load history from Dexie (field docs + sharded docs)
     const dexieDocumentsResult = await loadAllHistoryDocuments();
     const dexieResult = reconstructHistoryFromDexieDocuments(
       dexieDocumentsResult.documents
@@ -991,7 +1043,7 @@ export const getDefaultEnergyMapData = () => ({
   smartTefLiveCardTargetMode: false,
   adaptiveThermogenesisEnabled: false,
   adaptiveThermogenesisSmartMode: false,
-  trainingType: 'bodybuilding',
+  selectedTrainingType: 'trainingtype_1',
   trainingDuration: 2,
   stepRanges: ['<10k', '10k', '12k', '14k', '16k', '18k', '20k', '>20k'],
   cardioSessions: [],
@@ -1005,41 +1057,32 @@ export const getDefaultEnergyMapData = () => ({
   cachedFoods: [], // Foods fetched from online APIs (FatSecret, etc.)
   dailySnapshots: {}, // { 'YYYY-MM-DD': { date, tdee, intake, deficit, stepCount, ... } }
   // nutritionData structure: { 'YYYY-MM-DD': { mealType: [{ id, name, calories, protein, carbs, fats, timestamp }] } }
-  trainingTypeOverrides: {
-    bodybuilding: {
+  trainingType: {
+    trainingtype_1: {
       label: 'Bodybuilding',
-      description: 'Hypertrophy focus, moderate rest periods',
       caloriesPerHour: 220,
     },
-    powerlifting: {
+    trainingtype_2: {
       label: 'Powerlifting',
-      description: 'Heavy compounds, longer rest periods',
       caloriesPerHour: 180,
     },
-    strongman: {
+    trainingtype_3: {
       label: 'Strongman',
-      description: 'High intensity events, carries, pushes',
       caloriesPerHour: 280,
     },
-    crossfit: {
+    trainingtype_4: {
       label: 'CrossFit',
-      description: 'High intensity, metabolic conditioning',
       caloriesPerHour: 300,
     },
-    calisthenics: {
+    trainingtype_5: {
       label: 'Calisthenics',
-      description: 'Bodyweight movements, skill work',
       caloriesPerHour: 240,
     },
-    custom: {
+    trainingtype_6: {
       label: 'My Training',
-      description: 'Custom training style',
       caloriesPerHour: 220,
     },
   },
-  customTrainingName: 'My Training',
-  customTrainingCalories: 220,
-  customTrainingDescription: 'Custom training style',
   activityPresets: {
     training: 'default',
     rest: 'default',
@@ -1055,30 +1098,34 @@ export const getDefaultEnergyMapData = () => ({
 
 function mergeWithDefaults(data) {
   const defaults = getDefaultEnergyMapData();
-  const dataWithoutLegacyPhases = { ...(data ?? {}) };
-  delete dataWithoutLegacyPhases.phases;
-  delete dataWithoutLegacyPhases.activePhaseId;
-  delete dataWithoutLegacyPhases.legacyPhases;
+  const normalizedInput = { ...(data ?? {}) };
+  const rawSelectedTrainingType = normalizedInput.selectedTrainingType;
+  const rawTrainingTypeCatalog =
+    normalizedInput.trainingType &&
+    typeof normalizedInput.trainingType === 'object' &&
+    !Array.isArray(normalizedInput.trainingType)
+      ? normalizedInput.trainingType
+      : null;
 
   const normalizedPhaseLogV2 = normalizePhaseLogV2State(
-    dataWithoutLegacyPhases.phaseLogV2 ?? defaults.phaseLogV2
+    normalizedInput.phaseLogV2 ?? defaults.phaseLogV2
   );
 
   const activityPresets = {
     ...defaults.activityPresets,
-    ...(dataWithoutLegacyPhases.activityPresets ?? {}),
+    ...(normalizedInput.activityPresets ?? {}),
   };
   const activityMultipliers = {
     ...defaults.activityMultipliers,
-    ...(dataWithoutLegacyPhases.activityMultipliers ?? {}),
+    ...(normalizedInput.activityMultipliers ?? {}),
   };
   const customActivityMultipliers = {
     ...defaults.customActivityMultipliers,
-    ...(dataWithoutLegacyPhases.customActivityMultipliers ?? {}),
+    ...(normalizedInput.customActivityMultipliers ?? {}),
   };
   const resolvedCardioTypes = {
     ...baseCardioTypes,
-    ...(dataWithoutLegacyPhases.customCardioTypes ?? {}),
+    ...(normalizedInput.customCardioTypes ?? {}),
   };
 
   ACTIVITY_DAY_TYPES.forEach((dayType) => {
@@ -1143,55 +1190,64 @@ function mergeWithDefaults(data) {
     }, {});
   };
 
+  const mergedTrainingTypeCatalog = {
+    ...normalizeTrainingTypeCatalog(defaults.trainingType),
+    ...normalizeTrainingTypeCatalog(rawTrainingTypeCatalog),
+  };
+
+  const selectedTrainingType = resolveSelectedTrainingType({
+    selectedTrainingType: rawSelectedTrainingType,
+    trainingTypeCatalog: mergedTrainingTypeCatalog,
+    fallback: defaults.selectedTrainingType,
+  });
+
   return {
     ...defaults,
-    ...dataWithoutLegacyPhases,
-    age: sanitizeAge(dataWithoutLegacyPhases.age, defaults.age),
-    height: sanitizeHeight(dataWithoutLegacyPhases.height, defaults.height),
+    ...normalizedInput,
+    age: sanitizeAge(normalizedInput.age, defaults.age),
+    height: sanitizeHeight(normalizedInput.height, defaults.height),
     selectedGoal: normalizeSelectedGoal(
-      dataWithoutLegacyPhases.selectedGoal,
+      normalizedInput.selectedGoal,
       defaults.selectedGoal
     ),
     goalChangedAt: normalizeGoalChangedAt(
-      dataWithoutLegacyPhases.goalChangedAt,
+      normalizedInput.goalChangedAt,
       defaults.goalChangedAt
     ),
     nutritionData: normalizeNutritionData(
-      dataWithoutLegacyPhases.nutritionData ?? defaults.nutritionData
+      normalizedInput.nutritionData ?? defaults.nutritionData
     ),
-    trainingTypeOverrides: {
-      ...defaults.trainingTypeOverrides,
-      ...(dataWithoutLegacyPhases.trainingTypeOverrides ?? {}),
-    },
+    selectedTrainingType,
+    trainingType: mergedTrainingTypeCatalog,
     activityPresets,
     activityMultipliers,
     customActivityMultipliers,
     customCardioTypes: {
       ...defaults.customCardioTypes,
-      ...(dataWithoutLegacyPhases.customCardioTypes ?? {}),
+      ...(normalizedInput.customCardioTypes ?? {}),
     },
-    stepRanges: Array.isArray(dataWithoutLegacyPhases.stepRanges)
-      ? dataWithoutLegacyPhases.stepRanges
+    stepRanges: Array.isArray(normalizedInput.stepRanges)
+      ? normalizedInput.stepRanges
       : defaults.stepRanges,
     lastSelectedCardioType:
-      typeof dataWithoutLegacyPhases.lastSelectedCardioType === 'string' &&
-      dataWithoutLegacyPhases.lastSelectedCardioType.trim().length > 0
-        ? dataWithoutLegacyPhases.lastSelectedCardioType.trim()
+      typeof normalizedInput.lastSelectedCardioType === 'string' &&
+      normalizedInput.lastSelectedCardioType.trim().length > 0
+        ? normalizedInput.lastSelectedCardioType.trim()
         : defaults.lastSelectedCardioType,
-    cardioSessions: Array.isArray(dataWithoutLegacyPhases.cardioSessions)
-      ? dataWithoutLegacyPhases.cardioSessions
+    cardioSessions: Array.isArray(normalizedInput.cardioSessions)
+      ? normalizedInput.cardioSessions
           .map((session) =>
             normalizeCardioSessionForLoad(session, resolvedCardioTypes)
           )
           .filter(Boolean)
       : defaults.cardioSessions,
-    trainingSessions: Array.isArray(dataWithoutLegacyPhases.trainingSessions)
-      ? dataWithoutLegacyPhases.trainingSessions
+    trainingSessions: Array.isArray(normalizedInput.trainingSessions)
+      ? normalizedInput.trainingSessions
           .map((session) => normalizeTrainingSessionForLoad(session))
           .filter(Boolean)
       : defaults.trainingSessions,
-    cardioFavourites: Array.isArray(dataWithoutLegacyPhases.cardioFavourites)
-      ? dataWithoutLegacyPhases.cardioFavourites.map((session) => ({
+    cardioFavourites: Array.isArray(normalizedInput.cardioFavourites)
+      ? normalizedInput.cardioFavourites.map((session) => ({
           ...session,
           effortType: session?.effortType ?? 'intensity',
           stepOverlapEnabled: isStepBasedCardioType(
@@ -1203,48 +1259,45 @@ function mergeWithDefaults(data) {
         }))
       : defaults.cardioFavourites,
     weightEntries: sortWeightEntries(
-      dataWithoutLegacyPhases.weightEntries ?? defaults.weightEntries
+      normalizedInput.weightEntries ?? defaults.weightEntries
     ),
     bodyFatEntries: sortBodyFatEntries(
-      dataWithoutLegacyPhases.bodyFatEntries ?? defaults.bodyFatEntries
+      normalizedInput.bodyFatEntries ?? defaults.bodyFatEntries
     ),
-    stepEntries: Array.isArray(dataWithoutLegacyPhases.stepEntries)
-      ? dataWithoutLegacyPhases.stepEntries.sort((a, b) =>
-          a.date.localeCompare(b.date)
-        )
+    stepEntries: Array.isArray(normalizedInput.stepEntries)
+      ? normalizedInput.stepEntries.sort((a, b) => a.date.localeCompare(b.date))
       : defaults.stepEntries,
     bodyFatTrackingEnabled:
-      dataWithoutLegacyPhases.bodyFatTrackingEnabled ??
-      defaults.bodyFatTrackingEnabled,
+      normalizedInput.bodyFatTrackingEnabled ?? defaults.bodyFatTrackingEnabled,
     smartTefEnabled:
-      dataWithoutLegacyPhases.smartTefEnabled ?? defaults.smartTefEnabled,
+      normalizedInput.smartTefEnabled ?? defaults.smartTefEnabled,
     smartTefFoodTefBurnEnabled:
-      dataWithoutLegacyPhases.smartTefFoodTefBurnEnabled ??
+      normalizedInput.smartTefFoodTefBurnEnabled ??
       defaults.smartTefFoodTefBurnEnabled,
     smartTefQuickEstimatesTargetMode:
-      dataWithoutLegacyPhases.smartTefQuickEstimatesTargetMode ??
+      normalizedInput.smartTefQuickEstimatesTargetMode ??
       defaults.smartTefQuickEstimatesTargetMode,
     smartTefLiveCardTargetMode:
-      dataWithoutLegacyPhases.smartTefLiveCardTargetMode ??
+      normalizedInput.smartTefLiveCardTargetMode ??
       defaults.smartTefLiveCardTargetMode,
     adaptiveThermogenesisEnabled:
-      dataWithoutLegacyPhases.adaptiveThermogenesisEnabled ??
+      normalizedInput.adaptiveThermogenesisEnabled ??
       defaults.adaptiveThermogenesisEnabled,
     adaptiveThermogenesisSmartMode:
-      dataWithoutLegacyPhases.adaptiveThermogenesisSmartMode ??
+      normalizedInput.adaptiveThermogenesisSmartMode ??
       defaults.adaptiveThermogenesisSmartMode,
     phaseLogV2: normalizedPhaseLogV2,
-    pinnedFoods: Array.isArray(dataWithoutLegacyPhases.pinnedFoods)
-      ? dataWithoutLegacyPhases.pinnedFoods
+    pinnedFoods: Array.isArray(normalizedInput.pinnedFoods)
+      ? normalizedInput.pinnedFoods
       : defaults.pinnedFoods,
-    foodFavourites: Array.isArray(dataWithoutLegacyPhases.foodFavourites)
-      ? dataWithoutLegacyPhases.foodFavourites
+    foodFavourites: Array.isArray(normalizedInput.foodFavourites)
+      ? normalizedInput.foodFavourites
       : defaults.foodFavourites,
-    cachedFoods: Array.isArray(dataWithoutLegacyPhases.cachedFoods)
-      ? normalizeCachedFoodsForPersistence(dataWithoutLegacyPhases.cachedFoods)
+    cachedFoods: Array.isArray(normalizedInput.cachedFoods)
+      ? normalizeCachedFoodsForPersistence(normalizedInput.cachedFoods)
       : defaults.cachedFoods,
     dailySnapshots: normalizeDailySnapshots(
-      dataWithoutLegacyPhases.dailySnapshots ?? defaults.dailySnapshots
+      normalizedInput.dailySnapshots ?? defaults.dailySnapshots
     ),
   };
 }

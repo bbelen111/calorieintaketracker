@@ -3,7 +3,6 @@ import test from 'node:test';
 
 import {
   createDefaultPhaseLogV2State,
-  convertPhaseLogV2ToLegacyPhases,
   deriveDailyLogStatus,
   LOG_COMPLETION_STATUS,
   normalizePhaseLogV2State,
@@ -49,57 +48,6 @@ test('v2 normalization enforces a single active phase', () => {
   assert.equal(state.activePhaseId, 101);
   assert.equal(state.phasesById[101].status, 'active');
   assert.equal(state.phasesById[202].status, 'completed');
-});
-
-test('phase log conversion preserves body fat references', () => {
-  const now = Date.now();
-  const v2 = normalizePhaseLogV2State({
-    version: 2,
-    phaseOrder: [1],
-    activePhaseId: 1,
-    phasesById: {
-      1: {
-        id: 1,
-        name: 'Recomp',
-        startDate: '2026-03-01',
-        goalType: 'maintenance',
-        status: 'active',
-        createdAt: now,
-      },
-    },
-    logsById: {
-      '1:2026-03-10': {
-        id: '1:2026-03-10',
-        phaseId: 1,
-        date: '2026-03-10',
-        links: {
-          weightEntryId: '2026-03-10',
-          bodyFatEntryId: '2026-03-10',
-          nutritionDayKey: null,
-          stepEntryId: null,
-          trainingSessionIds: [],
-        },
-        notes: 'Good session',
-        metadata: {},
-        createdAt: now,
-        updatedAt: now,
-      },
-    },
-    logIdsByPhaseId: {
-      1: ['1:2026-03-10'],
-    },
-    logIdByPhaseDate: {
-      1: {
-        '2026-03-10': '1:2026-03-10',
-      },
-    },
-  });
-
-  const legacy = convertPhaseLogV2ToLegacyPhases(v2);
-  assert.equal(
-    legacy.phases[0].dailyLogs['2026-03-10'].bodyFatRef,
-    '2026-03-10'
-  );
 });
 
 test('deriveDailyLogStatus is body-fat aware', () => {

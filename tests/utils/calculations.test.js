@@ -27,7 +27,13 @@ const baseUserData = {
   gender: 'male',
   bodyFatEntries: [],
   bodyFatTrackingEnabled: false,
-  trainingType: 'bodybuilding',
+  selectedTrainingType: 'trainingtype_1',
+  trainingType: {
+    trainingtype_1: {
+      label: 'Bodybuilding',
+      caloriesPerHour: 220,
+    },
+  },
   trainingDuration: 1.5,
   trainingEffortType: 'intensity',
   trainingIntensity: 'moderate',
@@ -46,7 +52,7 @@ const baseUserData = {
 };
 
 const trainingTypes = {
-  bodybuilding: {
+  trainingtype_1: {
     label: 'Bodybuilding',
     caloriesPerHour: 220,
   },
@@ -236,7 +242,7 @@ test('training session calories are day-scoped and summed by date', () => {
       {
         id: 1,
         date: dateA,
-        type: 'bodybuilding',
+        type: 'trainingtype_1',
         duration: 60,
         effortType: 'intensity',
         intensity: 'moderate',
@@ -244,7 +250,7 @@ test('training session calories are day-scoped and summed by date', () => {
       {
         id: 2,
         date: dateA,
-        type: 'bodybuilding',
+        type: 'trainingtype_1',
         duration: 30,
         effortType: 'intensity',
         intensity: 'vigorous',
@@ -252,7 +258,7 @@ test('training session calories are day-scoped and summed by date', () => {
       {
         id: 3,
         date: dateB,
-        type: 'bodybuilding',
+        type: 'trainingtype_1',
         duration: 120,
         effortType: 'intensity',
         intensity: 'moderate',

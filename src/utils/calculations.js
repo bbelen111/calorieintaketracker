@@ -449,7 +449,8 @@ const TRAINING_INTENSITY_MULTIPLIERS = {
 };
 
 export const getTrainingCaloriesPerHour = (userData, trainingTypes) => {
-  const base = trainingTypes?.[userData.trainingType]?.caloriesPerHour ?? 0;
+  const selectedTrainingType = userData.selectedTrainingType;
+  const base = trainingTypes?.[selectedTrainingType]?.caloriesPerHour ?? 0;
   const multiplier =
     TRAINING_INTENSITY_MULTIPLIERS[userData.trainingIntensity ?? 'moderate'] ??
     1.0;

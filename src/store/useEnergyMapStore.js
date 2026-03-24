@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { trainingTypes as baseTrainingTypes } from '../constants/trainingTypes';
 import { cardioTypes as baseCardioTypes } from '../constants/cardioTypes';
 import {
   calculateBMR,
@@ -30,7 +29,8 @@ import {
 } from '../utils/dailySnapshots';
 import {
   PHASE_STATUS,
-  convertPhaseLogV2ToLegacyPhases,
+  deriveDailyLogStatus,
+  LOG_COMPLETION_STATUS,
   normalizePhaseLogV2State,
   removePhaseLogV2DailyLog,
   upsertPhaseLogV2DailyLog,
@@ -38,31 +38,25 @@ import {
 import { hasNutritionEntriesForDate } from '../utils/phases';
 
 const SAVE_DEBOUNCE_MS = 1000;
+const DEFAULT_TRAINING_TYPE_CATALOG =
+  getDefaultEnergyMapData().trainingType ?? {};
 
 const resolveTrainingTypes = (userData) => {
-  const overrides = userData.trainingTypeOverrides ?? {};
-  const merged = Object.entries(baseTrainingTypes).reduce(
-    (acc, [key, type]) => {
-      acc[key] = {
-        ...type,
-        ...(overrides[key] ?? {}),
-      };
-      return acc;
-    },
-    {}
-  );
+  const trainingTypeCatalog = {
+    ...DEFAULT_TRAINING_TYPE_CATALOG,
+    ...(userData.trainingType ?? {}),
+  };
 
-  Object.keys(overrides).forEach((key) => {
-    if (merged[key]) return;
-    const override = overrides[key];
-    merged[key] = {
-      label: override.label ?? key,
-      description: override.description ?? '',
-      caloriesPerHour: override.caloriesPerHour ?? 0,
+  return Object.entries(trainingTypeCatalog).reduce((acc, [key, entry]) => {
+    const numericCalories = Number(entry?.caloriesPerHour);
+    acc[key] = {
+      label: entry?.label ?? key,
+      caloriesPerHour: Number.isFinite(numericCalories)
+        ? Math.max(0, numericCalories)
+        : 0,
     };
-  });
-
-  return merged;
+    return acc;
+  }, {});
 };
 
 const resolveCardioTypes = (userData) => ({
@@ -111,8 +105,69 @@ const normalizePhaseStateForUserData = (userData) => {
   };
 };
 
-const getLegacyPhaseView = (phaseLogV2) =>
-  convertPhaseLogV2ToLegacyPhases(normalizePhaseLogV2State(phaseLogV2));
+const buildPhaseViewFromV2 = (phaseLogV2) => {
+  const normalized = normalizePhaseLogV2State(phaseLogV2);
+
+  const phases = normalized.phaseOrder
+    .map((phaseId) => {
+      const phase = normalized.phasesById?.[phaseId];
+      if (!phase) {
+        return null;
+      }
+
+      const phaseLogIds = normalized.logIdsByPhaseId?.[phaseId] ?? [];
+      const dailyLogs = {};
+
+      phaseLogIds.forEach((logId) => {
+        const log = normalized.logsById?.[logId];
+        if (!log) {
+          return;
+        }
+
+        const completionStatus = deriveDailyLogStatus(log);
+        dailyLogs[log.date] = {
+          date: log.date,
+          weightRef: log.links?.weightEntryId ?? '',
+          bodyFatRef: log.links?.bodyFatEntryId ?? '',
+          nutritionRef: log.links?.nutritionDayKey ?? '',
+          stepRef: log.links?.stepEntryId ?? '',
+          trainingSessionIds: Array.isArray(log.links?.trainingSessionIds)
+            ? log.links.trainingSessionIds
+            : [],
+          notes: log.notes ?? '',
+          completed: completionStatus === LOG_COMPLETION_STATUS.COMPLETE,
+        };
+      });
+
+      return {
+        id: phase.id,
+        name: phase.name,
+        startDate: phase.startDate,
+        endDate: phase.endDate,
+        goalType: phase.goalType,
+        targetWeight: phase.targetWeight,
+        startingWeight: phase.startingWeight,
+        status: phase.status === PHASE_STATUS.ACTIVE ? 'active' : 'completed',
+        color: phase.color,
+        dailyLogs,
+        metrics: {
+          totalDays: 0,
+          activeDays: 0,
+          avgCalories: 0,
+          avgSteps: 0,
+          weightChange: 0,
+          avgWeeklyRate: 0,
+        },
+        createdAt: phase.createdAt,
+      };
+    })
+    .filter(Boolean);
+
+  return {
+    phases,
+    activePhaseId: normalized.activePhaseId,
+  };
+};
 
 const mapPhaseLogs = (rawPhaseLogV2, updater) => {
   const normalized = normalizePhaseLogV2State(rawPhaseLogV2);
@@ -208,7 +263,7 @@ const syncNutritionRefsForDate = (phaseLogV2, dateKey, hasNutritionForDate) => {
 
 const deriveState = (userData) => {
   const phaseLogV2 = normalizePhaseLogV2State(userData.phaseLogV2);
-  const legacyPhaseView = getLegacyPhaseView(phaseLogV2);
+  const phaseView = buildPhaseViewFromV2(phaseLogV2);
   const trainingTypes = resolveTrainingTypes(userData);
   const cardioTypes = resolveCardioTypes(userData);
   const todayDateKey = getTodayDateKey();
@@ -251,9 +306,9 @@ const deriveState = (userData) => {
     pinnedFoods: userData.pinnedFoods ?? [],
     cachedFoods: userData.cachedFoods ?? [],
     dailySnapshots: userData.dailySnapshots ?? {},
-    phases: legacyPhaseView.phases,
+    phases: phaseView.phases,
     phaseLogV2,
-    activePhaseId: legacyPhaseView.activePhaseId,
+    activePhaseId: phaseView.activePhaseId,
     theme: userData.theme ?? 'dark',
   };
 };
@@ -533,33 +588,24 @@ export const useEnergyMapStore = create(
       }));
     },
 
-    updateTrainingType: (key, { name, calories, description }) => {
+    updateTrainingType: (key, { name, calories }) => {
       updateUserData(set, get, (prev) => {
         const numericCalories = Number(calories);
         const normalizedCalories = Number.isFinite(numericCalories)
           ? Math.max(0, numericCalories)
           : 0;
         const nextOverrides = {
-          ...(prev.trainingTypeOverrides ?? {}),
+          ...(prev.trainingType ?? {}),
           [key]: {
             label: name,
-            description,
             caloriesPerHour: normalizedCalories,
           },
         };
 
-        const nextState = {
+        return {
           ...prev,
-          trainingTypeOverrides: nextOverrides,
+          trainingType: nextOverrides,
         };
-
-        if (key === 'custom') {
-          nextState.customTrainingName = name;
-          nextState.customTrainingCalories = normalizedCalories;
-          nextState.customTrainingDescription = description;
-        }
-
-        return nextState;
       });
     },
 
