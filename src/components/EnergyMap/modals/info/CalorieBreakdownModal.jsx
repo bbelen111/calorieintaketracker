@@ -13,6 +13,9 @@ export const CalorieBreakdownModal = ({
   breakdown,
   targetCalories,
   difference,
+  onOpenBmrInfo,
+  onOpenTefInfo,
+  onOpenAdaptiveThermogenesisInfo,
   onClose,
 }) => {
   const [expandedItem, setExpandedItem] = useState(null);
@@ -155,6 +158,9 @@ export const CalorieBreakdownModal = ({
                 {bmrDetails.gender === 'male' ? '+ 5' : '- 161'} ={' '}
                 {breakdown.bmr.toLocaleString()} kcal
               </p>
+            )}
+            {typeof onOpenBmrInfo === 'function' && (
+              <LearnMoreButton onClick={onOpenBmrInfo} />
             )}
           </BreakdownItem>
 
@@ -353,6 +359,9 @@ export const CalorieBreakdownModal = ({
                   No macro context available for this Smart TEF view.
                 </p>
               )}
+              {typeof onOpenTefInfo === 'function' && (
+                <LearnMoreButton onClick={onOpenTefInfo} />
+              )}
             </BreakdownItem>
           )}
 
@@ -395,6 +404,9 @@ export const CalorieBreakdownModal = ({
                   correction.
                 </p>
               )}
+              {typeof onOpenAdaptiveThermogenesisInfo === 'function' && (
+                <LearnMoreButton onClick={onOpenAdaptiveThermogenesisInfo} />
+              )}
             </BreakdownItem>
           )}
 
@@ -417,6 +429,16 @@ export const CalorieBreakdownModal = ({
     </ModalShell>
   );
 };
+
+const LearnMoreButton = ({ onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="text-xs text-accent-blue md:hover:text-accent-blue/80 transition-colors focus-ring rounded pressable-inline"
+  >
+    Learn more
+  </button>
+);
 
 const BreakdownItem = ({
   label,

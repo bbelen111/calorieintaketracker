@@ -3130,6 +3130,9 @@ export const EnergyMapCalculator = () => {
         breakdown={selectedRangeData?.breakdown ?? null}
         targetCalories={selectedRangeData?.targetCalories ?? null}
         difference={selectedRangeData?.difference ?? null}
+        onOpenBmrInfo={bmrModal.open}
+        onOpenTefInfo={tefInfoModal.open}
+        onOpenAdaptiveThermogenesisInfo={adaptiveThermogenesisInfoModal.open}
         onClose={closeCalorieBreakdown}
       />
 
