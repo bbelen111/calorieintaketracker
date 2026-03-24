@@ -431,6 +431,8 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 | TEF (from macros) | `calculateTefFromMacros({proteinGrams, carbsGrams, fatsGrams})` | Protein×25% + Carbs×8% + Fats×2% of caloric content |
 | TEF (target mode) | `calculateTargetTef({targetCalories, weightKg, ...})` | Estimates TEF using weight-derived macro targets |
 | TEF (dynamic mode) | `calculateDynamicTef({totals, ...})` | Uses today's logged macro totals for live TEF estimate |
+| Adaptive thermogenesis mode | `resolveAdaptiveThermogenesisMode({ userData, adaptiveThermogenesisContext })` | Resolves `'off' \| 'crude' \| 'smart'` from persisted settings plus optional per-request override |
+| Adaptive thermogenesis correction | `computeAdaptiveThermogenesis({...})` | Computes bounded correction (±300 kcal/day) from staged duration logic (`crude`) or snapshot/weight divergence signal (`smart`) |
 
 **TEF constants** exported from `calculations.js`: `TEF_MULTIPLIER_OFFSET = 0.1`, `TEF_PROTEIN_RATE = 0.25`, `TEF_CARB_RATE = 0.08`, `TEF_FAT_RATE = 0.02`.
 
@@ -438,7 +440,11 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 
 **`tefContext` shape:** `{ mode: 'off' | 'target' | 'dynamic', totals?: {protein, carbs, fats}, targetCalories?: number, weightKg?: number, enabled?: boolean }`
 
+**`adaptiveThermogenesisContext` shape:** `{ mode?: 'off' | 'crude' | 'smart' }`
+
 **Target mode chicken-and-egg:** The store's `calculateTargetForGoal()` runs a 2-pass refinement loop — pass 1 seeds `targetCalories` with pre-TEF TDEE; pass 2 uses goal-adjusted result from pass 1. Two iterations converges sufficiently.
+
+**Adaptive Thermogenesis mechanic:** `calculateCalorieBreakdown()` computes `baselineTotal` first (BMR + NEAT + steps + training + cardio + Smart TEF), then applies AT as a post-formula correction (`total = baselineTotal + adaptiveThermogenesisCorrection`). Returned AT fields include `baselineTotal`, `adjustedTotal`, `adaptiveThermogenesisMode`, `adaptiveThermogenesisCorrection`, and `adaptiveThermogenesis`.
 
 **Training types** are resolved at the store level (`resolveTrainingTypes`) by merging `trainingTypes` constants with `userData.trainingTypeOverrides`. Never use raw constants directly.
 
@@ -511,6 +517,8 @@ Migration behavior is now intentionally minimal:
 - `activityPresets: { training: 'default', rest: 'default' }`
 - `customActivityMultipliers: { training: 0.35, rest: 0.28 }`
 - `smartTefEnabled: false`
+- `adaptiveThermogenesisEnabled: false`
+- `adaptiveThermogenesisSmartMode: false`
 
 ---
 
@@ -541,6 +549,8 @@ Migration behavior is now intentionally minimal:
   smartTefFoodTefBurnEnabled: true,
   smartTefQuickEstimatesTargetMode: true,
   smartTefLiveCardTargetMode: false,
+  adaptiveThermogenesisEnabled: false,
+  adaptiveThermogenesisSmartMode: false,
 
   // History (Dexie)
   cardioSessions: [{ id, date, type, duration, intensity, effortType, averageHeartRate?, stepOverlapEnabled? }],
@@ -565,6 +575,9 @@ Migration behavior is now intentionally minimal:
       cardioBurn,
       tef,
       tefMode,
+      baselineTdee,
+      adaptiveThermogenesisCorrection,
+      adaptiveThermogenesisMode,
       createdAt,
       updatedAt,
     }
@@ -706,10 +719,11 @@ src/
 │   └─ useScrollOffScreen.js     # Floating tab bar trigger
 ├─ store/
 │   └─ useEnergyMapStore.js      # Zustand store: state, actions, derived values, persistence
-│                                #   calculateBreakdown(steps, isTrainingDay, options?) — options.tefContext forwarded to core calc
+│                                #   calculateBreakdown(steps, isTrainingDay, options?) — options.tefContext + options.adaptiveThermogenesisContext forwarded to core calc
 │                                #   calculateTargetForGoal(steps, isTrainingDay, goalKey, options?) — 2-pass refinement for target TEF mode
 ├─ utils/
 │   ├─ calculations.js           # ALL calorie formulas — BMR, cardio, training, TDEE, BMI, FFMI, Smart TEF
+│   ├─ adaptiveThermogenesis.js  # Adaptive thermogenesis mode resolution + crude/smart correction engine
 │   ├─ dailySnapshots.js         # Derived daily snapshot builder + equality helpers
 │   ├─ storage.js                # Orchestrates profile (Preferences) + history (Dexie) persistence
 │   ├─ historyDatabase.js        # Dexie history DB adapter + sharded document helpers
@@ -796,7 +810,7 @@ npm run test:watch     # Node test runner in watch mode
 21. **Native theming is centralized in `utils/theme.js`.** Do not add legacy status/navigation bar wrapper modules.
 22. **Smart TEF and NEAT:** When `userData.smartTefEnabled` is true, `calculateCalorieBreakdown()` subtracts `TEF_MULTIPLIER_OFFSET` (0.1) from the activity multiplier and adds macro-derived TEF back explicitly. The displayed NEAT multiplier in `CalorieBreakdownModal` will therefore appear lower than the user's configured value — this is intentional and explained in `TefInfoModal`. Never remove the offset without also disabling TEF.
 23. **Activity multiplier clamping:** Custom activity multipliers have a floor defined by `MIN_CUSTOM_ACTIVITY_MULTIPLIER` in `activityPresets.js`. Always use `clampCustomActivityMultiplier()` when persisting custom NEAT values. The `DailyActivityCustomModal` picker starts at `MIN_CUSTOM_ACTIVITY_PERCENT` (10%), not 0.
-24. **Calorie breakdown request object:** `openCalorieBreakdown()` in the orchestrator accepts either a plain step count (legacy) or a `{ steps, tefContext }` object. `CalorieMapScreen` step cards and the live Health Connect card pass the full object to enable correct TEF mode selection.
+24. **Calorie breakdown request object:** `openCalorieBreakdown()` in the orchestrator accepts either a plain step count (legacy) or a `{ steps, tefContext, adaptiveThermogenesisContext }` object. `CalorieMapScreen` step cards and the live Health Connect card pass the full object to enable correct TEF/AT mode context.
 25. **Nutrition references are data-backed, not cosmetic:** `nutritionRef` should map to a day that actually has entries in `nutritionData`. If meals are deleted for a date, clear stale refs (store sync handles this for food actions).
 26. **Phase metrics are nutrition-aware now:** Never hardcode `avgCalories = 0` in phase UIs. Use `calculatePhaseMetrics(phase, weightEntries, nutritionData)`.
 27. **Daily log nutrition management route:** In logbook flow, nutrition management routes through the Tracker screen date context; preserve selected date handoff when adjusting this UX.
@@ -807,3 +821,4 @@ npm run test:watch     # Node test runner in watch mode
 32. **Snapshot persistence is sharded by date:** Keep `dailySnapshots` in Dexie sharded documents (`dailySnapshots:<date>`), not in profile payload and not as one monolithic history blob.
 33. **Goal duration logic depends on persisted timestamps:** If implementing coarse/crude staged adjustments (e.g., prolonged cut/bulk handling), base elapsed-day calculations on persisted `goalChangedAt` (and optional phase boundaries), not transient UI state.
 34. **Snapshots are not goal-state authority:** `goalAtSnapshot` is for historical inspection only. Current goal behavior must resolve from `userData.selectedGoal` (+ `goalChangedAt`).
+35. **AT mode control is settings-driven:** `CalorieBreakdownModal` does not expose an AT mode selector. Mode changes are configured in `SettingsModal` (`adaptiveThermogenesisEnabled` + `adaptiveThermogenesisSmartMode`) and reflected in breakdown output.
