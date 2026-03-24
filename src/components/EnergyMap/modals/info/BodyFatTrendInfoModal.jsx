@@ -10,7 +10,10 @@ import {
   XCircle,
 } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
-import { getGoalAlignedTextClass } from '../../../../utils/goalAlignment';
+import {
+  calculateGoalAlignment,
+  getGoalAlignedTextClass,
+} from '../../../../utils/goalAlignment';
 import { goals } from '../../../../constants/goals';
 
 const TrendIcon = ({ direction }) => {
@@ -23,6 +26,78 @@ const TrendIcon = ({ direction }) => {
   return <Minus size={20} />;
 };
 
+const BODY_FAT_GOAL_RANGES = {
+  aggressive_bulk: '+0.15 to +0.3 %/week',
+  bulking: '+0.08 to +0.15 %/week',
+  maintenance: '-0.1 to +0.1 %/week',
+  cutting: '-0.15 to -0.08 %/week',
+  aggressive_cut: '-0.3 to -0.15 %/week',
+};
+
+const getStatusVisual = (alignment) => {
+  if (
+    alignment === 'perfect' ||
+    alignment === 'good' ||
+    alignment === 'acceptable'
+  ) {
+    return {
+      icon: <CheckCircle2 size={16} className="text-accent-green" />,
+      textClass: 'text-accent-green',
+    };
+  }
+
+  if (alignment === 'moderate') {
+    return {
+      icon: <AlertCircle size={16} className="text-accent-yellow" />,
+      textClass: 'text-accent-yellow',
+    };
+  }
+
+  if (alignment === 'poor') {
+    return {
+      icon: <AlertCircle size={16} className="text-accent-orange" />,
+      textClass: 'text-accent-orange',
+    };
+  }
+
+  if (alignment === 'very-poor') {
+    return {
+      icon: <XCircle size={16} className="text-accent-red" />,
+      textClass: 'text-accent-red',
+    };
+  }
+
+  return {
+    icon: <Info size={16} className="text-accent-blue" />,
+    textClass: 'text-muted',
+  };
+};
+
+const toPrettyDescription = (description) => {
+  if (!description) {
+    return 'Track consistently to establish your trend.';
+  }
+
+  const lower = description.toLowerCase();
+  if (lower.includes('opposite direction')) {
+    return 'Moving in the opposite direction of your selected goal.';
+  }
+  if (lower.includes('too rapidly')) {
+    return 'Body fat is changing faster than target. Consider moderating intake.';
+  }
+  if (lower.includes('too slowly')) {
+    return 'Body fat is changing slower than target. Consider adjusting intake.';
+  }
+  if (lower.includes('just above target')) {
+    return 'Slightly above target range.';
+  }
+  if (lower.includes('just below target')) {
+    return 'Slightly below target range.';
+  }
+
+  return `${description}.`;
+};
+
 export const BodyFatTrendInfoModal = ({
   isOpen,
   isClosing,
@@ -30,22 +105,39 @@ export const BodyFatTrendInfoModal = ({
   selectedGoal = 'maintenance',
   onClose,
 }) => {
+  const safeTrend =
+    trend && Number.isFinite(trend.weeklyRate)
+      ? trend
+      : {
+          label: 'No data yet',
+          weeklyRate: 0,
+          direction: 'flat',
+          sampleRange: [],
+        };
+
   const getTrendColor = () => {
     if (
-      !trend ||
-      trend.label === 'Need more data' ||
-      trend.label === 'No data yet'
+      safeTrend.label === 'Need more data' ||
+      safeTrend.label === 'No data yet'
     ) {
       return 'text-foreground';
     }
-    return getGoalAlignedTextClass(trend, selectedGoal, 'bodyFat');
+    return getGoalAlignedTextClass(safeTrend, selectedGoal, 'bodyFat');
   };
+
+  const alignment = calculateGoalAlignment(
+    safeTrend.weeklyRate,
+    selectedGoal,
+    'bodyFat'
+  );
+  const statusVisual = getStatusVisual(alignment.alignment);
+  const targetRate =
+    BODY_FAT_GOAL_RANGES[selectedGoal] || BODY_FAT_GOAL_RANGES.maintenance;
 
   return (
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
-      overlayClassName="bg-black/90 z-[85]"
       contentClassName="p-6 max-w-lg w-full"
     >
       <div className="flex items-start justify-between gap-4 mb-4">
@@ -81,13 +173,18 @@ export const BodyFatTrendInfoModal = ({
               (30 days, 90 days, 6 months, or all available data).
             </p>
             <p>
-              The trend compares your earliest and latest entries in the
-              selected window to calculate your{' '}
+              The trend compares the earliest and latest entries in the chosen
+              window (anchored to your latest reading) and converts that change
+              into a{' '}
               <span className="text-accent-blue font-semibold">
                 weekly rate of change
               </span>
-              . Longer timeframes provide more stable trends, while shorter
-              windows highlight recent progress.
+              . If a window has fewer than two points, the app falls back to
+              your latest two entries so a trend can still be shown.
+            </p>
+            <p>
+              Body fat trends are best interpreted over weeks, not days, because
+              measurement method and timing can introduce noise.
             </p>
           </div>
         </div>
@@ -98,30 +195,30 @@ export const BodyFatTrendInfoModal = ({
             <span
               className={`${getTrendColor()} font-semibold text-lg flex items-center gap-2`}
             >
-              <TrendIcon direction={trend.direction} />
-              {trend.label}
+              <TrendIcon direction={safeTrend.direction} />
+              {safeTrend.label}
             </span>
           </div>
           <div className="text-sm space-y-1">
             <p>
               Weekly Rate:{' '}
               <span className="text-foreground font-semibold">
-                {trend.weeklyRate >= 0 ? '+' : ''}
-                {trend.weeklyRate.toFixed(2)} %/week
+                {safeTrend.weeklyRate >= 0 ? '+' : ''}
+                {safeTrend.weeklyRate.toFixed(2)} %/week
               </span>
             </p>
             <p>
               Data Points:{' '}
               <span className="text-foreground font-semibold">
-                {trend.sampleRange?.length || 0} entries
+                {safeTrend.sampleRange?.length || 0} entries
               </span>
             </p>
-            {trend.sampleRange && trend.sampleRange.length >= 2 && (
+            {safeTrend.sampleRange && safeTrend.sampleRange.length >= 2 && (
               <p>
                 Period:{' '}
                 <span className="text-foreground font-semibold">
-                  {trend.sampleRange[0].date} to{' '}
-                  {trend.sampleRange[trend.sampleRange.length - 1].date}
+                  {safeTrend.sampleRange[0].date} to{' '}
+                  {safeTrend.sampleRange[safeTrend.sampleRange.length - 1].date}
                 </span>
               </p>
             )}
@@ -141,245 +238,21 @@ export const BodyFatTrendInfoModal = ({
             <p>
               Target rate:{' '}
               <span className="text-foreground font-semibold">
-                {selectedGoal === 'aggressive_bulk'
-                  ? '+0.15 to +0.3 %/week'
-                  : selectedGoal === 'bulking'
-                    ? '+0.08 to +0.15 %/week'
-                    : selectedGoal === 'maintenance'
-                      ? '-0.1 to +0.1 %/week'
-                      : selectedGoal === 'cutting'
-                        ? '-0.15 to -0.08 %/week'
-                        : '-0.3 to -0.15 %/week'}
+                {targetRate}
               </span>
             </p>
             <p>
               Your current rate:{' '}
               <span className={`${getTrendColor()} font-semibold`}>
-                {trend.weeklyRate >= 0 ? '+' : ''}
-                {trend.weeklyRate.toFixed(2)} %/week
+                {safeTrend.weeklyRate >= 0 ? '+' : ''}
+                {safeTrend.weeklyRate.toFixed(2)} %/week
               </span>
             </p>
             <div className="mt-3 pt-3 border-t border-accent-emerald/30">
               <div className="flex items-center gap-3">
-                <span className="flex-shrink-0">
-                  {(() => {
-                    const rate = trend.weeklyRate;
-                    const absRate = Math.abs(rate);
-
-                    if (selectedGoal === 'maintenance') {
-                      if (absRate <= 0.1)
-                        return (
-                          <CheckCircle2
-                            size={16}
-                            className="text-accent-green"
-                          />
-                        );
-                      if (absRate <= 0.15)
-                        return (
-                          <AlertCircle
-                            size={16}
-                            className="text-accent-yellow"
-                          />
-                        );
-                      return <XCircle size={16} className="text-accent-red" />;
-                    }
-
-                    const isGain = selectedGoal.includes('bulk');
-                    const isCut = selectedGoal.includes('cut');
-                    const movingWrong =
-                      (isGain && rate < -0.1) || (isCut && rate > 0.1);
-
-                    if (movingWrong)
-                      return <XCircle size={16} className="text-accent-red" />;
-
-                    if (selectedGoal === 'aggressive_bulk') {
-                      if (rate >= 0.15 && rate <= 0.3)
-                        return (
-                          <CheckCircle2
-                            size={16}
-                            className="text-accent-green"
-                          />
-                        );
-                      if (rate < 0.15)
-                        return (
-                          <AlertCircle
-                            size={16}
-                            className="text-accent-yellow"
-                          />
-                        );
-                      return (
-                        <AlertCircle size={16} className="text-accent-yellow" />
-                      );
-                    }
-
-                    if (selectedGoal === 'bulking') {
-                      if (rate >= 0.08 && rate <= 0.15)
-                        return (
-                          <CheckCircle2
-                            size={16}
-                            className="text-accent-green"
-                          />
-                        );
-                      if (rate < 0.08)
-                        return (
-                          <AlertCircle
-                            size={16}
-                            className="text-accent-yellow"
-                          />
-                        );
-                      return (
-                        <AlertCircle size={16} className="text-accent-yellow" />
-                      );
-                    }
-
-                    if (selectedGoal === 'cutting') {
-                      if (rate <= -0.08 && rate >= -0.15)
-                        return (
-                          <CheckCircle2
-                            size={16}
-                            className="text-accent-green"
-                          />
-                        );
-                      if (rate > -0.08)
-                        return (
-                          <AlertCircle
-                            size={16}
-                            className="text-accent-yellow"
-                          />
-                        );
-                      return (
-                        <AlertCircle size={16} className="text-accent-orange" />
-                      );
-                    }
-
-                    if (selectedGoal === 'aggressive_cut') {
-                      if (rate <= -0.15 && rate >= -0.3)
-                        return (
-                          <CheckCircle2
-                            size={16}
-                            className="text-accent-green"
-                          />
-                        );
-                      if (rate > -0.15)
-                        return (
-                          <AlertCircle
-                            size={16}
-                            className="text-accent-yellow"
-                          />
-                        );
-                      return (
-                        <AlertCircle size={16} className="text-accent-orange" />
-                      );
-                    }
-
-                    return (
-                      <AlertCircle size={16} className="text-accent-slate" />
-                    );
-                  })()}
-                </span>
-                <p
-                  className={(() => {
-                    const rate = trend.weeklyRate;
-                    const absRate = Math.abs(rate);
-
-                    if (selectedGoal === 'maintenance') {
-                      if (absRate <= 0.1) return 'text-accent-green';
-                      if (absRate <= 0.15) return 'text-accent-yellow';
-                      return 'text-accent-red';
-                    }
-
-                    const isGain = selectedGoal.includes('bulk');
-                    const isCut = selectedGoal.includes('cut');
-                    const movingWrong =
-                      (isGain && rate < -0.1) || (isCut && rate > 0.1);
-
-                    if (movingWrong) return 'text-accent-red';
-
-                    if (selectedGoal === 'aggressive_bulk') {
-                      if (rate >= 0.15 && rate <= 0.3)
-                        return 'text-accent-green';
-                      if (rate < 0.15) return 'text-accent-yellow';
-                      return 'text-accent-yellow';
-                    }
-
-                    if (selectedGoal === 'bulking') {
-                      if (rate >= 0.08 && rate <= 0.15)
-                        return 'text-accent-green';
-                      if (rate < 0.08) return 'text-accent-yellow';
-                      return 'text-accent-yellow';
-                    }
-
-                    if (selectedGoal === 'cutting') {
-                      if (rate <= -0.08 && rate >= -0.15)
-                        return 'text-accent-green';
-                      if (rate > -0.08) return 'text-accent-yellow';
-                      return 'text-accent-orange';
-                    }
-
-                    if (selectedGoal === 'aggressive_cut') {
-                      if (rate <= -0.15 && rate >= -0.3)
-                        return 'text-accent-green';
-                      if (rate > -0.15) return 'text-accent-yellow';
-                      return 'text-accent-orange';
-                    }
-
-                    return 'text-muted';
-                  })()}
-                >
-                  {(() => {
-                    const rate = trend.weeklyRate;
-                    const absRate = Math.abs(rate);
-
-                    if (selectedGoal === 'maintenance') {
-                      if (absRate <= 0.1)
-                        return 'Perfect! Your body fat is stable.';
-                      if (absRate <= 0.15)
-                        return 'Slightly off track, but close to maintenance.';
-                      return 'Significant deviation from maintenance goal.';
-                    }
-
-                    const isGain = selectedGoal.includes('bulk');
-                    const isCut = selectedGoal.includes('cut');
-                    const movingWrong =
-                      (isGain && rate < -0.1) || (isCut && rate > 0.1);
-
-                    if (movingWrong)
-                      return 'Moving in the opposite direction of your goal.';
-
-                    if (selectedGoal === 'aggressive_bulk') {
-                      if (rate >= 0.15 && rate <= 0.3)
-                        return 'Perfectly on track for aggressive bulk!';
-                      if (rate < 0.15)
-                        return 'Gaining slower than target. May need more calories.';
-                      return 'Gaining faster than target. May be accumulating excess fat.';
-                    }
-
-                    if (selectedGoal === 'bulking') {
-                      if (rate >= 0.08 && rate <= 0.15)
-                        return 'Perfectly on track for lean bulk!';
-                      if (rate < 0.08)
-                        return 'Gaining slower than target. May need more calories.';
-                      return 'Gaining faster than target. May be accumulating excess fat.';
-                    }
-
-                    if (selectedGoal === 'cutting') {
-                      if (rate <= -0.08 && rate >= -0.15)
-                        return 'Perfectly on track for moderate cut!';
-                      if (rate > -0.08)
-                        return 'Losing slower than target. May need larger deficit.';
-                      return 'Losing faster than target. Risk of muscle loss.';
-                    }
-
-                    if (selectedGoal === 'aggressive_cut') {
-                      if (rate <= -0.15 && rate >= -0.3)
-                        return 'Perfectly on track for aggressive cut!';
-                      if (rate > -0.15)
-                        return 'Losing slower than target. May need larger deficit.';
-                      return 'Losing faster than target. High risk of muscle loss.';
-                    }
-
-                    return 'Track consistently to establish your trend.';
-                  })()}
+                <span className="flex-shrink-0">{statusVisual.icon}</span>
+                <p className={statusVisual.textClass}>
+                  {toPrettyDescription(alignment.description)}
                 </p>
               </div>
             </div>
@@ -451,7 +324,7 @@ export const BodyFatTrendInfoModal = ({
         <button
           onClick={onClose}
           type="button"
-          className="w-full bg-accent-blue active:bg-accent-blue/80 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium"
+          className="w-full bg-primary text-primary-foreground px-6 py-3 rounded-lg md:hover:brightness-110 transition-all press-feedback focus-ring"
         >
           Got it!
         </button>
