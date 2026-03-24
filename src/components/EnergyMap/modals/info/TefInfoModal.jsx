@@ -1,5 +1,5 @@
 import React from 'react';
-import { Flame, Info, X } from 'lucide-react';
+import { Info, X } from 'lucide-react';
 import {
   TEF_CARB_RATE,
   TEF_FAT_RATE,
@@ -19,7 +19,7 @@ export const TefInfoModal = ({ isOpen, isClosing, onClose }) => {
     >
       <div className="flex items-start justify-between gap-4 mb-4">
         <div className="flex items-center gap-3">
-          <Flame size={28} className="text-accent-orange" />
+          <Info size={28} className="text-accent-blue" />
           <h3 className="text-foreground font-bold text-xl">Smart TEF</h3>
         </div>
         <button
@@ -58,8 +58,8 @@ export const TefInfoModal = ({ isOpen, isClosing, onClose }) => {
           </p>
         </div>
 
-        <div className="bg-accent-orange/10 border border-accent-orange/30 rounded-lg p-4">
-          <p className="font-bold text-accent-orange mb-2">
+        <div className="bg-accent-blue/10 border border-accent-blue/30 rounded-lg p-4">
+          <p className="font-bold text-accent-blue mb-2">
             Macro-based TEF rates
           </p>
           <div className="text-sm space-y-1">

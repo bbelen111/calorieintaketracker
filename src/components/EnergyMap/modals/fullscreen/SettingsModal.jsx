@@ -357,17 +357,14 @@ export const SettingsModal = ({
 
             <div>
               <div className="flex items-center justify-between mb-2 gap-3">
-                <div className="inline-flex items-center gap-1.5 text-foreground/80 text-sm">
+                <button
+                  type="button"
+                  onClick={() => onOpenTefInfo?.()}
+                  className="inline-flex items-center gap-1.5 text-foreground/80 text-sm md:hover:text-foreground transition-colors focus-ring rounded-md px-1 py-0.5 pressable-inline"
+                >
                   <span>Smart TEF</span>
-                  <button
-                    type="button"
-                    onClick={() => onOpenTefInfo?.()}
-                    aria-label="Open Smart TEF info"
-                    className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted md:hover:text-foreground transition-colors focus-ring"
-                  >
-                    <Info size={14} />
-                  </button>
-                </div>
+                  <Info size={14} />
+                </button>
                 <button
                   type="button"
                   role="switch"
@@ -398,6 +395,12 @@ export const SettingsModal = ({
                   </span>
                 </button>
               </div>
+
+              <p className="text-muted text-xs mb-2">
+                TEF (Thermic Effect of Food) is the energy cost of digesting and
+                processing food. Smart TEF swaps a one-size-fits-all estimate
+                for a macro-based version.
+              </p>
 
               {resolvedUserData.smartTefEnabled && (
                 <div className="mt-3 space-y-2">
