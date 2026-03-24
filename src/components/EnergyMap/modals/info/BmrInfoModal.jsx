@@ -167,11 +167,12 @@ export const BmrInfoModal = ({ isOpen, isClosing, userData, bmr, onClose }) => {
           </div>
         </div>
 
-        <p className="text-sm italic text-muted">
-          Note: Your actual daily calorie needs (TDEE) are higher because they
-          include daily activity (NEAT), training, and movement (step count)
-          throughout the day.
-        </p>
+        <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5 text-xs md:text-sm">
+          <span className="text-foreground font-semibold">Note:</span> Your
+          actual daily calorie needs (TDEE) are higher because they include
+          daily activity (NEAT), training, and movement (step count) throughout
+          the day.
+        </div>
       </div>
 
       <div className="mt-6">

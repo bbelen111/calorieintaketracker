@@ -169,11 +169,11 @@ export const FfmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
           )}
         </div>
 
-        <p className="text-sm italic text-muted">
-          Note: An FFMI above 25 for natural athletes is extremely rare. Values
-          above 27 are typically only achievable with performance-enhancing
-          drugs.
-        </p>
+        <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5 text-xs md:text-sm">
+          <span className="text-foreground font-semibold">Note:</span> An
+          FFMI above 25 for natural athletes is extremely rare. Values above 27
+          are typically only achievable with performance-enhancing drugs.
+        </div>
       </div>
 
       <div className="mt-6">

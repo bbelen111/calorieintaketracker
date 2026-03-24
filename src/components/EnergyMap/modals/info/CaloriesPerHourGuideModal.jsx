@@ -63,10 +63,11 @@ export const CaloriesPerHourGuideModal = ({ isOpen, isClosing, onClose }) => (
         </p>
       </div>
 
-      <p className="text-xs md:text-sm text-muted italic">
-        Not sure? Start at the middle value, log a week, then adjust if you
-        consistently feel over- or under-fueled.
-      </p>
+      <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5 text-xs md:text-sm">
+        <span className="text-foreground font-semibold">Tip:</span> Not sure?
+        Start at the middle value, log a week, then adjust if you consistently
+        feel over- or under-fueled.
+      </div>
     </div>
 
     <div className="mt-6">

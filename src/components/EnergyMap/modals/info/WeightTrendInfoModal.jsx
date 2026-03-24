@@ -317,10 +317,11 @@ export const WeightTrendInfoModal = ({
           </ul>
         </div>
 
-        <p className="text-xs md:text-sm text-muted italic">
-          Tip: Track your weight at a consistent time and condition (e.g.,
-          morning, after bathroom, before food) for cleaner trends.
-        </p>
+        <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5 text-xs md:text-sm">
+          <span className="text-foreground font-semibold">Tip:</span> Track your
+          weight at a consistent time and condition (e.g., morning, after
+          bathroom, before food) for cleaner trends.
+        </div>
       </div>
 
       <div className="mt-6">

@@ -113,14 +113,12 @@ export const BmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
           </div>
         </div>
 
-        <div className="bg-accent-amber/15 border border-accent-amber/50 rounded-lg p-4">
-          <p className="font-bold text-accent-amber mb-2">⚠️ Important Note:</p>
-          <p className="text-sm">
-            BMI doesn&apos;t distinguish between muscle and fat. Athletes and
-            muscular individuals may have a high BMI despite having low body
-            fat. For a more accurate assessment of body composition, consider
-            tracking body fat percentage and FFMI.
-          </p>
+        <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5 text-xs md:text-sm">
+          <span className="text-foreground font-semibold">Important note:</span>{' '}
+          BMI doesn&apos;t distinguish between muscle and fat. Athletes and
+          muscular individuals may have a high BMI despite having low body fat.
+          For a more accurate assessment of body composition, consider tracking
+          body fat percentage and FFMI.
         </div>
       </div>
 
