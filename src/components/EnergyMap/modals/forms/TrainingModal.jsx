@@ -6,6 +6,7 @@ import {
   roundDurationHours,
 } from '../../../../utils/time';
 import { calculateTrainingSessionCalories } from '../../../../utils/calculations';
+import { resolveTrainingSessionEpoc } from '../../../../utils/epoc';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
@@ -54,12 +55,12 @@ export const TrainingModal = ({
   const resolvedUserAge = userAge ?? store.userData?.age;
   const resolvedUserGender = userGender ?? store.userData?.gender;
 
-  const estimatedBurn = useMemo(() => {
+  const pseudoTrainingSession = useMemo(() => {
     const durationMinutes = Number.isFinite(Number(tempTrainingDuration))
       ? Math.round(Number(tempTrainingDuration) * 60)
       : 0;
 
-    const pseudoTrainingSession = {
+    return {
       type: tempTrainingType,
       duration: durationMinutes,
       effortType,
@@ -67,26 +68,53 @@ export const TrainingModal = ({
       averageHeartRate:
         effortType === 'heartRate' ? tempTrainingHeartRate : '',
     };
-
-    return calculateTrainingSessionCalories(
-      pseudoTrainingSession,
-      {
-        weight: resolvedUserWeight,
-        age: resolvedUserAge,
-        gender: resolvedUserGender,
-      },
-      resolvedTrainingTypes
-    );
   }, [
     tempTrainingType,
     tempTrainingDuration,
     effortType,
     intensityValue,
     tempTrainingHeartRate,
-    resolvedUserWeight,
-    resolvedUserAge,
-    resolvedUserGender,
+  ]);
+
+  const estimatedBurn = useMemo(
+    () =>
+      calculateTrainingSessionCalories(
+        pseudoTrainingSession,
+        {
+          weight: resolvedUserWeight,
+          age: resolvedUserAge,
+          gender: resolvedUserGender,
+        },
+        resolvedTrainingTypes
+      ),
+    [
+      pseudoTrainingSession,
+      resolvedUserWeight,
+      resolvedUserAge,
+      resolvedUserGender,
+      resolvedTrainingTypes,
+    ]
+  );
+
+  const estimatedEpoc = useMemo(() => {
+    const epoc = resolveTrainingSessionEpoc({
+      session: pseudoTrainingSession,
+      exerciseCalories: estimatedBurn,
+      trainingType: resolvedTrainingTypes?.[tempTrainingType],
+      userData: {
+        age: resolvedUserAge,
+        epocCarryoverHours: store.userData?.epocCarryoverHours,
+      },
+    });
+
+    return Number(epoc?.totalCalories) || 0;
+  }, [
+    pseudoTrainingSession,
+    estimatedBurn,
     resolvedTrainingTypes,
+    tempTrainingType,
+    resolvedUserAge,
+    store.userData?.epocCarryoverHours,
   ]);
 
   const formattedDuration = formatDurationLabel(tempTrainingDuration);
@@ -329,6 +357,9 @@ export const TrainingModal = ({
             </p>
             <p className="text-foreground font-bold text-xl text-center">
               ~{estimatedBurn} calories
+            </p>
+            <p className="text-muted text-xs text-center mt-1">
+              +~{Math.round(estimatedEpoc)} EPOC
             </p>
           </div>
         </div>

@@ -8,6 +8,11 @@ import {
   computeAdaptiveThermogenesis,
   resolveAdaptiveThermogenesisMode,
 } from './adaptiveThermogenesis.js';
+import {
+  resolveCardioSessionEpoc,
+  resolveTrainingSessionEpoc,
+} from './epoc.js';
+import { getCarryoverForDateFromSessions } from './sessionCarryover.js';
 
 const HEART_RATE_COEFFICIENTS = {
   male: {
@@ -681,6 +686,77 @@ export const calculateCalorieBreakdown = ({
       };
     })
     .filter(Boolean);
+
+  const epocEnabled = normalizedUserData?.epocEnabled ?? true;
+  const resolveTrainingSessionCarryover = (session) => {
+    if (!epocEnabled) {
+      return { totalCalories: 0, windowMinutes: 0 };
+    }
+
+    const exerciseCalories = calculateTrainingSessionCalories(
+      session,
+      normalizedUserData,
+      trainingTypes
+    );
+
+    return resolveTrainingSessionEpoc({
+      session,
+      exerciseCalories,
+      trainingType: trainingTypes?.[session?.type],
+      userData: normalizedUserData,
+    });
+  };
+
+  const resolveCardioSessionCarryover = (session) => {
+    if (!epocEnabled) {
+      return { totalCalories: 0, windowMinutes: 0 };
+    }
+
+    const exerciseCalories = calculateCardioCalories(
+      session,
+      normalizedUserData,
+      cardioTypes
+    );
+
+    return resolveCardioSessionEpoc({
+      session,
+      exerciseCalories,
+      cardioType: cardioTypes?.[session?.type],
+      userData: normalizedUserData,
+    });
+  };
+
+  const trainingEpocAllocation = getCarryoverForDateFromSessions({
+    dateKey: resolvedDateKey,
+    sessions: normalizedUserData?.trainingSessions,
+    resolveCarryover: resolveTrainingSessionCarryover,
+  });
+  const cardioEpocAllocation = getCarryoverForDateFromSessions({
+    dateKey: resolvedDateKey,
+    sessions: normalizedUserData?.cardioSessions,
+    resolveCarryover: resolveCardioSessionCarryover,
+  });
+
+  const trainingEpoc = Math.round(
+    Number(trainingEpocAllocation?.totalCalories) || 0
+  );
+  const cardioEpoc = Math.round(Number(cardioEpocAllocation?.totalCalories) || 0);
+  const epocCalories = Math.round(trainingEpoc + cardioEpoc);
+
+  const trainingEpocFromToday = Math.round(
+    (trainingEpocAllocation?.allocations ?? [])
+      .filter((allocation) => allocation?.sourceDate === resolvedDateKey)
+      .reduce((sum, allocation) => sum + (Number(allocation?.calories) || 0), 0)
+  );
+  const cardioEpocFromToday = Math.round(
+    (cardioEpocAllocation?.allocations ?? [])
+      .filter((allocation) => allocation?.sourceDate === resolvedDateKey)
+      .reduce((sum, allocation) => sum + (Number(allocation?.calories) || 0), 0)
+  );
+  const epocFromTodaySessions = Math.round(
+    trainingEpocFromToday + cardioEpocFromToday
+  );
+  const epocCarryInCalories = Math.round(epocCalories - epocFromTodaySessions);
   const tefOffsetApplied =
     tefContext?.mode &&
     tefContext.mode !== 'off' &&
@@ -693,7 +769,12 @@ export const calculateCalorieBreakdown = ({
   );
   const baseActivity = Math.round(bmr * effectiveActivityMultiplier);
   const subtotalBeforeSmartTef = Math.round(
-    bmr + baseActivity + stepDetails.calories + trainingBurn + cardioBurn
+    bmr +
+      baseActivity +
+      stepDetails.calories +
+      trainingBurn +
+      cardioBurn +
+      epocCalories
   );
   const {
     tefMode,
@@ -755,6 +836,14 @@ export const calculateCalorieBreakdown = ({
     trainingTypeLabel,
     cardioBurn,
     cardioDetails,
+    epocEnabled,
+    epocCalories,
+    trainingEpoc,
+    cardioEpoc,
+    epocFromTodaySessions,
+    epocCarryInCalories,
+    trainingEpocDetails: trainingEpocAllocation?.allocations ?? [],
+    cardioEpocDetails: cardioEpocAllocation?.allocations ?? [],
     bmrDetails,
   };
 };

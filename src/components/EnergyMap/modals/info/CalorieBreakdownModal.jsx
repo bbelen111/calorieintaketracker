@@ -62,6 +62,12 @@ export const CalorieBreakdownModal = ({
   const smartTefCalories = breakdown.smartTefCalories ?? 0;
   const smartTefDetails = breakdown.smartTefDetails ?? null;
   const smartTefMode = breakdown.tefMode ?? 'off';
+  const epocEnabled = breakdown.epocEnabled ?? false;
+  const epocCalories = breakdown.epocCalories ?? 0;
+  const trainingEpoc = breakdown.trainingEpoc ?? 0;
+  const cardioEpoc = breakdown.cardioEpoc ?? 0;
+  const epocFromTodaySessions = breakdown.epocFromTodaySessions ?? 0;
+  const epocCarryInCalories = breakdown.epocCarryInCalories ?? 0;
   const resolvedAdaptiveMode = breakdown.adaptiveThermogenesisMode ?? 'off';
   const adaptiveThermogenesisCorrection =
     breakdown.adaptiveThermogenesisCorrection ?? 0;
@@ -288,6 +294,32 @@ export const CalorieBreakdownModal = ({
               </p>
             )}
           </BreakdownItem>
+
+          {epocEnabled && epocCalories > 0 && (
+            <BreakdownItem
+              label="EPOC (Post-Exercise Burn)"
+              value={epocCalories}
+              total={breakdown.total}
+              expanded={expandedItem === 'epoc'}
+              onToggle={() => toggleExpanded('epoc')}
+            >
+              <p className="text-muted text-xs">
+                Additional calories burned after sessions from elevated oxygen
+                demand and recovery processes.
+              </p>
+              <p className="text-muted text-xs mt-2">
+                Training contribution: {formatWhole(trainingEpoc)} kcal
+                <br />
+                Cardio contribution: {formatWhole(cardioEpoc)} kcal
+                <br />
+                From today&apos;s sessions: {formatWhole(epocFromTodaySessions)}{' '}
+                kcal
+                <br />
+                Carry-in from previous day: {formatWhole(epocCarryInCalories)}{' '}
+                kcal
+              </p>
+            </BreakdownItem>
+          )}
 
           {smartTefMode !== 'off' && (
             <BreakdownItem

@@ -289,6 +289,80 @@ test('training session calories are day-scoped and summed by date', () => {
   assert.ok(totalForDateA !== totalForDateB);
 });
 
+test('epoc allocation includes carry-in from prior-day sessions', () => {
+  const sessionStart = new Date('2026-03-21T23:30:00').getTime();
+  const userWithEpocSession = {
+    ...baseUserData,
+    epocEnabled: true,
+    epocCarryoverHours: 12,
+    cardioSessions: [
+      {
+        id: 'epoc-carryover-cardio',
+        date: '2026-03-21',
+        type: 'treadmill_walk',
+        duration: 30,
+        effortType: 'intensity',
+        intensity: 'vigorous',
+        startedAt: sessionStart,
+        endedAt: sessionStart + 30 * 60 * 1000,
+      },
+    ],
+  };
+
+  const bmr = calculateBMR(userWithEpocSession);
+  const breakdown = calculateCalorieBreakdown({
+    steps: 0,
+    isTrainingDay: false,
+    userData: userWithEpocSession,
+    bmr,
+    cardioTypes,
+    trainingTypes,
+    tefContext: { mode: 'off', enabled: false },
+    dateKey: '2026-03-22',
+  });
+
+  assert.ok(breakdown.epocCalories > 0);
+  assert.ok(breakdown.epocCarryInCalories > 0);
+  assert.equal(breakdown.epocFromTodaySessions, 0);
+  assert.equal(breakdown.cardioBurn, 0);
+});
+
+test('epoc can be disabled in settings', () => {
+  const sessionStart = new Date('2026-03-21T23:30:00').getTime();
+  const userWithEpocDisabled = {
+    ...baseUserData,
+    epocEnabled: false,
+    cardioSessions: [
+      {
+        id: 'epoc-disabled-cardio',
+        date: '2026-03-21',
+        type: 'treadmill_walk',
+        duration: 30,
+        effortType: 'intensity',
+        intensity: 'vigorous',
+        startedAt: sessionStart,
+        endedAt: sessionStart + 30 * 60 * 1000,
+      },
+    ],
+  };
+
+  const bmr = calculateBMR(userWithEpocDisabled);
+  const breakdown = calculateCalorieBreakdown({
+    steps: 0,
+    isTrainingDay: false,
+    userData: userWithEpocDisabled,
+    bmr,
+    cardioTypes,
+    trainingTypes,
+    tefContext: { mode: 'off', enabled: false },
+    dateKey: '2026-03-22',
+  });
+
+  assert.equal(breakdown.epocCalories, 0);
+  assert.equal(breakdown.epocCarryInCalories, 0);
+  assert.equal(breakdown.epocFromTodaySessions, 0);
+});
+
 test('adaptive thermogenesis crude mode adjusts final tdee while preserving baseline total', () => {
   const bmr = calculateBMR(baseUserData);
   const breakdown = calculateCalorieBreakdown({

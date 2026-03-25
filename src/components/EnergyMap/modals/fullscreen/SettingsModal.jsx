@@ -77,6 +77,15 @@ export const SettingsModal = ({
     resolvedUserData.adaptiveThermogenesisEnabled ?? false;
   const adaptiveThermogenesisSmartMode =
     resolvedUserData.adaptiveThermogenesisSmartMode ?? false;
+  const epocEnabled = resolvedUserData.epocEnabled ?? true;
+  const epocCarryoverHours = Number.isFinite(
+    Number(resolvedUserData.epocCarryoverHours)
+  )
+    ? Math.min(
+        Math.max(Math.round(Number(resolvedUserData.epocCarryoverHours)), 1),
+        24
+      )
+    : 6;
 
   const handleCancel = useCallback(() => {
     onCancel?.();
@@ -333,6 +342,76 @@ export const SettingsModal = ({
               bmr={resolvedBmr}
               onDailyActivityClick={onDailyActivityClick}
             />
+
+            <div>
+              <div className="flex items-center justify-between mb-2 gap-3">
+                <div className="inline-flex items-center gap-1.5 text-foreground/80 text-sm rounded-md px-1 py-0.5">
+                  <span>EPOC (Post-Exercise Burn)</span>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={epocEnabled}
+                  aria-label="Toggle EPOC"
+                  onClick={() => onChange('epocEnabled', !epocEnabled)}
+                  className="inline-flex items-center rounded-full focus-ring pressable-inline"
+                >
+                  <span
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-all ${
+                      epocEnabled
+                        ? 'bg-accent-emerald border-accent-emerald/70'
+                        : 'bg-surface-highlight border-border'
+                    }`}
+                  >
+                    <span
+                      className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                        epocEnabled ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </span>
+                </button>
+              </div>
+
+              <p className="text-muted text-xs mb-2">
+                Adds post-exercise oxygen consumption to TDEE and carries part
+                of it into following days based on session time.
+              </p>
+
+              {epocEnabled && (
+                <div className="mt-3 rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-foreground text-sm font-medium leading-tight">
+                        Carryover window
+                      </p>
+                      <p className="text-muted text-xs mt-0.5">
+                        Higher values extend how long EPOC can spill into the
+                        next day.
+                      </p>
+                    </div>
+                    <input
+                      type="number"
+                      min={1}
+                      max={24}
+                      value={epocCarryoverHours}
+                      onChange={(event) =>
+                        onChange(
+                          'epocCarryoverHours',
+                          Math.min(
+                            Math.max(
+                              Number.parseInt(event.target.value, 10) || 1,
+                              1
+                            ),
+                            24
+                          )
+                        )
+                      }
+                      className="w-20 rounded-md border border-border bg-surface px-2 py-1 text-right text-sm text-foreground focus-ring"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div>
               <div className="flex items-center justify-between mb-2 gap-3">

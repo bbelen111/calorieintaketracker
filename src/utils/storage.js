@@ -459,6 +459,8 @@ const GOAL_KEYS = new Set([
   'cutting',
   'aggressive_cut',
 ]);
+const MIN_EPOC_CARRYOVER_HOURS = 1;
+const MAX_EPOC_CARRYOVER_HOURS = 24;
 let lastSavedProfileSerialized = null;
 let lastSavedHistorySerializedByField = new Map();
 let lastSavedShardedDocIdsByField = new Map();
@@ -1077,6 +1079,8 @@ export const getDefaultEnergyMapData = () => ({
   smartTefLiveCardTargetMode: false,
   adaptiveThermogenesisEnabled: false,
   adaptiveThermogenesisSmartMode: false,
+  epocEnabled: true,
+  epocCarryoverHours: 6,
   selectedTrainingType: 'trainingtype_1',
   trainingDuration: 2,
   stepRanges: ['<10k', '10k', '12k', '14k', '16k', '18k', '20k', '>20k'],
@@ -1320,6 +1324,17 @@ function mergeWithDefaults(data) {
     adaptiveThermogenesisSmartMode:
       normalizedInput.adaptiveThermogenesisSmartMode ??
       defaults.adaptiveThermogenesisSmartMode,
+    epocEnabled: normalizedInput.epocEnabled ?? defaults.epocEnabled,
+    epocCarryoverHours: (() => {
+      const parsed = Number(normalizedInput.epocCarryoverHours);
+      if (!Number.isFinite(parsed)) {
+        return defaults.epocCarryoverHours;
+      }
+      return Math.min(
+        Math.max(Math.round(parsed), MIN_EPOC_CARRYOVER_HOURS),
+        MAX_EPOC_CARRYOVER_HOURS
+      );
+    })(),
     phaseLogV2: normalizedPhaseLogV2,
     pinnedFoods: Array.isArray(normalizedInput.pinnedFoods)
       ? normalizedInput.pinnedFoods

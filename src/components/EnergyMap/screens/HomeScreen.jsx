@@ -15,6 +15,11 @@ import {
 import { shallow } from 'zustand/shallow';
 import { goals as baseGoals } from '../../../constants/goals';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
+import { calculateTrainingSessionCalories } from '../../../utils/calculations';
+import {
+  resolveCardioSessionEpoc,
+  resolveTrainingSessionEpoc,
+} from '../../../utils/epoc';
 
 const GOAL_BORDER_CLASS_BY_BG = {
   'bg-purple-500': 'border-purple-400',
@@ -42,6 +47,7 @@ export const HomeScreen = ({
   onRestDayClick,
   trainingCalories,
   trainingSessions,
+  trainingTypes,
   cardioTypes,
   hasCardioSessions,
   onAddCardioClick,
@@ -58,6 +64,7 @@ export const HomeScreen = ({
       bmr: state.bmr,
       trainingCalories: state.trainingCalories,
       trainingSessions: state.trainingSessions ?? [],
+      trainingTypes: state.trainingTypes ?? {},
       cardioTypes: state.cardioTypes,
       totalCardioBurn: state.totalCardioBurn,
       cardioSessions: state.userData.cardioSessions ?? [],
@@ -69,6 +76,7 @@ export const HomeScreen = ({
   const resolvedBmr = bmr ?? store.bmr;
   const resolvedTrainingCalories = trainingCalories ?? store.trainingCalories;
   const resolvedTrainingSessions = trainingSessions ?? store.trainingSessions;
+  const resolvedTrainingTypes = trainingTypes ?? store.trainingTypes;
   const resolvedCardioTypes = cardioTypes ?? store.cardioTypes;
   const toDateKey = (value) => {
     if (value == null) return null;
@@ -84,6 +92,36 @@ export const HomeScreen = ({
   const resolvedGoals = goals ?? baseGoals;
   const resolvedTodayTrainingSessions = resolvedTrainingSessions.filter(
     (session) => toDateKey(session?.date) === todayDateKey
+  );
+  const resolvedTrainingEpocTotal = resolvedTodayTrainingSessions.reduce(
+    (sum, session) => {
+      const sessionCalories = calculateTrainingSessionCalories(
+        session,
+        resolvedUserData,
+        resolvedTrainingTypes
+      );
+      const epoc = resolveTrainingSessionEpoc({
+        session,
+        exerciseCalories: sessionCalories,
+        trainingType: resolvedTrainingTypes?.[session?.type],
+        userData: resolvedUserData,
+      });
+      return sum + (Number(epoc?.totalCalories) || 0);
+    },
+    0
+  );
+  const resolvedCardioEpocTotal = resolvedCardioSessions.reduce(
+    (sum, session) => {
+      const sessionCalories = calculateCardioCalories(session);
+      const epoc = resolveCardioSessionEpoc({
+        session,
+        exerciseCalories: sessionCalories,
+        cardioType: resolvedCardioTypes?.[session?.type],
+        userData: resolvedUserData,
+      });
+      return sum + (Number(epoc?.totalCalories) || 0);
+    },
+    0
   );
   const resolvedHasCardioSessions =
     typeof hasCardioSessions === 'boolean'
@@ -232,7 +270,7 @@ export const HomeScreen = ({
             <p className="font-bold text-lg">Training Day</p>
             <p className="text-[11px] opacity-70 mt-1">
               {resolvedTodayTrainingSessions.length > 0
-                ? `~${Math.round(resolvedTrainingCalories)} kcal burn`
+                ? `~${Math.round(resolvedTrainingCalories)} kcal + ${Math.round(resolvedTrainingEpocTotal)} EPOC`
                 : 'Tap to add session'}
             </p>
             <AnimatePresence initial={false}>
@@ -324,6 +362,13 @@ export const HomeScreen = ({
                       ? Number(session.duration)
                       : 0;
                     const calories = calculateCardioCalories(session);
+                    const sessionEpoc = resolveCardioSessionEpoc({
+                      session,
+                      exerciseCalories: calories,
+                      cardioType: resolvedCardioTypes?.[session?.type],
+                      userData: resolvedUserData,
+                    });
+                    const epocCalories = Number(sessionEpoc?.totalCalories) || 0;
                     const effortType = session.effortType ?? 'intensity';
                     const heartRate = Number(session.averageHeartRate);
                     const hasHeartRate =
@@ -355,7 +400,7 @@ export const HomeScreen = ({
                           </p>
                           <p className="text-muted text-sm">
                             {durationValue} min • {effortDisplay} • ~{calories}{' '}
-                            kcal
+                            kcal + ~{Math.round(epocCalories)} EPOC
                           </p>
                           {showMissingTypeWarning && (
                             <p className="text-amber-300 text-xs mt-1">
@@ -399,7 +444,8 @@ export const HomeScreen = ({
                 className="bg-accent-blue/30 border border-accent-blue rounded-lg p-3"
               >
                 <p className="text-accent-blue font-semibold">
-                  Total Cardio Burn: {resolvedTotalCardioBurn} calories
+                  Total Cardio Burn: {resolvedTotalCardioBurn} calories (+
+                  {Math.round(resolvedCardioEpocTotal)} EPOC)
                 </p>
               </motion.div>
             </motion.div>

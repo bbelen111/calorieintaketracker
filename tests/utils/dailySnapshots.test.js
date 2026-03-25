@@ -163,6 +163,8 @@ test('buildDailySnapshot applies carryover calories allocated from prior-day tim
   const sessionStart = new Date('2026-03-21T23:30:00').getTime();
   const withCarryover = {
     ...userData,
+    epocEnabled: true,
+    epocCarryoverHours: 12,
     cardioSessions: [
       {
         id: 'carryover-cardio',
@@ -175,8 +177,6 @@ test('buildDailySnapshot applies carryover calories allocated from prior-day tim
         effortType: 'intensity',
         intensity: 'moderate',
         stepOverlapEnabled: true,
-        epocCalories: 60,
-        epocCarryoverMinutes: 120,
       },
     ],
     trainingSessions: [],
@@ -200,6 +200,7 @@ test('buildDailySnapshot applies carryover calories allocated from prior-day tim
     existingSnapshot: null,
   });
 
-  assert.ok(snapshot.epocCarryoverCalories > 0);
-  assert.equal(snapshot.epocCarryoverSourceSessions, 1);
+  assert.ok(snapshot.epocCarryInCalories > 0);
+  assert.ok(snapshot.epoc > 0);
+  assert.equal(snapshot.epoc, snapshot.epocCardio + snapshot.epocTraining);
 });

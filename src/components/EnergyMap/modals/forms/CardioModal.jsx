@@ -9,6 +9,7 @@ import { DurationPickerModal } from '../pickers/DurationPickerModal';
 import { HeartRatePickerModal } from '../pickers/HeartRatePickerModal';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { calculateCardioCalories } from '../../../../utils/calculations';
+import { resolveCardioSessionEpoc } from '../../../../utils/epoc';
 import { roundDurationHours } from '../../../../utils/time';
 import { isStepBasedCardioType } from '../../../../utils/steps';
 
@@ -67,6 +68,25 @@ export const CardioModal = ({
     },
     resolvedCardioTypes
   );
+  const estimatedEpoc = React.useMemo(() => {
+    const epoc = resolveCardioSessionEpoc({
+      session,
+      exerciseCalories: estimatedBurn,
+      cardioType: resolvedCardioTypes?.[session?.type],
+      userData: {
+        age: resolvedUserAge,
+        epocCarryoverHours: userData?.epocCarryoverHours,
+      },
+    });
+
+    return Number(epoc?.totalCalories) || 0;
+  }, [
+    session,
+    estimatedBurn,
+    resolvedCardioTypes,
+    resolvedUserAge,
+    userData?.epocCarryoverHours,
+  ]);
   const hasValidDuration =
     Number.isFinite(Number(session.duration)) && Number(session.duration) > 0;
   const hasValidStartTime = /^([01]\d|2[0-3]):([0-5]\d)$/.test(
@@ -560,6 +580,9 @@ export const CardioModal = ({
             </p>
             <p className="text-foreground font-bold text-xl text-center">
               ~{estimatedBurn} calories
+            </p>
+            <p className="text-muted text-xs text-center mt-1">
+              +~{Math.round(estimatedEpoc)} EPOC
             </p>
           </div>
         </div>

@@ -134,6 +134,7 @@ export const getCarryoverForDateFromSessions = ({
   sessions,
   carryoverMinutesField = 'epocCarryoverMinutes',
   caloriesField = 'epocCalories',
+  resolveCarryover,
 }) => {
   const targetDateKey = String(dateKey ?? '').trim();
   if (!targetDateKey) {
@@ -153,8 +154,14 @@ export const getCarryoverForDateFromSessions = ({
       return;
     }
 
-    const carryoverMinutes = Number(session?.[carryoverMinutesField]);
-    const totalCalories = Number(session?.[caloriesField]);
+    const resolvedCarryover =
+      typeof resolveCarryover === 'function' ? resolveCarryover(session) : null;
+    const carryoverMinutes = Number(
+      resolvedCarryover?.windowMinutes ?? session?.[carryoverMinutesField]
+    );
+    const totalCalories = Number(
+      resolvedCarryover?.totalCalories ?? session?.[caloriesField]
+    );
 
     const sessionAllocations = allocateCarryoverByDate({
       anchorMs: window.endedAt,
@@ -175,6 +182,8 @@ export const getCarryoverForDateFromSessions = ({
       sessionId: session?.id ?? null,
       sessionType: session?.type ?? null,
       sourceDate: window.dateKey ?? null,
+      carryoverWindowMinutes: carryoverMinutes,
+      sourceCalories: totalCalories,
     });
   });
 
