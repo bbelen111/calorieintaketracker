@@ -63,6 +63,9 @@ import { CardioFavouritesModal } from './modals/lists/CardioFavouritesModal';
 import { CalorieBreakdownModal } from './modals/info/CalorieBreakdownModal';
 import { TefInfoModal } from './modals/info/TefInfoModal';
 import { AdaptiveThermogenesisInfoModal } from './modals/info/AdaptiveThermogenesisInfoModal';
+import { EpocInfoModal } from './modals/info/EpocInfoModal';
+import { TimePickerModal } from './modals/pickers/TimePickerModal';
+import { EpocWindowPickerModal } from './modals/pickers/EpocWindowPickerModal';
 import { DailyActivityModal } from './modals/forms/DailyActivityModal';
 import { DailyActivityEditorModal } from './modals/forms/DailyActivityEditorModal';
 import { DailyActivityCustomModal } from './modals/forms/DailyActivityCustomModal';
@@ -438,6 +441,10 @@ export const EnergyMapCalculator = () => {
   const [editingTrainingType, setEditingTrainingType] = useState(null);
   const [tempPresetName, setTempPresetName] = useState('');
   const [tempPresetCalories, setTempPresetCalories] = useState(0);
+  const [tempTimePickerValue, setTempTimePickerValue] = useState('12:00');
+  const [tempEpocWindowValue, setTempEpocWindowValue] = useState(
+    userData.epocCarryoverHours ?? 6
+  );
   const [newStepRange, setNewStepRange] = useState('');
   const [selectedBreakdownRequest, setSelectedBreakdownRequest] =
     useState(null);
@@ -600,6 +607,9 @@ export const EnergyMapCalculator = () => {
   const calorieBreakdownModal = useAnimatedModal();
   const tefInfoModal = useAnimatedModal();
   const adaptiveThermogenesisInfoModal = useAnimatedModal();
+  const epocInfoModal = useAnimatedModal();
+  const timePickerModal = useAnimatedModal();
+  const epocWindowPickerModal = useAnimatedModal();
   const phaseCreationModal = useAnimatedModal();
   const templatePickerModal = useAnimatedModal();
   const dailyLogModal = useAnimatedModal();
@@ -650,6 +660,8 @@ export const EnergyMapCalculator = () => {
     bmiModal,
     bmrModal,
     goalModal,
+    timePickerModal,
+    epocWindowPickerModal,
   ].some((modal) => modal?.isOpen || modal?.isClosing);
 
   // Keep a ref to the latest modal state so the back gesture handler never reads stale values
@@ -696,6 +708,9 @@ export const EnergyMapCalculator = () => {
         bmiModal,
         bmrModal,
         goalModal,
+        timePickerModal,
+        epocWindowPickerModal,
+        epocInfoModal,
       ];
 
       for (const modal of modalStack) {
@@ -1239,7 +1254,6 @@ export const EnergyMapCalculator = () => {
       setTempTrainingType(
         latestTodaySession.type ?? userData.selectedTrainingType
       );
-      
       setTempTrainingDuration(durationHours);
       setTempTrainingEffortType(normalizedEffortType);
       setTempTrainingIntensity(
@@ -2463,7 +2477,7 @@ export const EnergyMapCalculator = () => {
   const handleGoalSave = useCallback(() => {
     setSelectedGoal(tempSelectedGoal);
     goalModal.requestClose();
-  }, [goalModal, tempSelectedGoal]);
+  }, [goalModal, setSelectedGoal, tempSelectedGoal]);
 
   const handleAgeSave = useCallback(
     (value) => {
@@ -2484,6 +2498,41 @@ export const EnergyMapCalculator = () => {
     },
     [handleUserDataChange, heightModal, tempHeight]
   );
+
+  const handleTimePickerSave = useCallback(
+    (value) => {
+      setTempTimePickerValue(value);
+      timePickerModal.requestClose();
+    },
+    [timePickerModal]
+  );
+
+  const handleTimePickerCancel = useCallback(() => {
+    setTimeout(() => {
+      setTempTimePickerValue('12:00');
+    }, MODAL_CLOSE_DELAY);
+    timePickerModal.requestClose();
+  }, [timePickerModal]);
+
+  const handleEpocWindowSave = useCallback(
+    (value) => {
+      const clamped = Math.min(Math.max(Math.round(value), 1), 24);
+      handleUserDataChange('epocCarryoverHours', clamped);
+      epocWindowPickerModal.requestClose();
+    },
+    [epocWindowPickerModal, handleUserDataChange]
+  );
+
+  const handleEpocWindowCancel = useCallback(() => {
+    setTimeout(() => {
+      setTempEpocWindowValue(userData.epocCarryoverHours ?? 6);
+    }, MODAL_CLOSE_DELAY);
+    epocWindowPickerModal.requestClose();
+  }, [epocWindowPickerModal, userData.epocCarryoverHours]);
+  const openEpocWindowPickerModal = useCallback(() => {
+    setTempEpocWindowValue(userData.epocCarryoverHours ?? 6);
+    epocWindowPickerModal.open();
+  }, [epocWindowPickerModal, userData.epocCarryoverHours]);
 
   const handleTrainingSave = useCallback(() => {
     if (trainingModalMode === 'session') {
@@ -3241,6 +3290,12 @@ export const EnergyMapCalculator = () => {
         onClose={adaptiveThermogenesisInfoModal.requestClose}
       />
 
+      <EpocInfoModal
+        isOpen={epocInfoModal.isOpen}
+        isClosing={epocInfoModal.isClosing}
+        onClose={epocInfoModal.requestClose}
+      />
+
       <BmiInfoModal
         isOpen={bmiModal.isOpen}
         isClosing={bmiModal.isClosing}
@@ -3316,6 +3371,27 @@ export const EnergyMapCalculator = () => {
         value={stepGoal}
         onCancel={stepGoalPickerModal.requestClose}
         onSave={handleStepGoalSave}
+      />
+
+      <TimePickerModal
+        isOpen={timePickerModal.isOpen}
+        isClosing={timePickerModal.isClosing}
+        title="Select Time"
+        value={tempTimePickerValue}
+        onCancel={handleTimePickerCancel}
+        onSave={handleTimePickerSave}
+      />
+
+      <EpocWindowPickerModal
+        isOpen={epocWindowPickerModal.isOpen}
+        isClosing={epocWindowPickerModal.isClosing}
+        title="Carryover Window"
+        value={tempEpocWindowValue}
+        min={1}
+        max={24}
+        unitLabel="Hours"
+        onCancel={handleEpocWindowCancel}
+        onSave={handleEpocWindowSave}
       />
 
       <WeightEntryModal
@@ -3405,6 +3481,8 @@ export const EnergyMapCalculator = () => {
         onDailyActivityClick={openDailyActivitySettings}
         onOpenTefInfo={tefInfoModal.open}
         onOpenAdaptiveThermogenesisInfo={adaptiveThermogenesisInfoModal.open}
+        onOpenEpocInfo={epocInfoModal.open}
+        onEpocWindowPickerClick={openEpocWindowPickerModal}
         onCancel={settingsModal.requestClose}
         onSave={handleSettingsSave}
       />

@@ -232,3 +232,9 @@ export const resolveCardioSessionEpoc = ({
     carryoverWindowMinutes,
   });
 };
+
+export {
+  DEFAULT_CARRYOVER_HOURS,
+  MAX_CARRYOVER_HOURS,
+  CARRYOVER_HOURS_BY_INTENSITY,
+};

@@ -45,6 +45,8 @@ export const SettingsModal = ({
   bodyFatTrackingEnabled,
   onOpenTefInfo,
   onOpenAdaptiveThermogenesisInfo,
+  onOpenEpocInfo,
+  onEpocWindowPickerClick,
   onCancel,
   onSave,
 }) => {
@@ -345,9 +347,14 @@ export const SettingsModal = ({
 
             <div>
               <div className="flex items-center justify-between mb-2 gap-3">
-                <div className="inline-flex items-center gap-1.5 text-foreground/80 text-sm rounded-md px-1 py-0.5">
+                <button
+                  type="button"
+                  onClick={() => onOpenEpocInfo?.()}
+                  className="inline-flex items-center gap-1.5 text-foreground/80 text-sm md:hover:text-foreground transition-colors focus-ring rounded-md px-1 py-0.5 pressable-inline"
+                >
                   <span>EPOC (Post-Exercise Burn)</span>
-                </div>
+                  <Info size={14} />
+                </button>
                 <button
                   type="button"
                   role="switch"
@@ -389,25 +396,18 @@ export const SettingsModal = ({
                         next day.
                       </p>
                     </div>
-                    <input
-                      type="number"
-                      min={1}
-                      max={24}
-                      value={epocCarryoverHours}
-                      onChange={(event) =>
-                        onChange(
-                          'epocCarryoverHours',
-                          Math.min(
-                            Math.max(
-                              Number.parseInt(event.target.value, 10) || 1,
-                              1
-                            ),
-                            24
-                          )
-                        )
-                      }
-                      className="w-20 rounded-md border border-border bg-surface px-2 py-1 text-right text-sm text-foreground focus-ring"
-                    />
+                    <button
+                      type="button"
+                      onClick={() => onEpocWindowPickerClick?.()}
+                      className="bg-surface-highlight text-foreground px-3 py-1 rounded-md border border-border transition-all text-right focus-ring md:hover:border-muted/50 flex items-center justify-center gap-2 pressable-inline font-medium text-sm"
+                      aria-label="Open carryover window picker"
+                    >
+                      <span>{epocCarryoverHours}h</span>
+                      <ChevronsUpDown
+                        size={14}
+                        className="text-muted shrink-0"
+                      />
+                    </button>
                   </div>
                 </div>
               )}

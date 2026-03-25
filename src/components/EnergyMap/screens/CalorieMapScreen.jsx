@@ -35,13 +35,6 @@ const formatLastSynced = (date) => {
   return date.toLocaleDateString();
 };
 
-const formatStepCount = (count) => {
-  if (count >= 1000) {
-    return `${(count / 1000).toFixed(1).replace(/\.0$/, '')}k`;
-  }
-  return count.toLocaleString();
-};
-
 /**
  * Live Steps Hero Card - shows current step data from Health Connect
  */
