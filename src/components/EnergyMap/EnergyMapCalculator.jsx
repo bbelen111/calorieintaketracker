@@ -91,6 +91,12 @@ import {
   hasNutritionEntriesForDate,
 } from '../../utils/phases';
 import { isStepBasedCardioType } from '../../utils/steps';
+import {
+  deriveSessionTimestamps,
+  getCurrentLocalTimeString,
+  getTimeOfDayFromEpochMs,
+  normalizeTimeOfDay,
+} from '../../utils/time';
 
 const MODAL_CLOSE_DELAY = 180; // Match CSS animation duration (150ms) + buffer
 const DEFAULT_TRAINING_EFFORT_TYPE = 'intensity';
@@ -111,6 +117,7 @@ const trackerIndex = screenTabs.findIndex((tab) => tab.key === 'tracker');
 const defaultCardioSession = {
   date: '',
   type: 'treadmill_walk',
+  startTime: '12:00',
   duration: 30,
   intensity: 'moderate',
   effortType: 'intensity',
@@ -127,6 +134,7 @@ const getDefaultCardioSessionForType = (typeKey, cardioTypes = {}) => {
   return {
     ...defaultCardioSession,
     date: getTodayDateString(),
+    startTime: getCurrentLocalTimeString(),
     type: resolvedType,
     stepOverlapEnabled: isStepBasedCardioType(
       resolvedType,
@@ -157,10 +165,20 @@ const sanitizeCardioDraft = (draft, cardioTypes = {}) => {
   }
 
   const effortType = draft.effortType ?? 'intensity';
+  const startTime = normalizeTimeOfDay(draft.startTime, '12:00');
+  const timestamps = deriveSessionTimestamps({
+    dateKey: normalizedDate,
+    timeOfDay: startTime,
+    durationMinutes: duration,
+    fallbackStartedAt: draft?.startedAt,
+  });
   const session = {
     ...defaultCardioSession,
     ...draft,
     date: normalizedDate,
+    startTime,
+    startedAt: timestamps.startedAt,
+    endedAt: timestamps.endedAt,
     duration,
     intensity: draft.intensity ?? 'moderate',
     effortType,
@@ -411,6 +429,9 @@ export const EnergyMapCalculator = () => {
     DEFAULT_TRAINING_INTENSITY
   );
   const [tempTrainingHeartRate, setTempTrainingHeartRate] = useState('');
+  const [tempTrainingStartTime, setTempTrainingStartTime] = useState(() =>
+    getCurrentLocalTimeString()
+  );
   const [trainingModalMode, setTrainingModalMode] = useState('session');
   const [editingTrainingSessionId, setEditingTrainingSessionId] =
     useState(null);
@@ -1224,6 +1245,15 @@ export const EnergyMapCalculator = () => {
       setTempTrainingIntensity(
         latestTodaySession.intensity ?? DEFAULT_TRAINING_INTENSITY
       );
+      setTempTrainingStartTime(
+        normalizeTimeOfDay(
+          latestTodaySession?.startTime,
+          getTimeOfDayFromEpochMs(
+            latestTodaySession?.startedAt,
+            getCurrentLocalTimeString()
+          )
+        )
+      );
       setTempTrainingHeartRate(
         normalizedEffortType === 'heartRate'
           ? (latestTodaySession.averageHeartRate ?? '')
@@ -1239,6 +1269,7 @@ export const EnergyMapCalculator = () => {
     setTempTrainingDuration(userData.trainingDuration);
     setTempTrainingEffortType(DEFAULT_TRAINING_EFFORT_TYPE);
     setTempTrainingIntensity(DEFAULT_TRAINING_INTENSITY);
+    setTempTrainingStartTime(getCurrentLocalTimeString());
     setTempTrainingHeartRate('');
     trainingModal.open();
   }, [
@@ -1246,6 +1277,7 @@ export const EnergyMapCalculator = () => {
     trainingModal,
     userData.trainingDuration,
     userData.selectedTrainingType,
+    setTempTrainingStartTime,
   ]);
 
   const handleRestDayClick = useCallback(() => {
@@ -1295,6 +1327,15 @@ export const EnergyMapCalculator = () => {
     setTempTrainingIntensity(
       latestTodayTrainingSession?.intensity ?? DEFAULT_TRAINING_INTENSITY
     );
+    setTempTrainingStartTime(
+      normalizeTimeOfDay(
+        latestTodayTrainingSession?.startTime,
+        getTimeOfDayFromEpochMs(
+          latestTodayTrainingSession?.startedAt,
+          getCurrentLocalTimeString()
+        )
+      )
+    );
     setTempTrainingHeartRate(
       sessionEffortType === 'heartRate'
         ? (latestTodayTrainingSession?.averageHeartRate ?? '')
@@ -1305,6 +1346,8 @@ export const EnergyMapCalculator = () => {
     latestTodayTrainingSession?.averageHeartRate,
     latestTodayTrainingSession?.effortType,
     latestTodayTrainingSession?.intensity,
+    latestTodayTrainingSession?.startTime,
+    latestTodayTrainingSession?.startedAt,
     trainingModal,
     userData.trainingDuration,
     userData.selectedTrainingType,
@@ -1612,6 +1655,13 @@ export const EnergyMapCalculator = () => {
         ...defaultCardioSession,
         ...existing,
         type: existing.type ?? defaultCardioSession.type,
+        startTime: normalizeTimeOfDay(
+          existing?.startTime,
+          getTimeOfDayFromEpochMs(
+            existing?.startedAt,
+            getCurrentLocalTimeString()
+          )
+        ),
         duration: existing.duration ?? defaultCardioSession.duration,
         intensity: existing.intensity ?? defaultCardioSession.intensity,
         effortType: normalizedEffortType,
@@ -1951,6 +2001,10 @@ export const EnergyMapCalculator = () => {
         ...defaultCardioSession,
         ...sanitized,
         date: getTodayDateString(),
+        startTime: normalizeTimeOfDay(
+          sanitized?.startTime,
+          getCurrentLocalTimeString()
+        ),
         averageHeartRate:
           effortType === 'heartRate' ? (sanitized.averageHeartRate ?? '') : '',
       });
@@ -2382,6 +2436,10 @@ export const EnergyMapCalculator = () => {
       const nextDraft = {
         ...defaultCardioSession,
         ...source,
+        startTime: normalizeTimeOfDay(
+          source?.startTime,
+          getCurrentLocalTimeString()
+        ),
         effortType,
         averageHeartRate:
           effortType === 'heartRate' ? (source?.averageHeartRate ?? '') : '',
@@ -2439,9 +2497,18 @@ export const EnergyMapCalculator = () => {
         return;
       }
 
+      const timestamps = deriveSessionTimestamps({
+        dateKey: sessionDate,
+        timeOfDay: tempTrainingStartTime,
+        durationMinutes,
+      });
+
       const sessionPayload = {
         date: sessionDate,
         type: tempTrainingType,
+        startTime: timestamps.startTime,
+        startedAt: timestamps.startedAt,
+        endedAt: timestamps.endedAt,
         duration: durationMinutes,
         effortType: tempTrainingEffortType,
         intensity: tempTrainingIntensity,
@@ -2476,6 +2543,7 @@ export const EnergyMapCalculator = () => {
     handleUserDataChange,
     trainingModal,
     tempTrainingDuration,
+    tempTrainingStartTime,
     tempTrainingType,
     tempTrainingEffortType,
     tempTrainingIntensity,
@@ -2513,6 +2581,15 @@ export const EnergyMapCalculator = () => {
     const parsed = Number.parseInt(value, 10);
     const sanitized = Number.isFinite(parsed) ? Math.max(parsed, 0) : 0;
     setTempTrainingHeartRate(sanitized);
+  }, []);
+
+  const handleTrainingStartTimeChange = useCallback((event) => {
+    const nextValue = normalizeTimeOfDay(event?.target?.value, null);
+    if (!nextValue) {
+      return;
+    }
+
+    setTempTrainingStartTime(nextValue);
   }, []);
 
   const openDurationPicker = useCallback(
@@ -3379,12 +3456,14 @@ export const EnergyMapCalculator = () => {
       <TrainingModal
         isOpen={trainingModal.isOpen}
         isClosing={trainingModal.isClosing}
+        mode={trainingModalMode}
         trainingTypes={trainingTypes}
         tempTrainingType={tempTrainingType}
         tempTrainingDuration={tempTrainingDuration}
         tempTrainingEffortType={tempTrainingEffortType}
         tempTrainingIntensity={tempTrainingIntensity}
         tempTrainingHeartRate={tempTrainingHeartRate}
+        tempTrainingStartTime={tempTrainingStartTime}
         onTrainingTypeSelect={setTempTrainingType}
         onEditTrainingType={openTrainingTypeEditor}
         onDurationClick={() =>
@@ -3393,6 +3472,7 @@ export const EnergyMapCalculator = () => {
         onEffortTypeChange={handleTrainingEffortTypeChange}
         onIntensityChange={handleTrainingIntensityChange}
         onHeartRateChange={handleTrainingHeartRateChange}
+        onStartTimeChange={handleTrainingStartTimeChange}
         onCancel={trainingModal.requestClose}
         onSave={handleTrainingSave}
       />

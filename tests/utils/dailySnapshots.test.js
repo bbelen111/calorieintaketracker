@@ -158,3 +158,48 @@ test('getPreviousDateKey returns previous UTC day for valid date keys', () => {
   assert.equal(getPreviousDateKey('2026-03-01'), '2026-02-28');
   assert.equal(getPreviousDateKey('invalid-date'), null);
 });
+
+test('buildDailySnapshot applies carryover calories allocated from prior-day timestamped sessions', () => {
+  const sessionStart = new Date('2026-03-21T23:30:00').getTime();
+  const withCarryover = {
+    ...userData,
+    cardioSessions: [
+      {
+        id: 'carryover-cardio',
+        date: '2026-03-21',
+        type: 'treadmill_walk',
+        startTime: '23:30',
+        startedAt: sessionStart,
+        endedAt: sessionStart + 30 * 60 * 1000,
+        duration: 30,
+        effortType: 'intensity',
+        intensity: 'moderate',
+        stepOverlapEnabled: true,
+        epocCalories: 60,
+        epocCarryoverMinutes: 120,
+      },
+    ],
+    trainingSessions: [],
+    stepEntries: [
+      {
+        date: '2026-03-22',
+        steps: 5000,
+        source: 'manual',
+      },
+    ],
+    nutritionData: {
+      '2026-03-22': {},
+    },
+  };
+
+  const snapshot = buildDailySnapshot({
+    dateKey: '2026-03-22',
+    userData: withCarryover,
+    trainingTypes,
+    cardioTypes,
+    existingSnapshot: null,
+  });
+
+  assert.ok(snapshot.epocCarryoverCalories > 0);
+  assert.equal(snapshot.epocCarryoverSourceSessions, 1);
+});

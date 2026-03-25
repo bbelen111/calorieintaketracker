@@ -15,6 +15,11 @@ import { clampBodyFat, sortBodyFatEntries } from './bodyFat.js';
 import { sanitizeAge, sanitizeHeight } from './profile.js';
 import { isStepBasedCardioType } from './steps.js';
 import {
+  deriveSessionTimestamps,
+  getTimeOfDayFromEpochMs,
+  normalizeTimeOfDay,
+} from './time.js';
+import {
   createDefaultPhaseLogV2State,
   normalizePhaseLogV2State,
 } from './phaseLogV2.js';
@@ -800,10 +805,30 @@ const normalizeCardioSessionForLoad = (session, resolvedCardioTypes) => {
     return null;
   }
 
+  const duration = Number(session.duration);
+  if (!Number.isFinite(duration) || duration <= 0) {
+    return null;
+  }
+
+  const normalizedStartTime = normalizeTimeOfDay(
+    session?.startTime,
+    getTimeOfDayFromEpochMs(session?.startedAt, '12:00')
+  );
+  const timestamps = deriveSessionTimestamps({
+    dateKey: date,
+    timeOfDay: normalizedStartTime,
+    durationMinutes: duration,
+    fallbackStartedAt: session?.startedAt,
+  });
+
   return {
     ...session,
     date,
     type,
+    duration,
+    startTime: timestamps.startTime,
+    startedAt: timestamps.startedAt,
+    endedAt: timestamps.endedAt,
     effortType: session?.effortType ?? 'intensity',
     stepOverlapEnabled: isStepBasedCardioType(type, resolvedCardioTypes?.[type])
       ? Boolean(session?.stepOverlapEnabled ?? true)
@@ -836,6 +861,15 @@ const normalizeTrainingSessionForLoad = (session) => {
     date,
     type,
     duration,
+    ...deriveSessionTimestamps({
+      dateKey: date,
+      timeOfDay: normalizeTimeOfDay(
+        session?.startTime,
+        getTimeOfDayFromEpochMs(session?.startedAt, '12:00')
+      ),
+      durationMinutes: duration,
+      fallbackStartedAt: session?.startedAt,
+    }),
     effortType: session?.effortType ?? 'intensity',
     intensity: session?.intensity ?? 'moderate',
   };

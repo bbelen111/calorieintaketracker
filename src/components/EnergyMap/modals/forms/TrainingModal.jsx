@@ -14,18 +14,21 @@ import { HeartRatePickerModal } from '../pickers/HeartRatePickerModal';
 export const TrainingModal = ({
   isOpen,
   isClosing,
+  mode = 'session',
   trainingTypes,
   tempTrainingType,
   tempTrainingDuration,
   tempTrainingEffortType,
   tempTrainingIntensity,
   tempTrainingHeartRate,
+  tempTrainingStartTime,
   onTrainingTypeSelect,
   onEditTrainingType,
   onDurationClick,
   onEffortTypeChange,
   onIntensityChange,
   onHeartRateChange,
+  onStartTimeChange,
   userWeight,
   userAge,
   userGender,
@@ -97,7 +100,12 @@ export const TrainingModal = ({
       ? Number.isFinite(Number(tempTrainingHeartRate)) &&
         Number(tempTrainingHeartRate) > 0
       : true;
-  const canSave = hasValidHeartRate;
+  const hasValidStartTime =
+    mode !== 'session' ||
+    /^([01]\d|2[0-3]):([0-5]\d)$/.test(
+      String(tempTrainingStartTime ?? '').trim()
+    );
+  const canSave = hasValidHeartRate && hasValidStartTime;
 
   const effortButtonClass = (type) =>
     `w-full rounded-lg border px-3 py-1.5 text-sm transition-all focus-ring pressable-inline ${
@@ -197,6 +205,21 @@ export const TrainingModal = ({
                 );
               })}
             </div>
+          </div>
+
+          <div>
+            <label className="text-foreground text-sm block mb-2">
+              Start Time
+            </label>
+            <input
+              type="time"
+              value={tempTrainingStartTime ?? '12:00'}
+              onChange={onStartTimeChange}
+              className="w-full px-3 py-2 rounded-lg border-2 bg-surface-highlight border-border text-foreground transition-all focus-ring"
+            />
+            <p className="text-xs text-muted mt-2">
+              Used to split post-workout carryover across day boundaries.
+            </p>
           </div>
 
           <div>

@@ -69,12 +69,15 @@ export const CardioModal = ({
   );
   const hasValidDuration =
     Number.isFinite(Number(session.duration)) && Number(session.duration) > 0;
+  const hasValidStartTime = /^([01]\d|2[0-3]):([0-5]\d)$/.test(
+    String(session?.startTime ?? '').trim()
+  );
   const hasValidHeartRate =
     effortType === 'heartRate'
       ? Number.isFinite(Number(session.averageHeartRate)) &&
         Number(session.averageHeartRate) > 0
       : true;
-  const canSave = hasValidDuration && hasValidHeartRate;
+  const canSave = hasValidDuration && hasValidHeartRate && hasValidStartTime;
   const intensityValue = session.intensity ?? 'moderate';
   const heartRateValue =
     session.averageHeartRate === '' || session.averageHeartRate == null
@@ -392,6 +395,24 @@ export const CardioModal = ({
                 Tap to change
               </span>
             </button>
+          </div>
+
+          <div>
+            <label className="text-foreground text-sm block mb-2">
+              Start Time
+            </label>
+            <input
+              type="time"
+              value={session.startTime ?? '12:00'}
+              onChange={(event) =>
+                onChange({ ...session, startTime: event.target.value })
+              }
+              className="w-full px-3 py-2 rounded-lg border-2 bg-surface-highlight border-border text-foreground transition-all focus-ring"
+            />
+            <p className="text-xs text-muted mt-2">
+              Used to place post-session carryover accurately across date
+              boundaries.
+            </p>
           </div>
 
           <div>

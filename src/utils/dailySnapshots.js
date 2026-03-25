@@ -1,6 +1,7 @@
 import { calculateBMR, calculateCalorieBreakdown } from './calculations.js';
 import { getNutritionTotalsForDate } from './phases.js';
 import { normalizeDateKey } from './weight.js';
+import { getCarryoverForDateFromSessions } from './sessionCarryover.js';
 
 const GOAL_KEYS = new Set([
   'aggressive_bulk',
@@ -129,9 +130,22 @@ export const buildDailySnapshot = ({
     dateKey: normalizedDateKey,
   });
 
+  const trainingCarryover = getCarryoverForDateFromSessions({
+    dateKey: normalizedDateKey,
+    sessions: userData?.trainingSessions,
+  });
+  const cardioCarryover = getCarryoverForDateFromSessions({
+    dateKey: normalizedDateKey,
+    sessions: userData?.cardioSessions,
+  });
+  const carryoverCalories =
+    (Number(trainingCarryover?.totalCalories) || 0) +
+    (Number(cardioCarryover?.totalCalories) || 0);
+
   const intake = Math.round(Number(nutritionTotals?.calories) || 0);
-  const tdee = Math.round(Number(breakdown?.total) || 0);
-  const baselineTdee = Math.round(Number(breakdown?.baselineTotal) || tdee);
+  const baseTdee = Math.round(Number(breakdown?.total) || 0);
+  const tdee = Math.round(baseTdee + carryoverCalories);
+  const baselineTdee = Math.round(Number(breakdown?.baselineTotal) || baseTdee);
   const adaptiveThermogenesisCorrection = Math.round(
     Number(breakdown?.adaptiveThermogenesisCorrection) || 0
   );
@@ -156,6 +170,16 @@ export const buildDailySnapshot = ({
     cardioBurn: Math.round(Number(breakdown?.cardioBurn) || 0),
     tef: Math.round(Number(breakdown?.smartTefCalories) || 0),
     tefMode: breakdown?.tefMode ?? 'off',
+    epocCarryoverCalories: Math.round(carryoverCalories),
+    epocCarryoverTrainingCalories: Math.round(
+      Number(trainingCarryover?.totalCalories) || 0
+    ),
+    epocCarryoverCardioCalories: Math.round(
+      Number(cardioCarryover?.totalCalories) || 0
+    ),
+    epocCarryoverSourceSessions:
+      (Number(trainingCarryover?.sourceSessionsCount) || 0) +
+      (Number(cardioCarryover?.sourceSessionsCount) || 0),
     createdAt: Number(existingSnapshot?.createdAt) || now,
     updatedAt: now,
   };
