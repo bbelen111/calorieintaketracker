@@ -246,7 +246,7 @@ export const SettingsModal = ({
                 <button
                   type="button"
                   onClick={() => onManageWeightClick?.()}
-                  className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-500 text-white transition-all press-feedback flex flex-wrap items-center gap-x-3 gap-y-1 text-left focus-ring md:hover:bg-blue-500/90"
+                  className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-500 text-white transition-all press-feedback flex flex-wrap items-center gap-x-3 gap-y-1 text-left focus-ring md:hover:bg-blue-500/90 font-semibold"
                 >
                   <span className="font-semibold text-sm md:text-base">
                     {displayedWeight !== '—' ? `${displayedWeight}kg` : '—'}

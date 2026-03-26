@@ -53,7 +53,7 @@ export const HeightPickerModal = ({
       alignScrollContainerToValue(scrollRef.current, nextHeight, behavior);
     });
     return () => cancelAnimationFrame(frame);
-  }, [isOpen, selectedHeight, value]);
+  }, [isOpen, value]);
 
   const handleHeightChange = useCallback((nextHeight) => {
     setSelectedHeight(sanitizeHeight(nextHeight));
