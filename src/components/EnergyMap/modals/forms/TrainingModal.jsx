@@ -2,7 +2,9 @@ import React, { useCallback, useEffect, useMemo } from 'react';
 import { Save, Edit3, ChevronsUpDown } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import {
+  formatTimeOfDay12Hour,
   formatDurationLabel,
+  normalizeTimeOfDay,
   roundDurationHours,
 } from '../../../../utils/time';
 import { calculateTrainingSessionCalories } from '../../../../utils/calculations';
@@ -66,8 +68,7 @@ export const TrainingModal = ({
       duration: durationMinutes,
       effortType,
       intensity: intensityValue,
-      averageHeartRate:
-        effortType === 'heartRate' ? tempTrainingHeartRate : '',
+      averageHeartRate: effortType === 'heartRate' ? tempTrainingHeartRate : '',
     };
   }, [
     tempTrainingType,
@@ -119,6 +120,14 @@ export const TrainingModal = ({
   ]);
 
   const formattedDuration = formatDurationLabel(tempTrainingDuration);
+  const normalizedStartTime = useMemo(
+    () => normalizeTimeOfDay(tempTrainingStartTime, '12:00'),
+    [tempTrainingStartTime]
+  );
+  const formattedStartTime12h = useMemo(
+    () => formatTimeOfDay12Hour(normalizedStartTime, '12:00 PM'),
+    [normalizedStartTime]
+  );
   const roundedDuration = useMemo(
     () => roundDurationHours(tempTrainingDuration),
     [tempTrainingDuration]
@@ -247,7 +256,11 @@ export const TrainingModal = ({
               aria-label="Open start time picker"
             >
               <span className="font-medium text-base">
-                {tempTrainingStartTime ?? '12:00'}
+                <span className="text-foreground">{formattedStartTime12h}</span>
+                <span className="text-foreground/70">
+                  {' '}
+                  ({normalizedStartTime})
+                </span>
               </span>
               <ChevronsUpDown size={16} className="text-muted shrink-0" />
             </button>

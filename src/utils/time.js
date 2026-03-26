@@ -66,6 +66,26 @@ export const getCurrentLocalTimeString = (date = new Date()) => {
   return `${hours}:${minutes}`;
 };
 
+export const formatTimeOfDay12Hour = (value, fallback = '12:00 PM') => {
+  const normalized = normalizeTimeOfDay(value, null);
+  if (!normalized) {
+    return fallback;
+  }
+
+  const [hoursText, minutesText] = normalized.split(':');
+  const hours24 = Number.parseInt(hoursText, 10);
+  const minutes = Number.parseInt(minutesText, 10);
+
+  if (!Number.isFinite(hours24) || !Number.isFinite(minutes)) {
+    return fallback;
+  }
+
+  const amPm = hours24 >= 12 ? 'PM' : 'AM';
+  const hours12 = hours24 % 12 || 12;
+
+  return `${String(hours12).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${amPm}`;
+};
+
 export const getDateKeyFromEpochMs = (value) => {
   const numeric = Number(value);
   if (!Number.isFinite(numeric) || numeric <= 0) {

@@ -10,7 +10,11 @@ import { HeartRatePickerModal } from '../pickers/HeartRatePickerModal';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { calculateCardioCalories } from '../../../../utils/calculations';
 import { resolveCardioSessionEpoc } from '../../../../utils/epoc';
-import { roundDurationHours } from '../../../../utils/time';
+import {
+  formatTimeOfDay12Hour,
+  normalizeTimeOfDay,
+  roundDurationHours,
+} from '../../../../utils/time';
 import { isStepBasedCardioType } from '../../../../utils/steps';
 
 export const CardioModal = ({
@@ -113,6 +117,16 @@ export const CardioModal = ({
   const sessionDurationHours = React.useMemo(() => {
     return sessionDurationMinutes / 60;
   }, [sessionDurationMinutes]);
+
+  const normalizedStartTime = React.useMemo(
+    () => normalizeTimeOfDay(session.startTime, '12:00'),
+    [session.startTime]
+  );
+
+  const formattedStartTime12h = React.useMemo(
+    () => formatTimeOfDay12Hour(normalizedStartTime, '12:00 PM'),
+    [normalizedStartTime]
+  );
 
   const formattedSessionDuration = React.useMemo(() => {
     if (session.duration === '') return '--';
@@ -430,7 +444,11 @@ export const CardioModal = ({
               aria-label="Open start time picker"
             >
               <span className="font-medium text-base">
-                {session.startTime ?? '12:00'}
+                <span className="text-foreground">{formattedStartTime12h}</span>
+                <span className="text-foreground/70">
+                  {' '}
+                  ({normalizedStartTime})
+                </span>
               </span>
               <ChevronsUpDown size={16} className="text-muted shrink-0" />
             </button>

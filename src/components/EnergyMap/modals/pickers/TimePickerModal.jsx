@@ -107,9 +107,18 @@ const parseTimeString = (
 };
 
 const formatTimeString = (amPm, hours, minutes) => {
-  const h = String(clampHours(hours)).padStart(2, '0');
-  const m = String(clampMinutes(minutes)).padStart(2, '0');
-  return `${h}:${m} ${normalizeToAmPm(amPm).toUpperCase()}`;
+  const normalizedAmPm = normalizeToAmPm(amPm);
+  const normalizedHours = clampHours(hours);
+  const normalizedMinutes = clampMinutes(minutes);
+
+  let hours24 = normalizedHours % 12;
+  if (normalizedAmPm === 'pm') {
+    hours24 += 12;
+  }
+
+  const h = String(hours24).padStart(2, '0');
+  const m = String(normalizedMinutes).padStart(2, '0');
+  return `${h}:${m}`;
 };
 
 export const TimePickerModal = ({
@@ -138,12 +147,7 @@ export const TimePickerModal = ({
   const [selectedMinutes, setSelectedMinutes] = useState(initialParsed.minutes);
 
   const amPmValues = useMemo(() => {
-    const base = ['am', 'pm'];
-    const repeated = [];
-    for (let r = 0; r < REPEATS; r++) {
-      for (const ap of base) repeated.push(ap);
-    }
-    return repeated;
+    return ['am', 'pm'];
   }, []);
 
   const hoursValues = useMemo(() => {
