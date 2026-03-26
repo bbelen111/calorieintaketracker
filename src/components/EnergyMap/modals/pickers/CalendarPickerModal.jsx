@@ -12,6 +12,7 @@ import {
   Droplet,
 } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
+import { formatDateKeyUtc, getTodayDateKey } from '../../../../utils/dateKeys';
 
 const TOOLTIP_VERTICAL_OFFSET = 12;
 
@@ -89,7 +90,7 @@ const CalendarHeatmap = ({
           return;
       }
 
-      const newDateStr = newDate.toISOString().split('T')[0];
+      const newDateStr = formatDateKeyUtc(newDate);
       // Check if the new date is in the current view
       const isInView = calendarData.some((day) => day.date === newDateStr);
       if (isInView) {
@@ -274,8 +275,7 @@ export const CalendarPickerModal = ({
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const tooltipRef = useRef(null);
 
-  const today = useMemo(() => new Date(), []);
-  const todayStr = useMemo(() => today.toISOString().split('T')[0], [today]);
+  const todayStr = useMemo(() => getTodayDateKey(), []);
 
   // Generate year range dynamically based on selected year (4 years before, current, 3 years after)
   const yearRange = useMemo(() => {
@@ -320,7 +320,7 @@ export const CalendarPickerModal = ({
 
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(Date.UTC(year, month, day));
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = formatDateKeyUtc(date);
       const dateData = nutritionData[dateStr] || {};
       const allEntries = Object.values(dateData).flat();
 
@@ -382,7 +382,7 @@ export const CalendarPickerModal = ({
       for (let i = firstDayOfWeek - 1; i >= 0; i--) {
         const day = prevMonthLastDay - i;
         const date = new Date(Date.UTC(prevYear, prevMonth, day));
-        const dateStr = date.toISOString().split('T')[0];
+        const dateStr = formatDateKeyUtc(date);
         data.push({
           date: dateStr,
           dayOfWeek: date.getUTCDay(),
@@ -396,7 +396,7 @@ export const CalendarPickerModal = ({
     // Add current month days
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(Date.UTC(year, month, day));
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = formatDateKeyUtc(date);
       const dateData = nutritionData[dateStr] || {};
       // Check if any meal type has entries
       const hasEntries = Object.values(dateData).some(
@@ -419,7 +419,7 @@ export const CalendarPickerModal = ({
 
       for (let day = 1; day <= remainingCells; day++) {
         const date = new Date(Date.UTC(nextYear, nextMonth, day));
-        const dateStr = date.toISOString().split('T')[0];
+        const dateStr = formatDateKeyUtc(date);
         data.push({
           date: dateStr,
           dayOfWeek: date.getUTCDay(),

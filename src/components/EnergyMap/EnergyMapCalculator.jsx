@@ -100,6 +100,7 @@ import {
   getTimeOfDayFromEpochMs,
   normalizeTimeOfDay,
 } from '../../utils/time';
+import { formatDateKeyUtc, getTodayDateKey } from '../../utils/dateKeys';
 
 const MODAL_CLOSE_DELAY = 180; // Match CSS animation duration (150ms) + buffer
 const DEFAULT_TRAINING_EFFORT_TYPE = 'intensity';
@@ -215,13 +216,7 @@ const sanitizeCardioDraft = (draft, cardioTypes = {}) => {
   return session;
 };
 
-const getTodayDateString = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+const getTodayDateString = () => getTodayDateKey();
 
 const DEFAULT_PORTION_GRAMS = 100;
 
@@ -777,7 +772,7 @@ export const EnergyMapCalculator = () => {
           const todayDateKey = getTodayDateString();
           const yesterdayDate = new Date(`${todayDateKey}T00:00:00Z`);
           yesterdayDate.setUTCDate(yesterdayDate.getUTCDate() - 1);
-          const yesterdayDateKey = yesterdayDate.toISOString().split('T')[0];
+          const yesterdayDateKey = formatDateKeyUtc(yesterdayDate);
 
           store.upsertDailySnapshot(yesterdayDateKey);
           store.upsertDailySnapshot(todayDateKey);
@@ -2767,7 +2762,7 @@ export const EnergyMapCalculator = () => {
       if (!template) return;
 
       const today = new Date();
-      const startDate = today.toISOString().split('T')[0];
+      const startDate = getTodayDateKey();
 
       const endDate = new Date(today);
       endDate.setDate(endDate.getDate() + template.suggestedDuration);
@@ -2781,7 +2776,7 @@ export const EnergyMapCalculator = () => {
 
       setPhaseName(template.defaultName);
       setPhaseStartDate(startDate);
-      setPhaseEndDate(endDate.toISOString().split('T')[0]);
+      setPhaseEndDate(formatDateKeyUtc(endDate));
       setPhaseGoalType(template.goalType);
       setPhaseTargetWeight(targetWeight);
     },

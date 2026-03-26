@@ -1,4 +1,5 @@
 import { MEAL_TYPE_ORDER } from '../constants/mealTypes.js';
+import { formatDateKeyUtc } from './dateKeys.js';
 
 const EMPTY_NUTRITION_TOTALS = {
   calories: 0,
@@ -200,7 +201,7 @@ export const getPhaseCalendarData = (phase, nutritionData = null) => {
   const currentDate = new Date(startDate);
 
   while (currentDate <= endDate) {
-    const dateStr = currentDate.toISOString().split('T')[0];
+    const dateStr = formatDateKeyUtc(currentDate);
     const log = phase.dailyLogs?.[dateStr];
 
     let status = 'empty';

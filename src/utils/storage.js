@@ -461,6 +461,9 @@ const GOAL_KEYS = new Set([
 ]);
 const MIN_EPOC_CARRYOVER_HOURS = 1;
 const MAX_EPOC_CARRYOVER_HOURS = 24;
+const ADAPTIVE_THERMOGENESIS_SMOOTHING_METHODS = new Set(['ema', 'sma']);
+const MIN_ADAPTIVE_SMOOTHING_WINDOW_DAYS = 3;
+const MAX_ADAPTIVE_SMOOTHING_WINDOW_DAYS = 14;
 let lastSavedProfileSerialized = null;
 let lastSavedHistorySerializedByField = new Map();
 let lastSavedShardedDocIdsByField = new Map();
@@ -1079,6 +1082,9 @@ export const getDefaultEnergyMapData = () => ({
   smartTefLiveCardTargetMode: false,
   adaptiveThermogenesisEnabled: false,
   adaptiveThermogenesisSmartMode: false,
+  adaptiveThermogenesisSmoothingEnabled: false,
+  adaptiveThermogenesisSmoothingMethod: 'ema',
+  adaptiveThermogenesisSmoothingWindowDays: 7,
   epocEnabled: true,
   epocCarryoverHours: 6,
   selectedTrainingType: 'trainingtype_1',
@@ -1324,6 +1330,37 @@ function mergeWithDefaults(data) {
     adaptiveThermogenesisSmartMode:
       normalizedInput.adaptiveThermogenesisSmartMode ??
       defaults.adaptiveThermogenesisSmartMode,
+    adaptiveThermogenesisSmoothingEnabled:
+      normalizedInput.adaptiveThermogenesisSmoothingEnabled ??
+      defaults.adaptiveThermogenesisSmoothingEnabled,
+    adaptiveThermogenesisSmoothingMethod: (() => {
+      const normalized = String(
+        normalizedInput.adaptiveThermogenesisSmoothingMethod ??
+          defaults.adaptiveThermogenesisSmoothingMethod
+      )
+        .trim()
+        .toLowerCase();
+
+      return ADAPTIVE_THERMOGENESIS_SMOOTHING_METHODS.has(normalized)
+        ? normalized
+        : defaults.adaptiveThermogenesisSmoothingMethod;
+    })(),
+    adaptiveThermogenesisSmoothingWindowDays: (() => {
+      const parsed = Number(
+        normalizedInput.adaptiveThermogenesisSmoothingWindowDays
+      );
+      if (!Number.isFinite(parsed)) {
+        return defaults.adaptiveThermogenesisSmoothingWindowDays;
+      }
+
+      return Math.min(
+        Math.max(
+          Math.round(parsed),
+          MIN_ADAPTIVE_SMOOTHING_WINDOW_DAYS
+        ),
+        MAX_ADAPTIVE_SMOOTHING_WINDOW_DAYS
+      );
+    })(),
     epocEnabled: normalizedInput.epocEnabled ?? defaults.epocEnabled,
     epocCarryoverHours: (() => {
       const parsed = Number(normalizedInput.epocCarryoverHours);

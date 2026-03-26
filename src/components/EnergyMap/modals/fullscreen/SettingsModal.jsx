@@ -79,6 +79,25 @@ export const SettingsModal = ({
     resolvedUserData.adaptiveThermogenesisEnabled ?? false;
   const adaptiveThermogenesisSmartMode =
     resolvedUserData.adaptiveThermogenesisSmartMode ?? false;
+  const adaptiveThermogenesisSmoothingEnabled =
+    resolvedUserData.adaptiveThermogenesisSmoothingEnabled ?? false;
+  const adaptiveThermogenesisSmoothingMethod =
+    resolvedUserData.adaptiveThermogenesisSmoothingMethod === 'sma'
+      ? 'sma'
+      : 'ema';
+  const adaptiveThermogenesisSmoothingWindowDays = Number.isFinite(
+    Number(resolvedUserData.adaptiveThermogenesisSmoothingWindowDays)
+  )
+    ? Math.min(
+        Math.max(
+          Math.round(
+            Number(resolvedUserData.adaptiveThermogenesisSmoothingWindowDays)
+          ),
+          3
+        ),
+        14
+      )
+    : 7;
   const epocEnabled = resolvedUserData.epocEnabled ?? true;
   const epocCarryoverHours = Number.isFinite(
     Number(resolvedUserData.epocCarryoverHours)
@@ -691,6 +710,117 @@ export const SettingsModal = ({
                   </div>
                 </div>
               )}
+
+              {adaptiveThermogenesisEnabled &&
+                adaptiveThermogenesisSmartMode && (
+                  <div className="mt-2 space-y-2">
+                    <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-foreground text-sm font-medium leading-tight">
+                            Smooth weight signal
+                          </p>
+                          <p className="text-muted text-xs mt-0.5">
+                            Reduces day-to-day noise before trend slope is
+                            calculated.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={adaptiveThermogenesisSmoothingEnabled}
+                          aria-label="Toggle adaptive thermogenesis smoothing"
+                          onClick={() =>
+                            onChange(
+                              'adaptiveThermogenesisSmoothingEnabled',
+                              !adaptiveThermogenesisSmoothingEnabled
+                            )
+                          }
+                          className="inline-flex items-center rounded-full focus-ring pressable-inline"
+                        >
+                          <span
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-all ${
+                              adaptiveThermogenesisSmoothingEnabled
+                                ? 'bg-accent-emerald border-accent-emerald/70'
+                                : 'bg-surface-highlight border-border'
+                            }`}
+                          >
+                            <span
+                              className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                                adaptiveThermogenesisSmoothingEnabled
+                                  ? 'translate-x-6'
+                                  : 'translate-x-1'
+                              }`}
+                            />
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {adaptiveThermogenesisSmoothingEnabled && (
+                      <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5 space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onChange(
+                                'adaptiveThermogenesisSmoothingMethod',
+                                'ema'
+                              )
+                            }
+                            className={`py-2 px-2 rounded-lg border-2 transition-all font-semibold flex items-center justify-center gap-2 focus-ring pressable-inline ${
+                              adaptiveThermogenesisSmoothingMethod === 'ema'
+                                ? 'bg-blue-600 border-blue-500 text-white'
+                                : 'bg-surface-highlight border-border text-muted'
+                            }`}
+                          >
+                            EMA
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onChange(
+                                'adaptiveThermogenesisSmoothingMethod',
+                                'sma'
+                              )
+                            }
+                            className={`py-2 px-2 rounded-lg border-2 transition-all font-semibold flex items-center justify-center gap-2 focus-ring pressable-inline ${
+                              adaptiveThermogenesisSmoothingMethod === 'sma'
+                                ? 'bg-blue-600 border-blue-500 text-white'
+                                : 'bg-surface-highlight border-border text-muted'
+                            }`}
+                          >
+                            SMA
+                          </button>
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-xs text-muted">
+                            <span>Window</span>
+                            <span>
+                              {adaptiveThermogenesisSmoothingWindowDays} days
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min={3}
+                            max={14}
+                            step={1}
+                            value={adaptiveThermogenesisSmoothingWindowDays}
+                            onChange={(event) =>
+                              onChange(
+                                'adaptiveThermogenesisSmoothingWindowDays',
+                                Number(event.target.value)
+                              )
+                            }
+                            className="w-full"
+                            aria-label="Adaptive thermogenesis smoothing window"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
             </div>
           </div>
         </div>

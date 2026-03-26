@@ -1,3 +1,5 @@
+import { getTodayDateKey } from './dateKeys.js';
+
 const DATE_KEY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 const normalizeDateKey = (value) => {
@@ -29,7 +31,7 @@ export const LOG_COMPLETION_STATUS = {
   COMPLETE: 'complete',
 };
 
-const getTodayDateString = () => new Date().toISOString().slice(0, 10);
+const getTodayDateString = () => getTodayDateKey();
 
 const toGoalFamily = (goalType) => {
   const key = String(goalType ?? '').toLowerCase();

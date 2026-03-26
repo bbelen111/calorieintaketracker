@@ -21,6 +21,9 @@ const SMART_WINDOW_DAYS = 28;
 const SMART_MIN_VALID_DAYS = 14;
 const SMART_MIN_WEIGHT_ENTRIES = 4;
 const SMART_NOISE_FLOOR_KG = 0.15;
+const SMART_SMOOTHING_DEFAULT_WINDOW_DAYS = 7;
+const SMART_SMOOTHING_MIN_WINDOW_DAYS = 3;
+const SMART_SMOOTHING_MAX_WINDOW_DAYS = 14;
 const KCAL_PER_KG = 7700;
 const MAX_CORRECTION_KCAL = 300;
 const MIN_CORRECTION_KCAL = -300;
@@ -101,7 +104,69 @@ const resolveCrudeStage = (stages, goalDurationDays) => {
   return active;
 };
 
-const computeWeightSlopeKgPerDay = (weightEntries = []) => {
+const normalizeSmoothingWindowDays = (value) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return SMART_SMOOTHING_DEFAULT_WINDOW_DAYS;
+  }
+
+  return Math.min(
+    SMART_SMOOTHING_MAX_WINDOW_DAYS,
+    Math.max(SMART_SMOOTHING_MIN_WINDOW_DAYS, Math.round(parsed))
+  );
+};
+
+const normalizeSmoothingMethod = (value) => {
+  const normalized = String(value ?? '')
+    .trim()
+    .toLowerCase();
+
+  return normalized === 'sma' ? 'sma' : 'ema';
+};
+
+const smoothWeightSeries = (values, { enabled, method, windowDays }) => {
+  if (!enabled || values.length < 3) {
+    return values;
+  }
+
+  const safeWindowDays = normalizeSmoothingWindowDays(windowDays);
+  if (safeWindowDays <= 1) {
+    return values;
+  }
+
+  if (normalizeSmoothingMethod(method) === 'sma') {
+    return values.map((_, index) => {
+      const start = Math.max(0, index - safeWindowDays + 1);
+      const slice = values.slice(start, index + 1);
+      return slice.reduce((sum, value) => sum + value, 0) / slice.length;
+    });
+  }
+
+  const alpha = 2 / (safeWindowDays + 1);
+  const smoothed = [];
+  let previous = values[0];
+
+  values.forEach((value, index) => {
+    if (index === 0) {
+      smoothed.push(value);
+      return;
+    }
+
+    previous = alpha * value + (1 - alpha) * previous;
+    smoothed.push(previous);
+  });
+
+  return smoothed;
+};
+
+const computeWeightSlopeKgPerDay = (
+  weightEntries = [],
+  smoothing = {
+    enabled: false,
+    method: 'ema',
+    windowDays: SMART_SMOOTHING_DEFAULT_WINDOW_DAYS,
+  }
+) => {
   const points = weightEntries
     .map((entry) => {
       const date = toDateFromDateKey(entry?.date);
@@ -122,14 +187,23 @@ const computeWeightSlopeKgPerDay = (weightEntries = []) => {
     return null;
   }
 
-  const meanX = points.reduce((sum, point) => sum + point.x, 0) / n;
-  const meanY = points.reduce((sum, point) => sum + point.y, 0) / n;
+  const sortedPoints = [...points].sort((a, b) => a.x - b.x);
+  const yValues = sortedPoints.map((point) => point.y);
+  const smoothedValues = smoothWeightSeries(yValues, smoothing);
 
-  const numerator = points.reduce(
+  const preparedPoints = sortedPoints.map((point, index) => ({
+    x: point.x,
+    y: smoothedValues[index],
+  }));
+
+  const meanX = preparedPoints.reduce((sum, point) => sum + point.x, 0) / n;
+  const meanY = preparedPoints.reduce((sum, point) => sum + point.y, 0) / n;
+
+  const numerator = preparedPoints.reduce(
     (sum, point) => sum + (point.x - meanX) * (point.y - meanY),
     0
   );
-  const denominator = points.reduce(
+  const denominator = preparedPoints.reduce(
     (sum, point) => sum + (point.x - meanX) ** 2,
     0
   );
@@ -173,6 +247,11 @@ const computeSmartCorrection = ({
   dailySnapshots,
   weightEntries,
   selectedGoal,
+  smoothing = {
+    enabled: false,
+    method: 'ema',
+    windowDays: SMART_SMOOTHING_DEFAULT_WINDOW_DAYS,
+  },
 }) => {
   const windowDateKeys = buildWindowDateKeys(dateKey, SMART_WINDOW_DAYS);
   if (windowDateKeys.length === 0) {
@@ -236,7 +315,10 @@ const computeSmartCorrection = ({
     0
   );
   const expectedWeightDeltaKg = cumulativeEnergyBalance / KCAL_PER_KG;
-  const observedSlopeKgPerDay = computeWeightSlopeKgPerDay(windowWeightEntries);
+  const observedSlopeKgPerDay = computeWeightSlopeKgPerDay(
+    windowWeightEntries,
+    smoothing
+  );
 
   if (!Number.isFinite(observedSlopeKgPerDay)) {
     return {
@@ -279,6 +361,9 @@ const computeSmartCorrection = ({
       noiseSuppressed: Math.abs(divergenceKg) < SMART_NOISE_FLOOR_KG,
       validDays: records.length,
       weightEntriesUsed: windowWeightEntries.length,
+      smoothingEnabled: Boolean(smoothing?.enabled),
+      smoothingMethod: normalizeSmoothingMethod(smoothing?.method),
+      smoothingWindowDays: normalizeSmoothingWindowDays(smoothing?.windowDays),
     },
     details: {
       windowStart,
@@ -324,6 +409,9 @@ export const computeAdaptiveThermogenesis = ({
   dateKey,
   dailySnapshots,
   weightEntries,
+  adaptiveSmoothingEnabled,
+  adaptiveSmoothingMethod,
+  adaptiveSmoothingWindowDays,
 }) => {
   const normalizedMode = normalizeAdaptiveMode(mode);
 
@@ -394,6 +482,11 @@ export const computeAdaptiveThermogenesis = ({
       dailySnapshots,
       weightEntries,
       selectedGoal,
+      smoothing: {
+        enabled: Boolean(adaptiveSmoothingEnabled),
+        method: normalizeSmoothingMethod(adaptiveSmoothingMethod),
+        windowDays: normalizeSmoothingWindowDays(adaptiveSmoothingWindowDays),
+      },
     }),
   };
 };

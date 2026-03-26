@@ -13,6 +13,7 @@ import {
   resolveTrainingSessionEpoc,
 } from './epoc.js';
 import { getCarryoverForDateFromSessions } from './sessionCarryover.js';
+import { getTodayDateKey } from './dateKeys.js';
 
 const HEART_RATE_COEFFICIENTS = {
   male: {
@@ -46,14 +47,6 @@ const DEFAULT_CALCULATION_PROFILE = {
 const MIN_HEART_RATE_BPM = 60;
 const MAX_HEART_RATE_BPM = 220;
 const DATE_KEY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
-
-const getTodayDateKey = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
 
 const normalizeSessionDateKey = (value) => {
   if (value == null) {
@@ -540,43 +533,13 @@ export const getTotalTrainingBurnForDate = (userData, trainingTypes, dateKey) =>
     0
   );
 
-export const calculateCalorieBreakdown = ({
+const resolveStepDetailsForBreakdown = ({
   steps,
-  isTrainingDay,
-  userData,
-  bmr,
+  normalizedUserData,
+  cardioSessions,
   cardioTypes,
-  trainingTypes,
-  tefContext,
-  adaptiveThermogenesisContext,
-  dateKey,
 }) => {
-  void isTrainingDay;
-  const normalizedProfile = normalizeCalculationProfile(userData);
-  const normalizedUserData = {
-    ...userData,
-    ...normalizedProfile,
-  };
-
   const baseStepDetails = getStepDetails(steps, normalizedUserData);
-  const bmrDetails = resolveBmrDetails(normalizedUserData);
-  const resolvedDateKey = normalizeSessionDateKey(dateKey) ?? getTodayDateKey();
-  const trainingSessions = getSessionsForDate(
-    normalizedUserData?.trainingSessions,
-    resolvedDateKey
-  );
-  const trainingDurationMinutes = trainingSessions.reduce((total, session) => {
-    const duration = Number(session?.duration);
-    if (!Number.isFinite(duration) || duration <= 0) {
-      return total;
-    }
-    return total + duration;
-  }, 0);
-  const trainingDuration = roundToTenth(trainingDurationMinutes / 60);
-  const cardioSessions = getSessionsForDate(
-    normalizedUserData?.cardioSessions,
-    resolvedDateKey
-  );
   const stepOverlap = getStepOverlapFromCardioSessions({
     estimatedSteps: baseStepDetails.estimatedSteps,
     cardioSessions,
@@ -586,7 +549,8 @@ export const calculateCalorieBreakdown = ({
     stepOverlap.remainingEstimatedSteps,
     normalizedUserData
   );
-  const stepDetails = {
+
+  return {
     ...baseStepDetails,
     ...adjustedStepCalorieDetails,
     calories: Math.round(adjustedStepCalorieDetails.calories),
@@ -600,32 +564,15 @@ export const calculateCalorieBreakdown = ({
       stepOverlap.stepOverlapApplicableSessionsCount,
     stepOverlapSessions: stepOverlap.sessionDetails,
   };
-  const multipliers =
-    normalizedUserData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS;
-  const rawActivityMultiplier = isTrainingDay
-    ? (multipliers.training ?? DEFAULT_ACTIVITY_MULTIPLIERS.training)
-    : (multipliers.rest ?? DEFAULT_ACTIVITY_MULTIPLIERS.rest);
-  const trainingBurn = Math.round(
-    getTotalTrainingBurnForDate(
-      normalizedUserData,
-      trainingTypes,
-      resolvedDateKey
-    )
-  );
-  const trainingCaloriesPerHour =
-    trainingDuration > 0 ? Math.round(trainingBurn / trainingDuration) : 0;
-  const trainingTypeLabel =
-    trainingSessions.length === 0
-      ? 'No Training'
-      : trainingSessions.length === 1
-        ? (trainingTypes?.[trainingSessions[0]?.type]?.label ??
-          trainingSessions[0]?.type ??
-          'Training')
-        : `${trainingSessions.length} sessions`;
-  const cardioBurn = Math.round(
-    getTotalCardioBurnForDate(normalizedUserData, cardioTypes, resolvedDateKey)
-  );
-  const cardioDetails = cardioSessions
+};
+
+const resolveCardioDetails = ({
+  cardioSessions,
+  normalizedUserData,
+  normalizedProfile,
+  cardioTypes,
+}) =>
+  cardioSessions
     .map((session) => {
       const rawDuration = Number(session?.duration);
       const durationMinutes = Number.isFinite(rawDuration) ? rawDuration : 0;
@@ -687,7 +634,14 @@ export const calculateCalorieBreakdown = ({
     })
     .filter(Boolean);
 
+const resolveEpocDetails = ({
+  normalizedUserData,
+  trainingTypes,
+  cardioTypes,
+  resolvedDateKey,
+}) => {
   const epocEnabled = normalizedUserData?.epocEnabled ?? true;
+
   const resolveTrainingSessionCarryover = (session) => {
     if (!epocEnabled) {
       return { totalCalories: 0, windowMinutes: 0 };
@@ -740,7 +694,9 @@ export const calculateCalorieBreakdown = ({
   const trainingEpoc = Math.round(
     Number(trainingEpocAllocation?.totalCalories) || 0
   );
-  const cardioEpoc = Math.round(Number(cardioEpocAllocation?.totalCalories) || 0);
+  const cardioEpoc = Math.round(
+    Number(cardioEpocAllocation?.totalCalories) || 0
+  );
   const epocCalories = Math.round(trainingEpoc + cardioEpoc);
 
   const trainingEpocFromToday = Math.round(
@@ -756,7 +712,108 @@ export const calculateCalorieBreakdown = ({
   const epocFromTodaySessions = Math.round(
     trainingEpocFromToday + cardioEpocFromToday
   );
-  const epocCarryInCalories = Math.round(epocCalories - epocFromTodaySessions);
+
+  return {
+    epocEnabled,
+    epocCalories,
+    trainingEpoc,
+    cardioEpoc,
+    epocFromTodaySessions,
+    epocCarryInCalories: Math.round(epocCalories - epocFromTodaySessions),
+    trainingEpocDetails: trainingEpocAllocation?.allocations ?? [],
+    cardioEpocDetails: cardioEpocAllocation?.allocations ?? [],
+  };
+};
+
+export const calculateCalorieBreakdown = ({
+  steps,
+  isTrainingDay,
+  userData,
+  bmr,
+  cardioTypes,
+  trainingTypes,
+  tefContext,
+  adaptiveThermogenesisContext,
+  dateKey,
+}) => {
+  void isTrainingDay;
+  const normalizedProfile = normalizeCalculationProfile(userData);
+  const normalizedUserData = {
+    ...userData,
+    ...normalizedProfile,
+  };
+
+  const bmrDetails = resolveBmrDetails(normalizedUserData);
+  const resolvedDateKey = normalizeSessionDateKey(dateKey) ?? getTodayDateKey();
+  const trainingSessions = getSessionsForDate(
+    normalizedUserData?.trainingSessions,
+    resolvedDateKey
+  );
+  const trainingDurationMinutes = trainingSessions.reduce((total, session) => {
+    const duration = Number(session?.duration);
+    if (!Number.isFinite(duration) || duration <= 0) {
+      return total;
+    }
+    return total + duration;
+  }, 0);
+  const trainingDuration = roundToTenth(trainingDurationMinutes / 60);
+  const cardioSessions = getSessionsForDate(
+    normalizedUserData?.cardioSessions,
+    resolvedDateKey
+  );
+  const stepDetails = resolveStepDetailsForBreakdown({
+    steps,
+    normalizedUserData,
+    cardioSessions,
+    cardioTypes,
+  });
+  const multipliers =
+    normalizedUserData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS;
+  const rawActivityMultiplier = isTrainingDay
+    ? (multipliers.training ?? DEFAULT_ACTIVITY_MULTIPLIERS.training)
+    : (multipliers.rest ?? DEFAULT_ACTIVITY_MULTIPLIERS.rest);
+  const trainingBurn = Math.round(
+    getTotalTrainingBurnForDate(
+      normalizedUserData,
+      trainingTypes,
+      resolvedDateKey
+    )
+  );
+  const trainingCaloriesPerHour =
+    trainingDuration > 0 ? Math.round(trainingBurn / trainingDuration) : 0;
+  const trainingTypeLabel =
+    trainingSessions.length === 0
+      ? 'No Training'
+      : trainingSessions.length === 1
+        ? (trainingTypes?.[trainingSessions[0]?.type]?.label ??
+          trainingSessions[0]?.type ??
+          'Training')
+        : `${trainingSessions.length} sessions`;
+  const cardioBurn = Math.round(
+    getTotalCardioBurnForDate(normalizedUserData, cardioTypes, resolvedDateKey)
+  );
+  const cardioDetails = resolveCardioDetails({
+    cardioSessions,
+    normalizedUserData,
+    normalizedProfile,
+    cardioTypes,
+  });
+  const epocDetails = resolveEpocDetails({
+    normalizedUserData,
+    trainingTypes,
+    cardioTypes,
+    resolvedDateKey,
+  });
+  const {
+    epocEnabled,
+    epocCalories,
+    trainingEpoc,
+    cardioEpoc,
+    epocFromTodaySessions,
+    epocCarryInCalories,
+    trainingEpocDetails,
+    cardioEpocDetails,
+  } = epocDetails;
   const tefOffsetApplied =
     tefContext?.mode &&
     tefContext.mode !== 'off' &&
@@ -798,6 +855,12 @@ export const calculateCalorieBreakdown = ({
     dateKey: resolvedDateKey,
     dailySnapshots: normalizedUserData?.dailySnapshots,
     weightEntries: normalizedUserData?.weightEntries,
+    adaptiveSmoothingEnabled:
+      normalizedUserData?.adaptiveThermogenesisSmoothingEnabled,
+    adaptiveSmoothingMethod:
+      normalizedUserData?.adaptiveThermogenesisSmoothingMethod,
+    adaptiveSmoothingWindowDays:
+      normalizedUserData?.adaptiveThermogenesisSmoothingWindowDays,
   });
   const adaptiveThermogenesisCorrection = Math.round(
     Number(adaptiveThermogenesis?.correction) || 0
@@ -842,8 +905,8 @@ export const calculateCalorieBreakdown = ({
     cardioEpoc,
     epocFromTodaySessions,
     epocCarryInCalories,
-    trainingEpocDetails: trainingEpocAllocation?.allocations ?? [],
-    cardioEpocDetails: cardioEpocAllocation?.allocations ?? [],
+    trainingEpocDetails,
+    cardioEpocDetails,
     bmrDetails,
   };
 };

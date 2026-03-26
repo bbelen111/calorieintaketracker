@@ -30,6 +30,7 @@ import { WeightTrendInfoModal } from '../info/WeightTrendInfoModal';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { buildBezierPaths } from '../../../../utils/bezierPath';
+import { formatDateKeyUtc } from '../../../../utils/dateKeys';
 
 // Local helpers that remain specific to this modal are below.
 // Shared helpers (TrendIcon, getTrendToneClass, getGoalAlignmentText,
@@ -114,7 +115,7 @@ const getTrackedDaysCount = (entries = []) => {
 // getDataAgeInDays + getOldDataWarningText are now imported from utils/trackerHelpers
 
 /** Produce a YYYY-MM-DD string from a Date in UTC */
-const toDateKey = (d) => d.toISOString().slice(0, 10);
+const toDateKey = (d) => formatDateKeyUtc(d);
 
 // ---------------------------------------------------------------------------
 // Page generation helpers

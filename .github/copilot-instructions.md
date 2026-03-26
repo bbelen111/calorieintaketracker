@@ -435,7 +435,7 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 | TEF (target mode) | `calculateTargetTef({targetCalories, weightKg, ...})` | Estimates TEF using weight-derived macro targets |
 | TEF (dynamic mode) | `calculateDynamicTef({totals, ...})` | Uses today's logged macro totals for live TEF estimate |
 | Adaptive thermogenesis mode | `resolveAdaptiveThermogenesisMode({ userData, adaptiveThermogenesisContext })` | Resolves `'off' \| 'crude' \| 'smart'` from persisted settings plus optional per-request override |
-| Adaptive thermogenesis correction | `computeAdaptiveThermogenesis({...})` | Computes bounded correction (±300 kcal/day) from staged duration logic (`crude`) or snapshot/weight divergence signal (`smart`) |
+| Adaptive thermogenesis correction | `computeAdaptiveThermogenesis({...})` | Computes bounded correction (±300 kcal/day) from staged duration logic (`crude`) or snapshot/weight divergence signal (`smart`), with optional smart-mode weight-signal smoothing (`EMA`/`SMA`, 3-14 day window) |
 
 **TEF constants** exported from `calculations.js`: `TEF_MULTIPLIER_OFFSET = 0.1`, `TEF_PROTEIN_RATE = 0.25`, `TEF_CARB_RATE = 0.08`, `TEF_FAT_RATE = 0.02`.
 
@@ -448,6 +448,8 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 **Target mode chicken-and-egg:** The store's `calculateTargetForGoal()` runs a 2-pass refinement loop — pass 1 seeds `targetCalories` with pre-TEF TDEE; pass 2 uses goal-adjusted result from pass 1. Two iterations converges sufficiently.
 
 **Adaptive Thermogenesis mechanic:** `calculateCalorieBreakdown()` computes `baselineTotal` first (BMR + NEAT + steps + training + cardio + Smart TEF), then applies AT as a post-formula correction (`total = baselineTotal + adaptiveThermogenesisCorrection`). Returned AT fields include `baselineTotal`, `adjustedTotal`, `adaptiveThermogenesisMode`, `adaptiveThermogenesisCorrection`, and `adaptiveThermogenesis`.
+
+**Smart AT smoothing mechanic:** When `adaptiveThermogenesisSmoothingEnabled` is true, smart mode smooths the weight series before slope regression (`adaptiveThermogenesisSmoothingMethod`: `'ema' | 'sma'`, `adaptiveThermogenesisSmoothingWindowDays`: clamped 3–14). Smoothing metadata is included in the AT smart signal for debugging (`smoothingEnabled`, `smoothingMethod`, `smoothingWindowDays`).
 
 **EPOC mechanic:** `calculateCalorieBreakdown()` resolves per-session EPOC from `utils/epoc.js`, then uses `getCarryoverForDateFromSessions()` (`utils/sessionCarryover.js`) to allocate carryover calories to the requested `dateKey`. Returned fields include `epocEnabled`, `epocCalories`, `trainingEpoc`, `cardioEpoc`, `epocFromTodaySessions`, `epocCarryInCalories`, `trainingEpocDetails`, and `cardioEpocDetails`.
 
@@ -523,6 +525,9 @@ Migration behavior is now intentionally minimal:
 - `smartTefEnabled: false`
 - `adaptiveThermogenesisEnabled: false`
 - `adaptiveThermogenesisSmartMode: false`
+- `adaptiveThermogenesisSmoothingEnabled: false`
+- `adaptiveThermogenesisSmoothingMethod: 'ema'`
+- `adaptiveThermogenesisSmoothingWindowDays: 7`
 - `epocEnabled: true`
 - `epocCarryoverHours: 6`
 
@@ -557,6 +562,9 @@ Migration behavior is now intentionally minimal:
   smartTefLiveCardTargetMode: false,
   adaptiveThermogenesisEnabled: false,
   adaptiveThermogenesisSmartMode: false,
+  adaptiveThermogenesisSmoothingEnabled: false,
+  adaptiveThermogenesisSmoothingMethod: 'ema',
+  adaptiveThermogenesisSmoothingWindowDays: 7,
   epocEnabled: true,
   epocCarryoverHours: 6,
 
@@ -753,6 +761,7 @@ src/
 │   ├─ theme.js                  # Native theme application (status bar, transparent nav bar, keyboard)
 │   ├─ format.js                 # Number formatting (formatOne: 1 decimal place)
 │   ├─ export.js                 # CSV/JSON export generation
+│   ├─ dateKeys.js               # Canonical local/UTC date key formatters (`YYYY-MM-DD`)
 │   ├─ scroll.js                 # Scroll utilities
 │   ├─ trackerHelpers.jsx        # Shared trend/goal-alignment helpers + TrendIcon
 │   └─ time.js                   # Time/duration helpers (normalize, round, format, split)
@@ -763,6 +772,7 @@ src/
   │   └─ activityPresets.test.js
   └─ utils/
     ├─ calculations.test.js
+    ├─ dateKeys.test.js
     ├─ adaptiveThermogenesis.test.js
     ├─ dailySnapshots.test.js   # Snapshot derivation and helper behavior tests
     ├─ phaseLogV2.test.js
@@ -840,9 +850,11 @@ npm run test:watch     # Node test runner in watch mode
 33. **Goal duration logic depends on persisted timestamps:** If implementing coarse/crude staged adjustments (e.g., prolonged cut/bulk handling), base elapsed-day calculations on persisted `goalChangedAt` (and optional phase boundaries), not transient UI state.
 34. **Snapshots are not goal-state authority:** `goalAtSnapshot` is for historical inspection only. Current goal behavior must resolve from `userData.selectedGoal` (+ `goalChangedAt`).
 35. **AT mode control is settings-driven:** `CalorieBreakdownModal` does not expose an AT mode selector. Mode changes are configured in `SettingsModal` (`adaptiveThermogenesisEnabled` + `adaptiveThermogenesisSmartMode`) and reflected in breakdown output.
-36. **Modal darkening must remain single-path + lane-based:** Do not reintroduce per-modal darkening overlays in `ModalShell`. Keep wrapper z-index allocation in +2 steps and keep shared overlay at `highestZIndex - 1`; changing this causes first-open overlay-over-content bugs or missing nested darkening.
-37. **EPOC is settings-driven and persisted:** `epocEnabled` and `epocCarryoverHours` are canonical `userData` fields (profile scope). Configure from `SettingsModal`; do not duplicate per-screen global toggles.
-38. **Session timing fields are first-class:** `startTime`, `startedAt`, and `endedAt` on cardio/training sessions are used for carryover allocation and day-boundary logic. Preserve these when editing sessions.
-39. **Carryover is date-keyed:** `getCarryoverForDateFromSessions()` allocates carryover by overlap windows against `dateKey`; always pass the correct `dateKey` when computing breakdowns/snapshots.
-40. **EPOC UI surface exists:** `EpocInfoModal`, `EpocWindowPickerModal`, and `TimePickerModal` are active parts of the flow. Keep them wired when changing settings/session forms.
-41. **Snapshot EPOC fields are intentional:** `dailySnapshots` persist `epoc`, `epocTraining`, `epocCardio`, `epocFromTodaySessions`, and `epocCarryInCalories` for historical/analytics context.
+36. **AT smart-mode smoothing is settings-driven:** Smoothing controls also live in `SettingsModal` (`adaptiveThermogenesisSmoothingEnabled`, `adaptiveThermogenesisSmoothingMethod`, `adaptiveThermogenesisSmoothingWindowDays`). Keep method constrained to `ema|sma` and clamp window to 3–14 days.
+37. **Date keys must use shared helpers:** Avoid ad-hoc `toISOString().split('T')[0]` for app logic. Use `utils/dateKeys.js` (`getTodayDateKey`, `formatDateKeyLocal`, `formatDateKeyUtc`) to prevent mixed local/UTC behavior.
+38. **Modal darkening must remain single-path + lane-based:** Do not reintroduce per-modal darkening overlays in `ModalShell`. Keep wrapper z-index allocation in +2 steps and keep shared overlay at `highestZIndex - 1`; changing this causes first-open overlay-over-content bugs or missing nested darkening.
+39. **EPOC is settings-driven and persisted:** `epocEnabled` and `epocCarryoverHours` are canonical `userData` fields (profile scope). Configure from `SettingsModal`; do not duplicate per-screen global toggles.
+40. **Session timing fields are first-class:** `startTime`, `startedAt`, and `endedAt` on cardio/training sessions are used for carryover allocation and day-boundary logic. Preserve these when editing sessions.
+41. **Carryover is date-keyed:** `getCarryoverForDateFromSessions()` allocates carryover by overlap windows against `dateKey`; always pass the correct `dateKey` when computing breakdowns/snapshots.
+42. **EPOC UI surface exists:** `EpocInfoModal`, `EpocWindowPickerModal`, and `TimePickerModal` are active parts of the flow. Keep them wired when changing settings/session forms.
+43. **Snapshot EPOC fields are intentional:** `dailySnapshots` persist `epoc`, `epocTraining`, `epocCardio`, `epocFromTodaySessions`, and `epocCarryInCalories` for historical/analytics context.

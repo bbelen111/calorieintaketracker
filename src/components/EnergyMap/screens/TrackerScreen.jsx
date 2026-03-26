@@ -23,11 +23,12 @@ import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 import { ConfirmActionModal } from '../modals/common/ConfirmActionModal';
 import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
+import {
+  formatDateKeyUtc,
+  getTodayDateKey,
+} from '../../../utils/dateKeys';
 
-const getTodayDate = () => {
-  const today = new Date();
-  return today.toISOString().split('T')[0];
-};
+const getTodayDate = () => getTodayDateKey();
 
 // Circular progress bar component
 const CircularProgress = ({ percent, color, size = 120, strokeWidth = 10 }) => {
@@ -76,7 +77,7 @@ const shortenName = (name, maxLength = 36) => {
 
 const parseDateKey = (dateStr) => new Date(`${dateStr}T00:00:00Z`);
 
-const toDateKey = (date) => date.toISOString().split('T')[0];
+const toDateKey = (date) => formatDateKeyUtc(date);
 
 const getIsoWeekYear = (date) => {
   const d = new Date(
@@ -399,7 +400,7 @@ export const TrackerScreen = ({
     const base = selectedDate || getTodayDate();
     const date = new Date(base + 'T00:00:00Z');
     date.setUTCDate(date.getUTCDate() + offset);
-    const iso = date.toISOString().split('T')[0];
+    const iso = formatDateKeyUtc(date);
     setWeekSlideDirection(offset >= 0 ? 1 : -1);
     if (typeof onSelectedDateChange === 'function') {
       onSelectedDateChange(iso);

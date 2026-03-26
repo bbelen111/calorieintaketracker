@@ -507,6 +507,9 @@ test('save/loadEnergyMapData persists adaptive thermogenesis profile fields', as
       ...getDefaultEnergyMapData(),
       adaptiveThermogenesisEnabled: true,
       adaptiveThermogenesisSmartMode: true,
+      adaptiveThermogenesisSmoothingEnabled: true,
+      adaptiveThermogenesisSmoothingMethod: 'sma',
+      adaptiveThermogenesisSmoothingWindowDays: 9,
       weightEntries: [{ date: '2026-03-22', weight: 79.2 }],
     };
 
@@ -515,5 +518,8 @@ test('save/loadEnergyMapData persists adaptive thermogenesis profile fields', as
     const loaded = await loadEnergyMapData();
     assert.equal(loaded.adaptiveThermogenesisEnabled, true);
     assert.equal(loaded.adaptiveThermogenesisSmartMode, true);
+    assert.equal(loaded.adaptiveThermogenesisSmoothingEnabled, true);
+    assert.equal(loaded.adaptiveThermogenesisSmoothingMethod, 'sma');
+    assert.equal(loaded.adaptiveThermogenesisSmoothingWindowDays, 9);
   });
 });

@@ -11,6 +11,7 @@ import { ModalShell } from '../../common/ModalShell';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { getStepCaloriesDetails } from '../../../../utils/steps';
+import { formatDateKeyUtc, getTodayDateKey } from '../../../../utils/dateKeys';
 
 // ---------------------------------------------------------------------------
 // Helper components & functions
@@ -139,7 +140,7 @@ const formatStepCount = (steps) => {
 };
 
 /** Produce a YYYY-MM-DD string from a Date in UTC */
-const toDateKey = (d) => d.toISOString().slice(0, 10);
+const toDateKey = (d) => formatDateKeyUtc(d);
 
 const getBarColor = (steps, goal) => {
   if (steps >= goal) return 'rgb(var(--accent-green) / 1)';
@@ -1635,7 +1636,7 @@ export const StepTrackerModal = ({
                   </p>
                   <p className="text-muted text-[11px] mt-1">
                     {todaySteps != null
-                      ? formatTooltipDate(new Date().toISOString().slice(0, 10))
+                      ? formatTooltipDate(getTodayDateKey())
                       : latestDate
                         ? formatTooltipDate(latestDate)
                         : 'steps'}

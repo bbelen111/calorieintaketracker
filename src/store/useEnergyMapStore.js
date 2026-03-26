@@ -36,6 +36,7 @@ import {
   upsertPhaseLogV2DailyLog,
 } from '../utils/phaseLogV2';
 import { hasNutritionEntriesForDate } from '../utils/phases';
+import { getTodayDateKey } from '../utils/dateKeys';
 
 const SAVE_DEBOUNCE_MS = 1000;
 const DEFAULT_TRAINING_TYPE_CATALOG =
@@ -67,14 +68,6 @@ const resolveCardioTypes = (userData) => ({
 const sortStepEntries = (entries) => {
   if (!Array.isArray(entries)) return [];
   return [...entries].sort((a, b) => a.date.localeCompare(b.date));
-};
-
-const getTodayDateKey = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
 };
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;

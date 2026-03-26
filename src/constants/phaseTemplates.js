@@ -2,6 +2,8 @@
  * Pre-configured phase templates to help users get started quickly
  */
 
+import { formatDateKeyLocal } from '../utils/dateKeys.js';
+
 export const PHASE_TEMPLATES = [
   {
     id: 'bulk',
@@ -116,7 +118,7 @@ export const applyTemplate = (template, currentWeight) => {
   if (!template) return {};
 
   const today = new Date();
-  const startDate = today.toISOString().split('T')[0];
+  const startDate = formatDateKeyLocal(today);
 
   const endDate = new Date(today);
   endDate.setDate(endDate.getDate() + template.suggestedDuration);
@@ -131,7 +133,7 @@ export const applyTemplate = (template, currentWeight) => {
   return {
     name: template.defaultName,
     startDate,
-    endDate: endDate.toISOString().split('T')[0],
+    endDate: formatDateKeyLocal(endDate),
     goalType: template.goalType,
     targetWeight,
   };

@@ -1,4 +1,5 @@
 import { calculatePhaseMetrics, getNutritionTotalsForDate } from './phases';
+import { getTodayDateKey } from './dateKeys';
 
 /**
  * Export phase data as CSV
@@ -90,7 +91,7 @@ export const exportPhaseAsCSV = (phase, weightEntries, nutritionData = {}) => {
   link.setAttribute('href', url);
   link.setAttribute(
     'download',
-    `${phase.name.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}.csv`
+    `${phase.name.replace(/[^a-z0-9]/gi, '_')}_${getTodayDateKey()}.csv`
   );
   link.style.visibility = 'hidden';
   document.body.appendChild(link);
@@ -169,7 +170,7 @@ export const exportPhaseAsJSON = (phase, weightEntries, nutritionData = {}) => {
   link.setAttribute('href', url);
   link.setAttribute(
     'download',
-    `${phase.name.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}.json`
+    `${phase.name.replace(/[^a-z0-9]/gi, '_')}_${getTodayDateKey()}.json`
   );
   link.style.visibility = 'hidden';
   document.body.appendChild(link);
