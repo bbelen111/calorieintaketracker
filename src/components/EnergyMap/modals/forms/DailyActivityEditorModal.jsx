@@ -8,10 +8,17 @@ import {
 } from '../../../../constants/activityPresets';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 
+const DEFAULT_PRESET_KEY = 'default';
+
 const titles = {
   training: 'Training Day NEAT',
   rest: 'Rest Day NEAT',
 };
+
+const ACTIVE_CARD_CLASS =
+  'bg-primary border-primary/70 text-primary-foreground shadow-lg md:hover:brightness-110';
+const INACTIVE_CARD_CLASS =
+  'bg-surface-highlight border-border text-foreground md:hover:border-accent-blue/50';
 
 const formatMultiplier = (value) => {
   if (!Number.isFinite(value)) {
@@ -28,14 +35,14 @@ const formatMultiplier = (value) => {
 const getActivityIcon = (key) => {
   switch (key) {
     case 'light':
-      return <Armchair size={28} className="flex-shrink-0" />;
+      return Armchair;
     case 'default':
-      return <Users size={28} className="flex-shrink-0" />;
+      return Users;
     case 'active':
     case 'intense':
-      return <Hammer size={28} className="flex-shrink-0" />;
+      return Hammer;
     default:
-      return null;
+      return Users;
   }
 };
 
@@ -63,7 +70,7 @@ export const DailyActivityEditorModal = ({
   const options = ACTIVITY_PRESET_OPTIONS[dayType] ?? [];
   const resolvedPreset = currentPreset ?? userPresets?.[dayType];
   const resolvedMultiplier = currentMultiplier ?? userMultipliers?.[dayType];
-  const activePreset = resolvedPreset ?? 'default';
+  const activePreset = resolvedPreset ?? DEFAULT_PRESET_KEY;
   const multiplier =
     resolvedMultiplier ?? DEFAULT_ACTIVITY_MULTIPLIERS[dayType];
   const customSelected = activePreset === 'custom';
@@ -72,6 +79,7 @@ export const DailyActivityEditorModal = ({
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
+      onClose={onClose}
       overlayClassName="bg-black/80 z-[70]"
       contentClassName="p-4 md:p-6 w-full md:max-w-xl"
     >
@@ -85,63 +93,34 @@ export const DailyActivityEditorModal = ({
         {options.map((option) => {
           const isActive = activePreset === option.key;
           return (
-            <button
+            <ActivityOptionCard
               key={option.key}
-              type="button"
+              title={option.label}
+              description={option.description}
+              summary={`NEAT offset: ${formatMultiplier(option.value)}`}
+              icon={getActivityIcon(option.key)}
+              isActive={isActive}
               onClick={() => onSelectPreset(dayType, option.key, option.value)}
-              className={`w-full p-4 rounded-xl border-2 transition-all text-left flex items-start gap-4 active:scale-[0.98] focus-ring ${
-                isActive
-                  ? 'bg-blue-600 border-blue-400 text-white shadow-lg'
-                  : 'bg-surface-highlight border-border text-foreground md:hover:border-blue-400'
-              }`}
-            >
-              <div
-                className={`flex items-center justify-center w-12 h-12 rounded-full bg-white/15 flex-shrink-0 ${isActive ? 'text-white' : 'text-foreground/80'}`}
-              >
-                {getActivityIcon(option.key)}
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold text-lg">{option.label}</p>
-                <p className="text-sm opacity-90 mt-1">{option.description}</p>
-                <p className="text-xs opacity-75 mt-3">
-                  NEAT offset: {formatMultiplier(option.value)}
-                </p>
-              </div>
-            </button>
+            />
           );
         })}
 
-        <button
-          type="button"
+        <ActivityOptionCard
+          title="Custom"
+          description="Set your own NEAT offset when the presets do not match your routine."
+          summary={`Current NEAT offset: ${formatMultiplier(multiplier)}`}
+          icon={Settings}
+          isActive={customSelected}
           onClick={() => onSelectCustom(dayType, customSelected)}
-          className={`w-full p-4 rounded-xl border-2 transition-all text-left flex items-start gap-4 active:scale-[0.98] ${
-            customSelected
-              ? 'bg-blue-600 border-blue-400 text-white shadow-lg focus-ring'
-              : 'bg-surface-highlight border-border text-foreground md:hover:border-blue-400 focus-ring'
-          }`}
-        >
-          <div
-            className={`flex items-center justify-center w-12 h-12 rounded-full bg-white/15 flex-shrink-0 ${customSelected ? 'text-white' : 'text-foreground/80'}`}
-          >
-            <Settings size={28} className="flex-shrink-0" />
-          </div>
-          <div className="flex-1">
-            <p className="font-semibold text-lg">Custom</p>
-            <p className="text-sm opacity-90 mt-1">
-              Set your own NEAT offset when the presets do not match your
-              routine.
-            </p>
-            <p className="text-xs opacity-75 mt-3">
-              Current NEAT offset: {formatMultiplier(multiplier)}
-            </p>
-            {customSelected && (
-              <p className="text-xs opacity-75 mt-2 flex items-center gap-1">
+          footer={
+            customSelected && (
+              <p className="text-xs text-primary-foreground/90 mt-2 flex items-center gap-1">
                 <PenLine size={14} />
                 Tap again to edit the NEAT percentage
               </p>
-            )}
-          </div>
-        </button>
+            )
+          }
+        />
       </div>
 
       <button
@@ -154,3 +133,41 @@ export const DailyActivityEditorModal = ({
     </ModalShell>
   );
 };
+
+const ActivityOptionCard = ({
+  title,
+  description,
+  summary,
+  icon: Icon,
+  isActive,
+  onClick,
+  footer,
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`w-full p-4 rounded-xl border-2 transition-all text-left flex items-start gap-4 focus-ring pressable-card ${
+      isActive ? ACTIVE_CARD_CLASS : INACTIVE_CARD_CLASS
+    }`}
+  >
+    <div
+      className={`flex items-center justify-center w-12 h-12 rounded-full flex-shrink-0 ${
+        isActive
+          ? 'bg-primary-foreground/20 text-primary-foreground'
+          : 'bg-surface text-foreground/80'
+      }`}
+    >
+      <Icon size={28} className="flex-shrink-0" />
+    </div>
+    <div className="flex-1">
+      <p className="font-semibold text-lg">{title}</p>
+      <p className={`text-sm mt-1 ${isActive ? 'opacity-90' : 'text-muted'}`}>
+        {description}
+      </p>
+      <p className={`text-xs mt-3 ${isActive ? 'opacity-80' : 'text-muted'}`}>
+        {summary}
+      </p>
+      {footer}
+    </div>
+  </button>
+);
