@@ -35,7 +35,7 @@ React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor 
 ```
 main.jsx
   └─ App.jsx (theme management, store hydration gate)
-       └─ EnergyMapCalculator.jsx (3,500+ lines — THE orchestrator)
+      └─ EnergyMapCalculator.jsx (3,800+ lines — THE orchestrator)
             ├─ 5-screen carousel (useSwipeableScreens)
             │   ├─ LogbookScreen
             │   ├─ TrackerScreen
@@ -43,7 +43,7 @@ main.jsx
             │   ├─ CalorieMapScreen
             │   └─ InsightsScreen
             ├─ PhaseDetailScreen (drill-down, not in carousel)
-              └─ 37 top-level useAnimatedModal instances → 47 modal files
+                └─ 40 top-level useAnimatedModal instances → 50 modal files
                  └─ ~21 additional child-level modals inside modal components
 ```
 
@@ -60,7 +60,7 @@ User action → Store action (updateUserData) → deriveState() recalculates
 
 ### Key Architectural Decisions
 
-1. **Single orchestrator file (`EnergyMapCalculator.jsx`)** owns all modal lifecycle state, temporary form drafts, and screen navigation. At 3,500+ lines, it's deliberately centralized — not a candidate for splitting. New modals are instantiated here.
+1. **Single orchestrator file (`EnergyMapCalculator.jsx`)** owns all modal lifecycle state, temporary form drafts, and screen navigation. At 3,800+ lines, it's deliberately centralized — not a candidate for splitting. New modals are instantiated here.
 
 2. **Derived state pattern:** The Zustand store's `deriveState()` function recomputes `bmr`, `trainingCalories`, `totalCardioBurn`, sorted entries, and resolved types on every `userData` mutation. Never duplicate these calculations — consume them from the store.
 
@@ -143,16 +143,16 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 
 ### Modal Count
 
-- **37 `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
+- **40 `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
 - **~21 additional child-level modals** declared inside modal components (e.g., delete confirmations, sub-pickers)
-- **47 modal files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`:
+- **50 modal files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`:
   - `fullscreen/` — WeightTrackerModal, BodyFatTrackerModal, StepTrackerModal, SettingsModal, FoodSearchModal
-  - `pickers/` — AgePickerModal, BodyFatPickerModal, CalendarPickerModal, **CaloriesPerHourPickerModal**, DatePickerModal, DurationPickerModal, FoodPortionModal, HeartRatePickerModal, HeightPickerModal, MealTypePickerModal, MetValuePickerModal, StepGoalPickerModal, TemplatePickerModal, WeightPickerModal
-  - `info/` — AdaptiveThermogenesisInfoModal, BmiInfoModal, BmrInfoModal, BodyFatTrendInfoModal, CalorieBreakdownModal, CaloriesPerHourGuideModal, FfmiInfoModal, TefInfoModal, WeightTrendInfoModal
+  - `pickers/` — AgePickerModal, BodyFatPickerModal, CalendarPickerModal, **CaloriesPerHourPickerModal**, DatePickerModal, DurationPickerModal, EpocWindowPickerModal, FoodPortionModal, HeartRatePickerModal, HeightPickerModal, MealTypePickerModal, MetValuePickerModal, StepGoalPickerModal, TemplatePickerModal, TimePickerModal, WeightPickerModal
+  - `info/` — AdaptiveThermogenesisInfoModal, BmiInfoModal, BmrInfoModal, BodyFatTrendInfoModal, CalorieBreakdownModal, CaloriesPerHourGuideModal, EpocInfoModal, FfmiInfoModal, TefInfoModal, WeightTrendInfoModal
   - `forms/` — AddCustomFoodModal, BodyFatEntryModal, CardioModal, CustomCardioTypeModal, DailyActivityCustomModal, DailyActivityEditorModal, DailyActivityModal, DailyLogModal, FoodEntryModal, GoalModal, PhaseCreationModal, TrainingModal, StepRangesModal, TrainingTypeEditorModal, WeightEntryModal
   - `lists/` — CardioFavouritesModal, CardioTypeListModal, FoodFavouritesModal
   - `common/` — ConfirmActionModal
-- Total across codebase: ~57 modal hook instances (`useAnimatedModal`)
+- Total across codebase: ~61 modal hook instances (`useAnimatedModal`)
 
 ### `useAnimatedModal` Hook
 
@@ -418,10 +418,13 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 | Cardio (single) | `calculateCardioCalories(session, userData, cardioTypes)` | MET-based (`effortType: 'intensity'`) or heart rate formula (`effortType: 'heartRate'`) |
 | Cardio (total) | `getTotalCardioBurn(userData, cardioTypes)` | Sums `calculateCardioCalories` for **today's date** only |
 | Cardio (for date) | `getTotalCardioBurnForDate(userData, cardioTypes, dateKey)` | Sums cardio calories for a specific `dateKey` |
+| Training EPOC (single) | `resolveTrainingSessionEpoc({ session, exerciseCalories, trainingType, userData })` | Post-exercise burn estimate + carryover window for one training session (`utils/epoc.js`) |
+| Cardio EPOC (single) | `resolveCardioSessionEpoc({ session, exerciseCalories, cardioType, userData })` | Post-exercise burn estimate + carryover window for one cardio session (`utils/epoc.js`) |
+| Session carryover (date) | `getCarryoverForDateFromSessions({ dateKey, sessions, resolveCarryover })` | Allocates carryover calories across date boundaries (`utils/sessionCarryover.js`) |
 | Training cal/hr | `getTrainingCaloriesPerHour(userData, trainingTypes)` | Base cal/hr × intensity multiplier (light 0.75 / moderate 1.0 / vigorous 1.25) |
 | Training (total) | `getTotalTrainingBurnForDate(userData, trainingTypes, dateKey)` | Session-first burn from `trainingSessions` (`effortType` + `averageHeartRate` or `intensity`) |
 | Training (for date) | `getTotalTrainingBurnForDate(userData, trainingTypes, dateKey)` | Sums training-session calories for a specific `dateKey` |
-| TDEE breakdown | `calculateCalorieBreakdown({...})` | BMR + activity multiplier + training + cardio + steps. Accepts optional `tefContext`. Returns `bmrDetails`, TEF fields when Smart TEF is enabled, plus step-overlap diagnostics (`originalEstimatedSteps`, `deductedSteps`, `remainingEstimatedSteps`, overlap session counts/details). |
+| TDEE breakdown | `calculateCalorieBreakdown({...})` | BMR + activity multiplier + training + cardio + steps + EPOC. Accepts optional `tefContext`, `adaptiveThermogenesisContext`, and `dateKey`. Returns `bmrDetails`, TEF fields when Smart TEF is enabled, AT fields, EPOC fields (`epocCalories`, `trainingEpoc`, `cardioEpoc`, carry-in/from-today details), plus step-overlap diagnostics (`originalEstimatedSteps`, `deductedSteps`, `remainingEstimatedSteps`, overlap session counts/details). |
 | TDEE (simple) | `calculateTDEE(options)` | Convenience wrapper — returns just `calculateCalorieBreakdown(options).total` |
 | Goal target | `calculateGoalCalories(tdee, goal)` | Applies ±300/500 modifier based on goal |
 | BMI | `calculateBMI(weight, height)` | Standard BMI: weight(kg) / height(m)² |
@@ -445,6 +448,8 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 **Target mode chicken-and-egg:** The store's `calculateTargetForGoal()` runs a 2-pass refinement loop — pass 1 seeds `targetCalories` with pre-TEF TDEE; pass 2 uses goal-adjusted result from pass 1. Two iterations converges sufficiently.
 
 **Adaptive Thermogenesis mechanic:** `calculateCalorieBreakdown()` computes `baselineTotal` first (BMR + NEAT + steps + training + cardio + Smart TEF), then applies AT as a post-formula correction (`total = baselineTotal + adaptiveThermogenesisCorrection`). Returned AT fields include `baselineTotal`, `adjustedTotal`, `adaptiveThermogenesisMode`, `adaptiveThermogenesisCorrection`, and `adaptiveThermogenesis`.
+
+**EPOC mechanic:** `calculateCalorieBreakdown()` resolves per-session EPOC from `utils/epoc.js`, then uses `getCarryoverForDateFromSessions()` (`utils/sessionCarryover.js`) to allocate carryover calories to the requested `dateKey`. Returned fields include `epocEnabled`, `epocCalories`, `trainingEpoc`, `cardioEpoc`, `epocFromTodaySessions`, `epocCarryInCalories`, `trainingEpocDetails`, and `cardioEpocDetails`.
 
 **Training types** are resolved at the store level (`resolveTrainingTypes`) by merging `trainingTypes` constants with `userData.trainingType` (catalog). Never use raw constants directly.
 
@@ -518,6 +523,8 @@ Migration behavior is now intentionally minimal:
 - `smartTefEnabled: false`
 - `adaptiveThermogenesisEnabled: false`
 - `adaptiveThermogenesisSmartMode: false`
+- `epocEnabled: true`
+- `epocCarryoverHours: 6`
 
 ---
 
@@ -550,10 +557,12 @@ Migration behavior is now intentionally minimal:
   smartTefLiveCardTargetMode: false,
   adaptiveThermogenesisEnabled: false,
   adaptiveThermogenesisSmartMode: false,
+  epocEnabled: true,
+  epocCarryoverHours: 6,
 
   // History (Dexie)
-  cardioSessions: [{ id, date, type, duration, intensity, effortType, averageHeartRate?, stepOverlapEnabled? }],
-  trainingSessions: [{ id, date, type, duration, intensity, effortType, averageHeartRate? }],
+  cardioSessions: [{ id, date, startTime, startedAt, endedAt, type, duration, intensity, effortType, averageHeartRate?, stepOverlapEnabled? }],
+  trainingSessions: [{ id, date, startTime, startedAt, endedAt, type, duration, intensity, effortType, averageHeartRate? }],
   weightEntries: [{ date: 'YYYY-MM-DD', weight }],
   bodyFatEntries: [{ date: 'YYYY-MM-DD', bodyFat }],
   stepEntries: [{ date: 'YYYY-MM-DD', steps, source: 'healthConnect'|'manual' }],
@@ -574,6 +583,11 @@ Migration behavior is now intentionally minimal:
       cardioBurn,
       tef,
       tefMode,
+      epoc,
+      epocTraining,
+      epocCardio,
+      epocFromTodaySessions,
+      epocCarryInCalories,
       baselineTdee,
       adaptiveThermogenesisCorrection,
       adaptiveThermogenesisMode,
@@ -689,11 +703,11 @@ Always returns `'unavailable'` on web and iOS. Status constants exported as `Hea
 ```
 src/
 ├─ components/EnergyMap/
-│   ├─ EnergyMapCalculator.jsx   # THE orchestrator (3,500+ lines)
+│   ├─ EnergyMapCalculator.jsx   # THE orchestrator (3,400+ lines)
 │   ├─ common/
 │   │   ├─ ModalShell.jsx        # Core modal wrapper (singleton managers)
 │   │   └─ ScreenTabs.jsx        # Tab bar + floating variant
-│   ├─ modals/                   # 47 modal files in 6 subfolders, all use ModalShell
+│   ├─ modals/                   # 50 modal files in 6 subfolders, all use ModalShell
 │   │   ├─ fullscreen/           # Full-screen takeover modals (WeightTracker, BodyFatTracker, StepTracker, Settings, FoodSearch)
 │   │   ├─ pickers/              # Scroll-wheel value pickers (Age, BodyFat, Calendar, Height, Weight, MealType, etc.)
 │   │   ├─ info/                 # Read-only info/reference sheets (AdaptiveThermogenesisInfo, BmiInfo, BmrInfo, CalorieBreakdown, TefInfo, etc.)
@@ -722,6 +736,8 @@ src/
 │                                #   calculateTargetForGoal(steps, isTrainingDay, goalKey, options?) — 2-pass refinement for target TEF mode
 ├─ utils/
 │   ├─ calculations.js           # ALL calorie formulas — BMR, cardio, training, TDEE, BMI, FFMI, Smart TEF
+│   ├─ epoc.js                   # Session EPOC estimate + carryover window resolution
+│   ├─ sessionCarryover.js       # Allocates carryover calories across date boundaries
 │   ├─ adaptiveThermogenesis.js  # Adaptive thermogenesis mode resolution + crude/smart correction engine
 │   ├─ dailySnapshots.js         # Derived daily snapshot builder + equality helpers
 │   ├─ storage.js                # Orchestrates profile (Preferences) + history (Dexie) persistence
@@ -738,6 +754,7 @@ src/
 │   ├─ format.js                 # Number formatting (formatOne: 1 decimal place)
 │   ├─ export.js                 # CSV/JSON export generation
 │   ├─ scroll.js                 # Scroll utilities
+│   ├─ trackerHelpers.jsx        # Shared trend/goal-alignment helpers + TrendIcon
 │   └─ time.js                   # Time/duration helpers (normalize, round, format, split)
 ├─ services/
 │   └─ fatSecret.js              # FatSecret API client
@@ -746,9 +763,11 @@ src/
   │   └─ activityPresets.test.js
   └─ utils/
     ├─ calculations.test.js
+    ├─ adaptiveThermogenesis.test.js
     ├─ dailySnapshots.test.js   # Snapshot derivation and helper behavior tests
     ├─ phaseLogV2.test.js
     ├─ phases.test.js
+    ├─ sessionCarryover.test.js
     ├─ steps.test.js
     ├─ storage.sharding.test.js
     └─ storage.test.js          # Persistence split + Dexie-first behavior tests
@@ -822,3 +841,8 @@ npm run test:watch     # Node test runner in watch mode
 34. **Snapshots are not goal-state authority:** `goalAtSnapshot` is for historical inspection only. Current goal behavior must resolve from `userData.selectedGoal` (+ `goalChangedAt`).
 35. **AT mode control is settings-driven:** `CalorieBreakdownModal` does not expose an AT mode selector. Mode changes are configured in `SettingsModal` (`adaptiveThermogenesisEnabled` + `adaptiveThermogenesisSmartMode`) and reflected in breakdown output.
 36. **Modal darkening must remain single-path + lane-based:** Do not reintroduce per-modal darkening overlays in `ModalShell`. Keep wrapper z-index allocation in +2 steps and keep shared overlay at `highestZIndex - 1`; changing this causes first-open overlay-over-content bugs or missing nested darkening.
+37. **EPOC is settings-driven and persisted:** `epocEnabled` and `epocCarryoverHours` are canonical `userData` fields (profile scope). Configure from `SettingsModal`; do not duplicate per-screen global toggles.
+38. **Session timing fields are first-class:** `startTime`, `startedAt`, and `endedAt` on cardio/training sessions are used for carryover allocation and day-boundary logic. Preserve these when editing sessions.
+39. **Carryover is date-keyed:** `getCarryoverForDateFromSessions()` allocates carryover by overlap windows against `dateKey`; always pass the correct `dateKey` when computing breakdowns/snapshots.
+40. **EPOC UI surface exists:** `EpocInfoModal`, `EpocWindowPickerModal`, and `TimePickerModal` are active parts of the flow. Keep them wired when changing settings/session forms.
+41. **Snapshot EPOC fields are intentional:** `dailySnapshots` persist `epoc`, `epocTraining`, `epocCardio`, `epocFromTodaySessions`, and `epocCarryInCalories` for historical/analytics context.
