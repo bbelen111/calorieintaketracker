@@ -60,13 +60,16 @@ export const AgePickerModal = ({
     );
   }, [handleAgeChange]);
 
-  const handleItemClick = useCallback((age) => {
-    const nextAge = sanitizeAge(age, selectedAge);
-    setSelectedAge(nextAge);
-    if (scrollRef.current) {
-      alignScrollContainerToValue(scrollRef.current, nextAge, 'smooth');
-    }
-  }, [selectedAge]);
+  const handleItemClick = useCallback(
+    (age) => {
+      const nextAge = sanitizeAge(age, selectedAge);
+      setSelectedAge(nextAge);
+      if (scrollRef.current) {
+        alignScrollContainerToValue(scrollRef.current, nextAge, 'smooth');
+      }
+    },
+    [selectedAge]
+  );
 
   const handleSave = useCallback(() => {
     onSave?.(selectedAge);
