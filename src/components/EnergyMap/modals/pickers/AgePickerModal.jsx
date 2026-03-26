@@ -43,7 +43,7 @@ export const AgePickerModal = ({
       alignScrollContainerToValue(scrollRef.current, nextAge, behavior);
     });
     return () => cancelAnimationFrame(frame);
-  }, [isOpen, selectedAge, value]);
+  }, [isOpen, value]);
 
   const handleAgeChange = useCallback((nextAge) => {
     setSelectedAge(sanitizeAge(nextAge));
