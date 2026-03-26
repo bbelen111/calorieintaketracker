@@ -546,13 +546,6 @@ export const EnergyMapCalculator = () => {
     [trainingSessions]
   );
 
-  const latestTodayTrainingSession = useMemo(
-    () =>
-      todayTrainingSessions.length > 0
-        ? todayTrainingSessions[todayTrainingSessions.length - 1]
-        : null,
-    [todayTrainingSessions]
-  );
   const selectedDay = todayTrainingSessions.length > 0 ? 'training' : 'rest';
 
   // Confirm action state
@@ -1325,43 +1318,6 @@ export const EnergyMapCalculator = () => {
     setTempHeight(userData.height);
     heightModal.open();
   }, [heightModal, userData.height]);
-
-  const openTrainingModal = useCallback(() => {
-    setTrainingModalMode('settings');
-    setEditingTrainingSessionId(null);
-    setTempTrainingType(userData.selectedTrainingType);
-    setTempTrainingDuration(userData.trainingDuration);
-    const sessionEffortType =
-      latestTodayTrainingSession?.effortType ?? DEFAULT_TRAINING_EFFORT_TYPE;
-    setTempTrainingEffortType(sessionEffortType);
-    setTempTrainingIntensity(
-      latestTodayTrainingSession?.intensity ?? DEFAULT_TRAINING_INTENSITY
-    );
-    setTempTrainingStartTime(
-      normalizeTimeOfDay(
-        latestTodayTrainingSession?.startTime,
-        getTimeOfDayFromEpochMs(
-          latestTodayTrainingSession?.startedAt,
-          getCurrentLocalTimeString()
-        )
-      )
-    );
-    setTempTrainingHeartRate(
-      sessionEffortType === 'heartRate'
-        ? (latestTodayTrainingSession?.averageHeartRate ?? '')
-        : ''
-    );
-    trainingModal.open();
-  }, [
-    latestTodayTrainingSession?.averageHeartRate,
-    latestTodayTrainingSession?.effortType,
-    latestTodayTrainingSession?.intensity,
-    latestTodayTrainingSession?.startTime,
-    latestTodayTrainingSession?.startedAt,
-    trainingModal,
-    userData.trainingDuration,
-    userData.selectedTrainingType,
-  ]);
 
   const resetTrainingTypeEditorState = useCallback(() => {
     setEditingTrainingType(null);
@@ -3492,25 +3448,30 @@ export const EnergyMapCalculator = () => {
         isOpen={settingsModal.isOpen}
         isClosing={settingsModal.isClosing}
         userData={userData}
-        onChange={handleUserDataChange}
-        onAgePickerClick={openAgeModal}
-        onHeightPickerClick={openHeightModal}
-        onManageWeightClick={openWeightTracker}
-        onManageBodyFatClick={openBodyFatTracker}
         weightEntries={weightEntries}
         bodyFatEntries={bodyFatEntries}
         bodyFatTrackingEnabled={userData.bodyFatTrackingEnabled}
         bmr={bmr}
-        trainingTypes={trainingTypes}
-        trainingCalories={trainingCalories}
-        onTrainingClick={openTrainingModal}
-        onDailyActivityClick={openDailyActivitySettings}
-        onOpenTefInfo={tefInfoModal.open}
-        onOpenAdaptiveThermogenesisInfo={adaptiveThermogenesisInfoModal.open}
-        onOpenEpocInfo={epocInfoModal.open}
-        onEpocWindowPickerClick={openEpocWindowPickerModal}
-        onCancel={settingsModal.requestClose}
-        onSave={handleSettingsSave}
+        actions={{
+          onFieldChange: handleUserDataChange,
+          openers: {
+            agePicker: openAgeModal,
+            heightPicker: openHeightModal,
+            manageWeight: openWeightTracker,
+            manageBodyFat: openBodyFatTracker,
+            dailyActivity: openDailyActivitySettings,
+            epocWindowPicker: openEpocWindowPickerModal,
+          },
+          info: {
+            tef: tefInfoModal.open,
+            adaptiveThermogenesis: adaptiveThermogenesisInfoModal.open,
+            epoc: epocInfoModal.open,
+          },
+          lifecycle: {
+            cancel: settingsModal.requestClose,
+            save: handleSettingsSave,
+          },
+        }}
       />
 
       <DailyActivityModal

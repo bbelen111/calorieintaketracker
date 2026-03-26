@@ -29,6 +29,73 @@ const THEME_OPTIONS = [
   { value: 'amoled_dark', label: 'AMOLED', icon: Smartphone },
 ];
 
+const defaultPresetKeys = { training: 'default', rest: 'default' };
+
+const BUTTON_BASE_CLASS =
+  'py-3 px-2 rounded-lg border-2 transition-all font-semibold flex items-center justify-center gap-2 focus-ring pressable-inline';
+const BUTTON_INACTIVE_CLASS =
+  'bg-surface-highlight border-border text-muted md:hover:border-muted/50';
+const BUTTON_ACTIVE_PRIMARY_CLASS =
+  'bg-primary border-primary/70 text-primary-foreground md:hover:brightness-110';
+const BUTTON_ACTIVE_BLUE_CLASS =
+  'bg-accent-blue/20 border-accent-blue/60 text-accent-blue md:hover:brightness-110';
+const BUTTON_ACTIVE_INDIGO_CLASS =
+  'bg-accent-indigo/20 border-accent-indigo/60 text-accent-indigo md:hover:brightness-110';
+
+const clampInteger = (value, min, max, fallback) => {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return fallback;
+  }
+  return Math.min(Math.max(Math.round(numericValue), min), max);
+};
+
+const resolveSettingsData = ({
+  userData,
+  bmr,
+  weightEntries,
+  bodyFatEntries,
+  bodyFatTrackingEnabled,
+}) => {
+  const resolvedBodyFatTrackingEnabled =
+    typeof bodyFatTrackingEnabled === 'boolean'
+      ? bodyFatTrackingEnabled
+      : userData.bodyFatTrackingEnabled;
+
+  const useTargetQuickEstimates =
+    userData.smartTefQuickEstimatesTargetMode ?? true;
+  const showFoodModalTefBurn = userData.smartTefFoodTefBurnEnabled ?? true;
+  const useTargetLiveCard =
+    useTargetQuickEstimates && (userData.smartTefLiveCardTargetMode ?? false);
+
+  return {
+    resolvedUserData: userData,
+    resolvedBmr: bmr,
+    resolvedWeightEntries: weightEntries,
+    resolvedBodyFatEntries: bodyFatEntries,
+    resolvedBodyFatTrackingEnabled,
+    useTargetQuickEstimates,
+    showFoodModalTefBurn,
+    useTargetLiveCard,
+    adaptiveThermogenesisEnabled:
+      userData.adaptiveThermogenesisEnabled ?? false,
+    adaptiveThermogenesisSmartMode:
+      userData.adaptiveThermogenesisSmartMode ?? false,
+    adaptiveThermogenesisSmoothingEnabled:
+      userData.adaptiveThermogenesisSmoothingEnabled ?? false,
+    adaptiveThermogenesisSmoothingMethod:
+      userData.adaptiveThermogenesisSmoothingMethod === 'sma' ? 'sma' : 'ema',
+    adaptiveThermogenesisSmoothingWindowDays: clampInteger(
+      userData.adaptiveThermogenesisSmoothingWindowDays,
+      3,
+      14,
+      7
+    ),
+    epocEnabled: userData.epocEnabled ?? true,
+    epocCarryoverHours: clampInteger(userData.epocCarryoverHours, 1, 24, 6),
+  };
+};
+
 export const SettingsModal = ({
   isOpen,
   isClosing,
@@ -49,6 +116,7 @@ export const SettingsModal = ({
   onEpocWindowPickerClick,
   onCancel,
   onSave,
+  actions,
 }) => {
   const store = useEnergyMapStore(
     (state) => ({
@@ -60,61 +128,93 @@ export const SettingsModal = ({
     shallow
   );
 
-  const resolvedUserData = userData ?? store.userData;
-  const resolvedBmr = bmr ?? store.bmr;
-  const resolvedWeightEntries = weightEntries ?? store.weightEntries;
-  const resolvedBodyFatEntries = bodyFatEntries ?? store.bodyFatEntries;
-  const resolvedBodyFatTrackingEnabled =
-    typeof bodyFatTrackingEnabled === 'boolean'
-      ? bodyFatTrackingEnabled
-      : resolvedUserData.bodyFatTrackingEnabled;
-  const useTargetQuickEstimates =
-    resolvedUserData.smartTefQuickEstimatesTargetMode ?? true;
-  const showFoodModalTefBurn =
-    resolvedUserData.smartTefFoodTefBurnEnabled ?? true;
-  const useTargetLiveCard =
-    useTargetQuickEstimates &&
-    (resolvedUserData.smartTefLiveCardTargetMode ?? false);
-  const adaptiveThermogenesisEnabled =
-    resolvedUserData.adaptiveThermogenesisEnabled ?? false;
-  const adaptiveThermogenesisSmartMode =
-    resolvedUserData.adaptiveThermogenesisSmartMode ?? false;
-  const adaptiveThermogenesisSmoothingEnabled =
-    resolvedUserData.adaptiveThermogenesisSmoothingEnabled ?? false;
-  const adaptiveThermogenesisSmoothingMethod =
-    resolvedUserData.adaptiveThermogenesisSmoothingMethod === 'sma'
-      ? 'sma'
-      : 'ema';
-  const adaptiveThermogenesisSmoothingWindowDays = Number.isFinite(
-    Number(resolvedUserData.adaptiveThermogenesisSmoothingWindowDays)
-  )
-    ? Math.min(
-        Math.max(
-          Math.round(
-            Number(resolvedUserData.adaptiveThermogenesisSmoothingWindowDays)
-          ),
-          3
-        ),
-        14
-      )
-    : 7;
-  const epocEnabled = resolvedUserData.epocEnabled ?? true;
-  const epocCarryoverHours = Number.isFinite(
-    Number(resolvedUserData.epocCarryoverHours)
-  )
-    ? Math.min(
-        Math.max(Math.round(Number(resolvedUserData.epocCarryoverHours)), 1),
-        24
-      )
-    : 6;
+  const resolvedUserDataSource = userData ?? store.userData;
+  const resolvedBmrSource = bmr ?? store.bmr;
+  const resolvedWeightEntriesSource = weightEntries ?? store.weightEntries;
+  const resolvedBodyFatEntriesSource = bodyFatEntries ?? store.bodyFatEntries;
+
+  const resolvedActions = useMemo(
+    () => ({
+      onFieldChange: actions?.onFieldChange ?? onChange,
+      openers: actions?.openers ?? {
+        agePicker: onAgePickerClick,
+        heightPicker: onHeightPickerClick,
+        manageWeight: onManageWeightClick,
+        manageBodyFat: onManageBodyFatClick,
+        dailyActivity: onDailyActivityClick,
+        epocWindowPicker: onEpocWindowPickerClick,
+      },
+      info: actions?.info ?? {
+        tef: onOpenTefInfo,
+        adaptiveThermogenesis: onOpenAdaptiveThermogenesisInfo,
+        epoc: onOpenEpocInfo,
+      },
+      lifecycle: actions?.lifecycle ?? {
+        cancel: onCancel,
+        save: onSave,
+      },
+    }),
+    [
+      actions?.info,
+      actions?.lifecycle,
+      actions?.onFieldChange,
+      actions?.openers,
+      onAgePickerClick,
+      onCancel,
+      onChange,
+      onDailyActivityClick,
+      onEpocWindowPickerClick,
+      onHeightPickerClick,
+      onManageBodyFatClick,
+      onManageWeightClick,
+      onOpenAdaptiveThermogenesisInfo,
+      onOpenEpocInfo,
+      onOpenTefInfo,
+      onSave,
+    ]
+  );
+
+  const {
+    resolvedUserData,
+    resolvedBmr,
+    resolvedWeightEntries,
+    resolvedBodyFatEntries,
+    resolvedBodyFatTrackingEnabled,
+    useTargetQuickEstimates,
+    showFoodModalTefBurn,
+    useTargetLiveCard,
+    adaptiveThermogenesisEnabled,
+    adaptiveThermogenesisSmartMode,
+    adaptiveThermogenesisSmoothingEnabled,
+    adaptiveThermogenesisSmoothingMethod,
+    adaptiveThermogenesisSmoothingWindowDays,
+    epocEnabled,
+    epocCarryoverHours,
+  } = useMemo(
+    () =>
+      resolveSettingsData({
+        userData: resolvedUserDataSource,
+        bmr: resolvedBmrSource,
+        weightEntries: resolvedWeightEntriesSource,
+        bodyFatEntries: resolvedBodyFatEntriesSource,
+        bodyFatTrackingEnabled,
+      }),
+    [
+      bodyFatTrackingEnabled,
+      resolvedBodyFatEntriesSource,
+      resolvedBmrSource,
+      resolvedUserDataSource,
+      resolvedWeightEntriesSource,
+    ]
+  );
 
   const handleCancel = useCallback(() => {
-    onCancel?.();
-  }, [onCancel]);
+    resolvedActions.lifecycle.cancel?.();
+  }, [resolvedActions.lifecycle]);
 
   const handleSave = useCallback(() => {
-    onSave?.();
-  }, [onSave]);
+    resolvedActions.lifecycle.save?.();
+  }, [resolvedActions.lifecycle]);
 
   const latestWeightEntry = useMemo(
     () =>
@@ -158,703 +258,609 @@ export const SettingsModal = ({
   }, [latestBodyFatEntry]);
 
   return (
-    <ModalShell
+    <FullscreenModalFrame
       isOpen={isOpen}
       isClosing={isClosing}
+      onBack={handleCancel}
       onClose={handleCancel}
-      fullHeight
-      overlayClassName="fixed inset-0 bg-black/70 !p-0 !flex-none !items-stretch !justify-stretch"
-      contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none !max-h-none flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
+      title="Settings"
+      footer={
+        <SettingsActionFooter onCancel={handleCancel} onSave={handleSave} />
+      }
     >
-      <div className="flex items-center justify-between px-4 py-3 bg-background border-b border-border flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={handleCancel}
-            aria-label="Back"
-            className="text-muted md:hover:text-foreground transition-all pressable-inline focus-ring"
-          >
-            <ChevronLeft size={24} />
-          </button>
-          <h3 className="text-foreground font-bold text-xl md:text-2xl">
-            Settings
-          </h3>
-        </div>
+      <div className="p-4 space-y-4 md:space-y-6">
+        <ProfileSection
+          userData={resolvedUserData}
+          displayedWeight={displayedWeight}
+          lastLoggedLabel={lastLoggedLabel}
+          displayedBodyFat={displayedBodyFat}
+          bodyFatLoggedLabel={bodyFatLoggedLabel}
+          bodyFatTrackingEnabled={resolvedBodyFatTrackingEnabled}
+          onFieldChange={resolvedActions.onFieldChange}
+          onOpenAgePicker={resolvedActions.openers.agePicker}
+          onOpenHeightPicker={resolvedActions.openers.heightPicker}
+          onOpenWeightManager={resolvedActions.openers.manageWeight}
+          onOpenBodyFatManager={resolvedActions.openers.manageBodyFat}
+        />
+
+        <DailyActivitySection
+          userData={resolvedUserData}
+          bmr={resolvedBmr}
+          onDailyActivityClick={resolvedActions.openers.dailyActivity}
+        />
+
+        <EpocSection
+          epocEnabled={epocEnabled}
+          epocCarryoverHours={epocCarryoverHours}
+          onOpenInfo={resolvedActions.info.epoc}
+          onOpenWindowPicker={resolvedActions.openers.epocWindowPicker}
+          onFieldChange={resolvedActions.onFieldChange}
+        />
+
+        <SmartTefSection
+          userData={resolvedUserData}
+          useTargetQuickEstimates={useTargetQuickEstimates}
+          showFoodModalTefBurn={showFoodModalTefBurn}
+          useTargetLiveCard={useTargetLiveCard}
+          onOpenInfo={resolvedActions.info.tef}
+          onFieldChange={resolvedActions.onFieldChange}
+        />
+
+        <AdaptiveThermogenesisSection
+          adaptiveThermogenesisEnabled={adaptiveThermogenesisEnabled}
+          adaptiveThermogenesisSmartMode={adaptiveThermogenesisSmartMode}
+          adaptiveThermogenesisSmoothingEnabled={
+            adaptiveThermogenesisSmoothingEnabled
+          }
+          adaptiveThermogenesisSmoothingMethod={
+            adaptiveThermogenesisSmoothingMethod
+          }
+          adaptiveThermogenesisSmoothingWindowDays={
+            adaptiveThermogenesisSmoothingWindowDays
+          }
+          onOpenInfo={resolvedActions.info.adaptiveThermogenesis}
+          onFieldChange={resolvedActions.onFieldChange}
+        />
       </div>
-
-      <div className="flex-1 bg-surface border-t border-border flex flex-col">
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-4 space-y-4 md:space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-              <div>
-                <label className="text-foreground/80 text-sm block mb-2">
-                  Age
-                </label>
-                <button
-                  type="button"
-                  onClick={() => onAgePickerClick?.()}
-                  className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-3 pressable-inline"
-                  aria-label="Open age picker"
-                >
-                  <span className="font-medium text-base">
-                    {sanitizeAge(resolvedUserData.age)} years
-                  </span>
-                  <ChevronsUpDown size={16} className="text-muted shrink-0" />
-                </button>
-              </div>
-
-              <div>
-                <label className="text-foreground/80 text-sm block mb-2">
-                  Gender
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => onChange('gender', 'male')}
-                    type="button"
-                    className={`py-3 px-2 rounded-lg border-2 transition-all font-semibold flex items-center justify-center gap-2 focus-ring pressable-inline ${
-                      resolvedUserData.gender === 'male'
-                        ? 'bg-blue-600 border-blue-500 text-white'
-                        : 'bg-surface-highlight border-border text-muted'
-                    }`}
-                  >
-                    <Mars size={16} />
-                    <span>Male</span>
-                  </button>
-                  <button
-                    onClick={() => onChange('gender', 'female')}
-                    type="button"
-                    className={`py-3 px-2 rounded-lg border-2 transition-all font-semibold flex items-center justify-center gap-2 focus-ring pressable-inline ${
-                      resolvedUserData.gender === 'female'
-                        ? 'bg-indigo-600 border-indigo-500 text-white'
-                        : 'bg-surface-highlight border-border text-muted'
-                    }`}
-                  >
-                    <Venus size={16} />
-                    <span>Female</span>
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-foreground/80 text-sm block mb-2">
-                  Theme
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
-                    <button
-                      key={value}
-                      onClick={() => onChange('theme', value)}
-                      type="button"
-                      className={`py-3 px-2 rounded-lg border-2 transition-all font-semibold flex items-center justify-center gap-2 focus-ring pressable-inline ${
-                        resolvedUserData.theme === value
-                          ? 'bg-blue-600 border-blue-500 text-white'
-                          : 'bg-surface-highlight border-border text-muted'
-                      }`}
-                    >
-                      <Icon size={16} />
-                      <span className="text-sm">{label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="text-foreground/80 text-sm block mb-2">
-                  Weight (kg)
-                </label>
-                <button
-                  type="button"
-                  onClick={() => onManageWeightClick?.()}
-                  className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-500 text-white transition-all press-feedback flex flex-wrap items-center gap-x-3 gap-y-1 text-left focus-ring md:hover:bg-blue-500/90 font-semibold"
-                >
-                  <span className="font-semibold text-sm md:text-base">
-                    {displayedWeight !== '—' ? `${displayedWeight}kg` : '—'}
-                  </span>
-                  <span className="text-xs md:text-sm opacity-90">
-                    {lastLoggedLabel}
-                  </span>
-                  <span className="text-[11px] opacity-80 ml-auto whitespace-nowrap">
-                    Tap to manage
-                  </span>
-                </button>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-foreground/80 text-sm">
-                    Body Fat (%)
-                  </label>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={resolvedBodyFatTrackingEnabled}
-                    aria-label="Toggle body fat tracking"
-                    onClick={() =>
-                      onChange(
-                        'bodyFatTrackingEnabled',
-                        !resolvedBodyFatTrackingEnabled
-                      )
-                    }
-                    className="inline-flex items-center rounded-full focus-ring pressable-inline"
-                  >
-                    <span
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-all ${
-                        resolvedBodyFatTrackingEnabled
-                          ? 'bg-accent-emerald border-accent-emerald/70'
-                          : 'bg-surface-highlight border-border'
-                      }`}
-                    >
-                      <span
-                        className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                          resolvedBodyFatTrackingEnabled
-                            ? 'translate-x-6'
-                            : 'translate-x-1'
-                        }`}
-                      />
-                    </span>
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onManageBodyFatClick?.()}
-                  disabled={!resolvedBodyFatTrackingEnabled}
-                  className={`w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 transition-all press-feedback flex flex-wrap items-center gap-x-3 gap-y-1 text-left font-semibold focus-ring ${
-                    resolvedBodyFatTrackingEnabled
-                      ? 'bg-blue-600 border-blue-500 text-white md:hover:bg-blue-500/90'
-                      : 'bg-surface-highlight border-border text-muted cursor-not-allowed'
-                  }`}
-                >
-                  <span className="font-semibold text-sm md:text-base">
-                    {displayedBodyFat !== '—' ? `${displayedBodyFat}%` : '—'}
-                  </span>
-                  <span className="text-xs md:text-sm opacity-90">
-                    {resolvedBodyFatTrackingEnabled
-                      ? bodyFatLoggedLabel
-                      : 'Tracking disabled'}
-                  </span>
-                  <span className="text-[11px] opacity-80 ml-auto whitespace-nowrap">
-                    {resolvedBodyFatTrackingEnabled
-                      ? 'Tap to manage'
-                      : 'Enable to use'}
-                  </span>
-                </button>
-              </div>
-
-              <div>
-                <label className="text-foreground/80 text-sm block mb-2">
-                  Height (cm)
-                </label>
-                <button
-                  type="button"
-                  onClick={() => onHeightPickerClick?.()}
-                  className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-3 pressable-inline"
-                  aria-label="Open height picker"
-                >
-                  <span className="font-medium text-base">
-                    {sanitizeHeight(resolvedUserData.height)} cm
-                  </span>
-                  <ChevronsUpDown size={16} className="text-muted shrink-0" />
-                </button>
-              </div>
-            </div>
-
-            <DailyActivitySection
-              userData={resolvedUserData}
-              bmr={resolvedBmr}
-              onDailyActivityClick={onDailyActivityClick}
-            />
-
-            <div>
-              <div className="flex items-center justify-between mb-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => onOpenEpocInfo?.()}
-                  className="inline-flex items-center gap-1.5 text-foreground/80 text-sm md:hover:text-foreground transition-colors focus-ring rounded-md px-1 pressable-inline"
-                >
-                  <span>EPOC (Post-Exercise Burn)</span>
-                  <Info size={14} />
-                </button>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={epocEnabled}
-                  aria-label="Toggle EPOC"
-                  onClick={() => onChange('epocEnabled', !epocEnabled)}
-                  className="inline-flex items-center rounded-full focus-ring pressable-inline"
-                >
-                  <span
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-all ${
-                      epocEnabled
-                        ? 'bg-accent-emerald border-accent-emerald/70'
-                        : 'bg-surface-highlight border-border'
-                    }`}
-                  >
-                    <span
-                      className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                        epocEnabled ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </span>
-                </button>
-              </div>
-
-              <p className="text-muted text-xs mb-2">
-                Adds post-exercise oxygen consumption to TDEE and carries part
-                of it into following days based on session time.
-              </p>
-
-              {epocEnabled && (
-                <div className="mt-3 rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-foreground text-sm font-medium leading-tight">
-                        Carryover window
-                      </p>
-                      <p className="text-muted text-xs mt-0.5">
-                        Higher values extend how long EPOC can spill into the
-                        next day.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => onEpocWindowPickerClick?.()}
-                      className="bg-surface-highlight text-foreground px-3 py-1 rounded-md border border-border transition-all text-right focus-ring md:hover:border-muted/50 flex items-center justify-center gap-2 pressable-inline font-medium text-sm"
-                      aria-label="Open carryover window picker"
-                    >
-                      <span>{epocCarryoverHours}h</span>
-                      <ChevronsUpDown
-                        size={14}
-                        className="text-muted shrink-0"
-                      />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => onOpenTefInfo?.()}
-                  className="inline-flex items-center gap-1.5 text-foreground/80 text-sm md:hover:text-foreground transition-colors focus-ring rounded-md px-1 pressable-inline"
-                >
-                  <span>Smart TEF</span>
-                  <Info size={14} />
-                </button>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={resolvedUserData.smartTefEnabled}
-                  aria-label="Toggle Smart TEF"
-                  onClick={() =>
-                    onChange(
-                      'smartTefEnabled',
-                      !resolvedUserData.smartTefEnabled
-                    )
-                  }
-                  className="inline-flex items-center rounded-full focus-ring pressable-inline"
-                >
-                  <span
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-all ${
-                      resolvedUserData.smartTefEnabled
-                        ? 'bg-accent-emerald border-accent-emerald/70'
-                        : 'bg-surface-highlight border-border'
-                    }`}
-                  >
-                    <span
-                      className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                        resolvedUserData.smartTefEnabled
-                          ? 'translate-x-6'
-                          : 'translate-x-1'
-                      }`}
-                    />
-                  </span>
-                </button>
-              </div>
-
-              <p className="text-muted text-xs mb-2">
-                TEF (Thermic Effect of Food) is the energy cost of digesting and
-                processing food. Smart TEF swaps a one-size-fits-all estimate
-                for a macro-based version.
-              </p>
-
-              {resolvedUserData.smartTefEnabled && (
-                <div className="mt-3 space-y-2">
-                  <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-foreground text-sm font-medium leading-tight">
-                          Show TEF burn in food modals
-                        </p>
-                        <p className="text-muted text-xs mt-0.5">
-                          Displays TEF burn in manual food entry and portion
-                          modals.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={showFoodModalTefBurn}
-                        aria-label="Toggle TEF burn in food modals"
-                        onClick={() =>
-                          onChange(
-                            'smartTefFoodTefBurnEnabled',
-                            !showFoodModalTefBurn
-                          )
-                        }
-                        className="inline-flex items-center rounded-full focus-ring pressable-inline"
-                      >
-                        <span
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-all ${
-                            showFoodModalTefBurn
-                              ? 'bg-accent-emerald border-accent-emerald/70'
-                              : 'bg-surface-highlight border-border'
-                          }`}
-                        >
-                          <span
-                            className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                              showFoodModalTefBurn
-                                ? 'translate-x-6'
-                                : 'translate-x-1'
-                            }`}
-                          />
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-foreground text-sm font-medium leading-tight">
-                          Use target mode for quick estimates
-                        </p>
-                        <p className="text-muted text-xs mt-0.5">
-                          Step-range estimates use macro targets instead of
-                          today&apos;s logged macros.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={useTargetQuickEstimates}
-                        aria-label="Toggle target mode for quick estimates"
-                        onClick={() => {
-                          const nextUseTargetQuickEstimates =
-                            !useTargetQuickEstimates;
-                          onChange(
-                            'smartTefQuickEstimatesTargetMode',
-                            nextUseTargetQuickEstimates
-                          );
-
-                          if (!nextUseTargetQuickEstimates) {
-                            onChange('smartTefLiveCardTargetMode', false);
-                          }
-                        }}
-                        className="inline-flex items-center rounded-full focus-ring pressable-inline"
-                      >
-                        <span
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-all ${
-                            useTargetQuickEstimates
-                              ? 'bg-accent-emerald border-accent-emerald/70'
-                              : 'bg-surface-highlight border-border'
-                          }`}
-                        >
-                          <span
-                            className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                              useTargetQuickEstimates
-                                ? 'translate-x-6'
-                                : 'translate-x-1'
-                            }`}
-                          />
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {useTargetQuickEstimates && (
-                    <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-foreground text-sm font-medium leading-tight">
-                            Also use target mode for hero/live card
-                          </p>
-                          <p className="text-muted text-xs mt-0.5">
-                            Live step card uses macro targets instead of
-                            today&apos;s logged macros.
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={useTargetLiveCard}
-                          aria-label="Toggle target mode for hero/live card"
-                          onClick={() =>
-                            onChange(
-                              'smartTefLiveCardTargetMode',
-                              !useTargetLiveCard
-                            )
-                          }
-                          className="inline-flex items-center rounded-full focus-ring pressable-inline"
-                        >
-                          <span
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-all ${
-                              useTargetLiveCard
-                                ? 'bg-accent-emerald border-accent-emerald/70'
-                                : 'bg-surface-highlight border-border'
-                            }`}
-                          >
-                            <span
-                              className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                                useTargetLiveCard
-                                  ? 'translate-x-6'
-                                  : 'translate-x-1'
-                              }`}
-                            />
-                          </span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => onOpenAdaptiveThermogenesisInfo?.()}
-                  className="inline-flex items-center gap-1.5 text-foreground/80 text-sm md:hover:text-foreground transition-colors focus-ring rounded-md px-1 pressable-inline"
-                >
-                  <span>Adaptive Thermogenesis</span>
-                  <Info size={14} />
-                </button>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={adaptiveThermogenesisEnabled}
-                  aria-label="Toggle Adaptive Thermogenesis"
-                  onClick={() =>
-                    onChange(
-                      'adaptiveThermogenesisEnabled',
-                      !adaptiveThermogenesisEnabled
-                    )
-                  }
-                  className="inline-flex items-center rounded-full focus-ring pressable-inline"
-                >
-                  <span
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-all ${
-                      adaptiveThermogenesisEnabled
-                        ? 'bg-accent-emerald border-accent-emerald/70'
-                        : 'bg-surface-highlight border-border'
-                    }`}
-                  >
-                    <span
-                      className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                        adaptiveThermogenesisEnabled
-                          ? 'translate-x-6'
-                          : 'translate-x-1'
-                      }`}
-                    />
-                  </span>
-                </button>
-              </div>
-
-              <p className="text-muted text-xs">
-                Adds a metabolic adaptation correction to TDEE. Crude mode uses
-                time-in-goal stages, smart mode uses weight/intake trend signal.
-              </p>
-
-              {adaptiveThermogenesisEnabled && (
-                <div className="mt-3 rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-foreground text-sm font-medium leading-tight">
-                        Use Smart mode
-                      </p>
-                      <p className="text-muted text-xs mt-0.5">
-                        When off, Adaptive Thermogenesis uses Crude staged mode.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={adaptiveThermogenesisSmartMode}
-                      aria-label="Toggle Adaptive Thermogenesis smart mode"
-                      onClick={() =>
-                        onChange(
-                          'adaptiveThermogenesisSmartMode',
-                          !adaptiveThermogenesisSmartMode
-                        )
-                      }
-                      className="inline-flex items-center rounded-full focus-ring pressable-inline"
-                    >
-                      <span
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-all ${
-                          adaptiveThermogenesisSmartMode
-                            ? 'bg-accent-emerald border-accent-emerald/70'
-                            : 'bg-surface-highlight border-border'
-                        }`}
-                      >
-                        <span
-                          className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                            adaptiveThermogenesisSmartMode
-                              ? 'translate-x-6'
-                              : 'translate-x-1'
-                          }`}
-                        />
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {adaptiveThermogenesisEnabled &&
-                adaptiveThermogenesisSmartMode && (
-                  <div className="mt-2 space-y-2">
-                    <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-foreground text-sm font-medium leading-tight">
-                            Smooth weight signal
-                          </p>
-                          <p className="text-muted text-xs mt-0.5">
-                            Reduces day-to-day noise before trend slope is
-                            calculated.
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={adaptiveThermogenesisSmoothingEnabled}
-                          aria-label="Toggle adaptive thermogenesis smoothing"
-                          onClick={() =>
-                            onChange(
-                              'adaptiveThermogenesisSmoothingEnabled',
-                              !adaptiveThermogenesisSmoothingEnabled
-                            )
-                          }
-                          className="inline-flex items-center rounded-full focus-ring pressable-inline"
-                        >
-                          <span
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-all ${
-                              adaptiveThermogenesisSmoothingEnabled
-                                ? 'bg-accent-emerald border-accent-emerald/70'
-                                : 'bg-surface-highlight border-border'
-                            }`}
-                          >
-                            <span
-                              className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                                adaptiveThermogenesisSmoothingEnabled
-                                  ? 'translate-x-6'
-                                  : 'translate-x-1'
-                              }`}
-                            />
-                          </span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {adaptiveThermogenesisSmoothingEnabled && (
-                      <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5 space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              onChange(
-                                'adaptiveThermogenesisSmoothingMethod',
-                                'ema'
-                              )
-                            }
-                            className={`py-2 px-2 rounded-lg border-2 transition-all font-semibold flex flex-col items-center justify-center gap-1 focus-ring pressable-inline ${
-                              adaptiveThermogenesisSmoothingMethod === 'ema'
-                                ? 'bg-blue-600 border-blue-500 text-white'
-                                : 'bg-surface-highlight border-border text-muted'
-                            }`}
-                          >
-                            <span>EMA</span>
-                            <span className="text-xs opacity-80 font-normal">
-                              Exponential
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              onChange(
-                                'adaptiveThermogenesisSmoothingMethod',
-                                'sma'
-                              )
-                            }
-                            className={`py-2 px-2 rounded-lg border-2 transition-all font-semibold flex flex-col items-center justify-center gap-1 focus-ring pressable-inline ${
-                              adaptiveThermogenesisSmoothingMethod === 'sma'
-                                ? 'bg-blue-600 border-blue-500 text-white'
-                                : 'bg-surface-highlight border-border text-muted'
-                            }`}
-                          >
-                            <span>SMA</span>
-                            <span className="text-xs opacity-80 font-normal">
-                              Simple
-                            </span>
-                          </button>
-                        </div>
-
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between text-xs text-muted">
-                            <span>Window</span>
-                            <span>
-                              {adaptiveThermogenesisSmoothingWindowDays} days
-                            </span>
-                          </div>
-                          <input
-                            type="range"
-                            min={3}
-                            max={14}
-                            step={1}
-                            value={adaptiveThermogenesisSmoothingWindowDays}
-                            onChange={(event) =>
-                              onChange(
-                                'adaptiveThermogenesisSmoothingWindowDays',
-                                Number(event.target.value)
-                              )
-                            }
-                            style={{
-                              '--value': `${((adaptiveThermogenesisSmoothingWindowDays - 3) / 11) * 100}%`,
-                            }}
-                            className="w-full cursor-pointer accent-blue-500 transition-all"
-                            aria-label="Adaptive thermogenesis smoothing window"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex gap-2 md:gap-3 p-4 border-t border-border bg-background/60">
-          <button
-            onClick={handleCancel}
-            type="button"
-            className="flex-1 bg-surface-highlight text-foreground px-4 md:px-6 py-3 md:py-2 rounded-lg transition-all press-feedback focus-ring font-medium"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            type="button"
-            className="flex-1 bg-blue-600 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg flex items-center justify-center gap-2 transition-all press-feedback focus-ring font-medium"
-          >
-            <Save size={20} />
-            Save
-          </button>
-        </div>
-      </div>
-    </ModalShell>
+    </FullscreenModalFrame>
   );
 };
+
+const FullscreenModalFrame = ({
+  isOpen,
+  isClosing,
+  onClose,
+  onBack,
+  title,
+  children,
+  footer,
+}) => (
+  <ModalShell
+    isOpen={isOpen}
+    isClosing={isClosing}
+    onClose={onClose}
+    fullHeight
+    overlayClassName="fixed inset-0 bg-black/70 !p-0 !flex-none !items-stretch !justify-stretch"
+    contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none !max-h-none flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
+  >
+    <div className="flex items-center justify-between px-4 py-3 bg-background border-b border-border flex-shrink-0">
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="Back"
+          className="text-muted md:hover:text-foreground transition-all pressable-inline focus-ring"
+        >
+          <ChevronLeft size={24} />
+        </button>
+        <h3 className="text-foreground font-bold text-xl md:text-2xl">
+          {title}
+        </h3>
+      </div>
+    </div>
+
+    <div className="flex-1 bg-surface border-t border-border flex flex-col">
+      <div className="flex-1 overflow-y-auto">{children}</div>
+      {footer}
+    </div>
+  </ModalShell>
+);
+
+const SettingsActionFooter = ({ onCancel, onSave }) => (
+  <div className="flex gap-2 md:gap-3 p-4 border-t border-border bg-background/60">
+    <button
+      onClick={onCancel}
+      type="button"
+      className="flex-1 bg-surface-highlight text-foreground px-4 md:px-6 py-3 md:py-2 rounded-lg transition-all press-feedback focus-ring font-medium"
+    >
+      Cancel
+    </button>
+    <button
+      onClick={onSave}
+      type="button"
+      className="flex-1 bg-primary text-primary-foreground px-4 md:px-6 py-3 md:py-2 rounded-lg flex items-center justify-center gap-2 transition-all press-feedback focus-ring md:hover:brightness-110 font-medium"
+    >
+      <Save size={20} />
+      Save
+    </button>
+  </div>
+);
+
+const SettingLabel = ({ children }) => (
+  <label className="text-foreground/80 text-sm block mb-2">{children}</label>
+);
+
+const PickerButton = ({ onClick, ariaLabel, children }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-label={ariaLabel}
+    className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-3 pressable-inline"
+  >
+    <span className="font-medium text-base">{children}</span>
+    <ChevronsUpDown size={16} className="text-muted shrink-0" />
+  </button>
+);
+
+const BinarySwitch = ({ checked, onClick, ariaLabel }) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={checked}
+    aria-label={ariaLabel}
+    onClick={onClick}
+    className="inline-flex items-center rounded-full focus-ring pressable-inline"
+  >
+    <span
+      className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-all ${
+        checked
+          ? 'bg-accent-emerald border-accent-emerald/70'
+          : 'bg-surface-highlight border-border'
+      }`}
+    >
+      <span
+        className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+          checked ? 'translate-x-6' : 'translate-x-1'
+        }`}
+      />
+    </span>
+  </button>
+);
+
+const SegmentedButton = ({ active, activeClassName, children, ...props }) => (
+  <button
+    type="button"
+    className={`${BUTTON_BASE_CLASS} ${active ? activeClassName : BUTTON_INACTIVE_CLASS}`}
+    {...props}
+  >
+    {children}
+  </button>
+);
+
+const InfoHeaderWithToggle = ({
+  title,
+  onInfoClick,
+  checked,
+  onToggle,
+  ariaLabel,
+}) => (
+  <div className="flex items-center justify-between mb-2 gap-3">
+    <button
+      type="button"
+      onClick={onInfoClick}
+      className="inline-flex items-center gap-1.5 text-foreground/80 text-sm md:hover:text-foreground transition-colors focus-ring rounded-md px-1 pressable-inline"
+    >
+      <span>{title}</span>
+      <Info size={14} />
+    </button>
+    <BinarySwitch checked={checked} onClick={onToggle} ariaLabel={ariaLabel} />
+  </div>
+);
+
+const SettingToggleCard = ({
+  title,
+  description,
+  checked,
+  onToggle,
+  ariaLabel,
+}) => (
+  <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5">
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <p className="text-foreground text-sm font-medium leading-tight">
+          {title}
+        </p>
+        <p className="text-muted text-xs mt-0.5">{description}</p>
+      </div>
+      <BinarySwitch
+        checked={checked}
+        onClick={onToggle}
+        ariaLabel={ariaLabel}
+      />
+    </div>
+  </div>
+);
+
+const ProfileSection = ({
+  userData,
+  displayedWeight,
+  lastLoggedLabel,
+  displayedBodyFat,
+  bodyFatLoggedLabel,
+  bodyFatTrackingEnabled,
+  onFieldChange,
+  onOpenAgePicker,
+  onOpenHeightPicker,
+  onOpenWeightManager,
+  onOpenBodyFatManager,
+}) => (
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+    <div>
+      <SettingLabel>Age</SettingLabel>
+      <PickerButton
+        onClick={() => onOpenAgePicker?.()}
+        ariaLabel="Open age picker"
+      >
+        {sanitizeAge(userData.age)} years
+      </PickerButton>
+    </div>
+
+    <div>
+      <SettingLabel>Gender</SettingLabel>
+      <div className="grid grid-cols-2 gap-2">
+        <SegmentedButton
+          active={userData.gender === 'male'}
+          activeClassName={BUTTON_ACTIVE_BLUE_CLASS}
+          onClick={() => onFieldChange?.('gender', 'male')}
+        >
+          <Mars size={16} />
+          <span>Male</span>
+        </SegmentedButton>
+        <SegmentedButton
+          active={userData.gender === 'female'}
+          activeClassName={BUTTON_ACTIVE_INDIGO_CLASS}
+          onClick={() => onFieldChange?.('gender', 'female')}
+        >
+          <Venus size={16} />
+          <span>Female</span>
+        </SegmentedButton>
+      </div>
+    </div>
+
+    <div>
+      <SettingLabel>Theme</SettingLabel>
+      <div className="grid grid-cols-2 gap-2">
+        {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
+          <SegmentedButton
+            key={value}
+            active={userData.theme === value}
+            activeClassName={BUTTON_ACTIVE_PRIMARY_CLASS}
+            onClick={() => onFieldChange?.('theme', value)}
+          >
+            <Icon size={16} />
+            <span className="text-sm">{label}</span>
+          </SegmentedButton>
+        ))}
+      </div>
+    </div>
+
+    <div>
+      <SettingLabel>Weight (kg)</SettingLabel>
+      <button
+        type="button"
+        onClick={() => onOpenWeightManager?.()}
+        className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 border-primary/70 bg-primary text-primary-foreground transition-all press-feedback flex flex-wrap items-center gap-x-3 gap-y-1 text-left focus-ring md:hover:brightness-110 font-semibold"
+      >
+        <span className="font-semibold text-sm md:text-base">
+          {displayedWeight !== '—' ? `${displayedWeight}kg` : '—'}
+        </span>
+        <span className="text-xs md:text-sm opacity-90">{lastLoggedLabel}</span>
+        <span className="text-[11px] opacity-80 ml-auto whitespace-nowrap">
+          Tap to manage
+        </span>
+      </button>
+    </div>
+
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <label className="text-foreground/80 text-sm">Body Fat (%)</label>
+        <BinarySwitch
+          checked={bodyFatTrackingEnabled}
+          ariaLabel="Toggle body fat tracking"
+          onClick={() =>
+            onFieldChange?.('bodyFatTrackingEnabled', !bodyFatTrackingEnabled)
+          }
+        />
+      </div>
+      <button
+        type="button"
+        onClick={() => onOpenBodyFatManager?.()}
+        disabled={!bodyFatTrackingEnabled}
+        className={`w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 transition-all press-feedback flex flex-wrap items-center gap-x-3 gap-y-1 text-left font-semibold focus-ring ${
+          bodyFatTrackingEnabled
+            ? 'border-primary/70 bg-primary text-primary-foreground md:hover:brightness-110'
+            : 'bg-surface-highlight border-border text-muted cursor-not-allowed'
+        }`}
+      >
+        <span className="font-semibold text-sm md:text-base">
+          {displayedBodyFat !== '—' ? `${displayedBodyFat}%` : '—'}
+        </span>
+        <span className="text-xs md:text-sm opacity-90">
+          {bodyFatTrackingEnabled ? bodyFatLoggedLabel : 'Tracking disabled'}
+        </span>
+        <span className="text-[11px] opacity-80 ml-auto whitespace-nowrap">
+          {bodyFatTrackingEnabled ? 'Tap to manage' : 'Enable to use'}
+        </span>
+      </button>
+    </div>
+
+    <div>
+      <SettingLabel>Height (cm)</SettingLabel>
+      <PickerButton
+        onClick={() => onOpenHeightPicker?.()}
+        ariaLabel="Open height picker"
+      >
+        {sanitizeHeight(userData.height)} cm
+      </PickerButton>
+    </div>
+  </div>
+);
+
+const EpocSection = ({
+  epocEnabled,
+  epocCarryoverHours,
+  onOpenInfo,
+  onOpenWindowPicker,
+  onFieldChange,
+}) => (
+  <div>
+    <InfoHeaderWithToggle
+      title="EPOC (Post-Exercise Burn)"
+      onInfoClick={onOpenInfo}
+      checked={epocEnabled}
+      onToggle={() => onFieldChange?.('epocEnabled', !epocEnabled)}
+      ariaLabel="Toggle EPOC"
+    />
+
+    <p className="text-muted text-xs mb-2">
+      Adds post-exercise oxygen consumption to TDEE and carries part of it into
+      following days based on session time.
+    </p>
+
+    {epocEnabled && (
+      <div className="mt-3 rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-foreground text-sm font-medium leading-tight">
+              Carryover window
+            </p>
+            <p className="text-muted text-xs mt-0.5">
+              Higher values extend how long EPOC can spill into the next day.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onOpenWindowPicker?.()}
+            className="bg-surface-highlight text-foreground px-3 py-1 rounded-md border border-border transition-all text-right focus-ring md:hover:border-muted/50 flex items-center justify-center gap-2 pressable-inline font-medium text-sm"
+            aria-label="Open carryover window picker"
+          >
+            <span>{epocCarryoverHours}h</span>
+            <ChevronsUpDown size={14} className="text-muted shrink-0" />
+          </button>
+        </div>
+      </div>
+    )}
+  </div>
+);
+
+const SmartTefSection = ({
+  userData,
+  useTargetQuickEstimates,
+  showFoodModalTefBurn,
+  useTargetLiveCard,
+  onOpenInfo,
+  onFieldChange,
+}) => {
+  const smartTefToggles = [
+    {
+      key: 'food-modal-tef',
+      title: 'Show TEF burn in food modals',
+      description: 'Displays TEF burn in manual food entry and portion modals.',
+      checked: showFoodModalTefBurn,
+      onToggle: () =>
+        onFieldChange?.('smartTefFoodTefBurnEnabled', !showFoodModalTefBurn),
+      ariaLabel: 'Toggle TEF burn in food modals',
+    },
+    {
+      key: 'quick-estimates-target-mode',
+      title: 'Use target mode for quick estimates',
+      description:
+        "Step-range estimates use macro targets instead of today's logged macros.",
+      checked: useTargetQuickEstimates,
+      onToggle: () => {
+        const nextUseTargetQuickEstimates = !useTargetQuickEstimates;
+        onFieldChange?.(
+          'smartTefQuickEstimatesTargetMode',
+          nextUseTargetQuickEstimates
+        );
+
+        if (!nextUseTargetQuickEstimates) {
+          onFieldChange?.('smartTefLiveCardTargetMode', false);
+        }
+      },
+      ariaLabel: 'Toggle target mode for quick estimates',
+    },
+  ];
+
+  return (
+    <div>
+      <InfoHeaderWithToggle
+        title="Smart TEF"
+        onInfoClick={onOpenInfo}
+        checked={userData.smartTefEnabled}
+        onToggle={() =>
+          onFieldChange?.('smartTefEnabled', !userData.smartTefEnabled)
+        }
+        ariaLabel="Toggle Smart TEF"
+      />
+
+      <p className="text-muted text-xs mb-2">
+        TEF (Thermic Effect of Food) is the energy cost of digesting and
+        processing food. Smart TEF swaps a one-size-fits-all estimate for a
+        macro-based version.
+      </p>
+
+      {userData.smartTefEnabled && (
+        <div className="mt-3 space-y-2">
+          {smartTefToggles.map((toggle) => (
+            <SettingToggleCard key={toggle.key} {...toggle} />
+          ))}
+
+          {useTargetQuickEstimates && (
+            <SettingToggleCard
+              title="Also use target mode for hero/live card"
+              description="Live step card uses macro targets instead of today's logged macros."
+              checked={useTargetLiveCard}
+              onToggle={() =>
+                onFieldChange?.(
+                  'smartTefLiveCardTargetMode',
+                  !useTargetLiveCard
+                )
+              }
+              ariaLabel="Toggle target mode for hero/live card"
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const AdaptiveThermogenesisSection = ({
+  adaptiveThermogenesisEnabled,
+  adaptiveThermogenesisSmartMode,
+  adaptiveThermogenesisSmoothingEnabled,
+  adaptiveThermogenesisSmoothingMethod,
+  adaptiveThermogenesisSmoothingWindowDays,
+  onOpenInfo,
+  onFieldChange,
+}) => (
+  <div>
+    <InfoHeaderWithToggle
+      title="Adaptive Thermogenesis"
+      onInfoClick={onOpenInfo}
+      checked={adaptiveThermogenesisEnabled}
+      onToggle={() =>
+        onFieldChange?.(
+          'adaptiveThermogenesisEnabled',
+          !adaptiveThermogenesisEnabled
+        )
+      }
+      ariaLabel="Toggle Adaptive Thermogenesis"
+    />
+
+    <p className="text-muted text-xs">
+      Adds a metabolic adaptation correction to TDEE. Crude mode uses
+      time-in-goal stages, smart mode uses weight/intake trend signal.
+    </p>
+
+    {adaptiveThermogenesisEnabled && (
+      <div className="mt-3 rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-foreground text-sm font-medium leading-tight">
+              Use Smart mode
+            </p>
+            <p className="text-muted text-xs mt-0.5">
+              When off, Adaptive Thermogenesis uses Crude staged mode.
+            </p>
+          </div>
+          <BinarySwitch
+            checked={adaptiveThermogenesisSmartMode}
+            ariaLabel="Toggle Adaptive Thermogenesis smart mode"
+            onClick={() =>
+              onFieldChange?.(
+                'adaptiveThermogenesisSmartMode',
+                !adaptiveThermogenesisSmartMode
+              )
+            }
+          />
+        </div>
+      </div>
+    )}
+
+    {adaptiveThermogenesisEnabled && adaptiveThermogenesisSmartMode && (
+      <div className="mt-2 space-y-2">
+        <SettingToggleCard
+          title="Smooth weight signal"
+          description="Reduces day-to-day noise before trend slope is calculated."
+          checked={adaptiveThermogenesisSmoothingEnabled}
+          onToggle={() =>
+            onFieldChange?.(
+              'adaptiveThermogenesisSmoothingEnabled',
+              !adaptiveThermogenesisSmoothingEnabled
+            )
+          }
+          ariaLabel="Toggle adaptive thermogenesis smoothing"
+        />
+
+        {adaptiveThermogenesisSmoothingEnabled && (
+          <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5 space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <SegmentedButton
+                active={adaptiveThermogenesisSmoothingMethod === 'ema'}
+                activeClassName={BUTTON_ACTIVE_PRIMARY_CLASS}
+                onClick={() =>
+                  onFieldChange?.('adaptiveThermogenesisSmoothingMethod', 'ema')
+                }
+              >
+                <span>EMA</span>
+                <span className="text-xs opacity-80 font-normal">
+                  Exponential
+                </span>
+              </SegmentedButton>
+              <SegmentedButton
+                active={adaptiveThermogenesisSmoothingMethod === 'sma'}
+                activeClassName={BUTTON_ACTIVE_PRIMARY_CLASS}
+                onClick={() =>
+                  onFieldChange?.('adaptiveThermogenesisSmoothingMethod', 'sma')
+                }
+              >
+                <span>SMA</span>
+                <span className="text-xs opacity-80 font-normal">Simple</span>
+              </SegmentedButton>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs text-muted">
+                <span>Window</span>
+                <span>{adaptiveThermogenesisSmoothingWindowDays} days</span>
+              </div>
+              <input
+                type="range"
+                min={3}
+                max={14}
+                step={1}
+                value={adaptiveThermogenesisSmoothingWindowDays}
+                onChange={(event) =>
+                  onFieldChange?.(
+                    'adaptiveThermogenesisSmoothingWindowDays',
+                    Number(event.target.value)
+                  )
+                }
+                style={{
+                  '--value': `${((adaptiveThermogenesisSmoothingWindowDays - 3) / 11) * 100}%`,
+                }}
+                className="w-full cursor-pointer transition-all"
+                aria-label="Adaptive thermogenesis smoothing window"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    )}
+  </div>
+);
 
 const formatMultiplier = (value) => {
   if (!Number.isFinite(value)) {
@@ -867,8 +873,6 @@ const formatMultiplier = (value) => {
     ? `${rounded.toFixed(0)}%`
     : `${rounded.toFixed(1)}%`;
 };
-
-const defaultPresetKeys = { training: 'default', rest: 'default' };
 
 const DailyActivitySection = ({ userData, bmr, onDailyActivityClick }) => {
   const presets = userData.activityPresets ?? defaultPresetKeys;
@@ -897,13 +901,11 @@ const DailyActivitySection = ({ userData, bmr, onDailyActivityClick }) => {
 
   return (
     <div>
-      <label className="text-foreground/80 text-sm block mb-2">
-        Daily NEAT (Non-Exercise Activity)
-      </label>
+      <SettingLabel>Daily NEAT (Non-Exercise Activity)</SettingLabel>
       <button
         onClick={onDailyActivityClick}
         type="button"
-        className="relative w-full text-left p-3 md:p-4 rounded-lg border-2 bg-indigo-600 border-indigo-500 text-white transition-all press-feedback focus-ring"
+        className="relative w-full text-left p-3 md:p-4 rounded-lg border-2 border-accent-indigo/60 bg-accent-indigo/20 text-foreground transition-all press-feedback focus-ring md:hover:brightness-110"
       >
         <div className="min-w-0 pr-24 md:pr-28">
           <div className="font-semibold text-sm md:text-base">
