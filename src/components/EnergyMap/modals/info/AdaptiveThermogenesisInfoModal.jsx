@@ -97,6 +97,36 @@ export const AdaptiveThermogenesisInfoModal = ({
               Includes confidence and quality checks before applying stronger
               adjustments.
             </li>
+            <li>
+              Optional smoothing can be enabled to stabilize noisy weight series
+              before trend slope is calculated.
+            </li>
+          </ul>
+        </div>
+
+        <div className="bg-surface-highlight/50 rounded-lg p-4 text-sm space-y-2">
+          <p className="text-foreground font-bold">Smart smoothing options</p>
+          <p>
+            When{' '}
+            <span className="text-foreground font-semibold">
+              Smooth weight signal
+            </span>{' '}
+            is enabled in Settings, Smart mode pre-processes weight points to
+            reduce day-to-day noise.
+          </p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>
+              <span className="text-foreground font-semibold">EMA</span>{' '}
+              (exponential) reacts faster to recent changes.
+            </li>
+            <li>
+              <span className="text-foreground font-semibold">SMA</span>
+              is steadier and more conservative.
+            </li>
+            <li>
+              Window length is configurable from{' '}
+              <span className="text-foreground font-semibold">3–14 days</span>.
+            </li>
           </ul>
         </div>
 
