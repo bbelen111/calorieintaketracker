@@ -8,11 +8,46 @@ import React, {
 import { Save } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import {
-  alignScrollContainerToValue,
+  alignScrollContainerToElement,
   createPickerScrollHandler,
 } from '../../../../utils/scroll';
 
 const REPEATS = 20;
+
+const alignToNearestValue = (container, value, behavior = 'smooth') => {
+  if (!container) return;
+
+  const elements = container.querySelectorAll(`[data-value="${value}"]`);
+  if (elements.length === 0) return;
+
+  const containerCenter = container.scrollTop + container.clientHeight / 2;
+  let closest = null;
+  let closestDist = Infinity;
+
+  elements.forEach((el) => {
+    const elCenter = el.offsetTop + el.offsetHeight / 2;
+    const dist = Math.abs(containerCenter - elCenter);
+
+    if (dist < closestDist) {
+      closestDist = dist;
+      closest = el;
+    }
+  });
+
+  if (closest) {
+    alignScrollContainerToElement(container, closest, behavior);
+  }
+};
+
+const alignToMiddleRepeat = (container, value, behavior = 'smooth') => {
+  if (!container) return;
+
+  const elements = container.querySelectorAll(`[data-value="${value}"]`);
+  if (elements.length === 0) return;
+
+  const middleIdx = Math.floor(elements.length / 2);
+  alignScrollContainerToElement(container, elements[middleIdx], behavior);
+};
 
 const clampHours = (value) => {
   if (!Number.isFinite(value)) {
@@ -85,8 +120,15 @@ export const TimePickerModal = ({
   onCancel,
   onSave,
 }) => {
-  const scrollRefsRef = useRef({ amPm: null, hours: null, minutes: null });
-  const timeoutsRef = useRef({ amPm: null, hours: null, minutes: null });
+  const amPmRef = useRef(null);
+  const hoursRef = useRef(null);
+  const minutesRef = useRef(null);
+
+  const amPmTimeoutRef = useRef(null);
+  const hoursTimeoutRef = useRef(null);
+  const minutesTimeoutRef = useRef(null);
+
+  const selectionRef = useRef({ amPm: 'am', hours: 12, minutes: 0 });
   const hasAlignedRef = useRef(false);
 
   const initialParsed = useMemo(() => parseTimeString(value), [value]);
@@ -128,50 +170,102 @@ export const TimePickerModal = ({
     () => () => {}
   );
 
-  useEffect(() => {
-    const refs = timeoutsRef.current;
-    return () => {
-      clearTimeout(refs.amPm);
-      clearTimeout(refs.hours);
-      clearTimeout(refs.minutes);
+  const applySelection = useCallback(
+    (amPm, hours, minutes, behavior = 'instant') => {
+      const normalizedAmPm = normalizeToAmPm(amPm);
+      const normalizedHours = clampHours(hours);
+      const normalizedMinutes = clampMinutes(minutes);
+
+      selectionRef.current = {
+        amPm: normalizedAmPm,
+        hours: normalizedHours,
+        minutes: normalizedMinutes,
+      };
+
+      setSelectedAmPm(normalizedAmPm);
+      setSelectedHours(normalizedHours);
+      setSelectedMinutes(normalizedMinutes);
+
+      if (amPmRef.current) {
+        alignToNearestValue(amPmRef.current, normalizedAmPm, behavior);
+      }
+      if (hoursRef.current) {
+        alignToNearestValue(
+          hoursRef.current,
+          normalizedHours.toString(),
+          behavior
+        );
+      }
+      if (minutesRef.current) {
+        alignToNearestValue(
+          minutesRef.current,
+          normalizedMinutes.toString().padStart(2, '0'),
+          behavior
+        );
+      }
+    },
+    []
+  );
+
+  const handleAmPmChange = useCallback((nextAmPm) => {
+    const normalized = normalizeToAmPm(nextAmPm);
+    selectionRef.current = {
+      ...selectionRef.current,
+      amPm: normalized,
     };
+    setSelectedAmPm(normalized);
+  }, []);
+
+  const handleHoursChange = useCallback((nextHours) => {
+    const normalized = clampHours(nextHours);
+    selectionRef.current = {
+      ...selectionRef.current,
+      hours: normalized,
+    };
+    setSelectedHours(normalized);
+  }, []);
+
+  const handleMinutesChange = useCallback((nextMinutes) => {
+    const normalized = clampMinutes(nextMinutes);
+    selectionRef.current = {
+      ...selectionRef.current,
+      minutes: normalized,
+    };
+    setSelectedMinutes(normalized);
   }, []);
 
   useEffect(() => {
-    setHandleAmPmScroll(
-      () =>
-        createPickerScrollHandler(
-          scrollRefsRef.current.amPm,
-          timeoutsRef.current,
-          (val) => val,
-          (val) => setSelectedAmPm(normalizeToAmPm(val))
-        ) || (() => {})
+    setHandleAmPmScroll(() =>
+      createPickerScrollHandler(
+        amPmRef,
+        amPmTimeoutRef,
+        (val) => normalizeToAmPm(val),
+        handleAmPmChange
+      )
     );
-  }, []);
+  }, [handleAmPmChange]);
 
   useEffect(() => {
-    setHandleHoursScroll(
-      () =>
-        createPickerScrollHandler(
-          scrollRefsRef.current.hours,
-          timeoutsRef.current,
-          (val) => parseInt(val, 10),
-          (val) => setSelectedHours(clampHours(val))
-        ) || (() => {})
+    setHandleHoursScroll(() =>
+      createPickerScrollHandler(
+        hoursRef,
+        hoursTimeoutRef,
+        (val) => parseInt(val, 10),
+        handleHoursChange
+      )
     );
-  }, []);
+  }, [handleHoursChange]);
 
   useEffect(() => {
-    setHandleMinutesScroll(
-      () =>
-        createPickerScrollHandler(
-          scrollRefsRef.current.minutes,
-          timeoutsRef.current,
-          (val) => parseInt(val, 10),
-          (val) => setSelectedMinutes(clampMinutes(val))
-        ) || (() => {})
+    setHandleMinutesScroll(() =>
+      createPickerScrollHandler(
+        minutesRef,
+        minutesTimeoutRef,
+        (val) => parseInt(val, 10),
+        handleMinutesChange
+      )
     );
-  }, []);
+  }, [handleMinutesChange]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -182,65 +276,68 @@ export const TimePickerModal = ({
     const behavior = hasAlignedRef.current ? 'smooth' : 'instant';
     hasAlignedRef.current = true;
 
+    const parsed = parseTimeString(value);
+
     const frame = requestAnimationFrame(() => {
-      if (scrollRefsRef.current.amPm) {
-        alignScrollContainerToValue(
-          scrollRefsRef.current.amPm,
-          selectedAmPm,
+      selectionRef.current = {
+        amPm: parsed.amPm,
+        hours: parsed.hours,
+        minutes: parsed.minutes,
+      };
+
+      setSelectedAmPm(parsed.amPm);
+      setSelectedHours(parsed.hours);
+      setSelectedMinutes(parsed.minutes);
+
+      if (amPmRef.current) {
+        alignToMiddleRepeat(amPmRef.current, parsed.amPm, behavior);
+      }
+      if (hoursRef.current) {
+        alignToMiddleRepeat(
+          hoursRef.current,
+          parsed.hours.toString(),
           behavior
         );
       }
-      if (scrollRefsRef.current.hours) {
-        alignScrollContainerToValue(
-          scrollRefsRef.current.hours,
-          String(selectedHours),
-          behavior
-        );
-      }
-      if (scrollRefsRef.current.minutes) {
-        alignScrollContainerToValue(
-          scrollRefsRef.current.minutes,
-          String(selectedMinutes).padStart(2, '0'),
+      if (minutesRef.current) {
+        alignToMiddleRepeat(
+          minutesRef.current,
+          parsed.minutes.toString().padStart(2, '0'),
           behavior
         );
       }
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [isOpen, selectedAmPm, selectedHours, selectedMinutes]);
+  }, [isOpen, value]);
 
-  const handleItemClick = useCallback((type, value) => {
-    if (type === 'amPm') {
-      setSelectedAmPm(normalizeToAmPm(value));
-      if (scrollRefsRef.current.amPm) {
-        alignScrollContainerToValue(
-          scrollRefsRef.current.amPm,
+  const handleItemClick = useCallback(
+    (type, value) => {
+      if (type === 'amPm') {
+        applySelection(
+          value,
+          selectionRef.current.hours,
+          selectionRef.current.minutes,
+          'smooth'
+        );
+      } else if (type === 'hours') {
+        applySelection(
+          selectionRef.current.amPm,
+          value,
+          selectionRef.current.minutes,
+          'smooth'
+        );
+      } else if (type === 'minutes') {
+        applySelection(
+          selectionRef.current.amPm,
+          selectionRef.current.hours,
           value,
           'smooth'
         );
       }
-    } else if (type === 'hours') {
-      const clamped = clampHours(value);
-      setSelectedHours(clamped);
-      if (scrollRefsRef.current.hours) {
-        alignScrollContainerToValue(
-          scrollRefsRef.current.hours,
-          String(clamped),
-          'smooth'
-        );
-      }
-    } else if (type === 'minutes') {
-      const clamped = clampMinutes(value);
-      setSelectedMinutes(clamped);
-      if (scrollRefsRef.current.minutes) {
-        alignScrollContainerToValue(
-          scrollRefsRef.current.minutes,
-          String(clamped).padStart(2, '0'),
-          'smooth'
-        );
-      }
-    }
-  }, []);
+    },
+    [applySelection]
+  );
 
   const handleSave = useCallback(() => {
     const timeStr = formatTimeString(
@@ -261,9 +358,6 @@ export const TimePickerModal = ({
       <h3 className="text-foreground font-bold text-xl mb-4 text-center">
         {title}
       </h3>
-      <p className="text-muted text-xs text-center mb-4 uppercase tracking-wide">
-        12-Hour Format
-      </p>
 
       <div className="flex gap-2 mb-6">
         {/* Hours Column */}
@@ -277,21 +371,19 @@ export const TimePickerModal = ({
               <div className="h-16 bg-transparent" />
               <div className="h-16 bg-gradient-to-t from-surface to-transparent" />
             </div>
-            <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400/70 pointer-events-none z-10" />
+            <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 h-16 border-y-2 border-accent-blue/70 pointer-events-none z-10" />
 
             <div
-              ref={(el) => {
-                scrollRefsRef.current.hours = el;
-              }}
+              ref={hoursRef}
               className="h-full overflow-y-auto overflow-x-hidden scrollbar-hide touch-action-pan-y"
               onScroll={handleHoursScroll}
             >
               <div className="h-16" />
-              {hoursValues.map((hour) => {
+              {hoursValues.map((hour, idx) => {
                 const isSelected = hour === selectedHours;
                 return (
                   <div
-                    key={`${hour}-${hoursValues.indexOf(hour)}`}
+                    key={`${hour}-${idx}`}
                     data-value={hour}
                     onClick={() => handleItemClick('hours', hour)}
                     className={`h-16 flex items-center justify-center text-2xl font-semibold snap-center cursor-pointer transition-all ${
@@ -318,22 +410,20 @@ export const TimePickerModal = ({
               <div className="h-16 bg-transparent" />
               <div className="h-16 bg-gradient-to-t from-surface to-transparent" />
             </div>
-            <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400/70 pointer-events-none z-10" />
+            <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 h-16 border-y-2 border-accent-blue/70 pointer-events-none z-10" />
 
             <div
-              ref={(el) => {
-                scrollRefsRef.current.minutes = el;
-              }}
+              ref={minutesRef}
               className="h-full overflow-y-auto overflow-x-hidden scrollbar-hide touch-action-pan-y"
               onScroll={handleMinutesScroll}
             >
               <div className="h-16" />
-              {minutesValues.map((minute) => {
+              {minutesValues.map((minute, idx) => {
                 const isSelected = minute === selectedMinutes;
                 const formatted = String(minute).padStart(2, '0');
                 return (
                   <div
-                    key={`${minute}-${minutesValues.indexOf(minute)}`}
+                    key={`${minute}-${idx}`}
                     data-value={formatted}
                     onClick={() => handleItemClick('minutes', minute)}
                     className={`h-16 flex items-center justify-center text-2xl font-semibold snap-center cursor-pointer transition-all ${
@@ -360,12 +450,10 @@ export const TimePickerModal = ({
               <div className="h-16 bg-transparent" />
               <div className="h-16 bg-gradient-to-t from-surface to-transparent" />
             </div>
-            <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400/70 pointer-events-none z-10" />
+            <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 h-16 border-y-2 border-accent-blue/70 pointer-events-none z-10" />
 
             <div
-              ref={(el) => {
-                scrollRefsRef.current.amPm = el;
-              }}
+              ref={amPmRef}
               className="h-full overflow-y-auto overflow-x-hidden scrollbar-hide touch-action-pan-y"
               onScroll={handleAmPmScroll}
             >
@@ -402,7 +490,7 @@ export const TimePickerModal = ({
         <button
           onClick={handleSave}
           type="button"
-          className="flex-1 bg-accent-blue active:bg-accent-blue/90 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback"
+          className="flex-1 bg-accent-blue active:bg-accent-blue/90 text-primary-foreground px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback"
         >
           <Save size={20} />
           Save
