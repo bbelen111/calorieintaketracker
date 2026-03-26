@@ -442,6 +442,7 @@ export const EnergyMapCalculator = () => {
   const [tempPresetName, setTempPresetName] = useState('');
   const [tempPresetCalories, setTempPresetCalories] = useState(0);
   const [tempTimePickerValue, setTempTimePickerValue] = useState('12:00');
+  const [timePickerTarget, setTimePickerTarget] = useState(null);
   const [tempEpocWindowValue, setTempEpocWindowValue] = useState(
     userData.epocCarryoverHours ?? 6
   );
@@ -2501,18 +2502,56 @@ export const EnergyMapCalculator = () => {
 
   const handleTimePickerSave = useCallback(
     (value) => {
-      setTempTimePickerValue(value);
+      const normalizedValue = normalizeTimeOfDay(value, '12:00');
+      setTempTimePickerValue(normalizedValue);
+
+      if (timePickerTarget === 'training') {
+        setTempTrainingStartTime(normalizedValue);
+      } else if (timePickerTarget === 'cardio') {
+        setCardioDraft((prev) => ({
+          ...prev,
+          startTime: normalizedValue,
+        }));
+      } else if (timePickerTarget === 'favourite-cardio') {
+        setFavouriteDraft((prev) => ({
+          ...prev,
+          startTime: normalizedValue,
+        }));
+      }
+
+      setTimePickerTarget(null);
       timePickerModal.requestClose();
     },
-    [timePickerModal]
+    [timePickerModal, timePickerTarget]
   );
 
   const handleTimePickerCancel = useCallback(() => {
     setTimeout(() => {
       setTempTimePickerValue('12:00');
     }, MODAL_CLOSE_DELAY);
+    setTimePickerTarget(null);
     timePickerModal.requestClose();
   }, [timePickerModal]);
+
+  const openTrainingStartTimePicker = useCallback(() => {
+    setTempTimePickerValue(normalizeTimeOfDay(tempTrainingStartTime, '12:00'));
+    setTimePickerTarget('training');
+    timePickerModal.open();
+  }, [tempTrainingStartTime, timePickerModal]);
+
+  const openCardioStartTimePicker = useCallback(() => {
+    setTempTimePickerValue(normalizeTimeOfDay(cardioDraft?.startTime, '12:00'));
+    setTimePickerTarget('cardio');
+    timePickerModal.open();
+  }, [cardioDraft?.startTime, timePickerModal]);
+
+  const openFavouriteCardioStartTimePicker = useCallback(() => {
+    setTempTimePickerValue(
+      normalizeTimeOfDay(favouriteDraft?.startTime, '12:00')
+    );
+    setTimePickerTarget('favourite-cardio');
+    timePickerModal.open();
+  }, [favouriteDraft?.startTime, timePickerModal]);
 
   const handleEpocWindowSave = useCallback(
     (value) => {
@@ -2630,15 +2669,6 @@ export const EnergyMapCalculator = () => {
     const parsed = Number.parseInt(value, 10);
     const sanitized = Number.isFinite(parsed) ? Math.max(parsed, 0) : 0;
     setTempTrainingHeartRate(sanitized);
-  }, []);
-
-  const handleTrainingStartTimeChange = useCallback((event) => {
-    const nextValue = normalizeTimeOfDay(event?.target?.value, null);
-    if (!nextValue) {
-      return;
-    }
-
-    setTempTrainingStartTime(nextValue);
   }, []);
 
   const openDurationPicker = useCallback(
@@ -3257,6 +3287,7 @@ export const EnergyMapCalculator = () => {
         onOpenBmrInfo={bmrModal.open}
         onOpenTefInfo={tefInfoModal.open}
         onOpenAdaptiveThermogenesisInfo={adaptiveThermogenesisInfoModal.open}
+        onOpenEpocInfo={epocInfoModal.open}
         onClose={closeCalorieBreakdown}
       />
 
@@ -3550,7 +3581,7 @@ export const EnergyMapCalculator = () => {
         onEffortTypeChange={handleTrainingEffortTypeChange}
         onIntensityChange={handleTrainingIntensityChange}
         onHeartRateChange={handleTrainingHeartRateChange}
-        onStartTimeChange={handleTrainingStartTimeChange}
+        onStartTimePickerClick={openTrainingStartTimePicker}
         onCancel={trainingModal.requestClose}
         onSave={handleTrainingSave}
       />
@@ -3580,6 +3611,7 @@ export const EnergyMapCalculator = () => {
         userAge={userData.age}
         userGender={userData.gender}
         onOpenFavourites={handleOpenCardioFavourites}
+        onStartTimePickerClick={openCardioStartTimePicker}
         showFavouritesButton={showFavouritesButton}
         isEditing={cardioModalMode === 'edit'}
       />
@@ -3611,6 +3643,7 @@ export const EnergyMapCalculator = () => {
         userWeight={userData.weight}
         userAge={userData.age}
         userGender={userData.gender}
+        onStartTimePickerClick={openFavouriteCardioStartTimePicker}
         showFavouritesButton={false}
         mode="favourite"
         isEditing={false}

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
-import { Save, Edit3 } from 'lucide-react';
+import { Save, Edit3, ChevronsUpDown } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import {
   formatDurationLabel,
@@ -29,7 +29,7 @@ export const TrainingModal = ({
   onEffortTypeChange,
   onIntensityChange,
   onHeartRateChange,
-  onStartTimeChange,
+  onStartTimePickerClick,
   userWeight,
   userAge,
   userGender,
@@ -54,6 +54,7 @@ export const TrainingModal = ({
   const resolvedUserWeight = userWeight ?? store.userData?.weight;
   const resolvedUserAge = userAge ?? store.userData?.age;
   const resolvedUserGender = userGender ?? store.userData?.gender;
+  const epocEnabled = store.userData?.epocEnabled ?? true;
 
   const pseudoTrainingSession = useMemo(() => {
     const durationMinutes = Number.isFinite(Number(tempTrainingDuration))
@@ -239,12 +240,17 @@ export const TrainingModal = ({
             <label className="text-foreground text-sm block mb-2">
               Start Time
             </label>
-            <input
-              type="time"
-              value={tempTrainingStartTime ?? '12:00'}
-              onChange={onStartTimeChange}
-              className="w-full px-3 py-2 rounded-lg border-2 bg-surface-highlight border-border text-foreground transition-all focus-ring"
-            />
+            <button
+              type="button"
+              onClick={onStartTimePickerClick}
+              className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-3 pressable-inline"
+              aria-label="Open start time picker"
+            >
+              <span className="font-medium text-base">
+                {tempTrainingStartTime ?? '12:00'}
+              </span>
+              <ChevronsUpDown size={16} className="text-muted shrink-0" />
+            </button>
             <p className="text-xs text-muted mt-2">
               Used to split post-workout carryover across day boundaries.
             </p>
@@ -358,9 +364,11 @@ export const TrainingModal = ({
             <p className="text-foreground font-bold text-xl text-center">
               ~{estimatedBurn} calories
             </p>
-            <p className="text-muted text-xs text-center mt-1">
-              +~{Math.round(estimatedEpoc)} EPOC
-            </p>
+            {epocEnabled && (
+              <p className="text-muted text-xs text-center mt-1">
+                +~{Math.round(estimatedEpoc)} EPOC
+              </p>
+            )}
           </div>
         </div>
 

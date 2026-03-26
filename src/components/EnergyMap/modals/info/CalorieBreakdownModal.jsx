@@ -16,6 +16,7 @@ export const CalorieBreakdownModal = ({
   onOpenBmrInfo,
   onOpenTefInfo,
   onOpenAdaptiveThermogenesisInfo,
+  onOpenEpocInfo,
   onClose,
 }) => {
   const [expandedItem, setExpandedItem] = useState(null);
@@ -267,7 +268,7 @@ export const CalorieBreakdownModal = ({
             </p>
             {cardioDetails.length ? (
               <div className="text-muted text-xs mt-2 space-y-2">
-                <p className="font-semibold text-foreground">Calculation:</p>
+                <p className="font-semibold text-muted">Calculation:</p>
                 {cardioDetails.map((detail, index) =>
                   detail.effortType === 'heartRate' ? (
                     <p key={`${detail.typeKey}-${index}`}>
@@ -312,12 +313,19 @@ export const CalorieBreakdownModal = ({
                 <br />
                 Cardio contribution: {formatWhole(cardioEpoc)} kcal
                 <br />
-                From today&apos;s sessions: {formatWhole(epocFromTodaySessions)}{' '}
+                From today&apos;s sessions: {formatWhole(
+                  epocFromTodaySessions
+                )}{' '}
                 kcal
                 <br />
-                Carry-in from previous day: {formatWhole(epocCarryInCalories)}{' '}
+                Carry-in from previous day: {formatWhole(
+                  epocCarryInCalories
+                )}{' '}
                 kcal
               </p>
+              {typeof onOpenEpocInfo === 'function' && (
+                <LearnMoreButton onClick={onOpenEpocInfo} />
+              )}
             </BreakdownItem>
           )}
 

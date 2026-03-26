@@ -1,5 +1,5 @@
 import React from 'react';
-import { Save, Star } from 'lucide-react';
+import { Save, Star, ChevronsUpDown } from 'lucide-react';
 import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
@@ -28,6 +28,7 @@ export const CardioModal = ({
   userAge,
   userGender,
   onOpenFavourites,
+  onStartTimePickerClick,
   showFavouritesButton = false,
   mode = 'session',
   isEditing: isEditingProp,
@@ -49,6 +50,7 @@ export const CardioModal = ({
   const resolvedUserWeight = userWeight ?? userData?.weight;
   const resolvedUserAge = userAge ?? userData?.age;
   const resolvedUserGender = userGender ?? userData?.gender;
+  const epocEnabled = userData?.epocEnabled ?? true;
   const effortType = session.effortType ?? 'intensity';
   const isEditing = Boolean(isEditingProp ?? session?.id != null);
   const isFavouriteMode = mode === 'favourite';
@@ -421,14 +423,17 @@ export const CardioModal = ({
             <label className="text-foreground text-sm block mb-2">
               Start Time
             </label>
-            <input
-              type="time"
-              value={session.startTime ?? '12:00'}
-              onChange={(event) =>
-                onChange({ ...session, startTime: event.target.value })
-              }
-              className="w-full px-3 py-2 rounded-lg border-2 bg-surface-highlight border-border text-foreground transition-all focus-ring"
-            />
+            <button
+              type="button"
+              onClick={onStartTimePickerClick}
+              className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-3 pressable-inline"
+              aria-label="Open start time picker"
+            >
+              <span className="font-medium text-base">
+                {session.startTime ?? '12:00'}
+              </span>
+              <ChevronsUpDown size={16} className="text-muted shrink-0" />
+            </button>
             <p className="text-xs text-muted mt-2">
               Used to place post-session carryover accurately across date
               boundaries.
@@ -581,9 +586,11 @@ export const CardioModal = ({
             <p className="text-foreground font-bold text-xl text-center">
               ~{estimatedBurn} calories
             </p>
-            <p className="text-muted text-xs text-center mt-1">
-              +~{Math.round(estimatedEpoc)} EPOC
-            </p>
+            {epocEnabled && (
+              <p className="text-muted text-xs text-center mt-1">
+                +~{Math.round(estimatedEpoc)} EPOC
+              </p>
+            )}
           </div>
         </div>
 
