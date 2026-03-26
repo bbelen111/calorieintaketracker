@@ -38,7 +38,7 @@ export const AgePickerModal = ({
     hasAlignedRef.current = true;
 
     const frame = requestAnimationFrame(() => {
-      const nextAge = sanitizeAge(value, selectedAge);
+      const nextAge = sanitizeAge(value);
       setSelectedAge(nextAge);
       alignScrollContainerToValue(scrollRef.current, nextAge, behavior);
     });
