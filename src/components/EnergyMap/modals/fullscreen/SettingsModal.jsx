@@ -369,7 +369,7 @@ export const SettingsModal = ({
                 <button
                   type="button"
                   onClick={() => onOpenEpocInfo?.()}
-                  className="inline-flex items-center gap-1.5 text-foreground/80 text-sm md:hover:text-foreground transition-colors focus-ring rounded-md px-1 py-0.5 pressable-inline"
+                  className="inline-flex items-center gap-1.5 text-foreground/80 text-sm md:hover:text-foreground transition-colors focus-ring rounded-md px-1 pressable-inline"
                 >
                   <span>EPOC (Post-Exercise Burn)</span>
                   <Info size={14} />
@@ -437,7 +437,7 @@ export const SettingsModal = ({
                 <button
                   type="button"
                   onClick={() => onOpenTefInfo?.()}
-                  className="inline-flex items-center gap-1.5 text-foreground/80 text-sm md:hover:text-foreground transition-colors focus-ring rounded-md px-1 py-0.5 pressable-inline"
+                  className="inline-flex items-center gap-1.5 text-foreground/80 text-sm md:hover:text-foreground transition-colors focus-ring rounded-md px-1 pressable-inline"
                 >
                   <span>Smart TEF</span>
                   <Info size={14} />
@@ -626,7 +626,7 @@ export const SettingsModal = ({
                 <button
                   type="button"
                   onClick={() => onOpenAdaptiveThermogenesisInfo?.()}
-                  className="inline-flex items-center gap-1.5 text-foreground/80 text-sm md:hover:text-foreground transition-colors focus-ring rounded-md px-1 py-0.5 pressable-inline"
+                  className="inline-flex items-center gap-1.5 text-foreground/80 text-sm md:hover:text-foreground transition-colors focus-ring rounded-md px-1 pressable-inline"
                 >
                   <span>Adaptive Thermogenesis</span>
                   <Info size={14} />
@@ -768,13 +768,16 @@ export const SettingsModal = ({
                                 'ema'
                               )
                             }
-                            className={`py-2 px-2 rounded-lg border-2 transition-all font-semibold flex items-center justify-center gap-2 focus-ring pressable-inline ${
+                            className={`py-2 px-2 rounded-lg border-2 transition-all font-semibold flex flex-col items-center justify-center gap-1 focus-ring pressable-inline ${
                               adaptiveThermogenesisSmoothingMethod === 'ema'
                                 ? 'bg-blue-600 border-blue-500 text-white'
                                 : 'bg-surface-highlight border-border text-muted'
                             }`}
                           >
-                            EMA
+                            <span>EMA</span>
+                            <span className="text-xs opacity-80 font-normal">
+                              Exponential
+                            </span>
                           </button>
                           <button
                             type="button"
@@ -784,13 +787,16 @@ export const SettingsModal = ({
                                 'sma'
                               )
                             }
-                            className={`py-2 px-2 rounded-lg border-2 transition-all font-semibold flex items-center justify-center gap-2 focus-ring pressable-inline ${
+                            className={`py-2 px-2 rounded-lg border-2 transition-all font-semibold flex flex-col items-center justify-center gap-1 focus-ring pressable-inline ${
                               adaptiveThermogenesisSmoothingMethod === 'sma'
                                 ? 'bg-blue-600 border-blue-500 text-white'
                                 : 'bg-surface-highlight border-border text-muted'
                             }`}
                           >
-                            SMA
+                            <span>SMA</span>
+                            <span className="text-xs opacity-80 font-normal">
+                              Simple
+                            </span>
                           </button>
                         </div>
 
@@ -813,7 +819,10 @@ export const SettingsModal = ({
                                 Number(event.target.value)
                               )
                             }
-                            className="w-full"
+                            style={{
+                              '--value': `${((adaptiveThermogenesisSmoothingWindowDays - 3) / 11) * 100}%`,
+                            }}
+                            className="w-full cursor-pointer accent-blue-500 transition-all"
                             aria-label="Adaptive thermogenesis smoothing window"
                           />
                         </div>

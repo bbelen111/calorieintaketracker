@@ -254,6 +254,51 @@ body {
   .surface-active {
     @apply active:brightness-105 active:border-blue-400/80 active:shadow-inner;
   }
+
+  /* Range input styling */
+  input[type='range'] {
+    @apply appearance-none w-full h-2 bg-surface-highlight rounded-lg outline-none cursor-pointer;
+    background: linear-gradient(
+      to right,
+      rgb(var(--accent-blue)) 0%,
+      rgb(var(--accent-blue)) var(--value),
+      rgb(var(--surface-highlight-rgb, 30 30 30)) var(--value),
+      rgb(var(--surface-highlight-rgb, 30 30 30)) 100%
+    );
+  }
+
+  input[type='range']::-webkit-slider-thumb {
+    @apply appearance-none w-5 h-5 rounded-full bg-blue-500 cursor-pointer shadow-md transition-all;
+  }
+
+  input[type='range']::-webkit-slider-thumb:hover {
+    @apply bg-blue-400 shadow-lg scale-110;
+  }
+
+  input[type='range']::-webkit-slider-thumb:active {
+    @apply bg-blue-600 scale-95;
+  }
+
+  input[type='range']::-moz-range-thumb {
+    @apply w-5 h-5 rounded-full bg-blue-500 cursor-pointer shadow-md transition-all border-0;
+  }
+
+  input[type='range']::-moz-range-thumb:hover {
+    @apply bg-blue-400 shadow-lg scale-110;
+  }
+
+  input[type='range']::-moz-range-thumb:active {
+    @apply bg-blue-600 scale-95;
+  }
+
+  input[type='range']::-moz-range-track {
+    background: transparent;
+    border: none;
+  }
+
+  input[type='range']::-moz-range-progress {
+    @apply bg-blue-500 rounded-lg h-2 shadow-sm;
+  }
 }
 
 @media (hover: hover) {
