@@ -178,7 +178,7 @@ export const DailyLogModal = ({
             <DateInput
               value={formatDateForInput(date)}
               onChange={(val) => onDateChange(val)}
-              className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:border-accent-blue focus-ring"
             />
           )}
         </div>
@@ -194,7 +194,7 @@ export const DailyLogModal = ({
             <button
               type="button"
               onClick={() => onManageBodyFatClick?.()}
-              className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-accent-amber border-accent-amber/70 text-white transition-all press-feedback flex flex-wrap items-center gap-x-3 gap-y-1 text-left focus-ring md:hover:brightness-110"
+              className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-accent-amber border-accent-amber/70 text-primary-foreground transition-all press-feedback flex flex-wrap items-center gap-x-3 gap-y-1 text-left focus-ring md:hover:brightness-110"
             >
               {matchingBodyFat ? (
                 <>
@@ -242,7 +242,7 @@ export const DailyLogModal = ({
           <button
             type="button"
             onClick={() => onManageWeightClick?.()}
-            className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all press-feedback flex flex-wrap items-center gap-x-3 gap-y-1 text-left focus-ring md:hover:bg-blue-500/90"
+            className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-primary border-accent-blue text-primary-foreground transition-all press-feedback flex flex-wrap items-center gap-x-3 gap-y-1 text-left focus-ring md:hover:brightness-110"
           >
             {matchingWeight ? (
               <>
@@ -276,7 +276,7 @@ export const DailyLogModal = ({
           <button
             type="button"
             onClick={() => onManageNutritionClick?.()}
-            className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-accent-green border-accent-green/70 text-white transition-all press-feedback flex flex-wrap items-center gap-x-3 gap-y-1 text-left focus-ring md:hover:brightness-110"
+            className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-accent-green border-accent-green/70 text-primary-foreground transition-all press-feedback flex flex-wrap items-center gap-x-3 gap-y-1 text-left focus-ring md:hover:brightness-110"
           >
             {matchingNutritionRef ? (
               <>
@@ -319,13 +319,15 @@ export const DailyLogModal = ({
             }}
             className={`w-full px-4 py-3 rounded-lg border-2 transition-all press-feedback focus-ring flex items-center gap-3 font-semibold ${
               showNotes
-                ? 'bg-indigo-600 border-indigo-400 text-white'
+                ? 'bg-accent-indigo border-accent-indigo/70 text-primary-foreground'
                 : 'bg-surface border-border text-foreground md:hover:bg-surface-highlight'
             }`}
           >
             <StickyNote
               size={18}
-              className={showNotes ? 'text-white' : 'text-accent-purple'}
+              className={
+                showNotes ? 'text-primary-foreground' : 'text-accent-purple'
+              }
             />
             <span>
               {showNotes ? 'Notes Added' : 'Add Notes'}{' '}
@@ -345,7 +347,7 @@ export const DailyLogModal = ({
               placeholder="Any notes about this day..."
               rows={3}
               maxLength={500}
-              className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus:outline-none focus:border-accent-blue focus-ring resize-none"
               autoFocus={showNotes}
             />
             <div className="text-muted text-xs mt-1 text-right">
@@ -360,13 +362,15 @@ export const DailyLogModal = ({
           onClick={() => onCompletedChange(!completed)}
           className={`w-full px-4 py-4 rounded-lg border-2 transition-all press-feedback focus-ring flex items-center gap-3 font-semibold ${
             completed
-              ? 'bg-green-600 border-green-400 text-white'
+              ? 'bg-accent-green border-accent-green/70 text-primary-foreground'
               : 'bg-surface border-border text-foreground md:hover:bg-surface-highlight'
           }`}
         >
           <CheckCircle2
             size={20}
-            className={completed ? 'text-white' : 'text-accent-green'}
+            className={
+              completed ? 'text-primary-foreground' : 'text-accent-green'
+            }
           />
           <span>
             {completed ? 'Day Marked as Completed' : 'Mark Day as Completed'}
@@ -391,14 +395,14 @@ export const DailyLogModal = ({
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-900/30 border border-red-700 rounded-lg p-3">
-            <p className="text-red-300 text-sm">{error}</p>
+          <div className="bg-accent-red/15 border border-accent-red/50 rounded-lg p-3">
+            <p className="text-accent-red text-sm">{error}</p>
           </div>
         )}
 
         {/* Info Message */}
-        {/* <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-3">
-          <p className="text-blue-200 text-xs">
+        {/* <div className="bg-accent-blue/15 border border-accent-blue/50 rounded-lg p-3">
+          <p className="text-accent-blue text-xs">
             💡 <strong>How it works:</strong> The logbook links to existing data from your Weight Tracker and Nutrition Tracker.
             It doesn't store duplicate data - just references to keep everything organized by phases.
           </p>
@@ -411,7 +415,7 @@ export const DailyLogModal = ({
           <button
             type="button"
             onClick={onDelete}
-            className="px-4 py-3 bg-red-900 text-red-200 rounded-lg font-semibold transition-all press-feedback focus-ring md:hover:bg-red-800"
+            className="px-4 py-3 bg-accent-red/15 text-accent-red border border-accent-red/60 rounded-lg font-semibold transition-all press-feedback focus-ring md:hover:bg-accent-red/20"
           >
             <Trash2 size={18} />
           </button>
@@ -426,7 +430,7 @@ export const DailyLogModal = ({
         <button
           type="button"
           onClick={onSave}
-          className="flex-1 px-4 py-3 bg-blue-700 text-white rounded-lg font-semibold transition-all press-feedback focus-ring md:hover:bg-blue-600"
+          className="flex-1 px-4 py-3 bg-primary text-primary-foreground rounded-lg font-semibold transition-all press-feedback focus-ring md:hover:brightness-110"
         >
           {mode === 'edit' ? 'Save Changes' : 'Add Log'}
         </button>

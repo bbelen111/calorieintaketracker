@@ -53,10 +53,13 @@
   --surface-highlight: 51 65 85; /* Slate 700 */
   --primary: 37 99 235;         /* Blue 600 */
   --primary-foreground: 255 255 255;
+  --on-accent: 255 255 255;
+  --overlay-base: 0 0 0;
   --muted: 148 163 184;         /* Slate 400 */
   --border: 51 65 85;           /* Slate 700 */
   --foreground: 255 255 255;    /* White */
   --action-border: 255 255 255; /* White */
+  --surface-highlight-rgb: 51 65 85;
 
   /* Accent Colors - Dark */
   --accent-blue: 59 130 246;    /* Blue 500 */
@@ -70,6 +73,7 @@
   --accent-purple: 168 85 247;  /* Purple 500 */
   --accent-slate: 100 116 139;  /* Slate 500 */
   --accent-indigo: 99 102 241;  /* Indigo 500 */
+  --accent-pink: 236 72 153;    /* Pink 500 */
 }
 
 /* Light Theme */
@@ -80,10 +84,13 @@
   --surface-highlight: 226 232 240; /* Slate 200 */
   --primary: 37 99 235;         /* Blue 600 */
   --primary-foreground: 255 255 255;
+  --on-accent: 255 255 255;
+  --overlay-base: 0 0 0;
   --muted: 100 116 139;         /* Slate 500 */
   --border: 226 232 240;        /* Slate 200 */
   --foreground: 15 23 42;       /* Slate 900 (Dark text) */
   --action-border: 30 64 175; /* Blue 700 (Darker for better contrast) */
+  --surface-highlight-rgb: 226 232 240;
 
   /* Accent Colors - Light (darker for contrast) */
   --accent-blue: 37 99 235;     /* Blue 600 */
@@ -97,6 +104,7 @@
   --accent-purple: 147 51 234;  /* Purple 600 */
   --accent-slate: 71 85 105;    /* Slate 600 */
   --accent-indigo: 79 70 229;   /* Indigo 600 */
+  --accent-pink: 219 39 119;    /* Pink 600 */
 }
 
 /* AMOLED Dark Theme (True Black) */
@@ -107,13 +115,15 @@
   --surface-highlight: 38 38 38; /* Gray 800 */
   --primary: 59 130 246;        /* Blue 500 */
   --primary-foreground: 255 255 255;
+  --on-accent: 255 255 255;
+  --overlay-base: 0 0 0;
   --muted: 163 163 163;         /* Neutral 400 */
   --border: 38 38 38;           /* Gray 800 */
   --foreground: 255 255 255;    /* White */
   --action-border: 255 255 255; /* White */
+  --surface-highlight-rgb: 38 38 38;
 
   /* Accent Colors - AMOLED Dark */
-  --accent-blue: 59 130 246;    /* Blue 500 */
   --accent-blue: 59 130 246;     /* Blue 500 */
   --accent-green: 34 197 94;     /* Green 500 */
   --accent-lime: 132 204 22;     /* Lime 500 */
@@ -125,6 +135,7 @@
   --accent-purple: 168 85 247;   /* Purple 500 */
   --accent-slate: 100 116 139;   /* Slate 500 */
   --accent-indigo: 99 102 241;   /* Indigo 500 */
+  --accent-pink: 236 72 153;     /* Pink 500 */
 }
 
 /* Status bar vignette - gradient overlay at top of screen */
@@ -219,7 +230,7 @@ body {
 
 @layer base {
   :focus-visible {
-    outline: 2px solid rgb(96 165 250);
+    outline: 2px solid rgb(var(--accent-blue));
     outline-offset: 3px;
     border-radius: 12px;
   }
@@ -244,7 +255,7 @@ body {
 
 @layer components {
   .focus-ring {
-    @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400 focus-visible:outline-offset-2 focus-visible:ring-0;
+    @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 focus-visible:ring-0;
   }
 
   .press-feedback {
@@ -252,7 +263,7 @@ body {
   }
 
   .surface-active {
-    @apply active:brightness-105 active:border-blue-400/80 active:shadow-inner;
+    @apply active:brightness-105 active:border-primary/80 active:shadow-inner;
   }
 
   /* Range input styling */
@@ -268,27 +279,27 @@ body {
   }
 
   input[type='range']::-webkit-slider-thumb {
-    @apply appearance-none w-5 h-5 rounded-full bg-blue-500 cursor-pointer shadow-md transition-all;
+    @apply appearance-none w-5 h-5 rounded-full bg-accent-blue cursor-pointer shadow-md transition-all;
   }
 
   input[type='range']::-webkit-slider-thumb:hover {
-    @apply bg-blue-400 shadow-lg scale-110;
+    @apply bg-accent-blue shadow-lg scale-110;
   }
 
   input[type='range']::-webkit-slider-thumb:active {
-    @apply bg-blue-600 scale-95;
+    @apply bg-primary scale-95;
   }
 
   input[type='range']::-moz-range-thumb {
-    @apply w-5 h-5 rounded-full bg-blue-500 cursor-pointer shadow-md transition-all border-0;
+    @apply w-5 h-5 rounded-full bg-accent-blue cursor-pointer shadow-md transition-all border-0;
   }
 
   input[type='range']::-moz-range-thumb:hover {
-    @apply bg-blue-400 shadow-lg scale-110;
+    @apply bg-accent-blue shadow-lg scale-110;
   }
 
   input[type='range']::-moz-range-thumb:active {
-    @apply bg-blue-600 scale-95;
+    @apply bg-primary scale-95;
   }
 
   input[type='range']::-moz-range-track {
@@ -297,7 +308,7 @@ body {
   }
 
   input[type='range']::-moz-range-progress {
-    @apply bg-blue-500 rounded-lg h-2 shadow-sm;
+    @apply bg-accent-blue rounded-lg h-2 shadow-sm;
   }
 }
 

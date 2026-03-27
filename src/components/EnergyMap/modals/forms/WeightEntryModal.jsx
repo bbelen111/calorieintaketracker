@@ -58,10 +58,10 @@ export const WeightEntryModal = ({
               value={date ?? ''}
               onChange={(val) => onDateChange?.(val)}
               disabled={isEdit || isDateLocked}
-              className={`w-full bg-surface-highlight text-foreground px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-background ${
+              className={`w-full bg-surface-highlight text-foreground px-4 py-2 rounded-lg border focus:outline-none focus-ring ${
                 isEdit || isDateLocked
                   ? 'border-border opacity-80 cursor-not-allowed'
-                  : 'border-border focus:border-blue-400'
+                  : 'border-border focus:border-accent-blue'
               }`}
             />
           </div>
@@ -82,7 +82,7 @@ export const WeightEntryModal = ({
           <button
             type="button"
             onClick={() => onRequestWeightPicker?.()}
-            className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-blue-600 border-blue-400 text-white transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1 text-left md:hover:bg-blue-500/90 font-semibold text-base focus-ring press-feedback"
+            className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-primary border-accent-blue text-primary-foreground transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1 text-left md:hover:brightness-110 font-semibold text-base focus-ring press-feedback"
           >
             <span className="font-semibold text-base">{formattedWeight}</span>
             <span className="text-[11px] opacity-80 ml-auto whitespace-nowrap">
@@ -114,7 +114,7 @@ export const WeightEntryModal = ({
         <button
           type="button"
           onClick={onSave}
-          className={`flex-1 bg-blue-600 active:bg-blue-700 text-white ${isEdit ? 'px-3' : 'px-6'} py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback`}
+          className={`flex-1 bg-primary active:brightness-110 text-primary-foreground ${isEdit ? 'px-3' : 'px-6'} py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback`}
         >
           <Save size={20} />
           Save

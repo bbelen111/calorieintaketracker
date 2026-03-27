@@ -300,7 +300,7 @@ export const AddCustomFoodModal = ({
                   <button
                     type="button"
                     onClick={() => removePortion(portion.id)}
-                    className="text-muted md:hover:text-red-400 transition-colors pressable-inline focus-ring"
+                    className="text-muted md:hover:text-accent-red transition-colors pressable-inline focus-ring"
                     aria-label={`Remove ${portion.label}`}
                   >
                     <Trash2 size={16} />
@@ -341,7 +341,7 @@ export const AddCustomFoodModal = ({
               type="button"
               onClick={addPortion}
               disabled={!newPortionLabel.trim() || !newPortionGrams}
-              className="px-3 py-2.5 bg-blue-600 md:hover:bg-blue-500 disabled:bg-surface-highlight/60 disabled:cursor-not-allowed disabled:text-muted text-white rounded-lg font-medium transition-all press-feedback focus-ring"
+              className="px-3 py-2.5 bg-primary md:hover:brightness-110 disabled:bg-surface-highlight/60 disabled:cursor-not-allowed disabled:text-muted text-primary-foreground rounded-lg font-medium transition-all press-feedback focus-ring"
               aria-label="Add portion"
             >
               <Plus size={20} />
@@ -362,7 +362,7 @@ export const AddCustomFoodModal = ({
             type="button"
             onClick={handleSave}
             disabled={!isFormValid}
-            className="flex-1 h-10 px-4 bg-blue-600 md:hover:bg-blue-500 disabled:bg-surface-highlight/60 disabled:cursor-not-allowed disabled:text-muted text-white rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring"
+            className="flex-1 h-10 px-4 bg-primary md:hover:brightness-110 disabled:bg-surface-highlight/60 disabled:cursor-not-allowed disabled:text-muted text-primary-foreground rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring"
           >
             <Plus size={18} />
             Save Food

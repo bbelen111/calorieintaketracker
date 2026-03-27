@@ -1,10 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: 'class',
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       colors: {
@@ -16,6 +13,70 @@ export default {
         muted: 'rgb(var(--muted) / <alpha-value>)',
         border: 'rgb(var(--border) / <alpha-value>)',
         foreground: 'rgb(var(--foreground) / <alpha-value>)',
+        white: 'rgb(var(--on-accent) / <alpha-value>)',
+        black: 'rgb(var(--overlay-base) / <alpha-value>)',
+        blue: {
+          300: 'rgb(var(--accent-blue) / <alpha-value>)',
+          400: 'rgb(var(--accent-blue) / <alpha-value>)',
+          500: 'rgb(var(--accent-blue) / <alpha-value>)',
+          600: 'rgb(var(--accent-blue) / <alpha-value>)',
+          700: 'rgb(var(--accent-blue) / <alpha-value>)',
+          900: 'rgb(var(--accent-blue) / <alpha-value>)',
+        },
+        green: {
+          400: 'rgb(var(--accent-green) / <alpha-value>)',
+          500: 'rgb(var(--accent-green) / <alpha-value>)',
+          600: 'rgb(var(--accent-green) / <alpha-value>)',
+        },
+        lime: {
+          400: 'rgb(var(--accent-lime) / <alpha-value>)',
+          500: 'rgb(var(--accent-lime) / <alpha-value>)',
+          600: 'rgb(var(--accent-lime) / <alpha-value>)',
+        },
+        emerald: {
+          400: 'rgb(var(--accent-emerald) / <alpha-value>)',
+          500: 'rgb(var(--accent-emerald) / <alpha-value>)',
+          600: 'rgb(var(--accent-emerald) / <alpha-value>)',
+        },
+        yellow: {
+          300: 'rgb(var(--accent-yellow) / <alpha-value>)',
+          400: 'rgb(var(--accent-yellow) / <alpha-value>)',
+          500: 'rgb(var(--accent-yellow) / <alpha-value>)',
+          600: 'rgb(var(--accent-yellow) / <alpha-value>)',
+        },
+        amber: {
+          300: 'rgb(var(--accent-amber) / <alpha-value>)',
+          400: 'rgb(var(--accent-amber) / <alpha-value>)',
+          500: 'rgb(var(--accent-amber) / <alpha-value>)',
+          600: 'rgb(var(--accent-amber) / <alpha-value>)',
+        },
+        orange: {
+          500: 'rgb(var(--accent-orange) / <alpha-value>)',
+          600: 'rgb(var(--accent-orange) / <alpha-value>)',
+        },
+        red: {
+          300: 'rgb(var(--accent-red) / <alpha-value>)',
+          400: 'rgb(var(--accent-red) / <alpha-value>)',
+          500: 'rgb(var(--accent-red) / <alpha-value>)',
+          600: 'rgb(var(--accent-red) / <alpha-value>)',
+          700: 'rgb(var(--accent-red) / <alpha-value>)',
+          800: 'rgb(var(--accent-red) / <alpha-value>)',
+          900: 'rgb(var(--accent-red) / <alpha-value>)',
+        },
+        purple: {
+          400: 'rgb(var(--accent-purple) / <alpha-value>)',
+          500: 'rgb(var(--accent-purple) / <alpha-value>)',
+          600: 'rgb(var(--accent-purple) / <alpha-value>)',
+        },
+        indigo: {
+          300: 'rgb(var(--accent-indigo) / <alpha-value>)',
+          400: 'rgb(var(--accent-indigo) / <alpha-value>)',
+          500: 'rgb(var(--accent-indigo) / <alpha-value>)',
+          600: 'rgb(var(--accent-indigo) / <alpha-value>)',
+        },
+        pink: {
+          400: 'rgb(var(--accent-pink) / <alpha-value>)',
+        },
         accent: {
           blue: 'rgb(var(--accent-blue) / <alpha-value>)',
           green: 'rgb(var(--accent-green) / <alpha-value>)',
@@ -28,9 +89,10 @@ export default {
           purple: 'rgb(var(--accent-purple) / <alpha-value>)',
           slate: 'rgb(var(--accent-slate) / <alpha-value>)',
           indigo: 'rgb(var(--accent-indigo) / <alpha-value>)',
+          pink: 'rgb(var(--accent-pink) / <alpha-value>)',
         },
       },
     },
   },
   plugins: [],
-}
+};

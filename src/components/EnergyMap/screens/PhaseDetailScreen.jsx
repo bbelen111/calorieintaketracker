@@ -63,9 +63,9 @@ const CalendarHeatmap = ({ calendarData, onDateClick }) => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'completed':
-        return 'bg-green-600 border-green-500 md:hover:bg-green-500';
+        return 'bg-accent-green border-accent-green md:hover:brightness-110';
       case 'partial':
-        return 'bg-yellow-600 border-yellow-500 md:hover:bg-yellow-500';
+        return 'bg-accent-yellow border-accent-yellow md:hover:brightness-110';
       case 'empty':
       default:
         return 'bg-surface-highlight border-border md:hover:border-border';
@@ -132,11 +132,11 @@ const CalendarHeatmap = ({ calendarData, onDateClick }) => {
       {/* Legend */}
       <div className="flex items-center justify-center gap-4 pt-2 text-xs text-muted">
         <div className="flex items-center gap-1">
-          <div className="w-4 h-4 rounded bg-green-600 border border-green-500" />
+          <div className="w-4 h-4 rounded bg-accent-green border border-accent-green" />
           <span>Completed</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-4 h-4 rounded bg-yellow-600 border border-yellow-500" />
+          <div className="w-4 h-4 rounded bg-accent-yellow border border-accent-yellow" />
           <span>Partial</span>
         </div>
         <div className="flex items-center gap-1">
@@ -263,7 +263,7 @@ export const PhaseDetailScreen = ({
   const getGoalBadgeClass = () => {
     if (!goal || !goal.color)
       return 'bg-surface-highlight text-muted border-border';
-    return `${goal.color} text-white border-2 ${goal.color.replace('bg-', 'border-')}`;
+    return `${goal.color} text-primary-foreground border-2 ${goal.color.replace('bg-', 'border-')}`;
   };
   const isActive = phase.status === 'active';
 
@@ -422,7 +422,7 @@ export const PhaseDetailScreen = ({
         <button
           type="button"
           onClick={() => onAddLog()}
-          className="px-6 py-4 bg-blue-600 text-white rounded-xl font-semibold transition-all flex items-center justify-center gap-2 press-feedback focus-ring md:hover:bg-blue-500"
+          className="px-6 py-4 bg-primary text-primary-foreground rounded-xl font-semibold transition-all flex items-center justify-center gap-2 press-feedback focus-ring md:hover:brightness-110"
         >
           <Plus size={20} />
           Log Today
@@ -476,7 +476,7 @@ export const PhaseDetailScreen = ({
             <button
               type="button"
               onClick={() => onAddLog()}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold transition-all inline-flex items-center gap-2 press-feedback focus-ring md:hover:bg-blue-500"
+              className="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-semibold transition-all inline-flex items-center gap-2 press-feedback focus-ring md:hover:brightness-110"
             >
               <Plus size={20} />
               Add First Log

@@ -6,7 +6,7 @@ export const CaloriesPerHourGuideModal = ({ isOpen, isClosing, onClose }) => (
   <ModalShell
     isOpen={isOpen}
     isClosing={isClosing}
-    overlayClassName="bg-black/90 z-[75]"
+    overlayClassName="bg-surface/90 z-[75]"
     contentClassName="p-6 max-w-lg w-full"
   >
     <div className="flex items-center gap-3 mb-4">
@@ -74,7 +74,7 @@ export const CaloriesPerHourGuideModal = ({ isOpen, isClosing, onClose }) => (
       <button
         onClick={onClose}
         type="button"
-        className="w-full bg-blue-600 active:bg-blue-700 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback"
+        className="w-full bg-primary active:brightness-110 text-primary-foreground px-6 py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback"
       >
         Got it!
       </button>

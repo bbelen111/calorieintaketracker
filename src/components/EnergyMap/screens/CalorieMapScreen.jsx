@@ -69,7 +69,7 @@ const LiveStepsCard = ({
     return (
       <div className="bg-gradient-to-br from-surface-highlight/80 to-surface/80 rounded-2xl p-5 border border-border/50 mb-4">
         <div className="flex items-center gap-3 mb-3">
-          <div className="p-2 bg-amber-500/20 rounded-xl">
+          <div className="p-2 bg-accent-amber/20 rounded-xl">
             <AlertCircle className="text-accent-amber" size={24} />
           </div>
           <div>
@@ -89,7 +89,7 @@ const LiveStepsCard = ({
           href="https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm transition-all press-feedback focus-ring md:hover:bg-blue-500"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium text-sm transition-all press-feedback focus-ring md:hover:brightness-110"
         >
           <Link2 size={16} />
           Get Health Connect
@@ -103,7 +103,7 @@ const LiveStepsCard = ({
     return (
       <div className="bg-gradient-to-br from-surface-highlight/80 to-surface/80 rounded-2xl p-5 border border-border/50 mb-4">
         <div className="flex items-center gap-3 mb-3">
-          <div className="p-2 bg-blue-500/20 rounded-xl">
+          <div className="p-2 bg-accent-blue/20 rounded-xl">
             <Footprints className="text-accent-blue" size={24} />
           </div>
           <div className="flex-1">
@@ -126,7 +126,7 @@ const LiveStepsCard = ({
           type="button"
           onClick={onConnectHealth}
           disabled={healthConnectLoading}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium text-sm transition-all press-feedback focus-ring md:hover:bg-blue-500"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-primary disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground rounded-lg font-medium text-sm transition-all press-feedback focus-ring md:hover:brightness-110"
         >
           {healthConnectLoading ? (
             <Loader2 size={16} className="animate-spin" />
@@ -203,7 +203,7 @@ const LiveStepsCard = ({
             >
               {stepCount.toLocaleString()}
             </p>
-            <p className="text-white text-xs opacity-90">Steps</p>
+            <p className="text-muted text-xs">Steps</p>
           </div>
 
           {/* Target Calories */}
@@ -216,13 +216,16 @@ const LiveStepsCard = ({
                 tefContext: liveStepData.tefContext,
               });
             }}
-            className="bg-blue-600 rounded-xl p-4 text-center relative pressable-card focus-ring md:hover:bg-blue-500 transition-all"
+            className="bg-primary rounded-xl p-4 text-center relative pressable-card focus-ring md:hover:brightness-110 transition-all"
           >
-            <Info size={12} className="absolute top-2 right-2 text-white/60" />
-            <p className="text-white font-bold text-2xl">
+            <Info
+              size={12}
+              className="absolute top-2 right-2 text-primary-foreground/70"
+            />
+            <p className="text-primary-foreground font-bold text-2xl">
               {targetCalories.toLocaleString()}
             </p>
-            <p className="text-white text-xs opacity-90">calories</p>
+            <p className="text-primary-foreground/90 text-xs">calories</p>
           </button>
         </div>
 
@@ -246,7 +249,7 @@ const LiveStepsCard = ({
             <div className="w-full bg-surface-highlight rounded-full h-2 overflow-hidden">
               <div
                 className={`h-full transition-all duration-300 ${
-                  stepCount >= stepGoal ? 'bg-green-500' : 'bg-blue-600'
+                  stepCount >= stepGoal ? 'bg-accent-green' : 'bg-accent-blue'
                 }`}
                 style={{
                   width: `${Math.min(100, (stepCount / stepGoal) * 100)}%`,
@@ -355,7 +358,7 @@ export const CalorieMapScreen = ({
             <button
               type="button"
               onClick={onManageStepRanges}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold transition-all flex items-center gap-2 press-feedback focus-ring md:hover:bg-blue-500"
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-semibold transition-all flex items-center gap-2 press-feedback focus-ring md:hover:brightness-110"
             >
               <ListChecks size={20} />
               <span className="hidden sm:inline">Manage Step Ranges</span>
@@ -417,11 +420,11 @@ export const CalorieMapScreen = ({
                     className={`mt-1 ${isActive ? 'text-accent-blue/80' : 'text-muted md:group-hover:text-accent-blue/80'}`}
                   />
                 </div>
-                <div className="bg-blue-600 rounded-lg p-3 mb-2 text-center">
-                  <p className="text-white text-2xl font-bold">
+                <div className="bg-primary rounded-lg p-3 mb-2 text-center">
+                  <p className="text-primary-foreground text-2xl font-bold">
                     {targetCalories.toLocaleString()}
                   </p>
-                  <p className="text-white text-xs opacity-90">calories</p>
+                  <p className="text-primary-foreground/90 text-xs">calories</p>
                 </div>
                 <p className="text-muted text-xs">
                   TDEE: {breakdown.total.toLocaleString()}

@@ -123,7 +123,7 @@ const normalizePhaseRecord = (phase) => ({
   status: Object.values(PHASE_STATUS).includes(phase?.status)
     ? phase.status
     : PHASE_STATUS.DRAFT,
-  color: phase?.color || '#3b82f6',
+  color: phase?.color || 'bg-accent-blue',
   createdAt: Number.isFinite(phase?.createdAt) ? phase.createdAt : Date.now(),
   updatedAt: Number.isFinite(phase?.updatedAt) ? phase.updatedAt : Date.now(),
 });

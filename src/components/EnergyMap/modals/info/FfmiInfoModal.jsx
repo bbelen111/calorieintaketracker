@@ -180,7 +180,7 @@ export const FfmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
         <button
           onClick={onClose}
           type="button"
-          className="w-full bg-accent-blue active:bg-accent-blue/80 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium"
+          className="w-full bg-accent-blue active:brightness-110 text-primary-foreground px-6 py-3 rounded-lg transition-all active:scale-95 font-medium"
         >
           Got it!
         </button>

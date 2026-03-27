@@ -173,7 +173,7 @@ export const CardioFavouritesModal = ({
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
-      overlayClassName="bg-black/80 z-[60]"
+      overlayClassName="bg-surface/80 z-[60]"
       contentClassName="p-4 md:p-6 w-full md:max-w-lg"
     >
       <div className="flex flex-col gap-4 md:gap-6">
@@ -221,14 +221,14 @@ export const CardioFavouritesModal = ({
                   onClick={() => onSelectFavourite?.(favourite)}
                   className={`w-full text-left p-4 rounded-xl border-2 transition-all active:scale-[0.98] flex flex-col gap-2 ${
                     active
-                      ? 'bg-blue-600/80 border-blue-500 text-white shadow-lg'
-                      : 'bg-surface border-border text-foreground md:hover:border-blue-400'
+                      ? 'bg-primary/80 border-accent-blue text-primary-foreground shadow-lg'
+                      : 'bg-surface border-border text-foreground md:hover:border-accent-blue'
                   }`}
                   role="listitem"
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className={`flex-shrink-0 rounded-full p-2 ${active ? 'bg-white/15' : 'bg-white/10'}`}
+                      className={`flex-shrink-0 rounded-full p-2 ${active ? 'bg-primary-foreground/15' : 'bg-primary-foreground/10'}`}
                     >
                       <Heart size={18} />
                     </div>
@@ -250,7 +250,7 @@ export const CardioFavouritesModal = ({
                             setPendingDeleteId(favourite.id);
                             openConfirm();
                           }}
-                          className="flex-shrink-0 w-8 h-8 rounded-full bg-white/10 md:hover:bg-white/20 transition-colors flex items-center justify-center"
+                          className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-foreground/10 md:hover:bg-primary-foreground/20 transition-colors flex items-center justify-center"
                           aria-label="Delete favourite cardio session"
                         >
                           <Trash2 size={14} />

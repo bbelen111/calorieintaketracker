@@ -340,7 +340,7 @@ const FullscreenModalFrame = ({
     isClosing={isClosing}
     onClose={onClose}
     fullHeight
-    overlayClassName="fixed inset-0 bg-black/70 !p-0 !flex-none !items-stretch !justify-stretch"
+    overlayClassName="fixed inset-0 bg-surface/70 !p-0 !flex-none !items-stretch !justify-stretch"
     contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none !max-h-none flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
   >
     <div className="flex items-center justify-between px-4 py-3 bg-background border-b border-border flex-shrink-0">
@@ -419,7 +419,7 @@ const BinarySwitch = ({ checked, onClick, ariaLabel }) => (
       }`}
     >
       <span
-        className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+        className={`h-4 w-4 rounded-full bg-primary-foreground shadow-sm transition-transform duration-200 ${
           checked ? 'translate-x-6' : 'translate-x-1'
         }`}
       />

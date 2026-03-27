@@ -6,11 +6,11 @@ import { goals } from '../../../../constants/goals';
 const getGoalClasses = (key, selected) => {
   const goal = goals[key];
   if (!goal)
-    return 'border-border bg-surface text-muted md:hover:border-blue-500/50';
+    return 'border-border bg-surface text-muted md:hover:border-accent-blue/50';
   if (!selected)
-    return 'border-border bg-surface text-muted md:hover:border-blue-500/50';
+    return 'border-border bg-surface text-muted md:hover:border-accent-blue/50';
   // Use color for bg, white border, and text
-  return `${goal.color} border-2 border-white text-white`;
+  return `${goal.color} border-2 border-border text-primary-foreground`;
 };
 
 export const PhaseCreationModal = ({
@@ -60,7 +60,7 @@ export const PhaseCreationModal = ({
             value={phaseName}
             onChange={(e) => onNameChange(e.target.value)}
             placeholder="e.g., Winter Bulk 2025, Summer Shred"
-            className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus:outline-none focus:border-accent-blue focus-ring"
             maxLength={50}
           />
         </div>
@@ -74,7 +74,7 @@ export const PhaseCreationModal = ({
             <DateInput
               value={startDate}
               onChange={(val) => onStartDateChange(val)}
-              className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:border-accent-blue focus-ring"
             />
           </div>
 
@@ -87,7 +87,7 @@ export const PhaseCreationModal = ({
               value={endDate}
               onChange={(val) => onEndDateChange(val)}
               min={startDate}
-              className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:border-accent-blue focus-ring"
             />
           </div>
         </div>
@@ -99,7 +99,7 @@ export const PhaseCreationModal = ({
           </label>
           {/* DEBUG LOG: Remove after testing
           {process.env.NODE_ENV !== 'production' && (
-            <div className="text-xs text-yellow-300 mb-2">
+            <div className="text-xs text-accent-yellow mb-2">
               <pre>{`goalType: ${goalType}`}</pre>
               <pre>{`goal keys: ${Object.keys(goals).join(', ')}`}</pre>
             </div>
@@ -133,7 +133,7 @@ export const PhaseCreationModal = ({
             min="30"
             max="210"
             step="0.1"
-            className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus:outline-none focus:border-accent-blue focus-ring"
           />
           <p className="text-muted text-xs mt-1">
             Set a target weight to track your progress toward your goal
@@ -142,14 +142,14 @@ export const PhaseCreationModal = ({
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-900/30 border border-red-700 rounded-lg p-3">
-            <p className="text-red-300 text-sm">{error}</p>
+          <div className="bg-accent-red/15 border border-accent-red/50 rounded-lg p-3">
+            <p className="text-accent-red text-sm">{error}</p>
           </div>
         )}
 
         {/* Info */}
-        {/* <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-3">
-          <p className="text-blue-200 text-xs">
+        {/* <div className="bg-accent-blue/15 border border-accent-blue/50 rounded-lg p-3">
+          <p className="text-accent-blue text-xs">
             Phases help you organize your fitness journey into specific time periods with dedicated goals.
             You can track daily calories, weight, and view unified insights for each phase.
           </p>
@@ -168,7 +168,7 @@ export const PhaseCreationModal = ({
         <button
           type="button"
           onClick={onSave}
-          className="flex-1 px-4 py-3 bg-blue-600 md:hover:bg-blue-500 text-white rounded-lg font-semibold transition-all focus-ring press-feedback"
+          className="flex-1 px-4 py-3 bg-primary md:hover:brightness-110 text-primary-foreground rounded-lg font-semibold transition-all focus-ring press-feedback"
         >
           Create Phase
         </button>

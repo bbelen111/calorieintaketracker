@@ -12,7 +12,7 @@ export const TemplatePickerModal = ({
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
-      overlayClassName="bg-black/80 z-[60]"
+      overlayClassName="bg-surface/80 z-[60]"
       contentClassName="p-4 md:p-6 w-full md:max-w-2xl"
     >
       <div className="flex flex-col gap-4 md:gap-6">

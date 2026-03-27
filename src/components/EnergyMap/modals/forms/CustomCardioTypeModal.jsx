@@ -154,7 +154,7 @@ export const CustomCardioTypeModal = ({
       <ModalShell
         isOpen={isOpen}
         isClosing={isClosing}
-        overlayClassName="bg-black/90 z-[80]"
+        overlayClassName="bg-surface/90 z-[80]"
         contentClassName="p-6 w-full max-w-md"
       >
         <h3 className="text-foreground font-bold text-xl mb-4 text-center">
@@ -171,7 +171,7 @@ export const CustomCardioTypeModal = ({
               value={name}
               onChange={(event) => onNameChange(event.target.value)}
               placeholder="e.g., Outdoor Soccer Scrimmage"
-              className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border focus:border-blue-400 focus:outline-none text-base"
+              className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border focus:border-accent-blue focus:outline-none focus-ring text-base"
             />
           </div>
 
@@ -236,7 +236,7 @@ export const CustomCardioTypeModal = ({
           <button
             onClick={onCancel}
             type="button"
-            className="flex-1 bg-surface-highlight text-foreground px-6 py-3 rounded-lg transition-all active:scale-95 font-medium"
+            className="flex-1 bg-surface-highlight text-foreground px-6 py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback"
           >
             Cancel
           </button>
@@ -244,7 +244,7 @@ export const CustomCardioTypeModal = ({
             onClick={onSave}
             type="button"
             disabled={!canSave}
-            className={`flex-1 bg-accent-blue active:bg-accent-blue/90 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium ${
+            className={`flex-1 bg-accent-blue active:brightness-110 text-primary-foreground px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback ${
               canSave
                 ? 'bg-surface-highlight/80'
                 : 'opacity-60 cursor-not-allowed'

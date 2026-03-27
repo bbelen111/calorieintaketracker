@@ -12,14 +12,14 @@ export const ScreenTabs = forwardRef(
         const iconSize = isHome ? (isActive ? 24 : 22) : isActive ? 20 : 18;
 
         const baseClasses =
-          'flex items-center justify-center rounded-full border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background';
+          'flex items-center justify-center rounded-full border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background';
 
         const stateClasses = isActive
-          ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+          ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
           : 'bg-surface-highlight/60 text-muted md:hover:bg-surface-highlight md:hover:text-foreground';
 
         const shapeClasses = isHome
-          ? 'flex-[1.1] h-11 -mb-0.5 border-blue-300/70 shadow-lg shadow-blue-500/20'
+          ? 'flex-[1.1] h-11 -mb-0.5 border-primary/70 shadow-lg shadow-primary/20'
           : 'flex-1 h-9 border-transparent';
 
         return (
@@ -71,16 +71,16 @@ export const FloatingScreenTabs = ({
             const iconSize = isHome ? (isActive ? 24 : 22) : isActive ? 20 : 18;
 
             const baseClasses =
-              'flex items-center justify-center rounded-full border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background';
+              'flex items-center justify-center rounded-full border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background';
 
             const stateClasses = isActive
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-              : 'bg-surface-highlight text-muted md:hover:bg-surface-highlight md:hover:text-foreground backdrop-blur-sm shadow-xl shadow-black/20';
+              ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
+              : 'bg-surface-highlight text-muted md:hover:bg-surface-highlight md:hover:text-foreground backdrop-blur-sm shadow-xl shadow-background/20';
 
             const shapeClasses = isHome
-              ? 'flex-[1.1] h-11 -mb-0.5 border-blue-300/70 shadow-lg shadow-blue-500/20'
+              ? 'flex-[1.1] h-11 -mb-0.5 border-primary/70 shadow-lg shadow-primary/20'
               : isActive
-                ? 'flex-1 h-9 border-blue-300/70'
+                ? 'flex-1 h-9 border-primary/70'
                 : 'flex-1 h-9 border-transparent';
 
             return (

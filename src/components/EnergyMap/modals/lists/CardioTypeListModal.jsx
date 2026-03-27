@@ -98,7 +98,7 @@ export const CardioTypeListModal = ({
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
-      overlayClassName="bg-black/80 z-[70]"
+      overlayClassName="bg-surface/80 z-[70]"
       contentClassName="p-4 md:p-6 w-full md:max-w-2xl"
     >
       <div className="flex flex-col gap-4 md:gap-6 h-full">
@@ -129,7 +129,7 @@ export const CardioTypeListModal = ({
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search by name, equipment, or intensity"
-              className="w-full bg-surface-highlight text-foreground placeholder:text-muted pl-10 pr-4 py-2 rounded-lg border border-border focus:border-blue-400 focus:outline-none"
+              className="w-full bg-surface-highlight text-foreground placeholder:text-muted pl-10 pr-4 py-2 rounded-lg border border-border focus:border-accent-blue focus:outline-none"
               type="text"
             />
           </div>
@@ -156,8 +156,8 @@ export const CardioTypeListModal = ({
                   onClick={() => onSelect(key)}
                   className={`relative w-full text-left p-4 rounded-xl border-2 transition-all active:scale-[0.98] flex flex-col gap-2 focus-ring ${
                     isActive
-                      ? 'bg-purple-600 border-purple-400 text-white shadow-sm'
-                      : 'bg-surface-highlight border-border text-foreground md:hover:border-blue-400'
+                      ? 'bg-accent-purple border-accent-purple text-primary-foreground shadow-sm'
+                      : 'bg-surface-highlight border-border text-foreground md:hover:border-accent-blue'
                   }`}
                   role="listitem"
                 >

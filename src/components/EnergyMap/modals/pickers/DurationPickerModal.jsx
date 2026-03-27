@@ -317,7 +317,7 @@ export const DurationPickerModal = ({
               <div className="h-16 bg-transparent" />
               <div className="h-16 bg-gradient-to-t from-surface to-transparent" />
             </div>
-            <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400/70 pointer-events-none z-10" />
+            <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-16 border-y-2 border-accent-blue/70 pointer-events-none z-10" />
 
             <div
               ref={hoursRef}
@@ -356,7 +356,7 @@ export const DurationPickerModal = ({
               <div className="h-16 bg-transparent" />
               <div className="h-16 bg-gradient-to-t from-surface to-transparent" />
             </div>
-            <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400/70 pointer-events-none z-10" />
+            <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-16 border-y-2 border-accent-blue/70 pointer-events-none z-10" />
 
             <div
               ref={minutesRef}
@@ -404,10 +404,10 @@ export const DurationPickerModal = ({
           onClick={handleSave}
           type="button"
           disabled={!canSave}
-          className={`flex-1 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback ${
+          className={`flex-1 text-primary-foreground px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback ${
             canSave
-              ? 'bg-blue-600 active:bg-blue-700'
-              : 'bg-blue-600/60 cursor-not-allowed opacity-70'
+              ? 'bg-primary active:brightness-110'
+              : 'bg-primary/60 cursor-not-allowed opacity-70'
           }`}
         >
           <Save size={20} />

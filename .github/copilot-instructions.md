@@ -317,7 +317,7 @@ className="bg-accent-red/20 text-accent-red"
 
 **Semantic tokens:** `bg-background`, `bg-surface`, `bg-surface-highlight`, `bg-primary`, `text-foreground`, `text-muted`, `text-primary-foreground`, `border-border`
 
-**11 accent tokens:** `accent-blue`, `accent-green`, `accent-lime`, `accent-emerald`, `accent-yellow`, `accent-amber`, `accent-orange`, `accent-red`, `accent-purple`, `accent-slate`, `accent-indigo`
+**12 accent tokens:** `accent-blue`, `accent-green`, `accent-lime`, `accent-emerald`, `accent-yellow`, `accent-amber`, `accent-orange`, `accent-red`, `accent-purple`, `accent-slate`, `accent-indigo`, `accent-pink`
 
 Accent semantic use:
 | Token | Semantic Use |
@@ -333,6 +333,7 @@ Accent semantic use:
 | `accent-purple` | Supplements, aggressive bulk, cached foods |
 | `accent-slate` | Neutral, fallback |
 | `accent-indigo` | Barcode, manual entries |
+| `accent-pink` | Secondary highlight, specialty emphasis |
 
 Accents auto-adjust: 400-level shades for dark/AMOLED, 600-level for light.
 

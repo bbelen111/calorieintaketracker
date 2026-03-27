@@ -249,9 +249,11 @@ export const FoodEntryModal = ({
             >
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-white font-semibold text-md">TEF Burn</p>
+                  <p className="text-primary-foreground font-semibold text-md">
+                    TEF Burn
+                  </p>
                 </div>
-                <p className="text-white font-bold text-md whitespace-nowrap">
+                <p className="text-primary-foreground font-bold text-md whitespace-nowrap">
                   {tefBreakdown.roundedTotalCalories.toLocaleString()} kcal
                 </p>
               </div>
@@ -334,7 +336,7 @@ export const FoodEntryModal = ({
             <button
               onClick={handleSave}
               disabled={!foodName.trim()}
-              className="flex-1 h-10 px-4 bg-blue-600 disabled:bg-surface-highlight/60 disabled:cursor-not-allowed disabled:text-muted text-white rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring md:hover:bg-blue-500"
+              className="flex-1 h-10 px-4 bg-primary disabled:bg-surface-highlight/60 disabled:cursor-not-allowed disabled:text-muted text-primary-foreground rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring md:hover:brightness-110"
             >
               <Save size={18} />
               {isEditing ? 'Add & Save' : 'Add Food'}
@@ -353,10 +355,10 @@ export const FoodEntryModal = ({
                     ? 'Added to favourites'
                     : 'Save as favourite'
                 }
-                className={`w-10 h-10 ml-1 border disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all flex items-center justify-center press-feedback focus-ring ${
+                className={`w-10 h-10 ml-1 border disabled:cursor-not-allowed text-primary-foreground rounded-lg font-medium transition-all flex items-center justify-center press-feedback focus-ring ${
                   markedAsFavourite
-                    ? 'bg-green-600 border-green-500/50'
-                    : 'bg-indigo-600 md:hover:bg-indigo-500 border-indigo-600/50 disabled:bg-surface-highlight/30 disabled:border-border/60 disabled:text-muted'
+                    ? 'bg-accent-green border-accent-green/50 text-primary-foreground'
+                    : 'bg-accent-indigo md:hover:brightness-110 border-accent-indigo/50 text-primary-foreground disabled:bg-surface-highlight/30 disabled:border-border/60 disabled:text-muted'
                 }`}
               >
                 {markedAsFavourite ? <Check size={20} /> : <Heart size={20} />}

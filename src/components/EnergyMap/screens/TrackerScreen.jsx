@@ -427,7 +427,7 @@ export const TrackerScreen = ({
       <button
         onClick={() => onAddMealEntry?.('')}
         type="button"
-        className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all press-feedback focus-ring md:hover:bg-blue-500"
+        className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 transition-all press-feedback focus-ring md:hover:brightness-110"
       >
         <Plus size={20} />
         Add
@@ -464,7 +464,7 @@ export const TrackerScreen = ({
     return (
       <div
         key={`meal-${mealTypeId}`}
-        className="bg-surface-highlight/50 rounded-xl p-2 border border-border/50 shadow-sm shadow-slate-900/20"
+        className="bg-surface-highlight/50 rounded-xl p-2 border border-border/50 shadow-sm"
       >
         <div
           role="button"
@@ -517,7 +517,7 @@ export const TrackerScreen = ({
                 e.stopPropagation();
                 handleAddFoodToMealClick(mealTypeId);
               }}
-              className="p-1.5 rounded-lg transition-all pressable-inline focus-ring md:hover:bg-blue-500/20"
+              className="p-1.5 rounded-lg transition-all pressable-inline focus-ring md:hover:bg-accent-blue/20"
               title="Add food"
             >
               <Plus className="text-foreground/80" size={22} />
@@ -527,7 +527,7 @@ export const TrackerScreen = ({
                 e.stopPropagation();
                 handleDeleteMeal(mealTypeId);
               }}
-              className="p-1.5 rounded-lg transition-all pressable-inline focus-ring md:hover:bg-red-500/20"
+              className="p-1.5 rounded-lg transition-all pressable-inline focus-ring md:hover:bg-accent-red/20"
               title="Delete meal"
             >
               <Trash2 className="text-accent-red" size={22} />
@@ -642,14 +642,14 @@ export const TrackerScreen = ({
           </div>
           <button
             onClick={() => calendarModal?.open()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold transition-all active:scale-95 flex items-center gap-2 press-feedback focus-ring md:hover:bg-blue-500"
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-semibold transition-all active:scale-95 flex items-center gap-2 press-feedback focus-ring md:hover:brightness-110"
           >
             <CalendarCog size={20} />
             <span className="hidden md:inline">Calendar</span>
           </button>
         </div>
         <div className="p-0">
-          <div className="flex items-center justify-between mt-5 mb-2 border border-border/50 rounded-md px-1 py-1.5 bg-surface-highlight/50 shadow-sm shadow-slate-900/20">
+            <div className="flex items-center justify-between mt-5 mb-2 border border-border/50 rounded-md px-1 py-1.5 bg-surface-highlight/50 shadow-sm">
             <div className="flex items-center gap-1.5 h-6">
               <button
                 onClick={() => changeDateBy(-7)}
@@ -731,9 +731,9 @@ export const TrackerScreen = ({
                         setInternalSelectedDate(weekDate.key);
                       }
                     }}
-                    className={`relative flex flex-col items-center justify-center rounded-md border py-1.5 text-[15px] font-semibold transition-all active:scale-95 focus-ring shadow-sm shadow-slate-900/20 ${
+                    className={`relative flex flex-col items-center justify-center rounded-md border py-1.5 text-[15px] font-semibold transition-all active:scale-95 focus-ring shadow-sm ${
                       isSelected
-                        ? 'bg-blue-600 border-blue-400 text-white'
+                        ? 'bg-primary border-accent-blue text-primary-foreground'
                         : 'bg-surface-highlight/60 border-border/50 text-foreground/80 md:hover:bg-surface-highlight/70'
                     } ${isToday && !isSelected ? 'ring-1 ring-accent-blue/70' : ''}`}
                   >
@@ -747,7 +747,7 @@ export const TrackerScreen = ({
                     </span>
                     <span
                       className={`absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full ${
-                        hasEntries ? 'bg-emerald-400' : 'bg-transparent'
+                        hasEntries ? 'bg-accent-emerald' : 'bg-transparent'
                       }`}
                     />
                   </button>
@@ -788,7 +788,7 @@ export const TrackerScreen = ({
         <div className="relative">
           <button
             onClick={() => onToggleCalorieTargetPicker?.()}
-            className="w-full bg-surface-highlight/50 border border-border/50 rounded-lg px-3 py-2 text-left flex items-center justify-between md:hover:bg-surface-highlight transition-all shadow-sm shadow-slate-900/20 pressable-card focus-ring"
+            className="w-full bg-surface-highlight/50 border border-border/50 rounded-lg px-3 py-2 text-left flex items-center justify-between md:hover:bg-surface-highlight transition-all shadow-sm pressable-card focus-ring"
           >
             <div className="flex-1">
               <p className="text-muted text-xs mb-0.5">Target</p>
@@ -883,7 +883,7 @@ export const TrackerScreen = ({
           <div className="w-full bg-surface-highlight rounded-full h-3 overflow-hidden">
             <div
               className={`h-full ${
-                caloriesPercent >= 100 ? 'bg-red-500' : 'bg-accent-emerald'
+                caloriesPercent >= 100 ? 'bg-accent-red' : 'bg-accent-emerald'
               }`}
               style={{
                 width: `${caloriesPercent}%`,
@@ -910,7 +910,7 @@ export const TrackerScreen = ({
                   </>
                 ) : (
                   <>
-                    <span className="text-red-400 font-semibold">
+                    <span className="text-accent-red font-semibold">
                       {formatOne(Math.abs(caloriesRemaining))}
                     </span>{' '}
                     over target

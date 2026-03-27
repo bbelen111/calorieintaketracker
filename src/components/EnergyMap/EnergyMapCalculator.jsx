@@ -3031,7 +3031,7 @@ export const EnergyMapCalculator = () => {
         }}
       >
         <div className="flex flex-col items-center gap-3 text-muted">
-          <div className="h-10 w-10 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
+          <div className="h-10 w-10 rounded-full border-2 border-accent-blue border-t-transparent animate-spin" />
           <p className="text-sm">Loading your data…</p>
         </div>
       </div>

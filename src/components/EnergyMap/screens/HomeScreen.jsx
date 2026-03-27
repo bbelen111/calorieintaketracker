@@ -22,11 +22,11 @@ import {
 } from '../../../utils/epoc';
 
 const GOAL_BORDER_CLASS_BY_BG = {
-  'bg-purple-500': 'border-purple-400',
-  'bg-green-500': 'border-green-400',
-  'bg-blue-500': 'border-blue-400',
-  'bg-yellow-500': 'border-yellow-400',
-  'bg-orange-500': 'border-orange-400',
+  'bg-accent-purple': 'border-accent-purple',
+  'bg-accent-green': 'border-accent-green',
+  'bg-accent-blue': 'border-accent-blue',
+  'bg-accent-yellow': 'border-accent-yellow',
+  'bg-accent-orange': 'border-accent-orange',
 };
 
 export const HomeScreen = ({
@@ -129,7 +129,7 @@ export const HomeScreen = ({
 
   const goalConfig = resolvedGoals[selectedGoal];
   const goalBorderClass =
-    GOAL_BORDER_CLASS_BY_BG[goalConfig.color] ?? 'border-white';
+    GOAL_BORDER_CLASS_BY_BG[goalConfig.color] ?? 'border-primary-foreground';
   const weightTileValue = weightDisplay ?? `${resolvedUserData.weight} kg`;
   const bodyFatTileValue = bodyFatDisplay ?? 'Set';
 
@@ -146,7 +146,7 @@ export const HomeScreen = ({
           <button
             onClick={onSettingsClick}
             type="button"
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg transition-all press-feedback focus-ring md:hover:bg-blue-500"
+            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg transition-all press-feedback focus-ring md:hover:brightness-110"
           >
             <Settings size={20} />
             <span className="hidden md:inline">Settings</span>
@@ -229,7 +229,7 @@ export const HomeScreen = ({
         <button
           onClick={onGoalClick}
           type="button"
-          className={`w-full p-4 rounded-xl border-2 transition-all relative ${goalConfig.color} ${goalBorderClass} text-white shadow-lg md:hover:scale-[1.02] active:scale-[0.98] focus-ring pressable-card`}
+          className={`w-full p-4 rounded-xl border-2 transition-all relative ${goalConfig.color} ${goalBorderClass} text-primary-foreground shadow-lg md:hover:scale-[1.02] active:scale-[0.98] focus-ring pressable-card`}
         >
           {(() => {
             const Icon = goalConfig.icon;
@@ -258,10 +258,10 @@ export const HomeScreen = ({
           <motion.button
             onClick={onTrainingDayClick}
             type="button"
-            className={`p-4 rounded-xl border-2 transition-all relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
+            className={`p-4 rounded-xl border-2 transition-all relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-purple/70 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
               selectedDay === 'training'
-                ? 'bg-purple-600 border-purple-500 text-white shadow-xl transform scale-105'
-                : 'bg-surface-highlight/50 border-border/50 text-foreground/90 md:hover:border-purple-400 md:hover:shadow-lg md:hover:scale-[1.03]'
+                ? 'bg-accent-purple border-accent-purple/70 text-primary-foreground shadow-xl transform scale-105'
+                : 'bg-surface-highlight/50 border-border/50 text-foreground/90 md:hover:border-accent-purple/70 md:hover:shadow-lg md:hover:scale-[1.03]'
             }`}
             transition={{ type: 'spring', stiffness: 260, damping: 24 }}
           >
@@ -294,9 +294,9 @@ export const HomeScreen = ({
           <motion.button
             onClick={onRestDayClick}
             type="button"
-            className={`p-4 rounded-xl border-2 transition-all grid grid-rows-[auto_auto_auto] place-items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
+            className={`p-4 rounded-xl border-2 transition-all grid grid-rows-[auto_auto_auto] place-items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-indigo/70 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
               selectedDay === 'rest'
-                ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg transform scale-105'
+                ? 'bg-accent-indigo border-accent-indigo/70 text-primary-foreground shadow-lg transform scale-105'
                 : 'bg-surface-highlight/50 border-border/50 text-muted md:hover:border-muted'
             }`}
             transition={{ type: 'spring', stiffness: 260, damping: 24 }}
@@ -340,7 +340,7 @@ export const HomeScreen = ({
                 <motion.button
                   onClick={onAddCardioClick}
                   type="button"
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all press-feedback focus-ring md:hover:bg-blue-500"
+                  className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 transition-all press-feedback focus-ring md:hover:brightness-110"
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
                 >
@@ -371,7 +371,8 @@ export const HomeScreen = ({
                           userData: resolvedUserData,
                         })
                       : null;
-                    const epocCalories = Number(sessionEpoc?.totalCalories) || 0;
+                    const epocCalories =
+                      Number(sessionEpoc?.totalCalories) || 0;
                     const effortType = session.effortType ?? 'intensity';
                     const heartRate = Number(session.averageHeartRate);
                     const hasHeartRate =
@@ -404,10 +405,11 @@ export const HomeScreen = ({
                           <p className="text-muted text-sm">
                             {durationValue} min • {effortDisplay} • ~{calories}{' '}
                             kcal
-                            {epocEnabled && ` + ~${Math.round(epocCalories)} EPOC`}
+                            {epocEnabled &&
+                              ` + ~${Math.round(epocCalories)} EPOC`}
                           </p>
                           {showMissingTypeWarning && (
-                            <p className="text-amber-300 text-xs mt-1">
+                            <p className="text-accent-amber text-xs mt-1">
                               Cardio type removed; consider replacing this
                               session.
                             </p>
@@ -426,7 +428,7 @@ export const HomeScreen = ({
                           <motion.button
                             onClick={() => onRemoveCardioSession(session.id)}
                             type="button"
-                            className="text-red-400 transition-all pressable-inline focus-ring md:hover:text-red-300"
+                            className="text-accent-red transition-all pressable-inline focus-ring md:hover:text-accent-red/80"
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
                           >
@@ -449,7 +451,8 @@ export const HomeScreen = ({
               >
                 <p className="text-accent-blue font-semibold">
                   Total Cardio Burn: {resolvedTotalCardioBurn} calories
-                  {epocEnabled && ` (+${Math.round(resolvedCardioEpocTotal)} EPOC)`}
+                  {epocEnabled &&
+                    ` (+${Math.round(resolvedCardioEpocTotal)} EPOC)`}
                 </p>
               </motion.div>
             </motion.div>

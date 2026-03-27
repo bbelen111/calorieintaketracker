@@ -40,12 +40,12 @@ export const StepRangesModal = ({
               value={newStepRange}
               onChange={(event) => onNewStepRangeChange(event.target.value)}
               placeholder="e.g., 15k or >25k"
-              className="flex-1 bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border focus:border-blue-400 focus:outline-none text-base"
+              className="flex-1 bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border focus:border-accent-blue focus:outline-none text-base"
             />
             <button
               onClick={onAddRange}
               type="button"
-              className="bg-blue-600 active:bg-blue-700 text-white px-4 py-3 rounded-lg flex items-center gap-2 transition-all active:scale-95 whitespace-nowrap focus-ring press-feedback"
+              className="bg-primary active:brightness-110 text-primary-foreground px-4 py-3 rounded-lg flex items-center gap-2 transition-all active:scale-95 whitespace-nowrap focus-ring press-feedback"
             >
               <Plus size={20} />
               <span className="hidden sm:inline">Add</span>
@@ -87,7 +87,7 @@ export const StepRangesModal = ({
         <button
           onClick={onClose}
           type="button"
-          className="flex-1 bg-blue-600 active:bg-blue-700 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback"
+          className="flex-1 bg-primary active:brightness-110 text-primary-foreground px-4 md:px-6 py-3 md:py-2 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback"
         >
           <Save size={20} />
           Done

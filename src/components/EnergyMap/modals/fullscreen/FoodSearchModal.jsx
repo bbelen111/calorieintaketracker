@@ -192,7 +192,12 @@ export const FoodSearchModal = ({
         abortControllerRef.current.abort();
       }
     }
-  }, [forceDeleteConfirmClose, forceAddCustomFoodClose, isClosing]);
+  }, [
+    forceDeleteConfirmClose,
+    forceManualAddConfirmClose,
+    forceAddCustomFoodClose,
+    isClosing,
+  ]);
 
   // Clear online results when switching modes
   useEffect(() => {
@@ -663,7 +668,7 @@ export const FoodSearchModal = ({
       slate: 'bg-accent-slate',
       indigo: 'bg-accent-indigo',
     };
-    return `${map[color] || 'bg-accent-slate'} text-white`;
+    return `${map[color] || 'bg-accent-slate'} text-primary-foreground`;
   };
 
   const getCategoryClasses = (category) => {
@@ -729,7 +734,7 @@ export const FoodSearchModal = ({
       isClosing={isClosing}
       onClose={onClose}
       fullHeight
-      overlayClassName="fixed inset-0 bg-black/70 !p-0 !flex-none !items-stretch !justify-stretch"
+      overlayClassName="fixed inset-0 bg-surface/70 !p-0 !flex-none !items-stretch !justify-stretch"
       contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none !max-h-none flex flex-col overflow-x-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
     >
       <div className="flex items-center justify-between px-4 py-3 bg-background border-b border-border flex-shrink-0">
@@ -759,7 +764,7 @@ export const FoodSearchModal = ({
               <div className="flex gap-2 w-max mx-2 py-2">
                 {/* Search + Add Food as single pill when search is active */}
                 <motion.div
-                  className="relative flex items-center bg-blue-600 rounded-full shadow-md shadow-blue-500/30 overflow-hidden"
+                  className="relative flex items-center bg-primary rounded-full shadow-md overflow-hidden"
                   initial={false}
                   layout
                   transition={{ type: 'spring', stiffness: 350, damping: 30 }}
@@ -771,8 +776,8 @@ export const FoodSearchModal = ({
                     whileHover={{ y: -1 }}
                     className={`relative flex items-center gap-2 px-3 py-2 text-sm font-semibold transition-all whitespace-nowrap ${
                       viewMode === 'search'
-                        ? 'text-white border-2 border-[rgb(var(--action-border)/0.7)] rounded-full bg-blue-600'
-                        : 'text-white/80 md:hover:text-white'
+                        ? 'text-primary-foreground border-2 border-[rgb(var(--action-border)/0.7)] rounded-full bg-primary'
+                        : 'text-primary-foreground/80 md:hover:text-primary-foreground'
                     }`}
                   >
                     <Search size={16} />
@@ -805,7 +810,7 @@ export const FoodSearchModal = ({
                       aria-label="Add Food"
                       whileHover={{ y: -2 }}
                       whileTap={{ scale: 0.99 }}
-                      className="flex items-center gap-2 px-3 py-2 text-white/80 md:hover:text-white text-sm font-semibold transition-colors whitespace-nowrap press-feedback focus-ring"
+                      className="flex items-center gap-2 px-3 py-2 text-primary-foreground/80 md:hover:text-primary-foreground text-sm font-semibold transition-colors whitespace-nowrap press-feedback focus-ring"
                     >
                       <Plus size={16} />
                       <span className="whitespace-nowrap">Add Food</span>
@@ -818,8 +823,8 @@ export const FoodSearchModal = ({
                   aria-label="Favorites"
                   className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-full text-sm font-semibold transition-all shadow-md whitespace-nowrap ${
                     viewMode === 'favourites'
-                      ? 'bg-blue-600 text-white border-2 border-[rgb(var(--action-border)/0.7)] shadow-blue-500/30'
-                      : 'bg-blue-600 text-white border border-transparent shadow-blue-500/20 md:hover:bg-blue-600/50'
+                      ? 'bg-primary text-primary-foreground border-2 border-[rgb(var(--action-border)/0.7)]'
+                      : 'bg-primary text-primary-foreground border border-transparent md:hover:brightness-110'
                   }`}
                 >
                   <Star size={16} />
@@ -829,7 +834,7 @@ export const FoodSearchModal = ({
                 <button
                   onClick={onOpenManualEntry}
                   aria-label="Manual Entry"
-                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 md:hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap press-feedback focus-ring border border-transparent"
+                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-primary md:hover:brightness-110 text-primary-foreground rounded-full text-sm font-semibold transition-all shadow-md whitespace-nowrap press-feedback focus-ring border border-transparent"
                 >
                   <Edit3 size={16} />
                   <span>Manual Entry</span>
@@ -838,7 +843,7 @@ export const FoodSearchModal = ({
                 <button
                   onClick={() => {}}
                   aria-label="Barcode Scan"
-                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 md:hover:bg-blue-600/50 text-white rounded-full text-sm font-semibold transition-all shadow-md shadow-blue-500/20 whitespace-nowrap press-feedback focus-ring border border-transparent"
+                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-primary md:hover:brightness-110 text-primary-foreground rounded-full text-sm font-semibold transition-all shadow-md whitespace-nowrap press-feedback focus-ring border border-transparent"
                 >
                   <ScanBarcode size={16} />
                   <span>Barcode Scan</span>
@@ -877,7 +882,7 @@ export const FoodSearchModal = ({
                     ? 'Search FatSecret database...'
                     : 'Search local foods...'
                 }
-                className="w-full bg-surface-highlight border border-border rounded-lg pl-11 pr-10 py-3 text-foreground placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-blue-400"
+                className="w-full bg-surface-highlight border border-border rounded-lg pl-11 pr-10 py-3 text-foreground placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent-blue"
               />
               {searchQuery && (
                 <button
@@ -905,7 +910,7 @@ export const FoodSearchModal = ({
                 value={favouritesSearchQuery}
                 onChange={(e) => setFavouritesSearchQuery(e.target.value)}
                 placeholder="Search favourites..."
-                className="w-full bg-surface-highlight border border-border rounded-lg pl-11 pr-10 py-3 text-foreground placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-blue-400"
+                className="w-full bg-surface-highlight border border-border rounded-lg pl-11 pr-10 py-3 text-foreground placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent-blue"
               />
               {favouritesSearchQuery && (
                 <button
@@ -940,7 +945,7 @@ export const FoodSearchModal = ({
                 onClick={() => setSearchMode('local')}
                 className={`relative z-10 flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                   searchMode === 'local'
-                    ? 'text-white'
+                    ? 'text-primary-foreground'
                     : 'text-muted md:hover:text-foreground'
                 }`}
               >
@@ -952,7 +957,7 @@ export const FoodSearchModal = ({
                 disabled={!isOnline}
                 className={`relative z-10 flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                   searchMode === 'online'
-                    ? 'text-white'
+                    ? 'text-primary-foreground'
                     : isOnline
                       ? 'text-muted md:hover:text-foreground'
                       : 'text-muted cursor-not-allowed opacity-50'
@@ -1068,7 +1073,7 @@ export const FoodSearchModal = ({
                               onClick={() => setFavouritesSortBy(option.value)}
                               className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
                                 favouritesSortBy === option.value
-                                  ? 'bg-accent-emerald text-white'
+                                  ? 'bg-accent-emerald text-primary-foreground'
                                   : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
                               }`}
                             >
@@ -1087,7 +1092,7 @@ export const FoodSearchModal = ({
                             onClick={() => setFavouritesSortOrder('asc')}
                             className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                               favouritesSortOrder === 'asc'
-                                ? 'bg-accent-emerald text-white'
+                                ? 'bg-accent-emerald text-primary-foreground'
                                 : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
                             }`}
                           >
@@ -1097,7 +1102,7 @@ export const FoodSearchModal = ({
                             onClick={() => setFavouritesSortOrder('desc')}
                             className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                               favouritesSortOrder === 'desc'
-                                ? 'bg-accent-emerald text-white'
+                                ? 'bg-accent-emerald text-primary-foreground'
                                 : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
                             }`}
                           >
@@ -1131,7 +1136,7 @@ export const FoodSearchModal = ({
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
                 className={`text-sm font-medium flex items-center gap-1 transition-colors ${
                   hasActiveFilters
-                    ? 'text-blue-400 md:hover:text-blue-300'
+                    ? 'text-accent-blue md:hover:text-accent-blue/80'
                     : 'text-muted md:hover:text-foreground'
                 }`}
               >
@@ -1155,7 +1160,7 @@ export const FoodSearchModal = ({
                         </h4>
                         <button
                           onClick={clearFilters}
-                          className="text-sm text-blue-400 md:hover:text-blue-300 font-medium focus-ring"
+                          className="text-sm text-accent-blue md:hover:text-accent-blue/80 font-medium focus-ring"
                         >
                           Clear All
                         </button>
@@ -1172,7 +1177,7 @@ export const FoodSearchModal = ({
                             }}
                             className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
                               selectedCategory === null
-                                ? 'bg-accent-blue text-white'
+                                ? 'bg-accent-blue text-primary-foreground'
                                 : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
                             }`}
                           >
@@ -1213,7 +1218,7 @@ export const FoodSearchModal = ({
                               onClick={() => setSelectedSubcategory(null)}
                               className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
                                 selectedSubcategory === null
-                                  ? 'bg-accent-blue text-white'
+                                  ? 'bg-accent-blue text-primary-foreground'
                                   : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
                               }`}
                             >
@@ -1227,7 +1232,7 @@ export const FoodSearchModal = ({
                                 onClick={() => setSelectedSubcategory(subcat)}
                                 className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
                                   selectedSubcategory === subcat
-                                    ? 'bg-accent-blue text-white'
+                                    ? 'bg-accent-blue text-primary-foreground'
                                     : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
                                 }`}
                               >
@@ -1257,7 +1262,7 @@ export const FoodSearchModal = ({
                               onClick={() => setSortBy(option.value)}
                               className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
                                 sortBy === option.value
-                                  ? 'bg-accent-emerald text-white'
+                                  ? 'bg-accent-emerald text-primary-foreground'
                                   : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
                               }`}
                             >
@@ -1276,7 +1281,7 @@ export const FoodSearchModal = ({
                             onClick={() => setSortOrder('asc')}
                             className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                               sortOrder === 'asc'
-                                ? 'bg-accent-emerald text-white'
+                                ? 'bg-accent-emerald text-primary-foreground'
                                 : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
                             }`}
                           >
@@ -1286,7 +1291,7 @@ export const FoodSearchModal = ({
                             onClick={() => setSortOrder('desc')}
                             className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                               sortOrder === 'desc'
-                                ? 'bg-accent-emerald text-white'
+                                ? 'bg-accent-emerald text-primary-foreground'
                                 : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
                             }`}
                           >
@@ -1366,7 +1371,7 @@ export const FoodSearchModal = ({
                   return (
                     <div
                       key={key}
-                      className="w-full text-left p-4 rounded-lg border border-border bg-surface-highlight transition-all md:hover:border-emerald-500/40 cursor-pointer"
+                      className="w-full text-left p-4 rounded-lg border border-border bg-surface-highlight transition-all md:hover:border-accent-emerald/40 cursor-pointer"
                       role="button"
                       tabIndex={0}
                       onClick={(event) =>
@@ -1476,7 +1481,7 @@ export const FoodSearchModal = ({
                             <button
                               type="button"
                               onClick={(e) => handleFavouriteEdit(favourite, e)}
-                              className="flex-shrink-0 w-9 h-9 rounded-full bg-foreground/10 md:hover:bg-blue-500/30 transition-colors flex items-center justify-center"
+                              className="flex-shrink-0 w-9 h-9 rounded-full bg-foreground/10 md:hover:bg-accent-blue/20 transition-colors flex items-center justify-center"
                               aria-label="Edit manual entry"
                               title="Edit entry"
                             >
@@ -1493,13 +1498,13 @@ export const FoodSearchModal = ({
                                   setPendingDeleteId(favourite.id);
                                   openDeleteConfirm();
                                 }}
-                                className="flex-shrink-0 w-9 h-9 rounded-full bg-foreground/10 md:hover:bg-red-500/20 transition-colors flex items-center justify-center"
+                                className="flex-shrink-0 w-9 h-9 rounded-full bg-foreground/10 md:hover:bg-accent-red/20 transition-colors flex items-center justify-center"
                                 aria-label="Delete favourite food"
                                 title="Remove from favourites"
                               >
                                 <Trash2
                                   size={16}
-                                  className="text-foreground md:hover:text-red-400"
+                                  className="text-foreground md:hover:text-accent-red"
                                 />
                               </button>
                             )}
@@ -1521,7 +1526,7 @@ export const FoodSearchModal = ({
               <>
                 {/* Error State */}
                 {searchError && (
-                  <div className="bg-accent-red/10 border border-red-500/30 rounded-lg p-4 flex items-start gap-3">
+                  <div className="bg-accent-red/10 border border-accent-red/30 rounded-lg p-4 flex items-start gap-3">
                     <AlertCircle
                       size={20}
                       className="text-accent-red flex-shrink-0 mt-0.5"
@@ -1545,7 +1550,7 @@ export const FoodSearchModal = ({
                   <div className="flex flex-col items-center justify-center py-12">
                     <div className="relative w-8 h-8 mb-3">
                       <div className="absolute inset-0 border-4 border-border rounded-full" />
-                      <div className="absolute inset-0 border-4 border-transparent border-t-blue-400 rounded-full animate-spin-fast" />
+                      <div className="absolute inset-0 border-4 border-transparent border-t-accent-blue rounded-full animate-spin-fast" />
                     </div>
                     <p className="text-muted text-sm">
                       Searching FatSecret database...
@@ -1598,7 +1603,7 @@ export const FoodSearchModal = ({
                           <div className="absolute inset-0 bg-surface-highlight rounded-lg flex items-center justify-center z-10">
                             <div className="relative w-6 h-6">
                               <div className="absolute inset-0 border-3 border-border rounded-full" />
-                              <div className="absolute inset-0 border-3 border-transparent border-t-blue-400 rounded-full animate-spin-fast" />
+                              <div className="absolute inset-0 border-3 border-transparent border-t-accent-blue rounded-full animate-spin-fast" />
                             </div>
                           </div>
                         )}

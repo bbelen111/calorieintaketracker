@@ -8,6 +8,25 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { Keyboard, KeyboardStyle } from '@capacitor/keyboard';
 import { NavigationBar } from '@capgo/capacitor-navigation-bar';
 
+const toHexChannel = (value) => {
+  const normalized = Math.max(0, Math.min(255, Math.round(Number(value) || 0)));
+  return normalized.toString(16).padStart(2, '0');
+};
+
+const toHexColor = (rgb, alpha = null) => {
+  const [r, g, b] = Array.isArray(rgb) ? rgb : [0, 0, 0];
+  const prefix = `#${toHexChannel(r)}${toHexChannel(g)}${toHexChannel(b)}`;
+  return alpha == null ? prefix : `${prefix}${toHexChannel(alpha)}`;
+};
+
+const NATIVE_THEME_RGB = {
+  dark: [15, 23, 42],
+  light: [241, 245, 249],
+  amoled_dark: [0, 0, 0],
+};
+
+const TRANSPARENT_COLOR = toHexColor([0, 0, 0], 0);
+
 /**
  * Theme configuration for native platform styling
  * Maps theme keys to their native platform appearance settings
@@ -15,22 +34,22 @@ import { NavigationBar } from '@capgo/capacitor-navigation-bar';
 const THEME_CONFIG = {
   dark: {
     isDark: true,
-    statusBarColor: '#0f172a', // slate-900 (--background)
-    navigationBarColor: '#0f172a',
+    statusBarColor: toHexColor(NATIVE_THEME_RGB.dark),
+    navigationBarColor: toHexColor(NATIVE_THEME_RGB.dark),
     statusBarStyle: Style.Dark, // Light icons on dark bg
     keyboardStyle: KeyboardStyle.Dark,
   },
   light: {
     isDark: false,
-    statusBarColor: '#f1f5f9', // slate-100 (--background)
-    navigationBarColor: '#f1f5f9',
+    statusBarColor: toHexColor(NATIVE_THEME_RGB.light),
+    navigationBarColor: toHexColor(NATIVE_THEME_RGB.light),
     statusBarStyle: Style.Light, // Dark icons on light bg
     keyboardStyle: KeyboardStyle.Light,
   },
   amoled_dark: {
     isDark: true,
-    statusBarColor: '#000000', // Pure black (--background)
-    navigationBarColor: '#000000',
+    statusBarColor: toHexColor(NATIVE_THEME_RGB.amoled_dark),
+    navigationBarColor: toHexColor(NATIVE_THEME_RGB.amoled_dark),
     statusBarStyle: Style.Dark, // Light icons on dark bg
     keyboardStyle: KeyboardStyle.Dark,
   },
@@ -91,7 +110,7 @@ export const applyNativeTheme = async (theme) => {
   if (Capacitor.getPlatform() === 'android') {
     try {
       await NavigationBar.setTransparency({ isTransparent: true });
-      await NavigationBar.setColor({ color: '#00000000' });
+      await NavigationBar.setColor({ color: TRANSPARENT_COLOR });
       results.navigationBar = { success: true };
     } catch (error) {
       console.warn('Failed to set navigation bar style:', error);
@@ -119,15 +138,8 @@ export const applyNativeTheme = async (theme) => {
  */
 export const getVignetteColor = (theme) => {
   const resolvedTheme = resolveTheme(theme);
-  switch (resolvedTheme) {
-    case 'light':
-      return '241, 245, 249'; // slate-100
-    case 'amoled_dark':
-      return '0, 0, 0'; // pure black
-    case 'dark':
-    default:
-      return '15, 23, 42'; // slate-900
-  }
+  const rgb = NATIVE_THEME_RGB[resolvedTheme] ?? NATIVE_THEME_RGB.dark;
+  return rgb.join(', ');
 };
 
 /**

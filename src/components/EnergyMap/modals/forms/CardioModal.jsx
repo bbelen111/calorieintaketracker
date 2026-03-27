@@ -320,15 +320,15 @@ export const CardioModal = ({
   const effortButtonClass = (type) =>
     `w-full rounded-lg border px-3 py-1.5 text-sm transition-all focus-ring pressable-inline ${
       effortType === type
-        ? 'bg-blue-600 text-white border-blue-500 shadow-sm shadow-blue-900/30'
-        : 'bg-surface-highlight text-muted border-border md:hover:border-blue-400'
+        ? 'bg-primary text-primary-foreground border-accent-blue shadow-sm'
+        : 'bg-surface-highlight text-muted border-border md:hover:border-accent-blue'
     }`;
 
   const intensityButtonClass = (level) =>
     `w-full rounded-lg border px-3 py-2 text-sm transition-all focus-ring pressable-inline ${
       intensityValue === level
-        ? 'bg-blue-600 text-white border-blue-500 shadow-sm shadow-blue-900/30'
-        : 'bg-surface-highlight text-muted border-border md:hover:border-blue-400'
+        ? 'bg-primary text-primary-foreground border-accent-blue shadow-sm'
+        : 'bg-surface-highlight text-muted border-border md:hover:border-accent-blue'
     }`;
 
   const handleOpenCustomCardioModal = () => {
@@ -414,7 +414,7 @@ export const CardioModal = ({
             <button
               type="button"
               onClick={() => openTypePicker()}
-              className="w-full px-3 py-2 rounded-lg border-2 bg-indigo-600 border-indigo-500 text-white transition-all press-feedback focus-ring flex items-start justify-between gap-3"
+              className="w-full px-3 py-2 rounded-lg border-2 bg-accent-indigo border-accent-indigo text-primary-foreground transition-all press-feedback focus-ring flex items-start justify-between gap-3"
             >
               <span className="flex min-w-0 flex-1 flex-col text-left">
                 <span className="font-semibold text-sm md:text-base truncate">
@@ -465,7 +465,7 @@ export const CardioModal = ({
             <button
               onClick={openDurationPicker}
               type="button"
-              className="w-full px-3 py-2 rounded-lg border-2 bg-blue-600 border-blue-500 text-white transition-all active:scale-[0.98] flex items-center justify-between focus-ring press-feedback"
+              className="w-full px-3 py-2 rounded-lg border-2 bg-primary border-accent-blue text-primary-foreground transition-all active:scale-[0.98] flex items-center justify-between focus-ring press-feedback"
             >
               <div className="flex items-baseline gap-x-2">
                 <span className="font-semibold text-sm md:text-base">
@@ -547,7 +547,7 @@ export const CardioModal = ({
               <button
                 onClick={openHeartRatePicker}
                 type="button"
-                className="w-full px-3 py-2 rounded-lg border-2 bg-blue-600 border-blue-500 text-white transition-all active:scale-[0.98] flex items-center justify-between focus-ring press-feedback"
+                className="w-full px-3 py-2 rounded-lg border-2 bg-primary border-accent-blue text-primary-foreground transition-all active:scale-[0.98] flex items-center justify-between focus-ring press-feedback"
               >
                 <span className="font-semibold text-sm md:text-base">
                   {formattedHeartRate}
@@ -589,7 +589,7 @@ export const CardioModal = ({
                     }`}
                   >
                     <span
-                      className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${stepOverlapEnabled ? 'translate-x-6' : 'translate-x-1'}`}
+                      className={`h-4 w-4 rounded-full bg-primary-foreground shadow-sm transition-transform duration-200 ${stepOverlapEnabled ? 'translate-x-6' : 'translate-x-1'}`}
                     />
                   </span>
                 </button>
@@ -624,14 +624,10 @@ export const CardioModal = ({
             onClick={onSave}
             type="button"
             disabled={!canSave}
-            className={`flex-1 text-white px-4 py-2 rounded-lg transition-all flex items-center justify-center gap-2 focus-ring press-feedback ${
+            className={`flex-1 text-primary-foreground px-4 py-2 rounded-lg transition-all flex items-center justify-center gap-2 focus-ring press-feedback ${
               canSave
-                ? isEditing
-                  ? 'bg-blue-600 md:hover:bg-blue-500'
-                  : 'bg-blue-600 md:hover:bg-blue-500'
-                : isEditing
-                  ? 'bg-blue-600/60 cursor-not-allowed opacity-70'
-                  : 'bg-blue-600/60 cursor-not-allowed opacity-70'
+                ? 'bg-primary md:hover:brightness-110'
+                : 'bg-primary/60 cursor-not-allowed opacity-70'
             }`}
           >
             <Save size={20} />

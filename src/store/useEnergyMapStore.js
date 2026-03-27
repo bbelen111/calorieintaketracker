@@ -961,7 +961,7 @@ export const useEnergyMapStore = create(
         targetWeight: phaseData.targetWeight || null,
         startingWeight,
         status: PHASE_STATUS.ACTIVE,
-        color: phaseData.color || '#3b82f6',
+        color: phaseData.color || 'bg-accent-blue',
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };

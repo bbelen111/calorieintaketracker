@@ -73,7 +73,7 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
   const getGoalBadgeClass = () => {
     if (!goal || !goal.color)
       return 'bg-surface-highlight text-muted border-border';
-    return `${goal.color} text-white border-2 ${goal.color.replace('bg-', 'border-')}`;
+    return `${goal.color} text-primary-foreground border-2 ${goal.color.replace('bg-', 'border-')}`;
   };
   const isActive = phase.status === 'active';
   const totalDays = phase.endDate
@@ -93,7 +93,7 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
       onClick={() => onPhaseClick(phase)}
       className={`w-full text-left p-5 rounded-xl border-2 transition-all md:hover:scale-[1.02] pressable-card focus-ring ${
         isActive
-          ? 'bg-gradient-to-br from-surface to-background border-blue-500 shadow-lg shadow-blue-900/20'
+          ? 'bg-gradient-to-br from-surface to-background border-accent-blue shadow-lg'
           : 'bg-surface border-border md:hover:border-border'
       }`}
     >
@@ -229,7 +229,7 @@ export const LogbookScreen = ({
           <button
             type="button"
             onClick={onCreatePhase}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold transition-all flex items-center gap-2 press-feedback focus-ring md:hover:bg-blue-500"
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-semibold transition-all flex items-center gap-2 press-feedback focus-ring md:hover:brightness-110"
           >
             <Plus size={20} />
             <span className="hidden sm:inline">New Phase</span>
@@ -255,7 +255,7 @@ export const LogbookScreen = ({
             <button
               type="button"
               onClick={onCreatePhase}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold transition-all inline-flex items-center gap-2 press-feedback focus-ring md:hover:bg-blue-500"
+              className="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-semibold transition-all inline-flex items-center gap-2 press-feedback focus-ring md:hover:brightness-110"
             >
               <Plus size={20} />
               Create Your First Phase

@@ -53,7 +53,7 @@ export const TrainingTypeEditorModal = ({
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
-      overlayClassName="bg-black/90 z-[70]"
+      overlayClassName="bg-surface/90 z-[70]"
       contentClassName="p-6 w-full max-w-md"
     >
       <h3 className="text-foreground font-bold text-xl mb-4 text-center">
@@ -68,7 +68,7 @@ export const TrainingTypeEditorModal = ({
             value={safeName}
             onChange={(event) => onNameChange(event.target.value)}
             placeholder={defaults.label}
-            className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border focus:border-blue-400 focus:outline-none text-base"
+            className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border focus:border-accent-blue focus:outline-none text-base"
           />
         </div>
 
@@ -106,7 +106,7 @@ export const TrainingTypeEditorModal = ({
         <button
           onClick={onSave}
           type="button"
-          className="flex-1 bg-blue-600 active:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback"
+          className="flex-1 bg-primary active:brightness-110 text-primary-foreground px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback"
         >
           <Save size={20} />
           Save

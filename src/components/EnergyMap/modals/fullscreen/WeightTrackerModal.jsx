@@ -1066,7 +1066,7 @@ export const WeightTrackerModal = ({
                   cx={p.x}
                   cy={p.y}
                   r={pointRadius}
-                  fill="#1e293b"
+                  fill="rgb(var(--surface))"
                   stroke={trendVisual.color}
                   strokeWidth="2"
                   className="transition-all"
@@ -1304,7 +1304,7 @@ export const WeightTrackerModal = ({
       <ModalShell
         isOpen={isOpen}
         isClosing={isClosing}
-        overlayClassName="fixed inset-0 bg-black/70 !p-0 !flex-none !items-stretch !justify-stretch z-[1000]"
+        overlayClassName="fixed inset-0 bg-surface/70 !p-0 !flex-none !items-stretch !justify-stretch z-[1000]"
         contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none !max-h-none flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] z-[1001]"
       >
         {/* Header bar */}
@@ -1326,7 +1326,7 @@ export const WeightTrackerModal = ({
             <button
               type="button"
               onClick={() => onSwitchToBodyFat?.()}
-              className="px-4 py-2 rounded-md bg-accent-blue text-white text-sm font-semibold md:hover:brightness-110 transition-colors flex items-center press-feedback focus-ring"
+              className="px-4 py-2 rounded-md bg-accent-blue text-primary-foreground text-sm font-semibold md:hover:brightness-110 transition-colors flex items-center press-feedback focus-ring"
               aria-label="Switch to body fat tracker"
             >
               <Repeat size={16} className="mr-2 opacity-90" />
@@ -1362,7 +1362,7 @@ export const WeightTrackerModal = ({
                   onClick={() => setViewMode(mode.key)}
                   className={`relative z-10 flex-1 flex items-center justify-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                     viewMode === mode.key
-                      ? 'text-white'
+                      ? 'text-primary-foreground'
                       : 'text-muted md:hover:text-foreground'
                   }`}
                 >
@@ -1610,7 +1610,7 @@ export const WeightTrackerModal = ({
               <button
                 type="button"
                 onClick={() => onAddEntry?.()}
-                className="px-4 py-1.5 md:px-4 md:py-2.5 rounded-lg border-2 bg-accent-blue border-accent-blue/70 text-white transition-all font-semibold text-sm md:hover:brightness-110 press-feedback focus-ring"
+                className="px-4 py-1.5 md:px-4 md:py-2.5 rounded-lg border-2 bg-accent-blue border-accent-blue/70 text-primary-foreground transition-all font-semibold text-sm md:hover:brightness-110 press-feedback focus-ring"
               >
                 Add Entry
               </button>
@@ -1672,7 +1672,7 @@ export const WeightTrackerModal = ({
                   {currentWeightTick &&
                     (viewMode === '7d' || viewMode === '30d') && (
                       <div
-                        className="absolute right-0.5 px-2.5 py-1 rounded-lg text-[12px] font-bold text-white shadow-md flex items-center justify-center leading-none"
+                        className="absolute right-0.5 px-2.5 py-1 rounded-lg text-[12px] font-bold text-primary-foreground shadow-md flex items-center justify-center leading-none"
                         style={{
                           top: `${currentWeightTick.yPx}px`,
                           transform: 'translateY(-50%)',

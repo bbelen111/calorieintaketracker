@@ -110,7 +110,7 @@ export const BmrInfoModal = ({ isOpen, isClosing, userData, bmr, onClose }) => {
               </div>
             ) : (
               <div>
-                <p className="text-pink-400">Mifflin-St Jeor (Women):</p>
+                <p className="text-accent-pink">Mifflin-St Jeor (Women):</p>
                 <p className="mt-1">
                   BMR = (10 × weight) + (6.25 × height) - (5 × age) - 161
                 </p>
@@ -179,7 +179,7 @@ export const BmrInfoModal = ({ isOpen, isClosing, userData, bmr, onClose }) => {
         <button
           onClick={onClose}
           type="button"
-          className="w-full bg-blue-600 active:bg-blue-700 text-white px-6 py-3 rounded-lg transition-all active:scale-95 font-medium"
+          className="w-full bg-primary active:brightness-110 text-primary-foreground px-6 py-3 rounded-lg transition-all active:scale-95 font-medium"
         >
           Got it!
         </button>

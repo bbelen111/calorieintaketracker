@@ -200,7 +200,7 @@ export const FoodFavouritesModal = ({
       <div className="flex flex-col gap-4 md:gap-6">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-white font-bold text-xl md:text-2xl">
+            <h3 className="text-foreground font-bold text-xl md:text-2xl">
               Favourite Foods
             </h3>
             <p className="text-muted text-sm md:text-base mt-1">
@@ -232,7 +232,7 @@ export const FoodFavouritesModal = ({
               return (
                 <div
                   key={key}
-                  className="w-full text-left p-4 rounded-xl border-2 transition-all bg-surface border-border text-foreground md:hover:border-blue-400 focus-visible:border-blue-400 focus-visible:ring-2 focus-visible:ring-blue-400/40 cursor-pointer"
+                  className="w-full text-left p-4 rounded-xl border-2 transition-all bg-surface border-border text-foreground md:hover:border-accent-blue focus-visible:border-accent-blue focus-visible:ring-2 focus-visible:ring-accent-blue/40 cursor-pointer"
                   role="button"
                   tabIndex={0}
                   onClick={(event) => handleInstantAdd(favourite, event)}
@@ -275,7 +275,7 @@ export const FoodFavouritesModal = ({
                           </span>
                         )}
                         {isCustom && (
-                          <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded">
+                          <span className="text-xs px-2 py-0.5 bg-accent-purple/20 text-accent-purple rounded">
                             Custom
                           </span>
                         )}
@@ -283,16 +283,16 @@ export const FoodFavouritesModal = ({
 
                       {/* Nutrition summary */}
                       <div className="flex items-center gap-3 mt-2 text-xs">
-                        <span className="text-green-400 font-medium">
+                        <span className="text-accent-green font-medium">
                           {formatOne(favourite.calories || 0)} kcal
                         </span>
-                        <span className="text-red-400 font-medium">
+                        <span className="text-accent-red font-medium">
                           {formatOne(favourite.protein || 0)}g P
                         </span>
-                        <span className="text-amber-400 font-medium">
+                        <span className="text-accent-amber font-medium">
                           {formatOne(favourite.carbs || 0)}g C
                         </span>
-                        <span className="text-yellow-400 font-medium">
+                        <span className="text-accent-yellow font-medium">
                           {formatOne(favourite.fats || 0)}g F
                         </span>
                       </div>
@@ -303,7 +303,7 @@ export const FoodFavouritesModal = ({
                       <button
                         type="button"
                         onClick={(e) => handleEditPortion(favourite, e)}
-                        className="flex-shrink-0 w-10 h-10 rounded-full bg-foreground/10 md:hover:bg-blue-500/30 transition-colors flex items-center justify-center"
+                        className="flex-shrink-0 w-10 h-10 rounded-full bg-foreground/10 md:hover:bg-accent-blue/20 transition-colors flex items-center justify-center"
                         aria-label="Edit portion before adding"
                         title="Edit portion"
                       >
@@ -320,13 +320,13 @@ export const FoodFavouritesModal = ({
                               setPendingDeleteId(favourite.id);
                               openConfirm();
                             }}
-                            className="flex-shrink-0 w-10 h-10 rounded-full bg-foreground/10 md:hover:bg-red-500/20 transition-colors flex items-center justify-center"
+                            className="flex-shrink-0 w-10 h-10 rounded-full bg-foreground/10 md:hover:bg-accent-red/20 transition-colors flex items-center justify-center"
                             aria-label="Delete favourite food"
                             title="Remove from favourites"
                           >
                             <Trash2
                               size={18}
-                              className="text-foreground md:hover:text-red-400"
+                              className="text-foreground md:hover:text-accent-red"
                             />
                           </button>
                         )}

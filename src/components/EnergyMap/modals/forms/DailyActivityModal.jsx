@@ -68,7 +68,7 @@ export const DailyActivityModal = ({
       isOpen={isOpen}
       isClosing={isClosing}
       onClose={onClose}
-      overlayClassName="bg-black/80 z-[65]"
+      overlayClassName="bg-surface/80 z-[65]"
       contentClassName="p-4 md:p-6 w-full md:max-w-xl"
     >
       <div className="flex items-center justify-between mb-4 md:mb-6">

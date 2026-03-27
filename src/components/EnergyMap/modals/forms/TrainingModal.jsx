@@ -148,15 +148,15 @@ export const TrainingModal = ({
   const effortButtonClass = (type) =>
     `w-full rounded-lg border px-3 py-1.5 text-sm transition-all focus-ring pressable-inline ${
       effortType === type
-        ? 'bg-blue-600 text-white border-blue-500 shadow-sm shadow-blue-900/30'
-        : 'bg-surface-highlight text-muted border-border md:hover:border-blue-400'
+        ? 'bg-primary text-primary-foreground border-accent-blue shadow-sm'
+        : 'bg-surface-highlight text-muted border-border md:hover:border-accent-blue'
     }`;
 
   const intensityButtonClass = (level) =>
     `w-full rounded-lg border px-3 py-2 text-sm transition-all focus-ring pressable-inline ${
       intensityValue === level
-        ? 'bg-blue-600 text-white border-blue-500 shadow-sm shadow-blue-900/30'
-        : 'bg-surface-highlight text-muted border-border md:hover:border-blue-400'
+        ? 'bg-primary text-primary-foreground border-accent-blue shadow-sm'
+        : 'bg-surface-highlight text-muted border-border md:hover:border-accent-blue'
     }`;
 
   const {
@@ -218,8 +218,8 @@ export const TrainingModal = ({
                     type="button"
                     className={`p-3 rounded-lg border-2 transition-all text-sm relative text-left focus-ring pressable ${
                       isActive
-                        ? 'bg-indigo-600 border-indigo-500 text-white'
-                        : 'bg-surface-highlight border-border text-muted active:bg-surface-highlight/80 md:hover:border-indigo-400'
+                        ? 'bg-accent-indigo border-accent-indigo text-primary-foreground'
+                        : 'bg-surface-highlight border-border text-muted active:bg-surface-highlight/80 md:hover:border-accent-indigo'
                     }`}
                   >
                     <span
@@ -227,7 +227,7 @@ export const TrainingModal = ({
                         event.stopPropagation();
                         onEditTrainingType(key);
                       }}
-                      className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center cursor-pointer"
+                      className="absolute top-2 right-2 w-8 h-8 rounded-full bg-primary-foreground/10 md:hover:bg-primary-foreground/20 transition-colors flex items-center justify-center cursor-pointer"
                     >
                       <Edit3 size={12} />
                     </span>
@@ -276,7 +276,7 @@ export const TrainingModal = ({
             <button
               onClick={onDurationClick}
               type="button"
-              className="w-full px-3 py-2 rounded-lg border-2 bg-blue-600 border-blue-500 text-white transition-all active:scale-[0.98] flex items-center justify-between focus-ring press-feedback"
+              className="w-full px-3 py-2 rounded-lg border-2 bg-primary border-accent-blue text-primary-foreground transition-all active:scale-[0.98] flex items-center justify-between focus-ring press-feedback"
             >
               <div className="flex items-baseline gap-x-2">
                 <span className="font-semibold text-sm md:text-base">
@@ -356,7 +356,7 @@ export const TrainingModal = ({
               <button
                 onClick={openHeartRatePicker}
                 type="button"
-                className="w-full px-3 py-2 rounded-lg border-2 bg-blue-600 border-blue-500 text-white transition-all active:scale-[0.98] flex items-center justify-between focus-ring press-feedback"
+                className="w-full px-3 py-2 rounded-lg border-2 bg-primary border-accent-blue text-primary-foreground transition-all active:scale-[0.98] flex items-center justify-between focus-ring press-feedback"
               >
                 <span className="font-semibold text-sm md:text-base">
                   {formattedHeartRate}
@@ -397,10 +397,10 @@ export const TrainingModal = ({
             onClick={onSave}
             type="button"
             disabled={!canSave}
-            className={`flex-1 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback ${
+            className={`flex-1 text-primary-foreground px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback ${
               canSave
-                ? 'bg-blue-600 active:bg-blue-700'
-                : 'bg-blue-600/60 cursor-not-allowed opacity-70'
+                ? 'bg-primary active:brightness-110'
+                : 'bg-primary/60 cursor-not-allowed opacity-70'
             }`}
           >
             <Save size={20} />

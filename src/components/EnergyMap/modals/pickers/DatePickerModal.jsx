@@ -196,7 +196,7 @@ export const DatePickerModal = ({
             cellClass += ' text-muted/30 cursor-default';
           } else if (isSelected) {
             cellClass +=
-              ' bg-accent-blue text-white font-bold ring-2 ring-accent-blue/50';
+              ' bg-accent-blue text-primary-foreground font-bold ring-2 ring-accent-blue/50';
           } else if (isToday) {
             cellClass +=
               ' border-2 border-accent-blue text-accent-blue font-bold md:hover:bg-accent-blue/10';

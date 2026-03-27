@@ -3,6 +3,56 @@
  * Colors represent how "on track" progress is relative to the selected goal
  */
 
+const GOAL_ALIGNMENT_PALETTE = {
+  neutral: {
+    color: 'rgb(var(--accent-blue))',
+    textClass: 'text-accent-blue',
+  },
+  success: {
+    color: 'rgb(var(--accent-green))',
+    textClass: 'text-accent-green',
+  },
+  positive: {
+    color: 'rgb(var(--accent-lime))',
+    textClass: 'text-accent-lime',
+  },
+  caution: {
+    color: 'rgb(var(--accent-yellow))',
+    textClass: 'text-accent-yellow',
+  },
+  warning: {
+    color: 'rgb(var(--accent-orange))',
+    textClass: 'text-accent-orange',
+  },
+  danger: {
+    color: 'rgb(var(--accent-red))',
+    textClass: 'text-accent-red',
+  },
+};
+
+const buildAlignmentResult = (
+  alignment,
+  tone,
+  topOpacity,
+  bottomOpacity,
+  description
+) => {
+  const resolvedTone = GOAL_ALIGNMENT_PALETTE[tone]
+    ? tone
+    : 'neutral';
+  const palette = GOAL_ALIGNMENT_PALETTE[resolvedTone];
+
+  return {
+    alignment,
+    tone: resolvedTone,
+    color: palette.color,
+    textClass: palette.textClass,
+    topOpacity,
+    bottomOpacity,
+    description,
+  };
+};
+
 /**
  * Calculate how aligned the actual weekly rate is with the goal's expectations
  * @param {number} weeklyRate - The actual weekly rate (kg/wk or %/wk)
@@ -54,13 +104,7 @@ export const calculateGoalAlignment = (
 
   // Handle invalid/no data
   if (!Number.isFinite(weeklyRate)) {
-    return {
-      alignment: 'no-data',
-      color: '#60a5fa', // Blue - neutral
-      topOpacity: 0.3,
-      bottomOpacity: 0.05,
-      description: 'Insufficient data',
-    };
+    return buildAlignmentResult('no-data', 'neutral', 0.3, 0.05, 'Insufficient data');
   }
 
   const absRate = Math.abs(weeklyRate);
@@ -78,37 +122,19 @@ export const calculateGoalAlignment = (
   // For maintenance, check if within tolerance
   if (expectation.direction === 'flat') {
     if (absRate <= 0.1) {
-      return {
-        alignment: 'perfect',
-        color: '#22c55e', // Green - on track
-        topOpacity: 0.35,
-        bottomOpacity: 0.05,
-        description: 'Maintaining perfectly',
-      };
+      return buildAlignmentResult(
+        'perfect',
+        'success',
+        0.35,
+        0.05,
+        'Maintaining perfectly'
+      );
     } else if (absRate <= 0.25) {
-      return {
-        alignment: 'good',
-        color: '#84cc16', // Lime - slightly off but acceptable
-        topOpacity: 0.3,
-        bottomOpacity: 0.05,
-        description: 'Close to maintenance',
-      };
+      return buildAlignmentResult('good', 'positive', 0.3, 0.05, 'Close to maintenance');
     } else if (absRate <= 0.5) {
-      return {
-        alignment: 'moderate',
-        color: '#eab308', // Yellow - drifting
-        topOpacity: 0.3,
-        bottomOpacity: 0.05,
-        description: 'Drifting from goal',
-      };
+      return buildAlignmentResult('moderate', 'caution', 0.3, 0.05, 'Drifting from goal');
     } else {
-      return {
-        alignment: 'poor',
-        color: '#f97316', // Orange - significantly off
-        topOpacity: 0.3,
-        bottomOpacity: 0.05,
-        description: 'Significantly off track',
-      };
+      return buildAlignmentResult('poor', 'warning', 0.3, 0.05, 'Significantly off track');
     }
   }
 
@@ -116,29 +142,17 @@ export const calculateGoalAlignment = (
   if (!directionMatches) {
     // Moving in opposite direction
     if (absRate > 0.5) {
-      return {
-        alignment: 'very-poor',
-        color: '#ef4444', // Red - completely wrong direction, high rate
-        topOpacity: 0.35,
-        bottomOpacity: 0.05,
-        description: 'Opposite direction',
-      };
+      return buildAlignmentResult('very-poor', 'danger', 0.35, 0.05, 'Opposite direction');
     } else if (absRate > 0.25) {
-      return {
-        alignment: 'poor',
-        color: '#f97316', // Orange - wrong direction, moderate rate
-        topOpacity: 0.3,
-        bottomOpacity: 0.05,
-        description: 'Moving wrong way',
-      };
+      return buildAlignmentResult('poor', 'warning', 0.3, 0.05, 'Moving wrong way');
     } else {
-      return {
-        alignment: 'moderate',
-        color: '#eab308', // Yellow - wrong direction but slow
-        topOpacity: 0.3,
-        bottomOpacity: 0.05,
-        description: 'Not progressing as expected',
-      };
+      return buildAlignmentResult(
+        'moderate',
+        'caution',
+        0.3,
+        0.05,
+        'Not progressing as expected'
+      );
     }
   }
 
@@ -158,29 +172,17 @@ export const calculateGoalAlignment = (
     const normalizedDeviation = deviationFromIdeal / (targetRange / 2);
 
     if (normalizedDeviation < 0.3) {
-      return {
-        alignment: 'perfect',
-        color: '#22c55e', // Green - perfectly on track
-        topOpacity: 0.35,
-        bottomOpacity: 0.05,
-        description: 'Perfectly on track',
-      };
+      return buildAlignmentResult('perfect', 'success', 0.35, 0.05, 'Perfectly on track');
     } else if (normalizedDeviation < 0.7) {
-      return {
-        alignment: 'good',
-        color: '#84cc16', // Lime - on track
-        topOpacity: 0.3,
-        bottomOpacity: 0.05,
-        description: 'On track',
-      };
+      return buildAlignmentResult('good', 'positive', 0.3, 0.05, 'On track');
     } else {
-      return {
-        alignment: 'acceptable',
-        color: '#a3e635', // Light lime - acceptable
-        topOpacity: 0.3,
-        bottomOpacity: 0.05,
-        description: 'Within acceptable range',
-      };
+      return buildAlignmentResult(
+        'acceptable',
+        'positive',
+        0.3,
+        0.05,
+        'Within acceptable range'
+      );
     }
   }
 
@@ -193,29 +195,17 @@ export const calculateGoalAlignment = (
     const overshoot = Math.abs(weeklyRate) - maxExpected;
 
     if (overshoot > targetRange) {
-      return {
-        alignment: 'poor',
-        color: '#f97316', // Orange - way too fast
-        topOpacity: 0.3,
-        bottomOpacity: 0.05,
-        description: 'Progressing too rapidly',
-      };
+      return buildAlignmentResult('poor', 'warning', 0.3, 0.05, 'Progressing too rapidly');
     } else if (overshoot > targetRange * 0.5) {
-      return {
-        alignment: 'moderate',
-        color: '#eab308', // Yellow - too fast
-        topOpacity: 0.3,
-        bottomOpacity: 0.05,
-        description: 'Slightly too fast',
-      };
+      return buildAlignmentResult('moderate', 'caution', 0.3, 0.05, 'Slightly too fast');
     } else {
-      return {
-        alignment: 'acceptable',
-        color: '#a3e635', // Light lime - just over target
-        topOpacity: 0.3,
-        bottomOpacity: 0.05,
-        description: 'Just above target range',
-      };
+      return buildAlignmentResult(
+        'acceptable',
+        'positive',
+        0.3,
+        0.05,
+        'Just above target range'
+      );
     }
   }
 
@@ -228,32 +218,20 @@ export const calculateGoalAlignment = (
     const undershoot = minExpected - Math.abs(weeklyRate);
 
     if (undershoot > targetRange * 0.5) {
-      return {
-        alignment: 'moderate',
-        color: '#eab308', // Yellow - too slow
-        topOpacity: 0.3,
-        bottomOpacity: 0.05,
-        description: 'Progressing too slowly',
-      };
+      return buildAlignmentResult('moderate', 'caution', 0.3, 0.05, 'Progressing too slowly');
     } else {
-      return {
-        alignment: 'acceptable',
-        color: '#a3e635', // Light lime - just under target
-        topOpacity: 0.3,
-        bottomOpacity: 0.05,
-        description: 'Just below target range',
-      };
+      return buildAlignmentResult(
+        'acceptable',
+        'positive',
+        0.3,
+        0.05,
+        'Just below target range'
+      );
     }
   }
 
   // Fallback
-  return {
-    alignment: 'moderate',
-    color: '#60a5fa', // Blue - neutral
-    topOpacity: 0.3,
-    bottomOpacity: 0.05,
-    description: 'Progress tracking',
-  };
+  return buildAlignmentResult('moderate', 'neutral', 0.3, 0.05, 'Progress tracking');
 };
 
 /**
@@ -275,12 +253,7 @@ export const getGoalAlignedStyle = (
     trend.label === 'No data yet' ||
     !Number.isFinite(trend.weeklyRate)
   ) {
-    return {
-      color: '#60a5fa',
-      topOpacity: 0.3,
-      bottomOpacity: 0.05,
-      alignment: 'no-data',
-    };
+    return buildAlignmentResult('no-data', 'neutral', 0.3, 0.05, 'Insufficient data');
   }
 
   const alignment = calculateGoalAlignment(
@@ -289,13 +262,7 @@ export const getGoalAlignedStyle = (
     metricType
   );
 
-  return {
-    color: alignment.color,
-    topOpacity: alignment.topOpacity,
-    bottomOpacity: alignment.bottomOpacity,
-    alignment: alignment.alignment,
-    description: alignment.description,
-  };
+  return alignment;
 };
 
 /**
@@ -312,15 +279,5 @@ export const getGoalAlignedTextClass = (
 ) => {
   const style = getGoalAlignedStyle(trend, selectedGoal, metricType);
 
-  const colorMap = {
-    '#ef4444': 'text-accent-red',
-    '#f97316': 'text-accent-orange',
-    '#eab308': 'text-accent-yellow',
-    '#a3e635': 'text-accent-lime',
-    '#84cc16': 'text-accent-lime',
-    '#22c55e': 'text-accent-green',
-    '#60a5fa': 'text-accent-blue',
-  };
-
-  return colorMap[style.color] || 'text-accent-slate';
+  return style.textClass || 'text-accent-slate';
 };

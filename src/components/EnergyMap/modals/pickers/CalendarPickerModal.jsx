@@ -110,7 +110,7 @@ const CalendarHeatmap = ({
       return 'bg-surface/30 border-border/30 cursor-default';
     }
     if (isSelected) {
-      return 'bg-blue-500 border-blue-400 ring-2 ring-blue-300 shadow-lg';
+      return 'bg-accent-blue border-accent-blue/70 ring-2 ring-accent-blue/40 shadow-lg';
     }
     if (isFocused) {
       return 'bg-surface-highlight border-accent-blue ring-2 ring-border md:hover:bg-surface';
@@ -146,7 +146,7 @@ const CalendarHeatmap = ({
           <div
             key={i}
             className={`text-[10px] text-center font-semibold ${
-              i === 0 ? 'text-red-400' : 'text-muted'
+              i === 0 ? 'text-accent-red' : 'text-muted'
             }`}
           >
             {day}
@@ -203,7 +203,7 @@ const CalendarHeatmap = ({
                       aria-disabled={isGhost}
                     >
                       {hasData && !isGhost && (
-                        <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-blue-400" />
+                        <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-accent-blue" />
                       )}
                       <span
                         className={`text-sm font-bold ${isGhost ? 'text-muted' : 'text-foreground'}`}
@@ -228,7 +228,7 @@ const CalendarHeatmap = ({
       <div className="flex items-center justify-center gap-4 pt-4 text-xs text-muted border-t border-border mt-4">
             <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-lg bg-surface border-2 border-border flex flex-col items-center justify-center gap-0.5 shadow-sm relative">
-            <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-blue-500 rounded-full border border-blue-400" />
+            <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-accent-blue rounded-full border border-accent-blue/70" />
             <span className="text-foreground font-bold text-[10px]">15</span>
             <span className="text-foreground text-[6px] leading-none opacity-80">
               2k
@@ -243,8 +243,8 @@ const CalendarHeatmap = ({
           <span>No entries</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-blue-500 border-2 border-blue-400 ring-2 ring-blue-300 flex items-center justify-center shadow-sm">
-            <span className="text-white font-bold text-xs">1</span>
+          <div className="w-6 h-6 rounded-lg bg-accent-blue border-2 border-accent-blue/70 ring-2 ring-accent-blue/40 flex items-center justify-center shadow-sm">
+            <span className="text-primary-foreground font-bold text-xs">1</span>
           </div>
           <span>Selected</span>
         </div>
@@ -616,7 +616,7 @@ export const CalendarPickerModal = ({
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               aria-label="Select today"
-              className="px-3 py-2 bg-blue-600 md:hover:bg-blue-500 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 text-sm"
+              className="px-3 py-2 bg-primary md:hover:brightness-110 text-primary-foreground rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 text-sm"
             >
               <CalendarIcon size={16} />
               Today
@@ -706,7 +706,7 @@ export const CalendarPickerModal = ({
                         whileTap={{ scale: 0.95 }}
                         className={`px-3 py-2 rounded font-semibold transition-colors text-sm whitespace-nowrap ${
                           index === currentMonth
-                            ? 'bg-blue-600 text-white'
+                            ? 'bg-primary text-primary-foreground'
                             : 'bg-surface-highlight text-foreground md:hover:bg-surface'
                         }`}
                       >
@@ -748,7 +748,7 @@ export const CalendarPickerModal = ({
                         whileTap={{ scale: 0.95 }}
                         className={`px-1 py-2 rounded font-semibold transition-colors text-sm ${
                           year === currentYear
-                            ? 'bg-blue-600 text-white'
+                            ? 'bg-primary text-primary-foreground'
                             : 'bg-surface-highlight text-foreground md:hover:bg-surface'
                         }`}
                       >

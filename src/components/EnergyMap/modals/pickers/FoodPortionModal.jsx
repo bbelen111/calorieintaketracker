@@ -550,7 +550,7 @@ export const FoodPortionModal = ({
               <select
                 value={selectedUnit}
                 onChange={handleUnitChange}
-                className="bg-surface-highlight border border-border rounded px-3 py-1.5 pr-8 text-muted text-xs uppercase tracking-wide appearance-none focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer md:hover:bg-surface transition-all"
+                className="bg-surface-highlight border border-border rounded px-3 py-1.5 pr-8 text-muted text-xs uppercase tracking-wide appearance-none focus:outline-none focus:ring-1 focus:ring-accent-blue cursor-pointer md:hover:bg-surface transition-all"
               >
                 <option value="grams">Grammes</option>
                 {selectedFood.portions.map((portion) => (
@@ -580,7 +580,7 @@ export const FoodPortionModal = ({
                 <div className="h-16 bg-transparent" />
                 <div className="h-16 bg-gradient-to-t from-surface to-transparent" />
               </div>
-              <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400/70 pointer-events-none z-10" />
+              <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-16 border-y-2 border-accent-blue/70 pointer-events-none z-10" />
 
               <div
                 ref={wholeRef}
@@ -620,7 +620,7 @@ export const FoodPortionModal = ({
                 <div className="h-16 bg-transparent" />
                 <div className="h-16 bg-gradient-to-t from-surface to-transparent" />
               </div>
-              <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 h-16 border-y-2 border-blue-400/70 pointer-events-none z-10" />
+              <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 h-16 border-y-2 border-accent-blue/70 pointer-events-none z-10" />
 
               <div
                 ref={decimalRef}
@@ -661,7 +661,7 @@ export const FoodPortionModal = ({
 
         {/* Display selected quantity and equivalent grams
         <div className="text-center mt-4">
-          <p className="text-white font-bold text-3xl">
+          <p className="text-foreground font-bold text-3xl">
             {formatOne(displayQuantity)}{' '}
             <span className="text-muted text-lg font-normal">
               {selectedUnit === 'grams'
@@ -679,7 +679,7 @@ export const FoodPortionModal = ({
 
       {/* Calculated Nutrition */}
       {nutrition && (
-        <div className="bg-surface-highlight border border-border rounded-lg p-4 mb-6 shadow-lg shadow-black/20">
+        <div className="bg-surface-highlight border border-border rounded-lg p-4 mb-6 shadow-lg">
           <p className="text-muted text-xs mb-3 text-center">
             For {formatOne(grams)}g:
           </p>
@@ -719,9 +719,11 @@ export const FoodPortionModal = ({
               >
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="text-white font-semibold text-md">TEF Burn</p>
+                    <p className="text-primary-foreground font-semibold text-md">
+                      TEF Burn
+                    </p>
                   </div>
-                  <p className="text-white font-bold text-md whitespace-nowrap">
+                  <p className="text-primary-foreground font-bold text-md whitespace-nowrap">
                     {tefBreakdown.roundedTotalCalories.toLocaleString()} kcal
                   </p>
                 </div>
@@ -801,7 +803,7 @@ export const FoodPortionModal = ({
           <button
             onClick={handleAddFood}
             disabled={!nutrition || nutrition.calories === 0}
-            className="flex-1 h-10 px-4 bg-blue-600 md:hover:bg-blue-500 disabled:bg-surface-highlight/60 disabled:cursor-not-allowed disabled:text-muted text-white rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring"
+            className="flex-1 h-10 px-4 bg-primary md:hover:brightness-110 disabled:bg-surface-highlight/60 disabled:cursor-not-allowed disabled:text-muted text-primary-foreground rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring"
           >
             <Plus size={18} />
             {isEditing ? 'Save Changes' : 'Add Food'}
@@ -824,14 +826,14 @@ export const FoodPortionModal = ({
               }
               className={`w-10 h-10 ml-1 border rounded-lg font-medium transition-all flex items-center justify-center press-feedback focus-ring ${
                 isCurrentlyFavourited
-                  ? 'bg-indigo-600/30 border-indigo-500/50 text-indigo-300 cursor-default'
-                  : 'bg-indigo-600 md:hover:bg-indigo-500 border-indigo-600/50 text-white disabled:bg-surface-highlight/30 disabled:border-border/60 disabled:cursor-not-allowed disabled:text-muted'
+                  ? 'bg-accent-indigo/30 border-accent-indigo/50 text-accent-indigo cursor-default'
+                  : 'bg-accent-indigo md:hover:brightness-110 border-accent-indigo/50 text-primary-foreground disabled:bg-surface-highlight/30 disabled:border-border/60 disabled:cursor-not-allowed disabled:text-muted'
               }`}
             >
               <Heart
                 size={20}
                 fill={isCurrentlyFavourited ? 'currentColor' : 'none'}
-                className={isCurrentlyFavourited ? 'text-indigo-300' : ''}
+                className={isCurrentlyFavourited ? 'text-accent-indigo' : ''}
               />
             </button>
           )}

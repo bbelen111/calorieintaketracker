@@ -4,11 +4,11 @@ import { ModalShell } from '../../common/ModalShell';
 import { goals as baseGoals } from '../../../../constants/goals';
 
 const GOAL_BORDER_CLASS_BY_BG = {
-  'bg-purple-500': 'border-purple-400',
-  'bg-green-500': 'border-green-400',
-  'bg-blue-500': 'border-blue-400',
-  'bg-yellow-500': 'border-yellow-400',
-  'bg-orange-500': 'border-orange-400',
+  'bg-accent-purple': 'border-accent-purple',
+  'bg-accent-green': 'border-accent-green',
+  'bg-accent-blue': 'border-accent-blue',
+  'bg-accent-yellow': 'border-accent-yellow',
+  'bg-accent-orange': 'border-accent-orange',
 };
 
 export const GoalModal = ({
@@ -37,14 +37,14 @@ export const GoalModal = ({
           const Icon = goal.icon;
           const isActive = tempSelectedGoal === key;
           const goalBorderClass =
-            GOAL_BORDER_CLASS_BY_BG[goal.color] ?? 'border-white';
+            GOAL_BORDER_CLASS_BY_BG[goal.color] ?? 'border-primary-foreground';
           return (
             <button
               key={key}
               onClick={() => onSelect(key)}
               className={`p-4 rounded-xl border-2 transition-all active:scale-[0.98] text-left focus-ring pressable ${
                 isActive
-                  ? `${goal.color} ${goalBorderClass} text-white shadow-lg`
+                  ? `${goal.color} ${goalBorderClass} text-primary-foreground shadow-lg`
                   : 'bg-surface-highlight border-border text-muted md:hover:border-accent-blue'
               }`}
               type="button"
@@ -61,8 +61,8 @@ export const GoalModal = ({
                   )}
                 </div>
                 {isActive && (
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
-                    <div className="w-3 h-3 rounded-full bg-white" />
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary-foreground/20 flex items-center justify-center">
+                    <div className="w-3 h-3 rounded-full bg-primary-foreground" />
                   </div>
                 )}
               </div>
@@ -82,7 +82,7 @@ export const GoalModal = ({
         <button
           onClick={onSave}
           type="button"
-          className="flex-1 bg-blue-600 active:bg-blue-700 text-white px-4 md:px-6 py-3 md:py-2 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback"
+          className="flex-1 bg-primary active:brightness-90 text-primary-foreground px-4 md:px-6 py-3 md:py-2 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback"
         >
           <Save size={20} />
           <span className="hidden sm:inline">Save &amp;</span> Close
