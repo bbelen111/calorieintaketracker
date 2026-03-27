@@ -103,6 +103,7 @@ import {
 import { formatDateKeyUtc, getTodayDateKey } from '../../utils/dateKeys';
 
 const MODAL_CLOSE_DELAY = 180; // Match CSS animation duration (150ms) + buffer
+const EXIT_CONFIRM_WINDOW_MS = 2000;
 const DEFAULT_TRAINING_EFFORT_TYPE = 'intensity';
 const DEFAULT_TRAINING_INTENSITY = 'moderate';
 const DEFAULT_TRAINING_TYPE_CATALOG =
@@ -554,7 +555,33 @@ export const EnergyMapCalculator = () => {
   const [confirmActionLabel, setConfirmActionLabel] = useState('Confirm');
   const [confirmActionTone, setConfirmActionTone] = useState('danger');
   const [confirmActionCallback, setConfirmActionCallback] = useState(null);
+  const [showExitHint, setShowExitHint] = useState(false);
+  const exitHintTimeoutRef = useRef(null);
+  const lastBackPressAtRef = useRef(0);
+  const currentScreenRef = useRef(currentScreen);
   const confirmActionModal = useAnimatedModal();
+
+  const clearExitHintTimeout = useCallback(() => {
+    if (exitHintTimeoutRef.current) {
+      clearTimeout(exitHintTimeoutRef.current);
+      exitHintTimeoutRef.current = null;
+    }
+  }, []);
+
+  const resetExitHintState = useCallback(() => {
+    lastBackPressAtRef.current = 0;
+    setShowExitHint(false);
+    clearExitHintTimeout();
+  }, [clearExitHintTimeout]);
+
+  const showExitHintMessage = useCallback(() => {
+    setShowExitHint(true);
+    clearExitHintTimeout();
+    exitHintTimeoutRef.current = setTimeout(() => {
+      setShowExitHint(false);
+      exitHintTimeoutRef.current = null;
+    }, EXIT_CONFIRM_WINDOW_MS);
+  }, [clearExitHintTimeout]);
 
   const handleConfirmAction = useCallback(() => {
     try {
@@ -714,6 +741,28 @@ export const EnergyMapCalculator = () => {
   });
 
   useEffect(() => {
+    currentScreenRef.current = currentScreen;
+  }, [currentScreen]);
+
+  useEffect(() => {
+    if (currentScreen !== homeIndex && showExitHint) {
+      setShowExitHint(false);
+    }
+
+    if (currentScreen !== homeIndex) {
+      lastBackPressAtRef.current = 0;
+      clearExitHintTimeout();
+    }
+  }, [clearExitHintTimeout, currentScreen, showExitHint]);
+
+  useEffect(
+    () => () => {
+      clearExitHintTimeout();
+    },
+    [clearExitHintTimeout]
+  );
+
+  useEffect(() => {
     if (!Capacitor.isNativePlatform()) {
       return undefined;
     }
@@ -721,17 +770,30 @@ export const EnergyMapCalculator = () => {
     let listener = null;
 
     const setup = async () => {
-      listener = await App.addListener('backButton', ({ canGoBack }) => {
+      listener = await App.addListener('backButton', () => {
         const didCloseModal = closeTopmostModalRef.current?.() ?? false;
         if (didCloseModal) {
           return;
         }
 
-        if (canGoBack) {
-          window.history.back();
-        } else {
-          App.exitApp();
+        if (currentScreenRef.current !== homeIndex) {
+          resetExitHintState();
+          goToScreen(homeIndex);
+          return;
         }
+
+        const now = Date.now();
+        const withinExitWindow =
+          now - lastBackPressAtRef.current <= EXIT_CONFIRM_WINDOW_MS;
+
+        if (withinExitWindow) {
+          resetExitHintState();
+          App.exitApp();
+          return;
+        }
+
+        lastBackPressAtRef.current = now;
+        showExitHintMessage();
       });
     };
 
@@ -740,7 +802,7 @@ export const EnergyMapCalculator = () => {
     return () => {
       listener?.remove?.();
     };
-  }, []);
+  }, [goToScreen, resetExitHintState, showExitHintMessage]);
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) {
@@ -3053,6 +3115,26 @@ export const EnergyMapCalculator = () => {
         className={`status-bar-vignette ${isAnyModalOpen ? 'hidden' : ''}`}
         aria-hidden="true"
       />
+
+      <AnimatePresence>
+        {showExitHint && !isAnyModalOpen ? (
+          <motion.div
+            key="exit-hint"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+            className="fixed inset-x-0 z-[1300] flex justify-center pointer-events-none"
+            style={{ bottom: 'calc(var(--sab) + 1.75rem)' }}
+            role="status"
+            aria-live="polite"
+          >
+            <div className="rounded-full border border-border bg-surface/95 px-4 py-2 text-sm text-foreground shadow-xl backdrop-blur-sm">
+              Swipe or tap again to exit
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       {/* Floating ScreenTabs - appears when original tabs scroll off screen */}
       <FloatingScreenTabs

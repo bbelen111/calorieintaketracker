@@ -305,14 +305,6 @@ export const StepTrackerModal = ({
     return () => observer.disconnect();
   }, [isOpen]);
 
-  const chartHeight = useMemo(
-    () =>
-      graphViewportHeight > 0
-        ? Math.max(graphViewportHeight - TIMELINE_TRACK_HEIGHT - 24, 100)
-        : 200,
-    [graphViewportHeight]
-  );
-
   // --- Scroll to last page on open ---
   useEffect(() => {
     if (!isOpen) return;
@@ -487,6 +479,90 @@ export const StepTrackerModal = ({
     });
     return { months, totalSlots };
   }, [viewMode, filledMonthGroups]);
+
+  // Week bracket groups for 7d mode (computed from timeline data, independent of chart sizing)
+  const weekBracketGroups = useMemo(() => {
+    if (viewMode !== '7d' || !timeline7d.days.length) return [];
+
+    const daysWithEntries = timeline7d.days
+      .map((slot, index) => ({ slot, index }))
+      .filter(({ slot }) => (slot.entry?.steps || 0) > 0);
+
+    if (!daysWithEntries.length) return [];
+
+    const groups = [];
+    let currentGroup = [];
+
+    daysWithEntries.forEach((item, index) => {
+      const date = new Date(item.slot.date + 'T00:00:00Z');
+
+      if (!currentGroup.length) {
+        currentGroup = [item];
+        return;
+      }
+
+      const prev = daysWithEntries[index - 1];
+      const prevDate = new Date(prev.slot.date + 'T00:00:00Z');
+      const daysSince = Math.floor((date - prevDate) / 86400000);
+      const crossedSunday =
+        date.getUTCDay() < prevDate.getUTCDay() || daysSince >= 7;
+
+      if (crossedSunday) {
+        if (currentGroup.length > 2) {
+          groups.push({
+            startSlotIndex: currentGroup[0].index,
+            endSlotIndex: currentGroup[currentGroup.length - 1].index,
+            avgSteps: Math.round(
+              currentGroup.reduce(
+                (sum, day) => sum + (day.slot.entry?.steps || 0),
+                0
+              ) / currentGroup.length
+            ),
+            entryCount: currentGroup.length,
+          });
+        }
+        currentGroup = [item];
+      } else {
+        currentGroup.push(item);
+      }
+    });
+
+    if (currentGroup.length > 2) {
+      groups.push({
+        startSlotIndex: currentGroup[0].index,
+        endSlotIndex: currentGroup[currentGroup.length - 1].index,
+        avgSteps: Math.round(
+          currentGroup.reduce(
+            (sum, day) => sum + (day.slot.entry?.steps || 0),
+            0
+          ) / currentGroup.length
+        ),
+        entryCount: currentGroup.length,
+        isCurrentWeek: true,
+      });
+    }
+
+    return groups;
+  }, [viewMode, timeline7d]);
+
+  const weekBracketAreaHeight =
+    viewMode === '7d' && weekBracketGroups.length > 0
+      ? WEEK_BRACKET_HEIGHT + WEEK_BRACKET_TOP_PADDING
+      : 0;
+
+  const chartHeight = useMemo(
+    () =>
+      graphViewportHeight > 0
+        ? Math.max(
+            graphViewportHeight -
+              TIMELINE_TRACK_HEIGHT -
+              24 -
+              weekBracketAreaHeight,
+            100
+          )
+        : 200,
+    [graphViewportHeight, weekBracketAreaHeight]
+  );
 
   // --- Global chart data (used for Y-axis in all modes) ---
   const globalChartData = useMemo(() => {
@@ -681,65 +757,19 @@ export const StepTrackerModal = ({
 
   // Week brackets for 7d mode
   const weekBrackets = useMemo(() => {
-    if (viewMode !== '7d' || !allBars7d.length) return [];
+    if (viewMode !== '7d' || !weekBracketGroups.length) return [];
 
-    const brackets = [];
-    let currentWeek = [];
-    let currentWeekStart = null;
+    const STEP = chartWidth / 7;
+    const PAD = STEP / 2;
 
-    const barsWithEntries = allBars7d.filter((b) => b.hasEntry && b.steps > 0);
-
-    barsWithEntries.forEach((bar, index) => {
-      const date = new Date(bar.date + 'T00:00:00Z');
-      const dayOfWeek = date.getUTCDay();
-
-      if (currentWeekStart === null) {
-        currentWeekStart = date;
-        currentWeek = [bar];
-      } else {
-        const prevDate = new Date(
-          barsWithEntries[index - 1].date + 'T00:00:00Z'
-        );
-        const daysSince = Math.floor((date - prevDate) / (1000 * 60 * 60 * 24));
-        const crossedSunday =
-          dayOfWeek < prevDate.getUTCDay() || daysSince >= 7;
-
-        if (crossedSunday) {
-          if (currentWeek.length > 2) {
-            const avgSteps = Math.round(
-              currentWeek.reduce((sum, b) => sum + b.steps, 0) /
-                currentWeek.length
-            );
-            brackets.push({
-              startX: currentWeek[0].x,
-              endX: currentWeek[currentWeek.length - 1].x,
-              avgSteps,
-              entryCount: currentWeek.length,
-            });
-          }
-          currentWeekStart = date;
-          currentWeek = [bar];
-        } else {
-          currentWeek.push(bar);
-        }
-      }
-    });
-
-    if (currentWeek.length > 2) {
-      const avgSteps = Math.round(
-        currentWeek.reduce((sum, b) => sum + b.steps, 0) / currentWeek.length
-      );
-      brackets.push({
-        startX: currentWeek[0].x,
-        endX: currentWeek[currentWeek.length - 1].x,
-        avgSteps,
-        entryCount: currentWeek.length,
-        isCurrentWeek: true,
-      });
-    }
-
-    return brackets;
-  }, [viewMode, allBars7d]);
+    return weekBracketGroups.map((group) => ({
+      startX: PAD + group.startSlotIndex * STEP,
+      endX: PAD + group.endSlotIndex * STEP,
+      avgSteps: group.avgSteps,
+      entryCount: group.entryCount,
+      isCurrentWeek: group.isCurrentWeek,
+    }));
+  }, [viewMode, weekBracketGroups, chartWidth]);
 
   // Entries map for tooltip
   const entriesMap = useMemo(() => {
@@ -1015,14 +1045,11 @@ export const StepTrackerModal = ({
     if (!node) return;
     // All modes now use continuous scrolling — account for scroll offset
     const rect = node.getBoundingClientRect();
-    const bracketArea =
-      viewMode === '7d' && weekBrackets.length > 0
-        ? WEEK_BRACKET_HEIGHT + WEEK_BRACKET_TOP_PADDING
-        : 0;
+    const bracketArea = viewMode === '7d' ? weekBracketAreaHeight : 0;
     const rawX = rect.left + selectedBar.x - node.scrollLeft;
     const rawY = rect.top + bracketArea + 8 + selectedBar.y;
     setTooltipPosition({ x: rawX, y: rawY });
-  }, [selectedBar, viewMode, weekBrackets.length]);
+  }, [selectedBar, viewMode, weekBracketAreaHeight]);
 
   useIsomorphicLayoutEffect(() => {
     if (!selectedBar) return undefined;
@@ -1333,11 +1360,6 @@ export const StepTrackerModal = ({
         firstRenderedDateByYear.set(yearKey, slot.date);
       }
     });
-    const bracketAreaHeight =
-      weekBrackets.length > 0
-        ? WEEK_BRACKET_HEIGHT + WEEK_BRACKET_TOP_PADDING
-        : 0;
-
     return (
       <div
         style={{
@@ -1446,7 +1468,7 @@ export const StepTrackerModal = ({
         <div
           className="absolute left-0"
           style={{
-            top: `${bracketAreaHeight + 8}px`,
+            top: `${weekBracketAreaHeight + 8}px`,
             width: `${totalWidth}px`,
             height: `${chartHeight}px`,
           }}
@@ -1796,7 +1818,7 @@ export const StepTrackerModal = ({
                 <div
                   className="absolute inset-x-0 px-1"
                   style={{
-                    top: `${viewMode === '7d' && weekBrackets.length > 0 ? WEEK_BRACKET_HEIGHT + WEEK_BRACKET_TOP_PADDING + 8 : 8}px`,
+                    top: `${(viewMode === '7d' ? weekBracketAreaHeight : 0) + 8}px`,
                     height: `${chartHeight}px`,
                   }}
                 >
