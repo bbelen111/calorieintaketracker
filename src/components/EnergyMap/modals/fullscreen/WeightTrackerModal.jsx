@@ -1677,7 +1677,7 @@ export const WeightTrackerModal = ({
                           top: `${currentWeightTick.yPx}px`,
                           transform: 'translateY(-50%)',
                           transition: 'top 0.3s ease-out',
-                          backgroundColor: `${trendVisual.color}cc`,
+                          backgroundColor: trendVisual.color,
                           borderColor: trendVisual.color,
                           borderWidth: '1px',
                         }}
