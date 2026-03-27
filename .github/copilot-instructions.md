@@ -208,12 +208,16 @@ const myNewModal = useAnimatedModal();
 
 ### ModalShell Architecture
 
-`ModalShell` (`common/ModalShell.jsx`) uses **three singleton managers**:
-- **`ModalStackManager`** — Assigns wrapper z-index in **2-step lanes** (`BASE_Z_INDEX=1000`, then `+2` per stacked modal) so one level is always reserved between modal wrappers.
-- **`SharedOverlayManager`** — Single backdrop element shared across all modals, progressive darkening per nesting depth
-- **`BodyScrollLockManager`** — Reference-counted scroll lock with scrollbar width compensation
+`ModalShell` (`common/ModalShell.jsx`) uses **two singleton managers**:
+- **`ModalStackManager`** — Assigns wrapper z-index in **2-step lanes** (`BASE_Z_INDEX=1000`, then `+2` per stacked modal), tracks `isClosing`, resolves topmost modal, and computes stack depth.
+- **`BodyScrollLockManager`** — Reference-counted body scroll lock with scrollbar width compensation.
 
-Darkening is handled by the shared backdrop only (no per-modal content dim layer). The backdrop sits in the reserved inter-modal z-index lane (`highestZIndex - 1`) so stacking remains: lower modal wrapper < shared backdrop < top modal wrapper. Content uses CSS animations from `index.css` (`modalSlideUp`/`modalSlideDown`).
+Darkening is **per-modal overlay wrapper**, not a shared overlay singleton. Each modal calculates cumulative target darkness by depth, then converts it to a per-layer opacity (`calculateStackTargetOpacity` + `calculateLayerOpacity`) so nested stacks darken progressively without over-darkening lower layers. Overlay fade timing is `OVERLAY_FADE_MS = 180` and content motion still uses `index.css` modal animations (`modalSlideUp`/`modalSlideDown`).
+
+Additional implementation details to preserve:
+- `overlayClassName` is sanitized to strip `bg-*` utilities so backdrop color remains controlled by inline opacity math.
+- Only the **topmost non-closing modal** handles Escape and overlay-click close; non-top layers disable content pointer events.
+- Native keyboard-resize handling locks overlay/content height from `visualViewport` and only recalculates on large viewport deltas to avoid modal squish.
 
 ### Temporary State Pattern
 
@@ -852,7 +856,7 @@ npm run test:watch     # Node test runner in watch mode
 35. **AT mode control is settings-driven:** `CalorieBreakdownModal` does not expose an AT mode selector. Mode changes are configured in `SettingsModal` (`adaptiveThermogenesisEnabled` + `adaptiveThermogenesisSmartMode`) and reflected in breakdown output.
 36. **AT smart-mode smoothing is settings-driven:** Smoothing controls also live in `SettingsModal` (`adaptiveThermogenesisSmoothingEnabled`, `adaptiveThermogenesisSmoothingMethod`, `adaptiveThermogenesisSmoothingWindowDays`). Keep method constrained to `ema|sma` and clamp window to 3–14 days.
 37. **Date keys must use shared helpers:** Avoid ad-hoc `toISOString().split('T')[0]` for app logic. Use `utils/dateKeys.js` (`getTodayDateKey`, `formatDateKeyLocal`, `formatDateKeyUtc`) to prevent mixed local/UTC behavior.
-38. **Modal darkening must remain single-path + lane-based:** Do not reintroduce per-modal darkening overlays in `ModalShell`. Keep wrapper z-index allocation in +2 steps and keep shared overlay at `highestZIndex - 1`; changing this causes first-open overlay-over-content bugs or missing nested darkening.
+38. **Modal darkening must remain per-layer + lane-based:** Keep wrapper z-index allocation in +2 steps (`ModalStackManager`) and preserve depth-based opacity math (`calculateStackTargetOpacity` + `calculateLayerOpacity`) in `ModalShell`. Do not reintroduce a shared-overlay singleton path or ad-hoc `bg-*` overlay classes; that breaks progressive nested darkening and can regress layering/interaction.
 39. **EPOC is settings-driven and persisted:** `epocEnabled` and `epocCarryoverHours` are canonical `userData` fields (profile scope). Configure from `SettingsModal`; do not duplicate per-screen global toggles.
 40. **Session timing fields are first-class:** `startTime`, `startedAt`, and `endedAt` on cardio/training sessions are used for carryover allocation and day-boundary logic. Preserve these when editing sessions.
 41. **Carryover is date-keyed:** `getCarryoverForDateFromSessions()` allocates carryover by overlap windows against `dateKey`; always pass the correct `dateKey` when computing breakdowns/snapshots.
