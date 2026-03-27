@@ -17,9 +17,10 @@ const BASE_Z_INDEX = 1000;
 const OVERLAY_FADE_MS = 180;
 
 // Overlay opacity configuration - increases with modal depth for visual hierarchy
-const OVERLAY_BASE_OPACITY = 0.5; // Single modal backdrop
-const OVERLAY_STACKED_INCREMENT = 0.1; // Additional darkness per nested modal
-const OVERLAY_MAX_OPACITY = 0.8; // Cap to prevent complete blackout
+const OVERLAY_BASE_OPACITY = 0.56; // Single modal backdrop
+const OVERLAY_STACK_PRIMARY_INCREMENT = 0.15; // Depths 2-3
+const OVERLAY_STACK_EXTRA_INCREMENT = 0.05; // Depth 4+
+const OVERLAY_MAX_OPACITY = 0.95; // Cap to prevent complete blackout
 
 const queueTask =
   typeof globalThis.queueMicrotask === 'function'
@@ -30,9 +31,13 @@ const calculateStackTargetOpacity = (depth) => {
   if (depth <= 0) return 0;
   if (depth === 1) return OVERLAY_BASE_OPACITY;
 
-  const additionalLayers = depth - 1;
+  const primaryLayers = Math.min(depth - 1, 2);
+  const extraLayers = Math.max(depth - 3, 0);
   const target =
-    OVERLAY_BASE_OPACITY + OVERLAY_STACKED_INCREMENT * additionalLayers;
+    OVERLAY_BASE_OPACITY +
+    OVERLAY_STACK_PRIMARY_INCREMENT * primaryLayers +
+    OVERLAY_STACK_EXTRA_INCREMENT * extraLayers;
+
   return Math.min(target, OVERLAY_MAX_OPACITY);
 };
 
@@ -234,10 +239,8 @@ export const ModalShell = ({
   const zIndexRef = useRef(BASE_Z_INDEX);
   const overlayRef = useRef(null);
   const contentRef = useRef(null);
-  const backdropAnimationRef = useRef(null);
   const [isTopmost, setIsTopmost] = useState(false);
   const [stackDepth, setStackDepth] = useState(0);
-  const [isBackdropVisible, setIsBackdropVisible] = useState(false);
   const hasRegisteredRef = useRef(false);
   const lockedViewportHeightRef = useRef(null);
   const baseViewportHeightRef = useRef(null);
@@ -257,12 +260,10 @@ export const ModalShell = ({
     modalIdRef.current = id;
     zIndexRef.current = zIndex;
     hasRegisteredRef.current = true;
-    setStackDepth(modalStackManager.getDepth(id));
-    setIsBackdropVisible(false);
-
-    backdropAnimationRef.current = requestAnimationFrame(() => {
-      backdropAnimationRef.current = null;
-      setIsBackdropVisible(true);
+    queueTask(() => {
+      if (modalIdRef.current === id) {
+        setStackDepth(modalStackManager.getDepth(id));
+      }
     });
 
     const overlayNode = overlayRef.current;
@@ -274,11 +275,6 @@ export const ModalShell = ({
     scrollLockManager.lock();
 
     return () => {
-      if (backdropAnimationRef.current !== null) {
-        cancelAnimationFrame(backdropAnimationRef.current);
-        backdropAnimationRef.current = null;
-      }
-
       if (modalIdRef.current !== null) {
         modalStackManager.unregister(modalIdRef.current);
         modalIdRef.current = null;
@@ -286,8 +282,6 @@ export const ModalShell = ({
       }
 
       scrollLockManager.unlock();
-      setStackDepth(0);
-      setIsBackdropVisible(false);
     };
   }, [isOpen]);
 
@@ -453,7 +447,7 @@ export const ModalShell = ({
   if (!isOpen || typeof document === 'undefined') return null;
 
   const layerOpacity = calculateLayerOpacity(stackDepth);
-  const backdropOpacity = isBackdropVisible && !isClosing ? layerOpacity : 0;
+  const backdropOpacity = !isClosing ? layerOpacity : 0;
 
   const overlay = (
     <div
