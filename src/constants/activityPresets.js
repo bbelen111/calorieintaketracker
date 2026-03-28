@@ -1,6 +1,6 @@
 export const DEFAULT_ACTIVITY_MULTIPLIERS = {
-  training: 0.35,
-  rest: 0.28,
+  training: 0.2,
+  rest: 0.22,
 };
 
 export const MIN_CUSTOM_ACTIVITY_MULTIPLIER = 0.1;
@@ -50,21 +50,22 @@ export const ACTIVITY_PRESET_OPTIONS = {
       key: 'light',
       label: 'Sedentary',
       description:
-        'Desk-bound most of the day with minimal incidental movement.',
-      value: 0.14,
+        'Mostly seated all day—desk work, driving, or relaxing with minimal pacing.',
+      value: 0.15,
     },
     {
       key: 'default',
       label: 'Moderately Active',
-      description: 'Regular light chores, errands, occasional standing tasks.',
+      description:
+        'Frequently on your feet—teaching, retail, or chores with steady incidental movement.',
       value: DEFAULT_ACTIVITY_MULTIPLIERS.rest,
     },
     {
       key: 'active',
       label: 'Highly Active',
       description:
-        'Physically demanding lifestyle—frequent standing, manual work, lots of daily motion.',
-      value: 0.32,
+        'Physically demanding day—manual labor, carrying loads, or constant physical exertion.',
+      value: 0.35,
     },
   ],
   training: [
@@ -73,20 +74,21 @@ export const ACTIVITY_PRESET_OPTIONS = {
       label: 'Sedentary',
       description:
         'Train, then mostly sit—minimal incidental movement beyond the workout.',
-      value: 0.14,
+      value: 0.13,
     },
     {
       key: 'default',
       label: 'Moderately Active',
-      description: 'Training plus regular light movement throughout the day.',
+      description:
+        'Train, plus regular daily movement, but subconsciously resting more post-workout.',
       value: DEFAULT_ACTIVITY_MULTIPLIERS.training,
     },
     {
       key: 'intense',
       label: 'Highly Active',
       description:
-        'Training plus a demanding schedule—standing work, manual tasks, or active commuting.',
-      value: 0.32,
+        'Train, plus physical labor, leading to heavy systemic fatigue and deep evening rest.',
+      value: 0.3,
     },
   ],
 };
