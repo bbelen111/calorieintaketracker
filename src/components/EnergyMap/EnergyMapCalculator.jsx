@@ -80,6 +80,7 @@ import { FoodSearchModal } from './modals/fullscreen/FoodSearchModal';
 import { FoodPortionModal } from './modals/pickers/FoodPortionModal';
 import { StepTrackerModal } from './modals/fullscreen/StepTrackerModal';
 import { StepGoalPickerModal } from './modals/pickers/StepGoalPickerModal';
+import { MacroPickerModal } from './modals/pickers/MacroPickerModal';
 // ...existing code...
 import { ConfirmActionModal } from './modals/common/ConfirmActionModal';
 import {
@@ -102,6 +103,7 @@ import {
   normalizeTimeOfDay,
 } from '../../utils/time';
 import { formatDateKeyUtc, getTodayDateKey } from '../../utils/dateKeys';
+import { normalizeMacroRecommendationSplit } from '../../utils/macroRecommendations';
 
 const MODAL_CLOSE_DELAY = 180; // Match CSS animation duration (150ms) + buffer
 const DEFAULT_TRAINING_EFFORT_TYPE = 'intensity';
@@ -538,6 +540,10 @@ export const EnergyMapCalculator = () => {
   const [trackerStepRange, setTrackerStepRange] = useState('12k');
   const [showTrackerCaloriePicker, setShowTrackerCaloriePicker] =
     useState(false);
+  const [tempMacroRecommendationSplit, setTempMacroRecommendationSplit] =
+    useState(() =>
+      normalizeMacroRecommendationSplit(userData.macroRecommendationSplit)
+    );
 
   const todayTrainingSessions = useMemo(
     () =>
@@ -610,6 +616,7 @@ export const EnergyMapCalculator = () => {
   const foodPortionModal = useAnimatedModal();
   const stepTrackerModal = useAnimatedModal();
   const stepGoalPickerModal = useAnimatedModal();
+  const macroPickerModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
   // ...existing code...
 
   const isAnyModalOpen = [
@@ -633,6 +640,7 @@ export const EnergyMapCalculator = () => {
     stepRangesModal,
     stepTrackerModal,
     stepGoalPickerModal,
+    macroPickerModal,
     dailyActivityCustomModal,
     dailyActivityEditorModal,
     dailyActivityModal,
@@ -676,6 +684,7 @@ export const EnergyMapCalculator = () => {
       stepRangesModal,
       stepTrackerModal,
       stepGoalPickerModal,
+      macroPickerModal,
       dailyActivityCustomModal,
       dailyActivityEditorModal,
       dailyActivityModal,
@@ -734,6 +743,7 @@ export const EnergyMapCalculator = () => {
     goalModal,
     heightModal,
     mealTypePickerModal,
+    macroPickerModal,
     phaseCreationModal,
     settingsModal,
     stepGoalPickerModal,
@@ -2262,6 +2272,29 @@ export const EnergyMapCalculator = () => {
     setShowTrackerCaloriePicker(false);
   }, []);
 
+  const handleMacroPickerChange = useCallback((nextSplit) => {
+    setTempMacroRecommendationSplit(
+      normalizeMacroRecommendationSplit(nextSplit)
+    );
+  }, []);
+
+  const openMacroPickerModal = useCallback(() => {
+    setTempMacroRecommendationSplit(
+      normalizeMacroRecommendationSplit(userData.macroRecommendationSplit)
+    );
+    macroPickerModal.open();
+  }, [macroPickerModal, userData.macroRecommendationSplit]);
+
+  const handleMacroPickerSave = useCallback(
+    (nextSplit) => {
+      const normalized = normalizeMacroRecommendationSplit(nextSplit);
+      setTempMacroRecommendationSplit(normalized);
+      handleUserDataChange('macroRecommendationSplit', normalized);
+      macroPickerModal.requestClose();
+    },
+    [handleUserDataChange, macroPickerModal]
+  );
+
   useEffect(() => {
     if (foodEntryModal.isClosing) {
       const timer = setTimeout(() => {
@@ -3170,8 +3203,7 @@ export const EnergyMapCalculator = () => {
                   onEditFoodEntry={handleEditFoodEntry}
                   onDeleteFoodEntry={deleteFoodEntry}
                   onDeleteMeal={deleteMeal}
-                  targetProtein={Math.round(userData.weight * 2)}
-                  targetFats={Math.round(userData.weight * 0.8)}
+                  macroRecommendationSplit={userData.macroRecommendationSplit}
                   stepRanges={userData.stepRanges}
                   selectedGoal={selectedGoal}
                   selectedDay={selectedDay}
@@ -3252,6 +3284,8 @@ export const EnergyMapCalculator = () => {
                   onOpenBodyFatTracker={openBodyFatTracker}
                   onOpenBmiInfo={bmiModal.open}
                   onOpenFfmiInfo={ffmiModal.open}
+                  targetCalories={selectedRangeData?.targetCalories ?? 2500}
+                  onOpenMacroPicker={openMacroPickerModal}
                 />
               </div>
             </div>
@@ -3387,6 +3421,16 @@ export const EnergyMapCalculator = () => {
         value={stepGoal}
         onCancel={stepGoalPickerModal.requestClose}
         onSave={handleStepGoalSave}
+      />
+
+      <MacroPickerModal
+        isOpen={macroPickerModal.isOpen}
+        isClosing={macroPickerModal.isClosing}
+        value={tempMacroRecommendationSplit}
+        onChange={handleMacroPickerChange}
+        targetCalories={selectedRangeData?.targetCalories ?? 2500}
+        onCancel={macroPickerModal.requestClose}
+        onSave={handleMacroPickerSave}
       />
 
       <TimePickerModal

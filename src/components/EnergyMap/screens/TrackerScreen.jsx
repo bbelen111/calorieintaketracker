@@ -23,10 +23,11 @@ import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 import { ConfirmActionModal } from '../modals/common/ConfirmActionModal';
 import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
+import { formatDateKeyUtc, getTodayDateKey } from '../../../utils/dateKeys';
 import {
-  formatDateKeyUtc,
-  getTodayDateKey,
-} from '../../../utils/dateKeys';
+  calculateMacroRecommendations,
+  normalizeMacroRecommendationSplit,
+} from '../../../utils/macroRecommendations';
 
 const getTodayDate = () => getTodayDateKey();
 
@@ -118,8 +119,7 @@ export const TrackerScreen = ({
   onEditFoodEntry,
   onDeleteFoodEntry,
   onDeleteMeal,
-  targetProtein,
-  targetFats,
+  macroRecommendationSplit,
   stepRanges,
   selectedGoal = 'maintenance',
   selectedDay = 'training',
@@ -136,7 +136,8 @@ export const TrackerScreen = ({
     (state) => ({
       nutritionData: state.nutritionData ?? {},
       stepRanges: state.userData.stepRanges ?? [],
-      weight: state.userData.weight,
+      macroRecommendationSplit:
+        state.userData.macroRecommendationSplit ?? undefined,
       calculateTargetForGoal: state.calculateTargetForGoal,
     }),
     shallow
@@ -144,10 +145,9 @@ export const TrackerScreen = ({
 
   const resolvedNutritionData = nutritionData ?? store.nutritionData;
   const resolvedStepRanges = stepRanges ?? store.stepRanges;
-  const resolvedTargetProtein =
-    targetProtein ?? Math.round((Number(store.weight) || 0) * 2);
-  const resolvedTargetFats =
-    targetFats ?? Math.round((Number(store.weight) || 0) * 0.8);
+  const resolvedMacroRecommendationSplit = normalizeMacroRecommendationSplit(
+    macroRecommendationSplit ?? store.macroRecommendationSplit
+  );
   const resolvedCalculateTargetForGoal = store.calculateTargetForGoal;
   const resolvedGetRangeDetails = useMemo(
     () =>
@@ -210,14 +210,6 @@ export const TrackerScreen = ({
     const weekYear = getIsoWeekYear(date);
     return `Week ${weekNumber}${weekYear !== date.getUTCFullYear() ? ` • ${weekYear}` : ''}`;
   }, [selectedDate]);
-
-  // Calculate ranges based on bodyweight (matching InsightsScreen)
-  // targetProtein is passed as weight * 2, so range is weight * 2.0 to weight * 2.4
-  // targetFats is passed as weight * 0.8, so range is weight * 0.8 to weight * 1.0
-  const proteinMin = Math.round(resolvedTargetProtein); // 2.0g per kg (already calculated)
-  const proteinMax = Math.round(resolvedTargetProtein * 1.2); // 2.4g per kg (2 * 1.2 = 2.4)
-  const fatsMin = Math.round(resolvedTargetFats); // 0.8g per kg (already calculated)
-  const fatsMax = Math.round(resolvedTargetFats * 1.25); // 1.0g per kg (0.8 * 1.25 = 1.0)
 
   // Get data for selected date - now nested by meal type
   const dayData = useMemo(() => {
@@ -287,22 +279,6 @@ export const TrackerScreen = ({
     );
   }, [meals]);
 
-  const proteinPercent = Math.min(
-    100,
-    Math.round((totals.protein / resolvedTargetProtein) * 100)
-  );
-  const fatsPercent = Math.min(
-    100,
-    Math.round((totals.fats / resolvedTargetFats) * 100)
-  );
-
-  // Check if within range
-  const proteinInRange =
-    totals.protein >= proteinMin && totals.protein <= proteinMax;
-  const fatsInRange = totals.fats >= fatsMin && totals.fats <= fatsMax;
-  const proteinOver = totals.protein > proteinMax;
-  const fatsOver = totals.fats > fatsMax;
-
   // Get calorie target from selected step range
   const calorieTargetData = useMemo(() => {
     if (!resolvedGetRangeDetails || !selectedStepRange) return null;
@@ -316,17 +292,40 @@ export const TrackerScreen = ({
     Math.round((totals.calories / targetCalories) * 100)
   );
 
-  // Calculate target carbs from remaining calories after protein and fats
-  // Protein: 4 cal/g, Fats: 9 cal/g, Carbs: 4 cal/g
-  const proteinCalories = resolvedTargetProtein * 4;
-  const fatsCalories = resolvedTargetFats * 9;
-  const remainingCaloriesForCarbs =
-    targetCalories - proteinCalories - fatsCalories;
-  const targetCarbs = Math.max(0, Math.round(remainingCaloriesForCarbs / 4));
+  const macroRecommendation = useMemo(
+    () =>
+      calculateMacroRecommendations({
+        targetCalories,
+        macroSplit: resolvedMacroRecommendationSplit,
+      }),
+    [resolvedMacroRecommendationSplit, targetCalories]
+  );
+
+  const proteinMin = macroRecommendation.ranges.protein.min;
+  const proteinMax = macroRecommendation.ranges.protein.max;
+  const fatsMin = macroRecommendation.ranges.fats.min;
+  const fatsMax = macroRecommendation.ranges.fats.max;
+  const targetProtein = macroRecommendation.grams.protein;
+  const targetFats = macroRecommendation.grams.fats;
+  const targetCarbs = macroRecommendation.grams.carbs;
+
+  const proteinPercent =
+    targetProtein > 0
+      ? Math.min(100, Math.round((totals.protein / targetProtein) * 100))
+      : 0;
+  const fatsPercent =
+    targetFats > 0
+      ? Math.min(100, Math.round((totals.fats / targetFats) * 100))
+      : 0;
   const carbsPercent =
     targetCarbs > 0
       ? Math.min(100, Math.round((totals.carbs / targetCarbs) * 100))
       : 0;
+  const proteinInRange =
+    totals.protein >= proteinMin && totals.protein <= proteinMax;
+  const fatsInRange = totals.fats >= fatsMin && totals.fats <= fatsMax;
+  const proteinOver = totals.protein > proteinMax;
+  const fatsOver = totals.fats > fatsMax;
   const carbsOver = targetCarbs > 0 && totals.carbs > targetCarbs;
 
   const handleEditFood = (mealType, entryId) => {
@@ -649,7 +648,7 @@ export const TrackerScreen = ({
           </button>
         </div>
         <div className="p-0">
-            <div className="flex items-center justify-between mt-5 mb-2 border border-border/50 rounded-md px-1 py-1.5 bg-surface-highlight/50 shadow-sm">
+          <div className="flex items-center justify-between mt-5 mb-2 border border-border/50 rounded-md px-1 py-1.5 bg-surface-highlight/50 shadow-sm">
             <div className="flex items-center gap-1.5 h-6">
               <button
                 onClick={() => changeDateBy(-7)}
@@ -920,6 +919,7 @@ export const TrackerScreen = ({
             </AnimatePresence>
           </div>
         </div>
+
         <div className="grid grid-cols-3 gap-4">
           {/* Protein */}
           <div className="flex flex-col items-center">
