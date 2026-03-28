@@ -242,6 +242,80 @@ const getSmartWindowRecords = ({ dailySnapshots, windowDateKeys }) =>
     return records;
   }, []);
 
+export const getAdaptiveThermogenesisSmartModeDataStatus = ({
+  dateKey,
+  dailySnapshots,
+  weightEntries,
+}) => {
+  const windowDateKeys = buildWindowDateKeys(dateKey, SMART_WINDOW_DAYS);
+  if (windowDateKeys.length === 0) {
+    return {
+      isSufficient: false,
+      reason: 'invalid-date',
+      windowDays: SMART_WINDOW_DAYS,
+      minValidDays: SMART_MIN_VALID_DAYS,
+      minWeightEntries: SMART_MIN_WEIGHT_ENTRIES,
+      validDays: 0,
+      weightEntriesUsed: 0,
+      windowStart: null,
+      windowEnd: null,
+    };
+  }
+
+  const windowStart = windowDateKeys[0];
+  const windowEnd = windowDateKeys[windowDateKeys.length - 1];
+  const records = getSmartWindowRecords({
+    dailySnapshots,
+    windowDateKeys,
+  });
+  const windowWeightEntries = (
+    Array.isArray(weightEntries) ? weightEntries : []
+  ).filter((entry) => {
+    const normalized = normalizeDateKey(entry?.date);
+    return normalized && normalized >= windowStart && normalized <= windowEnd;
+  });
+
+  if (records.length < SMART_MIN_VALID_DAYS) {
+    return {
+      isSufficient: false,
+      reason: 'insufficient-intake-days',
+      windowDays: SMART_WINDOW_DAYS,
+      minValidDays: SMART_MIN_VALID_DAYS,
+      minWeightEntries: SMART_MIN_WEIGHT_ENTRIES,
+      validDays: records.length,
+      weightEntriesUsed: windowWeightEntries.length,
+      windowStart,
+      windowEnd,
+    };
+  }
+
+  if (windowWeightEntries.length < SMART_MIN_WEIGHT_ENTRIES) {
+    return {
+      isSufficient: false,
+      reason: 'insufficient-weight-entries',
+      windowDays: SMART_WINDOW_DAYS,
+      minValidDays: SMART_MIN_VALID_DAYS,
+      minWeightEntries: SMART_MIN_WEIGHT_ENTRIES,
+      validDays: records.length,
+      weightEntriesUsed: windowWeightEntries.length,
+      windowStart,
+      windowEnd,
+    };
+  }
+
+  return {
+    isSufficient: true,
+    reason: null,
+    windowDays: SMART_WINDOW_DAYS,
+    minValidDays: SMART_MIN_VALID_DAYS,
+    minWeightEntries: SMART_MIN_WEIGHT_ENTRIES,
+    validDays: records.length,
+    weightEntriesUsed: windowWeightEntries.length,
+    windowStart,
+    windowEnd,
+  };
+};
+
 const computeSmartCorrection = ({
   dateKey,
   dailySnapshots,
@@ -253,8 +327,13 @@ const computeSmartCorrection = ({
     windowDays: SMART_SMOOTHING_DEFAULT_WINDOW_DAYS,
   },
 }) => {
-  const windowDateKeys = buildWindowDateKeys(dateKey, SMART_WINDOW_DAYS);
-  if (windowDateKeys.length === 0) {
+  const dataStatus = getAdaptiveThermogenesisSmartModeDataStatus({
+    dateKey,
+    dailySnapshots,
+    weightEntries,
+  });
+
+  if (!dataStatus.isSufficient) {
     return {
       correction: 0,
       active: false,
@@ -262,32 +341,25 @@ const computeSmartCorrection = ({
       confidence: 0,
       signal: null,
       details: {
-        reason: 'invalid-date',
+        reason: dataStatus.reason ?? 'insufficient-data',
+        validDays: dataStatus.validDays,
+        weightEntriesUsed: dataStatus.weightEntriesUsed,
+        minValidDays: dataStatus.minValidDays,
+        minWeightEntries: dataStatus.minWeightEntries,
+        windowStart: dataStatus.windowStart,
+        windowEnd: dataStatus.windowEnd,
       },
     };
   }
 
-  const windowStart = windowDateKeys[0];
-  const windowEnd = windowDateKeys[windowDateKeys.length - 1];
+  const windowDateKeys = buildWindowDateKeys(dateKey, SMART_WINDOW_DAYS);
+  const windowStart = dataStatus.windowStart;
+  const windowEnd = dataStatus.windowEnd;
 
   const records = getSmartWindowRecords({
     dailySnapshots,
     windowDateKeys,
   });
-
-  if (records.length < SMART_MIN_VALID_DAYS) {
-    return {
-      correction: 0,
-      active: false,
-      insufficientData: true,
-      confidence: 0,
-      signal: null,
-      details: {
-        reason: 'insufficient-intake-days',
-        validDays: records.length,
-      },
-    };
-  }
 
   const windowWeightEntries = (
     Array.isArray(weightEntries) ? weightEntries : []
@@ -295,20 +367,6 @@ const computeSmartCorrection = ({
     const normalized = normalizeDateKey(entry?.date);
     return normalized && normalized >= windowStart && normalized <= windowEnd;
   });
-
-  if (windowWeightEntries.length < SMART_MIN_WEIGHT_ENTRIES) {
-    return {
-      correction: 0,
-      active: false,
-      insufficientData: true,
-      confidence: 0,
-      signal: null,
-      details: {
-        reason: 'insufficient-weight-entries',
-        weightEntriesUsed: windowWeightEntries.length,
-      },
-    };
-  }
 
   const cumulativeEnergyBalance = records.reduce(
     (sum, record) => sum + record.energyBalance,

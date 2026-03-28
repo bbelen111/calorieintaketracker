@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import {
   Save,
   ChevronsUpDown,
@@ -21,6 +21,8 @@ import { formatBodyFat } from '../../../../utils/bodyFat';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { sanitizeAge, sanitizeHeight } from '../../../../utils/profile';
+import { getTodayDateKey } from '../../../../utils/dateKeys';
+import { getAdaptiveThermogenesisSmartModeDataStatus } from '../../../../utils/adaptiveThermogenesis';
 
 const THEME_OPTIONS = [
   { value: 'auto', label: 'Auto', icon: Monitor },
@@ -124,6 +126,7 @@ export const SettingsModal = ({
       bmr: state.bmr,
       weightEntries: state.weightEntries ?? [],
       bodyFatEntries: state.bodyFatEntries ?? [],
+      dailySnapshots: state.dailySnapshots ?? {},
     }),
     shallow
   );
@@ -132,6 +135,8 @@ export const SettingsModal = ({
   const resolvedBmrSource = bmr ?? store.bmr;
   const resolvedWeightEntriesSource = weightEntries ?? store.weightEntries;
   const resolvedBodyFatEntriesSource = bodyFatEntries ?? store.bodyFatEntries;
+  const resolvedDailySnapshotsSource =
+    resolvedUserDataSource?.dailySnapshots ?? store.dailySnapshots;
 
   const resolvedActions = useMemo(
     () => ({
@@ -208,6 +213,33 @@ export const SettingsModal = ({
     ]
   );
 
+  const adaptiveThermogenesisSmartModeDataStatus = useMemo(
+    () =>
+      getAdaptiveThermogenesisSmartModeDataStatus({
+        dateKey: getTodayDateKey(),
+        dailySnapshots: resolvedDailySnapshotsSource,
+        weightEntries: resolvedWeightEntries,
+      }),
+    [resolvedDailySnapshotsSource, resolvedWeightEntries]
+  );
+
+  const adaptiveThermogenesisSmartModeAvailable =
+    adaptiveThermogenesisSmartModeDataStatus.isSufficient;
+  const handleFieldChange = resolvedActions.onFieldChange;
+
+  useEffect(() => {
+    if (
+      adaptiveThermogenesisSmartMode &&
+      !adaptiveThermogenesisSmartModeAvailable
+    ) {
+      handleFieldChange?.('adaptiveThermogenesisSmartMode', false);
+    }
+  }, [
+    adaptiveThermogenesisSmartMode,
+    adaptiveThermogenesisSmartModeAvailable,
+    handleFieldChange,
+  ]);
+
   const handleCancel = useCallback(() => {
     resolvedActions.lifecycle.cancel?.();
   }, [resolvedActions.lifecycle]);
@@ -276,7 +308,7 @@ export const SettingsModal = ({
           displayedBodyFat={displayedBodyFat}
           bodyFatLoggedLabel={bodyFatLoggedLabel}
           bodyFatTrackingEnabled={resolvedBodyFatTrackingEnabled}
-          onFieldChange={resolvedActions.onFieldChange}
+          onFieldChange={handleFieldChange}
           onOpenAgePicker={resolvedActions.openers.agePicker}
           onOpenHeightPicker={resolvedActions.openers.heightPicker}
           onOpenWeightManager={resolvedActions.openers.manageWeight}
@@ -294,7 +326,7 @@ export const SettingsModal = ({
           epocCarryoverHours={epocCarryoverHours}
           onOpenInfo={resolvedActions.info.epoc}
           onOpenWindowPicker={resolvedActions.openers.epocWindowPicker}
-          onFieldChange={resolvedActions.onFieldChange}
+          onFieldChange={handleFieldChange}
         />
 
         <SmartTefSection
@@ -303,12 +335,18 @@ export const SettingsModal = ({
           showFoodModalTefBurn={showFoodModalTefBurn}
           useTargetLiveCard={useTargetLiveCard}
           onOpenInfo={resolvedActions.info.tef}
-          onFieldChange={resolvedActions.onFieldChange}
+          onFieldChange={handleFieldChange}
         />
 
         <AdaptiveThermogenesisSection
           adaptiveThermogenesisEnabled={adaptiveThermogenesisEnabled}
           adaptiveThermogenesisSmartMode={adaptiveThermogenesisSmartMode}
+          adaptiveThermogenesisSmartModeAvailable={
+            adaptiveThermogenesisSmartModeAvailable
+          }
+          adaptiveThermogenesisSmartModeDataStatus={
+            adaptiveThermogenesisSmartModeDataStatus
+          }
           adaptiveThermogenesisSmoothingEnabled={
             adaptiveThermogenesisSmoothingEnabled
           }
@@ -319,7 +357,7 @@ export const SettingsModal = ({
             adaptiveThermogenesisSmoothingWindowDays
           }
           onOpenInfo={resolvedActions.info.adaptiveThermogenesis}
-          onFieldChange={resolvedActions.onFieldChange}
+          onFieldChange={handleFieldChange}
         />
       </div>
     </FullscreenModalFrame>
@@ -402,14 +440,18 @@ const PickerButton = ({ onClick, ariaLabel, children }) => (
   </button>
 );
 
-const BinarySwitch = ({ checked, onClick, ariaLabel }) => (
+const BinarySwitch = ({ checked, onClick, ariaLabel, disabled = false }) => (
   <button
     type="button"
     role="switch"
     aria-checked={checked}
     aria-label={ariaLabel}
+    aria-disabled={disabled}
+    disabled={disabled}
     onClick={onClick}
-    className="inline-flex items-center rounded-full focus-ring pressable-inline"
+    className={`inline-flex items-center rounded-full ${
+      disabled ? 'cursor-not-allowed opacity-60' : 'focus-ring pressable-inline'
+    }`}
   >
     <span
       className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-all ${
@@ -739,128 +781,159 @@ const SmartTefSection = ({
 const AdaptiveThermogenesisSection = ({
   adaptiveThermogenesisEnabled,
   adaptiveThermogenesisSmartMode,
+  adaptiveThermogenesisSmartModeAvailable,
+  adaptiveThermogenesisSmartModeDataStatus,
   adaptiveThermogenesisSmoothingEnabled,
   adaptiveThermogenesisSmoothingMethod,
   adaptiveThermogenesisSmoothingWindowDays,
   onOpenInfo,
   onFieldChange,
-}) => (
-  <div>
-    <InfoHeaderWithToggle
-      title="Adaptive Thermogenesis"
-      onInfoClick={onOpenInfo}
-      checked={adaptiveThermogenesisEnabled}
-      onToggle={() =>
-        onFieldChange?.(
-          'adaptiveThermogenesisEnabled',
-          !adaptiveThermogenesisEnabled
-        )
-      }
-      ariaLabel="Toggle Adaptive Thermogenesis"
-    />
+}) => {
+  const resolvedSmartModeEnabled =
+    adaptiveThermogenesisSmartMode && adaptiveThermogenesisSmartModeAvailable;
+  const lockMessage = adaptiveThermogenesisSmartModeAvailable
+    ? null
+    : `Requires ${adaptiveThermogenesisSmartModeDataStatus.minValidDays} intake days and ${adaptiveThermogenesisSmartModeDataStatus.minWeightEntries} weight entries in the last ${adaptiveThermogenesisSmartModeDataStatus.windowDays} days.`;
 
-    <p className="text-muted text-xs">
-      Adds a metabolic adaptation correction to TDEE. Crude mode uses
-      time-in-goal stages, smart mode uses weight/intake trend signal.
-    </p>
+  return (
+    <div>
+      <InfoHeaderWithToggle
+        title="Adaptive Thermogenesis"
+        onInfoClick={onOpenInfo}
+        checked={adaptiveThermogenesisEnabled}
+        onToggle={() =>
+          onFieldChange?.(
+            'adaptiveThermogenesisEnabled',
+            !adaptiveThermogenesisEnabled
+          )
+        }
+        ariaLabel="Toggle Adaptive Thermogenesis"
+      />
 
-    {adaptiveThermogenesisEnabled && (
-      <div className="mt-3 rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-foreground text-sm font-medium leading-tight">
-              Use Smart mode
-            </p>
-            <p className="text-muted text-xs mt-0.5">
-              When off, Adaptive Thermogenesis uses Crude staged mode.
-            </p>
+      <p className="text-muted text-xs">
+        Adds a metabolic adaptation correction to TDEE. Crude mode uses
+        time-in-goal stages, smart mode uses weight/intake trend signal.
+      </p>
+
+      {adaptiveThermogenesisEnabled && (
+        <div
+          className={`mt-3 rounded-lg border px-3 py-2.5 ${
+            adaptiveThermogenesisSmartModeAvailable
+              ? 'border-border bg-surface-highlight/40'
+              : 'border-border/70 bg-surface-highlight/20'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p
+                className={`text-sm font-medium leading-tight ${
+                  adaptiveThermogenesisSmartModeAvailable
+                    ? 'text-foreground'
+                    : 'text-muted'
+                }`}
+              >
+                Use Smart mode
+              </p>
+              <p className="text-muted text-xs mt-0.5">
+                {adaptiveThermogenesisSmartModeAvailable
+                  ? 'When off, Adaptive Thermogenesis uses Crude staged mode.'
+                  : lockMessage}
+              </p>
+            </div>
+            <BinarySwitch
+              checked={resolvedSmartModeEnabled}
+              ariaLabel="Toggle Adaptive Thermogenesis smart mode"
+              disabled={!adaptiveThermogenesisSmartModeAvailable}
+              onClick={() =>
+                onFieldChange?.(
+                  'adaptiveThermogenesisSmartMode',
+                  !resolvedSmartModeEnabled
+                )
+              }
+            />
           </div>
-          <BinarySwitch
-            checked={adaptiveThermogenesisSmartMode}
-            ariaLabel="Toggle Adaptive Thermogenesis smart mode"
-            onClick={() =>
+        </div>
+      )}
+
+      {adaptiveThermogenesisEnabled && resolvedSmartModeEnabled && (
+        <div className="mt-2 space-y-2">
+          <SettingToggleCard
+            title="Smooth weight signal"
+            description="Reduces day-to-day noise before trend slope is calculated."
+            checked={adaptiveThermogenesisSmoothingEnabled}
+            onToggle={() =>
               onFieldChange?.(
-                'adaptiveThermogenesisSmartMode',
-                !adaptiveThermogenesisSmartMode
+                'adaptiveThermogenesisSmoothingEnabled',
+                !adaptiveThermogenesisSmoothingEnabled
               )
             }
+            ariaLabel="Toggle adaptive thermogenesis smoothing"
           />
-        </div>
-      </div>
-    )}
 
-    {adaptiveThermogenesisEnabled && adaptiveThermogenesisSmartMode && (
-      <div className="mt-2 space-y-2">
-        <SettingToggleCard
-          title="Smooth weight signal"
-          description="Reduces day-to-day noise before trend slope is calculated."
-          checked={adaptiveThermogenesisSmoothingEnabled}
-          onToggle={() =>
-            onFieldChange?.(
-              'adaptiveThermogenesisSmoothingEnabled',
-              !adaptiveThermogenesisSmoothingEnabled
-            )
-          }
-          ariaLabel="Toggle adaptive thermogenesis smoothing"
-        />
-
-        {adaptiveThermogenesisSmoothingEnabled && (
-          <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5 space-y-2">
-            <div className="grid grid-cols-2 gap-2">
-              <SegmentedButton
-                active={adaptiveThermogenesisSmoothingMethod === 'ema'}
-                activeClassName={BUTTON_ACTIVE_PRIMARY_CLASS}
-                onClick={() =>
-                  onFieldChange?.('adaptiveThermogenesisSmoothingMethod', 'ema')
-                }
-              >
-                <span>EMA</span>
-                <span className="text-xs opacity-80 font-normal">
-                  Exponential
-                </span>
-              </SegmentedButton>
-              <SegmentedButton
-                active={adaptiveThermogenesisSmoothingMethod === 'sma'}
-                activeClassName={BUTTON_ACTIVE_PRIMARY_CLASS}
-                onClick={() =>
-                  onFieldChange?.('adaptiveThermogenesisSmoothingMethod', 'sma')
-                }
-              >
-                <span>SMA</span>
-                <span className="text-xs opacity-80 font-normal">Simple</span>
-              </SegmentedButton>
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-xs text-muted">
-                <span>Window</span>
-                <span>{adaptiveThermogenesisSmoothingWindowDays} days</span>
+          {adaptiveThermogenesisSmoothingEnabled && (
+            <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5 space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <SegmentedButton
+                  active={adaptiveThermogenesisSmoothingMethod === 'ema'}
+                  activeClassName={BUTTON_ACTIVE_PRIMARY_CLASS}
+                  onClick={() =>
+                    onFieldChange?.(
+                      'adaptiveThermogenesisSmoothingMethod',
+                      'ema'
+                    )
+                  }
+                >
+                  <span>EMA</span>
+                  <span className="text-xs opacity-80 font-normal">
+                    Exponential
+                  </span>
+                </SegmentedButton>
+                <SegmentedButton
+                  active={adaptiveThermogenesisSmoothingMethod === 'sma'}
+                  activeClassName={BUTTON_ACTIVE_PRIMARY_CLASS}
+                  onClick={() =>
+                    onFieldChange?.(
+                      'adaptiveThermogenesisSmoothingMethod',
+                      'sma'
+                    )
+                  }
+                >
+                  <span>SMA</span>
+                  <span className="text-xs opacity-80 font-normal">Simple</span>
+                </SegmentedButton>
               </div>
-              <input
-                type="range"
-                min={3}
-                max={14}
-                step={1}
-                value={adaptiveThermogenesisSmoothingWindowDays}
-                onChange={(event) =>
-                  onFieldChange?.(
-                    'adaptiveThermogenesisSmoothingWindowDays',
-                    Number(event.target.value)
-                  )
-                }
-                style={{
-                  '--value': `${((adaptiveThermogenesisSmoothingWindowDays - 3) / 11) * 100}%`,
-                }}
-                className="w-full cursor-pointer transition-all"
-                aria-label="Adaptive thermogenesis smoothing window"
-              />
+
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-xs text-muted">
+                  <span>Window</span>
+                  <span>{adaptiveThermogenesisSmoothingWindowDays} days</span>
+                </div>
+                <input
+                  type="range"
+                  min={3}
+                  max={14}
+                  step={1}
+                  value={adaptiveThermogenesisSmoothingWindowDays}
+                  onChange={(event) =>
+                    onFieldChange?.(
+                      'adaptiveThermogenesisSmoothingWindowDays',
+                      Number(event.target.value)
+                    )
+                  }
+                  style={{
+                    '--value': `${((adaptiveThermogenesisSmoothingWindowDays - 3) / 11) * 100}%`,
+                  }}
+                  className="w-full cursor-pointer transition-all"
+                  aria-label="Adaptive thermogenesis smoothing window"
+                />
+              </div>
             </div>
-          </div>
-        )}
-      </div>
-    )}
-  </div>
-);
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const formatMultiplier = (value) => {
   if (!Number.isFinite(value)) {
