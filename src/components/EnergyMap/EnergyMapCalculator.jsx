@@ -23,6 +23,7 @@ import {
 } from '../../store/useEnergyMapStore';
 import { useSwipeableScreens } from '../../hooks/useSwipeableScreens';
 import { useAnimatedModal } from '../../hooks/useAnimatedModal';
+import { useHardwareBackButton } from '../../hooks/useHardwareBackButton';
 import {
   useHealthConnect,
   HealthConnectStatus,
@@ -103,7 +104,6 @@ import {
 import { formatDateKeyUtc, getTodayDateKey } from '../../utils/dateKeys';
 
 const MODAL_CLOSE_DELAY = 180; // Match CSS animation duration (150ms) + buffer
-const EXIT_CONFIRM_WINDOW_MS = 2000;
 const DEFAULT_TRAINING_EFFORT_TYPE = 'intensity';
 const DEFAULT_TRAINING_INTENSITY = 'moderate';
 const DEFAULT_TRAINING_TYPE_CATALOG =
@@ -555,33 +555,7 @@ export const EnergyMapCalculator = () => {
   const [confirmActionLabel, setConfirmActionLabel] = useState('Confirm');
   const [confirmActionTone, setConfirmActionTone] = useState('danger');
   const [confirmActionCallback, setConfirmActionCallback] = useState(null);
-  const [showExitHint, setShowExitHint] = useState(false);
-  const exitHintTimeoutRef = useRef(null);
-  const lastBackPressAtRef = useRef(0);
-  const currentScreenRef = useRef(currentScreen);
   const confirmActionModal = useAnimatedModal();
-
-  const clearExitHintTimeout = useCallback(() => {
-    if (exitHintTimeoutRef.current) {
-      clearTimeout(exitHintTimeoutRef.current);
-      exitHintTimeoutRef.current = null;
-    }
-  }, []);
-
-  const resetExitHintState = useCallback(() => {
-    lastBackPressAtRef.current = 0;
-    setShowExitHint(false);
-    clearExitHintTimeout();
-  }, [clearExitHintTimeout]);
-
-  const showExitHintMessage = useCallback(() => {
-    setShowExitHint(true);
-    clearExitHintTimeout();
-    exitHintTimeoutRef.current = setTimeout(() => {
-      setShowExitHint(false);
-      exitHintTimeoutRef.current = null;
-    }, EXIT_CONFIRM_WINDOW_MS);
-  }, [clearExitHintTimeout]);
 
   const handleConfirmAction = useCallback(() => {
     try {
@@ -680,129 +654,107 @@ export const EnergyMapCalculator = () => {
     epocWindowPickerModal,
   ].some((modal) => modal?.isOpen || modal?.isClosing);
 
-  // Keep a ref to the latest modal state so the back gesture handler never reads stale values
-  const closeTopmostModalRef = useRef(() => false);
+  const closeTopmostModal = useCallback(() => {
+    const modalStack = [
+      confirmActionModal,
+      foodPortionModal,
+      foodEntryModal,
+      foodSearchModal,
+      mealTypePickerModal,
+      calendarPickerModal,
+      dailyLogModal,
+      templatePickerModal,
+      phaseCreationModal,
+      adaptiveThermogenesisInfoModal,
+      tefInfoModal,
+      calorieBreakdownModal,
+      cardioFavouriteEditorModal,
+      cardioFavouritesModal,
+      cardioModal,
+      durationPickerModal,
+      trainingModal,
+      stepRangesModal,
+      stepTrackerModal,
+      stepGoalPickerModal,
+      dailyActivityCustomModal,
+      dailyActivityEditorModal,
+      dailyActivityModal,
+      settingsModal,
+      trainingTypeEditorModal,
+      bodyFatPickerModal,
+      bodyFatEntryModal,
+      bodyFatTrackerModal,
+      weightPickerModal,
+      weightEntryModal,
+      weightTrackerModal,
+      heightModal,
+      ageModal,
+      ffmiModal,
+      bmiModal,
+      bmrModal,
+      goalModal,
+      timePickerModal,
+      epocWindowPickerModal,
+      epocInfoModal,
+    ];
 
-  // Update the ref every render with the current modal stack
-  useEffect(() => {
-    closeTopmostModalRef.current = () => {
-      const modalStack = [
-        confirmActionModal,
-        foodPortionModal,
-        foodEntryModal,
-        foodSearchModal,
-        mealTypePickerModal,
-        calendarPickerModal,
-        dailyLogModal,
-        templatePickerModal,
-        phaseCreationModal,
-        adaptiveThermogenesisInfoModal,
-        tefInfoModal,
-        calorieBreakdownModal,
-        cardioFavouriteEditorModal,
-        cardioFavouritesModal,
-        cardioModal,
-        durationPickerModal,
-        trainingModal,
-        stepRangesModal,
-        stepTrackerModal,
-        stepGoalPickerModal,
-        dailyActivityCustomModal,
-        dailyActivityEditorModal,
-        dailyActivityModal,
-        settingsModal,
-        trainingTypeEditorModal,
-        bodyFatPickerModal,
-        bodyFatEntryModal,
-        bodyFatTrackerModal,
-        weightPickerModal,
-        weightEntryModal,
-        weightTrackerModal,
-        heightModal,
-        ageModal,
-        ffmiModal,
-        bmiModal,
-        bmrModal,
-        goalModal,
-        timePickerModal,
-        epocWindowPickerModal,
-        epocInfoModal,
-      ];
-
-      for (const modal of modalStack) {
-        if (modal?.isOpen && !modal.isClosing) {
-          modal.requestClose();
-          return true;
-        }
+    for (const modal of modalStack) {
+      if (modal?.isOpen && !modal.isClosing) {
+        modal.requestClose();
+        return true;
       }
+    }
 
-      return false;
-    };
+    return false;
+  }, [
+    adaptiveThermogenesisInfoModal,
+    ageModal,
+    bmiModal,
+    bmrModal,
+    bodyFatEntryModal,
+    bodyFatPickerModal,
+    bodyFatTrackerModal,
+    calorieBreakdownModal,
+    calendarPickerModal,
+    cardioFavouriteEditorModal,
+    cardioFavouritesModal,
+    cardioModal,
+    confirmActionModal,
+    dailyActivityCustomModal,
+    dailyActivityEditorModal,
+    dailyActivityModal,
+    dailyLogModal,
+    durationPickerModal,
+    epocInfoModal,
+    epocWindowPickerModal,
+    ffmiModal,
+    foodEntryModal,
+    foodPortionModal,
+    foodSearchModal,
+    goalModal,
+    heightModal,
+    mealTypePickerModal,
+    phaseCreationModal,
+    settingsModal,
+    stepGoalPickerModal,
+    stepRangesModal,
+    stepTrackerModal,
+    tefInfoModal,
+    templatePickerModal,
+    timePickerModal,
+    trainingModal,
+    trainingTypeEditorModal,
+    weightEntryModal,
+    weightPickerModal,
+    weightTrackerModal,
+  ]);
+
+  const { showExitHint } = useHardwareBackButton({
+    currentScreen,
+    homeIndex,
+    goToScreen,
+    closeTopmostModal,
   });
-
-  useEffect(() => {
-    currentScreenRef.current = currentScreen;
-  }, [currentScreen]);
-
-  useEffect(() => {
-    if (currentScreen !== homeIndex && showExitHint) {
-      setShowExitHint(false);
-    }
-
-    if (currentScreen !== homeIndex) {
-      lastBackPressAtRef.current = 0;
-      clearExitHintTimeout();
-    }
-  }, [clearExitHintTimeout, currentScreen, showExitHint]);
-
-  useEffect(
-    () => () => {
-      clearExitHintTimeout();
-    },
-    [clearExitHintTimeout]
-  );
-
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform()) {
-      return undefined;
-    }
-
-    let listener = null;
-
-    const setup = async () => {
-      listener = await App.addListener('backButton', () => {
-        const didCloseModal = closeTopmostModalRef.current?.() ?? false;
-        if (didCloseModal) {
-          return;
-        }
-
-        if (currentScreenRef.current !== homeIndex) {
-          resetExitHintState();
-          goToScreen(homeIndex);
-          return;
-        }
-
-        const now = Date.now();
-        const withinExitWindow =
-          now - lastBackPressAtRef.current <= EXIT_CONFIRM_WINDOW_MS;
-
-        if (withinExitWindow) {
-          resetExitHintState();
-          App.exitApp();
-          return;
-        }
-
-        lastBackPressAtRef.current = now;
-        showExitHintMessage();
-      });
-    };
-
-    setup();
-
-    return () => {
-      listener?.remove?.();
-    };
-  }, [goToScreen, resetExitHintState, showExitHintMessage]);
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) {
