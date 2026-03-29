@@ -11,11 +11,11 @@ import {
   Droplet,
   Trash2,
   Edit3,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Calendar,
   CalendarCog,
+  Settings2,
 } from 'lucide-react';
 import { MEAL_TYPE_ORDER, getMealTypeById } from '../../../constants/mealTypes';
 import { formatOne } from '../../../utils/format';
@@ -120,45 +120,25 @@ export const TrackerScreen = ({
   onDeleteFoodEntry,
   onDeleteMeal,
   macroRecommendationSplit,
-  stepRanges,
-  selectedGoal = 'maintenance',
-  selectedDay = 'training',
-  getRangeDetails,
   calendarModal,
   selectedDate: selectedDateProp,
   onSelectedDateChange,
-  selectedStepRange,
-  onStepRangeChange,
-  showCalorieTargetPicker,
-  onToggleCalorieTargetPicker,
+  calorieTargetLabel = '',
+  calorieTargetCalories = 2500,
+  onOpenCalorieTargetModal,
 }) => {
   const store = useEnergyMapStore(
     (state) => ({
       nutritionData: state.nutritionData ?? {},
-      stepRanges: state.userData.stepRanges ?? [],
       macroRecommendationSplit:
         state.userData.macroRecommendationSplit ?? undefined,
-      calculateTargetForGoal: state.calculateTargetForGoal,
     }),
     shallow
   );
 
   const resolvedNutritionData = nutritionData ?? store.nutritionData;
-  const resolvedStepRanges = stepRanges ?? store.stepRanges;
   const resolvedMacroRecommendationSplit = normalizeMacroRecommendationSplit(
     macroRecommendationSplit ?? store.macroRecommendationSplit
-  );
-  const resolvedCalculateTargetForGoal = store.calculateTargetForGoal;
-  const resolvedGetRangeDetails = useMemo(
-    () =>
-      getRangeDetails ??
-      ((steps) =>
-        resolvedCalculateTargetForGoal?.(
-          steps,
-          selectedDay === 'training',
-          selectedGoal
-        )),
-    [getRangeDetails, selectedDay, selectedGoal, resolvedCalculateTargetForGoal]
   );
   // Support controlled (selectedDateProp + onSelectedDateChange) or uncontrolled mode
   const [internalSelectedDate, setInternalSelectedDate] = useState(
@@ -279,13 +259,7 @@ export const TrackerScreen = ({
     );
   }, [meals]);
 
-  // Get calorie target from selected step range
-  const calorieTargetData = useMemo(() => {
-    if (!resolvedGetRangeDetails || !selectedStepRange) return null;
-    return resolvedGetRangeDetails(selectedStepRange);
-  }, [resolvedGetRangeDetails, selectedStepRange]);
-
-  const targetCalories = calorieTargetData?.targetCalories || 2500;
+  const targetCalories = calorieTargetCalories || 2500;
   const caloriesRemaining = targetCalories - totals.calories;
   const caloriesPercent = Math.min(
     100,
@@ -786,16 +760,15 @@ export const TrackerScreen = ({
         {/* Calorie Target Selector */}
         <div className="relative">
           <button
-            onClick={() => onToggleCalorieTargetPicker?.()}
+            onClick={() => onOpenCalorieTargetModal?.()}
             className="w-full bg-surface-highlight/50 border border-border/50 rounded-lg px-3 py-2 text-left flex items-center justify-between md:hover:bg-surface-highlight transition-all shadow-sm pressable-card focus-ring"
           >
             <div className="flex-1">
               <p className="text-muted text-xs mb-0.5">Target</p>
-              {/* Animate only the text when the selection/target changes */}
               <div className="relative h-6">
                 <AnimatePresence mode="wait">
                   <motion.p
-                    key={`target-${targetCalories}-${selectedStepRange}`}
+                    key={`target-${targetCalories}-${calorieTargetLabel}`}
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
@@ -804,77 +777,14 @@ export const TrackerScreen = ({
                   >
                     {formatOne(targetCalories)} kcal
                     <span className="text-muted font-normal ml-2">
-                      ({selectedStepRange} steps)
+                      ({calorieTargetLabel})
                     </span>
                   </motion.p>
                 </AnimatePresence>
               </div>
             </div>
-            <ChevronDown
-              size={22}
-              className={`text-foreground transition-transform duration-300 ${
-                showCalorieTargetPicker ? 'rotate-180' : ''
-              }`}
-            />
+            <Settings2 size={20} className="text-muted" />
           </button>
-
-          {/* Dropdown - animate both open and close */}
-          <AnimatePresence>
-            {showCalorieTargetPicker && (
-              <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.18 }}
-                className="absolute z-10 w-full mt-2 bg-surface border border-border/50 rounded-lg shadow-2xl max-h-64 overflow-y-auto"
-                style={{ transformOrigin: 'top center' }}
-              >
-                {resolvedStepRanges.map((range) => {
-                  const rangeData = resolvedGetRangeDetails?.(range);
-                  const isSelected = range === selectedStepRange;
-                  return (
-                    <button
-                      key={`range-${range}`}
-                      onClick={() => {
-                        onStepRangeChange?.(range);
-                      }}
-                      className={`w-full px-4 py-3 text-left md:hover:bg-surface-highlight transition-all border-b border-border/50 last:border-b-0 pressable-card focus-ring ${
-                        isSelected ? 'bg-surface-highlight/60' : ''
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-foreground font-semibold text-sm">
-                            {range} steps
-                          </p>
-                          <p className="text-muted text-xs">
-                            {selectedGoal === 'maintenance'
-                              ? 'Maintain weight'
-                              : selectedGoal === 'bulking'
-                                ? 'Lean bulk'
-                                : selectedGoal === 'aggressive_bulk'
-                                  ? 'Aggressive bulk'
-                                  : selectedGoal === 'cutting'
-                                    ? 'Moderate cut'
-                                    : selectedGoal === 'aggressive_cut'
-                                      ? 'Aggressive cut'
-                                      : 'Unknown'}{' '}
-                            - {selectedDay === 'training' ? 'Training' : 'Rest'}{' '}
-                            day
-                          </p>
-                        </div>
-                        <p
-                          className={`font-bold ${isSelected ? 'text-accent-emerald' : 'text-muted'}`}
-                        >
-                          {formatOne(rangeData?.targetCalories || 0)}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
 
         {/* Progress Bar */}

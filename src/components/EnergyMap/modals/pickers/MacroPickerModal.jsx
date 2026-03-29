@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef } from 'react';
-import { Save, Beef, Cookie, Droplet } from 'lucide-react';
+import { Save, Beef, Cookie, Droplet, Settings2 } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import {
   calculateMacroRecommendations,
@@ -64,6 +64,8 @@ export const MacroPickerModal = ({
   value,
   onChange,
   targetCalories,
+  targetLabel,
+  onOpenCalorieTargetModal,
   onCancel,
   onSave,
 }) => {
@@ -320,11 +322,25 @@ export const MacroPickerModal = ({
 
       {/* Calorie total */}
       <div className="mt-3 rounded-xl border border-border bg-surface-highlight/20 px-4 py-2.5 flex items-center justify-between">
-        <span className="text-xs text-muted">Daily target</span>
-        <span className="text-sm font-bold text-foreground">
-          {Math.round(targetCalories || 0)}{' '}
-          <span className="text-xs font-normal text-muted">kcal</span>
-        </span>
+        <div className="min-w-0">
+          <p className="text-xs text-muted">Daily target</p>
+          <p className="text-xs text-muted truncate">{targetLabel}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold text-foreground">
+            {Math.round(targetCalories || 0)}{' '}
+            <span className="text-xs font-normal text-muted">kcal</span>
+          </span>
+          <button
+            type="button"
+            onClick={onOpenCalorieTargetModal}
+            className="p-1.5 rounded-lg border border-border/50 bg-surface-highlight/40 text-muted transition-all pressable-inline focus-ring md:hover:bg-surface-highlight/80"
+            aria-label="Change calorie target"
+            title="Change calorie target"
+          >
+            <Settings2 size={14} />
+          </button>
+        </div>
       </div>
 
       {/* Actions */}
