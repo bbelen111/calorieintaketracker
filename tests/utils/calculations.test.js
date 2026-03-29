@@ -180,6 +180,49 @@ test('target smart TEF honors explicit target calories without refinement passes
   assert.equal(breakdown.smartTefDetails?.targetCalories, 3000);
 });
 
+test('target smart TEF uses bounded macro anchors in target details', () => {
+  const bmr = calculateBMR({
+    ...baseUserData,
+    weight: 80,
+    macroRecommendationSplit: {
+      protein: 0.1,
+      carbs: 0.8,
+      fats: 0.1,
+    },
+  });
+  const breakdown = calculateCalorieBreakdown({
+    steps: 0,
+    isTrainingDay: false,
+    userData: {
+      ...baseUserData,
+      weight: 80,
+      macroRecommendationSplit: {
+        protein: 0.1,
+        carbs: 0.8,
+        fats: 0.1,
+      },
+    },
+    bmr,
+    cardioTypes: {},
+    trainingTypes,
+    tefContext: {
+      mode: 'target',
+      enabled: true,
+      targetCalories: 900,
+    },
+  });
+
+  assert.equal(breakdown.tefMode, 'target');
+  assert.ok(breakdown.smartTefDetails?.proteinGrams >= 128);
+  assert.ok(breakdown.smartTefDetails?.fatsGrams >= 48);
+  assert.ok(breakdown.smartTefDetails?.carbsGrams < 50);
+  assert.ok(breakdown.smartTefDetails?.bounds);
+  assert.ok(
+    Array.isArray(breakdown.smartTefDetails?.warnings) &&
+      breakdown.smartTefDetails.warnings.includes('carb_soft_floor_relaxed')
+  );
+});
+
 test('step overlap deduction lowers step calories while preserving cardio burn', () => {
   const userWithCardio = {
     ...baseUserData,

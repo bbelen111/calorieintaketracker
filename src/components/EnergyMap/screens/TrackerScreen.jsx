@@ -271,14 +271,11 @@ export const TrackerScreen = ({
       calculateMacroRecommendations({
         targetCalories,
         macroSplit: resolvedMacroRecommendationSplit,
+        userData: store.userData,
       }),
-    [resolvedMacroRecommendationSplit, targetCalories]
+    [resolvedMacroRecommendationSplit, store.userData, targetCalories]
   );
 
-  const proteinMin = macroRecommendation.ranges.protein.min;
-  const proteinMax = macroRecommendation.ranges.protein.max;
-  const fatsMin = macroRecommendation.ranges.fats.min;
-  const fatsMax = macroRecommendation.ranges.fats.max;
   const targetProtein = macroRecommendation.grams.protein;
   const targetFats = macroRecommendation.grams.fats;
   const targetCarbs = macroRecommendation.grams.carbs;
@@ -296,10 +293,10 @@ export const TrackerScreen = ({
       ? Math.min(100, Math.round((totals.carbs / targetCarbs) * 100))
       : 0;
   const proteinInRange =
-    totals.protein >= proteinMin && totals.protein <= proteinMax;
-  const fatsInRange = totals.fats >= fatsMin && totals.fats <= fatsMax;
-  const proteinOver = totals.protein > proteinMax;
-  const fatsOver = totals.fats > fatsMax;
+    targetProtein > 0 && totals.protein >= targetProtein * 0.9;
+  const fatsInRange = targetFats > 0 && totals.fats >= targetFats * 0.9;
+  const proteinOver = targetProtein > 0 && totals.protein > targetProtein * 1.1;
+  const fatsOver = targetFats > 0 && totals.fats > targetFats * 1.1;
   const carbsOver = targetCarbs > 0 && totals.carbs > targetCarbs;
 
   const handleEditFood = (mealType, entryId) => {
@@ -863,9 +860,7 @@ export const TrackerScreen = ({
             </div>
             <p className="text-muted text-xs font-semibold mt-2">Protein</p>
             <p className="text-muted text-xs">
-              <span>
-                {formatOne(proteinMin)}-{formatOne(proteinMax)}g
-              </span>
+              <span>{formatOne(targetProtein)}g target</span>
             </p>
           </div>
 
@@ -901,9 +896,7 @@ export const TrackerScreen = ({
             </div>
             <p className="text-muted text-xs font-semibold mt-2">Fats</p>
             <p className="text-muted text-xs">
-              <span>
-                {formatOne(fatsMin)}-{formatOne(fatsMax)}g
-              </span>
+              <span>{formatOne(targetFats)}g target</span>
             </p>
           </div>
 
@@ -938,7 +931,7 @@ export const TrackerScreen = ({
             <p className="text-muted text-xs font-semibold mt-2">Carbs</p>
             <p className="text-muted text-xs">
               {targetCarbs > 0 ? (
-                <span>~{formatOne(targetCarbs)}g</span>
+                <span>{formatOne(targetCarbs)}g target</span>
               ) : (
                 <span>No room</span>
               )}

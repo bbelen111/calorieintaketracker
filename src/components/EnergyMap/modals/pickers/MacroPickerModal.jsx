@@ -5,8 +5,8 @@ import {
   calculateMacroRecommendations,
   createMacroTriangleGeometry,
   formatMacroSplitPercent,
-  macroSplitFromTrianglePoint,
-  macroSplitToTrianglePoint,
+  macroSplitFromConstrainedTrianglePoint,
+  macroSplitToConstrainedTrianglePoint,
   normalizeMacroRecommendationSplit,
 } from '../../../../utils/macroRecommendations';
 
@@ -27,18 +27,8 @@ const getRelativePoint = (event, element) => {
   return { x, y };
 };
 
-const MacroChip = ({
-  icon: Icon,
-  label,
-  pct,
-  grams,
-  kcal,
-  accentClass,
-  borderClass,
-}) => (
-  <div
-    className={`rounded-xl border ${borderClass} bg-surface-highlight/30 px-3 py-2.5 flex flex-col gap-1`}
-  >
+const MacroChip = ({ icon: Icon, label, pct, grams, kcal, accentClass }) => (
+  <div className="rounded-xl border border-border/50 bg-surface-highlight/50 px-3 py-2.5 flex flex-col gap-1">
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-1.5">
         <Icon size={13} className={accentClass} />
@@ -64,6 +54,7 @@ export const MacroPickerModal = ({
   value,
   onChange,
   targetCalories,
+  userData,
   targetLabel,
   onOpenCalorieTargetModal,
   onCancel,
@@ -79,9 +70,14 @@ export const MacroPickerModal = ({
     (event) => {
       if (!triangleRef.current) return;
       const point = getRelativePoint(event, triangleRef.current);
-      onChange?.(macroSplitFromTrianglePoint(point, triangleGeometry));
+      onChange?.(
+        macroSplitFromConstrainedTrianglePoint(point, triangleGeometry, {
+          targetCalories,
+          userData,
+        })
+      );
     },
-    [onChange]
+    [onChange, targetCalories, userData]
   );
 
   const pointerCaptureIdRef = useRef(null);
@@ -111,8 +107,12 @@ export const MacroPickerModal = ({
   }, []);
 
   const markerPoint = useMemo(
-    () => macroSplitToTrianglePoint(draftSplit, triangleGeometry),
-    [draftSplit]
+    () =>
+      macroSplitToConstrainedTrianglePoint(draftSplit, triangleGeometry, {
+        targetCalories,
+        userData,
+      }),
+    [draftSplit, targetCalories, userData]
   );
   const splitPercent = useMemo(
     () => formatMacroSplitPercent(draftSplit),
@@ -120,8 +120,12 @@ export const MacroPickerModal = ({
   );
   const recommendations = useMemo(
     () =>
-      calculateMacroRecommendations({ targetCalories, macroSplit: draftSplit }),
-    [draftSplit, targetCalories]
+      calculateMacroRecommendations({
+        targetCalories,
+        macroSplit: draftSplit,
+        userData,
+      }),
+    [draftSplit, targetCalories, userData]
   );
 
   const { protein, carbs, fats } = recommendations.grams;
@@ -139,9 +143,9 @@ export const MacroPickerModal = ({
       contentClassName="p-4 md:p-6 w-full max-w-lg"
     >
       {/* Header */}
-      <div className="text-center mb-5">
+      <div className="text-center mb-8">
         <h3 className="text-foreground font-bold text-xl">Macro Split</h3>
-        <p className="text-muted text-xs mt-1 tracking-wide">
+        <p className="text-muted text-xs mt-1 mb-2 tracking-wide">
           Drag the triangle to adjust your ratio
         </p>
       </div>
@@ -149,7 +153,7 @@ export const MacroPickerModal = ({
       {/* Triangle */}
       <div
         ref={triangleRef}
-        className="relative mx-auto w-full max-w-[320px] touch-none select-none"
+        className="relative mx-auto w-full max-w-[320px] touch-none select-none pb-8"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerEnd}
@@ -159,43 +163,11 @@ export const MacroPickerModal = ({
           viewBox={`0 0 ${TRIANGLE_WIDTH} ${TRIANGLE_HEIGHT}`}
           className="w-full h-auto overflow-visible"
         >
-          <defs>
-            <linearGradient id="triFill" x1="0%" y1="100%" x2="50%" y2="0%">
-              <stop
-                offset="0%"
-                stopColor="rgb(var(--accent-yellow))"
-                stopOpacity="0.3"
-              />
-              <stop
-                offset="50%"
-                stopColor="rgb(var(--accent-red))"
-                stopOpacity="0.25"
-              />
-              <stop
-                offset="100%"
-                stopColor="rgb(var(--accent-amber))"
-                stopOpacity="0.3"
-              />
-            </linearGradient>
-            <filter
-              id="handleGlow"
-              x="-80%"
-              y="-80%"
-              width="260%"
-              height="260%"
-            >
-              <feGaussianBlur stdDeviation="4" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-
           {/* Triangle face */}
           <polygon
             points={`${pV.x},${pV.y} ${fV.x},${fV.y} ${cV.x},${cV.y}`}
-            fill="url(#triFill)"
+            fill="rgb(var(--surface-highlight))"
+            fillOpacity="0.4"
             stroke="rgb(var(--border))"
             strokeWidth="1.5"
             strokeLinejoin="round"
@@ -247,44 +219,36 @@ export const MacroPickerModal = ({
           <circle
             cx={markerPoint.x}
             cy={markerPoint.y}
-            r="13"
-            fill="rgb(var(--background))"
-            stroke="rgb(var(--accent-blue))"
-            strokeWidth="2.5"
-            filter="url(#handleGlow)"
-          />
-          <circle
-            cx={markerPoint.x}
-            cy={markerPoint.y}
-            r="4"
+            r="7"
             fill="rgb(var(--accent-blue))"
-            opacity="0.9"
+            stroke="rgb(var(--accent-blue))"
+            strokeWidth="1.5"
           />
         </svg>
 
         {/* Vertex labels */}
-        <div className="pointer-events-none absolute left-1/2 -top-1 -translate-x-1/2 flex flex-col items-center">
+        <div className="pointer-events-none absolute left-1/2 -top-2 -translate-x-1/2 flex flex-col items-center">
           <span className="text-[11px] font-semibold text-accent-red tracking-wider uppercase">
             Protein
           </span>
-          <span className="text-[10px] text-accent-red/60 font-medium">
-            {splitPercent.protein}%
+          <span className="text-[9px] text-accent-red/70 leading-tight">
+            Recovery &amp; Repair
           </span>
         </div>
-        <div className="pointer-events-none absolute left-1 bottom-0 flex flex-col items-start">
+        <div className="pointer-events-none absolute -left-2 bottom-2 flex flex-col items-center">
           <span className="text-[11px] font-semibold text-accent-yellow tracking-wider uppercase">
             Fats
           </span>
-          <span className="text-[10px] text-accent-yellow/60 font-medium">
-            {splitPercent.fats}%
+          <span className="text-[9px] text-accent-yellow/70 leading-tight">
+            Hormonal Baseline
           </span>
         </div>
-        <div className="pointer-events-none absolute right-1 bottom-0 flex flex-col items-end">
+        <div className="pointer-events-none absolute -right-2 bottom-2 flex flex-col items-center">
           <span className="text-[11px] font-semibold text-accent-amber tracking-wider uppercase">
             Carbs
           </span>
-          <span className="text-[10px] text-accent-amber/60 font-medium">
-            {splitPercent.carbs}%
+          <span className="text-[9px] text-accent-amber/70 leading-tight">
+            Performance Energy
           </span>
         </div>
       </div>
@@ -298,16 +262,6 @@ export const MacroPickerModal = ({
           grams={protein}
           kcal={kcalByMacro.protein}
           accentClass="text-accent-red"
-          borderClass="border-accent-red/20"
-        />
-        <MacroChip
-          icon={Cookie}
-          label="Carbs"
-          pct={splitPercent.carbs}
-          grams={carbs}
-          kcal={kcalByMacro.carbs}
-          accentClass="text-accent-amber"
-          borderClass="border-accent-amber/20"
         />
         <MacroChip
           icon={Droplet}
@@ -316,31 +270,37 @@ export const MacroPickerModal = ({
           grams={fats}
           kcal={kcalByMacro.fats}
           accentClass="text-accent-yellow"
-          borderClass="border-accent-yellow/20"
+        />
+        <MacroChip
+          icon={Cookie}
+          label="Carbs"
+          pct={splitPercent.carbs}
+          grams={carbs}
+          kcal={kcalByMacro.carbs}
+          accentClass="text-accent-amber"
         />
       </div>
 
       {/* Calorie total */}
-      <div className="mt-3 rounded-xl border border-border bg-surface-highlight/20 px-4 py-2.5 flex items-center justify-between">
-        <div className="min-w-0">
-          <p className="text-xs text-muted">Daily target</p>
-          <p className="text-xs text-muted truncate">{targetLabel}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-bold text-foreground">
-            {Math.round(targetCalories || 0)}{' '}
-            <span className="text-xs font-normal text-muted">kcal</span>
-          </span>
-          <button
-            type="button"
-            onClick={onOpenCalorieTargetModal}
-            className="p-1.5 rounded-lg border border-border/50 bg-surface-highlight/40 text-muted transition-all pressable-inline focus-ring md:hover:bg-surface-highlight/80"
-            aria-label="Change calorie target"
-            title="Change calorie target"
-          >
-            <Settings2 size={14} />
-          </button>
-        </div>
+      <div className="mt-3 relative">
+        <button
+          type="button"
+          onClick={onOpenCalorieTargetModal}
+          className="w-full bg-surface-highlight/50 border border-border/50 rounded-lg px-3 py-2 text-left flex items-center justify-between md:hover:bg-surface-highlight transition-all shadow-sm pressable-card focus-ring"
+          aria-label="Change calorie target"
+          title="Change calorie target"
+        >
+          <div className="flex-1 min-w-0">
+            <p className="text-muted text-xs mb-0.5">Target</p>
+            <p className="text-foreground text-sm font-semibold truncate">
+              {Math.round(targetCalories || 0)} kcal
+              <span className="text-muted font-normal ml-2">
+                ({targetLabel})
+              </span>
+            </p>
+          </div>
+          <Settings2 size={18} className="text-muted" />
+        </button>
       </div>
 
       {/* Actions */}
@@ -348,17 +308,17 @@ export const MacroPickerModal = ({
         <button
           onClick={onCancel}
           type="button"
-          className="flex-1 bg-surface-highlight text-foreground px-4 py-3 rounded-xl transition-all active:scale-95 font-medium focus-ring press-feedback md:hover:bg-surface text-sm"
+          className="flex-1 bg-surface-highlight text-foreground px-4 py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback md:hover:bg-surface text-sm"
         >
           Cancel
         </button>
         <button
           onClick={handleSave}
           type="button"
-          className="flex-1 bg-primary active:brightness-110 text-primary-foreground px-4 py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback text-sm"
+          className="flex-1 bg-primary active:brightness-110 text-primary-foreground px-4 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback text-sm"
         >
           <Save size={16} />
-          Save Split
+          Save
         </button>
       </div>
     </ModalShell>

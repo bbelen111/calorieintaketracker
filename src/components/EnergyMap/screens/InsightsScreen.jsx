@@ -201,8 +201,13 @@ export const InsightsScreen = ({
     [resolvedUserData.macroRecommendationSplit]
   );
   const macroRecommendation = useMemo(
-    () => calculateMacroRecommendations({ targetCalories, macroSplit }),
-    [macroSplit, targetCalories]
+    () =>
+      calculateMacroRecommendations({
+        targetCalories,
+        macroSplit,
+        userData: resolvedUserData,
+      }),
+    [macroSplit, resolvedUserData, targetCalories]
   );
 
   const bmiColorMap = {
@@ -662,39 +667,33 @@ export const InsightsScreen = ({
           <div className="bg-accent-red/15 border border-accent-red/50 rounded-xl p-4">
             <p className="text-accent-red font-bold mb-2">Protein</p>
             <p className="text-foreground text-2xl font-bold">
-              {macroRecommendation.ranges.protein.min}-
-              {macroRecommendation.ranges.protein.max}g
+              {macroRecommendation.grams.protein}g
             </p>
-            <p className="text-muted text-sm">
-              Base: {macroRecommendation.grams.protein}g
-            </p>
+            <p className="text-muted text-sm">Picked target</p>
           </div>
           <div className="bg-accent-yellow/15 border border-accent-yellow/50 rounded-xl p-4">
             <p className="text-accent-yellow font-bold mb-2">Fats</p>
             <p className="text-foreground text-2xl font-bold">
-              {macroRecommendation.ranges.fats.min}-
-              {macroRecommendation.ranges.fats.max}g
+              {macroRecommendation.grams.fats}g
             </p>
-            <p className="text-muted text-sm">
-              Base: {macroRecommendation.grams.fats}g
-            </p>
+            <p className="text-muted text-sm">Picked target</p>
           </div>
           <div className="bg-accent-amber/15 border border-accent-amber/50 rounded-xl p-4">
             <p className="text-accent-amber font-bold mb-2">Carbs</p>
             <p className="text-foreground text-2xl font-bold">
-              ~{macroRecommendation.grams.carbs}g
+              {macroRecommendation.grams.carbs}g
             </p>
-            <p className="text-muted text-sm">Based on remaining calories</p>
+            <p className="text-muted text-sm">Picked target</p>
           </div>
         </div>
         {selectedGoal === 'aggressive_cut' && (
           <div className="mt-4 bg-accent-red/15 border border-accent-red/60 rounded-xl p-4 flex items-start gap-3">
             <Info size={20} className="text-accent-red flex-shrink-0 mt-0.5" />
             <p className="text-foreground text-sm">
-              During an aggressive cut, push protein to the upper end of the{' '}
-              {macroRecommendation.ranges.protein.max}g+ range to help preserve
-              lean mass. Consider exceeding this slightly if recovery or satiety
-              suffer.
+              During an aggressive cut, keep protein at or above your selected
+              target ({macroRecommendation.grams.protein}g) to help preserve
+              lean mass. Consider increasing slightly if recovery or satiety
+              suffers.
             </p>
           </div>
         )}

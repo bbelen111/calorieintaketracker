@@ -3542,6 +3542,7 @@ export const EnergyMapCalculator = () => {
         value={tempMacroRecommendationSplit}
         onChange={handleMacroPickerChange}
         targetCalories={selectedCalorieTargetData.targetCalories ?? 2500}
+        userData={userData}
         targetLabel={selectedCalorieTargetData.label}
         onOpenCalorieTargetModal={openCalorieTargetPicker}
         onCancel={macroPickerModal.requestClose}

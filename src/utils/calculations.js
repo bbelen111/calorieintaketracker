@@ -14,6 +14,7 @@ import {
 } from './epoc.js';
 import { getCarryoverForDateFromSessions } from './sessionCarryover.js';
 import { getTodayDateKey } from './dateKeys.js';
+import { calculateMacroRecommendations } from './macroRecommendations.js';
 
 const HEART_RATE_COEFFICIENTS = {
   male: {
@@ -150,18 +151,26 @@ const resolveTefMacroDetails = ({ proteinGrams, carbsGrams, fatsGrams }) => {
   };
 };
 
-const resolveTargetMacroDetails = ({ targetCalories, weightKg }) => {
+const resolveTargetMacroDetails = ({ targetCalories, weightKg, userData }) => {
   const safeTargetCalories = normalizeNonNegativeNumber(targetCalories);
-  const safeWeightKg = normalizeNonNegativeNumber(weightKg);
-  const proteinGrams = safeWeightKg * 2;
-  const fatsGrams = safeWeightKg * 0.8;
+  const safeWeightKg = normalizeNonNegativeNumber(
+    weightKg ?? userData?.weight ?? DEFAULT_CALCULATION_PROFILE.weight
+  );
+  const recommendation = calculateMacroRecommendations({
+    targetCalories: safeTargetCalories,
+    macroSplit: userData?.macroRecommendationSplit,
+    userData: {
+      ...userData,
+      weight: safeWeightKg,
+    },
+  });
+  const proteinGrams = recommendation.grams.protein;
+  const carbsGrams = recommendation.grams.carbs;
+  const fatsGrams = recommendation.grams.fats;
   const proteinCalories = proteinGrams * PROTEIN_CALORIES_PER_GRAM;
   const fatCalories = fatsGrams * FAT_CALORIES_PER_GRAM;
-  const remainingCaloriesForCarbs = Math.max(
-    0,
-    safeTargetCalories - proteinCalories - fatCalories
-  );
-  const carbsGrams = remainingCaloriesForCarbs / CARB_CALORIES_PER_GRAM;
+  const carbCalories = carbsGrams * CARB_CALORIES_PER_GRAM;
+  const remainingCaloriesForCarbs = roundToTenth(carbCalories);
 
   return {
     targetCalories: Math.round(safeTargetCalories),
@@ -170,6 +179,11 @@ const resolveTargetMacroDetails = ({ targetCalories, weightKg }) => {
     carbsGrams: roundToTenth(carbsGrams),
     fatsGrams: roundToTenth(fatsGrams),
     remainingCaloriesForCarbs: roundToTenth(remainingCaloriesForCarbs),
+    bounds: recommendation.bounds,
+    constrainedSplit: recommendation.constrainedSplit,
+    isConstrained: recommendation.isConstrained,
+    warnings: recommendation.warnings,
+    calorieDelta: recommendation.calorieDelta,
   };
 };
 
@@ -238,6 +252,7 @@ const resolveSmartTef = ({ tefContext, userData, targetCaloriesSeed }) => {
         const seededMacroDetails = resolveTargetMacroDetails({
           targetCalories: resolvedTargetCalories,
           weightKg: tefContext?.weightKg ?? userData?.weight,
+          userData,
         });
         const seededTefDetails = resolveTefMacroDetails(seededMacroDetails);
         resolvedTargetCalories =
@@ -248,6 +263,7 @@ const resolveSmartTef = ({ tefContext, userData, targetCaloriesSeed }) => {
     const targetMacroDetails = resolveTargetMacroDetails({
       targetCalories: resolvedTargetCalories,
       weightKg: tefContext?.weightKg ?? userData?.weight,
+      userData,
     });
     const targetTefDetails = resolveTefMacroDetails(targetMacroDetails);
 
