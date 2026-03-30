@@ -6,8 +6,7 @@ import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { CaloriesPerHourGuideModal } from '../info/CaloriesPerHourGuideModal';
 import { CaloriesPerHourPickerModal } from '../pickers/CaloriesPerHourPickerModal';
 
-const defaultTrainingTypeCatalog =
-  getDefaultEnergyMapData().trainingType ?? {};
+const defaultTrainingTypeCatalog = getDefaultEnergyMapData().trainingType ?? {};
 
 const getDefaultValuesForType = (typeKey) => {
   if (!typeKey) return { label: '', caloriesPerHour: 0 };

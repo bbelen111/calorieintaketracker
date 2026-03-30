@@ -38,11 +38,11 @@ const BUTTON_BASE_CLASS =
 const BUTTON_INACTIVE_CLASS =
   'bg-surface-highlight border-border text-muted md:hover:border-muted/50';
 const BUTTON_ACTIVE_PRIMARY_CLASS =
-  'bg-primary border-primary/70 text-primary-foreground md:hover:brightness-110';
+  'bg-primary border-primary text-primary-foreground md:hover:brightness-110';
 const BUTTON_ACTIVE_BLUE_CLASS =
-  'bg-accent-blue/20 border-accent-blue/60 text-accent-blue md:hover:brightness-110';
+  'bg-primary border-primary text-primary-foreground md:hover:brightness-110';
 const BUTTON_ACTIVE_INDIGO_CLASS =
-  'bg-accent-indigo/20 border-accent-indigo/60 text-accent-indigo md:hover:brightness-110';
+  'bg-accent-indigo border-accent-indigo text-primary-foreground md:hover:brightness-110';
 
 const clampInteger = (value, min, max, fallback) => {
   const numericValue = Number(value);
@@ -978,7 +978,7 @@ const DailyActivitySection = ({ userData, bmr, onDailyActivityClick }) => {
       <button
         onClick={onDailyActivityClick}
         type="button"
-        className="relative w-full text-left p-3 md:p-4 rounded-lg border-2 border-accent-indigo/60 bg-accent-indigo/20 text-foreground transition-all press-feedback focus-ring md:hover:brightness-110"
+        className="relative w-full text-left p-3 md:p-4 rounded-lg border-2 border-accent-indigo bg-accent-indigo text-primary-foreground transition-all press-feedback focus-ring md:hover:brightness-110"
       >
         <div className="min-w-0 pr-24 md:pr-28">
           <div className="font-semibold text-sm md:text-base">

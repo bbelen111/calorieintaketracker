@@ -14,14 +14,14 @@ const dayConfig = {
   training: {
     label: 'Training Day',
     icon: Dumbbell,
-    accentClassName: 'border-accent-purple/60 bg-accent-purple/20',
-    iconClassName: 'bg-accent-purple/25 text-accent-purple',
+    accentClassName: 'border-primary bg-primary',
+    iconClassName: 'bg-foreground/25 text-primary-foreground',
   },
   rest: {
     label: 'Rest Day',
     icon: BedDouble,
-    accentClassName: 'border-accent-blue/60 bg-accent-blue/20',
-    iconClassName: 'bg-accent-blue/25 text-accent-blue',
+    accentClassName: 'border-accent-indigo bg-accent-indigo',
+    iconClassName: 'bg-foreground/25 text-primary-foreground',
   },
 };
 

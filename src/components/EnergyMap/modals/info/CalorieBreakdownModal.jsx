@@ -389,7 +389,8 @@ export const CalorieBreakdownModal = ({
                         <p>
                           Bounds used: Protein{' '}
                           {formatNumber(smartTefDetails.bounds.protein?.min, 1)}
-                          -{formatNumber(smartTefDetails.bounds.protein?.max, 1)}
+                          -
+                          {formatNumber(smartTefDetails.bounds.protein?.max, 1)}
                           g • Fat{' '}
                           {formatNumber(smartTefDetails.bounds.fats?.min, 1)}-
                           {formatNumber(smartTefDetails.bounds.fats?.max, 1)}g

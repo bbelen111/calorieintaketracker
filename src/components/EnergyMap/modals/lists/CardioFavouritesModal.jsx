@@ -42,22 +42,48 @@ const getCaloriesSummary = (calculateCalories, session) => {
   return `~${Math.round(value)} calories`;
 };
 
+const normalizeFavouriteSession = (session) => {
+  if (!session || typeof session !== 'object') {
+    return null;
+  }
+
+  const preferredEffortType =
+    session.effortType === 'heartRate' ? 'heartRate' : 'intensity';
+  const parsedHeartRate = Number.parseInt(session.averageHeartRate, 10);
+  const hasValidHeartRate =
+    Number.isFinite(parsedHeartRate) && parsedHeartRate > 0;
+  const effortType =
+    preferredEffortType === 'heartRate' && hasValidHeartRate
+      ? 'heartRate'
+      : 'intensity';
+
+  return {
+    ...session,
+    effortType,
+    intensity: session.intensity ?? 'moderate',
+    averageHeartRate: effortType === 'heartRate' ? parsedHeartRate : '',
+  };
+};
+
 const isSameSession = (current, favourite) => {
-  if (!current || !favourite) {
+  const normalizedCurrent = normalizeFavouriteSession(current);
+  const normalizedFavourite = normalizeFavouriteSession(favourite);
+  if (!normalizedCurrent || !normalizedFavourite) {
     return false;
   }
 
-  const currentEffort = current.effortType ?? 'intensity';
-  const favouriteEffort = favourite.effortType ?? 'intensity';
+  const currentEffort = normalizedCurrent.effortType ?? 'intensity';
+  const favouriteEffort = normalizedFavourite.effortType ?? 'intensity';
 
   if (
-    (current.type ?? 'treadmill_walk') !== (favourite.type ?? 'treadmill_walk')
+    (normalizedCurrent.type ?? 'treadmill_walk') !==
+    (normalizedFavourite.type ?? 'treadmill_walk')
   ) {
     return false;
   }
 
-  const currentDuration = Number(current.duration);
-  const favouriteDuration = Number(favourite.duration);
+  const currentDuration = Number(normalizedCurrent.duration);
+  const favouriteDuration = Number(normalizedFavourite.duration);
   if (Number.isFinite(currentDuration) && Number.isFinite(favouriteDuration)) {
     if (currentDuration !== favouriteDuration) {
       return false;
@@ -71,13 +97,14 @@ const isSameSession = (current, favourite) => {
   }
 
   if (currentEffort === 'heartRate') {
-    const currentHeartRate = Number(current.averageHeartRate);
-    const favouriteHeartRate = Number(favourite.averageHeartRate);
+    const currentHeartRate = Number(normalizedCurrent.averageHeartRate);
+    const favouriteHeartRate = Number(normalizedFavourite.averageHeartRate);
     return currentHeartRate === favouriteHeartRate;
   }
 
   return (
-    (current.intensity ?? 'moderate') === (favourite.intensity ?? 'moderate')
+    (normalizedCurrent.intensity ?? 'moderate') ===
+    (normalizedFavourite.intensity ?? 'moderate')
   );
 };
 
@@ -159,9 +186,7 @@ export const CardioFavouritesModal = ({
   }, [forceConfirmClose, isOpen]);
 
   useEffect(() => {
-    // Use a cleanup function to reset pendingDeleteId after modal closes
     if (!isConfirmOpen && !isConfirmClosing) {
-      // Defer setState to avoid cascading renders
       const timeout = setTimeout(() => {
         setPendingDeleteId(null);
       }, 0);
@@ -204,41 +229,39 @@ export const CardioFavouritesModal = ({
         >
           {hasFavourites ? (
             sortedFavourites.map((favourite) => {
+              const normalizedFavourite = normalizeFavouriteSession(favourite);
               const key =
                 favourite.id ?? `${favourite.type}-${favourite.duration}`;
               const label = getCardioLabel(resolvedCardioTypes, favourite.type);
-              const effortSummary = formatEffortSummary(favourite);
+              const effortSummary = formatEffortSummary(normalizedFavourite);
               const caloriesSummary = getCaloriesSummary(
                 resolvedCalculateCalories,
-                favourite
+                normalizedFavourite
               );
-              const active = isSameSession(currentSession, favourite);
+
+              // Kept for accessibility, no longer used for visual styling differences
+              const active = isSameSession(currentSession, normalizedFavourite);
 
               return (
                 <button
                   key={key}
                   type="button"
-                  onClick={() => onSelectFavourite?.(favourite)}
-                  className={`w-full text-left p-4 rounded-xl border-2 transition-all active:scale-[0.98] flex flex-col gap-2 ${
-                    active
-                      ? 'bg-primary/80 border-accent-blue text-primary-foreground shadow-lg'
-                      : 'bg-surface border-border text-foreground md:hover:border-accent-blue'
-                  }`}
+                  onClick={() => onSelectFavourite?.(normalizedFavourite)}
+                  className="w-full text-left p-3 md:p-4 rounded-xl flex flex-col gap-2 transition-all pressable-card focus-ring border border-primary bg-primary/90 text-primary-foreground shadow-sm"
                   role="listitem"
+                  aria-current={active ? 'true' : 'false'}
                 >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`flex-shrink-0 rounded-full p-2 ${active ? 'bg-primary-foreground/15' : 'bg-primary-foreground/10'}`}
-                    >
-                      <Heart size={18} />
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <div className="flex-shrink-0 rounded-full p-2 bg-primary-foreground/15">
+                      <Heart size={18} className="text-primary-foreground" />
                     </div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-base md:text-lg leading-tight">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-base md:text-lg leading-tight truncate">
                         {label}
                       </p>
-                      <p className="text-xs md:text-sm opacity-80">
-                        {formatDuration(favourite.duration)} • {effortSummary}
-                        {caloriesSummary ? ` • ${caloriesSummary}` : ''}
+                      <p className="text-xs md:text-sm mt-0.5 truncate text-primary-foreground/80">
+                        {formatDuration(favourite.duration)} | {effortSummary}
+                        {caloriesSummary ? ` | ${caloriesSummary}` : ''}
                       </p>
                     </div>
                     {typeof onDeleteFavourite === 'function' &&
@@ -250,7 +273,7 @@ export const CardioFavouritesModal = ({
                             setPendingDeleteId(favourite.id);
                             openConfirm();
                           }}
-                          className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-foreground/10 md:hover:bg-primary-foreground/20 transition-colors flex items-center justify-center"
+                          className="flex-shrink-0 w-8 h-8 rounded-full bg-surface-highlight/20 md:hover:bg-surface-highlight/40 pressable-inline focus-ring flex items-center justify-center text-primary-foreground"
                           aria-label="Delete favourite cardio session"
                         >
                           <Trash2 size={14} />

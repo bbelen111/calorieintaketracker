@@ -148,14 +148,14 @@ export const TrainingModal = ({
   const effortButtonClass = (type) =>
     `w-full rounded-lg border px-3 py-1.5 text-sm transition-all focus-ring pressable-inline ${
       effortType === type
-        ? 'bg-primary text-primary-foreground border-accent-blue shadow-sm'
+        ? 'bg-primary text-primary-foreground border-primary shadow-sm'
         : 'bg-surface-highlight text-muted border-border md:hover:border-accent-blue'
     }`;
 
   const intensityButtonClass = (level) =>
     `w-full rounded-lg border px-3 py-2 text-sm transition-all focus-ring pressable-inline ${
       intensityValue === level
-        ? 'bg-primary text-primary-foreground border-accent-blue shadow-sm'
+        ? 'bg-primary text-primary-foreground border-primary shadow-sm'
         : 'bg-surface-highlight text-muted border-border md:hover:border-accent-blue'
     }`;
 
@@ -218,8 +218,8 @@ export const TrainingModal = ({
                     type="button"
                     className={`p-3 rounded-lg border-2 transition-all text-sm relative text-left focus-ring pressable ${
                       isActive
-                        ? 'bg-accent-indigo border-accent-indigo text-primary-foreground'
-                        : 'bg-surface-highlight border-border text-muted active:bg-surface-highlight/80 md:hover:border-accent-indigo'
+                        ? 'bg-primary border-primary text-primary-foreground'
+                        : 'bg-surface-highlight border-border text-muted active:bg-surface-highlight/80 md:hover:border-accent-blue'
                     }`}
                   >
                     <span
@@ -276,7 +276,7 @@ export const TrainingModal = ({
             <button
               onClick={onDurationClick}
               type="button"
-              className="w-full px-3 py-2 rounded-lg border-2 bg-primary border-accent-blue text-primary-foreground transition-all active:scale-[0.98] flex items-center justify-between focus-ring press-feedback"
+              className="w-full px-3 py-2 rounded-lg border-2 bg-primary border-primary text-primary-foreground transition-all active:scale-[0.98] flex items-center justify-between focus-ring press-feedback"
             >
               <div className="flex items-baseline gap-x-2">
                 <span className="font-semibold text-sm md:text-base">
@@ -356,7 +356,7 @@ export const TrainingModal = ({
               <button
                 onClick={openHeartRatePicker}
                 type="button"
-                className="w-full px-3 py-2 rounded-lg border-2 bg-primary border-accent-blue text-primary-foreground transition-all active:scale-[0.98] flex items-center justify-between focus-ring press-feedback"
+                className="w-full px-3 py-2 rounded-lg border-2 bg-primary border-primary text-primary-foreground transition-all active:scale-[0.98] flex items-center justify-between focus-ring press-feedback"
               >
                 <span className="font-semibold text-sm md:text-base">
                   {formattedHeartRate}
