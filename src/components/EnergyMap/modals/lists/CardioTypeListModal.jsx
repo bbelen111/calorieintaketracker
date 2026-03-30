@@ -103,17 +103,15 @@ export const CardioTypeListModal = ({
     >
       <div className="flex flex-col gap-4 md:gap-6 h-full">
         <div className="flex flex-col gap-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="text-foreground font-bold text-xl md:text-2xl mb-3">
-                Browse Cardio Types
-              </h3>
-            </div>
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="text-foreground font-bold text-xl flex-1">
+              Browse Cardio Types
+            </h3>
             {onCreateCustomCardioType && (
               <button
                 type="button"
                 onClick={() => onCreateCustomCardioType()}
-                className="p-2 rounded-lg border border-border bg-surface-highlight text-foreground md:hover:border-accent-blue transition-colors"
+                className="p-2 rounded-lg border border-border bg-surface-highlight text-foreground md:hover:border-accent-blue transition-colors ml-2"
                 aria-label="Add custom cardio type"
               >
                 <Plus size={18} />
@@ -154,10 +152,10 @@ export const CardioTypeListModal = ({
                   type="button"
                   key={key}
                   onClick={() => onSelect(key)}
-                  className={`relative w-full text-left p-4 rounded-xl border-2 transition-all active:scale-[0.98] flex flex-col gap-2 focus-ring ${
+                  className={`w-full rounded-xl border px-4 py-4 text-left transition-all pressable-card focus-ring flex flex-col gap-2 ${
                     isActive
-                      ? 'bg-accent-purple border-accent-purple text-primary-foreground shadow-sm'
-                      : 'bg-surface-highlight border-border text-foreground md:hover:border-accent-blue'
+                      ? 'border-accent-blue/60 bg-surface-highlight'
+                      : 'border-border/50 bg-surface-highlight/30 md:hover:bg-surface-highlight/60'
                   }`}
                   role="listitem"
                 >

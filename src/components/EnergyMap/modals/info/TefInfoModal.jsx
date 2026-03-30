@@ -88,20 +88,23 @@ export const TefInfoModal = ({ isOpen, isClosing, onClose }) => {
           <p className="font-bold text-accent-blue">How the modes work</p>
           <p>
             <span className="text-foreground font-semibold">Target mode</span>{' '}
-            uses your existing macro targets: protein = weight × 2, fats =
-            weight × 0.8, and carbs from the remaining calories.
+            uses your saved split as the preference, then applies profile-based
+            anchors before TEF is calculated: protein is bounded around
+            1.6-2.8 g/kg (lean mass when available, bodyweight fallback), fat
+            around 0.6-1.6 g/kg bodyweight, and carbs take the remaining
+            calories.
           </p>
           <p>
             <span className="text-foreground font-semibold">Dynamic mode</span>{' '}
-            uses the macros you’ve actually logged so far, which makes the live
-            steps card feel more like a coach and less like a spreadsheet.
+            uses the macros you have actually logged so far, which makes the
+            live steps card feel more like a coach and less like a spreadsheet.
           </p>
         </div>
 
         <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5 text-xs">
           <span className="text-foreground font-semibold">Note:</span> Because
           Smart TEF calculates digestion separately, your overall activity
-          multiplier will appear lower. This is expected behavior—your daily
+          multiplier will appear lower. This is expected behavior: your daily
           calorie target is being redistributed for better accuracy, not
           decreased.
         </div>

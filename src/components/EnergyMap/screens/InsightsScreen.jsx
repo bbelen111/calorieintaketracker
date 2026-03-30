@@ -5,6 +5,7 @@ import {
   Lightbulb,
   LineChart,
   AlertCircle,
+  SlidersHorizontal,
 } from 'lucide-react';
 import {
   calculateWeightTrend,
@@ -33,6 +34,10 @@ import {
   formatTooltipDate,
   getOldDataWarningText,
 } from '../../../utils/trackerHelpers';
+import {
+  calculateMacroRecommendations,
+  normalizeMacroRecommendationSplit,
+} from '../../../utils/macroRecommendations';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 
@@ -46,6 +51,8 @@ export const InsightsScreen = ({
   onOpenBodyFatTracker,
   onOpenBmiInfo,
   onOpenFfmiInfo,
+  targetCalories = 2500,
+  onOpenMacroPicker,
 }) => {
   const store = useEnergyMapStore(
     (state) => ({
@@ -184,6 +191,23 @@ export const InsightsScreen = ({
   const bodyFatVisualStyle = useMemo(
     () => getGoalAlignedStyle(bodyFatTrend, selectedGoal, 'bodyFat'),
     [bodyFatTrend, selectedGoal]
+  );
+
+  const macroSplit = useMemo(
+    () =>
+      normalizeMacroRecommendationSplit(
+        resolvedUserData.macroRecommendationSplit
+      ),
+    [resolvedUserData.macroRecommendationSplit]
+  );
+  const macroRecommendation = useMemo(
+    () =>
+      calculateMacroRecommendations({
+        targetCalories,
+        macroSplit,
+        userData: resolvedUserData,
+      }),
+    [macroSplit, resolvedUserData, targetCalories]
   );
 
   const bmiColorMap = {
@@ -623,43 +647,53 @@ export const InsightsScreen = ({
       </div>
 
       <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
-        <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-          <PieChart className="text-accent-blue" size={18} />
-          Macro Recommendations
-        </h2>
+        <div className="flex items-center justify-between mb-4 gap-3">
+          <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+            <PieChart className="text-accent-blue" size={18} />
+            Macro Balancer
+          </h2>
+          <button
+            type="button"
+            onClick={() => onOpenMacroPicker?.()}
+            className="px-3 py-2 bg-primary text-primary-foreground rounded-lg font-semibold transition-all active:scale-95 flex items-center gap-2 press-feedback focus-ring md:hover:bg-surface"
+            title="Edit macro recommendations"
+            aria-label="Edit macro recommendations"
+          >
+            <SlidersHorizontal size={18} />
+            <span className="hidden md:inline">Edit</span>
+          </button>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-accent-red/15 border border-accent-red/50 rounded-xl p-4">
             <p className="text-accent-red font-bold mb-2">Protein</p>
             <p className="text-foreground text-2xl font-bold">
-              {Math.round(resolvedUserData.weight * 2.0)}-
-              {Math.round(resolvedUserData.weight * 2.4)}g
+              {macroRecommendation.grams.protein}g
             </p>
-            <p className="text-muted text-sm">2.0-2.4g per kg bodyweight</p>
+            <p className="text-muted text-sm">Picked target</p>
           </div>
           <div className="bg-accent-yellow/15 border border-accent-yellow/50 rounded-xl p-4">
             <p className="text-accent-yellow font-bold mb-2">Fats</p>
             <p className="text-foreground text-2xl font-bold">
-              {Math.round(resolvedUserData.weight * 0.8)}-
-              {Math.round(resolvedUserData.weight * 1.0)}g
+              {macroRecommendation.grams.fats}g
             </p>
-            <p className="text-muted text-sm">0.8-1.0g per kg bodyweight</p>
+            <p className="text-muted text-sm">Picked target</p>
           </div>
           <div className="bg-accent-amber/15 border border-accent-amber/50 rounded-xl p-4">
             <p className="text-accent-amber font-bold mb-2">Carbs</p>
-            <p className="text-foreground text-lg font-bold">
-              Remaining calories
+            <p className="text-foreground text-2xl font-bold">
+              {macroRecommendation.grams.carbs}g
             </p>
-            <p className="text-muted text-sm">Adjust based on energy needs</p>
+            <p className="text-muted text-sm">Picked target</p>
           </div>
         </div>
         {selectedGoal === 'aggressive_cut' && (
           <div className="mt-4 bg-accent-red/15 border border-accent-red/60 rounded-xl p-4 flex items-start gap-3">
             <Info size={20} className="text-accent-red flex-shrink-0 mt-0.5" />
             <p className="text-foreground text-sm">
-              During an aggressive cut, push protein to the upper end of the{' '}
-              {Math.round(resolvedUserData.weight * 2.4)}g+ range to help
-              preserve lean mass. Consider exceeding this slightly if recovery
-              or satiety suffer.
+              During an aggressive cut, keep protein at or above your selected
+              target ({macroRecommendation.grams.protein}g) to help preserve
+              lean mass. Consider increasing slightly if recovery or satiety
+              suffers.
             </p>
           </div>
         )}

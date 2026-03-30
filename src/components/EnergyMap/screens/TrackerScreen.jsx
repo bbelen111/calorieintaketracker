@@ -11,11 +11,11 @@ import {
   Droplet,
   Trash2,
   Edit3,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Calendar,
   CalendarCog,
+  Settings2,
 } from 'lucide-react';
 import { MEAL_TYPE_ORDER, getMealTypeById } from '../../../constants/mealTypes';
 import { formatOne } from '../../../utils/format';
@@ -23,10 +23,11 @@ import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 import { ConfirmActionModal } from '../modals/common/ConfirmActionModal';
 import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
+import { formatDateKeyUtc, getTodayDateKey } from '../../../utils/dateKeys';
 import {
-  formatDateKeyUtc,
-  getTodayDateKey,
-} from '../../../utils/dateKeys';
+  calculateMacroRecommendations,
+  normalizeMacroRecommendationSplit,
+} from '../../../utils/macroRecommendations';
 
 const getTodayDate = () => getTodayDateKey();
 
@@ -118,47 +119,26 @@ export const TrackerScreen = ({
   onEditFoodEntry,
   onDeleteFoodEntry,
   onDeleteMeal,
-  targetProtein,
-  targetFats,
-  stepRanges,
-  selectedGoal = 'maintenance',
-  selectedDay = 'training',
-  getRangeDetails,
+  macroRecommendationSplit,
   calendarModal,
   selectedDate: selectedDateProp,
   onSelectedDateChange,
-  selectedStepRange,
-  onStepRangeChange,
-  showCalorieTargetPicker,
-  onToggleCalorieTargetPicker,
+  calorieTargetLabel = '',
+  calorieTargetCalories = 2500,
+  onOpenCalorieTargetModal,
 }) => {
   const store = useEnergyMapStore(
     (state) => ({
       nutritionData: state.nutritionData ?? {},
-      stepRanges: state.userData.stepRanges ?? [],
-      weight: state.userData.weight,
-      calculateTargetForGoal: state.calculateTargetForGoal,
+      macroRecommendationSplit:
+        state.userData.macroRecommendationSplit ?? undefined,
     }),
     shallow
   );
 
   const resolvedNutritionData = nutritionData ?? store.nutritionData;
-  const resolvedStepRanges = stepRanges ?? store.stepRanges;
-  const resolvedTargetProtein =
-    targetProtein ?? Math.round((Number(store.weight) || 0) * 2);
-  const resolvedTargetFats =
-    targetFats ?? Math.round((Number(store.weight) || 0) * 0.8);
-  const resolvedCalculateTargetForGoal = store.calculateTargetForGoal;
-  const resolvedGetRangeDetails = useMemo(
-    () =>
-      getRangeDetails ??
-      ((steps) =>
-        resolvedCalculateTargetForGoal?.(
-          steps,
-          selectedDay === 'training',
-          selectedGoal
-        )),
-    [getRangeDetails, selectedDay, selectedGoal, resolvedCalculateTargetForGoal]
+  const resolvedMacroRecommendationSplit = normalizeMacroRecommendationSplit(
+    macroRecommendationSplit ?? store.macroRecommendationSplit
   );
   // Support controlled (selectedDateProp + onSelectedDateChange) or uncontrolled mode
   const [internalSelectedDate, setInternalSelectedDate] = useState(
@@ -210,14 +190,6 @@ export const TrackerScreen = ({
     const weekYear = getIsoWeekYear(date);
     return `Week ${weekNumber}${weekYear !== date.getUTCFullYear() ? ` • ${weekYear}` : ''}`;
   }, [selectedDate]);
-
-  // Calculate ranges based on bodyweight (matching InsightsScreen)
-  // targetProtein is passed as weight * 2, so range is weight * 2.0 to weight * 2.4
-  // targetFats is passed as weight * 0.8, so range is weight * 0.8 to weight * 1.0
-  const proteinMin = Math.round(resolvedTargetProtein); // 2.0g per kg (already calculated)
-  const proteinMax = Math.round(resolvedTargetProtein * 1.2); // 2.4g per kg (2 * 1.2 = 2.4)
-  const fatsMin = Math.round(resolvedTargetFats); // 0.8g per kg (already calculated)
-  const fatsMax = Math.round(resolvedTargetFats * 1.25); // 1.0g per kg (0.8 * 1.25 = 1.0)
 
   // Get data for selected date - now nested by meal type
   const dayData = useMemo(() => {
@@ -287,46 +259,44 @@ export const TrackerScreen = ({
     );
   }, [meals]);
 
-  const proteinPercent = Math.min(
-    100,
-    Math.round((totals.protein / resolvedTargetProtein) * 100)
-  );
-  const fatsPercent = Math.min(
-    100,
-    Math.round((totals.fats / resolvedTargetFats) * 100)
-  );
-
-  // Check if within range
-  const proteinInRange =
-    totals.protein >= proteinMin && totals.protein <= proteinMax;
-  const fatsInRange = totals.fats >= fatsMin && totals.fats <= fatsMax;
-  const proteinOver = totals.protein > proteinMax;
-  const fatsOver = totals.fats > fatsMax;
-
-  // Get calorie target from selected step range
-  const calorieTargetData = useMemo(() => {
-    if (!resolvedGetRangeDetails || !selectedStepRange) return null;
-    return resolvedGetRangeDetails(selectedStepRange);
-  }, [resolvedGetRangeDetails, selectedStepRange]);
-
-  const targetCalories = calorieTargetData?.targetCalories || 2500;
+  const targetCalories = calorieTargetCalories || 2500;
   const caloriesRemaining = targetCalories - totals.calories;
   const caloriesPercent = Math.min(
     100,
     Math.round((totals.calories / targetCalories) * 100)
   );
 
-  // Calculate target carbs from remaining calories after protein and fats
-  // Protein: 4 cal/g, Fats: 9 cal/g, Carbs: 4 cal/g
-  const proteinCalories = resolvedTargetProtein * 4;
-  const fatsCalories = resolvedTargetFats * 9;
-  const remainingCaloriesForCarbs =
-    targetCalories - proteinCalories - fatsCalories;
-  const targetCarbs = Math.max(0, Math.round(remainingCaloriesForCarbs / 4));
+  const macroRecommendation = useMemo(
+    () =>
+      calculateMacroRecommendations({
+        targetCalories,
+        macroSplit: resolvedMacroRecommendationSplit,
+        userData: store.userData,
+      }),
+    [resolvedMacroRecommendationSplit, store.userData, targetCalories]
+  );
+
+  const targetProtein = macroRecommendation.grams.protein;
+  const targetFats = macroRecommendation.grams.fats;
+  const targetCarbs = macroRecommendation.grams.carbs;
+
+  const proteinPercent =
+    targetProtein > 0
+      ? Math.min(100, Math.round((totals.protein / targetProtein) * 100))
+      : 0;
+  const fatsPercent =
+    targetFats > 0
+      ? Math.min(100, Math.round((totals.fats / targetFats) * 100))
+      : 0;
   const carbsPercent =
     targetCarbs > 0
       ? Math.min(100, Math.round((totals.carbs / targetCarbs) * 100))
       : 0;
+  const proteinInRange =
+    targetProtein > 0 && totals.protein >= targetProtein * 0.9;
+  const fatsInRange = targetFats > 0 && totals.fats >= targetFats * 0.9;
+  const proteinOver = targetProtein > 0 && totals.protein > targetProtein * 1.1;
+  const fatsOver = targetFats > 0 && totals.fats > targetFats * 1.1;
   const carbsOver = targetCarbs > 0 && totals.carbs > targetCarbs;
 
   const handleEditFood = (mealType, entryId) => {
@@ -649,7 +619,7 @@ export const TrackerScreen = ({
           </button>
         </div>
         <div className="p-0">
-            <div className="flex items-center justify-between mt-5 mb-2 border border-border/50 rounded-md px-1 py-1.5 bg-surface-highlight/50 shadow-sm">
+          <div className="flex items-center justify-between mt-5 mb-2 border border-border/50 rounded-md px-1 py-1.5 bg-surface-highlight/50 shadow-sm">
             <div className="flex items-center gap-1.5 h-6">
               <button
                 onClick={() => changeDateBy(-7)}
@@ -787,16 +757,15 @@ export const TrackerScreen = ({
         {/* Calorie Target Selector */}
         <div className="relative">
           <button
-            onClick={() => onToggleCalorieTargetPicker?.()}
+            onClick={() => onOpenCalorieTargetModal?.()}
             className="w-full bg-surface-highlight/50 border border-border/50 rounded-lg px-3 py-2 text-left flex items-center justify-between md:hover:bg-surface-highlight transition-all shadow-sm pressable-card focus-ring"
           >
             <div className="flex-1">
               <p className="text-muted text-xs mb-0.5">Target</p>
-              {/* Animate only the text when the selection/target changes */}
               <div className="relative h-6">
                 <AnimatePresence mode="wait">
                   <motion.p
-                    key={`target-${targetCalories}-${selectedStepRange}`}
+                    key={`target-${targetCalories}-${calorieTargetLabel}`}
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
@@ -805,77 +774,14 @@ export const TrackerScreen = ({
                   >
                     {formatOne(targetCalories)} kcal
                     <span className="text-muted font-normal ml-2">
-                      ({selectedStepRange} steps)
+                      ({calorieTargetLabel})
                     </span>
                   </motion.p>
                 </AnimatePresence>
               </div>
             </div>
-            <ChevronDown
-              size={22}
-              className={`text-foreground transition-transform duration-300 ${
-                showCalorieTargetPicker ? 'rotate-180' : ''
-              }`}
-            />
+            <Settings2 size={20} className="text-muted" />
           </button>
-
-          {/* Dropdown - animate both open and close */}
-          <AnimatePresence>
-            {showCalorieTargetPicker && (
-              <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.18 }}
-                className="absolute z-10 w-full mt-2 bg-surface border border-border/50 rounded-lg shadow-2xl max-h-64 overflow-y-auto"
-                style={{ transformOrigin: 'top center' }}
-              >
-                {resolvedStepRanges.map((range) => {
-                  const rangeData = resolvedGetRangeDetails?.(range);
-                  const isSelected = range === selectedStepRange;
-                  return (
-                    <button
-                      key={`range-${range}`}
-                      onClick={() => {
-                        onStepRangeChange?.(range);
-                      }}
-                      className={`w-full px-4 py-3 text-left md:hover:bg-surface-highlight transition-all border-b border-border/50 last:border-b-0 pressable-card focus-ring ${
-                        isSelected ? 'bg-surface-highlight/60' : ''
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-foreground font-semibold text-sm">
-                            {range} steps
-                          </p>
-                          <p className="text-muted text-xs">
-                            {selectedGoal === 'maintenance'
-                              ? 'Maintain weight'
-                              : selectedGoal === 'bulking'
-                                ? 'Lean bulk'
-                                : selectedGoal === 'aggressive_bulk'
-                                  ? 'Aggressive bulk'
-                                  : selectedGoal === 'cutting'
-                                    ? 'Moderate cut'
-                                    : selectedGoal === 'aggressive_cut'
-                                      ? 'Aggressive cut'
-                                      : 'Unknown'}{' '}
-                            - {selectedDay === 'training' ? 'Training' : 'Rest'}{' '}
-                            day
-                          </p>
-                        </div>
-                        <p
-                          className={`font-bold ${isSelected ? 'text-accent-emerald' : 'text-muted'}`}
-                        >
-                          {formatOne(rangeData?.targetCalories || 0)}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
 
         {/* Progress Bar */}
@@ -920,6 +826,7 @@ export const TrackerScreen = ({
             </AnimatePresence>
           </div>
         </div>
+
         <div className="grid grid-cols-3 gap-4">
           {/* Protein */}
           <div className="flex flex-col items-center">
@@ -953,9 +860,7 @@ export const TrackerScreen = ({
             </div>
             <p className="text-muted text-xs font-semibold mt-2">Protein</p>
             <p className="text-muted text-xs">
-              <span>
-                {formatOne(proteinMin)}-{formatOne(proteinMax)}g
-              </span>
+              <span>{formatOne(targetProtein)}g target</span>
             </p>
           </div>
 
@@ -991,9 +896,7 @@ export const TrackerScreen = ({
             </div>
             <p className="text-muted text-xs font-semibold mt-2">Fats</p>
             <p className="text-muted text-xs">
-              <span>
-                {formatOne(fatsMin)}-{formatOne(fatsMax)}g
-              </span>
+              <span>{formatOne(targetFats)}g target</span>
             </p>
           </div>
 
@@ -1028,7 +931,7 @@ export const TrackerScreen = ({
             <p className="text-muted text-xs font-semibold mt-2">Carbs</p>
             <p className="text-muted text-xs">
               {targetCarbs > 0 ? (
-                <span>~{formatOne(targetCarbs)}g</span>
+                <span>{formatOne(targetCarbs)}g target</span>
               ) : (
                 <span>No room</span>
               )}

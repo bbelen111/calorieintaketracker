@@ -23,6 +23,10 @@ import {
   createDefaultPhaseLogV2State,
   normalizePhaseLogV2State,
 } from './phaseLogV2.js';
+import {
+  DEFAULT_MACRO_RECOMMENDATION_SPLIT,
+  normalizeMacroRecommendationSplit,
+} from './macroRecommendations.js';
 
 // Split keys for performance
 const PROFILE_KEY = 'energyMapData_profile'; // Settings, preferences, small lists
@@ -1080,6 +1084,9 @@ export const getDefaultEnergyMapData = () => ({
   smartTefFoodTefBurnEnabled: true,
   smartTefQuickEstimatesTargetMode: true,
   smartTefLiveCardTargetMode: false,
+  macroRecommendationSplit: {
+    ...DEFAULT_MACRO_RECOMMENDATION_SPLIT,
+  },
   adaptiveThermogenesisEnabled: false,
   adaptiveThermogenesisSmartMode: false,
   adaptiveThermogenesisSmoothingEnabled: false,
@@ -1324,6 +1331,10 @@ function mergeWithDefaults(data) {
     smartTefLiveCardTargetMode:
       normalizedInput.smartTefLiveCardTargetMode ??
       defaults.smartTefLiveCardTargetMode,
+    macroRecommendationSplit: normalizeMacroRecommendationSplit(
+      normalizedInput.macroRecommendationSplit ??
+        defaults.macroRecommendationSplit
+    ),
     adaptiveThermogenesisEnabled:
       normalizedInput.adaptiveThermogenesisEnabled ??
       defaults.adaptiveThermogenesisEnabled,
@@ -1354,10 +1365,7 @@ function mergeWithDefaults(data) {
       }
 
       return Math.min(
-        Math.max(
-          Math.round(parsed),
-          MIN_ADAPTIVE_SMOOTHING_WINDOW_DAYS
-        ),
+        Math.max(Math.round(parsed), MIN_ADAPTIVE_SMOOTHING_WINDOW_DAYS),
         MAX_ADAPTIVE_SMOOTHING_WINDOW_DAYS
       );
     })(),

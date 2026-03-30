@@ -356,7 +356,7 @@ export const CalorieBreakdownModal = ({
                     </strong>{' '}
                     {smartTefMode === 'dynamic'
                       ? 'Uses the macros you have logged so far.'
-                      : 'Uses your weight-based macro targets and carbs from remaining calories.'}
+                      : 'Uses your saved split, then applies profile-based protein/fat bounds and lets carbs absorb the remainder.'}
                   </p>
                   <div className="space-y-1">
                     <p>
@@ -377,13 +377,34 @@ export const CalorieBreakdownModal = ({
                     </p>
                   </div>
                   {smartTefMode === 'target' && (
-                    <p>
-                      Target intake used:{' '}
-                      {formatWhole(smartTefDetails.targetCalories)} kcal • P{' '}
-                      {formatNumber(smartTefDetails.proteinGrams, 1)}g • C{' '}
-                      {formatNumber(smartTefDetails.carbsGrams, 1)}g • F{' '}
-                      {formatNumber(smartTefDetails.fatsGrams, 1)}g
-                    </p>
+                    <>
+                      <p>
+                        Target intake used:{' '}
+                        {formatWhole(smartTefDetails.targetCalories)} kcal • P{' '}
+                        {formatNumber(smartTefDetails.proteinGrams, 1)}g • C{' '}
+                        {formatNumber(smartTefDetails.carbsGrams, 1)}g • F{' '}
+                        {formatNumber(smartTefDetails.fatsGrams, 1)}g
+                      </p>
+                      {smartTefDetails.bounds && (
+                        <p>
+                          Bounds used: Protein{' '}
+                          {formatNumber(smartTefDetails.bounds.protein?.min, 1)}
+                          -{formatNumber(smartTefDetails.bounds.protein?.max, 1)}
+                          g • Fat{' '}
+                          {formatNumber(smartTefDetails.bounds.fats?.min, 1)}-
+                          {formatNumber(smartTefDetails.bounds.fats?.max, 1)}g
+                        </p>
+                      )}
+                      {Array.isArray(smartTefDetails.warnings) &&
+                        smartTefDetails.warnings.includes(
+                          'carb_soft_floor_relaxed'
+                        ) && (
+                          <p>
+                            Carb soft floor was relaxed to stay within your
+                            calorie target.
+                          </p>
+                        )}
+                    </>
                   )}
                   {smartTefMode === 'dynamic' && (
                     <p>

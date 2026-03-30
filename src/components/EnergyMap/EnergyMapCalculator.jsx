@@ -80,6 +80,8 @@ import { FoodSearchModal } from './modals/fullscreen/FoodSearchModal';
 import { FoodPortionModal } from './modals/pickers/FoodPortionModal';
 import { StepTrackerModal } from './modals/fullscreen/StepTrackerModal';
 import { StepGoalPickerModal } from './modals/pickers/StepGoalPickerModal';
+import { MacroPickerModal } from './modals/pickers/MacroPickerModal';
+import { CalorieTargetModal } from './modals/pickers/CalorieTargetModal';
 // ...existing code...
 import { ConfirmActionModal } from './modals/common/ConfirmActionModal';
 import {
@@ -102,6 +104,7 @@ import {
   normalizeTimeOfDay,
 } from '../../utils/time';
 import { formatDateKeyUtc, getTodayDateKey } from '../../utils/dateKeys';
+import { normalizeMacroRecommendationSplit } from '../../utils/macroRecommendations';
 
 const MODAL_CLOSE_DELAY = 180; // Match CSS animation duration (150ms) + buffer
 const DEFAULT_TRAINING_EFFORT_TYPE = 'intensity';
@@ -536,8 +539,12 @@ export const EnergyMapCalculator = () => {
   const [editingPortionEntry, setEditingPortionEntry] = useState(null);
   const [portionInitialGrams, setPortionInitialGrams] = useState(null);
   const [trackerStepRange, setTrackerStepRange] = useState('12k');
-  const [showTrackerCaloriePicker, setShowTrackerCaloriePicker] =
-    useState(false);
+  const [selectedCalorieTargetType, setSelectedCalorieTargetType] =
+    useState('step_range');
+  const [tempMacroRecommendationSplit, setTempMacroRecommendationSplit] =
+    useState(() =>
+      normalizeMacroRecommendationSplit(userData.macroRecommendationSplit)
+    );
 
   const todayTrainingSessions = useMemo(
     () =>
@@ -610,6 +617,8 @@ export const EnergyMapCalculator = () => {
   const foodPortionModal = useAnimatedModal();
   const stepTrackerModal = useAnimatedModal();
   const stepGoalPickerModal = useAnimatedModal();
+  const macroPickerModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
+  const calorieTargetModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
   // ...existing code...
 
   const isAnyModalOpen = [
@@ -633,6 +642,8 @@ export const EnergyMapCalculator = () => {
     stepRangesModal,
     stepTrackerModal,
     stepGoalPickerModal,
+    macroPickerModal,
+    calorieTargetModal,
     dailyActivityCustomModal,
     dailyActivityEditorModal,
     dailyActivityModal,
@@ -676,6 +687,8 @@ export const EnergyMapCalculator = () => {
       stepRangesModal,
       stepTrackerModal,
       stepGoalPickerModal,
+      macroPickerModal,
+      calorieTargetModal,
       dailyActivityCustomModal,
       dailyActivityEditorModal,
       dailyActivityModal,
@@ -716,6 +729,7 @@ export const EnergyMapCalculator = () => {
     bodyFatTrackerModal,
     calorieBreakdownModal,
     calendarPickerModal,
+    calorieTargetModal,
     cardioFavouriteEditorModal,
     cardioFavouritesModal,
     cardioModal,
@@ -734,6 +748,7 @@ export const EnergyMapCalculator = () => {
     goalModal,
     heightModal,
     mealTypePickerModal,
+    macroPickerModal,
     phaseCreationModal,
     settingsModal,
     stepGoalPickerModal,
@@ -1883,6 +1898,102 @@ export const EnergyMapCalculator = () => {
     selectedGoal,
   ]);
 
+  const normalizedStepRanges = useMemo(
+    () => (Array.isArray(userData.stepRanges) ? userData.stepRanges : []),
+    [userData.stepRanges]
+  );
+
+  useEffect(() => {
+    if (normalizedStepRanges.length === 0) {
+      return;
+    }
+
+    if (!normalizedStepRanges.includes(trackerStepRange)) {
+      setTrackerStepRange(normalizedStepRanges[0]);
+    }
+  }, [normalizedStepRanges, trackerStepRange]);
+
+  useEffect(() => {
+    if (
+      selectedCalorieTargetType === 'live_steps' &&
+      (healthConnect.status !== HealthConnectStatus.CONNECTED ||
+        liveStepData == null)
+    ) {
+      setSelectedCalorieTargetType('step_range');
+    }
+  }, [healthConnect.status, liveStepData, selectedCalorieTargetType]);
+
+  const trackerRangeData = useMemo(() => {
+    if (!trackerStepRange) {
+      return null;
+    }
+
+    return getRangeDetails(trackerStepRange);
+  }, [getRangeDetails, trackerStepRange]);
+
+  const selectedCalorieTargetData = useMemo(() => {
+    if (selectedCalorieTargetType === 'live_steps' && liveStepData) {
+      return {
+        type: 'live_steps',
+        key: 'live_steps',
+        steps: liveStepData.stepCount,
+        label: `${liveStepData.stepCount.toLocaleString()} live steps`,
+        targetCalories: liveStepData.targetCalories,
+      };
+    }
+
+    if (!trackerStepRange || !trackerRangeData) {
+      return {
+        type: 'step_range',
+        key: trackerStepRange ? `step_range:${trackerStepRange}` : null,
+        steps: trackerStepRange,
+        label: trackerStepRange ? `${trackerStepRange} steps` : 'No target',
+        targetCalories: 2500,
+      };
+    }
+
+    return {
+      type: 'step_range',
+      key: `step_range:${trackerStepRange}`,
+      steps: trackerStepRange,
+      label: `${trackerStepRange} steps`,
+      targetCalories: trackerRangeData.targetCalories ?? 2500,
+    };
+  }, [
+    liveStepData,
+    selectedCalorieTargetType,
+    trackerRangeData,
+    trackerStepRange,
+  ]);
+
+  const calorieTargetOptions = useMemo(() => {
+    const stepRangeOptions = normalizedStepRanges.map((range) => {
+      const details = getRangeDetails(range);
+      return {
+        key: `step_range:${range}`,
+        type: 'step_range',
+        label: 'Step Range',
+        steps: range,
+        targetCalories: details?.targetCalories ?? 0,
+      };
+    });
+
+    if (!liveStepData) {
+      return stepRangeOptions;
+    }
+
+    return [
+      {
+        key: 'live_steps',
+        type: 'live_steps',
+        label: "Today's Live Steps",
+        steps: liveStepData.stepCount,
+        targetCalories: liveStepData.targetCalories ?? 0,
+      },
+      ...stepRangeOptions,
+    ];
+  }, [getRangeDetails, liveStepData, normalizedStepRanges]);
+
   // Auto-save step entries when Health Connect data updates
   useEffect(() => {
     if (
@@ -2253,14 +2364,50 @@ export const EnergyMapCalculator = () => {
     updateFoodFavourite,
   ]);
 
-  const handleToggleTrackerCaloriePicker = useCallback(() => {
-    setShowTrackerCaloriePicker((prev) => !prev);
+  const openCalorieTargetPicker = useCallback(() => {
+    calorieTargetModal.open();
+  }, [calorieTargetModal]);
+
+  const handleCalorieTargetSelect = useCallback((option) => {
+    if (!option) {
+      return;
+    }
+
+    if (option.type === 'live_steps') {
+      setSelectedCalorieTargetType('live_steps');
+      return;
+    }
+
+    const optionSteps = String(option.steps ?? '').trim();
+    if (!optionSteps) {
+      return;
+    }
+    setTrackerStepRange(optionSteps);
+    setSelectedCalorieTargetType('step_range');
   }, []);
 
-  const handleTrackerStepRangeChange = useCallback((range) => {
-    setTrackerStepRange(range);
-    setShowTrackerCaloriePicker(false);
+  const handleMacroPickerChange = useCallback((nextSplit) => {
+    setTempMacroRecommendationSplit(
+      normalizeMacroRecommendationSplit(nextSplit)
+    );
   }, []);
+
+  const openMacroPickerModal = useCallback(() => {
+    setTempMacroRecommendationSplit(
+      normalizeMacroRecommendationSplit(userData.macroRecommendationSplit)
+    );
+    macroPickerModal.open();
+  }, [macroPickerModal, userData.macroRecommendationSplit]);
+
+  const handleMacroPickerSave = useCallback(
+    (nextSplit) => {
+      const normalized = normalizeMacroRecommendationSplit(nextSplit);
+      setTempMacroRecommendationSplit(normalized);
+      handleUserDataChange('macroRecommendationSplit', normalized);
+      macroPickerModal.requestClose();
+    },
+    [handleUserDataChange, macroPickerModal]
+  );
 
   useEffect(() => {
     if (foodEntryModal.isClosing) {
@@ -3170,19 +3317,15 @@ export const EnergyMapCalculator = () => {
                   onEditFoodEntry={handleEditFoodEntry}
                   onDeleteFoodEntry={deleteFoodEntry}
                   onDeleteMeal={deleteMeal}
-                  targetProtein={Math.round(userData.weight * 2)}
-                  targetFats={Math.round(userData.weight * 0.8)}
-                  stepRanges={userData.stepRanges}
-                  selectedGoal={selectedGoal}
-                  selectedDay={selectedDay}
-                  getRangeDetails={getRangeDetails}
+                  macroRecommendationSplit={userData.macroRecommendationSplit}
                   calendarModal={calendarPickerModal}
                   selectedDate={trackerSelectedDate}
                   onSelectedDateChange={setTrackerSelectedDate}
-                  selectedStepRange={trackerStepRange}
-                  onStepRangeChange={handleTrackerStepRangeChange}
-                  showCalorieTargetPicker={showTrackerCaloriePicker}
-                  onToggleCalorieTargetPicker={handleToggleTrackerCaloriePicker}
+                  calorieTargetLabel={selectedCalorieTargetData.label}
+                  calorieTargetCalories={
+                    selectedCalorieTargetData.targetCalories
+                  }
+                  onOpenCalorieTargetModal={openCalorieTargetPicker}
                   isSwiping={isSwiping}
                 />
               </div>
@@ -3252,6 +3395,10 @@ export const EnergyMapCalculator = () => {
                   onOpenBodyFatTracker={openBodyFatTracker}
                   onOpenBmiInfo={bmiModal.open}
                   onOpenFfmiInfo={ffmiModal.open}
+                  targetCalories={
+                    selectedCalorieTargetData.targetCalories ?? 2500
+                  }
+                  onOpenMacroPicker={openMacroPickerModal}
                 />
               </div>
             </div>
@@ -3387,6 +3534,28 @@ export const EnergyMapCalculator = () => {
         value={stepGoal}
         onCancel={stepGoalPickerModal.requestClose}
         onSave={handleStepGoalSave}
+      />
+
+      <MacroPickerModal
+        isOpen={macroPickerModal.isOpen}
+        isClosing={macroPickerModal.isClosing}
+        value={tempMacroRecommendationSplit}
+        onChange={handleMacroPickerChange}
+        targetCalories={selectedCalorieTargetData.targetCalories ?? 2500}
+        userData={userData}
+        targetLabel={selectedCalorieTargetData.label}
+        onOpenCalorieTargetModal={openCalorieTargetPicker}
+        onCancel={macroPickerModal.requestClose}
+        onSave={handleMacroPickerSave}
+      />
+
+      <CalorieTargetModal
+        isOpen={calorieTargetModal.isOpen}
+        isClosing={calorieTargetModal.isClosing}
+        onClose={calorieTargetModal.requestClose}
+        options={calorieTargetOptions}
+        selectedKey={selectedCalorieTargetData.key}
+        onSelect={handleCalorieTargetSelect}
       />
 
       <TimePickerModal
