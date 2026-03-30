@@ -315,9 +315,8 @@ export const BodyFatTrendInfoModal = ({
         </div>
 
         <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5 text-xs md:text-sm">
-          <span className="text-foreground font-semibold">Tip:</span> Track
-          body fat with the same method and timing for the most consistent
-          trends.
+          <span className="text-foreground font-semibold">Tip:</span> Track body
+          fat with the same method and timing for the most consistent trends.
         </div>
       </div>
 

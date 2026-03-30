@@ -260,8 +260,8 @@ export const HomeScreen = ({
             type="button"
             className={`p-4 rounded-xl border-2 transition-all relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-purple/70 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
               selectedDay === 'training'
-                ? 'bg-accent-purple border-accent-purple/70 text-primary-foreground shadow-xl transform scale-105'
-                : 'bg-surface-highlight/50 border-border/50 text-foreground/90 md:hover:border-accent-purple/70 md:hover:shadow-lg md:hover:scale-[1.03]'
+                ? 'bg-primary border-primary text-primary-foreground shadow-xl transform scale-105'
+                : 'bg-surface-highlight/50 border-border/50 text-foreground/90 md:hover:border-primary/70 md:hover:shadow-lg md:hover:scale-[1.03]'
             }`}
             transition={{ type: 'spring', stiffness: 260, damping: 24 }}
           >

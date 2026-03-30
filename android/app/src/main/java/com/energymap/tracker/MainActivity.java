@@ -28,4 +28,5 @@ public class MainActivity extends BridgeActivity {
     public void onActionModeStarted(ActionMode mode) {
         mode.finish();
     }
+
 }

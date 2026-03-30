@@ -81,7 +81,7 @@ export const CalorieTargetModal = ({
         <button
           type="button"
           onClick={onClose}
-          className="w-full px-4 py-3 rounded-xl bg-surface-highlight text-foreground transition-all press-feedback focus-ring md:hover:bg-surface"
+          className="w-full px-4 py-3 rounded-lg bg-surface-highlight text-foreground transition-all press-feedback focus-ring md:hover:bg-surface"
         >
           Close
         </button>

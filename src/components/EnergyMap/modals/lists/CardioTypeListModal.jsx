@@ -160,14 +160,14 @@ export const CardioTypeListModal = ({
                   role="listitem"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex-shrink-0">
-                      <Flame size={24} />
+                    <div className="flex-shrink-0 ">
+                      <Flame size={24} className="text-foreground" />
                     </div>
                     <div className="flex-1">
-                      <p className="font-semibold text-base md:text-lg leading-tight">
+                      <p className="text-foreground font-semibold text-base md:text-lg leading-tight">
                         {type.label}
                       </p>
-                      <p className="text-xs md:text-sm opacity-80">
+                      <p className="text-xs md:text-sm text-muted">
                         Light {renderMetValue(light)} • Moderate{' '}
                         {renderMetValue(moderate)} • Vigorous{' '}
                         {renderMetValue(vigorous)} METs
