@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Flame, Footprints } from 'lucide-react';
+import { Flame } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 
 const formatStepsLabel = (value) => {
@@ -36,7 +36,6 @@ export const CalorieTargetModal = ({
       <div className="space-y-2 max-h-[60vh] overflow-y-auto">
         {options.map((option) => {
           const isSelected = option.key === selectedKey;
-          const isLive = option.type === 'live_steps';
 
           return (
             <button
@@ -45,31 +44,25 @@ export const CalorieTargetModal = ({
               onClick={() => handleSelect(option)}
               className={`w-full rounded-xl border px-3 py-3 text-left transition-all pressable-card focus-ring ${
                 isSelected
-                  ? 'border-accent-blue/60 bg-surface-highlight'
-                  : 'border-border/50 bg-surface-highlight/30 md:hover:bg-surface-highlight/60'
+                  ? 'border-primary bg-primary'
+                  : 'border-border bg-surface-highlight md:hover:bg-surface-highlight/60'
               }`}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-foreground font-semibold text-sm flex items-center gap-1.5">
-                    {isLive && (
-                      <Footprints size={14} className="text-accent-blue" />
-                    )}
                     <span>{option.label}</span>
                   </p>
-                  <p className="text-muted text-xs mt-0.5">
+                  <p
+                    className={`text-xs mt-0.5 ${isSelected ? 'text-primary-foreground' : 'text-muted'}`}
+                  >
                     {formatStepsLabel(option.steps)}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <p
-                    className={`text-sm font-bold ${isSelected ? 'text-accent-blue' : 'text-foreground'}`}
-                  >
+                  <p className="text-lg font-bold text-foreground">
                     {Math.round(option.targetCalories || 0).toLocaleString()}
                   </p>
-                  {isSelected && (
-                    <Check size={16} className="text-accent-blue" />
-                  )}
                 </div>
               </div>
             </button>

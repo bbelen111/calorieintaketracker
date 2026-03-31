@@ -252,7 +252,7 @@ export const CardioFavouritesModal = ({
                   aria-current={active ? 'true' : 'false'}
                 >
                   <div className="flex items-center gap-2 md:gap-3">
-                    <div className="flex-shrink-0 rounded-full p-2 bg-primary-foreground/15">
+                    <div className="flex-shrink-0 rounded-full p-2 bg-surface-highlight/20">
                       <Heart size={18} className="text-primary-foreground" />
                     </div>
                     <div className="flex-1 min-w-0">

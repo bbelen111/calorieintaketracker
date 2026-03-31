@@ -150,13 +150,7 @@ const ActivityOptionCard = ({
       isActive ? ACTIVE_CARD_CLASS : INACTIVE_CARD_CLASS
     }`}
   >
-    <div
-      className={`flex items-center justify-center w-12 h-12 rounded-full flex-shrink-0 ${
-        isActive
-          ? 'bg-primary-foreground/20 text-primary-foreground'
-          : 'bg-surface text-foreground/80'
-      }`}
-    >
+    <div className="flex-shrink-0 rounded-full p-2 bg-surface-highlight/20">
       <Icon size={28} className="flex-shrink-0" />
     </div>
     <div className="flex-1">

@@ -1986,7 +1986,7 @@ export const EnergyMapCalculator = () => {
       {
         key: 'live_steps',
         type: 'live_steps',
-        label: "Today's Live Steps",
+        label: 'Live Steps',
         steps: liveStepData.stepCount,
         targetCalories: liveStepData.targetCalories ?? 0,
       },

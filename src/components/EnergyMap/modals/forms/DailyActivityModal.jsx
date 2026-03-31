@@ -15,13 +15,13 @@ const dayConfig = {
     label: 'Training Day',
     icon: Dumbbell,
     accentClassName: 'border-primary bg-primary',
-    iconClassName: 'bg-foreground/25 text-primary-foreground',
+    iconClassName: 'bg-surface-highlight/20 text-primary-foreground',
   },
   rest: {
     label: 'Rest Day',
     icon: BedDouble,
     accentClassName: 'border-accent-indigo bg-accent-indigo',
-    iconClassName: 'bg-foreground/25 text-primary-foreground',
+    iconClassName: 'bg-surface-highlight/20 text-primary-foreground',
   },
 };
 
@@ -140,8 +140,8 @@ const DayPresetCard = ({
     </span>
     <div className="flex-1">
       <p className="font-semibold text-lg">{label}</p>
-      <p className="text-sm text-muted mt-1">{presetLabel}</p>
-      <p className="text-xs text-muted mt-2">
+      <p className="text-sm text-primary-foreground mt-1">{presetLabel}</p>
+      <p className="text-xs text-primary-foreground mt-2">
         NEAT offset: {formatMultiplier(multiplier)}
       </p>
     </div>

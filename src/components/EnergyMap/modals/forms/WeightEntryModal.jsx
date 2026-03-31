@@ -82,7 +82,7 @@ export const WeightEntryModal = ({
           <button
             type="button"
             onClick={() => onRequestWeightPicker?.()}
-            className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-primary border-accent-blue text-primary-foreground transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1 text-left md:hover:brightness-110 font-semibold text-base focus-ring press-feedback"
+            className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 bg-primary border-primary text-primary-foreground transition-all active:scale-[0.98] flex flex-wrap items-center gap-x-3 gap-y-1 text-left md:hover:brightness-110 font-semibold text-base focus-ring press-feedback"
           >
             <span className="font-semibold text-base">{formattedWeight}</span>
             <span className="text-[11px] opacity-80 ml-auto whitespace-nowrap">

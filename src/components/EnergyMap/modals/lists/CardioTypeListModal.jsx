@@ -154,20 +154,22 @@ export const CardioTypeListModal = ({
                   onClick={() => onSelect(key)}
                   className={`w-full rounded-xl border px-4 py-4 text-left transition-all pressable-card focus-ring flex flex-col gap-2 ${
                     isActive
-                      ? 'border-accent-blue/60 bg-surface-highlight'
-                      : 'border-border/50 bg-surface-highlight/30 md:hover:bg-surface-highlight/60'
+                      ? 'border-primary bg-primary'
+                      : 'border-border bg-surface-highlight md:hover:bg-surface-highlight/60'
                   }`}
                   role="listitem"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex-shrink-0 ">
+                    <div className="flex-shrink-0 rounded-full p-1 bg-surface-highlight/20">
                       <Flame size={24} className="text-foreground" />
                     </div>
                     <div className="flex-1">
                       <p className="text-foreground font-semibold text-base md:text-lg leading-tight">
                         {type.label}
                       </p>
-                      <p className="text-xs md:text-sm text-muted">
+                      <p
+                        className={`text-xs md:text-sm ${isActive ? 'text-primary-foreground' : 'text-muted'}`}
+                      >
                         Light {renderMetValue(light)} • Moderate{' '}
                         {renderMetValue(moderate)} • Vigorous{' '}
                         {renderMetValue(vigorous)} METs

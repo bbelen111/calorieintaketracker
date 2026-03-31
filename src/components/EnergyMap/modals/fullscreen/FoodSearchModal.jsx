@@ -1371,7 +1371,7 @@ export const FoodSearchModal = ({
                   return (
                     <div
                       key={key}
-                      className="w-full text-left p-4 rounded-lg border border-border bg-surface-highlight transition-all md:hover:border-accent-emerald/40 cursor-pointer"
+                      className="w-full text-left p-4 rounded-xl border border-border bg-surface-highlight transition-all md:hover:border-accent-emerald/40 cursor-pointer"
                       role="button"
                       tabIndex={0}
                       onClick={(event) =>
@@ -1481,11 +1481,11 @@ export const FoodSearchModal = ({
                             <button
                               type="button"
                               onClick={(e) => handleFavouriteEdit(favourite, e)}
-                              className="flex-shrink-0 w-9 h-9 rounded-full bg-foreground/10 md:hover:bg-accent-blue/20 transition-colors flex items-center justify-center"
+                              className="flex-shrink-0 w-11 h-11 rounded-full bg-surface-highlight/20 md:hover:bg-accent-blue/20 transition-colors flex items-center justify-center"
                               aria-label="Edit manual entry"
                               title="Edit entry"
                             >
-                              <Edit3 size={16} className="text-foreground" />
+                              <Edit3 size={20} className="text-foreground" />
                             </button>
                           )}
 
@@ -1498,12 +1498,12 @@ export const FoodSearchModal = ({
                                   setPendingDeleteId(favourite.id);
                                   openDeleteConfirm();
                                 }}
-                                className="flex-shrink-0 w-9 h-9 rounded-full bg-foreground/10 md:hover:bg-accent-red/20 transition-colors flex items-center justify-center"
+                                className="flex-shrink-0 w-11 h-11 rounded-full bg-surface-highlight/20 md:hover:bg-accent-red/20 transition-colors flex items-center justify-center"
                                 aria-label="Delete favourite food"
                                 title="Remove from favourites"
                               >
                                 <Trash2
-                                  size={16}
+                                  size={20}
                                   className="text-foreground md:hover:text-accent-red"
                                 />
                               </button>
@@ -1593,7 +1593,7 @@ export const FoodSearchModal = ({
                           !isLoading && handleOnlineFoodSelect(food)
                         }
                         disabled={isLoading}
-                        className={`relative w-full bg-surface-highlight border border-border rounded-lg p-3 text-left transition-all ${
+                        className={`relative w-full bg-surface-highlight border border-border rounded-xl p-3 text-left transition-all ${
                           isLoading
                             ? 'opacity-70 cursor-wait'
                             : 'active:scale-[0.99] md:hover:border-accent-emerald/50'
@@ -1688,7 +1688,7 @@ export const FoodSearchModal = ({
                         onPointerLeave={() => handlePressEnd(true)}
                         onPointerCancel={() => handlePressEnd(true)}
                         onContextMenu={(event) => event.preventDefault()}
-                        className={`relative w-full bg-surface-highlight border rounded-lg p-3 text-left transition-all ${
+                        className={`relative w-full bg-surface-highlight border rounded-xl p-3 text-left transition-all ${
                           isLongPressing
                             ? 'border-accent-blue scale-[0.98]'
                             : `${borderClass} active:scale-[0.99]`
@@ -1776,8 +1776,6 @@ export const FoodSearchModal = ({
               </>
             )}
           </div>
-          <div className="pointer-events-none absolute left-0 right-0 top-0 h-3 bg-gradient-to-b from-surface/90 to-transparent" />
-          <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-3 bg-gradient-to-t from-surface/90 to-transparent" />
         </div>
       </div>
 
