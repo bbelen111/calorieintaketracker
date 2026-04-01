@@ -2460,13 +2460,17 @@ export const EnergyMapCalculator = () => {
   // Food Favourites Handlers
   // When user clicks "Quick Add" on a favourite - instantly add to meal
   const handleSelectFoodFavourite = useCallback(
-    (foodEntry) => {
+    (foodEntry, options = {}) => {
       if (!foodMealType) {
         // No meal type selected - can't add
         return;
       }
 
       addFoodEntry(trackerSelectedDate, foodMealType, foodEntry);
+
+      if (options?.closeModal === false) {
+        return;
+      }
 
       // Close search modal after quick add
       foodSearchModal.requestClose();
@@ -3946,6 +3950,7 @@ export const EnergyMapCalculator = () => {
         onUpdateCachedFoods={updateCachedFoods}
         customFoods={customFoods}
         onAddCustomFood={handleAddCustomFood}
+        onSaveAsFavourite={handleCreateFoodFavourite}
       />
 
       <FoodPortionModal

@@ -70,6 +70,7 @@ export const FoodSearchModal = ({
   cachedFoods = [],
   onUpdateCachedFoods,
   customFoods = [],
+  onSaveAsFavourite,
 }) => {
   const {
     foodFavourites,
@@ -872,6 +873,95 @@ export const FoodSearchModal = ({
     });
   };
 
+  const buildAiFoodEntry = useCallback(
+    (entry, index = 0) => {
+      if (!entry?.name) {
+        return null;
+      }
+
+      const entryId = entryIdRef.current;
+      entryIdRef.current += 1;
+
+      const safeNumber = (value) => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : 0;
+      };
+
+      const grams = Number(entry.grams);
+
+      return {
+        id: entryId,
+        foodId: `ai_${Date.now()}_${index}`,
+        name: entry.name,
+        calories: Math.max(0, Math.round(safeNumber(entry.calories))),
+        protein: Math.max(0, Math.round(safeNumber(entry.protein) * 10) / 10),
+        carbs: Math.max(0, Math.round(safeNumber(entry.carbs) * 10) / 10),
+        fats: Math.max(0, Math.round(safeNumber(entry.fats) * 10) / 10),
+        grams: Number.isFinite(grams) && grams > 0 ? Math.round(grams) : null,
+        source: 'ai',
+        timestamp: new Date().toISOString(),
+      };
+    },
+    [entryIdRef]
+  );
+
+  const buildAiSourceFood = useCallback((foodEntry) => {
+    if (!foodEntry?.name) {
+      return null;
+    }
+
+    const grams = Number(foodEntry.grams);
+    const divisor = Number.isFinite(grams) && grams > 0 ? grams / 100 : null;
+
+    return {
+      id: foodEntry.foodId,
+      name: foodEntry.name,
+      category: 'supplements',
+      source: 'ai',
+      per100g:
+        divisor && divisor > 0
+          ? {
+              calories: Math.round(foodEntry.calories / divisor),
+              protein: Math.round((foodEntry.protein / divisor) * 10) / 10,
+              carbs: Math.round((foodEntry.carbs / divisor) * 10) / 10,
+              fats: Math.round((foodEntry.fats / divisor) * 10) / 10,
+            }
+          : null,
+      portions: [],
+    };
+  }, []);
+
+  const handleLogAiEntry = useCallback(
+    (entry, { closeModal } = { closeModal: false }) => {
+      const foodEntry = buildAiFoodEntry(entry);
+      if (!foodEntry) return;
+      onSelectFavourite?.(foodEntry, { closeModal });
+    },
+    [buildAiFoodEntry, onSelectFavourite]
+  );
+
+  const handleSaveAiFavourite = useCallback(
+    (entry, index = 0) => {
+      const foodEntry = buildAiFoodEntry(entry, index);
+      if (!foodEntry) return;
+      const sourceFood = buildAiSourceFood(foodEntry);
+      onSaveAsFavourite?.(foodEntry, sourceFood);
+    },
+    [buildAiFoodEntry, buildAiSourceFood, onSaveAsFavourite]
+  );
+
+  const handleLogAllAiEntries = useCallback(
+    (entries, closeModal = false) => {
+      if (!Array.isArray(entries) || entries.length === 0) return;
+
+      entries.forEach((entry, index) => {
+        const isLast = index === entries.length - 1;
+        handleLogAiEntry(entry, { closeModal: closeModal && isLast });
+      });
+    },
+    [handleLogAiEntry]
+  );
+
   const sendChat = async () => {
     if (isSendingChat) return;
 
@@ -923,6 +1013,7 @@ export const FoodSearchModal = ({
           id: `assistant-${Date.now()}`,
           role: 'assistant',
           content: result.text,
+          foodParser: result.foodParser ?? null,
           createdAt: Date.now(),
         },
       ]);
@@ -1097,16 +1188,11 @@ export const FoodSearchModal = ({
         </div>
 
         {viewMode === 'chat' && (
-          <div className="flex-1 min-h-0 px-4 pt-3 pb-4 flex flex-col gap-3">
-            <div className="bg-surface-highlight/60 border border-border rounded-xl px-3 py-2 text-sm text-muted">
-              AI Food Coach — ask about macros, calories, portions, or attach
-              meal photos for guidance.
-            </div>
-
+          <div className="flex-1 min-h-0 flex flex-col">
             {!isOnline && (
-              <div className="flex items-center gap-2 px-3 py-2 bg-accent-amber/10 border border-accent-amber/30 rounded-lg">
+              <div className="mx-4 mt-3 flex items-center gap-2 px-3 py-2 bg-accent-amber/10 border border-accent-amber/30 rounded-lg flex-shrink-0">
                 <CloudOff
-                  size={16}
+                  size={14}
                   className="text-accent-amber flex-shrink-0"
                 />
                 <p className="text-accent-amber text-xs">
@@ -1117,145 +1203,340 @@ export const FoodSearchModal = ({
 
             <div
               ref={chatScrollRef}
-              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden touch-action-pan-y space-y-2"
+              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden touch-action-pan-y px-4 pt-3 pb-2 space-y-3"
             >
               {chatMessages.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-center text-muted text-sm px-4">
-                  <div>
-                    <Sparkles className="mx-auto mb-3 text-muted" size={30} />
-                    <p className="text-foreground font-medium">
-                      Start a food-focused AI chat
+                <div className="h-full flex flex-col items-center justify-center gap-5 px-2 py-6">
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    <div className="w-12 h-12 rounded-2xl bg-accent-blue/15 border border-accent-blue/25 flex items-center justify-center">
+                      <Sparkles size={22} className="text-accent-blue" />
+                    </div>
+                    <p className="text-foreground font-semibold text-base">
+                      Food Log Parser
                     </p>
-                    <p className="text-xs mt-1">
-                      Try: “Estimate macros for chicken burrito bowl” or attach
-                      a meal photo.
+                    <p className="text-muted text-xs max-w-[240px] leading-relaxed">
+                      Describe what you ate (and optionally attach images). I
+                      will estimate nutrition and prepare log-ready entries.
                     </p>
                   </div>
+
+                  <div className="w-full grid grid-cols-2 gap-2">
+                    {[
+                      {
+                        icon: '🍗',
+                        label: 'Parse a food text',
+                        prompt: '3 egg omelette',
+                      },
+                      {
+                        icon: '📸',
+                        label: 'Parse text + image',
+                        prompt:
+                          'Burger from a local diner (I will attach an image)',
+                      },
+                      {
+                        icon: '🧮',
+                        label: 'Ask with assumptions',
+                        prompt: '2 slices pepperoni pizza, large slice size',
+                      },
+                      {
+                        icon: '📝',
+                        label: 'Multi-item parse',
+                        prompt: 'Chicken sandwich and medium fries',
+                      },
+                    ].map(({ icon, label, prompt }) => (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => setChatInput(prompt)}
+                        className="flex items-center gap-2 px-3 py-2.5 bg-surface-highlight border border-border rounded-xl text-left text-xs font-medium text-foreground md:hover:border-accent-blue/40 md:hover:bg-accent-blue/5 transition-all pressable-inline focus-ring"
+                      >
+                        <span className="text-base leading-none">{icon}</span>
+                        <span className="leading-tight">{label}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <p className="text-muted text-[11px] text-center">
+                    You can also paste or attach meal photos for visual
+                    analysis.
+                  </p>
                 </div>
               ) : (
-                chatMessages.map((message) => {
-                  const isUser = message.role === 'user';
-                  return (
-                    <div
-                      key={message.id}
-                      className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
-                    >
+                <>
+                  {chatMessages.map((message) => {
+                    const isUser = message.role === 'user';
+                    return (
                       <div
-                        className={`max-w-[88%] rounded-2xl px-3 py-2 border text-sm whitespace-pre-wrap ${
-                          isUser
-                            ? 'bg-accent-blue/20 border-accent-blue/30 text-foreground'
-                            : 'bg-surface-highlight border-border text-foreground'
-                        }`}
+                        key={message.id}
+                        className={`flex items-end gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}
                       >
-                        <p>{message.content}</p>
-                        {isUser && message.attachmentCount > 0 && (
-                          <p className="text-xs text-muted mt-1">
-                            {message.attachmentCount} image
-                            {message.attachmentCount === 1 ? '' : 's'} attached
-                          </p>
+                        {!isUser && (
+                          <div className="flex-shrink-0 w-6 h-6 rounded-lg bg-accent-blue/15 border border-accent-blue/25 flex items-center justify-center mb-0.5">
+                            <Sparkles size={12} className="text-accent-blue" />
+                          </div>
                         )}
+
+                        <div
+                          className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
+                            isUser
+                              ? 'bg-accent-blue text-primary-foreground rounded-br-md'
+                              : 'bg-surface-highlight border border-border text-foreground rounded-bl-md'
+                          }`}
+                        >
+                          <p>{message.content}</p>
+                          {!isUser &&
+                            message.foodParser?.messageType ===
+                              'food_entries' &&
+                            Array.isArray(message.foodParser.entries) &&
+                            message.foodParser.entries.length > 0 && (
+                              <div className="mt-3 space-y-2">
+                                {message.foodParser.entries.map(
+                                  (entry, index) => (
+                                    <div
+                                      key={`${message.id}-${entry.name}-${index}`}
+                                      className="rounded-xl bg-surface border border-border px-3 py-2"
+                                    >
+                                      <div className="flex items-center justify-between gap-2 mb-2">
+                                        <p className="text-xs font-semibold text-foreground truncate">
+                                          {entry.name}
+                                        </p>
+                                        <span
+                                          className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+                                            entry.confidence === 'high'
+                                              ? 'bg-accent-green/20 text-accent-green'
+                                              : entry.confidence === 'low'
+                                                ? 'bg-accent-red/20 text-accent-red'
+                                                : 'bg-accent-amber/20 text-accent-amber'
+                                          }`}
+                                        >
+                                          {entry.confidence ?? 'medium'}
+                                        </span>
+                                      </div>
+
+                                      <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted mb-2">
+                                        {Number.isFinite(entry.grams) && (
+                                          <span>{formatOne(entry.grams)}g</span>
+                                        )}
+                                        <span>
+                                          {formatOne(entry.calories)} kcal
+                                        </span>
+                                        <span>{formatOne(entry.protein)}P</span>
+                                        <span>{formatOne(entry.carbs)}C</span>
+                                        <span>{formatOne(entry.fats)}F</span>
+                                      </div>
+
+                                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            handleLogAiEntry(entry, {
+                                              closeModal: false,
+                                            })
+                                          }
+                                          className="px-2.5 py-1.5 rounded-lg bg-accent-blue text-primary-foreground text-xs font-semibold md:hover:brightness-110 press-feedback focus-ring"
+                                        >
+                                          Log
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            handleLogAiEntry(entry, {
+                                              closeModal: true,
+                                            })
+                                          }
+                                          className="px-2.5 py-1.5 rounded-lg bg-accent-emerald text-primary-foreground text-xs font-semibold md:hover:brightness-110 press-feedback focus-ring"
+                                        >
+                                          Log & Exit
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            handleSaveAiFavourite(entry, index)
+                                          }
+                                          className="px-2.5 py-1.5 rounded-lg bg-surface-highlight border border-border text-foreground text-xs font-semibold md:hover:border-accent-purple/50 press-feedback focus-ring"
+                                        >
+                                          Save Favorite
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )
+                                )}
+
+                                {message.foodParser.entries.length > 1 && (
+                                  <div className="rounded-xl bg-surface border border-border px-3 py-2">
+                                    <p className="text-[11px] text-muted mb-2">
+                                      Batch actions
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleLogAllAiEntries(
+                                            message.foodParser.entries,
+                                            false
+                                          )
+                                        }
+                                        className="px-2.5 py-1.5 rounded-lg bg-accent-indigo text-primary-foreground text-xs font-semibold md:hover:brightness-110 press-feedback focus-ring"
+                                      >
+                                        Add All
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleLogAllAiEntries(
+                                            message.foodParser.entries,
+                                            true
+                                          )
+                                        }
+                                        className="px-2.5 py-1.5 rounded-lg bg-accent-purple text-primary-foreground text-xs font-semibold md:hover:brightness-110 press-feedback focus-ring"
+                                      >
+                                        Add All & Exit
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          {isUser && message.attachmentCount > 0 && (
+                            <p className="text-xs text-primary-foreground/70 mt-1">
+                              {message.attachmentCount} image
+                              {message.attachmentCount === 1 ? '' : 's'}{' '}
+                              attached
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {isSendingChat && (
+                    <div className="flex items-end gap-2 justify-start">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-lg bg-accent-blue/15 border border-accent-blue/25 flex items-center justify-center">
+                        <Sparkles size={12} className="text-accent-blue" />
+                      </div>
+                      <div className="bg-surface-highlight border border-border rounded-2xl rounded-bl-md px-4 py-3 flex items-center gap-1">
+                        {[0, 150, 300].map((delay) => (
+                          <span
+                            key={delay}
+                            className="w-1.5 h-1.5 bg-muted rounded-full animate-bounce"
+                            style={{
+                              animationDelay: `${delay}ms`,
+                              animationDuration: '900ms',
+                            }}
+                          />
+                        ))}
                       </div>
                     </div>
-                  );
-                })
+                  )}
+                </>
               )}
             </div>
 
             {chatAttachments.length > 0 && (
-              <div className="overflow-x-auto touch-action-pan-x scrollbar-hide">
-                <div className="flex gap-2 w-max py-1">
-                  {chatAttachments.map((attachment) => (
-                    <div
-                      key={attachment.id}
-                      className="relative w-16 h-16 rounded-lg border border-border overflow-hidden bg-surface-highlight"
-                    >
-                      <img
-                        src={attachment.previewUrl}
-                        alt="Attachment preview"
-                        className="w-full h-full object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeAttachment(attachment.id)}
-                        className="absolute top-1 right-1 w-5 h-5 rounded-full bg-background/90 text-muted md:hover:text-foreground flex items-center justify-center pressable-inline focus-ring"
-                        aria-label="Remove image"
+              <div className="px-4 pb-1 flex-shrink-0">
+                <div className="overflow-x-auto touch-action-pan-x scrollbar-hide">
+                  <div className="flex gap-2 w-max py-1">
+                    {chatAttachments.map((attachment) => (
+                      <div
+                        key={attachment.id}
+                        className="relative w-14 h-14 rounded-xl border border-border overflow-hidden bg-surface-highlight flex-shrink-0"
                       >
-                        <X size={12} />
-                      </button>
-                    </div>
-                  ))}
+                        <img
+                          src={attachment.previewUrl}
+                          alt="Attachment preview"
+                          className="w-full h-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeAttachment(attachment.id)}
+                          className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-background/90 backdrop-blur-sm text-muted md:hover:text-foreground flex items-center justify-center pressable-inline focus-ring border border-border/50"
+                          aria-label="Remove image"
+                        >
+                          <X size={10} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
 
             {chatError && (
-              <div className="bg-accent-red/10 border border-accent-red/30 rounded-lg px-3 py-2 text-accent-red text-xs">
-                {chatError}
+              <div className="mx-4 mb-1 flex-shrink-0">
+                <div className="bg-accent-red/10 border border-accent-red/30 rounded-lg px-3 py-2 text-accent-red text-xs flex items-start gap-2">
+                  <AlertCircle size={13} className="mt-0.5 flex-shrink-0" />
+                  <span>{chatError}</span>
+                </div>
               </div>
             )}
 
-            <div className="rounded-xl border border-border bg-surface-highlight p-2">
-              <div className="flex items-end gap-2">
-                <div className="flex items-center gap-1.5 pb-1">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-9 h-9 rounded-lg bg-surface md:hover:bg-surface-highlight flex items-center justify-center text-muted md:hover:text-foreground pressable-inline focus-ring"
-                    aria-label="Attach image"
-                    title="Attach image"
-                    disabled={isSendingChat}
-                  >
-                    <Paperclip size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => cameraInputRef.current?.click()}
-                    className="w-9 h-9 rounded-lg bg-surface md:hover:bg-surface-highlight flex items-center justify-center text-muted md:hover:text-foreground pressable-inline focus-ring"
-                    aria-label="Take photo"
-                    title="Take photo"
-                    disabled={isSendingChat}
-                  >
-                    <Camera size={16} />
-                  </button>
-                  <div
-                    className="w-9 h-9 rounded-lg bg-surface flex items-center justify-center text-muted"
-                    title="Paste image from clipboard"
-                    aria-label="Paste image supported"
-                  >
-                    <ImagePlus size={16} />
+            <div className="px-4 pb-3 pt-1 flex-shrink-0">
+              <div className="rounded-2xl border border-border bg-surface-highlight overflow-hidden shadow-sm">
+                <div className="flex items-end gap-2 px-2 pt-2 pb-2">
+                  <div className="flex items-center gap-0.5 pb-0.5 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isSendingChat}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-muted md:hover:text-foreground md:hover:bg-surface transition-all pressable-inline focus-ring disabled:opacity-40"
+                      aria-label="Attach image"
+                    >
+                      <Paperclip size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => cameraInputRef.current?.click()}
+                      disabled={isSendingChat}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-muted md:hover:text-foreground md:hover:bg-surface transition-all pressable-inline focus-ring disabled:opacity-40"
+                      aria-label="Take photo"
+                    >
+                      <Camera size={15} />
+                    </button>
                   </div>
+
+                  <div className="w-px h-5 bg-border flex-shrink-0 self-center" />
+
+                  <textarea
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={handleChatInputKeyDown}
+                    placeholder="Describe food to log (text and/or images)…"
+                    rows={1}
+                    className="flex-1 resize-none max-h-28 bg-transparent text-foreground placeholder:text-muted outline-none py-1.5 px-2 text-sm leading-relaxed"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={sendChat}
+                    disabled={
+                      isSendingChat ||
+                      (!chatInput.trim() && chatAttachments.length === 0)
+                    }
+                    className="flex-shrink-0 w-9 h-9 rounded-xl bg-accent-blue text-primary-foreground md:hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center press-feedback focus-ring self-end"
+                    aria-label="Send message"
+                  >
+                    {isSendingChat ? (
+                      <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin-fast" />
+                    ) : (
+                      <SendHorizontal size={15} />
+                    )}
+                  </button>
                 </div>
 
-                <textarea
-                  value={chatInput}
-                  onChange={(event) => setChatInput(event.target.value)}
-                  onKeyDown={handleChatInputKeyDown}
-                  placeholder="Ask about food, macros, portions..."
-                  rows={1}
-                  className="flex-1 resize-none max-h-32 bg-transparent text-foreground placeholder:text-muted outline-none py-2 px-1"
-                />
-
-                <button
-                  type="button"
-                  onClick={sendChat}
-                  disabled={
-                    isSendingChat ||
-                    (!chatInput.trim() && chatAttachments.length === 0)
-                  }
-                  className="w-10 h-10 rounded-lg bg-primary text-primary-foreground md:hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center press-feedback focus-ring"
-                  aria-label="Send message"
-                >
-                  {isSendingChat ? (
-                    <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin-fast" />
-                  ) : (
-                    <SendHorizontal size={16} />
-                  )}
-                </button>
+                <div className="px-3 pb-2 flex items-center justify-between">
+                  <p className="text-[10px] text-muted">
+                    Up to {MAX_IMAGE_COUNT} images · JPEG/PNG/WebP · max 5MB
+                    each · paste supported
+                  </p>
+                  <div
+                    className="flex items-center gap-1 text-[10px] text-muted"
+                    title="Paste image from clipboard"
+                  >
+                    <ImagePlus size={11} />
+                    <span>paste</span>
+                  </div>
+                </div>
               </div>
-              <p className="text-[11px] text-muted mt-1 px-1">
-                Up to {MAX_IMAGE_COUNT} images (JPEG/PNG/WebP, max 5MB each).
-                You can paste images directly.
-              </p>
             </div>
 
             <input
@@ -1264,9 +1545,9 @@ export const FoodSearchModal = ({
               accept="image/jpeg,image/png,image/webp"
               multiple
               className="hidden"
-              onChange={(event) => {
-                handleAddAttachmentFiles(event.target.files);
-                event.target.value = '';
+              onChange={(e) => {
+                handleAddAttachmentFiles(e.target.files);
+                e.target.value = '';
               }}
             />
             <input
@@ -1275,9 +1556,9 @@ export const FoodSearchModal = ({
               accept="image/*"
               capture="environment"
               className="hidden"
-              onChange={(event) => {
-                handleAddAttachmentFiles(event.target.files);
-                event.target.value = '';
+              onChange={(e) => {
+                handleAddAttachmentFiles(e.target.files);
+                e.target.value = '';
               }}
             />
           </div>

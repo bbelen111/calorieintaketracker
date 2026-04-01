@@ -4,6 +4,9 @@ import { Capacitor } from '@capacitor/core';
 export const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 export const MAX_IMAGE_COUNT = 3;
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const FOOD_PARSER_JSON_TAG = 'food_parser_json';
+const FOOD_ENTRY_CONFIDENCE = new Set(['high', 'medium', 'low']);
+const FOOD_MESSAGE_TYPES = new Set(['food_entries', 'clarification', 'error']);
 
 const API_BASE = (
   (typeof import.meta.env?.VITE_GEMINI_API_BASE === 'string'
@@ -34,6 +37,140 @@ function extractGeminiText(data) {
   });
 
   return collectedTexts.join('\n\n').trim();
+}
+
+function clampNumber(value, { min = 0, max = Number.POSITIVE_INFINITY } = {}) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return Math.min(Math.max(parsed, min), max);
+}
+
+function asNonEmptyString(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeFoodParserEntry(entry) {
+  if (!entry || typeof entry !== 'object') {
+    return null;
+  }
+
+  const name = asNonEmptyString(entry.name);
+  if (!name) {
+    return null;
+  }
+
+  const calories = clampNumber(entry.calories, { min: 0, max: 10000 });
+  const protein = clampNumber(entry.protein, { min: 0, max: 1000 });
+  const carbs = clampNumber(entry.carbs, { min: 0, max: 1000 });
+  const fats = clampNumber(entry.fats, { min: 0, max: 1000 });
+
+  if (calories == null || protein == null || carbs == null || fats == null) {
+    return null;
+  }
+
+  const grams = clampNumber(entry.grams, { min: 1, max: 2000 });
+  const confidenceRaw = asNonEmptyString(entry.confidence)?.toLowerCase();
+  const confidence = FOOD_ENTRY_CONFIDENCE.has(confidenceRaw)
+    ? confidenceRaw
+    : 'medium';
+
+  const assumptions = Array.isArray(entry.assumptions)
+    ? entry.assumptions
+        .map((item) => asNonEmptyString(item))
+        .filter(Boolean)
+        .slice(0, 6)
+    : [];
+
+  return {
+    name,
+    grams,
+    calories: Math.round(calories),
+    protein: Math.round(protein * 10) / 10,
+    carbs: Math.round(carbs * 10) / 10,
+    fats: Math.round(fats * 10) / 10,
+    confidence,
+    rationale: asNonEmptyString(entry.rationale),
+    assumptions,
+  };
+}
+
+function stripFoodParserPayload(text) {
+  if (typeof text !== 'string' || !text.trim()) {
+    return '';
+  }
+
+  const pattern = new RegExp(
+    `<${FOOD_PARSER_JSON_TAG}>[\\s\\S]*?<\\/${FOOD_PARSER_JSON_TAG}>`,
+    'gi'
+  );
+
+  return text.replace(pattern, '').trim();
+}
+
+export function parseFoodParserPayloadFromText(text) {
+  const fallback = {
+    displayText: stripFoodParserPayload(text),
+    payload: null,
+  };
+
+  if (typeof text !== 'string' || !text.trim()) {
+    return fallback;
+  }
+
+  const pattern = new RegExp(
+    `<${FOOD_PARSER_JSON_TAG}>([\\s\\S]*?)<\\/${FOOD_PARSER_JSON_TAG}>`,
+    'i'
+  );
+  const match = text.match(pattern);
+
+  if (!match || !match[1]) {
+    return fallback;
+  }
+
+  try {
+    const parsed = JSON.parse(match[1]);
+    if (!parsed || typeof parsed !== 'object') {
+      return fallback;
+    }
+
+    const messageTypeRaw =
+      asNonEmptyString(parsed.messageType)?.toLowerCase() ?? null;
+    const messageType = FOOD_MESSAGE_TYPES.has(messageTypeRaw)
+      ? messageTypeRaw
+      : null;
+    if (!messageType) {
+      return fallback;
+    }
+
+    const entries = Array.isArray(parsed.entries)
+      ? parsed.entries.map(normalizeFoodParserEntry).filter(Boolean)
+      : [];
+
+    const assistantMessageFromPayload = asNonEmptyString(
+      parsed.assistantMessage
+    );
+    const assistantMessage =
+      assistantMessageFromPayload ?? stripFoodParserPayload(text);
+
+    return {
+      displayText: assistantMessage,
+      payload: {
+        messageType,
+        entries,
+        followUpQuestion: asNonEmptyString(parsed.followUpQuestion),
+      },
+    };
+  } catch {
+    return fallback;
+  }
 }
 
 function resolveNoTextReason(data) {
@@ -284,9 +421,12 @@ export async function sendGeminiMessage({
       throw new GeminiError(resolveNoTextReason(data), 502, data);
     }
 
+    const parsedPayload = parseFoodParserPayloadFromText(resolvedText);
+
     return {
-      text: resolvedText,
+      text: parsedPayload.displayText,
       raw: data,
+      foodParser: parsedPayload.payload,
     };
   } catch (error) {
     if (error instanceof GeminiError) {
