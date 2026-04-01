@@ -48,6 +48,7 @@ Rules:
 - If messageType is "food_entries", include at least one entry.
 - If confidence is low overall, use messageType "clarification" and include followUpQuestion.
 - Never output markdown code fences around JSON.
+- Keep the JSON compact (no unnecessary fields or long prose inside JSON values).
 - Ensure JSON is valid and parseable.`;
 
 const VALID_ROLES = new Set(['user', 'model']);
@@ -122,7 +123,7 @@ export default async function handler(req, res) {
     },
     generationConfig: {
       temperature: 0.5,
-      maxOutputTokens: 700,
+      maxOutputTokens: 1200,
     },
   };
 

@@ -112,7 +112,18 @@ function stripFoodParserPayload(text) {
     'gi'
   );
 
-  return text.replace(pattern, '').trim();
+  const withoutCompleteBlocks = text.replace(pattern, '').trim();
+
+  const startTag = `<${FOOD_PARSER_JSON_TAG}>`;
+  const danglingStartIndex = withoutCompleteBlocks
+    .toLowerCase()
+    .indexOf(startTag.toLowerCase());
+
+  if (danglingStartIndex === -1) {
+    return withoutCompleteBlocks;
+  }
+
+  return withoutCompleteBlocks.slice(0, danglingStartIndex).trim();
 }
 
 export function parseFoodParserPayloadFromText(text) {

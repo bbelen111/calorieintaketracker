@@ -218,3 +218,15 @@ test('sendGeminiMessage includes parsed foodParser payload when response embeds 
     globalThis.fetch = originalFetch;
   }
 });
+
+test('parseFoodParserPayloadFromText strips dangling parser tag when payload is truncated', () => {
+  const rawText = `I estimated one fried chicken drumstick based on a typical serving.\n\n<food_parser_json>{"messageType":"food_entries","entries":[{"name":"Fried chicken leg"`;
+
+  const parsed = parseFoodParserPayloadFromText(rawText);
+
+  assert.equal(
+    parsed.displayText,
+    'I estimated one fried chicken drumstick based on a typical serving.'
+  );
+  assert.equal(parsed.payload, null);
+});
