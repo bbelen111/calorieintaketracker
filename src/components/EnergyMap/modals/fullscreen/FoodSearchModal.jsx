@@ -21,6 +21,11 @@ import {
   Globe,
   AlertCircle,
   CloudOff,
+  Sparkles,
+  SendHorizontal,
+  Paperclip,
+  Camera,
+  ImagePlus,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { shallow } from 'zustand/shallow';
@@ -42,6 +47,12 @@ import {
   trimFoodCache,
   FatSecretError,
 } from '../../../../services/fatSecret';
+import {
+  sendGeminiMessage,
+  GeminiError,
+  validateAttachmentFile,
+  MAX_IMAGE_COUNT,
+} from '../../../../services/gemini';
 
 export const FoodSearchModal = ({
   isOpen,
@@ -148,6 +159,17 @@ export const FoodSearchModal = ({
   // Scroll/fade overlays for action buttons
   const actionScrollRef = useRef(null);
 
+  // AI chat state
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatAttachments, setChatAttachments] = useState([]);
+  const [chatError, setChatError] = useState(null);
+  const [isSendingChat, setIsSendingChat] = useState(false);
+  const chatAbortControllerRef = useRef(null);
+  const chatScrollRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -182,6 +204,16 @@ export const FoodSearchModal = ({
       setFavouritesSortBy('name');
       setFavouritesSortOrder('asc');
       setIsFavouritesFilterOpen(false);
+      setChatMessages([]);
+      setChatInput('');
+      setChatError(null);
+      setIsSendingChat(false);
+      chatAttachments.forEach((attachment) => {
+        if (attachment.previewUrl) {
+          URL.revokeObjectURL(attachment.previewUrl);
+        }
+      });
+      setChatAttachments([]);
       forceDeleteConfirmClose();
       forceManualAddConfirmClose();
       forceAddCustomFoodClose();
@@ -191,8 +223,12 @@ export const FoodSearchModal = ({
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
+      if (chatAbortControllerRef.current) {
+        chatAbortControllerRef.current.abort();
+      }
     }
   }, [
+    chatAttachments,
     forceDeleteConfirmClose,
     forceManualAddConfirmClose,
     forceAddCustomFoodClose,
@@ -507,8 +543,67 @@ export const FoodSearchModal = ({
       if (longPressTimerRef.current) {
         clearTimeout(longPressTimerRef.current);
       }
+      if (chatAbortControllerRef.current) {
+        chatAbortControllerRef.current.abort();
+      }
+      chatAttachments.forEach((attachment) => {
+        if (attachment.previewUrl) {
+          URL.revokeObjectURL(attachment.previewUrl);
+        }
+      });
     };
-  }, []);
+  }, [chatAttachments]);
+
+  useEffect(() => {
+    if (viewMode !== 'chat') return;
+
+    const handlePaste = (event) => {
+      const clipboardItems = Array.from(event.clipboardData?.items || []);
+      const imageFiles = clipboardItems
+        .filter(
+          (item) => item.kind === 'file' && item.type.startsWith('image/')
+        )
+        .map((item) => item.getAsFile())
+        .filter(Boolean);
+
+      if (imageFiles.length === 0) return;
+
+      event.preventDefault();
+      setChatError(null);
+
+      setChatAttachments((prev) => {
+        const remainingSlots = Math.max(MAX_IMAGE_COUNT - prev.length, 0);
+        const acceptedFiles = imageFiles.slice(0, remainingSlots);
+        const nextAttachments = [...prev];
+
+        acceptedFiles.forEach((file, index) => {
+          try {
+            validateAttachmentFile(file);
+            nextAttachments.push({
+              id: `${Date.now()}-${index}-${file.name}`,
+              file,
+              previewUrl: URL.createObjectURL(file),
+            });
+          } catch (error) {
+            setChatError(error.message || 'Invalid image attachment');
+          }
+        });
+
+        if (imageFiles.length > acceptedFiles.length) {
+          setChatError(
+            `You can attach up to ${MAX_IMAGE_COUNT} images per message.`
+          );
+        }
+
+        return nextAttachments;
+      });
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => {
+      window.removeEventListener('paste', handlePaste);
+    };
+  }, [viewMode]);
 
   // Show small fade overlays on scrollable action buttons container
 
@@ -728,6 +823,144 @@ export const FoodSearchModal = ({
     return `${labels[sortBy]} ${orderLabel}`;
   };
 
+  const isSearchAddExpanded =
+    viewMode === 'search' || viewMode === 'favourites';
+  const toggleSegmentIndex =
+    viewMode === 'favourites' ? 2 : searchMode === 'online' ? 1 : 0;
+
+  const handleAddAttachmentFiles = (fileList) => {
+    const files = Array.from(fileList || []);
+    if (files.length === 0) return;
+
+    setChatError(null);
+
+    setChatAttachments((prev) => {
+      const remainingSlots = Math.max(MAX_IMAGE_COUNT - prev.length, 0);
+      const acceptedFiles = files.slice(0, remainingSlots);
+      const nextAttachments = [...prev];
+
+      acceptedFiles.forEach((file, index) => {
+        try {
+          validateAttachmentFile(file);
+          nextAttachments.push({
+            id: `${Date.now()}-${index}-${file.name}`,
+            file,
+            previewUrl: URL.createObjectURL(file),
+          });
+        } catch (error) {
+          setChatError(error.message || 'Invalid image attachment');
+        }
+      });
+
+      if (files.length > acceptedFiles.length) {
+        setChatError(
+          `You can attach up to ${MAX_IMAGE_COUNT} images per message.`
+        );
+      }
+
+      return nextAttachments;
+    });
+  };
+
+  const removeAttachment = (attachmentId) => {
+    setChatAttachments((prev) => {
+      const attachment = prev.find((item) => item.id === attachmentId);
+      if (attachment?.previewUrl) {
+        URL.revokeObjectURL(attachment.previewUrl);
+      }
+      return prev.filter((item) => item.id !== attachmentId);
+    });
+  };
+
+  const sendChat = async () => {
+    if (isSendingChat) return;
+
+    if (!isOnline) {
+      setChatError('You are offline. Connect to the internet to use AI chat.');
+      return;
+    }
+
+    if (!chatInput.trim() && chatAttachments.length === 0) {
+      setChatError('Type a message or attach at least one image.');
+      return;
+    }
+
+    const currentText = chatInput;
+    const currentAttachments = [...chatAttachments];
+
+    const userMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: currentText.trim() || 'Image analysis request',
+      attachmentCount: currentAttachments.length,
+      createdAt: Date.now(),
+    };
+
+    const history = chatMessages
+      .filter(
+        (message) => message.role === 'user' || message.role === 'assistant'
+      )
+      .map((message) => ({ role: message.role, content: message.content }));
+
+    setChatMessages((prev) => [...prev.slice(-48), userMessage]);
+    setChatError(null);
+    setIsSendingChat(true);
+
+    const controller = new window.AbortController();
+    chatAbortControllerRef.current = controller;
+
+    try {
+      const result = await sendGeminiMessage({
+        message: currentText,
+        files: currentAttachments.map((attachment) => attachment.file),
+        history,
+        signal: controller.signal,
+      });
+
+      setChatMessages((prev) => [
+        ...prev.slice(-49),
+        {
+          id: `assistant-${Date.now()}`,
+          role: 'assistant',
+          content: result.text,
+          createdAt: Date.now(),
+        },
+      ]);
+
+      setChatInput('');
+      currentAttachments.forEach((attachment) => {
+        if (attachment.previewUrl) {
+          URL.revokeObjectURL(attachment.previewUrl);
+        }
+      });
+      setChatAttachments([]);
+    } catch (error) {
+      const message =
+        error instanceof GeminiError
+          ? error.message
+          : 'Failed to get AI response. Please try again.';
+      setChatError(message);
+    } finally {
+      setIsSendingChat(false);
+      chatAbortControllerRef.current = null;
+    }
+  };
+
+  const handleChatInputKeyDown = (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      sendChat();
+    }
+  };
+
+  useEffect(() => {
+    if (viewMode !== 'chat') return;
+    chatScrollRef.current?.scrollTo({
+      top: chatScrollRef.current.scrollHeight,
+      behavior: 'smooth',
+    });
+  }, [chatMessages, chatAttachments, viewMode]);
+
   return (
     <ModalShell
       isOpen={isOpen}
@@ -775,7 +1008,7 @@ export const FoodSearchModal = ({
                     whileTap={{ scale: 0.98 }}
                     whileHover={{ y: -1 }}
                     className={`relative flex items-center gap-2 px-3 py-2 text-sm font-semibold transition-all whitespace-nowrap ${
-                      viewMode === 'search'
+                      isSearchAddExpanded
                         ? 'text-primary-foreground border-2 border-[rgb(var(--action-border)/0.7)] rounded-full bg-primary'
                         : 'text-primary-foreground/80 md:hover:text-primary-foreground'
                     }`}
@@ -789,7 +1022,7 @@ export const FoodSearchModal = ({
                     className="overflow-hidden"
                     initial={false}
                     animate={
-                      viewMode === 'search'
+                      isSearchAddExpanded
                         ? {
                             maxWidth: 160,
                             opacity: 1,
@@ -813,22 +1046,22 @@ export const FoodSearchModal = ({
                       className="flex items-center gap-2 px-3 py-2 text-primary-foreground/80 md:hover:text-primary-foreground text-sm font-semibold transition-colors whitespace-nowrap press-feedback focus-ring"
                     >
                       <Plus size={16} />
-                      <span className="whitespace-nowrap">Add Food</span>
+                      <span className="whitespace-nowrap">Add</span>
                     </motion.button>
                   </motion.div>
                 </motion.div>
 
                 <button
-                  onClick={() => setViewMode('favourites')}
-                  aria-label="Favorites"
-                  className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-full text-sm font-semibold transition-all shadow-md whitespace-nowrap ${
-                    viewMode === 'favourites'
-                      ? 'bg-primary text-primary-foreground border-2 border-[rgb(var(--action-border)/0.7)]'
-                      : 'bg-primary text-primary-foreground border border-transparent md:hover:brightness-110'
+                  onClick={() => setViewMode('chat')}
+                  aria-label="AI Chat"
+                  className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-primary md:hover:brightness-110 text-primary-foreground rounded-full text-sm font-semibold transition-all shadow-md whitespace-nowrap press-feedback focus-ring border ${
+                    viewMode === 'chat'
+                      ? 'border-[rgb(var(--action-border)/0.7)]'
+                      : 'border-transparent'
                   }`}
                 >
-                  <Star size={16} />
-                  <span>Favorites</span>
+                  <Sparkles size={16} />
+                  <span>AI Chat</span>
                 </button>
 
                 <button
@@ -862,6 +1095,193 @@ export const FoodSearchModal = ({
             </div>
           </div>
         </div>
+
+        {viewMode === 'chat' && (
+          <div className="flex-1 min-h-0 px-4 pt-3 pb-4 flex flex-col gap-3">
+            <div className="bg-surface-highlight/60 border border-border rounded-xl px-3 py-2 text-sm text-muted">
+              AI Food Coach — ask about macros, calories, portions, or attach
+              meal photos for guidance.
+            </div>
+
+            {!isOnline && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-accent-amber/10 border border-accent-amber/30 rounded-lg">
+                <CloudOff
+                  size={16}
+                  className="text-accent-amber flex-shrink-0"
+                />
+                <p className="text-accent-amber text-xs">
+                  You&apos;re offline. AI chat requires an internet connection.
+                </p>
+              </div>
+            )}
+
+            <div
+              ref={chatScrollRef}
+              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden touch-action-pan-y space-y-2"
+            >
+              {chatMessages.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-center text-muted text-sm px-4">
+                  <div>
+                    <Sparkles className="mx-auto mb-3 text-muted" size={30} />
+                    <p className="text-foreground font-medium">
+                      Start a food-focused AI chat
+                    </p>
+                    <p className="text-xs mt-1">
+                      Try: “Estimate macros for chicken burrito bowl” or attach
+                      a meal photo.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                chatMessages.map((message) => {
+                  const isUser = message.role === 'user';
+                  return (
+                    <div
+                      key={message.id}
+                      className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-[88%] rounded-2xl px-3 py-2 border text-sm whitespace-pre-wrap ${
+                          isUser
+                            ? 'bg-accent-blue/20 border-accent-blue/30 text-foreground'
+                            : 'bg-surface-highlight border-border text-foreground'
+                        }`}
+                      >
+                        <p>{message.content}</p>
+                        {isUser && message.attachmentCount > 0 && (
+                          <p className="text-xs text-muted mt-1">
+                            {message.attachmentCount} image
+                            {message.attachmentCount === 1 ? '' : 's'} attached
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {chatAttachments.length > 0 && (
+              <div className="overflow-x-auto touch-action-pan-x scrollbar-hide">
+                <div className="flex gap-2 w-max py-1">
+                  {chatAttachments.map((attachment) => (
+                    <div
+                      key={attachment.id}
+                      className="relative w-16 h-16 rounded-lg border border-border overflow-hidden bg-surface-highlight"
+                    >
+                      <img
+                        src={attachment.previewUrl}
+                        alt="Attachment preview"
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeAttachment(attachment.id)}
+                        className="absolute top-1 right-1 w-5 h-5 rounded-full bg-background/90 text-muted md:hover:text-foreground flex items-center justify-center pressable-inline focus-ring"
+                        aria-label="Remove image"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {chatError && (
+              <div className="bg-accent-red/10 border border-accent-red/30 rounded-lg px-3 py-2 text-accent-red text-xs">
+                {chatError}
+              </div>
+            )}
+
+            <div className="rounded-xl border border-border bg-surface-highlight p-2">
+              <div className="flex items-end gap-2">
+                <div className="flex items-center gap-1.5 pb-1">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-9 h-9 rounded-lg bg-surface md:hover:bg-surface-highlight flex items-center justify-center text-muted md:hover:text-foreground pressable-inline focus-ring"
+                    aria-label="Attach image"
+                    title="Attach image"
+                    disabled={isSendingChat}
+                  >
+                    <Paperclip size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => cameraInputRef.current?.click()}
+                    className="w-9 h-9 rounded-lg bg-surface md:hover:bg-surface-highlight flex items-center justify-center text-muted md:hover:text-foreground pressable-inline focus-ring"
+                    aria-label="Take photo"
+                    title="Take photo"
+                    disabled={isSendingChat}
+                  >
+                    <Camera size={16} />
+                  </button>
+                  <div
+                    className="w-9 h-9 rounded-lg bg-surface flex items-center justify-center text-muted"
+                    title="Paste image from clipboard"
+                    aria-label="Paste image supported"
+                  >
+                    <ImagePlus size={16} />
+                  </div>
+                </div>
+
+                <textarea
+                  value={chatInput}
+                  onChange={(event) => setChatInput(event.target.value)}
+                  onKeyDown={handleChatInputKeyDown}
+                  placeholder="Ask about food, macros, portions..."
+                  rows={1}
+                  className="flex-1 resize-none max-h-32 bg-transparent text-foreground placeholder:text-muted outline-none py-2 px-1"
+                />
+
+                <button
+                  type="button"
+                  onClick={sendChat}
+                  disabled={
+                    isSendingChat ||
+                    (!chatInput.trim() && chatAttachments.length === 0)
+                  }
+                  className="w-10 h-10 rounded-lg bg-primary text-primary-foreground md:hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center press-feedback focus-ring"
+                  aria-label="Send message"
+                >
+                  {isSendingChat ? (
+                    <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin-fast" />
+                  ) : (
+                    <SendHorizontal size={16} />
+                  )}
+                </button>
+              </div>
+              <p className="text-[11px] text-muted mt-1 px-1">
+                Up to {MAX_IMAGE_COUNT} images (JPEG/PNG/WebP, max 5MB each).
+                You can paste images directly.
+              </p>
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              className="hidden"
+              onChange={(event) => {
+                handleAddAttachmentFiles(event.target.files);
+                event.target.value = '';
+              }}
+            />
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(event) => {
+                handleAddAttachmentFiles(event.target.files);
+                event.target.value = '';
+              }}
+            />
+          </div>
+        )}
 
         {/* Search Input - for search mode */}
         {viewMode === 'search' && (
@@ -925,26 +1345,31 @@ export const FoodSearchModal = ({
           </div>
         )}
 
-        {/* Local/Online Toggle - only for search mode */}
-        {viewMode === 'search' && (
+        {/* Local/Online/Favorites Toggle */}
+        {viewMode !== 'chat' && (
           <div className="px-4 mt-3">
-            <div className="relative flex items-center gap-2 p-1 bg-surface-highlight rounded-lg">
+            <div className="relative flex items-center p-1 bg-surface-highlight rounded-lg">
               <div
-                className={`absolute inset-y-1 w-1/2 rounded-md shadow-md ${
-                  searchMode === 'local'
-                    ? 'bg-accent-blue'
-                    : 'bg-accent-emerald'
+                className={`absolute inset-y-1 left-1 w-[calc((100%-0.5rem)/3)] rounded-md shadow-md ${
+                  viewMode === 'favourites'
+                    ? 'bg-accent-indigo'
+                    : searchMode === 'local'
+                      ? 'bg-accent-blue'
+                      : 'bg-accent-emerald'
                 }`}
                 style={{
-                  left: searchMode === 'local' ? '4px' : 'calc(50% + 4px)',
+                  transform: `translateX(${toggleSegmentIndex * 100}%)`,
                   transition:
-                    'left 0.2s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.2s ease-out',
+                    'transform 0.2s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.2s ease-out',
                 }}
               />
               <button
-                onClick={() => setSearchMode('local')}
+                onClick={() => {
+                  setViewMode('search');
+                  setSearchMode('local');
+                }}
                 className={`relative z-10 flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  searchMode === 'local'
+                  viewMode === 'search' && searchMode === 'local'
                     ? 'text-primary-foreground'
                     : 'text-muted md:hover:text-foreground'
                 }`}
@@ -953,10 +1378,14 @@ export const FoodSearchModal = ({
                 <span>Local</span>
               </button>
               <button
-                onClick={() => isOnline && setSearchMode('online')}
+                onClick={() => {
+                  if (!isOnline) return;
+                  setViewMode('search');
+                  setSearchMode('online');
+                }}
                 disabled={!isOnline}
                 className={`relative z-10 flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  searchMode === 'online'
+                  viewMode === 'search' && searchMode === 'online'
                     ? 'text-primary-foreground'
                     : isOnline
                       ? 'text-muted md:hover:text-foreground'
@@ -965,6 +1394,17 @@ export const FoodSearchModal = ({
               >
                 {isOnline ? <Globe size={16} /> : <WifiOff size={16} />}
                 <span>Online</span>
+              </button>
+              <button
+                onClick={() => setViewMode('favourites')}
+                className={`relative z-10 flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'favourites'
+                    ? 'text-primary-foreground'
+                    : 'text-muted md:hover:text-foreground'
+                }`}
+              >
+                <Star size={16} />
+                <span>Favorites</span>
               </button>
             </div>
             {!isOnline && (
@@ -983,800 +1423,822 @@ export const FoodSearchModal = ({
         )}
 
         {/* Results Count & Filter Button */}
-        <div className="px-4 mt-3 flex items-center justify-between">
-          <p className="text-muted text-sm">
-            {viewMode === 'favourites' ? (
-              <>
-                {sortedFavourites.length}{' '}
-                {sortedFavourites.length === 1 ? 'favourite' : 'favourites'}
-                {favouritesSearchQuery &&
-                  resolvedFavourites.length !== sortedFavourites.length && (
-                    <span className="ml-1 text-xs text-muted">
-                      (of {resolvedFavourites.filter(Boolean).length})
-                    </span>
-                  )}
-              </>
-            ) : searchMode === 'online' ? (
-              isSearching ? (
-                'Searching...'
+        {viewMode !== 'chat' && (
+          <div className="px-4 mt-3 flex items-center justify-between">
+            <p className="text-muted text-sm">
+              {viewMode === 'favourites' ? (
+                <>
+                  {sortedFavourites.length}{' '}
+                  {sortedFavourites.length === 1 ? 'favourite' : 'favourites'}
+                  {favouritesSearchQuery &&
+                    resolvedFavourites.length !== sortedFavourites.length && (
+                      <span className="ml-1 text-xs text-muted">
+                        (of {resolvedFavourites.filter(Boolean).length})
+                      </span>
+                    )}
+                </>
+              ) : searchMode === 'online' ? (
+                isSearching ? (
+                  'Searching...'
+                ) : (
+                  <>
+                    {displayResults.length}{' '}
+                    {displayResults.length === 1 ? 'result' : 'results'}
+                  </>
+                )
               ) : (
                 <>
                   {displayResults.length}{' '}
-                  {displayResults.length === 1 ? 'result' : 'results'}
+                  {displayResults.length === 1 ? 'food' : 'foods'} found
+                  {resolvedCachedFoods.length > 0 && (
+                    <span className="ml-2 text-xs text-muted">
+                      (+{resolvedCachedFoods.length} cached)
+                    </span>
+                  )}
                 </>
-              )
-            ) : (
-              <>
-                {displayResults.length}{' '}
-                {displayResults.length === 1 ? 'food' : 'foods'} found
-                {resolvedCachedFoods.length > 0 && (
-                  <span className="ml-2 text-xs text-muted">
-                    (+{resolvedCachedFoods.length} cached)
-                  </span>
-                )}
-              </>
-            )}
-          </p>
+              )}
+            </p>
 
-          {viewMode === 'favourites' && (
-            <div className="relative" ref={favouritesDropdownRef}>
-              <button
-                onClick={() =>
-                  setIsFavouritesFilterOpen(!isFavouritesFilterOpen)
-                }
-                className={`text-sm font-medium flex items-center gap-1 transition-colors ${
-                  hasActiveFavouritesFilters
-                    ? 'text-accent-blue md:hover:text-accent-blue/80'
-                    : 'text-muted md:hover:text-foreground'
-                }`}
-              >
-                <SlidersHorizontal size={14} />
-                {hasActiveFavouritesFilters ? 'View Filters' : 'Filters'}
-              </button>
+            {viewMode === 'favourites' && (
+              <div className="relative" ref={favouritesDropdownRef}>
+                <button
+                  onClick={() =>
+                    setIsFavouritesFilterOpen(!isFavouritesFilterOpen)
+                  }
+                  className={`text-sm font-medium flex items-center gap-1 transition-colors ${
+                    hasActiveFavouritesFilters
+                      ? 'text-accent-blue md:hover:text-accent-blue/80'
+                      : 'text-muted md:hover:text-foreground'
+                  }`}
+                >
+                  <SlidersHorizontal size={14} />
+                  {hasActiveFavouritesFilters ? 'View Filters' : 'Filters'}
+                </button>
 
-              <AnimatePresence>
-                {isFavouritesFilterOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -8, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                    transition={{ duration: 0.18, ease: 'easeOut' }}
-                    className="absolute right-0 top-full mt-2 w-72 bg-surface border border-border rounded-lg shadow-2xl z-50 max-h-[400px] overflow-y-auto overflow-x-hidden touch-action-pan-y"
-                  >
-                    <div className="p-4 space-y-4">
-                      <div className="flex items-center justify-between pb-3 border-b border-border">
-                        <h4 className="text-foreground font-bold text-lg">
-                          Sort Favourites
-                        </h4>
-                        <button
-                          onClick={clearFavouritesFilters}
-                          className="text-sm text-accent-blue md:hover:text-accent-blue/80 font-medium focus-ring"
-                        >
-                          Clear
-                        </button>
-                      </div>
+                <AnimatePresence>
+                  {isFavouritesFilterOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                      transition={{ duration: 0.18, ease: 'easeOut' }}
+                      className="absolute right-0 top-full mt-2 w-72 bg-surface border border-border rounded-lg shadow-2xl z-50 max-h-[400px] overflow-y-auto overflow-x-hidden touch-action-pan-y"
+                    >
+                      <div className="p-4 space-y-4">
+                        <div className="flex items-center justify-between pb-3 border-b border-border">
+                          <h4 className="text-foreground font-bold text-lg">
+                            Sort Favourites
+                          </h4>
+                          <button
+                            onClick={clearFavouritesFilters}
+                            className="text-sm text-accent-blue md:hover:text-accent-blue/80 font-medium focus-ring"
+                          >
+                            Clear
+                          </button>
+                        </div>
 
-                      <div>
-                        <label className="text-foreground font-semibold text-sm block mb-2">
-                          Sort By
-                        </label>
-                        <div className="space-y-1.5">
-                          {[
-                            { value: 'name', label: 'Name (A-Z)' },
-                            { value: 'calories', label: 'Calories' },
-                            { value: 'protein', label: 'Protein' },
-                            { value: 'carbs', label: 'Carbs' },
-                            { value: 'fats', label: 'Fats' },
-                          ].map((option) => (
+                        <div>
+                          <label className="text-foreground font-semibold text-sm block mb-2">
+                            Sort By
+                          </label>
+                          <div className="space-y-1.5">
+                            {[
+                              { value: 'name', label: 'Name (A-Z)' },
+                              { value: 'calories', label: 'Calories' },
+                              { value: 'protein', label: 'Protein' },
+                              { value: 'carbs', label: 'Carbs' },
+                              { value: 'fats', label: 'Fats' },
+                            ].map((option) => (
+                              <button
+                                key={option.value}
+                                onClick={() =>
+                                  setFavouritesSortBy(option.value)
+                                }
+                                className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
+                                  favouritesSortBy === option.value
+                                    ? 'bg-accent-emerald text-primary-foreground'
+                                    : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
+                                }`}
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-foreground font-semibold text-sm block mb-2">
+                            Sort Order
+                          </label>
+                          <div className="grid grid-cols-2 gap-2">
                             <button
-                              key={option.value}
-                              onClick={() => setFavouritesSortBy(option.value)}
-                              className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
-                                favouritesSortBy === option.value
+                              onClick={() => setFavouritesSortOrder('asc')}
+                              className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                                favouritesSortOrder === 'asc'
                                   ? 'bg-accent-emerald text-primary-foreground'
                                   : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
                               }`}
                             >
-                              {option.label}
+                              ↑ Ascending
                             </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="text-foreground font-semibold text-sm block mb-2">
-                          Sort Order
-                        </label>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            onClick={() => setFavouritesSortOrder('asc')}
-                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                              favouritesSortOrder === 'asc'
-                                ? 'bg-accent-emerald text-primary-foreground'
-                                : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
-                            }`}
-                          >
-                            ↑ Ascending
-                          </button>
-                          <button
-                            onClick={() => setFavouritesSortOrder('desc')}
-                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                              favouritesSortOrder === 'desc'
-                                ? 'bg-accent-emerald text-primary-foreground'
-                                : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
-                            }`}
-                          >
-                            ↓ Descending
-                          </button>
-                        </div>
-                      </div>
-
-                      {hasActiveFavouritesFilters && (
-                        <div className="pt-3 border-t border-border">
-                          <p className="text-muted text-xs mb-2">
-                            Active Sorting:
-                          </p>
-                          <div className="flex flex-wrap gap-1.5">
-                            <span className="px-2 py-1 bg-surface-highlight text-foreground rounded text-xs">
-                              {getFavouritesSortLabel()}
-                            </span>
+                            <button
+                              onClick={() => setFavouritesSortOrder('desc')}
+                              className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                                favouritesSortOrder === 'desc'
+                                  ? 'bg-accent-emerald text-primary-foreground'
+                                  : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
+                              }`}
+                            >
+                              ↓ Descending
+                            </button>
                           </div>
                         </div>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          )}
 
-          {viewMode === 'search' && (
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setIsFilterOpen(!isFilterOpen)}
-                className={`text-sm font-medium flex items-center gap-1 transition-colors ${
-                  hasActiveFilters
-                    ? 'text-accent-blue md:hover:text-accent-blue/80'
-                    : 'text-muted md:hover:text-foreground'
-                }`}
-              >
-                <SlidersHorizontal size={14} />
-                {hasActiveFilters ? 'View Filters' : 'Filters'}
-              </button>
-
-              <AnimatePresence>
-                {isFilterOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -8, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                    transition={{ duration: 0.18, ease: 'easeOut' }}
-                    className="absolute right-0 top-full mt-2 w-80 bg-surface border border-border rounded-lg shadow-2xl z-50 max-h-[500px] overflow-y-auto overflow-x-hidden touch-action-pan-y"
-                  >
-                    <div className="p-4 space-y-4">
-                      <div className="flex items-center justify-between pb-3 border-b border-border">
-                        <h4 className="text-foreground font-bold text-lg">
-                          Filters & Sort
-                        </h4>
-                        <button
-                          onClick={clearFilters}
-                          className="text-sm text-accent-blue md:hover:text-accent-blue/80 font-medium focus-ring"
-                        >
-                          Clear All
-                        </button>
+                        {hasActiveFavouritesFilters && (
+                          <div className="pt-3 border-t border-border">
+                            <p className="text-muted text-xs mb-2">
+                              Active Sorting:
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              <span className="px-2 py-1 bg-surface-highlight text-foreground rounded text-xs">
+                                {getFavouritesSortLabel()}
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div>
-                        <label className="text-foreground font-semibold text-sm block mb-2">
-                          {searchMode === 'online' ? 'Type' : 'Category'}
-                        </label>
-                        <div className="space-y-1.5">
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+
+            {viewMode === 'search' && (
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setIsFilterOpen(!isFilterOpen)}
+                  className={`text-sm font-medium flex items-center gap-1 transition-colors ${
+                    hasActiveFilters
+                      ? 'text-accent-blue md:hover:text-accent-blue/80'
+                      : 'text-muted md:hover:text-foreground'
+                  }`}
+                >
+                  <SlidersHorizontal size={14} />
+                  {hasActiveFilters ? 'View Filters' : 'Filters'}
+                </button>
+
+                <AnimatePresence>
+                  {isFilterOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                      transition={{ duration: 0.18, ease: 'easeOut' }}
+                      className="absolute right-0 top-full mt-2 w-80 bg-surface border border-border rounded-lg shadow-2xl z-50 max-h-[500px] overflow-y-auto overflow-x-hidden touch-action-pan-y"
+                    >
+                      <div className="p-4 space-y-4">
+                        <div className="flex items-center justify-between pb-3 border-b border-border">
+                          <h4 className="text-foreground font-bold text-lg">
+                            Filters & Sort
+                          </h4>
                           <button
-                            onClick={() => {
-                              setSelectedCategory(null);
-                              setSelectedSubcategory(null);
-                            }}
-                            className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
-                              selectedCategory === null
-                                ? 'bg-accent-blue text-primary-foreground'
-                                : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
-                            }`}
+                            onClick={clearFilters}
+                            className="text-sm text-accent-blue md:hover:text-accent-blue/80 font-medium focus-ring"
                           >
-                            {searchMode === 'online'
-                              ? 'All Types'
-                              : 'All Categories'}
+                            Clear All
                           </button>
-                          {Object.entries(categoryOptions).map(
-                            ([key, { label, color }]) => (
-                              <button
-                                key={key}
-                                onClick={() => {
-                                  setSelectedCategory(key);
-                                  setSelectedSubcategory(null);
-                                }}
-                                className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
-                                  selectedCategory === key
-                                    ? getFilterActiveClass(color)
-                                    : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
-                                }`}
-                              >
-                                {label}
-                              </button>
-                            )
-                          )}
                         </div>
-                      </div>
-
-                      {availableSubcategories.length > 0 && (
                         <div>
                           <label className="text-foreground font-semibold text-sm block mb-2">
-                            {searchMode === 'online'
-                              ? 'Serving'
-                              : 'Subcategory'}
+                            {searchMode === 'online' ? 'Type' : 'Category'}
                           </label>
                           <div className="space-y-1.5">
                             <button
-                              onClick={() => setSelectedSubcategory(null)}
+                              onClick={() => {
+                                setSelectedCategory(null);
+                                setSelectedSubcategory(null);
+                              }}
                               className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
-                                selectedSubcategory === null
+                                selectedCategory === null
                                   ? 'bg-accent-blue text-primary-foreground'
                                   : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
                               }`}
                             >
                               {searchMode === 'online'
-                                ? 'All Servings'
-                                : 'All Subcategories'}
+                                ? 'All Types'
+                                : 'All Categories'}
                             </button>
-                            {availableSubcategories.map((subcat) => (
+                            {Object.entries(categoryOptions).map(
+                              ([key, { label, color }]) => (
+                                <button
+                                  key={key}
+                                  onClick={() => {
+                                    setSelectedCategory(key);
+                                    setSelectedSubcategory(null);
+                                  }}
+                                  className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
+                                    selectedCategory === key
+                                      ? getFilterActiveClass(color)
+                                      : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
+                                  }`}
+                                >
+                                  {label}
+                                </button>
+                              )
+                            )}
+                          </div>
+                        </div>
+
+                        {availableSubcategories.length > 0 && (
+                          <div>
+                            <label className="text-foreground font-semibold text-sm block mb-2">
+                              {searchMode === 'online'
+                                ? 'Serving'
+                                : 'Subcategory'}
+                            </label>
+                            <div className="space-y-1.5">
                               <button
-                                key={subcat}
-                                onClick={() => setSelectedSubcategory(subcat)}
+                                onClick={() => setSelectedSubcategory(null)}
                                 className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
-                                  selectedSubcategory === subcat
+                                  selectedSubcategory === null
                                     ? 'bg-accent-blue text-primary-foreground'
                                     : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
                                 }`}
                               >
                                 {searchMode === 'online'
-                                  ? subcat
-                                  : subcat.replace(/-/g, ' ')}
+                                  ? 'All Servings'
+                                  : 'All Subcategories'}
+                              </button>
+                              {availableSubcategories.map((subcat) => (
+                                <button
+                                  key={subcat}
+                                  onClick={() => setSelectedSubcategory(subcat)}
+                                  className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
+                                    selectedSubcategory === subcat
+                                      ? 'bg-accent-blue text-primary-foreground'
+                                      : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
+                                  }`}
+                                >
+                                  {searchMode === 'online'
+                                    ? subcat
+                                    : subcat.replace(/-/g, ' ')}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div>
+                          <label className="text-foreground font-semibold text-sm block mb-2">
+                            Sort By
+                          </label>
+                          <div className="space-y-1.5">
+                            {[
+                              { value: 'name', label: 'Name (A-Z)' },
+                              { value: 'calories', label: 'Calories' },
+                              { value: 'protein', label: 'Protein' },
+                              { value: 'carbs', label: 'Carbs' },
+                              { value: 'fats', label: 'Fats' },
+                            ].map((option) => (
+                              <button
+                                key={option.value}
+                                onClick={() => setSortBy(option.value)}
+                                className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
+                                  sortBy === option.value
+                                    ? 'bg-accent-emerald text-primary-foreground'
+                                    : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
+                                }`}
+                              >
+                                {option.label}
                               </button>
                             ))}
                           </div>
                         </div>
-                      )}
 
-                      <div>
-                        <label className="text-foreground font-semibold text-sm block mb-2">
-                          Sort By
-                        </label>
-                        <div className="space-y-1.5">
-                          {[
-                            { value: 'name', label: 'Name (A-Z)' },
-                            { value: 'calories', label: 'Calories' },
-                            { value: 'protein', label: 'Protein' },
-                            { value: 'carbs', label: 'Carbs' },
-                            { value: 'fats', label: 'Fats' },
-                          ].map((option) => (
+                        <div>
+                          <label className="text-foreground font-semibold text-sm block mb-2">
+                            Sort Order
+                          </label>
+                          <div className="grid grid-cols-2 gap-2">
                             <button
-                              key={option.value}
-                              onClick={() => setSortBy(option.value)}
-                              className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
-                                sortBy === option.value
+                              onClick={() => setSortOrder('asc')}
+                              className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                                sortOrder === 'asc'
                                   ? 'bg-accent-emerald text-primary-foreground'
                                   : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
                               }`}
                             >
-                              {option.label}
+                              ↑ Ascending
                             </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="text-foreground font-semibold text-sm block mb-2">
-                          Sort Order
-                        </label>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            onClick={() => setSortOrder('asc')}
-                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                              sortOrder === 'asc'
-                                ? 'bg-accent-emerald text-primary-foreground'
-                                : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
-                            }`}
-                          >
-                            ↑ Ascending
-                          </button>
-                          <button
-                            onClick={() => setSortOrder('desc')}
-                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                              sortOrder === 'desc'
-                                ? 'bg-accent-emerald text-primary-foreground'
-                                : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
-                            }`}
-                          >
-                            ↓ Descending
-                          </button>
-                        </div>
-                      </div>
-
-                      {hasActiveFilters && (
-                        <div className="pt-3 border-t border-border">
-                          <p className="text-muted text-xs mb-2">
-                            Active Filters:
-                          </p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {selectedCategory && (
-                              <span className="px-2 py-1 bg-surface-highlight text-foreground rounded text-xs flex items-center gap-1">
-                                {categoryOptions[selectedCategory]?.label ||
-                                  selectedCategory}
-                                <X
-                                  size={12}
-                                  className="cursor-pointer md:hover:text-foreground pressable-inline focus-ring"
-                                  onClick={() => {
-                                    setSelectedCategory(null);
-                                    setSelectedSubcategory(null);
-                                  }}
-                                />
-                              </span>
-                            )}
-                            {selectedSubcategory && (
-                              <span className="px-2 py-1 bg-surface-highlight text-foreground rounded text-xs flex items-center gap-1">
-                                {searchMode === 'online'
-                                  ? selectedSubcategory
-                                  : selectedSubcategory.replace(/-/g, ' ')}
-                                <X
-                                  size={12}
-                                  className="cursor-pointer md:hover:text-foreground pressable-inline focus-ring"
-                                  onClick={() => setSelectedSubcategory(null)}
-                                />
-                              </span>
-                            )}
-                            {(sortBy !== 'name' || sortOrder !== 'asc') && (
-                              <span className="px-2 py-1 bg-surface-highlight text-foreground rounded text-xs">
-                                {getSortLabel()}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          )}
-        </div>
-
-        {/* Search Results */}
-        <div className="flex-1 min-h-0 px-4 py-4 relative">
-          <div className="h-full overflow-y-auto overflow-x-hidden touch-action-pan-y space-y-2">
-            {viewMode === 'favourites' ? (
-              hasFavourites ? (
-                sortedFavourites.map((favourite) => {
-                  const key =
-                    favourite.id ?? `${favourite.name}-${favourite.grams}`;
-                  // Determine type priority: cached > manual > custom > regular
-                  // A food can only be ONE type - check in priority order
-                  const isCached = favourite.source === 'fatsecret';
-                  const isManual =
-                    !isCached &&
-                    (favourite.source === 'manual' ||
-                      favourite.category === 'manual');
-                  const isCustom =
-                    !isCached &&
-                    !isManual &&
-                    (favourite.source === 'user' || favourite.isCustom);
-
-                  return (
-                    <div
-                      key={key}
-                      className="w-full text-left p-4 rounded-xl border border-border bg-surface-highlight transition-all md:hover:border-accent-emerald/40 cursor-pointer"
-                      role="button"
-                      tabIndex={0}
-                      onClick={(event) =>
-                        handleFavouriteCardClick(favourite, isManual, event)
-                      }
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          handleFavouriteCardClick(favourite, isManual, event);
-                        }
-                      }}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm leading-tight text-foreground truncate">
-                            {favourite.name || 'Unnamed Food'}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1 flex-wrap">
-                            {/* Category tag - only show when explicit category exists and item is NOT cached (consolidate Cached badge) */}
-                            {!isManual && !isCached && favourite.category && (
-                              <span
-                                className={`text-xs px-2 py-0.5 rounded ${getCategoryClasses(
-                                  favourite.category
-                                )}`}
-                              >
-                                {FOOD_CATEGORIES[favourite.category]?.label ||
-                                  favourite.category}
-                              </span>
-                            )}
-                            {favourite.brand && (
-                              <span className="text-xs px-2 py-0.5 bg-accent-emerald/20 text-accent-emerald rounded truncate max-w-[140px]">
-                                {favourite.brand}
-                              </span>
-                            )}
-                            {/* Type tags - only ONE: Cached, Manual, or Custom */}
-                            {isCached && (
-                              <span className="text-xs px-2 py-0.5 bg-accent-purple/20 text-accent-purple rounded">
-                                Cached
-                              </span>
-                            )}
-                            {isManual && (
-                              <span className="text-xs px-2 py-0.5 bg-accent-indigo/20 text-accent-indigo rounded">
-                                Manual
-                              </span>
-                            )}
-                            {isCustom && (
-                              <span className="text-xs px-2 py-0.5 bg-accent-blue/20 text-accent-blue rounded">
-                                Custom
-                              </span>
-                            )}
-                            {/* Portion/grams info - ALWAYS at the end */}
-                            {favourite.portionInfo ? (
-                              <span className="text-xs text-muted">
-                                {favourite.portionInfo.portionMultiplier}{' '}
-                                {favourite.portionInfo.portionName}
-                              </span>
-                            ) : isCustom && favourite.per100g ? (
-                              <span className="text-xs text-muted">
-                                per 100g
-                              </span>
-                            ) : !isManual && favourite.grams ? (
-                              <span className="text-xs text-muted">
-                                {formatOne(favourite.grams)}g
-                              </span>
-                            ) : null}
-                          </div>
-
-                          <div className="flex items-center gap-3 mt-2 text-xs">
-                            <span className="text-accent-green font-medium">
-                              {formatOne(
-                                isCustom && favourite.per100g
-                                  ? favourite.per100g.calories
-                                  : favourite.calories || 0
-                              )}{' '}
-                              kcal
-                            </span>
-                            <span className="text-accent-red font-medium">
-                              {formatOne(
-                                isCustom && favourite.per100g
-                                  ? favourite.per100g.protein
-                                  : favourite.protein || 0
-                              )}
-                              g P
-                            </span>
-                            <span className="text-accent-amber font-medium">
-                              {formatOne(
-                                isCustom && favourite.per100g
-                                  ? favourite.per100g.carbs
-                                  : favourite.carbs || 0
-                              )}
-                              g C
-                            </span>
-                            <span className="text-accent-yellow font-medium">
-                              {formatOne(
-                                isCustom && favourite.per100g
-                                  ? favourite.per100g.fats
-                                  : favourite.fats || 0
-                              )}
-                              g F
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          {/* Edit button - manual favourites only */}
-                          {isManual && (
                             <button
-                              type="button"
-                              onClick={(e) => handleFavouriteEdit(favourite, e)}
-                              className="flex-shrink-0 w-11 h-11 rounded-full bg-surface-highlight/20 md:hover:bg-accent-blue/20 transition-colors flex items-center justify-center"
-                              aria-label="Edit manual entry"
-                              title="Edit entry"
+                              onClick={() => setSortOrder('desc')}
+                              className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                                sortOrder === 'desc'
+                                  ? 'bg-accent-emerald text-primary-foreground'
+                                  : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
+                              }`}
                             >
-                              <Edit3 size={20} className="text-foreground" />
+                              ↓ Descending
                             </button>
-                          )}
-
-                          {typeof onDeleteFavourite === 'function' &&
-                            favourite.id != null && (
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setPendingDeleteId(favourite.id);
-                                  openDeleteConfirm();
-                                }}
-                                className="flex-shrink-0 w-11 h-11 rounded-full bg-surface-highlight/20 md:hover:bg-accent-red/20 transition-colors flex items-center justify-center"
-                                aria-label="Delete favourite food"
-                                title="Remove from favourites"
-                              >
-                                <Trash2
-                                  size={20}
-                                  className="text-foreground md:hover:text-accent-red"
-                                />
-                              </button>
-                            )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="text-center text-muted text-sm py-10">
-                  <Heart className="mx-auto mb-3 text-muted" size={32} />
-                  <p>No favourite foods yet.</p>
-                  <p className="text-xs mt-1">
-                    Add foods to your favourites for quick access.
-                  </p>
-                </div>
-              )
-            ) : (
-              <>
-                {/* Error State */}
-                {searchError && (
-                  <div className="bg-accent-red/10 border border-accent-red/30 rounded-lg p-4 flex items-start gap-3">
-                    <AlertCircle
-                      size={20}
-                      className="text-accent-red flex-shrink-0 mt-0.5"
-                    />
-                    <div>
-                      <p className="text-accent-red font-medium text-sm">
-                        {searchError}
-                      </p>
-                      <button
-                        onClick={() => performOnlineSearch(searchQuery)}
-                        className="mt-2 text-xs text-accent-red md:hover:text-accent-red/80 underline"
-                      >
-                        Try again
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Loading State for Online Search */}
-                {searchMode === 'online' && isSearching && (
-                  <div className="flex flex-col items-center justify-center py-12">
-                    <div className="relative w-8 h-8 mb-3">
-                      <div className="absolute inset-0 border-4 border-border rounded-full" />
-                      <div className="absolute inset-0 border-4 border-transparent border-t-accent-blue rounded-full animate-spin-fast" />
-                    </div>
-                    <p className="text-muted text-sm">
-                      Searching FatSecret database...
-                    </p>
-                  </div>
-                )}
-
-                {/* Empty State */}
-                {!isSearching && !searchError && displayResults.length === 0 ? (
-                  <div className="p-20 text-center">
-                    {searchMode === 'online' ? (
-                      <>
-                        <Globe className="mx-auto text-muted mb-3" size={32} />
-                        <p className="text-muted text-sm">
-                          {searchQuery.length < 2
-                            ? 'Enter a search term to find foods online'
-                            : 'No results found. Try a different search term.'}
-                        </p>
-                        {searchQuery.length > 0 && searchQuery.length < 2 && (
-                          <p className="mt-1 text-muted text-xs">
-                            Type at least 2 characters to search
-                          </p>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <Search className="mx-auto text-muted mb-3" size={32} />
-                        <p className="text-muted text-sm">No foods found</p>
-                      </>
-                    )}
-                  </div>
-                ) : searchMode === 'online' && !isSearching ? (
-                  /* Online Results */
-                  onlineResults.map((food) => {
-                    const isLoading = loadingFoodId === food.id;
-                    return (
-                      <button
-                        key={food.id}
-                        onClick={() =>
-                          !isLoading && handleOnlineFoodSelect(food)
-                        }
-                        disabled={isLoading}
-                        className={`relative w-full bg-surface-highlight border border-border rounded-xl p-3 text-left transition-all ${
-                          isLoading
-                            ? 'opacity-70 cursor-wait'
-                            : 'active:scale-[0.99] md:hover:border-accent-emerald/50'
-                        }`}
-                      >
-                        {isLoading && (
-                          <div className="absolute inset-0 bg-surface-highlight rounded-lg flex items-center justify-center z-10">
-                            <div className="relative w-6 h-6">
-                              <div className="absolute inset-0 border-3 border-border rounded-full" />
-                              <div className="absolute inset-0 border-3 border-transparent border-t-accent-blue rounded-full animate-spin-fast" />
-                            </div>
                           </div>
-                        )}
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <h4 className="text-foreground font-semibold text-sm truncate">
-                                {food.name}
-                              </h4>
-                            </div>
-                            <div className="flex items-center gap-2 mt-1 flex-wrap">
-                              {food.brand && (
-                                <span className="text-xs px-2 py-0.5 bg-accent-emerald/20 text-accent-emerald rounded truncate max-w-[150px]">
-                                  {food.brand}
+                        </div>
+
+                        {hasActiveFilters && (
+                          <div className="pt-3 border-t border-border">
+                            <p className="text-muted text-xs mb-2">
+                              Active Filters:
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {selectedCategory && (
+                                <span className="px-2 py-1 bg-surface-highlight text-foreground rounded text-xs flex items-center gap-1">
+                                  {categoryOptions[selectedCategory]?.label ||
+                                    selectedCategory}
+                                  <X
+                                    size={12}
+                                    className="cursor-pointer md:hover:text-foreground pressable-inline focus-ring"
+                                    onClick={() => {
+                                      setSelectedCategory(null);
+                                      setSelectedSubcategory(null);
+                                    }}
+                                  />
                                 </span>
                               )}
-                              <span className="text-xs px-2 py-0.5 bg-accent-blue/20 text-accent-blue rounded">
-                                {food.type === 'Brand' ? 'Branded' : 'Generic'}
+                              {selectedSubcategory && (
+                                <span className="px-2 py-1 bg-surface-highlight text-foreground rounded text-xs flex items-center gap-1">
+                                  {searchMode === 'online'
+                                    ? selectedSubcategory
+                                    : selectedSubcategory.replace(/-/g, ' ')}
+                                  <X
+                                    size={12}
+                                    className="cursor-pointer md:hover:text-foreground pressable-inline focus-ring"
+                                    onClick={() => setSelectedSubcategory(null)}
+                                  />
+                                </span>
+                              )}
+                              {(sortBy !== 'name' || sortOrder !== 'asc') && (
+                                <span className="px-2 py-1 bg-surface-highlight text-foreground rounded text-xs">
+                                  {getSortLabel()}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Search Results */}
+        {viewMode !== 'chat' && (
+          <div className="flex-1 min-h-0 px-4 py-4 relative">
+            <div className="h-full overflow-y-auto overflow-x-hidden touch-action-pan-y space-y-2">
+              {viewMode === 'favourites' ? (
+                hasFavourites ? (
+                  sortedFavourites.map((favourite) => {
+                    const key =
+                      favourite.id ?? `${favourite.name}-${favourite.grams}`;
+                    // Determine type priority: cached > manual > custom > regular
+                    // A food can only be ONE type - check in priority order
+                    const isCached = favourite.source === 'fatsecret';
+                    const isManual =
+                      !isCached &&
+                      (favourite.source === 'manual' ||
+                        favourite.category === 'manual');
+                    const isCustom =
+                      !isCached &&
+                      !isManual &&
+                      (favourite.source === 'user' || favourite.isCustom);
+
+                    return (
+                      <div
+                        key={key}
+                        className="w-full text-left p-4 rounded-xl border border-border bg-surface-highlight transition-all md:hover:border-accent-emerald/40 cursor-pointer"
+                        role="button"
+                        tabIndex={0}
+                        onClick={(event) =>
+                          handleFavouriteCardClick(favourite, isManual, event)
+                        }
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            handleFavouriteCardClick(
+                              favourite,
+                              isManual,
+                              event
+                            );
+                          }
+                        }}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm leading-tight text-foreground truncate">
+                              {favourite.name || 'Unnamed Food'}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              {/* Category tag - only show when explicit category exists and item is NOT cached (consolidate Cached badge) */}
+                              {!isManual && !isCached && favourite.category && (
+                                <span
+                                  className={`text-xs px-2 py-0.5 rounded ${getCategoryClasses(
+                                    favourite.category
+                                  )}`}
+                                >
+                                  {FOOD_CATEGORIES[favourite.category]?.label ||
+                                    favourite.category}
+                                </span>
+                              )}
+                              {favourite.brand && (
+                                <span className="text-xs px-2 py-0.5 bg-accent-emerald/20 text-accent-emerald rounded truncate max-w-[140px]">
+                                  {favourite.brand}
+                                </span>
+                              )}
+                              {/* Type tags - only ONE: Cached, Manual, or Custom */}
+                              {isCached && (
+                                <span className="text-xs px-2 py-0.5 bg-accent-purple/20 text-accent-purple rounded">
+                                  Cached
+                                </span>
+                              )}
+                              {isManual && (
+                                <span className="text-xs px-2 py-0.5 bg-accent-indigo/20 text-accent-indigo rounded">
+                                  Manual
+                                </span>
+                              )}
+                              {isCustom && (
+                                <span className="text-xs px-2 py-0.5 bg-accent-blue/20 text-accent-blue rounded">
+                                  Custom
+                                </span>
+                              )}
+                              {/* Portion/grams info - ALWAYS at the end */}
+                              {favourite.portionInfo ? (
+                                <span className="text-xs text-muted">
+                                  {favourite.portionInfo.portionMultiplier}{' '}
+                                  {favourite.portionInfo.portionName}
+                                </span>
+                              ) : isCustom && favourite.per100g ? (
+                                <span className="text-xs text-muted">
+                                  per 100g
+                                </span>
+                              ) : !isManual && favourite.grams ? (
+                                <span className="text-xs text-muted">
+                                  {formatOne(favourite.grams)}g
+                                </span>
+                              ) : null}
+                            </div>
+
+                            <div className="flex items-center gap-3 mt-2 text-xs">
+                              <span className="text-accent-green font-medium">
+                                {formatOne(
+                                  isCustom && favourite.per100g
+                                    ? favourite.per100g.calories
+                                    : favourite.calories || 0
+                                )}{' '}
+                                kcal
+                              </span>
+                              <span className="text-accent-red font-medium">
+                                {formatOne(
+                                  isCustom && favourite.per100g
+                                    ? favourite.per100g.protein
+                                    : favourite.protein || 0
+                                )}
+                                g P
+                              </span>
+                              <span className="text-accent-amber font-medium">
+                                {formatOne(
+                                  isCustom && favourite.per100g
+                                    ? favourite.per100g.carbs
+                                    : favourite.carbs || 0
+                                )}
+                                g C
+                              </span>
+                              <span className="text-accent-yellow font-medium">
+                                {formatOne(
+                                  isCustom && favourite.per100g
+                                    ? favourite.per100g.fats
+                                    : favourite.fats || 0
+                                )}
+                                g F
                               </span>
                             </div>
                           </div>
-                          {food.previewMacros && (
+
+                          <div className="flex items-center gap-2">
+                            {/* Edit button - manual favourites only */}
+                            {isManual && (
+                              <button
+                                type="button"
+                                onClick={(e) =>
+                                  handleFavouriteEdit(favourite, e)
+                                }
+                                className="flex-shrink-0 w-11 h-11 rounded-full bg-surface-highlight/20 md:hover:bg-accent-blue/20 transition-colors flex items-center justify-center"
+                                aria-label="Edit manual entry"
+                                title="Edit entry"
+                              >
+                                <Edit3 size={20} className="text-foreground" />
+                              </button>
+                            )}
+
+                            {typeof onDeleteFavourite === 'function' &&
+                              favourite.id != null && (
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setPendingDeleteId(favourite.id);
+                                    openDeleteConfirm();
+                                  }}
+                                  className="flex-shrink-0 w-11 h-11 rounded-full bg-surface-highlight/20 md:hover:bg-accent-red/20 transition-colors flex items-center justify-center"
+                                  aria-label="Delete favourite food"
+                                  title="Remove from favourites"
+                                >
+                                  <Trash2
+                                    size={20}
+                                    className="text-foreground md:hover:text-accent-red"
+                                  />
+                                </button>
+                              )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-center text-muted text-sm py-10">
+                    <Heart className="mx-auto mb-3 text-muted" size={32} />
+                    <p>No favourite foods yet.</p>
+                    <p className="text-xs mt-1">
+                      Add foods to your favourites for quick access.
+                    </p>
+                  </div>
+                )
+              ) : (
+                <>
+                  {/* Error State */}
+                  {searchError && (
+                    <div className="bg-accent-red/10 border border-accent-red/30 rounded-lg p-4 flex items-start gap-3">
+                      <AlertCircle
+                        size={20}
+                        className="text-accent-red flex-shrink-0 mt-0.5"
+                      />
+                      <div>
+                        <p className="text-accent-red font-medium text-sm">
+                          {searchError}
+                        </p>
+                        <button
+                          onClick={() => performOnlineSearch(searchQuery)}
+                          className="mt-2 text-xs text-accent-red md:hover:text-accent-red/80 underline"
+                        >
+                          Try again
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Loading State for Online Search */}
+                  {searchMode === 'online' && isSearching && (
+                    <div className="flex flex-col items-center justify-center py-12">
+                      <div className="relative w-8 h-8 mb-3">
+                        <div className="absolute inset-0 border-4 border-border rounded-full" />
+                        <div className="absolute inset-0 border-4 border-transparent border-t-accent-blue rounded-full animate-spin-fast" />
+                      </div>
+                      <p className="text-muted text-sm">
+                        Searching FatSecret database...
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Empty State */}
+                  {!isSearching &&
+                  !searchError &&
+                  displayResults.length === 0 ? (
+                    <div className="p-20 text-center">
+                      {searchMode === 'online' ? (
+                        <>
+                          <Globe
+                            className="mx-auto text-muted mb-3"
+                            size={32}
+                          />
+                          <p className="text-muted text-sm">
+                            {searchQuery.length < 2
+                              ? 'Enter a search term to find foods online'
+                              : 'No results found. Try a different search term.'}
+                          </p>
+                          {searchQuery.length > 0 && searchQuery.length < 2 && (
+                            <p className="mt-1 text-muted text-xs">
+                              Type at least 2 characters to search
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <Search
+                            className="mx-auto text-muted mb-3"
+                            size={32}
+                          />
+                          <p className="text-muted text-sm">No foods found</p>
+                        </>
+                      )}
+                    </div>
+                  ) : searchMode === 'online' && !isSearching ? (
+                    /* Online Results */
+                    onlineResults.map((food) => {
+                      const isLoading = loadingFoodId === food.id;
+                      return (
+                        <button
+                          key={food.id}
+                          onClick={() =>
+                            !isLoading && handleOnlineFoodSelect(food)
+                          }
+                          disabled={isLoading}
+                          className={`relative w-full bg-surface-highlight border border-border rounded-xl p-3 text-left transition-all ${
+                            isLoading
+                              ? 'opacity-70 cursor-wait'
+                              : 'active:scale-[0.99] md:hover:border-accent-emerald/50'
+                          }`}
+                        >
+                          {isLoading && (
+                            <div className="absolute inset-0 bg-surface-highlight rounded-lg flex items-center justify-center z-10">
+                              <div className="relative w-6 h-6">
+                                <div className="absolute inset-0 border-3 border-border rounded-full" />
+                                <div className="absolute inset-0 border-3 border-transparent border-t-accent-blue rounded-full animate-spin-fast" />
+                              </div>
+                            </div>
+                          )}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-foreground font-semibold text-sm truncate">
+                                  {food.name}
+                                </h4>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                {food.brand && (
+                                  <span className="text-xs px-2 py-0.5 bg-accent-emerald/20 text-accent-emerald rounded truncate max-w-[150px]">
+                                    {food.brand}
+                                  </span>
+                                )}
+                                <span className="text-xs px-2 py-0.5 bg-accent-blue/20 text-accent-blue rounded">
+                                  {food.type === 'Brand'
+                                    ? 'Branded'
+                                    : 'Generic'}
+                                </span>
+                              </div>
+                            </div>
+                            {food.previewMacros && (
+                              <div className="flex flex-col items-end gap-1">
+                                <span className="text-muted text-[10px] font-medium">
+                                  {food.previewMacros.servingInfo ||
+                                    'per serving'}
+                                </span>
+                                <div className="flex items-center gap-2 text-xs">
+                                  <div className="text-center">
+                                    <p className="text-accent-emerald font-bold">
+                                      {Math.round(food.previewMacros.calories)}
+                                    </p>
+                                    <p className="text-muted">cal</p>
+                                  </div>
+                                  <div className="text-center">
+                                    <p className="text-accent-red font-bold">
+                                      {formatOne(food.previewMacros.protein)}g
+                                    </p>
+                                    <p className="text-muted">prot</p>
+                                  </div>
+                                  <div className="text-center">
+                                    <p className="text-accent-amber font-bold">
+                                      {formatOne(food.previewMacros.carbs)}g
+                                    </p>
+                                    <p className="text-muted">carb</p>
+                                  </div>
+                                  <div className="text-center">
+                                    <p className="text-accent-yellow font-bold">
+                                      {formatOne(food.previewMacros.fats)}g
+                                    </p>
+                                    <p className="text-muted">fat</p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })
+                  ) : (
+                    /* Local Results */
+                    !isSearching &&
+                    displayResults.map((food) => {
+                      const isPinned = resolvedPinnedFoods.includes(food.id);
+                      const isLongPressing = longPressingId === food.id;
+                      let borderClass = '';
+                      let shadowClass = '';
+                      if (isPinned) {
+                        borderClass = 'border-accent-blue';
+                      } else {
+                        borderClass = 'border-border';
+                        shadowClass = '';
+                      }
+                      return (
+                        <button
+                          key={food.id}
+                          onClick={() => handleFoodClick(food)}
+                          onPointerDown={(event) =>
+                            handlePressStart(food.id, event)
+                          }
+                          onPointerUp={() => handlePressEnd(false)}
+                          onPointerLeave={() => handlePressEnd(true)}
+                          onPointerCancel={() => handlePressEnd(true)}
+                          onContextMenu={(event) => event.preventDefault()}
+                          className={`relative w-full bg-surface-highlight border rounded-xl p-3 text-left transition-all ${
+                            isLongPressing
+                              ? 'border-accent-blue scale-[0.98]'
+                              : `${borderClass} active:scale-[0.99]`
+                          } ${shadowClass}`}
+                        >
+                          {isPinned && (
+                            <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-accent-blue rounded-full"></div>
+                          )}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-foreground font-semibold text-sm truncate">
+                                  {food.name}
+                                </h4>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                {food.source !== 'fatsecret' &&
+                                  food.category !== 'cached' && (
+                                    <span
+                                      className={`text-xs px-2 py-0.5 rounded ${getCategoryClasses(
+                                        food.category
+                                      )}`}
+                                    >
+                                      {FOOD_CATEGORIES[food.category]?.label ||
+                                        food.category}
+                                    </span>
+                                  )}
+                                {food.brand && (
+                                  <span className="text-xs px-2 py-0.5 bg-accent-emerald/20 text-accent-emerald rounded truncate max-w-[100px]">
+                                    {food.brand}
+                                  </span>
+                                )}
+                                {food.source === 'fatsecret' && (
+                                  <span className="text-xs px-2 py-0.5 bg-accent-purple/20 text-accent-purple rounded flex items-center gap-1">
+                                    <Globe size={10} />
+                                    Cached
+                                  </span>
+                                )}
+                                {food.portions && food.portions.length > 0 && (
+                                  <span className="text-xs px-2 py-0.5 bg-accent-purple/20 text-accent-purple rounded">
+                                    {food.portions.length}{' '}
+                                    {food.portions.length === 1
+                                      ? 'portion'
+                                      : 'portions'}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                             <div className="flex flex-col items-end gap-1">
                               <span className="text-muted text-[10px] font-medium">
-                                {food.previewMacros.servingInfo ||
-                                  'per serving'}
+                                per 100g
                               </span>
-                              <div className="flex items-center gap-2 text-xs">
+                              <div className="flex items-center gap-3 text-xs">
                                 <div className="text-center">
                                   <p className="text-accent-emerald font-bold">
-                                    {Math.round(food.previewMacros.calories)}
+                                    {formatOne(food.per100g.calories)}
                                   </p>
                                   <p className="text-muted">cal</p>
                                 </div>
                                 <div className="text-center">
                                   <p className="text-accent-red font-bold">
-                                    {formatOne(food.previewMacros.protein)}g
+                                    {formatOne(food.per100g.protein)}g
                                   </p>
                                   <p className="text-muted">prot</p>
                                 </div>
                                 <div className="text-center">
                                   <p className="text-accent-amber font-bold">
-                                    {formatOne(food.previewMacros.carbs)}g
+                                    {formatOne(food.per100g.carbs)}g
                                   </p>
                                   <p className="text-muted">carb</p>
                                 </div>
                                 <div className="text-center">
                                   <p className="text-accent-yellow font-bold">
-                                    {formatOne(food.previewMacros.fats)}g
+                                    {formatOne(food.per100g.fats)}g
                                   </p>
                                   <p className="text-muted">fat</p>
                                 </div>
                               </div>
                             </div>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })
-                ) : (
-                  /* Local Results */
-                  !isSearching &&
-                  displayResults.map((food) => {
-                    const isPinned = resolvedPinnedFoods.includes(food.id);
-                    const isLongPressing = longPressingId === food.id;
-                    let borderClass = '';
-                    let shadowClass = '';
-                    if (isPinned) {
-                      borderClass = 'border-accent-blue';
-                    } else {
-                      borderClass = 'border-border';
-                      shadowClass = '';
-                    }
-                    return (
-                      <button
-                        key={food.id}
-                        onClick={() => handleFoodClick(food)}
-                        onPointerDown={(event) =>
-                          handlePressStart(food.id, event)
-                        }
-                        onPointerUp={() => handlePressEnd(false)}
-                        onPointerLeave={() => handlePressEnd(true)}
-                        onPointerCancel={() => handlePressEnd(true)}
-                        onContextMenu={(event) => event.preventDefault()}
-                        className={`relative w-full bg-surface-highlight border rounded-xl p-3 text-left transition-all ${
-                          isLongPressing
-                            ? 'border-accent-blue scale-[0.98]'
-                            : `${borderClass} active:scale-[0.99]`
-                        } ${shadowClass}`}
-                      >
-                        {isPinned && (
-                          <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-accent-blue rounded-full"></div>
-                        )}
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <h4 className="text-foreground font-semibold text-sm truncate">
-                                {food.name}
-                              </h4>
-                            </div>
-                            <div className="flex items-center gap-2 mt-1 flex-wrap">
-                              {food.source !== 'fatsecret' &&
-                                food.category !== 'cached' && (
-                                  <span
-                                    className={`text-xs px-2 py-0.5 rounded ${getCategoryClasses(
-                                      food.category
-                                    )}`}
-                                  >
-                                    {FOOD_CATEGORIES[food.category]?.label ||
-                                      food.category}
-                                  </span>
-                                )}
-                              {food.brand && (
-                                <span className="text-xs px-2 py-0.5 bg-accent-emerald/20 text-accent-emerald rounded truncate max-w-[100px]">
-                                  {food.brand}
-                                </span>
-                              )}
-                              {food.source === 'fatsecret' && (
-                                <span className="text-xs px-2 py-0.5 bg-accent-purple/20 text-accent-purple rounded flex items-center gap-1">
-                                  <Globe size={10} />
-                                  Cached
-                                </span>
-                              )}
-                              {food.portions && food.portions.length > 0 && (
-                                <span className="text-xs px-2 py-0.5 bg-accent-purple/20 text-accent-purple rounded">
-                                  {food.portions.length}{' '}
-                                  {food.portions.length === 1
-                                    ? 'portion'
-                                    : 'portions'}
-                                </span>
-                              )}
-                            </div>
                           </div>
-                          <div className="flex flex-col items-end gap-1">
-                            <span className="text-muted text-[10px] font-medium">
-                              per 100g
-                            </span>
-                            <div className="flex items-center gap-3 text-xs">
-                              <div className="text-center">
-                                <p className="text-accent-emerald font-bold">
-                                  {formatOne(food.per100g.calories)}
-                                </p>
-                                <p className="text-muted">cal</p>
-                              </div>
-                              <div className="text-center">
-                                <p className="text-accent-red font-bold">
-                                  {formatOne(food.per100g.protein)}g
-                                </p>
-                                <p className="text-muted">prot</p>
-                              </div>
-                              <div className="text-center">
-                                <p className="text-accent-amber font-bold">
-                                  {formatOne(food.per100g.carbs)}g
-                                </p>
-                                <p className="text-muted">carb</p>
-                              </div>
-                              <div className="text-center">
-                                <p className="text-accent-yellow font-bold">
-                                  {formatOne(food.per100g.fats)}g
-                                </p>
-                                <p className="text-muted">fat</p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })
-                )}
-              </>
-            )}
+                        </button>
+                      );
+                    })
+                  )}
+                </>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <ConfirmActionModal
