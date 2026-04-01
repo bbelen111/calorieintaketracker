@@ -78,3 +78,74 @@ test('sendGeminiMessage maps 429 to user-friendly GeminiError', async () => {
     globalThis.fetch = originalFetch;
   }
 });
+
+test('sendGeminiMessage maps empty candidate text to actionable GeminiError', async () => {
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      candidates: [
+        {
+          finishReason: 'SAFETY',
+          content: { parts: [] },
+        },
+      ],
+      promptFeedback: { blockReason: 'SAFETY' },
+    }),
+  });
+
+  try {
+    await assert.rejects(
+      () => sendGeminiMessage({ message: 'test', history: [] }),
+      (error) => {
+        assert.ok(error instanceof GeminiError);
+        assert.equal(error.status, 502);
+        assert.match(error.message, /blocked by safety filters/i);
+        return true;
+      }
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('sendGeminiMessage retries once when first response has no candidates', async () => {
+  const originalFetch = globalThis.fetch;
+  let callCount = 0;
+
+  globalThis.fetch = async () => {
+    callCount += 1;
+
+    if (callCount === 1) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      };
+    }
+
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        candidates: [
+          {
+            content: {
+              parts: [{ text: 'Retry succeeded with a valid candidate.' }],
+            },
+          },
+        ],
+      }),
+    };
+  };
+
+  try {
+    const response = await sendGeminiMessage({ message: 'test', history: [] });
+    assert.equal(callCount, 2);
+    assert.equal(response.text, 'Retry succeeded with a valid candidate.');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

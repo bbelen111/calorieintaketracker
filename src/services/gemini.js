@@ -20,15 +20,71 @@ export class GeminiError extends Error {
 }
 
 function extractGeminiText(data) {
-  const parts = data?.candidates?.[0]?.content?.parts;
-  if (!Array.isArray(parts)) return '';
+  const candidates = Array.isArray(data?.candidates) ? data.candidates : [];
 
-  return parts
-    .filter((part) => typeof part?.text === 'string')
-    .map((part) => part.text.trim())
-    .filter(Boolean)
-    .join('\n\n')
-    .trim();
+  const collectedTexts = candidates.flatMap((candidate) => {
+    const parts = candidate?.content?.parts;
+    if (!Array.isArray(parts)) return [];
+
+    return parts
+      .filter((part) => typeof part?.text === 'string')
+      .map((part) => part.text.trim())
+      .filter(Boolean);
+  });
+
+  return collectedTexts.join('\n\n').trim();
+}
+
+function resolveNoTextReason(data) {
+  const blockReason = data?.promptFeedback?.blockReason;
+  if (typeof blockReason === 'string' && blockReason.length > 0) {
+    return `Response blocked by safety filters (${blockReason}). Try a clearer prompt or a different image.`;
+  }
+
+  const firstFinishReason = data?.candidates?.[0]?.finishReason;
+  if (firstFinishReason === 'SAFETY') {
+    return 'Response blocked by safety filters. Try rephrasing your request or using a different image.';
+  }
+
+  if (firstFinishReason === 'MAX_TOKENS') {
+    return 'The assistant response was cut off. Please ask a shorter or more specific question.';
+  }
+
+  if (!Array.isArray(data?.candidates) || data.candidates.length === 0) {
+    return 'No response candidate was returned by Gemini. Please try again. If this keeps happening, check your GEMINI_MODEL value in Vercel.';
+  }
+
+  return 'The assistant returned no readable text. Please try again with a clearer prompt or different image.';
+}
+
+function shouldRetryNoTextResponse(data) {
+  const hasCandidates =
+    Array.isArray(data?.candidates) && data.candidates.length > 0;
+  if (hasCandidates) {
+    return false;
+  }
+
+  const blockReason = data?.promptFeedback?.blockReason;
+  if (typeof blockReason === 'string' && blockReason.length > 0) {
+    return false;
+  }
+
+  return true;
+}
+
+async function requestGemini({ body, signal }) {
+  const response = await fetch(API_BASE, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    signal,
+    body: JSON.stringify(body),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  return { response, data };
 }
 
 function createCombinedAbortSignal(externalSignal, timeoutMs) {
@@ -161,16 +217,12 @@ export async function sendGeminiMessage({
   );
 
   try {
-    const response = await fetch(API_BASE, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      signal: requestSignal,
-      body: JSON.stringify({ contents, model }),
-    });
+    const requestBody = { contents, model };
 
-    const data = await response.json().catch(() => ({}));
+    let { response, data } = await requestGemini({
+      body: requestBody,
+      signal: requestSignal,
+    });
 
     if (!response.ok) {
       if (response.status === 429) {
@@ -190,16 +242,40 @@ export async function sendGeminiMessage({
 
     const text = extractGeminiText(data);
 
-    if (!text) {
-      throw new GeminiError(
-        'The assistant returned an empty response',
-        502,
-        data
-      );
+    if (!text && shouldRetryNoTextResponse(data)) {
+      const retryResult = await requestGemini({
+        body: requestBody,
+        signal: requestSignal,
+      });
+
+      response = retryResult.response;
+      data = retryResult.data;
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          throw new GeminiError(
+            'The AI is processing too many requests. Please wait a moment or use the manual search.',
+            429,
+            data
+          );
+        }
+
+        throw new GeminiError(
+          data?.error || `Gemini request failed (${response.status})`,
+          response.status,
+          data
+        );
+      }
+    }
+
+    const resolvedText = extractGeminiText(data);
+
+    if (!resolvedText) {
+      throw new GeminiError(resolveNoTextReason(data), 502, data);
     }
 
     return {
-      text,
+      text: resolvedText,
       raw: data,
     };
   } catch (error) {
