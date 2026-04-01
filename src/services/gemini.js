@@ -1,14 +1,15 @@
 /* eslint-disable no-undef */
+import { Capacitor } from '@capacitor/core';
+
 export const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 export const MAX_IMAGE_COUNT = 3;
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
-const viteGeminiApiBase =
-  typeof import.meta.env?.VITE_GEMINI_API_BASE === 'string'
+const API_BASE = (
+  (typeof import.meta.env?.VITE_GEMINI_API_BASE === 'string'
     ? import.meta.env.VITE_GEMINI_API_BASE
-    : '';
-
-const API_BASE = (viteGeminiApiBase || '/api/gemini').trim();
+    : '') || 'https://calorieintaketracker.vercel.app/api/gemini'
+).trim();
 
 export class GeminiError extends Error {
   constructor(message, status = 0, details = null) {
@@ -73,7 +74,16 @@ function shouldRetryNoTextResponse(data) {
 }
 
 async function requestGemini({ body, signal }) {
-  const response = await fetch(API_BASE, {
+  const resolvedBase = API_BASE || '/api/gemini';
+
+  if (Capacitor.isNativePlatform() && resolvedBase.startsWith('/')) {
+    throw new GeminiError(
+      'Gemini API base not configured for native. Set VITE_GEMINI_API_BASE to your deployed URL.',
+      0
+    );
+  }
+
+  const response = await fetch(resolvedBase, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
