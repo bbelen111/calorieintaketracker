@@ -33,13 +33,15 @@ import { ModalShell } from '../../common/ModalShell';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { ConfirmActionModal } from '../common/ConfirmActionModal';
 import { AddCustomFoodModal } from '../forms/AddCustomFoodModal';
-import {
-  FOOD_CATEGORIES,
-  FOOD_DATABASE,
-} from '../../../../constants/foodDatabase';
+import { FOOD_CATEGORIES } from '../../../../constants/foodDatabase';
 import { formatOne } from '../../../../utils/format';
 import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
+import {
+  getDistinctSubcategories as getLocalSubcategories,
+  getFoodById as getLocalFoodById,
+  searchFoods as searchLocalFoods,
+} from '../../../../services/foodCatalog';
 import {
   searchFoods as searchOnlineFoods,
   getFoodDetails,
@@ -151,6 +153,11 @@ export const FoodSearchModal = ({
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState(null);
   const [loadingFoodId, setLoadingFoodId] = useState(null);
+  const [localDbResults, setLocalDbResults] = useState([]);
+  const [isLocalSearching, setIsLocalSearching] = useState(false);
+  const [localSearchError, setLocalSearchError] = useState(null);
+  const [localSubcategories, setLocalSubcategories] = useState([]);
+  const [favouriteFoodLookup, setFavouriteFoodLookup] = useState({});
   const searchTimeoutRef = useRef(null);
   const abortControllerRef = useRef(null);
 
@@ -198,7 +205,10 @@ export const FoodSearchModal = ({
       // Clear online search state on close
       setOnlineResults([]);
       setSearchError(null);
+      setLocalDbResults([]);
+      setLocalSearchError(null);
       setIsSearching(false);
+      setIsLocalSearching(false);
       setLoadingFoodId(null);
       setViewMode('search');
       setFavouritesSearchQuery('');
@@ -240,11 +250,138 @@ export const FoodSearchModal = ({
   useEffect(() => {
     setOnlineResults([]);
     setSearchError(null);
+    setLocalSearchError(null);
     setSelectedCategory(null);
     setSelectedSubcategory(null);
     setIsFilterOpen(false);
     setViewMode('search');
   }, [searchMode]);
+
+  useEffect(() => {
+    if (searchMode !== 'local' || viewMode !== 'search') {
+      return;
+    }
+
+    let cancelled = false;
+    setIsLocalSearching(true);
+    setLocalSearchError(null);
+
+    searchLocalFoods({
+      query: searchQuery,
+      category: selectedCategory,
+      subcategory: selectedSubcategory,
+      sortBy,
+      sortOrder,
+      limit: 500,
+    })
+      .then((rows) => {
+        if (cancelled) {
+          return;
+        }
+        setLocalDbResults(Array.isArray(rows) ? rows : []);
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+        console.error('Local food search error:', error);
+        setLocalDbResults([]);
+        setLocalSearchError('Local database search failed.');
+      })
+      .finally(() => {
+        if (cancelled) {
+          return;
+        }
+        setIsLocalSearching(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    searchMode,
+    viewMode,
+    searchQuery,
+    selectedCategory,
+    selectedSubcategory,
+    sortBy,
+    sortOrder,
+  ]);
+
+  useEffect(() => {
+    if (searchMode !== 'local' || !selectedCategory) {
+      setLocalSubcategories([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    getLocalSubcategories(selectedCategory)
+      .then((subcategories) => {
+        if (cancelled) {
+          return;
+        }
+        setLocalSubcategories(
+          Array.isArray(subcategories) ? subcategories : []
+        );
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+        console.error('Failed to load local subcategories:', error);
+        setLocalSubcategories([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [searchMode, selectedCategory]);
+
+  useEffect(() => {
+    const uniqueFoodIds = Array.from(
+      new Set(
+        (resolvedFavourites ?? [])
+          .map((favourite) => favourite?.foodId)
+          .filter((foodId) => typeof foodId === 'string' && foodId.length > 0)
+      )
+    );
+
+    if (uniqueFoodIds.length === 0) {
+      setFavouriteFoodLookup({});
+      return;
+    }
+
+    let cancelled = false;
+
+    Promise.all(
+      uniqueFoodIds.map(async (foodId) => [
+        foodId,
+        await getLocalFoodById(foodId),
+      ])
+    )
+      .then((pairs) => {
+        if (cancelled) {
+          return;
+        }
+
+        const nextLookup = Object.fromEntries(
+          pairs.filter(([, food]) => Boolean(food))
+        );
+        setFavouriteFoodLookup(nextLookup);
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+        console.error('Failed to resolve favourite foods:', error);
+        setFavouriteFoodLookup({});
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedFavourites]);
 
   useEffect(() => {
     if (!isDeleteConfirmOpen && !isDeleteConfirmClosing) {
@@ -424,7 +561,7 @@ export const FoodSearchModal = ({
 
   const resolveFoodById = (foodId) => {
     if (!foodId) return null;
-    return FOOD_DATABASE.find((food) => food.id === foodId) ?? null;
+    return favouriteFoodLookup[foodId] ?? null;
   };
   const toPer100g = (value, grams) => {
     if (!grams || grams <= 0) return 0;
@@ -636,65 +773,83 @@ export const FoodSearchModal = ({
       return Array.from(servingSet).sort();
     }
 
-    // Include both static DB and cached foods
-    const allFoods = [...FOOD_DATABASE, ...resolvedCachedFoods];
+    // Include both local DB-derived and cached foods
+    const allFoods = [
+      ...localDbResults,
+      ...resolvedCachedFoods,
+      ...customFoods,
+    ];
     const subcats = new Set();
+
+    localSubcategories.forEach((subcategory) => {
+      subcats.add(subcategory);
+    });
+
     allFoods.forEach((food) => {
       if (food.category === selectedCategory && food.subcategory) {
         subcats.add(food.subcategory);
       }
     });
     return Array.from(subcats).sort();
-  }, [selectedCategory, searchMode, onlineResults, resolvedCachedFoods]);
+  }, [
+    customFoods,
+    localDbResults,
+    localSubcategories,
+    selectedCategory,
+    searchMode,
+    onlineResults,
+    resolvedCachedFoods,
+  ]);
 
   // Apply search, filter, and sort for LOCAL mode
   const localSearchResults = useMemo(() => {
-    // Merge static database with cached online foods and custom foods
-    const allLocalFoods = [
-      ...FOOD_DATABASE,
-      ...resolvedCachedFoods,
-      ...customFoods,
-    ];
+    const mergedMap = new Map();
 
-    // Search using local search function, but on merged array
-    let results;
-    if (!searchQuery.trim()) {
-      results = allLocalFoods;
-    } else {
-      const query = searchQuery.toLowerCase().trim();
-      results = allLocalFoods.filter(
-        (food) =>
-          food.name.toLowerCase().includes(query) ||
-          food.brand?.toLowerCase().includes(query) ||
-          food.category?.toLowerCase().includes(query)
-      );
-    }
+    [...localDbResults, ...resolvedCachedFoods, ...customFoods].forEach(
+      (food) => {
+        if (!food?.id) {
+          return;
+        }
+        mergedMap.set(food.id, food);
+      }
+    );
 
-    // Apply category filter
+    let results = Array.from(mergedMap.values());
+
     if (selectedCategory) {
       results = results.filter((food) => food.category === selectedCategory);
     }
 
-    // Apply subcategory filter
     if (selectedSubcategory) {
       results = results.filter(
         (food) => food.subcategory === selectedSubcategory
       );
     }
 
-    // Apply sorting
-    results = [...results].sort((a, b) => {
-      let compareValue = 0;
+    if (searchQuery.trim()) {
+      const normalizedQuery = searchQuery.toLowerCase().trim();
+      results = results.filter(
+        (food) =>
+          String(food.name ?? '')
+            .toLowerCase()
+            .includes(normalizedQuery) ||
+          String(food.brand ?? '')
+            .toLowerCase()
+            .includes(normalizedQuery) ||
+          String(food.category ?? '')
+            .toLowerCase()
+            .includes(normalizedQuery)
+      );
+    }
 
+    results.sort((a, b) => {
       if (sortBy === 'name') {
-        compareValue = a.name.localeCompare(b.name);
-      } else {
-        const aValue = a.per100g[sortBy] || 0;
-        const bValue = b.per100g[sortBy] || 0;
-        compareValue = aValue - bValue;
+        return String(a.name ?? '').localeCompare(String(b.name ?? ''));
       }
 
-      return sortOrder === 'asc' ? compareValue : -compareValue;
+      const aValue = Number(a?.per100g?.[sortBy] ?? 0);
+      const bValue = Number(b?.per100g?.[sortBy] ?? 0);
+      return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
     });
 
     // Sort pinned foods to the top
@@ -708,14 +863,15 @@ export const FoodSearchModal = ({
 
     return results;
   }, [
+    customFoods,
+    localDbResults,
+    resolvedCachedFoods,
     searchQuery,
     selectedCategory,
     selectedSubcategory,
     sortBy,
     sortOrder,
     resolvedPinnedFoods,
-    resolvedCachedFoods,
-    customFoods,
   ]);
 
   const onlineSearchResults = useMemo(() => {
@@ -1729,8 +1885,9 @@ export const FoodSearchModal = ({
                 )
               ) : (
                 <>
-                  {displayResults.length}{' '}
-                  {displayResults.length === 1 ? 'food' : 'foods'} found
+                  {isLocalSearching
+                    ? 'Searching local foods...'
+                    : `${displayResults.length} ${displayResults.length === 1 ? 'food' : 'foods'} found`}
                   {resolvedCachedFoods.length > 0 && (
                     <span className="ml-2 text-xs text-muted">
                       (+{resolvedCachedFoods.length} cached)
@@ -2277,6 +2434,30 @@ export const FoodSearchModal = ({
                     </div>
                   )}
 
+                  {searchMode === 'local' && localSearchError && (
+                    <div className="bg-accent-red/10 border border-accent-red/30 rounded-lg p-4 flex items-start gap-3">
+                      <AlertCircle
+                        size={20}
+                        className="text-accent-red flex-shrink-0 mt-0.5"
+                      />
+                      <p className="text-accent-red font-medium text-sm">
+                        {localSearchError}
+                      </p>
+                    </div>
+                  )}
+
+                  {searchMode === 'local' && isLocalSearching && (
+                    <div className="flex flex-col items-center justify-center py-12">
+                      <div className="relative w-8 h-8 mb-3">
+                        <div className="absolute inset-0 border-4 border-border rounded-full" />
+                        <div className="absolute inset-0 border-4 border-transparent border-t-accent-blue rounded-full animate-spin-fast" />
+                      </div>
+                      <p className="text-muted text-sm">
+                        Searching local foods...
+                      </p>
+                    </div>
+                  )}
+
                   {/* Loading State for Online Search */}
                   {searchMode === 'online' && isSearching && (
                     <div className="flex flex-col items-center justify-center py-12">
@@ -2292,7 +2473,9 @@ export const FoodSearchModal = ({
 
                   {/* Empty State */}
                   {!isSearching &&
+                  !isLocalSearching &&
                   !searchError &&
+                  !localSearchError &&
                   displayResults.length === 0 ? (
                     <div className="p-20 text-center">
                       {searchMode === 'online' ? (

@@ -9,6 +9,7 @@ React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor 
 - Capacitor 8.0.1 (`appId: com.energymap.tracker`, `webDir: dist`)
 - **Persistence:** Dexie (`IndexedDB`) for history + `@capacitor/preferences` for profile/settings
 - **State:** `zustand` 4.5.5 with `subscribeWithSelector` middleware
+- **Food Catalog Runtime:** `sql.js` (WASM SQLite reader in browser)
 - Dexie 4.x (history document store)
 - Framer Motion 12.23.24 (animations)
 - Tailwind 3.4.17 (styling via CSS variable–based semantic tokens)
@@ -698,6 +699,31 @@ Results cached in `userData.cachedFoods` to reduce API calls.
 
 ---
 
+## Local Food Catalog (SQLite)
+
+Food search now reads from `src/constants/foodDatabase.sqlite` through `src/services/foodCatalog.js` using `sql.js`.
+
+**Runtime service surface (`services/foodCatalog.js`):**
+- `searchFoods({ query, category, subcategory, sortBy, sortOrder, limit })`
+- `getFoodById(id)`
+- `getDistinctSubcategories(category)`
+
+**Compatibility layer:**
+- `src/constants/foodDatabase.js` now keeps `FOOD_CATEGORIES` and async helper passthroughs for legacy imports.
+- `FOOD_DATABASE` export is intentionally an empty compatibility array; do not repopulate static inline food data.
+
+**Offline cleanup pipeline:**
+- `scripts/food-db/index.js` performs audit/clean/rebuild/replace.
+- `scripts/food-db/config/taxonomy.js` contains canonical category/subcategory maps and aliases.
+- NPM scripts:
+  - `npm run db:food:audit`
+  - `npm run db:food:clean:dry`
+  - `npm run db:food:clean`
+
+The cleanup path is source-first. Do not add per-query runtime quality enforcement back into the app for catalog normalization.
+
+---
+
 ## Health Connect Integration (`hooks/useHealthConnect.js`)
 
 Android-only step data sync via `@capgo/capacitor-health`.
@@ -734,7 +760,8 @@ src/
 │   ├─ screens/                  # 6 screen components
 │   └─ context/                  # Empty (unused)
 ├─ constants/                    # Static lookup tables
-│   ├─ foodDatabase.js           # 3000+ food items (per-100g macros + portions)
+│   ├─ foodDatabase.js           # Compatibility exports + FOOD_CATEGORIES; data lives in SQLite catalog
+│   ├─ foodDatabase.sqlite       # Canonical local food catalog database (queried via sql.js)
 │   ├─ goals.js                  # Goal definitions with calorie modifiers
 │   ├─ cardioTypes.js            # Cardio activities with MET values + step-overlap metadata (`ambulatory`, `cadence`)
 │   ├─ trainingTypes.js          # Training presets with cal/hour
@@ -775,7 +802,13 @@ src/
 │   ├─ trackerHelpers.jsx        # Shared trend/goal-alignment helpers + TrendIcon
 │   └─ time.js                   # Time/duration helpers (normalize, round, format, split)
 ├─ services/
-│   └─ fatSecret.js              # FatSecret API client
+│   ├─ fatSecret.js              # FatSecret API client
+│   └─ foodCatalog.js            # SQLite-backed local food catalog service (sql.js)
+├─ scripts/
+│   └─ food-db/
+│      ├─ index.js               # Offline food DB audit/clean/replace pipeline
+│      └─ config/
+│         └─ taxonomy.js         # Canonical taxonomy maps + alias/portion sanitation config
 └─ tests/                        # Node test runner suite (`node --test`)
   ├─ constants/
   │   └─ activityPresets.test.js
@@ -870,3 +903,6 @@ npm run test:watch     # Node test runner in watch mode
 43. **Snapshot EPOC fields are intentional:** `dailySnapshots` persist `epoc`, `epocTraining`, `epocCardio`, `epocFromTodaySessions`, and `epocCarryInCalories` for historical/analytics context.
 44. **Native back navigation has home-first + double-exit behavior:** In `EnergyMapCalculator`, native back handling must close topmost modal first; when no modal is open and current screen is not Home, navigate to Home instead of exiting; when already on Home, require a second back press within a short window and show the transient hint text (`"Swipe or tap again to exit"`) before `App.exitApp()`.
 45. **Framer Motion + Tailwind transform caveat for fixed hints/toasts:** Avoid combining Framer Motion transform animations with Tailwind translate centering utilities on the same element (e.g., `left-1/2 -translate-x-1/2`), because Motion overwrites `transform` and can shift the UI off-center. Prefer fixed full-width flex centering (`fixed inset-x-0 flex justify-center`).
+46. **Local food catalog is SQLite-first:** Query local foods via `services/foodCatalog.js`; do not reintroduce full in-memory `FOOD_DATABASE` scans as a primary path.
+47. **Food data hygiene is offline-first:** Keep taxonomy/portion normalization in `scripts/food-db` pipeline and avoid adding query-time normalization layers for category/subcategory cleanup.
+48. **Backup/report artifacts are generated files:** `src/constants/*.backup.sqlite` and `scripts/food-db/reports/*.json` should remain ignored and not committed.

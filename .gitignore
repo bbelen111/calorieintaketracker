@@ -106,3 +106,7 @@ Thumbs.db
 
 # Claude temp files
 tmpclaude-*/
+
+# Food DB cleanup generated artifacts
+src/constants/*.backup.sqlite
+scripts/food-db/reports/*.json

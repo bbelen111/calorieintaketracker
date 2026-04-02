@@ -1,0 +1,551 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { Buffer } from 'node:buffer';
+import initSqlJs from 'sql.js';
+import {
+  CANONICAL_CATEGORIES,
+  CATEGORY_ALIASES,
+  CANONICAL_SUBCATEGORY_BY_CATEGORY,
+  SUBCATEGORY_ALIASES,
+  INVALID_PORTION_LABELS,
+} from './config/taxonomy.js';
+
+const PROJECT_ROOT = globalThis.process.cwd();
+const SOURCE_DB_PATH = path.resolve(
+  PROJECT_ROOT,
+  'src/constants/foodDatabase.sqlite'
+);
+const REPORTS_DIR = path.resolve(PROJECT_ROOT, 'scripts/food-db/reports');
+const BACKUP_DB_PATH = path.resolve(
+  PROJECT_ROOT,
+  'src/constants/foodDatabase.backup.sqlite'
+);
+
+const parseArgs = () => {
+  const args = new Set(globalThis.process.argv.slice(2));
+  return {
+    mode: args.has('--clean') ? 'clean' : 'audit',
+    dryRun: args.has('--dry-run'),
+    replace: args.has('--replace'),
+  };
+};
+
+const normalizeToken = (value) =>
+  String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .replace(/_+/g, '_');
+
+const parsePortions = (rawPortions) => {
+  if (!rawPortions) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(rawPortions);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const getNumeric = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const hasValidMacros = (row) =>
+  ['calories', 'protein', 'carbs', 'fats'].every(
+    (key) => Number.isFinite(getNumeric(row[key])) && getNumeric(row[key]) >= 0
+  );
+
+const inferCategoryFromNameAndMacros = (row) => {
+  const name = String(row?.name ?? '').toLowerCase();
+  const protein = getNumeric(row?.protein);
+  const carbs = getNumeric(row?.carbs);
+  const fats = getNumeric(row?.fats);
+
+  if (
+    /(protein|whey|casein|bcaa|creatine|electrolyte|pre\s*-?workout|vitamin|supplement)/.test(
+      name
+    )
+  ) {
+    return 'supplements';
+  }
+
+  if (
+    /(oil|butter|lard|blubber|tallow|margarine|mayonnaise|mayo|nuts?|seeds?)/.test(
+      name
+    )
+  ) {
+    return 'fats';
+  }
+
+  if (
+    /(beef|pork|lamb|mutton|veal|venison|bison|buffalo|elk|moose|caribou|chicken|turkey|duck|goose|ham|bacon|sausage|steak|fish|tuna|salmon|cod|shrimp|crab|lobster|mussel|clam|oyster|anchovy|sardine|egg|meat|seal|whale|walrus)/.test(
+      name
+    )
+  ) {
+    return 'protein';
+  }
+
+  if (
+    /(spinach|broccoli|cauliflower|cabbage|lettuce|kale|zucchini|cucumber|celery|carrot|onion|pepper|tomato|asparagus|radish|eggplant|okra|leek|greens?|vegetable|squash)/.test(
+      name
+    )
+  ) {
+    return 'vegetables';
+  }
+
+  if (
+    /(bread|rice|pasta|corn|potato|yam|oat|oats|barley|grain|flour|tortilla|bagel|biscuit|pizza|burrito|pretzel|popcorn|granola|trail mix|snack|chips|fries|syrup|sugar|sweet|candy|chocolate|jam|jelly|ice cream|dessert|pudding|juice|soda|cola|fruit|banana|apple|orange|berry|grape|pear|peach|plum|apricot|cherry|watermelon|pineapple|mango|papaya|guava|lychee|drink|beverage)/.test(
+      name
+    )
+  ) {
+    return 'carbs';
+  }
+
+  if (protein >= 10 && protein >= carbs && protein >= fats) {
+    return 'protein';
+  }
+
+  if (fats >= 10 && fats >= carbs && fats >= protein) {
+    return 'fats';
+  }
+
+  if (carbs >= 10 && carbs >= protein && carbs >= fats) {
+    return 'carbs';
+  }
+
+  return null;
+};
+
+const normalizeCategory = (rawCategory, row) => {
+  const token = normalizeToken(rawCategory);
+  if (!token) {
+    return { category: null, reason: 'missing_category' };
+  }
+
+  const aliasMapped = CATEGORY_ALIASES[token] ?? token;
+  if (!CANONICAL_CATEGORIES.has(aliasMapped)) {
+    return {
+      category: null,
+      reason: 'unknown_category',
+      original: token,
+    };
+  }
+
+  if (aliasMapped === 'custom' || aliasMapped === 'manual') {
+    const id = String(row?.id ?? '').toLowerCase();
+    if (id.startsWith('usda_')) {
+      const inferredCategory = inferCategoryFromNameAndMacros(row);
+      if (inferredCategory) {
+        return {
+          category: inferredCategory,
+          reason: 'reclassified_from_custom_usda',
+          original: aliasMapped,
+        };
+      }
+
+      return {
+        category: null,
+        reason: 'custom_usda_unclassified',
+        original: aliasMapped,
+      };
+    }
+  }
+
+  return { category: aliasMapped, reason: null };
+};
+
+const normalizeSubcategory = (rawSubcategory, category) => {
+  const token = normalizeToken(rawSubcategory);
+  if (!token) {
+    return { subcategory: null, reason: null };
+  }
+
+  const aliasMapped = SUBCATEGORY_ALIASES[token] ?? token;
+  if (aliasMapped === null) {
+    return {
+      subcategory: null,
+      reason: 'subcategory_mapped_to_null',
+      original: token,
+    };
+  }
+
+  const allowedForCategory = CANONICAL_SUBCATEGORY_BY_CATEGORY[category];
+  if (!allowedForCategory || allowedForCategory.has(aliasMapped)) {
+    return { subcategory: aliasMapped, reason: null };
+  }
+
+  return {
+    subcategory: null,
+    reason: 'subcategory_not_allowed_for_category',
+    original: token,
+  };
+};
+
+const extractGramsFromLabel = (label) => {
+  const match = String(label ?? '').match(/(\d+(?:\.\d+)?)\s*g\b/i);
+  if (!match) {
+    return null;
+  }
+
+  const grams = Number(match[1]);
+  return Number.isFinite(grams) && grams > 0 ? grams : null;
+};
+
+const sanitizePortions = ({ row, portions, quarantine, stats }) => {
+  const repaired = [];
+  const byLabel = new Map();
+
+  for (const portion of portions) {
+    const rawLabel = String(portion?.label ?? '').trim();
+    const normalizedLabel = normalizeToken(rawLabel).replaceAll('_', ' ');
+    let grams = getNumeric(portion?.grams, NaN);
+    let label = rawLabel;
+
+    const labelInvalid =
+      !normalizedLabel || INVALID_PORTION_LABELS.has(normalizedLabel);
+
+    if (!Number.isFinite(grams) || grams <= 0) {
+      grams = extractGramsFromLabel(label);
+      if (Number.isFinite(grams) && grams > 0) {
+        stats.portionsRepairedByLabel += 1;
+      }
+    }
+
+    if ((!label || labelInvalid) && Number.isFinite(grams) && grams > 0) {
+      label = `Serving (${Math.round(grams * 10) / 10}g)`;
+      stats.portionLabelsRepaired += 1;
+    }
+
+    if (labelInvalid && (!Number.isFinite(grams) || grams <= 0)) {
+      quarantine.push({
+        id: String(row.id ?? ''),
+        name: String(row.name ?? ''),
+        field: 'portion',
+        reason: 'invalid_portion_label_and_grams',
+        value: rawLabel,
+      });
+      stats.portionsDropped += 1;
+      continue;
+    }
+
+    if (!Number.isFinite(grams) || grams <= 0) {
+      quarantine.push({
+        id: String(row.id ?? ''),
+        name: String(row.name ?? ''),
+        field: 'portion',
+        reason: 'missing_portion_grams',
+        value: rawLabel || null,
+      });
+      stats.portionsDropped += 1;
+      continue;
+    }
+
+    const safeLabel = String(label).trim().slice(0, 100);
+    const key = normalizeToken(safeLabel);
+    const value = {
+      id: String(portion?.id ?? key ?? `portion_${repaired.length + 1}`),
+      label: safeLabel,
+      grams: Math.round(grams * 10) / 10,
+    };
+
+    const existing = byLabel.get(key);
+    if (!existing) {
+      byLabel.set(key, value);
+      continue;
+    }
+
+    if (existing.grams <= 0 && value.grams > 0) {
+      byLabel.set(key, value);
+    }
+  }
+
+  for (const value of byLabel.values()) {
+    repaired.push(value);
+  }
+
+  if (!repaired.some((portion) => Math.abs(portion.grams - 100) < 0.0001)) {
+    repaired.unshift({
+      id: 'p_100g',
+      label: '100g',
+      grams: 100,
+    });
+    stats.portionsAdded100g += 1;
+  }
+
+  return repaired;
+};
+
+const loadRows = async (SQL) => {
+  const buffer = await fs.readFile(SOURCE_DB_PATH);
+  const db = new SQL.Database(new Uint8Array(buffer));
+  const query = db.exec(`
+    SELECT id, name, category, subcategory, calories, protein, carbs, fats, portions
+    FROM foods
+  `);
+
+  if (!query.length) {
+    db.close();
+    return [];
+  }
+
+  const [{ columns, values }] = query;
+  const rows = values.map((valueRow) =>
+    Object.fromEntries(
+      columns.map((column, index) => [column, valueRow[index]])
+    )
+  );
+
+  db.close();
+  return rows;
+};
+
+const summarize = (rows) => {
+  const categoryCounts = new Map();
+  const subcategoryCounts = new Map();
+
+  for (const row of rows) {
+    const category = normalizeToken(row.category) || '(empty)';
+    categoryCounts.set(category, (categoryCounts.get(category) ?? 0) + 1);
+
+    const subcategory = normalizeToken(row.subcategory) || '(empty)';
+    subcategoryCounts.set(
+      subcategory,
+      (subcategoryCounts.get(subcategory) ?? 0) + 1
+    );
+  }
+
+  return {
+    totalRows: rows.length,
+    categories: Object.fromEntries(
+      [...categoryCounts.entries()].sort((a, b) => b[1] - a[1])
+    ),
+    subcategories: Object.fromEntries(
+      [...subcategoryCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 50)
+    ),
+  };
+};
+
+const cleanRows = (rows) => {
+  const quarantine = [];
+  const cleanedRows = [];
+  const stats = {
+    rowsDropped: 0,
+    categoriesRemapped: 0,
+    customCategoriesReclassified: 0,
+    subcategoriesRemapped: 0,
+    portionsDropped: 0,
+    portionsRepairedByLabel: 0,
+    portionLabelsRepaired: 0,
+    portionsAdded100g: 0,
+  };
+
+  for (const row of rows) {
+    if (!String(row.name ?? '').trim() || !hasValidMacros(row)) {
+      quarantine.push({
+        id: String(row.id ?? ''),
+        name: String(row.name ?? ''),
+        field: 'row',
+        reason: 'invalid_name_or_macros',
+        value: null,
+      });
+      stats.rowsDropped += 1;
+      continue;
+    }
+
+    const categoryResult = normalizeCategory(row.category, row);
+    if (!categoryResult.category) {
+      quarantine.push({
+        id: String(row.id ?? ''),
+        name: String(row.name ?? ''),
+        field: 'category',
+        reason: categoryResult.reason,
+        value: categoryResult.original ?? row.category ?? null,
+      });
+      stats.rowsDropped += 1;
+      continue;
+    }
+
+    if (normalizeToken(row.category) !== categoryResult.category) {
+      stats.categoriesRemapped += 1;
+    }
+    if (categoryResult.reason === 'reclassified_from_custom_usda') {
+      stats.customCategoriesReclassified += 1;
+    }
+
+    const subcategoryResult = normalizeSubcategory(
+      row.subcategory,
+      categoryResult.category
+    );
+
+    if (subcategoryResult.reason) {
+      stats.subcategoriesRemapped += 1;
+      quarantine.push({
+        id: String(row.id ?? ''),
+        name: String(row.name ?? ''),
+        field: 'subcategory',
+        reason: subcategoryResult.reason,
+        value: subcategoryResult.original ?? row.subcategory ?? null,
+      });
+    }
+
+    const portions = sanitizePortions({
+      row,
+      portions: parsePortions(row.portions),
+      quarantine,
+      stats,
+    });
+
+    cleanedRows.push({
+      id: String(row.id),
+      name: String(row.name).trim(),
+      category: categoryResult.category,
+      subcategory: subcategoryResult.subcategory,
+      calories: Math.max(0, getNumeric(row.calories)),
+      protein: Math.max(0, getNumeric(row.protein)),
+      carbs: Math.max(0, getNumeric(row.carbs)),
+      fats: Math.max(0, getNumeric(row.fats)),
+      portions: JSON.stringify(portions),
+    });
+  }
+
+  return { cleanedRows, quarantine, stats };
+};
+
+const rebuildDatabase = async (SQL, cleanedRows) => {
+  const db = new SQL.Database();
+  db.run(`
+    CREATE TABLE foods (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      subcategory TEXT,
+      calories REAL NOT NULL CHECK (calories >= 0),
+      protein REAL NOT NULL CHECK (protein >= 0),
+      carbs REAL NOT NULL CHECK (carbs >= 0),
+      fats REAL NOT NULL CHECK (fats >= 0),
+      portions TEXT NOT NULL
+    );
+
+    CREATE INDEX idx_food_name ON foods(name);
+    CREATE INDEX idx_food_category ON foods(category);
+    CREATE INDEX idx_food_subcategory ON foods(subcategory);
+  `);
+
+  const insertStatement = db.prepare(`
+    INSERT INTO foods (id, name, category, subcategory, calories, protein, carbs, fats, portions)
+    VALUES (:id, :name, :category, :subcategory, :calories, :protein, :carbs, :fats, :portions)
+  `);
+
+  for (const row of cleanedRows) {
+    insertStatement.run({
+      ':id': row.id,
+      ':name': row.name,
+      ':category': row.category,
+      ':subcategory': row.subcategory,
+      ':calories': row.calories,
+      ':protein': row.protein,
+      ':carbs': row.carbs,
+      ':fats': row.fats,
+      ':portions': row.portions,
+    });
+  }
+
+  insertStatement.free();
+
+  const integrity = db.exec('PRAGMA integrity_check');
+  const integrityMessage = integrity?.[0]?.values?.[0]?.[0] ?? 'unknown';
+  if (integrityMessage !== 'ok') {
+    db.close();
+    throw new Error(`Integrity check failed: ${integrityMessage}`);
+  }
+
+  const bytes = db.export();
+  db.close();
+  return bytes;
+};
+
+const ensureReportsDir = async () => {
+  await fs.mkdir(REPORTS_DIR, { recursive: true });
+};
+
+const writeJsonReport = async (fileName, payload) => {
+  await ensureReportsDir();
+  const filePath = path.resolve(REPORTS_DIR, fileName);
+  await fs.writeFile(filePath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+  return filePath;
+};
+
+const replaceDatabaseFile = async (bytes) => {
+  const tempPath = `${SOURCE_DB_PATH}.tmp`;
+
+  const sourceBuffer = await fs.readFile(SOURCE_DB_PATH);
+  await fs.writeFile(BACKUP_DB_PATH, sourceBuffer);
+  await fs.writeFile(tempPath, Buffer.from(bytes));
+  await fs.rename(tempPath, SOURCE_DB_PATH);
+};
+
+const main = async () => {
+  const args = parseArgs();
+  const SQL = await initSqlJs();
+  const rows = await loadRows(SQL);
+  const beforeSummary = summarize(rows);
+
+  await writeJsonReport('audit.before.json', beforeSummary);
+
+  if (args.mode === 'audit') {
+    console.log(
+      `Audit complete. Rows: ${beforeSummary.totalRows}. Report: scripts/food-db/reports/audit.before.json`
+    );
+    return;
+  }
+
+  const { cleanedRows, quarantine, stats } = cleanRows(rows);
+  const afterSummary = summarize(cleanedRows);
+
+  const report = {
+    inputRows: rows.length,
+    outputRows: cleanedRows.length,
+    quarantineCount: quarantine.length,
+    stats,
+    beforeSummary,
+    afterSummary,
+  };
+
+  await writeJsonReport('audit.after.json', report);
+  await writeJsonReport('quarantine.json', quarantine);
+
+  if (args.dryRun) {
+    console.log(
+      `Dry-run complete. Output rows: ${cleanedRows.length}. Reports written to scripts/food-db/reports`
+    );
+    return;
+  }
+
+  const bytes = await rebuildDatabase(SQL, cleanedRows);
+
+  if (args.replace) {
+    await replaceDatabaseFile(bytes);
+    console.log(
+      `Clean complete. Replaced src/constants/foodDatabase.sqlite (backup: src/constants/foodDatabase.backup.sqlite).`
+    );
+    return;
+  }
+
+  const outputPath = path.resolve(
+    PROJECT_ROOT,
+    'scripts/food-db/foodDatabase.cleaned.sqlite'
+  );
+  await fs.writeFile(outputPath, Buffer.from(bytes));
+  console.log(`Clean complete. Wrote ${outputPath}`);
+};
+
+main().catch((error) => {
+  console.error('Food DB pipeline failed:', error);
+  globalThis.process.exitCode = 1;
+});

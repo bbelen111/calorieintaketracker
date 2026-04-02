@@ -46,7 +46,6 @@ import { BmiInfoModal } from './modals/info/BmiInfoModal';
 import { FfmiInfoModal } from './modals/info/FfmiInfoModal';
 import { AgePickerModal } from './modals/pickers/AgePickerModal';
 import { MEAL_TYPE_ORDER } from '../../constants/mealTypes';
-import { FOOD_DATABASE } from '../../constants/foodDatabase';
 import { HeightPickerModal } from './modals/pickers/HeightPickerModal';
 import { WeightPickerModal } from './modals/pickers/WeightPickerModal';
 import { WeightEntryModal } from './modals/forms/WeightEntryModal';
@@ -105,6 +104,7 @@ import {
 } from '../../utils/time';
 import { formatDateKeyUtc, getTodayDateKey } from '../../utils/dateKeys';
 import { normalizeMacroRecommendationSplit } from '../../utils/macroRecommendations';
+import { getFoodById as getFoodByIdFromCatalog } from '../../services/foodCatalog';
 
 const MODAL_CLOSE_DELAY = 180; // Match CSS animation duration (150ms) + buffer
 const DEFAULT_TRAINING_EFFORT_TYPE = 'intensity';
@@ -223,38 +223,6 @@ const sanitizeCardioDraft = (draft, cardioTypes = {}) => {
 const getTodayDateString = () => getTodayDateKey();
 
 const DEFAULT_PORTION_GRAMS = 100;
-
-const resolveFoodForEntry = (entry) => {
-  if (!entry) {
-    return null;
-  }
-
-  if (entry.foodId) {
-    const byId = FOOD_DATABASE.find((food) => food.id === entry.foodId);
-    if (byId) {
-      return byId;
-    }
-  }
-
-  const name = String(entry.name ?? '').trim();
-  if (!name) {
-    return null;
-  }
-
-  const normalized = name.toLowerCase();
-  const exactMatch = FOOD_DATABASE.find(
-    (food) => food.name.toLowerCase() === normalized
-  );
-  if (exactMatch) {
-    return exactMatch;
-  }
-
-  return (
-    FOOD_DATABASE.find((food) =>
-      food.name.toLowerCase().includes(normalized)
-    ) ?? null
-  );
-};
 
 const buildFallbackFoodFromEntry = (entry) => {
   const safeNumber = (value) => (Number.isFinite(value) ? value : 0);
@@ -2244,7 +2212,7 @@ export const EnergyMapCalculator = () => {
 
   // Edit food entry from TrackerScreen
   const handleEditFoodEntry = useCallback(
-    (mealType, entryId) => {
+    async (mealType, entryId) => {
       const dateData = nutritionData[trackerSelectedDate] || {};
       const mealEntries = Array.isArray(dateData[mealType])
         ? dateData[mealType]
@@ -2274,8 +2242,11 @@ export const EnergyMapCalculator = () => {
       }
 
       // Open FoodPortionModal for entries with grams
+      const resolvedFoodFromCatalog = existing.foodId
+        ? await getFoodByIdFromCatalog(existing.foodId)
+        : null;
       const resolvedFood =
-        resolveFoodForEntry(existing) || buildFallbackFoodFromEntry(existing);
+        resolvedFoodFromCatalog || buildFallbackFoodFromEntry(existing);
 
       setFoodMealType(mealType);
       setSelectedFoodForPortion(resolvedFood);

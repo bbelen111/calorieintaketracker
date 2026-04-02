@@ -5,30 +5,20 @@ import { ModalShell } from '../../common/ModalShell';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { ConfirmActionModal } from '../common/ConfirmActionModal';
-import {
-  FOOD_CATEGORIES,
-  FOOD_DATABASE,
-} from '../../../../constants/foodDatabase';
+import { FOOD_CATEGORIES } from '../../../../constants/foodDatabase';
+import { getFoodById as getFoodByIdFromCatalog } from '../../../../services/foodCatalog';
 import { formatOne } from '../../../../utils/format';
-
-/**
- * Resolves a food item from the database by ID or returns null
- */
-const resolveFoodById = (foodId) => {
-  if (!foodId) return null;
-  return FOOD_DATABASE.find((food) => food.id === foodId) ?? null;
-};
 
 /**
  * Builds a display-friendly food object from a favourite entry
  * Handles both database foods and custom entries
  */
-const buildDisplayFood = (favourite) => {
+const buildDisplayFood = (favourite, dbFoodLookup = {}) => {
   if (!favourite) return null;
 
   // For database foods, try to resolve current data
   if (favourite.foodId) {
-    const dbFood = resolveFoodById(favourite.foodId);
+    const dbFood = dbFoodLookup[favourite.foodId] ?? null;
     if (dbFood) {
       return {
         ...dbFood,
@@ -115,6 +105,7 @@ export const FoodFavouritesModal = ({
   const resolvedFavourites = favourites ?? foodFavourites;
   const resolvedDeleteFavourite = onDeleteFavourite ?? removeFoodFavourite;
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
+  const [dbFoodLookup, setDbFoodLookup] = useState({});
   const entryIdRef = useRef(1);
   const {
     isOpen: isConfirmOpen,
@@ -143,6 +134,47 @@ export const FoodFavouritesModal = ({
   }, [resolvedFavourites]);
 
   const hasFavourites = sortedFavourites.length > 0;
+
+  useEffect(() => {
+    const uniqueFoodIds = Array.from(
+      new Set(
+        (sortedFavourites ?? [])
+          .map((favourite) => favourite?.foodId)
+          .filter((foodId) => typeof foodId === 'string' && foodId.length > 0)
+      )
+    );
+
+    if (uniqueFoodIds.length === 0) {
+      setDbFoodLookup({});
+      return;
+    }
+
+    let cancelled = false;
+
+    Promise.all(
+      uniqueFoodIds.map(async (foodId) => [foodId, await getFoodByIdFromCatalog(foodId)])
+    )
+      .then((pairs) => {
+        if (cancelled) {
+          return;
+        }
+
+        setDbFoodLookup(
+          Object.fromEntries(pairs.filter(([, food]) => Boolean(food)))
+        );
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+        console.error('Failed to resolve favourite foods:', error);
+        setDbFoodLookup({});
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sortedFavourites]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -184,7 +216,7 @@ export const FoodFavouritesModal = ({
   const handleEditPortion = (favourite, event) => {
     event?.stopPropagation();
 
-    const displayFood = buildDisplayFood(favourite);
+    const displayFood = buildDisplayFood(favourite, dbFoodLookup);
     if (!displayFood) return;
 
     onEditFavourite?.(displayFood, favourite);
