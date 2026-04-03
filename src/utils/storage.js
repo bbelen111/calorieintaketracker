@@ -777,22 +777,22 @@ const normalizeCachedFoodsForPersistence = (
   }
 
   const recentWindow = cachedFoods.slice(-maxItems * 3);
-  const seen = new Set();
-  const dedupedNewestFirst = [];
+  const dedupedNewestFirstByIdentity = new Map();
 
   for (let index = recentWindow.length - 1; index >= 0; index -= 1) {
     const entry = recentWindow[index];
     const cacheIdentity = getFoodCacheIdentity(entry, index);
 
-    if (seen.has(cacheIdentity)) {
+    if (dedupedNewestFirstByIdentity.has(cacheIdentity)) {
       continue;
     }
 
-    seen.add(cacheIdentity);
-    dedupedNewestFirst.push(entry);
+    dedupedNewestFirstByIdentity.set(cacheIdentity, entry);
   }
 
-  const dedupedChronological = dedupedNewestFirst.reverse();
+  const dedupedChronological = Array.from(
+    dedupedNewestFirstByIdentity.values()
+  ).reverse();
   return dedupedChronological.slice(-maxItems);
 };
 
@@ -916,11 +916,11 @@ const getChangedHistoryData = (historyData) => {
 export const loadEnergyMapData = async () => {
   try {
     // 1. Load profile from Capacitor Preferences
-    const profileRes = await Preferences.get({ key: PROFILE_KEY });
+    const [profileRes, lastSelectedCardioTypeRes] = await Promise.all([
+      Preferences.get({ key: PROFILE_KEY }),
+      Preferences.get({ key: LAST_SELECTED_CARDIO_TYPE_KEY }),
+    ]);
     const profileData = parseJsonOrEmpty(profileRes.value);
-    const lastSelectedCardioTypeRes = await Preferences.get({
-      key: LAST_SELECTED_CARDIO_TYPE_KEY,
-    });
     const lastSelectedCardioType = String(
       lastSelectedCardioTypeRes?.value ?? ''
     ).trim();

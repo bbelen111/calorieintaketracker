@@ -51,7 +51,7 @@ main.jsx
 ### Data Flow
 
 ```
-User action → Store action (updateUserData) → deriveState() recalculates
+User action → Store action (updateUserData) → deriveState() recalculates (with cached hot-path helpers)
   → Zustand re-renders subscribers → subscribeWithSelector detects userData change
   → Debounced save (1s) → saveEnergyMapData() splits into profile/history
   → Profile save: Capacitor Preferences.set(profile) only when profile payload changed
@@ -63,7 +63,7 @@ User action → Store action (updateUserData) → deriveState() recalculates
 
 1. **Single orchestrator file (`EnergyMapCalculator.jsx`)** owns all modal lifecycle state, temporary form drafts, and screen navigation. At 3,800+ lines, it's deliberately centralized — not a candidate for splitting. New modals are instantiated here.
 
-2. **Derived state pattern:** The Zustand store's `deriveState()` function recomputes `bmr`, `trainingCalories`, `totalCardioBurn`, sorted entries, and resolved types on every `userData` mutation. Never duplicate these calculations — consume them from the store.
+2. **Derived state pattern:** The Zustand store's `deriveState()` owns canonical fields (`bmr`, `trainingCalories`, `totalCardioBurn`, sorted entries, resolved types). Hot-path caching is intentional (resolved type maps, sorted arrays, normalized phase state, phase view projection) and `updateUserData` short-circuits no-op mutations. Never duplicate these calculations — consume them from the store.
 
 3. **Store initialization is async.** `setupEnergyMapStore()` is called once from `EnergyMapCalculator`, which gates rendering on `isLoaded === true` to prevent flash of default data.
 
@@ -122,6 +122,8 @@ myNewAction: (param) => {
 
 **Also critical:** The debounced callback is async and must retain try/catch handling to avoid unhandled save failures.
 
+**Startup note:** `loadEnergyMapData()` intentionally reads `energyMapData_profile` and `energyMapLastSelectedCardioType` in parallel via `Promise.all(...)` before merging Dexie history.
+
 ### Daily Snapshot Lifecycle
 
 - Snapshot source-of-truth is **derived**, never authored manually.
@@ -133,6 +135,7 @@ myNewAction: (param) => {
   - Day rollover: finalize previous day + seed current day.
   - Native app resume: catch up if midnight passed while backgrounded.
 - Equality checks ignore `createdAt` / `updatedAt` metadata so idempotent upserts do not churn writes.
+- Snapshot equivalence is field-wise (metadata excluded) rather than JSON stringify-based; preserve that behavior for performance.
 
 ### Legacy: `useEnergyMapData` Hook
 
@@ -264,6 +267,8 @@ confirmActionModal.open();
 
 `useSwipeableScreens(5, viewportRef, initialScreen=2)` manages a horizontal carousel. All 5 screens render simultaneously with `flex-shrink-0 w-full`, visibility controlled by CSS transform offset.
 
+Viewport resize updates are `ResizeObserver`-driven but `requestAnimationFrame`-throttled with equality guards to avoid resize-state churn.
+
 Screen order (0-indexed): **Logbook → Tracker → Home (default) → Calorie Map → Insights**
 
 `PhaseDetailScreen` is a drill-down from Logbook, not part of the carousel.
@@ -280,6 +285,8 @@ Screens also subscribe to the store directly with `shallow` selectors as a fallb
 ### Floating Tabs (useScrollOffScreen)
 
 `useScrollOffScreen` detects when the original `ScreenTabs` bar scrolls out of the viewport, triggering a fixed-position `FloatingScreenTabs` overlay. Uses scroll event detection with an 8px threshold.
+
+Visibility checks are queued with `requestAnimationFrame` to reduce scroll-time layout thrash.
 
 ---
 
@@ -850,6 +857,7 @@ npm run test:watch     # Node test runner in watch mode
 - Tests use `node --test` with ESM; use explicit `.js` extensions in relative imports for test-executed modules.
 - `npm run lint` can include pre-existing warnings in untouched files. Prefer targeted lint for changed files during incremental work, then full lint when practical.
 - Storage tests intentionally run with in-memory `window.localStorage` shims in Node context; avoid plugin monkey-patching when possible.
+- Full `npm run test` currently includes a known pre-existing failure in `tests/constants/activityPresets.test.js` (expected training multiplier `0.35`, actual `0.2`). Treat as unrelated unless touching activity preset defaults.
 
 **ESLint config:** Flat config format (`eslint.config.js`), uses `@babel/eslint-parser` with JSX preset. `react/prop-types` is disabled. Prettier runs as an ESLint rule.
 
@@ -906,3 +914,7 @@ npm run test:watch     # Node test runner in watch mode
 46. **Local food catalog is SQLite-first:** Query local foods via `services/foodCatalog.js`; do not reintroduce full in-memory `FOOD_DATABASE` scans as a primary path.
 47. **Food data hygiene is offline-first:** Keep taxonomy/portion normalization in `scripts/food-db` pipeline and avoid adding query-time normalization layers for category/subcategory cleanup.
 48. **Backup/report artifacts are generated files:** `src/constants/*.backup.sqlite` and `scripts/food-db/reports/*.json` should remain ignored and not committed.
+49. **Store hot-path caches are intentional:** Keep reference-based caches in `useEnergyMapStore` (resolved training/cardio types, sorted entry arrays, normalized phase state, phase view) and preserve `updateUserData` no-op short-circuiting.
+50. **Breakdown session reuse is intentional:** `calculateCalorieBreakdown()` reuses prefiltered date-scoped training/cardio sessions for burn calculations; avoid reintroducing duplicate date filtering in the same call path.
+51. **Startup profile reads are parallelized:** Keep profile and last selected cardio-type `Preferences.get(...)` calls parallelized during hydration.
+52. **Hook frame-throttling is intentional:** Keep RAF scheduling/equality guards in `useScrollOffScreen` and `useSwipeableScreens` to limit high-frequency layout/state churn on mobile.

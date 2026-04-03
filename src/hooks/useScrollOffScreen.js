@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 /**
  * Hook to detect when a ref element is scrolled off screen
@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
  */
 export const useScrollOffScreen = (elementRef) => {
   const [isOffScreen, setIsOffScreen] = useState(false);
+  const animationFrameIdRef = useRef(null);
 
   const checkVisibility = useCallback(() => {
     if (!elementRef?.current) return;
@@ -16,24 +17,39 @@ export const useScrollOffScreen = (elementRef) => {
     const threshold = 8;
     const isHidden = rect.bottom < threshold;
 
-    setIsOffScreen(isHidden);
+    setIsOffScreen((previous) => (previous === isHidden ? previous : isHidden));
   }, [elementRef]);
+
+  const queueVisibilityCheck = useCallback(() => {
+    if (animationFrameIdRef.current != null) {
+      return;
+    }
+
+    animationFrameIdRef.current = window.requestAnimationFrame(() => {
+      animationFrameIdRef.current = null;
+      checkVisibility();
+    });
+  }, [checkVisibility]);
 
   useEffect(() => {
     // Initial check
     checkVisibility();
 
     // Listen to scroll on window (captures all scroll events)
-    window.addEventListener('scroll', checkVisibility, { passive: true });
+    window.addEventListener('scroll', queueVisibilityCheck, { passive: true });
 
     // Also listen to resize in case layout changes
-    window.addEventListener('resize', checkVisibility, { passive: true });
+    window.addEventListener('resize', queueVisibilityCheck, { passive: true });
 
     return () => {
-      window.removeEventListener('scroll', checkVisibility);
-      window.removeEventListener('resize', checkVisibility);
+      window.removeEventListener('scroll', queueVisibilityCheck);
+      window.removeEventListener('resize', queueVisibilityCheck);
+      if (animationFrameIdRef.current != null) {
+        window.cancelAnimationFrame(animationFrameIdRef.current);
+        animationFrameIdRef.current = null;
+      }
     };
-  }, [checkVisibility]);
+  }, [checkVisibility, queueVisibilityCheck]);
 
   return isOffScreen;
 };

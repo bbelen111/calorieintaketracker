@@ -13,7 +13,7 @@ export const useSwipeableScreens = (
   const [dragOffset, setDragOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(1);
-  const [viewportElement, setViewportElement] = useState(null);
+  const resizeFrameIdRef = useRef(null);
 
   const swipeStartX = useRef(null);
   const swipeStartY = useRef(null);
@@ -29,24 +29,40 @@ export const useSwipeableScreens = (
   }, [viewportRef, viewportWidth]);
 
   useEffect(() => {
-    if (viewportRef.current && viewportRef.current !== viewportElement) {
-      setViewportElement(viewportRef.current);
-    }
-  }, [viewportElement, viewportRef]);
+    const element = viewportRef.current;
+    if (!element) return undefined;
 
-  useEffect(() => {
-    if (!viewportElement) return;
+    const syncViewportWidth = () => {
+      const nextWidth = element.clientWidth || 1;
+      setViewportWidth((previousWidth) =>
+        previousWidth === nextWidth ? previousWidth : nextWidth
+      );
+    };
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setViewportWidth(viewportElement.clientWidth || 1);
+    syncViewportWidth();
 
-    const observer = new ResizeObserver(() => {
-      setViewportWidth(viewportElement.clientWidth || 1);
-    });
-    observer.observe(viewportElement);
+    const queueSyncViewportWidth = () => {
+      if (resizeFrameIdRef.current != null) {
+        return;
+      }
 
-    return () => observer.disconnect();
-  }, [viewportElement]);
+      resizeFrameIdRef.current = window.requestAnimationFrame(() => {
+        resizeFrameIdRef.current = null;
+        syncViewportWidth();
+      });
+    };
+
+    const observer = new ResizeObserver(queueSyncViewportWidth);
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+      if (resizeFrameIdRef.current != null) {
+        window.cancelAnimationFrame(resizeFrameIdRef.current);
+        resizeFrameIdRef.current = null;
+      }
+    };
+  }, [viewportRef]);
 
   const beginSwipe = useCallback(
     (clientX, clientY) => {

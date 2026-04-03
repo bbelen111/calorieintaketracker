@@ -449,11 +449,22 @@ export const getTotalCardioBurn = (userData, cardioTypes) =>
     0
   );
 
-export const getTotalCardioBurnForDate = (userData, cardioTypes, dateKey) =>
-  getSessionsForDate(userData?.cardioSessions, dateKey).reduce(
+const getTotalCardioBurnFromSessions = (
+  sessionsForDate,
+  userData,
+  cardioTypes
+) =>
+  (Array.isArray(sessionsForDate) ? sessionsForDate : []).reduce(
     (total, session) =>
       total + calculateCardioCalories(session, userData, cardioTypes),
     0
+  );
+
+export const getTotalCardioBurnForDate = (userData, cardioTypes, dateKey) =>
+  getTotalCardioBurnFromSessions(
+    getSessionsForDate(userData?.cardioSessions, dateKey),
+    userData,
+    cardioTypes
   );
 
 const TRAINING_INTENSITY_MULTIPLIERS = {
@@ -542,7 +553,18 @@ export const calculateTrainingSessionCalories = (
 };
 
 export const getTotalTrainingBurnForDate = (userData, trainingTypes, dateKey) =>
-  getSessionsForDate(userData?.trainingSessions, dateKey).reduce(
+  getTotalTrainingBurnFromSessions(
+    getSessionsForDate(userData?.trainingSessions, dateKey),
+    userData,
+    trainingTypes
+  );
+
+const getTotalTrainingBurnFromSessions = (
+  sessionsForDate,
+  userData,
+  trainingTypes
+) =>
+  (Array.isArray(sessionsForDate) ? sessionsForDate : []).reduce(
     (total, session) =>
       total +
       calculateTrainingSessionCalories(session, userData, trainingTypes),
@@ -789,10 +811,10 @@ export const calculateCalorieBreakdown = ({
     ? (multipliers.training ?? DEFAULT_ACTIVITY_MULTIPLIERS.training)
     : (multipliers.rest ?? DEFAULT_ACTIVITY_MULTIPLIERS.rest);
   const trainingBurn = Math.round(
-    getTotalTrainingBurnForDate(
+    getTotalTrainingBurnFromSessions(
+      trainingSessions,
       normalizedUserData,
-      trainingTypes,
-      resolvedDateKey
+      trainingTypes
     )
   );
   const trainingCaloriesPerHour =
@@ -806,7 +828,11 @@ export const calculateCalorieBreakdown = ({
           'Training')
         : `${trainingSessions.length} sessions`;
   const cardioBurn = Math.round(
-    getTotalCardioBurnForDate(normalizedUserData, cardioTypes, resolvedDateKey)
+    getTotalCardioBurnFromSessions(
+      cardioSessions,
+      normalizedUserData,
+      cardioTypes
+    )
   );
   const cardioDetails = resolveCardioDetails({
     cardioSessions,

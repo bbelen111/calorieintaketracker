@@ -61,20 +61,40 @@ const hasTrainingSessionsForDate = (userData, dateKey) => {
   );
 };
 
-const getSnapshotComparable = (snapshot) => {
-  if (!snapshot || typeof snapshot !== 'object') {
-    return null;
+const META_FIELDS = new Set(['createdAt', 'updatedAt']);
+
+const getComparableKeys = (snapshot) =>
+  Object.keys(snapshot).filter((key) => !META_FIELDS.has(key));
+
+export const areDailySnapshotsEquivalent = (previousSnapshot, nextSnapshot) => {
+  if (previousSnapshot === nextSnapshot) {
+    return true;
   }
 
-  const comparable = { ...snapshot };
-  delete comparable.createdAt;
-  delete comparable.updatedAt;
-  return comparable;
-};
+  if (!previousSnapshot || !nextSnapshot) {
+    return false;
+  }
 
-export const areDailySnapshotsEquivalent = (previousSnapshot, nextSnapshot) =>
-  JSON.stringify(getSnapshotComparable(previousSnapshot)) ===
-  JSON.stringify(getSnapshotComparable(nextSnapshot));
+  const previousKeys = getComparableKeys(previousSnapshot);
+  const nextKeys = getComparableKeys(nextSnapshot);
+
+  if (previousKeys.length !== nextKeys.length) {
+    return false;
+  }
+
+  for (let index = 0; index < previousKeys.length; index += 1) {
+    const key = previousKeys[index];
+    if (!Object.prototype.hasOwnProperty.call(nextSnapshot, key)) {
+      return false;
+    }
+
+    if (previousSnapshot[key] !== nextSnapshot[key]) {
+      return false;
+    }
+  }
+
+  return true;
+};
 
 export const buildDailySnapshot = ({
   dateKey,

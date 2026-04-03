@@ -41,14 +41,14 @@ import { getTodayDateKey } from '../utils/dateKeys';
 const SAVE_DEBOUNCE_MS = 1000;
 const DEFAULT_TRAINING_TYPE_CATALOG =
   getDefaultEnergyMapData().trainingType ?? {};
+const trainingTypesCache = new WeakMap();
+const cardioTypesCache = new WeakMap();
+const weightEntriesSortCache = new WeakMap();
+const bodyFatEntriesSortCache = new WeakMap();
+const stepEntriesSortCache = new WeakMap();
 
-const resolveTrainingTypes = (userData) => {
-  const trainingTypeCatalog = {
-    ...DEFAULT_TRAINING_TYPE_CATALOG,
-    ...(userData.trainingType ?? {}),
-  };
-
-  return Object.entries(trainingTypeCatalog).reduce((acc, [key, entry]) => {
+const normalizeTrainingTypeCatalog = (trainingTypeCatalog) =>
+  Object.entries(trainingTypeCatalog).reduce((acc, [key, entry]) => {
     const numericCalories = Number(entry?.caloriesPerHour);
     acc[key] = {
       label: entry?.label ?? key,
@@ -58,16 +58,105 @@ const resolveTrainingTypes = (userData) => {
     };
     return acc;
   }, {});
+
+const DEFAULT_RESOLVED_TRAINING_TYPES = normalizeTrainingTypeCatalog(
+  DEFAULT_TRAINING_TYPE_CATALOG
+);
+
+const resolveTrainingTypes = (userData) => {
+  const customTrainingTypeCatalog = userData?.trainingType;
+
+  if (
+    !customTrainingTypeCatalog ||
+    typeof customTrainingTypeCatalog !== 'object'
+  ) {
+    return DEFAULT_RESOLVED_TRAINING_TYPES;
+  }
+
+  const cached = trainingTypesCache.get(customTrainingTypeCatalog);
+  if (cached) {
+    return cached;
+  }
+
+  const trainingTypeCatalog = {
+    ...DEFAULT_TRAINING_TYPE_CATALOG,
+    ...customTrainingTypeCatalog,
+  };
+
+  const resolved = normalizeTrainingTypeCatalog(trainingTypeCatalog);
+  trainingTypesCache.set(customTrainingTypeCatalog, resolved);
+  return resolved;
 };
 
-const resolveCardioTypes = (userData) => ({
-  ...baseCardioTypes,
-  ...(userData.customCardioTypes ?? {}),
-});
+const resolveCardioTypes = (userData) => {
+  const customCardioTypes = userData?.customCardioTypes;
+
+  if (!customCardioTypes || typeof customCardioTypes !== 'object') {
+    return baseCardioTypes;
+  }
+
+  const cached = cardioTypesCache.get(customCardioTypes);
+  if (cached) {
+    return cached;
+  }
+
+  const resolved = {
+    ...baseCardioTypes,
+    ...customCardioTypes,
+  };
+
+  cardioTypesCache.set(customCardioTypes, resolved);
+  return resolved;
+};
 
 const sortStepEntries = (entries) => {
   if (!Array.isArray(entries)) return [];
   return [...entries].sort((a, b) => a.date.localeCompare(b.date));
+};
+
+const getCachedSortedWeightEntries = (entries) => {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  const cached = weightEntriesSortCache.get(entries);
+  if (cached) {
+    return cached;
+  }
+
+  const sorted = sortWeightEntries(entries);
+  weightEntriesSortCache.set(entries, sorted);
+  return sorted;
+};
+
+const getCachedSortedBodyFatEntries = (entries) => {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  const cached = bodyFatEntriesSortCache.get(entries);
+  if (cached) {
+    return cached;
+  }
+
+  const sorted = sortBodyFatEntries(entries);
+  bodyFatEntriesSortCache.set(entries, sorted);
+  return sorted;
+};
+
+const getCachedSortedStepEntries = (entries) => {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  const cached = stepEntriesSortCache.get(entries);
+  if (cached) {
+    return cached;
+  }
+
+  const sorted = sortStepEntries(entries);
+  stepEntriesSortCache.set(entries, sorted);
+  return sorted;
 };
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
@@ -89,8 +178,38 @@ const getGoalDurationDays = (goalChangedAt) => {
 
 const normalizeSessionDate = (value) => normalizeDateKey(value);
 
+const phaseLogV2NormalizationCache = new WeakMap();
+const phaseViewCache = new WeakMap();
+
+const getCachedNormalizedPhaseLogV2 = (phaseLogV2) => {
+  if (!phaseLogV2 || typeof phaseLogV2 !== 'object') {
+    return normalizePhaseLogV2State(phaseLogV2);
+  }
+
+  const cached = phaseLogV2NormalizationCache.get(phaseLogV2);
+  if (cached) {
+    return cached;
+  }
+
+  const normalized = normalizePhaseLogV2State(phaseLogV2);
+  phaseLogV2NormalizationCache.set(phaseLogV2, normalized);
+
+  if (normalized && typeof normalized === 'object') {
+    phaseLogV2NormalizationCache.set(normalized, normalized);
+  }
+
+  return normalized;
+};
+
 const normalizePhaseStateForUserData = (userData) => {
-  const normalizedPhaseLogV2 = normalizePhaseLogV2State(userData.phaseLogV2);
+  const normalizedPhaseLogV2 = getCachedNormalizedPhaseLogV2(
+    userData?.phaseLogV2
+  );
+
+  if (userData?.phaseLogV2 === normalizedPhaseLogV2) {
+    return userData;
+  }
+
   const { ...rest } = userData;
   return {
     ...rest,
@@ -99,7 +218,12 @@ const normalizePhaseStateForUserData = (userData) => {
 };
 
 const buildPhaseViewFromV2 = (phaseLogV2) => {
-  const normalized = normalizePhaseLogV2State(phaseLogV2);
+  const normalized = getCachedNormalizedPhaseLogV2(phaseLogV2);
+
+  const cached = phaseViewCache.get(normalized);
+  if (cached) {
+    return cached;
+  }
 
   const phases = normalized.phaseOrder
     .map((phaseId) => {
@@ -156,10 +280,13 @@ const buildPhaseViewFromV2 = (phaseLogV2) => {
     })
     .filter(Boolean);
 
-  return {
+  const nextPhaseView = {
     phases,
     activePhaseId: normalized.activePhaseId,
   };
+
+  phaseViewCache.set(normalized, nextPhaseView);
+  return nextPhaseView;
 };
 
 const mapPhaseLogs = (rawPhaseLogV2, updater) => {
@@ -255,7 +382,7 @@ const syncNutritionRefsForDate = (phaseLogV2, dateKey, hasNutritionForDate) => {
 };
 
 const deriveState = (userData) => {
-  const phaseLogV2 = normalizePhaseLogV2State(userData.phaseLogV2);
+  const phaseLogV2 = getCachedNormalizedPhaseLogV2(userData?.phaseLogV2);
   const phaseView = buildPhaseViewFromV2(phaseLogV2);
   const trainingTypes = resolveTrainingTypes(userData);
   const cardioTypes = resolveCardioTypes(userData);
@@ -271,9 +398,9 @@ const deriveState = (userData) => {
     cardioTypes,
     todayDateKey
   );
-  const weightEntries = sortWeightEntries(userData.weightEntries ?? []);
-  const bodyFatEntries = sortBodyFatEntries(userData.bodyFatEntries ?? []);
-  const stepEntries = sortStepEntries(userData.stepEntries ?? []);
+  const weightEntries = getCachedSortedWeightEntries(userData.weightEntries);
+  const bodyFatEntries = getCachedSortedBodyFatEntries(userData.bodyFatEntries);
+  const stepEntries = getCachedSortedStepEntries(userData.stepEntries);
   const stepGoal = userData.stepGoal ?? 10000;
   const selectedGoal = userData.selectedGoal ?? 'maintenance';
   const goalChangedAt = Number(userData.goalChangedAt) || Date.now();
@@ -310,7 +437,16 @@ const updateUserData = (set, get, updater) => {
   set((state) => {
     const nextUserDataRaw =
       typeof updater === 'function' ? updater(state.userData) : updater;
+
+    if (nextUserDataRaw === state.userData) {
+      return state;
+    }
+
     const nextUserData = normalizePhaseStateForUserData(nextUserDataRaw);
+
+    if (nextUserData === state.userData) {
+      return state;
+    }
 
     return {
       userData: nextUserData,
