@@ -379,8 +379,14 @@ export const EnergyMapCalculator = () => {
   const viewportRef = useRef(null);
   const screenTabsRef = useRef(null);
   const isTabsOffScreen = useScrollOffScreen(screenTabsRef);
-  const { currentScreen, sliderStyle, handlers, goToScreen, isSwiping } =
-    useSwipeableScreens(screenTabs.length, viewportRef, homeIndex);
+  const {
+    currentScreen,
+    sliderStyle,
+    setSliderElement,
+    handlers,
+    goToScreen,
+    isSwiping,
+  } = useSwipeableScreens(screenTabs.length, viewportRef, homeIndex);
 
   const selectedGoal = userData.selectedGoal ?? 'maintenance';
   const [tempSelectedGoal, setTempSelectedGoal] = useState('maintenance');
@@ -3232,7 +3238,15 @@ export const EnergyMapCalculator = () => {
             className={`overflow-hidden touch-pan-y ${isSwiping ? 'cursor-grabbing' : 'cursor-grab'}`}
             {...handlers}
           >
-            <div className="flex w-full" style={sliderStyle}>
+            <div
+              ref={setSliderElement}
+              className="flex w-full"
+              style={{
+                ...sliderStyle,
+                willChange: isSwiping ? 'transform' : 'auto',
+                backfaceVisibility: 'hidden',
+              }}
+            >
               <div className="w-full flex-shrink-0 px-2 sm:px-4 md:px-6">
                 <div className="relative overflow-hidden">
                   <AnimatePresence mode="wait" initial={false}>
