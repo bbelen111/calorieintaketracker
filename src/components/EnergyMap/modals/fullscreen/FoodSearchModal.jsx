@@ -33,6 +33,7 @@ import { ModalShell } from '../../common/ModalShell';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { ConfirmActionModal } from '../common/ConfirmActionModal';
 import { AddCustomFoodModal } from '../forms/AddCustomFoodModal';
+import { BarcodeEntryModal } from '../forms/BarcodeEntryModal';
 import { FOOD_CATEGORIES } from '../../../../constants/foodDatabase';
 import { formatOne } from '../../../../utils/format';
 import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
@@ -49,6 +50,15 @@ import {
   trimFoodCache,
   FatSecretError,
 } from '../../../../services/fatSecret';
+import {
+  searchBarcode as searchOpenFoodFactsBarcode,
+  OpenFoodFactsError,
+} from '../../../../services/openFoodFacts';
+import {
+  BarcodeScannerError,
+  canUseNativeBarcodeScanner,
+  scanNativeBarcode,
+} from '../../../../services/barcodeScanner';
 import {
   sendGeminiMessage,
   GeminiError,
@@ -148,6 +158,14 @@ export const FoodSearchModal = ({
     forceClose: forceAddCustomFoodClose,
   } = useAnimatedModal(false);
 
+  const {
+    isOpen: isBarcodeEntryOpen,
+    isClosing: isBarcodeEntryClosing,
+    open: openBarcodeEntry,
+    requestClose: requestBarcodeEntryClose,
+    forceClose: forceBarcodeEntryClose,
+  } = useAnimatedModal(false);
+
   // Online search state
   const [onlineResults, setOnlineResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -158,6 +176,10 @@ export const FoodSearchModal = ({
   const [localSearchError, setLocalSearchError] = useState(null);
   const [localSubcategories, setLocalSubcategories] = useState([]);
   const [favouriteFoodLookup, setFavouriteFoodLookup] = useState({});
+  const [manualBarcodeInput, setManualBarcodeInput] = useState('');
+  const [isBarcodeScanning, setIsBarcodeScanning] = useState(false);
+  const [isBarcodeLookupPending, setIsBarcodeLookupPending] = useState(false);
+  const [barcodeLookupError, setBarcodeLookupError] = useState(null);
   const searchTimeoutRef = useRef(null);
   const abortControllerRef = useRef(null);
 
@@ -219,6 +241,10 @@ export const FoodSearchModal = ({
       setChatInput('');
       setChatError(null);
       setIsSendingChat(false);
+      setIsBarcodeScanning(false);
+      setIsBarcodeLookupPending(false);
+      setManualBarcodeInput('');
+      setBarcodeLookupError(null);
       chatAttachments.forEach((attachment) => {
         if (attachment.previewUrl) {
           URL.revokeObjectURL(attachment.previewUrl);
@@ -228,6 +254,7 @@ export const FoodSearchModal = ({
       forceDeleteConfirmClose();
       forceManualAddConfirmClose();
       forceAddCustomFoodClose();
+      forceBarcodeEntryClose();
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
@@ -243,6 +270,7 @@ export const FoodSearchModal = ({
     forceDeleteConfirmClose,
     forceManualAddConfirmClose,
     forceAddCustomFoodClose,
+    forceBarcodeEntryClose,
     isClosing,
   ]);
 
@@ -493,6 +521,118 @@ export const FoodSearchModal = ({
       setLoadingFoodId(null);
     }
   };
+
+  const resolveBarcodeErrorMessage = useCallback((error) => {
+    if (error instanceof FatSecretError) {
+      return error.message;
+    }
+
+    if (error instanceof OpenFoodFactsError) {
+      return error.message;
+    }
+
+    if (error instanceof BarcodeScannerError) {
+      return error.message;
+    }
+
+    return 'Unable to read that barcode. Please try again.';
+  }, []);
+
+  const lookupBarcodeAndSelectFood = useCallback(
+    async (rawBarcode, { closeEntryModal = false } = {}) => {
+      const cleanedBarcode = String(rawBarcode ?? '').replace(/\D/g, '');
+      if (!cleanedBarcode || cleanedBarcode.length < 8) {
+        setBarcodeLookupError(
+          'Please enter a valid barcode (at least 8 digits).'
+        );
+        return false;
+      }
+
+      if (!isOnline) {
+        setBarcodeLookupError(
+          'You are offline. Connect to the internet to look up barcodes.'
+        );
+        return false;
+      }
+
+      setBarcodeLookupError(null);
+      setIsBarcodeLookupPending(true);
+
+      try {
+        const fullFood = await searchOpenFoodFactsBarcode(cleanedBarcode);
+
+        if (resolvedUpdateCachedFoods) {
+          const updatedCache = addToFoodCache(resolvedCachedFoods, fullFood);
+          const trimmedCache = trimFoodCache(updatedCache, 200);
+          resolvedUpdateCachedFoods(trimmedCache);
+        }
+
+        onSelectFood?.(fullFood);
+
+        if (closeEntryModal) {
+          requestBarcodeEntryClose();
+        }
+
+        setManualBarcodeInput('');
+        return true;
+      } catch (error) {
+        console.error('Barcode lookup error:', error);
+        setBarcodeLookupError(resolveBarcodeErrorMessage(error));
+        return false;
+      } finally {
+        setIsBarcodeLookupPending(false);
+      }
+    },
+    [
+      isOnline,
+      onSelectFood,
+      requestBarcodeEntryClose,
+      resolveBarcodeErrorMessage,
+      resolvedCachedFoods,
+      resolvedUpdateCachedFoods,
+    ]
+  );
+
+  const handleBarcodeScanClick = useCallback(async () => {
+    setBarcodeLookupError(null);
+
+    if (!isOnline) {
+      setBarcodeLookupError(
+        'You are offline. Connect to the internet to look up barcodes.'
+      );
+      return;
+    }
+
+    if (!canUseNativeBarcodeScanner()) {
+      openBarcodeEntry();
+      return;
+    }
+
+    setIsBarcodeScanning(true);
+
+    try {
+      const result = await scanNativeBarcode();
+      await lookupBarcodeAndSelectFood(result?.barcode ?? '');
+    } catch (error) {
+      if (error instanceof BarcodeScannerError && error.code === 'CANCELLED') {
+        return;
+      }
+
+      console.error('Native barcode scan error:', error);
+      setBarcodeLookupError(resolveBarcodeErrorMessage(error));
+    } finally {
+      setIsBarcodeScanning(false);
+    }
+  }, [
+    isOnline,
+    lookupBarcodeAndSelectFood,
+    openBarcodeEntry,
+    resolveBarcodeErrorMessage,
+  ]);
+
+  const handleManualBarcodeSubmit = useCallback(() => {
+    lookupBarcodeAndSelectFood(manualBarcodeInput, { closeEntryModal: true });
+  }, [lookupBarcodeAndSelectFood, manualBarcodeInput]);
 
   // Long-press handlers
   const handlePressStart = (foodId, event) => {
@@ -1321,12 +1461,19 @@ export const FoodSearchModal = ({
                 </button>
 
                 <button
-                  onClick={() => {}}
+                  onClick={handleBarcodeScanClick}
                   aria-label="Barcode Scan"
-                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-primary md:hover:brightness-110 text-primary-foreground rounded-full text-sm font-semibold transition-all shadow-md whitespace-nowrap press-feedback focus-ring border border-transparent"
+                  disabled={isBarcodeScanning || isBarcodeLookupPending}
+                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-primary md:hover:brightness-110 text-primary-foreground rounded-full text-sm font-semibold transition-all shadow-md whitespace-nowrap press-feedback focus-ring border border-transparent disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <ScanBarcode size={16} />
-                  <span>Barcode Scan</span>
+                  <span>
+                    {isBarcodeScanning
+                      ? 'Scanning…'
+                      : isBarcodeLookupPending
+                        ? 'Looking up…'
+                        : 'Barcode Scan'}
+                  </span>
                 </button>
               </div>
             </div>
@@ -1342,6 +1489,15 @@ export const FoodSearchModal = ({
             </div>
           </div>
         </div>
+
+        {barcodeLookupError && (
+          <div className="px-4 mt-2">
+            <div className="bg-accent-red/10 border border-accent-red/30 rounded-lg px-3 py-2 text-accent-red text-xs flex items-start gap-2">
+              <AlertCircle size={13} className="mt-0.5 flex-shrink-0" />
+              <span>{barcodeLookupError}</span>
+            </div>
+          </div>
+        )}
 
         {viewMode === 'chat' && (
           <div className="flex-1 min-h-0 flex flex-col">
@@ -2746,6 +2902,22 @@ export const FoodSearchModal = ({
         onSaveFood={(customFood) => {
           onAddCustomFood?.(customFood);
         }}
+      />
+
+      <BarcodeEntryModal
+        isOpen={isBarcodeEntryOpen}
+        isClosing={isBarcodeEntryClosing}
+        value={manualBarcodeInput}
+        error={barcodeLookupError}
+        isSubmitting={isBarcodeLookupPending}
+        onValueChange={(value) => {
+          setManualBarcodeInput(value.replace(/[^\d]/g, ''));
+          if (barcodeLookupError) {
+            setBarcodeLookupError(null);
+          }
+        }}
+        onSubmit={handleManualBarcodeSubmit}
+        onClose={requestBarcodeEntryClose}
       />
     </ModalShell>
   );
