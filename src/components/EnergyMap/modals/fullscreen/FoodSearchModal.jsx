@@ -32,12 +32,18 @@ import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { ConfirmActionModal } from '../common/ConfirmActionModal';
+import { FoodTagBadges } from '../../common/FoodTagBadges';
 import { AddCustomFoodModal } from '../forms/AddCustomFoodModal';
 import { BarcodeEntryModal } from '../forms/BarcodeEntryModal';
 import { FOOD_CATEGORIES } from '../../../../constants/foodDatabase';
 import { formatOne } from '../../../../utils/format';
+import { formatFoodDisplayName } from '../../../../utils/foodPresentation';
 import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
+import {
+  FOOD_SOURCE_TYPES,
+  resolveFoodSourceType,
+} from '../../../../utils/foodTags';
 import {
   getDistinctSubcategories as getLocalSubcategories,
   getFoodById as getLocalFoodById,
@@ -742,6 +748,7 @@ export const FoodSearchModal = ({
       id: entryId,
       foodId: favourite.foodId,
       name: favourite.name,
+      brand: favourite.brand || null,
       calories: favourite.calories || 0,
       protein: favourite.protein || 0,
       carbs: favourite.carbs || 0,
@@ -1119,18 +1126,6 @@ export const FoodSearchModal = ({
       indigo: 'bg-accent-indigo',
     };
     return `${map[color] || 'bg-accent-slate'} text-primary-foreground`;
-  };
-
-  const getCategoryClasses = (category) => {
-    const colorMap = {
-      protein: 'bg-accent-red/20 text-accent-red',
-      carbs: 'bg-accent-amber/20 text-accent-amber',
-      vegetables: 'bg-accent-green/20 text-accent-green',
-      fats: 'bg-accent-yellow/20 text-accent-yellow',
-      supplements: 'bg-accent-purple/20 text-accent-purple',
-      cached: 'bg-accent-purple/20 text-accent-purple',
-    };
-    return colorMap[category] || 'bg-surface-highlight/60 text-muted';
   };
 
   const clearFilters = () => {
@@ -2492,17 +2487,16 @@ export const FoodSearchModal = ({
                   sortedFavourites.map((favourite) => {
                     const key =
                       favourite.id ?? `${favourite.name}-${favourite.grams}`;
-                    // Determine type priority: cached > manual > custom > regular
-                    // A food can only be ONE type - check in priority order
-                    const isCached = favourite.source === 'fatsecret';
-                    const isManual =
-                      !isCached &&
-                      (favourite.source === 'manual' ||
-                        favourite.category === 'manual');
-                    const isCustom =
-                      !isCached &&
-                      !isManual &&
-                      (favourite.source === 'user' || favourite.isCustom);
+                    const sourceType = resolveFoodSourceType(favourite);
+                    const isManual = sourceType === FOOD_SOURCE_TYPES.MANUAL;
+                    const isCustom = sourceType === FOOD_SOURCE_TYPES.CUSTOM;
+                    const favouritePortionText = favourite.portionInfo
+                      ? `${favourite.portionInfo.portionMultiplier} ${favourite.portionInfo.portionName}`
+                      : isCustom && favourite.per100g
+                        ? 'per 100g'
+                        : !isManual && favourite.grams
+                          ? `${formatOne(favourite.grams)}g`
+                          : null;
 
                     return (
                       <div
@@ -2527,57 +2521,16 @@ export const FoodSearchModal = ({
                         <div className="flex items-start gap-3">
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-sm leading-tight text-foreground truncate">
-                              {favourite.name || 'Unnamed Food'}
+                              {formatFoodDisplayName({
+                                name: favourite.name || 'Unnamed Food',
+                                brand: favourite.brand,
+                              })}
                             </p>
-                            <div className="flex items-center gap-2 mt-1 flex-wrap">
-                              {/* Category tag - only show when explicit category exists and item is NOT cached (consolidate Cached badge) */}
-                              {!isManual && !isCached && favourite.category && (
-                                <span
-                                  className={`text-xs px-2 py-0.5 rounded ${getCategoryClasses(
-                                    favourite.category
-                                  )}`}
-                                >
-                                  {FOOD_CATEGORIES[favourite.category]?.label ||
-                                    favourite.category}
-                                </span>
-                              )}
-                              {favourite.brand && (
-                                <span className="text-xs px-2 py-0.5 bg-accent-emerald/20 text-accent-emerald rounded truncate max-w-[140px]">
-                                  {favourite.brand}
-                                </span>
-                              )}
-                              {/* Type tags - only ONE: Cached, Manual, or Custom */}
-                              {isCached && (
-                                <span className="text-xs px-2 py-0.5 bg-accent-purple/20 text-accent-purple rounded">
-                                  Cached
-                                </span>
-                              )}
-                              {isManual && (
-                                <span className="text-xs px-2 py-0.5 bg-accent-indigo/20 text-accent-indigo rounded">
-                                  Manual
-                                </span>
-                              )}
-                              {isCustom && (
-                                <span className="text-xs px-2 py-0.5 bg-accent-blue/20 text-accent-blue rounded">
-                                  Custom
-                                </span>
-                              )}
-                              {/* Portion/grams info - ALWAYS at the end */}
-                              {favourite.portionInfo ? (
-                                <span className="text-xs text-muted">
-                                  {favourite.portionInfo.portionMultiplier}{' '}
-                                  {favourite.portionInfo.portionName}
-                                </span>
-                              ) : isCustom && favourite.per100g ? (
-                                <span className="text-xs text-muted">
-                                  per 100g
-                                </span>
-                              ) : !isManual && favourite.grams ? (
-                                <span className="text-xs text-muted">
-                                  {formatOne(favourite.grams)}g
-                                </span>
-                              ) : null}
-                            </div>
+                            <FoodTagBadges
+                              food={favourite}
+                              className="mt-1"
+                              portionText={favouritePortionText}
+                            />
 
                             <div className="flex items-center gap-3 mt-2 text-xs">
                               <span className="text-accent-green font-medium">
@@ -2787,15 +2740,13 @@ export const FoodSearchModal = ({
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
                                 <h4 className="text-foreground font-semibold text-sm truncate">
-                                  {food.name}
+                                  {formatFoodDisplayName({
+                                    name: food.name,
+                                    brand: food.brand,
+                                  })}
                                 </h4>
                               </div>
                               <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                {food.brand && (
-                                  <span className="text-xs px-2 py-0.5 bg-accent-emerald/20 text-accent-emerald rounded truncate max-w-[150px]">
-                                    {food.brand}
-                                  </span>
-                                )}
                                 <span className="text-xs px-2 py-0.5 bg-accent-blue/20 text-accent-blue rounded">
                                   {food.type === 'Brand'
                                     ? 'Branded'
@@ -2879,41 +2830,13 @@ export const FoodSearchModal = ({
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
                                 <h4 className="text-foreground font-semibold text-sm truncate">
-                                  {food.name}
+                                  {formatFoodDisplayName({
+                                    name: food.name,
+                                    brand: food.brand,
+                                  })}
                                 </h4>
                               </div>
-                              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                {food.source !== 'fatsecret' &&
-                                  food.category !== 'cached' && (
-                                    <span
-                                      className={`text-xs px-2 py-0.5 rounded ${getCategoryClasses(
-                                        food.category
-                                      )}`}
-                                    >
-                                      {FOOD_CATEGORIES[food.category]?.label ||
-                                        food.category}
-                                    </span>
-                                  )}
-                                {food.brand && (
-                                  <span className="text-xs px-2 py-0.5 bg-accent-emerald/20 text-accent-emerald rounded truncate max-w-[100px]">
-                                    {food.brand}
-                                  </span>
-                                )}
-                                {food.source === 'fatsecret' && (
-                                  <span className="text-xs px-2 py-0.5 bg-accent-purple/20 text-accent-purple rounded flex items-center gap-1">
-                                    <Globe size={10} />
-                                    Cached
-                                  </span>
-                                )}
-                                {food.portions && food.portions.length > 0 && (
-                                  <span className="text-xs px-2 py-0.5 bg-accent-purple/20 text-accent-purple rounded">
-                                    {food.portions.length}{' '}
-                                    {food.portions.length === 1
-                                      ? 'portion'
-                                      : 'portions'}
-                                  </span>
-                                )}
-                              </div>
+                              <FoodTagBadges food={food} className="mt-1" />
                             </div>
                             <div className="flex flex-col items-end gap-1">
                               <span className="text-muted text-[10px] font-medium">

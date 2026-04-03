@@ -28,6 +28,7 @@ import {
   calculateMacroRecommendations,
   normalizeMacroRecommendationSplit,
 } from '../../../utils/macroRecommendations';
+import { formatFoodDisplayName } from '../../../utils/foodPresentation';
 
 const getTodayDate = () => getTodayDateKey();
 
@@ -526,8 +527,19 @@ export const TrackerScreen = ({
                   >
                     <div className="flex-1 min-w-0">
                       <p className="text-foreground/80 font-semibold text-sm truncate">
-                        <span className="align-middle" title={entry.name}>
-                          {shortenName(entry.name)}
+                        <span
+                          className="align-middle"
+                          title={formatFoodDisplayName({
+                            name: entry.name,
+                            brand: entry.brand,
+                          })}
+                        >
+                          {shortenName(
+                            formatFoodDisplayName({
+                              name: entry.name,
+                              brand: entry.brand,
+                            })
+                          )}
                         </span>
                         {entry && entry.grams != null && (
                           <span className="ml-2 text-muted text-xs align-middle">

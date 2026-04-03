@@ -1,7 +1,7 @@
 import {
   getFoodById as getFoodByIdFromCatalog,
   searchFoods as searchFoodsFromCatalog,
-} from '../services/foodCatalog';
+} from '../services/foodCatalog.js';
 
 // Compatibility export retained for legacy call sites.
 // Foods are now loaded from SQLite via async helpers.

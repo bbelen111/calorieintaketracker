@@ -7,8 +7,9 @@ import React, {
 } from 'react';
 import { Plus, ChevronDown, Heart } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
-import { FOOD_CATEGORIES } from '../../../../constants/foodDatabase';
+import { FoodTagBadges } from '../../common/FoodTagBadges';
 import { formatOne } from '../../../../utils/format';
+import { formatFoodDisplayName } from '../../../../utils/foodPresentation';
 import {
   calculateTefFromMacros,
   TEF_PROTEIN_RATE,
@@ -359,9 +360,15 @@ export const FoodPortionModal = ({
   }, [nutrition, smartTefEnabled]);
 
   useEffect(() => {
-    if (isOpen) {
-      setIsTefExpanded(false);
+    if (!isOpen) {
+      return undefined;
     }
+
+    const timer = setTimeout(() => {
+      setIsTefExpanded(false);
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, [isOpen, selectedFood?.id]);
 
   const handleAddFood = () => {
@@ -374,6 +381,7 @@ export const FoodPortionModal = ({
       })(),
       foodId: selectedFood?.id,
       name: nutrition.name,
+      brand: selectedFood?.brand || null,
       calories: nutrition.calories,
       protein: nutrition.protein,
       carbs: nutrition.carbs,
@@ -403,6 +411,7 @@ export const FoodPortionModal = ({
     const foodEntry = {
       foodId: selectedFood?.id,
       name: nutrition.name,
+      brand: selectedFood?.brand || null,
       calories: nutrition.calories,
       protein: nutrition.protein,
       carbs: nutrition.carbs,
@@ -423,35 +432,6 @@ export const FoodPortionModal = ({
 
   if (!selectedFood) return null;
 
-  const isCached =
-    selectedFood?.source === 'fatsecret' || selectedFood?.category === 'cached';
-
-  const getCategoryColor = (category) => {
-    if (category === 'cached' || selectedFood?.source === 'fatsecret') {
-      return 'purple';
-    }
-    return FOOD_CATEGORIES[category]?.color || 'slate';
-  };
-
-  const getCategoryTagClass = (category) => {
-    const color = getCategoryColor(category);
-    const map = {
-      red: 'bg-accent-red/20 text-accent-red',
-      amber: 'bg-accent-amber/20 text-accent-amber',
-      green: 'bg-accent-green/20 text-accent-green',
-      yellow: 'bg-accent-yellow/20 text-accent-yellow',
-      purple: 'bg-accent-purple/20 text-accent-purple',
-      blue: 'bg-accent-blue/20 text-accent-blue',
-      emerald: 'bg-accent-emerald/20 text-accent-emerald',
-      slate: 'bg-surface-highlight/60 text-muted',
-      indigo: 'bg-accent-indigo/20 text-accent-indigo',
-    };
-    return map[color] || 'bg-surface-highlight/60 text-muted';
-  };
-
-  const categoryLabel =
-    FOOD_CATEGORIES[selectedFood.category]?.label || selectedFood.category;
-
   return (
     <ModalShell
       isOpen={isOpen}
@@ -465,42 +445,12 @@ export const FoodPortionModal = ({
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <h4 className="text-foreground font-semibold text-sm truncate">
-                {selectedFood.name}
+                {formatFoodDisplayName({
+                  name: selectedFood.name,
+                  brand: selectedFood.brand,
+                })}
               </h4>
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                {!isCached && (
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded ${getCategoryTagClass(
-                      selectedFood.category
-                    )}`}
-                  >
-                    {categoryLabel}
-                  </span>
-                )}
-                {selectedFood.subcategory && (
-                  <span className="text-xs px-2 py-0.5 bg-accent-indigo/20 text-accent-indigo rounded capitalize">
-                    {selectedFood.subcategory.replace(/-/g, ' ')}
-                  </span>
-                )}
-                {selectedFood.brand && (
-                  <span className="text-xs px-2 py-0.5 bg-accent-emerald/20 text-accent-emerald rounded truncate max-w-[140px]">
-                    {selectedFood.brand}
-                  </span>
-                )}
-                {isCached && (
-                  <span className="text-xs px-2 py-0.5 bg-accent-purple/20 text-accent-purple rounded">
-                    Cached
-                  </span>
-                )}
-                {selectedFood.portions && selectedFood.portions.length > 0 && (
-                  <span className="text-xs px-2 py-0.5 bg-accent-purple/20 text-accent-purple rounded">
-                    {selectedFood.portions.length}{' '}
-                    {selectedFood.portions.length === 1
-                      ? 'portion'
-                      : 'portions'}
-                  </span>
-                )}
-              </div>
+              <FoodTagBadges food={selectedFood} className="mt-1" />
             </div>
             <div className="flex flex-col items-end gap-1">
               <span className="text-muted text-[10px] font-medium">

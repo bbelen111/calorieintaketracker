@@ -45,7 +45,7 @@ main.jsx
             │   ├─ CalorieMapScreen
             │   └─ InsightsScreen
             ├─ PhaseDetailScreen (drill-down, not in carousel)
-                └─ 40 top-level useAnimatedModal instances → 50 modal files
+              └─ 40 top-level useAnimatedModal instances → 49 modal files
                  └─ ~21 additional child-level modals inside modal components
 ```
 
@@ -150,14 +150,23 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 
 - **40 `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
 - **~21 additional child-level modals** declared inside modal components (e.g., delete confirmations, sub-pickers)
-- **50 modal files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`:
+- **49 modal files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`:
   - `fullscreen/` — WeightTrackerModal, BodyFatTrackerModal, StepTrackerModal, SettingsModal, FoodSearchModal
   - `pickers/` — AgePickerModal, BodyFatPickerModal, CalendarPickerModal, **CaloriesPerHourPickerModal**, DatePickerModal, DurationPickerModal, EpocWindowPickerModal, FoodPortionModal, HeartRatePickerModal, HeightPickerModal, MealTypePickerModal, MetValuePickerModal, StepGoalPickerModal, TemplatePickerModal, TimePickerModal, WeightPickerModal
   - `info/` — AdaptiveThermogenesisInfoModal, BmiInfoModal, BmrInfoModal, BodyFatTrendInfoModal, CalorieBreakdownModal, CaloriesPerHourGuideModal, EpocInfoModal, FfmiInfoModal, TefInfoModal, WeightTrendInfoModal
   - `forms/` — AddCustomFoodModal, BodyFatEntryModal, CardioModal, CustomCardioTypeModal, DailyActivityCustomModal, DailyActivityEditorModal, DailyActivityModal, DailyLogModal, FoodEntryModal, GoalModal, PhaseCreationModal, TrainingModal, StepRangesModal, TrainingTypeEditorModal, WeightEntryModal
-  - `lists/` — CardioFavouritesModal, CardioTypeListModal, FoodFavouritesModal
+  - `lists/` — CardioFavouritesModal, CardioTypeListModal
   - `common/` — ConfirmActionModal
-- Total across codebase: ~61 modal hook instances (`useAnimatedModal`)
+- Total across codebase: ~60 modal hook instances (`useAnimatedModal`)
+
+### Food Search/Favourites UI Architecture
+
+- `FoodSearchModal` is the **canonical** food favourites UI surface (`viewMode === 'favourites'`).
+- `FoodFavouritesModal` was removed as redundant and should **not** be reintroduced.
+- Food tag rendering is now centralized via `components/EnergyMap/common/FoodTagBadges.jsx`.
+- Food source/type resolution is centralized in `utils/foodTags.js`.
+- Food display naming is centralized in `utils/foodPresentation.js` (`formatFoodDisplayName`).
+- Brand presentation rule: display brand in name as **`Brand - Food name`**; avoid separate brand tag chips in food list cards.
 
 ### `useAnimatedModal` Hook
 
@@ -784,13 +793,14 @@ src/
 │   ├─ EnergyMapCalculator.jsx   # THE orchestrator (3,400+ lines)
 │   ├─ common/
 │   │   ├─ ModalShell.jsx        # Core modal wrapper (singleton managers)
+│   │   ├─ FoodTagBadges.jsx     # Shared food tag/source badge renderer
 │   │   └─ ScreenTabs.jsx        # Tab bar + floating variant
-│   ├─ modals/                   # 50 modal files in 6 subfolders, all use ModalShell
+│   ├─ modals/                   # 49 modal files in 6 subfolders, all use ModalShell
 │   │   ├─ fullscreen/           # Full-screen takeover modals (WeightTracker, BodyFatTracker, StepTracker, Settings, FoodSearch)
 │   │   ├─ pickers/              # Scroll-wheel value pickers (Age, BodyFat, Calendar, Height, Weight, MealType, etc.)
 │   │   ├─ info/                 # Read-only info/reference sheets (AdaptiveThermogenesisInfo, BmiInfo, BmrInfo, CalorieBreakdown, TefInfo, etc.)
 │   │   ├─ forms/                # Data entry & editing dialogs (Cardio, Goal, PhaseCreation, WeightEntry, etc.)
-│   │   ├─ lists/                # Browseable/selectable lists (CardioFavourites, FoodFavourites)
+│   │   ├─ lists/                # Browseable/selectable lists (CardioFavourites, CardioTypeList)
 │   │   └─ common/               # Shared utility modals (ConfirmActionModal)
 │   ├─ screens/                  # 6 screen components
 │   └─ context/                  # Empty (unused)
@@ -831,6 +841,8 @@ src/
 │   ├─ goalAlignment.js          # Weight trend vs goal alignment evaluation
 │   ├─ theme.js                  # Native theme application (status bar, transparent nav bar, keyboard)
 │   ├─ format.js                 # Number formatting (formatOne: 1 decimal place)
+│   ├─ foodPresentation.js       # Food display naming helpers (brand + name formatting)
+│   ├─ foodTags.js               # Canonical food source/type resolver + badge metadata/classes
 │   ├─ export.js                 # CSV/JSON export generation
 │   ├─ dateKeys.js               # Canonical local/UTC date key formatters (`YYYY-MM-DD`)
 │   ├─ scroll.js                 # Scroll utilities
@@ -858,6 +870,7 @@ src/
     ├─ phases.test.js
     ├─ sessionCarryover.test.js
     ├─ steps.test.js
+    ├─ foodTags.test.js
     ├─ storage.sharding.test.js
     └─ storage.test.js          # Persistence split + Dexie-first behavior tests
 ```
@@ -948,3 +961,6 @@ npm run test:watch     # Node test runner in watch mode
 50. **Breakdown session reuse is intentional:** `calculateCalorieBreakdown()` reuses prefiltered date-scoped training/cardio sessions for burn calculations; avoid reintroducing duplicate date filtering in the same call path.
 51. **Startup profile reads are parallelized:** Keep profile and last selected cardio-type `Preferences.get(...)` calls parallelized during hydration.
 52. **Hook frame-throttling is intentional:** Keep RAF scheduling/equality guards in `useScrollOffScreen` and `useSwipeableScreens` to limit high-frequency layout/state churn on mobile.
+53. **Food favourites surface is unified:** Use `FoodSearchModal` favourites mode for favourites UX. Do not recreate a standalone `FoodFavouritesModal` surface.
+54. **Food tags are centralized:** Reuse `FoodTagBadges` + `foodTags` helpers; do not add per-modal ad-hoc tag/source logic.
+55. **Brand display in food cards is name-first:** Use `formatFoodDisplayName` and avoid rendering brand as a separate chip in food list cards.
