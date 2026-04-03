@@ -1,4 +1,5 @@
 import React from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   CloudOff,
   Sparkles,
@@ -19,7 +20,6 @@ import {
   X,
 } from 'lucide-react';
 import { formatOne } from '../../../../../utils/format';
-import { MAX_IMAGE_COUNT } from '../../../../../services/gemini';
 
 export const FoodSearchChatPanel = ({
   isOnline,
@@ -37,7 +37,8 @@ export const FoodSearchChatPanel = ({
   answerClarification,
   expandedAiEntryKeys,
   toggleAiEntryExpansion,
-  openAiEntryEditModal,
+  loggedAiEntryKeys,
+  favouritedAiEntryKeys,
   handleLogAiEntry,
   handleSaveAiFavourite,
   handleLogAllAiEntries,
@@ -53,7 +54,7 @@ export const FoodSearchChatPanel = ({
   sendChat,
   handleAddAttachmentFiles,
 }) => (
-  <div className="flex-1 min-h-0 flex flex-col">
+  <div className="flex-1 min-h-0 flex flex-col mt-2">
     {!isOnline && (
       <div className="mx-4 mt-3 flex items-center gap-2 px-3 py-2 bg-accent-amber/10 border border-accent-amber/30 rounded-lg flex-shrink-0">
         <CloudOff size={14} className="text-accent-amber flex-shrink-0" />
@@ -132,356 +133,442 @@ export const FoodSearchChatPanel = ({
               message.attachments.length > 0;
 
             return (
-              <div
+              <motion.div
                 key={message.id}
-                className={`flex items-end gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                className={`flex flex-col gap-1.5 ${isUser ? 'items-end' : 'items-start'}`}
               >
-                {!isUser && (
-                  <div className="flex-shrink-0 w-6 h-6 rounded-lg bg-accent-blue/15 border border-accent-blue/25 flex items-center justify-center mb-0.5">
-                    <Sparkles size={12} className="text-accent-blue" />
-                  </div>
-                )}
-
-                <div
-                  className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
-                    isUser
-                      ? 'bg-accent-blue text-primary-foreground rounded-br-md'
-                      : 'bg-surface-highlight border border-border text-foreground rounded-bl-md'
-                  }`}
-                >
-                  {message.text && <p>{message.text}</p>}
-
-                  {hasAttachments && (
-                    <div
-                      className={`mt-2 grid grid-cols-3 gap-2 ${
-                        message.text ? '' : 'mt-0'
-                      }`}
-                    >
+                {isUser && hasAttachments && (
+                  <div className="max-w-[82%] self-end overflow-x-auto touch-action-pan-x scrollbar-hide">
+                    <div className="flex items-center justify-end gap-2 w-max min-w-full">
                       {message.attachments.map((attachment) => (
                         <div
                           key={attachment.id}
-                          className={`rounded-xl overflow-hidden border ${
-                            isUser
-                              ? 'border-primary-foreground/20 bg-primary-foreground/10'
-                              : 'border-border bg-surface'
-                          }`}
+                          className="rounded-xl overflow-hidden border border-border bg-surface w-20 h-20 flex-shrink-0"
                         >
                           <img
                             src={attachment.previewUrl}
                             alt={attachment.name || 'Attached meal'}
-                            className="w-full h-20 object-cover"
+                            className="w-full h-full object-cover"
                           />
                         </div>
                       ))}
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {message.status === 'sending' && (
-                    <div className="mt-2 flex items-center gap-2 text-[11px] opacity-80">
-                      <div className="w-3.5 h-3.5 border-2 border-current/25 border-t-current rounded-full animate-spin-fast" />
-                      <span>
-                        {isUser ? 'Sending to AI...' : 'Regenerating...'}
-                      </span>
+                <div
+                  className={`flex items-end gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}
+                >
+                  {!isUser && (
+                    <div className="flex-shrink-0 w-6 h-6 rounded-lg bg-accent-blue/15 border border-accent-blue/25 flex items-center justify-center mb-0.5">
+                      <Sparkles size={12} className="text-accent-blue" />
                     </div>
                   )}
 
-                  {message.status === 'error' && (
-                    <div className="mt-2 rounded-xl border border-accent-red/30 bg-accent-red/10 px-2.5 py-2 text-[11px] text-accent-red">
-                      {message.error || 'Something went wrong.'}
-                    </div>
-                  )}
+                  <div
+                    className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
+                      isUser
+                        ? 'bg-accent-blue text-primary-foreground rounded-br-md'
+                        : 'bg-surface-highlight border border-border text-foreground rounded-bl-md'
+                    }`}
+                  >
+                    {message.text && <p>{message.text}</p>}
 
-                  {!isUser &&
-                    message.foodParser?.messageType === 'clarification' && (
-                      <div className="mt-3 rounded-xl border border-accent-amber/30 bg-accent-amber/10 px-3 py-2">
-                        <p className="text-[11px] font-semibold text-accent-amber">
-                          Clarification needed
-                        </p>
-                        {message.foodParser.followUpQuestion && (
-                          <p className="mt-1 text-xs text-foreground">
-                            {message.foodParser.followUpQuestion}
-                          </p>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => answerClarification(message)}
-                          className="mt-2 inline-flex items-center gap-1 rounded-lg bg-accent-amber text-primary-foreground px-2.5 py-1.5 text-[11px] font-semibold md:hover:brightness-110 press-feedback focus-ring"
-                        >
-                          <MessageSquareReply size={12} />
-                          Answer in composer
-                        </button>
+                    {message.status === 'sending' && !isUser && (
+                      <div className="mt-2 flex items-center gap-2 text-[11px] opacity-80">
+                        <div className="w-3.5 h-3.5 border-2 border-current/25 border-t-current rounded-full animate-spin-fast" />
+                        <span>Regenerating...</span>
                       </div>
                     )}
 
-                  {!isUser &&
-                    message.foodParser?.messageType === 'food_entries' &&
-                    Array.isArray(message.foodParser.entries) &&
-                    message.foodParser.entries.length > 0 && (
-                      <div className="mt-3 space-y-2">
-                        {message.foodParser.entries.map((entry, index) => {
-                          const entryKey = `${message.id}-${index}`;
-                          const isExpanded =
-                            expandedAiEntryKeys[entryKey] === true;
-                          const isLowConfidence = entry.confidence === 'low';
+                    {message.status === 'error' && (
+                      <div className="mt-2 rounded-xl border border-accent-red/30 bg-accent-red/10 px-2.5 py-2 text-[11px] text-accent-red">
+                        {message.error || 'Something went wrong.'}
+                      </div>
+                    )}
 
-                          return (
-                            <div
-                              key={entryKey}
-                              className={`rounded-xl bg-surface border px-3 py-2 ${
-                                isLowConfidence
-                                  ? 'border-accent-red/35'
-                                  : 'border-border'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-2 mb-2">
-                                <p className="text-xs font-semibold text-foreground truncate">
-                                  {entry.name}
-                                </p>
-                                <span
-                                  className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-                                    entry.confidence === 'high'
-                                      ? 'bg-accent-green/20 text-accent-green'
-                                      : entry.confidence === 'low'
-                                        ? 'bg-accent-red/20 text-accent-red'
-                                        : 'bg-accent-amber/20 text-accent-amber'
-                                  }`}
-                                >
-                                  {entry.confidence ?? 'medium'}
-                                </span>
-                              </div>
+                    {!isUser &&
+                      message.foodParser?.messageType === 'clarification' && (
+                        <div className="mt-3 rounded-xl border border-accent-amber/30 bg-accent-amber/10 px-3 py-2">
+                          <p className="text-[11px] font-semibold text-accent-amber">
+                            Clarification needed
+                          </p>
+                          {message.foodParser.followUpQuestion && (
+                            <p className="mt-1 text-xs text-foreground">
+                              {message.foodParser.followUpQuestion}
+                            </p>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => answerClarification(message)}
+                            className="mt-2 inline-flex items-center gap-1 rounded-lg bg-accent-amber text-primary-foreground px-2.5 py-1.5 text-[11px] font-semibold md:hover:brightness-110 press-feedback focus-ring"
+                          >
+                            <MessageSquareReply size={12} />
+                            Answer in composer
+                          </button>
+                        </div>
+                      )}
 
-                              <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted mb-2">
-                                {Number.isFinite(entry.grams) && (
-                                  <span>{formatOne(entry.grams)}g</span>
+                    {!isUser &&
+                      message.foodParser?.messageType === 'food_entries' &&
+                      Array.isArray(message.foodParser.entries) &&
+                      message.foodParser.entries.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          {message.foodParser.entries.map((entry, index) => {
+                            const entryKey = `${message.id}-${index}`;
+                            const isExpanded =
+                              expandedAiEntryKeys[entryKey] === true;
+                            const isLowConfidence = entry.confidence === 'low';
+                            const isLogged =
+                              loggedAiEntryKeys[entryKey] === true;
+                            const isFavourited =
+                              favouritedAiEntryKeys[entryKey] === true;
+
+                            return (
+                              <motion.div
+                                key={entryKey}
+                                initial={{ opacity: 0, scale: 0.98 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                transition={{ duration: 0.16, ease: 'easeOut' }}
+                                className={`rounded-xl bg-surface border px-3 py-2 ${
+                                  isLowConfidence
+                                    ? 'border-accent-red/35'
+                                    : 'border-border'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-2 mb-2">
+                                  <p className="text-xs font-semibold text-foreground truncate">
+                                    {entry.name}
+                                  </p>
+                                  <span
+                                    className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+                                      entry.confidence === 'high'
+                                        ? 'bg-accent-green/20 text-accent-green'
+                                        : entry.confidence === 'low'
+                                          ? 'bg-accent-red/20 text-accent-red'
+                                          : 'bg-accent-amber/20 text-accent-amber'
+                                    }`}
+                                  >
+                                    {entry.confidence ?? 'medium'}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted mb-2">
+                                  {Number.isFinite(entry.grams) && (
+                                    <span>{formatOne(entry.grams)}g</span>
+                                  )}
+                                  <span>{formatOne(entry.calories)} kcal</span>
+                                  <span>{formatOne(entry.protein)}P</span>
+                                  <span>{formatOne(entry.carbs)}C</span>
+                                  <span>{formatOne(entry.fats)}F</span>
+                                </div>
+
+                                {isLowConfidence && (
+                                  <p className="mb-2 text-[11px] text-accent-red">
+                                    Low confidence. Review this estimate before
+                                    logging.
+                                  </p>
                                 )}
-                                <span>{formatOne(entry.calories)} kcal</span>
-                                <span>{formatOne(entry.protein)}P</span>
-                                <span>{formatOne(entry.carbs)}C</span>
-                                <span>{formatOne(entry.fats)}F</span>
-                              </div>
 
-                              {isLowConfidence && (
-                                <p className="mb-2 text-[11px] text-accent-red">
-                                  Low confidence. Review or edit this estimate
-                                  before logging.
-                                </p>
-                              )}
+                                {(entry.rationale ||
+                                  (Array.isArray(entry.assumptions) &&
+                                    entry.assumptions.length > 0)) && (
+                                  <div className="mb-2">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        toggleAiEntryExpansion(entryKey)
+                                      }
+                                      className="inline-flex items-center gap-1 text-[11px] text-muted md:hover:text-foreground pressable-inline focus-ring"
+                                    >
+                                      {isExpanded ? (
+                                        <ChevronUp size={12} />
+                                      ) : (
+                                        <ChevronDown size={12} />
+                                      )}
+                                      <span>Assumptions</span>
+                                    </button>
 
-                              {(entry.rationale ||
-                                (Array.isArray(entry.assumptions) &&
-                                  entry.assumptions.length > 0)) && (
-                                <div className="mb-2">
+                                    <AnimatePresence initial={false}>
+                                      {isExpanded && (
+                                        <motion.div
+                                          initial={{ opacity: 0, height: 0 }}
+                                          animate={{
+                                            opacity: 1,
+                                            height: 'auto',
+                                          }}
+                                          exit={{ opacity: 0, height: 0 }}
+                                          transition={{
+                                            duration: 0.18,
+                                            ease: 'easeOut',
+                                          }}
+                                          className="mt-2 rounded-lg bg-surface-highlight border border-border px-2.5 py-2 space-y-2 overflow-hidden"
+                                        >
+                                          {entry.rationale && (
+                                            <p className="text-[11px] text-foreground">
+                                              {entry.rationale}
+                                            </p>
+                                          )}
+                                          {Array.isArray(entry.assumptions) &&
+                                            entry.assumptions.length > 0 && (
+                                              <div className="space-y-1">
+                                                {entry.assumptions.map(
+                                                  (
+                                                    assumption,
+                                                    assumptionIndex
+                                                  ) => (
+                                                    <motion.p
+                                                      key={assumption}
+                                                      initial={{
+                                                        opacity: 0,
+                                                        y: -4,
+                                                      }}
+                                                      animate={{
+                                                        opacity: 1,
+                                                        y: 0,
+                                                      }}
+                                                      transition={{
+                                                        delay:
+                                                          assumptionIndex *
+                                                          0.03,
+                                                        duration: 0.16,
+                                                      }}
+                                                      className="text-[11px] text-muted"
+                                                    >
+                                                      • {assumption}
+                                                    </motion.p>
+                                                  )
+                                                )}
+                                              </div>
+                                            )}
+                                        </motion.div>
+                                      )}
+                                    </AnimatePresence>
+                                  </div>
+                                )}
+
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
                                   <button
                                     type="button"
                                     onClick={() =>
-                                      toggleAiEntryExpansion(entryKey)
+                                      handleLogAiEntry(entry, entryKey, {
+                                        closeModal: false,
+                                      })
                                     }
-                                    className="inline-flex items-center gap-1 text-[11px] text-muted md:hover:text-foreground pressable-inline focus-ring"
+                                    disabled={isLogged}
+                                    className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all press-feedback focus-ring ${
+                                      isLogged
+                                        ? 'bg-surface-highlight border border-border text-muted cursor-not-allowed'
+                                        : 'bg-primary text-primary-foreground md:hover:brightness-110'
+                                    }`}
                                   >
-                                    {isExpanded ? (
-                                      <ChevronUp size={12} />
-                                    ) : (
-                                      <ChevronDown size={12} />
-                                    )}
-                                    <span>Assumptions</span>
+                                    {isLogged ? 'Logged' : 'Log'}
                                   </button>
-
-                                  {isExpanded && (
-                                    <div className="mt-2 rounded-lg bg-surface-highlight border border-border px-2.5 py-2 space-y-2">
-                                      {entry.rationale && (
-                                        <p className="text-[11px] text-foreground">
-                                          {entry.rationale}
-                                        </p>
-                                      )}
-                                      {Array.isArray(entry.assumptions) &&
-                                        entry.assumptions.length > 0 && (
-                                          <div className="space-y-1">
-                                            {entry.assumptions.map(
-                                              (assumption) => (
-                                                <p
-                                                  key={assumption}
-                                                  className="text-[11px] text-muted"
-                                                >
-                                                  • {assumption}
-                                                </p>
-                                              )
-                                            )}
-                                          </div>
-                                        )}
-                                    </div>
-                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleLogAiEntry(entry, entryKey, {
+                                        closeModal: true,
+                                      })
+                                    }
+                                    disabled={isLogged}
+                                    className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all press-feedback focus-ring ${
+                                      isLogged
+                                        ? 'bg-surface-highlight border border-border text-muted cursor-not-allowed'
+                                        : 'bg-accent-blue text-primary-foreground md:hover:brightness-110'
+                                    }`}
+                                  >
+                                    {isLogged ? 'Logged' : 'Log & Exit'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleSaveAiFavourite(
+                                        entry,
+                                        entryKey,
+                                        index
+                                      )
+                                    }
+                                    disabled={isFavourited}
+                                    className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all press-feedback focus-ring ${
+                                      isFavourited
+                                        ? 'bg-accent-green/15 border border-accent-green/35 text-accent-green cursor-not-allowed'
+                                        : 'bg-accent-green text-primary-foreground md:hover:brightness-110'
+                                    }`}
+                                  >
+                                    {isFavourited
+                                      ? 'Favourited'
+                                      : 'Save Favorite'}
+                                  </button>
                                 </div>
-                              )}
+                              </motion.div>
+                            );
+                          })}
 
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    openAiEntryEditModal(
-                                      message.id,
-                                      index,
-                                      entry
-                                    )
-                                  }
-                                  className="px-2.5 py-1.5 rounded-lg bg-surface-highlight border border-border text-foreground text-xs font-semibold md:hover:border-accent-blue/40 press-feedback focus-ring"
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleLogAiEntry(entry, {
-                                      closeModal: false,
-                                    })
-                                  }
-                                  className="px-2.5 py-1.5 rounded-lg bg-accent-blue text-primary-foreground text-xs font-semibold md:hover:brightness-110 press-feedback focus-ring"
-                                >
-                                  Log
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleLogAiEntry(entry, {
-                                      closeModal: true,
-                                    })
-                                  }
-                                  className="px-2.5 py-1.5 rounded-lg bg-accent-emerald text-primary-foreground text-xs font-semibold md:hover:brightness-110 press-feedback focus-ring"
-                                >
-                                  Log & Exit
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleSaveAiFavourite(entry, index)
-                                  }
-                                  className="px-2.5 py-1.5 rounded-lg bg-surface-highlight border border-border text-foreground text-xs font-semibold md:hover:border-accent-purple/50 press-feedback focus-ring"
-                                >
-                                  Save Favorite
-                                </button>
-                              </div>
+                          {message.foodParser.entries.length > 1 && (
+                            <div className="rounded-xl bg-surface border border-border px-3 py-2">
+                              {(() => {
+                                const remainingLoggableCount =
+                                  message.foodParser.entries.reduce(
+                                    (count, _entry, entryIndex) => {
+                                      const key = `${message.id}-${entryIndex}`;
+                                      return loggedAiEntryKeys[key]
+                                        ? count
+                                        : count + 1;
+                                    },
+                                    0
+                                  );
+
+                                const allLogged = remainingLoggableCount === 0;
+
+                                return (
+                                  <>
+                                    <p className="text-[11px] text-muted mb-2">
+                                      Batch actions{' '}
+                                      <span className="text-muted/80">
+                                        ({remainingLoggableCount} remaining)
+                                      </span>
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleLogAllAiEntries(
+                                            message.id,
+                                            message.foodParser.entries,
+                                            false
+                                          )
+                                        }
+                                        disabled={allLogged}
+                                        className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all press-feedback focus-ring ${
+                                          allLogged
+                                            ? 'bg-surface-highlight border border-border text-muted cursor-not-allowed'
+                                            : 'bg-primary text-primary-foreground md:hover:brightness-110'
+                                        }`}
+                                      >
+                                        {allLogged ? 'All Logged' : 'Log All'}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleLogAllAiEntries(
+                                            message.id,
+                                            message.foodParser.entries,
+                                            true
+                                          )
+                                        }
+                                        disabled={allLogged}
+                                        className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all press-feedback focus-ring ${
+                                          allLogged
+                                            ? 'bg-surface-highlight border border-border text-muted cursor-not-allowed'
+                                            : 'bg-accent-blue text-primary-foreground md:hover:brightness-110'
+                                        }`}
+                                      >
+                                        {allLogged
+                                          ? 'All Logged'
+                                          : 'Log All & Exit'}
+                                      </button>
+                                    </div>
+                                  </>
+                                );
+                              })()}
                             </div>
-                          );
-                        })}
-
-                        {message.foodParser.entries.length > 1 && (
-                          <div className="rounded-xl bg-surface border border-border px-3 py-2">
-                            <p className="text-[11px] text-muted mb-2">
-                              Batch actions
-                            </p>
-                            <div className="grid grid-cols-2 gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleLogAllAiEntries(
-                                    message.foodParser.entries,
-                                    false
-                                  )
-                                }
-                                className="px-2.5 py-1.5 rounded-lg bg-accent-indigo text-primary-foreground text-xs font-semibold md:hover:brightness-110 press-feedback focus-ring"
-                              >
-                                Add All
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleLogAllAiEntries(
-                                    message.foodParser.entries,
-                                    true
-                                  )
-                                }
-                                className="px-2.5 py-1.5 rounded-lg bg-accent-purple text-primary-foreground text-xs font-semibold md:hover:brightness-110 press-feedback focus-ring"
-                              >
-                                Add All & Exit
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                  <div
-                    className={`mt-3 flex flex-wrap gap-2 text-[11px] ${
-                      isUser ? 'text-primary-foreground/80' : 'text-muted'
-                    }`}
-                  >
-                    {isUser && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => copyChatText(message.text)}
-                          className="inline-flex items-center gap-1 md:hover:text-foreground pressable-inline focus-ring"
-                        >
-                          <Copy size={12} />
-                          Copy text
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleEditUserMessage(message)}
-                          className="inline-flex items-center gap-1 md:hover:text-foreground pressable-inline focus-ring"
-                        >
-                          <Pencil size={12} />
-                          Edit & resend
-                        </button>
-                        {hasAttachments && (
-                          <button
-                            type="button"
-                            onClick={() => handleReuseUserAttachments(message)}
-                            className="inline-flex items-center gap-1 md:hover:text-foreground pressable-inline focus-ring"
-                          >
-                            <ImagePlus size={12} />
-                            Reuse attachments
-                          </button>
-                        )}
-                        {message.status === 'error' && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => retryUserMessage(message)}
-                              className="inline-flex items-center gap-1 md:hover:text-foreground pressable-inline focus-ring"
-                            >
-                              <RotateCcw size={12} />
-                              Retry
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                retryUserMessage(message, {
-                                  asDraft: true,
-                                })
-                              }
-                              className="inline-flex items-center gap-1 md:hover:text-foreground pressable-inline focus-ring"
-                            >
-                              <Pencil size={12} />
-                              Retry as draft
-                            </button>
-                          </>
-                        )}
-                      </>
-                    )}
-
-                    {!isUser && message.status !== 'sending' && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => copyChatText(message.text)}
-                          className="inline-flex items-center gap-1 md:hover:text-foreground pressable-inline focus-ring"
-                        >
-                          <Copy size={12} />
-                          Copy reply
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => regenerateAssistantReply(message)}
-                          className="inline-flex items-center gap-1 md:hover:text-foreground pressable-inline focus-ring"
-                        >
-                          <RotateCcw size={12} />
-                          {message.status === 'error' ? 'Retry' : 'Regenerate'}
-                        </button>
-                      </>
-                    )}
+                          )}
+                        </div>
+                      )}
                   </div>
                 </div>
-              </div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.14, ease: 'easeOut' }}
+                  className={`max-w-[82%] flex flex-wrap gap-2 text-[11px] text-muted ${
+                    isUser
+                      ? 'justify-end self-end'
+                      : 'justify-start self-start ml-8'
+                  }`}
+                >
+                  {isUser && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => copyChatText(message.text)}
+                        className="inline-flex items-center gap-1 transition-colors md:hover:text-foreground pressable-inline focus-ring"
+                      >
+                        <Copy size={12} />
+                        Copy text
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleEditUserMessage(message)}
+                        className="inline-flex items-center gap-1 transition-colors md:hover:text-foreground pressable-inline focus-ring"
+                      >
+                        <Pencil size={12} />
+                        Edit & resend
+                      </button>
+                      {hasAttachments && (
+                        <button
+                          type="button"
+                          onClick={() => handleReuseUserAttachments(message)}
+                          className="inline-flex items-center gap-1 transition-colors md:hover:text-foreground pressable-inline focus-ring"
+                        >
+                          <ImagePlus size={12} />
+                          Reuse attachments
+                        </button>
+                      )}
+                      {message.status === 'error' && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => retryUserMessage(message)}
+                            className="inline-flex items-center gap-1 transition-colors md:hover:text-foreground pressable-inline focus-ring"
+                          >
+                            <RotateCcw size={12} />
+                            Retry
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              retryUserMessage(message, {
+                                asDraft: true,
+                              })
+                            }
+                            className="inline-flex items-center gap-1 transition-colors md:hover:text-foreground pressable-inline focus-ring"
+                          >
+                            <Pencil size={12} />
+                            Retry as draft
+                          </button>
+                        </>
+                      )}
+                    </>
+                  )}
+
+                  {!isUser && message.status !== 'sending' && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => copyChatText(message.text)}
+                        className="inline-flex items-center gap-1 transition-colors md:hover:text-foreground pressable-inline focus-ring"
+                      >
+                        <Copy size={12} />
+                        Copy reply
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => regenerateAssistantReply(message)}
+                        className="inline-flex items-center gap-1 transition-colors md:hover:text-foreground pressable-inline focus-ring"
+                      >
+                        <RotateCcw size={12} />
+                        {message.status === 'error' ? 'Retry' : 'Regenerate'}
+                      </button>
+                    </>
+                  )}
+                </motion.div>
+              </motion.div>
             );
           })}
 
@@ -509,36 +596,6 @@ export const FoodSearchChatPanel = ({
       )}
     </div>
 
-    {chatAttachments.length > 0 && (
-      <div className="px-4 pb-1 flex-shrink-0">
-        <p className="mb-1 text-[10px] text-muted">Draft attachments</p>
-        <div className="overflow-x-auto touch-action-pan-x scrollbar-hide">
-          <div className="flex gap-2 w-max py-1">
-            {chatAttachments.map((attachment) => (
-              <div
-                key={attachment.id}
-                className="relative w-14 h-14 rounded-xl border border-border overflow-hidden bg-surface-highlight flex-shrink-0"
-              >
-                <img
-                  src={attachment.previewUrl}
-                  alt="Attachment preview"
-                  className="w-full h-full object-cover"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeAttachment(attachment.id)}
-                  className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-background/90 backdrop-blur-sm text-muted md:hover:text-foreground flex items-center justify-center pressable-inline focus-ring border border-border/50"
-                  aria-label="Remove image"
-                >
-                  <X size={10} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    )}
-
     {chatError && (
       <div className="mx-4 mb-1 flex-shrink-0">
         <div className="bg-accent-red/10 border border-accent-red/30 rounded-lg px-3 py-2 text-accent-red text-xs flex items-start gap-2">
@@ -548,85 +605,96 @@ export const FoodSearchChatPanel = ({
       </div>
     )}
 
-    <div className="px-4 pb-3 pt-1 flex-shrink-0">
-      <div className="rounded-2xl border border-border bg-surface-highlight overflow-hidden shadow-sm">
-        {isSendingChat && (
-          <div className="px-3 pt-2">
-            <button
-              type="button"
-              onClick={stopChatRequest}
-              className="inline-flex items-center gap-1 rounded-lg border border-accent-red/30 bg-accent-red/10 px-2.5 py-1 text-[11px] font-semibold text-accent-red md:hover:bg-accent-red/15 press-feedback focus-ring"
-            >
-              <Square size={11} />
-              Stop
-            </button>
+    <div className="px-4 pb-3 pt-2 flex-shrink-0">
+      <div className="relative">
+        {chatAttachments.length > 0 && (
+          <div className="pointer-events-none absolute -top-14 right-2 z-20 max-w-[85%]">
+            <div className="pointer-events-auto overflow-x-auto touch-action-pan-x scrollbar-hide">
+              <div className="flex gap-2 w-max py-1">
+                {chatAttachments.map((attachment) => (
+                  <motion.div
+                    key={attachment.id}
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="relative w-16 h-16 rounded-xl border border-border overflow-hidden bg-surface-highlight flex-shrink-0 shadow-sm"
+                  >
+                    <img
+                      src={attachment.previewUrl}
+                      alt="Attachment preview"
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(attachment.id)}
+                      className="absolute top-0.5 right-0.5 w-5.5 h-5.5 rounded-full bg-background/90 backdrop-blur-sm text-foreground md:hover:text-foreground flex items-center justify-center pressable-inline focus-ring border border-border/50"
+                      aria-label="Remove image"
+                    >
+                      <X size={11} />
+                    </button>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
-        <div className="flex items-end gap-2 px-2 pt-2 pb-2">
-          <div className="flex items-center gap-0.5 pb-0.5 flex-shrink-0">
+        <div className="rounded-2xl border border-border bg-surface-highlight overflow-hidden shadow-sm">
+          <div className="flex items-center gap-2.5 px-2 py-2.5 min-h-[62px]">
+            <div className="flex items-center gap-1 pb-0.5 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isSendingChat}
+                className="w-10 h-10 rounded-lg flex items-center justify-center text-foreground md:hover:text-foreground md:hover:bg-surface transition-all pressable-inline focus-ring disabled:opacity-40"
+                aria-label="Attach image"
+              >
+                <Paperclip size={17} />
+              </button>
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                disabled={isSendingChat}
+                className="w-10 h-10 rounded-lg flex items-center justify-center text-foreground md:hover:text-foreground md:hover:bg-surface transition-all pressable-inline focus-ring disabled:opacity-40"
+                aria-label="Take photo"
+              >
+                <Camera size={17} />
+              </button>
+            </div>
+
+            <div className="w-px h-7 bg-border flex-shrink-0 self-center" />
+
+            <textarea
+              ref={chatTextareaRef}
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={handleChatInputKeyDown}
+              onPaste={handleChatInputPaste}
+              placeholder="Describe food + portion..."
+              rows={1}
+              className="flex-1 resize-none max-h-28 min-h-11 bg-transparent text-foreground placeholder:text-muted outline-none py-2.5 px-2.5 text-[15px] leading-relaxed overflow-y-auto"
+            />
+
             <button
               type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isSendingChat}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-muted md:hover:text-foreground md:hover:bg-surface transition-all pressable-inline focus-ring disabled:opacity-40"
-              aria-label="Attach image"
+              onClick={isSendingChat ? stopChatRequest : sendChat}
+              disabled={
+                !isSendingChat &&
+                !chatInput.trim() &&
+                chatAttachments.length === 0
+              }
+              className={`flex-shrink-0 w-11 h-11 rounded-xl text-primary-foreground transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center press-feedback focus-ring ${
+                isSendingChat
+                  ? 'bg-accent-red md:hover:brightness-110'
+                  : 'bg-accent-blue md:hover:brightness-110'
+              }`}
+              aria-label={isSendingChat ? 'Stop generating' : 'Send message'}
             >
-              <Paperclip size={15} />
+              {isSendingChat ? (
+                <Square size={15} />
+              ) : (
+                <SendHorizontal size={15} />
+              )}
             </button>
-            <button
-              type="button"
-              onClick={() => cameraInputRef.current?.click()}
-              disabled={isSendingChat}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-muted md:hover:text-foreground md:hover:bg-surface transition-all pressable-inline focus-ring disabled:opacity-40"
-              aria-label="Take photo"
-            >
-              <Camera size={15} />
-            </button>
-          </div>
-
-          <div className="w-px h-5 bg-border flex-shrink-0 self-center" />
-
-          <textarea
-            ref={chatTextareaRef}
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            onKeyDown={handleChatInputKeyDown}
-            onPaste={handleChatInputPaste}
-            placeholder="Describe the food, portion, and any assumptions..."
-            rows={1}
-            className="flex-1 resize-none max-h-28 bg-transparent text-foreground placeholder:text-muted outline-none py-1.5 px-2 text-sm leading-relaxed overflow-y-auto"
-          />
-
-          <button
-            type="button"
-            onClick={sendChat}
-            disabled={
-              isSendingChat ||
-              (!chatInput.trim() && chatAttachments.length === 0)
-            }
-            className="flex-shrink-0 w-9 h-9 rounded-xl bg-accent-blue text-primary-foreground md:hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center press-feedback focus-ring self-end"
-            aria-label="Send message"
-          >
-            {isSendingChat ? (
-              <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin-fast" />
-            ) : (
-              <SendHorizontal size={15} />
-            )}
-          </button>
-        </div>
-
-        <div className="px-3 pb-2 flex items-center justify-between">
-          <p className="text-[10px] text-muted">
-            Up to {MAX_IMAGE_COUNT} images · JPEG/PNG/WebP · max 5MB each ·
-            paste supported
-          </p>
-          <div
-            className="flex items-center gap-1 text-[10px] text-muted"
-            title="Paste images into the composer"
-          >
-            <ImagePlus size={11} />
-            <span>paste</span>
           </div>
         </div>
       </div>

@@ -370,20 +370,15 @@ export const FoodSearchModal = ({
   const [isSendingChat, setIsSendingChat] = useState(false);
   const [activeChatRequest, setActiveChatRequest] = useState(null);
   const [expandedAiEntryKeys, setExpandedAiEntryKeys] = useState({});
-  const [editingAiEntry, setEditingAiEntry] = useState(null);
+  const [loggedAiEntryKeys, setLoggedAiEntryKeys] = useState({});
+  const [favouritedAiEntryKeys, setFavouritedAiEntryKeys] = useState({});
   const chatAbortControllerRef = useRef(null);
   const chatScrollRef = useRef(null);
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const chatTextareaRef = useRef(null);
-
-  const {
-    isOpen: isAiEntryEditorOpen,
-    isClosing: isAiEntryEditorClosing,
-    open: openAiEntryEditor,
-    requestClose: requestAiEntryEditorClose,
-    forceClose: forceAiEntryEditorClose,
-  } = useAnimatedModal(false);
+  const latestChatAttachmentsRef = useRef([]);
+  const latestChatMessagesRef = useRef([]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -441,7 +436,8 @@ export const FoodSearchModal = ({
       setChatMessages([]);
       setChatInput('');
       setExpandedAiEntryKeys({});
-      setEditingAiEntry(null);
+      setLoggedAiEntryKeys({});
+      setFavouritedAiEntryKeys({});
       setChatError(null);
       setIsSendingChat(false);
       setActiveChatRequest(null);
@@ -462,7 +458,6 @@ export const FoodSearchModal = ({
       forceManualAddConfirmClose();
       forceAddCustomFoodClose();
       forceBarcodeEntryClose();
-      forceAiEntryEditorClose();
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
@@ -479,7 +474,6 @@ export const FoodSearchModal = ({
     forceManualAddConfirmClose,
     forceAddCustomFoodClose,
     forceBarcodeEntryClose,
-    forceAiEntryEditorClose,
     isClosing,
     chatMessages,
   ]);
@@ -1075,6 +1069,14 @@ export const FoodSearchModal = ({
 
   const hasFavourites = sortedFavourites.length > 0;
 
+  useEffect(() => {
+    latestChatAttachmentsRef.current = chatAttachments;
+  }, [chatAttachments]);
+
+  useEffect(() => {
+    latestChatMessagesRef.current = chatMessages;
+  }, [chatMessages]);
+
   // Cleanup timer on unmount
   useEffect(() => {
     return () => {
@@ -1088,12 +1090,12 @@ export const FoodSearchModal = ({
       if (chatAbortControllerRef.current) {
         chatAbortControllerRef.current.abort();
       }
-      revokeChatAttachments(chatAttachments);
-      chatMessages.forEach((message) => {
+      revokeChatAttachments(latestChatAttachmentsRef.current);
+      latestChatMessagesRef.current.forEach((message) => {
         revokeChatAttachments(message.attachments);
       });
     };
-  }, [chatAttachments, chatMessages]);
+  }, []);
 
   // Show small fade overlays on scrollable action buttons container
 
@@ -1470,88 +1472,6 @@ export const FoodSearchModal = ({
     [focusChatComposer]
   );
 
-  const openAiEntryEditModal = useCallback(
-    (messageId, entryIndex, entry) => {
-      setEditingAiEntry({
-        messageId,
-        entryIndex,
-        name: entry?.name || '',
-        grams:
-          entry?.grams == null || Number.isNaN(Number(entry.grams))
-            ? ''
-            : String(entry.grams),
-        calories: String(entry?.calories ?? ''),
-        protein: String(entry?.protein ?? ''),
-        carbs: String(entry?.carbs ?? ''),
-        fats: String(entry?.fats ?? ''),
-        confidence: entry?.confidence ?? 'medium',
-        rationale: entry?.rationale ?? '',
-        assumptions: Array.isArray(entry?.assumptions)
-          ? entry.assumptions.join('\n')
-          : '',
-      });
-      openAiEntryEditor();
-    },
-    [openAiEntryEditor]
-  );
-
-  const handleAiEntryEditorChange = useCallback((field, value) => {
-    setEditingAiEntry((prev) => (prev ? { ...prev, [field]: value } : prev));
-  }, []);
-
-  const saveEditedAiEntry = useCallback(() => {
-    if (!editingAiEntry) return;
-
-    const normalizedEntry = {
-      name: editingAiEntry.name.trim(),
-      grams:
-        editingAiEntry.grams.trim() === ''
-          ? null
-          : Math.max(1, Math.round(Number(editingAiEntry.grams) || 0)),
-      calories: Math.max(0, Math.round(Number(editingAiEntry.calories) || 0)),
-      protein:
-        Math.max(0, Math.round((Number(editingAiEntry.protein) || 0) * 10)) /
-        10,
-      carbs:
-        Math.max(0, Math.round((Number(editingAiEntry.carbs) || 0) * 10)) / 10,
-      fats:
-        Math.max(0, Math.round((Number(editingAiEntry.fats) || 0) * 10)) / 10,
-      confidence: editingAiEntry.confidence || 'medium',
-      rationale: editingAiEntry.rationale.trim() || null,
-      assumptions: editingAiEntry.assumptions
-        .split('\n')
-        .map((item) => item.trim())
-        .filter(Boolean)
-        .slice(0, 6),
-    };
-
-    if (!normalizedEntry.name) {
-      setChatError('Entry name is required.');
-      return;
-    }
-
-    updateMessageById(editingAiEntry.messageId, (message) => {
-      if (!message?.foodParser?.entries?.[editingAiEntry.entryIndex]) {
-        return message;
-      }
-
-      const nextEntries = message.foodParser.entries.map((entry, index) =>
-        index === editingAiEntry.entryIndex ? normalizedEntry : entry
-      );
-
-      return {
-        ...message,
-        foodParser: {
-          ...message.foodParser,
-          entries: nextEntries,
-        },
-      };
-    });
-
-    setChatError(null);
-    requestAiEntryEditorClose();
-  }, [editingAiEntry, requestAiEntryEditorClose, updateMessageById]);
-
   const submitChatRequest = useCallback(
     async ({
       text,
@@ -1861,34 +1781,68 @@ export const FoodSearchModal = ({
   }, []);
 
   const handleLogAiEntry = useCallback(
-    (entry, { closeModal } = { closeModal: false }) => {
+    (entry, entryKey, { closeModal } = { closeModal: false }) => {
+      if (!entryKey || loggedAiEntryKeys[entryKey]) {
+        return;
+      }
+
       const foodEntry = buildAiFoodEntry(entry);
       if (!foodEntry) return;
+
       onSelectFavourite?.(foodEntry, { closeModal });
+
+      setLoggedAiEntryKeys((prev) => ({
+        ...prev,
+        [entryKey]: true,
+      }));
     },
-    [buildAiFoodEntry, onSelectFavourite]
+    [buildAiFoodEntry, loggedAiEntryKeys, onSelectFavourite]
   );
 
   const handleSaveAiFavourite = useCallback(
-    (entry, index = 0) => {
+    (entry, entryKey, index = 0) => {
+      if (!entryKey || favouritedAiEntryKeys[entryKey]) {
+        return;
+      }
+
       const foodEntry = buildAiFoodEntry(entry, index);
       if (!foodEntry) return;
+
       const sourceFood = buildAiSourceFood(foodEntry);
       onSaveAsFavourite?.(foodEntry, sourceFood);
+
+      setFavouritedAiEntryKeys((prev) => ({
+        ...prev,
+        [entryKey]: true,
+      }));
     },
-    [buildAiFoodEntry, buildAiSourceFood, onSaveAsFavourite]
+    [
+      buildAiFoodEntry,
+      buildAiSourceFood,
+      favouritedAiEntryKeys,
+      onSaveAsFavourite,
+    ]
   );
 
   const handleLogAllAiEntries = useCallback(
-    (entries, closeModal = false) => {
+    (messageId, entries, closeModal = false) => {
       if (!Array.isArray(entries) || entries.length === 0) return;
 
-      entries.forEach((entry, index) => {
-        const isLast = index === entries.length - 1;
-        handleLogAiEntry(entry, { closeModal: closeModal && isLast });
+      const unloggedEntries = entries
+        .map((entry, index) => ({
+          entry,
+          entryKey: `${messageId}-${index}`,
+        }))
+        .filter(({ entryKey }) => !loggedAiEntryKeys[entryKey]);
+
+      unloggedEntries.forEach(({ entry, entryKey }, index) => {
+        const isLast = index === unloggedEntries.length - 1;
+        handleLogAiEntry(entry, entryKey, {
+          closeModal: closeModal && isLast,
+        });
       });
     },
-    [handleLogAiEntry]
+    [handleLogAiEntry, loggedAiEntryKeys]
   );
 
   const handleChatInputKeyDown = (event) => {
@@ -1933,7 +1887,7 @@ export const FoodSearchModal = ({
 
       <div className="flex-1 bg-surface border-t border-border overflow-y-auto flex flex-col">
         {/* Action Buttons - Always on top */}
-        <div className="px-4 pt-4">
+        <div className="px-4 pt-4 pb-3 border-b border-border">
           <div className="relative overflow-hidden">
             <div
               ref={actionScrollRef}
@@ -2113,7 +2067,8 @@ export const FoodSearchModal = ({
             answerClarification={answerClarification}
             expandedAiEntryKeys={expandedAiEntryKeys}
             toggleAiEntryExpansion={toggleAiEntryExpansion}
-            openAiEntryEditModal={openAiEntryEditModal}
+            loggedAiEntryKeys={loggedAiEntryKeys}
+            favouritedAiEntryKeys={favouritedAiEntryKeys}
             handleLogAiEntry={handleLogAiEntry}
             handleSaveAiFavourite={handleSaveAiFavourite}
             handleLogAllAiEntries={handleLogAllAiEntries}
@@ -2403,159 +2358,6 @@ export const FoodSearchModal = ({
         onSubmit={handleManualBarcodeSubmit}
         onClose={requestBarcodeEntryClose}
       />
-
-      <ModalShell
-        isOpen={isAiEntryEditorOpen}
-        isClosing={isAiEntryEditorClosing}
-        onClose={requestAiEntryEditorClose}
-        contentClassName="w-full md:max-w-md p-5"
-      >
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-lg font-semibold text-foreground">
-              Edit AI Entry
-            </h3>
-            <p className="text-xs text-muted mt-1">
-              Adjust the estimate before logging or saving it.
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs font-medium text-muted mb-1">
-                Name
-              </label>
-              <input
-                type="text"
-                value={editingAiEntry?.name ?? ''}
-                onChange={(event) =>
-                  handleAiEntryEditorChange('name', event.target.value)
-                }
-                className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent-blue"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-muted mb-1">
-                  Grams
-                </label>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  value={editingAiEntry?.grams ?? ''}
-                  onChange={(event) =>
-                    handleAiEntryEditorChange('grams', event.target.value)
-                  }
-                  className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent-blue"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted mb-1">
-                  Calories
-                </label>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  value={editingAiEntry?.calories ?? ''}
-                  onChange={(event) =>
-                    handleAiEntryEditorChange('calories', event.target.value)
-                  }
-                  className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent-blue"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted mb-1">
-                  Protein
-                </label>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  value={editingAiEntry?.protein ?? ''}
-                  onChange={(event) =>
-                    handleAiEntryEditorChange('protein', event.target.value)
-                  }
-                  className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent-blue"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted mb-1">
-                  Carbs
-                </label>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  value={editingAiEntry?.carbs ?? ''}
-                  onChange={(event) =>
-                    handleAiEntryEditorChange('carbs', event.target.value)
-                  }
-                  className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent-blue"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted mb-1">
-                  Fats
-                </label>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  value={editingAiEntry?.fats ?? ''}
-                  onChange={(event) =>
-                    handleAiEntryEditorChange('fats', event.target.value)
-                  }
-                  className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent-blue"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-muted mb-1">
-                Rationale
-              </label>
-              <textarea
-                rows={3}
-                value={editingAiEntry?.rationale ?? ''}
-                onChange={(event) =>
-                  handleAiEntryEditorChange('rationale', event.target.value)
-                }
-                className="w-full resize-none bg-surface-highlight border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent-blue"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-muted mb-1">
-                Assumptions
-              </label>
-              <textarea
-                rows={4}
-                value={editingAiEntry?.assumptions ?? ''}
-                onChange={(event) =>
-                  handleAiEntryEditorChange('assumptions', event.target.value)
-                }
-                placeholder="One assumption per line"
-                className="w-full resize-none bg-surface-highlight border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent-blue"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={requestAiEntryEditorClose}
-              className="flex-1 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-semibold text-foreground md:hover:bg-surface-highlight press-feedback focus-ring"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={saveEditedAiEntry}
-              className="flex-1 rounded-lg bg-accent-blue px-4 py-2 text-sm font-semibold text-primary-foreground md:hover:brightness-110 press-feedback focus-ring"
-            >
-              Save
-            </button>
-          </div>
-        </div>
-      </ModalShell>
     </ModalShell>
   );
 };
