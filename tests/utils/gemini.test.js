@@ -27,6 +27,47 @@ test('buildGeminiContents maps assistant role to model and trims history', () =>
   assert.deepEqual(contents.at(-1), latestUserContent);
 });
 
+test('buildGeminiContents keeps structured history parts including inline image data', () => {
+  const latestUserContent = {
+    role: 'user',
+    parts: [{ text: 'latest prompt' }],
+  };
+
+  const contents = buildGeminiContents(
+    [
+      {
+        role: 'user',
+        parts: [
+          { text: 'What is this meal?' },
+          {
+            inlineData: {
+              mimeType: 'image/jpeg',
+              data: 'abc123',
+            },
+          },
+        ],
+      },
+      {
+        role: 'assistant',
+        content: 'Looks like a diner burger and fries.',
+      },
+    ],
+    latestUserContent
+  );
+
+  assert.equal(contents.length, 3);
+  assert.equal(contents[0].role, 'user');
+  assert.equal(contents[0].parts.length, 2);
+  assert.deepEqual(contents[0].parts[0], { text: 'What is this meal?' });
+  assert.deepEqual(contents[0].parts[1], {
+    inlineData: {
+      mimeType: 'image/jpeg',
+      data: 'abc123',
+    },
+  });
+  assert.equal(contents[1].role, 'model');
+});
+
 test('sendGeminiMessage returns assistant text on success', async () => {
   const originalFetch = globalThis.fetch;
 
@@ -217,6 +258,20 @@ test('sendGeminiMessage includes parsed foodParser payload when response embeds 
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test('parseFoodParserPayloadFromText returns clarification follow-up payload', () => {
+  const rawText = `I need one detail before I estimate this.\n<food_parser_json>{"messageType":"clarification","assistantMessage":"I need one detail before I estimate this.","followUpQuestion":"Was the burger single or double patty?","entries":[]}</food_parser_json>`;
+
+  const parsed = parseFoodParserPayloadFromText(rawText);
+
+  assert.equal(parsed.displayText, 'I need one detail before I estimate this.');
+  assert.equal(parsed.payload?.messageType, 'clarification');
+  assert.equal(
+    parsed.payload?.followUpQuestion,
+    'Was the burger single or double patty?'
+  );
+  assert.deepEqual(parsed.payload?.entries, []);
 });
 
 test('parseFoodParserPayloadFromText strips dangling parser tag when payload is truncated', () => {

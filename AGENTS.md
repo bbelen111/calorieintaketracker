@@ -163,6 +163,12 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 
 - `FoodSearchModal` is the **canonical** food favourites UI surface (`viewMode === 'favourites'`).
 - `FoodFavouritesModal` was removed as redundant and should **not** be reintroduced.
+- `FoodSearchModal` now composes focused panel components from `modals/fullscreen/panels/`:
+  - `FoodSearchChatPanel.jsx`
+  - `FoodSearchFilterControls.jsx`
+  - `FoodSearchResultsPanel.jsx`
+  - `FoodSearchFavouritesPanel.jsx`
+  Keep panel responsibilities isolated and avoid moving large inline JSX blocks back into `FoodSearchModal`.
 - Food tag rendering is now centralized via `components/EnergyMap/common/FoodTagBadges.jsx`.
 - Food source/type resolution is centralized in `utils/foodTags.js`.
 - Food display naming is centralized in `utils/foodPresentation.js` (`formatFoodDisplayName`).
@@ -743,6 +749,23 @@ const food = await searchBarcode('012345678901');
 
 ---
 
+## Gemini AI Parsing Integration
+
+Gemini food parsing is proxied through `api/gemini.js` (server-side key handling) and consumed by `src/services/gemini.js`.
+
+**Canonical system instruction source:**
+- `api/gemini.js` → `FOOD_ASSISTANT_SYSTEM_INSTRUCTION`
+
+**Policy requirements:**
+- Use **conservative estimation** when uncertainty materially affects calories/macros.
+- Prefer **one highest-impact clarification question** for low-confidence cases.
+- Do not invent foods/add-ons not explicitly mentioned or clearly visible.
+- Preserve machine payload contract exactly (`<food_parser_json>...</food_parser_json>` schema).
+
+If adjusting Gemini behavior, update `FOOD_ASSISTANT_SYSTEM_INSTRUCTION` first and verify parser/contract stability with `tests/utils/gemini.test.js`.
+
+---
+
 ## Local Food Catalog (SQLite)
 
 Food search now reads from `src/constants/foodDatabase.sqlite` through `src/services/foodCatalog.js` using `sql.js`.
@@ -964,3 +987,4 @@ npm run test:watch     # Node test runner in watch mode
 53. **Food favourites surface is unified:** Use `FoodSearchModal` favourites mode for favourites UX. Do not recreate a standalone `FoodFavouritesModal` surface.
 54. **Food tags are centralized:** Reuse `FoodTagBadges` + `foodTags` helpers; do not add per-modal ad-hoc tag/source logic.
 55. **Brand display in food cards is name-first:** Use `formatFoodDisplayName` and avoid rendering brand as a separate chip in food list cards.
+56. **Gemini instruction authority is server-side:** Keep behavioral prompt updates in `api/gemini.js` (`FOOD_ASSISTANT_SYSTEM_INSTRUCTION`) and preserve the existing `food_parser_json` schema unless a coordinated parser/test update is intentional.

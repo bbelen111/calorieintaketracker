@@ -57,6 +57,55 @@ function asNonEmptyString(value) {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function normalizeHistoryRole(role) {
+  return role === 'assistant' || role === 'model' ? 'model' : 'user';
+}
+
+function normalizeInlineHistoryPart(part) {
+  if (!part || typeof part !== 'object') {
+    return null;
+  }
+
+  const text = asNonEmptyString(part.text);
+  if (text) {
+    return { text };
+  }
+
+  const inlineData = part.inlineData;
+  if (
+    inlineData &&
+    typeof inlineData === 'object' &&
+    asNonEmptyString(inlineData.mimeType) &&
+    asNonEmptyString(inlineData.data)
+  ) {
+    return {
+      inlineData: {
+        mimeType: inlineData.mimeType,
+        data: inlineData.data,
+      },
+    };
+  }
+
+  return null;
+}
+
+async function normalizeAsyncHistoryPart(part) {
+  if (!part || typeof part !== 'object') {
+    return null;
+  }
+
+  const inlinePart = normalizeInlineHistoryPart(part);
+  if (inlinePart) {
+    return inlinePart;
+  }
+
+  if (part.file instanceof File) {
+    return { inlineData: await fileToInlineData(part.file) };
+  }
+
+  return null;
+}
+
 function normalizeFoodParserEntry(entry) {
   if (!entry || typeof entry !== 'object') {
     return null;
@@ -340,17 +389,77 @@ export function buildGeminiContents(history = [], latestUserContent) {
         .map((item) => {
           if (!item || typeof item !== 'object') return null;
 
-          const role = item.role === 'assistant' ? 'model' : 'user';
-          const contentText =
-            typeof item.content === 'string' ? item.content.trim() : '';
+          const role = normalizeHistoryRole(item.role);
+          const contentText = asNonEmptyString(item.content ?? item.text);
+          const explicitParts = Array.isArray(item.parts)
+            ? item.parts.map(normalizeInlineHistoryPart).filter(Boolean)
+            : [];
+          const parts =
+            explicitParts.length > 0
+              ? explicitParts
+              : contentText
+                ? [{ text: contentText }]
+                : [];
 
-          if (!contentText) return null;
+          if (parts.length === 0) return null;
 
-          return {
-            role,
-            parts: [{ text: contentText }],
-          };
+          return { role, parts };
         })
+        .filter(Boolean)
+        .slice(-12)
+    : [];
+
+  return [...normalizedHistory, latestUserContent];
+}
+
+async function buildGeminiContentsForRequest(history = [], latestUserContent) {
+  const normalizedHistory = Array.isArray(history)
+    ? (
+        await Promise.all(
+          history.map(async (item) => {
+            if (!item || typeof item !== 'object') {
+              return null;
+            }
+
+            const role = normalizeHistoryRole(item.role);
+            const contentText = asNonEmptyString(item.content ?? item.text);
+            const explicitParts = Array.isArray(item.parts)
+              ? (
+                  await Promise.all(
+                    item.parts.map((part) => normalizeAsyncHistoryPart(part))
+                  )
+                ).filter(Boolean)
+              : [];
+            const fileParts = Array.isArray(item.files)
+              ? (
+                  await Promise.all(
+                    item.files.map(async (file) => ({
+                      inlineData: await fileToInlineData(file),
+                    }))
+                  )
+                ).filter(Boolean)
+              : [];
+            const parts = [];
+
+            if (explicitParts.length > 0) {
+              parts.push(...explicitParts);
+            } else {
+              if (contentText) {
+                parts.push({ text: contentText });
+              }
+              if (fileParts.length > 0) {
+                parts.push(...fileParts);
+              }
+            }
+
+            if (parts.length === 0) {
+              return null;
+            }
+
+            return { role, parts };
+          })
+        )
+      )
         .filter(Boolean)
         .slice(-12)
     : [];
@@ -367,7 +476,10 @@ export async function sendGeminiMessage({
   timeoutMs = 30000,
 }) {
   const latestUserContent = await buildUserContent({ message, files });
-  const contents = buildGeminiContents(history, latestUserContent);
+  const contents = await buildGeminiContentsForRequest(
+    history,
+    latestUserContent
+  );
 
   const { signal: requestSignal, cleanup } = createCombinedAbortSignal(
     signal,

@@ -1,5 +1,6 @@
 import React, {
   useState,
+  useReducer,
   useMemo,
   useRef,
   useEffect,
@@ -7,13 +8,10 @@ import React, {
 } from 'react';
 import {
   Star,
-  Heart,
-  Trash2,
   ScanBarcode,
   Search,
   ChevronLeft,
   Edit3,
-  SlidersHorizontal,
   X,
   Plus,
   WifiOff,
@@ -22,28 +20,21 @@ import {
   AlertCircle,
   CloudOff,
   Sparkles,
-  SendHorizontal,
-  Paperclip,
-  Camera,
-  ImagePlus,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { ConfirmActionModal } from '../common/ConfirmActionModal';
-import { FoodTagBadges } from '../../common/FoodTagBadges';
 import { AddCustomFoodModal } from '../forms/AddCustomFoodModal';
 import { BarcodeEntryModal } from '../forms/BarcodeEntryModal';
+import { FoodSearchChatPanel } from './panels/FoodSearchChatPanel';
+import { FoodSearchResultsPanel } from './panels/FoodSearchResultsPanel';
+import { FoodSearchFavouritesPanel } from './panels/FoodSearchFavouritesPanel';
+import { FoodSearchFilterControls } from './panels/FoodSearchFilterControls';
 import { FOOD_CATEGORIES } from '../../../../constants/foodDatabase';
-import { formatOne } from '../../../../utils/format';
-import { formatFoodDisplayName } from '../../../../utils/foodPresentation';
 import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
-import {
-  FOOD_SOURCE_TYPES,
-  resolveFoodSourceType,
-} from '../../../../utils/foodTags';
 import {
   getDistinctSubcategories as getLocalSubcategories,
   getFoodById as getLocalFoodById,
@@ -71,6 +62,159 @@ import {
   validateAttachmentFile,
   MAX_IMAGE_COUNT,
 } from '../../../../services/gemini';
+
+const CHAT_HISTORY_MESSAGE_LIMIT = 48;
+const CHAT_TEXTAREA_MAX_HEIGHT = 112;
+
+const initialUiState = {
+  searchMode: 'local',
+  viewMode: 'search',
+  searchQuery: '',
+  favouritesSearchQuery: '',
+  favouritesSortBy: 'name',
+  favouritesSortOrder: 'asc',
+  isFavouritesFilterOpen: false,
+  selectedCategory: null,
+  selectedSubcategory: null,
+  sortBy: 'name',
+  sortOrder: 'asc',
+  isFilterOpen: false,
+};
+
+const uiStateReducer = (state, action) => {
+  if (action?.type === 'set') {
+    const previousValue = state[action.key];
+    const nextValue =
+      typeof action.value === 'function'
+        ? action.value(previousValue)
+        : action.value;
+
+    if (Object.is(previousValue, nextValue)) {
+      return state;
+    }
+
+    return {
+      ...state,
+      [action.key]: nextValue,
+    };
+  }
+
+  return state;
+};
+
+const createAttachmentId = () =>
+  `attachment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+const createChatAttachment = (file) => ({
+  id: createAttachmentId(),
+  file,
+  previewUrl: URL.createObjectURL(file),
+  name: file?.name || 'Meal image',
+});
+
+const cloneChatAttachmentForDraft = (attachment) => ({
+  id: createAttachmentId(),
+  file: attachment.file,
+  previewUrl: URL.createObjectURL(attachment.file),
+  name: attachment.name || attachment.file?.name || 'Meal image',
+});
+
+const revokeChatAttachment = (attachment) => {
+  if (attachment?.previewUrl) {
+    URL.revokeObjectURL(attachment.previewUrl);
+  }
+};
+
+const revokeChatAttachments = (attachments = []) => {
+  attachments.forEach((attachment) => revokeChatAttachment(attachment));
+};
+
+const createUserChatMessage = ({
+  id,
+  text,
+  attachments = [],
+  status = 'sent',
+  error = null,
+}) => ({
+  id,
+  role: 'user',
+  text: typeof text === 'string' ? text.trim() : '',
+  attachments,
+  status,
+  error,
+  foodParser: null,
+  createdAt: Date.now(),
+});
+
+const createAssistantChatMessage = ({
+  id,
+  text,
+  foodParser = null,
+  status = 'sent',
+  error = null,
+  replyToUserMessageId = null,
+}) => ({
+  id,
+  role: 'assistant',
+  text: typeof text === 'string' ? text.trim() : '',
+  attachments: [],
+  status,
+  error,
+  foodParser,
+  replyToUserMessageId,
+  createdAt: Date.now(),
+});
+
+const buildStructuredChatHistory = (messages, options = {}) => {
+  const { beforeMessageId = null } = options;
+  const history = [];
+
+  for (const message of Array.isArray(messages) ? messages : []) {
+    if (beforeMessageId && message.id === beforeMessageId) {
+      break;
+    }
+
+    if (
+      (message.role !== 'user' && message.role !== 'assistant') ||
+      message.status !== 'sent'
+    ) {
+      continue;
+    }
+
+    if (message.role === 'user') {
+      const parts = [];
+      const text = typeof message.text === 'string' ? message.text.trim() : '';
+      if (text) {
+        parts.push({ text });
+      }
+
+      (Array.isArray(message.attachments) ? message.attachments : []).forEach(
+        (attachment) => {
+          if (
+            attachment?.file &&
+            typeof window !== 'undefined' &&
+            attachment.file instanceof window.File
+          ) {
+            parts.push({ file: attachment.file });
+          }
+        }
+      );
+
+      if (parts.length > 0) {
+        history.push({ role: 'user', parts });
+      }
+      continue;
+    }
+
+    const assistantText =
+      typeof message.text === 'string' ? message.text.trim() : '';
+    if (assistantText) {
+      history.push({ role: 'assistant', content: assistantText });
+    }
+  }
+
+  return history.slice(-CHAT_HISTORY_MESSAGE_LIMIT);
+};
 
 export const FoodSearchModal = ({
   isOpen,
@@ -118,20 +262,42 @@ export const FoodSearchModal = ({
     Generic: { label: 'Generic', color: 'slate' },
   };
 
-  // Search mode: 'local' or 'online'
-  const [searchMode, setSearchMode] = useState('local');
-  const [viewMode, setViewMode] = useState('search');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [favouritesSearchQuery, setFavouritesSearchQuery] = useState('');
-  const [favouritesSortBy, setFavouritesSortBy] = useState('name');
-  const [favouritesSortOrder, setFavouritesSortOrder] = useState('asc');
-  const [isFavouritesFilterOpen, setIsFavouritesFilterOpen] = useState(false);
+  const [uiState, dispatchUiState] = useReducer(uiStateReducer, initialUiState);
+  const {
+    searchMode,
+    viewMode,
+    searchQuery,
+    favouritesSearchQuery,
+    favouritesSortBy,
+    favouritesSortOrder,
+    isFavouritesFilterOpen,
+    selectedCategory,
+    selectedSubcategory,
+    sortBy,
+    sortOrder,
+    isFilterOpen,
+  } = uiState;
+  const setUiStateField = (key, value) =>
+    dispatchUiState({ type: 'set', key, value });
+  const setSearchMode = (value) => setUiStateField('searchMode', value);
+  const setViewMode = (value) => setUiStateField('viewMode', value);
+  const setSearchQuery = (value) => setUiStateField('searchQuery', value);
+  const setFavouritesSearchQuery = (value) =>
+    setUiStateField('favouritesSearchQuery', value);
+  const setFavouritesSortBy = (value) =>
+    setUiStateField('favouritesSortBy', value);
+  const setFavouritesSortOrder = (value) =>
+    setUiStateField('favouritesSortOrder', value);
+  const setIsFavouritesFilterOpen = (value) =>
+    setUiStateField('isFavouritesFilterOpen', value);
   const favouritesDropdownRef = useRef(null);
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [selectedSubcategory, setSelectedSubcategory] = useState(null);
-  const [sortBy, setSortBy] = useState('name'); // name, calories, protein, carbs, fats
-  const [sortOrder, setSortOrder] = useState('asc'); // asc, desc
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const setSelectedCategory = (value) =>
+    setUiStateField('selectedCategory', value);
+  const setSelectedSubcategory = (value) =>
+    setUiStateField('selectedSubcategory', value);
+  const setSortBy = (value) => setUiStateField('sortBy', value);
+  const setSortOrder = (value) => setUiStateField('sortOrder', value);
+  const setIsFilterOpen = (value) => setUiStateField('isFilterOpen', value);
   const dropdownRef = useRef(null);
   const longPressTimerRef = useRef(null);
   const skipNextClickRef = useRef(false);
@@ -202,22 +368,38 @@ export const FoodSearchModal = ({
   const [chatAttachments, setChatAttachments] = useState([]);
   const [chatError, setChatError] = useState(null);
   const [isSendingChat, setIsSendingChat] = useState(false);
+  const [activeChatRequest, setActiveChatRequest] = useState(null);
+  const [expandedAiEntryKeys, setExpandedAiEntryKeys] = useState({});
+  const [editingAiEntry, setEditingAiEntry] = useState(null);
   const chatAbortControllerRef = useRef(null);
   const chatScrollRef = useRef(null);
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
+  const chatTextareaRef = useRef(null);
+
+  const {
+    isOpen: isAiEntryEditorOpen,
+    isClosing: isAiEntryEditorClosing,
+    open: openAiEntryEditor,
+    requestClose: requestAiEntryEditorClose,
+    forceClose: forceAiEntryEditorClose,
+  } = useAnimatedModal(false);
 
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsFilterOpen(false);
+        dispatchUiState({ type: 'set', key: 'isFilterOpen', value: false });
       }
       if (
         favouritesDropdownRef.current &&
         !favouritesDropdownRef.current.contains(event.target)
       ) {
-        setIsFavouritesFilterOpen(false);
+        dispatchUiState({
+          type: 'set',
+          key: 'isFavouritesFilterOpen',
+          value: false,
+        });
       }
     };
 
@@ -239,15 +421,30 @@ export const FoodSearchModal = ({
       setIsSearching(false);
       setIsLocalSearching(false);
       setLoadingFoodId(null);
-      setViewMode('search');
-      setFavouritesSearchQuery('');
-      setFavouritesSortBy('name');
-      setFavouritesSortOrder('asc');
-      setIsFavouritesFilterOpen(false);
+      dispatchUiState({ type: 'set', key: 'viewMode', value: 'search' });
+      dispatchUiState({
+        type: 'set',
+        key: 'favouritesSearchQuery',
+        value: '',
+      });
+      dispatchUiState({ type: 'set', key: 'favouritesSortBy', value: 'name' });
+      dispatchUiState({
+        type: 'set',
+        key: 'favouritesSortOrder',
+        value: 'asc',
+      });
+      dispatchUiState({
+        type: 'set',
+        key: 'isFavouritesFilterOpen',
+        value: false,
+      });
       setChatMessages([]);
       setChatInput('');
+      setExpandedAiEntryKeys({});
+      setEditingAiEntry(null);
       setChatError(null);
       setIsSendingChat(false);
+      setActiveChatRequest(null);
       setIsBarcodeScanning(false);
       setIsBarcodeLookupPending(false);
       setManualBarcodeInput('');
@@ -256,16 +453,16 @@ export const FoodSearchModal = ({
         clearTimeout(barcodeToastTimerRef.current);
         barcodeToastTimerRef.current = null;
       }
-      chatAttachments.forEach((attachment) => {
-        if (attachment.previewUrl) {
-          URL.revokeObjectURL(attachment.previewUrl);
-        }
+      revokeChatAttachments(chatAttachments);
+      chatMessages.forEach((message) => {
+        revokeChatAttachments(message.attachments);
       });
       setChatAttachments([]);
       forceDeleteConfirmClose();
       forceManualAddConfirmClose();
       forceAddCustomFoodClose();
       forceBarcodeEntryClose();
+      forceAiEntryEditorClose();
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
@@ -282,7 +479,9 @@ export const FoodSearchModal = ({
     forceManualAddConfirmClose,
     forceAddCustomFoodClose,
     forceBarcodeEntryClose,
+    forceAiEntryEditorClose,
     isClosing,
+    chatMessages,
   ]);
 
   // Clear online results when switching modes
@@ -290,10 +489,10 @@ export const FoodSearchModal = ({
     setOnlineResults([]);
     setSearchError(null);
     setLocalSearchError(null);
-    setSelectedCategory(null);
-    setSelectedSubcategory(null);
-    setIsFilterOpen(false);
-    setViewMode('search');
+    dispatchUiState({ type: 'set', key: 'selectedCategory', value: null });
+    dispatchUiState({ type: 'set', key: 'selectedSubcategory', value: null });
+    dispatchUiState({ type: 'set', key: 'isFilterOpen', value: false });
+    dispatchUiState({ type: 'set', key: 'viewMode', value: 'search' });
   }, [searchMode]);
 
   useEffect(() => {
@@ -889,64 +1088,12 @@ export const FoodSearchModal = ({
       if (chatAbortControllerRef.current) {
         chatAbortControllerRef.current.abort();
       }
-      chatAttachments.forEach((attachment) => {
-        if (attachment.previewUrl) {
-          URL.revokeObjectURL(attachment.previewUrl);
-        }
+      revokeChatAttachments(chatAttachments);
+      chatMessages.forEach((message) => {
+        revokeChatAttachments(message.attachments);
       });
     };
-  }, [chatAttachments]);
-
-  useEffect(() => {
-    if (viewMode !== 'chat') return;
-
-    const handlePaste = (event) => {
-      const clipboardItems = Array.from(event.clipboardData?.items || []);
-      const imageFiles = clipboardItems
-        .filter(
-          (item) => item.kind === 'file' && item.type.startsWith('image/')
-        )
-        .map((item) => item.getAsFile())
-        .filter(Boolean);
-
-      if (imageFiles.length === 0) return;
-
-      event.preventDefault();
-      setChatError(null);
-
-      setChatAttachments((prev) => {
-        const remainingSlots = Math.max(MAX_IMAGE_COUNT - prev.length, 0);
-        const acceptedFiles = imageFiles.slice(0, remainingSlots);
-        const nextAttachments = [...prev];
-
-        acceptedFiles.forEach((file, index) => {
-          try {
-            validateAttachmentFile(file);
-            nextAttachments.push({
-              id: `${Date.now()}-${index}-${file.name}`,
-              file,
-              previewUrl: URL.createObjectURL(file),
-            });
-          } catch (error) {
-            setChatError(error.message || 'Invalid image attachment');
-          }
-        });
-
-        if (imageFiles.length > acceptedFiles.length) {
-          setChatError(
-            `You can attach up to ${MAX_IMAGE_COUNT} images per message.`
-          );
-        }
-
-        return nextAttachments;
-      });
-    };
-
-    window.addEventListener('paste', handlePaste);
-    return () => {
-      window.removeEventListener('paste', handlePaste);
-    };
-  }, [viewMode]);
+  }, [chatAttachments, chatMessages]);
 
   // Show small fade overlays on scrollable action buttons container
 
@@ -1178,7 +1325,23 @@ export const FoodSearchModal = ({
   const toggleSegmentIndex =
     viewMode === 'favourites' ? 2 : searchMode === 'online' ? 1 : 0;
 
-  const handleAddAttachmentFiles = (fileList) => {
+  const resizeChatTextarea = useCallback(() => {
+    const textarea = chatTextareaRef.current;
+    if (!textarea) return;
+
+    textarea.style.height = '0px';
+    const nextHeight = Math.min(
+      textarea.scrollHeight,
+      CHAT_TEXTAREA_MAX_HEIGHT
+    );
+    textarea.style.height = `${nextHeight}px`;
+  }, []);
+
+  useEffect(() => {
+    resizeChatTextarea();
+  }, [chatInput, resizeChatTextarea]);
+
+  const handleAddAttachmentFiles = useCallback((fileList) => {
     const files = Array.from(fileList || []);
     if (files.length === 0) return;
 
@@ -1189,14 +1352,10 @@ export const FoodSearchModal = ({
       const acceptedFiles = files.slice(0, remainingSlots);
       const nextAttachments = [...prev];
 
-      acceptedFiles.forEach((file, index) => {
+      acceptedFiles.forEach((file) => {
         try {
           validateAttachmentFile(file);
-          nextAttachments.push({
-            id: `${Date.now()}-${index}-${file.name}`,
-            file,
-            previewUrl: URL.createObjectURL(file),
-          });
+          nextAttachments.push(createChatAttachment(file));
         } catch (error) {
           setChatError(error.message || 'Invalid image attachment');
         }
@@ -1210,17 +1369,438 @@ export const FoodSearchModal = ({
 
       return nextAttachments;
     });
-  };
+  }, []);
 
-  const removeAttachment = (attachmentId) => {
+  const removeAttachment = useCallback((attachmentId) => {
     setChatAttachments((prev) => {
       const attachment = prev.find((item) => item.id === attachmentId);
-      if (attachment?.previewUrl) {
-        URL.revokeObjectURL(attachment.previewUrl);
-      }
+      revokeChatAttachment(attachment);
       return prev.filter((item) => item.id !== attachmentId);
     });
-  };
+  }, []);
+
+  const focusChatComposer = useCallback(() => {
+    requestAnimationFrame(() => {
+      chatTextareaRef.current?.focus();
+      resizeChatTextarea();
+    });
+  }, [resizeChatTextarea]);
+
+  const copyChatText = useCallback(async (text) => {
+    const resolvedText = typeof text === 'string' ? text.trim() : '';
+    if (!resolvedText) return;
+
+    try {
+      if (!window.navigator?.clipboard?.writeText) {
+        throw new Error('Clipboard unavailable');
+      }
+
+      await window.navigator.clipboard.writeText(resolvedText);
+      setChatError(null);
+    } catch {
+      setChatError('Copy failed. Your browser blocked clipboard access.');
+    }
+  }, []);
+
+  const toggleAiEntryExpansion = useCallback((entryKey) => {
+    setExpandedAiEntryKeys((prev) => ({
+      ...prev,
+      [entryKey]: !prev[entryKey],
+    }));
+  }, []);
+
+  const updateMessageById = useCallback((messageId, updater) => {
+    setChatMessages((prev) =>
+      prev.map((message) =>
+        message.id === messageId ? (updater(message) ?? message) : message
+      )
+    );
+  }, []);
+
+  const loadComposerDraft = useCallback(
+    ({ text = '', attachments = [] }) => {
+      setChatInput(text);
+      setChatError(null);
+      setChatAttachments((prev) => {
+        revokeChatAttachments(prev);
+        return attachments.map((attachment) =>
+          cloneChatAttachmentForDraft(attachment)
+        );
+      });
+      focusChatComposer();
+    },
+    [focusChatComposer]
+  );
+
+  const handleEditUserMessage = useCallback(
+    (message) => {
+      loadComposerDraft({
+        text: message?.text || '',
+        attachments: message?.attachments || [],
+      });
+    },
+    [loadComposerDraft]
+  );
+
+  const handleReuseUserAttachments = useCallback(
+    (message) => {
+      if (
+        !Array.isArray(message?.attachments) ||
+        message.attachments.length === 0
+      )
+        return;
+
+      setChatError(null);
+      setChatAttachments((prev) => {
+        const remainingSlots = Math.max(MAX_IMAGE_COUNT - prev.length, 0);
+        const cloned = message.attachments
+          .slice(0, remainingSlots)
+          .map((attachment) => cloneChatAttachmentForDraft(attachment));
+
+        if (message.attachments.length > cloned.length) {
+          setChatError(
+            `You can attach up to ${MAX_IMAGE_COUNT} images per message.`
+          );
+        }
+
+        return [...prev, ...cloned];
+      });
+      focusChatComposer();
+    },
+    [focusChatComposer]
+  );
+
+  const openAiEntryEditModal = useCallback(
+    (messageId, entryIndex, entry) => {
+      setEditingAiEntry({
+        messageId,
+        entryIndex,
+        name: entry?.name || '',
+        grams:
+          entry?.grams == null || Number.isNaN(Number(entry.grams))
+            ? ''
+            : String(entry.grams),
+        calories: String(entry?.calories ?? ''),
+        protein: String(entry?.protein ?? ''),
+        carbs: String(entry?.carbs ?? ''),
+        fats: String(entry?.fats ?? ''),
+        confidence: entry?.confidence ?? 'medium',
+        rationale: entry?.rationale ?? '',
+        assumptions: Array.isArray(entry?.assumptions)
+          ? entry.assumptions.join('\n')
+          : '',
+      });
+      openAiEntryEditor();
+    },
+    [openAiEntryEditor]
+  );
+
+  const handleAiEntryEditorChange = useCallback((field, value) => {
+    setEditingAiEntry((prev) => (prev ? { ...prev, [field]: value } : prev));
+  }, []);
+
+  const saveEditedAiEntry = useCallback(() => {
+    if (!editingAiEntry) return;
+
+    const normalizedEntry = {
+      name: editingAiEntry.name.trim(),
+      grams:
+        editingAiEntry.grams.trim() === ''
+          ? null
+          : Math.max(1, Math.round(Number(editingAiEntry.grams) || 0)),
+      calories: Math.max(0, Math.round(Number(editingAiEntry.calories) || 0)),
+      protein:
+        Math.max(0, Math.round((Number(editingAiEntry.protein) || 0) * 10)) /
+        10,
+      carbs:
+        Math.max(0, Math.round((Number(editingAiEntry.carbs) || 0) * 10)) / 10,
+      fats:
+        Math.max(0, Math.round((Number(editingAiEntry.fats) || 0) * 10)) / 10,
+      confidence: editingAiEntry.confidence || 'medium',
+      rationale: editingAiEntry.rationale.trim() || null,
+      assumptions: editingAiEntry.assumptions
+        .split('\n')
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .slice(0, 6),
+    };
+
+    if (!normalizedEntry.name) {
+      setChatError('Entry name is required.');
+      return;
+    }
+
+    updateMessageById(editingAiEntry.messageId, (message) => {
+      if (!message?.foodParser?.entries?.[editingAiEntry.entryIndex]) {
+        return message;
+      }
+
+      const nextEntries = message.foodParser.entries.map((entry, index) =>
+        index === editingAiEntry.entryIndex ? normalizedEntry : entry
+      );
+
+      return {
+        ...message,
+        foodParser: {
+          ...message.foodParser,
+          entries: nextEntries,
+        },
+      };
+    });
+
+    setChatError(null);
+    requestAiEntryEditorClose();
+  }, [editingAiEntry, requestAiEntryEditorClose, updateMessageById]);
+
+  const submitChatRequest = useCallback(
+    async ({
+      text,
+      attachments,
+      userMessageId = null,
+      beforeMessageId = null,
+      assistantPlaceholderId = null,
+    }) => {
+      if (isSendingChat) return;
+
+      if (!isOnline) {
+        setChatError(
+          'You are offline. Connect to the internet to use AI chat.'
+        );
+        return;
+      }
+
+      const trimmedText = typeof text === 'string' ? text.trim() : '';
+      if (!trimmedText && attachments.length === 0) {
+        setChatError('Type a message or attach at least one image.');
+        return;
+      }
+
+      setChatError(null);
+      setIsSendingChat(true);
+      setActiveChatRequest({
+        userMessageId,
+        assistantPlaceholderId,
+      });
+
+      const controller = new window.AbortController();
+      chatAbortControllerRef.current = controller;
+
+      try {
+        const history = buildStructuredChatHistory(chatMessages, {
+          beforeMessageId,
+        });
+
+        const result = await sendGeminiMessage({
+          message: trimmedText,
+          files: attachments.map((attachment) => attachment.file),
+          history,
+          signal: controller.signal,
+        });
+
+        if (userMessageId) {
+          updateMessageById(userMessageId, (message) => ({
+            ...message,
+            status: 'sent',
+            error: null,
+          }));
+        }
+
+        const assistantMessage = createAssistantChatMessage({
+          id: assistantPlaceholderId || `assistant-${Date.now()}`,
+          text: result.text,
+          foodParser: result.foodParser ?? null,
+          status: 'sent',
+          replyToUserMessageId: userMessageId,
+        });
+
+        setChatMessages((prev) => {
+          if (assistantPlaceholderId) {
+            return prev.map((message) =>
+              message.id === assistantPlaceholderId ? assistantMessage : message
+            );
+          }
+
+          return [...prev.slice(-CHAT_HISTORY_MESSAGE_LIMIT), assistantMessage];
+        });
+      } catch (error) {
+        const message =
+          error instanceof GeminiError
+            ? error.message
+            : 'Failed to get AI response. Please try again.';
+
+        if (assistantPlaceholderId) {
+          updateMessageById(assistantPlaceholderId, (assistantMessage) => ({
+            ...assistantMessage,
+            status: 'error',
+            error: message,
+          }));
+        } else if (userMessageId) {
+          updateMessageById(userMessageId, (userMessage) => ({
+            ...userMessage,
+            status: 'error',
+            error: message,
+          }));
+        } else {
+          setChatError(message);
+        }
+      } finally {
+        setIsSendingChat(false);
+        setActiveChatRequest(null);
+        chatAbortControllerRef.current = null;
+      }
+    },
+    [chatMessages, isOnline, isSendingChat, updateMessageById]
+  );
+
+  const sendChat = useCallback(async () => {
+    if (isSendingChat) return;
+
+    const currentText = chatInput;
+    const currentAttachments = [...chatAttachments];
+    const trimmedText = currentText.trim();
+
+    if (!trimmedText && currentAttachments.length === 0) {
+      setChatError('Type a message or attach at least one image.');
+      return;
+    }
+
+    const userMessageId = `user-${Date.now()}`;
+    const userMessage = createUserChatMessage({
+      id: userMessageId,
+      text: currentText,
+      attachments: currentAttachments,
+      status: 'sending',
+    });
+
+    setChatMessages((prev) => [
+      ...prev.slice(-CHAT_HISTORY_MESSAGE_LIMIT),
+      userMessage,
+    ]);
+    setChatInput('');
+    setChatAttachments([]);
+    setChatError(null);
+
+    await submitChatRequest({
+      text: currentText,
+      attachments: currentAttachments,
+      userMessageId,
+    });
+  }, [chatAttachments, chatInput, isSendingChat, submitChatRequest]);
+
+  const retryUserMessage = useCallback(
+    async (message, { asDraft = false } = {}) => {
+      if (!message) return;
+
+      if (asDraft) {
+        loadComposerDraft({
+          text: message.text || '',
+          attachments: message.attachments || [],
+        });
+        return;
+      }
+
+      updateMessageById(message.id, (current) => ({
+        ...current,
+        status: 'sending',
+        error: null,
+      }));
+
+      await submitChatRequest({
+        text: message.text || '',
+        attachments: message.attachments || [],
+        userMessageId: message.id,
+      });
+    },
+    [loadComposerDraft, submitChatRequest, updateMessageById]
+  );
+
+  const regenerateAssistantReply = useCallback(
+    async (assistantMessage) => {
+      if (!assistantMessage?.replyToUserMessageId || isSendingChat) return;
+
+      const sourceUserMessage = chatMessages.find(
+        (message) => message.id === assistantMessage.replyToUserMessageId
+      );
+      if (!sourceUserMessage) return;
+
+      const placeholderId = `assistant-${Date.now()}`;
+      const placeholderMessage = createAssistantChatMessage({
+        id: placeholderId,
+        text: '',
+        status: 'sending',
+        replyToUserMessageId: sourceUserMessage.id,
+      });
+
+      setChatMessages((prev) => [
+        ...prev.slice(-CHAT_HISTORY_MESSAGE_LIMIT),
+        placeholderMessage,
+      ]);
+
+      await submitChatRequest({
+        text: sourceUserMessage.text || '',
+        attachments: sourceUserMessage.attachments || [],
+        beforeMessageId: sourceUserMessage.id,
+        assistantPlaceholderId: placeholderId,
+        userMessageId: sourceUserMessage.id,
+      });
+    },
+    [chatMessages, isSendingChat, submitChatRequest]
+  );
+
+  const answerClarification = useCallback(
+    (message) => {
+      const question = message?.foodParser?.followUpQuestion?.trim() || '';
+      if (question) {
+        setChatInput(question);
+        focusChatComposer();
+      }
+    },
+    [focusChatComposer]
+  );
+
+  const stopChatRequest = useCallback(() => {
+    chatAbortControllerRef.current?.abort();
+  }, []);
+
+  const handleChatInputPaste = useCallback(
+    (event) => {
+      const clipboardData = event.clipboardData;
+      const imageFiles = Array.from(clipboardData?.items || [])
+        .filter(
+          (item) => item.kind === 'file' && item.type.startsWith('image/')
+        )
+        .map((item) => item.getAsFile())
+        .filter(Boolean);
+
+      if (imageFiles.length === 0) {
+        return;
+      }
+
+      event.preventDefault();
+
+      const pastedText = clipboardData?.getData('text/plain') || '';
+      if (pastedText) {
+        const textarea = chatTextareaRef.current;
+        const start = textarea?.selectionStart ?? chatInput.length;
+        const end = textarea?.selectionEnd ?? chatInput.length;
+
+        setChatInput((prev) => {
+          const nextValue = `${prev.slice(0, start)}${pastedText}${prev.slice(end)}`;
+          requestAnimationFrame(() => {
+            if (textarea) {
+              const cursor = start + pastedText.length;
+              textarea.selectionStart = cursor;
+              textarea.selectionEnd = cursor;
+            }
+          });
+          return nextValue;
+        });
+      }
+
+      handleAddAttachmentFiles(imageFiles);
+    },
+    [chatInput.length, handleAddAttachmentFiles]
+  );
 
   const buildAiFoodEntry = useCallback(
     (entry, index = 0) => {
@@ -1310,81 +1890,6 @@ export const FoodSearchModal = ({
     },
     [handleLogAiEntry]
   );
-
-  const sendChat = async () => {
-    if (isSendingChat) return;
-
-    if (!isOnline) {
-      setChatError('You are offline. Connect to the internet to use AI chat.');
-      return;
-    }
-
-    if (!chatInput.trim() && chatAttachments.length === 0) {
-      setChatError('Type a message or attach at least one image.');
-      return;
-    }
-
-    const currentText = chatInput;
-    const currentAttachments = [...chatAttachments];
-
-    const userMessage = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content: currentText.trim() || 'Image analysis request',
-      attachmentCount: currentAttachments.length,
-      createdAt: Date.now(),
-    };
-
-    const history = chatMessages
-      .filter(
-        (message) => message.role === 'user' || message.role === 'assistant'
-      )
-      .map((message) => ({ role: message.role, content: message.content }));
-
-    setChatMessages((prev) => [...prev.slice(-48), userMessage]);
-    setChatError(null);
-    setIsSendingChat(true);
-
-    const controller = new window.AbortController();
-    chatAbortControllerRef.current = controller;
-
-    try {
-      const result = await sendGeminiMessage({
-        message: currentText,
-        files: currentAttachments.map((attachment) => attachment.file),
-        history,
-        signal: controller.signal,
-      });
-
-      setChatMessages((prev) => [
-        ...prev.slice(-49),
-        {
-          id: `assistant-${Date.now()}`,
-          role: 'assistant',
-          content: result.text,
-          foodParser: result.foodParser ?? null,
-          createdAt: Date.now(),
-        },
-      ]);
-
-      setChatInput('');
-      currentAttachments.forEach((attachment) => {
-        if (attachment.previewUrl) {
-          URL.revokeObjectURL(attachment.previewUrl);
-        }
-      });
-      setChatAttachments([]);
-    } catch (error) {
-      const message =
-        error instanceof GeminiError
-          ? error.message
-          : 'Failed to get AI response. Please try again.';
-      setChatError(message);
-    } finally {
-      setIsSendingChat(false);
-      chatAbortControllerRef.current = null;
-    }
-  };
 
   const handleChatInputKeyDown = (event) => {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -1592,380 +2097,38 @@ export const FoodSearchModal = ({
         </AnimatePresence>
 
         {viewMode === 'chat' && (
-          <div className="flex-1 min-h-0 flex flex-col">
-            {!isOnline && (
-              <div className="mx-4 mt-3 flex items-center gap-2 px-3 py-2 bg-accent-amber/10 border border-accent-amber/30 rounded-lg flex-shrink-0">
-                <CloudOff
-                  size={14}
-                  className="text-accent-amber flex-shrink-0"
-                />
-                <p className="text-accent-amber text-xs">
-                  You&apos;re offline. AI chat requires an internet connection.
-                </p>
-              </div>
-            )}
-
-            <div
-              ref={chatScrollRef}
-              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden touch-action-pan-y px-4 pt-3 pb-2 space-y-3"
-            >
-              {chatMessages.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center gap-5 px-2 py-6">
-                  <div className="flex flex-col items-center gap-2 text-center">
-                    <div className="w-12 h-12 rounded-2xl bg-accent-blue/15 border border-accent-blue/25 flex items-center justify-center">
-                      <Sparkles size={22} className="text-accent-blue" />
-                    </div>
-                    <p className="text-foreground font-semibold text-base">
-                      Food Log Parser
-                    </p>
-                    <p className="text-muted text-xs max-w-[240px] leading-relaxed">
-                      Describe what you ate (and optionally attach images). I
-                      will estimate nutrition and prepare log-ready entries.
-                    </p>
-                  </div>
-
-                  <div className="w-full grid grid-cols-2 gap-2">
-                    {[
-                      {
-                        icon: '🍗',
-                        label: 'Parse a food text',
-                        prompt: '3 egg omelette',
-                      },
-                      {
-                        icon: '📸',
-                        label: 'Parse text + image',
-                        prompt:
-                          'Burger from a local diner (I will attach an image)',
-                      },
-                      {
-                        icon: '🧮',
-                        label: 'Ask with assumptions',
-                        prompt: '2 slices pepperoni pizza, large slice size',
-                      },
-                      {
-                        icon: '📝',
-                        label: 'Multi-item parse',
-                        prompt: 'Chicken sandwich and medium fries',
-                      },
-                    ].map(({ icon, label, prompt }) => (
-                      <button
-                        key={label}
-                        type="button"
-                        onClick={() => setChatInput(prompt)}
-                        className="flex items-center gap-2 px-3 py-2.5 bg-surface-highlight border border-border rounded-xl text-left text-xs font-medium text-foreground md:hover:border-accent-blue/40 md:hover:bg-accent-blue/5 transition-all pressable-inline focus-ring"
-                      >
-                        <span className="text-base leading-none">{icon}</span>
-                        <span className="leading-tight">{label}</span>
-                      </button>
-                    ))}
-                  </div>
-
-                  <p className="text-muted text-[11px] text-center">
-                    You can also paste or attach meal photos for visual
-                    analysis.
-                  </p>
-                </div>
-              ) : (
-                <>
-                  {chatMessages.map((message) => {
-                    const isUser = message.role === 'user';
-                    return (
-                      <div
-                        key={message.id}
-                        className={`flex items-end gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}
-                      >
-                        {!isUser && (
-                          <div className="flex-shrink-0 w-6 h-6 rounded-lg bg-accent-blue/15 border border-accent-blue/25 flex items-center justify-center mb-0.5">
-                            <Sparkles size={12} className="text-accent-blue" />
-                          </div>
-                        )}
-
-                        <div
-                          className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
-                            isUser
-                              ? 'bg-accent-blue text-primary-foreground rounded-br-md'
-                              : 'bg-surface-highlight border border-border text-foreground rounded-bl-md'
-                          }`}
-                        >
-                          <p>{message.content}</p>
-                          {!isUser &&
-                            message.foodParser?.messageType ===
-                              'food_entries' &&
-                            Array.isArray(message.foodParser.entries) &&
-                            message.foodParser.entries.length > 0 && (
-                              <div className="mt-3 space-y-2">
-                                {message.foodParser.entries.map(
-                                  (entry, index) => (
-                                    <div
-                                      key={`${message.id}-${entry.name}-${index}`}
-                                      className="rounded-xl bg-surface border border-border px-3 py-2"
-                                    >
-                                      <div className="flex items-center justify-between gap-2 mb-2">
-                                        <p className="text-xs font-semibold text-foreground truncate">
-                                          {entry.name}
-                                        </p>
-                                        <span
-                                          className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-                                            entry.confidence === 'high'
-                                              ? 'bg-accent-green/20 text-accent-green'
-                                              : entry.confidence === 'low'
-                                                ? 'bg-accent-red/20 text-accent-red'
-                                                : 'bg-accent-amber/20 text-accent-amber'
-                                          }`}
-                                        >
-                                          {entry.confidence ?? 'medium'}
-                                        </span>
-                                      </div>
-
-                                      <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted mb-2">
-                                        {Number.isFinite(entry.grams) && (
-                                          <span>{formatOne(entry.grams)}g</span>
-                                        )}
-                                        <span>
-                                          {formatOne(entry.calories)} kcal
-                                        </span>
-                                        <span>{formatOne(entry.protein)}P</span>
-                                        <span>{formatOne(entry.carbs)}C</span>
-                                        <span>{formatOne(entry.fats)}F</span>
-                                      </div>
-
-                                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            handleLogAiEntry(entry, {
-                                              closeModal: false,
-                                            })
-                                          }
-                                          className="px-2.5 py-1.5 rounded-lg bg-accent-blue text-primary-foreground text-xs font-semibold md:hover:brightness-110 press-feedback focus-ring"
-                                        >
-                                          Log
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            handleLogAiEntry(entry, {
-                                              closeModal: true,
-                                            })
-                                          }
-                                          className="px-2.5 py-1.5 rounded-lg bg-accent-emerald text-primary-foreground text-xs font-semibold md:hover:brightness-110 press-feedback focus-ring"
-                                        >
-                                          Log & Exit
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            handleSaveAiFavourite(entry, index)
-                                          }
-                                          className="px-2.5 py-1.5 rounded-lg bg-surface-highlight border border-border text-foreground text-xs font-semibold md:hover:border-accent-purple/50 press-feedback focus-ring"
-                                        >
-                                          Save Favorite
-                                        </button>
-                                      </div>
-                                    </div>
-                                  )
-                                )}
-
-                                {message.foodParser.entries.length > 1 && (
-                                  <div className="rounded-xl bg-surface border border-border px-3 py-2">
-                                    <p className="text-[11px] text-muted mb-2">
-                                      Batch actions
-                                    </p>
-                                    <div className="grid grid-cols-2 gap-1.5">
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          handleLogAllAiEntries(
-                                            message.foodParser.entries,
-                                            false
-                                          )
-                                        }
-                                        className="px-2.5 py-1.5 rounded-lg bg-accent-indigo text-primary-foreground text-xs font-semibold md:hover:brightness-110 press-feedback focus-ring"
-                                      >
-                                        Add All
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          handleLogAllAiEntries(
-                                            message.foodParser.entries,
-                                            true
-                                          )
-                                        }
-                                        className="px-2.5 py-1.5 rounded-lg bg-accent-purple text-primary-foreground text-xs font-semibold md:hover:brightness-110 press-feedback focus-ring"
-                                      >
-                                        Add All & Exit
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          {isUser && message.attachmentCount > 0 && (
-                            <p className="text-xs text-primary-foreground/70 mt-1">
-                              {message.attachmentCount} image
-                              {message.attachmentCount === 1 ? '' : 's'}{' '}
-                              attached
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  {isSendingChat && (
-                    <div className="flex items-end gap-2 justify-start">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-lg bg-accent-blue/15 border border-accent-blue/25 flex items-center justify-center">
-                        <Sparkles size={12} className="text-accent-blue" />
-                      </div>
-                      <div className="bg-surface-highlight border border-border rounded-2xl rounded-bl-md px-4 py-3 flex items-center gap-1">
-                        {[0, 150, 300].map((delay) => (
-                          <span
-                            key={delay}
-                            className="w-1.5 h-1.5 bg-muted rounded-full animate-bounce"
-                            style={{
-                              animationDelay: `${delay}ms`,
-                              animationDuration: '900ms',
-                            }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-
-            {chatAttachments.length > 0 && (
-              <div className="px-4 pb-1 flex-shrink-0">
-                <div className="overflow-x-auto touch-action-pan-x scrollbar-hide">
-                  <div className="flex gap-2 w-max py-1">
-                    {chatAttachments.map((attachment) => (
-                      <div
-                        key={attachment.id}
-                        className="relative w-14 h-14 rounded-xl border border-border overflow-hidden bg-surface-highlight flex-shrink-0"
-                      >
-                        <img
-                          src={attachment.previewUrl}
-                          alt="Attachment preview"
-                          className="w-full h-full object-cover"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeAttachment(attachment.id)}
-                          className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-background/90 backdrop-blur-sm text-muted md:hover:text-foreground flex items-center justify-center pressable-inline focus-ring border border-border/50"
-                          aria-label="Remove image"
-                        >
-                          <X size={10} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {chatError && (
-              <div className="mx-4 mb-1 flex-shrink-0">
-                <div className="bg-accent-red/10 border border-accent-red/30 rounded-lg px-3 py-2 text-accent-red text-xs flex items-start gap-2">
-                  <AlertCircle size={13} className="mt-0.5 flex-shrink-0" />
-                  <span>{chatError}</span>
-                </div>
-              </div>
-            )}
-
-            <div className="px-4 pb-3 pt-1 flex-shrink-0">
-              <div className="rounded-2xl border border-border bg-surface-highlight overflow-hidden shadow-sm">
-                <div className="flex items-end gap-2 px-2 pt-2 pb-2">
-                  <div className="flex items-center gap-0.5 pb-0.5 flex-shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isSendingChat}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center text-muted md:hover:text-foreground md:hover:bg-surface transition-all pressable-inline focus-ring disabled:opacity-40"
-                      aria-label="Attach image"
-                    >
-                      <Paperclip size={15} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => cameraInputRef.current?.click()}
-                      disabled={isSendingChat}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center text-muted md:hover:text-foreground md:hover:bg-surface transition-all pressable-inline focus-ring disabled:opacity-40"
-                      aria-label="Take photo"
-                    >
-                      <Camera size={15} />
-                    </button>
-                  </div>
-
-                  <div className="w-px h-5 bg-border flex-shrink-0 self-center" />
-
-                  <textarea
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={handleChatInputKeyDown}
-                    placeholder="Describe food to log (text and/or images)…"
-                    rows={1}
-                    className="flex-1 resize-none max-h-28 bg-transparent text-foreground placeholder:text-muted outline-none py-1.5 px-2 text-sm leading-relaxed"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={sendChat}
-                    disabled={
-                      isSendingChat ||
-                      (!chatInput.trim() && chatAttachments.length === 0)
-                    }
-                    className="flex-shrink-0 w-9 h-9 rounded-xl bg-accent-blue text-primary-foreground md:hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center press-feedback focus-ring self-end"
-                    aria-label="Send message"
-                  >
-                    {isSendingChat ? (
-                      <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin-fast" />
-                    ) : (
-                      <SendHorizontal size={15} />
-                    )}
-                  </button>
-                </div>
-
-                <div className="px-3 pb-2 flex items-center justify-between">
-                  <p className="text-[10px] text-muted">
-                    Up to {MAX_IMAGE_COUNT} images · JPEG/PNG/WebP · max 5MB
-                    each · paste supported
-                  </p>
-                  <div
-                    className="flex items-center gap-1 text-[10px] text-muted"
-                    title="Paste image from clipboard"
-                  >
-                    <ImagePlus size={11} />
-                    <span>paste</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              multiple
-              className="hidden"
-              onChange={(e) => {
-                handleAddAttachmentFiles(e.target.files);
-                e.target.value = '';
-              }}
-            />
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={(e) => {
-                handleAddAttachmentFiles(e.target.files);
-                e.target.value = '';
-              }}
-            />
-          </div>
+          <FoodSearchChatPanel
+            isOnline={isOnline}
+            chatMessages={chatMessages}
+            chatAttachments={chatAttachments}
+            chatError={chatError}
+            isSendingChat={isSendingChat}
+            activeChatRequest={activeChatRequest}
+            chatScrollRef={chatScrollRef}
+            fileInputRef={fileInputRef}
+            cameraInputRef={cameraInputRef}
+            chatTextareaRef={chatTextareaRef}
+            chatInput={chatInput}
+            setChatInput={setChatInput}
+            answerClarification={answerClarification}
+            expandedAiEntryKeys={expandedAiEntryKeys}
+            toggleAiEntryExpansion={toggleAiEntryExpansion}
+            openAiEntryEditModal={openAiEntryEditModal}
+            handleLogAiEntry={handleLogAiEntry}
+            handleSaveAiFavourite={handleSaveAiFavourite}
+            handleLogAllAiEntries={handleLogAllAiEntries}
+            copyChatText={copyChatText}
+            handleEditUserMessage={handleEditUserMessage}
+            handleReuseUserAttachments={handleReuseUserAttachments}
+            retryUserMessage={retryUserMessage}
+            regenerateAssistantReply={regenerateAssistantReply}
+            removeAttachment={removeAttachment}
+            stopChatRequest={stopChatRequest}
+            handleChatInputKeyDown={handleChatInputKeyDown}
+            handleChatInputPaste={handleChatInputPaste}
+            sendChat={sendChat}
+            handleAddAttachmentFiles={handleAddAttachmentFiles}
+          />
         )}
 
         {/* Search Input - for search mode */}
@@ -2107,774 +2270,78 @@ export const FoodSearchModal = ({
           </div>
         )}
 
-        {/* Results Count & Filter Button */}
-        {viewMode !== 'chat' && (
-          <div className="px-4 mt-3 flex items-center justify-between">
-            <p className="text-muted text-sm">
-              {viewMode === 'favourites' ? (
-                <>
-                  {sortedFavourites.length}{' '}
-                  {sortedFavourites.length === 1 ? 'favourite' : 'favourites'}
-                  {favouritesSearchQuery &&
-                    resolvedFavourites.length !== sortedFavourites.length && (
-                      <span className="ml-1 text-xs text-muted">
-                        (of {resolvedFavourites.filter(Boolean).length})
-                      </span>
-                    )}
-                </>
-              ) : searchMode === 'online' ? (
-                isSearching ? (
-                  'Searching...'
-                ) : (
-                  <>
-                    {displayResults.length}{' '}
-                    {displayResults.length === 1 ? 'result' : 'results'}
-                  </>
-                )
-              ) : (
-                <>
-                  {isLocalSearching
-                    ? 'Searching local foods...'
-                    : `${displayResults.length} ${displayResults.length === 1 ? 'food' : 'foods'} found`}
-                  {resolvedCachedFoods.length > 0 && (
-                    <span className="ml-2 text-xs text-muted">
-                      (+{resolvedCachedFoods.length} cached)
-                    </span>
-                  )}
-                </>
-              )}
-            </p>
-
-            {viewMode === 'favourites' && (
-              <div className="relative" ref={favouritesDropdownRef}>
-                <button
-                  onClick={() =>
-                    setIsFavouritesFilterOpen(!isFavouritesFilterOpen)
-                  }
-                  className={`text-sm font-medium flex items-center gap-1 transition-colors ${
-                    hasActiveFavouritesFilters
-                      ? 'text-accent-blue md:hover:text-accent-blue/80'
-                      : 'text-muted md:hover:text-foreground'
-                  }`}
-                >
-                  <SlidersHorizontal size={14} />
-                  {hasActiveFavouritesFilters ? 'View Filters' : 'Filters'}
-                </button>
-
-                <AnimatePresence>
-                  {isFavouritesFilterOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -8, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                      transition={{ duration: 0.18, ease: 'easeOut' }}
-                      className="absolute right-0 top-full mt-2 w-72 bg-surface border border-border rounded-lg shadow-2xl z-50 max-h-[400px] overflow-y-auto overflow-x-hidden touch-action-pan-y"
-                    >
-                      <div className="p-4 space-y-4">
-                        <div className="flex items-center justify-between pb-3 border-b border-border">
-                          <h4 className="text-foreground font-bold text-lg">
-                            Sort Favourites
-                          </h4>
-                          <button
-                            onClick={clearFavouritesFilters}
-                            className="text-sm text-accent-blue md:hover:text-accent-blue/80 font-medium focus-ring"
-                          >
-                            Clear
-                          </button>
-                        </div>
-
-                        <div>
-                          <label className="text-foreground font-semibold text-sm block mb-2">
-                            Sort By
-                          </label>
-                          <div className="space-y-1.5">
-                            {[
-                              { value: 'name', label: 'Name (A-Z)' },
-                              { value: 'calories', label: 'Calories' },
-                              { value: 'protein', label: 'Protein' },
-                              { value: 'carbs', label: 'Carbs' },
-                              { value: 'fats', label: 'Fats' },
-                            ].map((option) => (
-                              <button
-                                key={option.value}
-                                onClick={() =>
-                                  setFavouritesSortBy(option.value)
-                                }
-                                className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
-                                  favouritesSortBy === option.value
-                                    ? 'bg-accent-emerald text-primary-foreground'
-                                    : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
-                                }`}
-                              >
-                                {option.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="text-foreground font-semibold text-sm block mb-2">
-                            Sort Order
-                          </label>
-                          <div className="grid grid-cols-2 gap-2">
-                            <button
-                              onClick={() => setFavouritesSortOrder('asc')}
-                              className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                                favouritesSortOrder === 'asc'
-                                  ? 'bg-accent-emerald text-primary-foreground'
-                                  : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
-                              }`}
-                            >
-                              ↑ Ascending
-                            </button>
-                            <button
-                              onClick={() => setFavouritesSortOrder('desc')}
-                              className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                                favouritesSortOrder === 'desc'
-                                  ? 'bg-accent-emerald text-primary-foreground'
-                                  : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
-                              }`}
-                            >
-                              ↓ Descending
-                            </button>
-                          </div>
-                        </div>
-
-                        {hasActiveFavouritesFilters && (
-                          <div className="pt-3 border-t border-border">
-                            <p className="text-muted text-xs mb-2">
-                              Active Sorting:
-                            </p>
-                            <div className="flex flex-wrap gap-1.5">
-                              <span className="px-2 py-1 bg-surface-highlight text-foreground rounded text-xs">
-                                {getFavouritesSortLabel()}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            )}
-
-            {viewMode === 'search' && (
-              <div className="relative" ref={dropdownRef}>
-                <button
-                  onClick={() => setIsFilterOpen(!isFilterOpen)}
-                  className={`text-sm font-medium flex items-center gap-1 transition-colors ${
-                    hasActiveFilters
-                      ? 'text-accent-blue md:hover:text-accent-blue/80'
-                      : 'text-muted md:hover:text-foreground'
-                  }`}
-                >
-                  <SlidersHorizontal size={14} />
-                  {hasActiveFilters ? 'View Filters' : 'Filters'}
-                </button>
-
-                <AnimatePresence>
-                  {isFilterOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -8, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                      transition={{ duration: 0.18, ease: 'easeOut' }}
-                      className="absolute right-0 top-full mt-2 w-80 bg-surface border border-border rounded-lg shadow-2xl z-50 max-h-[500px] overflow-y-auto overflow-x-hidden touch-action-pan-y"
-                    >
-                      <div className="p-4 space-y-4">
-                        <div className="flex items-center justify-between pb-3 border-b border-border">
-                          <h4 className="text-foreground font-bold text-lg">
-                            Filters & Sort
-                          </h4>
-                          <button
-                            onClick={clearFilters}
-                            className="text-sm text-accent-blue md:hover:text-accent-blue/80 font-medium focus-ring"
-                          >
-                            Clear All
-                          </button>
-                        </div>
-                        <div>
-                          <label className="text-foreground font-semibold text-sm block mb-2">
-                            {searchMode === 'online' ? 'Type' : 'Category'}
-                          </label>
-                          <div className="space-y-1.5">
-                            <button
-                              onClick={() => {
-                                setSelectedCategory(null);
-                                setSelectedSubcategory(null);
-                              }}
-                              className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
-                                selectedCategory === null
-                                  ? 'bg-accent-blue text-primary-foreground'
-                                  : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
-                              }`}
-                            >
-                              {searchMode === 'online'
-                                ? 'All Types'
-                                : 'All Categories'}
-                            </button>
-                            {Object.entries(categoryOptions).map(
-                              ([key, { label, color }]) => (
-                                <button
-                                  key={key}
-                                  onClick={() => {
-                                    setSelectedCategory(key);
-                                    setSelectedSubcategory(null);
-                                  }}
-                                  className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
-                                    selectedCategory === key
-                                      ? getFilterActiveClass(color)
-                                      : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
-                                  }`}
-                                >
-                                  {label}
-                                </button>
-                              )
-                            )}
-                          </div>
-                        </div>
-
-                        {availableSubcategories.length > 0 && (
-                          <div>
-                            <label className="text-foreground font-semibold text-sm block mb-2">
-                              {searchMode === 'online'
-                                ? 'Serving'
-                                : 'Subcategory'}
-                            </label>
-                            <div className="space-y-1.5">
-                              <button
-                                onClick={() => setSelectedSubcategory(null)}
-                                className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
-                                  selectedSubcategory === null
-                                    ? 'bg-accent-blue text-primary-foreground'
-                                    : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
-                                }`}
-                              >
-                                {searchMode === 'online'
-                                  ? 'All Servings'
-                                  : 'All Subcategories'}
-                              </button>
-                              {availableSubcategories.map((subcat) => (
-                                <button
-                                  key={subcat}
-                                  onClick={() => setSelectedSubcategory(subcat)}
-                                  className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
-                                    selectedSubcategory === subcat
-                                      ? 'bg-accent-blue text-primary-foreground'
-                                      : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
-                                  }`}
-                                >
-                                  {searchMode === 'online'
-                                    ? subcat
-                                    : subcat.replace(/-/g, ' ')}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        <div>
-                          <label className="text-foreground font-semibold text-sm block mb-2">
-                            Sort By
-                          </label>
-                          <div className="space-y-1.5">
-                            {[
-                              { value: 'name', label: 'Name (A-Z)' },
-                              { value: 'calories', label: 'Calories' },
-                              { value: 'protein', label: 'Protein' },
-                              { value: 'carbs', label: 'Carbs' },
-                              { value: 'fats', label: 'Fats' },
-                            ].map((option) => (
-                              <button
-                                key={option.value}
-                                onClick={() => setSortBy(option.value)}
-                                className={`w-full px-3 py-2 rounded-lg text-left text-sm font-medium transition-all ${
-                                  sortBy === option.value
-                                    ? 'bg-accent-emerald text-primary-foreground'
-                                    : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
-                                }`}
-                              >
-                                {option.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="text-foreground font-semibold text-sm block mb-2">
-                            Sort Order
-                          </label>
-                          <div className="grid grid-cols-2 gap-2">
-                            <button
-                              onClick={() => setSortOrder('asc')}
-                              className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                                sortOrder === 'asc'
-                                  ? 'bg-accent-emerald text-primary-foreground'
-                                  : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
-                              }`}
-                            >
-                              ↑ Ascending
-                            </button>
-                            <button
-                              onClick={() => setSortOrder('desc')}
-                              className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                                sortOrder === 'desc'
-                                  ? 'bg-accent-emerald text-primary-foreground'
-                                  : 'bg-surface-highlight/60 text-foreground md:hover:bg-surface'
-                              }`}
-                            >
-                              ↓ Descending
-                            </button>
-                          </div>
-                        </div>
-
-                        {hasActiveFilters && (
-                          <div className="pt-3 border-t border-border">
-                            <p className="text-muted text-xs mb-2">
-                              Active Filters:
-                            </p>
-                            <div className="flex flex-wrap gap-1.5">
-                              {selectedCategory && (
-                                <span className="px-2 py-1 bg-surface-highlight text-foreground rounded text-xs flex items-center gap-1">
-                                  {categoryOptions[selectedCategory]?.label ||
-                                    selectedCategory}
-                                  <X
-                                    size={12}
-                                    className="cursor-pointer md:hover:text-foreground pressable-inline focus-ring"
-                                    onClick={() => {
-                                      setSelectedCategory(null);
-                                      setSelectedSubcategory(null);
-                                    }}
-                                  />
-                                </span>
-                              )}
-                              {selectedSubcategory && (
-                                <span className="px-2 py-1 bg-surface-highlight text-foreground rounded text-xs flex items-center gap-1">
-                                  {searchMode === 'online'
-                                    ? selectedSubcategory
-                                    : selectedSubcategory.replace(/-/g, ' ')}
-                                  <X
-                                    size={12}
-                                    className="cursor-pointer md:hover:text-foreground pressable-inline focus-ring"
-                                    onClick={() => setSelectedSubcategory(null)}
-                                  />
-                                </span>
-                              )}
-                              {(sortBy !== 'name' || sortOrder !== 'asc') && (
-                                <span className="px-2 py-1 bg-surface-highlight text-foreground rounded text-xs">
-                                  {getSortLabel()}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            )}
-          </div>
-        )}
+        <FoodSearchFilterControls
+          viewMode={viewMode}
+          searchMode={searchMode}
+          displayResults={displayResults}
+          sortedFavourites={sortedFavourites}
+          favouritesSearchQuery={favouritesSearchQuery}
+          resolvedFavourites={resolvedFavourites}
+          isSearching={isSearching}
+          isLocalSearching={isLocalSearching}
+          resolvedCachedFoods={resolvedCachedFoods}
+          favouritesDropdownRef={favouritesDropdownRef}
+          dropdownRef={dropdownRef}
+          isFavouritesFilterOpen={isFavouritesFilterOpen}
+          setIsFavouritesFilterOpen={setIsFavouritesFilterOpen}
+          hasActiveFavouritesFilters={hasActiveFavouritesFilters}
+          clearFavouritesFilters={clearFavouritesFilters}
+          favouritesSortBy={favouritesSortBy}
+          setFavouritesSortBy={setFavouritesSortBy}
+          favouritesSortOrder={favouritesSortOrder}
+          setFavouritesSortOrder={setFavouritesSortOrder}
+          getFavouritesSortLabel={getFavouritesSortLabel}
+          isFilterOpen={isFilterOpen}
+          setIsFilterOpen={setIsFilterOpen}
+          hasActiveFilters={hasActiveFilters}
+          clearFilters={clearFilters}
+          selectedCategory={selectedCategory}
+          setSelectedCategory={setSelectedCategory}
+          selectedSubcategory={selectedSubcategory}
+          setSelectedSubcategory={setSelectedSubcategory}
+          categoryOptions={categoryOptions}
+          availableSubcategories={availableSubcategories}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          sortOrder={sortOrder}
+          setSortOrder={setSortOrder}
+          getFilterActiveClass={getFilterActiveClass}
+          getSortLabel={getSortLabel}
+        />
 
         {/* Search Results */}
         {viewMode !== 'chat' && (
           <div className="flex-1 min-h-0 px-4 py-4 relative">
             <div className="h-full overflow-y-auto overflow-x-hidden touch-action-pan-y space-y-2">
               {viewMode === 'favourites' ? (
-                hasFavourites ? (
-                  sortedFavourites.map((favourite) => {
-                    const key =
-                      favourite.id ?? `${favourite.name}-${favourite.grams}`;
-                    const sourceType = resolveFoodSourceType(favourite);
-                    const isManual = sourceType === FOOD_SOURCE_TYPES.MANUAL;
-                    const isCustom = sourceType === FOOD_SOURCE_TYPES.CUSTOM;
-                    const favouritePortionText = favourite.portionInfo
-                      ? `${favourite.portionInfo.portionMultiplier} ${favourite.portionInfo.portionName}`
-                      : isCustom && favourite.per100g
-                        ? 'per 100g'
-                        : !isManual && favourite.grams
-                          ? `${formatOne(favourite.grams)}g`
-                          : null;
-
-                    return (
-                      <div
-                        key={key}
-                        className="w-full text-left p-4 rounded-xl border border-border bg-surface-highlight transition-all md:hover:border-accent-emerald/40 cursor-pointer"
-                        role="button"
-                        tabIndex={0}
-                        onClick={(event) =>
-                          handleFavouriteCardClick(favourite, isManual, event)
-                        }
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault();
-                            handleFavouriteCardClick(
-                              favourite,
-                              isManual,
-                              event
-                            );
-                          }
-                        }}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-sm leading-tight text-foreground truncate">
-                              {formatFoodDisplayName({
-                                name: favourite.name || 'Unnamed Food',
-                                brand: favourite.brand,
-                              })}
-                            </p>
-                            <FoodTagBadges
-                              food={favourite}
-                              className="mt-1"
-                              portionText={favouritePortionText}
-                            />
-
-                            <div className="flex items-center gap-3 mt-2 text-xs">
-                              <span className="text-accent-green font-medium">
-                                {formatOne(
-                                  isCustom && favourite.per100g
-                                    ? favourite.per100g.calories
-                                    : favourite.calories || 0
-                                )}{' '}
-                                kcal
-                              </span>
-                              <span className="text-accent-red font-medium">
-                                {formatOne(
-                                  isCustom && favourite.per100g
-                                    ? favourite.per100g.protein
-                                    : favourite.protein || 0
-                                )}
-                                g P
-                              </span>
-                              <span className="text-accent-amber font-medium">
-                                {formatOne(
-                                  isCustom && favourite.per100g
-                                    ? favourite.per100g.carbs
-                                    : favourite.carbs || 0
-                                )}
-                                g C
-                              </span>
-                              <span className="text-accent-yellow font-medium">
-                                {formatOne(
-                                  isCustom && favourite.per100g
-                                    ? favourite.per100g.fats
-                                    : favourite.fats || 0
-                                )}
-                                g F
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            {/* Edit button - manual favourites only */}
-                            {isManual && (
-                              <button
-                                type="button"
-                                onClick={(e) =>
-                                  handleFavouriteEdit(favourite, e)
-                                }
-                                className="flex-shrink-0 w-11 h-11 rounded-full bg-surface-highlight/20 md:hover:bg-accent-blue/20 transition-colors flex items-center justify-center"
-                                aria-label="Edit manual entry"
-                                title="Edit entry"
-                              >
-                                <Edit3 size={20} className="text-foreground" />
-                              </button>
-                            )}
-
-                            {typeof onDeleteFavourite === 'function' &&
-                              favourite.id != null && (
-                                <button
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    setPendingDeleteId(favourite.id);
-                                    openDeleteConfirm();
-                                  }}
-                                  className="flex-shrink-0 w-11 h-11 rounded-full bg-surface-highlight/20 md:hover:bg-accent-red/20 transition-colors flex items-center justify-center"
-                                  aria-label="Delete favourite food"
-                                  title="Remove from favourites"
-                                >
-                                  <Trash2
-                                    size={20}
-                                    className="text-foreground md:hover:text-accent-red"
-                                  />
-                                </button>
-                              )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="text-center text-muted text-sm py-10">
-                    <Heart className="mx-auto mb-3 text-muted" size={32} />
-                    <p>No favourite foods yet.</p>
-                    <p className="text-xs mt-1">
-                      Add foods to your favourites for quick access.
-                    </p>
-                  </div>
-                )
+                <FoodSearchFavouritesPanel
+                  sortedFavourites={sortedFavourites}
+                  hasFavourites={hasFavourites}
+                  handleFavouriteCardClick={handleFavouriteCardClick}
+                  handleFavouriteEdit={handleFavouriteEdit}
+                  onDeleteFavourite={onDeleteFavourite}
+                  setPendingDeleteId={setPendingDeleteId}
+                  openDeleteConfirm={openDeleteConfirm}
+                />
               ) : (
-                <>
-                  {/* Error State */}
-                  {searchError && (
-                    <div className="bg-accent-red/10 border border-accent-red/30 rounded-lg p-4 flex items-start gap-3">
-                      <AlertCircle
-                        size={20}
-                        className="text-accent-red flex-shrink-0 mt-0.5"
-                      />
-                      <div>
-                        <p className="text-accent-red font-medium text-sm">
-                          {searchError}
-                        </p>
-                        <button
-                          onClick={() => performOnlineSearch(searchQuery)}
-                          className="mt-2 text-xs text-accent-red md:hover:text-accent-red/80 underline"
-                        >
-                          Try again
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {searchMode === 'local' && localSearchError && (
-                    <div className="bg-accent-red/10 border border-accent-red/30 rounded-lg p-4 flex items-start gap-3">
-                      <AlertCircle
-                        size={20}
-                        className="text-accent-red flex-shrink-0 mt-0.5"
-                      />
-                      <p className="text-accent-red font-medium text-sm">
-                        {localSearchError}
-                      </p>
-                    </div>
-                  )}
-
-                  {searchMode === 'local' && isLocalSearching && (
-                    <div className="flex flex-col items-center justify-center py-12">
-                      <div className="relative w-8 h-8 mb-3">
-                        <div className="absolute inset-0 border-4 border-border rounded-full" />
-                        <div className="absolute inset-0 border-4 border-transparent border-t-accent-blue rounded-full animate-spin-fast" />
-                      </div>
-                      <p className="text-muted text-sm">
-                        Searching local foods...
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Loading State for Online Search */}
-                  {searchMode === 'online' && isSearching && (
-                    <div className="flex flex-col items-center justify-center py-12">
-                      <div className="relative w-8 h-8 mb-3">
-                        <div className="absolute inset-0 border-4 border-border rounded-full" />
-                        <div className="absolute inset-0 border-4 border-transparent border-t-accent-blue rounded-full animate-spin-fast" />
-                      </div>
-                      <p className="text-muted text-sm">
-                        Searching FatSecret database...
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Empty State */}
-                  {!isSearching &&
-                  !isLocalSearching &&
-                  !searchError &&
-                  !localSearchError &&
-                  displayResults.length === 0 ? (
-                    <div className="p-20 text-center">
-                      {searchMode === 'online' ? (
-                        <>
-                          <Globe
-                            className="mx-auto text-muted mb-3"
-                            size={32}
-                          />
-                          <p className="text-muted text-sm">
-                            {searchQuery.length < 2
-                              ? 'Enter a search term to find foods online'
-                              : 'No results found. Try a different search term.'}
-                          </p>
-                          {searchQuery.length > 0 && searchQuery.length < 2 && (
-                            <p className="mt-1 text-muted text-xs">
-                              Type at least 2 characters to search
-                            </p>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <Search
-                            className="mx-auto text-muted mb-3"
-                            size={32}
-                          />
-                          <p className="text-muted text-sm">No foods found</p>
-                        </>
-                      )}
-                    </div>
-                  ) : searchMode === 'online' && !isSearching ? (
-                    /* Online Results */
-                    onlineResults.map((food) => {
-                      const isLoading = loadingFoodId === food.id;
-                      return (
-                        <button
-                          key={food.id}
-                          onClick={() =>
-                            !isLoading && handleOnlineFoodSelect(food)
-                          }
-                          disabled={isLoading}
-                          className={`relative w-full bg-surface-highlight border border-border rounded-xl p-3 text-left transition-all ${
-                            isLoading
-                              ? 'opacity-70 cursor-wait'
-                              : 'active:scale-[0.99] md:hover:border-accent-emerald/50'
-                          }`}
-                        >
-                          {isLoading && (
-                            <div className="absolute inset-0 bg-surface-highlight rounded-lg flex items-center justify-center z-10">
-                              <div className="relative w-6 h-6">
-                                <div className="absolute inset-0 border-3 border-border rounded-full" />
-                                <div className="absolute inset-0 border-3 border-transparent border-t-accent-blue rounded-full animate-spin-fast" />
-                              </div>
-                            </div>
-                          )}
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <h4 className="text-foreground font-semibold text-sm truncate">
-                                  {formatFoodDisplayName({
-                                    name: food.name,
-                                    brand: food.brand,
-                                  })}
-                                </h4>
-                              </div>
-                              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                <span className="text-xs px-2 py-0.5 bg-accent-blue/20 text-accent-blue rounded">
-                                  {food.type === 'Brand'
-                                    ? 'Branded'
-                                    : 'Generic'}
-                                </span>
-                              </div>
-                            </div>
-                            {food.previewMacros && (
-                              <div className="flex flex-col items-end gap-1">
-                                <span className="text-muted text-[10px] font-medium">
-                                  {food.previewMacros.servingInfo ||
-                                    'per serving'}
-                                </span>
-                                <div className="flex items-center gap-2 text-xs">
-                                  <div className="text-center">
-                                    <p className="text-accent-emerald font-bold">
-                                      {Math.round(food.previewMacros.calories)}
-                                    </p>
-                                    <p className="text-muted">cal</p>
-                                  </div>
-                                  <div className="text-center">
-                                    <p className="text-accent-red font-bold">
-                                      {formatOne(food.previewMacros.protein)}g
-                                    </p>
-                                    <p className="text-muted">prot</p>
-                                  </div>
-                                  <div className="text-center">
-                                    <p className="text-accent-amber font-bold">
-                                      {formatOne(food.previewMacros.carbs)}g
-                                    </p>
-                                    <p className="text-muted">carb</p>
-                                  </div>
-                                  <div className="text-center">
-                                    <p className="text-accent-yellow font-bold">
-                                      {formatOne(food.previewMacros.fats)}g
-                                    </p>
-                                    <p className="text-muted">fat</p>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })
-                  ) : (
-                    /* Local Results */
-                    !isSearching &&
-                    displayResults.map((food) => {
-                      const isPinned = resolvedPinnedFoods.includes(food.id);
-                      const isLongPressing = longPressingId === food.id;
-                      let borderClass = '';
-                      let shadowClass = '';
-                      if (isPinned) {
-                        borderClass = 'border-accent-blue';
-                      } else {
-                        borderClass = 'border-border';
-                        shadowClass = '';
-                      }
-                      return (
-                        <button
-                          key={food.id}
-                          onClick={() => handleFoodClick(food)}
-                          onPointerDown={(event) =>
-                            handlePressStart(food.id, event)
-                          }
-                          onPointerUp={() => handlePressEnd(false)}
-                          onPointerLeave={() => handlePressEnd(true)}
-                          onPointerCancel={() => handlePressEnd(true)}
-                          onContextMenu={(event) => event.preventDefault()}
-                          className={`relative w-full bg-surface-highlight border rounded-xl p-3 text-left transition-all ${
-                            isLongPressing
-                              ? 'border-accent-blue scale-[0.98]'
-                              : `${borderClass} active:scale-[0.99]`
-                          } ${shadowClass}`}
-                        >
-                          {isPinned && (
-                            <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-accent-blue rounded-full"></div>
-                          )}
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <h4 className="text-foreground font-semibold text-sm truncate">
-                                  {formatFoodDisplayName({
-                                    name: food.name,
-                                    brand: food.brand,
-                                  })}
-                                </h4>
-                              </div>
-                              <FoodTagBadges food={food} className="mt-1" />
-                            </div>
-                            <div className="flex flex-col items-end gap-1">
-                              <span className="text-muted text-[10px] font-medium">
-                                per 100g
-                              </span>
-                              <div className="flex items-center gap-3 text-xs">
-                                <div className="text-center">
-                                  <p className="text-accent-emerald font-bold">
-                                    {formatOne(food.per100g.calories)}
-                                  </p>
-                                  <p className="text-muted">cal</p>
-                                </div>
-                                <div className="text-center">
-                                  <p className="text-accent-red font-bold">
-                                    {formatOne(food.per100g.protein)}g
-                                  </p>
-                                  <p className="text-muted">prot</p>
-                                </div>
-                                <div className="text-center">
-                                  <p className="text-accent-amber font-bold">
-                                    {formatOne(food.per100g.carbs)}g
-                                  </p>
-                                  <p className="text-muted">carb</p>
-                                </div>
-                                <div className="text-center">
-                                  <p className="text-accent-yellow font-bold">
-                                    {formatOne(food.per100g.fats)}g
-                                  </p>
-                                  <p className="text-muted">fat</p>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })
-                  )}
-                </>
+                <FoodSearchResultsPanel
+                  searchMode={searchMode}
+                  searchError={searchError}
+                  localSearchError={localSearchError}
+                  isLocalSearching={isLocalSearching}
+                  isSearching={isSearching}
+                  displayResults={displayResults}
+                  searchQuery={searchQuery}
+                  onlineResults={onlineResults}
+                  loadingFoodId={loadingFoodId}
+                  handleOnlineFoodSelect={handleOnlineFoodSelect}
+                  resolvedPinnedFoods={resolvedPinnedFoods}
+                  longPressingId={longPressingId}
+                  handleFoodClick={handleFoodClick}
+                  handlePressStart={handlePressStart}
+                  handlePressEnd={handlePressEnd}
+                  performOnlineSearch={performOnlineSearch}
+                />
               )}
             </div>
           </div>
@@ -2936,6 +2403,159 @@ export const FoodSearchModal = ({
         onSubmit={handleManualBarcodeSubmit}
         onClose={requestBarcodeEntryClose}
       />
+
+      <ModalShell
+        isOpen={isAiEntryEditorOpen}
+        isClosing={isAiEntryEditorClosing}
+        onClose={requestAiEntryEditorClose}
+        contentClassName="w-full md:max-w-md p-5"
+      >
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-lg font-semibold text-foreground">
+              Edit AI Entry
+            </h3>
+            <p className="text-xs text-muted mt-1">
+              Adjust the estimate before logging or saving it.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1">
+                Name
+              </label>
+              <input
+                type="text"
+                value={editingAiEntry?.name ?? ''}
+                onChange={(event) =>
+                  handleAiEntryEditorChange('name', event.target.value)
+                }
+                className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent-blue"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-muted mb-1">
+                  Grams
+                </label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={editingAiEntry?.grams ?? ''}
+                  onChange={(event) =>
+                    handleAiEntryEditorChange('grams', event.target.value)
+                  }
+                  className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent-blue"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted mb-1">
+                  Calories
+                </label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={editingAiEntry?.calories ?? ''}
+                  onChange={(event) =>
+                    handleAiEntryEditorChange('calories', event.target.value)
+                  }
+                  className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent-blue"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted mb-1">
+                  Protein
+                </label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={editingAiEntry?.protein ?? ''}
+                  onChange={(event) =>
+                    handleAiEntryEditorChange('protein', event.target.value)
+                  }
+                  className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent-blue"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted mb-1">
+                  Carbs
+                </label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={editingAiEntry?.carbs ?? ''}
+                  onChange={(event) =>
+                    handleAiEntryEditorChange('carbs', event.target.value)
+                  }
+                  className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent-blue"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted mb-1">
+                  Fats
+                </label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={editingAiEntry?.fats ?? ''}
+                  onChange={(event) =>
+                    handleAiEntryEditorChange('fats', event.target.value)
+                  }
+                  className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent-blue"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1">
+                Rationale
+              </label>
+              <textarea
+                rows={3}
+                value={editingAiEntry?.rationale ?? ''}
+                onChange={(event) =>
+                  handleAiEntryEditorChange('rationale', event.target.value)
+                }
+                className="w-full resize-none bg-surface-highlight border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent-blue"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1">
+                Assumptions
+              </label>
+              <textarea
+                rows={4}
+                value={editingAiEntry?.assumptions ?? ''}
+                onChange={(event) =>
+                  handleAiEntryEditorChange('assumptions', event.target.value)
+                }
+                placeholder="One assumption per line"
+                className="w-full resize-none bg-surface-highlight border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent-blue"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={requestAiEntryEditorClose}
+              className="flex-1 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-semibold text-foreground md:hover:bg-surface-highlight press-feedback focus-ring"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={saveEditedAiEntry}
+              className="flex-1 rounded-lg bg-accent-blue px-4 py-2 text-sm font-semibold text-primary-foreground md:hover:brightness-110 press-feedback focus-ring"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      </ModalShell>
     </ModalShell>
   );
 };
