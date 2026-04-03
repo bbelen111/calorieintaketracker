@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+import { createWithEqualityFn } from 'zustand/traditional';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { cardioTypes as baseCardioTypes } from '../constants/cardioTypes';
 import {
@@ -455,7 +455,7 @@ const updateUserData = (set, get, updater) => {
   });
 };
 
-export const useEnergyMapStore = create(
+export const useEnergyMapStore = createWithEqualityFn(
   subscribeWithSelector((set, get) => ({
     userData: getDefaultEnergyMapData(),
     isLoaded: false,

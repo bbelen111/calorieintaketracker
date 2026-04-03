@@ -1,12 +1,11 @@
 import React from 'react';
-import { AlertCircle, ScanBarcode } from 'lucide-react';
+import { ScanBarcode } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 
 export const BarcodeEntryModal = ({
   isOpen,
   isClosing,
   value,
-  error,
   isSubmitting,
   onValueChange,
   onSubmit,
@@ -52,13 +51,6 @@ export const BarcodeEntryModal = ({
             className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2.5 text-foreground placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent-blue focus-ring"
           />
         </div>
-
-        {error ? (
-          <div className="bg-accent-red/10 border border-accent-red/30 rounded-lg px-3 py-2 text-accent-red text-xs flex items-start gap-2">
-            <AlertCircle size={13} className="mt-0.5 flex-shrink-0" />
-            <span>{error}</span>
-          </div>
-        ) : null}
 
         <div className="flex gap-2 pt-1">
           <button

@@ -179,7 +179,8 @@ export const FoodSearchModal = ({
   const [manualBarcodeInput, setManualBarcodeInput] = useState('');
   const [isBarcodeScanning, setIsBarcodeScanning] = useState(false);
   const [isBarcodeLookupPending, setIsBarcodeLookupPending] = useState(false);
-  const [barcodeLookupError, setBarcodeLookupError] = useState(null);
+  const [barcodeToast, setBarcodeToast] = useState(null);
+  const barcodeToastTimerRef = useRef(null);
   const searchTimeoutRef = useRef(null);
   const abortControllerRef = useRef(null);
 
@@ -244,7 +245,11 @@ export const FoodSearchModal = ({
       setIsBarcodeScanning(false);
       setIsBarcodeLookupPending(false);
       setManualBarcodeInput('');
-      setBarcodeLookupError(null);
+      setBarcodeToast(null);
+      if (barcodeToastTimerRef.current) {
+        clearTimeout(barcodeToastTimerRef.current);
+        barcodeToastTimerRef.current = null;
+      }
       chatAttachments.forEach((attachment) => {
         if (attachment.previewUrl) {
           URL.revokeObjectURL(attachment.previewUrl);
@@ -538,24 +543,64 @@ export const FoodSearchModal = ({
     return 'Unable to read that barcode. Please try again.';
   }, []);
 
+  const showBarcodeToast = useCallback(
+    (message, tone = 'info', durationMs = 2600) => {
+      if (barcodeToastTimerRef.current) {
+        clearTimeout(barcodeToastTimerRef.current);
+      }
+
+      setBarcodeToast({ id: Date.now(), message, tone });
+
+      if (durationMs > 0) {
+        barcodeToastTimerRef.current = setTimeout(() => {
+          setBarcodeToast(null);
+          barcodeToastTimerRef.current = null;
+        }, durationMs);
+      }
+    },
+    []
+  );
+
+  const clearBarcodeToast = useCallback(() => {
+    if (barcodeToastTimerRef.current) {
+      clearTimeout(barcodeToastTimerRef.current);
+      barcodeToastTimerRef.current = null;
+    }
+    setBarcodeToast(null);
+  }, []);
+
+  const activeBarcodeStatusToastMessage = useMemo(() => {
+    if (isBarcodeScanning) {
+      return 'Scanning barcode…';
+    }
+
+    if (isBarcodeLookupPending) {
+      return 'Searching product database…';
+    }
+
+    return null;
+  }, [isBarcodeLookupPending, isBarcodeScanning]);
+
   const lookupBarcodeAndSelectFood = useCallback(
     async (rawBarcode, { closeEntryModal = false } = {}) => {
       const cleanedBarcode = String(rawBarcode ?? '').replace(/\D/g, '');
       if (!cleanedBarcode || cleanedBarcode.length < 8) {
-        setBarcodeLookupError(
-          'Please enter a valid barcode (at least 8 digits).'
+        showBarcodeToast(
+          'Please enter a valid barcode (at least 8 digits).',
+          'error'
         );
         return false;
       }
 
       if (!isOnline) {
-        setBarcodeLookupError(
-          'You are offline. Connect to the internet to look up barcodes.'
+        showBarcodeToast(
+          'You are offline. Connect to the internet to look up barcodes.',
+          'error'
         );
         return false;
       }
 
-      setBarcodeLookupError(null);
+      clearBarcodeToast();
       setIsBarcodeLookupPending(true);
 
       try {
@@ -574,10 +619,14 @@ export const FoodSearchModal = ({
         }
 
         setManualBarcodeInput('');
+        showBarcodeToast(
+          'Product found. Choose a portion to continue.',
+          'info'
+        );
         return true;
       } catch (error) {
         console.error('Barcode lookup error:', error);
-        setBarcodeLookupError(resolveBarcodeErrorMessage(error));
+        showBarcodeToast(resolveBarcodeErrorMessage(error), 'error');
         return false;
       } finally {
         setIsBarcodeLookupPending(false);
@@ -588,17 +637,20 @@ export const FoodSearchModal = ({
       onSelectFood,
       requestBarcodeEntryClose,
       resolveBarcodeErrorMessage,
+      clearBarcodeToast,
       resolvedCachedFoods,
       resolvedUpdateCachedFoods,
+      showBarcodeToast,
     ]
   );
 
   const handleBarcodeScanClick = useCallback(async () => {
-    setBarcodeLookupError(null);
+    clearBarcodeToast();
 
     if (!isOnline) {
-      setBarcodeLookupError(
-        'You are offline. Connect to the internet to look up barcodes.'
+      showBarcodeToast(
+        'You are offline. Connect to the internet to look up barcodes.',
+        'error'
       );
       return;
     }
@@ -619,15 +671,17 @@ export const FoodSearchModal = ({
       }
 
       console.error('Native barcode scan error:', error);
-      setBarcodeLookupError(resolveBarcodeErrorMessage(error));
+      showBarcodeToast(resolveBarcodeErrorMessage(error), 'error');
     } finally {
       setIsBarcodeScanning(false);
     }
   }, [
+    clearBarcodeToast,
     isOnline,
     lookupBarcodeAndSelectFood,
     openBarcodeEntry,
     resolveBarcodeErrorMessage,
+    showBarcodeToast,
   ]);
 
   const handleManualBarcodeSubmit = useCallback(() => {
@@ -818,6 +872,10 @@ export const FoodSearchModal = ({
   // Cleanup timer on unmount
   useEffect(() => {
     return () => {
+      if (barcodeToastTimerRef.current) {
+        clearTimeout(barcodeToastTimerRef.current);
+        barcodeToastTimerRef.current = null;
+      }
       if (longPressTimerRef.current) {
         clearTimeout(longPressTimerRef.current);
       }
@@ -1467,13 +1525,7 @@ export const FoodSearchModal = ({
                   className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-primary md:hover:brightness-110 text-primary-foreground rounded-full text-sm font-semibold transition-all shadow-md whitespace-nowrap press-feedback focus-ring border border-transparent disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <ScanBarcode size={16} />
-                  <span>
-                    {isBarcodeScanning
-                      ? 'Scanning…'
-                      : isBarcodeLookupPending
-                        ? 'Looking up…'
-                        : 'Barcode Scan'}
-                  </span>
+                  <span>Barcode Scan</span>
                 </button>
               </div>
             </div>
@@ -1490,14 +1542,59 @@ export const FoodSearchModal = ({
           </div>
         </div>
 
-        {barcodeLookupError && (
-          <div className="px-4 mt-2">
-            <div className="bg-accent-red/10 border border-accent-red/30 rounded-lg px-3 py-2 text-accent-red text-xs flex items-start gap-2">
-              <AlertCircle size={13} className="mt-0.5 flex-shrink-0" />
-              <span>{barcodeLookupError}</span>
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {activeBarcodeStatusToastMessage ? (
+            <motion.div
+              key={`barcode-status-${activeBarcodeStatusToastMessage}`}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: 0.16, ease: [0.4, 0, 0.2, 1] }}
+              className="fixed inset-x-0 z-[1300] flex justify-center pointer-events-none px-4"
+              style={{ bottom: 'calc(var(--sab) + 1.5rem)' }}
+              role="status"
+              aria-live="polite"
+            >
+              <div className="max-w-sm w-full rounded-xl border border-accent-blue/30 bg-surface/95 px-3 py-2.5 shadow-xl backdrop-blur-sm flex items-center gap-2 text-sm text-foreground">
+                <div className="w-4 h-4 border-2 border-accent-blue/30 border-t-accent-blue rounded-full animate-spin-fast flex-shrink-0" />
+                <span className="leading-tight">
+                  {activeBarcodeStatusToastMessage}
+                </span>
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {barcodeToast && !activeBarcodeStatusToastMessage ? (
+            <motion.div
+              key={barcodeToast.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+              className="fixed inset-x-0 z-[1300] flex justify-center pointer-events-none px-4"
+              style={{ bottom: 'calc(var(--sab) + 1.5rem)' }}
+              role="status"
+              aria-live="polite"
+            >
+              <div
+                className={`max-w-sm w-full rounded-xl border px-3 py-2.5 shadow-xl backdrop-blur-sm flex items-center gap-2 text-sm leading-tight ${
+                  barcodeToast.tone === 'error'
+                    ? 'border-accent-red/35 bg-accent-red/10 text-accent-red'
+                    : 'border-accent-blue/30 bg-surface/95 text-foreground'
+                }`}
+              >
+                {barcodeToast.tone === 'error' ? (
+                  <AlertCircle size={15} className="flex-shrink-0" />
+                ) : (
+                  <ScanBarcode size={15} className="flex-shrink-0" />
+                )}
+                <span>{barcodeToast.message}</span>
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
 
         {viewMode === 'chat' && (
           <div className="flex-1 min-h-0 flex flex-col">
@@ -2908,13 +3005,10 @@ export const FoodSearchModal = ({
         isOpen={isBarcodeEntryOpen}
         isClosing={isBarcodeEntryClosing}
         value={manualBarcodeInput}
-        error={barcodeLookupError}
         isSubmitting={isBarcodeLookupPending}
         onValueChange={(value) => {
           setManualBarcodeInput(value.replace(/[^\d]/g, ''));
-          if (barcodeLookupError) {
-            setBarcodeLookupError(null);
-          }
+          clearBarcodeToast();
         }}
         onSubmit={handleManualBarcodeSubmit}
         onClose={requestBarcodeEntryClose}

@@ -2,19 +2,19 @@
 
 ## Project Overview
 
-React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor for mobile deployment (iOS/Android). Local-first architecture with Zustand state management, Dexie-backed history persistence plus Capacitor Preferences for profile/settings, and optional FatSecret API for online food search.
+React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor for mobile deployment (iOS/Android). Local-first architecture with Zustand state management, Dexie-backed history persistence plus Capacitor Preferences for profile/settings, optional FatSecret API for online food search, and OpenFoodFacts-backed barcode lookup.
 
 **Tech Stack:**
 - React 18.3.1 + Vite 5.4.11 (dev server on `localhost:5173`, `strictPort: true`)
 - Capacitor 8.0.1 (`appId: com.energymap.tracker`, `webDir: dist`)
 - **Persistence:** Dexie (`IndexedDB`) for history + `@capacitor/preferences` for profile/settings
-- **State:** `zustand` 4.5.5 with `subscribeWithSelector` middleware
+- **State:** `zustand` 4.5.5 using `createWithEqualityFn` (`zustand/traditional`) with `subscribeWithSelector` middleware
 - **Food Catalog Runtime:** `sql.js` (WASM SQLite reader in browser)
 - Dexie 4.x (history document store)
 - Framer Motion 12.23.24 (animations)
 - Tailwind 3.4.17 (styling via CSS variable–based semantic tokens)
 - Lucide React 0.562.0 (icons)
-- **External API:** FatSecret (optional, via Vercel serverless proxy at `api/fatsecret.js`)
+- **External APIs:** FatSecret (online text search/details via `api/fatsecret.js`), OpenFoodFacts (barcode lookup via `api/openfoodfacts.js`), Gemini (AI parsing via `api/gemini.js`)
 
 **Key Capacitor Plugins:**
 - `@capacitor/preferences` — Profile/settings storage
@@ -22,6 +22,7 @@ React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor 
 - `@capacitor/status-bar` — Status bar color/style per theme
 - `@capacitor/keyboard` — Input handling (`resize: "none"` in config)
 - `@capacitor/splash-screen` — Launch screen
+- `@capacitor/barcode-scanner` — Native barcode scanning (FoodSearch barcode action)
 - `@capgo/capacitor-health` — Health Connect step sync (Android only)
 - `@capgo/capacitor-navigation-bar` — Android navigation bar theming
 
@@ -592,7 +593,7 @@ Migration behavior is now intentionally minimal:
   bodyFatEntries: [{ date: 'YYYY-MM-DD', bodyFat }],
   stepEntries: [{ date: 'YYYY-MM-DD', steps, source: 'healthConnect'|'manual' }],
   nutritionData: { 'YYYY-MM-DD': { mealType: [foodEntry, ...] } },
-  cachedFoods: [],                  // Foods from FatSecret API (history-scoped; deduped + capped on persistence)
+  cachedFoods: [],                  // Cached foods from online/barcode lookups (history-scoped; deduped + capped on persistence)
   dailySnapshots: {
     'YYYY-MM-DD': {
       date,
@@ -694,15 +695,42 @@ Optional online food search proxied through Vercel serverless function.
 
 **Key functions:**
 ```javascript
-import { searchFoods, getFoodDetails, searchBarcode, getAutocomplete } from './services/fatSecret';
+import { searchFoods, getFoodDetails, getAutocomplete } from './services/fatSecret';
 const results = await searchFoods('chicken breast', 0);
 const food = await getFoodDetails(foodId);
-const food = await searchBarcode('012345678901');
 const suggestions = await getAutocomplete('chick');
 // Utility helpers also exported: isOnlineFood, addToFoodCache, trimFoodCache
 ```
 
 Results cached in `userData.cachedFoods` to reduce API calls.
+
+### Barcode lookup source of truth
+
+- `FoodSearchModal` barcode flow uses `services/openFoodFacts.js` (`searchBarcode`) rather than FatSecret.
+- Keep FatSecret focused on online text search + food detail hydration.
+
+---
+
+## OpenFoodFacts Barcode Integration
+
+Barcode lookup is proxied through Vercel serverless function for consistent error handling and centralized request headers.
+
+**Architecture:**
+- `services/openFoodFacts.js` — Client service with timeout + native base URL guard, maps product payload to app food schema.
+- `api/openfoodfacts.js` — Vercel proxy for `action=barcode`, forwards to OpenFoodFacts product endpoint.
+
+**Configuration:**
+- Native builds: Set `VITE_OPENFOODFACTS_API_BASE` env var to deployed Vercel URL
+- Default: `https://calorieintaketracker.vercel.app/api/openfoodfacts`
+- Recommended Vercel env vars:
+  - `OPENFOODFACTS_USER_AGENT=EnergyMapCalorieTracker/1.0 (contact@example.com)`
+  - Optional: `OPENFOODFACTS_API_BASE` (defaults to `https://world.openfoodfacts.org`)
+
+**Key function:**
+```javascript
+import { searchBarcode } from './services/openFoodFacts';
+const food = await searchBarcode('012345678901');
+```
 
 ---
 
@@ -810,6 +838,8 @@ src/
 │   └─ time.js                   # Time/duration helpers (normalize, round, format, split)
 ├─ services/
 │   ├─ fatSecret.js              # FatSecret API client
+│   ├─ openFoodFacts.js          # OpenFoodFacts barcode lookup client
+│   ├─ barcodeScanner.js         # Official Capacitor barcode scanner wrapper
 │   └─ foodCatalog.js            # SQLite-backed local food catalog service (sql.js)
 ├─ scripts/
 │   └─ food-db/
