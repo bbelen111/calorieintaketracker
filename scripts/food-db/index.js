@@ -56,6 +56,110 @@ const getNumeric = (value, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const roundMacro = (value) => Math.round(getNumeric(value, 0) * 1000) / 1000;
+
+const sanitizeFoodName = (rawName) => {
+  const original = String(rawName ?? '').trim();
+  if (!original) {
+    return { name: '', changed: false };
+  }
+
+  let name = original;
+
+  name = name
+    .replace(/\uFFFD/g, ' ')
+    .replace(/\b(?:not\s+specified|unspecified|unknown)\b/gi, ' ')
+    .replace(/\btype\s+of\b/gi, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+([,;:])/g, '$1')
+    .trim();
+
+  return { name, changed: name !== original };
+};
+
+const inferProteinSubcategory = (name, existingSubcategory = null) => {
+  const lowered = String(name ?? '').toLowerCase();
+  const shellfishPattern =
+    /(shrimp|prawn|crab|lobster|mussel|clam|oyster|scallop|octopus|squid|mollusk|whelk|abalone|cuttlefish)/;
+  const fishPattern =
+    /(fish|salmon|tuna|cod|sardine|anchovy|mackerel|herring|trout|tilapia|halibut|snapper)/;
+  const mixedMealPattern =
+    /(\bwith\b|\band\b|platter|fries|sandwich|rolls?\b|pizza|burrito|taco|soup|salad|stew|casserole|combo|restaurant|frozen\s+dinner)/;
+
+  if (existingSubcategory) {
+    if (existingSubcategory === 'fish' && shellfishPattern.test(lowered)) {
+      return 'shellfish';
+    }
+
+    return existingSubcategory;
+  }
+
+  if (mixedMealPattern.test(lowered)) {
+    return null;
+  }
+
+  if (shellfishPattern.test(lowered)) {
+    return 'shellfish';
+  }
+
+  if (fishPattern.test(lowered)) {
+    return 'fish';
+  }
+
+  if (/(beef|veal|bison|buffalo|steak|brisket|sirloin)/.test(lowered)) {
+    return 'beef';
+  }
+
+  if (/(pork|ham|bacon|prosciutto|sausage)/.test(lowered)) {
+    return 'pork';
+  }
+
+  if (/(chicken|turkey|duck|goose)/.test(lowered)) {
+    return 'poultry';
+  }
+
+  if (/\b(egg|eggs|omelette|omelet)\b/.test(lowered)) {
+    return 'eggs';
+  }
+
+  if (/(whey|casein|protein\s*powder|isolate|concentrate)/.test(lowered)) {
+    return 'protein_powder';
+  }
+
+  return null;
+};
+
+const inferSubcategory = ({ category, subcategory, name }) => {
+  if (category === 'protein') {
+    return inferProteinSubcategory(name, subcategory);
+  }
+
+  return subcategory;
+};
+
+const getDedupKey = (row) =>
+  [
+    normalizeToken(row.name),
+    row.category,
+    row.subcategory ?? '',
+    roundMacro(row.calories),
+    roundMacro(row.protein),
+    roundMacro(row.carbs),
+    roundMacro(row.fats),
+  ].join('|');
+
+const getDedupScore = (row) => {
+  let score = 0;
+  if (String(row.id ?? '').startsWith('usda_')) {
+    score += 2;
+  }
+
+  const portions = parsePortions(row.portions);
+  score += Math.min(portions.length, 10) * 0.1;
+  score += Math.min(String(row.name ?? '').length, 120) * 0.001;
+  return score;
+};
+
 const hasValidMacros = (row) =>
   ['calories', 'protein', 'carbs', 'fats'].every(
     (key) => Number.isFinite(getNumeric(row[key])) && getNumeric(row[key]) >= 0
@@ -333,12 +437,16 @@ const summarize = (rows) => {
 
 const cleanRows = (rows) => {
   const quarantine = [];
-  const cleanedRows = [];
+  const dedupedByKey = new Map();
   const stats = {
     rowsDropped: 0,
     categoriesRemapped: 0,
     customCategoriesReclassified: 0,
     subcategoriesRemapped: 0,
+    subcategoriesInferred: 0,
+    subcategoriesCorrectedByHeuristic: 0,
+    namesSanitized: 0,
+    exactDuplicatesDropped: 0,
     portionsDropped: 0,
     portionsRepairedByLabel: 0,
     portionLabelsRepaired: 0,
@@ -346,7 +454,8 @@ const cleanRows = (rows) => {
   };
 
   for (const row of rows) {
-    if (!String(row.name ?? '').trim() || !hasValidMacros(row)) {
+    const nameResult = sanitizeFoodName(row.name);
+    if (!nameResult.name || !hasValidMacros(row)) {
       quarantine.push({
         id: String(row.id ?? ''),
         name: String(row.name ?? ''),
@@ -356,6 +465,17 @@ const cleanRows = (rows) => {
       });
       stats.rowsDropped += 1;
       continue;
+    }
+
+    if (nameResult.changed) {
+      stats.namesSanitized += 1;
+      quarantine.push({
+        id: String(row.id ?? ''),
+        name: String(row.name ?? ''),
+        field: 'name',
+        reason: 'name_artifacts_sanitized',
+        value: nameResult.name,
+      });
     }
 
     const categoryResult = normalizeCategory(row.category, row);
@@ -401,19 +521,84 @@ const cleanRows = (rows) => {
       stats,
     });
 
-    cleanedRows.push({
-      id: String(row.id),
-      name: String(row.name).trim(),
+    const inferredSubcategory = inferSubcategory({
       category: categoryResult.category,
       subcategory: subcategoryResult.subcategory,
+      name: nameResult.name,
+    });
+
+    if (!subcategoryResult.subcategory && inferredSubcategory) {
+      stats.subcategoriesInferred += 1;
+      quarantine.push({
+        id: String(row.id ?? ''),
+        name: nameResult.name,
+        field: 'subcategory',
+        reason: 'subcategory_inferred_from_name',
+        value: inferredSubcategory,
+      });
+    }
+
+    if (
+      subcategoryResult.subcategory &&
+      inferredSubcategory &&
+      subcategoryResult.subcategory !== inferredSubcategory
+    ) {
+      stats.subcategoriesCorrectedByHeuristic += 1;
+      quarantine.push({
+        id: String(row.id ?? ''),
+        name: nameResult.name,
+        field: 'subcategory',
+        reason: 'subcategory_corrected_by_heuristic',
+        value: `${subcategoryResult.subcategory} -> ${inferredSubcategory}`,
+      });
+    }
+
+    const candidate = {
+      id: String(row.id),
+      name: nameResult.name,
+      category: categoryResult.category,
+      subcategory: inferredSubcategory ?? subcategoryResult.subcategory,
       calories: Math.max(0, getNumeric(row.calories)),
       protein: Math.max(0, getNumeric(row.protein)),
       carbs: Math.max(0, getNumeric(row.carbs)),
       fats: Math.max(0, getNumeric(row.fats)),
       portions: JSON.stringify(portions),
-    });
+    };
+
+    const dedupKey = getDedupKey(candidate);
+    const existing = dedupedByKey.get(dedupKey);
+
+    if (!existing) {
+      dedupedByKey.set(dedupKey, candidate);
+      continue;
+    }
+
+    const existingScore = getDedupScore(existing);
+    const candidateScore = getDedupScore(candidate);
+
+    if (candidateScore > existingScore) {
+      quarantine.push({
+        id: String(existing.id ?? ''),
+        name: String(existing.name ?? ''),
+        field: 'row',
+        reason: 'exact_duplicate_replaced_by_higher_quality_entry',
+        value: String(candidate.id ?? ''),
+      });
+      dedupedByKey.set(dedupKey, candidate);
+    } else {
+      quarantine.push({
+        id: String(candidate.id ?? ''),
+        name: String(candidate.name ?? ''),
+        field: 'row',
+        reason: 'exact_duplicate_dropped',
+        value: String(existing.id ?? ''),
+      });
+    }
+
+    stats.exactDuplicatesDropped += 1;
   }
 
+  const cleanedRows = [...dedupedByKey.values()];
   return { cleanedRows, quarantine, stats };
 };
 

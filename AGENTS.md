@@ -163,16 +163,46 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 
 - `FoodSearchModal` is the **canonical** food favourites UI surface (`viewMode === 'favourites'`).
 - `FoodFavouritesModal` was removed as redundant and should **not** be reintroduced.
+- `FoodSearchModal` is now a **4-mode surface**: local search, online search, favourites, and AI chat (`viewMode` + `searchMode` state machine).
 - `FoodSearchModal` now composes focused panel components from `modals/fullscreen/panels/`:
   - `FoodSearchChatPanel.jsx`
   - `FoodSearchFilterControls.jsx`
   - `FoodSearchResultsPanel.jsx`
   - `FoodSearchFavouritesPanel.jsx`
   Keep panel responsibilities isolated and avoid moving large inline JSX blocks back into `FoodSearchModal`.
+- Local result rendering uses **progressive batches** (`visibleResultCount`) to reduce mount/paint cost on large datasets:
+  - Local batch size: `120`
+  - Online batch size: `80`
+  - "Show more" increments visible rows and can trigger additional local DB page fetches.
+- Local DB paging in search mode uses `LOCAL_DB_QUERY_PAGE_SIZE = 500` with offset-based fetches when users load more.
+- Filter/result header intentionally shows **current loaded count only** in search mode (e.g. `240 foods found`) and updates as more rows are loaded.
+- Online mode remains debounced (`DEBOUNCE_DELAY = 500ms`) and enforces a minimum query length (`2` chars).
+- Long-press pinning is owned by `FoodSearchModal` UI interaction (`LONG_PRESS_DURATION = 650ms`) and persists through store `togglePinnedFood`.
+- Local search pin hydration is data-layer-backed: pinned IDs are fetched by ID even when they fall outside the top limited query window.
 - Food tag rendering is now centralized via `components/EnergyMap/common/FoodTagBadges.jsx`.
 - Food source/type resolution is centralized in `utils/foodTags.js`.
 - Food display naming is centralized in `utils/foodPresentation.js` (`formatFoodDisplayName`).
 - Brand presentation rule: display brand in name as **`Brand - Food name`**; avoid separate brand tag chips in food list cards.
+
+### FoodSearchModal Search Data Flow
+
+```
+Local mode:
+FoodSearchModal
+  -> searchFoodsLocal(...) in services/foodSearch.js
+    -> searchFoods(..., limit, offset) in services/foodCatalog.js (SQLite/sql.js)
+    -> getFoodsByIds(...) for first-page pinned hydration
+  -> merge local rows + cached rows + custom foods
+  -> client-side category/subcategory/sort filters
+  -> pinned-first ordering + progressive rendering
+  -> load-more can request additional SQLite pages via offset
+
+Online mode:
+FoodSearchModal
+  -> debounced searchFoodsOnline(...) in services/foodSearch.js
+    -> services/openFoodFacts.js
+  -> preview rows + cache-on-select flow
+```
 
 ### `useAnimatedModal` Hook
 
@@ -743,9 +773,12 @@ If adjusting Gemini behavior, update `FOOD_ASSISTANT_SYSTEM_INSTRUCTION` first a
 Food search now reads from `src/constants/foodDatabase.sqlite` through `src/services/foodCatalog.js` using `sql.js`.
 
 **Runtime service surface (`services/foodCatalog.js`):**
-- `searchFoods({ query, category, subcategory, sortBy, sortOrder, limit })`
+- `searchFoods({ query, category, subcategory, sortBy, sortOrder, limit, offset })`
 - `getFoodById(id)`
+- `getFoodsByIds(ids)`
 - `getDistinctSubcategories(category)`
+
+`searchFoods(...)` intentionally applies query-aware relevance ordering for name searches (`sortBy === 'name'`) so exact/prefix name matches rank above broad contains matches.
 
 **Compatibility layer:**
 - `src/constants/foodDatabase.js` now keeps `FOOD_CATEGORIES` and async helper passthroughs for legacy imports.
@@ -959,3 +992,6 @@ npm run test:watch     # Node test runner in watch mode
 54. **Food tags are centralized:** Reuse `FoodTagBadges` + `foodTags` helpers; do not add per-modal ad-hoc tag/source logic.
 55. **Brand display in food cards is name-first:** Use `formatFoodDisplayName` and avoid rendering brand as a separate chip in food list cards.
 56. **Gemini instruction authority is server-side:** Keep behavioral prompt updates in `api/gemini.js` (`FOOD_ASSISTANT_SYSTEM_INSTRUCTION`) and preserve the existing `food_parser_json` schema unless a coordinated parser/test update is intentional.
+57. **Pinned local foods must remain hydratable outside top-N result windows:** local search currently fetches pinned IDs via `getFoodsByIds(...)` on the first local page and merges them before UI filtering; do not regress to top-limited-only result sources.
+58. **Local search ranking is relevance-aware for name sorting:** exact/prefix/word-boundary name matches should outrank generic contains matches (e.g., plain `honey` should not be buried under unrelated composites).
+59. **Large food lists are progressively rendered in `FoodSearchModal`:** preserve `visibleResultCount` batching plus offset-based local pagination, and keep the count copy in "loaded count" style (`x foods found`) to avoid heavy first paint on 13k+ catalog datasets.

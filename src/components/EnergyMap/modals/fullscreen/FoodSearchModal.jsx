@@ -66,6 +66,9 @@ import {
 const CHAT_HISTORY_MESSAGE_LIMIT = 48;
 const CHAT_TEXTAREA_MAX_HEIGHT = 112;
 const DEFAULT_CHAT_PLACEHOLDER = 'Describe food + portion...';
+const LOCAL_RESULT_BATCH_SIZE = 120;
+const ONLINE_RESULT_BATCH_SIZE = 80;
+const LOCAL_DB_QUERY_PAGE_SIZE = 500;
 const AI_CATEGORY_KEYS = new Set([
   'protein',
   'carbs',
@@ -75,6 +78,40 @@ const AI_CATEGORY_KEYS = new Set([
   'custom',
   'manual',
 ]);
+
+const normalizeSearchText = (value) =>
+  String(value ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const scoreLocalNameRelevance = (query, food) => {
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) {
+    return 0;
+  }
+
+  const normalizedName = normalizeSearchText(food?.name);
+  const normalizedBrand = normalizeSearchText(food?.brand);
+  const normalizedCategory = normalizeSearchText(food?.category);
+
+  if (!normalizedName && !normalizedBrand && !normalizedCategory) {
+    return 0;
+  }
+
+  if (normalizedName === normalizedQuery) return 1000;
+  if (normalizedName.startsWith(normalizedQuery)) return 700;
+  if (` ${normalizedName} `.includes(` ${normalizedQuery} `)) return 450;
+  if (normalizedName.includes(normalizedQuery)) return 250;
+
+  if (normalizedBrand === normalizedQuery) return 140;
+  if (normalizedBrand.includes(normalizedQuery)) return 80;
+  if (normalizedCategory === normalizedQuery) return 40;
+  if (normalizedCategory.includes(normalizedQuery)) return 20;
+
+  return 0;
+};
 
 const initialUiState = {
   searchMode: 'local',
@@ -360,12 +397,18 @@ export const FoodSearchModal = ({
   const [loadingFoodId, setLoadingFoodId] = useState(null);
   const [localDbResults, setLocalDbResults] = useState([]);
   const [isLocalSearching, setIsLocalSearching] = useState(false);
+  const [isLocalLoadingMore, setIsLocalLoadingMore] = useState(false);
   const [localSearchError, setLocalSearchError] = useState(null);
+  const [localDbOffset, setLocalDbOffset] = useState(0);
+  const [hasMoreLocalDbResults, setHasMoreLocalDbResults] = useState(false);
   const [localSubcategories, setLocalSubcategories] = useState([]);
   const [favouriteFoodLookup, setFavouriteFoodLookup] = useState({});
   const [manualBarcodeInput, setManualBarcodeInput] = useState('');
   const [isBarcodeScanning, setIsBarcodeScanning] = useState(false);
   const [isBarcodeLookupPending, setIsBarcodeLookupPending] = useState(false);
+  const [visibleResultCount, setVisibleResultCount] = useState(
+    LOCAL_RESULT_BATCH_SIZE
+  );
   const [barcodeToast, setBarcodeToast] = useState(null);
   const barcodeToastTimerRef = useRef(null);
   const searchTimeoutRef = useRef(null);
@@ -399,6 +442,7 @@ export const FoodSearchModal = ({
   const chatTextareaRef = useRef(null);
   const latestChatAttachmentsRef = useRef([]);
   const latestChatMessagesRef = useRef([]);
+  const localSearchRequestIdRef = useRef(0);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -438,7 +482,10 @@ export const FoodSearchModal = ({
       setLocalSearchError(null);
       setIsSearching(false);
       setIsLocalSearching(false);
+      setIsLocalLoadingMore(false);
       setLoadingFoodId(null);
+      setLocalDbOffset(0);
+      setHasMoreLocalDbResults(false);
       dispatchUiState({ type: 'set', key: 'viewMode', value: 'search' });
       dispatchUiState({
         type: 'set',
@@ -529,26 +576,49 @@ export const FoodSearchModal = ({
     return openFoodFactsMessage || null;
   }, []);
 
-  useEffect(() => {
-    if (searchMode !== 'local' || viewMode !== 'search') {
-      return;
-    }
+  const mergeUniqueFoodsById = useCallback((baseRows, extraRows) => {
+    const mergedMap = new Map();
 
-    let cancelled = false;
-    setIsLocalSearching(true);
-    setLocalSearchError(null);
-    setSearchError(null);
+    (Array.isArray(baseRows) ? baseRows : []).forEach((food) => {
+      if (!food?.id) return;
+      mergedMap.set(food.id, food);
+    });
 
-    searchFoodsLocal({
-      query: searchQuery,
-      category: selectedCategory,
-      subcategory: selectedSubcategory,
-      sortBy,
-      sortOrder,
-      limit: 500,
-    })
-      .then((result) => {
-        if (cancelled) {
+    (Array.isArray(extraRows) ? extraRows : []).forEach((food) => {
+      if (!food?.id || mergedMap.has(food.id)) return;
+      mergedMap.set(food.id, food);
+    });
+
+    return Array.from(mergedMap.values());
+  }, []);
+
+  const runLocalSearch = useCallback(
+    async ({ append, offset }) => {
+      const requestId = localSearchRequestIdRef.current + 1;
+      localSearchRequestIdRef.current = requestId;
+
+      if (append) {
+        setIsLocalLoadingMore(true);
+      } else {
+        setIsLocalSearching(true);
+      }
+
+      setLocalSearchError(null);
+      setSearchError(null);
+
+      try {
+        const result = await searchFoodsLocal({
+          query: searchQuery,
+          category: selectedCategory,
+          subcategory: selectedSubcategory,
+          sortBy,
+          sortOrder,
+          limit: LOCAL_DB_QUERY_PAGE_SIZE,
+          offset,
+          pinnedFoodIds: resolvedPinnedFoods,
+        });
+
+        if (requestId !== localSearchRequestIdRef.current) {
           return;
         }
 
@@ -559,37 +629,72 @@ export const FoodSearchModal = ({
         setActiveSearchSource(FOOD_SEARCH_SOURCE.LOCAL);
         setSearchFallbackUsed(false);
         setSearchErrorsBySource({});
-        setLocalDbResults(safeResults);
         setOnlineResults([]);
-      })
-      .catch((error) => {
-        if (cancelled) {
-          return;
-        }
-        console.error('Local food search error:', error);
-        setLocalDbResults([]);
-        setOnlineResults([]);
-        setLocalSearchError('Local database search failed.');
-      })
-      .finally(() => {
-        if (cancelled) {
-          return;
-        }
-        setIsLocalSearching(false);
-      });
 
-    return () => {
-      cancelled = true;
-    };
+        setLocalDbResults((previousRows) =>
+          append ? mergeUniqueFoodsById(previousRows, safeResults) : safeResults
+        );
+        setLocalDbOffset(
+          Number(result?.nextOffset) || offset + safeResults.length
+        );
+        setHasMoreLocalDbResults(Boolean(result?.hasMoreLocal));
+      } catch (error) {
+        if (requestId !== localSearchRequestIdRef.current) {
+          return;
+        }
+
+        console.error('Local food search error:', error);
+        if (!append) {
+          setLocalDbResults([]);
+          setOnlineResults([]);
+        }
+        setLocalSearchError('Local database search failed.');
+        setHasMoreLocalDbResults(false);
+      } finally {
+        if (requestId === localSearchRequestIdRef.current) {
+          if (append) {
+            setIsLocalLoadingMore(false);
+          } else {
+            setIsLocalSearching(false);
+          }
+        }
+      }
+    },
+    [
+      mergeUniqueFoodsById,
+      resolvedPinnedFoods,
+      searchQuery,
+      selectedCategory,
+      selectedSubcategory,
+      sortBy,
+      sortOrder,
+    ]
+  );
+
+  useEffect(() => {
+    if (!isOpen || searchMode !== 'local' || viewMode !== 'search') {
+      return;
+    }
+
+    setLocalDbOffset(0);
+    setHasMoreLocalDbResults(false);
+    runLocalSearch({ append: false, offset: 0 });
+  }, [isOpen, runLocalSearch, searchMode, viewMode]);
+
+  useEffect(() => {
+    const batchSize =
+      searchMode === 'online'
+        ? ONLINE_RESULT_BATCH_SIZE
+        : LOCAL_RESULT_BATCH_SIZE;
+    setVisibleResultCount(batchSize);
   }, [
-    isOnline,
     searchMode,
+    viewMode,
     searchQuery,
     selectedCategory,
     selectedSubcategory,
     sortBy,
     sortOrder,
-    viewMode,
   ]);
 
   useEffect(() => {
@@ -1258,9 +1363,31 @@ export const FoodSearchModal = ({
       );
     }
 
+    const normalizedQuery = normalizeSearchText(searchQuery);
+
     results.sort((a, b) => {
       if (sortBy === 'name') {
-        return String(a.name ?? '').localeCompare(String(b.name ?? ''));
+        if (normalizedQuery) {
+          const scoreA = scoreLocalNameRelevance(normalizedQuery, a);
+          const scoreB = scoreLocalNameRelevance(normalizedQuery, b);
+
+          if (scoreA !== scoreB) {
+            return scoreB - scoreA;
+          }
+
+          const lengthA = String(a?.name ?? '').length;
+          const lengthB = String(b?.name ?? '').length;
+          if (lengthA !== lengthB) {
+            return lengthA - lengthB;
+          }
+
+          return String(a.name ?? '').localeCompare(String(b.name ?? ''));
+        }
+
+        const compare = String(a.name ?? '').localeCompare(
+          String(b.name ?? '')
+        );
+        return sortOrder === 'asc' ? compare : -compare;
       }
 
       const aValue = Number(a?.per100g?.[sortBy] ?? 0);
@@ -1329,6 +1456,47 @@ export const FoodSearchModal = ({
   // Current results based on selected browse mode
   const displayResults =
     searchMode === 'local' ? localSearchResults : onlineSearchResults;
+
+  const visibleDisplayResults = useMemo(
+    () => displayResults.slice(0, visibleResultCount),
+    [displayResults, visibleResultCount]
+  );
+
+  const hasMoreResults =
+    visibleResultCount < displayResults.length ||
+    (searchMode === 'local' && hasMoreLocalDbResults);
+
+  const handleLoadMoreResults = useCallback(() => {
+    const batchSize =
+      searchMode === 'online'
+        ? ONLINE_RESULT_BATCH_SIZE
+        : LOCAL_RESULT_BATCH_SIZE;
+
+    setVisibleResultCount((current) =>
+      Math.min(current + batchSize, displayResults.length)
+    );
+
+    if (
+      isOpen &&
+      viewMode === 'search' &&
+      searchMode === 'local' &&
+      !isLocalSearching &&
+      !isLocalLoadingMore &&
+      hasMoreLocalDbResults
+    ) {
+      runLocalSearch({ append: true, offset: localDbOffset });
+    }
+  }, [
+    displayResults.length,
+    hasMoreLocalDbResults,
+    isLocalLoadingMore,
+    isLocalSearching,
+    isOpen,
+    localDbOffset,
+    runLocalSearch,
+    searchMode,
+    viewMode,
+  ]);
 
   const getFilterActiveClass = (color) => {
     const map = {
@@ -2542,6 +2710,7 @@ export const FoodSearchModal = ({
           viewMode={viewMode}
           searchMode={searchMode}
           displayResults={displayResults}
+          visibleResultsCount={visibleDisplayResults.length}
           sortedFavourites={sortedFavourites}
           favouritesSearchQuery={favouritesSearchQuery}
           resolvedFavourites={resolvedFavourites}
@@ -2600,7 +2769,7 @@ export const FoodSearchModal = ({
                   localSearchError={localSearchError}
                   isLocalSearching={isLocalSearching}
                   isSearching={isSearching}
-                  displayResults={displayResults}
+                  displayResults={visibleDisplayResults}
                   searchQuery={searchQuery}
                   loadingFoodId={loadingFoodId}
                   handleOnlineFoodSelect={handleOnlineFoodSelect}
@@ -2612,6 +2781,23 @@ export const FoodSearchModal = ({
                   performOnlineSearch={performOnlineSearch}
                 />
               )}
+
+              {viewMode === 'search' &&
+                hasMoreResults &&
+                !isSearching &&
+                !isLocalSearching && (
+                  <div className="pt-2 pb-1 flex justify-center">
+                    <button
+                      onClick={handleLoadMoreResults}
+                      disabled={isLocalLoadingMore}
+                      className="px-4 py-2 rounded-lg border border-border bg-surface-highlight text-foreground text-sm font-medium md:hover:bg-surface pressable-card focus-ring"
+                    >
+                      {isLocalLoadingMore
+                        ? 'Loading more...'
+                        : `Show more (${visibleDisplayResults.length} loaded)`}
+                    </button>
+                  </div>
+                )}
             </div>
           </div>
         )}

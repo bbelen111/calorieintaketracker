@@ -32,6 +32,66 @@ test('searchFoodsLocal returns local results only', async () => {
   assert.equal(result.results.length, 1);
 });
 
+test('searchFoodsLocal includes pinned foods not present in base local results', async () => {
+  const result = await searchFoodsLocal({
+    query: '',
+    limit: 1,
+    pinnedFoodIds: ['food_honey'],
+    dependencies: {
+      searchLocal: async () => [
+        { id: 'food_almonds', name: 'Roasted Honey Almonds' },
+      ],
+      getFoodsByIds: async (ids) => {
+        assert.deepEqual(ids, ['food_honey']);
+        return [{ id: 'food_honey', name: 'Honey' }];
+      },
+      searchOpenFoodFacts: async () => ({ foods: [] }),
+    },
+  });
+
+  assert.equal(result.source, FOOD_SEARCH_SOURCE.LOCAL);
+  assert.deepEqual(
+    result.results.map((food) => food.id),
+    ['food_honey', 'food_almonds']
+  );
+  assert.equal(result.localOffset, 0);
+  assert.equal(result.nextOffset, 1);
+  assert.equal(result.localRowsCount, 1);
+  assert.equal(result.hasMoreLocal, true);
+});
+
+test('searchFoodsLocal supports offset pagination and skips pinned hydration on later pages', async () => {
+  const calls = [];
+
+  const result = await searchFoodsLocal({
+    query: 'honey',
+    limit: 2,
+    offset: 2,
+    pinnedFoodIds: ['food_honey'],
+    dependencies: {
+      searchLocal: async ({ offset }) => {
+        calls.push(`local:${offset}`);
+        return [{ id: 'food_3', name: 'Honey Oats' }];
+      },
+      getFoodsByIds: async () => {
+        calls.push('pinned');
+        return [{ id: 'food_honey', name: 'Honey' }];
+      },
+      searchOpenFoodFacts: async () => ({ foods: [] }),
+    },
+  });
+
+  assert.deepEqual(calls, ['local:2']);
+  assert.deepEqual(
+    result.results.map((food) => food.id),
+    ['food_3']
+  );
+  assert.equal(result.localOffset, 2);
+  assert.equal(result.nextOffset, 3);
+  assert.equal(result.localRowsCount, 1);
+  assert.equal(result.hasMoreLocal, false);
+});
+
 test('searchFoodsOnline uses OpenFoodFacts results', async () => {
   const result = await searchFoodsOnline({
     query: 'rare snack',

@@ -70,6 +70,11 @@ const loadSearchLocal = async () => {
   return module.searchFoods;
 };
 
+const loadGetFoodsByIds = async () => {
+  const module = await import('./foodCatalog.js');
+  return module.getFoodsByIds;
+};
+
 const loadSearchOpenFoodFacts = async () => {
   const module = await import('./openFoodFacts.js');
   return module.searchFoods;
@@ -207,6 +212,7 @@ const searchOnlineHierarchy = async ({
 
 const loadDependencies = async ({
   includeLocal = true,
+  includeGetFoodsByIds = false,
   dependencies = {},
 } = {}) => {
   const resolvedSearchLocal = includeLocal
@@ -214,10 +220,15 @@ const loadDependencies = async ({
     : dependencies.searchLocal;
   const resolvedSearchOpenFoodFacts =
     dependencies.searchOpenFoodFacts || (await loadSearchOpenFoodFacts());
+  const resolvedGetFoodsByIds =
+    includeLocal && includeGetFoodsByIds
+      ? dependencies.getFoodsByIds || (await loadGetFoodsByIds())
+      : dependencies.getFoodsByIds;
 
   return {
     searchLocal: resolvedSearchLocal,
     searchOpenFoodFacts: resolvedSearchOpenFoodFacts,
+    getFoodsByIds: resolvedGetFoodsByIds,
   };
 };
 
@@ -228,11 +239,24 @@ export const searchFoodsLocal = async ({
   sortBy = 'name',
   sortOrder = 'asc',
   limit = 500,
+  offset = 0,
+  pinnedFoodIds = [],
   dependencies = {},
 } = {}) => {
   const normalizedQuery = normalizeQuery(query);
+  const normalizedOffset = Math.max(0, Math.floor(Number(offset) || 0));
+  const normalizedLimit = Math.max(1, Math.floor(Number(limit) || 500));
+  const normalizedPinnedFoodIds = Array.from(
+    new Set(
+      (Array.isArray(pinnedFoodIds) ? pinnedFoodIds : [])
+        .map((id) => String(id ?? '').trim())
+        .filter(Boolean)
+    )
+  );
   const resolvedDependencies = await loadDependencies({
     includeLocal: true,
+    includeGetFoodsByIds:
+      normalizedPinnedFoodIds.length > 0 && normalizedOffset === 0,
     dependencies,
   });
 
@@ -242,11 +266,38 @@ export const searchFoodsLocal = async ({
     subcategory,
     sortBy,
     sortOrder,
-    limit,
+    limit: normalizedLimit,
+    offset: normalizedOffset,
   });
 
+  const pinnedRows =
+    normalizedOffset === 0 &&
+    normalizedPinnedFoodIds.length > 0 &&
+    typeof resolvedDependencies.getFoodsByIds === 'function'
+      ? await resolvedDependencies.getFoodsByIds(normalizedPinnedFoodIds)
+      : [];
+
+  const safeLocalResults = Array.isArray(localResults) ? localResults : [];
+
+  const mergedById = new Map();
+  (Array.isArray(pinnedRows) ? pinnedRows : []).forEach((food) => {
+    if (!food?.id) return;
+    mergedById.set(food.id, food);
+  });
+  safeLocalResults.forEach((food) => {
+    if (!food?.id || mergedById.has(food.id)) return;
+    mergedById.set(food.id, food);
+  });
+
+  const localRowsCount = safeLocalResults.length;
+  const hasMoreLocal = localRowsCount >= normalizedLimit;
+
   return {
-    results: Array.isArray(localResults) ? localResults : [],
+    results: Array.from(mergedById.values()),
+    localRowsCount,
+    localOffset: normalizedOffset,
+    nextOffset: normalizedOffset + localRowsCount,
+    hasMoreLocal,
     source: FOOD_SEARCH_SOURCE.LOCAL,
     sourcesTried: [FOOD_SEARCH_SOURCE.LOCAL],
     fallbackUsed: false,

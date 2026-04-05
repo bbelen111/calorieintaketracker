@@ -6,6 +6,7 @@ export const FoodSearchFilterControls = ({
   viewMode,
   searchMode,
   displayResults,
+  visibleResultsCount,
   sortedFavourites,
   favouritesSearchQuery,
   resolvedFavourites,
@@ -63,15 +64,17 @@ export const FoodSearchFilterControls = ({
             'Searching...'
           ) : (
             <>
-              {displayResults.length}{' '}
-              {displayResults.length === 1 ? 'result' : 'results'}
+              {visibleResultsCount ?? displayResults.length}{' '}
+              {(visibleResultsCount ?? displayResults.length) === 1
+                ? 'result'
+                : 'results'}
             </>
           )
         ) : (
           <>
             {isLocalSearching
               ? 'Searching local foods...'
-              : `${displayResults.length} ${displayResults.length === 1 ? 'food' : 'foods'} found`}
+              : `${visibleResultsCount ?? displayResults.length} ${(visibleResultsCount ?? displayResults.length) === 1 ? 'food' : 'foods'} found`}
             {resolvedCachedFoods.length > 0 && (
               <span className="ml-2 text-xs text-muted">
                 (+{resolvedCachedFoods.length} cached)

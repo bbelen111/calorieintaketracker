@@ -13,6 +13,8 @@ const SORTABLE_COLUMNS = {
 
 let dbPromise = null;
 
+const escapeSqlLike = (value) => String(value ?? '').replace(/[\\%_]/g, '\\$&');
+
 const parsePortions = (rawPortions) => {
   if (!rawPortions) {
     return [];
@@ -94,6 +96,7 @@ export const searchFoods = async ({
   sortBy = 'name',
   sortOrder = 'asc',
   limit = DEFAULT_LIMIT,
+  offset = 0,
 } = {}) => {
   const db = await getDatabase();
 
@@ -102,22 +105,25 @@ export const searchFoods = async ({
     .toLowerCase();
   const normalizedCategory = String(category ?? '').trim();
   const normalizedSubcategory = String(subcategory ?? '').trim();
+  const escapedQuery = escapeSqlLike(normalizedQuery);
 
   const normalizedLimit = Math.max(
     1,
     Math.min(Number(limit) || DEFAULT_LIMIT, 1000)
   );
+  const normalizedOffset = Math.max(0, Math.floor(Number(offset) || 0));
 
   const clauses = ['1 = 1'];
   const params = {
     ':limit': normalizedLimit,
+    ':offset': normalizedOffset,
   };
 
   if (normalizedQuery) {
     clauses.push(
       '(LOWER(name) LIKE :query OR LOWER(category) LIKE :query OR LOWER(subcategory) LIKE :query)'
     );
-    params[':query'] = `%${normalizedQuery}%`;
+    params[':query'] = `%${escapedQuery}%`;
   }
 
   if (normalizedCategory) {
@@ -132,15 +138,43 @@ export const searchFoods = async ({
 
   const sortColumn = getSortColumn(sortBy);
   const sortDirection = getSortDirection(sortOrder);
+  const useRelevanceSort = normalizedQuery.length > 0 && sortBy === 'name';
+
+  if (useRelevanceSort) {
+    params[':queryExact'] = normalizedQuery;
+    params[':queryPrefix'] = `${escapedQuery}%`;
+    params[':queryWholeWord'] = `% ${escapedQuery} %`;
+    params[':queryContains'] = `%${escapedQuery}%`;
+  }
+
+  const relevanceSelect = useRelevanceSort
+    ? `,
+      (
+        CASE
+          WHEN LOWER(name) = :queryExact THEN 1000
+          WHEN LOWER(name) LIKE :queryPrefix ESCAPE '\\' THEN 700
+          WHEN (' ' || LOWER(name) || ' ') LIKE :queryWholeWord ESCAPE '\\' THEN 450
+          WHEN LOWER(name) LIKE :queryContains ESCAPE '\\' THEN 250
+          WHEN LOWER(subcategory) = :queryExact THEN 60
+          WHEN LOWER(category) = :queryExact THEN 40
+          ELSE 0
+        END
+      ) AS relevanceScore`
+    : '';
+
+  const orderByClause = useRelevanceSort
+    ? 'relevanceScore DESC, LENGTH(name) ASC, name ASC'
+    : `${sortColumn} ${sortDirection}, name ASC`;
 
   const rows = runSelect(
     db,
     `
-      SELECT id, name, category, subcategory, calories, protein, carbs, fats, portions
+      SELECT id, name, category, subcategory, calories, protein, carbs, fats, portions${relevanceSelect}
       FROM foods
       WHERE ${clauses.join(' AND ')}
-      ORDER BY ${sortColumn} ${sortDirection}, name ASC
+      ORDER BY ${orderByClause}
       LIMIT :limit
+      OFFSET :offset
     `,
     params
   );
@@ -171,6 +205,44 @@ export const getFoodById = async (id) => {
   }
 
   return mapFoodRow(rows[0]);
+};
+
+export const getFoodsByIds = async (ids = []) => {
+  const normalizedIds = Array.from(
+    new Set(
+      (Array.isArray(ids) ? ids : [])
+        .map((id) => String(id ?? '').trim())
+        .filter(Boolean)
+    )
+  ).slice(0, 250);
+
+  if (normalizedIds.length === 0) {
+    return [];
+  }
+
+  const db = await getDatabase();
+  const placeholders = normalizedIds.map((_, index) => `:id_${index}`);
+  const params = normalizedIds.reduce((acc, id, index) => {
+    acc[`:id_${index}`] = id;
+    return acc;
+  }, {});
+
+  const rows = runSelect(
+    db,
+    `
+      SELECT id, name, category, subcategory, calories, protein, carbs, fats, portions
+      FROM foods
+      WHERE id IN (${placeholders.join(', ')})
+    `,
+    params
+  );
+
+  const rowById = new Map(rows.map((row) => [String(row.id ?? ''), row]));
+
+  return normalizedIds
+    .map((id) => rowById.get(id))
+    .filter(Boolean)
+    .map(mapFoodRow);
 };
 
 export const getDistinctSubcategories = async (category) => {
