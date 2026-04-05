@@ -20,16 +20,6 @@ const PRODUCT_FIELDS = [
   'quantity',
 ].join(',');
 
-const SEARCH_PRODUCT_FIELDS = [
-  'code',
-  'product_name',
-  'brands',
-  'nutriments',
-  'serving_size',
-  'serving_quantity',
-  'serving_quantity_unit',
-].join(',');
-
 function normalizeBarcode(barcode) {
   return String(barcode ?? '')
     .replace(/\D/g, '')
@@ -42,27 +32,6 @@ async function fetchProductByBarcode(barcode) {
     OPENFOODFACTS_API_BASE
   );
   url.searchParams.set('fields', PRODUCT_FIELDS);
-
-  const response = await fetch(url.toString(), {
-    method: 'GET',
-    headers: {
-      'User-Agent': OPENFOODFACTS_USER_AGENT,
-    },
-  });
-
-  const payload = await response.json().catch(() => ({}));
-  return { response, payload };
-}
-
-async function searchProductsByText(query, page = 1, pageSize = 20) {
-  const url = new URL('/cgi/search.pl', OPENFOODFACTS_API_BASE);
-  url.searchParams.set('search_terms', query);
-  url.searchParams.set('search_simple', '1');
-  url.searchParams.set('action', 'process');
-  url.searchParams.set('json', '1');
-  url.searchParams.set('fields', SEARCH_PRODUCT_FIELDS);
-  url.searchParams.set('page', String(page));
-  url.searchParams.set('page_size', String(pageSize));
 
   const response = await fetch(url.toString(), {
     method: 'GET',
@@ -88,57 +57,14 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { action, barcode, query, page, pageSize } = req.query;
+  const { action, barcode } = req.query;
   const normalizedAction = String(action || 'barcode').toLowerCase();
 
-  if (normalizedAction !== 'barcode' && normalizedAction !== 'search') {
+  if (normalizedAction !== 'barcode') {
     return res.status(400).json({
       error: 'Invalid action',
-      validActions: ['barcode', 'search'],
+      validActions: ['barcode'],
     });
-  }
-
-  if (normalizedAction === 'search') {
-    const normalizedQuery = String(query || '').trim();
-    if (normalizedQuery.length < 2) {
-      return res.status(400).json({
-        error: 'Valid query parameter required (min 2 characters)',
-      });
-    }
-
-    const parsedPage = Number.parseInt(String(page || '1'), 10);
-    const parsedPageSize = Number.parseInt(String(pageSize || '20'), 10);
-    const safePage =
-      Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
-    const safePageSize = Number.isFinite(parsedPageSize)
-      ? Math.min(Math.max(parsedPageSize, 1), 50)
-      : 20;
-
-    try {
-      const { response, payload } = await searchProductsByText(
-        normalizedQuery,
-        safePage,
-        safePageSize
-      );
-
-      if (!response.ok) {
-        return res.status(response.status).json({
-          error:
-            payload?.status_verbose ||
-            `OpenFoodFacts search error: ${response.status}`,
-          details: payload,
-        });
-      }
-
-      return res.status(200).json(payload);
-    } catch (error) {
-      console.error('OpenFoodFacts text search proxy error:', error);
-      return res.status(500).json({
-        error: 'Internal server error',
-        message:
-          process.env.NODE_ENV === 'development' ? error.message : undefined,
-      });
-    }
   }
 
   const normalizedBarcode = normalizeBarcode(barcode);

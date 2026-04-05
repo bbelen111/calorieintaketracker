@@ -1099,7 +1099,7 @@ export const getDefaultEnergyMapData = () => ({
   customCardioTypes: {},
   nutritionData: {},
   pinnedFoods: [],
-  cachedFoods: [], // Foods fetched from online APIs (OpenFoodFacts, etc.)
+  cachedFoods: [], // Foods fetched from online APIs (USDA, OpenFoodFacts barcode, etc.)
   dailySnapshots: {}, // { 'YYYY-MM-DD': { date, tdee, intake, deficit, stepCount, ... } }
   // nutritionData structure: { 'YYYY-MM-DD': { mealType: [{ id, name, calories, protein, carbs, fats, timestamp }] } }
   trainingType: {

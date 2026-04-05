@@ -24,6 +24,7 @@ Conservative estimation policy (HIGH PRIORITY):
   - Use typical serving ranges and pick a reasonable midpoint or slightly conservative estimate.
   - Keep assumptions explicit and brief.
 - Never invent foods, side items, toppings, or beverages not explicitly mentioned or visually evident.
+- For entries, include practical lookupTerms that improve local/USDA matching (food name, key descriptor, and brand when clearly provided).
 - If multiple plausible interpretations exist, either:
   1) ask one concise follow-up question (preferred for low confidence), or
   2) provide one best estimate with medium confidence and explicit assumptions.

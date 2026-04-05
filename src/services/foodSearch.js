@@ -1,11 +1,11 @@
 export const FOOD_SEARCH_SOURCE = {
   LOCAL: 'local',
-  OPENFOODFACTS: 'openfoodfacts',
+  USDA: 'usda',
 };
 
 export const FOOD_SEARCH_SOURCE_LABELS = {
   [FOOD_SEARCH_SOURCE.LOCAL]: 'Local',
-  [FOOD_SEARCH_SOURCE.OPENFOODFACTS]: 'OpenFoodFacts',
+  [FOOD_SEARCH_SOURCE.USDA]: 'USDA',
 };
 
 export const getFoodSearchSourceLabel = (source) => {
@@ -75,8 +75,8 @@ const loadGetFoodsByIds = async () => {
   return module.getFoodsByIds;
 };
 
-const loadSearchOpenFoodFacts = async () => {
-  const module = await import('./openFoodFacts.js');
+const loadSearchUsda = async () => {
+  const module = await import('./usda.js');
   return module.searchFoods;
 };
 
@@ -177,34 +177,32 @@ const searchOnlineHierarchy = async ({
   const sourcesTried = [];
   const errorsBySource = {};
 
-  sourcesTried.push(FOOD_SEARCH_SOURCE.OPENFOODFACTS);
+  sourcesTried.push(FOOD_SEARCH_SOURCE.USDA);
   try {
-    const openFoodFactsResult = await dependencies.searchOpenFoodFacts(query, {
+    const usdaResult = await dependencies.searchUsda(query, {
       page,
       pageSize,
     });
-    const openFoodFactsFoods = Array.isArray(openFoodFactsResult?.foods)
-      ? openFoodFactsResult.foods
-      : [];
+    const usdaFoods = Array.isArray(usdaResult?.foods) ? usdaResult.foods : [];
 
-    if (openFoodFactsFoods.length > 0) {
+    if (usdaFoods.length > 0) {
       return {
-        results: openFoodFactsFoods,
-        source: FOOD_SEARCH_SOURCE.OPENFOODFACTS,
+        results: usdaFoods,
+        source: FOOD_SEARCH_SOURCE.USDA,
         sourcesTried,
         errorsBySource,
       };
     }
   } catch (error) {
-    errorsBySource[FOOD_SEARCH_SOURCE.OPENFOODFACTS] = toErrorMessage(
+    errorsBySource[FOOD_SEARCH_SOURCE.USDA] = toErrorMessage(
       error,
-      'OpenFoodFacts search failed.'
+      'USDA search failed.'
     );
   }
 
   return {
     results: [],
-    source: FOOD_SEARCH_SOURCE.OPENFOODFACTS,
+    source: FOOD_SEARCH_SOURCE.USDA,
     sourcesTried,
     errorsBySource,
   };
@@ -218,8 +216,8 @@ const loadDependencies = async ({
   const resolvedSearchLocal = includeLocal
     ? dependencies.searchLocal || (await loadSearchLocal())
     : dependencies.searchLocal;
-  const resolvedSearchOpenFoodFacts =
-    dependencies.searchOpenFoodFacts || (await loadSearchOpenFoodFacts());
+  const resolvedSearchUsda =
+    dependencies.searchUsda || (await loadSearchUsda());
   const resolvedGetFoodsByIds =
     includeLocal && includeGetFoodsByIds
       ? dependencies.getFoodsByIds || (await loadGetFoodsByIds())
@@ -227,7 +225,7 @@ const loadDependencies = async ({
 
   return {
     searchLocal: resolvedSearchLocal,
-    searchOpenFoodFacts: resolvedSearchOpenFoodFacts,
+    searchUsda: resolvedSearchUsda,
     getFoodsByIds: resolvedGetFoodsByIds,
   };
 };
@@ -320,7 +318,7 @@ export const searchFoodsOnline = async ({
   if (!normalizedQuery || normalizedQuery.length < ONLINE_QUERY_MIN_LENGTH) {
     return {
       ...buildDefaultResult(),
-      source: FOOD_SEARCH_SOURCE.OPENFOODFACTS,
+      source: FOOD_SEARCH_SOURCE.USDA,
     };
   }
 
@@ -425,34 +423,33 @@ export const resolveAiFoodLookup = async ({
 
   if (!shouldSkipOnline) {
     for (const term of terms) {
-      if (!sourcesTried.includes(FOOD_SEARCH_SOURCE.OPENFOODFACTS)) {
-        sourcesTried.push(FOOD_SEARCH_SOURCE.OPENFOODFACTS);
+      if (!sourcesTried.includes(FOOD_SEARCH_SOURCE.USDA)) {
+        sourcesTried.push(FOOD_SEARCH_SOURCE.USDA);
       }
 
       try {
-        const openFoodFactsResult =
-          await resolvedDependencies.searchOpenFoodFacts(term, {
-            page: 1,
-            pageSize: onlinePageSize,
-          });
-        const openFoodFactsFoods = Array.isArray(openFoodFactsResult?.foods)
-          ? openFoodFactsResult.foods
+        const usdaResult = await resolvedDependencies.searchUsda(term, {
+          page: 1,
+          pageSize: onlinePageSize,
+        });
+        const usdaFoods = Array.isArray(usdaResult?.foods)
+          ? usdaResult.foods
           : [];
-        const openFoodFactsMatch = pickBestMatch(term, openFoodFactsFoods);
+        const usdaMatch = pickBestMatch(term, usdaFoods);
 
         maybeKeepBest({
-          match: openFoodFactsMatch,
-          source: FOOD_SEARCH_SOURCE.OPENFOODFACTS,
+          match: usdaMatch,
+          source: FOOD_SEARCH_SOURCE.USDA,
           queryUsed: term,
         });
 
-        if (openFoodFactsMatch?.score >= AI_SCORE_THRESHOLD.high) {
+        if (usdaMatch?.score >= AI_SCORE_THRESHOLD.high) {
           break;
         }
       } catch (error) {
-        errorsBySource[FOOD_SEARCH_SOURCE.OPENFOODFACTS] = toErrorMessage(
+        errorsBySource[FOOD_SEARCH_SOURCE.USDA] = toErrorMessage(
           error,
-          'OpenFoodFacts search failed.'
+          'USDA search failed.'
         );
       }
     }

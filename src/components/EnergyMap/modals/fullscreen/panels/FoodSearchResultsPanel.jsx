@@ -27,7 +27,13 @@ export const FoodSearchResultsPanel = ({
     {searchMode === 'online' && fallbackUsed && (
       <div className="bg-accent-blue/10 border border-accent-blue/30 rounded-lg p-3">
         <p className="text-accent-blue text-xs font-medium">
-          Showing {activeSearchSource === 'openfoodfacts' ? 'OpenFoodFacts' : 'online'} fallback results.
+          Showing{' '}
+          {activeSearchSource === 'usda'
+            ? 'USDA'
+            : activeSearchSource === 'openfoodfacts'
+              ? 'OpenFoodFacts'
+              : 'online'}{' '}
+          fallback results.
         </p>
       </div>
     )}

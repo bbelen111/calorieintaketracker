@@ -1,6 +1,6 @@
 ﻿# Energy Map Calorie Tracker
 
-A **React + Vite** single-page app for fitness calorie tracking, wrapped by Capacitor for mobile deployment (iOS/Android). Local-first architecture with Zustand state management, Dexie-backed history persistence, and OpenFoodFacts-backed online food search with barcode lookup.
+A **React + Vite** single-page app for fitness calorie tracking, wrapped by Capacitor for mobile deployment (iOS/Android). Local-first architecture with Zustand state management, Dexie-backed history persistence, USDA-backed online food search, and OpenFoodFacts barcode lookup.
 
 ## 🎯 Features
 
@@ -102,7 +102,7 @@ $$
 | **Animations** | Framer Motion | 12.23.24 |
 | **Styling** | Tailwind CSS | 3.4.17 |
 | **Icons** | Lucide React | 0.562.0 |
-| **External APIs** | OpenFoodFacts, Gemini | — |
+| **External APIs** | USDA FoodData Central, OpenFoodFacts, Gemini | — |
 
 **Key Capacitor Plugins:**
 - `@capacitor/preferences`, `@capacitor/app`, `@capacitor/status-bar`, `@capacitor/keyboard`, `@capacitor/barcode-scanner`, `@capgo/capacitor-health`, `@capgo/capacitor-navigation-bar`
@@ -184,7 +184,8 @@ src/
 │   └─ [26+ more utils]
 ├─ services/
 │   ├─ foodCatalog.js              # SQLite local food search
-│   ├─ openFoodFacts.js            # Online food/barcode lookup
+│   ├─ usda.js                     # Online USDA food search
+│   ├─ openFoodFacts.js            # OpenFoodFacts barcode lookup
 │   ├─ gemini.js                   # AI food parsing
 │   └─ barcodeScanner.js
 ├─ hooks/
@@ -334,17 +335,21 @@ Snapshots include denormalized `goalAtSnapshot` for historical analysis.
 
 ## 🔗 Integrations
 
-### OpenFoodFacts
+### USDA Search + OpenFoodFacts Barcode
 
-Online food search and barcode lookup via Vercel serverless proxy.
+Online text search uses USDA FoodData Central via Vercel proxy, while barcode lookup remains OpenFoodFacts-backed.
 
 ```javascript
-import { searchFoods, searchBarcode } from './services/openFoodFacts';
-const results = await searchFoods('chicken breast');
+import { searchFoods as searchUsdaFoods } from './services/usda';
+import { searchBarcode } from './services/openFoodFacts';
+
+const results = await searchUsdaFoods('chicken breast');
 const food = await searchBarcode('012345678901');
 ```
 
-**Configuration:** Set `VITE_OPENFOODFACTS_API_BASE` env var (default: `https://calorieintaketracker.vercel.app/api/openfoodfacts`)
+**Configuration:**
+- `VITE_USDA_API_BASE` (default: `https://calorieintaketracker.vercel.app/api/usda`)
+- `VITE_OPENFOODFACTS_API_BASE` (default: `https://calorieintaketracker.vercel.app/api/openfoodfacts`)
 
 ### Gemini AI Parsing
 
@@ -435,6 +440,7 @@ Auto-adjust: 400-level shades (dark/AMOLED), 600-level (light).
 
 ```env
 VITE_OPENFOODFACTS_API_BASE=https://your-vercel-url/api/openfoodfacts
+VITE_USDA_API_BASE=https://your-vercel-url/api/usda
 VITE_GEMINI_API_BASE=https://your-vercel-url/api/gemini
 ```
 
@@ -465,7 +471,7 @@ Tests use Node's built-in `--test` runner with ESM. Coverage includes:
 - **Calculations** — BMR, TDEE, cardio, training, TEF, AT, EPOC
 - **Storage** — Persistence split, Dexie sharding, profile/history semantics
 - **Utilities** — Steps, weight, body fat, phases, snapshots, date keys
-- **Services** — Food search, OpenFoodFacts, food catalog
+- **Services** — Food search, USDA, OpenFoodFacts barcode, food catalog
 
 ```bash
 npm test

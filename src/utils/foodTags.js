@@ -47,8 +47,10 @@ export const resolveFoodSourceType = (food) => {
 
   if (
     source === 'openfoodfacts' ||
+    source === 'usda' ||
     foodId.startsWith('fs_') ||
     foodId.startsWith('off_') ||
+    foodId.startsWith('usda_') ||
     category === 'cached'
   ) {
     return FOOD_SOURCE_TYPES.CACHED;

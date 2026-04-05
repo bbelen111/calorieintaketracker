@@ -2497,7 +2497,7 @@ export const EnergyMapCalculator = () => {
       if (!foodEntry) return;
 
       // Determine source properly:
-      // - 'openfoodfacts' for cached online foods
+      // - 'usda'/'openfoodfacts' for cached online foods
       // - 'manual' for manual entries (from FoodEntryModal)
       // - 'user' for custom foods (from AddCustomFoodModal)
       // - null for local database foods

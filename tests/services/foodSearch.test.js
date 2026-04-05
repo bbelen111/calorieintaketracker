@@ -19,9 +19,9 @@ test('searchFoodsLocal returns local results only', async () => {
         calls.push('local');
         return [{ id: 'local_1', name: 'Chicken Breast' }];
       },
-      searchOpenFoodFacts: async () => {
-        calls.push('openfoodfacts');
-        return { foods: [{ id: 'off_1', name: 'Chicken Product' }] };
+      searchUsda: async () => {
+        calls.push('usda');
+        return { foods: [{ id: 'usda_1', name: 'Chicken Product' }] };
       },
     },
   });
@@ -45,7 +45,7 @@ test('searchFoodsLocal includes pinned foods not present in base local results',
         assert.deepEqual(ids, ['food_honey']);
         return [{ id: 'food_honey', name: 'Honey' }];
       },
-      searchOpenFoodFacts: async () => ({ foods: [] }),
+      searchUsda: async () => ({ foods: [] }),
     },
   });
 
@@ -77,7 +77,7 @@ test('searchFoodsLocal supports offset pagination and skips pinned hydration on 
         calls.push('pinned');
         return [{ id: 'food_honey', name: 'Honey' }];
       },
-      searchOpenFoodFacts: async () => ({ foods: [] }),
+      searchUsda: async () => ({ foods: [] }),
     },
   });
 
@@ -92,32 +92,32 @@ test('searchFoodsLocal supports offset pagination and skips pinned hydration on 
   assert.equal(result.hasMoreLocal, false);
 });
 
-test('searchFoodsOnline uses OpenFoodFacts results', async () => {
+test('searchFoodsOnline uses USDA results', async () => {
   const result = await searchFoodsOnline({
     query: 'rare snack',
     dependencies: {
-      searchOpenFoodFacts: async () => ({
-        foods: [{ id: 'off_1', name: 'Rare Snack' }],
+      searchUsda: async () => ({
+        foods: [{ id: 'usda_1', name: 'Rare Snack' }],
       }),
     },
   });
 
-  assert.equal(result.source, FOOD_SEARCH_SOURCE.OPENFOODFACTS);
+  assert.equal(result.source, FOOD_SEARCH_SOURCE.USDA);
   assert.equal(result.fallbackUsed, false);
-  assert.deepEqual(result.sourcesTried, ['openfoodfacts']);
-  assert.equal(result.results[0].id, 'off_1');
+  assert.deepEqual(result.sourcesTried, ['usda']);
+  assert.equal(result.results[0].id, 'usda_1');
 });
 
 test('searchFoodsOnline returns empty for short queries', async () => {
   const result = await searchFoodsOnline({
     query: 'a',
     dependencies: {
-      searchOpenFoodFacts: async () => ({ foods: [{ id: 'off_1' }] }),
+      searchUsda: async () => ({ foods: [{ id: 'usda_1' }] }),
     },
   });
 
   assert.equal(result.results.length, 0);
-  assert.equal(result.source, FOOD_SEARCH_SOURCE.OPENFOODFACTS);
+  assert.equal(result.source, FOOD_SEARCH_SOURCE.USDA);
   assert.deepEqual(result.sourcesTried, []);
 });
 
@@ -125,17 +125,17 @@ test('searchFoodsOnline records source errors', async () => {
   const result = await searchFoodsOnline({
     query: 'cereal',
     dependencies: {
-      searchOpenFoodFacts: async () => {
-        throw new Error('openfoodfacts down');
+      searchUsda: async () => {
+        throw new Error('usda down');
       },
     },
   });
 
   assert.equal(result.results.length, 0);
-  assert.deepEqual(result.sourcesTried, ['openfoodfacts']);
+  assert.deepEqual(result.sourcesTried, ['usda']);
   assert.equal(
-    result.errorsBySource[FOOD_SEARCH_SOURCE.OPENFOODFACTS],
-    'openfoodfacts down'
+    result.errorsBySource[FOOD_SEARCH_SOURCE.USDA],
+    'usda down'
   );
 });
 
@@ -153,9 +153,9 @@ test('resolveAiFoodLookup keeps strong local match without online fallback', asy
           { id: 'local_other', name: 'Rice', category: 'carbs' },
         ];
       },
-      searchOpenFoodFacts: async () => {
-        calls.push('openfoodfacts');
-        return { foods: [{ id: 'off_1', name: 'Chicken Product' }] };
+      searchUsda: async () => {
+        calls.push('usda');
+        return { foods: [{ id: 'usda_1', name: 'Chicken Product' }] };
       },
     },
   });
@@ -185,14 +185,14 @@ test('resolveAiFoodLookup uses online fallback when local match is weak', async 
         }
         return [];
       },
-      searchOpenFoodFacts: async () => ({
-        foods: [{ id: 'off_match', name: 'Cacao Tablet', category: 'fats' }],
+      searchUsda: async () => ({
+        foods: [{ id: 'usda_match', name: 'Cacao Tablet', category: 'fats' }],
       }),
     },
   });
 
   assert.equal(result.status, 'resolved');
-  assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.OPENFOODFACTS);
+  assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.USDA);
   assert.equal(result.matchedFood?.name, 'Cacao Tablet');
   assert.equal(result.queryUsed, 'cacao tablet');
   assert.equal(result.fallbackUsed, true);
@@ -204,8 +204,8 @@ test('searchFoodsHierarchically local wrapper maps to local-only behavior', asyn
     query: 'oats',
     dependencies: {
       searchLocal: async () => [{ id: 'oats_1', name: 'Rolled Oats' }],
-      searchOpenFoodFacts: async () => ({
-        foods: [{ id: 'off_1', name: 'Oats Product' }],
+      searchUsda: async () => ({
+        foods: [{ id: 'usda_1', name: 'Oats Product' }],
       }),
     },
   });

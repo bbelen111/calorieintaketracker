@@ -559,7 +559,7 @@ export const FoodSearchModal = ({
     setSearchErrorsBySource({});
     setActiveSearchSource(
       searchMode === 'online'
-        ? FOOD_SEARCH_SOURCE.OPENFOODFACTS
+        ? FOOD_SEARCH_SOURCE.USDA
         : FOOD_SEARCH_SOURCE.LOCAL
     );
     setLocalSearchError(null);
@@ -570,10 +570,9 @@ export const FoodSearchModal = ({
   }, [searchMode]);
 
   const resolveSourceSearchError = useCallback((errorsBySource) => {
-    const openFoodFactsMessage =
-      errorsBySource?.[FOOD_SEARCH_SOURCE.OPENFOODFACTS];
+    const usdaMessage = errorsBySource?.[FOOD_SEARCH_SOURCE.USDA];
 
-    return openFoodFactsMessage || null;
+    return usdaMessage || null;
   }, []);
 
   const mergeUniqueFoodsById = useCallback((baseRows, extraRows) => {
@@ -798,7 +797,7 @@ export const FoodSearchModal = ({
         setIsSearching(false);
         setSearchFallbackUsed(false);
         setSearchErrorsBySource({});
-        setActiveSearchSource(FOOD_SEARCH_SOURCE.OPENFOODFACTS);
+        setActiveSearchSource(FOOD_SEARCH_SOURCE.USDA);
         return;
       }
 
@@ -821,9 +820,7 @@ export const FoodSearchModal = ({
           : [];
 
         setOnlineResults(safeResults);
-        setActiveSearchSource(
-          result?.source || FOOD_SEARCH_SOURCE.OPENFOODFACTS
-        );
+        setActiveSearchSource(result?.source || FOOD_SEARCH_SOURCE.USDA);
         setSearchFallbackUsed(Boolean(result?.fallbackUsed));
         setSearchErrorsBySource(result?.errorsBySource || {});
         setSearchError(resolveSourceSearchError(result?.errorsBySource));
@@ -854,7 +851,7 @@ export const FoodSearchModal = ({
       setSearchError(null);
       setSearchFallbackUsed(false);
       setSearchErrorsBySource({});
-      setActiveSearchSource(FOOD_SEARCH_SOURCE.OPENFOODFACTS);
+      setActiveSearchSource(FOOD_SEARCH_SOURCE.USDA);
       return;
     }
 
@@ -2583,7 +2580,7 @@ export const FoodSearchModal = ({
                 }}
                 placeholder={
                   searchMode === 'online'
-                    ? 'Search online foods (OpenFoodFacts)...'
+                    ? 'Search online foods (USDA)...'
                     : 'Search local foods...'
                 }
                 className="w-full bg-surface-highlight border border-border rounded-lg pl-11 pr-10 py-3 text-foreground placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent-blue"

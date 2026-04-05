@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor for mobile deployment (iOS/Android). Local-first architecture with Zustand state management, Dexie-backed history persistence plus Capacitor Preferences for profile/settings, and OpenFoodFacts-backed online food search + barcode lookup.
+React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor for mobile deployment (iOS/Android). Local-first architecture with Zustand state management, Dexie-backed history persistence plus Capacitor Preferences for profile/settings, and USDA-backed online food search + OpenFoodFacts barcode lookup.
 
 **Tech Stack:**
 - React 18.3.1 + Vite 5.4.11 (dev server on `localhost:5173`, `strictPort: true`)
@@ -14,7 +14,7 @@ React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor 
 - Framer Motion 12.23.24 (animations)
 - Tailwind 3.4.17 (styling via CSS variable–based semantic tokens)
 - Lucide React 0.562.0 (icons)
-- **External APIs:** OpenFoodFacts (online text search + barcode lookup via `api/openfoodfacts.js`), Gemini (AI parsing via `api/gemini.js`)
+- **External APIs:** USDA FoodData Central (online text search via `api/usda.js`), OpenFoodFacts (barcode lookup via `api/openfoodfacts.js`), Gemini (AI parsing via `api/gemini.js`)
 
 **Key Capacitor Plugins:**
 - `@capacitor/preferences` — Profile/settings storage
@@ -200,7 +200,7 @@ FoodSearchModal
 Online mode:
 FoodSearchModal
   -> debounced searchFoodsOnline(...) in services/foodSearch.js
-    -> services/openFoodFacts.js
+    -> services/usda.js
   -> preview rows + cache-on-select flow
 ```
 
@@ -725,25 +725,32 @@ When editing phase logic:
 
 ---
 
-## OpenFoodFacts Integration
+## USDA Search + OpenFoodFacts Barcode Integration
 
-Online food search and barcode lookup are proxied through Vercel serverless function for consistent error handling and centralized request headers.
+Online text search and barcode lookup are split across two proxied services for consistent error handling and centralized credentials.
 
 **Architecture:**
-- `services/openFoodFacts.js` — Client service with timeout + native base URL guard, maps product payload to app food schema.
-- `api/openfoodfacts.js` — Vercel proxy supporting `action=search` (text search) and `action=barcode` (product lookup).
+- `services/usda.js` — Client service for online text search (FoodData Central), with timeout + native base URL guard.
+- `api/usda.js` — Vercel proxy supporting `action=search` (text search).
+- `services/openFoodFacts.js` — Client service for barcode lookups.
+- `api/openfoodfacts.js` — Vercel proxy supporting `action=barcode` (product lookup).
 
 **Configuration:**
-- Native builds: Set `VITE_OPENFOODFACTS_API_BASE` env var to deployed Vercel URL
-- Default: `https://calorieintaketracker.vercel.app/api/openfoodfacts`
+- Native builds: set `VITE_USDA_API_BASE` for USDA search and `VITE_OPENFOODFACTS_API_BASE` for barcode lookup.
+- Defaults:
+  - USDA: `https://calorieintaketracker.vercel.app/api/usda`
+  - OpenFoodFacts barcode: `https://calorieintaketracker.vercel.app/api/openfoodfacts`
 - Recommended Vercel env vars:
+  - `USDA_API_KEY=<your FoodData Central API key>`
   - `OPENFOODFACTS_USER_AGENT=EnergyMapCalorieTracker/1.0 (contact@example.com)`
   - Optional: `OPENFOODFACTS_API_BASE` (defaults to `https://world.openfoodfacts.org`)
 
-**Key function:**
+**Key functions:**
 ```javascript
-import { searchFoods, searchBarcode } from './services/openFoodFacts';
-const results = await searchFoods('chicken breast', { page: 1, pageSize: 20 });
+import { searchFoods as searchUsdaFoods } from './services/usda';
+import { searchBarcode } from './services/openFoodFacts';
+
+const results = await searchUsdaFoods('chicken breast', { page: 1, pageSize: 20 });
 const food = await searchBarcode('012345678901');
 ```
 
@@ -877,7 +884,8 @@ src/
 │   ├─ trackerHelpers.jsx        # Shared trend/goal-alignment helpers + TrendIcon
 │   └─ time.js                   # Time/duration helpers (normalize, round, format, split)
 ├─ services/
-│   ├─ openFoodFacts.js          # OpenFoodFacts online search + barcode lookup client
+│   ├─ usda.js                   # USDA online search client
+│   ├─ openFoodFacts.js          # OpenFoodFacts barcode lookup client
 │   ├─ barcodeScanner.js         # Official Capacitor barcode scanner wrapper
 │   └─ foodCatalog.js            # SQLite-backed local food catalog service (sql.js)
 ├─ scripts/
