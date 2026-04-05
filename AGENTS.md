@@ -867,33 +867,33 @@ src/
 ├─ utils/
 │   ├─ calculations/
 │   │  ├─ calculations.js        # Core calorie formulas — BMR/cardio/training/TDEE/TEF
-│   │  ├─ adaptiveThermogenesis.js
-│   │  ├─ dailySnapshots.js
-│   │  ├─ epoc.js
-│   │  ├─ goalAlignment.js
-│   │  ├─ macroRecommendations.js
-│   │  ├─ sessionCarryover.js
-│   │  └─ steps.js
+│   │  ├─ adaptiveThermogenesis.js # Adaptive thermogenesis mode resolution + crude/smart correction engine
+│   │  ├─ dailySnapshots.js      # Derived daily snapshot builder + equality helpers
+│   │  ├─ epoc.js                # Session EPOC estimate + carryover window resolution
+│   │  ├─ goalAlignment.js       # Weight trend vs goal alignment evaluation
+│   │  ├─ macroRecommendations.js # Macro target recommendation engine with profile anchoring and constraint-based logic
+│   │  ├─ sessionCarryover.js    # Allocates carryover calories across date boundaries
+│   │  └─ steps.js               # Step range parsing, step calorie estimation, getStepDetails
 │   ├─ data/
-│   │  ├─ dateKeys.js
-│   │  ├─ historyDatabase.js
-│   │  ├─ phaseLogV2.js
-│   │  └─ storage.js
+│   │  ├─ dateKeys.js            # Canonical local/UTC date key formatters (`YYYY-MM-DD`)
+│   │  ├─ historyDatabase.js     # Dexie history DB adapter + sharded document helpers
+│   │  ├─ phaseLogV2.js          # Normalized phase/log domain; source-of-truth for phase state
+│   │  └─ storage.js             # Orchestrates profile (Preferences) + history (Dexie) persistence
 │   ├─ measurements/
-│   │  ├─ bodyFat.js
-│   │  ├─ profile.js
-│   │  └─ weight.js
+│   │  ├─ bodyFat.js             # Body fat validation, trend analysis, sparklines
+│   │  ├─ profile.js             # Age/height sanitization helpers (sanitizeAge, sanitizeHeight, AGE/HEIGHT min/max constants)
+│   │  └─ weight.js              # Date normalization, weight clamping, sorting, trend analysis, sparklines
 │   ├─ food/
-│   │  ├─ foodPresentation.js
-│   │  └─ foodTags.js
+│   │  ├─ foodPresentation.js    # Food display naming helpers (brand + name formatting)
+│   │  └─ foodTags.js            # Canonical food source/type resolver + badge metadata/classes
 │   ├─ formatting/
-│   │  ├─ format.js
-│   │  └─ time.js
+│   │  ├─ format.js              # Number formatting (formatOne: 1 decimal place)
+│   │  └─ time.js                # Time/duration helpers (normalize, round, format, split)
 │   ├─ phases/
-│   │  └─ phases.js
+│   │  └─ phases.js              # Phase metrics calculation
 │   ├─ visuals/
-│   │  ├─ bezierPath.js
-│   │  ├─ scroll.js
+│   │  ├─ bezierPath.js          # SVG cubic Bézier curve interpolation for charts
+│   │  ├─ scroll.js              # Scroll utilities
 │   │  └─ trackerHelpers.jsx
 │   ├─ theme.js                  # Native theme application (status bar, transparent nav bar, keyboard)
 │   ├─ export.js                 # CSV/JSON export generation
@@ -914,14 +914,14 @@ src/
     ├─ calculations.test.js
     ├─ dateKeys.test.js
     ├─ adaptiveThermogenesis.test.js
-    ├─ dailySnapshots.test.js   # Snapshot derivation and helper behavior tests
+    ├─ dailySnapshots.test.js    # Snapshot derivation and helper behavior tests
     ├─ phaseLogV2.test.js
     ├─ phases.test.js
     ├─ sessionCarryover.test.js
     ├─ steps.test.js
     ├─ foodTags.test.js
     ├─ storage.sharding.test.js
-    └─ storage.test.js          # Persistence split + Dexie-first behavior tests
+    └─ storage.test.js           # Persistence split + Dexie-first behavior tests
 ```
 
 ---

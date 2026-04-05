@@ -169,19 +169,44 @@ src/
 │   │   ├─ pickers/                # Value selectors (Age, Calendar, Duration, etc.)
 │   │   ├─ info/                   # Info/reference modals (BmiInfo, BmrInfo, etc.)
 │   │   ├─ forms/                  # Data entry (CardioModal, GoalModal, etc.)
-│   │   ├─ lists/                  # Browseable lists
+│   │   ├─ lists/                  # Browseable lists (`CalorieTargetModal`, CardioFavourites, CardioTypeList)
 │   │   └─ common/                 # ConfirmActionModal, ModalShell
 │   └─ screens/                    # 5 carousel screens + PhaseDetailScreen
 ├─ store/
 │   └─ useEnergyMapStore.js        # Zustand store (state, actions, derived values, persistence)
 ├─ utils/
-│   ├─ calculations.js             # ALL calorie formulas (BMR, TDEE, cardio, training, TEF, AT)
-│   ├─ dailySnapshots.js           # Derived daily snapshot builder
-│   ├─ storage.js                  # Profile + Dexie orchestration
-│   ├─ historyDatabase.js          # Dexie adapter
-│   ├─ steps.js                    # Step calculation & range parsing
+│   ├─ calculations/               # Core calorie formulas and related helpers
+│   │   ├─ calculations.js         # BMR, TDEE, cardio, training, TEF, AT
+│   │   ├─ adaptiveThermogenesis.js
+│   │   ├─ dailySnapshots.js
+│   │   ├─ epoc.js
+│   │   ├─ goalAlignment.js
+│   │   ├─ macroRecommendations.js
+│   │   ├─ sessionCarryover.js
+│   │   └─ steps.js
+│   ├─ data/                       # Persistence, date keys, phase-log normalization
+│   │   ├─ dateKeys.js
+│   │   ├─ historyDatabase.js
+│   │   ├─ phaseLogV2.js
+│   │   └─ storage.js
+│   ├─ measurements/               # Weight, body fat, and profile sanitization helpers
+│   │   ├─ bodyFat.js
+│   │   ├─ profile.js
+│   │   └─ weight.js
+│   ├─ food/                       # Food presentation and tag helpers
+│   │   ├─ foodPresentation.js
+│   │   └─ foodTags.js
+│   ├─ formatting/                 # Number/time formatting helpers
+│   │   ├─ format.js
+│   │   └─ time.js
+│   ├─ phases/                     # Phase metrics helpers
+│   │   └─ phases.js
+│   ├─ visuals/                    # Path, scroll, and tracker helpers
+│   │   ├─ bezierPath.js
+│   │   ├─ scroll.js
+│   │   └─ trackerHelpers.jsx
 │   ├─ theme.js                    # Native theme application
-│   └─ [26+ more utils]
+│   └─ export.js                   # CSV/JSON export generation
 ├─ services/
 │   ├─ foodCatalog.js              # SQLite local food search
 │   ├─ usda.js                     # Online USDA food search
@@ -194,10 +219,12 @@ src/
 │   ├─ useHealthConnect.js         # Android Health Connect
 │   └─ [3+ more hooks]
 ├─ constants/
-│   ├─ foodDatabase.sqlite         # Local food catalog (13k+ foods)
-│   ├─ cardioTypes.js              # Cardio activities with MET values
-│   ├─ goals.js, mealTypes.js, activityPresets.js
-│   └─ [more constants]
+│   ├─ activity/                   # Activity multipliers and presets
+│   ├─ cardio/                     # Cardio metadata and cadence/ambulatory flags
+│   ├─ food/                       # Food category metadata and catalog helpers
+│   ├─ goals/                      # Goal definitions
+│   ├─ meal/                       # Meal type ordering/helpers
+│   └─ phases/                     # Phase templates
 └─ tests/
     ├─ utils/                       # calc, steps, phases, storage, etc.
     ├─ services/
@@ -274,7 +301,7 @@ const myModal = useAnimatedModal();
 
 ### Calculations
 
-Use centralized functions from `utils/calculations.js`:
+Use centralized functions from `utils/calculations/calculations.js`:
 
 ```javascript
 const bmr = calculateBMR(userData);
@@ -394,7 +421,7 @@ const health = useHealthConnect();
 | Smart TEF | `calculateTefFromMacros({...})` | Protein×25% + Carbs×8% + Fats×2% |
 | Adaptive Thermogenesis | `computeAdaptiveThermogenesis({...})` | Bounded ±300 kcal/day correction |
 
-All formulas are **centralized** in `utils/calculations.js`. Never duplicate or inline calculations.
+All formulas are **centralized** in `utils/calculations/calculations.js`. Never duplicate or inline calculations.
 
 ## 🎨 Theme System
 
@@ -426,7 +453,7 @@ Auto-adjust: 400-level shades (dark/AMOLED), 600-level (light).
 1. **Never hardcode colors** — Use semantic tokens (`bg-surface`, `text-foreground`) and accent colors
 2. **Subscriptions must use `shallow`** — Prevents unnecessary re-renders on store updates
 3. **Async storage is always awaited** — `Preferences.get()`/`.set()` are async
-4. **Do not duplicate calculations** — Always consume from store or `utils/calculations.js`
+4. **Do not duplicate calculations** — Always consume from store or `utils/calculations/calculations.js`
 5. **Save debounce is critical** — Removing 1-second debounce causes UI freezes on large JSON writes
 6. **Modal close must use `requestClose()`** — `forceClose()` skips exit animations
 7. **Always use `seedDate` helpers** — Avoid ad-hoc `toISOString().split('T')[0]` for date keys
@@ -481,7 +508,8 @@ npm test:watch
 ## 📖 Additional Resources
 
 - See `AGENTS.md` for comprehensive architecture & implementation guidelines
-- `utils/calculations.js` — Comment-heavy calorie formula reference
+- `utils/calculations/calculations.js` — Comment-heavy calorie formula reference
+- `constants/cardio/cardioTypes.js` — Cardio metadata reference
 - `store/useEnergyMapStore.js` — Store structure & action patterns
 - `tests/` — Working examples of utility usage & calculation validation
 
