@@ -2502,12 +2502,14 @@ export const EnergyMapCalculator = () => {
       // - 'user' for custom foods (from AddCustomFoodModal)
       // - null for local database foods
       const source = foodEntry.source || sourceFood?.source || null;
+      const resolvedCategory =
+        foodEntry.category || sourceFood?.category || (source ? 'cached' : 'custom');
 
       const favourite = {
         foodId: foodEntry.foodId || sourceFood?.id || null,
         name: foodEntry.name || sourceFood?.name || 'Custom Food',
         brand: sourceFood?.brand || foodEntry.brand || null,
-        category: sourceFood?.category || 'supplements',
+        category: resolvedCategory,
         grams: foodEntry.grams,
         calories: foodEntry.calories || 0,
         protein: foodEntry.protein || 0,

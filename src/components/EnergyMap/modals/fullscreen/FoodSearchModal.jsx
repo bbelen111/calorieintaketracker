@@ -41,7 +41,6 @@ import {
   searchFoods as searchLocalFoods,
 } from '../../../../services/foodCatalog';
 import {
-  searchFoods as searchOnlineFoods,
   getFoodDetails,
   addToFoodCache,
   trimFoodCache,
@@ -51,6 +50,11 @@ import {
   searchBarcode as searchOpenFoodFactsBarcode,
   OpenFoodFactsError,
 } from '../../../../services/openFoodFacts';
+import {
+  FOOD_SEARCH_SOURCE,
+  getFoodSearchSourceLabel,
+  searchFoodsHierarchically,
+} from '../../../../services/foodSearch';
 import {
   BarcodeScannerError,
   canUseNativeBarcodeScanner,
@@ -65,6 +69,16 @@ import {
 
 const CHAT_HISTORY_MESSAGE_LIMIT = 48;
 const CHAT_TEXTAREA_MAX_HEIGHT = 112;
+const DEFAULT_CHAT_PLACEHOLDER = 'Describe food + portion...';
+const AI_CATEGORY_KEYS = new Set([
+  'protein',
+  'carbs',
+  'vegetables',
+  'fats',
+  'supplements',
+  'custom',
+  'manual',
+]);
 
 const initialUiState = {
   searchMode: 'local',
@@ -342,6 +356,10 @@ export const FoodSearchModal = ({
   const [onlineResults, setOnlineResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState(null);
+  const [activeSearchSource, setActiveSearchSource] =
+    useState(FOOD_SEARCH_SOURCE.LOCAL);
+  const [searchFallbackUsed, setSearchFallbackUsed] = useState(false);
+  const [, setSearchErrorsBySource] = useState({});
   const [loadingFoodId, setLoadingFoodId] = useState(null);
   const [localDbResults, setLocalDbResults] = useState([]);
   const [isLocalSearching, setIsLocalSearching] = useState(false);
@@ -365,13 +383,18 @@ export const FoodSearchModal = ({
   // AI chat state
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
+  const [chatPlaceholder, setChatPlaceholder] = useState(
+    DEFAULT_CHAT_PLACEHOLDER
+  );
   const [chatAttachments, setChatAttachments] = useState([]);
   const [chatError, setChatError] = useState(null);
   const [isSendingChat, setIsSendingChat] = useState(false);
   const [activeChatRequest, setActiveChatRequest] = useState(null);
   const [expandedAiEntryKeys, setExpandedAiEntryKeys] = useState({});
+  const [aiEntryLookupByKey, setAiEntryLookupByKey] = useState({});
   const [loggedAiEntryKeys, setLoggedAiEntryKeys] = useState({});
   const [favouritedAiEntryKeys, setFavouritedAiEntryKeys] = useState({});
+  const aiEntryLookupRequestsRef = useRef(new Map());
   const chatAbortControllerRef = useRef(null);
   const chatScrollRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -411,6 +434,9 @@ export const FoodSearchModal = ({
       // Clear online search state on close
       setOnlineResults([]);
       setSearchError(null);
+      setSearchFallbackUsed(false);
+      setSearchErrorsBySource({});
+      setActiveSearchSource(FOOD_SEARCH_SOURCE.LOCAL);
       setLocalDbResults([]);
       setLocalSearchError(null);
       setIsSearching(false);
@@ -435,7 +461,9 @@ export const FoodSearchModal = ({
       });
       setChatMessages([]);
       setChatInput('');
+      setChatPlaceholder(DEFAULT_CHAT_PLACEHOLDER);
       setExpandedAiEntryKeys({});
+      setAiEntryLookupByKey({});
       setLoggedAiEntryKeys({});
       setFavouritedAiEntryKeys({});
       setChatError(null);
@@ -467,6 +495,7 @@ export const FoodSearchModal = ({
       if (chatAbortControllerRef.current) {
         chatAbortControllerRef.current.abort();
       }
+      aiEntryLookupRequestsRef.current.clear();
     }
   }, [
     chatAttachments,
@@ -482,12 +511,31 @@ export const FoodSearchModal = ({
   useEffect(() => {
     setOnlineResults([]);
     setSearchError(null);
+    setSearchFallbackUsed(false);
+    setSearchErrorsBySource({});
+    setActiveSearchSource(
+      searchMode === 'online'
+        ? FOOD_SEARCH_SOURCE.FATSECRET
+        : FOOD_SEARCH_SOURCE.LOCAL
+    );
     setLocalSearchError(null);
     dispatchUiState({ type: 'set', key: 'selectedCategory', value: null });
     dispatchUiState({ type: 'set', key: 'selectedSubcategory', value: null });
     dispatchUiState({ type: 'set', key: 'isFilterOpen', value: false });
     dispatchUiState({ type: 'set', key: 'viewMode', value: 'search' });
   }, [searchMode]);
+
+  const resolveSourceSearchError = useCallback((errorsBySource) => {
+    const fatSecretMessage = errorsBySource?.[FOOD_SEARCH_SOURCE.FATSECRET];
+    const openFoodFactsMessage =
+      errorsBySource?.[FOOD_SEARCH_SOURCE.OPENFOODFACTS];
+
+    if (fatSecretMessage && openFoodFactsMessage) {
+      return `${fatSecretMessage} OpenFoodFacts fallback also failed.`;
+    }
+
+    return fatSecretMessage || openFoodFactsMessage || null;
+  }, []);
 
   useEffect(() => {
     if (searchMode !== 'local' || viewMode !== 'search') {
@@ -497,20 +545,40 @@ export const FoodSearchModal = ({
     let cancelled = false;
     setIsLocalSearching(true);
     setLocalSearchError(null);
+    setSearchError(null);
 
-    searchLocalFoods({
+    searchFoodsHierarchically({
+      mode: 'local',
       query: searchQuery,
       category: selectedCategory,
       subcategory: selectedSubcategory,
       sortBy,
       sortOrder,
       limit: 500,
+      isOnline,
     })
-      .then((rows) => {
+      .then((result) => {
         if (cancelled) {
           return;
         }
-        setLocalDbResults(Array.isArray(rows) ? rows : []);
+
+        const safeResults = Array.isArray(result?.results)
+          ? result.results
+          : [];
+        const source = result?.source || FOOD_SEARCH_SOURCE.LOCAL;
+
+        setActiveSearchSource(source);
+        setSearchFallbackUsed(Boolean(result?.fallbackUsed));
+        setSearchErrorsBySource(result?.errorsBySource || {});
+
+        if (source === FOOD_SEARCH_SOURCE.LOCAL) {
+          setLocalDbResults(safeResults);
+          setOnlineResults([]);
+        } else {
+          setLocalDbResults([]);
+          setOnlineResults(safeResults);
+          setSearchError(resolveSourceSearchError(result?.errorsBySource));
+        }
       })
       .catch((error) => {
         if (cancelled) {
@@ -518,6 +586,7 @@ export const FoodSearchModal = ({
         }
         console.error('Local food search error:', error);
         setLocalDbResults([]);
+        setOnlineResults([]);
         setLocalSearchError('Local database search failed.');
       })
       .finally(() => {
@@ -531,13 +600,15 @@ export const FoodSearchModal = ({
       cancelled = true;
     };
   }, [
+    isOnline,
+    resolveSourceSearchError,
     searchMode,
-    viewMode,
     searchQuery,
     selectedCategory,
     selectedSubcategory,
     sortBy,
     sortOrder,
+    viewMode,
   ]);
 
   useEffect(() => {
@@ -638,14 +709,35 @@ export const FoodSearchModal = ({
     if (!query || query.trim().length < 2) {
       setOnlineResults([]);
       setIsSearching(false);
+      setSearchFallbackUsed(false);
+      setSearchErrorsBySource({});
+      setActiveSearchSource(FOOD_SEARCH_SOURCE.FATSECRET);
+      return;
+    }
+
+    if (!isOnline) {
+      setOnlineResults([]);
+      setSearchError('You are offline. Connect to search online foods.');
+      setIsSearching(false);
       return;
     }
 
     setIsSearching(true);
     setSearchError(null);
     try {
-      const result = await searchOnlineFoods(query);
-      setOnlineResults(result.foods || []);
+      const result = await searchFoodsHierarchically({
+        mode: 'online',
+        query,
+        isOnline,
+      });
+
+      const safeResults = Array.isArray(result?.results) ? result.results : [];
+
+      setOnlineResults(safeResults);
+      setActiveSearchSource(result?.source || FOOD_SEARCH_SOURCE.FATSECRET);
+      setSearchFallbackUsed(Boolean(result?.fallbackUsed));
+      setSearchErrorsBySource(result?.errorsBySource || {});
+      setSearchError(resolveSourceSearchError(result?.errorsBySource));
     } catch (error) {
       console.error('Online search error:', error);
       if (error instanceof FatSecretError) {
@@ -657,7 +749,7 @@ export const FoodSearchModal = ({
     } finally {
       setIsSearching(false);
     }
-  }, []);
+  }, [isOnline, resolveSourceSearchError]);
 
   // Handle search query changes with debouncing for online mode
   useEffect(() => {
@@ -672,6 +764,10 @@ export const FoodSearchModal = ({
     if (searchQuery.trim().length < 2) {
       setOnlineResults([]);
       setIsSearching(false);
+      setSearchError(null);
+      setSearchFallbackUsed(false);
+      setSearchErrorsBySource({});
+      setActiveSearchSource(FOOD_SEARCH_SOURCE.FATSECRET);
       return;
     }
 
@@ -1245,10 +1341,10 @@ export const FoodSearchModal = ({
       let compareValue = 0;
 
       if (sortBy === 'name') {
-        compareValue = a.name.localeCompare(b.name);
+        compareValue = String(a?.name ?? '').localeCompare(String(b?.name ?? ''));
       } else {
-        const aValue = a.previewMacros?.[sortBy] || 0;
-        const bValue = b.previewMacros?.[sortBy] || 0;
+        const aValue = Number(a?.previewMacros?.[sortBy] ?? a?.per100g?.[sortBy] ?? 0);
+        const bValue = Number(b?.previewMacros?.[sortBy] ?? b?.per100g?.[sortBy] ?? 0);
         compareValue = aValue - bValue;
       }
 
@@ -1258,9 +1354,16 @@ export const FoodSearchModal = ({
     return results;
   }, [onlineResults, selectedCategory, selectedSubcategory, sortBy, sortOrder]);
 
+  const resolvedSearchModeForResults =
+    searchMode === 'local' && activeSearchSource !== FOOD_SEARCH_SOURCE.LOCAL
+      ? 'online'
+      : searchMode;
+
   // Current results based on mode
   const displayResults =
-    searchMode === 'local' ? localSearchResults : onlineSearchResults;
+    resolvedSearchModeForResults === 'local'
+      ? localSearchResults
+      : onlineSearchResults;
 
   const getFilterActiveClass = (color) => {
     const map = {
@@ -1404,12 +1507,143 @@ export const FoodSearchModal = ({
     }
   }, []);
 
-  const toggleAiEntryExpansion = useCallback((entryKey) => {
+  const inferAiCategoryFromMacros = useCallback((entry) => {
+    const protein = Math.max(0, Number(entry?.protein) || 0);
+    const carbs = Math.max(0, Number(entry?.carbs) || 0);
+    const fats = Math.max(0, Number(entry?.fats) || 0);
+
+    if (protein <= 0 && carbs <= 0 && fats <= 0) {
+      return 'custom';
+    }
+
+    if (protein >= carbs && protein >= fats) {
+      return 'protein';
+    }
+    if (carbs >= protein && carbs >= fats) {
+      return 'carbs';
+    }
+    return 'fats';
+  }, []);
+
+  const resolveAiCategory = useCallback(
+    (entry, lookupMeta = null) => {
+      const explicitCategory = String(entry?.category || '').toLowerCase();
+      if (AI_CATEGORY_KEYS.has(explicitCategory)) {
+        return explicitCategory;
+      }
+
+      const matchedCategory = String(
+        lookupMeta?.matchedFood?.category || ''
+      ).toLowerCase();
+      if (AI_CATEGORY_KEYS.has(matchedCategory)) {
+        return matchedCategory;
+      }
+
+      return inferAiCategoryFromMacros(entry);
+    },
+    [inferAiCategoryFromMacros]
+  );
+
+  const resolveAiSubcategory = useCallback((lookupMeta = null) => {
+    const matchedSubcategory = String(
+      lookupMeta?.matchedFood?.subcategory || ''
+    ).trim();
+    return matchedSubcategory || 'ai_estimate';
+  }, []);
+
+  const resolveAiLookupMeta = useCallback(
+    async (entry, entryKey) => {
+      if (!entryKey || !entry?.name) {
+        return null;
+      }
+
+      const existing = aiEntryLookupByKey[entryKey];
+      if (existing) {
+        return existing;
+      }
+
+      const pendingRequest = aiEntryLookupRequestsRef.current.get(entryKey);
+      if (pendingRequest) {
+        return pendingRequest;
+      }
+
+      const request = (async () => {
+        try {
+          const result = await searchFoodsHierarchically({
+            mode: 'local',
+            query: entry.name,
+            limit: 25,
+            isOnline,
+          });
+
+          const matchedFood = Array.isArray(result?.results)
+            ? result.results[0] || null
+            : null;
+
+          const nextMeta = {
+            status: 'resolved',
+            usedSource: result?.source || FOOD_SEARCH_SOURCE.LOCAL,
+            sourcesTried: Array.isArray(result?.sourcesTried)
+              ? result.sourcesTried
+              : [],
+            fallbackUsed: Boolean(result?.fallbackUsed),
+            matchedFood: matchedFood
+              ? {
+                  name: matchedFood.name,
+                  brand: matchedFood.brand || null,
+                  category: matchedFood.category || null,
+                  subcategory: matchedFood.subcategory || null,
+                }
+              : null,
+            errorsBySource: result?.errorsBySource || {},
+          };
+
+          setAiEntryLookupByKey((prev) => ({
+            ...prev,
+            [entryKey]: nextMeta,
+          }));
+
+          return nextMeta;
+        } catch (error) {
+          const errorMeta = {
+            status: 'error',
+            usedSource: FOOD_SEARCH_SOURCE.LOCAL,
+            sourcesTried: [FOOD_SEARCH_SOURCE.LOCAL],
+            fallbackUsed: false,
+            matchedFood: null,
+            errorsBySource: {
+              [FOOD_SEARCH_SOURCE.LOCAL]:
+                error?.message || 'Hierarchical lookup failed.',
+            },
+          };
+
+          setAiEntryLookupByKey((prev) => ({
+            ...prev,
+            [entryKey]: errorMeta,
+          }));
+
+          return errorMeta;
+        } finally {
+          aiEntryLookupRequestsRef.current.delete(entryKey);
+        }
+      })();
+
+      aiEntryLookupRequestsRef.current.set(entryKey, request);
+      return request;
+    },
+    [aiEntryLookupByKey, isOnline]
+  );
+
+  const toggleAiEntryExpansion = useCallback((entry, entryKey) => {
     setExpandedAiEntryKeys((prev) => ({
       ...prev,
       [entryKey]: !prev[entryKey],
     }));
-  }, []);
+
+    if (!expandedAiEntryKeys[entryKey]) {
+      resolveAiLookupMeta(entry, entryKey);
+    }
+  }, [expandedAiEntryKeys, resolveAiLookupMeta]);
 
   const updateMessageById = useCallback((messageId, updater) => {
     setChatMessages((prev) =>
@@ -1597,6 +1831,7 @@ export const FoodSearchModal = ({
       userMessage,
     ]);
     setChatInput('');
+    setChatPlaceholder(DEFAULT_CHAT_PLACEHOLDER);
     setChatAttachments([]);
     setChatError(null);
 
@@ -1671,7 +1906,7 @@ export const FoodSearchModal = ({
     (message) => {
       const question = message?.foodParser?.followUpQuestion?.trim() || '';
       if (question) {
-        setChatInput(question);
+        setChatPlaceholder(question);
         focusChatComposer();
       }
     },
@@ -1723,7 +1958,7 @@ export const FoodSearchModal = ({
   );
 
   const buildAiFoodEntry = useCallback(
-    (entry, index = 0) => {
+    (entry, index = 0, entryKey = null) => {
       if (!entry?.name) {
         return null;
       }
@@ -1737,11 +1972,16 @@ export const FoodSearchModal = ({
       };
 
       const grams = Number(entry.grams);
+      const lookupMeta = entryKey ? aiEntryLookupByKey[entryKey] : null;
+      const resolvedCategory = resolveAiCategory(entry, lookupMeta);
+      const resolvedSubcategory = resolveAiSubcategory(lookupMeta);
 
       return {
         id: entryId,
         foodId: `ai_${Date.now()}_${index}`,
         name: entry.name,
+        category: resolvedCategory,
+        subcategory: resolvedSubcategory,
         calories: Math.max(0, Math.round(safeNumber(entry.calories))),
         protein: Math.max(0, Math.round(safeNumber(entry.protein) * 10) / 10),
         carbs: Math.max(0, Math.round(safeNumber(entry.carbs) * 10) / 10),
@@ -1751,7 +1991,7 @@ export const FoodSearchModal = ({
         timestamp: new Date().toISOString(),
       };
     },
-    [entryIdRef]
+    [aiEntryLookupByKey, entryIdRef, resolveAiCategory, resolveAiSubcategory]
   );
 
   const buildAiSourceFood = useCallback((foodEntry) => {
@@ -1765,7 +2005,8 @@ export const FoodSearchModal = ({
     return {
       id: foodEntry.foodId,
       name: foodEntry.name,
-      category: 'supplements',
+      category: foodEntry.category || 'custom',
+      subcategory: foodEntry.subcategory || 'ai_estimate',
       source: 'ai',
       per100g:
         divisor && divisor > 0
@@ -1786,7 +2027,7 @@ export const FoodSearchModal = ({
         return;
       }
 
-      const foodEntry = buildAiFoodEntry(entry);
+      const foodEntry = buildAiFoodEntry(entry, 0, entryKey);
       if (!foodEntry) return;
 
       onSelectFavourite?.(foodEntry, { closeModal });
@@ -1805,7 +2046,7 @@ export const FoodSearchModal = ({
         return;
       }
 
-      const foodEntry = buildAiFoodEntry(entry, index);
+      const foodEntry = buildAiFoodEntry(entry, index, entryKey);
       if (!foodEntry) return;
 
       const sourceFood = buildAiSourceFood(foodEntry);
@@ -2062,10 +2303,13 @@ export const FoodSearchModal = ({
             fileInputRef={fileInputRef}
             cameraInputRef={cameraInputRef}
             chatTextareaRef={chatTextareaRef}
+            chatPlaceholder={chatPlaceholder}
             chatInput={chatInput}
             setChatInput={setChatInput}
             answerClarification={answerClarification}
             expandedAiEntryKeys={expandedAiEntryKeys}
+            aiEntryLookupByKey={aiEntryLookupByKey}
+            getFoodSearchSourceLabel={getFoodSearchSourceLabel}
             toggleAiEntryExpansion={toggleAiEntryExpansion}
             loggedAiEntryKeys={loggedAiEntryKeys}
             favouritedAiEntryKeys={favouritedAiEntryKeys}
@@ -2102,8 +2346,8 @@ export const FoodSearchModal = ({
                 }}
                 placeholder={
                   searchMode === 'online'
-                    ? 'Search FatSecret database...'
-                    : 'Search local foods...'
+                    ? 'Search online foods (FatSecret + OpenFoodFacts)...'
+                    : 'Search local foods (auto online fallback)...'
                 }
                 className="w-full bg-surface-highlight border border-border rounded-lg pl-11 pr-10 py-3 text-foreground placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent-blue"
               />
@@ -2280,14 +2524,15 @@ export const FoodSearchModal = ({
                 />
               ) : (
                 <FoodSearchResultsPanel
-                  searchMode={searchMode}
+                  searchMode={resolvedSearchModeForResults}
+                  activeSearchSource={activeSearchSource}
+                  fallbackUsed={searchFallbackUsed}
                   searchError={searchError}
                   localSearchError={localSearchError}
                   isLocalSearching={isLocalSearching}
                   isSearching={isSearching}
                   displayResults={displayResults}
                   searchQuery={searchQuery}
-                  onlineResults={onlineResults}
                   loadingFoodId={loadingFoodId}
                   handleOnlineFoodSelect={handleOnlineFoodSelect}
                   resolvedPinnedFoods={resolvedPinnedFoods}

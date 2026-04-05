@@ -101,6 +101,16 @@ function mapProductToFood(product, barcode) {
   };
 }
 
+function mapSearchProductToFood(product, index = 0) {
+  const rawCode = String(product?.code ?? '').trim();
+  const normalizedCode = normalizeBarcode(rawCode);
+
+  const fallbackCode = `search_${Date.now()}_${index}`;
+  const resolvedCode = normalizedCode || fallbackCode;
+
+  return mapProductToFood(product, resolvedCode);
+}
+
 async function apiRequest(action, params = {}) {
   const resolvedBase = API_BASE || '/api/openfoodfacts';
 
@@ -175,4 +185,37 @@ export async function searchBarcode(barcode) {
   }
 
   return mapProductToFood(data.product, cleanBarcode);
+}
+
+export async function searchFoods(query, { page = 1, pageSize = 20 } = {}) {
+  const normalizedQuery = String(query ?? '').trim();
+  if (normalizedQuery.length < 2) {
+    return { foods: [], totalResults: 0, page: 1 };
+  }
+
+  const parsedPage = Number.parseInt(String(page), 10);
+  const parsedPageSize = Number.parseInt(String(pageSize), 10);
+  const safePage = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+  const safePageSize = Number.isFinite(parsedPageSize)
+    ? Math.min(Math.max(parsedPageSize, 1), 50)
+    : 20;
+
+  const data = await apiRequest('search', {
+    query: normalizedQuery,
+    page: safePage,
+    pageSize: safePageSize,
+  });
+
+  const products = Array.isArray(data?.products) ? data.products : [];
+  const foods = products.map((product, index) =>
+    mapSearchProductToFood(product, index)
+  );
+
+  const totalResults = Number.parseInt(String(data?.count ?? foods.length), 10);
+
+  return {
+    foods,
+    totalResults: Number.isFinite(totalResults) ? totalResults : foods.length,
+    page: safePage,
+  };
 }

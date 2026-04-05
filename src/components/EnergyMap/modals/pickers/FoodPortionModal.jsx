@@ -752,7 +752,7 @@ export const FoodPortionModal = ({
           </button>
           <button
             onClick={handleAddFood}
-            disabled={!nutrition || nutrition.calories === 0}
+            disabled={!nutrition}
             className="flex-1 h-10 px-4 bg-primary md:hover:brightness-110 disabled:bg-surface-highlight/60 disabled:cursor-not-allowed disabled:text-muted text-primary-foreground rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring"
           >
             <Plus size={18} />
@@ -761,9 +761,7 @@ export const FoodPortionModal = ({
           {typeof onSaveAsFavourite === 'function' && !isEditing && (
             <button
               onClick={handleSaveAsFavourite}
-              disabled={
-                isCurrentlyFavourited || !nutrition || nutrition.calories === 0
-              }
+              disabled={isCurrentlyFavourited || !nutrition}
               aria-label={
                 isCurrentlyFavourited
                   ? 'Already favourited'

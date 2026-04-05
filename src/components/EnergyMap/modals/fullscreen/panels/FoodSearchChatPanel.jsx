@@ -1,5 +1,5 @@
 import React from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   CloudOff,
   Sparkles,
@@ -12,7 +12,6 @@ import {
   ImagePlus,
   RotateCcw,
   ChevronDown,
-  ChevronUp,
   AlertCircle,
   Square,
   Paperclip,
@@ -20,6 +19,7 @@ import {
   X,
 } from 'lucide-react';
 import { formatOne } from '../../../../../utils/format';
+import { FoodTagBadges } from '../../../common/FoodTagBadges';
 
 export const FoodSearchChatPanel = ({
   isOnline,
@@ -32,10 +32,13 @@ export const FoodSearchChatPanel = ({
   fileInputRef,
   cameraInputRef,
   chatTextareaRef,
+  chatPlaceholder,
   chatInput,
   setChatInput,
   answerClarification,
   expandedAiEntryKeys,
+  aiEntryLookupByKey,
+  getFoodSearchSourceLabel,
   toggleAiEntryExpansion,
   loggedAiEntryKeys,
   favouritedAiEntryKeys,
@@ -66,7 +69,7 @@ export const FoodSearchChatPanel = ({
 
     <div
       ref={chatScrollRef}
-      className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden touch-action-pan-y px-4 pt-3 pb-2 space-y-3"
+      className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden touch-action-pan-y px-4 pt-3 pb-2 space-y-4"
     >
       {chatMessages.length === 0 ? (
         <div className="h-full flex flex-col items-center justify-center gap-5 px-2 py-6">
@@ -138,10 +141,10 @@ export const FoodSearchChatPanel = ({
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.18, ease: 'easeOut' }}
-                className={`flex flex-col gap-1.5 ${isUser ? 'items-end' : 'items-start'}`}
+                className={`flex flex-col gap-2 ${isUser ? 'items-end' : 'items-start'}`}
               >
                 {isUser && hasAttachments && (
-                  <div className="max-w-[82%] self-end overflow-x-auto touch-action-pan-x scrollbar-hide">
+                  <div className="max-w-[90%] md:max-w-[82%] self-end overflow-x-auto touch-action-pan-x scrollbar-hide">
                     <div className="flex items-center justify-end gap-2 w-max min-w-full">
                       {message.attachments.map((attachment) => (
                         <div
@@ -169,7 +172,7 @@ export const FoodSearchChatPanel = ({
                   )}
 
                   <div
-                    className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
+                    className={`${isUser ? 'max-w-[90%] md:max-w-[82%] min-w-[84px] px-4' : 'max-w-[82%] px-3.5'} rounded-2xl py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
                       isUser
                         ? 'bg-accent-blue text-primary-foreground rounded-br-md'
                         : 'bg-surface-highlight border border-border text-foreground rounded-bl-md'
@@ -226,6 +229,20 @@ export const FoodSearchChatPanel = ({
                               loggedAiEntryKeys[entryKey] === true;
                             const isFavourited =
                               favouritedAiEntryKeys[entryKey] === true;
+                            const lookupMeta = aiEntryLookupByKey?.[entryKey];
+                            const parsedGrams = Number(entry.grams);
+                            const aiTagFood = {
+                              name: entry.name,
+                              category:
+                                entry.category ||
+                                lookupMeta?.matchedFood?.category ||
+                                'custom',
+                              source: 'ai',
+                              grams:
+                                Number.isFinite(parsedGrams) && parsedGrams > 0
+                                  ? parsedGrams
+                                  : null,
+                            };
 
                             return (
                               <motion.div
@@ -266,6 +283,12 @@ export const FoodSearchChatPanel = ({
                                   <span>{formatOne(entry.fats)}F</span>
                                 </div>
 
+                                <FoodTagBadges
+                                  food={aiTagFood}
+                                  showCategory
+                                  className="mb-2"
+                                />
+
                                 {isLowConfidence && (
                                   <p className="mb-2 text-[11px] text-accent-red">
                                     Low confidence. Review this estimate before
@@ -276,77 +299,78 @@ export const FoodSearchChatPanel = ({
                                 {(entry.rationale ||
                                   (Array.isArray(entry.assumptions) &&
                                     entry.assumptions.length > 0)) && (
-                                  <div className="mb-2">
+                                  <div className="mb-2 rounded-lg bg-surface-highlight/40 overflow-hidden">
                                     <button
                                       type="button"
                                       onClick={() =>
-                                        toggleAiEntryExpansion(entryKey)
+                                        toggleAiEntryExpansion(entry, entryKey)
                                       }
-                                      className="inline-flex items-center gap-1 text-[11px] text-muted md:hover:text-foreground pressable-inline focus-ring"
+                                      className="w-full flex items-center justify-between px-3 py-2.5 md:hover:bg-surface-highlight/60 transition-colors text-left active:scale-[0.99] focus-ring"
                                     >
-                                      {isExpanded ? (
-                                        <ChevronUp size={12} />
-                                      ) : (
-                                        <ChevronDown size={12} />
-                                      )}
-                                      <span>Assumptions</span>
+                                      <span className="text-[11px] text-muted font-medium">
+                                        Assumptions
+                                      </span>
+                                      <span
+                                        className={`text-foreground transition-transform duration-300 ${
+                                          isExpanded
+                                            ? 'rotate-180'
+                                            : 'rotate-0'
+                                        }`}
+                                      >
+                                        <ChevronDown size={14} />
+                                      </span>
                                     </button>
 
-                                    <AnimatePresence initial={false}>
-                                      {isExpanded && (
-                                        <motion.div
-                                          initial={{ opacity: 0, height: 0 }}
-                                          animate={{
-                                            opacity: 1,
-                                            height: 'auto',
-                                          }}
-                                          exit={{ opacity: 0, height: 0 }}
-                                          transition={{
-                                            duration: 0.18,
-                                            ease: 'easeOut',
-                                          }}
-                                          className="mt-2 rounded-lg bg-surface-highlight border border-border px-2.5 py-2 space-y-2 overflow-hidden"
-                                        >
-                                          {entry.rationale && (
-                                            <p className="text-[11px] text-foreground">
-                                              {entry.rationale}
+                                    <div
+                                      className={`overflow-hidden transition-all duration-300 ${
+                                        isExpanded
+                                          ? 'max-h-96 opacity-100'
+                                          : 'max-h-0 opacity-0'
+                                      }`}
+                                    >
+                                      <div className="px-3 pb-2.5 pt-1.5 border-t border-border/50 space-y-2">
+                                        {entry.rationale && (
+                                          <p className="text-[11px] text-foreground">
+                                            {entry.rationale}
+                                          </p>
+                                        )}
+
+                                        {lookupMeta && (
+                                          <div className="rounded-md border border-border/70 bg-surface px-2 py-1.5 space-y-1">
+                                            <p className="text-[10px] font-semibold text-foreground">
+                                              Search Trace
                                             </p>
-                                          )}
-                                          {Array.isArray(entry.assumptions) &&
-                                            entry.assumptions.length > 0 && (
-                                              <div className="space-y-1">
-                                                {entry.assumptions.map(
-                                                  (
-                                                    assumption,
-                                                    assumptionIndex
-                                                  ) => (
-                                                    <motion.p
-                                                      key={assumption}
-                                                      initial={{
-                                                        opacity: 0,
-                                                        y: -4,
-                                                      }}
-                                                      animate={{
-                                                        opacity: 1,
-                                                        y: 0,
-                                                      }}
-                                                      transition={{
-                                                        delay:
-                                                          assumptionIndex *
-                                                          0.03,
-                                                        duration: 0.16,
-                                                      }}
-                                                      className="text-[11px] text-muted"
-                                                    >
-                                                      • {assumption}
-                                                    </motion.p>
-                                                  )
-                                                )}
-                                              </div>
+                                            <p className="text-[10px] text-muted">
+                                              Used:{' '}
+                                              {getFoodSearchSourceLabel(
+                                                lookupMeta.usedSource
+                                              )}
+                                            </p>
+                                            {lookupMeta.matchedFood?.name && (
+                                              <p className="text-[10px] text-muted">
+                                                Match: {lookupMeta.matchedFood.name}
+                                              </p>
                                             )}
-                                        </motion.div>
-                                      )}
-                                    </AnimatePresence>
+                                          </div>
+                                        )}
+
+                                        {Array.isArray(entry.assumptions) &&
+                                          entry.assumptions.length > 0 && (
+                                            <div className="space-y-1">
+                                              {entry.assumptions.map(
+                                                (assumption) => (
+                                                  <p
+                                                    key={assumption}
+                                                    className="text-[11px] text-muted"
+                                                  >
+                                                    • {assumption}
+                                                  </p>
+                                                )
+                                              )}
+                                            </div>
+                                          )}
+                                      </div>
+                                    </div>
                                   </div>
                                 )}
 
@@ -401,7 +425,7 @@ export const FoodSearchChatPanel = ({
                                   >
                                     {isFavourited
                                       ? 'Favourited'
-                                      : 'Save Favorite'}
+                                      : 'Save & Favourite'}
                                   </button>
                                 </div>
                               </motion.div>
@@ -486,7 +510,7 @@ export const FoodSearchChatPanel = ({
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.14, ease: 'easeOut' }}
-                  className={`max-w-[82%] flex flex-wrap gap-2 text-[11px] text-muted ${
+                  className={`${isUser ? 'max-w-[90%] md:max-w-[82%]' : 'max-w-[82%]'} flex flex-wrap gap-2 text-[11px] text-muted ${
                     isUser
                       ? 'justify-end self-end'
                       : 'justify-start self-start ml-8'
@@ -669,7 +693,7 @@ export const FoodSearchChatPanel = ({
               onChange={(e) => setChatInput(e.target.value)}
               onKeyDown={handleChatInputKeyDown}
               onPaste={handleChatInputPaste}
-              placeholder="Describe food + portion..."
+              placeholder={chatPlaceholder}
               rows={1}
               className="flex-1 resize-none max-h-28 min-h-11 bg-transparent text-foreground placeholder:text-muted outline-none py-2.5 px-2.5 text-[15px] leading-relaxed overflow-y-auto"
             />

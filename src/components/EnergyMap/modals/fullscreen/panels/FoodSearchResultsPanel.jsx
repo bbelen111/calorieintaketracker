@@ -6,13 +6,14 @@ import { formatFoodDisplayName } from '../../../../../utils/foodPresentation';
 
 export const FoodSearchResultsPanel = ({
   searchMode,
+  activeSearchSource,
+  fallbackUsed,
   searchError,
   localSearchError,
   isLocalSearching,
   isSearching,
   displayResults,
   searchQuery,
-  onlineResults,
   loadingFoodId,
   handleOnlineFoodSelect,
   resolvedPinnedFoods,
@@ -23,6 +24,14 @@ export const FoodSearchResultsPanel = ({
   performOnlineSearch,
 }) => (
   <>
+    {searchMode === 'online' && fallbackUsed && (
+      <div className="bg-accent-blue/10 border border-accent-blue/30 rounded-lg p-3">
+        <p className="text-accent-blue text-xs font-medium">
+          Showing {activeSearchSource === 'openfoodfacts' ? 'OpenFoodFacts' : 'online'} fallback results.
+        </p>
+      </div>
+    )}
+
     {searchError && (
       <div className="bg-accent-red/10 border border-accent-red/30 rounded-lg p-4 flex items-start gap-3">
         <AlertCircle
@@ -69,7 +78,7 @@ export const FoodSearchResultsPanel = ({
           <div className="absolute inset-0 border-4 border-border rounded-full" />
           <div className="absolute inset-0 border-4 border-transparent border-t-accent-blue rounded-full animate-spin-fast" />
         </div>
-        <p className="text-muted text-sm">Searching FatSecret database...</p>
+        <p className="text-muted text-sm">Searching online food databases...</p>
       </div>
     )}
 
@@ -85,7 +94,7 @@ export const FoodSearchResultsPanel = ({
             <p className="text-muted text-sm">
               {searchQuery.length < 2
                 ? 'Enter a search term to find foods online'
-                : 'No results found. Try a different search term.'}
+                : 'No online matches found. Try a different search term.'}
             </p>
             {searchQuery.length > 0 && searchQuery.length < 2 && (
               <p className="mt-1 text-muted text-xs">
@@ -101,8 +110,13 @@ export const FoodSearchResultsPanel = ({
         )}
       </div>
     ) : searchMode === 'online' && !isSearching ? (
-      onlineResults.map((food) => {
+      displayResults.map((food) => {
         const isLoading = loadingFoodId === food.id;
+        const hasPreviewMacros = Boolean(food.previewMacros);
+        const macroSource = hasPreviewMacros ? food.previewMacros : food.per100g;
+        const servingLabel = hasPreviewMacros
+          ? food.previewMacros?.servingInfo || 'per serving'
+          : 'per 100g';
         return (
           <button
             key={food.id}
@@ -132,39 +146,35 @@ export const FoodSearchResultsPanel = ({
                     })}
                   </h4>
                 </div>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <span className="text-xs px-2 py-0.5 bg-accent-blue/20 text-accent-blue rounded">
-                    {food.type === 'Brand' ? 'Branded' : 'Generic'}
-                  </span>
-                </div>
+                <FoodTagBadges food={food} showCategory={false} className="mt-1" />
               </div>
-              {food.previewMacros && (
+              {macroSource && (
                 <div className="flex flex-col items-end gap-1">
                   <span className="text-muted text-[10px] font-medium">
-                    {food.previewMacros.servingInfo || 'per serving'}
+                    {servingLabel}
                   </span>
                   <div className="flex items-center gap-2 text-xs">
                     <div className="text-center">
                       <p className="text-accent-emerald font-bold">
-                        {Math.round(food.previewMacros.calories)}
+                        {Math.round(macroSource.calories || 0)}
                       </p>
                       <p className="text-muted">cal</p>
                     </div>
                     <div className="text-center">
                       <p className="text-accent-red font-bold">
-                        {formatOne(food.previewMacros.protein)}g
+                        {formatOne(macroSource.protein)}g
                       </p>
                       <p className="text-muted">prot</p>
                     </div>
                     <div className="text-center">
                       <p className="text-accent-amber font-bold">
-                        {formatOne(food.previewMacros.carbs)}g
+                        {formatOne(macroSource.carbs)}g
                       </p>
                       <p className="text-muted">carb</p>
                     </div>
                     <div className="text-center">
                       <p className="text-accent-yellow font-bold">
-                        {formatOne(food.previewMacros.fats)}g
+                        {formatOne(macroSource.fats)}g
                       </p>
                       <p className="text-muted">fat</p>
                     </div>

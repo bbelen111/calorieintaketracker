@@ -138,6 +138,19 @@ function normalizeFoodParserEntry(entry) {
         .slice(0, 6)
     : [];
 
+  const rawCategory = asNonEmptyString(entry.category)?.toLowerCase();
+  const category = [
+    'protein',
+    'carbs',
+    'vegetables',
+    'fats',
+    'supplements',
+    'custom',
+    'manual',
+  ].includes(rawCategory)
+    ? rawCategory
+    : null;
+
   return {
     name,
     grams,
@@ -148,6 +161,7 @@ function normalizeFoodParserEntry(entry) {
     confidence,
     rationale: asNonEmptyString(entry.rationale),
     assumptions,
+    ...(category ? { category } : {}),
   };
 }
 
