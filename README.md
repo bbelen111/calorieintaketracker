@@ -9,7 +9,7 @@ A **React + Vite** single-page app for fitness calorie tracking, wrapped by Capa
 - **Phase Management** — Track bulking/cutting phases with daily logs and metrics
 - **Phase-Based Analytics** — Weight trends, nutrition rollups, daily snapshots
 - **Barcode Scanning** — Native barcode lookup via Capacitor
-- **Health Connect Integration** — Android step sync (iOS via HealthKit ready)
+- **Health Connect Integration** — Android step sync (iOS/web unsupported)
 - **Offline-First** — SQLite local food catalog (13k+ foods), IndexedDB history
 - **AI-Powered Food Parsing** — Gemini-backed food entry assistance
 - **4 Theme Modes** — Auto, dark, light, AMOLED
@@ -72,7 +72,7 @@ $$
 
 ### 5. Adaptive Thermogenesis (AT)
 
-An algorithmic feedback loop modeled on exponential moving averages (EMA) of historical snapshots. It regresses actual logged deficits against weight trend actualities to detect metabolic slowdown, injecting a bounded correction (±300 kcal/day):
+An algorithmic feedback loop with crude and smart modes. Smart mode derives a bounded correction from historical snapshot and weight-trend signals, with configurable EMA or SMA smoothing, and clamps the correction to ±300 kcal/day:
 
 $$
 \Delta_{\text{metabolic}} = \text{Expected Weight Change} - \text{Actual Weight Change}
@@ -121,7 +121,7 @@ App.jsx (theme management, store hydration gate)
       │   ├─ CalorieMapScreen
       │   └─ InsightsScreen
       ├─ PhaseDetailScreen (drill-down)
-      └─ 40 top-level modals + ~21 child-level modals
+      └─ 42 top-level modals + ~21 child-level modals
 
 Persistence:
   Profile (settings/stats)  → Capacitor Preferences
@@ -164,7 +164,7 @@ The store's canonical fields (computed via `deriveState`) are:
 src/
 ├─ components/EnergyMap/
 │   ├─ EnergyMapCalculator.jsx    # Main orchestrator
-│   ├─ modals/                     # 49 modal files (6 subfolders)
+│   ├─ modals/                     # 52 modal components (6 subfolders) + 4 panel helpers
 │   │   ├─ fullscreen/             # WeightTracker, BodyFatTracker, StepTracker, Settings, FoodSearch
 │   │   ├─ pickers/                # Value selectors (Age, Calendar, Duration, etc.)
 │   │   ├─ info/                   # Info/reference modals (BmiInfo, BmrInfo, etc.)

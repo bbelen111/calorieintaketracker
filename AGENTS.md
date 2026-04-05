@@ -148,13 +148,13 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 
 ### Modal Count
 
-- **40 `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
+- **42 top-level `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
 - **~21 additional child-level modals** declared inside modal components (e.g., delete confirmations, sub-pickers)
-- **49 modal files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`:
+- **52 modal component files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`, plus 4 supporting panel components under `fullscreen/panels/`:
   - `fullscreen/` — WeightTrackerModal, BodyFatTrackerModal, StepTrackerModal, SettingsModal, FoodSearchModal
-  - `pickers/` — AgePickerModal, BodyFatPickerModal, CalendarPickerModal, **CaloriesPerHourPickerModal**, DatePickerModal, DurationPickerModal, EpocWindowPickerModal, FoodPortionModal, HeartRatePickerModal, HeightPickerModal, MealTypePickerModal, MetValuePickerModal, StepGoalPickerModal, TemplatePickerModal, TimePickerModal, WeightPickerModal
+  - `pickers/` — AgePickerModal, BodyFatPickerModal, CalendarPickerModal, **CaloriesPerHourPickerModal**, CalorieTargetModal, DatePickerModal, DurationPickerModal, EpocWindowPickerModal, FoodPortionModal, HeartRatePickerModal, HeightPickerModal, MealTypePickerModal, MetValuePickerModal, StepGoalPickerModal, TemplatePickerModal, TimePickerModal, WeightPickerModal
   - `info/` — AdaptiveThermogenesisInfoModal, BmiInfoModal, BmrInfoModal, BodyFatTrendInfoModal, CalorieBreakdownModal, CaloriesPerHourGuideModal, EpocInfoModal, FfmiInfoModal, TefInfoModal, WeightTrendInfoModal
-  - `forms/` — AddCustomFoodModal, BodyFatEntryModal, CardioModal, CustomCardioTypeModal, DailyActivityCustomModal, DailyActivityEditorModal, DailyActivityModal, DailyLogModal, FoodEntryModal, GoalModal, PhaseCreationModal, TrainingModal, StepRangesModal, TrainingTypeEditorModal, WeightEntryModal
+  - `forms/` — AddCustomFoodModal, BarcodeEntryModal, BodyFatEntryModal, CardioModal, CustomCardioTypeModal, DailyActivityCustomModal, DailyActivityEditorModal, DailyActivityModal, DailyLogModal, FoodEntryModal, GoalModal, PhaseCreationModal, TrainingModal, StepRangesModal, TrainingTypeEditorModal, WeightEntryModal
   - `lists/` — CardioFavouritesModal, CardioTypeListModal
   - `common/` — ConfirmActionModal
 - Total across codebase: ~60 modal hook instances (`useAnimatedModal`)
