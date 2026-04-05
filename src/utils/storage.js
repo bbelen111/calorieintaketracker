@@ -739,13 +739,7 @@ const getFoodCacheIdentity = (entry, index) => {
     return `index:${index}`;
   }
 
-  const candidateKeys = [
-    entry.id,
-    entry.foodId,
-    entry.food_id,
-    entry.fatsecretId,
-    entry.barcode,
-  ];
+  const candidateKeys = [entry.id, entry.foodId, entry.food_id, entry.barcode];
   const primary = candidateKeys.find(
     (value) => typeof value === 'string' && value.trim().length > 0
   );
@@ -1105,7 +1099,7 @@ export const getDefaultEnergyMapData = () => ({
   customCardioTypes: {},
   nutritionData: {},
   pinnedFoods: [],
-  cachedFoods: [], // Foods fetched from online APIs (FatSecret, etc.)
+  cachedFoods: [], // Foods fetched from online APIs (OpenFoodFacts, etc.)
   dailySnapshots: {}, // { 'YYYY-MM-DD': { date, tdee, intake, deficit, stepCount, ... } }
   // nutritionData structure: { 'YYYY-MM-DD': { mealType: [{ id, name, calories, protein, carbs, fats, timestamp }] } }
   trainingType: {

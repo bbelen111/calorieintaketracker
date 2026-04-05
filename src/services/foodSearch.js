@@ -1,12 +1,10 @@
 export const FOOD_SEARCH_SOURCE = {
   LOCAL: 'local',
-  FATSECRET: 'fatsecret',
   OPENFOODFACTS: 'openfoodfacts',
 };
 
 export const FOOD_SEARCH_SOURCE_LABELS = {
   [FOOD_SEARCH_SOURCE.LOCAL]: 'Local',
-  [FOOD_SEARCH_SOURCE.FATSECRET]: 'FatSecret',
   [FOOD_SEARCH_SOURCE.OPENFOODFACTS]: 'OpenFoodFacts',
 };
 
@@ -69,11 +67,6 @@ const buildDefaultResult = () => ({
 
 const loadSearchLocal = async () => {
   const module = await import('./foodCatalog.js');
-  return module.searchFoods;
-};
-
-const loadSearchFatSecret = async () => {
-  const module = await import('./fatSecret.js');
   return module.searchFoods;
 };
 
@@ -179,28 +172,6 @@ const searchOnlineHierarchy = async ({
   const sourcesTried = [];
   const errorsBySource = {};
 
-  sourcesTried.push(FOOD_SEARCH_SOURCE.FATSECRET);
-  try {
-    const fatSecretResult = await dependencies.searchFatSecret(query, page);
-    const fatSecretFoods = Array.isArray(fatSecretResult?.foods)
-      ? fatSecretResult.foods
-      : [];
-
-    if (fatSecretFoods.length > 0) {
-      return {
-        results: fatSecretFoods,
-        source: FOOD_SEARCH_SOURCE.FATSECRET,
-        sourcesTried,
-        errorsBySource,
-      };
-    }
-  } catch (error) {
-    errorsBySource[FOOD_SEARCH_SOURCE.FATSECRET] = toErrorMessage(
-      error,
-      'FatSecret search failed.'
-    );
-  }
-
   sourcesTried.push(FOOD_SEARCH_SOURCE.OPENFOODFACTS);
   try {
     const openFoodFactsResult = await dependencies.searchOpenFoodFacts(query, {
@@ -228,7 +199,7 @@ const searchOnlineHierarchy = async ({
 
   return {
     results: [],
-    source: FOOD_SEARCH_SOURCE.FATSECRET,
+    source: FOOD_SEARCH_SOURCE.OPENFOODFACTS,
     sourcesTried,
     errorsBySource,
   };
@@ -241,14 +212,11 @@ const loadDependencies = async ({
   const resolvedSearchLocal = includeLocal
     ? dependencies.searchLocal || (await loadSearchLocal())
     : dependencies.searchLocal;
-  const resolvedSearchFatSecret =
-    dependencies.searchFatSecret || (await loadSearchFatSecret());
   const resolvedSearchOpenFoodFacts =
     dependencies.searchOpenFoodFacts || (await loadSearchOpenFoodFacts());
 
   return {
     searchLocal: resolvedSearchLocal,
-    searchFatSecret: resolvedSearchFatSecret,
     searchOpenFoodFacts: resolvedSearchOpenFoodFacts,
   };
 };
@@ -301,7 +269,7 @@ export const searchFoodsOnline = async ({
   if (!normalizedQuery || normalizedQuery.length < ONLINE_QUERY_MIN_LENGTH) {
     return {
       ...buildDefaultResult(),
-      source: FOOD_SEARCH_SOURCE.FATSECRET,
+      source: FOOD_SEARCH_SOURCE.OPENFOODFACTS,
     };
   }
 
@@ -316,9 +284,7 @@ export const searchFoodsOnline = async ({
     results: onlineResult.results,
     source: onlineResult.source,
     sourcesTried: onlineResult.sourcesTried,
-    fallbackUsed:
-      onlineResult.source === FOOD_SEARCH_SOURCE.OPENFOODFACTS &&
-      onlineResult.results.length > 0,
+    fallbackUsed: false,
     errorsBySource: onlineResult.errorsBySource,
   };
 };
@@ -408,69 +374,35 @@ export const resolveAiFoodLookup = async ({
 
   if (!shouldSkipOnline) {
     for (const term of terms) {
-      if (!sourcesTried.includes(FOOD_SEARCH_SOURCE.FATSECRET)) {
-        sourcesTried.push(FOOD_SEARCH_SOURCE.FATSECRET);
+      if (!sourcesTried.includes(FOOD_SEARCH_SOURCE.OPENFOODFACTS)) {
+        sourcesTried.push(FOOD_SEARCH_SOURCE.OPENFOODFACTS);
       }
 
       try {
-        const fatSecretResult = await resolvedDependencies.searchFatSecret(
-          term,
-          0
-        );
-        const fatSecretFoods = Array.isArray(fatSecretResult?.foods)
-          ? fatSecretResult.foods
+        const openFoodFactsResult =
+          await resolvedDependencies.searchOpenFoodFacts(term, {
+            page: 1,
+            pageSize: onlinePageSize,
+          });
+        const openFoodFactsFoods = Array.isArray(openFoodFactsResult?.foods)
+          ? openFoodFactsResult.foods
           : [];
-        const fatSecretMatch = pickBestMatch(term, fatSecretFoods);
+        const openFoodFactsMatch = pickBestMatch(term, openFoodFactsFoods);
 
         maybeKeepBest({
-          match: fatSecretMatch,
-          source: FOOD_SEARCH_SOURCE.FATSECRET,
+          match: openFoodFactsMatch,
+          source: FOOD_SEARCH_SOURCE.OPENFOODFACTS,
           queryUsed: term,
         });
 
-        if (fatSecretMatch?.score >= AI_SCORE_THRESHOLD.high) {
+        if (openFoodFactsMatch?.score >= AI_SCORE_THRESHOLD.high) {
           break;
         }
       } catch (error) {
-        errorsBySource[FOOD_SEARCH_SOURCE.FATSECRET] = toErrorMessage(
+        errorsBySource[FOOD_SEARCH_SOURCE.OPENFOODFACTS] = toErrorMessage(
           error,
-          'FatSecret search failed.'
+          'OpenFoodFacts search failed.'
         );
-      }
-    }
-
-    if (!bestMatch || bestMatch.score < AI_SCORE_THRESHOLD.high) {
-      for (const term of terms) {
-        if (!sourcesTried.includes(FOOD_SEARCH_SOURCE.OPENFOODFACTS)) {
-          sourcesTried.push(FOOD_SEARCH_SOURCE.OPENFOODFACTS);
-        }
-
-        try {
-          const openFoodFactsResult =
-            await resolvedDependencies.searchOpenFoodFacts(term, {
-              page: 1,
-              pageSize: onlinePageSize,
-            });
-          const openFoodFactsFoods = Array.isArray(openFoodFactsResult?.foods)
-            ? openFoodFactsResult.foods
-            : [];
-          const openFoodFactsMatch = pickBestMatch(term, openFoodFactsFoods);
-
-          maybeKeepBest({
-            match: openFoodFactsMatch,
-            source: FOOD_SEARCH_SOURCE.OPENFOODFACTS,
-            queryUsed: term,
-          });
-
-          if (openFoodFactsMatch?.score >= AI_SCORE_THRESHOLD.high) {
-            break;
-          }
-        } catch (error) {
-          errorsBySource[FOOD_SEARCH_SOURCE.OPENFOODFACTS] = toErrorMessage(
-            error,
-            'OpenFoodFacts search failed.'
-          );
-        }
       }
     }
   }

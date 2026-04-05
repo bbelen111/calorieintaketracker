@@ -46,7 +46,6 @@ export const resolveFoodSourceType = (food) => {
   const category = String(food?.category ?? '').toLowerCase();
 
   if (
-    source === 'fatsecret' ||
     source === 'openfoodfacts' ||
     foodId.startsWith('fs_') ||
     foodId.startsWith('off_') ||

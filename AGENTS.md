@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor for mobile deployment (iOS/Android). Local-first architecture with Zustand state management, Dexie-backed history persistence plus Capacitor Preferences for profile/settings, optional FatSecret API for online food search, and OpenFoodFacts-backed barcode lookup.
+React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor for mobile deployment (iOS/Android). Local-first architecture with Zustand state management, Dexie-backed history persistence plus Capacitor Preferences for profile/settings, and OpenFoodFacts-backed online food search + barcode lookup.
 
 **Tech Stack:**
 - React 18.3.1 + Vite 5.4.11 (dev server on `localhost:5173`, `strictPort: true`)
@@ -14,7 +14,7 @@ React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor 
 - Framer Motion 12.23.24 (animations)
 - Tailwind 3.4.17 (styling via CSS variable–based semantic tokens)
 - Lucide React 0.562.0 (icons)
-- **External APIs:** FatSecret (online text search/details via `api/fatsecret.js`), OpenFoodFacts (barcode lookup via `api/openfoodfacts.js`), Gemini (AI parsing via `api/gemini.js`)
+- **External APIs:** OpenFoodFacts (online text search + barcode lookup via `api/openfoodfacts.js`), Gemini (AI parsing via `api/gemini.js`)
 
 **Key Capacitor Plugins:**
 - `@capacitor/preferences` — Profile/settings storage
@@ -695,44 +695,13 @@ When editing phase logic:
 
 ---
 
-## FatSecret API Integration
+## OpenFoodFacts Integration
 
-Optional online food search proxied through Vercel serverless function.
-
-**Architecture:**
-- `services/fatSecret.js` — Client service with 15-second timeout, `FatSecretError` class
-- `api/fatsecret.js` — Vercel serverless proxy handling OAuth 2.0 token management
-
-**Configuration:**
-- Native builds: Set `VITE_FATSECRET_API_BASE` env var to deployed Vercel URL
-- Default: `https://calorieintaketracker.vercel.app/api/fatsecret`
-- Vercel env vars: `FATSECRET_CLIENT_ID`, `FATSECRET_CLIENT_SECRET`
-
-**Key functions:**
-```javascript
-import { searchFoods, getFoodDetails, getAutocomplete } from './services/fatSecret';
-const results = await searchFoods('chicken breast', 0);
-const food = await getFoodDetails(foodId);
-const suggestions = await getAutocomplete('chick');
-// Utility helpers also exported: isOnlineFood, addToFoodCache, trimFoodCache
-```
-
-Results cached in `userData.cachedFoods` to reduce API calls.
-
-### Barcode lookup source of truth
-
-- `FoodSearchModal` barcode flow uses `services/openFoodFacts.js` (`searchBarcode`) rather than FatSecret.
-- Keep FatSecret focused on online text search + food detail hydration.
-
----
-
-## OpenFoodFacts Barcode Integration
-
-Barcode lookup is proxied through Vercel serverless function for consistent error handling and centralized request headers.
+Online food search and barcode lookup are proxied through Vercel serverless function for consistent error handling and centralized request headers.
 
 **Architecture:**
 - `services/openFoodFacts.js` — Client service with timeout + native base URL guard, maps product payload to app food schema.
-- `api/openfoodfacts.js` — Vercel proxy for `action=barcode`, forwards to OpenFoodFacts product endpoint.
+- `api/openfoodfacts.js` — Vercel proxy supporting `action=search` (text search) and `action=barcode` (product lookup).
 
 **Configuration:**
 - Native builds: Set `VITE_OPENFOODFACTS_API_BASE` env var to deployed Vercel URL
@@ -743,9 +712,12 @@ Barcode lookup is proxied through Vercel serverless function for consistent erro
 
 **Key function:**
 ```javascript
-import { searchBarcode } from './services/openFoodFacts';
+import { searchFoods, searchBarcode } from './services/openFoodFacts';
+const results = await searchFoods('chicken breast', { page: 1, pageSize: 20 });
 const food = await searchBarcode('012345678901');
 ```
+
+Results are cached in `userData.cachedFoods` to reduce repeated network requests.
 
 ---
 
@@ -872,8 +844,7 @@ src/
 │   ├─ trackerHelpers.jsx        # Shared trend/goal-alignment helpers + TrendIcon
 │   └─ time.js                   # Time/duration helpers (normalize, round, format, split)
 ├─ services/
-│   ├─ fatSecret.js              # FatSecret API client
-│   ├─ openFoodFacts.js          # OpenFoodFacts barcode lookup client
+│   ├─ openFoodFacts.js          # OpenFoodFacts online search + barcode lookup client
 │   ├─ barcodeScanner.js         # Official Capacitor barcode scanner wrapper
 │   └─ foodCatalog.js            # SQLite-backed local food catalog service (sql.js)
 ├─ scripts/

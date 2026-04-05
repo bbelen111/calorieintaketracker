@@ -19,10 +19,6 @@ test('searchFoodsLocal returns local results only', async () => {
         calls.push('local');
         return [{ id: 'local_1', name: 'Chicken Breast' }];
       },
-      searchFatSecret: async () => {
-        calls.push('fatsecret');
-        return { foods: [{ id: 'fs_1', name: 'Chicken' }] };
-      },
       searchOpenFoodFacts: async () => {
         calls.push('openfoodfacts');
         return { foods: [{ id: 'off_1', name: 'Chicken Product' }] };
@@ -36,11 +32,10 @@ test('searchFoodsLocal returns local results only', async () => {
   assert.equal(result.results.length, 1);
 });
 
-test('searchFoodsOnline falls back to OpenFoodFacts when FatSecret has no matches', async () => {
+test('searchFoodsOnline uses OpenFoodFacts results', async () => {
   const result = await searchFoodsOnline({
     query: 'rare snack',
     dependencies: {
-      searchFatSecret: async () => ({ foods: [] }),
       searchOpenFoodFacts: async () => ({
         foods: [{ id: 'off_1', name: 'Rare Snack' }],
       }),
@@ -48,8 +43,8 @@ test('searchFoodsOnline falls back to OpenFoodFacts when FatSecret has no matche
   });
 
   assert.equal(result.source, FOOD_SEARCH_SOURCE.OPENFOODFACTS);
-  assert.equal(result.fallbackUsed, true);
-  assert.deepEqual(result.sourcesTried, ['fatsecret', 'openfoodfacts']);
+  assert.equal(result.fallbackUsed, false);
+  assert.deepEqual(result.sourcesTried, ['openfoodfacts']);
   assert.equal(result.results[0].id, 'off_1');
 });
 
@@ -57,32 +52,30 @@ test('searchFoodsOnline returns empty for short queries', async () => {
   const result = await searchFoodsOnline({
     query: 'a',
     dependencies: {
-      searchFatSecret: async () => ({ foods: [{ id: 'fs_1' }] }),
       searchOpenFoodFacts: async () => ({ foods: [{ id: 'off_1' }] }),
     },
   });
 
   assert.equal(result.results.length, 0);
-  assert.equal(result.source, FOOD_SEARCH_SOURCE.FATSECRET);
+  assert.equal(result.source, FOOD_SEARCH_SOURCE.OPENFOODFACTS);
   assert.deepEqual(result.sourcesTried, []);
 });
 
-test('searchFoodsOnline records source errors and continues fallback', async () => {
+test('searchFoodsOnline records source errors', async () => {
   const result = await searchFoodsOnline({
     query: 'cereal',
     dependencies: {
-      searchFatSecret: async () => {
-        throw new Error('fatsecret down');
+      searchOpenFoodFacts: async () => {
+        throw new Error('openfoodfacts down');
       },
-      searchOpenFoodFacts: async () => ({ foods: [] }),
     },
   });
 
   assert.equal(result.results.length, 0);
-  assert.deepEqual(result.sourcesTried, ['fatsecret', 'openfoodfacts']);
+  assert.deepEqual(result.sourcesTried, ['openfoodfacts']);
   assert.equal(
-    result.errorsBySource[FOOD_SEARCH_SOURCE.FATSECRET],
-    'fatsecret down'
+    result.errorsBySource[FOOD_SEARCH_SOURCE.OPENFOODFACTS],
+    'openfoodfacts down'
   );
 });
 
@@ -99,10 +92,6 @@ test('resolveAiFoodLookup keeps strong local match without online fallback', asy
           { id: 'local_chicken', name: 'Chicken Breast', category: 'protein' },
           { id: 'local_other', name: 'Rice', category: 'carbs' },
         ];
-      },
-      searchFatSecret: async () => {
-        calls.push('fatsecret');
-        return { foods: [{ id: 'fs_1', name: 'Chicken' }] };
       },
       searchOpenFoodFacts: async () => {
         calls.push('openfoodfacts');
@@ -136,7 +125,6 @@ test('resolveAiFoodLookup uses online fallback when local match is weak', async 
         }
         return [];
       },
-      searchFatSecret: async () => ({ foods: [] }),
       searchOpenFoodFacts: async () => ({
         foods: [{ id: 'off_match', name: 'Cacao Tablet', category: 'fats' }],
       }),
@@ -156,7 +144,6 @@ test('searchFoodsHierarchically local wrapper maps to local-only behavior', asyn
     query: 'oats',
     dependencies: {
       searchLocal: async () => [{ id: 'oats_1', name: 'Rolled Oats' }],
-      searchFatSecret: async () => ({ foods: [{ id: 'fs_1', name: 'Oats' }] }),
       searchOpenFoodFacts: async () => ({
         foods: [{ id: 'off_1', name: 'Oats Product' }],
       }),

@@ -10,11 +10,6 @@ import { formatFoodDisplayName } from '../../src/utils/foodPresentation.js';
 
 test('resolveFoodSourceType maps cached sources consistently', () => {
   assert.equal(
-    resolveFoodSourceType({ source: 'fatsecret' }),
-    FOOD_SOURCE_TYPES.CACHED
-  );
-
-  assert.equal(
     resolveFoodSourceType({ source: 'openfoodfacts' }),
     FOOD_SOURCE_TYPES.CACHED
   );

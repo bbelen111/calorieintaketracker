@@ -38,14 +38,8 @@ import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import {
   getDistinctSubcategories as getLocalSubcategories,
   getFoodById as getLocalFoodById,
-  searchFoods as searchLocalFoods,
 } from '../../../../services/foodCatalog';
-import {
-  getFoodDetails,
-  addToFoodCache,
-  trimFoodCache,
-  FatSecretError,
-} from '../../../../services/fatSecret';
+import { addToFoodCache, trimFoodCache } from '../../../../services/foodCache';
 import {
   searchBarcode as searchOpenFoodFactsBarcode,
   OpenFoodFactsError,
@@ -518,7 +512,7 @@ export const FoodSearchModal = ({
     setSearchErrorsBySource({});
     setActiveSearchSource(
       searchMode === 'online'
-        ? FOOD_SEARCH_SOURCE.FATSECRET
+        ? FOOD_SEARCH_SOURCE.OPENFOODFACTS
         : FOOD_SEARCH_SOURCE.LOCAL
     );
     setLocalSearchError(null);
@@ -529,15 +523,10 @@ export const FoodSearchModal = ({
   }, [searchMode]);
 
   const resolveSourceSearchError = useCallback((errorsBySource) => {
-    const fatSecretMessage = errorsBySource?.[FOOD_SEARCH_SOURCE.FATSECRET];
     const openFoodFactsMessage =
       errorsBySource?.[FOOD_SEARCH_SOURCE.OPENFOODFACTS];
 
-    if (fatSecretMessage && openFoodFactsMessage) {
-      return `${fatSecretMessage} OpenFoodFacts fallback also failed.`;
-    }
-
-    return fatSecretMessage || openFoodFactsMessage || null;
+    return openFoodFactsMessage || null;
   }, []);
 
   useEffect(() => {
@@ -704,7 +693,7 @@ export const FoodSearchModal = ({
         setIsSearching(false);
         setSearchFallbackUsed(false);
         setSearchErrorsBySource({});
-        setActiveSearchSource(FOOD_SEARCH_SOURCE.FATSECRET);
+        setActiveSearchSource(FOOD_SEARCH_SOURCE.OPENFOODFACTS);
         return;
       }
 
@@ -727,17 +716,15 @@ export const FoodSearchModal = ({
           : [];
 
         setOnlineResults(safeResults);
-        setActiveSearchSource(result?.source || FOOD_SEARCH_SOURCE.FATSECRET);
+        setActiveSearchSource(
+          result?.source || FOOD_SEARCH_SOURCE.OPENFOODFACTS
+        );
         setSearchFallbackUsed(Boolean(result?.fallbackUsed));
         setSearchErrorsBySource(result?.errorsBySource || {});
         setSearchError(resolveSourceSearchError(result?.errorsBySource));
       } catch (error) {
         console.error('Online search error:', error);
-        if (error instanceof FatSecretError) {
-          setSearchError(error.message);
-        } else {
-          setSearchError('Search failed. Please try again.');
-        }
+        setSearchError(error?.message || 'Search failed. Please try again.');
         setOnlineResults([]);
       } finally {
         setIsSearching(false);
@@ -762,7 +749,7 @@ export const FoodSearchModal = ({
       setSearchError(null);
       setSearchFallbackUsed(false);
       setSearchErrorsBySource({});
-      setActiveSearchSource(FOOD_SEARCH_SOURCE.FATSECRET);
+      setActiveSearchSource(FOOD_SEARCH_SOURCE.OPENFOODFACTS);
       return;
     }
 
@@ -781,22 +768,14 @@ export const FoodSearchModal = ({
     };
   }, [searchQuery, searchMode, performOnlineSearch]);
 
-  // Handle selecting an online food (fetch full details and cache)
+  // Handle selecting an online food (cache and select)
   const handleOnlineFoodSelect = async (previewFood) => {
-    if (!previewFood.fatSecretId) {
-      // Already has full data (from cache), use directly
-      onSelectFood?.(previewFood);
-      return;
-    }
-
     setLoadingFoodId(previewFood.id);
     setSearchError(null);
 
     try {
-      // Fetch full food details
-      const fullFood = await getFoodDetails(previewFood.fatSecretId);
+      const fullFood = previewFood;
 
-      // Add to cache
       if (resolvedUpdateCachedFoods) {
         const updatedCache = addToFoodCache(resolvedCachedFoods, fullFood);
         const trimmedCache = trimFoodCache(updatedCache, 200);
@@ -807,21 +786,13 @@ export const FoodSearchModal = ({
       onSelectFood?.(fullFood);
     } catch (error) {
       console.error('Failed to fetch food details:', error);
-      setSearchError(
-        error instanceof FatSecretError
-          ? error.message
-          : 'Failed to load food details'
-      );
+      setSearchError(error?.message || 'Failed to load food details');
     } finally {
       setLoadingFoodId(null);
     }
   };
 
   const resolveBarcodeErrorMessage = useCallback((error) => {
-    if (error instanceof FatSecretError) {
-      return error.message;
-    }
-
     if (error instanceof OpenFoodFactsError) {
       return error.message;
     }
@@ -2444,7 +2415,7 @@ export const FoodSearchModal = ({
                 }}
                 placeholder={
                   searchMode === 'online'
-                    ? 'Search online foods (FatSecret + OpenFoodFacts)...'
+                    ? 'Search online foods (OpenFoodFacts)...'
                     : 'Search local foods...'
                 }
                 className="w-full bg-surface-highlight border border-border rounded-lg pl-11 pr-10 py-3 text-foreground placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent-blue"
