@@ -16,6 +16,40 @@ A **React + Vite** single-page app for fitness calorie tracking, wrapped by Capa
 - **Mobile-Optimized UI** — Touch-first design, no hardcoded colors, semantic tokens
 - **Progressive Web App** — Works offline, installable on mobile
 
+## � Theoretical Foundation (The TDEE Stack)
+
+Energy Map Calorie Tracker abandons static daily targets in favor of a dynamically rebuilt Total Daily Energy Expenditure (TDEE) stack for each day. The calculation is mathematically rigorous and resolves layer-by-layer to ensure energy balance accuracy.
+
+$$ \text{TDEE} = \text{BMR} \times \text{NEAT}_{\text{adj}} + \text{Steps}_{\text{net}} + \text{Exercise} + \text{EPOC} + \text{TEF} + \text{AT}_{\text{correction}} $$
+
+### 1. Basal Metabolic Rate (BMR)
+By default, the system uses the **Mifflin-St Jeor** equation. If body fat tracking is enabled with valid entries, it automatically upgrades to the **Katch-McArdle** formula, utilizing Lean Body Mass (LBM) for superior accuracy.
+* **Mifflin-St Jeor:** $ \text{BMR} = 10 \times \text{weight (kg)} + 6.25 \times \text{height (cm)} - 5 \times \text{age (y)} + s $ *(where $s = 5$ for men, $-161$ for women)*
+* **Katch-McArdle:** $ \text{BMR} = 370 + (21.6 \times \text{LBM}) $
+
+### 2. Activity Multiplier (NEAT) & Smart TEF
+Non-Exercise Activity Thermogenesis (NEAT) is calculated via user-defined activity multipliers. 
+When **Smart TEF** (Thermic Effect of Food) is enabled, the system subtracts a `0.1` baseline from the raw multiplier (to decouple implicit TEF) and adds actual macro-calculated TEF back:
+$$ \text{NEAT}_{\text{burn}} = \text{BMR} \times (\text{Multiplier}_{\text{raw}} - 0.1) $$
+$$ \text{TEF} = (\text{Protein}_{g} \times 4 \times 0.25) + (\text{Carbs}_{g} \times 4 \times 0.08) + (\text{Fat}_{g} \times 9 \times 0.02) $$
+
+### 3. Algorithmic Step Overlap Deduction
+To prevent double-counting when users rely on both a pedometer and log ambulatory cardio sessions (e.g., running), steps are mathematically deducted proportional to the cardio time and cadence:
+$$ \text{Steps}_{\text{net}} = \text{Steps}_{\text{total}} - \sum (\text{Cardio}_{\text{duration}} \times \text{Cadence}_{\text{preset}}) $$
+Net steps are then converted to calories using a stride-length heuristic ($ \text{Height} \times 0.415 $).
+
+### 4. Exercise EPOC & Date Carryover
+Post-exercise oxygen consumption burn ($ \text{EPOC} $) is modeled and distributed across an adjustable carryover window (default: 6 hours). If a late-night workout spills over midnight, the algorithm fragments the EPOC calories between $ \text{Day}_1 $ (today) and $ \text{Day}_2 $ (tomorrow as "carry-in" calories):
+$$ \text{EPOC}_{\text{day}} = \text{EPOC}_{\text{total}} \times \left( \frac{\text{Minutes prior to midnight}}{\text{Window duration}} \right) $$
+
+### 5. Adaptive Thermogenesis (AT)
+An algorithmic feedback loop modeled on exponential moving averages (EMA) of historical snapshots. It regresses actual logged deficits against weight trend actualities to detect metabolic slowdown, injecting a bounded correction (`±300 kcal/day`):
+$$ \Delta_{\text{metabolic}} = \text{Expected Weight Change} - \text{Actual Weight Change} $$
+$$ \text{AT}_{\text{correction}} = \text{Clamp}(\Delta_{\text{energy}}, -300, 300) $$
+
+**The Final Target:** Your specific physiological Goal ($ \Delta_{\text{goal}} $, e.g. `-500 kcal` for fat loss) is applied directly to this robustly calculated baseline:
+$$ \text{Target Calories} = \text{TDEE} + \Delta_{\text{goal}} $$
+
 ## 🛠 Tech Stack
 
 | Layer | Technology | Version |
@@ -406,10 +440,6 @@ npm test:watch
 - `utils/calculations.js` — Comment-heavy calorie formula reference
 - `store/useEnergyMapStore.js` — Store structure & action patterns
 - `tests/` — Working examples of utility usage & calculation validation
-
-## 📄 License
-
-[Your license here]
 
 ---
 
