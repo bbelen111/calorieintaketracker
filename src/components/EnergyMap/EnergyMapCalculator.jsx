@@ -10,13 +10,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { shallow } from 'zustand/shallow';
-import { goals } from '../../constants/goals';
+import { goals } from '../../constants/goals/goals';
 import {
   clampCustomActivityMultiplier,
   clampCustomActivityPercent,
   DEFAULT_ACTIVITY_MULTIPLIERS,
   getCustomActivityPercent,
-} from '../../constants/activityPresets';
+} from '../../constants/activity/activityPresets';
 import {
   setupEnergyMapStore,
   useEnergyMapStore,
@@ -31,7 +31,7 @@ import {
 import {
   getDefaultEnergyMapData,
   saveLastSelectedCardioType,
-} from '../../utils/storage';
+} from '../../utils/data/storage';
 import { useScrollOffScreen } from '../../hooks/useScrollOffScreen';
 import { ScreenTabs, FloatingScreenTabs } from './common/ScreenTabs';
 import { LogbookScreen } from './screens/LogbookScreen';
@@ -45,7 +45,7 @@ import { BmrInfoModal } from './modals/info/BmrInfoModal';
 import { BmiInfoModal } from './modals/info/BmiInfoModal';
 import { FfmiInfoModal } from './modals/info/FfmiInfoModal';
 import { AgePickerModal } from './modals/pickers/AgePickerModal';
-import { MEAL_TYPE_ORDER } from '../../constants/mealTypes';
+import { MEAL_TYPE_ORDER } from '../../constants/meal/mealTypes';
 import { HeightPickerModal } from './modals/pickers/HeightPickerModal';
 import { WeightPickerModal } from './modals/pickers/WeightPickerModal';
 import { WeightEntryModal } from './modals/forms/WeightEntryModal';
@@ -80,7 +80,7 @@ import { FoodPortionModal } from './modals/pickers/FoodPortionModal';
 import { StepTrackerModal } from './modals/fullscreen/StepTrackerModal';
 import { StepGoalPickerModal } from './modals/pickers/StepGoalPickerModal';
 import { MacroPickerModal } from './modals/pickers/MacroPickerModal';
-import { CalorieTargetModal } from './modals/pickers/CalorieTargetModal';
+import { CalorieTargetModal } from './modals/lists/CalorieTargetModal';
 // ...existing code...
 import { ConfirmActionModal } from './modals/common/ConfirmActionModal';
 import {
@@ -88,22 +88,22 @@ import {
   normalizeDateKey,
   formatWeight,
   formatDateLabel,
-} from '../../utils/weight';
-import { clampBodyFat } from '../../utils/bodyFat';
+} from '../../utils/measurements/weight';
+import { clampBodyFat } from '../../utils/measurements/bodyFat';
 import { exportPhaseAsCSV, exportPhaseAsJSON } from '../../utils/export';
 import {
   getNutritionTotalsForDate,
   hasNutritionEntriesForDate,
-} from '../../utils/phases';
-import { isStepBasedCardioType } from '../../utils/steps';
+} from '../../utils/phases/phases';
+import { isStepBasedCardioType } from '../../utils/calculations/steps';
 import {
   deriveSessionTimestamps,
   getCurrentLocalTimeString,
   getTimeOfDayFromEpochMs,
   normalizeTimeOfDay,
-} from '../../utils/time';
-import { formatDateKeyUtc, getTodayDateKey } from '../../utils/dateKeys';
-import { normalizeMacroRecommendationSplit } from '../../utils/macroRecommendations';
+} from '../../utils/formatting/time';
+import { formatDateKeyUtc, getTodayDateKey } from '../../utils/data/dateKeys';
+import { normalizeMacroRecommendationSplit } from '../../utils/calculations/macroRecommendations';
 import { getFoodById as getFoodByIdFromCatalog } from '../../services/foodCatalog';
 
 const MODAL_CLOSE_DELAY = 180; // Match CSS animation duration (150ms) + buffer
@@ -2503,7 +2503,9 @@ export const EnergyMapCalculator = () => {
       // - null for local database foods
       const source = foodEntry.source || sourceFood?.source || null;
       const resolvedCategory =
-        foodEntry.category || sourceFood?.category || (source ? 'cached' : 'custom');
+        foodEntry.category ||
+        sourceFood?.category ||
+        (source ? 'cached' : 'custom');
 
       const favourite = {
         foodId: foodEntry.foodId || sourceFood?.id || null,

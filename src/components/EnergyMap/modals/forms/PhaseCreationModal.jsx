@@ -2,7 +2,7 @@ import React from 'react';
 import { Star } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import { DateInput } from '../../common/DateInput';
-import { goals } from '../../../../constants/goals';
+import { goals } from '../../../../constants/goals/goals';
 const getGoalClasses = (key, selected) => {
   const goal = goals[key];
   if (!goal)

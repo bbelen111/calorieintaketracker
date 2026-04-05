@@ -1,6 +1,6 @@
 import { calculateBMR, calculateCalorieBreakdown } from './calculations.js';
-import { getNutritionTotalsForDate } from './phases.js';
-import { normalizeDateKey } from './weight.js';
+import { getNutritionTotalsForDate } from '../phases/phases.js';
+import { normalizeDateKey } from '../measurements/weight.js';
 
 const GOAL_KEYS = new Set([
   'aggressive_bulk',

@@ -10,7 +10,7 @@ import {
   Footprints,
 } from 'lucide-react';
 import { shallow } from 'zustand/shallow';
-import { goals as baseGoals } from '../../../constants/goals';
+import { goals as baseGoals } from '../../../constants/goals/goals';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 
 // Status constants imported from hook - duplicated here to avoid circular import

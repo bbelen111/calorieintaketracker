@@ -8,9 +8,9 @@ import {
   Play,
   Archive,
 } from 'lucide-react';
-import { goals } from '../../../constants/goals';
-import { formatWeight } from '../../../utils/weight';
-import { calculatePhaseMetrics } from '../../../utils/phases';
+import { goals } from '../../../constants/goals/goals';
+import { formatWeight } from '../../../utils/measurements/weight';
+import { calculatePhaseMetrics } from '../../../utils/phases/phases';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 

@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Trash2, Save } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import { DateInput } from '../../common/DateInput';
-import { formatBodyFat } from '../../../../utils/bodyFat';
+import { formatBodyFat } from '../../../../utils/measurements/bodyFat';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { ConfirmActionModal } from '../common/ConfirmActionModal';
 

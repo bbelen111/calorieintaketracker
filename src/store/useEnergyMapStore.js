@@ -1,6 +1,6 @@
 import { createWithEqualityFn } from 'zustand/traditional';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { cardioTypes as baseCardioTypes } from '../constants/cardioTypes';
+import { cardioTypes as baseCardioTypes } from '../constants/cardio/cardioTypes';
 import {
   calculateBMR,
   calculateCalorieBreakdown,
@@ -8,25 +8,25 @@ import {
   calculateGoalCalories,
   getTotalCardioBurnForDate,
   getTotalTrainingBurnForDate,
-} from '../utils/calculations';
-import { getStepRangeSortValue } from '../utils/steps';
+} from '../utils/calculations/calculations';
+import { getStepRangeSortValue } from '../utils/calculations/steps';
 import {
   getDefaultEnergyMapData,
   loadEnergyMapData,
   saveEnergyMapData,
-} from '../utils/storage';
+} from '../utils/data/storage';
 import {
   clampWeight,
   normalizeDateKey,
   sortWeightEntries,
-} from '../utils/weight';
-import { clampBodyFat, sortBodyFatEntries } from '../utils/bodyFat';
-import { sanitizeAge, sanitizeHeight } from '../utils/profile';
+} from '../utils/measurements/weight';
+import { clampBodyFat, sortBodyFatEntries } from '../utils/measurements/bodyFat';
+import { sanitizeAge, sanitizeHeight } from '../utils/measurements/profile';
 import {
   areDailySnapshotsEquivalent,
   buildDailySnapshot,
   getPreviousDateKey,
-} from '../utils/dailySnapshots';
+} from '../utils/calculations/dailySnapshots';
 import {
   PHASE_STATUS,
   deriveDailyLogStatus,
@@ -34,9 +34,9 @@ import {
   normalizePhaseLogV2State,
   removePhaseLogV2DailyLog,
   upsertPhaseLogV2DailyLog,
-} from '../utils/phaseLogV2';
-import { hasNutritionEntriesForDate } from '../utils/phases';
-import { getTodayDateKey } from '../utils/dateKeys';
+} from '../utils/data/phaseLogV2';
+import { hasNutritionEntriesForDate } from '../utils/phases/phases';
+import { getTodayDateKey } from '../utils/data/dateKeys';
 
 const SAVE_DEBOUNCE_MS = 1000;
 const DEFAULT_TRAINING_TYPE_CATALOG =

@@ -4,7 +4,7 @@ import test from 'node:test';
 import {
   computeAdaptiveThermogenesis,
   resolveAdaptiveThermogenesisMode,
-} from '../../src/utils/adaptiveThermogenesis.js';
+} from '../../src/utils/calculations/adaptiveThermogenesis.js';
 
 test('resolveAdaptiveThermogenesisMode respects explicit context mode overrides', () => {
   const mode = resolveAdaptiveThermogenesisMode({

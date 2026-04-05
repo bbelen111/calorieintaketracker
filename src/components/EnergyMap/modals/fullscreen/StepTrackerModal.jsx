@@ -10,8 +10,8 @@ import { ChevronLeft, Footprints, Target } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
-import { getStepCaloriesDetails } from '../../../../utils/steps';
-import { formatDateKeyUtc, getTodayDateKey } from '../../../../utils/dateKeys';
+import { getStepCaloriesDetails } from '../../../../utils/calculations/steps';
+import { formatDateKeyUtc, getTodayDateKey } from '../../../../utils/data/dateKeys';
 
 // ---------------------------------------------------------------------------
 // Helper components & functions

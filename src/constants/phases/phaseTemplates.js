@@ -2,7 +2,7 @@
  * Pre-configured phase templates to help users get started quickly
  */
 
-import { formatDateKeyLocal } from '../utils/dateKeys.js';
+import { formatDateKeyLocal } from '../../utils/data/dateKeys.js';
 
 export const PHASE_TEMPLATES = [
   {

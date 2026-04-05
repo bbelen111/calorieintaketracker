@@ -13,8 +13,8 @@ import { ModalShell } from '../../common/ModalShell';
 import {
   calculateGoalAlignment,
   getGoalAlignedTextClass,
-} from '../../../../utils/goalAlignment';
-import { goals } from '../../../../constants/goals';
+} from '../../../../utils/calculations/goalAlignment';
+import { goals } from '../../../../constants/goals/goals';
 
 const TrendIcon = ({ direction }) => {
   if (direction === 'up') {

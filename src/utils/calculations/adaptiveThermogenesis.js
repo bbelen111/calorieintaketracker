@@ -1,4 +1,4 @@
-import { normalizeDateKey } from './weight.js';
+import { normalizeDateKey } from '../measurements/weight.js';
 
 const GOAL_CUT_KEYS = new Set(['cutting', 'aggressive_cut']);
 const GOAL_SURPLUS_KEYS = new Set(['bulking', 'aggressive_bulk']);

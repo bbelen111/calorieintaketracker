@@ -4,7 +4,7 @@ import { ModalShell } from '../../common/ModalShell';
 import {
   MEAL_TYPE_ORDER,
   getMealTypeById,
-} from '../../../../constants/mealTypes';
+} from '../../../../constants/meal/mealTypes';
 
 export const MealTypePickerModal = ({
   isOpen,

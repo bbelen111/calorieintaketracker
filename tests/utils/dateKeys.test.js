@@ -4,7 +4,7 @@ import test from 'node:test';
 import {
   formatDateKeyLocal,
   formatDateKeyUtc,
-} from '../../src/utils/dateKeys.js';
+} from '../../src/utils/data/dateKeys.js';
 
 test('formatDateKeyLocal matches JS local calendar components', () => {
   const date = new Date('2026-03-01T23:30:00-08:00');

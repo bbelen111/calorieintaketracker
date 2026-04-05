@@ -3,7 +3,7 @@ import {
   getDateKeyFromEpochMs,
   getEpochMsFromDateAndTime,
   normalizeTimeOfDay,
-} from './time.js';
+} from '../formatting/time.js';
 
 const MS_PER_MINUTE = 60 * 1000;
 

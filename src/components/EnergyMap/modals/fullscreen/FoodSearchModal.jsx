@@ -32,7 +32,7 @@ import { FoodSearchChatPanel } from './panels/FoodSearchChatPanel';
 import { FoodSearchResultsPanel } from './panels/FoodSearchResultsPanel';
 import { FoodSearchFavouritesPanel } from './panels/FoodSearchFavouritesPanel';
 import { FoodSearchFilterControls } from './panels/FoodSearchFilterControls';
-import { FOOD_CATEGORIES } from '../../../../constants/foodDatabase';
+import { FOOD_CATEGORIES } from '../../../../constants/food/foodDatabase';
 import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import {

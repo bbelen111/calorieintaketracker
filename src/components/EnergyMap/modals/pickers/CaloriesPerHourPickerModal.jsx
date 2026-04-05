@@ -4,7 +4,7 @@ import { ModalShell } from '../../common/ModalShell';
 import {
   alignScrollContainerToValue,
   createPickerScrollHandler,
-} from '../../../../utils/scroll';
+} from '../../../../utils/visuals/scroll';
 
 const MIN_CALORIES_PER_HOUR = 0;
 const MAX_CALORIES_PER_HOUR = 2000;

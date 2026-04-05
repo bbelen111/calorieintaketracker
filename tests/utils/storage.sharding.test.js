@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { reconstructHistoryFromDexieDocuments } from '../../src/utils/storage.js';
+import { reconstructHistoryFromDexieDocuments } from '../../src/utils/data/storage.js';
 
 test('reconstructHistoryFromDexieDocuments rebuilds sharded history fields', () => {
   const documents = [

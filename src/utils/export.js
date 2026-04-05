@@ -1,5 +1,8 @@
-import { calculatePhaseMetrics, getNutritionTotalsForDate } from './phases';
-import { getTodayDateKey } from './dateKeys';
+import {
+  calculatePhaseMetrics,
+  getNutritionTotalsForDate,
+} from './phases/phases';
+import { getTodayDateKey } from './data/dateKeys';
 
 /**
  * Export phase data as CSV

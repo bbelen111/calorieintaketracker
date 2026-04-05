@@ -10,11 +10,11 @@ import { ModalShell } from '../../common/ModalShell';
 import {
   alignScrollContainerToElement,
   createPickerScrollHandler,
-} from '../../../../utils/scroll';
+} from '../../../../utils/visuals/scroll';
 import {
   normalizeDurationHours,
   roundDurationHours,
-} from '../../../../utils/time';
+} from '../../../../utils/formatting/time';
 
 const REPEATS = 20;
 

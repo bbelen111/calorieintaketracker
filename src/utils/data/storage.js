@@ -2,23 +2,23 @@ import { Preferences } from '@capacitor/preferences';
 import {
   clampCustomActivityMultiplier,
   DEFAULT_ACTIVITY_MULTIPLIERS,
-} from '../constants/activityPresets.js';
-import { cardioTypes as baseCardioTypes } from '../constants/cardioTypes.js';
+} from '../../constants/activity/activityPresets.js';
+import { cardioTypes as baseCardioTypes } from '../../constants/cardio/cardioTypes.js';
 import {
   deleteHistoryDocumentsFromDexie,
   loadAllHistoryDocuments,
   saveHistoryToDexie,
   saveHistoryDocumentsToDexie,
 } from './historyDatabase.js';
-import { normalizeDateKey, sortWeightEntries } from './weight.js';
-import { clampBodyFat, sortBodyFatEntries } from './bodyFat.js';
-import { sanitizeAge, sanitizeHeight } from './profile.js';
-import { isStepBasedCardioType } from './steps.js';
+import { normalizeDateKey, sortWeightEntries } from '../measurements/weight.js';
+import { clampBodyFat, sortBodyFatEntries } from '../measurements/bodyFat.js';
+import { sanitizeAge, sanitizeHeight } from '../measurements/profile.js';
+import { isStepBasedCardioType } from '../calculations/steps.js';
 import {
   deriveSessionTimestamps,
   getTimeOfDayFromEpochMs,
   normalizeTimeOfDay,
-} from './time.js';
+} from '../formatting/time.js';
 import {
   createDefaultPhaseLogV2State,
   normalizePhaseLogV2State,
@@ -26,7 +26,7 @@ import {
 import {
   DEFAULT_MACRO_RECOMMENDATION_SPLIT,
   normalizeMacroRecommendationSplit,
-} from './macroRecommendations.js';
+} from '../calculations/macroRecommendations.js';
 
 // Split keys for performance
 const PROFILE_KEY = 'energyMapData_profile'; // Settings, preferences, small lists

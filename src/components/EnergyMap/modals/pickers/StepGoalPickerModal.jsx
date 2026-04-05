@@ -4,7 +4,7 @@ import { ModalShell } from '../../common/ModalShell';
 import {
   alignScrollContainerToValue,
   createPickerScrollHandler,
-} from '../../../../utils/scroll';
+} from '../../../../utils/visuals/scroll';
 
 const MIN_GOAL = 1000;
 const MAX_GOAL = 50000;

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, ChevronDown } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
-import { goals as baseGoals } from '../../../../constants/goals';
+import { goals as baseGoals } from '../../../../constants/goals/goals';
 
 export const CalorieBreakdownModal = ({
   isOpen,

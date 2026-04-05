@@ -11,13 +11,13 @@ import {
   StickyNote,
   CheckCircle2,
 } from 'lucide-react';
-import { formatWeight } from '../../../../utils/weight';
-import { formatBodyFat } from '../../../../utils/bodyFat';
-import { formatOne } from '../../../../utils/format';
+import { formatWeight } from '../../../../utils/measurements/weight';
+import { formatBodyFat } from '../../../../utils/measurements/bodyFat';
+import { formatOne } from '../../../../utils/formatting/format';
 import {
   getNutritionTotalsForDate,
   hasNutritionEntriesForDate,
-} from '../../../../utils/phases';
+} from '../../../../utils/phases/phases';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 
 export const DailyLogModal = ({

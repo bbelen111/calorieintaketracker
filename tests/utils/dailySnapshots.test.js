@@ -5,7 +5,7 @@ import {
   areDailySnapshotsEquivalent,
   buildDailySnapshot,
   getPreviousDateKey,
-} from '../../src/utils/dailySnapshots.js';
+} from '../../src/utils/calculations/dailySnapshots.js';
 
 const dateKey = '2026-03-21';
 

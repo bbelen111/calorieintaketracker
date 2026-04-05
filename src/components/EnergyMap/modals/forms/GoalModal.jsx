@@ -1,7 +1,7 @@
 import React from 'react';
 import { Save } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
-import { goals as baseGoals } from '../../../../constants/goals';
+import { goals as baseGoals } from '../../../../constants/goals/goals';
 
 const GOAL_BORDER_CLASS_BY_BG = {
   'bg-accent-purple': 'border-accent-purple',

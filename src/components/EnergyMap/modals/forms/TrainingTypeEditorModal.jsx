@@ -1,7 +1,7 @@
 import React from 'react';
 import { Save, ChevronsUpDown } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
-import { getDefaultEnergyMapData } from '../../../../utils/storage';
+import { getDefaultEnergyMapData } from '../../../../utils/data/storage';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { CaloriesPerHourGuideModal } from '../info/CaloriesPerHourGuideModal';
 import { CaloriesPerHourPickerModal } from '../pickers/CaloriesPerHourPickerModal';

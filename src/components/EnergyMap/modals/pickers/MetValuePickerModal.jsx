@@ -10,7 +10,7 @@ import { ModalShell } from '../../common/ModalShell';
 import {
   alignScrollContainerToValue,
   createPickerScrollHandler,
-} from '../../../../utils/scroll';
+} from '../../../../utils/visuals/scroll';
 
 const clampValue = (value, min, max) => {
   if (!Number.isFinite(value)) {

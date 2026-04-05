@@ -1,6 +1,6 @@
 import initSqlJs from 'sql.js';
 import sqliteWasmUrl from 'sql.js/dist/sql-wasm.wasm?url';
-import foodDatabaseSqliteUrl from '../constants/foodDatabase.sqlite?url';
+import foodDatabaseSqliteUrl from '../constants/food/foodDatabase.sqlite?url';
 
 const DEFAULT_LIMIT = 300;
 const SORTABLE_COLUMNS = {

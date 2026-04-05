@@ -4,7 +4,7 @@ import {
   DEFAULT_CARRYOVER_HOURS,
   MAX_CARRYOVER_HOURS,
   CARRYOVER_HOURS_BY_INTENSITY,
-} from '../../../../utils/epoc';
+} from '../../../../utils/calculations/epoc';
 import { ModalShell } from '../../common/ModalShell';
 
 export const EpocInfoModal = ({ isOpen, isClosing, onClose }) => {

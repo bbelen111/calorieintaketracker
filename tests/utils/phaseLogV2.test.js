@@ -8,7 +8,7 @@ import {
   normalizePhaseLogV2State,
   upsertPhaseLogV2DailyLog,
   removePhaseLogV2DailyLog,
-} from '../../src/utils/phaseLogV2.js';
+} from '../../src/utils/data/phaseLogV2.js';
 
 test('v2 normalization enforces a single active phase', () => {
   const now = Date.now();

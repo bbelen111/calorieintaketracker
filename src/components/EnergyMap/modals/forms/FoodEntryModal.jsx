@@ -6,8 +6,8 @@ import {
   TEF_PROTEIN_RATE,
   TEF_CARB_RATE,
   TEF_FAT_RATE,
-} from '../../../../utils/calculations';
-import { formatOne } from '../../../../utils/format';
+} from '../../../../utils/calculations/calculations';
+import { formatOne } from '../../../../utils/formatting/format';
 
 export const FoodEntryModal = ({
   isOpen,

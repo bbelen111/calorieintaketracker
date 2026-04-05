@@ -10,14 +10,14 @@ import {
   Archive,
   Trash2,
 } from 'lucide-react';
-import { goals } from '../../../constants/goals';
-import { formatWeight } from '../../../utils/weight';
+import { goals } from '../../../constants/goals/goals';
+import { formatWeight } from '../../../utils/measurements/weight';
 import {
   calculatePhaseMetrics,
   getNutritionTotalsForDate,
   getPhaseCalendarData,
   getRecentDailyLogs,
-} from '../../../utils/phases';
+} from '../../../utils/phases/phases';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 

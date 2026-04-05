@@ -4,7 +4,7 @@ import test from 'node:test';
 import {
   allocateCarryoverByDate,
   getCarryoverForDateFromSessions,
-} from '../../src/utils/sessionCarryover.js';
+} from '../../src/utils/calculations/sessionCarryover.js';
 
 test('allocateCarryoverByDate splits calories across midnight boundary', () => {
   const anchor = new Date('2026-03-21T23:30:00').getTime();

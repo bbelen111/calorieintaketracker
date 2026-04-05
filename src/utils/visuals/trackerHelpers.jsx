@@ -13,7 +13,7 @@
 
 import React from 'react';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import { getGoalAlignedTextClass } from './goalAlignment';
+import { getGoalAlignedTextClass } from '../calculations/goalAlignment';
 
 // ---------------------------------------------------------------------------
 // Constants

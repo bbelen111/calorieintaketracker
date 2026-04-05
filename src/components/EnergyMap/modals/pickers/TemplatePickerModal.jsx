@@ -1,6 +1,6 @@
 import React from 'react';
 import { ModalShell } from '../../common/ModalShell';
-import { PHASE_TEMPLATES } from '../../../../constants/phaseTemplates';
+import { PHASE_TEMPLATES } from '../../../../constants/phases/phaseTemplates';
 
 export const TemplatePickerModal = ({
   isOpen,

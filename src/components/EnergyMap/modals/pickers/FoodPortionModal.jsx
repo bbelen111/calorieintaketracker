@@ -8,18 +8,18 @@ import React, {
 import { Plus, ChevronDown, Heart } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import { FoodTagBadges } from '../../common/FoodTagBadges';
-import { formatOne } from '../../../../utils/format';
-import { formatFoodDisplayName } from '../../../../utils/foodPresentation';
+import { formatOne } from '../../../../utils/formatting/format';
+import { formatFoodDisplayName } from '../../../../utils/food/foodPresentation';
 import {
   calculateTefFromMacros,
   TEF_PROTEIN_RATE,
   TEF_CARB_RATE,
   TEF_FAT_RATE,
-} from '../../../../utils/calculations';
+} from '../../../../utils/calculations/calculations';
 import {
   alignScrollContainerToValue,
   createPickerScrollHandler,
-} from '../../../../utils/scroll';
+} from '../../../../utils/visuals/scroll';
 
 const MIN_GRAMS = 1;
 const MAX_GRAMS = 1000;

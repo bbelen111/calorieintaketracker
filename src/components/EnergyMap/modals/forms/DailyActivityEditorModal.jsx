@@ -5,7 +5,7 @@ import { ModalShell } from '../../common/ModalShell';
 import {
   ACTIVITY_PRESET_OPTIONS,
   DEFAULT_ACTIVITY_MULTIPLIERS,
-} from '../../../../constants/activityPresets';
+} from '../../../../constants/activity/activityPresets';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 
 const DEFAULT_PRESET_KEY = 'default';

@@ -18,7 +18,7 @@ import {
   SendHorizontal,
   X,
 } from 'lucide-react';
-import { formatOne } from '../../../../../utils/format';
+import { formatOne } from '../../../../../utils/formatting/format';
 import { FoodTagBadges } from '../../../common/FoodTagBadges';
 
 export const FoodSearchChatPanel = ({

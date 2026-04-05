@@ -1,11 +1,11 @@
 import React from 'react';
-import { formatOne } from '../../../utils/format';
+import { formatOne } from '../../../utils/formatting/format';
 import {
   FOOD_SOURCE_TYPES,
   getFoodCategoryMeta,
   getFoodSourceBadgeMeta,
   getFoodTagClassByColor,
-} from '../../../utils/foodTags';
+} from '../../../utils/food/foodTags';
 
 const DEFAULT_CONTAINER_CLASS = 'flex items-center gap-2 flex-wrap';
 

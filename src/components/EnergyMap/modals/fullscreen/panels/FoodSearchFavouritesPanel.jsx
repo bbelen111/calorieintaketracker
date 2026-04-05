@@ -1,12 +1,12 @@
 import React from 'react';
 import { Heart, Edit3, Trash2 } from 'lucide-react';
 import { FoodTagBadges } from '../../../common/FoodTagBadges';
-import { formatOne } from '../../../../../utils/format';
-import { formatFoodDisplayName } from '../../../../../utils/foodPresentation';
+import { formatOne } from '../../../../../utils/formatting/format';
+import { formatFoodDisplayName } from '../../../../../utils/food/foodPresentation';
 import {
   FOOD_SOURCE_TYPES,
   resolveFoodSourceType,
-} from '../../../../../utils/foodTags';
+} from '../../../../../utils/food/foodTags';
 
 export const FoodSearchFavouritesPanel = ({
   sortedFavourites,

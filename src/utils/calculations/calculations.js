@@ -1,4 +1,4 @@
-import { DEFAULT_ACTIVITY_MULTIPLIERS } from '../constants/activityPresets.js';
+import { DEFAULT_ACTIVITY_MULTIPLIERS } from '../../constants/activity/activityPresets.js';
 import {
   getStepCaloriesDetails,
   getStepDetails,
@@ -13,7 +13,7 @@ import {
   resolveTrainingSessionEpoc,
 } from './epoc.js';
 import { getCarryoverForDateFromSessions } from './sessionCarryover.js';
-import { getTodayDateKey } from './dateKeys.js';
+import { getTodayDateKey } from '../data/dateKeys.js';
 import { calculateMacroRecommendations } from './macroRecommendations.js';
 
 const HEART_RATE_COEFFICIENTS = {

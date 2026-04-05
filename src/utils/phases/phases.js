@@ -1,5 +1,5 @@
-import { MEAL_TYPE_ORDER } from '../constants/mealTypes.js';
-import { formatDateKeyUtc } from './dateKeys.js';
+import { MEAL_TYPE_ORDER } from '../../constants/meal/mealTypes.js';
+import { formatDateKeyUtc } from '../data/dateKeys.js';
 
 const EMPTY_NUTRITION_TOTALS = {
   calories: 0,

@@ -1,36 +1,33 @@
-import { buildBezierPaths } from './bezierPath.js';
+import { normalizeDateKey } from './weight.js';
+import { buildBezierPaths } from '../visuals/bezierPath.js';
 
-const DATE_KEY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const MS_PER_DAY = 86_400_000;
 
-export const MIN_WEIGHT_KG = 30;
-export const MAX_WEIGHT_KG = 210;
+export const MIN_BODY_FAT_PERCENT = 2;
+export const MAX_BODY_FAT_PERCENT = 60;
 
-export const clampWeight = (value) => {
+export const clampBodyFat = (value) => {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) {
     return null;
   }
-  const clamped = Math.min(Math.max(numeric, MIN_WEIGHT_KG), MAX_WEIGHT_KG);
+  const clamped = Math.min(
+    Math.max(numeric, MIN_BODY_FAT_PERCENT),
+    MAX_BODY_FAT_PERCENT
+  );
   const rounded = Math.round(clamped * 10) / 10;
   return rounded;
 };
 
-export const normalizeDateKey = (value) => {
-  if (value == null) {
+export const formatBodyFat = (value) => {
+  const numeric = clampBodyFat(value);
+  if (numeric == null) {
     return null;
   }
-
-  const stringValue = typeof value === 'string' ? value : String(value);
-  const trimmed = stringValue.trim();
-  if (!DATE_KEY_REGEX.test(trimmed)) {
-    return null;
-  }
-
-  return trimmed;
+  return Number.isInteger(numeric) ? numeric.toFixed(0) : numeric.toFixed(1);
 };
 
-export const sortWeightEntries = (entries) => {
+export const sortBodyFatEntries = (entries) => {
   if (!Array.isArray(entries)) {
     return [];
   }
@@ -42,13 +39,13 @@ export const sortWeightEntries = (entries) => {
       }
 
       const date = normalizeDateKey(entry.date);
-      const weight = clampWeight(entry.weight);
+      const bodyFat = clampBodyFat(entry.bodyFat);
 
-      if (!date || weight == null) {
+      if (!date || bodyFat == null) {
         return null;
       }
 
-      return { date, weight };
+      return { date, bodyFat };
     })
     .filter(Boolean)
     .sort((a, b) => a.date.localeCompare(b.date));
@@ -60,38 +57,11 @@ const getDateFromKey = (dateKey) => {
     return null;
   }
 
-  // Always parse as UTC midnight to avoid DST/timezone issues
   const date = new Date(`${normalized}T00:00:00Z`);
   if (Number.isNaN(date.getTime())) {
     return null;
   }
   return date;
-};
-
-export const formatWeight = (value) => {
-  const numeric = clampWeight(value);
-  if (numeric == null) {
-    return null;
-  }
-  return Number.isInteger(numeric) ? numeric.toFixed(0) : numeric.toFixed(1);
-};
-
-export const formatDateLabel = (dateKey, options) => {
-  const date = getDateFromKey(dateKey);
-  if (!date) {
-    return '';
-  }
-
-  const formatter = new Intl.DateTimeFormat(
-    undefined,
-    options ?? {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    }
-  );
-
-  return formatter.format(date);
 };
 
 const resolveTrendLabel = (weeklyRate) => {
@@ -102,20 +72,20 @@ const resolveTrendLabel = (weeklyRate) => {
   }
 
   if (weeklyRate < 0) {
-    if (weeklyRate <= -1.2) return 'Severe weight loss';
-    if (weeklyRate <= -0.8) return 'Aggressive weight loss';
-    if (weeklyRate <= -0.45) return 'Moderate weight loss';
-    return 'Gradual weight loss';
+    if (weeklyRate <= -1.2) return 'Severe body fat loss';
+    if (weeklyRate <= -0.8) return 'Aggressive body fat loss';
+    if (weeklyRate <= -0.45) return 'Moderate body fat loss';
+    return 'Gradual body fat loss';
   }
 
-  if (weeklyRate >= 1.2) return 'Severe weight gain';
-  if (weeklyRate >= 0.8) return 'Aggressive weight gain';
-  if (weeklyRate >= 0.45) return 'Moderate weight gain';
-  return 'Gradual weight gain';
+  if (weeklyRate >= 1.2) return 'Severe body fat gain';
+  if (weeklyRate >= 0.8) return 'Aggressive body fat gain';
+  if (weeklyRate >= 0.45) return 'Moderate body fat gain';
+  return 'Gradual body fat gain';
 };
 
-export const calculateWeightTrend = (entries, windowDays = 30) => {
-  const sorted = sortWeightEntries(entries);
+export const calculateBodyFatTrend = (entries, windowDays = 30) => {
+  const sorted = sortBodyFatEntries(entries);
   if (sorted.length < 2) {
     return {
       label: sorted.length ? 'Need more data' : 'No data yet',
@@ -167,7 +137,7 @@ export const calculateWeightTrend = (entries, windowDays = 30) => {
     Math.round((finalDate.getTime() - firstDate.getTime()) / MS_PER_DAY),
     1
   );
-  const delta = final.weight - first.weight;
+  const delta = final.bodyFat - first.bodyFat;
   const weeklyRate = (delta / dayCount) * 7;
   const direction = delta === 0 ? 'flat' : delta > 0 ? 'up' : 'down';
   const label = resolveTrendLabel(weeklyRate);
@@ -181,11 +151,11 @@ export const calculateWeightTrend = (entries, windowDays = 30) => {
   };
 };
 
-export const createSparklinePoints = (
+export const createBodyFatSparklinePoints = (
   entries,
   { width = 100, height = 32, padding = 4, limit = 8 } = {}
 ) => {
-  const sorted = sortWeightEntries(entries);
+  const sorted = sortBodyFatEntries(entries);
   const recent = sorted.slice(-limit);
   if (!recent.length) {
     return {
@@ -198,14 +168,12 @@ export const createSparklinePoints = (
     };
   }
 
-  const weights = recent.map((entry) => entry.weight);
-  const min = Math.min(...weights);
-  const max = Math.max(...weights);
+  const values = recent.map((entry) => entry.bodyFat);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
   let range = max - min;
 
-  // For stable weight (small or zero range), create a visible range
-  // This ensures the graph is still drawn with some visual variation
-  const minVisibleRange = 2; // kg - minimum range to show on the graph
+  const minVisibleRange = 2;
   let effectiveMin = min;
   let effectiveMax = max;
 
@@ -219,15 +187,13 @@ export const createSparklinePoints = (
   const usableWidth = Math.max(width - padding * 2, 1);
   const usableHeight = Math.max(height - padding * 2, 1);
   const step = recent.length === 1 ? 0 : usableWidth / (recent.length - 1);
-
-  // Calculate baseline Y position (bottom of the chart)
   const baselineY = height - padding;
 
   const coordinates = recent.map((entry, index) => {
     const x = padding + step * index;
-    const normalized = (entry.weight - effectiveMin) / range;
+    const normalized = (entry.bodyFat - effectiveMin) / range;
     const y = padding + (1 - normalized) * usableHeight;
-    return { x, y, weight: entry.weight };
+    return { x, y, bodyFat: entry.bodyFat };
   });
 
   // Build smooth bezier paths for the sparkline
@@ -249,24 +215,14 @@ export const createSparklinePoints = (
   };
 };
 
-export const getTotalWeightChange = (entries) => {
-  const sorted = sortWeightEntries(entries);
-  if (sorted.length < 2) {
-    return 0;
-  }
-  const first = sorted[0];
-  const last = sorted[sorted.length - 1];
-  return last.weight - first.weight;
-};
-
 /**
- * Calculate the average weight over the last N calendar days from the latest entry.
- * @param {Array} entries - Sorted weight entries
+ * Calculate the average body fat over the last N calendar days from the latest entry.
+ * @param {Array} entries - Sorted body fat entries
  * @param {number} n - Number of calendar days to look back
- * @returns {number|null} Average weight or null if no entries in window
+ * @returns {number|null} Average body fat or null if no entries in window
  */
-export const calculateNDayWeightAverage = (entries, n) => {
-  const sorted = sortWeightEntries(entries);
+export const calculateNDayBodyFatAverage = (entries, n) => {
+  const sorted = sortBodyFatEntries(entries);
   if (!sorted.length) return null;
 
   const latest = sorted[sorted.length - 1];
@@ -280,17 +236,17 @@ export const calculateNDayWeightAverage = (entries, n) => {
   });
 
   if (!windowEntries.length) return null;
-  const sum = windowEntries.reduce((acc, e) => acc + e.weight, 0);
+  const sum = windowEntries.reduce((acc, e) => acc + e.bodyFat, 0);
   return Math.round((sum / windowEntries.length) * 10) / 10;
 };
 
 /**
- * Group weight entries by calendar month and compute monthly averages.
- * @param {Array} entries - Sorted weight entries
+ * Group body fat entries by calendar month and compute monthly averages.
+ * @param {Array} entries - Sorted body fat entries
  * @returns {Array<{ key: string, label: string, year: number, month: number, avg: number, entries: Array }>}
  */
-export const groupWeightEntriesByMonth = (entries) => {
-  const sorted = sortWeightEntries(entries);
+export const groupBodyFatEntriesByMonth = (entries) => {
+  const sorted = sortBodyFatEntries(entries);
   if (!sorted.length) return [];
 
   const monthMap = new Map();
@@ -316,7 +272,7 @@ export const groupWeightEntriesByMonth = (entries) => {
 
   const groups = Array.from(monthMap.values());
   groups.forEach((g) => {
-    const sum = g.entries.reduce((acc, e) => acc + e.weight, 0);
+    const sum = g.entries.reduce((acc, e) => acc + e.bodyFat, 0);
     g.avg = Math.round((sum / g.entries.length) * 10) / 10;
   });
 

@@ -6,11 +6,11 @@ import {
   getDefaultEnergyMapData,
   loadEnergyMapData,
   saveEnergyMapData,
-} from '../../src/utils/storage.js';
+} from '../../src/utils/data/storage.js';
 import {
   deleteHistoryDocumentsFromDexie,
   loadAllHistoryDocuments,
-} from '../../src/utils/historyDatabase.js';
+} from '../../src/utils/data/historyDatabase.js';
 
 const PROFILE_KEY = 'energyMapData_profile';
 const getTodayDateKey = () => {

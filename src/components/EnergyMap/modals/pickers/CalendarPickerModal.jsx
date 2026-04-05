@@ -12,7 +12,7 @@ import {
   Droplet,
 } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
-import { formatDateKeyUtc, getTodayDateKey } from '../../../../utils/dateKeys';
+import { formatDateKeyUtc, getTodayDateKey } from '../../../../utils/data/dateKeys';
 
 const TOOLTIP_VERTICAL_OFFSET = 12;
 

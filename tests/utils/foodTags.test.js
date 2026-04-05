@@ -5,8 +5,8 @@ import {
   FOOD_SOURCE_TYPES,
   getFoodSourceBadgeMeta,
   resolveFoodSourceType,
-} from '../../src/utils/foodTags.js';
-import { formatFoodDisplayName } from '../../src/utils/foodPresentation.js';
+} from '../../src/utils/food/foodTags.js';
+import { formatFoodDisplayName } from '../../src/utils/food/foodPresentation.js';
 
 test('resolveFoodSourceType maps cached sources consistently', () => {
   assert.equal(

@@ -5,12 +5,12 @@ import { ModalShell } from '../../common/ModalShell';
 import {
   alignScrollContainerToValue,
   createPickerScrollHandler,
-} from '../../../../utils/scroll';
+} from '../../../../utils/visuals/scroll';
 import {
   HEIGHT_MAX,
   HEIGHT_MIN,
   sanitizeHeight,
-} from '../../../../utils/profile';
+} from '../../../../utils/measurements/profile';
 
 const HEIGHT_VALUES = Array.from(
   { length: HEIGHT_MAX - HEIGHT_MIN + 1 },

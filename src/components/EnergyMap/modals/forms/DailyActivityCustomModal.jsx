@@ -4,11 +4,11 @@ import { ModalShell } from '../../common/ModalShell';
 import {
   clampCustomActivityPercent,
   MIN_CUSTOM_ACTIVITY_PERCENT,
-} from '../../../../constants/activityPresets';
+} from '../../../../constants/activity/activityPresets';
 import {
   alignScrollContainerToValue,
   createPickerScrollHandler,
-} from '../../../../utils/scroll';
+} from '../../../../utils/visuals/scroll';
 
 // 10.0, 10.5, 11.0, … 100.0
 const NEAT_VALUES = Array.from(

@@ -6,7 +6,7 @@ import {
   getStepDetails,
   getStepOverlapFromCardioSessions,
   isStepBasedCardioType,
-} from '../../src/utils/steps.js';
+} from '../../src/utils/calculations/steps.js';
 
 test('getStepDetails keeps rounded calories value', () => {
   const userData = { weight: 74, height: 168, gender: 'male' };

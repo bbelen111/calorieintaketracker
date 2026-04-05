@@ -6,7 +6,7 @@ import {
   getPhaseCalendarData,
   getNutritionTotalsForDate,
   hasNutritionEntriesForDate,
-} from '../../src/utils/phases.js';
+} from '../../src/utils/phases/phases.js';
 
 test('calendar marks day as completed when body-fat and nutrition references exist', () => {
   const phase = {

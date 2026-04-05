@@ -14,15 +14,15 @@ import {
 import {
   DEFAULT_ACTIVITY_MULTIPLIERS,
   getActivityPresetByKey,
-} from '../../../../constants/activityPresets';
+} from '../../../../constants/activity/activityPresets';
 import { ModalShell } from '../../common/ModalShell';
-import { formatDateLabel, formatWeight } from '../../../../utils/weight';
-import { formatBodyFat } from '../../../../utils/bodyFat';
+import { formatDateLabel, formatWeight } from '../../../../utils/measurements/weight';
+import { formatBodyFat } from '../../../../utils/measurements/bodyFat';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
-import { sanitizeAge, sanitizeHeight } from '../../../../utils/profile';
-import { getTodayDateKey } from '../../../../utils/dateKeys';
-import { getAdaptiveThermogenesisSmartModeDataStatus } from '../../../../utils/adaptiveThermogenesis';
+import { sanitizeAge, sanitizeHeight } from '../../../../utils/measurements/profile';
+import { getTodayDateKey } from '../../../../utils/data/dateKeys';
+import { getAdaptiveThermogenesisSmartModeDataStatus } from '../../../../utils/calculations/adaptiveThermogenesis';
 
 const THEME_OPTIONS = [
   { value: 'auto', label: 'Auto', icon: Monitor },

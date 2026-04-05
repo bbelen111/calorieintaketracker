@@ -14,8 +14,8 @@ import {
   sortWeightEntries,
   calculateNDayWeightAverage,
   groupWeightEntriesByMonth,
-} from '../../../../utils/weight';
-import { getGoalAlignedStyle } from '../../../../utils/goalAlignment';
+} from '../../../../utils/measurements/weight';
+import { getGoalAlignedStyle } from '../../../../utils/calculations/goalAlignment';
 import {
   TrendIcon,
   getTrendToneClass,
@@ -24,13 +24,13 @@ import {
   formatWeeklyRate,
   formatTooltipDate,
   getOldDataWarningText,
-} from '../../../../utils/trackerHelpers';
+} from '../../../../utils/visuals/trackerHelpers';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { WeightTrendInfoModal } from '../info/WeightTrendInfoModal';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
-import { buildBezierPaths } from '../../../../utils/bezierPath';
-import { formatDateKeyUtc } from '../../../../utils/dateKeys';
+import { buildBezierPaths } from '../../../../utils/visuals/bezierPath';
+import { formatDateKeyUtc } from '../../../../utils/data/dateKeys';
 
 // Local helpers that remain specific to this modal are below.
 // Shared helpers (TrendIcon, getTrendToneClass, getGoalAlignmentText,

@@ -6,9 +6,9 @@ import {
   formatDurationLabel,
   normalizeTimeOfDay,
   roundDurationHours,
-} from '../../../../utils/time';
-import { calculateTrainingSessionCalories } from '../../../../utils/calculations';
-import { resolveTrainingSessionEpoc } from '../../../../utils/epoc';
+} from '../../../../utils/formatting/time';
+import { calculateTrainingSessionCalories } from '../../../../utils/calculations/calculations';
+import { resolveTrainingSessionEpoc } from '../../../../utils/calculations/epoc';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';

@@ -10,7 +10,7 @@ import { ModalShell } from '../../common/ModalShell';
 import {
   alignScrollContainerToElement,
   createPickerScrollHandler,
-} from '../../../../utils/scroll';
+} from '../../../../utils/visuals/scroll';
 
 const REPEATS = 20;
 

@@ -12,20 +12,20 @@ import {
   createSparklinePoints,
   sortWeightEntries,
   formatWeight,
-} from '../../../utils/weight';
+} from '../../../utils/measurements/weight';
 import {
   calculateBodyFatTrend,
   createBodyFatSparklinePoints,
   sortBodyFatEntries,
   formatBodyFat,
-} from '../../../utils/bodyFat';
+} from '../../../utils/measurements/bodyFat';
 import {
   calculateBMI,
   getBMICategory,
   calculateFFMI,
   getFFMICategory,
-} from '../../../utils/calculations';
-import { getGoalAlignedStyle } from '../../../utils/goalAlignment';
+} from '../../../utils/calculations/calculations';
+import { getGoalAlignedStyle } from '../../../utils/calculations/goalAlignment';
 import {
   TrendIcon,
   getTrendToneClass,
@@ -33,11 +33,11 @@ import {
   formatWeeklyRate,
   formatTooltipDate,
   getOldDataWarningText,
-} from '../../../utils/trackerHelpers';
+} from '../../../utils/visuals/trackerHelpers';
 import {
   calculateMacroRecommendations,
   normalizeMacroRecommendationSplit,
-} from '../../../utils/macroRecommendations';
+} from '../../../utils/calculations/macroRecommendations';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 

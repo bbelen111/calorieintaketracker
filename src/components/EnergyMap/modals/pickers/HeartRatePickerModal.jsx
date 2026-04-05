@@ -10,7 +10,7 @@ import { ModalShell } from '../../common/ModalShell';
 import {
   alignScrollContainerToValue,
   createPickerScrollHandler,
-} from '../../../../utils/scroll';
+} from '../../../../utils/visuals/scroll';
 
 const MIN_BPM = 60;
 const MAX_BPM = 220;

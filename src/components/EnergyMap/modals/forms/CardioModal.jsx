@@ -8,14 +8,14 @@ import { CustomCardioTypeModal } from './CustomCardioTypeModal';
 import { DurationPickerModal } from '../pickers/DurationPickerModal';
 import { HeartRatePickerModal } from '../pickers/HeartRatePickerModal';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
-import { calculateCardioCalories } from '../../../../utils/calculations';
-import { resolveCardioSessionEpoc } from '../../../../utils/epoc';
+import { calculateCardioCalories } from '../../../../utils/calculations/calculations';
+import { resolveCardioSessionEpoc } from '../../../../utils/calculations/epoc';
 import {
   formatTimeOfDay12Hour,
   normalizeTimeOfDay,
   roundDurationHours,
-} from '../../../../utils/time';
-import { isStepBasedCardioType } from '../../../../utils/steps';
+} from '../../../../utils/formatting/time';
+import { isStepBasedCardioType } from '../../../../utils/calculations/steps';
 
 export const CardioModal = ({
   isOpen,

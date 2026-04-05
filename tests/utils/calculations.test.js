@@ -8,7 +8,7 @@ import {
   calculateTrainingSessionCalories,
   getTotalTrainingBurnForDate,
   getTrainingCalories,
-} from '../../src/utils/calculations.js';
+} from '../../src/utils/calculations/calculations.js';
 
 const getTodayDateKey = () => {
   const now = new Date();

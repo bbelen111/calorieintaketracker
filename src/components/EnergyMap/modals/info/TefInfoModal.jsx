@@ -5,7 +5,7 @@ import {
   TEF_FAT_RATE,
   TEF_MULTIPLIER_OFFSET,
   TEF_PROTEIN_RATE,
-} from '../../../../utils/calculations';
+} from '../../../../utils/calculations/calculations';
 import { ModalShell } from '../../common/ModalShell';
 
 const formatPercent = (value) => `${Math.round(value * 100)}%`;

@@ -10,11 +10,11 @@ import { ModalShell } from '../../common/ModalShell';
 import {
   alignScrollContainerToValue,
   createPickerScrollHandler,
-} from '../../../../utils/scroll';
+} from '../../../../utils/visuals/scroll';
 import {
   MAX_BODY_FAT_PERCENT,
   MIN_BODY_FAT_PERCENT,
-} from '../../../../utils/bodyFat';
+} from '../../../../utils/measurements/bodyFat';
 
 const MIN_BODY_FAT = MIN_BODY_FAT_PERCENT;
 const MAX_BODY_FAT = MAX_BODY_FAT_PERCENT;

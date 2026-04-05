@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { Plus, Trash2, Utensils } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
-import { FOOD_CATEGORIES } from '../../../../constants/foodDatabase';
+import { FOOD_CATEGORIES } from '../../../../constants/food/foodDatabase';
 
 // Build tags from FOOD_CATEGORIES, excluding 'custom' and 'manual' as they're auto-applied
 const CUSTOM_FOOD_TAGS = Object.entries(FOOD_CATEGORIES)

@@ -152,10 +152,10 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 - **~21 additional child-level modals** declared inside modal components (e.g., delete confirmations, sub-pickers)
 - **52 modal component files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`, plus 4 supporting panel components under `fullscreen/panels/`:
   - `fullscreen/` — WeightTrackerModal, BodyFatTrackerModal, StepTrackerModal, SettingsModal, FoodSearchModal
-  - `pickers/` — AgePickerModal, BodyFatPickerModal, CalendarPickerModal, **CaloriesPerHourPickerModal**, CalorieTargetModal, DatePickerModal, DurationPickerModal, EpocWindowPickerModal, FoodPortionModal, HeartRatePickerModal, HeightPickerModal, MealTypePickerModal, MetValuePickerModal, StepGoalPickerModal, TemplatePickerModal, TimePickerModal, WeightPickerModal
+  - `pickers/` — AgePickerModal, BodyFatPickerModal, CalendarPickerModal, **CaloriesPerHourPickerModal**, DatePickerModal, DurationPickerModal, EpocWindowPickerModal, FoodPortionModal, HeartRatePickerModal, HeightPickerModal, MealTypePickerModal, MetValuePickerModal, StepGoalPickerModal, TemplatePickerModal, TimePickerModal, WeightPickerModal
   - `info/` — AdaptiveThermogenesisInfoModal, BmiInfoModal, BmrInfoModal, BodyFatTrendInfoModal, CalorieBreakdownModal, CaloriesPerHourGuideModal, EpocInfoModal, FfmiInfoModal, TefInfoModal, WeightTrendInfoModal
   - `forms/` — AddCustomFoodModal, BarcodeEntryModal, BodyFatEntryModal, CardioModal, CustomCardioTypeModal, DailyActivityCustomModal, DailyActivityEditorModal, DailyActivityModal, DailyLogModal, FoodEntryModal, GoalModal, PhaseCreationModal, TrainingModal, StepRangesModal, TrainingTypeEditorModal, WeightEntryModal
-  - `lists/` — CardioFavouritesModal, CardioTypeListModal
+  - `lists/` — CardioFavouritesModal, CardioTypeListModal, CalorieTargetModal
   - `common/` — ConfirmActionModal
 - Total across codebase: ~60 modal hook instances (`useAnimatedModal`)
 
@@ -777,7 +777,7 @@ If adjusting Gemini behavior, update `FOOD_ASSISTANT_SYSTEM_INSTRUCTION` first a
 
 ## Local Food Catalog (SQLite)
 
-Food search now reads from `src/constants/foodDatabase.sqlite` through `src/services/foodCatalog.js` using `sql.js`.
+Food search now reads from `src/constants/food/foodDatabase.sqlite` through `src/services/foodCatalog.js` using `sql.js`.
 
 **Runtime service surface (`services/foodCatalog.js`):**
 - `searchFoods({ query, category, subcategory, sortBy, sortOrder, limit, offset })`
@@ -787,9 +787,10 @@ Food search now reads from `src/constants/foodDatabase.sqlite` through `src/serv
 
 `searchFoods(...)` intentionally applies query-aware relevance ordering for name searches (`sortBy === 'name'`) so exact/prefix name matches rank above broad contains matches.
 
-**Compatibility layer:**
-- `src/constants/foodDatabase.js` now keeps `FOOD_CATEGORIES` and async helper passthroughs for legacy imports.
-- `FOOD_DATABASE` export is intentionally an empty compatibility array; do not repopulate static inline food data.
+**Canonical module note:**
+- Use `src/constants/food/foodDatabase.js` as the only JS catalog entrypoint.
+- `FOOD_DATABASE` remains an intentionally empty compatibility array inside the canonical module; do not repopulate static inline food data.
+- Root-level `src/constants/foodDatabase.js` no longer exists.
 
 **Offline cleanup pipeline:**
 - `scripts/food-db/index.js` performs audit/clean/rebuild/replace.
@@ -839,15 +840,20 @@ src/
 │   │   └─ common/               # Shared utility modals (ConfirmActionModal)
 │   ├─ screens/                  # 6 screen components
 │   └─ context/                  # Empty (unused)
-├─ constants/                    # Static lookup tables
-│   ├─ foodDatabase.js           # Compatibility exports + FOOD_CATEGORIES; data lives in SQLite catalog
-│   ├─ foodDatabase.sqlite       # Canonical local food catalog database (queried via sql.js)
-│   ├─ goals.js                  # Goal definitions with calorie modifiers
-│   ├─ cardioTypes.js            # Cardio activities with MET values + step-overlap metadata (`ambulatory`, `cadence`)
-│   ├─ trainingTypes.js          # Training presets with cal/hour
-│   ├─ mealTypes.js              # MEAL_TYPE_ORDER
-│   ├─ activityPresets.js        # DEFAULT_ACTIVITY_MULTIPLIERS; also exports MIN_CUSTOM_ACTIVITY_MULTIPLIER, clampCustomActivityMultiplier(), clampCustomActivityPercent(), getCustomActivityPercent()
-│   └─ phaseTemplates.js         # Phase creation templates
+├─ constants/                    # Static lookup tables (domain-nested canonical modules)
+│   ├─ activity/
+│   │  └─ activityPresets.js     # Canonical activity multipliers/presets source
+│   ├─ cardio/
+│   │  └─ cardioTypes.js         # Canonical cardio metadata (MET + overlap cadence)
+│   ├─ food/
+│   │  ├─ foodDatabase.js        # Canonical FOOD_CATEGORIES + legacy passthrough helpers
+│   │  └─ foodDatabase.sqlite    # Canonical local food catalog database (queried via sql.js)
+│   ├─ goals/
+│   │  └─ goals.js               # Goal definitions with calorie modifiers
+│   ├─ meal/
+│   │  └─ mealTypes.js           # MEAL_TYPE_ORDER + meal type helpers
+│   ├─ phases/
+│   │  └─ phaseTemplates.js      # Phase creation templates
 ├─ hooks/
 │   ├─ useAnimatedModal.js       # Modal lifecycle (isOpen/isClosing/requestClose)
 │   ├─ useSwipeableScreens.js    # 5-screen horizontal carousel
@@ -859,30 +865,38 @@ src/
 │                                #   calculateBreakdown(steps, isTrainingDay, options?) — options.tefContext + options.adaptiveThermogenesisContext forwarded to core calc
 │                                #   calculateTargetForGoal(steps, isTrainingDay, goalKey, options?) — 2-pass refinement for target TEF mode
 ├─ utils/
-│   ├─ calculations.js           # ALL calorie formulas — BMR, cardio, training, TDEE, BMI, FFMI, Smart TEF
-│   ├─ epoc.js                   # Session EPOC estimate + carryover window resolution
-│   ├─ sessionCarryover.js       # Allocates carryover calories across date boundaries
-│   ├─ adaptiveThermogenesis.js  # Adaptive thermogenesis mode resolution + crude/smart correction engine
-│   ├─ dailySnapshots.js         # Derived daily snapshot builder + equality helpers
-│   ├─ storage.js                # Orchestrates profile (Preferences) + history (Dexie) persistence
-│   ├─ historyDatabase.js        # Dexie history DB adapter + sharded document helpers
-│   ├─ profile.js                # Age/height sanitization helpers (sanitizeAge, sanitizeHeight, AGE/HEIGHT min/max constants)
-│   ├─ weight.js                 # Date normalization, weight clamping, sorting, trend analysis, sparklines
-│   ├─ steps.js                  # Step range parsing, step calorie estimation, getStepDetails
-│   ├─ bodyFat.js                # Body fat validation, trend analysis, sparklines
-│   ├─ bezierPath.js             # SVG cubic Bézier curve interpolation for charts
-│   ├─ phases.js                 # Phase metrics calculation
-│   ├─ phaseLogV2.js             # Normalized phase/log domain; source-of-truth for phase state
-│   ├─ goalAlignment.js          # Weight trend vs goal alignment evaluation
+│   ├─ calculations/
+│   │  ├─ calculations.js        # Core calorie formulas — BMR/cardio/training/TDEE/TEF
+│   │  ├─ adaptiveThermogenesis.js
+│   │  ├─ dailySnapshots.js
+│   │  ├─ epoc.js
+│   │  ├─ goalAlignment.js
+│   │  ├─ macroRecommendations.js
+│   │  ├─ sessionCarryover.js
+│   │  └─ steps.js
+│   ├─ data/
+│   │  ├─ dateKeys.js
+│   │  ├─ historyDatabase.js
+│   │  ├─ phaseLogV2.js
+│   │  └─ storage.js
+│   ├─ measurements/
+│   │  ├─ bodyFat.js
+│   │  ├─ profile.js
+│   │  └─ weight.js
+│   ├─ food/
+│   │  ├─ foodPresentation.js
+│   │  └─ foodTags.js
+│   ├─ formatting/
+│   │  ├─ format.js
+│   │  └─ time.js
+│   ├─ phases/
+│   │  └─ phases.js
+│   ├─ visuals/
+│   │  ├─ bezierPath.js
+│   │  ├─ scroll.js
+│   │  └─ trackerHelpers.jsx
 │   ├─ theme.js                  # Native theme application (status bar, transparent nav bar, keyboard)
-│   ├─ format.js                 # Number formatting (formatOne: 1 decimal place)
-│   ├─ foodPresentation.js       # Food display naming helpers (brand + name formatting)
-│   ├─ foodTags.js               # Canonical food source/type resolver + badge metadata/classes
 │   ├─ export.js                 # CSV/JSON export generation
-│   ├─ dateKeys.js               # Canonical local/UTC date key formatters (`YYYY-MM-DD`)
-│   ├─ scroll.js                 # Scroll utilities
-│   ├─ trackerHelpers.jsx        # Shared trend/goal-alignment helpers + TrendIcon
-│   └─ time.js                   # Time/duration helpers (normalize, round, format, split)
 ├─ services/
 │   ├─ usda.js                   # USDA online search client
 │   ├─ openFoodFacts.js          # OpenFoodFacts barcode lookup client

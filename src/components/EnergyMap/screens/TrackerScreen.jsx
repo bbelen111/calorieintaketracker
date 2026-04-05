@@ -17,18 +17,18 @@ import {
   CalendarCog,
   Settings2,
 } from 'lucide-react';
-import { MEAL_TYPE_ORDER, getMealTypeById } from '../../../constants/mealTypes';
-import { formatOne } from '../../../utils/format';
+import { MEAL_TYPE_ORDER, getMealTypeById } from '../../../constants/meal/mealTypes';
+import { formatOne } from '../../../utils/formatting/format';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 import { ConfirmActionModal } from '../modals/common/ConfirmActionModal';
 import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
-import { formatDateKeyUtc, getTodayDateKey } from '../../../utils/dateKeys';
+import { formatDateKeyUtc, getTodayDateKey } from '../../../utils/data/dateKeys';
 import {
   calculateMacroRecommendations,
   normalizeMacroRecommendationSplit,
-} from '../../../utils/macroRecommendations';
-import { formatFoodDisplayName } from '../../../utils/foodPresentation';
+} from '../../../utils/calculations/macroRecommendations';
+import { formatFoodDisplayName } from '../../../utils/food/foodPresentation';
 
 const getTodayDate = () => getTodayDateKey();
 

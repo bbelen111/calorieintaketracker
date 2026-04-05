@@ -8,7 +8,7 @@ import {
   macroSplitFromConstrainedTrianglePoint,
   macroSplitToConstrainedTrianglePoint,
   normalizeMacroRecommendationSplit,
-} from '../../../../utils/macroRecommendations';
+} from '../../../../utils/calculations/macroRecommendations';
 
 const TRIANGLE_WIDTH = 320;
 const TRIANGLE_HEIGHT = 280;

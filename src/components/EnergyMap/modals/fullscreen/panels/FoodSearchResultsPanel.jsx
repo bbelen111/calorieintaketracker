@@ -1,8 +1,8 @@
 import React from 'react';
 import { AlertCircle, Globe, Search } from 'lucide-react';
 import { FoodTagBadges } from '../../../common/FoodTagBadges';
-import { formatOne } from '../../../../../utils/format';
-import { formatFoodDisplayName } from '../../../../../utils/foodPresentation';
+import { formatOne } from '../../../../../utils/formatting/format';
+import { formatFoodDisplayName } from '../../../../../utils/food/foodPresentation';
 
 export const FoodSearchResultsPanel = ({
   searchMode,

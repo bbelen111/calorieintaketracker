@@ -11,7 +11,7 @@ import {
   macroSplitToTrianglePoint,
   normalizeMacroRecommendationSplit,
   projectMacroSplitToConstraints,
-} from '../../src/utils/macroRecommendations.js';
+} from '../../src/utils/calculations/macroRecommendations.js';
 
 test('normalizeMacroRecommendationSplit falls back to defaults when invalid', () => {
   const split = normalizeMacroRecommendationSplit({
