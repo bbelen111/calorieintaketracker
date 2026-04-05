@@ -7,7 +7,10 @@ const USDA_API_BASE =
 const USDA_API_KEY = process.env.USDA_API_KEY || '';
 
 async function searchFoodsByText(query, page = 1, pageSize = 20) {
-  const url = new URL('/foods/search', USDA_API_BASE);
+  const normalizedBase = String(USDA_API_BASE || '').endsWith('/')
+    ? String(USDA_API_BASE)
+    : `${USDA_API_BASE}/`;
+  const url = new URL('foods/search', normalizedBase);
   url.searchParams.set('query', query);
   url.searchParams.set('pageNumber', String(page));
   url.searchParams.set('pageSize', String(pageSize));
