@@ -224,6 +224,18 @@ test('parseFoodParserPayloadFromText returns validated payload and display text'
   assert.equal(parsed.payload?.entries?.[0]?.confidence, 'high');
 });
 
+test('parseFoodParserPayloadFromText preserves optional lookup terms', () => {
+  const rawText = `Estimated entry ready.\n<food_parser_json>{"messageType":"food_entries","assistantMessage":"Estimated entry ready.","entries":[{"name":"tableya drink","grams":240,"calories":180,"protein":5,"carbs":18,"fats":8,"confidence":"medium","rationale":"Estimated from a cocoa-based drink serving.","assumptions":["Sweetened preparation"],"lookupTerms":["tableya cacao","cacao tablet drink"]}]}</food_parser_json>`;
+
+  const parsed = parseFoodParserPayloadFromText(rawText);
+
+  assert.equal(parsed.payload?.messageType, 'food_entries');
+  assert.deepEqual(parsed.payload?.entries?.[0]?.lookupTerms, [
+    'tableya cacao',
+    'cacao tablet drink',
+  ]);
+});
+
 test('sendGeminiMessage includes parsed foodParser payload when response embeds parser JSON', async () => {
   const originalFetch = globalThis.fetch;
 

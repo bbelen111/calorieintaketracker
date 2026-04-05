@@ -53,7 +53,9 @@ import {
 import {
   FOOD_SEARCH_SOURCE,
   getFoodSearchSourceLabel,
-  searchFoodsHierarchically,
+  searchFoodsLocal,
+  searchFoodsOnline,
+  resolveAiFoodLookup,
 } from '../../../../services/foodSearch';
 import {
   BarcodeScannerError,
@@ -356,8 +358,9 @@ export const FoodSearchModal = ({
   const [onlineResults, setOnlineResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState(null);
-  const [activeSearchSource, setActiveSearchSource] =
-    useState(FOOD_SEARCH_SOURCE.LOCAL);
+  const [activeSearchSource, setActiveSearchSource] = useState(
+    FOOD_SEARCH_SOURCE.LOCAL
+  );
   const [searchFallbackUsed, setSearchFallbackUsed] = useState(false);
   const [, setSearchErrorsBySource] = useState({});
   const [loadingFoodId, setLoadingFoodId] = useState(null);
@@ -547,15 +550,13 @@ export const FoodSearchModal = ({
     setLocalSearchError(null);
     setSearchError(null);
 
-    searchFoodsHierarchically({
-      mode: 'local',
+    searchFoodsLocal({
       query: searchQuery,
       category: selectedCategory,
       subcategory: selectedSubcategory,
       sortBy,
       sortOrder,
       limit: 500,
-      isOnline,
     })
       .then((result) => {
         if (cancelled) {
@@ -565,20 +566,12 @@ export const FoodSearchModal = ({
         const safeResults = Array.isArray(result?.results)
           ? result.results
           : [];
-        const source = result?.source || FOOD_SEARCH_SOURCE.LOCAL;
 
-        setActiveSearchSource(source);
-        setSearchFallbackUsed(Boolean(result?.fallbackUsed));
-        setSearchErrorsBySource(result?.errorsBySource || {});
-
-        if (source === FOOD_SEARCH_SOURCE.LOCAL) {
-          setLocalDbResults(safeResults);
-          setOnlineResults([]);
-        } else {
-          setLocalDbResults([]);
-          setOnlineResults(safeResults);
-          setSearchError(resolveSourceSearchError(result?.errorsBySource));
-        }
+        setActiveSearchSource(FOOD_SEARCH_SOURCE.LOCAL);
+        setSearchFallbackUsed(false);
+        setSearchErrorsBySource({});
+        setLocalDbResults(safeResults);
+        setOnlineResults([]);
       })
       .catch((error) => {
         if (cancelled) {
@@ -601,7 +594,6 @@ export const FoodSearchModal = ({
     };
   }, [
     isOnline,
-    resolveSourceSearchError,
     searchMode,
     searchQuery,
     selectedCategory,
@@ -705,51 +697,54 @@ export const FoodSearchModal = ({
   }, [isManualAddConfirmClosing, isManualAddConfirmOpen]);
 
   // Debounced online search
-  const performOnlineSearch = useCallback(async (query) => {
-    if (!query || query.trim().length < 2) {
-      setOnlineResults([]);
-      setIsSearching(false);
-      setSearchFallbackUsed(false);
-      setSearchErrorsBySource({});
-      setActiveSearchSource(FOOD_SEARCH_SOURCE.FATSECRET);
-      return;
-    }
-
-    if (!isOnline) {
-      setOnlineResults([]);
-      setSearchError('You are offline. Connect to search online foods.');
-      setIsSearching(false);
-      return;
-    }
-
-    setIsSearching(true);
-    setSearchError(null);
-    try {
-      const result = await searchFoodsHierarchically({
-        mode: 'online',
-        query,
-        isOnline,
-      });
-
-      const safeResults = Array.isArray(result?.results) ? result.results : [];
-
-      setOnlineResults(safeResults);
-      setActiveSearchSource(result?.source || FOOD_SEARCH_SOURCE.FATSECRET);
-      setSearchFallbackUsed(Boolean(result?.fallbackUsed));
-      setSearchErrorsBySource(result?.errorsBySource || {});
-      setSearchError(resolveSourceSearchError(result?.errorsBySource));
-    } catch (error) {
-      console.error('Online search error:', error);
-      if (error instanceof FatSecretError) {
-        setSearchError(error.message);
-      } else {
-        setSearchError('Search failed. Please try again.');
+  const performOnlineSearch = useCallback(
+    async (query) => {
+      if (!query || query.trim().length < 2) {
+        setOnlineResults([]);
+        setIsSearching(false);
+        setSearchFallbackUsed(false);
+        setSearchErrorsBySource({});
+        setActiveSearchSource(FOOD_SEARCH_SOURCE.FATSECRET);
+        return;
       }
-      setOnlineResults([]);
-    } finally {
-      setIsSearching(false);
-    }
-  }, [isOnline, resolveSourceSearchError]);
+
+      if (!isOnline) {
+        setOnlineResults([]);
+        setSearchError('You are offline. Connect to search online foods.');
+        setIsSearching(false);
+        return;
+      }
+
+      setIsSearching(true);
+      setSearchError(null);
+      try {
+        const result = await searchFoodsOnline({
+          query,
+        });
+
+        const safeResults = Array.isArray(result?.results)
+          ? result.results
+          : [];
+
+        setOnlineResults(safeResults);
+        setActiveSearchSource(result?.source || FOOD_SEARCH_SOURCE.FATSECRET);
+        setSearchFallbackUsed(Boolean(result?.fallbackUsed));
+        setSearchErrorsBySource(result?.errorsBySource || {});
+        setSearchError(resolveSourceSearchError(result?.errorsBySource));
+      } catch (error) {
+        console.error('Online search error:', error);
+        if (error instanceof FatSecretError) {
+          setSearchError(error.message);
+        } else {
+          setSearchError('Search failed. Please try again.');
+        }
+        setOnlineResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    [isOnline, resolveSourceSearchError]
+  );
 
   // Handle search query changes with debouncing for online mode
   useEffect(() => {
@@ -1341,10 +1336,16 @@ export const FoodSearchModal = ({
       let compareValue = 0;
 
       if (sortBy === 'name') {
-        compareValue = String(a?.name ?? '').localeCompare(String(b?.name ?? ''));
+        compareValue = String(a?.name ?? '').localeCompare(
+          String(b?.name ?? '')
+        );
       } else {
-        const aValue = Number(a?.previewMacros?.[sortBy] ?? a?.per100g?.[sortBy] ?? 0);
-        const bValue = Number(b?.previewMacros?.[sortBy] ?? b?.per100g?.[sortBy] ?? 0);
+        const aValue = Number(
+          a?.previewMacros?.[sortBy] ?? a?.per100g?.[sortBy] ?? 0
+        );
+        const bValue = Number(
+          b?.previewMacros?.[sortBy] ?? b?.per100g?.[sortBy] ?? 0
+        );
         compareValue = aValue - bValue;
       }
 
@@ -1354,16 +1355,9 @@ export const FoodSearchModal = ({
     return results;
   }, [onlineResults, selectedCategory, selectedSubcategory, sortBy, sortOrder]);
 
-  const resolvedSearchModeForResults =
-    searchMode === 'local' && activeSearchSource !== FOOD_SEARCH_SOURCE.LOCAL
-      ? 'online'
-      : searchMode;
-
-  // Current results based on mode
+  // Current results based on selected browse mode
   const displayResults =
-    resolvedSearchModeForResults === 'local'
-      ? localSearchResults
-      : onlineSearchResults;
+    searchMode === 'local' ? localSearchResults : onlineSearchResults;
 
   const getFilterActiveClass = (color) => {
     const map = {
@@ -1569,30 +1563,49 @@ export const FoodSearchModal = ({
 
       const request = (async () => {
         try {
-          const result = await searchFoodsHierarchically({
-            mode: 'local',
-            query: entry.name,
-            limit: 25,
+          const lookupTerms = Array.isArray(entry?.lookupTerms)
+            ? entry.lookupTerms
+            : Array.isArray(entry?.lookup_queries)
+              ? entry.lookup_queries
+              : [];
+
+          const result = await resolveAiFoodLookup({
+            entryName: entry.name,
+            lookupTerms,
             isOnline,
           });
 
-          const matchedFood = Array.isArray(result?.results)
-            ? result.results[0] || null
-            : null;
-
           const nextMeta = {
-            status: 'resolved',
-            usedSource: result?.source || FOOD_SEARCH_SOURCE.LOCAL,
+            status: result?.status || 'no_match',
+            usedSource: result?.usedSource || FOOD_SEARCH_SOURCE.LOCAL,
             sourcesTried: Array.isArray(result?.sourcesTried)
               ? result.sourcesTried
               : [],
             fallbackUsed: Boolean(result?.fallbackUsed),
-            matchedFood: matchedFood
+            queryUsed:
+              typeof result?.queryUsed === 'string' ? result.queryUsed : null,
+            matchConfidence: result?.matchConfidence || 'low',
+            matchScore: Number.isFinite(result?.matchScore)
+              ? result.matchScore
+              : 0,
+            matchedFood: result?.matchedFood
               ? {
-                  name: matchedFood.name,
-                  brand: matchedFood.brand || null,
-                  category: matchedFood.category || null,
-                  subcategory: matchedFood.subcategory || null,
+                  name: result.matchedFood.name,
+                  brand: result.matchedFood.brand || null,
+                  category: result.matchedFood.category || null,
+                  subcategory: result.matchedFood.subcategory || null,
+                  per100g:
+                    result.matchedFood.per100g &&
+                    typeof result.matchedFood.per100g === 'object'
+                      ? {
+                          calories:
+                            Number(result.matchedFood.per100g.calories) || 0,
+                          protein:
+                            Number(result.matchedFood.per100g.protein) || 0,
+                          carbs: Number(result.matchedFood.per100g.carbs) || 0,
+                          fats: Number(result.matchedFood.per100g.fats) || 0,
+                        }
+                      : null,
                 }
               : null,
             errorsBySource: result?.errorsBySource || {},
@@ -1610,10 +1623,12 @@ export const FoodSearchModal = ({
             usedSource: FOOD_SEARCH_SOURCE.LOCAL,
             sourcesTried: [FOOD_SEARCH_SOURCE.LOCAL],
             fallbackUsed: false,
+            queryUsed: entry.name,
+            matchConfidence: 'low',
+            matchScore: 0,
             matchedFood: null,
             errorsBySource: {
-              [FOOD_SEARCH_SOURCE.LOCAL]:
-                error?.message || 'Hierarchical lookup failed.',
+              [FOOD_SEARCH_SOURCE.LOCAL]: error?.message || 'AI lookup failed.',
             },
           };
 
@@ -1634,16 +1649,19 @@ export const FoodSearchModal = ({
     [aiEntryLookupByKey, isOnline]
   );
 
-  const toggleAiEntryExpansion = useCallback((entry, entryKey) => {
-    setExpandedAiEntryKeys((prev) => ({
-      ...prev,
-      [entryKey]: !prev[entryKey],
-    }));
+  const toggleAiEntryExpansion = useCallback(
+    (entry, entryKey) => {
+      setExpandedAiEntryKeys((prev) => ({
+        ...prev,
+        [entryKey]: !prev[entryKey],
+      }));
 
-    if (!expandedAiEntryKeys[entryKey]) {
-      resolveAiLookupMeta(entry, entryKey);
-    }
-  }, [expandedAiEntryKeys, resolveAiLookupMeta]);
+      if (!expandedAiEntryKeys[entryKey]) {
+        resolveAiLookupMeta(entry, entryKey);
+      }
+    },
+    [expandedAiEntryKeys, resolveAiLookupMeta]
+  );
 
   const updateMessageById = useCallback((messageId, updater) => {
     setChatMessages((prev) =>
@@ -1958,7 +1976,7 @@ export const FoodSearchModal = ({
   );
 
   const buildAiFoodEntry = useCallback(
-    (entry, index = 0, entryKey = null) => {
+    (entry, index = 0, entryKey = null, providedLookupMeta = null) => {
       if (!entry?.name) {
         return null;
       }
@@ -1972,9 +1990,75 @@ export const FoodSearchModal = ({
       };
 
       const grams = Number(entry.grams);
-      const lookupMeta = entryKey ? aiEntryLookupByKey[entryKey] : null;
+      const lookupMeta =
+        providedLookupMeta || (entryKey ? aiEntryLookupByKey[entryKey] : null);
       const resolvedCategory = resolveAiCategory(entry, lookupMeta);
       const resolvedSubcategory = resolveAiSubcategory(lookupMeta);
+
+      const baseCalories = Math.max(0, Math.round(safeNumber(entry.calories)));
+      const baseProtein = Math.max(
+        0,
+        Math.round(safeNumber(entry.protein) * 10) / 10
+      );
+      const baseCarbs = Math.max(
+        0,
+        Math.round(safeNumber(entry.carbs) * 10) / 10
+      );
+      const baseFats = Math.max(
+        0,
+        Math.round(safeNumber(entry.fats) * 10) / 10
+      );
+
+      const roundedGrams =
+        Number.isFinite(grams) && grams > 0 ? Math.round(grams) : null;
+
+      const canUseLookupMacros =
+        lookupMeta?.status === 'resolved' &&
+        lookupMeta?.matchConfidence === 'high' &&
+        lookupMeta?.matchedFood?.per100g &&
+        roundedGrams &&
+        roundedGrams > 0;
+
+      const lookupFactor = canUseLookupMacros ? roundedGrams / 100 : null;
+      const calories = canUseLookupMacros
+        ? Math.max(
+            0,
+            Math.round(
+              (Number(lookupMeta.matchedFood.per100g.calories) || 0) *
+                lookupFactor
+            )
+          )
+        : baseCalories;
+      const protein = canUseLookupMacros
+        ? Math.max(
+            0,
+            Math.round(
+              (Number(lookupMeta.matchedFood.per100g.protein) || 0) *
+                lookupFactor *
+                10
+            ) / 10
+          )
+        : baseProtein;
+      const carbs = canUseLookupMacros
+        ? Math.max(
+            0,
+            Math.round(
+              (Number(lookupMeta.matchedFood.per100g.carbs) || 0) *
+                lookupFactor *
+                10
+            ) / 10
+          )
+        : baseCarbs;
+      const fats = canUseLookupMacros
+        ? Math.max(
+            0,
+            Math.round(
+              (Number(lookupMeta.matchedFood.per100g.fats) || 0) *
+                lookupFactor *
+                10
+            ) / 10
+          )
+        : baseFats;
 
       return {
         id: entryId,
@@ -1982,12 +2066,17 @@ export const FoodSearchModal = ({
         name: entry.name,
         category: resolvedCategory,
         subcategory: resolvedSubcategory,
-        calories: Math.max(0, Math.round(safeNumber(entry.calories))),
-        protein: Math.max(0, Math.round(safeNumber(entry.protein) * 10) / 10),
-        carbs: Math.max(0, Math.round(safeNumber(entry.carbs) * 10) / 10),
-        fats: Math.max(0, Math.round(safeNumber(entry.fats) * 10) / 10),
-        grams: Number.isFinite(grams) && grams > 0 ? Math.round(grams) : null,
+        calories,
+        protein,
+        carbs,
+        fats,
+        grams: roundedGrams,
         source: 'ai',
+        aiLookupUsed: Boolean(canUseLookupMacros),
+        aiLookupSource:
+          canUseLookupMacros && lookupMeta?.usedSource
+            ? lookupMeta.usedSource
+            : null,
         timestamp: new Date().toISOString(),
       };
     },
@@ -2022,12 +2111,13 @@ export const FoodSearchModal = ({
   }, []);
 
   const handleLogAiEntry = useCallback(
-    (entry, entryKey, { closeModal } = { closeModal: false }) => {
+    async (entry, entryKey, { closeModal } = { closeModal: false }) => {
       if (!entryKey || loggedAiEntryKeys[entryKey]) {
         return;
       }
 
-      const foodEntry = buildAiFoodEntry(entry, 0, entryKey);
+      const lookupMeta = await resolveAiLookupMeta(entry, entryKey);
+      const foodEntry = buildAiFoodEntry(entry, 0, entryKey, lookupMeta);
       if (!foodEntry) return;
 
       onSelectFavourite?.(foodEntry, { closeModal });
@@ -2037,16 +2127,22 @@ export const FoodSearchModal = ({
         [entryKey]: true,
       }));
     },
-    [buildAiFoodEntry, loggedAiEntryKeys, onSelectFavourite]
+    [
+      buildAiFoodEntry,
+      loggedAiEntryKeys,
+      onSelectFavourite,
+      resolveAiLookupMeta,
+    ]
   );
 
   const handleSaveAiFavourite = useCallback(
-    (entry, entryKey, index = 0) => {
+    async (entry, entryKey, index = 0) => {
       if (!entryKey || favouritedAiEntryKeys[entryKey]) {
         return;
       }
 
-      const foodEntry = buildAiFoodEntry(entry, index, entryKey);
+      const lookupMeta = await resolveAiLookupMeta(entry, entryKey);
+      const foodEntry = buildAiFoodEntry(entry, index, entryKey, lookupMeta);
       if (!foodEntry) return;
 
       const sourceFood = buildAiSourceFood(foodEntry);
@@ -2062,11 +2158,12 @@ export const FoodSearchModal = ({
       buildAiSourceFood,
       favouritedAiEntryKeys,
       onSaveAsFavourite,
+      resolveAiLookupMeta,
     ]
   );
 
   const handleLogAllAiEntries = useCallback(
-    (messageId, entries, closeModal = false) => {
+    async (messageId, entries, closeModal = false) => {
       if (!Array.isArray(entries) || entries.length === 0) return;
 
       const unloggedEntries = entries
@@ -2076,12 +2173,13 @@ export const FoodSearchModal = ({
         }))
         .filter(({ entryKey }) => !loggedAiEntryKeys[entryKey]);
 
-      unloggedEntries.forEach(({ entry, entryKey }, index) => {
+      for (let index = 0; index < unloggedEntries.length; index += 1) {
+        const { entry, entryKey } = unloggedEntries[index];
         const isLast = index === unloggedEntries.length - 1;
-        handleLogAiEntry(entry, entryKey, {
+        await handleLogAiEntry(entry, entryKey, {
           closeModal: closeModal && isLast,
         });
-      });
+      }
     },
     [handleLogAiEntry, loggedAiEntryKeys]
   );
@@ -2347,7 +2445,7 @@ export const FoodSearchModal = ({
                 placeholder={
                   searchMode === 'online'
                     ? 'Search online foods (FatSecret + OpenFoodFacts)...'
-                    : 'Search local foods (auto online fallback)...'
+                    : 'Search local foods...'
                 }
                 className="w-full bg-surface-highlight border border-border rounded-lg pl-11 pr-10 py-3 text-foreground placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent-blue"
               />
@@ -2524,7 +2622,7 @@ export const FoodSearchModal = ({
                 />
               ) : (
                 <FoodSearchResultsPanel
-                  searchMode={resolvedSearchModeForResults}
+                  searchMode={searchMode}
                   activeSearchSource={activeSearchSource}
                   fallbackUsed={searchFallbackUsed}
                   searchError={searchError}

@@ -138,6 +138,18 @@ function normalizeFoodParserEntry(entry) {
         .slice(0, 6)
     : [];
 
+  const normalizedLookupTerms = Array.isArray(entry.lookupTerms)
+    ? entry.lookupTerms
+        .map((item) => asNonEmptyString(item))
+        .filter(Boolean)
+        .slice(0, 6)
+    : Array.isArray(entry.lookup_queries)
+      ? entry.lookup_queries
+          .map((item) => asNonEmptyString(item))
+          .filter(Boolean)
+          .slice(0, 6)
+      : [];
+
   const rawCategory = asNonEmptyString(entry.category)?.toLowerCase();
   const category = [
     'protein',
@@ -161,6 +173,9 @@ function normalizeFoodParserEntry(entry) {
     confidence,
     rationale: asNonEmptyString(entry.rationale),
     assumptions,
+    ...(normalizedLookupTerms.length > 0
+      ? { lookupTerms: normalizedLookupTerms }
+      : {}),
     ...(category ? { category } : {}),
   };
 }

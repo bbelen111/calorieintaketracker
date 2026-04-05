@@ -50,7 +50,8 @@ JSON schema:
       "fats": number,
       "confidence": "high" | "medium" | "low",
       "rationale": "string",
-      "assumptions": ["string", "..."]
+      "assumptions": ["string", "..."],
+      "lookupTerms": ["string", "..."]
     }
   ]
 }

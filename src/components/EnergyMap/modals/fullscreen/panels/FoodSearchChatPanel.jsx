@@ -340,17 +340,35 @@ export const FoodSearchChatPanel = ({
                                             <p className="text-[10px] font-semibold text-foreground">
                                               Search Trace
                                             </p>
+                                            {lookupMeta.queryUsed && (
+                                              <p className="text-[10px] text-muted">
+                                                Query: {lookupMeta.queryUsed}
+                                              </p>
+                                            )}
                                             <p className="text-[10px] text-muted">
                                               Used:{' '}
                                               {getFoodSearchSourceLabel(
                                                 lookupMeta.usedSource
                                               )}
                                             </p>
+                                            <p className="text-[10px] text-muted">
+                                              Match confidence:{' '}
+                                              {lookupMeta.matchConfidence || 'low'}
+                                              {Number.isFinite(lookupMeta.matchScore)
+                                                ? ` (${Math.round(lookupMeta.matchScore * 100)}%)`
+                                                : ''}
+                                            </p>
                                             {lookupMeta.matchedFood?.name && (
                                               <p className="text-[10px] text-muted">
                                                 Match: {lookupMeta.matchedFood.name}
                                               </p>
                                             )}
+                                            {lookupMeta.status &&
+                                              lookupMeta.status !== 'resolved' && (
+                                                <p className="text-[10px] text-accent-amber">
+                                                  Status: {lookupMeta.status}
+                                                </p>
+                                              )}
                                           </div>
                                         )}
 
