@@ -14,6 +14,9 @@ async function searchFoodsByText(query, page = 1, pageSize = 20) {
   url.searchParams.set('query', query);
   url.searchParams.set('pageNumber', String(page));
   url.searchParams.set('pageSize', String(pageSize));
+  ['Foundation', 'SR Legacy', 'Branded'].forEach((dataType) => {
+    url.searchParams.append('dataType', dataType);
+  });
   url.searchParams.set('api_key', USDA_API_KEY);
 
   const response = await fetch(url.toString(), {

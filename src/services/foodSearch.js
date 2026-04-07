@@ -1,11 +1,18 @@
+import {
+  resolveEntryGrams,
+  scaleMacrosFromPer100g,
+} from '../utils/food/portionNormalization.js';
+
 export const FOOD_SEARCH_SOURCE = {
   LOCAL: 'local',
   USDA: 'usda',
+  AI_WEB_SEARCH: 'ai_web_search',
 };
 
 export const FOOD_SEARCH_SOURCE_LABELS = {
   [FOOD_SEARCH_SOURCE.LOCAL]: 'Local',
   [FOOD_SEARCH_SOURCE.USDA]: 'USDA',
+  [FOOD_SEARCH_SOURCE.AI_WEB_SEARCH]: 'Web',
 };
 
 export const getFoodSearchSourceLabel = (source) => {
@@ -78,6 +85,11 @@ const loadGetFoodsByIds = async () => {
 const loadSearchUsda = async () => {
   const module = await import('./usda.js');
   return module.searchFoods;
+};
+
+const loadGroundedMacroLookup = async () => {
+  const module = await import('./gemini.js');
+  return module.fetchMacrosWithGrounding;
 };
 
 const resolveAiConfidence = (score) => {
@@ -211,6 +223,7 @@ const searchOnlineHierarchy = async ({
 const loadDependencies = async ({
   includeLocal = true,
   includeGetFoodsByIds = false,
+  includeGrounding = false,
   dependencies = {},
 } = {}) => {
   const resolvedSearchLocal = includeLocal
@@ -222,11 +235,15 @@ const loadDependencies = async ({
     includeLocal && includeGetFoodsByIds
       ? dependencies.getFoodsByIds || (await loadGetFoodsByIds())
       : dependencies.getFoodsByIds;
+  const resolvedGroundedLookup = includeGrounding
+    ? dependencies.searchGrounded || (await loadGroundedMacroLookup())
+    : dependencies.searchGrounded;
 
   return {
     searchLocal: resolvedSearchLocal,
     searchUsda: resolvedSearchUsda,
     getFoodsByIds: resolvedGetFoodsByIds,
+    searchGrounded: resolvedGroundedLookup,
   };
 };
 
@@ -365,6 +382,7 @@ export const resolveAiFoodLookup = async ({
 
   const resolvedDependencies = await loadDependencies({
     includeLocal: true,
+    includeGrounding: true,
     dependencies,
   });
 
@@ -455,6 +473,57 @@ export const resolveAiFoodLookup = async ({
     }
   }
 
+  const shouldUseGrounding =
+    isOnline && (!bestMatch || bestMatch.score < AI_SCORE_THRESHOLD.low);
+
+  if (shouldUseGrounding && typeof resolvedDependencies.searchGrounded === 'function') {
+    if (!sourcesTried.includes(FOOD_SEARCH_SOURCE.AI_WEB_SEARCH)) {
+      sourcesTried.push(FOOD_SEARCH_SOURCE.AI_WEB_SEARCH);
+    }
+
+    const groundedQuery = terms[0] || primaryTerm;
+
+    try {
+      const groundedResult = await resolvedDependencies.searchGrounded(
+        groundedQuery
+      );
+
+      const groundedPer100g = groundedResult?.per100g;
+      const hasGroundedMacros =
+        groundedPer100g && typeof groundedPer100g === 'object';
+
+      if (hasGroundedMacros) {
+        return {
+          status: 'resolved',
+          usedSource: FOOD_SEARCH_SOURCE.AI_WEB_SEARCH,
+          queryUsed: groundedQuery,
+          sourcesTried,
+          fallbackUsed: true,
+          matchedFood: {
+            name: groundedResult?.name || primaryTerm || groundedQuery,
+            brand: null,
+            category: null,
+            subcategory: 'grounded_estimate',
+            per100g: {
+              calories: Number(groundedPer100g.calories) || 0,
+              protein: Number(groundedPer100g.protein) || 0,
+              carbs: Number(groundedPer100g.carbs) || 0,
+              fats: Number(groundedPer100g.fats) || 0,
+            },
+          },
+          errorsBySource,
+          matchConfidence: groundedResult?.confidence || 'low',
+          matchScore: AI_SCORE_THRESHOLD.low,
+        };
+      }
+    } catch (error) {
+      errorsBySource[FOOD_SEARCH_SOURCE.AI_WEB_SEARCH] = toErrorMessage(
+        error,
+        'Grounded web lookup failed.'
+      );
+    }
+  }
+
   if (!bestMatch || bestMatch.score < AI_SCORE_THRESHOLD.low) {
     return {
       status: bestMatch ? 'weak_match' : 'no_match',
@@ -493,6 +562,76 @@ export const resolveAiFoodLookup = async ({
     errorsBySource,
     matchConfidence: bestMatch.confidence,
     matchScore: Number(bestMatch.score),
+  };
+};
+
+export const resolveAiFoodEntry = async ({
+  entry,
+  isOnline = true,
+  lookupMeta = null,
+  dependencies = {},
+} = {}) => {
+  if (!entry || typeof entry !== 'object') {
+    return {
+      verifiedEntry: null,
+      lookupMeta: null,
+    };
+  }
+
+  const resolvedLookupMeta =
+    lookupMeta ||
+    (await resolveAiFoodLookup({
+      entryName: entry.name,
+      lookupTerms: Array.isArray(entry.lookupTerms) ? entry.lookupTerms : [],
+      isOnline,
+      dependencies,
+    }));
+
+  const gramsResolution = resolveEntryGrams(entry, {
+    fallbackGrams: 100,
+  });
+  const grams = gramsResolution.grams;
+
+  const hasLookupPer100g =
+    resolvedLookupMeta?.status === 'resolved' &&
+    resolvedLookupMeta?.matchedFood?.per100g &&
+    grams > 0;
+
+  const basePer100g = hasLookupPer100g
+    ? resolvedLookupMeta.matchedFood.per100g
+    : {
+        calories: grams > 0 ? ((Number(entry?.calories) || 0) * 100) / grams : Number(entry?.calories) || 0,
+        protein: grams > 0 ? ((Number(entry?.protein) || 0) * 100) / grams : Number(entry?.protein) || 0,
+        carbs: grams > 0 ? ((Number(entry?.carbs) || 0) * 100) / grams : Number(entry?.carbs) || 0,
+        fats: grams > 0 ? ((Number(entry?.fats) || 0) * 100) / grams : Number(entry?.fats) || 0,
+      };
+
+  const scaledMacros = scaleMacrosFromPer100g(basePer100g, grams);
+
+  const verifiedEntry = {
+    name: String(entry?.name || '').trim() || 'Food entry',
+    grams,
+    calories: scaledMacros.calories,
+    protein: scaledMacros.protein,
+    carbs: scaledMacros.carbs,
+    fats: scaledMacros.fats,
+    confidence: hasLookupPer100g
+      ? resolvedLookupMeta?.matchConfidence || 'high'
+      : entry?.confidence || 'medium',
+    rationale: entry?.rationale || null,
+    assumptions: Array.isArray(entry?.assumptions) ? entry.assumptions : [],
+    lookupTerms: Array.isArray(entry?.lookupTerms) ? entry.lookupTerms : [],
+    ...(entry?.category ? { category: entry.category } : {}),
+    source: hasLookupPer100g
+      ? resolvedLookupMeta?.usedSource || FOOD_SEARCH_SOURCE.LOCAL
+      : 'estimate',
+    portionResolutionMethod: gramsResolution.method,
+    portionAssumed: gramsResolution.assumed,
+  };
+
+  return {
+    verifiedEntry,
+    lookupMeta: resolvedLookupMeta,
   };
 };
 

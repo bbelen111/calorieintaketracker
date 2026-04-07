@@ -72,3 +72,44 @@ test('searchFoods maps USDA foods to app food schema', async () => {
     globalThis.fetch = originalFetch;
   }
 });
+
+test('searchFoods maps nutrients by nutrientId fallback when nutrientNumber is absent', async () => {
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      totalHits: 1,
+      foods: [
+        {
+          fdcId: 777,
+          description: 'Fallback Nutrient Food',
+          dataType: 'Foundation',
+          servingSize: 100,
+          servingSizeUnit: 'g',
+          foodNutrients: [
+            { nutrientId: 1008, unitName: 'KCAL', value: 210 },
+            { nutrientId: 1003, unitName: 'G', value: 9.2 },
+            { nutrientId: 1005, unitName: 'G', value: 30.6 },
+            { nutrientId: 1004, unitName: 'G', value: 6.4 },
+          ],
+        },
+      ],
+    }),
+  });
+
+  try {
+    const result = await searchFoods('fallback nutrients');
+
+    assert.equal(result.foods.length, 1);
+    const [food] = result.foods;
+    assert.equal(food.id, 'usda_777');
+    assert.equal(food.per100g.calories, 210);
+    assert.equal(food.per100g.protein, 9.2);
+    assert.equal(food.per100g.carbs, 30.6);
+    assert.equal(food.per100g.fats, 6.4);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

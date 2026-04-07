@@ -224,12 +224,32 @@ export const FoodSearchChatPanel = ({
                             const entryKey = `${message.id}-${index}`;
                             const isExpanded =
                               expandedAiEntryKeys[entryKey] === true;
-                            const isLowConfidence = entry.confidence === 'low';
                             const isLogged =
                               loggedAiEntryKeys[entryKey] === true;
                             const isFavourited =
                               favouritedAiEntryKeys[entryKey] === true;
                             const lookupMeta = aiEntryLookupByKey?.[entryKey];
+                            const resolvedSource =
+                              entry.source || lookupMeta?.usedSource || 'estimate';
+                            const sourceBadge =
+                              resolvedSource === 'local' ||
+                              resolvedSource === 'usda'
+                                ? {
+                                    label: 'Verified Database',
+                                    className:
+                                      'bg-accent-green/20 text-accent-green',
+                                  }
+                                : resolvedSource === 'ai_web_search'
+                                  ? {
+                                      label: 'Web Estimate',
+                                      className:
+                                        'bg-accent-amber/20 text-accent-amber',
+                                    }
+                                  : {
+                                      label: 'AI Estimate',
+                                      className:
+                                        'bg-accent-slate/20 text-accent-slate',
+                                    };
                             const parsedGrams = Number(entry.grams);
                             const aiTagFood = {
                               name: entry.name,
@@ -250,27 +270,22 @@ export const FoodSearchChatPanel = ({
                                 initial={{ opacity: 0, scale: 0.98 }}
                                 animate={{ opacity: 1, scale: 1 }}
                                 transition={{ duration: 0.16, ease: 'easeOut' }}
-                                className={`rounded-xl bg-surface border px-3 py-2 ${
-                                  isLowConfidence
-                                    ? 'border-accent-red/35'
-                                    : 'border-border'
-                                }`}
+                                className="rounded-xl bg-surface border border-border px-3 py-2"
                               >
                                 <div className="flex items-center justify-between gap-2 mb-2">
                                   <p className="text-xs font-semibold text-foreground truncate">
                                     {entry.name}
                                   </p>
-                                  <span
-                                    className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-                                      entry.confidence === 'high'
-                                        ? 'bg-accent-green/20 text-accent-green'
-                                        : entry.confidence === 'low'
-                                          ? 'bg-accent-red/20 text-accent-red'
-                                          : 'bg-accent-amber/20 text-accent-amber'
-                                    }`}
-                                  >
-                                    {entry.confidence ?? 'medium'}
-                                  </span>
+                                  <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                                    <span
+                                      className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${sourceBadge.className}`}
+                                    >
+                                      {sourceBadge.label}
+                                    </span>
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-surface-highlight text-muted">
+                                      {entry.confidence ?? 'medium'} confidence
+                                    </span>
+                                  </div>
                                 </div>
 
                                 <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted mb-2">
@@ -288,13 +303,6 @@ export const FoodSearchChatPanel = ({
                                   showCategory
                                   className="mb-2"
                                 />
-
-                                {isLowConfidence && (
-                                  <p className="mb-2 text-[11px] text-accent-red">
-                                    Low confidence. Review this estimate before
-                                    logging.
-                                  </p>
-                                )}
 
                                 {(entry.rationale ||
                                   (Array.isArray(entry.assumptions) &&

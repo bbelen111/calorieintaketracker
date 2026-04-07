@@ -2,9 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  GEMINI_REQUEST_MODE,
   GeminiError,
   buildGeminiContents,
   parseFoodParserPayloadFromText,
+  sendGeminiExtraction,
   sendGeminiMessage,
 } from '../../src/services/gemini.js';
 
@@ -92,6 +94,43 @@ test('sendGeminiMessage returns assistant text on success', async () => {
     });
 
     assert.equal(response.text, 'Use 120g serving for better macro accuracy.');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('sendGeminiMessage forwards mode and grounding flags to API body', async () => {
+  const originalFetch = globalThis.fetch;
+  let capturedBody = null;
+
+  globalThis.fetch = async (_url, options = {}) => {
+    capturedBody = JSON.parse(String(options.body || '{}'));
+
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        candidates: [
+          {
+            content: {
+              parts: [{ text: 'ok' }],
+            },
+          },
+        ],
+      }),
+    };
+  };
+
+  try {
+    await sendGeminiMessage({
+      message: 'lookup',
+      history: [],
+      mode: GEMINI_REQUEST_MODE.GROUNDING_LOOKUP,
+      useGrounding: true,
+    });
+
+    assert.equal(capturedBody.mode, GEMINI_REQUEST_MODE.GROUNDING_LOOKUP);
+    assert.equal(capturedBody.useGrounding, true);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -284,6 +323,52 @@ test('parseFoodParserPayloadFromText returns clarification follow-up payload', (
     'Was the burger single or double patty?'
   );
   assert.deepEqual(parsed.payload?.entries, []);
+});
+
+test('parseFoodParserPayloadFromText supports extraction message type', () => {
+  const rawText = `Parsed candidate foods.\n<food_parser_json>{"messageType":"extraction","assistantMessage":"Parsed candidate foods.","entries":[{"name":"oatmeal","grams":240,"calories":160,"protein":6,"carbs":27,"fats":3,"confidence":"medium","lookupTerms":["oatmeal cooked"]}]}</food_parser_json>`;
+
+  const parsed = parseFoodParserPayloadFromText(rawText);
+
+  assert.equal(parsed.payload?.messageType, 'extraction');
+  assert.equal(parsed.payload?.entries?.[0]?.name, 'oatmeal');
+  assert.deepEqual(parsed.payload?.entries?.[0]?.lookupTerms, [
+    'oatmeal cooked',
+  ]);
+});
+
+test('sendGeminiExtraction uses extraction mode helper', async () => {
+  const originalFetch = globalThis.fetch;
+  let capturedBody = null;
+
+  globalThis.fetch = async (_url, options = {}) => {
+    capturedBody = JSON.parse(String(options.body || '{}'));
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        candidates: [
+          {
+            content: {
+              parts: [{ text: 'Extraction ready.' }],
+            },
+          },
+        ],
+      }),
+    };
+  };
+
+  try {
+    await sendGeminiExtraction({
+      message: '2 eggs and toast',
+      history: [],
+    });
+
+    assert.equal(capturedBody.mode, GEMINI_REQUEST_MODE.EXTRACTION);
+    assert.equal(capturedBody.useGrounding, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test('parseFoodParserPayloadFromText strips dangling parser tag when payload is truncated', () => {

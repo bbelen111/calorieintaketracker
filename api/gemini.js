@@ -4,8 +4,13 @@
 
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 const DEFAULT_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const GEMINI_MODES = Object.freeze({
+  EXTRACTION: 'extraction',
+  PRESENTATION: 'presentation',
+  GROUNDING_LOOKUP: 'grounding_lookup',
+});
 
-const FOOD_ASSISTANT_SYSTEM_INSTRUCTION = `You are a nutrition parser for food logging in a calorie tracker.
+const EXTRACTION_SYSTEM_INSTRUCTION = `You are a nutrition parser for food logging in a calorie tracker.
 
 Your mission:
 - Parse ONLY foods explicitly mentioned by the user and/or visible in attached images.
@@ -65,6 +70,84 @@ Rules:
 - Keep the JSON compact (no unnecessary fields or long prose inside JSON values).
 - Ensure JSON is valid and parseable.`;
 
+const PRESENTATION_SYSTEM_INSTRUCTION = `You are a nutrition logging assistant that formats final answers from system-verified nutrition data.
+
+Rules:
+- If the user prompt contains a [SYSTEM_DATA] block, use ONLY those numbers for calories/macros.
+- Never alter, infer, or re-estimate calories/macros that are provided inside [SYSTEM_DATA].
+- Keep copy concise and practical.
+- If [SYSTEM_DATA] is missing or malformed, return a concise error payload.
+
+Output format requirements (MANDATORY):
+1) Human-facing response text first.
+2) Then append machine payload enclosed exactly in:
+<food_parser_json>{...valid JSON...}</food_parser_json>
+
+JSON schema:
+{
+  "messageType": "food_entries" | "error",
+  "assistantMessage": "string",
+  "entries": [
+    {
+      "name": "string",
+      "grams": number,
+      "calories": number,
+      "protein": number,
+      "carbs": number,
+      "fats": number,
+      "confidence": "high" | "medium" | "low",
+      "rationale": "string",
+      "assumptions": ["string", "..."],
+      "lookupTerms": ["string", "..."],
+      "source": "local" | "usda" | "ai_web_search" | "estimate"
+    }
+  ]
+}
+
+Rules:
+- If messageType is "food_entries", include at least one entry.
+- Keep JSON compact and valid.
+- Never output markdown code fences around JSON.`;
+
+const GROUNDING_LOOKUP_SYSTEM_INSTRUCTION = `You are a nutrition retrieval assistant for obscure foods.
+
+Task:
+- Use Google Search grounding to return a conservative 100g baseline estimate for exactly one requested food.
+- Return strict JSON only, inside <food_parser_json> tags.
+- Do not include markdown code fences.
+
+Required JSON schema:
+{
+  "messageType": "food_entries" | "error",
+  "assistantMessage": "string",
+  "entries": [
+    {
+      "name": "string",
+      "grams": 100,
+      "calories": number,
+      "protein": number,
+      "carbs": number,
+      "fats": number,
+      "confidence": "low" | "medium",
+      "rationale": "string",
+      "assumptions": ["string", "..."],
+      "source": "ai_web_search"
+    }
+  ]
+}`;
+
+function resolveSystemInstruction(mode) {
+  switch (mode) {
+    case GEMINI_MODES.PRESENTATION:
+      return PRESENTATION_SYSTEM_INSTRUCTION;
+    case GEMINI_MODES.GROUNDING_LOOKUP:
+      return GROUNDING_LOOKUP_SYSTEM_INSTRUCTION;
+    case GEMINI_MODES.EXTRACTION:
+    default:
+      return EXTRACTION_SYSTEM_INSTRUCTION;
+  }
+}
+
 const VALID_ROLES = new Set(['user', 'model']);
 
 function isValidPart(part) {
@@ -112,6 +195,22 @@ export default async function handler(req, res) {
   }
 
   const body = req.body || {};
+  const modeRaw = String(body.mode || GEMINI_MODES.EXTRACTION)
+    .trim()
+    .toLowerCase();
+  const mode =
+    Object.values(GEMINI_MODES).includes(modeRaw) && modeRaw
+      ? modeRaw
+      : GEMINI_MODES.EXTRACTION;
+  const useGrounding = body.useGrounding === true;
+
+  if (modeRaw && !Object.values(GEMINI_MODES).includes(modeRaw)) {
+    return res.status(400).json({
+      error: 'Invalid mode',
+      validModes: Object.values(GEMINI_MODES),
+    });
+  }
+
   const model =
     typeof body.model === 'string' && body.model.trim().length > 0
       ? body.model.trim()
@@ -133,13 +232,17 @@ export default async function handler(req, res) {
   const payload = {
     contents,
     systemInstruction: {
-      parts: [{ text: FOOD_ASSISTANT_SYSTEM_INSTRUCTION }],
+      parts: [{ text: resolveSystemInstruction(mode) }],
     },
     generationConfig: {
-      temperature: 0.5,
+      temperature: mode === GEMINI_MODES.GROUNDING_LOOKUP ? 0.2 : 0.5,
       maxOutputTokens: 1200,
     },
   };
+
+  if (mode === GEMINI_MODES.GROUNDING_LOOKUP && useGrounding) {
+    payload.tools = [{ googleSearch: {} }];
+  }
 
   try {
     const endpoint = `${GEMINI_BASE_URL}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;

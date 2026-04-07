@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   FOOD_SEARCH_SOURCE,
+  resolveAiFoodEntry,
   resolveAiFoodLookup,
   searchFoodsLocal,
   searchFoodsOnline,
@@ -196,6 +197,93 @@ test('resolveAiFoodLookup uses online fallback when local match is weak', async 
   assert.equal(result.matchedFood?.name, 'Cacao Tablet');
   assert.equal(result.queryUsed, 'cacao tablet');
   assert.equal(result.fallbackUsed, true);
+});
+
+test('resolveAiFoodLookup falls back to grounded web lookup when local and USDA miss', async () => {
+  const result = await resolveAiFoodLookup({
+    entryName: 'rare local dessert',
+    isOnline: true,
+    dependencies: {
+      searchLocal: async () => [],
+      searchUsda: async () => ({ foods: [] }),
+      searchGrounded: async () => ({
+        name: 'Rare Local Dessert',
+        per100g: {
+          calories: 320,
+          protein: 4,
+          carbs: 45,
+          fats: 14,
+        },
+        confidence: 'low',
+      }),
+    },
+  });
+
+  assert.equal(result.status, 'resolved');
+  assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.AI_WEB_SEARCH);
+  assert.equal(result.matchedFood?.name, 'Rare Local Dessert');
+  assert.equal(result.matchedFood?.per100g?.calories, 320);
+  assert.equal(result.fallbackUsed, true);
+});
+
+test('resolveAiFoodEntry uses lookup per100g when resolved metadata is provided', async () => {
+  const { verifiedEntry } = await resolveAiFoodEntry({
+    entry: {
+      name: 'Chicken Breast',
+      grams: 150,
+      calories: 300,
+      protein: 20,
+      carbs: 0,
+      fats: 5,
+      confidence: 'low',
+    },
+    lookupMeta: {
+      status: 'resolved',
+      usedSource: FOOD_SEARCH_SOURCE.LOCAL,
+      matchConfidence: 'high',
+      matchedFood: {
+        per100g: {
+          calories: 165,
+          protein: 31,
+          carbs: 0,
+          fats: 3.6,
+        },
+      },
+    },
+  });
+
+  assert.equal(verifiedEntry.name, 'Chicken Breast');
+  assert.equal(verifiedEntry.calories, 248);
+  assert.equal(verifiedEntry.protein, 46.5);
+  assert.equal(verifiedEntry.source, FOOD_SEARCH_SOURCE.LOCAL);
+  assert.equal(verifiedEntry.portionResolutionMethod, 'explicit_grams');
+  assert.equal(verifiedEntry.portionAssumed, false);
+});
+
+test('resolveAiFoodEntry falls back to entry estimate when lookup is unresolved', async () => {
+  const { verifiedEntry } = await resolveAiFoodEntry({
+    entry: {
+      name: 'Mystery Stew',
+      grams: 200,
+      calories: 300,
+      protein: 12,
+      carbs: 30,
+      fats: 10,
+      confidence: 'medium',
+    },
+    lookupMeta: {
+      status: 'no_match',
+      usedSource: FOOD_SEARCH_SOURCE.LOCAL,
+      matchConfidence: 'low',
+      matchedFood: null,
+    },
+  });
+
+  assert.equal(verifiedEntry.calories, 300);
+  assert.equal(verifiedEntry.protein, 12);
+  assert.equal(verifiedEntry.carbs, 30);
+  assert.equal(verifiedEntry.fats, 10);
+  assert.equal(verifiedEntry.source, 'estimate');
 });
 
 test('searchFoodsHierarchically local wrapper maps to local-only behavior', async () => {

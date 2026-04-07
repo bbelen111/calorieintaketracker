@@ -57,28 +57,34 @@ function getNutrientValue(food, matcher) {
 
 function getMacroProfile(food) {
   const calories = getNutrientValue(food, (nutrient) => {
+    const nutrientId = Number(nutrient.nutrientId);
     const nutrientNumber = String(nutrient.nutrientNumber ?? '').trim();
     const nutrientName = normalizeNutrientName(nutrient.nutrientName);
     const unitName = String(nutrient.unitName ?? '').toUpperCase();
 
     return (
+      nutrientId === 1008 ||
+      nutrientId === 2047 ||
       nutrientNumber === '208' ||
       (nutrientName.includes('energy') && unitName === 'KCAL')
     );
   });
 
   const protein = getNutrientValue(food, (nutrient) => {
+    const nutrientId = Number(nutrient.nutrientId);
     const nutrientNumber = String(nutrient.nutrientNumber ?? '').trim();
     const nutrientName = normalizeNutrientName(nutrient.nutrientName);
 
-    return nutrientNumber === '203' || nutrientName === 'protein';
+    return nutrientId === 1003 || nutrientNumber === '203' || nutrientName === 'protein';
   });
 
   const carbs = getNutrientValue(food, (nutrient) => {
+    const nutrientId = Number(nutrient.nutrientId);
     const nutrientNumber = String(nutrient.nutrientNumber ?? '').trim();
     const nutrientName = normalizeNutrientName(nutrient.nutrientName);
 
     return (
+      nutrientId === 1005 ||
       nutrientNumber === '205' ||
       nutrientName.includes('carbohydrate, by difference') ||
       nutrientName === 'carbohydrate'
@@ -86,10 +92,12 @@ function getMacroProfile(food) {
   });
 
   const fats = getNutrientValue(food, (nutrient) => {
+    const nutrientId = Number(nutrient.nutrientId);
     const nutrientNumber = String(nutrient.nutrientNumber ?? '').trim();
     const nutrientName = normalizeNutrientName(nutrient.nutrientName);
 
     return (
+      nutrientId === 1004 ||
       nutrientNumber === '204' ||
       nutrientName.includes('total lipid (fat)') ||
       nutrientName === 'fat'

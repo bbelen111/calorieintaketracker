@@ -202,6 +202,16 @@ FoodSearchModal
   -> debounced searchFoodsOnline(...) in services/foodSearch.js
     -> services/usda.js
   -> preview rows + cache-on-select flow
+
+AI chat mode (feature-flagged RAG path):
+FoodSearchModal
+  -> sendGeminiExtraction(...) in services/gemini.js (mode='extraction')
+  -> resolveFoodLookupContext(...) + resolveAiFoodEntry(...) in services/foodLookupContext.js + services/foodSearch.js
+    -> local lookup (foodCatalog)
+    -> USDA lookup (services/usda.js)
+    -> grounded fallback (services/gemini.js fetchMacrosWithGrounding, mode='grounding_lookup')
+  -> sendGeminiPresentation(...) in services/gemini.js (mode='presentation', [SYSTEM_DATA])
+  -> provenance-first rendering in FoodSearchChatPanel (Verified Database / Web Estimate / AI Estimate)
 ```
 
 ### `useAnimatedModal` Hook
@@ -762,8 +772,19 @@ Results are cached in `userData.cachedFoods` to reduce repeated network requests
 
 Gemini food parsing is proxied through `api/gemini.js` (server-side key handling) and consumed by `src/services/gemini.js`.
 
-**Canonical system instruction source:**
-- `api/gemini.js` → `FOOD_ASSISTANT_SYSTEM_INSTRUCTION`
+**Gateway modes + instruction sources:**
+- `api/gemini.js` supports `mode: 'extraction' | 'presentation' | 'grounding_lookup'`.
+- Canonical prompt sources live in `api/gemini.js`:
+  - `EXTRACTION_SYSTEM_INSTRUCTION`
+  - `PRESENTATION_SYSTEM_INSTRUCTION`
+  - `GROUNDING_LOOKUP_SYSTEM_INSTRUCTION`
+- Grounding tools are gated: only `mode='grounding_lookup'` with `useGrounding: true` injects `tools: [{ googleSearch: {} }]`.
+
+**Client helpers (`src/services/gemini.js`):**
+- `sendGeminiExtraction(...)`
+- `sendGeminiPresentation(...)`
+- `fetchMacrosWithGrounding(...)`
+- Feature flag: `AI_CHAT_RAG_ENABLED` from `VITE_AI_CHAT_RAG_ENABLED`
 
 **Policy requirements:**
 - Use **conservative estimation** when uncertainty materially affects calories/macros.
@@ -771,7 +792,7 @@ Gemini food parsing is proxied through `api/gemini.js` (server-side key handling
 - Do not invent foods/add-ons not explicitly mentioned or clearly visible.
 - Preserve machine payload contract exactly (`<food_parser_json>...</food_parser_json>` schema).
 
-If adjusting Gemini behavior, update `FOOD_ASSISTANT_SYSTEM_INSTRUCTION` first and verify parser/contract stability with `tests/utils/gemini.test.js`.
+If adjusting Gemini behavior, update the mode-specific instruction in `api/gemini.js` first and verify parser/contract stability with `tests/utils/gemini.test.js`.
 
 ---
 
@@ -885,7 +906,8 @@ src/
 │   │  └─ weight.js              # Date normalization, weight clamping, sorting, trend analysis, sparklines
 │   ├─ food/
 │   │  ├─ foodPresentation.js    # Food display naming helpers (brand + name formatting)
-│   │  └─ foodTags.js            # Canonical food source/type resolver + badge metadata/classes
+│   │  ├─ foodTags.js            # Canonical food source/type resolver + badge metadata/classes
+│   │  └─ portionNormalization.js # AI/lookup portion→grams normalization + per100g scaling helpers
 │   ├─ formatting/
 │   │  ├─ format.js              # Number formatting (formatOne: 1 decimal place)
 │   │  └─ time.js                # Time/duration helpers (normalize, round, format, split)
@@ -898,6 +920,9 @@ src/
 │   ├─ theme.js                  # Native theme application (status bar, transparent nav bar, keyboard)
 │   ├─ export.js                 # CSV/JSON export generation
 ├─ services/
+│   ├─ gemini.js                 # Gemini client + mode helpers (extraction/presentation/grounding)
+│   ├─ foodLookupContext.js      # Batch AI entry lookup context resolver + normalized lookup meta
+│   ├─ foodSearch.js             # Local/USDA/grounded lookup orchestration + deterministic AI entry resolution
 │   ├─ usda.js                   # USDA online search client
 │   ├─ openFoodFacts.js          # OpenFoodFacts barcode lookup client
 │   ├─ barcodeScanner.js         # Official Capacitor barcode scanner wrapper
@@ -1013,7 +1038,10 @@ npm run test:watch     # Node test runner in watch mode
 53. **Food favourites surface is unified:** Use `FoodSearchModal` favourites mode for favourites UX. Do not recreate a standalone `FoodFavouritesModal` surface.
 54. **Food tags are centralized:** Reuse `FoodTagBadges` + `foodTags` helpers; do not add per-modal ad-hoc tag/source logic.
 55. **Brand display in food cards is name-first:** Use `formatFoodDisplayName` and avoid rendering brand as a separate chip in food list cards.
-56. **Gemini instruction authority is server-side:** Keep behavioral prompt updates in `api/gemini.js` (`FOOD_ASSISTANT_SYSTEM_INSTRUCTION`) and preserve the existing `food_parser_json` schema unless a coordinated parser/test update is intentional.
+56. **Gemini instruction authority is server-side and mode-specific:** Keep behavioral prompt updates in `api/gemini.js` (`EXTRACTION_SYSTEM_INSTRUCTION`, `PRESENTATION_SYSTEM_INSTRUCTION`, `GROUNDING_LOOKUP_SYSTEM_INSTRUCTION`) and preserve the existing `food_parser_json` schema unless a coordinated parser/test update is intentional.
 57. **Pinned local foods must remain hydratable outside top-N result windows:** local search currently fetches pinned IDs via `getFoodsByIds(...)` on the first local page and merges them before UI filtering; do not regress to top-limited-only result sources.
 58. **Local search ranking is relevance-aware for name sorting:** exact/prefix/word-boundary name matches should outrank generic contains matches (e.g., plain `honey` should not be buried under unrelated composites).
 59. **Large food lists are progressively rendered in `FoodSearchModal`:** preserve `visibleResultCount` batching plus offset-based local pagination, and keep the count copy in "loaded count" style (`x foods found`) to avoid heavy first paint on 13k+ catalog datasets.
+60. **RAG chat pipeline is feature-flagged and two-pass:** when `VITE_AI_CHAT_RAG_ENABLED` is true, keep extraction → deterministic resolution (`resolveFoodLookupContext` + `resolveAiFoodEntry`) → presentation flow intact; retain single-pass fallback path for safety.
+61. **Grounding must stay gated:** only grounded lookup requests should set `useGrounding: true`; do not enable web grounding for extraction/presentation modes.
+62. **Deterministic macro math belongs in services/utilities, not JSX:** keep grams normalization and per100g scaling in `utils/food/portionNormalization.js` and `services/foodSearch.js` (`resolveAiFoodEntry`), not ad-hoc in modal components.

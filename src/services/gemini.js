@@ -6,7 +6,22 @@ export const MAX_IMAGE_COUNT = 3;
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const FOOD_PARSER_JSON_TAG = 'food_parser_json';
 const FOOD_ENTRY_CONFIDENCE = new Set(['high', 'medium', 'low']);
-const FOOD_MESSAGE_TYPES = new Set(['food_entries', 'clarification', 'error']);
+const FOOD_MESSAGE_TYPES = new Set([
+  'food_entries',
+  'clarification',
+  'error',
+  'extraction',
+]);
+export const GEMINI_REQUEST_MODE = Object.freeze({
+  EXTRACTION: 'extraction',
+  PRESENTATION: 'presentation',
+  GROUNDING_LOOKUP: 'grounding_lookup',
+});
+
+export const AI_CHAT_RAG_ENABLED =
+  String(import.meta.env?.VITE_AI_CHAT_RAG_ENABLED || '')
+    .trim()
+    .toLowerCase() === 'true';
 
 const API_BASE = (
   (typeof import.meta.env?.VITE_GEMINI_API_BASE === 'string'
@@ -501,6 +516,8 @@ export async function sendGeminiMessage({
   files = [],
   history = [],
   model,
+  mode = GEMINI_REQUEST_MODE.EXTRACTION,
+  useGrounding = false,
   signal,
   timeoutMs = 30000,
 }) {
@@ -516,7 +533,12 @@ export async function sendGeminiMessage({
   );
 
   try {
-    const requestBody = { contents, model };
+    const requestBody = {
+      contents,
+      model,
+      mode,
+      useGrounding: useGrounding === true,
+    };
 
     let { response, data } = await requestGemini({
       body: requestBody,
@@ -597,4 +619,89 @@ export async function sendGeminiMessage({
   } finally {
     cleanup();
   }
+}
+
+export async function sendGeminiExtraction({
+  message,
+  files = [],
+  history = [],
+  model,
+  signal,
+  timeoutMs = 30000,
+}) {
+  return sendGeminiMessage({
+    message,
+    files,
+    history,
+    model,
+    mode: GEMINI_REQUEST_MODE.EXTRACTION,
+    useGrounding: false,
+    signal,
+    timeoutMs,
+  });
+}
+
+export async function sendGeminiPresentation({
+  message,
+  systemData,
+  history = [],
+  model,
+  signal,
+  timeoutMs = 30000,
+}) {
+  const systemDataBlock =
+    systemData && typeof systemData === 'object'
+      ? `\n\n[SYSTEM_DATA]: ${JSON.stringify(systemData)}`
+      : '';
+
+  return sendGeminiMessage({
+    message: `${String(message ?? '').trim()}${systemDataBlock}`.trim(),
+    files: [],
+    history,
+    model,
+    mode: GEMINI_REQUEST_MODE.PRESENTATION,
+    useGrounding: false,
+    signal,
+    timeoutMs,
+  });
+}
+
+export async function fetchMacrosWithGrounding(foodName, signal, timeoutMs = 20000) {
+  const normalizedFoodName = String(foodName ?? '').trim();
+  if (!normalizedFoodName) {
+    throw new GeminiError('A food name is required for grounded lookup.', 400);
+  }
+
+  const prompt = `Find a conservative 100g nutrition estimate for: ${normalizedFoodName}. Return parser JSON only.`;
+
+  const result = await sendGeminiMessage({
+    message: prompt,
+    files: [],
+    history: [],
+    mode: GEMINI_REQUEST_MODE.GROUNDING_LOOKUP,
+    useGrounding: true,
+    signal,
+    timeoutMs,
+  });
+
+  const firstEntry = result?.foodParser?.entries?.[0];
+  if (!firstEntry) {
+    throw new GeminiError('Grounded lookup returned no usable nutrition data.', 502, result?.raw || null);
+  }
+
+  return {
+    name: firstEntry.name || normalizedFoodName,
+    per100g: {
+      calories: Math.max(0, Number(firstEntry.calories) || 0),
+      protein: Math.max(0, Number(firstEntry.protein) || 0),
+      carbs: Math.max(0, Number(firstEntry.carbs) || 0),
+      fats: Math.max(0, Number(firstEntry.fats) || 0),
+    },
+    confidence: firstEntry.confidence || 'low',
+    rationale: firstEntry.rationale || null,
+    assumptions: Array.isArray(firstEntry.assumptions)
+      ? firstEntry.assumptions
+      : [],
+    source: 'ai_web_search',
+  };
 }

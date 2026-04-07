@@ -47,17 +47,25 @@ import {
 import {
   FOOD_SEARCH_SOURCE,
   getFoodSearchSourceLabel,
+  resolveAiFoodEntry,
   searchFoodsLocal,
   searchFoodsOnline,
   resolveAiFoodLookup,
 } from '../../../../services/foodSearch';
+import {
+  normalizeAiLookupResult,
+  resolveFoodLookupContext,
+} from '../../../../services/foodLookupContext';
 import {
   BarcodeScannerError,
   canUseNativeBarcodeScanner,
   scanNativeBarcode,
 } from '../../../../services/barcodeScanner';
 import {
+  AI_CHAT_RAG_ENABLED,
   sendGeminiMessage,
+  sendGeminiExtraction,
+  sendGeminiPresentation,
   GeminiError,
   validateAttachmentFile,
   MAX_IMAGE_COUNT,
@@ -1711,41 +1719,9 @@ export const FoodSearchModal = ({
             isOnline,
           });
 
-          const nextMeta = {
-            status: result?.status || 'no_match',
-            usedSource: result?.usedSource || FOOD_SEARCH_SOURCE.LOCAL,
-            sourcesTried: Array.isArray(result?.sourcesTried)
-              ? result.sourcesTried
-              : [],
-            fallbackUsed: Boolean(result?.fallbackUsed),
-            queryUsed:
-              typeof result?.queryUsed === 'string' ? result.queryUsed : null,
-            matchConfidence: result?.matchConfidence || 'low',
-            matchScore: Number.isFinite(result?.matchScore)
-              ? result.matchScore
-              : 0,
-            matchedFood: result?.matchedFood
-              ? {
-                  name: result.matchedFood.name,
-                  brand: result.matchedFood.brand || null,
-                  category: result.matchedFood.category || null,
-                  subcategory: result.matchedFood.subcategory || null,
-                  per100g:
-                    result.matchedFood.per100g &&
-                    typeof result.matchedFood.per100g === 'object'
-                      ? {
-                          calories:
-                            Number(result.matchedFood.per100g.calories) || 0,
-                          protein:
-                            Number(result.matchedFood.per100g.protein) || 0,
-                          carbs: Number(result.matchedFood.per100g.carbs) || 0,
-                          fats: Number(result.matchedFood.per100g.fats) || 0,
-                        }
-                      : null,
-                }
-              : null,
-            errorsBySource: result?.errorsBySource || {},
-          };
+          const nextMeta = normalizeAiLookupResult(result, {
+            entryName: entry.name,
+          });
 
           setAiEntryLookupByKey((prev) => ({
             ...prev,
@@ -1898,12 +1874,140 @@ export const FoodSearchModal = ({
           beforeMessageId,
         });
 
-        const result = await sendGeminiMessage({
-          message: trimmedText,
-          files: attachments.map((attachment) => attachment.file),
-          history,
-          signal: controller.signal,
-        });
+        const assistantMessageId =
+          assistantPlaceholderId || `assistant-${Date.now()}`;
+        let result = null;
+        let preResolvedLookupContext = {};
+
+        if (AI_CHAT_RAG_ENABLED) {
+          const extractionResult = await sendGeminiExtraction({
+            message: trimmedText,
+            files: attachments.map((attachment) => attachment.file),
+            history,
+            signal: controller.signal,
+          });
+
+          const extractionMessageType =
+            extractionResult?.foodParser?.messageType || null;
+          const extractionEntries = Array.isArray(
+            extractionResult?.foodParser?.entries
+          )
+            ? extractionResult.foodParser.entries
+            : [];
+
+          const shouldShortCircuit =
+            extractionMessageType === 'clarification' ||
+            extractionMessageType === 'error' ||
+            extractionEntries.length === 0;
+
+          if (shouldShortCircuit) {
+            result = extractionResult;
+          } else {
+            preResolvedLookupContext = await resolveFoodLookupContext({
+              messageId: assistantMessageId,
+              entries: extractionEntries,
+              isOnline,
+            });
+
+            const verifiedEntryResults = await Promise.all(
+              extractionEntries.map((entry, index) => {
+                const entryKey = `${assistantMessageId}-${index}`;
+                return resolveAiFoodEntry({
+                  entry,
+                  isOnline,
+                  lookupMeta: preResolvedLookupContext[entryKey] || null,
+                });
+              })
+            );
+
+            const verifiedEntries = verifiedEntryResults.map((item) => {
+              return item?.verifiedEntry || null;
+            }).filter(Boolean);
+
+            verifiedEntryResults.forEach((item, index) => {
+              const entryKey = `${assistantMessageId}-${index}`;
+              if (item?.lookupMeta) {
+                preResolvedLookupContext[entryKey] = item.lookupMeta;
+              }
+            });
+
+            const presentationResult = await sendGeminiPresentation({
+              message: trimmedText,
+              systemData: {
+                entries: verifiedEntries,
+              },
+              history,
+              signal: controller.signal,
+            });
+
+            const presentationEntries = Array.isArray(
+              presentationResult?.foodParser?.entries
+            )
+              ? presentationResult.foodParser.entries
+              : [];
+
+            const mergedEntries =
+              presentationResult?.foodParser?.messageType === 'food_entries' &&
+              presentationEntries.length > 0
+                ? verifiedEntries.map((verifiedEntry, index) => ({
+                    ...verifiedEntry,
+                    name:
+                      String(presentationEntries[index]?.name || '').trim() ||
+                      verifiedEntry.name,
+                    rationale:
+                      presentationEntries[index]?.rationale ||
+                      verifiedEntry.rationale,
+                    assumptions:
+                      Array.isArray(presentationEntries[index]?.assumptions) &&
+                      presentationEntries[index].assumptions.length > 0
+                        ? presentationEntries[index].assumptions
+                        : verifiedEntry.assumptions,
+                  }))
+                : verifiedEntries;
+
+            result = {
+              ...presentationResult,
+              text:
+                presentationResult?.text ||
+                extractionResult?.text ||
+                'Here are your parsed food entries.',
+              foodParser: {
+                messageType: 'food_entries',
+                entries: mergedEntries,
+                followUpQuestion: null,
+              },
+            };
+          }
+        } else {
+          result = await sendGeminiMessage({
+            message: trimmedText,
+            files: attachments.map((attachment) => attachment.file),
+            history,
+            signal: controller.signal,
+          });
+        }
+
+        if (
+          result?.foodParser?.messageType === 'food_entries' &&
+          Array.isArray(result?.foodParser?.entries) &&
+          result.foodParser.entries.length > 0
+        ) {
+          const lookupContext =
+            Object.keys(preResolvedLookupContext).length > 0
+              ? preResolvedLookupContext
+              : await resolveFoodLookupContext({
+                  messageId: assistantMessageId,
+                  entries: result.foodParser.entries,
+                  isOnline,
+                });
+
+          if (Object.keys(lookupContext).length > 0) {
+            setAiEntryLookupByKey((prev) => ({
+              ...prev,
+              ...lookupContext,
+            }));
+          }
+        }
 
         if (userMessageId) {
           updateMessageById(userMessageId, (message) => ({
@@ -1914,7 +2018,7 @@ export const FoodSearchModal = ({
         }
 
         const assistantMessage = createAssistantChatMessage({
-          id: assistantPlaceholderId || `assistant-${Date.now()}`,
+          id: assistantMessageId,
           text: result.text,
           foodParser: result.foodParser ?? null,
           status: 'sent',
