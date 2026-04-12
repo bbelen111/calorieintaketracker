@@ -31,6 +31,21 @@ const DEFAULT_UNIT_GRAMS = Object.freeze({
   pieces: 50,
   serving: 100,
   servings: 100,
+  tasa: 240,
+  tasas: 240,
+  kutsara: 15,
+  kutsarang: 15,
+  kutsarita: 5,
+  kutsaritaful: 5,
+  bilao: 1400,
+  'half bilao': 700,
+  'quarter bilao': 350,
+  'tasang gatas': 240,
+  'tasa ng gatas': 240,
+  pulutan: 90,
+  'pulutan portion': 90,
+  'ulam serving': 120,
+  'kanin serving': 160,
 });
 
 const toFiniteNumber = (value) => {
@@ -40,6 +55,8 @@ const toFiniteNumber = (value) => {
 
 export const normalizePortionUnit = (unit) => {
   return String(unit ?? '')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase();
 };

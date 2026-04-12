@@ -182,7 +182,9 @@ export const buildDailySnapshot = ({
     epocFromTodaySessions: Math.round(
       Number(breakdown?.epocFromTodaySessions) || 0
     ),
-    epocCarryInCalories: Math.round(Number(breakdown?.epocCarryInCalories) || 0),
+    epocCarryInCalories: Math.round(
+      Number(breakdown?.epocCarryInCalories) || 0
+    ),
     createdAt: Number(existingSnapshot?.createdAt) || now,
     updatedAt: now,
   };

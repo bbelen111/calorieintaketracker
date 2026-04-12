@@ -20,12 +20,18 @@ import {
 } from 'lucide-react';
 import { formatOne } from '../../../../../utils/formatting/format';
 import { FoodTagBadges } from '../../../common/FoodTagBadges';
+import {
+  getLookupErrorReasonMessage,
+  getLookupErrorRecoveryHint,
+} from '../../../../../services/foodLookupContext';
 
 export const FoodSearchChatPanel = ({
   isOnline,
   chatMessages,
   chatAttachments,
   chatError,
+  chatAttachmentErrors,
+  removeAttachmentError,
   isSendingChat,
   activeChatRequest,
   chatScrollRef,
@@ -193,6 +199,20 @@ export const FoodSearchChatPanel = ({
                       </div>
                     )}
 
+                    {isUser && message.status === 'queued' && (
+                      <div className="mt-2 flex items-center gap-2 text-[11px] text-accent-amber">
+                        <CloudOff size={12} />
+                        <span>Queued offline — will send on reconnect.</span>
+                      </div>
+                    )}
+
+                    {isUser && message.status === 'sending' && (
+                      <div className="mt-2 flex items-center gap-2 text-[11px] opacity-80">
+                        <div className="w-3.5 h-3.5 border-2 border-current/25 border-t-current rounded-full animate-spin-fast" />
+                        <span>Sending...</span>
+                      </div>
+                    )}
+
                     {!isUser &&
                       message.foodParser?.messageType === 'clarification' && (
                         <div className="mt-3 rounded-xl border border-accent-amber/30 bg-accent-amber/10 px-3 py-2">
@@ -229,8 +249,30 @@ export const FoodSearchChatPanel = ({
                             const isFavourited =
                               favouritedAiEntryKeys[entryKey] === true;
                             const lookupMeta = aiEntryLookupByKey?.[entryKey];
+                            const lookupReasonBySource =
+                              lookupMeta?.errorReasonsBySource || {};
+                            const prioritizedLookupReasonCode =
+                              lookupReasonBySource?.ai_web_search ||
+                              lookupReasonBySource?.usda ||
+                              lookupReasonBySource?.local ||
+                              null;
+                            const primaryLookupReasonCode =
+                              prioritizedLookupReasonCode ||
+                              lookupReasonBySource?.[lookupMeta?.usedSource] ||
+                              Object.values(lookupReasonBySource)[0] ||
+                              null;
+                            const primaryLookupReasonMessage =
+                              getLookupErrorReasonMessage(
+                                primaryLookupReasonCode
+                              );
+                            const primaryLookupRecoveryHint =
+                              getLookupErrorRecoveryHint(
+                                primaryLookupReasonCode
+                              );
                             const resolvedSource =
-                              entry.source || lookupMeta?.usedSource || 'estimate';
+                              entry.source ||
+                              lookupMeta?.usedSource ||
+                              'estimate';
                             const sourceBadge =
                               resolvedSource === 'local' ||
                               resolvedSource === 'usda'
@@ -285,6 +327,21 @@ export const FoodSearchChatPanel = ({
                                     <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-surface-highlight text-muted">
                                       {entry.confidence ?? 'medium'} confidence
                                     </span>
+                                    {lookupMeta?.verificationFallbackUsed && (
+                                      <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-accent-amber/20 text-accent-amber">
+                                        Weaker confidence (fallback)
+                                      </span>
+                                    )}
+                                    {entry?.nutritionIntegrityIssue && (
+                                      <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-accent-red/20 text-accent-red">
+                                        Nutrition guardrail applied
+                                      </span>
+                                    )}
+                                    {entry?.nameRewriteSuppressed && (
+                                      <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-accent-purple/20 text-accent-purple">
+                                        Name rewrite suppressed
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
 
@@ -320,9 +377,7 @@ export const FoodSearchChatPanel = ({
                                       </span>
                                       <span
                                         className={`text-foreground transition-transform duration-300 ${
-                                          isExpanded
-                                            ? 'rotate-180'
-                                            : 'rotate-0'
+                                          isExpanded ? 'rotate-180' : 'rotate-0'
                                         }`}
                                       >
                                         <ChevronDown size={14} />
@@ -361,22 +416,74 @@ export const FoodSearchChatPanel = ({
                                             </p>
                                             <p className="text-[10px] text-muted">
                                               Match confidence:{' '}
-                                              {lookupMeta.matchConfidence || 'low'}
-                                              {Number.isFinite(lookupMeta.matchScore)
+                                              {lookupMeta.matchConfidence ||
+                                                'low'}
+                                              {Number.isFinite(
+                                                lookupMeta.matchScore
+                                              )
                                                 ? ` (${Math.round(lookupMeta.matchScore * 100)}%)`
                                                 : ''}
                                             </p>
+                                            {lookupMeta.confidenceComponents && (
+                                              <p className="text-[10px] text-muted">
+                                                Confidence model: raw{' '}
+                                                {Math.round(
+                                                  (Number(
+                                                    lookupMeta
+                                                      .confidenceComponents
+                                                      .rawScore
+                                                  ) || 0) * 100
+                                                )}
+                                                % × trust{' '}
+                                                {Number(
+                                                  lookupMeta
+                                                    .confidenceComponents
+                                                    .trustMultiplier
+                                                ) || 0}{' '}
+                                                = weighted{' '}
+                                                {Math.round(
+                                                  (Number(
+                                                    lookupMeta.weightedMatchScore ??
+                                                      lookupMeta
+                                                        .confidenceComponents
+                                                        .weightedScore
+                                                  ) || 0) * 100
+                                                )}
+                                                %
+                                              </p>
+                                            )}
                                             {lookupMeta.matchedFood?.name && (
                                               <p className="text-[10px] text-muted">
-                                                Match: {lookupMeta.matchedFood.name}
+                                                Match:{' '}
+                                                {lookupMeta.matchedFood.name}
+                                              </p>
+                                            )}
+                                            {lookupMeta.verificationFallbackUsed && (
+                                              <p className="text-[10px] text-accent-amber">
+                                                Deterministic fallback used:
+                                                per100g derived and rescaled
+                                                from parser values.
                                               </p>
                                             )}
                                             {lookupMeta.status &&
-                                              lookupMeta.status !== 'resolved' && (
+                                              lookupMeta.status !==
+                                                'resolved' && (
                                                 <p className="text-[10px] text-accent-amber">
                                                   Status: {lookupMeta.status}
                                                 </p>
                                               )}
+                                            {primaryLookupReasonMessage && (
+                                              <p className="text-[10px] text-accent-amber">
+                                                Lookup issue:{' '}
+                                                {primaryLookupReasonMessage}
+                                              </p>
+                                            )}
+                                            {primaryLookupRecoveryHint && (
+                                              <p className="text-[10px] text-accent-blue">
+                                                Suggested fix:{' '}
+                                                {primaryLookupRecoveryHint}
+                                              </p>
+                                            )}
                                           </div>
                                         )}
 
@@ -652,6 +759,31 @@ export const FoodSearchChatPanel = ({
           <AlertCircle size={13} className="mt-0.5 flex-shrink-0" />
           <span>{chatError}</span>
         </div>
+      </div>
+    )}
+
+    {Array.isArray(chatAttachmentErrors) && chatAttachmentErrors.length > 0 && (
+      <div className="mx-4 mb-1 flex-shrink-0 space-y-1">
+        {chatAttachmentErrors.map((attachmentError) => (
+          <div
+            key={attachmentError.id}
+            className="bg-accent-amber/10 border border-accent-amber/30 rounded-lg px-3 py-2 text-accent-amber text-xs flex items-start gap-2"
+          >
+            <AlertCircle size={13} className="mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold truncate">{attachmentError.name}</p>
+              <p>{attachmentError.message}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => removeAttachmentError?.(attachmentError.id)}
+              className="text-accent-amber/80 md:hover:text-accent-amber pressable-inline focus-ring"
+              aria-label="Dismiss attachment error"
+            >
+              <X size={12} />
+            </button>
+          </div>
+        ))}
       </div>
     )}
 

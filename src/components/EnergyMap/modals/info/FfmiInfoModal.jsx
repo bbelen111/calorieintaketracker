@@ -4,7 +4,10 @@ import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
 import { formatWeight } from '../../../../utils/measurements/weight';
 import { formatBodyFat } from '../../../../utils/measurements/bodyFat';
-import { calculateFFMI, getFFMICategory } from '../../../../utils/calculations/calculations';
+import {
+  calculateFFMI,
+  getFFMICategory,
+} from '../../../../utils/calculations/calculations';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 
 export const FfmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {

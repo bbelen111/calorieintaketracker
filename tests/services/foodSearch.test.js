@@ -2,13 +2,19 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  dedupeExtractedFoodEntries,
   FOOD_SEARCH_SOURCE,
+  resetAiLookupSessionCache,
   resolveAiFoodEntry,
   resolveAiFoodLookup,
   searchFoodsLocal,
   searchFoodsOnline,
   searchFoodsHierarchically,
 } from '../../src/services/foodSearch.js';
+
+test.beforeEach(() => {
+  resetAiLookupSessionCache();
+});
 
 test('searchFoodsLocal returns local results only', async () => {
   const calls = [];
@@ -165,7 +171,9 @@ test('resolveAiFoodLookup keeps strong local match without online fallback', asy
   assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.LOCAL);
   assert.equal(result.matchConfidence, 'high');
   assert.equal(result.matchedFood?.name, 'Chicken Breast');
-  assert.deepEqual(calls, ['local']);
+  assert.equal(result.confidenceComponents?.trustMultiplier, 1);
+  assert.ok(result.weightedMatchScore >= result.matchScore - 0.0001);
+  assert.deepEqual(calls, ['local', 'usda']);
 });
 
 test('resolveAiFoodLookup uses online fallback when local match is weak', async () => {
@@ -197,6 +205,34 @@ test('resolveAiFoodLookup uses online fallback when local match is weak', async 
   assert.equal(result.matchedFood?.name, 'Cacao Tablet');
   assert.equal(result.queryUsed, 'cacao tablet');
   assert.equal(result.fallbackUsed, true);
+  assert.equal(result.confidenceComponents?.trustMultiplier, 0.98);
+  assert.ok(result.weightedMatchScore <= result.matchScore);
+});
+
+test('resolveAiFoodLookup ranking respects source preference weights', async () => {
+  const dependencies = {
+    searchLocal: async () => [{ id: 'local_match', name: 'Coconut Water' }],
+    searchUsda: async () => ({
+      foods: [{ id: 'usda_match', name: 'Coconut Water Beverage' }],
+    }),
+  };
+
+  const result = await resolveAiFoodLookup({
+    entryName: 'coconut water',
+    lookupTerms: ['coconut water drink'],
+    isOnline: true,
+    sourcePreferenceWeights: {
+      local: 0.85,
+      usda: 1.15,
+      ai_web_search: 1,
+      estimate: 1,
+    },
+    dependencies,
+  });
+
+  assert.equal(result.status, 'resolved');
+  assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.USDA);
+  assert.ok(result.weightedMatchScore >= result.matchScore * 0.85);
 });
 
 test('resolveAiFoodLookup falls back to grounded web lookup when local and USDA miss', async () => {
@@ -224,6 +260,155 @@ test('resolveAiFoodLookup falls back to grounded web lookup when local and USDA 
   assert.equal(result.matchedFood?.name, 'Rare Local Dessert');
   assert.equal(result.matchedFood?.per100g?.calories, 320);
   assert.equal(result.fallbackUsed, true);
+  assert.equal(result.confidenceComponents?.trustMultiplier, 0.75);
+  assert.ok(result.weightedMatchScore < result.matchScore);
+});
+
+test('resolveAiFoodLookup classifies grounded safety failures with reason codes', async () => {
+  const result = await resolveAiFoodLookup({
+    entryName: 'rare local dessert',
+    isOnline: true,
+    dependencies: {
+      searchLocal: async () => [],
+      searchUsda: async () => ({ foods: [] }),
+      searchGrounded: async () => {
+        throw new Error('Response blocked by safety filters (SAFETY).');
+      },
+    },
+  });
+
+  assert.equal(result.status, 'no_match');
+  assert.equal(
+    result.errorReasonsBySource[FOOD_SEARCH_SOURCE.AI_WEB_SEARCH],
+    'grounding_safety_blocked'
+  );
+  assert.equal(
+    result.errorsBySource[FOOD_SEARCH_SOURCE.AI_WEB_SEARCH],
+    'Response blocked by safety filters (SAFETY).'
+  );
+});
+
+test('resolveAiFoodLookup classifies grounded network failures with reason codes', async () => {
+  const result = await resolveAiFoodLookup({
+    entryName: 'rare local dessert',
+    isOnline: true,
+    dependencies: {
+      searchLocal: async () => [],
+      searchUsda: async () => ({ foods: [] }),
+      searchGrounded: async () => {
+        throw new Error('Network error - check your connection');
+      },
+    },
+  });
+
+  assert.equal(result.status, 'no_match');
+  assert.equal(
+    result.errorReasonsBySource[FOOD_SEARCH_SOURCE.AI_WEB_SEARCH],
+    'grounding_network_error'
+  );
+});
+
+test('resolveAiFoodLookup classifies grounded quota exhaustion separately from transient rate limits', async () => {
+  const quotaError = new Error('RESOURCE_EXHAUSTED: exceeded your current quota');
+  quotaError.status = 429;
+  quotaError.details = {
+    error: 'RESOURCE_EXHAUSTED: exceeded your current quota',
+  };
+
+  const result = await resolveAiFoodLookup({
+    entryName: 'rare local dessert',
+    isOnline: true,
+    dependencies: {
+      searchLocal: async () => [],
+      searchUsda: async () => ({ foods: [] }),
+      searchGrounded: async () => {
+        throw quotaError;
+      },
+    },
+  });
+
+  assert.equal(result.status, 'no_match');
+  assert.equal(
+    result.errorReasonsBySource[FOOD_SEARCH_SOURCE.AI_WEB_SEARCH],
+    'grounding_quota_exhausted'
+  );
+});
+
+test('resolveAiFoodLookup uses session cache for repeated normalized queries', async () => {
+  let localCalls = 0;
+  let usdaCalls = 0;
+
+  const dependencies = {
+    searchLocal: async () => {
+      localCalls += 1;
+      return [{ id: 'local_egg', name: 'Egg, whole, cooked' }];
+    },
+    searchUsda: async () => {
+      usdaCalls += 1;
+      return { foods: [{ id: 'usda_egg', name: 'Egg Whole' }] };
+    },
+  };
+
+  const firstResult = await resolveAiFoodLookup({
+    entryName: 'Egg whole',
+    lookupTerms: ['whole egg'],
+    isOnline: true,
+    dependencies,
+  });
+
+  const secondResult = await resolveAiFoodLookup({
+    entryName: ' egg   whole ',
+    lookupTerms: ['whole   egg'],
+    isOnline: true,
+    dependencies,
+  });
+
+  assert.equal(localCalls, 1);
+  assert.equal(usdaCalls, 1);
+  assert.equal(firstResult.usedSource, secondResult.usedSource);
+  assert.equal(firstResult.matchConfidence, secondResult.matchConfidence);
+  assert.equal(firstResult.weightedMatchScore, secondResult.weightedMatchScore);
+});
+
+test('resolveAiFoodLookup aborts slower USDA call when local result is medium+', async () => {
+  let usdaSignalAborted = false;
+
+  const result = await resolveAiFoodLookup({
+    entryName: 'banana',
+    isOnline: true,
+    dependencies: {
+      searchLocal: async () => [{ id: 'local_banana', name: 'Banana' }],
+      searchUsda: async (_query, options = {}) => {
+        if (options?.signal) {
+          if (options.signal.aborted) {
+            usdaSignalAborted = true;
+            const abortError = new Error('aborted');
+            abortError.name = 'AbortError';
+            throw abortError;
+          }
+
+          await new Promise((resolve) => {
+            options.signal.addEventListener(
+              'abort',
+              () => {
+                usdaSignalAborted = true;
+                resolve();
+              },
+              { once: true }
+            );
+          });
+          const abortError = new Error('aborted');
+          abortError.name = 'AbortError';
+          throw abortError;
+        }
+        return { foods: [] };
+      },
+    },
+  });
+
+  assert.equal(result.status, 'resolved');
+  assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.LOCAL);
+  assert.equal(usdaSignalAborted, true);
 });
 
 test('resolveAiFoodEntry uses lookup per100g when resolved metadata is provided', async () => {
@@ -284,6 +469,79 @@ test('resolveAiFoodEntry falls back to entry estimate when lookup is unresolved'
   assert.equal(verifiedEntry.carbs, 30);
   assert.equal(verifiedEntry.fats, 10);
   assert.equal(verifiedEntry.source, 'estimate');
+  assert.equal(verifiedEntry.confidence, 'low');
+});
+
+test('resolveAiFoodEntry marks deterministic fallback penalty metadata in lookupMeta', async () => {
+  const { lookupMeta } = await resolveAiFoodEntry({
+    entry: {
+      name: 'Street BBQ',
+      grams: 180,
+      calories: 320,
+      protein: 22,
+      carbs: 14,
+      fats: 19,
+      confidence: 'high',
+    },
+    lookupMeta: {
+      status: 'no_match',
+      usedSource: FOOD_SEARCH_SOURCE.LOCAL,
+      matchConfidence: 'low',
+      matchedFood: null,
+    },
+  });
+
+  assert.equal(lookupMeta.verificationFallbackUsed, true);
+  assert.equal(lookupMeta.confidencePenaltyApplied, true);
+  assert.equal(
+    lookupMeta.confidencePenaltyReason,
+    'deterministic_macro_fallback'
+  );
+  assert.equal(lookupMeta.verificationMethod, 'derived_per100g_rescale');
+  assert.equal(lookupMeta.matchConfidence, 'medium');
+  assert.equal(lookupMeta.originalMatchConfidence, 'high');
+  assert.equal(lookupMeta.penalizedMatchConfidence, 'medium');
+});
+
+test('dedupeExtractedFoodEntries collapses near-duplicate rice aliases and merges lookup terms', () => {
+  const deduped = dedupeExtractedFoodEntries([
+    {
+      name: 'rice',
+      grams: 100,
+      calories: 130,
+      protein: 2.5,
+      carbs: 28,
+      fats: 0.3,
+      lookupTerms: ['white rice'],
+      assumptions: ['steamed'],
+    },
+    {
+      name: 'kanin',
+      grams: 100,
+      calories: 130,
+      protein: 2.5,
+      carbs: 28,
+      fats: 0.3,
+      lookupTerms: ['kanin cooked rice'],
+      assumptions: ['plain rice'],
+    },
+    {
+      name: 'sinangag',
+      grams: 100,
+      calories: 170,
+      protein: 3,
+      carbs: 30,
+      fats: 4,
+      lookupTerms: ['garlic fried rice'],
+      assumptions: ['oil used'],
+    },
+  ]);
+
+  assert.equal(deduped.length, 1);
+  assert.ok(Array.isArray(deduped[0].lookupTerms));
+  assert.ok(deduped[0].lookupTerms.length >= 3);
+  assert.ok(Array.isArray(deduped[0].assumptions));
+  assert.ok(deduped[0].assumptions.length >= 3);
 });
 
 test('searchFoodsHierarchically local wrapper maps to local-only behavior', async () => {

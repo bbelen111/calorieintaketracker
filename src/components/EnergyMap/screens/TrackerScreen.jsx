@@ -17,13 +17,19 @@ import {
   CalendarCog,
   Settings2,
 } from 'lucide-react';
-import { MEAL_TYPE_ORDER, getMealTypeById } from '../../../constants/meal/mealTypes';
+import {
+  MEAL_TYPE_ORDER,
+  getMealTypeById,
+} from '../../../constants/meal/mealTypes';
 import { formatOne } from '../../../utils/formatting/format';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 import { ConfirmActionModal } from '../modals/common/ConfirmActionModal';
 import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
-import { formatDateKeyUtc, getTodayDateKey } from '../../../utils/data/dateKeys';
+import {
+  formatDateKeyUtc,
+  getTodayDateKey,
+} from '../../../utils/data/dateKeys';
 import {
   calculateMacroRecommendations,
   normalizeMacroRecommendationSplit,

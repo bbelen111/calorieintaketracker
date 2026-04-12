@@ -75,7 +75,11 @@ function getMacroProfile(food) {
     const nutrientNumber = String(nutrient.nutrientNumber ?? '').trim();
     const nutrientName = normalizeNutrientName(nutrient.nutrientName);
 
-    return nutrientId === 1003 || nutrientNumber === '203' || nutrientName === 'protein';
+    return (
+      nutrientId === 1003 ||
+      nutrientNumber === '203' ||
+      nutrientName === 'protein'
+    );
   });
 
   const carbs = getNutrientValue(food, (nutrient) => {
@@ -219,7 +223,38 @@ function mapUsdaFoodToFood(food, index = 0) {
   };
 }
 
-async function apiRequest(action, params = {}) {
+function createCombinedAbortSignal(externalSignal, timeoutMs) {
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), timeoutMs);
+
+  if (!externalSignal) {
+    return {
+      signal: timeoutController.signal,
+      cleanup: () => clearTimeout(timeoutId),
+    };
+  }
+
+  const mergedController = new AbortController();
+
+  const abortMerged = () => mergedController.abort();
+  const abortExternal = () => mergedController.abort();
+
+  timeoutController.signal.addEventListener('abort', abortMerged, {
+    once: true,
+  });
+  externalSignal.addEventListener('abort', abortExternal, { once: true });
+
+  return {
+    signal: mergedController.signal,
+    cleanup: () => {
+      clearTimeout(timeoutId);
+      timeoutController.signal.removeEventListener('abort', abortMerged);
+      externalSignal.removeEventListener('abort', abortExternal);
+    },
+  };
+}
+
+async function apiRequest(action, params = {}, options = {}) {
   const resolvedBase = API_BASE || '/api/usda';
 
   if (Capacitor.isNativePlatform() && resolvedBase.startsWith('/')) {
@@ -241,16 +276,15 @@ async function apiRequest(action, params = {}) {
     }
   });
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const { signal, cleanup } = createCombinedAbortSignal(options.signal, 15000);
 
   try {
     const response = await fetch(url.toString(), {
       method: 'GET',
-      signal: controller.signal,
+      signal,
     });
 
-    clearTimeout(timeoutId);
+    cleanup();
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -263,7 +297,7 @@ async function apiRequest(action, params = {}) {
 
     return response.json();
   } catch (error) {
-    clearTimeout(timeoutId);
+    cleanup();
 
     if (error?.name === 'AbortError') {
       throw new USDAFoodError('Request timed out', 408);
@@ -281,7 +315,10 @@ async function apiRequest(action, params = {}) {
   }
 }
 
-export async function searchFoods(query, { page = 1, pageSize = 20 } = {}) {
+export async function searchFoods(
+  query,
+  { page = 1, pageSize = 20, signal } = {}
+) {
   const normalizedQuery = String(query ?? '').trim();
   if (normalizedQuery.length < 2) {
     return { foods: [], totalResults: 0, page: 1 };
@@ -295,11 +332,17 @@ export async function searchFoods(query, { page = 1, pageSize = 20 } = {}) {
     ? Math.min(Math.max(parsedPageSize, 1), 50)
     : 20;
 
-  const data = await apiRequest('search', {
-    query: normalizedQuery,
-    page: safePage,
-    pageSize: safePageSize,
-  });
+  const data = await apiRequest(
+    'search',
+    {
+      query: normalizedQuery,
+      page: safePage,
+      pageSize: safePageSize,
+    },
+    {
+      signal,
+    }
+  );
 
   const foods = (Array.isArray(data?.foods) ? data.foods : []).map(
     (food, index) => mapUsdaFoodToFood(food, index)

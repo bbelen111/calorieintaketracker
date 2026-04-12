@@ -11,7 +11,10 @@ import {
   alignScrollContainerToValue,
   createPickerScrollHandler,
 } from '../../../../utils/visuals/scroll';
-import { MAX_WEIGHT_KG, MIN_WEIGHT_KG } from '../../../../utils/measurements/weight';
+import {
+  MAX_WEIGHT_KG,
+  MIN_WEIGHT_KG,
+} from '../../../../utils/measurements/weight';
 
 const MIN_WEIGHT = MIN_WEIGHT_KG;
 const MAX_WEIGHT = MAX_WEIGHT_KG;

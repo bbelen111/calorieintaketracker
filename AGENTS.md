@@ -211,7 +211,12 @@ FoodSearchModal
     -> USDA lookup (services/usda.js)
     -> grounded fallback (services/gemini.js fetchMacrosWithGrounding, mode='grounding_lookup')
   -> sendGeminiPresentation(...) in services/gemini.js (mode='presentation', [SYSTEM_DATA])
+  -> mergePresentationEntriesWithVerified(...) in utils/food/aiPresentationMerge.js
+    -> sparse/misaligned presentation guardrails
+    -> significant name rewrite suppression
+    -> macro-calorie integrity validation + verified fallback on mismatch
   -> provenance-first rendering in FoodSearchChatPanel (Verified Database / Web Estimate / AI Estimate)
+  -> reason-coded trace diagnostics + recovery hints (services/foodLookupContext.js)
 ```
 
 ### `useAnimatedModal` Hook
@@ -784,6 +789,7 @@ Gemini food parsing is proxied through `api/gemini.js` (server-side key handling
 - `sendGeminiExtraction(...)`
 - `sendGeminiPresentation(...)`
 - `fetchMacrosWithGrounding(...)`
+- `sendGeminiMessage(...)` includes bounded transient retry for upstream `502|503|504` and queued exponential backoff for `429`
 - Feature flag: `AI_CHAT_RAG_ENABLED` from `VITE_AI_CHAT_RAG_ENABLED`
 
 **Policy requirements:**
@@ -793,6 +799,12 @@ Gemini food parsing is proxied through `api/gemini.js` (server-side key handling
 - Preserve machine payload contract exactly (`<food_parser_json>...</food_parser_json>` schema).
 
 If adjusting Gemini behavior, update the mode-specific instruction in `api/gemini.js` first and verify parser/contract stability with `tests/utils/gemini.test.js`.
+
+**Lookup diagnostics requirements (`src/services/foodLookupContext.js`):**
+- Preserve structured `errorReasonsBySource` metadata (in addition to `errorsBySource` text).
+- Use `getLookupErrorReasonMessage(...)` for user-facing reason labels.
+- Use `getLookupErrorRecoveryHint(...)` for actionable trace guidance in chat UI.
+- Keep fallback error meta populated with both message and reason code (`local_search_failed`) to avoid empty diagnostics.
 
 ---
 
@@ -907,6 +919,7 @@ src/
 │   ├─ food/
 │   │  ├─ foodPresentation.js    # Food display naming helpers (brand + name formatting)
 │   │  ├─ foodTags.js            # Canonical food source/type resolver + badge metadata/classes
+│   │  ├─ aiPresentationMerge.js # RAG presentation→verified merge guardrails (name rewrite + nutrition integrity)
 │   │  └─ portionNormalization.js # AI/lookup portion→grams normalization + per100g scaling helpers
 │   ├─ formatting/
 │   │  ├─ format.js              # Number formatting (formatOne: 1 decimal place)
@@ -936,6 +949,7 @@ src/
   ├─ constants/
   │   └─ activityPresets.test.js
   └─ utils/
+    ├─ aiPresentationMerge.test.js # Presentation merge guardrail tests (sparse entries, rewrite suppression, integrity fallback)
     ├─ calculations.test.js
     ├─ dateKeys.test.js
     ├─ adaptiveThermogenesis.test.js
@@ -1045,3 +1059,14 @@ npm run test:watch     # Node test runner in watch mode
 60. **RAG chat pipeline is feature-flagged and two-pass:** when `VITE_AI_CHAT_RAG_ENABLED` is true, keep extraction → deterministic resolution (`resolveFoodLookupContext` + `resolveAiFoodEntry`) → presentation flow intact; retain single-pass fallback path for safety.
 61. **Grounding must stay gated:** only grounded lookup requests should set `useGrounding: true`; do not enable web grounding for extraction/presentation modes.
 62. **Deterministic macro math belongs in services/utilities, not JSX:** keep grams normalization and per100g scaling in `utils/food/portionNormalization.js` and `services/foodSearch.js` (`resolveAiFoodEntry`), not ad-hoc in modal components.
+63. **Presentation merge logic is centralized:** use `utils/food/aiPresentationMerge.js` for presentation→verified merge behavior. Do not re-implement sparse-entry guards or nutrition integrity checks inline in JSX.
+64. **RAG merge safety is correctness-critical:** sparse/misaligned presentation arrays must degrade to verified entries; never trust presentation indices blindly.
+65. **Name rewrite suppression is intentional:** significant token-divergence rewrites are blocked and surfaced as metadata/badges for traceability.
+66. **Nutrition guardrail is intentional:** when presentation macros imply calories outside tolerance, keep verified deterministic nutrition and annotate `nutritionIntegrityIssue`.
+67. **Lookup diagnostics require reason codes:** keep `errorReasonsBySource` populated for all lookup/error paths so chat trace can show stable reason labels and suggested fixes.
+68. **Keep lookup reason/hint helpers canonical:** use `getLookupErrorReasonMessage(...)` and `getLookupErrorRecoveryHint(...)` from `services/foodLookupContext.js`; avoid ad-hoc per-component strings.
+69. **Gemini transient retry parity is intentional:** `sendGeminiMessage` retries transient upstream `502/503/504` with bounded backoff; do not remove unless replacing with equivalent resilience.
+70. **Rate-limit queueing is intentional:** `429` handling uses serialized backoff queue semantics; preserve this when adjusting retry logic.
+71. **Chat-mode cache lifecycle is scoped:** `FoodSearchModal` resets AI lookup session cache when leaving chat view and on modal close/unmount. Keep this behavior to prevent stale cross-conversation carryover.
+72. **Avoid callback TDZ regressions in orchestrator components:** in `FoodSearchModal`, callbacks referenced by other hooks/callbacks (e.g., `updateMessageById`) must be declared before first usage to avoid runtime `Cannot access ... before initialization` errors.
+73. **Selector/destructure parity matters:** when selecting store fields in `useEnergyMapStore`, always destructure every referenced variable (`aiChatRolloutUserId`, `aiChatRagRolloutOverride`, `aiChatRagRolloutPercentage`) to avoid runtime `ReferenceError` crashes.

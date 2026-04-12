@@ -20,7 +20,10 @@ import {
   normalizeDateKey,
   sortWeightEntries,
 } from '../utils/measurements/weight';
-import { clampBodyFat, sortBodyFatEntries } from '../utils/measurements/bodyFat';
+import {
+  clampBodyFat,
+  sortBodyFatEntries,
+} from '../utils/measurements/bodyFat';
 import { sanitizeAge, sanitizeHeight } from '../utils/measurements/profile';
 import {
   areDailySnapshotsEquivalent,

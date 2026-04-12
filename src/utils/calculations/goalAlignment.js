@@ -37,9 +37,7 @@ const buildAlignmentResult = (
   bottomOpacity,
   description
 ) => {
-  const resolvedTone = GOAL_ALIGNMENT_PALETTE[tone]
-    ? tone
-    : 'neutral';
+  const resolvedTone = GOAL_ALIGNMENT_PALETTE[tone] ? tone : 'neutral';
   const palette = GOAL_ALIGNMENT_PALETTE[resolvedTone];
 
   return {
@@ -104,7 +102,13 @@ export const calculateGoalAlignment = (
 
   // Handle invalid/no data
   if (!Number.isFinite(weeklyRate)) {
-    return buildAlignmentResult('no-data', 'neutral', 0.3, 0.05, 'Insufficient data');
+    return buildAlignmentResult(
+      'no-data',
+      'neutral',
+      0.3,
+      0.05,
+      'Insufficient data'
+    );
   }
 
   const absRate = Math.abs(weeklyRate);
@@ -130,11 +134,29 @@ export const calculateGoalAlignment = (
         'Maintaining perfectly'
       );
     } else if (absRate <= 0.25) {
-      return buildAlignmentResult('good', 'positive', 0.3, 0.05, 'Close to maintenance');
+      return buildAlignmentResult(
+        'good',
+        'positive',
+        0.3,
+        0.05,
+        'Close to maintenance'
+      );
     } else if (absRate <= 0.5) {
-      return buildAlignmentResult('moderate', 'caution', 0.3, 0.05, 'Drifting from goal');
+      return buildAlignmentResult(
+        'moderate',
+        'caution',
+        0.3,
+        0.05,
+        'Drifting from goal'
+      );
     } else {
-      return buildAlignmentResult('poor', 'warning', 0.3, 0.05, 'Significantly off track');
+      return buildAlignmentResult(
+        'poor',
+        'warning',
+        0.3,
+        0.05,
+        'Significantly off track'
+      );
     }
   }
 
@@ -142,9 +164,21 @@ export const calculateGoalAlignment = (
   if (!directionMatches) {
     // Moving in opposite direction
     if (absRate > 0.5) {
-      return buildAlignmentResult('very-poor', 'danger', 0.35, 0.05, 'Opposite direction');
+      return buildAlignmentResult(
+        'very-poor',
+        'danger',
+        0.35,
+        0.05,
+        'Opposite direction'
+      );
     } else if (absRate > 0.25) {
-      return buildAlignmentResult('poor', 'warning', 0.3, 0.05, 'Moving wrong way');
+      return buildAlignmentResult(
+        'poor',
+        'warning',
+        0.3,
+        0.05,
+        'Moving wrong way'
+      );
     } else {
       return buildAlignmentResult(
         'moderate',
@@ -172,7 +206,13 @@ export const calculateGoalAlignment = (
     const normalizedDeviation = deviationFromIdeal / (targetRange / 2);
 
     if (normalizedDeviation < 0.3) {
-      return buildAlignmentResult('perfect', 'success', 0.35, 0.05, 'Perfectly on track');
+      return buildAlignmentResult(
+        'perfect',
+        'success',
+        0.35,
+        0.05,
+        'Perfectly on track'
+      );
     } else if (normalizedDeviation < 0.7) {
       return buildAlignmentResult('good', 'positive', 0.3, 0.05, 'On track');
     } else {
@@ -195,9 +235,21 @@ export const calculateGoalAlignment = (
     const overshoot = Math.abs(weeklyRate) - maxExpected;
 
     if (overshoot > targetRange) {
-      return buildAlignmentResult('poor', 'warning', 0.3, 0.05, 'Progressing too rapidly');
+      return buildAlignmentResult(
+        'poor',
+        'warning',
+        0.3,
+        0.05,
+        'Progressing too rapidly'
+      );
     } else if (overshoot > targetRange * 0.5) {
-      return buildAlignmentResult('moderate', 'caution', 0.3, 0.05, 'Slightly too fast');
+      return buildAlignmentResult(
+        'moderate',
+        'caution',
+        0.3,
+        0.05,
+        'Slightly too fast'
+      );
     } else {
       return buildAlignmentResult(
         'acceptable',
@@ -218,7 +270,13 @@ export const calculateGoalAlignment = (
     const undershoot = minExpected - Math.abs(weeklyRate);
 
     if (undershoot > targetRange * 0.5) {
-      return buildAlignmentResult('moderate', 'caution', 0.3, 0.05, 'Progressing too slowly');
+      return buildAlignmentResult(
+        'moderate',
+        'caution',
+        0.3,
+        0.05,
+        'Progressing too slowly'
+      );
     } else {
       return buildAlignmentResult(
         'acceptable',
@@ -231,7 +289,13 @@ export const calculateGoalAlignment = (
   }
 
   // Fallback
-  return buildAlignmentResult('moderate', 'neutral', 0.3, 0.05, 'Progress tracking');
+  return buildAlignmentResult(
+    'moderate',
+    'neutral',
+    0.3,
+    0.05,
+    'Progress tracking'
+  );
 };
 
 /**
@@ -253,7 +317,13 @@ export const getGoalAlignedStyle = (
     trend.label === 'No data yet' ||
     !Number.isFinite(trend.weeklyRate)
   ) {
-    return buildAlignmentResult('no-data', 'neutral', 0.3, 0.05, 'Insufficient data');
+    return buildAlignmentResult(
+      'no-data',
+      'neutral',
+      0.3,
+      0.05,
+      'Insufficient data'
+    );
   }
 
   const alignment = calculateGoalAlignment(

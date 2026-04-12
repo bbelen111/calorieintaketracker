@@ -119,7 +119,9 @@ export const FoodSearchResultsPanel = ({
       displayResults.map((food) => {
         const isLoading = loadingFoodId === food.id;
         const hasPreviewMacros = Boolean(food.previewMacros);
-        const macroSource = hasPreviewMacros ? food.previewMacros : food.per100g;
+        const macroSource = hasPreviewMacros
+          ? food.previewMacros
+          : food.per100g;
         const servingLabel = hasPreviewMacros
           ? food.previewMacros?.servingInfo || 'per serving'
           : 'per 100g';
@@ -152,7 +154,11 @@ export const FoodSearchResultsPanel = ({
                     })}
                   </h4>
                 </div>
-                <FoodTagBadges food={food} showCategory={false} className="mt-1" />
+                <FoodTagBadges
+                  food={food}
+                  showCategory={false}
+                  className="mt-1"
+                />
               </div>
               {macroSource && (
                 <div className="flex flex-col items-end gap-1">

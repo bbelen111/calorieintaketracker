@@ -5,7 +5,11 @@ import {
   alignScrollContainerToValue,
   createPickerScrollHandler,
 } from '../../../../utils/visuals/scroll';
-import { AGE_MAX, AGE_MIN, sanitizeAge } from '../../../../utils/measurements/profile';
+import {
+  AGE_MAX,
+  AGE_MIN,
+  sanitizeAge,
+} from '../../../../utils/measurements/profile';
 
 const AGE_VALUES = Array.from(
   { length: AGE_MAX - AGE_MIN + 1 },

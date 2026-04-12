@@ -468,6 +468,11 @@ const MAX_EPOC_CARRYOVER_HOURS = 24;
 const ADAPTIVE_THERMOGENESIS_SMOOTHING_METHODS = new Set(['ema', 'sma']);
 const MIN_ADAPTIVE_SMOOTHING_WINDOW_DAYS = 3;
 const MAX_ADAPTIVE_SMOOTHING_WINDOW_DAYS = 14;
+const AI_CHAT_RAG_ROLLOUT_OVERRIDES = new Set([
+  'default',
+  'enabled',
+  'disabled',
+]);
 let lastSavedProfileSerialized = null;
 let lastSavedHistorySerializedByField = new Map();
 let lastSavedShardedDocIdsByField = new Map();
@@ -507,6 +512,31 @@ const normalizeTrainingTypeKey = (value) => {
   }
 
   return normalized;
+};
+
+const createAiChatRolloutUserId = () => {
+  return `rag-user-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 10)}`;
+};
+
+const normalizeAiChatRolloutOverride = (value) => {
+  const normalized = String(value ?? '')
+    .trim()
+    .toLowerCase();
+
+  return AI_CHAT_RAG_ROLLOUT_OVERRIDES.has(normalized)
+    ? normalized
+    : 'default';
+};
+
+const normalizeAiChatRolloutPercentage = (value, fallback = 100) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+
+  return Math.max(0, Math.min(100, Math.round(parsed)));
 };
 
 const normalizeTrainingTypeCatalog = (raw) => {
@@ -1078,6 +1108,9 @@ export const getDefaultEnergyMapData = () => ({
   smartTefFoodTefBurnEnabled: true,
   smartTefQuickEstimatesTargetMode: true,
   smartTefLiveCardTargetMode: false,
+  aiChatRagRolloutOverride: 'default',
+  aiChatRagRolloutPercentage: 100,
+  aiChatRolloutUserId: '',
   macroRecommendationSplit: {
     ...DEFAULT_MACRO_RECOMMENDATION_SPLIT,
   },
@@ -1325,6 +1358,20 @@ function mergeWithDefaults(data) {
     smartTefLiveCardTargetMode:
       normalizedInput.smartTefLiveCardTargetMode ??
       defaults.smartTefLiveCardTargetMode,
+    aiChatRagRolloutOverride: normalizeAiChatRolloutOverride(
+      normalizedInput.aiChatRagRolloutOverride ??
+        defaults.aiChatRagRolloutOverride
+    ),
+    aiChatRagRolloutPercentage: normalizeAiChatRolloutPercentage(
+      normalizedInput.aiChatRagRolloutPercentage,
+      defaults.aiChatRagRolloutPercentage
+    ),
+    aiChatRolloutUserId: (() => {
+      const normalized = String(normalizedInput.aiChatRolloutUserId ?? '')
+        .trim()
+        .toLowerCase();
+      return normalized || createAiChatRolloutUserId();
+    })(),
     macroRecommendationSplit: normalizeMacroRecommendationSplit(
       normalizedInput.macroRecommendationSplit ??
         defaults.macroRecommendationSplit

@@ -128,7 +128,10 @@ export const deleteHistoryDocumentsFromDexie = async (documentIds = []) => {
     });
     return true;
   } catch (error) {
-    console.warn('Failed to delete sharded history documents from Dexie', error);
+    console.warn(
+      'Failed to delete sharded history documents from Dexie',
+      error
+    );
     return false;
   }
 };

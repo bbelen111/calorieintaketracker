@@ -197,7 +197,10 @@ const projectSplitToConstrainedGrams = ({
     Math.max(requestedProtein, bounds.protein.min),
     bounds.protein.max
   );
-  let fats = Math.min(Math.max(requestedFats, bounds.fats.min), bounds.fats.max);
+  let fats = Math.min(
+    Math.max(requestedFats, bounds.fats.min),
+    bounds.fats.max
+  );
   let carbs =
     (safeTargetCalories -
       protein * PROTEIN_CALORIES_PER_GRAM -
@@ -578,7 +581,11 @@ export const constrainMacroSplitForTarget = ({
   };
 };
 
-export const macroSplitToTrianglePoint = (macroSplit, geometry, options = {}) => {
+export const macroSplitToTrianglePoint = (
+  macroSplit,
+  geometry,
+  options = {}
+) => {
   const constrained = options?.targetCalories
     ? constrainMacroSplitForTarget({
         macroSplit,

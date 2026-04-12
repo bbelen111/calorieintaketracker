@@ -89,10 +89,9 @@ export const TefInfoModal = ({ isOpen, isClosing, onClose }) => {
           <p>
             <span className="text-foreground font-semibold">Target mode</span>{' '}
             uses your saved split as the preference, then applies profile-based
-            anchors before TEF is calculated: protein is bounded around
-            1.6-2.8 g/kg (lean mass when available, bodyweight fallback), fat
-            around 0.6-1.6 g/kg bodyweight, and carbs take the remaining
-            calories.
+            anchors before TEF is calculated: protein is bounded around 1.6-2.8
+            g/kg (lean mass when available, bodyweight fallback), fat around
+            0.6-1.6 g/kg bodyweight, and carbs take the remaining calories.
           </p>
           <p>
             <span className="text-foreground font-semibold">Dynamic mode</span>{' '}

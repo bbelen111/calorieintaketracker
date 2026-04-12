@@ -4,6 +4,7 @@
 
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 const DEFAULT_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const FOOD_PARSER_SCHEMA_VERSION = '1.0.0';
 const GEMINI_MODES = Object.freeze({
   EXTRACTION: 'extraction',
   PRESENTATION: 'presentation',
@@ -16,6 +17,11 @@ Your mission:
 - Parse ONLY foods explicitly mentioned by the user and/or visible in attached images.
 - Estimate calories and macros for each specific food being logged (not full meal plans, not generic coaching).
 - Keep responses concise and practical.
+
+Conversation context behavior:
+- The prompt may include a [RECENT_FOOD_CONTEXT] block.
+- Use it ONLY to resolve references like "same as before", "again", "double rice", "remove sauce".
+- Do NOT add context items as new entries unless the user explicitly references them in the current request.
 
 Confidence behavior:
 - High confidence: return actionable food entries.
@@ -30,6 +36,7 @@ Conservative estimation policy (HIGH PRIORITY):
   - Keep assumptions explicit and brief.
 - Never invent foods, side items, toppings, or beverages not explicitly mentioned or visually evident.
 - For entries, include practical lookupTerms that improve local/USDA matching (food name, key descriptor, and brand when clearly provided).
+- Prefer canonical food names in "name" for lookup stability (brand can still be included in lookupTerms).
 - If multiple plausible interpretations exist, either:
   1) ask one concise follow-up question (preferred for low confidence), or
   2) provide one best estimate with medium confidence and explicit assumptions.
@@ -43,6 +50,7 @@ Output format requirements (MANDATORY):
 
 JSON schema:
 {
+  "version": "${FOOD_PARSER_SCHEMA_VERSION}",
   "messageType": "food_entries" | "clarification" | "error",
   "assistantMessage": "string",
   "followUpQuestion": "string (optional)",
@@ -55,6 +63,7 @@ JSON schema:
       "carbs": number,
       "fats": number,
       "confidence": "high" | "medium" | "low",
+      "category": "protein" | "carbs" | "vegetables" | "fats" | "supplements" | "custom" | "manual" (optional),
       "rationale": "string",
       "assumptions": ["string", "..."],
       "lookupTerms": ["string", "..."]
@@ -63,9 +72,11 @@ JSON schema:
 }
 
 Rules:
+- Always include "version" and set it exactly to "${FOOD_PARSER_SCHEMA_VERSION}".
 - If messageType is "food_entries", include at least one entry.
 - If confidence is low overall, use messageType "clarification" and include followUpQuestion.
 - For clarifications, ask ONE highest-impact question first (do not ask multiple at once).
+- If messageType is "clarification" or "error", entries should be empty.
 - Never output markdown code fences around JSON.
 - Keep the JSON compact (no unnecessary fields or long prose inside JSON values).
 - Ensure JSON is valid and parseable.`;
@@ -75,6 +86,8 @@ const PRESENTATION_SYSTEM_INSTRUCTION = `You are a nutrition logging assistant t
 Rules:
 - If the user prompt contains a [SYSTEM_DATA] block, use ONLY those numbers for calories/macros.
 - Never alter, infer, or re-estimate calories/macros that are provided inside [SYSTEM_DATA].
+- Preserve the verified entry order from [SYSTEM_DATA].
+- Prefer keeping verified names unchanged unless the rewrite is a minor readability cleanup.
 - Keep copy concise and practical.
 - If [SYSTEM_DATA] is missing or malformed, return a concise error payload.
 
@@ -85,6 +98,7 @@ Output format requirements (MANDATORY):
 
 JSON schema:
 {
+  "version": "${FOOD_PARSER_SCHEMA_VERSION}",
   "messageType": "food_entries" | "error",
   "assistantMessage": "string",
   "entries": [
@@ -96,6 +110,7 @@ JSON schema:
       "carbs": number,
       "fats": number,
       "confidence": "high" | "medium" | "low",
+      "category": "protein" | "carbs" | "vegetables" | "fats" | "supplements" | "custom" | "manual" (optional),
       "rationale": "string",
       "assumptions": ["string", "..."],
       "lookupTerms": ["string", "..."],
@@ -105,7 +120,9 @@ JSON schema:
 }
 
 Rules:
+- Always include "version" and set it exactly to "${FOOD_PARSER_SCHEMA_VERSION}".
 - If messageType is "food_entries", include at least one entry.
+- Keep names close to verified labels in [SYSTEM_DATA] (avoid semantic rewrites).
 - Keep JSON compact and valid.
 - Never output markdown code fences around JSON.`;
 
@@ -118,6 +135,7 @@ Task:
 
 Required JSON schema:
 {
+  "version": "${FOOD_PARSER_SCHEMA_VERSION}",
   "messageType": "food_entries" | "error",
   "assistantMessage": "string",
   "entries": [
@@ -134,7 +152,10 @@ Required JSON schema:
       "source": "ai_web_search"
     }
   ]
-}`;
+}
+
+Rules:
+- Always include "version" and set it exactly to "${FOOD_PARSER_SCHEMA_VERSION}".`;
 
 function resolveSystemInstruction(mode) {
   switch (mode) {

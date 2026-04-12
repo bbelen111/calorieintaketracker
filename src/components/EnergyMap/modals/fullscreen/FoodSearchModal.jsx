@@ -40,13 +40,16 @@ import {
   getFoodById as getLocalFoodById,
 } from '../../../../services/foodCatalog';
 import { addToFoodCache, trimFoodCache } from '../../../../services/foodCache';
+import { mergePresentationEntriesWithVerified } from '../../../../utils/food/aiPresentationMerge';
 import {
   searchBarcode as searchOpenFoodFactsBarcode,
   OpenFoodFactsError,
 } from '../../../../services/openFoodFacts';
 import {
+  dedupeExtractedFoodEntries,
   FOOD_SEARCH_SOURCE,
   getFoodSearchSourceLabel,
+  resetAiLookupSessionCache,
   resolveAiFoodEntry,
   searchFoodsLocal,
   searchFoodsOnline,
@@ -62,7 +65,7 @@ import {
   scanNativeBarcode,
 } from '../../../../services/barcodeScanner';
 import {
-  AI_CHAT_RAG_ENABLED,
+  isAiChatRagEnabledForUser,
   sendGeminiMessage,
   sendGeminiExtraction,
   sendGeminiPresentation,
@@ -70,6 +73,13 @@ import {
   validateAttachmentFile,
   MAX_IMAGE_COUNT,
 } from '../../../../services/gemini';
+import {
+  recordRagExtractionOutcome,
+  recordRagImplicitFeedback,
+  recordRagLookupStats,
+  recordRagPresentationNameDrift,
+  recordRagStageLatency,
+} from '../../../../services/ragTelemetry';
 
 const CHAT_HISTORY_MESSAGE_LIMIT = 48;
 const CHAT_TEXTAREA_MAX_HEIGHT = 112;
@@ -271,6 +281,52 @@ const buildStructuredChatHistory = (messages, options = {}) => {
   return history.slice(-CHAT_HISTORY_MESSAGE_LIMIT);
 };
 
+const buildRollingFoodContextSummary = (messages, options = {}) => {
+  const { beforeMessageId = null, maxEntries = 8 } = options;
+  const contextItems = [];
+
+  for (const message of Array.isArray(messages) ? messages : []) {
+    if (beforeMessageId && message.id === beforeMessageId) {
+      break;
+    }
+
+    if (
+      message?.role !== 'assistant' ||
+      message?.status !== 'sent' ||
+      message?.foodParser?.messageType !== 'food_entries' ||
+      !Array.isArray(message?.foodParser?.entries)
+    ) {
+      continue;
+    }
+
+    message.foodParser.entries.forEach((entry) => {
+      const name = String(entry?.name || '').trim();
+      if (!name) {
+        return;
+      }
+
+      const grams = Number(entry?.grams);
+      const calories = Number(entry?.calories);
+      const gramsLabel = Number.isFinite(grams) && grams > 0 ? `${Math.round(grams)}g` : null;
+      const caloriesLabel =
+        Number.isFinite(calories) && calories > 0
+          ? `${Math.round(calories)} kcal`
+          : null;
+
+      contextItems.push(
+        `${name}${gramsLabel ? ` (${gramsLabel}${caloriesLabel ? `, ${caloriesLabel}` : ''})` : caloriesLabel ? ` (${caloriesLabel})` : ''}`
+      );
+    });
+  }
+
+  const recentItems = contextItems.slice(-Math.max(1, maxEntries));
+  if (recentItems.length === 0) {
+    return '';
+  }
+
+  return recentItems.map((item, index) => `${index + 1}. ${item}`).join('\n');
+};
+
 export const FoodSearchModal = ({
   isOpen,
   isClosing,
@@ -293,6 +349,9 @@ export const FoodSearchModal = ({
     foodFavourites,
     pinnedFoods: storePinnedFoods,
     cachedFoods: storeCachedFoods,
+    aiChatRolloutUserId,
+    aiChatRagRolloutOverride,
+    aiChatRagRolloutPercentage,
     togglePinnedFood,
     updateCachedFoods,
   } = useEnergyMapStore(
@@ -300,6 +359,9 @@ export const FoodSearchModal = ({
       foodFavourites: state.foodFavourites,
       pinnedFoods: state.pinnedFoods,
       cachedFoods: state.cachedFoods,
+      aiChatRolloutUserId: state.userData?.aiChatRolloutUserId,
+      aiChatRagRolloutOverride: state.userData?.aiChatRagRolloutOverride,
+      aiChatRagRolloutPercentage: state.userData?.aiChatRagRolloutPercentage,
       togglePinnedFood: state.togglePinnedFood,
       updateCachedFoods: state.updateCachedFoods,
     }),
@@ -310,6 +372,19 @@ export const FoodSearchModal = ({
   const resolvedCachedFoods = cachedFoods ?? storeCachedFoods;
   const resolvedTogglePin = onTogglePin ?? togglePinnedFood;
   const resolvedUpdateCachedFoods = onUpdateCachedFoods ?? updateCachedFoods;
+  const isAiChatRagEnabled = useMemo(
+    () =>
+      isAiChatRagEnabledForUser({
+        aiChatRolloutUserId,
+        aiChatRagRolloutOverride,
+        aiChatRagRolloutPercentage,
+      }),
+    [
+      aiChatRagRolloutOverride,
+      aiChatRagRolloutPercentage,
+      aiChatRolloutUserId,
+    ]
+  );
   const LONG_PRESS_DURATION = 650;
   const DEBOUNCE_DELAY = 500;
   const ONLINE_CATEGORIES = {
@@ -435,8 +510,10 @@ export const FoodSearchModal = ({
     DEFAULT_CHAT_PLACEHOLDER
   );
   const [chatAttachments, setChatAttachments] = useState([]);
+  const [chatAttachmentErrors, setChatAttachmentErrors] = useState([]);
   const [chatError, setChatError] = useState(null);
   const [isSendingChat, setIsSendingChat] = useState(false);
+  const [queuedChatMessageIds, setQueuedChatMessageIds] = useState([]);
   const [activeChatRequest, setActiveChatRequest] = useState(null);
   const [expandedAiEntryKeys, setExpandedAiEntryKeys] = useState({});
   const [aiEntryLookupByKey, setAiEntryLookupByKey] = useState({});
@@ -451,6 +528,9 @@ export const FoodSearchModal = ({
   const latestChatAttachmentsRef = useRef([]);
   const latestChatMessagesRef = useRef([]);
   const localSearchRequestIdRef = useRef(0);
+  const recordedFeedbackEventsRef = useRef(new Set());
+  const queuedReplayInFlightRef = useRef(false);
+  const previousViewModeRef = useRef(viewMode);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -514,12 +594,14 @@ export const FoodSearchModal = ({
       setChatMessages([]);
       setChatInput('');
       setChatPlaceholder(DEFAULT_CHAT_PLACEHOLDER);
+      setChatAttachmentErrors([]);
       setExpandedAiEntryKeys({});
       setAiEntryLookupByKey({});
       setLoggedAiEntryKeys({});
       setFavouritedAiEntryKeys({});
       setChatError(null);
       setIsSendingChat(false);
+      setQueuedChatMessageIds([]);
       setActiveChatRequest(null);
       setIsBarcodeScanning(false);
       setIsBarcodeLookupPending(false);
@@ -547,6 +629,8 @@ export const FoodSearchModal = ({
       if (chatAbortControllerRef.current) {
         chatAbortControllerRef.current.abort();
       }
+      resetAiLookupSessionCache();
+      recordedFeedbackEventsRef.current.clear();
       aiEntryLookupRequestsRef.current.clear();
     }
   }, [
@@ -576,6 +660,16 @@ export const FoodSearchModal = ({
     dispatchUiState({ type: 'set', key: 'isFilterOpen', value: false });
     dispatchUiState({ type: 'set', key: 'viewMode', value: 'search' });
   }, [searchMode]);
+
+  useEffect(() => {
+    const previousViewMode = previousViewModeRef.current;
+    if (previousViewMode === 'chat' && viewMode !== 'chat') {
+      resetAiLookupSessionCache();
+      aiEntryLookupRequestsRef.current.clear();
+    }
+
+    previousViewModeRef.current = viewMode;
+  }, [viewMode]);
 
   const resolveSourceSearchError = useCallback((errorsBySource) => {
     const usdaMessage = errorsBySource?.[FOOD_SEARCH_SOURCE.USDA];
@@ -1262,6 +1356,8 @@ export const FoodSearchModal = ({
       if (chatAbortControllerRef.current) {
         chatAbortControllerRef.current.abort();
       }
+      resetAiLookupSessionCache();
+      recordedFeedbackEventsRef.current.clear();
       revokeChatAttachments(latestChatAttachmentsRef.current);
       latestChatMessagesRef.current.forEach((message) => {
         revokeChatAttachments(message.attachments);
@@ -1589,6 +1685,7 @@ export const FoodSearchModal = ({
     if (files.length === 0) return;
 
     setChatError(null);
+    const nextErrors = [];
 
     setChatAttachments((prev) => {
       const remainingSlots = Math.max(MAX_IMAGE_COUNT - prev.length, 0);
@@ -1600,19 +1697,64 @@ export const FoodSearchModal = ({
           validateAttachmentFile(file);
           nextAttachments.push(createChatAttachment(file));
         } catch (error) {
-          setChatError(error.message || 'Invalid image attachment');
+          nextErrors.push({
+            id: `attachment-error-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            name: file?.name || 'Attachment',
+            message: error.message || 'Invalid image attachment',
+          });
         }
       });
 
       if (files.length > acceptedFiles.length) {
-        setChatError(
-          `You can attach up to ${MAX_IMAGE_COUNT} images per message.`
-        );
+        files.slice(remainingSlots).forEach((file) => {
+          nextErrors.push({
+            id: `attachment-error-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            name: file?.name || 'Attachment',
+            message: `You can attach up to ${MAX_IMAGE_COUNT} images per message.`,
+          });
+        });
       }
 
       return nextAttachments;
     });
+
+    if (nextErrors.length > 0) {
+      setChatAttachmentErrors((prev) => [...nextErrors, ...prev].slice(0, 8));
+    }
   }, []);
+
+  const removeAttachmentError = useCallback((errorId) => {
+    setChatAttachmentErrors((prev) =>
+      prev.filter((entry) => entry.id !== errorId)
+    );
+  }, []);
+
+  const updateMessageById = useCallback((messageId, updater) => {
+    setChatMessages((prev) =>
+      prev.map((message) =>
+        message.id === messageId ? (updater(message) ?? message) : message
+      )
+    );
+  }, []);
+
+  const queueChatMessageForReplay = useCallback((messageId) => {
+    if (!messageId) {
+      return;
+    }
+
+    setQueuedChatMessageIds((prev) => {
+      if (prev.includes(messageId)) {
+        return prev;
+      }
+      return [...prev, messageId];
+    });
+
+    updateMessageById(messageId, (current) => ({
+      ...current,
+      status: 'queued',
+      error: null,
+    }));
+  }, [updateMessageById]);
 
   const removeAttachment = useCallback((attachmentId) => {
     setChatAttachments((prev) => {
@@ -1742,6 +1884,9 @@ export const FoodSearchModal = ({
             errorsBySource: {
               [FOOD_SEARCH_SOURCE.LOCAL]: error?.message || 'AI lookup failed.',
             },
+            errorReasonsBySource: {
+              [FOOD_SEARCH_SOURCE.LOCAL]: 'local_search_failed',
+            },
           };
 
           setAiEntryLookupByKey((prev) => ({
@@ -1775,13 +1920,50 @@ export const FoodSearchModal = ({
     [expandedAiEntryKeys, resolveAiLookupMeta]
   );
 
-  const updateMessageById = useCallback((messageId, updater) => {
-    setChatMessages((prev) =>
-      prev.map((message) =>
-        message.id === messageId ? (updater(message) ?? message) : message
-      )
-    );
+  const parseEntryKeyMessageId = useCallback((entryKey) => {
+    const normalizedKey = String(entryKey || '').trim();
+    const lastDashIndex = normalizedKey.lastIndexOf('-');
+    if (lastDashIndex <= 0) {
+      return normalizedKey || null;
+    }
+
+    return normalizedKey.slice(0, lastDashIndex);
   }, []);
+
+  const recordImplicitFeedbackForEntry = useCallback(
+    async ({ entry, entryKey, eventType, lookupMeta = null }) => {
+      if (!entryKey || !eventType) {
+        return;
+      }
+
+      const dedupeKey = `${eventType}:${entryKey}`;
+      if (recordedFeedbackEventsRef.current.has(dedupeKey)) {
+        return;
+      }
+      recordedFeedbackEventsRef.current.add(dedupeKey);
+
+      const resolvedLookup =
+        lookupMeta ||
+        aiEntryLookupByKey[entryKey] ||
+        (await resolveAiLookupMeta(entry, entryKey));
+
+      void recordRagImplicitFeedback({
+        eventType,
+        messageId: parseEntryKeyMessageId(entryKey),
+        entryKey,
+        source: resolvedLookup?.usedSource || entry?.source || 'estimate',
+        confidence:
+          resolvedLookup?.matchConfidence || entry?.confidence || 'low',
+        category: resolveAiCategory(entry, resolvedLookup),
+      }).catch(() => {});
+    },
+    [
+      aiEntryLookupByKey,
+      parseEntryKeyMessageId,
+      resolveAiCategory,
+      resolveAiLookupMeta,
+    ]
+  );
 
   const loadComposerDraft = useCallback(
     ({ text = '', attachments = [] }) => {
@@ -1846,13 +2028,6 @@ export const FoodSearchModal = ({
     }) => {
       if (isSendingChat) return;
 
-      if (!isOnline) {
-        setChatError(
-          'You are offline. Connect to the internet to use AI chat.'
-        );
-        return;
-      }
-
       const trimmedText = typeof text === 'string' ? text.trim() : '';
       if (!trimmedText && attachments.length === 0) {
         setChatError('Type a message or attach at least one image.');
@@ -1865,6 +2040,10 @@ export const FoodSearchModal = ({
         userMessageId,
         assistantPlaceholderId,
       });
+      const requestStartedAt = performance.now();
+      let lookupStatsRecorded = false;
+      let extractionSchemaVersion = null;
+      let resultSchemaVersion = null;
 
       const controller = new window.AbortController();
       chatAbortControllerRef.current = controller;
@@ -1873,19 +2052,36 @@ export const FoodSearchModal = ({
         const history = buildStructuredChatHistory(chatMessages, {
           beforeMessageId,
         });
+        const rollingFoodContextSummary = buildRollingFoodContextSummary(
+          chatMessages,
+          { beforeMessageId }
+        );
 
         const assistantMessageId =
           assistantPlaceholderId || `assistant-${Date.now()}`;
         let result = null;
         let preResolvedLookupContext = {};
 
-        if (AI_CHAT_RAG_ENABLED) {
-          const extractionResult = await sendGeminiExtraction({
-            message: trimmedText,
-            files: attachments.map((attachment) => attachment.file),
-            history,
-            signal: controller.signal,
-          });
+        if (isAiChatRagEnabled) {
+          const extractionStartedAt = performance.now();
+          const runExtractionAttempt = async (messageOverride = trimmedText) =>
+            sendGeminiExtraction({
+              message: messageOverride,
+              foodContextSummary: rollingFoodContextSummary,
+              files: attachments.map((attachment) => attachment.file),
+              history,
+              signal: controller.signal,
+            });
+
+          let extractionResult = await runExtractionAttempt(trimmedText);
+          const extractionLatencyMs = performance.now() - extractionStartedAt;
+          extractionSchemaVersion =
+            extractionResult?.foodParser?.version || null;
+          void recordRagStageLatency({
+            stage: 'extraction',
+            durationMs: extractionLatencyMs,
+            schemaVersion: extractionSchemaVersion,
+          }).catch(() => {});
 
           const extractionMessageType =
             extractionResult?.foodParser?.messageType || null;
@@ -1894,23 +2090,76 @@ export const FoodSearchModal = ({
           )
             ? extractionResult.foodParser.entries
             : [];
+          const dedupedExtractionEntries =
+            dedupeExtractedFoodEntries(extractionEntries);
+
+          const shouldRetryShortCircuit =
+            (extractionResult?.foodParser?.messageType === 'clarification' ||
+              extractionResult?.foodParser?.messageType === 'error' ||
+              dedupedExtractionEntries.length === 0) &&
+            trimmedText.length > 0;
+
+          let effectiveExtractionEntries = dedupedExtractionEntries;
+          if (shouldRetryShortCircuit) {
+            const constrainedPrompt = `${trimmedText}\n\nIf possible, return messageType=food_entries with conservative assumptions and at least one entry. Ask only one clarification question only if absolutely required.`;
+            const retryResult = await runExtractionAttempt(constrainedPrompt);
+            const retryEntries = Array.isArray(retryResult?.foodParser?.entries)
+              ? retryResult.foodParser.entries
+              : [];
+            const retryDedupedEntries =
+              dedupeExtractedFoodEntries(retryEntries);
+            const retryMessageType =
+              retryResult?.foodParser?.messageType || null;
+
+            if (
+              retryMessageType === 'food_entries' &&
+              retryDedupedEntries.length > 0
+            ) {
+              extractionResult = retryResult;
+              effectiveExtractionEntries = retryDedupedEntries;
+              extractionSchemaVersion =
+                extractionResult?.foodParser?.version ||
+                extractionSchemaVersion;
+            }
+          }
+
+          void recordRagExtractionOutcome({
+            messageType:
+              extractionMessageType ||
+              (extractionEntries.length > 0 ? 'food_entries' : 'no_entries'),
+            entriesCount: effectiveExtractionEntries.length,
+            schemaVersion: extractionSchemaVersion,
+          }).catch(() => {});
 
           const shouldShortCircuit =
             extractionMessageType === 'clarification' ||
             extractionMessageType === 'error' ||
-            extractionEntries.length === 0;
+            effectiveExtractionEntries.length === 0;
 
           if (shouldShortCircuit) {
             result = extractionResult;
+            resultSchemaVersion = extractionSchemaVersion;
           } else {
+            const retrievalStartedAt = performance.now();
             preResolvedLookupContext = await resolveFoodLookupContext({
               messageId: assistantMessageId,
-              entries: extractionEntries,
+              entries: effectiveExtractionEntries,
               isOnline,
             });
+            void recordRagStageLatency({
+              stage: 'retrieval',
+              durationMs: performance.now() - retrievalStartedAt,
+              schemaVersion: extractionSchemaVersion,
+            }).catch(() => {});
+            void recordRagLookupStats({
+              lookupContext: preResolvedLookupContext,
+              schemaVersion: extractionSchemaVersion,
+            }).catch(() => {});
+            lookupStatsRecorded = true;
 
+            const verificationStartedAt = performance.now();
             const verifiedEntryResults = await Promise.all(
-              extractionEntries.map((entry, index) => {
+              effectiveExtractionEntries.map((entry, index) => {
                 const entryKey = `${assistantMessageId}-${index}`;
                 return resolveAiFoodEntry({
                   entry,
@@ -1919,10 +2168,17 @@ export const FoodSearchModal = ({
                 });
               })
             );
+            void recordRagStageLatency({
+              stage: 'verification',
+              durationMs: performance.now() - verificationStartedAt,
+              schemaVersion: extractionSchemaVersion,
+            }).catch(() => {});
 
-            const verifiedEntries = verifiedEntryResults.map((item) => {
-              return item?.verifiedEntry || null;
-            }).filter(Boolean);
+            const verifiedEntries = verifiedEntryResults
+              .map((item) => {
+                return item?.verifiedEntry || null;
+              })
+              .filter(Boolean);
 
             verifiedEntryResults.forEach((item, index) => {
               const entryKey = `${assistantMessageId}-${index}`;
@@ -1931,6 +2187,7 @@ export const FoodSearchModal = ({
               }
             });
 
+            const presentationStartedAt = performance.now();
             const presentationResult = await sendGeminiPresentation({
               message: trimmedText,
               systemData: {
@@ -1939,6 +2196,14 @@ export const FoodSearchModal = ({
               history,
               signal: controller.signal,
             });
+            resultSchemaVersion =
+              presentationResult?.foodParser?.version ||
+              extractionSchemaVersion;
+            void recordRagStageLatency({
+              stage: 'presentation',
+              durationMs: performance.now() - presentationStartedAt,
+              schemaVersion: resultSchemaVersion,
+            }).catch(() => {});
 
             const presentationEntries = Array.isArray(
               presentationResult?.foodParser?.entries
@@ -1946,24 +2211,37 @@ export const FoodSearchModal = ({
               ? presentationResult.foodParser.entries
               : [];
 
-            const mergedEntries =
-              presentationResult?.foodParser?.messageType === 'food_entries' &&
-              presentationEntries.length > 0
-                ? verifiedEntries.map((verifiedEntry, index) => ({
-                    ...verifiedEntry,
-                    name:
-                      String(presentationEntries[index]?.name || '').trim() ||
-                      verifiedEntry.name,
-                    rationale:
-                      presentationEntries[index]?.rationale ||
-                      verifiedEntry.rationale,
-                    assumptions:
-                      Array.isArray(presentationEntries[index]?.assumptions) &&
-                      presentationEntries[index].assumptions.length > 0
-                        ? presentationEntries[index].assumptions
-                        : verifiedEntry.assumptions,
-                  }))
-                : verifiedEntries;
+            const {
+              mergedEntries,
+              hasPresentationLengthMismatch,
+              hasSparsePresentationEntries,
+            } = mergePresentationEntriesWithVerified({
+              verifiedEntries,
+              presentationEntries,
+            });
+
+            if (hasPresentationLengthMismatch || hasSparsePresentationEntries) {
+              console.warn('Presentation entry alignment mismatch detected', {
+                verifiedEntryCount: verifiedEntries.length,
+                presentationEntryCount: presentationEntries.length,
+                hasSparsePresentationEntries,
+              });
+            }
+
+            mergedEntries.forEach((mergedEntry, index) => {
+              if (mergedEntry?.nameRewriteSuppressed) {
+                console.warn('Presentation name rewrite suppressed', {
+                  verifiedName: verifiedEntries[index]?.name,
+                  presentedName: presentationEntries[index]?.name || null,
+                });
+              }
+            });
+
+            void recordRagPresentationNameDrift({
+              verifiedEntries,
+              presentationEntries,
+              schemaVersion: resultSchemaVersion,
+            }).catch(() => {});
 
             result = {
               ...presentationResult,
@@ -1985,6 +2263,19 @@ export const FoodSearchModal = ({
             history,
             signal: controller.signal,
           });
+          resultSchemaVersion = result?.foodParser?.version || null;
+
+          if (result?.foodParser?.messageType) {
+            const fallbackEntries = Array.isArray(result?.foodParser?.entries)
+              ? result.foodParser.entries
+              : [];
+
+            void recordRagExtractionOutcome({
+              messageType: result.foodParser.messageType,
+              entriesCount: fallbackEntries.length,
+              schemaVersion: resultSchemaVersion,
+            }).catch(() => {});
+          }
         }
 
         if (
@@ -2001,6 +2292,14 @@ export const FoodSearchModal = ({
                   isOnline,
                 });
 
+          if (!lookupStatsRecorded && Object.keys(lookupContext).length > 0) {
+            void recordRagLookupStats({
+              lookupContext,
+              schemaVersion: resultSchemaVersion || extractionSchemaVersion,
+            }).catch(() => {});
+            lookupStatsRecorded = true;
+          }
+
           if (Object.keys(lookupContext).length > 0) {
             setAiEntryLookupByKey((prev) => ({
               ...prev,
@@ -2015,6 +2314,9 @@ export const FoodSearchModal = ({
             status: 'sent',
             error: null,
           }));
+          setQueuedChatMessageIds((prev) =>
+            prev.filter((queuedId) => queuedId !== userMessageId)
+          );
         }
 
         const assistantMessage = createAssistantChatMessage({
@@ -2034,6 +2336,12 @@ export const FoodSearchModal = ({
 
           return [...prev.slice(-CHAT_HISTORY_MESSAGE_LIMIT), assistantMessage];
         });
+
+        void recordRagStageLatency({
+          stage: 'endToEnd',
+          durationMs: performance.now() - requestStartedAt,
+          schemaVersion: resultSchemaVersion || extractionSchemaVersion,
+        }).catch(() => {});
       } catch (error) {
         const message =
           error instanceof GeminiError
@@ -2047,11 +2355,18 @@ export const FoodSearchModal = ({
             error: message,
           }));
         } else if (userMessageId) {
-          updateMessageById(userMessageId, (userMessage) => ({
-            ...userMessage,
-            status: 'error',
-            error: message,
-          }));
+          if (!isOnline) {
+            queueChatMessageForReplay(userMessageId);
+          } else {
+            updateMessageById(userMessageId, (userMessage) => ({
+              ...userMessage,
+              status: 'error',
+              error: message,
+            }));
+            setQueuedChatMessageIds((prev) =>
+              prev.filter((queuedId) => queuedId !== userMessageId)
+            );
+          }
         } else {
           setChatError(message);
         }
@@ -2061,8 +2376,59 @@ export const FoodSearchModal = ({
         chatAbortControllerRef.current = null;
       }
     },
-    [chatMessages, isOnline, isSendingChat, updateMessageById]
+    [
+      chatMessages,
+      isOnline,
+      isAiChatRagEnabled,
+      isSendingChat,
+      queueChatMessageForReplay,
+      updateMessageById,
+    ]
   );
+
+  useEffect(() => {
+    if (!isOnline || isSendingChat || queuedReplayInFlightRef.current) {
+      return;
+    }
+
+    const nextQueuedId = queuedChatMessageIds[0];
+    if (!nextQueuedId) {
+      return;
+    }
+
+    const queuedMessage = chatMessages.find(
+      (message) => message.id === nextQueuedId && message.role === 'user'
+    );
+
+    if (!queuedMessage) {
+      setQueuedChatMessageIds((prev) =>
+        prev.filter((queuedId) => queuedId !== nextQueuedId)
+      );
+      return;
+    }
+
+    queuedReplayInFlightRef.current = true;
+    updateMessageById(nextQueuedId, (message) => ({
+      ...message,
+      status: 'sending',
+      error: null,
+    }));
+
+    void submitChatRequest({
+      text: queuedMessage.text || '',
+      attachments: queuedMessage.attachments || [],
+      userMessageId: queuedMessage.id,
+    }).finally(() => {
+      queuedReplayInFlightRef.current = false;
+    });
+  }, [
+    chatMessages,
+    isOnline,
+    isSendingChat,
+    queuedChatMessageIds,
+    submitChatRequest,
+    updateMessageById,
+  ]);
 
   const sendChat = useCallback(async () => {
     if (isSendingChat) return;
@@ -2076,12 +2442,61 @@ export const FoodSearchModal = ({
       return;
     }
 
+    const latestAssistantBatch = [...chatMessages]
+      .reverse()
+      .find(
+        (message) =>
+          message.role === 'assistant' &&
+          message.status === 'sent' &&
+          message.foodParser?.messageType === 'food_entries' &&
+          Array.isArray(message.foodParser?.entries) &&
+          message.foodParser.entries.length > 0
+      );
+
+    if (latestAssistantBatch) {
+      const entries = latestAssistantBatch.foodParser.entries;
+      const keyedEntries = entries.map((entry, index) => ({
+        entry,
+        entryKey: `${latestAssistantBatch.id}-${index}`,
+      }));
+
+      const actedEntries = keyedEntries.filter(
+        ({ entryKey }) =>
+          loggedAiEntryKeys[entryKey] || favouritedAiEntryKeys[entryKey]
+      );
+      const unactedEntries = keyedEntries.filter(
+        ({ entryKey }) =>
+          !loggedAiEntryKeys[entryKey] && !favouritedAiEntryKeys[entryKey]
+      );
+
+      if (unactedEntries.length > 0) {
+        unactedEntries.forEach(({ entry, entryKey }) => {
+          void recordImplicitFeedbackForEntry({
+            entry,
+            entryKey,
+            eventType: 'query_again_reject',
+          });
+        });
+      }
+
+      if (actedEntries.length > 0 && unactedEntries.length > 0) {
+        unactedEntries.forEach(({ entry, entryKey }) => {
+          void recordImplicitFeedbackForEntry({
+            entry,
+            entryKey,
+            eventType: 'partial_batch_reject',
+          });
+        });
+      }
+    }
+
     const userMessageId = `user-${Date.now()}`;
+    const shouldQueue = !isOnline;
     const userMessage = createUserChatMessage({
       id: userMessageId,
       text: currentText,
       attachments: currentAttachments,
-      status: 'sending',
+      status: shouldQueue ? 'queued' : 'sending',
     });
 
     setChatMessages((prev) => [
@@ -2091,14 +2506,30 @@ export const FoodSearchModal = ({
     setChatInput('');
     setChatPlaceholder(DEFAULT_CHAT_PLACEHOLDER);
     setChatAttachments([]);
+    setChatAttachmentErrors([]);
     setChatError(null);
+
+    if (shouldQueue) {
+      setQueuedChatMessageIds((prev) => [...prev, userMessageId]);
+      setChatError('Message queued offline. It will send automatically once reconnected.');
+      return;
+    }
 
     await submitChatRequest({
       text: currentText,
       attachments: currentAttachments,
       userMessageId,
     });
-  }, [chatAttachments, chatInput, isSendingChat, submitChatRequest]);
+  }, [
+    chatAttachments,
+    chatInput,
+    chatMessages,
+    favouritedAiEntryKeys,
+    isSendingChat,
+    loggedAiEntryKeys,
+    recordImplicitFeedbackForEntry,
+    submitChatRequest,
+  ]);
 
   const retryUserMessage = useCallback(
     async (message, { asDraft = false } = {}) => {
@@ -2109,6 +2540,12 @@ export const FoodSearchModal = ({
           text: message.text || '',
           attachments: message.attachments || [],
         });
+        return;
+      }
+
+      if (!isOnline) {
+        queueChatMessageForReplay(message.id);
+        setChatError('Message queued offline. It will send automatically once reconnected.');
         return;
       }
 
@@ -2124,7 +2561,13 @@ export const FoodSearchModal = ({
         userMessageId: message.id,
       });
     },
-    [loadComposerDraft, submitChatRequest, updateMessageById]
+    [
+      isOnline,
+      loadComposerDraft,
+      queueChatMessageForReplay,
+      submitChatRequest,
+      updateMessageById,
+    ]
   );
 
   const regenerateAssistantReply = useCallback(
@@ -2366,11 +2809,19 @@ export const FoodSearchModal = ({
         ...prev,
         [entryKey]: true,
       }));
+
+      void recordImplicitFeedbackForEntry({
+        entry,
+        entryKey,
+        eventType: closeModal ? 'log_exit_accept' : 'log_accept',
+        lookupMeta,
+      });
     },
     [
       buildAiFoodEntry,
       loggedAiEntryKeys,
       onSelectFavourite,
+      recordImplicitFeedbackForEntry,
       resolveAiLookupMeta,
     ]
   );
@@ -2392,15 +2843,64 @@ export const FoodSearchModal = ({
         ...prev,
         [entryKey]: true,
       }));
+
+      void recordImplicitFeedbackForEntry({
+        entry,
+        entryKey,
+        eventType: 'save_favourite_accept',
+        lookupMeta,
+      });
     },
     [
       buildAiFoodEntry,
       buildAiSourceFood,
       favouritedAiEntryKeys,
       onSaveAsFavourite,
+      recordImplicitFeedbackForEntry,
       resolveAiLookupMeta,
     ]
   );
+
+  useEffect(() => {
+    if (!isClosing) {
+      return;
+    }
+
+    const latestAssistantBatch = [...chatMessages]
+      .reverse()
+      .find(
+        (message) =>
+          message.role === 'assistant' &&
+          message.status === 'sent' &&
+          message.foodParser?.messageType === 'food_entries' &&
+          Array.isArray(message.foodParser?.entries) &&
+          message.foodParser.entries.length > 0
+      );
+
+    if (!latestAssistantBatch) {
+      return;
+    }
+
+    latestAssistantBatch.foodParser.entries.forEach((entry, index) => {
+      const entryKey = `${latestAssistantBatch.id}-${index}`;
+      const hasAction =
+        loggedAiEntryKeys[entryKey] || favouritedAiEntryKeys[entryKey];
+
+      if (!hasAction) {
+        void recordImplicitFeedbackForEntry({
+          entry,
+          entryKey,
+          eventType: 'ignored_no_action',
+        });
+      }
+    });
+  }, [
+    chatMessages,
+    favouritedAiEntryKeys,
+    isClosing,
+    loggedAiEntryKeys,
+    recordImplicitFeedbackForEntry,
+  ]);
 
   const handleLogAllAiEntries = useCallback(
     async (messageId, entries, closeModal = false) => {
@@ -2635,6 +3135,8 @@ export const FoodSearchModal = ({
             chatMessages={chatMessages}
             chatAttachments={chatAttachments}
             chatError={chatError}
+            chatAttachmentErrors={chatAttachmentErrors}
+            removeAttachmentError={removeAttachmentError}
             isSendingChat={isSendingChat}
             activeChatRequest={activeChatRequest}
             chatScrollRef={chatScrollRef}

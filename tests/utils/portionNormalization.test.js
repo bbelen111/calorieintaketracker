@@ -9,6 +9,7 @@ import {
 
 test('normalizePortionUnit lowercases and trims values', () => {
   assert.equal(normalizePortionUnit('  TbSp  '), 'tbsp');
+  assert.equal(normalizePortionUnit('tasang-gatas'), 'tasang gatas');
   assert.equal(normalizePortionUnit(null), '');
 });
 
@@ -37,6 +38,22 @@ test('resolveEntryGrams falls back to default grams for unknown units', () => {
   assert.equal(resolved.grams, 120);
   assert.equal(resolved.method, 'fallback_default');
   assert.equal(resolved.assumed, true);
+});
+
+test('resolveEntryGrams resolves PH locale units and plating conventions', () => {
+  const tasa = resolveEntryGrams({ quantity: 1, unit: 'tasa' });
+  const kutsara = resolveEntryGrams({ quantity: 2, unit: 'kutsara' });
+  const kutsarita = resolveEntryGrams({ quantity: 3, unit: 'kutsarita' });
+  const tasangGatas = resolveEntryGrams({ quantity: 1, unit: 'tasang-gatas' });
+  const pulutan = resolveEntryGrams({ quantity: 1, unit: 'pulutan portion' });
+  const bilao = resolveEntryGrams({ quantity: 1, unit: 'bilao' });
+
+  assert.equal(tasa.grams, 240);
+  assert.equal(kutsara.grams, 30);
+  assert.equal(kutsarita.grams, 15);
+  assert.equal(tasangGatas.grams, 240);
+  assert.equal(pulutan.grams, 90);
+  assert.equal(bilao.grams, 1400);
 });
 
 test('scaleMacrosFromPer100g scales and rounds correctly', () => {

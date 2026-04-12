@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core';
 export const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 export const MAX_IMAGE_COUNT = 3;
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+export const FOOD_PARSER_SCHEMA_VERSION = '1.0.0';
 const FOOD_PARSER_JSON_TAG = 'food_parser_json';
 const FOOD_ENTRY_CONFIDENCE = new Set(['high', 'medium', 'low']);
 const FOOD_MESSAGE_TYPES = new Set([
@@ -23,11 +24,73 @@ export const AI_CHAT_RAG_ENABLED =
     .trim()
     .toLowerCase() === 'true';
 
+export const AI_CHAT_RAG_ROLLOUT_OVERRIDE = Object.freeze({
+  DEFAULT: 'default',
+  ENABLED: 'enabled',
+  DISABLED: 'disabled',
+});
+
+const ENV_RAG_ROLLOUT_PERCENTAGE = Number(
+  import.meta.env?.VITE_AI_CHAT_RAG_ROLLOUT_PERCENTAGE
+);
+const DEFAULT_RAG_ROLLOUT_PERCENTAGE = Number.isFinite(
+  ENV_RAG_ROLLOUT_PERCENTAGE
+)
+  ? Math.max(0, Math.min(100, Math.round(ENV_RAG_ROLLOUT_PERCENTAGE)))
+  : 100;
+
 const API_BASE = (
   (typeof import.meta.env?.VITE_GEMINI_API_BASE === 'string'
     ? import.meta.env.VITE_GEMINI_API_BASE
     : '') || 'https://calorieintaketracker.vercel.app/api/gemini'
 ).trim();
+
+const RATE_LIMIT_MAX_RETRIES = 2;
+const RATE_LIMIT_BACKOFF_BASE_MS = 400;
+const TRANSIENT_HTTP_MAX_RETRIES = 2;
+const TRANSIENT_HTTP_BACKOFF_BASE_MS = 250;
+const TRANSIENT_HTTP_RETRY_STATUSES = new Set([502, 503, 504]);
+const NO_TEXT_MAX_RETRIES = 1;
+const MALFORMED_PARSER_MAX_RETRIES = 1;
+let rateLimitQueue = Promise.resolve();
+const foodParserRegistry = new Map();
+
+function clampRolloutPercentage(
+  value,
+  fallback = DEFAULT_RAG_ROLLOUT_PERCENTAGE
+) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.max(0, Math.min(100, Math.round(parsed)));
+}
+
+function normalizeRolloutOverride(value) {
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase();
+
+  if (
+    normalized === AI_CHAT_RAG_ROLLOUT_OVERRIDE.ENABLED ||
+    normalized === AI_CHAT_RAG_ROLLOUT_OVERRIDE.DISABLED
+  ) {
+    return normalized;
+  }
+
+  return AI_CHAT_RAG_ROLLOUT_OVERRIDE.DEFAULT;
+}
+
+function getStableBucketPercent(input) {
+  const seed = String(input || 'anonymous');
+  let hash = 0;
+
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+  }
+
+  return hash % 100;
+}
 
 export class GeminiError extends Error {
   constructor(message, status = 0, details = null) {
@@ -70,6 +133,19 @@ function asNonEmptyString(value) {
 
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeSchemaVersion(value) {
+  const parsed = asNonEmptyString(value);
+  if (!parsed) {
+    return null;
+  }
+
+  if (!/^\d+\.\d+\.\d+$/.test(parsed)) {
+    return null;
+  }
+
+  return parsed;
 }
 
 function normalizeHistoryRole(role) {
@@ -121,7 +197,7 @@ async function normalizeAsyncHistoryPart(part) {
   return null;
 }
 
-function normalizeFoodParserEntry(entry) {
+function normalizeFoodParserEntryV1(entry) {
   if (!entry || typeof entry !== 'object') {
     return null;
   }
@@ -195,6 +271,33 @@ function normalizeFoodParserEntry(entry) {
   };
 }
 
+export function registerFoodParserVersion(version, normalizer) {
+  const normalizedVersion = normalizeSchemaVersion(version);
+  if (!normalizedVersion || typeof normalizer !== 'function') {
+    return false;
+  }
+
+  foodParserRegistry.set(normalizedVersion, normalizer);
+  return true;
+}
+
+function resolveFoodParserEntryNormalizer(version) {
+  const normalizedVersion = normalizeSchemaVersion(version);
+  if (normalizedVersion && foodParserRegistry.has(normalizedVersion)) {
+    return foodParserRegistry.get(normalizedVersion);
+  }
+
+  return (
+    foodParserRegistry.get(FOOD_PARSER_SCHEMA_VERSION) ||
+    normalizeFoodParserEntryV1
+  );
+}
+
+registerFoodParserVersion(
+  FOOD_PARSER_SCHEMA_VERSION,
+  normalizeFoodParserEntryV1
+);
+
 function stripFoodParserPayload(text) {
   if (typeof text !== 'string' || !text.trim()) {
     return '';
@@ -254,6 +357,9 @@ export function parseFoodParserPayloadFromText(text) {
       return fallback;
     }
 
+    const parsedVersion = normalizeSchemaVersion(parsed.version);
+    const normalizeFoodParserEntry =
+      resolveFoodParserEntryNormalizer(parsedVersion);
     const entries = Array.isArray(parsed.entries)
       ? parsed.entries.map(normalizeFoodParserEntry).filter(Boolean)
       : [];
@@ -267,6 +373,7 @@ export function parseFoodParserPayloadFromText(text) {
     return {
       displayText: assistantMessage,
       payload: {
+        version: parsedVersion,
         messageType,
         entries,
         followUpQuestion: asNonEmptyString(parsed.followUpQuestion),
@@ -275,6 +382,38 @@ export function parseFoodParserPayloadFromText(text) {
   } catch {
     return fallback;
   }
+}
+
+export function resolveAiChatRagRolloutConfig(userData = {}) {
+  return {
+    override: normalizeRolloutOverride(userData?.aiChatRagRolloutOverride),
+    rolloutPercentage: clampRolloutPercentage(
+      userData?.aiChatRagRolloutPercentage,
+      DEFAULT_RAG_ROLLOUT_PERCENTAGE
+    ),
+    rolloutUserId:
+      String(userData?.aiChatRolloutUserId || '').trim() || 'anonymous',
+  };
+}
+
+export function isAiChatRagEnabledForUser(userData = {}) {
+  if (!AI_CHAT_RAG_ENABLED) {
+    return false;
+  }
+
+  const config = resolveAiChatRagRolloutConfig(userData);
+
+  if (config.override === AI_CHAT_RAG_ROLLOUT_OVERRIDE.ENABLED) {
+    return true;
+  }
+
+  if (config.override === AI_CHAT_RAG_ROLLOUT_OVERRIDE.DISABLED) {
+    return false;
+  }
+
+  return (
+    getStableBucketPercent(config.rolloutUserId) < config.rolloutPercentage
+  );
 }
 
 function resolveNoTextReason(data) {
@@ -312,6 +451,94 @@ function shouldRetryNoTextResponse(data) {
   }
 
   return true;
+}
+
+function getFormatCorrectionHint(mode) {
+  if (mode === GEMINI_REQUEST_MODE.PRESENTATION) {
+    return 'FORMAT CORRECTION: Respond with concise text plus a valid <food_parser_json> block matching the presentation schema exactly.';
+  }
+
+  if (mode === GEMINI_REQUEST_MODE.GROUNDING_LOOKUP) {
+    return 'FORMAT CORRECTION: Return strict grounded lookup parser JSON in <food_parser_json> tags with one 100g entry.';
+  }
+
+  return 'FORMAT CORRECTION: Respond with concise text plus valid <food_parser_json> matching the extraction schema exactly.';
+}
+
+function appendFormatCorrectionHint(requestBody, mode) {
+  return {
+    ...requestBody,
+    contents: [
+      ...(Array.isArray(requestBody?.contents) ? requestBody.contents : []),
+      {
+        role: 'user',
+        parts: [{ text: getFormatCorrectionHint(mode) }],
+      },
+    ],
+  };
+}
+
+async function sleepWithSignal(ms, signal) {
+  if (!Number.isFinite(ms) || ms <= 0) {
+    return;
+  }
+
+  await new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(resolve, ms);
+
+    if (!signal) {
+      return;
+    }
+
+    const onAbort = () => {
+      clearTimeout(timeoutId);
+      const abortError = new Error('aborted');
+      abortError.name = 'AbortError';
+      reject(abortError);
+    };
+
+    if (signal.aborted) {
+      onAbort();
+      return;
+    }
+
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+async function queueRateLimitBackoff(delayMs, signal) {
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+
+  const previous = rateLimitQueue;
+  rateLimitQueue = gate;
+
+  await previous;
+  try {
+    await sleepWithSignal(delayMs, signal);
+  } finally {
+    release();
+    if (rateLimitQueue === gate) {
+      rateLimitQueue = Promise.resolve();
+    }
+  }
+}
+
+function isQuotaExhaustedSignal(data) {
+  const errorText = String(data?.error || '').toLowerCase();
+  const detailsText =
+    data && typeof data === 'object' ? JSON.stringify(data).toLowerCase() : '';
+  const combined = `${errorText} ${detailsText}`;
+
+  return (
+    combined.includes('quota') ||
+    combined.includes('resource_exhausted') ||
+    combined.includes('daily limit') ||
+    combined.includes('billing') ||
+    combined.includes('exceeded your current quota')
+  );
 }
 
 async function requestGemini({ body, signal }) {
@@ -517,6 +744,7 @@ export async function sendGeminiMessage({
   history = [],
   model,
   mode = GEMINI_REQUEST_MODE.EXTRACTION,
+  expectFoodParser = false,
   useGrounding = false,
   signal,
   timeoutMs = 30000,
@@ -533,47 +761,55 @@ export async function sendGeminiMessage({
   );
 
   try {
-    const requestBody = {
+    let requestBody = {
       contents,
       model,
       mode,
       useGrounding: useGrounding === true,
     };
+    let noTextRetries = 0;
+    let malformedParserRetries = 0;
+    let rateLimitRetries = 0;
+    let transientHttpRetries = 0;
 
-    let { response, data } = await requestGemini({
-      body: requestBody,
-      signal: requestSignal,
-    });
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        throw new GeminiError(
-          'The AI is processing too many requests. Please wait a moment or use the manual search.',
-          429,
-          data
-        );
-      }
-
-      throw new GeminiError(
-        data?.error || `Gemini request failed (${response.status})`,
-        response.status,
-        data
-      );
-    }
-
-    const text = extractGeminiText(data);
-
-    if (!text && shouldRetryNoTextResponse(data)) {
-      const retryResult = await requestGemini({
+    while (true) {
+      const { response, data } = await requestGemini({
         body: requestBody,
         signal: requestSignal,
       });
 
-      response = retryResult.response;
-      data = retryResult.data;
-
       if (!response.ok) {
+        if (
+          response.status === 429 &&
+          rateLimitRetries < RATE_LIMIT_MAX_RETRIES
+        ) {
+          const delayMs =
+            RATE_LIMIT_BACKOFF_BASE_MS * Math.pow(2, rateLimitRetries);
+          rateLimitRetries += 1;
+          await queueRateLimitBackoff(delayMs, requestSignal);
+          continue;
+        }
+
+        if (
+          TRANSIENT_HTTP_RETRY_STATUSES.has(response.status) &&
+          transientHttpRetries < TRANSIENT_HTTP_MAX_RETRIES
+        ) {
+          const delayMs =
+            TRANSIENT_HTTP_BACKOFF_BASE_MS * Math.pow(2, transientHttpRetries);
+          transientHttpRetries += 1;
+          await sleepWithSignal(delayMs, requestSignal);
+          continue;
+        }
+
         if (response.status === 429) {
+          if (isQuotaExhaustedSignal(data)) {
+            throw new GeminiError(
+              'The AI provider quota is currently exhausted. Please try again later or use manual search.',
+              429,
+              data
+            );
+          }
+
           throw new GeminiError(
             'The AI is processing too many requests. Please wait a moment or use the manual search.',
             429,
@@ -587,21 +823,46 @@ export async function sendGeminiMessage({
           data
         );
       }
+
+      const resolvedText = extractGeminiText(data);
+
+      if (!resolvedText && shouldRetryNoTextResponse(data)) {
+        if (noTextRetries < NO_TEXT_MAX_RETRIES) {
+          noTextRetries += 1;
+          continue;
+        }
+      }
+
+      if (!resolvedText) {
+        throw new GeminiError(resolveNoTextReason(data), 502, data);
+      }
+
+      const parsedPayload = parseFoodParserPayloadFromText(resolvedText);
+
+      if (
+        expectFoodParser &&
+        !parsedPayload.payload &&
+        malformedParserRetries < MALFORMED_PARSER_MAX_RETRIES
+      ) {
+        malformedParserRetries += 1;
+        requestBody = appendFormatCorrectionHint(requestBody, mode);
+        continue;
+      }
+
+      if (expectFoodParser && !parsedPayload.payload) {
+        throw new GeminiError(
+          'The AI returned an invalid parser format. Please try again.',
+          502,
+          data
+        );
+      }
+
+      return {
+        text: parsedPayload.displayText,
+        raw: data,
+        foodParser: parsedPayload.payload,
+      };
     }
-
-    const resolvedText = extractGeminiText(data);
-
-    if (!resolvedText) {
-      throw new GeminiError(resolveNoTextReason(data), 502, data);
-    }
-
-    const parsedPayload = parseFoodParserPayloadFromText(resolvedText);
-
-    return {
-      text: parsedPayload.displayText,
-      raw: data,
-      foodParser: parsedPayload.payload,
-    };
   } catch (error) {
     if (error instanceof GeminiError) {
       throw error;
@@ -625,20 +886,35 @@ export async function sendGeminiExtraction({
   message,
   files = [],
   history = [],
+  foodContextSummary = '',
   model,
   signal,
   timeoutMs = 30000,
 }) {
+  const composedMessage = composeExtractionMessage(message, foodContextSummary);
+
   return sendGeminiMessage({
-    message,
+    message: composedMessage,
     files,
     history,
     model,
     mode: GEMINI_REQUEST_MODE.EXTRACTION,
+    expectFoodParser: true,
     useGrounding: false,
     signal,
     timeoutMs,
   });
+}
+
+export function composeExtractionMessage(message, foodContextSummary = '') {
+  const baseMessage = String(message ?? '').trim();
+  const normalizedContext = String(foodContextSummary ?? '').trim();
+
+  if (!normalizedContext) {
+    return baseMessage;
+  }
+
+  return `${baseMessage}\n\n[RECENT_FOOD_CONTEXT]\n${normalizedContext}`;
 }
 
 export async function sendGeminiPresentation({
@@ -660,13 +936,18 @@ export async function sendGeminiPresentation({
     history,
     model,
     mode: GEMINI_REQUEST_MODE.PRESENTATION,
+    expectFoodParser: true,
     useGrounding: false,
     signal,
     timeoutMs,
   });
 }
 
-export async function fetchMacrosWithGrounding(foodName, signal, timeoutMs = 20000) {
+export async function fetchMacrosWithGrounding(
+  foodName,
+  signal,
+  timeoutMs = 20000
+) {
   const normalizedFoodName = String(foodName ?? '').trim();
   if (!normalizedFoodName) {
     throw new GeminiError('A food name is required for grounded lookup.', 400);
@@ -679,6 +960,7 @@ export async function fetchMacrosWithGrounding(foodName, signal, timeoutMs = 200
     files: [],
     history: [],
     mode: GEMINI_REQUEST_MODE.GROUNDING_LOOKUP,
+    expectFoodParser: true,
     useGrounding: true,
     signal,
     timeoutMs,
@@ -686,7 +968,11 @@ export async function fetchMacrosWithGrounding(foodName, signal, timeoutMs = 200
 
   const firstEntry = result?.foodParser?.entries?.[0];
   if (!firstEntry) {
-    throw new GeminiError('Grounded lookup returned no usable nutrition data.', 502, result?.raw || null);
+    throw new GeminiError(
+      'Grounded lookup returned no usable nutrition data.',
+      502,
+      result?.raw || null
+    );
   }
 
   return {
@@ -705,3 +991,7 @@ export async function fetchMacrosWithGrounding(foodName, signal, timeoutMs = 200
     source: 'ai_web_search',
   };
 }
+
+export const __resetGeminiRateLimitQueueForTests = () => {
+  rateLimitQueue = Promise.resolve();
+};

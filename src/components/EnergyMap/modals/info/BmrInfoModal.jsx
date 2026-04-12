@@ -2,7 +2,10 @@ import React from 'react';
 import { Info, X } from 'lucide-react';
 import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
-import { formatDateLabel, formatWeight } from '../../../../utils/measurements/weight';
+import {
+  formatDateLabel,
+  formatWeight,
+} from '../../../../utils/measurements/weight';
 import { formatBodyFat } from '../../../../utils/measurements/bodyFat';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 

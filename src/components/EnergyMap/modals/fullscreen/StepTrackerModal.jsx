@@ -11,7 +11,10 @@ import { ModalShell } from '../../common/ModalShell';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { getStepCaloriesDetails } from '../../../../utils/calculations/steps';
-import { formatDateKeyUtc, getTodayDateKey } from '../../../../utils/data/dateKeys';
+import {
+  formatDateKeyUtc,
+  getTodayDateKey,
+} from '../../../../utils/data/dateKeys';
 
 // ---------------------------------------------------------------------------
 // Helper components & functions
