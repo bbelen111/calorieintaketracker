@@ -2418,88 +2418,91 @@ export const EnergyMapCalculator = () => {
   );
 
   // Delete food entry from meal
-  const handleFoodEntrySave = useCallback((options = {}) => {
-    const shouldClose = options?.closeModal !== false;
+  const handleFoodEntrySave = useCallback(
+    (options = {}) => {
+      const shouldClose = options?.closeModal !== false;
 
-    // If editing a manual favourite, update the favourite AND add to tracker
-    if (editingManualFavouriteId) {
-      // Update the favourite
-      updateFoodFavourite(editingManualFavouriteId, {
-        calories: parseFloat(foodCalories) || 0,
-        protein: parseFloat(foodProtein) || 0,
-        carbs: parseFloat(foodCarbs) || 0,
-        fats: parseFloat(foodFats) || 0,
-      });
-
-      // Also add to tracker if we have a meal type
-      if (foodMealType) {
-        const entry = {
-          id: Date.now(),
-          name: foodName.trim(),
+      // If editing a manual favourite, update the favourite AND add to tracker
+      if (editingManualFavouriteId) {
+        // Update the favourite
+        updateFoodFavourite(editingManualFavouriteId, {
           calories: parseFloat(foodCalories) || 0,
           protein: parseFloat(foodProtein) || 0,
           carbs: parseFloat(foodCarbs) || 0,
           fats: parseFloat(foodFats) || 0,
-          grams: null,
-          timestamp: new Date().toISOString(),
-        };
+        });
+
+        // Also add to tracker if we have a meal type
+        if (foodMealType) {
+          const entry = {
+            id: Date.now(),
+            name: foodName.trim(),
+            calories: parseFloat(foodCalories) || 0,
+            protein: parseFloat(foodProtein) || 0,
+            carbs: parseFloat(foodCarbs) || 0,
+            fats: parseFloat(foodFats) || 0,
+            grams: null,
+            timestamp: new Date().toISOString(),
+          };
+          addFoodEntry(trackerSelectedDate, foodMealType, entry);
+        }
+
+        if (shouldClose) {
+          foodEntryModal.requestClose();
+          // Close search modal after editing favourite
+          setTimeout(() => {
+            foodSearchModal.requestClose();
+          }, 250);
+        }
+        return;
+      }
+
+      const entry = {
+        id: editingFoodEntryId || Date.now(),
+        name: foodName.trim(),
+        calories: parseFloat(foodCalories) || 0,
+        protein: parseFloat(foodProtein) || 0,
+        carbs: parseFloat(foodCarbs) || 0,
+        fats: parseFloat(foodFats) || 0,
+        // Manual entries do not have a measured gram amount by default.
+        grams: null,
+        timestamp: new Date().toISOString(),
+      };
+
+      if (editingFoodEntryId && editingMealType) {
+        updateFoodEntry(trackerSelectedDate, editingMealType, entry);
+      } else if (foodMealType) {
         addFoodEntry(trackerSelectedDate, foodMealType, entry);
       }
 
       if (shouldClose) {
         foodEntryModal.requestClose();
-        // Close search modal after editing favourite
-        setTimeout(() => {
-          foodSearchModal.requestClose();
-        }, 250);
+        // Close search modal after a short delay so nested modals finish closing
+        if (!editingFoodEntryId) {
+          setTimeout(() => {
+            foodSearchModal.requestClose();
+          }, 250);
+        }
       }
-      return;
-    }
-
-    const entry = {
-      id: editingFoodEntryId || Date.now(),
-      name: foodName.trim(),
-      calories: parseFloat(foodCalories) || 0,
-      protein: parseFloat(foodProtein) || 0,
-      carbs: parseFloat(foodCarbs) || 0,
-      fats: parseFloat(foodFats) || 0,
-      // Manual entries do not have a measured gram amount by default.
-      grams: null,
-      timestamp: new Date().toISOString(),
-    };
-
-    if (editingFoodEntryId && editingMealType) {
-      updateFoodEntry(trackerSelectedDate, editingMealType, entry);
-    } else if (foodMealType) {
-      addFoodEntry(trackerSelectedDate, foodMealType, entry);
-    }
-
-    if (shouldClose) {
-      foodEntryModal.requestClose();
-      // Close search modal after a short delay so nested modals finish closing
-      if (!editingFoodEntryId) {
-        setTimeout(() => {
-          foodSearchModal.requestClose();
-        }, 250);
-      }
-    }
-  }, [
-    addFoodEntry,
-    editingFoodEntryId,
-    editingManualFavouriteId,
-    editingMealType,
-    foodCalories,
-    foodCarbs,
-    foodEntryModal,
-    foodFats,
-    foodMealType,
-    foodName,
-    foodProtein,
-    foodSearchModal,
-    trackerSelectedDate,
-    updateFoodEntry,
-    updateFoodFavourite,
-  ]);
+    },
+    [
+      addFoodEntry,
+      editingFoodEntryId,
+      editingManualFavouriteId,
+      editingMealType,
+      foodCalories,
+      foodCarbs,
+      foodEntryModal,
+      foodFats,
+      foodMealType,
+      foodName,
+      foodProtein,
+      foodSearchModal,
+      trackerSelectedDate,
+      updateFoodEntry,
+      updateFoodFavourite,
+    ]
+  );
 
   const openCalorieTargetPicker = useCallback(() => {
     calorieTargetModal.open();
@@ -2657,6 +2660,17 @@ export const EnergyMapCalculator = () => {
       foodPortionModal.open();
     },
     [foodPortionModal, foodEntryModal]
+  );
+
+  const handleDeleteFoodEntryFromSearch = useCallback(
+    (mealType, entryId) => {
+      if (!mealType || entryId == null) {
+        return;
+      }
+
+      deleteFoodEntry(trackerSelectedDate, mealType, entryId);
+    },
+    [deleteFoodEntry, trackerSelectedDate]
   );
 
   // When user wants to create a new favourite from the current food/portion
@@ -4124,6 +4138,15 @@ export const EnergyMapCalculator = () => {
         customFoods={customFoods}
         onAddCustomFood={handleAddCustomFood}
         onSaveAsFavourite={handleCreateFoodFavourite}
+        selectedMealType={foodMealType}
+        mealNutritionEntries={
+          Array.isArray(nutritionData?.[trackerSelectedDate]?.[foodMealType])
+            ? nutritionData[trackerSelectedDate][foodMealType]
+            : []
+        }
+        onSwitchMealType={setFoodMealType}
+        onEditMealEntry={handleEditFoodEntry}
+        onDeleteMealEntry={handleDeleteFoodEntryFromSearch}
       />
 
       <FoodPortionModal

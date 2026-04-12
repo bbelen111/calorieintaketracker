@@ -12,6 +12,7 @@ import {
   ScanBarcode,
   Search,
   ChevronLeft,
+  ChevronDown,
   Edit3,
   X,
   Plus,
@@ -21,6 +22,7 @@ import {
   AlertCircle,
   CloudOff,
   Sparkles,
+  Utensils,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { shallow } from 'zustand/shallow';
@@ -33,7 +35,12 @@ import { FoodSearchChatPanel } from './panels/FoodSearchChatPanel';
 import { FoodSearchResultsPanel } from './panels/FoodSearchResultsPanel';
 import { FoodSearchFavouritesPanel } from './panels/FoodSearchFavouritesPanel';
 import { FoodSearchFilterControls } from './panels/FoodSearchFilterControls';
+import { FoodSearchMealPreviewPanel } from './panels/FoodSearchMealPreviewPanel';
 import { FOOD_CATEGORIES } from '../../../../constants/food/foodDatabase';
+import {
+  MEAL_TYPE_ORDER,
+  getMealTypeById,
+} from '../../../../constants/meal/mealTypes';
 import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import {
@@ -382,6 +389,11 @@ export const FoodSearchModal = ({
   onUpdateCachedFoods,
   customFoods = [],
   onSaveAsFavourite,
+  selectedMealType = '',
+  mealNutritionEntries = [],
+  onSwitchMealType,
+  onEditMealEntry,
+  onDeleteMealEntry,
 }) => {
   const {
     foodFavourites,
@@ -470,7 +482,10 @@ export const FoodSearchModal = ({
   const dropdownRef = useRef(null);
   const longPressTimerRef = useRef(null);
   const skipNextClickRef = useRef(false);
+  const mealTypeDropdownRef = useRef(null);
   const [longPressingId, setLongPressingId] = useState(null);
+  const [isMealTypeMenuOpen, setIsMealTypeMenuOpen] = useState(false);
+  const [isMealPreviewOpen, setIsMealPreviewOpen] = useState(false);
   const entryIdRef = useRef(1);
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
   const [pendingManualAdd, setPendingManualAdd] = useState(null);
@@ -589,14 +604,20 @@ export const FoodSearchModal = ({
           value: false,
         });
       }
+      if (
+        mealTypeDropdownRef.current &&
+        !mealTypeDropdownRef.current.contains(event.target)
+      ) {
+        setIsMealTypeMenuOpen(false);
+      }
     };
 
-    if (isFilterOpen || isFavouritesFilterOpen) {
+    if (isFilterOpen || isFavouritesFilterOpen || isMealTypeMenuOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       return () =>
         document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [isFilterOpen, isFavouritesFilterOpen]);
+  }, [isFilterOpen, isFavouritesFilterOpen, isMealTypeMenuOpen]);
 
   // Reset state when modal closes
   useEffect(() => {
@@ -648,6 +669,8 @@ export const FoodSearchModal = ({
       setIsBarcodeLookupPending(false);
       setManualBarcodeInput('');
       setBarcodeToast(null);
+      setIsMealTypeMenuOpen(false);
+      setIsMealPreviewOpen(false);
       if (barcodeToastTimerRef.current) {
         clearTimeout(barcodeToastTimerRef.current);
         barcodeToastTimerRef.current = null;
@@ -1443,6 +1466,52 @@ export const FoodSearchModal = ({
   ]);
 
   const hasFavourites = sortedFavourites.length > 0;
+
+  const resolvedMealEntries = useMemo(
+    () => (Array.isArray(mealNutritionEntries) ? mealNutritionEntries : []),
+    [mealNutritionEntries]
+  );
+
+  const resolvedMealType = useMemo(
+    () => getMealTypeById(selectedMealType || 'other'),
+    [selectedMealType]
+  );
+
+  const mealTypeLabel = selectedMealType
+    ? resolvedMealType.label
+    : 'Select meal';
+
+  const handleSwitchMealType = useCallback(
+    (mealTypeId) => {
+      if (!mealTypeId) {
+        return;
+      }
+      onSwitchMealType?.(mealTypeId);
+      setIsMealTypeMenuOpen(false);
+    },
+    [onSwitchMealType]
+  );
+
+  const handleEditMealEntry = useCallback(
+    (entry) => {
+      if (!selectedMealType || !entry?.id) {
+        return;
+      }
+      onEditMealEntry?.(selectedMealType, entry.id);
+      setIsMealPreviewOpen(false);
+    },
+    [onEditMealEntry, selectedMealType]
+  );
+
+  const handleDeleteMealEntry = useCallback(
+    (entry) => {
+      if (!selectedMealType || !entry?.id) {
+        return;
+      }
+      onDeleteMealEntry?.(selectedMealType, entry.id);
+    },
+    [onDeleteMealEntry, selectedMealType]
+  );
 
   useEffect(() => {
     latestChatAttachmentsRef.current = chatAttachments;
@@ -3109,6 +3178,84 @@ export const FoodSearchModal = ({
             <h3 className="text-foreground font-bold text-xl">Add Food</h3>
           </div>
         </div>
+
+        <div className="flex items-center gap-2">
+          <div className="relative" ref={mealTypeDropdownRef}>
+            <motion.button
+              type="button"
+              onClick={() => setIsMealTypeMenuOpen((previous) => !previous)}
+              whileTap={{ scale: 0.98 }}
+              whileHover={{ y: -1 }}
+              className="h-9 flex items-center gap-1.5 px-3 rounded-lg border border-border bg-surface-highlight text-foreground text-sm font-medium md:hover:bg-surface pressable-card focus-ring"
+            >
+              <Utensils size={14} className="text-accent-blue" />
+              <span className="truncate max-w-[6.5rem]">{mealTypeLabel}</span>
+              <ChevronDown
+                size={13}
+                className={`text-muted transition-transform ${
+                  isMealTypeMenuOpen ? 'rotate-180' : ''
+                }`}
+              />
+            </motion.button>
+
+            <AnimatePresence>
+              {isMealTypeMenuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                  transition={{ duration: 0.16, ease: [0.4, 0, 0.2, 1] }}
+                  className="absolute right-0 top-full mt-2 w-56 max-h-72 overflow-y-auto rounded-lg border border-border bg-surface shadow-2xl z-50"
+                >
+                  <div className="p-2 space-y-1">
+                    {MEAL_TYPE_ORDER.map((mealTypeId) => {
+                      const option = getMealTypeById(mealTypeId);
+                      const OptionIcon = option.icon;
+                      const isActive = selectedMealType === mealTypeId;
+                      return (
+                        <button
+                          key={mealTypeId}
+                          type="button"
+                          onClick={() => handleSwitchMealType(mealTypeId)}
+                          className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm transition-all text-left pressable-card focus-ring ${
+                            isActive
+                              ? 'bg-accent-blue text-primary-foreground'
+                              : 'text-foreground md:hover:bg-surface-highlight'
+                          }`}
+                        >
+                          <OptionIcon size={15} />
+                          <span>{option.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <motion.button
+            type="button"
+            onClick={() => setIsMealPreviewOpen(true)}
+            whileTap={{ scale: 0.98 }}
+            whileHover={{ y: -1 }}
+            className="h-9 flex items-center gap-1.5 px-3 rounded-lg border border-border bg-surface-highlight text-foreground text-sm font-medium md:hover:bg-surface pressable-card focus-ring"
+          >
+            <span>In meal</span>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.span
+                key={`meal-count-${resolvedMealEntries.length}`}
+                initial={{ opacity: 0, y: 6, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -6, scale: 0.9 }}
+                transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+                className="text-accent-blue text-base font-semibold leading-none"
+              >
+                {resolvedMealEntries.length}
+              </motion.span>
+            </AnimatePresence>
+          </motion.button>
+        </div>
       </div>
 
       <div className="flex-1 bg-surface border-t border-border overflow-y-auto flex flex-col">
@@ -3609,6 +3756,21 @@ export const FoodSearchModal = ({
         onSubmit={handleManualBarcodeSubmit}
         onClose={requestBarcodeEntryClose}
       />
+
+      <AnimatePresence>
+        {isMealPreviewOpen && (
+          <FoodSearchMealPreviewPanel
+            isOpen={isMealPreviewOpen}
+            onClose={() => setIsMealPreviewOpen(false)}
+            mealLabel={mealTypeLabel}
+            mealEntries={resolvedMealEntries}
+            onEditMealEntry={onEditMealEntry ? handleEditMealEntry : undefined}
+            onDeleteMealEntry={
+              onDeleteMealEntry ? handleDeleteMealEntry : undefined
+            }
+          />
+        )}
+      </AnimatePresence>
     </ModalShell>
   );
 };

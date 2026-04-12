@@ -56,7 +56,6 @@ export const HomeScreen = ({
   calculateCardioCalories,
   onRemoveCardioSession,
   totalCardioBurn,
-  isSwiping,
 }) => {
   const store = useEnergyMapStore(
     (state) => ({
@@ -132,6 +131,125 @@ export const HomeScreen = ({
     GOAL_BORDER_CLASS_BY_BG[goalConfig.color] ?? 'border-primary-foreground';
   const weightTileValue = weightDisplay ?? `${resolvedUserData.weight} kg`;
   const bodyFatTileValue = bodyFatDisplay ?? 'Set';
+
+  const cardioHeaderContent = (
+    <>
+      <div className="flex items-center gap-2">
+        <Heart className="text-accent-blue" size={24} />
+        <h2 className="text-xl font-bold text-foreground">Cardio Sessions</h2>
+      </div>
+      <button
+        onClick={onAddCardioClick}
+        type="button"
+        className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 transition-all press-feedback focus-ring md:hover:brightness-110"
+      >
+        <Plus size={20} />
+        Add
+      </button>
+    </>
+  );
+
+  const cardioListContent = (
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+        {resolvedCardioSessions.map((session) => {
+          const cardioType = resolvedCardioTypes[session.type];
+          const label = cardioType?.label ?? 'Unknown cardio type';
+          const durationValue = Number.isFinite(Number(session.duration))
+            ? Number(session.duration)
+            : 0;
+          const calories = calculateCardioCalories(session);
+          const sessionEpoc = epocEnabled
+            ? resolveCardioSessionEpoc({
+                session,
+                exerciseCalories: calories,
+                cardioType: resolvedCardioTypes?.[session?.type],
+                userData: resolvedUserData,
+              })
+            : null;
+          const epocCalories = Number(sessionEpoc?.totalCalories) || 0;
+          const effortType = session.effortType ?? 'intensity';
+          const heartRate = Number(session.averageHeartRate);
+          const hasHeartRate = Number.isFinite(heartRate) && heartRate > 0;
+          const intensityLabel = session.intensity
+            ? `${session.intensity.charAt(0).toUpperCase()}${session.intensity.slice(1)}`
+            : 'Moderate';
+          const effortDisplay =
+            effortType === 'heartRate'
+              ? hasHeartRate
+                ? `${heartRate} bpm`
+                : 'N/A bpm'
+              : intensityLabel;
+          const showMissingTypeWarning = !cardioType;
+
+          return (
+            <div
+              key={session.id}
+              className="bg-surface-highlight/50 rounded-lg p-4 border border-border/50 flex justify-between items-start gap-4 shadow-lg shadow-background/20"
+            >
+              <div>
+                <p className="text-foreground font-semibold">{label}</p>
+                <p className="text-muted text-sm">
+                  {durationValue} min • {effortDisplay} • ~{calories} kcal
+                  {epocEnabled && ` + ~${Math.round(epocCalories)} EPOC`}
+                </p>
+                {showMissingTypeWarning && (
+                  <p className="text-accent-amber text-xs mt-1">
+                    Cardio type removed; consider replacing this session.
+                  </p>
+                )}
+              </div>
+              <div className="flex items-end gap-6 pt-1">
+                <button
+                  onClick={() => onEditCardioSession?.(session.id)}
+                  type="button"
+                  className="text-foreground/80 transition-all active:scale-95 pressable-inline focus-ring md:hover:text-foreground md:hover:scale-110"
+                >
+                  <Edit3 size={22} />
+                </button>
+                <button
+                  onClick={() => onRemoveCardioSession(session.id)}
+                  type="button"
+                  className="text-accent-red transition-all active:scale-95 pressable-inline focus-ring md:hover:text-accent-red md:hover:scale-110"
+                >
+                  <Trash2 size={22} />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="bg-accent-blue/30 border border-accent-blue rounded-lg p-3">
+        <p className="text-accent-blue font-semibold">
+          Total Cardio Burn: {resolvedTotalCardioBurn} calories
+          {epocEnabled && ` (+${Math.round(resolvedCardioEpocTotal)} EPOC)`}
+        </p>
+      </div>
+    </>
+  );
+
+  const cardioEmptyContent = (
+    <button
+      onClick={onAddCardioClick}
+      type="button"
+      className="w-full flex items-center justify-between p-4 rounded-xl transition-all group pressable-card focus-ring md:hover:bg-surface-highlight/50"
+    >
+      <div className="flex items-center gap-3">
+        <Heart className="text-accent-blue" size={24} />
+        <div className="text-left">
+          <h2 className="text-lg font-bold text-foreground">
+            Add Cardio Session
+          </h2>
+          <p className="text-muted text-sm">Track your cardio activities</p>
+        </div>
+      </div>
+      <Plus
+        className="text-muted md:group-hover:text-primary transition-colors"
+        size={24}
+      />
+    </button>
+  );
 
   return (
     <div className="space-y-6 pb-10">
@@ -308,189 +426,57 @@ export const HomeScreen = ({
         </div>
       </div>
 
-      <motion.div
-        className="bg-surface rounded-2xl p-6 border border-border shadow-lg"
-        layout={!isSwiping}
-        initial={false}
-        transition={{ type: 'spring', stiffness: 120, damping: 18 }}
-      >
-        <AnimatePresence mode="wait" initial={false}>
-          {resolvedHasCardioSessions ? (
+      <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
+        <AnimatePresence initial={false}>
+          {resolvedHasCardioSessions && (
             <motion.div
-              key="cardio-list"
+              key="cardio-header"
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
+              transition={{
+                height: { type: 'spring', stiffness: 400, damping: 30 },
+                opacity: { duration: 0.15 },
+              }}
+              className="overflow-hidden"
             >
-              <motion.div
-                className="flex items-center justify-between mb-4"
-                layout={isSwiping ? false : 'position'}
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.3, ease: 'easeOut' }}
-              >
-                <div className="flex items-center gap-2">
-                  <Heart className="text-accent-blue" size={24} />
-                  <h2 className="text-xl font-bold text-foreground">
-                    Cardio Sessions
-                  </h2>
-                </div>
-                <motion.button
-                  onClick={onAddCardioClick}
-                  type="button"
-                  className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 transition-all press-feedback focus-ring md:hover:brightness-110"
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                >
-                  <Plus size={20} />
-                  Add
-                </motion.button>
-              </motion.div>
+              <div className="flex items-center justify-between mb-4">
+                {cardioHeaderContent}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-              <motion.div
-                layout={!isSwiping}
-                className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4"
-              >
-                <AnimatePresence initial={false}>
-                  {resolvedCardioSessions.map((session) => {
-                    const cardioType = resolvedCardioTypes[session.type];
-                    const label = cardioType?.label ?? 'Unknown cardio type';
-                    const durationValue = Number.isFinite(
-                      Number(session.duration)
-                    )
-                      ? Number(session.duration)
-                      : 0;
-                    const calories = calculateCardioCalories(session);
-                    const sessionEpoc = epocEnabled
-                      ? resolveCardioSessionEpoc({
-                          session,
-                          exerciseCalories: calories,
-                          cardioType: resolvedCardioTypes?.[session?.type],
-                          userData: resolvedUserData,
-                        })
-                      : null;
-                    const epocCalories =
-                      Number(sessionEpoc?.totalCalories) || 0;
-                    const effortType = session.effortType ?? 'intensity';
-                    const heartRate = Number(session.averageHeartRate);
-                    const hasHeartRate =
-                      Number.isFinite(heartRate) && heartRate > 0;
-                    const intensityLabel = session.intensity
-                      ? `${session.intensity.charAt(0).toUpperCase()}${session.intensity.slice(1)}`
-                      : 'Moderate';
-                    const effortDisplay =
-                      effortType === 'heartRate'
-                        ? hasHeartRate
-                          ? `${heartRate} bpm`
-                          : 'N/A bpm'
-                        : intensityLabel;
-                    const showMissingTypeWarning = !cardioType;
-
-                    return (
-                      <motion.div
-                        key={session.id}
-                        layout={!isSwiping}
-                        initial={{ opacity: 0, y: 12, scale: 0.98 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -12, scale: 0.95 }}
-                        transition={{ duration: 0.25, ease: 'easeOut' }}
-                        className="bg-surface-highlight/50 rounded-lg p-4 border border-border/50 flex justify-between items-start gap-4 shadow-lg shadow-background/20"
-                      >
-                        <div>
-                          <p className="text-foreground font-semibold">
-                            {label}
-                          </p>
-                          <p className="text-muted text-sm">
-                            {durationValue} min • {effortDisplay} • ~{calories}{' '}
-                            kcal
-                            {epocEnabled &&
-                              ` + ~${Math.round(epocCalories)} EPOC`}
-                          </p>
-                          {showMissingTypeWarning && (
-                            <p className="text-accent-amber text-xs mt-1">
-                              Cardio type removed; consider replacing this
-                              session.
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex items-end gap-6 pt-1">
-                          <motion.button
-                            onClick={() => onEditCardioSession?.(session.id)}
-                            type="button"
-                            className="text-foreground/80 transition-all pressable-inline focus-ring md:hover:text-foreground"
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                          >
-                            <Edit3 size={22} />
-                          </motion.button>
-                          <motion.button
-                            onClick={() => onRemoveCardioSession(session.id)}
-                            type="button"
-                            className="text-accent-red transition-all pressable-inline focus-ring md:hover:text-accent-red/80"
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                          >
-                            <Trash2 size={22} />
-                          </motion.button>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-              </motion.div>
-
-              <motion.div
-                layout={!isSwiping}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 8 }}
-                transition={{ duration: 0.3, ease: 'easeOut' }}
-                className="bg-accent-blue/30 border border-accent-blue rounded-lg p-3"
-              >
-                <p className="text-accent-blue font-semibold">
-                  Total Cardio Burn: {resolvedTotalCardioBurn} calories
-                  {epocEnabled &&
-                    ` (+${Math.round(resolvedCardioEpocTotal)} EPOC)`}
-                </p>
-              </motion.div>
+        <AnimatePresence mode="wait" initial={false}>
+          {resolvedHasCardioSessions ? (
+            <motion.div
+              key={`cardio-list-${todayDateKey}-${resolvedCardioSessions.length}`}
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{
+                scale: { type: 'spring', stiffness: 400, damping: 28 },
+                opacity: { duration: 0.15 },
+              }}
+            >
+              {cardioListContent}
             </motion.div>
           ) : (
             <motion.div
               key="cardio-empty"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{
+                scale: { type: 'spring', stiffness: 400, damping: 28 },
+                opacity: { duration: 0.15 },
+              }}
             >
-              <motion.button
-                onClick={onAddCardioClick}
-                type="button"
-                className="w-full flex items-center justify-between p-4 rounded-xl transition-all group pressable-card focus-ring md:hover:bg-surface-highlight/50"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.97 }}
-              >
-                <div className="flex items-center gap-3">
-                  <Heart className="text-accent-blue" size={24} />
-                  <div className="text-left">
-                    <h2 className="text-lg font-bold text-foreground">
-                      Add Cardio Session
-                    </h2>
-                    <p className="text-muted text-sm">
-                      Track your cardio activities
-                    </p>
-                  </div>
-                </div>
-                <Plus
-                  className="text-muted md:group-hover:text-primary transition-colors"
-                  size={24}
-                />
-              </motion.button>
+              {cardioEmptyContent}
             </motion.div>
           )}
         </AnimatePresence>
-      </motion.div>
+      </div>
     </div>
   );
 };
