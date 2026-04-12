@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Utensils, Save, Heart, Check } from 'lucide-react';
+import { Utensils, Save, Heart, Check, ChevronsUpDown } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import {
   calculateTefFromMacros,
@@ -19,13 +19,13 @@ export const FoodEntryModal = ({
   foodName,
   setFoodName,
   calories,
-  setCalories,
   protein,
-  setProtein,
   carbs,
-  setCarbs,
   fats,
-  setFats,
+  onOpenCaloriesPicker,
+  onOpenProteinPicker,
+  onOpenCarbsPicker,
+  onOpenFatsPicker,
   smartTefEnabled = false,
   isEditing = false,
 }) => {
@@ -105,16 +105,28 @@ export const FoodEntryModal = ({
     // Don't close - just mark as favourited
   };
 
-  const sanitizeNumericInput = (value) => {
-    // allow empty string
-    if (value === '') return '';
-    // remove any characters except digits and dot
-    const cleaned = String(value).replace(/[^0-9.]/g, '');
-    // if there's no dot or only one, return as-is (but keep only digits and single dot)
-    const parts = cleaned.split('.');
-    if (parts.length <= 1) return parts[0];
-    // keep first dot only, join the rest (prevents multiple dots)
-    return parts.shift() + '.' + parts.join('');
+  const formatPickerValue = (value, unit = '') => {
+    const numericValue = Number.parseFloat(value);
+    if (!Number.isFinite(numericValue)) {
+      return unit ? `0 ${unit}` : '0';
+    }
+
+    const formatted = Number.isInteger(numericValue)
+      ? String(numericValue)
+      : numericValue.toFixed(1).replace(/\.0$/, '');
+
+    return unit ? `${formatted} ${unit}` : formatted;
+  };
+
+  const handleOpenPicker = (openPickerCallback) => {
+    const activeElement = document.activeElement;
+    if (activeElement && typeof activeElement.blur === 'function') {
+      activeElement.blur();
+    }
+
+    window.setTimeout(() => {
+      openPickerCallback?.();
+    }, 60);
   };
 
   const tefBreakdown = useMemo(() => {
@@ -184,14 +196,17 @@ export const FoodEntryModal = ({
           <label className="block text-foreground text-sm font-semibold mb-2">
             Calories
           </label>
-          <input
-            type="text"
-            inputMode="decimal"
-            value={calories}
-            onChange={(e) => setCalories(sanitizeNumericInput(e.target.value))}
-            placeholder="0"
-            className="w-full bg-surface-highlight border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus-ring"
-          />
+          <button
+            type="button"
+            onClick={() => handleOpenPicker(onOpenCaloriesPicker)}
+            className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-3 pressable-inline"
+            aria-label="Open calories picker"
+          >
+            <span className="font-medium text-base">
+              {formatPickerValue(calories, 'kcal')}
+            </span>
+            <ChevronsUpDown size={16} className="text-muted shrink-0" />
+          </button>
         </div>
 
         {/* Macros Grid */}
@@ -200,42 +215,51 @@ export const FoodEntryModal = ({
             <label className="block text-foreground text-xs font-semibold mb-2">
               Protein (g)
             </label>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={protein}
-              onChange={(e) => setProtein(sanitizeNumericInput(e.target.value))}
-              placeholder="0"
-              className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
-            />
+            <button
+              type="button"
+              onClick={() => handleOpenPicker(onOpenProteinPicker)}
+              className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
+              aria-label="Open protein picker"
+            >
+              <span className="font-medium text-sm">
+                {formatPickerValue(protein, 'g')}
+              </span>
+              <ChevronsUpDown size={14} className="text-muted shrink-0" />
+            </button>
           </div>
 
           <div>
             <label className="block text-foreground text-xs font-semibold mb-2">
               Carbs (g)
             </label>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={carbs}
-              onChange={(e) => setCarbs(sanitizeNumericInput(e.target.value))}
-              placeholder="0"
-              className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
-            />
+            <button
+              type="button"
+              onClick={() => handleOpenPicker(onOpenCarbsPicker)}
+              className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
+              aria-label="Open carbs picker"
+            >
+              <span className="font-medium text-sm">
+                {formatPickerValue(carbs, 'g')}
+              </span>
+              <ChevronsUpDown size={14} className="text-muted shrink-0" />
+            </button>
           </div>
 
           <div>
             <label className="block text-foreground text-xs font-semibold mb-2">
               Fats (g)
             </label>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={fats}
-              onChange={(e) => setFats(sanitizeNumericInput(e.target.value))}
-              placeholder="0"
-              className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
-            />
+            <button
+              type="button"
+              onClick={() => handleOpenPicker(onOpenFatsPicker)}
+              className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
+              aria-label="Open fats picker"
+            >
+              <span className="font-medium text-sm">
+                {formatPickerValue(fats, 'g')}
+              </span>
+              <ChevronsUpDown size={14} className="text-muted shrink-0" />
+            </button>
           </div>
         </div>
 

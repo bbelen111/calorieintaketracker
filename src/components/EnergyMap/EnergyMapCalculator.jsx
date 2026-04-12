@@ -80,6 +80,7 @@ import { FoodPortionModal } from './modals/pickers/FoodPortionModal';
 import { StepTrackerModal } from './modals/fullscreen/StepTrackerModal';
 import { StepGoalPickerModal } from './modals/pickers/StepGoalPickerModal';
 import { MacroPickerModal } from './modals/pickers/MacroPickerModal';
+import { NumericValuePickerModal } from './modals/pickers/NumericValuePickerModal';
 import { CalorieTargetModal } from './modals/lists/CalorieTargetModal';
 // ...existing code...
 import { ConfirmActionModal } from './modals/common/ConfirmActionModal';
@@ -223,6 +224,77 @@ const sanitizeCardioDraft = (draft, cardioTypes = {}) => {
 const getTodayDateString = () => getTodayDateKey();
 
 const DEFAULT_PORTION_GRAMS = 100;
+const FOOD_ENTRY_PICKER_FIELDS = {
+  calories: {
+    title: 'Calories',
+    unitLabel: 'kcal',
+    min: 0,
+    max: 5000,
+    step: 5,
+  },
+  protein: {
+    title: 'Protein',
+    unitLabel: 'grammes',
+    min: 0,
+    max: 500,
+    step: 0.5,
+  },
+  carbs: {
+    title: 'Carbs',
+    unitLabel: 'grammes',
+    min: 0,
+    max: 500,
+    step: 0.5,
+  },
+  fats: {
+    title: 'Fats',
+    unitLabel: 'grammes',
+    min: 0,
+    max: 500,
+    step: 0.5,
+  },
+};
+
+const getStepPrecision = (step) => {
+  const normalized = String(step ?? 1);
+  if (!normalized.includes('.')) {
+    return 0;
+  }
+
+  return normalized.split('.')[1]?.length ?? 0;
+};
+
+const normalizePickerValue = (value, config) => {
+  const { min = 0, max = 100, step = 1 } = config ?? {};
+  const safeStep = Number.isFinite(step) && step > 0 ? step : 1;
+  const precision = getStepPrecision(safeStep);
+  const scale = 10 ** precision;
+
+  const minInt = Math.round(min * scale);
+  const maxInt = Math.round(max * scale);
+  const stepInt = Math.max(1, Math.round(safeStep * scale));
+  const numericValue = Number.isFinite(value) ? value : min;
+  const valueInt = Math.round(
+    Math.min(Math.max(numericValue, min), max) * scale
+  );
+  const steppedInt =
+    minInt + Math.round((valueInt - minInt) / stepInt) * stepInt;
+  const clampedInt = Math.min(Math.max(steppedInt, minInt), maxInt);
+
+  return clampedInt / scale;
+};
+
+const formatPickerValueForState = (value, step) => {
+  const precision = getStepPrecision(step);
+  if (precision <= 0) {
+    return String(Math.round(value));
+  }
+
+  return value
+    .toFixed(precision)
+    .replace(/\.0+$/, '')
+    .replace(/(\.\d*?)0+$/, '$1');
+};
 
 const buildFallbackFoodFromEntry = (entry) => {
   const safeNumber = (value) => (Number.isFinite(value) ? value : 0);
@@ -509,6 +581,8 @@ export const EnergyMapCalculator = () => {
   const [foodProtein, setFoodProtein] = useState('');
   const [foodCarbs, setFoodCarbs] = useState('');
   const [foodFats, setFoodFats] = useState('');
+  const [foodNutrientPickerConfig, setFoodNutrientPickerConfig] =
+    useState(null);
   const [selectedFoodForPortion, setSelectedFoodForPortion] = useState(null);
   const [editingPortionEntry, setEditingPortionEntry] = useState(null);
   const [portionInitialGrams, setPortionInitialGrams] = useState(null);
@@ -586,6 +660,7 @@ export const EnergyMapCalculator = () => {
   const dailyLogModal = useAnimatedModal();
   const calendarPickerModal = useAnimatedModal();
   const foodEntryModal = useAnimatedModal();
+  const foodNutrientPickerModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
   const mealTypePickerModal = useAnimatedModal();
   const foodSearchModal = useAnimatedModal();
   const foodPortionModal = useAnimatedModal();
@@ -599,6 +674,7 @@ export const EnergyMapCalculator = () => {
     confirmActionModal,
     foodPortionModal,
     foodEntryModal,
+    foodNutrientPickerModal,
     foodSearchModal,
     mealTypePickerModal,
     calendarPickerModal,
@@ -644,6 +720,7 @@ export const EnergyMapCalculator = () => {
       confirmActionModal,
       foodPortionModal,
       foodEntryModal,
+      foodNutrientPickerModal,
       foodSearchModal,
       mealTypePickerModal,
       calendarPickerModal,
@@ -717,6 +794,7 @@ export const EnergyMapCalculator = () => {
     epocWindowPickerModal,
     ffmiModal,
     foodEntryModal,
+    foodNutrientPickerModal,
     foodPortionModal,
     foodSearchModal,
     goalModal,
@@ -2169,6 +2247,69 @@ export const EnergyMapCalculator = () => {
     foodEntryModal.open();
   }, [foodEntryModal, resetFoodEntryForm]);
 
+  const openFoodNutrientPicker = useCallback(
+    (fieldKey) => {
+      const fieldConfig = FOOD_ENTRY_PICKER_FIELDS[fieldKey];
+      if (!fieldConfig) {
+        return;
+      }
+
+      let currentValue = 0;
+      if (fieldKey === 'calories') {
+        currentValue = Number.parseFloat(foodCalories);
+      } else if (fieldKey === 'protein') {
+        currentValue = Number.parseFloat(foodProtein);
+      } else if (fieldKey === 'carbs') {
+        currentValue = Number.parseFloat(foodCarbs);
+      } else if (fieldKey === 'fats') {
+        currentValue = Number.parseFloat(foodFats);
+      }
+
+      setFoodNutrientPickerConfig({
+        ...fieldConfig,
+        fieldKey,
+        value: normalizePickerValue(currentValue, fieldConfig),
+      });
+      foodNutrientPickerModal.open();
+    },
+    [foodCalories, foodCarbs, foodFats, foodNutrientPickerModal, foodProtein]
+  );
+
+  const handleFoodNutrientPickerSave = useCallback(
+    (nextValue) => {
+      if (!foodNutrientPickerConfig?.fieldKey) {
+        foodNutrientPickerModal.requestClose();
+        return;
+      }
+
+      const normalizedValue = normalizePickerValue(
+        Number(nextValue),
+        foodNutrientPickerConfig
+      );
+      const formattedValue = formatPickerValueForState(
+        normalizedValue,
+        foodNutrientPickerConfig.step
+      );
+
+      if (foodNutrientPickerConfig.fieldKey === 'calories') {
+        setFoodCalories(formattedValue);
+      } else if (foodNutrientPickerConfig.fieldKey === 'protein') {
+        setFoodProtein(formattedValue);
+      } else if (foodNutrientPickerConfig.fieldKey === 'carbs') {
+        setFoodCarbs(formattedValue);
+      } else if (foodNutrientPickerConfig.fieldKey === 'fats') {
+        setFoodFats(formattedValue);
+      }
+
+      foodNutrientPickerModal.requestClose();
+    },
+    [foodNutrientPickerConfig, foodNutrientPickerModal]
+  );
+
+  const handleFoodNutrientPickerCancel = useCallback(() => {
+    foodNutrientPickerModal.requestClose();
+  }, [foodNutrientPickerModal]);
+
   // Handle adding food from portion modal
   const handleAddFoodFromPortion = useCallback(
     (foodEntry) => {
@@ -2392,6 +2533,14 @@ export const EnergyMapCalculator = () => {
       return () => clearTimeout(timer);
     }
   }, [foodEntryModal.isClosing, resetFoodEntryForm]);
+
+  useEffect(() => {
+    if (foodNutrientPickerModal.isOpen || foodNutrientPickerModal.isClosing) {
+      return;
+    }
+
+    setFoodNutrientPickerConfig(null);
+  }, [foodNutrientPickerModal.isClosing, foodNutrientPickerModal.isOpen]);
 
   useEffect(() => {
     if (foodSearchModal.isClosing) {
@@ -3570,6 +3719,19 @@ export const EnergyMapCalculator = () => {
         onSave={handleEpocWindowSave}
       />
 
+      <NumericValuePickerModal
+        isOpen={foodNutrientPickerModal.isOpen}
+        isClosing={foodNutrientPickerModal.isClosing}
+        title={foodNutrientPickerConfig?.title ?? 'Select Value'}
+        value={foodNutrientPickerConfig?.value ?? 0}
+        min={foodNutrientPickerConfig?.min ?? 0}
+        max={foodNutrientPickerConfig?.max ?? 100}
+        step={foodNutrientPickerConfig?.step ?? 1}
+        unitLabel={foodNutrientPickerConfig?.unitLabel ?? ''}
+        onCancel={handleFoodNutrientPickerCancel}
+        onSave={handleFoodNutrientPickerSave}
+      />
+
       <WeightEntryModal
         isOpen={weightEntryModal.isOpen}
         isClosing={weightEntryModal.isClosing}
@@ -3889,13 +4051,13 @@ export const EnergyMapCalculator = () => {
         foodName={foodName}
         setFoodName={setFoodName}
         calories={foodCalories}
-        setCalories={setFoodCalories}
         protein={foodProtein}
-        setProtein={setFoodProtein}
         carbs={foodCarbs}
-        setCarbs={setFoodCarbs}
         fats={foodFats}
-        setFats={setFoodFats}
+        onOpenCaloriesPicker={() => openFoodNutrientPicker('calories')}
+        onOpenProteinPicker={() => openFoodNutrientPicker('protein')}
+        onOpenCarbsPicker={() => openFoodNutrientPicker('carbs')}
+        onOpenFatsPicker={() => openFoodNutrientPicker('fats')}
         smartTefEnabled={
           userData.smartTefEnabled &&
           (userData.smartTefFoodTefBurnEnabled ?? true)

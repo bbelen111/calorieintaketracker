@@ -15,6 +15,9 @@ import { Capacitor } from '@capacitor/core';
 
 const BASE_Z_INDEX = 1000;
 const OVERLAY_FADE_MS = 180;
+const KEYBOARD_RESIZE_MIN_DELTA = 120;
+const KEYBOARD_RESIZE_MAX_DELTA = 420;
+const VIEWPORT_WIDTH_LAYOUT_DELTA = 80;
 
 // Overlay opacity configuration - increases with modal depth for visual hierarchy
 const OVERLAY_BASE_OPACITY = 0.56; // Single modal backdrop
@@ -244,6 +247,7 @@ export const ModalShell = ({
   const hasRegisteredRef = useRef(false);
   const lockedViewportHeightRef = useRef(null);
   const baseViewportHeightRef = useRef(null);
+  const baseViewportWidthRef = useRef(null);
   const isNative = Capacitor.isNativePlatform();
   const shouldFullHeight = fullHeight && isNative;
   const sanitizedOverlayClassName = overlayClassName
@@ -390,9 +394,13 @@ export const ModalShell = ({
 
     const getViewportHeight = () =>
       Math.round(window.visualViewport?.height || window.innerHeight || 0);
+    const getViewportWidth = () =>
+      Math.round(window.visualViewport?.width || window.innerWidth || 0);
 
     const initialHeight = getViewportHeight();
+    const initialWidth = getViewportWidth();
     baseViewportHeightRef.current = initialHeight;
+    baseViewportWidthRef.current = initialWidth;
     lockedViewportHeightRef.current = initialHeight || null;
 
     const applyHeight = (height) => {
@@ -414,14 +422,29 @@ export const ModalShell = ({
 
     const handleResize = () => {
       const currentHeight = getViewportHeight();
+      const currentWidth = getViewportWidth();
       const baseHeight = baseViewportHeightRef.current || currentHeight;
+      const baseWidth = baseViewportWidthRef.current || currentWidth;
       const diff = Math.abs(currentHeight - baseHeight);
+      const widthDiff = Math.abs(currentWidth - baseWidth);
 
-      // Ignore keyboard resize (usually ~250-350px), update on large changes
-      if (diff > 320) {
+      // Ignore keyboard-driven viewport changes; only relock on true layout changes.
+      const isKeyboardSizedDelta =
+        diff >= KEYBOARD_RESIZE_MIN_DELTA && diff <= KEYBOARD_RESIZE_MAX_DELTA;
+      const hasSignificantWidthChange =
+        widthDiff >= VIEWPORT_WIDTH_LAYOUT_DELTA;
+      const hasLargeHeightLayoutChange = diff > KEYBOARD_RESIZE_MAX_DELTA;
+
+      if (hasSignificantWidthChange || hasLargeHeightLayoutChange) {
         baseViewportHeightRef.current = currentHeight;
+        baseViewportWidthRef.current = currentWidth;
         lockedViewportHeightRef.current = currentHeight || null;
         applyHeight(currentHeight);
+        return;
+      }
+
+      if (isKeyboardSizedDelta) {
+        return;
       }
     };
 
@@ -432,6 +455,7 @@ export const ModalShell = ({
       window.removeEventListener('resize', handleResize);
       window.visualViewport?.removeEventListener('resize', handleResize);
       baseViewportHeightRef.current = null;
+      baseViewportWidthRef.current = null;
       lockedViewportHeightRef.current = null;
       if (overlayNode) {
         overlayNode.style.height = '';
