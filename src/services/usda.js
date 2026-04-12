@@ -209,7 +209,7 @@ function mapUsdaFoodToFood(food, index = 0) {
     id: `usda_${resolvedId}`,
     name: String(food?.description || '').trim() || `USDA Food ${resolvedId}`,
     brand: brand || null,
-    category: 'cached',
+    category: null,
     subcategory: isBranded ? 'branded' : 'generic',
     per100g,
     previewMacros: {
@@ -219,7 +219,6 @@ function mapUsdaFoodToFood(food, index = 0) {
     portions,
     type: isBranded ? 'Brand' : 'Generic',
     source: 'usda',
-    cachedAt: Date.now(),
   };
 }
 

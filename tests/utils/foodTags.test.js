@@ -10,21 +10,28 @@ import { formatFoodDisplayName } from '../../src/utils/food/foodPresentation.js'
 
 test('resolveFoodSourceType maps cached sources consistently', () => {
   assert.equal(
-    resolveFoodSourceType({ source: 'openfoodfacts' }),
+    resolveFoodSourceType({ category: 'cached' }),
     FOOD_SOURCE_TYPES.CACHED
   );
 
   assert.equal(
-    resolveFoodSourceType({ id: 'fs_123' }),
+    resolveFoodSourceType({ cachedAt: Date.now() }),
     FOOD_SOURCE_TYPES.CACHED
   );
   assert.equal(
-    resolveFoodSourceType({ id: 'off_789' }),
+    resolveFoodSourceType({ isCached: true }),
     FOOD_SOURCE_TYPES.CACHED
   );
+});
+
+test('resolveFoodSourceType does not treat online preview source as cached', () => {
   assert.equal(
-    resolveFoodSourceType({ category: 'cached' }),
-    FOOD_SOURCE_TYPES.CACHED
+    resolveFoodSourceType({ source: 'usda' }),
+    FOOD_SOURCE_TYPES.LOCAL
+  );
+  assert.equal(
+    resolveFoodSourceType({ source: 'openfoodfacts' }),
+    FOOD_SOURCE_TYPES.LOCAL
   );
 });
 

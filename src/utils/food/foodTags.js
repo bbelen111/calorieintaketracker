@@ -42,17 +42,13 @@ export const getFoodTagClassByColor = (color) => {
 
 export const resolveFoodSourceType = (food) => {
   const source = String(food?.source ?? '').toLowerCase();
-  const foodId = String(food?.id ?? food?.foodId ?? '').toLowerCase();
   const category = String(food?.category ?? '').toLowerCase();
+  const isExplicitlyCached =
+    food?.isCached === true ||
+    Number.isFinite(Number(food?.cachedAt)) ||
+    category === 'cached';
 
-  if (
-    source === 'openfoodfacts' ||
-    source === 'usda' ||
-    foodId.startsWith('fs_') ||
-    foodId.startsWith('off_') ||
-    foodId.startsWith('usda_') ||
-    category === 'cached'
-  ) {
+  if (isExplicitlyCached) {
     return FOOD_SOURCE_TYPES.CACHED;
   }
 

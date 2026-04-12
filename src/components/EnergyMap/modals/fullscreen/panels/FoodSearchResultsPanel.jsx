@@ -4,6 +4,64 @@ import { FoodTagBadges } from '../../../common/FoodTagBadges';
 import { formatOne } from '../../../../../utils/formatting/format';
 import { formatFoodDisplayName } from '../../../../../utils/food/foodPresentation';
 
+const resolveOnlineSourceBadge = (source) => {
+  const normalizedSource = String(source || '')
+    .toLowerCase()
+    .trim();
+
+  if (normalizedSource === 'usda') {
+    return {
+      label: 'USDA',
+      className: 'bg-accent-blue/20 text-accent-blue',
+    };
+  }
+
+  if (normalizedSource === 'openfoodfacts') {
+    return {
+      label: 'OpenFoodFacts',
+      className: 'bg-accent-indigo/20 text-accent-indigo',
+    };
+  }
+
+  if (normalizedSource === 'ai_web_search') {
+    return {
+      label: 'Web',
+      className: 'bg-accent-purple/20 text-accent-purple',
+    };
+  }
+
+  if (!normalizedSource) {
+    return null;
+  }
+
+  return {
+    label: 'Online',
+    className: 'bg-surface-highlight/60 text-muted',
+  };
+};
+
+const resolveOnlineTypeBadge = (type) => {
+  const normalizedType = String(type || '')
+    .toLowerCase()
+    .trim();
+
+  if (normalizedType === 'brand') {
+    return {
+      label: 'Branded',
+      className: 'bg-accent-emerald/20 text-accent-emerald',
+    };
+  }
+
+  if (normalizedType === 'generic') {
+    return {
+      label: 'Generic',
+      className: 'bg-accent-slate/20 text-accent-slate',
+    };
+  }
+
+  return null;
+};
+
 export const FoodSearchResultsPanel = ({
   searchMode,
   activeSearchSource,
@@ -118,6 +176,10 @@ export const FoodSearchResultsPanel = ({
     ) : searchMode === 'online' && !isSearching ? (
       displayResults.map((food) => {
         const isLoading = loadingFoodId === food.id;
+        const onlineSourceBadge = resolveOnlineSourceBadge(
+          food.source || activeSearchSource
+        );
+        const onlineTypeBadge = resolveOnlineTypeBadge(food.type);
         const hasPreviewMacros = Boolean(food.previewMacros);
         const macroSource = hasPreviewMacros
           ? food.previewMacros
@@ -154,11 +216,24 @@ export const FoodSearchResultsPanel = ({
                     })}
                   </h4>
                 </div>
-                <FoodTagBadges
-                  food={food}
-                  showCategory={false}
-                  className="mt-1"
-                />
+                {(onlineSourceBadge || onlineTypeBadge) && (
+                  <div className="mt-1 flex items-center gap-2 flex-wrap">
+                    {onlineSourceBadge && (
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded ${onlineSourceBadge.className}`}
+                      >
+                        {onlineSourceBadge.label}
+                      </span>
+                    )}
+                    {onlineTypeBadge && (
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded ${onlineTypeBadge.className}`}
+                      >
+                        {onlineTypeBadge.label}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
               {macroSource && (
                 <div className="flex flex-col items-end gap-1">
