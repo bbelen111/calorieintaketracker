@@ -3,7 +3,7 @@
 // Keeps Gemini API key server-side and proxies chat requests.
 
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
-const DEFAULT_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const FALLBACK_MODEL = 'gemini-2.5-flash';
 const FOOD_PARSER_SCHEMA_VERSION = '1.0.0';
 const GEMINI_MODES = Object.freeze({
   EXTRACTION: 'extraction',
@@ -224,6 +224,8 @@ export default async function handler(req, res) {
       ? modeRaw
       : GEMINI_MODES.EXTRACTION;
   const useGrounding = body.useGrounding === true;
+  const defaultModel = process.env.GEMINI_MODEL || FALLBACK_MODEL;
+  const defaultGroundingModelRaw = process.env.GEMINI_GROUNDING_MODEL || '';
 
   if (modeRaw && !Object.values(GEMINI_MODES).includes(modeRaw)) {
     return res.status(400).json({
@@ -232,10 +234,20 @@ export default async function handler(req, res) {
     });
   }
 
-  const model =
+  const requestedModel =
     typeof body.model === 'string' && body.model.trim().length > 0
       ? body.model.trim()
-      : DEFAULT_MODEL;
+      : '';
+  const defaultGroundingModel =
+    typeof defaultGroundingModelRaw === 'string' &&
+    defaultGroundingModelRaw.trim().length > 0
+      ? defaultGroundingModelRaw.trim()
+      : '';
+  const model =
+    requestedModel ||
+    (mode === GEMINI_MODES.GROUNDING_LOOKUP && defaultGroundingModel
+      ? defaultGroundingModel
+      : defaultModel);
 
   const contents = body.contents;
 

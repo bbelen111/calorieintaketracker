@@ -469,6 +469,10 @@ Auto-adjust: 400-level shades (dark/AMOLED), 600-level (light).
 VITE_OPENFOODFACTS_API_BASE=https://your-vercel-url/api/openfoodfacts
 VITE_USDA_API_BASE=https://your-vercel-url/api/usda
 VITE_GEMINI_API_BASE=https://your-vercel-url/api/gemini
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_GROUNDING_MODEL=gemini-2.5-flash-lite
+# Optional client-side override for grounded lookup calls only
+VITE_GEMINI_GROUNDING_MODEL=gemini-2.5-flash-lite
 ```
 
 ### Capacitor Config

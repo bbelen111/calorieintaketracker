@@ -45,6 +45,12 @@ const API_BASE = (
     : '') || 'https://calorieintaketracker.vercel.app/api/gemini'
 ).trim();
 
+const GROUNDING_MODEL_OVERRIDE =
+  typeof import.meta.env?.VITE_GEMINI_GROUNDING_MODEL === 'string' &&
+  import.meta.env.VITE_GEMINI_GROUNDING_MODEL.trim().length > 0
+    ? import.meta.env.VITE_GEMINI_GROUNDING_MODEL.trim()
+    : undefined;
+
 const RATE_LIMIT_MAX_RETRIES = 2;
 const RATE_LIMIT_BACKOFF_BASE_MS = 400;
 const CLIENT_RATE_LIMIT_MAX_REQUESTS_PER_WINDOW = 15;
@@ -1044,7 +1050,8 @@ export async function sendGeminiPresentation({
 export async function fetchMacrosWithGrounding(
   foodName,
   signal,
-  timeoutMs = 20000
+  timeoutMs = 20000,
+  model = GROUNDING_MODEL_OVERRIDE
 ) {
   const normalizedFoodName = String(foodName ?? '').trim();
   if (!normalizedFoodName) {
@@ -1057,6 +1064,7 @@ export async function fetchMacrosWithGrounding(
     message: prompt,
     files: [],
     history: [],
+    model,
     mode: GEMINI_REQUEST_MODE.GROUNDING_LOOKUP,
     expectFoodParser: true,
     useGrounding: true,

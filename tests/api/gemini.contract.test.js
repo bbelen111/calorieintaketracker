@@ -160,3 +160,74 @@ test('gemini proxy gates googleSearch tool only for grounding_lookup + useGround
     process.env.GEMINI_API_KEY = originalApiKey;
   }
 });
+
+test('gemini proxy resolves grounding model precedence correctly', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalApiKey = process.env.GEMINI_API_KEY;
+  const originalDefaultModel = process.env.GEMINI_MODEL;
+  const originalGroundingModel = process.env.GEMINI_GROUNDING_MODEL;
+
+  process.env.GEMINI_API_KEY = 'test-key';
+  process.env.GEMINI_MODEL = 'gemini-2.5-flash';
+  process.env.GEMINI_GROUNDING_MODEL = 'gemini-2.5-flash-lite';
+
+  const capturedEndpoints = [];
+  globalThis.fetch = async (url) => {
+    capturedEndpoints.push(String(url));
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ candidates: [] }),
+    };
+  };
+
+  try {
+    const scenarios = [
+      {
+        body: {
+          mode: 'grounding_lookup',
+          useGrounding: true,
+          contents: buildValidContents(),
+        },
+        expectedModel: 'gemini-2.5-flash-lite',
+      },
+      {
+        body: {
+          mode: 'extraction',
+          contents: buildValidContents(),
+        },
+        expectedModel: 'gemini-2.5-flash',
+      },
+      {
+        body: {
+          mode: 'grounding_lookup',
+          useGrounding: true,
+          model: 'gemini-2.5-pro',
+          contents: buildValidContents(),
+        },
+        expectedModel: 'gemini-2.5-pro',
+      },
+    ];
+
+    for (const scenario of scenarios) {
+      const req = createMockReq(scenario.body);
+      const res = createMockRes();
+      await handler(req, res);
+      assert.equal(res.statusCode, 200);
+    }
+
+    assert.equal(capturedEndpoints.length, scenarios.length);
+
+    scenarios.forEach((scenario, index) => {
+      const endpoint = decodeURIComponent(capturedEndpoints[index]);
+      assert.ok(
+        endpoint.includes(`/models/${scenario.expectedModel}:generateContent`)
+      );
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+    process.env.GEMINI_API_KEY = originalApiKey;
+    process.env.GEMINI_MODEL = originalDefaultModel;
+    process.env.GEMINI_GROUNDING_MODEL = originalGroundingModel;
+  }
+});

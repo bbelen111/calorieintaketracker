@@ -365,6 +365,48 @@ test('fetchMacrosWithGrounding retries transient 503 and returns parsed grounded
   }
 });
 
+test('fetchMacrosWithGrounding forwards model override in request body', async () => {
+  const originalFetch = globalThis.fetch;
+  let capturedBody = null;
+
+  globalThis.fetch = async (_url, options = {}) => {
+    capturedBody = JSON.parse(String(options.body || '{}'));
+
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: `Grounded entry ready.\n<food_parser_json>{"version":"${FOOD_PARSER_SCHEMA_VERSION}","messageType":"food_entries","assistantMessage":"Grounded entry ready.","entries":[{"name":"Chicken adobo","grams":100,"calories":180,"protein":16,"carbs":6,"fats":10,"confidence":"low"}]}</food_parser_json>`,
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    };
+  };
+
+  try {
+    await fetchMacrosWithGrounding(
+      'chicken adobo',
+      undefined,
+      20000,
+      'gemini-2.5-flash-lite'
+    );
+
+    assert.equal(capturedBody.mode, GEMINI_REQUEST_MODE.GROUNDING_LOOKUP);
+    assert.equal(capturedBody.useGrounding, true);
+    assert.equal(capturedBody.model, 'gemini-2.5-flash-lite');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('sendGeminiMessage retries once when first response has no candidates', async () => {
   const originalFetch = globalThis.fetch;
   let callCount = 0;
