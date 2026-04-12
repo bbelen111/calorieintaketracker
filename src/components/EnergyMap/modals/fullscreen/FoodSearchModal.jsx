@@ -87,6 +87,13 @@ const DEFAULT_CHAT_PLACEHOLDER = 'Describe food + portion...';
 const LOCAL_RESULT_BATCH_SIZE = 120;
 const ONLINE_RESULT_BATCH_SIZE = 80;
 const LOCAL_DB_QUERY_PAGE_SIZE = 500;
+const CHAT_REQUEST_STAGE = {
+  EXTRACTION: 'extraction',
+  RETRIEVAL: 'retrieval',
+  VERIFICATION: 'verification',
+  PRESENTATION: 'presentation',
+  PROCESSING: 'processing',
+};
 const AI_CATEGORY_KEYS = new Set([
   'protein',
   'carbs',
@@ -307,7 +314,8 @@ const buildRollingFoodContextSummary = (messages, options = {}) => {
 
       const grams = Number(entry?.grams);
       const calories = Number(entry?.calories);
-      const gramsLabel = Number.isFinite(grams) && grams > 0 ? `${Math.round(grams)}g` : null;
+      const gramsLabel =
+        Number.isFinite(grams) && grams > 0 ? `${Math.round(grams)}g` : null;
       const caloriesLabel =
         Number.isFinite(calories) && calories > 0
           ? `${Math.round(calories)} kcal`
@@ -325,6 +333,17 @@ const buildRollingFoodContextSummary = (messages, options = {}) => {
   }
 
   return recentItems.map((item, index) => `${index + 1}. ${item}`).join('\n');
+};
+
+const createChatRequestId = () =>
+  `chat-req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+const getNowMs = () => {
+  if (typeof window !== 'undefined' && window.performance?.now) {
+    return window.performance.now();
+  }
+
+  return Date.now();
 };
 
 export const FoodSearchModal = ({
@@ -379,11 +398,7 @@ export const FoodSearchModal = ({
         aiChatRagRolloutOverride,
         aiChatRagRolloutPercentage,
       }),
-    [
-      aiChatRagRolloutOverride,
-      aiChatRagRolloutPercentage,
-      aiChatRolloutUserId,
-    ]
+    [aiChatRagRolloutOverride, aiChatRagRolloutPercentage, aiChatRolloutUserId]
   );
   const LONG_PRESS_DURATION = 650;
   const DEBOUNCE_DELAY = 500;
@@ -513,6 +528,7 @@ export const FoodSearchModal = ({
   const [chatAttachmentErrors, setChatAttachmentErrors] = useState([]);
   const [chatError, setChatError] = useState(null);
   const [isSendingChat, setIsSendingChat] = useState(false);
+  const [chatStatusNowMs, setChatStatusNowMs] = useState(() => Date.now());
   const [queuedChatMessageIds, setQueuedChatMessageIds] = useState([]);
   const [activeChatRequest, setActiveChatRequest] = useState(null);
   const [expandedAiEntryKeys, setExpandedAiEntryKeys] = useState({});
@@ -660,6 +676,20 @@ export const FoodSearchModal = ({
     dispatchUiState({ type: 'set', key: 'isFilterOpen', value: false });
     dispatchUiState({ type: 'set', key: 'viewMode', value: 'search' });
   }, [searchMode]);
+
+  useEffect(() => {
+    if (!isSendingChat) {
+      return undefined;
+    }
+
+    const timerId = window.setInterval(() => {
+      setChatStatusNowMs(Date.now());
+    }, 250);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [isSendingChat]);
 
   useEffect(() => {
     const previousViewMode = previousViewModeRef.current;
@@ -1737,24 +1767,27 @@ export const FoodSearchModal = ({
     );
   }, []);
 
-  const queueChatMessageForReplay = useCallback((messageId) => {
-    if (!messageId) {
-      return;
-    }
-
-    setQueuedChatMessageIds((prev) => {
-      if (prev.includes(messageId)) {
-        return prev;
+  const queueChatMessageForReplay = useCallback(
+    (messageId) => {
+      if (!messageId) {
+        return;
       }
-      return [...prev, messageId];
-    });
 
-    updateMessageById(messageId, (current) => ({
-      ...current,
-      status: 'queued',
-      error: null,
-    }));
-  }, [updateMessageById]);
+      setQueuedChatMessageIds((prev) => {
+        if (prev.includes(messageId)) {
+          return prev;
+        }
+        return [...prev, messageId];
+      });
+
+      updateMessageById(messageId, (current) => ({
+        ...current,
+        status: 'queued',
+        error: null,
+      }));
+    },
+    [updateMessageById]
+  );
 
   const removeAttachment = useCallback((attachmentId) => {
     setChatAttachments((prev) => {
@@ -2036,11 +2069,35 @@ export const FoodSearchModal = ({
 
       setChatError(null);
       setIsSendingChat(true);
+      const requestId = createChatRequestId();
       setActiveChatRequest({
         userMessageId,
         assistantPlaceholderId,
+        requestId,
+        startedAtMs: Date.now(),
+        currentStage: isAiChatRagEnabled
+          ? CHAT_REQUEST_STAGE.EXTRACTION
+          : CHAT_REQUEST_STAGE.PROCESSING,
       });
-      const requestStartedAt = performance.now();
+
+      const transitionRequestStage = (nextStage) => {
+        setActiveChatRequest((previousRequest) => {
+          if (!previousRequest || previousRequest.requestId !== requestId) {
+            return previousRequest;
+          }
+
+          if (previousRequest.currentStage === nextStage) {
+            return previousRequest;
+          }
+
+          return {
+            ...previousRequest,
+            currentStage: nextStage,
+          };
+        });
+      };
+
+      const requestStartedAt = getNowMs();
       let lookupStatsRecorded = false;
       let extractionSchemaVersion = null;
       let resultSchemaVersion = null;
@@ -2063,7 +2120,7 @@ export const FoodSearchModal = ({
         let preResolvedLookupContext = {};
 
         if (isAiChatRagEnabled) {
-          const extractionStartedAt = performance.now();
+          const extractionStartedAt = getNowMs();
           const runExtractionAttempt = async (messageOverride = trimmedText) =>
             sendGeminiExtraction({
               message: messageOverride,
@@ -2074,7 +2131,7 @@ export const FoodSearchModal = ({
             });
 
           let extractionResult = await runExtractionAttempt(trimmedText);
-          const extractionLatencyMs = performance.now() - extractionStartedAt;
+          const extractionLatencyMs = getNowMs() - extractionStartedAt;
           extractionSchemaVersion =
             extractionResult?.foodParser?.version || null;
           void recordRagStageLatency({
@@ -2140,7 +2197,8 @@ export const FoodSearchModal = ({
             result = extractionResult;
             resultSchemaVersion = extractionSchemaVersion;
           } else {
-            const retrievalStartedAt = performance.now();
+            transitionRequestStage(CHAT_REQUEST_STAGE.RETRIEVAL);
+            const retrievalStartedAt = getNowMs();
             preResolvedLookupContext = await resolveFoodLookupContext({
               messageId: assistantMessageId,
               entries: effectiveExtractionEntries,
@@ -2148,7 +2206,7 @@ export const FoodSearchModal = ({
             });
             void recordRagStageLatency({
               stage: 'retrieval',
-              durationMs: performance.now() - retrievalStartedAt,
+              durationMs: getNowMs() - retrievalStartedAt,
               schemaVersion: extractionSchemaVersion,
             }).catch(() => {});
             void recordRagLookupStats({
@@ -2157,7 +2215,8 @@ export const FoodSearchModal = ({
             }).catch(() => {});
             lookupStatsRecorded = true;
 
-            const verificationStartedAt = performance.now();
+            transitionRequestStage(CHAT_REQUEST_STAGE.VERIFICATION);
+            const verificationStartedAt = getNowMs();
             const verifiedEntryResults = await Promise.all(
               effectiveExtractionEntries.map((entry, index) => {
                 const entryKey = `${assistantMessageId}-${index}`;
@@ -2170,7 +2229,7 @@ export const FoodSearchModal = ({
             );
             void recordRagStageLatency({
               stage: 'verification',
-              durationMs: performance.now() - verificationStartedAt,
+              durationMs: getNowMs() - verificationStartedAt,
               schemaVersion: extractionSchemaVersion,
             }).catch(() => {});
 
@@ -2187,7 +2246,8 @@ export const FoodSearchModal = ({
               }
             });
 
-            const presentationStartedAt = performance.now();
+            transitionRequestStage(CHAT_REQUEST_STAGE.PRESENTATION);
+            const presentationStartedAt = getNowMs();
             const presentationResult = await sendGeminiPresentation({
               message: trimmedText,
               systemData: {
@@ -2201,7 +2261,7 @@ export const FoodSearchModal = ({
               extractionSchemaVersion;
             void recordRagStageLatency({
               stage: 'presentation',
-              durationMs: performance.now() - presentationStartedAt,
+              durationMs: getNowMs() - presentationStartedAt,
               schemaVersion: resultSchemaVersion,
             }).catch(() => {});
 
@@ -2257,6 +2317,7 @@ export const FoodSearchModal = ({
             };
           }
         } else {
+          transitionRequestStage(CHAT_REQUEST_STAGE.PROCESSING);
           result = await sendGeminiMessage({
             message: trimmedText,
             files: attachments.map((attachment) => attachment.file),
@@ -2339,7 +2400,7 @@ export const FoodSearchModal = ({
 
         void recordRagStageLatency({
           stage: 'endToEnd',
-          durationMs: performance.now() - requestStartedAt,
+          durationMs: getNowMs() - requestStartedAt,
           schemaVersion: resultSchemaVersion || extractionSchemaVersion,
         }).catch(() => {});
       } catch (error) {
@@ -2511,7 +2572,9 @@ export const FoodSearchModal = ({
 
     if (shouldQueue) {
       setQueuedChatMessageIds((prev) => [...prev, userMessageId]);
-      setChatError('Message queued offline. It will send automatically once reconnected.');
+      setChatError(
+        'Message queued offline. It will send automatically once reconnected.'
+      );
       return;
     }
 
@@ -2545,7 +2608,9 @@ export const FoodSearchModal = ({
 
       if (!isOnline) {
         queueChatMessageForReplay(message.id);
-        setChatError('Message queued offline. It will send automatically once reconnected.');
+        setChatError(
+          'Message queued offline. It will send automatically once reconnected.'
+        );
         return;
       }
 
@@ -3138,6 +3203,7 @@ export const FoodSearchModal = ({
             chatAttachmentErrors={chatAttachmentErrors}
             removeAttachmentError={removeAttachmentError}
             isSendingChat={isSendingChat}
+            chatStatusNowMs={chatStatusNowMs}
             activeChatRequest={activeChatRequest}
             chatScrollRef={chatScrollRef}
             fileInputRef={fileInputRef}
