@@ -94,6 +94,14 @@ const CHAT_REQUEST_STAGE = {
   PRESENTATION: 'presentation',
   PROCESSING: 'processing',
 };
+const FOOD_SEARCH_DEFAULT_ENTRY_SET = new Set([
+  'search_local',
+  'search_online',
+  'favourites',
+  'chat',
+  'manual_entry',
+  'barcode',
+]);
 const AI_CATEGORY_KEYS = new Set([
   'protein',
   'carbs',
@@ -338,6 +346,16 @@ const buildRollingFoodContextSummary = (messages, options = {}) => {
 const createChatRequestId = () =>
   `chat-req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+const normalizeFoodSearchDefaultEntry = (value) => {
+  const normalized = String(value ?? '')
+    .trim()
+    .toLowerCase();
+
+  return FOOD_SEARCH_DEFAULT_ENTRY_SET.has(normalized)
+    ? normalized
+    : 'search_local';
+};
+
 const getNowMs = () => {
   if (typeof window !== 'undefined' && window.performance?.now) {
     return window.performance.now();
@@ -368,6 +386,7 @@ export const FoodSearchModal = ({
     foodFavourites,
     pinnedFoods: storePinnedFoods,
     cachedFoods: storeCachedFoods,
+    foodSearchDefaultEntry,
     aiChatRolloutUserId,
     aiChatRagRolloutOverride,
     aiChatRagRolloutPercentage,
@@ -378,6 +397,7 @@ export const FoodSearchModal = ({
       foodFavourites: state.foodFavourites,
       pinnedFoods: state.pinnedFoods,
       cachedFoods: state.cachedFoods,
+      foodSearchDefaultEntry: state.userData?.foodSearchDefaultEntry,
       aiChatRolloutUserId: state.userData?.aiChatRolloutUserId,
       aiChatRagRolloutOverride: state.userData?.aiChatRagRolloutOverride,
       aiChatRagRolloutPercentage: state.userData?.aiChatRagRolloutPercentage,
@@ -391,6 +411,9 @@ export const FoodSearchModal = ({
   const resolvedCachedFoods = cachedFoods ?? storeCachedFoods;
   const resolvedTogglePin = onTogglePin ?? togglePinnedFood;
   const resolvedUpdateCachedFoods = onUpdateCachedFoods ?? updateCachedFoods;
+  const resolvedFoodSearchDefaultEntry = normalizeFoodSearchDefaultEntry(
+    foodSearchDefaultEntry
+  );
   const isAiChatRagEnabled = useMemo(
     () =>
       isAiChatRagEnabledForUser({
@@ -511,6 +534,7 @@ export const FoodSearchModal = ({
   const barcodeToastTimerRef = useRef(null);
   const searchTimeoutRef = useRef(null);
   const abortControllerRef = useRef(null);
+  const hasAppliedDefaultEntryRef = useRef(false);
 
   // Network status
   const { isOnline } = useNetworkStatus();
@@ -1183,6 +1207,60 @@ export const FoodSearchModal = ({
     lookupBarcodeAndSelectFood(manualBarcodeInput, { closeEntryModal: true });
   }, [lookupBarcodeAndSelectFood, manualBarcodeInput]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      hasAppliedDefaultEntryRef.current = false;
+      return;
+    }
+
+    if (hasAppliedDefaultEntryRef.current) {
+      return;
+    }
+
+    hasAppliedDefaultEntryRef.current = true;
+
+    const selectedDefault = normalizeFoodSearchDefaultEntry(
+      resolvedFoodSearchDefaultEntry
+    );
+
+    if (selectedDefault === 'search_local') {
+      dispatchUiState({ type: 'set', key: 'viewMode', value: 'search' });
+      dispatchUiState({ type: 'set', key: 'searchMode', value: 'local' });
+      return;
+    }
+
+    if (selectedDefault === 'search_online') {
+      dispatchUiState({ type: 'set', key: 'viewMode', value: 'search' });
+      dispatchUiState({ type: 'set', key: 'searchMode', value: 'online' });
+      return;
+    }
+
+    if (selectedDefault === 'favourites') {
+      dispatchUiState({ type: 'set', key: 'viewMode', value: 'favourites' });
+      return;
+    }
+
+    if (selectedDefault === 'chat') {
+      dispatchUiState({ type: 'set', key: 'viewMode', value: 'chat' });
+      return;
+    }
+
+    if (selectedDefault === 'manual_entry') {
+      onOpenManualEntry?.();
+      return;
+    }
+
+    if (selectedDefault === 'barcode') {
+      void handleBarcodeScanClick();
+    }
+  }, [
+    dispatchUiState,
+    handleBarcodeScanClick,
+    isOpen,
+    onOpenManualEntry,
+    resolvedFoodSearchDefaultEntry,
+  ]);
+
   // Long-press handlers
   const handlePressStart = (foodId, event) => {
     if (event?.pointerType === 'mouse' && event.button !== 0) {
@@ -1375,6 +1453,8 @@ export const FoodSearchModal = ({
 
   // Cleanup timer on unmount
   useEffect(() => {
+    const recordedFeedbackEvents = recordedFeedbackEventsRef.current;
+
     return () => {
       if (barcodeToastTimerRef.current) {
         clearTimeout(barcodeToastTimerRef.current);
@@ -1387,7 +1467,7 @@ export const FoodSearchModal = ({
         chatAbortControllerRef.current.abort();
       }
       resetAiLookupSessionCache();
-      recordedFeedbackEventsRef.current.clear();
+      recordedFeedbackEvents.clear();
       revokeChatAttachments(latestChatAttachmentsRef.current);
       latestChatMessagesRef.current.forEach((message) => {
         revokeChatAttachments(message.attachments);
@@ -2588,6 +2668,7 @@ export const FoodSearchModal = ({
     chatInput,
     chatMessages,
     favouritedAiEntryKeys,
+    isOnline,
     isSendingChat,
     loggedAiEntryKeys,
     recordImplicitFeedbackForEntry,

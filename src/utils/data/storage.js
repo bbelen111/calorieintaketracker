@@ -473,6 +473,14 @@ const AI_CHAT_RAG_ROLLOUT_OVERRIDES = new Set([
   'enabled',
   'disabled',
 ]);
+const FOOD_SEARCH_DEFAULT_ENTRIES = new Set([
+  'search_local',
+  'search_online',
+  'favourites',
+  'chat',
+  'manual_entry',
+  'barcode',
+]);
 let lastSavedProfileSerialized = null;
 let lastSavedHistorySerializedByField = new Map();
 let lastSavedShardedDocIdsByField = new Map();
@@ -525,9 +533,7 @@ const normalizeAiChatRolloutOverride = (value) => {
     .trim()
     .toLowerCase();
 
-  return AI_CHAT_RAG_ROLLOUT_OVERRIDES.has(normalized)
-    ? normalized
-    : 'default';
+  return AI_CHAT_RAG_ROLLOUT_OVERRIDES.has(normalized) ? normalized : 'default';
 };
 
 const normalizeAiChatRolloutPercentage = (value, fallback = 100) => {
@@ -537,6 +543,14 @@ const normalizeAiChatRolloutPercentage = (value, fallback = 100) => {
   }
 
   return Math.max(0, Math.min(100, Math.round(parsed)));
+};
+
+const normalizeFoodSearchDefaultEntry = (value, fallback = 'search_local') => {
+  const normalized = String(value ?? '')
+    .trim()
+    .toLowerCase();
+
+  return FOOD_SEARCH_DEFAULT_ENTRIES.has(normalized) ? normalized : fallback;
 };
 
 const normalizeTrainingTypeCatalog = (raw) => {
@@ -1111,6 +1125,7 @@ export const getDefaultEnergyMapData = () => ({
   aiChatRagRolloutOverride: 'default',
   aiChatRagRolloutPercentage: 100,
   aiChatRolloutUserId: '',
+  foodSearchDefaultEntry: 'search_local',
   macroRecommendationSplit: {
     ...DEFAULT_MACRO_RECOMMENDATION_SPLIT,
   },
@@ -1372,6 +1387,10 @@ function mergeWithDefaults(data) {
         .toLowerCase();
       return normalized || createAiChatRolloutUserId();
     })(),
+    foodSearchDefaultEntry: normalizeFoodSearchDefaultEntry(
+      normalizedInput.foodSearchDefaultEntry,
+      defaults.foodSearchDefaultEntry
+    ),
     macroRecommendationSplit: normalizeMacroRecommendationSplit(
       normalizedInput.macroRecommendationSplit ??
         defaults.macroRecommendationSplit

@@ -523,3 +523,21 @@ test('save/loadEnergyMapData persists adaptive thermogenesis profile fields', as
     assert.equal(loaded.adaptiveThermogenesisSmoothingWindowDays, 9);
   });
 });
+
+test('save/loadEnergyMapData persists foodSearchDefaultEntry in profile scope', async () => {
+  await withWindowStorage(async () => {
+    await Preferences.remove({ key: PROFILE_KEY });
+    await clearDexieHistory();
+
+    const payload = {
+      ...getDefaultEnergyMapData(),
+      foodSearchDefaultEntry: 'barcode',
+      weightEntries: [{ date: '2026-03-22', weight: 79.2 }],
+    };
+
+    await saveEnergyMapData(payload);
+
+    const loaded = await loadEnergyMapData();
+    assert.equal(loaded.foodSearchDefaultEntry, 'barcode');
+  });
+});

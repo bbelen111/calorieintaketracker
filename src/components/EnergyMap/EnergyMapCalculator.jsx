@@ -2137,10 +2137,8 @@ export const EnergyMapCalculator = () => {
       }
 
       setFoodMealType(mealType);
-      // Close picker with delay, then open search for the chosen meal
-      setTimeout(() => {
-        startMealEntryFlow(mealType);
-      }, MODAL_CLOSE_DELAY);
+      // Open search immediately for snappier feel while picker closes
+      startMealEntryFlow(mealType);
     },
     [startMealEntryFlow]
   );

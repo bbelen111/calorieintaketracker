@@ -520,6 +520,26 @@ export const useEnergyMapStore = createWithEqualityFn(
       });
     },
 
+    setFoodSearchDefaultEntry: (nextEntry) => {
+      const normalizedEntry = String(nextEntry ?? '')
+        .trim()
+        .toLowerCase();
+
+      updateUserData(set, get, (prev) => {
+        if (
+          !normalizedEntry ||
+          prev.foodSearchDefaultEntry === normalizedEntry
+        ) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          foodSearchDefaultEntry: normalizedEntry,
+        };
+      });
+    },
+
     addStepRange: (newStepRange) => {
       if (!newStepRange) return;
       updateUserData(set, get, (prev) => {
