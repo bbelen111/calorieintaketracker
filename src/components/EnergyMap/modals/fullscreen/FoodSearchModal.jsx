@@ -4,6 +4,7 @@ import React, {
   useMemo,
   useRef,
   useEffect,
+  useLayoutEffect,
   useCallback,
 } from 'react';
 import {
@@ -1207,7 +1208,7 @@ export const FoodSearchModal = ({
     lookupBarcodeAndSelectFood(manualBarcodeInput, { closeEntryModal: true });
   }, [lookupBarcodeAndSelectFood, manualBarcodeInput]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isOpen) {
       hasAppliedDefaultEntryRef.current = false;
       return;

@@ -58,14 +58,14 @@ export const FoodEntryModal = ({
     }
   }, [alreadyExists]);
 
-  const handleSave = () => {
+  const handleSave = (options = {}) => {
     if (!foodName.trim()) {
       window.alert('Please enter a food name');
       return;
     }
 
     // Just save - no duplicate check dialog needed
-    onSave?.();
+    onSave?.(options);
   };
 
   const handleSaveAsFavourite = () => {
@@ -349,21 +349,31 @@ export const FoodEntryModal = ({
               A food with this name already exists in favourites.
             </p>
           )}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => handleSave({ closeModal: false })}
+              disabled={!foodName.trim()}
+              className="h-10 px-3 bg-primary disabled:bg-surface-highlight/60 disabled:cursor-not-allowed disabled:text-muted text-primary-foreground rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring md:hover:brightness-110"
+            >
+              <Save size={18} />
+              {isEditing ? 'Save' : 'Log'}
+            </button>
+            <button
+              onClick={() => handleSave({ closeModal: true })}
+              disabled={!foodName.trim()}
+              className="h-10 px-3 bg-accent-blue disabled:bg-surface-highlight/60 disabled:cursor-not-allowed disabled:text-muted text-primary-foreground rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring md:hover:brightness-110"
+            >
+              <Save size={18} />
+              {isEditing ? 'Save & Exit' : 'Log & Exit'}
+            </button>
+          </div>
+
           <div className="flex gap-2 items-center">
-            {/* Save as Favourite - only show when callback provided and not editing */}
             <button
               onClick={onClose}
               className="flex-1 h-10 px-4 bg-surface-highlight text-foreground rounded-lg font-semibold transition-all text-sm press-feedback focus-ring md:hover:bg-surface"
             >
               Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={!foodName.trim()}
-              className="flex-1 h-10 px-4 bg-primary disabled:bg-surface-highlight/60 disabled:cursor-not-allowed disabled:text-muted text-primary-foreground rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring md:hover:brightness-110"
-            >
-              <Save size={18} />
-              {isEditing ? 'Add & Save' : 'Add Food'}
             </button>
             {typeof onSaveAsFavourite === 'function' && !isEditing && (
               <button
@@ -379,7 +389,7 @@ export const FoodEntryModal = ({
                     ? 'Added to favourites'
                     : 'Save as favourite'
                 }
-                className={`w-10 h-10 ml-1 border disabled:cursor-not-allowed text-primary-foreground rounded-lg font-medium transition-all flex items-center justify-center press-feedback focus-ring ${
+                className={`w-10 h-10 border disabled:cursor-not-allowed text-primary-foreground rounded-lg font-medium transition-all flex items-center justify-center press-feedback focus-ring ${
                   markedAsFavourite
                     ? 'bg-accent-green border-accent-green/50 text-primary-foreground'
                     : 'bg-accent-indigo md:hover:brightness-110 border-accent-indigo/50 text-primary-foreground disabled:bg-surface-highlight/30 disabled:border-border/60 disabled:text-muted'

@@ -2312,7 +2312,12 @@ export const EnergyMapCalculator = () => {
 
   // Handle adding food from portion modal
   const handleAddFoodFromPortion = useCallback(
-    (foodEntry) => {
+    (foodEntry, options = {}) => {
+      const shouldClosePortionModal =
+        options?.closePortionModal ?? options?.closeModal !== false;
+      const shouldCloseSearchModal =
+        options?.closeSearchModal ?? shouldClosePortionModal;
+
       if (editingPortionEntry) {
         const targetMealType = editingPortionEntry.mealType || foodMealType;
         if (!targetMealType) {
@@ -2329,7 +2334,9 @@ export const EnergyMapCalculator = () => {
             editingPortionEntry.foodId,
         });
 
-        foodPortionModal.requestClose();
+        if (shouldClosePortionModal) {
+          foodPortionModal.requestClose();
+        }
         return;
       }
 
@@ -2339,9 +2346,13 @@ export const EnergyMapCalculator = () => {
 
       addFoodEntry(trackerSelectedDate, foodMealType, foodEntry);
 
-      // Close both modals simultaneously for faster UX
-      foodPortionModal.requestClose();
-      foodSearchModal.requestClose();
+      if (shouldClosePortionModal) {
+        foodPortionModal.requestClose();
+      }
+
+      if (shouldCloseSearchModal) {
+        foodSearchModal.requestClose();
+      }
     },
     [
       addFoodEntry,
@@ -2403,7 +2414,9 @@ export const EnergyMapCalculator = () => {
   );
 
   // Delete food entry from meal
-  const handleFoodEntrySave = useCallback(() => {
+  const handleFoodEntrySave = useCallback((options = {}) => {
+    const shouldClose = options?.closeModal !== false;
+
     // If editing a manual favourite, update the favourite AND add to tracker
     if (editingManualFavouriteId) {
       // Update the favourite
@@ -2429,11 +2442,13 @@ export const EnergyMapCalculator = () => {
         addFoodEntry(trackerSelectedDate, foodMealType, entry);
       }
 
-      foodEntryModal.requestClose();
-      // Close search modal after editing favourite
-      setTimeout(() => {
-        foodSearchModal.requestClose();
-      }, 250);
+      if (shouldClose) {
+        foodEntryModal.requestClose();
+        // Close search modal after editing favourite
+        setTimeout(() => {
+          foodSearchModal.requestClose();
+        }, 250);
+      }
       return;
     }
 
@@ -2455,12 +2470,14 @@ export const EnergyMapCalculator = () => {
       addFoodEntry(trackerSelectedDate, foodMealType, entry);
     }
 
-    foodEntryModal.requestClose();
-    // Close search modal after a short delay so nested modals finish closing
-    if (!editingFoodEntryId) {
-      setTimeout(() => {
-        foodSearchModal.requestClose();
-      }, 250);
+    if (shouldClose) {
+      foodEntryModal.requestClose();
+      // Close search modal after a short delay so nested modals finish closing
+      if (!editingFoodEntryId) {
+        setTimeout(() => {
+          foodSearchModal.requestClose();
+        }, 250);
+      }
     }
   }, [
     addFoodEntry,

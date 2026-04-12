@@ -371,7 +371,7 @@ export const FoodPortionModal = ({
     return () => clearTimeout(timer);
   }, [isOpen, selectedFood?.id]);
 
-  const handleAddFood = () => {
+  const handleAddFood = (options = {}) => {
     if (!nutrition) return;
 
     const foodEntry = {
@@ -389,7 +389,7 @@ export const FoodPortionModal = ({
       grams,
       timestamp: new Date().toISOString(),
     };
-    onAddFood?.(foodEntry);
+    onAddFood?.(foodEntry, options);
   };
 
   const handleSaveAsFavourite = () => {
@@ -742,21 +742,35 @@ export const FoodPortionModal = ({
 
       {/* Actions */}
       <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() =>
+              handleAddFood({ closePortionModal: true, closeSearchModal: false })
+            }
+            disabled={!nutrition}
+            className="h-10 px-3 bg-primary md:hover:brightness-110 disabled:bg-surface-highlight/60 disabled:cursor-not-allowed disabled:text-muted text-primary-foreground rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring"
+          >
+            <Plus size={18} />
+            {isEditing ? 'Save' : 'Log'}
+          </button>
+          <button
+            onClick={() =>
+              handleAddFood({ closePortionModal: true, closeSearchModal: true })
+            }
+            disabled={!nutrition}
+            className="h-10 px-3 bg-accent-blue md:hover:brightness-110 disabled:bg-surface-highlight/60 disabled:cursor-not-allowed disabled:text-muted text-primary-foreground rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring"
+          >
+            <Plus size={18} />
+            {isEditing ? 'Save & Exit' : 'Log & Exit'}
+          </button>
+        </div>
+
         <div className="flex gap-2 items-center">
-          {/* Save as Favourite - only show when callback provided and not editing */}
           <button
             onClick={handleClose}
             className="flex-1 h-10 px-4 bg-surface-highlight md:hover:bg-surface text-foreground rounded-lg font-semibold transition-all text-sm press-feedback focus-ring"
           >
             Cancel
-          </button>
-          <button
-            onClick={handleAddFood}
-            disabled={!nutrition}
-            className="flex-1 h-10 px-4 bg-primary md:hover:brightness-110 disabled:bg-surface-highlight/60 disabled:cursor-not-allowed disabled:text-muted text-primary-foreground rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring"
-          >
-            <Plus size={18} />
-            {isEditing ? 'Save Changes' : 'Add Food'}
           </button>
           {typeof onSaveAsFavourite === 'function' && !isEditing && (
             <button
@@ -772,7 +786,7 @@ export const FoodPortionModal = ({
                   ? 'Already favourited'
                   : 'Save as favourite'
               }
-              className={`w-10 h-10 ml-1 border rounded-lg font-medium transition-all flex items-center justify-center press-feedback focus-ring ${
+              className={`w-10 h-10 border rounded-lg font-medium transition-all flex items-center justify-center press-feedback focus-ring ${
                 isCurrentlyFavourited
                   ? 'bg-accent-indigo/30 border-accent-indigo/50 text-accent-indigo cursor-default'
                   : 'bg-accent-indigo md:hover:brightness-110 border-accent-indigo/50 text-primary-foreground disabled:bg-surface-highlight/30 disabled:border-border/60 disabled:cursor-not-allowed disabled:text-muted'
