@@ -264,6 +264,43 @@ test('resolveAiFoodLookup falls back to grounded web lookup when local and USDA 
   assert.ok(result.weightedMatchScore < result.matchScore);
 });
 
+test('resolveAiFoodLookup forces grounded fallback when USDA fails with rate limit', async () => {
+  const result = await resolveAiFoodLookup({
+    entryName: 'banana',
+    isOnline: true,
+    dependencies: {
+      searchLocal: async () => [
+        {
+          id: 'local_partial',
+          name: 'Banana Chips',
+          category: 'carbs',
+        },
+      ],
+      searchUsda: async () => {
+        const error = new Error('Too many requests');
+        error.status = 429;
+        throw error;
+      },
+      searchGrounded: async () => ({
+        name: 'Banana',
+        per100g: {
+          calories: 89,
+          protein: 1.1,
+          carbs: 22.8,
+          fats: 0.3,
+        },
+        confidence: 'low',
+      }),
+    },
+  });
+
+  assert.equal(result.status, 'resolved');
+  assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.AI_WEB_SEARCH);
+  assert.equal(result.matchedFood?.name, 'Banana');
+  assert.equal(result.matchedFood?.per100g?.calories, 89);
+  assert.equal(result.fallbackUsed, true);
+});
+
 test('resolveAiFoodLookup classifies grounded safety failures with reason codes', async () => {
   const result = await resolveAiFoodLookup({
     entryName: 'rare local dessert',

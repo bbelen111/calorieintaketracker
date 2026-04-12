@@ -256,6 +256,31 @@ const toErrorMessage = (error, fallbackMessage) => {
   return message || fallbackMessage;
 };
 
+const shouldForceGroundingFallbackFromUsdaError = (error) => {
+  const statusCode = Number(error?.status);
+  const message = String(error?.message || '')
+    .toLowerCase()
+    .trim();
+
+  if (statusCode === 429 || statusCode === 408) {
+    return true;
+  }
+
+  if (statusCode >= 500 && statusCode <= 599) {
+    return true;
+  }
+
+  return (
+    message.includes('timed out') ||
+    message.includes('timeout') ||
+    message.includes('network') ||
+    message.includes('failed to fetch') ||
+    message.includes('connection') ||
+    message.includes('quota') ||
+    message.includes('resource_exhausted')
+  );
+};
+
 const resolveGroundingFailureReason = (error) => {
   const statusCode = Number(error?.status);
   const message = String(error?.message || '')
@@ -685,6 +710,7 @@ export const resolveAiFoodLookup = async ({
   const errorsBySource = {};
   const errorReasonsBySource = {};
   let bestMatch = null;
+  let shouldForceGroundingFallback = false;
 
   const maybeKeepBest = ({ match, source, queryUsed }) => {
     if (!match?.food) {
@@ -797,6 +823,10 @@ export const resolveAiFoodLookup = async ({
               return null;
             }
 
+            if (shouldForceGroundingFallbackFromUsdaError(error)) {
+              shouldForceGroundingFallback = true;
+            }
+
             errorsBySource[FOOD_SEARCH_SOURCE.USDA] = toErrorMessage(
               error,
               'USDA search failed.'
@@ -820,7 +850,10 @@ export const resolveAiFoodLookup = async ({
   }
 
   const shouldUseGrounding =
-    isOnline && (!bestMatch || bestMatch.score < AI_SCORE_THRESHOLD.low);
+    isOnline &&
+    (shouldForceGroundingFallback ||
+      !bestMatch ||
+      bestMatch.score < AI_SCORE_THRESHOLD.low);
 
   if (
     shouldUseGrounding &&

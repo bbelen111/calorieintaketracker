@@ -237,6 +237,7 @@ export const ModalShell = ({
   closeOnEscape = true,
   closeOnOverlayClick = true,
   fullHeight = false,
+  allowKeyboardViewportResize = false,
 }) => {
   const modalIdRef = useRef(null);
   const zIndexRef = useRef(BASE_Z_INDEX);
@@ -428,6 +429,16 @@ export const ModalShell = ({
       const diff = Math.abs(currentHeight - baseHeight);
       const widthDiff = Math.abs(currentWidth - baseWidth);
 
+      if (allowKeyboardViewportResize) {
+        if (diff > 1 || widthDiff > 1) {
+          baseViewportHeightRef.current = currentHeight;
+          baseViewportWidthRef.current = currentWidth;
+          lockedViewportHeightRef.current = currentHeight || null;
+          applyHeight(currentHeight);
+        }
+        return;
+      }
+
       // Ignore keyboard-driven viewport changes; only relock on true layout changes.
       const isKeyboardSizedDelta =
         diff >= KEYBOARD_RESIZE_MIN_DELTA && diff <= KEYBOARD_RESIZE_MAX_DELTA;
@@ -465,7 +476,7 @@ export const ModalShell = ({
         contentNode.style.maxHeight = '';
       }
     };
-  }, [isOpen, isNative, shouldFullHeight]);
+  }, [isOpen, isNative, shouldFullHeight, allowKeyboardViewportResize]);
 
   // Early return if not open
   if (!isOpen || typeof document === 'undefined') return null;
@@ -520,6 +531,7 @@ ModalShell.propTypes = {
   closeOnEscape: PropTypes.bool,
   closeOnOverlayClick: PropTypes.bool,
   fullHeight: PropTypes.bool,
+  allowKeyboardViewportResize: PropTypes.bool,
 };
 
 // ============================================================================

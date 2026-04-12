@@ -74,6 +74,7 @@ import {
 } from '../../../../services/barcodeScanner';
 import {
   isAiChatRagEnabledForUser,
+  fetchMacrosWithGrounding,
   sendGeminiMessage,
   sendGeminiExtraction,
   sendGeminiPresentation,
@@ -2344,8 +2345,62 @@ export const FoodSearchModal = ({
             effectiveExtractionEntries.length === 0;
 
           if (shouldShortCircuit) {
-            result = extractionResult;
-            resultSchemaVersion = extractionSchemaVersion;
+            const canAttemptGroundedExtractionFallback =
+              isOnline &&
+              attachments.length === 0 &&
+              effectiveExtractionEntries.length === 0 &&
+              trimmedText.length > 0;
+
+            if (canAttemptGroundedExtractionFallback) {
+              try {
+                transitionRequestStage(CHAT_REQUEST_STAGE.RETRIEVAL);
+                const groundedEstimate = await fetchMacrosWithGrounding(
+                  trimmedText,
+                  controller.signal,
+                  20000
+                );
+
+                const groundedEntry = {
+                  name: groundedEstimate?.name || trimmedText,
+                  grams: 100,
+                  calories: Number(groundedEstimate?.per100g?.calories) || 0,
+                  protein: Number(groundedEstimate?.per100g?.protein) || 0,
+                  carbs: Number(groundedEstimate?.per100g?.carbs) || 0,
+                  fats: Number(groundedEstimate?.per100g?.fats) || 0,
+                  confidence: groundedEstimate?.confidence || 'low',
+                  rationale:
+                    groundedEstimate?.rationale ||
+                    'Fallback grounded estimate due to low-confidence extraction.',
+                  assumptions: Array.isArray(groundedEstimate?.assumptions)
+                    ? groundedEstimate.assumptions
+                    : [],
+                  lookupTerms: [trimmedText],
+                  source: FOOD_SEARCH_SOURCE.AI_WEB_SEARCH,
+                };
+
+                result = {
+                  text:
+                    extractionResult?.text ||
+                    'I used a grounded web estimate for this entry.',
+                  raw: extractionResult?.raw || null,
+                  foodParser: {
+                    version:
+                      extractionResult?.foodParser?.version ||
+                      extractionSchemaVersion,
+                    messageType: 'food_entries',
+                    entries: [groundedEntry],
+                    followUpQuestion: null,
+                  },
+                };
+                resultSchemaVersion = result?.foodParser?.version || null;
+              } catch {
+                result = extractionResult;
+                resultSchemaVersion = extractionSchemaVersion;
+              }
+            } else {
+              result = extractionResult;
+              resultSchemaVersion = extractionSchemaVersion;
+            }
           } else {
             transitionRequestStage(CHAT_REQUEST_STAGE.RETRIEVAL);
             const retrievalStartedAt = getNowMs();
@@ -2398,73 +2453,101 @@ export const FoodSearchModal = ({
 
             transitionRequestStage(CHAT_REQUEST_STAGE.PRESENTATION);
             const presentationStartedAt = getNowMs();
-            const presentationResult = await sendGeminiPresentation({
-              message: trimmedText,
-              systemData: {
-                entries: verifiedEntries,
-              },
-              history,
-              signal: controller.signal,
-            });
-            resultSchemaVersion =
-              presentationResult?.foodParser?.version ||
-              extractionSchemaVersion;
-            void recordRagStageLatency({
-              stage: 'presentation',
-              durationMs: getNowMs() - presentationStartedAt,
-              schemaVersion: resultSchemaVersion,
-            }).catch(() => {});
-
-            const presentationEntries = Array.isArray(
-              presentationResult?.foodParser?.entries
-            )
-              ? presentationResult.foodParser.entries
-              : [];
-
-            const {
-              mergedEntries,
-              hasPresentationLengthMismatch,
-              hasSparsePresentationEntries,
-            } = mergePresentationEntriesWithVerified({
-              verifiedEntries,
-              presentationEntries,
-            });
-
-            if (hasPresentationLengthMismatch || hasSparsePresentationEntries) {
-              console.warn('Presentation entry alignment mismatch detected', {
-                verifiedEntryCount: verifiedEntries.length,
-                presentationEntryCount: presentationEntries.length,
-                hasSparsePresentationEntries,
+            try {
+              const presentationResult = await sendGeminiPresentation({
+                message: trimmedText,
+                systemData: {
+                  entries: verifiedEntries,
+                },
+                history,
+                signal: controller.signal,
               });
-            }
+              resultSchemaVersion =
+                presentationResult?.foodParser?.version ||
+                extractionSchemaVersion;
+              void recordRagStageLatency({
+                stage: 'presentation',
+                durationMs: getNowMs() - presentationStartedAt,
+                schemaVersion: resultSchemaVersion,
+              }).catch(() => {});
 
-            mergedEntries.forEach((mergedEntry, index) => {
-              if (mergedEntry?.nameRewriteSuppressed) {
-                console.warn('Presentation name rewrite suppressed', {
-                  verifiedName: verifiedEntries[index]?.name,
-                  presentedName: presentationEntries[index]?.name || null,
+              const presentationEntries = Array.isArray(
+                presentationResult?.foodParser?.entries
+              )
+                ? presentationResult.foodParser.entries
+                : [];
+
+              const {
+                mergedEntries,
+                hasPresentationLengthMismatch,
+                hasSparsePresentationEntries,
+              } = mergePresentationEntriesWithVerified({
+                verifiedEntries,
+                presentationEntries,
+              });
+
+              if (
+                hasPresentationLengthMismatch ||
+                hasSparsePresentationEntries
+              ) {
+                console.warn('Presentation entry alignment mismatch detected', {
+                  verifiedEntryCount: verifiedEntries.length,
+                  presentationEntryCount: presentationEntries.length,
+                  hasSparsePresentationEntries,
                 });
               }
-            });
 
-            void recordRagPresentationNameDrift({
-              verifiedEntries,
-              presentationEntries,
-              schemaVersion: resultSchemaVersion,
-            }).catch(() => {});
+              mergedEntries.forEach((mergedEntry, index) => {
+                if (mergedEntry?.nameRewriteSuppressed) {
+                  console.warn('Presentation name rewrite suppressed', {
+                    verifiedName: verifiedEntries[index]?.name,
+                    presentedName: presentationEntries[index]?.name || null,
+                  });
+                }
+              });
 
-            result = {
-              ...presentationResult,
-              text:
-                presentationResult?.text ||
-                extractionResult?.text ||
-                'Here are your parsed food entries.',
-              foodParser: {
-                messageType: 'food_entries',
-                entries: mergedEntries,
-                followUpQuestion: null,
-              },
-            };
+              void recordRagPresentationNameDrift({
+                verifiedEntries,
+                presentationEntries,
+                schemaVersion: resultSchemaVersion,
+              }).catch(() => {});
+
+              result = {
+                ...presentationResult,
+                text:
+                  presentationResult?.text ||
+                  extractionResult?.text ||
+                  'Here are your parsed food entries.',
+                foodParser: {
+                  messageType: 'food_entries',
+                  entries: mergedEntries,
+                  followUpQuestion: null,
+                },
+              };
+            } catch (presentationError) {
+              console.warn('Presentation fallback to verified entries', {
+                message: presentationError?.message || 'Unknown error',
+              });
+
+              resultSchemaVersion = extractionSchemaVersion;
+              void recordRagStageLatency({
+                stage: 'presentation',
+                durationMs: getNowMs() - presentationStartedAt,
+                schemaVersion: resultSchemaVersion,
+              }).catch(() => {});
+
+              result = {
+                text:
+                  extractionResult?.text ||
+                  'Here are your parsed food entries.',
+                raw: null,
+                foodParser: {
+                  messageType: 'food_entries',
+                  entries: verifiedEntries,
+                  followUpQuestion: null,
+                },
+              };
+            }
           }
         } else {
           transitionRequestStage(CHAT_REQUEST_STAGE.PROCESSING);
@@ -3161,6 +3244,7 @@ export const FoodSearchModal = ({
       isClosing={isClosing}
       onClose={onClose}
       fullHeight
+      allowKeyboardViewportResize={viewMode === 'chat'}
       overlayClassName="fixed inset-0 bg-surface/70 !p-0 !flex-none !items-stretch !justify-stretch"
       contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none !max-h-none flex flex-col overflow-x-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
     >

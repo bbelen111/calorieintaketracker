@@ -47,12 +47,17 @@ const API_BASE = (
 
 const RATE_LIMIT_MAX_RETRIES = 2;
 const RATE_LIMIT_BACKOFF_BASE_MS = 400;
+const CLIENT_RATE_LIMIT_MAX_REQUESTS_PER_WINDOW = 15;
+const CLIENT_RATE_LIMIT_WINDOW_MS = 60_000;
+const CLIENT_RATE_LIMIT_MAX_WAIT_MS = 10_000;
 const TRANSIENT_HTTP_MAX_RETRIES = 2;
 const TRANSIENT_HTTP_BACKOFF_BASE_MS = 250;
 const TRANSIENT_HTTP_RETRY_STATUSES = new Set([502, 503, 504]);
 const NO_TEXT_MAX_RETRIES = 1;
 const MALFORMED_PARSER_MAX_RETRIES = 1;
-let rateLimitQueue = Promise.resolve();
+let rateLimitBackoffQueue = Promise.resolve();
+let requestSlotQueue = Promise.resolve();
+let requestTimestampsMs = [];
 const foodParserRegistry = new Map();
 
 function clampRolloutPercentage(
@@ -512,25 +517,112 @@ async function queueRateLimitBackoff(delayMs, signal) {
     release = resolve;
   });
 
-  const previous = rateLimitQueue;
-  rateLimitQueue = gate;
+  const previous = rateLimitBackoffQueue;
+  rateLimitBackoffQueue = gate;
 
   await previous;
   try {
     await sleepWithSignal(delayMs, signal);
   } finally {
     release();
-    if (rateLimitQueue === gate) {
-      rateLimitQueue = Promise.resolve();
+    if (rateLimitBackoffQueue === gate) {
+      rateLimitBackoffQueue = Promise.resolve();
     }
   }
 }
 
-function isQuotaExhaustedSignal(data) {
+function pruneRequestTimestamps(nowMs = Date.now()) {
+  const cutoffMs = nowMs - CLIENT_RATE_LIMIT_WINDOW_MS;
+  requestTimestampsMs = requestTimestampsMs.filter(
+    (timestamp) => timestamp > cutoffMs
+  );
+}
+
+function resolveRetryAfterMs(response) {
+  const retryAfterRaw = response?.headers?.get?.('retry-after');
+  if (!retryAfterRaw) {
+    return null;
+  }
+
+  const asSeconds = Number(retryAfterRaw);
+  if (Number.isFinite(asSeconds) && asSeconds >= 0) {
+    return Math.round(asSeconds * 1000);
+  }
+
+  const asDateMs = Date.parse(retryAfterRaw);
+  if (Number.isFinite(asDateMs)) {
+    return Math.max(0, asDateMs - Date.now());
+  }
+
+  return null;
+}
+
+async function waitForClientRateLimitSlot(signal) {
+  while (true) {
+    const nowMs = Date.now();
+    pruneRequestTimestamps(nowMs);
+
+    if (requestTimestampsMs.length < CLIENT_RATE_LIMIT_MAX_REQUESTS_PER_WINDOW) {
+      requestTimestampsMs.push(nowMs);
+      return;
+    }
+
+    const earliestTimestamp = requestTimestampsMs[0] || nowMs;
+    const waitMs = Math.max(
+      0,
+      CLIENT_RATE_LIMIT_WINDOW_MS - (nowMs - earliestTimestamp)
+    );
+
+    if (waitMs > CLIENT_RATE_LIMIT_MAX_WAIT_MS) {
+      throw new GeminiError(
+        'AI request limit reached (15 requests/min). Please wait a moment and try again.',
+        429,
+        {
+          reason: 'client_rate_limit_window',
+          retryAfterMs: waitMs,
+        }
+      );
+    }
+
+    await sleepWithSignal(waitMs + 25, signal);
+  }
+}
+
+async function acquireClientRateLimitSlot(signal) {
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+
+  const previous = requestSlotQueue;
+  requestSlotQueue = gate;
+
+  await previous;
+  try {
+    await waitForClientRateLimitSlot(signal);
+  } finally {
+    release();
+    if (requestSlotQueue === gate) {
+      requestSlotQueue = Promise.resolve();
+    }
+  }
+}
+
+function isQuotaExhaustedSignal(status, data) {
+  if (Number(status) !== 429) {
+    return false;
+  }
+
   const errorText = String(data?.error || '').toLowerCase();
+  const statusText = String(data?.status || data?.error?.status || '')
+    .toLowerCase()
+    .trim();
+  const codeText = String(data?.code || data?.error?.code || '')
+    .toLowerCase()
+    .trim();
   const detailsText =
     data && typeof data === 'object' ? JSON.stringify(data).toLowerCase() : '';
-  const combined = `${errorText} ${detailsText}`;
+  const combined = `${errorText} ${statusText} ${codeText} ${detailsText}`;
 
   return (
     combined.includes('quota') ||
@@ -773,6 +865,8 @@ export async function sendGeminiMessage({
     let transientHttpRetries = 0;
 
     while (true) {
+      await acquireClientRateLimitSlot(requestSignal);
+
       const { response, data } = await requestGemini({
         body: requestBody,
         signal: requestSignal,
@@ -783,8 +877,12 @@ export async function sendGeminiMessage({
           response.status === 429 &&
           rateLimitRetries < RATE_LIMIT_MAX_RETRIES
         ) {
-          const delayMs =
+          const retryAfterMs = resolveRetryAfterMs(response);
+          const baseDelayMs =
             RATE_LIMIT_BACKOFF_BASE_MS * Math.pow(2, rateLimitRetries);
+          const delayMs = retryAfterMs
+            ? Math.max(retryAfterMs, baseDelayMs)
+            : baseDelayMs;
           rateLimitRetries += 1;
           await queueRateLimitBackoff(delayMs, requestSignal);
           continue;
@@ -802,7 +900,7 @@ export async function sendGeminiMessage({
         }
 
         if (response.status === 429) {
-          if (isQuotaExhaustedSignal(data)) {
+          if (isQuotaExhaustedSignal(response.status, data)) {
             throw new GeminiError(
               'The AI provider quota is currently exhausted. Please try again later or use manual search.',
               429,
@@ -993,5 +1091,7 @@ export async function fetchMacrosWithGrounding(
 }
 
 export const __resetGeminiRateLimitQueueForTests = () => {
-  rateLimitQueue = Promise.resolve();
+  rateLimitBackoffQueue = Promise.resolve();
+  requestSlotQueue = Promise.resolve();
+  requestTimestampsMs = [];
 };

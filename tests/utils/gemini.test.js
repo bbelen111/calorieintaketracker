@@ -206,6 +206,49 @@ test('sendGeminiMessage maps quota-exhausted 429 to quota-specific GeminiError',
   }
 });
 
+test('sendGeminiMessage enforces client-side 15 RPM guard during burst calls', async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+
+  globalThis.fetch = async () => {
+    calls += 1;
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        candidates: [
+          {
+            content: {
+              parts: [{ text: 'ok' }],
+            },
+          },
+        ],
+      }),
+    };
+  };
+
+  try {
+    for (let index = 0; index < 15; index += 1) {
+      const result = await sendGeminiMessage({ message: `test-${index}` });
+      assert.equal(result.text, 'ok');
+    }
+
+    await assert.rejects(
+      () => sendGeminiMessage({ message: 'test-16' }),
+      (error) => {
+        assert.ok(error instanceof GeminiError);
+        assert.equal(error.status, 429);
+        assert.match(error.message, /15 requests\/min/i);
+        return true;
+      }
+    );
+
+    assert.equal(calls, 15);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('sendGeminiMessage maps empty candidate text to actionable GeminiError', async () => {
   const originalFetch = globalThis.fetch;
 
