@@ -331,6 +331,11 @@ export const CalorieMapScreen = ({
     aggressive_cut: 'text-accent-orange',
   };
   const goalTextClass = goalTextClasses[selectedGoal] ?? 'text-accent-blue/80';
+  const isTrainingDay = selectedDay === 'training';
+  const dayLabel = isTrainingDay ? 'Training Day' : 'Rest Day';
+  const dayTextClass = isTrainingDay
+    ? 'text-accent-blue'
+    : 'text-accent-indigo';
 
   return (
     <div className="space-y-6 pb-10">
@@ -339,19 +344,24 @@ export const CalorieMapScreen = ({
           <div>
             <div className="flex items-center gap-3">
               <Map className="text-accent-blue" size={32} />
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-                Calorie Map
-              </h1>
-            </div>
-            <div className="mt-1">
-              <span
-                className={`${goalTextClass} text-sm tracking-widest font-semibold uppercase`}
-              >
-                {resolvedGoals[selectedGoal].label}
-              </span>
-              <span className="text-muted text-base font-normal ml-2">
-                ({selectedDay === 'training' ? 'Training Day' : 'Rest Day'})
-              </span>
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-foreground">
+                  Calorie Map
+                </h1>
+                <div>
+                  <span
+                    className={`${goalTextClass} text-sm tracking-widest font-semibold uppercase`}
+                  >
+                    {resolvedGoals[selectedGoal].label}
+                  </span>
+                  <span className="text-muted text-base font-normal mx-2">
+                    •
+                  </span>
+                  <span className={`${dayTextClass} text-base font-semibold`}>
+                    {dayLabel}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
           <div className="flex-1 flex justify-end items-start">

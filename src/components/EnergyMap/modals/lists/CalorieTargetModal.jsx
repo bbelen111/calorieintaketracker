@@ -1,11 +1,24 @@
 import React from 'react';
 import { Flame } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
+import { goals as baseGoals } from '../../../../constants/goals/goals';
 
 const formatStepsLabel = (value) => {
   if (value === null || value === undefined) return '';
   if (typeof value === 'number') return `${value.toLocaleString()} steps`;
   return `${value} steps`;
+};
+
+const formatTdeeLabel = (tdee, difference) => {
+  const resolvedTdee = Math.round(Number(tdee) || 0);
+  const resolvedDifference = Math.round(Number(difference) || 0);
+
+  if (resolvedDifference === 0) {
+    return `TDEE: ${resolvedTdee.toLocaleString()}`;
+  }
+
+  const differencePrefix = resolvedDifference > 0 ? '+' : '';
+  return `TDEE: ${resolvedTdee.toLocaleString()} (${differencePrefix}${resolvedDifference.toLocaleString()} cal)`;
 };
 
 export const CalorieTargetModal = ({
@@ -15,7 +28,31 @@ export const CalorieTargetModal = ({
   options = [],
   selectedKey,
   onSelect,
+  selectedGoal,
+  selectedDay,
+  goals,
 }) => {
+  const resolvedGoals = goals ?? baseGoals;
+  const goalTextClasses = {
+    aggressive_bulk: 'text-accent-purple',
+    bulking: 'text-accent-green',
+    maintenance: 'text-accent-blue/80',
+    cutting: 'text-accent-yellow',
+    aggressive_cut: 'text-accent-orange',
+  };
+  const resolvedGoalKey = selectedGoal ?? 'maintenance';
+  const goalTextClass =
+    goalTextClasses[resolvedGoalKey] ?? 'text-accent-blue/80';
+  const isTrainingDay = selectedDay === 'training';
+  const dayLabel = isTrainingDay ? 'Training Day' : 'Rest Day';
+  const dayTextClass = isTrainingDay
+    ? 'text-accent-blue'
+    : 'text-accent-indigo';
+  const goalLabel =
+    resolvedGoals?.[resolvedGoalKey]?.label ??
+    resolvedGoals?.maintenance?.label ??
+    'Maintenance';
+
   const handleSelect = (option) => {
     onSelect?.(option);
     onClose?.();
@@ -29,8 +66,21 @@ export const CalorieTargetModal = ({
       contentClassName="w-full md:max-w-md p-5"
     >
       <div className="flex items-center gap-2 mb-4">
-        <Flame className="text-accent-blue" size={20} />
-        <h3 className="text-foreground font-bold text-xl">Calorie Target</h3>
+        <Flame className="text-accent-blue" size={28} />
+        <div>
+          <h3 className="text-foreground font-bold text-xl">Calorie Target</h3>
+          <div>
+            <span
+              className={`${goalTextClass} text-xs tracking-widest font-semibold uppercase`}
+            >
+              {goalLabel}
+            </span>
+            <span className="text-muted text-sm font-normal mx-2">•</span>
+            <span className={`${dayTextClass} text-sm font-semibold`}>
+              {dayLabel}
+            </span>
+          </div>
+        </div>
       </div>
 
       <div className="space-y-2 max-h-[60vh] overflow-y-auto">
@@ -60,9 +110,16 @@ export const CalorieTargetModal = ({
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <p className="text-lg font-bold text-foreground">
-                    {Math.round(option.targetCalories || 0).toLocaleString()}
-                  </p>
+                  <div className="text-right">
+                    <p className="text-lg font-bold text-foreground">
+                      {Math.round(option.targetCalories || 0).toLocaleString()}
+                    </p>
+                    <p
+                      className={`text-xs mt-0.5 ${isSelected ? 'text-primary-foreground' : 'text-muted'}`}
+                    >
+                      {formatTdeeLabel(option.tdee, option.difference)}
+                    </p>
+                  </div>
                 </div>
               </div>
             </button>

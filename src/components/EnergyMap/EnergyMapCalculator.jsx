@@ -2027,6 +2027,8 @@ export const EnergyMapCalculator = () => {
         label: 'Step Range',
         steps: range,
         targetCalories: details?.targetCalories ?? 0,
+        tdee: details?.breakdown?.total ?? 0,
+        difference: details?.difference ?? 0,
       };
     });
 
@@ -2041,6 +2043,8 @@ export const EnergyMapCalculator = () => {
         label: 'Live Steps',
         steps: liveStepData.stepCount,
         targetCalories: liveStepData.targetCalories ?? 0,
+        tdee: liveStepData.breakdown?.total ?? 0,
+        difference: liveStepData.difference ?? 0,
       },
       ...stepRangeOptions,
     ];
@@ -3713,6 +3717,9 @@ export const EnergyMapCalculator = () => {
         options={calorieTargetOptions}
         selectedKey={selectedCalorieTargetData.key}
         onSelect={handleCalorieTargetSelect}
+        selectedGoal={selectedGoal}
+        selectedDay={selectedDay}
+        goals={goals}
       />
 
       <TimePickerModal
