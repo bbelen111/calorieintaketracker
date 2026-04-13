@@ -11,7 +11,7 @@ A **React + Vite** single-page app for fitness calorie tracking, wrapped by Capa
 - **Barcode Scanning** — Native barcode lookup via Capacitor
 - **Health Connect Integration** — Android step sync (iOS/web unsupported)
 - **Offline-First** — SQLite local food catalog (13k+ foods), IndexedDB history
-- **AI-Powered Food Parsing** — Gemini-backed food entry assistance
+- **AI-Powered Food Parsing** — Gemini-backed food entry assistance with Fast / Balanced / Precision quality modes
 - **Bundle-Split Performance** — Heavy modals and data/AI services are lazy-loaded to reduce startup cost
 - **4 Theme Modes** — Auto, dark, light, AMOLED
 - **Mobile-Optimized UI** — Touch-first design, no hardcoded colors, semantic tokens
@@ -396,6 +396,13 @@ const food = await searchBarcode('012345678901');
 
 Gemini food parsing via `api/gemini.js` (server-side key handling).
 
+AI chat parsing supports three quality modes:
+- **Fast** — lowest latency profile (narrower lookup depth)
+- **Balanced** — default mode (recommended day-to-day)
+- **Precision** — widest lookup depth with higher latency tolerance
+
+The selected mode is persisted in profile state as `aiRagQualityMode`.
+
 ```javascript
 import { sendGeminiExtraction } from './services/gemini';
 const parsed = await sendGeminiExtraction({
@@ -485,6 +492,7 @@ Auto-adjust: 400-level shades (dark/AMOLED), 600-level (light).
 VITE_OPENFOODFACTS_API_BASE=https://your-vercel-url/api/openfoodfacts
 VITE_USDA_API_BASE=https://your-vercel-url/api/usda
 VITE_GEMINI_API_BASE=https://your-vercel-url/api/gemini
+VITE_AI_CHAT_RAG_ENABLED=true
 GEMINI_MODEL=gemini-2.5-flash
 GEMINI_GROUNDING_MODEL=gemini-2.5-flash-lite
 # Optional client-side override for grounded lookup calls only

@@ -3,6 +3,11 @@ import {
   scaleMacrosFromPer100g,
 } from '../utils/food/portionNormalization.js';
 import { getRagSourcePreferenceWeightsForCategory } from './ragTelemetry.js';
+import {
+  AI_RAG_QUALITY_MODE,
+  getAiRagQualityPreset,
+  normalizeAiRagQualityMode,
+} from './aiRagQuality.js';
 
 export const FOOD_SEARCH_SOURCE = {
   LOCAL: 'local',
@@ -21,8 +26,11 @@ export const getFoodSearchSourceLabel = (source) => {
 };
 
 const ONLINE_QUERY_MIN_LENGTH = 2;
-const AI_LOCAL_LIMIT = 25;
-const AI_ONLINE_PAGE_SIZE = 20;
+const DEFAULT_AI_RAG_QUALITY_PRESET = getAiRagQualityPreset(
+  AI_RAG_QUALITY_MODE.BALANCED
+);
+const AI_LOCAL_LIMIT = DEFAULT_AI_RAG_QUALITY_PRESET.localLimit;
+const AI_ONLINE_PAGE_SIZE = DEFAULT_AI_RAG_QUALITY_PRESET.onlinePageSize;
 
 const AI_SCORE_THRESHOLD = Object.freeze({
   high: 0.88,
@@ -217,6 +225,7 @@ const resolveWeightedConfidence = ({
 const buildAiLookupCacheKey = ({
   entryName = '',
   lookupTerms = [],
+  qualityMode = AI_RAG_QUALITY_MODE.BALANCED,
   entryCategory = null,
   isOnline = true,
   allowGroundingFallback = true,
@@ -238,6 +247,7 @@ const buildAiLookupCacheKey = ({
       String(entryCategory || '')
         .trim()
         .toLowerCase() || null,
+    qualityMode: normalizeAiRagQualityMode(qualityMode),
     isOnline: Boolean(isOnline),
     allowGroundingFallback: Boolean(allowGroundingFallback),
     localLimit: Number(localLimit) || AI_LOCAL_LIMIT,
@@ -657,22 +667,37 @@ export const searchFoodsOnline = async ({
 export const resolveAiFoodLookup = async ({
   entryName = '',
   lookupTerms = [],
+  qualityMode = AI_RAG_QUALITY_MODE.BALANCED,
   entryCategory = null,
   isOnline = true,
-  allowGroundingFallback = true,
-  localLimit = AI_LOCAL_LIMIT,
-  onlinePageSize = AI_ONLINE_PAGE_SIZE,
+  allowGroundingFallback,
+  localLimit,
+  onlinePageSize,
   sourcePreferenceWeights = null,
   dependencies = {},
 } = {}) => {
+  const resolvedQualityMode = normalizeAiRagQualityMode(qualityMode);
+  const qualityPreset = getAiRagQualityPreset(resolvedQualityMode);
+  const resolvedLocalLimit = Number.isFinite(Number(localLimit))
+    ? Math.max(1, Math.round(Number(localLimit)))
+    : qualityPreset.localLimit;
+  const resolvedOnlinePageSize = Number.isFinite(Number(onlinePageSize))
+    ? Math.max(1, Math.round(Number(onlinePageSize)))
+    : qualityPreset.onlinePageSize;
+  const shouldAllowGroundingFallback =
+    typeof allowGroundingFallback === 'boolean'
+      ? allowGroundingFallback
+      : qualityPreset.enableGroundingFallback;
+
   const cacheKey = buildAiLookupCacheKey({
     entryName,
     lookupTerms,
+    qualityMode: resolvedQualityMode,
     entryCategory,
     isOnline,
-    allowGroundingFallback,
-    localLimit,
-    onlinePageSize,
+    allowGroundingFallback: shouldAllowGroundingFallback,
+    localLimit: resolvedLocalLimit,
+    onlinePageSize: resolvedOnlinePageSize,
     sourcePreferenceWeights,
   });
 
@@ -778,7 +803,7 @@ export const resolveAiFoodLookup = async ({
       resolvedDependencies
         .searchLocal({
           query: term,
-          limit: localLimit,
+          limit: resolvedLocalLimit,
         })
         .then((localResult) => {
           const localMatch = pickBestMatch(term, localResult);
@@ -815,7 +840,7 @@ export const resolveAiFoodLookup = async ({
         resolvedDependencies
           .searchUsda(term, {
             page: 1,
-            pageSize: onlinePageSize,
+            pageSize: resolvedOnlinePageSize,
             signal: usdaAbortController?.signal,
           })
           .then((usdaResult) => {
@@ -871,7 +896,7 @@ export const resolveAiFoodLookup = async ({
 
   if (
     shouldUseGrounding &&
-    allowGroundingFallback &&
+    shouldAllowGroundingFallback &&
     typeof resolvedDependencies.searchGrounded === 'function'
   ) {
     if (!sourcesTried.includes(FOOD_SEARCH_SOURCE.AI_WEB_SEARCH)) {
@@ -882,7 +907,11 @@ export const resolveAiFoodLookup = async ({
 
     try {
       const groundedEstimate =
-        await resolvedDependencies.searchGrounded(groundedQuery);
+        await resolvedDependencies.searchGrounded(
+          groundedQuery,
+          undefined,
+          qualityPreset.groundedLookupTimeoutMs
+        );
 
       const groundedPer100g = groundedEstimate?.per100g;
       const hasGroundedMacros =
@@ -939,7 +968,7 @@ export const resolveAiFoodLookup = async ({
     }
   }
 
-  if (shouldUseGrounding && !allowGroundingFallback) {
+  if (shouldUseGrounding && !shouldAllowGroundingFallback) {
     const needsGroundingConfidence = resolveWeightedConfidence({
       score: Number(bestMatch?.score || AI_SCORE_THRESHOLD.low),
       source: bestMatch?.source || FOOD_SEARCH_SOURCE.LOCAL,
@@ -1046,8 +1075,16 @@ export const resolveAiFoodLookup = async ({
 
 export const resolveAiGroundedBatch = async ({
   requests = [],
+  qualityMode = AI_RAG_QUALITY_MODE.BALANCED,
+  timeoutMs,
   dependencies = {},
 } = {}) => {
+  const resolvedQualityMode = normalizeAiRagQualityMode(qualityMode);
+  const qualityPreset = getAiRagQualityPreset(resolvedQualityMode);
+  const resolvedTimeoutMs = Number.isFinite(Number(timeoutMs))
+    ? Math.max(1000, Math.round(Number(timeoutMs)))
+    : qualityPreset.groundedBatchTimeoutMs;
+
   const normalizedRequests = Array.isArray(requests)
     ? requests
         .map((request) => ({
@@ -1185,7 +1222,9 @@ export const resolveAiGroundedBatch = async ({
   try {
     if (typeof resolvedDependencies.searchGroundedBatch === 'function') {
       const response = await resolvedDependencies.searchGroundedBatch(
-        withGroundingSource.map((request) => request.groundingQuery)
+        withGroundingSource.map((request) => request.groundingQuery),
+        undefined,
+        resolvedTimeoutMs
       );
       const estimates = Array.isArray(response?.estimates)
         ? response.estimates
@@ -1214,7 +1253,11 @@ export const resolveAiGroundedBatch = async ({
     if (typeof resolvedDependencies.searchGrounded === 'function') {
       const settledResults = await Promise.allSettled(
         withGroundingSource.map((request) =>
-          resolvedDependencies.searchGrounded(request.groundingQuery)
+          resolvedDependencies.searchGrounded(
+            request.groundingQuery,
+            undefined,
+            resolvedTimeoutMs
+          )
         )
       );
 

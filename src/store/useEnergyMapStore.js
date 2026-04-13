@@ -25,6 +25,7 @@ import {
   sortBodyFatEntries,
 } from '../utils/measurements/bodyFat';
 import { sanitizeAge, sanitizeHeight } from '../utils/measurements/profile';
+import { normalizeAiRagQualityMode } from '../services/aiRagQuality';
 import {
   areDailySnapshotsEquivalent,
   buildDailySnapshot,
@@ -407,6 +408,10 @@ const deriveState = (userData) => {
   const stepGoal = userData.stepGoal ?? 10000;
   const selectedGoal = userData.selectedGoal ?? 'maintenance';
   const goalChangedAt = Number(userData.goalChangedAt) || Date.now();
+  const aiRagQualityMode = normalizeAiRagQualityMode(
+    userData.aiRagQualityMode,
+    'balanced'
+  );
 
   return {
     trainingTypes,
@@ -420,6 +425,7 @@ const deriveState = (userData) => {
     stepEntries,
     stepGoal,
     selectedGoal,
+    aiRagQualityMode,
     goalChangedAt,
     goalDurationDays: getGoalDurationDays(goalChangedAt),
     customCardioTypes: userData.customCardioTypes ?? {},
@@ -536,6 +542,21 @@ export const useEnergyMapStore = createWithEqualityFn(
         return {
           ...prev,
           foodSearchDefaultEntry: normalizedEntry,
+        };
+      });
+    },
+
+    setAiRagQualityMode: (nextMode) => {
+      const normalizedMode = normalizeAiRagQualityMode(nextMode, 'balanced');
+
+      updateUserData(set, get, (prev) => {
+        if (prev.aiRagQualityMode === normalizedMode) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          aiRagQualityMode: normalizedMode,
         };
       });
     },

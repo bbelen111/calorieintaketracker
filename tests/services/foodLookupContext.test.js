@@ -8,6 +8,7 @@ import {
   resolveFoodLookupContext,
 } from '../../src/services/foodLookupContext.js';
 import { FOOD_SEARCH_SOURCE } from '../../src/services/foodSearch.js';
+import { AI_RAG_QUALITY_MODE } from '../../src/services/aiRagQuality.js';
 
 test('normalizeAiLookupResult returns normalized safe shape', () => {
   const result = normalizeAiLookupResult(
@@ -309,4 +310,39 @@ test('resolveFoodLookupContext resolves deferred grounding entries in one batche
   );
   assert.equal(context['assistant-3-1'].status, 'resolved');
   assert.equal(context['assistant-3-1'].matchedFood?.name, 'Ube Halaya');
+});
+
+test('resolveFoodLookupContext fast mode can skip deferred grounding batch', async () => {
+  let groundedBatchCalls = 0;
+
+  const context = await resolveFoodLookupContext({
+    messageId: 'assistant-fast',
+    isOnline: true,
+    qualityMode: AI_RAG_QUALITY_MODE.FAST,
+    lookupOptions: {
+      enableDeferredGrounding: false,
+      allowGroundingFallback: false,
+    },
+    entries: [{ name: 'Kulolo' }],
+    resolveLookup: async () => ({
+      status: 'needs_grounding',
+      usedSource: FOOD_SEARCH_SOURCE.LOCAL,
+      sourcesTried: [FOOD_SEARCH_SOURCE.LOCAL, FOOD_SEARCH_SOURCE.USDA],
+      fallbackUsed: false,
+      queryUsed: 'Kulolo',
+      matchConfidence: 'low',
+      matchScore: 0,
+      weightedMatchScore: 0,
+      matchedFood: null,
+      errorsBySource: {},
+      errorReasonsBySource: {},
+    }),
+    resolveGroundedBatch: async () => {
+      groundedBatchCalls += 1;
+      return {};
+    },
+  });
+
+  assert.equal(groundedBatchCalls, 0);
+  assert.equal(context['assistant-fast-0'].status, 'needs_grounding');
 });

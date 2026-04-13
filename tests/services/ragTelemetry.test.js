@@ -13,6 +13,7 @@ import {
   recordRagPresentationNameDrift,
   recordRagStageLatency,
 } from '../../src/services/ragTelemetry.js';
+import { AI_RAG_QUALITY_MODE } from '../../src/services/aiRagQuality.js';
 
 test.beforeEach(() => {
   __resetRagTelemetryForTests();
@@ -23,18 +24,21 @@ test('records stage latency and extraction outcomes with schema versions', async
     stage: 'extraction',
     durationMs: 120,
     schemaVersion: '1.0.0',
+    qualityMode: AI_RAG_QUALITY_MODE.BALANCED,
   });
 
   await recordRagExtractionOutcome({
     messageType: 'food_entries',
     entriesCount: 2,
     schemaVersion: '1.0.0',
+    qualityMode: AI_RAG_QUALITY_MODE.FAST,
   });
 
   await recordRagExtractionOutcome({
     messageType: 'clarification',
     entriesCount: 0,
     schemaVersion: '1.0.1',
+    qualityMode: AI_RAG_QUALITY_MODE.PRECISION,
   });
 
   const snapshot = getRagTelemetrySessionSnapshot();
@@ -45,6 +49,9 @@ test('records stage latency and extraction outcomes with schema versions', async
   assert.equal(snapshot.metrics.extractionOutcomes.clarification, 1);
   assert.equal(snapshot.metrics.schemaVersionCounts['1.0.0'], 2);
   assert.equal(snapshot.metrics.schemaVersionCounts['1.0.1'], 1);
+  assert.equal(snapshot.metrics.qualityModeCounts.balanced, 1);
+  assert.equal(snapshot.metrics.qualityModeCounts.fast, 1);
+  assert.equal(snapshot.metrics.qualityModeCounts.precision, 1);
   assert.ok(snapshot.metrics.extractionOutcomes.nonFoodEntriesRate > 0);
 });
 

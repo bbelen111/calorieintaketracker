@@ -75,6 +75,11 @@ import {
   recordRagPresentationNameDrift,
   recordRagStageLatency,
 } from '../../../../services/ragTelemetry';
+import {
+  AI_RAG_QUALITY_OPTIONS,
+  getAiRagQualityPreset,
+  normalizeAiRagQualityMode,
+} from '../../../../services/aiRagQuality';
 
 const CHAT_HISTORY_MESSAGE_LIMIT = 48;
 const CHAT_TEXTAREA_MAX_HEIGHT = 112;
@@ -404,7 +409,9 @@ export const FoodSearchModal = ({
     pinnedFoods: storePinnedFoods,
     cachedFoods: storeCachedFoods,
     foodSearchDefaultEntry,
+    aiRagQualityMode,
     togglePinnedFood,
+    setAiRagQualityMode,
     updateCachedFoods,
   } = useEnergyMapStore(
     (state) => ({
@@ -412,7 +419,9 @@ export const FoodSearchModal = ({
       pinnedFoods: state.pinnedFoods,
       cachedFoods: state.cachedFoods,
       foodSearchDefaultEntry: state.userData?.foodSearchDefaultEntry,
+      aiRagQualityMode: state.aiRagQualityMode,
       togglePinnedFood: state.togglePinnedFood,
+      setAiRagQualityMode: state.setAiRagQualityMode,
       updateCachedFoods: state.updateCachedFoods,
     }),
     shallow
@@ -424,6 +433,11 @@ export const FoodSearchModal = ({
   const resolvedUpdateCachedFoods = onUpdateCachedFoods ?? updateCachedFoods;
   const resolvedFoodSearchDefaultEntry = normalizeFoodSearchDefaultEntry(
     foodSearchDefaultEntry
+  );
+  const resolvedAiRagQualityMode = normalizeAiRagQualityMode(aiRagQualityMode);
+  const aiRagQualityPreset = useMemo(
+    () => getAiRagQualityPreset(resolvedAiRagQualityMode),
+    [resolvedAiRagQualityMode]
   );
   const [isAiChatRagEnabled, setIsAiChatRagEnabled] = useState(false);
   const [maxImageCount, setMaxImageCount] = useState(DEFAULT_MAX_IMAGE_COUNT);
@@ -2227,6 +2241,7 @@ export const FoodSearchModal = ({
         confidence:
           resolvedLookup?.matchConfidence || entry?.confidence || 'low',
         category: resolveAiCategory(entry, resolvedLookup),
+        qualityMode: resolvedAiRagQualityMode,
       }).catch(() => {});
     },
     [
@@ -2234,6 +2249,7 @@ export const FoodSearchModal = ({
       parseEntryKeyMessageId,
       resolveAiCategory,
       resolveAiLookupMeta,
+      resolvedAiRagQualityMode,
     ]
   );
 
@@ -2378,6 +2394,7 @@ export const FoodSearchModal = ({
               files: attachments.map((attachment) => attachment.file),
               history,
               signal: controller.signal,
+              timeoutMs: aiRagQualityPreset.extractionTimeoutMs,
             });
 
           let extractionResult = await runExtractionAttempt(trimmedText);
@@ -2388,6 +2405,7 @@ export const FoodSearchModal = ({
             stage: 'extraction',
             durationMs: extractionLatencyMs,
             schemaVersion: extractionSchemaVersion,
+            qualityMode: resolvedAiRagQualityMode,
           }).catch(() => {});
 
           const extractionMessageType =
@@ -2436,6 +2454,7 @@ export const FoodSearchModal = ({
               (extractionEntries.length > 0 ? 'food_entries' : 'no_entries'),
             entriesCount: effectiveExtractionEntries.length,
             schemaVersion: extractionSchemaVersion,
+            qualityMode: resolvedAiRagQualityMode,
           }).catch(() => {});
 
           const shouldShortCircuit =
@@ -2456,7 +2475,7 @@ export const FoodSearchModal = ({
                 const groundedEstimate = await fetchMacrosWithGrounding(
                   trimmedText,
                   controller.signal,
-                  20000
+                  aiRagQualityPreset.groundedLookupTimeoutMs
                 );
 
                 const groundedEntry = {
@@ -2507,15 +2526,26 @@ export const FoodSearchModal = ({
               messageId: assistantMessageId,
               entries: effectiveExtractionEntries,
               isOnline,
+              qualityMode: resolvedAiRagQualityMode,
+              lookupOptions: {
+                allowGroundingFallback: false,
+                enableDeferredGrounding:
+                  aiRagQualityPreset.enableDeferredGrounding,
+                localLimit: aiRagQualityPreset.localLimit,
+                onlinePageSize: aiRagQualityPreset.onlinePageSize,
+              },
+              groundedBatchTimeoutMs: aiRagQualityPreset.groundedBatchTimeoutMs,
             });
             void recordRagStageLatency({
               stage: 'retrieval',
               durationMs: getNowMs() - retrievalStartedAt,
               schemaVersion: extractionSchemaVersion,
+              qualityMode: resolvedAiRagQualityMode,
             }).catch(() => {});
             void recordRagLookupStats({
               lookupContext: preResolvedLookupContext,
               schemaVersion: extractionSchemaVersion,
+              qualityMode: resolvedAiRagQualityMode,
             }).catch(() => {});
             lookupStatsRecorded = true;
 
@@ -2535,6 +2565,7 @@ export const FoodSearchModal = ({
               stage: 'verification',
               durationMs: getNowMs() - verificationStartedAt,
               schemaVersion: extractionSchemaVersion,
+              qualityMode: resolvedAiRagQualityMode,
             }).catch(() => {});
 
             const verifiedEntries = verifiedEntryResults
@@ -2560,6 +2591,7 @@ export const FoodSearchModal = ({
                 },
                 history,
                 signal: controller.signal,
+                timeoutMs: aiRagQualityPreset.presentationTimeoutMs,
               });
               resultSchemaVersion =
                 presentationResult?.foodParser?.version ||
@@ -2568,6 +2600,7 @@ export const FoodSearchModal = ({
                 stage: 'presentation',
                 durationMs: getNowMs() - presentationStartedAt,
                 schemaVersion: resultSchemaVersion,
+                qualityMode: resolvedAiRagQualityMode,
               }).catch(() => {});
 
               const presentationEntries = Array.isArray(
@@ -2609,6 +2642,7 @@ export const FoodSearchModal = ({
                 verifiedEntries,
                 presentationEntries,
                 schemaVersion: resultSchemaVersion,
+                qualityMode: resolvedAiRagQualityMode,
               }).catch(() => {});
 
               result = {
@@ -2633,6 +2667,7 @@ export const FoodSearchModal = ({
                 stage: 'presentation',
                 durationMs: getNowMs() - presentationStartedAt,
                 schemaVersion: resultSchemaVersion,
+                qualityMode: resolvedAiRagQualityMode,
               }).catch(() => {});
 
               result = {
@@ -2655,6 +2690,7 @@ export const FoodSearchModal = ({
             files: attachments.map((attachment) => attachment.file),
             history,
             signal: controller.signal,
+            timeoutMs: aiRagQualityPreset.extractionTimeoutMs,
           });
           resultSchemaVersion = result?.foodParser?.version || null;
 
@@ -2667,6 +2703,7 @@ export const FoodSearchModal = ({
               messageType: result.foodParser.messageType,
               entriesCount: fallbackEntries.length,
               schemaVersion: resultSchemaVersion,
+              qualityMode: resolvedAiRagQualityMode,
             }).catch(() => {});
           }
         }
@@ -2683,12 +2720,23 @@ export const FoodSearchModal = ({
                   messageId: assistantMessageId,
                   entries: result.foodParser.entries,
                   isOnline,
+                  qualityMode: resolvedAiRagQualityMode,
+                  lookupOptions: {
+                    allowGroundingFallback: false,
+                    enableDeferredGrounding:
+                      aiRagQualityPreset.enableDeferredGrounding,
+                    localLimit: aiRagQualityPreset.localLimit,
+                    onlinePageSize: aiRagQualityPreset.onlinePageSize,
+                  },
+                  groundedBatchTimeoutMs:
+                    aiRagQualityPreset.groundedBatchTimeoutMs,
                 });
 
           if (!lookupStatsRecorded && Object.keys(lookupContext).length > 0) {
             void recordRagLookupStats({
               lookupContext,
               schemaVersion: resultSchemaVersion || extractionSchemaVersion,
+              qualityMode: resolvedAiRagQualityMode,
             }).catch(() => {});
             lookupStatsRecorded = true;
           }
@@ -2734,6 +2782,7 @@ export const FoodSearchModal = ({
           stage: 'endToEnd',
           durationMs: getNowMs() - requestStartedAt,
           schemaVersion: resultSchemaVersion || extractionSchemaVersion,
+          qualityMode: resolvedAiRagQualityMode,
         }).catch(() => {});
       } catch (error) {
         const message =
@@ -2771,10 +2820,12 @@ export const FoodSearchModal = ({
     },
     [
       chatMessages,
+      aiRagQualityPreset,
       isOnline,
       isAiChatRagEnabled,
       isSendingChat,
       queueChatMessageForReplay,
+      resolvedAiRagQualityMode,
       updateMessageById,
     ]
   );
@@ -3638,6 +3689,9 @@ export const FoodSearchModal = ({
         {viewMode === 'chat' && (
           <FoodSearchChatPanel
             isOnline={isOnline}
+            aiRagQualityMode={resolvedAiRagQualityMode}
+            aiRagQualityOptions={AI_RAG_QUALITY_OPTIONS}
+            onChangeAiRagQualityMode={setAiRagQualityMode}
             chatMessages={chatMessages}
             chatAttachments={chatAttachments}
             chatError={chatError}

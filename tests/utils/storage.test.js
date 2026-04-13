@@ -541,3 +541,21 @@ test('save/loadEnergyMapData persists foodSearchDefaultEntry in profile scope', 
     assert.equal(loaded.foodSearchDefaultEntry, 'barcode');
   });
 });
+
+test('save/loadEnergyMapData persists aiRagQualityMode in profile scope', async () => {
+  await withWindowStorage(async () => {
+    await Preferences.remove({ key: PROFILE_KEY });
+    await clearDexieHistory();
+
+    const payload = {
+      ...getDefaultEnergyMapData(),
+      aiRagQualityMode: 'precision',
+      weightEntries: [{ date: '2026-03-22', weight: 79.2 }],
+    };
+
+    await saveEnergyMapData(payload);
+
+    const loaded = await loadEnergyMapData();
+    assert.equal(loaded.aiRagQualityMode, 'precision');
+  });
+});

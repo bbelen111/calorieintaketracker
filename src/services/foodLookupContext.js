@@ -3,6 +3,11 @@ import {
   resolveAiFoodLookup,
   resolveAiGroundedBatch,
 } from './foodSearch.js';
+import {
+  AI_RAG_QUALITY_MODE,
+  getAiRagQualityPreset,
+  normalizeAiRagQualityMode,
+} from './aiRagQuality.js';
 
 const LOOKUP_ERROR_REASON_MESSAGES = Object.freeze({
   local_search_failed: "We couldn't find a match in the local food database.",
@@ -165,6 +170,9 @@ export const resolveFoodLookupContext = async ({
   messageId,
   entries = [],
   isOnline = true,
+  qualityMode = AI_RAG_QUALITY_MODE.BALANCED,
+  lookupOptions = {},
+  groundedBatchTimeoutMs,
   resolveLookup = resolveAiFoodLookup,
   resolveGroundedBatch = resolveAiGroundedBatch,
 } = {}) => {
@@ -172,6 +180,19 @@ export const resolveFoodLookupContext = async ({
   if (!normalizedMessageId || !Array.isArray(entries) || entries.length === 0) {
     return {};
   }
+
+  const resolvedQualityMode = normalizeAiRagQualityMode(qualityMode);
+  const qualityPreset = getAiRagQualityPreset(resolvedQualityMode);
+  const normalizedLookupOptions =
+    lookupOptions && typeof lookupOptions === 'object' ? lookupOptions : {};
+  const shouldAllowGroundingFallback =
+    typeof normalizedLookupOptions.allowGroundingFallback === 'boolean'
+      ? normalizedLookupOptions.allowGroundingFallback
+      : false;
+  const shouldEnableDeferredGrounding =
+    typeof normalizedLookupOptions.enableDeferredGrounding === 'boolean'
+      ? normalizedLookupOptions.enableDeferredGrounding
+      : qualityPreset.enableDeferredGrounding;
 
   const pairs = await Promise.all(
     entries.map(async (entry, index) => {
@@ -187,8 +208,12 @@ export const resolveFoodLookupContext = async ({
           entryName,
           lookupTerms: resolveEntryLookupTerms(entry),
           entryCategory: entry?.category || null,
+          qualityMode: resolvedQualityMode,
           isOnline,
-          allowGroundingFallback: false,
+          allowGroundingFallback: shouldAllowGroundingFallback,
+          localLimit: normalizedLookupOptions.localLimit,
+          onlinePageSize: normalizedLookupOptions.onlinePageSize,
+          sourcePreferenceWeights: normalizedLookupOptions.sourcePreferenceWeights,
         });
 
         return [entryKey, normalizeAiLookupResult(result, { entryName })];
@@ -199,7 +224,11 @@ export const resolveFoodLookupContext = async ({
   );
   const contextByKey = Object.fromEntries(pairs);
 
-  if (!isOnline || typeof resolveGroundedBatch !== 'function') {
+  if (
+    !isOnline ||
+    !shouldEnableDeferredGrounding ||
+    typeof resolveGroundedBatch !== 'function'
+  ) {
     return contextByKey;
   }
 
@@ -232,6 +261,8 @@ export const resolveFoodLookupContext = async ({
 
   const groundedResultsByKey = await resolveGroundedBatch({
     requests: deferredGroundingRequests,
+    qualityMode: resolvedQualityMode,
+    timeoutMs: groundedBatchTimeoutMs,
   });
 
   Object.entries(groundedResultsByKey || {}).forEach(([entryKey, result]) => {

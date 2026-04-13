@@ -69,6 +69,9 @@ const MESSAGE_CYCLE_MS = 1400;
 
 export const FoodSearchChatPanel = ({
   isOnline,
+  aiRagQualityMode,
+  aiRagQualityOptions,
+  onChangeAiRagQualityMode,
   chatMessages,
   chatAttachments,
   chatError,
@@ -158,8 +161,66 @@ export const FoodSearchChatPanel = ({
     }
   };
 
+  const qualityOptions = Array.isArray(aiRagQualityOptions)
+    ? aiRagQualityOptions
+    : [];
+  const qualityModeIndex = Math.max(
+    qualityOptions.findIndex((option) => option.value === aiRagQualityMode),
+    0
+  );
+  const qualitySegmentWidth =
+    qualityOptions.length > 0
+      ? `calc((100% - 0.5rem) / ${qualityOptions.length})`
+      : 'calc((100% - 0.5rem) / 3)';
+  const qualityActiveClass =
+    aiRagQualityMode === 'fast'
+      ? 'bg-accent-indigo'
+      : aiRagQualityMode === 'precision'
+        ? 'bg-accent-purple'
+        : 'bg-accent-blue';
+
   return (
     <div className="flex-1 min-h-0 flex flex-col mt-2">
+      <div className="mx-4 mb-2 flex-shrink-0 rounded-lg border border-border bg-surface-highlight px-3 py-2">
+        <div className="mb-1">
+          <p className="text-[11px] font-semibold text-foreground">AI mode</p>
+          <p className="text-[10px] text-muted">
+            Fast for speed, Balanced for daily use, Precision for deeper lookup.
+          </p>
+        </div>
+
+        <div className="relative flex items-center p-1 bg-surface rounded-lg border border-border">
+          <div
+            className={`absolute inset-y-1 left-1 rounded-md shadow-md ${qualityActiveClass}`}
+            style={{
+              width: qualitySegmentWidth,
+              transform: `translateX(${qualityModeIndex * 100}%)`,
+              transition:
+                'transform 0.2s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.2s ease-out',
+            }}
+          />
+
+          {qualityOptions.map((option) => {
+            const isActive = option.value === aiRagQualityMode;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => onChangeAiRagQualityMode?.(option.value)}
+                className={`relative z-10 flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors pressable-inline focus-ring ${
+                  isActive
+                    ? 'text-primary-foreground'
+                    : 'text-muted md:hover:text-foreground'
+                }`}
+                title={option.description}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {!isOnline && (
         <div className="mx-4 mt-3 flex items-center gap-2 px-3 py-2 bg-accent-amber/10 border border-accent-amber/30 rounded-lg flex-shrink-0">
           <CloudOff size={14} className="text-accent-amber flex-shrink-0" />

@@ -2,6 +2,7 @@ import {
   loadAllHistoryDocuments,
   saveHistoryDocumentsToDexie,
 } from '../utils/data/historyDatabase.js';
+import { normalizeAiRagQualityMode } from './aiRagQuality.js';
 
 const RAG_TELEMETRY_AGGREGATE_DOC_ID = 'ragTelemetryAggregate';
 const RAG_TELEMETRY_SESSIONS_DOC_ID = 'ragTelemetrySessions';
@@ -63,6 +64,11 @@ const createEmptySnapshot = () => ({
     sourceValidationByCategory: {},
   },
   schemaVersionCounts: {},
+  qualityModeCounts: {
+    fast: 0,
+    balanced: 0,
+    precision: 0,
+  },
 });
 
 const createEmptySession = () => ({
@@ -194,6 +200,31 @@ const applySchemaVersionCount = (targetMetrics, schemaVersion) => {
   const normalizedVersion = normalizeSchemaVersion(schemaVersion);
   targetMetrics.schemaVersionCounts[normalizedVersion] =
     (targetMetrics.schemaVersionCounts[normalizedVersion] || 0) + 1;
+};
+
+const applyQualityModeCount = (targetMetrics, qualityMode) => {
+  const normalizedQualityMode = normalizeAiRagQualityMode(
+    qualityMode,
+    'balanced'
+  );
+  if (
+    !targetMetrics.qualityModeCounts ||
+    typeof targetMetrics.qualityModeCounts !== 'object'
+  ) {
+    targetMetrics.qualityModeCounts = {
+      fast: 0,
+      balanced: 0,
+      precision: 0,
+    };
+  }
+
+  if (
+    !Number.isFinite(targetMetrics.qualityModeCounts[normalizedQualityMode])
+  ) {
+    targetMetrics.qualityModeCounts[normalizedQualityMode] = 0;
+  }
+
+  targetMetrics.qualityModeCounts[normalizedQualityMode] += 1;
 };
 
 const applyExtractionOutcome = (targetMetrics, messageType, entriesCount) => {
@@ -459,11 +490,15 @@ export const recordRagStageLatency = async ({
   stage,
   durationMs,
   schemaVersion = null,
+  qualityMode = null,
 } = {}) => {
   await applyMutation((metrics) => {
     applyStageLatency(metrics, stage, durationMs);
     if (schemaVersion) {
       applySchemaVersionCount(metrics, schemaVersion);
+    }
+    if (qualityMode) {
+      applyQualityModeCount(metrics, qualityMode);
     }
   });
 };
@@ -472,21 +507,29 @@ export const recordRagExtractionOutcome = async ({
   messageType,
   entriesCount,
   schemaVersion = null,
+  qualityMode = null,
 } = {}) => {
   await applyMutation((metrics) => {
     applyExtractionOutcome(metrics, messageType, entriesCount);
     applySchemaVersionCount(metrics, schemaVersion);
+    if (qualityMode) {
+      applyQualityModeCount(metrics, qualityMode);
+    }
   });
 };
 
 export const recordRagLookupStats = async ({
   lookupContext,
   schemaVersion = null,
+  qualityMode = null,
 } = {}) => {
   await applyMutation((metrics) => {
     applyLookupContext(metrics, lookupContext);
     if (schemaVersion) {
       applySchemaVersionCount(metrics, schemaVersion);
+    }
+    if (qualityMode) {
+      applyQualityModeCount(metrics, qualityMode);
     }
   });
 };
@@ -495,11 +538,15 @@ export const recordRagPresentationNameDrift = async ({
   verifiedEntries,
   presentationEntries,
   schemaVersion = null,
+  qualityMode = null,
 } = {}) => {
   await applyMutation((metrics) => {
     applyNameDrift(metrics, verifiedEntries, presentationEntries);
     if (schemaVersion) {
       applySchemaVersionCount(metrics, schemaVersion);
+    }
+    if (qualityMode) {
+      applyQualityModeCount(metrics, qualityMode);
     }
   });
 };
@@ -512,6 +559,7 @@ export const recordRagImplicitFeedback = async ({
   confidence,
   category,
   schemaVersion = null,
+  qualityMode = null,
 } = {}) => {
   await applyMutation((metrics) => {
     applyImplicitFeedback(metrics, {
@@ -524,6 +572,9 @@ export const recordRagImplicitFeedback = async ({
     });
     if (schemaVersion) {
       applySchemaVersionCount(metrics, schemaVersion);
+    }
+    if (qualityMode) {
+      applyQualityModeCount(metrics, qualityMode);
     }
   });
 };

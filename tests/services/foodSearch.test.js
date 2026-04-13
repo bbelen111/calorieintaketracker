@@ -12,6 +12,7 @@ import {
   searchFoodsOnline,
   searchFoodsHierarchically,
 } from '../../src/services/foodSearch.js';
+import { AI_RAG_QUALITY_MODE } from '../../src/services/aiRagQuality.js';
 
 test.beforeEach(() => {
   resetAiLookupSessionCache();
@@ -291,6 +292,35 @@ test('resolveAiFoodLookup can defer grounding when fallback is disabled', async 
   assert.equal(result.queryUsed, 'rare local dessert');
 });
 
+test('resolveAiFoodLookup fast mode disables grounding fallback by default', async () => {
+  let groundedCalls = 0;
+
+  const result = await resolveAiFoodLookup({
+    entryName: 'rare local dessert',
+    qualityMode: AI_RAG_QUALITY_MODE.FAST,
+    isOnline: true,
+    dependencies: {
+      searchLocal: async () => [],
+      searchUsda: async () => ({ foods: [] }),
+      searchGrounded: async () => {
+        groundedCalls += 1;
+        return {
+          name: 'Rare Local Dessert',
+          per100g: {
+            calories: 320,
+            protein: 4,
+            carbs: 45,
+            fats: 14,
+          },
+        };
+      },
+    },
+  });
+
+  assert.equal(result.status, 'needs_grounding');
+  assert.equal(groundedCalls, 0);
+});
+
 test('resolveAiGroundedBatch resolves multiple entries from one batched lookup call', async () => {
   let batchCalls = 0;
 
@@ -343,6 +373,45 @@ test('resolveAiGroundedBatch resolves multiple entries from one batched lookup c
   assert.equal(result['assistant-1-0'].matchedFood?.name, 'Kulolo');
   assert.equal(result['assistant-1-1'].status, 'resolved');
   assert.equal(result['assistant-1-1'].matchedFood?.name, 'Ube Halaya');
+});
+
+test('resolveAiGroundedBatch forwards timeout from quality options to batch dependency', async () => {
+  let capturedTimeout = null;
+
+  await resolveAiGroundedBatch({
+    qualityMode: AI_RAG_QUALITY_MODE.PRECISION,
+    timeoutMs: 12345,
+    requests: [
+      {
+        entryKey: 'assistant-10-0',
+        entryName: 'kulolo',
+        groundingQuery: 'kulolo',
+      },
+    ],
+    dependencies: {
+      searchGroundedBatch: async (_queries, _signal, timeoutMs) => {
+        capturedTimeout = timeoutMs;
+        return {
+          estimates: [
+            {
+              requestedFoodName: 'kulolo',
+              estimate: {
+                name: 'Kulolo',
+                per100g: {
+                  calories: 250,
+                  protein: 1,
+                  carbs: 55,
+                  fats: 2,
+                },
+              },
+            },
+          ],
+        };
+      },
+    },
+  });
+
+  assert.equal(capturedTimeout, 12345);
 });
 
 test('resolveAiFoodLookup forces grounded fallback when USDA fails with rate limit', async () => {

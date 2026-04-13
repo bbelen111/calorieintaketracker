@@ -173,6 +173,7 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 - `FoodSearchModal` is the **canonical** food favourites UI surface (`viewMode === 'favourites'`).
 - `FoodFavouritesModal` was removed as redundant and should **not** be reintroduced.
 - `FoodSearchModal` is now a **4-mode surface**: local search, online search, favourites, and AI chat (`viewMode` + `searchMode` state machine).
+- AI chat includes a persisted quality preset in profile state: `aiRagQualityMode: 'fast' | 'balanced' | 'precision'` (default: `balanced`).
 - `FoodSearchModal` now composes focused panel components from `modals/fullscreen/panels/`:
   - `FoodSearchChatPanel.jsx`
   - `FoodSearchFilterControls.jsx`
@@ -215,6 +216,8 @@ FoodSearchModal
 
 AI chat mode (feature-flagged RAG path):
 FoodSearchModal
+  -> resolves AI quality preset via `services/aiRagQuality.js` (Fast / Balanced / Precision)
+  -> applies preset knobs (timeouts + lookup breadth)
   -> sendGeminiExtraction(...) in services/gemini.js (mode='extraction')
   -> resolveFoodLookupContext(...) + resolveAiFoodEntry(...) in services/foodLookupContext.js + services/foodSearch.js
     -> local lookup (foodCatalog)
@@ -611,6 +614,7 @@ Migration behavior is now intentionally minimal:
 - `activityPresets: { training: 'default', rest: 'default' }`
 - `customActivityMultipliers: { training: 0.35, rest: 0.28 }`
 - `smartTefEnabled: false`
+- `aiRagQualityMode: 'balanced'`
 - `adaptiveThermogenesisEnabled: false`
 - `adaptiveThermogenesisSmartMode: false`
 - `adaptiveThermogenesisSmoothingEnabled: false`
@@ -648,6 +652,7 @@ Migration behavior is now intentionally minimal:
   smartTefFoodTefBurnEnabled: true,
   smartTefQuickEstimatesTargetMode: true,
   smartTefLiveCardTargetMode: false,
+  aiRagQualityMode: 'balanced',
   adaptiveThermogenesisEnabled: false,
   adaptiveThermogenesisSmartMode: false,
   adaptiveThermogenesisSmoothingEnabled: false,
@@ -802,6 +807,12 @@ Gemini food parsing is proxied through `api/gemini.js` (server-side key handling
 - `sendGeminiMessage(...)` includes bounded transient retry for upstream `502|503|504` and queued exponential backoff for `429`
 - Feature flag: `AI_CHAT_RAG_ENABLED` from `VITE_AI_CHAT_RAG_ENABLED`
 
+**AI RAG quality presets (`src/services/aiRagQuality.js`):**
+- `fast` — lower latency, narrower lookup breadth, deferred grounding disabled
+- `balanced` — default profile and compatibility baseline
+- `precision` — wider lookup breadth and longer timeout budget
+- Persisted profile field: `userData.aiRagQualityMode`
+
 **Policy requirements:**
 - Use **conservative estimation** when uncertainty materially affects calories/macros.
 - Prefer **one highest-impact clarification question** for low-confidence cases.
@@ -944,6 +955,7 @@ src/
 │   ├─ theme.js                  # Native theme application (status bar, transparent nav bar, keyboard)
 │   ├─ export.js                 # CSV/JSON export generation
 ├─ services/
+│   ├─ aiRagQuality.js           # AI parser quality presets (fast/balanced/precision)
 │   ├─ gemini.js                 # Gemini client + mode helpers (extraction/presentation/grounding)
 │   ├─ foodCache.js              # Cached food dedupe/trim helpers
 │   ├─ foodLookupContext.js      # Batch AI entry lookup context resolver + normalized lookup meta
@@ -1096,3 +1108,4 @@ npm run test:watch     # Node test runner in watch mode
 73. **Selector/destructure parity matters:** when selecting store fields in `useEnergyMapStore`, always destructure every referenced variable (`aiChatRolloutUserId`, `aiChatRagRolloutOverride`, `aiChatRagRolloutPercentage`) to avoid runtime `ReferenceError` crashes.
 74. **Bundle-splitting hygiene for dynamic services:** keep `foodCatalog` and `gemini` usage dynamic in heavy UI/orchestrator flows (`FoodSearchModal`, `EnergyMapCalculator`) so static imports do not pull these paths back into the main chunk.
 75. **Lazy modal mount guard is required:** for lazy-loaded modal components, gate render with `isOpen || isClosing`. Rendering only on `isOpen` can cut exit animations and regress close-stack UX.
+76. **AI quality baseline should remain balanced:** treat `aiRagQualityMode='balanced'` as the compatibility baseline unless a coordinated retune of UX/perf trade-offs is intentional.
