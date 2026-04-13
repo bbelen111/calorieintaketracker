@@ -45,7 +45,7 @@ main.jsx
             │   ├─ CalorieMapScreen
             │   └─ InsightsScreen
             ├─ PhaseDetailScreen (drill-down, not in carousel)
-              └─ 40 top-level useAnimatedModal instances → 49 modal files
+                └─ 43 top-level useAnimatedModal instances → 58 modal-related files (53 modals + 5 panels)
                  └─ ~21 additional child-level modals inside modal components
 ```
 
@@ -148,11 +148,11 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 
 ### Modal Count
 
-- **42 top-level `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
+- **43 top-level `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
 - **~21 additional child-level modals** declared inside modal components (e.g., delete confirmations, sub-pickers)
-- **52 modal component files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`, plus 4 supporting panel components under `fullscreen/panels/`:
+- **53 modal component files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`, plus 5 supporting panel components under `fullscreen/panels/`:
   - `fullscreen/` — WeightTrackerModal, BodyFatTrackerModal, StepTrackerModal, SettingsModal, FoodSearchModal
-  - `pickers/` — AgePickerModal, BodyFatPickerModal, CalendarPickerModal, **CaloriesPerHourPickerModal**, DatePickerModal, DurationPickerModal, EpocWindowPickerModal, FoodPortionModal, HeartRatePickerModal, HeightPickerModal, MealTypePickerModal, MetValuePickerModal, StepGoalPickerModal, TemplatePickerModal, TimePickerModal, WeightPickerModal
+  - `pickers/` — AgePickerModal, BodyFatPickerModal, CalendarPickerModal, **CaloriesPerHourPickerModal**, DatePickerModal, DurationPickerModal, EpocWindowPickerModal, FoodPortionModal, HeartRatePickerModal, HeightPickerModal, **MacroPickerModal**, MealTypePickerModal, MetValuePickerModal, **NumericValuePickerModal**, StepGoalPickerModal, TemplatePickerModal, TimePickerModal, WeightPickerModal
   - `info/` — AdaptiveThermogenesisInfoModal, BmiInfoModal, BmrInfoModal, BodyFatTrendInfoModal, CalorieBreakdownModal, CaloriesPerHourGuideModal, EpocInfoModal, FfmiInfoModal, TefInfoModal, WeightTrendInfoModal
   - `forms/` — AddCustomFoodModal, BarcodeEntryModal, BodyFatEntryModal, CardioModal, CustomCardioTypeModal, DailyActivityCustomModal, DailyActivityEditorModal, DailyActivityModal, DailyLogModal, FoodEntryModal, GoalModal, PhaseCreationModal, TrainingModal, StepRangesModal, TrainingTypeEditorModal, WeightEntryModal
   - `lists/` — CardioFavouritesModal, CardioTypeListModal, CalorieTargetModal
@@ -167,6 +167,7 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 - `FoodSearchModal` now composes focused panel components from `modals/fullscreen/panels/`:
   - `FoodSearchChatPanel.jsx`
   - `FoodSearchFilterControls.jsx`
+  - `FoodSearchMealPreviewPanel.jsx`
   - `FoodSearchResultsPanel.jsx`
   - `FoodSearchFavouritesPanel.jsx`
   Keep panel responsibilities isolated and avoid moving large inline JSX blocks back into `FoodSearchModal`.
@@ -481,7 +482,7 @@ Defined in `index.css` `@layer base` and `@layer components`:
 
 ---
 
-## Calculation System (`utils/calculations.js`)
+## Calculation System (`utils/calculations/calculations.js`)
 
 All calorie formulas are centralized. **Never duplicate or inline calculations.**
 
@@ -541,7 +542,7 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 
 ---
 
-## Storage Architecture (`utils/storage.js`, `utils/historyDatabase.js`)
+## Storage Architecture (`utils/data/storage.js`, `utils/data/historyDatabase.js`)
 
 ### Split Storage Keys
 
@@ -557,7 +558,7 @@ Split is determined by `HISTORY_FIELDS` array: `weightEntries`, `bodyFatEntries`
 
 ### Dexie History Store
 
-`utils/historyDatabase.js` manages:
+`utils/data/historyDatabase.js` manages:
 - DB name: `energyMapHistory`
 - `historyDocuments` table (`id` = history field key or sharded key, payload document)
 
@@ -579,7 +580,7 @@ Return semantics are intentionally boolean-oriented for save helpers (`true`/`fa
 | `clampBodyFat(value)` | `utils/bodyFat.js` | Validates body fat percentage |
 | `sortBodyFatEntries(entries)` | `utils/bodyFat.js` | Filters and sorts body fat entries |
 | `parseStepRange(range)` | `utils/steps.js` | Parses `<10k`, `>20k`, `10k-15k` formats → `{ min, max, operator }` |
-| `mergeWithDefaults(data)` | `utils/storage.js` | Deep-merges loaded data with defaults, normalizes nutrition entries |
+| `mergeWithDefaults(data)` | `utils/data/storage.js` | Deep-merges loaded data with defaults, normalizes nutrition entries |
 | `sanitizeAge(value, fallback)` | `utils/profile.js` | Clamps and rounds age to 1–100 range |
 | `sanitizeHeight(value, fallback)` | `utils/profile.js` | Clamps and rounds height to 120–220 cm range |
 
@@ -592,7 +593,7 @@ Migration behavior is now intentionally minimal:
 
 ### Default Data
 
-`getDefaultEnergyMapData()` in `utils/storage.js` defines the full schema with defaults. Key defaults:
+`getDefaultEnergyMapData()` in `utils/data/storage.js` defines the full schema with defaults. Key defaults:
 - `age: 21`, `weight: 74`, `height: 168`, `gender: 'male'`, `theme: 'auto'`
 - `selectedGoal: 'maintenance'`, `goalChangedAt: Date.now()`
 - `stepGoal: 10000`, `selectedTrainingType: 'trainingtype_1'`, `trainingDuration: 2`
@@ -859,12 +860,12 @@ Always returns `'unavailable'` on web and iOS. Status constants exported as `Hea
 ```
 src/
 ├─ components/EnergyMap/
-│   ├─ EnergyMapCalculator.jsx   # THE orchestrator (3,400+ lines)
+│   ├─ EnergyMapCalculator.jsx   # THE orchestrator (4,100+ lines)
 │   ├─ common/
 │   │   ├─ ModalShell.jsx        # Core modal wrapper (singleton managers)
 │   │   ├─ FoodTagBadges.jsx     # Shared food tag/source badge renderer
 │   │   └─ ScreenTabs.jsx        # Tab bar + floating variant
-│   ├─ modals/                   # 49 modal files in 6 subfolders, all use ModalShell
+│   ├─ modals/                   # 53 modal files in 6 subfolders + 5 fullscreen panel components
 │   │   ├─ fullscreen/           # Full-screen takeover modals (WeightTracker, BodyFatTracker, StepTracker, Settings, FoodSearch)
 │   │   ├─ pickers/              # Scroll-wheel value pickers (Age, BodyFat, Calendar, Height, Weight, MealType, etc.)
 │   │   ├─ info/                 # Read-only info/reference sheets (AdaptiveThermogenesisInfo, BmiInfo, BmrInfo, CalorieBreakdown, TefInfo, etc.)
@@ -889,6 +890,7 @@ src/
 │   │  └─ phaseTemplates.js      # Phase creation templates
 ├─ hooks/
 │   ├─ useAnimatedModal.js       # Modal lifecycle (isOpen/isClosing/requestClose)
+│   ├─ useHardwareBackButton.js  # Native back handling (home-first + double-exit)
 │   ├─ useSwipeableScreens.js    # 5-screen horizontal carousel
 │   ├─ useHealthConnect.js       # Android Health Connect integration
 │   ├─ useNetworkStatus.js       # Online/offline detection
@@ -934,8 +936,10 @@ src/
 │   ├─ export.js                 # CSV/JSON export generation
 ├─ services/
 │   ├─ gemini.js                 # Gemini client + mode helpers (extraction/presentation/grounding)
+│   ├─ foodCache.js              # Cached food dedupe/trim helpers
 │   ├─ foodLookupContext.js      # Batch AI entry lookup context resolver + normalized lookup meta
 │   ├─ foodSearch.js             # Local/USDA/grounded lookup orchestration + deterministic AI entry resolution
+│   ├─ ragTelemetry.js           # RAG telemetry aggregation + diagnostics helpers
 │   ├─ usda.js                   # USDA online search client
 │   ├─ openFoodFacts.js          # OpenFoodFacts barcode lookup client
 │   ├─ barcodeScanner.js         # Official Capacitor barcode scanner wrapper
@@ -946,10 +950,21 @@ src/
 │      └─ config/
 │         └─ taxonomy.js         # Canonical taxonomy maps + alias/portion sanitation config
 └─ tests/                        # Node test runner suite (`node --test`)
+  ├─ api/
+  │   └─ gemini.contract.test.js
   ├─ constants/
   │   └─ activityPresets.test.js
+  ├─ services/
+  │   ├─ foodLookupContext.test.js
+  │   ├─ foodSearch.test.js
+  │   ├─ openFoodFacts.test.js
+  │   ├─ ragTelemetry.test.js
+  │   └─ usda.test.js
   └─ utils/
     ├─ aiPresentationMerge.test.js # Presentation merge guardrail tests (sparse entries, rewrite suppression, integrity fallback)
+    ├─ gemini.test.js
+    ├─ macroRecommendations.test.js
+    ├─ portionNormalization.test.js
     ├─ calculations.test.js
     ├─ dateKeys.test.js
     ├─ adaptiveThermogenesis.test.js

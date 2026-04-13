@@ -113,7 +113,7 @@ $$
 
 ```
 App.jsx (theme management, store hydration gate)
-  └─ EnergyMapCalculator.jsx (orchestrator, 3,800+ lines)
+  └─ EnergyMapCalculator.jsx (orchestrator, 4,100+ lines)
       ├─ 5-screen carousel
       │   ├─ LogbookScreen
       │   ├─ TrackerScreen
@@ -121,7 +121,7 @@ App.jsx (theme management, store hydration gate)
       │   ├─ CalorieMapScreen
       │   └─ InsightsScreen
       ├─ PhaseDetailScreen (drill-down)
-      └─ 42 top-level modals + ~21 child-level modals
+      └─ 43 top-level modals + ~21 child-level modals
 
 Persistence:
   Profile (settings/stats)  → Capacitor Preferences
@@ -164,13 +164,14 @@ The store's canonical fields (computed via `deriveState`) are:
 src/
 ├─ components/EnergyMap/
 │   ├─ EnergyMapCalculator.jsx    # Main orchestrator
-│   ├─ modals/                     # 52 modal components (6 subfolders) + 4 panel helpers
+│   ├─ modals/                     # 53 modal components (6 subfolders) + 5 panel helpers
 │   │   ├─ fullscreen/             # WeightTracker, BodyFatTracker, StepTracker, Settings, FoodSearch
 │   │   ├─ pickers/                # Value selectors (Age, Calendar, Duration, etc.)
 │   │   ├─ info/                   # Info/reference modals (BmiInfo, BmrInfo, etc.)
 │   │   ├─ forms/                  # Data entry (CardioModal, GoalModal, etc.)
 │   │   ├─ lists/                  # Browseable lists (`CalorieTargetModal`, CardioFavourites, CardioTypeList)
-│   │   └─ common/                 # ConfirmActionModal, ModalShell
+│   │   └─ common/                 # ConfirmActionModal
+│   ├─ common/                     # Shared components (e.g., ModalShell, ScreenTabs, FoodTagBadges)
 │   └─ screens/                    # 5 carousel screens + PhaseDetailScreen
 ├─ store/
 │   └─ useEnergyMapStore.js        # Zustand store (state, actions, derived values, persistence)
@@ -209,15 +210,21 @@ src/
 │   └─ export.js                   # CSV/JSON export generation
 ├─ services/
 │   ├─ foodCatalog.js              # SQLite local food search
+│   ├─ foodCache.js                # Cache dedupe/trim helpers
+│   ├─ foodLookupContext.js        # AI lookup context + diagnostics metadata
+│   ├─ foodSearch.js               # Local/USDA/RAG search orchestration
+│   ├─ ragTelemetry.js             # RAG telemetry aggregation
 │   ├─ usda.js                     # Online USDA food search
 │   ├─ openFoodFacts.js            # OpenFoodFacts barcode lookup
 │   ├─ gemini.js                   # AI food parsing
 │   └─ barcodeScanner.js
 ├─ hooks/
 │   ├─ useAnimatedModal.js         # Modal lifecycle (isOpen/isClosing/requestClose)
+│   ├─ useHardwareBackButton.js    # Native back handling (home-first + double-exit)
 │   ├─ useSwipeableScreens.js      # 5-screen carousel
 │   ├─ useHealthConnect.js         # Android Health Connect
-│   └─ [3+ more hooks]
+│   ├─ useNetworkStatus.js         # Online/offline detection
+│   └─ useScrollOffScreen.js       # Floating tabs visibility
 ├─ constants/
 │   ├─ activity/                   # Activity multipliers and presets
 │   ├─ cardio/                     # Cardio metadata and cadence/ambulatory flags
@@ -383,8 +390,10 @@ const food = await searchBarcode('012345678901');
 Gemini food parsing via `api/gemini.js` (server-side key handling).
 
 ```javascript
-import { parseFood } from './services/gemini';
-const parsed = await parseFood('2 chicken breasts, cup of rice, tablespoon olive oil');
+import { sendGeminiExtraction } from './services/gemini';
+const parsed = await sendGeminiExtraction({
+  message: '2 chicken breasts, cup of rice, tablespoon olive oil',
+});
 ```
 
 ### Local Food Catalog (SQLite)
