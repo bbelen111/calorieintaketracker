@@ -485,6 +485,9 @@ export const FoodSearchModal = ({
   const [longPressingId, setLongPressingId] = useState(null);
   const [isMealTypeMenuOpen, setIsMealTypeMenuOpen] = useState(false);
   const [isMealPreviewOpen, setIsMealPreviewOpen] = useState(false);
+  const [isMealCountFlashing, setIsMealCountFlashing] = useState(false);
+  const mealCountFlashTimeoutRef = useRef(null);
+  const previousMealEntryCountRef = useRef(null);
   const entryIdRef = useRef(1);
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
   const [pendingManualAdd, setPendingManualAdd] = useState(null);
@@ -1559,6 +1562,31 @@ export const FoodSearchModal = ({
   );
 
   useEffect(() => {
+    const previousCount = previousMealEntryCountRef.current;
+    const currentCount = resolvedMealEntries.length;
+
+    if (previousCount === null) {
+      previousMealEntryCountRef.current = currentCount;
+      return;
+    }
+
+    if (previousCount !== currentCount) {
+      setIsMealCountFlashing(true);
+
+      if (mealCountFlashTimeoutRef.current) {
+        clearTimeout(mealCountFlashTimeoutRef.current);
+      }
+
+      mealCountFlashTimeoutRef.current = setTimeout(() => {
+        setIsMealCountFlashing(false);
+        mealCountFlashTimeoutRef.current = null;
+      }, 420);
+    }
+
+    previousMealEntryCountRef.current = currentCount;
+  }, [resolvedMealEntries.length]);
+
+  useEffect(() => {
     latestChatAttachmentsRef.current = chatAttachments;
   }, [chatAttachments]);
 
@@ -1577,6 +1605,10 @@ export const FoodSearchModal = ({
       }
       if (longPressTimerRef.current) {
         clearTimeout(longPressTimerRef.current);
+      }
+      if (mealCountFlashTimeoutRef.current) {
+        clearTimeout(mealCountFlashTimeoutRef.current);
+        mealCountFlashTimeoutRef.current = null;
       }
       if (chatAbortControllerRef.current) {
         chatAbortControllerRef.current.abort();
@@ -3330,17 +3362,36 @@ export const FoodSearchModal = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <motion.div
+          layout
+          transition={{ type: 'spring', stiffness: 360, damping: 34 }}
+          className="flex items-center gap-2"
+        >
           <div className="relative" ref={mealTypeDropdownRef}>
             <motion.button
+              layout="size"
               type="button"
               onClick={() => setIsMealTypeMenuOpen((previous) => !previous)}
               whileTap={{ scale: 0.98 }}
               whileHover={{ y: -1 }}
               className="h-9 flex items-center gap-1.5 px-3 rounded-lg border border-border bg-surface-highlight text-foreground text-sm font-medium md:hover:bg-surface pressable-card focus-ring"
+              transition={{ type: 'spring', stiffness: 360, damping: 34 }}
             >
               <Utensils size={14} className="text-accent-blue" />
-              <span className="truncate max-w-[6.5rem]">{mealTypeLabel}</span>
+              <span className="relative inline-flex max-w-[7.25rem] overflow-hidden">
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.span
+                    key={`meal-type-${mealTypeLabel}`}
+                    initial={{ opacity: 0, y: 6, filter: 'blur(1px)' }}
+                    animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                    exit={{ opacity: 0, y: -6, filter: 'blur(1px)' }}
+                    transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
+                    className="truncate"
+                  >
+                    {mealTypeLabel}
+                  </motion.span>
+                </AnimatePresence>
+              </span>
               <ChevronDown
                 size={13}
                 className={`text-muted transition-transform ${
@@ -3386,11 +3437,17 @@ export const FoodSearchModal = ({
           </div>
 
           <motion.button
+            layout="size"
             type="button"
             onClick={() => setIsMealPreviewOpen(true)}
             whileTap={{ scale: 0.98 }}
             whileHover={{ y: -1 }}
-            className="h-9 flex items-center gap-1.5 px-3 rounded-lg border border-border bg-surface-highlight text-foreground text-sm font-medium md:hover:bg-surface pressable-card focus-ring"
+            transition={{ type: 'spring', stiffness: 360, damping: 34 }}
+            className={`h-9 flex items-center gap-1.5 px-3 rounded-lg border text-sm font-medium pressable-card focus-ring transition-colors duration-300 ${
+              isMealCountFlashing
+                ? 'border-accent-blue bg-accent-blue text-primary-foreground md:hover:brightness-110'
+                : 'border-border bg-surface-highlight text-foreground md:hover:bg-surface'
+            }`}
           >
             <span>In meal</span>
             <AnimatePresence mode="wait" initial={false}>
@@ -3400,13 +3457,17 @@ export const FoodSearchModal = ({
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -6, scale: 0.9 }}
                 transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
-                className="text-accent-blue text-base font-semibold leading-none"
+                className={`text-base font-semibold leading-none transition-colors duration-300 ${
+                  isMealCountFlashing
+                    ? 'text-primary-foreground'
+                    : 'text-accent-blue'
+                }`}
               >
                 {resolvedMealEntries.length}
               </motion.span>
             </AnimatePresence>
           </motion.button>
-        </div>
+        </motion.div>
       </div>
 
       <div className="flex-1 bg-surface border-t border-border overflow-y-auto flex flex-col">
