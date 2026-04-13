@@ -10,7 +10,6 @@ import {
   Smartphone,
   Monitor,
   Info,
-  Sparkles,
 } from 'lucide-react';
 import {
   DEFAULT_ACTIVITY_MULTIPLIERS,
@@ -345,12 +344,6 @@ export const SettingsModal = ({
           onFieldChange={handleFieldChange}
         />
 
-        <AiChatRolloutSection
-          override={resolvedUserData.aiChatRagRolloutOverride ?? 'default'}
-          percentage={resolvedUserData.aiChatRagRolloutPercentage ?? 100}
-          onFieldChange={handleFieldChange}
-        />
-
         <AdaptiveThermogenesisSection
           adaptiveThermogenesisEnabled={adaptiveThermogenesisEnabled}
           adaptiveThermogenesisSmartMode={adaptiveThermogenesisSmartMode}
@@ -376,7 +369,6 @@ export const SettingsModal = ({
     </FullscreenModalFrame>
   );
 };
-
 const FullscreenModalFrame = ({
   isOpen,
   isClosing,
@@ -790,7 +782,6 @@ const SmartTefSection = ({
     </div>
   );
 };
-
 const AdaptiveThermogenesisSection = ({
   adaptiveThermogenesisEnabled,
   adaptiveThermogenesisSmartMode,
@@ -947,7 +938,6 @@ const AdaptiveThermogenesisSection = ({
     </div>
   );
 };
-
 const formatMultiplier = (value) => {
   if (!Number.isFinite(value)) {
     return '—';
@@ -1027,94 +1017,6 @@ const DailyActivitySection = ({ userData, bmr, onDailyActivityClick }) => {
           )}
         </div>
       )}
-    </div>
-  );
-};
-
-const AiChatRolloutSection = ({ override, percentage, onFieldChange }) => {
-  const normalizedOverride = ['default', 'enabled', 'disabled'].includes(
-    String(override || '').toLowerCase()
-  )
-    ? String(override || '').toLowerCase()
-    : 'default';
-
-  const normalizedPercentage = Number.isFinite(Number(percentage))
-    ? Math.max(0, Math.min(100, Math.round(Number(percentage))))
-    : 100;
-
-  const effectiveStateLabel =
-    normalizedOverride === 'enabled'
-      ? 'Forced ON for this user'
-      : normalizedOverride === 'disabled'
-        ? 'Forced OFF for this user'
-        : `Default rollout (${normalizedPercentage}% enabled)`;
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-2 gap-3">
-        <div className="inline-flex items-center gap-1.5 text-foreground/80 text-sm px-1">
-          <Sparkles size={14} />
-          <span>AI Chat Rollout</span>
-        </div>
-      </div>
-
-      <p className="text-muted text-xs mb-2">
-        Controls RAG AI chat exposure with percentage-based rollout and
-        per-user override.
-      </p>
-
-      <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5 space-y-3">
-        <div className="grid grid-cols-3 gap-2">
-          <SegmentedButton
-            active={normalizedOverride === 'default'}
-            activeClassName={BUTTON_ACTIVE_PRIMARY_CLASS}
-            onClick={() => onFieldChange?.('aiChatRagRolloutOverride', 'default')}
-          >
-            Default
-          </SegmentedButton>
-          <SegmentedButton
-            active={normalizedOverride === 'enabled'}
-            activeClassName={BUTTON_ACTIVE_PRIMARY_CLASS}
-            onClick={() => onFieldChange?.('aiChatRagRolloutOverride', 'enabled')}
-          >
-            Force ON
-          </SegmentedButton>
-          <SegmentedButton
-            active={normalizedOverride === 'disabled'}
-            activeClassName={BUTTON_ACTIVE_PRIMARY_CLASS}
-            onClick={() => onFieldChange?.('aiChatRagRolloutOverride', 'disabled')}
-          >
-            Force OFF
-          </SegmentedButton>
-        </div>
-
-        <div className="space-y-1">
-          <div className="flex items-center justify-between text-xs text-muted">
-            <span>Default percentage</span>
-            <span>{normalizedPercentage}%</span>
-          </div>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            step={1}
-            value={normalizedPercentage}
-            onChange={(event) =>
-              onFieldChange?.(
-                'aiChatRagRolloutPercentage',
-                Number(event.target.value)
-              )
-            }
-            style={{
-              '--value': `${normalizedPercentage}%`,
-            }}
-            className="w-full cursor-pointer transition-all"
-            aria-label="AI chat rollout percentage"
-          />
-        </div>
-
-        <p className="text-xs text-foreground/80">{effectiveStateLabel}</p>
-      </div>
     </div>
   );
 };

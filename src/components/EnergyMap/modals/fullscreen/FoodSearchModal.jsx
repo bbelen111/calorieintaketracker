@@ -404,9 +404,6 @@ export const FoodSearchModal = ({
     pinnedFoods: storePinnedFoods,
     cachedFoods: storeCachedFoods,
     foodSearchDefaultEntry,
-    aiChatRolloutUserId,
-    aiChatRagRolloutOverride,
-    aiChatRagRolloutPercentage,
     togglePinnedFood,
     updateCachedFoods,
   } = useEnergyMapStore(
@@ -415,9 +412,6 @@ export const FoodSearchModal = ({
       pinnedFoods: state.pinnedFoods,
       cachedFoods: state.cachedFoods,
       foodSearchDefaultEntry: state.userData?.foodSearchDefaultEntry,
-      aiChatRolloutUserId: state.userData?.aiChatRolloutUserId,
-      aiChatRagRolloutOverride: state.userData?.aiChatRagRolloutOverride,
-      aiChatRagRolloutPercentage: state.userData?.aiChatRagRolloutPercentage,
       togglePinnedFood: state.togglePinnedFood,
       updateCachedFoods: state.updateCachedFoods,
     }),
@@ -597,20 +591,12 @@ export const FoodSearchModal = ({
   useEffect(() => {
     let cancelled = false;
 
-    const resolveAiChatRollout = async () => {
+    const resolveAiChatFeatureFlag = async () => {
       try {
-        const { isAiChatRagEnabledForUser } = await loadGeminiModule();
-        if (cancelled) {
-          return;
+        const { AI_CHAT_RAG_ENABLED } = await loadGeminiModule();
+        if (!cancelled) {
+          setIsAiChatRagEnabled(Boolean(AI_CHAT_RAG_ENABLED));
         }
-
-        setIsAiChatRagEnabled(
-          isAiChatRagEnabledForUser({
-            aiChatRolloutUserId,
-            aiChatRagRolloutOverride,
-            aiChatRagRolloutPercentage,
-          })
-        );
       } catch {
         if (!cancelled) {
           setIsAiChatRagEnabled(false);
@@ -618,16 +604,12 @@ export const FoodSearchModal = ({
       }
     };
 
-    void resolveAiChatRollout();
+    void resolveAiChatFeatureFlag();
 
     return () => {
       cancelled = true;
     };
-  }, [
-    aiChatRagRolloutOverride,
-    aiChatRagRolloutPercentage,
-    aiChatRolloutUserId,
-  ]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

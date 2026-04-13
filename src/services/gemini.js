@@ -24,21 +24,6 @@ export const AI_CHAT_RAG_ENABLED =
     .trim()
     .toLowerCase() === 'true';
 
-export const AI_CHAT_RAG_ROLLOUT_OVERRIDE = Object.freeze({
-  DEFAULT: 'default',
-  ENABLED: 'enabled',
-  DISABLED: 'disabled',
-});
-
-const ENV_RAG_ROLLOUT_PERCENTAGE = Number(
-  import.meta.env?.VITE_AI_CHAT_RAG_ROLLOUT_PERCENTAGE
-);
-const DEFAULT_RAG_ROLLOUT_PERCENTAGE = Number.isFinite(
-  ENV_RAG_ROLLOUT_PERCENTAGE
-)
-  ? Math.max(0, Math.min(100, Math.round(ENV_RAG_ROLLOUT_PERCENTAGE)))
-  : 100;
-
 const API_BASE = (
   (typeof import.meta.env?.VITE_GEMINI_API_BASE === 'string'
     ? import.meta.env.VITE_GEMINI_API_BASE
@@ -65,43 +50,6 @@ let rateLimitBackoffQueue = Promise.resolve();
 let requestSlotQueue = Promise.resolve();
 let requestTimestampsMs = [];
 const foodParserRegistry = new Map();
-
-function clampRolloutPercentage(
-  value,
-  fallback = DEFAULT_RAG_ROLLOUT_PERCENTAGE
-) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) {
-    return fallback;
-  }
-  return Math.max(0, Math.min(100, Math.round(parsed)));
-}
-
-function normalizeRolloutOverride(value) {
-  const normalized = String(value || '')
-    .trim()
-    .toLowerCase();
-
-  if (
-    normalized === AI_CHAT_RAG_ROLLOUT_OVERRIDE.ENABLED ||
-    normalized === AI_CHAT_RAG_ROLLOUT_OVERRIDE.DISABLED
-  ) {
-    return normalized;
-  }
-
-  return AI_CHAT_RAG_ROLLOUT_OVERRIDE.DEFAULT;
-}
-
-function getStableBucketPercent(input) {
-  const seed = String(input || 'anonymous');
-  let hash = 0;
-
-  for (let index = 0; index < seed.length; index += 1) {
-    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
-  }
-
-  return hash % 100;
-}
 
 export class GeminiError extends Error {
   constructor(message, status = 0, details = null) {
@@ -393,38 +341,6 @@ export function parseFoodParserPayloadFromText(text) {
   } catch {
     return fallback;
   }
-}
-
-export function resolveAiChatRagRolloutConfig(userData = {}) {
-  return {
-    override: normalizeRolloutOverride(userData?.aiChatRagRolloutOverride),
-    rolloutPercentage: clampRolloutPercentage(
-      userData?.aiChatRagRolloutPercentage,
-      DEFAULT_RAG_ROLLOUT_PERCENTAGE
-    ),
-    rolloutUserId:
-      String(userData?.aiChatRolloutUserId || '').trim() || 'anonymous',
-  };
-}
-
-export function isAiChatRagEnabledForUser(userData = {}) {
-  if (!AI_CHAT_RAG_ENABLED) {
-    return false;
-  }
-
-  const config = resolveAiChatRagRolloutConfig(userData);
-
-  if (config.override === AI_CHAT_RAG_ROLLOUT_OVERRIDE.ENABLED) {
-    return true;
-  }
-
-  if (config.override === AI_CHAT_RAG_ROLLOUT_OVERRIDE.DISABLED) {
-    return false;
-  }
-
-  return (
-    getStableBucketPercent(config.rolloutUserId) < config.rolloutPercentage
-  );
 }
 
 function resolveNoTextReason(data) {

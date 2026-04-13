@@ -61,15 +61,15 @@ test('normalizeAiLookupResult returns normalized safe shape', () => {
 test('getLookupErrorReasonMessage returns user-facing labels for known reason codes', () => {
   assert.equal(
     getLookupErrorReasonMessage('grounding_safety_blocked'),
-    'Web grounding was blocked by safety filters.'
+    'Web search was blocked by safety checks.'
   );
   assert.equal(
     getLookupErrorReasonMessage('grounding_network_error'),
-    'Web grounding failed due to a network issue.'
+    'Web search hit a connection problem.'
   );
   assert.equal(
     getLookupErrorReasonMessage('grounding_quota_exhausted'),
-    'Web grounding quota is exhausted right now. Please try again later.'
+    "We've reached the current web lookup limit. Please try again later."
   );
   assert.equal(getLookupErrorReasonMessage('unknown_reason_code'), null);
 });
@@ -81,15 +81,15 @@ test('getLookupErrorRecoveryHint returns actionable suggestions for known reason
   );
   assert.equal(
     getLookupErrorRecoveryHint('grounding_rate_limit'),
-    'Wait a few seconds, then retry the same entry.'
+    'Wait a moment, then retry.'
   );
   assert.equal(
     getLookupErrorRecoveryHint('grounding_quota_exhausted'),
-    'Try again later, or use local/manual entry while provider quota resets.'
+    'Try again later, or enter nutrition manually for now.'
   );
   assert.equal(
     getLookupErrorRecoveryHint('usda_search_aborted'),
-    null
+    'No action needed — we found a better match.'
   );
   assert.equal(getLookupErrorRecoveryHint('unknown_reason_code'), null);
 });

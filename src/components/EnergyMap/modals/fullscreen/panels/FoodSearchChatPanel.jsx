@@ -107,6 +107,9 @@ export const FoodSearchChatPanel = ({
   handleAddAttachmentFiles,
 }) => {
   const [expandedTraceKeys, setExpandedTraceKeys] = useState({});
+  const [expandedTechnicalTraceKeys, setExpandedTechnicalTraceKeys] = useState(
+    {}
+  );
 
   const currentStage = activeChatRequest?.currentStage || 'processing';
   const activeStatusLabel =
@@ -131,6 +134,28 @@ export const FoodSearchChatPanel = ({
       ...previous,
       [entryKey]: !previous[entryKey],
     }));
+  };
+
+  const toggleTechnicalTraceExpansion = (entryKey) => {
+    setExpandedTechnicalTraceKeys((previous) => ({
+      ...previous,
+      [entryKey]: !previous[entryKey],
+    }));
+  };
+
+  const getLookupStatusLabel = (status) => {
+    switch (String(status || '').toLowerCase()) {
+      case 'resolved':
+        return 'Matched';
+      case 'needs_grounding':
+        return 'Searching online for a better match';
+      case 'no_match':
+        return 'No close database match found';
+      case 'error':
+        return 'Lookup had an issue';
+      default:
+        return null;
+    }
   };
 
   return (
@@ -317,6 +342,8 @@ export const FoodSearchChatPanel = ({
                                 expandedAiEntryKeys[entryKey] === true;
                               const isTraceExpanded =
                                 expandedTraceKeys[entryKey] === true;
+                              const isTechnicalTraceExpanded =
+                                expandedTechnicalTraceKeys[entryKey] === true;
                               const isLogged =
                                 loggedAiEntryKeys[entryKey] === true;
                               const isFavourited =
@@ -344,6 +371,12 @@ export const FoodSearchChatPanel = ({
                                 getLookupErrorRecoveryHint(
                                   primaryLookupReasonCode
                                 );
+                              const hasLookupIssue =
+                                Boolean(primaryLookupReasonMessage) ||
+                                (lookupMeta?.status &&
+                                  lookupMeta.status !== 'resolved');
+                              const friendlyLookupStatusLabel =
+                                getLookupStatusLabel(lookupMeta?.status);
                               const resolvedSource =
                                 entry.source ||
                                 lookupMeta?.usedSource ||
@@ -512,9 +545,16 @@ export const FoodSearchChatPanel = ({
                                                 }
                                                 className="w-full flex items-center justify-between px-3 py-2.5 md:hover:bg-surface-highlight/60 transition-colors text-left active:scale-[0.99] focus-ring"
                                               >
-                                                <span className="text-[11px] text-muted font-medium">
-                                                  Search Trace
-                                                </span>
+                                                <div className="flex items-center gap-1.5">
+                                                  <span className="text-[11px] text-muted font-medium">
+                                                    Lookup details
+                                                  </span>
+                                                  {hasLookupIssue && (
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-accent-amber/20 text-accent-amber px-1.5 py-0.5 text-[9px] font-semibold">
+                                                      Note
+                                                    </span>
+                                                  )}
+                                                </div>
                                                 <span
                                                   className={`text-foreground transition-transform duration-300 ${
                                                     isTraceExpanded
@@ -533,86 +573,62 @@ export const FoodSearchChatPanel = ({
                                                     : 'max-h-0 opacity-0'
                                                 }`}
                                               >
-                                                <div className="px-3 pb-2.5 pt-1.5 border-t border-border/50 space-y-1">
-                                                  {lookupMeta.queryUsed && (
-                                                    <p className="text-[10px] text-muted">
-                                                      Query:{' '}
-                                                      {lookupMeta.queryUsed}
+                                                <div className="px-3 pb-2.5 pt-1.5 border-t border-border/50 space-y-2">
+                                                  <div className="space-y-1">
+                                                    <p className="text-[11px] text-foreground">
+                                                      Source:{' '}
+                                                      <span className="text-muted">
+                                                        {getFoodSearchSourceLabel(
+                                                          lookupMeta.usedSource
+                                                        )}
+                                                      </span>
                                                     </p>
-                                                  )}
-                                                  <p className="text-[10px] text-muted">
-                                                    Used:{' '}
-                                                    {getFoodSearchSourceLabel(
-                                                      lookupMeta.usedSource
+                                                    <p className="text-[11px] text-foreground">
+                                                      Match confidence:{' '}
+                                                      <span className="text-muted">
+                                                        {lookupMeta.matchConfidence ||
+                                                          'low'}
+                                                        {Number.isFinite(
+                                                          lookupMeta.matchScore
+                                                        )
+                                                          ? ` (${Math.round(lookupMeta.matchScore * 100)}%)`
+                                                          : ''}
+                                                      </span>
+                                                    </p>
+                                                    {lookupMeta.matchedFood
+                                                      ?.name && (
+                                                      <p className="text-[10px] text-muted">
+                                                        Matched food:{' '}
+                                                        {
+                                                          lookupMeta.matchedFood
+                                                            .name
+                                                        }
+                                                      </p>
                                                     )}
-                                                  </p>
-                                                  <p className="text-[10px] text-muted">
-                                                    Match confidence:{' '}
-                                                    {lookupMeta.matchConfidence ||
-                                                      'low'}
-                                                    {Number.isFinite(
-                                                      lookupMeta.matchScore
-                                                    )
-                                                      ? ` (${Math.round(lookupMeta.matchScore * 100)}%)`
-                                                      : ''}
-                                                  </p>
-                                                  {lookupMeta.confidenceComponents && (
-                                                    <p className="text-[10px] text-muted">
-                                                      Confidence model: raw{' '}
-                                                      {Math.round(
-                                                        (Number(
-                                                          lookupMeta
-                                                            .confidenceComponents
-                                                            .rawScore
-                                                        ) || 0) * 100
-                                                      )}
-                                                      % × trust{' '}
-                                                      {Number(
-                                                        lookupMeta
-                                                          .confidenceComponents
-                                                          .trustMultiplier
-                                                      ) || 0}{' '}
-                                                      = weighted{' '}
-                                                      {Math.round(
-                                                        (Number(
-                                                          lookupMeta.weightedMatchScore ??
-                                                            lookupMeta
-                                                              .confidenceComponents
-                                                              .weightedScore
-                                                        ) || 0) * 100
-                                                      )}
-                                                      %
-                                                    </p>
-                                                  )}
-                                                  {lookupMeta.matchedFood
-                                                    ?.name && (
-                                                    <p className="text-[10px] text-muted">
-                                                      Match:{' '}
-                                                      {
-                                                        lookupMeta.matchedFood
-                                                          .name
-                                                      }
-                                                    </p>
-                                                  )}
+                                                  </div>
+
                                                   {lookupMeta.verificationFallbackUsed && (
-                                                    <p className="text-[10px] text-accent-amber">
-                                                      Deterministic fallback
-                                                      used: per100g derived and
-                                                      rescaled from parser
-                                                      values.
+                                                    <p className="text-[10px] text-accent-green">
+                                                      Portion and nutrition were
+                                                      recalculated from base
+                                                      values for a safer result.
                                                     </p>
                                                   )}
-                                                  {lookupMeta.status &&
+
+                                                  {friendlyLookupStatusLabel &&
                                                     lookupMeta.status !==
                                                       'resolved' && (
                                                       <p className="text-[10px] text-accent-amber">
-                                                        Status:{' '}
-                                                        {lookupMeta.status}
+                                                        What happened:{' '}
+                                                        {
+                                                          friendlyLookupStatusLabel
+                                                        }
                                                       </p>
                                                     )}
+
                                                   {primaryLookupReasonMessage && (
                                                     <p className="text-[10px] text-accent-amber">
-                                                      Lookup issue:{' '}
+                                                      What happened:{' '}
                                                       {
                                                         primaryLookupReasonMessage
                                                       }
@@ -620,12 +636,93 @@ export const FoodSearchChatPanel = ({
                                                   )}
                                                   {primaryLookupRecoveryHint && (
                                                     <p className="text-[10px] text-accent-blue">
-                                                      Suggested fix:{' '}
+                                                      Try this:{' '}
                                                       {
                                                         primaryLookupRecoveryHint
                                                       }
                                                     </p>
                                                   )}
+
+                                                  <div className="rounded-lg bg-surface-highlight/40 overflow-hidden">
+                                                    <button
+                                                      type="button"
+                                                      onClick={() =>
+                                                        toggleTechnicalTraceExpansion(
+                                                          entryKey
+                                                        )
+                                                      }
+                                                      className="w-full flex items-center justify-between px-3 py-2 md:hover:bg-surface-highlight/60 transition-colors text-left active:scale-[0.99] focus-ring"
+                                                    >
+                                                      <span className="text-[10px] text-muted font-medium">
+                                                        Technical details
+                                                      </span>
+                                                      <span
+                                                        className={`text-foreground transition-transform duration-300 ${
+                                                          isTechnicalTraceExpanded
+                                                            ? 'rotate-180'
+                                                            : 'rotate-0'
+                                                        }`}
+                                                      >
+                                                        <ChevronDown
+                                                          size={12}
+                                                        />
+                                                      </span>
+                                                    </button>
+
+                                                    <div
+                                                      className={`overflow-hidden transition-all duration-300 ${
+                                                        isTechnicalTraceExpanded
+                                                          ? 'max-h-72 opacity-100'
+                                                          : 'max-h-0 opacity-0'
+                                                      }`}
+                                                    >
+                                                      <div className="px-3 pb-2.5 pt-1.5 border-t border-border/50 space-y-1">
+                                                        {lookupMeta.queryUsed && (
+                                                          <p className="text-[10px] text-muted">
+                                                            Query used:{' '}
+                                                            {
+                                                              lookupMeta.queryUsed
+                                                            }
+                                                          </p>
+                                                        )}
+                                                        {lookupMeta.confidenceComponents && (
+                                                          <p className="text-[10px] text-muted">
+                                                            Confidence model:
+                                                            raw{' '}
+                                                            {Math.round(
+                                                              (Number(
+                                                                lookupMeta
+                                                                  .confidenceComponents
+                                                                  .rawScore
+                                                              ) || 0) * 100
+                                                            )}
+                                                            % × trust{' '}
+                                                            {Number(
+                                                              lookupMeta
+                                                                .confidenceComponents
+                                                                .trustMultiplier
+                                                            ) || 0}{' '}
+                                                            = weighted{' '}
+                                                            {Math.round(
+                                                              (Number(
+                                                                lookupMeta.weightedMatchScore ??
+                                                                  lookupMeta
+                                                                    .confidenceComponents
+                                                                    .weightedScore
+                                                              ) || 0) * 100
+                                                            )}
+                                                            %
+                                                          </p>
+                                                        )}
+                                                        {lookupMeta.status && (
+                                                          <p className="text-[10px] text-muted">
+                                                            Internal status:{' '}
+                                                            {lookupMeta.status}
+                                                          </p>
+                                                        )}
+                                                      </div>
+                                                    </div>
+                                                  </div>
                                                 </div>
                                               </div>
                                             </div>

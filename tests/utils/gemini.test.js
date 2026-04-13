@@ -12,7 +12,6 @@ import {
   buildGeminiContents,
   parseFoodParserPayloadFromText,
   registerFoodParserVersion,
-  resolveAiChatRagRolloutConfig,
   sendGeminiExtraction,
   sendGeminiMessage,
 } from '../../src/services/gemini.js';
@@ -430,7 +429,10 @@ test('fetchMacrosWithGroundingBatch returns order-aligned estimates', async () =
   });
 
   try {
-    const result = await fetchMacrosWithGroundingBatch(['Kulolo', 'Ube Halaya']);
+    const result = await fetchMacrosWithGroundingBatch([
+      'Kulolo',
+      'Ube Halaya',
+    ]);
     assert.equal(result.estimates.length, 2);
     assert.equal(result.estimates[0].requestedFoodName, 'Kulolo');
     assert.equal(result.estimates[0].estimate?.name, 'Kulolo');
@@ -758,16 +760,4 @@ test('parseFoodParserPayloadFromText dispatches to parser registry by schema ver
   assert.equal(parsed.payload?.version, '9.9.9');
   assert.equal(parsed.payload?.entries?.[0]?.name, 'CUSTOM ITEM');
   assert.equal(parsed.payload?.entries?.[0]?.confidence, 'low');
-});
-
-test('resolveAiChatRagRolloutConfig normalizes override and percentage', () => {
-  const config = resolveAiChatRagRolloutConfig({
-    aiChatRagRolloutOverride: ' ENABLED ',
-    aiChatRagRolloutPercentage: 163,
-    aiChatRolloutUserId: 'user-123',
-  });
-
-  assert.equal(config.override, 'enabled');
-  assert.equal(config.rolloutPercentage, 100);
-  assert.equal(config.rolloutUserId, 'user-123');
 });

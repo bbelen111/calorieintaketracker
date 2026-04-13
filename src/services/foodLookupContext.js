@@ -5,38 +5,35 @@ import {
 } from './foodSearch.js';
 
 const LOOKUP_ERROR_REASON_MESSAGES = Object.freeze({
-  local_search_failed: 'Local database lookup failed.',
-  usda_search_failed: 'USDA lookup failed.',
-  usda_search_aborted:
-    'USDA lookup stopped early because a stronger match was found.',
-  grounding_network_error: 'Web grounding failed due to a network issue.',
-  grounding_rate_limit: 'Web grounding hit a rate limit. Please retry shortly.',
+  local_search_failed: "We couldn't find a match in the local food database.",
+  usda_search_failed: 'Online nutrition database lookup failed.',
+  usda_search_aborted: 'Found a stronger match and stopped the extra lookup.',
+  grounding_network_error: 'Web search hit a connection problem.',
+  grounding_rate_limit:
+    "We're looking up too many items right now. Please retry shortly.",
   grounding_quota_exhausted:
-    'Web grounding quota is exhausted right now. Please try again later.',
-  grounding_safety_blocked: 'Web grounding was blocked by safety filters.',
-  grounding_invalid_response: 'Web grounding returned unusable nutrition data.',
-  grounding_timeout: 'Web grounding timed out before finishing.',
-  grounding_unknown_error: 'Web grounding failed for an unknown reason.',
+    "We've reached the current web lookup limit. Please try again later.",
+  grounding_safety_blocked: 'Web search was blocked by safety checks.',
+  grounding_invalid_response:
+    'Web search returned incomplete nutrition details.',
+  grounding_timeout: 'Web search took too long to finish.',
+  grounding_unknown_error: 'Web search failed. Please try again.',
 });
 
 const LOOKUP_ERROR_RECOVERY_HINTS = Object.freeze({
-  local_search_failed:
-    'Try again in a moment, or log manually if this keeps happening.',
-  usda_search_failed:
-    'Retry shortly or switch to local/manual entry while online search recovers.',
-  usda_search_aborted: null,
+  local_search_failed: 'Try again in a moment, or log manually if needed.',
+  usda_search_failed: 'Wait a bit and retry, or enter nutrition manually.',
+  usda_search_aborted: 'No action needed — we found a better match.',
   grounding_network_error: 'Check your internet connection, then retry.',
-  grounding_rate_limit: 'Wait a few seconds, then retry the same entry.',
+  grounding_rate_limit: 'Wait a moment, then retry.',
   grounding_quota_exhausted:
-    'Try again later, or use local/manual entry while provider quota resets.',
+    'Try again later, or enter nutrition manually for now.',
   grounding_safety_blocked:
-    'Rephrase the food description with neutral wording and retry.',
+    "Use simpler wording and retry (for example: '2 slices pizza').",
   grounding_invalid_response:
-    'Retry once; if it persists, use manual entry for this item.',
-  grounding_timeout:
-    'Retry now or reduce message complexity (fewer foods per prompt).',
-  grounding_unknown_error:
-    'Retry once, then use manual entry if the issue persists.',
+    'Retry once. If it still fails, enter this item manually.',
+  grounding_timeout: 'Retry now, or include fewer foods in one message.',
+  grounding_unknown_error: 'Retry once. If it keeps failing, enter manually.',
 });
 
 export const getLookupErrorReasonMessage = (reasonCode) => {
