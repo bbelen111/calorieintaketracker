@@ -43,10 +43,6 @@ import {
 } from '../../../../constants/meal/mealTypes';
 import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
-import {
-  getDistinctSubcategories as getLocalSubcategories,
-  getFoodById as getLocalFoodById,
-} from '../../../../services/foodCatalog';
 import { addToFoodCache, trimFoodCache } from '../../../../services/foodCache';
 import { mergePresentationEntriesWithVerified } from '../../../../utils/food/aiPresentationMerge';
 import {
@@ -73,16 +69,6 @@ import {
   scanNativeBarcode,
 } from '../../../../services/barcodeScanner';
 import {
-  isAiChatRagEnabledForUser,
-  fetchMacrosWithGrounding,
-  sendGeminiMessage,
-  sendGeminiExtraction,
-  sendGeminiPresentation,
-  GeminiError,
-  validateAttachmentFile,
-  MAX_IMAGE_COUNT,
-} from '../../../../services/gemini';
-import {
   recordRagExtractionOutcome,
   recordRagImplicitFeedback,
   recordRagLookupStats,
@@ -93,6 +79,7 @@ import {
 const CHAT_HISTORY_MESSAGE_LIMIT = 48;
 const CHAT_TEXTAREA_MAX_HEIGHT = 112;
 const DEFAULT_CHAT_PLACEHOLDER = 'Describe food + portion...';
+const DEFAULT_MAX_IMAGE_COUNT = 3;
 const LOCAL_RESULT_BATCH_SIZE = 120;
 const ONLINE_RESULT_BATCH_SIZE = 80;
 const LOCAL_DB_QUERY_PAGE_SIZE = 500;
@@ -373,6 +360,22 @@ const getNowMs = () => {
   return Date.now();
 };
 
+let foodCatalogModulePromise = null;
+const loadFoodCatalogModule = async () => {
+  if (!foodCatalogModulePromise) {
+    foodCatalogModulePromise = import('../../../../services/foodCatalog');
+  }
+  return foodCatalogModulePromise;
+};
+
+let geminiModulePromise = null;
+const loadGeminiModule = async () => {
+  if (!geminiModulePromise) {
+    geminiModulePromise = import('../../../../services/gemini');
+  }
+  return geminiModulePromise;
+};
+
 export const FoodSearchModal = ({
   isOpen,
   isClosing,
@@ -428,15 +431,16 @@ export const FoodSearchModal = ({
   const resolvedFoodSearchDefaultEntry = normalizeFoodSearchDefaultEntry(
     foodSearchDefaultEntry
   );
-  const isAiChatRagEnabled = useMemo(
-    () =>
-      isAiChatRagEnabledForUser({
-        aiChatRolloutUserId,
-        aiChatRagRolloutOverride,
-        aiChatRagRolloutPercentage,
-      }),
-    [aiChatRagRolloutOverride, aiChatRagRolloutPercentage, aiChatRolloutUserId]
-  );
+  const [isAiChatRagEnabled, setIsAiChatRagEnabled] = useState(false);
+  const [maxImageCount, setMaxImageCount] = useState(DEFAULT_MAX_IMAGE_COUNT);
+  const fetchLocalSubcategories = useCallback(async (category) => {
+    const { getDistinctSubcategories } = await loadFoodCatalogModule();
+    return getDistinctSubcategories(category);
+  }, []);
+  const fetchLocalFoodById = useCallback(async (foodId) => {
+    const { getFoodById } = await loadFoodCatalogModule();
+    return getFoodById(foodId);
+  }, []);
   const LONG_PRESS_DURATION = 650;
   const DEBOUNCE_DELAY = 500;
   const ONLINE_CATEGORIES = {
@@ -590,6 +594,64 @@ export const FoodSearchModal = ({
   const previousViewModeRef = useRef(viewMode);
 
   // Close dropdown when clicking outside
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveAiChatRollout = async () => {
+      try {
+        const { isAiChatRagEnabledForUser } = await loadGeminiModule();
+        if (cancelled) {
+          return;
+        }
+
+        setIsAiChatRagEnabled(
+          isAiChatRagEnabledForUser({
+            aiChatRolloutUserId,
+            aiChatRagRolloutOverride,
+            aiChatRagRolloutPercentage,
+          })
+        );
+      } catch {
+        if (!cancelled) {
+          setIsAiChatRagEnabled(false);
+        }
+      }
+    };
+
+    void resolveAiChatRollout();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    aiChatRagRolloutOverride,
+    aiChatRagRolloutPercentage,
+    aiChatRolloutUserId,
+  ]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveMaxImageCount = async () => {
+      try {
+        const { MAX_IMAGE_COUNT } = await loadGeminiModule();
+        if (!cancelled && Number.isFinite(MAX_IMAGE_COUNT)) {
+          setMaxImageCount(Math.max(1, Math.round(MAX_IMAGE_COUNT)));
+        }
+      } catch {
+        if (!cancelled) {
+          setMaxImageCount(DEFAULT_MAX_IMAGE_COUNT);
+        }
+      }
+    };
+
+    void resolveMaxImageCount();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -885,7 +947,7 @@ export const FoodSearchModal = ({
 
     let cancelled = false;
 
-    getLocalSubcategories(selectedCategory)
+    fetchLocalSubcategories(selectedCategory)
       .then((subcategories) => {
         if (cancelled) {
           return;
@@ -905,7 +967,7 @@ export const FoodSearchModal = ({
     return () => {
       cancelled = true;
     };
-  }, [searchMode, selectedCategory]);
+  }, [fetchLocalSubcategories, searchMode, selectedCategory]);
 
   useEffect(() => {
     const uniqueFoodIds = Array.from(
@@ -926,7 +988,7 @@ export const FoodSearchModal = ({
     Promise.all(
       uniqueFoodIds.map(async (foodId) => [
         foodId,
-        await getLocalFoodById(foodId),
+        await fetchLocalFoodById(foodId),
       ])
     )
       .then((pairs) => {
@@ -950,7 +1012,7 @@ export const FoodSearchModal = ({
     return () => {
       cancelled = true;
     };
-  }, [resolvedFavourites]);
+  }, [fetchLocalFoodById, resolvedFavourites]);
 
   useEffect(() => {
     if (!isDeleteConfirmOpen && !isDeleteConfirmClosing) {
@@ -1861,48 +1923,60 @@ export const FoodSearchModal = ({
     resizeChatTextarea();
   }, [chatInput, resizeChatTextarea]);
 
-  const handleAddAttachmentFiles = useCallback((fileList) => {
-    const files = Array.from(fileList || []);
-    if (files.length === 0) return;
+  const handleAddAttachmentFiles = useCallback(
+    async (fileList) => {
+      const files = Array.from(fileList || []);
+      if (files.length === 0) return;
 
-    setChatError(null);
-    const nextErrors = [];
+      setChatError(null);
+      const nextErrors = [];
 
-    setChatAttachments((prev) => {
-      const remainingSlots = Math.max(MAX_IMAGE_COUNT - prev.length, 0);
-      const acceptedFiles = files.slice(0, remainingSlots);
-      const nextAttachments = [...prev];
-
-      acceptedFiles.forEach((file) => {
-        try {
-          validateAttachmentFile(file);
-          nextAttachments.push(createChatAttachment(file));
-        } catch (error) {
-          nextErrors.push({
-            id: `attachment-error-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            name: file?.name || 'Attachment',
-            message: error.message || 'Invalid image attachment',
-          });
-        }
-      });
-
-      if (files.length > acceptedFiles.length) {
-        files.slice(remainingSlots).forEach((file) => {
-          nextErrors.push({
-            id: `attachment-error-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            name: file?.name || 'Attachment',
-            message: `You can attach up to ${MAX_IMAGE_COUNT} images per message.`,
-          });
-        });
+      let validateAttachment = null;
+      try {
+        const { validateAttachmentFile } = await loadGeminiModule();
+        validateAttachment = validateAttachmentFile;
+      } catch {
+        setChatError('AI tools are unavailable right now. Please try again.');
+        return;
       }
 
-      return nextAttachments;
-    });
+      setChatAttachments((prev) => {
+        const remainingSlots = Math.max(maxImageCount - prev.length, 0);
+        const acceptedFiles = files.slice(0, remainingSlots);
+        const nextAttachments = [...prev];
 
-    if (nextErrors.length > 0) {
-      setChatAttachmentErrors((prev) => [...nextErrors, ...prev].slice(0, 8));
-    }
-  }, []);
+        acceptedFiles.forEach((file) => {
+          try {
+            validateAttachment(file);
+            nextAttachments.push(createChatAttachment(file));
+          } catch (error) {
+            nextErrors.push({
+              id: `attachment-error-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+              name: file?.name || 'Attachment',
+              message: error.message || 'Invalid image attachment',
+            });
+          }
+        });
+
+        if (files.length > acceptedFiles.length) {
+          files.slice(remainingSlots).forEach((file) => {
+            nextErrors.push({
+              id: `attachment-error-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+              name: file?.name || 'Attachment',
+              message: `You can attach up to ${maxImageCount} images per message.`,
+            });
+          });
+        }
+
+        return nextAttachments;
+      });
+
+      if (nextErrors.length > 0) {
+        setChatAttachmentErrors((prev) => [...nextErrors, ...prev].slice(0, 8));
+      }
+    },
+    [maxImageCount]
+  );
 
   const removeAttachmentError = useCallback((errorId) => {
     setChatAttachmentErrors((prev) =>
@@ -2184,14 +2258,14 @@ export const FoodSearchModal = ({
 
       setChatError(null);
       setChatAttachments((prev) => {
-        const remainingSlots = Math.max(MAX_IMAGE_COUNT - prev.length, 0);
+        const remainingSlots = Math.max(maxImageCount - prev.length, 0);
         const cloned = message.attachments
           .slice(0, remainingSlots)
           .map((attachment) => cloneChatAttachmentForDraft(attachment));
 
         if (message.attachments.length > cloned.length) {
           setChatError(
-            `You can attach up to ${MAX_IMAGE_COUNT} images per message.`
+            `You can attach up to ${maxImageCount} images per message.`
           );
         }
 
@@ -2199,7 +2273,7 @@ export const FoodSearchModal = ({
       });
       focusChatComposer();
     },
-    [focusChatComposer]
+    [focusChatComposer, maxImageCount]
   );
 
   const submitChatRequest = useCallback(
@@ -2252,11 +2326,22 @@ export const FoodSearchModal = ({
       let lookupStatsRecorded = false;
       let extractionSchemaVersion = null;
       let resultSchemaVersion = null;
+      let GeminiErrorClass = null;
 
       const controller = new window.AbortController();
       chatAbortControllerRef.current = controller;
 
       try {
+        const geminiModule = await loadGeminiModule();
+        const {
+          fetchMacrosWithGrounding,
+          sendGeminiMessage,
+          sendGeminiExtraction,
+          sendGeminiPresentation,
+          GeminiError,
+        } = geminiModule;
+        GeminiErrorClass = GeminiError;
+
         const history = buildStructuredChatHistory(chatMessages, {
           beforeMessageId,
         });
@@ -2638,7 +2723,7 @@ export const FoodSearchModal = ({
         }).catch(() => {});
       } catch (error) {
         const message =
-          error instanceof GeminiError
+          GeminiErrorClass && error instanceof GeminiErrorClass
             ? error.message
             : 'Failed to get AI response. Please try again.';
 

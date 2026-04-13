@@ -12,6 +12,7 @@ A **React + Vite** single-page app for fitness calorie tracking, wrapped by Capa
 - **Health Connect Integration** — Android step sync (iOS/web unsupported)
 - **Offline-First** — SQLite local food catalog (13k+ foods), IndexedDB history
 - **AI-Powered Food Parsing** — Gemini-backed food entry assistance
+- **Bundle-Split Performance** — Heavy modals and data/AI services are lazy-loaded to reduce startup cost
 - **4 Theme Modes** — Auto, dark, light, AMOLED
 - **Mobile-Optimized UI** — Touch-first design, no hardcoded colors, semantic tokens
 - **Progressive Web App** — Works offline, installable on mobile
@@ -122,6 +123,12 @@ App.jsx (theme management, store hydration gate)
       │   └─ InsightsScreen
       ├─ PhaseDetailScreen (drill-down)
       └─ 43 top-level modals + ~21 child-level modals
+
+Performance loading strategy:
+  - Fullscreen heavy modals are lazy-loaded (`React.lazy` + `Suspense`)
+  - Additional high-traffic modals (`CalorieBreakdown`, `Training`, `Cardio`, `PhaseCreation`, `DailyLog`) are also lazy-loaded
+  - Lazy modal mounts are guarded by `isOpen || isClosing` to preserve exit animations
+  - `foodCatalog` and `gemini` services are loaded dynamically in heavy flows
 
 Persistence:
   Profile (settings/stats)  → Capacitor Preferences
@@ -501,9 +508,34 @@ VITE_GEMINI_GROUNDING_MODEL=gemini-2.5-flash-lite
 // vite.config.js
 {
   "server": { "strictPort": true, "port": 5173 },
+  "build": {
+    "rollupOptions": {
+      "output": {
+        "manualChunks": {
+          "chunk-react": ["react", "react-dom"],
+          "chunk-framer-motion": ["framer-motion"],
+          "chunk-zustand": ["zustand", "zustand/traditional", "zustand/middleware"],
+          "chunk-capacitor": ["@capacitor/core", "@capacitor/app", "@capacitor/keyboard", "@capacitor/preferences", "@capacitor/splash-screen", "@capacitor/status-bar", "@capacitor/barcode-scanner", "@capgo/capacitor-health", "@capgo/capacitor-navigation-bar"],
+          "chunk-lucide": ["lucide-react"],
+          "chunk-dexie": ["dexie"],
+          "chunk-sql-vendor": ["sql.js"],
+          "chunk-food-catalog": ["./src/services/foodCatalog.js"],
+          "chunk-gemini": ["./src/services/gemini.js"]
+        }
+      }
+    }
+  },
   "// ... more config"
 }
 ```
+
+### Bundle Notes
+
+- Recent production builds split heavy modal chunks successfully and reduced the main `index` bundle to roughly ~425 kB (pre-gzip) in current local runs.
+- Large assets remain separate from JS chunks:
+  - `foodDatabase.sqlite` (~5.5 MB)
+  - `sql-wasm.wasm` (~660 kB)
+- The SQLite database is fetched on first catalog use and then held in memory by `sql.js` for runtime queries.
 
 ## 📝 Testing
 

@@ -37,7 +37,7 @@ React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor 
 ```
 main.jsx
   └─ App.jsx (theme management, store hydration gate)
-      └─ EnergyMapCalculator.jsx (3,800+ lines — THE orchestrator)
+      └─ EnergyMapCalculator.jsx (4,100+ lines — THE orchestrator)
             ├─ 5-screen carousel (useSwipeableScreens)
             │   ├─ LogbookScreen
             │   ├─ TrackerScreen
@@ -62,7 +62,7 @@ User action → Store action (updateUserData) → deriveState() recalculates (wi
 
 ### Key Architectural Decisions
 
-1. **Single orchestrator file (`EnergyMapCalculator.jsx`)** owns all modal lifecycle state, temporary form drafts, and screen navigation. At 3,800+ lines, it's deliberately centralized — not a candidate for splitting. New modals are instantiated here.
+1. **Single orchestrator file (`EnergyMapCalculator.jsx`)** owns all modal lifecycle state, temporary form drafts, and screen navigation. At 4,100+ lines, it's deliberately centralized — not a candidate for splitting. New modals are instantiated here.
 
 2. **Derived state pattern:** The Zustand store's `deriveState()` owns canonical fields (`bmr`, `trainingCalories`, `totalCardioBurn`, sorted entries, resolved types). Hot-path caching is intentional (resolved type maps, sorted arrays, normalized phase state, phase view projection) and `updateUserData` short-circuits no-op mutations. Never duplicate these calculations — consume them from the store.
 
@@ -75,6 +75,8 @@ User action → Store action (updateUserData) → deriveState() recalculates (wi
 6. **Daily snapshots are derived and date-keyed.** `userData.dailySnapshots` is an auto-maintained history cache (`YYYY-MM-DD` keys), generated from canonical datasets (`nutritionData`, step/training/cardio sessions, and `calculateCalorieBreakdown`) via store action `upsertDailySnapshot(dateKey, options?)`.
 
 7. **Goal state for duration-sensitive logic is profile-canonical.** `selectedGoal` and `goalChangedAt` live in persisted `userData` (profile scope), and any “days in goal” logic should derive from these values (e.g., `goalDurationDays` from the store). Do not rely on local component state or snapshots as the sole source of current goal status.
+
+8. **Modal rendering is now intentionally lazy for heavy surfaces.** In `EnergyMapCalculator`, high-cost fullscreen and selected high-traffic modal components are loaded with `React.lazy(...)` and mounted conditionally (`isOpen || isClosing`) inside `Suspense` boundaries. Preserve this pattern for bundle health and animation-safe close behavior.
 
 ---
 
@@ -158,6 +160,13 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
   - `lists/` — CardioFavouritesModal, CardioTypeListModal, CalorieTargetModal
   - `common/` — ConfirmActionModal
 - Total across codebase: ~60 modal hook instances (`useAnimatedModal`)
+
+### Modal Performance Loading Strategy
+
+- Heavy fullscreen modals are lazy-loaded via `React.lazy(...)` in `EnergyMapCalculator`.
+- Selected additional heavyweight modals are also lazy-loaded (`CalorieBreakdownModal`, `TrainingModal`, `CardioModal`, `PhaseCreationModal`, `DailyLogModal`).
+- Mounting uses `isOpen || isClosing` guards to preserve exit animations and prevent unmounting during close transitions.
+- Keep `fallback={null}` unless introducing a deliberate loading affordance that does not break modal stack timing.
 
 ### Food Search/Favourites UI Architecture
 
@@ -860,7 +869,7 @@ Always returns `'unavailable'` on web and iOS. Status constants exported as `Hea
 ```
 src/
 ├─ components/EnergyMap/
-│   ├─ EnergyMapCalculator.jsx   # THE orchestrator (4,100+ lines)
+│   ├─ EnergyMapCalculator.jsx   # THE orchestrator (4,100+ lines; lazy-loads heavy modals)
 │   ├─ common/
 │   │   ├─ ModalShell.jsx        # Core modal wrapper (singleton managers)
 │   │   ├─ FoodTagBadges.jsx     # Shared food tag/source badge renderer
@@ -1085,3 +1094,5 @@ npm run test:watch     # Node test runner in watch mode
 71. **Chat-mode cache lifecycle is scoped:** `FoodSearchModal` resets AI lookup session cache when leaving chat view and on modal close/unmount. Keep this behavior to prevent stale cross-conversation carryover.
 72. **Avoid callback TDZ regressions in orchestrator components:** in `FoodSearchModal`, callbacks referenced by other hooks/callbacks (e.g., `updateMessageById`) must be declared before first usage to avoid runtime `Cannot access ... before initialization` errors.
 73. **Selector/destructure parity matters:** when selecting store fields in `useEnergyMapStore`, always destructure every referenced variable (`aiChatRolloutUserId`, `aiChatRagRolloutOverride`, `aiChatRagRolloutPercentage`) to avoid runtime `ReferenceError` crashes.
+74. **Bundle-splitting hygiene for dynamic services:** keep `foodCatalog` and `gemini` usage dynamic in heavy UI/orchestrator flows (`FoodSearchModal`, `EnergyMapCalculator`) so static imports do not pull these paths back into the main chunk.
+75. **Lazy modal mount guard is required:** for lazy-loaded modal components, gate render with `isOpen || isClosing`. Rendering only on `isOpen` can cut exit animations and regress close-stack UX.

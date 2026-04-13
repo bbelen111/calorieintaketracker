@@ -16,4 +16,35 @@ export default defineConfig({
     //   },
     // },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'chunk-react': ['react', 'react-dom'],
+          'chunk-framer-motion': ['framer-motion'],
+          'chunk-zustand': [
+            'zustand',
+            'zustand/traditional',
+            'zustand/middleware',
+          ],
+          'chunk-capacitor': [
+            '@capacitor/core',
+            '@capacitor/app',
+            '@capacitor/keyboard',
+            '@capacitor/preferences',
+            '@capacitor/splash-screen',
+            '@capacitor/status-bar',
+            '@capacitor/barcode-scanner',
+            '@capgo/capacitor-health',
+            '@capgo/capacitor-navigation-bar',
+          ],
+          'chunk-lucide': ['lucide-react'],
+          'chunk-dexie': ['dexie'],
+          'chunk-sql-vendor': ['sql.js'],
+          'chunk-food-catalog': ['./src/services/foodCatalog.js'],
+          'chunk-gemini': ['./src/services/gemini.js'],
+        },
+      },
+    },
+  },
 });

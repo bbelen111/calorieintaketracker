@@ -1,4 +1,6 @@
 import React, {
+  Suspense,
+  lazy,
   useCallback,
   useEffect,
   useMemo,
@@ -49,18 +51,12 @@ import { MEAL_TYPE_ORDER } from '../../constants/meal/mealTypes';
 import { HeightPickerModal } from './modals/pickers/HeightPickerModal';
 import { WeightPickerModal } from './modals/pickers/WeightPickerModal';
 import { WeightEntryModal } from './modals/forms/WeightEntryModal';
-import { WeightTrackerModal } from './modals/fullscreen/WeightTrackerModal';
-import { BodyFatTrackerModal } from './modals/fullscreen/BodyFatTrackerModal';
 import { BodyFatEntryModal } from './modals/forms/BodyFatEntryModal';
 import { BodyFatPickerModal } from './modals/pickers/BodyFatPickerModal';
 import { TrainingTypeEditorModal } from './modals/forms/TrainingTypeEditorModal';
-import { SettingsModal } from './modals/fullscreen/SettingsModal';
 import { StepRangesModal } from './modals/forms/StepRangesModal';
-import { TrainingModal } from './modals/forms/TrainingModal';
 import { DurationPickerModal } from './modals/pickers/DurationPickerModal';
-import { CardioModal } from './modals/forms/CardioModal';
 import { CardioFavouritesModal } from './modals/lists/CardioFavouritesModal';
-import { CalorieBreakdownModal } from './modals/info/CalorieBreakdownModal';
 import { TefInfoModal } from './modals/info/TefInfoModal';
 import { AdaptiveThermogenesisInfoModal } from './modals/info/AdaptiveThermogenesisInfoModal';
 import { EpocInfoModal } from './modals/info/EpocInfoModal';
@@ -69,15 +65,11 @@ import { EpocWindowPickerModal } from './modals/pickers/EpocWindowPickerModal';
 import { DailyActivityModal } from './modals/forms/DailyActivityModal';
 import { DailyActivityEditorModal } from './modals/forms/DailyActivityEditorModal';
 import { DailyActivityCustomModal } from './modals/forms/DailyActivityCustomModal';
-import { PhaseCreationModal } from './modals/forms/PhaseCreationModal';
 import { TemplatePickerModal } from './modals/pickers/TemplatePickerModal';
-import { DailyLogModal } from './modals/forms/DailyLogModal';
 import { CalendarPickerModal } from './modals/pickers/CalendarPickerModal';
 import { FoodEntryModal } from './modals/forms/FoodEntryModal';
 import { MealTypePickerModal } from './modals/pickers/MealTypePickerModal';
-import { FoodSearchModal } from './modals/fullscreen/FoodSearchModal';
 import { FoodPortionModal } from './modals/pickers/FoodPortionModal';
-import { StepTrackerModal } from './modals/fullscreen/StepTrackerModal';
 import { StepGoalPickerModal } from './modals/pickers/StepGoalPickerModal';
 import { MacroPickerModal } from './modals/pickers/MacroPickerModal';
 import { NumericValuePickerModal } from './modals/pickers/NumericValuePickerModal';
@@ -105,7 +97,57 @@ import {
 } from '../../utils/formatting/time';
 import { formatDateKeyUtc, getTodayDateKey } from '../../utils/data/dateKeys';
 import { normalizeMacroRecommendationSplit } from '../../utils/calculations/macroRecommendations';
-import { getFoodById as getFoodByIdFromCatalog } from '../../services/foodCatalog';
+
+const WeightTrackerModal = lazy(() =>
+  import('./modals/fullscreen/WeightTrackerModal').then((module) => ({
+    default: module.WeightTrackerModal,
+  }))
+);
+const BodyFatTrackerModal = lazy(() =>
+  import('./modals/fullscreen/BodyFatTrackerModal').then((module) => ({
+    default: module.BodyFatTrackerModal,
+  }))
+);
+const StepTrackerModal = lazy(() =>
+  import('./modals/fullscreen/StepTrackerModal').then((module) => ({
+    default: module.StepTrackerModal,
+  }))
+);
+const SettingsModal = lazy(() =>
+  import('./modals/fullscreen/SettingsModal').then((module) => ({
+    default: module.SettingsModal,
+  }))
+);
+const FoodSearchModal = lazy(() =>
+  import('./modals/fullscreen/FoodSearchModal').then((module) => ({
+    default: module.FoodSearchModal,
+  }))
+);
+const CalorieBreakdownModal = lazy(() =>
+  import('./modals/info/CalorieBreakdownModal').then((module) => ({
+    default: module.CalorieBreakdownModal,
+  }))
+);
+const TrainingModal = lazy(() =>
+  import('./modals/forms/TrainingModal').then((module) => ({
+    default: module.TrainingModal,
+  }))
+);
+const CardioModal = lazy(() =>
+  import('./modals/forms/CardioModal').then((module) => ({
+    default: module.CardioModal,
+  }))
+);
+const PhaseCreationModal = lazy(() =>
+  import('./modals/forms/PhaseCreationModal').then((module) => ({
+    default: module.PhaseCreationModal,
+  }))
+);
+const DailyLogModal = lazy(() =>
+  import('./modals/forms/DailyLogModal').then((module) => ({
+    default: module.DailyLogModal,
+  }))
+);
 
 const MODAL_CLOSE_DELAY = 180; // Match CSS animation duration (150ms) + buffer
 const DEFAULT_TRAINING_EFFORT_TYPE = 'intensity';
@@ -2402,6 +2444,9 @@ export const EnergyMapCalculator = () => {
       }
 
       // Open FoodPortionModal for entries with grams
+      const { getFoodById: getFoodByIdFromCatalog } = await import(
+        '../../services/foodCatalog'
+      );
       const resolvedFoodFromCatalog = existing.foodId
         ? await getFoodByIdFromCatalog(existing.foodId)
         : null;
@@ -3581,22 +3626,28 @@ export const EnergyMapCalculator = () => {
         </div>
       </div>
 
-      <CalorieBreakdownModal
-        isOpen={calorieBreakdownModal.isOpen}
-        isClosing={calorieBreakdownModal.isClosing}
-        stepRange={selectedBreakdownRequest?.steps ?? null}
-        selectedDay={selectedDay}
-        selectedGoal={selectedGoal}
-        goals={goals}
-        breakdown={selectedRangeData?.breakdown ?? null}
-        targetCalories={selectedRangeData?.targetCalories ?? null}
-        difference={selectedRangeData?.difference ?? null}
-        onOpenBmrInfo={bmrModal.open}
-        onOpenTefInfo={tefInfoModal.open}
-        onOpenAdaptiveThermogenesisInfo={adaptiveThermogenesisInfoModal.open}
-        onOpenEpocInfo={epocInfoModal.open}
-        onClose={closeCalorieBreakdown}
-      />
+      {(calorieBreakdownModal.isOpen || calorieBreakdownModal.isClosing) && (
+        <Suspense fallback={null}>
+          <CalorieBreakdownModal
+            isOpen={calorieBreakdownModal.isOpen}
+            isClosing={calorieBreakdownModal.isClosing}
+            stepRange={selectedBreakdownRequest?.steps ?? null}
+            selectedDay={selectedDay}
+            selectedGoal={selectedGoal}
+            goals={goals}
+            breakdown={selectedRangeData?.breakdown ?? null}
+            targetCalories={selectedRangeData?.targetCalories ?? null}
+            difference={selectedRangeData?.difference ?? null}
+            onOpenBmrInfo={bmrModal.open}
+            onOpenTefInfo={tefInfoModal.open}
+            onOpenAdaptiveThermogenesisInfo={
+              adaptiveThermogenesisInfoModal.open
+            }
+            onOpenEpocInfo={epocInfoModal.open}
+            onClose={closeCalorieBreakdown}
+          />
+        </Suspense>
+      )}
 
       <GoalModal
         isOpen={goalModal.isOpen}
@@ -3666,42 +3717,53 @@ export const EnergyMapCalculator = () => {
         onSave={handleHeightSave}
       />
 
-      <WeightTrackerModal
-        isOpen={weightTrackerModal.isOpen}
-        isClosing={weightTrackerModal.isClosing}
-        entries={weightEntries}
-        latestWeight={userData.weight}
-        selectedGoal={selectedGoal}
-        onClose={weightTrackerModal.requestClose}
-        onAddEntry={openAddWeightEntryModal}
-        onEditEntry={handleWeightEntryFromListEdit}
-        canSwitchToBodyFat={userData.bodyFatTrackingEnabled}
-        onSwitchToBodyFat={handleSwitchToBodyFat}
-      />
-
-      {userData.bodyFatTrackingEnabled && (
-        <BodyFatTrackerModal
-          isOpen={bodyFatTrackerModal.isOpen}
-          isClosing={bodyFatTrackerModal.isClosing}
-          entries={bodyFatEntries}
-          latestBodyFat={latestBodyFatEntry?.bodyFat}
-          selectedGoal={selectedGoal}
-          onClose={bodyFatTrackerModal.requestClose}
-          onAddEntry={openAddBodyFatEntryModal}
-          onEditEntry={handleBodyFatEntryFromListEdit}
-          onSwitchToWeight={handleSwitchToWeight}
-        />
+      {(weightTrackerModal.isOpen || weightTrackerModal.isClosing) && (
+        <Suspense fallback={null}>
+          <WeightTrackerModal
+            isOpen={weightTrackerModal.isOpen}
+            isClosing={weightTrackerModal.isClosing}
+            entries={weightEntries}
+            latestWeight={userData.weight}
+            selectedGoal={selectedGoal}
+            onClose={weightTrackerModal.requestClose}
+            onAddEntry={openAddWeightEntryModal}
+            onEditEntry={handleWeightEntryFromListEdit}
+            canSwitchToBodyFat={userData.bodyFatTrackingEnabled}
+            onSwitchToBodyFat={handleSwitchToBodyFat}
+          />
+        </Suspense>
       )}
 
-      <StepTrackerModal
-        isOpen={stepTrackerModal.isOpen}
-        isClosing={stepTrackerModal.isClosing}
-        entries={stepEntries}
-        todaySteps={healthConnect.steps}
-        stepGoal={stepGoal}
-        onClose={stepTrackerModal.requestClose}
-        onSetGoal={openStepGoalPicker}
-      />
+      {userData.bodyFatTrackingEnabled &&
+        (bodyFatTrackerModal.isOpen || bodyFatTrackerModal.isClosing) && (
+          <Suspense fallback={null}>
+            <BodyFatTrackerModal
+              isOpen={bodyFatTrackerModal.isOpen}
+              isClosing={bodyFatTrackerModal.isClosing}
+              entries={bodyFatEntries}
+              latestBodyFat={latestBodyFatEntry?.bodyFat}
+              selectedGoal={selectedGoal}
+              onClose={bodyFatTrackerModal.requestClose}
+              onAddEntry={openAddBodyFatEntryModal}
+              onEditEntry={handleBodyFatEntryFromListEdit}
+              onSwitchToWeight={handleSwitchToWeight}
+            />
+          </Suspense>
+        )}
+
+      {(stepTrackerModal.isOpen || stepTrackerModal.isClosing) && (
+        <Suspense fallback={null}>
+          <StepTrackerModal
+            isOpen={stepTrackerModal.isOpen}
+            isClosing={stepTrackerModal.isClosing}
+            entries={stepEntries}
+            todaySteps={healthConnect.steps}
+            stepGoal={stepGoal}
+            onClose={stepTrackerModal.requestClose}
+            onSetGoal={openStepGoalPicker}
+          />
+        </Suspense>
+      )}
 
       <StepGoalPickerModal
         isOpen={stepGoalPickerModal.isOpen}
@@ -3838,35 +3900,39 @@ export const EnergyMapCalculator = () => {
         onSave={handleTrainingPresetSave}
       />
 
-      <SettingsModal
-        isOpen={settingsModal.isOpen}
-        isClosing={settingsModal.isClosing}
-        userData={userData}
-        weightEntries={weightEntries}
-        bodyFatEntries={bodyFatEntries}
-        bodyFatTrackingEnabled={userData.bodyFatTrackingEnabled}
-        bmr={bmr}
-        actions={{
-          onFieldChange: handleUserDataChange,
-          openers: {
-            agePicker: openAgeModal,
-            heightPicker: openHeightModal,
-            manageWeight: openWeightTracker,
-            manageBodyFat: openBodyFatTracker,
-            dailyActivity: openDailyActivitySettings,
-            epocWindowPicker: openEpocWindowPickerModal,
-          },
-          info: {
-            tef: tefInfoModal.open,
-            adaptiveThermogenesis: adaptiveThermogenesisInfoModal.open,
-            epoc: epocInfoModal.open,
-          },
-          lifecycle: {
-            cancel: settingsModal.requestClose,
-            save: handleSettingsSave,
-          },
-        }}
-      />
+      {(settingsModal.isOpen || settingsModal.isClosing) && (
+        <Suspense fallback={null}>
+          <SettingsModal
+            isOpen={settingsModal.isOpen}
+            isClosing={settingsModal.isClosing}
+            userData={userData}
+            weightEntries={weightEntries}
+            bodyFatEntries={bodyFatEntries}
+            bodyFatTrackingEnabled={userData.bodyFatTrackingEnabled}
+            bmr={bmr}
+            actions={{
+              onFieldChange: handleUserDataChange,
+              openers: {
+                agePicker: openAgeModal,
+                heightPicker: openHeightModal,
+                manageWeight: openWeightTracker,
+                manageBodyFat: openBodyFatTracker,
+                dailyActivity: openDailyActivitySettings,
+                epocWindowPicker: openEpocWindowPickerModal,
+              },
+              info: {
+                tef: tefInfoModal.open,
+                adaptiveThermogenesis: adaptiveThermogenesisInfoModal.open,
+                epoc: epocInfoModal.open,
+              },
+              lifecycle: {
+                cancel: settingsModal.requestClose,
+                save: handleSettingsSave,
+              },
+            }}
+          />
+        </Suspense>
+      )}
 
       <DailyActivityModal
         isOpen={dailyActivityModal.isOpen}
@@ -3912,29 +3978,33 @@ export const EnergyMapCalculator = () => {
         onClose={stepRangesModal.requestClose}
       />
 
-      <TrainingModal
-        isOpen={trainingModal.isOpen}
-        isClosing={trainingModal.isClosing}
-        mode={trainingModalMode}
-        trainingTypes={trainingTypes}
-        tempTrainingType={tempTrainingType}
-        tempTrainingDuration={tempTrainingDuration}
-        tempTrainingEffortType={tempTrainingEffortType}
-        tempTrainingIntensity={tempTrainingIntensity}
-        tempTrainingHeartRate={tempTrainingHeartRate}
-        tempTrainingStartTime={tempTrainingStartTime}
-        onTrainingTypeSelect={setTempTrainingType}
-        onEditTrainingType={openTrainingTypeEditor}
-        onDurationClick={() =>
-          openDurationPicker(tempTrainingDuration, setTempTrainingDuration)
-        }
-        onEffortTypeChange={handleTrainingEffortTypeChange}
-        onIntensityChange={handleTrainingIntensityChange}
-        onHeartRateChange={handleTrainingHeartRateChange}
-        onStartTimePickerClick={openTrainingStartTimePicker}
-        onCancel={trainingModal.requestClose}
-        onSave={handleTrainingSave}
-      />
+      {(trainingModal.isOpen || trainingModal.isClosing) && (
+        <Suspense fallback={null}>
+          <TrainingModal
+            isOpen={trainingModal.isOpen}
+            isClosing={trainingModal.isClosing}
+            mode={trainingModalMode}
+            trainingTypes={trainingTypes}
+            tempTrainingType={tempTrainingType}
+            tempTrainingDuration={tempTrainingDuration}
+            tempTrainingEffortType={tempTrainingEffortType}
+            tempTrainingIntensity={tempTrainingIntensity}
+            tempTrainingHeartRate={tempTrainingHeartRate}
+            tempTrainingStartTime={tempTrainingStartTime}
+            onTrainingTypeSelect={setTempTrainingType}
+            onEditTrainingType={openTrainingTypeEditor}
+            onDurationClick={() =>
+              openDurationPicker(tempTrainingDuration, setTempTrainingDuration)
+            }
+            onEffortTypeChange={handleTrainingEffortTypeChange}
+            onIntensityChange={handleTrainingIntensityChange}
+            onHeartRateChange={handleTrainingHeartRateChange}
+            onStartTimePickerClick={openTrainingStartTimePicker}
+            onCancel={trainingModal.requestClose}
+            onSave={handleTrainingSave}
+          />
+        </Suspense>
+      )}
 
       <DurationPickerModal
         isOpen={durationPickerModal.isOpen}
@@ -3946,25 +4016,29 @@ export const EnergyMapCalculator = () => {
         onSave={handleDurationPickerSave}
       />
 
-      <CardioModal
-        isOpen={cardioModal.isOpen}
-        isClosing={cardioModal.isClosing}
-        cardioTypes={cardioTypes}
-        customCardioTypes={customCardioTypes}
-        onAddCustomCardioType={addCustomCardioType}
-        onDeleteCustomCardioType={removeCustomCardioType}
-        session={cardioDraft}
-        onChange={handleCardioDraftChange}
-        onCancel={cardioModal.requestClose}
-        onSave={handleCardioSave}
-        userWeight={userData.weight}
-        userAge={userData.age}
-        userGender={userData.gender}
-        onOpenFavourites={handleOpenCardioFavourites}
-        onStartTimePickerClick={openCardioStartTimePicker}
-        showFavouritesButton={showFavouritesButton}
-        isEditing={cardioModalMode === 'edit'}
-      />
+      {(cardioModal.isOpen || cardioModal.isClosing) && (
+        <Suspense fallback={null}>
+          <CardioModal
+            isOpen={cardioModal.isOpen}
+            isClosing={cardioModal.isClosing}
+            cardioTypes={cardioTypes}
+            customCardioTypes={customCardioTypes}
+            onAddCustomCardioType={addCustomCardioType}
+            onDeleteCustomCardioType={removeCustomCardioType}
+            session={cardioDraft}
+            onChange={handleCardioDraftChange}
+            onCancel={cardioModal.requestClose}
+            onSave={handleCardioSave}
+            userWeight={userData.weight}
+            userAge={userData.age}
+            userGender={userData.gender}
+            onOpenFavourites={handleOpenCardioFavourites}
+            onStartTimePickerClick={openCardioStartTimePicker}
+            showFavouritesButton={showFavouritesButton}
+            isEditing={cardioModalMode === 'edit'}
+          />
+        </Suspense>
+      )}
 
       <CardioFavouritesModal
         isOpen={cardioFavouritesModal.isOpen}
@@ -3979,47 +4053,56 @@ export const EnergyMapCalculator = () => {
         calculateCardioCalories={calculateCardioSessionCalories}
       />
 
-      <CardioModal
-        isOpen={cardioFavouriteEditorModal.isOpen}
-        isClosing={cardioFavouriteEditorModal.isClosing}
-        cardioTypes={cardioTypes}
-        customCardioTypes={customCardioTypes}
-        onAddCustomCardioType={addCustomCardioType}
-        onDeleteCustomCardioType={removeCustomCardioType}
-        session={favouriteDraft}
-        onChange={handleFavouriteDraftChange}
-        onCancel={cardioFavouriteEditorModal.requestClose}
-        onSave={handleFavouriteSave}
-        userWeight={userData.weight}
-        userAge={userData.age}
-        userGender={userData.gender}
-        onStartTimePickerClick={openFavouriteCardioStartTimePicker}
-        showFavouritesButton={false}
-        mode="favourite"
-        isEditing={false}
-      />
+      {(cardioFavouriteEditorModal.isOpen ||
+        cardioFavouriteEditorModal.isClosing) && (
+        <Suspense fallback={null}>
+          <CardioModal
+            isOpen={cardioFavouriteEditorModal.isOpen}
+            isClosing={cardioFavouriteEditorModal.isClosing}
+            cardioTypes={cardioTypes}
+            customCardioTypes={customCardioTypes}
+            onAddCustomCardioType={addCustomCardioType}
+            onDeleteCustomCardioType={removeCustomCardioType}
+            session={favouriteDraft}
+            onChange={handleFavouriteDraftChange}
+            onCancel={cardioFavouriteEditorModal.requestClose}
+            onSave={handleFavouriteSave}
+            userWeight={userData.weight}
+            userAge={userData.age}
+            userGender={userData.gender}
+            onStartTimePickerClick={openFavouriteCardioStartTimePicker}
+            showFavouritesButton={false}
+            mode="favourite"
+            isEditing={false}
+          />
+        </Suspense>
+      )}
 
-      <PhaseCreationModal
-        isOpen={phaseCreationModal.isOpen}
-        isClosing={phaseCreationModal.isClosing}
-        phaseName={phaseName}
-        startDate={phaseStartDate}
-        endDate={phaseEndDate}
-        goalType={phaseGoalType}
-        targetWeight={phaseTargetWeight}
-        currentWeight={latestWeightEntry?.weight || userData.weight}
-        onNameChange={setPhaseName}
-        onStartDateChange={setPhaseStartDate}
-        onEndDateChange={setPhaseEndDate}
-        onGoalTypeChange={setPhaseGoalType}
-        onTargetWeightChange={setPhaseTargetWeight}
-        onTemplatesClick={() => {
-          templatePickerModal.open();
-        }}
-        onCancel={phaseCreationModal.requestClose}
-        onSave={handlePhaseCreationSave}
-        error={phaseError}
-      />
+      {(phaseCreationModal.isOpen || phaseCreationModal.isClosing) && (
+        <Suspense fallback={null}>
+          <PhaseCreationModal
+            isOpen={phaseCreationModal.isOpen}
+            isClosing={phaseCreationModal.isClosing}
+            phaseName={phaseName}
+            startDate={phaseStartDate}
+            endDate={phaseEndDate}
+            goalType={phaseGoalType}
+            targetWeight={phaseTargetWeight}
+            currentWeight={latestWeightEntry?.weight || userData.weight}
+            onNameChange={setPhaseName}
+            onStartDateChange={setPhaseStartDate}
+            onEndDateChange={setPhaseEndDate}
+            onGoalTypeChange={setPhaseGoalType}
+            onTargetWeightChange={setPhaseTargetWeight}
+            onTemplatesClick={() => {
+              templatePickerModal.open();
+            }}
+            onCancel={phaseCreationModal.requestClose}
+            onSave={handlePhaseCreationSave}
+            error={phaseError}
+          />
+        </Suspense>
+      )}
 
       <TemplatePickerModal
         isOpen={templatePickerModal.isOpen}
@@ -4031,37 +4114,45 @@ export const EnergyMapCalculator = () => {
         onClose={templatePickerModal.requestClose}
       />
 
-      <DailyLogModal
-        isOpen={dailyLogModal.isOpen}
-        isClosing={dailyLogModal.isClosing}
-        mode={dailyLogMode}
-        date={dailyLogDate}
-        weightRef={dailyLogWeightRef}
-        bodyFatRef={dailyLogBodyFatRef}
-        nutritionRef={dailyLogNutritionRef}
-        notes={dailyLogNotes}
-        completed={dailyLogCompleted}
-        availableWeightEntries={weightEntries}
-        availableBodyFatEntries={bodyFatEntries}
-        availableNutritionData={nutritionData}
-        onDateChange={setDailyLogDate}
-        onWeightRefChange={setDailyLogWeightRef}
-        onBodyFatRefChange={setDailyLogBodyFatRef}
-        onNutritionRefChange={setDailyLogNutritionRef}
-        onNotesChange={setDailyLogNotes}
-        onCompletedChange={setDailyLogCompleted}
-        onManageWeightClick={weightTrackerModal.open}
-        onManageBodyFatClick={
-          userData.bodyFatTrackingEnabled ? bodyFatTrackerModal.open : undefined
-        }
-        onManageNutritionClick={handleManageDailyLogNutrition}
-        bodyFatTrackingEnabled={userData.bodyFatTrackingEnabled}
-        onCancel={dailyLogModal.requestClose}
-        onSave={handleDailyLogSave}
-        onDelete={dailyLogMode === 'edit' ? handleDailyLogDelete : undefined}
-        error={dailyLogError}
-        isDateLocked={dailyLogDateLocked}
-      />
+      {(dailyLogModal.isOpen || dailyLogModal.isClosing) && (
+        <Suspense fallback={null}>
+          <DailyLogModal
+            isOpen={dailyLogModal.isOpen}
+            isClosing={dailyLogModal.isClosing}
+            mode={dailyLogMode}
+            date={dailyLogDate}
+            weightRef={dailyLogWeightRef}
+            bodyFatRef={dailyLogBodyFatRef}
+            nutritionRef={dailyLogNutritionRef}
+            notes={dailyLogNotes}
+            completed={dailyLogCompleted}
+            availableWeightEntries={weightEntries}
+            availableBodyFatEntries={bodyFatEntries}
+            availableNutritionData={nutritionData}
+            onDateChange={setDailyLogDate}
+            onWeightRefChange={setDailyLogWeightRef}
+            onBodyFatRefChange={setDailyLogBodyFatRef}
+            onNutritionRefChange={setDailyLogNutritionRef}
+            onNotesChange={setDailyLogNotes}
+            onCompletedChange={setDailyLogCompleted}
+            onManageWeightClick={weightTrackerModal.open}
+            onManageBodyFatClick={
+              userData.bodyFatTrackingEnabled
+                ? bodyFatTrackerModal.open
+                : undefined
+            }
+            onManageNutritionClick={handleManageDailyLogNutrition}
+            bodyFatTrackingEnabled={userData.bodyFatTrackingEnabled}
+            onCancel={dailyLogModal.requestClose}
+            onSave={handleDailyLogSave}
+            onDelete={
+              dailyLogMode === 'edit' ? handleDailyLogDelete : undefined
+            }
+            error={dailyLogError}
+            isDateLocked={dailyLogDateLocked}
+          />
+        </Suspense>
+      )}
 
       <CalendarPickerModal
         isOpen={calendarPickerModal.isOpen}
@@ -4121,33 +4212,39 @@ export const EnergyMapCalculator = () => {
         })()}
       />
 
-      <FoodSearchModal
-        isOpen={foodSearchModal.isOpen}
-        isClosing={foodSearchModal.isClosing}
-        onClose={handleFoodSearchCancel}
-        onSelectFood={handleSelectFoodFromSearch}
-        onOpenManualEntry={handleOpenManualEntry}
-        favourites={foodFavourites}
-        onSelectFavourite={handleSelectFoodFavourite}
-        onEditFavourite={handleEditFoodFavourite}
-        onDeleteFavourite={removeFoodFavourite}
-        pinnedFoods={pinnedFoods}
-        onTogglePin={togglePinnedFood}
-        cachedFoods={cachedFoods}
-        onUpdateCachedFoods={updateCachedFoods}
-        customFoods={customFoods}
-        onAddCustomFood={handleAddCustomFood}
-        onSaveAsFavourite={handleCreateFoodFavourite}
-        selectedMealType={foodMealType}
-        mealNutritionEntries={
-          Array.isArray(nutritionData?.[trackerSelectedDate]?.[foodMealType])
-            ? nutritionData[trackerSelectedDate][foodMealType]
-            : []
-        }
-        onSwitchMealType={setFoodMealType}
-        onEditMealEntry={handleEditFoodEntry}
-        onDeleteMealEntry={handleDeleteFoodEntryFromSearch}
-      />
+      {(foodSearchModal.isOpen || foodSearchModal.isClosing) && (
+        <Suspense fallback={null}>
+          <FoodSearchModal
+            isOpen={foodSearchModal.isOpen}
+            isClosing={foodSearchModal.isClosing}
+            onClose={handleFoodSearchCancel}
+            onSelectFood={handleSelectFoodFromSearch}
+            onOpenManualEntry={handleOpenManualEntry}
+            favourites={foodFavourites}
+            onSelectFavourite={handleSelectFoodFavourite}
+            onEditFavourite={handleEditFoodFavourite}
+            onDeleteFavourite={removeFoodFavourite}
+            pinnedFoods={pinnedFoods}
+            onTogglePin={togglePinnedFood}
+            cachedFoods={cachedFoods}
+            onUpdateCachedFoods={updateCachedFoods}
+            customFoods={customFoods}
+            onAddCustomFood={handleAddCustomFood}
+            onSaveAsFavourite={handleCreateFoodFavourite}
+            selectedMealType={foodMealType}
+            mealNutritionEntries={
+              Array.isArray(
+                nutritionData?.[trackerSelectedDate]?.[foodMealType]
+              )
+                ? nutritionData[trackerSelectedDate][foodMealType]
+                : []
+            }
+            onSwitchMealType={setFoodMealType}
+            onEditMealEntry={handleEditFoodEntry}
+            onDeleteMealEntry={handleDeleteFoodEntryFromSearch}
+          />
+        </Suspense>
+      )}
 
       <FoodPortionModal
         isOpen={foodPortionModal.isOpen}
