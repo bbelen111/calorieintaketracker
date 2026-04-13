@@ -1,4 +1,8 @@
-import { FOOD_SEARCH_SOURCE, resolveAiFoodLookup } from './foodSearch.js';
+import {
+  FOOD_SEARCH_SOURCE,
+  resolveAiFoodLookup,
+  resolveAiGroundedBatch,
+} from './foodSearch.js';
 
 const LOOKUP_ERROR_REASON_MESSAGES = Object.freeze({
   local_search_failed: 'Local database lookup failed.',
@@ -95,6 +99,11 @@ export const normalizeAiLookupResult = (result, { entryName = '' } = {}) => {
               ? result.weightedMatchScore
               : 0,
           },
+    sourcePreferenceWeights:
+      result?.sourcePreferenceWeights &&
+      typeof result.sourcePreferenceWeights === 'object'
+        ? { ...result.sourcePreferenceWeights }
+        : null,
     matchedFood: result?.matchedFood
       ? {
           name: result.matchedFood.name,
@@ -160,6 +169,7 @@ export const resolveFoodLookupContext = async ({
   entries = [],
   isOnline = true,
   resolveLookup = resolveAiFoodLookup,
+  resolveGroundedBatch = resolveAiGroundedBatch,
 } = {}) => {
   const normalizedMessageId = String(messageId || '').trim();
   if (!normalizedMessageId || !Array.isArray(entries) || entries.length === 0) {
@@ -181,6 +191,7 @@ export const resolveFoodLookupContext = async ({
           lookupTerms: resolveEntryLookupTerms(entry),
           entryCategory: entry?.category || null,
           isOnline,
+          allowGroundingFallback: false,
         });
 
         return [entryKey, normalizeAiLookupResult(result, { entryName })];
@@ -189,6 +200,53 @@ export const resolveFoodLookupContext = async ({
       }
     })
   );
+  const contextByKey = Object.fromEntries(pairs);
 
-  return Object.fromEntries(pairs);
+  if (!isOnline || typeof resolveGroundedBatch !== 'function') {
+    return contextByKey;
+  }
+
+  const deferredGroundingRequests = Object.entries(contextByKey)
+    .filter(([, meta]) => meta?.status === 'needs_grounding')
+    .map(([entryKey, meta]) => ({
+      entryKey,
+      entryName: meta.entryName || '',
+      groundingQuery: meta.queryUsed || meta.entryName || '',
+      sourcesTried: Array.isArray(meta.sourcesTried) ? meta.sourcesTried : [],
+      errorsBySource:
+        meta.errorsBySource && typeof meta.errorsBySource === 'object'
+          ? meta.errorsBySource
+          : {},
+      errorReasonsBySource:
+        meta.errorReasonsBySource &&
+        typeof meta.errorReasonsBySource === 'object'
+          ? meta.errorReasonsBySource
+          : {},
+      sourcePreferenceWeights:
+        meta.sourcePreferenceWeights &&
+        typeof meta.sourcePreferenceWeights === 'object'
+          ? meta.sourcePreferenceWeights
+          : null,
+    }));
+
+  if (deferredGroundingRequests.length === 0) {
+    return contextByKey;
+  }
+
+  const groundedResultsByKey = await resolveGroundedBatch({
+    requests: deferredGroundingRequests,
+  });
+
+  Object.entries(groundedResultsByKey || {}).forEach(([entryKey, result]) => {
+    if (!Object.prototype.hasOwnProperty.call(contextByKey, entryKey)) {
+      return;
+    }
+
+    const merged = normalizeAiLookupResult(result, {
+      entryName: contextByKey[entryKey]?.entryName || '',
+    });
+    contextByKey[entryKey] = merged;
+  });
+
+  return contextByKey;
 };

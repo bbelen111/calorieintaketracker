@@ -219,6 +219,7 @@ const buildAiLookupCacheKey = ({
   lookupTerms = [],
   entryCategory = null,
   isOnline = true,
+  allowGroundingFallback = true,
   localLimit = AI_LOCAL_LIMIT,
   onlinePageSize = AI_ONLINE_PAGE_SIZE,
   sourcePreferenceWeights = null,
@@ -238,6 +239,7 @@ const buildAiLookupCacheKey = ({
         .trim()
         .toLowerCase() || null,
     isOnline: Boolean(isOnline),
+    allowGroundingFallback: Boolean(allowGroundingFallback),
     localLimit: Number(localLimit) || AI_LOCAL_LIMIT,
     onlinePageSize: Number(onlinePageSize) || AI_ONLINE_PAGE_SIZE,
     sourcePreferenceWeights:
@@ -370,6 +372,11 @@ const loadSearchUsda = async () => {
 const loadGroundedMacroLookup = async () => {
   const module = await import('./gemini.js');
   return module.fetchMacrosWithGrounding;
+};
+
+const loadGroundedMacroLookupBatch = async () => {
+  const module = await import('./gemini.js');
+  return module.fetchMacrosWithGroundingBatch;
 };
 
 const resolveAiConfidence = (score) => {
@@ -509,6 +516,7 @@ const loadDependencies = async ({
   includeLocal = true,
   includeGetFoodsByIds = false,
   includeGrounding = false,
+  includeGroundingBatch = false,
   dependencies = {},
 } = {}) => {
   const resolvedSearchLocal = includeLocal
@@ -523,12 +531,16 @@ const loadDependencies = async ({
   const resolvedGroundedLookup = includeGrounding
     ? dependencies.searchGrounded || (await loadGroundedMacroLookup())
     : dependencies.searchGrounded;
+  const resolvedGroundedLookupBatch = includeGroundingBatch
+    ? dependencies.searchGroundedBatch || (await loadGroundedMacroLookupBatch())
+    : dependencies.searchGroundedBatch;
 
   return {
     searchLocal: resolvedSearchLocal,
     searchUsda: resolvedSearchUsda,
     getFoodsByIds: resolvedGetFoodsByIds,
     searchGrounded: resolvedGroundedLookup,
+    searchGroundedBatch: resolvedGroundedLookupBatch,
   };
 };
 
@@ -647,6 +659,7 @@ export const resolveAiFoodLookup = async ({
   lookupTerms = [],
   entryCategory = null,
   isOnline = true,
+  allowGroundingFallback = true,
   localLimit = AI_LOCAL_LIMIT,
   onlinePageSize = AI_ONLINE_PAGE_SIZE,
   sourcePreferenceWeights = null,
@@ -657,6 +670,7 @@ export const resolveAiFoodLookup = async ({
     lookupTerms,
     entryCategory,
     isOnline,
+    allowGroundingFallback,
     localLimit,
     onlinePageSize,
     sourcePreferenceWeights,
@@ -857,6 +871,7 @@ export const resolveAiFoodLookup = async ({
 
   if (
     shouldUseGrounding &&
+    allowGroundingFallback &&
     typeof resolvedDependencies.searchGrounded === 'function'
   ) {
     if (!sourcesTried.includes(FOOD_SEARCH_SOURCE.AI_WEB_SEARCH)) {
@@ -922,6 +937,38 @@ export const resolveAiFoodLookup = async ({
       errorReasonsBySource[FOOD_SEARCH_SOURCE.AI_WEB_SEARCH] =
         resolveGroundingFailureReason(error);
     }
+  }
+
+  if (shouldUseGrounding && !allowGroundingFallback) {
+    const needsGroundingConfidence = resolveWeightedConfidence({
+      score: Number(bestMatch?.score || AI_SCORE_THRESHOLD.low),
+      source: bestMatch?.source || FOOD_SEARCH_SOURCE.LOCAL,
+      sourcePreferenceWeights: effectiveSourcePreferenceWeights,
+    });
+
+    const deferredGroundingResult = {
+      status: 'needs_grounding',
+      usedSource: bestMatch?.source || FOOD_SEARCH_SOURCE.LOCAL,
+      queryUsed: bestMatch?.queryUsed || terms[0] || primaryTerm || null,
+      groundingQuery: terms[0] || primaryTerm || null,
+      sourcesTried,
+      fallbackUsed: sourcesTried.length > 1,
+      matchedFood: null,
+      errorsBySource,
+      errorReasonsBySource,
+      matchConfidence: needsGroundingConfidence.confidence,
+      matchScore: Number(bestMatch?.score || 0),
+      weightedMatchScore: needsGroundingConfidence.weightedScore,
+      confidenceComponents: {
+        rawScore: needsGroundingConfidence.rawScore,
+        trustMultiplier: needsGroundingConfidence.trustMultiplier,
+        weightedScore: needsGroundingConfidence.weightedScore,
+      },
+      sourcePreferenceWeights: effectiveSourcePreferenceWeights,
+    };
+
+    aiLookupSessionCache.set(cacheKey, deferredGroundingResult);
+    return cloneLookupResult(deferredGroundingResult);
   }
 
   if (!bestMatch || bestMatch.score < AI_SCORE_THRESHOLD.low) {
@@ -995,6 +1042,219 @@ export const resolveAiFoodLookup = async ({
 
   aiLookupSessionCache.set(cacheKey, resolvedResult);
   return cloneLookupResult(resolvedResult);
+};
+
+export const resolveAiGroundedBatch = async ({
+  requests = [],
+  dependencies = {},
+} = {}) => {
+  const normalizedRequests = Array.isArray(requests)
+    ? requests
+        .map((request) => ({
+          entryKey: String(request?.entryKey || '').trim(),
+          entryName: String(request?.entryName || '').trim(),
+          groundingQuery: String(
+            request?.groundingQuery || request?.entryName || ''
+          ).trim(),
+          sourcesTried: Array.isArray(request?.sourcesTried)
+            ? [...request.sourcesTried]
+            : [],
+          errorsBySource:
+            request?.errorsBySource &&
+            typeof request.errorsBySource === 'object'
+              ? { ...request.errorsBySource }
+              : {},
+          errorReasonsBySource:
+            request?.errorReasonsBySource &&
+            typeof request.errorReasonsBySource === 'object'
+              ? { ...request.errorReasonsBySource }
+              : {},
+          sourcePreferenceWeights:
+            request?.sourcePreferenceWeights &&
+            typeof request.sourcePreferenceWeights === 'object'
+              ? request.sourcePreferenceWeights
+              : null,
+        }))
+        .filter((request) => request.entryKey && request.groundingQuery)
+    : [];
+
+  if (normalizedRequests.length === 0) {
+    return {};
+  }
+
+  const resolvedDependencies = await loadDependencies({
+    includeLocal: false,
+    includeGrounding: true,
+    includeGroundingBatch: true,
+    dependencies,
+  });
+
+  const withGroundingSource = normalizedRequests.map((request) => ({
+    ...request,
+    sourcesTried: request.sourcesTried.includes(
+      FOOD_SEARCH_SOURCE.AI_WEB_SEARCH
+    )
+      ? request.sourcesTried
+      : [...request.sourcesTried, FOOD_SEARCH_SOURCE.AI_WEB_SEARCH],
+  }));
+
+  const resolveSuccess = (request, estimate) => {
+    const weightedConfidence = resolveWeightedConfidence({
+      score: AI_SCORE_THRESHOLD.low,
+      source: FOOD_SEARCH_SOURCE.AI_WEB_SEARCH,
+      sourcePreferenceWeights: request.sourcePreferenceWeights,
+    });
+
+    return {
+      status: 'resolved',
+      usedSource: FOOD_SEARCH_SOURCE.AI_WEB_SEARCH,
+      queryUsed: request.groundingQuery,
+      sourcesTried: request.sourcesTried,
+      fallbackUsed: true,
+      matchedFood: {
+        name: estimate?.name || request.entryName || request.groundingQuery,
+        brand: null,
+        category: null,
+        subcategory: 'grounded_estimate',
+        per100g: {
+          calories: Number(estimate?.per100g?.calories) || 0,
+          protein: Number(estimate?.per100g?.protein) || 0,
+          carbs: Number(estimate?.per100g?.carbs) || 0,
+          fats: Number(estimate?.per100g?.fats) || 0,
+        },
+      },
+      errorsBySource: request.errorsBySource,
+      errorReasonsBySource: request.errorReasonsBySource,
+      matchConfidence: estimate?.confidence || weightedConfidence.confidence,
+      matchScore: AI_SCORE_THRESHOLD.low,
+      weightedMatchScore: weightedConfidence.weightedScore,
+      confidenceComponents: {
+        rawScore: weightedConfidence.rawScore,
+        trustMultiplier: weightedConfidence.trustMultiplier,
+        weightedScore: weightedConfidence.weightedScore,
+      },
+    };
+  };
+
+  const resolveFailure = (request, errorOrMessage, reasonCode) => {
+    const errorMessage =
+      typeof errorOrMessage === 'string'
+        ? errorOrMessage
+        : toErrorMessage(errorOrMessage, 'Grounded web lookup failed.');
+    const failureReason =
+      reasonCode ||
+      (typeof errorOrMessage === 'string'
+        ? SOURCE_ERROR_REASON.GROUNDING_INVALID_RESPONSE
+        : resolveGroundingFailureReason(errorOrMessage));
+
+    const errorsBySource = {
+      ...request.errorsBySource,
+      [FOOD_SEARCH_SOURCE.AI_WEB_SEARCH]: errorMessage,
+    };
+    const errorReasonsBySource = {
+      ...request.errorReasonsBySource,
+      [FOOD_SEARCH_SOURCE.AI_WEB_SEARCH]: failureReason,
+    };
+
+    const lowConfidence = resolveWeightedConfidence({
+      score: 0,
+      source: FOOD_SEARCH_SOURCE.AI_WEB_SEARCH,
+      sourcePreferenceWeights: request.sourcePreferenceWeights,
+    });
+
+    return {
+      status: 'no_match',
+      usedSource: FOOD_SEARCH_SOURCE.AI_WEB_SEARCH,
+      queryUsed: request.groundingQuery,
+      sourcesTried: request.sourcesTried,
+      fallbackUsed: true,
+      matchedFood: null,
+      errorsBySource,
+      errorReasonsBySource,
+      matchConfidence: lowConfidence.confidence,
+      matchScore: 0,
+      weightedMatchScore: lowConfidence.weightedScore,
+      confidenceComponents: {
+        rawScore: lowConfidence.rawScore,
+        trustMultiplier: lowConfidence.trustMultiplier,
+        weightedScore: lowConfidence.weightedScore,
+      },
+    };
+  };
+
+  try {
+    if (typeof resolvedDependencies.searchGroundedBatch === 'function') {
+      const response = await resolvedDependencies.searchGroundedBatch(
+        withGroundingSource.map((request) => request.groundingQuery)
+      );
+      const estimates = Array.isArray(response?.estimates)
+        ? response.estimates
+        : [];
+
+      return Object.fromEntries(
+        withGroundingSource.map((request, index) => {
+          const estimate = estimates[index]?.estimate || null;
+
+          if (estimate?.per100g && typeof estimate.per100g === 'object') {
+            return [request.entryKey, resolveSuccess(request, estimate)];
+          }
+
+          return [
+            request.entryKey,
+            resolveFailure(
+              request,
+              'Grounded lookup returned no usable nutrition data for this entry.',
+              SOURCE_ERROR_REASON.GROUNDING_INVALID_RESPONSE
+            ),
+          ];
+        })
+      );
+    }
+
+    if (typeof resolvedDependencies.searchGrounded === 'function') {
+      const settledResults = await Promise.allSettled(
+        withGroundingSource.map((request) =>
+          resolvedDependencies.searchGrounded(request.groundingQuery)
+        )
+      );
+
+      return Object.fromEntries(
+        withGroundingSource.map((request, index) => {
+          const settled = settledResults[index];
+          if (
+            settled?.status === 'fulfilled' &&
+            settled.value?.per100g &&
+            typeof settled.value.per100g === 'object'
+          ) {
+            return [request.entryKey, resolveSuccess(request, settled.value)];
+          }
+
+          return [
+            request.entryKey,
+            resolveFailure(request, settled?.reason || null),
+          ];
+        })
+      );
+    }
+
+    return Object.fromEntries(
+      withGroundingSource.map((request) => [
+        request.entryKey,
+        resolveFailure(
+          request,
+          'Grounded lookup is unavailable.',
+          SOURCE_ERROR_REASON.GROUNDING_UNKNOWN
+        ),
+      ])
+    );
+  } catch (error) {
+    return Object.fromEntries(
+      withGroundingSource.map((request) => [
+        request.entryKey,
+        resolveFailure(request, error),
+      ])
+    );
+  }
 };
 
 export const resolveAiFoodEntry = async ({

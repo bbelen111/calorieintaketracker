@@ -129,7 +129,9 @@ Rules:
 const GROUNDING_LOOKUP_SYSTEM_INSTRUCTION = `You are a nutrition retrieval assistant for obscure foods.
 
 Task:
-- Use Google Search grounding to return a conservative 100g baseline estimate for exactly one requested food.
+- Use Google Search grounding to return a conservative 100g baseline estimate for each requested food.
+- If the user asks for one food, return one entry. If multiple foods are requested, return one entry per food.
+- Preserve requested order whenever possible.
 - Return strict JSON only, inside <food_parser_json> tags.
 - Do not include markdown code fences.
 

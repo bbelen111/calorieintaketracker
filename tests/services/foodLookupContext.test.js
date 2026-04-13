@@ -211,3 +211,102 @@ test('resolveFoodLookupContext preserves successful siblings when one entry look
     'local_search_failed'
   );
 });
+
+test('resolveFoodLookupContext resolves deferred grounding entries in one batched call', async () => {
+  let groundedBatchCalls = 0;
+
+  const context = await resolveFoodLookupContext({
+    messageId: 'assistant-3',
+    isOnline: true,
+    entries: [{ name: 'Kulolo' }, { name: 'Ube Halaya' }],
+    resolveLookup: async ({ entryName }) => ({
+      status: 'needs_grounding',
+      usedSource: FOOD_SEARCH_SOURCE.LOCAL,
+      sourcesTried: [FOOD_SEARCH_SOURCE.LOCAL, FOOD_SEARCH_SOURCE.USDA],
+      fallbackUsed: false,
+      queryUsed: entryName,
+      matchConfidence: 'low',
+      matchScore: 0,
+      weightedMatchScore: 0,
+      matchedFood: null,
+      errorsBySource: {},
+      errorReasonsBySource: {},
+    }),
+    resolveGroundedBatch: async ({ requests }) => {
+      groundedBatchCalls += 1;
+      assert.equal(requests.length, 2);
+
+      return {
+        'assistant-3-0': {
+          status: 'resolved',
+          usedSource: FOOD_SEARCH_SOURCE.AI_WEB_SEARCH,
+          sourcesTried: [
+            FOOD_SEARCH_SOURCE.LOCAL,
+            FOOD_SEARCH_SOURCE.USDA,
+            FOOD_SEARCH_SOURCE.AI_WEB_SEARCH,
+          ],
+          fallbackUsed: true,
+          queryUsed: 'Kulolo',
+          matchConfidence: 'low',
+          matchScore: 0.55,
+          weightedMatchScore: 0.41,
+          confidenceComponents: {
+            rawScore: 0.55,
+            trustMultiplier: 0.75,
+            weightedScore: 0.41,
+          },
+          matchedFood: {
+            name: 'Kulolo',
+            per100g: {
+              calories: 250,
+              protein: 1,
+              carbs: 55,
+              fats: 2,
+            },
+          },
+          errorsBySource: {},
+          errorReasonsBySource: {},
+        },
+        'assistant-3-1': {
+          status: 'resolved',
+          usedSource: FOOD_SEARCH_SOURCE.AI_WEB_SEARCH,
+          sourcesTried: [
+            FOOD_SEARCH_SOURCE.LOCAL,
+            FOOD_SEARCH_SOURCE.USDA,
+            FOOD_SEARCH_SOURCE.AI_WEB_SEARCH,
+          ],
+          fallbackUsed: true,
+          queryUsed: 'Ube Halaya',
+          matchConfidence: 'low',
+          matchScore: 0.55,
+          weightedMatchScore: 0.41,
+          confidenceComponents: {
+            rawScore: 0.55,
+            trustMultiplier: 0.75,
+            weightedScore: 0.41,
+          },
+          matchedFood: {
+            name: 'Ube Halaya',
+            per100g: {
+              calories: 280,
+              protein: 3,
+              carbs: 48,
+              fats: 9,
+            },
+          },
+          errorsBySource: {},
+          errorReasonsBySource: {},
+        },
+      };
+    },
+  });
+
+  assert.equal(groundedBatchCalls, 1);
+  assert.equal(context['assistant-3-0'].status, 'resolved');
+  assert.equal(
+    context['assistant-3-0'].usedSource,
+    FOOD_SEARCH_SOURCE.AI_WEB_SEARCH
+  );
+  assert.equal(context['assistant-3-1'].status, 'resolved');
+  assert.equal(context['assistant-3-1'].matchedFood?.name, 'Ube Halaya');
+});

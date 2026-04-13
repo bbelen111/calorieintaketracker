@@ -5,6 +5,7 @@ import {
   dedupeExtractedFoodEntries,
   FOOD_SEARCH_SOURCE,
   resetAiLookupSessionCache,
+  resolveAiGroundedBatch,
   resolveAiFoodEntry,
   resolveAiFoodLookup,
   searchFoodsLocal,
@@ -262,6 +263,86 @@ test('resolveAiFoodLookup falls back to grounded web lookup when local and USDA 
   assert.equal(result.fallbackUsed, true);
   assert.equal(result.confidenceComponents?.trustMultiplier, 0.75);
   assert.ok(result.weightedMatchScore < result.matchScore);
+});
+
+test('resolveAiFoodLookup can defer grounding when fallback is disabled', async () => {
+  const result = await resolveAiFoodLookup({
+    entryName: 'rare local dessert',
+    isOnline: true,
+    allowGroundingFallback: false,
+    dependencies: {
+      searchLocal: async () => [],
+      searchUsda: async () => ({ foods: [] }),
+      searchGrounded: async () => ({
+        name: 'Rare Local Dessert',
+        per100g: {
+          calories: 320,
+          protein: 4,
+          carbs: 45,
+          fats: 14,
+        },
+        confidence: 'low',
+      }),
+    },
+  });
+
+  assert.equal(result.status, 'needs_grounding');
+  assert.equal(result.matchedFood, null);
+  assert.equal(result.queryUsed, 'rare local dessert');
+});
+
+test('resolveAiGroundedBatch resolves multiple entries from one batched lookup call', async () => {
+  let batchCalls = 0;
+
+  const result = await resolveAiGroundedBatch({
+    requests: [
+      {
+        entryKey: 'assistant-1-0',
+        entryName: 'kulolo',
+        groundingQuery: 'kulolo',
+        sourcesTried: ['local', 'usda'],
+      },
+      {
+        entryKey: 'assistant-1-1',
+        entryName: 'ube halaya',
+        groundingQuery: 'ube halaya',
+        sourcesTried: ['local', 'usda'],
+      },
+    ],
+    dependencies: {
+      searchGroundedBatch: async (queries) => {
+        batchCalls += 1;
+        assert.deepEqual(queries, ['kulolo', 'ube halaya']);
+        return {
+          estimates: [
+            {
+              requestedFoodName: 'kulolo',
+              estimate: {
+                name: 'Kulolo',
+                per100g: { calories: 250, protein: 1.2, carbs: 55, fats: 2.1 },
+                confidence: 'low',
+              },
+            },
+            {
+              requestedFoodName: 'ube halaya',
+              estimate: {
+                name: 'Ube Halaya',
+                per100g: { calories: 280, protein: 3.1, carbs: 48, fats: 8.5 },
+                confidence: 'low',
+              },
+            },
+          ],
+        };
+      },
+    },
+  });
+
+  assert.equal(batchCalls, 1);
+  assert.equal(result['assistant-1-0'].status, 'resolved');
+  assert.equal(result['assistant-1-0'].usedSource, FOOD_SEARCH_SOURCE.AI_WEB_SEARCH);
+  assert.equal(result['assistant-1-0'].matchedFood?.name, 'Kulolo');
+  assert.equal(result['assistant-1-1'].status, 'resolved');
+  assert.equal(result['assistant-1-1'].matchedFood?.name, 'Ube Halaya');
 });
 
 test('resolveAiFoodLookup forces grounded fallback when USDA fails with rate limit', async () => {

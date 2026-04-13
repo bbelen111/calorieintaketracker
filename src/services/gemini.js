@@ -55,7 +55,7 @@ const RATE_LIMIT_MAX_RETRIES = 2;
 const RATE_LIMIT_BACKOFF_BASE_MS = 400;
 const CLIENT_RATE_LIMIT_MAX_REQUESTS_PER_WINDOW = 15;
 const CLIENT_RATE_LIMIT_WINDOW_MS = 60_000;
-const CLIENT_RATE_LIMIT_MAX_WAIT_MS = 10_000;
+const CLIENT_RATE_LIMIT_MAX_WAIT_MS = 60_000;
 const TRANSIENT_HTTP_MAX_RETRIES = 2;
 const TRANSIENT_HTTP_BACKOFF_BASE_MS = 250;
 const TRANSIENT_HTTP_RETRY_STATUSES = new Set([502, 503, 504]);
@@ -470,7 +470,7 @@ function getFormatCorrectionHint(mode) {
   }
 
   if (mode === GEMINI_REQUEST_MODE.GROUNDING_LOOKUP) {
-    return 'FORMAT CORRECTION: Return strict grounded lookup parser JSON in <food_parser_json> tags with one 100g entry.';
+    return 'FORMAT CORRECTION: Return strict grounded lookup parser JSON in <food_parser_json> tags with one 100g entry per requested food.';
   }
 
   return 'FORMAT CORRECTION: Respond with concise text plus valid <food_parser_json> matching the extraction schema exactly.';
@@ -568,7 +568,9 @@ async function waitForClientRateLimitSlot(signal) {
     const nowMs = Date.now();
     pruneRequestTimestamps(nowMs);
 
-    if (requestTimestampsMs.length < CLIENT_RATE_LIMIT_MAX_REQUESTS_PER_WINDOW) {
+    if (
+      requestTimestampsMs.length < CLIENT_RATE_LIMIT_MAX_REQUESTS_PER_WINDOW
+    ) {
       requestTimestampsMs.push(nowMs);
       return;
     }
@@ -1095,6 +1097,122 @@ export async function fetchMacrosWithGrounding(
       ? firstEntry.assumptions
       : [],
     source: 'ai_web_search',
+  };
+}
+
+const normalizeFoodLabel = (value) =>
+  String(value ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const buildGroundedEstimateFromEntry = (entry, fallbackName) => ({
+  name:
+    String(entry?.name || fallbackName).trim() || String(fallbackName || ''),
+  per100g: {
+    calories: Math.max(0, Number(entry?.calories) || 0),
+    protein: Math.max(0, Number(entry?.protein) || 0),
+    carbs: Math.max(0, Number(entry?.carbs) || 0),
+    fats: Math.max(0, Number(entry?.fats) || 0),
+  },
+  confidence: entry?.confidence || 'low',
+  rationale: entry?.rationale || null,
+  assumptions: Array.isArray(entry?.assumptions) ? entry.assumptions : [],
+  source: 'ai_web_search',
+});
+
+export async function fetchMacrosWithGroundingBatch(
+  foodNames,
+  signal,
+  timeoutMs = 25000,
+  model = GROUNDING_MODEL_OVERRIDE
+) {
+  const normalizedFoodNames = Array.isArray(foodNames)
+    ? foodNames
+        .map((item) => String(item ?? '').trim())
+        .filter(Boolean)
+        .slice(0, 10)
+    : [];
+
+  if (normalizedFoodNames.length === 0) {
+    throw new GeminiError(
+      'At least one food name is required for grounded batch lookup.',
+      400
+    );
+  }
+
+  const promptLines = normalizedFoodNames
+    .map((name, index) => `${index + 1}. ${name}`)
+    .join('\n');
+
+  const prompt = [
+    'Find conservative 100g nutrition estimates for each food below.',
+    'Return parser JSON only.',
+    'Keep entry order aligned to the list when possible.',
+    '',
+    promptLines,
+  ].join('\n');
+
+  const result = await sendGeminiMessage({
+    message: prompt,
+    files: [],
+    history: [],
+    model,
+    mode: GEMINI_REQUEST_MODE.GROUNDING_LOOKUP,
+    expectFoodParser: true,
+    useGrounding: true,
+    signal,
+    timeoutMs,
+  });
+
+  const parsedEntries = Array.isArray(result?.foodParser?.entries)
+    ? result.foodParser.entries
+    : [];
+
+  const usedEntryIndexes = new Set();
+  const estimates = normalizedFoodNames.map((requestedName, index) => {
+    const normalizedRequestedName = normalizeFoodLabel(requestedName);
+
+    let matchedIndex = parsedEntries[index] ? index : -1;
+    if (matchedIndex === -1) {
+      matchedIndex = parsedEntries.findIndex((entry, candidateIndex) => {
+        if (usedEntryIndexes.has(candidateIndex)) {
+          return false;
+        }
+
+        const normalizedCandidateName = normalizeFoodLabel(entry?.name);
+        if (!normalizedCandidateName || !normalizedRequestedName) {
+          return false;
+        }
+
+        return (
+          normalizedCandidateName === normalizedRequestedName ||
+          normalizedCandidateName.includes(normalizedRequestedName) ||
+          normalizedRequestedName.includes(normalizedCandidateName)
+        );
+      });
+    }
+
+    if (matchedIndex === -1) {
+      return {
+        requestedFoodName: requestedName,
+        estimate: null,
+      };
+    }
+
+    usedEntryIndexes.add(matchedIndex);
+    return {
+      requestedFoodName: requestedName,
+      estimate: buildGroundedEstimateFromEntry(
+        parsedEntries[matchedIndex],
+        requestedName
+      ),
+    };
+  });
+
+  return {
+    estimates,
   };
 }
 

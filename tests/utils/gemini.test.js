@@ -5,6 +5,7 @@ import {
   __resetGeminiRateLimitQueueForTests,
   composeExtractionMessage,
   fetchMacrosWithGrounding,
+  fetchMacrosWithGroundingBatch,
   FOOD_PARSER_SCHEMA_VERSION,
   GEMINI_REQUEST_MODE,
   GeminiError,
@@ -206,7 +207,7 @@ test('sendGeminiMessage maps quota-exhausted 429 to quota-specific GeminiError',
   }
 });
 
-test('sendGeminiMessage enforces client-side 15 RPM guard during burst calls', async () => {
+test('sendGeminiMessage queues 16th burst request and times out when caller timeout is short', async () => {
   const originalFetch = globalThis.fetch;
   let calls = 0;
 
@@ -234,11 +235,11 @@ test('sendGeminiMessage enforces client-side 15 RPM guard during burst calls', a
     }
 
     await assert.rejects(
-      () => sendGeminiMessage({ message: 'test-16' }),
+      () => sendGeminiMessage({ message: 'test-16', timeoutMs: 250 }),
       (error) => {
         assert.ok(error instanceof GeminiError);
-        assert.equal(error.status, 429);
-        assert.match(error.message, /15 requests\/min/i);
+        assert.equal(error.status, 408);
+        assert.match(error.message, /timed out/i);
         return true;
       }
     );
@@ -402,6 +403,41 @@ test('fetchMacrosWithGrounding forwards model override in request body', async (
     assert.equal(capturedBody.mode, GEMINI_REQUEST_MODE.GROUNDING_LOOKUP);
     assert.equal(capturedBody.useGrounding, true);
     assert.equal(capturedBody.model, 'gemini-2.5-flash-lite');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('fetchMacrosWithGroundingBatch returns order-aligned estimates', async () => {
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                text: `Batch grounded entries ready.\n<food_parser_json>{"version":"${FOOD_PARSER_SCHEMA_VERSION}","messageType":"food_entries","assistantMessage":"Batch grounded entries ready.","entries":[{"name":"Kulolo","grams":100,"calories":250,"protein":1,"carbs":55,"fats":2,"confidence":"low"},{"name":"Ube Halaya","grams":100,"calories":280,"protein":3,"carbs":48,"fats":9,"confidence":"low"}]}</food_parser_json>`,
+              },
+            ],
+          },
+        },
+      ],
+    }),
+  });
+
+  try {
+    const result = await fetchMacrosWithGroundingBatch(['Kulolo', 'Ube Halaya']);
+    assert.equal(result.estimates.length, 2);
+    assert.equal(result.estimates[0].requestedFoodName, 'Kulolo');
+    assert.equal(result.estimates[0].estimate?.name, 'Kulolo');
+    assert.equal(result.estimates[0].estimate?.per100g?.calories, 250);
+    assert.equal(result.estimates[1].requestedFoodName, 'Ube Halaya');
+    assert.equal(result.estimates[1].estimate?.name, 'Ube Halaya');
+    assert.equal(result.estimates[1].estimate?.per100g?.calories, 280);
   } finally {
     globalThis.fetch = originalFetch;
   }
