@@ -807,7 +807,6 @@ export const FoodSearchModal = ({
     dispatchUiState({ type: 'set', key: 'selectedCategory', value: null });
     dispatchUiState({ type: 'set', key: 'selectedSubcategory', value: null });
     dispatchUiState({ type: 'set', key: 'isFilterOpen', value: false });
-    dispatchUiState({ type: 'set', key: 'viewMode', value: 'search' });
   }, [searchMode]);
 
   useEffect(() => {
