@@ -24,7 +24,7 @@ import {
   Sparkles,
   Utensils,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
@@ -88,6 +88,7 @@ const DEFAULT_MAX_IMAGE_COUNT = 3;
 const LOCAL_RESULT_BATCH_SIZE = 120;
 const ONLINE_RESULT_BATCH_SIZE = 80;
 const LOCAL_DB_QUERY_PAGE_SIZE = 500;
+const PANEL_EASE = [0.32, 0.72, 0, 1];
 const CHAT_REQUEST_STAGE = {
   EXTRACTION: 'extraction',
   RETRIEVAL: 'retrieval',
@@ -427,6 +428,7 @@ export const FoodSearchModal = ({
   onEditMealEntry,
   onDeleteMealEntry,
 }) => {
+  const prefersReducedMotion = useReducedMotion();
   const {
     foodFavourites,
     pinnedFoods: storePinnedFoods,
@@ -585,6 +587,10 @@ export const FoodSearchModal = ({
   const [visibleResultCount, setVisibleResultCount] = useState(
     LOCAL_RESULT_BATCH_SIZE
   );
+  const [animatedFoodIds, setAnimatedFoodIds] = useState({});
+  const previousVisibleFoodIdsRef = useRef([]);
+  const previousBrowsePanelIndexRef = useRef(0);
+  const [browsePanelDirection, setBrowsePanelDirection] = useState(1);
   const [barcodeToast, setBarcodeToast] = useState(null);
   const barcodeToastTimerRef = useRef(null);
   const searchTimeoutRef = useRef(null);
@@ -1856,6 +1862,47 @@ export const FoodSearchModal = ({
     [displayResults, visibleResultCount]
   );
 
+  useEffect(() => {
+    if (viewMode !== 'search') {
+      previousVisibleFoodIdsRef.current = [];
+      setAnimatedFoodIds({});
+      return;
+    }
+
+    const nextIds = visibleDisplayResults
+      .map((food) => food?.id)
+      .filter((id) => typeof id === 'string' && id.length > 0);
+    const previousIds = previousVisibleFoodIdsRef.current;
+
+    if (nextIds.length === 0) {
+      previousVisibleFoodIdsRef.current = [];
+      setAnimatedFoodIds({});
+      return;
+    }
+
+    const previousIsPrefix =
+      previousIds.length > 0 &&
+      previousIds.every((id, index) => nextIds[index] === id);
+
+    let idsToAnimate = [];
+
+    if (previousIds.length === 0) {
+      idsToAnimate = nextIds.slice(0, 16);
+    } else if (previousIsPrefix && nextIds.length > previousIds.length) {
+      idsToAnimate = nextIds.slice(previousIds.length, previousIds.length + 24);
+    } else if (!previousIsPrefix) {
+      idsToAnimate = nextIds.slice(0, 14);
+    }
+
+    const nextAnimatedMap = idsToAnimate.reduce((accumulator, id) => {
+      accumulator[id] = true;
+      return accumulator;
+    }, {});
+
+    previousVisibleFoodIdsRef.current = nextIds;
+    setAnimatedFoodIds(nextAnimatedMap);
+  }, [viewMode, visibleDisplayResults]);
+
   const hasMoreResults =
     visibleResultCount < displayResults.length ||
     (searchMode === 'local' && hasMoreLocalDbResults);
@@ -1956,6 +2003,14 @@ export const FoodSearchModal = ({
     viewMode === 'search' || viewMode === 'favourites';
   const toggleSegmentIndex =
     viewMode === 'favourites' ? 2 : searchMode === 'online' ? 1 : 0;
+
+  useEffect(() => {
+    const previousIndex = previousBrowsePanelIndexRef.current;
+    if (toggleSegmentIndex !== previousIndex) {
+      setBrowsePanelDirection(toggleSegmentIndex > previousIndex ? 1 : -1);
+      previousBrowsePanelIndexRef.current = toggleSegmentIndex;
+    }
+  }, [toggleSegmentIndex]);
 
   const resizeChatTextarea = useCallback(() => {
     const textarea = chatTextareaRef.current;
@@ -3708,285 +3763,384 @@ export const FoodSearchModal = ({
           ) : null}
         </AnimatePresence>
 
-        {viewMode === 'chat' && (
-          <FoodSearchChatPanel
-            isOnline={isOnline}
-            aiRagQualityMode={resolvedAiRagQualityMode}
-            aiRagQualityOptions={AI_RAG_QUALITY_OPTIONS}
-            onChangeAiRagQualityMode={setAiRagQualityMode}
-            chatMessages={chatMessages}
-            chatAttachments={chatAttachments}
-            chatError={chatError}
-            chatAttachmentErrors={chatAttachmentErrors}
-            removeAttachmentError={removeAttachmentError}
-            isSendingChat={isSendingChat}
-            chatStatusNowMs={chatStatusNowMs}
-            activeChatRequest={activeChatRequest}
-            chatScrollRef={chatScrollRef}
-            fileInputRef={fileInputRef}
-            cameraInputRef={cameraInputRef}
-            chatTextareaRef={chatTextareaRef}
-            chatPlaceholder={chatPlaceholder}
-            chatInput={chatInput}
-            setChatInput={setChatInput}
-            answerClarification={answerClarification}
-            expandedAiEntryKeys={expandedAiEntryKeys}
-            aiEntryLookupByKey={aiEntryLookupByKey}
-            getFoodSearchSourceLabel={getFoodSearchSourceLabel}
-            toggleAiEntryExpansion={toggleAiEntryExpansion}
-            loggedAiEntryKeys={loggedAiEntryKeys}
-            favouritedAiEntryKeys={favouritedAiEntryKeys}
-            handleLogAiEntry={handleLogAiEntry}
-            handleSaveAiFavourite={handleSaveAiFavourite}
-            handleLogAllAiEntries={handleLogAllAiEntries}
-            copyChatText={copyChatText}
-            handleEditUserMessage={handleEditUserMessage}
-            handleReuseUserAttachments={handleReuseUserAttachments}
-            retryUserMessage={retryUserMessage}
-            regenerateAssistantReply={regenerateAssistantReply}
-            removeAttachment={removeAttachment}
-            stopChatRequest={stopChatRequest}
-            handleChatInputKeyDown={handleChatInputKeyDown}
-            handleChatInputPaste={handleChatInputPaste}
-            sendChat={sendChat}
-            handleAddAttachmentFiles={handleAddAttachmentFiles}
-          />
-        )}
-
-        {/* Search Input - for search mode */}
-        {viewMode === 'search' && (
-          <div className="px-4 mt-3">
-            <div className="relative flex items-center">
-              <Search
-                className="absolute left-3 text-muted flex-shrink-0 pointer-events-none"
-                size={20}
+        <AnimatePresence mode="wait" initial={false}>
+          {viewMode === 'chat' ? (
+            <motion.div
+              key="food-panel-chat"
+              initial={prefersReducedMotion ? false : { opacity: 0, x: 16 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={
+                prefersReducedMotion ? { opacity: 1 } : { opacity: 0, x: -14 }
+              }
+              transition={
+                prefersReducedMotion
+                  ? { duration: 0 }
+                  : { duration: 0.22, ease: PANEL_EASE }
+              }
+              className="flex-1 min-h-0 flex flex-col overflow-hidden"
+            >
+              <FoodSearchChatPanel
+                isOnline={isOnline}
+                aiRagQualityMode={resolvedAiRagQualityMode}
+                aiRagQualityOptions={AI_RAG_QUALITY_OPTIONS}
+                onChangeAiRagQualityMode={setAiRagQualityMode}
+                chatMessages={chatMessages}
+                chatAttachments={chatAttachments}
+                chatError={chatError}
+                chatAttachmentErrors={chatAttachmentErrors}
+                removeAttachmentError={removeAttachmentError}
+                isSendingChat={isSendingChat}
+                chatStatusNowMs={chatStatusNowMs}
+                activeChatRequest={activeChatRequest}
+                chatScrollRef={chatScrollRef}
+                fileInputRef={fileInputRef}
+                cameraInputRef={cameraInputRef}
+                chatTextareaRef={chatTextareaRef}
+                chatPlaceholder={chatPlaceholder}
+                chatInput={chatInput}
+                setChatInput={setChatInput}
+                answerClarification={answerClarification}
+                expandedAiEntryKeys={expandedAiEntryKeys}
+                aiEntryLookupByKey={aiEntryLookupByKey}
+                getFoodSearchSourceLabel={getFoodSearchSourceLabel}
+                toggleAiEntryExpansion={toggleAiEntryExpansion}
+                loggedAiEntryKeys={loggedAiEntryKeys}
+                favouritedAiEntryKeys={favouritedAiEntryKeys}
+                handleLogAiEntry={handleLogAiEntry}
+                handleSaveAiFavourite={handleSaveAiFavourite}
+                handleLogAllAiEntries={handleLogAllAiEntries}
+                copyChatText={copyChatText}
+                handleEditUserMessage={handleEditUserMessage}
+                handleReuseUserAttachments={handleReuseUserAttachments}
+                retryUserMessage={retryUserMessage}
+                regenerateAssistantReply={regenerateAssistantReply}
+                removeAttachment={removeAttachment}
+                stopChatRequest={stopChatRequest}
+                handleChatInputKeyDown={handleChatInputKeyDown}
+                handleChatInputPaste={handleChatInputPaste}
+                sendChat={sendChat}
+                handleAddAttachmentFiles={handleAddAttachmentFiles}
               />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                }}
-                placeholder={
-                  searchMode === 'online'
-                    ? 'Search online foods (USDA)...'
-                    : 'Search local foods...'
-                }
-                className="w-full bg-surface-highlight border border-border rounded-lg pl-11 pr-10 py-3 text-foreground placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent-blue"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 text-muted md:hover:text-foreground pressable-inline focus-ring flex-shrink-0"
-                  aria-label="Clear search"
-                >
-                  <X size={18} />
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Search Input - for favourites mode */}
-        {viewMode === 'favourites' && (
-          <div className="px-4 mt-3">
-            <div className="relative flex items-center">
-              <Search
-                className="absolute left-3 text-muted flex-shrink-0 pointer-events-none"
-                size={20}
-              />
-              <input
-                type="text"
-                value={favouritesSearchQuery}
-                onChange={(e) => setFavouritesSearchQuery(e.target.value)}
-                placeholder="Search favourites..."
-                className="w-full bg-surface-highlight border border-border rounded-lg pl-11 pr-10 py-3 text-foreground placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent-blue"
-              />
-              {favouritesSearchQuery && (
-                <button
-                  onClick={() => setFavouritesSearchQuery('')}
-                  className="absolute right-3 text-muted md:hover:text-foreground pressable-inline focus-ring flex-shrink-0"
-                  aria-label="Clear search"
-                >
-                  <X size={18} />
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Local/Online/Favorites Toggle */}
-        {viewMode !== 'chat' && (
-          <div className="px-4 mt-3">
-            <div className="relative flex items-center p-1 bg-surface-highlight rounded-lg">
-              <div
-                className={`absolute inset-y-1 left-1 w-[calc((100%-0.5rem)/3)] rounded-md shadow-md ${
-                  viewMode === 'favourites'
-                    ? 'bg-accent-indigo'
-                    : searchMode === 'local'
-                      ? 'bg-accent-blue'
-                      : 'bg-accent-emerald'
-                }`}
-                style={{
-                  transform: `translateX(${toggleSegmentIndex * 100}%)`,
-                  transition:
-                    'transform 0.2s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.2s ease-out',
-                }}
-              />
-              <button
-                onClick={() => {
-                  setViewMode('search');
-                  setSearchMode('local');
-                }}
-                className={`relative z-10 flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  viewMode === 'search' && searchMode === 'local'
-                    ? 'text-primary-foreground'
-                    : 'text-muted md:hover:text-foreground'
-                }`}
-              >
-                <Database size={16} />
-                <span>Local</span>
-              </button>
-              <button
-                onClick={() => {
-                  if (!isOnline) return;
-                  setViewMode('search');
-                  setSearchMode('online');
-                }}
-                disabled={!isOnline}
-                className={`relative z-10 flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  viewMode === 'search' && searchMode === 'online'
-                    ? 'text-primary-foreground'
-                    : isOnline
-                      ? 'text-muted md:hover:text-foreground'
-                      : 'text-muted cursor-not-allowed opacity-50'
-                }`}
-              >
-                {isOnline ? <Globe size={16} /> : <WifiOff size={16} />}
-                <span>Online</span>
-              </button>
-              <button
-                onClick={() => setViewMode('favourites')}
-                className={`relative z-10 flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  viewMode === 'favourites'
-                    ? 'text-primary-foreground'
-                    : 'text-muted md:hover:text-foreground'
-                }`}
-              >
-                <Star size={16} />
-                <span>Favorites</span>
-              </button>
-            </div>
-            {!isOnline && (
-              <div className="mt-2 flex items-center gap-2 px-3 py-2 bg-accent-amber/10 border border-accent-amber/30 rounded-lg">
-                <CloudOff
-                  size={16}
-                  className="text-accent-amber flex-shrink-0"
-                />
-                <p className="text-accent-amber text-xs">
-                  You&apos;re offline. Online search requires an internet
-                  connection.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        <FoodSearchFilterControls
-          viewMode={viewMode}
-          searchMode={searchMode}
-          displayResults={displayResults}
-          visibleResultsCount={visibleDisplayResults.length}
-          sortedFavourites={sortedFavourites}
-          favouritesSearchQuery={favouritesSearchQuery}
-          resolvedFavourites={resolvedFavourites}
-          isSearching={isSearching}
-          isLocalSearching={isLocalSearching}
-          resolvedCachedFoods={resolvedCachedFoods}
-          favouritesDropdownRef={favouritesDropdownRef}
-          dropdownRef={dropdownRef}
-          isFavouritesFilterOpen={isFavouritesFilterOpen}
-          setIsFavouritesFilterOpen={setIsFavouritesFilterOpen}
-          hasActiveFavouritesFilters={hasActiveFavouritesFilters}
-          clearFavouritesFilters={clearFavouritesFilters}
-          favouritesSortBy={favouritesSortBy}
-          setFavouritesSortBy={setFavouritesSortBy}
-          favouritesSortOrder={favouritesSortOrder}
-          setFavouritesSortOrder={setFavouritesSortOrder}
-          getFavouritesSortLabel={getFavouritesSortLabel}
-          isFilterOpen={isFilterOpen}
-          setIsFilterOpen={setIsFilterOpen}
-          hasActiveFilters={hasActiveFilters}
-          clearFilters={clearFilters}
-          selectedCategory={selectedCategory}
-          setSelectedCategory={setSelectedCategory}
-          selectedSubcategory={selectedSubcategory}
-          setSelectedSubcategory={setSelectedSubcategory}
-          categoryOptions={categoryOptions}
-          availableSubcategories={availableSubcategories}
-          sortBy={sortBy}
-          setSortBy={setSortBy}
-          sortOrder={sortOrder}
-          setSortOrder={setSortOrder}
-          getFilterActiveClass={getFilterActiveClass}
-          getSortLabel={getSortLabel}
-        />
-
-        {/* Search Results */}
-        {viewMode !== 'chat' && (
-          <div className="flex-1 min-h-0 px-4 py-4 relative">
-            <div className="h-full overflow-y-auto overflow-x-hidden touch-action-pan-y space-y-2">
-              {viewMode === 'favourites' ? (
-                <FoodSearchFavouritesPanel
-                  sortedFavourites={sortedFavourites}
-                  hasFavourites={hasFavourites}
-                  handleFavouriteCardClick={handleFavouriteCardClick}
-                  handleFavouriteEdit={handleFavouriteEdit}
-                  onDeleteFavourite={onDeleteFavourite}
-                  setPendingDeleteId={setPendingDeleteId}
-                  openDeleteConfirm={openDeleteConfirm}
-                />
-              ) : (
-                <FoodSearchResultsPanel
-                  searchMode={searchMode}
-                  activeSearchSource={activeSearchSource}
-                  fallbackUsed={searchFallbackUsed}
-                  searchError={searchError}
-                  localSearchError={localSearchError}
-                  isLocalSearching={isLocalSearching}
-                  isSearching={isSearching}
-                  displayResults={visibleDisplayResults}
-                  searchQuery={searchQuery}
-                  loadingFoodId={loadingFoodId}
-                  handleOnlineFoodSelect={handleOnlineFoodSelect}
-                  resolvedPinnedFoods={resolvedPinnedFoods}
-                  longPressingId={longPressingId}
-                  handleFoodClick={handleFoodClick}
-                  handlePressStart={handlePressStart}
-                  handlePressEnd={handlePressEnd}
-                  performOnlineSearch={performOnlineSearch}
-                />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="food-panel-browse"
+              initial={
+                prefersReducedMotion
+                  ? false
+                  : {
+                      opacity: 0,
+                      x: viewMode === 'favourites' ? 12 : -12,
+                    }
+              }
+              animate={{ opacity: 1, x: 0 }}
+              exit={
+                prefersReducedMotion
+                  ? { opacity: 1 }
+                  : {
+                      opacity: 0,
+                      x: viewMode === 'favourites' ? -12 : 12,
+                    }
+              }
+              transition={
+                prefersReducedMotion
+                  ? { duration: 0 }
+                  : { duration: 0.2, ease: PANEL_EASE }
+              }
+              className="flex-1 min-h-0 flex flex-col"
+            >
+              {/* Search Input - for search mode */}
+              {viewMode === 'search' && (
+                <div className="px-4 mt-3">
+                  <div className="relative flex items-center">
+                    <Search
+                      className="absolute left-3 text-muted flex-shrink-0 pointer-events-none"
+                      size={20}
+                    />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                      }}
+                      placeholder={
+                        searchMode === 'online'
+                          ? 'Search online foods (USDA)...'
+                          : 'Search local foods...'
+                      }
+                      className="w-full bg-surface-highlight border border-border rounded-lg pl-11 pr-10 py-3 text-foreground placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent-blue"
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-3 text-muted md:hover:text-foreground pressable-inline focus-ring flex-shrink-0"
+                        aria-label="Clear search"
+                      >
+                        <X size={18} />
+                      </button>
+                    )}
+                  </div>
+                </div>
               )}
 
-              {viewMode === 'search' &&
-                hasMoreResults &&
-                !isSearching &&
-                !isLocalSearching && (
-                  <div className="pt-2 pb-1 flex justify-center">
-                    <button
-                      onClick={handleLoadMoreResults}
-                      disabled={isLocalLoadingMore}
-                      className="px-4 py-2 rounded-lg border border-border bg-surface-highlight text-foreground text-sm font-medium md:hover:bg-surface pressable-card focus-ring"
-                    >
-                      {isLocalLoadingMore
-                        ? 'Loading more...'
-                        : `Show more (${visibleDisplayResults.length} loaded)`}
-                    </button>
+              {/* Search Input - for favourites mode */}
+              {viewMode === 'favourites' && (
+                <div className="px-4 mt-3">
+                  <div className="relative flex items-center">
+                    <Search
+                      className="absolute left-3 text-muted flex-shrink-0 pointer-events-none"
+                      size={20}
+                    />
+                    <input
+                      type="text"
+                      value={favouritesSearchQuery}
+                      onChange={(e) => setFavouritesSearchQuery(e.target.value)}
+                      placeholder="Search favourites..."
+                      className="w-full bg-surface-highlight border border-border rounded-lg pl-11 pr-10 py-3 text-foreground placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent-blue"
+                    />
+                    {favouritesSearchQuery && (
+                      <button
+                        onClick={() => setFavouritesSearchQuery('')}
+                        className="absolute right-3 text-muted md:hover:text-foreground pressable-inline focus-ring flex-shrink-0"
+                        aria-label="Clear search"
+                      >
+                        <X size={18} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Local/Online/Favorites Toggle */}
+              <div className="px-4 mt-3">
+                <div className="relative flex items-center p-1 bg-surface-highlight rounded-lg">
+                  <div
+                    className={`absolute inset-y-1 left-1 w-[calc((100%-0.5rem)/3)] rounded-md shadow-md ${
+                      viewMode === 'favourites'
+                        ? 'bg-accent-indigo'
+                        : searchMode === 'local'
+                          ? 'bg-accent-blue'
+                          : 'bg-accent-emerald'
+                    }`}
+                    style={{
+                      transform: `translateX(${toggleSegmentIndex * 100}%)`,
+                      transition:
+                        'transform 0.2s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.2s ease-out',
+                    }}
+                  />
+                  <button
+                    onClick={() => {
+                      setViewMode('search');
+                      setSearchMode('local');
+                    }}
+                    className={`relative z-10 flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      viewMode === 'search' && searchMode === 'local'
+                        ? 'text-primary-foreground'
+                        : 'text-muted md:hover:text-foreground'
+                    }`}
+                  >
+                    <Database size={16} />
+                    <span>Local</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!isOnline) return;
+                      setViewMode('search');
+                      setSearchMode('online');
+                    }}
+                    disabled={!isOnline}
+                    className={`relative z-10 flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      viewMode === 'search' && searchMode === 'online'
+                        ? 'text-primary-foreground'
+                        : isOnline
+                          ? 'text-muted md:hover:text-foreground'
+                          : 'text-muted cursor-not-allowed opacity-50'
+                    }`}
+                  >
+                    {isOnline ? <Globe size={16} /> : <WifiOff size={16} />}
+                    <span>Online</span>
+                  </button>
+                  <button
+                    onClick={() => setViewMode('favourites')}
+                    className={`relative z-10 flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      viewMode === 'favourites'
+                        ? 'text-primary-foreground'
+                        : 'text-muted md:hover:text-foreground'
+                    }`}
+                  >
+                    <Star size={16} />
+                    <span>Favorites</span>
+                  </button>
+                </div>
+                {!isOnline && (
+                  <div className="mt-2 flex items-center gap-2 px-3 py-2 bg-accent-amber/10 border border-accent-amber/30 rounded-lg">
+                    <CloudOff
+                      size={16}
+                      className="text-accent-amber flex-shrink-0"
+                    />
+                    <p className="text-accent-amber text-xs">
+                      You&apos;re offline. Online search requires an internet
+                      connection.
+                    </p>
                   </div>
                 )}
-            </div>
-          </div>
-        )}
+              </div>
+
+              <FoodSearchFilterControls
+                viewMode={viewMode}
+                searchMode={searchMode}
+                displayResults={displayResults}
+                visibleResultsCount={visibleDisplayResults.length}
+                sortedFavourites={sortedFavourites}
+                favouritesSearchQuery={favouritesSearchQuery}
+                resolvedFavourites={resolvedFavourites}
+                isSearching={isSearching}
+                isLocalSearching={isLocalSearching}
+                resolvedCachedFoods={resolvedCachedFoods}
+                favouritesDropdownRef={favouritesDropdownRef}
+                dropdownRef={dropdownRef}
+                isFavouritesFilterOpen={isFavouritesFilterOpen}
+                setIsFavouritesFilterOpen={setIsFavouritesFilterOpen}
+                hasActiveFavouritesFilters={hasActiveFavouritesFilters}
+                clearFavouritesFilters={clearFavouritesFilters}
+                favouritesSortBy={favouritesSortBy}
+                setFavouritesSortBy={setFavouritesSortBy}
+                favouritesSortOrder={favouritesSortOrder}
+                setFavouritesSortOrder={setFavouritesSortOrder}
+                getFavouritesSortLabel={getFavouritesSortLabel}
+                isFilterOpen={isFilterOpen}
+                setIsFilterOpen={setIsFilterOpen}
+                hasActiveFilters={hasActiveFilters}
+                clearFilters={clearFilters}
+                selectedCategory={selectedCategory}
+                setSelectedCategory={setSelectedCategory}
+                selectedSubcategory={selectedSubcategory}
+                setSelectedSubcategory={setSelectedSubcategory}
+                categoryOptions={categoryOptions}
+                availableSubcategories={availableSubcategories}
+                sortBy={sortBy}
+                setSortBy={setSortBy}
+                sortOrder={sortOrder}
+                setSortOrder={setSortOrder}
+                getFilterActiveClass={getFilterActiveClass}
+                getSortLabel={getSortLabel}
+              />
+
+              {/* Search Results */}
+              <div className="flex-1 min-h-0 px-4 py-4 relative">
+                <div className="h-full overflow-y-auto overflow-x-hidden touch-action-pan-y space-y-2">
+                  <AnimatePresence mode="wait" initial={false}>
+                    {viewMode === 'favourites' ? (
+                      <motion.div
+                        key="favourites-list-panel"
+                        initial={
+                          prefersReducedMotion
+                            ? false
+                            : { opacity: 0, x: 12 * browsePanelDirection }
+                        }
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={
+                          prefersReducedMotion
+                            ? { opacity: 1 }
+                            : { opacity: 0, x: -12 * browsePanelDirection }
+                        }
+                        transition={
+                          prefersReducedMotion
+                            ? { duration: 0 }
+                            : { duration: 0.18, ease: PANEL_EASE }
+                        }
+                        className="space-y-2"
+                      >
+                        <FoodSearchFavouritesPanel
+                          sortedFavourites={sortedFavourites}
+                          hasFavourites={hasFavourites}
+                          handleFavouriteCardClick={handleFavouriteCardClick}
+                          handleFavouriteEdit={handleFavouriteEdit}
+                          onDeleteFavourite={onDeleteFavourite}
+                          setPendingDeleteId={setPendingDeleteId}
+                          openDeleteConfirm={openDeleteConfirm}
+                          prefersReducedMotion={prefersReducedMotion}
+                        />
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key={`search-results-panel-${searchMode}`}
+                        initial={
+                          prefersReducedMotion
+                            ? false
+                            : { opacity: 0, x: 12 * browsePanelDirection }
+                        }
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={
+                          prefersReducedMotion
+                            ? { opacity: 1 }
+                            : { opacity: 0, x: -12 * browsePanelDirection }
+                        }
+                        transition={
+                          prefersReducedMotion
+                            ? { duration: 0 }
+                            : { duration: 0.18, ease: PANEL_EASE }
+                        }
+                        className="space-y-2"
+                      >
+                        <FoodSearchResultsPanel
+                          searchMode={searchMode}
+                          activeSearchSource={activeSearchSource}
+                          fallbackUsed={searchFallbackUsed}
+                          searchError={searchError}
+                          localSearchError={localSearchError}
+                          isLocalSearching={isLocalSearching}
+                          isSearching={isSearching}
+                          displayResults={visibleDisplayResults}
+                          searchQuery={searchQuery}
+                          loadingFoodId={loadingFoodId}
+                          handleOnlineFoodSelect={handleOnlineFoodSelect}
+                          resolvedPinnedFoods={resolvedPinnedFoods}
+                          longPressingId={longPressingId}
+                          handleFoodClick={handleFoodClick}
+                          handlePressStart={handlePressStart}
+                          handlePressEnd={handlePressEnd}
+                          performOnlineSearch={performOnlineSearch}
+                          animatedFoodIds={animatedFoodIds}
+                          prefersReducedMotion={prefersReducedMotion}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {viewMode === 'search' &&
+                    hasMoreResults &&
+                    !isSearching &&
+                    !isLocalSearching && (
+                      <div className="pt-2 pb-1 flex justify-center">
+                        <motion.button
+                          onClick={handleLoadMoreResults}
+                          disabled={isLocalLoadingMore}
+                          initial={
+                            prefersReducedMotion ? false : { opacity: 0, y: 6 }
+                          }
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={
+                            prefersReducedMotion
+                              ? { duration: 0 }
+                              : { duration: 0.16, ease: PANEL_EASE }
+                          }
+                          whileTap={
+                            prefersReducedMotion ? undefined : { scale: 0.98 }
+                          }
+                          className="px-4 py-2 rounded-lg border border-border bg-surface-highlight text-foreground text-sm font-medium md:hover:bg-surface pressable-card focus-ring"
+                        >
+                          {isLocalLoadingMore
+                            ? 'Loading more...'
+                            : `Show more (${visibleDisplayResults.length} loaded)`}
+                        </motion.button>
+                      </div>
+                    )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <ConfirmActionModal
