@@ -188,10 +188,10 @@ export const FoodSearchChatPanel = ({
     };
   const qualityTagClass =
     currentQualityOption.value === 'fast'
-      ? 'bg-accent-indigo/20 text-accent-indigo'
+      ? 'bg-accent-indigo'
       : currentQualityOption.value === 'precision'
-        ? 'bg-accent-purple/20 text-accent-purple'
-        : 'bg-accent-blue/20 text-accent-blue';
+        ? 'bg-accent-purple'
+        : 'bg-accent-blue';
 
   return (
     <div className="flex-1 min-h-0 flex flex-col mt-2">
@@ -208,7 +208,7 @@ export const FoodSearchChatPanel = ({
               AI Mode
             </p>
             <span
-              className={`text-sm px-2 py-0.5 rounded-full font-semibold whitespace-nowrap ${qualityTagClass}`}
+              className={`text-sm px-2 py-0.5 rounded-full font-semibold whitespace-nowrap text-white ${qualityTagClass}`}
             >
               {currentQualityOption.label}
             </span>

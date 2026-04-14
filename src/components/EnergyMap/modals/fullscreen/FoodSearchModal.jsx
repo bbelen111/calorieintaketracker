@@ -365,6 +365,29 @@ const getNowMs = () => {
   return Date.now();
 };
 
+const resolveChatRequestErrorMessage = ({ error, GeminiErrorClass }) => {
+  const fallbackMessage = 'Failed to get AI response. Please try again.';
+
+  if (!(GeminiErrorClass && error instanceof GeminiErrorClass)) {
+    return fallbackMessage;
+  }
+
+  const status = Number(error?.status) || 0;
+  const normalizedMessage = String(error?.message || '')
+    .toLowerCase()
+    .trim();
+  const isTimeout =
+    status === 408 ||
+    normalizedMessage.includes('timed out') ||
+    normalizedMessage.includes('timeout');
+
+  if (isTimeout) {
+    return "That took longer than expected. Please try again — we'll keep this snappy.";
+  }
+
+  return error.message || fallbackMessage;
+};
+
 let foodCatalogModulePromise = null;
 const loadFoodCatalogModule = async () => {
   if (!foodCatalogModulePromise) {
@@ -2785,10 +2808,10 @@ export const FoodSearchModal = ({
           qualityMode: resolvedAiRagQualityMode,
         }).catch(() => {});
       } catch (error) {
-        const message =
-          GeminiErrorClass && error instanceof GeminiErrorClass
-            ? error.message
-            : 'Failed to get AI response. Please try again.';
+        const message = resolveChatRequestErrorMessage({
+          error,
+          GeminiErrorClass,
+        });
 
         if (assistantPlaceholderId) {
           updateMessageById(assistantPlaceholderId, (assistantMessage) => ({

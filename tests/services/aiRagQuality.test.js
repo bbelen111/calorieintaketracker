@@ -23,10 +23,39 @@ test('getAiRagQualityPreset exposes expected mode knobs', () => {
     AI_RAG_QUALITY_MODE.PRECISION
   );
 
-  assert.ok(fastPreset.extractionTimeoutMs < balancedPreset.extractionTimeoutMs);
-  assert.ok(precisionPreset.extractionTimeoutMs > balancedPreset.extractionTimeoutMs);
+  assert.equal(fastPreset.extractionTimeoutMs, balancedPreset.extractionTimeoutMs);
+  assert.equal(
+    balancedPreset.extractionTimeoutMs,
+    precisionPreset.extractionTimeoutMs
+  );
+  assert.equal(
+    fastPreset.presentationTimeoutMs,
+    balancedPreset.presentationTimeoutMs
+  );
+  assert.equal(
+    balancedPreset.presentationTimeoutMs,
+    precisionPreset.presentationTimeoutMs
+  );
+  assert.equal(
+    fastPreset.groundedLookupTimeoutMs,
+    balancedPreset.groundedLookupTimeoutMs
+  );
+  assert.equal(
+    balancedPreset.groundedLookupTimeoutMs,
+    precisionPreset.groundedLookupTimeoutMs
+  );
+  assert.equal(
+    fastPreset.groundedBatchTimeoutMs,
+    balancedPreset.groundedBatchTimeoutMs
+  );
+  assert.equal(
+    balancedPreset.groundedBatchTimeoutMs,
+    precisionPreset.groundedBatchTimeoutMs
+  );
   assert.ok(fastPreset.localLimit < balancedPreset.localLimit);
   assert.ok(precisionPreset.localLimit > balancedPreset.localLimit);
+  assert.ok(fastPreset.onlinePageSize < balancedPreset.onlinePageSize);
+  assert.ok(precisionPreset.onlinePageSize > balancedPreset.onlinePageSize);
   assert.equal(fastPreset.enableDeferredGrounding, false);
   assert.equal(balancedPreset.enableDeferredGrounding, true);
 });
