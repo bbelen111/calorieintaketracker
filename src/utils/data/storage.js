@@ -526,6 +526,16 @@ const normalizeFoodSearchDefaultEntry = (value, fallback = 'search_local') => {
   return FOOD_SEARCH_DEFAULT_ENTRIES.has(normalized) ? normalized : fallback;
 };
 
+const normalizeStringArray = (value, fallback = []) => {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+
+  return value
+    .map((entry) => String(entry ?? '').trim())
+    .filter((entry) => entry.length > 0);
+};
+
 const normalizeTrainingTypeCatalog = (raw) => {
   const source =
     raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
@@ -1118,6 +1128,8 @@ export const getDefaultEnergyMapData = () => ({
   customCardioTypes: {},
   nutritionData: {},
   pinnedFoods: [],
+  pinnedCalorieTargets: [],
+  pinnedCardioTypes: [],
   cachedFoods: [], // Foods fetched from online APIs (USDA, OpenFoodFacts barcode, etc.)
   dailySnapshots: {}, // { 'YYYY-MM-DD': { date, tdee, intake, deficit, stepCount, ... } }
   // nutritionData structure: { 'YYYY-MM-DD': { mealType: [{ id, name, calories, protein, carbs, fats, timestamp }] } }
@@ -1405,9 +1417,18 @@ function mergeWithDefaults(data) {
       );
     })(),
     phaseLogV2: normalizedPhaseLogV2,
-    pinnedFoods: Array.isArray(normalizedInput.pinnedFoods)
-      ? normalizedInput.pinnedFoods
-      : defaults.pinnedFoods,
+    pinnedFoods: normalizeStringArray(
+      normalizedInput.pinnedFoods,
+      defaults.pinnedFoods
+    ),
+    pinnedCalorieTargets: normalizeStringArray(
+      normalizedInput.pinnedCalorieTargets,
+      defaults.pinnedCalorieTargets
+    ),
+    pinnedCardioTypes: normalizeStringArray(
+      normalizedInput.pinnedCardioTypes,
+      defaults.pinnedCardioTypes
+    ),
     foodFavourites: Array.isArray(normalizedInput.foodFavourites)
       ? normalizedInput.foodFavourites
       : defaults.foodFavourites,

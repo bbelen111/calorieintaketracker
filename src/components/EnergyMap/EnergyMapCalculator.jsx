@@ -2029,6 +2029,7 @@ export const EnergyMapCalculator = () => {
     if (selectedCalorieTargetType === 'live_steps' && liveStepData) {
       return {
         type: 'live_steps',
+        id: 'live_steps',
         key: 'live_steps',
         steps: liveStepData.stepCount,
         label: `${liveStepData.stepCount.toLocaleString()} live steps`,
@@ -2039,6 +2040,7 @@ export const EnergyMapCalculator = () => {
     if (!trackerStepRange || !trackerRangeData) {
       return {
         type: 'step_range',
+        id: trackerStepRange ? `step_range:${trackerStepRange}` : null,
         key: trackerStepRange ? `step_range:${trackerStepRange}` : null,
         steps: trackerStepRange,
         label: trackerStepRange ? `${trackerStepRange} steps` : 'No target',
@@ -2048,6 +2050,7 @@ export const EnergyMapCalculator = () => {
 
     return {
       type: 'step_range',
+      id: `step_range:${trackerStepRange}`,
       key: `step_range:${trackerStepRange}`,
       steps: trackerStepRange,
       label: `${trackerStepRange} steps`,
@@ -2064,6 +2067,7 @@ export const EnergyMapCalculator = () => {
     const stepRangeOptions = normalizedStepRanges.map((range) => {
       const details = getRangeDetails(range);
       return {
+        id: `step_range:${range}`,
         key: `step_range:${range}`,
         type: 'step_range',
         label: 'Step Range',
@@ -2080,6 +2084,7 @@ export const EnergyMapCalculator = () => {
 
     return [
       {
+        id: 'live_steps',
         key: 'live_steps',
         type: 'live_steps',
         label: 'Live Steps',

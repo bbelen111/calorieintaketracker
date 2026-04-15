@@ -433,6 +433,8 @@ const deriveState = (userData) => {
     foodFavourites: userData.foodFavourites ?? [],
     nutritionData: userData.nutritionData ?? {},
     pinnedFoods: userData.pinnedFoods ?? [],
+    pinnedCalorieTargets: userData.pinnedCalorieTargets ?? [],
+    pinnedCardioTypes: userData.pinnedCardioTypes ?? [],
     cachedFoods: userData.cachedFoods ?? [],
     dailySnapshots: userData.dailySnapshots ?? {},
     phases: phaseView.phases,
@@ -462,6 +464,20 @@ const updateUserData = (set, get, updater) => {
       ...deriveState(nextUserData),
     };
   });
+};
+
+const togglePinnedValue = (values, nextValue) => {
+  const normalizedValue = String(nextValue ?? '').trim();
+  if (!normalizedValue) {
+    return values ?? [];
+  }
+
+  const currentValues = Array.isArray(values) ? values : [];
+  const isPinned = currentValues.includes(normalizedValue);
+
+  return isPinned
+    ? currentValues.filter((value) => value !== normalizedValue)
+    : [...currentValues, normalizedValue];
 };
 
 export const useEnergyMapStore = createWithEqualityFn(
@@ -1505,16 +1521,32 @@ export const useEnergyMapStore = createWithEqualityFn(
       if (!foodId) return;
 
       updateUserData(set, get, (prev) => {
-        const currentPinned = prev.pinnedFoods ?? [];
-        const isPinned = currentPinned.includes(foodId);
-
         return {
           ...prev,
-          pinnedFoods: isPinned
-            ? currentPinned.filter((id) => id !== foodId)
-            : [...currentPinned, foodId],
+          pinnedFoods: togglePinnedValue(prev.pinnedFoods, foodId),
         };
       });
+    },
+
+    togglePinnedCalorieTarget: (targetId) => {
+      if (!targetId) return;
+
+      updateUserData(set, get, (prev) => ({
+        ...prev,
+        pinnedCalorieTargets: togglePinnedValue(
+          prev.pinnedCalorieTargets,
+          targetId
+        ),
+      }));
+    },
+
+    togglePinnedCardioType: (typeKey) => {
+      if (!typeKey) return;
+
+      updateUserData(set, get, (prev) => ({
+        ...prev,
+        pinnedCardioTypes: togglePinnedValue(prev.pinnedCardioTypes, typeKey),
+      }));
     },
 
     addFoodFavourite: (foodFavourite) => {

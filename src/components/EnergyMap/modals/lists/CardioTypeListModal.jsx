@@ -1,10 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Flame, Plus, Search, Trash2 } from 'lucide-react';
 import { shallow } from 'zustand/shallow';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { ModalShell } from '../../common/ModalShell';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { ConfirmActionModal } from '../common/ConfirmActionModal';
+
+const LONG_PRESS_DURATION = 650;
 
 export const CardioTypeListModal = ({
   isOpen,
@@ -17,17 +19,31 @@ export const CardioTypeListModal = ({
   onCreateCustomCardioType,
   onDeleteCustomCardioType,
 }) => {
-  const { storeCardioTypes, storeCustomTypes } = useEnergyMapStore(
+  const {
+    storeCardioTypes,
+    storeCustomTypes,
+    storePinnedCardioTypes,
+    togglePinnedCardioType,
+  } = useEnergyMapStore(
     (state) => ({
       storeCardioTypes: state.cardioTypes,
       storeCustomTypes: state.userData?.customCardioTypes,
+      storePinnedCardioTypes: state.pinnedCardioTypes,
+      togglePinnedCardioType: state.togglePinnedCardioType,
     }),
     shallow
   );
   const resolvedCardioTypes = cardioTypes ?? storeCardioTypes;
   const resolvedCustomTypes = customCardioTypes ?? storeCustomTypes;
+  const resolvedPinnedCardioTypes = useMemo(
+    () => (Array.isArray(storePinnedCardioTypes) ? storePinnedCardioTypes : []),
+    [storePinnedCardioTypes]
+  );
   const [query, setQuery] = useState('');
   const [pendingDeleteKey, setPendingDeleteKey] = useState(null);
+  const [longPressingId, setLongPressingId] = useState(null);
+  const longPressTimerRef = useRef(null);
+  const skipNextClickRef = useRef(false);
   const {
     isOpen: isConfirmOpen,
     isClosing: isConfirmClosing,
@@ -57,31 +73,32 @@ export const CardioTypeListModal = ({
     }
   }, [isConfirmClosing, isConfirmOpen]);
 
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
+    };
+  }, []);
+
   const filteredTypes = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     const entries = Object.entries(resolvedCardioTypes ?? {});
 
-    if (!normalizedQuery) {
-      return entries.sort((a, b) => {
-        const aCustom = Boolean(resolvedCustomTypes?.[a[0]]);
-        const bCustom = Boolean(resolvedCustomTypes?.[b[0]]);
-        if (aCustom !== bCustom) {
-          return aCustom ? -1 : 1;
-        }
-        return a[1].label.localeCompare(b[1].label);
-      });
-    }
-
-    const filtered = entries.filter(([key, type]) => {
-      const labelMatch = type.label.toLowerCase().includes(normalizedQuery);
-      const keyMatch = key
-        .replace(/[_-]/g, ' ')
-        .toLowerCase()
-        .includes(normalizedQuery);
-      return labelMatch || keyMatch;
-    });
-
-    return filtered.sort((a, b) => {
+    const sorted = (
+      !normalizedQuery
+        ? entries
+        : entries.filter(([key, type]) => {
+            const labelMatch = type.label
+              .toLowerCase()
+              .includes(normalizedQuery);
+            const keyMatch = key
+              .replace(/[_-]/g, ' ')
+              .toLowerCase()
+              .includes(normalizedQuery);
+            return labelMatch || keyMatch;
+          })
+    ).sort((a, b) => {
       const aCustom = Boolean(resolvedCustomTypes?.[a[0]]);
       const bCustom = Boolean(resolvedCustomTypes?.[b[0]]);
       if (aCustom !== bCustom) {
@@ -89,7 +106,60 @@ export const CardioTypeListModal = ({
       }
       return a[1].label.localeCompare(b[1].label);
     });
-  }, [resolvedCardioTypes, resolvedCustomTypes, query]);
+
+    return sorted.sort((a, b) => {
+      const aIsPinned = resolvedPinnedCardioTypes.includes(a[0]);
+      const bIsPinned = resolvedPinnedCardioTypes.includes(b[0]);
+
+      if (aIsPinned && !bIsPinned) return -1;
+      if (!aIsPinned && bIsPinned) return 1;
+      return 0;
+    });
+  }, [
+    query,
+    resolvedCardioTypes,
+    resolvedCustomTypes,
+    resolvedPinnedCardioTypes,
+  ]);
+
+  const handlePressStart = (typeKey, event) => {
+    if (event?.pointerType === 'mouse' && event.button !== 0) {
+      return;
+    }
+
+    setLongPressingId(typeKey);
+    skipNextClickRef.current = false;
+
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
+
+    longPressTimerRef.current = setTimeout(() => {
+      togglePinnedCardioType?.(typeKey);
+      skipNextClickRef.current = true;
+      setLongPressingId(null);
+    }, LONG_PRESS_DURATION);
+  };
+
+  const handlePressEnd = (shouldResetSkip = false) => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
+    setLongPressingId(null);
+
+    if (shouldResetSkip) {
+      skipNextClickRef.current = false;
+    }
+  };
+
+  const handleSelectType = (typeKey) => {
+    if (skipNextClickRef.current) {
+      skipNextClickRef.current = false;
+      return;
+    }
+
+    onSelect(typeKey);
+  };
 
   const renderMetValue = (value) =>
     typeof value === 'number' ? value.toFixed(1) : '--';
@@ -146,19 +216,33 @@ export const CardioTypeListModal = ({
               const isActive = selectedType === key;
               const { light, moderate, vigorous } = type.met ?? {};
               const isCustom = Boolean(resolvedCustomTypes?.[key]);
+              const isPinned = resolvedPinnedCardioTypes.includes(key);
+              const isLongPressing = longPressingId === key;
+              const baseSurfaceClass = isActive
+                ? 'border-primary bg-primary'
+                : isPinned || isLongPressing
+                  ? 'border-accent-blue bg-surface-highlight md:hover:bg-surface-highlight/60'
+                  : 'border-border bg-surface-highlight md:hover:bg-surface-highlight/60';
 
               return (
                 <button
                   type="button"
                   key={key}
-                  onClick={() => onSelect(key)}
-                  className={`w-full rounded-xl border px-4 py-4 text-left transition-all pressable-card focus-ring flex flex-col gap-2 ${
-                    isActive
-                      ? 'border-primary bg-primary'
-                      : 'border-border bg-surface-highlight md:hover:bg-surface-highlight/60'
+                  onClick={() => handleSelectType(key)}
+                  onPointerDown={(event) => handlePressStart(key, event)}
+                  onPointerUp={() => handlePressEnd(false)}
+                  onPointerLeave={() => handlePressEnd(true)}
+                  onPointerCancel={() => handlePressEnd(true)}
+                  className={`relative w-full rounded-xl border px-4 py-4 text-left transition-all focus-ring flex flex-col gap-2 ${baseSurfaceClass} ${
+                    isLongPressing ? 'scale-[0.98]' : 'pressable-card'
                   }`}
                   role="listitem"
                 >
+                  {isPinned && (
+                    <div
+                      className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full ${isActive ? 'bg-primary-foreground' : 'bg-accent-blue'}`}
+                    />
+                  )}
                   <div className="flex items-center gap-3">
                     <div className="flex-shrink-0 rounded-full p-1 bg-surface-highlight/20">
                       <Flame size={24} className="text-foreground" />
@@ -186,6 +270,9 @@ export const CardioTypeListModal = ({
                           setPendingDeleteKey(key);
                           openConfirm();
                         }}
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onPointerUp={(event) => event.stopPropagation()}
+                        onPointerCancel={(event) => event.stopPropagation()}
                         className="flex-shrink-0 w-8 h-8 rounded-full bg-foreground/10 md:hover:bg-foreground/20 transition-colors flex items-center justify-center focus-ring pressable"
                         aria-label="Delete custom cardio type"
                       >

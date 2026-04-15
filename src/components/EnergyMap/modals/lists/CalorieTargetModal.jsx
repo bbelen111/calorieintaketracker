@@ -1,7 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Flame, Info, X } from 'lucide-react';
+import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
 import { goals as baseGoals } from '../../../../constants/goals/goals';
+import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
+
+const LONG_PRESS_DURATION = 650;
 
 const formatStepsLabel = (value) => {
   if (value === null || value === undefined) return '';
@@ -31,8 +35,21 @@ export const CalorieTargetModal = ({
   selectedGoal,
   selectedDay,
   goals,
+  pinnedCalorieTargets,
+  onTogglePinnedCalorieTarget,
 }) => {
   const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const [longPressingId, setLongPressingId] = useState(null);
+  const longPressTimerRef = useRef(null);
+  const skipNextClickRef = useRef(false);
+  const { storePinnedCalorieTargets, togglePinnedCalorieTarget } =
+    useEnergyMapStore(
+      (state) => ({
+        storePinnedCalorieTargets: state.pinnedCalorieTargets,
+        togglePinnedCalorieTarget: state.togglePinnedCalorieTarget,
+      }),
+      shallow
+    );
 
   const resolvedGoals = goals ?? baseGoals;
   const goalTextClasses = {
@@ -55,7 +72,72 @@ export const CalorieTargetModal = ({
     resolvedGoals?.maintenance?.label ??
     'Maintenance';
 
+  const resolvedPinnedCalorieTargets =
+    pinnedCalorieTargets ?? storePinnedCalorieTargets;
+  const resolvedTogglePinnedCalorieTarget =
+    onTogglePinnedCalorieTarget ?? togglePinnedCalorieTarget;
+
+  const displayOptions = useMemo(() => {
+    const pinned = Array.isArray(resolvedPinnedCalorieTargets)
+      ? resolvedPinnedCalorieTargets
+      : [];
+
+    return [...options].sort((a, b) => {
+      const aId = String(a?.id ?? a?.key ?? '').trim();
+      const bId = String(b?.id ?? b?.key ?? '').trim();
+      const aIsPinned = pinned.includes(aId);
+      const bIsPinned = pinned.includes(bId);
+
+      if (aIsPinned && !bIsPinned) return -1;
+      if (!aIsPinned && bIsPinned) return 1;
+      return 0;
+    });
+  }, [options, resolvedPinnedCalorieTargets]);
+
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handlePressStart = (targetId, event) => {
+    if (event?.pointerType === 'mouse' && event.button !== 0) {
+      return;
+    }
+
+    setLongPressingId(targetId);
+    skipNextClickRef.current = false;
+
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
+
+    longPressTimerRef.current = setTimeout(() => {
+      resolvedTogglePinnedCalorieTarget?.(targetId);
+      skipNextClickRef.current = true;
+      setLongPressingId(null);
+    }, LONG_PRESS_DURATION);
+  };
+
+  const handlePressEnd = (shouldResetSkip = false) => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
+    setLongPressingId(null);
+
+    if (shouldResetSkip) {
+      skipNextClickRef.current = false;
+    }
+  };
+
   const handleSelect = (option) => {
+    if (skipNextClickRef.current) {
+      skipNextClickRef.current = false;
+      return;
+    }
+
     onSelect?.(option);
     onClose?.();
   };
@@ -156,20 +238,35 @@ export const CalorieTargetModal = ({
       </div>
 
       <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-        {options.map((option) => {
+        {displayOptions.map((option) => {
           const isSelected = option.key === selectedKey;
+          const optionId = String(option.id ?? option.key ?? '').trim();
+          const isPinned = resolvedPinnedCalorieTargets.includes(optionId);
+          const isLongPressing = longPressingId === optionId;
+          const baseSurfaceClass = isSelected
+            ? 'border-primary bg-primary'
+            : isPinned || isLongPressing
+              ? 'border-accent-blue bg-surface-highlight md:hover:bg-surface-highlight/60'
+              : 'border-border bg-surface-highlight md:hover:bg-surface-highlight/60';
 
           return (
             <button
               key={option.key}
               type="button"
               onClick={() => handleSelect(option)}
-              className={`w-full rounded-xl border px-3 py-3 text-left transition-all pressable-card focus-ring ${
-                isSelected
-                  ? 'border-primary bg-primary'
-                  : 'border-border bg-surface-highlight md:hover:bg-surface-highlight/60'
+              onPointerDown={(event) => handlePressStart(optionId, event)}
+              onPointerUp={() => handlePressEnd(false)}
+              onPointerLeave={() => handlePressEnd(true)}
+              onPointerCancel={() => handlePressEnd(true)}
+              className={`relative w-full rounded-xl border px-3 py-3 text-left transition-all focus-ring ${baseSurfaceClass} ${
+                isLongPressing ? 'scale-[0.98]' : 'pressable-card'
               }`}
             >
+              {isPinned && (
+                <div
+                  className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-primary-foreground' : 'bg-accent-blue'}`}
+                />
+              )}
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-foreground font-semibold text-sm flex items-center gap-1.5">

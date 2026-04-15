@@ -498,6 +498,32 @@ test('save/loadEnergyMapData persists selectedGoal and goalChangedAt in profile 
   });
 });
 
+test('save/loadEnergyMapData persists pinnedCalorieTargets and pinnedCardioTypes in profile scope', async () => {
+  await withWindowStorage(async () => {
+    await Preferences.remove({ key: PROFILE_KEY });
+    await clearDexieHistory();
+
+    const payload = {
+      ...getDefaultEnergyMapData(),
+      pinnedCalorieTargets: ['step_range:12k', 'live_steps'],
+      pinnedCardioTypes: ['treadmill_walk', 'custom_cardio_demo'],
+      weightEntries: [{ date: '2026-03-22', weight: 79.2 }],
+    };
+
+    await saveEnergyMapData(payload);
+
+    const loaded = await loadEnergyMapData();
+    assert.deepEqual(loaded.pinnedCalorieTargets, [
+      'step_range:12k',
+      'live_steps',
+    ]);
+    assert.deepEqual(loaded.pinnedCardioTypes, [
+      'treadmill_walk',
+      'custom_cardio_demo',
+    ]);
+  });
+});
+
 test('save/loadEnergyMapData persists adaptive thermogenesis profile fields', async () => {
   await withWindowStorage(async () => {
     await Preferences.remove({ key: PROFILE_KEY });
