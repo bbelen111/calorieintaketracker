@@ -398,6 +398,119 @@ select,
   pointer-events: none;
 }
 
+/* Tracker graph animations (weight/body-fat/steps) */
+@keyframes trackerGraphEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.992);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes trackerGraphSwitch {
+  from {
+    opacity: 0.35;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes trackerPathDraw {
+  from {
+    stroke-dashoffset: 1;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes trackerFillIn {
+  from {
+    opacity: 0.2;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes trackerPointIn {
+  from {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes trackerBarIn {
+  from {
+    opacity: 0.25;
+    transform: scaleY(0.18);
+  }
+
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+.tracker-graph-enter {
+  animation: trackerGraphEnter 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.tracker-graph-switch {
+  animation: trackerGraphSwitch 0.22s ease-out;
+}
+
+.tracker-graph-enter .tracker-graph-path,
+.tracker-graph-switch .tracker-graph-path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: trackerPathDraw 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+.tracker-graph-enter .tracker-graph-fill,
+.tracker-graph-switch .tracker-graph-fill {
+  animation: trackerFillIn 0.24s ease-out;
+}
+
+.tracker-graph-enter .tracker-graph-point,
+.tracker-graph-switch .tracker-graph-point {
+  transform-origin: center;
+  animation: trackerPointIn 0.22s ease-out;
+}
+
+.tracker-graph-enter .tracker-bar-animated,
+.tracker-graph-switch .tracker-bar-animated {
+  transform-origin: center bottom;
+  animation: trackerBarIn 0.24s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tracker-graph-enter,
+  .tracker-graph-switch,
+  .tracker-graph-path,
+  .tracker-graph-fill,
+  .tracker-graph-point,
+  .tracker-bar-animated {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
 /* Dropdown animations */
 @keyframes fadeIn {
   from {

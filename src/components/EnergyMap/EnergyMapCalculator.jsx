@@ -635,6 +635,7 @@ export const EnergyMapCalculator = () => {
     useState(() =>
       normalizeMacroRecommendationSplit(userData.macroRecommendationSplit)
     );
+  const trackerSwitchTimeoutRef = useRef(null);
 
   const todayTrainingSessions = useMemo(
     () =>
@@ -996,13 +997,37 @@ export const EnergyMapCalculator = () => {
 
   const handleSwitchToBodyFat = useCallback(() => {
     weightTrackerModal.requestClose();
-    openBodyFatTracker();
+    if (trackerSwitchTimeoutRef.current) {
+      clearTimeout(trackerSwitchTimeoutRef.current);
+      trackerSwitchTimeoutRef.current = null;
+    }
+    trackerSwitchTimeoutRef.current = setTimeout(() => {
+      openBodyFatTracker();
+      trackerSwitchTimeoutRef.current = null;
+    }, MODAL_CLOSE_DELAY + 20);
   }, [openBodyFatTracker, weightTrackerModal]);
 
   const handleSwitchToWeight = useCallback(() => {
     bodyFatTrackerModal.requestClose();
-    openWeightTracker();
+    if (trackerSwitchTimeoutRef.current) {
+      clearTimeout(trackerSwitchTimeoutRef.current);
+      trackerSwitchTimeoutRef.current = null;
+    }
+    trackerSwitchTimeoutRef.current = setTimeout(() => {
+      openWeightTracker();
+      trackerSwitchTimeoutRef.current = null;
+    }, MODAL_CLOSE_DELAY + 20);
   }, [bodyFatTrackerModal, openWeightTracker]);
+
+  useEffect(
+    () => () => {
+      if (trackerSwitchTimeoutRef.current) {
+        clearTimeout(trackerSwitchTimeoutRef.current);
+        trackerSwitchTimeoutRef.current = null;
+      }
+    },
+    []
+  );
 
   const openAddWeightEntryModal = useCallback(
     (prefillDate) => {

@@ -48,6 +48,8 @@ const BASELINE_Y_OFFSET = 0;
 const TOOLTIP_WIDTH = 120;
 const TOOLTIP_VERTICAL_OFFSET = 27;
 const SCROLL_SETTLE_DELAY_MS = 140;
+const GRAPH_ENTER_DURATION_MS = 280;
+const GRAPH_SWITCH_DURATION_MS = 220;
 
 // Per-mode point sizing
 const MODE_POINT = {
@@ -191,12 +193,53 @@ export const WeightTrackerModal = ({
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [graphViewportWidth, setGraphViewportWidth] = useState(0);
   const [graphViewportHeight, setGraphViewportHeight] = useState(0);
+  const [graphAnimationPhase, setGraphAnimationPhase] = useState('idle');
 
   const carouselRef = useRef(null);
   const tooltipRef = useRef(null);
   const scrollCloseTimeoutRef = useRef(null);
   const headerSettleTimeoutRef = useRef(null);
+  const graphAnimationTimeoutRef = useRef(null);
+  const wasOpenRef = useRef(false);
   const prevEntriesLengthRef = useRef(resolvedEntries?.length ?? 0);
+
+  const prefersReducedMotion = useMemo(() => {
+    if (
+      typeof window === 'undefined' ||
+      typeof window.matchMedia !== 'function'
+    ) {
+      return false;
+    }
+
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }, []);
+
+  const clearGraphAnimationTimeout = useCallback(() => {
+    if (graphAnimationTimeoutRef.current) {
+      clearTimeout(graphAnimationTimeoutRef.current);
+      graphAnimationTimeoutRef.current = null;
+    }
+  }, []);
+
+  const triggerGraphAnimation = useCallback(
+    (phase) => {
+      if (prefersReducedMotion) {
+        setGraphAnimationPhase('idle');
+        return;
+      }
+
+      clearGraphAnimationTimeout();
+      setGraphAnimationPhase(phase);
+
+      const duration =
+        phase === 'enter' ? GRAPH_ENTER_DURATION_MS : GRAPH_SWITCH_DURATION_MS;
+      graphAnimationTimeoutRef.current = setTimeout(() => {
+        setGraphAnimationPhase('idle');
+        graphAnimationTimeoutRef.current = null;
+      }, duration);
+    },
+    [clearGraphAnimationTimeout, prefersReducedMotion]
+  );
 
   // Trend info modal
   const {
@@ -823,12 +866,48 @@ export const WeightTrackerModal = ({
     }, 150);
   }, []);
 
+  const handleViewModeChange = useCallback(
+    (nextMode) => {
+      if (nextMode === viewMode) {
+        return;
+      }
+
+      if (selectedDate) {
+        closeTooltip();
+      }
+
+      setViewMode(nextMode);
+      triggerGraphAnimation('switch');
+    },
+    [closeTooltip, selectedDate, triggerGraphAnimation, viewMode]
+  );
+
   useEffect(() => {
     const timeoutId = scrollCloseTimeoutRef.current;
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, []);
+
+  useEffect(
+    () => () => {
+      clearGraphAnimationTimeout();
+    },
+    [clearGraphAnimationTimeout]
+  );
+
+  useEffect(() => {
+    if (isOpen && !wasOpenRef.current) {
+      triggerGraphAnimation('enter');
+    }
+
+    if (!isOpen) {
+      clearGraphAnimationTimeout();
+      setGraphAnimationPhase('idle');
+    }
+
+    wasOpenRef.current = isOpen;
+  }, [clearGraphAnimationTimeout, isOpen, triggerGraphAnimation]);
 
   useEffect(
     () => () => {
@@ -950,6 +1029,12 @@ export const WeightTrackerModal = ({
   // --- Mode-specific point sizing ---
   const pointRadius = MODE_POINT[viewMode]?.radius ?? 6;
   const pointHitRadius = MODE_POINT[viewMode]?.hitRadius ?? 12;
+  const graphAnimationClass =
+    graphAnimationPhase === 'enter'
+      ? 'tracker-graph-enter'
+      : graphAnimationPhase === 'switch'
+        ? 'tracker-graph-switch'
+        : '';
 
   // --- Render continuous chart (shared helper) ---
   const renderContinuousChart = (
@@ -1035,7 +1120,13 @@ export const WeightTrackerModal = ({
             })}
 
             {/* Area fill */}
-            {areaData && <path d={areaData} fill={`url(#${gradId})`} />}
+            {areaData && (
+              <path
+                d={areaData}
+                fill={`url(#${gradId})`}
+                className="tracker-graph-fill"
+              />
+            )}
 
             {/* Line */}
             {pathData && (
@@ -1046,6 +1137,8 @@ export const WeightTrackerModal = ({
                 strokeWidth={strokeW}
                 strokeLinecap="round"
                 strokeLinejoin="round"
+                pathLength={1}
+                className="tracker-graph-path"
               />
             )}
 
@@ -1069,7 +1162,7 @@ export const WeightTrackerModal = ({
                   fill="rgb(var(--surface))"
                   stroke={trendVisual.color}
                   strokeWidth="2"
-                  className="transition-all"
+                  className="transition-all tracker-graph-point"
                 />
               </g>
             ))}
@@ -1352,14 +1445,14 @@ export const WeightTrackerModal = ({
                         ? 'calc((100% - 24px) / 3 + 12px)'
                         : 'calc((100% - 24px) / 3 * 2 + 20px)',
                   transition:
-                    'left 0.2s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.2s ease-out',
+                    'left 0.28s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.28s ease-out, box-shadow 0.28s ease-out',
                 }}
               />
               {VIEW_MODES.map((mode) => (
                 <button
                   key={mode.key}
                   type="button"
-                  onClick={() => setViewMode(mode.key)}
+                  onClick={() => handleViewModeChange(mode.key)}
                   className={`relative z-10 flex-1 flex items-center justify-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                     viewMode === mode.key
                       ? 'text-primary-foreground'
@@ -1626,7 +1719,7 @@ export const WeightTrackerModal = ({
               <div className="relative rounded-l-lg flex-1 overflow-hidden">
                 <div
                   ref={carouselRef}
-                  className="overflow-x-auto overflow-y-hidden h-full flex"
+                  className={`overflow-x-auto overflow-y-hidden h-full flex ${graphAnimationClass}`}
                   style={{
                     scrollSnapType: 'x proximity',
                     WebkitOverflowScrolling: 'touch',
