@@ -49,7 +49,11 @@ const normalizeTrainingSessionIds = (ids) =>
     : [];
 
 const PHASE_CREATION_MODES = new Set(['goal', 'target']);
-const PHASE_TARGET_METRICS = new Set(['weight', 'bodyFat', 'weight_and_bodyFat']);
+const PHASE_TARGET_METRICS = new Set([
+  'weight',
+  'bodyFat',
+  'weight_and_bodyFat',
+]);
 const PHASE_TARGET_BANDS = new Set(['strict', 'lenient', 'blocked']);
 
 const normalizeCreationMode = (value) => {
@@ -106,10 +110,14 @@ const normalizeSmartCaloriePlan = (value, creationMode) => {
     components:
       value.components && typeof value.components === 'object'
         ? {
-            weightDeltaKcal: Number.isFinite(Number(value.components.weightDeltaKcal))
+            weightDeltaKcal: Number.isFinite(
+              Number(value.components.weightDeltaKcal)
+            )
               ? Math.round(Number(value.components.weightDeltaKcal))
               : null,
-            bodyFatDeltaKcal: Number.isFinite(Number(value.components.bodyFatDeltaKcal))
+            bodyFatDeltaKcal: Number.isFinite(
+              Number(value.components.bodyFatDeltaKcal)
+            )
               ? Math.round(Number(value.components.bodyFatDeltaKcal))
               : null,
           }
@@ -211,7 +219,10 @@ const normalizePhaseRecord = (phase) => {
         : false,
     targetAggressivenessBand:
       normalizeTargetBand(phase?.targetAggressivenessBand, creationMode) ??
-      normalizeTargetBand(phase?.smartCaloriePlan?.aggressivenessBand, creationMode),
+      normalizeTargetBand(
+        phase?.smartCaloriePlan?.aggressivenessBand,
+        creationMode
+      ),
     targetWeight: normalizedTargetWeight,
     targetBodyFat: normalizedTargetBodyFat,
     smartCaloriePlan: normalizeSmartCaloriePlan(

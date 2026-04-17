@@ -46,7 +46,10 @@ export const resolveEntryNutritionFromPresentation = (
   verifiedEntry,
   presentedEntry
 ) => {
-  const safeVerifiedCalories = Math.max(0, Number(verifiedEntry?.calories) || 0);
+  const safeVerifiedCalories = Math.max(
+    0,
+    Number(verifiedEntry?.calories) || 0
+  );
   const safeVerifiedProtein = Math.max(0, Number(verifiedEntry?.protein) || 0);
   const safeVerifiedCarbs = Math.max(0, Number(verifiedEntry?.carbs) || 0);
   const safeVerifiedFats = Math.max(0, Number(verifiedEntry?.fats) || 0);

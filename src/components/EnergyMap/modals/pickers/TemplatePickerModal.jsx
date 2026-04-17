@@ -1,5 +1,4 @@
 import React from 'react';
-import { Target } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import { PHASE_TEMPLATES } from '../../../../constants/phases/phaseTemplates';
 import { goals } from '../../../../constants/goals/goals';
@@ -7,17 +6,9 @@ import { goals } from '../../../../constants/goals/goals';
 export const TemplatePickerModal = ({
   isOpen,
   isClosing,
-  selectedMode,
   onSelectTemplate,
   onClose,
 }) => {
-  const normalizedMode = selectedMode === 'goal' ? 'goal' : 'target';
-
-  const visibleTemplates = PHASE_TEMPLATES.filter((template) => {
-    const templateMode = template.creationMode === 'goal' ? 'goal' : 'target';
-    return templateMode === normalizedMode;
-  });
-
   return (
     <ModalShell
       isOpen={isOpen}
@@ -32,16 +23,9 @@ export const TemplatePickerModal = ({
               Choose a Template
             </h3>
             <p className="text-muted text-sm md:text-base mt-1">
-              {normalizedMode === 'target'
-                ? 'Target templates prefill date-bound outcomes (weight/body-fat planning).'
-                : 'Goal templates prefill open-ended direction blocks (cut/bulk/maintenance).'}
+              Browse all templates. Each one applies its own phase type mode
+              automatically.
             </p>
-            <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-highlight px-2.5 py-1 text-xs text-foreground">
-              <Target size={12} />
-              {normalizedMode === 'target'
-                ? 'Target mode templates'
-                : 'Goal mode templates'}
-            </div>
           </div>
         </div>
 
@@ -49,7 +33,7 @@ export const TemplatePickerModal = ({
           className="space-y-3 overflow-y-auto pr-1 max-h-[60vh]"
           role="list"
         >
-          {visibleTemplates.map((template) => {
+          {PHASE_TEMPLATES.map((template) => {
             const key = template.id;
             const goalConfig = goals?.[template.goalType] ?? goals.maintenance;
             const Icon = goalConfig.icon;
@@ -68,9 +52,7 @@ export const TemplatePickerModal = ({
                 role="listitem"
               >
                 <div className="flex items-start gap-3">
-                  <div
-                    className={`flex-shrink-0 w-9 h-9 rounded-full ${goalConfig.color} text-primary-foreground flex items-center justify-center border border-primary-foreground/30`}
-                  >
+                  <div className="flex-shrink-0 rounded-full p-2 bg-surface-highlight/20">
                     <Icon size={16} />
                   </div>
                   <div className="flex-1">
@@ -110,12 +92,6 @@ export const TemplatePickerModal = ({
               </button>
             );
           })}
-
-          {visibleTemplates.length === 0 && (
-            <div className="text-center text-muted text-sm py-10">
-              No templates available for this creation mode yet.
-            </div>
-          )}
         </div>
 
         <div className="flex gap-3">

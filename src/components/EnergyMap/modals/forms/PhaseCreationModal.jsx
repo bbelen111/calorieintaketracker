@@ -1,11 +1,16 @@
-import React, { useMemo } from 'react';
-import { Star } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ChevronsUpDown, Star } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import { DateInput } from '../../common/DateInput';
+import { GoalModal } from './GoalModal';
+import { WeightPickerModal } from '../pickers/WeightPickerModal';
+import { BodyFatPickerModal } from '../pickers/BodyFatPickerModal';
+import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { goals } from '../../../../constants/goals/goals';
 import { formatDateKeyLocal } from '../../../../utils/data/dateKeys';
 import {
   buildFeasibleDateBands,
+  estimateGoalModeProjection,
   estimateRequiredDailyEnergyDelta,
 } from '../../../../utils/calculations/phaseTargetPlanning';
 
@@ -20,11 +25,11 @@ const addDaysLocal = (dateKey, days) => {
 const getGoalClasses = (key, selected) => {
   const goal = goals[key];
   if (!goal)
-    return 'border-border bg-surface text-muted md:hover:border-accent-blue/50';
+    return 'border-border bg-surface-highlight text-muted md:hover:border-accent-blue/50';
   if (!selected)
-    return 'border-border bg-surface text-muted md:hover:border-accent-blue/50';
+    return 'border-border bg-surface-highlight text-muted md:hover:border-accent-blue/50';
   // Use color for bg, white border, and text
-  return `${goal.color} border-2 border-border text-primary-foreground`;
+  return `${goal.color} text-primary-foreground`;
 };
 
 const getModeButtonClass = (mode, activeMode) =>
@@ -58,7 +63,16 @@ export const PhaseCreationModal = ({
   onSave,
   error,
 }) => {
+  const goalPickerModal = useAnimatedModal(false);
+  const targetWeightPickerModal = useAnimatedModal(false);
+  const targetBodyFatPickerModal = useAnimatedModal(false);
+  const [tempGoalSelection, setTempGoalSelection] = useState(
+    goalType ?? 'maintenance'
+  );
+
   const normalizedMode = creationMode === 'goal' ? 'goal' : 'target';
+  const selectedGoalConfig = goals?.[goalType] ?? goals.maintenance;
+  const GoalIcon = selectedGoalConfig.icon;
   const parsedTargetWeight = Number(targetWeight);
   const parsedTargetBodyFat = Number(targetBodyFat);
   const hasTargetWeight = Number.isFinite(parsedTargetWeight);
@@ -173,11 +187,49 @@ export const PhaseCreationModal = ({
         ? 'text-accent-amber'
         : 'text-accent-red';
 
+  const goalPrediction = useMemo(() => {
+    if (normalizedMode !== 'goal') {
+      return null;
+    }
+
+    return estimateGoalModeProjection({
+      startDate,
+      endDate,
+      goalType,
+      currentWeightKg: currentWeight,
+    });
+  }, [currentWeight, endDate, goalType, normalizedMode, startDate]);
+
+  const resolvedWeightPickerValue = Number.isFinite(parsedTargetWeight)
+    ? parsedTargetWeight
+    : Number.isFinite(Number(currentWeight))
+      ? Number(currentWeight)
+      : 74;
+
+  const resolvedBodyFatPickerValue = Number.isFinite(parsedTargetBodyFat)
+    ? parsedTargetBodyFat
+    : Number.isFinite(Number(currentBodyFat))
+      ? Number(currentBodyFat)
+      : 18;
+
+  useEffect(() => {
+    if (!isOpen) {
+      goalPickerModal.forceClose();
+      targetWeightPickerModal.forceClose();
+      targetBodyFatPickerModal.forceClose();
+    }
+  }, [
+    goalPickerModal,
+    isOpen,
+    targetBodyFatPickerModal,
+    targetWeightPickerModal,
+  ]);
+
   return (
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
-      contentClassName="w-full md:max-w-2xl p-4 md:p-6 max-h-[90vh] overflow-y-auto"
+      contentClassName="w-full md:max-w-2xl p-6 md:p-6 max-h-[90vh] overflow-y-auto"
     >
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-foreground font-bold text-xl">Create New Phase</h3>
@@ -192,32 +244,6 @@ export const PhaseCreationModal = ({
       </div>
 
       <div className="space-y-4">
-        <div>
-          <label className="block text-foreground text-sm font-semibold mb-2">
-            Creation Mode
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => onCreationModeChange('goal')}
-              className={getModeButtonClass('goal', normalizedMode)}
-            >
-              Goal mode
-            </button>
-            <button
-              type="button"
-              onClick={() => onCreationModeChange('target')}
-              className={getModeButtonClass('target', normalizedMode)}
-            >
-              Target mode
-            </button>
-          </div>
-          <p className="text-muted text-xs mt-2">
-            Goal mode keeps your selected direction. Target mode computes a
-            smart daily surplus/deficit to hit a date-bound outcome.
-          </p>
-        </div>
-
         {/* Phase Name */}
         <div>
           <label className="block text-foreground text-sm font-semibold mb-2">
@@ -228,7 +254,7 @@ export const PhaseCreationModal = ({
             value={phaseName}
             onChange={(e) => onNameChange(e.target.value)}
             placeholder="e.g., Winter Bulk 2025, Summer Shred"
-            className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus:outline-none focus:border-accent-blue focus-ring"
+            className="w-full bg-surface-highlight border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus:outline-none focus:border-accent-blue focus-ring"
             maxLength={50}
           />
         </div>
@@ -242,9 +268,35 @@ export const PhaseCreationModal = ({
             <DateInput
               value={startDate}
               onChange={(val) => onStartDateChange(val)}
-              className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:border-accent-blue focus-ring"
+              className="w-full bg-surface-highlight border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:border-accent-blue focus-ring"
             />
           </div>
+        </div>
+
+        <div>
+          <label className="block text-foreground text-sm font-semibold mb-2">
+            Phase Type
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => onCreationModeChange('goal')}
+              className={getModeButtonClass('goal', normalizedMode)}
+            >
+              Goal
+            </button>
+            <button
+              type="button"
+              onClick={() => onCreationModeChange('target')}
+              className={getModeButtonClass('target', normalizedMode)}
+            >
+              Target
+            </button>
+          </div>
+          <p className="text-muted text-xs mt-2">
+            Goal mode keeps your selected direction. Target mode computes a
+            smart daily surplus/deficit to hit a date-bound outcome.
+          </p>
         </div>
 
         {normalizedMode === 'goal' ? (
@@ -252,68 +304,69 @@ export const PhaseCreationModal = ({
             <label className="block text-foreground text-sm font-semibold mb-2">
               Goal <span className="text-accent-red">*</span>
             </label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {Object.entries(goals).map(([key, goal]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => onGoalTypeChange(key)}
-                  className={`p-3 rounded-lg transition-all text-left ${getGoalClasses(key, goalType === key)}`}
-                >
-                  <div className="font-semibold text-sm">{goal.label}</div>
-                  <div className="text-xs opacity-80 mt-0.5">{goal.desc}</div>
-                </button>
-              ))}
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setTempGoalSelection(goalType ?? 'maintenance');
+                goalPickerModal.open();
+              }}
+              className={`w-full px-4 py-3 rounded-lg transition-all press-feedback focus-ring flex items-start justify-between gap-3 ${getGoalClasses(goalType, true)}`}
+            >
+              <span className="flex min-w-0 flex-1 items-start gap-2.5 text-left">
+                <GoalIcon size={18} className="mt-0.5 flex-shrink-0" />
+                <span className="min-w-0">
+                  <span className="font-semibold text-sm md:text-base block truncate">
+                    {selectedGoalConfig.label}
+                  </span>
+                  <span className="text-[11px] md:text-xs opacity-90 block truncate whitespace-nowrap leading-tight">
+                    {selectedGoalConfig.desc}
+                  </span>
+                </span>
+              </span>
+              <span className="text-[11px] opacity-75 whitespace-nowrap">
+                Tap to change
+              </span>
+            </button>
           </div>
-        ) : (
-          <div className="rounded-lg border border-border bg-surface-highlight/40 p-3">
-            <p className="text-foreground text-sm font-semibold">
-              Goal selection
-            </p>
-            <p className="text-muted text-xs mt-1">
-              Hidden in target mode — goal direction is auto-derived from your
-              target and timeline.
-            </p>
-          </div>
-        )}
+        ) : null}
 
         {/* Target Mode Inputs */}
         {normalizedMode === 'target' ? (
-          <div className="rounded-xl border border-border bg-surface-highlight/40 p-4 space-y-3">
-            <p className="text-foreground text-sm font-semibold">
-              Target outcomes
-            </p>
+          <div className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-foreground text-sm font-semibold mb-2">
                   Target Weight (kg)
                 </label>
-                <input
-                  type="number"
-                  value={targetWeight}
-                  onChange={(e) => onTargetWeightChange(e.target.value)}
-                  placeholder="e.g. 78.5"
-                  min="30"
-                  max="210"
-                  step="0.1"
-                  className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus:outline-none focus:border-accent-blue focus-ring"
-                />
+                <button
+                  type="button"
+                  onClick={targetWeightPickerModal.open}
+                  className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-3 pressable-inline"
+                >
+                  <span className="font-medium text-base">
+                    {hasTargetWeight
+                      ? `${parsedTargetWeight.toFixed(1)} kg`
+                      : 'Tap to set target weight'}
+                  </span>
+                  <ChevronsUpDown size={16} className="text-muted shrink-0" />
+                </button>
               </div>
               <div>
                 <label className="block text-foreground text-sm font-semibold mb-2">
                   Target Body Fat (%)
                 </label>
-                <input
-                  type="number"
-                  value={targetBodyFat}
-                  onChange={(e) => onTargetBodyFatChange(e.target.value)}
-                  placeholder="e.g. 14"
-                  min="3"
-                  max="60"
-                  step="0.1"
-                  className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus:outline-none focus:border-accent-blue focus-ring"
-                />
+                <button
+                  type="button"
+                  onClick={targetBodyFatPickerModal.open}
+                  className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-3 pressable-inline"
+                >
+                  <span className="font-medium text-base">
+                    {hasTargetBodyFat
+                      ? `${parsedTargetBodyFat.toFixed(1)}%`
+                      : 'Tap to set target body fat'}
+                  </span>
+                  <ChevronsUpDown size={16} className="text-muted shrink-0" />
+                </button>
               </div>
             </div>
 
@@ -321,35 +374,6 @@ export const PhaseCreationModal = ({
               At least one target metric is required (weight or body fat). End
               date must be feasible.
             </p>
-
-            {canEvaluateTarget && (
-              <div className="rounded-lg border border-border bg-surface p-3">
-                <p className="text-foreground text-sm font-semibold mb-1">
-                  Feasible end-date window
-                </p>
-                <p className="text-xs text-muted">
-                  Strict: {strictCount} days • Lenient: {lenientCount} days
-                </p>
-
-                {targetPlan && (
-                  <p
-                    className={`text-xs mt-2 font-semibold ${currentBandClass}`}
-                  >
-                    Smart target:{' '}
-                    {targetPlan.requiredDailyDeltaCalories > 0 ? '+' : ''}
-                    {targetPlan.requiredDailyDeltaCalories} kcal/day (
-                    {targetPlan.aggressivenessBand})
-                  </p>
-                )}
-
-                {!isEndDateFeasible && endDate && (
-                  <p className="text-xs text-accent-red mt-2">
-                    Selected end date is outside the feasible window for this
-                    target.
-                  </p>
-                )}
-              </div>
-            )}
           </div>
         ) : null}
 
@@ -374,9 +398,75 @@ export const PhaseCreationModal = ({
                 : startDate
             }
             max={normalizedMode === 'target' ? constrainedDateBounds.max : null}
-            className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:border-accent-blue focus-ring"
+            className="w-full bg-surface-highlight border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:border-accent-blue focus-ring"
           />
         </div>
+
+        {/* Mode-specific summary cards (bottom section) */}
+        {normalizedMode === 'goal' && (
+          <div className="rounded-lg border border-border bg-surface-highlight p-3">
+            <p className="text-foreground text-sm font-semibold mb-1">
+              Predicted change by end date
+            </p>
+            {goalPrediction ? (
+              <>
+                <p className="text-xs text-muted">
+                  {goalPrediction.daySpan} days •{' '}
+                  {goalPrediction.dailyDelta > 0 ? '+' : ''}
+                  {goalPrediction.dailyDelta} kcal/day
+                </p>
+                <p className="text-xs mt-2 font-semibold text-foreground">
+                  Weight: {goalPrediction.predictedWeightDeltaKg > 0 ? '+' : ''}
+                  {goalPrediction.predictedWeightDeltaKg.toFixed(1)} kg
+                </p>
+                {Number.isFinite(
+                  goalPrediction.predictedBodyFatDeltaPercent
+                ) && (
+                  <p className="text-xs mt-1 font-semibold text-foreground">
+                    Body fat:{' '}
+                    {goalPrediction.predictedBodyFatDeltaPercent > 0 ? '+' : ''}
+                    {goalPrediction.predictedBodyFatDeltaPercent.toFixed(1)}%
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-xs text-muted">
+                Select an end date to preview expected weight and body fat
+                changes for this goal.
+              </p>
+            )}
+            <p className="text-[11px] text-muted mt-2">
+              Approximation based on goal calorie delta and date span.
+            </p>
+          </div>
+        )}
+
+        {normalizedMode === 'target' && canEvaluateTarget && (
+          <div className="rounded-lg border border-border bg-surface-highlight p-3">
+            <p className="text-foreground text-sm font-semibold mb-1">
+              Feasible end-date window
+            </p>
+            <p className="text-xs text-muted">
+              Strict: {strictCount} days • Lenient: {lenientCount} days
+            </p>
+
+            {targetPlan && (
+              <p className={`text-xs mt-2 font-semibold ${currentBandClass}`}>
+                Smart target:{' '}
+                {targetPlan.requiredDailyDeltaCalories > 0 ? '+' : ''}
+                {targetPlan.requiredDailyDeltaCalories} kcal/day (
+                {targetPlan.aggressivenessBand})
+              </p>
+            )}
+
+            {!isEndDateFeasible && endDate && (
+              <p className="text-xs text-accent-red mt-2">
+                Selected end date is outside the feasible window for this
+                target.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Error Message */}
         {error && (
@@ -411,6 +501,41 @@ export const PhaseCreationModal = ({
           Create Phase
         </button>
       </div>
+
+      <GoalModal
+        isOpen={goalPickerModal.isOpen}
+        isClosing={goalPickerModal.isClosing}
+        goals={goals}
+        tempSelectedGoal={tempGoalSelection}
+        onSelect={setTempGoalSelection}
+        onCancel={goalPickerModal.requestClose}
+        onSave={() => {
+          onGoalTypeChange(tempGoalSelection);
+          goalPickerModal.requestClose();
+        }}
+      />
+
+      <WeightPickerModal
+        isOpen={targetWeightPickerModal.isOpen}
+        isClosing={targetWeightPickerModal.isClosing}
+        value={resolvedWeightPickerValue}
+        onCancel={targetWeightPickerModal.requestClose}
+        onSave={(value) => {
+          onTargetWeightChange(String(value));
+          targetWeightPickerModal.requestClose();
+        }}
+      />
+
+      <BodyFatPickerModal
+        isOpen={targetBodyFatPickerModal.isOpen}
+        isClosing={targetBodyFatPickerModal.isClosing}
+        value={resolvedBodyFatPickerValue}
+        onCancel={targetBodyFatPickerModal.requestClose}
+        onSave={(value) => {
+          onTargetBodyFatChange(String(value));
+          targetBodyFatPickerModal.requestClose();
+        }}
+      />
     </ModalShell>
   );
 };

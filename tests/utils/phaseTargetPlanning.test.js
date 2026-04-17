@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   buildFeasibleDateBands,
   deriveTargetCreationModePayload,
+  estimateGoalModeProjection,
   estimateRequiredDailyEnergyDelta,
 } from '../../src/utils/calculations/phaseTargetPlanning.js';
 
@@ -74,5 +75,19 @@ test('deriveTargetCreationModePayload returns smart calorie plan metadata', () =
     Number.isFinite(payload.smartCaloriePlan.requiredDailyDeltaCalories)
   );
   assert.ok(payload.smartCaloriePlan.daySpan > 0);
-}
-);
+});
+
+test('estimateGoalModeProjection returns projected weight/body-fat deltas for goal mode', () => {
+  const projection = estimateGoalModeProjection({
+    startDate: '2026-04-01',
+    endDate: '2026-04-15',
+    goalType: 'cutting',
+    currentWeightKg: 80,
+  });
+
+  assert.ok(projection);
+  assert.equal(projection.daySpan, 14);
+  assert.equal(projection.dailyDelta, -300);
+  assert.ok(projection.predictedWeightDeltaKg < 0);
+  assert.ok(Number.isFinite(projection.predictedBodyFatDeltaPercent));
+});

@@ -26,10 +26,10 @@ export const GoalModal = ({
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
-      contentClassName="w-full md:max-w-2xl p-4 md:p-6"
+      contentClassName="w-full md:max-w-2xl p-6 md:p-6"
     >
       <h3 className="text-foreground font-bold text-xl md:text-2xl mb-4 md:mb-6">
-        Select Your Goal
+        Select Goal
       </h3>
 
       <div className="grid grid-cols-1 gap-3">

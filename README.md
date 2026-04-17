@@ -6,7 +6,7 @@ A **React + Vite** single-page app for fitness calorie tracking, wrapped by Capa
 
 - **Comprehensive Calorie Tracking** — Foods, steps, cardio, and training sessions
 - **Smart TDEE Calculations** — BMR (Mifflin-St Jeor / Katch-McArdle), activity multipliers, EPOC, adaptive thermogenesis, Smart TEF
-- **Phase Management** — Track bulking/cutting phases with daily logs and metrics
+- **Phase Management** — Dual-mode phase creation (`goal` / `target`) with smart planning, always-visible goal prediction card, and daily logs/metrics
 - **Phase-Based Analytics** — Weight trends, nutrition rollups, daily snapshots
 - **Barcode Scanning** — Native barcode lookup via Capacitor
 - **Health Connect Integration** — Android step sync (iOS/web unsupported)
@@ -189,6 +189,7 @@ src/
 │   │   ├─ dailySnapshots.js
 │   │   ├─ epoc.js
 │   │   ├─ goalAlignment.js
+│   │   ├─ phaseTargetPlanning.js  # Target-mode planning + goal-mode projection helpers
 │   │   ├─ macroRecommendations.js
 │   │   ├─ sessionCarryover.js
 │   │   └─ steps.js
@@ -323,6 +324,15 @@ const tdee = calculateTDEE({ userData, steps, isTrainingDay, tefContext });
 const breakdown = calculateCalorieBreakdown({ userData, steps, isTrainingDay });
 ```
 
+Phase creation planning/projection helpers live in `utils/calculations/phaseTargetPlanning.js`:
+
+```javascript
+const targetPlan = estimateRequiredDailyEnergyDelta({...});
+const dateBands = buildFeasibleDateBands({...});
+const targetPayload = deriveTargetCreationModePayload({...});
+const goalProjection = estimateGoalModeProjection({...});
+```
+
 ### Theme System
 
 Always use semantic tokens and accent colors:
@@ -445,6 +455,12 @@ const health = useHealthConnect();
 | Adaptive Thermogenesis | `computeAdaptiveThermogenesis({...})` | Bounded ±300 kcal/day correction |
 
 All formulas are **centralized** in `utils/calculations/calculations.js`. Never duplicate or inline calculations.
+
+Target/goal phase planning helpers are centralized in `utils/calculations/phaseTargetPlanning.js`, including:
+- `estimateRequiredDailyEnergyDelta(...)`
+- `buildFeasibleDateBands(...)`
+- `deriveTargetCreationModePayload(...)`
+- `estimateGoalModeProjection(...)`
 
 ## 🎨 Theme System
 
