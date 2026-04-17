@@ -3134,7 +3134,10 @@ export const EnergyMapCalculator = () => {
       return;
     }
 
-    const targetBodyFat = parseNullablePhaseNumber(phaseDraft.targetBodyFat);
+    const isBodyFatTrackingEnabled = Boolean(userData.bodyFatTrackingEnabled);
+    const targetBodyFat = isBodyFatTrackingEnabled
+      ? parseNullablePhaseNumber(phaseDraft.targetBodyFat)
+      : null;
     if (targetBodyFat != null && (targetBodyFat <= 0 || targetBodyFat >= 100)) {
       setPhaseError('Target body fat must be between 1 and 99%');
       return;
@@ -3150,13 +3153,17 @@ export const EnergyMapCalculator = () => {
 
       if (targetWeight == null && targetBodyFat == null) {
         setPhaseError(
-          'Set a target weight or target body fat for target mode.'
+          isBodyFatTrackingEnabled
+            ? 'Set a target weight or target body fat for target mode.'
+            : 'Set a target weight for target mode.'
         );
         return;
       }
 
       const currentWeight = latestWeightEntry?.weight ?? userData.weight;
-      const currentBodyFat = latestBodyFatEntry?.bodyFat ?? null;
+      const currentBodyFat = isBodyFatTrackingEnabled
+        ? (latestBodyFatEntry?.bodyFat ?? null)
+        : null;
 
       const targetPlan = estimateRequiredDailyEnergyDelta({
         startDate: phaseStartDate,
@@ -3176,7 +3183,7 @@ export const EnergyMapCalculator = () => {
 
       if (targetPlan.aggressivenessBand === 'blocked') {
         setPhaseError(
-          'Selected target/date pair is not feasible. Choose a less aggressive or shorter target.'
+          'Selected target/date pair is too aggressive. Choose a less aggressive pace or a longer timeline.'
         );
         return;
       }
@@ -3212,6 +3219,7 @@ export const EnergyMapCalculator = () => {
     latestWeightEntry?.weight,
     phaseCreationModal,
     phaseDraft,
+    userData.bodyFatTrackingEnabled,
     userData.weight,
   ]);
 
@@ -4225,6 +4233,7 @@ export const EnergyMapCalculator = () => {
             targetBodyFat={phaseDraft.targetBodyFat}
             currentWeight={latestWeightEntry?.weight || userData.weight}
             currentBodyFat={latestBodyFatEntry?.bodyFat ?? null}
+            bodyFatTrackingEnabled={userData.bodyFatTrackingEnabled}
             onNameChange={(value) => setPhaseDraftField('name', value)}
             onCreationModeChange={setPhaseCreationMode}
             onStartDateChange={(value) =>

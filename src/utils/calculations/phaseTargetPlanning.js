@@ -5,12 +5,10 @@ const KCAL_PER_KG_WEIGHT = 7700;
 
 const SURPLUS_STRICT_MIN = 100;
 const SURPLUS_STRICT_MAX = 600;
-const SURPLUS_LENIENT_MIN = 50;
-const SURPLUS_LENIENT_MAX = 800;
+const SURPLUS_LENIENT_MAX = 1300;
 
 const DEFICIT_STRICT_MIN = 200;
 const DEFICIT_STRICT_MAX = 1000;
-const DEFICIT_LENIENT_MIN = 100;
 const DEFICIT_LENIENT_MAX = 1300;
 
 const normalizeDateKey = (value) => {
@@ -104,7 +102,7 @@ const classifyAggressivenessBand = (requiredDailyDeltaCalories) => {
     if (delta >= SURPLUS_STRICT_MIN && delta <= SURPLUS_STRICT_MAX) {
       return 'strict';
     }
-    if (delta >= SURPLUS_LENIENT_MIN && delta <= SURPLUS_LENIENT_MAX) {
+    if (delta <= SURPLUS_LENIENT_MAX) {
       return 'lenient';
     }
     return 'blocked';
@@ -117,13 +115,37 @@ const classifyAggressivenessBand = (requiredDailyDeltaCalories) => {
   ) {
     return 'strict';
   }
-  if (
-    deficitMagnitude >= DEFICIT_LENIENT_MIN &&
-    deficitMagnitude <= DEFICIT_LENIENT_MAX
-  ) {
+  if (deficitMagnitude <= DEFICIT_LENIENT_MAX) {
     return 'lenient';
   }
   return 'blocked';
+};
+
+export const getAggressivenessBandDisplayLabel = ({
+  aggressivenessBand,
+  requiredDailyDeltaCalories,
+}) => {
+  if (aggressivenessBand === 'blocked') {
+    return 'Too fast';
+  }
+
+  if (aggressivenessBand === 'strict') {
+    return 'Optimal pace';
+  }
+
+  const delta = Number(requiredDailyDeltaCalories);
+  if (!Number.isFinite(delta)) {
+    return 'Flexible pace';
+  }
+
+  if (delta > 0) {
+    return delta < SURPLUS_STRICT_MIN ? 'Sustainable pace' : 'Aggressive pace';
+  }
+
+  const deficitMagnitude = Math.abs(delta);
+  return deficitMagnitude < DEFICIT_STRICT_MIN
+    ? 'Sustainable pace'
+    : 'Aggressive pace';
 };
 
 const resolveGoalFromDelta = (requiredDailyDeltaCalories) => {

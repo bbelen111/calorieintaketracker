@@ -11,8 +11,10 @@ import { formatDateKeyLocal } from '../../../../utils/data/dateKeys';
 import {
   buildFeasibleDateBands,
   estimateGoalModeProjection,
+  getAggressivenessBandDisplayLabel,
   estimateRequiredDailyEnergyDelta,
 } from '../../../../utils/calculations/phaseTargetPlanning';
+import { resolveGoalCalorieDelta } from '../../../../utils/calculations/calculations';
 
 const addDaysLocal = (dateKey, days) => {
   if (!dateKey) return null;
@@ -39,6 +41,22 @@ const getModeButtonClass = (mode, activeMode) =>
       : 'bg-surface-highlight text-muted border-border md:hover:border-accent-blue'
   }`;
 
+const GOAL_PRESET_WINDOWS = [
+  { weeks: 4, days: 28 },
+  { weeks: 8, days: 56 },
+  { weeks: 12, days: 84 },
+];
+const KCAL_PER_KG_WEIGHT = 7700;
+
+const parseOptionalNumber = (value) => {
+  if (value == null) return null;
+  const normalized =
+    typeof value === 'string' ? value.trim() : String(value).trim();
+  if (!normalized) return null;
+  const numeric = Number(normalized);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
 export const PhaseCreationModal = ({
   isOpen,
   isClosing,
@@ -51,6 +69,7 @@ export const PhaseCreationModal = ({
   targetBodyFat,
   currentWeight,
   currentBodyFat,
+  bodyFatTrackingEnabled,
   onNameChange,
   onCreationModeChange,
   onStartDateChange,
@@ -71,12 +90,16 @@ export const PhaseCreationModal = ({
   );
 
   const normalizedMode = creationMode === 'goal' ? 'goal' : 'target';
+  const isBodyFatTrackingEnabled = bodyFatTrackingEnabled !== false;
   const selectedGoalConfig = goals?.[goalType] ?? goals.maintenance;
   const GoalIcon = selectedGoalConfig.icon;
-  const parsedTargetWeight = Number(targetWeight);
-  const parsedTargetBodyFat = Number(targetBodyFat);
-  const hasTargetWeight = Number.isFinite(parsedTargetWeight);
-  const hasTargetBodyFat = Number.isFinite(parsedTargetBodyFat);
+  const parsedTargetWeight = parseOptionalNumber(targetWeight);
+  const parsedTargetBodyFat = parseOptionalNumber(targetBodyFat);
+  const parsedCurrentWeight = parseOptionalNumber(currentWeight);
+  const parsedCurrentBodyFat = parseOptionalNumber(currentBodyFat);
+  const hasTargetWeight = parsedTargetWeight != null;
+  const hasTargetBodyFat =
+    isBodyFatTrackingEnabled && parsedTargetBodyFat != null;
   const canEvaluateTarget =
     normalizedMode === 'target' &&
     startDate &&
@@ -88,8 +111,8 @@ export const PhaseCreationModal = ({
     }
 
     return {
-      minEndDate: addDaysLocal(startDate, 7),
-      maxEndDate: addDaysLocal(startDate, 365),
+      minEndDate: addDaysLocal(startDate, 1),
+      maxEndDate: addDaysLocal(startDate, 360),
     };
   }, [startDate]);
 
@@ -108,8 +131,8 @@ export const PhaseCreationModal = ({
       minEndDate: defaultDateWindow.minEndDate,
       maxEndDate: defaultDateWindow.maxEndDate,
       startWeightKg: currentWeight,
-      targetWeightKg: hasTargetWeight ? parsedTargetWeight : null,
-      startBodyFatPercent: currentBodyFat,
+      targetWeightKg: parsedTargetWeight,
+      startBodyFatPercent: isBodyFatTrackingEnabled ? currentBodyFat : null,
       targetBodyFatPercent: hasTargetBodyFat ? parsedTargetBodyFat : null,
     });
   }, [
@@ -118,8 +141,8 @@ export const PhaseCreationModal = ({
     currentWeight,
     defaultDateWindow.maxEndDate,
     defaultDateWindow.minEndDate,
+    isBodyFatTrackingEnabled,
     hasTargetBodyFat,
-    hasTargetWeight,
     parsedTargetBodyFat,
     parsedTargetWeight,
     startDate,
@@ -160,8 +183,8 @@ export const PhaseCreationModal = ({
       startDate,
       endDate,
       startWeightKg: currentWeight,
-      targetWeightKg: hasTargetWeight ? parsedTargetWeight : null,
-      startBodyFatPercent: currentBodyFat,
+      targetWeightKg: parsedTargetWeight,
+      startBodyFatPercent: isBodyFatTrackingEnabled ? currentBodyFat : null,
       targetBodyFatPercent: hasTargetBodyFat ? parsedTargetBodyFat : null,
     });
   }, [
@@ -169,8 +192,8 @@ export const PhaseCreationModal = ({
     currentBodyFat,
     currentWeight,
     endDate,
+    isBodyFatTrackingEnabled,
     hasTargetBodyFat,
-    hasTargetWeight,
     parsedTargetBodyFat,
     parsedTargetWeight,
     startDate,
@@ -200,16 +223,44 @@ export const PhaseCreationModal = ({
     });
   }, [currentWeight, endDate, goalType, normalizedMode, startDate]);
 
+  const goalPresetProjections = useMemo(() => {
+    if (normalizedMode !== 'goal') {
+      return [];
+    }
+
+    const dailyDelta = resolveGoalCalorieDelta(goalType);
+    const safeCurrentWeight = Number(currentWeight);
+
+    return GOAL_PRESET_WINDOWS.map((window) => {
+      const totalDeltaCalories = dailyDelta * window.days;
+      const predictedWeightDeltaKgRaw = totalDeltaCalories / KCAL_PER_KG_WEIGHT;
+      const predictedWeightDeltaKg =
+        Math.round(predictedWeightDeltaKgRaw * 10) / 10;
+      const predictedBodyFatDeltaPercent =
+        Number.isFinite(safeCurrentWeight) && safeCurrentWeight > 0
+          ? Math.round(
+              (predictedWeightDeltaKgRaw / safeCurrentWeight) * 100 * 10
+            ) / 10
+          : null;
+
+      return {
+        ...window,
+        predictedWeightDeltaKg,
+        predictedBodyFatDeltaPercent,
+      };
+    });
+  }, [currentWeight, goalType, normalizedMode]);
+
   const resolvedWeightPickerValue = Number.isFinite(parsedTargetWeight)
     ? parsedTargetWeight
-    : Number.isFinite(Number(currentWeight))
-      ? Number(currentWeight)
+    : parsedCurrentWeight != null
+      ? parsedCurrentWeight
       : 74;
 
   const resolvedBodyFatPickerValue = Number.isFinite(parsedTargetBodyFat)
     ? parsedTargetBodyFat
-    : Number.isFinite(Number(currentBodyFat))
-      ? Number(currentBodyFat)
+    : parsedCurrentBodyFat != null
+      ? parsedCurrentBodyFat
       : 18;
 
   useEffect(() => {
@@ -218,8 +269,12 @@ export const PhaseCreationModal = ({
       targetWeightPickerModal.forceClose();
       targetBodyFatPickerModal.forceClose();
     }
+    if (!isBodyFatTrackingEnabled) {
+      targetBodyFatPickerModal.forceClose();
+    }
   }, [
     goalPickerModal,
+    isBodyFatTrackingEnabled,
     isOpen,
     targetBodyFatPickerModal,
     targetWeightPickerModal,
@@ -333,7 +388,9 @@ export const PhaseCreationModal = ({
         {/* Target Mode Inputs */}
         {normalizedMode === 'target' ? (
           <div className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div
+              className={`grid grid-cols-1 gap-3 ${isBodyFatTrackingEnabled ? 'md:grid-cols-2' : ''}`}
+            >
               <div>
                 <label className="block text-foreground text-sm font-semibold mb-2">
                   Target Weight (kg)
@@ -346,33 +403,40 @@ export const PhaseCreationModal = ({
                   <span className="font-medium text-base">
                     {hasTargetWeight
                       ? `${parsedTargetWeight.toFixed(1)} kg`
-                      : 'Tap to set target weight'}
+                      : parsedCurrentWeight != null
+                        ? `Current: ${parsedCurrentWeight.toFixed(1)} kg`
+                        : 'Tap to set target weight'}
                   </span>
                   <ChevronsUpDown size={16} className="text-muted shrink-0" />
                 </button>
               </div>
-              <div>
-                <label className="block text-foreground text-sm font-semibold mb-2">
-                  Target Body Fat (%)
-                </label>
-                <button
-                  type="button"
-                  onClick={targetBodyFatPickerModal.open}
-                  className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-3 pressable-inline"
-                >
-                  <span className="font-medium text-base">
-                    {hasTargetBodyFat
-                      ? `${parsedTargetBodyFat.toFixed(1)}%`
-                      : 'Tap to set target body fat'}
-                  </span>
-                  <ChevronsUpDown size={16} className="text-muted shrink-0" />
-                </button>
-              </div>
+              {isBodyFatTrackingEnabled && (
+                <div>
+                  <label className="block text-foreground text-sm font-semibold mb-2">
+                    Target Body Fat (%)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={targetBodyFatPickerModal.open}
+                    className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-3 pressable-inline"
+                  >
+                    <span className="font-medium text-base">
+                      {hasTargetBodyFat
+                        ? `${parsedTargetBodyFat.toFixed(1)}%`
+                        : parsedCurrentBodyFat != null
+                          ? `Current: ${parsedCurrentBodyFat.toFixed(1)}%`
+                          : 'Tap to set target body fat'}
+                    </span>
+                    <ChevronsUpDown size={16} className="text-muted shrink-0" />
+                  </button>
+                </div>
+              )}
             </div>
 
             <p className="text-muted text-xs">
-              At least one target metric is required (weight or body fat). End
-              date must be feasible.
+              {isBodyFatTrackingEnabled
+                ? 'At least one target metric is required (weight or body fat). End date must be feasible.'
+                : 'Target weight is required. End date must be feasible.'}
             </p>
           </div>
         ) : null}
@@ -406,7 +470,9 @@ export const PhaseCreationModal = ({
         {normalizedMode === 'goal' && (
           <div className="rounded-lg border border-border bg-surface-highlight p-3">
             <p className="text-foreground text-sm font-semibold mb-1">
-              Predicted change by end date
+              {isBodyFatTrackingEnabled
+                ? 'Predicted weight/body-fat change'
+                : 'Predicted weight change'}
             </p>
             {goalPrediction ? (
               <>
@@ -419,35 +485,67 @@ export const PhaseCreationModal = ({
                   Weight: {goalPrediction.predictedWeightDeltaKg > 0 ? '+' : ''}
                   {goalPrediction.predictedWeightDeltaKg.toFixed(1)} kg
                 </p>
-                {Number.isFinite(
-                  goalPrediction.predictedBodyFatDeltaPercent
-                ) && (
-                  <p className="text-xs mt-1 font-semibold text-foreground">
-                    Body fat:{' '}
-                    {goalPrediction.predictedBodyFatDeltaPercent > 0 ? '+' : ''}
-                    {goalPrediction.predictedBodyFatDeltaPercent.toFixed(1)}%
-                  </p>
-                )}
+                {isBodyFatTrackingEnabled &&
+                  Number.isFinite(
+                    goalPrediction.predictedBodyFatDeltaPercent
+                  ) && (
+                    <p className="text-xs mt-1 font-semibold text-foreground">
+                      Body fat:{' '}
+                      {goalPrediction.predictedBodyFatDeltaPercent > 0
+                        ? '+'
+                        : ''}
+                      {goalPrediction.predictedBodyFatDeltaPercent.toFixed(1)}%
+                    </p>
+                  )}
               </>
             ) : (
-              <p className="text-xs text-muted">
-                Select an end date to preview expected weight and body fat
-                changes for this goal.
-              </p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {goalPresetProjections.map((window) => (
+                  <div
+                    key={window.weeks}
+                    className="rounded-md border border-border"
+                  >
+                    <p className="text-[11px] leading-tight text-muted">
+                      {window.weeks}w ({window.days}d)
+                    </p>
+                    <p className="text-[11px] mt-2 font-semibold leading-tight text-foreground">
+                      Wt: {window.predictedWeightDeltaKg > 0 ? '+' : ''}
+                      {window.predictedWeightDeltaKg.toFixed(1)} kg
+                    </p>
+                    {isBodyFatTrackingEnabled &&
+                      Number.isFinite(window.predictedBodyFatDeltaPercent) && (
+                        <p className="text-[11px] mt-0.5 font-semibold leading-tight text-foreground">
+                          BF:{' '}
+                          {window.predictedBodyFatDeltaPercent > 0 ? '+' : ''}
+                          {window.predictedBodyFatDeltaPercent.toFixed(1)}%
+                        </p>
+                      )}
+                  </div>
+                ))}
+              </div>
             )}
             <p className="text-[11px] text-muted mt-2">
-              Approximation based on goal calorie delta and date span.
+              {goalPrediction
+                ? 'Approximation based on goal calorie delta and selected date span.'
+                : 'Approximation based on goal calorie delta and preset time windows.'}
             </p>
           </div>
         )}
 
-        {normalizedMode === 'target' && canEvaluateTarget && (
+        {normalizedMode === 'target' && (
           <div className="rounded-lg border border-border bg-surface-highlight p-3">
             <p className="text-foreground text-sm font-semibold mb-1">
-              Feasible end-date window
+              Feasible pace windows
             </p>
             <p className="text-xs text-muted">
-              Strict: {strictCount} days • Lenient: {lenientCount} days
+              Optimal:{' '}
+              <span className="font-medium text-foreground">
+                {canEvaluateTarget ? `${strictCount} days` : '—'}
+              </span>{' '}
+              • Extended:{' '}
+              <span className="font-medium text-foreground">
+                {canEvaluateTarget ? `${lenientCount} days` : '—'}
+              </span>
             </p>
 
             {targetPlan && (
@@ -455,7 +553,18 @@ export const PhaseCreationModal = ({
                 Smart target:{' '}
                 {targetPlan.requiredDailyDeltaCalories > 0 ? '+' : ''}
                 {targetPlan.requiredDailyDeltaCalories} kcal/day (
-                {targetPlan.aggressivenessBand})
+                {getAggressivenessBandDisplayLabel({
+                  aggressivenessBand: targetPlan.aggressivenessBand,
+                  requiredDailyDeltaCalories:
+                    targetPlan.requiredDailyDeltaCalories,
+                })}
+                )
+              </p>
+            )}
+
+            {!canEvaluateTarget && (
+              <p className="text-xs text-muted mt-2">
+                Set target metrics to evaluate feasible end dates.
               </p>
             )}
 
@@ -526,16 +635,18 @@ export const PhaseCreationModal = ({
         }}
       />
 
-      <BodyFatPickerModal
-        isOpen={targetBodyFatPickerModal.isOpen}
-        isClosing={targetBodyFatPickerModal.isClosing}
-        value={resolvedBodyFatPickerValue}
-        onCancel={targetBodyFatPickerModal.requestClose}
-        onSave={(value) => {
-          onTargetBodyFatChange(String(value));
-          targetBodyFatPickerModal.requestClose();
-        }}
-      />
+      {isBodyFatTrackingEnabled && (
+        <BodyFatPickerModal
+          isOpen={targetBodyFatPickerModal.isOpen}
+          isClosing={targetBodyFatPickerModal.isClosing}
+          value={resolvedBodyFatPickerValue}
+          onCancel={targetBodyFatPickerModal.requestClose}
+          onSave={(value) => {
+            onTargetBodyFatChange(String(value));
+            targetBodyFatPickerModal.requestClose();
+          }}
+        />
+      )}
     </ModalShell>
   );
 };
