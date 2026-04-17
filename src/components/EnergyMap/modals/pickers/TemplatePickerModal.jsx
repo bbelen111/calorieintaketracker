@@ -1,19 +1,29 @@
 import React from 'react';
+import { Target } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import { PHASE_TEMPLATES } from '../../../../constants/phases/phaseTemplates';
+import { goals } from '../../../../constants/goals/goals';
 
 export const TemplatePickerModal = ({
   isOpen,
   isClosing,
+  selectedMode,
   onSelectTemplate,
   onClose,
 }) => {
+  const normalizedMode = selectedMode === 'goal' ? 'goal' : 'target';
+
+  const visibleTemplates = PHASE_TEMPLATES.filter((template) => {
+    const templateMode = template.creationMode === 'goal' ? 'goal' : 'target';
+    return templateMode === normalizedMode;
+  });
+
   return (
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
       overlayClassName="bg-surface/80 z-[60]"
-      contentClassName="p-4 md:p-6 w-full md:max-w-2xl"
+      contentClassName="p-4 md:p-6 w-full md:max-w-xl"
     >
       <div className="flex flex-col gap-4 md:gap-6">
         <div className="flex items-start justify-between gap-3">
@@ -22,9 +32,16 @@ export const TemplatePickerModal = ({
               Choose a Template
             </h3>
             <p className="text-muted text-sm md:text-base mt-1">
-              Templates provide pre-configured phases with suggested duration
-              and weight targets based on common fitness goals.
+              {normalizedMode === 'target'
+                ? 'Target templates prefill date-bound outcomes (weight/body-fat planning).'
+                : 'Goal templates prefill open-ended direction blocks (cut/bulk/maintenance).'}
             </p>
+            <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-highlight px-2.5 py-1 text-xs text-foreground">
+              <Target size={12} />
+              {normalizedMode === 'target'
+                ? 'Target mode templates'
+                : 'Goal mode templates'}
+            </div>
           </div>
         </div>
 
@@ -32,8 +49,13 @@ export const TemplatePickerModal = ({
           className="space-y-3 overflow-y-auto pr-1 max-h-[60vh]"
           role="list"
         >
-          {PHASE_TEMPLATES.map((template) => {
+          {visibleTemplates.map((template) => {
             const key = template.id;
+            const goalConfig = goals?.[template.goalType] ?? goals.maintenance;
+            const Icon = goalConfig.icon;
+            const templateMode =
+              template.creationMode === 'goal' ? 'Goal mode' : 'Target mode';
+
             return (
               <button
                 key={key}
@@ -42,18 +64,26 @@ export const TemplatePickerModal = ({
                   onSelectTemplate(template);
                   onClose();
                 }}
-                className="w-full text-left p-4 rounded-xl border-2 transition-all active:scale-[0.98] flex flex-col gap-2 bg-surface border-border text-foreground md:hover:bg-surface-highlight focus-ring pressable"
+                className="w-full text-left p-3 md:p-4 rounded-xl flex flex-col gap-2 transition-all pressable-card focus-ring border border-primary bg-primary/90 text-primary-foreground shadow-sm"
                 role="listitem"
               >
                 <div className="flex items-start gap-3">
+                  <div
+                    className={`flex-shrink-0 w-9 h-9 rounded-full ${goalConfig.color} text-primary-foreground flex items-center justify-center border border-primary-foreground/30`}
+                  >
+                    <Icon size={16} />
+                  </div>
                   <div className="flex-1">
-                    <p className="font-semibold text-base md:text-lg leading-tight text-foreground">
+                    <p className="font-semibold text-base md:text-lg leading-tight text-primary-foreground">
                       {template.name}
                     </p>
-                    <p className="text-xs md:text-sm text-muted mt-1">
+                    <p className="text-xs md:text-sm text-primary-foreground/80 mt-1">
                       {template.description}
                     </p>
-                    <div className="flex items-center gap-4 text-xs text-muted mt-3">
+                    <div className="flex items-center gap-3 text-xs mt-3 flex-wrap text-primary-foreground/80">
+                      <span className="inline-flex items-center rounded-md border border-primary-foreground/30 bg-surface-highlight/20 px-2 py-0.5 text-primary-foreground">
+                        {templateMode}
+                      </span>
                       <span>{template.suggestedDuration} days</span>
                       <span>•</span>
                       <span className="capitalize">{template.goalType}</span>
@@ -63,20 +93,29 @@ export const TemplatePickerModal = ({
                     <div
                       className={`text-lg font-bold ${
                         template.targetWeightChange > 0
-                          ? 'text-accent-blue'
+                          ? 'text-primary-foreground'
                           : template.targetWeightChange < 0
-                            ? 'text-accent-red'
-                            : 'text-muted'
+                            ? 'text-primary-foreground'
+                            : 'text-primary-foreground/80'
                       }`}
                     >
                       {template.targetWeightChange > 0 ? '+' : ''}
                       {template.targetWeightChange} kg
                     </div>
+                    <p className="text-[11px] text-primary-foreground/75 mt-1">
+                      weight target
+                    </p>
                   </div>
                 </div>
               </button>
             );
           })}
+
+          {visibleTemplates.length === 0 && (
+            <div className="text-center text-muted text-sm py-10">
+              No templates available for this creation mode yet.
+            </div>
+          )}
         </div>
 
         <div className="flex gap-3">

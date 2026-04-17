@@ -11,6 +11,7 @@ export const PHASE_TEMPLATES = [
     description: 'Gain muscle mass with calorie surplus',
     icon: '💪',
     defaultName: 'Bulk',
+    creationMode: 'target',
     suggestedDuration: 90, // days
     goalType: 'bulking',
     targetWeightChange: +8, // kg
@@ -27,6 +28,7 @@ export const PHASE_TEMPLATES = [
     description: 'Lose body fat with calorie deficit',
     icon: '🔥',
     defaultName: 'Cut',
+    creationMode: 'target',
     suggestedDuration: 60, // days
     goalType: 'cutting',
     targetWeightChange: -5, // kg
@@ -43,6 +45,7 @@ export const PHASE_TEMPLATES = [
     description: 'Maintain current weight and build habits',
     icon: '⚖️',
     defaultName: 'Maintenance',
+    creationMode: 'goal',
     suggestedDuration: 30, // days
     goalType: 'maintenance',
     targetWeightChange: 0, // kg
@@ -59,6 +62,7 @@ export const PHASE_TEMPLATES = [
     description: 'Gain muscle with minimal fat gain',
     icon: '📈',
     defaultName: 'Lean Bulk',
+    creationMode: 'target',
     suggestedDuration: 120, // days
     goalType: 'bulking',
     targetWeightChange: +4, // kg
@@ -75,6 +79,7 @@ export const PHASE_TEMPLATES = [
     description: 'Short aggressive cut to reduce body fat',
     icon: '⚡',
     defaultName: 'Mini Cut',
+    creationMode: 'target',
     suggestedDuration: 21, // days
     goalType: 'cutting',
     targetWeightChange: -2, // kg
@@ -91,6 +96,7 @@ export const PHASE_TEMPLATES = [
     description: 'Gradually increase calories after cut',
     icon: '🔄',
     defaultName: 'Reverse Diet',
+    creationMode: 'goal',
     suggestedDuration: 45, // days
     goalType: 'maintenance',
     targetWeightChange: +1, // kg
@@ -132,9 +138,11 @@ export const applyTemplate = (template, currentWeight) => {
 
   return {
     name: template.defaultName,
+    creationMode: template.creationMode === 'goal' ? 'goal' : 'target',
     startDate,
     endDate: formatDateKeyLocal(endDate),
     goalType: template.goalType,
     targetWeight,
+    targetBodyFat: null,
   };
 };

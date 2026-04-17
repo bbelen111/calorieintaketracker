@@ -48,6 +48,78 @@ const normalizeTrainingSessionIds = (ids) =>
     ? ids.filter((id) => id != null && String(id).trim() !== '')
     : [];
 
+const PHASE_CREATION_MODES = new Set(['goal', 'target']);
+const PHASE_TARGET_METRICS = new Set(['weight', 'bodyFat', 'weight_and_bodyFat']);
+const PHASE_TARGET_BANDS = new Set(['strict', 'lenient', 'blocked']);
+
+const normalizeCreationMode = (value) => {
+  const normalized = String(value ?? '').trim();
+  return PHASE_CREATION_MODES.has(normalized) ? normalized : 'goal';
+};
+
+const normalizeTargetMetric = (value, creationMode) => {
+  if (creationMode !== 'target') {
+    return null;
+  }
+
+  const normalized = String(value ?? '').trim();
+  return PHASE_TARGET_METRICS.has(normalized) ? normalized : null;
+};
+
+const normalizeTargetBand = (value, creationMode) => {
+  if (creationMode !== 'target') {
+    return null;
+  }
+
+  const normalized = String(value ?? '').trim();
+  return PHASE_TARGET_BANDS.has(normalized) ? normalized : null;
+};
+
+const normalizeTargetBodyFat = (value) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0 || numeric >= 100) {
+    return null;
+  }
+  return Math.round(numeric * 10) / 10;
+};
+
+const normalizeSmartCaloriePlan = (value, creationMode) => {
+  if (creationMode !== 'target' || !value || typeof value !== 'object') {
+    return null;
+  }
+
+  const requiredDailyDeltaCalories = Number(value.requiredDailyDeltaCalories);
+  const totalDeltaCalories = Number(value.totalDeltaCalories);
+  const daySpan = Number(value.daySpan);
+
+  return {
+    requiredDailyDeltaCalories: Number.isFinite(requiredDailyDeltaCalories)
+      ? Math.round(requiredDailyDeltaCalories)
+      : 0,
+    totalDeltaCalories: Number.isFinite(totalDeltaCalories)
+      ? Math.round(totalDeltaCalories)
+      : 0,
+    daySpan: Number.isFinite(daySpan) && daySpan > 0 ? Math.round(daySpan) : 0,
+    aggressivenessBand: normalizeTargetBand(value.aggressivenessBand, 'target'),
+    startDate: normalizeDateKey(value.startDate),
+    endDate: normalizeDateKey(value.endDate),
+    components:
+      value.components && typeof value.components === 'object'
+        ? {
+            weightDeltaKcal: Number.isFinite(Number(value.components.weightDeltaKcal))
+              ? Math.round(Number(value.components.weightDeltaKcal))
+              : null,
+            bodyFatDeltaKcal: Number.isFinite(Number(value.components.bodyFatDeltaKcal))
+              ? Math.round(Number(value.components.bodyFatDeltaKcal))
+              : null,
+          }
+        : {
+            weightDeltaKcal: null,
+            bodyFatDeltaKcal: null,
+          },
+  };
+};
+
 export const createDefaultPhaseLogV2State = () => ({
   version: PHASE_V2_VERSION,
   phasesById: {},
@@ -107,26 +179,56 @@ const normalizeLogRecord = (log) => {
   return normalized;
 };
 
-const normalizePhaseRecord = (phase) => ({
-  id: phase?.id,
-  name: phase?.name || 'New Phase',
-  startDate: normalizeDateKey(phase?.startDate) || getTodayDateString(),
-  endDate: normalizeDateKey(phase?.endDate) || null,
-  goalType: phase?.goalType || 'maintenance',
-  goalFamily: toGoalFamily(phase?.goalType),
-  targetWeight: Number.isFinite(phase?.targetWeight)
-    ? phase.targetWeight
-    : null,
-  startingWeight: Number.isFinite(phase?.startingWeight)
-    ? phase.startingWeight
-    : null,
-  status: Object.values(PHASE_STATUS).includes(phase?.status)
-    ? phase.status
-    : PHASE_STATUS.DRAFT,
-  color: phase?.color || 'bg-accent-blue',
-  createdAt: Number.isFinite(phase?.createdAt) ? phase.createdAt : Date.now(),
-  updatedAt: Number.isFinite(phase?.updatedAt) ? phase.updatedAt : Date.now(),
-});
+const normalizePhaseRecord = (phase) => {
+  const creationMode = normalizeCreationMode(phase?.creationMode);
+  const normalizedTargetWeight = Number.isFinite(Number(phase?.targetWeight))
+    ? Number(phase.targetWeight)
+    : null;
+  const normalizedTargetBodyFat = normalizeTargetBodyFat(phase?.targetBodyFat);
+  const inferredTargetMetric =
+    normalizedTargetWeight != null && normalizedTargetBodyFat != null
+      ? 'weight_and_bodyFat'
+      : normalizedTargetWeight != null
+        ? 'weight'
+        : normalizedTargetBodyFat != null
+          ? 'bodyFat'
+          : null;
+
+  return {
+    id: phase?.id,
+    name: phase?.name || 'New Phase',
+    startDate: normalizeDateKey(phase?.startDate) || getTodayDateString(),
+    endDate: normalizeDateKey(phase?.endDate) || null,
+    goalType: phase?.goalType || 'maintenance',
+    goalFamily: toGoalFamily(phase?.goalType),
+    creationMode,
+    targetMetric:
+      normalizeTargetMetric(phase?.targetMetric, creationMode) ??
+      (creationMode === 'target' ? inferredTargetMetric : null),
+    targetDateRequired:
+      creationMode === 'target'
+        ? Boolean(phase?.targetDateRequired ?? true)
+        : false,
+    targetAggressivenessBand:
+      normalizeTargetBand(phase?.targetAggressivenessBand, creationMode) ??
+      normalizeTargetBand(phase?.smartCaloriePlan?.aggressivenessBand, creationMode),
+    targetWeight: normalizedTargetWeight,
+    targetBodyFat: normalizedTargetBodyFat,
+    smartCaloriePlan: normalizeSmartCaloriePlan(
+      phase?.smartCaloriePlan,
+      creationMode
+    ),
+    startingWeight: Number.isFinite(phase?.startingWeight)
+      ? phase.startingWeight
+      : null,
+    status: Object.values(PHASE_STATUS).includes(phase?.status)
+      ? phase.status
+      : PHASE_STATUS.DRAFT,
+    color: phase?.color || 'bg-accent-blue',
+    createdAt: Number.isFinite(phase?.createdAt) ? phase.createdAt : Date.now(),
+    updatedAt: Number.isFinite(phase?.updatedAt) ? phase.updatedAt : Date.now(),
+  };
+};
 
 const normalizeActivePhase = (state, preferredActivePhaseId = null) => {
   const next = {

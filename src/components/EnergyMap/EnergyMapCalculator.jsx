@@ -97,6 +97,7 @@ import {
 } from '../../utils/formatting/time';
 import { formatDateKeyUtc, getTodayDateKey } from '../../utils/data/dateKeys';
 import { normalizeMacroRecommendationSplit } from '../../utils/calculations/macroRecommendations';
+import { estimateRequiredDailyEnergyDelta } from '../../utils/calculations/phaseTargetPlanning';
 
 const WeightTrackerModal = lazy(() =>
   import('./modals/fullscreen/WeightTrackerModal').then((module) => ({
@@ -361,6 +362,26 @@ const buildFallbackFoodFromEntry = (entry) => {
   };
 };
 
+const parseNullablePhaseNumber = (value) => {
+  const trimmed = String(value ?? '').trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const numeric = Number(trimmed);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
+const createDefaultPhaseDraft = () => ({
+  name: '',
+  creationMode: 'goal',
+  startDate: getTodayDateString(),
+  endDate: '',
+  goalType: 'maintenance',
+  targetWeight: '',
+  targetBodyFat: '',
+});
+
 export const EnergyMapCalculator = () => {
   useEffect(() => {
     setupEnergyMapStore();
@@ -379,6 +400,8 @@ export const EnergyMapCalculator = () => {
     cardioFavourites,
     foodFavourites,
     phases,
+    activePhase,
+    isGoalLockedByActivePhase,
     bmr,
     trainingCalories,
     totalCardioBurn,
@@ -438,6 +461,8 @@ export const EnergyMapCalculator = () => {
       cardioFavourites: state.cardioFavourites,
       foodFavourites: state.foodFavourites,
       phases: state.phases,
+      activePhase: state.activePhase,
+      isGoalLockedByActivePhase: state.isGoalLockedByActivePhase,
       bmr: state.bmr,
       trainingCalories: state.trainingCalories,
       totalCardioBurn: state.totalCardioBurn,
@@ -586,13 +611,22 @@ export const EnergyMapCalculator = () => {
   );
 
   // Phase-related state
-  const [phaseName, setPhaseName] = useState('');
-  const [phaseStartDate, setPhaseStartDate] = useState(getTodayDateString());
-  const [phaseEndDate, setPhaseEndDate] = useState('');
-  const [phaseGoalType, setPhaseGoalType] = useState('maintenance');
-  const [phaseTargetWeight, setPhaseTargetWeight] = useState('');
+  const [phaseDraft, setPhaseDraft] = useState(createDefaultPhaseDraft);
   const [phaseError, setPhaseError] = useState('');
   const [selectedPhase, setSelectedPhase] = useState(null);
+
+  const setPhaseDraftField = useCallback((field, value) => {
+    setPhaseDraft((prev) => ({ ...prev, [field]: value }));
+  }, []);
+
+  const setPhaseCreationMode = useCallback((nextMode) => {
+    const mode = nextMode === 'target' ? 'target' : 'goal';
+    setPhaseDraft((prev) => ({
+      ...prev,
+      creationMode: mode,
+      endDate: mode === 'goal' ? '' : prev.endDate,
+    }));
+  }, []);
 
   // Daily log state (reference-based)
   const [dailyLogDate, setDailyLogDate] = useState(getTodayDateString());
@@ -1453,9 +1487,12 @@ export const EnergyMapCalculator = () => {
   }, [confirmActionModal, removeTrainingSession, todayTrainingSessions]);
 
   const openGoalModal = useCallback(() => {
+    if (isGoalLockedByActivePhase) {
+      return;
+    }
     setTempSelectedGoal(selectedGoal);
     goalModal.open();
-  }, [goalModal, selectedGoal]);
+  }, [goalModal, isGoalLockedByActivePhase, selectedGoal]);
 
   const openAgeModal = useCallback(() => {
     setTempAge(userData.age);
@@ -2830,9 +2867,13 @@ export const EnergyMapCalculator = () => {
   );
 
   const handleGoalSave = useCallback(() => {
+    if (isGoalLockedByActivePhase) {
+      goalModal.requestClose();
+      return;
+    }
     setSelectedGoal(tempSelectedGoal);
     goalModal.requestClose();
-  }, [goalModal, setSelectedGoal, tempSelectedGoal]);
+  }, [goalModal, isGoalLockedByActivePhase, setSelectedGoal, tempSelectedGoal]);
 
   const handleAgeSave = useCallback(
     (value) => {
@@ -3058,16 +3099,19 @@ export const EnergyMapCalculator = () => {
 
   // Phase handlers
   const openPhaseCreationModal = useCallback(() => {
-    setPhaseName('');
-    setPhaseStartDate(getTodayDateString());
-    setPhaseEndDate('');
-    setPhaseGoalType('maintenance');
-    setPhaseTargetWeight('');
+    setPhaseDraft(createDefaultPhaseDraft());
     setPhaseError('');
     phaseCreationModal.open();
   }, [phaseCreationModal]);
 
   const handlePhaseCreationSave = useCallback(() => {
+    const phaseName = phaseDraft.name;
+    const phaseStartDate = phaseDraft.startDate;
+    const phaseEndDate = phaseDraft.endDate;
+    const phaseGoalType = phaseDraft.goalType;
+    const phaseCreationMode =
+      phaseDraft.creationMode === 'target' ? 'target' : 'goal';
+
     // Validation
     if (!phaseName.trim()) {
       setPhaseError('Please enter a phase name');
@@ -3084,36 +3128,91 @@ export const EnergyMapCalculator = () => {
       return;
     }
 
-    // Parse target weight if provided
-    let targetWeight = null;
-    if (phaseTargetWeight) {
-      const parsed = Number(phaseTargetWeight);
-      if (!Number.isFinite(parsed) || parsed < 30 || parsed > 210) {
-        setPhaseError('Target weight must be between 30 and 210 kg');
+    const targetWeight = parseNullablePhaseNumber(phaseDraft.targetWeight);
+    if (targetWeight != null && (targetWeight < 30 || targetWeight > 210)) {
+      setPhaseError('Target weight must be between 30 and 210 kg');
+      return;
+    }
+
+    const targetBodyFat = parseNullablePhaseNumber(phaseDraft.targetBodyFat);
+    if (targetBodyFat != null && (targetBodyFat <= 0 || targetBodyFat >= 100)) {
+      setPhaseError('Target body fat must be between 1 and 99%');
+      return;
+    }
+
+    let resolvedGoalType = phaseGoalType;
+
+    if (phaseCreationMode === 'target') {
+      if (!phaseEndDate) {
+        setPhaseError('Target mode requires an end date.');
         return;
       }
-      targetWeight = parsed;
+
+      if (targetWeight == null && targetBodyFat == null) {
+        setPhaseError(
+          'Set a target weight or target body fat for target mode.'
+        );
+        return;
+      }
+
+      const currentWeight = latestWeightEntry?.weight ?? userData.weight;
+      const currentBodyFat = latestBodyFatEntry?.bodyFat ?? null;
+
+      const targetPlan = estimateRequiredDailyEnergyDelta({
+        startDate: phaseStartDate,
+        endDate: phaseEndDate,
+        startWeightKg: currentWeight,
+        targetWeightKg: targetWeight,
+        startBodyFatPercent: currentBodyFat,
+        targetBodyFatPercent: targetBodyFat,
+      });
+
+      if (!targetPlan) {
+        setPhaseError(
+          'Unable to evaluate this target plan. Check your target values and date range.'
+        );
+        return;
+      }
+
+      if (targetPlan.aggressivenessBand === 'blocked') {
+        setPhaseError(
+          'Selected target/date pair is not feasible. Choose a less aggressive or shorter target.'
+        );
+        return;
+      }
+
+      resolvedGoalType = targetPlan.recommendedGoalType;
+    }
+
+    if (
+      phaseCreationMode === 'goal' &&
+      !Object.prototype.hasOwnProperty.call(goals, phaseGoalType)
+    ) {
+      setPhaseError('Please select a valid goal.');
+      return;
     }
 
     // Create phase
     createPhase({
       name: phaseName.trim(),
       startDate: phaseStartDate,
-      endDate: phaseEndDate || null,
-      goalType: phaseGoalType,
+      endDate:
+        phaseCreationMode === 'target' ? phaseEndDate : phaseEndDate || null,
+      goalType: resolvedGoalType,
+      creationMode: phaseCreationMode,
       targetWeight,
+      targetBodyFat,
     });
 
     setPhaseError('');
     phaseCreationModal.requestClose();
   }, [
     createPhase,
+    latestBodyFatEntry?.bodyFat,
+    latestWeightEntry?.weight,
     phaseCreationModal,
-    phaseEndDate,
-    phaseGoalType,
-    phaseName,
-    phaseStartDate,
-    phaseTargetWeight,
+    phaseDraft,
+    userData.weight,
   ]);
 
   const handleTemplateSelect = useCallback(
@@ -3133,11 +3232,17 @@ export const EnergyMapCalculator = () => {
         targetWeight = String(Math.max(30, Math.min(210, calculated)));
       }
 
-      setPhaseName(template.defaultName);
-      setPhaseStartDate(startDate);
-      setPhaseEndDate(formatDateKeyUtc(endDate));
-      setPhaseGoalType(template.goalType);
-      setPhaseTargetWeight(targetWeight);
+      setPhaseDraft((prev) => ({
+        ...prev,
+        name: template.defaultName,
+        creationMode: template.creationMode === 'goal' ? 'goal' : 'target',
+        startDate,
+        endDate: formatDateKeyUtc(endDate),
+        goalType: template.goalType,
+        targetWeight,
+        targetBodyFat: '',
+      }));
+      setPhaseError('');
     },
     [latestWeightEntry, userData.weight]
   );
@@ -3341,11 +3446,7 @@ export const EnergyMapCalculator = () => {
 
   useEffect(() => {
     if (!phaseCreationModal.isOpen && !phaseCreationModal.isClosing) {
-      setPhaseName('');
-      setPhaseStartDate(getTodayDateString());
-      setPhaseEndDate('');
-      setPhaseGoalType('maintenance');
-      setPhaseTargetWeight('');
+      setPhaseDraft(createDefaultPhaseDraft());
       setPhaseError('');
     }
   }, [phaseCreationModal.isClosing, phaseCreationModal.isOpen]);
@@ -3586,6 +3687,8 @@ export const EnergyMapCalculator = () => {
                   bmr={bmr}
                   goals={goals}
                   selectedGoal={selectedGoal}
+                  isGoalLocked={isGoalLockedByActivePhase}
+                  goalLockPhaseName={activePhase?.name ?? ''}
                   onGoalClick={openGoalModal}
                   onSettingsClick={settingsModal.open}
                   onBodyFatClick={openBodyFatTracker}
@@ -4113,17 +4216,28 @@ export const EnergyMapCalculator = () => {
           <PhaseCreationModal
             isOpen={phaseCreationModal.isOpen}
             isClosing={phaseCreationModal.isClosing}
-            phaseName={phaseName}
-            startDate={phaseStartDate}
-            endDate={phaseEndDate}
-            goalType={phaseGoalType}
-            targetWeight={phaseTargetWeight}
+            phaseName={phaseDraft.name}
+            creationMode={phaseDraft.creationMode}
+            startDate={phaseDraft.startDate}
+            endDate={phaseDraft.endDate}
+            goalType={phaseDraft.goalType}
+            targetWeight={phaseDraft.targetWeight}
+            targetBodyFat={phaseDraft.targetBodyFat}
             currentWeight={latestWeightEntry?.weight || userData.weight}
-            onNameChange={setPhaseName}
-            onStartDateChange={setPhaseStartDate}
-            onEndDateChange={setPhaseEndDate}
-            onGoalTypeChange={setPhaseGoalType}
-            onTargetWeightChange={setPhaseTargetWeight}
+            currentBodyFat={latestBodyFatEntry?.bodyFat ?? null}
+            onNameChange={(value) => setPhaseDraftField('name', value)}
+            onCreationModeChange={setPhaseCreationMode}
+            onStartDateChange={(value) =>
+              setPhaseDraftField('startDate', value)
+            }
+            onEndDateChange={(value) => setPhaseDraftField('endDate', value)}
+            onGoalTypeChange={(value) => setPhaseDraftField('goalType', value)}
+            onTargetWeightChange={(value) =>
+              setPhaseDraftField('targetWeight', value)
+            }
+            onTargetBodyFatChange={(value) =>
+              setPhaseDraftField('targetBodyFat', value)
+            }
             onTemplatesClick={() => {
               templatePickerModal.open();
             }}
@@ -4137,6 +4251,7 @@ export const EnergyMapCalculator = () => {
       <TemplatePickerModal
         isOpen={templatePickerModal.isOpen}
         isClosing={templatePickerModal.isClosing}
+        selectedMode={phaseDraft.creationMode}
         onSelectTemplate={(template) => {
           handleTemplateSelect(template);
           templatePickerModal.requestClose();

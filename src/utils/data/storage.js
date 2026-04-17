@@ -1101,6 +1101,8 @@ export const getDefaultEnergyMapData = () => ({
   theme: 'auto', // 'auto' | 'dark' | 'light' | 'amoled_dark'
   selectedGoal: 'maintenance',
   goalChangedAt: Date.now(),
+  phaseGoalCalorieDelta: null,
+  phaseGoalCalorieDeltaSourcePhaseId: null,
   smartTefEnabled: false,
   smartTefFoodTefBurnEnabled: true,
   smartTefQuickEstimatesTargetMode: true,
@@ -1293,6 +1295,25 @@ function mergeWithDefaults(data) {
       normalizedInput.goalChangedAt,
       defaults.goalChangedAt
     ),
+    phaseGoalCalorieDelta: Number.isFinite(
+      Number(normalizedInput.phaseGoalCalorieDelta)
+    )
+      ? Math.round(Number(normalizedInput.phaseGoalCalorieDelta))
+      : null,
+    phaseGoalCalorieDeltaSourcePhaseId: (() => {
+      const rawValue = normalizedInput.phaseGoalCalorieDeltaSourcePhaseId;
+      if (rawValue == null) {
+        return null;
+      }
+
+      const numericValue = Number(rawValue);
+      if (Number.isFinite(numericValue)) {
+        return Math.round(numericValue);
+      }
+
+      const normalized = String(rawValue).trim();
+      return normalized.length > 0 ? normalized : null;
+    })(),
     nutritionData: normalizeNutritionData(
       normalizedInput.nutritionData ?? defaults.nutritionData
     ),

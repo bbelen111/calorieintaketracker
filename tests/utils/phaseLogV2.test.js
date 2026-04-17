@@ -116,3 +116,56 @@ test('default v2 state starts empty and stable', () => {
   assert.deepEqual(state.phaseOrder, []);
   assert.equal(state.activePhaseId, null);
 });
+
+test('v2 phase normalization includes target mode metadata', () => {
+  const state = normalizePhaseLogV2State({
+    version: 2,
+    phaseOrder: ['phase-target'],
+    activePhaseId: 'phase-target',
+    phasesById: {
+      'phase-target': {
+        id: 'phase-target',
+        name: '8 Week Cut',
+        startDate: '2026-04-01',
+        endDate: '2026-05-27',
+        goalType: 'cutting',
+        creationMode: 'target',
+        targetMetric: 'weight',
+        targetWeight: 72.4,
+        targetBodyFat: 12.4,
+        targetDateRequired: true,
+        targetAggressivenessBand: 'lenient',
+        smartCaloriePlan: {
+          requiredDailyDeltaCalories: -580.2,
+          totalDeltaCalories: -32500.4,
+          daySpan: 56,
+          aggressivenessBand: 'lenient',
+          startDate: '2026-04-01',
+          endDate: '2026-05-27',
+          components: {
+            weightDeltaKcal: -30000.1,
+            bodyFatDeltaKcal: -3500.3,
+          },
+        },
+        status: 'active',
+        createdAt: Date.now(),
+      },
+    },
+    logsById: {},
+    logIdsByPhaseId: {
+      'phase-target': [],
+    },
+    logIdByPhaseDate: {
+      'phase-target': {},
+    },
+  });
+
+  const phase = state.phasesById['phase-target'];
+  assert.equal(phase.creationMode, 'target');
+  assert.equal(phase.targetDateRequired, true);
+  assert.equal(phase.targetAggressivenessBand, 'lenient');
+  assert.equal(phase.targetWeight, 72.4);
+  assert.equal(phase.targetBodyFat, 12.4);
+  assert.equal(phase.smartCaloriePlan.requiredDailyDeltaCalories, -580);
+  assert.equal(phase.smartCaloriePlan.totalDeltaCalories, -32500);
+});

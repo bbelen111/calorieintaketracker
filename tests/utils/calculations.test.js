@@ -5,9 +5,11 @@ import {
   calculateBMR,
   calculateCalorieBreakdown,
   calculateCardioCalories,
+  calculateGoalCalories,
   calculateTrainingSessionCalories,
   getTotalTrainingBurnForDate,
   getTrainingCalories,
+  resolveGoalCalorieDelta,
 } from '../../src/utils/calculations/calculations.js';
 
 const getTodayDateKey = () => {
@@ -469,4 +471,19 @@ test('adaptive thermogenesis smart mode returns correction from snapshot + weigh
   assert.equal(breakdown.adaptiveThermogenesisMode, 'smart');
   assert.ok(Number.isFinite(breakdown.adaptiveThermogenesisCorrection));
   assert.ok(breakdown.adaptiveThermogenesisCorrection < 0);
+});
+
+test('goal calorie mapping remains stable with no override', () => {
+  assert.equal(resolveGoalCalorieDelta('aggressive_bulk'), 500);
+  assert.equal(resolveGoalCalorieDelta('bulking'), 300);
+  assert.equal(resolveGoalCalorieDelta('maintenance'), 0);
+  assert.equal(resolveGoalCalorieDelta('cutting'), -300);
+  assert.equal(resolveGoalCalorieDelta('aggressive_cut'), -500);
+});
+
+test('calculateGoalCalories supports explicit delta override', () => {
+  const tdee = 2500;
+  assert.equal(calculateGoalCalories(tdee, 'maintenance', -420), 2080);
+  assert.equal(calculateGoalCalories(tdee, 'bulking', 275), 2775);
+  assert.equal(calculateGoalCalories(tdee, 'cutting'), 2200);
 });

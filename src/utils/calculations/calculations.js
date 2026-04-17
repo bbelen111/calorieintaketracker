@@ -956,20 +956,33 @@ export const calculateCalorieBreakdown = ({
 export const calculateTDEE = (options) =>
   calculateCalorieBreakdown(options).total;
 
-export const calculateGoalCalories = (tdee, goal) => {
-  switch (goal) {
-    case 'aggressive_bulk':
-      return Math.round(tdee + 500);
-    case 'bulking':
-      return Math.round(tdee + 300);
-    case 'cutting':
-      return Math.round(tdee - 300);
-    case 'aggressive_cut':
-      return Math.round(tdee - 500);
-    case 'maintenance':
-    default:
-      return Math.round(tdee);
+const GOAL_CALORIE_DELTA_BY_KEY = Object.freeze({
+  aggressive_bulk: 500,
+  bulking: 300,
+  maintenance: 0,
+  cutting: -300,
+  aggressive_cut: -500,
+});
+
+export const resolveGoalCalorieDelta = (goal, deltaOverride = null) => {
+  if (deltaOverride != null) {
+    const numericOverride = Number(deltaOverride);
+    if (!Number.isFinite(numericOverride)) {
+      return 0;
+    }
+
+    return Math.round(numericOverride);
   }
+
+  const normalizedGoal = String(goal ?? '').trim();
+  const defaultDelta = GOAL_CALORIE_DELTA_BY_KEY[normalizedGoal];
+  return Number.isFinite(defaultDelta) ? defaultDelta : 0;
+};
+
+export const calculateGoalCalories = (tdee, goal, deltaOverride = null) => {
+  const normalizedTdee = Number.isFinite(Number(tdee)) ? Number(tdee) : 0;
+  const calorieDelta = resolveGoalCalorieDelta(goal, deltaOverride);
+  return Math.round(normalizedTdee + calorieDelta);
 };
 
 /**

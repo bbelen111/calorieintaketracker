@@ -78,6 +78,8 @@ User action → Store action (updateUserData) → deriveState() recalculates (wi
 
 8. **Modal rendering is now intentionally lazy for heavy surfaces.** In `EnergyMapCalculator`, high-cost fullscreen and selected high-traffic modal components are loaded with `React.lazy(...)` and mounted conditionally (`isOpen || isClosing`) inside `Suspense` boundaries. Preserve this pattern for bundle health and animation-safe close behavior.
 
+9. **Phase creation now supports dual modes with lock-aware goal behavior.** `PhaseCreationModal` supports `creationMode: 'goal' | 'target'`. In `target` mode, end date is required and at least one target metric (`targetWeight` or `targetBodyFat`) must be provided. The store derives a smart daily energy delta from `phaseTargetPlanning` and can temporarily lock goal changes while an active phase owns the phase delta (`isGoalLockedByActivePhase`).
+
 ---
 
 ## Zustand Store (`store/useEnergyMapStore.js`)
@@ -513,7 +515,7 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 | Training (for date) | `getTotalTrainingBurnForDate(userData, trainingTypes, dateKey)` | Sums training-session calories for a specific `dateKey` |
 | TDEE breakdown | `calculateCalorieBreakdown({...})` | BMR + activity multiplier + training + cardio + steps + EPOC. Accepts optional `tefContext`, `adaptiveThermogenesisContext`, and `dateKey`. Returns `bmrDetails`, TEF fields when Smart TEF is enabled, AT fields, EPOC fields (`epocCalories`, `trainingEpoc`, `cardioEpoc`, carry-in/from-today details), plus step-overlap diagnostics (`originalEstimatedSteps`, `deductedSteps`, `remainingEstimatedSteps`, overlap session counts/details). |
 | TDEE (simple) | `calculateTDEE(options)` | Convenience wrapper — returns just `calculateCalorieBreakdown(options).total` |
-| Goal target | `calculateGoalCalories(tdee, goal)` | Applies ±300/500 modifier based on goal |
+| Goal target | `calculateGoalCalories(tdee, goal, deltaOverride?)` | Applies ±300/500 modifier by goal, or explicit per-phase override when provided |
 | BMI | `calculateBMI(weight, height)` | Standard BMI: weight(kg) / height(m)² |
 | BMI category | `getBMICategory(bmi)` | Returns `{ label, color }` for underweight/normal/overweight/obese |
 | FFMI | `calculateFFMI(weight, height, bodyFatPercent)` | Fat-Free Mass Index — returns `{ raw, normalized, leanMass }` |
@@ -537,6 +539,12 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 **`adaptiveThermogenesisContext` shape:** `{ mode?: 'off' | 'crude' | 'smart' }`
 
 **Target mode chicken-and-egg:** The store's `calculateTargetForGoal()` runs a 2-pass refinement loop — pass 1 seeds `targetCalories` with pre-TEF TDEE; pass 2 uses goal-adjusted result from pass 1. Two iterations converges sufficiently.
+
+**Phase target planning utilities:** `utils/calculations/phaseTargetPlanning.js` is the canonical source for target-mode estimation and feasible-date evaluation:
+- `estimateRequiredDailyEnergyDelta(...)`
+- `buildFeasibleDateBands(...)`
+- `deriveTargetCreationModePayload(...)`
+Do not duplicate target planning formulas in components.
 
 **Adaptive Thermogenesis mechanic:** `calculateCalorieBreakdown()` computes `baselineTotal` first (BMR + NEAT + steps + training + cardio + Smart TEF), then applies AT as a post-formula correction (`total = baselineTotal + adaptiveThermogenesisCorrection`). Returned AT fields include `baselineTotal`, `adjustedTotal`, `adaptiveThermogenesisMode`, `adaptiveThermogenesisCorrection`, and `adaptiveThermogenesis`.
 
@@ -636,6 +644,8 @@ Migration behavior is now intentionally minimal:
   theme: 'auto',                    // 'auto' | 'dark' | 'light' | 'amoled_dark'
   selectedGoal: 'maintenance',      // Canonical current goal key
   goalChangedAt: 1700000000000,     // Epoch ms when selectedGoal last changed (persisted)
+  phaseGoalCalorieDelta: null,      // Active phase smart delta override (kcal/day), if any
+  phaseGoalCalorieDeltaSourcePhaseId: null, // Active phase id that owns the delta override
   selectedTrainingType, trainingDuration,
   stepRanges: ['<10k', '10k', ...],
   activityMultipliers: { training: 0.35, rest: 0.28 },
@@ -720,9 +730,23 @@ Daily logs store reference keys (`weightRef`, `bodyFatRef`, `nutritionRef`) poin
 {
   id: Date.now(),
   name: 'Bulking Phase',
+  creationMode: 'goal' | 'target',
   startDate: 'YYYY-MM-DD',
-  endDate: 'YYYY-MM-DD',       // null for active phases
+  endDate: 'YYYY-MM-DD',       // required for `target` mode, nullable for `goal` mode
   goalType: 'bulk',
+  targetMetric: 'weight' | 'bodyFat' | 'weight_and_bodyFat' | null,
+  targetBodyFat: 14.5,
+  targetDateRequired: false,
+  targetAggressivenessBand: 'strict' | 'lenient' | 'blocked' | null,
+  smartCaloriePlan: {
+    requiredDailyDeltaCalories,
+    totalDeltaCalories,
+    daySpan,
+    aggressivenessBand,
+    startDate,
+    endDate,
+    components: { weightDeltaKcal, bodyFatDeltaKcal },
+  },
   startingWeight: 74,
   status: 'active',             // 'active' | 'completed'
   dailyLogs: {
@@ -926,6 +950,7 @@ src/
 │   │  ├─ dailySnapshots.js      # Derived daily snapshot builder + equality helpers
 │   │  ├─ epoc.js                # Session EPOC estimate + carryover window resolution
 │   │  ├─ goalAlignment.js       # Weight trend vs goal alignment evaluation
+│   │  ├─ phaseTargetPlanning.js # Target-mode phase planning (delta estimation + feasible date bands)
 │   │  ├─ macroRecommendations.js # Macro target recommendation engine with profile anchoring and constraint-based logic
 │   │  ├─ sessionCarryover.js    # Allocates carryover calories across date boundaries
 │   │  └─ steps.js               # Step range parsing, step calorie estimation, getStepDetails
@@ -1109,3 +1134,6 @@ npm run test:watch     # Node test runner in watch mode
 74. **Bundle-splitting hygiene for dynamic services:** keep `foodCatalog` and `gemini` usage dynamic in heavy UI/orchestrator flows (`FoodSearchModal`, `EnergyMapCalculator`) so static imports do not pull these paths back into the main chunk.
 75. **Lazy modal mount guard is required:** for lazy-loaded modal components, gate render with `isOpen || isClosing`. Rendering only on `isOpen` can cut exit animations and regress close-stack UX.
 76. **AI quality baseline should remain balanced:** treat `aiRagQualityMode='balanced'` as the compatibility baseline unless a coordinated retune of UX/perf trade-offs is intentional.
+77. **Phase creation mode drives validation constraints:** in `target` mode, require end date plus at least one target metric (`targetWeight` or `targetBodyFat`), and reject blocked aggressiveness bands from `phaseTargetPlanning`.
+78. **Goal lock is intentional while active phase delta is applied:** `setSelectedGoal` is guarded when `isGoalLockedByActivePhase` is true, and `HomeScreen` goal CTA reflects locked state.
+79. **Per-phase calorie delta override is layered, not formula replacement:** keep `calculateCalorieBreakdown()`/TDEE core unchanged; apply phase delta via `calculateGoalCalories(..., deltaOverride)` in target resolution paths.

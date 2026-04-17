@@ -94,7 +94,7 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
       className={`w-full text-left p-5 rounded-xl border-2 transition-all md:hover:scale-[1.02] pressable-card focus-ring ${
         isActive
           ? 'bg-gradient-to-br from-surface to-background border-accent-blue shadow-lg'
-          : 'bg-surface border-border md:hover:border-border'
+          : 'bg-surface-highlight/50 border border-border/50 md:hover:border-border'
       }`}
     >
       <div className="flex items-start justify-between gap-3 mb-3">
@@ -266,8 +266,8 @@ export const LogbookScreen = ({
 
       {/* Active Phases */}
       {activePhases.length > 0 && (
-        <div>
-          <h2 className="text-foreground font-bold text-lg mb-3 px-1 flex items-center gap-2">
+        <div className="bg-surface rounded-2xl p-5 border border-border shadow-lg">
+          <h2 className="text-foreground font-bold text-lg mb-3 flex items-center gap-2">
             <Play className="text-accent-blue" size={18} />
             Active Phases
           </h2>
@@ -285,8 +285,8 @@ export const LogbookScreen = ({
 
       {/* Completed Phases */}
       {completedPhases.length > 0 && (
-        <div>
-          <h2 className="text-muted font-bold text-lg mb-3 px-1 flex items-center gap-2">
+        <div className="bg-surface rounded-2xl p-5 border border-border shadow-lg">
+          <h2 className="text-foreground font-bold text-lg mb-3 flex items-center gap-2">
             <Archive size={18} />
             Completed Phases
           </h2>

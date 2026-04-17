@@ -34,6 +34,8 @@ export const HomeScreen = ({
   bmr,
   goals,
   selectedGoal,
+  isGoalLocked,
+  goalLockPhaseName,
   onGoalClick,
   onSettingsClick,
   onBodyFatClick,
@@ -345,9 +347,14 @@ export const HomeScreen = ({
           Your Goal
         </h2>
         <button
-          onClick={onGoalClick}
+          onClick={isGoalLocked ? undefined : onGoalClick}
           type="button"
-          className={`w-full p-4 rounded-xl border-2 transition-all relative ${goalConfig.color} ${goalBorderClass} text-primary-foreground shadow-lg md:hover:scale-[1.02] active:scale-[0.98] focus-ring pressable-card`}
+          disabled={isGoalLocked}
+          className={`w-full p-4 rounded-xl border-2 transition-all relative ${goalConfig.color} ${goalBorderClass} text-primary-foreground shadow-lg ${
+            isGoalLocked
+              ? 'opacity-80 cursor-not-allowed'
+              : 'md:hover:scale-[1.02] active:scale-[0.98]'
+          } focus-ring pressable-card`}
         >
           {(() => {
             const Icon = goalConfig.icon;
@@ -355,7 +362,11 @@ export const HomeScreen = ({
           })()}
           <p className="font-bold text-xl">{goalConfig.label}</p>
           <p className="text-sm opacity-90 mt-1">{goalConfig.desc}</p>
-          <p className="text-xs opacity-75 mt-2">Tap to change</p>
+          <p className="text-xs opacity-75 mt-2">
+            {isGoalLocked
+              ? `Locked by active phase${goalLockPhaseName ? `: ${goalLockPhaseName}` : ''}`
+              : 'Tap to change'}
+          </p>
         </button>
 
         {goalConfig.warning && (

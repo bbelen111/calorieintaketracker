@@ -9,6 +9,7 @@ import {
   getTotalCardioBurnForDate,
   getTotalTrainingBurnForDate,
 } from '../utils/calculations/calculations';
+import { deriveTargetCreationModePayload } from '../utils/calculations/phaseTargetPlanning.js';
 import { getStepRangeSortValue } from '../utils/calculations/steps';
 import {
   getDefaultEnergyMapData,
@@ -388,6 +389,10 @@ const syncNutritionRefsForDate = (phaseLogV2, dateKey, hasNutritionForDate) => {
 const deriveState = (userData) => {
   const phaseLogV2 = getCachedNormalizedPhaseLogV2(userData?.phaseLogV2);
   const phaseView = buildPhaseViewFromV2(phaseLogV2);
+  const activePhase =
+    phaseView.activePhaseId != null
+      ? phaseLogV2.phasesById?.[phaseView.activePhaseId] ?? null
+      : null;
   const trainingTypes = resolveTrainingTypes(userData);
   const cardioTypes = resolveCardioTypes(userData);
   const todayDateKey = getTodayDateKey();
@@ -440,6 +445,10 @@ const deriveState = (userData) => {
     phases: phaseView.phases,
     phaseLogV2,
     activePhaseId: phaseView.activePhaseId,
+    activePhase,
+    isGoalLockedByActivePhase:
+      activePhase?.status === PHASE_STATUS.ACTIVE &&
+      activePhase?.id != null,
     theme: userData.theme ?? 'dark',
   };
 };
@@ -527,6 +536,10 @@ export const useEnergyMapStore = createWithEqualityFn(
     },
 
     setSelectedGoal: (goalKey, changedAt = Date.now()) => {
+      if (get().isGoalLockedByActivePhase) {
+        return;
+      }
+
       updateUserData(set, get, (prev) => {
         if (goalKey === prev.selectedGoal) {
           return prev;
@@ -867,6 +880,20 @@ export const useEnergyMapStore = createWithEqualityFn(
     },
 
     calculateTargetForGoal: (steps, isTrainingDay, goalKey, options = {}) => {
+      const storeState = get();
+      const phaseGoalDelta = Number(storeState.userData?.phaseGoalCalorieDelta);
+      const phaseGoalDeltaSourcePhaseId =
+        storeState.userData?.phaseGoalCalorieDeltaSourcePhaseId;
+      const shouldApplyPhaseDelta =
+        storeState.isGoalLockedByActivePhase &&
+        goalKey === storeState.selectedGoal &&
+        phaseGoalDeltaSourcePhaseId != null &&
+        phaseGoalDeltaSourcePhaseId === storeState.activePhaseId &&
+        Number.isFinite(phaseGoalDelta);
+      const goalDeltaOverride = shouldApplyPhaseDelta
+        ? Math.round(phaseGoalDelta)
+        : null;
+
       const requestedTefContext = options?.tefContext;
       const shouldResolveTargetCalories =
         requestedTefContext?.mode === 'target' &&
@@ -878,7 +905,8 @@ export const useEnergyMapStore = createWithEqualityFn(
         for (let pass = 0; pass < 2; pass += 1) {
           const targetCaloriesForTef = calculateGoalCalories(
             breakdown.total,
-            goalKey
+            goalKey,
+            goalDeltaOverride
           );
 
           breakdown = get().calculateBreakdown(steps, isTrainingDay, {
@@ -891,7 +919,11 @@ export const useEnergyMapStore = createWithEqualityFn(
         }
       }
 
-      const targetCalories = calculateGoalCalories(breakdown.total, goalKey);
+      const targetCalories = calculateGoalCalories(
+        breakdown.total,
+        goalKey,
+        goalDeltaOverride
+      );
       return {
         breakdown,
         targetCalories,
@@ -1142,19 +1174,65 @@ export const useEnergyMapStore = createWithEqualityFn(
     },
 
     createPhase: (phaseData) => {
-      const { weightEntries, userData } = get();
+      const { weightEntries, bodyFatEntries, userData } = get();
       const latestEntry = weightEntries.length
         ? weightEntries[weightEntries.length - 1]
         : null;
       const startingWeight = latestEntry?.weight ?? userData.weight;
+      const latestBodyFatEntry = bodyFatEntries.length
+        ? bodyFatEntries[bodyFatEntries.length - 1]
+        : null;
+      const startingBodyFat = Number(latestBodyFatEntry?.bodyFat);
+      const creationMode = phaseData?.creationMode === 'target' ? 'target' : 'goal';
+      const targetWeight = Number.isFinite(Number(phaseData?.targetWeight))
+        ? Number(phaseData.targetWeight)
+        : null;
+      const targetBodyFat = Number.isFinite(Number(phaseData?.targetBodyFat))
+        ? Number(phaseData.targetBodyFat)
+        : null;
+      const targetPayload =
+        creationMode === 'target'
+          ? deriveTargetCreationModePayload({
+              startDate: phaseData?.startDate,
+              endDate: phaseData?.endDate,
+              startWeightKg: startingWeight,
+              targetWeightKg: targetWeight,
+              startBodyFatPercent: Number.isFinite(startingBodyFat)
+                ? startingBodyFat
+                : null,
+              targetBodyFatPercent: targetBodyFat,
+            })
+          : null;
+
+      if (creationMode === 'target' && !targetPayload) {
+        return null;
+      }
+
+      const targetMetric =
+        targetPayload?.targetMetric ??
+        (targetWeight != null && targetBodyFat != null
+          ? 'weight_and_bodyFat'
+          : targetWeight != null
+            ? 'weight'
+            : targetBodyFat != null
+              ? 'bodyFat'
+              : null);
 
       const newPhase = {
         id: Date.now(),
         name: phaseData.name || 'New Phase',
         startDate: phaseData.startDate,
         endDate: phaseData.endDate || null,
-        goalType: phaseData.goalType || 'maintenance',
-        targetWeight: phaseData.targetWeight || null,
+        goalType:
+          phaseData.goalType || targetPayload?.recommendedGoalType || 'maintenance',
+        creationMode,
+        targetMetric,
+        targetDateRequired: creationMode === 'target',
+        targetAggressivenessBand:
+          targetPayload?.smartCaloriePlan?.aggressivenessBand ?? null,
+        targetWeight,
+        targetBodyFat,
+        smartCaloriePlan: targetPayload?.smartCaloriePlan ?? null,
         startingWeight,
         status: PHASE_STATUS.ACTIVE,
         color: phaseData.color || 'bg-accent-blue',
@@ -1164,9 +1242,20 @@ export const useEnergyMapStore = createWithEqualityFn(
 
       updateUserData(set, get, (prev) => {
         const phaseLogV2 = normalizePhaseLogV2State(prev.phaseLogV2);
+        const nextPhaseGoalDelta = Number(
+          targetPayload?.smartCaloriePlan?.requiredDailyDeltaCalories
+        );
+        const shouldSetPhaseGoalDelta =
+          creationMode === 'target' && Number.isFinite(nextPhaseGoalDelta);
 
         return {
           ...prev,
+          phaseGoalCalorieDelta: shouldSetPhaseGoalDelta
+            ? Math.round(nextPhaseGoalDelta)
+            : null,
+          phaseGoalCalorieDeltaSourcePhaseId: shouldSetPhaseGoalDelta
+            ? newPhase.id
+            : null,
           phaseLogV2: normalizePhaseLogV2State({
             ...phaseLogV2,
             phasesById: {
