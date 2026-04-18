@@ -19,6 +19,19 @@ const MODE_DEFAULT_MAX_TOKENS = Object.freeze({
   [GEMINI_MODES.GROUNDING_LOOKUP]: 800,
 });
 
+const BUILTIN_ALLOWED_ORIGINS = Object.freeze([
+  'capacitor://localhost',
+  'ionic://localhost',
+  'http://localhost',
+  'http://localhost:*',
+  'https://localhost',
+  'https://localhost:*',
+  'http://127.0.0.1',
+  'http://127.0.0.1:*',
+  'https://127.0.0.1',
+  'https://127.0.0.1:*',
+]);
+
 const EXTRACTION_SYSTEM_INSTRUCTION = `You are a nutrition parser for food logging in a calorie tracker.
 
 Your mission:
@@ -212,14 +225,14 @@ const resolveAllowedOrigins = () => {
     String(process.env.ALLOWED_ORIGINS || '').trim() ||
     String(process.env.ALLOWED_ORIGIN || '').trim();
 
-  if (!raw) {
-    return [];
-  }
+  const configuredOrigins = raw
+    ? raw
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean)
+    : [];
 
-  return raw
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+  return [...new Set([...configuredOrigins, ...BUILTIN_ALLOWED_ORIGINS])];
 };
 
 const normalizeOrigin = (value) =>
@@ -271,12 +284,11 @@ const applyCorsHeaders = (req, res) => {
     } else {
       res.setHeader('Access-Control-Allow-Origin', '*');
     }
-  } else {
-    const allowOrigin =
-      requestOrigin && isOriginAllowed(requestOrigin, allowedOrigins)
-        ? requestOrigin
-        : allowedOrigins[0];
-    res.setHeader('Access-Control-Allow-Origin', allowOrigin);
+  } else if (!requestOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', allowedOrigins[0]);
+    res.setHeader('Vary', 'Origin');
+  } else if (isOriginAllowed(requestOrigin, allowedOrigins)) {
+    res.setHeader('Access-Control-Allow-Origin', requestOrigin);
     res.setHeader('Vary', 'Origin');
   }
 

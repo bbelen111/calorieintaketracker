@@ -417,22 +417,15 @@ const buildDefaultResult = () => ({
   errorReasonsBySource: {},
 });
 
-const loadExport = (modulePath, exportName) => async () => {
-  const module = await import(modulePath);
-  return module[exportName];
-};
-
-const loadSearchLocal = loadExport('./foodCatalog.js', 'searchFoods');
-const loadGetFoodsByIds = loadExport('./foodCatalog.js', 'getFoodsByIds');
-const loadSearchUsda = loadExport('./usda.js', 'searchFoods');
-const loadGroundedMacroLookup = loadExport(
-  './gemini.js',
-  'fetchMacrosWithGrounding'
-);
-const loadGroundedMacroLookupBatch = loadExport(
-  './gemini.js',
-  'fetchMacrosWithGroundingBatch'
-);
+const loadSearchLocal = async () =>
+  (await import('./foodCatalog.js')).searchFoods;
+const loadGetFoodsByIds = async () =>
+  (await import('./foodCatalog.js')).getFoodsByIds;
+const loadSearchUsda = async () => (await import('./usda.js')).searchFoods;
+const loadGroundedMacroLookup = async () =>
+  (await import('./gemini.js')).fetchMacrosWithGrounding;
+const loadGroundedMacroLookupBatch = async () =>
+  (await import('./gemini.js')).fetchMacrosWithGroundingBatch;
 
 const resolveAiConfidence = (score) => {
   if (!Number.isFinite(score) || score <= 0) {
