@@ -333,6 +333,12 @@ const targetPayload = deriveTargetCreationModePayload({...});
 const goalProjection = estimateGoalModeProjection({...});
 ```
 
+Important contract notes:
+- Canonical combined metric key is `weight_and_body_fat` (legacy `weight_and_bodyFat` is normalized for compatibility).
+- `estimateGoalModeProjection(...)` exposes `predictedWeightDeltaPercent` (weight-relative % change, **not** body-fat-% change).
+- `buildFeasibleDateBands(...)` is summary-first (`strictCount`, `lenientCount`, `feasibleMinDateKey`, `feasibleMaxDateKey`, day-span ranges). Per-day arrays are opt-in via `includeDateKeys` / `includeEvaluations`.
+- Planning helpers support optional diagnostics sink: pass `diagnostics` object and read `diagnostics.errorCode` (`MISSING_DATE`, `INVALID_DATE_RANGE`, `NO_METRIC_INPUT`, `INVALID_DATE_WINDOW`).
+
 ### Theme System
 
 Always use semantic tokens and accent colors:

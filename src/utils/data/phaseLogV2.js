@@ -49,10 +49,13 @@ const normalizeTrainingSessionIds = (ids) =>
     : [];
 
 const PHASE_CREATION_MODES = new Set(['goal', 'target']);
+const CANONICAL_WEIGHT_AND_BODY_FAT_METRIC = 'weight_and_body_fat';
+const LEGACY_WEIGHT_AND_BODY_FAT_METRIC = 'weight_and_bodyFat';
 const PHASE_TARGET_METRICS = new Set([
   'weight',
   'bodyFat',
-  'weight_and_bodyFat',
+  CANONICAL_WEIGHT_AND_BODY_FAT_METRIC,
+  LEGACY_WEIGHT_AND_BODY_FAT_METRIC,
 ]);
 const PHASE_TARGET_BANDS = new Set(['strict', 'lenient', 'blocked']);
 
@@ -67,7 +70,13 @@ const normalizeTargetMetric = (value, creationMode) => {
   }
 
   const normalized = String(value ?? '').trim();
-  return PHASE_TARGET_METRICS.has(normalized) ? normalized : null;
+  if (!PHASE_TARGET_METRICS.has(normalized)) {
+    return null;
+  }
+
+  return normalized === LEGACY_WEIGHT_AND_BODY_FAT_METRIC
+    ? CANONICAL_WEIGHT_AND_BODY_FAT_METRIC
+    : normalized;
 };
 
 const normalizeTargetBand = (value, creationMode) => {
@@ -195,7 +204,7 @@ const normalizePhaseRecord = (phase) => {
   const normalizedTargetBodyFat = normalizeTargetBodyFat(phase?.targetBodyFat);
   const inferredTargetMetric =
     normalizedTargetWeight != null && normalizedTargetBodyFat != null
-      ? 'weight_and_bodyFat'
+      ? CANONICAL_WEIGHT_AND_BODY_FAT_METRIC
       : normalizedTargetWeight != null
         ? 'weight'
         : normalizedTargetBodyFat != null

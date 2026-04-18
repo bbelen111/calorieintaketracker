@@ -1211,7 +1211,7 @@ export const useEnergyMapStore = createWithEqualityFn(
       const targetMetric =
         targetPayload?.targetMetric ??
         (targetWeight != null && targetBodyFat != null
-          ? 'weight_and_bodyFat'
+          ? 'weight_and_body_fat'
           : targetWeight != null
             ? 'weight'
             : targetBodyFat != null

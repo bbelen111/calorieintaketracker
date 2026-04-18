@@ -122,6 +122,14 @@ export const PhaseCreationModal = ({
         strictDateKeys: [],
         lenientDateKeys: [],
         blockedDateKeys: [],
+        strictDaySpanRanges: [],
+        lenientDaySpanRanges: [],
+        blockedDaySpanRanges: [],
+        strictCount: 0,
+        lenientCount: 0,
+        blockedCount: 0,
+        feasibleMinDateKey: null,
+        feasibleMaxDateKey: null,
         evaluations: [],
       };
     }
@@ -148,16 +156,11 @@ export const PhaseCreationModal = ({
     startDate,
   ]);
 
-  const allowedDateKeys = useMemo(() => {
-    const merged = [
-      ...feasibleBands.strictDateKeys,
-      ...feasibleBands.lenientDateKeys,
-    ];
-    return [...new Set(merged)].sort();
-  }, [feasibleBands.lenientDateKeys, feasibleBands.strictDateKeys]);
-
   const constrainedDateBounds = useMemo(() => {
-    if (allowedDateKeys.length === 0) {
+    if (
+      !feasibleBands.feasibleMinDateKey ||
+      !feasibleBands.feasibleMaxDateKey
+    ) {
       return {
         min: defaultDateWindow.minEndDate,
         max: defaultDateWindow.maxEndDate,
@@ -165,13 +168,14 @@ export const PhaseCreationModal = ({
     }
 
     return {
-      min: allowedDateKeys[0],
-      max: allowedDateKeys[allowedDateKeys.length - 1],
+      min: feasibleBands.feasibleMinDateKey,
+      max: feasibleBands.feasibleMaxDateKey,
     };
   }, [
-    allowedDateKeys,
     defaultDateWindow.maxEndDate,
     defaultDateWindow.minEndDate,
+    feasibleBands.feasibleMaxDateKey,
+    feasibleBands.feasibleMinDateKey,
   ]);
 
   const targetPlan = useMemo(() => {
@@ -199,9 +203,10 @@ export const PhaseCreationModal = ({
     startDate,
   ]);
 
-  const isEndDateFeasible = !endDate || allowedDateKeys.includes(endDate);
-  const strictCount = feasibleBands.strictDateKeys.length;
-  const lenientCount = feasibleBands.lenientDateKeys.length;
+  const isEndDateFeasible =
+    !endDate || !targetPlan || targetPlan.aggressivenessBand !== 'blocked';
+  const strictCount = feasibleBands.strictCount;
+  const lenientCount = feasibleBands.lenientCount;
 
   const currentBandClass =
     targetPlan?.aggressivenessBand === 'strict'
@@ -236,7 +241,7 @@ export const PhaseCreationModal = ({
       const predictedWeightDeltaKgRaw = totalDeltaCalories / KCAL_PER_KG_WEIGHT;
       const predictedWeightDeltaKg =
         Math.round(predictedWeightDeltaKgRaw * 10) / 10;
-      const predictedBodyFatDeltaPercent =
+      const predictedWeightDeltaPercent =
         Number.isFinite(safeCurrentWeight) && safeCurrentWeight > 0
           ? Math.round(
               (predictedWeightDeltaKgRaw / safeCurrentWeight) * 100 * 10
@@ -246,7 +251,7 @@ export const PhaseCreationModal = ({
       return {
         ...window,
         predictedWeightDeltaKg,
-        predictedBodyFatDeltaPercent,
+        predictedWeightDeltaPercent,
       };
     });
   }, [currentWeight, goalType, normalizedMode]);
@@ -471,7 +476,7 @@ export const PhaseCreationModal = ({
           <div className="rounded-lg border border-border bg-surface-highlight p-3">
             <p className="text-foreground text-sm font-semibold mb-1">
               {isBodyFatTrackingEnabled
-                ? 'Predicted weight/body-fat change'
+                ? 'Predicted weight change'
                 : 'Predicted weight change'}
             </p>
             {goalPrediction ? (
@@ -487,14 +492,14 @@ export const PhaseCreationModal = ({
                 </p>
                 {isBodyFatTrackingEnabled &&
                   Number.isFinite(
-                    goalPrediction.predictedBodyFatDeltaPercent
+                    goalPrediction.predictedWeightDeltaPercent
                   ) && (
                     <p className="text-xs mt-1 font-semibold text-foreground">
-                      Body fat:{' '}
-                      {goalPrediction.predictedBodyFatDeltaPercent > 0
+                      Weight %:{' '}
+                      {goalPrediction.predictedWeightDeltaPercent > 0
                         ? '+'
                         : ''}
-                      {goalPrediction.predictedBodyFatDeltaPercent.toFixed(1)}%
+                      {goalPrediction.predictedWeightDeltaPercent.toFixed(1)}%
                     </p>
                   )}
               </>
@@ -513,11 +518,11 @@ export const PhaseCreationModal = ({
                       {window.predictedWeightDeltaKg.toFixed(1)} kg
                     </p>
                     {isBodyFatTrackingEnabled &&
-                      Number.isFinite(window.predictedBodyFatDeltaPercent) && (
+                      Number.isFinite(window.predictedWeightDeltaPercent) && (
                         <p className="text-[11px] mt-0.5 font-semibold leading-tight text-foreground">
-                          BF:{' '}
-                          {window.predictedBodyFatDeltaPercent > 0 ? '+' : ''}
-                          {window.predictedBodyFatDeltaPercent.toFixed(1)}%
+                          Wt%:{' '}
+                          {window.predictedWeightDeltaPercent > 0 ? '+' : ''}
+                          {window.predictedWeightDeltaPercent.toFixed(1)}%
                         </p>
                       )}
                   </div>

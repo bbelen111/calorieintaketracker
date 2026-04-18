@@ -169,3 +169,35 @@ test('v2 phase normalization includes target mode metadata', () => {
   assert.equal(phase.smartCaloriePlan.requiredDailyDeltaCalories, -580);
   assert.equal(phase.smartCaloriePlan.totalDeltaCalories, -32500);
 });
+
+test('v2 phase normalization canonicalizes legacy combined target metric value', () => {
+  const state = normalizePhaseLogV2State({
+    version: 2,
+    phaseOrder: ['legacy-target-metric'],
+    activePhaseId: 'legacy-target-metric',
+    phasesById: {
+      'legacy-target-metric': {
+        id: 'legacy-target-metric',
+        name: 'Legacy Target Metric',
+        startDate: '2026-04-01',
+        goalType: 'cutting',
+        creationMode: 'target',
+        targetMetric: 'weight_and_bodyFat',
+        status: 'active',
+        createdAt: Date.now(),
+      },
+    },
+    logsById: {},
+    logIdsByPhaseId: {
+      'legacy-target-metric': [],
+    },
+    logIdByPhaseDate: {
+      'legacy-target-metric': {},
+    },
+  });
+
+  assert.equal(
+    state.phasesById['legacy-target-metric'].targetMetric,
+    'weight_and_body_fat'
+  );
+});

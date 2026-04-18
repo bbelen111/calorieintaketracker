@@ -80,6 +80,7 @@ User action → Store action (updateUserData) → deriveState() recalculates (wi
 
 9. **Phase creation now supports dual modes with lock-aware goal behavior.** `PhaseCreationModal` supports `creationMode: 'goal' | 'target'`. In `target` mode, end date is required and at least one target metric (`targetWeight` or `targetBodyFat`) must be provided. The store derives a smart daily energy delta from `phaseTargetPlanning` and can temporarily lock goal changes while an active phase owns the phase delta (`isGoalLockedByActivePhase`).
 10. **Goal-mode prediction UX is always visible.** In `PhaseCreationModal` goal mode, keep the bottom prediction card rendered even when insufficient inputs exist; show placeholder guidance until projection inputs are complete.
+11. **Goal-mode percentage projection is weight-relative, not body-fat change.** `estimateGoalModeProjection(...)` returns `predictedWeightDeltaPercent` (bodyweight-relative delta) and keeps deprecated `predictedBodyFatDeltaPercent` as a compatibility alias only.
 
 ---
 
@@ -546,6 +547,13 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 - `buildFeasibleDateBands(...)`
 - `deriveTargetCreationModePayload(...)`
 - `estimateGoalModeProjection(...)` (goal-mode projection card math)
+- `TARGET_METRICS`, `PHASE_TARGET_PLANNING_ERROR` (shared constants for metric discriminants and diagnostics)
+
+Planning behavior notes:
+- Combined metric canonical key is `weight_and_body_fat` (legacy `weight_and_bodyFat` is normalized for compatibility).
+- When both weight and body-fat targets are provided, weight-derived energy delta is the primary plan signal; body-fat delta remains a diagnostic component.
+- `buildFeasibleDateBands(...)` is summary-first: counts/ranges/bounds are returned by default; `strictDateKeys`/`lenientDateKeys`/`blockedDateKeys` and `evaluations` are only materialized when explicitly requested (`includeDateKeys`, `includeEvaluations`).
+- Optional diagnostics sink is supported via mutable `{ errorCode }` object (e.g., `MISSING_DATE`, `INVALID_DATE_RANGE`, `NO_METRIC_INPUT`, `INVALID_DATE_WINDOW`).
 Do not duplicate target planning formulas in components.
 
 **Adaptive Thermogenesis mechanic:** `calculateCalorieBreakdown()` computes `baselineTotal` first (BMR + NEAT + steps + training + cardio + Smart TEF), then applies AT as a post-formula correction (`total = baselineTotal + adaptiveThermogenesisCorrection`). Returned AT fields include `baselineTotal`, `adjustedTotal`, `adaptiveThermogenesisMode`, `adaptiveThermogenesisCorrection`, and `adaptiveThermogenesis`.
@@ -736,7 +744,7 @@ Daily logs store reference keys (`weightRef`, `bodyFatRef`, `nutritionRef`) poin
   startDate: 'YYYY-MM-DD',
   endDate: 'YYYY-MM-DD',       // required for `target` mode, nullable for `goal` mode
   goalType: 'bulk',
-  targetMetric: 'weight' | 'bodyFat' | 'weight_and_bodyFat' | null,
+  targetMetric: 'weight' | 'bodyFat' | 'weight_and_body_fat' | null,
   targetBodyFat: 14.5,
   targetDateRequired: false,
   targetAggressivenessBand: 'strict' | 'lenient' | 'blocked' | null,
@@ -1140,3 +1148,5 @@ npm run test:watch     # Node test runner in watch mode
 78. **Goal lock is intentional while active phase delta is applied:** `setSelectedGoal` is guarded when `isGoalLockedByActivePhase` is true, and `HomeScreen` goal CTA reflects locked state.
 79. **Per-phase calorie delta override is layered, not formula replacement:** keep `calculateCalorieBreakdown()`/TDEE core unchanged; apply phase delta via `calculateGoalCalories(..., deltaOverride)` in target resolution paths.
 80. **Goal prediction card should stay mounted in goal mode:** keep render gating on `creationMode === 'goal'` (not on projection availability) and use a placeholder message when start/end inputs cannot yet produce `estimateGoalModeProjection(...)` output.
+81. **Do not label weight-relative % as body-fat %.** Use `predictedWeightDeltaPercent` wording in UI copy; treat `predictedBodyFatDeltaPercent` as deprecated alias for compatibility only.
+82. **Feasible-date band API is opt-in for heavy arrays.** Prefer summary fields (`strictCount`, `lenientCount`, `feasibleMinDateKey`, `feasibleMaxDateKey`, day-span ranges) and only request date/evaluation arrays when the caller explicitly needs them.
