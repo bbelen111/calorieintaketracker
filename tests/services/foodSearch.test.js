@@ -142,10 +142,7 @@ test('searchFoodsOnline records source errors', async () => {
 
   assert.equal(result.results.length, 0);
   assert.deepEqual(result.sourcesTried, ['usda']);
-  assert.equal(
-    result.errorsBySource[FOOD_SEARCH_SOURCE.USDA],
-    'usda down'
-  );
+  assert.equal(result.errorsBySource[FOOD_SEARCH_SOURCE.USDA], 'usda down');
 });
 
 test('resolveAiFoodLookup keeps strong local match without online fallback', async () => {
@@ -176,6 +173,63 @@ test('resolveAiFoodLookup keeps strong local match without online fallback', asy
   assert.equal(result.confidenceComponents?.trustMultiplier, 1);
   assert.ok(result.weightedMatchScore >= result.matchScore - 0.0001);
   assert.deepEqual(calls, ['local', 'usda']);
+});
+
+test('resolveAiFoodLookup prioritizes branded result when query has explicit brand intent', async () => {
+  const result = await resolveAiFoodLookup({
+    entryName: 'heinz ketchup',
+    lookupTerms: ['heinz tomato ketchup'],
+    isOnline: false,
+    dependencies: {
+      searchLocal: async () => [
+        { id: 'local_generic', name: 'Tomato Ketchup', brand: null },
+        { id: 'local_brand', name: 'Tomato Ketchup', brand: 'Heinz' },
+      ],
+      searchUsda: async () => ({ foods: [] }),
+    },
+  });
+
+  assert.equal(result.status, 'resolved');
+  assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.LOCAL);
+  assert.equal(result.matchedFood?.brand, 'Heinz');
+});
+
+test('resolveAiFoodLookup keeps generic result for non-branded query intent', async () => {
+  const result = await resolveAiFoodLookup({
+    entryName: 'ketchup',
+    lookupTerms: ['tomato ketchup'],
+    isOnline: false,
+    dependencies: {
+      searchLocal: async () => [
+        { id: 'local_generic', name: 'Ketchup', brand: null },
+        { id: 'local_brand', name: 'Tomato Ketchup', brand: 'Heinz' },
+      ],
+      searchUsda: async () => ({ foods: [] }),
+    },
+  });
+
+  assert.equal(result.status, 'resolved');
+  assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.LOCAL);
+  assert.equal(result.matchedFood?.name, 'Ketchup');
+});
+
+test('resolveAiFoodLookup forwards brand preference hint to local search dependency', async () => {
+  const receivedPreferBrandMatches = [];
+
+  await resolveAiFoodLookup({
+    entryName: 'coca cola zero',
+    isOnline: false,
+    dependencies: {
+      searchLocal: async ({ preferBrandMatches }) => {
+        receivedPreferBrandMatches.push(preferBrandMatches);
+        return [{ id: 'local_1', name: 'Coca Cola Zero', brand: 'Coca Cola' }];
+      },
+      searchUsda: async () => ({ foods: [] }),
+    },
+  });
+
+  assert.equal(receivedPreferBrandMatches.length > 0, true);
+  assert.equal(receivedPreferBrandMatches.every(Boolean), true);
 });
 
 test('resolveAiFoodLookup uses online fallback when local match is weak', async () => {
@@ -369,7 +423,10 @@ test('resolveAiGroundedBatch resolves multiple entries from one batched lookup c
 
   assert.equal(batchCalls, 1);
   assert.equal(result['assistant-1-0'].status, 'resolved');
-  assert.equal(result['assistant-1-0'].usedSource, FOOD_SEARCH_SOURCE.AI_WEB_SEARCH);
+  assert.equal(
+    result['assistant-1-0'].usedSource,
+    FOOD_SEARCH_SOURCE.AI_WEB_SEARCH
+  );
   assert.equal(result['assistant-1-0'].matchedFood?.name, 'Kulolo');
   assert.equal(result['assistant-1-1'].status, 'resolved');
   assert.equal(result['assistant-1-1'].matchedFood?.name, 'Ube Halaya');
@@ -496,7 +553,9 @@ test('resolveAiFoodLookup classifies grounded network failures with reason codes
 });
 
 test('resolveAiFoodLookup classifies grounded quota exhaustion separately from transient rate limits', async () => {
-  const quotaError = new Error('RESOURCE_EXHAUSTED: exceeded your current quota');
+  const quotaError = new Error(
+    'RESOURCE_EXHAUSTED: exceeded your current quota'
+  );
   quotaError.status = 429;
   quotaError.details = {
     error: 'RESOURCE_EXHAUSTED: exceeded your current quota',

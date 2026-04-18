@@ -2785,12 +2785,15 @@ export const FoodSearchModal = ({
           }
         }
 
+        let lookupContext = null;
+        let hasLookupContext = false;
+
         if (
           result?.foodParser?.messageType === 'food_entries' &&
           Array.isArray(result?.foodParser?.entries) &&
           result.foodParser.entries.length > 0
         ) {
-          const lookupContext =
+          lookupContext =
             Object.keys(preResolvedLookupContext).length > 0
               ? preResolvedLookupContext
               : await resolveFoodLookupContext({
@@ -2818,12 +2821,7 @@ export const FoodSearchModal = ({
             lookupStatsRecorded = true;
           }
 
-          if (Object.keys(lookupContext).length > 0) {
-            setAiEntryLookupByKey((prev) => ({
-              ...prev,
-              ...lookupContext,
-            }));
-          }
+          hasLookupContext = Object.keys(lookupContext).length > 0;
         }
 
         if (userMessageId) {
@@ -2854,6 +2852,13 @@ export const FoodSearchModal = ({
 
           return [...prev.slice(-CHAT_HISTORY_MESSAGE_LIMIT), assistantMessage];
         });
+
+        if (hasLookupContext) {
+          setAiEntryLookupByKey((prev) => ({
+            ...prev,
+            ...lookupContext,
+          }));
+        }
 
         void recordRagStageLatency({
           stage: 'endToEnd',

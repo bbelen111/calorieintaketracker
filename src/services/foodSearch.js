@@ -45,6 +45,30 @@ const DEDUPE_NAME_ALIAS_MAP = Object.freeze({
   'fried rice': 'rice',
 });
 
+const BRAND_INTENT_KEYWORDS = new Set(['brand', 'branded', 'official']);
+
+const BRAND_INTENT_TOKEN_HINTS = new Set([
+  'coca',
+  'cola',
+  'pepsi',
+  'heinz',
+  'nestle',
+  'oreo',
+  'kellogg',
+  'lays',
+  'doritos',
+  'pringles',
+  'mcdonalds',
+  'kfc',
+  'starbucks',
+  'monster',
+  'redbull',
+  'gatorade',
+  'powerade',
+  'snickers',
+  'hershey',
+]);
+
 const SOURCE_TRUST_MULTIPLIER = Object.freeze({
   [FOOD_SEARCH_SOURCE.LOCAL]: 1,
   [FOOD_SEARCH_SOURCE.USDA]: 0.98,
@@ -267,6 +291,7 @@ const buildAiLookupCacheKey = ({
   localLimit = AI_LOCAL_LIMIT,
   onlinePageSize = AI_ONLINE_PAGE_SIZE,
   sourcePreferenceWeights = null,
+  preferBrandMatches = false,
 } = {}) => {
   const normalizedEntry = normalizeTokenString(entryName);
   const normalizedTerms = dedupeTerms(
@@ -306,10 +331,48 @@ const buildAiLookupCacheKey = ({
     normalizedCategory,
     isOnline ? 'online' : 'offline',
     allowGroundingFallback ? 'grounding:on' : 'grounding:off',
+    preferBrandMatches ? 'brand:on' : 'brand:off',
     `local:${Number(localLimit) || AI_LOCAL_LIMIT}`,
     `online:${Number(onlinePageSize) || AI_ONLINE_PAGE_SIZE}`,
     `weights:${normalizedWeightSignature}`,
   ].join('::');
+};
+
+const detectBrandIntent = ({ entryName = '', lookupTerms = [] } = {}) => {
+  const normalizedEntryName = normalizeTokenString(entryName);
+  const normalizedTerms = (Array.isArray(lookupTerms) ? lookupTerms : [])
+    .map((term) => normalizeTokenString(term))
+    .filter(Boolean);
+  const combinedText = [normalizedEntryName, ...normalizedTerms]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+
+  if (!combinedText) {
+    return false;
+  }
+
+  const combinedTokens = tokenize(combinedText);
+  if (combinedTokens.length === 0) {
+    return false;
+  }
+
+  const hasBrandKeyword =
+    BRAND_INTENT_KEYWORDS.has(combinedTokens[0]) ||
+    combinedTokens.some((token, index) => {
+      if (!BRAND_INTENT_KEYWORDS.has(token)) {
+        return false;
+      }
+
+      const previousToken = combinedTokens[index - 1] || '';
+      return previousToken === 'by' || previousToken === 'from';
+    });
+
+  if (hasBrandKeyword) {
+    return true;
+  }
+
+  return combinedTokens.some((token) => BRAND_INTENT_TOKEN_HINTS.has(token));
 };
 
 export const resetAiLookupSessionCache = () => {
@@ -440,11 +503,13 @@ const resolveAiConfidence = (score) => {
   return 'low';
 };
 
-const buildNameMatchScore = (query, food) => {
+const buildNameMatchScore = (query, food, options = {}) => {
   const normalizedQuery = normalizeTokenString(query);
   if (!normalizedQuery) {
     return 0;
   }
+
+  const preferBrandMatches = options?.preferBrandMatches === true;
 
   const foodName = normalizeTokenString(food?.name);
   const foodBrand = normalizeTokenString(food?.brand);
@@ -492,16 +557,41 @@ const buildNameMatchScore = (query, food) => {
       : 0;
   const startsWithBonus = foodName.startsWith(normalizedQuery) ? 0.08 : 0;
 
-  const score = fBeta * 0.75 + jaccard * 0.15 + containsBonus + startsWithBonus;
+  let brandBonus = 0;
+  if (preferBrandMatches) {
+    const brandTokens = tokenize(foodBrand);
+    const brandTokenSet = new Set(brandTokens);
+    const matchingBrandTokens = queryTokens.filter((token) =>
+      brandTokenSet.has(token)
+    );
+
+    if (matchingBrandTokens.length > 0) {
+      const overlapRatio = matchingBrandTokens.length / queryTokens.length;
+      brandBonus = 0.08 + overlapRatio * 0.16;
+
+      if (foodBrand && normalizedQuery.includes(foodBrand)) {
+        brandBonus += 0.06;
+      }
+    } else if (!foodBrand) {
+      brandBonus = -0.03;
+    }
+  }
+
+  const score =
+    fBeta * 0.75 +
+    jaccard * 0.15 +
+    containsBonus +
+    startsWithBonus +
+    brandBonus;
 
   return Math.max(0, Math.min(1, score));
 };
 
-const pickBestMatch = (query, results = []) => {
+const pickBestMatch = (query, results = [], options = {}) => {
   let best = null;
 
   results.forEach((food) => {
-    const score = buildNameMatchScore(query, food);
+    const score = buildNameMatchScore(query, food, options);
     if (!best || score > best.score) {
       best = { food, score };
     }
@@ -601,6 +691,7 @@ export const searchFoodsLocal = async ({
   subcategory = null,
   sortBy = 'name',
   sortOrder = 'asc',
+  preferBrandMatches = false,
   limit = 500,
   offset = 0,
   pinnedFoodIds = [],
@@ -629,6 +720,7 @@ export const searchFoodsLocal = async ({
     subcategory,
     sortBy,
     sortOrder,
+    preferBrandMatches,
     limit: normalizedLimit,
     offset: normalizedOffset,
   });
@@ -729,6 +821,10 @@ export const resolveAiFoodLookup = async ({
     typeof allowGroundingFallback === 'boolean'
       ? allowGroundingFallback
       : qualityPreset.enableGroundingFallback;
+  const preferBrandMatches = detectBrandIntent({
+    entryName,
+    lookupTerms,
+  });
 
   const cacheKey = buildAiLookupCacheKey({
     entryName,
@@ -740,6 +836,7 @@ export const resolveAiFoodLookup = async ({
     localLimit: resolvedLocalLimit,
     onlinePageSize: resolvedOnlinePageSize,
     sourcePreferenceWeights,
+    preferBrandMatches,
   });
 
   const cachedResult = getAiLookupSessionCacheValue(cacheKey);
@@ -845,9 +942,12 @@ export const resolveAiFoodLookup = async ({
         .searchLocal({
           query: term,
           limit: resolvedLocalLimit,
+          preferBrandMatches,
         })
         .then((localResult) => {
-          const localMatch = pickBestMatch(term, localResult);
+          const localMatch = pickBestMatch(term, localResult, {
+            preferBrandMatches,
+          });
           if (
             localMatch?.score >= AI_SCORE_THRESHOLD.medium &&
             usdaAbortController
@@ -888,7 +988,9 @@ export const resolveAiFoodLookup = async ({
             const usdaFoods = Array.isArray(usdaResult?.foods)
               ? usdaResult.foods
               : [];
-            const usdaMatch = pickBestMatch(term, usdaFoods);
+            const usdaMatch = pickBestMatch(term, usdaFoods, {
+              preferBrandMatches,
+            });
 
             return {
               source: FOOD_SEARCH_SOURCE.USDA,

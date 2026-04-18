@@ -31,6 +31,7 @@ const parsePortions = (rawPortions) => {
 const mapFoodRow = (row) => ({
   id: String(row.id ?? ''),
   name: String(row.name ?? ''),
+  brand: row.brand ? String(row.brand) : null,
   category: row.category ? String(row.category) : 'uncategorized',
   subcategory: row.subcategory ? String(row.subcategory) : null,
   per100g: {
@@ -101,6 +102,7 @@ export const searchFoods = async ({
   subcategory = null,
   sortBy = 'name',
   sortOrder = 'asc',
+  preferBrandMatches = false,
   limit = DEFAULT_LIMIT,
   offset = 0,
 } = {}) => {
@@ -127,7 +129,7 @@ export const searchFoods = async ({
 
   if (normalizedQuery) {
     clauses.push(
-      '(LOWER(name) LIKE :query OR LOWER(category) LIKE :query OR LOWER(subcategory) LIKE :query)'
+      "(LOWER(name) LIKE :query OR LOWER(COALESCE(brand, '')) LIKE :query OR LOWER(category) LIKE :query OR LOWER(subcategory) LIKE :query)"
     );
     params[':query'] = `%${escapedQuery}%`;
   }
@@ -153,12 +155,20 @@ export const searchFoods = async ({
     params[':queryContains'] = `%${escapedQuery}%`;
   }
 
+  const brandRelevanceCase = preferBrandMatches
+    ? `
+          WHEN LOWER(COALESCE(brand, '')) = :queryExact THEN 820
+          WHEN LOWER(COALESCE(brand, '')) LIKE :queryPrefix ESCAPE '\\' THEN 610
+          WHEN LOWER(COALESCE(brand, '')) LIKE :queryContains ESCAPE '\\' THEN 300`
+    : '';
+
   const relevanceSelect = useRelevanceSort
     ? `,
       (
         CASE
           WHEN LOWER(name) = :queryExact THEN 1000
           WHEN LOWER(name) LIKE :queryPrefix ESCAPE '\\' THEN 700
+          ${brandRelevanceCase}
           WHEN (' ' || LOWER(name) || ' ') LIKE :queryWholeWord ESCAPE '\\' THEN 450
           WHEN LOWER(name) LIKE :queryContains ESCAPE '\\' THEN 250
           WHEN LOWER(subcategory) = :queryExact THEN 60
@@ -179,7 +189,7 @@ export const searchFoods = async ({
   const rows = runSelect(
     db,
     `
-      SELECT id, name, category, subcategory, calories, protein, carbs, fats, portions${relevanceSelect}
+      SELECT id, name, brand, category, subcategory, calories, protein, carbs, fats, portions${relevanceSelect}
       FROM foods
       WHERE ${clauses.join(' AND ')}
       ORDER BY ${orderByClause}
@@ -202,7 +212,7 @@ export const getFoodById = async (id) => {
   const rows = runSelect(
     db,
     `
-      SELECT id, name, category, subcategory, calories, protein, carbs, fats, portions
+      SELECT id, name, brand, category, subcategory, calories, protein, carbs, fats, portions
       FROM foods
       WHERE id = :id
       LIMIT 1
@@ -240,7 +250,7 @@ export const getFoodsByIds = async (ids = []) => {
   const rows = runSelect(
     db,
     `
-      SELECT id, name, category, subcategory, calories, protein, carbs, fats, portions
+      SELECT id, name, brand, category, subcategory, calories, protein, carbs, fats, portions
       FROM foods
       WHERE id IN (${placeholders.join(', ')})
     `,
