@@ -9,17 +9,17 @@ import {
   normalizeAiRagQualityMode,
 } from './aiRagQuality.js';
 
-export const FOOD_SEARCH_SOURCE = {
+export const FOOD_SEARCH_SOURCE = Object.freeze({
   LOCAL: 'local',
   USDA: 'usda',
   AI_WEB_SEARCH: 'ai_web_search',
-};
+});
 
-export const FOOD_SEARCH_SOURCE_LABELS = {
+export const FOOD_SEARCH_SOURCE_LABELS = Object.freeze({
   [FOOD_SEARCH_SOURCE.LOCAL]: 'Local',
   [FOOD_SEARCH_SOURCE.USDA]: 'USDA',
   [FOOD_SEARCH_SOURCE.AI_WEB_SEARCH]: 'Web',
-};
+});
 
 export const getFoodSearchSourceLabel = (source) => {
   return FOOD_SEARCH_SOURCE_LABELS[source] || 'Unknown';
@@ -66,6 +66,33 @@ const SOURCE_ERROR_REASON = Object.freeze({
 });
 
 let aiLookupSessionCache = new Map();
+const AI_LOOKUP_SESSION_CACHE_MAX_ENTRIES = 200;
+
+const getAiLookupSessionCacheValue = (key) => {
+  if (!aiLookupSessionCache.has(key)) {
+    return null;
+  }
+
+  const value = aiLookupSessionCache.get(key);
+  aiLookupSessionCache.delete(key);
+  aiLookupSessionCache.set(key, value);
+  return value;
+};
+
+const setAiLookupSessionCacheValue = (key, value) => {
+  if (aiLookupSessionCache.has(key)) {
+    aiLookupSessionCache.delete(key);
+  }
+
+  aiLookupSessionCache.set(key, value);
+
+  if (aiLookupSessionCache.size > AI_LOOKUP_SESSION_CACHE_MAX_ENTRIES) {
+    const oldestKey = aiLookupSessionCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      aiLookupSessionCache.delete(oldestKey);
+    }
+  }
+};
 
 const normalizeQuery = (query) => String(query ?? '').trim();
 
@@ -176,7 +203,9 @@ export const dedupeExtractedFoodEntries = (entries = []) => {
       ...existing,
       lookupTerms: mergedLookupTerms,
       assumptions: mergedAssumptions,
-      rationale: existing.rationale || entry.rationale || null,
+      rationale:
+        [existing.rationale, entry.rationale].filter(Boolean).join(' | ') ||
+        null,
       category: existing.category || entry.category,
     };
 
@@ -186,7 +215,13 @@ export const dedupeExtractedFoodEntries = (entries = []) => {
   return Array.from(byCanonicalKey.values());
 };
 
-const cloneLookupResult = (result) => JSON.parse(JSON.stringify(result));
+const cloneLookupResult = (result) => {
+  if (typeof globalThis.structuredClone === 'function') {
+    return globalThis.structuredClone(result);
+  }
+
+  return JSON.parse(JSON.stringify(result));
+};
 
 const resolveSourceTrustMultiplier = (source) => {
   return SOURCE_TRUST_MULTIPLIER[source] || SOURCE_TRUST_MULTIPLIER.estimate;
@@ -240,23 +275,41 @@ const buildAiLookupCacheKey = ({
     )
   );
 
-  return JSON.stringify({
-    entry: normalizedEntry,
-    terms: normalizedTerms,
-    category:
-      String(entryCategory || '')
-        .trim()
-        .toLowerCase() || null,
-    qualityMode: normalizeAiRagQualityMode(qualityMode),
-    isOnline: Boolean(isOnline),
-    allowGroundingFallback: Boolean(allowGroundingFallback),
-    localLimit: Number(localLimit) || AI_LOCAL_LIMIT,
-    onlinePageSize: Number(onlinePageSize) || AI_ONLINE_PAGE_SIZE,
-    sourcePreferenceWeights:
-      sourcePreferenceWeights && typeof sourcePreferenceWeights === 'object'
-        ? sourcePreferenceWeights
-        : null,
-  });
+  const normalizedCategory =
+    String(entryCategory || '')
+      .trim()
+      .toLowerCase() || 'uncategorized';
+
+  const normalizedWeightSignature =
+    sourcePreferenceWeights && typeof sourcePreferenceWeights === 'object'
+      ? [
+          FOOD_SEARCH_SOURCE.LOCAL,
+          FOOD_SEARCH_SOURCE.USDA,
+          FOOD_SEARCH_SOURCE.AI_WEB_SEARCH,
+          'estimate',
+        ]
+          .map((key) => {
+            const raw = sourcePreferenceWeights[key];
+            const rounded = Number.isFinite(Number(raw))
+              ? Number(Number(raw).toFixed(3))
+              : 1;
+            return `${key}:${rounded}`;
+          })
+          .join('|')
+      : 'default';
+
+  return [
+    'v2',
+    normalizeAiRagQualityMode(qualityMode),
+    normalizedEntry,
+    normalizedTerms.join(','),
+    normalizedCategory,
+    isOnline ? 'online' : 'offline',
+    allowGroundingFallback ? 'grounding:on' : 'grounding:off',
+    `local:${Number(localLimit) || AI_LOCAL_LIMIT}`,
+    `online:${Number(onlinePageSize) || AI_ONLINE_PAGE_SIZE}`,
+    `weights:${normalizedWeightSignature}`,
+  ].join('::');
 };
 
 export const resetAiLookupSessionCache = () => {
@@ -364,30 +417,22 @@ const buildDefaultResult = () => ({
   errorReasonsBySource: {},
 });
 
-const loadSearchLocal = async () => {
-  const module = await import('./foodCatalog.js');
-  return module.searchFoods;
+const loadExport = (modulePath, exportName) => async () => {
+  const module = await import(modulePath);
+  return module[exportName];
 };
 
-const loadGetFoodsByIds = async () => {
-  const module = await import('./foodCatalog.js');
-  return module.getFoodsByIds;
-};
-
-const loadSearchUsda = async () => {
-  const module = await import('./usda.js');
-  return module.searchFoods;
-};
-
-const loadGroundedMacroLookup = async () => {
-  const module = await import('./gemini.js');
-  return module.fetchMacrosWithGrounding;
-};
-
-const loadGroundedMacroLookupBatch = async () => {
-  const module = await import('./gemini.js');
-  return module.fetchMacrosWithGroundingBatch;
-};
+const loadSearchLocal = loadExport('./foodCatalog.js', 'searchFoods');
+const loadGetFoodsByIds = loadExport('./foodCatalog.js', 'getFoodsByIds');
+const loadSearchUsda = loadExport('./usda.js', 'searchFoods');
+const loadGroundedMacroLookup = loadExport(
+  './gemini.js',
+  'fetchMacrosWithGrounding'
+);
+const loadGroundedMacroLookupBatch = loadExport(
+  './gemini.js',
+  'fetchMacrosWithGroundingBatch'
+);
 
 const resolveAiConfidence = (score) => {
   if (!Number.isFinite(score) || score <= 0) {
@@ -440,18 +485,21 @@ const buildNameMatchScore = (query, food) => {
   const recall = overlapCount / querySet.size;
   const precision = overlapCount / foodSet.size;
   const jaccard = overlapCount / (querySet.size + foodSet.size - overlapCount);
-  const containsBonus =
-    foodCombined.includes(normalizedQuery) || normalizedQuery.includes(foodName)
-      ? 0.16
+  const beta = 1.35;
+  const betaSq = beta * beta;
+  const fBetaDenominator = betaSq * precision + recall;
+  const fBeta =
+    fBetaDenominator > 0
+      ? ((1 + betaSq) * precision * recall) / fBetaDenominator
+      : 0;
+  const containsBonus = foodCombined.includes(normalizedQuery)
+    ? 0.16
+    : foodName.length > 5 && normalizedQuery.includes(foodName)
+      ? 0.08
       : 0;
   const startsWithBonus = foodName.startsWith(normalizedQuery) ? 0.08 : 0;
 
-  const score =
-    recall * 0.55 +
-    precision * 0.2 +
-    jaccard * 0.15 +
-    containsBonus +
-    startsWithBonus;
+  const score = fBeta * 0.75 + jaccard * 0.15 + containsBonus + startsWithBonus;
 
   return Math.max(0, Math.min(1, score));
 };
@@ -701,7 +749,7 @@ export const resolveAiFoodLookup = async ({
     sourcePreferenceWeights,
   });
 
-  const cachedResult = aiLookupSessionCache.get(cacheKey);
+  const cachedResult = getAiLookupSessionCacheValue(cacheKey);
   if (cachedResult) {
     return cloneLookupResult(cachedResult);
   }
@@ -729,7 +777,7 @@ export const resolveAiFoodLookup = async ({
       },
     };
 
-    aiLookupSessionCache.set(cacheKey, noQueryResult);
+    setAiLookupSessionCacheValue(cacheKey, noQueryResult);
     return cloneLookupResult(noQueryResult);
   }
 
@@ -786,13 +834,13 @@ export const resolveAiFoodLookup = async ({
     }
   };
 
-  for (const term of terms) {
+  const evaluateTerm = async (term) => {
     const shouldQueryUsda =
       isOnline && (!bestMatch || bestMatch.score < AI_SCORE_THRESHOLD.medium);
     const termPromises = [];
     const usdaAbortController =
-      shouldQueryUsda && typeof AbortController !== 'undefined'
-        ? new AbortController()
+      shouldQueryUsda && typeof globalThis.AbortController !== 'undefined'
+        ? new globalThis.AbortController()
         : null;
 
     if (!sourcesTried.includes(FOOD_SEARCH_SOURCE.LOCAL)) {
@@ -877,14 +925,39 @@ export const resolveAiFoodLookup = async ({
       );
     }
 
-    const termResults = await Promise.all(termPromises);
-    termResults.forEach((item) => {
+    return Promise.all(termPromises);
+  };
+
+  const earlyParallelTerms = terms.slice(0, 2);
+  const remainingTerms = terms.slice(2);
+
+  if (earlyParallelTerms.length > 0) {
+    const earlySettled = await Promise.all(
+      earlyParallelTerms.map((term) => evaluateTerm(term))
+    );
+
+    earlySettled.flat().forEach((item) => {
       if (!item) return;
       maybeKeepBest(item);
     });
 
     if (bestMatch?.score >= AI_SCORE_THRESHOLD.high) {
-      break;
+      shouldForceGroundingFallback = false;
+    }
+  }
+
+  if (!bestMatch || bestMatch.score < AI_SCORE_THRESHOLD.high) {
+    for (const term of remainingTerms) {
+      const termResults = await evaluateTerm(term);
+      termResults.forEach((item) => {
+        if (!item) return;
+        maybeKeepBest(item);
+      });
+
+      if (bestMatch?.score >= AI_SCORE_THRESHOLD.high) {
+        shouldForceGroundingFallback = false;
+        break;
+      }
     }
   }
 
@@ -906,20 +979,29 @@ export const resolveAiFoodLookup = async ({
     const groundedQuery = terms[0] || primaryTerm;
 
     try {
-      const groundedEstimate =
-        await resolvedDependencies.searchGrounded(
-          groundedQuery,
-          undefined,
-          qualityPreset.groundedLookupTimeoutMs
-        );
+      const groundedEstimate = await resolvedDependencies.searchGrounded(
+        groundedQuery,
+        undefined,
+        qualityPreset.groundedLookupTimeoutMs
+      );
 
       const groundedPer100g = groundedEstimate?.per100g;
       const hasGroundedMacros =
         groundedPer100g && typeof groundedPer100g === 'object';
 
       if (hasGroundedMacros) {
+        const groundedScoreMap = {
+          high: 0.78,
+          medium: 0.64,
+          low: AI_SCORE_THRESHOLD.low,
+        };
+        const groundedScoreKey = String(
+          groundedEstimate?.confidence || ''
+        ).toLowerCase();
+        const groundedScore =
+          groundedScoreMap[groundedScoreKey] || AI_SCORE_THRESHOLD.low;
         const weightedConfidence = resolveWeightedConfidence({
-          score: AI_SCORE_THRESHOLD.low,
+          score: groundedScore,
           source: FOOD_SEARCH_SOURCE.AI_WEB_SEARCH,
           sourcePreferenceWeights: effectiveSourcePreferenceWeights,
         });
@@ -946,7 +1028,7 @@ export const resolveAiFoodLookup = async ({
           errorReasonsBySource,
           matchConfidence:
             groundedEstimate?.confidence || weightedConfidence.confidence,
-          matchScore: AI_SCORE_THRESHOLD.low,
+          matchScore: groundedScore,
           weightedMatchScore: weightedConfidence.weightedScore,
           confidenceComponents: {
             rawScore: weightedConfidence.rawScore,
@@ -955,7 +1037,7 @@ export const resolveAiFoodLookup = async ({
           },
         };
 
-        aiLookupSessionCache.set(cacheKey, groundedResult);
+        setAiLookupSessionCacheValue(cacheKey, groundedResult);
         return cloneLookupResult(groundedResult);
       }
     } catch (error) {
@@ -996,7 +1078,7 @@ export const resolveAiFoodLookup = async ({
       sourcePreferenceWeights: effectiveSourcePreferenceWeights,
     };
 
-    aiLookupSessionCache.set(cacheKey, deferredGroundingResult);
+    setAiLookupSessionCacheValue(cacheKey, deferredGroundingResult);
     return cloneLookupResult(deferredGroundingResult);
   }
 
@@ -1026,7 +1108,7 @@ export const resolveAiFoodLookup = async ({
       },
     };
 
-    aiLookupSessionCache.set(cacheKey, noMatchResult);
+    setAiLookupSessionCacheValue(cacheKey, noMatchResult);
     return cloneLookupResult(noMatchResult);
   }
 
@@ -1069,7 +1151,7 @@ export const resolveAiFoodLookup = async ({
     },
   };
 
-  aiLookupSessionCache.set(cacheKey, resolvedResult);
+  setAiLookupSessionCacheValue(cacheKey, resolvedResult);
   return cloneLookupResult(resolvedResult);
 };
 
@@ -1422,6 +1504,12 @@ export const searchFoodsHierarchically = async ({
   dependencies = {},
 } = {}) => {
   // Legacy wrapper kept for compatibility while call sites migrate.
+  if (typeof console !== 'undefined' && typeof console.warn === 'function') {
+    console.warn(
+      '[deprecated] searchFoodsHierarchically is a legacy wrapper. Prefer searchFoodsLocal/searchFoodsOnline directly.'
+    );
+  }
+
   if (mode === 'online') {
     return searchFoodsOnline({
       query,

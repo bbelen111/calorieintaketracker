@@ -9,6 +9,43 @@ import {
   normalizeAiRagQualityMode,
 } from './aiRagQuality.js';
 
+const SOURCE_TRUST_MULTIPLIER = Object.freeze({
+  [FOOD_SEARCH_SOURCE.LOCAL]: 1,
+  [FOOD_SEARCH_SOURCE.USDA]: 0.98,
+  [FOOD_SEARCH_SOURCE.AI_WEB_SEARCH]: 0.75,
+  estimate: 0.55,
+});
+
+const resolveSourceTrustMultiplier = (source) => {
+  return SOURCE_TRUST_MULTIPLIER[source] || SOURCE_TRUST_MULTIPLIER.estimate;
+};
+
+const LOOKUP_CONCURRENCY_LIMIT = 10;
+
+const mapWithConcurrencyLimit = async (items, limit, mapper) => {
+  const safeItems = Array.isArray(items) ? items : [];
+  const normalizedLimit = Math.max(1, Math.floor(Number(limit) || 1));
+  const results = new Array(safeItems.length);
+  let cursor = 0;
+
+  const workers = Array.from(
+    { length: Math.min(normalizedLimit, safeItems.length) },
+    async () => {
+      while (cursor < safeItems.length) {
+        const currentIndex = cursor;
+        cursor += 1;
+        results[currentIndex] = await mapper(
+          safeItems[currentIndex],
+          currentIndex
+        );
+      }
+    }
+  );
+
+  await Promise.all(workers);
+  return results;
+};
+
 const LOOKUP_ERROR_REASON_MESSAGES = Object.freeze({
   local_search_failed: "We couldn't find a match in the local food database.",
   usda_search_failed: 'Online nutrition database lookup failed.',
@@ -41,6 +78,12 @@ const LOOKUP_ERROR_RECOVERY_HINTS = Object.freeze({
   grounding_unknown_error: 'Retry once. If it keeps failing, enter manually.',
 });
 
+const DEFAULT_ERROR_REASON_BY_SOURCE = Object.freeze({
+  [FOOD_SEARCH_SOURCE.LOCAL]: 'local_search_failed',
+  [FOOD_SEARCH_SOURCE.USDA]: 'usda_search_failed',
+  [FOOD_SEARCH_SOURCE.AI_WEB_SEARCH]: 'grounding_unknown_error',
+});
+
 export const getLookupErrorReasonMessage = (reasonCode) => {
   const normalizedReason = String(reasonCode || '').trim();
   if (!normalizedReason) {
@@ -69,9 +112,11 @@ export const getLookupErrorRecoveryHint = (reasonCode) => {
 };
 
 export const normalizeAiLookupResult = (result, { entryName = '' } = {}) => {
+  const normalizedSource = result?.usedSource || FOOD_SEARCH_SOURCE.LOCAL;
+
   return {
     status: result?.status || 'no_match',
-    usedSource: result?.usedSource || FOOD_SEARCH_SOURCE.LOCAL,
+    usedSource: normalizedSource,
     sourcesTried: Array.isArray(result?.sourcesTried)
       ? result.sourcesTried
       : [],
@@ -88,7 +133,8 @@ export const normalizeAiLookupResult = (result, { entryName = '' } = {}) => {
         ? {
             rawScore: Number(result.confidenceComponents.rawScore) || 0,
             trustMultiplier:
-              Number(result.confidenceComponents.trustMultiplier) || 0,
+              Number(result.confidenceComponents.trustMultiplier) ||
+              resolveSourceTrustMultiplier(normalizedSource),
             weightedScore:
               Number(result.confidenceComponents.weightedScore) || 0,
           }
@@ -96,7 +142,7 @@ export const normalizeAiLookupResult = (result, { entryName = '' } = {}) => {
             rawScore: Number.isFinite(result?.matchScore)
               ? result.matchScore
               : 0,
-            trustMultiplier: 0,
+            trustMultiplier: resolveSourceTrustMultiplier(normalizedSource),
             weightedScore: Number.isFinite(result?.weightedMatchScore)
               ? result.weightedMatchScore
               : 0,
@@ -130,29 +176,38 @@ export const normalizeAiLookupResult = (result, { entryName = '' } = {}) => {
   };
 };
 
-const buildLookupErrorMeta = (error, entryName = '') => ({
-  status: 'error',
-  usedSource: FOOD_SEARCH_SOURCE.LOCAL,
-  sourcesTried: [FOOD_SEARCH_SOURCE.LOCAL],
-  fallbackUsed: false,
-  queryUsed: String(entryName || '').trim() || null,
-  matchConfidence: 'low',
-  matchScore: 0,
-  weightedMatchScore: 0,
-  confidenceComponents: {
-    rawScore: 0,
-    trustMultiplier: 0,
-    weightedScore: 0,
-  },
-  matchedFood: null,
-  errorsBySource: {
-    [FOOD_SEARCH_SOURCE.LOCAL]: error?.message || 'AI lookup failed.',
-  },
-  errorReasonsBySource: {
-    [FOOD_SEARCH_SOURCE.LOCAL]: 'local_search_failed',
-  },
-  entryName: String(entryName || '').trim() || null,
-});
+const buildLookupErrorMeta = (
+  error,
+  entryName = '',
+  failedSource = FOOD_SEARCH_SOURCE.LOCAL
+) => {
+  const reasonCode =
+    DEFAULT_ERROR_REASON_BY_SOURCE[failedSource] || 'local_search_failed';
+
+  return {
+    status: 'error',
+    usedSource: failedSource,
+    sourcesTried: [failedSource],
+    fallbackUsed: false,
+    queryUsed: String(entryName || '').trim() || null,
+    matchConfidence: 'low',
+    matchScore: 0,
+    weightedMatchScore: 0,
+    confidenceComponents: {
+      rawScore: 0,
+      trustMultiplier: resolveSourceTrustMultiplier(failedSource),
+      weightedScore: 0,
+    },
+    matchedFood: null,
+    errorsBySource: {
+      [failedSource]: error?.message || 'AI lookup failed.',
+    },
+    errorReasonsBySource: {
+      [failedSource]: reasonCode,
+    },
+    entryName: String(entryName || '').trim() || null,
+  };
+};
 
 const resolveEntryLookupTerms = (entry) => {
   if (Array.isArray(entry?.lookupTerms)) {
@@ -194,13 +249,18 @@ export const resolveFoodLookupContext = async ({
       ? normalizedLookupOptions.enableDeferredGrounding
       : qualityPreset.enableDeferredGrounding;
 
-  const pairs = await Promise.all(
-    entries.map(async (entry, index) => {
-      const entryKey = `${normalizedMessageId}-${index}`;
+  const pairs = await mapWithConcurrencyLimit(
+    entries,
+    LOOKUP_CONCURRENCY_LIMIT,
+    async (entry, index) => {
+      const entryKey = `${encodeURIComponent(normalizedMessageId)}::${index}`;
       const entryName = String(entry?.name || '').trim();
 
       if (!entryName) {
-        return [entryKey, buildLookupErrorMeta(null, entryName)];
+        return [
+          entryKey,
+          buildLookupErrorMeta(null, entryName, FOOD_SEARCH_SOURCE.LOCAL),
+        ];
       }
 
       try {
@@ -213,14 +273,20 @@ export const resolveFoodLookupContext = async ({
           allowGroundingFallback: shouldAllowGroundingFallback,
           localLimit: normalizedLookupOptions.localLimit,
           onlinePageSize: normalizedLookupOptions.onlinePageSize,
-          sourcePreferenceWeights: normalizedLookupOptions.sourcePreferenceWeights,
+          sourcePreferenceWeights:
+            normalizedLookupOptions.sourcePreferenceWeights,
         });
 
         return [entryKey, normalizeAiLookupResult(result, { entryName })];
       } catch (error) {
-        return [entryKey, buildLookupErrorMeta(error, entryName)];
+        const failedSource =
+          error?.failedSource &&
+          Object.values(FOOD_SEARCH_SOURCE).includes(error.failedSource)
+            ? error.failedSource
+            : FOOD_SEARCH_SOURCE.LOCAL;
+        return [entryKey, buildLookupErrorMeta(error, entryName, failedSource)];
       }
-    })
+    }
   );
   const contextByKey = Object.fromEntries(pairs);
 

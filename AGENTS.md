@@ -841,6 +841,24 @@ Gemini food parsing is proxied through `api/gemini.js` (server-side key handling
 - `sendGeminiMessage(...)` includes bounded transient retry for upstream `502|503|504` and queued exponential backoff for `429`
 - Feature flag: `AI_CHAT_RAG_ENABLED` from `VITE_AI_CHAT_RAG_ENABLED`
 
+**Serverless security/env configuration (`api/gemini.js`):**
+- CORS allowlist is driven by `ALLOWED_ORIGINS` (or singular fallback `ALLOWED_ORIGIN`).
+- Payload guards are enforced server-side (`contents` count + serialized payload size cap).
+- Optional stateless per-IP throttling uses Upstash REST:
+  - `UPSTASH_REDIS_REST_URL`
+  - `UPSTASH_REDIS_REST_TOKEN`
+  - `GEMINI_RATE_LIMIT_MAX_REQUESTS` (default `60`)
+  - `GEMINI_RATE_LIMIT_WINDOW_SECONDS` (default `60`)
+  - `GEMINI_RATE_LIMIT_FAIL_CLOSED` (`true`/`false`, default fail-open)
+- Optional per-mode output token overrides:
+  - `GEMINI_MAX_TOKENS_EXTRACTION`
+  - `GEMINI_MAX_TOKENS_PRESENTATION`
+  - `GEMINI_MAX_TOKENS_GROUNDING`
+- Model/env controls remain:
+  - `GEMINI_API_KEY` (required)
+  - `GEMINI_MODEL` (default extraction/presentation model)
+  - `GEMINI_GROUNDING_MODEL` (grounding mode default override)
+
 **AI RAG quality presets (`src/services/aiRagQuality.js`):**
 - `fast` — lower latency, narrower lookup breadth, deferred grounding disabled
 - `balanced` — default profile and compatibility baseline
@@ -1150,3 +1168,4 @@ npm run test:watch     # Node test runner in watch mode
 80. **Goal prediction card should stay mounted in goal mode:** keep render gating on `creationMode === 'goal'` (not on projection availability) and use a placeholder message when start/end inputs cannot yet produce `estimateGoalModeProjection(...)` output.
 81. **Do not label weight-relative % as body-fat %.** Use `predictedWeightDeltaPercent` wording in UI copy; treat `predictedBodyFatDeltaPercent` as deprecated alias for compatibility only.
 82. **Feasible-date band API is opt-in for heavy arrays.** Prefer summary fields (`strictCount`, `lenientCount`, `feasibleMinDateKey`, `feasibleMaxDateKey`, day-span ranges) and only request date/evaluation arrays when the caller explicitly needs them.
+83. **Gemini proxy hardening is config-sensitive:** keep `ALLOWED_ORIGINS` and (if enabled) Upstash rate-limit env vars configured in deployment; mismatched env config can silently alter CORS/throttling behavior across environments.

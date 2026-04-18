@@ -31,7 +31,7 @@ const parsePortions = (rawPortions) => {
 const mapFoodRow = (row) => ({
   id: String(row.id ?? ''),
   name: String(row.name ?? ''),
-  category: String(row.category ?? 'supplements'),
+  category: row.category ? String(row.category) : 'uncategorized',
   subcategory: row.subcategory ? String(row.subcategory) : null,
   per100g: {
     calories: Number(row.calories ?? 0),
@@ -44,15 +44,18 @@ const mapFoodRow = (row) => ({
 
 const runSelect = (db, sql, params = {}) => {
   const statement = db.prepare(sql);
-  statement.bind(params);
+  try {
+    statement.bind(params);
 
-  const rows = [];
-  while (statement.step()) {
-    rows.push(statement.getAsObject());
+    const rows = [];
+    while (statement.step()) {
+      rows.push(statement.getAsObject());
+    }
+
+    return rows;
+  } finally {
+    statement.free();
   }
-
-  statement.free();
-  return rows;
 };
 
 const getDatabase = async () => {
@@ -79,7 +82,10 @@ const getDatabase = async () => {
 
     const databaseBuffer = await sqliteResponse.arrayBuffer();
     return new SQL.Database(new Uint8Array(databaseBuffer));
-  })();
+  })().catch((error) => {
+    dbPromise = null;
+    throw error;
+  });
 
   return dbPromise;
 };
@@ -162,9 +168,13 @@ export const searchFoods = async ({
       ) AS relevanceScore`
     : '';
 
-  const orderByClause = useRelevanceSort
-    ? 'relevanceScore DESC, LENGTH(name) ASC, name ASC'
-    : `${sortColumn} ${sortDirection}, name ASC`;
+  let orderByClause = `${sortColumn} ${sortDirection}, name ASC`;
+
+  if (useRelevanceSort) {
+    // Note: relevanceScore is a computed CASE expression. This intentionally
+    // favors search quality over pure index-only ordering for name queries.
+    orderByClause = 'relevanceScore DESC, LENGTH(name) ASC, name ASC';
+  }
 
   const rows = runSelect(
     db,

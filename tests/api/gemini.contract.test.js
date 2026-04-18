@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 
 import handler from '../../api/gemini.js';
 
-const createMockReq = (body, method = 'POST') => ({
+const createMockReq = (body, method = 'POST', headers = {}) => ({
   method,
   body,
+  headers,
 });
 
 const createMockRes = () => {
@@ -229,5 +230,112 @@ test('gemini proxy resolves grounding model precedence correctly', async () => {
     process.env.GEMINI_API_KEY = originalApiKey;
     process.env.GEMINI_MODEL = originalDefaultModel;
     process.env.GEMINI_GROUNDING_MODEL = originalGroundingModel;
+  }
+});
+
+test('gemini proxy rejects invalid mode before upstream call', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalApiKey = process.env.GEMINI_API_KEY;
+
+  process.env.GEMINI_API_KEY = 'test-key';
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ candidates: [] }),
+    };
+  };
+
+  try {
+    const req = createMockReq({
+      mode: 'totally_invalid_mode',
+      contents: buildValidContents(),
+    });
+    const res = createMockRes();
+
+    await handler(req, res);
+    assert.equal(res.statusCode, 400);
+    assert.equal(fetchCalls, 0);
+    assert.equal(res.jsonPayload?.error, 'Invalid mode');
+  } finally {
+    globalThis.fetch = originalFetch;
+    process.env.GEMINI_API_KEY = originalApiKey;
+  }
+});
+
+test('gemini proxy enforces payload item count limit', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalApiKey = process.env.GEMINI_API_KEY;
+
+  process.env.GEMINI_API_KEY = 'test-key';
+  globalThis.fetch = async () => {
+    throw new Error('upstream should not be called for oversized payload');
+  };
+
+  try {
+    const oversizedContents = Array.from({ length: 31 }, () => ({
+      role: 'user',
+      parts: [{ text: 'food item' }],
+    }));
+
+    const req = createMockReq({
+      mode: 'extraction',
+      contents: oversizedContents,
+    });
+    const res = createMockRes();
+
+    await handler(req, res);
+    assert.equal(res.statusCode, 413);
+    assert.equal(res.jsonPayload?.error, 'Payload too large');
+  } finally {
+    globalThis.fetch = originalFetch;
+    process.env.GEMINI_API_KEY = originalApiKey;
+  }
+});
+
+test('gemini proxy enforces CORS allowlist when configured', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalApiKey = process.env.GEMINI_API_KEY;
+  const originalAllowedOrigins = process.env.ALLOWED_ORIGINS;
+
+  process.env.GEMINI_API_KEY = 'test-key';
+  process.env.ALLOWED_ORIGINS = 'https://allowed.example';
+
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ candidates: [] }),
+  });
+
+  try {
+    const blockedReq = createMockReq(
+      {
+        mode: 'extraction',
+        contents: buildValidContents(),
+      },
+      'POST',
+      { origin: 'https://blocked.example' }
+    );
+    const blockedRes = createMockRes();
+    await handler(blockedReq, blockedRes);
+    assert.equal(blockedRes.statusCode, 403);
+
+    const allowedReq = createMockReq(
+      {
+        mode: 'extraction',
+        contents: buildValidContents(),
+      },
+      'POST',
+      { origin: 'https://allowed.example' }
+    );
+    const allowedRes = createMockRes();
+    await handler(allowedReq, allowedRes);
+    assert.equal(allowedRes.statusCode, 200);
+  } finally {
+    globalThis.fetch = originalFetch;
+    process.env.GEMINI_API_KEY = originalApiKey;
+    process.env.ALLOWED_ORIGINS = originalAllowedOrigins;
   }
 });

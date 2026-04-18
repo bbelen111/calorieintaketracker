@@ -519,7 +519,31 @@ GEMINI_MODEL=gemini-2.5-flash
 GEMINI_GROUNDING_MODEL=gemini-2.5-flash-lite
 # Optional client-side override for grounded lookup calls only
 VITE_GEMINI_GROUNDING_MODEL=gemini-2.5-flash-lite
+
+# Gemini proxy security controls (api/gemini.js)
+# Comma-separated list of allowed browser origins
+ALLOWED_ORIGINS=https://your-app.example
+
+# Optional per-mode output token budgets
+GEMINI_MAX_TOKENS_EXTRACTION=2400
+GEMINI_MAX_TOKENS_PRESENTATION=1600
+GEMINI_MAX_TOKENS_GROUNDING=800
+
+# Optional stateless rate limiting via Upstash REST
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
+GEMINI_RATE_LIMIT_MAX_REQUESTS=60
+GEMINI_RATE_LIMIT_WINDOW_SECONDS=60
+# true = fail closed if limiter backend is unavailable
+GEMINI_RATE_LIMIT_FAIL_CLOSED=false
 ```
+
+### Gemini Proxy Security Notes
+
+- `api/gemini.js` now applies an origin allowlist when `ALLOWED_ORIGINS` is set.
+- Request payloads are bounded (`contents` item count and serialized payload size).
+- Per-IP stateless throttling is supported through Upstash REST credentials.
+- If Upstash credentials are not configured, rate limiting is bypassed by default (set `GEMINI_RATE_LIMIT_FAIL_CLOSED=true` to fail closed when backend is configured but unavailable).
 
 ### Capacitor Config
 

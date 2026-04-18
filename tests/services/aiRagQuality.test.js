@@ -45,12 +45,27 @@ test('getAiRagQualityPreset exposes expected mode knobs', () => {
     precisionPreset.groundedLookupTimeoutMs
   );
   assert.equal(
-    fastPreset.groundedBatchTimeoutMs,
-    balancedPreset.groundedBatchTimeoutMs
+    fastPreset.groundedLookupTimeoutMs,
+    fastPreset.extractionTimeoutMs
   );
   assert.equal(
-    balancedPreset.groundedBatchTimeoutMs,
-    precisionPreset.groundedBatchTimeoutMs
+    balancedPreset.groundedLookupTimeoutMs,
+    balancedPreset.extractionTimeoutMs
+  );
+  assert.equal(
+    precisionPreset.groundedLookupTimeoutMs,
+    precisionPreset.extractionTimeoutMs
+  );
+  assert.ok(
+    fastPreset.groundedBatchTimeoutMs > fastPreset.groundedLookupTimeoutMs
+  );
+  assert.ok(
+    balancedPreset.groundedBatchTimeoutMs >
+      balancedPreset.groundedLookupTimeoutMs
+  );
+  assert.ok(
+    precisionPreset.groundedBatchTimeoutMs >
+      precisionPreset.groundedLookupTimeoutMs
   );
   assert.ok(fastPreset.localLimit < balancedPreset.localLimit);
   assert.ok(precisionPreset.localLimit > balancedPreset.localLimit);

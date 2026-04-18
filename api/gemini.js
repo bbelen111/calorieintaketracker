@@ -5,10 +5,18 @@
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 const FALLBACK_MODEL = 'gemini-2.5-flash';
 const FOOD_PARSER_SCHEMA_VERSION = '1.0.0';
+const MAX_CONTENT_ITEMS = 30;
+const MAX_CONTENTS_PAYLOAD_BYTES = 500000;
 const GEMINI_MODES = Object.freeze({
   EXTRACTION: 'extraction',
   PRESENTATION: 'presentation',
   GROUNDING_LOOKUP: 'grounding_lookup',
+});
+
+const MODE_DEFAULT_MAX_TOKENS = Object.freeze({
+  [GEMINI_MODES.EXTRACTION]: 2400,
+  [GEMINI_MODES.PRESENTATION]: 1600,
+  [GEMINI_MODES.GROUNDING_LOOKUP]: 800,
 });
 
 const EXTRACTION_SYSTEM_INSTRUCTION = `You are a nutrition parser for food logging in a calorie tracker.
@@ -199,17 +207,184 @@ function isValidContent(content) {
   return content.parts.every(isValidPart);
 }
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+const resolveAllowedOrigins = () => {
+  const raw =
+    String(process.env.ALLOWED_ORIGINS || '').trim() ||
+    String(process.env.ALLOWED_ORIGIN || '').trim();
+
+  if (!raw) {
+    return [];
+  }
+
+  return raw
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+};
+
+const applyCorsHeaders = (req, res) => {
+  const requestOrigin = String(req?.headers?.origin || '').trim();
+  const allowedOrigins = resolveAllowedOrigins();
+
+  if (allowedOrigins.length === 0) {
+    res.setHeader(
+      'Access-Control-Allow-Origin',
+      process.env.NODE_ENV === 'production' ? 'null' : '*'
+    );
+  } else {
+    const allowOrigin =
+      requestOrigin && allowedOrigins.includes(requestOrigin)
+        ? requestOrigin
+        : allowedOrigins[0];
+    res.setHeader('Access-Control-Allow-Origin', allowOrigin);
+    res.setHeader('Vary', 'Origin');
+  }
+
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
+  if (allowedOrigins.length === 0) {
+    return true;
+  }
+
+  return requestOrigin ? allowedOrigins.includes(requestOrigin) : true;
+};
+
+const resolveClientIp = (req) => {
+  const forwardedFor = String(req?.headers?.['x-forwarded-for'] || '').trim();
+  if (forwardedFor) {
+    return forwardedFor.split(',')[0].trim();
+  }
+
+  return (
+    String(req?.headers?.['x-real-ip'] || '').trim() ||
+    String(req?.socket?.remoteAddress || '').trim() ||
+    'unknown'
+  );
+};
+
+const checkRequestRateLimit = async (req) => {
+  const upstashUrl = String(process.env.UPSTASH_REDIS_REST_URL || '').trim();
+  const upstashToken = String(
+    process.env.UPSTASH_REDIS_REST_TOKEN || ''
+  ).trim();
+  const failClosed =
+    String(process.env.GEMINI_RATE_LIMIT_FAIL_CLOSED || '')
+      .trim()
+      .toLowerCase() === 'true';
+
+  if (!upstashUrl || !upstashToken) {
+    return {
+      limited: false,
+      retryAfterSeconds: null,
+    };
+  }
+
+  const maxRequests = Math.max(
+    1,
+    Number.parseInt(process.env.GEMINI_RATE_LIMIT_MAX_REQUESTS || '60', 10) ||
+      60
+  );
+  const windowSeconds = Math.max(
+    1,
+    Number.parseInt(process.env.GEMINI_RATE_LIMIT_WINDOW_SECONDS || '60', 10) ||
+      60
+  );
+
+  const ip = resolveClientIp(req);
+  const key = `gemini:rl:${ip}`;
+
+  try {
+    const pipelineResponse = await fetch(`${upstashUrl}/pipeline`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${upstashToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify([
+        ['INCR', key],
+        ['EXPIRE', key, String(windowSeconds), 'NX'],
+        ['TTL', key],
+      ]),
+    });
+
+    if (!pipelineResponse.ok) {
+      throw new Error(`Rate limit backend failed (${pipelineResponse.status})`);
+    }
+
+    const pipelineData = await pipelineResponse.json().catch(() => []);
+    const currentCount = Number(pipelineData?.[0]?.result ?? 0);
+    const ttl = Number(pipelineData?.[2]?.result ?? windowSeconds);
+
+    if (currentCount > maxRequests) {
+      return {
+        limited: true,
+        retryAfterSeconds: ttl > 0 ? ttl : windowSeconds,
+      };
+    }
+
+    return {
+      limited: false,
+      retryAfterSeconds: null,
+    };
+  } catch (error) {
+    if (failClosed) {
+      return {
+        limited: true,
+        retryAfterSeconds: windowSeconds,
+        message: 'Rate limiter unavailable. Please retry shortly.',
+      };
+    }
+
+    return {
+      limited: false,
+      retryAfterSeconds: null,
+    };
+  }
+};
+
+const resolveModeMaxTokens = (mode) => {
+  const envMap = {
+    [GEMINI_MODES.EXTRACTION]: process.env.GEMINI_MAX_TOKENS_EXTRACTION,
+    [GEMINI_MODES.PRESENTATION]: process.env.GEMINI_MAX_TOKENS_PRESENTATION,
+    [GEMINI_MODES.GROUNDING_LOOKUP]: process.env.GEMINI_MAX_TOKENS_GROUNDING,
+  };
+
+  const parsed = Number.parseInt(String(envMap[mode] || '').trim(), 10);
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed;
+  }
+
+  return MODE_DEFAULT_MAX_TOKENS[mode] || MODE_DEFAULT_MAX_TOKENS.extraction;
+};
+
+export default async function handler(req, res) {
+  const isCorsAllowed = applyCorsHeaders(req, res);
+
   if (req.method === 'OPTIONS') {
+    if (!isCorsAllowed) {
+      return res.status(403).json({ error: 'Origin not allowed' });
+    }
     return res.status(200).end();
+  }
+
+  if (!isCorsAllowed) {
+    return res.status(403).json({ error: 'Origin not allowed' });
   }
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const rateLimitStatus = await checkRequestRateLimit(req);
+  if (rateLimitStatus.limited) {
+    if (Number.isFinite(rateLimitStatus.retryAfterSeconds)) {
+      res.setHeader('Retry-After', String(rateLimitStatus.retryAfterSeconds));
+    }
+    return res.status(429).json({
+      error: rateLimitStatus.message || 'Too many requests',
+      retryAfterSeconds: rateLimitStatus.retryAfterSeconds ?? undefined,
+    });
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
@@ -218,16 +393,9 @@ export default async function handler(req, res) {
   }
 
   const body = req.body || {};
-  const modeRaw = String(body.mode || GEMINI_MODES.EXTRACTION)
+  const modeRaw = String(body.mode || '')
     .trim()
     .toLowerCase();
-  const mode =
-    Object.values(GEMINI_MODES).includes(modeRaw) && modeRaw
-      ? modeRaw
-      : GEMINI_MODES.EXTRACTION;
-  const useGrounding = body.useGrounding === true;
-  const defaultModel = process.env.GEMINI_MODEL || FALLBACK_MODEL;
-  const defaultGroundingModelRaw = process.env.GEMINI_GROUNDING_MODEL || '';
 
   if (modeRaw && !Object.values(GEMINI_MODES).includes(modeRaw)) {
     return res.status(400).json({
@@ -235,6 +403,11 @@ export default async function handler(req, res) {
       validModes: Object.values(GEMINI_MODES),
     });
   }
+
+  const mode = modeRaw || GEMINI_MODES.EXTRACTION;
+  const useGrounding = body.useGrounding === true;
+  const defaultModel = process.env.GEMINI_MODEL || FALLBACK_MODEL;
+  const defaultGroundingModelRaw = process.env.GEMINI_GROUNDING_MODEL || '';
 
   const requestedModel =
     typeof body.model === 'string' && body.model.trim().length > 0
@@ -257,6 +430,21 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'contents array is required' });
   }
 
+  if (contents.length > MAX_CONTENT_ITEMS) {
+    return res.status(413).json({
+      error: 'Payload too large',
+      message: `contents cannot exceed ${MAX_CONTENT_ITEMS} items`,
+    });
+  }
+
+  const payloadBytes = Buffer.byteLength(JSON.stringify(contents), 'utf8');
+  if (payloadBytes > MAX_CONTENTS_PAYLOAD_BYTES) {
+    return res.status(413).json({
+      error: 'Payload too large',
+      message: `contents payload exceeds ${MAX_CONTENTS_PAYLOAD_BYTES} bytes`,
+    });
+  }
+
   if (!contents.every(isValidContent)) {
     return res.status(400).json({
       error:
@@ -271,7 +459,7 @@ export default async function handler(req, res) {
     },
     generationConfig: {
       temperature: mode === GEMINI_MODES.GROUNDING_LOOKUP ? 0.2 : 0.5,
-      maxOutputTokens: 1200,
+      maxOutputTokens: resolveModeMaxTokens(mode),
     },
   };
 

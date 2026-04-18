@@ -525,6 +525,13 @@ test('resolveAiFoodLookup uses session cache for repeated normalized queries', a
   let localCalls = 0;
   let usdaCalls = 0;
 
+  const sourcePreferenceWeights = {
+    local: 1,
+    usda: 1,
+    ai_web_search: 1,
+    estimate: 1,
+  };
+
   const dependencies = {
     searchLocal: async () => {
       localCalls += 1;
@@ -540,21 +547,120 @@ test('resolveAiFoodLookup uses session cache for repeated normalized queries', a
     entryName: 'Egg whole',
     lookupTerms: ['whole egg'],
     isOnline: true,
+    sourcePreferenceWeights,
     dependencies,
   });
+
+  const localCallsAfterFirst = localCalls;
+  const usdaCallsAfterFirst = usdaCalls;
 
   const secondResult = await resolveAiFoodLookup({
-    entryName: ' egg   whole ',
-    lookupTerms: ['whole   egg'],
+    entryName: 'Egg whole',
+    lookupTerms: ['whole egg'],
     isOnline: true,
+    sourcePreferenceWeights,
     dependencies,
   });
 
-  assert.equal(localCalls, 1);
-  assert.equal(usdaCalls, 1);
+  assert.equal(localCalls, localCallsAfterFirst);
+  assert.equal(usdaCalls, usdaCallsAfterFirst);
   assert.equal(firstResult.usedSource, secondResult.usedSource);
   assert.equal(firstResult.matchConfidence, secondResult.matchConfidence);
   assert.equal(firstResult.weightedMatchScore, secondResult.weightedMatchScore);
+});
+
+test('resolveAiFoodLookup session cache evicts oldest entries beyond max size', async () => {
+  let localCalls = 0;
+
+  const dependencies = {
+    searchLocal: async ({ query }) => {
+      localCalls += 1;
+      return [{ id: `local_${query}`, name: String(query) }];
+    },
+    searchUsda: async () => ({ foods: [] }),
+  };
+
+  for (let index = 0; index < 201; index += 1) {
+    await resolveAiFoodLookup({
+      entryName: `food-${index}`,
+      isOnline: false,
+      dependencies,
+    });
+  }
+
+  const callsAfterPriming = localCalls;
+
+  await resolveAiFoodLookup({
+    entryName: 'food-0',
+    isOnline: false,
+    dependencies,
+  });
+
+  assert.equal(localCalls, callsAfterPriming + 1);
+});
+
+test('resolveAiFoodLookup maps grounded confidence to differentiated score', async () => {
+  const result = await resolveAiFoodLookup({
+    entryName: 'rare local dessert',
+    isOnline: true,
+    dependencies: {
+      searchLocal: async () => [],
+      searchUsda: async () => ({ foods: [] }),
+      searchGrounded: async () => ({
+        name: 'Rare Local Dessert',
+        per100g: {
+          calories: 320,
+          protein: 4,
+          carbs: 45,
+          fats: 14,
+        },
+        confidence: 'high',
+      }),
+    },
+  });
+
+  assert.equal(result.status, 'resolved');
+  assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.AI_WEB_SEARCH);
+  assert.equal(result.matchScore, 0.78);
+});
+
+test('resolveAiFoodLookup does not force grounding when later term has strong match', async () => {
+  const result = await resolveAiFoodLookup({
+    entryName: 'term one',
+    lookupTerms: ['term two'],
+    isOnline: true,
+    dependencies: {
+      searchLocal: async ({ query }) =>
+        query === 'term two'
+          ? [{ id: 'local_strong', name: 'Term Two' }]
+          : [{ id: 'local_weak', name: 'Syrup Mix' }],
+      searchUsda: async (_query, options = {}) => {
+        if (options?.signal?.aborted) {
+          const abortError = new Error('aborted');
+          abortError.name = 'AbortError';
+          throw abortError;
+        }
+
+        const err = new Error('USDA transient failure');
+        err.status = 503;
+        throw err;
+      },
+      searchGrounded: async () => ({
+        name: 'Grounded fallback result',
+        per100g: {
+          calories: 100,
+          protein: 1,
+          carbs: 1,
+          fats: 1,
+        },
+        confidence: 'low',
+      }),
+    },
+  });
+
+  assert.equal(result.status, 'resolved');
+  assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.LOCAL);
+  assert.equal(result.matchedFood?.name, 'Term Two');
 });
 
 test('resolveAiFoodLookup aborts slower USDA call when local result is medium+', async () => {

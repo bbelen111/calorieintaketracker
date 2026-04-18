@@ -6,22 +6,18 @@ export const AI_RAG_QUALITY_MODE = Object.freeze({
 
 const AI_RAG_QUALITY_MODE_SET = new Set(Object.values(AI_RAG_QUALITY_MODE));
 
-const AI_RAG_SHARED_TIMEOUT_MS = Object.freeze({
-  extraction: 30000,
-  presentation: 30000,
-  groundedLookup: 30000,
-  groundedBatch: 30000,
-});
+const AI_RAG_TIMEOUT_MS = 30000;
+const AI_RAG_BATCH_TIMEOUT_MS = 90000;
 
 export const AI_RAG_QUALITY_PRESETS = Object.freeze({
   [AI_RAG_QUALITY_MODE.FAST]: Object.freeze({
     mode: AI_RAG_QUALITY_MODE.FAST,
     label: 'Fast',
     description: 'Lowest latency with narrower lookup depth.',
-    extractionTimeoutMs: AI_RAG_SHARED_TIMEOUT_MS.extraction,
-    presentationTimeoutMs: AI_RAG_SHARED_TIMEOUT_MS.presentation,
-    groundedLookupTimeoutMs: AI_RAG_SHARED_TIMEOUT_MS.groundedLookup,
-    groundedBatchTimeoutMs: AI_RAG_SHARED_TIMEOUT_MS.groundedBatch,
+    extractionTimeoutMs: AI_RAG_TIMEOUT_MS,
+    presentationTimeoutMs: AI_RAG_TIMEOUT_MS,
+    groundedLookupTimeoutMs: AI_RAG_TIMEOUT_MS,
+    groundedBatchTimeoutMs: AI_RAG_BATCH_TIMEOUT_MS,
     localLimit: 8,
     onlinePageSize: 8,
     enableGroundingFallback: false,
@@ -31,10 +27,10 @@ export const AI_RAG_QUALITY_PRESETS = Object.freeze({
     mode: AI_RAG_QUALITY_MODE.BALANCED,
     label: 'Balanced',
     description: 'Default balance of speed and coverage.',
-    extractionTimeoutMs: AI_RAG_SHARED_TIMEOUT_MS.extraction,
-    presentationTimeoutMs: AI_RAG_SHARED_TIMEOUT_MS.presentation,
-    groundedLookupTimeoutMs: AI_RAG_SHARED_TIMEOUT_MS.groundedLookup,
-    groundedBatchTimeoutMs: AI_RAG_SHARED_TIMEOUT_MS.groundedBatch,
+    extractionTimeoutMs: AI_RAG_TIMEOUT_MS,
+    presentationTimeoutMs: AI_RAG_TIMEOUT_MS,
+    groundedLookupTimeoutMs: AI_RAG_TIMEOUT_MS,
+    groundedBatchTimeoutMs: AI_RAG_BATCH_TIMEOUT_MS,
     localLimit: 25,
     onlinePageSize: 20,
     enableGroundingFallback: true,
@@ -44,10 +40,10 @@ export const AI_RAG_QUALITY_PRESETS = Object.freeze({
     mode: AI_RAG_QUALITY_MODE.PRECISION,
     label: 'Precision',
     description: 'Maximum lookup coverage with higher latency tolerance.',
-    extractionTimeoutMs: AI_RAG_SHARED_TIMEOUT_MS.extraction,
-    presentationTimeoutMs: AI_RAG_SHARED_TIMEOUT_MS.presentation,
-    groundedLookupTimeoutMs: AI_RAG_SHARED_TIMEOUT_MS.groundedLookup,
-    groundedBatchTimeoutMs: AI_RAG_SHARED_TIMEOUT_MS.groundedBatch,
+    extractionTimeoutMs: AI_RAG_TIMEOUT_MS,
+    presentationTimeoutMs: AI_RAG_TIMEOUT_MS,
+    groundedLookupTimeoutMs: AI_RAG_TIMEOUT_MS,
+    groundedBatchTimeoutMs: AI_RAG_BATCH_TIMEOUT_MS,
     localLimit: 100,
     onlinePageSize: 40,
     enableGroundingFallback: true,
