@@ -222,18 +222,58 @@ const resolveAllowedOrigins = () => {
     .filter(Boolean);
 };
 
+const normalizeOrigin = (value) =>
+  String(value || '')
+    .trim()
+    .replace(/\/+$/, '')
+    .toLowerCase();
+
+const escapeRegex = (value) =>
+  String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const isOriginAllowedByRule = (requestOrigin, rule) => {
+  const normalizedOrigin = normalizeOrigin(requestOrigin);
+  const normalizedRule = normalizeOrigin(rule);
+
+  if (!normalizedOrigin || !normalizedRule) {
+    return false;
+  }
+
+  if (normalizedRule === '*') {
+    return true;
+  }
+
+  if (!normalizedRule.includes('*')) {
+    return normalizedOrigin === normalizedRule;
+  }
+
+  const wildcardRegex = new RegExp(
+    `^${escapeRegex(normalizedRule).replace(/\\\*/g, '.*')}$`,
+    'i'
+  );
+
+  return wildcardRegex.test(normalizedOrigin);
+};
+
+const isOriginAllowed = (requestOrigin, allowedOrigins) => {
+  const rules = Array.isArray(allowedOrigins) ? allowedOrigins : [];
+  return rules.some((rule) => isOriginAllowedByRule(requestOrigin, rule));
+};
+
 const applyCorsHeaders = (req, res) => {
   const requestOrigin = String(req?.headers?.origin || '').trim();
   const allowedOrigins = resolveAllowedOrigins();
 
   if (allowedOrigins.length === 0) {
-    res.setHeader(
-      'Access-Control-Allow-Origin',
-      process.env.NODE_ENV === 'production' ? 'null' : '*'
-    );
+    if (requestOrigin) {
+      res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+      res.setHeader('Vary', 'Origin');
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    }
   } else {
     const allowOrigin =
-      requestOrigin && allowedOrigins.includes(requestOrigin)
+      requestOrigin && isOriginAllowed(requestOrigin, allowedOrigins)
         ? requestOrigin
         : allowedOrigins[0];
     res.setHeader('Access-Control-Allow-Origin', allowOrigin);
@@ -247,7 +287,7 @@ const applyCorsHeaders = (req, res) => {
     return true;
   }
 
-  return requestOrigin ? allowedOrigins.includes(requestOrigin) : true;
+  return requestOrigin ? isOriginAllowed(requestOrigin, allowedOrigins) : true;
 };
 
 const resolveClientIp = (req) => {
@@ -327,7 +367,7 @@ const checkRequestRateLimit = async (req) => {
       limited: false,
       retryAfterSeconds: null,
     };
-  } catch (error) {
+  } catch {
     if (failClosed) {
       return {
         limited: true,
