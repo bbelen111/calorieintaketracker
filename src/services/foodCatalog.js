@@ -12,6 +12,7 @@ const SORTABLE_COLUMNS = {
 };
 
 let dbPromise = null;
+let foodsTableColumnsPromise = null;
 
 const escapeSqlLike = (value) => String(value ?? '').replace(/[\\%_]/g, '\\$&');
 
@@ -59,6 +60,29 @@ const runSelect = (db, sql, params = {}) => {
   }
 };
 
+const getFoodsTableColumns = async () => {
+  if (foodsTableColumnsPromise) {
+    return foodsTableColumnsPromise;
+  }
+
+  foodsTableColumnsPromise = (async () => {
+    const db = await getDatabase();
+    const rows = runSelect(db, "PRAGMA table_info('foods')");
+
+    return new Set(
+      rows
+        .map((row) => String(row.name ?? '').trim())
+        .filter(Boolean)
+        .map((columnName) => columnName.toLowerCase())
+    );
+  })().catch((error) => {
+    foodsTableColumnsPromise = null;
+    throw error;
+  });
+
+  return foodsTableColumnsPromise;
+};
+
 const getDatabase = async () => {
   if (dbPromise) {
     return dbPromise;
@@ -85,6 +109,7 @@ const getDatabase = async () => {
     return new SQL.Database(new Uint8Array(databaseBuffer));
   })().catch((error) => {
     dbPromise = null;
+    foodsTableColumnsPromise = null;
     throw error;
   });
 
@@ -107,6 +132,8 @@ export const searchFoods = async ({
   offset = 0,
 } = {}) => {
   const db = await getDatabase();
+  const foodsTableColumns = await getFoodsTableColumns();
+  const hasBrandColumn = foodsTableColumns.has('brand');
 
   const normalizedQuery = String(query ?? '')
     .trim()
@@ -128,9 +155,17 @@ export const searchFoods = async ({
   };
 
   if (normalizedQuery) {
-    clauses.push(
-      "(LOWER(name) LIKE :query OR LOWER(COALESCE(brand, '')) LIKE :query OR LOWER(category) LIKE :query OR LOWER(subcategory) LIKE :query)"
-    );
+    const searchableColumns = [
+      'LOWER(name) LIKE :query',
+      'LOWER(category) LIKE :query',
+      'LOWER(subcategory) LIKE :query',
+    ];
+
+    if (hasBrandColumn) {
+      searchableColumns.splice(1, 0, "LOWER(COALESCE(brand, '')) LIKE :query");
+    }
+
+    clauses.push(`(${searchableColumns.join(' OR ')})`);
     params[':query'] = `%${escapedQuery}%`;
   }
 
@@ -155,12 +190,15 @@ export const searchFoods = async ({
     params[':queryContains'] = `%${escapedQuery}%`;
   }
 
-  const brandRelevanceCase = preferBrandMatches
-    ? `
+  const brandRelevanceCase =
+    preferBrandMatches && hasBrandColumn
+      ? `
           WHEN LOWER(COALESCE(brand, '')) = :queryExact THEN 820
           WHEN LOWER(COALESCE(brand, '')) LIKE :queryPrefix ESCAPE '\\' THEN 610
           WHEN LOWER(COALESCE(brand, '')) LIKE :queryContains ESCAPE '\\' THEN 300`
-    : '';
+      : '';
+
+  const selectBrandColumn = hasBrandColumn ? 'brand' : 'NULL AS brand';
 
   const relevanceSelect = useRelevanceSort
     ? `,
@@ -189,7 +227,7 @@ export const searchFoods = async ({
   const rows = runSelect(
     db,
     `
-      SELECT id, name, brand, category, subcategory, calories, protein, carbs, fats, portions${relevanceSelect}
+      SELECT id, name, ${selectBrandColumn}, category, subcategory, calories, protein, carbs, fats, portions${relevanceSelect}
       FROM foods
       WHERE ${clauses.join(' AND ')}
       ORDER BY ${orderByClause}
@@ -209,10 +247,14 @@ export const getFoodById = async (id) => {
   }
 
   const db = await getDatabase();
+  const foodsTableColumns = await getFoodsTableColumns();
+  const selectBrandColumn = foodsTableColumns.has('brand')
+    ? 'brand'
+    : 'NULL AS brand';
   const rows = runSelect(
     db,
     `
-      SELECT id, name, brand, category, subcategory, calories, protein, carbs, fats, portions
+      SELECT id, name, ${selectBrandColumn}, category, subcategory, calories, protein, carbs, fats, portions
       FROM foods
       WHERE id = :id
       LIMIT 1
@@ -241,6 +283,10 @@ export const getFoodsByIds = async (ids = []) => {
   }
 
   const db = await getDatabase();
+  const foodsTableColumns = await getFoodsTableColumns();
+  const selectBrandColumn = foodsTableColumns.has('brand')
+    ? 'brand'
+    : 'NULL AS brand';
   const placeholders = normalizedIds.map((_, index) => `:id_${index}`);
   const params = normalizedIds.reduce((acc, id, index) => {
     acc[`:id_${index}`] = id;
@@ -250,7 +296,7 @@ export const getFoodsByIds = async (ids = []) => {
   const rows = runSelect(
     db,
     `
-      SELECT id, name, brand, category, subcategory, calories, protein, carbs, fats, portions
+      SELECT id, name, ${selectBrandColumn}, category, subcategory, calories, protein, carbs, fats, portions
       FROM foods
       WHERE id IN (${placeholders.join(', ')})
     `,
