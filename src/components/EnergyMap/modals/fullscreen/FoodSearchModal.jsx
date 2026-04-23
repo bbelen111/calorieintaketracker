@@ -389,6 +389,35 @@ const resolveChatRequestErrorMessage = ({ error, GeminiErrorClass }) => {
   return error.message || fallbackMessage;
 };
 
+const mergeEntriesWithLookupContext = ({
+  entries = [],
+  messageId = '',
+  lookupContext = null,
+}) => {
+  const safeEntries = Array.isArray(entries) ? entries : [];
+  const safeMessageId = String(messageId || '').trim();
+  const safeLookupContext =
+    lookupContext && typeof lookupContext === 'object' ? lookupContext : null;
+
+  if (!safeMessageId || !safeLookupContext || safeEntries.length === 0) {
+    return safeEntries;
+  }
+
+  return safeEntries.map((entry, index) => {
+    const entryKey = `${safeMessageId}-${index}`;
+    const entryLookupMeta = safeLookupContext[entryKey];
+
+    if (!entryLookupMeta || typeof entryLookupMeta !== 'object') {
+      return entry;
+    }
+
+    return {
+      ...entry,
+      lookupMeta: entryLookupMeta,
+    };
+  });
+};
+
 let foodCatalogModulePromise = null;
 const loadFoodCatalogModule = async () => {
   if (!foodCatalogModulePromise) {
@@ -2200,6 +2229,24 @@ export const FoodSearchModal = ({
         return null;
       }
 
+      const embeddedLookupMeta =
+        entry?.lookupMeta && typeof entry.lookupMeta === 'object'
+          ? entry.lookupMeta
+          : null;
+      if (embeddedLookupMeta) {
+        setAiEntryLookupByKey((prev) => {
+          if (prev[entryKey]) {
+            return prev;
+          }
+
+          return {
+            ...prev,
+            [entryKey]: embeddedLookupMeta,
+          };
+        });
+        return embeddedLookupMeta;
+      }
+
       const existing = aiEntryLookupByKey[entryKey];
       if (existing) {
         return existing;
@@ -2838,7 +2885,18 @@ export const FoodSearchModal = ({
         const assistantMessage = createAssistantChatMessage({
           id: assistantMessageId,
           text: result.text,
-          foodParser: result.foodParser ?? null,
+          foodParser:
+            result?.foodParser?.messageType === 'food_entries' &&
+            Array.isArray(result?.foodParser?.entries)
+              ? {
+                  ...result.foodParser,
+                  entries: mergeEntriesWithLookupContext({
+                    entries: result.foodParser.entries,
+                    messageId: assistantMessageId,
+                    lookupContext: hasLookupContext ? lookupContext : null,
+                  }),
+                }
+              : (result.foodParser ?? null),
           status: 'sent',
           replyToUserMessageId: userMessageId,
         });

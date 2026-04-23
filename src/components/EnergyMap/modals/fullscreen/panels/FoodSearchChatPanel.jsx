@@ -480,7 +480,11 @@ export const FoodSearchChatPanel = ({
                                 loggedAiEntryKeys[entryKey] === true;
                               const isFavourited =
                                 favouritedAiEntryKeys[entryKey] === true;
-                              const lookupMeta = aiEntryLookupByKey?.[entryKey];
+                              const lookupMeta =
+                                (entry?.lookupMeta &&
+                                typeof entry.lookupMeta === 'object'
+                                  ? entry.lookupMeta
+                                  : null) || aiEntryLookupByKey?.[entryKey];
                               const lookupReasonBySource =
                                 lookupMeta?.errorReasonsBySource || {};
                               const prioritizedLookupReasonCode =
