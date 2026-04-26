@@ -36,6 +36,35 @@ const createEmptySnapshot = () => ({
     estimate: 0,
   },
   groundedFallbackCount: 0,
+  lookupDecisionCounts: {
+    accept_local: 0,
+    try_usda: 0,
+    try_grounding: 0,
+    no_match: 0,
+  },
+  escalationReasonCounts: {
+    accepted_history_match: 0,
+    strong_local_match: 0,
+    dominant_local_match: 0,
+    local_retained_after_usda: 0,
+    usda_resolved_ambiguity: 0,
+    usda_completed_missing_macros: 0,
+    usda_better_match: 0,
+    local_ambiguous: 0,
+    missing_macros: 0,
+    brand_mismatch: 0,
+    weak_local_match: 0,
+    no_close_match: 0,
+    usda_no_better_match: 0,
+    usda_no_close_match: 0,
+    grounding_required: 0,
+  },
+  shortCircuitCounts: {
+    acceptedLocal: 0,
+    acceptedHistoryReuse: 0,
+    ambiguityTriggeredUsda: 0,
+    avoidedOnlineStrongLocal: 0,
+  },
   confidenceBySource: {
     local: { high: 0, medium: 0, low: 0 },
     usda: { high: 0, medium: 0, low: 0 },
@@ -121,6 +150,28 @@ const normalizeConfidence = (value) => {
     return normalized;
   }
   return 'low';
+};
+
+const normalizeLookupDecision = (value) => {
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase();
+  if (
+    normalized === 'accept_local' ||
+    normalized === 'try_usda' ||
+    normalized === 'try_grounding' ||
+    normalized === 'no_match'
+  ) {
+    return normalized;
+  }
+  return 'no_match';
+};
+
+const normalizeDecisionReason = (value) => {
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase();
+  return normalized || null;
 };
 
 const normalizeSchemaVersion = (value) => {
@@ -250,9 +301,44 @@ const applyLookupContext = (targetMetrics, lookupContext = {}) => {
   Object.values(lookupContext || {}).forEach((meta) => {
     const source = normalizeSource(meta?.usedSource) || 'estimate';
     const confidence = normalizeConfidence(meta?.matchConfidence);
+    const decision = normalizeLookupDecision(meta?.decision);
+    const decisionReason =
+      normalizeDecisionReason(meta?.decisionReason) ||
+      normalizeDecisionReason(meta?.escalationReason);
 
     targetMetrics.retrievalSourceHits[source] += 1;
     targetMetrics.confidenceBySource[source][confidence] += 1;
+    targetMetrics.lookupDecisionCounts[decision] += 1;
+
+    if (
+      decisionReason &&
+      Object.prototype.hasOwnProperty.call(
+        targetMetrics.escalationReasonCounts,
+        decisionReason
+      )
+    ) {
+      targetMetrics.escalationReasonCounts[decisionReason] += 1;
+    }
+
+    if (decision === 'accept_local') {
+      targetMetrics.shortCircuitCounts.acceptedLocal += 1;
+    }
+    if (meta?.acceptedFromHistory) {
+      targetMetrics.shortCircuitCounts.acceptedHistoryReuse += 1;
+    }
+    if (
+      meta?.escalationAttempted &&
+      normalizeDecisionReason(meta?.escalationReason) === 'local_ambiguous'
+    ) {
+      targetMetrics.shortCircuitCounts.ambiguityTriggeredUsda += 1;
+    }
+    if (
+      decision === 'accept_local' &&
+      (decisionReason === 'strong_local_match' ||
+        decisionReason === 'accepted_history_match')
+    ) {
+      targetMetrics.shortCircuitCounts.avoidedOnlineStrongLocal += 1;
+    }
 
     if (meta?.fallbackUsed || source === 'ai_web_search') {
       targetMetrics.groundedFallbackCount += 1;

@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import {
   dedupeExtractedFoodEntries,
   FOOD_SEARCH_SOURCE,
+  recordAcceptedAiFoodLookup,
+  resetAcceptedAiLookupReuseCache,
   resetAiLookupSessionCache,
   resolveAiGroundedBatch,
   resolveAiFoodEntry,
@@ -16,6 +18,7 @@ import { AI_RAG_QUALITY_MODE } from '../../src/services/aiRagQuality.js';
 
 test.beforeEach(() => {
   resetAiLookupSessionCache();
+  resetAcceptedAiLookupReuseCache();
 });
 
 test('searchFoodsLocal returns local results only', async () => {
@@ -155,13 +158,31 @@ test('resolveAiFoodLookup keeps strong local match without online fallback', asy
       searchLocal: async () => {
         calls.push('local');
         return [
-          { id: 'local_chicken', name: 'Chicken Breast', category: 'protein' },
-          { id: 'local_other', name: 'Rice', category: 'carbs' },
+          {
+            id: 'local_chicken',
+            name: 'Chicken Breast',
+            category: 'protein',
+            per100g: { calories: 165, protein: 31, carbs: 0, fats: 3.6 },
+          },
+          {
+            id: 'local_other',
+            name: 'Rice',
+            category: 'carbs',
+            per100g: { calories: 130, protein: 2.7, carbs: 28, fats: 0.3 },
+          },
         ];
       },
       searchUsda: async () => {
         calls.push('usda');
-        return { foods: [{ id: 'usda_1', name: 'Chicken Product' }] };
+        return {
+          foods: [
+            {
+              id: 'usda_1',
+              name: 'Chicken Product',
+              per100g: { calories: 170, protein: 28, carbs: 1, fats: 5 },
+            },
+          ],
+        };
       },
     },
   });
@@ -169,10 +190,12 @@ test('resolveAiFoodLookup keeps strong local match without online fallback', asy
   assert.equal(result.status, 'resolved');
   assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.LOCAL);
   assert.equal(result.matchConfidence, 'high');
+  assert.equal(result.decision, 'accept_local');
+  assert.equal(result.decisionReason, 'strong_local_match');
   assert.equal(result.matchedFood?.name, 'Chicken Breast');
   assert.equal(result.confidenceComponents?.trustMultiplier, 1);
   assert.ok(result.weightedMatchScore >= result.matchScore - 0.0001);
-  assert.deepEqual(calls, ['local', 'usda']);
+  assert.deepEqual(calls, ['local']);
 });
 
 test('resolveAiFoodLookup prioritizes branded result when query has explicit brand intent', async () => {
@@ -182,8 +205,18 @@ test('resolveAiFoodLookup prioritizes branded result when query has explicit bra
     isOnline: false,
     dependencies: {
       searchLocal: async () => [
-        { id: 'local_generic', name: 'Tomato Ketchup', brand: null },
-        { id: 'local_brand', name: 'Tomato Ketchup', brand: 'Heinz' },
+        {
+          id: 'local_generic',
+          name: 'Tomato Ketchup',
+          brand: null,
+          per100g: { calories: 112, protein: 1.3, carbs: 26, fats: 0.2 },
+        },
+        {
+          id: 'local_brand',
+          name: 'Tomato Ketchup',
+          brand: 'Heinz',
+          per100g: { calories: 112, protein: 1.3, carbs: 26, fats: 0.2 },
+        },
       ],
       searchUsda: async () => ({ foods: [] }),
     },
@@ -201,8 +234,18 @@ test('resolveAiFoodLookup keeps generic result for non-branded query intent', as
     isOnline: false,
     dependencies: {
       searchLocal: async () => [
-        { id: 'local_generic', name: 'Ketchup', brand: null },
-        { id: 'local_brand', name: 'Tomato Ketchup', brand: 'Heinz' },
+        {
+          id: 'local_generic',
+          name: 'Ketchup',
+          brand: null,
+          per100g: { calories: 112, protein: 1.3, carbs: 26, fats: 0.2 },
+        },
+        {
+          id: 'local_brand',
+          name: 'Heinz Condiment',
+          brand: 'Heinz',
+          per100g: { calories: 112, protein: 1.3, carbs: 26, fats: 0.2 },
+        },
       ],
       searchUsda: async () => ({ foods: [] }),
     },
@@ -245,13 +288,21 @@ test('resolveAiFoodLookup uses online fallback when local match is weak', async 
               id: 'local_wrong',
               name: 'Maple Syrup',
               category: 'carbs',
+              per100g: { calories: 260, protein: 0, carbs: 67, fats: 0 },
             },
           ];
         }
         return [];
       },
       searchUsda: async () => ({
-        foods: [{ id: 'usda_match', name: 'Cacao Tablet', category: 'fats' }],
+        foods: [
+          {
+            id: 'usda_match',
+            name: 'Cacao Tablet',
+            category: 'fats',
+            per100g: { calories: 400, protein: 12, carbs: 30, fats: 25 },
+          },
+        ],
       }),
     },
   });
@@ -261,15 +312,29 @@ test('resolveAiFoodLookup uses online fallback when local match is weak', async 
   assert.equal(result.matchedFood?.name, 'Cacao Tablet');
   assert.equal(result.queryUsed, 'cacao tablet');
   assert.equal(result.fallbackUsed, true);
+  assert.equal(result.escalationAttempted, true);
+  assert.equal(result.escalationReason, 'no_close_match');
   assert.equal(result.confidenceComponents?.trustMultiplier, 0.98);
   assert.ok(result.weightedMatchScore <= result.matchScore);
 });
 
 test('resolveAiFoodLookup ranking respects source preference weights', async () => {
   const dependencies = {
-    searchLocal: async () => [{ id: 'local_match', name: 'Coconut Water' }],
+    searchLocal: async () => [
+      {
+        id: 'local_match',
+        name: 'Coconut Water',
+        per100g: { calories: 19, protein: 0.7, carbs: 3.7, fats: 0.2 },
+      },
+    ],
     searchUsda: async () => ({
-      foods: [{ id: 'usda_match', name: 'Coconut Water Beverage' }],
+      foods: [
+        {
+          id: 'usda_match',
+          name: 'Coconut Water Beverage',
+          per100g: { calories: 20, protein: 0.6, carbs: 4, fats: 0.1 },
+        },
+      ],
     }),
   };
 
@@ -287,8 +352,167 @@ test('resolveAiFoodLookup ranking respects source preference weights', async () 
   });
 
   assert.equal(result.status, 'resolved');
+  assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.LOCAL);
+  assert.equal(result.decisionReason, 'strong_local_match');
+});
+
+test('resolveAiFoodLookup hard-reuses previously accepted match and bypasses USDA', async () => {
+  const usdaCalls = [];
+
+  recordAcceptedAiFoodLookup({
+    entry: {
+      name: 'Chicken Breast',
+      lookupTerms: ['grilled chicken breast'],
+      category: 'protein',
+    },
+    lookupMeta: {
+      usedSource: FOOD_SEARCH_SOURCE.LOCAL,
+      queryUsed: 'grilled chicken breast',
+      matchScore: 0.94,
+      matchedFood: {
+        name: 'Chicken Breast',
+        category: 'protein',
+        subcategory: 'poultry',
+        per100g: {
+          calories: 165,
+          protein: 31,
+          carbs: 0,
+          fats: 3.6,
+        },
+      },
+    },
+  });
+
+  const result = await resolveAiFoodLookup({
+    entryName: 'Chicken Breast',
+    lookupTerms: ['grilled chicken breast'],
+    entryCategory: 'protein',
+    isOnline: true,
+    dependencies: {
+      searchLocal: async () => {
+        throw new Error('local should not run when accepted history matches');
+      },
+      searchUsda: async () => {
+        usdaCalls.push('usda');
+        return { foods: [] };
+      },
+    },
+  });
+
+  assert.equal(result.status, 'resolved');
+  assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.LOCAL);
+  assert.equal(result.acceptedFromHistory, true);
+  assert.equal(result.decisionReason, 'accepted_history_match');
+  assert.deepEqual(usdaCalls, []);
+});
+
+test('resolveAiFoodLookup accepts a usable local match without USDA', async () => {
+  const calls = [];
+
+  const result = await resolveAiFoodLookup({
+    entryName: 'plain yogurt greek style',
+    isOnline: true,
+    dependencies: {
+      searchLocal: async () => {
+        calls.push('local');
+        return [
+          {
+            id: 'local_1',
+            name: 'Plain Yogurt Greek Style',
+            per100g: { calories: 59, protein: 10, carbs: 3.6, fats: 0.4 },
+          },
+          {
+            id: 'local_2',
+            name: 'Fruit Yogurt',
+            per100g: { calories: 90, protein: 4, carbs: 15, fats: 1 },
+          },
+        ];
+      },
+      searchUsda: async () => {
+        calls.push('usda');
+        return { foods: [] };
+      },
+    },
+  });
+
+  assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.LOCAL);
+  assert.equal(result.decision, 'accept_local');
+  assert.deepEqual(calls, ['local']);
+});
+
+test('resolveAiFoodLookup escalates ambiguous local candidates to USDA', async () => {
+  const calls = [];
+
+  const result = await resolveAiFoodLookup({
+    entryName: 'protein bar',
+    isOnline: true,
+    dependencies: {
+      searchLocal: async () => {
+        calls.push('local');
+        return [
+          {
+            id: 'local_1',
+            name: 'Protein Bar Chocolate',
+            per100g: { calories: 380, protein: 30, carbs: 35, fats: 12 },
+          },
+          {
+            id: 'local_2',
+            name: 'Protein Bar Choco',
+            per100g: { calories: 390, protein: 29, carbs: 34, fats: 13 },
+          },
+        ];
+      },
+      searchUsda: async () => {
+        calls.push('usda');
+        return {
+          foods: [
+            {
+              id: 'usda_1',
+              name: 'Protein Bar',
+              per100g: { calories: 385, protein: 30, carbs: 34, fats: 12 },
+            },
+          ],
+        };
+      },
+    },
+  });
+
   assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.USDA);
-  assert.ok(result.weightedMatchScore >= result.matchScore * 0.85);
+  assert.equal(result.decisionReason, 'usda_resolved_ambiguity');
+  assert.equal(result.escalationReason, 'local_ambiguous');
+  assert.deepEqual(calls, ['local', 'usda']);
+});
+
+test('resolveAiFoodLookup escalates strong local name match with missing per100g data', async () => {
+  const calls = [];
+
+  const result = await resolveAiFoodLookup({
+    entryName: 'kimchi',
+    isOnline: true,
+    dependencies: {
+      searchLocal: async () => {
+        calls.push('local');
+        return [{ id: 'local_1', name: 'Kimchi', per100g: null }];
+      },
+      searchUsda: async () => {
+        calls.push('usda');
+        return {
+          foods: [
+            {
+              id: 'usda_1',
+              name: 'Kimchi',
+              per100g: { calories: 15, protein: 1.1, carbs: 2.4, fats: 0.5 },
+            },
+          ],
+        };
+      },
+    },
+  });
+
+  assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.USDA);
+  assert.equal(result.decisionReason, 'usda_completed_missing_macros');
+  assert.equal(result.escalationReason, 'missing_macros');
+  assert.deepEqual(calls, ['local', 'usda']);
 });
 
 test('resolveAiFoodLookup falls back to grounded web lookup when local and USDA miss', async () => {
@@ -316,8 +540,56 @@ test('resolveAiFoodLookup falls back to grounded web lookup when local and USDA 
   assert.equal(result.matchedFood?.name, 'Rare Local Dessert');
   assert.equal(result.matchedFood?.per100g?.calories, 320);
   assert.equal(result.fallbackUsed, true);
+  assert.equal(result.decision, 'try_grounding');
+  assert.equal(result.decisionReason, 'grounding_required');
   assert.equal(result.confidenceComponents?.trustMultiplier, 0.75);
   assert.ok(result.weightedMatchScore < result.matchScore);
+});
+
+test('resolveAiFoodLookup quality mode changes depth but keeps conservative acceptance', async () => {
+  const makeDependencies = () => {
+    const calls = [];
+    return {
+      calls,
+      dependencies: {
+        searchLocal: async ({ limit }) => {
+          calls.push(`local:${limit}`);
+          return [
+            {
+              id: 'local_1',
+              name: 'Eggs',
+              per100g: { calories: 155, protein: 13, carbs: 1.1, fats: 11 },
+            },
+          ];
+        },
+        searchUsda: async () => {
+          calls.push('usda');
+          return { foods: [] };
+        },
+      },
+    };
+  };
+
+  const fast = makeDependencies();
+  const fastResult = await resolveAiFoodLookup({
+    entryName: 'eggs',
+    qualityMode: AI_RAG_QUALITY_MODE.FAST,
+    isOnline: true,
+    dependencies: fast.dependencies,
+  });
+
+  const precision = makeDependencies();
+  const precisionResult = await resolveAiFoodLookup({
+    entryName: 'eggs',
+    qualityMode: AI_RAG_QUALITY_MODE.PRECISION,
+    isOnline: true,
+    dependencies: precision.dependencies,
+  });
+
+  assert.equal(fastResult.usedSource, FOOD_SEARCH_SOURCE.LOCAL);
+  assert.equal(precisionResult.usedSource, FOOD_SEARCH_SOURCE.LOCAL);
+  assert.deepEqual(fast.calls, ['local:8']);
+  assert.deepEqual(precision.calls, ['local:100']);
 });
 
 test('resolveAiFoodLookup can defer grounding when fallback is disabled', async () => {
@@ -691,15 +963,21 @@ test('resolveAiFoodLookup does not force grounding when later term has strong ma
     dependencies: {
       searchLocal: async ({ query }) =>
         query === 'term two'
-          ? [{ id: 'local_strong', name: 'Term Two' }]
-          : [{ id: 'local_weak', name: 'Syrup Mix' }],
-      searchUsda: async (_query, options = {}) => {
-        if (options?.signal?.aborted) {
-          const abortError = new Error('aborted');
-          abortError.name = 'AbortError';
-          throw abortError;
-        }
-
+          ? [
+              {
+                id: 'local_strong',
+                name: 'Term Two',
+                per100g: { calories: 100, protein: 1, carbs: 20, fats: 0 },
+              },
+            ]
+          : [
+              {
+                id: 'local_weak',
+                name: 'Syrup Mix',
+                per100g: { calories: 300, protein: 0, carbs: 75, fats: 0 },
+              },
+            ],
+      searchUsda: async () => {
         const err = new Error('USDA transient failure');
         err.status = 503;
         throw err;
@@ -722,37 +1000,22 @@ test('resolveAiFoodLookup does not force grounding when later term has strong ma
   assert.equal(result.matchedFood?.name, 'Term Two');
 });
 
-test('resolveAiFoodLookup aborts slower USDA call when local result is medium+', async () => {
-  let usdaSignalAborted = false;
+test('resolveAiFoodLookup does not call USDA when local match is already strong', async () => {
+  let usdaCalls = 0;
 
   const result = await resolveAiFoodLookup({
     entryName: 'banana',
     isOnline: true,
     dependencies: {
-      searchLocal: async () => [{ id: 'local_banana', name: 'Banana' }],
-      searchUsda: async (_query, options = {}) => {
-        if (options?.signal) {
-          if (options.signal.aborted) {
-            usdaSignalAborted = true;
-            const abortError = new Error('aborted');
-            abortError.name = 'AbortError';
-            throw abortError;
-          }
-
-          await new Promise((resolve) => {
-            options.signal.addEventListener(
-              'abort',
-              () => {
-                usdaSignalAborted = true;
-                resolve();
-              },
-              { once: true }
-            );
-          });
-          const abortError = new Error('aborted');
-          abortError.name = 'AbortError';
-          throw abortError;
-        }
+      searchLocal: async () => [
+        {
+          id: 'local_banana',
+          name: 'Banana',
+          per100g: { calories: 89, protein: 1.1, carbs: 23, fats: 0.3 },
+        },
+      ],
+      searchUsda: async () => {
+        usdaCalls += 1;
         return { foods: [] };
       },
     },
@@ -760,7 +1023,7 @@ test('resolveAiFoodLookup aborts slower USDA call when local result is medium+',
 
   assert.equal(result.status, 'resolved');
   assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.LOCAL);
-  assert.equal(usdaSignalAborted, true);
+  assert.equal(usdaCalls, 0);
 });
 
 test('resolveAiFoodEntry uses lookup per100g when resolved metadata is provided', async () => {

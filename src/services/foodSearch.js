@@ -91,6 +91,64 @@ const SOURCE_ERROR_REASON = Object.freeze({
 
 let aiLookupSessionCache = new Map();
 const AI_LOOKUP_SESSION_CACHE_MAX_ENTRIES = 200;
+let acceptedAiLookupReuseCache = new Map();
+const ACCEPTED_AI_LOOKUP_REUSE_CACHE_MAX_ENTRIES = 300;
+
+const LOOKUP_DECISION = Object.freeze({
+  ACCEPT_LOCAL: 'accept_local',
+  TRY_USDA: 'try_usda',
+  TRY_GROUNDING: 'try_grounding',
+  NO_MATCH: 'no_match',
+});
+
+const LOOKUP_DECISION_REASON = Object.freeze({
+  ACCEPTED_HISTORY_MATCH: 'accepted_history_match',
+  STRONG_LOCAL_MATCH: 'strong_local_match',
+  DOMINANT_LOCAL_MATCH: 'dominant_local_match',
+  LOCAL_RETAINED_AFTER_USDA: 'local_retained_after_usda',
+  USDA_RESOLVED_AMBIGUITY: 'usda_resolved_ambiguity',
+  USDA_COMPLETED_MISSING_MACROS: 'usda_completed_missing_macros',
+  USDA_BETTER_MATCH: 'usda_better_match',
+  LOCAL_AMBIGUOUS: 'local_ambiguous',
+  MISSING_MACROS: 'missing_macros',
+  BRAND_MISMATCH: 'brand_mismatch',
+  WEAK_LOCAL_MATCH: 'weak_local_match',
+  NO_CLOSE_MATCH: 'no_close_match',
+  USDA_NO_BETTER_MATCH: 'usda_no_better_match',
+  USDA_NO_CLOSE_MATCH: 'usda_no_close_match',
+  GROUNDING_REQUIRED: 'grounding_required',
+});
+
+const LOOKUP_DATA_QUALITY = Object.freeze({
+  COMPLETE: 'complete',
+  MISSING_PER_100G: 'missing_per_100g',
+  INCOMPLETE_PER_100G: 'incomplete_per_100g',
+  MISSING: 'missing',
+});
+
+const LOCAL_ACCEPTANCE_POLICY = Object.freeze({
+  strongScore: 0.88,
+  dominantScore: 0.72,
+  weakScore: 0.55,
+  ambiguityGap: 0.035,
+  strongAmbiguityGap: 0.02,
+});
+
+const SIGNIFICANT_QUERY_STOPWORDS = new Set([
+  'a',
+  'an',
+  'and',
+  'by',
+  'for',
+  'from',
+  'in',
+  'of',
+  'on',
+  'or',
+  'the',
+  'to',
+  'with',
+]);
 
 const getAiLookupSessionCacheValue = (key) => {
   if (!aiLookupSessionCache.has(key)) {
@@ -118,6 +176,34 @@ const setAiLookupSessionCacheValue = (key, value) => {
   }
 };
 
+const getAcceptedAiLookupReuseValue = (key) => {
+  if (!acceptedAiLookupReuseCache.has(key)) {
+    return null;
+  }
+
+  const value = acceptedAiLookupReuseCache.get(key);
+  acceptedAiLookupReuseCache.delete(key);
+  acceptedAiLookupReuseCache.set(key, value);
+  return value;
+};
+
+const setAcceptedAiLookupReuseValue = (key, value) => {
+  if (acceptedAiLookupReuseCache.has(key)) {
+    acceptedAiLookupReuseCache.delete(key);
+  }
+
+  acceptedAiLookupReuseCache.set(key, value);
+
+  if (
+    acceptedAiLookupReuseCache.size > ACCEPTED_AI_LOOKUP_REUSE_CACHE_MAX_ENTRIES
+  ) {
+    const oldestKey = acceptedAiLookupReuseCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      acceptedAiLookupReuseCache.delete(oldestKey);
+    }
+  }
+};
+
 const normalizeQuery = (query) => String(query ?? '').trim();
 
 const normalizeTokenString = (value) =>
@@ -131,6 +217,14 @@ const tokenize = (value) => {
   const normalized = normalizeTokenString(value);
   return normalized ? normalized.split(' ') : [];
 };
+
+const toSortedUniqueTokens = (value) =>
+  [...new Set(tokenize(value))].sort((a, b) => a.localeCompare(b));
+
+const toSignificantTokens = (value) =>
+  toSortedUniqueTokens(value).filter(
+    (token) => token.length > 2 && !SIGNIFICANT_QUERY_STOPWORDS.has(token)
+  );
 
 const dedupeTerms = (terms) => {
   const unique = [];
@@ -338,6 +432,32 @@ const buildAiLookupCacheKey = ({
   ].join('::');
 };
 
+const buildAcceptedReuseCacheKey = ({
+  entryName = '',
+  entryCategory = null,
+  preferBrandMatches = false,
+} = {}) => {
+  const normalizedEntry = normalizeTokenString(entryName) || 'unknown_food';
+  const normalizedCategory =
+    String(entryCategory || '')
+      .trim()
+      .toLowerCase() || 'uncategorized';
+
+  return [
+    normalizedEntry,
+    normalizedCategory,
+    preferBrandMatches ? 'brand:on' : 'brand:off',
+  ].join('::');
+};
+
+const cloneAcceptedReuseRecord = (record) => {
+  if (!record || typeof record !== 'object') {
+    return null;
+  }
+
+  return cloneLookupResult(record);
+};
+
 const detectBrandIntent = ({ entryName = '', lookupTerms = [] } = {}) => {
   const normalizedEntryName = normalizeTokenString(entryName);
   const normalizedTerms = (Array.isArray(lookupTerms) ? lookupTerms : [])
@@ -375,8 +495,383 @@ const detectBrandIntent = ({ entryName = '', lookupTerms = [] } = {}) => {
   return combinedTokens.some((token) => BRAND_INTENT_TOKEN_HINTS.has(token));
 };
 
+const hasUsablePer100g = (per100g) => {
+  if (!per100g || typeof per100g !== 'object') {
+    return false;
+  }
+
+  return ['calories', 'protein', 'carbs', 'fats'].every((key) => {
+    const value = Number(per100g[key]);
+    return Number.isFinite(value) && value >= 0;
+  });
+};
+
+const resolveDataQuality = (food) => {
+  if (!food || typeof food !== 'object') {
+    return LOOKUP_DATA_QUALITY.MISSING;
+  }
+
+  const per100g = food?.per100g;
+  if (!per100g || typeof per100g !== 'object') {
+    return LOOKUP_DATA_QUALITY.MISSING_PER_100G;
+  }
+
+  return hasUsablePer100g(per100g)
+    ? LOOKUP_DATA_QUALITY.COMPLETE
+    : LOOKUP_DATA_QUALITY.INCOMPLETE_PER_100G;
+};
+
+const isDataQualityUsable = (dataQuality) =>
+  dataQuality === LOOKUP_DATA_QUALITY.COMPLETE;
+
+const hasMaterialNewTokens = ({
+  currentTokens = [],
+  acceptedTokens = [],
+  preferBrandMatches = false,
+}) => {
+  const acceptedTokenSet = new Set(acceptedTokens);
+  const newTokens = currentTokens.filter(
+    (token) => !acceptedTokenSet.has(token)
+  );
+
+  if (newTokens.length === 0) {
+    return false;
+  }
+
+  if (preferBrandMatches) {
+    return true;
+  }
+
+  return newTokens.length > 0;
+};
+
+const buildLookupDecisionMeta = ({
+  decision = LOOKUP_DECISION.NO_MATCH,
+  decisionReason = LOOKUP_DECISION_REASON.NO_CLOSE_MATCH,
+  dataQuality = LOOKUP_DATA_QUALITY.MISSING,
+  acceptedFromHistory = false,
+  escalationAttempted = false,
+  escalationReason = null,
+} = {}) => ({
+  decision,
+  decisionReason,
+  dataQuality,
+  acceptedFromHistory,
+  escalationAttempted,
+  escalationReason,
+});
+
+const buildCandidate = ({
+  source,
+  queryUsed,
+  food,
+  score,
+  sourcePreferenceWeights = null,
+}) => {
+  if (!food) {
+    return null;
+  }
+
+  const weightedConfidence = resolveWeightedConfidence({
+    score,
+    source,
+    sourcePreferenceWeights,
+  });
+  const dataQuality = resolveDataQuality(food);
+
+  return {
+    source,
+    queryUsed,
+    food,
+    score,
+    confidence: weightedConfidence.confidence,
+    weightedScore: weightedConfidence.weightedScore,
+    confidenceComponents: {
+      rawScore: weightedConfidence.rawScore,
+      trustMultiplier: weightedConfidence.trustMultiplier,
+      weightedScore: weightedConfidence.weightedScore,
+    },
+    dataQuality,
+    hasUsableData: isDataQualityUsable(dataQuality),
+  };
+};
+
+const collectTopCandidates = ({
+  query,
+  foods = [],
+  source,
+  preferBrandMatches = false,
+  sourcePreferenceWeights = null,
+}) => {
+  return (Array.isArray(foods) ? foods : [])
+    .map((food) =>
+      buildCandidate({
+        source,
+        queryUsed: query,
+        food,
+        score: buildNameMatchScore(query, food, { preferBrandMatches }),
+        sourcePreferenceWeights,
+      })
+    )
+    .filter(Boolean)
+    .sort((a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
+
+      return b.weightedScore - a.weightedScore;
+    });
+};
+
+const pickTopCandidateAcrossTerms = (candidateGroups = []) => {
+  const ranked = candidateGroups
+    .flat()
+    .filter(Boolean)
+    .sort((a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
+
+      return b.weightedScore - a.weightedScore;
+    });
+
+  return {
+    best: ranked[0] || null,
+    second: ranked[1] || null,
+    ranked,
+  };
+};
+
+const resolveLocalDecision = ({
+  bestLocal = null,
+  secondLocal = null,
+  preferBrandMatches = false,
+  acceptedHistoryMatch = null,
+} = {}) => {
+  if (acceptedHistoryMatch?.candidate?.hasUsableData) {
+    return buildLookupDecisionMeta({
+      decision: LOOKUP_DECISION.ACCEPT_LOCAL,
+      decisionReason: LOOKUP_DECISION_REASON.ACCEPTED_HISTORY_MATCH,
+      dataQuality: acceptedHistoryMatch.candidate.dataQuality,
+      acceptedFromHistory: true,
+    });
+  }
+
+  if (!bestLocal) {
+    return buildLookupDecisionMeta({
+      decision: LOOKUP_DECISION.TRY_USDA,
+      decisionReason: LOOKUP_DECISION_REASON.NO_CLOSE_MATCH,
+      escalationReason: LOOKUP_DECISION_REASON.NO_CLOSE_MATCH,
+    });
+  }
+
+  if (!bestLocal.hasUsableData) {
+    return buildLookupDecisionMeta({
+      decision: LOOKUP_DECISION.TRY_USDA,
+      decisionReason: LOOKUP_DECISION_REASON.MISSING_MACROS,
+      dataQuality: bestLocal.dataQuality,
+      escalationReason: LOOKUP_DECISION_REASON.MISSING_MACROS,
+    });
+  }
+
+  const scoreGap = bestLocal.score - Number(secondLocal?.score || 0);
+  const ambiguityGap =
+    bestLocal.score >= LOCAL_ACCEPTANCE_POLICY.strongScore
+      ? LOCAL_ACCEPTANCE_POLICY.strongAmbiguityGap
+      : LOCAL_ACCEPTANCE_POLICY.ambiguityGap;
+  const ambiguous =
+    secondLocal &&
+    secondLocal.hasUsableData &&
+    bestLocal.score >= LOCAL_ACCEPTANCE_POLICY.dominantScore &&
+    scoreGap < ambiguityGap;
+
+  if (
+    preferBrandMatches &&
+    !bestLocal.food?.brand &&
+    bestLocal.score < LOCAL_ACCEPTANCE_POLICY.strongScore
+  ) {
+    return buildLookupDecisionMeta({
+      decision: LOOKUP_DECISION.TRY_USDA,
+      decisionReason: LOOKUP_DECISION_REASON.BRAND_MISMATCH,
+      dataQuality: bestLocal.dataQuality,
+      escalationReason: LOOKUP_DECISION_REASON.BRAND_MISMATCH,
+    });
+  }
+
+  if (ambiguous) {
+    return buildLookupDecisionMeta({
+      decision: LOOKUP_DECISION.TRY_USDA,
+      decisionReason: LOOKUP_DECISION_REASON.LOCAL_AMBIGUOUS,
+      dataQuality: bestLocal.dataQuality,
+      escalationReason: LOOKUP_DECISION_REASON.LOCAL_AMBIGUOUS,
+    });
+  }
+
+  if (bestLocal.score >= LOCAL_ACCEPTANCE_POLICY.strongScore) {
+    return buildLookupDecisionMeta({
+      decision: LOOKUP_DECISION.ACCEPT_LOCAL,
+      decisionReason: LOOKUP_DECISION_REASON.STRONG_LOCAL_MATCH,
+      dataQuality: bestLocal.dataQuality,
+    });
+  }
+
+  if (
+    bestLocal.score >= LOCAL_ACCEPTANCE_POLICY.dominantScore &&
+    (!secondLocal || scoreGap >= LOCAL_ACCEPTANCE_POLICY.ambiguityGap)
+  ) {
+    return buildLookupDecisionMeta({
+      decision: LOOKUP_DECISION.ACCEPT_LOCAL,
+      decisionReason: LOOKUP_DECISION_REASON.DOMINANT_LOCAL_MATCH,
+      dataQuality: bestLocal.dataQuality,
+    });
+  }
+
+  if (bestLocal.score >= LOCAL_ACCEPTANCE_POLICY.weakScore) {
+    return buildLookupDecisionMeta({
+      decision: LOOKUP_DECISION.TRY_USDA,
+      decisionReason: LOOKUP_DECISION_REASON.WEAK_LOCAL_MATCH,
+      dataQuality: bestLocal.dataQuality,
+      escalationReason: LOOKUP_DECISION_REASON.WEAK_LOCAL_MATCH,
+    });
+  }
+
+  return buildLookupDecisionMeta({
+    decision: LOOKUP_DECISION.TRY_USDA,
+    decisionReason: LOOKUP_DECISION_REASON.NO_CLOSE_MATCH,
+    dataQuality: bestLocal.dataQuality,
+    escalationReason: LOOKUP_DECISION_REASON.NO_CLOSE_MATCH,
+  });
+};
+
+const buildResolvedLookupResult = ({
+  candidate = null,
+  sourcesTried = [],
+  errorsBySource = {},
+  errorReasonsBySource = {},
+  fallbackUsed = false,
+  sourcePreferenceWeights = null,
+  decisionMeta = {},
+  status = 'resolved',
+} = {}) => {
+  if (!candidate?.food) {
+    return null;
+  }
+
+  return {
+    status,
+    usedSource: candidate.source,
+    queryUsed: candidate.queryUsed,
+    sourcesTried,
+    fallbackUsed,
+    matchedFood: {
+      name: candidate.food.name,
+      brand: candidate.food.brand || null,
+      category: candidate.food.category || null,
+      subcategory: candidate.food.subcategory || null,
+      per100g: hasUsablePer100g(candidate.food?.per100g)
+        ? {
+            calories: Number(candidate.food.per100g.calories) || 0,
+            protein: Number(candidate.food.per100g.protein) || 0,
+            carbs: Number(candidate.food.per100g.carbs) || 0,
+            fats: Number(candidate.food.per100g.fats) || 0,
+          }
+        : candidate.food?.per100g && typeof candidate.food.per100g === 'object'
+          ? {
+              calories: Number(candidate.food.per100g.calories) || 0,
+              protein: Number(candidate.food.per100g.protein) || 0,
+              carbs: Number(candidate.food.per100g.carbs) || 0,
+              fats: Number(candidate.food.per100g.fats) || 0,
+            }
+          : null,
+    },
+    errorsBySource,
+    errorReasonsBySource,
+    matchConfidence: candidate.confidence,
+    matchScore: Number(candidate.score) || 0,
+    weightedMatchScore: Number(candidate.weightedScore) || 0,
+    confidenceComponents: {
+      rawScore: Number(candidate.confidenceComponents?.rawScore) || 0,
+      trustMultiplier:
+        Number(candidate.confidenceComponents?.trustMultiplier) ||
+        resolveSourceTrustMultiplier(candidate.source),
+      weightedScore: Number(candidate.confidenceComponents?.weightedScore) || 0,
+    },
+    sourcePreferenceWeights,
+    ...buildLookupDecisionMeta({
+      dataQuality: candidate.dataQuality,
+      ...decisionMeta,
+    }),
+  };
+};
+
 export const resetAiLookupSessionCache = () => {
   aiLookupSessionCache = new Map();
+};
+
+export const resetAcceptedAiLookupReuseCache = () => {
+  acceptedAiLookupReuseCache = new Map();
+};
+
+export const recordAcceptedAiFoodLookup = ({
+  entry = null,
+  lookupMeta = null,
+} = {}) => {
+  const entryName = String(entry?.name || lookupMeta?.entryName || '').trim();
+  if (!entryName) {
+    return false;
+  }
+
+  const normalizedLookupMeta =
+    lookupMeta && typeof lookupMeta === 'object' ? lookupMeta : {};
+  const matchedFood =
+    normalizedLookupMeta?.matchedFood &&
+    typeof normalizedLookupMeta.matchedFood === 'object'
+      ? normalizedLookupMeta.matchedFood
+      : null;
+
+  if (!matchedFood || !hasUsablePer100g(matchedFood.per100g)) {
+    return false;
+  }
+
+  const lookupTerms = Array.isArray(entry?.lookupTerms)
+    ? entry.lookupTerms
+    : [];
+  const preferBrandMatches = detectBrandIntent({
+    entryName,
+    lookupTerms,
+  });
+  const reuseKey = buildAcceptedReuseCacheKey({
+    entryName,
+    entryCategory: entry?.category || matchedFood.category || null,
+    preferBrandMatches,
+  });
+
+  const queryTokens = toSignificantTokens(
+    [entryName, ...lookupTerms].filter(Boolean).join(' ')
+  );
+
+  setAcceptedAiLookupReuseValue(reuseKey, {
+    usedSource: normalizedLookupMeta.usedSource || FOOD_SEARCH_SOURCE.LOCAL,
+    queryUsed: normalizedLookupMeta.queryUsed || entryName,
+    matchScore: Number(normalizedLookupMeta.matchScore) || 0.9,
+    matchConfidence: normalizedLookupMeta.matchConfidence || 'high',
+    matchedFood: {
+      name: matchedFood.name || entryName,
+      brand: matchedFood.brand || null,
+      category: matchedFood.category || entry?.category || null,
+      subcategory: matchedFood.subcategory || null,
+      per100g: {
+        calories: Number(matchedFood?.per100g?.calories) || 0,
+        protein: Number(matchedFood?.per100g?.protein) || 0,
+        carbs: Number(matchedFood?.per100g?.carbs) || 0,
+        fats: Number(matchedFood?.per100g?.fats) || 0,
+      },
+    },
+    queryTokens,
+    recordedAt: Date.now(),
+  });
+
+  return true;
 };
 
 const toErrorMessage = (error, fallbackMessage) => {
@@ -587,27 +1082,6 @@ const buildNameMatchScore = (query, food, options = {}) => {
   return Math.max(0, Math.min(1, score));
 };
 
-const pickBestMatch = (query, results = [], options = {}) => {
-  let best = null;
-
-  results.forEach((food) => {
-    const score = buildNameMatchScore(query, food, options);
-    if (!best || score > best.score) {
-      best = { food, score };
-    }
-  });
-
-  if (!best) {
-    return null;
-  }
-
-  return {
-    food: best.food,
-    score: best.score,
-    confidence: resolveAiConfidence(best.score),
-  };
-};
-
 const searchOnlineHierarchy = async ({
   query,
   page,
@@ -797,6 +1271,60 @@ export const searchFoodsOnline = async ({
   };
 };
 
+const resolveAcceptedHistoryMatch = ({
+  entryName = '',
+  lookupTerms = [],
+  entryCategory = null,
+  preferBrandMatches = false,
+  sourcePreferenceWeights = null,
+} = {}) => {
+  const reuseKey = buildAcceptedReuseCacheKey({
+    entryName,
+    entryCategory,
+    preferBrandMatches,
+  });
+  const record = getAcceptedAiLookupReuseValue(reuseKey);
+
+  if (!record?.matchedFood) {
+    return null;
+  }
+
+  const currentTokens = toSignificantTokens(
+    [entryName, ...(Array.isArray(lookupTerms) ? lookupTerms : [])]
+      .filter(Boolean)
+      .join(' ')
+  );
+  if (
+    hasMaterialNewTokens({
+      currentTokens,
+      acceptedTokens: Array.isArray(record.queryTokens)
+        ? record.queryTokens
+        : [],
+      preferBrandMatches,
+    })
+  ) {
+    return null;
+  }
+
+  const candidate = buildCandidate({
+    source: record.usedSource || FOOD_SEARCH_SOURCE.LOCAL,
+    queryUsed: record.queryUsed || entryName,
+    food: record.matchedFood,
+    score: Number(record.matchScore) || LOCAL_ACCEPTANCE_POLICY.strongScore,
+    sourcePreferenceWeights,
+  });
+
+  if (!candidate?.hasUsableData) {
+    return null;
+  }
+
+  return {
+    cacheKey: reuseKey,
+    record: cloneAcceptedReuseRecord(record),
+    candidate,
+  };
+};
+
 export const resolveAiFoodLookup = async ({
   entryName = '',
   lookupTerms = [],
@@ -865,6 +1393,10 @@ export const resolveAiFoodLookup = async ({
         trustMultiplier: resolveSourceTrustMultiplier(FOOD_SEARCH_SOURCE.LOCAL),
         weightedScore: 0,
       },
+      ...buildLookupDecisionMeta({
+        decision: LOOKUP_DECISION.NO_MATCH,
+        decisionReason: LOOKUP_DECISION_REASON.NO_CLOSE_MATCH,
+      }),
     };
 
     setAiLookupSessionCacheValue(cacheKey, noQueryResult);
@@ -883,184 +1415,233 @@ export const resolveAiFoodLookup = async ({
       entryCategory || 'uncategorized'
     ));
 
+  const acceptedHistoryMatch = resolveAcceptedHistoryMatch({
+    entryName,
+    lookupTerms: terms,
+    entryCategory,
+    preferBrandMatches,
+    sourcePreferenceWeights: effectiveSourcePreferenceWeights,
+  });
+  if (acceptedHistoryMatch?.candidate) {
+    const historyResult = buildResolvedLookupResult({
+      candidate: acceptedHistoryMatch.candidate,
+      sourcesTried: [acceptedHistoryMatch.candidate.source],
+      errorsBySource: {},
+      errorReasonsBySource: {},
+      fallbackUsed: false,
+      sourcePreferenceWeights: effectiveSourcePreferenceWeights,
+      decisionMeta: buildLookupDecisionMeta({
+        decision: LOOKUP_DECISION.ACCEPT_LOCAL,
+        decisionReason: LOOKUP_DECISION_REASON.ACCEPTED_HISTORY_MATCH,
+        dataQuality: acceptedHistoryMatch.candidate.dataQuality,
+        acceptedFromHistory: true,
+      }),
+    });
+
+    setAiLookupSessionCacheValue(cacheKey, historyResult);
+    return cloneLookupResult(historyResult);
+  }
+
   const sourcesTried = [];
   const errorsBySource = {};
   const errorReasonsBySource = {};
-  let bestMatch = null;
   let shouldForceGroundingFallback = false;
 
-  const maybeKeepBest = ({ match, source, queryUsed }) => {
-    if (!match?.food) {
-      return;
-    }
+  const localCandidateGroups = [];
+  if (!sourcesTried.includes(FOOD_SEARCH_SOURCE.LOCAL)) {
+    sourcesTried.push(FOOD_SEARCH_SOURCE.LOCAL);
+  }
 
-    const weightedConfidence = resolveWeightedConfidence({
-      score: match.score,
-      source,
-      sourcePreferenceWeights: effectiveSourcePreferenceWeights,
-    });
-
-    const candidate = {
-      source,
-      queryUsed,
-      food: match.food,
-      score: match.score,
-      confidence: weightedConfidence.confidence,
-      weightedScore: weightedConfidence.weightedScore,
-      confidenceComponents: {
-        rawScore: weightedConfidence.rawScore,
-        trustMultiplier: weightedConfidence.trustMultiplier,
-        weightedScore: weightedConfidence.weightedScore,
-      },
-    };
-
-    if (
-      !bestMatch ||
-      candidate.weightedScore > bestMatch.weightedScore ||
-      (candidate.weightedScore === bestMatch.weightedScore &&
-        candidate.score > bestMatch.score)
-    ) {
-      bestMatch = candidate;
-    }
-  };
-
-  const evaluateTerm = async (term) => {
-    const shouldQueryUsda =
-      isOnline && (!bestMatch || bestMatch.score < AI_SCORE_THRESHOLD.medium);
-    const termPromises = [];
-    const usdaAbortController =
-      shouldQueryUsda && typeof globalThis.AbortController !== 'undefined'
-        ? new globalThis.AbortController()
-        : null;
-
-    if (!sourcesTried.includes(FOOD_SEARCH_SOURCE.LOCAL)) {
-      sourcesTried.push(FOOD_SEARCH_SOURCE.LOCAL);
-    }
-
-    termPromises.push(
-      resolvedDependencies
-        .searchLocal({
+  for (const term of terms) {
+    try {
+      const localResult = await resolvedDependencies.searchLocal({
+        query: term,
+        limit: resolvedLocalLimit,
+        preferBrandMatches,
+      });
+      localCandidateGroups.push(
+        collectTopCandidates({
           query: term,
-          limit: resolvedLocalLimit,
+          foods: localResult,
+          source: FOOD_SEARCH_SOURCE.LOCAL,
           preferBrandMatches,
-        })
-        .then((localResult) => {
-          const localMatch = pickBestMatch(term, localResult, {
-            preferBrandMatches,
-          });
-          if (
-            localMatch?.score >= AI_SCORE_THRESHOLD.medium &&
-            usdaAbortController
-          ) {
-            usdaAbortController.abort();
-          }
-
-          return {
-            source: FOOD_SEARCH_SOURCE.LOCAL,
-            queryUsed: term,
-            match: localMatch,
-          };
-        })
-        .catch((error) => {
-          errorsBySource[FOOD_SEARCH_SOURCE.LOCAL] = toErrorMessage(
-            error,
-            'Local search failed.'
-          );
-          errorReasonsBySource[FOOD_SEARCH_SOURCE.LOCAL] =
-            SOURCE_ERROR_REASON.LOCAL_SEARCH_FAILED;
-          return null;
-        })
-    );
-
-    if (shouldQueryUsda) {
-      if (!sourcesTried.includes(FOOD_SEARCH_SOURCE.USDA)) {
-        sourcesTried.push(FOOD_SEARCH_SOURCE.USDA);
-      }
-
-      termPromises.push(
-        resolvedDependencies
-          .searchUsda(term, {
-            page: 1,
-            pageSize: resolvedOnlinePageSize,
-            signal: usdaAbortController?.signal,
-          })
-          .then((usdaResult) => {
-            const usdaFoods = Array.isArray(usdaResult?.foods)
-              ? usdaResult.foods
-              : [];
-            const usdaMatch = pickBestMatch(term, usdaFoods, {
-              preferBrandMatches,
-            });
-
-            return {
-              source: FOOD_SEARCH_SOURCE.USDA,
-              queryUsed: term,
-              match: usdaMatch,
-            };
-          })
-          .catch((error) => {
-            if (error?.name === 'AbortError') {
-              errorReasonsBySource[FOOD_SEARCH_SOURCE.USDA] =
-                SOURCE_ERROR_REASON.USDA_SEARCH_ABORTED;
-              return null;
-            }
-
-            if (shouldForceGroundingFallbackFromUsdaError(error)) {
-              shouldForceGroundingFallback = true;
-            }
-
-            errorsBySource[FOOD_SEARCH_SOURCE.USDA] = toErrorMessage(
-              error,
-              'USDA search failed.'
-            );
-            errorReasonsBySource[FOOD_SEARCH_SOURCE.USDA] =
-              SOURCE_ERROR_REASON.USDA_SEARCH_FAILED;
-            return null;
-          })
+          sourcePreferenceWeights: effectiveSourcePreferenceWeights,
+        }).slice(0, 3)
       );
-    }
-
-    return Promise.all(termPromises);
-  };
-
-  const earlyParallelTerms = terms.slice(0, 2);
-  const remainingTerms = terms.slice(2);
-
-  if (earlyParallelTerms.length > 0) {
-    const earlySettled = await Promise.all(
-      earlyParallelTerms.map((term) => evaluateTerm(term))
-    );
-
-    earlySettled.flat().forEach((item) => {
-      if (!item) return;
-      maybeKeepBest(item);
-    });
-
-    if (bestMatch?.score >= AI_SCORE_THRESHOLD.high) {
-      shouldForceGroundingFallback = false;
+    } catch (error) {
+      errorsBySource[FOOD_SEARCH_SOURCE.LOCAL] = toErrorMessage(
+        error,
+        'Local search failed.'
+      );
+      errorReasonsBySource[FOOD_SEARCH_SOURCE.LOCAL] =
+        SOURCE_ERROR_REASON.LOCAL_SEARCH_FAILED;
     }
   }
 
-  if (!bestMatch || bestMatch.score < AI_SCORE_THRESHOLD.high) {
-    for (const term of remainingTerms) {
-      const termResults = await evaluateTerm(term);
-      termResults.forEach((item) => {
-        if (!item) return;
-        maybeKeepBest(item);
-      });
+  const { best: bestLocalCandidate, second: secondLocalCandidate } =
+    pickTopCandidateAcrossTerms(localCandidateGroups);
 
-      if (bestMatch?.score >= AI_SCORE_THRESHOLD.high) {
-        shouldForceGroundingFallback = false;
-        break;
+  const localDecision = resolveLocalDecision({
+    bestLocal: bestLocalCandidate,
+    secondLocal: secondLocalCandidate,
+    preferBrandMatches,
+    acceptedHistoryMatch,
+  });
+
+  if (localDecision.decision === LOOKUP_DECISION.ACCEPT_LOCAL) {
+    const localResult = buildResolvedLookupResult({
+      candidate: bestLocalCandidate,
+      sourcesTried,
+      errorsBySource,
+      errorReasonsBySource,
+      fallbackUsed: false,
+      sourcePreferenceWeights: effectiveSourcePreferenceWeights,
+      decisionMeta: localDecision,
+    });
+    setAiLookupSessionCacheValue(cacheKey, localResult);
+    return cloneLookupResult(localResult);
+  }
+
+  if (!isOnline) {
+    const offlineReferenceCandidate = bestLocalCandidate;
+    const offlineConfidence = resolveWeightedConfidence({
+      score: Number(offlineReferenceCandidate?.score || 0),
+      source: offlineReferenceCandidate?.source || FOOD_SEARCH_SOURCE.LOCAL,
+      sourcePreferenceWeights: effectiveSourcePreferenceWeights,
+    });
+    const offlineResult = {
+      status: offlineReferenceCandidate ? 'weak_match' : 'no_match',
+      usedSource: offlineReferenceCandidate?.source || FOOD_SEARCH_SOURCE.LOCAL,
+      queryUsed: offlineReferenceCandidate?.queryUsed || primaryTerm || null,
+      sourcesTried,
+      fallbackUsed: false,
+      matchedFood: null,
+      errorsBySource,
+      errorReasonsBySource,
+      matchConfidence: offlineConfidence.confidence,
+      matchScore: Number(offlineReferenceCandidate?.score || 0),
+      weightedMatchScore: offlineConfidence.weightedScore,
+      confidenceComponents: {
+        rawScore: offlineConfidence.rawScore,
+        trustMultiplier: offlineConfidence.trustMultiplier,
+        weightedScore: offlineConfidence.weightedScore,
+      },
+      sourcePreferenceWeights: effectiveSourcePreferenceWeights,
+      ...buildLookupDecisionMeta({
+        decision: LOOKUP_DECISION.NO_MATCH,
+        decisionReason: localDecision.decisionReason,
+        dataQuality:
+          offlineReferenceCandidate?.dataQuality || LOOKUP_DATA_QUALITY.MISSING,
+      }),
+    };
+
+    setAiLookupSessionCacheValue(cacheKey, offlineResult);
+    return cloneLookupResult(offlineResult);
+  }
+
+  const usdaCandidateGroups = [];
+  if (!sourcesTried.includes(FOOD_SEARCH_SOURCE.USDA)) {
+    sourcesTried.push(FOOD_SEARCH_SOURCE.USDA);
+  }
+
+  for (const term of terms) {
+    try {
+      const usdaResult = await resolvedDependencies.searchUsda(term, {
+        page: 1,
+        pageSize: resolvedOnlinePageSize,
+      });
+      const usdaFoods = Array.isArray(usdaResult?.foods)
+        ? usdaResult.foods
+        : [];
+      usdaCandidateGroups.push(
+        collectTopCandidates({
+          query: term,
+          foods: usdaFoods,
+          source: FOOD_SEARCH_SOURCE.USDA,
+          preferBrandMatches,
+          sourcePreferenceWeights: effectiveSourcePreferenceWeights,
+        }).slice(0, 3)
+      );
+    } catch (error) {
+      if (shouldForceGroundingFallbackFromUsdaError(error)) {
+        shouldForceGroundingFallback = true;
       }
+      errorsBySource[FOOD_SEARCH_SOURCE.USDA] = toErrorMessage(
+        error,
+        'USDA search failed.'
+      );
+      errorReasonsBySource[FOOD_SEARCH_SOURCE.USDA] =
+        SOURCE_ERROR_REASON.USDA_SEARCH_FAILED;
     }
+  }
+
+  const { best: bestUsdaCandidate } =
+    pickTopCandidateAcrossTerms(usdaCandidateGroups);
+
+  const canAcceptUsda =
+    bestUsdaCandidate &&
+    bestUsdaCandidate.hasUsableData &&
+    bestUsdaCandidate.score >= LOCAL_ACCEPTANCE_POLICY.weakScore;
+  const canRetainLocalAfterUsda =
+    bestLocalCandidate &&
+    bestLocalCandidate.hasUsableData &&
+    bestLocalCandidate.score >= LOCAL_ACCEPTANCE_POLICY.dominantScore &&
+    (!bestUsdaCandidate || bestLocalCandidate.score >= bestUsdaCandidate.score);
+
+  if (canRetainLocalAfterUsda) {
+    const retainedLocalResult = buildResolvedLookupResult({
+      candidate: bestLocalCandidate,
+      sourcesTried,
+      errorsBySource,
+      errorReasonsBySource,
+      fallbackUsed: false,
+      sourcePreferenceWeights: effectiveSourcePreferenceWeights,
+      decisionMeta: buildLookupDecisionMeta({
+        decision: LOOKUP_DECISION.ACCEPT_LOCAL,
+        decisionReason: LOOKUP_DECISION_REASON.LOCAL_RETAINED_AFTER_USDA,
+        dataQuality: bestLocalCandidate.dataQuality,
+        escalationAttempted: true,
+        escalationReason:
+          localDecision.escalationReason || localDecision.decisionReason,
+      }),
+    });
+    setAiLookupSessionCacheValue(cacheKey, retainedLocalResult);
+    return cloneLookupResult(retainedLocalResult);
+  }
+
+  if (canAcceptUsda) {
+    const usdaDecisionReason =
+      localDecision.decisionReason === LOOKUP_DECISION_REASON.LOCAL_AMBIGUOUS
+        ? LOOKUP_DECISION_REASON.USDA_RESOLVED_AMBIGUITY
+        : localDecision.decisionReason === LOOKUP_DECISION_REASON.MISSING_MACROS
+          ? LOOKUP_DECISION_REASON.USDA_COMPLETED_MISSING_MACROS
+          : LOOKUP_DECISION_REASON.USDA_BETTER_MATCH;
+
+    const usdaResult = buildResolvedLookupResult({
+      candidate: bestUsdaCandidate,
+      sourcesTried,
+      errorsBySource,
+      errorReasonsBySource,
+      fallbackUsed: true,
+      sourcePreferenceWeights: effectiveSourcePreferenceWeights,
+      decisionMeta: buildLookupDecisionMeta({
+        decision: LOOKUP_DECISION.TRY_USDA,
+        decisionReason: usdaDecisionReason,
+        dataQuality: bestUsdaCandidate.dataQuality,
+        escalationAttempted: true,
+        escalationReason:
+          localDecision.escalationReason || localDecision.decisionReason,
+      }),
+    });
+    setAiLookupSessionCacheValue(cacheKey, usdaResult);
+    return cloneLookupResult(usdaResult);
   }
 
   const shouldUseGrounding =
-    isOnline &&
-    (shouldForceGroundingFallback ||
-      !bestMatch ||
-      bestMatch.score < AI_SCORE_THRESHOLD.low);
+    shouldForceGroundingFallback ||
+    !bestUsdaCandidate ||
+    !bestUsdaCandidate.hasUsableData ||
+    bestUsdaCandidate.score < LOCAL_ACCEPTANCE_POLICY.weakScore;
 
   if (
     shouldUseGrounding &&
@@ -1080,11 +1661,7 @@ export const resolveAiFoodLookup = async ({
         qualityPreset.groundedLookupTimeoutMs
       );
 
-      const groundedPer100g = groundedEstimate?.per100g;
-      const hasGroundedMacros =
-        groundedPer100g && typeof groundedPer100g === 'object';
-
-      if (hasGroundedMacros) {
+      if (hasUsablePer100g(groundedEstimate?.per100g)) {
         const groundedScoreMap = {
           high: 0.78,
           medium: 0.64,
@@ -1095,42 +1672,36 @@ export const resolveAiFoodLookup = async ({
         ).toLowerCase();
         const groundedScore =
           groundedScoreMap[groundedScoreKey] || AI_SCORE_THRESHOLD.low;
-        const weightedConfidence = resolveWeightedConfidence({
-          score: groundedScore,
+        const groundedCandidate = buildCandidate({
           source: FOOD_SEARCH_SOURCE.AI_WEB_SEARCH,
-          sourcePreferenceWeights: effectiveSourcePreferenceWeights,
-        });
-
-        const groundedResult = {
-          status: 'resolved',
-          usedSource: FOOD_SEARCH_SOURCE.AI_WEB_SEARCH,
           queryUsed: groundedQuery,
-          sourcesTried,
-          fallbackUsed: true,
-          matchedFood: {
+          food: {
             name: groundedEstimate?.name || primaryTerm || groundedQuery,
             brand: null,
             category: null,
             subcategory: 'grounded_estimate',
-            per100g: {
-              calories: Number(groundedPer100g.calories) || 0,
-              protein: Number(groundedPer100g.protein) || 0,
-              carbs: Number(groundedPer100g.carbs) || 0,
-              fats: Number(groundedPer100g.fats) || 0,
-            },
+            per100g: groundedEstimate.per100g,
           },
+          score: groundedScore,
+          sourcePreferenceWeights: effectiveSourcePreferenceWeights,
+        });
+
+        const groundedResult = buildResolvedLookupResult({
+          candidate: groundedCandidate,
+          sourcesTried,
           errorsBySource,
           errorReasonsBySource,
-          matchConfidence:
-            groundedEstimate?.confidence || weightedConfidence.confidence,
-          matchScore: groundedScore,
-          weightedMatchScore: weightedConfidence.weightedScore,
-          confidenceComponents: {
-            rawScore: weightedConfidence.rawScore,
-            trustMultiplier: weightedConfidence.trustMultiplier,
-            weightedScore: weightedConfidence.weightedScore,
-          },
-        };
+          fallbackUsed: true,
+          sourcePreferenceWeights: effectiveSourcePreferenceWeights,
+          decisionMeta: buildLookupDecisionMeta({
+            decision: LOOKUP_DECISION.TRY_GROUNDING,
+            decisionReason: LOOKUP_DECISION_REASON.GROUNDING_REQUIRED,
+            dataQuality: groundedCandidate.dataQuality,
+            escalationAttempted: true,
+            escalationReason:
+              localDecision.escalationReason || localDecision.decisionReason,
+          }),
+        });
 
         setAiLookupSessionCacheValue(cacheKey, groundedResult);
         return cloneLookupResult(groundedResult);
@@ -1146,16 +1717,25 @@ export const resolveAiFoodLookup = async ({
   }
 
   if (shouldUseGrounding && !shouldAllowGroundingFallback) {
+    const groundingReferenceCandidate =
+      bestUsdaCandidate || bestLocalCandidate || null;
     const needsGroundingConfidence = resolveWeightedConfidence({
-      score: Number(bestMatch?.score || AI_SCORE_THRESHOLD.low),
-      source: bestMatch?.source || FOOD_SEARCH_SOURCE.LOCAL,
+      score: Number(
+        groundingReferenceCandidate?.score || LOCAL_ACCEPTANCE_POLICY.weakScore
+      ),
+      source: groundingReferenceCandidate?.source || FOOD_SEARCH_SOURCE.LOCAL,
       sourcePreferenceWeights: effectiveSourcePreferenceWeights,
     });
 
     const deferredGroundingResult = {
       status: 'needs_grounding',
-      usedSource: bestMatch?.source || FOOD_SEARCH_SOURCE.LOCAL,
-      queryUsed: bestMatch?.queryUsed || terms[0] || primaryTerm || null,
+      usedSource:
+        groundingReferenceCandidate?.source || FOOD_SEARCH_SOURCE.LOCAL,
+      queryUsed:
+        groundingReferenceCandidate?.queryUsed ||
+        terms[0] ||
+        primaryTerm ||
+        null,
       groundingQuery: terms[0] || primaryTerm || null,
       sourcesTried,
       fallbackUsed: sourcesTried.length > 1,
@@ -1163,7 +1743,7 @@ export const resolveAiFoodLookup = async ({
       errorsBySource,
       errorReasonsBySource,
       matchConfidence: needsGroundingConfidence.confidence,
-      matchScore: Number(bestMatch?.score || 0),
+      matchScore: Number(groundingReferenceCandidate?.score || 0),
       weightedMatchScore: needsGroundingConfidence.weightedScore,
       confidenceComponents: {
         rawScore: needsGroundingConfidence.rawScore,
@@ -1171,83 +1751,62 @@ export const resolveAiFoodLookup = async ({
         weightedScore: needsGroundingConfidence.weightedScore,
       },
       sourcePreferenceWeights: effectiveSourcePreferenceWeights,
+      ...buildLookupDecisionMeta({
+        decision: LOOKUP_DECISION.TRY_GROUNDING,
+        decisionReason: LOOKUP_DECISION_REASON.GROUNDING_REQUIRED,
+        dataQuality:
+          groundingReferenceCandidate?.dataQuality ||
+          LOOKUP_DATA_QUALITY.MISSING,
+        escalationAttempted: true,
+        escalationReason:
+          localDecision.escalationReason || localDecision.decisionReason,
+      }),
     };
 
     setAiLookupSessionCacheValue(cacheKey, deferredGroundingResult);
     return cloneLookupResult(deferredGroundingResult);
   }
 
-  if (!bestMatch || bestMatch.score < AI_SCORE_THRESHOLD.low) {
-    const lowConfidence = resolveWeightedConfidence({
-      score: Number(bestMatch?.score || 0),
-      source: bestMatch?.source || FOOD_SEARCH_SOURCE.LOCAL,
-      sourcePreferenceWeights: effectiveSourcePreferenceWeights,
-    });
-
-    const noMatchResult = {
-      status: bestMatch ? 'weak_match' : 'no_match',
-      usedSource: bestMatch?.source || FOOD_SEARCH_SOURCE.LOCAL,
-      queryUsed: bestMatch?.queryUsed || null,
-      sourcesTried,
-      fallbackUsed: sourcesTried.length > 1,
-      matchedFood: null,
-      errorsBySource,
-      errorReasonsBySource,
-      matchConfidence: lowConfidence.confidence,
-      matchScore: Number(bestMatch?.score || 0),
-      weightedMatchScore: lowConfidence.weightedScore,
-      confidenceComponents: {
-        rawScore: lowConfidence.rawScore,
-        trustMultiplier: lowConfidence.trustMultiplier,
-        weightedScore: lowConfidence.weightedScore,
-      },
-    };
-
-    setAiLookupSessionCacheValue(cacheKey, noMatchResult);
-    return cloneLookupResult(noMatchResult);
-  }
-
-  const weightedConfidence = resolveWeightedConfidence({
-    score: bestMatch.score,
-    source: bestMatch.source,
+  const noMatchReferenceCandidate = bestUsdaCandidate || bestLocalCandidate;
+  const lowConfidence = resolveWeightedConfidence({
+    score: Number(noMatchReferenceCandidate?.score || 0),
+    source: noMatchReferenceCandidate?.source || FOOD_SEARCH_SOURCE.LOCAL,
     sourcePreferenceWeights: effectiveSourcePreferenceWeights,
   });
 
-  const resolvedResult = {
-    status: 'resolved',
-    usedSource: bestMatch.source,
-    queryUsed: bestMatch.queryUsed,
+  const noMatchResult = {
+    status: noMatchReferenceCandidate ? 'weak_match' : 'no_match',
+    usedSource: noMatchReferenceCandidate?.source || FOOD_SEARCH_SOURCE.LOCAL,
+    queryUsed: noMatchReferenceCandidate?.queryUsed || null,
     sourcesTried,
-    fallbackUsed: bestMatch.source !== FOOD_SEARCH_SOURCE.LOCAL,
-    matchedFood: {
-      name: bestMatch.food.name,
-      brand: bestMatch.food.brand || null,
-      category: bestMatch.food.category || null,
-      subcategory: bestMatch.food.subcategory || null,
-      per100g:
-        bestMatch.food?.per100g && typeof bestMatch.food.per100g === 'object'
-          ? {
-              calories: Number(bestMatch.food.per100g.calories) || 0,
-              protein: Number(bestMatch.food.per100g.protein) || 0,
-              carbs: Number(bestMatch.food.per100g.carbs) || 0,
-              fats: Number(bestMatch.food.per100g.fats) || 0,
-            }
-          : null,
-    },
+    fallbackUsed: sourcesTried.length > 1,
+    matchedFood: null,
     errorsBySource,
     errorReasonsBySource,
-    matchConfidence: weightedConfidence.confidence,
-    matchScore: Number(bestMatch.score),
-    weightedMatchScore: weightedConfidence.weightedScore,
+    matchConfidence: lowConfidence.confidence,
+    matchScore: Number(noMatchReferenceCandidate?.score || 0),
+    weightedMatchScore: lowConfidence.weightedScore,
     confidenceComponents: {
-      rawScore: weightedConfidence.rawScore,
-      trustMultiplier: weightedConfidence.trustMultiplier,
-      weightedScore: weightedConfidence.weightedScore,
+      rawScore: lowConfidence.rawScore,
+      trustMultiplier: lowConfidence.trustMultiplier,
+      weightedScore: lowConfidence.weightedScore,
     },
+    sourcePreferenceWeights: effectiveSourcePreferenceWeights,
+    ...buildLookupDecisionMeta({
+      decision: LOOKUP_DECISION.NO_MATCH,
+      decisionReason: shouldUseGrounding
+        ? LOOKUP_DECISION_REASON.USDA_NO_CLOSE_MATCH
+        : LOOKUP_DECISION_REASON.USDA_NO_BETTER_MATCH,
+      dataQuality:
+        noMatchReferenceCandidate?.dataQuality || LOOKUP_DATA_QUALITY.MISSING,
+      escalationAttempted: true,
+      escalationReason:
+        localDecision.escalationReason || localDecision.decisionReason,
+    }),
   };
 
-  setAiLookupSessionCacheValue(cacheKey, resolvedResult);
-  return cloneLookupResult(resolvedResult);
+  setAiLookupSessionCacheValue(cacheKey, noMatchResult);
+  return cloneLookupResult(noMatchResult);
 };
 
 export const resolveAiGroundedBatch = async ({
@@ -1347,6 +1906,13 @@ export const resolveAiGroundedBatch = async ({
         trustMultiplier: weightedConfidence.trustMultiplier,
         weightedScore: weightedConfidence.weightedScore,
       },
+      ...buildLookupDecisionMeta({
+        decision: LOOKUP_DECISION.TRY_GROUNDING,
+        decisionReason: LOOKUP_DECISION_REASON.GROUNDING_REQUIRED,
+        dataQuality: LOOKUP_DATA_QUALITY.COMPLETE,
+        escalationAttempted: true,
+        escalationReason: LOOKUP_DECISION_REASON.GROUNDING_REQUIRED,
+      }),
     };
   };
 
@@ -1393,6 +1959,13 @@ export const resolveAiGroundedBatch = async ({
         trustMultiplier: lowConfidence.trustMultiplier,
         weightedScore: lowConfidence.weightedScore,
       },
+      ...buildLookupDecisionMeta({
+        decision: LOOKUP_DECISION.NO_MATCH,
+        decisionReason: LOOKUP_DECISION_REASON.USDA_NO_CLOSE_MATCH,
+        dataQuality: LOOKUP_DATA_QUALITY.MISSING,
+        escalationAttempted: true,
+        escalationReason: LOOKUP_DECISION_REASON.GROUNDING_REQUIRED,
+      }),
     };
   };
 

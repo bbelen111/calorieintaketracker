@@ -149,8 +149,41 @@ export const FoodSearchChatPanel = ({
     }));
   };
 
-  const getLookupStatusLabel = (status) => {
-    switch (String(status || '').toLowerCase()) {
+  const getLookupStatusLabel = (lookupMeta) => {
+    const decisionReason = String(lookupMeta?.decisionReason || '')
+      .trim()
+      .toLowerCase();
+    const status = String(lookupMeta?.status || '')
+      .trim()
+      .toLowerCase();
+
+    switch (decisionReason) {
+      case 'accepted_history_match':
+        return 'Reused prior accepted match';
+      case 'strong_local_match':
+      case 'dominant_local_match':
+        return 'Accepted local database match';
+      case 'local_retained_after_usda':
+        return 'Kept local match after online check';
+      case 'local_ambiguous':
+        return 'Checking online due to local ambiguity';
+      case 'missing_macros':
+        return 'Checking online for complete nutrition';
+      case 'brand_mismatch':
+        return 'Checking online for branded match';
+      case 'grounding_required':
+        return 'Searching online for a better match';
+      case 'usda_resolved_ambiguity':
+        return 'Resolved with online database';
+      case 'usda_completed_missing_macros':
+        return 'Completed with online nutrition data';
+      case 'usda_better_match':
+        return 'Found a better online database match';
+      default:
+        break;
+    }
+
+    switch (status) {
       case 'resolved':
         return 'Matched';
       case 'needs_grounding':
@@ -516,7 +549,7 @@ export const FoodSearchChatPanel = ({
                                 (lookupMeta?.status &&
                                   lookupMeta.status !== 'resolved');
                               const friendlyLookupStatusLabel =
-                                getLookupStatusLabel(lookupMeta?.status);
+                                getLookupStatusLabel(lookupMeta);
                               const resolvedSource = entry.source || 'estimate';
                               const finalizedEntryChips =
                                 buildFinalizedEntryChips({

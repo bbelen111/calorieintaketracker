@@ -201,6 +201,24 @@ export const normalizeAiLookupResult = (result, { entryName = '' } = {}) => {
         ? { ...result.sourcePreferenceWeights }
         : null,
 
+    decision:
+      typeof result?.decision === 'string' ? result.decision : 'no_match',
+
+    decisionReason:
+      typeof result?.decisionReason === 'string' ? result.decisionReason : null,
+
+    dataQuality:
+      typeof result?.dataQuality === 'string' ? result.dataQuality : 'missing',
+
+    acceptedFromHistory: Boolean(result?.acceptedFromHistory),
+
+    escalationAttempted: Boolean(result?.escalationAttempted),
+
+    escalationReason:
+      typeof result?.escalationReason === 'string'
+        ? result.escalationReason
+        : null,
+
     matchedFood: result?.matchedFood
       ? {
           name: result.matchedFood.name,
@@ -257,6 +275,18 @@ const buildLookupErrorMeta = (
     queryUsed: String(entryName || '').trim() || null,
 
     matchConfidence: 'low',
+
+    decision: 'no_match',
+
+    decisionReason: reasonCode,
+
+    dataQuality: 'missing',
+
+    acceptedFromHistory: false,
+
+    escalationAttempted: false,
+
+    escalationReason: null,
 
     matchScore: 0,
 

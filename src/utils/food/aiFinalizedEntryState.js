@@ -36,6 +36,22 @@ const LOOKUP_STATUS_CHIP_LABELS = Object.freeze({
   error: 'Lookup issue',
 });
 
+const LOOKUP_DECISION_REASON_CHIP_LABELS = Object.freeze({
+  accepted_history_match: 'Reused accepted match',
+  strong_local_match: 'Strong local match',
+  dominant_local_match: 'Dominant local match',
+  local_retained_after_usda: 'Kept local match',
+  usda_resolved_ambiguity: 'Resolved online',
+  usda_completed_missing_macros: 'Completed nutrition',
+  usda_better_match: 'Better online match',
+  local_ambiguous: 'Local ambiguity',
+  missing_macros: 'Missing local macros',
+  brand_mismatch: 'Brand mismatch',
+  weak_local_match: 'Weak local match',
+  no_close_match: 'No close match',
+  grounding_required: 'Grounded fallback',
+});
+
 const pushChip = (chips, chip) => {
   if (!chip?.label) {
     return;
@@ -77,6 +93,18 @@ export const getLookupStatusChipLabel = (status) => {
   }
 
   return LOOKUP_STATUS_CHIP_LABELS[normalizedStatus] || null;
+};
+
+export const getLookupDecisionReasonChipLabel = (reasonCode) => {
+  const normalizedReasonCode = String(reasonCode || '')
+    .trim()
+    .toLowerCase();
+
+  if (!normalizedReasonCode) {
+    return null;
+  }
+
+  return LOOKUP_DECISION_REASON_CHIP_LABELS[normalizedReasonCode] || null;
 };
 
 export const buildFinalizedEntryChips = ({
@@ -136,6 +164,16 @@ export const buildFinalizedEntryChips = ({
     pushChip(chips, {
       label: lookupStatusChipLabel,
       className: 'bg-accent-slate/20 text-accent-slate',
+    });
+  }
+
+  const lookupDecisionReasonChipLabel = getLookupDecisionReasonChipLabel(
+    lookupMeta?.decisionReason
+  );
+  if (lookupDecisionReasonChipLabel) {
+    pushChip(chips, {
+      label: lookupDecisionReasonChipLabel,
+      className: 'bg-accent-blue/15 text-accent-blue',
     });
   }
 

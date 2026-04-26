@@ -53,6 +53,7 @@ import {
   dedupeExtractedFoodEntries,
   FOOD_SEARCH_SOURCE,
   getFoodSearchSourceLabel,
+  recordAcceptedAiFoodLookup,
   resetAiLookupSessionCache,
   resolveAiFoodEntry,
   searchFoodsLocal,
@@ -2235,15 +2236,12 @@ export const FoodSearchModal = ({
     [aiEntryLookupByKey]
   );
 
-  const toggleAiEntryExpansion = useCallback(
-    (_entry, entryKey) => {
-      setExpandedAiEntryKeys((prev) => ({
-        ...prev,
-        [entryKey]: !prev[entryKey],
-      }));
-    },
-    []
-  );
+  const toggleAiEntryExpansion = useCallback((_entry, entryKey) => {
+    setExpandedAiEntryKeys((prev) => ({
+      ...prev,
+      [entryKey]: !prev[entryKey],
+    }));
+  }, []);
 
   const parseEntryKeyMessageId = useCallback(
     (entryKey) => parseLookupContextEntryKeyMessageId(entryKey),
@@ -3312,6 +3310,11 @@ export const FoodSearchModal = ({
         [entryKey]: true,
       }));
 
+      recordAcceptedAiFoodLookup({
+        entry,
+        lookupMeta,
+      });
+
       void recordImplicitFeedbackForEntry({
         entry,
         entryKey,
@@ -3345,6 +3348,11 @@ export const FoodSearchModal = ({
         ...prev,
         [entryKey]: true,
       }));
+
+      recordAcceptedAiFoodLookup({
+        entry,
+        lookupMeta,
+      });
 
       void recordImplicitFeedbackForEntry({
         entry,
@@ -3384,7 +3392,10 @@ export const FoodSearchModal = ({
     }
 
     latestAssistantBatch.foodParser.entries.forEach((entry, index) => {
-      const entryKey = buildLookupContextEntryKey(latestAssistantBatch.id, index);
+      const entryKey = buildLookupContextEntryKey(
+        latestAssistantBatch.id,
+        index
+      );
       const hasAction =
         loggedAiEntryKeys[entryKey] || favouritedAiEntryKeys[entryKey];
 

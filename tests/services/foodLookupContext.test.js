@@ -28,6 +28,12 @@ test('normalizeAiLookupResult returns normalized safe shape', () => {
         trustMultiplier: 0.98,
         weightedScore: 0.89,
       },
+      decision: 'try_usda',
+      decisionReason: 'usda_better_match',
+      dataQuality: 'complete',
+      acceptedFromHistory: false,
+      escalationAttempted: true,
+      escalationReason: 'weak_local_match',
       matchedFood: {
         name: 'Cacao Tablet',
         brand: 'Local Brand',
@@ -52,6 +58,10 @@ test('normalizeAiLookupResult returns normalized safe shape', () => {
   assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.USDA);
   assert.equal(result.matchConfidence, 'high');
   assert.equal(result.weightedMatchScore, 0.89);
+  assert.equal(result.decision, 'try_usda');
+  assert.equal(result.decisionReason, 'usda_better_match');
+  assert.equal(result.dataQuality, 'complete');
+  assert.equal(result.escalationAttempted, true);
   assert.equal(result.confidenceComponents?.trustMultiplier, 0.98);
   assert.equal(result.matchedFood?.name, 'Cacao Tablet');
   assert.equal(
@@ -181,6 +191,12 @@ test('resolveFoodLookupContext preserves successful siblings when one entry look
         matchConfidence: 'high',
         matchScore: 0.9,
         weightedMatchScore: 0.9,
+        decision: 'accept_local',
+        decisionReason: 'strong_local_match',
+        dataQuality: 'complete',
+        acceptedFromHistory: false,
+        escalationAttempted: false,
+        escalationReason: null,
         confidenceComponents: {
           rawScore: 0.9,
           trustMultiplier: 1,
@@ -204,6 +220,8 @@ test('resolveFoodLookupContext preserves successful siblings when one entry look
 
   assert.equal(context['assistant-2::0'].status, 'resolved');
   assert.equal(context['assistant-2::0'].matchConfidence, 'high');
+  assert.equal(context['assistant-2::0'].decision, 'accept_local');
+  assert.equal(context['assistant-2::0'].decisionReason, 'strong_local_match');
   assert.equal(context['assistant-2::1'].status, 'error');
   assert.equal(
     context['assistant-2::1'].errorsBySource[FOOD_SEARCH_SOURCE.LOCAL],
@@ -231,6 +249,12 @@ test('resolveFoodLookupContext resolves deferred grounding entries in one batche
       matchConfidence: 'low',
       matchScore: 0,
       weightedMatchScore: 0,
+      decision: 'try_grounding',
+      decisionReason: 'grounding_required',
+      dataQuality: 'missing',
+      acceptedFromHistory: false,
+      escalationAttempted: true,
+      escalationReason: 'no_close_match',
       matchedFood: null,
       errorsBySource: {},
       errorReasonsBySource: {},
@@ -253,6 +277,12 @@ test('resolveFoodLookupContext resolves deferred grounding entries in one batche
           matchConfidence: 'low',
           matchScore: 0.55,
           weightedMatchScore: 0.41,
+          decision: 'try_grounding',
+          decisionReason: 'grounding_required',
+          dataQuality: 'complete',
+          acceptedFromHistory: false,
+          escalationAttempted: true,
+          escalationReason: 'no_close_match',
           confidenceComponents: {
             rawScore: 0.55,
             trustMultiplier: 0.75,

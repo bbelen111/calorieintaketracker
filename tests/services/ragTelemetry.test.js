@@ -63,16 +63,30 @@ test('records retrieval source/confidence distributions and grounded fallback fr
         usedSource: 'local',
         matchConfidence: 'high',
         fallbackUsed: false,
+        decision: 'accept_local',
+        decisionReason: 'strong_local_match',
+        acceptedFromHistory: false,
+        escalationAttempted: false,
       },
       'assistant-1-1': {
         usedSource: 'usda',
         matchConfidence: 'medium',
         fallbackUsed: true,
+        decision: 'try_usda',
+        decisionReason: 'usda_resolved_ambiguity',
+        acceptedFromHistory: false,
+        escalationAttempted: true,
+        escalationReason: 'local_ambiguous',
       },
       'assistant-1-2': {
         usedSource: 'ai_web_search',
         matchConfidence: 'low',
         fallbackUsed: true,
+        decision: 'try_grounding',
+        decisionReason: 'grounding_required',
+        acceptedFromHistory: true,
+        escalationAttempted: true,
+        escalationReason: 'missing_macros',
       },
     },
   });
@@ -83,6 +97,18 @@ test('records retrieval source/confidence distributions and grounded fallback fr
   assert.equal(snapshot.metrics.retrievalSourceHits.usda, 1);
   assert.equal(snapshot.metrics.retrievalSourceHits.ai_web_search, 1);
   assert.equal(snapshot.metrics.groundedFallbackCount, 2);
+  assert.equal(snapshot.metrics.lookupDecisionCounts.accept_local, 1);
+  assert.equal(snapshot.metrics.lookupDecisionCounts.try_usda, 1);
+  assert.equal(snapshot.metrics.lookupDecisionCounts.try_grounding, 1);
+  assert.equal(snapshot.metrics.escalationReasonCounts.strong_local_match, 1);
+  assert.equal(
+    snapshot.metrics.escalationReasonCounts.usda_resolved_ambiguity,
+    1
+  );
+  assert.equal(snapshot.metrics.shortCircuitCounts.acceptedLocal, 1);
+  assert.equal(snapshot.metrics.shortCircuitCounts.acceptedHistoryReuse, 1);
+  assert.equal(snapshot.metrics.shortCircuitCounts.ambiguityTriggeredUsda, 1);
+  assert.equal(snapshot.metrics.shortCircuitCounts.avoidedOnlineStrongLocal, 1);
   assert.equal(snapshot.metrics.confidenceBySource.local.high, 1);
   assert.equal(snapshot.metrics.confidenceBySource.usda.medium, 1);
   assert.equal(snapshot.metrics.confidenceBySource.ai_web_search.low, 1);
