@@ -2,9 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  buildLookupContextEntryKey,
   getLookupErrorReasonMessage,
   getLookupErrorRecoveryHint,
   normalizeAiLookupResult,
+  parseLookupContextEntryKeyMessageId,
   resolveFoodLookupContext,
 } from '../../src/services/foodLookupContext.js';
 import { FOOD_SEARCH_SOURCE } from '../../src/services/foodSearch.js';
@@ -367,4 +369,14 @@ test('resolveFoodLookupContext uses collision-safe key format for hyphenated ids
   });
 
   assert.ok(Object.prototype.hasOwnProperty.call(context, 'msg-1-0::0'));
+});
+
+test('lookup context key helpers round-trip encoded message ids safely', () => {
+  const entryKey = buildLookupContextEntryKey('assistant msg:1/alpha', 7);
+
+  assert.equal(entryKey, 'assistant%20msg%3A1%2Falpha::7');
+  assert.equal(
+    parseLookupContextEntryKeyMessageId(entryKey),
+    'assistant msg:1/alpha'
+  );
 });

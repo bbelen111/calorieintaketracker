@@ -57,10 +57,10 @@ import {
   resolveAiFoodEntry,
   searchFoodsLocal,
   searchFoodsOnline,
-  resolveAiFoodLookup,
 } from '../../../../services/foodSearch';
 import {
-  normalizeAiLookupResult,
+  buildLookupContextEntryKey,
+  parseLookupContextEntryKeyMessageId,
   resolveFoodLookupContext,
 } from '../../../../services/foodLookupContext';
 import {
@@ -404,7 +404,7 @@ const mergeEntriesWithLookupContext = ({
   }
 
   return safeEntries.map((entry, index) => {
-    const entryKey = `${safeMessageId}-${index}`;
+    const entryKey = buildLookupContextEntryKey(safeMessageId, index);
     const entryLookupMeta = safeLookupContext[entryKey];
 
     if (!entryLookupMeta || typeof entryLookupMeta !== 'object') {
@@ -649,7 +649,6 @@ export const FoodSearchModal = ({
   const [aiEntryLookupByKey, setAiEntryLookupByKey] = useState({});
   const [loggedAiEntryKeys, setLoggedAiEntryKeys] = useState({});
   const [favouritedAiEntryKeys, setFavouritedAiEntryKeys] = useState({});
-  const aiEntryLookupRequestsRef = useRef(new Map());
   const chatAbortControllerRef = useRef(null);
   const chatScrollRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -815,7 +814,6 @@ export const FoodSearchModal = ({
       }
       resetAiLookupSessionCache();
       recordedFeedbackEventsRef.current.clear();
-      aiEntryLookupRequestsRef.current.clear();
     }
   }, [
     chatAttachments,
@@ -862,7 +860,6 @@ export const FoodSearchModal = ({
     const previousViewMode = previousViewModeRef.current;
     if (previousViewMode === 'chat' && viewMode !== 'chat') {
       resetAiLookupSessionCache();
-      aiEntryLookupRequestsRef.current.clear();
     }
 
     previousViewModeRef.current = viewMode;
@@ -2223,122 +2220,35 @@ export const FoodSearchModal = ({
     return matchedSubcategory || 'ai_estimate';
   }, []);
 
-  const resolveAiLookupMeta = useCallback(
-    async (entry, entryKey) => {
-      if (!entryKey || !entry?.name) {
+  const getFinalizedLookupMeta = useCallback(
+    (entry, entryKey) => {
+      if (!entryKey) {
         return null;
       }
 
-      const embeddedLookupMeta =
-        entry?.lookupMeta && typeof entry.lookupMeta === 'object'
-          ? entry.lookupMeta
-          : null;
-      if (embeddedLookupMeta) {
-        setAiEntryLookupByKey((prev) => {
-          if (prev[entryKey]) {
-            return prev;
-          }
-
-          return {
-            ...prev,
-            [entryKey]: embeddedLookupMeta,
-          };
-        });
-        return embeddedLookupMeta;
+      if (entry?.lookupMeta && typeof entry.lookupMeta === 'object') {
+        return entry.lookupMeta;
       }
 
-      const existing = aiEntryLookupByKey[entryKey];
-      if (existing) {
-        return existing;
-      }
-
-      const pendingRequest = aiEntryLookupRequestsRef.current.get(entryKey);
-      if (pendingRequest) {
-        return pendingRequest;
-      }
-
-      const request = (async () => {
-        try {
-          const lookupTerms = Array.isArray(entry?.lookupTerms)
-            ? entry.lookupTerms
-            : Array.isArray(entry?.lookup_queries)
-              ? entry.lookup_queries
-              : [];
-
-          const result = await resolveAiFoodLookup({
-            entryName: entry.name,
-            lookupTerms,
-            isOnline,
-          });
-
-          const nextMeta = normalizeAiLookupResult(result, {
-            entryName: entry.name,
-          });
-
-          setAiEntryLookupByKey((prev) => ({
-            ...prev,
-            [entryKey]: nextMeta,
-          }));
-
-          return nextMeta;
-        } catch (error) {
-          const errorMeta = {
-            status: 'error',
-            usedSource: FOOD_SEARCH_SOURCE.LOCAL,
-            sourcesTried: [FOOD_SEARCH_SOURCE.LOCAL],
-            fallbackUsed: false,
-            queryUsed: entry.name,
-            matchConfidence: 'low',
-            matchScore: 0,
-            matchedFood: null,
-            errorsBySource: {
-              [FOOD_SEARCH_SOURCE.LOCAL]: error?.message || 'AI lookup failed.',
-            },
-            errorReasonsBySource: {
-              [FOOD_SEARCH_SOURCE.LOCAL]: 'local_search_failed',
-            },
-          };
-
-          setAiEntryLookupByKey((prev) => ({
-            ...prev,
-            [entryKey]: errorMeta,
-          }));
-
-          return errorMeta;
-        } finally {
-          aiEntryLookupRequestsRef.current.delete(entryKey);
-        }
-      })();
-
-      aiEntryLookupRequestsRef.current.set(entryKey, request);
-      return request;
+      return aiEntryLookupByKey[entryKey] || null;
     },
-    [aiEntryLookupByKey, isOnline]
+    [aiEntryLookupByKey]
   );
 
   const toggleAiEntryExpansion = useCallback(
-    (entry, entryKey) => {
+    (_entry, entryKey) => {
       setExpandedAiEntryKeys((prev) => ({
         ...prev,
         [entryKey]: !prev[entryKey],
       }));
-
-      if (!expandedAiEntryKeys[entryKey]) {
-        resolveAiLookupMeta(entry, entryKey);
-      }
     },
-    [expandedAiEntryKeys, resolveAiLookupMeta]
+    []
   );
 
-  const parseEntryKeyMessageId = useCallback((entryKey) => {
-    const normalizedKey = String(entryKey || '').trim();
-    const lastDashIndex = normalizedKey.lastIndexOf('-');
-    if (lastDashIndex <= 0) {
-      return normalizedKey || null;
-    }
-
-    return normalizedKey.slice(0, lastDashIndex);
-  }, []);
+  const parseEntryKeyMessageId = useCallback(
+    (entryKey) => parseLookupContextEntryKeyMessageId(entryKey),
+    []
+  );
 
   const recordImplicitFeedbackForEntry = useCallback(
     async ({ entry, entryKey, eventType, lookupMeta = null }) => {
@@ -2353,9 +2263,7 @@ export const FoodSearchModal = ({
       recordedFeedbackEventsRef.current.add(dedupeKey);
 
       const resolvedLookup =
-        lookupMeta ||
-        aiEntryLookupByKey[entryKey] ||
-        (await resolveAiLookupMeta(entry, entryKey));
+        lookupMeta || getFinalizedLookupMeta(entry, entryKey);
 
       void recordRagImplicitFeedback({
         eventType,
@@ -2369,10 +2277,9 @@ export const FoodSearchModal = ({
       }).catch(() => {});
     },
     [
-      aiEntryLookupByKey,
+      getFinalizedLookupMeta,
       parseEntryKeyMessageId,
       resolveAiCategory,
-      resolveAiLookupMeta,
       resolvedAiRagQualityMode,
     ]
   );
@@ -2677,7 +2584,10 @@ export const FoodSearchModal = ({
             const verificationStartedAt = getNowMs();
             const verifiedEntryResults = await Promise.all(
               effectiveExtractionEntries.map((entry, index) => {
-                const entryKey = `${assistantMessageId}-${index}`;
+                const entryKey = buildLookupContextEntryKey(
+                  assistantMessageId,
+                  index
+                );
                 return resolveAiFoodEntry({
                   entry,
                   isOnline,
@@ -2699,7 +2609,10 @@ export const FoodSearchModal = ({
               .filter(Boolean);
 
             verifiedEntryResults.forEach((item, index) => {
-              const entryKey = `${assistantMessageId}-${index}`;
+              const entryKey = buildLookupContextEntryKey(
+                assistantMessageId,
+                index
+              );
               if (item?.lookupMeta) {
                 preResolvedLookupContext[entryKey] = item.lookupMeta;
               }
@@ -3041,7 +2954,7 @@ export const FoodSearchModal = ({
       const entries = latestAssistantBatch.foodParser.entries;
       const keyedEntries = entries.map((entry, index) => ({
         entry,
-        entryKey: `${latestAssistantBatch.id}-${index}`,
+        entryKey: buildLookupContextEntryKey(latestAssistantBatch.id, index),
       }));
 
       const actedEntries = keyedEntries.filter(
@@ -3388,7 +3301,7 @@ export const FoodSearchModal = ({
         return;
       }
 
-      const lookupMeta = await resolveAiLookupMeta(entry, entryKey);
+      const lookupMeta = getFinalizedLookupMeta(entry, entryKey);
       const foodEntry = buildAiFoodEntry(entry, 0, entryKey, lookupMeta);
       if (!foodEntry) return;
 
@@ -3411,7 +3324,7 @@ export const FoodSearchModal = ({
       loggedAiEntryKeys,
       onSelectFavourite,
       recordImplicitFeedbackForEntry,
-      resolveAiLookupMeta,
+      getFinalizedLookupMeta,
     ]
   );
 
@@ -3421,7 +3334,7 @@ export const FoodSearchModal = ({
         return;
       }
 
-      const lookupMeta = await resolveAiLookupMeta(entry, entryKey);
+      const lookupMeta = getFinalizedLookupMeta(entry, entryKey);
       const foodEntry = buildAiFoodEntry(entry, index, entryKey, lookupMeta);
       if (!foodEntry) return;
 
@@ -3446,7 +3359,7 @@ export const FoodSearchModal = ({
       favouritedAiEntryKeys,
       onSaveAsFavourite,
       recordImplicitFeedbackForEntry,
-      resolveAiLookupMeta,
+      getFinalizedLookupMeta,
     ]
   );
 
@@ -3471,7 +3384,7 @@ export const FoodSearchModal = ({
     }
 
     latestAssistantBatch.foodParser.entries.forEach((entry, index) => {
-      const entryKey = `${latestAssistantBatch.id}-${index}`;
+      const entryKey = buildLookupContextEntryKey(latestAssistantBatch.id, index);
       const hasAction =
         loggedAiEntryKeys[entryKey] || favouritedAiEntryKeys[entryKey];
 
@@ -3498,7 +3411,7 @@ export const FoodSearchModal = ({
       const unloggedEntries = entries
         .map((entry, index) => ({
           entry,
-          entryKey: `${messageId}-${index}`,
+          entryKey: buildLookupContextEntryKey(messageId, index),
         }))
         .filter(({ entryKey }) => !loggedAiEntryKeys[entryKey]);
 

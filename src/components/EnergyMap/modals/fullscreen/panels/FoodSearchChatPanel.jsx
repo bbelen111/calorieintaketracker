@@ -20,7 +20,9 @@ import {
 } from 'lucide-react';
 import { formatOne } from '../../../../../utils/formatting/format';
 import { FoodTagBadges } from '../../../common/FoodTagBadges';
+import { buildFinalizedEntryChips } from '../../../../../utils/food/aiFinalizedEntryState';
 import {
+  buildLookupContextEntryKey,
   getLookupErrorReasonMessage,
   getLookupErrorRecoveryHint,
 } from '../../../../../services/foodLookupContext';
@@ -28,40 +30,40 @@ import {
 const CHAT_STAGE_LABELS = {
   extraction: 'Analyzing meal input',
   retrieval: 'Searching nutrition sources',
-  verification: 'Verifying portions and macros',
-  presentation: 'Preparing your response',
-  processing: 'Processing request',
+  verification: 'Finalizing nutrition data',
+  presentation: 'Finalizing response',
+  processing: 'Preparing finalized entries',
 };
 
 const CHAT_STAGE_MESSAGES = {
-  extraction: 'Chopping up your request into food entries…',
-  retrieval: 'Scouring nutrition sources for the best matches…',
-  verification: 'Cross-checking portions, calories, and macros…',
-  presentation: 'Plating your final response…',
-  processing: 'Synthesizing your response…',
+  extraction: 'Chopping up your request into food entries...',
+  retrieval: 'Scouring nutrition sources for the best matches...',
+  verification: 'Cross-checking portions, calories, and macros...',
+  presentation: 'Plating your final response...',
+  processing: 'Synthesizing your response...',
 };
 
 const CHAT_STAGE_MESSAGE_VARIANTS = {
   extraction: [
-    'Chopping up your request into food entries…',
-    'Identifying ingredients and portions…',
+    'Chopping up your request into food entries...',
+    'Identifying ingredients and portions...',
   ],
   retrieval: [
-    'Scouring nutrition sources for the best matches…',
-    'Comparing database candidates…',
+    'Scouring nutrition sources for the best matches...',
+    'Comparing database candidates...',
   ],
   verification: [
-    'Cross-checking portions, calories, and macros…',
-    'Validating confidence before finalizing…',
+    'Cross-checking portions, calories, and macros...',
+    'Locking each card to finalized source data...',
   ],
   presentation: [
-    'Plating your final response…',
-    'Formatting your food entries for review…',
+    'Plating your final response...',
+    'Formatting finalized food entries for review...',
   ],
   processing: [
-    'Synthesizing your response…',
-    'Reviewing likely nutrition matches…',
-    'Finalizing the best estimate…',
+    'Synthesizing your response...',
+    'Holding cards until final data is ready...',
+    'Finalizing the best result for each entry...',
   ],
 };
 
@@ -316,7 +318,7 @@ export const FoodSearchChatPanel = ({
               </p>
               <p className="text-muted text-xs max-w-[240px] leading-relaxed">
                 Describe what you ate, attach meal images if helpful, and review
-                the AI estimate before logging it.
+                the finalized entries before logging them.
               </p>
             </div>
 
@@ -357,7 +359,7 @@ export const FoodSearchChatPanel = ({
 
             <p className="text-muted text-[11px] text-center max-w-[250px]">
               AI estimates are only as good as the detail you provide. Attach
-              meal photos, mention portions, and review low-confidence entries
+              meal photos, mention portions, and check finalized fallback chips
               before logging.
             </p>
           </div>
@@ -403,8 +405,7 @@ export const FoodSearchChatPanel = ({
                       <div className="flex-shrink-0 w-6 h-6 rounded-lg bg-accent-blue/15 border border-accent-blue/25 flex items-center justify-center mb-0.5">
                         <Sparkles size={12} className="text-accent-blue" />
                       </div>
-                    )}
-
+                    )}{' '}
                     <div
                       className={`${isUser ? 'max-w-[98%] md:max-w-[92%] min-w-[148px] sm:min-w-[168px] px-4 w-fit' : 'max-w-[82%] px-3.5'} rounded-2xl py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
                         isUser
@@ -417,7 +418,7 @@ export const FoodSearchChatPanel = ({
                       {message.status === 'sending' && !isUser && (
                         <div className="mt-2 flex items-center gap-2 text-[11px] opacity-80">
                           <div className="w-3.5 h-3.5 border-2 border-current/25 border-t-current rounded-full animate-spin-fast" />
-                          <span>Regenerating...</span>
+                          <span>Finalizing response...</span>
                         </div>
                       )}
 
@@ -469,7 +470,10 @@ export const FoodSearchChatPanel = ({
                         message.foodParser.entries.length > 0 && (
                           <div className="mt-3 space-y-2">
                             {message.foodParser.entries.map((entry, index) => {
-                              const entryKey = `${message.id}-${index}`;
+                              const entryKey = buildLookupContextEntryKey(
+                                message.id,
+                                index
+                              );
                               const isExpanded =
                                 expandedAiEntryKeys[entryKey] === true;
                               const isTraceExpanded =
@@ -513,29 +517,15 @@ export const FoodSearchChatPanel = ({
                                   lookupMeta.status !== 'resolved');
                               const friendlyLookupStatusLabel =
                                 getLookupStatusLabel(lookupMeta?.status);
-                              const resolvedSource =
-                                entry.source ||
-                                lookupMeta?.usedSource ||
-                                'estimate';
-                              const sourceBadge =
-                                resolvedSource === 'local' ||
-                                resolvedSource === 'usda'
-                                  ? {
-                                      label: 'Verified Database',
-                                      className:
-                                        'bg-accent-green/20 text-accent-green',
-                                    }
-                                  : resolvedSource === 'ai_web_search'
-                                    ? {
-                                        label: 'Web Estimate',
-                                        className:
-                                          'bg-accent-amber/20 text-accent-amber',
-                                      }
-                                    : {
-                                        label: 'AI Estimate',
-                                        className:
-                                          'bg-accent-slate/20 text-accent-slate',
-                                      };
+                              const resolvedSource = entry.source || 'estimate';
+                              const finalizedEntryChips =
+                                buildFinalizedEntryChips({
+                                  entry,
+                                  lookupMeta,
+                                  primaryLookupReasonCode,
+                                });
+                              const isLastResortEstimate =
+                                resolvedSource === 'estimate';
                               const aiTagFood = {
                                 name: entry.name,
                                 category:
@@ -561,30 +551,18 @@ export const FoodSearchChatPanel = ({
                                       {entry.name}
                                     </p>
                                     <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
-                                      <span
-                                        className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${sourceBadge.className}`}
-                                      >
-                                        {sourceBadge.label}
-                                      </span>
+                                      {finalizedEntryChips.map((chip) => (
+                                        <span
+                                          key={`${entryKey}-${chip.label}`}
+                                          className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${chip.className}`}
+                                        >
+                                          {chip.label}
+                                        </span>
+                                      ))}
                                       <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-surface-highlight text-muted">
                                         {entry.confidence ?? 'medium'}{' '}
                                         confidence
                                       </span>
-                                      {lookupMeta?.verificationFallbackUsed && (
-                                        <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-accent-amber/20 text-accent-amber">
-                                          Weaker confidence (fallback)
-                                        </span>
-                                      )}
-                                      {entry?.nutritionIntegrityIssue && (
-                                        <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-accent-red/20 text-accent-red">
-                                          Nutrition guardrail applied
-                                        </span>
-                                      )}
-                                      {entry?.nameRewriteSuppressed && (
-                                        <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-accent-purple/20 text-accent-purple">
-                                          Name rewrite suppressed
-                                        </span>
-                                      )}
                                     </div>
                                   </div>
 
@@ -613,6 +591,24 @@ export const FoodSearchChatPanel = ({
                                     showPortion={false}
                                     className="mb-2"
                                   />
+
+                                  {isLastResortEstimate &&
+                                    (primaryLookupReasonMessage ||
+                                      primaryLookupRecoveryHint) && (
+                                      <div className="mb-2 rounded-lg border border-accent-amber/25 bg-accent-amber/10 px-2.5 py-2 space-y-1">
+                                        {primaryLookupReasonMessage && (
+                                          <p className="text-[10px] text-accent-amber">
+                                            Why estimate:{' '}
+                                            {primaryLookupReasonMessage}
+                                          </p>
+                                        )}
+                                        {primaryLookupRecoveryHint && (
+                                          <p className="text-[10px] text-accent-blue">
+                                            Tip: {primaryLookupRecoveryHint}
+                                          </p>
+                                        )}
+                                      </div>
+                                    )}
 
                                   {(entry.rationale ||
                                     (Array.isArray(entry.assumptions) &&
@@ -932,7 +928,10 @@ export const FoodSearchChatPanel = ({
                                   const remainingLoggableCount =
                                     message.foodParser.entries.reduce(
                                       (count, _entry, entryIndex) => {
-                                        const key = `${message.id}-${entryIndex}`;
+                                        const key = buildLookupContextEntryKey(
+                                          message.id,
+                                          entryIndex
+                                        );
                                         return loggedAiEntryKeys[key]
                                           ? count
                                           : count + 1;

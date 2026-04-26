@@ -296,6 +296,40 @@ const resolveEntryLookupTerms = (entry) => {
   return [];
 };
 
+export const buildLookupContextEntryKey = (messageId, index) => {
+  const normalizedMessageId = String(messageId || '').trim();
+  const normalizedIndex = Math.max(0, Math.floor(Number(index) || 0));
+
+  if (!normalizedMessageId) {
+    return `::${normalizedIndex}`;
+  }
+
+  return `${encodeURIComponent(normalizedMessageId)}::${normalizedIndex}`;
+};
+
+export const parseLookupContextEntryKeyMessageId = (entryKey) => {
+  const normalizedKey = String(entryKey || '').trim();
+  if (!normalizedKey) {
+    return null;
+  }
+
+  const separatorIndex = normalizedKey.lastIndexOf('::');
+  if (separatorIndex <= 0) {
+    return normalizedKey;
+  }
+
+  const encodedMessageId = normalizedKey.slice(0, separatorIndex).trim();
+  if (!encodedMessageId) {
+    return null;
+  }
+
+  try {
+    return decodeURIComponent(encodedMessageId);
+  } catch {
+    return encodedMessageId;
+  }
+};
+
 export const resolveFoodLookupContext = async ({
   messageId,
 
@@ -342,7 +376,7 @@ export const resolveFoodLookupContext = async ({
     LOOKUP_CONCURRENCY_LIMIT,
 
     async (entry, index) => {
-      const entryKey = `${encodeURIComponent(normalizedMessageId)}::${index}`;
+      const entryKey = buildLookupContextEntryKey(normalizedMessageId, index);
 
       const entryName = String(entry?.name || '').trim();
 
