@@ -1,18 +1,18 @@
-const SOURCE_BADGE_BY_TYPE = Object.freeze({
+const PRIMARY_BADGE_BY_SOURCE = Object.freeze({
   local: {
-    label: 'Verified Database',
+    label: 'Verified match',
     className: 'bg-accent-green/20 text-accent-green',
   },
   usda: {
-    label: 'Verified Database',
+    label: 'Verified match',
     className: 'bg-accent-green/20 text-accent-green',
   },
   ai_web_search: {
-    label: 'Web Estimate',
+    label: 'Estimated from web',
     className: 'bg-accent-amber/20 text-accent-amber',
   },
   estimate: {
-    label: 'AI Estimate',
+    label: 'AI estimate',
     className: 'bg-accent-slate/20 text-accent-slate',
   },
 });
@@ -39,7 +39,7 @@ const LOOKUP_STATUS_CHIP_LABELS = Object.freeze({
 const LOOKUP_DECISION_REASON_CHIP_LABELS = Object.freeze({
   accepted_history_match: 'Reused accepted match',
   strong_local_match: 'Strong local match',
-  dominant_local_match: 'Dominant local match',
+  dominant_local_match: 'Strong local match',
   local_retained_after_usda: 'Kept local match',
   usda_resolved_ambiguity: 'Resolved online',
   usda_completed_missing_macros: 'Completed nutrition',
@@ -52,26 +52,16 @@ const LOOKUP_DECISION_REASON_CHIP_LABELS = Object.freeze({
   grounding_required: 'Grounded fallback',
 });
 
-const pushChip = (chips, chip) => {
-  if (!chip?.label) {
-    return;
-  }
+const WARNING_PRIMARY_BADGE = Object.freeze({
+  label: 'Needs review',
+  className: 'bg-accent-red/20 text-accent-red',
+});
 
-  if (
-    chips.some(
-      (existingChip) =>
-        existingChip.label === chip.label &&
-        existingChip.className === chip.className
-    )
-  ) {
-    return;
-  }
-
-  chips.push(chip);
-};
+const getPrimaryBadgeForSource = (source) =>
+  PRIMARY_BADGE_BY_SOURCE[source] || PRIMARY_BADGE_BY_SOURCE.estimate;
 
 export const getFinalizedSourceBadge = (source) =>
-  SOURCE_BADGE_BY_TYPE[source] || SOURCE_BADGE_BY_TYPE.estimate;
+  getPrimaryBadgeForSource(source);
 
 export const getFallbackReasonChipLabel = (reasonCode) => {
   const normalizedReasonCode = String(reasonCode || '').trim();
@@ -107,75 +97,61 @@ export const getLookupDecisionReasonChipLabel = (reasonCode) => {
   return LOOKUP_DECISION_REASON_CHIP_LABELS[normalizedReasonCode] || null;
 };
 
-export const buildFinalizedEntryChips = ({
+export const resolveFinalizedEntryPrimaryBadge = ({
+  entry = null,
+  lookupMeta = null,
+} = {}) => {
+  if (entry?.nutritionIntegrityIssue) {
+    return WARNING_PRIMARY_BADGE;
+  }
+
+  if (lookupMeta?.acceptedFromHistory) {
+    return {
+      label: 'Reused match',
+      className: 'bg-accent-blue/15 text-accent-blue',
+    };
+  }
+
+  if (lookupMeta?.verificationFallbackUsed) {
+    return {
+      label: 'Verified match',
+      className: 'bg-accent-green/20 text-accent-green',
+    };
+  }
+
+  const source =
+    String(
+      lookupMeta?.usedSource ||
+        entry?.aiLookupSource ||
+        entry?.source ||
+        'estimate'
+    )
+      .trim()
+      .toLowerCase() || 'estimate';
+  return getPrimaryBadgeForSource(source);
+};
+
+export const buildFinalizedEntryCardState = ({
   entry = null,
   lookupMeta = null,
   primaryLookupReasonCode = null,
 } = {}) => {
-  const chips = [];
-  const source = String(entry?.source || 'estimate').trim() || 'estimate';
-
-  pushChip(chips, getFinalizedSourceBadge(source));
-  pushChip(chips, {
-    label: 'Finalized',
-    className: 'bg-accent-blue/15 text-accent-blue',
-  });
-
-  if (lookupMeta?.verificationFallbackUsed) {
-    pushChip(chips, {
-      label: 'Fallback verified',
-      className: 'bg-accent-green/15 text-accent-green',
-    });
-  }
-
-  if (entry?.nutritionIntegrityIssue) {
-    pushChip(chips, {
-      label: 'Macro guardrail',
-      className: 'bg-accent-red/20 text-accent-red',
-    });
-  }
-
-  if (entry?.nameRewriteSuppressed) {
-    pushChip(chips, {
-      label: 'Name locked',
-      className: 'bg-accent-purple/20 text-accent-purple',
-    });
-  }
-
-  if (source === 'estimate') {
-    pushChip(chips, {
-      label: 'Fallback estimate',
-      className: 'bg-accent-amber/20 text-accent-amber',
-    });
-  }
-
-  const fallbackReasonChipLabel = getFallbackReasonChipLabel(
-    primaryLookupReasonCode
-  );
-  if (fallbackReasonChipLabel) {
-    pushChip(chips, {
-      label: fallbackReasonChipLabel,
-      className: 'bg-accent-amber/15 text-accent-amber',
-    });
-  }
-
-  const lookupStatusChipLabel = getLookupStatusChipLabel(lookupMeta?.status);
-  if (lookupStatusChipLabel) {
-    pushChip(chips, {
-      label: lookupStatusChipLabel,
-      className: 'bg-accent-slate/20 text-accent-slate',
-    });
-  }
-
-  const lookupDecisionReasonChipLabel = getLookupDecisionReasonChipLabel(
-    lookupMeta?.decisionReason
-  );
-  if (lookupDecisionReasonChipLabel) {
-    pushChip(chips, {
-      label: lookupDecisionReasonChipLabel,
-      className: 'bg-accent-blue/15 text-accent-blue',
-    });
-  }
-
-  return chips;
+  return {
+    primaryBadge: resolveFinalizedEntryPrimaryBadge({
+      entry,
+      lookupMeta,
+    }),
+    detailsSummary: {
+      fallbackReason: getFallbackReasonChipLabel(primaryLookupReasonCode),
+      lookupStatus: getLookupStatusChipLabel(lookupMeta?.status),
+      decisionReason: getLookupDecisionReasonChipLabel(
+        lookupMeta?.decisionReason
+      ),
+      confidenceLabel: String(
+        lookupMeta?.matchConfidence || entry?.confidence || ''
+      )
+        .trim()
+        .toLowerCase(),
+    },
+  };
 };

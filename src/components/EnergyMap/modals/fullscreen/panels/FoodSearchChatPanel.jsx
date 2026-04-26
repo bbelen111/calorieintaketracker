@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { formatOne } from '../../../../../utils/formatting/format';
 import { FoodTagBadges } from '../../../common/FoodTagBadges';
-import { buildFinalizedEntryChips } from '../../../../../utils/food/aiFinalizedEntryState';
+import { buildFinalizedEntryCardState } from '../../../../../utils/food/aiFinalizedEntryState';
 import {
   buildLookupContextEntryKey,
   getLookupErrorReasonMessage,
@@ -551,8 +551,8 @@ export const FoodSearchChatPanel = ({
                               const friendlyLookupStatusLabel =
                                 getLookupStatusLabel(lookupMeta);
                               const resolvedSource = entry.source || 'estimate';
-                              const finalizedEntryChips =
-                                buildFinalizedEntryChips({
+                              const finalizedEntryCardState =
+                                buildFinalizedEntryCardState({
                                   entry,
                                   lookupMeta,
                                   primaryLookupReasonCode,
@@ -583,20 +583,20 @@ export const FoodSearchChatPanel = ({
                                     <p className="text-sm font-semibold text-foreground leading-snug break-words">
                                       {entry.name}
                                     </p>
-                                    <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
-                                      {finalizedEntryChips.map((chip) => (
+                                    {finalizedEntryCardState?.primaryBadge ? (
+                                      <div className="mt-1.5 flex items-center min-h-[24px]">
                                         <span
-                                          key={`${entryKey}-${chip.label}`}
-                                          className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${chip.className}`}
+                                          className={`inline-flex max-w-full items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${finalizedEntryCardState.primaryBadge.className}`}
                                         >
-                                          {chip.label}
+                                          <span className="truncate">
+                                            {
+                                              finalizedEntryCardState
+                                                .primaryBadge.label
+                                            }
+                                          </span>
                                         </span>
-                                      ))}
-                                      <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-surface-highlight text-muted">
-                                        {entry.confidence ?? 'medium'}{' '}
-                                        confidence
-                                      </span>
-                                    </div>
+                                      </div>
+                                    ) : null}
                                   </div>
 
                                   <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted mb-2">
@@ -752,6 +752,7 @@ export const FoodSearchChatPanel = ({
                                                       Match confidence:{' '}
                                                       <span className="text-muted">
                                                         {lookupMeta.matchConfidence ||
+                                                          entry.confidence ||
                                                           'low'}
                                                         {Number.isFinite(
                                                           lookupMeta.matchScore
@@ -796,6 +797,18 @@ export const FoodSearchChatPanel = ({
                                                       What happened:{' '}
                                                       {
                                                         primaryLookupReasonMessage
+                                                      }
+                                                    </p>
+                                                  )}
+                                                  {finalizedEntryCardState
+                                                    ?.detailsSummary
+                                                    ?.decisionReason && (
+                                                    <p className="text-[10px] text-muted">
+                                                      Summary:{' '}
+                                                      {
+                                                        finalizedEntryCardState
+                                                          .detailsSummary
+                                                          .decisionReason
                                                       }
                                                     </p>
                                                   )}
