@@ -77,12 +77,12 @@ AI chat mode (feature-flagged RAG path):
 FoodSearchModal
   -> resolves AI quality preset via `services/aiRagQuality.js` (Fast / Balanced / Precision)
   -> applies preset knobs (timeouts + lookup breadth)
-  -> sendGeminiExtraction(...) in services/gemini.js (mode='extraction')
+  -> sendOpenRouterExtraction(...) in services/openrouter.js (mode='extraction')
   -> resolveFoodLookupContext(...) + resolveAiFoodEntry(...) in services/foodLookupContext.js + services/foodSearch.js
     -> local lookup (foodCatalog)
     -> USDA lookup (services/usda.js)
-    -> grounded fallback (services/gemini.js fetchMacrosWithGrounding, mode='grounding_lookup')
-  -> sendGeminiPresentation(...) in services/gemini.js (mode='presentation', [SYSTEM_DATA])
+    -> grounded fallback (services/openrouter.js fetchMacrosWithGrounding, mode='grounding_lookup')
+  -> sendOpenRouterPresentation(...) in services/openrouter.js (mode='presentation', [SYSTEM_DATA])
   -> mergePresentationEntriesWithVerified(...) in utils/food/aiPresentationMerge.js
     -> sparse/misaligned presentation guardrails
     -> significant name rewrite suppression
@@ -373,7 +373,7 @@ Defined in `index.css` `@layer base` and `@layer components`:
 16. **Large food lists are progressively rendered in `FoodSearchModal`:** preserve `visibleResultCount` batching plus offset-based local pagination, and keep the count copy in "loaded count" style (`x foods found`) to avoid heavy first paint on 13k+ catalog datasets.
 17. **Chat-mode cache lifecycle is scoped:** `FoodSearchModal` resets AI lookup session cache when leaving chat view and on modal close/unmount. Keep this behavior to prevent stale cross-conversation carryover.
 18. **Avoid callback TDZ regressions in orchestrator components:** in `FoodSearchModal`, callbacks referenced by other hooks/callbacks (e.g., `updateMessageById`) must be declared before first usage to avoid runtime `Cannot access ... before initialization` errors.
-19. **Bundle-splitting hygiene for dynamic services:** keep `foodCatalog` and `gemini` usage dynamic in heavy UI/orchestrator flows (`FoodSearchModal`, `EnergyMapCalculator`) so static imports do not pull these paths back into the main chunk.
+19. **Bundle-splitting hygiene for dynamic services:** keep `foodCatalog` and `openrouter` usage dynamic in heavy UI/orchestrator flows (`FoodSearchModal`, `EnergyMapCalculator`) so static imports do not pull these paths back into the main chunk.
 20. **Lazy modal mount guard is required:** for lazy-loaded modal components, gate render with `isOpen || isClosing`. Rendering only on `isOpen` can cut exit animations and regress close-stack UX.
 21. **Goal prediction card should stay mounted in goal mode:** keep render gating on `creationMode === 'goal'` (not on projection availability) and use a placeholder message when start/end inputs cannot yet produce `estimateGoalModeProjection(...)` output.
 22. **Do not label weight-relative % as body-fat %.** Use `predictedWeightDeltaPercent` wording in UI copy; treat `predictedBodyFatDeltaPercent` as deprecated alias for compatibility only.

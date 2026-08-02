@@ -13,7 +13,7 @@ const FOOD_MESSAGE_TYPES = new Set([
   'error',
   'extraction',
 ]);
-export const GEMINI_REQUEST_MODE = Object.freeze({
+export const OPENROUTER_REQUEST_MODE = Object.freeze({
   EXTRACTION: 'extraction',
   PRESENTATION: 'presentation',
   GROUNDING_LOOKUP: 'grounding_lookup',
@@ -25,15 +25,15 @@ export const AI_CHAT_RAG_ENABLED =
     .toLowerCase() === 'true';
 
 const API_BASE = (
-  (typeof import.meta.env?.VITE_GEMINI_API_BASE === 'string'
-    ? import.meta.env.VITE_GEMINI_API_BASE
-    : '') || 'https://calorieintaketracker.vercel.app/api/gemini'
+  (typeof import.meta.env?.VITE_OPENROUTER_API_BASE === 'string'
+    ? import.meta.env.VITE_OPENROUTER_API_BASE
+    : '') || 'https://calorieintaketracker.vercel.app/api/openrouter'
 ).trim();
 
 const GROUNDING_MODEL_OVERRIDE =
-  typeof import.meta.env?.VITE_GEMINI_GROUNDING_MODEL === 'string' &&
-  import.meta.env.VITE_GEMINI_GROUNDING_MODEL.trim().length > 0
-    ? import.meta.env.VITE_GEMINI_GROUNDING_MODEL.trim()
+  typeof import.meta.env?.VITE_OPENROUTER_GROUNDING_MODEL === 'string' &&
+  import.meta.env.VITE_OPENROUTER_GROUNDING_MODEL.trim().length > 0
+    ? import.meta.env.VITE_OPENROUTER_GROUNDING_MODEL.trim()
     : undefined;
 
 const RATE_LIMIT_MAX_RETRIES = 2;
@@ -51,29 +51,36 @@ let requestSlotQueue = Promise.resolve();
 let requestTimestampsMs = [];
 const foodParserRegistry = new Map();
 
-export class GeminiError extends Error {
+export class OpenRouterError extends Error {
   constructor(message, status = 0, details = null) {
     super(message);
-    this.name = 'GeminiError';
+    this.name = 'OpenRouterError';
     this.status = status;
     this.details = details;
   }
 }
 
-function extractGeminiText(data) {
-  const candidates = Array.isArray(data?.candidates) ? data.candidates : [];
+function extractOpenRouterText(data) {
+  const content = data?.choices?.[0]?.message?.content;
+  if (typeof content === 'string') return content.trim();
 
-  const collectedTexts = candidates.flatMap((candidate) => {
-    const parts = candidate?.content?.parts;
-    if (!Array.isArray(parts)) return [];
-
-    return parts
-      .filter((part) => typeof part?.text === 'string')
+  if (Array.isArray(content)) {
+    return content
+      .filter((part) => part?.type === 'text' && typeof part.text === 'string')
       .map((part) => part.text.trim())
-      .filter(Boolean);
-  });
+      .filter(Boolean)
+      .join('\n\n');
+  }
 
-  return collectedTexts.join('\n\n').trim();
+  const legacyCandidates = Array.isArray(data?.candidates)
+    ? data.candidates
+    : [];
+  return legacyCandidates
+    .flatMap((candidate) => candidate?.content?.parts || [])
+    .filter((part) => typeof part?.text === 'string')
+    .map((part) => part.text.trim())
+    .filter(Boolean)
+    .join('\n\n');
 }
 
 function clampNumber(value, { min = 0, max = Number.POSITIVE_INFINITY } = {}) {
@@ -344,48 +351,36 @@ export function parseFoodParserPayloadFromText(text) {
 }
 
 function resolveNoTextReason(data) {
-  const blockReason = data?.promptFeedback?.blockReason;
-  if (typeof blockReason === 'string' && blockReason.length > 0) {
-    return `Response blocked by safety filters (${blockReason}). Try a clearer prompt or a different image.`;
-  }
-
-  const firstFinishReason = data?.candidates?.[0]?.finishReason;
-  if (firstFinishReason === 'SAFETY') {
+  const finishReason = String(data?.choices?.[0]?.finish_reason || '');
+  if (finishReason.toLowerCase() === 'content_filter') {
     return 'Response blocked by safety filters. Try rephrasing your request or using a different image.';
   }
 
-  if (firstFinishReason === 'MAX_TOKENS') {
+  if (finishReason === 'length') {
     return 'The assistant response was cut off. Please ask a shorter or more specific question.';
   }
 
-  if (!Array.isArray(data?.candidates) || data.candidates.length === 0) {
-    return 'No response candidate was returned by Gemini. Please try again. If this keeps happening, check your GEMINI_MODEL value in Vercel.';
+  if (!Array.isArray(data?.choices) || data.choices.length === 0) {
+    return 'No response was returned by OpenRouter. Please try again. If this keeps happening, check your OPENROUTER_MODEL setting in Vercel.';
   }
 
   return 'The assistant returned no readable text. Please try again with a clearer prompt or different image.';
 }
 
 function shouldRetryNoTextResponse(data) {
-  const hasCandidates =
-    Array.isArray(data?.candidates) && data.candidates.length > 0;
-  if (hasCandidates) {
+  const hasChoices = Array.isArray(data?.choices) && data.choices.length > 0;
+  if (hasChoices) {
     return false;
   }
-
-  const blockReason = data?.promptFeedback?.blockReason;
-  if (typeof blockReason === 'string' && blockReason.length > 0) {
-    return false;
-  }
-
   return true;
 }
 
 function getFormatCorrectionHint(mode) {
-  if (mode === GEMINI_REQUEST_MODE.PRESENTATION) {
+  if (mode === OPENROUTER_REQUEST_MODE.PRESENTATION) {
     return 'FORMAT CORRECTION: Respond with concise text plus a valid <food_parser_json> block matching the presentation schema exactly.';
   }
 
-  if (mode === GEMINI_REQUEST_MODE.GROUNDING_LOOKUP) {
+  if (mode === OPENROUTER_REQUEST_MODE.GROUNDING_LOOKUP) {
     return 'FORMAT CORRECTION: Return strict grounded lookup parser JSON in <food_parser_json> tags with one 100g entry per requested food.';
   }
 
@@ -395,11 +390,11 @@ function getFormatCorrectionHint(mode) {
 function appendFormatCorrectionHint(requestBody, mode) {
   return {
     ...requestBody,
-    contents: [
-      ...(Array.isArray(requestBody?.contents) ? requestBody.contents : []),
+    messages: [
+      ...(Array.isArray(requestBody?.messages) ? requestBody.messages : []),
       {
         role: 'user',
-        parts: [{ text: getFormatCorrectionHint(mode) }],
+        content: [{ type: 'text', text: getFormatCorrectionHint(mode) }],
       },
     ],
   };
@@ -498,7 +493,7 @@ async function waitForClientRateLimitSlot(signal) {
     );
 
     if (waitMs > CLIENT_RATE_LIMIT_MAX_WAIT_MS) {
-      throw new GeminiError(
+      throw new OpenRouterError(
         'AI request limit reached (15 requests/min). Please wait a moment and try again.',
         429,
         {
@@ -557,12 +552,12 @@ function isQuotaExhaustedSignal(status, data) {
   );
 }
 
-async function requestGemini({ body, signal }) {
-  const resolvedBase = API_BASE || '/api/gemini';
+async function requestOpenRouter({ body, signal }) {
+  const resolvedBase = API_BASE || '/api/openrouter';
 
   if (Capacitor.isNativePlatform() && resolvedBase.startsWith('/')) {
-    throw new GeminiError(
-      'Gemini API base not configured for native. Set VITE_GEMINI_API_BASE to your deployed URL.',
+    throw new OpenRouterError(
+      'OpenRouter API base not configured for native. Set VITE_OPENROUTER_API_BASE to your deployed URL.',
       0
     );
   }
@@ -614,15 +609,18 @@ function createCombinedAbortSignal(externalSignal, timeoutMs) {
 
 export function validateAttachmentFile(file) {
   if (!(file instanceof File)) {
-    throw new GeminiError('Invalid file attachment', 400);
+    throw new OpenRouterError('Invalid file attachment', 400);
   }
 
   if (!SUPPORTED_IMAGE_TYPES.includes(file.type)) {
-    throw new GeminiError('Only JPEG, PNG, or WebP images are supported', 400);
+    throw new OpenRouterError(
+      'Only JPEG, PNG, or WebP images are supported',
+      400
+    );
   }
 
   if (file.size > MAX_IMAGE_BYTES) {
-    throw new GeminiError('Each image must be 5MB or smaller', 400);
+    throw new OpenRouterError('Each image must be 5MB or smaller', 400);
   }
 
   return true;
@@ -647,15 +645,31 @@ export async function fileToInlineData(file) {
   };
 }
 
+function toOpenRouterContentPart(part) {
+  if (typeof part?.text === 'string') {
+    return { type: 'text', text: part.text };
+  }
+
+  return {
+    type: 'image_url',
+    image_url: {
+      url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
+    },
+  };
+}
+
 export async function buildUserContent({ message, files = [] }) {
   const text = typeof message === 'string' ? message.trim() : '';
 
   if (!text && files.length === 0) {
-    throw new GeminiError('Type a message or attach at least one image', 400);
+    throw new OpenRouterError(
+      'Type a message or attach at least one image',
+      400
+    );
   }
 
   if (files.length > MAX_IMAGE_COUNT) {
-    throw new GeminiError('You can attach up to 3 images per message', 400);
+    throw new OpenRouterError('You can attach up to 3 images per message', 400);
   }
 
   const inlineParts = await Promise.all(
@@ -666,11 +680,11 @@ export async function buildUserContent({ message, files = [] }) {
 
   return {
     role: 'user',
-    parts: [...textPart, ...inlineParts],
+    content: [...textPart, ...inlineParts].map(toOpenRouterContentPart),
   };
 }
 
-export function buildGeminiContents(history = [], latestUserContent) {
+export function buildOpenRouterContents(history = [], latestUserContent) {
   const normalizedHistory = Array.isArray(history)
     ? history
         .map((item) => {
@@ -690,7 +704,10 @@ export function buildGeminiContents(history = [], latestUserContent) {
 
           if (parts.length === 0) return null;
 
-          return { role, parts };
+          return {
+            role: role === 'model' ? 'assistant' : 'user',
+            content: parts.map(toOpenRouterContentPart),
+          };
         })
         .filter(Boolean)
         .slice(-12)
@@ -699,7 +716,10 @@ export function buildGeminiContents(history = [], latestUserContent) {
   return [...normalizedHistory, latestUserContent];
 }
 
-async function buildGeminiContentsForRequest(history = [], latestUserContent) {
+async function buildOpenRouterContentsForRequest(
+  history = [],
+  latestUserContent
+) {
   const normalizedHistory = Array.isArray(history)
     ? (
         await Promise.all(
@@ -743,7 +763,10 @@ async function buildGeminiContentsForRequest(history = [], latestUserContent) {
               return null;
             }
 
-            return { role, parts };
+            return {
+              role: role === 'model' ? 'assistant' : 'user',
+              content: parts.map(toOpenRouterContentPart),
+            };
           })
         )
       )
@@ -754,19 +777,19 @@ async function buildGeminiContentsForRequest(history = [], latestUserContent) {
   return [...normalizedHistory, latestUserContent];
 }
 
-export async function sendGeminiMessage({
+export async function sendOpenRouterMessage({
   message,
   files = [],
   history = [],
   model,
-  mode = GEMINI_REQUEST_MODE.EXTRACTION,
+  mode = OPENROUTER_REQUEST_MODE.EXTRACTION,
   expectFoodParser = false,
   useGrounding = false,
   signal,
   timeoutMs = 30000,
 }) {
   const latestUserContent = await buildUserContent({ message, files });
-  const contents = await buildGeminiContentsForRequest(
+  const messages = await buildOpenRouterContentsForRequest(
     history,
     latestUserContent
   );
@@ -778,7 +801,7 @@ export async function sendGeminiMessage({
 
   try {
     let requestBody = {
-      contents,
+      messages,
       model,
       mode,
       useGrounding: useGrounding === true,
@@ -791,7 +814,7 @@ export async function sendGeminiMessage({
     while (true) {
       await acquireClientRateLimitSlot(requestSignal);
 
-      const { response, data } = await requestGemini({
+      const { response, data } = await requestOpenRouter({
         body: requestBody,
         signal: requestSignal,
       });
@@ -825,28 +848,28 @@ export async function sendGeminiMessage({
 
         if (response.status === 429) {
           if (isQuotaExhaustedSignal(response.status, data)) {
-            throw new GeminiError(
+            throw new OpenRouterError(
               'The AI provider quota is currently exhausted. Please try again later or use manual search.',
               429,
               data
             );
           }
 
-          throw new GeminiError(
+          throw new OpenRouterError(
             'The AI is processing too many requests. Please wait a moment or use the manual search.',
             429,
             data
           );
         }
 
-        throw new GeminiError(
-          data?.error || `Gemini request failed (${response.status})`,
+        throw new OpenRouterError(
+          data?.error || `OpenRouter request failed (${response.status})`,
           response.status,
           data
         );
       }
 
-      const resolvedText = extractGeminiText(data);
+      const resolvedText = extractOpenRouterText(data);
 
       if (!resolvedText && shouldRetryNoTextResponse(data)) {
         if (noTextRetries < NO_TEXT_MAX_RETRIES) {
@@ -856,7 +879,7 @@ export async function sendGeminiMessage({
       }
 
       if (!resolvedText) {
-        throw new GeminiError(resolveNoTextReason(data), 502, data);
+        throw new OpenRouterError(resolveNoTextReason(data), 502, data);
       }
 
       const parsedPayload = parseFoodParserPayloadFromText(resolvedText);
@@ -872,7 +895,7 @@ export async function sendGeminiMessage({
       }
 
       if (expectFoodParser && !parsedPayload.payload) {
-        throw new GeminiError(
+        throw new OpenRouterError(
           'The AI returned an invalid parser format. Please try again.',
           502,
           data
@@ -886,15 +909,15 @@ export async function sendGeminiMessage({
       };
     }
   } catch (error) {
-    if (error instanceof GeminiError) {
+    if (error instanceof OpenRouterError) {
       throw error;
     }
 
     if (error?.name === 'AbortError') {
-      throw new GeminiError('Request timed out. Please try again.', 408);
+      throw new OpenRouterError('Request timed out. Please try again.', 408);
     }
 
-    throw new GeminiError(
+    throw new OpenRouterError(
       'Network error - check your connection',
       0,
       error?.message || null
@@ -904,7 +927,7 @@ export async function sendGeminiMessage({
   }
 }
 
-export async function sendGeminiExtraction({
+export async function sendOpenRouterExtraction({
   message,
   files = [],
   history = [],
@@ -915,12 +938,12 @@ export async function sendGeminiExtraction({
 }) {
   const composedMessage = composeExtractionMessage(message, foodContextSummary);
 
-  return sendGeminiMessage({
+  return sendOpenRouterMessage({
     message: composedMessage,
     files,
     history,
     model,
-    mode: GEMINI_REQUEST_MODE.EXTRACTION,
+    mode: OPENROUTER_REQUEST_MODE.EXTRACTION,
     expectFoodParser: true,
     useGrounding: false,
     signal,
@@ -939,7 +962,7 @@ export function composeExtractionMessage(message, foodContextSummary = '') {
   return `${baseMessage}\n\n[RECENT_FOOD_CONTEXT]\n${normalizedContext}`;
 }
 
-export async function sendGeminiPresentation({
+export async function sendOpenRouterPresentation({
   message,
   systemData,
   history = [],
@@ -952,12 +975,12 @@ export async function sendGeminiPresentation({
       ? `\n\n[SYSTEM_DATA]: ${JSON.stringify(systemData)}`
       : '';
 
-  return sendGeminiMessage({
+  return sendOpenRouterMessage({
     message: `${String(message ?? '').trim()}${systemDataBlock}`.trim(),
     files: [],
     history,
     model,
-    mode: GEMINI_REQUEST_MODE.PRESENTATION,
+    mode: OPENROUTER_REQUEST_MODE.PRESENTATION,
     expectFoodParser: true,
     useGrounding: false,
     signal,
@@ -973,17 +996,20 @@ export async function fetchMacrosWithGrounding(
 ) {
   const normalizedFoodName = String(foodName ?? '').trim();
   if (!normalizedFoodName) {
-    throw new GeminiError('A food name is required for grounded lookup.', 400);
+    throw new OpenRouterError(
+      'A food name is required for grounded lookup.',
+      400
+    );
   }
 
   const prompt = `Find a conservative 100g nutrition estimate for: ${normalizedFoodName}. Return parser JSON only.`;
 
-  const result = await sendGeminiMessage({
+  const result = await sendOpenRouterMessage({
     message: prompt,
     files: [],
     history: [],
     model,
-    mode: GEMINI_REQUEST_MODE.GROUNDING_LOOKUP,
+    mode: OPENROUTER_REQUEST_MODE.GROUNDING_LOOKUP,
     expectFoodParser: true,
     useGrounding: true,
     signal,
@@ -992,7 +1018,7 @@ export async function fetchMacrosWithGrounding(
 
   const firstEntry = result?.foodParser?.entries?.[0];
   if (!firstEntry) {
-    throw new GeminiError(
+    throw new OpenRouterError(
       'Grounded lookup returned no usable nutrition data.',
       502,
       result?.raw || null
@@ -1052,7 +1078,7 @@ export async function fetchMacrosWithGroundingBatch(
     : [];
 
   if (normalizedFoodNames.length === 0) {
-    throw new GeminiError(
+    throw new OpenRouterError(
       'At least one food name is required for grounded batch lookup.',
       400
     );
@@ -1070,12 +1096,12 @@ export async function fetchMacrosWithGroundingBatch(
     promptLines,
   ].join('\n');
 
-  const result = await sendGeminiMessage({
+  const result = await sendOpenRouterMessage({
     message: prompt,
     files: [],
     history: [],
     model,
-    mode: GEMINI_REQUEST_MODE.GROUNDING_LOOKUP,
+    mode: OPENROUTER_REQUEST_MODE.GROUNDING_LOOKUP,
     expectFoodParser: true,
     useGrounding: true,
     signal,
@@ -1132,7 +1158,7 @@ export async function fetchMacrosWithGroundingBatch(
   };
 }
 
-export const __resetGeminiRateLimitQueueForTests = () => {
+export const __resetOpenRouterRateLimitQueueForTests = () => {
   rateLimitBackoffQueue = Promise.resolve();
   requestSlotQueue = Promise.resolve();
   requestTimestampsMs = [];

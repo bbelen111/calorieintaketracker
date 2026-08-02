@@ -11,7 +11,7 @@ A **React + Vite** single-page app for fitness calorie tracking, wrapped by Capa
 - **Barcode Scanning** — Native barcode lookup via Capacitor
 - **Health Connect Integration** — Android step sync (iOS/web unsupported)
 - **Offline-First** — SQLite local food catalog (13k+ foods), IndexedDB history
-- **AI-Powered Food Parsing** — Gemini-backed food entry assistance with Fast / Balanced / Precision quality modes
+- **AI-Powered Food Parsing** — OpenRouter-backed food entry assistance with Fast / Balanced / Precision quality modes
 - **Bundle-Split Performance** — Heavy modals and data/AI services are lazy-loaded to reduce startup cost
 - **4 Theme Modes** — Auto, dark, light, AMOLED
 - **Mobile-Optimized UI** — Touch-first design, no hardcoded colors, semantic tokens
@@ -103,7 +103,7 @@ $$
 | **Animations** | Framer Motion | 12.23.24 |
 | **Styling** | Tailwind CSS | 3.4.17 |
 | **Icons** | Lucide React | 0.562.0 |
-| **External APIs** | USDA FoodData Central, OpenFoodFacts, Gemini | — |
+| **External APIs** | USDA FoodData Central, OpenFoodFacts, OpenRouter | — |
 
 **Key Capacitor Plugins:**
 - `@capacitor/preferences`, `@capacitor/app`, `@capacitor/status-bar`, `@capacitor/keyboard`, `@capacitor/barcode-scanner`, `@capgo/capacitor-health`, `@capgo/capacitor-navigation-bar`
@@ -128,7 +128,7 @@ Performance loading strategy:
   - Fullscreen heavy modals are lazy-loaded (`React.lazy` + `Suspense`)
   - Additional high-traffic modals (`CalorieBreakdown`, `Training`, `Cardio`, `PhaseCreation`, `DailyLog`) are also lazy-loaded
   - Lazy modal mounts are guarded by `isOpen || isClosing` to preserve exit animations
-  - `foodCatalog` and `gemini` services are loaded dynamically in heavy flows
+  - `foodCatalog` and `openrouter` services are loaded dynamically in heavy flows
 
 Persistence:
   Profile (settings/stats)  → Capacitor Preferences
@@ -224,7 +224,7 @@ src/
 │   ├─ ragTelemetry.js             # RAG telemetry aggregation
 │   ├─ usda.js                     # Online USDA food search
 │   ├─ openFoodFacts.js            # OpenFoodFacts barcode lookup
-│   ├─ gemini.js                   # AI food parsing
+│   ├─ openrouter.js                # AI food parsing via OpenRouter
 │   └─ barcodeScanner.js
 ├─ hooks/
 │   ├─ useAnimatedModal.js         # Modal lifecycle (isOpen/isClosing/requestClose)
@@ -408,9 +408,9 @@ const food = await searchBarcode('012345678901');
 - `VITE_USDA_API_BASE` (default: `https://calorieintaketracker.vercel.app/api/usda`)
 - `VITE_OPENFOODFACTS_API_BASE` (default: `https://calorieintaketracker.vercel.app/api/openfoodfacts`)
 
-### Gemini AI Parsing
+### OpenRouter AI Parsing
 
-Gemini food parsing via `api/gemini.js` (server-side key handling).
+OpenRouter food parsing via `api/openrouter.js` (server-side key handling).
 
 AI chat parsing supports three quality modes:
 - **Fast** — lowest latency profile (narrower lookup depth)
@@ -420,8 +420,8 @@ AI chat parsing supports three quality modes:
 The selected mode is persisted in profile state as `aiRagQualityMode`.
 
 ```javascript
-import { sendGeminiExtraction } from './services/gemini';
-const parsed = await sendGeminiExtraction({
+import { sendOpenRouterExtraction } from './services/openrouter';
+const parsed = await sendOpenRouterExtraction({
   message: '2 chicken breasts, cup of rice, tablespoon olive oil',
 });
 ```
@@ -513,37 +513,38 @@ Auto-adjust: 400-level shades (dark/AMOLED), 600-level (light).
 ```env
 VITE_OPENFOODFACTS_API_BASE=https://your-vercel-url/api/openfoodfacts
 VITE_USDA_API_BASE=https://your-vercel-url/api/usda
-VITE_GEMINI_API_BASE=https://your-vercel-url/api/gemini
+VITE_OPENROUTER_API_BASE=https://your-vercel-url/api/openrouter
 VITE_AI_CHAT_RAG_ENABLED=true
-GEMINI_MODEL=gemini-2.5-flash
-GEMINI_GROUNDING_MODEL=gemini-2.5-flash-lite
+OPENROUTER_API_KEY=your_openrouter_key
+OPENROUTER_MODEL=openai/gpt-4.1-mini
+OPENROUTER_GROUNDING_MODEL=openai/gpt-4.1-mini
 # Optional client-side override for grounded lookup calls only
-VITE_GEMINI_GROUNDING_MODEL=gemini-2.5-flash-lite
+VITE_OPENROUTER_GROUNDING_MODEL=openai/gpt-4.1-mini
 
-# Gemini proxy security controls (api/gemini.js)
+# OpenRouter proxy security controls (api/openrouter.js)
 # Comma-separated list of allowed browser origins
 ALLOWED_ORIGINS=https://your-app.example
 
 # Optional per-mode output token budgets
-GEMINI_MAX_TOKENS_EXTRACTION=2400
-GEMINI_MAX_TOKENS_PRESENTATION=1600
-GEMINI_MAX_TOKENS_GROUNDING=800
+OPENROUTER_MAX_TOKENS_EXTRACTION=2400
+OPENROUTER_MAX_TOKENS_PRESENTATION=1600
+OPENROUTER_MAX_TOKENS_GROUNDING=800
 
 # Optional stateless rate limiting via Upstash REST
 UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
-GEMINI_RATE_LIMIT_MAX_REQUESTS=60
-GEMINI_RATE_LIMIT_WINDOW_SECONDS=60
+OPENROUTER_RATE_LIMIT_MAX_REQUESTS=60
+OPENROUTER_RATE_LIMIT_WINDOW_SECONDS=60
 # true = fail closed if limiter backend is unavailable
-GEMINI_RATE_LIMIT_FAIL_CLOSED=false
+OPENROUTER_RATE_LIMIT_FAIL_CLOSED=false
 ```
 
-### Gemini Proxy Security Notes
+### OpenRouter Proxy Security Notes
 
-- `api/gemini.js` now applies an origin allowlist when `ALLOWED_ORIGINS` is set.
-- Request payloads are bounded (`contents` item count and serialized payload size).
+- `api/openrouter.js` applies an origin allowlist when `ALLOWED_ORIGINS` is set.
+- Request payloads are bounded (`messages` item count and serialized payload size).
 - Per-IP stateless throttling is supported through Upstash REST credentials.
-- If Upstash credentials are not configured, rate limiting is bypassed by default (set `GEMINI_RATE_LIMIT_FAIL_CLOSED=true` to fail closed when backend is configured but unavailable).
+- If Upstash credentials are not configured, rate limiting is bypassed by default (set `OPENROUTER_RATE_LIMIT_FAIL_CLOSED=true` to fail closed when backend is configured but unavailable).
 
 ### Capacitor Config
 
@@ -574,7 +575,7 @@ GEMINI_RATE_LIMIT_FAIL_CLOSED=false
           "chunk-dexie": ["dexie"],
           "chunk-sql-vendor": ["sql.js"],
           "chunk-food-catalog": ["./src/services/foodCatalog.js"],
-          "chunk-gemini": ["./src/services/gemini.js"]
+          "chunk-openrouter": ["./src/services/openrouter.js"]
         }
       }
     }

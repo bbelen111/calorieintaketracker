@@ -113,42 +113,42 @@ Results are cached in `userData.cachedFoods` to reduce repeated network requests
 
 ---
 
-## Gemini AI Parsing Integration
+## OpenRouter AI Parsing Integration
 
-Gemini food parsing is proxied through `api/gemini.js` (server-side key handling) and consumed by `src/services/gemini.js`.
+OpenRouter food parsing is proxied through `api/openrouter.js` (server-side key handling) and consumed by `src/services/openrouter.js`.
 
 **Gateway modes + instruction sources:**
-- `api/gemini.js` supports `mode: 'extraction' | 'presentation' | 'grounding_lookup'`.
-- Canonical prompt sources live in `api/gemini.js`:
+- `api/openrouter.js` supports `mode: 'extraction' | 'presentation' | 'grounding_lookup'`.
+- Canonical prompt sources live in `api/openrouter.js`:
   - `EXTRACTION_SYSTEM_INSTRUCTION`
   - `PRESENTATION_SYSTEM_INSTRUCTION`
   - `GROUNDING_LOOKUP_SYSTEM_INSTRUCTION`
-- Grounding tools are gated: only `mode='grounding_lookup'` with `useGrounding: true` injects `tools: [{ googleSearch: {} }]`.
+- Grounding tools are gated: only `mode='grounding_lookup'` with `useGrounding: true` injects `tools: [{ type: 'openrouter:web_search' }]`.
 
-**Client helpers (`src/services/gemini.js`):**
-- `sendGeminiExtraction(...)`
-- `sendGeminiPresentation(...)`
+**Client helpers (`src/services/openrouter.js`):**
+- `sendOpenRouterExtraction(...)`
+- `sendOpenRouterPresentation(...)`
 - `fetchMacrosWithGrounding(...)`
-- `sendGeminiMessage(...)` includes bounded transient retry for upstream `502|503|504` and queued exponential backoff for `429`
+- `sendOpenRouterMessage(...)` includes bounded transient retry for upstream `502|503|504` and queued exponential backoff for `429`
 - Feature flag: `AI_CHAT_RAG_ENABLED` from `VITE_AI_CHAT_RAG_ENABLED`
 
-**Serverless security/env configuration (`api/gemini.js`):**
+**Serverless security/env configuration (`api/openrouter.js`):**
 - CORS allowlist is driven by `ALLOWED_ORIGINS` (or singular fallback `ALLOWED_ORIGIN`).
-- Payload guards are enforced server-side (`contents` count + serialized payload size cap).
+- Payload guards are enforced server-side (`messages` count + serialized payload size cap).
 - Optional stateless per-IP throttling uses Upstash REST:
   - `UPSTASH_REDIS_REST_URL`
   - `UPSTASH_REDIS_REST_TOKEN`
-  - `GEMINI_RATE_LIMIT_MAX_REQUESTS` (default `60`)
-  - `GEMINI_RATE_LIMIT_WINDOW_SECONDS` (default `60`)
-  - `GEMINI_RATE_LIMIT_FAIL_CLOSED` (`true`/`false`, default fail-open)
+  - `OPENROUTER_RATE_LIMIT_MAX_REQUESTS` (default `60`)
+  - `OPENROUTER_RATE_LIMIT_WINDOW_SECONDS` (default `60`)
+  - `OPENROUTER_RATE_LIMIT_FAIL_CLOSED` (`true`/`false`, default fail-open)
 - Optional per-mode output token overrides:
-  - `GEMINI_MAX_TOKENS_EXTRACTION`
-  - `GEMINI_MAX_TOKENS_PRESENTATION`
-  - `GEMINI_MAX_TOKENS_GROUNDING`
+  - `OPENROUTER_MAX_TOKENS_EXTRACTION`
+  - `OPENROUTER_MAX_TOKENS_PRESENTATION`
+  - `OPENROUTER_MAX_TOKENS_GROUNDING`
 - Model/env controls remain:
-  - `GEMINI_API_KEY` (required)
-  - `GEMINI_MODEL` (default extraction/presentation model)
-  - `GEMINI_GROUNDING_MODEL` (grounding mode default override)
+  - `OPENROUTER_API_KEY` (required)
+  - `OPENROUTER_MODEL` (default extraction/presentation model)
+  - `OPENROUTER_GROUNDING_MODEL` (grounding mode default override)
 
 **AI RAG quality presets (`src/services/aiRagQuality.js`):**
 - `fast` — lower latency, narrower lookup breadth, deferred grounding disabled
@@ -162,7 +162,7 @@ Gemini food parsing is proxied through `api/gemini.js` (server-side key handling
 - Do not invent foods/add-ons not explicitly mentioned or clearly visible.
 - Preserve machine payload contract exactly (`<food_parser_json>...</food_parser_json>` schema).
 
-If adjusting Gemini behavior, update the mode-specific instruction in `api/gemini.js` first and verify parser/contract stability with `tests/utils/gemini.test.js`.
+If adjusting OpenRouter behavior, update the mode-specific instruction in `api/openrouter.js` first and verify parser/contract stability with `tests/utils/openrouter.test.js` and `tests/api/openrouter.contract.test.js`.
 
 **Lookup diagnostics requirements (`src/services/foodLookupContext.js`):**
 - Preserve structured `errorReasonsBySource` metadata (in addition to `errorsBySource` text).
@@ -223,7 +223,7 @@ Always returns `'unavailable'` on web and iOS. Status constants exported as `Hea
 1. **Food cache retention is intentional:** `cachedFoods` is history-scoped and persisted with dedupe + max cap (currently 500). Keep retention logic if changing cache schema.
 2. **Local food catalog is SQLite-first:** Query local foods via `services/foodCatalog.js`; do not reintroduce full in-memory `FOOD_DATABASE` scans as a primary path.
 3. **Food data hygiene is offline-first:** Keep taxonomy/portion normalization in `scripts/food-db` pipeline and avoid adding query-time normalization layers for category/subcategory cleanup.
-4. **Gemini instruction authority is server-side and mode-specific:** Keep behavioral prompt updates in `api/gemini.js` (`EXTRACTION_SYSTEM_INSTRUCTION`, `PRESENTATION_SYSTEM_INSTRUCTION`, `GROUNDING_LOOKUP_SYSTEM_INSTRUCTION`) and preserve the existing `food_parser_json` schema unless a coordinated parser/test update is intentional.
+4. **OpenRouter instruction authority is server-side and mode-specific:** Keep behavioral prompt updates in `api/openrouter.js` (`EXTRACTION_SYSTEM_INSTRUCTION`, `PRESENTATION_SYSTEM_INSTRUCTION`, `GROUNDING_LOOKUP_SYSTEM_INSTRUCTION`) and preserve the existing `food_parser_json` schema unless a coordinated parser/test update is intentional.
 5. **Pinned local foods must remain hydratable outside top-N result windows:** local search currently fetches pinned IDs via `getFoodsByIds(...)` on the first local page and merges them before UI filtering; do not regress to top-limited-only result sources.
 6. **Local search ranking is relevance-aware for name sorting:** exact/prefix/word-boundary name matches should outrank generic contains matches (e.g., plain `honey` should not be buried under unrelated composites).
 7. **RAG chat pipeline is feature-flagged and two-pass:** when `VITE_AI_CHAT_RAG_ENABLED` is true, keep extraction → deterministic resolution (`resolveFoodLookupContext` + `resolveAiFoodEntry`) → presentation flow intact; retain single-pass fallback path for safety.
@@ -235,6 +235,6 @@ Always returns `'unavailable'` on web and iOS. Status constants exported as `Hea
 13. **Nutrition guardrail is intentional:** when presentation macros imply calories outside tolerance, keep verified deterministic nutrition and annotate `nutritionIntegrityIssue`.
 14. **Lookup diagnostics require reason codes:** keep `errorReasonsBySource` populated for all lookup/error paths so chat trace can show stable reason labels and suggested fixes.
 15. **Keep lookup reason/hint helpers canonical:** use `getLookupErrorReasonMessage(...)` and `getLookupErrorRecoveryHint(...)` from `services/foodLookupContext.js`; avoid ad-hoc per-component strings.
-16. **Gemini transient retry parity is intentional:** `sendGeminiMessage` retries transient upstream `502/503/504` with bounded backoff; do not remove unless replacing with equivalent resilience.
+16. **OpenRouter transient retry parity is intentional:** `sendOpenRouterMessage` retries transient upstream `502/503/504` with bounded backoff; do not remove unless replacing with equivalent resilience.
 17. **Rate-limit queueing is intentional:** `429` handling uses serialized backoff queue semantics; preserve this when adjusting retry logic.
-18. **Gemini proxy hardening is config-sensitive:** keep `ALLOWED_ORIGINS` and (if enabled) Upstash rate-limit env vars configured in deployment; mismatched env config can silently alter CORS/throttling behavior across environments.
+18. **OpenRouter proxy hardening is config-sensitive:** keep `ALLOWED_ORIGINS` and (if enabled) Upstash rate-limit env vars configured in deployment; mismatched env config can silently alter CORS/throttling behavior across environments.

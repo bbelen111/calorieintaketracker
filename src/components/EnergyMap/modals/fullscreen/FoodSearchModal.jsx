@@ -367,10 +367,10 @@ const getNowMs = () => {
   return Date.now();
 };
 
-const resolveChatRequestErrorMessage = ({ error, GeminiErrorClass }) => {
+const resolveChatRequestErrorMessage = ({ error, OpenRouterErrorClass }) => {
   const fallbackMessage = 'Failed to get AI response. Please try again.';
 
-  if (!(GeminiErrorClass && error instanceof GeminiErrorClass)) {
+  if (!(OpenRouterErrorClass && error instanceof OpenRouterErrorClass)) {
     return fallbackMessage;
   }
 
@@ -427,12 +427,12 @@ const loadFoodCatalogModule = async () => {
   return foodCatalogModulePromise;
 };
 
-let geminiModulePromise = null;
-const loadGeminiModule = async () => {
-  if (!geminiModulePromise) {
-    geminiModulePromise = import('../../../../services/gemini');
+let openRouterModulePromise = null;
+const loadOpenRouterModule = async () => {
+  if (!openRouterModulePromise) {
+    openRouterModulePromise = import('../../../../services/openrouter');
   }
-  return geminiModulePromise;
+  return openRouterModulePromise;
 };
 
 export const FoodSearchModal = ({
@@ -668,7 +668,7 @@ export const FoodSearchModal = ({
 
     const resolveAiChatFeatureFlag = async () => {
       try {
-        const { AI_CHAT_RAG_ENABLED } = await loadGeminiModule();
+        const { AI_CHAT_RAG_ENABLED } = await loadOpenRouterModule();
         if (!cancelled) {
           setIsAiChatRagEnabled(Boolean(AI_CHAT_RAG_ENABLED));
         }
@@ -691,7 +691,7 @@ export const FoodSearchModal = ({
 
     const resolveMaxImageCount = async () => {
       try {
-        const { MAX_IMAGE_COUNT } = await loadGeminiModule();
+        const { MAX_IMAGE_COUNT } = await loadOpenRouterModule();
         if (!cancelled && Number.isFinite(MAX_IMAGE_COUNT)) {
           setMaxImageCount(Math.max(1, Math.round(MAX_IMAGE_COUNT)));
         }
@@ -2065,7 +2065,7 @@ export const FoodSearchModal = ({
 
       let validateAttachment = null;
       try {
-        const { validateAttachmentFile } = await loadGeminiModule();
+        const { validateAttachmentFile } = await loadOpenRouterModule();
         validateAttachment = validateAttachmentFile;
       } catch {
         setChatError('AI tools are unavailable right now. Please try again.');
@@ -2385,21 +2385,21 @@ export const FoodSearchModal = ({
       let lookupStatsRecorded = false;
       let extractionSchemaVersion = null;
       let resultSchemaVersion = null;
-      let GeminiErrorClass = null;
+      let OpenRouterErrorClass = null;
 
       const controller = new window.AbortController();
       chatAbortControllerRef.current = controller;
 
       try {
-        const geminiModule = await loadGeminiModule();
+        const openRouterModule = await loadOpenRouterModule();
         const {
           fetchMacrosWithGrounding,
-          sendGeminiMessage,
-          sendGeminiExtraction,
-          sendGeminiPresentation,
-          GeminiError,
-        } = geminiModule;
-        GeminiErrorClass = GeminiError;
+          sendOpenRouterMessage,
+          sendOpenRouterExtraction,
+          sendOpenRouterPresentation,
+          OpenRouterError,
+        } = openRouterModule;
+        OpenRouterErrorClass = OpenRouterError;
 
         const history = buildStructuredChatHistory(chatMessages, {
           beforeMessageId,
@@ -2417,7 +2417,7 @@ export const FoodSearchModal = ({
         if (isAiChatRagEnabled) {
           const extractionStartedAt = getNowMs();
           const runExtractionAttempt = async (messageOverride = trimmedText) =>
-            sendGeminiExtraction({
+            sendOpenRouterExtraction({
               message: messageOverride,
               foodContextSummary: rollingFoodContextSummary,
               files: attachments.map((attachment) => attachment.file),
@@ -2619,7 +2619,7 @@ export const FoodSearchModal = ({
             transitionRequestStage(CHAT_REQUEST_STAGE.PRESENTATION);
             const presentationStartedAt = getNowMs();
             try {
-              const presentationResult = await sendGeminiPresentation({
+              const presentationResult = await sendOpenRouterPresentation({
                 message: trimmedText,
                 systemData: {
                   entries: verifiedEntries,
@@ -2720,7 +2720,7 @@ export const FoodSearchModal = ({
           }
         } else {
           transitionRequestStage(CHAT_REQUEST_STAGE.PROCESSING);
-          result = await sendGeminiMessage({
+          result = await sendOpenRouterMessage({
             message: trimmedText,
             files: attachments.map((attachment) => attachment.file),
             history,
@@ -2838,7 +2838,7 @@ export const FoodSearchModal = ({
       } catch (error) {
         const message = resolveChatRequestErrorMessage({
           error,
-          GeminiErrorClass,
+          OpenRouterErrorClass,
         });
 
         if (assistantPlaceholderId) {

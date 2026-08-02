@@ -42,7 +42,7 @@ export default defineConfig({
           'chunk-dexie': ['dexie'],
           'chunk-sql-vendor': ['sql.js'],
           'chunk-food-catalog': ['./src/services/foodCatalog.js'],
-          'chunk-gemini': ['./src/services/gemini.js'],
+          'chunk-openrouter': ['./src/services/openrouter.js'],
         },
       },
     },

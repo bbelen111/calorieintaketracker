@@ -1,22 +1,23 @@
 /* eslint-disable no-undef */
-// Vercel Serverless Function: Gemini API Proxy
-// Keeps Gemini API key server-side and proxies chat requests.
+// Vercel Serverless Function: OpenRouter API Proxy
+// Keeps the OpenRouter API key server-side and proxies chat requests.
 
-const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
-const FALLBACK_MODEL = 'gemini-2.5-flash';
+const OPENROUTER_CHAT_COMPLETIONS_URL =
+  'https://openrouter.ai/api/v1/chat/completions';
+const FALLBACK_MODEL = 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free';
 const FOOD_PARSER_SCHEMA_VERSION = '1.0.0';
 const MAX_CONTENT_ITEMS = 30;
 const MAX_CONTENTS_PAYLOAD_BYTES = 500000;
-const GEMINI_MODES = Object.freeze({
+const OPENROUTER_MODES = Object.freeze({
   EXTRACTION: 'extraction',
   PRESENTATION: 'presentation',
   GROUNDING_LOOKUP: 'grounding_lookup',
 });
 
 const MODE_DEFAULT_MAX_TOKENS = Object.freeze({
-  [GEMINI_MODES.EXTRACTION]: 2400,
-  [GEMINI_MODES.PRESENTATION]: 1600,
-  [GEMINI_MODES.GROUNDING_LOOKUP]: 800,
+  [OPENROUTER_MODES.EXTRACTION]: 2400,
+  [OPENROUTER_MODES.PRESENTATION]: 1600,
+  [OPENROUTER_MODES.GROUNDING_LOOKUP]: 800,
 });
 
 const BUILTIN_ALLOWED_ORIGINS = Object.freeze([
@@ -182,42 +183,39 @@ Rules:
 
 function resolveSystemInstruction(mode) {
   switch (mode) {
-    case GEMINI_MODES.PRESENTATION:
+    case OPENROUTER_MODES.PRESENTATION:
       return PRESENTATION_SYSTEM_INSTRUCTION;
-    case GEMINI_MODES.GROUNDING_LOOKUP:
+    case OPENROUTER_MODES.GROUNDING_LOOKUP:
       return GROUNDING_LOOKUP_SYSTEM_INSTRUCTION;
-    case GEMINI_MODES.EXTRACTION:
+    case OPENROUTER_MODES.EXTRACTION:
     default:
       return EXTRACTION_SYSTEM_INSTRUCTION;
   }
 }
 
-const VALID_ROLES = new Set(['user', 'model']);
+const VALID_ROLES = new Set(['user', 'assistant']);
 
-function isValidPart(part) {
+function isValidMessagePart(part) {
   if (!part || typeof part !== 'object') return false;
 
-  if (typeof part.text === 'string') {
+  if (part.type === 'text' && typeof part.text === 'string') {
     return part.text.trim().length > 0;
   }
 
-  const inlineData = part.inlineData;
-  if (!inlineData || typeof inlineData !== 'object') return false;
-
-  const { mimeType, data } = inlineData;
+  const imageUrl = part.image_url?.url;
   return (
-    typeof mimeType === 'string' &&
-    /^image\/(jpeg|png|webp)$/i.test(mimeType) &&
-    typeof data === 'string' &&
-    data.length > 0
+    part.type === 'image_url' &&
+    typeof imageUrl === 'string' &&
+    /^data:image\/(jpeg|png|webp);base64,/i.test(imageUrl)
   );
 }
 
-function isValidContent(content) {
-  if (!content || typeof content !== 'object') return false;
-  if (!VALID_ROLES.has(content.role)) return false;
-  if (!Array.isArray(content.parts) || content.parts.length === 0) return false;
-  return content.parts.every(isValidPart);
+function isValidMessage(message) {
+  if (!message || typeof message !== 'object') return false;
+  if (!VALID_ROLES.has(message.role)) return false;
+  if (!Array.isArray(message.content) || message.content.length === 0)
+    return false;
+  return message.content.every(isValidMessagePart);
 }
 
 const resolveAllowedOrigins = () => {
@@ -321,7 +319,7 @@ const checkRequestRateLimit = async (req) => {
     process.env.UPSTASH_REDIS_REST_TOKEN || ''
   ).trim();
   const failClosed =
-    String(process.env.GEMINI_RATE_LIMIT_FAIL_CLOSED || '')
+    String(process.env.OPENROUTER_RATE_LIMIT_FAIL_CLOSED || '')
       .trim()
       .toLowerCase() === 'true';
 
@@ -334,17 +332,21 @@ const checkRequestRateLimit = async (req) => {
 
   const maxRequests = Math.max(
     1,
-    Number.parseInt(process.env.GEMINI_RATE_LIMIT_MAX_REQUESTS || '60', 10) ||
-      60
+    Number.parseInt(
+      process.env.OPENROUTER_RATE_LIMIT_MAX_REQUESTS || '60',
+      10
+    ) || 60
   );
   const windowSeconds = Math.max(
     1,
-    Number.parseInt(process.env.GEMINI_RATE_LIMIT_WINDOW_SECONDS || '60', 10) ||
-      60
+    Number.parseInt(
+      process.env.OPENROUTER_RATE_LIMIT_WINDOW_SECONDS || '60',
+      10
+    ) || 60
   );
 
   const ip = resolveClientIp(req);
-  const key = `gemini:rl:${ip}`;
+  const key = `openrouter:rl:${ip}`;
 
   try {
     const pipelineResponse = await fetch(`${upstashUrl}/pipeline`, {
@@ -397,9 +399,11 @@ const checkRequestRateLimit = async (req) => {
 
 const resolveModeMaxTokens = (mode) => {
   const envMap = {
-    [GEMINI_MODES.EXTRACTION]: process.env.GEMINI_MAX_TOKENS_EXTRACTION,
-    [GEMINI_MODES.PRESENTATION]: process.env.GEMINI_MAX_TOKENS_PRESENTATION,
-    [GEMINI_MODES.GROUNDING_LOOKUP]: process.env.GEMINI_MAX_TOKENS_GROUNDING,
+    [OPENROUTER_MODES.EXTRACTION]: process.env.OPENROUTER_MAX_TOKENS_EXTRACTION,
+    [OPENROUTER_MODES.PRESENTATION]:
+      process.env.OPENROUTER_MAX_TOKENS_PRESENTATION,
+    [OPENROUTER_MODES.GROUNDING_LOOKUP]:
+      process.env.OPENROUTER_MAX_TOKENS_GROUNDING,
   };
 
   const parsed = Number.parseInt(String(envMap[mode] || '').trim(), 10);
@@ -439,9 +443,9 @@ export default async function handler(req, res) {
     });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'Gemini API key not configured' });
+    return res.status(500).json({ error: 'OpenRouter API key not configured' });
   }
 
   const body = req.body || {};
@@ -449,17 +453,17 @@ export default async function handler(req, res) {
     .trim()
     .toLowerCase();
 
-  if (modeRaw && !Object.values(GEMINI_MODES).includes(modeRaw)) {
+  if (modeRaw && !Object.values(OPENROUTER_MODES).includes(modeRaw)) {
     return res.status(400).json({
       error: 'Invalid mode',
-      validModes: Object.values(GEMINI_MODES),
+      validModes: Object.values(OPENROUTER_MODES),
     });
   }
 
-  const mode = modeRaw || GEMINI_MODES.EXTRACTION;
+  const mode = modeRaw || OPENROUTER_MODES.EXTRACTION;
   const useGrounding = body.useGrounding === true;
-  const defaultModel = process.env.GEMINI_MODEL || FALLBACK_MODEL;
-  const defaultGroundingModelRaw = process.env.GEMINI_GROUNDING_MODEL || '';
+  const defaultModel = process.env.OPENROUTER_MODEL || FALLBACK_MODEL;
+  const defaultGroundingModelRaw = process.env.OPENROUTER_GROUNDING_MODEL || '';
 
   const requestedModel =
     typeof body.model === 'string' && body.model.trim().length > 0
@@ -472,60 +476,64 @@ export default async function handler(req, res) {
       : '';
   const model =
     requestedModel ||
-    (mode === GEMINI_MODES.GROUNDING_LOOKUP && defaultGroundingModel
+    (mode === OPENROUTER_MODES.GROUNDING_LOOKUP && defaultGroundingModel
       ? defaultGroundingModel
       : defaultModel);
 
-  const contents = body.contents;
+  const messages = body.messages;
 
-  if (!Array.isArray(contents) || contents.length === 0) {
-    return res.status(400).json({ error: 'contents array is required' });
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({ error: 'messages array is required' });
   }
 
-  if (contents.length > MAX_CONTENT_ITEMS) {
+  if (messages.length > MAX_CONTENT_ITEMS) {
     return res.status(413).json({
       error: 'Payload too large',
-      message: `contents cannot exceed ${MAX_CONTENT_ITEMS} items`,
+      message: `messages cannot exceed ${MAX_CONTENT_ITEMS} items`,
     });
   }
 
-  const payloadBytes = Buffer.byteLength(JSON.stringify(contents), 'utf8');
+  const payloadBytes = Buffer.byteLength(JSON.stringify(messages), 'utf8');
   if (payloadBytes > MAX_CONTENTS_PAYLOAD_BYTES) {
     return res.status(413).json({
       error: 'Payload too large',
-      message: `contents payload exceeds ${MAX_CONTENTS_PAYLOAD_BYTES} bytes`,
+      message: `messages payload exceeds ${MAX_CONTENTS_PAYLOAD_BYTES} bytes`,
     });
   }
 
-  if (!contents.every(isValidContent)) {
+  if (!messages.every(isValidMessage)) {
     return res.status(400).json({
       error:
-        'Invalid contents payload. Each content must include role (user|model) and non-empty parts with text or supported image inlineData.',
+        'Invalid messages payload. Each message must include role (user|assistant) and non-empty text or supported image content.',
     });
   }
 
   const payload = {
-    contents,
-    systemInstruction: {
-      parts: [{ text: resolveSystemInstruction(mode) }],
-    },
-    generationConfig: {
-      temperature: mode === GEMINI_MODES.GROUNDING_LOOKUP ? 0.2 : 0.5,
-      maxOutputTokens: resolveModeMaxTokens(mode),
-    },
+    model,
+    messages: [
+      { role: 'system', content: resolveSystemInstruction(mode) },
+      ...messages,
+    ],
+    temperature: mode === OPENROUTER_MODES.GROUNDING_LOOKUP ? 0.2 : 0.5,
+    max_tokens: resolveModeMaxTokens(mode),
   };
 
-  if (mode === GEMINI_MODES.GROUNDING_LOOKUP && useGrounding) {
-    payload.tools = [{ googleSearch: {} }];
+  if (mode === OPENROUTER_MODES.GROUNDING_LOOKUP && useGrounding) {
+    payload.tools = [{ type: 'openrouter:web_search' }];
   }
 
   try {
-    const endpoint = `${GEMINI_BASE_URL}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-
-    const response = await fetch(endpoint, {
+    const response = await fetch(OPENROUTER_CHAT_COMPLETIONS_URL, {
       method: 'POST',
       headers: {
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
+        ...(process.env.OPENROUTER_SITE_URL
+          ? { 'HTTP-Referer': process.env.OPENROUTER_SITE_URL }
+          : {}),
+        ...(process.env.OPENROUTER_APP_TITLE
+          ? { 'X-Title': process.env.OPENROUTER_APP_TITLE }
+          : {}),
       },
       body: JSON.stringify(payload),
     });
@@ -535,7 +543,7 @@ export default async function handler(req, res) {
     if (!response.ok) {
       const upstreamMessage =
         responseData?.error?.message ||
-        `Gemini request failed (${response.status})`;
+        `OpenRouter request failed (${response.status})`;
 
       return res.status(response.status).json({
         error: upstreamMessage,
@@ -545,7 +553,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json(responseData);
   } catch (error) {
-    console.error('Gemini proxy error:', error);
+    console.error('OpenRouter proxy error:', error);
     return res.status(500).json({
       error: 'Internal server error',
       message:

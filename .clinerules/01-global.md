@@ -14,7 +14,7 @@ React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor 
 - Framer Motion 12.23.24 (animations)
 - Tailwind 3.4.17 (styling via CSS variable–based semantic tokens)
 - Lucide React 0.562.0 (icons)
-- **External APIs:** USDA FoodData Central (online text search via `api/usda.js`), OpenFoodFacts (barcode lookup via `api/openfoodfacts.js`), Gemini (AI parsing via `api/gemini.js`)
+- **External APIs:** USDA FoodData Central (online text search via `api/usda.js`), OpenFoodFacts (barcode lookup via `api/openfoodfacts.js`), OpenRouter (AI parsing via `api/openrouter.js`)
 
 **Key Capacitor Plugins:**
 - `@capacitor/preferences` — Profile/settings storage
@@ -168,7 +168,7 @@ src/
 │   ├─ export.js                 # CSV/JSON export generation
 ├─ services/
 │   ├─ aiRagQuality.js           # AI parser quality presets (fast/balanced/precision)
-│   ├─ gemini.js                 # Gemini client + mode helpers (extraction/presentation/grounding)
+│   ├─ openrouter.js             # OpenRouter client + mode helpers (extraction/presentation/grounding)
 │   ├─ foodCache.js              # Cached food dedupe/trim helpers
 │   ├─ foodLookupContext.js      # Batch AI entry lookup context resolver + normalized lookup meta
 │   ├─ foodSearch.js             # Local/USDA/grounded lookup orchestration + deterministic AI entry resolution
@@ -184,7 +184,7 @@ src/
 │         └─ taxonomy.js         # Canonical taxonomy maps + alias/portion sanitation config
 └─ tests/                        # Node test runner suite (`node --test`)
   ├─ api/
-  │   └─ gemini.contract.test.js
+  │   └─ openrouter.contract.test.js
   ├─ constants/
   │   └─ activityPresets.test.js
   ├─ services/
@@ -195,7 +195,7 @@ src/
   │   └─ usda.test.js
   └─ utils/
     ├─ aiPresentationMerge.test.js # Presentation merge guardrail tests (sparse entries, rewrite suppression, integrity fallback)
-    ├─ gemini.test.js
+    ├─ openrouter.test.js
     ├─ macroRecommendations.test.js
     ├─ portionNormalization.test.js
     ├─ calculations.test.js
@@ -256,4 +256,4 @@ npm run test:watch     # Node test runner in watch mode
 10. **Startup profile reads are parallelized:** Keep profile and last selected cardio-type `Preferences.get(...)` calls parallelized during hydration.
 11. **Hook frame-throttling is intentional:** Keep RAF scheduling/equality guards in `useScrollOffScreen` and `useSwipeableScreens` to limit high-frequency layout/state churn on mobile.
 12. **Backup/report artifacts are generated files:** `src/constants/*.backup.sqlite` and `scripts/food-db/reports/*.json` should remain ignored and not committed.
-13. **Gemini proxy hardening is config-sensitive:** keep `ALLOWED_ORIGINS` and (if enabled) Upstash rate-limit env vars configured in deployment; mismatched env config can silently alter CORS/throttling behavior across environments.
+13. **OpenRouter proxy hardening is config-sensitive:** keep `ALLOWED_ORIGINS` and (if enabled) Upstash rate-limit env vars configured in deployment; mismatched env config can silently alter CORS/throttling behavior across environments.

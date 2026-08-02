@@ -981,9 +981,9 @@ const loadGetFoodsByIds = async () =>
   (await import('./foodCatalog.js')).getFoodsByIds;
 const loadSearchUsda = async () => (await import('./usda.js')).searchFoods;
 const loadGroundedMacroLookup = async () =>
-  (await import('./gemini.js')).fetchMacrosWithGrounding;
+  (await import('./openrouter.js')).fetchMacrosWithGrounding;
 const loadGroundedMacroLookupBatch = async () =>
-  (await import('./gemini.js')).fetchMacrosWithGroundingBatch;
+  (await import('./openrouter.js')).fetchMacrosWithGroundingBatch;
 
 const resolveAiConfidence = (score) => {
   if (!Number.isFinite(score) || score <= 0) {
