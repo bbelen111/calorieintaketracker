@@ -60,3 +60,35 @@ test('OpenRouter proxy enables web search only for grounded lookup requests', as
     process.env.OPENROUTER_API_KEY = originalKey;
   }
 });
+
+test('OpenRouter proxy forwards configured fallback models for rate-limit failover', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalKey = process.env.OPENROUTER_API_KEY;
+  const originalModel = process.env.OPENROUTER_MODEL;
+  const originalFallbackModels = process.env.OPENROUTER_FALLBACK_MODELS;
+  process.env.OPENROUTER_API_KEY = 'test-key';
+  process.env.OPENROUTER_MODEL = 'google/gemma-4-31b-it:free';
+  process.env.OPENROUTER_FALLBACK_MODELS =
+    'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free, google/gemma-4-31b-it:free';
+  let payload;
+  globalThis.fetch = async (_url, options) => {
+    payload = JSON.parse(options.body);
+    return { ok: true, status: 200, json: async () => ({ choices: [] }) };
+  };
+
+  try {
+    await handler(
+      { method: 'POST', body: { mode: 'extraction', messages }, headers: {} },
+      createResponse()
+    );
+    assert.equal(payload.model, 'google/gemma-4-31b-it:free');
+    assert.deepEqual(payload.models, [
+      'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+    process.env.OPENROUTER_API_KEY = originalKey;
+    process.env.OPENROUTER_MODEL = originalModel;
+    process.env.OPENROUTER_FALLBACK_MODELS = originalFallbackModels;
+  }
+});

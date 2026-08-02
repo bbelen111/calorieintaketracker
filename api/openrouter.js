@@ -8,6 +8,7 @@ const FALLBACK_MODEL = 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free';
 const FOOD_PARSER_SCHEMA_VERSION = '1.0.0';
 const MAX_CONTENT_ITEMS = 30;
 const MAX_CONTENTS_PAYLOAD_BYTES = 500000;
+const MAX_FALLBACK_MODELS = 3;
 const OPENROUTER_MODES = Object.freeze({
   EXTRACTION: 'extraction',
   PRESENTATION: 'presentation',
@@ -414,6 +415,24 @@ const resolveModeMaxTokens = (mode) => {
   return MODE_DEFAULT_MAX_TOKENS[mode] || MODE_DEFAULT_MAX_TOKENS.extraction;
 };
 
+const parseFallbackModels = (rawValue, primaryModel) => {
+  const normalizedPrimary = String(primaryModel || '')
+    .trim()
+    .toLowerCase();
+
+  return [
+    ...new Set(
+      String(rawValue || '')
+        .split(',')
+        .map((model) => model.trim())
+        .filter(
+          (model) =>
+            model.length > 0 && model.toLowerCase() !== normalizedPrimary
+        )
+    ),
+  ].slice(0, MAX_FALLBACK_MODELS);
+};
+
 export default async function handler(req, res) {
   const isCorsAllowed = applyCorsHeaders(req, res);
 
@@ -464,6 +483,10 @@ export default async function handler(req, res) {
   const useGrounding = body.useGrounding === true;
   const defaultModel = process.env.OPENROUTER_MODEL || FALLBACK_MODEL;
   const defaultGroundingModelRaw = process.env.OPENROUTER_GROUNDING_MODEL || '';
+  const defaultFallbackModelsRaw = process.env.OPENROUTER_FALLBACK_MODELS || '';
+  const groundingFallbackModelsRaw =
+    process.env.OPENROUTER_GROUNDING_FALLBACK_MODELS ||
+    defaultFallbackModelsRaw;
 
   const requestedModel =
     typeof body.model === 'string' && body.model.trim().length > 0
@@ -479,6 +502,12 @@ export default async function handler(req, res) {
     (mode === OPENROUTER_MODES.GROUNDING_LOOKUP && defaultGroundingModel
       ? defaultGroundingModel
       : defaultModel);
+  const fallbackModels = parseFallbackModels(
+    mode === OPENROUTER_MODES.GROUNDING_LOOKUP
+      ? groundingFallbackModelsRaw
+      : defaultFallbackModelsRaw,
+    model
+  );
 
   const messages = body.messages;
 
@@ -516,6 +545,7 @@ export default async function handler(req, res) {
     ],
     temperature: mode === OPENROUTER_MODES.GROUNDING_LOOKUP ? 0.2 : 0.5,
     max_tokens: resolveModeMaxTokens(mode),
+    ...(fallbackModels.length > 0 ? { models: fallbackModels } : {}),
   };
 
   if (mode === OPENROUTER_MODES.GROUNDING_LOOKUP && useGrounding) {

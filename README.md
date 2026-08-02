@@ -518,6 +518,10 @@ VITE_AI_CHAT_RAG_ENABLED=true
 OPENROUTER_API_KEY=your_openrouter_key
 OPENROUTER_MODEL=openai/gpt-4.1-mini
 OPENROUTER_GROUNDING_MODEL=openai/gpt-4.1-mini
+# Comma-separated automatic fallbacks for rate limits, outages, and refusals
+OPENROUTER_FALLBACK_MODELS=provider/fallback-model
+# Optional fallback override for grounding_lookup; defaults to OPENROUTER_FALLBACK_MODELS
+OPENROUTER_GROUNDING_FALLBACK_MODELS=
 # Optional client-side override for grounded lookup calls only
 VITE_OPENROUTER_GROUNDING_MODEL=openai/gpt-4.1-mini
 

@@ -858,6 +858,8 @@ OpenRouter food parsing is proxied through `api/openrouter.js` (server-side key 
   - `OPENROUTER_API_KEY` (required)
   - `OPENROUTER_MODEL` (default extraction/presentation model)
   - `OPENROUTER_GROUNDING_MODEL` (grounding mode default override)
+  - `OPENROUTER_FALLBACK_MODELS` (optional comma-separated failover models)
+  - `OPENROUTER_GROUNDING_FALLBACK_MODELS` (optional grounding-specific failover models)
 
 **AI RAG quality presets (`src/services/aiRagQuality.js`):**
 - `fast` — lower latency, narrower lookup breadth, deferred grounding disabled
