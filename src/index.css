@@ -567,22 +567,13 @@ select,
   }
 }
 
+/* Touch devices should keep the same animation state as desktop. In
+   particular, do not globally disable transitions or override transform and
+   opacity: those properties drive modal, picker, toggle, graph, and Framer
+   Motion animations. */
 @media (hover: none) and (pointer: coarse) {
-  .modal-content *,
-  .modal-overlay-wrapper * {
+  .modal-content,
+  .modal-overlay-wrapper {
     -webkit-tap-highlight-color: transparent;
-    transition-property: none !important;
-  }
-
-  .modal-content *:hover,
-  .modal-content *:hover *,
-  .modal-overlay-wrapper *:hover,
-  .modal-overlay-wrapper *:hover * {
-    box-shadow: none !important;
-    text-decoration-color: inherit !important;
-    text-decoration-line: none !important;
-    transform: none !important;
-    opacity: 1 !important;
-    filter: none !important;
   }
 }
