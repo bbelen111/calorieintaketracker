@@ -2,7 +2,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
 import { Health } from '@capgo/capacitor-health';
-import { buildHealthConnectStepReadWindow } from '../utils/healthConnectWindow.js';
+import {
+  buildHealthConnectFallbackReadWindow,
+  buildHealthConnectStepReadWindow,
+} from '../utils/healthConnectWindow.js';
 
 /**
  * Connection status states
@@ -94,19 +97,27 @@ export const useHealthConnect = () => {
    */
   const fetchSteps = useCallback(async () => {
     const stepReadWindow = buildHealthConnectStepReadWindow();
+    const fallbackReadWindow = buildHealthConnectFallbackReadWindow();
 
     if (!stepReadWindow) {
       throw new Error('Failed to build Health Connect step read window');
     }
 
-    try {
-      const result = await Health.readSamples({
+    const readSteps = async (window = null) =>
+      Health.readSamples({
         dataType: 'steps',
-        startDate: stepReadWindow.startDate,
-        endDate: stepReadWindow.endDate,
+        ...(window
+          ? {
+              startDate: window.startDate,
+              endDate: window.endDate,
+            }
+          : {}),
         limit: 1000,
         ascending: false,
       });
+
+    try {
+      let result = await readSteps(null);
 
       // Group by source to prevent double counting from multiple apps (e.g. Samsung Health + Google Fit)
       let totalSteps = 0;
@@ -132,12 +143,78 @@ export const useHealthConnect = () => {
 
       return Math.round(totalSteps);
     } catch (err) {
-      console.warn('[HealthConnect] Failed to fetch steps:', {
-        error: err,
+      if (stepReadWindow) {
+        try {
+          const explicitResult = await readSteps(stepReadWindow);
+
+          let explicitTotalSteps = 0;
+          if (explicitResult?.samples && Array.isArray(explicitResult.samples)) {
+            const stepsBySource = {};
+
+            explicitResult.samples.forEach((sample) => {
+              const stepValue = Number(sample.value) || Number(sample.count) || 0;
+              const sourceKey = sample.sourceId || sample.sourceName || 'unknown';
+
+              if (!stepsBySource[sourceKey]) {
+                stepsBySource[sourceKey] = 0;
+              }
+
+              stepsBySource[sourceKey] += stepValue;
+            });
+
+            explicitTotalSteps = Math.max(0, ...Object.values(stepsBySource));
+          }
+
+          return Math.round(explicitTotalSteps);
+        } catch (explicitErr) {
+          console.warn('[HealthConnect] Explicit step read failed:', {
+            error: explicitErr,
+            startDate: stepReadWindow.startDate,
+            endDate: stepReadWindow.endDate,
+          });
+        }
+      }
+
+      const shouldRetryWithFallback =
+        String(err?.message ?? err ?? '').includes('startTime must be before endTime') ||
+        String(err?.message ?? err ?? '').includes('endDate must be greater than or equal to startDate');
+
+      if (shouldRetryWithFallback && fallbackReadWindow) {
+        try {
+          const fallbackResult = await readSteps(fallbackReadWindow);
+
+          let fallbackTotalSteps = 0;
+          if (fallbackResult?.samples && Array.isArray(fallbackResult.samples)) {
+            const stepsBySource = {};
+
+            fallbackResult.samples.forEach((sample) => {
+              const stepValue = Number(sample.value) || Number(sample.count) || 0;
+              const sourceKey = sample.sourceId || sample.sourceName || 'unknown';
+
+              if (!stepsBySource[sourceKey]) {
+                stepsBySource[sourceKey] = 0;
+              }
+
+              stepsBySource[sourceKey] += stepValue;
+            });
+
+            fallbackTotalSteps = Math.max(0, ...Object.values(stepsBySource));
+          }
+
+          return Math.round(fallbackTotalSteps);
+        } catch (fallbackErr) {
+          console.info('[HealthConnect] Fallback step read unavailable:', {
+            startDate: fallbackReadWindow?.startDate ?? null,
+            endDate: fallbackReadWindow?.endDate ?? null,
+          });
+        }
+      }
+
+      console.info('[HealthConnect] Step read unavailable; using manual or cached steps.', {
         startDate: stepReadWindow?.startDate ?? null,
-        endDate: stepReadWindow?.endDate ?? null,
+        endDate: null,
       });
-      throw err;
+      return null;
     }
   }, []);
 

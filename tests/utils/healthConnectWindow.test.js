@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildHealthConnectStepReadWindow } from '../../src/utils/healthConnectWindow.js';
+import {
+  buildHealthConnectFallbackReadWindow,
+  buildHealthConnectStepReadWindow,
+} from '../../src/utils/healthConnectWindow.js';
 
 test('buildHealthConnectStepReadWindow returns a same-day window for normal times', () => {
   const referenceDate = new Date(2026, 0, 15, 14, 30, 45, 123);
@@ -17,6 +20,7 @@ test('buildHealthConnectStepReadWindow returns a same-day window for normal time
   assert.equal(start.getDate(), referenceDate.getDate());
   assert.equal(start.getHours(), 0);
   assert.equal(start.getMinutes(), 0);
+  assert.equal(start.getSeconds(), 1);
   assert.ok(end > start);
   assert.equal(end.getTime(), referenceDate.getTime());
 });
@@ -36,4 +40,17 @@ test('buildHealthConnectStepReadWindow nudges an exact-midnight boundary forward
 
 test('buildHealthConnectStepReadWindow returns null for invalid input', () => {
   assert.equal(buildHealthConnectStepReadWindow(new Date('invalid')), null);
+});
+
+test('buildHealthConnectFallbackReadWindow returns a rolling 24 hour window', () => {
+  const referenceDate = new Date(2026, 0, 15, 14, 30, 45, 123);
+  const window = buildHealthConnectFallbackReadWindow(referenceDate);
+
+  assert.ok(window);
+
+  const start = new Date(window.startDate);
+  const end = new Date(window.endDate);
+
+  assert.equal(end.getTime(), referenceDate.getTime());
+  assert.equal(end.getTime() - start.getTime(), 24 * 60 * 60 * 1000);
 });

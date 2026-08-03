@@ -215,7 +215,8 @@ Returns `{ status, steps, lastSynced, isLoading, error, connect, refresh, discon
 - `writeTestData()` — Writes 1000 test steps for debugging
 - Step aggregation uses max-per-source strategy to prevent double counting from multiple health apps
 - Auto-refreshes on app foreground via `App.addListener('appStateChange')`
-- Read windows are built through `buildHealthConnectStepReadWindow()` in `src/utils/healthConnectWindow.js`; keep that helper the single source of truth for `startDate`/`endDate` normalization and strict `end > start` validation.
+- Read windows are built through `buildHealthConnectStepReadWindow()` in `src/utils/healthConnectWindow.js`; keep that helper the single source of truth for explicit `startDate`/`endDate` normalization and strict `end > start` validation.
+- `fetchSteps()` should prefer the plugin's native default date range first, then retry with the explicit helper window and rolling 24-hour fallback if the default query fails. The native plugin now also performs chunked retries for problematic full-range reads. If all reads fail, return `null` and degrade gracefully rather than throwing a connection error into the live card flow.
 - The `Health.readSamples()` failure path should log the resolved window so exact-midnight or clock-skew issues are diagnosable without touching calorie math.
 
 Always returns `'unavailable'` on web and iOS. Status constants exported as `HealthConnectStatus` enum object.
