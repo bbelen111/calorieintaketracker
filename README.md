@@ -122,7 +122,7 @@ App.jsx (theme management, store hydration gate)
       │   ├─ CalorieMapScreen
       │   └─ InsightsScreen
       ├─ PhaseDetailScreen (drill-down)
-      └─ 43 top-level modals + ~21 child-level modals
+      └─ 41 top-level modals + ~21 child-level modals
 
 Performance loading strategy:
   - Fullscreen heavy modals are lazy-loaded (`React.lazy` + `Suspense`)
@@ -171,7 +171,7 @@ The store's canonical fields (computed via `deriveState`) are:
 src/
 ├─ components/EnergyMap/
 │   ├─ EnergyMapCalculator.jsx    # Main orchestrator
-│   ├─ modals/                     # 53 modal components (6 subfolders) + 5 panel helpers
+│   ├─ modals/                     # 51 modal components (6 subfolders) + 5 panel helpers
 │   │   ├─ fullscreen/             # WeightTracker, BodyFatTracker, StepTracker, Settings, FoodSearch
 │   │   ├─ pickers/                # Value selectors (Age, Calendar, Duration, etc.)
 │   │   ├─ info/                   # Info/reference modals (BmiInfo, BmrInfo, etc.)

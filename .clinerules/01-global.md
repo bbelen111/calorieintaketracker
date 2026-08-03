@@ -45,7 +45,7 @@ main.jsx
             │   ├─ CalorieMapScreen
             │   └─ InsightsScreen
             ├─ PhaseDetailScreen (drill-down, not in carousel)
-                └─ 43 top-level useAnimatedModal instances → 58 modal-related files (53 modals + 5 panels)
+                └─ 41 top-level useAnimatedModal instances → 56 modal-related files (51 modals + 5 panels)
                  └─ ~21 additional child-level modals inside modal components
 ```
 
@@ -96,9 +96,9 @@ src/
 │   │   ├─ ModalShell.jsx        # Core modal wrapper (singleton managers)
 │   │   ├─ FoodTagBadges.jsx     # Shared food tag/source badge renderer
 │   │   └─ ScreenTabs.jsx        # Tab bar + floating variant
-│   ├─ modals/                   # 53 modal files in 6 subfolders + 5 fullscreen panel components
+│   ├─ modals/                   # 51 modal files in 6 subfolders + 5 fullscreen panel components
 │   │   ├─ fullscreen/           # Full-screen takeover modals (WeightTracker, BodyFatTracker, StepTracker, Settings, FoodSearch)
-│   │   ├─ pickers/              # Scroll-wheel value pickers (Age, BodyFat, Calendar, Height, Weight, MealType, etc.)
+│   │   ├─ pickers/              # Scroll-wheel value pickers (Age, Calendar, Height, MealType, etc.)
 │   │   ├─ info/                 # Read-only info/reference sheets (AdaptiveThermogenesisInfo, BmiInfo, BmrInfo, CalorieBreakdown, TefInfo, etc.)
 │   │   ├─ forms/                # Data entry & editing dialogs (Cardio, Goal, PhaseCreation, WeightEntry, etc.)
 │   │   ├─ lists/                # Browseable/selectable lists (CardioFavourites, CardioTypeList)
