@@ -21,6 +21,7 @@ const BODY_FAT_VALUES = Array.from(
   (_, index) => MIN_BODY_FAT + index
 );
 const DECIMAL_VALUES = Array.from({ length: 10 }, (_, index) => index);
+const PICKER_USER_DRIVEN_RESET_MS = 400;
 
 const clampWhole = (value) => {
   if (!Number.isFinite(value)) {
@@ -76,6 +77,8 @@ export const BodyFatPicker = ({ value, onChange }) => {
   const decimalTimeoutRef = useRef(null);
   const hasAlignedRef = useRef(false);
   const selectionRef = useRef({ whole: MIN_BODY_FAT, decimal: 0 });
+  const isUserDrivenRef = useRef(false);
+  const userDrivenTimeoutRef = useRef(null);
 
   const [selectedWhole, setSelectedWhole] = useState(MIN_BODY_FAT);
   const [selectedDecimal, setSelectedDecimal] = useState(0);
@@ -85,8 +88,20 @@ export const BodyFatPicker = ({ value, onChange }) => {
     () => () => {}
   );
 
+  const markUserDriven = useCallback(() => {
+    isUserDrivenRef.current = true;
+    if (userDrivenTimeoutRef.current) {
+      clearTimeout(userDrivenTimeoutRef.current);
+    }
+    userDrivenTimeoutRef.current = setTimeout(() => {
+      isUserDrivenRef.current = false;
+    }, PICKER_USER_DRIVEN_RESET_MS);
+  }, []);
+
   const applySelection = useCallback(
     (whole, decimal, behavior = 'instant') => {
+      markUserDriven();
+
       const clampedWhole = clampWhole(whole);
       const clampedDecimal =
         clampedWhole === MAX_BODY_FAT ? 0 : clampDecimal(decimal);
@@ -117,13 +132,14 @@ export const BodyFatPicker = ({ value, onChange }) => {
 
       onChange?.(buildBodyFatValue(clampedWhole, clampedDecimal));
     },
-    [onChange]
+    [markUserDriven, onChange]
   );
 
   useEffect(
     () => () => {
       clearTimeout(wholeTimeoutRef.current);
       clearTimeout(decimalTimeoutRef.current);
+      clearTimeout(userDrivenTimeoutRef.current);
     },
     []
   );
@@ -138,6 +154,14 @@ export const BodyFatPicker = ({ value, onChange }) => {
       selectionRef.current = { whole: parts.whole, decimal: parts.decimal };
       setSelectedWhole(parts.whole);
       setSelectedDecimal(parts.decimal);
+
+      // Skip programmatic alignment for user-driven scroll changes. The
+      // picker settle handler already snap-aligns after the gesture ends;
+      // re-aligning here would fight the finger and cause choppy scrolling.
+      if (isUserDrivenRef.current) {
+        return;
+      }
+
       if (wholeRef.current) {
         alignScrollContainerToValue(
           wholeRef.current,
@@ -159,6 +183,8 @@ export const BodyFatPicker = ({ value, onChange }) => {
 
   const handleWholeChange = useCallback(
     (nextWhole) => {
+      markUserDriven();
+
       const clampedWhole = clampWhole(nextWhole);
       const nextDecimal =
         clampedWhole === MAX_BODY_FAT ? 0 : selectionRef.current.decimal;
@@ -177,11 +203,13 @@ export const BodyFatPicker = ({ value, onChange }) => {
 
       onChange?.(buildBodyFatValue(clampedWhole, nextDecimal));
     },
-    [onChange]
+    [markUserDriven, onChange]
   );
 
   const handleDecimalChange = useCallback(
     (nextDecimal) => {
+      markUserDriven();
+
       const clampedDecimal =
         selectionRef.current.whole === MAX_BODY_FAT
           ? 0
@@ -196,7 +224,7 @@ export const BodyFatPicker = ({ value, onChange }) => {
 
       onChange?.(buildBodyFatValue(selectionRef.current.whole, clampedDecimal));
     },
-    [onChange]
+    [markUserDriven, onChange]
   );
 
   useEffect(() => {
