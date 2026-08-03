@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Trash2, Save } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import { DateInput } from '../../common/DateInput';
-import { formatWeight } from '../../../../utils/measurements/weight';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { ConfirmActionModal } from '../common/ConfirmActionModal';
 import {
@@ -405,10 +404,6 @@ export const WeightEntryModal = ({
   onDelete,
 }) => {
   const isEdit = mode === 'edit';
-  const formattedWeight = (() => {
-    const normalized = formatWeight(weight);
-    return normalized ? `${normalized} kg` : 'Select weight';
-  })();
 
   const {
     isOpen: isConfirmOpen,
@@ -430,17 +425,16 @@ export const WeightEntryModal = ({
       isClosing={isClosing}
       contentClassName="p-6 w-full max-w-lg"
     >
-      <h3 className="text-foreground font-bold text-xl text-center mb-6">
+      <h3 className="text-foreground font-bold text-xl text-center mb-5">
         {isEdit ? 'Edit Weight Entry' : 'Add Weight Entry'}
       </h3>
 
-      <div className="space-y-5">
+      <div className="space-y-4">
         <div>
-          <label className="text-muted text-sm block mb-2">Weight</label>
-          <WeightPicker value={weight} onChange={onWeightChange} />
-          <p className="text-muted text-xs mt-2 text-center">
-            {formattedWeight}
+          <p className="text-muted text-xs text-center mb-2 uppercase tracking-wide">
+            Kilograms
           </p>
+          <WeightPicker value={weight} onChange={onWeightChange} />
         </div>
 
         <div>

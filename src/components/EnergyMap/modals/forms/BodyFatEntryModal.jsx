@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Trash2, Save } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import { DateInput } from '../../common/DateInput';
-import { formatBodyFat } from '../../../../utils/measurements/bodyFat';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { ConfirmActionModal } from '../common/ConfirmActionModal';
 import {
@@ -406,10 +405,6 @@ export const BodyFatEntryModal = ({
   onDelete,
 }) => {
   const isEdit = mode === 'edit';
-  const formattedBodyFat = (() => {
-    const normalized = formatBodyFat(bodyFat);
-    return normalized ? `${normalized}%` : 'Select body fat';
-  })();
 
   const {
     isOpen: isConfirmOpen,
@@ -431,17 +426,16 @@ export const BodyFatEntryModal = ({
       isClosing={isClosing}
       contentClassName="p-6 w-full max-w-lg"
     >
-      <h3 className="text-foreground font-bold text-xl text-center mb-6">
+      <h3 className="text-foreground font-bold text-xl text-center mb-5">
         {isEdit ? 'Edit Body Fat Entry' : 'Add Body Fat Entry'}
       </h3>
 
-      <div className="space-y-5">
+      <div className="space-y-4">
         <div>
-          <label className="text-muted text-sm block mb-2">Body Fat</label>
-          <BodyFatPicker value={bodyFat} onChange={onBodyFatChange} />
-          <p className="text-muted text-xs mt-2 text-center">
-            {formattedBodyFat}
+          <p className="text-muted text-xs text-center mb-2 uppercase tracking-wide">
+            Percentage
           </p>
+          <BodyFatPicker value={bodyFat} onChange={onBodyFatChange} />
         </div>
 
         <div>
