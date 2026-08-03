@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
 import { Health } from '@capgo/capacitor-health';
+import { buildHealthConnectStepReadWindow } from '../utils/healthConnectWindow.js';
 
 /**
  * Connection status states
@@ -14,15 +15,6 @@ export const HealthConnectStatus = {
   CONNECTING: 'connecting', // Requesting permissions
   CONNECTED: 'connected', // Authorized and ready
   ERROR: 'error', // An error occurred
-};
-
-/**
- * Get the start of today (midnight) as a Date object
- * @returns {Date}
- */
-const getStartOfToday = () => {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
 };
 
 /**
@@ -99,17 +91,19 @@ export const useHealthConnect = () => {
 
   /**
    * Fetch steps from Health Connect for today
-   * Also tries to fetch last 7 days as a debug fallback
    */
   const fetchSteps = useCallback(async () => {
-    try {
-      const startDate = getStartOfToday();
-      const endDate = new Date();
+    const stepReadWindow = buildHealthConnectStepReadWindow();
 
+    if (!stepReadWindow) {
+      throw new Error('Failed to build Health Connect step read window');
+    }
+
+    try {
       const result = await Health.readSamples({
         dataType: 'steps',
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
+        startDate: stepReadWindow.startDate,
+        endDate: stepReadWindow.endDate,
         limit: 1000,
         ascending: false,
       });
@@ -138,7 +132,11 @@ export const useHealthConnect = () => {
 
       return Math.round(totalSteps);
     } catch (err) {
-      console.warn('[HealthConnect] Failed to fetch steps:', err);
+      console.warn('[HealthConnect] Failed to fetch steps:', {
+        error: err,
+        startDate: stepReadWindow?.startDate ?? null,
+        endDate: stepReadWindow?.endDate ?? null,
+      });
       throw err;
     }
   }, []);
