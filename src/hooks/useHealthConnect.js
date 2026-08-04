@@ -3,6 +3,7 @@ import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
 import { Health } from '@capgo/capacitor-health';
 import {
+  aggregateStepsBySource,
   buildHealthConnectFallbackReadWindow,
   buildHealthConnectStepReadWindow,
 } from '../utils/healthConnectWindow.js';
@@ -94,6 +95,10 @@ export const useHealthConnect = () => {
 
   /**
    * Fetch steps from Health Connect for today
+   *
+   * The primary read uses the today-scoped window (local midnight -> now)
+   * instead of the plugin's native default (rolling 24 hours), so steps from
+   * previous days are never included in today's live count.
    */
   const fetchSteps = useCallback(async () => {
     const stepReadWindow = buildHealthConnectStepReadWindow();
@@ -116,106 +121,62 @@ export const useHealthConnect = () => {
         ascending: false,
       });
 
+    // Primary path: today-scoped window (local midnight -> now) so steps from
+    // previous days are never included in today's live count.
+    let primaryError = null;
     try {
-      let result = await readSteps(null);
-
+      const result = await readSteps(stepReadWindow);
       // Group by source to prevent double counting from multiple apps (e.g. Samsung Health + Google Fit)
-      let totalSteps = 0;
-      if (result?.samples && Array.isArray(result.samples)) {
-        const stepsBySource = {};
-
-        result.samples.forEach((sample) => {
-          // Health Connect may return steps in 'value' or 'count' field
-          const stepValue = Number(sample.value) || Number(sample.count) || 0;
-          // Use sourceId (package name) or sourceName as the grouping key, fallback to 'unknown'
-          const sourceKey = sample.sourceId || sample.sourceName || 'unknown';
-
-          if (!stepsBySource[sourceKey]) {
-            stepsBySource[sourceKey] = 0;
-          }
-          stepsBySource[sourceKey] += stepValue;
-        });
-
-        // Take the maximum steps from any single source
-        const maxSteps = Math.max(0, ...Object.values(stepsBySource));
-        totalSteps = maxSteps;
-      }
-
-      return Math.round(totalSteps);
+      return Math.round(aggregateStepsBySource(result));
     } catch (err) {
-      if (stepReadWindow) {
-        try {
-          const explicitResult = await readSteps(stepReadWindow);
+      primaryError = err;
+      console.warn('[HealthConnect] Today-scoped step read failed:', {
+        error: err,
+        startDate: stepReadWindow.startDate,
+        endDate: stepReadWindow.endDate,
+      });
+    }
 
-          let explicitTotalSteps = 0;
-          if (explicitResult?.samples && Array.isArray(explicitResult.samples)) {
-            const stepsBySource = {};
+    // Degraded path: native default range (rolling 24h). Only used when the
+    // explicit today window fails; logged so overcount risk stays visible.
+    try {
+      const result = await readSteps(null);
+      return Math.round(aggregateStepsBySource(result));
+    } catch (nativeErr) {
+      console.warn('[HealthConnect] Native default step read failed:', {
+        error: nativeErr,
+      });
+    }
 
-            explicitResult.samples.forEach((sample) => {
-              const stepValue = Number(sample.value) || Number(sample.count) || 0;
-              const sourceKey = sample.sourceId || sample.sourceName || 'unknown';
+    // Exact-midnight window-build edge case: retry with a rolling 24h fallback.
+    const shouldRetryWithFallback =
+      String(primaryError?.message ?? primaryError ?? '').includes(
+        'startTime must be before endTime'
+      ) ||
+      String(primaryError?.message ?? primaryError ?? '').includes(
+        'endDate must be greater than or equal to startDate'
+      );
 
-              if (!stepsBySource[sourceKey]) {
-                stepsBySource[sourceKey] = 0;
-              }
-
-              stepsBySource[sourceKey] += stepValue;
-            });
-
-            explicitTotalSteps = Math.max(0, ...Object.values(stepsBySource));
-          }
-
-          return Math.round(explicitTotalSteps);
-        } catch (explicitErr) {
-          console.warn('[HealthConnect] Explicit step read failed:', {
-            error: explicitErr,
-            startDate: stepReadWindow.startDate,
-            endDate: stepReadWindow.endDate,
-          });
-        }
+    if (shouldRetryWithFallback && fallbackReadWindow) {
+      try {
+        const fallbackResult = await readSteps(fallbackReadWindow);
+        return Math.round(aggregateStepsBySource(fallbackResult));
+      } catch {
+        console.info('[HealthConnect] Fallback step read unavailable:', {
+          startDate: fallbackReadWindow?.startDate ?? null,
+          endDate: fallbackReadWindow?.endDate ?? null,
+        });
       }
+    }
 
-      const shouldRetryWithFallback =
-        String(err?.message ?? err ?? '').includes('startTime must be before endTime') ||
-        String(err?.message ?? err ?? '').includes('endDate must be greater than or equal to startDate');
-
-      if (shouldRetryWithFallback && fallbackReadWindow) {
-        try {
-          const fallbackResult = await readSteps(fallbackReadWindow);
-
-          let fallbackTotalSteps = 0;
-          if (fallbackResult?.samples && Array.isArray(fallbackResult.samples)) {
-            const stepsBySource = {};
-
-            fallbackResult.samples.forEach((sample) => {
-              const stepValue = Number(sample.value) || Number(sample.count) || 0;
-              const sourceKey = sample.sourceId || sample.sourceName || 'unknown';
-
-              if (!stepsBySource[sourceKey]) {
-                stepsBySource[sourceKey] = 0;
-              }
-
-              stepsBySource[sourceKey] += stepValue;
-            });
-
-            fallbackTotalSteps = Math.max(0, ...Object.values(stepsBySource));
-          }
-
-          return Math.round(fallbackTotalSteps);
-        } catch (fallbackErr) {
-          console.info('[HealthConnect] Fallback step read unavailable:', {
-            startDate: fallbackReadWindow?.startDate ?? null,
-            endDate: fallbackReadWindow?.endDate ?? null,
-          });
-        }
-      }
-
-      console.info('[HealthConnect] Step read unavailable; using manual or cached steps.', {
+    console.info(
+      '[HealthConnect] Step read unavailable; using manual or cached steps.',
+      {
         startDate: stepReadWindow?.startDate ?? null,
         endDate: null,
-      });
-      return null;
-    }
+      }
+    );
+    return null;
   }, []);
 
   /**

@@ -216,7 +216,8 @@ Returns `{ status, steps, lastSynced, isLoading, error, connect, refresh, discon
 - Step aggregation uses max-per-source strategy to prevent double counting from multiple health apps
 - Auto-refreshes on app foreground via `App.addListener('appStateChange')`
 - Read windows are built through `buildHealthConnectStepReadWindow()` in `src/utils/healthConnectWindow.js`; keep that helper the single source of truth for explicit `startDate`/`endDate` normalization and strict `end > start` validation.
-- `fetchSteps()` should prefer the plugin's native default date range first, then retry with the explicit helper window and rolling 24-hour fallback if the default query fails. The native plugin now also performs chunked retries for problematic full-range reads. If all reads fail, return `null` and degrade gracefully rather than throwing a connection error into the live card flow.
+- `fetchSteps()` must use the **today-scoped window** (`buildHealthConnectStepReadWindow()`, local midnight → now) as the primary read path. The plugin's native default range is a rolling 24 hours and would include previous-day steps in today's live count, so it must only be used as a degraded fallback when the explicit today window fails. If all reads fail, return `null` and degrade gracefully rather than throwing a connection error into the live card flow.
+- Step aggregation is centralized in `aggregateStepsBySource()` in `src/utils/healthConnectWindow.js`; use it for all read paths (today-scoped, native default, and rolling fallback) to keep max-per-source dedup consistent.
 - The `Health.readSamples()` failure path should log the resolved window so exact-midnight or clock-skew issues are diagnosable without touching calorie math.
 
 Always returns `'unavailable'` on web and iOS. Status constants exported as `HealthConnectStatus` enum object.
