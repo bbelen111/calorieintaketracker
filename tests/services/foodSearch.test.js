@@ -14,7 +14,6 @@ import {
   searchFoodsOnline,
   searchFoodsHierarchically,
 } from '../../src/services/foodSearch.js';
-import { AI_RAG_QUALITY_MODE } from '../../src/services/aiRagQuality.js';
 
 test.beforeEach(() => {
   resetAiLookupSessionCache();
@@ -546,52 +545,6 @@ test('resolveAiFoodLookup falls back to grounded web lookup when local and USDA 
   assert.ok(result.weightedMatchScore < result.matchScore);
 });
 
-test('resolveAiFoodLookup quality mode changes depth but keeps conservative acceptance', async () => {
-  const makeDependencies = () => {
-    const calls = [];
-    return {
-      calls,
-      dependencies: {
-        searchLocal: async ({ limit }) => {
-          calls.push(`local:${limit}`);
-          return [
-            {
-              id: 'local_1',
-              name: 'Eggs',
-              per100g: { calories: 155, protein: 13, carbs: 1.1, fats: 11 },
-            },
-          ];
-        },
-        searchUsda: async () => {
-          calls.push('usda');
-          return { foods: [] };
-        },
-      },
-    };
-  };
-
-  const fast = makeDependencies();
-  const fastResult = await resolveAiFoodLookup({
-    entryName: 'eggs',
-    qualityMode: AI_RAG_QUALITY_MODE.FAST,
-    isOnline: true,
-    dependencies: fast.dependencies,
-  });
-
-  const precision = makeDependencies();
-  const precisionResult = await resolveAiFoodLookup({
-    entryName: 'eggs',
-    qualityMode: AI_RAG_QUALITY_MODE.PRECISION,
-    isOnline: true,
-    dependencies: precision.dependencies,
-  });
-
-  assert.equal(fastResult.usedSource, FOOD_SEARCH_SOURCE.LOCAL);
-  assert.equal(precisionResult.usedSource, FOOD_SEARCH_SOURCE.LOCAL);
-  assert.deepEqual(fast.calls, ['local:8']);
-  assert.deepEqual(precision.calls, ['local:100']);
-});
-
 test('resolveAiFoodLookup can defer grounding when fallback is disabled', async () => {
   const result = await resolveAiFoodLookup({
     entryName: 'rare local dessert',
@@ -616,35 +569,6 @@ test('resolveAiFoodLookup can defer grounding when fallback is disabled', async 
   assert.equal(result.status, 'needs_grounding');
   assert.equal(result.matchedFood, null);
   assert.equal(result.queryUsed, 'rare local dessert');
-});
-
-test('resolveAiFoodLookup fast mode disables grounding fallback by default', async () => {
-  let groundedCalls = 0;
-
-  const result = await resolveAiFoodLookup({
-    entryName: 'rare local dessert',
-    qualityMode: AI_RAG_QUALITY_MODE.FAST,
-    isOnline: true,
-    dependencies: {
-      searchLocal: async () => [],
-      searchUsda: async () => ({ foods: [] }),
-      searchGrounded: async () => {
-        groundedCalls += 1;
-        return {
-          name: 'Rare Local Dessert',
-          per100g: {
-            calories: 320,
-            protein: 4,
-            carbs: 45,
-            fats: 14,
-          },
-        };
-      },
-    },
-  });
-
-  assert.equal(result.status, 'needs_grounding');
-  assert.equal(groundedCalls, 0);
 });
 
 test('resolveAiGroundedBatch resolves multiple entries from one batched lookup call', async () => {
@@ -708,7 +632,6 @@ test('resolveAiGroundedBatch forwards timeout from quality options to batch depe
   let capturedTimeout = null;
 
   await resolveAiGroundedBatch({
-    qualityMode: AI_RAG_QUALITY_MODE.PRECISION,
     timeoutMs: 12345,
     requests: [
       {

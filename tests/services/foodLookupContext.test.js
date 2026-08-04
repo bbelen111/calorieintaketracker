@@ -10,7 +10,6 @@ import {
   resolveFoodLookupContext,
 } from '../../src/services/foodLookupContext.js';
 import { FOOD_SEARCH_SOURCE } from '../../src/services/foodSearch.js';
-import { AI_RAG_QUALITY_MODE } from '../../src/services/aiRagQuality.js';
 
 test('normalizeAiLookupResult returns normalized safe shape', () => {
   const result = normalizeAiLookupResult(
@@ -350,7 +349,6 @@ test('resolveFoodLookupContext fast mode can skip deferred grounding batch', asy
   const context = await resolveFoodLookupContext({
     messageId: 'assistant-fast',
     isOnline: true,
-    qualityMode: AI_RAG_QUALITY_MODE.FAST,
     lookupOptions: {
       enableDeferredGrounding: false,
       allowGroundingFallback: false,

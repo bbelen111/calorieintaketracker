@@ -168,7 +168,6 @@ src/
 │   ├─ theme.js                  # Native theme application (status bar, transparent nav bar, keyboard)
 │   ├─ export.js                 # CSV/JSON export generation
 ├─ services/
-│   ├─ aiRagQuality.js           # AI parser quality presets (fast/balanced/precision)
 │   ├─ openrouter.js             # OpenRouter client + mode helpers (extraction/presentation/grounding)
 │   ├─ foodCache.js              # Cached food dedupe/trim helpers
 │   ├─ foodLookupContext.js      # Batch AI entry lookup context resolver + normalized lookup meta

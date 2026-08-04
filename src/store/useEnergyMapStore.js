@@ -26,7 +26,6 @@ import {
   sortBodyFatEntries,
 } from '../utils/measurements/bodyFat';
 import { sanitizeAge, sanitizeHeight } from '../utils/measurements/profile';
-import { normalizeAiRagQualityMode } from '../services/aiRagQuality';
 import {
   areDailySnapshotsEquivalent,
   buildDailySnapshot,
@@ -391,7 +390,7 @@ const deriveState = (userData) => {
   const phaseView = buildPhaseViewFromV2(phaseLogV2);
   const activePhase =
     phaseView.activePhaseId != null
-      ? phaseLogV2.phasesById?.[phaseView.activePhaseId] ?? null
+      ? (phaseLogV2.phasesById?.[phaseView.activePhaseId] ?? null)
       : null;
   const trainingTypes = resolveTrainingTypes(userData);
   const cardioTypes = resolveCardioTypes(userData);
@@ -413,10 +412,6 @@ const deriveState = (userData) => {
   const stepGoal = userData.stepGoal ?? 10000;
   const selectedGoal = userData.selectedGoal ?? 'maintenance';
   const goalChangedAt = Number(userData.goalChangedAt) || Date.now();
-  const aiRagQualityMode = normalizeAiRagQualityMode(
-    userData.aiRagQualityMode,
-    'balanced'
-  );
 
   return {
     trainingTypes,
@@ -430,7 +425,6 @@ const deriveState = (userData) => {
     stepEntries,
     stepGoal,
     selectedGoal,
-    aiRagQualityMode,
     goalChangedAt,
     goalDurationDays: getGoalDurationDays(goalChangedAt),
     customCardioTypes: userData.customCardioTypes ?? {},
@@ -447,8 +441,7 @@ const deriveState = (userData) => {
     activePhaseId: phaseView.activePhaseId,
     activePhase,
     isGoalLockedByActivePhase:
-      activePhase?.status === PHASE_STATUS.ACTIVE &&
-      activePhase?.id != null,
+      activePhase?.status === PHASE_STATUS.ACTIVE && activePhase?.id != null,
     theme: userData.theme ?? 'dark',
   };
 };
@@ -571,21 +564,6 @@ export const useEnergyMapStore = createWithEqualityFn(
         return {
           ...prev,
           foodSearchDefaultEntry: normalizedEntry,
-        };
-      });
-    },
-
-    setAiRagQualityMode: (nextMode) => {
-      const normalizedMode = normalizeAiRagQualityMode(nextMode, 'balanced');
-
-      updateUserData(set, get, (prev) => {
-        if (prev.aiRagQualityMode === normalizedMode) {
-          return prev;
-        }
-
-        return {
-          ...prev,
-          aiRagQualityMode: normalizedMode,
         };
       });
     },
@@ -1183,7 +1161,8 @@ export const useEnergyMapStore = createWithEqualityFn(
         ? bodyFatEntries[bodyFatEntries.length - 1]
         : null;
       const startingBodyFat = Number(latestBodyFatEntry?.bodyFat);
-      const creationMode = phaseData?.creationMode === 'target' ? 'target' : 'goal';
+      const creationMode =
+        phaseData?.creationMode === 'target' ? 'target' : 'goal';
       const targetWeight = Number.isFinite(Number(phaseData?.targetWeight))
         ? Number(phaseData.targetWeight)
         : null;
@@ -1224,7 +1203,9 @@ export const useEnergyMapStore = createWithEqualityFn(
         startDate: phaseData.startDate,
         endDate: phaseData.endDate || null,
         goalType:
-          phaseData.goalType || targetPayload?.recommendedGoalType || 'maintenance',
+          phaseData.goalType ||
+          targetPayload?.recommendedGoalType ||
+          'maintenance',
         creationMode,
         targetMetric,
         targetDateRequired: creationMode === 'target',

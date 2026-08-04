@@ -69,7 +69,6 @@ Migration behavior is now intentionally minimal:
 - `activityPresets: { training: 'default', rest: 'default' }`
 - `customActivityMultipliers: { training: 0.35, rest: 0.28 }`
 - `smartTefEnabled: false`
-- `aiRagQualityMode: 'balanced'`
 - `adaptiveThermogenesisEnabled: false`
 - `adaptiveThermogenesisSmartMode: false`
 - `adaptiveThermogenesisSmoothingEnabled: false`
@@ -152,11 +151,9 @@ OpenRouter food parsing is proxied through `api/openrouter.js` (server-side key 
   - `OPENROUTER_FALLBACK_MODELS` (optional comma-separated failover models)
   - `OPENROUTER_GROUNDING_FALLBACK_MODELS` (optional grounding-specific failover models)
 
-**AI RAG quality presets (`src/services/aiRagQuality.js`):**
 - `fast` — lower latency, narrower lookup breadth, deferred grounding disabled
 - `balanced` — default profile and compatibility baseline
 - `precision` — wider lookup breadth and longer timeout budget
-- Persisted profile field: `userData.aiRagQualityMode`
 
 **Policy requirements:**
 - Use **conservative estimation** when uncertainty materially affects calories/macros.

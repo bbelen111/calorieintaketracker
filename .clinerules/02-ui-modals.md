@@ -32,7 +32,6 @@ paths:
 - `FoodSearchModal` is the **canonical** food favourites UI surface (`viewMode === 'favourites'`).
 - `FoodFavouritesModal` was removed as redundant and should **not** be reintroduced.
 - `FoodSearchModal` is now a **4-mode surface**: local search, online search, favourites, and AI chat (`viewMode` + `searchMode` state machine).
-- AI chat includes a persisted quality preset in profile state: `aiRagQualityMode: 'fast' | 'balanced' | 'precision'` (default: `balanced`).
 - `FoodSearchModal` now composes focused panel components from `modals/fullscreen/panels/`:
   - `FoodSearchChatPanel.jsx`
   - `FoodSearchFilterControls.jsx`
@@ -75,8 +74,6 @@ FoodSearchModal
 
 AI chat mode (feature-flagged RAG path):
 FoodSearchModal
-  -> resolves AI quality preset via `services/aiRagQuality.js` (Fast / Balanced / Precision)
-  -> applies preset knobs (timeouts + lookup breadth)
   -> sendOpenRouterExtraction(...) in services/openrouter.js (mode='extraction')
   -> resolveFoodLookupContext(...) + resolveAiFoodEntry(...) in services/foodLookupContext.js + services/foodSearch.js
     -> local lookup (foodCatalog)

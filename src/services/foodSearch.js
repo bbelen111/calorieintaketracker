@@ -3,11 +3,6 @@ import {
   scaleMacrosFromPer100g,
 } from '../utils/food/portionNormalization.js';
 import { getRagSourcePreferenceWeightsForCategory } from './ragTelemetry.js';
-import {
-  AI_RAG_QUALITY_MODE,
-  getAiRagQualityPreset,
-  normalizeAiRagQualityMode,
-} from './aiRagQuality.js';
 
 export const FOOD_SEARCH_SOURCE = Object.freeze({
   LOCAL: 'local',
@@ -26,11 +21,11 @@ export const getFoodSearchSourceLabel = (source) => {
 };
 
 const ONLINE_QUERY_MIN_LENGTH = 2;
-const DEFAULT_AI_RAG_QUALITY_PRESET = getAiRagQualityPreset(
-  AI_RAG_QUALITY_MODE.BALANCED
-);
-const AI_LOCAL_LIMIT = DEFAULT_AI_RAG_QUALITY_PRESET.localLimit;
-const AI_ONLINE_PAGE_SIZE = DEFAULT_AI_RAG_QUALITY_PRESET.onlinePageSize;
+const AI_LOCAL_LIMIT = 25;
+const AI_ONLINE_PAGE_SIZE = 20;
+const AI_GROUNDED_LOOKUP_TIMEOUT_MS = 30000;
+const AI_GROUNDED_BATCH_TIMEOUT_MS = 90000;
+const AI_ENABLE_GROUNDING_FALLBACK = true;
 
 const AI_SCORE_THRESHOLD = Object.freeze({
   high: 0.88,
@@ -378,7 +373,6 @@ const resolveWeightedConfidence = ({
 const buildAiLookupCacheKey = ({
   entryName = '',
   lookupTerms = [],
-  qualityMode = AI_RAG_QUALITY_MODE.BALANCED,
   entryCategory = null,
   isOnline = true,
   allowGroundingFallback = true,
@@ -419,7 +413,6 @@ const buildAiLookupCacheKey = ({
 
   return [
     'v2',
-    normalizeAiRagQualityMode(qualityMode),
     normalizedEntry,
     normalizedTerms.join(','),
     normalizedCategory,
@@ -1328,7 +1321,6 @@ const resolveAcceptedHistoryMatch = ({
 export const resolveAiFoodLookup = async ({
   entryName = '',
   lookupTerms = [],
-  qualityMode = AI_RAG_QUALITY_MODE.BALANCED,
   entryCategory = null,
   isOnline = true,
   allowGroundingFallback,
@@ -1337,18 +1329,16 @@ export const resolveAiFoodLookup = async ({
   sourcePreferenceWeights = null,
   dependencies = {},
 } = {}) => {
-  const resolvedQualityMode = normalizeAiRagQualityMode(qualityMode);
-  const qualityPreset = getAiRagQualityPreset(resolvedQualityMode);
   const resolvedLocalLimit = Number.isFinite(Number(localLimit))
     ? Math.max(1, Math.round(Number(localLimit)))
-    : qualityPreset.localLimit;
+    : AI_LOCAL_LIMIT;
   const resolvedOnlinePageSize = Number.isFinite(Number(onlinePageSize))
     ? Math.max(1, Math.round(Number(onlinePageSize)))
-    : qualityPreset.onlinePageSize;
+    : AI_ONLINE_PAGE_SIZE;
   const shouldAllowGroundingFallback =
     typeof allowGroundingFallback === 'boolean'
       ? allowGroundingFallback
-      : qualityPreset.enableGroundingFallback;
+      : AI_ENABLE_GROUNDING_FALLBACK;
   const preferBrandMatches = detectBrandIntent({
     entryName,
     lookupTerms,
@@ -1357,7 +1347,6 @@ export const resolveAiFoodLookup = async ({
   const cacheKey = buildAiLookupCacheKey({
     entryName,
     lookupTerms,
-    qualityMode: resolvedQualityMode,
     entryCategory,
     isOnline,
     allowGroundingFallback: shouldAllowGroundingFallback,
@@ -1658,7 +1647,7 @@ export const resolveAiFoodLookup = async ({
       const groundedEstimate = await resolvedDependencies.searchGrounded(
         groundedQuery,
         undefined,
-        qualityPreset.groundedLookupTimeoutMs
+        AI_GROUNDED_LOOKUP_TIMEOUT_MS
       );
 
       if (hasUsablePer100g(groundedEstimate?.per100g)) {
@@ -1811,15 +1800,12 @@ export const resolveAiFoodLookup = async ({
 
 export const resolveAiGroundedBatch = async ({
   requests = [],
-  qualityMode = AI_RAG_QUALITY_MODE.BALANCED,
   timeoutMs,
   dependencies = {},
 } = {}) => {
-  const resolvedQualityMode = normalizeAiRagQualityMode(qualityMode);
-  const qualityPreset = getAiRagQualityPreset(resolvedQualityMode);
   const resolvedTimeoutMs = Number.isFinite(Number(timeoutMs))
     ? Math.max(1000, Math.round(Number(timeoutMs)))
-    : qualityPreset.groundedBatchTimeoutMs;
+    : AI_GROUNDED_BATCH_TIMEOUT_MS;
 
   const normalizedRequests = Array.isArray(requests)
     ? requests

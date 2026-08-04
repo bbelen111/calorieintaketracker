@@ -27,7 +27,6 @@ import {
   DEFAULT_MACRO_RECOMMENDATION_SPLIT,
   normalizeMacroRecommendationSplit,
 } from '../calculations/macroRecommendations.js';
-import { normalizeAiRagQualityMode } from '../../services/aiRagQuality.js';
 
 // Split keys for performance
 const PROFILE_KEY = 'energyMapData_profile'; // Settings, preferences, small lists
@@ -1108,7 +1107,6 @@ export const getDefaultEnergyMapData = () => ({
   smartTefQuickEstimatesTargetMode: true,
   smartTefLiveCardTargetMode: false,
   foodSearchDefaultEntry: 'search_local',
-  aiRagQualityMode: 'balanced',
   macroRecommendationSplit: {
     ...DEFAULT_MACRO_RECOMMENDATION_SPLIT,
   },
@@ -1383,10 +1381,6 @@ function mergeWithDefaults(data) {
     foodSearchDefaultEntry: normalizeFoodSearchDefaultEntry(
       normalizedInput.foodSearchDefaultEntry,
       defaults.foodSearchDefaultEntry
-    ),
-    aiRagQualityMode: normalizeAiRagQualityMode(
-      normalizedInput.aiRagQualityMode,
-      defaults.aiRagQualityMode
     ),
     macroRecommendationSplit: normalizeMacroRecommendationSplit(
       normalizedInput.macroRecommendationSplit ??

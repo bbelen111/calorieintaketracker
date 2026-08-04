@@ -4,12 +4,6 @@
   resolveAiGroundedBatch,
 } from './foodSearch.js';
 
-import {
-  AI_RAG_QUALITY_MODE,
-  getAiRagQualityPreset,
-  normalizeAiRagQualityMode,
-} from './aiRagQuality.js';
-
 const SOURCE_TRUST_MULTIPLIER = Object.freeze({
   [FOOD_SEARCH_SOURCE.LOCAL]: 1,
 
@@ -367,8 +361,6 @@ export const resolveFoodLookupContext = async ({
 
   isOnline = true,
 
-  qualityMode = AI_RAG_QUALITY_MODE.BALANCED,
-
   lookupOptions = {},
 
   groundedBatchTimeoutMs,
@@ -383,10 +375,6 @@ export const resolveFoodLookupContext = async ({
     return {};
   }
 
-  const resolvedQualityMode = normalizeAiRagQualityMode(qualityMode);
-
-  const qualityPreset = getAiRagQualityPreset(resolvedQualityMode);
-
   const normalizedLookupOptions =
     lookupOptions && typeof lookupOptions === 'object' ? lookupOptions : {};
 
@@ -398,7 +386,7 @@ export const resolveFoodLookupContext = async ({
   const shouldEnableDeferredGrounding =
     typeof normalizedLookupOptions.enableDeferredGrounding === 'boolean'
       ? normalizedLookupOptions.enableDeferredGrounding
-      : qualityPreset.enableDeferredGrounding;
+      : true;
 
   const pairs = await mapWithConcurrencyLimit(
     entries,
@@ -425,8 +413,6 @@ export const resolveFoodLookupContext = async ({
           lookupTerms: resolveEntryLookupTerms(entry),
 
           entryCategory: entry?.category || null,
-
-          qualityMode: resolvedQualityMode,
 
           isOnline,
 
@@ -500,8 +486,6 @@ export const resolveFoodLookupContext = async ({
 
   const groundedResultsByKey = await resolveGroundedBatch({
     requests: deferredGroundingRequests,
-
-    qualityMode: resolvedQualityMode,
 
     timeoutMs: groundedBatchTimeoutMs,
   });

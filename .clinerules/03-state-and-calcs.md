@@ -173,7 +173,6 @@ Do not duplicate target planning formulas in components.
   smartTefFoodTefBurnEnabled: true,
   smartTefQuickEstimatesTargetMode: true,
   smartTefLiveCardTargetMode: false,
-  aiRagQualityMode: 'balanced',
   adaptiveThermogenesisEnabled: false,
   adaptiveThermogenesisSmartMode: false,
   adaptiveThermogenesisSmoothingEnabled: false,
@@ -314,4 +313,3 @@ When editing phase logic:
 20. **Per-phase calorie delta override is layered, not formula replacement:** keep `calculateCalorieBreakdown()`/TDEE core unchanged; apply phase delta via `calculateGoalCalories(..., deltaOverride)` in target resolution paths.
 21. **Feasible-date band API is opt-in for heavy arrays.** Prefer summary fields (`strictCount`, `lenientCount`, `feasibleMinDateKey`, `feasibleMaxDateKey`, day-span ranges) and only request date/evaluation arrays when the caller explicitly needs them.
 22. **Selector/destructure parity matters:** when selecting store fields in `useEnergyMapStore`, always destructure every referenced variable (`aiChatRolloutUserId`, `aiChatRagRolloutOverride`, `aiChatRagRolloutPercentage`) to avoid runtime `ReferenceError` crashes.
-23. **AI quality baseline should remain balanced:** treat `aiRagQualityMode='balanced'` as the compatibility baseline unless a coordinated retune of UX/perf trade-offs is intentional.

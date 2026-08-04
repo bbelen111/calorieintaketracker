@@ -412,12 +412,6 @@ const food = await searchBarcode('012345678901');
 
 OpenRouter food parsing via `api/openrouter.js` (server-side key handling).
 
-AI chat parsing supports three quality modes:
-- **Fast** — lowest latency profile (narrower lookup depth)
-- **Balanced** — default mode (recommended day-to-day)
-- **Precision** — widest lookup depth with higher latency tolerance
-
-The selected mode is persisted in profile state as `aiRagQualityMode`.
 
 ```javascript
 import { sendOpenRouterExtraction } from './services/openrouter';

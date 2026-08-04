@@ -71,9 +71,6 @@ const MESSAGE_CYCLE_MS = 1400;
 
 export const FoodSearchChatPanel = ({
   isOnline,
-  aiRagQualityMode,
-  aiRagQualityOptions,
-  onChangeAiRagQualityMode,
   chatMessages,
   chatAttachments,
   chatError,
@@ -115,7 +112,6 @@ export const FoodSearchChatPanel = ({
   const [expandedTechnicalTraceKeys, setExpandedTechnicalTraceKeys] = useState(
     {}
   );
-  const [isAiModeDropdownOpen, setIsAiModeDropdownOpen] = useState(false);
 
   const currentStage = activeChatRequest?.currentStage || 'processing';
   const activeStatusLabel =
@@ -197,136 +193,8 @@ export const FoodSearchChatPanel = ({
     }
   };
 
-  const qualityOptions = Array.isArray(aiRagQualityOptions)
-    ? aiRagQualityOptions
-    : [];
-  const qualityModeIndex = Math.max(
-    qualityOptions.findIndex((option) => option.value === aiRagQualityMode),
-    0
-  );
-  const qualitySegmentWidth =
-    qualityOptions.length > 0
-      ? `calc((100% - 0.5rem) / ${qualityOptions.length})`
-      : 'calc((100% - 0.5rem) / 3)';
-  const qualityActiveClass =
-    aiRagQualityMode === 'fast'
-      ? 'bg-accent-indigo'
-      : aiRagQualityMode === 'precision'
-        ? 'bg-accent-purple'
-        : 'bg-accent-blue';
-  const currentQualityOption = qualityOptions.find(
-    (option) => option.value === aiRagQualityMode
-  ) ||
-    qualityOptions[0] || {
-      label: 'Balanced',
-      value: 'balanced',
-    };
-  const qualityTagClass =
-    currentQualityOption.value === 'fast'
-      ? 'bg-accent-indigo'
-      : currentQualityOption.value === 'precision'
-        ? 'bg-accent-purple'
-        : 'bg-accent-blue';
-
   return (
     <div className="flex-1 min-h-0 flex flex-col mt-2">
-      <div className="mx-4 mb-2 flex-shrink-0 rounded-lg border border-border bg-surface-highlight px-3 py-2">
-        <button
-          type="button"
-          onClick={() => setIsAiModeDropdownOpen((previous) => !previous)}
-          className="w-full p-1 flex items-center justify-between gap-3 text-left pressable-inline focus-ring rounded-md"
-          aria-expanded={isAiModeDropdownOpen}
-          aria-label="Toggle AI Mode selector"
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            <p className="text-sm font-semibold text-foreground uppercase tracking-wide">
-              AI Mode
-            </p>
-            <span
-              className={`text-sm px-2 py-0.5 rounded-full font-semibold whitespace-nowrap text-white ${qualityTagClass}`}
-            >
-              {currentQualityOption.label}
-            </span>
-          </div>
-          <ChevronDown
-            size={15}
-            className={`text-muted transition-transform duration-200 ${
-              isAiModeDropdownOpen ? 'rotate-180' : 'rotate-0'
-            }`}
-          />
-        </button>
-
-        <AnimatePresence initial={false}>
-          {isAiModeDropdownOpen && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{
-                height: {
-                  duration: 0.26,
-                  ease: [0.32, 0.72, 0, 1],
-                },
-                opacity: {
-                  duration: 0.2,
-                  ease: 'easeOut',
-                },
-              }}
-              className="overflow-hidden"
-            >
-              <motion.div
-                initial={{ y: -4 }}
-                animate={{ y: 0 }}
-                exit={{ y: -3 }}
-                transition={{ duration: 0.2, ease: 'easeOut' }}
-                className="pt-2"
-              >
-                <div className="relative flex items-stretch p-1 bg-surface rounded-lg border border-border">
-                  <div
-                    className={`absolute inset-y-1 left-1 rounded-md shadow-md ${qualityActiveClass}`}
-                    style={{
-                      width: qualitySegmentWidth,
-                      transform: `translateX(${qualityModeIndex * 100}%)`,
-                      transition:
-                        'transform 0.2s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.2s ease-out',
-                    }}
-                  />
-
-                  {qualityOptions.map((option) => {
-                    const isActive = option.value === aiRagQualityMode;
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => onChangeAiRagQualityMode?.(option.value)}
-                        className={`relative z-10 flex-1 px-2 py-2 rounded-md text-left transition-colors pressable-inline focus-ring ${
-                          isActive
-                            ? 'text-primary-foreground'
-                            : 'text-muted md:hover:text-foreground'
-                        }`}
-                      >
-                        <span className="block text-sm font-semibold leading-tight">
-                          {option.label}
-                        </span>
-                        <span
-                          className={`block text-[10px] leading-tight mt-0.5 ${
-                            isActive
-                              ? 'text-primary-foreground/90'
-                              : 'text-muted'
-                          }`}
-                        >
-                          {option.description}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
       {!isOnline && (
         <div className="mx-4 mt-3 flex items-center gap-2 px-3 py-2 bg-accent-amber/10 border border-accent-amber/30 rounded-lg flex-shrink-0">
           <CloudOff size={14} className="text-accent-amber flex-shrink-0" />
