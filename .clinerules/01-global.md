@@ -5,7 +5,7 @@
 React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor for mobile deployment (iOS/Android). Local-first architecture with Zustand state management, Dexie-backed history persistence plus Capacitor Preferences for profile/settings, and USDA-backed online food search + OpenFoodFacts barcode lookup.
 
 **Tech Stack:**
-- React 18.3.1 + Vite 5.4.11 (dev server on `localhost:5173`, `strictPort: true`)
+- React 18.3.1 + Vite 8.2.0 (dev server on `localhost:5173`, `strictPort: true`)
 - Capacitor 8.0.1 (`appId: com.energymap.tracker`, `webDir: dist`)
 - **Persistence:** Dexie (`IndexedDB`) for history + `@capacitor/preferences` for profile/settings
 - **State:** `zustand` 4.5.5 using `createWithEqualityFn` (`zustand/traditional`) with `subscribeWithSelector` middleware
@@ -27,6 +27,8 @@ React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor 
 - `@capgo/capacitor-navigation-bar` — Android navigation bar theming
 
 **Testing exists (Node test runner), no CI pipeline yet.** Use automated tests for touched logic and then perform manual UI checks. No router — single-page app with swipeable screen carousel.
+
+**Vite 8 / Rolldown note:** `build.rollupOptions.output.manualChunks` must be a function. The old object-map form throws `manualChunks is not a function` and prevents `dist/index.html` from being emitted, which breaks Capacitor sync.
 
 ---
 

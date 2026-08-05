@@ -5,7 +5,7 @@
 React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor for mobile deployment (iOS/Android). Local-first architecture with Zustand state management, Dexie-backed history persistence plus Capacitor Preferences for profile/settings, and USDA-backed online food search + OpenFoodFacts barcode lookup.
 
 **Tech Stack:**
-- React 18.3.1 + Vite 5.4.11 (dev server on `localhost:5173`, `strictPort: true`)
+- React 18.3.1 + Vite 8.2.0 (dev server on `localhost:5173`, `strictPort: true`)
 - Capacitor 8.0.1 (`appId: com.energymap.tracker`, `webDir: dist`)
 - **Persistence:** Dexie (`IndexedDB`) for history + `@capacitor/preferences` for profile/settings
 - **State:** `zustand` 4.5.5 using `createWithEqualityFn` (`zustand/traditional`) with `subscribeWithSelector` middleware
@@ -65,6 +65,8 @@ User action → Store action (updateUserData) → deriveState() recalculates (wi
 1. **Single orchestrator file (`EnergyMapCalculator.jsx`)** owns all modal lifecycle state, temporary form drafts, and screen navigation. At 4,100+ lines, it's deliberately centralized — not a candidate for splitting. New modals are instantiated here.
 
 2. **Derived state pattern:** The Zustand store's `deriveState()` owns canonical fields (`bmr`, `trainingCalories`, `totalCardioBurn`, sorted entries, resolved types). Hot-path caching is intentional (resolved type maps, sorted arrays, normalized phase state, phase view projection) and `updateUserData` short-circuits no-op mutations. Never duplicate these calculations — consume them from the store.
+
+  - **Vite 8 / Rolldown chunking:** `build.rollupOptions.output.manualChunks` must be a function. The older object-map form throws `manualChunks is not a function` and prevents `dist/index.html` from being emitted, which breaks Capacitor sync.
 
 3. **Store initialization is async.** `setupEnergyMapStore()` is called once from `EnergyMapCalculator`, which gates rendering on `isLoaded === true` to prevent flash of default data.
 

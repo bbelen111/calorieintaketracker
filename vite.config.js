@@ -19,30 +19,54 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'chunk-react': ['react', 'react-dom'],
-          'chunk-framer-motion': ['framer-motion'],
-          'chunk-zustand': [
-            'zustand',
-            'zustand/traditional',
-            'zustand/middleware',
-          ],
-          'chunk-capacitor': [
-            '@capacitor/core',
-            '@capacitor/app',
-            '@capacitor/keyboard',
-            '@capacitor/preferences',
-            '@capacitor/splash-screen',
-            '@capacitor/status-bar',
-            '@capacitor/barcode-scanner',
-            '@capgo/capacitor-health',
-            '@capgo/capacitor-navigation-bar',
-          ],
-          'chunk-lucide': ['lucide-react'],
-          'chunk-dexie': ['dexie'],
-          'chunk-sql-vendor': ['sql.js'],
-          'chunk-food-catalog': ['./src/services/foodCatalog.js'],
-          'chunk-openrouter': ['./src/services/openrouter.js'],
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('/react/') || id.includes('/react-dom/')) {
+              return 'chunk-react';
+            }
+
+            if (id.includes('/framer-motion/')) {
+              return 'chunk-framer-motion';
+            }
+
+            if (
+              id.includes('/zustand/') ||
+              id.includes('/zustand/traditional') ||
+              id.includes('/zustand/middleware')
+            ) {
+              return 'chunk-zustand';
+            }
+
+            if (
+              id.includes('/@capacitor/') ||
+              id.includes('/@capgo/capacitor-health') ||
+              id.includes('/@capgo/capacitor-navigation-bar')
+            ) {
+              return 'chunk-capacitor';
+            }
+
+            if (id.includes('/lucide-react/')) {
+              return 'chunk-lucide';
+            }
+
+            if (id.includes('/dexie/')) {
+              return 'chunk-dexie';
+            }
+
+            if (id.includes('/sql.js/')) {
+              return 'chunk-sql-vendor';
+            }
+          }
+
+          if (id.includes('/src/services/foodCatalog.js')) {
+            return 'chunk-food-catalog';
+          }
+
+          if (id.includes('/src/services/openrouter.js')) {
+            return 'chunk-openrouter';
+          }
+
+          return undefined;
         },
       },
     },
