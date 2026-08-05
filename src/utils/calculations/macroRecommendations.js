@@ -16,6 +16,56 @@ export const DEFAULT_MACRO_RECOMMENDATION_SPLIT = {
 
 const MACRO_KEYS = ['protein', 'carbs', 'fats'];
 
+export const MAX_MACRO_LOCKS = 2;
+
+export const EMPTY_MACRO_LOCKS = {
+  protein: null,
+  carbs: null,
+  fats: null,
+};
+
+const KCAL_PER_GRAM = {
+  protein: PROTEIN_CALORIES_PER_GRAM,
+  carbs: CARB_CALORIES_PER_GRAM,
+  fats: FAT_CALORIES_PER_GRAM,
+};
+
+export const hasAnyMacroLock = (macroLocks) =>
+  MACRO_KEYS.some((key) => {
+    const value = macroLocks?.[key];
+    return value != null && Number.isFinite(Number(value));
+  });
+
+export const normalizeMacroLocks = (value) => {
+  const normalized = { ...EMPTY_MACRO_LOCKS };
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return normalized;
+  }
+
+  const lockedKeys = [];
+
+  MACRO_KEYS.forEach((key) => {
+    const raw = value[key];
+    if (raw == null || raw === '') {
+      return;
+    }
+    const numeric = Number(raw);
+    if (Number.isFinite(numeric) && numeric >= 0) {
+      normalized[key] = roundToTenth(numeric);
+      lockedKeys.push(key);
+    }
+  });
+
+  // Enforce the maximum number of locks. When more than MAX_MACRO_LOCKS are
+  // present, later keys in canonical order are dropped so protein/carbs win.
+  while (lockedKeys.length > MAX_MACRO_LOCKS) {
+    const dropped = lockedKeys.pop();
+    normalized[dropped] = null;
+  }
+
+  return normalized;
+};
+
 const toSafeRatio = (value) => {
   const numeric = Number(value);
   if (!Number.isFinite(numeric) || numeric < 0) {
@@ -278,10 +328,83 @@ export const projectMacroSplitToConstraints = ({
     userData,
   });
 
+const getLockedMacroKeys = (macroLocks) => {
+  const normalized = normalizeMacroLocks(macroLocks);
+  return MACRO_KEYS.filter((key) => normalized[key] != null);
+};
+
+const applyMacroLocks = ({ grams, macroLocks, targetCalories, bounds }) => {
+  const normalizedLocks = normalizeMacroLocks(macroLocks);
+  const lockedKeys = getLockedMacroKeys(normalizedLocks);
+  if (lockedKeys.length === 0) {
+    return {
+      grams,
+      lockedKeys: [],
+      relaxedKeys: [],
+      lockWarnings: [],
+    };
+  }
+
+  const safeTargetCalories = Math.max(0, Number(targetCalories) || 0);
+  const nextGrams = { ...grams };
+  const relaxedKeys = [];
+  const lockWarnings = [];
+
+  // Apply locked anchors first, clamped to their safety bounds (soft anchors).
+  lockedKeys.forEach((key) => {
+    const anchor = normalizedLocks[key];
+    const keyBounds = bounds[key];
+    const min = keyBounds?.min ?? 0;
+    const max = keyBounds?.max ?? Infinity;
+    const clamped = Math.min(Math.max(anchor, min), max);
+
+    if (Math.abs(clamped - anchor) > 1e-6) {
+      relaxedKeys.push(key);
+      lockWarnings.push(`${key}_lock_relaxed`);
+    }
+
+    nextGrams[key] = clamped;
+  });
+
+  // Redistribute residual calories to unlocked macros by their relative ratio.
+  const unlockedKeys = MACRO_KEYS.filter((key) => !lockedKeys.includes(key));
+  const lockedCalories = lockedKeys.reduce(
+    (sum, key) => sum + nextGrams[key] * KCAL_PER_GRAM[key],
+    0
+  );
+  const residualCalories = Math.max(0, safeTargetCalories - lockedCalories);
+
+  const unlockedRatioTotal = unlockedKeys.reduce(
+    (sum, key) => sum + toSafeRatio(grams[key]),
+    0
+  );
+
+  if (unlockedKeys.length > 0 && unlockedRatioTotal > 0) {
+    unlockedKeys.forEach((key) => {
+      const ratio = toSafeRatio(grams[key]) / unlockedRatioTotal;
+      nextGrams[key] = (residualCalories * ratio) / KCAL_PER_GRAM[key];
+    });
+  } else if (unlockedKeys.length > 0) {
+    // Fallback: split residual evenly among unlocked macros.
+    const evenShare = residualCalories / unlockedKeys.length;
+    unlockedKeys.forEach((key) => {
+      nextGrams[key] = evenShare / KCAL_PER_GRAM[key];
+    });
+  }
+
+  return {
+    grams: nextGrams,
+    lockedKeys,
+    relaxedKeys,
+    lockWarnings,
+  };
+};
+
 export const calculateMacroRecommendations = ({
   targetCalories,
   macroSplit,
   userData,
+  macroLocks,
 }) => {
   const safeTargetCalories = Math.max(0, Number(targetCalories) || 0);
   const projected = projectSplitToConstrainedGrams({
@@ -289,15 +412,41 @@ export const calculateMacroRecommendations = ({
     macroSplit,
     userData,
   });
-  const { grams, calories, split, constrainedSplit, bounds, isConstrained } =
-    projected;
+  const { grams, split, constrainedSplit, bounds, isConstrained } = projected;
+
+  const lockResult = applyMacroLocks({
+    grams,
+    macroLocks,
+    targetCalories: safeTargetCalories,
+    bounds,
+  });
+  const lockedGrams = lockResult.grams;
+  const lockedCalories = {
+    protein: lockedGrams.protein * PROTEIN_CALORIES_PER_GRAM,
+    carbs: lockedGrams.carbs * CARB_CALORIES_PER_GRAM,
+    fats: lockedGrams.fats * FAT_CALORIES_PER_GRAM,
+  };
 
   return {
     targetCalories: Math.round(safeTargetCalories),
     split,
     constrainedSplit,
-    calories,
-    grams,
+    calories: {
+      protein: Math.round(lockedCalories.protein),
+      carbs: Math.round(lockedCalories.carbs),
+      fats: Math.round(lockedCalories.fats),
+    },
+    grams: {
+      protein: roundToTenth(lockedGrams.protein),
+      carbs: roundToTenth(lockedGrams.carbs),
+      fats: roundToTenth(lockedGrams.fats),
+    },
+    macroLocks: {
+      ...normalizeMacroLocks(macroLocks),
+      lockedKeys: lockResult.lockedKeys,
+      relaxedKeys: lockResult.relaxedKeys,
+      lockWarnings: lockResult.lockWarnings,
+    },
     bounds: {
       protein: {
         min: roundToTenth(bounds.protein.min),
@@ -541,6 +690,7 @@ export const macroSplitFromConstrainedTrianglePoint = (
     targetCalories: options.targetCalories,
     macroSplit: blendedSplit,
     userData: options.userData,
+    macroLocks: options.macroLocks,
   }).constrainedSplit;
 };
 
@@ -553,6 +703,7 @@ export const macroSplitToConstrainedTrianglePoint = (
     targetCalories: options.targetCalories,
     macroSplit,
     userData: options.userData,
+    macroLocks: options.macroLocks,
   });
   const vertices = getConstrainedTriangleVertexMacros({
     targetCalories: options.targetCalories,

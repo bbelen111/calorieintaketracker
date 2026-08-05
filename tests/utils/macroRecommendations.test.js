@@ -5,10 +5,13 @@ import {
   calculateMacroRecommendations,
   constrainMacroSplitForTarget,
   createMacroTriangleGeometry,
+  EMPTY_MACRO_LOCKS,
+  hasAnyMacroLock,
   macroSplitFromConstrainedTrianglePoint,
   macroSplitFromTrianglePoint,
   macroSplitToConstrainedTrianglePoint,
   macroSplitToTrianglePoint,
+  normalizeMacroLocks,
   normalizeMacroRecommendationSplit,
   projectMacroSplitToConstraints,
 } from '../../src/utils/calculations/macroRecommendations.js';
@@ -109,7 +112,9 @@ test('triangle split can be constrained for a target before persistence', () => 
   const normalized = normalizeMacroRecommendationSplit(constrainedSplit);
   assert.ok(normalized.protein > 0.2);
   assert.ok(normalized.fats > 0.1);
-  assert.ok(Math.abs(normalized.protein + normalized.carbs + normalized.fats - 1) < 1e-6);
+  assert.ok(
+    Math.abs(normalized.protein + normalized.carbs + normalized.fats - 1) < 1e-6
+  );
 });
 
 test('constrained triangle mapping keeps full-surface interaction within bounds', () => {
@@ -133,7 +138,11 @@ test('constrained triangle mapping keeps full-surface interaction within bounds'
   ];
 
   for (const point of testPoints) {
-    const split = macroSplitFromConstrainedTrianglePoint(point, geometry, options);
+    const split = macroSplitFromConstrainedTrianglePoint(
+      point,
+      geometry,
+      options
+    );
     const recommendation = calculateMacroRecommendations({
       targetCalories: options.targetCalories,
       macroSplit: split,
@@ -160,7 +169,11 @@ test('constrained triangle has stable point conversion for constrained split', (
     macroSplit: inputSplit,
     userData: options.userData,
   }).constrainedSplit;
-  const point = macroSplitToConstrainedTrianglePoint(inputSplit, geometry, options);
+  const point = macroSplitToConstrainedTrianglePoint(
+    inputSplit,
+    geometry,
+    options
+  );
   const outputSplit = macroSplitFromConstrainedTrianglePoint(
     point,
     geometry,
@@ -170,4 +183,119 @@ test('constrained triangle has stable point conversion for constrained split', (
   assert.ok(Math.abs(outputSplit.protein - constrainedInput.protein) < 0.03);
   assert.ok(Math.abs(outputSplit.carbs - constrainedInput.carbs) < 0.03);
   assert.ok(Math.abs(outputSplit.fats - constrainedInput.fats) < 0.03);
+});
+
+test('normalizeMacroLocks coerces values and enforces max two locks', () => {
+  const empty = normalizeMacroLocks(undefined);
+  assert.deepEqual(empty, EMPTY_MACRO_LOCKS);
+  assert.equal(hasAnyMacroLock(empty), false);
+
+  const single = normalizeMacroLocks({ protein: 180, carbs: null, fats: 0 });
+  assert.equal(single.protein, 180);
+  assert.equal(single.fats, 0);
+  assert.equal(single.carbs, null);
+  assert.equal(hasAnyMacroLock(single), true);
+
+  // More than 2 locks: later keys dropped (protein/carbs win)
+  const three = normalizeMacroLocks({ protein: 1, carbs: 2, fats: 3 });
+  assert.equal(three.protein, 1);
+  assert.equal(three.carbs, 2);
+  assert.equal(three.fats, null);
+
+  // Negative / non-finite values are dropped
+  const invalid = normalizeMacroLocks({ protein: -5, carbs: NaN, fats: 20 });
+  assert.equal(invalid.protein, null);
+  assert.equal(invalid.carbs, null);
+  assert.equal(invalid.fats, 20);
+});
+
+test('single macro lock holds grams fixed and redistributes residual to unlocked macros', () => {
+  const base = calculateMacroRecommendations({
+    targetCalories: 2500,
+    macroSplit: { protein: 0.3, carbs: 0.4, fats: 0.3 },
+    userData: { weight: 70 },
+  });
+  const lockedProtein = base.grams.protein;
+
+  const locked = calculateMacroRecommendations({
+    targetCalories: 2500,
+    macroSplit: { protein: 0.3, carbs: 0.4, fats: 0.3 },
+    userData: { weight: 70 },
+    macroLocks: { protein: lockedProtein, carbs: null, fats: null },
+  });
+
+  assert.equal(locked.grams.protein, lockedProtein);
+  assert.equal(
+    locked.calories.protein + locked.calories.carbs + locked.calories.fats,
+    2500
+  );
+  assert.ok(locked.macroLocks.lockedKeys.includes('protein'));
+});
+
+test('two macro locks hold both grams fixed and carbs absorbs the remainder', () => {
+  const base = calculateMacroRecommendations({
+    targetCalories: 2500,
+    macroSplit: { protein: 0.3, carbs: 0.4, fats: 0.3 },
+    userData: { weight: 70 },
+  });
+  const lockedProtein = base.grams.protein;
+  const lockedFats = base.grams.fats;
+
+  const locked = calculateMacroRecommendations({
+    targetCalories: 2500,
+    macroSplit: { protein: 0.3, carbs: 0.4, fats: 0.3 },
+    userData: { weight: 70 },
+    macroLocks: { protein: lockedProtein, carbs: null, fats: lockedFats },
+  });
+
+  assert.equal(locked.grams.protein, lockedProtein);
+  assert.equal(locked.grams.fats, lockedFats);
+  assert.equal(
+    locked.calories.protein + locked.calories.carbs + locked.calories.fats,
+    2500
+  );
+  assert.ok(locked.macroLocks.lockedKeys.includes('protein'));
+  assert.ok(locked.macroLocks.lockedKeys.includes('fats'));
+});
+
+test('locked grams stay stable across calorie target changes', () => {
+  const lockedProtein = 180;
+  const lockedFats = 70;
+
+  const low = calculateMacroRecommendations({
+    targetCalories: 2200,
+    macroSplit: { protein: 0.3, carbs: 0.4, fats: 0.3 },
+    userData: { weight: 70 },
+    macroLocks: { protein: lockedProtein, carbs: null, fats: lockedFats },
+  });
+  const high = calculateMacroRecommendations({
+    targetCalories: 2800,
+    macroSplit: { protein: 0.3, carbs: 0.4, fats: 0.3 },
+    userData: { weight: 70 },
+    macroLocks: { protein: lockedProtein, carbs: null, fats: lockedFats },
+  });
+
+  assert.equal(low.grams.protein, lockedProtein);
+  assert.equal(low.grams.fats, lockedFats);
+  assert.equal(high.grams.protein, lockedProtein);
+  assert.equal(high.grams.fats, lockedFats);
+  // Carbs absorb the calorie delta
+  assert.ok(high.grams.carbs > low.grams.carbs);
+});
+
+test('locked grams relax to safety bounds when calorie target is too low', () => {
+  const lockedProtein = 200;
+  const lockedFats = 100;
+
+  const low = calculateMacroRecommendations({
+    targetCalories: 1200,
+    macroSplit: { protein: 0.3, carbs: 0.4, fats: 0.3 },
+    userData: { weight: 70 },
+    macroLocks: { protein: lockedProtein, carbs: null, fats: lockedFats },
+  });
+
+  // Protein floor for 70kg is 112g; 200g lock must relax
+  assert.ok(low.grams.protein < lockedProtein);
+  assert.ok(low.macroLocks.relaxedKeys.includes('protein'));
+  assert.ok(low.macroLocks.lockWarnings.includes('protein_lock_relaxed'));
 });

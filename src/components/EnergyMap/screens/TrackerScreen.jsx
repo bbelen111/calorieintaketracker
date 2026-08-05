@@ -127,6 +127,7 @@ export const TrackerScreen = ({
   onDeleteFoodEntry,
   onDeleteMeal,
   macroRecommendationSplit,
+  macroLocks,
   calendarModal,
   selectedDate: selectedDateProp,
   onSelectedDateChange,
@@ -139,6 +140,7 @@ export const TrackerScreen = ({
       nutritionData: state.nutritionData ?? {},
       macroRecommendationSplit:
         state.userData.macroRecommendationSplit ?? undefined,
+      macroLocks: state.userData.macroLocks ?? undefined,
     }),
     shallow
   );
@@ -147,6 +149,7 @@ export const TrackerScreen = ({
   const resolvedMacroRecommendationSplit = normalizeMacroRecommendationSplit(
     macroRecommendationSplit ?? store.macroRecommendationSplit
   );
+  const resolvedMacroLocks = macroLocks ?? store.macroLocks;
   // Support controlled (selectedDateProp + onSelectedDateChange) or uncontrolled mode
   const [internalSelectedDate, setInternalSelectedDate] = useState(
     selectedDateProp || getTodayDate()
@@ -279,8 +282,14 @@ export const TrackerScreen = ({
         targetCalories,
         macroSplit: resolvedMacroRecommendationSplit,
         userData: store.userData,
+        macroLocks: resolvedMacroLocks,
       }),
-    [resolvedMacroRecommendationSplit, store.userData, targetCalories]
+    [
+      resolvedMacroRecommendationSplit,
+      resolvedMacroLocks,
+      store.userData,
+      targetCalories,
+    ]
   );
 
   const targetProtein = macroRecommendation.grams.protein;

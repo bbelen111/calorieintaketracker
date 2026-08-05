@@ -1,12 +1,24 @@
 import React, { useCallback, useMemo, useRef } from 'react';
-import { Save, Beef, Cookie, Droplet, Settings2 } from 'lucide-react';
+import {
+  Save,
+  Beef,
+  Cookie,
+  Droplet,
+  Settings2,
+  Lock,
+  LockOpen,
+  Unlock,
+} from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import {
   calculateMacroRecommendations,
   createMacroTriangleGeometry,
+  EMPTY_MACRO_LOCKS,
   formatMacroSplitPercent,
+  MAX_MACRO_LOCKS,
   macroSplitFromConstrainedTrianglePoint,
   macroSplitToConstrainedTrianglePoint,
+  normalizeMacroLocks,
   normalizeMacroRecommendationSplit,
 } from '../../../../utils/calculations/macroRecommendations';
 
@@ -27,32 +39,95 @@ const getRelativePoint = (event, element) => {
   return { x, y };
 };
 
-const MacroChip = ({ icon: Icon, label, pct, grams, kcal, accentClass }) => (
-  <div className="rounded-xl border border-border/50 bg-surface-highlight/50 px-3 py-2.5 flex flex-col gap-1">
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-1.5">
-        <Icon size={13} className={accentClass} />
-        <span className="text-[11px] font-medium text-muted uppercase tracking-wide">
-          {label}
-        </span>
+const MacroChip = ({
+  icon: Icon,
+  label,
+  pct,
+  grams,
+  kcal,
+  accentClass,
+  isLocked,
+  canLock,
+  onToggleLock,
+}) => {
+  const lockButton = (
+    <button
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation();
+        onToggleLock?.();
+      }}
+      disabled={!isLocked && !canLock}
+      title={
+        isLocked
+          ? `${label} anchored at ${grams}g`
+          : canLock
+            ? `Anchor ${label} at ${grams}g`
+            : `Max ${MAX_MACRO_LOCKS} macros can be anchored`
+      }
+      aria-label={isLocked ? `Unlock ${label}` : `Lock ${label} at ${grams}g`}
+      className={`p-1 rounded-md transition-all pressable-inline focus-ring ${
+        isLocked
+          ? 'text-foreground bg-accent-blue/20'
+          : canLock
+            ? 'text-muted md:hover:text-foreground'
+            : 'text-muted/40 cursor-not-allowed'
+      }`}
+    >
+      {isLocked ? <Lock size={13} /> : <LockOpen size={13} />}
+    </button>
+  );
+
+  return (
+    <div
+      className={`rounded-xl border px-3 py-2.5 flex flex-col gap-1 transition-all ${
+        isLocked
+          ? 'border-accent-blue/50 bg-accent-blue/10'
+          : 'border-border/50 bg-surface-highlight/50'
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <Icon size={13} className={accentClass} />
+          <span className="text-[11px] font-medium text-muted uppercase tracking-wide">
+            {label}
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          {isLocked ? (
+            <span className="text-[9px] font-semibold text-accent-blue uppercase tracking-wide">
+              Anchored
+            </span>
+          ) : null}
+          {lockButton}
+        </div>
       </div>
-      <span className={`text-xs font-bold ${accentClass}`}>{pct}%</span>
+      <div className="flex items-baseline gap-1">
+        <span className="text-lg font-bold text-foreground leading-none">
+          {grams}
+        </span>
+        <span className="text-[11px] text-muted">g</span>
+        <span className="text-[11px] text-muted ml-auto">{kcal} kcal</span>
+      </div>
+      <div className="flex items-baseline justify-between">
+        <span className={`text-xs font-bold ${accentClass}`}>{pct}%</span>
+        {isLocked ? (
+          <span className="text-[9px] text-muted">stays fixed</span>
+        ) : (
+          <span className="text-[9px] text-muted">absorbs changes</span>
+        )}
+      </div>
     </div>
-    <div className="flex items-baseline gap-1">
-      <span className="text-lg font-bold text-foreground leading-none">
-        {grams}
-      </span>
-      <span className="text-[11px] text-muted">g</span>
-      <span className="text-[11px] text-muted ml-auto">{kcal} kcal</span>
-    </div>
-  </div>
-);
+  );
+};
 
 export const MacroPickerModal = ({
   isOpen,
   isClosing,
   value,
   onChange,
+  onLocksChange,
+  macroLocks,
   targetCalories,
   userData,
   targetLabel,
@@ -65,19 +140,41 @@ export const MacroPickerModal = ({
     () => normalizeMacroRecommendationSplit(value),
     [value]
   );
+  const draftLocks = useMemo(
+    () => normalizeMacroLocks(macroLocks),
+    [macroLocks]
+  );
+  const lockedKeys = useMemo(
+    () => ['protein', 'carbs', 'fats'].filter((key) => draftLocks[key] != null),
+    [draftLocks]
+  );
+  const hasTwoLocks = lockedKeys.length >= MAX_MACRO_LOCKS;
+
+  const recommendations = useMemo(
+    () =>
+      calculateMacroRecommendations({
+        targetCalories,
+        macroSplit: draftSplit,
+        userData,
+        macroLocks: draftLocks,
+      }),
+    [draftSplit, targetCalories, userData, draftLocks]
+  );
 
   const handlePointerSelection = useCallback(
     (event) => {
       if (!triangleRef.current) return;
+      if (hasTwoLocks) return;
       const point = getRelativePoint(event, triangleRef.current);
       onChange?.(
         macroSplitFromConstrainedTrianglePoint(point, triangleGeometry, {
           targetCalories,
           userData,
+          macroLocks: draftLocks,
         })
       );
     },
-    [onChange, targetCalories, userData]
+    [onChange, targetCalories, userData, draftLocks, hasTwoLocks]
   );
 
   const pointerCaptureIdRef = useRef(null);
@@ -85,11 +182,12 @@ export const MacroPickerModal = ({
   const handlePointerDown = useCallback(
     (event) => {
       if (event.button !== 0 && event.pointerType !== 'touch') return;
+      if (hasTwoLocks) return;
       pointerCaptureIdRef.current = event.pointerId;
       triangleRef.current?.setPointerCapture?.(event.pointerId);
       handlePointerSelection(event);
     },
-    [handlePointerSelection]
+    [handlePointerSelection, hasTwoLocks]
   );
 
   const handlePointerMove = useCallback(
@@ -111,30 +209,52 @@ export const MacroPickerModal = ({
       macroSplitToConstrainedTrianglePoint(draftSplit, triangleGeometry, {
         targetCalories,
         userData,
+        macroLocks: draftLocks,
       }),
-    [draftSplit, targetCalories, userData]
+    [draftSplit, targetCalories, userData, draftLocks]
   );
   const splitPercent = useMemo(
-    () => formatMacroSplitPercent(draftSplit),
-    [draftSplit]
-  );
-  const recommendations = useMemo(
-    () =>
-      calculateMacroRecommendations({
-        targetCalories,
-        macroSplit: draftSplit,
-        userData,
-      }),
-    [draftSplit, targetCalories, userData]
+    () => formatMacroSplitPercent(recommendations.grams),
+    [recommendations.grams]
   );
 
   const { protein, carbs, fats } = recommendations.grams;
   const { calories: kcalByMacro } = recommendations;
   const { protein: pV, fats: fV, carbs: cV } = triangleGeometry.vertices;
 
+  const handleToggleLock = useCallback(
+    (key) => {
+      const nextLocks = { ...draftLocks };
+      if (nextLocks[key] != null) {
+        nextLocks[key] = null;
+      } else {
+        if (lockedKeys.length >= MAX_MACRO_LOCKS) return;
+        nextLocks[key] = recommendations.grams[key];
+      }
+      onLocksChange?.(normalizeMacroLocks(nextLocks));
+    },
+    [draftLocks, lockedKeys.length, recommendations.grams, onLocksChange]
+  );
+
+  const handleClearLocks = useCallback(() => {
+    onLocksChange?.({ ...EMPTY_MACRO_LOCKS });
+  }, [onLocksChange]);
+
   const handleSave = useCallback(() => {
     onSave?.(normalizeMacroRecommendationSplit(draftSplit));
   }, [draftSplit, onSave]);
+
+  const relaxedMacros = useMemo(
+    () => recommendations.macroLocks?.relaxedKeys ?? [],
+    [recommendations.macroLocks]
+  );
+
+  const absorbedKey = useMemo(
+    () =>
+      ['protein', 'carbs', 'fats'].find((key) => draftLocks[key] == null) ??
+      null,
+    [draftLocks]
+  );
 
   return (
     <ModalShell
@@ -148,6 +268,22 @@ export const MacroPickerModal = ({
         <p className="text-muted text-xs mt-1 mb-2 tracking-wide">
           Drag the triangle to adjust your ratio
         </p>
+        <div className="flex items-center justify-center gap-2">
+          {lockedKeys.length > 0 ? (
+            <button
+              type="button"
+              onClick={handleClearLocks}
+              className="inline-flex items-center gap-1 text-[11px] font-medium text-accent-blue bg-accent-blue/10 px-2.5 py-1 rounded-full transition-all pressable-inline focus-ring"
+            >
+              <Unlock size={11} />
+              Clear anchors ({lockedKeys.length}/{MAX_MACRO_LOCKS})
+            </button>
+          ) : (
+            <span className="text-[11px] text-muted">
+              Tap the lock on a macro to anchor its grams
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Triangle */}
@@ -219,10 +355,13 @@ export const MacroPickerModal = ({
           <circle
             cx={markerPoint.x}
             cy={markerPoint.y}
-            r="7"
+            r={hasTwoLocks ? 6 : 7}
             fill="rgb(var(--accent-blue))"
-            stroke="rgb(var(--accent-blue))"
-            strokeWidth="1.5"
+            stroke={
+              hasTwoLocks ? 'rgb(var(--surface))' : 'rgb(var(--accent-blue))'
+            }
+            strokeWidth={hasTwoLocks ? 2 : 1.5}
+            strokeDasharray={hasTwoLocks ? '3 2' : undefined}
           />
         </svg>
 
@@ -232,7 +371,7 @@ export const MacroPickerModal = ({
             Protein
           </span>
           <span className="text-[9px] text-accent-red/70 leading-tight">
-            Recovery &amp; Repair
+            Recovery & Repair
           </span>
         </div>
         <div className="pointer-events-none absolute -left-2 bottom-2 flex flex-col items-center">
@@ -253,6 +392,22 @@ export const MacroPickerModal = ({
         </div>
       </div>
 
+      {hasTwoLocks && absorbedKey ? (
+        <p className="text-center text-[11px] text-muted -mt-2">
+          <span className="font-semibold capitalize">{absorbedKey}</span>{' '}
+          absorbs calorie changes while{' '}
+          {lockedKeys.map((key) => key.toLowerCase()).join(' & ')} stay
+          anchored.
+        </p>
+      ) : null}
+
+      {relaxedMacros.length > 0 ? (
+        <p className="text-center text-[11px] text-accent-yellow mt-1">
+          Anchor temporarily relaxed: current calorie target is too low to hold{' '}
+          {relaxedMacros.join(', ')} at its locked grams.
+        </p>
+      ) : null}
+
       {/* Macro chips */}
       <div className="grid grid-cols-3 gap-2 mt-5">
         <MacroChip
@@ -262,6 +417,9 @@ export const MacroPickerModal = ({
           grams={protein}
           kcal={kcalByMacro.protein}
           accentClass="text-accent-red"
+          isLocked={draftLocks.protein != null}
+          canLock={!hasTwoLocks || draftLocks.protein != null}
+          onToggleLock={() => handleToggleLock('protein')}
         />
         <MacroChip
           icon={Droplet}
@@ -270,6 +428,9 @@ export const MacroPickerModal = ({
           grams={fats}
           kcal={kcalByMacro.fats}
           accentClass="text-accent-yellow"
+          isLocked={draftLocks.fats != null}
+          canLock={!hasTwoLocks || draftLocks.fats != null}
+          onToggleLock={() => handleToggleLock('fats')}
         />
         <MacroChip
           icon={Cookie}
@@ -278,6 +439,9 @@ export const MacroPickerModal = ({
           grams={carbs}
           kcal={kcalByMacro.carbs}
           accentClass="text-accent-amber"
+          isLocked={draftLocks.carbs != null}
+          canLock={!hasTwoLocks || draftLocks.carbs != null}
+          onToggleLock={() => handleToggleLock('carbs')}
         />
       </div>
 

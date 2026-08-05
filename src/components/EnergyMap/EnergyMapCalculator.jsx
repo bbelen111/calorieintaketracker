@@ -94,7 +94,10 @@ import {
   normalizeTimeOfDay,
 } from '../../utils/formatting/time';
 import { formatDateKeyUtc, getTodayDateKey } from '../../utils/data/dateKeys';
-import { normalizeMacroRecommendationSplit } from '../../utils/calculations/macroRecommendations';
+import {
+  normalizeMacroLocks,
+  normalizeMacroRecommendationSplit,
+} from '../../utils/calculations/macroRecommendations';
 import { estimateRequiredDailyEnergyDelta } from '../../utils/calculations/phaseTargetPlanning';
 
 const WeightTrackerModal = lazy(() =>
@@ -661,6 +664,9 @@ export const EnergyMapCalculator = () => {
     useState(() =>
       normalizeMacroRecommendationSplit(userData.macroRecommendationSplit)
     );
+  const [tempMacroLocks, setTempMacroLocks] = useState(() =>
+    normalizeMacroLocks(userData.macroLocks)
+  );
   const trackerSwitchTimeoutRef = useRef(null);
 
   const todayTrainingSessions = useMemo(
@@ -2579,21 +2585,31 @@ export const EnergyMapCalculator = () => {
     );
   }, []);
 
+  const handleMacroLocksChange = useCallback((nextLocks) => {
+    setTempMacroLocks(normalizeMacroLocks(nextLocks));
+  }, []);
+
   const openMacroPickerModal = useCallback(() => {
     setTempMacroRecommendationSplit(
       normalizeMacroRecommendationSplit(userData.macroRecommendationSplit)
     );
+    setTempMacroLocks(normalizeMacroLocks(userData.macroLocks));
     macroPickerModal.open();
-  }, [macroPickerModal, userData.macroRecommendationSplit]);
+  }, [
+    macroPickerModal,
+    userData.macroRecommendationSplit,
+    userData.macroLocks,
+  ]);
 
   const handleMacroPickerSave = useCallback(
     (nextSplit) => {
       const normalized = normalizeMacroRecommendationSplit(nextSplit);
       setTempMacroRecommendationSplit(normalized);
       handleUserDataChange('macroRecommendationSplit', normalized);
+      handleUserDataChange('macroLocks', normalizeMacroLocks(tempMacroLocks));
       macroPickerModal.requestClose();
     },
-    [handleUserDataChange, macroPickerModal]
+    [handleUserDataChange, macroPickerModal, tempMacroLocks]
   );
 
   useEffect(() => {
@@ -3612,6 +3628,7 @@ export const EnergyMapCalculator = () => {
                   onDeleteFoodEntry={deleteFoodEntry}
                   onDeleteMeal={deleteMeal}
                   macroRecommendationSplit={userData.macroRecommendationSplit}
+                  macroLocks={userData.macroLocks}
                   calendarModal={calendarPickerModal}
                   selectedDate={trackerSelectedDate}
                   onSelectedDateChange={setTrackerSelectedDate}
@@ -3695,6 +3712,7 @@ export const EnergyMapCalculator = () => {
                     selectedCalorieTargetData.targetCalories ?? 2500
                   }
                   onOpenMacroPicker={openMacroPickerModal}
+                  macroLocks={userData.macroLocks}
                 />
               </div>
             </div>
@@ -3854,6 +3872,8 @@ export const EnergyMapCalculator = () => {
         isClosing={macroPickerModal.isClosing}
         value={tempMacroRecommendationSplit}
         onChange={handleMacroPickerChange}
+        macroLocks={tempMacroLocks}
+        onLocksChange={handleMacroLocksChange}
         targetCalories={selectedCalorieTargetData.targetCalories ?? 2500}
         userData={userData}
         targetLabel={selectedCalorieTargetData.label}

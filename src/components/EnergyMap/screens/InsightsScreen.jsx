@@ -53,12 +53,14 @@ export const InsightsScreen = ({
   onOpenFfmiInfo,
   targetCalories = 2500,
   onOpenMacroPicker,
+  macroLocks,
 }) => {
   const store = useEnergyMapStore(
     (state) => ({
       userData: state.userData,
       weightEntries: state.weightEntries ?? [],
       bodyFatEntries: state.bodyFatEntries ?? [],
+      macroLocks: state.userData.macroLocks ?? undefined,
     }),
     shallow
   );
@@ -66,6 +68,7 @@ export const InsightsScreen = ({
   const resolvedUserData = userData ?? store.userData;
   const resolvedWeightEntries = weightEntries ?? store.weightEntries;
   const resolvedBodyFatEntries = bodyFatEntries ?? store.bodyFatEntries;
+  const resolvedMacroLocks = macroLocks ?? store.macroLocks;
   const resolvedBodyFatTrackingEnabled =
     typeof bodyFatTrackingEnabled === 'boolean'
       ? bodyFatTrackingEnabled
@@ -206,8 +209,9 @@ export const InsightsScreen = ({
         targetCalories,
         macroSplit,
         userData: resolvedUserData,
+        macroLocks: resolvedMacroLocks,
       }),
-    [macroSplit, resolvedUserData, targetCalories]
+    [macroSplit, resolvedMacroLocks, resolvedUserData, targetCalories]
   );
 
   const bmiColorMap = {

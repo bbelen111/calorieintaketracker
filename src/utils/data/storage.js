@@ -25,6 +25,8 @@ import {
 } from './phaseLogV2.js';
 import {
   DEFAULT_MACRO_RECOMMENDATION_SPLIT,
+  EMPTY_MACRO_LOCKS,
+  normalizeMacroLocks,
   normalizeMacroRecommendationSplit,
 } from '../calculations/macroRecommendations.js';
 
@@ -1110,6 +1112,9 @@ export const getDefaultEnergyMapData = () => ({
   macroRecommendationSplit: {
     ...DEFAULT_MACRO_RECOMMENDATION_SPLIT,
   },
+  macroLocks: {
+    ...EMPTY_MACRO_LOCKS,
+  },
   adaptiveThermogenesisEnabled: false,
   adaptiveThermogenesisSmartMode: false,
   adaptiveThermogenesisSmoothingEnabled: false,
@@ -1385,6 +1390,9 @@ function mergeWithDefaults(data) {
     macroRecommendationSplit: normalizeMacroRecommendationSplit(
       normalizedInput.macroRecommendationSplit ??
         defaults.macroRecommendationSplit
+    ),
+    macroLocks: normalizeMacroLocks(
+      normalizedInput.macroLocks ?? defaults.macroLocks
     ),
     adaptiveThermogenesisEnabled:
       normalizedInput.adaptiveThermogenesisEnabled ??
