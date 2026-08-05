@@ -11,6 +11,7 @@ import {
   getTrainingCalories,
   resolveGoalCalorieDelta,
 } from '../../src/utils/calculations/calculations.js';
+import { DEFAULT_ACTIVITY_MULTIPLIERS } from '../../src/constants/activity/activityPresets.js';
 
 const getTodayDateKey = () => {
   const now = new Date();
@@ -41,8 +42,7 @@ const baseUserData = {
   trainingIntensity: 'moderate',
   trainingHeartRate: '',
   activityMultipliers: {
-    training: 0.35,
-    rest: 0.28,
+    ...DEFAULT_ACTIVITY_MULTIPLIERS,
   },
   cardioSessions: [],
   trainingSessions: [],

@@ -6,6 +6,7 @@ import {
   buildDailySnapshot,
   getPreviousDateKey,
 } from '../../src/utils/calculations/dailySnapshots.js';
+import { DEFAULT_ACTIVITY_MULTIPLIERS } from '../../src/constants/activity/activityPresets.js';
 
 const dateKey = '2026-03-21';
 
@@ -22,8 +23,7 @@ const userData = {
   adaptiveThermogenesisEnabled: true,
   adaptiveThermogenesisSmartMode: false,
   activityMultipliers: {
-    training: 0.35,
-    rest: 0.28,
+    ...DEFAULT_ACTIVITY_MULTIPLIERS,
   },
   stepEntries: [
     {
