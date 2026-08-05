@@ -66,6 +66,21 @@ const clearDexieHistory = async () => {
   );
 };
 
+// Suppress console.warn noise from expected Dexie-unavailable warnings
+// during tests that call saveEnergyMapData with history payloads.
+// The dedicated "warns when Dexie history write is unavailable" test
+// captures console.warn itself and is unaffected by this suppression.
+let originalConsoleWarn;
+
+test.beforeEach(() => {
+  originalConsoleWarn = console.warn;
+  console.warn = () => {};
+});
+
+test.afterEach(() => {
+  console.warn = originalConsoleWarn;
+});
+
 test('saveEnergyMapData writes profile payload and attempts Dexie history persistence', async () => {
   await withWindowStorage(async () => {
     await Preferences.remove({ key: PROFILE_KEY });

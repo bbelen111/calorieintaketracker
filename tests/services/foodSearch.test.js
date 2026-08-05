@@ -1083,18 +1083,26 @@ test('dedupeExtractedFoodEntries collapses near-duplicate rice aliases and merge
 });
 
 test('searchFoodsHierarchically local wrapper maps to local-only behavior', async () => {
-  const result = await searchFoodsHierarchically({
-    mode: 'local',
-    query: 'oats',
-    dependencies: {
-      searchLocal: async () => [{ id: 'oats_1', name: 'Rolled Oats' }],
-      searchUsda: async () => ({
-        foods: [{ id: 'usda_1', name: 'Oats Product' }],
-      }),
-    },
-  });
+  // Suppress the intentional deprecation warning emitted by
+  // searchFoodsHierarchically so it does not pollute test output.
+  const originalWarn = console.warn;
+  console.warn = () => {};
+  try {
+    const result = await searchFoodsHierarchically({
+      mode: 'local',
+      query: 'oats',
+      dependencies: {
+        searchLocal: async () => [{ id: 'oats_1', name: 'Rolled Oats' }],
+        searchUsda: async () => ({
+          foods: [{ id: 'usda_1', name: 'Oats Product' }],
+        }),
+      },
+    });
 
-  assert.equal(result.source, FOOD_SEARCH_SOURCE.LOCAL);
-  assert.equal(result.results.length, 1);
-  assert.equal(result.fallbackUsed, false);
+    assert.equal(result.source, FOOD_SEARCH_SOURCE.LOCAL);
+    assert.equal(result.results.length, 1);
+    assert.equal(result.fallbackUsed, false);
+  } finally {
+    console.warn = originalWarn;
+  }
 });
