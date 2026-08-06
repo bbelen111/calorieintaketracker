@@ -108,6 +108,8 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 
 **Macro target anchoring:** Macro recommendations are constraint-based. Bounds are profile-derived (`protein: 1.6-2.8 g/kg`, mass source = lean mass when body fat is available else bodyweight; `fat: 0.6-1.6 g/kg`; `carb soft floor: 50g` with relaxation warning on infeasible budgets). Preserve calorie reconciliation and warning fields (`carb_soft_floor_relaxed`, `hard_floor_exceeds_budget`) when adjusting this logic.
 
+**Macro gram anchors (locks):** `userData.macroLocks` (`{ protein, carbs, fats }`, each `null` = unlocked or a gram number) lets users pin macros in **grams** so targets stay stable while calorie targets shift (live steps, cardio/training sessions, step ranges). `normalizeMacroLocks()` coerces values (rejects `null`/`''`/negative/NaN) and enforces `MAX_MACRO_LOCKS = 2` (protein/carbs win ties). `calculateMacroRecommendations()` accepts `macroLocks`, holds locked macros at their anchor grams (clamped to safety bounds as **soft anchors**), redistributes residual calories to unlocked macros by relative ratio, and returns `macroLocks.lockedKeys` / `relaxedKeys` / `lockWarnings`. `TrackerScreen` and `InsightsScreen` forward `macroLocks` so displayed targets respect locks everywhere.
+
 **`tefContext` shape:** `{ mode: 'off' | 'target' | 'dynamic', totals?: {protein, carbs, fats}, targetCalories?: number, weightKg?: number, enabled?: boolean }`
 
 **`adaptiveThermogenesisContext` shape:** `{ mode?: 'off' | 'crude' | 'smart' }`
@@ -180,6 +182,8 @@ Do not duplicate target planning formulas in components.
   adaptiveThermogenesisSmoothingWindowDays: 7,
   epocEnabled: true,
   epocCarryoverHours: 6,
+  macroRecommendationSplit: { protein: 0.3, carbs: 0.4, fats: 0.3 }, // Ratio split (sums to 1)
+  macroLocks: { protein: null, carbs: null, fats: null },            // Gram anchors (null = unlocked; max 2)
 
   // History (Dexie)
   cardioSessions: [{ id, date, startTime, startedAt, endedAt, type, duration, intensity, effortType, averageHeartRate?, stepOverlapEnabled? }],
@@ -313,3 +317,4 @@ When editing phase logic:
 20. **Per-phase calorie delta override is layered, not formula replacement:** keep `calculateCalorieBreakdown()`/TDEE core unchanged; apply phase delta via `calculateGoalCalories(..., deltaOverride)` in target resolution paths.
 21. **Feasible-date band API is opt-in for heavy arrays.** Prefer summary fields (`strictCount`, `lenientCount`, `feasibleMinDateKey`, `feasibleMaxDateKey`, day-span ranges) and only request date/evaluation arrays when the caller explicitly needs them.
 22. **Selector/destructure parity matters:** when selecting store fields in `useEnergyMapStore`, always destructure every referenced variable (`aiChatRolloutUserId`, `aiChatRagRolloutOverride`, `aiChatRagRolloutPercentage`) to avoid runtime `ReferenceError` crashes.
+23. **Macro locks are gram anchors, not ratios:** `userData.macroLocks` pins macros in **grams** (max 2 via `MAX_MACRO_LOCKS`). `null`/`''`/negative/NaN are treated as unlocked — never coerce `null` to `0` (a 0g lock is a valid lock and would displace another). Locked grams are **soft anchors**: they relax to safety floors when the calorie target is too low, surfaced via `macroLocks.relaxedKeys` / `lockWarnings`. Always route lock-aware calculations through `calculateMacroRecommendations(..., { macroLocks })` and forward `macroLocks` to `TrackerScreen`/`InsightsScreen`.

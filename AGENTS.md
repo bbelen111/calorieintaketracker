@@ -535,6 +535,8 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 
 **Constrained triangle mapping:** `MacroPickerModal` uses full-surface constrained remapping (`macroSplitFromConstrainedTrianglePoint` / `macroSplitToConstrainedTrianglePoint`) so the whole triangle is draggable while remaining within bounded macro behavior. Do not revert to direct raw-ratio barycentric mapping for picker interactions.
 
+**Macro gram anchors (locks):** `userData.macroLocks` (`{ protein, carbs, fats }`, each `null` = unlocked or a gram number) lets users pin macros in **grams** so targets stay stable while calorie targets shift (live steps, cardio/training sessions, step ranges). `normalizeMacroLocks()` coerces values (rejects `null`/`''`/negative/NaN) and enforces `MAX_MACRO_LOCKS = 2` (protein/carbs win ties). `calculateMacroRecommendations()` accepts `macroLocks`, holds locked macros at their anchor grams (clamped to safety bounds as **soft anchors**), redistributes residual calories to unlocked macros by relative ratio, and returns `macroLocks.lockedKeys` / `relaxedKeys` / `lockWarnings`. Lock-aware triangle conversions (`macroSplitToConstrainedTrianglePoint` / `macroSplitFromConstrainedTrianglePoint`) render the handle at the locked-grams position and constrain drag (1 lock = line, 2 locks = fixed point). `TrackerScreen` and `InsightsScreen` forward `macroLocks` so displayed targets respect locks everywhere.
+
 **`tefContext` shape:** `{ mode: 'off' | 'target' | 'dynamic', totals?: {protein, carbs, fats}, targetCalories?: number, weightKg?: number, enabled?: boolean }`
 
 **`adaptiveThermogenesisContext` shape:** `{ mode?: 'off' | 'crude' | 'smart' }`
@@ -677,6 +679,8 @@ Migration behavior is now intentionally minimal:
   adaptiveThermogenesisSmoothingWindowDays: 7,
   epocEnabled: true,
   epocCarryoverHours: 6,
+  macroRecommendationSplit: { protein: 0.3, carbs: 0.4, fats: 0.3 }, // Ratio split (sums to 1)
+  macroLocks: { protein: null, carbs: null, fats: null },            // Gram anchors (null = unlocked; max 2)
 
   // History (Dexie)
   cardioSessions: [{ id, date, startTime, startedAt, endedAt, type, duration, intensity, effortType, averageHeartRate?, stepOverlapEnabled? }],
