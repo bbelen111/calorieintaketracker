@@ -6,9 +6,12 @@ import {
   constrainMacroSplitForTarget,
   createMacroTriangleGeometry,
   EMPTY_MACRO_LOCKS,
+  getUnlockedMacroKeys,
+  getUnlockedMacroRatio,
   hasAnyMacroLock,
   macroSplitFromConstrainedTrianglePoint,
   macroSplitFromTrianglePoint,
+  macroSplitFromUnlockedRatio,
   macroSplitToConstrainedTrianglePoint,
   macroSplitToTrianglePoint,
   normalizeMacroLocks,
@@ -298,4 +301,103 @@ test('locked grams relax to safety bounds when calorie target is too low', () =>
   assert.ok(low.grams.protein < lockedProtein);
   assert.ok(low.macroLocks.relaxedKeys.includes('protein'));
   assert.ok(low.macroLocks.lockWarnings.includes('protein_lock_relaxed'));
+});
+
+test('getUnlockedMacroKeys returns the two unlocked macros in canonical order', () => {
+  assert.deepEqual(
+    getUnlockedMacroKeys({ protein: 180, carbs: null, fats: null }),
+    ['carbs', 'fats']
+  );
+  assert.deepEqual(
+    getUnlockedMacroKeys({ protein: null, carbs: 200, fats: null }),
+    ['protein', 'fats']
+  );
+  assert.deepEqual(
+    getUnlockedMacroKeys({ protein: null, carbs: null, fats: 70 }),
+    ['protein', 'carbs']
+  );
+  assert.deepEqual(getUnlockedMacroKeys(EMPTY_MACRO_LOCKS), [
+    'protein',
+    'carbs',
+    'fats',
+  ]);
+  assert.deepEqual(
+    getUnlockedMacroKeys({ protein: 180, carbs: 200, fats: null }),
+    ['fats']
+  );
+});
+
+test('getUnlockedMacroRatio extracts calorie-weighted ratio from final grams', () => {
+  // Protein locked; carbs 200g (800 kcal) vs fats 100g (900 kcal) → 800/1700
+  const ratio = getUnlockedMacroRatio({
+    grams: { protein: 180, carbs: 200, fats: 100 },
+    macroLocks: { protein: 180, carbs: null, fats: null },
+  });
+  assert.ok(Math.abs(ratio - 800 / 1700) < 1e-6);
+
+  // Fats locked; protein 150g (600 kcal) vs carbs 250g (1000 kcal) → 600/1600
+  const ratio2 = getUnlockedMacroRatio({
+    grams: { protein: 150, carbs: 250, fats: 70 },
+    macroLocks: { protein: null, carbs: null, fats: 70 },
+  });
+  assert.ok(Math.abs(ratio2 - 600 / 1600) < 1e-6);
+
+  // Zero unlocked grams falls back to 0.5
+  assert.equal(
+    getUnlockedMacroRatio({
+      grams: { protein: 180, carbs: 0, fats: 0 },
+      macroLocks: { protein: 180, carbs: null, fats: null },
+    }),
+    0.5
+  );
+
+  // Fewer than two unlocked macros falls back to 0.5
+  assert.equal(
+    getUnlockedMacroRatio({
+      grams: { protein: 180, carbs: 200, fats: 100 },
+      macroLocks: { protein: 180, carbs: 200, fats: null },
+    }),
+    0.5
+  );
+});
+
+test('macroSplitFromUnlockedRatio builds split with locked share preserved', () => {
+  const split = macroSplitFromUnlockedRatio({
+    macroSplit: { protein: 0.3, carbs: 0.4, fats: 0.3 },
+    macroLocks: { protein: 180, carbs: null, fats: null },
+    ratio: 0.25,
+  });
+
+  // Protein share preserved (0.3), carbs/fats split 25/75 of remaining 0.7
+  assert.ok(Math.abs(split.protein - 0.3) < 1e-6);
+  assert.ok(Math.abs(split.carbs - 0.7 * 0.25) < 1e-6);
+  assert.ok(Math.abs(split.fats - 0.7 * 0.75) < 1e-6);
+  assert.ok(Math.abs(split.protein + split.carbs + split.fats - 1) < 1e-6);
+});
+
+test('macroSplitFromUnlockedRatio clamps ratio and handles edge cases', () => {
+  // Ratio clamped to [0, 1]
+  const clamped = macroSplitFromUnlockedRatio({
+    macroSplit: { protein: 0.3, carbs: 0.4, fats: 0.3 },
+    macroLocks: { protein: 180, carbs: null, fats: null },
+    ratio: 1.5,
+  });
+  assert.equal(clamped.carbs, 0.7);
+  assert.equal(clamped.fats, 0);
+
+  // Fewer than two unlocked macros returns normalized input split
+  const twoLocks = macroSplitFromUnlockedRatio({
+    macroSplit: { protein: 0.3, carbs: 0.4, fats: 0.3 },
+    macroLocks: { protein: 180, carbs: 200, fats: null },
+    ratio: 0.5,
+  });
+  assert.deepEqual(twoLocks, { protein: 0.3, carbs: 0.4, fats: 0.3 });
+
+  // No locks (3 unlocked): returns normalized input split unchanged
+  const noLocks = macroSplitFromUnlockedRatio({
+    macroSplit: { protein: 0.3, carbs: 0.4, fats: 0.3 },
+    macroLocks: EMPTY_MACRO_LOCKS,
+    ratio: 0.2,
+  });
+  assert.deepEqual(noLocks, { protein: 0.3, carbs: 0.4, fats: 0.3 });
 });

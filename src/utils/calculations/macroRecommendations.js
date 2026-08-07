@@ -66,6 +66,80 @@ export const normalizeMacroLocks = (value) => {
   return normalized;
 };
 
+export const getLockedMacroKeys = (macroLocks) => {
+  const normalized = normalizeMacroLocks(macroLocks);
+  return MACRO_KEYS.filter((key) => normalized[key] != null);
+};
+
+export const getUnlockedMacroKeys = (macroLocks) => {
+  const normalized = normalizeMacroLocks(macroLocks);
+  return MACRO_KEYS.filter((key) => normalized[key] == null);
+};
+
+/**
+ * Returns the calorie-weighted ratio (0-1) of the first unlocked macro
+ * relative to the other unlocked macro, based on the final grams output.
+ * Used to drive the 1D horizontal slider when exactly one macro is locked.
+ */
+export const getUnlockedMacroRatio = ({ grams, macroLocks }) => {
+  const unlockedKeys = getUnlockedMacroKeys(macroLocks);
+  if (unlockedKeys.length < 2) {
+    return 0.5;
+  }
+
+  const [first, second] = unlockedKeys;
+  const firstKcal = toSafeRatio(grams?.[first]) * KCAL_PER_GRAM[first];
+  const secondKcal = toSafeRatio(grams?.[second]) * KCAL_PER_GRAM[second];
+  const total = firstKcal + secondKcal;
+
+  if (total <= 0) {
+    return 0.5;
+  }
+
+  return clamp01(firstKcal / total);
+};
+
+/**
+ * Builds a normalized macro split where the two unlocked macros sit at
+ * `ratio : (1 - ratio)` calorie split while preserving the locked macro's
+ * calorie share. Falls back to the normalized input split unless exactly
+ * one macro is locked (i.e. exactly two macros are unlocked).
+ */
+export const macroSplitFromUnlockedRatio = ({
+  macroSplit,
+  macroLocks,
+  ratio,
+}) => {
+  const normalizedSplit = normalizeMacroRecommendationSplit(macroSplit);
+  const unlockedKeys = getUnlockedMacroKeys(macroLocks);
+  if (unlockedKeys.length !== 2) {
+    return normalizedSplit;
+  }
+
+  const [first, second] = unlockedKeys;
+  const normalizedLocks = normalizeMacroLocks(macroLocks);
+  const lockedKey = MACRO_KEYS.find((key) => normalizedLocks[key] != null);
+  const safeRatio = clamp01(ratio);
+  const next = { ...normalizedSplit };
+
+  if (lockedKey) {
+    const lockedShare = normalizedSplit[lockedKey];
+    const remaining = Math.max(0, 1 - lockedShare);
+    if (remaining <= 0) {
+      next[first] = 0.5;
+      next[second] = 0.5;
+    } else {
+      next[first] = remaining * safeRatio;
+      next[second] = remaining * (1 - safeRatio);
+    }
+  } else {
+    next[first] = safeRatio;
+    next[second] = 1 - safeRatio;
+  }
+
+  return normalizeMacroRecommendationSplit(next);
+};
+
 const toSafeRatio = (value) => {
   const numeric = Number(value);
   if (!Number.isFinite(numeric) || numeric < 0) {
@@ -327,11 +401,6 @@ export const projectMacroSplitToConstraints = ({
     macroSplit,
     userData,
   });
-
-const getLockedMacroKeys = (macroLocks) => {
-  const normalized = normalizeMacroLocks(macroLocks);
-  return MACRO_KEYS.filter((key) => normalized[key] != null);
-};
 
 const applyMacroLocks = ({ grams, macroLocks, targetCalories, bounds }) => {
   const normalizedLocks = normalizeMacroLocks(macroLocks);
