@@ -15,8 +15,7 @@ import {
   createMacroTriangleGeometry,
   EMPTY_MACRO_LOCKS,
   formatMacroSplitPercent,
-  getUnlockedMacroKeys,
-  getUnlockedMacroRatio,
+  getUnlockedMacroGramRange,
   MAX_MACRO_LOCKS,
   macroSplitFromConstrainedTrianglePoint,
   macroSplitFromUnlockedRatio,
@@ -260,33 +259,6 @@ export const MacroPickerModal = ({
   );
 
   const hasOneLock = lockedKeys.length === 1;
-  const unlockedKeys = useMemo(
-    () => getUnlockedMacroKeys(draftLocks),
-    [draftLocks]
-  );
-  const unlockedRatio = useMemo(
-    () =>
-      getUnlockedMacroRatio({
-        grams: recommendations.grams,
-        macroLocks: draftLocks,
-      }),
-    [recommendations.grams, draftLocks]
-  );
-  const unlockedRatioPercent = Math.round(unlockedRatio * 100);
-
-  const handleSliderChange = useCallback(
-    (event) => {
-      const ratio = Number(event.target.value) / 100;
-      onChange?.(
-        macroSplitFromUnlockedRatio({
-          macroSplit: draftSplit,
-          macroLocks: draftLocks,
-          ratio,
-        })
-      );
-    },
-    [onChange, draftSplit, draftLocks]
-  );
 
   const MACRO_META = {
     protein: {
@@ -306,14 +278,95 @@ export const MacroPickerModal = ({
     },
   };
 
-  const sliderFirst = unlockedKeys[0];
-  const sliderSecond = unlockedKeys[1];
+  const gramRange = useMemo(
+    () =>
+      getUnlockedMacroGramRange({
+        grams: recommendations.grams,
+        macroLocks: draftLocks,
+        targetCalories,
+        userData,
+      }),
+    [recommendations.grams, draftLocks, targetCalories, userData]
+  );
+
+  const sliderFirst = gramRange.first;
+  const sliderSecond = gramRange.second;
   const sliderFirstMeta = sliderFirst ? MACRO_META[sliderFirst] : null;
   const sliderSecondMeta = sliderSecond ? MACRO_META[sliderSecond] : null;
   const sliderFirstGrams = sliderFirst ? recommendations.grams[sliderFirst] : 0;
   const sliderSecondGrams = sliderSecond
     ? recommendations.grams[sliderSecond]
     : 0;
+
+  const sliderFirstGramsCurrent = sliderFirst
+    ? recommendations.grams[sliderFirst]
+    : 0;
+  const sliderPositionPercent =
+    gramRange.max > gramRange.min
+      ? Math.round(
+          ((sliderFirstGramsCurrent - gramRange.min) /
+            (gramRange.max - gramRange.min)) *
+            100
+        )
+      : 50;
+
+  const sliderFirstRatioPercent = useMemo(() => {
+    const firstKcal =
+      sliderFirstGramsCurrent * (sliderFirst === 'fats' ? 9 : 4);
+    const secondKcal = sliderSecondGrams * (sliderSecond === 'fats' ? 9 : 4);
+    const total = firstKcal + secondKcal;
+    if (total <= 0) return 50;
+    return Math.round((firstKcal / total) * 100);
+  }, [sliderFirstGramsCurrent, sliderSecondGrams, sliderFirst, sliderSecond]);
+
+  const handleSliderChange = useCallback(
+    (event) => {
+      const firstGrams = Number(event.target.value);
+      const firstKcal = firstGrams * 4; // protein/carbs = 4 kcal/g
+      const lockedKey = lockedKeys[0];
+      const lockedCalories = lockedKey
+        ? recommendations.grams[lockedKey] * (lockedKey === 'fats' ? 9 : 4)
+        : 0;
+      const residualCalories = Math.max(
+        0,
+        (Number(targetCalories) || 0) - lockedCalories
+      );
+      const secondGrams = Math.max(
+        0,
+        (residualCalories - firstKcal) / (sliderSecond === 'fats' ? 9 : 4)
+      );
+
+      const nextSplit = { ...draftSplit };
+      nextSplit[sliderFirst] = firstGrams * (sliderFirst === 'fats' ? 9 : 4);
+      nextSplit[sliderSecond] = secondGrams * (sliderSecond === 'fats' ? 9 : 4);
+      if (lockedKey) {
+        nextSplit[lockedKey] =
+          recommendations.grams[lockedKey] * (lockedKey === 'fats' ? 9 : 4);
+      }
+
+      const ratio =
+        firstKcal /
+          (firstKcal + secondGrams * (sliderSecond === 'fats' ? 9 : 4)) || 0.5;
+
+      onChange?.(
+        macroSplitFromUnlockedRatio({
+          macroSplit: normalizeMacroRecommendationSplit(nextSplit),
+          macroLocks: draftLocks,
+          ratio,
+        })
+      );
+    },
+    [
+      onChange,
+      draftSplit,
+      draftLocks,
+      sliderFirst,
+      sliderSecond,
+      lockedKeys,
+      targetCalories,
+      recommendations.grams,
+    ]
+  );
 
   return (
     <ModalShell
@@ -462,7 +515,7 @@ export const MacroPickerModal = ({
                 {sliderFirstMeta.label}
               </span>
               <span className="text-[9px] text-muted leading-tight">
-                {sliderFirstGrams}g · {unlockedRatioPercent}%
+                {sliderFirstGrams}g · {sliderFirstRatioPercent}%
               </span>
             </div>
             <div className="flex flex-col items-end">
@@ -472,23 +525,23 @@ export const MacroPickerModal = ({
                 {sliderSecondMeta.label}
               </span>
               <span className="text-[9px] text-muted leading-tight">
-                {100 - unlockedRatioPercent}% · {sliderSecondGrams}g
+                {100 - sliderFirstRatioPercent}% · {sliderSecondGrams}g
               </span>
             </div>
           </div>
           <input
             type="range"
-            min={0}
-            max={100}
+            min={gramRange.min}
+            max={gramRange.max}
             step={1}
-            value={unlockedRatioPercent}
+            value={sliderFirstGramsCurrent}
             onChange={handleSliderChange}
             aria-label={`Balance ${sliderFirstMeta.label} vs ${sliderSecondMeta.label}`}
             style={{
-              '--value': `${unlockedRatioPercent}%`,
+              '--value': `${sliderPositionPercent}%`,
               background: `linear-gradient(to right, ${sliderFirstMeta.colorVar} 0%, ${sliderFirstMeta.colorVar} var(--value), ${sliderSecondMeta.colorVar} var(--value), ${sliderSecondMeta.colorVar} 100%)`,
             }}
-            className="w-full cursor-pointer transition-all"
+            className="w-full cursor-pointer transition-all appearance-none h-2 rounded-lg"
           />
           <p className="text-center text-[11px] text-muted mt-2">
             <span className="font-semibold capitalize">{lockedKeys[0]}</span>{' '}

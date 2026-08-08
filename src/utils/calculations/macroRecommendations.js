@@ -824,3 +824,54 @@ export const formatMacroSplitPercent = (macroSplit) => {
     return acc;
   }, {});
 };
+
+/**
+ * Returns the feasible gram range for the first unlocked macro when exactly
+ * one macro is locked. The second unlocked macro fills the residual calories.
+ */
+export const getUnlockedMacroGramRange = ({
+  grams,
+  macroLocks,
+  targetCalories,
+  userData,
+}) => {
+  const unlockedKeys = getUnlockedMacroKeys(macroLocks);
+  if (unlockedKeys.length !== 2) {
+    return { min: 0, max: 0, first: null, second: null };
+  }
+
+  const [first, second] = unlockedKeys;
+  const bounds = computeMacroBounds({ targetCalories, userData });
+  const lockedKey = MACRO_KEYS.find((key) => macroLocks?.[key] != null);
+
+  const lockedCalories = lockedKey
+    ? (grams?.[lockedKey] || 0) * KCAL_PER_GRAM[lockedKey]
+    : 0;
+  const residualCalories = Math.max(
+    0,
+    (Number(targetCalories) || 0) - lockedCalories
+  );
+
+  const firstMin = bounds[first]?.min || 0;
+  const firstMax = bounds[first]?.max || Infinity;
+  const secondMin = bounds[second]?.min || 0;
+  const secondMax = bounds[second]?.max || Infinity;
+
+  const minFirstGrams = Math.max(
+    firstMin,
+    (residualCalories - secondMax * KCAL_PER_GRAM[second]) /
+      KCAL_PER_GRAM[first]
+  );
+  const maxFirstGrams = Math.min(
+    firstMax,
+    (residualCalories - secondMin * KCAL_PER_GRAM[second]) /
+      KCAL_PER_GRAM[first]
+  );
+
+  return {
+    min: Math.max(0, roundToTenth(minFirstGrams)),
+    max: roundToTenth(Math.max(minFirstGrams, maxFirstGrams)),
+    first,
+    second,
+  };
+};
