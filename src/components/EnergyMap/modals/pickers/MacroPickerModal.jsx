@@ -19,7 +19,6 @@ import {
   getUnlockedMacroGramRange,
   MAX_MACRO_LOCKS,
   macroSplitFromConstrainedTrianglePoint,
-  macroSplitFromUnlockedRatio,
   macroSplitToConstrainedTrianglePoint,
   normalizeMacroLocks,
   normalizeMacroRecommendationSplit,
@@ -325,30 +324,22 @@ export const MacroPickerModal = ({
         (residualCalories - firstKcal) / (sliderSecond === 'fats' ? 9 : 4)
       );
 
+      // Build the split directly in calorie space from the actual slider grams.
+      // Passing through macroSplitFromUnlockedRatio would discard the precise
+      // grams and rebuild from the (possibly clamped) locked split fraction,
+      // which made the thumb drift and snap to an arbitrary point on release.
       const nextSplit = { ...draftSplit };
-      nextSplit[sliderFirst] = firstGrams * (sliderFirst === 'fats' ? 9 : 4);
+      nextSplit[sliderFirst] = firstKcal;
       nextSplit[sliderSecond] = secondGrams * (sliderSecond === 'fats' ? 9 : 4);
       if (lockedKey) {
-        nextSplit[lockedKey] =
-          recommendations.grams[lockedKey] * (lockedKey === 'fats' ? 9 : 4);
+        nextSplit[lockedKey] = lockedCalories;
       }
 
-      const secondKcal = secondGrams * (sliderSecond === 'fats' ? 9 : 4);
-      const ratio =
-        firstKcal + secondKcal > 0 ? firstKcal / (firstKcal + secondKcal) : 0.5;
-
-      onChange?.(
-        macroSplitFromUnlockedRatio({
-          macroSplit: normalizeMacroRecommendationSplit(nextSplit),
-          macroLocks: draftLocks,
-          ratio,
-        })
-      );
+      onChange?.(normalizeMacroRecommendationSplit(nextSplit));
     },
     [
       onChange,
       draftSplit,
-      draftLocks,
       sliderFirst,
       sliderSecond,
       lockedKeys,
@@ -465,7 +456,7 @@ export const MacroPickerModal = ({
               </svg>
 
               {/* Vertex labels */}
-              <div className="pointer-events-none absolute left-1/2 -top-2 -translate-x-1/2 flex flex-col items-center">
+              <div className="pointer-events-none absolute left-1/2 -top-2.5 -translate-x-1/2 flex flex-col items-center">
                 <span className="text-[11px] font-semibold text-accent-red tracking-wider uppercase">
                   Protein
                 </span>
@@ -473,7 +464,7 @@ export const MacroPickerModal = ({
                   Recovery & Repair
                 </span>
               </div>
-              <div className="pointer-events-none absolute -left-2 bottom-2 flex flex-col items-center">
+              <div className="pointer-events-none absolute -left-2 -bottom-2.5 flex flex-col items-center">
                 <span className="text-[11px] font-semibold text-accent-yellow tracking-wider uppercase">
                   Fats
                 </span>
@@ -481,7 +472,7 @@ export const MacroPickerModal = ({
                   Hormonal Baseline
                 </span>
               </div>
-              <div className="pointer-events-none absolute -right-2 bottom-2 flex flex-col items-center">
+              <div className="pointer-events-none absolute -right-2 -bottom-2.5 flex flex-col items-center">
                 <span className="text-[11px] font-semibold text-accent-amber tracking-wider uppercase">
                   Carbs
                 </span>

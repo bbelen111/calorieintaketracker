@@ -435,7 +435,10 @@ const applyMacroLocks = ({ grams, macroLocks, targetCalories, bounds }) => {
     nextGrams[key] = clamped;
   });
 
-  // Redistribute residual calories to unlocked macros by their relative ratio.
+  // Redistribute residual calories to unlocked macros by their relative
+  // calorie ratio. When the unlocked macros already fill the residual (the
+  // normal locked-macro case) this is an identity, so the user's chosen grams
+  // round-trip cleanly instead of being re-scaled non-linearly.
   const unlockedKeys = MACRO_KEYS.filter((key) => !lockedKeys.includes(key));
   const lockedCalories = lockedKeys.reduce(
     (sum, key) => sum + nextGrams[key] * KCAL_PER_GRAM[key],
@@ -443,15 +446,16 @@ const applyMacroLocks = ({ grams, macroLocks, targetCalories, bounds }) => {
   );
   const residualCalories = Math.max(0, safeTargetCalories - lockedCalories);
 
-  const unlockedRatioTotal = unlockedKeys.reduce(
-    (sum, key) => sum + toSafeRatio(grams[key]),
+  const unlockedKcalTotal = unlockedKeys.reduce(
+    (sum, key) => sum + toSafeRatio(grams[key]) * KCAL_PER_GRAM[key],
     0
   );
 
-  if (unlockedKeys.length > 0 && unlockedRatioTotal > 0) {
+  if (unlockedKeys.length > 0 && unlockedKcalTotal > 0) {
     unlockedKeys.forEach((key) => {
-      const ratio = toSafeRatio(grams[key]) / unlockedRatioTotal;
-      nextGrams[key] = (residualCalories * ratio) / KCAL_PER_GRAM[key];
+      const kcalRatio =
+        (toSafeRatio(grams[key]) * KCAL_PER_GRAM[key]) / unlockedKcalTotal;
+      nextGrams[key] = (residualCalories * kcalRatio) / KCAL_PER_GRAM[key];
     });
   } else if (unlockedKeys.length > 0) {
     // Fallback: split residual evenly among unlocked macros.

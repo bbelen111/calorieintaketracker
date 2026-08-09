@@ -235,6 +235,50 @@ test('single macro lock holds grams fixed and redistributes residual to unlocked
   assert.ok(locked.macroLocks.lockedKeys.includes('protein'));
 });
 
+test('unlocked grams round-trip through locked redistribution (calorie-ratio identity)', () => {
+  // Regression guard for the one-lock slider: when the unlocked macros already
+  // fill the residual calorie budget, redistribution used to re-scale them by
+  // gram-count ratio instead of calorie ratio, making the thumb drift and snap
+  // to an arbitrary value on release. Unlocked grams must now round-trip
+  // (within rounding) so the slider position is preserved.
+  const targetCalories = 2500;
+  const lockedProtein = 180; // 720 kcal
+  const residualCalories = 2500 - 720; // 1780 kcal
+  const carbsGrams = 200; // 800 kcal
+  const fatsGrams = (residualCalories - 800) / 9; // ~108.9g, 980 kcal
+
+  const recommendation = calculateMacroRecommendations({
+    targetCalories,
+    macroSplit: { protein: 0.3, carbs: 0.4, fats: 0.3 },
+    userData: { weight: 70 },
+    macroLocks: { protein: lockedProtein, carbs: null, fats: null },
+  });
+
+  const lockedCalories =
+    recommendation.grams.protein * 4 +
+    recommendation.grams.carbs * 4 +
+    recommendation.grams.fats * 9;
+  assert.equal(recommendation.grams.protein, lockedProtein);
+  assert.equal(Math.round(lockedCalories), targetCalories);
+
+  // Build a split whose calories exactly match our chosen grams, then verify
+  // redistribution preserves the calorie ratio (and thus the grams).
+  const calorieSplit = normalizeMacroRecommendationSplit({
+    protein: lockedProtein * 4,
+    carbs: carbsGrams * 4,
+    fats: fatsGrams * 9,
+  });
+  const roundTrip = calculateMacroRecommendations({
+    targetCalories,
+    macroSplit: calorieSplit,
+    userData: { weight: 70 },
+    macroLocks: { protein: lockedProtein, carbs: null, fats: null },
+  });
+
+  assert.ok(Math.abs(roundTrip.grams.carbs - carbsGrams) < 0.5);
+  assert.ok(Math.abs(roundTrip.grams.fats - fatsGrams) < 0.5);
+});
+
 test('two macro locks hold both grams fixed and carbs absorbs the remainder', () => {
   const base = calculateMacroRecommendations({
     targetCalories: 2500,
