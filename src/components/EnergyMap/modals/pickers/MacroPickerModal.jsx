@@ -98,7 +98,7 @@ const MacroChip = ({
         </div>
       </div>
       <div className="flex items-baseline gap-1">
-        <span className="text-lg font-bold text-foreground leading-none">
+        <span className="text-md font-bold text-foreground leading-none">
           {grams}
         </span>
         <span className="text-[11px] text-muted">g</span>
@@ -358,186 +358,190 @@ export const MacroPickerModal = ({
       <div className="text-center mb-6">
         <h3 className="text-foreground font-bold text-xl">Macro Split</h3>
         <p className="text-muted text-xs mt-1 tracking-wide">
-          {hasOneLock && sliderFirstMeta && sliderSecondMeta
-            ? `Balance ${sliderFirstMeta.label} & ${sliderSecondMeta.label}`
-            : 'Drag the triangle to adjust your ratio'}
+          Adjust your protein, carbs, and fats to match your goals.
         </p>
       </div>
 
-      <AnimatePresence mode="wait" layout>
-        <motion.div
-          layout
-          className="flex flex-col items-center justify-center h-[260px]"
-        >
+      {/* Fixed-size transition box: the 0-lock triangle and the 1-lock slider
+          are absolutely positioned, so switching between them never changes
+          the modal height or shifts the surrounding rows. */}
+      <div className="relative h-[280px] w-full">
+        <AnimatePresence>
           {!hasOneLock ? (
             <motion.div
               key="triangle"
-              ref={triangleRef}
-              className="relative w-full max-w-[280px] touch-none select-none"
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerEnd}
-              onPointerCancel={handlePointerEnd}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
+              className="absolute inset-0 flex items-center justify-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
             >
-              <svg
-                viewBox={`0 0 ${TRIANGLE_WIDTH} ${TRIANGLE_HEIGHT}`}
-                className="w-full h-auto overflow-visible"
+              <div
+                ref={triangleRef}
+                className="relative w-full max-w-[280px] touch-none select-none"
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerEnd}
+                onPointerCancel={handlePointerEnd}
               >
-                {/* Triangle face */}
-                <polygon
-                  points={`${pV.x},${pV.y} ${fV.x},${fV.y} ${cV.x},${cV.y}`}
-                  fill="rgb(var(--surface-highlight))"
-                  fillOpacity="0.4"
-                  stroke="rgb(var(--border))"
-                  strokeWidth="1.5"
-                  strokeLinejoin="round"
-                />
-
-                {/* Guide lines from handle to each vertex */}
-                {[
-                  { vx: pV.x, vy: pV.y, color: 'rgb(var(--accent-red))' },
-                  { vx: fV.x, vy: fV.y, color: 'rgb(var(--accent-yellow))' },
-                  { vx: cV.x, vy: cV.y, color: 'rgb(var(--accent-amber))' },
-                ].map(({ vx, vy, color }, i) => (
-                  <line
-                    key={i}
-                    x1={markerPoint.x}
-                    y1={markerPoint.y}
-                    x2={vx}
-                    y2={vy}
-                    stroke={color}
-                    strokeWidth="1"
-                    strokeOpacity="0.3"
-                    strokeDasharray="4 3"
+                <svg
+                  viewBox={`0 0 ${TRIANGLE_WIDTH} ${TRIANGLE_HEIGHT}`}
+                  className="w-full h-auto overflow-visible"
+                >
+                  {/* Triangle face */}
+                  <polygon
+                    points={`${pV.x},${pV.y} ${fV.x},${fV.y} ${cV.x},${cV.y}`}
+                    fill="rgb(var(--surface-highlight))"
+                    fillOpacity="0.4"
+                    stroke="rgb(var(--border))"
+                    strokeWidth="1.5"
+                    strokeLinejoin="round"
                   />
-                ))}
 
-                {/* Vertex dots */}
-                <circle
-                  cx={pV.x}
-                  cy={pV.y}
-                  r="4"
-                  fill="rgb(var(--accent-red))"
-                  opacity="0.8"
-                />
-                <circle
-                  cx={fV.x}
-                  cy={fV.y}
-                  r="4"
-                  fill="rgb(var(--accent-yellow))"
-                  opacity="0.8"
-                />
-                <circle
-                  cx={cV.x}
-                  cy={cV.y}
-                  r="4"
-                  fill="rgb(var(--accent-amber))"
-                  opacity="0.8"
-                />
+                  {/* Guide lines from handle to each vertex */}
+                  {[
+                    { vx: pV.x, vy: pV.y, color: 'rgb(var(--accent-red))' },
+                    { vx: fV.x, vy: fV.y, color: 'rgb(var(--accent-yellow))' },
+                    { vx: cV.x, vy: cV.y, color: 'rgb(var(--accent-amber))' },
+                  ].map(({ vx, vy, color }, i) => (
+                    <line
+                      key={i}
+                      x1={markerPoint.x}
+                      y1={markerPoint.y}
+                      x2={vx}
+                      y2={vy}
+                      stroke={color}
+                      strokeWidth="1"
+                      strokeOpacity="0.3"
+                      strokeDasharray="4 3"
+                    />
+                  ))}
 
-                {/* Handle */}
-                <circle
-                  cx={markerPoint.x}
-                  cy={markerPoint.y}
-                  r={hasTwoLocks ? 6 : 7}
-                  fill="rgb(var(--accent-blue))"
-                  stroke={
-                    hasTwoLocks
-                      ? 'rgb(var(--surface))'
-                      : 'rgb(var(--accent-blue))'
-                  }
-                  strokeWidth={hasTwoLocks ? 2 : 1.5}
-                  strokeDasharray={hasTwoLocks ? '3 2' : undefined}
-                />
-              </svg>
+                  {/* Vertex dots */}
+                  <circle
+                    cx={pV.x}
+                    cy={pV.y}
+                    r="4"
+                    fill="rgb(var(--accent-red))"
+                    opacity="0.8"
+                  />
+                  <circle
+                    cx={fV.x}
+                    cy={fV.y}
+                    r="4"
+                    fill="rgb(var(--accent-yellow))"
+                    opacity="0.8"
+                  />
+                  <circle
+                    cx={cV.x}
+                    cy={cV.y}
+                    r="4"
+                    fill="rgb(var(--accent-amber))"
+                    opacity="0.8"
+                  />
 
-              {/* Vertex labels */}
-              <div className="pointer-events-none absolute left-1/2 -top-2.5 -translate-x-1/2 flex flex-col items-center">
-                <span className="text-[11px] font-semibold text-accent-red tracking-wider uppercase">
-                  Protein
-                </span>
-                <span className="text-[9px] text-accent-red/70 leading-tight">
-                  Recovery & Repair
-                </span>
-              </div>
-              <div className="pointer-events-none absolute -left-2 -bottom-2.5 flex flex-col items-center">
-                <span className="text-[11px] font-semibold text-accent-yellow tracking-wider uppercase">
-                  Fats
-                </span>
-                <span className="text-[9px] text-accent-yellow/70 leading-tight">
-                  Hormonal Baseline
-                </span>
-              </div>
-              <div className="pointer-events-none absolute -right-2 -bottom-2.5 flex flex-col items-center">
-                <span className="text-[11px] font-semibold text-accent-amber tracking-wider uppercase">
-                  Carbs
-                </span>
-                <span className="text-[9px] text-accent-amber/70 leading-tight">
-                  Performance Energy
-                </span>
+                  {/* Handle */}
+                  <circle
+                    cx={markerPoint.x}
+                    cy={markerPoint.y}
+                    r={hasTwoLocks ? 6 : 7}
+                    fill="rgb(var(--accent-blue))"
+                    stroke={
+                      hasTwoLocks
+                        ? 'rgb(var(--surface))'
+                        : 'rgb(var(--accent-blue))'
+                    }
+                    strokeWidth={hasTwoLocks ? 2 : 1.5}
+                    strokeDasharray={hasTwoLocks ? '3 2' : undefined}
+                  />
+                </svg>
+
+                {/* Vertex labels */}
+                <div className="pointer-events-none absolute left-1/2 -top-2.5 -translate-x-1/2 flex flex-col items-center">
+                  <span className="text-[11px] font-semibold text-accent-red tracking-wider uppercase">
+                    Protein
+                  </span>
+                  <span className="text-[9px] text-accent-red/70 leading-tight">
+                    Recovery & Repair
+                  </span>
+                </div>
+                <div className="pointer-events-none absolute -left-2 -bottom-2.5 flex flex-col items-center">
+                  <span className="text-[11px] font-semibold text-accent-yellow tracking-wider uppercase">
+                    Fats
+                  </span>
+                  <span className="text-[9px] text-accent-yellow/70 leading-tight">
+                    Hormonal Baseline
+                  </span>
+                </div>
+                <div className="pointer-events-none absolute -right-2 -bottom-2.5 flex flex-col items-center">
+                  <span className="text-[11px] font-semibold text-accent-amber tracking-wider uppercase">
+                    Carbs
+                  </span>
+                  <span className="text-[9px] text-accent-amber/70 leading-tight">
+                    Performance Energy
+                  </span>
+                </div>
               </div>
             </motion.div>
           ) : (
             <motion.div
               key="slider"
-              className="mx-auto w-full max-w-[320px] px-4"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
+              className="absolute inset-0 flex items-center justify-center px-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
             >
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex flex-col items-start">
-                  <span
-                    className={`text-xs font-semibold tracking-wider uppercase ${sliderFirstMeta.accentClass}`}
-                  >
-                    {sliderFirstMeta.label}
-                  </span>
-                  <span className="text-[10px] text-muted leading-tight">
-                    {sliderFirstGrams}g · {sliderFirstRatioPercent}%
-                  </span>
+              <div className="w-full max-w-[320px]">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex flex-col items-start">
+                    <span
+                      className={`text-xs font-semibold tracking-wider uppercase ${sliderFirstMeta.accentClass}`}
+                    >
+                      {sliderFirstMeta.label}
+                    </span>
+                    <span className="text-[10px] text-muted leading-tight">
+                      {sliderFirstGrams}g · {sliderFirstRatioPercent}%
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span
+                      className={`text-xs font-semibold tracking-wider uppercase ${sliderSecondMeta.accentClass}`}
+                    >
+                      {sliderSecondMeta.label}
+                    </span>
+                    <span className="text-[10px] text-muted leading-tight">
+                      {100 - sliderFirstRatioPercent}% · {sliderSecondGrams}g
+                    </span>
+                  </div>
                 </div>
-                <div className="flex flex-col items-end">
-                  <span
-                    className={`text-xs font-semibold tracking-wider uppercase ${sliderSecondMeta.accentClass}`}
-                  >
-                    {sliderSecondMeta.label}
-                  </span>
-                  <span className="text-[10px] text-muted leading-tight">
-                    {100 - sliderFirstRatioPercent}% · {sliderSecondGrams}g
-                  </span>
-                </div>
+                <input
+                  type="range"
+                  min={gramRange.min}
+                  max={gramRange.max}
+                  step={1}
+                  value={sliderFirstGramsCurrent}
+                  onChange={handleSliderChange}
+                  aria-label={`Balance ${sliderFirstMeta.label} vs ${sliderSecondMeta.label}`}
+                  style={{
+                    '--value': `${sliderPositionPercent}%`,
+                    background: `linear-gradient(to right, ${sliderFirstMeta.colorVar} 0%, ${sliderFirstMeta.colorVar} var(--value), ${sliderSecondMeta.colorVar} var(--value), ${sliderSecondMeta.colorVar} 100%)`,
+                  }}
+                  className="w-full cursor-pointer transition-all appearance-none h-3 rounded-lg"
+                />
+                <p className="text-center text-[11px] text-muted mt-2">
+                  <span className="font-semibold capitalize">
+                    {lockedKeys[0]}
+                  </span>{' '}
+                  stays anchored — {sliderFirstMeta.label.toLowerCase()} &{' '}
+                  {sliderSecondMeta.label.toLowerCase()} balance the remaining
+                  calories.
+                </p>
               </div>
-              <input
-                type="range"
-                min={gramRange.min}
-                max={gramRange.max}
-                step={1}
-                value={sliderFirstGramsCurrent}
-                onChange={handleSliderChange}
-                aria-label={`Balance ${sliderFirstMeta.label} vs ${sliderSecondMeta.label}`}
-                style={{
-                  '--value': `${sliderPositionPercent}%`,
-                  background: `linear-gradient(to right, ${sliderFirstMeta.colorVar} 0%, ${sliderFirstMeta.colorVar} var(--value), ${sliderSecondMeta.colorVar} var(--value), ${sliderSecondMeta.colorVar} 100%)`,
-                }}
-                className="w-full cursor-pointer transition-all appearance-none h-3 rounded-lg"
-              />
-              <p className="text-center text-[11px] text-muted mt-2">
-                <span className="font-semibold capitalize">
-                  {lockedKeys[0]}
-                </span>{' '}
-                stays anchored — {sliderFirstMeta.label.toLowerCase()} &{' '}
-                {sliderSecondMeta.label.toLowerCase()} balance the remaining
-                calories.
-              </p>
             </motion.div>
           )}
-        </motion.div>
-      </AnimatePresence>
+        </AnimatePresence>
+      </div>
 
       {hasTwoLocks && absorbedKey ? (
         <motion.p
@@ -560,7 +564,7 @@ export const MacroPickerModal = ({
       ) : null}
 
       {/* Lock help text and clear anchors */}
-      <div className="flex items-center justify-center gap-2 mb-3">
+      <div className="flex items-center justify-center gap-2 mt-2 mb-3">
         {lockedKeys.length > 0 ? (
           <button
             type="button"
