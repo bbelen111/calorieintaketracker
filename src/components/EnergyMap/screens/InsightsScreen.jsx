@@ -5,7 +5,9 @@ import {
   Lightbulb,
   LineChart,
   AlertCircle,
-  SlidersHorizontal,
+  Beef,
+  Droplet,
+  Cookie,
 } from 'lucide-react';
 import {
   calculateWeightTrend,
@@ -651,56 +653,43 @@ export const InsightsScreen = ({
       </div>
 
       <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
-        <div className="flex items-center justify-between mb-4 gap-3">
-          <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <PieChart className="text-accent-blue" size={18} />
-            Macro Balancer
-          </h2>
-          <button
-            type="button"
-            onClick={() => onOpenMacroPicker?.()}
-            className="px-3 py-2 bg-primary text-primary-foreground rounded-lg font-semibold transition-all active:scale-95 flex items-center gap-2 press-feedback focus-ring md:hover:bg-surface"
-            title="Edit macro recommendations"
-            aria-label="Edit macro recommendations"
-          >
-            <SlidersHorizontal size={18} />
-            <span className="hidden md:inline">Edit</span>
-          </button>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-accent-red/15 border border-accent-red/50 rounded-xl p-4">
-            <p className="text-accent-red font-bold mb-2">Protein</p>
-            <p className="text-foreground text-2xl font-bold">
-              {macroRecommendation.grams.protein}g
-            </p>
-            <p className="text-muted text-sm">Picked target</p>
+        <button
+          type="button"
+          onClick={() => onOpenMacroPicker?.()}
+          className="w-full flex items-center justify-between p-2 rounded-xl transition-all group pressable-card focus-ring"
+        >
+          <div className="flex items-center gap-3">
+            <PieChart className="text-accent-blue" size={28} />
+            <div className="text-left">
+              <h2 className="text-lg font-bold text-foreground">
+                Macro Targets
+              </h2>
+              <p className="text-muted text-sm">
+                Tap to edit your macro targets
+              </p>
+            </div>
           </div>
-          <div className="bg-accent-yellow/15 border border-accent-yellow/50 rounded-xl p-4">
-            <p className="text-accent-yellow font-bold mb-2">Fats</p>
-            <p className="text-foreground text-2xl font-bold">
-              {macroRecommendation.grams.fats}g
-            </p>
-            <p className="text-muted text-sm">Picked target</p>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <Beef className="text-accent-red" size={18} />
+              <span className="text-foreground font-semibold text-sm">
+                {macroRecommendation.grams.protein} g
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Droplet className="text-accent-yellow" size={18} />
+              <span className="text-foreground font-semibold text-sm">
+                {macroRecommendation.grams.fats} g
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Cookie className="text-accent-amber" size={18} />
+              <span className="text-foreground font-semibold text-sm">
+                {macroRecommendation.grams.carbs} g
+              </span>
+            </div>
           </div>
-          <div className="bg-accent-amber/15 border border-accent-amber/50 rounded-xl p-4">
-            <p className="text-accent-amber font-bold mb-2">Carbs</p>
-            <p className="text-foreground text-2xl font-bold">
-              {macroRecommendation.grams.carbs}g
-            </p>
-            <p className="text-muted text-sm">Picked target</p>
-          </div>
-        </div>
-        {selectedGoal === 'aggressive_cut' && (
-          <div className="mt-4 bg-accent-red/15 border border-accent-red/60 rounded-xl p-4 flex items-start gap-3">
-            <Info size={20} className="text-accent-red flex-shrink-0 mt-0.5" />
-            <p className="text-foreground text-sm">
-              During an aggressive cut, keep protein at or above your selected
-              target ({macroRecommendation.grams.protein}g) to help preserve
-              lean mass. Consider increasing slightly if recovery or satiety
-              suffers.
-            </p>
-          </div>
-        )}
+        </button>
       </div>
       <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
         <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
