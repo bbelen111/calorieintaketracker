@@ -30,10 +30,7 @@ import {
   useHealthConnect,
   HealthConnectStatus,
 } from '../../hooks/useHealthConnect';
-import {
-  getDefaultEnergyMapData,
-  saveLastSelectedCardioType,
-} from '../../utils/data/storage';
+import { saveLastSelectedCardioType } from '../../utils/data/storage';
 import { useScrollOffScreen } from '../../hooks/useScrollOffScreen';
 import { ScreenTabs, FloatingScreenTabs } from './common/ScreenTabs';
 import { LogbookScreen } from './screens/LogbookScreen';
@@ -51,7 +48,7 @@ import { MEAL_TYPE_ORDER } from '../../constants/meal/mealTypes';
 import { HeightPickerModal } from './modals/pickers/HeightPickerModal';
 import { WeightEntryModal } from './modals/forms/WeightEntryModal';
 import { BodyFatEntryModal } from './modals/forms/BodyFatEntryModal';
-import { TrainingTypeEditorModal } from './modals/forms/TrainingTypeEditorModal';
+import { TrainingFavouritesModal } from './modals/lists/TrainingFavouritesModal';
 import { StepRangesModal } from './modals/forms/StepRangesModal';
 import { DurationPickerModal } from './modals/pickers/DurationPickerModal';
 import { CardioFavouritesModal } from './modals/lists/CardioFavouritesModal';
@@ -152,10 +149,8 @@ const DailyLogModal = lazy(() =>
 );
 
 const MODAL_CLOSE_DELAY = 180; // Match CSS animation duration (150ms) + buffer
-const DEFAULT_TRAINING_EFFORT_TYPE = 'intensity';
 const DEFAULT_TRAINING_INTENSITY = 'moderate';
-const DEFAULT_TRAINING_TYPE_CATALOG =
-  getDefaultEnergyMapData().trainingType ?? {};
+const FALLBACK_TRAINING_TYPE = 'trainingtype_1';
 const screenTabs = [
   { key: 'logbook', label: 'Logbook', icon: ClipboardList },
   { key: 'tracker', label: 'Tracker', icon: Target },
@@ -261,6 +256,96 @@ const sanitizeCardioDraft = (draft, cardioTypes = {}) => {
   if (session.id !== undefined) {
     delete session.id;
   }
+
+  return session;
+};
+
+const defaultTrainingSession = {
+  date: '',
+  type: FALLBACK_TRAINING_TYPE,
+  startTime: '12:00',
+  durationHours: 2,
+  intensity: 'moderate',
+  effortType: 'intensity',
+  averageHeartRate: '',
+};
+
+const getDefaultTrainingDraftForType = (typeKey, userData = {}) => {
+  const normalizedTypeKey = String(typeKey ?? '').trim();
+  const selectedType =
+    Object.prototype.hasOwnProperty.call(
+      userData.trainingType ?? {},
+      normalizedTypeKey
+    ) || normalizedTypeKey === FALLBACK_TRAINING_TYPE
+      ? normalizedTypeKey
+      : defaultTrainingSession.type;
+
+  return {
+    ...defaultTrainingSession,
+    date: getTodayDateString(),
+    startTime: getCurrentLocalTimeString(),
+    type: selectedType,
+    durationHours: Number.isFinite(Number(userData.trainingDuration))
+      ? Number(userData.trainingDuration)
+      : defaultTrainingSession.durationHours,
+  };
+};
+
+const sanitizeTrainingSession = (draft) => {
+  if (!draft || typeof draft !== 'object') {
+    return null;
+  }
+
+  const durationHours = Number(draft.durationHours);
+  const durationMinutes = Number.isFinite(durationHours)
+    ? Math.round(durationHours * 60)
+    : 0;
+
+  if (durationMinutes <= 0) {
+    return null;
+  }
+
+  const effortType = draft.effortType ?? 'intensity';
+  const startTime = normalizeTimeOfDay(draft.startTime, '12:00');
+  const timestamps = deriveSessionTimestamps({
+    dateKey: getTodayDateString(),
+    timeOfDay: startTime,
+    durationMinutes,
+    fallbackStartedAt: draft?.startedAt,
+  });
+
+  const session = {
+    ...defaultTrainingSession,
+    ...draft,
+    date: getTodayDateString(),
+    startTime,
+    startedAt: timestamps.startedAt,
+    endedAt: timestamps.endedAt,
+    duration: durationMinutes,
+    intensity: draft.intensity ?? 'moderate',
+    effortType,
+  };
+
+  if (effortType === 'heartRate') {
+    const parsedHeartRate = Number.parseInt(draft.averageHeartRate, 10);
+    const heartRate = Number.isFinite(parsedHeartRate)
+      ? Math.max(parsedHeartRate, 0)
+      : 0;
+
+    if (!heartRate) {
+      return null;
+    }
+
+    session.averageHeartRate = heartRate;
+  } else {
+    delete session.averageHeartRate;
+  }
+
+  if (session.id !== undefined) {
+    delete session.id;
+  }
+
+  delete session.durationHours;
 
   return session;
 };
@@ -419,11 +504,16 @@ export const EnergyMapCalculator = () => {
     removeTrainingSession,
     addCardioFavourite,
     removeCardioFavourite,
+    trainingFavourites,
+    addTrainingFavourite,
+    removeTrainingFavourite,
     updateTrainingType,
+    removeTrainingType,
     addCustomCardioType,
     removeCustomCardioType,
     calculateTargetForGoal,
     calculateCardioSessionCalories,
+    calculateTrainingSessionCalories,
     saveWeightEntry,
     deleteWeightEntry,
     saveBodyFatEntry,
@@ -480,11 +570,16 @@ export const EnergyMapCalculator = () => {
       removeTrainingSession: state.removeTrainingSession,
       addCardioFavourite: state.addCardioFavourite,
       removeCardioFavourite: state.removeCardioFavourite,
+      trainingFavourites: state.trainingFavourites,
+      addTrainingFavourite: state.addTrainingFavourite,
+      removeTrainingFavourite: state.removeTrainingFavourite,
       updateTrainingType: state.updateTrainingType,
+      removeTrainingType: state.removeTrainingType,
       addCustomCardioType: state.addCustomCardioType,
       removeCustomCardioType: state.removeCustomCardioType,
       calculateTargetForGoal: state.calculateTargetForGoal,
       calculateCardioSessionCalories: state.calculateCardioSessionCalories,
+      calculateTrainingSessionCalories: state.calculateTrainingSessionCalories,
       saveWeightEntry: state.saveWeightEntry,
       deleteWeightEntry: state.deleteWeightEntry,
       saveBodyFatEntry: state.saveBodyFatEntry,
@@ -532,28 +627,15 @@ export const EnergyMapCalculator = () => {
   const [tempSelectedGoal, setTempSelectedGoal] = useState('maintenance');
   const [tempAge, setTempAge] = useState(userData.age);
   const [tempHeight, setTempHeight] = useState(userData.height);
-  const [tempTrainingType, setTempTrainingType] = useState(
-    userData.selectedTrainingType
+  const [trainingDraft, setTrainingDraft] = useState(() =>
+    getDefaultTrainingDraftForType(userData.selectedTrainingType, userData)
   );
-  const [tempTrainingDuration, setTempTrainingDuration] = useState(
-    userData.trainingDuration
-  );
-  const [tempTrainingEffortType, setTempTrainingEffortType] = useState(
-    DEFAULT_TRAINING_EFFORT_TYPE
-  );
-  const [tempTrainingIntensity, setTempTrainingIntensity] = useState(
-    DEFAULT_TRAINING_INTENSITY
-  );
-  const [tempTrainingHeartRate, setTempTrainingHeartRate] = useState('');
-  const [tempTrainingStartTime, setTempTrainingStartTime] = useState(() =>
-    getCurrentLocalTimeString()
+  const [trainingFavouriteDraft, setTrainingFavouriteDraft] = useState(() =>
+    getDefaultTrainingDraftForType(userData.selectedTrainingType, userData)
   );
   const [trainingModalMode, setTrainingModalMode] = useState('session');
   const [editingTrainingSessionId, setEditingTrainingSessionId] =
     useState(null);
-  const [editingTrainingType, setEditingTrainingType] = useState(null);
-  const [tempPresetName, setTempPresetName] = useState('');
-  const [tempPresetCalories, setTempPresetCalories] = useState(0);
   const [tempTimePickerValue, setTempTimePickerValue] = useState('12:00');
   const [timePickerTarget, setTimePickerTarget] = useState(null);
   const [tempEpocWindowValue, setTempEpocWindowValue] = useState(
@@ -711,7 +793,6 @@ export const EnergyMapCalculator = () => {
   const weightEntryModal = useAnimatedModal();
   const bodyFatTrackerModal = useAnimatedModal();
   const bodyFatEntryModal = useAnimatedModal();
-  const trainingTypeEditorModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
   const settingsModal = useAnimatedModal();
   const dailyActivityModal = useAnimatedModal();
   const dailyActivityEditorModal = useAnimatedModal();
@@ -722,6 +803,8 @@ export const EnergyMapCalculator = () => {
   const cardioModal = useAnimatedModal();
   const cardioFavouritesModal = useAnimatedModal();
   const cardioFavouriteEditorModal = useAnimatedModal();
+  const trainingFavouritesModal = useAnimatedModal();
+  const trainingFavouriteEditorModal = useAnimatedModal();
   const calorieBreakdownModal = useAnimatedModal();
   const tefInfoModal = useAnimatedModal();
   const adaptiveThermogenesisInfoModal = useAnimatedModal();
@@ -762,6 +845,8 @@ export const EnergyMapCalculator = () => {
     cardioModal,
     durationPickerModal,
     trainingModal,
+    trainingFavouritesModal,
+    trainingFavouriteEditorModal,
     stepRangesModal,
     stepTrackerModal,
     stepGoalPickerModal,
@@ -771,7 +856,6 @@ export const EnergyMapCalculator = () => {
     dailyActivityEditorModal,
     dailyActivityModal,
     settingsModal,
-    trainingTypeEditorModal,
     bodyFatEntryModal,
     bodyFatTrackerModal,
     weightEntryModal,
@@ -806,6 +890,8 @@ export const EnergyMapCalculator = () => {
       cardioModal,
       durationPickerModal,
       trainingModal,
+      trainingFavouritesModal,
+      trainingFavouriteEditorModal,
       stepRangesModal,
       stepTrackerModal,
       stepGoalPickerModal,
@@ -815,7 +901,6 @@ export const EnergyMapCalculator = () => {
       dailyActivityEditorModal,
       dailyActivityModal,
       settingsModal,
-      trainingTypeEditorModal,
       bodyFatEntryModal,
       bodyFatTrackerModal,
       weightEntryModal,
@@ -877,8 +962,9 @@ export const EnergyMapCalculator = () => {
     tefInfoModal,
     templatePickerModal,
     timePickerModal,
+    trainingFavouriteEditorModal,
+    trainingFavouritesModal,
     trainingModal,
-    trainingTypeEditorModal,
     weightEntryModal,
     weightTrackerModal,
   ]);
@@ -935,11 +1021,6 @@ export const EnergyMapCalculator = () => {
   useEffect(() => {
     setTempHeight(userData.height);
   }, [userData.height]);
-
-  useEffect(() => {
-    setTempTrainingType(userData.selectedTrainingType);
-    setTempTrainingDuration(userData.trainingDuration);
-  }, [userData.selectedTrainingType, userData.trainingDuration]);
 
   useEffect(() => {
     if (!durationPickerModal.isOpen) {
@@ -1363,69 +1444,177 @@ export const EnergyMapCalculator = () => {
 
       setTrainingModalMode('session');
       setEditingTrainingSessionId(latestTodaySession.id ?? null);
-      setTempTrainingType(
-        latestTodaySession.type ?? userData.selectedTrainingType
-      );
-      setTempTrainingDuration(durationHours);
-      setTempTrainingEffortType(normalizedEffortType);
-      setTempTrainingIntensity(
-        latestTodaySession.intensity ?? DEFAULT_TRAINING_INTENSITY
-      );
-      setTempTrainingStartTime(
-        normalizeTimeOfDay(
+      setTrainingDraft({
+        date: getTodayDateString(),
+        type: latestTodaySession.type ?? userData.selectedTrainingType,
+        durationHours,
+        effortType: normalizedEffortType,
+        intensity: latestTodaySession.intensity ?? DEFAULT_TRAINING_INTENSITY,
+        startTime: normalizeTimeOfDay(
           latestTodaySession?.startTime,
           getTimeOfDayFromEpochMs(
             latestTodaySession?.startedAt,
             getCurrentLocalTimeString()
           )
-        )
-      );
-      setTempTrainingHeartRate(
-        normalizedEffortType === 'heartRate'
-          ? (latestTodaySession.averageHeartRate ?? '')
-          : ''
-      );
+        ),
+        averageHeartRate:
+          normalizedEffortType === 'heartRate'
+            ? (latestTodaySession.averageHeartRate ?? '')
+            : '',
+      });
       trainingModal.open();
       return;
     }
 
     setTrainingModalMode('session');
     setEditingTrainingSessionId(null);
-    setTempTrainingType(userData.selectedTrainingType);
-    setTempTrainingDuration(userData.trainingDuration);
-    setTempTrainingEffortType(DEFAULT_TRAINING_EFFORT_TYPE);
-    setTempTrainingIntensity(DEFAULT_TRAINING_INTENSITY);
-    setTempTrainingStartTime(getCurrentLocalTimeString());
-    setTempTrainingHeartRate('');
-    trainingModal.open();
-  }, [
-    todayTrainingSessions,
-    trainingModal,
-    userData.trainingDuration,
-    userData.selectedTrainingType,
-    setTempTrainingStartTime,
-  ]);
-
-  const handleRestDayClick = useCallback(() => {
-    if (todayTrainingSessions.length === 0) {
-      return;
-    }
-
-    setConfirmActionTitle('Clear Training Session');
-    setConfirmActionDescription(
-      "Switching to Rest Day will remove today's training session. This cannot be undone."
+    setTrainingDraft(
+      getDefaultTrainingDraftForType(userData.selectedTrainingType, userData)
     );
-    setConfirmActionLabel('Clear Session');
-    setConfirmActionTone('danger');
-    setConfirmActionCallback(() => () => {
-      todayTrainingSessions.forEach((session) => {
-        if (session?.id != null) {
-          removeTrainingSession(session.id);
-        }
+    trainingModal.open();
+  }, [todayTrainingSessions, trainingModal, userData]);
+
+  const handleEditTrainingSession = useCallback(
+    (sessionId) => {
+      const existing = userData.trainingSessions.find(
+        (session) => session.id === sessionId
+      );
+      if (!existing) {
+        return;
+      }
+
+      const normalizedEffortType = existing.effortType ?? 'intensity';
+      const durationMinutes = Number(existing.duration);
+      const durationHours =
+        Number.isFinite(durationMinutes) && durationMinutes > 0
+          ? Math.round((durationMinutes / 60) * 10) / 10
+          : userData.trainingDuration;
+
+      setTrainingModalMode('session');
+      setEditingTrainingSessionId(sessionId);
+      setTrainingDraft({
+        date: getTodayDateString(),
+        type: existing.type ?? userData.selectedTrainingType,
+        durationHours,
+        effortType: normalizedEffortType,
+        intensity: existing.intensity ?? DEFAULT_TRAINING_INTENSITY,
+        startTime: normalizeTimeOfDay(
+          existing?.startTime,
+          getTimeOfDayFromEpochMs(
+            existing?.startedAt,
+            getCurrentLocalTimeString()
+          )
+        ),
+        averageHeartRate:
+          normalizedEffortType === 'heartRate'
+            ? (existing.averageHeartRate ?? '')
+            : '',
       });
+      trainingModal.open();
+    },
+    [
+      trainingModal,
+      userData.selectedTrainingType,
+      userData.trainingDuration,
+      userData.trainingSessions,
+    ]
+  );
+
+  const handleRemoveTrainingSession = useCallback(
+    (sessionId) => {
+      const existing = userData.trainingSessions.find(
+        (session) => session.id === sessionId
+      );
+      if (!existing) {
+        return;
+      }
+
+      const trainingLabel =
+        trainingTypes?.[existing.type]?.label ?? 'this training session';
+      const duration = Number.parseInt(existing.duration, 10);
+      const durationText =
+        Number.isFinite(duration) && duration > 0 ? ` (${duration} min)` : '';
+
+      setConfirmActionTitle('Delete Training Session');
+      setConfirmActionDescription(
+        `Are you sure you want to delete ${trainingLabel}${durationText}? This action cannot be undone.`
+      );
+      setConfirmActionLabel('Delete');
+      setConfirmActionTone('danger');
+      setConfirmActionCallback(() => () => {
+        removeTrainingSession(sessionId);
+      });
+      confirmActionModal.open();
+    },
+    [
+      confirmActionModal,
+      removeTrainingSession,
+      trainingTypes,
+      userData.trainingSessions,
+    ]
+  );
+
+  const handleTrainingDraftChange = useCallback(
+    (nextDraft) => {
+      setTrainingDraft((prevDraft) => {
+        const resolvedNextDraft =
+          typeof nextDraft === 'function' ? nextDraft(prevDraft) : nextDraft;
+
+        if (!resolvedNextDraft || typeof resolvedNextDraft !== 'object') {
+          return prevDraft;
+        }
+
+        const nextType = String(resolvedNextDraft.type ?? '').trim();
+        const previousType = String(prevDraft?.type ?? '').trim();
+        if (nextType && nextType !== previousType) {
+          handleUserDataChange('selectedTrainingType', nextType);
+        }
+
+        return resolvedNextDraft;
+      });
+    },
+    [handleUserDataChange]
+  );
+
+  const handleTrainingFavouriteDraftChange = useCallback((nextDraft) => {
+    setTrainingFavouriteDraft((prevDraft) => {
+      const resolvedNextDraft =
+        typeof nextDraft === 'function' ? nextDraft(prevDraft) : nextDraft;
+
+      if (!resolvedNextDraft || typeof resolvedNextDraft !== 'object') {
+        return prevDraft;
+      }
+
+      return resolvedNextDraft;
     });
-    confirmActionModal.open();
-  }, [confirmActionModal, removeTrainingSession, todayTrainingSessions]);
+  }, []);
+
+  const handleAddCustomTrainingType = useCallback(
+    ({ name, calories }) => {
+      const fallbackLabel = 'Custom Training';
+      const sanitizedLabel = String(name ?? '').trim() || fallbackLabel;
+      const numericCalories = Number(calories);
+      const sanitizedCalories = Number.isFinite(numericCalories)
+        ? Math.max(0, numericCalories)
+        : 0;
+      const key = `custom_training_${Date.now()}_${Math.round(Math.random() * 1000)}`;
+
+      updateTrainingType(key, {
+        name: sanitizedLabel,
+        calories: sanitizedCalories,
+      });
+
+      return key;
+    },
+    [updateTrainingType]
+  );
+
+  const handleDeleteCustomTrainingType = useCallback(
+    (typeKey) => {
+      removeTrainingType(typeKey);
+    },
+    [removeTrainingType]
+  );
 
   const openGoalModal = useCallback(() => {
     if (isGoalLockedByActivePhase) {
@@ -1444,75 +1633,6 @@ export const EnergyMapCalculator = () => {
     setTempHeight(userData.height);
     heightModal.open();
   }, [heightModal, userData.height]);
-
-  const resetTrainingTypeEditorState = useCallback(() => {
-    setEditingTrainingType(null);
-    setTempPresetName('');
-    setTempPresetCalories(0);
-  }, []);
-
-  const closeTrainingTypeEditor = useCallback(() => {
-    trainingTypeEditorModal.requestClose();
-    setTimeout(resetTrainingTypeEditorState, MODAL_CLOSE_DELAY);
-  }, [resetTrainingTypeEditorState, trainingTypeEditorModal]);
-
-  const openTrainingTypeEditor = useCallback(
-    (typeKey) => {
-      const current = trainingTypes[typeKey] ??
-        DEFAULT_TRAINING_TYPE_CATALOG[typeKey] ?? {
-          label: typeKey,
-          caloriesPerHour: 0,
-        };
-
-      const initialCalories = Number(current.caloriesPerHour ?? 0);
-
-      setEditingTrainingType(typeKey);
-      setTempPresetName(current.label ?? '');
-      setTempPresetCalories(
-        Number.isFinite(initialCalories) ? initialCalories : 0
-      );
-      trainingTypeEditorModal.open();
-    },
-    [trainingTypeEditorModal, trainingTypes]
-  );
-
-  const handleTrainingPresetSave = useCallback(() => {
-    if (!editingTrainingType) {
-      closeTrainingTypeEditor();
-      return;
-    }
-
-    const fallback = DEFAULT_TRAINING_TYPE_CATALOG[editingTrainingType] ?? {
-      label: editingTrainingType,
-      caloriesPerHour: 0,
-    };
-
-    const nextName = tempPresetName.trim() || fallback.label;
-    const sanitizedCalories = Number.isFinite(tempPresetCalories)
-      ? Math.max(0, tempPresetCalories)
-      : NaN;
-    const nextCalories = Number.isFinite(sanitizedCalories)
-      ? sanitizedCalories
-      : fallback.caloriesPerHour;
-
-    updateTrainingType(editingTrainingType, {
-      name: nextName,
-      calories: nextCalories,
-    });
-
-    if (editingTrainingType === tempTrainingType) {
-      setTempTrainingType(editingTrainingType);
-    }
-
-    closeTrainingTypeEditor();
-  }, [
-    closeTrainingTypeEditor,
-    editingTrainingType,
-    tempPresetCalories,
-    tempPresetName,
-    tempTrainingType,
-    updateTrainingType,
-  ]);
 
   const openDailyActivitySettings = useCallback(() => {
     setActivityEditorDay(null);
@@ -2452,9 +2572,8 @@ export const EnergyMapCalculator = () => {
       }
 
       // Open FoodPortionModal for entries with grams
-      const { getFoodById: getFoodByIdFromCatalog } = await import(
-        '../../services/foodCatalog'
-      );
+      const { getFoodById: getFoodByIdFromCatalog } =
+        await import('../../services/foodCatalog');
       const resolvedFoodFromCatalog = existing.foodId
         ? await getFoodByIdFromCatalog(existing.foodId)
         : null;
@@ -2852,7 +2971,15 @@ export const EnergyMapCalculator = () => {
       setTempTimePickerValue(normalizedValue);
 
       if (timePickerTarget === 'training') {
-        setTempTrainingStartTime(normalizedValue);
+        setTrainingDraft((prev) => ({
+          ...prev,
+          startTime: normalizedValue,
+        }));
+      } else if (timePickerTarget === 'favourite-training') {
+        setTrainingFavouriteDraft((prev) => ({
+          ...prev,
+          startTime: normalizedValue,
+        }));
       } else if (timePickerTarget === 'cardio') {
         setCardioDraft((prev) => ({
           ...prev,
@@ -2880,10 +3007,20 @@ export const EnergyMapCalculator = () => {
   }, [timePickerModal]);
 
   const openTrainingStartTimePicker = useCallback(() => {
-    setTempTimePickerValue(normalizeTimeOfDay(tempTrainingStartTime, '12:00'));
+    setTempTimePickerValue(
+      normalizeTimeOfDay(trainingDraft?.startTime, '12:00')
+    );
     setTimePickerTarget('training');
     timePickerModal.open();
-  }, [tempTrainingStartTime, timePickerModal]);
+  }, [trainingDraft?.startTime, timePickerModal]);
+
+  const openFavouriteTrainingStartTimePicker = useCallback(() => {
+    setTempTimePickerValue(
+      normalizeTimeOfDay(trainingFavouriteDraft?.startTime, '12:00')
+    );
+    setTimePickerTarget('favourite-training');
+    timePickerModal.open();
+  }, [trainingFavouriteDraft?.startTime, timePickerModal]);
 
   const openCardioStartTimePicker = useCallback(() => {
     setTempTimePickerValue(normalizeTimeOfDay(cardioDraft?.startTime, '12:00'));
@@ -2921,37 +3058,17 @@ export const EnergyMapCalculator = () => {
 
   const handleTrainingSave = useCallback(() => {
     if (trainingModalMode === 'session') {
-      const sessionDate = getTodayDateString();
-      const durationHours = Number(tempTrainingDuration);
-      const durationMinutes = Number.isFinite(durationHours)
-        ? Math.round(durationHours * 60)
-        : 0;
+      const sessionToSave = sanitizeTrainingSession({
+        ...trainingDraft,
+        date: getTodayDateString(),
+      });
 
-      if (durationMinutes <= 0) {
+      if (!sessionToSave) {
         return;
       }
 
-      const timestamps = deriveSessionTimestamps({
-        dateKey: sessionDate,
-        timeOfDay: tempTrainingStartTime,
-        durationMinutes,
-      });
-
-      const sessionPayload = {
-        date: sessionDate,
-        type: tempTrainingType,
-        startTime: timestamps.startTime,
-        startedAt: timestamps.startedAt,
-        endedAt: timestamps.endedAt,
-        duration: durationMinutes,
-        effortType: tempTrainingEffortType,
-        intensity: tempTrainingIntensity,
-        averageHeartRate:
-          tempTrainingEffortType === 'heartRate' ? tempTrainingHeartRate : '',
-      };
-
       if (editingTrainingSessionId != null) {
-        updateTrainingSession(editingTrainingSessionId, sessionPayload);
+        updateTrainingSession(editingTrainingSessionId, sessionToSave);
       } else {
         const existingTodaySession =
           todayTrainingSessions.length > 0
@@ -2959,10 +3076,10 @@ export const EnergyMapCalculator = () => {
             : null;
 
         if (existingTodaySession?.id != null) {
-          updateTrainingSession(existingTodaySession.id, sessionPayload);
+          updateTrainingSession(existingTodaySession.id, sessionToSave);
           setEditingTrainingSessionId(existingTodaySession.id);
         } else {
-          addTrainingSession(sessionPayload);
+          addTrainingSession(sessionToSave);
         }
       }
 
@@ -2970,18 +3087,13 @@ export const EnergyMapCalculator = () => {
       return;
     }
 
-    handleUserDataChange('selectedTrainingType', tempTrainingType);
-    handleUserDataChange('trainingDuration', tempTrainingDuration);
+    handleUserDataChange('selectedTrainingType', trainingDraft.type);
+    handleUserDataChange('trainingDuration', trainingDraft.durationHours);
     trainingModal.requestClose();
   }, [
     handleUserDataChange,
     trainingModal,
-    tempTrainingDuration,
-    tempTrainingStartTime,
-    tempTrainingType,
-    tempTrainingEffortType,
-    tempTrainingIntensity,
-    tempTrainingHeartRate,
+    trainingDraft,
     trainingModalMode,
     addTrainingSession,
     todayTrainingSessions,
@@ -2989,33 +3101,114 @@ export const EnergyMapCalculator = () => {
     updateTrainingSession,
   ]);
 
-  const handleTrainingEffortTypeChange = useCallback(
-    (nextType) => {
-      if (nextType === tempTrainingEffortType) return;
-      if (nextType === 'heartRate') {
-        setTempTrainingEffortType('heartRate');
-        return;
-      }
-      setTempTrainingEffortType('intensity');
-      setTempTrainingHeartRate('');
-    },
-    [tempTrainingEffortType]
-  );
+  const handleTrainingFavouriteSave = useCallback(() => {
+    const favouriteToSave = sanitizeTrainingSession({
+      ...trainingFavouriteDraft,
+    });
 
-  const handleTrainingIntensityChange = useCallback((level) => {
-    setTempTrainingIntensity(level);
-  }, []);
-
-  const handleTrainingHeartRateChange = useCallback((event) => {
-    const { value } = event.target;
-    if (value === '') {
-      setTempTrainingHeartRate('');
+    if (!favouriteToSave) {
       return;
     }
-    const parsed = Number.parseInt(value, 10);
-    const sanitized = Number.isFinite(parsed) ? Math.max(parsed, 0) : 0;
-    setTempTrainingHeartRate(sanitized);
-  }, []);
+
+    addTrainingFavourite(favouriteToSave);
+    trainingFavouriteEditorModal.requestClose();
+  }, [
+    addTrainingFavourite,
+    trainingFavouriteDraft,
+    trainingFavouriteEditorModal,
+  ]);
+
+  const handleOpenTrainingFavourites = useCallback(() => {
+    trainingFavouritesModal.open();
+  }, [trainingFavouritesModal]);
+
+  const handleApplyTrainingFavourite = useCallback(
+    (favourite) => {
+      const sanitized = sanitizeTrainingSession({
+        ...favourite,
+        date: getTodayDateString(),
+      });
+      if (!sanitized) {
+        return;
+      }
+
+      const effortType = sanitized.effortType ?? 'intensity';
+      const durationMinutes = Number(sanitized.duration);
+      const durationHours = Number.isFinite(durationMinutes)
+        ? Math.round((durationMinutes / 60) * 10) / 10
+        : userData.trainingDuration;
+
+      setTrainingDraft({
+        date: getTodayDateString(),
+        type: sanitized.type,
+        durationHours,
+        effortType,
+        intensity: sanitized.intensity ?? DEFAULT_TRAINING_INTENSITY,
+        startTime: normalizeTimeOfDay(
+          sanitized?.startTime,
+          getCurrentLocalTimeString()
+        ),
+        averageHeartRate:
+          effortType === 'heartRate' ? (sanitized.averageHeartRate ?? '') : '',
+      });
+
+      if (editingTrainingSessionId != null) {
+        updateTrainingSession(editingTrainingSessionId, sanitized);
+      } else {
+        addTrainingSession(sanitized);
+      }
+
+      handleUserDataChange('selectedTrainingType', sanitized.type);
+
+      trainingFavouritesModal.requestClose();
+      trainingModal.requestClose();
+    },
+    [
+      addTrainingSession,
+      editingTrainingSessionId,
+      handleUserDataChange,
+      trainingFavouritesModal,
+      trainingModal,
+      updateTrainingSession,
+      userData.trainingDuration,
+    ]
+  );
+
+  const handleCreateTrainingFavourite = useCallback(
+    (template) => {
+      const source = template ?? trainingDraft;
+      const effortType = source?.effortType ?? 'intensity';
+      setTrainingFavouriteDraft({
+        date: getTodayDateString(),
+        type: source?.type ?? userData.selectedTrainingType,
+        durationHours: Number.isFinite(Number(source?.durationHours))
+          ? Number(source.durationHours)
+          : userData.trainingDuration,
+        effortType,
+        intensity: source?.intensity ?? DEFAULT_TRAINING_INTENSITY,
+        startTime: normalizeTimeOfDay(
+          source?.startTime,
+          getCurrentLocalTimeString()
+        ),
+        averageHeartRate:
+          effortType === 'heartRate' ? (source?.averageHeartRate ?? '') : '',
+      });
+      trainingFavouriteEditorModal.open();
+    },
+    [
+      trainingDraft,
+      trainingFavouriteEditorModal,
+      userData.selectedTrainingType,
+      userData.trainingDuration,
+    ]
+  );
+
+  const handleRemoveTrainingFavourite = useCallback(
+    (id) => {
+      removeTrainingFavourite(id);
+    },
+    [removeTrainingFavourite]
+  );
 
   const openDurationPicker = useCallback(
     (initialValue, onConfirm, title = 'Training Duration') => {
@@ -3482,6 +3675,9 @@ export const EnergyMapCalculator = () => {
   const showFavouritesButton =
     cardioModalMode !== 'edit' && !cardioFavouriteEditorModal.isOpen;
 
+  const showTrainingFavouritesButton =
+    editingTrainingSessionId == null && !trainingFavouriteEditorModal.isOpen;
+
   if (!isLoaded) {
     return (
       <div
@@ -3659,9 +3855,9 @@ export const EnergyMapCalculator = () => {
                   weightButtonLabel={weightPrimaryActionLabel}
                   weightButtonSubtitle={weightButtonSubtitle}
                   onBmrClick={bmrModal.open}
-                  selectedDay={selectedDay}
                   onTrainingDayClick={handleTrainingDayClick}
-                  onRestDayClick={handleRestDayClick}
+                  onEditTrainingSession={handleEditTrainingSession}
+                  onRemoveTrainingSession={handleRemoveTrainingSession}
                   trainingCalories={trainingCalories}
                   trainingSessions={trainingSessions}
                   trainingTypes={trainingTypes}
@@ -3964,18 +4160,6 @@ export const EnergyMapCalculator = () => {
         />
       )}
 
-      <TrainingTypeEditorModal
-        isOpen={trainingTypeEditorModal.isOpen}
-        isClosing={trainingTypeEditorModal.isClosing}
-        typeKey={editingTrainingType}
-        name={tempPresetName}
-        calories={tempPresetCalories}
-        onNameChange={setTempPresetName}
-        onCaloriesChange={setTempPresetCalories}
-        onCancel={closeTrainingTypeEditor}
-        onSave={handleTrainingPresetSave}
-      />
-
       {(settingsModal.isOpen || settingsModal.isClosing) && (
         <Suspense fallback={null}>
           <SettingsModal
@@ -4061,21 +4245,25 @@ export const EnergyMapCalculator = () => {
             isClosing={trainingModal.isClosing}
             mode={trainingModalMode}
             trainingTypes={trainingTypes}
-            tempTrainingType={tempTrainingType}
-            tempTrainingDuration={tempTrainingDuration}
-            tempTrainingEffortType={tempTrainingEffortType}
-            tempTrainingIntensity={tempTrainingIntensity}
-            tempTrainingHeartRate={tempTrainingHeartRate}
-            tempTrainingStartTime={tempTrainingStartTime}
-            onTrainingTypeSelect={setTempTrainingType}
-            onEditTrainingType={openTrainingTypeEditor}
+            session={trainingDraft}
+            onChange={handleTrainingDraftChange}
+            onAddCustomTrainingType={handleAddCustomTrainingType}
+            onDeleteCustomTrainingType={handleDeleteCustomTrainingType}
             onDurationClick={() =>
-              openDurationPicker(tempTrainingDuration, setTempTrainingDuration)
+              openDurationPicker(trainingDraft?.durationHours, (nextHours) =>
+                setTrainingDraft((prev) => ({
+                  ...prev,
+                  durationHours: nextHours,
+                }))
+              )
             }
-            onEffortTypeChange={handleTrainingEffortTypeChange}
-            onIntensityChange={handleTrainingIntensityChange}
-            onHeartRateChange={handleTrainingHeartRateChange}
             onStartTimePickerClick={openTrainingStartTimePicker}
+            onOpenFavourites={handleOpenTrainingFavourites}
+            showFavouritesButton={showTrainingFavouritesButton}
+            isEditing={editingTrainingSessionId != null}
+            userWeight={userData.weight}
+            userAge={userData.age}
+            userGender={userData.gender}
             onCancel={trainingModal.requestClose}
             onSave={handleTrainingSave}
           />
@@ -4150,6 +4338,53 @@ export const EnergyMapCalculator = () => {
             showFavouritesButton={false}
             mode="favourite"
             isEditing={false}
+          />
+        </Suspense>
+      )}
+
+      <TrainingFavouritesModal
+        isOpen={trainingFavouritesModal.isOpen}
+        isClosing={trainingFavouritesModal.isClosing}
+        favourites={trainingFavourites}
+        trainingTypes={trainingTypes}
+        currentSession={trainingDraft}
+        onSelectFavourite={handleApplyTrainingFavourite}
+        onCreateFavourite={handleCreateTrainingFavourite}
+        onDeleteFavourite={handleRemoveTrainingFavourite}
+        onClose={trainingFavouritesModal.requestClose}
+        calculateTrainingCalories={calculateTrainingSessionCalories}
+      />
+
+      {(trainingFavouriteEditorModal.isOpen ||
+        trainingFavouriteEditorModal.isClosing) && (
+        <Suspense fallback={null}>
+          <TrainingModal
+            isOpen={trainingFavouriteEditorModal.isOpen}
+            isClosing={trainingFavouriteEditorModal.isClosing}
+            mode="favourite"
+            trainingTypes={trainingTypes}
+            session={trainingFavouriteDraft}
+            onChange={handleTrainingFavouriteDraftChange}
+            onAddCustomTrainingType={handleAddCustomTrainingType}
+            onDeleteCustomTrainingType={handleDeleteCustomTrainingType}
+            onDurationClick={() =>
+              openDurationPicker(
+                trainingFavouriteDraft?.durationHours,
+                (nextHours) =>
+                  setTrainingFavouriteDraft((prev) => ({
+                    ...prev,
+                    durationHours: nextHours,
+                  }))
+              )
+            }
+            onStartTimePickerClick={openFavouriteTrainingStartTimePicker}
+            showFavouritesButton={false}
+            isEditing={false}
+            userWeight={userData.weight}
+            userAge={userData.age}
+            userGender={userData.gender}
+            onCancel={trainingFavouriteEditorModal.requestClose}
+            onSave={handleTrainingFavouriteSave}
           />
         </Suspense>
       )}

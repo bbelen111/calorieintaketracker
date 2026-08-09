@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
-import { Save, Edit3, ChevronsUpDown } from 'lucide-react';
+import { Save, Star, ChevronsUpDown } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import {
   formatTimeOfDay12Hour,
@@ -13,69 +13,98 @@ import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { HeartRatePickerModal } from '../pickers/HeartRatePickerModal';
+import { TrainingTypeListModal } from '../lists/TrainingTypeListModal';
+import { TrainingTypeEditorModal } from './TrainingTypeEditorModal';
+import { getDefaultEnergyMapData } from '../../../../utils/data/storage';
+
+const DEFAULT_TRAINING_TYPE_CATALOG =
+  getDefaultEnergyMapData().trainingType ?? {};
+const FALLBACK_TRAINING_TYPE = 'trainingtype_1';
 
 export const TrainingModal = ({
   isOpen,
   isClosing,
   mode = 'session',
   trainingTypes,
-  tempTrainingType,
-  tempTrainingDuration,
-  tempTrainingEffortType,
-  tempTrainingIntensity,
-  tempTrainingHeartRate,
-  tempTrainingStartTime,
-  onTrainingTypeSelect,
-  onEditTrainingType,
-  onDurationClick,
-  onEffortTypeChange,
-  onIntensityChange,
-  onHeartRateChange,
+  customTrainingTypes,
+  session,
+  onChange,
+  onAddCustomTrainingType,
+  onDeleteCustomTrainingType,
   onStartTimePickerClick,
+  onDurationClick,
+  onOpenFavourites,
+  showFavouritesButton = false,
   userWeight,
   userAge,
   userGender,
+  isEditing: isEditingProp,
   onCancel,
   onSave,
 }) => {
   const store = useEnergyMapStore(
     (state) => ({
       trainingTypes: state.trainingTypes ?? {},
+      trainingTypeOverrides: state.userData?.trainingType,
       userData: state.userData,
     }),
     shallow
   );
   const resolvedTrainingTypes = trainingTypes ?? store.trainingTypes;
-  const effortType = tempTrainingEffortType ?? 'intensity';
-  const intensityValue = tempTrainingIntensity ?? 'moderate';
+  const resolvedCustomTrainingTypes = useMemo(() => {
+    // Only non-preset overrides count as user-created training types.
+    const raw = customTrainingTypes ?? store.trainingTypeOverrides;
+    if (!raw || typeof raw !== 'object') {
+      return {};
+    }
+
+    return Object.entries(raw).reduce((acc, [key, entry]) => {
+      if (!DEFAULT_TRAINING_TYPE_CATALOG[key]) {
+        acc[key] = entry;
+      }
+      return acc;
+    }, {});
+  }, [customTrainingTypes, store.trainingTypeOverrides]);
+  const effortType = session?.effortType ?? 'intensity';
+  const intensityValue = session?.intensity ?? 'moderate';
   const heartRateValue =
-    tempTrainingHeartRate === '' || tempTrainingHeartRate == null
+    session?.averageHeartRate === '' || session?.averageHeartRate == null
       ? ''
-      : tempTrainingHeartRate;
+      : session?.averageHeartRate;
 
   const resolvedUserWeight = userWeight ?? store.userData?.weight;
   const resolvedUserAge = userAge ?? store.userData?.age;
   const resolvedUserGender = userGender ?? store.userData?.gender;
   const epocEnabled = store.userData?.epocEnabled ?? true;
+  const isFavouriteMode = mode === 'favourite';
+  const isEditing = Boolean(isEditingProp ?? session?.id != null);
+  const headerTitle = isFavouriteMode
+    ? 'Add Favourite Training Session'
+    : isEditing
+      ? 'Edit Training Session'
+      : 'Add Training Session';
+  const saveLabel = isFavouriteMode ? 'Save Favourite' : 'Save';
+  const overlayClassName = isFavouriteMode ? 'z-[80]' : '';
 
   const pseudoTrainingSession = useMemo(() => {
-    const durationMinutes = Number.isFinite(Number(tempTrainingDuration))
-      ? Math.round(Number(tempTrainingDuration) * 60)
+    const durationHours = Number(session?.durationHours);
+    const durationMinutes = Number.isFinite(durationHours)
+      ? Math.round(durationHours * 60)
       : 0;
 
     return {
-      type: tempTrainingType,
+      type: session?.type,
       duration: durationMinutes,
       effortType,
       intensity: intensityValue,
-      averageHeartRate: effortType === 'heartRate' ? tempTrainingHeartRate : '',
+      averageHeartRate: effortType === 'heartRate' ? heartRateValue : '',
     };
   }, [
-    tempTrainingType,
-    tempTrainingDuration,
+    session?.type,
+    session?.durationHours,
     effortType,
+    heartRateValue,
     intensityValue,
-    tempTrainingHeartRate,
   ]);
 
   const estimatedBurn = useMemo(
@@ -102,7 +131,7 @@ export const TrainingModal = ({
     const epoc = resolveTrainingSessionEpoc({
       session: pseudoTrainingSession,
       exerciseCalories: estimatedBurn,
-      trainingType: resolvedTrainingTypes?.[tempTrainingType],
+      trainingType: resolvedTrainingTypes?.[session?.type],
       userData: {
         age: resolvedUserAge,
         epocCarryoverHours: store.userData?.epocCarryoverHours,
@@ -114,36 +143,44 @@ export const TrainingModal = ({
     pseudoTrainingSession,
     estimatedBurn,
     resolvedTrainingTypes,
-    tempTrainingType,
+    session?.type,
     resolvedUserAge,
     store.userData?.epocCarryoverHours,
   ]);
 
-  const formattedDuration = formatDurationLabel(tempTrainingDuration);
+  const formattedDuration = formatDurationLabel(session?.durationHours);
   const normalizedStartTime = useMemo(
-    () => normalizeTimeOfDay(tempTrainingStartTime, '12:00'),
-    [tempTrainingStartTime]
+    () => normalizeTimeOfDay(session?.startTime, '12:00'),
+    [session?.startTime]
   );
   const formattedStartTime12h = useMemo(
     () => formatTimeOfDay12Hour(normalizedStartTime, '12:00 PM'),
     [normalizedStartTime]
   );
   const roundedDuration = useMemo(
-    () => roundDurationHours(tempTrainingDuration),
-    [tempTrainingDuration]
+    () => roundDurationHours(session?.durationHours),
+    [session?.durationHours]
   );
 
+  const hasValidDuration =
+    Number.isFinite(Number(session?.durationHours)) &&
+    Number(session?.durationHours) > 0;
   const hasValidHeartRate =
     effortType === 'heartRate'
-      ? Number.isFinite(Number(tempTrainingHeartRate)) &&
-        Number(tempTrainingHeartRate) > 0
+      ? Number.isFinite(Number(heartRateValue)) && Number(heartRateValue) > 0
       : true;
-  const hasValidStartTime =
-    mode !== 'session' ||
-    /^([01]\d|2[0-3]):([0-5]\d)$/.test(
-      String(tempTrainingStartTime ?? '').trim()
-    );
-  const canSave = hasValidHeartRate && hasValidStartTime;
+  const hasValidStartTime = /^([01]\d|2[0-3]):([0-5]\d)$/.test(
+    String(session?.startTime ?? '').trim()
+  );
+  const canSave = hasValidDuration && hasValidHeartRate && hasValidStartTime;
+
+  const selectedTraining = resolvedTrainingTypes?.[session?.type] ?? null;
+  const selectedCalories = Number(selectedTraining?.caloriesPerHour);
+  const selectedCaloriesSummary = selectedTraining
+    ? Number.isFinite(selectedCalories)
+      ? `${Math.round(selectedCalories)} kcal/hr`
+      : '-- kcal/hr'
+    : 'Browse the full training library to find the best match.';
 
   const effortButtonClass = (type) =>
     `w-full rounded-lg border px-3 py-1.5 text-sm transition-all focus-ring pressable-inline ${
@@ -160,25 +197,96 @@ export const TrainingModal = ({
     }`;
 
   const {
+    isOpen: isTypePickerOpen,
+    isClosing: isTypePickerClosing,
+    open: openTypePicker,
+    requestClose: requestTypePickerClose,
+    forceClose: forceTypePickerClose,
+  } = useAnimatedModal(false);
+  const {
+    isOpen: isCustomModalOpen,
+    isClosing: isCustomModalClosing,
+    open: openCustomModal,
+    requestClose: requestCustomModalClose,
+    forceClose: forceCustomModalClose,
+  } = useAnimatedModal(false);
+  const {
     isOpen: isHeartRatePickerOpen,
     isClosing: isHeartRatePickerClosing,
     open: openHeartRatePicker,
     requestClose: requestHeartRatePickerClose,
     forceClose: forceHeartRatePickerClose,
   } = useAnimatedModal(false);
+  const [customName, setCustomName] = React.useState('');
+  const [customCalories, setCustomCalories] = React.useState('');
+  const resetCustomState = React.useCallback(() => {
+    setCustomName('');
+    setCustomCalories('');
+  }, []);
 
   useEffect(() => {
     if (!isOpen) {
+      forceTypePickerClose();
+      forceCustomModalClose();
       forceHeartRatePickerClose();
     }
-  }, [forceHeartRatePickerClose, isOpen]);
+  }, [
+    forceCustomModalClose,
+    forceHeartRatePickerClose,
+    forceTypePickerClose,
+    isOpen,
+  ]);
+
+  useEffect(() => {
+    if (!isCustomModalOpen && !isCustomModalClosing) {
+      const timeout = setTimeout(() => {
+        resetCustomState();
+      }, 0);
+      return () => clearTimeout(timeout);
+    }
+  }, [isCustomModalClosing, isCustomModalOpen, resetCustomState]);
+
+  const handleTrainingTypeSelect = (typeKey) => {
+    onChange({ ...session, type: typeKey });
+    requestTypePickerClose();
+  };
+
+  const handleEffortTypeChange = (nextType) => {
+    if (nextType === effortType) {
+      return;
+    }
+
+    if (nextType === 'heartRate') {
+      onChange({
+        ...session,
+        effortType: 'heartRate',
+        averageHeartRate: session?.averageHeartRate ?? '',
+      });
+      return;
+    }
+
+    onChange({
+      ...session,
+      effortType: 'intensity',
+      intensity: session?.intensity ?? 'moderate',
+      averageHeartRate: '',
+    });
+  };
+
+  const handleIntensityChange = (nextIntensity) => {
+    if (nextIntensity === intensityValue) {
+      return;
+    }
+
+    onChange({ ...session, intensity: nextIntensity });
+  };
 
   const handleHeartRatePickerSave = useCallback(
     (bpm) => {
-      onHeartRateChange({ target: { value: String(bpm) } });
+      onChange({ ...session, averageHeartRate: bpm });
       requestHeartRatePickerClose();
     },
-    [onHeartRateChange, requestHeartRatePickerClose]
+    [onChange, requestHeartRatePickerClose, session]
   );
 
   const formattedHeartRate = useMemo(() => {
@@ -189,60 +297,96 @@ export const TrainingModal = ({
     return `${numeric} bpm`;
   }, [heartRateValue]);
 
+  const handleOpenCustomTrainingModal = () => {
+    resetCustomState();
+    openCustomModal();
+  };
+
+  const customModalCanSave =
+    Boolean(customName.trim()) &&
+    Number.isFinite(Number(customCalories)) &&
+    Number(customCalories) > 0;
+
+  const handleCustomTrainingSave = () => {
+    if (!customModalCanSave || !onAddCustomTrainingType) {
+      return;
+    }
+
+    const newKey = onAddCustomTrainingType({
+      name: customName,
+      calories: Number(customCalories),
+    });
+
+    if (newKey) {
+      handleTrainingTypeSelect(newKey);
+    }
+
+    requestCustomModalClose();
+  };
+
+  const handleCustomTrainingCancel = () => {
+    requestCustomModalClose();
+  };
+
+  const handleDeleteCustomTrainingType = (typeKey) => {
+    if (!onDeleteCustomTrainingType) {
+      return;
+    }
+
+    onDeleteCustomTrainingType(typeKey);
+
+    if (session?.type === typeKey) {
+      onChange({ ...session, type: FALLBACK_TRAINING_TYPE });
+    }
+  };
+
   return (
     <>
       <ModalShell
         isOpen={isOpen}
         isClosing={isClosing}
         contentClassName="p-6 w-full max-w-md"
+        overlayClassName={overlayClassName}
       >
-        <h3 className="text-foreground font-bold text-xl mb-4 text-left">
-          Training Settings
-        </h3>
+        <div className="flex items-center justify-between mb-4 gap-3">
+          <h3 className="text-foreground font-bold text-xl">{headerTitle}</h3>
+          {showFavouritesButton && typeof onOpenFavourites === 'function' && (
+            <button
+              type="button"
+              onClick={onOpenFavourites}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-highlight px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-foreground transition-colors press-feedback focus-ring md:hover:border-accent-amber"
+            >
+              <Star size={14} />
+              Favourites
+            </button>
+          )}
+        </div>
 
-        <div className="space-y-6">
+        <div className="space-y-4">
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-foreground text-sm">Training Type</label>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {Object.entries(resolvedTrainingTypes).map(([key, type]) => {
-                const isActive = tempTrainingType === key;
-
-                return (
-                  <button
-                    key={key}
-                    onClick={() => {
-                      onTrainingTypeSelect(key);
-                    }}
-                    type="button"
-                    className={`p-3 rounded-lg border-2 transition-all text-sm relative text-left focus-ring pressable ${
-                      isActive
-                        ? 'bg-primary border-primary text-primary-foreground'
-                        : 'bg-surface-highlight border-border text-muted active:bg-surface-highlight/80 md:hover:border-accent-blue'
-                    }`}
-                  >
-                    <span
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onEditTrainingType(key);
-                      }}
-                      className="absolute top-2 right-2 w-8 h-8 rounded-full bg-primary-foreground/10 md:hover:bg-primary-foreground/20 transition-colors flex items-center justify-center cursor-pointer"
-                    >
-                      <Edit3 size={12} />
-                    </span>
-                    <div className="pr-10 space-y-1">
-                      <div className="font-bold text-base leading-tight">
-                        {type.label}
-                      </div>
-                      <div className="text-xs opacity-75 leading-tight">
-                        {type.caloriesPerHour} kcal/hr
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+            <label className="text-foreground text-sm block mb-2">
+              Training Type
+            </label>
+            <button
+              type="button"
+              onClick={() => openTypePicker()}
+              className="w-full px-3 py-2 rounded-lg border-2 bg-primary border-primary text-primary-foreground transition-all press-feedback focus-ring flex items-start justify-between gap-3"
+            >
+              <span className="flex min-w-0 flex-1 flex-col text-left">
+                <span className="font-semibold text-sm md:text-base truncate">
+                  {selectedTraining?.label ?? 'Select Training Type'}
+                </span>
+                <span
+                  className="text-[11px] md:text-xs opacity-90 truncate whitespace-nowrap leading-tight"
+                  title={selectedCaloriesSummary}
+                >
+                  {selectedCaloriesSummary}
+                </span>
+              </span>
+              <span className="text-[11px] opacity-75 whitespace-nowrap">
+                Tap to change
+              </span>
+            </button>
           </div>
 
           <div>
@@ -289,7 +433,6 @@ export const TrainingModal = ({
               <span className="text-[11px] opacity-75">Tap to change</span>
             </button>
           </div>
-
           <div>
             <label className="text-foreground text-sm block mb-2">
               Effort Tracking
@@ -298,14 +441,14 @@ export const TrainingModal = ({
               <button
                 type="button"
                 className={effortButtonClass('intensity')}
-                onClick={() => onEffortTypeChange('intensity')}
+                onClick={() => handleEffortTypeChange('intensity')}
               >
                 Intensity
               </button>
               <button
                 type="button"
                 className={effortButtonClass('heartRate')}
-                onClick={() => onEffortTypeChange('heartRate')}
+                onClick={() => handleEffortTypeChange('heartRate')}
               >
                 Average Heart Rate
               </button>
@@ -325,21 +468,21 @@ export const TrainingModal = ({
                 <button
                   type="button"
                   className={intensityButtonClass('light')}
-                  onClick={() => onIntensityChange('light')}
+                  onClick={() => handleIntensityChange('light')}
                 >
                   Light
                 </button>
                 <button
                   type="button"
                   className={intensityButtonClass('moderate')}
-                  onClick={() => onIntensityChange('moderate')}
+                  onClick={() => handleIntensityChange('moderate')}
                 >
                   Moderate
                 </button>
                 <button
                   type="button"
                   className={intensityButtonClass('vigorous')}
-                  onClick={() => onIntensityChange('vigorous')}
+                  onClick={() => handleIntensityChange('vigorous')}
                 >
                   Vigorous
                 </button>
@@ -404,10 +547,34 @@ export const TrainingModal = ({
             }`}
           >
             <Save size={20} />
-            Save
+            {saveLabel}
           </button>
         </div>
       </ModalShell>
+
+      <TrainingTypeListModal
+        isOpen={isTypePickerOpen}
+        isClosing={isTypePickerClosing}
+        trainingTypes={resolvedTrainingTypes}
+        customTrainingTypes={resolvedCustomTrainingTypes}
+        selectedType={session?.type}
+        onSelect={handleTrainingTypeSelect}
+        onClose={requestTypePickerClose}
+        onCreateCustomTrainingType={handleOpenCustomTrainingModal}
+        onDeleteCustomTrainingType={handleDeleteCustomTrainingType}
+      />
+
+      <TrainingTypeEditorModal
+        isOpen={isCustomModalOpen}
+        isClosing={isCustomModalClosing}
+        name={customName}
+        calories={customCalories}
+        onNameChange={setCustomName}
+        onCaloriesChange={setCustomCalories}
+        onCancel={handleCustomTrainingCancel}
+        onSave={handleCustomTrainingSave}
+        canSave={customModalCanSave}
+      />
 
       <HeartRatePickerModal
         isOpen={isHeartRatePickerOpen}

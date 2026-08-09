@@ -1,41 +1,25 @@
 import React from 'react';
 import { Save, ChevronsUpDown } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
-import { getDefaultEnergyMapData } from '../../../../utils/data/storage';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { CaloriesPerHourGuideModal } from '../info/CaloriesPerHourGuideModal';
 import { CaloriesPerHourPickerModal } from '../pickers/CaloriesPerHourPickerModal';
 
-const defaultTrainingTypeCatalog = getDefaultEnergyMapData().trainingType ?? {};
-
-const getDefaultValuesForType = (typeKey) => {
-  if (!typeKey) return { label: '', caloriesPerHour: 0 };
-  return (
-    defaultTrainingTypeCatalog[typeKey] ?? {
-      label: typeKey,
-      caloriesPerHour: 0,
-    }
-  );
-};
-
 export const TrainingTypeEditorModal = ({
   isOpen,
   isClosing,
-  typeKey,
   name,
   calories,
   onNameChange,
   onCaloriesChange,
   onCancel,
   onSave,
+  canSave,
 }) => {
-  const defaults = getDefaultValuesForType(typeKey);
-  const safeName = name ?? '';
-  const safeCalories = Number.isFinite(Number(calories))
-    ? calories
-    : defaults.caloriesPerHour;
   const infoModal = useAnimatedModal(false, 220);
   const caloriesPickerModal = useAnimatedModal(false, 220);
+
+  const safeCalories = Number.isFinite(Number(calories)) ? Number(calories) : 0;
 
   const formattedCalories = Number.isFinite(Number(safeCalories))
     ? `${Math.round(Number(safeCalories)).toLocaleString()} kcal/hr`
@@ -56,23 +40,25 @@ export const TrainingTypeEditorModal = ({
       contentClassName="p-6 w-full max-w-md"
     >
       <h3 className="text-foreground font-bold text-xl mb-4 text-center">
-        Edit Training Type
+        Create Custom Training
       </h3>
 
       <div className="space-y-4">
         <div>
-          <label className="text-muted text-sm block mb-2">Training Name</label>
+          <label className="text-foreground text-sm block mb-2">
+            Training Name
+          </label>
           <input
             type="text"
-            value={safeName}
+            value={name}
             onChange={(event) => onNameChange(event.target.value)}
-            placeholder={defaults.label}
-            className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border focus:border-accent-blue focus:outline-none text-base"
+            placeholder="e.g., Olympic Lifting"
+            className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border focus:border-accent-blue focus:outline-none focus-ring text-base"
           />
         </div>
 
         <div>
-          <label className="text-muted text-sm block mb-2">
+          <label className="text-foreground text-sm block mb-2">
             Calories Per Hour
           </label>
           <button
@@ -105,12 +91,18 @@ export const TrainingTypeEditorModal = ({
         <button
           onClick={onSave}
           type="button"
-          className="flex-1 bg-primary active:brightness-110 text-primary-foreground px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback"
+          disabled={!canSave}
+          className={`flex-1 text-primary-foreground px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback ${
+            canSave
+              ? 'bg-primary active:brightness-110'
+              : 'bg-primary/60 cursor-not-allowed opacity-70'
+          }`}
         >
           <Save size={20} />
           Save
         </button>
       </div>
+
       <CaloriesPerHourGuideModal
         isOpen={infoModal.isOpen}
         isClosing={infoModal.isClosing}

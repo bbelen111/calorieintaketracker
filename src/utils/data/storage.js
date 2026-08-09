@@ -1129,12 +1129,14 @@ export const getDefaultEnergyMapData = () => ({
   trainingSessions: [],
   lastSelectedCardioType: 'treadmill_walk',
   cardioFavourites: [],
+  trainingFavourites: [],
   foodFavourites: [],
   customCardioTypes: {},
   nutritionData: {},
   pinnedFoods: [],
   pinnedCalorieTargets: [],
   pinnedCardioTypes: [],
+  pinnedTrainingTypes: [],
   cachedFoods: [], // Foods fetched from online APIs (USDA, OpenFoodFacts barcode, etc.)
   dailySnapshots: {}, // { 'YYYY-MM-DD': { date, tdee, intake, deficit, stepCount, ... } }
   // nutritionData structure: { 'YYYY-MM-DD': { mealType: [{ id, name, calories, protein, carbs, fats, timestamp }] } }

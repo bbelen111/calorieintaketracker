@@ -6,6 +6,7 @@ import {
   calculateCalorieBreakdown,
   calculateCardioCalories,
   calculateGoalCalories,
+  calculateTrainingSessionCalories,
   getTotalCardioBurnForDate,
   getTotalTrainingBurnForDate,
 } from '../utils/calculations/calculations';
@@ -429,11 +430,13 @@ const deriveState = (userData) => {
     goalDurationDays: getGoalDurationDays(goalChangedAt),
     customCardioTypes: userData.customCardioTypes ?? {},
     cardioFavourites: userData.cardioFavourites ?? [],
+    trainingFavourites: userData.trainingFavourites ?? [],
     foodFavourites: userData.foodFavourites ?? [],
     nutritionData: userData.nutritionData ?? {},
     pinnedFoods: userData.pinnedFoods ?? [],
     pinnedCalorieTargets: userData.pinnedCalorieTargets ?? [],
     pinnedCardioTypes: userData.pinnedCardioTypes ?? [],
+    pinnedTrainingTypes: userData.pinnedTrainingTypes ?? [],
     cachedFoods: userData.cachedFoods ?? [],
     dailySnapshots: userData.dailySnapshots ?? {},
     phases: phaseView.phases,
@@ -618,6 +621,19 @@ export const useEnergyMapStore = createWithEqualityFn(
       }));
     },
 
+    addTrainingFavourite: (session) => {
+      updateUserData(set, get, (prev) => ({
+        ...prev,
+        trainingFavourites: [
+          ...(prev.trainingFavourites ?? []),
+          {
+            ...session,
+            id: Date.now(),
+          },
+        ],
+      }));
+    },
+
     updateCardioSession: (id, updates) => {
       if (id == null) {
         return;
@@ -768,6 +784,15 @@ export const useEnergyMapStore = createWithEqualityFn(
       }));
     },
 
+    removeTrainingFavourite: (id) => {
+      updateUserData(set, get, (prev) => ({
+        ...prev,
+        trainingFavourites: (prev.trainingFavourites ?? []).filter(
+          (session) => session.id !== id
+        ),
+      }));
+    },
+
     updateTrainingType: (key, { name, calories }) => {
       updateUserData(set, get, (prev) => {
         const numericCalories = Number(calories);
@@ -842,6 +867,28 @@ export const useEnergyMapStore = createWithEqualityFn(
       });
     },
 
+    removeTrainingType: (key) => {
+      if (!key) return;
+      updateUserData(set, get, (prev) => {
+        const nextOverrides = { ...(prev.trainingType ?? {}) };
+        if (!Object.prototype.hasOwnProperty.call(nextOverrides, key)) {
+          return prev;
+        }
+        delete nextOverrides[key];
+
+        const fallbackType = 'trainingtype_1';
+        const nextSessions = (prev.trainingSessions ?? []).map((session) =>
+          session.type === key ? { ...session, type: fallbackType } : session
+        );
+
+        return {
+          ...prev,
+          trainingType: nextOverrides,
+          trainingSessions: nextSessions,
+        };
+      });
+    },
+
     calculateBreakdown: (steps, isTrainingDay, options = {}) => {
       const { userData, bmr, cardioTypes, trainingTypes } = get();
       return calculateCalorieBreakdown({
@@ -912,6 +959,11 @@ export const useEnergyMapStore = createWithEqualityFn(
     calculateCardioSessionCalories: (session) => {
       const { userData, cardioTypes } = get();
       return calculateCardioCalories(session, userData, cardioTypes);
+    },
+
+    calculateTrainingSessionCalories: (session) => {
+      const { userData, trainingTypes } = get();
+      return calculateTrainingSessionCalories(session, userData, trainingTypes);
     },
 
     upsertDailySnapshot: (dateKey, options = {}) => {
@@ -1616,6 +1668,18 @@ export const useEnergyMapStore = createWithEqualityFn(
       updateUserData(set, get, (prev) => ({
         ...prev,
         pinnedCardioTypes: togglePinnedValue(prev.pinnedCardioTypes, typeKey),
+      }));
+    },
+
+    togglePinnedTrainingType: (typeKey) => {
+      if (!typeKey) return;
+
+      updateUserData(set, get, (prev) => ({
+        ...prev,
+        pinnedTrainingTypes: togglePinnedValue(
+          prev.pinnedTrainingTypes,
+          typeKey
+        ),
       }));
     },
 

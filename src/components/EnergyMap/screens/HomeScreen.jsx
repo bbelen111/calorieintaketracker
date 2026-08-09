@@ -7,7 +7,6 @@ import {
   Info,
   Dumbbell,
   Target,
-  Calendar,
   Heart,
   Plus,
   Trash2,
@@ -44,9 +43,9 @@ export const HomeScreen = ({
   weightDisplay,
   bodyFatDisplay,
   onBmrClick,
-  selectedDay,
   onTrainingDayClick,
-  onRestDayClick,
+  onEditTrainingSession,
+  onRemoveTrainingSession,
   trainingCalories,
   trainingSessions,
   trainingTypes,
@@ -253,6 +252,131 @@ export const HomeScreen = ({
     </button>
   );
 
+  const resolvedHasTrainingSessions = resolvedTodayTrainingSessions.length > 0;
+
+  const trainingHeaderContent = (
+    <>
+      <div className="flex items-center gap-2">
+        <Dumbbell className="text-accent-blue" size={24} />
+        <h2 className="text-xl font-bold text-foreground">Training Sessions</h2>
+      </div>
+      <button
+        onClick={onTrainingDayClick}
+        type="button"
+        className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 transition-all press-feedback focus-ring md:hover:brightness-110"
+      >
+        <Plus size={20} />
+        Add
+      </button>
+    </>
+  );
+
+  const trainingListContent = (
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+        {resolvedTodayTrainingSessions.map((session) => {
+          const trainingType = resolvedTrainingTypes[session.type];
+          const label = trainingType?.label ?? 'Unknown training type';
+          const durationValue = Number.isFinite(Number(session.duration))
+            ? Number(session.duration)
+            : 0;
+          const calories = calculateTrainingSessionCalories(
+            session,
+            resolvedUserData,
+            resolvedTrainingTypes
+          );
+          const sessionEpoc = epocEnabled
+            ? resolveTrainingSessionEpoc({
+                session,
+                exerciseCalories: calories,
+                trainingType: resolvedTrainingTypes?.[session?.type],
+                userData: resolvedUserData,
+              })
+            : null;
+          const epocCalories = Number(sessionEpoc?.totalCalories) || 0;
+          const effortType = session.effortType ?? 'intensity';
+          const heartRate = Number(session.averageHeartRate);
+          const hasHeartRate = Number.isFinite(heartRate) && heartRate > 0;
+          const intensityLabel = session.intensity
+            ? `${session.intensity.charAt(0).toUpperCase()}${session.intensity.slice(1)}`
+            : 'Moderate';
+          const effortDisplay =
+            effortType === 'heartRate'
+              ? hasHeartRate
+                ? `${heartRate} bpm`
+                : 'N/A bpm'
+              : intensityLabel;
+          const showMissingTypeWarning = !trainingType;
+
+          return (
+            <div
+              key={session.id}
+              className="bg-surface-highlight/50 rounded-lg p-4 border border-border/50 flex justify-between items-start gap-4 shadow-lg shadow-background/20"
+            >
+              <div>
+                <p className="text-foreground font-semibold">{label}</p>
+                <p className="text-muted text-sm">
+                  {durationValue} min • {effortDisplay} • ~{calories} kcal
+                  {epocEnabled && ` + ~${Math.round(epocCalories)} EPOC`}
+                </p>
+                {showMissingTypeWarning && (
+                  <p className="text-accent-amber text-xs mt-1">
+                    Training type removed; consider replacing this session.
+                  </p>
+                )}
+              </div>
+              <div className="flex items-end gap-6 pt-1">
+                <button
+                  onClick={() => onEditTrainingSession?.(session.id)}
+                  type="button"
+                  className="text-foreground/80 transition-all active:scale-95 pressable-inline focus-ring md:hover:text-foreground md:hover:scale-110"
+                >
+                  <Edit3 size={22} />
+                </button>
+                <button
+                  onClick={() => onRemoveTrainingSession?.(session.id)}
+                  type="button"
+                  className="text-accent-red transition-all active:scale-95 pressable-inline focus-ring md:hover:text-accent-red md:hover:scale-110"
+                >
+                  <Trash2 size={22} />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="bg-accent-blue/30 border border-accent-blue rounded-lg p-3">
+        <p className="text-accent-blue font-semibold">
+          Total Training Burn: {resolvedTrainingCalories} calories
+          {epocEnabled && ` (+${Math.round(resolvedTrainingEpocTotal)} EPOC)`}
+        </p>
+      </div>
+    </>
+  );
+
+  const trainingEmptyContent = (
+    <button
+      onClick={onTrainingDayClick}
+      type="button"
+      className="w-full flex items-center justify-between p-4 rounded-xl transition-all group pressable-card focus-ring md:hover:bg-surface-highlight/50"
+    >
+      <div className="flex items-center gap-3">
+        <Dumbbell className="text-accent-blue" size={24} />
+        <div className="text-left">
+          <h2 className="text-lg font-bold text-foreground">
+            Add Training Session
+          </h2>
+          <p className="text-muted text-sm">Track your strength training</p>
+        </div>
+      </div>
+      <Plus
+        className="text-muted md:group-hover:text-primary transition-colors"
+        size={24}
+      />
+    </button>
+  );
+
   return (
     <div className="space-y-6 pb-10">
       <div className="bg-surface rounded-2xl p-6 md:p-8 border border-border shadow-lg">
@@ -371,62 +495,55 @@ export const HomeScreen = ({
       </div>
 
       <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
-        <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-          <Calendar className="text-accent-blue" size={18} />
-          Day Type
-        </h2>
-        <div className="grid grid-cols-2 gap-4">
-          <motion.button
-            onClick={onTrainingDayClick}
-            type="button"
-            className={`p-4 rounded-xl border-2 transition-all relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-purple/70 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
-              selectedDay === 'training'
-                ? 'bg-primary border-primary text-primary-foreground shadow-xl transform scale-105'
-                : 'bg-surface-highlight/50 border-border/50 text-foreground/90 md:hover:border-primary/70 md:hover:shadow-lg md:hover:scale-[1.03]'
-            }`}
-            transition={{ type: 'spring', stiffness: 260, damping: 24 }}
-          >
-            <Dumbbell className="mx-auto mb-2" size={28} />
-            <p className="font-bold text-lg">Training Day</p>
-            <p className="text-[11px] opacity-70 mt-1">
-              {resolvedTodayTrainingSessions.length > 0
-                ? epocEnabled
-                  ? `~${Math.round(resolvedTrainingCalories)} kcal + ${Math.round(resolvedTrainingEpocTotal)} EPOC`
-                  : `~${Math.round(resolvedTrainingCalories)} kcal`
-                : 'Tap to add session'}
-            </p>
-            <AnimatePresence initial={false}>
-              {selectedDay === 'training' && (
-                <motion.div
-                  key="training-adjust"
-                  initial={{ opacity: 0, height: 0, marginTop: 0 }}
-                  animate={{ opacity: 0.85, height: 'auto', marginTop: 8 }}
-                  exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                  transition={{ duration: 0.2, ease: 'easeOut' }}
-                  className="overflow-hidden"
-                >
-                  <p className="text-[11px] tracking-wide">
-                    Tap again to adjust
-                  </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.button>
-          <motion.button
-            onClick={onRestDayClick}
-            type="button"
-            className={`p-4 rounded-xl border-2 transition-all grid grid-rows-[auto_auto_auto] place-items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-indigo/70 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
-              selectedDay === 'rest'
-                ? 'bg-accent-indigo border-accent-indigo/70 text-primary-foreground shadow-lg transform scale-105'
-                : 'bg-surface-highlight/50 border-border/50 text-muted md:hover:border-muted'
-            }`}
-            transition={{ type: 'spring', stiffness: 260, damping: 24 }}
-          >
-            <Activity className="mb-2" size={28} />
-            <p className="font-bold text-lg">Rest Day</p>
-            <p className="text-xs md:text-sm opacity-80">No training</p>
-          </motion.button>
-        </div>
+        <AnimatePresence initial={false}>
+          {resolvedHasTrainingSessions && (
+            <motion.div
+              key="training-header"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{
+                height: { type: 'spring', stiffness: 400, damping: 30 },
+                opacity: { duration: 0.15 },
+              }}
+              className="overflow-hidden"
+            >
+              <div className="flex items-center justify-between mb-4">
+                {trainingHeaderContent}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence mode="wait" initial={false}>
+          {resolvedHasTrainingSessions ? (
+            <motion.div
+              key={`training-list-${todayDateKey}-${resolvedTodayTrainingSessions.length}`}
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{
+                scale: { type: 'spring', stiffness: 400, damping: 28 },
+                opacity: { duration: 0.15 },
+              }}
+            >
+              {trainingListContent}
+            </motion.div>
+          ) : (
+            <motion.div
+              key="training-empty"
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{
+                scale: { type: 'spring', stiffness: 400, damping: 28 },
+                opacity: { duration: 0.15 },
+              }}
+            >
+              {trainingEmptyContent}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
