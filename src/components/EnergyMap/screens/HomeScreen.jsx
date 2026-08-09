@@ -494,7 +494,7 @@ export const HomeScreen = ({
         </button>
       </div>
 
-      <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
+      <div className="bg-surface rounded-2xl px-6 py-5 border border-border shadow-lg">
         <AnimatePresence initial={false}>
           {resolvedHasTrainingSessions && (
             <motion.div
@@ -546,7 +546,7 @@ export const HomeScreen = ({
         </AnimatePresence>
       </div>
 
-      <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
+      <div className="bg-surface rounded-2xl px-6 py-5 border border-border shadow-lg">
         <AnimatePresence initial={false}>
           {resolvedHasCardioSessions && (
             <motion.div

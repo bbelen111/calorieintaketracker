@@ -651,7 +651,7 @@ export const InsightsScreen = ({
         </div>
       </div>
 
-      <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
+      <div className="bg-surface rounded-2xl py-6 px-4 border border-border shadow-lg">
         <button
           type="button"
           onClick={() => onOpenMacroPicker?.()}
