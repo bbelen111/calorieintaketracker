@@ -691,60 +691,6 @@ export const InsightsScreen = ({
           </div>
         </button>
       </div>
-      <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
-        <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-          <Lightbulb className="text-accent-blue" size={18} />
-          Tips
-        </h2>
-        <ul className="space-y-2 text-muted">
-          <li className="flex items-start gap-2">
-            <span className="text-accent-blue mt-1">•</span>
-            <span>
-              Track your steps daily to use the accurate calorie target
-            </span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-accent-blue mt-1">•</span>
-            <span>
-              On training days, fuel your sessions properly with higher carbs
-              pre-workout
-            </span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-accent-blue mt-1">•</span>
-            <span>
-              Cardio burns are calculated using MET values based on your weight
-            </span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-accent-blue mt-1">•</span>
-            <span>
-              Different training types burn calories at different rates - adjust
-              accordingly
-            </span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-accent-blue mt-1">•</span>
-            <span>
-              Weigh yourself weekly and adjust if progress stalls for 2+ weeks
-            </span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-accent-blue mt-1">•</span>
-            <span>
-              For lean bulk: aim for 0.25-0.5kg gain per week. For aggressive
-              bulk: 0.5-1kg per week
-            </span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-accent-blue mt-1">•</span>
-            <span>
-              For moderate cut: aim for 0.5kg loss per week. For aggressive cut:
-              0.75-1kg per week
-            </span>
-          </li>
-        </ul>
-      </div>
     </div>
   );
 };
