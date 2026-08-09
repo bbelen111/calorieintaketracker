@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useRef } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   Save,
   Beef,
@@ -24,8 +25,8 @@ import {
   normalizeMacroRecommendationSplit,
 } from '../../../../utils/calculations/macroRecommendations';
 
-const TRIANGLE_WIDTH = 320;
-const TRIANGLE_HEIGHT = 280;
+const TRIANGLE_WIDTH = 280;
+const TRIANGLE_HEIGHT = 240;
 
 const triangleGeometry = createMacroTriangleGeometry({
   width: TRIANGLE_WIDTH,
@@ -52,40 +53,30 @@ const MacroChip = ({
   canLock,
   onToggleLock,
 }) => {
-  const lockButton = (
+  const handleClick = useCallback(() => {
+    if (!canLock) return;
+    onToggleLock?.();
+  }, [canLock, onToggleLock]);
+
+  return (
     <button
       type="button"
-      onClick={(event) => {
-        event.stopPropagation();
-        onToggleLock?.();
-      }}
-      disabled={!isLocked && !canLock}
+      onClick={handleClick}
+      disabled={!canLock}
       title={
         isLocked
-          ? `${label} anchored at ${grams}g`
+          ? `${label} anchored at ${grams}g — click to unlock`
           : canLock
-            ? `Anchor ${label} at ${grams}g`
+            ? `Click to anchor ${label} at ${grams}g`
             : `Max ${MAX_MACRO_LOCKS} macros can be anchored`
       }
       aria-label={isLocked ? `Unlock ${label}` : `Lock ${label} at ${grams}g`}
-      className={`p-1 rounded-md transition-all pressable-inline focus-ring ${
-        isLocked
-          ? 'text-foreground bg-accent-blue/20'
-          : canLock
-            ? 'text-muted md:hover:text-foreground'
-            : 'text-muted/40 cursor-not-allowed'
-      }`}
-    >
-      {isLocked ? <Lock size={13} /> : <LockOpen size={13} />}
-    </button>
-  );
-
-  return (
-    <div
-      className={`rounded-xl border px-3 py-2.5 flex flex-col gap-1 transition-all ${
+      className={`rounded-xl border px-3 py-2.5 flex flex-col gap-1 transition-all text-left pressable-card focus-ring ${
         isLocked
           ? 'border-accent-blue/50 bg-accent-blue/10'
-          : 'border-border/50 bg-surface-highlight/50'
+          : canLock
+            ? 'border-border/50 bg-surface-highlight/50 md:hover:border-border'
+            : 'border-border/30 bg-surface-highlight/30 opacity-60'
       }`}
     >
       <div className="flex items-center justify-between">
@@ -95,13 +86,16 @@ const MacroChip = ({
             {label}
           </span>
         </div>
-        <div className="flex items-center gap-1">
-          {isLocked ? (
-            <span className="text-[9px] font-semibold text-accent-blue uppercase tracking-wide">
-              Anchored
-            </span>
-          ) : null}
-          {lockButton}
+        <div
+          className={`p-1 rounded-md transition-all ${
+            isLocked
+              ? 'text-foreground bg-accent-blue/20'
+              : canLock
+                ? 'text-muted md:hover:text-foreground'
+                : 'text-muted/40'
+          }`}
+        >
+          {isLocked ? <Lock size={13} /> : <LockOpen size={13} />}
         </div>
       </div>
       <div className="flex items-baseline gap-1">
@@ -113,13 +107,8 @@ const MacroChip = ({
       </div>
       <div className="flex items-baseline justify-between">
         <span className={`text-xs font-bold ${accentClass}`}>{pct}%</span>
-        {isLocked ? (
-          <span className="text-[9px] text-muted">stays fixed</span>
-        ) : (
-          <span className="text-[9px] text-muted">absorbs changes</span>
-        )}
       </div>
-    </div>
+    </button>
   );
 };
 
@@ -375,201 +364,230 @@ export const MacroPickerModal = ({
       contentClassName="p-4 md:p-6 w-full max-w-lg"
     >
       {/* Header */}
-      <div className="text-center mb-8">
+      <div className="text-center mb-6">
         <h3 className="text-foreground font-bold text-xl">Macro Split</h3>
-        <p className="text-muted text-xs mt-1 mb-2 tracking-wide">
+        <p className="text-muted text-xs mt-1 tracking-wide">
           {hasOneLock && sliderFirstMeta && sliderSecondMeta
-            ? `Drag to balance ${sliderFirstMeta.label} & ${sliderSecondMeta.label}`
+            ? `Balance ${sliderFirstMeta.label} & ${sliderSecondMeta.label}`
             : 'Drag the triangle to adjust your ratio'}
         </p>
-        <div className="flex items-center justify-center gap-2">
-          {lockedKeys.length > 0 ? (
-            <button
-              type="button"
-              onClick={handleClearLocks}
-              className="inline-flex items-center gap-1 text-[11px] font-medium text-accent-blue bg-accent-blue/10 px-2.5 py-1 rounded-full transition-all pressable-inline focus-ring"
-            >
-              <Unlock size={11} />
-              Clear anchors ({lockedKeys.length}/{MAX_MACRO_LOCKS})
-            </button>
-          ) : (
-            <span className="text-[11px] text-muted">
-              Tap the lock on a macro to anchor its grams
-            </span>
-          )}
-        </div>
       </div>
 
-      {!hasOneLock ? (
-        <div
-          ref={triangleRef}
-          className="relative mx-auto w-full max-w-[320px] touch-none select-none pb-8"
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerEnd}
-          onPointerCancel={handlePointerEnd}
+      <AnimatePresence mode="wait" layout>
+        <motion.div
+          layout
+          className="flex flex-col items-center justify-center h-[260px]"
         >
-          <svg
-            viewBox={`0 0 ${TRIANGLE_WIDTH} ${TRIANGLE_HEIGHT}`}
-            className="w-full h-auto overflow-visible"
-          >
-            {/* Triangle face */}
-            <polygon
-              points={`${pV.x},${pV.y} ${fV.x},${fV.y} ${cV.x},${cV.y}`}
-              fill="rgb(var(--surface-highlight))"
-              fillOpacity="0.4"
-              stroke="rgb(var(--border))"
-              strokeWidth="1.5"
-              strokeLinejoin="round"
-            />
+          {!hasOneLock ? (
+            <motion.div
+              key="triangle"
+              ref={triangleRef}
+              className="relative w-full max-w-[280px] touch-none select-none"
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerEnd}
+              onPointerCancel={handlePointerEnd}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15 }}
+            >
+              <svg
+                viewBox={`0 0 ${TRIANGLE_WIDTH} ${TRIANGLE_HEIGHT}`}
+                className="w-full h-auto overflow-visible"
+              >
+                {/* Triangle face */}
+                <polygon
+                  points={`${pV.x},${pV.y} ${fV.x},${fV.y} ${cV.x},${cV.y}`}
+                  fill="rgb(var(--surface-highlight))"
+                  fillOpacity="0.4"
+                  stroke="rgb(var(--border))"
+                  strokeWidth="1.5"
+                  strokeLinejoin="round"
+                />
 
-            {/* Guide lines from handle to each vertex */}
-            {[
-              { vx: pV.x, vy: pV.y, color: 'rgb(var(--accent-red))' },
-              { vx: fV.x, vy: fV.y, color: 'rgb(var(--accent-yellow))' },
-              { vx: cV.x, vy: cV.y, color: 'rgb(var(--accent-amber))' },
-            ].map(({ vx, vy, color }, i) => (
-              <line
-                key={i}
-                x1={markerPoint.x}
-                y1={markerPoint.y}
-                x2={vx}
-                y2={vy}
-                stroke={color}
-                strokeWidth="1"
-                strokeOpacity="0.3"
-                strokeDasharray="4 3"
+                {/* Guide lines from handle to each vertex */}
+                {[
+                  { vx: pV.x, vy: pV.y, color: 'rgb(var(--accent-red))' },
+                  { vx: fV.x, vy: fV.y, color: 'rgb(var(--accent-yellow))' },
+                  { vx: cV.x, vy: cV.y, color: 'rgb(var(--accent-amber))' },
+                ].map(({ vx, vy, color }, i) => (
+                  <line
+                    key={i}
+                    x1={markerPoint.x}
+                    y1={markerPoint.y}
+                    x2={vx}
+                    y2={vy}
+                    stroke={color}
+                    strokeWidth="1"
+                    strokeOpacity="0.3"
+                    strokeDasharray="4 3"
+                  />
+                ))}
+
+                {/* Vertex dots */}
+                <circle
+                  cx={pV.x}
+                  cy={pV.y}
+                  r="4"
+                  fill="rgb(var(--accent-red))"
+                  opacity="0.8"
+                />
+                <circle
+                  cx={fV.x}
+                  cy={fV.y}
+                  r="4"
+                  fill="rgb(var(--accent-yellow))"
+                  opacity="0.8"
+                />
+                <circle
+                  cx={cV.x}
+                  cy={cV.y}
+                  r="4"
+                  fill="rgb(var(--accent-amber))"
+                  opacity="0.8"
+                />
+
+                {/* Handle */}
+                <circle
+                  cx={markerPoint.x}
+                  cy={markerPoint.y}
+                  r={hasTwoLocks ? 6 : 7}
+                  fill="rgb(var(--accent-blue))"
+                  stroke={
+                    hasTwoLocks
+                      ? 'rgb(var(--surface))'
+                      : 'rgb(var(--accent-blue))'
+                  }
+                  strokeWidth={hasTwoLocks ? 2 : 1.5}
+                  strokeDasharray={hasTwoLocks ? '3 2' : undefined}
+                />
+              </svg>
+
+              {/* Vertex labels */}
+              <div className="pointer-events-none absolute left-1/2 -top-2 -translate-x-1/2 flex flex-col items-center">
+                <span className="text-[11px] font-semibold text-accent-red tracking-wider uppercase">
+                  Protein
+                </span>
+                <span className="text-[9px] text-accent-red/70 leading-tight">
+                  Recovery & Repair
+                </span>
+              </div>
+              <div className="pointer-events-none absolute -left-2 bottom-2 flex flex-col items-center">
+                <span className="text-[11px] font-semibold text-accent-yellow tracking-wider uppercase">
+                  Fats
+                </span>
+                <span className="text-[9px] text-accent-yellow/70 leading-tight">
+                  Hormonal Baseline
+                </span>
+              </div>
+              <div className="pointer-events-none absolute -right-2 bottom-2 flex flex-col items-center">
+                <span className="text-[11px] font-semibold text-accent-amber tracking-wider uppercase">
+                  Carbs
+                </span>
+                <span className="text-[9px] text-accent-amber/70 leading-tight">
+                  Performance Energy
+                </span>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="slider"
+              className="mx-auto w-full max-w-[320px] px-4"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15 }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex flex-col items-start">
+                  <span
+                    className={`text-xs font-semibold tracking-wider uppercase ${sliderFirstMeta.accentClass}`}
+                  >
+                    {sliderFirstMeta.label}
+                  </span>
+                  <span className="text-[10px] text-muted leading-tight">
+                    {sliderFirstGrams}g · {sliderFirstRatioPercent}%
+                  </span>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span
+                    className={`text-xs font-semibold tracking-wider uppercase ${sliderSecondMeta.accentClass}`}
+                  >
+                    {sliderSecondMeta.label}
+                  </span>
+                  <span className="text-[10px] text-muted leading-tight">
+                    {100 - sliderFirstRatioPercent}% · {sliderSecondGrams}g
+                  </span>
+                </div>
+              </div>
+              <input
+                type="range"
+                min={gramRange.min}
+                max={gramRange.max}
+                step={1}
+                value={sliderFirstGramsCurrent}
+                onChange={handleSliderChange}
+                aria-label={`Balance ${sliderFirstMeta.label} vs ${sliderSecondMeta.label}`}
+                style={{
+                  '--value': `${sliderPositionPercent}%`,
+                  background: `linear-gradient(to right, ${sliderFirstMeta.colorVar} 0%, ${sliderFirstMeta.colorVar} var(--value), ${sliderSecondMeta.colorVar} var(--value), ${sliderSecondMeta.colorVar} 100%)`,
+                }}
+                className="w-full cursor-pointer transition-all appearance-none h-3 rounded-lg"
               />
-            ))}
-
-            {/* Vertex dots */}
-            <circle
-              cx={pV.x}
-              cy={pV.y}
-              r="4"
-              fill="rgb(var(--accent-red))"
-              opacity="0.8"
-            />
-            <circle
-              cx={fV.x}
-              cy={fV.y}
-              r="4"
-              fill="rgb(var(--accent-yellow))"
-              opacity="0.8"
-            />
-            <circle
-              cx={cV.x}
-              cy={cV.y}
-              r="4"
-              fill="rgb(var(--accent-amber))"
-              opacity="0.8"
-            />
-
-            {/* Handle */}
-            <circle
-              cx={markerPoint.x}
-              cy={markerPoint.y}
-              r={hasTwoLocks ? 6 : 7}
-              fill="rgb(var(--accent-blue))"
-              stroke={
-                hasTwoLocks ? 'rgb(var(--surface))' : 'rgb(var(--accent-blue))'
-              }
-              strokeWidth={hasTwoLocks ? 2 : 1.5}
-              strokeDasharray={hasTwoLocks ? '3 2' : undefined}
-            />
-          </svg>
-
-          {/* Vertex labels */}
-          <div className="pointer-events-none absolute left-1/2 -top-2 -translate-x-1/2 flex flex-col items-center">
-            <span className="text-[11px] font-semibold text-accent-red tracking-wider uppercase">
-              Protein
-            </span>
-            <span className="text-[9px] text-accent-red/70 leading-tight">
-              Recovery & Repair
-            </span>
-          </div>
-          <div className="pointer-events-none absolute -left-2 bottom-2 flex flex-col items-center">
-            <span className="text-[11px] font-semibold text-accent-yellow tracking-wider uppercase">
-              Fats
-            </span>
-            <span className="text-[9px] text-accent-yellow/70 leading-tight">
-              Hormonal Baseline
-            </span>
-          </div>
-          <div className="pointer-events-none absolute -right-2 bottom-2 flex flex-col items-center">
-            <span className="text-[11px] font-semibold text-accent-amber tracking-wider uppercase">
-              Carbs
-            </span>
-            <span className="text-[9px] text-accent-amber/70 leading-tight">
-              Performance Energy
-            </span>
-          </div>
-        </div>
-      ) : (
-        <div className="mx-auto w-full max-w-[320px] px-2 pb-8">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex flex-col items-start">
-              <span
-                className={`text-[11px] font-semibold tracking-wider uppercase ${sliderFirstMeta.accentClass}`}
-              >
-                {sliderFirstMeta.label}
-              </span>
-              <span className="text-[9px] text-muted leading-tight">
-                {sliderFirstGrams}g · {sliderFirstRatioPercent}%
-              </span>
-            </div>
-            <div className="flex flex-col items-end">
-              <span
-                className={`text-[11px] font-semibold tracking-wider uppercase ${sliderSecondMeta.accentClass}`}
-              >
-                {sliderSecondMeta.label}
-              </span>
-              <span className="text-[9px] text-muted leading-tight">
-                {100 - sliderFirstRatioPercent}% · {sliderSecondGrams}g
-              </span>
-            </div>
-          </div>
-          <input
-            type="range"
-            min={gramRange.min}
-            max={gramRange.max}
-            step={1}
-            value={sliderFirstGramsCurrent}
-            onChange={handleSliderChange}
-            aria-label={`Balance ${sliderFirstMeta.label} vs ${sliderSecondMeta.label}`}
-            style={{
-              '--value': `${sliderPositionPercent}%`,
-              background: `linear-gradient(to right, ${sliderFirstMeta.colorVar} 0%, ${sliderFirstMeta.colorVar} var(--value), ${sliderSecondMeta.colorVar} var(--value), ${sliderSecondMeta.colorVar} 100%)`,
-            }}
-            className="w-full cursor-pointer transition-all appearance-none h-2 rounded-lg"
-          />
-          <p className="text-center text-[11px] text-muted mt-2">
-            <span className="font-semibold capitalize">{lockedKeys[0]}</span>{' '}
-            stays anchored — {sliderFirstMeta.label.toLowerCase()} &{' '}
-            {sliderSecondMeta.label.toLowerCase()} balance the remaining
-            calories.
-          </p>
-        </div>
-      )}
+              <p className="text-center text-[11px] text-muted mt-2">
+                <span className="font-semibold capitalize">
+                  {lockedKeys[0]}
+                </span>{' '}
+                stays anchored — {sliderFirstMeta.label.toLowerCase()} &{' '}
+                {sliderSecondMeta.label.toLowerCase()} balance the remaining
+                calories.
+              </p>
+            </motion.div>
+          )}
+        </motion.div>
+      </AnimatePresence>
 
       {hasTwoLocks && absorbedKey ? (
-        <p className="text-center text-[11px] text-muted -mt-2">
+        <motion.p
+          className="text-center text-[11px] text-muted mt-3"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.15 }}
+        >
           <span className="font-semibold capitalize">{absorbedKey}</span>{' '}
-          absorbs calorie changes while{' '}
-          {lockedKeys.map((key) => key.toLowerCase()).join(' & ')} stay
-          anchored.
-        </p>
+          absorbs changes while{' '}
+          {lockedKeys.map((key) => key.toLowerCase()).join(' & ')} stay anchored
+        </motion.p>
       ) : null}
 
       {relaxedMacros.length > 0 ? (
-        <p className="text-center text-[11px] text-accent-yellow mt-1">
-          Anchor temporarily relaxed: current calorie target is too low to hold{' '}
-          {relaxedMacros.join(', ')} at its locked grams.
+        <p className="text-center text-[11px] text-accent-yellow mt-2">
+          Anchor temporarily relaxed: target too low to hold{' '}
+          {relaxedMacros.join(', ')} at locked grams
         </p>
       ) : null}
 
+      {/* Lock help text and clear anchors */}
+      <div className="flex items-center justify-center gap-2 mb-3">
+        {lockedKeys.length > 0 ? (
+          <button
+            type="button"
+            onClick={handleClearLocks}
+            className="inline-flex items-center gap-1.5 text-[11px] font-medium text-accent-blue bg-accent-blue/10 px-3 py-1.5 rounded-full transition-all pressable-inline focus-ring md:hover:bg-accent-blue/20"
+          >
+            <Unlock size={12} />
+            Clear anchors ({lockedKeys.length}/{MAX_MACRO_LOCKS})
+          </button>
+        ) : (
+          <span className="text-[11px] text-muted">
+            Tap a macro chip to anchor its grams
+          </span>
+        )}
+      </div>
+
       {/* Macro chips */}
-      <div className="grid grid-cols-3 gap-2 mt-5">
+      <div className="grid grid-cols-3 gap-2">
         <MacroChip
           icon={Beef}
           label="Protein"
