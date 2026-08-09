@@ -311,7 +311,7 @@ export const MacroPickerModal = ({
   const handleSliderChange = useCallback(
     (event) => {
       const firstGrams = Number(event.target.value);
-      const firstKcal = firstGrams * 4; // protein/carbs = 4 kcal/g
+      const firstKcal = firstGrams * (sliderFirst === 'fats' ? 9 : 4);
       const lockedKey = lockedKeys[0];
       const lockedCalories = lockedKey
         ? recommendations.grams[lockedKey] * (lockedKey === 'fats' ? 9 : 4)
@@ -333,9 +333,9 @@ export const MacroPickerModal = ({
           recommendations.grams[lockedKey] * (lockedKey === 'fats' ? 9 : 4);
       }
 
+      const secondKcal = secondGrams * (sliderSecond === 'fats' ? 9 : 4);
       const ratio =
-        firstKcal /
-          (firstKcal + secondGrams * (sliderSecond === 'fats' ? 9 : 4)) || 0.5;
+        firstKcal + secondKcal > 0 ? firstKcal / (firstKcal + secondKcal) : 0.5;
 
       onChange?.(
         macroSplitFromUnlockedRatio({
