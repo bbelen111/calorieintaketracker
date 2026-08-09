@@ -368,14 +368,6 @@ export const HomeScreen = ({
               : 'Tap to change'}
           </p>
         </button>
-
-        {goalConfig.warning && (
-          <div className="mt-4 bg-accent-yellow/15 border-2 border-accent-yellow/60 rounded-xl p-4">
-            <p className="text-accent-yellow text-sm font-medium">
-              {goalConfig.warning}
-            </p>
-          </div>
-        )}
       </div>
 
       <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">

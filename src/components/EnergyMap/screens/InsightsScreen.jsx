@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import {
   Info,
   PieChart,
-  Lightbulb,
   LineChart,
   AlertCircle,
   Beef,

@@ -6,7 +6,6 @@ export const goals = {
     icon: TrendingUp,
     label: 'Aggressive Bulk',
     desc: '+500 kcal surplus',
-    warning: 'May lead to increased fat gain. Monitor progress closely.',
   },
   bulking: {
     color: 'bg-accent-green',
@@ -34,6 +33,5 @@ export const goals = {
     icon: TrendingDown,
     label: 'Aggressive Cut',
     desc: '-500 kcal deficit',
-    warning: 'Risk of muscle loss and fatigue. Ensure high protein intake.',
   },
 };
