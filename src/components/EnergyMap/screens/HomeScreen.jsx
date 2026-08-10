@@ -10,11 +10,13 @@ import {
   Heart,
   Plus,
   Trash2,
+  Footprints,
 } from 'lucide-react';
 import { shallow } from 'zustand/shallow';
 import { goals as baseGoals } from '../../../constants/goals/goals';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 import { calculateTrainingSessionCalories } from '../../../utils/calculations/calculations';
+import { calculateCaloriesFromSteps } from '../../../utils/calculations/steps';
 import {
   resolveCardioSessionEpoc,
   resolveTrainingSessionEpoc,
@@ -68,6 +70,7 @@ export const HomeScreen = ({
       cardioTypes: state.cardioTypes,
       totalCardioBurn: state.totalCardioBurn,
       cardioSessions: state.userData.cardioSessions ?? [],
+      calculateBreakdown: state.calculateBreakdown,
     }),
     shallow
   );
@@ -126,6 +129,61 @@ export const HomeScreen = ({
     typeof hasCardioSessions === 'boolean'
       ? hasCardioSessions
       : resolvedCardioSessions.length > 0;
+
+  const todayStepEntry = Array.isArray(resolvedUserData?.stepEntries)
+    ? resolvedUserData.stepEntries.find(
+        (entry) => toDateKey(entry?.date) === todayDateKey
+      )
+    : null;
+  const todayStepCount = Number(todayStepEntry?.steps) || 0;
+  const todayStepCalories =
+    todayStepCount > 0
+      ? Math.round(calculateCaloriesFromSteps(todayStepCount, resolvedUserData))
+      : 0;
+  const burnSegments = [
+    {
+      key: 'steps',
+      label: 'Steps',
+      kcal: Math.round(Number(todayStepCalories) || 0),
+      colorClass: 'bg-accent-green',
+      textClass: 'text-accent-green',
+      icon: Footprints,
+    },
+    {
+      key: 'training',
+      label: 'Training',
+      kcal: Math.round(Number(resolvedTrainingCalories) || 0),
+      colorClass: 'bg-accent-blue',
+      textClass: 'text-accent-blue',
+      icon: Dumbbell,
+    },
+    {
+      key: 'cardio',
+      label: 'Cardio',
+      kcal: Math.round(Number(resolvedTotalCardioBurn) || 0),
+      colorClass: 'bg-accent-red',
+      textClass: 'text-accent-red',
+      icon: Heart,
+    },
+  ];
+  const activeBurnTotal = burnSegments.reduce(
+    (sum, segment) => sum + segment.kcal,
+    0
+  );
+  const visibleBurnSegments = burnSegments.filter(
+    (segment) => segment.kcal > 0
+  );
+  const totalEpoc =
+    Math.round(Number(resolvedTrainingEpocTotal) || 0) +
+    Math.round(Number(resolvedCardioEpocTotal) || 0);
+  const todayBreakdown = store.calculateBreakdown(
+    todayStepCount,
+    resolvedTodayTrainingSessions.length > 0,
+    { dateKey: todayDateKey }
+  );
+  const todayTdee = Math.round(Number(todayBreakdown?.total) || 0);
+  const burnPercent =
+    todayTdee > 0 ? Math.round((activeBurnTotal / todayTdee) * 100) : null;
 
   const goalConfig = resolvedGoals[selectedGoal];
   const goalBorderClass =
@@ -219,13 +277,6 @@ export const HomeScreen = ({
             </div>
           );
         })}
-      </div>
-
-      <div className="bg-accent-blue/30 border border-accent-blue rounded-lg p-3">
-        <p className="text-accent-blue font-semibold">
-          Total Cardio Burn: {resolvedTotalCardioBurn} calories
-          {epocEnabled && ` (+${Math.round(resolvedCardioEpocTotal)} EPOC)`}
-        </p>
       </div>
     </>
   );
@@ -344,13 +395,6 @@ export const HomeScreen = ({
             </div>
           );
         })}
-      </div>
-
-      <div className="bg-accent-blue/30 border border-accent-blue rounded-lg p-3">
-        <p className="text-accent-blue font-semibold">
-          Total Training Burn: {resolvedTrainingCalories} calories
-          {epocEnabled && ` (+${Math.round(resolvedTrainingEpocTotal)} EPOC)`}
-        </p>
       </div>
     </>
   );
@@ -492,6 +536,66 @@ export const HomeScreen = ({
               : 'Tap to change'}
           </p>
         </button>
+      </div>
+
+      <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-bold text-foreground mb-1 flex items-center gap-2">
+              Today&apos;s Activity Burn
+            </h2>
+            <p className="text-muted text-sm">
+              {burnPercent != null ? `~${burnPercent}% of daily TDEE` : '—'}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-3xl md:text-4xl font-bold text-foreground leading-none">
+              {Math.round(activeBurnTotal)}
+              <span className="text-lg text-muted ml-1">kcal</span>
+            </p>
+            {totalEpoc > 0 && (
+              <p className="text-muted text-xs mt-1">+{totalEpoc} kcal EPOC</p>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4 flex h-2 w-full gap-[2px] rounded-full overflow-hidden">
+          {activeBurnTotal > 0 ? (
+            visibleBurnSegments.map((segment) => {
+              const width = (segment.kcal / activeBurnTotal) * 100;
+              return (
+                <div
+                  key={segment.key}
+                  className={`${segment.colorClass} h-full min-w-[2px] rounded-full`}
+                  style={{ width: `${width}%` }}
+                />
+              );
+            })
+          ) : (
+            <div className="h-full w-full rounded-full bg-surface-highlight" />
+          )}
+        </div>
+
+        <div className="mt-3 flex items-center justify-between gap-2 text-sm">
+          {visibleBurnSegments.map((segment) => {
+            const SegIcon = segment.icon;
+            return (
+              <div
+                key={segment.key}
+                className="flex items-center gap-2 min-w-0"
+              >
+                <SegIcon
+                  className={`${segment.textClass} shrink-0`}
+                  size={16}
+                />
+                <span className="text-muted truncate">{segment.label}</span>
+                <span className={`font-semibold shrink-0 ${segment.textClass}`}>
+                  {segment.kcal}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       <div className="bg-surface rounded-2xl px-6 py-5 border border-border shadow-lg">
