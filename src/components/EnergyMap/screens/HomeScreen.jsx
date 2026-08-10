@@ -210,7 +210,7 @@ export const HomeScreen = ({
 
   const cardioListContent = (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {resolvedCardioSessions.map((session) => {
           const cardioType = resolvedCardioTypes[session.type];
           const label = cardioType?.label ?? 'Unknown cardio type';
@@ -324,7 +324,7 @@ export const HomeScreen = ({
 
   const trainingListContent = (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {resolvedTodayTrainingSessions.map((session) => {
           const trainingType = resolvedTrainingTypes[session.type];
           const label = trainingType?.label ?? 'Unknown training type';

@@ -84,6 +84,51 @@ export const CalorieBreakdownModal = ({
   const cardioDetails = Array.isArray(breakdown.cardioDetails)
     ? breakdown.cardioDetails
     : [];
+  const breakdownRows = [
+    { key: 'bmr', value: breakdown.bmr, colorClass: 'bg-accent-slate' },
+    {
+      key: 'neat',
+      value: breakdown.baseActivity,
+      colorClass: 'bg-accent-purple',
+    },
+    {
+      key: 'steps',
+      value: breakdown.stepCalories,
+      colorClass: 'bg-accent-green',
+    },
+    {
+      key: 'training',
+      value: breakdown.trainingBurn,
+      colorClass: 'bg-accent-blue',
+    },
+    {
+      key: 'cardio',
+      value: breakdown.cardioBurn,
+      colorClass: 'bg-accent-red',
+    },
+    ...(epocEnabled && epocCalories > 0
+      ? [{ key: 'epoc', value: epocCalories, colorClass: 'bg-accent-teal' }]
+      : []),
+    ...(smartTefMode !== 'off'
+      ? [
+          {
+            key: 'smart-tef',
+            value: smartTefCalories,
+            colorClass: 'bg-accent-pink',
+          },
+        ]
+      : []),
+    ...(showAdaptiveThermogenesisItem
+      ? [
+          {
+            key: 'adaptive-thermogenesis',
+            value: adaptiveThermogenesisCorrection,
+            colorClass: 'bg-accent-coral',
+          },
+        ]
+      : []),
+  ];
+  const barTotal = Number(breakdown.total) || 0;
 
   const toggleExpanded = (itemKey) => {
     setExpandedItem(expandedItem === itemKey ? null : itemKey);
@@ -133,12 +178,29 @@ export const CalorieBreakdownModal = ({
           )}
         </div>
 
+        <div className="mb-4 flex h-2 w-full gap-[2px] rounded-full overflow-hidden">
+          {breakdownRows
+            .filter((row) => (Number(row.value) || 0) > 0)
+            .map((row) => {
+              const width =
+                barTotal > 0 ? (Number(row.value) / barTotal) * 100 : 0;
+              return (
+                <div
+                  key={row.key}
+                  className={`${row.colorClass} h-full`}
+                  style={{ width: `${width}%` }}
+                />
+              );
+            })}
+        </div>
+
         <div className="space-y-3 text-sm">
           <BreakdownItem
             label="BMR"
             value={breakdown.bmr}
             total={breakdown.total}
             expanded={expandedItem === 'bmr'}
+            dotClass="bg-accent-slate"
             onToggle={() => toggleExpanded('bmr')}
           >
             <p className="text-muted text-xs">
@@ -176,6 +238,7 @@ export const CalorieBreakdownModal = ({
             value={breakdown.baseActivity}
             total={breakdown.total}
             expanded={expandedItem === 'neat'}
+            dotClass="bg-accent-purple"
             onToggle={() => toggleExpanded('neat')}
           >
             <p className="text-muted text-xs">
@@ -202,6 +265,7 @@ export const CalorieBreakdownModal = ({
             value={breakdown.stepCalories}
             total={breakdown.total}
             expanded={expandedItem === 'steps'}
+            dotClass="bg-accent-green"
             onToggle={() => toggleExpanded('steps')}
           >
             <p className="text-muted text-xs">
@@ -236,6 +300,7 @@ export const CalorieBreakdownModal = ({
             value={breakdown.trainingBurn}
             total={breakdown.total}
             expanded={expandedItem === 'training'}
+            dotClass="bg-accent-blue"
             onToggle={() => toggleExpanded('training')}
           >
             <p className="text-muted text-xs">
@@ -261,6 +326,7 @@ export const CalorieBreakdownModal = ({
             value={breakdown.cardioBurn}
             total={breakdown.total}
             expanded={expandedItem === 'cardio'}
+            dotClass="bg-accent-red"
             onToggle={() => toggleExpanded('cardio')}
           >
             <p className="text-muted text-xs">
@@ -302,6 +368,7 @@ export const CalorieBreakdownModal = ({
               value={epocCalories}
               total={breakdown.total}
               expanded={expandedItem === 'epoc'}
+              dotClass="bg-accent-teal"
               onToggle={() => toggleExpanded('epoc')}
             >
               <p className="text-muted text-xs">
@@ -341,6 +408,7 @@ export const CalorieBreakdownModal = ({
               value={smartTefCalories}
               total={breakdown.total}
               expanded={expandedItem === 'smart-tef'}
+              dotClass="bg-accent-pink"
               onToggle={() => toggleExpanded('smart-tef')}
             >
               <p className="text-muted text-xs">
@@ -433,6 +501,7 @@ export const CalorieBreakdownModal = ({
               value={adaptiveThermogenesisCorrection}
               total={breakdown.total}
               expanded={expandedItem === 'adaptive-thermogenesis'}
+              dotClass="bg-accent-coral"
               onToggle={() => toggleExpanded('adaptive-thermogenesis')}
             >
               <p className="text-muted text-xs">
@@ -506,6 +575,7 @@ const BreakdownItem = ({
   label,
   value,
   total,
+  dotClass,
   expanded,
   onToggle,
   children,
@@ -521,6 +591,11 @@ const BreakdownItem = ({
         className="w-full flex items-center justify-between px-4 py-3 md:hover:bg-surface-highlight/60 transition-colors text-left active:scale-[0.99] focus-ring"
       >
         <span className="text-muted flex items-center gap-2">
+          {dotClass && (
+            <span
+              className={`inline-block w-2 h-2 rounded-full shrink-0 ${dotClass}`}
+            />
+          )}
           {label}
           <span
             className={`text-foreground transition-transform duration-300 ${

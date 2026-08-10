@@ -60,6 +60,8 @@
   --accent-slate: 100 116 139; /* Slate 500 */
   --accent-indigo: 99 102 241; /* Indigo 500 */
   --accent-pink: 236 72 153; /* Pink 500 */
+  --accent-teal: 20 184 166; /* Teal 500 */
+  --accent-coral: 255 111 97; /* Coral 500 */
 }
 
 /* Light Theme */
@@ -91,6 +93,8 @@
   --accent-slate: 71 85 105; /* Slate 600 */
   --accent-indigo: 79 70 229; /* Indigo 600 */
   --accent-pink: 219 39 119; /* Pink 600 */
+  --accent-teal: 13 148 136; /* Teal 600 */
+  --accent-coral: 222 80 62; /* Coral 600 */
 }
 
 /* AMOLED Dark Theme (True Black) */
@@ -122,6 +126,8 @@
   --accent-slate: 100 116 139; /* Slate 500 */
   --accent-indigo: 99 102 241; /* Indigo 500 */
   --accent-pink: 236 72 153; /* Pink 500 */
+  --accent-teal: 20 184 166; /* Teal 500 */
+  --accent-coral: 255 111 97; /* Coral 500 */
 }
 
 /* Status bar vignette - gradient overlay at top of screen */

@@ -77,6 +77,16 @@ export default {
         pink: {
           400: 'rgb(var(--accent-pink) / <alpha-value>)',
         },
+        teal: {
+          400: 'rgb(var(--accent-teal) / <alpha-value>)',
+          500: 'rgb(var(--accent-teal) / <alpha-value>)',
+          600: 'rgb(var(--accent-teal) / <alpha-value>)',
+        },
+        coral: {
+          400: 'rgb(var(--accent-coral) / <alpha-value>)',
+          500: 'rgb(var(--accent-coral) / <alpha-value>)',
+          600: 'rgb(var(--accent-coral) / <alpha-value>)',
+        },
         accent: {
           blue: 'rgb(var(--accent-blue) / <alpha-value>)',
           green: 'rgb(var(--accent-green) / <alpha-value>)',
@@ -90,6 +100,8 @@ export default {
           slate: 'rgb(var(--accent-slate) / <alpha-value>)',
           indigo: 'rgb(var(--accent-indigo) / <alpha-value>)',
           pink: 'rgb(var(--accent-pink) / <alpha-value>)',
+          teal: 'rgb(var(--accent-teal) / <alpha-value>)',
+          coral: 'rgb(var(--accent-coral) / <alpha-value>)',
         },
       },
     },
