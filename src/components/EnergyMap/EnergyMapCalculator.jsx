@@ -1429,50 +1429,13 @@ export const EnergyMapCalculator = () => {
   ]);
 
   const handleTrainingDayClick = useCallback(() => {
-    const latestTodaySession =
-      todayTrainingSessions.length > 0
-        ? todayTrainingSessions[todayTrainingSessions.length - 1]
-        : null;
-
-    if (latestTodaySession) {
-      const normalizedEffortType = latestTodaySession.effortType ?? 'intensity';
-      const durationMinutes = Number(latestTodaySession.duration);
-      const durationHours =
-        Number.isFinite(durationMinutes) && durationMinutes > 0
-          ? Math.round((durationMinutes / 60) * 10) / 10
-          : userData.trainingDuration;
-
-      setTrainingModalMode('session');
-      setEditingTrainingSessionId(latestTodaySession.id ?? null);
-      setTrainingDraft({
-        date: getTodayDateString(),
-        type: latestTodaySession.type ?? userData.selectedTrainingType,
-        durationHours,
-        effortType: normalizedEffortType,
-        intensity: latestTodaySession.intensity ?? DEFAULT_TRAINING_INTENSITY,
-        startTime: normalizeTimeOfDay(
-          latestTodaySession?.startTime,
-          getTimeOfDayFromEpochMs(
-            latestTodaySession?.startedAt,
-            getCurrentLocalTimeString()
-          )
-        ),
-        averageHeartRate:
-          normalizedEffortType === 'heartRate'
-            ? (latestTodaySession.averageHeartRate ?? '')
-            : '',
-      });
-      trainingModal.open();
-      return;
-    }
-
     setTrainingModalMode('session');
     setEditingTrainingSessionId(null);
     setTrainingDraft(
       getDefaultTrainingDraftForType(userData.selectedTrainingType, userData)
     );
     trainingModal.open();
-  }, [todayTrainingSessions, trainingModal, userData]);
+  }, [trainingModal, userData]);
 
   const handleEditTrainingSession = useCallback(
     (sessionId) => {
@@ -3070,17 +3033,7 @@ export const EnergyMapCalculator = () => {
       if (editingTrainingSessionId != null) {
         updateTrainingSession(editingTrainingSessionId, sessionToSave);
       } else {
-        const existingTodaySession =
-          todayTrainingSessions.length > 0
-            ? todayTrainingSessions[todayTrainingSessions.length - 1]
-            : null;
-
-        if (existingTodaySession?.id != null) {
-          updateTrainingSession(existingTodaySession.id, sessionToSave);
-          setEditingTrainingSessionId(existingTodaySession.id);
-        } else {
-          addTrainingSession(sessionToSave);
-        }
+        addTrainingSession(sessionToSave);
       }
 
       trainingModal.requestClose();
@@ -3096,7 +3049,6 @@ export const EnergyMapCalculator = () => {
     trainingDraft,
     trainingModalMode,
     addTrainingSession,
-    todayTrainingSessions,
     editingTrainingSessionId,
     updateTrainingSession,
   ]);
