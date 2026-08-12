@@ -105,8 +105,14 @@ function AdaptiveCorrectionCard({ result, mode, onOpen }) {
     <button
       type="button"
       onClick={onOpen}
-      className="group relative w-full text-left bg-surface-highlight/50 rounded-xl p-4 transition-all border border-border/50 active:scale-[0.99] pressable-card focus-ring md:hover:bg-surface-highlight md:hover:border-border/80"
+      className="group relative w-full text-left bg-surface rounded-2xl border border-border shadow-lg p-5 md:p-6 transition-all active:scale-[0.99] pressable-card focus-ring md:hover:border-border/80"
     >
+      <div className="flex items-center mb-4 gap-2">
+        <Gauge className="text-accent-blue" size={18} />
+        <h2 className="text-xl font-bold text-foreground">
+          Adaptive Thermogenesis
+        </h2>
+      </div>
       <div className="flex items-center gap-3">
         <div
           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${iconBg}`}
@@ -721,7 +727,7 @@ export const InsightsScreen = ({
                     BMI
                   </p>
                   <p
-                    className={`text-xl font-bold ${bmiColorMap[bmiCategory.color]?.text || 'text-accent-slate'}`}
+                    className={`text-2xl font-bold ${bmiColorMap[bmiCategory.color]?.text || 'text-accent-slate'}`}
                   >
                     {bmi ? bmi.toFixed(1) : '—'}
                   </p>
@@ -734,9 +740,6 @@ export const InsightsScreen = ({
                 <div className="absolute top-2 right-2 p-1">
                   <Info size={18} className="text-muted/80" />
                 </div>
-                <p className="text-accent-blue/80 text-[10px] tracking-wide mt-2">
-                  Tap for more info
-                </p>
               </button>
               <button
                 type="button"
@@ -748,7 +751,7 @@ export const InsightsScreen = ({
                     FFMI
                   </p>
                   <p
-                    className={`text-xl font-bold ${ffmiData ? ffmiColorMap[ffmiCategory.color]?.text || 'text-accent-slate' : 'text-muted'}`}
+                    className={`text-2xl font-bold ${ffmiData ? ffmiColorMap[ffmiCategory.color]?.text || 'text-accent-slate' : 'text-muted'}`}
                   >
                     {ffmiData ? ffmiData.normalized.toFixed(1) : '—'}
                   </p>
@@ -761,29 +764,18 @@ export const InsightsScreen = ({
                 <div className="absolute top-2 right-2 p-1">
                   <Info size={18} className="text-muted/80" />
                 </div>
-                <p className="text-accent-blue/80 text-[10px] tracking-wide mt-2">
-                  Tap for more info
-                </p>
               </button>
             </div>
           )}
         </div>
       </div>
 
-      <div className="bg-surface rounded-2xl border border-border shadow-lg p-5 md:p-6">
-        <div className="flex items-center mb-4 gap-2">
-          <Gauge className="text-accent-blue" size={18} />
-          <h2 className="text-xl font-bold text-foreground">
-            Adaptive Thermogenesis
-          </h2>
-        </div>
-        <AdaptiveCorrectionCard
-          result={adaptiveThermogenesis.result}
-          mode={adaptiveThermogenesis.mode}
-          onOpen={onOpenAdaptiveThermogenesis}
-        />
-      </div>
-      <div className="bg-surface rounded-2xl py-6 px-4 border border-border shadow-lg">
+      <AdaptiveCorrectionCard
+        result={adaptiveThermogenesis.result}
+        mode={adaptiveThermogenesis.mode}
+        onOpen={onOpenAdaptiveThermogenesis}
+      />
+      <div className="bg-surface rounded-2xl py-4 px-4 border border-border shadow-lg">
         <button
           type="button"
           onClick={() => onOpenMacroPicker?.()}

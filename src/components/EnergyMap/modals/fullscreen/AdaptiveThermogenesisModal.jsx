@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
-  X,
+  ChevronLeft,
   Flame,
   Activity,
   TrendingUp,
@@ -30,6 +30,11 @@ const REASON_COPY = {
     'Adaptive corrections only apply to cut or surplus goals.',
   'insufficient-data': 'Smart mode needs more data to run.',
 };
+
+const TABS = [
+  { key: 'crude', label: 'Crude', icon: Flame },
+  { key: 'smart', label: 'Smart', icon: Activity },
+];
 
 export const AdaptiveThermogenesisModal = ({ isOpen, isClosing, onClose }) => {
   const [tab, setTab] = useState('smart');
@@ -76,85 +81,92 @@ export const AdaptiveThermogenesisModal = ({ isOpen, isClosing, onClose }) => {
   }, [store.userData, store.weightEntries, store.goalDurationDays]);
 
   return (
-    <ModalShell
-      isOpen={isOpen}
-      isClosing={isClosing}
-      onClose={onClose}
-      overlayClassName="fixed inset-0 bg-surface/70 !p-0 !flex-none !items-stretch !justify-stretch"
-      contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none !max-h-none flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
-    >
-      <Header tab={tab} setTab={setTab} onClose={onClose} />
-      <div className="flex-1 overflow-y-auto px-4 md:px-6 pb-10">
-        {!data ? (
-          <EmptyState message="No energy data available yet." />
-        ) : tab === 'crude' ? (
-          <CrudePanel
-            result={data.crude}
-            enabled={data.enabled}
-            stages={data.stages}
-            goalDurationDays={data.goalDurationDays}
-          />
-        ) : (
-          <SmartPanel result={data.smart} enabled={data.enabled} />
-        )}
-      </div>
-    </ModalShell>
+    <>
+      <ModalShell
+        isOpen={isOpen}
+        isClosing={isClosing}
+        overlayClassName="fixed inset-0 bg-surface/70 !p-0 !flex-none !items-stretch !justify-stretch z-[1000]"
+        contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none !max-h-none flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] z-[1001]"
+      >
+        {/* Header bar */}
+        <div className="flex items-center justify-between px-4 py-3 bg-background border-b border-border flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => onClose?.()}
+              aria-label="Back"
+              className="text-muted md:hover:text-foreground transition-all pressable-inline focus-ring"
+            >
+              <ChevronLeft size={24} />
+            </button>
+            <h3 className="text-foreground font-bold text-xl">
+              Adaptive Thermogenesis
+            </h3>
+          </div>
+          {data?.enabled && data?.mode !== 'off' ? (
+            <span className="text-xs text-muted inline-flex items-center gap-1.5">
+              <Info size={13} className="text-accent-blue" />
+              Live
+            </span>
+          ) : null}
+        </div>
+
+        {/* Main content area */}
+        <div className="flex-1 bg-surface border-t border-border overflow-y-auto flex flex-col">
+          {/* Mode toggle */}
+          <div className="px-4 pt-3 pb-1 flex-shrink-0">
+            <div className="relative flex items-center gap-2 p-1 bg-surface-highlight rounded-lg">
+              <div
+                className="absolute inset-y-1 rounded-md shadow-md bg-accent-blue"
+                style={{
+                  width: 'calc((100% - 16px) / 2)',
+                  left:
+                    tab === 'crude' ? '4px' : 'calc((100% - 16px) / 2 + 12px)',
+                  transition:
+                    'left 0.28s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.28s ease-out, box-shadow 0.28s ease-out',
+                }}
+              />
+              {TABS.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => setTab(item.key)}
+                    className={`relative z-10 flex-1 flex items-center justify-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      tab === item.key
+                        ? 'text-primary-foreground'
+                        : 'text-muted md:hover:text-foreground'
+                    }`}
+                  >
+                    <Icon size={16} className="mr-1.5" />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Panels */}
+          <div className="px-4 pt-3 pb-8">
+            {!data ? (
+              <EmptyState message="No energy data available yet." />
+            ) : tab === 'crude' ? (
+              <CrudePanel
+                result={data.crude}
+                enabled={data.enabled}
+                stages={data.stages}
+                goalDurationDays={data.goalDurationDays}
+              />
+            ) : (
+              <SmartPanel result={data.smart} enabled={data.enabled} />
+            )}
+          </div>
+        </div>
+      </ModalShell>
+    </>
   );
 };
-
-function Header({ tab, setTab, onClose }) {
-  return (
-    <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 md:px-6">
-      <div className="flex items-center gap-1 rounded-xl bg-surface-highlight p-1">
-        <TabButton
-          active={tab === 'crude'}
-          onClick={() => setTab('crude')}
-          icon={<Flame size={14} />}
-          label="Crude"
-        />
-        <TabButton
-          active={tab === 'smart'}
-          onClick={() => setTab('smart')}
-          icon={<Activity size={14} />}
-          label="Smart"
-        />
-      </div>
-      <div className="flex items-center gap-2">
-        <span className="hidden sm:inline-flex items-center gap-1.5 text-xs text-muted">
-          <Info size={13} className="text-accent-blue" />
-          Live preview from your data
-        </span>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close adaptive thermogenesis"
-          className="rounded-full p-2 text-muted transition-colors md:hover:bg-surface-highlight/70 md:hover:text-foreground pressable-inline focus-ring"
-        >
-          <X size={20} />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function TabButton({ active, onClick, icon, label }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={
-        'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors focus-ring ' +
-        (active
-          ? 'bg-surface text-foreground shadow-sm'
-          : 'text-muted md:hover:text-foreground')
-      }
-    >
-      {icon}
-      {label}
-    </button>
-  );
-}
-
 function CrudePanel({ result, enabled, stages, goalDurationDays }) {
   if (!result)
     return <EmptyState message="No crude-mode result was provided." />;
@@ -169,7 +181,7 @@ function CrudePanel({ result, enabled, stages, goalDurationDays }) {
     : '—';
 
   return (
-    <div className="space-y-5 pt-5">
+    <div className="space-y-5">
       {!enabled && <DisabledNote />}
       <CorrectionHeadline correction={correction} active={active} />
       <div className="grid grid-cols-2 gap-3">
@@ -248,7 +260,7 @@ function SmartPanel({ result, enabled }) {
     result;
 
   return (
-    <div className="space-y-5 pt-5">
+    <div className="space-y-5">
       {!enabled && <DisabledNote />}
       {insufficientData ? (
         <InsufficientDataState details={details} />
