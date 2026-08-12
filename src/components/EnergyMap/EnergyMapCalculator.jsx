@@ -148,6 +148,11 @@ const DailyLogModal = lazy(() =>
   }))
 );
 
+const AdaptiveThermogenesisModal = lazy(() =>
+  import('./modals/fullscreen/AdaptiveThermogenesisModal').then((module) => ({
+    default: module.AdaptiveThermogenesisModal,
+  }))
+);
 const MODAL_CLOSE_DELAY = 180; // Match CSS animation duration (150ms) + buffer
 const DEFAULT_TRAINING_INTENSITY = 'moderate';
 const FALLBACK_TRAINING_TYPE = 'trainingtype_1';
@@ -808,6 +813,7 @@ export const EnergyMapCalculator = () => {
   const calorieBreakdownModal = useAnimatedModal();
   const tefInfoModal = useAnimatedModal();
   const adaptiveThermogenesisInfoModal = useAnimatedModal();
+  const adaptiveThermogenesisModal = useAnimatedModal();
   const epocInfoModal = useAnimatedModal();
   const timePickerModal = useAnimatedModal();
   const epocWindowPickerModal = useAnimatedModal();
@@ -838,6 +844,7 @@ export const EnergyMapCalculator = () => {
     templatePickerModal,
     phaseCreationModal,
     adaptiveThermogenesisInfoModal,
+    adaptiveThermogenesisModal,
     tefInfoModal,
     calorieBreakdownModal,
     cardioFavouriteEditorModal,
@@ -883,6 +890,7 @@ export const EnergyMapCalculator = () => {
       templatePickerModal,
       phaseCreationModal,
       adaptiveThermogenesisInfoModal,
+      adaptiveThermogenesisModal,
       tefInfoModal,
       calorieBreakdownModal,
       cardioFavouriteEditorModal,
@@ -926,6 +934,7 @@ export const EnergyMapCalculator = () => {
     return false;
   }, [
     adaptiveThermogenesisInfoModal,
+    adaptiveThermogenesisModal,
     ageModal,
     bmiModal,
     bmrModal,
@@ -3860,6 +3869,7 @@ export const EnergyMapCalculator = () => {
                     selectedCalorieTargetData.targetCalories ?? 2500
                   }
                   onOpenMacroPicker={openMacroPickerModal}
+                  onOpenAdaptiveThermogenesis={adaptiveThermogenesisModal.open}
                   macroLocks={userData.macroLocks}
                 />
               </div>
@@ -3921,6 +3931,16 @@ export const EnergyMapCalculator = () => {
         onClose={adaptiveThermogenesisInfoModal.requestClose}
       />
 
+
+      {(adaptiveThermogenesisModal.isOpen || adaptiveThermogenesisModal.isClosing) && (
+        <Suspense fallback={null}>
+          <AdaptiveThermogenesisModal
+            isOpen={adaptiveThermogenesisModal.isOpen}
+            isClosing={adaptiveThermogenesisModal.isClosing}
+            onClose={adaptiveThermogenesisModal.requestClose}
+          />
+        </Suspense>
+      )}
       <EpocInfoModal
         isOpen={epocInfoModal.isOpen}
         isClosing={epocInfoModal.isClosing}

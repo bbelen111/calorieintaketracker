@@ -132,6 +132,11 @@ Do not duplicate target planning formulas in components.
 
 **Adaptive Thermogenesis mechanic:** `calculateCalorieBreakdown()` computes `baselineTotal` first (BMR + NEAT + steps + training + cardio + Smart TEF), then applies AT as a post-formula correction (`total = baselineTotal + adaptiveThermogenesisCorrection`). Returned AT fields include `baselineTotal`, `adjustedTotal`, `adaptiveThermogenesisMode`, `adaptiveThermogenesisCorrection`, and `adaptiveThermogenesis`.
 
+**AT stage constants are exported for UI:** `CRUDE_CUT_STAGES` and `CRUDE_SURPLUS_STAGES` are exported from `adaptiveThermogenesis.js` so the fullscreen `AdaptiveThermogenesisModal` renders the crude timeline without duplicating stage data.
+
+**Goal-duration for AT display is store-owned:** consume `state.goalDurationDays` instead of calling `Date.now()` inside a `useMemo`/render — the React Compiler `react-hooks/purity` rule rejects impure calls during render.
+
+
 **Smart AT smoothing mechanic:** When `adaptiveThermogenesisSmoothingEnabled` is true, smart mode smooths the weight series before slope regression (`adaptiveThermogenesisSmoothingMethod`: `'ema' | 'sma'`, `adaptiveThermogenesisSmoothingWindowDays`: clamped 3–14). Smoothing metadata is included in the AT smart signal for debugging (`smoothingEnabled`, `smoothingMethod`, `smoothingWindowDays`).
 
 **EPOC mechanic:** `calculateCalorieBreakdown()` resolves per-session EPOC from `utils/epoc.js`, then uses `getCarryoverForDateFromSessions()` (`utils/sessionCarryover.js`) to allocate carryover calories to the requested `dateKey`. Returned fields include `epocEnabled`, `epocCalories`, `trainingEpoc`, `cardioEpoc`, `epocFromTodaySessions`, `epocCarryInCalories`, `trainingEpocDetails`, and `cardioEpocDetails`.

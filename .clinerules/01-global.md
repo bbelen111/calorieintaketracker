@@ -47,7 +47,7 @@ main.jsx
             │   ├─ CalorieMapScreen
             │   └─ InsightsScreen
             ├─ PhaseDetailScreen (drill-down, not in carousel)
-                └─ 41 top-level useAnimatedModal instances → 56 modal-related files (51 modals + 5 panels)
+                └─ 42 top-level useAnimatedModal instances → 57 modal-related files (52 modals + 5 panels)
                  └─ ~21 additional child-level modals inside modal components
 ```
 

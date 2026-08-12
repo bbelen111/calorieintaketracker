@@ -40,8 +40,97 @@ import {
   normalizeMacroRecommendationSplit,
 } from '../../../utils/calculations/macroRecommendations';
 import { shallow } from 'zustand/shallow';
+import { Minus, Gauge, Flame, Activity, ChevronRight } from 'lucide-react';
+import { getTodayDateKey } from '../../../utils/data/dateKeys';
+import {
+  computeAdaptiveThermogenesis,
+  resolveAdaptiveThermogenesisMode,
+} from '../../../utils/calculations/adaptiveThermogenesis';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 
+function AdaptiveCorrectionCard({ result, mode, onOpen }) {
+  const insufficientData = Boolean(result?.insufficientData);
+  const correction = Number(result?.correction ?? 0);
+  const active = Boolean(result?.active);
+  const isCut = correction < 0;
+  const isSurplus = correction > 0;
+  const neutral = mode === 'off' || insufficientData || !active;
+
+  const accent = neutral
+    ? 'text-muted'
+    : isCut
+      ? 'text-accent-orange'
+      : isSurplus
+        ? 'text-accent-blue'
+        : 'text-muted';
+
+  const iconBg = neutral
+    ? 'bg-surface-highlight text-muted'
+    : isCut
+      ? 'bg-accent-orange/15 text-accent-orange'
+      : 'bg-accent-blue/15 text-accent-blue';
+
+  const headline =
+    mode === 'off'
+      ? 'Turned off'
+      : insufficientData
+        ? 'Need more data'
+        : !active
+          ? 'No correction active'
+          : `${correction > 0 ? '+' : ''}${correction} kcal/day`;
+
+  let icon = <Gauge size={16} />;
+  if (mode !== 'off') {
+    icon = insufficientData ? (
+      <Minus size={16} />
+    ) : mode === 'crude' ? (
+      <Flame size={16} />
+    ) : (
+      <Activity size={16} />
+    );
+  }
+
+  const meta =
+    mode === 'off'
+      ? 'Enable in Settings to calibrate your target'
+      : mode === 'crude'
+        ? `Crude · day ${result?.details?.goalDurationDays ?? 0} of goal`
+        : insufficientData
+          ? 'Smart needs more logged days + weigh-ins'
+          : active || correction !== 0
+            ? `Smart · ${Math.round((result?.confidence ?? 0) * 100)}% confidence`
+            : 'Smart · tracking your trend';
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="group relative w-full text-left bg-surface-highlight/50 rounded-xl p-4 transition-all border border-border/50 active:scale-[0.99] pressable-card focus-ring md:hover:bg-surface-highlight md:hover:border-border/80"
+    >
+      <div className="flex items-center gap-3">
+        <div
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${iconBg}`}
+        >
+          {icon}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-semibold text-foreground">
+              Adaptive Correction
+            </span>
+            <span className={`shrink-0 text-sm font-semibold ${accent}`}>
+              {headline}
+            </span>
+          </div>
+          <div className="mt-0.5 flex items-center justify-between gap-2">
+            <span className="truncate text-xs text-muted">{meta}</span>
+            <ChevronRight size={14} className="shrink-0 text-muted" />
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
 export const InsightsScreen = ({
   userData,
   selectedGoal,
@@ -54,6 +143,7 @@ export const InsightsScreen = ({
   onOpenFfmiInfo,
   targetCalories = 2500,
   onOpenMacroPicker,
+  onOpenAdaptiveThermogenesis,
   macroLocks,
 }) => {
   const store = useEnergyMapStore(
@@ -61,6 +151,7 @@ export const InsightsScreen = ({
       userData: state.userData,
       weightEntries: state.weightEntries ?? [],
       bodyFatEntries: state.bodyFatEntries ?? [],
+      goalDurationDays: state.goalDurationDays ?? 0,
       macroLocks: state.userData.macroLocks ?? undefined,
     }),
     shallow
@@ -215,6 +306,34 @@ export const InsightsScreen = ({
     [macroSplit, resolvedMacroLocks, resolvedUserData, targetCalories]
   );
 
+  // Adaptive Thermogenesis preview (matches what the store applies today)
+  const adaptiveThermogenesis = useMemo(() => {
+    const ud = resolvedUserData;
+    const today = getTodayDateKey();
+    const goalDurationDays = store.goalDurationDays ?? 0;
+    const props = {
+      selectedGoal,
+      goalDurationDays,
+      goalChangedAt: ud?.goalChangedAt,
+      dateKey: today,
+      dailySnapshots: ud?.dailySnapshots,
+      weightEntries: resolvedWeightEntries,
+      adaptiveSmoothingEnabled: ud?.adaptiveThermogenesisSmoothingEnabled,
+      adaptiveSmoothingMethod: ud?.adaptiveThermogenesisSmoothingMethod,
+      adaptiveSmoothingWindowDays: ud?.adaptiveThermogenesisSmoothingWindowDays,
+    };
+    const mode = resolveAdaptiveThermogenesisMode({ userData: ud });
+    return {
+      mode,
+      result: computeAdaptiveThermogenesis({ ...props, mode }),
+      goalDurationDays,
+    };
+  }, [
+    resolvedUserData,
+    resolvedWeightEntries,
+    selectedGoal,
+    store.goalDurationDays,
+  ]);
   const bmiColorMap = {
     blue: {
       text: 'text-accent-blue',
@@ -651,6 +770,19 @@ export const InsightsScreen = ({
         </div>
       </div>
 
+      <div className="bg-surface rounded-2xl border border-border shadow-lg p-5 md:p-6">
+        <div className="flex items-center mb-4 gap-2">
+          <Gauge className="text-accent-blue" size={18} />
+          <h2 className="text-xl font-bold text-foreground">
+            Adaptive Thermogenesis
+          </h2>
+        </div>
+        <AdaptiveCorrectionCard
+          result={adaptiveThermogenesis.result}
+          mode={adaptiveThermogenesis.mode}
+          onOpen={onOpenAdaptiveThermogenesis}
+        />
+      </div>
       <div className="bg-surface rounded-2xl py-6 px-4 border border-border shadow-lg">
         <button
           type="button"

@@ -3,7 +3,7 @@ import { normalizeDateKey } from '../measurements/weight.js';
 const GOAL_CUT_KEYS = new Set(['cutting', 'aggressive_cut']);
 const GOAL_SURPLUS_KEYS = new Set(['bulking', 'aggressive_bulk']);
 
-const CRUDE_CUT_STAGES = [
+export const CRUDE_CUT_STAGES = [
   { minDays: 21, kcal: -50 },
   { minDays: 35, kcal: -100 },
   { minDays: 49, kcal: -150 },
@@ -11,7 +11,7 @@ const CRUDE_CUT_STAGES = [
   { minDays: 84, kcal: -250 },
 ];
 
-const CRUDE_SURPLUS_STAGES = [
+export const CRUDE_SURPLUS_STAGES = [
   { minDays: 42, kcal: 25 },
   { minDays: 70, kcal: 50 },
   { minDays: 98, kcal: 75 },

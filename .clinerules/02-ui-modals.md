@@ -9,16 +9,24 @@ paths:
 
 ### Modal Count
 
-- **41 top-level `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
+- **42 top-level `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
 - **~21 additional child-level modals** declared inside modal components (e.g., delete confirmations, sub-pickers)
-- **51 modal component files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`, plus 5 supporting panel components under `fullscreen/panels/`:
-  - `fullscreen/` — WeightTrackerModal, BodyFatTrackerModal, StepTrackerModal, SettingsModal, FoodSearchModal
+- **52 modal component files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`, plus 5 supporting panel components under `fullscreen/panels/`:
+  - `fullscreen/` — WeightTrackerModal, BodyFatTrackerModal, StepTrackerModal, SettingsModal, FoodSearchModal, AdaptiveThermogenesisModal
   - `pickers/` — AgePickerModal, CalendarPickerModal, **CaloriesPerHourPickerModal**, DatePickerModal, DurationPickerModal, EpocWindowPickerModal, FoodPortionModal, HeartRatePickerModal, HeightPickerModal, **MacroPickerModal**, MealTypePickerModal, MetValuePickerModal, **NumericValuePickerModal**, StepGoalPickerModal, TemplatePickerModal, TimePickerModal
   - `info/` — AdaptiveThermogenesisInfoModal, BmiInfoModal, BmrInfoModal, BodyFatTrendInfoModal, CalorieBreakdownModal, CaloriesPerHourGuideModal, EpocInfoModal, FfmiInfoModal, TefInfoModal, WeightTrendInfoModal
   - `forms/` — AddCustomFoodModal, BarcodeEntryModal, BodyFatEntryModal, CardioModal, CustomCardioTypeModal, DailyActivityCustomModal, DailyActivityEditorModal, DailyActivityModal, DailyLogModal, FoodEntryModal, GoalModal, PhaseCreationModal, TrainingModal, StepRangesModal, TrainingTypeEditorModal, WeightEntryModal
   - `lists/` — CardioFavouritesModal, CardioTypeListModal, CalorieTargetModal
   - `common/` — ConfirmActionModal
-- Total across codebase: ~58 modal hook instances (`useAnimatedModal`)
+- Total across codebase: ~59 modal hook instances (`useAnimatedModal`)
+
+### Adaptive Thermogenesis Frontend
+
+- `AdaptiveThermogenesisModal` (`modals/fullscreen/AdaptiveThermogenesisModal.jsx`) is the fullscreen frontend for the whole AT subsystem. It is **lazy-loaded** in `EnergyMapCalculator.jsx` and subscribes to the store (`userData`, `weightEntries`, `goalDurationDays`), recomputing **both** `crude` and `smart` results live.
+- It renders **Crude / Smart** tabs: Crude shows the applied correction plus the full staged timeline (from `CRUDE_CUT_STAGES` / `CRUDE_SURPLUS_STAGES`); Smart shows correction, confidence, divergence/noise-floor, weekly rates, and data-used badges. Insufficient-data states use progress rows.
+- `InsightsScreen` renders an `AdaptiveCorrectionCard` preview (Turned off / Need more data / No correction active / ±N kcal/day) in a new "Adaptive Thermogenesis" section and opens the modal via `onOpenAdaptiveThermogenesis`.
+- Wire it like any other top-level modal: `useAnimatedModal()`, register in `isAnyModalOpen` + `closeTopmostModal` + deps, and lazy `React.lazy(...)` with an `isOpen || isClosing` mount guard.
+
 
 ### Modal Performance Loading Strategy
 
