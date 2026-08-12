@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Activity,
   Settings,
   Edit3,
-  Info,
+  ChevronRight,
+  AlertCircle,
   Dumbbell,
   Target,
   Heart,
@@ -21,6 +22,18 @@ import {
   resolveCardioSessionEpoc,
   resolveTrainingSessionEpoc,
 } from '../../../utils/calculations/epoc';
+import {
+  sortWeightEntries,
+  formatWeight,
+} from '../../../utils/measurements/weight';
+import {
+  sortBodyFatEntries,
+  formatBodyFat,
+} from '../../../utils/measurements/bodyFat';
+import {
+  formatTooltipDate,
+  getOldDataWarningText,
+} from '../../../utils/visuals/trackerHelpers';
 
 const GOAL_BORDER_CLASS_BY_BG = {
   'bg-accent-purple': 'border-accent-purple',
@@ -32,7 +45,6 @@ const GOAL_BORDER_CLASS_BY_BG = {
 
 export const HomeScreen = ({
   userData,
-  bmr,
   goals,
   selectedGoal,
   isGoalLocked,
@@ -40,11 +52,8 @@ export const HomeScreen = ({
   onGoalClick,
   onSettingsClick,
   onBodyFatClick,
-  onHeightClick,
   onWeightClick,
-  weightDisplay,
-  bodyFatDisplay,
-  onBmrClick,
+  bodyFatTrackingEnabled,
   onTrainingDayClick,
   onEditTrainingSession,
   onRemoveTrainingSession,
@@ -59,24 +68,26 @@ export const HomeScreen = ({
   calculateCardioCalories,
   onRemoveCardioSession,
   totalCardioBurn,
+  weightEntries,
+  bodyFatEntries,
 }) => {
   const store = useEnergyMapStore(
     (state) => ({
       userData: state.userData,
-      bmr: state.bmr,
       trainingCalories: state.trainingCalories,
       trainingSessions: state.trainingSessions ?? [],
       trainingTypes: state.trainingTypes ?? {},
       cardioTypes: state.cardioTypes,
       totalCardioBurn: state.totalCardioBurn,
       cardioSessions: state.userData.cardioSessions ?? [],
+      weightEntries: state.weightEntries ?? [],
+      bodyFatEntries: state.bodyFatEntries ?? [],
       calculateBreakdown: state.calculateBreakdown,
     }),
     shallow
   );
 
   const resolvedUserData = userData ?? store.userData;
-  const resolvedBmr = bmr ?? store.bmr;
   const resolvedTrainingCalories = trainingCalories ?? store.trainingCalories;
   const resolvedTrainingSessions = trainingSessions ?? store.trainingSessions;
   const resolvedTrainingTypes = trainingTypes ?? store.trainingTypes;
@@ -93,6 +104,54 @@ export const HomeScreen = ({
   ).filter((session) => toDateKey(session?.date) === todayDateKey);
   const resolvedTotalCardioBurn = totalCardioBurn ?? store.totalCardioBurn;
   const resolvedGoals = goals ?? baseGoals;
+  const resolvedWeightEntries = weightEntries ?? store.weightEntries;
+  const resolvedBodyFatEntries = bodyFatEntries ?? store.bodyFatEntries;
+  const resolvedBodyFatTrackingEnabled =
+    typeof bodyFatTrackingEnabled === 'boolean'
+      ? bodyFatTrackingEnabled
+      : resolvedUserData.bodyFatTrackingEnabled;
+
+  const sortedWeightEntries = useMemo(
+    () => sortWeightEntries(resolvedWeightEntries ?? []),
+    [resolvedWeightEntries]
+  );
+  const weightLatest = useMemo(
+    () =>
+      sortedWeightEntries.length
+        ? sortedWeightEntries[sortedWeightEntries.length - 1]
+        : null,
+    [sortedWeightEntries]
+  );
+  const currentWeight = formatWeight(
+    weightLatest?.weight ?? resolvedUserData.weight
+  );
+  const weightDateLabel = weightLatest?.date
+    ? formatTooltipDate(weightLatest.date)
+    : 'No entries yet';
+  const weightOldDataWarning = weightLatest?.date
+    ? getOldDataWarningText(weightLatest.date)
+    : null;
+
+  const sortedBodyFatEntries = useMemo(
+    () => sortBodyFatEntries(resolvedBodyFatEntries ?? []),
+    [resolvedBodyFatEntries]
+  );
+  const bodyFatLatest = useMemo(
+    () =>
+      sortedBodyFatEntries.length
+        ? sortedBodyFatEntries[sortedBodyFatEntries.length - 1]
+        : null,
+    [sortedBodyFatEntries]
+  );
+  const currentBodyFat = bodyFatLatest
+    ? formatBodyFat(bodyFatLatest.bodyFat)
+    : null;
+  const bodyFatDateLabel = bodyFatLatest?.date
+    ? formatTooltipDate(bodyFatLatest.date)
+    : 'No entries yet';
+  const bodyFatOldDataWarning = bodyFatLatest?.date
+    ? getOldDataWarningText(bodyFatLatest.date)
+    : null;
   const resolvedTodayTrainingSessions = resolvedTrainingSessions.filter(
     (session) => toDateKey(session?.date) === todayDateKey
   );
@@ -188,8 +247,6 @@ export const HomeScreen = ({
   const goalConfig = resolvedGoals[selectedGoal];
   const goalBorderClass =
     GOAL_BORDER_CLASS_BY_BG[goalConfig.color] ?? 'border-primary-foreground';
-  const weightTileValue = weightDisplay ?? `${resolvedUserData.weight} kg`;
-  const bodyFatTileValue = bodyFatDisplay ?? 'Set';
 
   const cardioHeaderContent = (
     <>
@@ -440,72 +497,135 @@ export const HomeScreen = ({
             <span className="hidden md:inline">Settings</span>
           </button>
         </div>
-        {/* Quick Settings Tiles */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <button
-            onClick={onBodyFatClick}
-            type="button"
-            className="bg-surface-highlight/50 border border-border/50 md:hover:bg-surface-highlight rounded-lg p-3 transition-all text-left group shadow-lg shadow-background/20 pressable-card focus-ring"
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-muted">Body Fat %</p>
-              <Edit3
-                size={14}
-                className="text-muted/70 md:group-hover:text-primary transition-colors"
-              />
-            </div>
-            <p className="text-foreground font-semibold text-lg">
-              {bodyFatTileValue}
-            </p>
-          </button>
+        <div className="grid grid-cols-2 gap-3">
+          {/* ── Compact Weight widget ── */}
           <button
             onClick={onWeightClick}
             type="button"
-            className="bg-surface-highlight/50 border border-border/50 md:hover:bg-surface-highlight rounded-lg p-3 transition-all text-left group shadow-lg shadow-background/20 pressable-card focus-ring"
+            className="group relative w-full text-left bg-surface-highlight/50 rounded-xl p-3 md:p-4 border border-border/50 transition-all active:scale-[0.99] pressable-card focus-ring md:hover:bg-surface-highlight md:hover:border-border/80"
           >
-            <div className="flex items-center justify-between">
-              <p className="text-muted">Weight</p>
-              <Edit3
-                size={14}
-                className="text-muted/70 md:group-hover:text-primary transition-colors"
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-muted text-xs font-medium">Weight</p>
+                <p className="text-2xl md:text-3xl font-bold text-foreground leading-tight mt-1 flex items-baseline gap-1.5">
+                  <span className="shrink-0">
+                    {currentWeight ? `${currentWeight} kg` : '—'}
+                  </span>
+                  {weightOldDataWarning && (
+                    <span className="inline-flex items-center gap-0.5 text-accent-yellow text-[10px] font-medium truncate min-w-0">
+                      <AlertCircle size={10} className="shrink-0" />
+                      {weightOldDataWarning}
+                    </span>
+                  )}
+                </p>
+                <p className="text-muted text-[11px] mt-1 truncate">
+                  {weightDateLabel}
+                </p>
+              </div>
+              <ChevronRight
+                size={20}
+                className="text-muted/60 shrink-0 mt-1 md:group-hover:text-primary transition-colors"
               />
             </div>
-            <p className="text-foreground font-semibold text-lg">
-              {weightTileValue}
-            </p>
           </button>
-          <button
-            onClick={onHeightClick}
-            type="button"
-            className="bg-surface-highlight/50 border border-border/50 md:hover:bg-surface-highlight rounded-lg p-3 transition-all text-left group shadow-lg shadow-background/20 pressable-card focus-ring"
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-muted">Height</p>
-              <Edit3
-                size={14}
-                className="text-muted/70 md:group-hover:text-primary transition-colors"
-              />
+
+          {/* ── Compact Body Fat widget ── */}
+          {resolvedBodyFatTrackingEnabled && (
+            <button
+              onClick={onBodyFatClick}
+              type="button"
+              className="group relative w-full text-left bg-surface-highlight/50 rounded-xl p-3 md:p-4 border border-border/50 transition-all active:scale-[0.99] pressable-card focus-ring md:hover:bg-surface-highlight md:hover:border-border/80"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-muted text-xs font-medium">Body Fat %</p>
+                  <p className="text-2xl md:text-3xl font-bold text-foreground leading-tight mt-1 flex items-baseline gap-1.5">
+                    <span className="shrink-0">
+                      {currentBodyFat ? `${currentBodyFat}%` : '—'}
+                    </span>
+                    {bodyFatOldDataWarning && (
+                      <span className="inline-flex items-center gap-0.5 text-accent-yellow text-[10px] font-medium truncate min-w-0">
+                        <AlertCircle size={10} className="shrink-0" />
+                        {bodyFatOldDataWarning}
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-muted text-[11px] mt-1 truncate">
+                    {bodyFatDateLabel}
+                  </p>
+                </div>
+                <ChevronRight
+                  size={20}
+                  className="text-muted/60 shrink-0 mt-1 md:group-hover:text-primary transition-colors"
+                />
+              </div>
+            </button>
+          )}
+        </div>
+
+        {/* Today's Activity Burn — folded into the hero */}
+        <div className="mt-5 pt-5 border-t border-border/60">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold text-foreground mb-1 flex items-center gap-2">
+                Today&apos;s Activity Burn
+              </h2>
+              <p className="inline-flex items-center text-[11px] font-medium text-accent-blue border border-accent-blue/20 bg-accent-blue/10 px-3 py-0.5 rounded-full transition-all pressable-inline focus-ring md:hover:bg-accent-blue/20">
+                {burnPercent != null ? `~${burnPercent}% of daily TDEE` : '—'}
+              </p>
             </div>
-            <p className="text-foreground font-semibold text-lg">
-              {resolvedUserData.height} cm
-            </p>
-          </button>
-          <button
-            onClick={onBmrClick}
-            type="button"
-            className="bg-surface-highlight/50 border border-border/50 md:hover:bg-surface-highlight rounded-lg p-3 transition-all text-left group shadow-lg shadow-background/20 pressable-card focus-ring"
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-muted">BMR</p>
-              <Info
-                size={14}
-                className="text-muted/70 md:group-hover:text-primary transition-colors"
-              />
+            <div className="text-right">
+              <p className="text-2xl md:text-3xl font-bold text-foreground leading-none">
+                {Math.round(activeBurnTotal)}
+                <span className="text-lg text-muted ml-1">kcal</span>
+              </p>
+              {totalEpoc > 0 && (
+                <p className="text-muted text-xs mt-1">
+                  +{totalEpoc} kcal EPOC
+                </p>
+              )}
             </div>
-            <p className="text-foreground font-semibold text-lg">
-              {resolvedBmr} kcal
-            </p>
-          </button>
+          </div>
+
+          <div className="mt-4 flex h-2 w-full gap-[2px] rounded-full overflow-hidden">
+            {activeBurnTotal > 0 ? (
+              visibleBurnSegments.map((segment) => {
+                const width = (segment.kcal / activeBurnTotal) * 100;
+                return (
+                  <div
+                    key={segment.key}
+                    className={`${segment.colorClass} h-full min-w-[2px] rounded-full`}
+                    style={{ width: `${width}%` }}
+                  />
+                );
+              })
+            ) : (
+              <div className="h-full w-full rounded-full bg-surface-highlight" />
+            )}
+          </div>
+
+          <div className="mt-3 flex items-center justify-between gap-2 text-sm">
+            {visibleBurnSegments.map((segment) => {
+              const SegIcon = segment.icon;
+              return (
+                <div
+                  key={segment.key}
+                  className="flex items-center gap-2 min-w-0"
+                >
+                  <SegIcon
+                    className={`${segment.textClass} shrink-0`}
+                    size={16}
+                  />
+                  <span className="text-muted truncate">{segment.label}</span>
+                  <span
+                    className={`font-semibold shrink-0 ${segment.textClass}`}
+                  >
+                    {segment.kcal}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -536,66 +656,6 @@ export const HomeScreen = ({
               : 'Tap to change'}
           </p>
         </button>
-      </div>
-
-      <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-bold text-foreground mb-1 flex items-center gap-2">
-              Today&apos;s Activity Burn
-            </h2>
-            <p className="text-muted text-sm">
-              {burnPercent != null ? `~${burnPercent}% of daily TDEE` : '—'}
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-3xl md:text-4xl font-bold text-foreground leading-none">
-              {Math.round(activeBurnTotal)}
-              <span className="text-lg text-muted ml-1">kcal</span>
-            </p>
-            {totalEpoc > 0 && (
-              <p className="text-muted text-xs mt-1">+{totalEpoc} kcal EPOC</p>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-4 flex h-2 w-full gap-[2px] rounded-full overflow-hidden">
-          {activeBurnTotal > 0 ? (
-            visibleBurnSegments.map((segment) => {
-              const width = (segment.kcal / activeBurnTotal) * 100;
-              return (
-                <div
-                  key={segment.key}
-                  className={`${segment.colorClass} h-full min-w-[2px] rounded-full`}
-                  style={{ width: `${width}%` }}
-                />
-              );
-            })
-          ) : (
-            <div className="h-full w-full rounded-full bg-surface-highlight" />
-          )}
-        </div>
-
-        <div className="mt-3 flex items-center justify-between gap-2 text-sm">
-          {visibleBurnSegments.map((segment) => {
-            const SegIcon = segment.icon;
-            return (
-              <div
-                key={segment.key}
-                className="flex items-center gap-2 min-w-0"
-              >
-                <SegIcon
-                  className={`${segment.textClass} shrink-0`}
-                  size={16}
-                />
-                <span className="text-muted truncate">{segment.label}</span>
-                <span className={`font-semibold shrink-0 ${segment.textClass}`}>
-                  {segment.kcal}
-                </span>
-              </div>
-            );
-          })}
-        </div>
       </div>
 
       <div className="bg-surface rounded-2xl px-6 py-5 border border-border shadow-lg">
