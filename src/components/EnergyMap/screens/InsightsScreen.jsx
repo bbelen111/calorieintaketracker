@@ -40,7 +40,7 @@ import {
   normalizeMacroRecommendationSplit,
 } from '../../../utils/calculations/macroRecommendations';
 import { shallow } from 'zustand/shallow';
-import { Minus, Gauge, Flame, Activity, ChevronRight } from 'lucide-react';
+import { Gauge, ChevronRight } from 'lucide-react';
 import { getTodayDateKey } from '../../../utils/data/dateKeys';
 import {
   computeAdaptiveThermogenesis,
@@ -48,93 +48,129 @@ import {
 } from '../../../utils/calculations/adaptiveThermogenesis';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 
-function AdaptiveCorrectionCard({ result, mode, onOpen }) {
+function AdaptiveCorrectionCard({ result, mode, goalDurationDays, onOpen }) {
   const insufficientData = Boolean(result?.insufficientData);
   const correction = Number(result?.correction ?? 0);
   const active = Boolean(result?.active);
   const isCut = correction < 0;
-  const isSurplus = correction > 0;
   const neutral = mode === 'off' || insufficientData || !active;
 
   const accent = neutral
     ? 'text-muted'
     : isCut
       ? 'text-accent-orange'
-      : isSurplus
-        ? 'text-accent-blue'
-        : 'text-muted';
-
-  const iconBg = neutral
-    ? 'bg-surface-highlight text-muted'
-    : isCut
-      ? 'bg-accent-orange/15 text-accent-orange'
-      : 'bg-accent-blue/15 text-accent-blue';
+      : 'text-accent-blue';
 
   const headline =
     mode === 'off'
-      ? 'Turned off'
+      ? 'Off'
       : insufficientData
-        ? 'Need more data'
+        ? 'No data'
         : !active
-          ? 'No correction active'
+          ? 'Inactive'
           : `${correction > 0 ? '+' : ''}${correction} kcal/day`;
 
-  let icon = <Gauge size={16} />;
-  if (mode !== 'off') {
-    icon = insufficientData ? (
-      <Minus size={16} />
-    ) : mode === 'crude' ? (
-      <Flame size={16} />
-    ) : (
-      <Activity size={16} />
+  const subtitle =
+    mode === 'off'
+      ? 'Not enabled'
+      : mode === 'crude'
+        ? active
+          ? `Crude mode · Day ${goalDurationDays ?? 0}`
+          : 'Crude mode · not yet active'
+        : insufficientData
+          ? 'Still collecting data'
+          : !active
+            ? 'No correction needed right now'
+            : `Smart mode · ${Math.round((result?.confidence ?? 0) * 100)}% confidence`;
+
+  const stats = [];
+  if (mode === 'crude') {
+    const stage = result?.details?.stage;
+    stats.push(
+      { label: 'Days on goal', value: `${goalDurationDays ?? 0} days` },
+      {
+        label: 'Active stage',
+        value: stage
+          ? `Day ${stage.minDays} · ${stage.kcal > 0 ? '+' : ''}${stage.kcal} kcal`
+          : 'Not reached yet',
+      }
+    );
+  } else if (mode === 'smart' && insufficientData) {
+    const d = result?.details;
+    stats.push(
+      {
+        label: 'Logged days',
+        value: `${d?.validDays ?? 0} / ${d?.minValidDays ?? 14}`,
+      },
+      {
+        label: 'Weigh-ins',
+        value: `${d?.weightEntriesUsed ?? 0} / ${d?.minWeightEntries ?? 4}`,
+      }
+    );
+  } else if (mode === 'smart') {
+    stats.push(
+      { label: 'Days on goal', value: `${goalDurationDays ?? 0} days` },
+      {
+        label: 'Observed rate',
+        value: `${result?.details?.observedRateKgPerWeek ?? 0} kg/wk`,
+      }
+    );
+  } else {
+    stats.push(
+      { label: 'Status', value: 'Inactive' },
+      { label: 'Days on goal', value: `${goalDurationDays ?? 0} days` }
     );
   }
 
-  const meta =
-    mode === 'off'
-      ? 'Enable in Settings to calibrate your target'
-      : mode === 'crude'
-        ? `Crude · day ${result?.details?.goalDurationDays ?? 0} of goal`
-        : insufficientData
-          ? 'Smart needs more logged days + weigh-ins'
-          : active || correction !== 0
-            ? `Smart · ${Math.round((result?.confidence ?? 0) * 100)}% confidence`
-            : 'Smart · tracking your trend';
-
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="group relative w-full text-left bg-surface rounded-2xl border border-border shadow-lg p-5 md:p-6 transition-all active:scale-[0.99] pressable-card focus-ring md:hover:border-border/80"
-    >
-      <div className="flex items-center mb-4 gap-2">
-        <Gauge className="text-accent-blue" size={18} />
-        <h2 className="text-xl font-bold text-foreground">
-          Adaptive Thermogenesis
-        </h2>
-      </div>
-      <div className="flex items-center gap-3">
-        <div
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${iconBg}`}
-        >
-          {icon}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-semibold text-foreground">
-              Adaptive Correction
-            </span>
-            <span className={`shrink-0 text-sm font-semibold ${accent}`}>
+    <div className="bg-surface rounded-2xl border border-border shadow-lg p-5 md:p-6">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="w-full text-left rounded-xl transition-all group pressable-card focus-ring"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1">
+            <Gauge className="text-accent-blue" size={30} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-bold text-foreground">
+              Adaptive Thermogenesis
+            </h2>
+            <p className="text-muted text-sm truncate">{subtitle}</p>
+          </div>
+          <div className="shrink-0 text-right">
+            <span className={`block text-md font-bold ${accent}`}>
               {headline}
             </span>
-          </div>
-          <div className="mt-0.5 flex items-center justify-between gap-2">
-            <span className="truncate text-xs text-muted">{meta}</span>
-            <ChevronRight size={14} className="shrink-0 text-muted" />
+            {active && (
+              <span className="text-[11px] text-muted">applied to target</span>
+            )}
           </div>
         </div>
-      </div>
-    </button>
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          {stats.map((stat) => (
+            <div
+              key={stat.label}
+              className="rounded-xl bg-surface-highlight/50 border border-border/50 px-3 py-2"
+            >
+              <p className="text-xs text-muted">{stat.label}</p>
+              <p className="mt-0.5 text-sm font-semibold text-foreground truncate">
+                {stat.value}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-3 flex items-center justify-between">
+          <span className="text-xs text-accent-blue/80">
+            Tap to view the full breakdown
+          </span>
+          <ChevronRight size={16} className="text-muted" />
+        </div>
+      </button>
+    </div>
   );
 }
 export const InsightsScreen = ({
@@ -773,6 +809,7 @@ export const InsightsScreen = ({
       <AdaptiveCorrectionCard
         result={adaptiveThermogenesis.result}
         mode={adaptiveThermogenesis.mode}
+        goalDurationDays={adaptiveThermogenesis.goalDurationDays}
         onOpen={onOpenAdaptiveThermogenesis}
       />
       <div className="bg-surface rounded-2xl py-4 px-4 border border-border shadow-lg">
