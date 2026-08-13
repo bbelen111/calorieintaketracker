@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Gauge,
+  HelpCircle,
   Info,
 } from 'lucide-react';
 import { shallow } from 'zustand/shallow';
@@ -36,7 +37,12 @@ const TABS = [
   { key: 'smart', label: 'Smart', icon: Activity },
 ];
 
-export const AdaptiveThermogenesisModal = ({ isOpen, isClosing, onClose }) => {
+export const AdaptiveThermogenesisModal = ({
+  isOpen,
+  isClosing,
+  onClose,
+  onOpenInfo,
+}) => {
   const [tab, setTab] = useState('smart');
 
   const store = useEnergyMapStore(
@@ -103,12 +109,14 @@ export const AdaptiveThermogenesisModal = ({ isOpen, isClosing, onClose }) => {
               Adaptive Thermogenesis
             </h3>
           </div>
-          {data?.enabled && data?.mode !== 'off' ? (
-            <span className="text-xs text-muted inline-flex items-center gap-1.5">
-              <Info size={13} className="text-accent-blue" />
-              Live
-            </span>
-          ) : null}
+          <button
+            type="button"
+            onClick={onOpenInfo}
+            aria-label="Adaptive Thermogenesis info"
+            className="text-muted md:hover:text-foreground transition-all pressable-inline focus-ring"
+          >
+            <HelpCircle size={20} />
+          </button>
         </div>
 
         {/* Main content area */}

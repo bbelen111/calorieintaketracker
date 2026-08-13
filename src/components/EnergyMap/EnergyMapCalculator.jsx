@@ -3931,13 +3931,14 @@ export const EnergyMapCalculator = () => {
         onClose={adaptiveThermogenesisInfoModal.requestClose}
       />
 
-
-      {(adaptiveThermogenesisModal.isOpen || adaptiveThermogenesisModal.isClosing) && (
+      {(adaptiveThermogenesisModal.isOpen ||
+        adaptiveThermogenesisModal.isClosing) && (
         <Suspense fallback={null}>
           <AdaptiveThermogenesisModal
             isOpen={adaptiveThermogenesisModal.isOpen}
             isClosing={adaptiveThermogenesisModal.isClosing}
             onClose={adaptiveThermogenesisModal.requestClose}
+            onOpenInfo={adaptiveThermogenesisInfoModal.open}
           />
         </Suspense>
       )}
