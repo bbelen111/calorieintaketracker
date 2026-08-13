@@ -185,12 +185,17 @@
   }
 }
 
-/* 
-  Mobile Density Fix:
+/*
+  Mobile Density Fix + Font Scaling Cap:
   16px * 0.75 = 12px.
+  text-size-adjust caps browser/acc escalations of these sizes
+  while still allowing user pinch-zoom and desktop↔mobile
+  font-size media-query scaling.
 */
 html {
   font-size: 13.5px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 html,
