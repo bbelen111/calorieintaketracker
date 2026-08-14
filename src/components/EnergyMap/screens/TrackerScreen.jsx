@@ -633,7 +633,7 @@ export const TrackerScreen = ({
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <Target className="text-accent-blue" size={32} />
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground">
+            <h1 className="text-2xl md:text-3xl font-black text-foreground">
               Calorie Tracker
             </h1>
           </div>
@@ -760,20 +760,25 @@ export const TrackerScreen = ({
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Flame className="text-accent-blue" size={20} />
-            <span className="text-foreground text-lg font-bold tracking-wide">
+            <span className="text-foreground text-xl font-bold tracking-wide">
               Total Calories
             </span>
           </div>
-          <div className="h-8">
+          <div
+            className={`h-10 font-black text-2xl px-5 py-1 tracking-wide rounded-full flex items-center justify-center ${caloriesRemaining < 0 ? 'bg-accent-red/15 text-accent-red border border-accent-red/30' : 'bg-accent-emerald/15 text-accent-emerald border border-accent-emerald/30'}`}
+          >
             <AnimatePresence mode="wait">
               <motion.p
                 key={`totals-cal-${totals.calories}`}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={`
-                    ${caloriesRemaining < 0 ? 'text-accent-red' : 'text-accent-emerald'}
-                    font-bold text-2xl
-                  `}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.22 }}
+                className={`leading-none m-0 ${
+                  caloriesRemaining < 0
+                    ? 'text-accent-red'
+                    : 'text-accent-emerald'
+                }`}
               >
                 {formatOne(totals.calories)}
               </motion.p>
@@ -813,7 +818,7 @@ export const TrackerScreen = ({
 
         {/* Progress Bar */}
         <div className="mt-4 mb-6">
-          <div className="w-full bg-surface-highlight rounded-full h-3 overflow-hidden">
+          <div className="w-full bg-surface-highlight rounded-full h-4 overflow-hidden">
             <div
               className={`h-full ${
                 caloriesPercent >= 100 ? 'bg-accent-red' : 'bg-accent-emerald'
