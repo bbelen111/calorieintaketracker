@@ -765,7 +765,7 @@ export const TrackerScreen = ({
             </span>
           </div>
           <div
-            className={`h-10 font-black text-2xl px-5 py-1 tracking-wide rounded-full flex items-center justify-center ${caloriesRemaining < 0 ? 'bg-accent-red/15 text-accent-red border border-accent-red/30' : 'bg-accent-emerald/15 text-accent-emerald border border-accent-emerald/30'}`}
+            className={`font-black text-2xl px-4 h-8 tracking-wide rounded-full flex items-center justify-center ${caloriesRemaining < 0 ? 'bg-accent-red/15 text-accent-red border border-accent-red/30' : 'bg-accent-emerald/15 text-accent-emerald border border-accent-emerald/30'}`}
           >
             <AnimatePresence mode="wait">
               <motion.p
