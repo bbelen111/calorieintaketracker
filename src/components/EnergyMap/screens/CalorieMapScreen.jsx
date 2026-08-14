@@ -345,7 +345,7 @@ export const CalorieMapScreen = ({
             <div className="flex items-center gap-3">
               <Map className="text-accent-blue" size={32} />
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-foreground">
+                <h1 className="text-2xl md:text-3xl font-black text-foreground">
                   Calorie Map
                 </h1>
                 <div>

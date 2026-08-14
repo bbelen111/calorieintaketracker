@@ -222,7 +222,7 @@ export const LogbookScreen = ({
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <ClipboardList className="text-accent-blue" size={32} />
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground">
+            <h1 className="text-2xl md:text-3xl font-black text-foreground">
               Logbook
             </h1>
           </div>
