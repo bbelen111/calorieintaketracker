@@ -1,7 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Calendar,
   ChevronLeft,
   ChevronRight,
   Calendar as CalendarIcon,
@@ -608,9 +607,8 @@ export const CalendarPickerModal = ({
       >
         <div className="p-6 relative transition-all duration-300 ease-in-out">
           <div className="flex items-center justify-between mb-6 gap-2">
-            <h3 className="text-foreground font-bold text-xl flex items-center gap-2">
-              <Calendar className="text-accent-blue" size={24} />
-              Select Date
+            <h3 className="text-foreground font-black text-2xl flex items-center gap-2">
+              Tracker Calendar
             </h3>
 
             <motion.button
@@ -639,20 +637,20 @@ export const CalendarPickerModal = ({
               <ChevronLeft size={20} />
             </motion.button>
 
-            <div className="flex items-center gap-3 relative w-full justify-center">
+            <div className="flex items-center gap-2 justify-center">
               <button
                 type="button"
                 onClick={() => {
                   setShowMonthPicker(!showMonthPicker);
                   setShowYearPicker(false);
                 }}
-                className="text-foreground font-semibold text-lg md:hover:text-accent-blue transition-colors cursor-pointer underline underline-offset-4 mr-auto"
+                className="text-foreground font-semibold text-xl md:hover:text-accent-blue transition-colors cursor-pointer underline underline-offset-4"
               >
                 {monthNames[currentMonth]}
               </button>
 
               {/* Centered separator dot */}
-              <span className="text-muted absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none select-none">
+              <span className="text-muted pointer-events-none select-none">
                 •
               </span>
 
@@ -662,7 +660,7 @@ export const CalendarPickerModal = ({
                   setShowYearPicker(!showYearPicker);
                   setShowMonthPicker(false);
                 }}
-                className="text-foreground font-semibold text-lg md:hover:text-accent-blue transition-colors cursor-pointer underline underline-offset-4 ml-auto"
+                className="text-foreground font-semibold text-xl md:hover:text-accent-blue transition-colors cursor-pointer underline underline-offset-4"
               >
                 {currentYear}
               </button>
@@ -699,7 +697,7 @@ export const CalendarPickerModal = ({
                   transition={{ duration: 0.2 }}
                   className="absolute left-1/5 -translate-x-1/2 top-29 z-50"
                 >
-                  <div className="grid grid-cols-3 gap-2 p-4 bg-surface rounded-lg border-2 border-border shadow-2xl w-64">
+                  <div className="grid grid-cols-3 gap-2 p-1 bg-surface rounded-lg border-2 border-border shadow-2xl w-64">
                     {monthNames.map((month, index) => (
                       <motion.button
                         key={month}
@@ -709,8 +707,8 @@ export const CalendarPickerModal = ({
                         whileTap={{ scale: 0.95 }}
                         className={`px-3 py-2 rounded font-semibold transition-colors text-sm whitespace-nowrap ${
                           index === currentMonth
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-surface-highlight text-foreground md:hover:bg-surface'
+                            ? 'text-primary-foreground bg-primary'
+                            : 'text-foreground md:hover:bg-surface'
                         }`}
                       >
                         {month.slice(0, 3)}
@@ -741,7 +739,7 @@ export const CalendarPickerModal = ({
                   transition={{ duration: 0.2 }}
                   className="absolute left-1/2 -translate-x-1/2 top-29 z-50"
                 >
-                  <div className="grid grid-cols-4 gap-1.5 p-3 bg-surface rounded-lg border-2 border-border shadow-2xl w-56">
+                  <div className="grid grid-cols-4 gap-1.5 p-1 bg-surface rounded-lg border-2 border-border shadow-2xl w-56">
                     {yearRange.map((year) => (
                       <motion.button
                         key={year}
@@ -749,10 +747,10 @@ export const CalendarPickerModal = ({
                         onClick={() => handleYearSelect(year)}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        className={`px-1 py-2 rounded font-semibold transition-colors text-sm ${
+                        className={`px-2 py-3 rounded font-semibold transition-colors text-sm ${
                           year === currentYear
                             ? 'bg-primary text-primary-foreground'
-                            : 'bg-surface-highlight text-foreground md:hover:bg-surface'
+                            : 'text-foreground md:hover:bg-surface'
                         }`}
                       >
                         {year}
@@ -784,12 +782,14 @@ export const CalendarPickerModal = ({
           {/* Monthly Insights */}
           <div className="mt-4 bg-surface-highlight rounded-lg p-4 border border-border">
             <div className="flex items-center gap-2 mb-3">
-              <TrendingUp className="text-accent-blue" size={18} />
-              <h4 className="text-foreground font-bold text-sm">
-                Monthly Average
-              </h4>
+              <div className="flex items-center gap-2">
+                <TrendingUp className="text-accent-blue" size={20} />
+                <h4 className="text-foreground font-bold text-md">
+                  Monthly Average
+                </h4>
+              </div>
               <motion.span
-                className="text-foreground/80 text-xs ml-auto"
+                className="text-foreground/80 text-sm ml-auto"
                 key={monthlyInsights.daysWithData}
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -806,13 +806,38 @@ export const CalendarPickerModal = ({
               </motion.span>
             </div>
 
+            {/* Days Tracked Progress Bar */}
+            <div className="mb-4 mt-1">
+              <motion.div
+                className="h-2 w-full rounded-full overflow-hidden bg-surface"
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.1 }}
+              >
+                <motion.div
+                  className="h-full rounded-full bg-accent-blue"
+                  initial={{ width: 0 }}
+                  animate={{
+                    width: `${
+                      monthlyInsights.daysWithData > 0
+                        ? (monthlyInsights.daysWithData /
+                            monthlyInsights.daysInMonth) *
+                          100
+                        : 0
+                    }%`,
+                  }}
+                  transition={{ duration: 0.5, ease: 'easeOut' }}
+                />
+              </motion.div>
+            </div>
+
             <div className="grid grid-cols-4 gap-3">
               {/* Calories */}
               <div className="flex flex-col items-center">
-                <div className="bg-surface/80 rounded-lg p-2 w-full flex flex-col items-center border border-border">
+                <div className="bg-surface/80 rounded-lg px-2 py-3 w-full flex flex-col items-center border border-border">
                   <Flame className="text-accent-emerald mb-1" size={16} />
                   <motion.p
-                    className="text-accent-emerald font-bold text-base"
+                    className="text-accent-emerald font-black text-base"
                     key={monthlyInsights.avgCalories}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -826,10 +851,10 @@ export const CalendarPickerModal = ({
 
               {/* Protein */}
               <div className="flex flex-col items-center">
-                <div className="bg-surface/80 rounded-lg p-2 w-full flex flex-col items-center border border-border">
+                <div className="bg-surface/80 rounded-lg px-2 py-3 w-full flex flex-col items-center border border-border">
                   <Beef className="text-accent-red mb-1" size={16} />
                   <motion.p
-                    className="text-accent-red font-bold text-base"
+                    className="text-accent-red font-black text-base"
                     key={monthlyInsights.avgProtein}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -843,10 +868,10 @@ export const CalendarPickerModal = ({
 
               {/* Fats */}
               <div className="flex flex-col items-center">
-                <div className="bg-surface/80 rounded-lg p-2 w-full flex flex-col items-center border border-border">
+                <div className="bg-surface/80 rounded-lg px-2 py-3 w-full flex flex-col items-center border border-border">
                   <Droplet className="text-accent-yellow mb-1" size={16} />
                   <motion.p
-                    className="text-accent-yellow font-bold text-base"
+                    className="text-accent-yellow font-black text-base"
                     key={monthlyInsights.avgFats}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -860,10 +885,10 @@ export const CalendarPickerModal = ({
 
               {/* Carbs */}
               <div className="flex flex-col items-center">
-                <div className="bg-surface/80 rounded-lg p-2 w-full flex flex-col items-center border border-border">
+                <div className="bg-surface/80 rounded-lg px-2 py-3 w-full flex flex-col items-center border border-border">
                   <Cookie className="text-accent-amber mb-1" size={16} />
                   <motion.p
-                    className="text-accent-amber font-bold text-base"
+                    className="text-accent-amber font-black text-base"
                     key={monthlyInsights.avgCarbs}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -903,7 +928,7 @@ export const CalendarPickerModal = ({
           }}
           onClick={handleTooltipClick}
         >
-          <div className="p-2">
+          <div className="flex flex-col items-center p-0.5">
             <p className="text-muted text-[11.5px] mb-1 whitespace-nowrap">
               {new Date(tooltipDate + 'T00:00:00Z').toLocaleDateString(
                 'en-US',
