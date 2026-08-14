@@ -137,6 +137,7 @@ src/
 │   │  ├─ calculations.js        # Core calorie formulas — BMR/cardio/training/TDEE/TEF
 │   │  ├─ adaptiveThermogenesis.js # Adaptive thermogenesis mode resolution + crude/smart correction engine
 │   │  ├─ dailySnapshots.js      # Derived daily snapshot builder + equality helpers
+│   │  ├─ rollingEnergyBalance.js # Rolling energy-balance calculator (3/7/14/28-day windows; consumes snapshot tdee/intake)
 │   │  ├─ healthConnectWindow.js # Strict Health Connect step-read window helper (guarantees end > start)
 │   │  ├─ epoc.js                # Session EPOC estimate + carryover window resolution
 │   │  ├─ goalAlignment.js       # Weight trend vs goal alignment evaluation
@@ -204,6 +205,7 @@ src/
     ├─ dateKeys.test.js
     ├─ adaptiveThermogenesis.test.js
     ├─ dailySnapshots.test.js    # Snapshot derivation and helper behavior tests
+    ├─ rollingEnergyBalance.test.js # Rolling balance calculator tests (windows, missing/malformed days, expected-vs-actual)
     ├─ phaseLogV2.test.js
     ├─ phases.test.js
     ├─ sessionCarryover.test.js

@@ -12,7 +12,7 @@ paths:
 - **42 top-level `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
 - **~21 additional child-level modals** declared inside modal components (e.g., delete confirmations, sub-pickers)
 - **52 modal component files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`, plus 5 supporting panel components under `fullscreen/panels/`:
-  - `fullscreen/` — WeightTrackerModal, BodyFatTrackerModal, StepTrackerModal, SettingsModal, FoodSearchModal, AdaptiveThermogenesisModal
+  - `fullscreen/` — WeightTrackerModal, BodyFatTrackerModal, StepTrackerModal, SettingsModal, FoodSearchModal, AdaptiveThermogenesisModal, RollingEnergyBalanceModal
   - `pickers/` — AgePickerModal, CalendarPickerModal, **CaloriesPerHourPickerModal**, DatePickerModal, DurationPickerModal, EpocWindowPickerModal, FoodPortionModal, HeartRatePickerModal, HeightPickerModal, **MacroPickerModal**, MealTypePickerModal, MetValuePickerModal, **NumericValuePickerModal**, StepGoalPickerModal, TemplatePickerModal, TimePickerModal
   - `info/` — AdaptiveThermogenesisInfoModal, BmiInfoModal, BmrInfoModal, BodyFatTrendInfoModal, CalorieBreakdownModal, CaloriesPerHourGuideModal, EpocInfoModal, FfmiInfoModal, TefInfoModal, WeightTrendInfoModal
   - `forms/` — AddCustomFoodModal, BarcodeEntryModal, BodyFatEntryModal, CardioModal, CustomCardioTypeModal, DailyActivityCustomModal, DailyActivityEditorModal, DailyActivityModal, DailyLogModal, FoodEntryModal, GoalModal, PhaseCreationModal, TrainingModal, StepRangesModal, TrainingTypeEditorModal, WeightEntryModal
@@ -26,6 +26,17 @@ paths:
 - It renders **Crude / Smart** tabs: Crude shows the applied correction plus the full staged timeline (from `CRUDE_CUT_STAGES` / `CRUDE_SURPLUS_STAGES`); Smart shows correction, confidence, divergence/noise-floor, weekly rates, and data-used badges. Insufficient-data states use progress rows.
 - `InsightsScreen` renders an `AdaptiveCorrectionCard` preview (Turned off / Need more data / No correction active / ±N kcal/day) in a new "Adaptive Thermogenesis" section and opens the modal via `onOpenAdaptiveThermogenesis`.
 - Wire it like any other top-level modal: `useAnimatedModal()`, register in `isAnyModalOpen` + `closeTopmostModal` + deps, and lazy `React.lazy(...)` with an `isOpen || isClosing` mount guard.
+
+### Rolling Energy Balance Frontend
+
+- `RollingEnergyBalanceModal` (`modals/fullscreen/RollingEnergyBalanceModal.jsx`) is the fullscreen, lazy-loaded analytics surface for the longitudinal rolling energy balance. It subscribes to `userData.dailySnapshots`, `weightEntries`, and the derived `goalDailyBalanceTarget`, recomputing the window summary via `calculateRollingEnergyBalance(...)` in a `useMemo`.
+- Backed by the pure calculator `utils/calculations/rollingEnergyBalance.js` (windows 3/7/14/28 days, default 7). It consumes the already-computed snapshot `tdee`/`intake` (never rebuilds TDEE). Per-day balance `= tdee - intake` (positive = deficit, negative = surplus). Missing days are unavailable, never zero; malformed snapshots and future dates are excluded.
+- `InsightsScreen` renders a `RollingBalancePreviewCard` (7-day headline) and opens the modal via `onOpenRollingEnergyBalance`.
+- Wire it like any other top-level modal: `useAnimatedModal()`, register in `isAnyModalOpen` + `closeTopmostModal` + deps, and lazy `React.lazy(...)` with an `isOpen || isClosing` mount guard.
+- **Animations (reuse the app's CSS conventions — do not introduce a new design system):**
+  - Window selector uses a **single persistent sliding pill** with inline `transition: left 0.28s cubic-bezier(0.32, 0.72, 0, 1)...` (same as `AdaptiveThermogenesisModal`/`WeightTrackerModal`). Keep one persistent pill animating `left`; do NOT render it as per-button conditional remounts (no `transition` → no slide).
+  - The content wrapper is keyed by `windowDays` and tagged `tracker-graph-switch` so switching windows re-plays a subtle fade/translate page transition.
+  - The bar-chart `<rect>`s carry `tracker-bar-animated` so bars grow in (`trackerBarIn`). Both rely on the global `prefers-reduced-motion` fallback in `index.css`.
 
 
 ### Modal Performance Loading Strategy

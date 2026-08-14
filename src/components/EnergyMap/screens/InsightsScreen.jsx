@@ -40,12 +40,16 @@ import {
   normalizeMacroRecommendationSplit,
 } from '../../../utils/calculations/macroRecommendations';
 import { shallow } from 'zustand/shallow';
-import { Gauge, ChevronRight } from 'lucide-react';
+import { Gauge, ChevronRight, BarChart3 } from 'lucide-react';
 import { getTodayDateKey } from '../../../utils/data/dateKeys';
 import {
   computeAdaptiveThermogenesis,
   resolveAdaptiveThermogenesisMode,
 } from '../../../utils/calculations/adaptiveThermogenesis';
+import {
+  calculateRollingEnergyBalance,
+  getDailyBalanceKind,
+} from '../../../utils/calculations/rollingEnergyBalance';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 
 function AdaptiveCorrectionCard({ result, mode, goalDurationDays, onOpen }) {
@@ -173,6 +177,68 @@ function AdaptiveCorrectionCard({ result, mode, goalDurationDays, onOpen }) {
     </div>
   );
 }
+function RollingBalancePreviewCard({ summary, onOpen }) {
+  const hasData = Boolean(summary?.hasData);
+  const rolling = summary?.rollingBalance ?? 0;
+  const kind = hasData ? getDailyBalanceKind(rolling) : null;
+  const accent = !hasData
+    ? 'text-muted'
+    : kind === 'deficit'
+      ? 'text-accent-red'
+      : 'text-accent-green';
+
+  const headline = !hasData
+    ? 'No data'
+    : `${rolling > 0 ? '+' : ''}${Math.round(rolling).toLocaleString()} kcal`;
+
+  const subtitle = !hasData
+    ? 'Log calories to track a rolling balance'
+    : `7-day balance · ${summary.trackedDays} of ${summary.windowDays} days tracked`;
+
+  return (
+    <div className="bg-surface rounded-2xl border border-border shadow-lg p-5 md:p-6">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="w-full text-left rounded-xl transition-all group pressable-card focus-ring"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1">
+            <BarChart3 className="text-accent-blue" size={30} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-bold text-foreground">
+              Rolling Energy Balance
+            </h2>
+            <p className="text-muted text-sm truncate">{subtitle}</p>
+          </div>
+          <div className="shrink-0 text-right">
+            <span className={`block text-md font-bold ${accent}`}>
+              {headline}
+            </span>
+            {hasData && (
+              <span className="text-[11px] text-muted">
+                avg {Number(summary?.averageDailyBalance).toFixed(0)} kcal/day
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between">
+          <span className="text-xs text-accent-blue/80">
+            {hasData
+              ? summary.insufficientData
+                ? 'Partial window — tap for details'
+                : 'Tap for the full N-day trend'
+              : 'Tap to learn more'}
+          </span>
+          <ChevronRight size={16} className="text-muted" />
+        </div>
+      </button>
+    </div>
+  );
+}
+
 export const InsightsScreen = ({
   userData,
   selectedGoal,
@@ -186,6 +252,7 @@ export const InsightsScreen = ({
   targetCalories = 2500,
   onOpenMacroPicker,
   onOpenAdaptiveThermogenesis,
+  onOpenRollingEnergyBalance,
   macroLocks,
 }) => {
   const store = useEnergyMapStore(
@@ -195,6 +262,7 @@ export const InsightsScreen = ({
       bodyFatEntries: state.bodyFatEntries ?? [],
       goalDurationDays: state.goalDurationDays ?? 0,
       macroLocks: state.userData.macroLocks ?? undefined,
+      goalDailyBalanceTarget: state.goalDailyBalanceTarget,
     }),
     shallow
   );
@@ -376,6 +444,18 @@ export const InsightsScreen = ({
     selectedGoal,
     store.goalDurationDays,
   ]);
+  // Rolling Energy Balance preview (7-day primary view)
+  const rollingBalanceSummary = useMemo(
+    () =>
+      calculateRollingEnergyBalance({
+        snapshots: resolvedUserData.dailySnapshots,
+        windowDays: 7,
+        asOfDate: getTodayDateKey(),
+        goalDailyBalanceTarget: store.goalDailyBalanceTarget,
+      }),
+    [resolvedUserData.dailySnapshots, store.goalDailyBalanceTarget]
+  );
+
   const bmiColorMap = {
     blue: {
       text: 'text-accent-blue',
@@ -811,6 +891,10 @@ export const InsightsScreen = ({
         mode={adaptiveThermogenesis.mode}
         goalDurationDays={adaptiveThermogenesis.goalDurationDays}
         onOpen={onOpenAdaptiveThermogenesis}
+      />
+      <RollingBalancePreviewCard
+        summary={rollingBalanceSummary}
+        onOpen={onOpenRollingEnergyBalance}
       />
       <div className="bg-surface rounded-2xl py-4 px-4 border border-border shadow-lg">
         <button

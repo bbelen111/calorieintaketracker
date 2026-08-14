@@ -159,7 +159,7 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 - **42 top-level `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
 - **~21 additional child-level modals** declared inside modal components (e.g., delete confirmations, sub-pickers)
 - **52 modal component files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`, plus 5 supporting panel components under `fullscreen/panels/`:
-  - `fullscreen/` — WeightTrackerModal, BodyFatTrackerModal, StepTrackerModal, SettingsModal, FoodSearchModal, AdaptiveThermogenesisModal
+  - `fullscreen/` — WeightTrackerModal, BodyFatTrackerModal, StepTrackerModal, SettingsModal, FoodSearchModal, AdaptiveThermogenesisModal, RollingEnergyBalanceModal
   - `pickers/` — AgePickerModal, CalendarPickerModal, **CaloriesPerHourPickerModal**, DatePickerModal, DurationPickerModal, EpocWindowPickerModal, FoodPortionModal, HeartRatePickerModal, HeightPickerModal, **MacroPickerModal**, MealTypePickerModal, MetValuePickerModal, **NumericValuePickerModal**, StepGoalPickerModal, TemplatePickerModal, TimePickerModal
   - `info/` — AdaptiveThermogenesisInfoModal, BmiInfoModal, BmrInfoModal, BodyFatTrendInfoModal, CalorieBreakdownModal, CaloriesPerHourGuideModal, EpocInfoModal, FfmiInfoModal, TefInfoModal, WeightTrendInfoModal
   - `forms/` — AddCustomFoodModal, BarcodeEntryModal, BodyFatEntryModal, CardioModal, CustomCardioTypeModal, DailyActivityCustomModal, DailyActivityEditorModal, DailyActivityModal, DailyLogModal, FoodEntryModal, GoalModal, PhaseCreationModal, TrainingModal, StepRangesModal, TrainingTypeEditorModal, WeightEntryModal
@@ -172,6 +172,18 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 - `AdaptiveThermogenesisModal` (`modals/fullscreen/`) is the fullscreen, lazy-loaded frontend for the AT subsystem. It subscribes to the store and recomputes both `crude` and `smart` results live, rendering Crude/Smart tabs over the exported `CRUDE_CUT_STAGES`/`CRUDE_SURPLUS_STAGES` timeline.
 - `InsightsScreen` renders an `AdaptiveCorrectionCard` preview and opens the modal via the `onOpenAdaptiveThermogenesis` prop.
 - Wire it like any other top-level modal: `useAnimatedModal()`, register in `isAnyModalOpen` + `closeTopmostModal` + deps, and lazy `React.lazy(...)` with an `isOpen || isClosing` mount guard.
+
+### Rolling Energy Balance Frontend
+
+- `RollingEnergyBalanceModal` (`modals/fullscreen/`) is the fullscreen, lazy-loaded analytics surface for the longitudinal rolling energy balance. It subscribes to `userData.dailySnapshots`, `weightEntries`, and the derived `goalDailyBalanceTarget`, then recomputes the window summary via `calculateRollingEnergyBalance(...)` in a `useMemo`.
+- Backed by the pure calculator `utils/calculations/rollingEnergyBalance.js` (windows 3/7/14/28 days, default 7). It consumes the already-computed snapshot `tdee`/`intake` — it never rebuilds TDEE. Per-day balance `= tdee - intake` (positive = deficit, negative = surplus). Missing days are unavailable, never zero. Missing/malformed snapshots and future dates are excluded.
+- `InsightsScreen` renders a `RollingBalancePreviewCard` (7-day headline) and opens the modal via the `onOpenRollingEnergyBalance` prop.
+- Wire it like any other top-level modal: `useAnimatedModal()`, register in `isAnyModalOpen` + `closeTopmostModal` + deps, and lazy `React.lazy(...)` with an `isOpen || isClosing` mount guard.
+- **Animations (reuse the app's CSS conventions, not a new design system):**
+  - The window selector uses a **single persistent sliding pill** with inline `transition: left 0.28s cubic-bezier(0.32, 0.72, 0, 1)...` (same pattern as `AdaptiveThermogenesisModal`/`WeightTrackerModal`).
+  - The content wrapper is keyed by `windowDays` and tagged `tracker-graph-switch` so switching windows re-plays a subtle fade/translate page transition.
+  - The bar-chart `<rect>`s carry `tracker-bar-animated` so bars grow in (`trackerBarIn`). Both benefit from the global `prefers-reduced-motion` fallback in `index.css`.
+  - **Do not** leave a sliding-pill as per-button conditional remounts (no `transition` → no slide); always keep one persistent pill and animate `left`/`transform`.
 
 
 ### Modal Performance Loading Strategy
@@ -533,8 +545,11 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 | TEF (dynamic mode) | `calculateDynamicTef({totals, ...})` | Uses today's logged macro totals for live TEF estimate |
 | Adaptive thermogenesis mode | `resolveAdaptiveThermogenesisMode({ userData, adaptiveThermogenesisContext })` | Resolves `'off' \| 'crude' \| 'smart'` from persisted settings plus optional per-request override |
 | Adaptive thermogenesis correction | `computeAdaptiveThermogenesis({...})` | Computes bounded correction (±300 kcal/day) from staged duration logic (`crude`) or snapshot/weight divergence signal (`smart`), with optional smart-mode weight-signal smoothing (`EMA`/`SMA`, 3-14 day window) |
+| Rolling balance (window) | `calculateRollingEnergyBalance({...})` | Pure analytic rollup consuming snapshot `tdee`/`intake` (`balance = tdee - intake`, positive = deficit) over 3/7/14/28-day windows; never rebuilds TDEE (`utils/calculations/rollingEnergyBalance.js`) |
 
 **TEF constants** exported from `calculations.js`: `TEF_MULTIPLIER_OFFSET = 0.1`, `TEF_PROTEIN_RATE = 0.25`, `TEF_CARB_RATE = 0.08`, `TEF_FAT_RATE = 0.02`.
+
+**Rolling Energy Balance:** `utils/calculations/rollingEnergyBalance.js` is the canonical longitudinal analytics source. `calculateRollingEnergyBalance({ snapshots, windowDays, asOfDate, goalDailyBalanceTarget })` consumes the already-computed snapshot `tdee`/`intake` (never rebuilds TDEE) over 3/7/14/28-day calendar windows (default 7). Returns `rollingBalance`, `averageDailyBalance`, `trackedDays`, `expectedBalance`, `balanceVariance`, `estimatedWeightChangeKg` (÷`ESTIMATED_ENERGY_PER_KG`=7700, labelled as a rough energy-equivalent estimate), `hasData`, `insufficientData`, and ordered `days`. Sign convention: positive = deficit, negative = surplus. Missing snapshots are unavailable days (never zero); malformed/missing-field records and future dates are excluded via `parseDailyEnergyBalance`/`selectRollingBalanceDays`; duplicates keep the last snapshot. The goal's daily target is the store-derived, phase-lock-aware `goalDailyBalanceTarget` (positive = deficit). Do not duplicate this logic in UI components.
 
 **Smart TEF mechanic:** When `userData.smartTefEnabled` is true and a `tefContext` is passed, `calculateCalorieBreakdown()` subtracts `TEF_MULTIPLIER_OFFSET` (10%) from the NEAT activity multiplier (`effectiveActivityMultiplier = rawActivityMultiplier - 0.1`) then adds the macro-based TEF back as an explicit line item. Net effect is neutral at default macro ratios but improves accuracy with real logged data. The breakdown return object gains: `rawActivityMultiplier`, `effectiveActivityMultiplier`, `tefOffsetApplied`, `tefMode`, `smartTefCalories`, `smartTefDetails`.
 
@@ -981,11 +996,13 @@ src/
 │   └─ useEnergyMapStore.js      # Zustand store: state, actions, derived values, persistence
 │                                #   calculateBreakdown(steps, isTrainingDay, options?) — options.tefContext + options.adaptiveThermogenesisContext forwarded to core calc
 │                                #   calculateTargetForGoal(steps, isTrainingDay, goalKey, options?) — 2-pass refinement for target TEF mode
+│                                #   goalDailyBalanceTarget — derived phase-lock-aware goal daily balance target (positive = deficit)
 ├─ utils/
 │   ├─ calculations/
 │   │  ├─ calculations.js        # Core calorie formulas — BMR/cardio/training/TDEE/TEF
 │   │  ├─ adaptiveThermogenesis.js # Adaptive thermogenesis mode resolution + crude/smart correction engine
 │   │  ├─ dailySnapshots.js      # Derived daily snapshot builder + equality helpers
+│   │  ├─ rollingEnergyBalance.js # Rolling energy-balance calculator (3/7/14/28-day windows; consumes snapshot tdee/intake)
 │   │  ├─ epoc.js                # Session EPOC estimate + carryover window resolution
 │   │  ├─ goalAlignment.js       # Weight trend vs goal alignment evaluation
 │   │  ├─ phaseTargetPlanning.js # Target-mode phase planning (delta estimation + feasible date bands)
@@ -1052,6 +1069,7 @@ src/
     ├─ dateKeys.test.js
     ├─ adaptiveThermogenesis.test.js
     ├─ dailySnapshots.test.js    # Snapshot derivation and helper behavior tests
+    ├─ rollingEnergyBalance.test.js # Rolling balance calculator tests (windows, missing/malformed days, expected-vs-actual)
     ├─ phaseLogV2.test.js
     ├─ phases.test.js
     ├─ sessionCarryover.test.js

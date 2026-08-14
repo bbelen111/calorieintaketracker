@@ -9,6 +9,7 @@ import {
   calculateTrainingSessionCalories,
   getTotalCardioBurnForDate,
   getTotalTrainingBurnForDate,
+  resolveGoalCalorieDelta,
 } from '../utils/calculations/calculations';
 import { deriveTargetCreationModePayload } from '../utils/calculations/phaseTargetPlanning.js';
 import { getStepRangeSortValue } from '../utils/calculations/steps';
@@ -414,6 +415,24 @@ const deriveState = (userData) => {
   const selectedGoal = userData.selectedGoal ?? 'maintenance';
   const goalChangedAt = Number(userData.goalChangedAt) || Date.now();
 
+  // Canonical daily goal balance target (positive = deficit) for analytics like
+  // Rolling Energy Balance. Mirrors the phase-lock rule used by
+  // `calculateTargetForGoal` so the UI never duplicates business logic.
+  const activePhaseId = phaseView.activePhaseId;
+  const phaseGoalDeltaSourcePhaseId =
+    userData?.phaseGoalCalorieDeltaSourcePhaseId;
+  const phaseGoalDelta = Number(userData?.phaseGoalCalorieDelta);
+  const isPhaseDeltaOwned =
+    phaseGoalDeltaSourcePhaseId != null &&
+    phaseGoalDeltaSourcePhaseId === activePhaseId &&
+    Number.isFinite(phaseGoalDelta);
+  const goalDailyBalanceTarget =
+    activePhase?.status === PHASE_STATUS.ACTIVE &&
+    activePhase?.id != null &&
+    isPhaseDeltaOwned
+      ? -Math.round(phaseGoalDelta)
+      : -resolveGoalCalorieDelta(selectedGoal);
+
   return {
     trainingTypes,
     cardioTypes,
@@ -427,6 +446,7 @@ const deriveState = (userData) => {
     stepGoal,
     selectedGoal,
     goalChangedAt,
+    goalDailyBalanceTarget,
     goalDurationDays: getGoalDurationDays(goalChangedAt),
     customCardioTypes: userData.customCardioTypes ?? {},
     cardioFavourites: userData.cardioFavourites ?? [],

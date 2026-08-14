@@ -31,6 +31,8 @@ All mutations go through `updateUserData(set, get, updater)` which:
 2. Calls `deriveState(nextUserData)` to recompute all derived values
 3. Calls `set()` with both the new `userData` and derived fields
 
+**Derived `goalDailyBalanceTarget`:** `deriveState` exposes a canonical, phase-lock-aware goal daily balance target in **balance convention** (positive = deficit). It mirrors the same phase-lock rule `calculateTargetForGoal` uses: when an active phase owns the delta (`isGoalLockedByActivePhase` and `phaseGoalCalorieDeltaSourcePhaseId === activePhaseId`), it is `-phaseGoalCalorieDelta`, otherwise `-resolveGoalCalorieDelta(selectedGoal)`. Rolling Energy Balance and any analytics consume this field rather than recomputing the goal/phase delta in UI.
+
 **Adding a new store action:**
 ```javascript
 myNewAction: (param) => {
@@ -101,6 +103,7 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 | TEF (dynamic mode) | `calculateDynamicTef({totals, ...})` | Uses today's logged macro totals for live TEF estimate |
 | Adaptive thermogenesis mode | `resolveAdaptiveThermogenesisMode({ userData, adaptiveThermogenesisContext })` | Resolves `'off' \| 'crude' \| 'smart'` from persisted settings plus optional per-request override |
 | Adaptive thermogenesis correction | `computeAdaptiveThermogenesis({...})` | Computes bounded correction (±300 kcal/day) from staged duration logic (`crude`) or snapshot/weight divergence signal (`smart`), with optional smart-mode weight-signal smoothing (`EMA`/`SMA`, 3-14 day window) |
+| Rolling balance (window) | `calculateRollingEnergyBalance({...})` | Pure analytic rollup consuming snapshot `tdee`/`intake` (`balance = tdee - intake`, positive = deficit) over 3/7/14/28-day windows; never rebuilds TDEE (`utils/calculations/rollingEnergyBalance.js`) |
 
 **TEF constants** exported from `calculations.js`: `TEF_MULTIPLIER_OFFSET = 0.1`, `TEF_PROTEIN_RATE = 0.25`, `TEF_CARB_RATE = 0.08`, `TEF_FAT_RATE = 0.02`.
 
@@ -129,6 +132,8 @@ Planning behavior notes:
 - `buildFeasibleDateBands(...)` is summary-first: counts/ranges/bounds are returned by default; `strictDateKeys`/`lenientDateKeys`/`blockedDateKeys` and `evaluations` are only materialized when explicitly requested (`includeDateKeys`, `includeEvaluations`).
 - Optional diagnostics sink is supported via mutable `{ errorCode }` object (e.g., `MISSING_DATE`, `INVALID_DATE_RANGE`, `NO_METRIC_INPUT`, `INVALID_DATE_WINDOW`).
 Do not duplicate target planning formulas in components.
+
+**Rolling Energy Balance:** `utils/calculations/rollingEnergyBalance.js` is the canonical longitudinal analytics source. `calculateRollingEnergyBalance({ snapshots, windowDays, asOfDate, goalDailyBalanceTarget })` consumes the already-computed snapshot `tdee`/`intake` (never rebuilds TDEE) over 3/7/14/28-day calendar windows (default 7). Returns `rollingBalance`, `averageDailyBalance`, `trackedDays`, `expectedBalance`, `balanceVariance`, `estimatedWeightChangeKg` (÷`ESTIMATED_ENERGY_PER_KG`=7700, labelled as a rough energy-equivalent estimate), `hasData`, `insufficientData`, and ordered `days`. Sign convention: positive = deficit, negative = surplus. Missing snapshots are unavailable days (never zero); malformed/missing-field records and future dates are excluded via `parseDailyEnergyBalance`/`selectRollingBalanceDays`; duplicates keep the last snapshot. The goal's daily target is the store-derived, phase-lock-aware `goalDailyBalanceTarget` (positive = deficit). Do not duplicate this logic in UI components.
 
 **Adaptive Thermogenesis mechanic:** `calculateCalorieBreakdown()` computes `baselineTotal` first (BMR + NEAT + steps + training + cardio + Smart TEF), then applies AT as a post-formula correction (`total = baselineTotal + adaptiveThermogenesisCorrection`). Returned AT fields include `baselineTotal`, `adjustedTotal`, `adaptiveThermogenesisMode`, `adaptiveThermogenesisCorrection`, and `adaptiveThermogenesis`.
 
