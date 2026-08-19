@@ -187,9 +187,10 @@ function RollingBalancePreviewCard({ summary, onOpen }) {
       ? 'text-accent-red'
       : 'text-accent-green';
 
+  const displayRolling = -rolling;
   const headline = !hasData
     ? 'No data'
-    : `${rolling > 0 ? '+' : ''}${Math.round(rolling).toLocaleString()} kcal`;
+    : `${displayRolling > 0 ? '+' : ''}${Math.round(displayRolling).toLocaleString()} kcal`;
 
   const subtitle = !hasData
     ? 'Log calories to track a rolling balance'
@@ -218,7 +219,7 @@ function RollingBalancePreviewCard({ summary, onOpen }) {
             </span>
             {hasData && (
               <span className="text-[11px] text-muted">
-                avg {Number(summary?.averageDailyBalance).toFixed(0)} kcal/day
+                avg {Number(-summary?.averageDailyBalance).toFixed(0)} kcal/day
               </span>
             )}
           </div>

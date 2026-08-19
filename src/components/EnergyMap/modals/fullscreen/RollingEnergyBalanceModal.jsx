@@ -1,22 +1,31 @@
-import React, { useMemo, useState } from 'react';
+﻿import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ChevronLeft,
   BarChart3,
   TrendingDown,
   TrendingUp,
   Minus,
-  CalendarDays,
-  Scale,
 } from 'lucide-react';
 import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
-import { getTodayDateKey } from '../../../../utils/data/dateKeys';
+import {
+  formatDateKeyUtc,
+  getTodayDateKey,
+} from '../../../../utils/data/dateKeys';
 import {
   calculateRollingEnergyBalance,
   getDailyBalanceKind,
   ROLLING_BALANCE_WINDOWS,
   DEFAULT_ROLLING_BALANCE_WINDOW_DAYS,
+  MAINTENANCE_EPSILON,
 } from '../../../../utils/calculations/rollingEnergyBalance';
 import {
   calculateWeightTrend,
@@ -29,6 +38,20 @@ const WINDOW_LABELS = {
   7: '7D',
   14: '14D',
   28: '28D',
+};
+
+// Fixed bar sizing per window (mirrors StepTracker's per-mode bar dims).
+const BAR_WIDTH_BY_WINDOW = {
+  3: 40,
+  7: 24,
+  14: 14,
+  28: 8,
+};
+const BAR_RADIUS_BY_WINDOW = {
+  3: 10,
+  7: 6,
+  14: 4,
+  28: 2,
 };
 
 const KIND_META = {
@@ -49,11 +72,31 @@ const KIND_META = {
   },
 };
 
+const TIMELINE_TRACK_HEIGHT = 36;
+const Y_TICK_COUNT = 5;
+const TOOLTIP_WIDTH = 150;
+const TOOLTIP_VERTICAL_OFFSET = 27;
+const SCROLL_SETTLE_DELAY_MS = 140;
+const GRAPH_ENTER_DURATION_MS = 280;
+const GRAPH_SWITCH_DURATION_MS = 220;
+
+// ---------------------------------------------------------------------------
+// Formatting + date helpers (tracker-modal conventions)
+// ---------------------------------------------------------------------------
+
+/**
+ * Display-sign convention for rolling energy balance. The canonical calc in
+ * rollingEnergyBalance.js keeps balance = tdee - intake (positive = deficit) and
+ * that is what the unit tests assert; this render layer only is sign-flipped so a
+ * deficit reads negative and deficit bars hang downward (surplus positive, up).
+ * Negated at getBalanceForSnapshot/avgValue and the header Stats (data.* is the
+ * core positive=deficit stream); colour classified via getDailyBalanceKind(-b);
+ * bar growth + transformOrigin branches swapped. goalDailyBalanceTarget and the
+ * expected/variance comparison keep using positive=deficit internally.
+ */
 const formatSignedKcal = (value) => {
   const numeric = Number(value);
-  if (!Number.isFinite(numeric)) {
-    return '—';
-  }
+  if (!Number.isFinite(numeric)) return '\u2014';
   const rounded = Math.round(numeric);
   const sign = rounded > 0 ? '+' : '';
   return `${sign}${rounded.toLocaleString()} kcal`;
@@ -61,190 +104,126 @@ const formatSignedKcal = (value) => {
 
 const formatKcal = (value) => {
   const numeric = Number(value);
-  if (!Number.isFinite(numeric)) {
-    return '—';
-  }
+  if (!Number.isFinite(numeric)) return '\u2014';
   return `${Math.round(numeric).toLocaleString()} kcal`;
 };
 
 const formatAverage = (value) => {
-  if (value == null || !Number.isFinite(Number(value))) {
-    return '—';
-  }
+  if (value == null || !Number.isFinite(Number(value))) return '\u2014';
   const numeric = Number(value);
   const sign = numeric > 0 ? '+' : '';
   return `${sign}${numeric.toFixed(1)} kcal/day`;
 };
 
 const formatEstimateKg = (value) => {
-  if (value == null || !Number.isFinite(Number(value))) {
-    return '—';
-  }
+  if (value == null || !Number.isFinite(Number(value))) return '\u2014';
   const numeric = Number(value);
   const sign = numeric > 0 ? '+' : '';
   return `${sign}${Math.abs(numeric).toFixed(2)} kg`;
 };
 
-// ---------------------------------------------------------------------------
-// Compact daily-balance bar chart (inline SVG, no extra dependency)
-// ---------------------------------------------------------------------------
+// Compact signed value for axis labels (units implied by the modal context).
+const formatAxisKcal = (value) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '\u2014';
+  const rounded = Math.round(numeric);
+  return `${rounded > 0 ? '+' : ''}${rounded.toLocaleString()}`;
+};
 
-const CHART_SLOT = 34;
-const CHART_WIDTH_RATIO = 0.62; // bar occupies this fraction of its slot
-const CHART_VIEW_H = 128;
-const CHART_MIDLINE_Y = 70;
-const CHART_HALF_EXTENT = 48;
-
-const DailyBalanceChart = ({ days }) => {
-  const maxAbs = days.reduce(
-    (max, day) => Math.max(max, Math.abs(day.balance)),
-    1
-  );
-  const chartWidth = days.length * CHART_SLOT;
-
-  const bars = days.map((day, index) => {
-    const kind = getDailyBalanceKind(day.balance);
-    const rawH = (Math.abs(day.balance) / maxAbs) * CHART_HALF_EXTENT;
-    const barH = Math.max(rawH, 2);
-    const x = index * CHART_SLOT + CHART_SLOT * ((1 - CHART_WIDTH_RATIO) / 2);
-    const barWidth = CHART_SLOT * CHART_WIDTH_RATIO;
-    const y = day.balance >= 0 ? CHART_MIDLINE_Y - barH : CHART_MIDLINE_Y;
-    const dayNumber = day.date.slice(8, 10);
-    return {
-      key: day.date,
-      x,
-      y,
-      barWidth,
-      barH,
-      kind,
-      dayNumber,
-      balance: day.balance,
-    };
+const formatTimelineLabel = (dateStr) => {
+  const date = new Date(dateStr + 'T00:00:00Z');
+  return date.toLocaleDateString('en-US', {
+    month: 'numeric',
+    day: 'numeric',
   });
+};
 
-  return (
-    <svg
-      viewBox={`0 0 ${chartWidth} ${CHART_VIEW_H}`}
-      className="w-full h-auto"
-      role="img"
-      aria-label="Daily energy balance bars"
-    >
-      <line
-        x1={0}
-        y1={CHART_MIDLINE_Y}
-        x2={chartWidth}
-        y2={CHART_MIDLINE_Y}
-        stroke="rgb(var(--accent-slate))"
-        strokeWidth={1.5}
-        strokeDasharray="3 3"
-        opacity={0.6}
-      />
-      <text
-        x={chartWidth - 2}
-        y={CHART_MIDLINE_Y - 4}
-        textAnchor="end"
-        fontSize={9}
-        fill="rgb(var(--accent-slate))"
-        opacity={0.8}
-      >
-        0
-      </text>
-      {bars.map((bar) => (
-        <g key={bar.key}>
-          <rect
-            className="tracker-bar-animated"
-            x={bar.x}
-            y={bar.y}
-            width={bar.barWidth}
-            height={bar.barH}
-            rx={2}
-            fill={KIND_META[bar.kind].fill}
-            opacity={0.9}
-          >
-            <title>
-              {formatDateLabel(bar.key)} —{' '}
-              {`${KIND_META[bar.kind].label} ${formatSignedKcal(bar.balance)}`}
-            </title>
-          </rect>
-          <text
-            x={bar.x + bar.barWidth / 2}
-            y={CHART_VIEW_H - 4}
-            textAnchor="middle"
-            fontSize={9}
-            fill="rgb(var(--accent-slate))"
-            opacity={0.75}
-          >
-            {bar.dayNumber}
-          </text>
-        </g>
-      ))}
-    </svg>
-  );
+const toDateKey = (d) => formatDateKeyUtc(d);
+
+const isFirstDayOfYear = (dateStr) => {
+  const date = new Date(dateStr + 'T00:00:00Z');
+  return date.getUTCMonth() === 0 && date.getUTCDate() === 1;
+};
+
+const addDays = (dateStr, delta) => {
+  const d = new Date(dateStr + 'T12:00:00Z');
+  d.setUTCDate(d.getUTCDate() + delta);
+  return toDateKey(d);
+};
+
+const getBalanceForSnapshot = (snap) => {
+  const tdee = Number(snap?.tdee);
+  const intake = Number(snap?.intake);
+  if (!Number.isFinite(tdee) || !Number.isFinite(intake)) return null;
+  return { tdee, intake, balance: intake - tdee };
+};
+
+// Build a continuous calendar timeline over all tracked days ending at today.
+// Missing / padding slots appear as empty bars, mirroring WeightTracker.
+const buildCalendarTimeline = (dayMap, todayKey, windowDays) => {
+  const keys = [...dayMap.keys()].sort();
+  if (!keys.length) return [];
+  const firstDateKey = keys[0];
+  const firstDate = new Date(firstDateKey + 'T00:00:00Z');
+  const lastDate = new Date(todayKey + 'T00:00:00Z');
+  if (lastDate < firstDate) return [];
+  const calendarDays = Math.round((lastDate - firstDate) / 86400000) + 1;
+  const padding = Math.max(windowDays - calendarDays, 0);
+  const slots = [];
+  for (let i = padding; i > 0; i--) {
+    slots.push({
+      date: addDays(firstDateKey, -i),
+      day: null,
+      isPadding: true,
+    });
+  }
+  for (let i = 0; i < calendarDays; i++) {
+    const date = addDays(firstDateKey, i);
+    slots.push({ date, day: dayMap.get(date) ?? null, isPadding: false });
+  }
+  return slots;
 };
 // ---------------------------------------------------------------------------
-// Small shared building blocks
+// Small UI blocks
 // ---------------------------------------------------------------------------
 
 const EmptyState = () => (
-  <div className="bg-surface-highlight/50 border border-border/50 rounded-xl p-6 text-center">
-    <BarChart3 size={28} className="text-muted mx-auto mb-2" />
+  <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
+    <BarChart3 size={28} className="text-muted mb-2" />
     <p className="text-foreground font-semibold text-sm">No tracked days yet</p>
-    <p className="text-muted text-xs mt-1 leading-snug">
+    <p className="text-muted text-xs mt-1 leading-snug max-w-xs text-center">
       Log calories through the Tracker to start building up a rolling energy
       balance. Days with no log aren&apos;t counted as zero-intake days.
     </p>
   </div>
 );
 
-const Metric = ({ label, value }) => (
-  <div className="bg-surface-highlight/50 border border-border/50 rounded-xl px-3 py-2">
-    <p className="text-[11px] text-muted">{label}</p>
-    <p className="mt-0.5 text-sm font-semibold text-foreground truncate">
-      {value}
-    </p>
+const Legend = () => (
+  <div className="flex items-center justify-center gap-4 py-1 flex-shrink-0">
+    <span className="flex items-center gap-1 text-[11px] text-accent-red">
+      <TrendingDown size={12} /> Deficit
+    </span>
+    <span className="flex items-center gap-1 text-[11px] text-accent-green">
+      <TrendingUp size={12} /> Surplus
+    </span>
+    <span className="flex items-center gap-1 text-[11px] text-accent-slate">
+      <Minus size={12} /> Near zero
+    </span>
   </div>
 );
 
-const DailyRow = ({ day }) => {
-  const kind = getDailyBalanceKind(day.balance);
-  const meta = KIND_META[kind];
-  const isDeficit = day.balance >= 0;
+const Stat = ({ label, children, caption }) => (
+  <div>
+    <p className="text-muted text-xs uppercase tracking-wide mb-1">{label}</p>
+    {children}
+    {caption && <p className="text-muted text-[11px] mt-1">{caption}</p>}
+  </div>
+);
 
-  return (
-    <div className="bg-surface-highlight/50 border border-border/50 rounded-xl px-4 py-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-foreground">
-          {formatDateLabel(day.date, { month: 'short', day: 'numeric' })}
-        </p>
-        <p className={`text-xs font-bold ${meta.textClass}`}>
-          {`${meta.label} ${formatSignedKcal(day.balance)}`}
-        </p>
-      </div>
-      <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-        <div className="bg-surface rounded-lg px-2 py-1.5">
-          <span className="text-muted">TDEE </span>
-          <span className="text-foreground font-semibold">
-            {formatKcal(day.tdee)}
-          </span>
-        </div>
-        <div className="bg-surface rounded-lg px-2 py-1.5">
-          <span className="text-muted">Intake </span>
-          <span className="text-foreground font-semibold">
-            {formatKcal(day.intake)}
-          </span>
-        </div>
-      </div>
-      <p className="text-[11px] text-muted mt-1">
-        {isDeficit ? 'Burned more than eaten' : 'Ate more than burned'}
-      </p>
-    </div>
-  );
-};
 export const RollingEnergyBalanceModal = ({ isOpen, isClosing, onClose }) => {
   const [windowDays, setWindowDays] = useState(
     DEFAULT_ROLLING_BALANCE_WINDOW_DAYS
   );
-  const [showBreakdown, setShowBreakdown] = useState(false);
 
   const store = useEnergyMapStore(
     (state) => ({
@@ -255,16 +234,99 @@ export const RollingEnergyBalanceModal = ({ isOpen, isClosing, onClose }) => {
     shallow
   );
 
-  const data = useMemo(
+  // --- Selection tooltip state ---
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [tooltipEntered, setTooltipEntered] = useState(false);
+  const [tooltipClosing, setTooltipClosing] = useState(false);
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+
+  // --- Carousel + animation state (mirrors the tracker modals) ---
+  // activePageIndex tracks live scroll position (used only as a setter).
+  const [, setActivePageIndex] = useState(-1);
+  const [settledPageIndex, setSettledPageIndex] = useState(-1);
+  const [graphViewportWidth, setGraphViewportWidth] = useState(0);
+  const [graphViewportHeight, setGraphViewportHeight] = useState(0);
+  const [graphAnimationPhase, setGraphAnimationPhase] = useState('idle');
+  const [settledWindowData, setSettledWindowData] = useState(null);
+
+  const carouselRef = useRef(null);
+  const tooltipRef = useRef(null);
+  const headerSettleTimeoutRef = useRef(null);
+  const graphAnimationTimeoutRef = useRef(null);
+  const wasOpenRef = useRef(false);
+  const prevSnapshotRef = useRef(null);
+
+  // --- Persisted selection: moving the scroll position re-anchors the window
+  // header stats to whatever page the carousel has settled on. ---
+  const settledAsOfRef = useRef(null);
+
+  const prefersReducedMotion = useMemo(() => {
+    if (
+      typeof window === 'undefined' ||
+      typeof window.matchMedia !== 'function'
+    ) {
+      return false;
+    }
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }, []);
+
+  const clearGraphAnimationTimeout = useCallback(() => {
+    if (graphAnimationTimeoutRef.current) {
+      clearTimeout(graphAnimationTimeoutRef.current);
+      graphAnimationTimeoutRef.current = null;
+    }
+  }, []);
+
+  const triggerGraphAnimation = useCallback(
+    (phase) => {
+      if (prefersReducedMotion) {
+        setGraphAnimationPhase('idle');
+        return;
+      }
+      clearGraphAnimationTimeout();
+      setGraphAnimationPhase(phase);
+      const duration =
+        phase === 'enter' ? GRAPH_ENTER_DURATION_MS : GRAPH_SWITCH_DURATION_MS;
+      graphAnimationTimeoutRef.current = setTimeout(() => {
+        setGraphAnimationPhase('idle');
+        graphAnimationTimeoutRef.current = null;
+      }, duration);
+    },
+    [clearGraphAnimationTimeout, prefersReducedMotion]
+  );
+
+  // --- Derived data ---
+  const dayMap = useMemo(() => {
+    const map = new Map();
+    const snapshots = store.dailySnapshots ?? {};
+    Object.entries(snapshots).forEach(([date, snap]) => {
+      const parsed = getBalanceForSnapshot(snap);
+      if (parsed) map.set(date, { date, ...parsed });
+    });
+    return map;
+  }, [store.dailySnapshots]);
+
+  const todayKey = getTodayDateKey();
+
+  const timelineSlots = useMemo(
+    () => buildCalendarTimeline(dayMap, todayKey, windowDays),
+    [dayMap, todayKey, windowDays]
+  );
+
+  // Default window data (latest = as of today). Re-anchored while scrolling.
+  const latestWindowData = useMemo(
     () =>
       calculateRollingEnergyBalance({
         snapshots: store.dailySnapshots,
         windowDays,
-        asOfDate: getTodayDateKey(),
+        asOfDate: todayKey,
         goalDailyBalanceTarget: store.goalDailyBalanceTarget,
       }),
-    [store.dailySnapshots, windowDays, store.goalDailyBalanceTarget]
+    [store.dailySnapshots, windowDays, todayKey, store.goalDailyBalanceTarget]
   );
+
+  // Header stats reflect the currently settled carousel page (if scrolled).
+  const data = settledWindowData ?? latestWindowData;
 
   const weightTrend = useMemo(
     () => calculateWeightTrend(store.weightEntries ?? [], 7),
@@ -283,6 +345,495 @@ export const RollingEnergyBalanceModal = ({ isOpen, isClosing, onClose }) => {
   const hasWeightTrend =
     Number.isFinite(Number(weightTrend?.weeklyRate)) &&
     weightTrend?.weeklyRate !== 0;
+
+  // --- Carousel / viewport dimensions (mirrors WeightTrackerModal) ---
+  useLayoutEffect(() => {
+    const node = carouselRef.current;
+    if (!node) return undefined;
+    const updateDimensions = () => {
+      setGraphViewportWidth(node.clientWidth);
+      setGraphViewportHeight(node.clientHeight);
+    };
+    updateDimensions();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateDimensions);
+      return () => window.removeEventListener('resize', updateDimensions);
+    }
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        setGraphViewportWidth(entry.contentRect.width);
+        setGraphViewportHeight(entry.contentRect.height);
+      }
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [isOpen]);
+
+  // Scroll to latest on open and when the window mode changes.
+  useEffect(() => {
+    if (!isOpen) return;
+    const frame = requestAnimationFrame(() => {
+      setActivePageIndex(-1);
+      setSettledPageIndex(-1);
+      const node = carouselRef.current;
+      if (node) {
+        node.scrollTo({
+          left: node.scrollWidth - node.clientWidth,
+          behavior: 'instant',
+        });
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const timeout = setTimeout(() => {
+      setActivePageIndex(-1);
+      setSettledPageIndex(-1);
+      const node = carouselRef.current;
+      if (node) {
+        node.scrollTo({
+          left: node.scrollWidth - node.clientWidth,
+          behavior: 'instant',
+        });
+      }
+    }, 50);
+    return () => clearTimeout(timeout);
+  }, [windowDays, isOpen]);
+
+  // --- Chart geometry ---
+  const chartWidth = graphViewportWidth || 300;
+  const chartHeight = useMemo(
+    () =>
+      graphViewportHeight > 0
+        ? Math.max(graphViewportHeight - TIMELINE_TRACK_HEIGHT - 24, 100)
+        : 200,
+    [graphViewportHeight]
+  );
+
+  const totalSlots = timelineSlots.length;
+  const STEP = chartWidth / windowDays;
+  const PAD = STEP / 2;
+  const totalWidth = totalSlots * STEP;
+
+  // Global y-scale across the whole visible timeline (stable while scrolling).
+  const maxAbs = useMemo(() => {
+    let max = 1;
+    dayMap.forEach((d) => {
+      const v = Math.abs(d.balance);
+      if (v > max) max = v;
+    });
+    return max;
+  }, [dayMap]);
+
+  const midlineY = chartHeight / 2;
+  const halfExtent = chartHeight * 0.44;
+
+  // Y ticks (signed) + positions, like the tracker modals.
+  const yTicks = useMemo(() => {
+    const steps = Math.max(Y_TICK_COUNT - 1, 1);
+    return Array.from(
+      { length: Y_TICK_COUNT },
+      (_, i) => maxAbs - (2 * maxAbs * i) / steps
+    );
+  }, [maxAbs]);
+
+  const yTickPositions = useMemo(() => {
+    if (chartHeight <= 0) return [];
+    return yTicks.map((value, index) => {
+      const y = (1 - (value + maxAbs) / (2 * maxAbs)) * chartHeight;
+      return { value, index, y, isBaseline: Math.abs(value) < 1 };
+    });
+  }, [yTicks, chartHeight, maxAbs]);
+
+  // Average-of-visible-window pill on the Y axis (replaces the avg line).
+  const avgValue = -Number(data.averageDailyBalance);
+  const showAvgPill =
+    Number.isFinite(avgValue) && Math.abs(avgValue) > MAINTENANCE_EPSILON;
+  const avgY = showAvgPill
+    ? Math.min(
+        chartHeight,
+        Math.max(0, (1 - (avgValue + maxAbs) / (2 * maxAbs)) * chartHeight)
+      )
+    : null;
+
+  // Bars (StepTracker-style rendering).
+  const bars = useMemo(() => {
+    return timelineSlots.map((slot, index) => {
+      const x = PAD + index * STEP;
+      if (!slot.day) {
+        return {
+          date: slot.date,
+          x,
+          y: midlineY,
+          height: 0,
+          hasData: false,
+          isPadding: slot.isPadding,
+          kind: 'maintenance',
+          balance: 0,
+          tdee: null,
+          intake: null,
+        };
+      }
+      const kind = getDailyBalanceKind(-slot.day.balance);
+      const rawH = (Math.abs(slot.day.balance) / maxAbs) * halfExtent;
+      const barH = Math.max(rawH, 2);
+      const y = slot.day.balance >= 0 ? midlineY - barH : midlineY;
+      return {
+        date: slot.date,
+        x,
+        y,
+        height: barH,
+        hasData: true,
+        isPadding: slot.isPadding,
+        kind,
+        balance: slot.day.balance,
+        tdee: slot.day.tdee,
+        intake: slot.day.intake,
+      };
+    });
+  }, [timelineSlots, PAD, STEP, maxAbs, halfExtent, midlineY]);
+
+  // --- Tooltip / selection ---
+  const closeTooltip = useCallback(() => {
+    setTooltipClosing(true);
+    setTimeout(() => {
+      setSelectedDate(null);
+      setTooltipClosing(false);
+    }, 150);
+  }, []);
+
+  const handleDateClick = useCallback(
+    (date, event) => {
+      if (!date) return;
+      event?.stopPropagation();
+      if (selectedDate === date) {
+        closeTooltip();
+      } else {
+        if (selectedDate) {
+          setTooltipClosing(true);
+          setTooltipEntered(false);
+        }
+        setSelectedDate(date);
+        setTooltipClosing(false);
+      }
+    },
+    [selectedDate, closeTooltip]
+  );
+
+  const handleLabelClick = useCallback(
+    (date, event) => {
+      if (!date) return;
+      event?.stopPropagation();
+      if (selectedDate === date) {
+        closeTooltip();
+      } else {
+        if (selectedDate) {
+          setTooltipClosing(true);
+          setTooltipEntered(false);
+        }
+        setSelectedDate(date);
+        setTooltipClosing(false);
+      }
+    },
+    [selectedDate, closeTooltip]
+  );
+
+  // Close tooltip on outside click (mirrors tracker modals).
+  useEffect(() => {
+    if (!selectedDate) return undefined;
+    const handlePointerDown = (event) => {
+      if (tooltipRef.current?.contains(event.target)) return;
+      const target = event.target;
+      if (target.tagName === 'rect' || target.tagName === 'g') return;
+      if (target.closest('[data-date-label]')) return;
+      closeTooltip();
+    };
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    return () =>
+      document.removeEventListener('pointerdown', handlePointerDown, true);
+  }, [closeTooltip, selectedDate]);
+
+  // Tooltip enter animation.
+  useEffect(() => {
+    if (selectedDate && !tooltipClosing) {
+      const frame = requestAnimationFrame(() => setTooltipEntered(true));
+      return () => cancelAnimationFrame(frame);
+    }
+    if (!selectedDate) {
+      Promise.resolve().then(() => setTooltipEntered(false));
+    }
+    return undefined;
+  }, [selectedDate, tooltipClosing]);
+
+  const updateTooltipPosition = useCallback(() => {
+    if (!selectedDate) return;
+    const node = carouselRef.current;
+    if (!node) return;
+    const selectedBar = bars.find((b) => b.date === selectedDate);
+    if (!selectedBar) return;
+    const rect = node.getBoundingClientRect();
+    const rawX = rect.left + selectedBar.x - node.scrollLeft;
+    const rawY = rect.top + 8 + selectedBar.y;
+    setTooltipPosition({ x: rawX, y: rawY });
+  }, [selectedDate, bars]);
+
+  useLayoutEffect(() => {
+    if (!selectedDate) return undefined;
+    updateTooltipPosition();
+    const handleResize = () => updateTooltipPosition();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [selectedDate, updateTooltipPosition]);
+
+  // --- Snap detection (auto-lock), mirrors WeightTrackerModal ---
+  const handleCarouselScroll = useCallback(() => {
+    const node = carouselRef.current;
+    if (!node || !node.clientWidth) return;
+    const stepPx = node.clientWidth / windowDays;
+    const idx = Math.round(node.scrollLeft / stepPx);
+    setActivePageIndex(idx);
+    if (headerSettleTimeoutRef.current) {
+      clearTimeout(headerSettleTimeoutRef.current);
+    }
+    headerSettleTimeoutRef.current = setTimeout(() => {
+      setSettledPageIndex(idx);
+      headerSettleTimeoutRef.current = null;
+    }, SCROLL_SETTLE_DELAY_MS);
+    if (selectedDate) {
+      setTooltipClosing(true);
+      setTimeout(() => {
+        setSelectedDate(null);
+        setTooltipClosing(false);
+      }, 150);
+    }
+  }, [selectedDate, windowDays]);
+
+  // Re-anchor header stats to the settled page.
+  useEffect(() => {
+    if (settledPageIndex < 0 || totalSlots === 0) return;
+    const endIndex = Math.min(
+      settledPageIndex + windowDays - 1,
+      totalSlots - 1
+    );
+    const asOfDate = timelineSlots[endIndex]?.date;
+    if (!asOfDate || asOfDate === settledAsOfRef.current) return;
+    settledAsOfRef.current = asOfDate;
+    setSettledWindowData(
+      calculateRollingEnergyBalance({
+        snapshots: store.dailySnapshots,
+        windowDays,
+        asOfDate,
+        goalDailyBalanceTarget: store.goalDailyBalanceTarget,
+      })
+    );
+  }, [
+    settledPageIndex,
+    totalSlots,
+    windowDays,
+    timelineSlots,
+    store.dailySnapshots,
+    store.goalDailyBalanceTarget,
+  ]);
+
+  // Reset the settled offset when data is replaced so the header returns to
+  // the latest window.
+  useEffect(() => {
+    const sig = JSON.stringify({
+      dailySnapshots: store.dailySnapshots,
+      goalDailyBalanceTarget: store.goalDailyBalanceTarget,
+    });
+    if (prevSnapshotRef.current !== sig) {
+      prevSnapshotRef.current = sig;
+      setSettledPageIndex(-1);
+      setSettledWindowData(null);
+      settledAsOfRef.current = null;
+    }
+  }, [store.dailySnapshots, store.goalDailyBalanceTarget]);
+
+  useEffect(() => {
+    if (isOpen && !wasOpenRef.current) {
+      triggerGraphAnimation('enter');
+    }
+    if (!isOpen) {
+      clearGraphAnimationTimeout();
+      const frame = requestAnimationFrame(() => setGraphAnimationPhase('idle'));
+      return () => cancelAnimationFrame(frame);
+    }
+    wasOpenRef.current = isOpen;
+    return undefined;
+  }, [clearGraphAnimationTimeout, isOpen, triggerGraphAnimation]);
+
+  useEffect(
+    () => () => {
+      if (headerSettleTimeoutRef.current) {
+        clearTimeout(headerSettleTimeoutRef.current);
+      }
+    },
+    []
+  );
+
+  const handleWindowChange = useCallback(
+    (next) => {
+      if (next === windowDays) return;
+      if (selectedDate) closeTooltip();
+      setWindowDays(next);
+      setSettledPageIndex(-1);
+      setSettledWindowData(null);
+      settledAsOfRef.current = null;
+      triggerGraphAnimation('switch');
+    },
+    [windowDays, selectedDate, closeTooltip, triggerGraphAnimation]
+  );
+
+  const graphAnimationClass =
+    graphAnimationPhase === 'enter'
+      ? 'tracker-graph-enter'
+      : graphAnimationPhase === 'switch'
+        ? 'tracker-graph-switch'
+        : '';
+
+  // --- Selected day for the tooltip ---
+  const selectedBar = selectedDate
+    ? (bars.find((b) => b.date === selectedDate) ?? null)
+    : null;
+  const selectedKind = selectedBar ? selectedBar.kind : 'maintenance';
+
+  // --- Render a single bar (StepTracker-style) ---
+  const renderBar = (bar) => {
+    const isSelected = bar.date === selectedDate;
+    const barW = BAR_WIDTH_BY_WINDOW[windowDays] ?? 24;
+    const barR = BAR_RADIUS_BY_WINDOW[windowDays] ?? 6;
+    const barColor = KIND_META[bar.kind].fill;
+    const glow =
+      bar.kind === 'deficit'
+        ? 'drop-shadow(0 0 4px rgba(239, 68, 68, 0.5))'
+        : bar.kind === 'surplus'
+          ? 'drop-shadow(0 0 4px rgba(34, 197, 94, 0.5))'
+          : 'drop-shadow(0 0 4px rgba(100, 116, 139, 0.5))';
+    return (
+      <g
+        key={bar.date}
+        onClick={(e) => handleDateClick(bar.date, e)}
+        className="cursor-pointer"
+      >
+        <rect
+          x={bar.x - barW}
+          y={0}
+          width={barW * 2}
+          height={chartHeight}
+          fill="transparent"
+        />
+        {bar.hasData && (
+          <rect
+            x={bar.x - barW / 2}
+            y={bar.y}
+            width={barW}
+            height={Math.max(bar.height, 2)}
+            rx={barR}
+            ry={barR}
+            fill={barColor}
+            className={`transition-opacity tracker-bar-animated ${
+              isSelected ? 'opacity-100' : 'md:hover:opacity-90'
+            }`}
+            style={{
+              filter: glow,
+              // The shared trackerBarIn keyframe animates upward growth (transform-origin: center bottom).
+              // Balance bars grow from the midline: surplus bars (display-positive) grow UP and keep the
+              // center bottom origin; deficit bars (display-negative) hang DOWN and animate from their top
+              transformOrigin:
+                bar.balance >= 0 ? 'center bottom' : 'center top',
+            }}
+          />
+        )}
+        {isSelected && bar.hasData && (
+          <rect
+            x={bar.x - barW / 2 - 2}
+            y={bar.y - 2}
+            width={barW + 4}
+            height={Math.max(bar.height, 2) + 4}
+            rx={barR + 1}
+            ry={barR + 1}
+            fill="none"
+            stroke="rgb(var(--accent-blue) / 1)"
+            strokeWidth="2"
+          />
+        )}
+      </g>
+    );
+  };
+
+  // Adaptive x-axis label density per window.
+  const labelStep = windowDays > 21 ? 4 : windowDays > 10 ? 2 : 1;
+  const firstRenderedDateByYear = new Map();
+  timelineSlots.forEach((slot, index) => {
+    if (index % labelStep !== 0) return;
+    const yearKey = slot.date.slice(0, 4);
+    if (yearKey && !firstRenderedDateByYear.has(yearKey)) {
+      firstRenderedDateByYear.set(yearKey, slot.date);
+    }
+  });
+
+  const timelineTrack = timelineSlots.map((slot, index) => {
+    const showLabel = index % labelStep === 0 || slot.date === todayKey;
+    const yearKey = slot.date.slice(0, 4);
+    const showYear =
+      showLabel &&
+      (isFirstDayOfYear(slot.date) ||
+        firstRenderedDateByYear.get(yearKey) === slot.date);
+    const hasData = !!slot.day;
+    const isEmpty = !hasData;
+    return (
+      <div
+        key={slot.date}
+        className="flex-shrink-0 flex flex-col justify-end"
+        style={{ width: `${STEP}px`, scrollSnapAlign: 'start' }}
+      >
+        <div className="pb-2">
+          <div
+            className="relative"
+            style={{ height: `${TIMELINE_TRACK_HEIGHT}px` }}
+          >
+            {showLabel && (
+              <div
+                className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-pointer"
+                data-date-label
+                style={{ left: `${STEP / 2}px` }}
+                onClick={(e) => handleLabelClick(slot.date, e)}
+              >
+                <div className="flex flex-col items-center leading-none">
+                  <span
+                    className={`text-[11px] font-semibold whitespace-nowrap ${
+                      isEmpty
+                        ? 'text-muted/30'
+                        : slot.date === todayKey
+                          ? 'text-accent-blue'
+                          : 'text-muted'
+                    }`}
+                  >
+                    {formatTimelineLabel(slot.date)}
+                  </span>
+                  {showYear && (
+                    <span
+                      className={`mt-0.5 text-[9px] font-medium ${
+                        isEmpty ? 'text-muted/30' : 'text-muted/70'
+                      }`}
+                    >
+                      {yearKey}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  });
+
+  const hasAnyData = dayMap.size > 0;
 
   return (
     <>
@@ -303,20 +854,17 @@ export const RollingEnergyBalanceModal = ({ isOpen, isClosing, onClose }) => {
             >
               <ChevronLeft size={24} />
             </button>
-            <div className="flex items-center gap-2">
-              <h3 className="text-foreground font-bold text-xl">
-                Rolling Energy Balance
-              </h3>
-            </div>
+            <h3 className="text-foreground font-bold text-xl">
+              Rolling Energy Balance
+            </h3>
           </div>
         </div>
 
         {/* Main content area */}
-        <div className="flex-1 bg-surface border-t border-border overflow-y-auto">
+        <div className="flex-1 bg-surface border-t border-border overflow-y-auto flex flex-col">
           {/* Window selector */}
-          <div className="px-4 pt-3 pb-1 flex flex-col gap-3">
+          <div className="px-4 pt-3 pb-2 flex-shrink-0">
             <div className="relative flex items-center gap-1 p-1 bg-surface-highlight rounded-lg">
-              {/* Sliding pill — p-1 (8px) + 3 gaps × gap-1 (4px) = 20px track inset */}
               <div
                 className="absolute inset-y-1 rounded-md shadow-md bg-accent-blue"
                 style={{
@@ -326,25 +874,22 @@ export const RollingEnergyBalanceModal = ({ isOpen, isClosing, onClose }) => {
                     'left 0.28s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.28s ease-out, box-shadow 0.28s ease-out',
                 }}
               />
-              {ROLLING_BALANCE_WINDOWS.map((window) => {
-                const selected = window === windowDays;
-                return (
-                  <button
-                    key={window}
-                    type="button"
-                    onClick={() => setWindowDays(window)}
-                    className={`relative z-10 flex-1 flex items-center justify-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                      selected
-                        ? 'text-primary-foreground'
-                        : 'text-muted md:hover:text-foreground'
-                    }`}
-                  >
-                    {WINDOW_LABELS[window] ?? `${window}D`}
-                  </button>
-                );
-              })}
+              {ROLLING_BALANCE_WINDOWS.map((window) => (
+                <button
+                  key={window}
+                  type="button"
+                  onClick={() => handleWindowChange(window)}
+                  className={`relative z-10 flex-1 flex items-center justify-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    window === windowDays
+                      ? 'text-primary-foreground'
+                      : 'text-muted md:hover:text-foreground'
+                  }`}
+                >
+                  {WINDOW_LABELS[window] ?? `${window}D`}
+                </button>
+              ))}
             </div>
-            <p className="text-xs text-muted">
+            <p className="text-xs text-muted mt-2">
               {`${windowDays}-day balance`}
               <span className="text-muted/70">
                 {` · ${data.trackedDays} of ${data.windowDays} days tracked`}
@@ -352,140 +897,233 @@ export const RollingEnergyBalanceModal = ({ isOpen, isClosing, onClose }) => {
             </p>
           </div>
 
-          <div
-            key={`rolling-window-${windowDays}`}
-            className="px-4 pt-2 pb-8 tracker-graph-switch"
-          >
-            {!data.hasData ? (
-              <EmptyState />
-            ) : (
-              <>
-                {/* Primary stat */}
-                <div className="bg-surface-highlight/50 border border-border/50 rounded-xl p-4">
-                  <p className="text-xs text-muted">Total balance</p>
-                  <p className={`text-3xl font-bold mt-1 ${balanceTone}`}>
-                    {formatSignedKcal(data.rollingBalance)}
+          {!hasAnyData ? (
+            <EmptyState />
+          ) : (
+            <>
+              {/* Stat grid (4 blocks) */}
+              <div className="px-4 pt-1 pb-3 grid grid-cols-2 gap-3 flex-shrink-0">
+                <Stat label="Total Balance">
+                  <p className={`text-3xl font-bold ${balanceTone}`}>
+                    {formatSignedKcal(-data.rollingBalance)}
                   </p>
-                  <p className="text-sm text-muted mt-1">
-                    Average{' '}
+                  <p className="text-muted text-[11px] mt-1">
+                    Avg{' '}
                     <span className="text-foreground font-semibold">
-                      {formatAverage(data.averageDailyBalance)}
+                      {formatAverage(-data.averageDailyBalance)}
                     </span>
                   </p>
-                  <p className="text-[11px] text-muted mt-1">
-                    Positive = deficit · Negative = surplus
+                </Stat>
+                <Stat label="Est. Weight Change">
+                  <p className="text-foreground text-3xl font-bold">
+                    {formatEstimateKg(-data.estimatedWeightChangeKg)}
                   </p>
-                </div>
-
-                {/* Chart */}
-                <div className="mt-3 bg-surface-highlight/50 border border-border/50 rounded-xl p-3">
-                  <DailyBalanceChart days={data.days} />
-                  <div className="flex items-center justify-center gap-4 pt-1 flex-wrap">
-                    <span className="flex items-center gap-1 text-[11px] text-accent-red">
-                      <TrendingDown size={12} /> Deficit
-                    </span>
-                    <span className="flex items-center gap-1 text-[11px] text-accent-green">
-                      <TrendingUp size={12} /> Surplus
-                    </span>
-                    <span className="flex items-center gap-1 text-[11px] text-accent-slate">
-                      <Minus size={12} /> Near zero
-                    </span>
-                  </div>
-                </div>
-
-                {data.insufficientData && (
-                  <div className="mt-3 flex items-start gap-2 bg-accent-yellow/10 border border-accent-yellow/30 rounded-xl px-3 py-2">
-                    <CalendarDays
-                      size={16}
-                      className="text-accent-yellow flex-shrink-0 mt-0.5"
-                    />
-                    <p className="text-xs text-muted">
-                      {`Only ${data.trackedDays} of ${data.windowDays} days have data in this window. Missing days aren't counted as zero-intake days.`}
-                    </p>
-                  </div>
-                )}
-                {/* Planned vs actual */}
-                {hasExpected && (
-                  <div className="mt-3 grid grid-cols-3 gap-2">
-                    <Metric
-                      label="Expected"
-                      value={formatSignedKcal(data.expectedBalance)}
-                    />
-                    <Metric
-                      label="Actual"
-                      value={formatSignedKcal(data.rollingBalance)}
-                    />
-                    <Metric
-                      label="Variance"
-                      value={formatSignedKcal(data.balanceVariance)}
-                    />
-                  </div>
-                )}
-
-                {/* Estimated weight change + observed trend */}
-                <div className="mt-3 bg-surface-highlight/50 border border-border/50 rounded-xl p-3">
-                  <div className="flex items-center gap-2">
-                    <Scale
-                      size={16}
-                      className="text-accent-blue flex-shrink-0"
-                    />
-                    <p className="text-sm font-semibold text-foreground">
-                      Rough energy-equivalent estimate
-                    </p>
-                  </div>
-                  <p className="text-xs text-muted mt-1">
-                    {`${formatEstimateKg(
-                      data.estimatedWeightChangeKg
-                    )} over this window, if all of it were stored as body energy. This is not an exact prediction.`}
+                  <p className="text-muted text-[11px] mt-1">
+                    rough energy-equivalent
                   </p>
-                  {hasWeightTrend && (
-                    <p className="text-xs text-muted mt-2">
-                      Observed weight trend:{' '}
-                      <span className="text-foreground font-semibold">
-                        {formatWeeklyRate(weightTrend.weeklyRate, 'weight')}
-                      </span>{' '}
-                      · comparison only, not causation.
-                    </p>
-                  )}
-                </div>
+                </Stat>
+                <Stat label="Expected">
+                  <p className="text-foreground text-lg font-semibold">
+                    {hasExpected
+                      ? formatSignedKcal(-data.expectedBalance)
+                      : '\u2014'}
+                  </p>
+                  <p className="text-muted text-[11px] mt-1">
+                    {hasExpected
+                      ? `Variance: ${formatSignedKcal(-data.balanceVariance)}`
+                      : 'no goal target set'}
+                  </p>
+                </Stat>
+                <Stat label="Observed Trend">
+                  <p className="text-foreground text-lg font-semibold">
+                    {hasWeightTrend
+                      ? formatWeeklyRate(weightTrend.weeklyRate, 'weight')
+                      : 'Insufficient data'}
+                  </p>
+                  <p className="text-muted text-[11px] mt-1">comparison only</p>
+                </Stat>
+              </div>
 
-                {/* Daily breakdown */}
-                <div className="mt-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowBreakdown((value) => !value)}
-                    className="w-full flex items-center justify-between bg-surface-highlight/50 border border-border/50 rounded-xl px-4 py-3 pressable-card focus-ring"
-                    aria-expanded={showBreakdown}
-                  >
-                    <span className="text-sm font-semibold text-foreground">
-                      Daily breakdown
-                    </span>
-                    <span className="text-xs text-muted">
-                      {showBreakdown ? 'Hide' : 'Show'}
-                    </span>
-                  </button>
-                  {showBreakdown && (
-                    <div className="mt-2 space-y-2">
-                      {data.days
-                        .slice()
-                        .reverse()
-                        .map((day) => (
-                          <DailyRow key={day.date} day={day} />
-                        ))}
+              {/* Separator */}
+              <div className="border-b border-border flex-shrink-0" />
+
+              {/* Legend */}
+              <Legend />
+
+              {/* Graph carousel + Y-axis */}
+              <div className="flex-1 flex flex-col min-h-0 pb-2">
+                <div className="flex-1 pr-2 pb-1 overflow-hidden flex">
+                  {/* Carousel */}
+                  <div className="relative flex-1 overflow-hidden">
+                    <div
+                      ref={carouselRef}
+                      className={`overflow-x-auto overflow-y-hidden h-full flex ${graphAnimationClass}`}
+                      style={{
+                        scrollSnapType: 'x proximity',
+                        WebkitOverflowScrolling: 'touch',
+                      }}
+                      onScroll={handleCarouselScroll}
+                    >
+                      <div
+                        style={{
+                          width: `${totalWidth}px`,
+                          height: '100%',
+                          position: 'relative',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <div
+                          className="absolute left-0"
+                          style={{
+                            top: '8px',
+                            width: `${totalWidth}px`,
+                            height: `${chartHeight}px`,
+                          }}
+                        >
+                          <svg
+                            width={totalWidth}
+                            height={chartHeight}
+                            viewBox={`0 0 ${totalWidth} ${chartHeight}`}
+                            preserveAspectRatio="none"
+                          >
+                            {/* Grid lines */}
+                            {yTickPositions.map(
+                              ({ index: gi, y, isBaseline }) => (
+                                <line
+                                  key={`grid-${gi}`}
+                                  x1={0}
+                                  y1={y}
+                                  x2={totalWidth}
+                                  y2={y}
+                                  stroke={
+                                    isBaseline
+                                      ? 'rgb(var(--foreground) / 0.6)'
+                                      : 'currentColor'
+                                  }
+                                  strokeWidth={isBaseline ? 2 : 1}
+                                  strokeDasharray={isBaseline ? 'none' : '4 6'}
+                                  className={
+                                    isBaseline
+                                      ? 'opacity-80'
+                                      : 'text-muted opacity-60'
+                                  }
+                                />
+                              )
+                            )}
+                            {/* Average daily-balance reference line (dashed,
+                                spans the plot). Kept under the bars. */}
+                            {showAvgPill && avgY != null && (
+                              <line
+                                x1={0}
+                                y1={avgY}
+                                x2={totalWidth}
+                                y2={avgY}
+                                stroke="rgb(var(--accent-blue))"
+                                strokeWidth={1.5}
+                                strokeDasharray="6 4"
+                                opacity={0.85}
+                              />
+                            )}
+                            {bars.map((bar) => renderBar(bar))}
+                          </svg>
+                        </div>
+                        <div className="flex h-full">{timelineTrack}</div>
+                      </div>
                     </div>
-                  )}
-                </div>
+                    <div className="pointer-events-none absolute right-0 -mr-1 top-0 h-full w-3 bg-gradient-to-l from-surface/90 to-transparent" />
+                  </div>
 
-                <p className="text-[11px] text-muted/80 mt-4 leading-snug">
-                  Rolling balance is an analytical trend over the tracked days
-                  in this window. A single day is not evidence that your plan is
-                  succeeding or failing.
-                </p>
-              </>
-            )}
-          </div>
+                  {/* Y-axis (right column) */}
+                  <div className="rounded-r-lg w-14 flex-shrink-0 relative">
+                    <div
+                      className="absolute inset-x-0 px-1"
+                      style={{ top: '8px', height: `${chartHeight}px` }}
+                    >
+                      {yTickPositions.map(({ value, index, y }) => (
+                        <div
+                          key={`tick-${index}`}
+                          className="absolute right-2 text-xs font-semibold text-foreground/70 tracking-tight text-right"
+                          style={{
+                            top: `${y}px`,
+                            transform: 'translateY(-50%)',
+                            transition: 'top 0.3s ease-out',
+                          }}
+                        >
+                          {formatAxisKcal(value)}
+                        </div>
+                      ))}
+                      {showAvgPill && avgY != null && (
+                        <div
+                          className="absolute right-0.5 px-2 py-0.5 rounded-lg text-[11px] font-bold text-primary-foreground shadow-md flex items-center justify-center leading-none"
+                          style={{
+                            top: `${avgY}px`,
+                            transform: 'translateY(-50%)',
+                            transition: 'top 0.3s ease-out',
+                            backgroundColor: 'rgb(var(--accent-blue))',
+                          }}
+                        >
+                          {`avg ${formatAxisKcal(avgValue)}`}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </ModalShell>
+
+      {/* Selected-day tooltip */}
+      {selectedDate && selectedBar && (
+        <div
+          ref={tooltipRef}
+          className={`fixed z-[1200] bg-surface border border-border rounded-lg shadow-2xl p-4 transform -translate-x-1/2 -translate-y-full pointer-events-auto transition duration-150 ease-out ${
+            tooltipEntered && !tooltipClosing
+              ? 'opacity-100 scale-100'
+              : 'opacity-0 scale-95'
+          }`}
+          style={{
+            left: `${tooltipPosition.x}px`,
+            top: `${tooltipPosition.y - TOOLTIP_VERTICAL_OFFSET}px`,
+            width: `${TOOLTIP_WIDTH}px`,
+          }}
+          role="status"
+          tabIndex={-1}
+        >
+          <div className="rounded p-2">
+            <p className="text-muted text-[11.5px] mb-1">
+              {formatDateLabel(selectedBar.date)}
+            </p>
+            {selectedBar.hasData ? (
+              <>
+                <p
+                  className={`text-lg font-bold ${KIND_META[selectedKind].textClass}`}
+                >
+                  {`${KIND_META[selectedKind].label} ${formatSignedKcal(selectedBar.balance)}`}
+                </p>
+                <div className="mt-2 pt-2 border-t border-border flex justify-between text-sm">
+                  <div>
+                    <p className="text-muted text-[10px] uppercase">TDEE</p>
+                    <p className="text-foreground font-semibold">
+                      {formatKcal(selectedBar.tdee)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-muted text-[10px] uppercase">Intake</p>
+                    <p className="text-foreground font-semibold">
+                      {formatKcal(selectedBar.intake)}
+                    </p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <p className="text-muted text-lg font-semibold">No data</p>
+            )}
+          </div>
+          <div className="absolute left-1/2 transform -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-border" />
+        </div>
+      )}
     </>
   );
 };
