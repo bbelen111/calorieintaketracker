@@ -3,7 +3,14 @@ import { EnergyMapCalculator } from './components/EnergyMap/EnergyMapCalculator'
 import { useEnergyMapStore } from './store/useEnergyMapStore';
 import { applyNativeTheme, getThemeClass } from './utils/theme';
 
-const THEME_CLASSES = ['theme-light', 'theme-amoled-dark'];
+const THEME_CLASSES = [
+  'theme-light',
+  'theme-amoled-dark',
+  'theme-forest',
+  'theme-dawn',
+  'theme-dusk',
+  'theme-midnight',
+];
 
 const App = () => {
   const theme = useEnergyMapStore((state) => state.theme);

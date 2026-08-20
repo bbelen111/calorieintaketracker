@@ -491,7 +491,7 @@ export const ModalShell = ({
       aria-modal="true"
       style={{
         isolation: 'isolate',
-        backgroundColor: `rgb(0 0 0 / ${backdropOpacity})`,
+        backgroundColor: `rgb(var(--overlay-base) / ${backdropOpacity})`,
         transition: `background-color ${OVERLAY_FADE_MS}ms ease-out`,
         willChange: 'background-color',
       }}

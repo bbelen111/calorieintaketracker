@@ -7,8 +7,12 @@ import {
   ChevronLeft,
   Sun,
   Moon,
-  Smartphone,
+  MoonStar,
   Monitor,
+  Leaf,
+  Sunrise,
+  Sunset,
+  Sparkles,
   Info,
 } from 'lucide-react';
 import {
@@ -34,7 +38,11 @@ const THEME_OPTIONS = [
   { value: 'auto', label: 'Auto', icon: Monitor },
   { value: 'dark', label: 'Dark', icon: Moon },
   { value: 'light', label: 'Light', icon: Sun },
-  { value: 'amoled_dark', label: 'AMOLED', icon: Smartphone },
+  { value: 'amoled_dark', label: 'Darker', icon: MoonStar },
+  { value: 'forest', label: 'Forest', icon: Leaf },
+  { value: 'dawn', label: 'Dawn', icon: Sunrise },
+  { value: 'dusk', label: 'Dusk', icon: Sunset },
+  { value: 'midnight', label: 'Midnight', icon: Sparkles },
 ];
 
 const defaultPresetKeys = { training: 'default', rest: 'default' };

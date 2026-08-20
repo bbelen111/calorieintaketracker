@@ -23,6 +23,10 @@ const NATIVE_THEME_RGB = {
   dark: [15, 23, 42],
   light: [241, 245, 249],
   amoled_dark: [0, 0, 0],
+  forest: [13, 31, 27],
+  dawn: [255, 247, 237],
+  dusk: [31, 24, 43],
+  midnight: [8, 18, 34],
 };
 
 const TRANSPARENT_COLOR = toHexColor([0, 0, 0], 0);
@@ -53,6 +57,34 @@ const THEME_CONFIG = {
     statusBarStyle: Style.Dark, // Light icons on dark bg
     keyboardStyle: KeyboardStyle.Dark,
   },
+  forest: {
+    isDark: true,
+    statusBarColor: toHexColor(NATIVE_THEME_RGB.forest),
+    navigationBarColor: toHexColor(NATIVE_THEME_RGB.forest),
+    statusBarStyle: Style.Dark,
+    keyboardStyle: KeyboardStyle.Dark,
+  },
+  dawn: {
+    isDark: false,
+    statusBarColor: toHexColor(NATIVE_THEME_RGB.dawn),
+    navigationBarColor: toHexColor(NATIVE_THEME_RGB.dawn),
+    statusBarStyle: Style.Light,
+    keyboardStyle: KeyboardStyle.Light,
+  },
+  dusk: {
+    isDark: true,
+    statusBarColor: toHexColor(NATIVE_THEME_RGB.dusk),
+    navigationBarColor: toHexColor(NATIVE_THEME_RGB.dusk),
+    statusBarStyle: Style.Dark,
+    keyboardStyle: KeyboardStyle.Dark,
+  },
+  midnight: {
+    isDark: true,
+    statusBarColor: toHexColor(NATIVE_THEME_RGB.midnight),
+    navigationBarColor: toHexColor(NATIVE_THEME_RGB.midnight),
+    statusBarStyle: Style.Dark,
+    keyboardStyle: KeyboardStyle.Dark,
+  },
 };
 
 /**
@@ -69,7 +101,7 @@ export const getSystemTheme = () => {
 /**
  * Resolve 'auto' theme to actual theme based on system preference
  * @param {string} theme - Theme key including 'auto'
- * @returns {string} Resolved theme key ('dark' | 'light' | 'amoled_dark')
+ * @returns {string} Resolved theme key
  */
 export const resolveTheme = (theme) => {
   if (theme === 'auto') {
@@ -80,7 +112,7 @@ export const resolveTheme = (theme) => {
 
 /**
  * Apply theme to all native platform components
- * @param {string} theme - Theme key: 'auto' | 'dark' | 'light' | 'amoled_dark'
+ * @param {string} theme - Theme key
  */
 export const applyNativeTheme = async (theme) => {
   if (!Capacitor.isNativePlatform()) {
@@ -165,6 +197,14 @@ export const getThemeClass = (theme) => {
       return 'theme-light';
     case 'amoled_dark':
       return 'theme-amoled-dark';
+    case 'forest':
+      return 'theme-forest';
+    case 'dawn':
+      return 'theme-dawn';
+    case 'dusk':
+      return 'theme-dusk';
+    case 'midnight':
+      return 'theme-midnight';
     case 'dark':
     default:
       return null; // Default theme uses :root, no class needed

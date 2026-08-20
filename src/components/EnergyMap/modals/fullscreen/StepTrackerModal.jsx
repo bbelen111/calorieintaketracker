@@ -153,8 +153,10 @@ const getBarColor = (steps, goal) => {
 };
 
 const getBarGlow = (steps, goal) => {
-  if (steps >= goal) return 'drop-shadow(0 0 4px rgba(34, 197, 94, 0.5))';
-  return 'drop-shadow(0 0 4px rgba(59, 130, 246, 0.5))';
+  if (steps >= goal) {
+    return 'drop-shadow(0 0 4px rgb(var(--accent-green) / 0.5))';
+  }
+  return 'drop-shadow(0 0 4px rgb(var(--accent-blue) / 0.5))';
 };
 
 // ---------------------------------------------------------------------------

@@ -130,6 +130,134 @@
   --accent-coral: 255 111 97; /* Coral 500 */
 }
 
+/* Forest Theme — deep evergreen surfaces with crisp botanical accents */
+.theme-forest {
+  color-scheme: dark;
+  --background: 13 31 27; /* Deep forest */
+  --surface: 24 49 42; /* Evergreen */
+  --surface-highlight: 39 69 59; /* Moss */
+  --primary: 5 150 105; /* Emerald 600 */
+  --primary-foreground: 255 255 255;
+  --on-accent: 255 255 255;
+  --overlay-base: 0 0 0;
+  --muted: 151 180 164; /* Soft sage */
+  --border: 45 78 66; /* Muted evergreen */
+  --foreground: 244 251 247; /* Frost */
+  --action-border: 209 250 229; /* Mint */
+  --surface-highlight-rgb: 39 69 59;
+
+  --accent-blue: 56 189 248; /* Sky 400 */
+  --accent-green: 74 222 128; /* Green 400 */
+  --accent-lime: 163 230 53; /* Lime 400 */
+  --accent-emerald: 52 211 153; /* Emerald 400 */
+  --accent-yellow: 250 204 21; /* Yellow 400 */
+  --accent-amber: 251 191 36; /* Amber 400 */
+  --accent-orange: 251 146 60; /* Orange 400 */
+  --accent-red: 251 113 133; /* Rose 400 */
+  --accent-purple: 196 181 253; /* Violet 300 */
+  --accent-slate: 148 163 184; /* Slate 400 */
+  --accent-indigo: 129 140 248; /* Indigo 400 */
+  --accent-pink: 244 114 182; /* Pink 400 */
+  --accent-teal: 45 212 191; /* Teal 400 */
+  --accent-coral: 251 146 120; /* Coral */
+}
+
+/* Dawn Theme — warm paper surfaces with earthy, high-contrast accents */
+.theme-dawn {
+  color-scheme: light;
+  --background: 255 247 237; /* Orange 50 */
+  --surface: 255 253 248; /* Warm white */
+  --surface-highlight: 254 235 207; /* Orange 100 */
+  --primary: 194 65 12; /* Orange 700 */
+  --primary-foreground: 255 255 255;
+  --on-accent: 255 255 255;
+  --overlay-base: 68 30 12; /* Warm charcoal */
+  --muted: 120 83 57; /* Cocoa */
+  --border: 237 213 184; /* Sand */
+  --foreground: 67 32 17; /* Espresso */
+  --action-border: 154 52 18; /* Burnt orange */
+  --surface-highlight-rgb: 254 235 207;
+
+  --accent-blue: 3 105 161; /* Sky 700 */
+  --accent-green: 21 128 61; /* Green 700 */
+  --accent-lime: 77 124 15; /* Lime 700 */
+  --accent-emerald: 4 120 87; /* Emerald 700 */
+  --accent-yellow: 161 98 7; /* Yellow 700 */
+  --accent-amber: 180 83 9; /* Amber 700 */
+  --accent-orange: 194 65 12; /* Orange 700 */
+  --accent-red: 190 24 93; /* Pink 700 */
+  --accent-purple: 109 40 217; /* Violet 700 */
+  --accent-slate: 71 85 105; /* Slate 600 */
+  --accent-indigo: 67 56 202; /* Indigo 700 */
+  --accent-pink: 190 24 93; /* Pink 700 */
+  --accent-teal: 15 118 110; /* Teal 700 */
+  --accent-coral: 194 65 12; /* Burnt orange */
+}
+
+/* Dusk Theme — plum shadows with ember highlights for a softer night mode */
+.theme-dusk {
+  color-scheme: dark;
+  --background: 31 24 43; /* Aubergine */
+  --surface: 48 37 62; /* Twilight plum */
+  --surface-highlight: 70 54 86; /* Heather */
+  --primary: 217 70 239; /* Fuchsia 500 */
+  --primary-foreground: 255 255 255;
+  --on-accent: 255 255 255;
+  --overlay-base: 15 10 23; /* Night plum */
+  --muted: 190 174 204; /* Lavender mist */
+  --border: 79 61 97; /* Muted violet */
+  --foreground: 253 248 255; /* Moonlight */
+  --action-border: 250 232 255; /* Pale lilac */
+  --surface-highlight-rgb: 70 54 86;
+
+  --accent-blue: 125 211 252; /* Sky 300 */
+  --accent-green: 110 231 183; /* Emerald 300 */
+  --accent-lime: 190 242 100; /* Lime 300 */
+  --accent-emerald: 94 234 212; /* Teal 300 */
+  --accent-yellow: 253 224 71; /* Yellow 300 */
+  --accent-amber: 252 211 77; /* Amber 300 */
+  --accent-orange: 253 186 116; /* Orange 300 */
+  --accent-red: 253 164 175; /* Rose 300 */
+  --accent-purple: 216 180 254; /* Purple 300 */
+  --accent-slate: 203 213 225; /* Slate 300 */
+  --accent-indigo: 165 180 252; /* Indigo 300 */
+  --accent-pink: 249 168 212; /* Pink 300 */
+  --accent-teal: 94 234 212; /* Teal 300 */
+  --accent-coral: 253 186 116; /* Coral */
+}
+
+/* Midnight Theme — near-black navy with clear arctic-blue instrumentation */
+.theme-midnight {
+  color-scheme: dark;
+  --background: 8 18 34; /* Midnight navy */
+  --surface: 15 32 54; /* Deep ocean */
+  --surface-highlight: 25 50 78; /* Storm blue */
+  --primary: 14 165 233; /* Sky 500 */
+  --primary-foreground: 255 255 255;
+  --on-accent: 255 255 255;
+  --overlay-base: 3 9 19; /* Ink */
+  --muted: 151 177 207; /* Blue-gray */
+  --border: 31 58 89; /* Navy border */
+  --foreground: 241 248 255; /* Ice */
+  --action-border: 224 242 254; /* Frost */
+  --surface-highlight-rgb: 25 50 78;
+
+  --accent-blue: 56 189 248; /* Sky 400 */
+  --accent-green: 74 222 128; /* Green 400 */
+  --accent-lime: 163 230 53; /* Lime 400 */
+  --accent-emerald: 45 212 191; /* Teal 400 */
+  --accent-yellow: 250 204 21; /* Yellow 400 */
+  --accent-amber: 251 191 36; /* Amber 400 */
+  --accent-orange: 251 146 60; /* Orange 400 */
+  --accent-red: 251 113 133; /* Rose 400 */
+  --accent-purple: 196 181 253; /* Violet 300 */
+  --accent-slate: 148 163 184; /* Slate 400 */
+  --accent-indigo: 129 140 248; /* Indigo 400 */
+  --accent-pink: 244 114 182; /* Pink 400 */
+  --accent-teal: 45 212 191; /* Teal 400 */
+  --accent-coral: 251 146 120; /* Coral */
+}
+
 /* Status bar vignette - gradient overlay at top of screen */
 .status-bar-vignette {
   position: fixed;

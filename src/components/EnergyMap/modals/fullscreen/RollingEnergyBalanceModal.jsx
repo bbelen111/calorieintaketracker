@@ -742,10 +742,10 @@ export const RollingEnergyBalanceModal = ({
     const barColor = KIND_META[bar.kind].fill;
     const glow =
       bar.kind === 'deficit'
-        ? 'drop-shadow(0 0 4px rgba(239, 68, 68, 0.5))'
+        ? 'drop-shadow(0 0 4px rgb(var(--accent-red) / 0.5))'
         : bar.kind === 'surplus'
-          ? 'drop-shadow(0 0 4px rgba(34, 197, 94, 0.5))'
-          : 'drop-shadow(0 0 4px rgba(100, 116, 139, 0.5))';
+          ? 'drop-shadow(0 0 4px rgb(var(--accent-green) / 0.5))'
+          : 'drop-shadow(0 0 4px rgb(var(--accent-slate) / 0.5))';
     return (
       <g
         key={bar.date}

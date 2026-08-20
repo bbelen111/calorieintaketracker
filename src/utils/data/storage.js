@@ -1099,7 +1099,7 @@ export const getDefaultEnergyMapData = () => ({
   stepGoal: 10000, // Daily step goal
   bodyFatTrackingEnabled: true,
   gender: 'male',
-  theme: 'auto', // 'auto' | 'dark' | 'light' | 'amoled_dark'
+  theme: 'auto', // 'auto' | 'dark' | 'light' | 'amoled_dark' | 'forest' | 'dawn' | 'dusk' | 'midnight'
   selectedGoal: 'maintenance',
   goalChangedAt: Date.now(),
   phaseGoalCalorieDelta: null,
