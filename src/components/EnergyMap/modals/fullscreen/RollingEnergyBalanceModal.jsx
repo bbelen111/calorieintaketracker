@@ -12,6 +12,7 @@ import {
   TrendingDown,
   TrendingUp,
   Minus,
+  HelpCircle,
 } from 'lucide-react';
 import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
@@ -228,7 +229,12 @@ const Stat = ({ label, children, caption }) => (
   </div>
 );
 
-export const RollingEnergyBalanceModal = ({ isOpen, isClosing, onClose }) => {
+export const RollingEnergyBalanceModal = ({
+  isOpen,
+  isClosing,
+  onClose,
+  onOpenInfo,
+}) => {
   const [windowDays, setWindowDays] = useState(
     DEFAULT_ROLLING_BALANCE_WINDOW_DAYS
   );
@@ -885,6 +891,14 @@ export const RollingEnergyBalanceModal = ({ isOpen, isClosing, onClose }) => {
               Rolling Energy Balance
             </h3>
           </div>
+          <button
+            type="button"
+            onClick={onOpenInfo}
+            aria-label="Rolling Energy Balance info"
+            className="text-muted md:hover:text-foreground transition-all pressable-inline focus-ring"
+          >
+            <HelpCircle size={20} />
+          </button>
         </div>
 
         {/* Main content area */}

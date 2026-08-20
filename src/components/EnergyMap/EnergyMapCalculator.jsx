@@ -54,6 +54,7 @@ import { DurationPickerModal } from './modals/pickers/DurationPickerModal';
 import { CardioFavouritesModal } from './modals/lists/CardioFavouritesModal';
 import { TefInfoModal } from './modals/info/TefInfoModal';
 import { AdaptiveThermogenesisInfoModal } from './modals/info/AdaptiveThermogenesisInfoModal';
+import { RollingEnergyBalanceInfoModal } from './modals/info/RollingEnergyBalanceInfoModal';
 import { EpocInfoModal } from './modals/info/EpocInfoModal';
 import { TimePickerModal } from './modals/pickers/TimePickerModal';
 import { EpocWindowPickerModal } from './modals/pickers/EpocWindowPickerModal';
@@ -819,6 +820,7 @@ export const EnergyMapCalculator = () => {
   const tefInfoModal = useAnimatedModal();
   const adaptiveThermogenesisInfoModal = useAnimatedModal();
   const adaptiveThermogenesisModal = useAnimatedModal();
+  const rollingEnergyBalanceInfoModal = useAnimatedModal();
   const rollingEnergyBalanceModal = useAnimatedModal();
   const epocInfoModal = useAnimatedModal();
   const timePickerModal = useAnimatedModal();
@@ -851,6 +853,7 @@ export const EnergyMapCalculator = () => {
     phaseCreationModal,
     adaptiveThermogenesisInfoModal,
     adaptiveThermogenesisModal,
+    rollingEnergyBalanceInfoModal,
     rollingEnergyBalanceModal,
     tefInfoModal,
     calorieBreakdownModal,
@@ -898,6 +901,7 @@ export const EnergyMapCalculator = () => {
       phaseCreationModal,
       adaptiveThermogenesisInfoModal,
       adaptiveThermogenesisModal,
+      rollingEnergyBalanceInfoModal,
       rollingEnergyBalanceModal,
       tefInfoModal,
       calorieBreakdownModal,
@@ -943,6 +947,7 @@ export const EnergyMapCalculator = () => {
   }, [
     adaptiveThermogenesisInfoModal,
     adaptiveThermogenesisModal,
+    rollingEnergyBalanceInfoModal,
     rollingEnergyBalanceModal,
     ageModal,
     bmiModal,
@@ -3941,6 +3946,12 @@ export const EnergyMapCalculator = () => {
         onClose={adaptiveThermogenesisInfoModal.requestClose}
       />
 
+      <RollingEnergyBalanceInfoModal
+        isOpen={rollingEnergyBalanceInfoModal.isOpen}
+        isClosing={rollingEnergyBalanceInfoModal.isClosing}
+        onClose={rollingEnergyBalanceInfoModal.requestClose}
+      />
+
       {(adaptiveThermogenesisModal.isOpen ||
         adaptiveThermogenesisModal.isClosing) && (
         <Suspense fallback={null}>
@@ -3959,6 +3970,7 @@ export const EnergyMapCalculator = () => {
             isOpen={rollingEnergyBalanceModal.isOpen}
             isClosing={rollingEnergyBalanceModal.isClosing}
             onClose={rollingEnergyBalanceModal.requestClose}
+            onOpenInfo={rollingEnergyBalanceInfoModal.open}
           />
         </Suspense>
       )}
