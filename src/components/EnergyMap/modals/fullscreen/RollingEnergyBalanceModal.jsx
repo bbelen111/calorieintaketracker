@@ -31,6 +31,7 @@ import {
   calculateWeightTrend,
   formatDateLabel,
 } from '../../../../utils/measurements/weight';
+import { sortBodyFatEntries } from '../../../../utils/measurements/bodyFat';
 import { formatWeeklyRate } from '../../../../utils/visuals/trackerHelpers';
 
 const WINDOW_LABELS = {
@@ -118,8 +119,15 @@ const formatAverage = (value) => {
 const formatEstimateKg = (value) => {
   if (value == null || !Number.isFinite(Number(value))) return '\u2014';
   const numeric = Number(value);
-  const sign = numeric > 0 ? '+' : '';
+  const sign = numeric > 0 ? '+' : numeric < 0 ? '-' : '+';
   return `${sign}${Math.abs(numeric).toFixed(2)} kg`;
+};
+
+const formatEstimatePercent = (value) => {
+  if (value == null || !Number.isFinite(Number(value))) return '\u2014';
+  const numeric = Number(value);
+  const sign = numeric > 0 ? '+' : numeric < 0 ? '-' : '+';
+  return `${sign}${Math.abs(numeric).toFixed(1)}%`;
 };
 
 // Compact signed value for axis labels (units implied by the modal context).
@@ -230,6 +238,8 @@ export const RollingEnergyBalanceModal = ({ isOpen, isClosing, onClose }) => {
       dailySnapshots: state.userData?.dailySnapshots,
       weightEntries: state.weightEntries ?? [],
       goalDailyBalanceTarget: state.goalDailyBalanceTarget,
+      userData: state.userData ?? {},
+      bodyFatEntries: state.userData?.bodyFatEntries ?? [],
     }),
     shallow
   );
@@ -332,6 +342,23 @@ export const RollingEnergyBalanceModal = ({ isOpen, isClosing, onClose }) => {
     () => calculateWeightTrend(store.weightEntries ?? [], 7),
     [store.weightEntries]
   );
+
+  // Estimated body-fat change derived from the rolling weight change, using a
+  // directional fat-mass fraction: deficits lose ~77% fat, surpluses gain ~50% fat.
+  // Body-fat percent change is relative to the current bodyweight (kg).
+  const estimatedBodyFatChangePercent = useMemo(() => {
+    const weightChangeKg = -Number(data.estimatedWeightChangeKg);
+    if (!Number.isFinite(weightChangeKg)) return null;
+    const weight = Number(store.userData?.weight);
+    if (!Number.isFinite(weight) || weight <= 0) return null;
+    if (!store.userData?.bodyFatTrackingEnabled) return null;
+    const sorted = sortBodyFatEntries(store.bodyFatEntries);
+    const latest = sorted[sorted.length - 1];
+    if (!latest?.bodyFat) return null;
+    const fatRatio = weightChangeKg < 0 ? 0.77 : 0.5;
+    const fatMassChangeKg = weightChangeKg * fatRatio;
+    return (fatMassChangeKg / weight) * 100;
+  }, [data.estimatedWeightChangeKg, store.userData, store.bodyFatEntries]);
 
   const balanceTone =
     data.hasData && data.rollingBalance !== 0
@@ -901,7 +928,7 @@ export const RollingEnergyBalanceModal = ({ isOpen, isClosing, onClose }) => {
             <EmptyState />
           ) : (
             <>
-              {/* Stat grid (4 blocks) */}
+              {/* Stat grid (4 blocks, 2x2) */}
               <div className="px-4 pt-1 pb-3 grid grid-cols-2 gap-3 flex-shrink-0">
                 <Stat label="Total Balance">
                   <p className={`text-3xl font-bold ${balanceTone}`}>
@@ -914,12 +941,16 @@ export const RollingEnergyBalanceModal = ({ isOpen, isClosing, onClose }) => {
                     </span>
                   </p>
                 </Stat>
-                <Stat label="Est. Weight Change">
+                <Stat label="Estimated Change">
                   <p className="text-foreground text-3xl font-bold">
                     {formatEstimateKg(-data.estimatedWeightChangeKg)}
                   </p>
-                  <p className="text-muted text-[11px] mt-1">
-                    rough energy-equivalent
+                  <p className="text-foreground text-[11px] mt-1">
+                    {estimatedBodyFatChangePercent == null
+                      ? '\u2014'
+                      : `${formatEstimatePercent(
+                          estimatedBodyFatChangePercent
+                        )} body fat`}
                   </p>
                 </Stat>
                 <Stat label="Expected">
@@ -1075,7 +1106,7 @@ export const RollingEnergyBalanceModal = ({ isOpen, isClosing, onClose }) => {
       </ModalShell>
 
       {/* Selected-day tooltip */}
-      {selectedDate && selectedBar && (
+      {selectedDate && selectedBar && selectedBar.hasData && (
         <div
           ref={tooltipRef}
           className={`fixed z-[1200] bg-surface border border-border rounded-lg shadow-2xl p-4 transform -translate-x-1/2 -translate-y-full pointer-events-auto transition duration-150 ease-out ${
@@ -1095,31 +1126,25 @@ export const RollingEnergyBalanceModal = ({ isOpen, isClosing, onClose }) => {
             <p className="text-muted text-[11.5px] mb-1">
               {formatDateLabel(selectedBar.date)}
             </p>
-            {selectedBar.hasData ? (
-              <>
-                <p
-                  className={`text-lg font-bold ${KIND_META[selectedKind].textClass}`}
-                >
-                  {`${KIND_META[selectedKind].label} ${formatSignedKcal(selectedBar.balance)}`}
+            <p
+              className={`text-lg font-bold ${KIND_META[selectedKind].textClass}`}
+            >
+              {formatSignedKcal(selectedBar.balance)}
+            </p>
+            <div className="mt-2 pt-2 border-t border-border flex justify-between text-sm">
+              <div>
+                <p className="text-muted text-[10px] uppercase">TDEE</p>
+                <p className="text-foreground font-semibold">
+                  {formatKcal(selectedBar.tdee)}
                 </p>
-                <div className="mt-2 pt-2 border-t border-border flex justify-between text-sm">
-                  <div>
-                    <p className="text-muted text-[10px] uppercase">TDEE</p>
-                    <p className="text-foreground font-semibold">
-                      {formatKcal(selectedBar.tdee)}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-muted text-[10px] uppercase">Intake</p>
-                    <p className="text-foreground font-semibold">
-                      {formatKcal(selectedBar.intake)}
-                    </p>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <p className="text-muted text-lg font-semibold">No data</p>
-            )}
+              </div>
+              <div className="text-right">
+                <p className="text-muted text-[10px] uppercase">Intake</p>
+                <p className="text-foreground font-semibold">
+                  {formatKcal(selectedBar.intake)}
+                </p>
+              </div>
+            </div>
           </div>
           <div className="absolute left-1/2 transform -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-border" />
         </div>
