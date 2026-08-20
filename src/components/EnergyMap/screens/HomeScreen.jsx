@@ -199,6 +199,12 @@ export const HomeScreen = ({
     todayStepCount > 0
       ? Math.round(calculateCaloriesFromSteps(todayStepCount, resolvedUserData))
       : 0;
+  const todayBreakdown = store.calculateBreakdown(
+    todayStepCount,
+    resolvedTodayTrainingSessions.length > 0,
+    { dateKey: todayDateKey }
+  );
+  const todayTdee = Math.round(Number(todayBreakdown?.total) || 0);
   const burnSegments = [
     {
       key: 'steps',
@@ -224,6 +230,14 @@ export const HomeScreen = ({
       textClass: 'text-accent-red',
       icon: Heart,
     },
+    {
+      key: 'neat',
+      label: 'NEAT',
+      kcal: Math.round(Number(todayBreakdown?.baseActivity) || 0),
+      colorClass: 'bg-accent-purple',
+      textClass: 'text-accent-purple',
+      icon: Activity,
+    },
   ];
   const activeBurnTotal = burnSegments.reduce(
     (sum, segment) => sum + segment.kcal,
@@ -235,12 +249,6 @@ export const HomeScreen = ({
   const totalEpoc =
     Math.round(Number(resolvedTrainingEpocTotal) || 0) +
     Math.round(Number(resolvedCardioEpocTotal) || 0);
-  const todayBreakdown = store.calculateBreakdown(
-    todayStepCount,
-    resolvedTodayTrainingSessions.length > 0,
-    { dateKey: todayDateKey }
-  );
-  const todayTdee = Math.round(Number(todayBreakdown?.total) || 0);
   const burnPercent =
     todayTdee > 0 ? Math.round((activeBurnTotal / todayTdee) * 100) : null;
 
