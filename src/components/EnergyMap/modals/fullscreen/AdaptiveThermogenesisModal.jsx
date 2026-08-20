@@ -17,12 +17,13 @@ import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { getTodayDateKey } from '../../../../utils/data/dateKeys';
 import {
   computeAdaptiveThermogenesis,
+  resolveAdaptiveThermogenesisMode,
   CRUDE_CUT_STAGES,
   CRUDE_SURPLUS_STAGES,
 } from '../../../../utils/calculations/adaptiveThermogenesis';
 
 const TABS = [
-  { key: 'crude', label: 'Timeline', icon: Flame },
+  { key: 'crude', label: 'Crude', icon: Flame },
   { key: 'smart', label: 'Smart', icon: Activity },
 ];
 const REASONS = {
@@ -73,6 +74,7 @@ export const AdaptiveThermogenesisModal = ({
     };
     return {
       enabled: Boolean(userData.adaptiveThermogenesisEnabled),
+      activeMode: resolveAdaptiveThermogenesisMode({ userData }),
       days: base.goalDurationDays,
       crude: computeAdaptiveThermogenesis({ ...base, mode: 'crude' }),
       smart: computeAdaptiveThermogenesis({ ...base, mode: 'smart' }),
@@ -112,9 +114,6 @@ export const AdaptiveThermogenesisModal = ({
             <h3 className="text-foreground font-bold text-xl leading-tight">
               Adaptive Thermogenesis
             </h3>
-            <p className="text-muted text-[11px] mt-0.5">
-              Energy adaptation estimate
-            </p>
           </div>
         </div>
         <button
@@ -157,11 +156,14 @@ export const AdaptiveThermogenesisModal = ({
               </button>
             ))}
           </div>
-          <p className="text-xs text-muted mt-2">
-            {tab === 'smart'
-              ? 'Compares logged balance with your weight trend.'
-              : 'A scheduled adjustment based on time spent in your goal.'}
-          </p>
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <p className="text-xs text-muted">
+              {tab === 'smart'
+                ? 'Compares logged balance with your weight trend.'
+                : 'A scheduled adjustment based on time spent in your goal.'}
+            </p>
+            <ActiveModeBadge enabled={data?.enabled} mode={data?.activeMode} />
+          </div>
         </div>
 
         {!data ? (
@@ -239,6 +241,28 @@ export const AdaptiveThermogenesisModal = ({
     </ModalShell>
   );
 };
+
+function ActiveModeBadge({ enabled, mode }) {
+  const label = mode === 'smart' ? 'Smart' : mode === 'crude' ? 'Crude' : null;
+  return (
+    <span
+      className={
+        'shrink-0 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ' +
+        (enabled && label
+          ? 'bg-accent-green/15 text-accent-green'
+          : 'bg-surface-highlight text-muted')
+      }
+    >
+      <span
+        className={
+          'h-1.5 w-1.5 rounded-full ' +
+          (enabled && label ? 'bg-accent-green' : 'bg-muted')
+        }
+      />
+      {enabled && label ? 'Using ' + label : 'Currently off'}
+    </span>
+  );
+}
 
 function Metric({ label, value, detail, tone = 'text-foreground' }) {
   return (
