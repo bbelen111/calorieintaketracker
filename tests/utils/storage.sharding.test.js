@@ -236,3 +236,45 @@ test('reconstructHistoryFromDexieDocuments rebuilds phaseLogV2 from sharded docs
     'phase-1:2026-03-21'
   );
 });
+test('reconstructHistoryFromDexieDocuments rebuilds dailyNeatOverrides from sharded docs', () => {
+  const documents = [
+    {
+      id: 'dailyNeatOverrides:2026-03-21',
+      payload: {
+        multiplier: 0.35,
+        presetKey: 'active',
+        label: 'Highly Active',
+        updatedAt: 1700000000000,
+      },
+    },
+    {
+      id: 'dailyNeatOverrides:invalid-date',
+      payload: {
+        multiplier: 0.3,
+      },
+    },
+  ];
+
+  const { historyData, shardDocIdsByField } =
+    reconstructHistoryFromDexieDocuments(documents);
+
+  assert.deepEqual(historyData.dailyNeatOverrides['2026-03-21'], {
+    multiplier: 0.35,
+    presetKey: 'active',
+    label: 'Highly Active',
+    updatedAt: 1700000000000,
+  });
+  assert.equal(
+    shardDocIdsByField
+      .get('dailyNeatOverrides')
+      ?.has('dailyNeatOverrides:2026-03-21'),
+    true
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(
+      historyData.dailyNeatOverrides,
+      'invalid-date'
+    ),
+    false
+  );
+});

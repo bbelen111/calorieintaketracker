@@ -19,9 +19,11 @@ paths:
 
 Primary history store is now Dexie (`energyMapHistory` DB), with document rows keyed by history field name.
 
-Split is determined by `HISTORY_FIELDS` array: `weightEntries`, `bodyFatEntries`, `stepEntries`, `nutritionData`, `phaseLogV2`, `cardioSessions`, `trainingSessions`, `cachedFoods`, `dailySnapshots`.
+Split is determined by `HISTORY_FIELDS` array: `weightEntries`, `bodyFatEntries`, `stepEntries`, `nutritionData`, `phaseLogV2`, `cardioSessions`, `trainingSessions`, `cachedFoods`, `dailySnapshots`, `dailyNeatOverrides`.
 
 `dailySnapshots` is also history-scoped and sharded by date document key (`dailySnapshots:YYYY-MM-DD`).
+
+`dailyNeatOverrides` is also history-scoped and sharded by date document key (`dailyNeatOverrides:YYYY-MM-DD`). Each date's record is `{ multiplier, presetKey, label, updatedAt }` and ships with a matching sharded-Dexie config so only changed days are written on save. `mergeWithDefaults()` normalizes the map on load (drops invalid date keys, clamps multipliers via `clampCustomActivityMultiplier()` to the 0.1–1.0 range, coerces `presetKey`/`label` to strings or `null`).
 
 ### Dexie History Store
 
@@ -76,6 +78,7 @@ Migration behavior is now intentionally minimal:
 - `adaptiveThermogenesisSmoothingWindowDays: 7`
 - `epocEnabled: true`
 - `epocCarryoverHours: 6`
+- `dailyNeatOverrides: {}` — date-keyed (`YYYY-MM-DD`) history map; each entry `{ multiplier, presetKey, label, updatedAt }` (multiplier clamped 0.1–1.0)
 
 ---
 
@@ -241,3 +244,4 @@ Always returns `'unavailable'` on web and iOS. Status constants exported as `Hea
 16. **OpenRouter transient retry parity is intentional:** `sendOpenRouterMessage` retries transient upstream `502/503/504` with bounded backoff; do not remove unless replacing with equivalent resilience.
 17. **Rate-limit queueing is intentional:** `429` handling uses serialized backoff queue semantics; preserve this when adjusting retry logic.
 18. **OpenRouter proxy hardening is config-sensitive:** keep `ALLOWED_ORIGINS` and (if enabled) Upstash rate-limit env vars configured in deployment; mismatched env config can silently alter CORS/throttling behavior across environments.
+19. **Daily NEAT overrides persist via sharded history, not profile:** `dailyNeatOverrides` lives in the Dexie history split (`HISTORY_FIELDS`) with per-date sharding (`dailyNeatOverrides:YYYY-MM-DD`) so only changed days are written. Add/remove any change to this field via the store action `setDailyNeatOverride(...)`; on load, `mergeWithDefaults()` drops invalid date keys and clamps multipliers. Do not reintroduce a profile or Preferences fallback for this data.

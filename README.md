@@ -380,6 +380,11 @@ className="hover:bg-blue-600"
 - `weightEntries`, `bodyFatEntries`, `stepEntries`
 - `nutritionData`, `phaseLogV2`, `cardioSessions`, `trainingSessions`
 - `cachedFoods`, `dailySnapshots` (sharded by date: `dailySnapshots:YYYY-MM-DD`)
+- `dailyNeatOverrides` (sharded by date: `dailyNeatOverrides:YYYY-MM-DD`)
+
+### Daily NEAT Overrides
+
+Set a day-specific NEAT activity multiplier without touching global Settings. The override applies override-first in `calculateCalorieBreakdown` for the resolved date only (clamped 0.1–1.0 via `clampCustomActivityMultiplier()`). Writes go through the store action `setDailyNeatOverride(dateKey, overrideOrNull)`. Home entry point: in the hero's "Today's Activity Burn", tap the NEAT metric block (`onOpenDailyActivityOverride`) to open `DailyNeatOverrideModal`; the "~X% of daily TDEE" pill (`onOpenTodayBreakdown`) opens today's `CalorieBreakdownModal`.
 
 ### Daily Snapshots
 

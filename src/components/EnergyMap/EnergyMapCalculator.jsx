@@ -61,6 +61,7 @@ import { EpocWindowPickerModal } from './modals/pickers/EpocWindowPickerModal';
 import { DailyActivityModal } from './modals/forms/DailyActivityModal';
 import { DailyActivityEditorModal } from './modals/forms/DailyActivityEditorModal';
 import { DailyActivityCustomModal } from './modals/forms/DailyActivityCustomModal';
+import { DailyNeatOverrideModal } from './modals/forms/DailyNeatOverrideModal';
 import { TemplatePickerModal } from './modals/pickers/TemplatePickerModal';
 import { CalendarPickerModal } from './modals/pickers/CalendarPickerModal';
 import { FoodEntryModal } from './modals/forms/FoodEntryModal';
@@ -531,6 +532,7 @@ export const EnergyMapCalculator = () => {
     deleteBodyFatEntry,
     saveStepEntry,
     setStepGoal,
+    setDailyNeatOverride,
     nutritionData,
     pinnedFoods,
     cachedFoods,
@@ -597,6 +599,7 @@ export const EnergyMapCalculator = () => {
       deleteBodyFatEntry: state.deleteBodyFatEntry,
       saveStepEntry: state.saveStepEntry,
       setStepGoal: state.setStepGoal,
+      setDailyNeatOverride: state.setDailyNeatOverride,
       nutritionData: state.nutritionData,
       pinnedFoods: state.pinnedFoods,
       cachedFoods: state.cachedFoods,
@@ -669,6 +672,7 @@ export const EnergyMapCalculator = () => {
   );
   const [cardioModalMode, setCardioModalMode] = useState('add');
   const [activityEditorDay, setActivityEditorDay] = useState(null);
+  const [dailyNeatOverrideVersion, setDailyNeatOverrideVersion] = useState(0);
   const [customActivityPercent, setCustomActivityPercent] = useState(
     Math.round(DEFAULT_ACTIVITY_MULTIPLIERS.training * 100)
   );
@@ -771,6 +775,8 @@ export const EnergyMapCalculator = () => {
   );
 
   const selectedDay = todayTrainingSessions.length > 0 ? 'training' : 'rest';
+  const todayNeatOverride =
+    userData.dailyNeatOverrides?.[getTodayDateKey()] ?? null;
 
   // Confirm action state
   const [confirmActionTitle, setConfirmActionTitle] = useState('');
@@ -808,6 +814,7 @@ export const EnergyMapCalculator = () => {
   const dailyActivityModal = useAnimatedModal();
   const dailyActivityEditorModal = useAnimatedModal();
   const dailyActivityCustomModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
+  const dailyNeatOverrideModal = useAnimatedModal();
   const stepRangesModal = useAnimatedModal();
   const trainingModal = useAnimatedModal();
   const durationPickerModal = useAnimatedModal();
@@ -872,6 +879,7 @@ export const EnergyMapCalculator = () => {
     dailyActivityCustomModal,
     dailyActivityEditorModal,
     dailyActivityModal,
+    dailyNeatOverrideModal,
     settingsModal,
     bodyFatEntryModal,
     bodyFatTrackerModal,
@@ -920,6 +928,7 @@ export const EnergyMapCalculator = () => {
       dailyActivityCustomModal,
       dailyActivityEditorModal,
       dailyActivityModal,
+      dailyNeatOverrideModal,
       settingsModal,
       bodyFatEntryModal,
       bodyFatTrackerModal,
@@ -964,6 +973,7 @@ export const EnergyMapCalculator = () => {
     dailyActivityCustomModal,
     dailyActivityEditorModal,
     dailyActivityModal,
+    dailyNeatOverrideModal,
     dailyLogModal,
     durationPickerModal,
     epocInfoModal,
@@ -1771,6 +1781,32 @@ export const EnergyMapCalculator = () => {
     ]
   );
 
+  const openDailyNeatOverrideModal = useCallback(() => {
+    setDailyNeatOverrideVersion((version) => version + 1);
+    dailyNeatOverrideModal.open();
+  }, [dailyNeatOverrideModal]);
+
+  const closeDailyNeatOverrideModal = useCallback(() => {
+    dailyNeatOverrideModal.requestClose();
+  }, [dailyNeatOverrideModal]);
+
+  const handleDailyNeatOverrideApply = useCallback(
+    ({ multiplier, presetKey, label }) => {
+      if (!Number.isFinite(Number(multiplier))) {
+        return;
+      }
+
+      setDailyNeatOverride(getTodayDateKey(), { multiplier, presetKey, label });
+      dailyNeatOverrideModal.requestClose();
+    },
+    [dailyNeatOverrideModal, setDailyNeatOverride]
+  );
+
+  const handleDailyNeatOverrideClear = useCallback(() => {
+    setDailyNeatOverride(getTodayDateKey(), null);
+    dailyNeatOverrideModal.requestClose();
+  }, [dailyNeatOverrideModal, setDailyNeatOverride]);
+
   const persistLastSelectedCardioType = useCallback(
     (typeKey) => {
       const normalizedTypeKey = String(typeKey ?? '').trim();
@@ -2004,6 +2040,15 @@ export const EnergyMapCalculator = () => {
       quickEstimateTefContext,
     ]
   );
+
+  const openTodayCalorieBreakdown = useCallback(() => {
+    const todayKey = getTodayDateKey();
+    const todayEntry = (userData?.stepEntries ?? []).find(
+      (entry) => entry?.date === todayKey
+    );
+    const steps = Number(todayEntry?.steps) || 0;
+    openCalorieBreakdown({ steps });
+  }, [openCalorieBreakdown, userData]);
 
   const closeCalorieBreakdown = useCallback(() => {
     calorieBreakdownModal.requestClose();
@@ -3844,6 +3889,8 @@ export const EnergyMapCalculator = () => {
                   calculateCardioCalories={calculateCardioSessionCalories}
                   onRemoveCardioSession={handleRemoveCardioSession}
                   totalCardioBurn={totalCardioBurn}
+                  onOpenDailyActivityOverride={openDailyNeatOverrideModal}
+                  onOpenTodayBreakdown={openTodayCalorieBreakdown}
                   isSwiping={isSwiping}
                 />
               </div>
@@ -4207,6 +4254,20 @@ export const EnergyMapCalculator = () => {
         onSelectDay={openDailyActivityEditor}
         onClose={handleDailyActivityModalClose}
       />
+
+      {(dailyNeatOverrideModal.isOpen || dailyNeatOverrideModal.isClosing) && (
+        <DailyNeatOverrideModal
+          key={dailyNeatOverrideVersion}
+          isOpen={dailyNeatOverrideModal.isOpen}
+          isClosing={dailyNeatOverrideModal.isClosing}
+          dayType={selectedDay}
+          globalMultiplier={activityMultipliers[selectedDay]}
+          currentPresetKey={todayNeatOverride?.presetKey ?? null}
+          onApply={handleDailyNeatOverrideApply}
+          onClear={handleDailyNeatOverrideClear}
+          onClose={closeDailyNeatOverrideModal}
+        />
+      )}
 
       <DailyActivityEditorModal
         isOpen={dailyActivityEditorModal.isOpen}

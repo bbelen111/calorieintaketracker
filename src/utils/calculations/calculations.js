@@ -1,4 +1,7 @@
-import { DEFAULT_ACTIVITY_MULTIPLIERS } from '../../constants/activity/activityPresets.js';
+import {
+  clampCustomActivityMultiplier,
+  DEFAULT_ACTIVITY_MULTIPLIERS,
+} from '../../constants/activity/activityPresets.js';
 import {
   getStepCaloriesDetails,
   getStepDetails,
@@ -807,9 +810,19 @@ export const calculateCalorieBreakdown = ({
   });
   const multipliers =
     normalizedUserData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS;
-  const rawActivityMultiplier = isTrainingDay
-    ? (multipliers.training ?? DEFAULT_ACTIVITY_MULTIPLIERS.training)
-    : (multipliers.rest ?? DEFAULT_ACTIVITY_MULTIPLIERS.rest);
+  const dailyNeatOverride =
+    normalizedUserData.dailyNeatOverrides?.[resolvedDateKey] ?? null;
+  const hasDailyNeatOverride =
+    dailyNeatOverride != null &&
+    Number.isFinite(Number(dailyNeatOverride?.multiplier));
+  const dailyNeatOverrideMultiplier = hasDailyNeatOverride
+    ? clampCustomActivityMultiplier(Number(dailyNeatOverride.multiplier))
+    : null;
+  const rawActivityMultiplier = hasDailyNeatOverride
+    ? dailyNeatOverrideMultiplier
+    : isTrainingDay
+      ? (multipliers.training ?? DEFAULT_ACTIVITY_MULTIPLIERS.training)
+      : (multipliers.rest ?? DEFAULT_ACTIVITY_MULTIPLIERS.rest);
   const trainingBurn = Math.round(
     getTotalTrainingBurnFromSessions(
       trainingSessions,
@@ -920,6 +933,14 @@ export const calculateCalorieBreakdown = ({
     baseActivity,
     activityMultiplier: rawActivityMultiplier,
     rawActivityMultiplier,
+    dailyNeatOverrideApplied: hasDailyNeatOverride,
+    dailyNeatOverrideMultiplier,
+    dailyNeatOverridePresetKey: hasDailyNeatOverride
+      ? String(dailyNeatOverride?.presetKey ?? '').trim() || null
+      : null,
+    dailyNeatOverrideLabel: hasDailyNeatOverride
+      ? String(dailyNeatOverride?.label ?? '').trim() || null
+      : null,
     effectiveActivityMultiplier,
     tefOffsetApplied,
     tefMode,

@@ -487,3 +487,110 @@ test('calculateGoalCalories supports explicit delta override', () => {
   assert.equal(calculateGoalCalories(tdee, 'bulking', 275), 2775);
   assert.equal(calculateGoalCalories(tdee, 'cutting'), 2200);
 });
+
+const buildNeatBreakdown = (userData, dateKey) => {
+  const bmr = calculateBMR({
+    ...baseUserData,
+    ...userData,
+  });
+  return calculateCalorieBreakdown({
+    steps: 0,
+    isTrainingDay: userData.isTrainingDayOverride ?? false,
+    userData: {
+      ...baseUserData,
+      ...userData,
+    },
+    bmr,
+    cardioTypes: {},
+    trainingTypes,
+    tefContext: { mode: 'off', enabled: false },
+    adaptiveThermogenesisContext: { mode: 'off' },
+    dateKey,
+  });
+};
+
+test('daily NEAT override replaces the training/rest multiplier for the matching date', () => {
+  const breakdown = buildNeatBreakdown(
+    {
+      dailyNeatOverrides: {
+        [todayDateKey]: {
+          multiplier: 0.5,
+          presetKey: 'active',
+          label: 'High Activity',
+        },
+      },
+    },
+    todayDateKey
+  );
+
+  assert.equal(breakdown.rawActivityMultiplier, 0.5);
+  assert.equal(breakdown.dailyNeatOverrideApplied, true);
+  assert.equal(breakdown.dailyNeatOverridePresetKey, 'active');
+  assert.equal(breakdown.dailyNeatOverrideLabel, 'High Activity');
+  assert.equal(breakdown.baseActivity, Math.round(breakdown.bmr * 0.5));
+});
+
+test('daily NEAT override only applies to the requested dateKey', () => {
+  const breakdown = buildNeatBreakdown(
+    {
+      dailyNeatOverrides: {
+        [todayDateKey]: {
+          multiplier: 0.5,
+        },
+      },
+    },
+    '2026-01-01'
+  );
+
+  assert.equal(breakdown.dailyNeatOverrideApplied, false);
+  assert.equal(breakdown.rawActivityMultiplier, 0.22);
+});
+
+test('daily NEAT override falls back to training/rest multiplier when absent', () => {
+  const restBreakdown = buildNeatBreakdown({}, todayDateKey);
+  assert.equal(restBreakdown.dailyNeatOverrideApplied, false);
+  assert.equal(restBreakdown.rawActivityMultiplier, 0.22);
+
+  const trainingBreakdown = buildNeatBreakdown(
+    { isTrainingDayOverride: true },
+    todayDateKey
+  );
+  assert.equal(trainingBreakdown.dailyNeatOverrideApplied, false);
+  assert.equal(trainingBreakdown.rawActivityMultiplier, 0.2);
+});
+
+test('daily NEAT override clamps out-of-range multipliers', () => {
+  const highBreakdown = buildNeatBreakdown(
+    {
+      dailyNeatOverrides: {
+        [todayDateKey]: { multiplier: 5 },
+      },
+    },
+    todayDateKey
+  );
+  assert.equal(highBreakdown.rawActivityMultiplier, 1);
+
+  const lowBreakdown = buildNeatBreakdown(
+    {
+      dailyNeatOverrides: {
+        [todayDateKey]: { multiplier: 0.01 },
+      },
+    },
+    todayDateKey
+  );
+  assert.equal(lowBreakdown.rawActivityMultiplier, 0.1);
+});
+
+test('daily NEAT override multiplier feeds the effective multiplier used for base activity', () => {
+  const breakdown = buildNeatBreakdown(
+    {
+      dailyNeatOverrides: {
+        [todayDateKey]: { multiplier: 0.35 },
+      },
+    },
+    todayDateKey
+  );
+
+  assert.equal(breakdown.rawActivityMultiplier, 0.35);
+  assert.ok(breakdown.baseActivity > 0);
+});

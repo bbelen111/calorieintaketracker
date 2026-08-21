@@ -43,6 +43,8 @@ myNewAction: (param) => {
 },
 ```
 
+**Daily NEAT override action:** `setDailyNeatOverride(dateKey, overrideOrNull)` upserts one date's override (normalizes the date, clamps the multiplier with `clampCustomActivityMultiplier()` to 0.1–1.0, coerces `presetKey`/`label` to strings or `null`, stamps `updatedAt`), or deletes the date's record when `overrideOrNull == null`. After a change it calls `upsertDailySnapshot(normalizedDate)` so TDEE / snapshots / rolling balance update immediately. Uses `updateUserData` (short-circuits on no-op) exactly like other actions.
+
 ### Persistence Setup
 
 `setupEnergyMapStore()` (called once) does two things:
@@ -104,10 +106,13 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 | Adaptive thermogenesis mode | `resolveAdaptiveThermogenesisMode({ userData, adaptiveThermogenesisContext })` | Resolves `'off' \| 'crude' \| 'smart'` from persisted settings plus optional per-request override |
 | Adaptive thermogenesis correction | `computeAdaptiveThermogenesis({...})` | Computes bounded correction (±300 kcal/day) from staged duration logic (`crude`) or snapshot/weight divergence signal (`smart`), with optional smart-mode weight-signal smoothing (`EMA`/`SMA`, 3-14 day window) |
 | Rolling balance (window) | `calculateRollingEnergyBalance({...})` | Pure analytic rollup consuming snapshot `tdee`/`intake` (`balance = tdee - intake`, positive = deficit) over 3/7/14/28-day windows; never rebuilds TDEE (`utils/calculations/rollingEnergyBalance.js`) |
+| Daily NEAT override (multiplier) | `calculateCalorieBreakdown({...})` reads `dailyNeatOverrides[resolvedDateKey]` | **Override-first** NEAT multiplier for the resolved `dateKey`, clamped via `clampCustomActivityMultiplier()` (0.1–1.0), fallback chain override → training/rest global → `DEFAULT_ACTIVITY_MULTIPLIERS` |
 
 **TEF constants** exported from `calculations.js`: `TEF_MULTIPLIER_OFFSET = 0.1`, `TEF_PROTEIN_RATE = 0.25`, `TEF_CARB_RATE = 0.08`, `TEF_FAT_RATE = 0.02`.
 
 **Smart TEF mechanic:** When `userData.smartTefEnabled` is true and a `tefContext` is passed, `calculateCalorieBreakdown()` subtracts `TEF_MULTIPLIER_OFFSET` (10%) from the NEAT activity multiplier (`effectiveActivityMultiplier = rawActivityMultiplier - 0.1`) then adds the macro-based TEF back as an explicit line item. Net effect is neutral at default macro ratios but improves accuracy with real logged data. The breakdown return object gains: `rawActivityMultiplier`, `effectiveActivityMultiplier`, `tefOffsetApplied`, `tefMode`, `smartTefCalories`, `smartTefDetails`.
+
+**Daily NEAT override mechanic:** `calculateCalorieBreakdown()` resolves the NEAT multiplier **override-first** for the resolved `dateKey` (`dailyNeatOverrides[resolvedDateKey]`), clamped via `clampCustomActivityMultiplier()` over the fallback chain override → training/rest global multiplier → `DEFAULT_ACTIVITY_MULTIPLIERS`. When applied, the breakdown return object gains `dailyNeatOverrideApplied`, `dailyNeatOverrideMultiplier`, `dailyNeatOverridePresetKey`, and `dailyNeatOverrideLabel`. The override changes `rawActivityMultiplier` (and thus `baseActivity` / NEAT segment) only for that one date; Smart TEF, AT, and EPOC math remain unchanged.
 
 **Macro target anchoring:** Macro recommendations are constraint-based. Bounds are profile-derived (`protein: 1.6-2.8 g/kg`, mass source = lean mass when body fat is available else bodyweight; `fat: 0.6-1.6 g/kg`; `carb soft floor: 50g` with relaxation warning on infeasible budgets). Preserve calorie reconciliation and warning fields (`carb_soft_floor_relaxed`, `hard_floor_exceeds_budget`) when adjusting this logic.
 
@@ -203,6 +208,14 @@ Do not duplicate target planning formulas in components.
   stepEntries: [{ date: 'YYYY-MM-DD', steps, source: 'healthConnect'|'manual' }],
   nutritionData: { 'YYYY-MM-DD': { mealType: [foodEntry, ...] } },
   cachedFoods: [],                  // Cached foods from online/barcode lookups (history-scoped; deduped + capped on persistence)
+  dailyNeatOverrides: {
+    'YYYY-MM-DD': {
+      multiplier,                    // Clamped 0.1–1.0 via clampCustomActivityMultiplier()
+      presetKey: 'active' | null,    // Curated preset key, or null for a custom/legacy value
+      label: 'Highly Active' | null, // Optional display label
+      updatedAt,                     // Epoch ms of last write
+    }
+  },
   dailySnapshots: {
     'YYYY-MM-DD': {
       date,
@@ -328,3 +341,4 @@ When editing phase logic:
 21. **Feasible-date band API is opt-in for heavy arrays.** Prefer summary fields (`strictCount`, `lenientCount`, `feasibleMinDateKey`, `feasibleMaxDateKey`, day-span ranges) and only request date/evaluation arrays when the caller explicitly needs them.
 22. **Selector/destructure parity matters:** when selecting store fields in `useEnergyMapStore`, always destructure every referenced variable (`aiChatRolloutUserId`, `aiChatRagRolloutOverride`, `aiChatRagRolloutPercentage`) to avoid runtime `ReferenceError` crashes.
 23. **Macro locks are gram anchors, not ratios:** `userData.macroLocks` pins macros in **grams** (max 2 via `MAX_MACRO_LOCKS`). `null`/`''`/negative/NaN are treated as unlocked — never coerce `null` to `0` (a 0g lock is a valid lock and would displace another). Locked grams are **soft anchors**: they relax to safety floors when the calorie target is too low, surfaced via `macroLocks.relaxedKeys` / `lockWarnings`. Always route lock-aware calculations through `calculateMacroRecommendations(..., { macroLocks })` and forward `macroLocks` to `TrackerScreen`/`InsightsScreen`.
+24. **Daily NEAT overrides are date-scoped + clamped:** `dailyNeatOverrides` is a **history field** (not profile), sharded by date (`dailyNeatOverrides:YYYY-MM-DD`). Always route writes through the store action `setDailyNeatOverride(dateKey, overrideOrNull)` (never mutate the map ad-hoc), normalize dates via `normalizeDateKey()`, and clamp multipliers with `clampCustomActivityMultiplier()` (0.1–1.0). The multiplier is applied override-first in `calculateCalorieBreakdown` for the resolved `dateKey` only; every save must pass `dateKey` in the breakdown/target options so the correct date's NEAT is used.

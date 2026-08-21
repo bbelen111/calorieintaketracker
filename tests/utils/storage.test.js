@@ -372,6 +372,42 @@ test('loadEnergyMapData normalizes cardio session overlap toggle defaults for ex
     }
   });
 });
+test('loadEnergyMapData normalizes dailyNeatOverrides multipliers and drops invalid dates', async () => {
+  await withWindowStorage(async () => {
+    await Preferences.remove({ key: PROFILE_KEY });
+    await clearDexieHistory();
+
+    await saveEnergyMapData({
+      ...getDefaultEnergyMapData(),
+      dailyNeatOverrides: {
+        [getTodayDateKey()]: {
+          multiplier: '1.9',
+          presetKey: 'active',
+          label: 'Highly Active',
+        },
+        'invalid-date': {
+          multiplier: 0.3,
+        },
+      },
+    });
+
+    const loaded = await loadEnergyMapData();
+    const todayOverride = loaded.dailyNeatOverrides[getTodayDateKey()];
+
+    // Values clamp, keys normalize, invalid keys are dropped.
+    if (todayOverride) {
+      assert.equal(todayOverride.multiplier, 1);
+      assert.equal(todayOverride.presetKey, 'active');
+    }
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(
+        loaded.dailyNeatOverrides,
+        'invalid-date'
+      ),
+      false
+    );
+  });
+});
 
 test('save/loadEnergyMapData round-trips trainingSessions via sharded history documents', async () => {
   await withWindowStorage(async () => {
@@ -453,6 +489,45 @@ test('save/loadEnergyMapData round-trips dailySnapshots via sharded history docu
       assert.equal(loaded.dailySnapshots['2026-03-20']?.deficit, 812);
     } else {
       assert.deepEqual(loaded.dailySnapshots, {});
+    }
+  });
+});
+test('save/loadEnergyMapData round-trips dailyNeatOverrides via sharded history documents', async () => {
+  await withWindowStorage(async () => {
+    await Preferences.remove({ key: PROFILE_KEY });
+    await clearDexieHistory();
+
+    const payload = {
+      ...getDefaultEnergyMapData(),
+      dailyNeatOverrides: {
+        '2026-03-20': {
+          multiplier: 0.35,
+          presetKey: 'active',
+          label: 'Highly Active',
+          updatedAt: 1700000000000,
+        },
+      },
+    };
+
+    await saveEnergyMapData(payload);
+
+    const historySnapshot = await loadAllHistoryDocuments();
+    if (historySnapshot.available) {
+      const overrideDocs = historySnapshot.documents.filter((document) =>
+        String(document?.id).startsWith('dailyNeatOverrides:')
+      );
+      assert.ok(overrideDocs.length >= 1);
+    }
+
+    const loaded = await loadEnergyMapData();
+    if (historySnapshot.available) {
+      assert.equal(loaded.dailyNeatOverrides['2026-03-20']?.multiplier, 0.35);
+      assert.equal(
+        loaded.dailyNeatOverrides['2026-03-20']?.presetKey,
+        'active'
+      );
+    } else {
+      assert.deepEqual(loaded.dailyNeatOverrides, {});
     }
   });
 });

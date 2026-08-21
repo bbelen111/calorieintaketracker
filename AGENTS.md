@@ -121,6 +121,8 @@ myNewAction: (param) => {
 },
 ```
 
+**Daily NEAT override action:** `setDailyNeatOverride(dateKey, overrideOrNull)` upserts one date's override (normalizes the date, clamps the multiplier with `clampCustomActivityMultiplier()` to 0.1–1.0, coerces `presetKey`/`label` to strings or `null`, stamps `updatedAt`), or deletes the date's record when `overrideOrNull == null`. After a change it calls `upsertDailySnapshot(normalizedDate)` so TDEE / snapshots / rolling balance update immediately. Uses `updateUserData` (short-circuits on no-op) exactly like other actions.
+
 ### Persistence Setup
 
 `setupEnergyMapStore()` (called once) does two things:
@@ -156,16 +158,16 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 
 ### Modal Count
 
-- **42 top-level `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
+- **46 top-level `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
 - **~21 additional child-level modals** declared inside modal components (e.g., delete confirmations, sub-pickers)
-- **52 modal component files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`, plus 5 supporting panel components under `fullscreen/panels/`:
+- **57 modal component files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`, plus 5 supporting panel components under `fullscreen/panels/`:
   - `fullscreen/` — WeightTrackerModal, BodyFatTrackerModal, StepTrackerModal, SettingsModal, FoodSearchModal, AdaptiveThermogenesisModal, RollingEnergyBalanceModal
   - `pickers/` — AgePickerModal, CalendarPickerModal, **CaloriesPerHourPickerModal**, DatePickerModal, DurationPickerModal, EpocWindowPickerModal, FoodPortionModal, HeartRatePickerModal, HeightPickerModal, **MacroPickerModal**, MealTypePickerModal, MetValuePickerModal, **NumericValuePickerModal**, StepGoalPickerModal, TemplatePickerModal, TimePickerModal
   - `info/` — AdaptiveThermogenesisInfoModal, BmiInfoModal, BmrInfoModal, BodyFatTrendInfoModal, CalorieBreakdownModal, CaloriesPerHourGuideModal, EpocInfoModal, FfmiInfoModal, TefInfoModal, WeightTrendInfoModal
-  - `forms/` — AddCustomFoodModal, BarcodeEntryModal, BodyFatEntryModal, CardioModal, CustomCardioTypeModal, DailyActivityCustomModal, DailyActivityEditorModal, DailyActivityModal, DailyLogModal, FoodEntryModal, GoalModal, PhaseCreationModal, TrainingModal, StepRangesModal, TrainingTypeEditorModal, WeightEntryModal
+  - `forms/` — AddCustomFoodModal, BarcodeEntryModal, BodyFatEntryModal, CardioModal, CustomCardioTypeModal, DailyActivityCustomModal, DailyActivityEditorModal, DailyActivityModal, DailyLogModal, **DailyNeatOverrideModal**, FoodEntryModal, GoalModal, PhaseCreationModal, TrainingModal, StepRangesModal, TrainingTypeEditorModal, WeightEntryModal
   - `lists/` — CardioFavouritesModal, CardioTypeListModal, CalorieTargetModal
   - `common/` — ConfirmActionModal
-- Total across codebase: ~59 modal hook instances (`useAnimatedModal`)
+- Total across codebase: ~67 modal hook instances (`useAnimatedModal`)
 
 ### Adaptive Thermogenesis Frontend
 
@@ -184,6 +186,16 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
   - The content wrapper is keyed by `windowDays` and tagged `tracker-graph-switch` so switching windows re-plays a subtle fade/translate page transition.
   - The bar-chart `<rect>`s carry `tracker-bar-animated` so bars grow in (`trackerBarIn`). Both benefit from the global `prefers-reduced-motion` fallback in `index.css`.
   - **Do not** leave a sliding-pill as per-button conditional remounts (no `transition` → no slide); always keep one persistent pill and animate `left`/`transform`.
+
+
+### Daily NEAT Override Frontend
+
+- `DailyNeatOverrideModal` (`modals/forms/DailyNeatOverrideModal.jsx`) is the session quick-sheet for today's **daily NEAT override**. It is mounted with an `isOpen || isClosing` guard, keyed by a version counter so it re-freshes its selection state on each open (no setState-in-effect on open).
+- It renders a curated set of preset cards from `ACTIVITY_PRESET_OPTIONS[dayType]` plus a **"Use my settings (default)"** clear action. Selecting a preset stages an apply; `onApply({ multiplier, presetKey, label })` saves the override, `onClear()` clears today's override and falls back to the global setting.
+- The top-right day pill is **color-coded by day type**: Training Day = `text-accent-blue` + **Dumbbell** icon, Rest Day = `text-accent-indigo` + **Bed** icon (via `DAY_PILL_CLASS` / `DAY_ICON_BY_KEY`).
+- **Home entry point:** In `HomeScreen`'s "Today's Activity Burn" hero, the **NEAT metric block** (icon + label + kcal) is the touch target — it carries a faint underline + chevron affordance, opens the override modal via `onOpenDailyActivityOverride`, and tints green when today's override is active. The **"~X% of daily TDEE"** pill there is a separate button wired to `onOpenTodayBreakdown`, which opens the `CalorieBreakdownModal` for today.
+- **Calculation wiring:** save via the store action `setDailyNeatOverride(dateKey, overrideOrNull)`; the multiplier is applied in `calculateCalorieBreakdown` (override-first, clamped). No duplicate override logic in UI components.
+- Wire it like any other sequencing modal: `useAnimatedModal()`, register in `isAnyModalOpen` + `closeTopmostModal` + deps. It is lightweight (no `React.lazy`), matching other short session modals.
 
 
 ### Modal Performance Loading Strategy
@@ -553,6 +565,8 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 
 **Smart TEF mechanic:** When `userData.smartTefEnabled` is true and a `tefContext` is passed, `calculateCalorieBreakdown()` subtracts `TEF_MULTIPLIER_OFFSET` (10%) from the NEAT activity multiplier (`effectiveActivityMultiplier = rawActivityMultiplier - 0.1`) then adds the macro-based TEF back as an explicit line item. Net effect is neutral at default macro ratios but improves accuracy with real logged data. The breakdown return object gains: `rawActivityMultiplier`, `effectiveActivityMultiplier`, `tefOffsetApplied`, `tefMode`, `smartTefCalories`, `smartTefDetails`.
 
+**Daily NEAT override mechanic:** `calculateCalorieBreakdown()` resolves the NEAT multiplier **override-first** for the resolved `dateKey` (`dailyNeatOverrides[resolvedDateKey]`), clamped via `clampCustomActivityMultiplier()` over the fallback chain override → training/rest global multiplier → `DEFAULT_ACTIVITY_MULTIPLIERS`. When applied, the breakdown return object gains `dailyNeatOverrideApplied`, `dailyNeatOverrideMultiplier`, `dailyNeatOverridePresetKey`, and `dailyNeatOverrideLabel`. The override changes `rawActivityMultiplier` (and thus `baseActivity` / NEAT segment) only for that one date; Smart TEF, AT, and EPOC math remain unchanged.
+
 **Macro target anchoring:** Macro recommendations are constraint-based. Bounds are profile-derived (`protein: 1.6-2.8 g/kg`, mass source = lean mass when body fat is available else bodyweight; `fat: 0.6-1.6 g/kg`; `carb soft floor: 50g` with relaxation warning on infeasible budgets). Preserve calorie reconciliation and warning fields (`carb_soft_floor_relaxed`, `hard_floor_exceeds_budget`) when adjusting this logic.
 
 **Constrained triangle mapping:** `MacroPickerModal` uses full-surface constrained remapping (`macroSplitFromConstrainedTrianglePoint` / `macroSplitToConstrainedTrianglePoint`) so the whole triangle is draggable while remaining within bounded macro behavior. Do not revert to direct raw-ratio barycentric mapping for picker interactions.
@@ -609,9 +623,11 @@ Do not duplicate target planning formulas in components.
 
 Primary history store is now Dexie (`energyMapHistory` DB), with document rows keyed by history field name.
 
-Split is determined by `HISTORY_FIELDS` array: `weightEntries`, `bodyFatEntries`, `stepEntries`, `nutritionData`, `phaseLogV2`, `cardioSessions`, `trainingSessions`, `cachedFoods`, `dailySnapshots`.
+Split is determined by `HISTORY_FIELDS` array: `weightEntries`, `bodyFatEntries`, `stepEntries`, `nutritionData`, `phaseLogV2`, `cardioSessions`, `trainingSessions`, `cachedFoods`, `dailySnapshots`, `dailyNeatOverrides`.
 
 `dailySnapshots` is also history-scoped and sharded by date document key (`dailySnapshots:YYYY-MM-DD`).
+
+`dailyNeatOverrides` is also history-scoped and sharded by date document key (`dailyNeatOverrides:YYYY-MM-DD`). Each date's record is `{ multiplier, presetKey, label, updatedAt }` and ships with a matching sharded-Dexie config so only changed days are written on save. `mergeWithDefaults()` normalizes the map on load (drops invalid date keys, clamps multipliers via `clampCustomActivityMultiplier()` to the 0.1–1.0 range, coerces `presetKey`/`label` to strings or `null`).
 
 ### Dexie History Store
 
@@ -716,6 +732,14 @@ Migration behavior is now intentionally minimal:
   stepEntries: [{ date: 'YYYY-MM-DD', steps, source: 'healthConnect'|'manual' }],
   nutritionData: { 'YYYY-MM-DD': { mealType: [foodEntry, ...] } },
   cachedFoods: [],                  // Cached foods from online/barcode lookups (history-scoped; deduped + capped on persistence)
+  dailyNeatOverrides: {
+    'YYYY-MM-DD': {
+      multiplier,                    // Clamped 0.1–1.0 via clampCustomActivityMultiplier()
+      presetKey: 'active' | null,    // Curated preset key, or null for a custom/legacy value
+      label: 'Highly Active' | null, // Optional display label
+      updatedAt,                     // Epoch ms of last write
+    }
+  },
   dailySnapshots: {
     'YYYY-MM-DD': {
       date,
@@ -1198,3 +1222,4 @@ npm run test:watch     # Node test runner in watch mode
 84. **Health Connect step reads must be today-scoped first:** `useHealthConnect.fetchSteps()` must use the explicit today window from `buildHealthConnectStepReadWindow()` (local midnight → now) as the primary read. The plugin's native default (`now - 1 day` / `now`) is a rolling 24 hours and would include previous-day steps in today's live count, so it must only be used as a degraded fallback when the explicit today window fails. Keep the rolling 24-hour fallback in the same helper module for recovery paths. If every read still fails on a real device, return `null` and keep the app usable instead of surfacing a connection error.
 85. **CalorieMap live card is a consumer, not the source of Health Connect failures:** `CalorieMapScreen` should keep passing `{ steps, tefContext }` to the breakdown modal, but any time-window fix belongs in the Health Connect hook/helper layer.
 84. **Scroll pickers must not fight the user's gesture:** Embedded pickers that live-update a parent `value` prop on every scroll (e.g. `WeightPicker`/`BodyFatPicker` in the entry modals) must guard the `[value]` alignment effect with a user-driven flag (`isUserDrivenRef` + short auto-reset timeout). Without this, the effect re-runs on every scroll update and calls `alignScrollContainerToValue(...)` mid-gesture, causing choppy, fighting-the-finger scrolling. The settle-timeout in `createPickerScrollHandler` already snap-aligns after the gesture ends, so `handleWholeChange`/`handleDecimalChange` should not call `alignScrollContainerToValue` directly either. Keep initial open alignment, clamping, and max-value decimal reset behavior intact.
+86. **Daily NEAT overrides are date-scoped + clamped:** `dailyNeatOverrides` is a **history field** (not profile) and sharded by date (`dailyNeatOverrides:YYYY-MM-DD`). Always route writes through the store action `setDailyNeatOverride(dateKey, overrideOrNull)` (never mutate the map ad-hoc), normalize dates via `normalizeDateKey()`, and clamp multipliers with `clampCustomActivityMultiplier()` (0.1–1.0). The multiplier is applied override-first in `calculateCalorieBreakdown` for the resolved `dateKey` only; do not leak an override across other dates or into global settings.

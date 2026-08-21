@@ -70,6 +70,8 @@ export const HomeScreen = ({
   totalCardioBurn,
   weightEntries,
   bodyFatEntries,
+  onOpenDailyActivityOverride,
+  onOpenTodayBreakdown,
 }) => {
   const store = useEnergyMapStore(
     (state) => ({
@@ -205,6 +207,12 @@ export const HomeScreen = ({
     { dateKey: todayDateKey }
   );
   const todayTdee = Math.round(Number(todayBreakdown?.total) || 0);
+
+  const todayNeatOverride =
+    resolvedUserData?.dailyNeatOverrides?.[todayDateKey] ?? null;
+  const hasTodayNeatOverride =
+    todayNeatOverride != null &&
+    Number.isFinite(Number(todayNeatOverride?.multiplier));
   const burnSegments = [
     {
       key: 'steps',
@@ -578,9 +586,14 @@ export const HomeScreen = ({
               <h2 className="text-lg font-bold text-foreground mb-1 flex items-center gap-2">
                 Today&apos;s Activity Burn
               </h2>
-              <p className="inline-flex items-center text-[11px] font-medium text-accent-blue border border-accent-blue/20 bg-accent-blue/10 px-3 py-0.5 rounded-full transition-all pressable-inline focus-ring md:hover:bg-accent-blue/20">
+              <button
+                type="button"
+                onClick={onOpenTodayBreakdown}
+                className="inline-flex items-center text-[11px] font-medium text-accent-blue border border-accent-blue/20 bg-accent-blue/10 px-2 py-0.5 rounded-full transition-all pressable-inline focus-ring md:hover:bg-accent-blue/20"
+                aria-label="Open today's calorie breakdown"
+              >
                 {burnPercent != null ? `~${burnPercent}% of daily TDEE` : '—'}
-              </p>
+              </button>
             </div>
             <div className="text-right">
               <p className="text-2xl md:text-3xl font-bold text-foreground leading-none">
@@ -615,21 +628,61 @@ export const HomeScreen = ({
           <div className="mt-3 flex items-center justify-between gap-2 text-sm">
             {visibleBurnSegments.map((segment) => {
               const SegIcon = segment.icon;
+              const isNeat = segment.key === 'neat';
+              const neatTextClass = isNeat
+                ? hasTodayNeatOverride
+                  ? 'text-accent-green'
+                  : 'text-accent-purple'
+                : segment.textClass;
+              const content = (
+                <>
+                  <SegIcon className={`${neatTextClass} shrink-0`} size={16} />
+                  <span
+                    className={`min-w-0 ${
+                      isNeat
+                        ? 'underline decoration-1 underline-offset-2 decoration-[color-mix(in_srgb,currentColor_40%,transparent)]'
+                        : ''
+                    }`}
+                  >
+                    <span className="text-muted">{segment.label}</span>
+                    <span className={`font-semibold ${neatTextClass}`}>
+                      {' '}
+                      {segment.kcal}
+                    </span>
+                  </span>
+                  {isNeat && (
+                    <ChevronRight
+                      size={12}
+                      className="shrink-0 -ml-2 text-muted/60"
+                    />
+                  )}
+                </>
+              );
+
+              if (isNeat) {
+                return (
+                  <button
+                    key={segment.key}
+                    type="button"
+                    onClick={onOpenDailyActivityOverride}
+                    className={`flex items-center gap-2 min-w-0 rounded-md pr-0.5 pressable-inline focus-ring ${
+                      hasTodayNeatOverride
+                        ? 'text-accent-green md:hover:bg-accent-green/10'
+                        : 'text-accent-purple md:hover:bg-accent-purple/10'
+                    }`}
+                    aria-label="Adjust today's NEAT activity level"
+                  >
+                    {content}
+                  </button>
+                );
+              }
+
               return (
                 <div
                   key={segment.key}
                   className="flex items-center gap-2 min-w-0"
                 >
-                  <SegIcon
-                    className={`${segment.textClass} shrink-0`}
-                    size={16}
-                  />
-                  <span className="text-muted truncate">{segment.label}</span>
-                  <span
-                    className={`font-semibold shrink-0 ${segment.textClass}`}
-                  >
-                    {segment.kcal}
-                  </span>
+                  {content}
                 </div>
               );
             })}

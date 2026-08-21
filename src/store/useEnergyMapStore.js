@@ -13,6 +13,7 @@ import {
 } from '../utils/calculations/calculations';
 import { deriveTargetCreationModePayload } from '../utils/calculations/phaseTargetPlanning.js';
 import { getStepRangeSortValue } from '../utils/calculations/steps';
+import { clampCustomActivityMultiplier } from '../constants/activity/activityPresets.js';
 import {
   getDefaultEnergyMapData,
   loadEnergyMapData,
@@ -1221,6 +1222,46 @@ export const useEnergyMapStore = createWithEqualityFn(
         ...prev,
         stepGoal: sanitizedGoal,
       }));
+    },
+
+    setDailyNeatOverride: (dateKey, overrideOrNull) => {
+      const normalizedDate = normalizeDateKey(dateKey);
+      if (!normalizedDate) {
+        return;
+      }
+
+      updateUserData(set, get, (prev) => {
+        const nextOverrides = { ...(prev.dailyNeatOverrides ?? {}) };
+
+        if (overrideOrNull == null) {
+          if (!nextOverrides[normalizedDate]) {
+            return prev;
+          }
+          delete nextOverrides[normalizedDate];
+        } else {
+          const numericMultiplier = Number(overrideOrNull?.multiplier);
+          if (!Number.isFinite(numericMultiplier)) {
+            return prev;
+          }
+
+          const rawPresetKey = String(overrideOrNull?.presetKey ?? '').trim();
+          const rawLabel = String(overrideOrNull?.label ?? '').trim();
+
+          nextOverrides[normalizedDate] = {
+            multiplier: clampCustomActivityMultiplier(numericMultiplier),
+            presetKey: rawPresetKey.length > 0 ? rawPresetKey : null,
+            label: rawLabel.length > 0 ? rawLabel : null,
+            updatedAt: Date.now(),
+          };
+        }
+
+        return {
+          ...prev,
+          dailyNeatOverrides: nextOverrides,
+        };
+      });
+
+      get().upsertDailySnapshot(normalizedDate);
     },
 
     createPhase: (phaseData) => {

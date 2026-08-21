@@ -47,6 +47,7 @@ const HISTORY_FIELDS = [
   'trainingSessions',
   'cachedFoods',
   'dailySnapshots',
+  'dailyNeatOverrides',
 ];
 
 const buildPhaseLogV2Indexes = (phaseLogV2State) => {
@@ -448,6 +449,52 @@ const SHARDED_HISTORY_FIELD_CONFIG = {
           ...payload,
           date: normalizedDateKey,
         };
+      });
+
+      return next;
+    },
+  },
+  dailyNeatOverrides: {
+    prefix: 'dailyNeatOverrides:',
+    toDocuments: (value) => {
+      if (!value || typeof value !== 'object') {
+        return [];
+      }
+
+      return Object.entries(value)
+        .map(([dateKey, override]) => {
+          const normalizedDateKey = normalizeDateKey(dateKey);
+          if (
+            !normalizedDateKey ||
+            !override ||
+            typeof override !== 'object' ||
+            !Number.isFinite(Number(override?.multiplier))
+          ) {
+            return null;
+          }
+
+          return {
+            key: normalizedDateKey,
+            payload: override,
+          };
+        })
+        .filter(Boolean);
+    },
+    fromDocuments: (documents) => {
+      const next = {};
+
+      documents.forEach(({ key, payload }) => {
+        const normalizedDateKey = normalizeDateKey(key);
+        if (
+          !normalizedDateKey ||
+          !payload ||
+          typeof payload !== 'object' ||
+          !Number.isFinite(Number(payload?.multiplier))
+        ) {
+          return;
+        }
+
+        next[normalizedDateKey] = payload;
       });
 
       return next;
@@ -1139,6 +1186,7 @@ export const getDefaultEnergyMapData = () => ({
   pinnedTrainingTypes: [],
   cachedFoods: [], // Foods fetched from online APIs (USDA, OpenFoodFacts barcode, etc.)
   dailySnapshots: {}, // { 'YYYY-MM-DD': { date, tdee, intake, deficit, stepCount, ... } }
+  dailyNeatOverrides: {}, // { 'YYYY-MM-DD': { multiplier, presetKey, label, updatedAt } }
   // nutritionData structure: { 'YYYY-MM-DD': { mealType: [{ id, name, calories, protein, carbs, fats, timestamp }] } }
   trainingType: {
     trainingtype_1: {
@@ -1271,6 +1319,37 @@ function mergeWithDefaults(data) {
       acc[normalizedDateKey] = {
         ...snapshot,
         date: normalizedDateKey,
+      };
+      return acc;
+    }, {});
+  };
+
+  const normalizeDailyNeatOverrides = (raw) => {
+    if (!raw || typeof raw !== 'object') {
+      return {};
+    }
+
+    return Object.entries(raw).reduce((acc, [dateKey, override]) => {
+      const normalizedDateKey = normalizeDateKey(dateKey);
+      if (
+        !normalizedDateKey ||
+        !override ||
+        typeof override !== 'object' ||
+        !Number.isFinite(Number(override?.multiplier))
+      ) {
+        return acc;
+      }
+
+      const rawPresetKey = String(override?.presetKey ?? '').trim();
+      const rawLabel = String(override?.label ?? '').trim();
+
+      acc[normalizedDateKey] = {
+        multiplier: clampCustomActivityMultiplier(Number(override.multiplier)),
+        presetKey: rawPresetKey.length > 0 ? rawPresetKey : null,
+        label: rawLabel.length > 0 ? rawLabel : null,
+        updatedAt: Number.isFinite(Number(override?.updatedAt))
+          ? Math.round(Number(override.updatedAt))
+          : undefined,
       };
       return acc;
     }, {});
@@ -1462,6 +1541,9 @@ function mergeWithDefaults(data) {
       : defaults.cachedFoods,
     dailySnapshots: normalizeDailySnapshots(
       normalizedInput.dailySnapshots ?? defaults.dailySnapshots
+    ),
+    dailyNeatOverrides: normalizeDailyNeatOverrides(
+      normalizedInput.dailyNeatOverrides ?? defaults.dailyNeatOverrides
     ),
   };
 }
