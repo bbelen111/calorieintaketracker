@@ -2,6 +2,13 @@ import {
   resolveEntryGrams,
   scaleMacrosFromPer100g,
 } from '../utils/food/portionNormalization.js';
+import {
+  RAG_TIMING,
+} from './ragBudget.js';
+import {
+  FOOD_LOOKUP_ERROR_REASON_CODES,
+  FOOD_LOOKUP_ERROR_REASONS,
+} from './foodLookupReasons.js';
 import { getRagSourcePreferenceWeightsForCategory } from './ragTelemetry.js';
 
 export const FOOD_SEARCH_SOURCE = Object.freeze({
@@ -23,8 +30,8 @@ export const getFoodSearchSourceLabel = (source) => {
 const ONLINE_QUERY_MIN_LENGTH = 2;
 const AI_LOCAL_LIMIT = 25;
 const AI_ONLINE_PAGE_SIZE = 20;
-const AI_GROUNDED_LOOKUP_TIMEOUT_MS = 30000;
-const AI_GROUNDED_BATCH_TIMEOUT_MS = 90000;
+const AI_GROUNDED_LOOKUP_TIMEOUT_MS = RAG_TIMING.groundingLookupMs;
+const AI_GROUNDED_BATCH_TIMEOUT_MS = RAG_TIMING.groundingBatchMs;
 const AI_ENABLE_GROUNDING_FALLBACK = true;
 
 const AI_SCORE_THRESHOLD = Object.freeze({
@@ -72,16 +79,20 @@ const SOURCE_TRUST_MULTIPLIER = Object.freeze({
 });
 
 const SOURCE_ERROR_REASON = Object.freeze({
-  LOCAL_SEARCH_FAILED: 'local_search_failed',
-  USDA_SEARCH_FAILED: 'usda_search_failed',
-  USDA_SEARCH_ABORTED: 'usda_search_aborted',
-  GROUNDING_NETWORK_ERROR: 'grounding_network_error',
-  GROUNDING_RATE_LIMIT: 'grounding_rate_limit',
-  GROUNDING_QUOTA_EXHAUSTED: 'grounding_quota_exhausted',
-  GROUNDING_SAFETY_BLOCKED: 'grounding_safety_blocked',
-  GROUNDING_INVALID_RESPONSE: 'grounding_invalid_response',
-  GROUNDING_TIMEOUT: 'grounding_timeout',
-  GROUNDING_UNKNOWN: 'grounding_unknown_error',
+  LOCAL_SEARCH_FAILED: FOOD_LOOKUP_ERROR_REASON_CODES.local_search_failed,
+  USDA_SEARCH_FAILED: FOOD_LOOKUP_ERROR_REASON_CODES.usda_search_failed,
+  USDA_SEARCH_ABORTED: FOOD_LOOKUP_ERROR_REASON_CODES.usda_search_aborted,
+  GROUNDING_NETWORK_ERROR:
+    FOOD_LOOKUP_ERROR_REASON_CODES.grounding_network_error,
+  GROUNDING_RATE_LIMIT: FOOD_LOOKUP_ERROR_REASON_CODES.grounding_rate_limit,
+  GROUNDING_QUOTA_EXHAUSTED:
+    FOOD_LOOKUP_ERROR_REASON_CODES.grounding_quota_exhausted,
+  GROUNDING_SAFETY_BLOCKED:
+    FOOD_LOOKUP_ERROR_REASON_CODES.grounding_safety_blocked,
+  GROUNDING_INVALID_RESPONSE:
+    FOOD_LOOKUP_ERROR_REASON_CODES.grounding_invalid_response,
+  GROUNDING_TIMEOUT: FOOD_LOOKUP_ERROR_REASON_CODES.grounding_timeout,
+  GROUNDING_UNKNOWN: FOOD_LOOKUP_ERROR_REASON_CODES.grounding_unknown_error,
 });
 
 let aiLookupSessionCache = new Map();
@@ -245,6 +256,29 @@ const resolveConfidencePenalty = (confidence) => {
   if (normalized === 'medium') return 'low';
   return 'low';
 };
+
+/** Numeric fallback score used when only a categorical confidence is available. */
+const AI_CONFIDENCE_CATEGORY_SCORE = Object.freeze({
+  high: 0.9,
+  medium: 0.74,
+  low: 0.58,
+});
+
+const resolveConfidenceScore = (confidence) => {
+  const normalized = String(confidence || '')
+    .trim()
+    .toLowerCase();
+  const numeric = AI_CONFIDENCE_CATEGORY_SCORE[normalized];
+  return Number.isFinite(numeric) ? numeric : AI_CONFIDENCE_CATEGORY_SCORE.low;
+};
+
+/**
+ * Explicit multiplier applied to the numeric confidence score whenever
+ * deterministic verification falls back to derived per-100g rescaling.
+ * Kept as an explicit, named constant so the penalty is auditable and can be
+ * tuned independently of the categorical demotion in resolveConfidencePenalty.
+ */
+const AI_CONFIDENCE_FALLBACK_PENALTY_MULTIPLIER = 0.7;
 
 const resolveCanonicalFoodLabel = (value) => {
   const normalized = normalizeTokenString(value);
@@ -2075,6 +2109,17 @@ export const resolveAiFoodEntry = async ({
   const fallbackPenaltyConfidence =
     resolveConfidencePenalty(originalConfidence);
 
+  const baseConfidenceScore = hasLookupPer100g
+    ? Number(resolvedLookupMeta?.weightedMatchScore) ||
+      resolveConfidenceScore(resolvedLookupMeta?.matchConfidence || 'medium')
+    : resolveConfidenceScore(originalConfidence);
+  const confidencePenaltyMultiplier = fallbackVerificationUsed
+    ? AI_CONFIDENCE_FALLBACK_PENALTY_MULTIPLIER
+    : 1;
+  const confidenceScore = Number(
+    Math.max(0, Math.min(1, baseConfidenceScore * confidencePenaltyMultiplier)).toFixed(4)
+  );
+
   const basePer100g = hasLookupPer100g
     ? resolvedLookupMeta.matchedFood.per100g
     : {
@@ -2108,6 +2153,7 @@ export const resolveAiFoodEntry = async ({
     confidence: hasLookupPer100g
       ? resolvedLookupMeta?.matchConfidence || 'high'
       : fallbackPenaltyConfidence,
+    confidenceScore,
     rationale: entry?.rationale || null,
     assumptions: Array.isArray(entry?.assumptions) ? entry.assumptions : [],
     lookupTerms: Array.isArray(entry?.lookupTerms) ? entry.lookupTerms : [],
@@ -2132,6 +2178,8 @@ export const resolveAiFoodEntry = async ({
       penalizedMatchConfidence: fallbackVerificationUsed
         ? fallbackPenaltyConfidence
         : null,
+      confidenceScore,
+      confidencePenaltyMultiplier,
       confidencePenaltyApplied: fallbackVerificationUsed,
       confidencePenaltyReason: fallbackVerificationUsed
         ? 'deterministic_macro_fallback'

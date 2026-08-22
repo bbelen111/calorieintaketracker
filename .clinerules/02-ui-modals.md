@@ -67,7 +67,9 @@ paths:
   - `FoodSearchMealPreviewPanel.jsx`
   - `FoodSearchResultsPanel.jsx`
   - `FoodSearchFavouritesPanel.jsx`
+  - `FoodSearchEntryCard.jsx` — renders one finalized chat entry card (primary badge + disclosure chip labels) via `buildFinalizedEntryCardState()` in `utils/food/aiFinalizedEntryState.js`
   Keep panel responsibilities isolated and avoid moving large inline JSX blocks back into `FoodSearchModal`.
+- The **RAG chat request flow is decoupled from the modal**: `FoodSearchModal` calls `runRagChatPipeline(...)` in `services/ragChatPipeline.js` (injected OpenRouter `modules` + `telemetry`). The modal owns only the chat state machine, stage pill, abort controller, and assistant-bubble entry rendering. Do not re-inline extraction/retrieval/verification/presentation steps into the modal.
 - Local result rendering uses **progressive batches** (`visibleResultCount`) to reduce mount/paint cost on large datasets:
   - Local batch size: `120`
   - Online batch size: `80`
@@ -102,19 +104,28 @@ FoodSearchModal
   -> preview rows + cache-on-select flow
 
 AI chat mode (feature-flagged RAG path):
-FoodSearchModal
-  -> sendOpenRouterExtraction(...) in services/openrouter.js (mode='extraction')
-  -> resolveFoodLookupContext(...) + resolveAiFoodEntry(...) in services/foodLookupContext.js + services/foodSearch.js
-    -> local lookup (foodCatalog)
-    -> USDA lookup (services/usda.js)
-    -> grounded fallback (services/openrouter.js fetchMacrosWithGrounding, mode='grounding_lookup')
-  -> sendOpenRouterPresentation(...) in services/openrouter.js (mode='presentation', [SYSTEM_DATA])
-  -> mergePresentationEntriesWithVerified(...) in utils/food/aiPresentationMerge.js
-    -> sparse/misaligned presentation guardrails
-    -> significant name rewrite suppression
-    -> macro-calorie integrity validation + verified fallback on mismatch
-  -> provenance-first rendering in FoodSearchChatPanel (Verified Database / Web Estimate / AI Estimate)
-  -> reason-coded trace diagnostics + recovery hints (services/foodLookupContext.js)
+FoodSearchModal (chat state machine, stage pill, abort controller, entry rendering)
+  -> runRagChatPipeline(...) in services/ragChatPipeline.js   # decoupled orchestration; unit-testable with stubbed OpenRouter modules
+    stage: extraction     -> sendOpenRouterExtraction(...) in services/openrouter.js (mode='extraction')
+                              -> retry short-circuit with constrained prompt when extraction idles (clarification/error/no entries)
+                              -> grounded single-entry fallback via fetchMacrosWithGrounding (mode='grounding_lookup') for low-confidence extraction
+                              -> fail-closed: legacy single-call path (sendOpenRouterMessage, mode='processing') when extraction module is unavailable
+    stage: retrieval      -> resolveFoodLookupContext(...) in services/foodLookupContext.js
+                              -> local lookup (foodCatalog), USDA lookup (services/usda.js), deferred grounding batch (fetchMacrosWithGrounding, mode='grounding_lookup')
+    stage: verification   -> resolveAiFoodEntry(...) per entry in services/foodSearch.js (deterministic verified entries)
+    stage: presentation   -> skipped for single-entry/simple results (shouldSkipPresentationPass -> buildVerifiedResultFromEntries)
+                              -> sendOpenRouterPresentation(...) in services/openrouter.js (mode='presentation', [SYSTEM_DATA])
+                              -> mergePresentationEntriesWithVerified(...) in utils/food/aiPresentationMerge.js
+                                -> sparse/misaligned guardrails
+                                -> significant name rewrite suppression
+                                -> macro-calorie integrity validation + verified fallback on mismatch
+  -> pipeline returns { result, lookupContext, schemaVersion, extractionSchemaVersion, presentationSkipped, mode }
+  -> final lookup-context reconciliation for any branch that produced entries without pre-resolved context
+  -> assistant entries hydrated via mergeEntriesWithLookupContext(messagesId-keyed stable keys)
+  -> entry cards finalized via buildFinalizedEntryCardState(...) in utils/food/aiFinalizedEntryState.js, rendered by FoodSearchEntryCard.jsx
+  -> provenance-first rendering in FoodSearchChatPanel (Verified Database / Reused / Web Estimate / AI Estimate)
+  -> reason-coded trace diagnostics + recovery hints (canonical registry services/foodLookupReasons.js; re-exported by services/foodLookupContext.js)
+  -> telemetry: services/ragTelemetry.js (stage latency, extraction outcome, lookup stats, presentation name drift, presentation issues)
 ```
 
 ### `useAnimatedModal` Hook

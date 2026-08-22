@@ -155,6 +155,7 @@ src/
 │   │  ├─ profile.js             # Age/height sanitization helpers (sanitizeAge, sanitizeHeight, AGE/HEIGHT min/max constants)
 │   │  └─ weight.js              # Date normalization, weight clamping, sorting, trend analysis, sparklines
 │   ├─ food/
+│   │  ├─ aiFinalizedEntryState.js # Finalized chat entry card state (calm primary badges + disclosure chip labels)
 │   │  ├─ foodPresentation.js    # Food display naming helpers (brand + name formatting)
 │   │  ├─ foodTags.js            # Canonical food source/type resolver + badge metadata/classes
 │   │  ├─ aiPresentationMerge.js # RAG presentation→verified merge guardrails (name rewrite + nutrition integrity)
@@ -175,7 +176,10 @@ src/
 │   ├─ foodCache.js              # Cached food dedupe/trim helpers
 │   ├─ foodLookupContext.js      # Batch AI entry lookup context resolver + normalized lookup meta
 │   ├─ foodSearch.js             # Local/USDA/grounded lookup orchestration + deterministic AI entry resolution
+│   ├─ foodLookupReasons.js      # Canonical lookup reason-code registry (messages, recovery hints, chip labels)
 │   ├─ ragTelemetry.js           # RAG telemetry aggregation + diagnostics helpers
+│   ├─ ragChatPipeline.js        # Decoupled RAG chat pipeline orchestration (extraction → retrieval → verification → presentation)
+│   ├─ ragBudget.js              # Centralized RAG stage timing/budget constants + resolveRagStageTimeoutMs
 │   ├─ usda.js                   # USDA online search client
 │   ├─ openFoodFacts.js          # OpenFoodFacts barcode lookup client
 │   ├─ barcodeScanner.js         # Official Capacitor barcode scanner wrapper
@@ -195,18 +199,22 @@ src/
   │   ├─ foodSearch.test.js
   │   ├─ openFoodFacts.test.js
   │   ├─ ragTelemetry.test.js
+  │   ├─ ragChatPipeline.test.js # Decoupled pipeline orchestration (helper contracts + stage routing with stubbed OpenRouter modules)
   │   └─ usda.test.js
   └─ utils/
+    ├─ aiFinalizedEntryState.test.js # Finalized chat entry card badge/label resolution
     ├─ aiPresentationMerge.test.js # Presentation merge guardrail tests (sparse entries, rewrite suppression, integrity fallback)
     ├─ openrouter.test.js
     ├─ macroRecommendations.test.js
     ├─ portionNormalization.test.js
     ├─ calculations.test.js
+    ├─ healthConnectWindow.test.js
     ├─ dateKeys.test.js
     ├─ adaptiveThermogenesis.test.js
     ├─ dailySnapshots.test.js    # Snapshot derivation and helper behavior tests
     ├─ rollingEnergyBalance.test.js # Rolling balance calculator tests (windows, missing/malformed days, expected-vs-actual)
     ├─ phaseLogV2.test.js
+    ├─ phaseTargetPlanning.test.js
     ├─ phases.test.js
     ├─ sessionCarryover.test.js
     ├─ steps.test.js
@@ -240,7 +248,7 @@ npm run test:watch     # Node test runner in watch mode
 - Tests use `node --test` with ESM; use explicit `.js` extensions in relative imports for test-executed modules.
 - `npm run lint` can include pre-existing warnings in untouched files. Prefer targeted lint for changed files during incremental work, then full lint when practical.
 - Storage tests intentionally run with in-memory `window.localStorage` shims in Node context; avoid plugin monkey-patching when possible.
-- Full `npm run test` currently includes a known pre-existing failure in `tests/constants/activityPresets.test.js` (expected training multiplier `0.35`, actual `0.2`). Treat as unrelated unless touching activity preset defaults.
+- Full `npm run test` is green (as of the RAG pipeline decoupling, 224 tests pass). The canonical defaults are asserted by `tests/constants/activityPresets.test.js` against `DEFAULT_ACTIVITY_MULTIPLIERS` (`{ training: 0.2, rest: 0.22 }`).
 
 **ESLint config:** Flat config format (`eslint.config.js`), uses `@babel/eslint-parser` with JSX preset. `react/prop-types` is disabled. Prettier runs as an ESLint rule.
 

@@ -176,9 +176,9 @@ Do not duplicate target planning formulas in components.
   phaseGoalCalorieDeltaSourcePhaseId: null, // Active phase id that owns the delta override
   selectedTrainingType, trainingDuration,
   stepRanges: ['<10k', '10k', ...],
-  activityMultipliers: { training: 0.35, rest: 0.28 },
+  activityMultipliers: { training: 0.2, rest: 0.22 },
   activityPresets: { training: 'default', rest: 'default' },
-  customActivityMultipliers: { training: 0.35, rest: 0.28 },
+  customActivityMultipliers: { training: 0.2, rest: 0.22 },
   trainingType: { trainingtype_1: { label, caloriesPerHour }, ... },
   pinnedFoods: ['food_id1', ...],
   foodFavourites: [],

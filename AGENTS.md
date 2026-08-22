@@ -216,7 +216,9 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
   - `FoodSearchMealPreviewPanel.jsx`
   - `FoodSearchResultsPanel.jsx`
   - `FoodSearchFavouritesPanel.jsx`
+  - `FoodSearchEntryCard.jsx` — renders one finalized chat entry card (primary badge + disclosure chip labels) from `buildFinalizedEntryCardState()` in `utils/food/aiFinalizedEntryState.js`
   Keep panel responsibilities isolated and avoid moving large inline JSX blocks back into `FoodSearchModal`.
+- The **RAG chat request flow is decoupled from the modal**: `FoodSearchModal` calls `runRagChatPipeline(...)` in `services/ragChatPipeline.js` (with injected OpenRouter `modules` + `telemetry`). The modal owns only the chat state machine, stage pill, abort controller, and assistant-bubble entry rendering. Do not re-inline extraction/retrieval/verification/presentation steps into the modal.
 - Local result rendering uses **progressive batches** (`visibleResultCount`) to reduce mount/paint cost on large datasets:
   - Local batch size: `120`
   - Online batch size: `80`
@@ -251,19 +253,28 @@ FoodSearchModal
   -> preview rows + cache-on-select flow
 
 AI chat mode (feature-flagged RAG path):
-FoodSearchModal
-  -> sendOpenRouterExtraction(...) in services/openrouter.js (mode='extraction')
-  -> resolveFoodLookupContext(...) + resolveAiFoodEntry(...) in services/foodLookupContext.js + services/foodSearch.js
-    -> local lookup (foodCatalog)
-    -> USDA lookup (services/usda.js)
-    -> grounded fallback (services/openrouter.js fetchMacrosWithGrounding, mode='grounding_lookup')
-  -> sendOpenRouterPresentation(...) in services/openrouter.js (mode='presentation', [SYSTEM_DATA])
-  -> mergePresentationEntriesWithVerified(...) in utils/food/aiPresentationMerge.js
-    -> sparse/misaligned presentation guardrails
-    -> significant name rewrite suppression
-    -> macro-calorie integrity validation + verified fallback on mismatch
-  -> provenance-first rendering in FoodSearchChatPanel (Verified Database / Web Estimate / AI Estimate)
-  -> reason-coded trace diagnostics + recovery hints (services/foodLookupContext.js)
+FoodSearchModal (chat state machine, stage pill, abort controller, entry rendering)
+  -> runRagChatPipeline(...) in services/ragChatPipeline.js   # decoupled orchestration; unit-testable with stubbed OpenRouter modules
+    stage: extraction     -> sendOpenRouterExtraction(...) in services/openrouter.js (mode='extraction')
+                              -> retry short-circuit with constrained prompt when extraction idles (clarification/error/no entries)
+                              -> grounded single-entry fallback via fetchMacrosWithGrounding (mode='grounding_lookup') for low-confidence extraction
+                              -> fail-closed: legacy single-call path (sendOpenRouterMessage, mode='processing') when extraction module is unavailable
+    stage: retrieval      -> resolveFoodLookupContext(...) in services/foodLookupContext.js
+                              -> local lookup (foodCatalog), USDA lookup (services/usda.js), deferred grounding batch (fetchMacrosWithGrounding, mode='grounding_lookup')
+    stage: verification   -> resolveAiFoodEntry(...) per entry in services/foodSearch.js (deterministic verified entries)
+    stage: presentation   -> skipped for single-entry/simple results (shouldSkipPresentationPass -> buildVerifiedResultFromEntries)
+                              -> sendOpenRouterPresentation(...) in services/openrouter.js (mode='presentation', [SYSTEM_DATA])
+                              -> mergePresentationEntriesWithVerified(...) in utils/food/aiPresentationMerge.js
+                                -> sparse/misaligned guardrails
+                                -> significant name rewrite suppression
+                                -> macro-calorie integrity validation + verified fallback on mismatch
+  -> pipeline returns { result, lookupContext, schemaVersion, extractionSchemaVersion, presentationSkipped, mode }
+  -> final lookup-context reconciliation for any branch that produced entries without pre-resolved context
+  -> assistant entries hydrated via mergeEntriesWithLookupContext(messagesId-keyed stable keys)
+  -> entry cards finalized via buildFinalizedEntryCardState(...) in utils/food/aiFinalizedEntryState.js, rendered by FoodSearchEntryCard.jsx
+  -> provenance-first rendering in FoodSearchChatPanel (Verified Database / Reused / Web Estimate / AI Estimate)
+  -> reason-coded trace diagnostics + recovery hints (canonical registry services/foodLookupReasons.js; re-exported by services/foodLookupContext.js)
+  -> telemetry: services/ragTelemetry.js (stage latency, extraction outcome, lookup stats, presentation name drift, presentation issues)
 ```
 
 ### `useAnimatedModal` Hook
@@ -671,9 +682,9 @@ Migration behavior is now intentionally minimal:
 - `selectedGoal: 'maintenance'`, `goalChangedAt: Date.now()`
 - `stepGoal: 10000`, `selectedTrainingType: 'trainingtype_1'`, `trainingDuration: 2`
 - 6 preset training types in `trainingType` with calories/hour values (`trainingtype_1..6` → bodybuilding 220, powerlifting 180, strongman 280, crossfit 300, calisthenics 240, custom 220)
-- `activityMultipliers: { training: 0.35, rest: 0.28 }`
+- `activityMultipliers: { training: 0.2, rest: 0.22 }` (canonical `DEFAULT_ACTIVITY_MULTIPLIERS` in `constants/activity/activityPresets.js`)
 - `activityPresets: { training: 'default', rest: 'default' }`
-- `customActivityMultipliers: { training: 0.35, rest: 0.28 }`
+- `customActivityMultipliers: { training: 0.2, rest: 0.22 }`
 - `smartTefEnabled: false`
 - `adaptiveThermogenesisEnabled: false`
 - `adaptiveThermogenesisSmartMode: false`
@@ -700,9 +711,9 @@ Migration behavior is now intentionally minimal:
   phaseGoalCalorieDeltaSourcePhaseId: null, // Active phase id that owns the delta override
   selectedTrainingType, trainingDuration,
   stepRanges: ['<10k', '10k', ...],
-  activityMultipliers: { training: 0.35, rest: 0.28 },
+  activityMultipliers: { training: 0.2, rest: 0.22 },
   activityPresets: { training: 'default', rest: 'default' },
-  customActivityMultipliers: { training: 0.35, rest: 0.28 },
+  customActivityMultipliers: { training: 0.2, rest: 0.22 },
   trainingType: { trainingtype_1: { label, caloriesPerHour }, ... },
   pinnedFoods: ['food_id1', ...],
   foodFavourites: [],
@@ -892,6 +903,14 @@ OpenRouter food parsing is proxied through `api/openrouter.js` (server-side key 
 - `sendOpenRouterMessage(...)` includes bounded transient retry for upstream `502|503|504` and queued exponential backoff for `429`
 - Feature flag: `AI_CHAT_RAG_ENABLED` from `VITE_AI_CHAT_RAG_ENABLED`
 
+**RAG chat pipeline service (`src/services/ragChatPipeline.js`):**
+- `runRagChatPipeline(...)` — decoupled orchestration of the whole chat request (extraction → retrieval → verification → presentation). OpenRouter clients are injected via `modules`, telemetry via `telemetry`, stage progress via `onStageChange` (`CHAT_PIPELINE_STAGE`: `extraction | retrieval | verification | presentation | processing`). Returns `{ result, lookupContext, schemaVersion, extractionSchemaVersion, presentationSkipped, mode }`.
+- Read-only/pure helpers exported for tests and reuse: `buildStructuredChatHistory`, `buildRollingFoodContextSummary`, `mergeEntriesWithLookupContext`, `shouldSkipPresentationPass`.
+- Single-entry/simple responses skip the presentation LLM pass (see `shouldSkipPresentationPass`) and reuse the internal `buildVerifiedResultFromEntries` (not exported) to shape the result.
+- Because the pipeline is standalone, it can be unit-tested with stubbed OpenRouter modules (see `tests/services/ragChatPipeline.test.js`); `FoodSearchModal` remains a thin consumer.
+- Stage timing/budget constants are the single source of truth in `services/ragBudget.js` (`RAG_TIMING`, `resolveRagStageTimeoutMs`, `RAG_MAX_DEFERRED_GROUNDING_ENTRIES`, `RAG_LOOKUP_CONCURRENCY_LIMIT`, `assertRagTimingInvariants`) — do not hardcode per-stage timeout values in callers.
+- Reason codes (user-facing messages, recovery hints, chip labels) are centralized in `services/foodLookupReasons.js` and re-exported by `services/foodLookupContext.js`.
+
 **Serverless security/env configuration (`api/openrouter.js`):**
 - CORS allowlist is driven by `ALLOWED_ORIGINS` (or singular fallback `ALLOWED_ORIGIN`).
 - Payload guards are enforced server-side (`messages` count + serialized payload size cap).
@@ -925,6 +944,7 @@ If adjusting OpenRouter behavior, update the mode-specific instruction in `api/o
 - Use `getLookupErrorReasonMessage(...)` for user-facing reason labels.
 - Use `getLookupErrorRecoveryHint(...)` for actionable trace guidance in chat UI.
 - Keep fallback error meta populated with both message and reason code (`local_search_failed`) to avoid empty diagnostics.
+- Reason-code definitions live in the canonical registry `src/services/foodLookupReasons.js` (`FOOD_LOOKUP_ERROR_REASONS`, `LOOKUP_STATUS_CHIP_LABELS`, `LOOKUP_DECISION_REASON_LABELS`, `DEFAULT_ERROR_REASON_BY_SOURCE`); `foodLookupContext.js`/`aiFinalizedEntryState.js`/chat UI must resolve labels through those helpers so the registries cannot drift.
 
 ---
 
@@ -1043,6 +1063,7 @@ src/
 │   │  ├─ profile.js             # Age/height sanitization helpers (sanitizeAge, sanitizeHeight, AGE/HEIGHT min/max constants)
 │   │  └─ weight.js              # Date normalization, weight clamping, sorting, trend analysis, sparklines
 │   ├─ food/
+│   │  ├─ aiFinalizedEntryState.js # Finalized chat entry card state (calm primary badges + disclosure chip labels)
 │   │  ├─ foodPresentation.js    # Food display naming helpers (brand + name formatting)
 │   │  ├─ foodTags.js            # Canonical food source/type resolver + badge metadata/classes
 │   │  ├─ aiPresentationMerge.js # RAG presentation→verified merge guardrails (name rewrite + nutrition integrity)
@@ -1063,7 +1084,10 @@ src/
 │   ├─ foodCache.js              # Cached food dedupe/trim helpers
 │   ├─ foodLookupContext.js      # Batch AI entry lookup context resolver + normalized lookup meta
 │   ├─ foodSearch.js             # Local/USDA/grounded lookup orchestration + deterministic AI entry resolution
+│   ├─ foodLookupReasons.js      # Canonical lookup reason-code registry (messages, recovery hints, chip labels)
 │   ├─ ragTelemetry.js           # RAG telemetry aggregation + diagnostics helpers
+│   ├─ ragChatPipeline.js        # Decoupled RAG chat pipeline orchestration (extraction → retrieval → verification → presentation)
+│   ├─ ragBudget.js              # Centralized RAG stage timing/budget constants + resolveRagStageTimeoutMs
 │   ├─ usda.js                   # USDA online search client
 │   ├─ openFoodFacts.js          # OpenFoodFacts barcode lookup client
 │   ├─ barcodeScanner.js         # Official Capacitor barcode scanner wrapper
@@ -1083,18 +1107,22 @@ src/
   │   ├─ foodSearch.test.js
   │   ├─ openFoodFacts.test.js
   │   ├─ ragTelemetry.test.js
+  │   ├─ ragChatPipeline.test.js # Decoupled pipeline orchestration (helper contracts + stage routing with stubbed OpenRouter modules)
   │   └─ usda.test.js
   └─ utils/
+    ├─ aiFinalizedEntryState.test.js # Finalized chat entry card badge/label resolution
     ├─ aiPresentationMerge.test.js # Presentation merge guardrail tests (sparse entries, rewrite suppression, integrity fallback)
     ├─ openrouter.test.js
     ├─ macroRecommendations.test.js
     ├─ portionNormalization.test.js
     ├─ calculations.test.js
+    ├─ healthConnectWindow.test.js
     ├─ dateKeys.test.js
     ├─ adaptiveThermogenesis.test.js
     ├─ dailySnapshots.test.js    # Snapshot derivation and helper behavior tests
     ├─ rollingEnergyBalance.test.js # Rolling balance calculator tests (windows, missing/malformed days, expected-vs-actual)
     ├─ phaseLogV2.test.js
+    ├─ phaseTargetPlanning.test.js
     ├─ phases.test.js
     ├─ sessionCarryover.test.js
     ├─ steps.test.js
@@ -1128,7 +1156,7 @@ npm run test:watch     # Node test runner in watch mode
 - Tests use `node --test` with ESM; use explicit `.js` extensions in relative imports for test-executed modules.
 - `npm run lint` can include pre-existing warnings in untouched files. Prefer targeted lint for changed files during incremental work, then full lint when practical.
 - Storage tests intentionally run with in-memory `window.localStorage` shims in Node context; avoid plugin monkey-patching when possible.
-- Full `npm run test` currently includes a known pre-existing failure in `tests/constants/activityPresets.test.js` (expected training multiplier `0.35`, actual `0.2`). Treat as unrelated unless touching activity preset defaults.
+- Full `npm run test` is green (as of the RAG pipeline decoupling, 224 tests pass). The canonical defaults are asserted by `tests/constants/activityPresets.test.js` against `DEFAULT_ACTIVITY_MULTIPLIERS` (`{ training: 0.2, rest: 0.22 }`).
 
 **ESLint config:** Flat config format (`eslint.config.js`), uses `@babel/eslint-parser` with JSX preset. `react/prop-types` is disabled. Prettier runs as an ESLint rule.
 
@@ -1196,7 +1224,7 @@ npm run test:watch     # Node test runner in watch mode
 57. **Pinned local foods must remain hydratable outside top-N result windows:** local search currently fetches pinned IDs via `getFoodsByIds(...)` on the first local page and merges them before UI filtering; do not regress to top-limited-only result sources.
 58. **Local search ranking is relevance-aware for name sorting:** exact/prefix/word-boundary name matches should outrank generic contains matches (e.g., plain `honey` should not be buried under unrelated composites).
 59. **Large food lists are progressively rendered in `FoodSearchModal`:** preserve `visibleResultCount` batching plus offset-based local pagination, and keep the count copy in "loaded count" style (`x foods found`) to avoid heavy first paint on 13k+ catalog datasets.
-60. **RAG chat pipeline is feature-flagged and two-pass:** when `VITE_AI_CHAT_RAG_ENABLED` is true, keep extraction → deterministic resolution (`resolveFoodLookupContext` + `resolveAiFoodEntry`) → presentation flow intact; retain single-pass fallback path for safety.
+60. **RAG chat orchestration lives in `services/ragChatPipeline.js`:** when `VITE_AI_CHAT_RAG_ENABLED` is true, `runRagChatPipeline(...)` owns the extraction → deterministic resolution (`resolveFoodLookupContext` + `resolveAiFoodEntry`) → presentation sequence and returns `{ result, lookupContext, schemaVersion, extractionSchemaVersion, presentationSkipped, mode }`; `FoodSearchModal` consumes that return value and must not re-implement the stage sequencing inline. Keep the fail-closed legacy single-call path (`sendOpenRouterMessage`, `mode: 'processing'`) and the single-entry presentation skip (`shouldSkipPresentationPass`) intact.
 61. **Grounding must stay gated:** only grounded lookup requests should set `useGrounding: true`; do not enable web grounding for extraction/presentation modes.
 62. **Deterministic macro math belongs in services/utilities, not JSX:** keep grams normalization and per100g scaling in `utils/food/portionNormalization.js` and `services/foodSearch.js` (`resolveAiFoodEntry`), not ad-hoc in modal components.
 63. **Presentation merge logic is centralized:** use `utils/food/aiPresentationMerge.js` for presentation→verified merge behavior. Do not re-implement sparse-entry guards or nutrition integrity checks inline in JSX.

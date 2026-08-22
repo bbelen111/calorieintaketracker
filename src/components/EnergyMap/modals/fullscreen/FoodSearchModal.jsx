@@ -44,13 +44,11 @@ import {
 import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { addToFoodCache, trimFoodCache } from '../../../../services/foodCache';
-import { mergePresentationEntriesWithVerified } from '../../../../utils/food/aiPresentationMerge';
 import {
   searchBarcode as searchOpenFoodFactsBarcode,
   OpenFoodFactsError,
 } from '../../../../services/openFoodFacts';
 import {
-  dedupeExtractedFoodEntries,
   FOOD_SEARCH_SOURCE,
   getFoodSearchSourceLabel,
   recordAcceptedAiFoodLookup,
@@ -62,8 +60,12 @@ import {
 import {
   buildLookupContextEntryKey,
   parseLookupContextEntryKeyMessageId,
-  resolveFoodLookupContext,
 } from '../../../../services/foodLookupContext';
+import {
+  CHAT_PIPELINE_STAGE,
+  mergeEntriesWithLookupContext,
+  runRagChatPipeline,
+} from '../../../../services/ragChatPipeline';
 import {
   BarcodeScannerError,
   canUseNativeBarcodeScanner,
@@ -73,6 +75,7 @@ import {
   recordRagExtractionOutcome,
   recordRagImplicitFeedback,
   recordRagLookupStats,
+  recordRagPresentationIssues,
   recordRagPresentationNameDrift,
   recordRagStageLatency,
 } from '../../../../services/ragTelemetry';
@@ -85,13 +88,7 @@ const LOCAL_RESULT_BATCH_SIZE = 120;
 const ONLINE_RESULT_BATCH_SIZE = 80;
 const LOCAL_DB_QUERY_PAGE_SIZE = 500;
 const PANEL_EASE = [0.32, 0.72, 0, 1];
-const CHAT_REQUEST_STAGE = {
-  EXTRACTION: 'extraction',
-  RETRIEVAL: 'retrieval',
-  VERIFICATION: 'verification',
-  PRESENTATION: 'presentation',
-  PROCESSING: 'processing',
-};
+const CHAT_REQUEST_STAGE = CHAT_PIPELINE_STAGE;
 const FOOD_SEARCH_DEFAULT_ENTRY_SET = new Set([
   'search_local',
   'search_online',
@@ -243,104 +240,6 @@ const createAssistantChatMessage = ({
   createdAt: Date.now(),
 });
 
-const buildStructuredChatHistory = (messages, options = {}) => {
-  const { beforeMessageId = null } = options;
-  const history = [];
-
-  for (const message of Array.isArray(messages) ? messages : []) {
-    if (beforeMessageId && message.id === beforeMessageId) {
-      break;
-    }
-
-    if (
-      (message.role !== 'user' && message.role !== 'assistant') ||
-      message.status !== 'sent'
-    ) {
-      continue;
-    }
-
-    if (message.role === 'user') {
-      const parts = [];
-      const text = typeof message.text === 'string' ? message.text.trim() : '';
-      if (text) {
-        parts.push({ text });
-      }
-
-      (Array.isArray(message.attachments) ? message.attachments : []).forEach(
-        (attachment) => {
-          if (
-            attachment?.file &&
-            typeof window !== 'undefined' &&
-            attachment.file instanceof window.File
-          ) {
-            parts.push({ file: attachment.file });
-          }
-        }
-      );
-
-      if (parts.length > 0) {
-        history.push({ role: 'user', parts });
-      }
-      continue;
-    }
-
-    const assistantText =
-      typeof message.text === 'string' ? message.text.trim() : '';
-    if (assistantText) {
-      history.push({ role: 'assistant', content: assistantText });
-    }
-  }
-
-  return history.slice(-CHAT_HISTORY_MESSAGE_LIMIT);
-};
-
-const buildRollingFoodContextSummary = (messages, options = {}) => {
-  const { beforeMessageId = null, maxEntries = 8 } = options;
-  const contextItems = [];
-
-  for (const message of Array.isArray(messages) ? messages : []) {
-    if (beforeMessageId && message.id === beforeMessageId) {
-      break;
-    }
-
-    if (
-      message?.role !== 'assistant' ||
-      message?.status !== 'sent' ||
-      message?.foodParser?.messageType !== 'food_entries' ||
-      !Array.isArray(message?.foodParser?.entries)
-    ) {
-      continue;
-    }
-
-    message.foodParser.entries.forEach((entry) => {
-      const name = String(entry?.name || '').trim();
-      if (!name) {
-        return;
-      }
-
-      const grams = Number(entry?.grams);
-      const calories = Number(entry?.calories);
-      const gramsLabel =
-        Number.isFinite(grams) && grams > 0 ? `${Math.round(grams)}g` : null;
-      const caloriesLabel =
-        Number.isFinite(calories) && calories > 0
-          ? `${Math.round(calories)} kcal`
-          : null;
-
-      contextItems.push(
-        `${name}${gramsLabel ? ` (${gramsLabel}${caloriesLabel ? `, ${caloriesLabel}` : ''})` : caloriesLabel ? ` (${caloriesLabel})` : ''}`
-      );
-    });
-  }
-
-  const recentItems = contextItems.slice(-Math.max(1, maxEntries));
-  if (recentItems.length === 0) {
-    return '';
-  }
-
-  return recentItems.map((item, index) => `${index + 1}. ${item}`).join('\n');
-};
-
 const createChatRequestId = () =>
   `chat-req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -383,35 +282,6 @@ const resolveChatRequestErrorMessage = ({ error, OpenRouterErrorClass }) => {
   }
 
   return error.message || fallbackMessage;
-};
-
-const mergeEntriesWithLookupContext = ({
-  entries = [],
-  messageId = '',
-  lookupContext = null,
-}) => {
-  const safeEntries = Array.isArray(entries) ? entries : [];
-  const safeMessageId = String(messageId || '').trim();
-  const safeLookupContext =
-    lookupContext && typeof lookupContext === 'object' ? lookupContext : null;
-
-  if (!safeMessageId || !safeLookupContext || safeEntries.length === 0) {
-    return safeEntries;
-  }
-
-  return safeEntries.map((entry, index) => {
-    const entryKey = buildLookupContextEntryKey(safeMessageId, index);
-    const entryLookupMeta = safeLookupContext[entryKey];
-
-    if (!entryLookupMeta || typeof entryLookupMeta !== 'object') {
-      return entry;
-    }
-
-    return {
-      ...entry,
-      lookupMeta: entryLookupMeta,
-    };
-  });
 };
 
 let foodCatalogModulePromise = null;
@@ -2361,8 +2231,7 @@ export const FoodSearchModal = ({
         });
       };
 
-      const requestStartedAt = getNowMs();
-      let lookupStatsRecorded = false;
+const requestStartedAt = getNowMs();
       let extractionSchemaVersion = null;
       let resultSchemaVersion = null;
       let OpenRouterErrorClass = null;
@@ -2381,372 +2250,47 @@ export const FoodSearchModal = ({
         } = openRouterModule;
         OpenRouterErrorClass = OpenRouterError;
 
-        const history = buildStructuredChatHistory(chatMessages, {
-          beforeMessageId,
-        });
-        const rollingFoodContextSummary = buildRollingFoodContextSummary(
-          chatMessages,
-          { beforeMessageId }
-        );
-
         const assistantMessageId =
           assistantPlaceholderId || `assistant-${Date.now()}`;
-        let result = null;
-        let preResolvedLookupContext = {};
 
-        if (isAiChatRagEnabled) {
-          const extractionStartedAt = getNowMs();
-          const runExtractionAttempt = async (messageOverride = trimmedText) =>
-            sendOpenRouterExtraction({
-              message: messageOverride,
-              foodContextSummary: rollingFoodContextSummary,
-              files: attachments.map((attachment) => attachment.file),
-              history,
-              signal: controller.signal,
-              timeoutMs: 30000,
-            });
+        const pipelineResult = await runRagChatPipeline({
+          message: trimmedText,
+          files: attachments.map((attachment) => attachment.file),
+          chatMessages,
+          beforeMessageId,
+          assistantMessageId,
+          isOnline,
+          enableRag: isAiChatRagEnabled,
+          signal: controller.signal,
+          modules: {
+            fetchMacrosWithGrounding,
+            sendOpenRouterMessage,
+            sendOpenRouterExtraction,
+            sendOpenRouterPresentation,
+            OpenRouterError,
+          },
+          lookupOptions: {
+            allowGroundingFallback: false,
+            enableDeferredGrounding: true,
+            localLimit: 25,
+            onlinePageSize: 20,
+          },
+          onStageChange: transitionRequestStage,
+          telemetry: {
+            recordRagStageLatency,
+            recordRagExtractionOutcome,
+            recordRagLookupStats,
+            recordRagPresentationNameDrift,
+            recordRagPresentationIssues,
+          },
+        });
 
-          let extractionResult = await runExtractionAttempt(trimmedText);
-          const extractionLatencyMs = getNowMs() - extractionStartedAt;
-          extractionSchemaVersion =
-            extractionResult?.foodParser?.version || null;
-          void recordRagStageLatency({
-            stage: 'extraction',
-            durationMs: extractionLatencyMs,
-            schemaVersion: extractionSchemaVersion,
-          }).catch(() => {});
-
-          const extractionMessageType =
-            extractionResult?.foodParser?.messageType || null;
-          const extractionEntries = Array.isArray(
-            extractionResult?.foodParser?.entries
-          )
-            ? extractionResult.foodParser.entries
-            : [];
-          const dedupedExtractionEntries =
-            dedupeExtractedFoodEntries(extractionEntries);
-
-          const shouldRetryShortCircuit =
-            (extractionResult?.foodParser?.messageType === 'clarification' ||
-              extractionResult?.foodParser?.messageType === 'error' ||
-              dedupedExtractionEntries.length === 0) &&
-            trimmedText.length > 0;
-
-          let effectiveExtractionEntries = dedupedExtractionEntries;
-          if (shouldRetryShortCircuit) {
-            const constrainedPrompt = `${trimmedText}\n\nIf possible, return messageType=food_entries with conservative assumptions and at least one entry. Ask only one clarification question only if absolutely required.`;
-            const retryResult = await runExtractionAttempt(constrainedPrompt);
-            const retryEntries = Array.isArray(retryResult?.foodParser?.entries)
-              ? retryResult.foodParser.entries
-              : [];
-            const retryDedupedEntries =
-              dedupeExtractedFoodEntries(retryEntries);
-            const retryMessageType =
-              retryResult?.foodParser?.messageType || null;
-
-            if (
-              retryMessageType === 'food_entries' &&
-              retryDedupedEntries.length > 0
-            ) {
-              extractionResult = retryResult;
-              effectiveExtractionEntries = retryDedupedEntries;
-              extractionSchemaVersion =
-                extractionResult?.foodParser?.version ||
-                extractionSchemaVersion;
-            }
-          }
-
-          void recordRagExtractionOutcome({
-            messageType:
-              extractionMessageType ||
-              (extractionEntries.length > 0 ? 'food_entries' : 'no_entries'),
-            entriesCount: effectiveExtractionEntries.length,
-            schemaVersion: extractionSchemaVersion,
-          }).catch(() => {});
-
-          const shouldShortCircuit =
-            extractionMessageType === 'clarification' ||
-            extractionMessageType === 'error' ||
-            effectiveExtractionEntries.length === 0;
-
-          if (shouldShortCircuit) {
-            const canAttemptGroundedExtractionFallback =
-              isOnline &&
-              attachments.length === 0 &&
-              effectiveExtractionEntries.length === 0 &&
-              trimmedText.length > 0;
-
-            if (canAttemptGroundedExtractionFallback) {
-              try {
-                transitionRequestStage(CHAT_REQUEST_STAGE.RETRIEVAL);
-                const groundedEstimate = await fetchMacrosWithGrounding(
-                  trimmedText,
-                  controller.signal,
-                  30000
-                );
-
-                const groundedEntry = {
-                  name: groundedEstimate?.name || trimmedText,
-                  grams: 100,
-                  calories: Number(groundedEstimate?.per100g?.calories) || 0,
-                  protein: Number(groundedEstimate?.per100g?.protein) || 0,
-                  carbs: Number(groundedEstimate?.per100g?.carbs) || 0,
-                  fats: Number(groundedEstimate?.per100g?.fats) || 0,
-                  confidence: groundedEstimate?.confidence || 'low',
-                  rationale:
-                    groundedEstimate?.rationale ||
-                    'Fallback grounded estimate due to low-confidence extraction.',
-                  assumptions: Array.isArray(groundedEstimate?.assumptions)
-                    ? groundedEstimate.assumptions
-                    : [],
-                  lookupTerms: [trimmedText],
-                  source: FOOD_SEARCH_SOURCE.AI_WEB_SEARCH,
-                };
-
-                result = {
-                  text:
-                    extractionResult?.text ||
-                    'I used a grounded web estimate for this entry.',
-                  raw: extractionResult?.raw || null,
-                  foodParser: {
-                    version:
-                      extractionResult?.foodParser?.version ||
-                      extractionSchemaVersion,
-                    messageType: 'food_entries',
-                    entries: [groundedEntry],
-                    followUpQuestion: null,
-                  },
-                };
-                resultSchemaVersion = result?.foodParser?.version || null;
-              } catch {
-                result = extractionResult;
-                resultSchemaVersion = extractionSchemaVersion;
-              }
-            } else {
-              result = extractionResult;
-              resultSchemaVersion = extractionSchemaVersion;
-            }
-          } else {
-            transitionRequestStage(CHAT_REQUEST_STAGE.RETRIEVAL);
-            const retrievalStartedAt = getNowMs();
-            preResolvedLookupContext = await resolveFoodLookupContext({
-              messageId: assistantMessageId,
-              entries: effectiveExtractionEntries,
-              isOnline,
-              lookupOptions: {
-                allowGroundingFallback: false,
-                enableDeferredGrounding: true,
-                localLimit: 25,
-                onlinePageSize: 20,
-              },
-              groundedBatchTimeoutMs: 90000,
-            });
-            void recordRagStageLatency({
-              stage: 'retrieval',
-              durationMs: getNowMs() - retrievalStartedAt,
-              schemaVersion: extractionSchemaVersion,
-            }).catch(() => {});
-            void recordRagLookupStats({
-              lookupContext: preResolvedLookupContext,
-              schemaVersion: extractionSchemaVersion,
-            }).catch(() => {});
-            lookupStatsRecorded = true;
-
-            transitionRequestStage(CHAT_REQUEST_STAGE.VERIFICATION);
-            const verificationStartedAt = getNowMs();
-            const verifiedEntryResults = await Promise.all(
-              effectiveExtractionEntries.map((entry, index) => {
-                const entryKey = buildLookupContextEntryKey(
-                  assistantMessageId,
-                  index
-                );
-                return resolveAiFoodEntry({
-                  entry,
-                  isOnline,
-                  lookupMeta: preResolvedLookupContext[entryKey] || null,
-                });
-              })
-            );
-            void recordRagStageLatency({
-              stage: 'verification',
-              durationMs: getNowMs() - verificationStartedAt,
-              schemaVersion: extractionSchemaVersion,
-            }).catch(() => {});
-
-            const verifiedEntries = verifiedEntryResults
-              .map((item) => {
-                return item?.verifiedEntry || null;
-              })
-              .filter(Boolean);
-
-            verifiedEntryResults.forEach((item, index) => {
-              const entryKey = buildLookupContextEntryKey(
-                assistantMessageId,
-                index
-              );
-              if (item?.lookupMeta) {
-                preResolvedLookupContext[entryKey] = item.lookupMeta;
-              }
-            });
-
-            transitionRequestStage(CHAT_REQUEST_STAGE.PRESENTATION);
-            const presentationStartedAt = getNowMs();
-            try {
-              const presentationResult = await sendOpenRouterPresentation({
-                message: trimmedText,
-                systemData: {
-                  entries: verifiedEntries,
-                },
-                history,
-                signal: controller.signal,
-                timeoutMs: 30000,
-              });
-              resultSchemaVersion =
-                presentationResult?.foodParser?.version ||
-                extractionSchemaVersion;
-              void recordRagStageLatency({
-                stage: 'presentation',
-                durationMs: getNowMs() - presentationStartedAt,
-                schemaVersion: resultSchemaVersion,
-              }).catch(() => {});
-
-              const presentationEntries = Array.isArray(
-                presentationResult?.foodParser?.entries
-              )
-                ? presentationResult.foodParser.entries
-                : [];
-
-              const {
-                mergedEntries,
-                hasPresentationLengthMismatch,
-                hasSparsePresentationEntries,
-              } = mergePresentationEntriesWithVerified({
-                verifiedEntries,
-                presentationEntries,
-              });
-
-              if (
-                hasPresentationLengthMismatch ||
-                hasSparsePresentationEntries
-              ) {
-                console.warn('Presentation entry alignment mismatch detected', {
-                  verifiedEntryCount: verifiedEntries.length,
-                  presentationEntryCount: presentationEntries.length,
-                  hasSparsePresentationEntries,
-                });
-              }
-
-              mergedEntries.forEach((mergedEntry, index) => {
-                if (mergedEntry?.nameRewriteSuppressed) {
-                  console.warn('Presentation name rewrite suppressed', {
-                    verifiedName: verifiedEntries[index]?.name,
-                    presentedName: presentationEntries[index]?.name || null,
-                  });
-                }
-              });
-
-              void recordRagPresentationNameDrift({
-                verifiedEntries,
-                presentationEntries,
-                schemaVersion: resultSchemaVersion,
-              }).catch(() => {});
-
-              result = {
-                ...presentationResult,
-                text:
-                  presentationResult?.text ||
-                  extractionResult?.text ||
-                  'Here are your parsed food entries.',
-                foodParser: {
-                  messageType: 'food_entries',
-                  entries: mergedEntries,
-                  followUpQuestion: null,
-                },
-              };
-            } catch (presentationError) {
-              console.warn('Presentation fallback to verified entries', {
-                message: presentationError?.message || 'Unknown error',
-              });
-
-              resultSchemaVersion = extractionSchemaVersion;
-              void recordRagStageLatency({
-                stage: 'presentation',
-                durationMs: getNowMs() - presentationStartedAt,
-                schemaVersion: resultSchemaVersion,
-              }).catch(() => {});
-
-              result = {
-                text:
-                  extractionResult?.text ||
-                  'Here are your parsed food entries.',
-                raw: null,
-                foodParser: {
-                  messageType: 'food_entries',
-                  entries: verifiedEntries,
-                  followUpQuestion: null,
-                },
-              };
-            }
-          }
-        } else {
-          transitionRequestStage(CHAT_REQUEST_STAGE.PROCESSING);
-          result = await sendOpenRouterMessage({
-            message: trimmedText,
-            files: attachments.map((attachment) => attachment.file),
-            history,
-            signal: controller.signal,
-            timeoutMs: 30000,
-          });
-          resultSchemaVersion = result?.foodParser?.version || null;
-
-          if (result?.foodParser?.messageType) {
-            const fallbackEntries = Array.isArray(result?.foodParser?.entries)
-              ? result.foodParser.entries
-              : [];
-
-            void recordRagExtractionOutcome({
-              messageType: result.foodParser.messageType,
-              entriesCount: fallbackEntries.length,
-              schemaVersion: resultSchemaVersion,
-            }).catch(() => {});
-          }
-        }
-
-        let lookupContext = null;
-        let hasLookupContext = false;
-
-        if (
-          result?.foodParser?.messageType === 'food_entries' &&
-          Array.isArray(result?.foodParser?.entries) &&
-          result.foodParser.entries.length > 0
-        ) {
-          lookupContext =
-            Object.keys(preResolvedLookupContext).length > 0
-              ? preResolvedLookupContext
-              : await resolveFoodLookupContext({
-                  messageId: assistantMessageId,
-                  entries: result.foodParser.entries,
-                  isOnline,
-                  lookupOptions: {
-                    allowGroundingFallback: false,
-                    enableDeferredGrounding: true,
-                    localLimit: 25,
-                    onlinePageSize: 20,
-                  },
-                  groundedBatchTimeoutMs: 90000,
-                });
-
-          if (!lookupStatsRecorded && Object.keys(lookupContext).length > 0) {
-            void recordRagLookupStats({
-              lookupContext,
-              schemaVersion: resultSchemaVersion || extractionSchemaVersion,
-            }).catch(() => {});
-            lookupStatsRecorded = true;
-          }
-
-          hasLookupContext = Object.keys(lookupContext).length > 0;
-        }
-
+        const result = pipelineResult.result;
+        const lookupContext = pipelineResult.lookupContext || null;
+        const hasLookupContext = Boolean(lookupContext);
+        resultSchemaVersion =
+          pipelineResult.schemaVersion || pipelineResult.extractionSchemaVersion;
+        extractionSchemaVersion = pipelineResult.extractionSchemaVersion;
         if (userMessageId) {
           updateMessageById(userMessageId, (message) => ({
             ...message,
@@ -2914,7 +2458,11 @@ export const FoodSearchModal = ({
       const entries = latestAssistantBatch.foodParser.entries;
       const keyedEntries = entries.map((entry, index) => ({
         entry,
-        entryKey: buildLookupContextEntryKey(latestAssistantBatch.id, index),
+        entryKey: buildLookupContextEntryKey(
+          latestAssistantBatch.id,
+          index,
+          entry?.name
+        ),
       }));
 
       const actedEntries = keyedEntries.filter(

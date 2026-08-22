@@ -74,6 +74,14 @@ const createEmptySnapshot = () => ({
     compared: 0,
     drifted: 0,
   },
+  presentationIssues: {
+    lengthMismatch: 0,
+    sparseEntries: 0,
+    suppressedRewrites: 0,
+    integrityIssues: 0,
+    presentationFailures: 0,
+    presentationSkipped: 0,
+  },
   implicitFeedback: {
     events: {
       log_accept: 0,
@@ -340,6 +348,34 @@ const applyNameDrift = (
   }
 };
 
+const applyPresentationIssues = (
+  targetMetrics,
+  {
+    lengthMismatch = false,
+    sparseEntryCount = 0,
+    suppressedRewriteCount = 0,
+    integrityIssueCount = 0,
+    presentationFailed = false,
+    presentationSkipped = false,
+  } = {}
+) => {
+  const issues = targetMetrics.presentationIssues;
+
+  if (lengthMismatch) {
+    issues.lengthMismatch += 1;
+  }
+  issues.sparseEntries += Math.max(0, Number(sparseEntryCount) || 0);
+  issues.suppressedRewrites +=
+    Math.max(0, Number(suppressedRewriteCount) || 0);
+  issues.integrityIssues += Math.max(0, Number(integrityIssueCount) || 0);
+  if (presentationFailed) {
+    issues.presentationFailures += 1;
+  }
+  if (presentationSkipped) {
+    issues.presentationSkipped += 1;
+  }
+};
+
 const isAcceptedFeedbackEvent = (eventType) => {
   return (
     eventType === 'log_accept' ||
@@ -584,6 +620,30 @@ export const recordRagPresentationNameDrift = async ({
 } = {}) => {
   await applyMutation((metrics) => {
     applyNameDrift(metrics, verifiedEntries, presentationEntries);
+    if (schemaVersion) {
+      applySchemaVersionCount(metrics, schemaVersion);
+    }
+  });
+};
+
+export const recordRagPresentationIssues = async ({
+  lengthMismatch = false,
+  sparseEntryCount = 0,
+  suppressedRewriteCount = 0,
+  integrityIssueCount = 0,
+  presentationFailed = false,
+  presentationSkipped = false,
+  schemaVersion = null,
+} = {}) => {
+  await applyMutation((metrics) => {
+    applyPresentationIssues(metrics, {
+      lengthMismatch,
+      sparseEntryCount,
+      suppressedRewriteCount,
+      integrityIssueCount,
+      presentationFailed,
+      presentationSkipped,
+    });
     if (schemaVersion) {
       applySchemaVersionCount(metrics, schemaVersion);
     }

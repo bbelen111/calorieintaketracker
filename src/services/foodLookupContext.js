@@ -3,6 +3,13 @@
   resolveAiFoodLookup,
   resolveAiGroundedBatch,
 } from './foodSearch.js';
+import {
+  DEFAULT_ERROR_REASON_BY_SOURCE,
+  FOOD_LOOKUP_ERROR_REASONS,
+  getLookupErrorRecoveryHint as resolveCanonicalRecoveryHint,
+  getLookupErrorReasonMessage as resolveCanonicalReasonMessage,
+} from './foodLookupReasons.js';
+import { RAG_TIMING } from './ragBudget.js';
 
 const SOURCE_TRUST_MULTIPLIER = Object.freeze({
   [FOOD_SEARCH_SOURCE.LOCAL]: 1,
@@ -52,93 +59,14 @@ const mapWithConcurrencyLimit = async (items, limit, mapper) => {
   return results;
 };
 
-const LOOKUP_ERROR_REASON_MESSAGES = Object.freeze({
-  local_search_failed: "We couldn't find a match in the local food database.",
+export const getLookupErrorReasonMessage = (reasonCode) =>
+  resolveCanonicalReasonMessage(reasonCode);
 
-  usda_search_failed: 'Online nutrition database lookup failed.',
+export const getLookupErrorRecoveryHint = (reasonCode) =>
+  resolveCanonicalRecoveryHint(reasonCode);
 
-  usda_search_aborted: 'Found a stronger match and stopped the extra lookup.',
-
-  grounding_network_error: 'Web search hit a connection problem.',
-
-  grounding_rate_limit:
-    "We're looking up too many items right now. Please retry shortly.",
-
-  grounding_quota_exhausted:
-    "We've reached the current web lookup limit. Please try again later.",
-
-  grounding_safety_blocked: 'Web search was blocked by safety checks.',
-
-  grounding_invalid_response:
-    'Web search returned incomplete nutrition details.',
-
-  grounding_timeout: 'Web search took too long to finish.',
-
-  grounding_unknown_error: 'Web search failed. Please try again.',
-});
-
-const LOOKUP_ERROR_RECOVERY_HINTS = Object.freeze({
-  local_search_failed: 'Try again in a moment, or log manually if needed.',
-
-  usda_search_failed: 'Wait a bit and retry, or enter nutrition manually.',
-
-  usda_search_aborted: 'No action needed — we found a better match.',
-
-  grounding_network_error: 'Check your internet connection, then retry.',
-
-  grounding_rate_limit: 'Wait a moment, then retry.',
-
-  grounding_quota_exhausted:
-    'Try again later, or enter nutrition manually for now.',
-
-  grounding_safety_blocked:
-    "Use simpler wording and retry (for example: '2 slices pizza').",
-
-  grounding_invalid_response:
-    'Retry once. If it still fails, enter this item manually.',
-
-  grounding_timeout: 'Retry now, or include fewer foods in one message.',
-
-  grounding_unknown_error: 'Retry once. If it keeps failing, enter manually.',
-});
-
-const DEFAULT_ERROR_REASON_BY_SOURCE = Object.freeze({
-  [FOOD_SEARCH_SOURCE.LOCAL]: 'local_search_failed',
-
-  [FOOD_SEARCH_SOURCE.USDA]: 'usda_search_failed',
-
-  [FOOD_SEARCH_SOURCE.AI_WEB_SEARCH]: 'grounding_unknown_error',
-});
-
-export const getLookupErrorReasonMessage = (reasonCode) => {
-  const normalizedReason = String(reasonCode || '').trim();
-
-  if (!normalizedReason) {
-    return null;
-  }
-
-  return LOOKUP_ERROR_REASON_MESSAGES[normalizedReason] || null;
-};
-
-export const getLookupErrorRecoveryHint = (reasonCode) => {
-  const normalizedReason = String(reasonCode || '').trim();
-
-  if (!normalizedReason) {
-    return null;
-  }
-
-  if (
-    !Object.prototype.hasOwnProperty.call(
-      LOOKUP_ERROR_RECOVERY_HINTS,
-
-      normalizedReason
-    )
-  ) {
-    return null;
-  }
-
-  return LOOKUP_ERROR_RECOVERY_HINTS[normalizedReason] || null;
-};
+export const getLookupErrorReasonsRegistry = () =>
+  Object.freeze({ ...FOOD_LOOKUP_ERROR_REASONS });
 
 export const normalizeAiLookupResult = (result, { entryName = '' } = {}) => {
   const normalizedSource = result?.usedSource || FOOD_SEARCH_SOURCE.LOCAL;
@@ -320,16 +248,50 @@ const resolveEntryLookupTerms = (entry) => {
   return [];
 };
 
-export const buildLookupContextEntryKey = (messageId, index) => {
+const STABLE_ENTRY_TOKEN_PATTERN = /:([a-z0-9]{4,16})$/;
+
+/** Deterministic short token (6 hex chars) derived from an entry name. */
+export const buildLookupContextStableToken = (value) => {
+  const normalized = String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '')
+    .slice(0, 16);
+
+  if (!normalized) {
+    return null;
+  }
+
+  let hash = 0;
+  for (let index = 0; index < normalized.length; index += 1) {
+    hash = (hash << 5) - hash + normalized.charCodeAt(index);
+    hash |= 0;
+  }
+
+  return (hash >>> 0).toString(36).slice(0, 6);
+};
+
+/**
+ * Builds the key used to attach lookup metadata to a chat entry.
+ *
+ * The optional `entryName` appends a deterministic stable token
+ * (`msgId::index:token`) so metadata can still be correlated to the entry it
+ * belongs to even if entry ordering shifts within the same assistant message.
+ * Two-argument callers keep the historical positional key format unchanged.
+ */
+export const buildLookupContextEntryKey = (messageId, index, entryName = '') => {
   const normalizedMessageId = String(messageId || '').trim();
   const normalizedIndex = Math.max(0, Math.floor(Number(index) || 0));
 
-  if (!normalizedMessageId) {
-    return `::${normalizedIndex}`;
-  }
+  const base = normalizedMessageId
+    ? `${encodeURIComponent(normalizedMessageId)}::${normalizedIndex}`
+    : `::${normalizedIndex}`;
 
-  return `${encodeURIComponent(normalizedMessageId)}::${normalizedIndex}`;
+  const token = buildLookupContextStableToken(entryName);
+  return token ? `${base}:${token}` : base;
 };
+
+const stripLookupContextToken = (entryKey) =>
+  String(entryKey || '').trim().replace(STABLE_ENTRY_TOKEN_PATTERN, '');
 
 export const parseLookupContextEntryKeyMessageId = (entryKey) => {
   const normalizedKey = String(entryKey || '').trim();
@@ -337,12 +299,13 @@ export const parseLookupContextEntryKeyMessageId = (entryKey) => {
     return null;
   }
 
-  const separatorIndex = normalizedKey.lastIndexOf('::');
+  const keyWithoutToken = stripLookupContextToken(normalizedKey);
+  const separatorIndex = keyWithoutToken.lastIndexOf('::');
   if (separatorIndex <= 0) {
     return normalizedKey;
   }
 
-  const encodedMessageId = normalizedKey.slice(0, separatorIndex).trim();
+  const encodedMessageId = keyWithoutToken.slice(0, separatorIndex).trim();
   if (!encodedMessageId) {
     return null;
   }
@@ -352,6 +315,28 @@ export const parseLookupContextEntryKeyMessageId = (entryKey) => {
   } catch {
     return encodedMessageId;
   }
+};
+
+export const parseLookupContextEntryKeyIndex = (entryKey) => {
+  const normalizedKey = String(entryKey || '').trim();
+  if (!normalizedKey) {
+    return null;
+  }
+
+  const keyWithoutToken = stripLookupContextToken(normalizedKey);
+  const separatorIndex = keyWithoutToken.lastIndexOf('::');
+  if (separatorIndex < 0) {
+    return null;
+  }
+
+  const rawIndex = keyWithoutToken.slice(separatorIndex + 2).trim();
+  const parsed = Number(rawIndex);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+};
+
+export const parseLookupContextEntryKeyStableToken = (entryKey) => {
+  const match = STABLE_ENTRY_TOKEN_PATTERN.exec(String(entryKey || '').trim());
+  return match ? match[1] : null;
 };
 
 export const resolveFoodLookupContext = async ({
@@ -394,7 +379,11 @@ export const resolveFoodLookupContext = async ({
     LOOKUP_CONCURRENCY_LIMIT,
 
     async (entry, index) => {
-      const entryKey = buildLookupContextEntryKey(normalizedMessageId, index);
+      const entryKey = buildLookupContextEntryKey(
+        normalizedMessageId,
+        index,
+        entry?.name
+      );
 
       const entryName = String(entry?.name || '').trim();
 
@@ -487,7 +476,9 @@ export const resolveFoodLookupContext = async ({
   const groundedResultsByKey = await resolveGroundedBatch({
     requests: deferredGroundingRequests,
 
-    timeoutMs: groundedBatchTimeoutMs,
+    timeoutMs: Number.isFinite(Number(groundedBatchTimeoutMs))
+      ? Math.max(1000, Math.round(Number(groundedBatchTimeoutMs)))
+      : RAG_TIMING.groundingBatchMs,
   });
 
   Object.entries(groundedResultsByKey || {}).forEach(([entryKey, result]) => {

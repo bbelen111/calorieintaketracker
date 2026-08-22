@@ -153,10 +153,16 @@ test('resolveFoodLookupContext returns keyed lookup metadata for entries', async
     },
   });
 
-  assert.deepEqual(Object.keys(context), ['assistant-1::0', 'assistant-1::1']);
-  assert.equal(context['assistant-1::0'].status, 'resolved');
-  assert.equal(context['assistant-1::0'].matchConfidence, 'high');
-  assert.equal(context['assistant-1::1'].status, 'no_match');
+  const chickenKey = buildLookupContextEntryKey(
+    'assistant-1',
+    0,
+    'Chicken breast'
+  );
+  const riceKey = buildLookupContextEntryKey('assistant-1', 1, 'White rice');
+  assert.deepEqual(Object.keys(context), [chickenKey, riceKey]);
+  assert.equal(context[chickenKey].status, 'resolved');
+  assert.equal(context[chickenKey].matchConfidence, 'high');
+  assert.equal(context[riceKey].status, 'no_match');
 });
 
 test('resolveFoodLookupContext returns empty object for invalid input', async () => {
@@ -217,23 +223,35 @@ test('resolveFoodLookupContext preserves successful siblings when one entry look
     },
   });
 
-  assert.equal(context['assistant-2::0'].status, 'resolved');
-  assert.equal(context['assistant-2::0'].matchConfidence, 'high');
-  assert.equal(context['assistant-2::0'].decision, 'accept_local');
-  assert.equal(context['assistant-2::0'].decisionReason, 'strong_local_match');
-  assert.equal(context['assistant-2::1'].status, 'error');
+  const chickenKey = buildLookupContextEntryKey(
+    'assistant-2',
+    0,
+    'Chicken breast'
+  );
+  const snackKey = buildLookupContextEntryKey(
+    'assistant-2',
+    1,
+    'Unknown snack'
+  );
+  assert.equal(context[chickenKey].status, 'resolved');
+  assert.equal(context[chickenKey].matchConfidence, 'high');
+  assert.equal(context[chickenKey].decision, 'accept_local');
+  assert.equal(context[chickenKey].decisionReason, 'strong_local_match');
+  assert.equal(context[snackKey].status, 'error');
   assert.equal(
-    context['assistant-2::1'].errorsBySource[FOOD_SEARCH_SOURCE.LOCAL],
+    context[snackKey].errorsBySource[FOOD_SEARCH_SOURCE.LOCAL],
     'lookup timeout'
   );
   assert.equal(
-    context['assistant-2::1'].errorReasonsBySource[FOOD_SEARCH_SOURCE.LOCAL],
+    context[snackKey].errorReasonsBySource[FOOD_SEARCH_SOURCE.LOCAL],
     'local_search_failed'
   );
 });
 
 test('resolveFoodLookupContext resolves deferred grounding entries in one batched call', async () => {
   let groundedBatchCalls = 0;
+  const kuloloKey = buildLookupContextEntryKey('assistant-3', 0, 'Kulolo');
+  const ubeKey = buildLookupContextEntryKey('assistant-3', 1, 'Ube Halaya');
 
   const context = await resolveFoodLookupContext({
     messageId: 'assistant-3',
@@ -263,7 +281,7 @@ test('resolveFoodLookupContext resolves deferred grounding entries in one batche
       assert.equal(requests.length, 2);
 
       return {
-        'assistant-3::0': {
+        [kuloloKey]: {
           status: 'resolved',
           usedSource: FOOD_SEARCH_SOURCE.AI_WEB_SEARCH,
           sourcesTried: [
@@ -299,7 +317,7 @@ test('resolveFoodLookupContext resolves deferred grounding entries in one batche
           errorsBySource: {},
           errorReasonsBySource: {},
         },
-        'assistant-3::1': {
+        [ubeKey]: {
           status: 'resolved',
           usedSource: FOOD_SEARCH_SOURCE.AI_WEB_SEARCH,
           sourcesTried: [
@@ -334,13 +352,10 @@ test('resolveFoodLookupContext resolves deferred grounding entries in one batche
   });
 
   assert.equal(groundedBatchCalls, 1);
-  assert.equal(context['assistant-3::0'].status, 'resolved');
-  assert.equal(
-    context['assistant-3::0'].usedSource,
-    FOOD_SEARCH_SOURCE.AI_WEB_SEARCH
-  );
-  assert.equal(context['assistant-3::1'].status, 'resolved');
-  assert.equal(context['assistant-3::1'].matchedFood?.name, 'Ube Halaya');
+  assert.equal(context[kuloloKey].status, 'resolved');
+  assert.equal(context[kuloloKey].usedSource, FOOD_SEARCH_SOURCE.AI_WEB_SEARCH);
+  assert.equal(context[ubeKey].status, 'resolved');
+  assert.equal(context[ubeKey].matchedFood?.name, 'Ube Halaya');
 });
 
 test('resolveFoodLookupContext fast mode can skip deferred grounding batch', async () => {
@@ -374,7 +389,8 @@ test('resolveFoodLookupContext fast mode can skip deferred grounding batch', asy
   });
 
   assert.equal(groundedBatchCalls, 0);
-  assert.equal(context['assistant-fast::0'].status, 'needs_grounding');
+  const kuloloKey = buildLookupContextEntryKey('assistant-fast', 0, 'Kulolo');
+  assert.equal(context[kuloloKey].status, 'needs_grounding');
 });
 
 test('resolveFoodLookupContext uses collision-safe key format for hyphenated ids', async () => {
@@ -396,7 +412,8 @@ test('resolveFoodLookupContext uses collision-safe key format for hyphenated ids
     }),
   });
 
-  assert.ok(Object.prototype.hasOwnProperty.call(context, 'msg-1-0::0'));
+  const eggsKey = buildLookupContextEntryKey('msg-1-0', 0, 'Eggs');
+  assert.ok(Object.prototype.hasOwnProperty.call(context, eggsKey));
 });
 
 test('lookup context key helpers round-trip encoded message ids safely', () => {

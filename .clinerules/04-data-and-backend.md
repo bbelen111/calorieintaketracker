@@ -67,9 +67,9 @@ Migration behavior is now intentionally minimal:
 - `selectedGoal: 'maintenance'`, `goalChangedAt: Date.now()`
 - `stepGoal: 10000`, `selectedTrainingType: 'trainingtype_1'`, `trainingDuration: 2`
 - 6 preset training types in `trainingType` with calories/hour values (`trainingtype_1..6` → bodybuilding 220, powerlifting 180, strongman 280, crossfit 300, calisthenics 240, custom 220)
-- `activityMultipliers: { training: 0.35, rest: 0.28 }`
+- `activityMultipliers: { training: 0.2, rest: 0.22 }` (canonical `DEFAULT_ACTIVITY_MULTIPLIERS` in `constants/activity/activityPresets.js`)
 - `activityPresets: { training: 'default', rest: 'default' }`
-- `customActivityMultipliers: { training: 0.35, rest: 0.28 }`
+- `customActivityMultipliers: { training: 0.2, rest: 0.22 }`
 - `smartTefEnabled: false`
 - `adaptiveThermogenesisEnabled: false`
 - `adaptiveThermogenesisSmartMode: false`
@@ -134,6 +134,13 @@ OpenRouter food parsing is proxied through `api/openrouter.js` (server-side key 
 - `sendOpenRouterMessage(...)` includes bounded transient retry for upstream `502|503|504` and queued exponential backoff for `429`
 - Feature flag: `AI_CHAT_RAG_ENABLED` from `VITE_AI_CHAT_RAG_ENABLED`
 
+**RAG chat pipeline service (`src/services/ragChatPipeline.js`):**
+- `runRagChatPipeline(...)` — decoupled orchestration of the whole chat request (extraction → retrieval → verification → presentation). OpenRouter clients injected via `modules`, telemetry via `telemetry`, stage progress via `onStageChange` (`CHAT_PIPELINE_STAGE`: `extraction | retrieval | verification | presentation | processing`). Returns `{ result, lookupContext, schemaVersion, extractionSchemaVersion, presentationSkipped, mode }`.
+- Pure/read-only helpers for tests and reuse: `buildStructuredChatHistory`, `buildRollingFoodContextSummary`, `mergeEntriesWithLookupContext`, `shouldSkipPresentationPass`.
+- `FoodSearchModal` is a thin consumer — keep the stage sequencing out of the modal; cover it via `tests/services/ragChatPipeline.test.js` with stubbed OpenRouter modules (Node tests must not touch the sql.js catalog).
+- Stage timing/budget constants are the single source of truth in `services/ragBudget.js` (`RAG_TIMING`, `resolveRagStageTimeoutMs`, `RAG_MAX_DEFERRED_GROUNDING_ENTRIES`, `RAG_LOOKUP_CONCURRENCY_LIMIT`, `assertRagTimingInvariants`) — never hardcode per-stage timeout values in callers.
+- Reason codes (user-facing messages, recovery hints, chip labels) are centralized in `services/foodLookupReasons.js` and re-exported by `services/foodLookupContext.js`.
+
 **Serverless security/env configuration (`api/openrouter.js`):**
 - CORS allowlist is driven by `ALLOWED_ORIGINS` (or singular fallback `ALLOWED_ORIGIN`).
 - Payload guards are enforced server-side (`messages` count + serialized payload size cap).
@@ -171,6 +178,7 @@ If adjusting OpenRouter behavior, update the mode-specific instruction in `api/o
 - Use `getLookupErrorReasonMessage(...)` for user-facing reason labels.
 - Use `getLookupErrorRecoveryHint(...)` for actionable trace guidance in chat UI.
 - Keep fallback error meta populated with both message and reason code (`local_search_failed`) to avoid empty diagnostics.
+- Reason-code definitions live in the canonical registry `src/services/foodLookupReasons.js` (`FOOD_LOOKUP_ERROR_REASONS`, `LOOKUP_STATUS_CHIP_LABELS`, `LOOKUP_DECISION_REASON_LABELS`, `DEFAULT_ERROR_REASON_BY_SOURCE`); `foodLookupContext.js`/`aiFinalizedEntryState.js`/chat UI must resolve labels through those helpers so the registries cannot drift.
 
 ---
 
@@ -232,7 +240,7 @@ Always returns `'unavailable'` on web and iOS. Status constants exported as `Hea
 4. **OpenRouter instruction authority is server-side and mode-specific:** Keep behavioral prompt updates in `api/openrouter.js` (`EXTRACTION_SYSTEM_INSTRUCTION`, `PRESENTATION_SYSTEM_INSTRUCTION`, `GROUNDING_LOOKUP_SYSTEM_INSTRUCTION`) and preserve the existing `food_parser_json` schema unless a coordinated parser/test update is intentional.
 5. **Pinned local foods must remain hydratable outside top-N result windows:** local search currently fetches pinned IDs via `getFoodsByIds(...)` on the first local page and merges them before UI filtering; do not regress to top-limited-only result sources.
 6. **Local search ranking is relevance-aware for name sorting:** exact/prefix/word-boundary name matches should outrank generic contains matches (e.g., plain `honey` should not be buried under unrelated composites).
-7. **RAG chat pipeline is feature-flagged and two-pass:** when `VITE_AI_CHAT_RAG_ENABLED` is true, keep extraction → deterministic resolution (`resolveFoodLookupContext` + `resolveAiFoodEntry`) → presentation flow intact; retain single-pass fallback path for safety.
+7. **RAG chat orchestration lives in `services/ragChatPipeline.js`:** when `VITE_AI_CHAT_RAG_ENABLED` is true, `runRagChatPipeline(...)` owns the extraction → deterministic resolution (`resolveFoodLookupContext` + `resolveAiFoodEntry`) → presentation sequence and returns `{ result, lookupContext, schemaVersion, extractionSchemaVersion, presentationSkipped, mode }`; `FoodSearchModal` consumes that return value and must not re-implement the stage sequencing inline. Keep the fail-closed legacy single-call path (`sendOpenRouterMessage`, `mode: 'processing'`) and the single-entry presentation skip (`shouldSkipPresentationPass`) intact.
 8. **Grounding must stay gated:** only grounded lookup requests should set `useGrounding: true`; do not enable web grounding for extraction/presentation modes.
 9. **Deterministic macro math belongs in services/utilities, not JSX:** keep grams normalization and per100g scaling in `utils/food/portionNormalization.js` and `services/foodSearch.js` (`resolveAiFoodEntry`), not ad-hoc in modal components.
 10. **Presentation merge logic is centralized:** use `utils/food/aiPresentationMerge.js` for presentation→verified merge behavior. Do not re-implement sparse-entry guards or nutrition integrity checks inline in JSX.
