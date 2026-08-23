@@ -17,6 +17,61 @@ const resolveUsdaApiKey = () => String(process.env.USDA_API_KEY || '').trim();
 const resolveUsdaUserAgent = () =>
   String(process.env.USDA_USER_AGENT || '').trim() || DEFAULT_USDA_USER_AGENT;
 
+const USDA_DEFAULT_MAX_ATTEMPTS = 3;
+const USDA_DEFAULT_RETRY_BASE_DELAY_MS = 350;
+const USDA_RETRY_MAX_DELAY_MS = 2000;
+const USDA_RETRY_JITTER_MS = 150;
+
+// FoodData Central's edge/WAF throttling intermittently surfaces as HTTP 404
+// (not just 429/5xx) — probed queries returned 404 from one Vercel egress IP
+// while a sibling query returned 200 seconds later. Treat 404/408/409/425/429
+// plus 5xx as transient so a single flaky upstream response is retried instead
+// of being forwarded verbatim to the app.
+const USDA_TRANSIENT_STATUS_CODES = new Set([404, 408, 409, 425, 429]);
+
+const resolveUsdaMaxAttempts = () => {
+  const parsed = Number.parseInt(
+    String(process.env.USDA_MAX_ATTEMPTS || ''),
+    10
+  );
+  return Number.isFinite(parsed) && parsed > 0
+    ? Math.min(parsed, 5)
+    : USDA_DEFAULT_MAX_ATTEMPTS;
+};
+
+const resolveUsdaRetryBaseDelayMs = () => {
+  const parsed = Number.parseFloat(
+    String(process.env.USDA_RETRY_BASE_DELAY_MS || '')
+  );
+  return Number.isFinite(parsed) && parsed >= 0
+    ? parsed
+    : USDA_DEFAULT_RETRY_BASE_DELAY_MS;
+};
+
+const isTransientUsdaStatus = (status) => {
+  const code = Number(status);
+  return USDA_TRANSIENT_STATUS_CODES.has(code) || (code >= 500 && code <= 599);
+};
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const resolveTransientRetryDelayMs = (response, attempt) => {
+  // Honor a Retry-After header when the upstream sends one, capped so the
+  // serverless function does not burn its whole execution budget waiting.
+  const retryAfter = Number.parseFloat(
+    String(response?.headers?.get?.('retry-after') ?? '')
+  );
+  if (Number.isFinite(retryAfter) && retryAfter >= 0) {
+    return Math.min(Math.round(retryAfter * 1000), USDA_RETRY_MAX_DELAY_MS);
+  }
+
+  // Exponential backoff with jitter to avoid synchronized retry thundering.
+  const base = resolveUsdaRetryBaseDelayMs();
+  const exponential = base * 2 ** (attempt - 1);
+  const jittered = exponential + Math.random() * USDA_RETRY_JITTER_MS;
+  return Math.min(jittered, USDA_RETRY_MAX_DELAY_MS);
+};
+
 async function searchFoodsByText(query, page = 1, pageSize = 20) {
   const usdaApiBase = resolveUsdaApiBase();
   const normalizedBase = usdaApiBase.endsWith('/')
@@ -31,16 +86,29 @@ async function searchFoodsByText(query, page = 1, pageSize = 20) {
   });
   url.searchParams.set('api_key', resolveUsdaApiKey());
 
-  const response = await fetch(url.toString(), {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-      'User-Agent': resolveUsdaUserAgent(),
-    },
-  });
+  const maxAttempts = resolveUsdaMaxAttempts();
 
-  const payload = await response.json().catch(() => ({}));
-  return { response, payload };
+  for (let attempt = 1; ; attempt += 1) {
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': resolveUsdaUserAgent(),
+      },
+    });
+
+    const payload = await response.json().catch(() => ({}));
+
+    if (
+      response.ok ||
+      !isTransientUsdaStatus(response.status) ||
+      attempt >= maxAttempts
+    ) {
+      return { response, payload };
+    }
+
+    await sleep(resolveTransientRetryDelayMs(response, attempt));
+  }
 }
 
 export default async function handler(req, res) {

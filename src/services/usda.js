@@ -16,6 +16,56 @@ export class USDAFoodError extends Error {
   }
 }
 
+export const USDA_CLIENT_DEFAULT_RETRY = Object.freeze({
+  maxAttempts: 3,
+  baseDelayMs: 400,
+  maxDelayMs: 2000,
+  jitterMs: 0,
+  timeoutMs: 15000,
+});
+
+// Mutable client retry config. Per-request callers may override it via the
+// `retry` option on searchFoods/apiRequest; resetUsdaClientRetry() restores
+// the module defaults (useful for tests).
+export const USDA_CLIENT_RETRY = { ...USDA_CLIENT_DEFAULT_RETRY };
+
+export const resetUsdaClientRetry = () => {
+  Object.assign(USDA_CLIENT_RETRY, USDA_CLIENT_DEFAULT_RETRY);
+};
+
+// Mirrors the proxy transient set (api/usda.js): FoodData Central edge/WAF
+// throttling intermittently surfaces as HTTP 404 in addition to 408/409/425/
+// 429/5xx, and network failures (status 0) are transient by nature.
+const USDA_TRANSIENT_STATUS_CODES = new Set([404, 408, 409, 425, 429]);
+
+const isTransientUsdaStatus = (status) => {
+  const code = Number(status);
+  return USDA_TRANSIENT_STATUS_CODES.has(code) || (code >= 500 && code <= 599);
+};
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const shouldRetryClientError = (error) => {
+  if (error?.externalAborted) {
+    return false;
+  }
+  const status = Number(error?.status);
+  return status === 0 || isTransientUsdaStatus(status);
+};
+
+const computeClientRetryDelayMs = (attempt, retry) => {
+  const base = Math.max(0, Number(retry?.baseDelayMs) || 0);
+  const max = Math.max(base, Number(retry?.maxDelayMs) || base);
+  const exponential = Math.min(base * 2 ** (attempt - 1), max);
+  const jitter = Math.max(0, Number(retry?.jitterMs) || 0);
+  return exponential + Math.random() * jitter;
+};
+
+const resolveClientMaxAttempts = (retry) => {
+  const parsed = Math.round(Number(retry?.maxAttempts));
+  return Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 5) : 1;
+};
+
 function round2(num) {
   return Math.round(Number(num || 0) * 100) / 100;
 }
@@ -275,48 +325,77 @@ async function apiRequest(action, params = {}, options = {}) {
     }
   });
 
-  const { signal, cleanup } = createCombinedAbortSignal(options.signal, 15000);
+  const retry = { ...USDA_CLIENT_RETRY, ...(options.retry || {}) };
+  const maxAttempts = resolveClientMaxAttempts(retry);
+  const timeoutMs = Math.max(1, Number(retry.timeoutMs) || 15000);
+  let lastError = null;
 
-  try {
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      signal,
-    });
-
-    cleanup();
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new USDAFoodError(
-        errorData.error || `Request failed: ${response.status}`,
-        response.status,
-        errorData
-      );
-    }
-
-    return response.json();
-  } catch (error) {
-    cleanup();
-
-    if (error?.name === 'AbortError') {
-      throw new USDAFoodError('Request timed out', 408);
-    }
-
-    if (error instanceof USDAFoodError) {
-      throw error;
-    }
-
-    throw new USDAFoodError(
-      'Network error - check your connection',
-      0,
-      error?.message
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    // Fresh timeout per attempt so a slow/flaky attempt cannot carry a stale,
+    // already-aborted signal into the next retry.
+    const { signal, cleanup } = createCombinedAbortSignal(
+      options.signal,
+      timeoutMs
     );
+
+    try {
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        signal,
+      });
+
+      cleanup();
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        lastError = new USDAFoodError(
+          errorData.error || `Request failed: ${response.status}`,
+          response.status,
+          errorData
+        );
+      } else {
+        return response.json();
+      }
+    } catch (error) {
+      cleanup();
+
+      if (error?.name === 'AbortError') {
+        // A caller-initiated abort must never be retried; only the per-attempt
+        // timeout is treated as transient (408).
+        const externallyAborted = Boolean(options.signal?.aborted);
+        lastError = new USDAFoodError(
+          externallyAborted ? 'Request aborted' : 'Request timed out',
+          externallyAborted ? 0 : 408
+        );
+        if (externallyAborted) {
+          lastError.externalAborted = true;
+        }
+      } else if (error instanceof USDAFoodError) {
+        lastError = error;
+      } else {
+        lastError = new USDAFoodError(
+          'Network error - check your connection',
+          0,
+          error?.message
+        );
+      }
+    }
+
+    if (attempt < maxAttempts && shouldRetryClientError(lastError)) {
+      const delayMs = computeClientRetryDelayMs(attempt, retry);
+      if (delayMs > 0) {
+        await sleep(delayMs);
+      }
+      continue;
+    }
+
+    throw lastError;
   }
 }
 
 export async function searchFoods(
   query,
-  { page = 1, pageSize = 20, signal } = {}
+  { page = 1, pageSize = 20, signal, retry } = {}
 ) {
   const normalizedQuery = String(query ?? '').trim();
   if (normalizedQuery.length < 2) {
@@ -340,6 +419,7 @@ export async function searchFoods(
     },
     {
       signal,
+      retry,
     }
   );
 

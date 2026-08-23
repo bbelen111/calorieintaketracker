@@ -44,6 +44,44 @@ const withEnv = (env, fn) => {
   }
 };
 
+const createFetchResponse = ({
+  ok,
+  status,
+  jsonPayload = {},
+  headers = {},
+}) => ({
+  ok,
+  status,
+  json: async () => jsonPayload,
+  headers: {
+    get(name) {
+      const lower = String(name).toLowerCase();
+      const match = Object.entries(headers).find(
+        ([key]) => String(key).toLowerCase() === lower
+      );
+      return match ? match[1] : null;
+    },
+  },
+});
+
+// Stubs setTimeout so upstream retry backoffs run synchronously while
+// recording every scheduled delay for assertions.
+const withFakeTimers = async (fn) => {
+  const original = globalThis.setTimeout;
+  const delays = [];
+  globalThis.setTimeout = (callback, delay) => {
+    delays.push(Number(delay) || 0);
+    callback();
+    return 1;
+  };
+  try {
+    await fn();
+    return delays;
+  } finally {
+    globalThis.setTimeout = original;
+  }
+};
+
 test('USDA proxy sends browser-like User-Agent and correct search URL', async () => {
   const originalFetch = globalThis.fetch;
   let request;
@@ -183,28 +221,181 @@ test('USDA proxy validates query length before calling upstream', async () => {
   }
 });
 
-test('USDA proxy passes upstream non-OK status through with details', async () => {
+test('USDA proxy passes upstream non-OK status through after retries are exhausted', async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => ({
-    ok: false,
-    status: 404,
-    json: async () => ({}),
-  });
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return createFetchResponse({ ok: false, status: 404, jsonPayload: {} });
+  };
+  try {
+    const response = createResponse();
+    await withFakeTimers(() =>
+      withEnv({ USDA_API_KEY: 'test-key' }, async () => {
+        await handler(
+          {
+            method: 'GET',
+            query: { action: 'search', query: 'omelette' },
+            headers: {},
+          },
+          response
+        );
+      })
+    );
+    assert.equal(response.statusCode, 404);
+    assert.equal(response.jsonPayload.error, 'USDA search error: 404');
+    assert.deepEqual(response.jsonPayload.details, {});
+    // 404 is transient — the proxy retries up to 3 attempts before forwarding.
+    assert.equal(fetchCalls, 3);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('USDA proxy retries transient upstream 404 and succeeds on a later attempt', async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    if (fetchCalls < 3) {
+      return createFetchResponse({ ok: false, status: 404, jsonPayload: {} });
+    }
+    return createFetchResponse({
+      ok: true,
+      status: 200,
+      jsonPayload: { foods: [{ fdcId: 1 }], totalHits: 1 },
+    });
+  };
+  try {
+    const response = createResponse();
+    await withFakeTimers(() =>
+      withEnv({ USDA_API_KEY: 'test-key' }, async () => {
+        await handler(
+          {
+            method: 'GET',
+            query: { action: 'search', query: 'omelette' },
+            headers: {},
+          },
+          response
+        );
+      })
+    );
+    assert.equal(fetchCalls, 3);
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.jsonPayload.foods[0].fdcId, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('USDA proxy honors Retry-After (capped) when retrying transient statuses', async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    if (fetchCalls === 1) {
+      return createFetchResponse({
+        ok: false,
+        status: 429,
+        headers: { 'retry-after': '5' },
+        jsonPayload: {},
+      });
+    }
+    if (fetchCalls === 2) {
+      return createFetchResponse({
+        ok: false,
+        status: 429,
+        headers: { 'retry-after': '0.25' },
+        jsonPayload: {},
+      });
+    }
+    return createFetchResponse({
+      ok: true,
+      status: 200,
+      jsonPayload: { foods: [], totalHits: 0 },
+    });
+  };
+  try {
+    const response = createResponse();
+    const delays = await withFakeTimers(() =>
+      withEnv({ USDA_API_KEY: 'test-key' }, async () => {
+        await handler(
+          {
+            method: 'GET',
+            query: { action: 'search', query: 'chicken' },
+            headers: {},
+          },
+          response
+        );
+      })
+    );
+    assert.equal(fetchCalls, 3);
+    assert.equal(response.statusCode, 200);
+    // First delay honors Retry-After (5s) but is capped to 2000ms; the second
+    // uses the uncapped Retry-After value (250ms).
+    assert.deepEqual(delays, [2000, 250]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('USDA proxy does not retry non-transient upstream statuses', async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return createFetchResponse({
+      ok: false,
+      status: 403,
+      jsonPayload: { error: { message: 'forbidden' } },
+    });
+  };
   try {
     const response = createResponse();
     await withEnv({ USDA_API_KEY: 'test-key' }, async () => {
       await handler(
         {
           method: 'GET',
-          query: { action: 'search', query: 'omelette' },
+          query: { action: 'search', query: 'chicken' },
           headers: {},
         },
         response
       );
     });
+    assert.equal(fetchCalls, 1);
+    assert.equal(response.statusCode, 403);
+    assert.equal(response.jsonPayload.error, 'forbidden');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('USDA proxy attempt limit is configurable via env', async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return createFetchResponse({ ok: false, status: 404, jsonPayload: {} });
+  };
+  try {
+    const response = createResponse();
+    await withFakeTimers(() =>
+      withEnv(
+        { USDA_API_KEY: 'test-key', USDA_MAX_ATTEMPTS: '2' },
+        async () => {
+          await handler(
+            {
+              method: 'GET',
+              query: { action: 'search', query: 'omelette' },
+              headers: {},
+            },
+            response
+          );
+        }
+      )
+    );
+    assert.equal(fetchCalls, 2);
     assert.equal(response.statusCode, 404);
-    assert.equal(response.jsonPayload.error, 'USDA search error: 404');
-    assert.deepEqual(response.jsonPayload.details, {});
   } finally {
     globalThis.fetch = originalFetch;
   }

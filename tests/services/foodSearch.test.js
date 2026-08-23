@@ -703,6 +703,70 @@ test('resolveAiFoodLookup forces grounded fallback when USDA fails with rate lim
   assert.equal(result.fallbackUsed, true);
 });
 
+test('resolveAiFoodLookup forces grounded fallback when USDA fails with transient 404', async () => {
+  const result = await resolveAiFoodLookup({
+    entryName: 'omelette',
+    isOnline: true,
+    dependencies: {
+      searchLocal: async () => [],
+      searchUsda: async () => {
+        const error = new Error('USDA search error: 404');
+        error.status = 404;
+        throw error;
+      },
+      searchGrounded: async () => ({
+        name: 'Omelette',
+        per100g: {
+          calories: 154,
+          protein: 11,
+          carbs: 1,
+          fats: 11,
+        },
+        confidence: 'medium',
+      }),
+    },
+  });
+
+  assert.equal(result.status, 'resolved');
+  assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.AI_WEB_SEARCH);
+  assert.equal(result.matchedFood?.name, 'Omelette');
+  assert.equal(result.matchedFood?.per100g?.calories, 154);
+  assert.equal(result.fallbackUsed, true);
+  assert.equal(result.decision, 'try_grounding');
+});
+
+test('resolveAiFoodLookup forces grounded fallback for transient USDA 409 and 425', async () => {
+  for (const status of [409, 425]) {
+    const result = await resolveAiFoodLookup({
+      entryName: 'fried rice',
+      isOnline: true,
+      dependencies: {
+        searchLocal: async () => [],
+        searchUsda: async () => {
+          const error = new Error(`USDA search error: ${status}`);
+          error.status = status;
+          throw error;
+        },
+        searchGrounded: async () => ({
+          name: 'Fried Rice',
+          per100g: {
+            calories: 163,
+            protein: 5,
+            carbs: 28,
+            fats: 3.5,
+          },
+          confidence: 'low',
+        }),
+      },
+    });
+
+    assert.equal(result.status, 'resolved');
+    assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.AI_WEB_SEARCH);
+    assert.equal(result.matchedFood?.name, 'Fried Rice');
+    assert.equal(result.fallbackUsed, true);
+  }
+});
+
 test('resolveAiFoodLookup classifies grounded safety failures with reason codes', async () => {
   const result = await resolveAiFoodLookup({
     entryName: 'rare local dessert',

@@ -912,7 +912,17 @@ const shouldForceGroundingFallbackFromUsdaError = (error) => {
     .toLowerCase()
     .trim();
 
-  if (statusCode === 429 || statusCode === 408) {
+  // FoodData Central edge/WAF throttling intermittently surfaces as HTTP 404
+  // (probed "egg+omelette" → 404 while "eggs" → 200 seconds later). Treat
+  // 404/409/425 like 408/429/5xx so transient upstream failures force the
+  // grounded web fallback instead of silently degrading RAG lookups.
+  if (
+    statusCode === 404 ||
+    statusCode === 408 ||
+    statusCode === 409 ||
+    statusCode === 425 ||
+    statusCode === 429
+  ) {
     return true;
   }
 
