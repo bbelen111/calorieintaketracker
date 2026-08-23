@@ -170,11 +170,18 @@ export const CalorieBreakdownModal = ({
           <p className="text-primary-foreground text-3xl font-extrabold mt-1">
             {targetCalories?.toLocaleString() ?? '—'}
           </p>
-          {formattedDifference !== null && formattedDifference !== 0 && (
-            <p className="text-sm font-semibold mt-2 text-primary-foreground/80">
-              {formattedDifference > 0 ? '+' : ''}
-              {formattedDifference.toLocaleString()} kcal from TDEE
+          {selectedGoal === 'maintenance' && !formattedDifference ? (
+            <p className="text-sm mt-2 font-semibold uppercase tracking-wide text-primary-foreground/80">
+              Maintenance
             </p>
+          ) : (
+            formattedDifference !== null &&
+            formattedDifference !== 0 && (
+              <p className="text-sm font-semibold mt-2 text-primary-foreground/80">
+                {formattedDifference > 0 ? '+' : ''}
+                {formattedDifference.toLocaleString()} kcal from TDEE
+              </p>
+            )
           )}
         </div>
 
