@@ -869,6 +869,7 @@ Online text search and barcode lookup are split across two proxied services for 
 - Recommended Vercel env vars:
   - `USDA_API_KEY=<your FoodData Central API key>`
   - `OPENFOODFACTS_USER_AGENT=EnergyMapCalorieTracker/1.0 (contact@example.com)`
+  - Optional: `USDA_USER_AGENT=<browser-like UA>` (defaults to a Chrome desktop UA; FoodData Central rejects non-browser UAs with HTTP 404 for `/foods/search`)
   - Optional: `OPENFOODFACTS_API_BASE` (defaults to `https://world.openfoodfacts.org`)
 
 **Key functions:**

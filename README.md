@@ -412,6 +412,7 @@ const food = await searchBarcode('012345678901');
 **Configuration:**
 - `VITE_USDA_API_BASE` (default: `https://calorieintaketracker.vercel.app/api/usda`)
 - `VITE_OPENFOODFACTS_API_BASE` (default: `https://calorieintaketracker.vercel.app/api/openfoodfacts`)
+- Server-side (Vercel): `USDA_API_KEY` (required) + optional `USDA_USER_AGENT` (browser-like UA; FDC 404s non-browser UAs on `/foods/search`), optional `OPENFOODFACTS_USER_AGENT` / `OPENFOODFACTS_API_BASE`
 
 ### OpenRouter AI Parsing
 

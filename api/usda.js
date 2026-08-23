@@ -2,14 +2,26 @@
 // Vercel Serverless Function: USDA FoodData Central API Proxy
 // Proxies online text search and keeps API key server-side.
 
-const USDA_API_BASE =
-  process.env.USDA_API_BASE || 'https://api.nal.usda.gov/fdc/v1';
-const USDA_API_KEY = process.env.USDA_API_KEY || '';
+const DEFAULT_USDA_API_BASE = 'https://api.nal.usda.gov/fdc/v1';
+// FoodData Central now rejects requests without a browser-like User-Agent
+// (curl/node clients receive HTTP 404 for /foods/search). Send a neutral
+// browser UA by default; override via the USDA_USER_AGENT env var.
+const DEFAULT_USDA_USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+
+const resolveUsdaApiBase = () =>
+  String(process.env.USDA_API_BASE || '').trim() || DEFAULT_USDA_API_BASE;
+
+const resolveUsdaApiKey = () => String(process.env.USDA_API_KEY || '').trim();
+
+const resolveUsdaUserAgent = () =>
+  String(process.env.USDA_USER_AGENT || '').trim() || DEFAULT_USDA_USER_AGENT;
 
 async function searchFoodsByText(query, page = 1, pageSize = 20) {
-  const normalizedBase = String(USDA_API_BASE || '').endsWith('/')
-    ? String(USDA_API_BASE)
-    : `${USDA_API_BASE}/`;
+  const usdaApiBase = resolveUsdaApiBase();
+  const normalizedBase = usdaApiBase.endsWith('/')
+    ? usdaApiBase
+    : `${usdaApiBase}/`;
   const url = new URL('foods/search', normalizedBase);
   url.searchParams.set('query', query);
   url.searchParams.set('pageNumber', String(page));
@@ -17,10 +29,14 @@ async function searchFoodsByText(query, page = 1, pageSize = 20) {
   ['Foundation', 'SR Legacy', 'Branded'].forEach((dataType) => {
     url.searchParams.append('dataType', dataType);
   });
-  url.searchParams.set('api_key', USDA_API_KEY);
+  url.searchParams.set('api_key', resolveUsdaApiKey());
 
   const response = await fetch(url.toString(), {
     method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      'User-Agent': resolveUsdaUserAgent(),
+    },
   });
 
   const payload = await response.json().catch(() => ({}));
@@ -40,7 +56,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  if (!USDA_API_KEY) {
+  if (!resolveUsdaApiKey()) {
     return res.status(500).json({
       error: 'USDA API key not configured',
       details: 'Set USDA_API_KEY in your deployment environment.',
