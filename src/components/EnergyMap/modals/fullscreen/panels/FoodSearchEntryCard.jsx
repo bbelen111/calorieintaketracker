@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Flame, Info } from 'lucide-react';
 import { formatOne } from '../../../../../utils/formatting/format';
 import { FoodTagBadges } from '../../../common/FoodTagBadges';
 import { buildFinalizedEntryCardState } from '../../../../../utils/food/aiFinalizedEntryState';
@@ -56,6 +56,22 @@ const getLookupStatusLabel = (lookupMeta) => {
       return null;
   }
 };
+
+// Small stat chip used in the macro strip. Kept purely presentational —
+// no logic changes vs. the values already computed above.
+const MacroChip = ({ label, value, dotClassName }) => (
+  <div className="flex flex-col items-center gap-0.5 flex-1 min-w-0">
+    <div className="flex items-center gap-1">
+      <span className={`w-1.5 h-1.5 rounded-full ${dotClassName}`} />
+      <span className="text-[13px] font-semibold text-foreground tabular-nums">
+        {value}
+      </span>
+    </div>
+    <span className="text-[9.5px] uppercase tracking-wide text-muted font-medium">
+      {label}
+    </span>
+  </div>
+);
 
 export const FoodSearchEntryCard = ({
   entry,
@@ -117,24 +133,33 @@ export const FoodSearchEntryCard = ({
     category: entry.category || lookupMeta?.matchedFood?.category || 'custom',
     source: 'ai',
   };
+  const hasDetailsSection =
+    entry.rationale ||
+    (Array.isArray(entry.assumptions) && entry.assumptions.length > 0);
 
   return (
     <motion.div
       key={entryKey}
-      initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{
-        duration: 0.16,
-        ease: 'easeOut',
-      }}
-      className="rounded-xl bg-surface border border-border px-3 py-2"
+      initial={{ opacity: 0, y: 6, scale: 0.99 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+      className="rounded-2xl bg-surface-highlight/50 border border-border/70 shadow-[0_1px_3px_rgba(0,0,0,0.06)] overflow-hidden"
     >
-      <div className="mb-2">
-        <p className="text-sm font-semibold text-foreground leading-snug break-words">
-          {entry.name}
-        </p>
+      {/* Header */}
+      <div className="px-3.5 pt-3.5 pb-3">
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-[14px] font-semibold text-foreground leading-snug tracking-[-0.01em] break-words">
+            {entry.name}
+          </p>
+          {Number.isFinite(Number(entry.grams)) && (
+            <span className="flex-shrink-0 text-[11px] font-medium text-muted bg-surface-highlight rounded-full px-2 py-0.5">
+              {formatOne(entry.grams)}g
+            </span>
+          )}
+        </div>
+
         {finalizedEntryCardState?.primaryBadge ? (
-          <div className="mt-1.5 flex items-center min-h-[24px]">
+          <div className="mt-1.5 flex items-center">
             <span
               className={`inline-flex max-w-full items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${finalizedEntryCardState.primaryBadge.className}`}
             >
@@ -144,91 +169,118 @@ export const FoodSearchEntryCard = ({
             </span>
           </div>
         ) : null}
-      </div>
 
-      <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted mb-2">
-        {Number.isFinite(Number(entry.grams)) && (
-          <span>{formatOne(entry.grams)}g</span>
-        )}
-        <span className="text-accent-emerald">
-          {formatOne(entry.calories)} kcal
-        </span>
-        <span className="text-accent-red">{formatOne(entry.protein)}P</span>
-        <span className="text-accent-amber">{formatOne(entry.carbs)}C</span>
-        <span className="text-accent-yellow">{formatOne(entry.fats)}F</span>
-      </div>
-
-      <FoodTagBadges
-        food={aiTagFood}
-        showCategory
-        showSource={false}
-        showPortion={false}
-        className="mb-2"
-      />
-
-      {isLastResortEstimate &&
-        (primaryLookupReasonMessage || primaryLookupRecoveryHint) && (
-          <div className="mb-2 rounded-lg border border-accent-amber/25 bg-accent-amber/10 px-2.5 py-2 space-y-1">
-            {primaryLookupReasonMessage && (
-              <p className="text-[10px] text-accent-amber">
-                Why estimate: {primaryLookupReasonMessage}
-              </p>
-            )}
-            {primaryLookupRecoveryHint && (
-              <p className="text-[10px] text-accent-blue">
-                Tip: {primaryLookupRecoveryHint}
-              </p>
-            )}
+        {/* Macro strip */}
+        <div className="mt-3 flex items-stretch rounded-xl bg-surface-highlight/60 px-2.5 py-2.5">
+          <div className="flex items-center gap-1 pr-2.5 border-r border-border/60">
+            <Flame size={13} className="text-accent-emerald" />
+            <span className="text-[14px] font-bold text-foreground tabular-nums">
+              {formatOne(entry.calories)}
+            </span>
+            <span className="text-[9.5px] text-muted font-medium">kcal</span>
           </div>
-        )}
+          <div className="flex flex-1 items-center pl-2.5">
+            <MacroChip
+              label="Protein"
+              value={`${formatOne(entry.protein)}g`}
+              dotClassName="bg-accent-red"
+            />
+            <MacroChip
+              label="Carbs"
+              value={`${formatOne(entry.carbs)}g`}
+              dotClassName="bg-accent-amber"
+            />
+            <MacroChip
+              label="Fat"
+              value={`${formatOne(entry.fats)}g`}
+              dotClassName="bg-accent-yellow"
+            />
+          </div>
+        </div>
 
-      {(entry.rationale ||
-        (Array.isArray(entry.assumptions) && entry.assumptions.length > 0)) && (
-        <div className="mb-2 rounded-lg bg-surface-highlight/40 overflow-hidden">
+        <FoodTagBadges
+          food={aiTagFood}
+          showCategory
+          showSource={false}
+          showPortion={false}
+          className="mt-2.5"
+        />
+
+        {isLastResortEstimate &&
+          (primaryLookupReasonMessage || primaryLookupRecoveryHint) && (
+            <div className="mt-2.5 flex items-start gap-1.5 rounded-lg border border-accent-amber/25 bg-accent-amber/10 px-2.5 py-2">
+              <Info
+                size={12}
+                className="text-accent-amber flex-shrink-0 mt-0.5"
+              />
+              <div className="space-y-0.5">
+                {primaryLookupReasonMessage && (
+                  <p className="text-[10px] text-accent-amber leading-snug">
+                    {primaryLookupReasonMessage}
+                  </p>
+                )}
+                {primaryLookupRecoveryHint && (
+                  <p className="text-[10px] text-accent-blue leading-snug">
+                    Tip: {primaryLookupRecoveryHint}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+      </div>
+
+      {/* Details disclosure — flattened, single hairline-divided panel instead of nested boxes */}
+      {hasDetailsSection && (
+        <div className="border-t border-border/60">
           <button
             type="button"
             onClick={() => toggleAiEntryExpansion(entry, entryKey)}
-            className="w-full flex items-center justify-between px-3 py-2.5 md:hover:bg-surface-highlight/60 transition-colors text-left active:scale-[0.99] focus-ring"
+            className="w-full flex items-center justify-between px-3.5 py-2.5 md:hover:bg-surface-highlight/40 transition-colors text-left active:scale-[0.995] focus-ring"
           >
-            <span className="text-[11px] text-muted font-medium">
-              Assumptions
+            <span className="text-[11.5px] text-muted font-medium">
+              Details & assumptions
             </span>
-            <span
-              className={`text-foreground transition-transform duration-300 ${
+            <ChevronDown
+              size={14}
+              className={`text-muted transition-transform duration-300 ${
                 isExpanded ? 'rotate-180' : 'rotate-0'
               }`}
-            >
-              <ChevronDown size={14} />
-            </span>
+            />
           </button>
 
           <div
             className={`overflow-hidden transition-all duration-300 ${
-              isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+              isExpanded ? 'max-h-[640px] opacity-100' : 'max-h-0 opacity-0'
             }`}
           >
-            <div className="px-3 pb-2.5 pt-1.5 border-t border-border/50 space-y-2">
+            <div className="px-3.5 pb-3 pt-0.5 border-t border-border/50 space-y-2.5">
               {entry.rationale && (
-                <p className="text-[11px] text-foreground">{entry.rationale}</p>
+                <p className="text-[11.5px] text-foreground leading-relaxed">
+                  {entry.rationale}
+                </p>
               )}
 
               {Array.isArray(entry.assumptions) &&
                 entry.assumptions.length > 0 && (
-                  <div className="space-y-1">
+                  <ul className="space-y-1">
                     {entry.assumptions.map((assumption) => (
-                      <p key={assumption} className="text-[11px] text-muted">
-                        窶｢ {assumption}
-                      </p>
+                      <li
+                        key={assumption}
+                        className="text-[11.5px] text-muted flex gap-1.5"
+                      >
+                        <span className="text-muted/60">•</span>
+                        <span>{assumption}</span>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 )}
 
               {lookupMeta && (
-                <div className="rounded-lg bg-surface-highlight/40 overflow-hidden">
+                <div className="rounded-xl border border-border/60 bg-surface-highlight/30 overflow-hidden">
                   <button
                     type="button"
                     onClick={() => toggleTraceExpansion(entryKey)}
-                    className="w-full flex items-center justify-between px-3 py-2.5 md:hover:bg-surface-highlight/60 transition-colors text-left active:scale-[0.99] focus-ring"
+                    className="w-full flex items-center justify-between px-3 py-2.5 md:hover:bg-surface-highlight/50 transition-colors text-left active:scale-[0.995] focus-ring"
                   >
                     <div className="flex items-center gap-1.5">
                       <span className="text-[11px] text-muted font-medium">
@@ -240,13 +292,12 @@ export const FoodSearchEntryCard = ({
                         </span>
                       )}
                     </div>
-                    <span
-                      className={`text-foreground transition-transform duration-300 ${
+                    <ChevronDown
+                      size={13}
+                      className={`text-muted transition-transform duration-300 ${
                         isTraceExpanded ? 'rotate-180' : 'rotate-0'
                       }`}
-                    >
-                      <ChevronDown size={14} />
-                    </span>
+                    />
                   </button>
 
                   <div
@@ -256,7 +307,7 @@ export const FoodSearchEntryCard = ({
                         : 'max-h-0 opacity-0'
                     }`}
                   >
-                    <div className="px-3 pb-2.5 pt-1.5 border-t border-border/50 space-y-2">
+                    <div className="px-3 pb-2.5 pt-1 border-t border-border/50 space-y-1.5">
                       <div className="space-y-1">
                         <p className="text-[11px] text-foreground">
                           Source:{' '}
@@ -317,71 +368,63 @@ export const FoodSearchEntryCard = ({
                         </p>
                       )}
 
-                      <div className="rounded-lg bg-surface-highlight/40 overflow-hidden">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            toggleTechnicalTraceExpansion(entryKey)
-                          }
-                          className="w-full flex items-center justify-between px-3 py-2 md:hover:bg-surface-highlight/60 transition-colors text-left active:scale-[0.99] focus-ring"
-                        >
-                          <span className="text-[10px] text-muted font-medium">
-                            Technical details
-                          </span>
-                          <span
-                            className={`text-foreground transition-transform duration-300 ${
-                              isTechnicalTraceExpanded
-                                ? 'rotate-180'
-                                : 'rotate-0'
-                            }`}
-                          >
-                            <ChevronDown size={12} />
-                          </span>
-                        </button>
-
-                        <div
-                          className={`overflow-hidden transition-all duration-300 ${
-                            isTechnicalTraceExpanded
-                              ? 'max-h-72 opacity-100'
-                              : 'max-h-0 opacity-0'
+                      <button
+                        type="button"
+                        onClick={() => toggleTechnicalTraceExpansion(entryKey)}
+                        className="w-full flex items-center justify-between pt-1.5 mt-1 border-t border-border/40 text-left active:scale-[0.995] focus-ring"
+                      >
+                        <span className="text-[10px] text-muted font-medium">
+                          Technical details
+                        </span>
+                        <ChevronDown
+                          size={12}
+                          className={`text-muted transition-transform duration-300 ${
+                            isTechnicalTraceExpanded ? 'rotate-180' : 'rotate-0'
                           }`}
-                        >
-                          <div className="px-3 pb-2.5 pt-1.5 border-t border-border/50 space-y-1">
-                            {lookupMeta.queryUsed && (
-                              <p className="text-[10px] text-muted">
-                                Query used: {lookupMeta.queryUsed}
-                              </p>
-                            )}
-                            {lookupMeta.confidenceComponents && (
-                              <p className="text-[10px] text-muted">
-                                Confidence model: raw{' '}
-                                {Math.round(
-                                  (Number(
-                                    lookupMeta.confidenceComponents.rawScore
-                                  ) || 0) * 100
-                                )}
-                                % ﾃ・trust{' '}
-                                {Number(
-                                  lookupMeta.confidenceComponents
-                                    .trustMultiplier
-                                ) || 0}{' '}
-                                = weighted{' '}
-                                {Math.round(
-                                  (Number(
-                                    lookupMeta.weightedMatchScore ??
-                                      lookupMeta.confidenceComponents
-                                        .weightedScore
-                                  ) || 0) * 100
-                                )}
-                                %
-                              </p>
-                            )}
-                            {lookupMeta.status && (
-                              <p className="text-[10px] text-muted">
-                                Internal status: {lookupMeta.status}
-                              </p>
-                            )}
-                          </div>
+                        />
+                      </button>
+
+                      <div
+                        className={`overflow-hidden transition-all duration-300 ${
+                          isTechnicalTraceExpanded
+                            ? 'max-h-72 opacity-100'
+                            : 'max-h-0 opacity-0'
+                        }`}
+                      >
+                        <div className="pt-1.5 space-y-1">
+                          {lookupMeta.queryUsed && (
+                            <p className="text-[10px] text-muted">
+                              Query used: {lookupMeta.queryUsed}
+                            </p>
+                          )}
+                          {lookupMeta.confidenceComponents && (
+                            <p className="text-[10px] text-muted">
+                              Confidence model: raw{' '}
+                              {Math.round(
+                                (Number(
+                                  lookupMeta.confidenceComponents.rawScore
+                                ) || 0) * 100
+                              )}
+                              % × trust{' '}
+                              {Number(
+                                lookupMeta.confidenceComponents.trustMultiplier
+                              ) || 0}{' '}
+                              = weighted{' '}
+                              {Math.round(
+                                (Number(
+                                  lookupMeta.weightedMatchScore ??
+                                    lookupMeta.confidenceComponents
+                                      .weightedScore
+                                ) || 0) * 100
+                              )}
+                              %
+                            </p>
+                          )}
+                          {lookupMeta.status && (
+                            <p className="text-[10px] text-muted">
+                              Internal status: {lookupMeta.status}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -393,7 +436,8 @@ export const FoodSearchEntryCard = ({
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+      {/* Actions — one clear primary action, two quieter tinted secondary actions */}
+      <div className="px-3.5 pb-3.5 pt-3 border-t border-border/60 space-y-1.5">
         <button
           type="button"
           onClick={() =>
@@ -402,42 +446,44 @@ export const FoodSearchEntryCard = ({
             })
           }
           disabled={isLogged}
-          className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all press-feedback focus-ring ${
+          className={`w-full px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-all press-feedback focus-ring ${
             isLogged
               ? 'bg-surface-highlight border border-border text-muted cursor-not-allowed'
-              : 'bg-primary text-primary-foreground md:hover:brightness-110'
+              : 'bg-primary text-primary-foreground shadow-sm md:hover:brightness-110'
           }`}
         >
-          {isLogged ? 'Logged' : 'Log'}
+          {isLogged ? 'Logged' : 'Log entry'}
         </button>
-        <button
-          type="button"
-          onClick={() =>
-            handleLogAiEntry(entry, entryKey, {
-              closeModal: true,
-            })
-          }
-          disabled={isLogged}
-          className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all press-feedback focus-ring ${
-            isLogged
-              ? 'bg-surface-highlight border border-border text-muted cursor-not-allowed'
-              : 'bg-accent-blue text-primary-foreground md:hover:brightness-110'
-          }`}
-        >
-          {isLogged ? 'Logged' : 'Log & Exit'}
-        </button>
-        <button
-          type="button"
-          onClick={() => handleSaveAiFavourite(entry, entryKey, index)}
-          disabled={isFavourited}
-          className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all press-feedback focus-ring ${
-            isFavourited
-              ? 'bg-accent-green/15 border border-accent-green/35 text-accent-green cursor-not-allowed'
-              : 'bg-accent-green text-primary-foreground md:hover:brightness-110'
-          }`}
-        >
-          {isFavourited ? 'Favourited' : 'Save & Favourite'}
-        </button>
+        <div className="grid grid-cols-2 gap-1.5">
+          <button
+            type="button"
+            onClick={() =>
+              handleLogAiEntry(entry, entryKey, {
+                closeModal: true,
+              })
+            }
+            disabled={isLogged}
+            className={`px-2.5 py-2 rounded-xl text-[12px] font-semibold transition-all press-feedback focus-ring ${
+              isLogged
+                ? 'bg-surface-highlight border border-border text-muted cursor-not-allowed'
+                : 'bg-accent-blue/10 text-accent-blue md:hover:bg-accent-blue/15'
+            }`}
+          >
+            {isLogged ? 'Logged' : 'Log & exit'}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSaveAiFavourite(entry, entryKey, index)}
+            disabled={isFavourited}
+            className={`px-2.5 py-2 rounded-xl text-[12px] font-semibold transition-all press-feedback focus-ring ${
+              isFavourited
+                ? 'bg-accent-green/15 text-accent-green cursor-not-allowed'
+                : 'bg-accent-green/10 text-accent-green md:hover:bg-accent-green/15'
+            }`}
+          >
+            {isFavourited ? 'Favourited' : 'Save & favourite'}
+          </button>
+        </div>
       </div>
     </motion.div>
   );
