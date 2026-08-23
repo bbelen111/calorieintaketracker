@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
   Activity,
   AlertTriangle,
+  BarChart3,
   CheckCircle2,
   ChevronLeft,
   Flame,
@@ -46,6 +47,7 @@ export const AdaptiveThermogenesisModal = ({
   isClosing,
   onClose,
   onOpenInfo,
+  onOpenRollingBalance,
 }) => {
   const [tab, setTab] = useState('smart');
   const store = useEnergyMapStore(
@@ -116,14 +118,25 @@ export const AdaptiveThermogenesisModal = ({
             </h3>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onOpenInfo}
-          aria-label="Adaptive Thermogenesis info"
-          className="text-muted md:hover:text-foreground transition-all pressable-inline focus-ring"
-        >
-          <HelpCircle size={20} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onOpenRollingBalance?.()}
+            aria-label="View Smart analysis in Rolling Energy Balance"
+            title="View in Rolling Energy Balance"
+            className="text-muted md:hover:text-foreground transition-all pressable-inline focus-ring"
+          >
+            <BarChart3 size={20} />
+          </button>
+          <button
+            type="button"
+            onClick={onOpenInfo}
+            aria-label="Adaptive Thermogenesis info"
+            className="text-muted md:hover:text-foreground transition-all pressable-inline focus-ring"
+          >
+            <HelpCircle size={20} />
+          </button>
+        </div>
       </header>
 
       <main className="flex-1 bg-surface border-t border-border overflow-y-auto flex flex-col">
@@ -226,7 +239,10 @@ export const AdaptiveThermogenesisModal = ({
             {preview && <PreviewNote />}
             <div key={tab} className="tracker-graph-switch px-4 py-4 flex-1">
               {tab === 'smart' ? (
-                <SmartView result={data.smart} />
+                <SmartView
+                  result={data.smart}
+                  onOpenRollingBalance={onOpenRollingBalance}
+                />
               ) : (
                 <TimelineView
                   result={data.crude}
@@ -274,7 +290,7 @@ function Metric({ label, value, detail, tone = 'text-foreground' }) {
   );
 }
 
-function SmartView({ result }) {
+function SmartView({ result, onOpenRollingBalance }) {
   if (!result)
     return <EmptyState message="No smart-mode result was provided." />;
   if (result.insufficientData) return <SmartSetup details={result.details} />;
@@ -308,11 +324,13 @@ function SmartView({ result }) {
           label="Expected"
           value={signed(signal.expectedWeightDeltaKg, ' kg')}
           caption="from energy balance"
+          onClick={() => onOpenRollingBalance?.(details)}
         />
         <Comparison
           label="Observed"
           value={signed(signal.observedWeightDeltaKg, ' kg')}
           caption="from weight trend"
+          onClick={() => onOpenRollingBalance?.(details)}
         />
       </div>
       <div className="rounded-xl border border-border bg-surface-highlight/40 overflow-hidden">
@@ -494,12 +512,29 @@ function Rail({ value, tone }) {
     </div>
   );
 }
-function Comparison({ label, value, caption }) {
-  return (
-    <div className="rounded-xl border border-border bg-surface-highlight/40 p-3">
+function Comparison({ label, value, caption, onClick }) {
+  const content = (
+    <>
       <p className="text-xs text-muted">{label}</p>
       <p className="text-foreground text-xl font-bold mt-1">{value}</p>
       <p className="text-muted text-[11px] mt-1">{caption}</p>
+    </>
+  );
+  if (typeof onClick === 'function') {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={`View ${label.toLowerCase()} analysis in Rolling Energy Balance`}
+        className="rounded-xl border border-border bg-surface-highlight/40 p-3 text-left md:hover:bg-surface-highlight/70 transition-colors pressable-card focus-ring"
+      >
+        {content}
+      </button>
+    );
+  }
+  return (
+    <div className="rounded-xl border border-border bg-surface-highlight/40 p-3">
+      {content}
     </div>
   );
 }

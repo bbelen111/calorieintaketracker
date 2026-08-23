@@ -87,15 +87,18 @@ export const parseDailyEnergyBalance = (snapshot) => {
  * @param {object|Array} params.snapshots  – `userData.dailySnapshots`
  * @param {number} params.windowDays        – requested window size
  * @param {string} [params.asOfDate]        – `YYYY-MM-DD` reference date (local)
+ * @param {string} [params.startDate]       – optional inclusive range start.
  * @returns {Array<{date, tdee, intake, balance}>}
  */
 export const selectRollingBalanceDays = ({
   snapshots,
   windowDays,
   asOfDate,
+  startDate,
 }) => {
   const windowDaysResolved = resolveWindowDays(windowDays);
   const asOf = normalizeDateKey(asOfDate) || getTodayDateKey();
+  const rangeStart = normalizeDateKey(startDate);
   if (!snapshots || typeof snapshots !== 'object') {
     return [];
   }
@@ -107,7 +110,12 @@ export const selectRollingBalanceDays = ({
   const byDate = new Map();
   for (const snapshot of entries) {
     const parsed = parseDailyEnergyBalance(snapshot);
-    if (parsed && parsed.date <= asOf) {
+    if (
+      parsed &&
+      parsed.date <= asOf &&
+      (!rangeStart || rangeStart <= asOf) &&
+      (!rangeStart || parsed.date >= rangeStart)
+    ) {
       // Last encountered wins for duplicate dates.
       byDate.set(parsed.date, parsed);
     }
@@ -143,6 +151,7 @@ export const getDailyBalanceKind = (balance) => {
  * @param {object|Array} params.snapshots            – `userData.dailySnapshots`
  * @param {number} [params.windowDays]               – requested window size (default 7)
  * @param {string} [params.asOfDate]                 – `YYYY-MM-DD` reference date (local)
+ * @param {string} [params.startDate]                – optional inclusive range start
  * @param {number} [params.goalDailyBalanceTarget]   – target daily deficit/surplus in
  *                                                     balance convention (positive = deficit),
  *                                                     e.g. +300 for a cut. Pass 0/undefined to
@@ -164,6 +173,7 @@ export const calculateRollingEnergyBalance = ({
   snapshots,
   windowDays,
   asOfDate,
+  startDate,
   goalDailyBalanceTarget,
 }) => {
   const windowDaysResolved = resolveWindowDays(windowDays);
@@ -171,6 +181,7 @@ export const calculateRollingEnergyBalance = ({
     snapshots,
     windowDays: windowDaysResolved,
     asOfDate,
+    startDate,
   });
 
   const trackedDays = days.length;

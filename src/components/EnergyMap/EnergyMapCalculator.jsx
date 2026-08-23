@@ -847,6 +847,55 @@ export const EnergyMapCalculator = () => {
   const calorieTargetModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
   // ...existing code...
 
+  // --- Cross-navigation: Adaptive Thermogenesis <-> Rolling Energy Balance ---
+  // Transient, parent-owned analysis context. It pins Rolling Energy Balance to
+  // the Smart signal's exact 28-calendar-day source range; it never changes any
+  // calculation, only which days the ledger is viewing.
+  const [energyAnalysisContext, setEnergyAnalysisContext] = useState(null);
+
+  const dismissEnergyAnalysisContext = useCallback(() => {
+    setEnergyAnalysisContext(null);
+  }, []);
+
+  const handleOpenRollingBalanceFromThermogenesis = useCallback(
+    (smartDetails) => {
+      const rangeStart = normalizeDateKey(smartDetails?.windowStart);
+      const rangeEnd = normalizeDateKey(smartDetails?.windowEnd);
+      if (rangeStart && rangeEnd && rangeStart <= rangeEnd) {
+        setEnergyAnalysisContext({
+          origin: 'adaptive-thermogenesis',
+          rangeStart,
+          rangeEnd,
+        });
+      }
+      rollingEnergyBalanceModal.open();
+      adaptiveThermogenesisModal.requestClose();
+    },
+    [adaptiveThermogenesisModal, rollingEnergyBalanceModal]
+  );
+
+  const handleOpenThermogenesisFromRollingBalance = useCallback(() => {
+    adaptiveThermogenesisModal.open();
+    rollingEnergyBalanceModal.requestClose();
+  }, [adaptiveThermogenesisModal, rollingEnergyBalanceModal]);
+
+  // The analysis context is transient: once Rolling Balance has fully closed
+  // (exit animation included), drop any leftover pinned range so the next
+  // visit starts from the ordinary ledger view. Deferred to the next frame to
+  // match the modal's deferred-scroll effect idiom.
+  useEffect(() => {
+    if (
+      rollingEnergyBalanceModal.isOpen ||
+      rollingEnergyBalanceModal.isClosing
+    ) {
+      return undefined;
+    }
+    const frame = requestAnimationFrame(() => {
+      setEnergyAnalysisContext((prev) => (prev === null ? prev : null));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [rollingEnergyBalanceModal.isOpen, rollingEnergyBalanceModal.isClosing]);
+
   const isAnyModalOpen = [
     confirmActionModal,
     foodPortionModal,
@@ -4007,6 +4056,7 @@ export const EnergyMapCalculator = () => {
             isClosing={adaptiveThermogenesisModal.isClosing}
             onClose={adaptiveThermogenesisModal.requestClose}
             onOpenInfo={adaptiveThermogenesisInfoModal.open}
+            onOpenRollingBalance={handleOpenRollingBalanceFromThermogenesis}
           />
         </Suspense>
       )}
@@ -4018,6 +4068,9 @@ export const EnergyMapCalculator = () => {
             isClosing={rollingEnergyBalanceModal.isClosing}
             onClose={rollingEnergyBalanceModal.requestClose}
             onOpenInfo={rollingEnergyBalanceInfoModal.open}
+            analysisContext={energyAnalysisContext}
+            onDismissAnalysisContext={dismissEnergyAnalysisContext}
+            onOpenThermogenesis={handleOpenThermogenesisFromRollingBalance}
           />
         </Suspense>
       )}

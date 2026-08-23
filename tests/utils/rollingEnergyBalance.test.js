@@ -102,6 +102,52 @@ test('fewer than N available days still averages over tracked days', () => {
   assert.equal(result.insufficientData, true);
 });
 
+test('an explicit range excludes older valid days from a sparse window', () => {
+  const days = [
+    snapshot('2026-08-01', 2400, 2100),
+    snapshot('2026-08-10', 2400, 2200),
+    snapshot('2026-08-12', 2400, 2300),
+    snapshot('2026-08-14', 2400, 2150),
+  ];
+  const result = calculateRollingEnergyBalance({
+    snapshots: buildMap(days),
+    windowDays: 7,
+    asOfDate: AS_OF,
+    startDate: '2026-08-10',
+  });
+
+  assert.deepEqual(
+    result.days.map((day) => day.date),
+    ['2026-08-10', '2026-08-12', '2026-08-14']
+  );
+  // Balances: 200 + 100 + 250.
+  assert.equal(result.rollingBalance, 550);
+});
+
+test('an explicit range is bounded on both sides by start and as-of dates', () => {
+  const days = [
+    snapshot('2026-08-01', 2400, 2100), // before range — excluded
+    snapshot('2026-08-10', 2400, 2200), // +200
+    snapshot('2026-08-12', 2400, 2300), // +100
+    snapshot('2026-08-14', 2400, 2150), // +250
+    snapshot('2026-08-20', 2400, 1000), // after as-of — excluded
+  ];
+  const result = calculateRollingEnergyBalance({
+    snapshots: buildMap(days),
+    windowDays: 28,
+    asOfDate: '2026-08-14',
+    startDate: '2026-08-10',
+  });
+
+  assert.deepEqual(
+    result.days.map((day) => day.date),
+    ['2026-08-10', '2026-08-12', '2026-08-14']
+  );
+  assert.equal(result.rollingBalance, 550);
+  // 3 tracked days inside a 28-day calendar range is still insufficient.
+  assert.equal(result.insufficientData, true);
+});
+
 test('3/7/14/28-day windows respect the requested size', () => {
   const days = [];
   for (let i = 28; i >= 1; i -= 1) {

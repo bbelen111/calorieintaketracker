@@ -7,12 +7,14 @@
   useState,
 } from 'react';
 import {
+  Activity,
   ChevronLeft,
   BarChart3,
   TrendingDown,
   TrendingUp,
   Minus,
   HelpCircle,
+  X,
 } from 'lucide-react';
 import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
@@ -31,6 +33,7 @@ import {
 import {
   calculateWeightTrend,
   formatDateLabel,
+  normalizeDateKey,
 } from '../../../../utils/measurements/weight';
 import { sortBodyFatEntries } from '../../../../utils/measurements/bodyFat';
 import { formatWeeklyRate } from '../../../../utils/visuals/trackerHelpers';
@@ -81,6 +84,12 @@ const TOOLTIP_VERTICAL_OFFSET = 27;
 const SCROLL_SETTLE_DELAY_MS = 140;
 const GRAPH_ENTER_DURATION_MS = 280;
 const GRAPH_SWITCH_DURATION_MS = 220;
+/**
+ * Max span (inclusive calendar days) for a pinned cross-navigation analysis
+ * range. The Smart thermogenesis signal is exactly 28 calendar days; ranges
+ * outside 1..28 are ignored so the modal falls back to the ordinary ledger.
+ */
+const SMART_ANALYSIS_MAX_SPAN_DAYS = 28;
 
 // ---------------------------------------------------------------------------
 // Formatting + date helpers (tracker-modal conventions)
@@ -145,6 +154,19 @@ const formatTimelineLabel = (dateStr) => {
     month: 'numeric',
     day: 'numeric',
   });
+};
+
+// Compact range label for the pinned Smart-signal chip ("Jul 26 – Aug 22").
+const formatRangeLabel = (startKey, endKey) => {
+  const start = new Date(`${startKey}T00:00:00Z`);
+  const end = new Date(`${endKey}T00:00:00Z`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return '';
+  }
+  const options = { month: 'short', day: 'numeric', timeZone: 'UTC' };
+  const startLabel = start.toLocaleDateString('en-US', options);
+  const endLabel = end.toLocaleDateString('en-US', options);
+  return startLabel === endLabel ? startLabel : `${startLabel} – ${endLabel}`;
 };
 
 const toDateKey = (d) => formatDateKeyUtc(d);
@@ -234,6 +256,12 @@ export const RollingEnergyBalanceModal = ({
   isClosing,
   onClose,
   onOpenInfo,
+  // Pinned cross-navigation context ({ origin, rangeStart, rangeEnd }) from the
+  // Adaptive Thermogenesis modal. Transient and orchestrator-owned; purely a
+  // viewing lens — it never changes how balances are computed.
+  analysisContext,
+  onDismissAnalysisContext,
+  onOpenThermogenesis,
 }) => {
   const [windowDays, setWindowDays] = useState(
     DEFAULT_ROLLING_BALANCE_WINDOW_DAYS
@@ -341,8 +369,53 @@ export const RollingEnergyBalanceModal = ({
     [store.dailySnapshots, windowDays, todayKey, store.goalDailyBalanceTarget]
   );
 
-  // Header stats reflect the currently settled carousel page (if scrolled).
-  const data = settledWindowData ?? latestWindowData;
+  // --- Pinned Smart-signal view (cross-navigation from Adaptive Thermogenesis) ---
+  // When the orchestrator supplies an adaptive-thermogenesis context, this
+  // modal views the Smart signal's exact calendar source range instead of the
+  // latest-N-valid-days ledger window. The calculation itself stays canonical
+  // (same calculateRollingEnergyBalance, bounded by startDate + asOfDate).
+  const analysisRange = useMemo(() => {
+    if (analysisContext?.origin !== 'adaptive-thermogenesis') return null;
+    const start = normalizeDateKey(analysisContext?.rangeStart);
+    const end = normalizeDateKey(analysisContext?.rangeEnd);
+    if (!start || !end || start > end) return null;
+    const spanDays =
+      Math.round(
+        (new Date(`${end}T00:00:00Z`) - new Date(`${start}T00:00:00Z`)) /
+          86400000
+      ) + 1;
+    if (spanDays < 1 || spanDays > SMART_ANALYSIS_MAX_SPAN_DAYS) return null;
+    return { start, end, spanDays };
+  }, [analysisContext]);
+  const analysisActive = Boolean(analysisRange);
+
+  const analysisWindowData = useMemo(() => {
+    if (!analysisRange) return null;
+    return calculateRollingEnergyBalance({
+      snapshots: store.dailySnapshots,
+      windowDays: SMART_ANALYSIS_MAX_SPAN_DAYS,
+      startDate: analysisRange.start,
+      asOfDate: analysisRange.end,
+      goalDailyBalanceTarget: store.goalDailyBalanceTarget,
+    });
+  }, [analysisRange, store.dailySnapshots, store.goalDailyBalanceTarget]);
+
+  // Carousel slot index of the range's final day (scroll anchor).
+  const analysisEndSlotIndex = useMemo(() => {
+    if (!analysisRange) return -1;
+    let index = -1;
+    timelineSlots.forEach((slot, i) => {
+      if (slot.date === analysisRange.end) index = i;
+    });
+    return index;
+  }, [analysisRange, timelineSlots]);
+
+  // Header stats reflect the pinned Smart range while active, otherwise the
+  // currently settled carousel page (if scrolled).
+  const data =
+    analysisActive && analysisWindowData
+      ? analysisWindowData
+      : (settledWindowData ?? latestWindowData);
 
   const weightTrend = useMemo(
     () => calculateWeightTrend(store.weightEntries ?? [], 7),
@@ -403,22 +476,24 @@ export const RollingEnergyBalanceModal = ({
     return () => observer.disconnect();
   }, [isOpen]);
 
-  // Scroll to latest on open and when the window mode changes.
+  // Scroll on open and when the window mode changes: to the pinned
+  // Smart-range end while the analysis view is active, otherwise to latest.
   useEffect(() => {
     if (!isOpen) return;
     const frame = requestAnimationFrame(() => {
       setActivePageIndex(-1);
       setSettledPageIndex(-1);
       const node = carouselRef.current;
-      if (node) {
-        node.scrollTo({
-          left: node.scrollWidth - node.clientWidth,
-          behavior: 'instant',
-        });
-      }
+      if (!node) return;
+      const step = node.clientWidth / windowDays;
+      const targetLeft =
+        analysisEndSlotIndex >= 0
+          ? Math.max(0, (analysisEndSlotIndex + 1) * step - node.clientWidth)
+          : node.scrollWidth - node.clientWidth;
+      node.scrollTo({ left: targetLeft, behavior: 'instant' });
     });
     return () => cancelAnimationFrame(frame);
-  }, [isOpen]);
+  }, [isOpen, analysisEndSlotIndex, windowDays]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -426,15 +501,16 @@ export const RollingEnergyBalanceModal = ({
       setActivePageIndex(-1);
       setSettledPageIndex(-1);
       const node = carouselRef.current;
-      if (node) {
-        node.scrollTo({
-          left: node.scrollWidth - node.clientWidth,
-          behavior: 'instant',
-        });
-      }
+      if (!node) return;
+      const step = node.clientWidth / windowDays;
+      const targetLeft =
+        analysisEndSlotIndex >= 0
+          ? Math.max(0, (analysisEndSlotIndex + 1) * step - node.clientWidth)
+          : node.scrollWidth - node.clientWidth;
+      node.scrollTo({ left: targetLeft, behavior: 'instant' });
     }, 50);
     return () => clearTimeout(timeout);
-  }, [windowDays, isOpen]);
+  }, [windowDays, isOpen, analysisEndSlotIndex]);
 
   // --- Chart geometry ---
   const chartWidth = graphViewportWidth || 300;
@@ -450,6 +526,25 @@ export const RollingEnergyBalanceModal = ({
   const STEP = chartWidth / windowDays;
   const PAD = STEP / 2;
   const totalWidth = totalSlots * STEP;
+
+  // Highlight band behind the bars for the pinned Smart-analysis range.
+  const analysisBand = useMemo(() => {
+    if (!analysisRange) return null;
+    let startIdx = -1;
+    let endIdx = -1;
+    timelineSlots.forEach((slot, index) => {
+      if (slot.date < analysisRange.start || slot.date > analysisRange.end) {
+        return;
+      }
+      if (startIdx === -1) startIdx = index;
+      endIdx = index;
+    });
+    if (startIdx === -1 || endIdx === -1 || endIdx < startIdx) return null;
+    return {
+      x1: Math.max(0, PAD + startIdx * STEP - STEP / 2),
+      x2: Math.min(totalWidth, PAD + endIdx * STEP + STEP / 2),
+    };
+  }, [analysisRange, timelineSlots, PAD, STEP, totalWidth]);
 
   // Global y-scale across the whole visible timeline (stable while scrolling).
   const maxAbs = useMemo(() => {
@@ -710,6 +805,20 @@ export const RollingEnergyBalanceModal = ({
 
   const handleWindowChange = useCallback(
     (next) => {
+      // While the pinned Smart-range view is active, any window-pill tap first
+      // exits back to the ordinary ledger window.
+      if (analysisActive) {
+        onDismissAnalysisContext?.();
+        if (selectedDate) closeTooltip();
+        triggerGraphAnimation('switch');
+        if (next !== windowDays) {
+          setWindowDays(next);
+          setSettledPageIndex(-1);
+          setSettledWindowData(null);
+          settledAsOfRef.current = null;
+        }
+        return;
+      }
       if (next === windowDays) return;
       if (selectedDate) closeTooltip();
       setWindowDays(next);
@@ -718,8 +827,37 @@ export const RollingEnergyBalanceModal = ({
       settledAsOfRef.current = null;
       triggerGraphAnimation('switch');
     },
-    [windowDays, selectedDate, closeTooltip, triggerGraphAnimation]
+    [
+      windowDays,
+      selectedDate,
+      closeTooltip,
+      triggerGraphAnimation,
+      analysisActive,
+      onDismissAnalysisContext,
+    ]
   );
+
+  // Exiting the pinned Smart-range view re-anchors the carousel to the latest
+  // ledger page. Covers same-window-pill dismissal, where no other scroll
+  // effect re-runs because windowDays did not change. Deferred to the next
+  // frame, matching the modal's other scroll effects.
+  const wasAnalysisActiveRef = useRef(false);
+  useEffect(() => {
+    const wasActive = wasAnalysisActiveRef.current;
+    wasAnalysisActiveRef.current = analysisActive;
+    if (!wasActive || analysisActive || !isOpen) {
+      return undefined;
+    }
+    const frame = requestAnimationFrame(() => {
+      setActivePageIndex(-1);
+      setSettledPageIndex(-1);
+      carouselRef.current?.scrollTo({
+        left: carouselRef.current.scrollWidth - carouselRef.current.clientWidth,
+        behavior: 'instant',
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [analysisActive, isOpen]);
 
   const graphAnimationClass =
     graphAnimationPhase === 'enter'
@@ -737,6 +875,9 @@ export const RollingEnergyBalanceModal = ({
   // --- Render a single bar (StepTracker-style) ---
   const renderBar = (bar) => {
     const isSelected = bar.date === selectedDate;
+    const inAnalysisRange =
+      !analysisActive ||
+      (bar.date >= analysisRange.start && bar.date <= analysisRange.end);
     const barW = BAR_WIDTH_BY_WINDOW[windowDays] ?? 24;
     const barR = BAR_RADIUS_BY_WINDOW[windowDays] ?? 6;
     const barColor = KIND_META[bar.kind].fill;
@@ -769,7 +910,11 @@ export const RollingEnergyBalanceModal = ({
             ry={barR}
             fill={barColor}
             className={`transition-opacity tracker-bar-animated ${
-              isSelected ? 'opacity-100' : 'md:hover:opacity-90'
+              isSelected
+                ? 'opacity-100'
+                : inAnalysisRange
+                  ? 'md:hover:opacity-90'
+                  : 'opacity-25'
             }`}
             style={{
               filter: glow,
@@ -891,14 +1036,27 @@ export const RollingEnergyBalanceModal = ({
               Rolling Energy Balance
             </h3>
           </div>
-          <button
-            type="button"
-            onClick={onOpenInfo}
-            aria-label="Rolling Energy Balance info"
-            className="text-muted md:hover:text-foreground transition-all pressable-inline focus-ring"
-          >
-            <HelpCircle size={20} />
-          </button>
+          <div className="flex items-center gap-2">
+            {typeof onOpenThermogenesis === 'function' && (
+              <button
+                type="button"
+                onClick={onOpenThermogenesis}
+                aria-label="View in Adaptive Thermogenesis"
+                title="View in Adaptive Thermogenesis"
+                className="text-muted md:hover:text-foreground transition-all pressable-inline focus-ring"
+              >
+                <Activity size={20} />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onOpenInfo}
+              aria-label="Rolling Energy Balance info"
+              className="text-muted md:hover:text-foreground transition-all pressable-inline focus-ring"
+            >
+              <HelpCircle size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Main content area */}
@@ -912,7 +1070,8 @@ export const RollingEnergyBalanceModal = ({
                   width: `calc((100% - 20px) / ${ROLLING_BALANCE_WINDOWS.length})`,
                   left: `calc(${ROLLING_BALANCE_WINDOWS.indexOf(windowDays)} * ((100% - 20px) / ${ROLLING_BALANCE_WINDOWS.length}) + ${4 + ROLLING_BALANCE_WINDOWS.indexOf(windowDays) * 4}px)`,
                   transition:
-                    'left 0.28s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.28s ease-out, box-shadow 0.28s ease-out',
+                    'left 0.28s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.28s ease-out, box-shadow 0.28s ease-out, opacity 0.2s ease-out',
+                  opacity: analysisActive ? 0 : 1,
                 }}
               />
               {ROLLING_BALANCE_WINDOWS.map((window) => (
@@ -921,7 +1080,7 @@ export const RollingEnergyBalanceModal = ({
                   type="button"
                   onClick={() => handleWindowChange(window)}
                   className={`relative z-10 flex-1 flex items-center justify-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    window === windowDays
+                    window === windowDays && !analysisActive
                       ? 'text-primary-foreground'
                       : 'text-muted md:hover:text-foreground'
                   }`}
@@ -930,12 +1089,35 @@ export const RollingEnergyBalanceModal = ({
                 </button>
               ))}
             </div>
-            <p className="text-xs text-muted mt-2">
-              {`${windowDays}-day balance`}
-              <span className="text-muted/70">
-                {` · ${data.trackedDays} of ${data.windowDays} days tracked`}
-              </span>
-            </p>
+            {analysisActive && analysisRange ? (
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <p className="text-xs text-muted min-w-0">
+                  <span className="font-semibold text-accent-purple">
+                    Smart signal
+                  </span>
+                  {` · ${formatRangeLabel(analysisRange.start, analysisRange.end)}`}
+                  <span className="text-muted/70">
+                    {` · ${data.trackedDays} of ${analysisRange.spanDays} days tracked`}
+                  </span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => handleWindowChange(windowDays)}
+                  aria-label="Exit Smart signal view"
+                  title="Back to ledger"
+                  className="flex-shrink-0 rounded-lg p-1.5 text-accent-purple md:hover:bg-surface-highlight/50 pressable-inline focus-ring"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ) : (
+              <p className="text-xs text-muted mt-2">
+                {`${windowDays}-day balance`}
+                <span className="text-muted/70">
+                  {` · ${data.trackedDays} of ${data.windowDays} days tracked`}
+                </span>
+              </p>
+            )}
           </div>
 
           {!hasAnyData ? (
@@ -1068,6 +1250,39 @@ export const RollingEnergyBalanceModal = ({
                                 strokeDasharray="6 4"
                                 opacity={0.85}
                               />
+                            )}
+                            {/* Pinned Smart-analysis range band (behind bars) */}
+                            {analysisBand && (
+                              <g pointerEvents="none">
+                                <rect
+                                  x={analysisBand.x1}
+                                  y={0}
+                                  width={Math.max(
+                                    analysisBand.x2 - analysisBand.x1,
+                                    0
+                                  )}
+                                  height={chartHeight}
+                                  fill="rgb(var(--accent-purple) / 0.08)"
+                                />
+                                <line
+                                  x1={analysisBand.x1}
+                                  x2={analysisBand.x1}
+                                  y1={0}
+                                  y2={chartHeight}
+                                  stroke="rgb(var(--accent-purple) / 0.5)"
+                                  strokeWidth={1}
+                                  strokeDasharray="4 4"
+                                />
+                                <line
+                                  x1={analysisBand.x2}
+                                  x2={analysisBand.x2}
+                                  y1={0}
+                                  y2={chartHeight}
+                                  stroke="rgb(var(--accent-purple) / 0.5)"
+                                  strokeWidth={1}
+                                  strokeDasharray="4 4"
+                                />
+                              </g>
                             )}
                             {bars.map((bar) => renderBar(bar))}
                           </svg>
