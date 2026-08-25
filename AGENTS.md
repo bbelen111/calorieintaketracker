@@ -624,6 +624,38 @@ Do not duplicate target planning formulas in components.
 
 ---
 
+## Measurement Averages, Trend Fallbacks & Chart Gap Handling
+
+### Trapezoidal N-Day Averages
+
+- `calculateNDayWeightAverage(entries, n, endDateKey?)` (`utils/measurements/weight.js`) and `calculateNDayBodyFatAverage(entries, n, endDateKey?)` (`utils/measurements/bodyFat.js`) average an **exact `n`-day UTC calendar window anchored to today** (or an explicit `endDateKey`).
+- Both delegate to the shared exported `calculateTrapezoidalWindowAverage(sortedEntries, n, anchorKey, valueField)` in `weight.js` (reused by `bodyFat.js`). Never duplicate the integral math in components or re-implement per-module copies.
+- Mechanics: samples form a polyline that is linearly interpolated between measurements and **held flat at the window edges**, so the integral always spans exactly `n` days whenever any sample exists (the right boundary is midnight *after* the window end so `n` inclusive day keys map to exactly `n` integrated days). Returns `null` when the window holds no data — callers must surface that honestly instead of substituting zeros. Result is rounded to 1 decimal.
+
+### Window Date Keys
+
+- `getWindowDateKeys(endDateKey, n)` in `utils/data/dateKeys.js` builds exactly `n` consecutive UTC date keys `[E−(n−1) … E]`. It validates format **and** canonical round-trip (rejects non-canonical keys like `'2026-02-31'` that JS date coercion would silently accept) and returns `[]` on invalid input. Use it for any day-window iteration instead of hand-rolled date arithmetic.
+
+### Capped Trend Fallback (data honesty)
+
+- `calculateWeightTrend` / `calculateBodyFatTrend` fall back to the last two entries **only when their span ≤ `MAX_TREND_FALLBACK_SPAN_DAYS` (14 days)**. Otherwise they return `'Need more data'` with `isStaleFallback: true` instead of presenting a stale rate as current behaviour.
+
+### Smart AT Staleness Gate
+
+- `SMART_WEIGHT_STALENESS_MAX_AGE_DAYS = 3` (exported from `utils/calculations/adaptiveThermogenesis.js`). `getAdaptiveThermogenesisSmartModeDataStatus` gates the smart signal on weigh-in freshness: when the newest weigh-in is older than 3 days relative to the requested `dateKey`, it returns `{ isSufficient: false, reason: 'weight-data-stale', latestWeightEntryAgeDays, stalenessMaxAgeDays, ... }` regardless of how many historical entries sit inside the 28-day window, and `computeSmartCorrection` deactivates (correction 0, `insufficientData`). `AdaptiveThermogenesisModal` renders dedicated recovery copy for this reason ("Your latest weigh-in is too old…").
+
+### Chart Gap Handling (Weight / BodyFat Tracker Charts)
+
+- Timeline slots are built by `buildTaggedChartSlots({ days, getValue, minValue, range, chartWidth, windowSize, chartHeight })` in `utils/visuals/trackerHelpers.jsx`: real entries map to `{ date, value, x, y, isInterpolated: false }`; interior missing days are **linearly interpolated** between their nearest real neighbours and tagged `{ isInterpolated: true, gapLength }` (`gapLength` = consecutive missing days in that run); leading/trailing empty slots stay `null` — no invented data at the chart edges.
+- `buildGapAwarePathRuns(taggedPoints, options?)` in `utils/visuals/bezierPath.js` groups tagged slots into drawable runs with gap tiers:
+  - `gapLength <= GAP_SOLID_MAX_DAYS (7)` → bridged, solid stroke (`dashArray: null`)
+  - `<= GAP_DASHED_MAX_DAYS (14)` → bridged, dashed stroke (`GAP_DASH_PATTERN = '4 6'`)
+  - otherwise → **not** bridged; the line splits into separate runs
+  Every returned run ends on a real point; a trailing bridge past the last real point is discarded. The dead `buildSegmentedBezierPaths` was deleted — do not reintroduce segmented path builders.
+- `WeightTrackerModal` / `BodyFatTrackerModal` preserve the `isInterpolated`/`gapLength` tags when mapping points into `buildGapAwarePathRuns`, and tooltips snap to the nearest **real** point — interpolated bridge slots are visual aids, never selectable data.
+
+---
+
 ## Storage Architecture (`utils/data/storage.js`, `utils/data/historyDatabase.js`)
 
 ### Split Storage Keys
@@ -667,6 +699,9 @@ Return semantics are intentionally boolean-oriented for save helpers (`true`/`fa
 | `mergeWithDefaults(data)` | `utils/data/storage.js` | Deep-merges loaded data with defaults, normalizes nutrition entries |
 | `sanitizeAge(value, fallback)` | `utils/profile.js` | Clamps and rounds age to 1–100 range |
 | `sanitizeHeight(value, fallback)` | `utils/profile.js` | Clamps and rounds height to 120–220 cm range |
+| `getWindowDateKeys(endDateKey, n)` | `utils/dateKeys.js` | Exactly `n` consecutive UTC date keys ending at `endDateKey`; validates canonical round-trip; `[]` on invalid |
+| `calculateTrapezoidalWindowAverage(sortedEntries, n, anchorKey, valueField)` | `utils/weight.js` | Time-weighted (trapezoidal) average over an exact n-day UTC window; `null` on empty window |
+| `calculateNDayWeightAverage(entries, n, endDateKey?)` / `calculateNDayBodyFatAverage(entries, n, endDateKey?)` | `utils/weight.js` / `utils/bodyFat.js` | Today-anchored trapezoidal N-day averages delegating to the shared window helper |
 
 ### Migration
 
@@ -1055,14 +1090,14 @@ src/
 │   │  ├─ sessionCarryover.js    # Allocates carryover calories across date boundaries
 │   │  └─ steps.js               # Step range parsing, step calorie estimation, getStepDetails
 │   ├─ data/
-│   │  ├─ dateKeys.js            # Canonical local/UTC date key formatters (`YYYY-MM-DD`)
+│   │  ├─ dateKeys.js            # Canonical local/UTC date key formatters (`YYYY-MM-DD`) + `getWindowDateKeys(endDateKey, n)` UTC window helper
 │   │  ├─ historyDatabase.js     # Dexie history DB adapter + sharded document helpers
 │   │  ├─ phaseLogV2.js          # Normalized phase/log domain; source-of-truth for phase state
 │   │  └─ storage.js             # Orchestrates profile (Preferences) + history (Dexie) persistence
 │   ├─ measurements/
-│   │  ├─ bodyFat.js             # Body fat validation, trend analysis, sparklines
+│   │  ├─ bodyFat.js             # Body fat validation, trend analysis, sparklines, trapezoidal N-day averages
 │   │  ├─ profile.js             # Age/height sanitization helpers (sanitizeAge, sanitizeHeight, AGE/HEIGHT min/max constants)
-│   │  └─ weight.js              # Date normalization, weight clamping, sorting, trend analysis, sparklines
+│   │  └─ weight.js              # Date normalization, weight clamping, sorting, trend analysis (capped fallback), sparklines, calculateTrapezoidalWindowAverage
 │   ├─ food/
 │   │  ├─ aiFinalizedEntryState.js # Finalized chat entry card state (calm primary badges + disclosure chip labels)
 │   │  ├─ foodPresentation.js    # Food display naming helpers (brand + name formatting)
@@ -1075,7 +1110,7 @@ src/
 │   ├─ phases/
 │   │  └─ phases.js              # Phase metrics calculation
 │   ├─ visuals/
-│   │  ├─ bezierPath.js          # SVG cubic Bézier curve interpolation for charts
+│   │  ├─ bezierPath.js          # SVG cubic Bézier curve interpolation + gap-aware chart path runs
 │   │  ├─ scroll.js              # Scroll utilities
 │   │  └─ trackerHelpers.jsx
 │   ├─ theme.js                  # Native theme application (status bar, transparent nav bar, keyboard)
@@ -1120,6 +1155,8 @@ src/
     ├─ healthConnectWindow.test.js
     ├─ dateKeys.test.js
     ├─ adaptiveThermogenesis.test.js
+    ├─ bezierPath.test.js        # Gap-aware path run tiering (solid/dashed/broken) + Bézier contracts
+    ├─ trendAverages.test.js     # Trapezoidal N-day averages + capped trend fallback behaviour
     ├─ dailySnapshots.test.js    # Snapshot derivation and helper behavior tests
     ├─ rollingEnergyBalance.test.js # Rolling balance calculator tests (windows, missing/malformed days, expected-vs-actual)
     ├─ phaseLogV2.test.js
@@ -1157,7 +1194,7 @@ npm run test:watch     # Node test runner in watch mode
 - Tests use `node --test` with ESM; use explicit `.js` extensions in relative imports for test-executed modules.
 - `npm run lint` can include pre-existing warnings in untouched files. Prefer targeted lint for changed files during incremental work, then full lint when practical.
 - Storage tests intentionally run with in-memory `window.localStorage` shims in Node context; avoid plugin monkey-patching when possible.
-- Full `npm run test` is green (as of the RAG pipeline decoupling, 224 tests pass). The canonical defaults are asserted by `tests/constants/activityPresets.test.js` against `DEFAULT_ACTIVITY_MULTIPLIERS` (`{ training: 0.2, rest: 0.22 }`).
+- Full `npm run test` is green (as of the chart gap-handling + data-honesty work, 281 tests pass). Recent additions: `tests/utils/bezierPath.test.js` (gap-aware path runs), `tests/utils/trendAverages.test.js` (trapezoidal N-day averages + capped trend fallback), and staleness-gate cases in `tests/utils/adaptiveThermogenesis.test.js`. The canonical defaults are asserted by `tests/constants/activityPresets.test.js` against `DEFAULT_ACTIVITY_MULTIPLIERS` (`{ training: 0.2, rest: 0.22 }`).
 
 **ESLint config:** Flat config format (`eslint.config.js`), uses `@babel/eslint-parser` with JSX preset. `react/prop-types` is disabled. Prettier runs as an ESLint rule.
 
@@ -1252,3 +1289,8 @@ npm run test:watch     # Node test runner in watch mode
 85. **CalorieMap live card is a consumer, not the source of Health Connect failures:** `CalorieMapScreen` should keep passing `{ steps, tefContext }` to the breakdown modal, but any time-window fix belongs in the Health Connect hook/helper layer.
 84. **Scroll pickers must not fight the user's gesture:** Embedded pickers that live-update a parent `value` prop on every scroll (e.g. `WeightPicker`/`BodyFatPicker` in the entry modals) must guard the `[value]` alignment effect with a user-driven flag (`isUserDrivenRef` + short auto-reset timeout). Without this, the effect re-runs on every scroll update and calls `alignScrollContainerToValue(...)` mid-gesture, causing choppy, fighting-the-finger scrolling. The settle-timeout in `createPickerScrollHandler` already snap-aligns after the gesture ends, so `handleWholeChange`/`handleDecimalChange` should not call `alignScrollContainerToValue` directly either. Keep initial open alignment, clamping, and max-value decimal reset behavior intact.
 86. **Daily NEAT overrides are date-scoped + clamped:** `dailyNeatOverrides` is a **history field** (not profile) and sharded by date (`dailyNeatOverrides:YYYY-MM-DD`). Always route writes through the store action `setDailyNeatOverride(dateKey, overrideOrNull)` (never mutate the map ad-hoc), normalize dates via `normalizeDateKey()`, and clamp multipliers with `clampCustomActivityMultiplier()` (0.1–1.0). The multiplier is applied override-first in `calculateCalorieBreakdown` for the resolved `dateKey` only; do not leak an override across other dates or into global settings.
+87. **N-day measurement averages are trapezoidal + window-anchored:** `calculateNDayWeightAverage`/`calculateNDayBodyFatAverage` integrate over an exact n-day UTC window anchored to today (or explicit `endDateKey`) via the shared `calculateTrapezoidalWindowAverage(...)` in `weight.js`. Do not reintroduce naive entry means, duplicate the integral per module, or substitute `0` when they return `null` — render the empty state honestly.
+88. **Day-window iteration uses `getWindowDateKeys`:** build date windows with `getWindowDateKeys(endDateKey, n)` from `utils/data/dateKeys.js` (UTC-stable, canonical-key validated). Do not hand-roll `setDate`/ISO-slice loops that silently accept non-canonical keys like `2026-02-31`.
+89. **Chart gap styling is tag-driven and tiered:** tracker charts interpolate interior missing days via `buildTaggedChartSlots(...)` (`isInterpolated` + `gapLength`) and tier bridges in `buildGapAwarePathRuns(...)` — ≤7 days solid, 8–14 dashed, >14 broken. Preserve the tags when mapping points; stripping `gapLength` collapses dashed/broken tiers to solid. Leading/trailing empty slots must stay `null`, tooltips snap to real points only, and `buildSegmentedBezierPaths` stays deleted.
+90. **Smart AT is gated on weigh-in freshness:** `getAdaptiveThermogenesisSmartModeDataStatus` rejects the smart signal with `reason: 'weight-data-stale'` when the newest weigh-in exceeds `SMART_WEIGHT_STALENESS_MAX_AGE_DAYS` (3) relative to the requested `dateKey`; the correction deactivates instead of extrapolating stale trends. Tune only the exported constant; never bypass the gate.
+91. **Trend fallback is capped:** `calculateWeightTrend`/`calculateBodyFatTrend` use the last-two-entries fallback only when their span ≤ `MAX_TREND_FALLBACK_SPAN_DAYS` (14); otherwise they return `'Need more data'` with `isStaleFallback: true`. Do not widen the cap or drop the flag without a coordinated UI/test update.

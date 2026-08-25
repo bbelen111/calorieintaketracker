@@ -260,6 +260,21 @@ Visibility checks are queued with `requestAnimationFrame` to reduce scroll-time 
 
 ---
 
+## Chart Gap Handling (Weight / BodyFat Tracker Charts)
+
+- Timeline slots are built by `buildTaggedChartSlots({ days, getValue, minValue, range, chartWidth, windowSize, chartHeight })` in `utils/visuals/trackerHelpers.jsx`:
+  - Real entries map to `{ date, value, x, y, isInterpolated: false }`.
+  - Interior missing days are **linearly interpolated** between their nearest real neighbours and tagged `{ isInterpolated: true, gapLength }` (`gapLength` = consecutive missing days in that run).
+  - Leading/trailing empty slots stay `null` — **no invented data at the chart edges**.
+- `buildGapAwarePathRuns(taggedPoints, options?)` in `utils/visuals/bezierPath.js` groups tagged slots into drawable runs with gap tiers:
+  - `gapLength <= GAP_SOLID_MAX_DAYS (7)` → bridged, solid stroke (`dashArray: null`)
+  - `<= GAP_DASHED_MAX_DAYS (14)` → bridged, dashed stroke (`GAP_DASH_PATTERN = '4 6'`)
+  - otherwise → **not** bridged; the line splits into separate runs
+- Every returned run ends on a real point; a trailing bridge past the last real point is discarded. The dead `buildSegmentedBezierPaths` was deleted — do not reintroduce segmented path builders.
+- `WeightTrackerModal` / `BodyFatTrackerModal` preserve the `isInterpolated`/`gapLength` tags when mapping points into `buildGapAwarePathRuns`, and tooltips snap to the nearest **real** point — interpolated bridge slots are visual aids, never selectable data.
+
+---
+
 ## Theme System
 
 ### 4 Theme Modes
@@ -431,3 +446,5 @@ Defined in `index.css` `@layer base` and `@layer components`:
 33. **Smart TEF and NEAT:** When `userData.smartTefEnabled` is true, `calculateCalorieBreakdown()` subtracts `TEF_MULTIPLIER_OFFSET` (0.1) from the activity multiplier and adds macro-derived TEF back explicitly. The displayed NEAT multiplier in `CalorieBreakdownModal` will therefore appear lower than the user's configured value — this is intentional and explained in `TefInfoModal`. Never remove the offset without also disabling TEF.
 34. **Scroll pickers must not fight the user's gesture:** Embedded pickers that live-update a parent `value` prop on every scroll (e.g. `WeightPicker`/`BodyFatPicker` in the entry modals) must guard the `[value]` alignment effect with a user-driven flag (`isUserDrivenRef` + short auto-reset timeout). Without this, the effect re-runs on every scroll update and calls `alignScrollContainerToValue(...)` mid-gesture, causing choppy, fighting-the-finger scrolling. The settle-timeout in `createPickerScrollHandler` already snap-aligns after the gesture ends, so `handleWholeChange`/`handleDecimalChange` should not call `alignScrollContainerToValue` directly either. Keep initial open alignment, clamping, and max-value decimal reset behavior intact.
 35. **Daily NEAT override touch targets:** In the `HomeScreen` hero, the **"~X% of daily TDEE"** pill opens today's `CalorieBreakdownModal` (`onOpenTodayBreakdown`), and the **NEAT metric block** (underlined icon + label + kcal with a chevron) is the override entry point (`onOpenDailyActivityOverride`). Do not move the override entry onto a separate chip/pill — keep it on the NEAT metric itself, and keep the day pill in `DailyNeatOverrideModal` color-coded (Training = `accent-blue`/Dumbbell, Rest = `accent-indigo`/Bed).
+36. **Chart gap styling is tag-driven and tiered:** Weight/BodyFat tracker charts must keep building slots via `buildTaggedChartSlots(...)` and tier bridges via `buildGapAwarePathRuns(...)` (≤7d solid, 8–14d dashed with `GAP_DASH_PATTERN`, >14d split into runs). Preserve `isInterpolated`/`gapLength` when mapping points — stripping them collapses dashed/broken tiers to solid. Do not reintroduce the deleted `buildSegmentedBezierPaths`.
+37. **Interpolated chart slots are visual aids, never data:** leading/trailing empty day slots stay `null` (never zero or edge-cloned values), tooltips/selection snap to real points only, and N-day average cards must render the honest empty state when `calculateNDayWeightAverage`/`calculateNDayBodyFatAverage` return `null`.

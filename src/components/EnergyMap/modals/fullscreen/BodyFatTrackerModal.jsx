@@ -567,7 +567,7 @@ export const BodyFatTrackerModal = ({
       chartWidth,
       windowSize: 7,
       chartHeight,
-    });
+    }).filter(Boolean);
   }, [
     viewMode,
     sortedEntries,
@@ -589,7 +589,7 @@ export const BodyFatTrackerModal = ({
       chartWidth,
       windowSize: 30,
       chartHeight,
-    });
+    }).filter(Boolean);
   }, [
     viewMode,
     sortedEntries,

@@ -161,6 +161,28 @@ Do not duplicate target planning formulas in components.
 
 ---
 
+## Measurement Averages, Trend Fallbacks & Staleness Gates
+
+### Trapezoidal N-Day Averages
+
+- `calculateNDayWeightAverage(entries, n, endDateKey?)` (`utils/measurements/weight.js`) and `calculateNDayBodyFatAverage(entries, n, endDateKey?)` (`utils/measurements/bodyFat.js`) average an **exact `n`-day UTC calendar window anchored to today** (or an explicit `endDateKey`).
+- Both delegate to the shared exported `calculateTrapezoidalWindowAverage(sortedEntries, n, anchorKey, valueField)` in `weight.js` (reused by `bodyFat.js`). Never duplicate the integral math in components or re-implement per-module copies.
+- Mechanics: samples form a polyline that is linearly interpolated between measurements and **held flat at the window edges**, so the integral always spans exactly `n` days whenever any sample exists (the right boundary is midnight *after* the window end so `n` inclusive day keys map to exactly `n` integrated days). Returns `null` when the window holds no data — callers must surface that honestly instead of substituting zeros. Result is rounded to 1 decimal.
+
+### Window Date Keys
+
+- `getWindowDateKeys(endDateKey, n)` in `utils/data/dateKeys.js` builds exactly `n` consecutive UTC date keys `[E−(n−1) … E]`. It validates format **and** canonical round-trip (rejects non-canonical keys like `'2026-02-31'` that JS date coercion would silently accept) and returns `[]` on invalid input. Use it for any day-window iteration instead of hand-rolled date arithmetic.
+
+### Capped Trend Fallback (data honesty)
+
+- `calculateWeightTrend` / `calculateBodyFatTrend` fall back to the last two entries **only when their span ≤ `MAX_TREND_FALLBACK_SPAN_DAYS` (14 days)**. Otherwise they return `'Need more data'` with `isStaleFallback: true` instead of presenting a stale rate as current behaviour.
+
+### Smart AT Staleness Gate
+
+- `SMART_WEIGHT_STALENESS_MAX_AGE_DAYS = 3` (exported from `utils/calculations/adaptiveThermogenesis.js`). `getAdaptiveThermogenesisSmartModeDataStatus` gates the smart signal on weigh-in freshness: when the newest weigh-in is older than 3 days relative to the requested `dateKey`, it returns `{ isSufficient: false, reason: 'weight-data-stale', latestWeightEntryAgeDays, stalenessMaxAgeDays, ... }` regardless of how many historical entries sit inside the 28-day window, and `computeSmartCorrection` deactivates (correction 0, `insufficientData`). `AdaptiveThermogenesisModal` renders dedicated recovery copy for this reason ("Your latest weigh-in is too old…").
+
+---
+
 ## Data Schemas
 
 ### `userData` (profile + Dexie history, merged in memory)
@@ -342,3 +364,6 @@ When editing phase logic:
 22. **Selector/destructure parity matters:** when selecting store fields in `useEnergyMapStore`, always destructure every referenced variable (`aiChatRolloutUserId`, `aiChatRagRolloutOverride`, `aiChatRagRolloutPercentage`) to avoid runtime `ReferenceError` crashes.
 23. **Macro locks are gram anchors, not ratios:** `userData.macroLocks` pins macros in **grams** (max 2 via `MAX_MACRO_LOCKS`). `null`/`''`/negative/NaN are treated as unlocked — never coerce `null` to `0` (a 0g lock is a valid lock and would displace another). Locked grams are **soft anchors**: they relax to safety floors when the calorie target is too low, surfaced via `macroLocks.relaxedKeys` / `lockWarnings`. Always route lock-aware calculations through `calculateMacroRecommendations(..., { macroLocks })` and forward `macroLocks` to `TrackerScreen`/`InsightsScreen`.
 24. **Daily NEAT overrides are date-scoped + clamped:** `dailyNeatOverrides` is a **history field** (not profile), sharded by date (`dailyNeatOverrides:YYYY-MM-DD`). Always route writes through the store action `setDailyNeatOverride(dateKey, overrideOrNull)` (never mutate the map ad-hoc), normalize dates via `normalizeDateKey()`, and clamp multipliers with `clampCustomActivityMultiplier()` (0.1–1.0). The multiplier is applied override-first in `calculateCalorieBreakdown` for the resolved `dateKey` only; every save must pass `dateKey` in the breakdown/target options so the correct date's NEAT is used.
+25. **N-day measurement averages are trapezoidal + window-anchored:** `calculateNDayWeightAverage`/`calculateNDayBodyFatAverage` integrate over an exact n-day UTC window anchored to today (or explicit `endDateKey`) via the shared `calculateTrapezoidalWindowAverage(...)` in `weight.js`. Do not reintroduce naive entry means, duplicate the integral per module, or substitute `0` when they return `null`.
+26. **Day-window iteration uses `getWindowDateKeys`:** build date windows with `getWindowDateKeys(endDateKey, n)` from `utils/data/dateKeys.js` (UTC-stable, canonical-key validated). Do not hand-roll `setDate`/ISO-slice loops that silently accept non-canonical keys like `2026-02-31`.
+27. **Trend fallback is capped and smart AT is freshness-gated:** trend functions use the last-two-entries fallback only when their span ≤ `MAX_TREND_FALLBACK_SPAN_DAYS` (14), else return `'Need more data'` with `isStaleFallback: true`; `getAdaptiveThermogenesisSmartModeDataStatus` rejects the smart signal with `reason: 'weight-data-stale'` when the newest weigh-in exceeds `SMART_WEIGHT_STALENESS_MAX_AGE_DAYS` (3). Tune only the exported constants; never bypass either gate.

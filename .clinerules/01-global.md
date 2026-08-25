@@ -146,14 +146,14 @@ src/
 │   │  ├─ sessionCarryover.js    # Allocates carryover calories across date boundaries
 │   │  └─ steps.js               # Step range parsing, step calorie estimation, getStepDetails
 │   ├─ data/
-│   │  ├─ dateKeys.js            # Canonical local/UTC date key formatters (`YYYY-MM-DD`)
+│   │  ├─ dateKeys.js            # Canonical local/UTC date key formatters (`YYYY-MM-DD`) + `getWindowDateKeys(endDateKey, n)` UTC window helper
 │   │  ├─ historyDatabase.js     # Dexie history DB adapter + sharded document helpers
 │   │  ├─ phaseLogV2.js          # Normalized phase/log domain; source-of-truth for phase state
 │   │  └─ storage.js             # Orchestrates profile (Preferences) + history (Dexie) persistence
 │   ├─ measurements/
-│   │  ├─ bodyFat.js             # Body fat validation, trend analysis, sparklines
+│   │  ├─ bodyFat.js             # Body fat validation, trend analysis, sparklines, trapezoidal N-day averages
 │   │  ├─ profile.js             # Age/height sanitization helpers (sanitizeAge, sanitizeHeight, AGE/HEIGHT min/max constants)
-│   │  └─ weight.js              # Date normalization, weight clamping, sorting, trend analysis, sparklines
+│   │  └─ weight.js              # Date normalization, weight clamping, sorting, trend analysis (capped fallback), sparklines, calculateTrapezoidalWindowAverage
 │   ├─ food/
 │   │  ├─ aiFinalizedEntryState.js # Finalized chat entry card state (calm primary badges + disclosure chip labels)
 │   │  ├─ foodPresentation.js    # Food display naming helpers (brand + name formatting)
@@ -166,7 +166,7 @@ src/
 │   ├─ phases/
 │   │  └─ phases.js              # Phase metrics calculation
 │   ├─ visuals/
-│   │  ├─ bezierPath.js          # SVG cubic Bézier curve interpolation for charts
+│   │  ├─ bezierPath.js          # SVG cubic Bézier curve interpolation + gap-aware chart path runs
 │   │  ├─ scroll.js              # Scroll utilities
 │   │  └─ trackerHelpers.jsx
 │   ├─ theme.js                  # Native theme application (status bar, transparent nav bar, keyboard)
@@ -211,6 +211,8 @@ src/
     ├─ healthConnectWindow.test.js
     ├─ dateKeys.test.js
     ├─ adaptiveThermogenesis.test.js
+    ├─ bezierPath.test.js        # Gap-aware path run tiering (solid/dashed/broken) + Bézier contracts
+    ├─ trendAverages.test.js     # Trapezoidal N-day averages + capped trend fallback behaviour
     ├─ dailySnapshots.test.js    # Snapshot derivation and helper behavior tests
     ├─ rollingEnergyBalance.test.js # Rolling balance calculator tests (windows, missing/malformed days, expected-vs-actual)
     ├─ phaseLogV2.test.js
@@ -248,7 +250,7 @@ npm run test:watch     # Node test runner in watch mode
 - Tests use `node --test` with ESM; use explicit `.js` extensions in relative imports for test-executed modules.
 - `npm run lint` can include pre-existing warnings in untouched files. Prefer targeted lint for changed files during incremental work, then full lint when practical.
 - Storage tests intentionally run with in-memory `window.localStorage` shims in Node context; avoid plugin monkey-patching when possible.
-- Full `npm run test` is green (as of the RAG pipeline decoupling, 224 tests pass). The canonical defaults are asserted by `tests/constants/activityPresets.test.js` against `DEFAULT_ACTIVITY_MULTIPLIERS` (`{ training: 0.2, rest: 0.22 }`).
+- Full `npm run test` is green (as of the chart gap-handling + data-honesty work, 281 tests pass). Recent additions: `tests/utils/bezierPath.test.js` (gap-aware path runs), `tests/utils/trendAverages.test.js` (trapezoidal N-day averages + capped trend fallback), and staleness-gate cases in `tests/utils/adaptiveThermogenesis.test.js`. The canonical defaults are asserted by `tests/constants/activityPresets.test.js` against `DEFAULT_ACTIVITY_MULTIPLIERS` (`{ training: 0.2, rest: 0.22 }`).
 
 **ESLint config:** Flat config format (`eslint.config.js`), uses `@babel/eslint-parser` with JSX preset. `react/prop-types` is disabled. Prettier runs as an ESLint rule.
 
@@ -270,3 +272,4 @@ npm run test:watch     # Node test runner in watch mode
 12. **Backup/report artifacts are generated files:** `src/constants/*.backup.sqlite` and `scripts/food-db/reports/*.json` should remain ignored and not committed.
 13. **OpenRouter proxy hardening is config-sensitive:** keep `ALLOWED_ORIGINS` and (if enabled) Upstash rate-limit env vars configured in deployment; mismatched env config can silently alter CORS/throttling behavior across environments.
 14. **Daily NEAT overrides are date-scoped + clamped history data:** `dailyNeatOverrides` is a **history field** (not profile), sharded by date (`dailyNeatOverrides:YYYY-MM-DD`). Route writes only through the store action `setDailyNeatOverride(dateKey, overrideOrNull)`; normalize dates via `normalizeDateKey()` and clamp multipliers with `clampCustomActivityMultiplier()` (0.1–1.0). The multiplier applies override-first in `calculateCalorieBreakdown` for the resolved `dateKey` only — never leak it across other dates or into global settings.
+15. **Measurement averages / trends / charts are data-honesty-first:** N-day averages use the shared trapezoidal window integral (`calculateTrapezoidalWindowAverage` in `weight.js`, consumed by `bodyFat.js`; `null` on empty window), day windows come from `getWindowDateKeys(endDateKey, n)` in `dateKeys.js`, trend last-two-entry fallback is capped at `MAX_TREND_FALLBACK_SPAN_DAYS` (14) via `isStaleFallback`, smart AT is gated by weigh-in freshness (`SMART_WEIGHT_STALENESS_MAX_AGE_DAYS = 3`, reason `weight-data-stale`), and tracker-chart gaps tier through `buildTaggedChartSlots(...)` + `buildGapAwarePathRuns(...)` (≤7d solid, 8–14d dashed, >14d broken). Do not duplicate any of this math in components or UI surfaces.

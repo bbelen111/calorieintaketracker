@@ -574,7 +574,9 @@ export const WeightTrackerModal = ({
       chartWidth,
       windowSize: 7,
       chartHeight,
-    }).map((slot) => (slot ? { ...slot, weight: slot.value } : null));
+    })
+      .map((slot) => (slot ? { ...slot, weight: slot.value } : null))
+      .filter(Boolean);
   }, [
     viewMode,
     sortedEntries,
@@ -596,7 +598,9 @@ export const WeightTrackerModal = ({
       chartWidth,
       windowSize: 30,
       chartHeight,
-    }).map((slot) => (slot ? { ...slot, weight: slot.value } : null));
+    })
+      .map((slot) => (slot ? { ...slot, weight: slot.value } : null))
+      .filter(Boolean);
   }, [
     viewMode,
     sortedEntries,
