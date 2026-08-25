@@ -149,6 +149,16 @@ const DailyLogModal = lazy(() =>
     default: module.DailyLogModal,
   }))
 );
+const DayLedgerListModal = lazy(() =>
+  import('./modals/lists/DayLedgerListModal').then((module) => ({
+    default: module.DayLedgerListModal,
+  }))
+);
+const DayLedgerModal = lazy(() =>
+  import('./modals/info/DayLedgerModal').then((module) => ({
+    default: module.DayLedgerModal,
+  }))
+);
 
 const AdaptiveThermogenesisModal = lazy(() =>
   import('./modals/fullscreen/AdaptiveThermogenesisModal').then((module) => ({
@@ -737,6 +747,9 @@ export const EnergyMapCalculator = () => {
   const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
 
+  // Day Ledger state (daily snapshot browser; picked calendar day)
+  const [dayLedgerSelectedDate, setDayLedgerSelectedDate] = useState(null);
+
   // Food entry state
   const [foodEntryMode, setFoodEntryMode] = useState('add'); // 'add' or 'edit'
   const [editingFoodEntryId, setEditingFoodEntryId] = useState(null);
@@ -836,6 +849,8 @@ export const EnergyMapCalculator = () => {
   const templatePickerModal = useAnimatedModal();
   const dailyLogModal = useAnimatedModal();
   const calendarPickerModal = useAnimatedModal();
+  const dayLedgerListModal = useAnimatedModal();
+  const dayLedgerModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
   const foodEntryModal = useAnimatedModal();
   const foodNutrientPickerModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
   const mealTypePickerModal = useAnimatedModal();
@@ -879,6 +894,36 @@ export const EnergyMapCalculator = () => {
     rollingEnergyBalanceModal.requestClose();
   }, [adaptiveThermogenesisModal, rollingEnergyBalanceModal]);
 
+  // --- Day Ledger (daily snapshot browser) ---
+  // Toggle contract: same date again clears the selection (null).
+  const handleDayLedgerSelectDay = useCallback((dateKey) => {
+    setDayLedgerSelectedDate(normalizeDateKey(dateKey));
+  }, []);
+
+  // The detail modal opens ONLY from the tappable preview panel.
+  const handleOpenDayLedgerDetail = useCallback(
+    (dateKey) => {
+      const normalized = normalizeDateKey(dateKey);
+      if (!normalized) {
+        return;
+      }
+      setDayLedgerSelectedDate(normalized);
+      dayLedgerModal.open();
+    },
+    [dayLedgerModal]
+  );
+
+  // Reset picked-day temp state shortly after the list modal finishes closing.
+  useEffect(() => {
+    if (!dayLedgerListModal.isClosing) {
+      return undefined;
+    }
+    const timeout = setTimeout(() => {
+      setDayLedgerSelectedDate(null);
+    }, MODAL_CLOSE_DELAY);
+    return () => clearTimeout(timeout);
+  }, [dayLedgerListModal.isClosing]);
+
   // The analysis context is transient: once Rolling Balance has fully closed
   // (exit animation included), drop any leftover pinned range so the next
   // visit starts from the ordinary ledger view. Deferred to the next frame to
@@ -904,6 +949,8 @@ export const EnergyMapCalculator = () => {
     foodSearchModal,
     mealTypePickerModal,
     calendarPickerModal,
+    dayLedgerListModal,
+    dayLedgerModal,
     dailyLogModal,
     templatePickerModal,
     phaseCreationModal,
@@ -947,6 +994,9 @@ export const EnergyMapCalculator = () => {
   const closeTopmostModal = useCallback(() => {
     const modalStack = [
       confirmActionModal,
+      // Detail sits above the list when both are open: close it first.
+      dayLedgerModal,
+      dayLedgerListModal,
       foodPortionModal,
       foodEntryModal,
       foodNutrientPickerModal,
@@ -1023,6 +1073,8 @@ export const EnergyMapCalculator = () => {
     dailyActivityEditorModal,
     dailyActivityModal,
     dailyNeatOverrideModal,
+    dayLedgerListModal,
+    dayLedgerModal,
     dailyLogModal,
     durationPickerModal,
     epocInfoModal,
@@ -2099,12 +2151,64 @@ export const EnergyMapCalculator = () => {
     openCalorieBreakdown({ steps });
   }, [openCalorieBreakdown, userData]);
 
+  // Open the calorie breakdown recomputed for a historical ledger day:
+  // that date's steps/sessions/nutrition totals with current formulas.
+  // The store action applies date-scoped NEAT overrides via options.dateKey.
+  const handleOpenDayLedgerBreakdown = useCallback(
+    (dateKey) => {
+      const normalized = normalizeDateKey(dateKey);
+      if (!normalized || !userData.dailySnapshots?.[normalized]) {
+        return;
+      }
+      const stepEntry = (userData.stepEntries ?? []).find(
+        (entry) => entry?.date === normalized
+      );
+      const totals = getNutritionTotalsForDate(nutritionData, normalized);
+      openCalorieBreakdown({
+        steps: Number(stepEntry?.steps) || 0,
+        tefContext: userData.smartTefEnabled
+          ? { mode: 'dynamic', enabled: true, totals }
+          : { mode: 'off', enabled: false },
+        adaptiveThermogenesisContext: {
+          mode: defaultAdaptiveThermogenesisMode,
+        },
+        dateKey: normalized,
+      });
+    },
+    [
+      defaultAdaptiveThermogenesisMode,
+      nutritionData,
+      openCalorieBreakdown,
+      userData,
+    ]
+  );
+
   const closeCalorieBreakdown = useCallback(() => {
     calorieBreakdownModal.requestClose();
     setTimeout(() => {
       setSelectedBreakdownRequest(null);
     }, MODAL_CLOSE_DELAY);
   }, [calorieBreakdownModal]);
+
+  // Historical-day breakdown support: when a ledger day requests the
+  // breakdown, resolve that day's training flag and its recorded goal, and
+  // pass the date through so date-scoped NEAT/TEF inputs apply to that day.
+  const breakdownRequestDateKey = normalizeDateKey(
+    selectedBreakdownRequest?.dateKey ?? null
+  );
+  const isHistoricalBreakdownRequest = Boolean(breakdownRequestDateKey);
+  const historicalSnapshotGoalRaw = isHistoricalBreakdownRequest
+    ? userData.dailySnapshots?.[breakdownRequestDateKey]?.goalAtSnapshot
+    : null;
+  const historicalSnapshotGoal =
+    historicalSnapshotGoalRaw && goals[historicalSnapshotGoalRaw]
+      ? historicalSnapshotGoalRaw
+      : 'maintenance';
+  const historicalBreakdownIsTrainingDay = isHistoricalBreakdownRequest
+    ? (trainingSessions ?? []).some(
+        (session) => normalizeDateKey(session?.date) === breakdownRequestDateKey
+      )
+    : false;
 
   const selectedRangeData = useMemo(() => {
     const selectedSteps = selectedBreakdownRequest?.steps;
@@ -2114,16 +2218,25 @@ export const EnergyMapCalculator = () => {
 
     return calculateTargetForGoal(
       selectedSteps,
-      selectedDay === 'training',
-      selectedGoal,
+      isHistoricalBreakdownRequest
+        ? historicalBreakdownIsTrainingDay
+        : selectedDay === 'training',
+      isHistoricalBreakdownRequest ? historicalSnapshotGoal : selectedGoal,
       {
         tefContext: selectedBreakdownRequest?.tefContext,
         adaptiveThermogenesisContext:
           selectedBreakdownRequest?.adaptiveThermogenesisContext,
+        ...(isHistoricalBreakdownRequest
+          ? { dateKey: breakdownRequestDateKey }
+          : {}),
       }
     );
   }, [
+    breakdownRequestDateKey,
     calculateTargetForGoal,
+    historicalBreakdownIsTrainingDay,
+    historicalSnapshotGoal,
+    isHistoricalBreakdownRequest,
     selectedBreakdownRequest,
     selectedDay,
     selectedGoal,
@@ -3877,6 +3990,7 @@ export const EnergyMapCalculator = () => {
                           nutritionData={nutritionData}
                           onCreatePhase={openPhaseCreationModal}
                           onPhaseClick={handlePhaseClick}
+                          onOpenDayLedger={dayLedgerListModal.open}
                         />
                       </motion.div>
                     )}
@@ -3995,8 +4109,18 @@ export const EnergyMapCalculator = () => {
             isOpen={calorieBreakdownModal.isOpen}
             isClosing={calorieBreakdownModal.isClosing}
             stepRange={selectedBreakdownRequest?.steps ?? null}
-            selectedDay={selectedDay}
-            selectedGoal={selectedGoal}
+            selectedDay={
+              isHistoricalBreakdownRequest
+                ? historicalBreakdownIsTrainingDay
+                  ? 'training'
+                  : 'rest'
+                : selectedDay
+            }
+            selectedGoal={
+              isHistoricalBreakdownRequest
+                ? historicalSnapshotGoal
+                : selectedGoal
+            }
             goals={goals}
             breakdown={selectedRangeData?.breakdown ?? null}
             targetCalories={selectedRangeData?.targetCalories ?? null}
@@ -4611,6 +4735,52 @@ export const EnergyMapCalculator = () => {
           setCalendarYear(year);
         }}
       />
+
+      {(dayLedgerListModal.isOpen || dayLedgerListModal.isClosing) && (
+        <Suspense fallback={null}>
+          <DayLedgerListModal
+            isOpen={dayLedgerListModal.isOpen}
+            isClosing={dayLedgerListModal.isClosing}
+            onClose={dayLedgerListModal.requestClose}
+            dailySnapshots={userData.dailySnapshots ?? {}}
+            weightEntries={weightEntries}
+            bodyFatEntries={bodyFatEntries}
+            bodyFatTrackingEnabled={userData.bodyFatTrackingEnabled}
+            selectedDate={dayLedgerSelectedDate}
+            onSelectDay={handleDayLedgerSelectDay}
+            onOpenDayDetail={handleOpenDayLedgerDetail}
+            currentMonth={calendarMonth}
+            currentYear={calendarYear}
+            onMonthChange={(month, year) => {
+              setCalendarMonth(month);
+              setCalendarYear(year);
+            }}
+          />
+        </Suspense>
+      )}
+
+      {(dayLedgerModal.isOpen || dayLedgerModal.isClosing) && (
+        <Suspense fallback={null}>
+          <DayLedgerModal
+            isOpen={dayLedgerModal.isOpen}
+            isClosing={dayLedgerModal.isClosing}
+            onClose={dayLedgerModal.requestClose}
+            dateKey={dayLedgerSelectedDate}
+            snapshot={
+              dayLedgerSelectedDate
+                ? (userData.dailySnapshots?.[dayLedgerSelectedDate] ?? null)
+                : null
+            }
+            dailySnapshots={userData.dailySnapshots ?? {}}
+            weightEntries={weightEntries}
+            bodyFatEntries={bodyFatEntries}
+            bodyFatTrackingEnabled={userData.bodyFatTrackingEnabled}
+            nutritionData={nutritionData}
+            onSelectDate={setDayLedgerSelectedDate}
+            onOpenBreakdown={handleOpenDayLedgerBreakdown}
+          />
+        </Suspense>
+      )}
       <FoodEntryModal
         isOpen={foodEntryModal.isOpen}
         isClosing={foodEntryModal.isClosing}

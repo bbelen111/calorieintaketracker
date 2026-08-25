@@ -3,6 +3,8 @@ import {
   ClipboardList,
   Plus,
   Calendar,
+  CalendarRange,
+  ChevronRight,
   TrendingUp,
   Target,
   Play,
@@ -11,6 +13,7 @@ import {
 import { goals } from '../../../constants/goals/goals';
 import { formatWeight } from '../../../utils/measurements/weight';
 import { calculatePhaseMetrics } from '../../../utils/phases/phases';
+import { isValidDaySnapshot } from '../../../utils/calculations/dayLedgerPresentation';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 
@@ -170,18 +173,51 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
   );
 };
 
+const DayLedgerCard = ({ dailySnapshots, onOpen }) => {
+  const trackedDays = useMemo(
+    () => Object.values(dailySnapshots ?? {}).filter(isValidDaySnapshot).length,
+    [dailySnapshots]
+  );
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="w-full bg-surface-highlight/50 rounded-lg p-4 border border-border/50 shadow-lg shadow-background/20 text-left flex items-center justify-between gap-3 transition-all group pressable-card focus-ring md:hover:bg-surface-highlight"
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        <CalendarRange className="text-accent-blue shrink-0" size={24} />
+        <div className="min-w-0">
+          <h2 className="text-foreground font-semibold">Daily Ledger</h2>
+          <p className="text-muted text-sm truncate">
+            {trackedDays > 0
+              ? `${trackedDays} day${trackedDays === 1 ? '' : 's'} tracked`
+              : 'Browse your day-by-day energy history'}
+          </p>
+        </div>
+      </div>
+      <ChevronRight
+        className="text-muted md:group-hover:text-primary transition-colors shrink-0"
+        size={20}
+      />
+    </button>
+  );
+};
+
 export const LogbookScreen = ({
   phases,
   weightEntries,
   nutritionData,
   onCreatePhase,
   onPhaseClick,
+  onOpenDayLedger,
 }) => {
   const store = useEnergyMapStore(
     (state) => ({
       phases: state.phases ?? [],
       weightEntries: state.weightEntries ?? [],
       nutritionData: state.nutritionData ?? {},
+      dailySnapshots: state.userData?.dailySnapshots ?? {},
     }),
     shallow
   );
@@ -301,6 +337,12 @@ export const LogbookScreen = ({
           </div>
         </div>
       )}
+
+      {/* Daily Ledger entry card */}
+      <DayLedgerCard
+        dailySnapshots={store.dailySnapshots}
+        onOpen={onOpenDayLedger}
+      />
     </div>
   );
 };
