@@ -20,6 +20,15 @@ export const CRUDE_SURPLUS_STAGES = [
 const SMART_WINDOW_DAYS = 28;
 const SMART_MIN_VALID_DAYS = 14;
 const SMART_MIN_WEIGHT_ENTRIES = 4;
+
+/**
+ * Max allowed age (in days) of the newest weigh-in before the smart-mode
+ * weight-trend signal is considered stale. Tune here; surfaced via the
+ * `weight-data-stale` status reason.
+ */
+export const SMART_WEIGHT_STALENESS_MAX_AGE_DAYS = 3;
+const MS_PER_DAY = 86_400_000;
+
 const SMART_NOISE_FLOOR_KG = 0.15;
 const SMART_SMOOTHING_DEFAULT_WINDOW_DAYS = 7;
 const SMART_SMOOTHING_MIN_WINDOW_DAYS = 3;
@@ -212,7 +221,6 @@ const computeWeightSlopeKgPerDay = (
     return null;
   }
 
-  const MS_PER_DAY = 86_400_000;
   return (numerator / denominator) * MS_PER_DAY;
 };
 
@@ -242,12 +250,45 @@ const getSmartWindowRecords = ({ dailySnapshots, windowDateKeys }) =>
     return records;
   }, []);
 
+/**
+ * Days between the newest weigh-in and `referenceDateKey` (0 = same day).
+ * Returns null when there are no valid weigh-ins or the reference is invalid.
+ */
+const resolveLatestWeightEntryAgeDays = (weightEntries, referenceDateKey) => {
+  const referenceKey = normalizeDateKey(referenceDateKey);
+  if (!referenceKey) {
+    return null;
+  }
+
+  let latestKey = null;
+  (Array.isArray(weightEntries) ? weightEntries : []).forEach((entry) => {
+    const normalized = normalizeDateKey(entry?.date);
+    if (normalized && (!latestKey || normalized > latestKey)) {
+      latestKey = normalized;
+    }
+  });
+  if (!latestKey) {
+    return null;
+  }
+
+  const diffDays = Math.round(
+    (Date.parse(`${referenceKey}T00:00:00Z`) -
+      Date.parse(`${latestKey}T00:00:00Z`)) /
+      MS_PER_DAY
+  );
+  return Number.isFinite(diffDays) ? Math.max(0, diffDays) : null;
+};
+
 export const getAdaptiveThermogenesisSmartModeDataStatus = ({
   dateKey,
   dailySnapshots,
   weightEntries,
 }) => {
   const windowDateKeys = buildWindowDateKeys(dateKey, SMART_WINDOW_DAYS);
+  const latestWeightEntryAgeDays = resolveLatestWeightEntryAgeDays(
+    weightEntries,
+    dateKey
+  );
   if (windowDateKeys.length === 0) {
     return {
       isSufficient: false,
@@ -255,8 +296,10 @@ export const getAdaptiveThermogenesisSmartModeDataStatus = ({
       windowDays: SMART_WINDOW_DAYS,
       minValidDays: SMART_MIN_VALID_DAYS,
       minWeightEntries: SMART_MIN_WEIGHT_ENTRIES,
+      stalenessMaxAgeDays: SMART_WEIGHT_STALENESS_MAX_AGE_DAYS,
       validDays: 0,
       weightEntriesUsed: 0,
+      latestWeightEntryAgeDays,
       windowStart: null,
       windowEnd: null,
     };
@@ -275,6 +318,28 @@ export const getAdaptiveThermogenesisSmartModeDataStatus = ({
     return normalized && normalized >= windowStart && normalized <= windowEnd;
   });
 
+  // Staleness gate: the newest weigh-in must be recent enough for the
+  // weight-slope signal to describe current behaviour, regardless of how
+  // many historical entries exist inside the window.
+  if (
+    Number.isFinite(latestWeightEntryAgeDays) &&
+    latestWeightEntryAgeDays > SMART_WEIGHT_STALENESS_MAX_AGE_DAYS
+  ) {
+    return {
+      isSufficient: false,
+      reason: 'weight-data-stale',
+      windowDays: SMART_WINDOW_DAYS,
+      minValidDays: SMART_MIN_VALID_DAYS,
+      minWeightEntries: SMART_MIN_WEIGHT_ENTRIES,
+      stalenessMaxAgeDays: SMART_WEIGHT_STALENESS_MAX_AGE_DAYS,
+      validDays: records.length,
+      weightEntriesUsed: windowWeightEntries.length,
+      latestWeightEntryAgeDays,
+      windowStart,
+      windowEnd,
+    };
+  }
+
   if (records.length < SMART_MIN_VALID_DAYS) {
     return {
       isSufficient: false,
@@ -282,8 +347,10 @@ export const getAdaptiveThermogenesisSmartModeDataStatus = ({
       windowDays: SMART_WINDOW_DAYS,
       minValidDays: SMART_MIN_VALID_DAYS,
       minWeightEntries: SMART_MIN_WEIGHT_ENTRIES,
+      stalenessMaxAgeDays: SMART_WEIGHT_STALENESS_MAX_AGE_DAYS,
       validDays: records.length,
       weightEntriesUsed: windowWeightEntries.length,
+      latestWeightEntryAgeDays,
       windowStart,
       windowEnd,
     };
@@ -296,8 +363,10 @@ export const getAdaptiveThermogenesisSmartModeDataStatus = ({
       windowDays: SMART_WINDOW_DAYS,
       minValidDays: SMART_MIN_VALID_DAYS,
       minWeightEntries: SMART_MIN_WEIGHT_ENTRIES,
+      stalenessMaxAgeDays: SMART_WEIGHT_STALENESS_MAX_AGE_DAYS,
       validDays: records.length,
       weightEntriesUsed: windowWeightEntries.length,
+      latestWeightEntryAgeDays,
       windowStart,
       windowEnd,
     };
@@ -309,8 +378,10 @@ export const getAdaptiveThermogenesisSmartModeDataStatus = ({
     windowDays: SMART_WINDOW_DAYS,
     minValidDays: SMART_MIN_VALID_DAYS,
     minWeightEntries: SMART_MIN_WEIGHT_ENTRIES,
+    stalenessMaxAgeDays: SMART_WEIGHT_STALENESS_MAX_AGE_DAYS,
     validDays: records.length,
     weightEntriesUsed: windowWeightEntries.length,
+    latestWeightEntryAgeDays,
     windowStart,
     windowEnd,
   };
@@ -346,6 +417,8 @@ const computeSmartCorrection = ({
         weightEntriesUsed: dataStatus.weightEntriesUsed,
         minValidDays: dataStatus.minValidDays,
         minWeightEntries: dataStatus.minWeightEntries,
+        stalenessMaxAgeDays: dataStatus.stalenessMaxAgeDays,
+        latestWeightEntryAgeDays: dataStatus.latestWeightEntryAgeDays,
         windowStart: dataStatus.windowStart,
         windowEnd: dataStatus.windowEnd,
       },

@@ -1,5 +1,10 @@
 import { normalizeDateKey } from './weight.js';
 import { buildBezierPaths } from '../visuals/bezierPath.js';
+import {
+  calculateTrapezoidalWindowAverage,
+  MAX_TREND_FALLBACK_SPAN_DAYS,
+} from './weight.js';
+import { getTodayDateKey } from '../data/dateKeys.js';
 
 const MS_PER_DAY = 86_400_000;
 
@@ -93,6 +98,7 @@ export const calculateBodyFatTrend = (entries, windowDays = 30) => {
       weeklyRate: 0,
       direction: 'flat',
       sampleRange: sorted,
+      isStaleFallback: false,
     };
   }
 
@@ -105,6 +111,7 @@ export const calculateBodyFatTrend = (entries, windowDays = 30) => {
       weeklyRate: 0,
       direction: 'flat',
       sampleRange: sorted.slice(-2),
+      isStaleFallback: false,
     };
   }
 
@@ -117,7 +124,41 @@ export const calculateBodyFatTrend = (entries, windowDays = 30) => {
     return date.getTime() >= windowStartTime;
   });
 
-  const sample = windowEntries.length >= 2 ? windowEntries : sorted.slice(-2);
+  // Fallback to the last two entries only when they are close enough in time
+  // to describe a meaningful recent trend; otherwise the data is stale.
+  let sample = windowEntries.length >= 2 ? windowEntries : null;
+  let staleFallback = false;
+  if (!sample) {
+    const fallbackSample = sorted.slice(-2);
+    const fallbackFirst = getDateFromKey(fallbackSample[0].date);
+    const fallbackLast = getDateFromKey(fallbackSample[1].date);
+    const fallbackSpanDays =
+      fallbackFirst && fallbackLast
+        ? Math.round(
+            (fallbackLast.getTime() - fallbackFirst.getTime()) / MS_PER_DAY
+          )
+        : null;
+    if (
+      Number.isFinite(fallbackSpanDays) &&
+      fallbackSpanDays <= MAX_TREND_FALLBACK_SPAN_DAYS
+    ) {
+      sample = fallbackSample;
+    } else {
+      staleFallback = true;
+    }
+  }
+
+  if (staleFallback) {
+    return {
+      label: 'Need more data',
+      delta: 0,
+      weeklyRate: 0,
+      direction: 'flat',
+      sampleRange: sorted,
+      isStaleFallback: true,
+    };
+  }
+
   const first = sample[0];
   const firstDate = getDateFromKey(first.date);
   const final = sample[sample.length - 1];
@@ -130,6 +171,7 @@ export const calculateBodyFatTrend = (entries, windowDays = 30) => {
       weeklyRate: 0,
       direction: 'flat',
       sampleRange: sample,
+      isStaleFallback: false,
     };
   }
 
@@ -148,6 +190,7 @@ export const calculateBodyFatTrend = (entries, windowDays = 30) => {
     weeklyRate,
     direction,
     sampleRange: sample,
+    isStaleFallback: false,
   };
 };
 
@@ -216,28 +259,21 @@ export const createBodyFatSparklinePoints = (
 };
 
 /**
- * Calculate the average body fat over the last N calendar days from the latest entry.
- * @param {Array} entries - Sorted body fat entries
- * @param {number} n - Number of calendar days to look back
- * @returns {number|null} Average body fat or null if no entries in window
+ * Calculate the average body fat over the last N calendar days, anchored to
+ * today (or an explicit `endDateKey`). Uses a trapezoidal (time-weighted)
+ * integral across the exact N-day window: values are linearly interpolated
+ * between measurements and held flat at the window edges.
+ * @param {Array} entries - Body fat entries (sorted internally)
+ * @param {number} n - Number of calendar days in the window
+ * @param {string|null} [endDateKey=null] - Optional `YYYY-MM-DD` window end; defaults to today
+ * @returns {number|null} Trapezoidal window average, or null when the window holds no data
  */
-export const calculateNDayBodyFatAverage = (entries, n) => {
+export const calculateNDayBodyFatAverage = (entries, n, endDateKey = null) => {
   const sorted = sortBodyFatEntries(entries);
   if (!sorted.length) return null;
 
-  const latest = sorted[sorted.length - 1];
-  const latestDate = new Date(`${latest.date}T00:00:00Z`);
-  const cutoff = new Date(latestDate);
-  cutoff.setUTCDate(cutoff.getUTCDate() - n);
-
-  const windowEntries = sorted.filter((entry) => {
-    const d = new Date(`${entry.date}T00:00:00Z`);
-    return d >= cutoff;
-  });
-
-  if (!windowEntries.length) return null;
-  const sum = windowEntries.reduce((acc, e) => acc + e.bodyFat, 0);
-  return Math.round((sum / windowEntries.length) * 10) / 10;
+  const anchorKey = normalizeDateKey(endDateKey) ?? getTodayDateKey();
+  return calculateTrapezoidalWindowAverage(sorted, n, anchorKey, 'bodyFat');
 };
 
 /**

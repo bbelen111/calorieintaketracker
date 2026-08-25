@@ -1,10 +1,17 @@
 import { buildBezierPaths } from '../visuals/bezierPath.js';
+import { getTodayDateKey, getWindowDateKeys } from '../data/dateKeys.js';
 
 const DATE_KEY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const MS_PER_DAY = 86_400_000;
 
+/** Format an epoch-ms timestamp as a UTC `YYYY-MM-DD` key. */
+const formatDateFromMs = (ms) => new Date(ms).toISOString().slice(0, 10);
+
 export const MIN_WEIGHT_KG = 30;
 export const MAX_WEIGHT_KG = 210;
+
+/** Max day span allowed when falling back to the last two entries for trend. */
+export const MAX_TREND_FALLBACK_SPAN_DAYS = 14;
 
 export const clampWeight = (value) => {
   const numeric = Number(value);
@@ -123,6 +130,7 @@ export const calculateWeightTrend = (entries, windowDays = 30) => {
       weeklyRate: 0,
       direction: 'flat',
       sampleRange: sorted,
+      isStaleFallback: false,
     };
   }
 
@@ -135,6 +143,7 @@ export const calculateWeightTrend = (entries, windowDays = 30) => {
       weeklyRate: 0,
       direction: 'flat',
       sampleRange: sorted.slice(-2),
+      isStaleFallback: false,
     };
   }
 
@@ -147,7 +156,41 @@ export const calculateWeightTrend = (entries, windowDays = 30) => {
     return date.getTime() >= windowStartTime;
   });
 
-  const sample = windowEntries.length >= 2 ? windowEntries : sorted.slice(-2);
+  // Fallback to the last two entries only when they are close enough in time
+  // to describe a meaningful recent trend; otherwise the data is stale.
+  let sample = windowEntries.length >= 2 ? windowEntries : null;
+  let staleFallback = false;
+  if (!sample) {
+    const fallbackSample = sorted.slice(-2);
+    const fallbackFirst = getDateFromKey(fallbackSample[0].date);
+    const fallbackLast = getDateFromKey(fallbackSample[1].date);
+    const fallbackSpanDays =
+      fallbackFirst && fallbackLast
+        ? Math.round(
+            (fallbackLast.getTime() - fallbackFirst.getTime()) / MS_PER_DAY
+          )
+        : null;
+    if (
+      Number.isFinite(fallbackSpanDays) &&
+      fallbackSpanDays <= MAX_TREND_FALLBACK_SPAN_DAYS
+    ) {
+      sample = fallbackSample;
+    } else {
+      staleFallback = true;
+    }
+  }
+
+  if (staleFallback) {
+    return {
+      label: 'Need more data',
+      delta: 0,
+      weeklyRate: 0,
+      direction: 'flat',
+      sampleRange: sorted,
+      isStaleFallback: true,
+    };
+  }
+
   const first = sample[0];
   const firstDate = getDateFromKey(first.date);
   const final = sample[sample.length - 1];
@@ -178,6 +221,7 @@ export const calculateWeightTrend = (entries, windowDays = 30) => {
     weeklyRate,
     direction,
     sampleRange: sample,
+    isStaleFallback: false,
   };
 };
 
@@ -260,28 +304,83 @@ export const getTotalWeightChange = (entries) => {
 };
 
 /**
- * Calculate the average weight over the last N calendar days from the latest entry.
- * @param {Array} entries - Sorted weight entries
- * @param {number} n - Number of calendar days to look back
- * @returns {number|null} Average weight or null if no entries in window
+ * Calculate the average weight over the last N calendar days, anchored to
+ * today (or an explicit `endDateKey`). Uses a trapezoidal (time-weighted)
+ * integral across the exact N-day window: values are linearly interpolated
+ * between weigh-ins and held flat at the window edges.
+ * @param {Array} entries - Weight entries (sorted internally)
+ * @param {number} n - Number of calendar days in the window
+ * @param {string|null} [endDateKey=null] - Optional `YYYY-MM-DD` window end; defaults to today
+ * @returns {number|null} Trapezoidal window average, or null when the window holds no data
  */
-export const calculateNDayWeightAverage = (entries, n) => {
+export const calculateNDayWeightAverage = (entries, n, endDateKey = null) => {
   const sorted = sortWeightEntries(entries);
   if (!sorted.length) return null;
 
-  const latest = sorted[sorted.length - 1];
-  const latestDate = new Date(`${latest.date}T00:00:00Z`);
-  const cutoff = new Date(latestDate);
-  cutoff.setUTCDate(cutoff.getUTCDate() - n);
+  const anchorKey = normalizeDateKey(endDateKey) ?? getTodayDateKey();
+  return calculateTrapezoidalWindowAverage(sorted, n, anchorKey, 'weight');
+};
 
-  const windowEntries = sorted.filter((entry) => {
-    const d = new Date(`${entry.date}T00:00:00Z`);
-    return d >= cutoff;
-  });
+/**
+ * Trapezoidal time-weighted average of `{date, [valueField]}` samples across
+ * an exact n-day UTC window ending at `anchorKey`. Returns null when no
+ * sample falls inside the window.
+ * @param {Array<{ date: string }>} sortedEntries - Entries sorted ascending by date key
+ * @param {number} n - Window size in days
+ * @param {string} anchorKey - `YYYY-MM-DD` window end
+ * @param {string} valueField - Numeric field to average ('weight' | 'bodyFat')
+ * @returns {number|null}
+ */
+export const calculateTrapezoidalWindowAverage = (
+  sortedEntries,
+  n,
+  anchorKey,
+  valueField
+) => {
+  const windowKeys = getWindowDateKeys(anchorKey, n);
+  if (!windowKeys.length) return null;
 
+  const windowStart = windowKeys[0];
+  const windowEnd = windowKeys[windowKeys.length - 1];
+  const windowEntries = sortedEntries.filter(
+    (entry) =>
+      entry.date >= windowStart &&
+      entry.date <= windowEnd &&
+      Number.isFinite(Number(entry[valueField]))
+  );
   if (!windowEntries.length) return null;
-  const sum = windowEntries.reduce((acc, e) => acc + e.weight, 0);
-  return Math.round((sum / windowEntries.length) * 10) / 10;
+
+  // Sample polyline across the full window; hold edge values flat so the
+  // integral always spans exactly n days when any data exists. The right
+  // boundary is the midnight AFTER windowEnd so n inclusive day keys map to
+  // exactly n integrated days.
+  const windowEndTime = new Date(`${windowEnd}T00:00:00Z`).getTime();
+  const windowEndExclusive = formatDateFromMs(windowEndTime + MS_PER_DAY);
+  const points = [
+    { date: windowStart, value: Number(windowEntries[0][valueField]) },
+  ];
+  for (const entry of windowEntries) {
+    if (entry.date > points[points.length - 1].date) {
+      points.push({ date: entry.date, value: Number(entry[valueField]) });
+    }
+  }
+  if (windowEndExclusive > points[points.length - 1].date) {
+    points.push({
+      date: windowEndExclusive,
+      value: Number(windowEntries[windowEntries.length - 1][valueField]),
+    });
+  }
+
+  let integral = 0;
+  for (let i = 1; i < points.length; i += 1) {
+    const spanDays =
+      (new Date(`${points[i].date}T00:00:00Z`).getTime() -
+        new Date(`${points[i - 1].date}T00:00:00Z`).getTime()) /
+      MS_PER_DAY;
+    integral += ((points[i - 1].value + points[i].value) / 2) * spanDays;
+  }
+
+  return Math.round((integral / windowKeys.length) * 10) / 10;
 };
 
 /**

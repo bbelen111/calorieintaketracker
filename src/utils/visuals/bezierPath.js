@@ -8,6 +8,15 @@
 /** Default tension for control-point spacing (0–0.5). */
 const DEFAULT_TENSION = 0.4;
 
+/** Gaps up to this many days are bridged with a solid line. */
+export const GAP_SOLID_MAX_DAYS = 7;
+
+/** Gaps up to this many days (inclusive) are bridged with a dashed line. */
+export const GAP_DASHED_MAX_DAYS = 14;
+
+/** Dash pattern used for bridged gaps longer than GAP_SOLID_MAX_DAYS. */
+export const GAP_DASH_PATTERN = '4 6';
+
 /**
  * Build a cubic Bézier control-point pair for segment `current → next`.
  *
@@ -31,12 +40,28 @@ export const bezierControlPoints = (
 };
 
 /**
+ * Normalize the `extendToEdges` option. Accepts `true`, `false`, or a
+ * directional string ('left', 'right', 'both').
+ */
+const resolveEdgeExtension = (extendToEdges) => ({
+  left:
+    extendToEdges === true ||
+    extendToEdges === 'left' ||
+    extendToEdges === 'both',
+  right:
+    extendToEdges === true ||
+    extendToEdges === 'right' ||
+    extendToEdges === 'both',
+});
+
+/**
  * Generate a smooth SVG `<path>` d-attribute from an array of {x,y} points
  * using cubic Bézier curves.
  *
  * Options control edge-extension behaviour used by the full-size tracker charts:
- *  - `extendToEdges: true` draws a horizontal leader from x=0 to the first
- *    point and a trailer from the last point to `chartWidth`.
+ *  - `extendToEdges: true | 'left' | 'right' | 'both'` draws a horizontal
+ *    leader from x=0 to the first point (left) and/or a trailer from the last
+ *    point to `chartWidth` (right).
  *  - `singlePointStretch: true` draws a flat horizontal line across the full
  *    width when there is exactly one point.
  *
@@ -62,6 +87,8 @@ export const buildBezierPaths = (points, options = {}) => {
     return { pathData: '', areaData: '' };
   }
 
+  const edges = resolveEdgeExtension(extendToEdges);
+
   // --- Single-point stretch (tracker charts with viewport-wide stretch) ---
   if (points.length === 1 && singlePointStretch) {
     const { y } = points[0];
@@ -79,11 +106,11 @@ export const buildBezierPaths = (points, options = {}) => {
     const lastPoint = points[points.length - 1];
 
     // Optionally lead from x=0 to first point
-    let pathData = extendToEdges
+    let pathData = edges.left
       ? `M 0 ${firstPoint.y} L ${firstPoint.x} ${firstPoint.y}`
       : `M ${firstPoint.x} ${firstPoint.y}`;
 
-    let areaData = extendToEdges
+    let areaData = edges.left
       ? `M 0 ${chartHeight} L 0 ${firstPoint.y} L ${firstPoint.x} ${firstPoint.y}`
       : `M ${firstPoint.x} ${chartHeight} L ${firstPoint.x} ${firstPoint.y}`;
 
@@ -100,7 +127,7 @@ export const buildBezierPaths = (points, options = {}) => {
     }
 
     // Optionally trail from last point to chartWidth
-    if (extendToEdges) {
+    if (edges.right) {
       pathData += ` L ${chartWidth} ${lastPoint.y}`;
       areaData += ` L ${chartWidth} ${lastPoint.y} L ${chartWidth} ${chartHeight} Z`;
     } else {
@@ -116,55 +143,100 @@ export const buildBezierPaths = (points, options = {}) => {
 };
 
 /**
- * Build multiple bezier path segments from an array that may contain null gaps.
- * Splits continuous non-null runs, builds paths for each, returns arrays of SVG path strings.
+ * Group gap-tagged chart points into drawable polyline runs.
  *
- * @param {(({x: number, y: number})|null)[]} slots - Array where null = gap (missing data day)
- * @param {object} options - Same options as buildBezierPaths
- * @returns {{ pathSegments: string[], areaSegments: string[] }}
+ * Input slots are aligned to the chart timeline:
+ *  - `null` / padding slots are skipped;
+ *  - real points carry `{ x, y }` (no `isInterpolated`);
+ *  - interpolated bridge points carry
+ *    `{ x, y, isInterpolated: true, gapLength }` where `gapLength` is the
+ *    number of consecutive missing days in their gap run.
+ *
+ * Gap tiers:
+ *  - `gapLength <= solidMaxGapDays`  → bridged, solid stroke (dashArray null)
+ *  - `<= dashedMaxGapDays`           → bridged, dashed stroke
+ *  - otherwise                       → NOT bridged: line splits into runs
+ *
+ * Every returned run ends on a real point; a bridge trailing past the last
+ * real point is discarded.
+ *
+ * @param {({x:number,y:number,isInterpolated?:boolean,gapLength?:number}|null)[]} taggedPoints
+ * @param {object} [options]
+ * @param {number} [options.solidMaxGapDays=GAP_SOLID_MAX_DAYS]
+ * @param {number} [options.dashedMaxGapDays=GAP_DASHED_MAX_DAYS]
+ * @param {string} [options.dashPattern=GAP_DASH_PATTERN]
+ * @returns {Array<{ points: {x:number,y:number}[], dashArray: string|null }>}
  */
-export const buildSegmentedBezierPaths = (slots, options = {}) => {
-  const pathSegments = [];
-  const areaSegments = [];
+export const buildGapAwarePathRuns = (taggedPoints, options = {}) => {
+  const {
+    solidMaxGapDays = GAP_SOLID_MAX_DAYS,
+    dashedMaxGapDays = GAP_DASHED_MAX_DAYS,
+    dashPattern = GAP_DASH_PATTERN,
+  } = options;
 
-  if (!slots || slots.length === 0) {
-    return { pathSegments, areaSegments };
-  }
-
-  // Split into contiguous non-null runs
-  let currentRun = [];
   const runs = [];
+  if (!Array.isArray(taggedPoints)) {
+    return runs;
+  }
 
-  for (let i = 0; i < slots.length; i++) {
-    if (slots[i] !== null) {
-      currentRun.push(slots[i]);
-    } else {
-      if (currentRun.length > 0) {
-        runs.push(currentRun);
-        currentRun = [];
-      }
+  let openRun = null; // contiguous real-point run
+  let bridgeRun = null; // interpolated bridge awaiting its closing real point
+
+  const flushOpenRun = () => {
+    if (openRun && openRun.points.length > 0) {
+      runs.push(openRun);
     }
-  }
-  if (currentRun.length > 0) {
-    runs.push(currentRun);
-  }
+    openRun = null;
+  };
+  const flushBridgeRun = () => {
+    if (bridgeRun && bridgeRun.points.length > 0) {
+      runs.push(bridgeRun);
+    }
+    bridgeRun = null;
+  };
 
-  // Build bezier paths for each run (no edge extension — segments are interior)
-  for (const run of runs) {
-    if (run.length < 2) {
-      // Single point — just record position for dot rendering, no line
-      pathSegments.push('');
-      areaSegments.push('');
+  for (const slot of taggedPoints) {
+    if (!slot || !Number.isFinite(slot.x) || !Number.isFinite(slot.y)) {
       continue;
     }
-    const { pathData, areaData } = buildBezierPaths(run, {
-      ...options,
-      extendToEdges: false,
-      singlePointStretch: false,
-    });
-    pathSegments.push(pathData);
-    areaSegments.push(areaData);
+
+    if (!slot.isInterpolated) {
+      // A real point closes any pending bridge, then continues a solid run.
+      if (bridgeRun) {
+        bridgeRun.points.push({ x: slot.x, y: slot.y });
+        flushBridgeRun();
+      }
+      if (!openRun) {
+        openRun = { points: [], dashArray: null };
+      }
+      openRun.points.push({ x: slot.x, y: slot.y });
+      continue;
+    }
+
+    const gapLength = Number.isFinite(Number(slot.gapLength))
+      ? Math.max(1, Number(slot.gapLength))
+      : 1;
+
+    if (gapLength > dashedMaxGapDays) {
+      // Too wide to bridge honestly — break the line here.
+      flushBridgeRun();
+      flushOpenRun();
+      continue;
+    }
+
+    // Bridgeable gap: finish the previous solid run and start a bridge piece.
+    flushOpenRun();
+    const dashArray = gapLength <= solidMaxGapDays ? null : dashPattern;
+    if (!bridgeRun || bridgeRun.dashArray !== dashArray) {
+      flushBridgeRun();
+      bridgeRun = { points: [], dashArray };
+    }
+    bridgeRun.points.push({ x: slot.x, y: slot.y });
   }
 
-  return { pathSegments, areaSegments };
+  // A trailing bridge with no closing real point is not drawable data.
+  bridgeRun = null;
+  flushOpenRun();
+
+  return runs;
 };

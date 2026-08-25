@@ -30,6 +30,8 @@ const TABS = [
 const REASONS = {
   'insufficient-intake-days': 'Keep logging meals to build this signal.',
   'insufficient-weight-entries': 'Add more weigh-ins to establish your trend.',
+  'weight-data-stale':
+    'Your latest weigh-in is too old to describe current behaviour — log a recent weight.',
   'weight-slope-unavailable': "Your weigh-ins don't form a reliable trend yet.",
   'invalid-date': 'The selected reference date is invalid.',
   'maintenance-goal': 'Corrections are only used for cut and surplus goals.',

@@ -199,11 +199,104 @@ export const getDataAgeInDays = (dateKey) => {
 
 /**
  * Return a human-readable "X days old" warning, or `null` if the data is
- * fresh (< DATA_OLD_WARNING_DAYS).
+ * fresh (< thresholdDays).
+ *
+ * @param {string} dateKey       – `YYYY-MM-DD` of the latest data point
+ * @param {number} [thresholdDays=DATA_OLD_WARNING_DAYS] – staleness threshold in days
  */
-export const getOldDataWarningText = (dateKey) => {
+export const getOldDataWarningText = (dateKey, thresholdDays) => {
+  const threshold = Number.isFinite(Number(thresholdDays))
+    ? Number(thresholdDays)
+    : DATA_OLD_WARNING_DAYS;
   const ageDays = getDataAgeInDays(dateKey);
-  if (!Number.isFinite(ageDays) || ageDays < DATA_OLD_WARNING_DAYS) return null;
+  if (!Number.isFinite(ageDays) || ageDays < threshold) return null;
   const dayLabel = ageDays === 1 ? 'day' : 'days';
   return `${ageDays} ${dayLabel} old`;
+};
+
+// ---------------------------------------------------------------------------
+// Gap-aware chart slot builder
+// ---------------------------------------------------------------------------
+
+/**
+ * Build gap-tagged chart points for a day-slot timeline.
+ *
+ * Real entries map to `{ date, value, x, y, isInterpolated: false }`.
+ * Interior missing days are linearly interpolated between their nearest real
+ * neighbours and tagged `{ isInterpolated: true, gapLength }` where
+ * `gapLength` is the number of consecutive missing days in their gap run —
+ * charts use this to pick solid / dashed / broken bridging styles.
+ * Leading/trailing empty slots stay `null` (no invented data at the edges).
+ *
+ * @param {object} params
+ * @param {Array<{ date: string, entry: object|null }>} params.days - Timeline day slots
+ * @param {Function} params.getValue - Extract the metric value from an entry
+ * @param {number} params.minValue - Chart y-scale minimum
+ * @param {number} params.range - Chart y-scale range (> 0)
+ * @param {number} params.chartWidth - Viewport width of one full window
+ * @param {number} params.windowSize - Days per window (7 / 30) for step sizing
+ * @param {number} params.chartHeight - Chart drawing height in px
+ * @returns {Array<object|null>} Tagged slots aligned with `days`
+ */
+export const buildTaggedChartSlots = ({
+  days,
+  getValue,
+  minValue,
+  range,
+  chartWidth,
+  windowSize,
+  chartHeight,
+}) => {
+  const total = Array.isArray(days) ? days.length : 0;
+  const tagged = new Array(total).fill(null);
+  if (!total || range <= 0) {
+    return tagged;
+  }
+
+  const step = chartWidth / windowSize;
+  const pad = step / 2;
+  const pointAt = (index, value) => {
+    const norm = (value - minValue) / range;
+    const bounded = Math.min(Math.max(norm, 0), 1);
+    return { x: pad + index * step, y: (1 - bounded) * chartHeight };
+  };
+
+  const realIndexes = [];
+  for (let i = 0; i < total; i += 1) {
+    const entry = days[i]?.entry;
+    if (!entry) continue;
+    const value = Number(getValue(entry));
+    if (!Number.isFinite(value)) continue;
+    realIndexes.push(i);
+    tagged[i] = {
+      date: days[i].date,
+      value,
+      ...pointAt(i, value),
+      isInterpolated: false,
+    };
+  }
+
+  // Interpolate interior gap runs between consecutive real points.
+  for (let r = 0; r < realIndexes.length - 1; r += 1) {
+    const startIndex = realIndexes[r];
+    const endIndex = realIndexes[r + 1];
+    const gapLength = endIndex - startIndex - 1;
+    if (gapLength <= 0) continue;
+
+    const startValue = tagged[startIndex].value;
+    const endValue = tagged[endIndex].value;
+    for (let i = startIndex + 1; i < endIndex; i += 1) {
+      const t = (i - startIndex) / (endIndex - startIndex);
+      const value = startValue + (endValue - startValue) * t;
+      tagged[i] = {
+        date: days[i].date,
+        value,
+        ...pointAt(i, value),
+        isInterpolated: true,
+        gapLength,
+      };
+    }
+  }
+
+  return tagged;
 };

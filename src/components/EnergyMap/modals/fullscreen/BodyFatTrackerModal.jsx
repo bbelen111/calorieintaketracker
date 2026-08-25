@@ -24,12 +24,16 @@ import {
   formatWeeklyRate,
   formatTooltipDate,
   getOldDataWarningText,
+  buildTaggedChartSlots,
 } from '../../../../utils/visuals/trackerHelpers';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { BodyFatTrendInfoModal } from '../info/BodyFatTrendInfoModal';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
-import { buildBezierPaths } from '../../../../utils/visuals/bezierPath';
+import {
+  buildBezierPaths,
+  buildGapAwarePathRuns,
+} from '../../../../utils/visuals/bezierPath';
 import { formatDateKeyUtc } from '../../../../utils/data/dateKeys';
 
 // Local helpers that remain specific to this modal are below.
@@ -555,21 +559,15 @@ export const BodyFatTrackerModal = ({
   const allPoints7d = useMemo(() => {
     if (viewMode !== '7d' || !sortedEntries.length || !globalChartData)
       return [];
-    const { days } = timeline7d;
-    const STEP = chartWidth / 7;
-    const PAD = STEP / 2;
-    return days
-      .map((slot, i) => {
-        if (!slot.entry) return null;
-        const x = PAD + i * STEP;
-        const norm =
-          (slot.entry.bodyFat - globalChartData.minValue) /
-          globalChartData.range;
-        const bounded = Math.min(Math.max(norm, 0), 1);
-        const y = (1 - bounded) * chartHeight;
-        return { date: slot.date, value: slot.entry.bodyFat, x, y };
-      })
-      .filter(Boolean);
+    return buildTaggedChartSlots({
+      days: timeline7d.days,
+      getValue: (entry) => entry.bodyFat,
+      minValue: globalChartData.minValue,
+      range: globalChartData.range,
+      chartWidth,
+      windowSize: 7,
+      chartHeight,
+    });
   }, [
     viewMode,
     sortedEntries,
@@ -583,21 +581,15 @@ export const BodyFatTrackerModal = ({
   const allPoints30d = useMemo(() => {
     if (viewMode !== '30d' || !sortedEntries.length || !globalChartData)
       return [];
-    const { days } = timeline30d;
-    const STEP = chartWidth / 30;
-    const PAD = STEP / 2;
-    return days
-      .map((slot, i) => {
-        if (!slot.entry) return null;
-        const x = PAD + i * STEP;
-        const norm =
-          (slot.entry.bodyFat - globalChartData.minValue) /
-          globalChartData.range;
-        const bounded = Math.min(Math.max(norm, 0), 1);
-        const y = (1 - bounded) * chartHeight;
-        return { date: slot.date, value: slot.entry.bodyFat, x, y };
-      })
-      .filter(Boolean);
+    return buildTaggedChartSlots({
+      days: timeline30d.days,
+      getValue: (entry) => entry.bodyFat,
+      minValue: globalChartData.minValue,
+      range: globalChartData.range,
+      chartWidth,
+      windowSize: 30,
+      chartHeight,
+    });
   }, [
     viewMode,
     sortedEntries,
@@ -801,7 +793,9 @@ export const BodyFatTrackerModal = ({
   const selectedPoint = useMemo(() => {
     if (!selectedDate) return null;
     if (viewMode === '7d') {
-      const real = allPoints7d.find((p) => p.date === selectedDate);
+      const real = allPoints7d.find(
+        (p) => p.date === selectedDate && !p.isInterpolated
+      );
       if (real) return real;
       const slotIdx = timeline7d.days.findIndex((d) => d.date === selectedDate);
       if (slotIdx >= 0) {
@@ -818,7 +812,9 @@ export const BodyFatTrackerModal = ({
       return null;
     }
     if (viewMode === '30d') {
-      const real = allPoints30d.find((p) => p.date === selectedDate);
+      const real = allPoints30d.find(
+        (p) => p.date === selectedDate && !p.isInterpolated
+      );
       if (real) return real;
       const slotIdx = timeline30d.days.findIndex(
         (d) => d.date === selectedDate
@@ -1042,13 +1038,14 @@ export const BodyFatTrackerModal = ({
     const totalSlots = timeline.length;
     const totalWidth = totalSlots * STEP;
 
-    const pts = points.map((p) => ({ x: p.x, y: p.y }));
-    const { pathData, areaData } = buildBezierPaths(pts, {
-      chartWidth: totalWidth,
-      chartHeight,
-      extendToEdges: true,
-      singlePointStretch: pts.length === 1,
-    });
+    // Preserve interpolation tags so gaps tier into solid/dashed/broken runs.
+    const pts = points.map((p) => ({
+      x: p.x,
+      y: p.y,
+      isInterpolated: Boolean(p.isInterpolated),
+      gapLength: p.gapLength,
+    }));
+    const runs = buildGapAwarePathRuns(pts);
 
     const gradId = `areaGradient-bf-${gradIdSuffix}`;
 
@@ -1113,53 +1110,83 @@ export const BodyFatTrackerModal = ({
               );
             })}
 
-            {/* Area fill */}
-            {areaData && (
-              <path
-                d={areaData}
-                fill={`url(#${gradId})`}
-                className="tracker-graph-fill"
-              />
-            )}
+            {/* Area fill + line, drawn per gap-aware run */}
+            {runs.map((run, runIndex) => {
+              if (!run.points.length) return null;
+              const isFirstRun = runIndex === 0;
+              const isLastRun = runIndex === runs.length - 1;
+              const extendToEdges =
+                isFirstRun && isLastRun
+                  ? true
+                  : isFirstRun
+                    ? 'left'
+                    : isLastRun
+                      ? 'right'
+                      : false;
+              const { pathData: runPath, areaData: runArea } = buildBezierPaths(
+                run.points,
+                {
+                  chartWidth: totalWidth,
+                  chartHeight,
+                  extendToEdges,
+                  singlePointStretch:
+                    run.points.length === 1 && isFirstRun && isLastRun,
+                }
+              );
+              return (
+                <React.Fragment key={`run-${runIndex}`}>
+                  {runArea && (
+                    <path
+                      d={runArea}
+                      fill={`url(#${gradId})`}
+                      className="tracker-graph-fill"
+                    />
+                  )}
 
-            {/* Line */}
-            {pathData && (
-              <path
-                d={pathData}
-                fill="none"
-                stroke={trendVisual.color}
-                strokeWidth={strokeW}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                pathLength={1}
-                className="tracker-graph-path"
-              />
-            )}
+                  {/* Line (dashed when bridging a medium gap) */}
+                  {runPath && (
+                    <path
+                      d={runPath}
+                      fill="none"
+                      stroke={trendVisual.color}
+                      strokeWidth={strokeW}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeDasharray={run.dashArray ?? 'none'}
+                      pathLength={run.dashArray ? undefined : 1}
+                      className="tracker-graph-path"
+                    />
+                  )}
+                </React.Fragment>
+              );
+            })}
 
-            {/* Points */}
-            {points.map((p) => (
-              <g
-                key={p.date}
-                onClick={(e) => handleDateClick(p.date, e)}
-                className="cursor-pointer"
-              >
-                <circle
-                  cx={p.x}
-                  cy={p.y}
-                  r={pointHitRadius}
-                  fill="transparent"
-                />
-                <circle
-                  cx={p.x}
-                  cy={p.y}
-                  r={pointRadius}
-                  fill="rgb(var(--surface))"
-                  stroke={trendVisual.color}
-                  strokeWidth="2"
-                  className="transition-all tracker-graph-point"
-                />
-              </g>
-            ))}
+            {/* Points — real entries only; interpolated bridge slots get no dot */}
+            {points
+              .filter((p) => !p.isInterpolated)
+              .map((p) => (
+                <g
+                  key={p.date}
+                  onClick={(e) => handleDateClick(p.date, e)}
+                  className="cursor-pointer"
+                >
+                  <circle
+                    cx={p.x}
+                    cy={p.y}
+                    r={pointHitRadius}
+                    fill="transparent"
+                  />
+                  <circle
+                    cx={p.x}
+                    cy={p.y}
+                    r={pointRadius}
+                    fill="rgb(var(--surface))"
+                    stroke={trendVisual.color}
+                    strokeWidth="2"
+                    className="transition-all tracker-graph-point"
+                  />
+                </g>
+              ))}
           </svg>
         </div>
 
