@@ -660,10 +660,11 @@ Do not duplicate target planning formulas in components.
 
 - Timeline slots are built by `buildTaggedChartSlots({ days, getValue, minValue, range, chartWidth, windowSize, chartHeight })` in `utils/visuals/trackerHelpers.jsx`: real entries map to `{ date, value, x, y, isInterpolated: false }`; interior missing days are **linearly interpolated** between their nearest real neighbours and tagged `{ isInterpolated: true, gapLength }` (`gapLength` = consecutive missing days in that run); leading/trailing empty slots stay `null` — no invented data at the chart edges.
 - `buildGapAwarePathRuns(taggedPoints, options?)` in `utils/visuals/bezierPath.js` groups tagged slots into drawable runs with gap tiers:
-  - `gapLength <= GAP_SOLID_MAX_DAYS (7)` → bridged, solid stroke (`dashArray: null`)
-  - `<= GAP_DASHED_MAX_DAYS (14)` → bridged, dashed stroke (`GAP_DASH_PATTERN = '4 6'`)
+  - `gapLength <= GAP_SOLID_MAX_DAYS (7)` → bridged **seamlessly**: interpolated slots merge into the current solid run (no split, one continuous stroke)
+  - `<= GAP_DASHED_MAX_DAYS (14)` → bridged by a separate dashed stroke (`GAP_DASH_PATTERN = '4 6'`) anchored at the preceding real point and closed by the next real point
   - otherwise → **not** bridged; the line splits into separate runs
-  Every returned run ends on a real point; a trailing bridge past the last real point is discarded. The dead `buildSegmentedBezierPaths` was deleted — do not reintroduce segmented path builders.
+  Every returned run ends on a real point; interpolated slots trailing past the last real point are discarded. Returned points are clean `{x,y}` geometry (interpolation tags stay internal). The dead `buildSegmentedBezierPaths` was deleted — do not reintroduce segmented path builders.
+- Tracker area gradients use `gradientUnits="userSpaceOnUse"` spanning `0 → chartHeight` so every run fragment shares one gradient space — never revert to default per-path bounding-box gradients (they restart per fragment and band the fill).
 - `WeightTrackerModal` / `BodyFatTrackerModal` preserve the `isInterpolated`/`gapLength` tags when mapping points into `buildGapAwarePathRuns`, and tooltips snap to the nearest **real** point — interpolated bridge slots are visual aids, never selectable data.
 
 ---
@@ -1208,7 +1209,7 @@ npm run test:watch     # Node test runner in watch mode
 - Tests use `node --test` with ESM; use explicit `.js` extensions in relative imports for test-executed modules.
 - `npm run lint` can include pre-existing warnings in untouched files. Prefer targeted lint for changed files during incremental work, then full lint when practical.
 - Storage tests intentionally run with in-memory `window.localStorage` shims in Node context; avoid plugin monkey-patching when possible.
-- Full `npm run test` is green (as of the chart gap-handling + data-honesty work, 281 tests pass). Recent additions: `tests/utils/bezierPath.test.js` (gap-aware path runs), `tests/utils/trendAverages.test.js` (trapezoidal N-day averages + capped trend fallback), and staleness-gate cases in `tests/utils/adaptiveThermogenesis.test.js`. The canonical defaults are asserted by `tests/constants/activityPresets.test.js` against `DEFAULT_ACTIVITY_MULTIPLIERS` (`{ training: 0.2, rest: 0.22 }`).
+- Full `npm run test` is green (as of the chart-gap rendering continuity fix, 283 tests pass). Recent additions: `tests/utils/bezierPath.test.js` (gap-aware path runs), `tests/utils/trendAverages.test.js` (trapezoidal N-day averages + capped trend fallback), and staleness-gate cases in `tests/utils/adaptiveThermogenesis.test.js`. The canonical defaults are asserted by `tests/constants/activityPresets.test.js` against `DEFAULT_ACTIVITY_MULTIPLIERS` (`{ training: 0.2, rest: 0.22 }`).
 
 **ESLint config:** Flat config format (`eslint.config.js`), uses `@babel/eslint-parser` with JSX preset. `react/prop-types` is disabled. Prettier runs as an ESLint rule.
 

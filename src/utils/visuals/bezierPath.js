@@ -100,6 +100,29 @@ export const buildBezierPaths = (points, options = {}) => {
     };
   }
 
+  // --- Single point with edge extension (lone boundary fragments) ---
+  // Draws only the horizontal leader/trailer so lone runs at chart edges
+  // still connect to the viewport edge instead of disappearing.
+  if (points.length === 1 && (edges.left || edges.right)) {
+    const { x, y } = points[0];
+    if (edges.left && edges.right) {
+      return {
+        pathData: `M 0 ${y} L ${x} ${y} L ${chartWidth} ${y}`,
+        areaData: `M 0 ${chartHeight} L 0 ${y} L ${x} ${y} L ${chartWidth} ${y} L ${chartWidth} ${chartHeight} Z`,
+      };
+    }
+    if (edges.left) {
+      return {
+        pathData: `M 0 ${y} L ${x} ${y}`,
+        areaData: `M 0 ${chartHeight} L 0 ${y} L ${x} ${y} L ${x} ${chartHeight} Z`,
+      };
+    }
+    return {
+      pathData: `M ${x} ${y} L ${chartWidth} ${y}`,
+      areaData: `M ${x} ${chartHeight} L ${x} ${y} L ${chartWidth} ${y} L ${chartWidth} ${chartHeight} Z`,
+    };
+  }
+
   // --- Multiple points ---
   if (points.length > 1) {
     const firstPoint = points[0];
@@ -153,12 +176,14 @@ export const buildBezierPaths = (points, options = {}) => {
  *    number of consecutive missing days in their gap run.
  *
  * Gap tiers:
- *  - `gapLength <= solidMaxGapDays`  → bridged, solid stroke (dashArray null)
- *  - `<= dashedMaxGapDays`           → bridged, dashed stroke
- *  - otherwise                       → NOT bridged: line splits into runs
+ *  - `gapLength <= solidMaxGapDays`  → bridged seamlessly: interpolated
+ *    slots merge into the current solid run (no visual break);
+ *  - `<= dashedMaxGapDays`           → bridged by a dedicated dashed run
+ *    anchored at the preceding real point and closed by the next one;
+ *  - otherwise                       → NOT bridged: line splits into runs.
  *
- * Every returned run ends on a real point; a bridge trailing past the last
- * real point is discarded.
+ * Every returned run ends on a real point; interpolated slots trailing past
+ * the last real point are discarded.
  *
  * @param {({x:number,y:number,isInterpolated?:boolean,gapLength?:number}|null)[]} taggedPoints
  * @param {object} [options]
@@ -179,8 +204,8 @@ export const buildGapAwarePathRuns = (taggedPoints, options = {}) => {
     return runs;
   }
 
-  let openRun = null; // contiguous real-point run
-  let bridgeRun = null; // interpolated bridge awaiting its closing real point
+  let openRun = null; // contiguous real + solid-bridged run
+  let bridgeRun = null; // dashed bridge awaiting its closing real point
 
   const flushOpenRun = () => {
     if (openRun && openRun.points.length > 0) {
@@ -201,15 +226,17 @@ export const buildGapAwarePathRuns = (taggedPoints, options = {}) => {
     }
 
     if (!slot.isInterpolated) {
-      // A real point closes any pending bridge, then continues a solid run.
+      // A real point closes any pending bridge, then continues the solid run
+      // from the shared point so consecutive strokes stay connected.
+      const point = { x: slot.x, y: slot.y };
       if (bridgeRun) {
-        bridgeRun.points.push({ x: slot.x, y: slot.y });
+        bridgeRun.points.push(point);
         flushBridgeRun();
       }
       if (!openRun) {
         openRun = { points: [], dashArray: null };
       }
-      openRun.points.push({ x: slot.x, y: slot.y });
+      openRun.points.push(point);
       continue;
     }
 
@@ -224,19 +251,54 @@ export const buildGapAwarePathRuns = (taggedPoints, options = {}) => {
       continue;
     }
 
-    // Bridgeable gap: finish the previous solid run and start a bridge piece.
-    flushOpenRun();
-    const dashArray = gapLength <= solidMaxGapDays ? null : dashPattern;
-    if (!bridgeRun || bridgeRun.dashArray !== dashArray) {
+    if (gapLength <= solidMaxGapDays) {
+      // Short gap: keep the line visually continuous by merging the
+      // interpolated slots into the current solid run.
+      if (!openRun) {
+        openRun = { points: [], dashArray: null };
+      }
+      openRun.points.push({
+        x: slot.x,
+        y: slot.y,
+        isInterpolated: true,
+      });
+      continue;
+    }
+
+    // Medium gap: dedicated dashed stroke. Anchor it at the preceding real
+    // point so the dashes connect to the solid line instead of floating.
+    if (!bridgeRun || bridgeRun.dashArray !== dashPattern) {
+      const anchor =
+        openRun && openRun.points.length > 0
+          ? openRun.points[openRun.points.length - 1]
+          : null;
+      flushOpenRun();
       flushBridgeRun();
-      bridgeRun = { points: [], dashArray };
+      bridgeRun = { points: [], dashArray: dashPattern };
+      if (anchor && !anchor.isInterpolated) {
+        bridgeRun.points.push({ x: anchor.x, y: anchor.y });
+      }
     }
     bridgeRun.points.push({ x: slot.x, y: slot.y });
   }
 
   // A trailing bridge with no closing real point is not drawable data.
   bridgeRun = null;
+  // Neither are interpolated slots trailing past the last real point inside
+  // the open run — solid merges must never extend past real data.
+  if (openRun) {
+    while (
+      openRun.points.length > 0 &&
+      openRun.points[openRun.points.length - 1].isInterpolated
+    ) {
+      openRun.points.pop();
+    }
+  }
   flushOpenRun();
 
-  return runs;
+  // Return clean geometry — internal interpolation tags stay private.
+  return runs.map((run) => ({
+    dashArray: run.dashArray,
+    points: run.points.map(({ x, y }) => ({ x, y })),
+  }));
 };

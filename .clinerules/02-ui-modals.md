@@ -279,10 +279,11 @@ Visibility checks are queued with `requestAnimationFrame` to reduce scroll-time 
   - Interior missing days are **linearly interpolated** between their nearest real neighbours and tagged `{ isInterpolated: true, gapLength }` (`gapLength` = consecutive missing days in that run).
   - Leading/trailing empty slots stay `null` — **no invented data at the chart edges**.
 - `buildGapAwarePathRuns(taggedPoints, options?)` in `utils/visuals/bezierPath.js` groups tagged slots into drawable runs with gap tiers:
-  - `gapLength <= GAP_SOLID_MAX_DAYS (7)` → bridged, solid stroke (`dashArray: null`)
-  - `<= GAP_DASHED_MAX_DAYS (14)` → bridged, dashed stroke (`GAP_DASH_PATTERN = '4 6'`)
+  - `gapLength <= GAP_SOLID_MAX_DAYS (7)` → bridged **seamlessly**: interpolated slots merge into the current solid run (no split, one continuous stroke)
+  - `<= GAP_DASHED_MAX_DAYS (14)` → bridged by a separate dashed stroke (`GAP_DASH_PATTERN = '4 6'`) anchored at the preceding real point and closed by the next real point
   - otherwise → **not** bridged; the line splits into separate runs
-- Every returned run ends on a real point; a trailing bridge past the last real point is discarded. The dead `buildSegmentedBezierPaths` was deleted — do not reintroduce segmented path builders.
+- Every returned run ends on a real point; interpolated slots trailing past the last real point are discarded. Returned points are clean `{x,y}` geometry (interpolation tags stay internal). The dead `buildSegmentedBezierPaths` was deleted — do not reintroduce segmented path builders.
+- Tracker area gradients use `gradientUnits="userSpaceOnUse"` spanning `0 → chartHeight` so every run fragment shares one gradient space — never revert to default per-path bounding-box gradients (they restart per fragment and band the fill).
 - `WeightTrackerModal` / `BodyFatTrackerModal` preserve the `isInterpolated`/`gapLength` tags when mapping points into `buildGapAwarePathRuns`, and tooltips snap to the nearest **real** point — interpolated bridge slots are visual aids, never selectable data.
 
 ---

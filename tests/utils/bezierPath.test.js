@@ -24,7 +24,7 @@ test('buildGapAwarePathRuns skips null padding slots', () => {
   assert.equal(runs[0].points.length, 2);
 });
 
-test('short gaps bridge as solid runs ending on the closing real point', () => {
+test('short gaps merge seamlessly into the surrounding solid run', () => {
   const runs = buildGapAwarePathRuns([
     pt(0, 10), // real
     pt(10, 11, { isInterpolated: true, gapLength: 3 }),
@@ -32,22 +32,17 @@ test('short gaps bridge as solid runs ending on the closing real point', () => {
     pt(30, 13), // real
   ]);
 
-  assert.equal(runs.length, 3);
-
-  // First run: the leading real point alone.
-  assert.equal(runs[0].points.length, 1);
-  assert.deepEqual(runs[0].points[0], { x: 0, y: 10 });
-
-  // Second run: bridge points plus the closing real point, solid.
-  assert.equal(runs[1].dashArray, null);
-  assert.equal(runs[1].points.length, 3);
-
-  // Third run: the solid run continuing from the shared closing point.
-  assert.equal(runs[2].dashArray, null);
-  assert.deepEqual(runs[2].points, [{ x: 30, y: 13 }]);
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0].dashArray, null);
+  assert.deepEqual(runs[0].points, [
+    { x: 0, y: 10 },
+    { x: 10, y: 11 },
+    { x: 20, y: 12 },
+    { x: 30, y: 13 },
+  ]);
 });
 
-test('medium gaps (8-14 days) bridge with the dash pattern', () => {
+test('medium gaps (8-14 days) bridge with a dashed run anchored at the previous real point', () => {
   const slots = [pt(0, 10)];
   for (let i = 1; i <= 9; i += 1) {
     slots.push(pt(i * 10, 11, { isInterpolated: true, gapLength: 9 }));
@@ -56,8 +51,23 @@ test('medium gaps (8-14 days) bridge with the dash pattern', () => {
 
   const runs = buildGapAwarePathRuns(slots);
   assert.equal(runs.length, 3);
+
+  // Leading solid fragment (a lone point — safe if not drawable).
+  assert.equal(runs[0].dashArray, null);
+  assert.deepEqual(runs[0].points, [{ x: 0, y: 10 }]);
+
+  // Dashed bridge starts at the anchor real point and closes on the next one.
   assert.equal(runs[1].dashArray, GAP_DASH_PATTERN);
-  assert.equal(runs[1].points.length, 10); // 9 interpolated + closing real
+  assert.equal(runs[1].points.length, 11); // anchor + 9 interpolated + closing real
+  assert.deepEqual(runs[1].points[0], { x: 0, y: 10 });
+  assert.deepEqual(runs[1].points[runs[1].points.length - 1], {
+    x: 100,
+    y: 12,
+  });
+
+  // Solid run resumes from the shared closing point.
+  assert.equal(runs[2].dashArray, null);
+  assert.deepEqual(runs[2].points, [{ x: 100, y: 12 }]);
 });
 
 test('wide gaps (>14 days) split the line instead of bridging', () => {
@@ -85,6 +95,52 @@ test('a trailing bridge without a closing real point is discarded', () => {
 
   assert.equal(runs.length, 1);
   assert.equal(runs[0].points.length, 1);
+  assert.deepEqual(runs[0].points[0], { x: 0, y: 10 });
+});
+
+test('returned points expose clean geometry without interpolation tags', () => {
+  const runs = buildGapAwarePathRuns([
+    pt(0, 10),
+    pt(10, 11, { isInterpolated: true, gapLength: 2 }),
+    pt(20, 12),
+  ]);
+
+  assert.ok(runs.length >= 1);
+  runs.forEach((run) =>
+    run.points.forEach((point) => {
+      assert.deepEqual(Object.keys(point).sort(), ['x', 'y']);
+    })
+  );
+});
+
+test('buildBezierPaths draws edge leaders for a lone boundary point', () => {
+  const solo = [pt(40, 12)];
+  const base = { chartWidth: 100, chartHeight: 50 };
+
+  const left = buildBezierPaths(solo, { ...base, extendToEdges: 'left' });
+  assert.equal(left.pathData, 'M 0 12 L 40 12');
+  assert.equal(left.areaData, 'M 0 50 L 0 12 L 40 12 L 40 50 Z');
+
+  const right = buildBezierPaths(solo, { ...base, extendToEdges: 'right' });
+  assert.equal(right.pathData, 'M 40 12 L 100 12');
+  assert.equal(right.areaData, 'M 40 50 L 40 12 L 100 12 L 100 50 Z');
+
+  const both = buildBezierPaths(solo, { ...base, extendToEdges: true });
+  assert.equal(both.pathData, 'M 0 12 L 40 12 L 100 12');
+  assert.equal(both.areaData, 'M 0 50 L 0 12 L 40 12 L 100 12 L 100 50 Z');
+
+  // Without edge extension a lone point still renders nothing.
+  const none = buildBezierPaths(solo, base);
+  assert.equal(none.pathData, '');
+  assert.equal(none.areaData, '');
+
+  // singlePointStretch keeps precedence over plain edge leaders.
+  const stretched = buildBezierPaths(solo, {
+    ...base,
+    extendToEdges: true,
+    singlePointStretch: true,
+  });
+  assert.equal(stretched.pathData, 'M 0 12 L 100 12');
 });
 
 test('buildBezierPaths supports directional edge extension', () => {
