@@ -45,7 +45,7 @@ main.jsx
             │   ├─ CalorieMapScreen
             │   └─ InsightsScreen
             ├─ PhaseDetailScreen (drill-down, not in carousel)
-                └─ 42 top-level useAnimatedModal instances → 57 modal-related files (52 modals + 5 panels)
+                └─ 44 top-level useAnimatedModal instances → 59 modal-related files (54 modals + 5 panels)
                  └─ ~21 additional child-level modals inside modal components
 ```
 
@@ -158,16 +158,16 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 
 ### Modal Count
 
-- **46 top-level `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
+- **48 top-level `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
 - **~21 additional child-level modals** declared inside modal components (e.g., delete confirmations, sub-pickers)
-- **57 modal component files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`, plus 5 supporting panel components under `fullscreen/panels/`:
+- **59 modal component files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`, plus 5 supporting panel components under `fullscreen/panels/`:
   - `fullscreen/` — WeightTrackerModal, BodyFatTrackerModal, StepTrackerModal, SettingsModal, FoodSearchModal, AdaptiveThermogenesisModal, RollingEnergyBalanceModal
   - `pickers/` — AgePickerModal, CalendarPickerModal, **CaloriesPerHourPickerModal**, DatePickerModal, DurationPickerModal, EpocWindowPickerModal, FoodPortionModal, HeartRatePickerModal, HeightPickerModal, **MacroPickerModal**, MealTypePickerModal, MetValuePickerModal, **NumericValuePickerModal**, StepGoalPickerModal, TemplatePickerModal, TimePickerModal
-  - `info/` — AdaptiveThermogenesisInfoModal, BmiInfoModal, BmrInfoModal, BodyFatTrendInfoModal, CalorieBreakdownModal, CaloriesPerHourGuideModal, EpocInfoModal, FfmiInfoModal, TefInfoModal, WeightTrendInfoModal
+  - `info/` — AdaptiveThermogenesisInfoModal, BmiInfoModal, BmrInfoModal, BodyFatTrendInfoModal, CalorieBreakdownModal, CaloriesPerHourGuideModal, DayLedgerModal, EpocInfoModal, FfmiInfoModal, TefInfoModal, WeightTrendInfoModal
   - `forms/` — AddCustomFoodModal, BarcodeEntryModal, BodyFatEntryModal, CardioModal, CustomCardioTypeModal, DailyActivityCustomModal, DailyActivityEditorModal, DailyActivityModal, DailyLogModal, **DailyNeatOverrideModal**, FoodEntryModal, GoalModal, PhaseCreationModal, TrainingModal, StepRangesModal, TrainingTypeEditorModal, WeightEntryModal
-  - `lists/` — CardioFavouritesModal, CardioTypeListModal, CalorieTargetModal
+  - `lists/` — CardioFavouritesModal, CardioTypeListModal, CalorieTargetModal, DayLedgerListModal
   - `common/` — ConfirmActionModal
-- Total across codebase: ~67 modal hook instances (`useAnimatedModal`)
+- Total across codebase: ~69 modal hook instances (`useAnimatedModal`)
 
 ### Adaptive Thermogenesis Frontend
 
@@ -196,6 +196,18 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 - **Home entry point:** In `HomeScreen`'s "Today's Activity Burn" hero, the **NEAT metric block** (icon + label + kcal) is the touch target — it carries a faint underline + chevron affordance, opens the override modal via `onOpenDailyActivityOverride`, and tints green when today's override is active. The **"~X% of daily TDEE"** pill there is a separate button wired to `onOpenTodayBreakdown`, which opens the `CalorieBreakdownModal` for today.
 - **Calculation wiring:** save via the store action `setDailyNeatOverride(dateKey, overrideOrNull)`; the multiplier is applied in `calculateCalorieBreakdown` (override-first, clamped). No duplicate override logic in UI components.
 - Wire it like any other sequencing modal: `useAnimatedModal()`, register in `isAnyModalOpen` + `closeTopmostModal` + deps. It is lightweight (no `React.lazy`), matching other short session modals.
+
+
+### Daily Ledger Frontend (Logbook)
+
+- Entry point: `LogbookScreen` renders a `DayLedgerCard` at the **bottom** of Logbook (after Completed Phases), styled with HomeScreen session-row grammar (`bg-surface-highlight/50 rounded-lg p-4 border-border/50`, bare accent icon, semibold title, group-hover chevron); opens `DayLedgerListModal` via `onOpenDayLedger`.
+- `DayLedgerListModal` (`modals/lists/DayLedgerListModal.jsx`) is a lazy-loaded calendar browser over `dailySnapshots`: fixed 42-cell grid (always 6 weeks, mirroring `CalendarPickerModal`), swipeable month navigation, balance-kind cell coloring via `DAY_LEDGER_BALANCE_META`, a balance-kind legend, and a Today jump.
+- Month/year pickers anchor beneath the nav row via a `relative` wrapper + `absolute inset-x-0 top-full mt-2 flex justify-center pointer-events-none`; Framer Motion animates only the inner card. Never position these overlays with invalid Tailwind classes (`left-1/5`, `top-29`) or Tailwind translate utilities on Motion-animated elements.
+- The bottom **dual-mode panel keeps ONE stable fixed height (`h-[230px]`) for every state**: month summary, day-preview, and empty all render inside the same fixed-height container (`relative h-[230px]`) so surrounding content never moves during any interaction (BF toggle, mode switch, selection changes). Panels are anchored `absolute inset-0` with `overflow-y-auto` inner scrolling; never animate or dynamically resize the container height — animated resizing reintroduces exactly the layout shift the fixed height exists to prevent: picking a tracked day swaps in a tappable day-preview (tap again opens `DayLedgerModal` via `onOpenDayDetail`); deselecting or changing month falls back to the month summary. Month summary = 2×2 `SummaryTile` grid (Avg Energy combined, Balance avg+total kind-colored via `getDailyBalanceKind`, Avg Weight + conditional `% BF`, Avg Steps). The day panel shows Weight + BF tiles when `bodyFatTrackingEnabled`, else Weight + combined Sessions card (Cardio/Training split).
+- `bodyFatTrackingEnabled` must be forwarded from the orchestrator; BF-off swaps tile contents instead of hiding rows.
+- `DayLedgerModal` (`modals/info/DayLedgerModal.jsx`) is the read-only detail sheet: measurements strip via `getMeasurementForDate`, single TDEE energy card that opens the production lazy `CalorieBreakdownModal` recomputed for that historical day through orchestrator `handleOpenDayLedgerBreakdown(dateKey)` (steps + dynamic TEF totals + AT context + `dateKey`; the store applies date-scoped NEAT). It renders the snapshot's `goalAtSnapshot` and that day's training flag.
+- Wire both like any top-level modal: `useAnimatedModal()` (the detail modal uses `MODAL_CLOSE_DELAY`), register in `isAnyModalOpen` + `closeTopmostModal` + deps, lazy `React.lazy(...)` with an `isOpen || isClosing` mount guard.
+- All display math lives in `utils/calculations/dayLedgerPresentation.js`; both modals are thin renderers (see 03-state-and-calcs / State & Calculations docs).
 
 
 ### Modal Performance Loading Strategy
@@ -1042,7 +1054,7 @@ src/
 │   │   ├─ ModalShell.jsx        # Core modal wrapper (singleton managers)
 │   │   ├─ FoodTagBadges.jsx     # Shared food tag/source badge renderer
 │   │   └─ ScreenTabs.jsx        # Tab bar + floating variant
-│   ├─ modals/                   # 51 modal files in 6 subfolders + 5 fullscreen panel components
+│   ├─ modals/                   # 53 modal files in 6 subfolders + 5 fullscreen panel components
 │   │   ├─ fullscreen/           # Full-screen takeover modals (WeightTracker, BodyFatTracker, StepTracker, Settings, FoodSearch)
 │   │   ├─ pickers/              # Scroll-wheel value pickers (Age, Calendar, Height, MealType, etc.)
 │   │   ├─ info/                 # Read-only info/reference sheets (AdaptiveThermogenesisInfo, BmiInfo, BmrInfo, CalorieBreakdown, TefInfo, etc.)
@@ -1083,6 +1095,7 @@ src/
 │   │  ├─ adaptiveThermogenesis.js # Adaptive thermogenesis mode resolution + crude/smart correction engine
 │   │  ├─ dailySnapshots.js      # Derived daily snapshot builder + equality helpers
 │   │  ├─ rollingEnergyBalance.js # Rolling energy-balance calculator (3/7/14/28-day windows; consumes snapshot tdee/intake)
+│   │  ├─ dayLedgerPresentation.js # Daily Ledger display-model builders (read-only snapshot projections)
 │   │  ├─ epoc.js                # Session EPOC estimate + carryover window resolution
 │   │  ├─ goalAlignment.js       # Weight trend vs goal alignment evaluation
 │   │  ├─ phaseTargetPlanning.js # Target-mode phase planning (delta estimation + feasible date bands)
@@ -1158,6 +1171,7 @@ src/
     ├─ bezierPath.test.js        # Gap-aware path run tiering (solid/dashed/broken) + Bézier contracts
     ├─ trendAverages.test.js     # Trapezoidal N-day averages + capped trend fallback behaviour
     ├─ dailySnapshots.test.js    # Snapshot derivation and helper behavior tests
+    ├─ dayLedgerPresentation.test.js # Daily Ledger presentation helpers (preview/month summaries)
     ├─ rollingEnergyBalance.test.js # Rolling balance calculator tests (windows, missing/malformed days, expected-vs-actual)
     ├─ phaseLogV2.test.js
     ├─ phaseTargetPlanning.test.js
@@ -1294,3 +1308,5 @@ npm run test:watch     # Node test runner in watch mode
 89. **Chart gap styling is tag-driven and tiered:** tracker charts interpolate interior missing days via `buildTaggedChartSlots(...)` (`isInterpolated` + `gapLength`) and tier bridges in `buildGapAwarePathRuns(...)` — ≤7 days solid, 8–14 dashed, >14 broken. Preserve the tags when mapping points; stripping `gapLength` collapses dashed/broken tiers to solid. Leading/trailing empty slots must stay `null`, tooltips snap to real points only, and `buildSegmentedBezierPaths` stays deleted.
 90. **Smart AT is gated on weigh-in freshness:** `getAdaptiveThermogenesisSmartModeDataStatus` rejects the smart signal with `reason: 'weight-data-stale'` when the newest weigh-in exceeds `SMART_WEIGHT_STALENESS_MAX_AGE_DAYS` (3) relative to the requested `dateKey`; the correction deactivates instead of extrapolating stale trends. Tune only the exported constant; never bypass the gate.
 91. **Trend fallback is capped:** `calculateWeightTrend`/`calculateBodyFatTrend` use the last-two-entries fallback only when their span ≤ `MAX_TREND_FALLBACK_SPAN_DAYS` (14); otherwise they return `'Need more data'` with `isStaleFallback: true`. Do not widen the cap or drop the flag without a coordinated UI/test update.
+92. **Daily Ledger surfaces are read-only snapshot projections:** `DayLedgerListModal`/`DayLedgerModal` consume snapshots only through `dayLedgerPresentation.js` helpers; never mutate snapshots from these modals, never zero-fill missing days, and never animate/dynamically resize the bottom dual-mode panel — it must keep ONE stable fixed height (`h-[230px]`, taller than the original 200px) across every state, with `absolute inset-0` panels + inner scrolling, because animated resizing reintroduces the exact layout shift the fixed height exists to prevent.
+93. **Daily Ledger picker overlays must stay anchored:** position them with a `relative` wrapper + absolute flex centering under the nav row while Motion animates only the inner card. Do not reintroduce invalid Tailwind classes (`left-1/5`, `top-29`) or Tailwind translate centering on Motion elements (see the Framer Motion transform caveat).

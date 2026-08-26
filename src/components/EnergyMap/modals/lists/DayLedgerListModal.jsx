@@ -59,8 +59,8 @@ const DAY_PILL_CLASS = {
 };
 
 const SummaryTile = ({ icon: Icon, label, children }) => (
-  <div className="bg-surface rounded-lg p-2.5 border border-border/60">
-    <p className="flex items-center gap-1 text-[11px] text-muted mb-1">
+  <div className="bg-surface rounded-lg p-2 border border-border/60">
+    <p className="flex items-center gap-1 text-[11px] text-muted mb-0.5">
       <Icon size={12} />
       {label}
     </p>
@@ -280,7 +280,7 @@ export const DayLedgerListModal = ({
       onClose={onClose}
       contentClassName="w-full max-w-lg"
     >
-      <div className="p-5 relative max-h-[85vh] overflow-y-auto">
+      <div className="p-5 relative overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-4 gap-2">
           <h3 className="text-foreground font-black text-2xl flex items-center gap-2">
@@ -546,8 +546,9 @@ export const DayLedgerListModal = ({
           </span>
         </div>
 
-        {/* Dual-mode panel: fixed height so switching never resizes the modal */}
-        <div className="relative h-[240px] mt-4">
+        {/* Dual-mode panel: ONE stable fixed height for every state so the
+            surrounding content never moves during any interaction */}
+        <div className="relative h-[220px] mt-4">
           <AnimatePresence mode="wait" initial={false}>
             {selectedPreview ? (
               <motion.button
@@ -559,9 +560,9 @@ export const DayLedgerListModal = ({
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.16 }}
                 aria-label={`Open full ledger for ${selectedPreview.date}`}
-                className="absolute inset-0 overflow-y-auto text-left bg-surface-highlight/40 rounded-xl border border-border p-4 pressable-card focus-ring md:hover:border-accent-blue/50 transition-all"
+                className="absolute inset-0 overflow-y-auto text-left bg-surface-highlight/40 rounded-xl border border-border p-3 pressable-card focus-ring md:hover:border-accent-blue/50 transition-all"
               >
-                <div className="flex items-start justify-between gap-2 mb-3">
+                <div className="flex items-start justify-between gap-2 mb-1.5">
                   <div className="min-w-0">
                     <p className="text-foreground font-bold text-sm">
                       {formatDateLabel(selectedPreview.date)}
@@ -607,7 +608,7 @@ export const DayLedgerListModal = ({
                 <div className="flex items-end justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-muted text-[11px]">Eaten</p>
-                    <p className="text-foreground font-bold text-lg leading-tight">
+                    <p className="text-foreground font-bold text-base leading-tight">
                       {Math.round(selectedPreview.intake).toLocaleString()}
                     </p>
                   </div>
@@ -628,7 +629,7 @@ export const DayLedgerListModal = ({
                   </div>
                   <div className="min-w-0 text-right">
                     <p className="text-muted text-[11px]">Burned</p>
-                    <p className="text-foreground font-bold text-lg leading-tight">
+                    <p className="text-foreground font-bold text-base leading-tight">
                       {Math.round(selectedPreview.tdee).toLocaleString()}
                     </p>
                   </div>
@@ -642,7 +643,7 @@ export const DayLedgerListModal = ({
                   );
                   if (total <= 0) return null;
                   return (
-                    <div className="flex h-2 rounded-full overflow-hidden bg-surface-highlight mt-3">
+                    <div className="flex h-2 rounded-full overflow-hidden bg-surface-highlight mt-1.5">
                       {selectedPreview.barSegments.map((segment) => (
                         <div
                           key={segment.key}
@@ -657,7 +658,7 @@ export const DayLedgerListModal = ({
                 })()}
 
                 {/* Measurement / session cards (mirror the month-summary tiles) */}
-                <div className="grid grid-cols-2 gap-2 mt-3">
+                <div className="grid grid-cols-2 gap-2 mt-1.5">
                   <SummaryTile icon={Scale} label="Weight">
                     <p className="text-foreground font-bold text-base leading-tight">
                       {previewMeasurements.weight != null
@@ -695,12 +696,12 @@ export const DayLedgerListModal = ({
                 </div>
 
                 {selectedPreview.epocCarryInCalories > 0 && (
-                  <p className="text-muted text-[11px] mt-2">
+                  <p className="text-muted text-[11px] mt-1">
                     +{selectedPreview.epocCarryInCalories} kcal EPOC carried in
                   </p>
                 )}
 
-                <div className="flex items-center justify-end gap-1 mt-3 pt-2.5 border-t border-border text-muted">
+                <div className="flex items-center justify-end gap-1 mt-1.5 pt-1.5 border-t border-border text-muted">
                   <span className="text-xs font-medium">
                     Tap to view full ledger
                   </span>
@@ -714,9 +715,9 @@ export const DayLedgerListModal = ({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.16 }}
-                className="absolute inset-0 overflow-y-auto bg-surface-highlight/40 rounded-xl border border-border p-4"
+                className="absolute inset-0 overflow-y-auto bg-surface-highlight/40 rounded-xl border border-border p-3"
               >
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-2">
                   <div>
                     <p className="text-foreground font-bold text-sm">
                       Month Summary
@@ -731,104 +732,113 @@ export const DayLedgerListModal = ({
                   </span>
                 </div>
 
-                {monthSummary.daysTracked === 0 ? (
-                  <div className="min-h-[150px] flex flex-col items-center justify-center text-center py-4">
-                    <CalendarX className="text-muted/50" size={36} />
-                    <p className="text-muted text-xs mt-3 max-w-[240px]">
-                      No recorded days this month yet. Tap a highlighted day to
-                      preview its ledger.
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-2 gap-2">
-                      <SummaryTile icon={Utensils} label="Avg Energy">
-                        <p className="text-foreground font-bold text-sm leading-tight">
-                          {monthSummary.avgIntake.toLocaleString()}
-                          <span className="text-muted text-[10px] font-medium">
-                            {' '}
-                            in
-                          </span>
-                        </p>
-                        <p className="text-foreground font-bold text-sm leading-tight">
-                          {monthSummary.avgTdee.toLocaleString()}
-                          <span className="text-muted text-[10px] font-medium">
-                            {' '}
-                            burn
-                          </span>
-                        </p>
-                      </SummaryTile>
-                      <SummaryTile icon={TrendingUp} label="Balance">
-                        <p
-                          className={`font-bold text-sm leading-tight ${
-                            DAY_LEDGER_BALANCE_META[
-                              getDailyBalanceKind(monthSummary.avgBalance)
-                            ].textClass
-                          }`}
-                        >
-                          {formatSignedKcal(monthSummary.avgBalance)}
-                          <span className="text-muted text-[10px] font-medium">
-                            {' '}
-                            avg
-                          </span>
-                        </p>
-                        <p
-                          className={`font-bold text-sm leading-tight ${
-                            DAY_LEDGER_BALANCE_META[
-                              getDailyBalanceKind(monthSummary.totalBalance)
-                            ].textClass
-                          }`}
-                        >
-                          {formatSignedKcal(monthSummary.totalBalance)}
-                          <span className="text-muted text-[10px] font-medium">
-                            {' '}
-                            total
-                          </span>
-                        </p>
-                      </SummaryTile>
-                      <SummaryTile icon={Scale} label="Avg Weight">
-                        <p className="text-foreground font-bold text-sm leading-tight">
-                          {monthSummary.avgWeightKg != null
-                            ? `${monthSummary.avgWeightKg} kg`
-                            : '\u2014'}
-                        </p>
-                        {showBodyFat &&
-                          monthSummary.avgBodyFatPercent != null && (
-                            <p className="text-accent-pink font-semibold text-[11px] leading-tight">
-                              {monthSummary.avgBodyFatPercent}% BF
-                            </p>
-                          )}
-                      </SummaryTile>
-                      <SummaryTile icon={Footprints} label="Avg Steps">
-                        <p className="text-foreground font-bold text-sm leading-tight">
-                          {monthSummary.avgSteps.toLocaleString()}
-                        </p>
-                      </SummaryTile>
-                    </div>
+                <AnimatePresence mode="wait" initial={false}>
+                  {monthSummary.daysTracked === 0 ? (
+                    <motion.div
+                      key="summary-empty"
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.16 }}
+                      className="min-h-[110px] flex flex-col items-center justify-center text-center py-2"
+                    >
+                      <CalendarX className="text-muted/50" size={36} />
+                      <p className="text-muted text-xs mt-2 max-w-[240px]">
+                        No recorded days this month yet. Tap a highlighted day
+                        to preview its ledger.
+                      </p>
+                    </motion.div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <SummaryTile icon={Utensils} label="Avg Energy">
+                          <p className="text-foreground font-bold text-sm leading-tight">
+                            {monthSummary.avgIntake.toLocaleString()}
+                            <span className="text-muted text-[10px] font-medium">
+                              {' '}
+                              in
+                            </span>
+                          </p>
+                          <p className="text-foreground font-bold text-sm leading-tight">
+                            {monthSummary.avgTdee.toLocaleString()}
+                            <span className="text-muted text-[10px] font-medium">
+                              {' '}
+                              burn
+                            </span>
+                          </p>
+                        </SummaryTile>
+                        <SummaryTile icon={TrendingUp} label="Balance">
+                          <p
+                            className={`font-bold text-sm leading-tight ${
+                              DAY_LEDGER_BALANCE_META[
+                                getDailyBalanceKind(monthSummary.avgBalance)
+                              ].textClass
+                            }`}
+                          >
+                            {formatSignedKcal(monthSummary.avgBalance)}
+                            <span className="text-muted text-[10px] font-medium">
+                              {' '}
+                              avg
+                            </span>
+                          </p>
+                          <p
+                            className={`font-bold text-sm leading-tight ${
+                              DAY_LEDGER_BALANCE_META[
+                                getDailyBalanceKind(monthSummary.totalBalance)
+                              ].textClass
+                            }`}
+                          >
+                            {formatSignedKcal(monthSummary.totalBalance)}
+                            <span className="text-muted text-[10px] font-medium">
+                              {' '}
+                              total
+                            </span>
+                          </p>
+                        </SummaryTile>
+                        <SummaryTile icon={Scale} label="Avg Weight">
+                          <p className="text-foreground font-bold text-sm leading-tight">
+                            {monthSummary.avgWeightKg != null
+                              ? `${monthSummary.avgWeightKg} kg`
+                              : '\u2014'}
+                          </p>
+                          {showBodyFat &&
+                            monthSummary.avgBodyFatPercent != null && (
+                              <p className="text-accent-pink font-semibold text-[11px] leading-tight">
+                                {monthSummary.avgBodyFatPercent}% BF
+                              </p>
+                            )}
+                        </SummaryTile>
+                        <SummaryTile icon={Footprints} label="Avg Steps">
+                          <p className="text-foreground font-bold text-sm leading-tight">
+                            {monthSummary.avgSteps.toLocaleString()}
+                          </p>
+                        </SummaryTile>
+                      </div>
 
-                    <div className="mt-3 pt-3 border-t border-border flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-muted">
-                      <span className="inline-flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-accent-red" />
-                        {monthSummary.deficitDays} deficit
-                      </span>
-                      <span className="inline-flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-accent-green" />
-                        {monthSummary.surplusDays} surplus
-                      </span>
-                      <span className="inline-flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-accent-slate" />
-                        {monthSummary.maintenanceDays} maintenance
-                      </span>
-                      <span className="ml-auto font-medium text-foreground/80">
-                        Est. change ≈{' '}
-                        {monthSummary.estimatedWeightChangeKg === 0
-                          ? '±0'
-                          : `${monthSummary.estimatedWeightChangeKg > 0 ? '-' : '+'}${Math.abs(monthSummary.estimatedWeightChangeKg).toFixed(2)}`}
-                        {' kg'}
-                      </span>
-                    </div>
-                  </>
-                )}
+                      <div className="mt-2 pt-1.5 border-t border-border flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-muted">
+                        <span className="inline-flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-accent-red" />
+                          {monthSummary.deficitDays} deficit
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-accent-green" />
+                          {monthSummary.surplusDays} surplus
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-accent-slate" />
+                          {monthSummary.maintenanceDays} maintenance
+                        </span>
+                        <span className="ml-auto font-medium text-foreground/80">
+                          Est. change ≈{' '}
+                          {monthSummary.estimatedWeightChangeKg === 0
+                            ? '±0'
+                            : `${monthSummary.estimatedWeightChangeKg > 0 ? '-' : '+'}${Math.abs(monthSummary.estimatedWeightChangeKg).toFixed(2)}`}
+                          {' kg'}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </AnimatePresence>
               </motion.div>
             )}
           </AnimatePresence>

@@ -47,7 +47,7 @@ main.jsx
             │   ├─ CalorieMapScreen
             │   └─ InsightsScreen
             ├─ PhaseDetailScreen (drill-down, not in carousel)
-                └─ 42 top-level useAnimatedModal instances → 57 modal-related files (52 modals + 5 panels)
+                └─ 44 top-level useAnimatedModal instances → 59 modal-related files (54 modals + 5 panels)
                  └─ ~21 additional child-level modals inside modal components
 ```
 
@@ -98,12 +98,12 @@ src/
 │   │   ├─ ModalShell.jsx        # Core modal wrapper (singleton managers)
 │   │   ├─ FoodTagBadges.jsx     # Shared food tag/source badge renderer
 │   │   └─ ScreenTabs.jsx        # Tab bar + floating variant
-│   ├─ modals/                   # 57 modal files in 6 subfolders + 5 fullscreen panel components
+│   ├─ modals/                   # 59 modal files in 6 subfolders + 5 fullscreen panel components
 │   │   ├─ fullscreen/           # Full-screen takeover modals (WeightTracker, BodyFatTracker, StepTracker, Settings, FoodSearch)
 │   │   ├─ pickers/              # Scroll-wheel value pickers (Age, Calendar, Height, MealType, etc.)
 │   │   ├─ info/                 # Read-only info/reference sheets (AdaptiveThermogenesisInfo, BmiInfo, BmrInfo, CalorieBreakdown, TefInfo, etc.)
 │   │   ├─ forms/                # Data entry & editing dialogs (Cardio, Goal, PhaseCreation, WeightEntry, etc.)
-│   │   ├─ lists/                # Browseable/selectable lists (CardioFavourites, CardioTypeList)
+│   │   ├─ lists/                # Browseable/selectable lists (CardioFavourites, CardioTypeList, DayLedgerList)
 │   │   └─ common/               # Shared utility modals (ConfirmActionModal)
 │   ├─ screens/                  # 6 screen components
 │   └─ context/                  # Empty (unused)
@@ -138,6 +138,7 @@ src/
 │   │  ├─ adaptiveThermogenesis.js # Adaptive thermogenesis mode resolution + crude/smart correction engine
 │   │  ├─ dailySnapshots.js      # Derived daily snapshot builder + equality helpers
 │   │  ├─ rollingEnergyBalance.js # Rolling energy-balance calculator (3/7/14/28-day windows; consumes snapshot tdee/intake)
+│   │  ├─ dayLedgerPresentation.js # Daily Ledger display-model builders (read-only snapshot projections)
 │   │  ├─ healthConnectWindow.js # Strict Health Connect step-read window helper (guarantees end > start)
 │   │  ├─ epoc.js                # Session EPOC estimate + carryover window resolution
 │   │  ├─ goalAlignment.js       # Weight trend vs goal alignment evaluation
@@ -214,6 +215,7 @@ src/
     ├─ bezierPath.test.js        # Gap-aware path run tiering (solid/dashed/broken) + Bézier contracts
     ├─ trendAverages.test.js     # Trapezoidal N-day averages + capped trend fallback behaviour
     ├─ dailySnapshots.test.js    # Snapshot derivation and helper behavior tests
+    ├─ dayLedgerPresentation.test.js # Daily Ledger presentation helpers (preview/month summaries)
     ├─ rollingEnergyBalance.test.js # Rolling balance calculator tests (windows, missing/malformed days, expected-vs-actual)
     ├─ phaseLogV2.test.js
     ├─ phaseTargetPlanning.test.js
@@ -273,3 +275,4 @@ npm run test:watch     # Node test runner in watch mode
 13. **OpenRouter proxy hardening is config-sensitive:** keep `ALLOWED_ORIGINS` and (if enabled) Upstash rate-limit env vars configured in deployment; mismatched env config can silently alter CORS/throttling behavior across environments.
 14. **Daily NEAT overrides are date-scoped + clamped history data:** `dailyNeatOverrides` is a **history field** (not profile), sharded by date (`dailyNeatOverrides:YYYY-MM-DD`). Route writes only through the store action `setDailyNeatOverride(dateKey, overrideOrNull)`; normalize dates via `normalizeDateKey()` and clamp multipliers with `clampCustomActivityMultiplier()` (0.1–1.0). The multiplier applies override-first in `calculateCalorieBreakdown` for the resolved `dateKey` only — never leak it across other dates or into global settings.
 15. **Measurement averages / trends / charts are data-honesty-first:** N-day averages use the shared trapezoidal window integral (`calculateTrapezoidalWindowAverage` in `weight.js`, consumed by `bodyFat.js`; `null` on empty window), day windows come from `getWindowDateKeys(endDateKey, n)` in `dateKeys.js`, trend last-two-entry fallback is capped at `MAX_TREND_FALLBACK_SPAN_DAYS` (14) via `isStaleFallback`, smart AT is gated by weigh-in freshness (`SMART_WEIGHT_STALENESS_MAX_AGE_DAYS = 3`, reason `weight-data-stale`), and tracker-chart gaps tier through `buildTaggedChartSlots(...)` + `buildGapAwarePathRuns(...)` (≤7d solid, 8–14d dashed, >14d broken). Do not duplicate any of this math in components or UI surfaces.
+16. **Daily Ledger helpers are canonical:** all Daily Ledger display math (day previews, month summaries, measurement lookups, balance-kind metadata) lives in `utils/calculations/dayLedgerPresentation.js`; the Logbook modals (`DayLedgerListModal` / `DayLedgerModal`) are thin read-only renderers over `dailySnapshots` (cache, not truth) and must never mutate or zero-fill snapshot data.

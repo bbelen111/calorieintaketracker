@@ -183,7 +183,7 @@ const DayLedgerCard = ({ dailySnapshots, onOpen }) => {
     <button
       type="button"
       onClick={onOpen}
-      className="w-full bg-surface-highlight/50 rounded-lg p-4 border border-border/50 shadow-lg shadow-background/20 text-left flex items-center justify-between gap-3 transition-all group pressable-card focus-ring md:hover:bg-surface-highlight"
+      className="bg-surface rounded-2xl w-full p-6 border border-border shadow-lg flex items-center justify-between mb-4"
     >
       <div className="flex items-center gap-3 min-w-0">
         <CalendarRange className="text-accent-blue shrink-0" size={24} />
