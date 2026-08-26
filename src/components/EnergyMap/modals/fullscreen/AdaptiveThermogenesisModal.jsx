@@ -120,7 +120,7 @@ export const AdaptiveThermogenesisModal = ({
             </h3>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-5">
           <button
             type="button"
             onClick={() => onOpenRollingBalance?.()}

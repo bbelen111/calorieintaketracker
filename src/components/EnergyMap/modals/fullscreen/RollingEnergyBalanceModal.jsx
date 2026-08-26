@@ -1036,7 +1036,7 @@ export const RollingEnergyBalanceModal = ({
               Rolling Energy Balance
             </h3>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-5">
             {typeof onOpenThermogenesis === 'function' && (
               <button
                 type="button"
