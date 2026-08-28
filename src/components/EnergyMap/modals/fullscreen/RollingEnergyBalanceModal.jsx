@@ -14,6 +14,7 @@ import {
   TrendingUp,
   Minus,
   HelpCircle,
+  Info,
   X,
 } from 'lucide-react';
 import { shallow } from 'zustand/shallow';
@@ -262,6 +263,7 @@ export const RollingEnergyBalanceModal = ({
   analysisContext,
   onDismissAnalysisContext,
   onOpenThermogenesis,
+  onOpenWeightTracker,
 }) => {
   const [windowDays, setWindowDays] = useState(
     DEFAULT_ROLLING_BALANCE_WINDOW_DAYS
@@ -1161,14 +1163,33 @@ export const RollingEnergyBalanceModal = ({
                       : 'no goal target set'}
                   </p>
                 </Stat>
-                <Stat label="Observed Trend">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  aria-label="View weight tracker trend details"
+                  onClick={onOpenWeightTracker}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onOpenWeightTracker?.();
+                    }
+                  }}
+                  className="group cursor-pointer rounded-lg focus-ring pressable-card md:hover:bg-surface-highlight/40"
+                >
+                  <p className="text-muted text-xs uppercase tracking-wide mb-1 flex items-center gap-1 md:group-hover:text-foreground transition-colors">
+                    Observed Trend
+                    <Info
+                      size={14}
+                      className="opacity-60 md:group-hover:opacity-100 transition-opacity"
+                    />
+                  </p>
                   <p className="text-foreground text-lg font-semibold">
                     {hasWeightTrend
                       ? formatWeeklyRate(weightTrend.weeklyRate, 'weight')
                       : 'Insufficient data'}
                   </p>
                   <p className="text-muted text-[11px] mt-1">comparison only</p>
-                </Stat>
+                </div>
               </div>
 
               {/* Separator */}

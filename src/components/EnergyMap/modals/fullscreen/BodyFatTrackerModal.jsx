@@ -1543,19 +1543,26 @@ export const BodyFatTrackerModal = ({
                   </div>
                 </div>
                 {/* 7-Day Trend */}
-                <div>
-                  <button
-                    type="button"
-                    onClick={openTrendInfo}
-                    aria-label="7-day trend details"
-                    className="text-muted text-xs uppercase tracking-wide mb-1 md:hover:text-foreground transition-colors cursor-pointer flex items-center gap-1 group focus-ring"
-                  >
+                <div
+                  role="button"
+                  tabIndex={0}
+                  aria-label="7-day trend details"
+                  onClick={openTrendInfo}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      openTrendInfo();
+                    }
+                  }}
+                  className="group cursor-pointer rounded-lg focus-ring pressable-card md:hover:bg-surface-highlight/40"
+                >
+                  <p className="text-muted text-xs uppercase tracking-wide mb-1 flex items-center gap-1 md:group-hover:text-foreground transition-colors">
                     7-Day Trend
                     <Info
                       size={14}
                       className="opacity-60 md:group-hover:opacity-100 transition-opacity"
                     />
-                  </button>
+                  </p>
                   <p
                     className={`${getTrendToneClass(trend7d, selectedGoal, 'bodyFat')} font-semibold text-lg flex items-center gap-2`}
                   >
@@ -1571,19 +1578,26 @@ export const BodyFatTrackerModal = ({
                   )}
                 </div>
                 {/* 7-Day Rate */}
-                <div>
-                  <button
-                    type="button"
-                    onClick={openTrendInfo}
-                    aria-label="7-day rate details"
-                    className="text-muted text-xs uppercase tracking-wide mb-1 md:hover:text-foreground transition-colors cursor-pointer flex items-center gap-1 group focus-ring"
-                  >
+                <div
+                  role="button"
+                  tabIndex={0}
+                  aria-label="7-day rate details"
+                  onClick={openTrendInfo}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      openTrendInfo();
+                    }
+                  }}
+                  className="group cursor-pointer rounded-lg focus-ring pressable-card md:hover:bg-surface-highlight/40"
+                >
+                  <p className="text-muted text-xs uppercase tracking-wide mb-1 flex items-center gap-1 md:group-hover:text-foreground transition-colors">
                     7-Day Rate
                     <Info
                       size={14}
                       className="opacity-60 md:group-hover:opacity-100 transition-opacity"
                     />
-                  </button>
+                  </p>
                   <p className="text-foreground text-lg font-semibold">
                     {weeklyRate7dDisplay}
                   </p>
@@ -1668,19 +1682,26 @@ export const BodyFatTrackerModal = ({
                 {viewMode === '30d' && (
                   <>
                     {/* 30-Day Trend */}
-                    <div>
-                      <button
-                        type="button"
-                        onClick={openTrendInfo}
-                        aria-label="30-day trend details"
-                        className="text-muted text-xs uppercase tracking-wide mb-1 md:hover:text-foreground transition-colors cursor-pointer flex items-center gap-1 group focus-ring"
-                      >
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      aria-label="30-day trend details"
+                      onClick={openTrendInfo}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          openTrendInfo();
+                        }
+                      }}
+                      className="group cursor-pointer rounded-lg focus-ring pressable-card md:hover:bg-surface-highlight/40"
+                    >
+                      <p className="text-muted text-xs uppercase tracking-wide mb-1 flex items-center gap-1 md:group-hover:text-foreground transition-colors">
                         30-Day Trend
                         <Info
                           size={14}
                           className="opacity-60 md:group-hover:opacity-100 transition-opacity"
                         />
-                      </button>
+                      </p>
                       <p
                         className={`${getTrendToneClass(trend, selectedGoal, 'bodyFat')} font-semibold text-lg flex items-center gap-2`}
                       >
@@ -1696,19 +1717,26 @@ export const BodyFatTrackerModal = ({
                       )}
                     </div>
                     {/* 30-Day Rate */}
-                    <div>
-                      <button
-                        type="button"
-                        onClick={openTrendInfo}
-                        aria-label="30-day rate details"
-                        className="text-muted text-xs uppercase tracking-wide mb-1 md:hover:text-foreground transition-colors cursor-pointer flex items-center gap-1 group focus-ring"
-                      >
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      aria-label="30-day rate details"
+                      onClick={openTrendInfo}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          openTrendInfo();
+                        }
+                      }}
+                      className="group cursor-pointer rounded-lg focus-ring pressable-card md:hover:bg-surface-highlight/40"
+                    >
+                      <p className="text-muted text-xs uppercase tracking-wide mb-1 flex items-center gap-1 md:group-hover:text-foreground transition-colors">
                         30-Day Rate
                         <Info
                           size={14}
                           className="opacity-60 md:group-hover:opacity-100 transition-opacity"
                         />
-                      </button>
+                      </p>
                       <p className="text-foreground text-lg font-semibold">
                         {weeklyRateDisplay}
                       </p>

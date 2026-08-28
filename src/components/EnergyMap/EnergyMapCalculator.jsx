@@ -1258,6 +1258,16 @@ export const EnergyMapCalculator = () => {
     }, MODAL_CLOSE_DELAY + 20);
   }, [bodyFatTrackerModal, openWeightTracker]);
 
+  const handleOpenWeightTrackerFromRollingBalance = useCallback(() => {
+    dismissEnergyAnalysisContext();
+    weightTrackerModal.open();
+    rollingEnergyBalanceModal.requestClose();
+  }, [
+    dismissEnergyAnalysisContext,
+    weightTrackerModal,
+    rollingEnergyBalanceModal,
+  ]);
+
   useEffect(
     () => () => {
       if (trackerSwitchTimeoutRef.current) {
@@ -4195,6 +4205,7 @@ export const EnergyMapCalculator = () => {
             analysisContext={energyAnalysisContext}
             onDismissAnalysisContext={dismissEnergyAnalysisContext}
             onOpenThermogenesis={handleOpenThermogenesisFromRollingBalance}
+            onOpenWeightTracker={handleOpenWeightTrackerFromRollingBalance}
           />
         </Suspense>
       )}
