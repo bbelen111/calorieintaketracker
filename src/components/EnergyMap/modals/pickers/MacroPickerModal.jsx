@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   Save,
   Beef,
@@ -26,6 +26,15 @@ import {
 
 const TRIANGLE_WIDTH = 280;
 const TRIANGLE_HEIGHT = 240;
+
+// Depth-transition constants for the triangle <-> horizontal slider handoff.
+// Reuses the app's signature sliding-pill easing (see WeightTrackerModal /
+// RollingEnergyBalanceModal) instead of the previous abrupt 0.15s crossfade.
+const MODE_SWITCH_DURATION = 0.28;
+const MODE_SWITCH_EASE = [0.32, 0.72, 0, 1];
+const TRIANGLE_BACKDROP_SCALE = 0.86;
+const TRIANGLE_BACKDROP_OPACITY = 0.18;
+const TRIANGLE_BACKDROP_BLUR = 'blur(2px)';
 
 const triangleGeometry = createMacroTriangleGeometry({
   width: TRIANGLE_WIDTH,
@@ -139,6 +148,7 @@ export const MacroPickerModal = ({
     [draftLocks]
   );
   const hasTwoLocks = lockedKeys.length >= MAX_MACRO_LOCKS;
+  const hasOneLock = lockedKeys.length === 1;
 
   const recommendations = useMemo(
     () =>
@@ -155,6 +165,7 @@ export const MacroPickerModal = ({
     (event) => {
       if (!triangleRef.current) return;
       if (hasTwoLocks) return;
+      if (hasOneLock) return;
       const point = getRelativePoint(event, triangleRef.current);
       onChange?.(
         macroSplitFromConstrainedTrianglePoint(point, triangleGeometry, {
@@ -164,7 +175,7 @@ export const MacroPickerModal = ({
         })
       );
     },
-    [onChange, targetCalories, userData, draftLocks, hasTwoLocks]
+    [onChange, targetCalories, userData, draftLocks, hasTwoLocks, hasOneLock]
   );
 
   const pointerCaptureIdRef = useRef(null);
@@ -173,11 +184,12 @@ export const MacroPickerModal = ({
     (event) => {
       if (event.button !== 0 && event.pointerType !== 'touch') return;
       if (hasTwoLocks) return;
+      if (hasOneLock) return;
       pointerCaptureIdRef.current = event.pointerId;
       triangleRef.current?.setPointerCapture?.(event.pointerId);
       handlePointerSelection(event);
     },
-    [handlePointerSelection, hasTwoLocks]
+    [handlePointerSelection, hasTwoLocks, hasOneLock]
   );
 
   const handlePointerMove = useCallback(
@@ -246,7 +258,42 @@ export const MacroPickerModal = ({
     [draftLocks]
   );
 
-  const hasOneLock = lockedKeys.length === 1;
+  // Depth-transition states. The triangle layer is always mounted and animates
+  // between a foreground (interactive) state and a dimmed/blurred backdrop
+  // state behind the slider. Reduced-motion users get an opacity-only
+  // crossfade (the global prefers-reduced-motion block in index.css only
+  // covers tracker CSS animations, not Framer Motion).
+  const prefersReducedMotion = useReducedMotion();
+
+  const triangleForegroundState = useMemo(
+    () =>
+      prefersReducedMotion
+        ? { scale: 1, opacity: 1 }
+        : { scale: 1, opacity: 1, filter: 'blur(0px)' },
+    [prefersReducedMotion]
+  );
+
+  const triangleBackdropState = useMemo(
+    () =>
+      prefersReducedMotion
+        ? { scale: 1, opacity: TRIANGLE_BACKDROP_OPACITY }
+        : {
+            scale: TRIANGLE_BACKDROP_SCALE,
+            opacity: TRIANGLE_BACKDROP_OPACITY,
+            filter: TRIANGLE_BACKDROP_BLUR,
+          },
+    [prefersReducedMotion]
+  );
+
+  const sliderEnterFrom = prefersReducedMotion
+    ? { opacity: 0 }
+    : { opacity: 0, scale: 0.96, y: 10 };
+  const sliderEnterTo = prefersReducedMotion
+    ? { opacity: 1 }
+    : { opacity: 1, scale: 1, y: 0 };
+  const sliderExitTo = prefersReducedMotion
+    ? { opacity: 0 }
+    : { opacity: 0, scale: 0.98, y: 6 };
 
   const MACRO_META = {
     protein: {
@@ -366,131 +413,153 @@ export const MacroPickerModal = ({
           are absolutely positioned, so switching between them never changes
           the modal height or shifts the surrounding rows. */}
       <div className="relative h-[280px] w-full">
-        <AnimatePresence>
-          {!hasOneLock ? (
-            <motion.div
-              key="triangle"
-              className="absolute inset-0 flex items-center justify-center"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
+        {/* Triangle layer is always mounted: it recedes into a dimmed,
+            blurred backdrop behind the slider in 1-lock mode and comes
+            forward again on unlock. pointer-events are disabled while it
+            sits behind the slider so taps can never reach it. */}
+        <motion.div
+          className="absolute inset-0 flex items-center justify-center"
+          initial={false}
+          animate={hasOneLock ? triangleBackdropState : triangleForegroundState}
+          transition={{
+            duration: MODE_SWITCH_DURATION,
+            ease: MODE_SWITCH_EASE,
+          }}
+          style={{
+            zIndex: 0,
+            pointerEvents: hasOneLock ? 'none' : 'auto',
+          }}
+        >
+          <div
+            ref={triangleRef}
+            className="relative w-full max-w-[280px] touch-none select-none"
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerEnd}
+            onPointerCancel={handlePointerEnd}
+          >
+            <svg
+              viewBox={`0 0 ${TRIANGLE_WIDTH} ${TRIANGLE_HEIGHT}`}
+              className="w-full h-auto overflow-visible"
             >
-              <div
-                ref={triangleRef}
-                className="relative w-full max-w-[280px] touch-none select-none"
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
-                onPointerUp={handlePointerEnd}
-                onPointerCancel={handlePointerEnd}
-              >
-                <svg
-                  viewBox={`0 0 ${TRIANGLE_WIDTH} ${TRIANGLE_HEIGHT}`}
-                  className="w-full h-auto overflow-visible"
-                >
-                  {/* Triangle face */}
-                  <polygon
-                    points={`${pV.x},${pV.y} ${fV.x},${fV.y} ${cV.x},${cV.y}`}
-                    fill="rgb(var(--surface-highlight))"
-                    fillOpacity="0.4"
-                    stroke="rgb(var(--border))"
-                    strokeWidth="1.5"
-                    strokeLinejoin="round"
-                  />
+              {/* Triangle face */}
+              <polygon
+                points={`${pV.x},${pV.y} ${fV.x},${fV.y} ${cV.x},${cV.y}`}
+                fill="rgb(var(--surface-highlight))"
+                fillOpacity="0.4"
+                stroke="rgb(var(--border))"
+                strokeWidth="1.5"
+                strokeLinejoin="round"
+              />
 
-                  {/* Guide lines from handle to each vertex */}
-                  {[
-                    { vx: pV.x, vy: pV.y, color: 'rgb(var(--accent-red))' },
-                    { vx: fV.x, vy: fV.y, color: 'rgb(var(--accent-yellow))' },
-                    { vx: cV.x, vy: cV.y, color: 'rgb(var(--accent-amber))' },
-                  ].map(({ vx, vy, color }, i) => (
-                    <line
-                      key={i}
-                      x1={markerPoint.x}
-                      y1={markerPoint.y}
-                      x2={vx}
-                      y2={vy}
-                      stroke={color}
-                      strokeWidth="1"
-                      strokeOpacity="0.3"
-                      strokeDasharray="4 3"
-                    />
-                  ))}
+              {/* Guide lines from handle to each vertex */}
+              {[
+                { vx: pV.x, vy: pV.y, color: 'rgb(var(--accent-red))' },
+                { vx: fV.x, vy: fV.y, color: 'rgb(var(--accent-yellow))' },
+                { vx: cV.x, vy: cV.y, color: 'rgb(var(--accent-amber))' },
+              ].map(({ vx, vy, color }, i) => (
+                <line
+                  key={i}
+                  x1={markerPoint.x}
+                  y1={markerPoint.y}
+                  x2={vx}
+                  y2={vy}
+                  stroke={color}
+                  strokeWidth="1"
+                  strokeOpacity="0.3"
+                  strokeDasharray="4 3"
+                />
+              ))}
 
-                  {/* Vertex dots */}
-                  <circle
-                    cx={pV.x}
-                    cy={pV.y}
-                    r="4"
-                    fill="rgb(var(--accent-red))"
-                    opacity="0.8"
-                  />
-                  <circle
-                    cx={fV.x}
-                    cy={fV.y}
-                    r="4"
-                    fill="rgb(var(--accent-yellow))"
-                    opacity="0.8"
-                  />
-                  <circle
-                    cx={cV.x}
-                    cy={cV.y}
-                    r="4"
-                    fill="rgb(var(--accent-amber))"
-                    opacity="0.8"
-                  />
+              {/* Vertex dots */}
+              <circle
+                cx={pV.x}
+                cy={pV.y}
+                r="4"
+                fill="rgb(var(--accent-red))"
+                opacity="0.8"
+              />
+              <circle
+                cx={fV.x}
+                cy={fV.y}
+                r="4"
+                fill="rgb(var(--accent-yellow))"
+                opacity="0.8"
+              />
+              <circle
+                cx={cV.x}
+                cy={cV.y}
+                r="4"
+                fill="rgb(var(--accent-amber))"
+                opacity="0.8"
+              />
 
-                  {/* Handle */}
-                  <circle
-                    cx={markerPoint.x}
-                    cy={markerPoint.y}
-                    r={hasTwoLocks ? 6 : 7}
-                    fill="rgb(var(--accent-blue))"
-                    stroke={
-                      hasTwoLocks
-                        ? 'rgb(var(--surface))'
-                        : 'rgb(var(--accent-blue))'
-                    }
-                    strokeWidth={hasTwoLocks ? 2 : 1.5}
-                    strokeDasharray={hasTwoLocks ? '3 2' : undefined}
-                  />
-                </svg>
+              {/* Handle */}
+              <circle
+                cx={markerPoint.x}
+                cy={markerPoint.y}
+                r={hasTwoLocks ? 6 : 7}
+                fill="rgb(var(--accent-blue))"
+                stroke={
+                  hasTwoLocks
+                    ? 'rgb(var(--surface))'
+                    : 'rgb(var(--accent-blue))'
+                }
+                strokeWidth={hasTwoLocks ? 2 : 1.5}
+                strokeDasharray={hasTwoLocks ? '3 2' : undefined}
+              />
+            </svg>
 
-                {/* Vertex labels */}
-                <div className="pointer-events-none absolute left-1/2 -top-2.5 -translate-x-1/2 flex flex-col items-center">
-                  <span className="text-[11px] font-semibold text-accent-red tracking-wider uppercase">
-                    Protein
-                  </span>
-                  <span className="text-[9px] text-accent-red/70 leading-tight">
-                    Recovery & Repair
-                  </span>
-                </div>
-                <div className="pointer-events-none absolute -left-2 -bottom-2.5 flex flex-col items-center">
-                  <span className="text-[11px] font-semibold text-accent-yellow tracking-wider uppercase">
-                    Fats
-                  </span>
-                  <span className="text-[9px] text-accent-yellow/70 leading-tight">
-                    Hormonal Baseline
-                  </span>
-                </div>
-                <div className="pointer-events-none absolute -right-2 -bottom-2.5 flex flex-col items-center">
-                  <span className="text-[11px] font-semibold text-accent-amber tracking-wider uppercase">
-                    Carbs
-                  </span>
-                  <span className="text-[9px] text-accent-amber/70 leading-tight">
-                    Performance Energy
-                  </span>
-                </div>
-              </div>
-            </motion.div>
-          ) : (
+            {/* Vertex labels */}
+            <div className="pointer-events-none absolute left-1/2 -top-2.5 -translate-x-1/2 flex flex-col items-center">
+              <span className="text-[11px] font-semibold text-accent-red tracking-wider uppercase">
+                Protein
+              </span>
+              <span className="text-[9px] text-accent-red/70 leading-tight">
+                Recovery & Repair
+              </span>
+            </div>
+            <div className="pointer-events-none absolute -left-2 -bottom-2.5 flex flex-col items-center">
+              <span className="text-[11px] font-semibold text-accent-yellow tracking-wider uppercase">
+                Fats
+              </span>
+              <span className="text-[9px] text-accent-yellow/70 leading-tight">
+                Hormonal Baseline
+              </span>
+            </div>
+            <div className="pointer-events-none absolute -right-2 -bottom-2.5 flex flex-col items-center">
+              <span className="text-[11px] font-semibold text-accent-amber tracking-wider uppercase">
+                Carbs
+              </span>
+              <span className="text-[9px] text-accent-amber/70 leading-tight">
+                Performance Energy
+              </span>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Slider layer: arrives on top after the triangle starts receding. */}
+        <AnimatePresence>
+          {hasOneLock ? (
             <motion.div
               key="slider"
-              className="absolute inset-0 flex items-center justify-center px-4"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
+              className="absolute inset-0 z-10 flex items-center justify-center px-4"
+              initial={sliderEnterFrom}
+              animate={{
+                ...sliderEnterTo,
+                transition: {
+                  duration: MODE_SWITCH_DURATION,
+                  ease: MODE_SWITCH_EASE,
+                  delay: prefersReducedMotion ? 0 : 0.08,
+                },
+              }}
+              exit={{
+                ...sliderExitTo,
+                transition: {
+                  duration: MODE_SWITCH_DURATION,
+                  ease: MODE_SWITCH_EASE,
+                },
+              }}
             >
               <div className="w-full max-w-[320px]">
                 <div className="flex items-center justify-between mb-3">
@@ -539,7 +608,7 @@ export const MacroPickerModal = ({
                 </p>
               </div>
             </motion.div>
-          )}
+          ) : null}
         </AnimatePresence>
       </div>
 
