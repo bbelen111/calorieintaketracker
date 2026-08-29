@@ -83,6 +83,7 @@ User action → Store action (updateUserData) → deriveState() recalculates (wi
 9. **Phase creation now supports dual modes with lock-aware goal behavior.** `PhaseCreationModal` supports `creationMode: 'goal' | 'target'`. In `target` mode, end date is required and at least one target metric (`targetWeight` or `targetBodyFat`) must be provided. The store derives a smart daily energy delta from `phaseTargetPlanning` and can temporarily lock goal changes while an active phase owns the phase delta (`isGoalLockedByActivePhase`).
 10. **Goal-mode prediction UX is always visible.** In `PhaseCreationModal` goal mode, keep the bottom prediction card rendered even when insufficient inputs exist; show placeholder guidance until projection inputs are complete.
 11. **Goal-mode percentage projection is weight-relative, not body-fat change.** `estimateGoalModeProjection(...)` returns `predictedWeightDeltaPercent` (bodyweight-relative delta) and keeps deprecated `predictedBodyFatDeltaPercent` as a compatibility alias only.
+12. **The swipe shell is a coordinated design system:** full-bleed carousel viewport + 16px edge peek with alpha-faded neighbour slides, a floating glass bottom tab bar (`ScreenTabs`), and a header zone (`AppHeader`) with greeting + per-screen glanceable stats + drag-linked swipe dots. All peek/peek-fade/bar/dot geometry constants are inline **px** (the app root font is rem-based: 13px mobile / 17px desktop) and have hard sync points — see Screen Components.
 
 ---
 
@@ -394,13 +395,19 @@ confirmActionModal.open();
 
 ## Screen Components
 
-### Carousel Structure
+### Carousel Structure (full-bleed + edge peek)
 
-`useSwipeableScreens(5, viewportRef, initialScreen=2)` manages a horizontal carousel. All 5 screens render simultaneously with `flex-shrink-0 w-full`, visibility controlled by CSS transform offset.
+`useSwipeableScreens(5, viewportRef, initialScreen=2)` manages a horizontal carousel. All 5 screens render simultaneously as `carousel-slide` elements (width `calc(100% - 32px)` — 16px inset per side) inside a **full-bleed viewport** (`-mx-4 md:-mx-6` on the content container), so the 16px neighbour insets sit flush against the screen edge.
 
-Viewport resize updates are `ResizeObserver`-driven but `requestAnimationFrame`-throttled with equality guards to avoid resize-state churn.
-
-Screen order (0-indexed): **Logbook → Tracker → Home (default) → Calorie Map → Insights**
+- **Edge peek:** neighbouring screens peek 16px into view on both edges. The sliver shows real card content because the slide inner padding is tightened to `px-2` (≈6.75px) — not empty padding.
+- **Alpha masks:** only the neighbouring slides (`currentScreen ± 1`, via `getSlideEdgeFadeClass(index, currentScreen)` in `EnergyMapCalculator`) carry `.slide-fade-left` / `.slide-fade-right` (20px linear-gradient masks in `index.css`), so the peeked sliver fades to true transparency — the page gradient shows through faded pixels, never an overlay tint.
+- **Edge tap guards:** two invisible 16px strips (`absolute inset-y-0 z-10 w-4`) pinned inside the viewport edges absorb taps on the peek sliver so taps can never trigger hidden neighbour-screen cards. They are children of the viewport, so swipe drags still bubble to the carousel handlers.
+- **Transform formula:** slider transform is `calc(PEEK*(1+2*screen) + offset px − screen*100%)` with `PEEK = SCREEN_EDGE_PEEK_PX` (16) — the peek compensation term keeps slide alignment exact.
+- **Drag progress:** `applySliderTransform` publishes `--screen-drag-progress` (float 0–4) on `:root` imperatively on every transform commit. The tab-bar circle and header dots read it via `calc(...)`, so they track the finger frame-by-frame with **zero React re-renders** (preserves the hook's no-state-churn design).
+- **Swipe coach mark:** a one-time "Swipe between screens" hint chip in the header is gated by the persisted `userData.hasSeenSwipeHint` flag (store action `markSwipeHintSeen()`; auto-marked on first drag or tab select).
+- Viewport resize updates are `ResizeObserver`-driven but `requestAnimationFrame`-throttled with equality guards to avoid resize-state churn.
+- **Rem/px hazard:** the app root font is 13px mobile / 17px desktop — all swipe-shell geometry constants are inline px (`SCREEN_EDGE_PEEK_PX=16`, `CIRCLE_SIZE_PX=44`, `BAR_HEIGHT_PX=54`, `DOT_SIZE_PX=6`, `DOT_STEP_PX=12`). Keep new geometry px-based.
+- Screen order (0-indexed): **Logbook → Tracker → Home (default) → Calorie Map → Insights**
 
 `PhaseDetailScreen` is a drill-down from Logbook, not part of the carousel.
 
@@ -413,11 +420,20 @@ Screens receive a large props bundle from `EnergyMapCalculator` containing:
 
 Screens also subscribe to the store directly with `shallow` selectors as a fallback pattern. Prefer passing through props for new features.
 
-### Floating Tabs (useScrollOffScreen)
+### Bottom Tab Bar (`ScreenTabs`)
 
-`useScrollOffScreen` detects when the original `ScreenTabs` bar scrolls out of the viewport, triggering a fixed-position `FloatingScreenTabs` overlay. Uses scroll event detection with an 8px threshold.
+`ScreenTabs.jsx` (`common/`) is the **fixed floating glass pill bar** — it replaces the old in-flow tab bar + `FloatingScreenTabs` overlay + `useScrollOffScreen` hook (all removed; do not reintroduce):
+- 54px-high fully-rounded pill (`bg-surface/35` + `backdrop-blur-2xl` + `border-border/40`), floating with margins: `2rem` sides / `1.5rem` bottom + safe-area insets (`--sal`/`--sar`/`--sab`).
+- **Icon-only tabs**; the active tab is a **single persistent filled accent circle** (`CIRCLE_SIZE_PX = 44`) whose `left` is computed from `--screen-drag-progress` (transition disabled while swiping; `left 0.28s cubic-bezier(0.32, 0.72, 0, 1)` on release).
+- `z-[900]` — below the ModalShell z-lanes (1000+) so modals always cover it.
+- Sized in inline px so geometry stays exact regardless of the rem-based root font size.
 
-Visibility checks are queued with `requestAnimationFrame` to reduce scroll-time layout thrash.
+### Header Zone (`AppHeader`)
+
+`AppHeader.jsx` (`common/`) is the top header on every screen — a thin display component that reuses canonical helpers (`getNutritionTotalsForDate`, `calculateWeightTrend`, derived snapshot fields; no duplicated math):
+- Row 1: greeting + long date (minute-interval clock) on the left; right slot swaps between the **swipe coach-mark chip** (while unseen) and the **settings gear** (`onOpenSettings` → orchestrator `settingsModal`).
+- Row 2: per-screen glanceable stat line (Logbook: active phase · Tracker: selected-date calories · Home: TDEE · Calorie Map: steps · Insights: weight trend) + `SwipeDots`.
+- `SwipeDots` uses px-only absolute-positioned dots (`DOT_SIZE_PX=6`, `DOT_STEP_PX=12`) plus one persistent moving dot whose `translateX` tracks `--screen-drag-progress` — rem-based flex-gap sizing previously made dots drift out of alignment with the px-based moving dot.
 
 ---
 
@@ -1054,7 +1070,8 @@ src/
 │   ├─ common/
 │   │   ├─ ModalShell.jsx        # Core modal wrapper (singleton managers)
 │   │   ├─ FoodTagBadges.jsx     # Shared food tag/source badge renderer
-│   │   └─ ScreenTabs.jsx        # Tab bar + floating variant
+│   │   ├─ AppHeader.jsx         # Header zone (greeting, per-screen stat line, swipe dots, coach mark, settings gear)
+│   │   └─ ScreenTabs.jsx        # Fixed floating glass bottom tab bar (drag-linked active circle)
 │   ├─ modals/                   # 53 modal files in 6 subfolders + 5 fullscreen panel components
 │   │   ├─ fullscreen/           # Full-screen takeover modals (WeightTracker, BodyFatTracker, StepTracker, Settings, FoodSearch)
 │   │   ├─ pickers/              # Scroll-wheel value pickers (Age, Calendar, Height, MealType, etc.)
@@ -1081,10 +1098,9 @@ src/
 ├─ hooks/
 │   ├─ useAnimatedModal.js       # Modal lifecycle (isOpen/isClosing/requestClose)
 │   ├─ useHardwareBackButton.js  # Native back handling (home-first + double-exit)
-│   ├─ useSwipeableScreens.js    # 5-screen horizontal carousel
+│   ├─ useSwipeableScreens.js    # 5-screen horizontal carousel (edge peek + --screen-drag-progress)
 │   ├─ useHealthConnect.js       # Android Health Connect integration
-│   ├─ useNetworkStatus.js       # Online/offline detection
-│   └─ useScrollOffScreen.js     # Floating tab bar trigger
+│   └─ useNetworkStatus.js       # Online/offline detection
 ├─ store/
 │   └─ useEnergyMapStore.js      # Zustand store: state, actions, derived values, persistence
 │                                #   calculateBreakdown(steps, isTrainingDay, options?) — options.tefContext + options.adaptiveThermogenesisContext forwarded to core calc
@@ -1269,7 +1285,7 @@ npm run test:watch     # Node test runner in watch mode
 49. **Store hot-path caches are intentional:** Keep reference-based caches in `useEnergyMapStore` (resolved training/cardio types, sorted entry arrays, normalized phase state, phase view) and preserve `updateUserData` no-op short-circuiting.
 50. **Breakdown session reuse is intentional:** `calculateCalorieBreakdown()` reuses prefiltered date-scoped training/cardio sessions for burn calculations; avoid reintroducing duplicate date filtering in the same call path.
 51. **Startup profile reads are parallelized:** Keep profile and last selected cardio-type `Preferences.get(...)` calls parallelized during hydration.
-52. **Hook frame-throttling is intentional:** Keep RAF scheduling/equality guards in `useScrollOffScreen` and `useSwipeableScreens` to limit high-frequency layout/state churn on mobile.
+52. **Hook frame-throttling is intentional:** Keep RAF scheduling/equality guards in `useSwipeableScreens` to limit high-frequency layout/state churn on mobile.
 53. **Food favourites surface is unified:** Use `FoodSearchModal` favourites mode for favourites UX. Do not recreate a standalone `FoodFavouritesModal` surface.
 54. **Food tags are centralized:** Reuse `FoodTagBadges` + `foodTags` helpers; do not add per-modal ad-hoc tag/source logic.
 55. **Brand display in food cards is name-first:** Use `formatFoodDisplayName` and avoid rendering brand as a separate chip in food list cards.
@@ -1311,3 +1327,8 @@ npm run test:watch     # Node test runner in watch mode
 91. **Trend fallback is capped:** `calculateWeightTrend`/`calculateBodyFatTrend` use the last-two-entries fallback only when their span ≤ `MAX_TREND_FALLBACK_SPAN_DAYS` (14); otherwise they return `'Need more data'` with `isStaleFallback: true`. Do not widen the cap or drop the flag without a coordinated UI/test update.
 92. **Daily Ledger surfaces are read-only snapshot projections:** `DayLedgerListModal`/`DayLedgerModal` consume snapshots only through `dayLedgerPresentation.js` helpers; never mutate snapshots from these modals, never zero-fill missing days, and never animate/dynamically resize the bottom dual-mode panel — it must keep ONE stable fixed height (`h-[230px]`, taller than the original 200px) across every state, with `absolute inset-0` panels + inner scrolling, because animated resizing reintroduces the exact layout shift the fixed height exists to prevent.
 93. **Daily Ledger picker overlays must stay anchored:** position them with a `relative` wrapper + absolute flex centering under the nav row while Motion animates only the inner card. Do not reintroduce invalid Tailwind classes (`left-1/5`, `top-29`) or Tailwind translate centering on Motion elements (see the Framer Motion transform caveat).
+94. **Carousel peek has hard sync points:** `SCREEN_EDGE_PEEK_PX` (16) in `useSwipeableScreens.js` ↔ `.carousel-slide { width: calc(100% - 32px) }` in `index.css` ↔ the slide inner padding (`px-2`) that puts real card content into the sliver. Changing one requires updating the others; the transform compensation `PEEK*(1+2*screen)` derives from the constant automatically.
+95. **Peek slivers are gesture area, not tap area:** keep the invisible edge tap-guard strips (`absolute inset-y-0 z-10 w-4`) inside the viewport; without them, taps on the sliver would trigger cards on hidden neighbour screens. Drags must keep working from the guards (they bubble to the viewport handlers).
+96. **Peek fades are alpha masks on neighbours only:** apply `.slide-fade-left/right` only to `currentScreen ± 1` slides via `getSlideEdgeFadeClass`, and never replace the masks with gradient overlay strips (overlays tint the faded pixels instead of letting the page gradient show through).
+97. **`--screen-drag-progress` is the drag-sync channel:** published imperatively on `:root` by `useSwipeableScreens.applySliderTransform` and consumed via `calc(...)` by the tab-bar circle and header dots. Do not replace it with React state (re-renders per drag frame) and do not introduce per-button conditional remounts for the moving pill/circle/dot.
+98. **The swipe coach-mark flag is persisted and store-routed:** `userData.hasSeenSwipeHint` (profile scope) is mutated only via the `markSwipeHintSeen()` store action; the header chip hides on first drag or tab select. Do not derive it from transient UI state.

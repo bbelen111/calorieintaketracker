@@ -45,6 +45,8 @@ myNewAction: (param) => {
 
 **Daily NEAT override action:** `setDailyNeatOverride(dateKey, overrideOrNull)` upserts one date's override (normalizes the date, clamps the multiplier with `clampCustomActivityMultiplier()` to 0.1–1.0, coerces `presetKey`/`label` to strings or `null`, stamps `updatedAt`), or deletes the date's record when `overrideOrNull == null`. After a change it calls `upsertDailySnapshot(normalizedDate)` so TDEE / snapshots / rolling balance update immediately. Uses `updateUserData` (short-circuits on no-op) exactly like other actions.
 
+**Swipe coach-mark action:** `markSwipeHintSeen()` flips the persisted profile flag `userData.hasSeenSwipeHint` to `true` (no-op short-circuit when already true). It is auto-invoked on the user's first carousel drag or tab select; `AppHeader` renders the one-time "Swipe between screens" chip while the flag is false and no modal is open.
+
 ### Persistence Setup
 
 `setupEnergyMapStore()` (called once) does two things:
@@ -198,6 +200,7 @@ Do not duplicate target planning formulas in components.
   goalChangedAt: 1700000000000,     // Epoch ms when selectedGoal last changed (persisted)
   phaseGoalCalorieDelta: null,      // Active phase smart delta override (kcal/day), if any
   phaseGoalCalorieDeltaSourcePhaseId: null, // Active phase id that owns the delta override
+  hasSeenSwipeHint: false,          // One-time swipe coach-mark flag (profile scope; via markSwipeHintSeen)
   selectedTrainingType, trainingDuration,
   stepRanges: ['<10k', '10k', ...],
   activityMultipliers: { training: 0.2, rest: 0.22 },
@@ -369,3 +372,4 @@ When editing phase logic:
 25. **N-day measurement averages are trapezoidal + window-anchored:** `calculateNDayWeightAverage`/`calculateNDayBodyFatAverage` integrate over an exact n-day UTC window anchored to today (or explicit `endDateKey`) via the shared `calculateTrapezoidalWindowAverage(...)` in `weight.js`. Do not reintroduce naive entry means, duplicate the integral per module, or substitute `0` when they return `null`.
 26. **Day-window iteration uses `getWindowDateKeys`:** build date windows with `getWindowDateKeys(endDateKey, n)` from `utils/data/dateKeys.js` (UTC-stable, canonical-key validated). Do not hand-roll `setDate`/ISO-slice loops that silently accept non-canonical keys like `2026-02-31`.
 27. **Trend fallback is capped and smart AT is freshness-gated:** trend functions use the last-two-entries fallback only when their span ≤ `MAX_TREND_FALLBACK_SPAN_DAYS` (14), else return `'Need more data'` with `isStaleFallback: true`; `getAdaptiveThermogenesisSmartModeDataStatus` rejects the smart signal with `reason: 'weight-data-stale'` when the newest weigh-in exceeds `SMART_WEIGHT_STALENESS_MAX_AGE_DAYS` (3). Tune only the exported constants; never bypass either gate.
+28. **The swipe coach-mark flag is persisted and store-routed:** `userData.hasSeenSwipeHint` (profile scope, default `false` in `mergeWithDefaults`) is mutated only via the `markSwipeHintSeen()` store action (no-op short-circuit when already true). Do not derive it from transient UI state.

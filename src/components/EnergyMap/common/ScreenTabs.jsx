@@ -1,87 +1,63 @@
-import React, { forwardRef } from 'react';
+import React from 'react';
 
-export const ScreenTabs = forwardRef(
-  ({ tabs, currentScreen, onSelect }, ref) => (
-    <div
-      ref={ref}
-      className="mx-auto mb-6 flex w-full max-w-md items-end gap-3"
-    >
-      {tabs.map(({ key, label, icon: Icon }, index) => {
-        const isActive = currentScreen === index;
-        const isHome = key === 'home';
-        const iconSize = isHome ? (isActive ? 24 : 22) : isActive ? 20 : 18;
-
-        const baseClasses =
-          'flex items-center justify-center rounded-full border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background';
-
-        const stateClasses = isActive
-          ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
-          : 'bg-surface-highlight/60 text-muted md:hover:bg-surface-highlight md:hover:text-foreground';
-
-        const shapeClasses = isHome
-          ? 'flex-[1.1] h-11 -mb-0.5 border-primary/70 shadow-lg shadow-primary/20'
-          : 'flex-1 h-9 border-transparent';
-
-        return (
-          <button
-            key={key}
-            type="button"
-            onClick={() => onSelect(index)}
-            aria-pressed={isActive}
-            aria-label={label}
-            className={`${baseClasses} ${stateClasses} ${shapeClasses}`}
-          >
-            <Icon size={iconSize} className="shrink-0" />
-            <span className="sr-only">{label}</span>
-          </button>
-        );
-      })}
-    </div>
-  )
-);
-
-ScreenTabs.displayName = 'ScreenTabs';
+const CIRCLE_SIZE_PX = 44; // in the 54px bar
+const BAR_HEIGHT_PX = 54;
 
 /**
- * Floating version of ScreenTabs - appears when original tabs scroll off screen
- * Identical appearance, positioned fixed below status bar with smooth animations
+ * Fixed bottom floating glass tab bar (blur/glassmorphic pill).
+ *
+ * - Floats with generous margins on all sides (never edge-to-edge).
+ * - Fully rounded pill with a very translucent fill + heavy backdrop blur.
+ * - Icon-only tabs; the active tab is a filled accent circle behind the icon.
+ * - The circle is a single persistent element whose `left` tracks the live
+ *   carousel position via the `--screen-drag-progress` custom property
+ *   (published by useSwipeableScreens on every transform commit), so it slides
+ *   in real time while the user drags between screens.
+ * - Sized in px (inline) so geometry stays exact regardless of the app's
+ *   rem-based root font size.
+ * - Sits below the ModalShell z-lanes (z-[900] < 1000) so modals always cover
+ *   it, and respects the safe-area insets on all sides.
  */
-export const FloatingScreenTabs = ({
+export const ScreenTabs = ({
   tabs,
   currentScreen,
   onSelect,
-  isVisible,
+  isSwiping = false,
 }) => {
+  const tabPercent = 100 / tabs.length;
+
   return (
-    <div
-      className={`fixed left-0 right-0 z-50 px-4 md:px-6 transition-all ${isVisible ? 'floating-screen-tabs' : 'floating-screen-tabs hiding'}`}
+    <nav
+      className="fixed inset-x-0 bottom-0 z-[900]"
       style={{
-        top: 'calc(var(--sat, 0px) + 8px)',
-        paddingLeft: 'calc(1rem + var(--sal, 0px))',
-        paddingRight: 'calc(1rem + var(--sar, 0px))',
-        opacity: isVisible ? 1 : 0,
-        pointerEvents: isVisible ? 'auto' : 'none',
+        paddingBottom: `calc(1.5rem + var(--sab, 0px))`,
+        paddingLeft: `calc(2rem + var(--sal, 0px))`,
+        paddingRight: `calc(2rem + var(--sar, 0px))`,
+        pointerEvents: 'none',
       }}
+      aria-label="Screens"
     >
-      <div className="mx-auto max-w-6xl">
-        <div className="mx-auto flex w-full max-w-md items-end gap-3">
+      <div className="mx-auto max-w-md" style={{ pointerEvents: 'auto' }}>
+        <div
+          className="relative flex items-stretch rounded-full border border-border/40 bg-surface/35 shadow-lg shadow-background/30 backdrop-blur-2xl"
+          style={{ height: BAR_HEIGHT_PX }}
+        >
+          {/* Persistent sliding active circle — tracks drag progress live */}
+          <div
+            aria-hidden="true"
+            className="absolute rounded-full bg-primary shadow-lg shadow-primary/30"
+            style={{
+              width: CIRCLE_SIZE_PX,
+              height: CIRCLE_SIZE_PX,
+              top: `calc(50% - ${CIRCLE_SIZE_PX / 2}px)`,
+              left: `calc(var(--screen-drag-progress, ${currentScreen}) * ${tabPercent}% + ${tabPercent / 2}% - ${CIRCLE_SIZE_PX / 2}px)`,
+              transition: isSwiping
+                ? 'none'
+                : 'left 0.28s cubic-bezier(0.32, 0.72, 0, 1)',
+            }}
+          />
           {tabs.map(({ key, label, icon: Icon }, index) => {
             const isActive = currentScreen === index;
-            const isHome = key === 'home';
-            const iconSize = isHome ? (isActive ? 24 : 22) : isActive ? 20 : 18;
-
-            const baseClasses =
-              'flex items-center justify-center rounded-full border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background';
-
-            const stateClasses = isActive
-              ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
-              : 'bg-surface-highlight text-muted md:hover:bg-surface-highlight md:hover:text-foreground backdrop-blur-sm shadow-xl shadow-background/20';
-
-            const shapeClasses = isHome
-              ? 'flex-[1.1] h-11 -mb-0.5 border-primary/70 shadow-lg shadow-primary/20'
-              : isActive
-                ? 'flex-1 h-9 border-primary/70'
-                : 'flex-1 h-9 border-transparent';
 
             return (
               <button
@@ -90,15 +66,20 @@ export const FloatingScreenTabs = ({
                 onClick={() => onSelect(index)}
                 aria-pressed={isActive}
                 aria-label={label}
-                className={`${baseClasses} ${stateClasses} ${shapeClasses}`}
+                className={`relative z-10 flex flex-1 items-center justify-center rounded-full pressable-inline focus-ring transition-colors ${
+                  isActive
+                    ? 'text-primary-foreground'
+                    : 'text-muted md:hover:text-foreground'
+                }`}
               >
-                <Icon size={iconSize} className="shrink-0" />
-                <span className="sr-only">{label}</span>
+                <Icon size={20} className="shrink-0" />
               </button>
             );
           })}
         </div>
       </div>
-    </div>
+    </nav>
   );
 };
+
+ScreenTabs.displayName = 'ScreenTabs';

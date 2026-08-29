@@ -245,13 +245,19 @@ confirmActionModal.open();
 
 ## Screen Components
 
-### Carousel Structure
+### Carousel Structure (full-bleed + edge peek)
 
-`useSwipeableScreens(5, viewportRef, initialScreen=2)` manages a horizontal carousel. All 5 screens render simultaneously with `flex-shrink-0 w-full`, visibility controlled by CSS transform offset.
+`useSwipeableScreens(5, viewportRef, initialScreen=2)` manages a horizontal carousel. All 5 screens render simultaneously as `carousel-slide` elements (width `calc(100% - 32px)` — 16px inset per side) inside a **full-bleed viewport** (`-mx-4 md:-mx-6` on the content container), so the 16px neighbour insets sit flush against the screen edge.
 
-Viewport resize updates are `ResizeObserver`-driven but `requestAnimationFrame`-throttled with equality guards to avoid resize-state churn.
-
-Screen order (0-indexed): **Logbook → Tracker → Home (default) → Calorie Map → Insights**
+- **Edge peek:** neighbouring screens peek 16px into view on both edges. The sliver shows real card content because the slide inner padding is tightened to `px-2` (≈6.75px) — not empty padding.
+- **Alpha masks:** only the neighbouring slides (`currentScreen ± 1`, via `getSlideEdgeFadeClass(index, currentScreen)` in `EnergyMapCalculator`) carry `.slide-fade-left` / `.slide-fade-right` (20px linear-gradient masks in `index.css`), so the peeked sliver fades to true transparency — the page gradient shows through faded pixels, never an overlay tint.
+- **Edge tap guards:** two invisible 16px strips (`absolute inset-y-0 z-10 w-4`) pinned inside the viewport edges absorb taps on the peek sliver so taps can never trigger hidden neighbour-screen cards. They are children of the viewport, so swipe drags still bubble to the carousel handlers.
+- **Transform formula:** slider transform is `calc(PEEK*(1+2*screen) + offset px − screen*100%)` with `PEEK = SCREEN_EDGE_PEEK_PX` (16) — the peek compensation term keeps slide alignment exact.
+- **Drag progress:** `applySliderTransform` publishes `--screen-drag-progress` (float 0–4) on `:root` imperatively on every transform commit. The tab-bar circle and header dots read it via `calc(...)`, so they track the finger frame-by-frame with **zero React re-renders** (preserves the hook's no-state-churn design).
+- **Swipe coach mark:** a one-time "Swipe between screens" hint chip in the header is gated by the persisted `userData.hasSeenSwipeHint` flag (store action `markSwipeHintSeen()`; auto-marked on first drag or tab select).
+- Viewport resize updates are `ResizeObserver`-driven but `requestAnimationFrame`-throttled with equality guards to avoid resize-state churn.
+- **Rem/px hazard:** the app root font is 13px mobile / 17px desktop — all swipe-shell geometry constants are inline px (`SCREEN_EDGE_PEEK_PX=16`, `CIRCLE_SIZE_PX=44`, `BAR_HEIGHT_PX=54`, `DOT_SIZE_PX=6`, `DOT_STEP_PX=12`). Keep new geometry px-based.
+- Screen order (0-indexed): **Logbook → Tracker → Home (default) → Calorie Map → Insights**
 
 `PhaseDetailScreen` is a drill-down from Logbook, not part of the carousel.
 
@@ -264,11 +270,20 @@ Screens receive a large props bundle from `EnergyMapCalculator` containing:
 
 Screens also subscribe to the store directly with `shallow` selectors as a fallback pattern. Prefer passing through props for new features.
 
-### Floating Tabs (useScrollOffScreen)
+### Bottom Tab Bar (`ScreenTabs`)
 
-`useScrollOffScreen` detects when the original `ScreenTabs` bar scrolls out of the viewport, triggering a fixed-position `FloatingScreenTabs` overlay. Uses scroll event detection with an 8px threshold.
+`ScreenTabs.jsx` (`common/`) is the **fixed floating glass pill bar** — it replaces the old in-flow tab bar + `FloatingScreenTabs` overlay + `useScrollOffScreen` hook (all removed; do not reintroduce):
+- 54px-high fully-rounded pill (`bg-surface/35` + `backdrop-blur-2xl` + `border-border/40`), floating with margins: `2rem` sides / `1.5rem` bottom + safe-area insets (`--sal`/`--sar`/`--sab`).
+- **Icon-only tabs**; the active tab is a **single persistent filled accent circle** (`CIRCLE_SIZE_PX = 44`) whose `left` is computed from `--screen-drag-progress` (transition disabled while swiping; `left 0.28s cubic-bezier(0.32, 0.72, 0, 1)` on release).
+- `z-[900]` — below the ModalShell z-lanes (1000+) so modals always cover it.
+- Sized in inline px so geometry stays exact regardless of the rem-based root font size.
 
-Visibility checks are queued with `requestAnimationFrame` to reduce scroll-time layout thrash.
+### Header Zone (`AppHeader`)
+
+`AppHeader.jsx` (`common/`) is the top header on every screen — a thin display component that reuses canonical helpers (`getNutritionTotalsForDate`, `calculateWeightTrend`, derived snapshot fields; no duplicated math):
+- Row 1: greeting + long date (minute-interval clock) on the left; right slot swaps between the **swipe coach-mark chip** (while unseen) and the **settings gear** (`onOpenSettings` → orchestrator `settingsModal`).
+- Row 2: per-screen glanceable stat line (Logbook: active phase · Tracker: selected-date calories · Home: TDEE · Calorie Map: steps · Insights: weight trend) + `SwipeDots`.
+- `SwipeDots` uses px-only absolute-positioned dots (`DOT_SIZE_PX=6`, `DOT_STEP_PX=12`) plus one persistent moving dot whose `translateX` tracks `--screen-drag-progress` — rem-based flex-gap sizing previously made dots drift out of alignment with the px-based moving dot.
 
 ---
 

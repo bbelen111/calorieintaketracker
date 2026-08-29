@@ -1149,6 +1149,7 @@ export const getDefaultEnergyMapData = () => ({
   theme: 'auto', // 'auto' | 'dark' | 'light' | 'amoled_dark' | 'forest' | 'dawn' | 'dusk' | 'midnight'
   selectedGoal: 'maintenance',
   goalChangedAt: Date.now(),
+  hasSeenSwipeHint: false,
   phaseGoalCalorieDelta: null,
   phaseGoalCalorieDeltaSourcePhaseId: null,
   smartTefEnabled: false,

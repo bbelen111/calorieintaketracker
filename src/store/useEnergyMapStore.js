@@ -1224,6 +1224,15 @@ export const useEnergyMapStore = createWithEqualityFn(
       }));
     },
 
+    markSwipeHintSeen: () => {
+      updateUserData(set, get, (prev) => {
+        if (prev.hasSeenSwipeHint === true) {
+          return prev;
+        }
+        return { ...prev, hasSeenSwipeHint: true };
+      });
+    },
+
     setDailyNeatOverride: (dateKey, overrideOrNull) => {
       const normalizedDate = normalizeDateKey(dateKey);
       if (!normalizedDate) {

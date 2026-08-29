@@ -286,31 +286,33 @@
   }
 }
 
-/* Floating tabs animation container */
-.floating-screen-tabs {
-  animation: floatingTabsFadeIn 0.15s ease-out forwards;
+/*
+  Carousel slide sizing: each slide is 32px narrower than the viewport so the
+  neighbouring screens peek 16px into view, flush against the screen edge (the
+  carousel viewport is full-bleed). Keep in sync with SCREEN_EDGE_PEEK_PX in
+  useSwipeableScreens.js (16px per side).
+ */
+.carousel-slide {
+  width: calc(100% - 32px);
 }
 
-@keyframes floatingTabsFadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+/*
+  Peek edge alpha fade: applied ONLY to the neighbouring slides (current ± 1)
+  so the peeked sliver fades to true transparency — the page gradient shows
+  through the faded pixels instead of an overlay tinting them.
+  .slide-fade-left fades a slide's LEFT edge (it peeks in from the right);
+  .slide-fade-right fades its RIGHT edge (it peeks in from the left).
+  The 20px window spans the 16px peek zone so the sliver is visible but still
+  fades to fully transparent at the screen edge.
+ */
+.slide-fade-left {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 20px);
+  mask-image: linear-gradient(to right, transparent 0, #000 20px);
 }
 
-.floating-screen-tabs.hiding {
-  animation: floatingTabsFadeOut 0.12s ease-out forwards;
-}
-
-@keyframes floatingTabsFadeOut {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
+.slide-fade-right {
+  -webkit-mask-image: linear-gradient(to left, transparent 0, #000 20px);
+  mask-image: linear-gradient(to left, transparent 0, #000 20px);
 }
 
 /*

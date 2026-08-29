@@ -86,6 +86,8 @@ User action → Store action (updateUserData) → deriveState() recalculates (wi
 
 11. **Goal-mode percentage projection is weight-relative, not body-fat change.** `estimateGoalModeProjection(...)` returns `predictedWeightDeltaPercent` (bodyweight-relative delta) and keeps deprecated `predictedBodyFatDeltaPercent` as a compatibility alias only.
 
+12. **The swipe shell is a coordinated design system:** full-bleed carousel viewport + 16px edge peek with alpha-faded neighbour slides, a floating glass bottom tab bar (`ScreenTabs`), and a header zone (`AppHeader`) with greeting + per-screen glanceable stats + drag-linked swipe dots. All peek/peek-fade/bar/dot geometry constants are inline **px** (the app root font is rem-based: 13px mobile / 17px desktop) and have hard sync points — see the UI rules for details.
+
 ---
 
 ## File Organization
@@ -97,7 +99,8 @@ src/
 │   ├─ common/
 │   │   ├─ ModalShell.jsx        # Core modal wrapper (singleton managers)
 │   │   ├─ FoodTagBadges.jsx     # Shared food tag/source badge renderer
-│   │   └─ ScreenTabs.jsx        # Tab bar + floating variant
+│   │   ├─ AppHeader.jsx         # Header zone (greeting, per-screen stat line, swipe dots, coach mark, settings gear)
+│   │   └─ ScreenTabs.jsx        # Fixed floating glass bottom tab bar (drag-linked active circle)
 │   ├─ modals/                   # 59 modal files in 6 subfolders + 5 fullscreen panel components
 │   │   ├─ fullscreen/           # Full-screen takeover modals (WeightTracker, BodyFatTracker, StepTracker, Settings, FoodSearch)
 │   │   ├─ pickers/              # Scroll-wheel value pickers (Age, Calendar, Height, MealType, etc.)
@@ -124,10 +127,9 @@ src/
 ├─ hooks/
 │   ├─ useAnimatedModal.js       # Modal lifecycle (isOpen/isClosing/requestClose)
 │   ├─ useHardwareBackButton.js  # Native back handling (home-first + double-exit)
-│   ├─ useSwipeableScreens.js    # 5-screen horizontal carousel
+│   ├─ useSwipeableScreens.js    # 5-screen horizontal carousel (edge peek + --screen-drag-progress)
 │   ├─ useHealthConnect.js       # Android Health Connect integration
-│   ├─ useNetworkStatus.js       # Online/offline detection
-│   └─ useScrollOffScreen.js     # Floating tab bar trigger
+│   └─ useNetworkStatus.js       # Online/offline detection
 ├─ store/
 │   └─ useEnergyMapStore.js      # Zustand store: state, actions, derived values, persistence
 │                                #   calculateBreakdown(steps, isTrainingDay, options?) — options.tefContext + options.adaptiveThermogenesisContext forwarded to core calc
@@ -270,9 +272,10 @@ npm run test:watch     # Node test runner in watch mode
 8. **No dual-write toggle exists anymore:** Do not add `VITE_ENABLE_HISTORY_DUAL_WRITE`-style rollback flags back into normal save flow.
 9. **Node ESM import hygiene:** For modules used in tests, keep explicit `.js` file extensions in relative imports to avoid `ERR_MODULE_NOT_FOUND`.
 10. **Startup profile reads are parallelized:** Keep profile and last selected cardio-type `Preferences.get(...)` calls parallelized during hydration.
-11. **Hook frame-throttling is intentional:** Keep RAF scheduling/equality guards in `useScrollOffScreen` and `useSwipeableScreens` to limit high-frequency layout/state churn on mobile.
+11. **Hook frame-throttling is intentional:** Keep RAF scheduling/equality guards in `useSwipeableScreens` to limit high-frequency layout/state churn on mobile.
 12. **Backup/report artifacts are generated files:** `src/constants/*.backup.sqlite` and `scripts/food-db/reports/*.json` should remain ignored and not committed.
 13. **OpenRouter proxy hardening is config-sensitive:** keep `ALLOWED_ORIGINS` and (if enabled) Upstash rate-limit env vars configured in deployment; mismatched env config can silently alter CORS/throttling behavior across environments.
 14. **Daily NEAT overrides are date-scoped + clamped history data:** `dailyNeatOverrides` is a **history field** (not profile), sharded by date (`dailyNeatOverrides:YYYY-MM-DD`). Route writes only through the store action `setDailyNeatOverride(dateKey, overrideOrNull)`; normalize dates via `normalizeDateKey()` and clamp multipliers with `clampCustomActivityMultiplier()` (0.1–1.0). The multiplier applies override-first in `calculateCalorieBreakdown` for the resolved `dateKey` only — never leak it across other dates or into global settings.
 15. **Measurement averages / trends / charts are data-honesty-first:** N-day averages use the shared trapezoidal window integral (`calculateTrapezoidalWindowAverage` in `weight.js`, consumed by `bodyFat.js`; `null` on empty window), day windows come from `getWindowDateKeys(endDateKey, n)` in `dateKeys.js`, trend last-two-entry fallback is capped at `MAX_TREND_FALLBACK_SPAN_DAYS` (14) via `isStaleFallback`, smart AT is gated by weigh-in freshness (`SMART_WEIGHT_STALENESS_MAX_AGE_DAYS = 3`, reason `weight-data-stale`), and tracker-chart gaps tier through `buildTaggedChartSlots(...)` + `buildGapAwarePathRuns(...)` (≤7d solid, 8–14d dashed, >14d broken). Do not duplicate any of this math in components or UI surfaces.
 16. **Daily Ledger helpers are canonical:** all Daily Ledger display math (day previews, month summaries, measurement lookups, balance-kind metadata) lives in `utils/calculations/dayLedgerPresentation.js`; the Logbook modals (`DayLedgerListModal` / `DayLedgerModal`) are thin read-only renderers over `dailySnapshots` (cache, not truth) and must never mutate or zero-fill snapshot data.
+17. **Swipe shell has hard sync points and px-only geometry:** `SCREEN_EDGE_PEEK_PX` (16) in `useSwipeableScreens.js` ↔ `.carousel-slide { width: calc(100% - 32px) }` + `.slide-fade-*` masks in `index.css` ↔ slide inner padding (`px-2`). The bottom bar (`ScreenTabs`, z-[900]) and header (`AppHeader`) track drags via the imperative `--screen-drag-progress` CSS variable on `:root` — never via React state. All swipe-shell geometry constants are inline px (root font is 13px mobile / 17px desktop). `FloatingScreenTabs` and `useScrollOffScreen.js` were removed — do not reintroduce.

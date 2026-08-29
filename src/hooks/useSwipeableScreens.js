@@ -3,6 +3,11 @@ import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 const BASE_SWIPE_THRESHOLD = 130;
 const SWIPE_DIRECTION_LOCK_THRESHOLD = 8;
 const AXIS_DOMINANCE_RATIO = 1.15;
+// Each slide is inset by this many px per side (see `.carousel-slide` in
+// index.css) so neighbouring screens peek flush against the screen edge and
+// get alpha-faded via the .slide-fade-* masks. The transform below compensates
+// so slide alignment stays exact.
+export const SCREEN_EDGE_PEEK_PX = 16;
 
 export const useSwipeableScreens = (
   totalScreens,
@@ -27,21 +32,44 @@ export const useSwipeableScreens = (
   const hasSwipeDirection = useRef(false);
   const lockedAxis = useRef(null);
 
-  const applySliderTransform = useCallback((offset, isDragging = false) => {
-    const sliderElement = sliderElementRef.current;
-    if (!sliderElement) {
-      return;
-    }
+  const applySliderTransform = useCallback(
+    (offset, isDragging = false) => {
+      const sliderElement = sliderElementRef.current;
+      if (!sliderElement) {
+        return;
+      }
 
-    const safeViewportWidth = viewportWidthRef.current || 1;
-    const translatePercent =
-      -currentScreenRef.current * 100 + (offset / safeViewportWidth) * 100;
+      // Slide advance = slide width = 100% - 2*PEEK of the slider, so the px
+      // compensation term is PEEK * (1 + 2 * screen):
+      // T = PEEK + 2*PEEK*screen - screen * 100% centers screen `screen` with an
+      // 8px neighbour peek on each edge.
+      const screen = currentScreenRef.current;
+      const peekPx = SCREEN_EDGE_PEEK_PX * (1 + 2 * screen);
+      const translateCalc = `calc(${peekPx + offset}px - ${screen * 100}%)`;
 
-    sliderElement.style.transform = `translateX(${translatePercent}%)`;
-    if (isDragging) {
-      sliderElement.style.transition = 'none';
-    }
-  }, []);
+      sliderElement.style.transform = `translateX(${translateCalc})`;
+
+      // Publish the live carousel position (float) for swipe-affordance UI
+      // (bottom tab pill + header dots). Written imperatively so consumers can
+      // track the drag frame-by-frame without re-rendering React state.
+      // dragOffset is negative when dragging towards the next screen, so the
+      // fraction is subtracted to make progress advance in the drag direction.
+      const safeViewportWidth = viewportWidthRef.current || 1;
+      const progress = Math.max(
+        0,
+        Math.min(screen - offset / safeViewportWidth, totalScreens - 1)
+      );
+      document.documentElement.style.setProperty(
+        '--screen-drag-progress',
+        progress.toFixed(4)
+      );
+
+      if (isDragging) {
+        sliderElement.style.transition = 'none';
+      }
+    },
+    [totalScreens]
+  );
 
   const setSliderElement = useCallback(
     (node) => {
@@ -346,17 +374,17 @@ export const useSwipeableScreens = (
   );
 
   const sliderStyle = useMemo(() => {
-    const sliderTranslatePercent =
-      -currentScreen * 100 + (dragOffset / viewportWidth) * 100;
+    const peekPx = SCREEN_EDGE_PEEK_PX * (1 + 2 * currentScreen);
+    const translateCalc = `calc(${peekPx + dragOffset}px - ${currentScreen * 100}%)`;
     const sliderTransition = isSwiping
       ? 'none'
       : 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)';
 
     return {
-      transform: `translateX(${sliderTranslatePercent}%)`,
+      transform: `translateX(${translateCalc})`,
       transition: sliderTransition,
     };
-  }, [currentScreen, dragOffset, isSwiping, viewportWidth]);
+  }, [currentScreen, dragOffset, isSwiping]);
 
   const handlers = {
     onTouchStart: handleTouchStart,

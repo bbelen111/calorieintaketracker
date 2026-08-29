@@ -81,6 +81,7 @@ Migration behavior is now intentionally minimal:
 - `adaptiveThermogenesisSmoothingWindowDays: 7`
 - `epocEnabled: true`
 - `epocCarryoverHours: 6`
+- `hasSeenSwipeHint: false` — one-time swipe coach-mark flag (profile scope; flipped via the store action `markSwipeHintSeen()`)
 - `dailyNeatOverrides: {}` — date-keyed (`YYYY-MM-DD`) history map; each entry `{ multiplier, presetKey, label, updatedAt }` (multiplier clamped 0.1–1.0)
 
 ---

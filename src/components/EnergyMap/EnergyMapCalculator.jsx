@@ -31,8 +31,8 @@ import {
   HealthConnectStatus,
 } from '../../hooks/useHealthConnect';
 import { saveLastSelectedCardioType } from '../../utils/data/storage';
-import { useScrollOffScreen } from '../../hooks/useScrollOffScreen';
-import { ScreenTabs, FloatingScreenTabs } from './common/ScreenTabs';
+import { ScreenTabs } from './common/ScreenTabs';
+import { AppHeader } from './common/AppHeader';
 import { LogbookScreen } from './screens/LogbookScreen';
 import { TrackerScreen } from './screens/TrackerScreen';
 import { HomeScreen } from './screens/HomeScreen';
@@ -490,6 +490,18 @@ const createDefaultPhaseDraft = () => ({
   targetBodyFat: '',
 });
 
+/**
+ * Edge alpha-fade class for a carousel slide. Only the immediate neighbours of
+ * the current screen get a mask, so their peeked sliver fades to transparency
+ * at the screen edge; the current screen is never masked. Kept at module level
+ * (pure) and cheap to call during render.
+ */
+const getSlideEdgeFadeClass = (index, currentScreen) => {
+  if (index === currentScreen + 1) return 'slide-fade-left';
+  if (index === currentScreen - 1) return 'slide-fade-right';
+  return '';
+};
+
 export const EnergyMapCalculator = () => {
   useEffect(() => {
     setupEnergyMapStore();
@@ -561,6 +573,7 @@ export const EnergyMapCalculator = () => {
     addDailyLog,
     updateDailyLog,
     deleteDailyLog,
+    markSwipeHintSeen,
   } = useEnergyMapStore(
     (state) => ({
       isLoaded: state.isLoaded,
@@ -610,6 +623,7 @@ export const EnergyMapCalculator = () => {
       saveStepEntry: state.saveStepEntry,
       setStepGoal: state.setStepGoal,
       setDailyNeatOverride: state.setDailyNeatOverride,
+      markSwipeHintSeen: state.markSwipeHintSeen,
       nutritionData: state.nutritionData,
       pinnedFoods: state.pinnedFoods,
       cachedFoods: state.cachedFoods,
@@ -636,8 +650,6 @@ export const EnergyMapCalculator = () => {
   const healthConnect = useHealthConnect();
 
   const viewportRef = useRef(null);
-  const screenTabsRef = useRef(null);
-  const isTabsOffScreen = useScrollOffScreen(screenTabsRef);
   const {
     currentScreen,
     sliderStyle,
@@ -646,6 +658,28 @@ export const EnergyMapCalculator = () => {
     goToScreen,
     isSwiping,
   } = useSwipeableScreens(screenTabs.length, viewportRef, homeIndex);
+
+  // Swipe-affordance coach mark: shown until the user swipes or taps a tab
+  const hasSeenSwipeHint = userData.hasSeenSwipeHint === true;
+
+  useEffect(() => {
+    if (!hasSeenSwipeHint && isSwiping) {
+      markSwipeHintSeen();
+    }
+  }, [hasSeenSwipeHint, isSwiping, markSwipeHintSeen]);
+
+  const handleTabSelect = useCallback(
+    (index) => {
+      if (!hasSeenSwipeHint) {
+        markSwipeHintSeen();
+      }
+      goToScreen(index);
+    },
+    [goToScreen, hasSeenSwipeHint, markSwipeHintSeen]
+  );
+
+  // Today's derived snapshot (cache) feeds the header's glanceable stats
+  const todaySnapshot = userData.dailySnapshots?.[getTodayDateKey()] ?? null;
 
   const selectedGoal = userData.selectedGoal ?? 'maintenance';
   const [tempSelectedGoal, setTempSelectedGoal] = useState('maintenance');
@@ -3894,7 +3928,8 @@ export const EnergyMapCalculator = () => {
       className="min-h-screen bg-gradient-to-br from-background via-surface to-background p-4 md:p-6"
       style={{
         paddingTop: 'calc(1rem + var(--sat))',
-        paddingBottom: 'calc(1rem + var(--sab))',
+        // Extra bottom space clears the floating glass tab bar (54px + margins)
+        paddingBottom: 'calc(5.5rem + var(--sab))',
         paddingLeft: 'calc(1rem + var(--sal))',
         paddingRight: 'calc(1rem + var(--sar))',
       }}
@@ -3914,7 +3949,7 @@ export const EnergyMapCalculator = () => {
             exit={{ opacity: 0, y: 10 }}
             transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
             className="fixed inset-x-0 z-[1300] flex justify-center pointer-events-none"
-            style={{ bottom: 'calc(var(--sab) + 1.75rem)' }}
+            style={{ bottom: 'calc(var(--sab) + 5.5rem)' }}
             role="status"
             aria-live="polite"
           >
@@ -3925,28 +3960,43 @@ export const EnergyMapCalculator = () => {
         ) : null}
       </AnimatePresence>
 
-      {/* Floating ScreenTabs - appears when original tabs scroll off screen */}
-      <FloatingScreenTabs
+      {/* Bottom glass tab bar — always visible, below modal z-lanes */}
+      <ScreenTabs
         tabs={screenTabs}
         currentScreen={currentScreen}
-        onSelect={goToScreen}
-        isVisible={isTabsOffScreen}
+        onSelect={handleTabSelect}
+        isSwiping={isSwiping}
       />
 
       <div className="max-w-6xl mx-auto space-y-6">
-        <div className="relative">
-          <ScreenTabs
-            ref={screenTabsRef}
-            tabs={screenTabs}
-            currentScreen={currentScreen}
-            onSelect={goToScreen}
-          />
+        {/* Top header zone: greeting + per-screen glanceable stat + swipe dots */}
+        <AppHeader
+          currentScreen={currentScreen}
+          isSwiping={isSwiping}
+          screenCount={screenTabs.length}
+          nutritionData={nutritionData}
+          trackerSelectedDate={trackerSelectedDate}
+          calorieTargetCalories={selectedCalorieTargetData?.targetCalories}
+          phases={phases}
+          weightEntries={weightEntries}
+          todaySnapshot={todaySnapshot}
+          showSwipeHint={!hasSeenSwipeHint && !isAnyModalOpen}
+          onDismissSwipeHint={markSwipeHintSeen}
+          onOpenSettings={settingsModal.open}
+        />
 
+        <div className="relative">
           <div
             ref={viewportRef}
-            className={`overflow-hidden touch-pan-y ${isSwiping ? 'cursor-grabbing' : 'cursor-grab'}`}
+            className={`relative -mx-4 md:-mx-6 overflow-hidden touch-pan-y ${isSwiping ? 'cursor-grabbing' : 'cursor-grab'}`}
             {...handlers}
           >
+            {/* Edge tap guards (invisible): the peek slivers belong to the
+                swipe gesture, not to taps on the hidden neighbour screens.
+                They are children of the viewport, so drags still bubble up to
+                the carousel handlers. Width matches SCREEN_EDGE_PEEK_PX. */}
+            <div aria-hidden="true" className="absolute inset-y-0 left-0 z-10 w-4" />
+            <div aria-hidden="true" className="absolute inset-y-0 right-0 z-10 w-4" />
             <div
               ref={setSliderElement}
               className="flex w-full"
@@ -3956,7 +4006,9 @@ export const EnergyMapCalculator = () => {
                 backfaceVisibility: 'hidden',
               }}
             >
-              <div className="w-full flex-shrink-0 px-2 sm:px-4 md:px-6">
+              <div
+                className={`carousel-slide flex-shrink-0 px-2 sm:px-4 md:px-6 ${getSlideEdgeFadeClass(0, currentScreen)}`}
+              >
                 <div className="relative overflow-hidden">
                   <AnimatePresence mode="wait" initial={false}>
                     {selectedPhase ? (
@@ -4008,7 +4060,9 @@ export const EnergyMapCalculator = () => {
                 </div>
               </div>
 
-              <div className="w-full flex-shrink-0 px-2 sm:px-4 md:px-6">
+              <div
+                className={`carousel-slide flex-shrink-0 px-2 sm:px-4 md:px-6 ${getSlideEdgeFadeClass(1, currentScreen)}`}
+              >
                 <TrackerScreen
                   nutritionData={nutritionData}
                   onAddMealEntry={startMealEntryFlow}
@@ -4030,7 +4084,9 @@ export const EnergyMapCalculator = () => {
                 />
               </div>
 
-              <div className="w-full flex-shrink-0 px-2 sm:px-4 md:px-6">
+              <div
+                className={`carousel-slide flex-shrink-0 px-2 sm:px-4 md:px-6 ${getSlideEdgeFadeClass(2, currentScreen)}`}
+              >
                 <HomeScreen
                   userData={userData}
                   bmr={bmr}
@@ -4068,7 +4124,9 @@ export const EnergyMapCalculator = () => {
                 />
               </div>
 
-              <div className="w-full flex-shrink-0 px-2 sm:px-4 md:px-6">
+              <div
+                className={`carousel-slide flex-shrink-0 px-2 sm:px-4 md:px-6 ${getSlideEdgeFadeClass(3, currentScreen)}`}
+              >
                 <CalorieMapScreen
                   stepRanges={userData.stepRanges}
                   selectedGoal={selectedGoal}
@@ -4088,7 +4146,9 @@ export const EnergyMapCalculator = () => {
                 />
               </div>
 
-              <div className="w-full flex-shrink-0 px-2 sm:px-4 md:px-6">
+              <div
+                className={`carousel-slide flex-shrink-0 px-2 sm:px-4 md:px-6 ${getSlideEdgeFadeClass(4, currentScreen)}`}
+              >
                 <InsightsScreen
                   userData={userData}
                   selectedGoal={selectedGoal}
