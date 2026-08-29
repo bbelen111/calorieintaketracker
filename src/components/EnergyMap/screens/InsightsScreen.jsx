@@ -32,7 +32,7 @@ import {
   getTrendToneClass,
   getGoalAlignmentText,
   formatWeeklyRate,
-  formatTooltipDate,
+  formatSnapshotDate,
   getOldDataWarningText,
 } from '../../../utils/visuals/trackerHelpers';
 import {
@@ -559,33 +559,28 @@ export const InsightsScreen = ({
                   <TrendIcon direction={trend.direction} size={16} />
                   {trend.label}
                 </p>
-                <p className="text-muted text-sm mt-1">
-                  <span className="font-bold text-foreground">
+                <p className="text-muted text-sm mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                  <span className="font-bold text-foreground whitespace-nowrap">
                     {currentWeight ? `${currentWeight} kg` : '—'}
-                  </span>{' '}
-                  <span className="inline-flex items-center gap-2">
-                    <span>
-                      •{' '}
-                      {latestEntry?.date
-                        ? formatTooltipDate(latestEntry.date)
-                        : 'No entries yet'}
-                    </span>
-                    {weightOldDataWarning && (
-                      <span className="inline-flex items-center gap-1 text-accent-yellow">
-                        <AlertCircle size={10} className="shrink-0" />
-                        {weightOldDataWarning}
-                      </span>
-                    )}
                   </span>
+                  <span className="whitespace-nowrap">
+                    •{' '}
+                    {latestEntry?.date
+                      ? formatSnapshotDate(latestEntry.date)
+                      : 'No entries yet'}
+                  </span>
+                  {weightOldDataWarning && (
+                    <span className="inline-flex items-center gap-1 text-accent-yellow whitespace-nowrap">
+                      <AlertCircle size={10} className="shrink-0" />
+                      {weightOldDataWarning}
+                    </span>
+                  )}
                 </p>
                 <p className="text-muted text-sm mt-2">
                   <span className="font-bold text-foreground">
                     {formatWeeklyRate(trend.weeklyRate, 'weight')}
                   </span>{' '}
                   over last 7 days
-                </p>
-                <p className="text-accent-blue/80 text-[10px] tracking-wide mt-2">
-                  Tap to open weight tracker
                 </p>
               </div>
               {sparkline.pathData && sortedEntries.length > 1 && (
@@ -664,6 +659,12 @@ export const InsightsScreen = ({
                 </div>
               )}
             </div>
+            <div className="mt-2 flex items-center justify-between">
+              <span className="text-accent-blue/80 text-[10px] tracking-wide">
+                Tap to open weight tracker
+              </span>
+              <ChevronRight size={16} className="text-muted" />
+            </div>
           </button>
 
           {/* ── Body Fat card ── */}
@@ -693,33 +694,28 @@ export const InsightsScreen = ({
                     <TrendIcon direction={bodyFatTrend.direction} size={16} />
                     {bodyFatTrend.label}
                   </p>
-                  <p className="text-muted text-sm mt-1">
-                    <span className="font-bold text-foreground">
+                  <p className="text-muted text-sm mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                    <span className="font-bold text-foreground whitespace-nowrap">
                       {currentBodyFat ? `${currentBodyFat}%` : '—'}
-                    </span>{' '}
-                    <span className="inline-flex items-center gap-2">
-                      <span>
-                        •{' '}
-                        {latestBodyFatEntry?.date
-                          ? formatTooltipDate(latestBodyFatEntry.date)
-                          : 'No entries yet'}
-                      </span>
-                      {bodyFatOldDataWarning && (
-                        <span className="inline-flex items-center gap-1 text-accent-yellow">
-                          <AlertCircle size={10} className="shrink-0" />
-                          {bodyFatOldDataWarning}
-                        </span>
-                      )}
                     </span>
+                    <span className="whitespace-nowrap">
+                      •{' '}
+                      {latestBodyFatEntry?.date
+                        ? formatSnapshotDate(latestBodyFatEntry.date)
+                        : 'No entries yet'}
+                    </span>
+                    {bodyFatOldDataWarning && (
+                      <span className="inline-flex items-center gap-1 text-accent-yellow whitespace-nowrap">
+                        <AlertCircle size={10} className="shrink-0" />
+                        {bodyFatOldDataWarning}
+                      </span>
+                    )}
                   </p>
                   <p className="text-muted text-sm mt-2">
                     <span className="font-bold text-foreground">
                       {formatWeeklyRate(bodyFatTrend.weeklyRate, 'bodyFat')}
                     </span>{' '}
                     over last 7 days
-                  </p>
-                  <p className="text-accent-blue/80 text-[10px] tracking-wide mt-2">
-                    Tap to open body fat tracker
                   </p>
                 </div>
                 {bodyFatSparkline.pathData &&
@@ -798,6 +794,12 @@ export const InsightsScreen = ({
                       </svg>
                     </div>
                   )}
+              </div>
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-accent-blue/80 text-[10px] tracking-wide">
+                  Tap to open body fat tracker
+                </span>
+                <ChevronRight size={16} className="text-muted" />
               </div>
             </button>
           )}

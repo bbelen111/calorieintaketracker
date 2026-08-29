@@ -175,6 +175,24 @@ export const formatTooltipDate = (dateStr) => {
 };
 
 /**
+ * Format a YYYY-MM-DD date string into a compact snapshot label
+ * (e.g. "Aug 27"). The year is appended only when the entry is not
+ * from the current year, keeping old entries unambiguous while
+ * conserving horizontal space in narrow snapshot cards.
+ */
+export const formatSnapshotDate = (dateStr) => {
+  const date = new Date(dateStr + 'T00:00:00Z');
+  if (Number.isNaN(date.getTime())) return '';
+  const currentYear = new Date().getFullYear();
+  const year = date.getFullYear();
+  const base = date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
+  return year === currentYear ? base : `${base}, ${year}`;
+};
+
+/**
  * How many full days ago was `dateKey` (YYYY-MM-DD)?
  * Returns `null` for invalid / missing input.
  */
