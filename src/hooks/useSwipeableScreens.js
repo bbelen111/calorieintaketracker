@@ -9,6 +9,10 @@ const AXIS_DOMINANCE_RATIO = 1.15;
 // so slide alignment stays exact.
 export const SCREEN_EDGE_PEEK_PX = 16;
 
+// Settle curve shared by the imperative release path and the React
+// `sliderStyle` so both paths animate identically.
+const SETTLE_TRANSITION = 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)';
+
 export const useSwipeableScreens = (
   totalScreens,
   viewportRef,
@@ -33,7 +37,7 @@ export const useSwipeableScreens = (
   const lockedAxis = useRef(null);
 
   const applySliderTransform = useCallback(
-    (offset, isDragging = false) => {
+    (offset, isDragging = false, publishProgress = true) => {
       const sliderElement = sliderElementRef.current;
       if (!sliderElement) {
         return;
@@ -54,15 +58,20 @@ export const useSwipeableScreens = (
       // track the drag frame-by-frame without re-rendering React state.
       // dragOffset is negative when dragging towards the next screen, so the
       // fraction is subtracted to make progress advance in the drag direction.
-      const safeViewportWidth = viewportWidthRef.current || 1;
-      const progress = Math.max(
-        0,
-        Math.min(screen - offset / safeViewportWidth, totalScreens - 1)
-      );
-      document.documentElement.style.setProperty(
-        '--screen-drag-progress',
-        progress.toFixed(4)
-      );
+      // The settle path skips this so the drag-position value survives until
+      // the post-render sync publishes the target — letting the tab circle /
+      // dots glide from the true release position instead of jumping.
+      if (publishProgress) {
+        const safeViewportWidth = viewportWidthRef.current || 1;
+        const progress = Math.max(
+          0,
+          Math.min(screen - offset / safeViewportWidth, totalScreens - 1)
+        );
+        document.documentElement.style.setProperty(
+          '--screen-drag-progress',
+          progress.toFixed(4)
+        );
+      }
 
       if (isDragging) {
         sliderElement.style.transition = 'none';
@@ -111,6 +120,31 @@ export const useSwipeableScreens = (
     pendingDragOffsetRef.current = 0;
     commitDragOffset(0, true);
   }, [cancelPendingDragOffsetUpdate, commitDragOffset]);
+
+  // Animate the slider from its current dragged position straight to the
+  // target screen (offset 0) using the settle transition. Must run BEFORE
+  // React commits the new screen state: currentScreenRef is advanced first so
+  // the imperative transform targets the right screen, and the settle
+  // transition is re-enabled BEFORE the transform write — otherwise the
+  // slider would snap back to the old screen with `transition: none` and only
+  // then animate (a visible double-jump hiccup on every release).
+  // Progress publication is skipped so the last drag position survives until
+  // the post-render sync effect publishes the target, letting the tab circle
+  // and header dots glide from the true release position.
+  const settleSliderToScreen = useCallback(
+    (targetScreen) => {
+      cancelPendingDragOffsetUpdate();
+      pendingDragOffsetRef.current = 0;
+      dragOffsetRef.current = 0;
+      currentScreenRef.current = targetScreen;
+      const sliderElement = sliderElementRef.current;
+      if (sliderElement) {
+        sliderElement.style.transition = SETTLE_TRANSITION;
+      }
+      applySliderTransform(0, false, false);
+    },
+    [applySliderTransform, cancelPendingDragOffsetUpdate]
+  );
 
   const queueDragOffsetUpdate = useCallback(
     (nextOffset) => {
@@ -275,6 +309,11 @@ export const useSwipeableScreens = (
       return;
     }
 
+    // Decide the target screen first, then settle the slider imperatively so
+    // it animates directly from the dragged position — accepted swipes glide
+    // to the next/previous screen, rejected swipes glide back to the current
+    // one. No intermediate snap, no transition:none jump.
+    let nextScreen = currentScreen;
     if (hasSwipeDirection.current) {
       const width = viewportWidth || readViewportWidth();
       const threshold = width
@@ -283,13 +322,17 @@ export const useSwipeableScreens = (
       const delta = getLatestDragOffset();
 
       if (delta < -threshold && currentScreen < totalScreens - 1) {
-        setCurrentScreen((prev) => Math.min(prev + 1, totalScreens - 1));
+        nextScreen = currentScreen + 1;
       } else if (delta > threshold && currentScreen > 0) {
-        setCurrentScreen((prev) => Math.max(prev - 1, 0));
+        nextScreen = currentScreen - 1;
       }
     }
 
-    resetDragOffsetImmediate();
+    settleSliderToScreen(nextScreen);
+
+    if (nextScreen !== currentScreen) {
+      setCurrentScreen(nextScreen);
+    }
     setIsSwiping(false);
     isSwipeActive.current = false;
     hasSwipeDirection.current = false;
@@ -300,7 +343,7 @@ export const useSwipeableScreens = (
     currentScreen,
     getLatestDragOffset,
     readViewportWidth,
-    resetDragOffsetImmediate,
+    settleSliderToScreen,
     totalScreens,
     viewportWidth,
   ]);
@@ -376,9 +419,7 @@ export const useSwipeableScreens = (
   const sliderStyle = useMemo(() => {
     const peekPx = SCREEN_EDGE_PEEK_PX * (1 + 2 * currentScreen);
     const translateCalc = `calc(${peekPx + dragOffset}px - ${currentScreen * 100}%)`;
-    const sliderTransition = isSwiping
-      ? 'none'
-      : 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)';
+    const sliderTransition = isSwiping ? 'none' : SETTLE_TRANSITION;
 
     return {
       transform: `translateX(${translateCalc})`,
