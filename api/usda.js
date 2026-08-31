@@ -109,7 +109,16 @@ async function searchCatalogTotal(query, supabaseUrl, serviceKey) {
     const url = new URL('/rest/v1/rpc/search_foods_total', supabaseUrl);
     url.searchParams.set('p_query', query);
     const payload = await fetchSupabaseJson(url, serviceKey, 'food total');
-    const total = Number(payload?.[0]?.search_foods_total);
+
+    // PostgREST returns scalar RPC results as a bare value (`44`), but be
+    // tolerant of array/object wrappers from older gateways.
+    const first = Array.isArray(payload) ? (payload[0] ?? payload) : payload;
+    const value =
+      first !== null && typeof first === 'object'
+        ? (first.search_foods_total ?? first)
+        : first;
+    const total = Number(value);
+
     return Number.isFinite(total) ? Math.max(0, total) : null;
   } catch {
     return null; // best-effort: fall back to rows.length

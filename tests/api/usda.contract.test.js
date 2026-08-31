@@ -92,7 +92,8 @@ test('proxy queries the Supabase search RPCs with service-role auth and returns 
       return createJsonFetchResponse({
         ok: true,
         status: 200,
-        payload: [{ search_foods_total: 561 }],
+        // PostgREST returns bare scalars for scalar RPCs
+        payload: 561,
       });
     }
     capturedUrl = parsed;
@@ -171,11 +172,7 @@ test('proxy maps page/pageSize to limit/offset and clamps pageSize to 50', async
   globalThis.fetch = async (url) => {
     const parsed = new URL(url);
     if (parsed.pathname.endsWith('/search_foods_total')) {
-      return createJsonFetchResponse({
-        ok: true,
-        status: 200,
-        payload: [{ search_foods_total: 2 }],
-      });
+      return createJsonFetchResponse({ ok: true, status: 200, payload: 2 });
     }
     dataUrlParams.push({
       p_limit: parsed.searchParams.get('p_limit'),
