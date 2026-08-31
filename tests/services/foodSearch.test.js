@@ -1073,6 +1073,92 @@ test('resolveAiFoodEntry falls back to entry estimate when lookup is unresolved'
   assert.equal(verifiedEntry.source, 'estimate');
   assert.equal(verifiedEntry.confidence, 'low');
 });
+test('resolveAiFoodEntry scales lookup per100g micros into the verified entry', async () => {
+  const { verifiedEntry } = await resolveAiFoodEntry({
+    entry: {
+      name: 'Branded Oats',
+      grams: 100,
+      calories: 200,
+      protein: 8,
+      carbs: 30,
+      fats: 4,
+      confidence: 'high',
+    },
+    isOnline: true,
+    lookupMeta: {
+      status: 'resolved',
+      matchConfidence: 'high',
+      usedSource: FOOD_SEARCH_SOURCE.USDA,
+      weightedMatchScore: 0.95,
+      matchedFood: {
+        per100g: {
+          calories: 200,
+          protein: 8,
+          carbs: 30,
+          fats: 4,
+          fiber: 3,
+          sodium: 200,
+          saturatedFats: 0.5,
+          sugars: 2,
+        },
+      },
+    },
+  });
+
+  assert.equal(verifiedEntry.fiber, 3);
+  assert.equal(verifiedEntry.sodium, 200);
+  assert.equal(verifiedEntry.saturatedFats, 0.5);
+  assert.equal(verifiedEntry.sugars, 2);
+  assert.equal(verifiedEntry.microNutrientsSource, 'lookup_per100g');
+});
+
+test('resolveAiFoodEntry derives micros per100g when no lookup match exists', async () => {
+  const { verifiedEntry } = await resolveAiFoodEntry({
+    entry: {
+      name: 'Salted Oats',
+      grams: 50,
+      calories: 90,
+      protein: 3,
+      carbs: 15,
+      fats: 1.5,
+      fiber: 2,
+      sodium: 80,
+      saturatedFats: 0.25,
+      sugars: 1,
+      confidence: 'medium',
+    },
+    isOnline: true,
+    lookupMeta: { status: 'no_match' },
+  });
+
+  // Entry micros survive the per100g round-trip and keep their gram amounts.
+  assert.equal(verifiedEntry.fiber, 2);
+  assert.equal(verifiedEntry.sodium, 80);
+  assert.equal(verifiedEntry.saturatedFats, 0.3);
+  assert.equal(verifiedEntry.sugars, 1);
+  assert.equal(verifiedEntry.microNutrientsSource, 'derived_from_entry_nutrients');
+});
+
+test('resolveAiFoodEntry keeps micros untracked when neither lookup nor entry provides them', async () => {
+  const { verifiedEntry } = await resolveAiFoodEntry({
+    entry: {
+      name: 'Plain Chicken',
+      grams: 100,
+      calories: 165,
+      protein: 31,
+      carbs: 0,
+      fats: 3.6,
+      confidence: 'high',
+    },
+    isOnline: true,
+    lookupMeta: { status: 'no_match' },
+  });
+
+  assert.equal(verifiedEntry.fiber, null);
+  assert.equal(verifiedEntry.sodium, null);
+  assert.equal(verifiedEntry.saturatedFats, null);
+  assert.equal(verifiedEntry.sugars, null);
+});
 
 test('resolveAiFoodEntry marks deterministic fallback penalty metadata in lookupMeta', async () => {
   const { lookupMeta } = await resolveAiFoodEntry({

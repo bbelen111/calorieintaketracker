@@ -405,6 +405,33 @@ export const FoodSearchResultsPanel = ({
                         <p className="text-muted">fat</p>
                       </div>
                     </div>
+                    {(food.per100g?.fiber != null ||
+                      food.per100g?.sodium != null ||
+                      food.per100g?.saturatedFats != null ||
+                      food.per100g?.sugars != null) && (
+                      <div className="flex items-center gap-3 text-[11px] mt-1.5">
+                        {food.per100g.fiber != null && (
+                          <span className="text-accent-green font-semibold">
+                            {formatOne(food.per100g.fiber)}g fiber
+                          </span>
+                        )}
+                        {food.per100g.sodium != null && (
+                          <span className="text-accent-indigo font-semibold">
+                            {Math.round(food.per100g.sodium)}mg Na
+                          </span>
+                        )}
+                        {food.per100g.saturatedFats != null && (
+                          <span className="text-accent-yellow font-semibold">
+                            {formatOne(food.per100g.saturatedFats)}g sat
+                          </span>
+                        )}
+                        {food.per100g.sugars != null && (
+                          <span className="text-accent-pink font-semibold">
+                            {formatOne(food.per100g.sugars)}g sugar
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.button>

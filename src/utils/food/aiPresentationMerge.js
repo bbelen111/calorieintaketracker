@@ -33,6 +33,9 @@ export const isSignificantNameRewrite = (verifiedName, presentedName) => {
 };
 
 const roundNutritionValue = (value, decimals = 1) => {
+  if (value == null || value === '') {
+    return null;
+  }
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 0) {
     return null;
@@ -41,6 +44,17 @@ const roundNutritionValue = (value, decimals = 1) => {
   const factor = 10 ** Math.max(0, decimals);
   return Math.round(parsed * factor) / factor;
 };
+
+// Micro nutrients round per their canonical unit (g x 1 decimal, mg integer).
+const NUTRIENT_ROUND_DECIMALS = {
+  fiber: 1,
+  sodium: 0,
+  saturatedFats: 1,
+  sugars: 1,
+};
+
+const safeVerifiedMicro = (verifiedEntry, key) =>
+  roundNutritionValue(verifiedEntry?.[key], NUTRIENT_ROUND_DECIMALS[key] ?? 1);
 
 export const resolveEntryNutritionFromPresentation = (
   verifiedEntry,
@@ -59,6 +73,10 @@ export const resolveEntryNutritionFromPresentation = (
     protein: safeVerifiedProtein,
     carbs: safeVerifiedCarbs,
     fats: safeVerifiedFats,
+    fiber: safeVerifiedMicro(verifiedEntry, 'fiber'),
+    sodium: safeVerifiedMicro(verifiedEntry, 'sodium'),
+    saturatedFats: safeVerifiedMicro(verifiedEntry, 'saturatedFats'),
+    sugars: safeVerifiedMicro(verifiedEntry, 'sugars'),
     integrityIssue: false,
     integrityReason: null,
     source: 'verified',
@@ -91,6 +109,17 @@ export const resolveEntryNutritionFromPresentation = (
     providedCarbs != null ? providedCarbs : safeVerifiedCarbs;
   const normalizedFats = providedFats != null ? providedFats : safeVerifiedFats;
 
+  // Micros merge independently: a provided presented value wins, otherwise the
+  // verified value is preserved (null = untracked). Never invented either way.
+  const normalizedMicros = {};
+  Object.entries(NUTRIENT_ROUND_DECIMALS).forEach(([key, decimals]) => {
+    const raw = presentedEntry[key];
+    const provided =
+      raw != null && raw !== '' ? roundNutritionValue(raw, decimals) : null;
+    normalizedMicros[key] =
+      provided != null ? provided : safeVerifiedMicro(verifiedEntry, key);
+  });
+
   const macroCalories =
     normalizedProtein * 4 + normalizedCarbs * 4 + normalizedFats * 9;
   const allowedDifference = Math.max(30, normalizedCalories * 0.2);
@@ -110,6 +139,7 @@ export const resolveEntryNutritionFromPresentation = (
     protein: normalizedProtein,
     carbs: normalizedCarbs,
     fats: normalizedFats,
+    ...normalizedMicros,
     integrityIssue: false,
     integrityReason: null,
     source: 'presentation',
@@ -188,6 +218,10 @@ export const mergePresentationEntriesWithVerified = ({
       protein: presentedNutrition.protein,
       carbs: presentedNutrition.carbs,
       fats: presentedNutrition.fats,
+      fiber: presentedNutrition.fiber,
+      sodium: presentedNutrition.sodium,
+      saturatedFats: presentedNutrition.saturatedFats,
+      sugars: presentedNutrition.sugars,
       rationale: presentedEntry?.rationale || verifiedEntry.rationale,
       assumptions: [
         ...(Array.isArray(mergedAssumptions) ? mergedAssumptions : []),

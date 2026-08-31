@@ -289,6 +289,42 @@ export const DailyLogModal = ({
                     {formatOne(nutritionTotals.carbs)}g · F{' '}
                     {formatOne(nutritionTotals.fats)}g
                   </span>
+                  {(nutritionTotals?.fiber != null ||
+                    nutritionTotals?.sodium != null ||
+                    nutritionTotals?.saturatedFats != null ||
+                    nutritionTotals?.sugars != null) && (
+                    <span className="text-[10px] md:text-[11px] opacity-80">
+                      {nutritionTotals.fiber != null && (
+                        <span className="text-accent-green">
+                          Fiber {formatOne(nutritionTotals.fiber)}g
+                        </span>
+                      )}
+                      {nutritionTotals.fiber != null &&
+                        (nutritionTotals.sodium != null ||
+                          nutritionTotals.saturatedFats != null ||
+                          nutritionTotals.sugars != null) && <span> · </span>}
+                      {nutritionTotals.sodium != null && (
+                        <span className="text-accent-indigo">
+                          Na {Math.round(nutritionTotals.sodium)}mg
+                        </span>
+                      )}
+                      {nutritionTotals.sodium != null &&
+                        (nutritionTotals.saturatedFats != null ||
+                          nutritionTotals.sugars != null) && <span> · </span>}
+                      {nutritionTotals.saturatedFats != null && (
+                        <span className="text-accent-yellow">
+                          Sat {formatOne(nutritionTotals.saturatedFats)}g
+                        </span>
+                      )}
+                      {nutritionTotals.saturatedFats != null &&
+                        nutritionTotals.sugars != null && <span> · </span>}
+                      {nutritionTotals.sugars != null && (
+                        <span className="text-accent-pink">
+                          Sugar {formatOne(nutritionTotals.sugars)}g
+                        </span>
+                      )}
+                    </span>
+                  )}
                 </div>
                 <span className="text-xs md:text-sm opacity-90 ml-auto whitespace-nowrap">
                   {formatShortDate(matchingNutritionRef)}

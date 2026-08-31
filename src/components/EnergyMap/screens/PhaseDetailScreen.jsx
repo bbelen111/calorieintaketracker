@@ -206,6 +206,44 @@ const DailyLogCard = ({ log, nutritionTotals, onEdit }) => {
           {Math.round(nutritionTotals.fats)}g
         </div>
       )}
+      {hasNutritionRef &&
+        hasNutritionTotals &&
+        (nutritionTotals.fiber != null ||
+          nutritionTotals.sodium != null ||
+          nutritionTotals.saturatedFats != null ||
+          nutritionTotals.sugars != null) && (
+          <div className="mt-1 text-xs text-muted">
+            {nutritionTotals.fiber != null && (
+              <span className="text-accent-green">
+                Fiber {Math.round(nutritionTotals.fiber)}g
+              </span>
+            )}
+            {nutritionTotals.fiber != null &&
+              (nutritionTotals.sodium != null ||
+                nutritionTotals.saturatedFats != null ||
+                nutritionTotals.sugars != null) && <span>{' · '}</span>}
+            {nutritionTotals.sodium != null && (
+              <span className="text-accent-indigo">
+                Na {Math.round(nutritionTotals.sodium)}mg
+              </span>
+            )}
+            {nutritionTotals.sodium != null &&
+              (nutritionTotals.saturatedFats != null ||
+                nutritionTotals.sugars != null) && <span>{' · '}</span>}
+            {nutritionTotals.saturatedFats != null && (
+              <span className="text-accent-yellow">
+                Sat {Math.round(nutritionTotals.saturatedFats)}g
+              </span>
+            )}
+            {nutritionTotals.saturatedFats != null &&
+              nutritionTotals.sugars != null && <span>{' · '}</span>}
+            {nutritionTotals.sugars != null && (
+              <span className="text-accent-pink">
+                Sugar {Math.round(nutritionTotals.sugars)}g
+              </span>
+            )}
+          </div>
+        )}
     </button>
   );
 };

@@ -2,13 +2,8 @@ import {
   resolveEntryGrams,
   scaleMacrosFromPer100g,
 } from '../utils/food/portionNormalization.js';
-import {
-  RAG_TIMING,
-} from './ragBudget.js';
-import {
-  FOOD_LOOKUP_ERROR_REASON_CODES,
-  FOOD_LOOKUP_ERROR_REASONS,
-} from './foodLookupReasons.js';
+import { RAG_TIMING } from './ragBudget.js';
+import { FOOD_LOOKUP_ERROR_REASON_CODES } from './foodLookupReasons.js';
 import { getRagSourcePreferenceWeightsForCategory } from './ragTelemetry.js';
 
 export const FOOD_SEARCH_SOURCE = Object.freeze({
@@ -2080,6 +2075,19 @@ export const resolveAiGroundedBatch = async ({
   }
 };
 
+// Per-100g derivation used when no verified lookup exists: micro nutrients from
+// the AI extraction are rescaled to per-100g so the shared scaling helper can
+// later convert them to the entry's actual gram amount. Null = untracked.
+const derivePer100gNutrient = (value, grams) => {
+  if (value == null || value === '') {
+    return null;
+  }
+  if (grams > 0) {
+    return ((Number(value) || 0) * 100) / grams;
+  }
+  return Number(value) || 0;
+};
+
 export const resolveAiFoodEntry = async ({
   entry,
   isOnline = true,
@@ -2127,7 +2135,10 @@ export const resolveAiFoodEntry = async ({
     ? AI_CONFIDENCE_FALLBACK_PENALTY_MULTIPLIER
     : 1;
   const confidenceScore = Number(
-    Math.max(0, Math.min(1, baseConfidenceScore * confidencePenaltyMultiplier)).toFixed(4)
+    Math.max(
+      0,
+      Math.min(1, baseConfidenceScore * confidencePenaltyMultiplier)
+    ).toFixed(4)
   );
 
   const basePer100g = hasLookupPer100g
@@ -2149,6 +2160,10 @@ export const resolveAiFoodEntry = async ({
           grams > 0
             ? ((Number(entry?.fats) || 0) * 100) / grams
             : Number(entry?.fats) || 0,
+        fiber: derivePer100gNutrient(entry?.fiber, grams),
+        sodium: derivePer100gNutrient(entry?.sodium, grams),
+        saturatedFats: derivePer100gNutrient(entry?.saturatedFats, grams),
+        sugars: derivePer100gNutrient(entry?.sugars, grams),
       };
 
   const scaledMacros = scaleMacrosFromPer100g(basePer100g, grams);
@@ -2160,6 +2175,13 @@ export const resolveAiFoodEntry = async ({
     protein: scaledMacros.protein,
     carbs: scaledMacros.carbs,
     fats: scaledMacros.fats,
+    fiber: scaledMacros.fiber ?? null,
+    sodium: scaledMacros.sodium ?? null,
+    saturatedFats: scaledMacros.saturatedFats ?? null,
+    sugars: scaledMacros.sugars ?? null,
+    microNutrientsSource: hasLookupPer100g
+      ? 'lookup_per100g'
+      : 'derived_from_entry_nutrients',
     confidence: hasLookupPer100g
       ? resolvedLookupMeta?.matchConfidence || 'high'
       : fallbackPenaltyConfidence,

@@ -1,3 +1,5 @@
+import { scaleNutrientValues } from '../../constants/nutrients/nutrients.js';
+
 const DEFAULT_UNIT_GRAMS = Object.freeze({
   g: 1,
   gram: 1,
@@ -119,10 +121,24 @@ export const scaleMacrosFromPer100g = (per100g = {}, grams = 100) => {
     Math.round((Number(per100g?.fats) || 0) * factor * 10) / 10
   );
 
+  // Micro nutrients scale with the same gram factor but are null-preserving:
+  // untracked stays untracked, measured zero stays zero, real values round to
+  // the canonical per-nutrient decimals (g x 1 decimal, sodium mg integer).
+  const micros = scaleNutrientValues(
+    {
+      fiber: per100g?.fiber,
+      sodium: per100g?.sodium,
+      saturatedFats: per100g?.saturatedFats,
+      sugars: per100g?.sugars,
+    },
+    factor
+  );
+
   return {
     calories,
     protein,
     carbs,
     fats,
+    ...micros,
   };
 };

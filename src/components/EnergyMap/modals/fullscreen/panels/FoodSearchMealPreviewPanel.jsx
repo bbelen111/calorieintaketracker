@@ -125,6 +125,42 @@ export const FoodSearchMealPreviewPanel = ({
                         {formatOne(entry?.carbs || 0)} c
                       </span>
                     </p>
+                    {(entry?.fiber != null ||
+                      entry?.sodium != null ||
+                      entry?.saturatedFats != null ||
+                      entry?.sugars != null) && (
+                      <p className="text-muted text-[11px] mt-0.5">
+                        {entry?.fiber != null && (
+                          <span className="text-accent-green">
+                            {formatOne(entry.fiber)}g fiber
+                          </span>
+                        )}
+                        {entry?.fiber != null &&
+                          (entry?.sodium != null ||
+                            entry?.saturatedFats != null ||
+                            entry?.sugars != null) && <span>{' · '}</span>}
+                        {entry?.sodium != null && (
+                          <span className="text-accent-indigo">
+                            {Math.round(entry.sodium)}mg Na
+                          </span>
+                        )}
+                        {entry?.sodium != null &&
+                          (entry?.saturatedFats != null ||
+                            entry?.sugars != null) && <span>{' · '}</span>}
+                        {entry?.saturatedFats != null && (
+                          <span className="text-accent-yellow">
+                            {formatOne(entry.saturatedFats)}g sat
+                          </span>
+                        )}
+                        {entry?.saturatedFats != null &&
+                          entry?.sugars != null && <span>{' · '}</span>}
+                        {entry?.sugars != null && (
+                          <span className="text-accent-pink">
+                            {formatOne(entry.sugars)}g sugar
+                          </span>
+                        )}
+                      </p>
+                    )}
                   </div>
 
                   {(onEditMealEntry || onDeleteMealEntry) && (

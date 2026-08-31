@@ -9,7 +9,16 @@ const SORTABLE_COLUMNS = {
   protein: 'protein',
   carbs: 'carbs',
   fats: 'fats',
+  fiber: 'fiber',
+  sodium: 'sodium',
+  saturatedFats: 'saturated_fats',
+  sugars: 'sugars',
 };
+
+// Shared select fragment: micro nutrients are nullable (null = untracked). The
+// old packed DBs lacked these columns, so legacy rows resolve to null and the
+// UI renders "—" instead of misleading zeros.
+const MICRO_SELECT = ', fiber, sodium, saturated_fats, sugars';
 
 let dbPromise = null;
 let foodsTableColumnsPromise = null;
@@ -40,6 +49,11 @@ const mapFoodRow = (row) => ({
     protein: Number(row.protein ?? 0),
     carbs: Number(row.carbs ?? 0),
     fats: Number(row.fats ?? 0),
+    fiber: row.fiber == null ? null : Number(row.fiber),
+    sodium: row.sodium == null ? null : Number(row.sodium),
+    saturatedFats:
+      row.saturated_fats == null ? null : Number(row.saturated_fats),
+    sugars: row.sugars == null ? null : Number(row.sugars),
   },
   portions: parsePortions(row.portions),
 });
@@ -165,7 +179,23 @@ export const searchFoods = async ({
       searchableColumns.splice(1, 0, "LOWER(COALESCE(brand, '')) LIKE :query");
     }
 
-    clauses.push(`(${searchableColumns.join(' OR ')})`);
+    // Multi-word queries also match when every token appears in the name, even
+    // when the phrase is not contiguous (e.g. "chicken breast" originally had
+    // to fight SR Legacy's "Chicken, ..., breast, ..." comma structure).
+    const tokens = normalizedQuery
+      .split(/\s+/)
+      .filter((token) => token.length > 0);
+    const tokenClause =
+      tokens.length > 1
+        ? ` OR (${tokens
+            .map((_, index) => `LOWER(name) LIKE :tok_${index}`)
+            .join(' AND ')})`
+        : '';
+    tokens.forEach((token, index) => {
+      if (tokenClause) params[`:tok_${index}`] = `%${escapeSqlLike(token)}%`;
+    });
+
+    clauses.push(`(${searchableColumns.join(' OR ')}${tokenClause})`);
     params[':query'] = `%${escapedQuery}%`;
   }
 
@@ -227,7 +257,7 @@ export const searchFoods = async ({
   const rows = runSelect(
     db,
     `
-      SELECT id, name, ${selectBrandColumn}, category, subcategory, calories, protein, carbs, fats, portions${relevanceSelect}
+      SELECT id, name, ${selectBrandColumn}, category, subcategory, calories, protein, carbs, fats${MICRO_SELECT}, portions${relevanceSelect}
       FROM foods
       WHERE ${clauses.join(' AND ')}
       ORDER BY ${orderByClause}
@@ -254,7 +284,7 @@ export const getFoodById = async (id) => {
   const rows = runSelect(
     db,
     `
-      SELECT id, name, ${selectBrandColumn}, category, subcategory, calories, protein, carbs, fats, portions
+      SELECT id, name, ${selectBrandColumn}, category, subcategory, calories, protein, carbs, fats${MICRO_SELECT}, portions
       FROM foods
       WHERE id = :id
       LIMIT 1
@@ -296,7 +326,7 @@ export const getFoodsByIds = async (ids = []) => {
   const rows = runSelect(
     db,
     `
-      SELECT id, name, ${selectBrandColumn}, category, subcategory, calories, protein, carbs, fats, portions
+      SELECT id, name, ${selectBrandColumn}, category, subcategory, calories, protein, carbs, fats${MICRO_SELECT}, portions
       FROM foods
       WHERE id IN (${placeholders.join(', ')})
     `,

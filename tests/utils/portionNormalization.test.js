@@ -67,5 +67,31 @@ test('scaleMacrosFromPer100g scales and rounds correctly', () => {
     protein: 46.5,
     carbs: 0,
     fats: 5.4,
+    fiber: null,
+    sodium: null,
+    saturatedFats: null,
+    sugars: null,
   });
+});
+
+test('scaleMacrosFromPer100g scales micro nutrients and preserves untracked nulls', () => {
+  const scaled = scaleMacrosFromPer100g(
+    {
+      calories: 200,
+      protein: 10,
+      carbs: 30,
+      fats: 5,
+      fiber: 3.25,
+      sodium: 42.8,
+      saturatedFats: 1.5,
+      sugars: 7,
+    },
+    50
+  );
+
+  assert.equal(scaled.calories, 100);
+  assert.equal(scaled.fiber, 1.6);
+  assert.equal(scaled.sodium, 21);
+  assert.equal(scaled.saturatedFats, 0.8);
+  assert.equal(scaled.sugars, 3.5);
 });

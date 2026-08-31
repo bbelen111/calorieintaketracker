@@ -97,6 +97,51 @@ test('parser payload validation and correction retry use OpenRouter messages', a
   }
 });
 
+test('parser v1.1 extracts optional micro nutrients and clamps them', () => {
+  const { payload } = parseFoodParserPayloadFromText(
+    `<food_parser_json>{"version":"1.1.0","messageType":"food_entries","assistantMessage":"ok","entries":[{"name":"Overnight Oats","grams":100,"calories":180,"protein":6,"carbs":30,"fats":4,"fiber":5.25,"sodium":42.8,"saturatedFats":0.75,"sugars":6,"confidence":"high"}]}</food_parser_json>`
+  );
+
+  const entry = payload.entries[0];
+  assert.equal(entry.fiber, 5.3);
+  assert.equal(entry.sodium, 43);
+  assert.equal(entry.saturatedFats, 0.8);
+  assert.equal(entry.sugars, 6);
+  assert.equal(payload.version, '1.1.0');
+});
+
+test('parser v1.1 keeps omitted micros absent (never invents zeros)', () => {
+  const { payload } = parseFoodParserPayloadFromText(
+    `<food_parser_json>{"version":"1.1.0","messageType":"food_entries","assistantMessage":"ok","entries":[{"name":"Chicken","grams":150,"calories":250,"protein":40,"carbs":0,"fats":9,"confidence":"high"}]}</food_parser_json>`
+  );
+
+  const entry = payload.entries[0];
+  assert.equal('fiber' in entry, false);
+  assert.equal('sodium' in entry, false);
+  assert.equal('saturatedFats' in entry, false);
+  assert.equal('sugars' in entry, false);
+});
+
+test('parser v1.1 clamps out-of-range micro nutrients to canonical bounds', () => {
+  const { payload } = parseFoodParserPayloadFromText(
+    `<food_parser_json>{"version":"1.1.0","messageType":"food_entries","assistantMessage":"ok","entries":[{"name":"Salt Bomb","grams":100,"calories":10,"protein":0,"carbs":2,"fats":0,"sodium":99999,"fiber":-5,"confidence":"high"}]}</food_parser_json>`
+  );
+
+  const entry = payload.entries[0];
+  assert.equal(entry.sodium, 10000);
+  assert.equal(entry.fiber, 0);
+});
+
+test('legacy parser v1.0.0 payloads still parse without micro fields', () => {
+  const { payload } = parseFoodParserPayloadFromText(
+    `<food_parser_json>{"version":"1.0.0","messageType":"food_entries","assistantMessage":"ok","entries":[{"name":"Egg","grams":50,"calories":70,"protein":6,"carbs":0.5,"fats":5,"confidence":"medium"}]}</food_parser_json>`
+  );
+
+  assert.equal(payload.version, '1.0.0');
+  assert.equal(payload.entries[0].name, 'Egg');
+  assert.equal('fiber' in payload.entries[0], false);
+});
+
 test('parses food parser payload and preserves food context prompts', () => {
   const parsed = parseFoodParserPayloadFromText(
     '<food_parser_json>{"messageType":"clarification","assistantMessage":"Which size?","followUpQuestion":"Which size?","entries":[]}</food_parser_json>'

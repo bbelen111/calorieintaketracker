@@ -29,6 +29,10 @@ import {
   normalizeMacroLocks,
   normalizeMacroRecommendationSplit,
 } from '../calculations/macroRecommendations.js';
+import {
+  NUTRIENT_KEYS,
+  normalizeNutrientValue,
+} from '../../constants/nutrients/nutrients.js';
 
 // Split keys for performance
 const PROFILE_KEY = 'energyMapData_profile'; // Settings, preferences, small lists
@@ -1317,9 +1321,24 @@ function mergeWithDefaults(data) {
         return acc;
       }
 
+      // Legacy snapshots predate the micro-nutrient fields; default them so
+      // consumers can always read `micros` / `microsCoverage` directly.
+      const micros = {};
+      const microsCoverage = {};
+      NUTRIENT_KEYS.forEach((key) => {
+        const value = snapshot?.micros?.[key];
+        micros[key] =
+          value == null || value === ''
+            ? null
+            : normalizeNutrientValue(value, key);
+        microsCoverage[key] = Boolean(snapshot?.microsCoverage?.[key]);
+      });
+
       acc[normalizedDateKey] = {
         ...snapshot,
         date: normalizedDateKey,
+        micros,
+        microsCoverage,
       };
       return acc;
     }, {});

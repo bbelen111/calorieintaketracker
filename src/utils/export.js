@@ -38,12 +38,24 @@ export const exportPhaseAsCSV = (phase, weightEntries, nutritionData = {}) => {
   csv += `Average Protein,${metrics.avgProtein.toFixed(1)} g\n`;
   csv += `Average Carbs,${metrics.avgCarbs.toFixed(1)} g\n`;
   csv += `Average Fats,${metrics.avgFats.toFixed(1)} g\n`;
+  if (metrics.avgFiber != null) {
+    csv += `Average Fiber,${metrics.avgFiber.toFixed(1)} g\n`;
+  }
+  if (metrics.avgSodium != null) {
+    csv += `Average Sodium,${metrics.avgSodium.toFixed(0)} mg\n`;
+  }
+  if (metrics.avgSaturatedFats != null) {
+    csv += `Average Saturated Fat,${metrics.avgSaturatedFats.toFixed(1)} g\n`;
+  }
+  if (metrics.avgSugars != null) {
+    csv += `Average Sugars,${metrics.avgSugars.toFixed(1)} g\n`;
+  }
   csv += '\n';
 
   // Daily logs - reference-based system (links to weight/nutrition data, not raw values)
   csv += 'DAILY LOGS\n';
   csv +=
-    'Date,Weight Ref,Body Fat Ref,Nutrition Ref,Calories,Protein,Carbs,Fats,Completed,Notes\n';
+    'Date,Weight Ref,Body Fat Ref,Nutrition Ref,Calories,Protein,Carbs,Fats,Fiber,Sodium,SaturatedFat,Sugars,Completed,Notes\n';
 
   const logs = Object.entries(phase.dailyLogs || {})
     .map(([date, log]) => ({ date, ...log }))
@@ -63,6 +75,12 @@ export const exportPhaseAsCSV = (phase, weightEntries, nutritionData = {}) => {
       nutritionTotals.protein ? nutritionTotals.protein.toFixed(1) : '',
       nutritionTotals.carbs ? nutritionTotals.carbs.toFixed(1) : '',
       nutritionTotals.fats ? nutritionTotals.fats.toFixed(1) : '',
+      nutritionTotals.fiber != null ? nutritionTotals.fiber.toFixed(1) : '',
+      nutritionTotals.sodium != null ? nutritionTotals.sodium.toFixed(0) : '',
+      nutritionTotals.saturatedFats != null
+        ? nutritionTotals.saturatedFats.toFixed(1)
+        : '',
+      nutritionTotals.sugars != null ? nutritionTotals.sugars.toFixed(1) : '',
       log.completed ? 'Yes' : 'No',
       log.notes ? `"${log.notes.replace(/"/g, '""')}"` : '',
     ];
@@ -149,6 +167,22 @@ export const exportPhaseAsJSON = (phase, weightEntries, nutritionData = {}) => {
       avgProtein: parseFloat(metrics.avgProtein.toFixed(2)),
       avgCarbs: parseFloat(metrics.avgCarbs.toFixed(2)),
       avgFats: parseFloat(metrics.avgFats.toFixed(2)),
+      avgFiber:
+        metrics.avgFiber != null
+          ? parseFloat(metrics.avgFiber.toFixed(2))
+          : null,
+      avgSodium:
+        metrics.avgSodium != null
+          ? parseFloat(metrics.avgSodium.toFixed(0))
+          : null,
+      avgSaturatedFats:
+        metrics.avgSaturatedFats != null
+          ? parseFloat(metrics.avgSaturatedFats.toFixed(2))
+          : null,
+      avgSugars:
+        metrics.avgSugars != null
+          ? parseFloat(metrics.avgSugars.toFixed(2))
+          : null,
     },
     dailyLogs: Object.entries(phase.dailyLogs || {})
       .map(([date, log]) => ({

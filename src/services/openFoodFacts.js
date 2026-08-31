@@ -1,5 +1,11 @@
 /* eslint-disable no-undef */
 import { Capacitor } from '@capacitor/core';
+import {
+  convertOpenFoodFactsSodium,
+  normalizeNutrients,
+  normalizeNutrientValue,
+  scaleNutrientValues,
+} from '../constants/nutrients/nutrients.js';
 
 const API_BASE = (
   (typeof import.meta.env?.VITE_OPENFOODFACTS_API_BASE === 'string'
@@ -46,10 +52,32 @@ function parseServingGrams(product) {
   return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : null;
 }
 
+// Build the micro-nutrient profile for an OFF product (per 100g). Sodium
+// arrives in GRAMS with an explicit `_unit` marker, so it must be converted to
+// mg (with a salt fallback). OFF follows the EU/international label standard:
+// "carbohydrates" is net carbs and fiber is listed separately, so fiber is not
+// constrained against carbs here.
+function buildOffMicroNutrients(nutriments, parentTotals) {
+  const raw = {
+    fiber: normalizeNutrientValue(nutriments.fiber_100g, 'fiber'),
+    sodium: convertOpenFoodFactsSodium(nutriments),
+    saturatedFats: normalizeNutrientValue(
+      nutriments['saturated-fat_100g'],
+      'saturatedFats'
+    ),
+    sugars: normalizeNutrientValue(nutriments.sugars_100g, 'sugars'),
+  };
+
+  return normalizeNutrients(raw, {
+    parentTotals,
+    source: 'off',
+  }).nutrients;
+}
+
 function mapProductToFood(product, barcode) {
   const nutriments = product?.nutriments || {};
 
-  const per100g = {
+  const baseMacros = {
     calories: Math.max(
       0,
       Math.round(Number(nutriments['energy-kcal_100g']) || 0)
@@ -57,6 +85,11 @@ function mapProductToFood(product, barcode) {
     protein: Math.max(0, round2(nutriments.proteins_100g)),
     carbs: Math.max(0, round2(nutriments.carbohydrates_100g)),
     fats: Math.max(0, round2(nutriments.fat_100g)),
+  };
+
+  const per100g = {
+    ...baseMacros,
+    ...buildOffMicroNutrients(nutriments, baseMacros),
   };
 
   const servingGrams = parseServingGrams(product);
@@ -80,6 +113,15 @@ function mapProductToFood(product, barcode) {
         protein: Math.max(0, round2(per100g.protein * factor)),
         carbs: Math.max(0, round2(per100g.carbs * factor)),
         fats: Math.max(0, round2(per100g.fats * factor)),
+        ...scaleNutrientValues(
+          {
+            fiber: per100g.fiber,
+            sodium: per100g.sodium,
+            saturatedFats: per100g.saturatedFats,
+            sugars: per100g.sugars,
+          },
+          factor
+        ),
       },
     });
   }

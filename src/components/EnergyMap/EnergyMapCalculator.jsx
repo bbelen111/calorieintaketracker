@@ -404,6 +404,34 @@ const FOOD_ENTRY_PICKER_FIELDS = {
     max: 500,
     step: 0.5,
   },
+  fiber: {
+    title: 'Fiber',
+    unitLabel: 'grammes',
+    min: 0,
+    max: 200,
+    step: 0.5,
+  },
+  sodium: {
+    title: 'Sodium',
+    unitLabel: 'milligrams',
+    min: 0,
+    max: 5000,
+    step: 10,
+  },
+  saturatedFats: {
+    title: 'Saturated Fat',
+    unitLabel: 'grammes',
+    min: 0,
+    max: 200,
+    step: 0.5,
+  },
+  sugars: {
+    title: 'Sugars',
+    unitLabel: 'grammes',
+    min: 0,
+    max: 200,
+    step: 0.5,
+  },
 };
 
 const getStepPrecision = (step) => {
@@ -465,6 +493,25 @@ const buildFallbackFoodFromEntry = (entry) => {
       protein: Math.round(safeNumber(entry?.protein) * scale * 10) / 10,
       carbs: Math.round(safeNumber(entry?.carbs) * scale * 10) / 10,
       fats: Math.round(safeNumber(entry?.fats) * scale * 10) / 10,
+      fiber:
+        entry?.fiber != null
+          ? Math.max(0, Math.round(Number(entry.fiber) * scale * 10) / 10)
+          : null,
+      sodium:
+        entry?.sodium != null
+          ? Math.max(0, Math.round(Number(entry.sodium) * scale))
+          : null,
+      saturatedFats:
+        entry?.saturatedFats != null
+          ? Math.max(
+              0,
+              Math.round(Number(entry.saturatedFats) * scale * 10) / 10
+            )
+          : null,
+      sugars:
+        entry?.sugars != null
+          ? Math.max(0, Math.round(Number(entry.sugars) * scale * 10) / 10)
+          : null,
     },
     portions: [],
   };
@@ -796,6 +843,10 @@ export const EnergyMapCalculator = () => {
   const [foodProtein, setFoodProtein] = useState('');
   const [foodCarbs, setFoodCarbs] = useState('');
   const [foodFats, setFoodFats] = useState('');
+  const [foodFiber, setFoodFiber] = useState('');
+  const [foodSodium, setFoodSodium] = useState('');
+  const [foodSaturatedFats, setFoodSaturatedFats] = useState('');
+  const [foodSugars, setFoodSugars] = useState('');
   const [foodNutrientPickerConfig, setFoodNutrientPickerConfig] =
     useState(null);
   const [selectedFoodForPortion, setSelectedFoodForPortion] = useState(null);
@@ -2597,6 +2648,10 @@ export const EnergyMapCalculator = () => {
     setFoodProtein('');
     setFoodCarbs('');
     setFoodFats('');
+    setFoodFiber('');
+    setFoodSodium('');
+    setFoodSaturatedFats('');
+    setFoodSugars('');
     setEditingFoodEntryId(null);
     setEditingMealType(null);
     setEditingManualFavouriteId(null);
@@ -2674,6 +2729,14 @@ export const EnergyMapCalculator = () => {
         currentValue = Number.parseFloat(foodCarbs);
       } else if (fieldKey === 'fats') {
         currentValue = Number.parseFloat(foodFats);
+      } else if (fieldKey === 'fiber') {
+        currentValue = Number.parseFloat(foodFiber);
+      } else if (fieldKey === 'sodium') {
+        currentValue = Number.parseFloat(foodSodium);
+      } else if (fieldKey === 'saturatedFats') {
+        currentValue = Number.parseFloat(foodSaturatedFats);
+      } else if (fieldKey === 'sugars') {
+        currentValue = Number.parseFloat(foodSugars);
       }
 
       setFoodNutrientPickerConfig({
@@ -2683,7 +2746,17 @@ export const EnergyMapCalculator = () => {
       });
       foodNutrientPickerModal.open();
     },
-    [foodCalories, foodCarbs, foodFats, foodNutrientPickerModal, foodProtein]
+    [
+      foodCalories,
+      foodCarbs,
+      foodFats,
+      foodFiber,
+      foodNutrientPickerModal,
+      foodProtein,
+      foodSaturatedFats,
+      foodSodium,
+      foodSugars,
+    ]
   );
 
   const handleFoodNutrientPickerSave = useCallback(
@@ -2710,6 +2783,14 @@ export const EnergyMapCalculator = () => {
         setFoodCarbs(formattedValue);
       } else if (foodNutrientPickerConfig.fieldKey === 'fats') {
         setFoodFats(formattedValue);
+      } else if (foodNutrientPickerConfig.fieldKey === 'fiber') {
+        setFoodFiber(formattedValue);
+      } else if (foodNutrientPickerConfig.fieldKey === 'sodium') {
+        setFoodSodium(formattedValue);
+      } else if (foodNutrientPickerConfig.fieldKey === 'saturatedFats') {
+        setFoodSaturatedFats(formattedValue);
+      } else if (foodNutrientPickerConfig.fieldKey === 'sugars') {
+        setFoodSugars(formattedValue);
       }
 
       foodNutrientPickerModal.requestClose();
@@ -2803,6 +2884,12 @@ export const EnergyMapCalculator = () => {
         setFoodProtein(String(existing.protein || ''));
         setFoodCarbs(String(existing.carbs || ''));
         setFoodFats(String(existing.fats || ''));
+        setFoodFiber(existing.fiber != null ? String(existing.fiber) : '');
+        setFoodSodium(existing.sodium != null ? String(existing.sodium) : '');
+        setFoodSaturatedFats(
+          existing.saturatedFats != null ? String(existing.saturatedFats) : ''
+        );
+        setFoodSugars(existing.sugars != null ? String(existing.sugars) : '');
         setFoodEntryMode('edit');
         foodEntryModal.open();
         return;
@@ -2839,6 +2926,11 @@ export const EnergyMapCalculator = () => {
           protein: parseFloat(foodProtein) || 0,
           carbs: parseFloat(foodCarbs) || 0,
           fats: parseFloat(foodFats) || 0,
+          fiber: foodFiber !== '' ? parseFloat(foodFiber) : null,
+          sodium: foodSodium !== '' ? parseFloat(foodSodium) : null,
+          saturatedFats:
+            foodSaturatedFats !== '' ? parseFloat(foodSaturatedFats) : null,
+          sugars: foodSugars !== '' ? parseFloat(foodSugars) : null,
         });
 
         // Also add to tracker if we have a meal type
@@ -2850,6 +2942,11 @@ export const EnergyMapCalculator = () => {
             protein: parseFloat(foodProtein) || 0,
             carbs: parseFloat(foodCarbs) || 0,
             fats: parseFloat(foodFats) || 0,
+            fiber: foodFiber !== '' ? parseFloat(foodFiber) : null,
+            sodium: foodSodium !== '' ? parseFloat(foodSodium) : null,
+            saturatedFats:
+              foodSaturatedFats !== '' ? parseFloat(foodSaturatedFats) : null,
+            sugars: foodSugars !== '' ? parseFloat(foodSugars) : null,
             grams: null,
             timestamp: new Date().toISOString(),
           };
@@ -2873,6 +2970,11 @@ export const EnergyMapCalculator = () => {
         protein: parseFloat(foodProtein) || 0,
         carbs: parseFloat(foodCarbs) || 0,
         fats: parseFloat(foodFats) || 0,
+        fiber: foodFiber !== '' ? parseFloat(foodFiber) : null,
+        sodium: foodSodium !== '' ? parseFloat(foodSodium) : null,
+        saturatedFats:
+          foodSaturatedFats !== '' ? parseFloat(foodSaturatedFats) : null,
+        sugars: foodSugars !== '' ? parseFloat(foodSugars) : null,
         // Manual entries do not have a measured gram amount by default.
         grams: null,
         timestamp: new Date().toISOString(),
@@ -2903,10 +3005,14 @@ export const EnergyMapCalculator = () => {
       foodCarbs,
       foodEntryModal,
       foodFats,
+      foodFiber,
       foodMealType,
       foodName,
       foodProtein,
+      foodSaturatedFats,
       foodSearchModal,
+      foodSodium,
+      foodSugars,
       trackerSelectedDate,
       updateFoodEntry,
       updateFoodFavourite,
@@ -3014,6 +3120,10 @@ export const EnergyMapCalculator = () => {
         protein: customFood.per100g?.protein || 0,
         carbs: customFood.per100g?.carbs || 0,
         fats: customFood.per100g?.fats || 0,
+        fiber: customFood.per100g?.fiber ?? null,
+        sodium: customFood.per100g?.sodium ?? null,
+        saturatedFats: customFood.per100g?.saturatedFats ?? null,
+        sugars: customFood.per100g?.sugars ?? null,
         isCustom: true,
         source: 'user',
         per100g: customFood.per100g,
@@ -3067,6 +3177,12 @@ export const EnergyMapCalculator = () => {
         setFoodProtein(String(favourite.protein || ''));
         setFoodCarbs(String(favourite.carbs || ''));
         setFoodFats(String(favourite.fats || ''));
+        setFoodFiber(favourite.fiber != null ? String(favourite.fiber) : '');
+        setFoodSodium(favourite.sodium != null ? String(favourite.sodium) : '');
+        setFoodSaturatedFats(
+          favourite.saturatedFats != null ? String(favourite.saturatedFats) : ''
+        );
+        setFoodSugars(favourite.sugars != null ? String(favourite.sugars) : '');
         setFoodEntryMode('edit');
         setEditingManualFavouriteId(favourite.id);
         foodEntryModal.open();
@@ -3995,8 +4111,14 @@ export const EnergyMapCalculator = () => {
                 swipe gesture, not to taps on the hidden neighbour screens.
                 They are children of the viewport, so drags still bubble up to
                 the carousel handlers. Width matches SCREEN_EDGE_PEEK_PX. */}
-            <div aria-hidden="true" className="absolute inset-y-0 left-0 z-10 w-4" />
-            <div aria-hidden="true" className="absolute inset-y-0 right-0 z-10 w-4" />
+            <div
+              aria-hidden="true"
+              className="absolute inset-y-0 left-0 z-10 w-4"
+            />
+            <div
+              aria-hidden="true"
+              className="absolute inset-y-0 right-0 z-10 w-4"
+            />
             <div
               ref={setSliderElement}
               className="flex w-full"
@@ -4867,10 +4989,20 @@ export const EnergyMapCalculator = () => {
         protein={foodProtein}
         carbs={foodCarbs}
         fats={foodFats}
+        fiber={foodFiber}
+        sodium={foodSodium}
+        saturatedFats={foodSaturatedFats}
+        sugars={foodSugars}
         onOpenCaloriesPicker={() => openFoodNutrientPicker('calories')}
         onOpenProteinPicker={() => openFoodNutrientPicker('protein')}
         onOpenCarbsPicker={() => openFoodNutrientPicker('carbs')}
         onOpenFatsPicker={() => openFoodNutrientPicker('fats')}
+        onOpenFiberPicker={() => openFoodNutrientPicker('fiber')}
+        onOpenSodiumPicker={() => openFoodNutrientPicker('sodium')}
+        onOpenSaturatedFatsPicker={() =>
+          openFoodNutrientPicker('saturatedFats')
+        }
+        onOpenSugarsPicker={() => openFoodNutrientPicker('sugars')}
         smartTefEnabled={
           userData.smartTefEnabled &&
           (userData.smartTefFoodTefBurnEnabled ?? true)

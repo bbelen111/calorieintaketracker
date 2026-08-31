@@ -805,7 +805,7 @@ Migration behavior is now intentionally minimal:
   weightEntries: [{ date: 'YYYY-MM-DD', weight }],
   bodyFatEntries: [{ date: 'YYYY-MM-DD', bodyFat }],
   stepEntries: [{ date: 'YYYY-MM-DD', steps, source: 'healthConnect'|'manual' }],
-  nutritionData: { 'YYYY-MM-DD': { mealType: [foodEntry, ...] } },
+  nutritionData: { 'YYYY-MM-DD': { mealType: [foodEntry, ...] } },   // entries may carry fiber/sodium/saturatedFats/sugars (null = untracked)
   cachedFoods: [],                  // Cached foods from online/barcode lookups (history-scoped; deduped + capped on persistence)
   dailyNeatOverrides: {
     'YYYY-MM-DD': {
@@ -835,6 +835,8 @@ Migration behavior is now intentionally minimal:
       epocCardio,
       epocFromTodaySessions,
       epocCarryInCalories,
+      micros,                        // { fiber, sodium, saturatedFats, sugars } sums of known values; null = none tracked
+      microsCoverage,                // { fiber, sodium, saturatedFats, sugars } boolean hasUntracked per nutrient (partial day sums)
       baselineTdee,
       adaptiveThermogenesisCorrection,
       adaptiveThermogenesisMode,
@@ -853,8 +855,18 @@ Migration behavior is now intentionally minimal:
 ```javascript
 { id: 'uuid', foodId: 'chicken_breast', name: 'Chicken Breast',
   grams: 174, calories: 287, protein: 54, carbs: 0, fats: 6.3,
+  fiber: 0, sodium: 65, saturatedFats: 1.4, sugars: 0,   // optional micros
   timestamp: 1699876543210 }
 ```
+
+**Micro nutrients (fiber, sodium, saturatedFats, sugars) are optional and NULL
+semantic.** `null`/absent = untracked (rendered as —); `0` = measured zero. The
+canonical defs + normalizers/invariant clamps live in
+`src/constants/nutrients/nutrients.js`. Units: fiber/saturatedFats/sugars in
+grams (1 decimal), sodium in **milligrams** (whole integer). Soft source-scoped
+invariants clamp invalid data (`saturatedFats <= fats`, `sugars <= carbs`,
+and for US/USDA "carb by difference" sources only, `sugars + fiber <= carbs`);
+OpenFoodFacts/EU net-carb entries never clamp fiber against carbs.
 
 Meal types are ordered by `MEAL_TYPE_ORDER`: `breakfast`, `morning_snack`, `lunch`, `afternoon_snack`, `dinner`, `evening_snack`, `other`.
 
@@ -947,6 +959,12 @@ const food = await searchBarcode('012345678901');
 
 Results are cached in `userData.cachedFoods` to reduce repeated network requests.
 
+**Micro nutrient mapping (fiber / sodium / saturatedFats / sugars):**
+- USDA nutrient matching is tiered: `nutrientNumber` first (291 Fiber / 307 Sodium / 606 Saturated fat / 269 Sugars), then `nutrientId` (1079/1093/1258/2000), then normalized name patterns.
+- OpenFoodFacts reports sodium in **grams** with an explicit `sodium_unit` marker. `services/openFoodFacts.js` converts g → mg when `sodium_unit` is `g` (or missing) and honors an explicit `mg` unit; when sodium is absent it derives sodium from `salt_100g` (`salt_g × 393.4` ≈ mg). `nutriments_estimated` is never ingested.
+- EU labels report net carbs with fiber separate, so fiber is never clamped against OFF carbs; USDA "carb by difference" (US sources) includes fiber and applies the stricter `sugars + fiber <= carbs` soft clamp.
+- Per-100g result objects carry nullable micro fields; `null` = untracked.
+
 ---
 
 ## OpenRouter AI Parsing Integration
@@ -1031,12 +1049,17 @@ Food search now reads from `src/constants/food/foodDatabase.sqlite` through `src
 - Root-level `src/constants/foodDatabase.js` no longer exists.
 
 **Offline cleanup pipeline:**
-- `scripts/food-db/index.js` performs audit/clean/rebuild/replace.
+- `scripts/food-db/index.js` performs audit/clean/rebuild/replace. The rebuild writes the nullable micro columns (`fiber`, `sodium`, `saturated_fats`, `sugars`); legacy DBs without them are loaded defensively via `PRAGMA table_info` detection.
+- `scripts/food-db/build.js` is the **from-scratch catalog builder**. It ingests the raw FDC CSV downloads under `scripts/food-db/fdc-download/` (Foundation `foundation_food` + SR Legacy `sr_legacy_food` + Survey/FNDDS `survey_fndds_food` — Survey is on by default via `CURATION.useSurvey`), assembles per-100g macros + micros + household portions in one pass, then applies the curation rules in `scripts/food-db/config/curation.js` (junk-exclusion patterns, include/exclude overrides by `fdc_id`, and cut-variant collapsing that keeps at most one raw + one cooked representative per group). Nutrient ids are dual-scheme: SR/Foundation `food_nutrient.nutrient_id` carries the internal FDC id (energy `1008`, protein `1003`, …), while Survey/FNDDS carries the nutrient NUMBER directly (`208`, `203`, …) — both are mapped (note `1002` is NITROGEN, never energy). A post-collapse display-name pass rewrites poultry/pork into friendly labels (`Chicken, broilers or fryers, breast, meat only, raw` → `Chicken breast, raw`; the raw skinless-boneless breast is the canonical "Chicken breast, raw") with a rename-collision guard. Curated recoveries live in `scripts/food-db/config/curation.js`: `includeFdcIds` force-keeps real SR staples that the ALL-CAPS brand detector drops (e.g. `Cereals, CREAM OF WHEAT, ...`), and `manualFoods` adds branded-only common foods (`Chicken breast, raw, frozen`, jasmine/basmati rice, penne) by CLONING nutrition + portions from a documented donor `fdc_id` (`curated_` ids) so numbers are never invented. Every decision is written to `reports/curation.json`; `--replace` swaps the bundled DB (backup automatically), `--write` emits `scripts/food-db/foodDatabase.curated.sqlite`, and the default is a DB-free dry-run for iterative refinement.
+- `scripts/food-db/enrich-nutrients.js` joins bundled catalog `usda_<fdcId>` rows against the official FDC bulk CSVs (`food_nutrient.csv`/`nutrient.csv` from Foundation/SR Legacy, optional Branded) to backfill the micro columns; unmatched rows stay `NULL`.
 - `scripts/food-db/config/taxonomy.js` contains canonical category/subcategory maps and aliases.
 - NPM scripts:
   - `npm run db:food:audit`
   - `npm run db:food:clean:dry`
   - `npm run db:food:clean`
+  - `npm run db:food:build` (syntax: `node scripts/food-db/build.js [--survey] [--write|--replace]`)
+  - `npm run db:food:enrich` (syntax: `node scripts/food-db/enrich-nutrients.js [--dir <extract-dir>] [--replace]`)
+- Local intermediate artifacts (`foodDatabase.curated.sqlite`, `foodDatabase.backup.sqlite`, `fdc-download/`) are gitignored; keep the raw downloads local for rebuilds.
 
 The cleanup path is source-first. Do not add per-query runtime quality enforcement back into the app for catalog normalization.
 
@@ -1095,6 +1118,9 @@ src/
 │   │  └─ mealTypes.js           # MEAL_TYPE_ORDER + meal type helpers
 │   ├─ phases/
 │   │  └─ phaseTemplates.js      # Phase creation templates
+│   ├─ nutrients/
+│   │  └─ nutrients.js           # Canonical micro nutrients (fiber/sodium/saturatedFats/sugars): units, clamps,
+│   │                            #   source-scoped soft invariants, OFF sodium conversion, totals/coverage helpers
 ├─ hooks/
 │   ├─ useAnimatedModal.js       # Modal lifecycle (isOpen/isClosing/requestClose)
 │   ├─ useHardwareBackButton.js  # Native back handling (home-first + double-exit)
@@ -1161,6 +1187,7 @@ src/
 ├─ scripts/
 │   └─ food-db/
 │      ├─ index.js               # Offline food DB audit/clean/replace pipeline
+│      ├─ enrich-nutrients.js    # FDC bulk CSV join -> backfills fiber/sodium/saturated_fats/sugars by fdc_id
 │      └─ config/
 │         └─ taxonomy.js         # Canonical taxonomy maps + alias/portion sanitation config
 └─ tests/                        # Node test runner suite (`node --test`)
@@ -1168,6 +1195,7 @@ src/
   │   └─ openrouter.contract.test.js
   ├─ constants/
   │   └─ activityPresets.test.js
+│   └─ nutrients.test.js      # Canonical micro nutrient defs, soft invariants, OFF sodium conversion
   ├─ services/
   │   ├─ foodLookupContext.test.js
   │   ├─ foodSearch.test.js

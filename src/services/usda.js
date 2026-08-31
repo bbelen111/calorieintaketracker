@@ -1,5 +1,9 @@
 /* eslint-disable no-undef */
 import { Capacitor } from '@capacitor/core';
+import {
+  normalizeNutrients,
+  scaleNutrientValues,
+} from '../constants/nutrients/nutrients.js';
 
 const API_BASE = (
   (typeof import.meta.env?.VITE_USDA_API_BASE === 'string'
@@ -103,6 +107,69 @@ function getNutrientValue(food, matcher) {
   }
 
   return 0;
+}
+
+// Null-aware variant: returns null (untracked) when no matching nutrient value
+// exists, so sources can distinguish "measured 0" from "no data".
+function getNutrientValueOrNull(food, matcher) {
+  const nutrients = Array.isArray(food?.foodNutrients)
+    ? food.foodNutrients
+    : [];
+
+  for (const nutrient of nutrients) {
+    if (!nutrient || typeof nutrient !== 'object') {
+      continue;
+    }
+
+    if (!matcher(nutrient)) {
+      continue;
+    }
+
+    const numericValue = Number(nutrient.value);
+    if (Number.isFinite(numericValue)) {
+      return numericValue;
+    }
+  }
+
+  return null;
+}
+
+// Tiered USDA nutrient matchers: nutrientNumber first (stable across FDC
+// datasets), nutrientId fallback, then normalized name patterns. Branded rows
+// often lack nutrientNumber, so the name tier stays essential.
+const USDA_NUTRIENT_MATCHERS = {
+  fiber: { number: '291', id: 1079, name: 'fiber, total dietary' },
+  sodium: { number: '307', id: 1093, name: 'sodium' },
+  saturatedFats: {
+    number: '606',
+    id: 1258,
+    name: 'fatty acids, total saturated',
+  },
+  sugars: {
+    number: '269',
+    id: 2000,
+    name: 'sugars, total including nlea',
+  },
+};
+
+function getUsdaMicroNutrients(food) {
+  const raw = {};
+
+  Object.entries(USDA_NUTRIENT_MATCHERS).forEach(([key, matcher]) => {
+    raw[key] = getNutrientValueOrNull(food, (nutrient) => {
+      const nutrientId = Number(nutrient.nutrientId);
+      const nutrientNumber = String(nutrient.nutrientNumber ?? '').trim();
+      const nutrientName = normalizeNutrientName(nutrient.nutrientName);
+
+      return (
+        nutrientNumber === matcher.number ||
+        nutrientId === matcher.id ||
+        (matcher.name && nutrientName.includes(matcher.name))
+      );
+    });
+  });
+
+  return raw;
 }
 
 function getMacroProfile(food) {
@@ -219,11 +286,29 @@ function mapUsdaFoodToFood(food, index = 0) {
       ? 100 / servingInfo.servingGrams
       : 1;
 
-  const per100g = {
+  const per100gMacros = {
     calories: Math.max(0, Math.round(servingMacros.calories * per100gFactor)),
     protein: Math.max(0, round2(servingMacros.protein * per100gFactor)),
     carbs: Math.max(0, round2(servingMacros.carbs * per100gFactor)),
     fats: Math.max(0, round2(servingMacros.fats * per100gFactor)),
+  };
+
+  // Micros follow the same serving->per100g scale as the macros, then get the
+  // US invariant scope (US "carb by difference" includes fiber).
+  const microPer100g = normalizeNutrients(
+    scaleNutrientValues(getUsdaMicroNutrients(food), per100gFactor),
+    {
+      parentTotals: {
+        fats: per100gMacros.fats,
+        carbs: per100gMacros.carbs,
+      },
+      source: 'usda',
+    }
+  ).nutrients;
+
+  const per100g = {
+    ...per100gMacros,
+    ...microPer100g,
   };
 
   const portions = [
@@ -240,6 +325,7 @@ function mapUsdaFoodToFood(food, index = 0) {
     servingInfo.servingGrams > 0 &&
     Math.round(servingInfo.servingGrams) !== 100
   ) {
+    const servingFactor = servingInfo.servingGrams / 100;
     portions.push({
       id: 'p_serving',
       label: servingInfo.label,
@@ -249,6 +335,15 @@ function mapUsdaFoodToFood(food, index = 0) {
         protein: Math.max(0, round2(servingMacros.protein)),
         carbs: Math.max(0, round2(servingMacros.carbs)),
         fats: Math.max(0, round2(servingMacros.fats)),
+        ...scaleNutrientValues(
+          {
+            fiber: per100g.fiber,
+            sodium: per100g.sodium,
+            saturatedFats: per100g.saturatedFats,
+            sugars: per100g.sugars,
+          },
+          servingFactor
+        ),
       },
     });
   }

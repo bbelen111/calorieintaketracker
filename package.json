@@ -14,7 +14,9 @@
     "format": "prettier --write src/**/*.{js,jsx,ts,tsx,json,css,md}",
     "db:food:audit": "node scripts/food-db/index.js",
     "db:food:clean:dry": "node scripts/food-db/index.js --clean --dry-run",
-    "db:food:clean": "node scripts/food-db/index.js --clean --replace"
+    "db:food:clean": "node scripts/food-db/index.js --clean --replace",
+    "db:food:build": "node scripts/food-db/build.js",
+    "db:food:enrich": "node scripts/food-db/enrich-nutrients.js"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.1",

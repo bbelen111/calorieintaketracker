@@ -22,10 +22,18 @@ export const FoodEntryModal = ({
   protein,
   carbs,
   fats,
+  fiber,
+  sodium,
+  saturatedFats,
+  sugars,
   onOpenCaloriesPicker,
   onOpenProteinPicker,
   onOpenCarbsPicker,
   onOpenFatsPicker,
+  onOpenFiberPicker,
+  onOpenSodiumPicker,
+  onOpenSaturatedFatsPicker,
+  onOpenSugarsPicker,
   smartTefEnabled = false,
   isEditing = false,
 }) => {
@@ -94,6 +102,10 @@ export const FoodEntryModal = ({
       protein: parseFloat(protein) || 0,
       carbs: parseFloat(carbs) || 0,
       fats: parseFloat(fats) || 0,
+      fiber: fiber !== '' ? parseFloat(fiber) : null,
+      sodium: sodium !== '' ? parseFloat(sodium) : null,
+      saturatedFats: saturatedFats !== '' ? parseFloat(saturatedFats) : null,
+      sugars: sugars !== '' ? parseFloat(sugars) : null,
       isCustom: false, // Not a custom food, it's a manual entry
       source: 'manual',
       per100g: null,
@@ -257,6 +269,77 @@ export const FoodEntryModal = ({
             >
               <span className="font-medium text-sm">
                 {formatPickerValue(fats, 'g')}
+              </span>
+              <ChevronsUpDown size={14} className="text-muted shrink-0" />
+            </button>
+          </div>
+        </div>
+
+        {/* Micros Grid (optional, nullable; empty = untracked) */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-foreground text-xs font-semibold mb-2">
+              Fiber (g)
+            </label>
+            <button
+              type="button"
+              onClick={() => handleOpenPicker(onOpenFiberPicker)}
+              className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
+              aria-label="Open fiber picker"
+            >
+              <span className="font-medium text-sm">
+                {formatPickerValue(fiber, 'g')}
+              </span>
+              <ChevronsUpDown size={14} className="text-muted shrink-0" />
+            </button>
+          </div>
+
+          <div>
+            <label className="block text-foreground text-xs font-semibold mb-2">
+              Sodium (mg)
+            </label>
+            <button
+              type="button"
+              onClick={() => handleOpenPicker(onOpenSodiumPicker)}
+              className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
+              aria-label="Open sodium picker"
+            >
+              <span className="font-medium text-sm">
+                {formatPickerValue(sodium, 'mg')}
+              </span>
+              <ChevronsUpDown size={14} className="text-muted shrink-0" />
+            </button>
+          </div>
+
+          <div>
+            <label className="block text-foreground text-xs font-semibold mb-2">
+              Sat. Fat (g)
+            </label>
+            <button
+              type="button"
+              onClick={() => handleOpenPicker(onOpenSaturatedFatsPicker)}
+              className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
+              aria-label="Open saturated fat picker"
+            >
+              <span className="font-medium text-sm">
+                {formatPickerValue(saturatedFats, 'g')}
+              </span>
+              <ChevronsUpDown size={14} className="text-muted shrink-0" />
+            </button>
+          </div>
+
+          <div>
+            <label className="block text-foreground text-xs font-semibold mb-2">
+              Sugars (g)
+            </label>
+            <button
+              type="button"
+              onClick={() => handleOpenPicker(onOpenSugarsPicker)}
+              className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
+              aria-label="Open sugars picker"
+            >
+              <span className="font-medium text-sm">
+                {formatPickerValue(sugars, 'g')}
               </span>
               <ChevronsUpDown size={14} className="text-muted shrink-0" />
             </button>

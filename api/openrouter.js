@@ -5,7 +5,7 @@
 const OPENROUTER_CHAT_COMPLETIONS_URL =
   'https://openrouter.ai/api/v1/chat/completions';
 const FALLBACK_MODEL = 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free';
-const FOOD_PARSER_SCHEMA_VERSION = '1.0.0';
+const FOOD_PARSER_SCHEMA_VERSION = '1.1.0';
 const MAX_CONTENT_ITEMS = 30;
 const MAX_CONTENTS_PAYLOAD_BYTES = 500000;
 const MAX_FALLBACK_MODELS = 3;
@@ -85,6 +85,10 @@ JSON schema:
       "protein": number,
       "carbs": number,
       "fats": number,
+      "fiber": number (optional, grams),
+      "sodium": number (optional, milligrams),
+      "saturatedFats": number (optional, grams),
+      "sugars": number (optional, grams),
       "confidence": "high" | "medium" | "low",
       "category": "protein" | "carbs" | "vegetables" | "fats" | "supplements" | "custom" | "manual" (optional),
       "rationale": "string",
@@ -96,6 +100,7 @@ JSON schema:
 
 Rules:
 - Always include "version" and set it exactly to "${FOOD_PARSER_SCHEMA_VERSION}".
+- Micro nutrients (fiber, sodium, saturatedFats, sugars) are OPTIONAL. Provide them only when you know the values with reasonable confidence; never invent them. Omit a micro nutrient entirely when you cannot estimate it.
 - If messageType is "food_entries", include at least one entry.
 - If confidence is low overall, use messageType "clarification" and include followUpQuestion.
 - For clarifications, ask ONE highest-impact question first (do not ask multiple at once).
@@ -132,6 +137,10 @@ JSON schema:
       "protein": number,
       "carbs": number,
       "fats": number,
+      "fiber": number (optional, grams),
+      "sodium": number (optional, milligrams),
+      "saturatedFats": number (optional, grams),
+      "sugars": number (optional, grams),
       "confidence": "high" | "medium" | "low",
       "category": "protein" | "carbs" | "vegetables" | "fats" | "supplements" | "custom" | "manual" (optional),
       "rationale": "string",

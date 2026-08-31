@@ -1,12 +1,33 @@
 import { MEAL_TYPE_ORDER } from '../../constants/meal/mealTypes.js';
 import { formatDateKeyUtc } from '../data/dateKeys.js';
+import {
+  NUTRIENT_KEYS,
+  accumulateNutrientTotals,
+  computeNutrientCoverage,
+} from '../../constants/nutrients/nutrients.js';
 
 const EMPTY_NUTRITION_TOTALS = {
   calories: 0,
   protein: 0,
   carbs: 0,
   fats: 0,
+  // Micro nutrients: null = untracked (rendered as —), number = sum of known.
+  fiber: null,
+  sodium: null,
+  saturatedFats: null,
+  sugars: null,
 };
+
+const EMPTY_MICRO_COVERAGE = Object.freeze(
+  NUTRIENT_KEYS.reduce((acc, key) => {
+    acc[key] = {
+      knownCount: 0,
+      untrackedCount: 0,
+      hasUntracked: false,
+    };
+    return acc;
+  }, {})
+);
 
 export const hasNutritionEntriesForDate = (nutritionData = {}, dateKey) => {
   if (!dateKey || !nutritionData || typeof nutritionData !== 'object') {
@@ -28,28 +49,40 @@ export const hasNutritionEntriesForDate = (nutritionData = {}, dateKey) => {
 
 export const getNutritionTotalsForDate = (nutritionData = {}, dateKey) => {
   if (!hasNutritionEntriesForDate(nutritionData, dateKey)) {
-    return EMPTY_NUTRITION_TOTALS;
+    return {
+      ...EMPTY_NUTRITION_TOTALS,
+      microCoverage: { ...EMPTY_MICRO_COVERAGE },
+    };
   }
 
   const mealsForDate = nutritionData[dateKey];
+  const totals = { ...EMPTY_NUTRITION_TOTALS };
+  const allEntries = [];
 
-  return MEAL_TYPE_ORDER.reduce(
-    (totals, mealTypeId) => {
-      const entries = Array.isArray(mealsForDate[mealTypeId])
-        ? mealsForDate[mealTypeId]
-        : [];
+  MEAL_TYPE_ORDER.forEach((mealTypeId) => {
+    const entries = Array.isArray(mealsForDate[mealTypeId])
+      ? mealsForDate[mealTypeId]
+      : [];
 
-      entries.forEach((entry) => {
-        totals.calories += Number(entry?.calories) || 0;
-        totals.protein += Number(entry?.protein) || 0;
-        totals.carbs += Number(entry?.carbs) || 0;
-        totals.fats += Number(entry?.fats) || 0;
-      });
+    entries.forEach((entry) => {
+      totals.calories += Number(entry?.calories) || 0;
+      totals.protein += Number(entry?.protein) || 0;
+      totals.carbs += Number(entry?.carbs) || 0;
+      totals.fats += Number(entry?.fats) || 0;
+      allEntries.push(entry);
+    });
+  });
 
-      return totals;
-    },
-    { ...EMPTY_NUTRITION_TOTALS }
-  );
+  let microTotals = {};
+  allEntries.forEach((entry) => {
+    microTotals = accumulateNutrientTotals(microTotals, entry);
+  });
+
+  return {
+    ...totals,
+    ...microTotals,
+    microCoverage: computeNutrientCoverage(allEntries),
+  };
 };
 
 /**
@@ -69,6 +102,10 @@ export const calculatePhaseMetrics = (
       avgProtein: 0,
       avgCarbs: 0,
       avgFats: 0,
+      avgFiber: null,
+      avgSodium: null,
+      avgSaturatedFats: null,
+      avgSugars: null,
       nutritionDays: 0,
       avgSteps: 0,
       weightChange: 0,
@@ -89,13 +126,25 @@ export const calculatePhaseMetrics = (
       }
 
       const totals = getNutritionTotalsForDate(nutritionData, nutritionRef);
-      return {
+      const next = {
+        ...acc,
         calories: acc.calories + totals.calories,
         protein: acc.protein + totals.protein,
         carbs: acc.carbs + totals.carbs,
         fats: acc.fats + totals.fats,
         days: acc.days + 1,
       };
+
+      // Per-nutrient averages use only the days where that nutrient was
+      // actually logged (untracked nulls never dilute the average).
+      NUTRIENT_KEYS.forEach((key) => {
+        if (totals[key] != null) {
+          next[`${key}Total`] = (acc[`${key}Total`] || 0) + totals[key];
+          next[`${key}Days`] = (acc[`${key}Days`] || 0) + 1;
+        }
+      });
+
+      return next;
     },
     {
       calories: 0,
@@ -114,6 +163,23 @@ export const calculatePhaseMetrics = (
   const avgCarbs =
     nutritionDays > 0 ? nutritionTotals.carbs / nutritionDays : 0;
   const avgFats = nutritionDays > 0 ? nutritionTotals.fats / nutritionDays : 0;
+
+  const avgFiber =
+    nutritionTotals.fiberDays > 0
+      ? nutritionTotals.fiberTotal / nutritionTotals.fiberDays
+      : null;
+  const avgSodium =
+    nutritionTotals.sodiumDays > 0
+      ? nutritionTotals.sodiumTotal / nutritionTotals.sodiumDays
+      : null;
+  const avgSaturatedFats =
+    nutritionTotals.saturatedFatsDays > 0
+      ? nutritionTotals.saturatedFatsTotal / nutritionTotals.saturatedFatsDays
+      : null;
+  const avgSugars =
+    nutritionTotals.sugarsDays > 0
+      ? nutritionTotals.sugarsTotal / nutritionTotals.sugarsDays
+      : null;
 
   const avgSteps = 0;
 
@@ -174,6 +240,10 @@ export const calculatePhaseMetrics = (
     avgProtein,
     avgCarbs,
     avgFats,
+    avgFiber,
+    avgSodium,
+    avgSaturatedFats,
+    avgSugars,
     nutritionDays,
     avgSteps,
     weightChange,

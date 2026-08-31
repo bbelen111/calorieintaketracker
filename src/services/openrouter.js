@@ -4,7 +4,7 @@ import { Capacitor } from '@capacitor/core';
 export const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 export const MAX_IMAGE_COUNT = 3;
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-export const FOOD_PARSER_SCHEMA_VERSION = '1.0.0';
+export const FOOD_PARSER_SCHEMA_VERSION = '1.1.0';
 const FOOD_PARSER_JSON_TAG = 'food_parser_json';
 const FOOD_ENTRY_CONFIDENCE = new Set(['high', 'medium', 'low']);
 const FOOD_MESSAGE_TYPES = new Set([
@@ -237,6 +237,51 @@ function normalizeFoodParserEntryV1(entry) {
   };
 }
 
+// Micro nutrient keys shared by the v1.1 normalizer. Bounds keep parity with
+// the canonical nutrient module (grams 0-1000, sodium 0-10000 mg).
+const MICRO_NUTRIENT_CLAMPS = {
+  fiber: { min: 0, max: 1000 },
+  sodium: { min: 0, max: 10000 },
+  saturatedFats: { min: 0, max: 1000 },
+  sugars: { min: 0, max: 1000 },
+};
+
+const roundMicroValue = (value, key) => {
+  const decimals = key === 'sodium' ? 0 : 1;
+  const factor = 10 ** decimals;
+  return Math.round(value * factor) / factor;
+};
+
+/**
+ * v1.1.0 extended parser normalizer. Adds OPTIONAL fiber/sodium/
+ * saturatedFats/sugars fields (omitted = untracked, never zero-invented).
+ * Macros and the rest of the payload stay byte-for-byte compatible with v1.
+ */
+function normalizeFoodParserEntryV1Dot1(entry) {
+  const base = normalizeFoodParserEntryV1(entry);
+  if (!base) {
+    return null;
+  }
+
+  const micros = {};
+  Object.entries(MICRO_NUTRIENT_CLAMPS).forEach(([key, bounds]) => {
+    const raw = entry?.[key];
+    if (raw == null || raw === '') {
+      return;
+    }
+    const numeric = clampNumber(raw, bounds);
+    if (numeric == null) {
+      return;
+    }
+    micros[key] = roundMicroValue(numeric, key);
+  });
+
+  return {
+    ...base,
+    ...micros,
+  };
+}
+
 export function registerFoodParserVersion(version, normalizer) {
   const normalizedVersion = normalizeSchemaVersion(version);
   if (!normalizedVersion || typeof normalizer !== 'function') {
@@ -261,8 +306,11 @@ function resolveFoodParserEntryNormalizer(version) {
 
 registerFoodParserVersion(
   FOOD_PARSER_SCHEMA_VERSION,
-  normalizeFoodParserEntryV1
+  normalizeFoodParserEntryV1Dot1
 );
+// Legacy v1 payloads keep resolving through the original strict normalizer so
+// old cached / in-flight extraction results never break.
+registerFoodParserVersion('1.0.0', normalizeFoodParserEntryV1);
 
 function stripFoodParserPayload(text) {
   if (typeof text !== 'string' || !text.trim()) {

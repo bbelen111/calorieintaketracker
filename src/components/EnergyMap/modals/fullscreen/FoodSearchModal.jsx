@@ -53,7 +53,6 @@ import {
   getFoodSearchSourceLabel,
   recordAcceptedAiFoodLookup,
   resetAiLookupSessionCache,
-  resolveAiFoodEntry,
   searchFoodsLocal,
   searchFoodsOnline,
 } from '../../../../services/foodSearch';
@@ -1317,6 +1316,10 @@ export const FoodSearchModal = ({
       protein: favourite.protein || 0,
       carbs: favourite.carbs || 0,
       fats: favourite.fats || 0,
+      fiber: favourite.fiber ?? null,
+      sodium: favourite.sodium ?? null,
+      saturatedFats: favourite.saturatedFats ?? null,
+      sugars: favourite.sugars ?? null,
       grams: favourite.grams || null,
       timestamp: new Date().toISOString(),
     };
@@ -1346,6 +1349,10 @@ export const FoodSearchModal = ({
           savedProtein: favourite.protein,
           savedCarbs: favourite.carbs,
           savedFats: favourite.fats,
+          savedFiber: favourite.fiber ?? null,
+          savedSodium: favourite.sodium ?? null,
+          savedSaturatedFats: favourite.saturatedFats ?? null,
+          savedSugars: favourite.sugars ?? null,
         };
       }
     }
@@ -1367,6 +1374,22 @@ export const FoodSearchModal = ({
           : 0,
         carbs: hasGrams ? toPer100g(favourite.carbs || 0, favourite.grams) : 0,
         fats: hasGrams ? toPer100g(favourite.fats || 0, favourite.grams) : 0,
+        fiber:
+          hasGrams && favourite.fiber != null
+            ? toPer100g(Number(favourite.fiber) || 0, favourite.grams)
+            : null,
+        sodium:
+          hasGrams && favourite.sodium != null
+            ? toPer100g(Number(favourite.sodium) || 0, favourite.grams)
+            : null,
+        saturatedFats:
+          hasGrams && favourite.saturatedFats != null
+            ? toPer100g(Number(favourite.saturatedFats) || 0, favourite.grams)
+            : null,
+        sugars:
+          hasGrams && favourite.sugars != null
+            ? toPer100g(Number(favourite.sugars) || 0, favourite.grams)
+            : null,
       },
       portions: favourite.portions || [],
       savedGrams: favourite.grams,
@@ -1374,6 +1397,10 @@ export const FoodSearchModal = ({
       savedProtein: favourite.protein,
       savedCarbs: favourite.carbs,
       savedFats: favourite.fats,
+      savedFiber: favourite.fiber ?? null,
+      savedSodium: favourite.sodium ?? null,
+      savedSaturatedFats: favourite.saturatedFats ?? null,
+      savedSugars: favourite.sugars ?? null,
     };
   };
 
@@ -2231,7 +2258,7 @@ export const FoodSearchModal = ({
         });
       };
 
-const requestStartedAt = getNowMs();
+      const requestStartedAt = getNowMs();
       let extractionSchemaVersion = null;
       let resultSchemaVersion = null;
       let OpenRouterErrorClass = null;
@@ -2289,7 +2316,8 @@ const requestStartedAt = getNowMs();
         const lookupContext = pipelineResult.lookupContext || null;
         const hasLookupContext = Boolean(lookupContext);
         resultSchemaVersion =
-          pipelineResult.schemaVersion || pipelineResult.extractionSchemaVersion;
+          pipelineResult.schemaVersion ||
+          pipelineResult.extractionSchemaVersion;
         extractionSchemaVersion = pipelineResult.extractionSchemaVersion;
         if (userMessageId) {
           updateMessageById(userMessageId, (message) => ({
@@ -2753,6 +2781,28 @@ const requestStartedAt = getNowMs();
           )
         : baseFats;
 
+      // Micro nutrients: lookup per100g wins (scaled to grams), otherwise the
+      // AI extraction's own values pass through; null stays untracked.
+      const roundMicro = (value, key) => {
+        const decimals = key === 'sodium' ? 0 : 1;
+        const factor = 10 ** decimals;
+        return Math.round(value * factor) / factor;
+      };
+      const resolveMicro = (key) => {
+        const lookupValue = Number(lookupMeta?.matchedFood?.per100g?.[key]);
+        if (canUseLookupMacros && Number.isFinite(lookupValue)) {
+          return roundMicro(lookupValue * lookupFactor, key);
+        }
+        const entryValue = entry[key];
+        const parsed = Number(entryValue);
+        return Number.isFinite(parsed) ? roundMicro(parsed, key) : undefined;
+      };
+
+      const fiber = resolveMicro('fiber');
+      const sodium = resolveMicro('sodium');
+      const saturatedFats = resolveMicro('saturatedFats');
+      const sugars = resolveMicro('sugars');
+
       return {
         id: entryId,
         foodId: `ai_${Date.now()}_${index}`,
@@ -2763,6 +2813,10 @@ const requestStartedAt = getNowMs();
         protein,
         carbs,
         fats,
+        ...(fiber != null ? { fiber } : {}),
+        ...(sodium != null ? { sodium } : {}),
+        ...(saturatedFats != null ? { saturatedFats } : {}),
+        ...(sugars != null ? { sugars } : {}),
         grams: roundedGrams,
         source: 'ai',
         aiLookupUsed: Boolean(canUseLookupMacros),
@@ -2797,6 +2851,22 @@ const requestStartedAt = getNowMs();
               protein: Math.round((foodEntry.protein / divisor) * 10) / 10,
               carbs: Math.round((foodEntry.carbs / divisor) * 10) / 10,
               fats: Math.round((foodEntry.fats / divisor) * 10) / 10,
+              fiber:
+                foodEntry.fiber != null
+                  ? Math.max(0, Number(foodEntry.fiber) / divisor)
+                  : null,
+              sodium:
+                foodEntry.sodium != null
+                  ? Math.max(0, Number(foodEntry.sodium) / divisor)
+                  : null,
+              saturatedFats:
+                foodEntry.saturatedFats != null
+                  ? Math.max(0, Number(foodEntry.saturatedFats) / divisor)
+                  : null,
+              sugars:
+                foodEntry.sugars != null
+                  ? Math.max(0, Number(foodEntry.sugars) / divisor)
+                  : null,
             }
           : null,
       portions: [],

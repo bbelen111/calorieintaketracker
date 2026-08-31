@@ -204,3 +204,76 @@ test('buildDailySnapshot applies carryover calories allocated from prior-day tim
   assert.ok(snapshot.epoc > 0);
   assert.equal(snapshot.epoc, snapshot.epocCardio + snapshot.epocTraining);
 });
+
+test('snapshot persists micro totals and partial coverage', () => {
+  const snapshotUser = {
+    ...userData,
+    nutritionData: {
+      [dateKey]: {
+        breakfast: [
+          {
+            id: 'm1',
+            calories: 200,
+            protein: 10,
+            carbs: 30,
+            fats: 5,
+            fiber: 3,
+            sodium: 200,
+            saturatedFats: 1,
+            sugars: 6,
+          },
+          {
+            id: 'm2',
+            calories: 100,
+            protein: 5,
+            carbs: 15,
+            fats: 2,
+          },
+        ],
+        lunch: [],
+        dinner: [],
+      },
+    },
+  };
+
+  const snapshot = buildDailySnapshot({
+    dateKey,
+    userData: snapshotUser,
+    trainingTypes,
+    cardioTypes,
+    existingSnapshot: null,
+  });
+
+  assert.equal(snapshot.micros.sodium, 200);
+  assert.equal(snapshot.micros.fiber, 3);
+  assert.equal(snapshot.micros.saturatedFats, 1);
+  assert.equal(snapshot.micros.sugars, 6);
+  // Second entry has no micros -> the day sum is partial.
+  assert.equal(snapshot.microsCoverage.sodium, true);
+  assert.equal(snapshot.microsCoverage.fiber, true);
+});
+
+test('snapshot micros are null when no micro data is logged that day', () => {
+  const plainUser = {
+    ...userData,
+    nutritionData: {
+      [dateKey]: {
+        breakfast: [{ id: 'p1', calories: 300, protein: 20, carbs: 40, fats: 8 }],
+        lunch: [],
+        dinner: [],
+      },
+    },
+  };
+
+  const snapshot = buildDailySnapshot({
+    dateKey,
+    userData: plainUser,
+    trainingTypes,
+    cardioTypes,
+    existingSnapshot: null,
+  });
+
+  assert.equal(snapshot.micros.fiber, null);
+  assert.equal(snapshot.micros.sodium, null);
+  assert.equal(snapshot.microsCoverage.fiber, false);
+});

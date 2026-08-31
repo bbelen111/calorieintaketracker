@@ -55,6 +55,10 @@ export const AddCustomFoodModal = ({
   const [protein, setProtein] = useState('');
   const [carbs, setCarbs] = useState('');
   const [fats, setFats] = useState('');
+  const [fiber, setFiber] = useState('');
+  const [sodium, setSodium] = useState('');
+  const [saturatedFats, setSaturatedFats] = useState('');
+  const [sugars, setSugars] = useState('');
   const [portions, setPortions] = useState([]);
   const [newPortionLabel, setNewPortionLabel] = useState('');
   const [newPortionGrams, setNewPortionGrams] = useState('');
@@ -70,6 +74,10 @@ export const AddCustomFoodModal = ({
         setProtein('');
         setCarbs('');
         setFats('');
+        setFiber('');
+        setSodium('');
+        setSaturatedFats('');
+        setSugars('');
         setPortions([]);
         setNewPortionLabel('');
         setNewPortionGrams('');
@@ -137,6 +145,10 @@ export const AddCustomFoodModal = ({
         protein: parseFloat(protein) || 0,
         carbs: parseFloat(carbs) || 0,
         fats: parseFloat(fats) || 0,
+        fiber: fiber !== '' ? parseFloat(fiber) : null,
+        sodium: sodium !== '' ? parseFloat(sodium) : null,
+        saturatedFats: saturatedFats !== '' ? parseFloat(saturatedFats) : null,
+        sugars: sugars !== '' ? parseFloat(sugars) : null,
       },
       portions: portions.length > 0 ? portions : [],
       createdAt: new Date().toISOString(),
@@ -152,6 +164,10 @@ export const AddCustomFoodModal = ({
     protein,
     carbs,
     fats,
+    fiber,
+    sodium,
+    saturatedFats,
+    sugars,
     portions,
     onSaveFood,
     onClose,
@@ -267,6 +283,68 @@ export const AddCustomFoodModal = ({
                 inputMode="decimal"
                 value={fats}
                 onChange={(e) => setFats(sanitizeNumericInput(e.target.value))}
+                placeholder="0"
+                className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
+              />
+            </div>
+          </div>
+
+          {/* Micros Grid (optional, nullable; empty = untracked) */}
+          <div className="grid grid-cols-2 gap-3 mt-3">
+            <div>
+              <label className="block text-muted text-xs mb-1.5">
+                Fiber (g)
+              </label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={fiber}
+                onChange={(e) => setFiber(sanitizeNumericInput(e.target.value))}
+                placeholder="0"
+                className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
+              />
+            </div>
+            <div>
+              <label className="block text-muted text-xs mb-1.5">
+                Sodium (mg)
+              </label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={sodium}
+                onChange={(e) =>
+                  setSodium(sanitizeNumericInput(e.target.value))
+                }
+                placeholder="0"
+                className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
+              />
+            </div>
+            <div>
+              <label className="block text-muted text-xs mb-1.5">
+                Sat. Fat (g)
+              </label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={saturatedFats}
+                onChange={(e) =>
+                  setSaturatedFats(sanitizeNumericInput(e.target.value))
+                }
+                placeholder="0"
+                className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
+              />
+            </div>
+            <div>
+              <label className="block text-muted text-xs mb-1.5">
+                Sugars (g)
+              </label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={sugars}
+                onChange={(e) =>
+                  setSugars(sanitizeNumericInput(e.target.value))
+                }
                 placeholder="0"
                 className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
               />

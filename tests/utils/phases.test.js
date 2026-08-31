@@ -131,3 +131,86 @@ test('nutrition helpers detect linked day entries and totals', () => {
   assert.equal(totals.carbs, 75);
   assert.equal(totals.fats, 22);
 });
+
+test('nutrition totals include micro nutrients and coverage (partial sums flagged)', () => {
+  const nutritionData = {
+    '2026-03-10': {
+      breakfast: [
+        {
+          calories: 200,
+          protein: 10,
+          carbs: 30,
+          fats: 5,
+          fiber: 3,
+          sodium: 200,
+          saturatedFats: 1,
+          sugars: 6,
+        },
+      ],
+      lunch: [
+        {
+          calories: 300,
+          protein: 15,
+          carbs: 40,
+          fats: 8,
+          fiber: null,
+          sodium: null,
+          saturatedFats: null,
+          sugars: null,
+        },
+      ],
+      dinner: [],
+      snacks: [],
+    },
+  };
+
+  const totals = getNutritionTotalsForDate(nutritionData, '2026-03-10');
+
+  assert.equal(totals.calories, 500);
+  assert.equal(totals.fiber, 3);
+  assert.equal(totals.sodium, 200);
+  assert.equal(totals.saturatedFats, 1);
+  assert.equal(totals.sugars, 6);
+  assert.equal(totals.microCoverage.fiber.hasUntracked, true);
+  assert.equal(totals.microCoverage.fiber.knownCount, 1);
+  assert.equal(totals.microCoverage.fiber.untrackedCount, 1);
+
+  const empty = getNutritionTotalsForDate(nutritionData, '2026-03-11');
+  assert.equal(empty.fiber, null);
+  assert.equal(empty.microCoverage.fiber.hasUntracked, false);
+});
+
+test('phase metrics average micro nutrients only over days where data exists', () => {
+  const phase = {
+    startDate: '2026-03-10',
+    endDate: '2026-03-11',
+    dailyLogs: {
+      '2026-03-10': { nutritionRef: '2026-03-10' },
+      '2026-03-11': { nutritionRef: '2026-03-11' },
+    },
+  };
+
+  const nutritionData = {
+    '2026-03-10': {
+      breakfast: [{ calories: 400, protein: 20, carbs: 40, fats: 10, fiber: 12, sodium: 500 }],
+      lunch: [],
+      dinner: [],
+      snacks: [],
+    },
+    '2026-03-11': {
+      breakfast: [{ calories: 200, protein: 10, carbs: 20, fats: 5 }],
+      lunch: [],
+      dinner: [],
+      snacks: [],
+    },
+  };
+
+  const metrics = calculatePhaseMetrics(phase, [], nutritionData);
+
+  assert.equal(metrics.avgCalories, 300);
+  // Fiber only logged on day 1 -> 12g, not diluted by the untracked day.
+  assert.equal(metrics.avgFiber, 12);
+  assert.equal(metrics.avgSodium, 500);
+  assert.equal(metrics.avgSaturatedFats, null);
+  assert.equal(metrics.avgSugars, null);
+});

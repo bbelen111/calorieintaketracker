@@ -57,6 +57,26 @@ test('searchFoods maps USDA foods to app food schema', async () => {
               value: 8.4,
             },
             { nutrientName: 'Total lipid (fat)', unitName: 'G', value: 3.1 },
+            {
+              nutrientNumber: '291',
+              unitName: 'G',
+              value: 1.5,
+            },
+            {
+              nutrientNumber: '307',
+              unitName: 'MG',
+              value: 100,
+            },
+            {
+              nutrientNumber: '606',
+              unitName: 'G',
+              value: 2,
+            },
+            {
+              nutrientNumber: '269',
+              unitName: 'G',
+              value: 3,
+            },
           ],
         },
       ],
@@ -79,6 +99,12 @@ test('searchFoods maps USDA foods to app food schema', async () => {
 
     assert.equal(food.previewMacros.calories, 110);
     assert.equal(food.per100g.calories, 220);
+
+    // Micro nutrients (serving 50g -> per100g factor 2, invariant-safe).
+    assert.equal(food.per100g.fiber, 3);
+    assert.equal(food.per100g.sodium, 200);
+    assert.equal(food.per100g.saturatedFats, 4);
+    assert.equal(food.per100g.sugars, 6);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -104,6 +130,14 @@ test('searchFoods maps nutrients by nutrientId fallback when nutrientNumber is a
             { nutrientId: 1003, unitName: 'G', value: 9.2 },
             { nutrientId: 1005, unitName: 'G', value: 30.6 },
             { nutrientId: 1004, unitName: 'G', value: 6.4 },
+            { nutrientName: 'Fiber, total dietary', unitName: 'G', value: 5 },
+            { nutrientName: 'Sodium, Na', unitName: 'MG', value: 120 },
+            {
+              nutrientName: 'Fatty acids, total saturated',
+              unitName: 'G',
+              value: 1,
+            },
+            { nutrientName: 'Sugars, total including NLEA', unitName: 'G', value: 2 },
           ],
         },
       ],
@@ -119,6 +153,10 @@ test('searchFoods maps nutrients by nutrientId fallback when nutrientNumber is a
     assert.equal(food.per100g.calories, 210);
     assert.equal(food.per100g.protein, 9.2);
     assert.equal(food.per100g.carbs, 30.6);
+    assert.equal(food.per100g.fiber, 5);
+    assert.equal(food.per100g.sodium, 120);
+    assert.equal(food.per100g.saturatedFats, 1);
+    assert.equal(food.per100g.sugars, 2);
     assert.equal(food.per100g.fats, 6.4);
   } finally {
     globalThis.fetch = originalFetch;

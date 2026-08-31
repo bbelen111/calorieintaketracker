@@ -20,6 +20,7 @@ import {
   alignScrollContainerToValue,
   createPickerScrollHandler,
 } from '../../../../utils/visuals/scroll';
+import { scaleMacrosFromPer100g } from '../../../../utils/food/portionNormalization';
 
 const MIN_GRAMS = 1;
 const MAX_GRAMS = 1000;
@@ -314,15 +315,13 @@ export const FoodPortionModal = ({
   const calculateNutrition = useCallback(() => {
     if (!selectedFood) return null;
 
-    const per100g = selectedFood.per100g;
-    const multiplier = grams / 100;
+    // Shared scaling helper: macros + null-preserving micro nutrients (fiber/
+    // sodium/saturatedFats/sugars) at the selected gram amount.
+    const scaled = scaleMacrosFromPer100g(selectedFood.per100g, grams);
 
     return {
       name: selectedFood.name,
-      calories: Math.round(per100g.calories * multiplier),
-      protein: Math.round(per100g.protein * multiplier * 10) / 10,
-      carbs: Math.round(per100g.carbs * multiplier * 10) / 10,
-      fats: Math.round(per100g.fats * multiplier * 10) / 10,
+      ...scaled,
       grams,
     };
   }, [selectedFood, grams]);
@@ -386,6 +385,10 @@ export const FoodPortionModal = ({
       protein: nutrition.protein,
       carbs: nutrition.carbs,
       fats: nutrition.fats,
+      fiber: nutrition.fiber,
+      sodium: nutrition.sodium,
+      saturatedFats: nutrition.saturatedFats,
+      sugars: nutrition.sugars,
       grams,
       timestamp: new Date().toISOString(),
     };
@@ -416,6 +419,10 @@ export const FoodPortionModal = ({
       protein: nutrition.protein,
       carbs: nutrition.carbs,
       fats: nutrition.fats,
+      fiber: nutrition.fiber,
+      sodium: nutrition.sodium,
+      saturatedFats: nutrition.saturatedFats,
+      sugars: nutrition.sugars,
       grams,
       // Include source from the food for proper tagging
       source: selectedFood?.source || null,
@@ -482,6 +489,34 @@ export const FoodPortionModal = ({
                   <p className="text-muted">fat</p>
                 </div>
               </div>
+              {selectedFood.per100g &&
+                (selectedFood.per100g.fiber != null ||
+                  selectedFood.per100g.sodium != null ||
+                  selectedFood.per100g.saturatedFats != null ||
+                  selectedFood.per100g.sugars != null) && (
+                  <div className="flex items-center gap-2.5 text-[11px] mt-1.5 flex-wrap justify-end">
+                    {selectedFood.per100g.fiber != null && (
+                      <span className="text-accent-green font-semibold whitespace-nowrap">
+                        {formatOne(selectedFood.per100g.fiber)}g fiber
+                      </span>
+                    )}
+                    {selectedFood.per100g.sodium != null && (
+                      <span className="text-accent-indigo font-semibold whitespace-nowrap">
+                        {Math.round(selectedFood.per100g.sodium)}mg Na
+                      </span>
+                    )}
+                    {selectedFood.per100g.saturatedFats != null && (
+                      <span className="text-accent-yellow font-semibold whitespace-nowrap">
+                        {formatOne(selectedFood.per100g.saturatedFats)}g sat fat
+                      </span>
+                    )}
+                    {selectedFood.per100g.sugars != null && (
+                      <span className="text-accent-pink font-semibold whitespace-nowrap">
+                        {formatOne(selectedFood.per100g.sugars)}g sugar
+                      </span>
+                    )}
+                  </div>
+                )}
             </div>
           </div>
         </div>
@@ -745,7 +780,10 @@ export const FoodPortionModal = ({
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() =>
-              handleAddFood({ closePortionModal: true, closeSearchModal: false })
+              handleAddFood({
+                closePortionModal: true,
+                closeSearchModal: false,
+              })
             }
             disabled={!nutrition}
             className="h-10 px-3 bg-primary md:hover:brightness-110 disabled:bg-surface-highlight/60 disabled:cursor-not-allowed disabled:text-muted text-primary-foreground rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring"

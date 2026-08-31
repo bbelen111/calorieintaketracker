@@ -138,6 +138,34 @@ export const FoodSearchFavouritesPanel = ({
                     g F
                   </span>
                 </div>
+
+                {(favourite.fiber != null ||
+                  favourite.sodium != null ||
+                  favourite.saturatedFats != null ||
+                  favourite.sugars != null) && (
+                  <div className="flex items-center gap-3 mt-1.5 text-[11px]">
+                    {favourite.fiber != null && (
+                      <span className="text-accent-green font-medium">
+                        {formatOne(favourite.fiber)}g fiber
+                      </span>
+                    )}
+                    {favourite.sodium != null && (
+                      <span className="text-accent-indigo font-medium">
+                        {Math.round(favourite.sodium)}mg Na
+                      </span>
+                    )}
+                    {favourite.saturatedFats != null && (
+                      <span className="text-accent-yellow font-medium">
+                        {formatOne(favourite.saturatedFats)}g sat
+                      </span>
+                    )}
+                    {favourite.sugars != null && (
+                      <span className="text-accent-pink font-medium">
+                        {formatOne(favourite.sugars)}g sugar
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-2">

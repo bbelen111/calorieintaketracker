@@ -34,6 +34,10 @@ import {
   calculateMacroRecommendations,
   normalizeMacroRecommendationSplit,
 } from '../../../utils/calculations/macroRecommendations';
+import {
+  accumulateNutrientTotals,
+  computeNutrientCoverage,
+} from '../../../constants/nutrients/nutrients';
 import { formatFoodDisplayName } from '../../../utils/food/foodPresentation';
 
 const getTodayDate = () => getTodayDateKey();
@@ -73,6 +77,42 @@ const CircularProgress = ({ percent, color, size = 120, strokeWidth = 10 }) => {
         }}
       />
     </svg>
+  );
+};
+
+// One micronutrient cell for the Tracker macro card. Untracked renders as —,
+// tracked values show unit (mg for sodium, g otherwise), and a trailing "~"
+// with tooltip marks a partial day sum (some logged foods lack the nutrient).
+const MicroStat = ({ label, value, coverage, unit, colorClass }) => {
+  const isTracked = value != null && value !== '';
+  const isPartial = isTracked && coverage?.hasUntracked === true;
+
+  if (!isTracked) {
+    return (
+      <div className="flex flex-col items-center">
+        <p className="text-foreground/70 font-bold text-sm">—</p>
+        <p className="text-muted text-[10px] font-semibold mt-0.5">{label}</p>
+      </div>
+    );
+  }
+
+  const displayValue =
+    unit === 'mg' ? Math.round(Number(value)) : formatOne(Number(value));
+
+  return (
+    <div
+      className="flex flex-col items-center"
+      title={isPartial ? 'Some logged foods lack this nutrient' : undefined}
+    >
+      <p className={`font-bold text-sm ${colorClass}`}>
+        {isPartial ? '~' : ''}
+        {displayValue}
+        <span className="text-muted text-[10px] font-medium ml-0.5">
+          {unit}
+        </span>
+      </p>
+      <p className="text-muted text-[10px] font-semibold mt-0.5">{label}</p>
+    </div>
   );
 };
 
@@ -258,7 +298,8 @@ export const TrackerScreen = ({
   // Calculate totals across all meals
   const totals = useMemo(() => {
     const allEntries = Object.values(meals).flat();
-    return allEntries.reduce(
+
+    const macroTotals = allEntries.reduce(
       (acc, entry) => ({
         calories: acc.calories + (entry.calories || 0),
         protein: acc.protein + (entry.protein || 0),
@@ -267,6 +308,19 @@ export const TrackerScreen = ({
       }),
       { calories: 0, protein: 0, carbs: 0, fats: 0 }
     );
+
+    // Micro totals: null while nothing is logged, numeric once any entry
+    // carries the nutrient; coverage flags partial (some entries untracked).
+    let microTotals = {};
+    allEntries.forEach((entry) => {
+      microTotals = accumulateNutrientTotals(microTotals, entry);
+    });
+
+    return {
+      ...macroTotals,
+      ...microTotals,
+      microCoverage: computeNutrientCoverage(allEntries),
+    };
   }, [meals]);
 
   const targetCalories = calorieTargetCalories || 2500;
@@ -968,6 +1022,43 @@ export const TrackerScreen = ({
                 <span>No room</span>
               )}
             </p>
+          </div>
+        </div>
+
+        {/* Micronutrients row (null = untracked; ~ = partial sum) */}
+        <div className="mt-5 pt-4 border-t border-border/70">
+          <p className="text-muted text-[11px] font-semibold uppercase tracking-wide mb-2.5">
+            Micronutrients
+          </p>
+          <div className="grid grid-cols-4 gap-2 text-center">
+            <MicroStat
+              label="Fiber"
+              value={totals.fiber}
+              coverage={totals.microCoverage?.fiber}
+              unit="g"
+              colorClass="text-accent-green"
+            />
+            <MicroStat
+              label="Sodium"
+              value={totals.sodium}
+              coverage={totals.microCoverage?.sodium}
+              unit="mg"
+              colorClass="text-accent-indigo"
+            />
+            <MicroStat
+              label="Sat. Fat"
+              value={totals.saturatedFats}
+              coverage={totals.microCoverage?.saturatedFats}
+              unit="g"
+              colorClass="text-accent-yellow"
+            />
+            <MicroStat
+              label="Sugars"
+              value={totals.sugars}
+              coverage={totals.microCoverage?.sugars}
+              unit="g"
+              colorClass="text-accent-pink"
+            />
           </div>
         </div>
       </div>

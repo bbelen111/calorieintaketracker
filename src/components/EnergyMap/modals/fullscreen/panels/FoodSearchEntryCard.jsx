@@ -196,6 +196,46 @@ export const FoodSearchEntryCard = ({
               dotClassName="bg-accent-yellow"
             />
           </div>
+          {(entry?.fiber != null ||
+            entry?.sodium != null ||
+            entry?.saturatedFats != null ||
+            entry?.sugars != null) && (
+            <div className="flex items-center gap-2.5 px-2.5 mt-1.5 text-[10.5px]">
+              {entry.fiber != null && (
+                <span className="text-accent-green font-semibold">
+                  {formatOne(entry.fiber)}g fiber
+                </span>
+              )}
+              {entry.fiber != null &&
+                (entry.sodium != null ||
+                  entry.saturatedFats != null ||
+                  entry.sugars != null) && (
+                  <span className="text-muted">·</span>
+                )}
+              {entry.sodium != null && (
+                <span className="text-accent-indigo font-semibold">
+                  {Math.round(entry.sodium)}mg Na
+                </span>
+              )}
+              {entry.sodium != null &&
+                (entry.saturatedFats != null || entry.sugars != null) && (
+                  <span className="text-muted">·</span>
+                )}
+              {entry.saturatedFats != null && (
+                <span className="text-accent-yellow font-semibold">
+                  {formatOne(entry.saturatedFats)}g sat
+                </span>
+              )}
+              {entry.saturatedFats != null && entry.sugars != null && (
+                <span className="text-muted">·</span>
+              )}
+              {entry.sugars != null && (
+                <span className="text-accent-pink font-semibold">
+                  {formatOne(entry.sugars)}g sugar
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         <FoodTagBadges

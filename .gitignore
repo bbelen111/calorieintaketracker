@@ -110,3 +110,9 @@ tmpclaude-*/
 # Food DB cleanup generated artifacts
 src/constants/*.backup.sqlite
 scripts/food-db/reports/*.json
+
+# Food DB local artifacts (generated / large)
+src/constants/food/foodDatabase.backup.sqlite
+scripts/food-db/fdc-download/
+
+scripts/food-db/foodDatabase.curated.sqlite

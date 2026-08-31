@@ -50,6 +50,11 @@ import {
   calculateRollingEnergyBalance,
   getDailyBalanceKind,
 } from '../../../utils/calculations/rollingEnergyBalance';
+import {
+  getNutritionTotalsForDate,
+  hasNutritionEntriesForDate,
+} from '../../../utils/phases/phases';
+import { formatOne } from '../../../utils/formatting/format';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 
 function AdaptiveCorrectionCard({ result, mode, goalDurationDays, onOpen }) {
@@ -416,6 +421,18 @@ export const InsightsScreen = ({
       }),
     [macroSplit, resolvedMacroLocks, resolvedUserData, targetCalories]
   );
+
+  // Today's logged micronutrients (null = untracked; coverage flags partial).
+  const todayMicros = useMemo(() => {
+    const today = getTodayDateKey();
+    if (
+      !resolvedUserData?.nutritionData ||
+      !hasNutritionEntriesForDate(resolvedUserData.nutritionData, today)
+    ) {
+      return null;
+    }
+    return getNutritionTotalsForDate(resolvedUserData.nutritionData, today);
+  }, [resolvedUserData]);
 
   // Adaptive Thermogenesis preview (matches what the store applies today)
   const adaptiveThermogenesis = useMemo(() => {
@@ -937,6 +954,69 @@ export const InsightsScreen = ({
             </div>
           </div>
         </button>
+
+        {/* Today's micronutrients */}
+        {todayMicros &&
+          (todayMicros.fiber != null ||
+            todayMicros.sodium != null ||
+            todayMicros.saturatedFats != null ||
+            todayMicros.sugars != null) && (
+            <div className="mt-3 bg-surface rounded-2xl p-4 border border-border shadow-lg">
+              <p className="text-sm font-bold text-foreground mb-3">
+                Today&apos;s Micronutrients
+              </p>
+              <div className="grid grid-cols-4 gap-2 text-center">
+                <div className="bg-surface-highlight/50 rounded-lg py-2">
+                  <p className="text-[11px] text-muted">Fiber</p>
+                  <p className="text-accent-green font-bold text-sm">
+                    {todayMicros.fiber != null
+                      ? `${
+                          todayMicros.microCoverage?.fiber?.hasUntracked
+                            ? '~'
+                            : ''
+                        }${formatOne(todayMicros.fiber)} g`
+                      : '—'}
+                  </p>
+                </div>
+                <div className="bg-surface-highlight/50 rounded-lg py-2">
+                  <p className="text-[11px] text-muted">Sodium</p>
+                  <p className="text-accent-indigo font-bold text-sm">
+                    {todayMicros.sodium != null
+                      ? `${
+                          todayMicros.microCoverage?.sodium?.hasUntracked
+                            ? '~'
+                            : ''
+                        }${Math.round(todayMicros.sodium)} mg`
+                      : '—'}
+                  </p>
+                </div>
+                <div className="bg-surface-highlight/50 rounded-lg py-2">
+                  <p className="text-[11px] text-muted">Sat. Fat</p>
+                  <p className="text-accent-yellow font-bold text-sm">
+                    {todayMicros.saturatedFats != null
+                      ? `${
+                          todayMicros.microCoverage?.saturatedFats?.hasUntracked
+                            ? '~'
+                            : ''
+                        }${formatOne(todayMicros.saturatedFats)} g`
+                      : '—'}
+                  </p>
+                </div>
+                <div className="bg-surface-highlight/50 rounded-lg py-2">
+                  <p className="text-[11px] text-muted">Sugars</p>
+                  <p className="text-accent-pink font-bold text-sm">
+                    {todayMicros.sugars != null
+                      ? `${
+                          todayMicros.microCoverage?.sugars?.hasUntracked
+                            ? '~'
+                            : ''
+                        }${formatOne(todayMicros.sugars)} g`
+                      : '—'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
       </div>
     </div>
   );

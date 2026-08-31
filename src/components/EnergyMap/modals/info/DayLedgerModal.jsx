@@ -287,6 +287,61 @@ export const DayLedgerModal = ({
                     </p>
                   </div>
                 </div>
+                {(macros.fiber != null ||
+                  macros.sodium != null ||
+                  macros.saturatedFats != null ||
+                  macros.sugars != null) && (
+                  <div className="grid grid-cols-4 gap-2 text-center mt-2">
+                    <div className="bg-surface-highlight/50 rounded-lg py-2">
+                      <p className="text-[11px] text-muted">Fiber</p>
+                      <p className="text-accent-green font-bold text-sm">
+                        {macros.fiber != null
+                          ? `${
+                              macros.microCoverage?.fiber?.hasUntracked
+                                ? '~'
+                                : ''
+                            }${Math.round(macros.fiber)} g`
+                          : '—'}
+                      </p>
+                    </div>
+                    <div className="bg-surface-highlight/50 rounded-lg py-2">
+                      <p className="text-[11px] text-muted">Sodium</p>
+                      <p className="text-accent-indigo font-bold text-sm">
+                        {macros.sodium != null
+                          ? `${
+                              macros.microCoverage?.sodium?.hasUntracked
+                                ? '~'
+                                : ''
+                            }${Math.round(macros.sodium)} mg`
+                          : '—'}
+                      </p>
+                    </div>
+                    <div className="bg-surface-highlight/50 rounded-lg py-2">
+                      <p className="text-[11px] text-muted">Sat. Fat</p>
+                      <p className="text-accent-yellow font-bold text-sm">
+                        {macros.saturatedFats != null
+                          ? `${
+                              macros.microCoverage?.saturatedFats?.hasUntracked
+                                ? '~'
+                                : ''
+                            }${Math.round(macros.saturatedFats)} g`
+                          : '—'}
+                      </p>
+                    </div>
+                    <div className="bg-surface-highlight/50 rounded-lg py-2">
+                      <p className="text-[11px] text-muted">Sugars</p>
+                      <p className="text-accent-pink font-bold text-sm">
+                        {macros.sugars != null
+                          ? `${
+                              macros.microCoverage?.sugars?.hasUntracked
+                                ? '~'
+                                : ''
+                            }${Math.round(macros.sugars)} g`
+                          : '—'}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

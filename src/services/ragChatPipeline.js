@@ -49,6 +49,16 @@ const getNowMs = () => {
   return Date.now();
 };
 
+// Null-preserving micro-nutrient passthrough for grounded estimates: omitted /
+// non-finite values stay undefined (untracked), never coerced to zero.
+const passthroughMicro = (value) => {
+  if (value == null || value === '') {
+    return undefined;
+  }
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : undefined;
+};
+
 /**
  * Builds the OpenRouter-style structured history (user parts + assistant
  * content) from the app's chat message list, stopping at `beforeMessageId`.
@@ -205,7 +215,6 @@ const telemetryNoop = async () => {};
 const buildVerifiedResultFromEntries = ({
   extractionResult,
   verifiedEntries,
-  schemaVersion,
   presentationSkipped = false,
 }) => ({
   text:
@@ -296,7 +305,7 @@ export const runRagChatPipeline = async ({
   if (enableRag && typeof sendOpenRouterExtraction !== 'function') {
     enableRag = false;
   }
-if (enableRag) {
+  if (enableRag) {
     transitionStage(CHAT_PIPELINE_STAGE.EXTRACTION);
     const extractionStartedAt = getNowMs();
 
@@ -345,7 +354,10 @@ if (enableRag) {
       const retryDedupedEntries = dedupeExtractedFoodEntries(retryEntries);
       const retryMessageType = retryResult?.foodParser?.messageType || null;
 
-      if (retryMessageType === 'food_entries' && retryDedupedEntries.length > 0) {
+      if (
+        retryMessageType === 'food_entries' &&
+        retryDedupedEntries.length > 0
+      ) {
         extractionResult = retryResult;
         effectiveExtractionEntries = retryDedupedEntries;
         extractionSchemaVersion =
@@ -365,7 +377,7 @@ if (enableRag) {
       extractionMessageType === 'clarification' ||
       extractionMessageType === 'error' ||
       effectiveExtractionEntries.length === 0;
-if (shouldShortCircuit) {
+    if (shouldShortCircuit) {
       const canAttemptGroundedExtractionFallback =
         isOnline &&
         safeFiles.length === 0 &&
@@ -391,6 +403,12 @@ if (shouldShortCircuit) {
             protein: Number(groundedEstimate?.per100g?.protein) || 0,
             carbs: Number(groundedEstimate?.per100g?.carbs) || 0,
             fats: Number(groundedEstimate?.per100g?.fats) || 0,
+            fiber: passthroughMicro(groundedEstimate?.per100g?.fiber),
+            sodium: passthroughMicro(groundedEstimate?.per100g?.sodium),
+            saturatedFats: passthroughMicro(
+              groundedEstimate?.per100g?.saturatedFats
+            ),
+            sugars: passthroughMicro(groundedEstimate?.per100g?.sugars),
             confidence: groundedEstimate?.confidence || 'low',
             rationale:
               groundedEstimate?.rationale ||
@@ -426,7 +444,7 @@ if (shouldShortCircuit) {
         resultSchemaVersion = extractionSchemaVersion;
       }
     } else {
-transitionStage(CHAT_PIPELINE_STAGE.RETRIEVAL);
+      transitionStage(CHAT_PIPELINE_STAGE.RETRIEVAL);
       const retrievalStartedAt = getNowMs();
       preResolvedLookupContext = await resolveFoodLookupContext({
         messageId: resolvedAssistantMessageId,
@@ -505,7 +523,7 @@ transitionStage(CHAT_PIPELINE_STAGE.RETRIEVAL);
           presentationSkipped: true,
         });
       } else if (typeof sendOpenRouterPresentation === 'function') {
-try {
+        try {
           const presentationResult = await sendOpenRouterPresentation({
             message: trimmedText,
             systemData: {
@@ -516,8 +534,7 @@ try {
             timeoutMs: resolveStageTimeout('presentation'),
           });
           resultSchemaVersion =
-            presentationResult?.foodParser?.version ||
-            extractionSchemaVersion;
+            presentationResult?.foodParser?.version || extractionSchemaVersion;
           await record.stageLatency({
             stage: 'presentation',
             durationMs: getNowMs() - presentationStartedAt,
@@ -546,7 +563,7 @@ try {
             (entry) => entry?.nutritionIntegrityIssue
           ).length;
           const sparseEntryCount = presentationEntries.reduce(
-            (count, presentedEntry, index) =>
+            (count, presentedEntry) =>
               !presentedEntry || typeof presentedEntry !== 'object'
                 ? count + 1
                 : count,
@@ -625,7 +642,7 @@ try {
           });
         }
       } else {
-// No presentation module available — skip the pass defensively.
+        // No presentation module available — skip the pass defensively.
         presentationSkipped = true;
         resultSchemaVersion = extractionSchemaVersion;
         await record.presentationIssues({
@@ -666,7 +683,7 @@ try {
       });
     }
   }
-// Final lookup-context reconciliation for any branch that produced food
+  // Final lookup-context reconciliation for any branch that produced food
   // entries without a pre-resolved context (grounded fallback, legacy path).
   if (
     result?.foodParser?.messageType === 'food_entries' &&

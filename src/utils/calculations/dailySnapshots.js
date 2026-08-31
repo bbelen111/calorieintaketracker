@@ -1,6 +1,10 @@
 import { calculateBMR, calculateCalorieBreakdown } from './calculations.js';
 import { getNutritionTotalsForDate } from '../phases/phases.js';
 import { normalizeDateKey } from '../measurements/weight.js';
+import {
+  NUTRIENT_KEYS,
+  normalizeNutrientValue,
+} from '../../constants/nutrients/nutrients.js';
 
 const GOAL_KEYS = new Set([
   'aggressive_bulk',
@@ -159,6 +163,21 @@ export const buildDailySnapshot = ({
     breakdown?.adaptiveThermogenesisMode ?? 'off';
   const now = Date.now();
 
+  // Micro totals are persisted for history/analytics (Ledger, Insights).
+  // `null` = no logged data that day, number = sum of known values; coverage
+  // tracks whether the day's sum is partial (some entries lacked the nutrient).
+  const micros = {};
+  const microsCoverage = {};
+  NUTRIENT_KEYS.forEach((key) => {
+    micros[key] =
+      nutritionTotals[key] != null
+        ? normalizeNutrientValue(nutritionTotals[key], key)
+        : null;
+    microsCoverage[key] = Boolean(
+      nutritionTotals.microCoverage?.[key]?.hasUntracked
+    );
+  });
+
   return {
     date: normalizedDateKey,
     goalAtSnapshot: normalizeSelectedGoal(userData?.selectedGoal),
@@ -168,6 +187,8 @@ export const buildDailySnapshot = ({
     adaptiveThermogenesisMode,
     intake,
     deficit: tdee - intake,
+    micros,
+    microsCoverage,
     stepCount,
     isTrainingDay,
     bmr: resolvedBmr,

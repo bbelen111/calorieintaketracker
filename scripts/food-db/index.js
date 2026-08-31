@@ -13,12 +13,12 @@ import {
 const PROJECT_ROOT = globalThis.process.cwd();
 const SOURCE_DB_PATH = path.resolve(
   PROJECT_ROOT,
-  'src/constants/foodDatabase.sqlite'
+  'src/constants/food/foodDatabase.sqlite'
 );
 const REPORTS_DIR = path.resolve(PROJECT_ROOT, 'scripts/food-db/reports');
 const BACKUP_DB_PATH = path.resolve(
   PROJECT_ROOT,
-  'src/constants/foodDatabase.backup.sqlite'
+  'src/constants/food/foodDatabase.backup.sqlite'
 );
 
 const parseArgs = () => {
@@ -388,8 +388,20 @@ const sanitizePortions = ({ row, portions, quarantine, stats }) => {
 const loadRows = async (SQL) => {
   const buffer = await fs.readFile(SOURCE_DB_PATH);
   const db = new SQL.Database(new Uint8Array(buffer));
+
+  // Detect columns first so legacy DBs (without micro columns) can still be
+  // loaded; the rebuild step always writes the full nullable schema.
+  const columnsResult = db.exec("PRAGMA table_info('foods')");
+  const tableColumns = new Set(
+    (columnsResult?.[0]?.values ?? []).map((row) => String(row[1] ?? '').trim())
+  );
+  const microSelect = ['fiber', 'sodium', 'saturated_fats', 'sugars']
+    .filter((column) => tableColumns.has(column))
+    .map((column) => `, ${column}`)
+    .join('');
+
   const query = db.exec(`
-    SELECT id, name, category, subcategory, calories, protein, carbs, fats, portions
+    SELECT id, name, category, subcategory, calories, protein, carbs, fats${microSelect}, portions
     FROM foods
   `);
 
@@ -562,6 +574,13 @@ const cleanRows = (rows) => {
       protein: Math.max(0, getNumeric(row.protein)),
       carbs: Math.max(0, getNumeric(row.carbs)),
       fats: Math.max(0, getNumeric(row.fats)),
+      // Micro nutrients pass through untouched; `null` = untracked (preserved),
+      // `0` = legitimately measured zero. Never coerce missing to 0 here.
+      fiber: row.fiber == null ? null : Math.max(0, Number(row.fiber)),
+      sodium: row.sodium == null ? null : Math.max(0, Number(row.sodium)),
+      saturatedFats:
+        row.saturated_fats == null ? null : Math.max(0, Number(row.saturated_fats)),
+      sugars: row.sugars == null ? null : Math.max(0, Number(row.sugars)),
       portions: JSON.stringify(portions),
     };
 
@@ -614,6 +633,10 @@ const rebuildDatabase = async (SQL, cleanedRows) => {
       protein REAL NOT NULL CHECK (protein >= 0),
       carbs REAL NOT NULL CHECK (carbs >= 0),
       fats REAL NOT NULL CHECK (fats >= 0),
+      fiber REAL,
+      sodium REAL,
+      saturated_fats REAL,
+      sugars REAL,
       portions TEXT NOT NULL
     );
 
@@ -623,8 +646,8 @@ const rebuildDatabase = async (SQL, cleanedRows) => {
   `);
 
   const insertStatement = db.prepare(`
-    INSERT INTO foods (id, name, category, subcategory, calories, protein, carbs, fats, portions)
-    VALUES (:id, :name, :category, :subcategory, :calories, :protein, :carbs, :fats, :portions)
+    INSERT INTO foods (id, name, category, subcategory, calories, protein, carbs, fats, fiber, sodium, saturated_fats, sugars, portions)
+    VALUES (:id, :name, :category, :subcategory, :calories, :protein, :carbs, :fats, :fiber, :sodium, :saturated_fats, :sugars, :portions)
   `);
 
   for (const row of cleanedRows) {
@@ -637,6 +660,10 @@ const rebuildDatabase = async (SQL, cleanedRows) => {
       ':protein': row.protein,
       ':carbs': row.carbs,
       ':fats': row.fats,
+      ':fiber': row.fiber ?? null,
+      ':sodium': row.sodium ?? null,
+      ':saturated_fats': row.saturatedFats ?? null,
+      ':sugars': row.sugars ?? null,
       ':portions': row.portions,
     });
   }
@@ -717,7 +744,7 @@ const main = async () => {
   if (args.replace) {
     await replaceDatabaseFile(bytes);
     console.log(
-      `Clean complete. Replaced src/constants/foodDatabase.sqlite (backup: src/constants/foodDatabase.backup.sqlite).`
+      `Clean complete. Replaced ${SOURCE_DB_PATH} (backup: ${BACKUP_DB_PATH}).`
     );
     return;
   }
