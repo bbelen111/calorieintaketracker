@@ -1,4 +1,4 @@
-// Payload builders for the /api/usda gateway.
+// Payload builders for the /api/foods gateway (legacy /api/usda alias shares it).
 //
 // The proxy now serves the curated Supabase catalog instead of FoodData
 // Central. Two envelopes are emitted per search:

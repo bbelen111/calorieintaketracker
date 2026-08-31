@@ -1,6 +1,6 @@
 ﻿# Energy Map Calorie Tracker
 
-A **React + Vite** single-page app for fitness calorie tracking, wrapped by Capacitor for mobile deployment (iOS/Android). Local-first architecture with Zustand state management, Dexie-backed history persistence, USDA-backed online food search, and OpenFoodFacts barcode lookup.
+A **React + Vite** single-page app for fitness calorie tracking, wrapped by Capacitor for mobile deployment (iOS/Android). Local-first architecture with Zustand state management, Dexie-backed history persistence, Supabase-catalog-backed online food search, and OpenFoodFacts barcode lookup.
 
 ## 🎯 Features
 
@@ -103,7 +103,7 @@ $$
 | **Animations** | Framer Motion | 12.23.24 |
 | **Styling** | Tailwind CSS | 3.4.17 |
 | **Icons** | Lucide React | 0.562.0 |
-| **External APIs** | USDA FoodData Central, OpenFoodFacts, OpenRouter | — |
+| **External APIs** | Supabase food catalog (seeded from USDA FDC), OpenFoodFacts, OpenRouter | — |
 
 **Key Capacitor Plugins:**
 - `@capacitor/preferences`, `@capacitor/app`, `@capacitor/status-bar`, `@capacitor/keyboard`, `@capacitor/barcode-scanner`, `@capgo/capacitor-health`, `@capgo/capacitor-navigation-bar`
@@ -220,9 +220,9 @@ src/
 │   ├─ foodCatalog.js              # SQLite local food search
 │   ├─ foodCache.js                # Cache dedupe/trim helpers
 │   ├─ foodLookupContext.js        # AI lookup context + diagnostics metadata
-│   ├─ foodSearch.js               # Local/USDA/RAG search orchestration
+│   ├─ foodSearch.js               # Local/online-catalog/RAG search orchestration
 │   ├─ ragTelemetry.js             # RAG telemetry aggregation
-│   ├─ usda.js                     # Online USDA food search
+│   ├─ foodCloud.js                     # Supabase catalog online search
 │   ├─ openFoodFacts.js            # OpenFoodFacts barcode lookup
 │   ├─ openrouter.js                # AI food parsing via OpenRouter
 │   └─ barcodeScanner.js
@@ -397,22 +397,22 @@ Snapshots include denormalized `goalAtSnapshot` for historical analysis.
 
 ## 🔗 Integrations
 
-### USDA Search + OpenFoodFacts Barcode
+### Online Catalog Search + OpenFoodFacts Barcode
 
 Online text search queries the curated Supabase catalog (seeded from `calorieintaketracker-db-pipeline`) through the Vercel proxy — FoodData Central is never called at runtime anymore. Barcode lookup remains OpenFoodFacts-backed.
 
 ```javascript
-import { searchFoods as searchUsdaFoods } from './services/usda';
+import { searchFoods as searchOnlineFoods } from './services/foodCloud';
 import { searchBarcode } from './services/openFoodFacts';
 
-const results = await searchUsdaFoods('chicken breast');
+const results = await searchOnlineFoods('chicken breast');
 const food = await searchBarcode('012345678901');
 ```
 
 **Configuration:**
-- `VITE_USDA_API_BASE` (default: `https://calorieintaketracker.vercel.app/api/usda`)
+- `VITE_FOODS_API_BASE` (default: `https://calorieintaketracker.vercel.app/api/foods`); the legacy `VITE_USDA_API_BASE` is still honored, and `/api/usda` remains served as an alias for already-shipped builds
 - `VITE_OPENFOODFACTS_API_BASE` (default: `https://calorieintaketracker.vercel.app/api/openfoodfacts`)
-- Server-side (Vercel): `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (required — the proxy calls the `search_foods` / `search_foods_total` PostgREST RPCs against the seeded `public.foods` table), optional `OPENFOODFACTS_USER_AGENT` / `OPENFOODFACTS_API_BASE`. The legacy `USDA_API_KEY` / `USDA_USER_AGENT` vars are obsolete.
+- Server-side (Vercel): `SUPABASE_URL` + `SUPABASE_ANON_KEY` (or `SUPABASE_PUBLISHABLE_KEY`) — required, **read-only**: RLS grants public SELECT on `public.foods` and the search RPCs are EXECUTE-granted to anon. The `SUPABASE_SERVICE_ROLE_KEY` is never used in this deploy — it belongs to the pipeline seeder only. Optional `OPENFOODFACTS_USER_AGENT` / `OPENFOODFACTS_API_BASE`. The `USDA_API_KEY` / `USDA_USER_AGENT` vars are obsolete.
 
 ### OpenRouter AI Parsing
 
@@ -512,7 +512,7 @@ Auto-adjust: 400-level shades (dark/AMOLED), 600-level (light).
 
 ```env
 VITE_OPENFOODFACTS_API_BASE=https://your-vercel-url/api/openfoodfacts
-VITE_USDA_API_BASE=https://your-vercel-url/api/usda
+VITE_FOODS_API_BASE=https://your-vercel-url/api/foods
 VITE_OPENROUTER_API_BASE=https://your-vercel-url/api/openrouter
 VITE_AI_CHAT_RAG_ENABLED=true
 OPENROUTER_API_KEY=your_openrouter_key
@@ -602,7 +602,7 @@ Tests use Node's built-in `--test` runner with ESM. Coverage includes:
 - **Calculations** — BMR, TDEE, cardio, training, TEF, AT, EPOC
 - **Storage** — Persistence split, Dexie sharding, profile/history semantics
 - **Utilities** — Steps, weight, body fat, phases, snapshots, date keys
-- **Services** — Food search, USDA, OpenFoodFacts barcode, food catalog
+- **Services** — Food search, online catalog, OpenFoodFacts barcode, food catalog
 
 ```bash
 npm test

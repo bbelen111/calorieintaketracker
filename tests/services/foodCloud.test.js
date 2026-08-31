@@ -1,13 +1,13 @@
-import test from 'node:test';
+﻿import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
   mapCatalogFoodToFood,
-  resetUsdaClientRetry,
+  resetFoodsClientRetry,
   searchFoods,
-  USDA_CLIENT_RETRY,
-  USDAFoodError,
-} from '../../src/services/usda.js';
+  FOODS_CLIENT_RETRY,
+  FoodsApiError,
+} from '../../src/services/foodCloud.js';
 
 const createJsonResponse = ({ ok, status, payload = {} }) => ({
   ok,
@@ -299,7 +299,7 @@ test('searchFoods does not retry non-transient USDA statuses', async () => {
         retry: { maxAttempts: 3, baseDelayMs: 0, maxDelayMs: 0, jitterMs: 0 },
       }),
       (error) => {
-        assert.ok(error instanceof USDAFoodError);
+        assert.ok(error instanceof FoodsApiError);
         assert.equal(error.status, 403);
         assert.equal(error.message, 'Forbidden');
         return true;
@@ -330,7 +330,7 @@ test('searchFoods never retries when the caller aborts the request', async () =>
         retry: { maxAttempts: 3, baseDelayMs: 0, maxDelayMs: 0, jitterMs: 0 },
       }),
       (error) => {
-        assert.ok(error instanceof USDAFoodError);
+        assert.ok(error instanceof FoodsApiError);
         assert.equal(error.status, 0);
         assert.equal(error.message, 'Request aborted');
         return true;
@@ -368,7 +368,7 @@ test('searchFoods retries internal timeouts with a fresh budget per attempt', as
         },
       }),
       (error) => {
-        assert.ok(error instanceof USDAFoodError);
+        assert.ok(error instanceof FoodsApiError);
         assert.equal(error.status, 408);
         assert.equal(error.message, 'Request timed out');
         return true;
@@ -380,12 +380,12 @@ test('searchFoods retries internal timeouts with a fresh budget per attempt', as
   }
 });
 
-test('searchFoods respects the mutable USDA_CLIENT_RETRY config', async () => {
+test('searchFoods respects the mutable FOODS_CLIENT_RETRY config', async () => {
   const originalFetch = globalThis.fetch;
-  USDA_CLIENT_RETRY.maxAttempts = 2;
-  USDA_CLIENT_RETRY.baseDelayMs = 0;
-  USDA_CLIENT_RETRY.maxDelayMs = 0;
-  USDA_CLIENT_RETRY.jitterMs = 0;
+  FOODS_CLIENT_RETRY.maxAttempts = 2;
+  FOODS_CLIENT_RETRY.baseDelayMs = 0;
+  FOODS_CLIENT_RETRY.maxDelayMs = 0;
+  FOODS_CLIENT_RETRY.jitterMs = 0;
   let fetchCalls = 0;
   globalThis.fetch = async () => {
     fetchCalls += 1;
@@ -394,13 +394,13 @@ test('searchFoods respects the mutable USDA_CLIENT_RETRY config', async () => {
 
   try {
     await assert.rejects(searchFoods('egg'), (error) => {
-      assert.ok(error instanceof USDAFoodError);
+      assert.ok(error instanceof FoodsApiError);
       assert.equal(error.status, 404);
       return true;
     });
     assert.equal(fetchCalls, 2);
   } finally {
-    resetUsdaClientRetry();
+    resetFoodsClientRetry();
     globalThis.fetch = originalFetch;
   }
 });

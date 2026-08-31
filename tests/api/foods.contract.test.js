@@ -1,7 +1,8 @@
-import test from 'node:test';
+﻿import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import handler from '../../api/usda.js';
+import handler from '../../api/foods.js';
+import legacyHandler from '../../api/usda.js';
 
 const SAMPLE_ROW = {
   id: 'usda_171077',
@@ -110,7 +111,7 @@ test('proxy queries the Supabase search RPCs with service-role auth and returns 
     await withEnv(
       {
         SUPABASE_URL: 'https://proj.supabase.co',
-        SUPABASE_SERVICE_ROLE_KEY: 'svc-key',
+        SUPABASE_ANON_KEY: 'anon-key',
       },
       () =>
         handler(
@@ -159,8 +160,8 @@ test('proxy queries the Supabase search RPCs with service-role auth and returns 
     assert.equal(capturedUrl.searchParams.get('p_query'), 'chicken');
     assert.equal(capturedUrl.searchParams.get('p_limit'), '20');
     assert.equal(capturedUrl.searchParams.get('p_offset'), '0');
-    assert.equal(capturedHeaders.apikey, 'svc-key');
-    assert.equal(capturedHeaders.Authorization, 'Bearer svc-key');
+    assert.equal(capturedHeaders.apikey, 'anon-key');
+    assert.equal(capturedHeaders.Authorization, 'Bearer anon-key');
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -186,7 +187,7 @@ test('proxy maps page/pageSize to limit/offset and clamps pageSize to 50', async
     await withEnv(
       {
         SUPABASE_URL: 'https://proj.supabase.co',
-        SUPABASE_SERVICE_ROLE_KEY: 'svc-key',
+        SUPABASE_ANON_KEY: 'anon-key',
       },
       () =>
         handler(
@@ -253,7 +254,7 @@ test('proxy rejects short queries and invalid actions without upstream calls', a
     await withEnv(
       {
         SUPABASE_URL: 'https://proj.supabase.co',
-        SUPABASE_SERVICE_ROLE_KEY: 'svc-key',
+        SUPABASE_ANON_KEY: 'anon-key',
       },
       () =>
         handler(
@@ -272,7 +273,7 @@ test('proxy rejects short queries and invalid actions without upstream calls', a
     await withEnv(
       {
         SUPABASE_URL: 'https://proj.supabase.co',
-        SUPABASE_SERVICE_ROLE_KEY: 'svc-key',
+        SUPABASE_ANON_KEY: 'anon-key',
       },
       () =>
         handler(
@@ -321,7 +322,7 @@ test('proxy retries transient 5xx upstream errors and succeeds', async () => {
       withEnv(
         {
           SUPABASE_URL: 'https://proj.supabase.co',
-          SUPABASE_SERVICE_ROLE_KEY: 'svc-key',
+          SUPABASE_ANON_KEY: 'anon-key',
         },
         () =>
           handler(
@@ -370,7 +371,7 @@ test('proxy does not retry non-transient upstream statuses', async () => {
     await withEnv(
       {
         SUPABASE_URL: 'https://proj.supabase.co',
-        SUPABASE_SERVICE_ROLE_KEY: 'svc-key',
+        SUPABASE_ANON_KEY: 'anon-key',
       },
       () =>
         handler(
@@ -410,7 +411,7 @@ test('proxy degrades totalHits to rows.length when the count RPC fails', async (
     await withEnv(
       {
         SUPABASE_URL: 'https://proj.supabase.co',
-        SUPABASE_SERVICE_ROLE_KEY: 'svc-key',
+        SUPABASE_ANON_KEY: 'anon-key',
       },
       () =>
         handler(
@@ -429,6 +430,10 @@ test('proxy degrades totalHits to rows.length when the count RPC fails', async (
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test('legacy /api/usda route re-exports the same handler', () => {
+  assert.equal(legacyHandler, handler);
 });
 
 /* __APPEND_POINT_2__ */

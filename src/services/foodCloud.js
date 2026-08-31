@@ -1,22 +1,22 @@
-/* eslint-disable no-undef */
+﻿/* eslint-disable no-undef */
 import { Capacitor } from '@capacitor/core';
 
 const API_BASE = (
-  (typeof import.meta.env?.VITE_USDA_API_BASE === 'string'
-    ? import.meta.env.VITE_USDA_API_BASE
-    : '') || 'https://calorieintaketracker.vercel.app/api/usda'
+  (typeof import.meta.env?.VITE_FOODS_API_BASE === 'string'
+    ? import.meta.env.VITE_FOODS_API_BASE
+    : '') || 'https://calorieintaketracker.vercel.app/api/foods'
 ).trim();
 
-export class USDAFoodError extends Error {
+export class FoodsApiError extends Error {
   constructor(message, status = 0, details = null) {
     super(message);
-    this.name = 'USDAFoodError';
+    this.name = 'FoodsApiError';
     this.status = status;
     this.details = details;
   }
 }
 
-export const USDA_CLIENT_DEFAULT_RETRY = Object.freeze({
+export const FOODS_CLIENT_DEFAULT_RETRY = Object.freeze({
   maxAttempts: 3,
   baseDelayMs: 400,
   maxDelayMs: 2000,
@@ -25,22 +25,22 @@ export const USDA_CLIENT_DEFAULT_RETRY = Object.freeze({
 });
 
 // Mutable client retry config. Per-request callers may override it via the
-// `retry` option on searchFoods/apiRequest; resetUsdaClientRetry() restores
+// `retry` option on searchFoods/apiRequest; resetFoodsClientRetry() restores
 // the module defaults (useful for tests).
-export const USDA_CLIENT_RETRY = { ...USDA_CLIENT_DEFAULT_RETRY };
+export const FOODS_CLIENT_RETRY = { ...FOODS_CLIENT_DEFAULT_RETRY };
 
-export const resetUsdaClientRetry = () => {
-  Object.assign(USDA_CLIENT_RETRY, USDA_CLIENT_DEFAULT_RETRY);
+export const resetFoodsClientRetry = () => {
+  Object.assign(FOODS_CLIENT_RETRY, FOODS_CLIENT_DEFAULT_RETRY);
 };
 
 // Kept identical to the legacy client set: transient 404/408/409/425/429 plus
 // 5xx and network failures (status 0) are retried. PostgREST 404 = misdeploy,
 // which a bounded retry masks harmlessly during rollouts.
-const USDA_TRANSIENT_STATUS_CODES = new Set([404, 408, 409, 425, 429]);
+const FOODS_TRANSIENT_STATUS_CODES = new Set([404, 408, 409, 425, 429]);
 
-const isTransientUsdaStatus = (status) => {
+const isTransientFoodsStatus = (status) => {
   const code = Number(status);
-  return USDA_TRANSIENT_STATUS_CODES.has(code) || (code >= 500 && code <= 599);
+  return FOODS_TRANSIENT_STATUS_CODES.has(code) || (code >= 500 && code <= 599);
 };
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -50,7 +50,7 @@ const shouldRetryClientError = (error) => {
     return false;
   }
   const status = Number(error?.status);
-  return status === 0 || isTransientUsdaStatus(status);
+  return status === 0 || isTransientFoodsStatus(status);
 };
 
 const computeClientRetryDelayMs = (attempt, retry) => {
@@ -70,7 +70,7 @@ function round2(num) {
   return Math.round(Number(num || 0) * 100) / 100;
 }
 
-// ---- canonical catalog row → app food shape ----
+// ---- canonical catalog row 竊・app food shape ----
 //
 // The gateway now returns `catalogFoods`: curated per-100g rows structurally
 // identical to the local sql.js catalog (`foodCatalog.mapFoodRow`). This mapper
@@ -181,11 +181,11 @@ function createCombinedAbortSignal(externalSignal, timeoutMs) {
 }
 
 async function apiRequest(action, params = {}, options = {}) {
-  const resolvedBase = API_BASE || '/api/usda';
+  const resolvedBase = API_BASE || '/api/foods';
 
   if (Capacitor.isNativePlatform() && resolvedBase.startsWith('/')) {
-    throw new USDAFoodError(
-      'USDA API base not configured for native. Set VITE_USDA_API_BASE to your deployed URL.',
+    throw new FoodsApiError(
+      'Online food catalog API base not configured for native. Set VITE_FOODS_API_BASE to your deployed URL.',
       0
     );
   }
@@ -202,7 +202,7 @@ async function apiRequest(action, params = {}, options = {}) {
     }
   });
 
-  const retry = { ...USDA_CLIENT_RETRY, ...(options.retry || {}) };
+  const retry = { ...FOODS_CLIENT_RETRY, ...(options.retry || {}) };
   const maxAttempts = resolveClientMaxAttempts(retry);
   const timeoutMs = Math.max(1, Number(retry.timeoutMs) || 15000);
   let lastError = null;
@@ -225,7 +225,7 @@ async function apiRequest(action, params = {}, options = {}) {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        lastError = new USDAFoodError(
+        lastError = new FoodsApiError(
           errorData.error || `Request failed: ${response.status}`,
           response.status,
           errorData
@@ -240,17 +240,17 @@ async function apiRequest(action, params = {}, options = {}) {
         // A caller-initiated abort must never be retried; only the per-attempt
         // timeout is treated as transient (408).
         const externallyAborted = Boolean(options.signal?.aborted);
-        lastError = new USDAFoodError(
+        lastError = new FoodsApiError(
           externallyAborted ? 'Request aborted' : 'Request timed out',
           externallyAborted ? 0 : 408
         );
         if (externallyAborted) {
           lastError.externalAborted = true;
         }
-      } else if (error instanceof USDAFoodError) {
+      } else if (error instanceof FoodsApiError) {
         lastError = error;
       } else {
-        lastError = new USDAFoodError(
+        lastError = new FoodsApiError(
           'Network error - check your connection',
           0,
           error?.message

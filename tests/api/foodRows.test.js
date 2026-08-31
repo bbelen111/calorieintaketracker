@@ -1,7 +1,7 @@
-import test from 'node:test';
+﻿import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { toCatalogPayloadRows, toLegacyFdcRows } from '../../api/usdaRows.js';
+import { toCatalogPayloadRows, toLegacyFdcRows } from '../../api/foodRows.js';
 
 test('toCatalogPayloadRows whitelists catalog keys and parses portions', () => {
   const rows = toCatalogPayloadRows([

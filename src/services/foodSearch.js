@@ -14,7 +14,7 @@ export const FOOD_SEARCH_SOURCE = Object.freeze({
 
 export const FOOD_SEARCH_SOURCE_LABELS = Object.freeze({
   [FOOD_SEARCH_SOURCE.LOCAL]: 'Local',
-  [FOOD_SEARCH_SOURCE.USDA]: 'USDA',
+  [FOOD_SEARCH_SOURCE.USDA]: 'Online database',
   [FOOD_SEARCH_SOURCE.AI_WEB_SEARCH]: 'Web',
 });
 
@@ -1011,7 +1011,7 @@ const loadSearchLocal = async () =>
   (await import('./foodCatalog.js')).searchFoods;
 const loadGetFoodsByIds = async () =>
   (await import('./foodCatalog.js')).getFoodsByIds;
-const loadSearchUsda = async () => (await import('./usda.js')).searchFoods;
+const loadSearchUsda = async () => (await import('./foodCloud.js')).searchFoods;
 const loadGroundedMacroLookup = async () =>
   (await import('./openrouter.js')).fetchMacrosWithGrounding;
 const loadGroundedMacroLookupBatch = async () =>
@@ -1144,7 +1144,7 @@ const searchOnlineHierarchy = async ({
   } catch (error) {
     errorsBySource[FOOD_SEARCH_SOURCE.USDA] = toErrorMessage(
       error,
-      'USDA search failed.'
+      'Online database search failed.'
     );
     errorReasonsBySource[FOOD_SEARCH_SOURCE.USDA] =
       SOURCE_ERROR_REASON.USDA_SEARCH_FAILED;
@@ -1596,7 +1596,7 @@ export const resolveAiFoodLookup = async ({
       }
       errorsBySource[FOOD_SEARCH_SOURCE.USDA] = toErrorMessage(
         error,
-        'USDA search failed.'
+        'Online database search failed.'
       );
       errorReasonsBySource[FOOD_SEARCH_SOURCE.USDA] =
         SOURCE_ERROR_REASON.USDA_SEARCH_FAILED;

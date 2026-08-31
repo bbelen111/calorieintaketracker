@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor for mobile deployment (iOS/Android). Local-first architecture with Zustand state management, Dexie-backed history persistence plus Capacitor Preferences for profile/settings, and USDA-backed online food search + OpenFoodFacts barcode lookup.
+React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor for mobile deployment (iOS/Android). Local-first architecture with Zustand state management, Dexie-backed history persistence plus Capacitor Preferences for profile/settings, and Supabase-catalog-backed online food search + OpenFoodFacts barcode lookup.
 
 **Tech Stack:**
 - React 18.3.1 + Vite 8.2.0 (dev server on `localhost:5173`, `strictPort: true`)
@@ -14,7 +14,7 @@ React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor 
 - Framer Motion 12.23.24 (animations)
 - Tailwind 3.4.17 (styling via CSS variable–based semantic tokens)
 - Lucide React 0.562.0 (icons)
-- **External APIs:** USDA FoodData Central (online text search via `api/usda.js`), OpenFoodFacts (barcode lookup via `api/openfoodfacts.js`), OpenRouter (AI parsing via `api/openrouter.js`)
+- **External APIs:** Supabase food catalog (online text search via `api/foods.js`; legacy `/api/usda` alias retained), OpenFoodFacts (barcode lookup via `api/openfoodfacts.js`), OpenRouter (AI parsing via `api/openrouter.js`)
 
 **Key Capacitor Plugins:**
 - `@capacitor/preferences` — Profile/settings storage
@@ -262,7 +262,7 @@ FoodSearchModal
 Online mode:
 FoodSearchModal
   -> debounced searchFoodsOnline(...) in services/foodSearch.js
-    -> services/usda.js
+    -> services/foodCloud.js
   -> preview rows + cache-on-select flow
 
 AI chat mode (feature-flagged RAG path):
@@ -273,7 +273,7 @@ FoodSearchModal (chat state machine, stage pill, abort controller, entry renderi
                               -> grounded single-entry fallback via fetchMacrosWithGrounding (mode='grounding_lookup') for low-confidence extraction
                               -> fail-closed: legacy single-call path (sendOpenRouterMessage, mode='processing') when extraction module is unavailable
     stage: retrieval      -> resolveFoodLookupContext(...) in services/foodLookupContext.js
-                              -> local lookup (foodCatalog), USDA lookup (services/usda.js), deferred grounding batch (fetchMacrosWithGrounding, mode='grounding_lookup')
+                              -> local lookup (foodCatalog), online catalog lookup (services/foodCloud.js), deferred grounding batch (fetchMacrosWithGrounding, mode='grounding_lookup')
     stage: verification   -> resolveAiFoodEntry(...) per entry in services/foodSearch.js (deterministic verified entries)
     stage: presentation   -> skipped for single-entry/simple results (shouldSkipPresentationPass -> buildVerifiedResultFromEntries)
                               -> sendOpenRouterPresentation(...) in services/openrouter.js (mode='presentation', [SYSTEM_DATA])
@@ -927,37 +927,40 @@ When editing phase logic:
 
 ---
 
-## USDA Search + OpenFoodFacts Barcode Integration
+## Online Catalog Search + OpenFoodFacts Barcode Integration
 
 Online text search and barcode lookup are split across two proxied services for consistent error handling and centralized credentials. Online text search is backed by the curated Supabase catalog (pipeline-seeded `public.foods`), while barcode lookup stays OpenFoodFacts-backed.
 
 **Architecture:**
-- `services/usda.js` — Client service for online text search (Supabase-backed curated catalog), with timeout + native base URL guard; maps canonical catalog rows to the app food shape.
-- `api/usda.js` — Vercel proxy supporting `action=search`. Historically FDC; now calls the Supabase PostgREST RPCs `search_foods` / `search_foods_total` against the seeded `public.foods` table (service-role key server-side). Payload builders live in `api/usdaRows.js` (canonical `catalogFoods` + synthetic FDC `foods` envelope for legacy native builds during the transition window).
+- `services/foodCloud.js` — Client service for online text search (Supabase-backed curated catalog), with timeout + native base URL guard; maps canonical catalog rows to the app food shape.
+- `api/foods.js` — Vercel proxy for `action=search` over the Supabase PostgREST RPCs `search_foods` / `search_foods_total` (read-only **anon** key; RLS grants public SELECT + the RPCs are EXECUTE-granted to anon). Payload builders live in `api/foodRows.js` (canonical `catalogFoods` + synthetic FDC `foods` envelope for legacy native builds during the transition window).
+- `api/usda.js` — legacy alias of `api/foods.js` serving the old `/api/usda` URL so already-shipped builds keep working.
 - `services/openFoodFacts.js` — Client service for barcode lookups.
 - `api/openfoodfacts.js` — Vercel proxy supporting `action=barcode` (product lookup).
 
 **Configuration:**
-- Native builds: set `VITE_USDA_API_BASE` for USDA search and `VITE_OPENFOODFACTS_API_BASE` for barcode lookup.
+- Native builds: set `VITE_FOODS_API_BASE` for the online catalog search and `VITE_OPENFOODFACTS_API_BASE` for barcode lookup. Legacy `VITE_USDA_API_BASE` is still honored and `/api/usda` remains served as an alias.
 - Defaults:
-  - USDA: `https://calorieintaketracker.vercel.app/api/usda`
+  - Online catalog: `https://calorieintaketracker.vercel.app/api/foods`
   - OpenFoodFacts barcode: `https://calorieintaketracker.vercel.app/api/openfoodfacts`
 - Recommended Vercel env vars:
-  - `SUPABASE_URL=<project url>` and `SUPABASE_SERVICE_ROLE_KEY` (required — the proxy queries `public.foods` via the `search_foods` / `search_foods_total` RPCs; RLS stays public-read / service-role-write)
+  - `SUPABASE_URL=<project url>` and `SUPABASE_ANON_KEY` (or `SUPABASE_PUBLISHABLE_KEY`) — required for read-only search (RLS + anon RPC EXECUTE). The `SUPABASE_SERVICE_ROLE_KEY` is NEVER used in this deploy; it belongs to the pipeline seeder only.
   - `OPENFOODFACTS_USER_AGENT=EnergyMapCalorieTracker/1.0 (contact@example.com)`
   - Optional: `OPENFOODFACTS_API_BASE` (defaults to `https://world.openfoodfacts.org`)
-  - The legacy `USDA_API_KEY` / `USDA_USER_AGENT` vars are obsolete (pure swap; FDC is never called at runtime)
+  - The legacy `USDA_API_KEY` / `USDA_USER_AGENT` vars are obsolete (FDC is never called at runtime)
 
 **Key functions:**
 ```javascript
-import { searchFoods as searchUsdaFoods } from './services/usda';
+import { searchFoods as searchOnlineFoods } from './services/foodCloud';
 import { searchBarcode } from './services/openFoodFacts';
 
-const results = await searchUsdaFoods('chicken breast', { page: 1, pageSize: 20 });
+const results = await searchOnlineFoods('chicken breast', { page: 1, pageSize: 20 });
 const food = await searchBarcode('012345678901');
 ```
 
 Results are cached in `userData.cachedFoods` to reduce repeated network requests.
+
+**Rename scope:** the online path is branded "online database / food cloud" across the user surface and API contract (`/api/foods`, `VITE_FOODS_API_BASE`, `services/foodCloud.js`, `api/foodRows.js`). The persisted `usda_<fdcId>` food-id prefix is kept on purpose (it denotes USDA FDC data provenance and backs stored favourites/pins). Internal RAG registry tokens (`usda_search_failed`, `try_usda`, `FOOD_SEARCH_SOURCE.USDA`, `usda_*` decision/telemetry keys) are still the machine identity and were left untouched — they are invisible to users; sweep them as a staged follow-up, not in the same diff as this rename.
 
 **Micro nutrient mapping (fiber / sodium / saturatedFats / sugars):**
 - Micros are served **pre-curated per-100g** from the catalog (pipeline `build.js` normalization + source-scoped invariants) — the client no longer derives them from FDC `foodNutrients`, so `null` = untracked is inherited verbatim.
@@ -1175,12 +1178,12 @@ src/
 │   ├─ openrouter.js             # OpenRouter client + mode helpers (extraction/presentation/grounding)
 │   ├─ foodCache.js              # Cached food dedupe/trim helpers
 │   ├─ foodLookupContext.js      # Batch AI entry lookup context resolver + normalized lookup meta
-│   ├─ foodSearch.js             # Local/USDA/grounded lookup orchestration + deterministic AI entry resolution
+│   ├─ foodSearch.js             # Local/online-catalog/grounded lookup orchestration + deterministic AI entry resolution
 │   ├─ foodLookupReasons.js      # Canonical lookup reason-code registry (messages, recovery hints, chip labels)
 │   ├─ ragTelemetry.js           # RAG telemetry aggregation + diagnostics helpers
 │   ├─ ragChatPipeline.js        # Decoupled RAG chat pipeline orchestration (extraction → retrieval → verification → presentation)
 │   ├─ ragBudget.js              # Centralized RAG stage timing/budget constants + resolveRagStageTimeoutMs
-│   ├─ usda.js                   # USDA online search client
+│   ├─ foodCloud.js              # Supabase catalog online search client
 │   ├─ openFoodFacts.js          # OpenFoodFacts barcode lookup client
 │   ├─ barcodeScanner.js         # Official Capacitor barcode scanner wrapper
 │   └─ foodCatalog.js            # SQLite-backed local food catalog service (sql.js)
@@ -1202,7 +1205,7 @@ src/
   │   ├─ openFoodFacts.test.js
   │   ├─ ragTelemetry.test.js
   │   ├─ ragChatPipeline.test.js # Decoupled pipeline orchestration (helper contracts + stage routing with stubbed OpenRouter modules)
-  │   └─ usda.test.js
+  │   └─ foodCloud.test.js
   └─ utils/
     ├─ aiFinalizedEntryState.test.js # Finalized chat entry card badge/label resolution
     ├─ aiPresentationMerge.test.js # Presentation merge guardrail tests (sparse entries, rewrite suppression, integrity fallback)
