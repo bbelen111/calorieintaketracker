@@ -233,7 +233,7 @@ Do not duplicate target planning formulas in components.
   weightEntries: [{ date: 'YYYY-MM-DD', weight }],
   bodyFatEntries: [{ date: 'YYYY-MM-DD', bodyFat }],
   stepEntries: [{ date: 'YYYY-MM-DD', steps, source: 'healthConnect'|'manual' }],
-  nutritionData: { 'YYYY-MM-DD': { mealType: [foodEntry, ...] } },
+  nutritionData: { 'YYYY-MM-DD': { mealType: [foodEntry, ...] } },   // entries may carry fiber/sodium/saturatedFats/sugars (null = untracked)
   cachedFoods: [],                  // Cached foods from online/barcode lookups (history-scoped; deduped + capped on persistence)
   dailyNeatOverrides: {
     'YYYY-MM-DD': {
@@ -263,6 +263,8 @@ Do not duplicate target planning formulas in components.
       epocCardio,
       epocFromTodaySessions,
       epocCarryInCalories,
+      micros,                        // { fiber, sodium, saturatedFats, sugars } sums of known values; null = none tracked
+      microsCoverage,                // { fiber, sodium, saturatedFats, sugars } boolean hasUntracked per nutrient (partial day sums)
       baselineTdee,
       adaptiveThermogenesisCorrection,
       adaptiveThermogenesisMode,
@@ -281,8 +283,18 @@ Do not duplicate target planning formulas in components.
 ```javascript
 { id: 'uuid', foodId: 'chicken_breast', name: 'Chicken Breast',
   grams: 174, calories: 287, protein: 54, carbs: 0, fats: 6.3,
+  fiber: 0, sodium: 65, saturatedFats: 1.4, sugars: 0,   // optional micros
   timestamp: 1699876543210 }
 ```
+
+**Micro nutrients (fiber, sodium, saturatedFats, sugars) are optional and NULL
+semantic.** `null`/absent = untracked (rendered as —); `0` = measured zero. The
+canonical defs + normalizers/invariant clamps live in
+`src/constants/nutrients/nutrients.js`. Units: fiber/saturatedFats/sugars in
+grams (1 decimal), sodium in **milligrams** (whole integer). Soft source-scoped
+invariants clamp invalid data (`saturatedFats <= fats`, `sugars <= carbs`,
+and for US/USDA "carb by difference" sources only, `sugars + fiber <= carbs`);
+OpenFoodFacts/EU net-carb entries never clamp fiber against carbs.
 
 Meal types are ordered by `MEAL_TYPE_ORDER`: `breakfast`, `morning_snack`, `lunch`, `afternoon_snack`, `dinner`, `evening_snack`, `other`.
 

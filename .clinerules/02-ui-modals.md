@@ -58,7 +58,7 @@ paths:
 - `bodyFatTrackingEnabled` must be forwarded from the orchestrator; BF-off swaps tile contents instead of hiding rows.
 - `DayLedgerModal` (`modals/info/DayLedgerModal.jsx`) is the read-only detail sheet: measurements strip via `getMeasurementForDate`, single TDEE energy card that opens the production lazy `CalorieBreakdownModal` recomputed for that historical day through orchestrator `handleOpenDayLedgerBreakdown(dateKey)` (steps + dynamic TEF totals + AT context + `dateKey`; the store applies date-scoped NEAT). It renders the snapshot's `goalAtSnapshot` and that day's training flag.
 - Wire both like any top-level modal: `useAnimatedModal()` (the detail modal uses `MODAL_CLOSE_DELAY`), register in `isAnyModalOpen` + `closeTopmostModal` + deps, lazy `React.lazy(...)` with an `isOpen || isClosing` mount guard.
-- All display math lives in `utils/calculations/dayLedgerPresentation.js`; both modals are thin renderers.
+- All display math lives in `utils/calculations/dayLedgerPresentation.js`; both modals are thin renderers (see 03-state-and-calcs / State & Calculations docs).
 
 
 ### Modal Performance Loading Strategy

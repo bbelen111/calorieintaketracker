@@ -101,12 +101,12 @@ src/
 │   │   ├─ FoodTagBadges.jsx     # Shared food tag/source badge renderer
 │   │   ├─ AppHeader.jsx         # Header zone (greeting, per-screen stat line, swipe dots, coach mark, settings gear)
 │   │   └─ ScreenTabs.jsx        # Fixed floating glass bottom tab bar (drag-linked active circle)
-│   ├─ modals/                   # 59 modal files in 6 subfolders + 5 fullscreen panel components
+│   ├─ modals/                   # 53 modal files in 6 subfolders + 5 fullscreen panel components
 │   │   ├─ fullscreen/           # Full-screen takeover modals (WeightTracker, BodyFatTracker, StepTracker, Settings, FoodSearch)
 │   │   ├─ pickers/              # Scroll-wheel value pickers (Age, Calendar, Height, MealType, etc.)
 │   │   ├─ info/                 # Read-only info/reference sheets (AdaptiveThermogenesisInfo, BmiInfo, BmrInfo, CalorieBreakdown, TefInfo, etc.)
 │   │   ├─ forms/                # Data entry & editing dialogs (Cardio, Goal, PhaseCreation, WeightEntry, etc.)
-│   │   ├─ lists/                # Browseable/selectable lists (CardioFavourites, CardioTypeList, DayLedgerList)
+│   │   ├─ lists/                # Browseable/selectable lists (CardioFavourites, CardioTypeList)
 │   │   └─ common/               # Shared utility modals (ConfirmActionModal)
 │   ├─ screens/                  # 6 screen components
 │   └─ context/                  # Empty (unused)
@@ -124,6 +124,9 @@ src/
 │   │  └─ mealTypes.js           # MEAL_TYPE_ORDER + meal type helpers
 │   ├─ phases/
 │   │  └─ phaseTemplates.js      # Phase creation templates
+│   ├─ nutrients/
+│   │  └─ nutrients.js           # Canonical micro nutrients (fiber/sodium/saturatedFats/sugars): units, clamps,
+│   │                            #   source-scoped soft invariants, OFF sodium conversion, totals/coverage helpers
 ├─ hooks/
 │   ├─ useAnimatedModal.js       # Modal lifecycle (isOpen/isClosing/requestClose)
 │   ├─ useHardwareBackButton.js  # Native back handling (home-first + double-exit)
@@ -134,6 +137,7 @@ src/
 │   └─ useEnergyMapStore.js      # Zustand store: state, actions, derived values, persistence
 │                                #   calculateBreakdown(steps, isTrainingDay, options?) — options.tefContext + options.adaptiveThermogenesisContext forwarded to core calc
 │                                #   calculateTargetForGoal(steps, isTrainingDay, goalKey, options?) — 2-pass refinement for target TEF mode
+│                                #   goalDailyBalanceTarget — derived phase-lock-aware goal daily balance target (positive = deficit)
 ├─ utils/
 │   ├─ calculations/
 │   │  ├─ calculations.js        # Core calorie formulas — BMR/cardio/training/TDEE/TEF
@@ -190,6 +194,7 @@ src/
 ├─ scripts/
 │   └─ food-db/
 │      ├─ index.js               # Offline food DB audit/clean/replace pipeline
+│      ├─ enrich-nutrients.js    # FDC bulk CSV join -> backfills fiber/sodium/saturated_fats/sugars by fdc_id
 │      └─ config/
 │         └─ taxonomy.js         # Canonical taxonomy maps + alias/portion sanitation config
 └─ tests/                        # Node test runner suite (`node --test`)
@@ -197,6 +202,7 @@ src/
   │   └─ openrouter.contract.test.js
   ├─ constants/
   │   └─ activityPresets.test.js
+  │   └─ nutrients.test.js      # Canonical micro nutrient defs, soft invariants, OFF sodium conversion
   ├─ services/
   │   ├─ foodLookupContext.test.js
   │   ├─ foodSearch.test.js
