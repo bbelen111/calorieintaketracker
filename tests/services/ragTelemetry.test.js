@@ -62,11 +62,11 @@ test('records retrieval source/confidence distributions and grounded fallback fr
         escalationAttempted: false,
       },
       'assistant-1-1': {
-        usedSource: 'usda',
+        usedSource: 'cloud',
         matchConfidence: 'medium',
         fallbackUsed: true,
-        decision: 'try_usda',
-        decisionReason: 'usda_resolved_ambiguity',
+        decision: 'try_cloud',
+        decisionReason: 'cloud_resolved_ambiguity',
         acceptedFromHistory: false,
         escalationAttempted: true,
         escalationReason: 'local_ambiguous',
@@ -87,23 +87,23 @@ test('records retrieval source/confidence distributions and grounded fallback fr
   const snapshot = getRagTelemetrySessionSnapshot();
 
   assert.equal(snapshot.metrics.retrievalSourceHits.local, 1);
-  assert.equal(snapshot.metrics.retrievalSourceHits.usda, 1);
+  assert.equal(snapshot.metrics.retrievalSourceHits.cloud, 1);
   assert.equal(snapshot.metrics.retrievalSourceHits.ai_web_search, 1);
   assert.equal(snapshot.metrics.groundedFallbackCount, 2);
   assert.equal(snapshot.metrics.lookupDecisionCounts.accept_local, 1);
-  assert.equal(snapshot.metrics.lookupDecisionCounts.try_usda, 1);
+  assert.equal(snapshot.metrics.lookupDecisionCounts.try_cloud, 1);
   assert.equal(snapshot.metrics.lookupDecisionCounts.try_grounding, 1);
   assert.equal(snapshot.metrics.escalationReasonCounts.strong_local_match, 1);
   assert.equal(
-    snapshot.metrics.escalationReasonCounts.usda_resolved_ambiguity,
+    snapshot.metrics.escalationReasonCounts.cloud_resolved_ambiguity,
     1
   );
   assert.equal(snapshot.metrics.shortCircuitCounts.acceptedLocal, 1);
   assert.equal(snapshot.metrics.shortCircuitCounts.acceptedHistoryReuse, 1);
-  assert.equal(snapshot.metrics.shortCircuitCounts.ambiguityTriggeredUsda, 1);
+  assert.equal(snapshot.metrics.shortCircuitCounts.ambiguityTriggeredCloud, 1);
   assert.equal(snapshot.metrics.shortCircuitCounts.avoidedOnlineStrongLocal, 1);
   assert.equal(snapshot.metrics.confidenceBySource.local.high, 1);
-  assert.equal(snapshot.metrics.confidenceBySource.usda.medium, 1);
+  assert.equal(snapshot.metrics.confidenceBySource.cloud.medium, 1);
   assert.equal(snapshot.metrics.confidenceBySource.ai_web_search.low, 1);
 });
 
@@ -142,7 +142,7 @@ test('records implicit feedback by confidence and message id', async () => {
     eventType: 'query_again_reject',
     messageId: 'assistant-123',
     entryKey: 'assistant-123-1',
-    source: 'usda',
+    source: 'cloud',
     confidence: 'medium',
     category: 'rice meals',
     schemaVersion: '1.0.0',

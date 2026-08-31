@@ -13,7 +13,7 @@ test('getFinalizedSourceBadge returns calm primary badge labels for known source
     label: 'Verified match',
     className: 'bg-accent-green/20 text-accent-green',
   });
-  assert.deepEqual(getFinalizedSourceBadge('usda'), {
+  assert.deepEqual(getFinalizedSourceBadge('cloud'), {
     label: 'Verified match',
     className: 'bg-accent-green/20 text-accent-green',
   });
@@ -70,15 +70,15 @@ test('buildFinalizedEntryCardState prefers reused accepted matches as the one vi
 test('buildFinalizedEntryCardState uses source-based calm badge for verified and estimate states', () => {
   const verified = buildFinalizedEntryCardState({
     entry: { source: 'ai' },
-    lookupMeta: { usedSource: 'usda', matchConfidence: 'medium' },
+    lookupMeta: { usedSource: 'cloud', matchConfidence: 'medium' },
   });
   const estimated = buildFinalizedEntryCardState({
     entry: { source: 'estimate' },
     lookupMeta: {
-      decisionReason: 'usda_better_match',
+      decisionReason: 'cloud_better_match',
       matchConfidence: 'medium',
     },
-    primaryLookupReasonCode: 'usda_search_failed',
+    primaryLookupReasonCode: 'cloud_search_failed',
   });
 
   assert.equal(verified.primaryBadge.label, 'Verified match');

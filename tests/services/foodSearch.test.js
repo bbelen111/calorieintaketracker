@@ -30,8 +30,8 @@ test('searchFoodsLocal returns local results only', async () => {
         calls.push('local');
         return [{ id: 'local_1', name: 'Chicken Breast' }];
       },
-      searchUsda: async () => {
-        calls.push('usda');
+      searchCloud: async () => {
+        calls.push('cloud');
         return { foods: [{ id: 'usda_1', name: 'Chicken Product' }] };
       },
     },
@@ -56,7 +56,7 @@ test('searchFoodsLocal includes pinned foods not present in base local results',
         assert.deepEqual(ids, ['food_honey']);
         return [{ id: 'food_honey', name: 'Honey' }];
       },
-      searchUsda: async () => ({ foods: [] }),
+      searchCloud: async () => ({ foods: [] }),
     },
   });
 
@@ -88,7 +88,7 @@ test('searchFoodsLocal supports offset pagination and skips pinned hydration on 
         calls.push('pinned');
         return [{ id: 'food_honey', name: 'Honey' }];
       },
-      searchUsda: async () => ({ foods: [] }),
+      searchCloud: async () => ({ foods: [] }),
     },
   });
 
@@ -103,19 +103,19 @@ test('searchFoodsLocal supports offset pagination and skips pinned hydration on 
   assert.equal(result.hasMoreLocal, false);
 });
 
-test('searchFoodsOnline uses USDA results', async () => {
+test('searchFoodsOnline uses CLOUD results', async () => {
   const result = await searchFoodsOnline({
     query: 'rare snack',
     dependencies: {
-      searchUsda: async () => ({
+      searchCloud: async () => ({
         foods: [{ id: 'usda_1', name: 'Rare Snack' }],
       }),
     },
   });
 
-  assert.equal(result.source, FOOD_SEARCH_SOURCE.USDA);
+  assert.equal(result.source, FOOD_SEARCH_SOURCE.CLOUD);
   assert.equal(result.fallbackUsed, false);
-  assert.deepEqual(result.sourcesTried, ['usda']);
+  assert.deepEqual(result.sourcesTried, ['cloud']);
   assert.equal(result.results[0].id, 'usda_1');
 });
 
@@ -123,12 +123,12 @@ test('searchFoodsOnline returns empty for short queries', async () => {
   const result = await searchFoodsOnline({
     query: 'a',
     dependencies: {
-      searchUsda: async () => ({ foods: [{ id: 'usda_1' }] }),
+      searchCloud: async () => ({ foods: [{ id: 'usda_1' }] }),
     },
   });
 
   assert.equal(result.results.length, 0);
-  assert.equal(result.source, FOOD_SEARCH_SOURCE.USDA);
+  assert.equal(result.source, FOOD_SEARCH_SOURCE.CLOUD);
   assert.deepEqual(result.sourcesTried, []);
 });
 
@@ -136,15 +136,15 @@ test('searchFoodsOnline records source errors', async () => {
   const result = await searchFoodsOnline({
     query: 'cereal',
     dependencies: {
-      searchUsda: async () => {
-        throw new Error('usda down');
+      searchCloud: async () => {
+        throw new Error('cloud down');
       },
     },
   });
 
   assert.equal(result.results.length, 0);
-  assert.deepEqual(result.sourcesTried, ['usda']);
-  assert.equal(result.errorsBySource[FOOD_SEARCH_SOURCE.USDA], 'usda down');
+  assert.deepEqual(result.sourcesTried, ['cloud']);
+  assert.equal(result.errorsBySource[FOOD_SEARCH_SOURCE.CLOUD], 'cloud down');
 });
 
 test('resolveAiFoodLookup keeps strong local match without online fallback', async () => {
@@ -171,8 +171,8 @@ test('resolveAiFoodLookup keeps strong local match without online fallback', asy
           },
         ];
       },
-      searchUsda: async () => {
-        calls.push('usda');
+      searchCloud: async () => {
+        calls.push('cloud');
         return {
           foods: [
             {
@@ -217,7 +217,7 @@ test('resolveAiFoodLookup prioritizes branded result when query has explicit bra
           per100g: { calories: 112, protein: 1.3, carbs: 26, fats: 0.2 },
         },
       ],
-      searchUsda: async () => ({ foods: [] }),
+      searchCloud: async () => ({ foods: [] }),
     },
   });
 
@@ -246,7 +246,7 @@ test('resolveAiFoodLookup keeps generic result for non-branded query intent', as
           per100g: { calories: 112, protein: 1.3, carbs: 26, fats: 0.2 },
         },
       ],
-      searchUsda: async () => ({ foods: [] }),
+      searchCloud: async () => ({ foods: [] }),
     },
   });
 
@@ -266,7 +266,7 @@ test('resolveAiFoodLookup forwards brand preference hint to local search depende
         receivedPreferBrandMatches.push(preferBrandMatches);
         return [{ id: 'local_1', name: 'Coca Cola Zero', brand: 'Coca Cola' }];
       },
-      searchUsda: async () => ({ foods: [] }),
+      searchCloud: async () => ({ foods: [] }),
     },
   });
 
@@ -293,10 +293,10 @@ test('resolveAiFoodLookup uses online fallback when local match is weak', async 
         }
         return [];
       },
-      searchUsda: async () => ({
+      searchCloud: async () => ({
         foods: [
           {
-            id: 'usda_match',
+            id: 'cloud_match',
             name: 'Cacao Tablet',
             category: 'fats',
             per100g: { calories: 400, protein: 12, carbs: 30, fats: 25 },
@@ -307,7 +307,7 @@ test('resolveAiFoodLookup uses online fallback when local match is weak', async 
   });
 
   assert.equal(result.status, 'resolved');
-  assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.USDA);
+  assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.CLOUD);
   assert.equal(result.matchedFood?.name, 'Cacao Tablet');
   assert.equal(result.queryUsed, 'cacao tablet');
   assert.equal(result.fallbackUsed, true);
@@ -326,10 +326,10 @@ test('resolveAiFoodLookup ranking respects source preference weights', async () 
         per100g: { calories: 19, protein: 0.7, carbs: 3.7, fats: 0.2 },
       },
     ],
-    searchUsda: async () => ({
+    searchCloud: async () => ({
       foods: [
         {
-          id: 'usda_match',
+          id: 'cloud_match',
           name: 'Coconut Water Beverage',
           per100g: { calories: 20, protein: 0.6, carbs: 4, fats: 0.1 },
         },
@@ -343,7 +343,7 @@ test('resolveAiFoodLookup ranking respects source preference weights', async () 
     isOnline: true,
     sourcePreferenceWeights: {
       local: 0.85,
-      usda: 1.15,
+      cloud: 1.15,
       ai_web_search: 1,
       estimate: 1,
     },
@@ -355,8 +355,8 @@ test('resolveAiFoodLookup ranking respects source preference weights', async () 
   assert.equal(result.decisionReason, 'strong_local_match');
 });
 
-test('resolveAiFoodLookup hard-reuses previously accepted match and bypasses USDA', async () => {
-  const usdaCalls = [];
+test('resolveAiFoodLookup hard-reuses previously accepted match and bypasses CLOUD', async () => {
+  const cloudCalls = [];
 
   recordAcceptedAiFoodLookup({
     entry: {
@@ -391,8 +391,8 @@ test('resolveAiFoodLookup hard-reuses previously accepted match and bypasses USD
       searchLocal: async () => {
         throw new Error('local should not run when accepted history matches');
       },
-      searchUsda: async () => {
-        usdaCalls.push('usda');
+      searchCloud: async () => {
+        cloudCalls.push('cloud');
         return { foods: [] };
       },
     },
@@ -402,10 +402,10 @@ test('resolveAiFoodLookup hard-reuses previously accepted match and bypasses USD
   assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.LOCAL);
   assert.equal(result.acceptedFromHistory, true);
   assert.equal(result.decisionReason, 'accepted_history_match');
-  assert.deepEqual(usdaCalls, []);
+  assert.deepEqual(cloudCalls, []);
 });
 
-test('resolveAiFoodLookup accepts a usable local match without USDA', async () => {
+test('resolveAiFoodLookup accepts a usable local match without CLOUD', async () => {
   const calls = [];
 
   const result = await resolveAiFoodLookup({
@@ -427,8 +427,8 @@ test('resolveAiFoodLookup accepts a usable local match without USDA', async () =
           },
         ];
       },
-      searchUsda: async () => {
-        calls.push('usda');
+      searchCloud: async () => {
+        calls.push('cloud');
         return { foods: [] };
       },
     },
@@ -439,7 +439,7 @@ test('resolveAiFoodLookup accepts a usable local match without USDA', async () =
   assert.deepEqual(calls, ['local']);
 });
 
-test('resolveAiFoodLookup escalates ambiguous local candidates to USDA', async () => {
+test('resolveAiFoodLookup escalates ambiguous local candidates to CLOUD', async () => {
   const calls = [];
 
   const result = await resolveAiFoodLookup({
@@ -461,8 +461,8 @@ test('resolveAiFoodLookup escalates ambiguous local candidates to USDA', async (
           },
         ];
       },
-      searchUsda: async () => {
-        calls.push('usda');
+      searchCloud: async () => {
+        calls.push('cloud');
         return {
           foods: [
             {
@@ -476,10 +476,10 @@ test('resolveAiFoodLookup escalates ambiguous local candidates to USDA', async (
     },
   });
 
-  assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.USDA);
-  assert.equal(result.decisionReason, 'usda_resolved_ambiguity');
+  assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.CLOUD);
+  assert.equal(result.decisionReason, 'cloud_resolved_ambiguity');
   assert.equal(result.escalationReason, 'local_ambiguous');
-  assert.deepEqual(calls, ['local', 'usda']);
+  assert.deepEqual(calls, ['local', 'cloud']);
 });
 
 test('resolveAiFoodLookup escalates strong local name match with missing per100g data', async () => {
@@ -493,8 +493,8 @@ test('resolveAiFoodLookup escalates strong local name match with missing per100g
         calls.push('local');
         return [{ id: 'local_1', name: 'Kimchi', per100g: null }];
       },
-      searchUsda: async () => {
-        calls.push('usda');
+      searchCloud: async () => {
+        calls.push('cloud');
         return {
           foods: [
             {
@@ -508,19 +508,19 @@ test('resolveAiFoodLookup escalates strong local name match with missing per100g
     },
   });
 
-  assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.USDA);
-  assert.equal(result.decisionReason, 'usda_completed_missing_macros');
+  assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.CLOUD);
+  assert.equal(result.decisionReason, 'cloud_completed_missing_macros');
   assert.equal(result.escalationReason, 'missing_macros');
-  assert.deepEqual(calls, ['local', 'usda']);
+  assert.deepEqual(calls, ['local', 'cloud']);
 });
 
-test('resolveAiFoodLookup falls back to grounded web lookup when local and USDA miss', async () => {
+test('resolveAiFoodLookup falls back to grounded web lookup when local and CLOUD miss', async () => {
   const result = await resolveAiFoodLookup({
     entryName: 'rare local dessert',
     isOnline: true,
     dependencies: {
       searchLocal: async () => [],
-      searchUsda: async () => ({ foods: [] }),
+      searchCloud: async () => ({ foods: [] }),
       searchGrounded: async () => ({
         name: 'Rare Local Dessert',
         per100g: {
@@ -552,7 +552,7 @@ test('resolveAiFoodLookup can defer grounding when fallback is disabled', async 
     allowGroundingFallback: false,
     dependencies: {
       searchLocal: async () => [],
-      searchUsda: async () => ({ foods: [] }),
+      searchCloud: async () => ({ foods: [] }),
       searchGrounded: async () => ({
         name: 'Rare Local Dessert',
         per100g: {
@@ -580,13 +580,13 @@ test('resolveAiGroundedBatch resolves multiple entries from one batched lookup c
         entryKey: 'assistant-1-0',
         entryName: 'kulolo',
         groundingQuery: 'kulolo',
-        sourcesTried: ['local', 'usda'],
+        sourcesTried: ['local', 'cloud'],
       },
       {
         entryKey: 'assistant-1-1',
         entryName: 'ube halaya',
         groundingQuery: 'ube halaya',
-        sourcesTried: ['local', 'usda'],
+        sourcesTried: ['local', 'cloud'],
       },
     ],
     dependencies: {
@@ -666,7 +666,7 @@ test('resolveAiGroundedBatch forwards timeout from quality options to batch depe
   assert.equal(capturedTimeout, 12345);
 });
 
-test('resolveAiFoodLookup forces grounded fallback when USDA fails with rate limit', async () => {
+test('resolveAiFoodLookup forces grounded fallback when CLOUD fails with rate limit', async () => {
   const result = await resolveAiFoodLookup({
     entryName: 'banana',
     isOnline: true,
@@ -678,7 +678,7 @@ test('resolveAiFoodLookup forces grounded fallback when USDA fails with rate lim
           category: 'carbs',
         },
       ],
-      searchUsda: async () => {
+      searchCloud: async () => {
         const error = new Error('Too many requests');
         error.status = 429;
         throw error;
@@ -703,14 +703,14 @@ test('resolveAiFoodLookup forces grounded fallback when USDA fails with rate lim
   assert.equal(result.fallbackUsed, true);
 });
 
-test('resolveAiFoodLookup forces grounded fallback when USDA fails with transient 404', async () => {
+test('resolveAiFoodLookup forces grounded fallback when CLOUD fails with transient 404', async () => {
   const result = await resolveAiFoodLookup({
     entryName: 'omelette',
     isOnline: true,
     dependencies: {
       searchLocal: async () => [],
-      searchUsda: async () => {
-        const error = new Error('USDA search error: 404');
+      searchCloud: async () => {
+        const error = new Error('CLOUD search error: 404');
         error.status = 404;
         throw error;
       },
@@ -735,15 +735,15 @@ test('resolveAiFoodLookup forces grounded fallback when USDA fails with transien
   assert.equal(result.decision, 'try_grounding');
 });
 
-test('resolveAiFoodLookup forces grounded fallback for transient USDA 409 and 425', async () => {
+test('resolveAiFoodLookup forces grounded fallback for transient CLOUD 409 and 425', async () => {
   for (const status of [409, 425]) {
     const result = await resolveAiFoodLookup({
       entryName: 'fried rice',
       isOnline: true,
       dependencies: {
         searchLocal: async () => [],
-        searchUsda: async () => {
-          const error = new Error(`USDA search error: ${status}`);
+        searchCloud: async () => {
+          const error = new Error(`CLOUD search error: ${status}`);
           error.status = status;
           throw error;
         },
@@ -773,7 +773,7 @@ test('resolveAiFoodLookup classifies grounded safety failures with reason codes'
     isOnline: true,
     dependencies: {
       searchLocal: async () => [],
-      searchUsda: async () => ({ foods: [] }),
+      searchCloud: async () => ({ foods: [] }),
       searchGrounded: async () => {
         throw new Error('Response blocked by safety filters (SAFETY).');
       },
@@ -797,7 +797,7 @@ test('resolveAiFoodLookup classifies grounded network failures with reason codes
     isOnline: true,
     dependencies: {
       searchLocal: async () => [],
-      searchUsda: async () => ({ foods: [] }),
+      searchCloud: async () => ({ foods: [] }),
       searchGrounded: async () => {
         throw new Error('Network error - check your connection');
       },
@@ -825,7 +825,7 @@ test('resolveAiFoodLookup classifies grounded quota exhaustion separately from t
     isOnline: true,
     dependencies: {
       searchLocal: async () => [],
-      searchUsda: async () => ({ foods: [] }),
+      searchCloud: async () => ({ foods: [] }),
       searchGrounded: async () => {
         throw quotaError;
       },
@@ -841,11 +841,11 @@ test('resolveAiFoodLookup classifies grounded quota exhaustion separately from t
 
 test('resolveAiFoodLookup uses session cache for repeated normalized queries', async () => {
   let localCalls = 0;
-  let usdaCalls = 0;
+  let cloudCalls = 0;
 
   const sourcePreferenceWeights = {
     local: 1,
-    usda: 1,
+    cloud: 1,
     ai_web_search: 1,
     estimate: 1,
   };
@@ -855,9 +855,9 @@ test('resolveAiFoodLookup uses session cache for repeated normalized queries', a
       localCalls += 1;
       return [{ id: 'local_egg', name: 'Egg, whole, cooked' }];
     },
-    searchUsda: async () => {
-      usdaCalls += 1;
-      return { foods: [{ id: 'usda_egg', name: 'Egg Whole' }] };
+    searchCloud: async () => {
+      cloudCalls += 1;
+      return { foods: [{ id: 'cloud_egg', name: 'Egg Whole' }] };
     },
   };
 
@@ -870,7 +870,7 @@ test('resolveAiFoodLookup uses session cache for repeated normalized queries', a
   });
 
   const localCallsAfterFirst = localCalls;
-  const usdaCallsAfterFirst = usdaCalls;
+  const cloudCallsAfterFirst = cloudCalls;
 
   const secondResult = await resolveAiFoodLookup({
     entryName: 'Egg whole',
@@ -881,7 +881,7 @@ test('resolveAiFoodLookup uses session cache for repeated normalized queries', a
   });
 
   assert.equal(localCalls, localCallsAfterFirst);
-  assert.equal(usdaCalls, usdaCallsAfterFirst);
+  assert.equal(cloudCalls, cloudCallsAfterFirst);
   assert.equal(firstResult.usedSource, secondResult.usedSource);
   assert.equal(firstResult.matchConfidence, secondResult.matchConfidence);
   assert.equal(firstResult.weightedMatchScore, secondResult.weightedMatchScore);
@@ -895,7 +895,7 @@ test('resolveAiFoodLookup session cache evicts oldest entries beyond max size', 
       localCalls += 1;
       return [{ id: `local_${query}`, name: String(query) }];
     },
-    searchUsda: async () => ({ foods: [] }),
+    searchCloud: async () => ({ foods: [] }),
   };
 
   for (let index = 0; index < 201; index += 1) {
@@ -923,7 +923,7 @@ test('resolveAiFoodLookup maps grounded confidence to differentiated score', asy
     isOnline: true,
     dependencies: {
       searchLocal: async () => [],
-      searchUsda: async () => ({ foods: [] }),
+      searchCloud: async () => ({ foods: [] }),
       searchGrounded: async () => ({
         name: 'Rare Local Dessert',
         per100g: {
@@ -964,8 +964,8 @@ test('resolveAiFoodLookup does not force grounding when later term has strong ma
                 per100g: { calories: 300, protein: 0, carbs: 75, fats: 0 },
               },
             ],
-      searchUsda: async () => {
-        const err = new Error('USDA transient failure');
+      searchCloud: async () => {
+        const err = new Error('CLOUD transient failure');
         err.status = 503;
         throw err;
       },
@@ -987,8 +987,8 @@ test('resolveAiFoodLookup does not force grounding when later term has strong ma
   assert.equal(result.matchedFood?.name, 'Term Two');
 });
 
-test('resolveAiFoodLookup does not call USDA when local match is already strong', async () => {
-  let usdaCalls = 0;
+test('resolveAiFoodLookup does not call CLOUD when local match is already strong', async () => {
+  let cloudCalls = 0;
 
   const result = await resolveAiFoodLookup({
     entryName: 'banana',
@@ -1001,8 +1001,8 @@ test('resolveAiFoodLookup does not call USDA when local match is already strong'
           per100g: { calories: 89, protein: 1.1, carbs: 23, fats: 0.3 },
         },
       ],
-      searchUsda: async () => {
-        usdaCalls += 1;
+      searchCloud: async () => {
+        cloudCalls += 1;
         return { foods: [] };
       },
     },
@@ -1010,7 +1010,7 @@ test('resolveAiFoodLookup does not call USDA when local match is already strong'
 
   assert.equal(result.status, 'resolved');
   assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.LOCAL);
-  assert.equal(usdaCalls, 0);
+  assert.equal(cloudCalls, 0);
 });
 
 test('resolveAiFoodEntry uses lookup per100g when resolved metadata is provided', async () => {
@@ -1088,7 +1088,7 @@ test('resolveAiFoodEntry scales lookup per100g micros into the verified entry', 
     lookupMeta: {
       status: 'resolved',
       matchConfidence: 'high',
-      usedSource: FOOD_SEARCH_SOURCE.USDA,
+      usedSource: FOOD_SEARCH_SOURCE.CLOUD,
       weightedMatchScore: 0.95,
       matchedFood: {
         per100g: {
@@ -1136,7 +1136,10 @@ test('resolveAiFoodEntry derives micros per100g when no lookup match exists', as
   assert.equal(verifiedEntry.sodium, 80);
   assert.equal(verifiedEntry.saturatedFats, 0.3);
   assert.equal(verifiedEntry.sugars, 1);
-  assert.equal(verifiedEntry.microNutrientsSource, 'derived_from_entry_nutrients');
+  assert.equal(
+    verifiedEntry.microNutrientsSource,
+    'derived_from_entry_nutrients'
+  );
 });
 
 test('resolveAiFoodEntry keeps micros untracked when neither lookup nor entry provides them', async () => {
@@ -1243,7 +1246,7 @@ test('searchFoodsHierarchically local wrapper maps to local-only behavior', asyn
       query: 'oats',
       dependencies: {
         searchLocal: async () => [{ id: 'oats_1', name: 'Rolled Oats' }],
-        searchUsda: async () => ({
+        searchCloud: async () => ({
           foods: [{ id: 'usda_1', name: 'Oats Product' }],
         }),
       },

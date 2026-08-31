@@ -26,7 +26,7 @@ test('resolveFoodSourceType maps cached sources consistently', () => {
 
 test('resolveFoodSourceType does not treat online preview source as cached', () => {
   assert.equal(
-    resolveFoodSourceType({ source: 'usda' }),
+    resolveFoodSourceType({ source: 'cloud' }),
     FOOD_SOURCE_TYPES.LOCAL
   );
   assert.equal(

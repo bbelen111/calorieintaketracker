@@ -14,7 +14,7 @@ const resolveOnlineSourceBadge = (source) => {
     .toLowerCase()
     .trim();
 
-  if (normalizedSource === 'usda') {
+  if (normalizedSource === 'cloud') {
     return {
       label: 'Online database',
       className: 'bg-accent-blue/20 text-accent-blue',
@@ -93,7 +93,7 @@ export const FoodSearchResultsPanel = ({
       <div className="bg-accent-blue/10 border border-accent-blue/30 rounded-lg p-3">
         <p className="text-accent-blue text-xs font-medium">
           Showing{' '}
-          {activeSearchSource === 'usda'
+          {activeSearchSource === 'cloud'
             ? 'Online database'
             : activeSearchSource === 'openfoodfacts'
               ? 'OpenFoodFacts'

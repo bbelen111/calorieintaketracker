@@ -1189,7 +1189,7 @@ export const getDefaultEnergyMapData = () => ({
   pinnedCalorieTargets: [],
   pinnedCardioTypes: [],
   pinnedTrainingTypes: [],
-  cachedFoods: [], // Foods fetched from online APIs (USDA, OpenFoodFacts barcode, etc.)
+  cachedFoods: [], // Foods fetched from the online catalog (food cloud, OpenFoodFacts barcode, etc.)
   dailySnapshots: {}, // { 'YYYY-MM-DD': { date, tdee, intake, deficit, stepCount, ... } }
   dailyNeatOverrides: {}, // { 'YYYY-MM-DD': { multiplier, presetKey, label, updatedAt } }
   // nutritionData structure: { 'YYYY-MM-DD': { mealType: [{ id, name, calories, protein, carbs, fats, timestamp }] } }

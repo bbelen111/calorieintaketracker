@@ -23,7 +23,7 @@ const getLookupStatusLabel = (lookupMeta) => {
     case 'strong_local_match':
     case 'dominant_local_match':
       return 'Accepted local database match';
-    case 'local_retained_after_usda':
+    case 'local_retained_after_cloud':
       return 'Kept local match after online check';
     case 'local_ambiguous':
       return 'Checking online due to local ambiguity';
@@ -33,11 +33,11 @@ const getLookupStatusLabel = (lookupMeta) => {
       return 'Checking online for branded match';
     case 'grounding_required':
       return 'Searching online for a better match';
-    case 'usda_resolved_ambiguity':
+    case 'cloud_resolved_ambiguity':
       return 'Resolved with online database';
-    case 'usda_completed_missing_macros':
+    case 'cloud_completed_missing_macros':
       return 'Completed with online nutrition data';
-    case 'usda_better_match':
+    case 'cloud_better_match':
       return 'Found a better online database match';
     default:
       break;
@@ -103,7 +103,7 @@ export const FoodSearchEntryCard = ({
   const lookupReasonBySource = lookupMeta?.errorReasonsBySource || {};
   const prioritizedLookupReasonCode =
     lookupReasonBySource?.ai_web_search ||
-    lookupReasonBySource?.usda ||
+    lookupReasonBySource?.cloud ||
     lookupReasonBySource?.local ||
     null;
   const primaryLookupReasonCode =

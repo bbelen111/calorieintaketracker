@@ -30,14 +30,14 @@ const createEmptySnapshot = () => ({
   },
   retrievalSourceHits: {
     local: 0,
-    usda: 0,
+    cloud: 0,
     ai_web_search: 0,
     estimate: 0,
   },
   groundedFallbackCount: 0,
   lookupDecisionCounts: {
     accept_local: 0,
-    try_usda: 0,
+    try_cloud: 0,
     try_grounding: 0,
     no_match: 0,
   },
@@ -45,28 +45,28 @@ const createEmptySnapshot = () => ({
     accepted_history_match: 0,
     strong_local_match: 0,
     dominant_local_match: 0,
-    local_retained_after_usda: 0,
-    usda_resolved_ambiguity: 0,
-    usda_completed_missing_macros: 0,
-    usda_better_match: 0,
+    local_retained_after_cloud: 0,
+    cloud_resolved_ambiguity: 0,
+    cloud_completed_missing_macros: 0,
+    cloud_better_match: 0,
     local_ambiguous: 0,
     missing_macros: 0,
     brand_mismatch: 0,
     weak_local_match: 0,
     no_close_match: 0,
-    usda_no_better_match: 0,
-    usda_no_close_match: 0,
+    cloud_no_better_match: 0,
+    cloud_no_close_match: 0,
     grounding_required: 0,
   },
   shortCircuitCounts: {
     acceptedLocal: 0,
     acceptedHistoryReuse: 0,
-    ambiguityTriggeredUsda: 0,
+    ambiguityTriggeredCloud: 0,
     avoidedOnlineStrongLocal: 0,
   },
   confidenceBySource: {
     local: { high: 0, medium: 0, low: 0 },
-    usda: { high: 0, medium: 0, low: 0 },
+    cloud: { high: 0, medium: 0, low: 0 },
     ai_web_search: { high: 0, medium: 0, low: 0 },
     estimate: { high: 0, medium: 0, low: 0 },
   },
@@ -131,7 +131,7 @@ const normalizeSource = (value) => {
     .toLowerCase();
   if (
     normalized === 'local' ||
-    normalized === 'usda' ||
+    normalized === 'cloud' ||
     normalized === 'ai_web_search' ||
     normalized === 'estimate'
   ) {
@@ -160,7 +160,7 @@ const normalizeLookupDecision = (value) => {
     .toLowerCase();
   if (
     normalized === 'accept_local' ||
-    normalized === 'try_usda' ||
+    normalized === 'try_cloud' ||
     normalized === 'try_grounding' ||
     normalized === 'no_match'
   ) {
@@ -307,7 +307,7 @@ const applyLookupContext = (targetMetrics, lookupContext = {}) => {
       meta?.escalationAttempted &&
       normalizeDecisionReason(meta?.escalationReason) === 'local_ambiguous'
     ) {
-      targetMetrics.shortCircuitCounts.ambiguityTriggeredUsda += 1;
+      targetMetrics.shortCircuitCounts.ambiguityTriggeredCloud += 1;
     }
     if (
       decision === 'accept_local' &&
@@ -365,8 +365,7 @@ const applyPresentationIssues = (
     issues.lengthMismatch += 1;
   }
   issues.sparseEntries += Math.max(0, Number(sparseEntryCount) || 0);
-  issues.suppressedRewrites +=
-    Math.max(0, Number(suppressedRewriteCount) || 0);
+  issues.suppressedRewrites += Math.max(0, Number(suppressedRewriteCount) || 0);
   issues.integrityIssues += Math.max(0, Number(integrityIssueCount) || 0);
   if (presentationFailed) {
     issues.presentationFailures += 1;
@@ -405,7 +404,7 @@ const getCategorySourceBucket = (targetMetrics, category, source) => {
       normalizedCategory
     ] = {
       local: { accepted: 0, rejected: 0 },
-      usda: { accepted: 0, rejected: 0 },
+      cloud: { accepted: 0, rejected: 0 },
       ai_web_search: { accepted: 0, rejected: 0 },
       estimate: { accepted: 0, rejected: 0 },
     };
@@ -755,7 +754,7 @@ export const getRagSourcePreferenceWeightsForCategory = async (
   const categoryBucket = aggregateState.implicitFeedback
     .sourceValidationByCategory[normalizedCategory] || {
     local: { accepted: 0, rejected: 0 },
-    usda: { accepted: 0, rejected: 0 },
+    cloud: { accepted: 0, rejected: 0 },
     ai_web_search: { accepted: 0, rejected: 0 },
     estimate: { accepted: 0, rejected: 0 },
   };
@@ -770,7 +769,7 @@ export const getRagSourcePreferenceWeightsForCategory = async (
 
   return {
     local: resolveWeight(categoryBucket.local),
-    usda: resolveWeight(categoryBucket.usda),
+    cloud: resolveWeight(categoryBucket.cloud),
     ai_web_search: resolveWeight(categoryBucket.ai_web_search),
     estimate: resolveWeight(categoryBucket.estimate),
   };

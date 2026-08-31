@@ -8,13 +8,13 @@ import { getRagSourcePreferenceWeightsForCategory } from './ragTelemetry.js';
 
 export const FOOD_SEARCH_SOURCE = Object.freeze({
   LOCAL: 'local',
-  USDA: 'usda',
+  CLOUD: 'cloud',
   AI_WEB_SEARCH: 'ai_web_search',
 });
 
 export const FOOD_SEARCH_SOURCE_LABELS = Object.freeze({
   [FOOD_SEARCH_SOURCE.LOCAL]: 'Local',
-  [FOOD_SEARCH_SOURCE.USDA]: 'Online database',
+  [FOOD_SEARCH_SOURCE.CLOUD]: 'Online database',
   [FOOD_SEARCH_SOURCE.AI_WEB_SEARCH]: 'Web',
 });
 
@@ -68,15 +68,15 @@ const BRAND_INTENT_TOKEN_HINTS = new Set([
 
 const SOURCE_TRUST_MULTIPLIER = Object.freeze({
   [FOOD_SEARCH_SOURCE.LOCAL]: 1,
-  [FOOD_SEARCH_SOURCE.USDA]: 0.98,
+  [FOOD_SEARCH_SOURCE.CLOUD]: 0.98,
   [FOOD_SEARCH_SOURCE.AI_WEB_SEARCH]: 0.75,
   estimate: 0.55,
 });
 
 const SOURCE_ERROR_REASON = Object.freeze({
   LOCAL_SEARCH_FAILED: FOOD_LOOKUP_ERROR_REASON_CODES.local_search_failed,
-  USDA_SEARCH_FAILED: FOOD_LOOKUP_ERROR_REASON_CODES.usda_search_failed,
-  USDA_SEARCH_ABORTED: FOOD_LOOKUP_ERROR_REASON_CODES.usda_search_aborted,
+  CLOUD_SEARCH_FAILED: FOOD_LOOKUP_ERROR_REASON_CODES.cloud_search_failed,
+  CLOUD_SEARCH_ABORTED: FOOD_LOOKUP_ERROR_REASON_CODES.cloud_search_aborted,
   GROUNDING_NETWORK_ERROR:
     FOOD_LOOKUP_ERROR_REASON_CODES.grounding_network_error,
   GROUNDING_RATE_LIMIT: FOOD_LOOKUP_ERROR_REASON_CODES.grounding_rate_limit,
@@ -97,7 +97,7 @@ const ACCEPTED_AI_LOOKUP_REUSE_CACHE_MAX_ENTRIES = 300;
 
 const LOOKUP_DECISION = Object.freeze({
   ACCEPT_LOCAL: 'accept_local',
-  TRY_USDA: 'try_usda',
+  TRY_CLOUD: 'try_cloud',
   TRY_GROUNDING: 'try_grounding',
   NO_MATCH: 'no_match',
 });
@@ -106,17 +106,17 @@ const LOOKUP_DECISION_REASON = Object.freeze({
   ACCEPTED_HISTORY_MATCH: 'accepted_history_match',
   STRONG_LOCAL_MATCH: 'strong_local_match',
   DOMINANT_LOCAL_MATCH: 'dominant_local_match',
-  LOCAL_RETAINED_AFTER_USDA: 'local_retained_after_usda',
-  USDA_RESOLVED_AMBIGUITY: 'usda_resolved_ambiguity',
-  USDA_COMPLETED_MISSING_MACROS: 'usda_completed_missing_macros',
-  USDA_BETTER_MATCH: 'usda_better_match',
+  LOCAL_RETAINED_AFTER_CLOUD: 'local_retained_after_cloud',
+  CLOUD_RESOLVED_AMBIGUITY: 'cloud_resolved_ambiguity',
+  CLOUD_COMPLETED_MISSING_MACROS: 'cloud_completed_missing_macros',
+  CLOUD_BETTER_MATCH: 'cloud_better_match',
   LOCAL_AMBIGUOUS: 'local_ambiguous',
   MISSING_MACROS: 'missing_macros',
   BRAND_MISMATCH: 'brand_mismatch',
   WEAK_LOCAL_MATCH: 'weak_local_match',
   NO_CLOSE_MATCH: 'no_close_match',
-  USDA_NO_BETTER_MATCH: 'usda_no_better_match',
-  USDA_NO_CLOSE_MATCH: 'usda_no_close_match',
+  CLOUD_NO_BETTER_MATCH: 'cloud_no_better_match',
+  CLOUD_NO_CLOSE_MATCH: 'cloud_no_close_match',
   GROUNDING_REQUIRED: 'grounding_required',
 });
 
@@ -426,7 +426,7 @@ const buildAiLookupCacheKey = ({
     sourcePreferenceWeights && typeof sourcePreferenceWeights === 'object'
       ? [
           FOOD_SEARCH_SOURCE.LOCAL,
-          FOOD_SEARCH_SOURCE.USDA,
+          FOOD_SEARCH_SOURCE.CLOUD,
           FOOD_SEARCH_SOURCE.AI_WEB_SEARCH,
           'estimate',
         ]
@@ -681,7 +681,7 @@ const resolveLocalDecision = ({
 
   if (!bestLocal) {
     return buildLookupDecisionMeta({
-      decision: LOOKUP_DECISION.TRY_USDA,
+      decision: LOOKUP_DECISION.TRY_CLOUD,
       decisionReason: LOOKUP_DECISION_REASON.NO_CLOSE_MATCH,
       escalationReason: LOOKUP_DECISION_REASON.NO_CLOSE_MATCH,
     });
@@ -689,7 +689,7 @@ const resolveLocalDecision = ({
 
   if (!bestLocal.hasUsableData) {
     return buildLookupDecisionMeta({
-      decision: LOOKUP_DECISION.TRY_USDA,
+      decision: LOOKUP_DECISION.TRY_CLOUD,
       decisionReason: LOOKUP_DECISION_REASON.MISSING_MACROS,
       dataQuality: bestLocal.dataQuality,
       escalationReason: LOOKUP_DECISION_REASON.MISSING_MACROS,
@@ -713,7 +713,7 @@ const resolveLocalDecision = ({
     bestLocal.score < LOCAL_ACCEPTANCE_POLICY.strongScore
   ) {
     return buildLookupDecisionMeta({
-      decision: LOOKUP_DECISION.TRY_USDA,
+      decision: LOOKUP_DECISION.TRY_CLOUD,
       decisionReason: LOOKUP_DECISION_REASON.BRAND_MISMATCH,
       dataQuality: bestLocal.dataQuality,
       escalationReason: LOOKUP_DECISION_REASON.BRAND_MISMATCH,
@@ -722,7 +722,7 @@ const resolveLocalDecision = ({
 
   if (ambiguous) {
     return buildLookupDecisionMeta({
-      decision: LOOKUP_DECISION.TRY_USDA,
+      decision: LOOKUP_DECISION.TRY_CLOUD,
       decisionReason: LOOKUP_DECISION_REASON.LOCAL_AMBIGUOUS,
       dataQuality: bestLocal.dataQuality,
       escalationReason: LOOKUP_DECISION_REASON.LOCAL_AMBIGUOUS,
@@ -750,7 +750,7 @@ const resolveLocalDecision = ({
 
   if (bestLocal.score >= LOCAL_ACCEPTANCE_POLICY.weakScore) {
     return buildLookupDecisionMeta({
-      decision: LOOKUP_DECISION.TRY_USDA,
+      decision: LOOKUP_DECISION.TRY_CLOUD,
       decisionReason: LOOKUP_DECISION_REASON.WEAK_LOCAL_MATCH,
       dataQuality: bestLocal.dataQuality,
       escalationReason: LOOKUP_DECISION_REASON.WEAK_LOCAL_MATCH,
@@ -758,7 +758,7 @@ const resolveLocalDecision = ({
   }
 
   return buildLookupDecisionMeta({
-    decision: LOOKUP_DECISION.TRY_USDA,
+    decision: LOOKUP_DECISION.TRY_CLOUD,
     decisionReason: LOOKUP_DECISION_REASON.NO_CLOSE_MATCH,
     dataQuality: bestLocal.dataQuality,
     escalationReason: LOOKUP_DECISION_REASON.NO_CLOSE_MATCH,
@@ -901,7 +901,7 @@ const toErrorMessage = (error, fallbackMessage) => {
   return message || fallbackMessage;
 };
 
-const shouldForceGroundingFallbackFromUsdaError = (error) => {
+const shouldForceGroundingFallbackFromCloudError = (error) => {
   const statusCode = Number(error?.status);
   const message = String(error?.message || '')
     .toLowerCase()
@@ -1011,7 +1011,8 @@ const loadSearchLocal = async () =>
   (await import('./foodCatalog.js')).searchFoods;
 const loadGetFoodsByIds = async () =>
   (await import('./foodCatalog.js')).getFoodsByIds;
-const loadSearchUsda = async () => (await import('./foodCloud.js')).searchFoods;
+const loadSearchCloud = async () =>
+  (await import('./foodCloud.js')).searchFoods;
 const loadGroundedMacroLookup = async () =>
   (await import('./openrouter.js')).fetchMacrosWithGrounding;
 const loadGroundedMacroLookupBatch = async () =>
@@ -1124,35 +1125,37 @@ const searchOnlineHierarchy = async ({
   const errorsBySource = {};
   const errorReasonsBySource = {};
 
-  sourcesTried.push(FOOD_SEARCH_SOURCE.USDA);
+  sourcesTried.push(FOOD_SEARCH_SOURCE.CLOUD);
   try {
-    const usdaResult = await dependencies.searchUsda(query, {
+    const cloudResult = await dependencies.searchCloud(query, {
       page,
       pageSize,
     });
-    const usdaFoods = Array.isArray(usdaResult?.foods) ? usdaResult.foods : [];
+    const cloudFoods = Array.isArray(cloudResult?.foods)
+      ? cloudResult.foods
+      : [];
 
-    if (usdaFoods.length > 0) {
+    if (cloudFoods.length > 0) {
       return {
-        results: usdaFoods,
-        source: FOOD_SEARCH_SOURCE.USDA,
+        results: cloudFoods,
+        source: FOOD_SEARCH_SOURCE.CLOUD,
         sourcesTried,
         errorsBySource,
         errorReasonsBySource,
       };
     }
   } catch (error) {
-    errorsBySource[FOOD_SEARCH_SOURCE.USDA] = toErrorMessage(
+    errorsBySource[FOOD_SEARCH_SOURCE.CLOUD] = toErrorMessage(
       error,
       'Online database search failed.'
     );
-    errorReasonsBySource[FOOD_SEARCH_SOURCE.USDA] =
-      SOURCE_ERROR_REASON.USDA_SEARCH_FAILED;
+    errorReasonsBySource[FOOD_SEARCH_SOURCE.CLOUD] =
+      SOURCE_ERROR_REASON.CLOUD_SEARCH_FAILED;
   }
 
   return {
     results: [],
-    source: FOOD_SEARCH_SOURCE.USDA,
+    source: FOOD_SEARCH_SOURCE.CLOUD,
     sourcesTried,
     errorsBySource,
     errorReasonsBySource,
@@ -1169,8 +1172,8 @@ const loadDependencies = async ({
   const resolvedSearchLocal = includeLocal
     ? dependencies.searchLocal || (await loadSearchLocal())
     : dependencies.searchLocal;
-  const resolvedSearchUsda =
-    dependencies.searchUsda || (await loadSearchUsda());
+  const resolvedSearchCloud =
+    dependencies.searchCloud || (await loadSearchCloud());
   const resolvedGetFoodsByIds =
     includeLocal && includeGetFoodsByIds
       ? dependencies.getFoodsByIds || (await loadGetFoodsByIds())
@@ -1184,7 +1187,7 @@ const loadDependencies = async ({
 
   return {
     searchLocal: resolvedSearchLocal,
-    searchUsda: resolvedSearchUsda,
+    searchCloud: resolvedSearchCloud,
     getFoodsByIds: resolvedGetFoodsByIds,
     searchGrounded: resolvedGroundedLookup,
     searchGroundedBatch: resolvedGroundedLookupBatch,
@@ -1282,7 +1285,7 @@ export const searchFoodsOnline = async ({
   if (!normalizedQuery || normalizedQuery.length < ONLINE_QUERY_MIN_LENGTH) {
     return {
       ...buildDefaultResult(),
-      source: FOOD_SEARCH_SOURCE.USDA,
+      source: FOOD_SEARCH_SOURCE.CLOUD,
     };
   }
 
@@ -1567,56 +1570,57 @@ export const resolveAiFoodLookup = async ({
     return cloneLookupResult(offlineResult);
   }
 
-  const usdaCandidateGroups = [];
-  if (!sourcesTried.includes(FOOD_SEARCH_SOURCE.USDA)) {
-    sourcesTried.push(FOOD_SEARCH_SOURCE.USDA);
+  const cloudCandidateGroups = [];
+  if (!sourcesTried.includes(FOOD_SEARCH_SOURCE.CLOUD)) {
+    sourcesTried.push(FOOD_SEARCH_SOURCE.CLOUD);
   }
 
   for (const term of terms) {
     try {
-      const usdaResult = await resolvedDependencies.searchUsda(term, {
+      const cloudResult = await resolvedDependencies.searchCloud(term, {
         page: 1,
         pageSize: resolvedOnlinePageSize,
       });
-      const usdaFoods = Array.isArray(usdaResult?.foods)
-        ? usdaResult.foods
+      const cloudFoods = Array.isArray(cloudResult?.foods)
+        ? cloudResult.foods
         : [];
-      usdaCandidateGroups.push(
+      cloudCandidateGroups.push(
         collectTopCandidates({
           query: term,
-          foods: usdaFoods,
-          source: FOOD_SEARCH_SOURCE.USDA,
+          foods: cloudFoods,
+          source: FOOD_SEARCH_SOURCE.CLOUD,
           preferBrandMatches,
           sourcePreferenceWeights: effectiveSourcePreferenceWeights,
         }).slice(0, 3)
       );
     } catch (error) {
-      if (shouldForceGroundingFallbackFromUsdaError(error)) {
+      if (shouldForceGroundingFallbackFromCloudError(error)) {
         shouldForceGroundingFallback = true;
       }
-      errorsBySource[FOOD_SEARCH_SOURCE.USDA] = toErrorMessage(
+      errorsBySource[FOOD_SEARCH_SOURCE.CLOUD] = toErrorMessage(
         error,
         'Online database search failed.'
       );
-      errorReasonsBySource[FOOD_SEARCH_SOURCE.USDA] =
-        SOURCE_ERROR_REASON.USDA_SEARCH_FAILED;
+      errorReasonsBySource[FOOD_SEARCH_SOURCE.CLOUD] =
+        SOURCE_ERROR_REASON.CLOUD_SEARCH_FAILED;
     }
   }
 
-  const { best: bestUsdaCandidate } =
-    pickTopCandidateAcrossTerms(usdaCandidateGroups);
+  const { best: bestCloudCandidate } =
+    pickTopCandidateAcrossTerms(cloudCandidateGroups);
 
-  const canAcceptUsda =
-    bestUsdaCandidate &&
-    bestUsdaCandidate.hasUsableData &&
-    bestUsdaCandidate.score >= LOCAL_ACCEPTANCE_POLICY.weakScore;
-  const canRetainLocalAfterUsda =
+  const canAcceptCloud =
+    bestCloudCandidate &&
+    bestCloudCandidate.hasUsableData &&
+    bestCloudCandidate.score >= LOCAL_ACCEPTANCE_POLICY.weakScore;
+  const canRetainLocalAfterCloud =
     bestLocalCandidate &&
     bestLocalCandidate.hasUsableData &&
     bestLocalCandidate.score >= LOCAL_ACCEPTANCE_POLICY.dominantScore &&
-    (!bestUsdaCandidate || bestLocalCandidate.score >= bestUsdaCandidate.score);
+    (!bestCloudCandidate ||
+      bestLocalCandidate.score >= bestCloudCandidate.score);
 
-  if (canRetainLocalAfterUsda) {
+  if (canRetainLocalAfterCloud) {
     const retainedLocalResult = buildResolvedLookupResult({
       candidate: bestLocalCandidate,
       sourcesTried,
@@ -1626,7 +1630,7 @@ export const resolveAiFoodLookup = async ({
       sourcePreferenceWeights: effectiveSourcePreferenceWeights,
       decisionMeta: buildLookupDecisionMeta({
         decision: LOOKUP_DECISION.ACCEPT_LOCAL,
-        decisionReason: LOOKUP_DECISION_REASON.LOCAL_RETAINED_AFTER_USDA,
+        decisionReason: LOOKUP_DECISION_REASON.LOCAL_RETAINED_AFTER_CLOUD,
         dataQuality: bestLocalCandidate.dataQuality,
         escalationAttempted: true,
         escalationReason:
@@ -1637,39 +1641,39 @@ export const resolveAiFoodLookup = async ({
     return cloneLookupResult(retainedLocalResult);
   }
 
-  if (canAcceptUsda) {
-    const usdaDecisionReason =
+  if (canAcceptCloud) {
+    const cloudDecisionReason =
       localDecision.decisionReason === LOOKUP_DECISION_REASON.LOCAL_AMBIGUOUS
-        ? LOOKUP_DECISION_REASON.USDA_RESOLVED_AMBIGUITY
+        ? LOOKUP_DECISION_REASON.CLOUD_RESOLVED_AMBIGUITY
         : localDecision.decisionReason === LOOKUP_DECISION_REASON.MISSING_MACROS
-          ? LOOKUP_DECISION_REASON.USDA_COMPLETED_MISSING_MACROS
-          : LOOKUP_DECISION_REASON.USDA_BETTER_MATCH;
+          ? LOOKUP_DECISION_REASON.CLOUD_COMPLETED_MISSING_MACROS
+          : LOOKUP_DECISION_REASON.CLOUD_BETTER_MATCH;
 
-    const usdaResult = buildResolvedLookupResult({
-      candidate: bestUsdaCandidate,
+    const cloudResult = buildResolvedLookupResult({
+      candidate: bestCloudCandidate,
       sourcesTried,
       errorsBySource,
       errorReasonsBySource,
       fallbackUsed: true,
       sourcePreferenceWeights: effectiveSourcePreferenceWeights,
       decisionMeta: buildLookupDecisionMeta({
-        decision: LOOKUP_DECISION.TRY_USDA,
-        decisionReason: usdaDecisionReason,
-        dataQuality: bestUsdaCandidate.dataQuality,
+        decision: LOOKUP_DECISION.TRY_CLOUD,
+        decisionReason: cloudDecisionReason,
+        dataQuality: bestCloudCandidate.dataQuality,
         escalationAttempted: true,
         escalationReason:
           localDecision.escalationReason || localDecision.decisionReason,
       }),
     });
-    setAiLookupSessionCacheValue(cacheKey, usdaResult);
-    return cloneLookupResult(usdaResult);
+    setAiLookupSessionCacheValue(cacheKey, cloudResult);
+    return cloneLookupResult(cloudResult);
   }
 
   const shouldUseGrounding =
     shouldForceGroundingFallback ||
-    !bestUsdaCandidate ||
-    !bestUsdaCandidate.hasUsableData ||
-    bestUsdaCandidate.score < LOCAL_ACCEPTANCE_POLICY.weakScore;
+    !bestCloudCandidate ||
+    !bestCloudCandidate.hasUsableData ||
+    bestCloudCandidate.score < LOCAL_ACCEPTANCE_POLICY.weakScore;
 
   if (
     shouldUseGrounding &&
@@ -1746,7 +1750,7 @@ export const resolveAiFoodLookup = async ({
 
   if (shouldUseGrounding && !shouldAllowGroundingFallback) {
     const groundingReferenceCandidate =
-      bestUsdaCandidate || bestLocalCandidate || null;
+      bestCloudCandidate || bestLocalCandidate || null;
     const needsGroundingConfidence = resolveWeightedConfidence({
       score: Number(
         groundingReferenceCandidate?.score || LOCAL_ACCEPTANCE_POLICY.weakScore
@@ -1795,7 +1799,7 @@ export const resolveAiFoodLookup = async ({
     return cloneLookupResult(deferredGroundingResult);
   }
 
-  const noMatchReferenceCandidate = bestUsdaCandidate || bestLocalCandidate;
+  const noMatchReferenceCandidate = bestCloudCandidate || bestLocalCandidate;
   const lowConfidence = resolveWeightedConfidence({
     score: Number(noMatchReferenceCandidate?.score || 0),
     source: noMatchReferenceCandidate?.source || FOOD_SEARCH_SOURCE.LOCAL,
@@ -1823,8 +1827,8 @@ export const resolveAiFoodLookup = async ({
     ...buildLookupDecisionMeta({
       decision: LOOKUP_DECISION.NO_MATCH,
       decisionReason: shouldUseGrounding
-        ? LOOKUP_DECISION_REASON.USDA_NO_CLOSE_MATCH
-        : LOOKUP_DECISION_REASON.USDA_NO_BETTER_MATCH,
+        ? LOOKUP_DECISION_REASON.CLOUD_NO_CLOSE_MATCH
+        : LOOKUP_DECISION_REASON.CLOUD_NO_BETTER_MATCH,
       dataQuality:
         noMatchReferenceCandidate?.dataQuality || LOOKUP_DATA_QUALITY.MISSING,
       escalationAttempted: true,
@@ -1986,7 +1990,7 @@ export const resolveAiGroundedBatch = async ({
       },
       ...buildLookupDecisionMeta({
         decision: LOOKUP_DECISION.NO_MATCH,
-        decisionReason: LOOKUP_DECISION_REASON.USDA_NO_CLOSE_MATCH,
+        decisionReason: LOOKUP_DECISION_REASON.CLOUD_NO_CLOSE_MATCH,
         dataQuality: LOOKUP_DATA_QUALITY.MISSING,
         escalationAttempted: true,
         escalationReason: LOOKUP_DECISION_REASON.GROUNDING_REQUIRED,

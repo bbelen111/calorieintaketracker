@@ -960,7 +960,7 @@ const food = await searchBarcode('012345678901');
 
 Results are cached in `userData.cachedFoods` to reduce repeated network requests.
 
-**Rename scope:** the online path is branded "online database / food cloud" across the user surface and API contract (`/api/foods`, `VITE_FOODS_API_BASE`, `services/foodCloud.js`, `api/foodRows.js`). The persisted `usda_<fdcId>` food-id prefix is kept on purpose (it denotes USDA FDC data provenance and backs stored favourites/pins). Internal RAG registry tokens (`usda_search_failed`, `try_usda`, `FOOD_SEARCH_SOURCE.USDA`, `usda_*` decision/telemetry keys) are still the machine identity and were left untouched — they are invisible to users; sweep them as a staged follow-up, not in the same diff as this rename.
+**Rename scope:** the online path is branded "online database / food cloud" end-to-end: `/api/foods` (+ legacy `/api/usda` alias), `VITE_FOODS_API_BASE`, `services/foodCloud.js`, `api/foodRows.js`, and the internal RAG pipeline is now cloud-native (`FOOD_SEARCH_SOURCE.CLOUD` = `'cloud'`, `cloud_search_failed`/`cloud_search_aborted`, `try_cloud`, `cloud_*` decision/telemetry keys, `defaultSource: 'cloud'`). Two deliberate exceptions stay USDA-encoded: the persisted `usda_<fdcId>` food-id prefix (data provenance; backs stored favourites/pins) and the `'usda'` nutrient-invariant scope in `constants/nutrients/nutrients.js` (US "carb by difference" semantics — a different domain, not the search source).
 
 **Micro nutrient mapping (fiber / sodium / saturatedFats / sugars):**
 - Micros are served **pre-curated per-100g** from the catalog (pipeline `build.js` normalization + source-scoped invariants) — the client no longer derives them from FDC `foodNutrients`, so `null` = untracked is inherited verbatim.

@@ -74,7 +74,7 @@ test('searchFoods maps catalog rows to app food schema', async () => {
     assert.equal(food.brand, null);
     assert.equal(food.category, 'protein');
     assert.equal(food.subcategory, 'poultry');
-    assert.equal(food.source, 'usda');
+    assert.equal(food.source, 'cloud');
     assert.equal(food.type, 'Generic');
 
     assert.equal(food.per100g.calories, 120);
@@ -211,7 +211,7 @@ test('mapCatalogFoodToFood accepts portions already parsed as an array', () => {
   assert.equal(food.previewMacros.servingInfo, '1 serving (113g)');
 });
 
-test('searchFoods retries transient USDA 404 and succeeds on a later attempt', async () => {
+test('searchFoods retries transient CLOUD 404 and succeeds on a later attempt', async () => {
   const originalFetch = globalThis.fetch;
   const responses = [
     createJsonResponse({ ok: false, status: 404, payload: {} }),
@@ -281,7 +281,7 @@ test('searchFoods retries network errors before giving up', async () => {
   }
 });
 
-test('searchFoods does not retry non-transient USDA statuses', async () => {
+test('searchFoods does not retry non-transient CLOUD statuses', async () => {
   const originalFetch = globalThis.fetch;
   let fetchCalls = 0;
   globalThis.fetch = async () => {

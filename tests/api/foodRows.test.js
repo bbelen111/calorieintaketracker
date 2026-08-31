@@ -44,7 +44,7 @@ test('toCatalogPayloadRows whitelists catalog keys and parses portions', () => {
 
 test('toCatalogPayloadRows preserves NULL micro semantics and missing portions', () => {
   const [row] = toCatalogPayloadRows([
-    { id: 'usda_x', name: 'x', fiber: null, sodium: null },
+    { id: 'cloud_x', name: 'x', fiber: null, sodium: null },
   ]);
   assert.equal(row.fiber, null);
   assert.equal(row.sodium, null);

@@ -14,7 +14,7 @@ import { RAG_TIMING } from './ragBudget.js';
 const SOURCE_TRUST_MULTIPLIER = Object.freeze({
   [FOOD_SEARCH_SOURCE.LOCAL]: 1,
 
-  [FOOD_SEARCH_SOURCE.USDA]: 0.98,
+  [FOOD_SEARCH_SOURCE.CLOUD]: 0.98,
 
   [FOOD_SEARCH_SOURCE.AI_WEB_SEARCH]: 0.75,
 
@@ -278,7 +278,11 @@ export const buildLookupContextStableToken = (value) => {
  * belongs to even if entry ordering shifts within the same assistant message.
  * Two-argument callers keep the historical positional key format unchanged.
  */
-export const buildLookupContextEntryKey = (messageId, index, entryName = '') => {
+export const buildLookupContextEntryKey = (
+  messageId,
+  index,
+  entryName = ''
+) => {
   const normalizedMessageId = String(messageId || '').trim();
   const normalizedIndex = Math.max(0, Math.floor(Number(index) || 0));
 
@@ -291,7 +295,9 @@ export const buildLookupContextEntryKey = (messageId, index, entryName = '') => 
 };
 
 const stripLookupContextToken = (entryKey) =>
-  String(entryKey || '').trim().replace(STABLE_ENTRY_TOKEN_PATTERN, '');
+  String(entryKey || '')
+    .trim()
+    .replace(STABLE_ENTRY_TOKEN_PATTERN, '');
 
 export const parseLookupContextEntryKeyMessageId = (entryKey) => {
   const normalizedKey = String(entryKey || '').trim();

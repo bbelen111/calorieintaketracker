@@ -14,17 +14,17 @@ export const FOOD_LOOKUP_ERROR_REASONS = Object.freeze({
     chipLabel: 'No local match',
     defaultSource: 'local',
   },
-  usda_search_failed: {
+  cloud_search_failed: {
     message: 'Online nutrition database lookup failed.',
     recoveryHint: 'Wait a bit and retry, or enter nutrition manually.',
     chipLabel: 'Online lookup failed',
-    defaultSource: 'usda',
+    defaultSource: 'cloud',
   },
-  usda_search_aborted: {
+  cloud_search_aborted: {
     message: 'Found a stronger match and stopped the extra lookup.',
     recoveryHint: 'No action needed — we found a better match.',
     chipLabel: 'Better source used',
-    defaultSource: 'usda',
+    defaultSource: 'cloud',
   },
   grounding_network_error: {
     message: 'Web search hit a connection problem.',
@@ -47,7 +47,8 @@ export const FOOD_LOOKUP_ERROR_REASONS = Object.freeze({
   },
   grounding_safety_blocked: {
     message: 'Web search was blocked by safety checks.',
-    recoveryHint: "Use simpler wording and retry (for example: '2 slices pizza').",
+    recoveryHint:
+      "Use simpler wording and retry (for example: '2 slices pizza').",
     chipLabel: 'Search blocked',
     defaultSource: 'ai_web_search',
   },
@@ -81,12 +82,12 @@ export const LOOKUP_DECISION_REASON_LABELS = Object.freeze({
   accepted_history_match: 'Reused accepted match',
   strong_local_match: 'Strong local match',
   dominant_local_match: 'Strong local match',
-  local_retained_after_usda: 'Kept local match',
-  usda_resolved_ambiguity: 'Resolved online',
-  usda_completed_missing_macros: 'Completed nutrition',
-  usda_better_match: 'Better online match',
-  usda_no_better_match: 'Kept local result',
-  usda_no_close_match: 'No close match',
+  local_retained_after_cloud: 'Kept local match',
+  cloud_resolved_ambiguity: 'Resolved online',
+  cloud_completed_missing_macros: 'Completed nutrition',
+  cloud_better_match: 'Better online match',
+  cloud_no_better_match: 'Kept local result',
+  cloud_no_close_match: 'No close match',
   local_ambiguous: 'Local ambiguity',
   missing_macros: 'Missing local macros',
   brand_mismatch: 'Brand mismatch',
@@ -97,7 +98,7 @@ export const LOOKUP_DECISION_REASON_LABELS = Object.freeze({
 
 export const DEFAULT_ERROR_REASON_BY_SOURCE = Object.freeze({
   local: 'local_search_failed',
-  usda: 'usda_search_failed',
+  cloud: 'cloud_search_failed',
   ai_web_search: 'grounding_unknown_error',
 });
 

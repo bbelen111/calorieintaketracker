@@ -9,7 +9,7 @@ const PRIMARY_BADGE_BY_SOURCE = Object.freeze({
     label: 'Verified match',
     className: 'bg-accent-green/20 text-accent-green',
   },
-  usda: {
+  cloud: {
     label: 'Verified match',
     className: 'bg-accent-green/20 text-accent-green',
   },

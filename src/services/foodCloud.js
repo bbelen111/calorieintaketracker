@@ -145,7 +145,7 @@ export const mapCatalogFoodToFood = (row, index = 0) => {
     },
     portions,
     type: brand ? 'Brand' : 'Generic',
-    source: 'usda',
+    source: 'cloud',
   };
 };
 

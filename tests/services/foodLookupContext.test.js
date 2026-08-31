@@ -15,8 +15,8 @@ test('normalizeAiLookupResult returns normalized safe shape', () => {
   const result = normalizeAiLookupResult(
     {
       status: 'resolved',
-      usedSource: FOOD_SEARCH_SOURCE.USDA,
-      sourcesTried: ['local', 'usda'],
+      usedSource: FOOD_SEARCH_SOURCE.CLOUD,
+      sourcesTried: ['local', 'cloud'],
       fallbackUsed: true,
       queryUsed: 'cacao tablet',
       matchConfidence: 'high',
@@ -27,8 +27,8 @@ test('normalizeAiLookupResult returns normalized safe shape', () => {
         trustMultiplier: 0.98,
         weightedScore: 0.89,
       },
-      decision: 'try_usda',
-      decisionReason: 'usda_better_match',
+      decision: 'try_cloud',
+      decisionReason: 'cloud_better_match',
       dataQuality: 'complete',
       acceptedFromHistory: false,
       escalationAttempted: true,
@@ -47,25 +47,25 @@ test('normalizeAiLookupResult returns normalized safe shape', () => {
       },
       errorsBySource: {},
       errorReasonsBySource: {
-        [FOOD_SEARCH_SOURCE.USDA]: 'usda_search_failed',
+        [FOOD_SEARCH_SOURCE.CLOUD]: 'cloud_search_failed',
       },
     },
     { entryName: 'tableya' }
   );
 
   assert.equal(result.status, 'resolved');
-  assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.USDA);
+  assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.CLOUD);
   assert.equal(result.matchConfidence, 'high');
   assert.equal(result.weightedMatchScore, 0.89);
-  assert.equal(result.decision, 'try_usda');
-  assert.equal(result.decisionReason, 'usda_better_match');
+  assert.equal(result.decision, 'try_cloud');
+  assert.equal(result.decisionReason, 'cloud_better_match');
   assert.equal(result.dataQuality, 'complete');
   assert.equal(result.escalationAttempted, true);
   assert.equal(result.confidenceComponents?.trustMultiplier, 0.98);
   assert.equal(result.matchedFood?.name, 'Cacao Tablet');
   assert.equal(
-    result.errorReasonsBySource[FOOD_SEARCH_SOURCE.USDA],
-    'usda_search_failed'
+    result.errorReasonsBySource[FOOD_SEARCH_SOURCE.CLOUD],
+    'cloud_search_failed'
   );
   assert.equal(result.entryName, 'tableya');
 });
@@ -100,7 +100,7 @@ test('getLookupErrorRecoveryHint returns actionable suggestions for known reason
     'Try again later, or enter nutrition manually for now.'
   );
   assert.equal(
-    getLookupErrorRecoveryHint('usda_search_aborted'),
+    getLookupErrorRecoveryHint('cloud_search_aborted'),
     'No action needed — we found a better match.'
   );
   assert.equal(getLookupErrorRecoveryHint('unknown_reason_code'), null);
@@ -260,7 +260,7 @@ test('resolveFoodLookupContext resolves deferred grounding entries in one batche
     resolveLookup: async ({ entryName }) => ({
       status: 'needs_grounding',
       usedSource: FOOD_SEARCH_SOURCE.LOCAL,
-      sourcesTried: [FOOD_SEARCH_SOURCE.LOCAL, FOOD_SEARCH_SOURCE.USDA],
+      sourcesTried: [FOOD_SEARCH_SOURCE.LOCAL, FOOD_SEARCH_SOURCE.CLOUD],
       fallbackUsed: false,
       queryUsed: entryName,
       matchConfidence: 'low',
@@ -286,7 +286,7 @@ test('resolveFoodLookupContext resolves deferred grounding entries in one batche
           usedSource: FOOD_SEARCH_SOURCE.AI_WEB_SEARCH,
           sourcesTried: [
             FOOD_SEARCH_SOURCE.LOCAL,
-            FOOD_SEARCH_SOURCE.USDA,
+            FOOD_SEARCH_SOURCE.CLOUD,
             FOOD_SEARCH_SOURCE.AI_WEB_SEARCH,
           ],
           fallbackUsed: true,
@@ -322,7 +322,7 @@ test('resolveFoodLookupContext resolves deferred grounding entries in one batche
           usedSource: FOOD_SEARCH_SOURCE.AI_WEB_SEARCH,
           sourcesTried: [
             FOOD_SEARCH_SOURCE.LOCAL,
-            FOOD_SEARCH_SOURCE.USDA,
+            FOOD_SEARCH_SOURCE.CLOUD,
             FOOD_SEARCH_SOURCE.AI_WEB_SEARCH,
           ],
           fallbackUsed: true,
@@ -372,7 +372,7 @@ test('resolveFoodLookupContext fast mode can skip deferred grounding batch', asy
     resolveLookup: async () => ({
       status: 'needs_grounding',
       usedSource: FOOD_SEARCH_SOURCE.LOCAL,
-      sourcesTried: [FOOD_SEARCH_SOURCE.LOCAL, FOOD_SEARCH_SOURCE.USDA],
+      sourcesTried: [FOOD_SEARCH_SOURCE.LOCAL, FOOD_SEARCH_SOURCE.CLOUD],
       fallbackUsed: false,
       queryUsed: 'Kulolo',
       matchConfidence: 'low',
