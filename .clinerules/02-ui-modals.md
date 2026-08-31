@@ -112,7 +112,7 @@ FoodSearchModal
 Online mode:
 FoodSearchModal
   -> debounced searchFoodsOnline(...) in services/foodSearch.js
-    -> services/usda.js
+    -> services/foodCloud.js
   -> preview rows + cache-on-select flow
 
 AI chat mode (feature-flagged RAG path):
@@ -123,7 +123,7 @@ FoodSearchModal (chat state machine, stage pill, abort controller, entry renderi
                               -> grounded single-entry fallback via fetchMacrosWithGrounding (mode='grounding_lookup') for low-confidence extraction
                               -> fail-closed: legacy single-call path (sendOpenRouterMessage, mode='processing') when extraction module is unavailable
     stage: retrieval      -> resolveFoodLookupContext(...) in services/foodLookupContext.js
-                              -> local lookup (foodCatalog), USDA lookup (services/usda.js), deferred grounding batch (fetchMacrosWithGrounding, mode='grounding_lookup')
+                              -> local lookup (foodCatalog), online catalog lookup (services/foodCloud.js), deferred grounding batch (fetchMacrosWithGrounding, mode='grounding_lookup')
     stage: verification   -> resolveAiFoodEntry(...) per entry in services/foodSearch.js (deterministic verified entries)
     stage: presentation   -> skipped for single-entry/simple results (shouldSkipPresentationPass -> buildVerifiedResultFromEntries)
                               -> sendOpenRouterPresentation(...) in services/openrouter.js (mode='presentation', [SYSTEM_DATA])

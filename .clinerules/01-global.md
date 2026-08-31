@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor for mobile deployment (iOS/Android). Local-first architecture with Zustand state management, Dexie-backed history persistence plus Capacitor Preferences for profile/settings, and USDA-backed online food search + OpenFoodFacts barcode lookup.
+React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor for mobile deployment (iOS/Android). Local-first architecture with Zustand state management, Dexie-backed history persistence plus Capacitor Preferences for profile/settings, and Supabase-catalog-backed online food search + OpenFoodFacts barcode lookup.
 
 **Tech Stack:**
 - React 18.3.1 + Vite 8.2.0 (dev server on `localhost:5173`, `strictPort: true`)
@@ -14,7 +14,7 @@ React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor 
 - Framer Motion 12.23.24 (animations)
 - Tailwind 3.4.17 (styling via CSS variable–based semantic tokens)
 - Lucide React 0.562.0 (icons)
-- **External APIs:** USDA FoodData Central (online text search via `api/usda.js`), OpenFoodFacts (barcode lookup via `api/openfoodfacts.js`), OpenRouter (AI parsing via `api/openrouter.js`)
+- **External APIs:** Supabase food catalog (online text search via `api/foods.js`; legacy `/api/usda` alias retained), OpenFoodFacts (barcode lookup via `api/openfoodfacts.js`), OpenRouter (AI parsing via `api/openrouter.js`)
 
 **Key Capacitor Plugins:**
 - `@capacitor/preferences` — Profile/settings storage
@@ -182,12 +182,12 @@ src/
 │   ├─ openrouter.js             # OpenRouter client + mode helpers (extraction/presentation/grounding)
 │   ├─ foodCache.js              # Cached food dedupe/trim helpers
 │   ├─ foodLookupContext.js      # Batch AI entry lookup context resolver + normalized lookup meta
-│   ├─ foodSearch.js             # Local/USDA/grounded lookup orchestration + deterministic AI entry resolution
+│   ├─ foodSearch.js             # Local/online-catalog/grounded lookup orchestration + deterministic AI entry resolution
 │   ├─ foodLookupReasons.js      # Canonical lookup reason-code registry (messages, recovery hints, chip labels)
 │   ├─ ragTelemetry.js           # RAG telemetry aggregation + diagnostics helpers
 │   ├─ ragChatPipeline.js        # Decoupled RAG chat pipeline orchestration (extraction → retrieval → verification → presentation)
 │   ├─ ragBudget.js              # Centralized RAG stage timing/budget constants + resolveRagStageTimeoutMs
-│   ├─ usda.js                   # USDA online search client
+│   ├─ foodCloud.js              # Supabase catalog online search client
 │   ├─ openFoodFacts.js          # OpenFoodFacts barcode lookup client
 │   ├─ barcodeScanner.js         # Official Capacitor barcode scanner wrapper
 │   └─ foodCatalog.js            # SQLite-backed local food catalog service (sql.js)
@@ -209,7 +209,7 @@ src/
   │   ├─ openFoodFacts.test.js
   │   ├─ ragTelemetry.test.js
   │   ├─ ragChatPipeline.test.js # Decoupled pipeline orchestration (helper contracts + stage routing with stubbed OpenRouter modules)
-  │   └─ usda.test.js
+  │   └─ foodCloud.test.js
   └─ utils/
     ├─ aiFinalizedEntryState.test.js # Finalized chat entry card badge/label resolution
     ├─ aiPresentationMerge.test.js # Presentation merge guardrail tests (sparse entries, rewrite suppression, integrity fallback)

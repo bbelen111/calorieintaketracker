@@ -86,42 +86,45 @@ Migration behavior is now intentionally minimal:
 
 ---
 
-## USDA Search + OpenFoodFacts Barcode Integration
+## Online Catalog Search + OpenFoodFacts Barcode Integration
 
-Online text search and barcode lookup are split across two proxied services for consistent error handling and centralized credentials.
+Online text search and barcode lookup are split across two proxied services for consistent error handling and centralized credentials. Online text search is backed by the curated Supabase catalog (pipeline-seeded `public.foods`), while barcode lookup stays OpenFoodFacts-backed.
 
 **Architecture:**
-- `services/usda.js` — Client service for online text search (FoodData Central), with timeout + native base URL guard.
-- `api/usda.js` — Vercel proxy supporting `action=search` (text search).
+- `services/foodCloud.js` — Client service for online text search (Supabase-backed curated catalog), with timeout + native base URL guard; maps canonical catalog rows to the app food shape.
+- `api/foods.js` — Vercel proxy for `action=search` over the Supabase PostgREST RPCs `search_foods` / `search_foods_total` (read-only **anon** key; RLS grants public SELECT + the RPCs are EXECUTE-granted to anon). Payload builders live in `api/foodRows.js` (canonical `catalogFoods` + synthetic FDC `foods` envelope for legacy native builds during the transition window).
+- `api/usda.js` — legacy alias of `api/foods.js` serving the old `/api/usda` URL so already-shipped builds keep working.
 - `services/openFoodFacts.js` — Client service for barcode lookups.
 - `api/openfoodfacts.js` — Vercel proxy supporting `action=barcode` (product lookup).
 
 **Configuration:**
-- Native builds: set `VITE_USDA_API_BASE` for USDA search and `VITE_OPENFOODFACTS_API_BASE` for barcode lookup.
+- Native builds: set `VITE_FOODS_API_BASE` for the online catalog search and `VITE_OPENFOODFACTS_API_BASE` for barcode lookup. Legacy `VITE_USDA_API_BASE` is still honored and `/api/usda` remains served as an alias.
 - Defaults:
-  - USDA: `https://calorieintaketracker.vercel.app/api/usda`
+  - Online catalog: `https://calorieintaketracker.vercel.app/api/foods`
   - OpenFoodFacts barcode: `https://calorieintaketracker.vercel.app/api/openfoodfacts`
 - Recommended Vercel env vars:
-  - `USDA_API_KEY=<your FoodData Central API key>`
+  - `SUPABASE_URL=<project url>` and `SUPABASE_ANON_KEY` (or `SUPABASE_PUBLISHABLE_KEY`) — required for read-only search (RLS + anon RPC EXECUTE). The `SUPABASE_SERVICE_ROLE_KEY` is NEVER used in this deploy; it belongs to the pipeline seeder only.
   - `OPENFOODFACTS_USER_AGENT=EnergyMapCalorieTracker/1.0 (contact@example.com)`
-  - Optional: `USDA_USER_AGENT=<browser-like UA>` (defaults to a Chrome desktop UA; FoodData Central rejects non-browser UAs with HTTP 404 for `/foods/search`)
   - Optional: `OPENFOODFACTS_API_BASE` (defaults to `https://world.openfoodfacts.org`)
+  - The legacy `USDA_API_KEY` / `USDA_USER_AGENT` vars are obsolete (FDC is never called at runtime)
 
 **Key functions:**
 ```javascript
-import { searchFoods as searchUsdaFoods } from './services/usda';
+import { searchFoods as searchOnlineFoods } from './services/foodCloud';
 import { searchBarcode } from './services/openFoodFacts';
 
-const results = await searchUsdaFoods('chicken breast', { page: 1, pageSize: 20 });
+const results = await searchOnlineFoods('chicken breast', { page: 1, pageSize: 20 });
 const food = await searchBarcode('012345678901');
 ```
 
 Results are cached in `userData.cachedFoods` to reduce repeated network requests.
 
+**Rename scope:** the online path is branded "online database / food cloud" end-to-end: `/api/foods` (+ legacy `/api/usda` alias), `VITE_FOODS_API_BASE`, `services/foodCloud.js`, `api/foodRows.js`, and the internal RAG pipeline is now cloud-native (`FOOD_SEARCH_SOURCE.CLOUD` = `'cloud'`, `cloud_search_failed`/`cloud_search_aborted`, `try_cloud`, `cloud_*` decision/telemetry keys, `defaultSource: 'cloud'`). Two deliberate exceptions stay USDA-encoded: the persisted `usda_<fdcId>` food-id prefix (data provenance; backs stored favourites/pins) and the `'usda'` nutrient-invariant scope in `constants/nutrients/nutrients.js` (US "carb by difference" semantics — a different domain, not the search source).
+
 **Micro nutrient mapping (fiber / sodium / saturatedFats / sugars):**
-- USDA nutrient matching is tiered: `nutrientNumber` first (291 Fiber / 307 Sodium / 606 Saturated fat / 269 Sugars), then `nutrientId` (1079/1093/1258/2000), then normalized name patterns.
+- Micros are served **pre-curated per-100g** from the catalog (pipeline `build.js` normalization + source-scoped invariants) — the client no longer derives them from FDC `foodNutrients`, so `null` = untracked is inherited verbatim.
 - OpenFoodFacts reports sodium in **grams** with an explicit `sodium_unit` marker. `services/openFoodFacts.js` converts g → mg when `sodium_unit` is `g` (or missing) and honors an explicit `mg` unit; when sodium is absent it derives sodium from `salt_100g` (`salt_g × 393.4` ≈ mg). `nutriments_estimated` is never ingested.
-- EU labels report net carbs with fiber separate, so fiber is never clamped against OFF carbs; USDA "carb by difference" (US sources) includes fiber and applies the stricter `sugars + fiber <= carbs` soft clamp.
+- EU labels report net carbs with fiber separate, so fiber is never clamped against OFF carbs; US/USDA "carb by difference" rows carry the stricter `sugars + fiber <= carbs` clamp applied at catalog build time. Cloud ranking (`search_foods` RPC) mirrors local `foodCatalog.js` and demotes/boosts branded rows by brand intent (`BRAND_INTENT_TOKEN_HINTS`).
 - Per-100g result objects carry nullable micro fields; `null` = untracked.
 
 ---
