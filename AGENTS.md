@@ -929,11 +929,11 @@ When editing phase logic:
 
 ## USDA Search + OpenFoodFacts Barcode Integration
 
-Online text search and barcode lookup are split across two proxied services for consistent error handling and centralized credentials.
+Online text search and barcode lookup are split across two proxied services for consistent error handling and centralized credentials. Online text search is backed by the curated Supabase catalog (pipeline-seeded `public.foods`), while barcode lookup stays OpenFoodFacts-backed.
 
 **Architecture:**
-- `services/usda.js` — Client service for online text search (FoodData Central), with timeout + native base URL guard.
-- `api/usda.js` — Vercel proxy supporting `action=search` (text search).
+- `services/usda.js` — Client service for online text search (Supabase-backed curated catalog), with timeout + native base URL guard; maps canonical catalog rows to the app food shape.
+- `api/usda.js` — Vercel proxy supporting `action=search`. Historically FDC; now calls the Supabase PostgREST RPCs `search_foods` / `search_foods_total` against the seeded `public.foods` table (service-role key server-side). Payload builders live in `api/usdaRows.js` (canonical `catalogFoods` + synthetic FDC `foods` envelope for legacy native builds during the transition window).
 - `services/openFoodFacts.js` — Client service for barcode lookups.
 - `api/openfoodfacts.js` — Vercel proxy supporting `action=barcode` (product lookup).
 
@@ -943,10 +943,10 @@ Online text search and barcode lookup are split across two proxied services for 
   - USDA: `https://calorieintaketracker.vercel.app/api/usda`
   - OpenFoodFacts barcode: `https://calorieintaketracker.vercel.app/api/openfoodfacts`
 - Recommended Vercel env vars:
-  - `USDA_API_KEY=<your FoodData Central API key>`
+  - `SUPABASE_URL=<project url>` and `SUPABASE_SERVICE_ROLE_KEY` (required — the proxy queries `public.foods` via the `search_foods` / `search_foods_total` RPCs; RLS stays public-read / service-role-write)
   - `OPENFOODFACTS_USER_AGENT=EnergyMapCalorieTracker/1.0 (contact@example.com)`
-  - Optional: `USDA_USER_AGENT=<browser-like UA>` (defaults to a Chrome desktop UA; FoodData Central rejects non-browser UAs with HTTP 404 for `/foods/search`)
   - Optional: `OPENFOODFACTS_API_BASE` (defaults to `https://world.openfoodfacts.org`)
+  - The legacy `USDA_API_KEY` / `USDA_USER_AGENT` vars are obsolete (pure swap; FDC is never called at runtime)
 
 **Key functions:**
 ```javascript
@@ -960,9 +960,9 @@ const food = await searchBarcode('012345678901');
 Results are cached in `userData.cachedFoods` to reduce repeated network requests.
 
 **Micro nutrient mapping (fiber / sodium / saturatedFats / sugars):**
-- USDA nutrient matching is tiered: `nutrientNumber` first (291 Fiber / 307 Sodium / 606 Saturated fat / 269 Sugars), then `nutrientId` (1079/1093/1258/2000), then normalized name patterns.
+- Micros are served **pre-curated per-100g** from the catalog (pipeline `build.js` normalization + source-scoped invariants) — the client no longer derives them from FDC `foodNutrients`, so `null` = untracked is inherited verbatim.
 - OpenFoodFacts reports sodium in **grams** with an explicit `sodium_unit` marker. `services/openFoodFacts.js` converts g → mg when `sodium_unit` is `g` (or missing) and honors an explicit `mg` unit; when sodium is absent it derives sodium from `salt_100g` (`salt_g × 393.4` ≈ mg). `nutriments_estimated` is never ingested.
-- EU labels report net carbs with fiber separate, so fiber is never clamped against OFF carbs; USDA "carb by difference" (US sources) includes fiber and applies the stricter `sugars + fiber <= carbs` soft clamp.
+- EU labels report net carbs with fiber separate, so fiber is never clamped against OFF carbs; US/USDA "carb by difference" rows carry the stricter `sugars + fiber <= carbs` clamp applied at catalog build time. Cloud ranking (`search_foods` RPC) mirrors local `foodCatalog.js` and demotes/boosts branded rows by brand intent (`BRAND_INTENT_TOKEN_HINTS`).
 - Per-100g result objects carry nullable micro fields; `null` = untracked.
 
 ---

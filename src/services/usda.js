@@ -1,9 +1,5 @@
 /* eslint-disable no-undef */
 import { Capacitor } from '@capacitor/core';
-import {
-  normalizeNutrients,
-  scaleNutrientValues,
-} from '../constants/nutrients/nutrients.js';
 
 const API_BASE = (
   (typeof import.meta.env?.VITE_USDA_API_BASE === 'string'
@@ -37,9 +33,9 @@ export const resetUsdaClientRetry = () => {
   Object.assign(USDA_CLIENT_RETRY, USDA_CLIENT_DEFAULT_RETRY);
 };
 
-// Mirrors the proxy transient set (api/usda.js): FoodData Central edge/WAF
-// throttling intermittently surfaces as HTTP 404 in addition to 408/409/425/
-// 429/5xx, and network failures (status 0) are transient by nature.
+// Kept identical to the legacy client set: transient 404/408/409/425/429 plus
+// 5xx and network failures (status 0) are retried. PostgREST 404 = misdeploy,
+// which a bounded retry masks harmlessly during rollouts.
 const USDA_TRANSIENT_STATUS_CODES = new Set([404, 408, 409, 425, 429]);
 
 const isTransientUsdaStatus = (status) => {
@@ -74,298 +70,84 @@ function round2(num) {
   return Math.round(Number(num || 0) * 100) / 100;
 }
 
-function toFiniteNumber(value) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
+// ---- canonical catalog row → app food shape ----
+//
+// The gateway now returns `catalogFoods`: curated per-100g rows structurally
+// identical to the local sql.js catalog (`foodCatalog.mapFoodRow`). This mapper
+// projects them onto the shape the rest of the pipeline expects (per100g,
+// portions, previewMacros, type/source/brand) so no downstream consumer needs
+// special-casing.
 
-function normalizeNutrientName(value) {
-  return String(value ?? '')
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function getNutrientValue(food, matcher) {
-  const nutrients = Array.isArray(food?.foodNutrients)
-    ? food.foodNutrients
-    : [];
-
-  for (const nutrient of nutrients) {
-    if (!nutrient || typeof nutrient !== 'object') {
-      continue;
-    }
-
-    if (!matcher(nutrient)) {
-      continue;
-    }
-
-    const numericValue = Number(nutrient.value);
-    if (Number.isFinite(numericValue)) {
-      return numericValue;
-    }
+const parsePortions = (value) => {
+  if (Array.isArray(value)) {
+    return value;
   }
-
-  return 0;
-}
-
-// Null-aware variant: returns null (untracked) when no matching nutrient value
-// exists, so sources can distinguish "measured 0" from "no data".
-function getNutrientValueOrNull(food, matcher) {
-  const nutrients = Array.isArray(food?.foodNutrients)
-    ? food.foodNutrients
-    : [];
-
-  for (const nutrient of nutrients) {
-    if (!nutrient || typeof nutrient !== 'object') {
-      continue;
-    }
-
-    if (!matcher(nutrient)) {
-      continue;
-    }
-
-    const numericValue = Number(nutrient.value);
-    if (Number.isFinite(numericValue)) {
-      return numericValue;
-    }
+  if (!value) {
+    return [];
   }
-
-  return null;
-}
-
-// Tiered USDA nutrient matchers: nutrientNumber first (stable across FDC
-// datasets), nutrientId fallback, then normalized name patterns. Branded rows
-// often lack nutrientNumber, so the name tier stays essential.
-const USDA_NUTRIENT_MATCHERS = {
-  fiber: { number: '291', id: 1079, name: 'fiber, total dietary' },
-  sodium: { number: '307', id: 1093, name: 'sodium' },
-  saturatedFats: {
-    number: '606',
-    id: 1258,
-    name: 'fatty acids, total saturated',
-  },
-  sugars: {
-    number: '269',
-    id: 2000,
-    name: 'sugars, total including nlea',
-  },
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 };
 
-function getUsdaMicroNutrients(food) {
-  const raw = {};
+export const mapCatalogFoodToFood = (row, index = 0) => {
+  const id = String(row?.id ?? '').trim();
+  const resolvedId = id || `cloud_${Date.now()}_${index}`;
+  const brand = String(row?.brand ?? '').trim() || null;
+  const category = String(row?.category ?? '').trim() || 'uncategorized';
+  const subcategory = String(row?.subcategory ?? '').trim() || null;
 
-  Object.entries(USDA_NUTRIENT_MATCHERS).forEach(([key, matcher]) => {
-    raw[key] = getNutrientValueOrNull(food, (nutrient) => {
-      const nutrientId = Number(nutrient.nutrientId);
-      const nutrientNumber = String(nutrient.nutrientNumber ?? '').trim();
-      const nutrientName = normalizeNutrientName(nutrient.nutrientName);
-
-      return (
-        nutrientNumber === matcher.number ||
-        nutrientId === matcher.id ||
-        (matcher.name && nutrientName.includes(matcher.name))
-      );
-    });
-  });
-
-  return raw;
-}
-
-function getMacroProfile(food) {
-  const calories = getNutrientValue(food, (nutrient) => {
-    const nutrientId = Number(nutrient.nutrientId);
-    const nutrientNumber = String(nutrient.nutrientNumber ?? '').trim();
-    const nutrientName = normalizeNutrientName(nutrient.nutrientName);
-    const unitName = String(nutrient.unitName ?? '').toUpperCase();
-
-    return (
-      nutrientId === 1008 ||
-      nutrientId === 2047 ||
-      nutrientNumber === '208' ||
-      (nutrientName.includes('energy') && unitName === 'KCAL')
-    );
-  });
-
-  const protein = getNutrientValue(food, (nutrient) => {
-    const nutrientId = Number(nutrient.nutrientId);
-    const nutrientNumber = String(nutrient.nutrientNumber ?? '').trim();
-    const nutrientName = normalizeNutrientName(nutrient.nutrientName);
-
-    return (
-      nutrientId === 1003 ||
-      nutrientNumber === '203' ||
-      nutrientName === 'protein'
-    );
-  });
-
-  const carbs = getNutrientValue(food, (nutrient) => {
-    const nutrientId = Number(nutrient.nutrientId);
-    const nutrientNumber = String(nutrient.nutrientNumber ?? '').trim();
-    const nutrientName = normalizeNutrientName(nutrient.nutrientName);
-
-    return (
-      nutrientId === 1005 ||
-      nutrientNumber === '205' ||
-      nutrientName.includes('carbohydrate, by difference') ||
-      nutrientName === 'carbohydrate'
-    );
-  });
-
-  const fats = getNutrientValue(food, (nutrient) => {
-    const nutrientId = Number(nutrient.nutrientId);
-    const nutrientNumber = String(nutrient.nutrientNumber ?? '').trim();
-    const nutrientName = normalizeNutrientName(nutrient.nutrientName);
-
-    return (
-      nutrientId === 1004 ||
-      nutrientNumber === '204' ||
-      nutrientName.includes('total lipid (fat)') ||
-      nutrientName === 'fat'
-    );
-  });
-
-  return {
-    calories: Math.max(0, Math.round(calories)),
-    protein: Math.max(0, round2(protein)),
-    carbs: Math.max(0, round2(carbs)),
-    fats: Math.max(0, round2(fats)),
-  };
-}
-
-function resolveServingInfo(food) {
-  const servingSize = toFiniteNumber(food?.servingSize);
-  const servingUnit = String(food?.servingSizeUnit || '').trim();
-  const householdServing = String(food?.householdServingFullText || '').trim();
-
-  const hasGramServing =
-    servingSize > 0 && /^g(ram|rams)?$/i.test(servingUnit || 'g');
-
-  if (hasGramServing) {
-    return {
-      hasGramServing,
-      servingGrams: servingSize,
-      label: `${Math.round(servingSize)}g serving`,
-    };
-  }
-
-  if (householdServing) {
-    return {
-      hasGramServing: false,
-      servingGrams: null,
-      label: householdServing,
-    };
-  }
-
-  if (servingSize > 0 && servingUnit) {
-    return {
-      hasGramServing: false,
-      servingGrams: null,
-      label: `${round2(servingSize)} ${servingUnit}`,
-    };
-  }
-
-  return {
-    hasGramServing: false,
-    servingGrams: null,
-    label: 'per serving',
-  };
-}
-
-function mapUsdaFoodToFood(food, index = 0) {
-  const fdcId = String(food?.fdcId ?? '').trim();
-  const resolvedId = fdcId || `search_${Date.now()}_${index}`;
-  const dataType = String(food?.dataType || '').trim();
-  const isBranded = dataType.toLowerCase() === 'branded';
-
-  const servingInfo = resolveServingInfo(food);
-  const servingMacros = getMacroProfile(food);
-
-  const per100gFactor =
-    servingInfo.hasGramServing && servingInfo.servingGrams > 0
-      ? 100 / servingInfo.servingGrams
-      : 1;
-
-  const per100gMacros = {
-    calories: Math.max(0, Math.round(servingMacros.calories * per100gFactor)),
-    protein: Math.max(0, round2(servingMacros.protein * per100gFactor)),
-    carbs: Math.max(0, round2(servingMacros.carbs * per100gFactor)),
-    fats: Math.max(0, round2(servingMacros.fats * per100gFactor)),
-  };
-
-  // Micros follow the same serving->per100g scale as the macros, then get the
-  // US invariant scope (US "carb by difference" includes fiber).
-  const microPer100g = normalizeNutrients(
-    scaleNutrientValues(getUsdaMicroNutrients(food), per100gFactor),
-    {
-      parentTotals: {
-        fats: per100gMacros.fats,
-        carbs: per100gMacros.carbs,
-      },
-      source: 'usda',
+  const macro = (key) => Math.max(0, Number(row?.[key]) || 0);
+  const micro = (key) => {
+    if (row?.[key] == null) {
+      return null; // NULL = untracked (never 0-for-missing)
     }
-  ).nutrients;
+    return Math.max(0, Number(row[key]) || 0);
+  };
 
   const per100g = {
-    ...per100gMacros,
-    ...microPer100g,
+    calories: Math.round(macro('calories')),
+    protein: round2(macro('protein')),
+    carbs: round2(macro('carbs')),
+    fats: round2(macro('fats')),
+    fiber: micro('fiber'),
+    sodium: micro('sodium') == null ? null : Math.round(micro('sodium')),
+    saturatedFats: micro('saturated_fats'),
+    sugars: micro('sugars'),
   };
 
-  const portions = [
-    {
-      id: 'p_100g',
-      label: '100g',
-      grams: 100,
-      macros: per100g,
-    },
-  ];
+  const portions = parsePortions(row?.portions)
+    .map((p) => ({
+      id: String(p?.id ?? ''),
+      label: String(p?.label ?? ''),
+      grams: Math.round(Number(p?.grams) || 0),
+    }))
+    .filter((p) => p.id && p.grams > 0);
 
-  if (
-    servingInfo.hasGramServing &&
-    servingInfo.servingGrams > 0 &&
-    Math.round(servingInfo.servingGrams) !== 100
-  ) {
-    const servingFactor = servingInfo.servingGrams / 100;
-    portions.push({
-      id: 'p_serving',
-      label: servingInfo.label,
-      grams: Math.round(servingInfo.servingGrams),
-      macros: {
-        calories: Math.max(0, Math.round(servingMacros.calories)),
-        protein: Math.max(0, round2(servingMacros.protein)),
-        carbs: Math.max(0, round2(servingMacros.carbs)),
-        fats: Math.max(0, round2(servingMacros.fats)),
-        ...scaleNutrientValues(
-          {
-            fiber: per100g.fiber,
-            sodium: per100g.sodium,
-            saturatedFats: per100g.saturatedFats,
-            sugars: per100g.sugars,
-          },
-          servingFactor
-        ),
-      },
-    });
-  }
-
-  const brand = String(food?.brandOwner || food?.brandName || '').trim();
+  const servingPortion = portions.find((p) => p.grams !== 100) || null;
 
   return {
-    id: `usda_${resolvedId}`,
-    name: String(food?.description || '').trim() || `USDA Food ${resolvedId}`,
-    brand: brand || null,
-    category: null,
-    subcategory: isBranded ? 'branded' : 'generic',
+    id: resolvedId,
+    name: String(row?.name ?? '').trim() || `Food ${resolvedId}`,
+    brand,
+    category,
+    subcategory,
     per100g,
     previewMacros: {
-      ...servingMacros,
-      servingInfo: servingInfo.label,
+      calories: per100g.calories,
+      protein: per100g.protein,
+      carbs: per100g.carbs,
+      fats: per100g.fats,
+      servingInfo: servingPortion ? servingPortion.label : 'per serving',
     },
     portions,
-    type: isBranded ? 'Brand' : 'Generic',
+    type: brand ? 'Brand' : 'Generic',
     source: 'usda',
   };
-}
+};
 
 function createCombinedAbortSignal(externalSignal, timeoutMs) {
   const timeoutController = new AbortController();
@@ -518,8 +300,13 @@ export async function searchFoods(
     }
   );
 
-  const foods = (Array.isArray(data?.foods) ? data.foods : []).map(
-    (food, index) => mapUsdaFoodToFood(food, index)
+  // Canonical cloud rows are the contract; the legacy `foods` FDC envelope is
+  // only for old native builds and is not decoded here.
+  const catalogRows = Array.isArray(data?.catalogFoods)
+    ? data.catalogFoods
+    : [];
+  const foods = catalogRows.map((row, index) =>
+    mapCatalogFoodToFood(row, index)
   );
 
   const totalResults = Number.parseInt(

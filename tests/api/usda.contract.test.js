@@ -3,8 +3,22 @@ import assert from 'node:assert/strict';
 
 import handler from '../../api/usda.js';
 
-const DEFAULT_USDA_USER_AGENT =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+const SAMPLE_ROW = {
+  id: 'usda_171077',
+  name: 'Chicken breast, raw',
+  brand: null,
+  category: 'protein',
+  subcategory: 'poultry',
+  calories: 120,
+  protein: 22.5,
+  carbs: 0,
+  fats: 2.62,
+  fiber: 0,
+  sodium: 45,
+  saturated_fats: 0.56,
+  sugars: 0,
+  portions: '[{"id":"p_100g","label":"100g","grams":100}]',
+};
 
 const createResponse = () => ({
   statusCode: 200,
@@ -44,24 +58,10 @@ const withEnv = (env, fn) => {
   }
 };
 
-const createFetchResponse = ({
+const createJsonFetchResponse = ({ ok, status, payload = {} }) => ({
   ok,
   status,
-  jsonPayload = {},
-  headers = {},
-}) => ({
-  ok,
-  status,
-  json: async () => jsonPayload,
-  headers: {
-    get(name) {
-      const lower = String(name).toLowerCase();
-      const match = Object.entries(headers).find(
-        ([key]) => String(key).toLowerCase() === lower
-      );
-      return match ? match[1] : null;
-    },
-  },
+  json: async () => payload,
 });
 
 // Stubs setTimeout so upstream retry backoffs run synchronously while
@@ -82,348 +82,356 @@ const withFakeTimers = async (fn) => {
   }
 };
 
-test('USDA proxy sends browser-like User-Agent and correct search URL', async () => {
+test('proxy queries the Supabase search RPCs with service-role auth and returns both envelopes', async () => {
   const originalFetch = globalThis.fetch;
-  let request;
+  let capturedUrl;
+  let capturedHeaders;
   globalThis.fetch = async (url, options) => {
-    request = { url: url.toString(), headers: options.headers };
-    return {
+    const parsed = new URL(url);
+    if (parsed.pathname.endsWith('/search_foods_total')) {
+      return createJsonFetchResponse({
+        ok: true,
+        status: 200,
+        payload: [{ search_foods_total: 561 }],
+      });
+    }
+    capturedUrl = parsed;
+    capturedHeaders = options.headers;
+    return createJsonFetchResponse({
       ok: true,
       status: 200,
-      json: async () => ({ foods: [{ fdcId: 1 }], totalHits: 1 }),
-    };
-  };
-  try {
-    const response = createResponse();
-    await withEnv({ USDA_API_KEY: 'test-key' }, async () => {
-      await handler(
-        {
-          method: 'GET',
-          query: {
-            action: 'search',
-            query: 'omelette',
-            page: '1',
-            pageSize: '20',
-          },
-          headers: {},
-        },
-        response
-      );
+      payload: [SAMPLE_ROW],
     });
-
-    assert.equal(response.statusCode, 200);
-    assert.equal(response.jsonPayload.foods[0].fdcId, 1);
-
-    assert.equal(request.headers['User-Agent'], DEFAULT_USDA_USER_AGENT);
-    assert.ok(request.headers['User-Agent'].startsWith('Mozilla/5.0'));
-    assert.equal(request.headers.Accept, 'application/json');
-
-    const url = new URL(request.url);
-    assert.equal(
-      `${url.origin}${url.pathname}`,
-      'https://api.nal.usda.gov/fdc/v1/foods/search'
-    );
-    assert.equal(url.searchParams.get('query'), 'omelette');
-    assert.equal(url.searchParams.get('pageNumber'), '1');
-    assert.equal(url.searchParams.get('pageSize'), '20');
-    assert.equal(url.searchParams.get('api_key'), 'test-key');
-    assert.deepEqual(url.searchParams.getAll('dataType'), [
-      'Foundation',
-      'SR Legacy',
-      'Branded',
-    ]);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test('USDA proxy honors the USDA_USER_AGENT env override', async () => {
-  const originalFetch = globalThis.fetch;
-  let request;
-  globalThis.fetch = async (url, options) => {
-    request = { url: url.toString(), headers: options.headers };
-    return { ok: true, status: 200, json: async () => ({ foods: [] }) };
   };
+
   try {
     const response = createResponse();
     await withEnv(
-      { USDA_API_KEY: 'test-key', USDA_USER_AGENT: 'EnergyMapTracker/2.0' },
-      async () => {
-        await handler(
+      {
+        SUPABASE_URL: 'https://proj.supabase.co',
+        SUPABASE_SERVICE_ROLE_KEY: 'svc-key',
+      },
+      () =>
+        handler(
           {
             method: 'GET',
-            query: { action: 'search', query: 'chicken' },
+            query: {
+              action: 'search',
+              query: 'chicken',
+              page: '1',
+              pageSize: '20',
+            },
             headers: {},
           },
           response
-        );
-      }
+        )
     );
-    assert.equal(request.headers['User-Agent'], 'EnergyMapTracker/2.0');
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
 
-test('USDA proxy rejects requests without a configured API key', async () => {
-  const originalFetch = globalThis.fetch;
-  let called = false;
-  globalThis.fetch = async () => {
-    called = true;
-    return { ok: true, status: 200, json: async () => ({}) };
-  };
-  try {
-    const response = createResponse();
-    await withEnv({ USDA_API_KEY: '' }, async () => {
-      await handler(
-        {
-          method: 'GET',
-          query: { action: 'search', query: 'omelette' },
-          headers: {},
-        },
-        response
-      );
-    });
-    assert.equal(response.statusCode, 500);
-    assert.equal(response.jsonPayload.error, 'USDA API key not configured');
-    assert.equal(called, false);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-test('USDA proxy validates query length before calling upstream', async () => {
-  const originalFetch = globalThis.fetch;
-  let called = false;
-  globalThis.fetch = async () => {
-    called = true;
-    return { ok: true, status: 200, json: async () => ({}) };
-  };
-  try {
-    const response = createResponse();
-    await withEnv({ USDA_API_KEY: 'test-key' }, async () => {
-      await handler(
-        {
-          method: 'GET',
-          query: { action: 'search', query: 'o' },
-          headers: {},
-        },
-        response
-      );
-    });
-    assert.equal(response.statusCode, 400);
+    assert.equal(response.statusCode, 200);
+
+    assert.equal(response.jsonPayload.catalogFoods.length, 1);
+    assert.equal(response.jsonPayload.catalogFoods[0].id, 'usda_171077');
     assert.equal(
-      response.jsonPayload.error,
-      'Valid query parameter required (min 2 characters)'
+      response.jsonPayload.catalogFoods[0].name,
+      'Chicken breast, raw'
     );
-    assert.equal(called, false);
+    assert.deepEqual(response.jsonPayload.catalogFoods[0].portions, [
+      { id: 'p_100g', label: '100g', grams: 100 },
+    ]);
+
+    // Legacy FDC envelope for old native builds.
+    assert.equal(response.jsonPayload.foods.length, 1);
+    assert.equal(response.jsonPayload.foods[0].fdcId, '171077');
+    assert.equal(
+      response.jsonPayload.foods[0].description,
+      'Chicken breast, raw'
+    );
+    assert.equal(response.jsonPayload.foods[0].servingSize, 100);
+
+    assert.equal(response.jsonPayload.totalHits, 561);
+    assert.equal(response.jsonPayload.page, 1);
+
+    assert.equal(
+      `${capturedUrl.origin}${capturedUrl.pathname}`,
+      'https://proj.supabase.co/rest/v1/rpc/search_foods'
+    );
+    assert.equal(capturedUrl.searchParams.get('p_query'), 'chicken');
+    assert.equal(capturedUrl.searchParams.get('p_limit'), '20');
+    assert.equal(capturedUrl.searchParams.get('p_offset'), '0');
+    assert.equal(capturedHeaders.apikey, 'svc-key');
+    assert.equal(capturedHeaders.Authorization, 'Bearer svc-key');
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test('USDA proxy passes upstream non-OK status through after retries are exhausted', async () => {
+test('proxy maps page/pageSize to limit/offset and clamps pageSize to 50', async () => {
   const originalFetch = globalThis.fetch;
-  let fetchCalls = 0;
-  globalThis.fetch = async () => {
-    fetchCalls += 1;
-    return createFetchResponse({ ok: false, status: 404, jsonPayload: {} });
-  };
-  try {
-    const response = createResponse();
-    await withFakeTimers(() =>
-      withEnv({ USDA_API_KEY: 'test-key' }, async () => {
-        await handler(
-          {
-            method: 'GET',
-            query: { action: 'search', query: 'omelette' },
-            headers: {},
-          },
-          response
-        );
-      })
-    );
-    assert.equal(response.statusCode, 404);
-    assert.equal(response.jsonPayload.error, 'USDA search error: 404');
-    assert.deepEqual(response.jsonPayload.details, {});
-    // 404 is transient — the proxy retries up to 3 attempts before forwarding.
-    assert.equal(fetchCalls, 3);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test('USDA proxy retries transient upstream 404 and succeeds on a later attempt', async () => {
-  const originalFetch = globalThis.fetch;
-  let fetchCalls = 0;
-  globalThis.fetch = async () => {
-    fetchCalls += 1;
-    if (fetchCalls < 3) {
-      return createFetchResponse({ ok: false, status: 404, jsonPayload: {} });
-    }
-    return createFetchResponse({
-      ok: true,
-      status: 200,
-      jsonPayload: { foods: [{ fdcId: 1 }], totalHits: 1 },
-    });
-  };
-  try {
-    const response = createResponse();
-    await withFakeTimers(() =>
-      withEnv({ USDA_API_KEY: 'test-key' }, async () => {
-        await handler(
-          {
-            method: 'GET',
-            query: { action: 'search', query: 'omelette' },
-            headers: {},
-          },
-          response
-        );
-      })
-    );
-    assert.equal(fetchCalls, 3);
-    assert.equal(response.statusCode, 200);
-    assert.equal(response.jsonPayload.foods[0].fdcId, 1);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test('USDA proxy honors Retry-After (capped) when retrying transient statuses', async () => {
-  const originalFetch = globalThis.fetch;
-  let fetchCalls = 0;
-  globalThis.fetch = async () => {
-    fetchCalls += 1;
-    if (fetchCalls === 1) {
-      return createFetchResponse({
-        ok: false,
-        status: 429,
-        headers: { 'retry-after': '5' },
-        jsonPayload: {},
+  const dataUrlParams = [];
+  globalThis.fetch = async (url) => {
+    const parsed = new URL(url);
+    if (parsed.pathname.endsWith('/search_foods_total')) {
+      return createJsonFetchResponse({
+        ok: true,
+        status: 200,
+        payload: [{ search_foods_total: 2 }],
       });
     }
-    if (fetchCalls === 2) {
-      return createFetchResponse({
-        ok: false,
-        status: 429,
-        headers: { 'retry-after': '0.25' },
-        jsonPayload: {},
-      });
-    }
-    return createFetchResponse({
-      ok: true,
-      status: 200,
-      jsonPayload: { foods: [], totalHits: 0 },
+    dataUrlParams.push({
+      p_limit: parsed.searchParams.get('p_limit'),
+      p_offset: parsed.searchParams.get('p_offset'),
     });
+    return createJsonFetchResponse({ ok: true, status: 200, payload: [] });
   };
+
   try {
     const response = createResponse();
-    const delays = await withFakeTimers(() =>
-      withEnv({ USDA_API_KEY: 'test-key' }, async () => {
-        await handler(
+    await withEnv(
+      {
+        SUPABASE_URL: 'https://proj.supabase.co',
+        SUPABASE_SERVICE_ROLE_KEY: 'svc-key',
+      },
+      () =>
+        handler(
           {
             method: 'GET',
-            query: { action: 'search', query: 'chicken' },
+            query: {
+              action: 'search',
+              query: 'egg',
+              page: '3',
+              pageSize: '99',
+            },
             headers: {},
           },
           response
-        );
-      })
+        )
     );
-    assert.equal(fetchCalls, 3);
+
     assert.equal(response.statusCode, 200);
-    // First delay honors Retry-After (5s) but is capped to 2000ms; the second
-    // uses the uncapped Retry-After value (250ms).
-    assert.deepEqual(delays, [2000, 250]);
+    assert.deepEqual(dataUrlParams, [{ p_limit: '50', p_offset: '100' }]);
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test('USDA proxy does not retry non-transient upstream statuses', async () => {
+test('proxy returns 500 before any upstream call when Supabase env is missing', async () => {
   const originalFetch = globalThis.fetch;
-  let fetchCalls = 0;
+  let called = false;
   globalThis.fetch = async () => {
-    fetchCalls += 1;
-    return createFetchResponse({
-      ok: false,
-      status: 403,
-      jsonPayload: { error: { message: 'forbidden' } },
-    });
+    called = true;
+    return createJsonFetchResponse({ ok: false, status: 500, payload: {} });
   };
+
   try {
     const response = createResponse();
-    await withEnv({ USDA_API_KEY: 'test-key' }, async () => {
-      await handler(
+    await withEnv({}, () =>
+      handler(
         {
           method: 'GET',
           query: { action: 'search', query: 'chicken' },
           headers: {},
         },
         response
-      );
-    });
-    assert.equal(fetchCalls, 1);
-    assert.equal(response.statusCode, 403);
-    assert.equal(response.jsonPayload.error, 'forbidden');
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test('USDA proxy attempt limit is configurable via env', async () => {
-  const originalFetch = globalThis.fetch;
-  let fetchCalls = 0;
-  globalThis.fetch = async () => {
-    fetchCalls += 1;
-    return createFetchResponse({ ok: false, status: 404, jsonPayload: {} });
-  };
-  try {
-    const response = createResponse();
-    await withFakeTimers(() =>
-      withEnv(
-        { USDA_API_KEY: 'test-key', USDA_MAX_ATTEMPTS: '2' },
-        async () => {
-          await handler(
-            {
-              method: 'GET',
-              query: { action: 'search', query: 'omelette' },
-              headers: {},
-            },
-            response
-          );
-        }
       )
     );
-    assert.equal(fetchCalls, 2);
-    assert.equal(response.statusCode, 404);
+
+    assert.equal(called, false);
+    assert.equal(response.statusCode, 500);
+    assert.equal(response.jsonPayload.error, 'Supabase catalog not configured');
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test('USDA proxy rejects an invalid action', async () => {
+test('proxy rejects short queries and invalid actions without upstream calls', async () => {
   const originalFetch = globalThis.fetch;
   let called = false;
   globalThis.fetch = async () => {
     called = true;
-    return { ok: true, status: 200, json: async () => ({}) };
+    return createJsonFetchResponse({ ok: true, status: 200, payload: [] });
   };
+
   try {
-    const response = createResponse();
-    await withEnv({ USDA_API_KEY: 'test-key' }, async () => {
-      await handler(
-        {
-          method: 'GET',
-          query: { action: 'details', query: 'omelette' },
-          headers: {},
-        },
-        response
-      );
-    });
-    assert.equal(response.statusCode, 400);
-    assert.deepEqual(response.jsonPayload.validActions, ['search']);
+    const shortResponse = createResponse();
+    await withEnv(
+      {
+        SUPABASE_URL: 'https://proj.supabase.co',
+        SUPABASE_SERVICE_ROLE_KEY: 'svc-key',
+      },
+      () =>
+        handler(
+          {
+            method: 'GET',
+            query: { action: 'search', query: 'a' },
+            headers: {},
+          },
+          shortResponse
+        )
+    );
+    assert.equal(shortResponse.statusCode, 400);
+    assert.match(shortResponse.jsonPayload.error, /min 2 characters/);
+
+    const actionResponse = createResponse();
+    await withEnv(
+      {
+        SUPABASE_URL: 'https://proj.supabase.co',
+        SUPABASE_SERVICE_ROLE_KEY: 'svc-key',
+      },
+      () =>
+        handler(
+          {
+            method: 'GET',
+            query: { action: 'details', query: 'chicken' },
+            headers: {},
+          },
+          actionResponse
+        )
+    );
+    assert.equal(actionResponse.statusCode, 400);
+    assert.deepEqual(actionResponse.jsonPayload.validActions, ['search']);
     assert.equal(called, false);
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
+
+test('proxy retries transient 5xx upstream errors and succeeds', async () => {
+  const originalFetch = globalThis.fetch;
+  let dataCalls = 0;
+  globalThis.fetch = async (url) => {
+    const parsed = new URL(url);
+    if (parsed.pathname.endsWith('/search_foods_total')) {
+      return createJsonFetchResponse({
+        ok: true,
+        status: 200,
+        payload: [{ search_foods_total: 1 }],
+      });
+    }
+    dataCalls += 1;
+    if (dataCalls === 1) {
+      return createJsonFetchResponse({ ok: false, status: 502, payload: {} });
+    }
+    return createJsonFetchResponse({
+      ok: true,
+      status: 200,
+      payload: [SAMPLE_ROW],
+    });
+  };
+
+  try {
+    const response = createResponse();
+    const delays = await withFakeTimers(() =>
+      withEnv(
+        {
+          SUPABASE_URL: 'https://proj.supabase.co',
+          SUPABASE_SERVICE_ROLE_KEY: 'svc-key',
+        },
+        () =>
+          handler(
+            {
+              method: 'GET',
+              query: { action: 'search', query: 'chicken' },
+              headers: {},
+            },
+            response
+          )
+      )
+    );
+
+    assert.equal(dataCalls, 2);
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.jsonPayload.catalogFoods.length, 1);
+    assert.equal(delays.length, 1);
+    assert.ok(delays[0] >= 200);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('proxy does not retry non-transient upstream statuses', async () => {
+  const originalFetch = globalThis.fetch;
+  let dataCalls = 0;
+  globalThis.fetch = async (url) => {
+    const parsed = new URL(url);
+    if (parsed.pathname.endsWith('/search_foods_total')) {
+      return createJsonFetchResponse({
+        ok: true,
+        status: 200,
+        payload: [{ search_foods_total: 0 }],
+      });
+    }
+    dataCalls += 1;
+    return createJsonFetchResponse({
+      ok: false,
+      status: 400,
+      payload: { message: 'bad request' },
+    });
+  };
+
+  try {
+    const response = createResponse();
+    await withEnv(
+      {
+        SUPABASE_URL: 'https://proj.supabase.co',
+        SUPABASE_SERVICE_ROLE_KEY: 'svc-key',
+      },
+      () =>
+        handler(
+          {
+            method: 'GET',
+            query: { action: 'search', query: 'chicken' },
+            headers: {},
+          },
+          response
+        )
+    );
+
+    assert.equal(dataCalls, 1);
+    assert.equal(response.statusCode, 400);
+    assert.match(response.jsonPayload.error, /bad request/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('proxy degrades totalHits to rows.length when the count RPC fails', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const parsed = new URL(url);
+    if (parsed.pathname.endsWith('/search_foods_total')) {
+      return createJsonFetchResponse({ ok: false, status: 500, payload: {} });
+    }
+    return createJsonFetchResponse({
+      ok: true,
+      status: 200,
+      payload: [SAMPLE_ROW, SAMPLE_ROW],
+    });
+  };
+
+  try {
+    const response = createResponse();
+    await withEnv(
+      {
+        SUPABASE_URL: 'https://proj.supabase.co',
+        SUPABASE_SERVICE_ROLE_KEY: 'svc-key',
+      },
+      () =>
+        handler(
+          {
+            method: 'GET',
+            query: { action: 'search', query: 'chicken' },
+            headers: {},
+          },
+          response
+        )
+    );
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.jsonPayload.catalogFoods.length, 2);
+    assert.equal(response.jsonPayload.totalHits, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+/* __APPEND_POINT_2__ */

@@ -399,7 +399,7 @@ Snapshots include denormalized `goalAtSnapshot` for historical analysis.
 
 ### USDA Search + OpenFoodFacts Barcode
 
-Online text search uses USDA FoodData Central via Vercel proxy, while barcode lookup remains OpenFoodFacts-backed.
+Online text search queries the curated Supabase catalog (seeded from `calorieintaketracker-db-pipeline`) through the Vercel proxy — FoodData Central is never called at runtime anymore. Barcode lookup remains OpenFoodFacts-backed.
 
 ```javascript
 import { searchFoods as searchUsdaFoods } from './services/usda';
@@ -412,7 +412,7 @@ const food = await searchBarcode('012345678901');
 **Configuration:**
 - `VITE_USDA_API_BASE` (default: `https://calorieintaketracker.vercel.app/api/usda`)
 - `VITE_OPENFOODFACTS_API_BASE` (default: `https://calorieintaketracker.vercel.app/api/openfoodfacts`)
-- Server-side (Vercel): `USDA_API_KEY` (required) + optional `USDA_USER_AGENT` (browser-like UA; FDC 404s non-browser UAs on `/foods/search`), optional `OPENFOODFACTS_USER_AGENT` / `OPENFOODFACTS_API_BASE`
+- Server-side (Vercel): `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (required — the proxy calls the `search_foods` / `search_foods_total` PostgREST RPCs against the seeded `public.foods` table), optional `OPENFOODFACTS_USER_AGENT` / `OPENFOODFACTS_API_BASE`. The legacy `USDA_API_KEY` / `USDA_USER_AGENT` vars are obsolete.
 
 ### OpenRouter AI Parsing
 
