@@ -62,16 +62,16 @@ test('computeAdaptiveThermogenesis crude mode returns staged negative correction
 
 test('crude mode maps cut pressure tiers to milestone corrections', () => {
   const expectations = [
-    { days: 1, pressure: -1, correction: 0 },
-    { days: 2, pressure: -2, correction: 0 },
-    { days: 3, pressure: -3, correction: -50 },
-    { days: 7, pressure: -7, correction: -100 },
-    { days: 14, pressure: -14, correction: -175 },
-    { days: 21, pressure: -21, correction: -250 },
-    { days: 28, pressure: -28, correction: -250 },
+    { days: 1, cutPressure: 1, correction: 0 },
+    { days: 2, cutPressure: 2, correction: 0 },
+    { days: 3, cutPressure: 3, correction: -50 },
+    { days: 7, cutPressure: 7, correction: -100 },
+    { days: 14, cutPressure: 14, correction: -175 },
+    { days: 21, cutPressure: 21, correction: -250 },
+    { days: 28, cutPressure: 28, correction: -250 },
   ];
 
-  expectations.forEach(({ days, pressure, correction }) => {
+  expectations.forEach(({ days, cutPressure, correction }) => {
     const { snapshots, endDateKey } = buildGoalHistory({
       days,
       endDay: days,
@@ -86,8 +86,18 @@ test('crude mode maps cut pressure tiers to milestone corrections', () => {
 
     assert.equal(
       result.details.balancePressure,
-      pressure,
-      `pressure after ${days} cut days`
+      -cutPressure,
+      `net pressure after ${days} cut days`
+    );
+    assert.equal(
+      result.details.cutPressure,
+      cutPressure,
+      `cut pressure after ${days} cut days`
+    );
+    assert.equal(
+      result.details.surplusPressure,
+      0,
+      `surplus pressure after ${days} cut days`
     );
     assert.equal(
       result.correction,
@@ -99,15 +109,15 @@ test('crude mode maps cut pressure tiers to milestone corrections', () => {
 
 test('crude mode maps surplus pressure tiers to milestone corrections', () => {
   const expectations = [
-    { days: 9, pressure: 6.75, correction: 0 },
-    { days: 10, pressure: 7.5, correction: 50 },
-    { days: 18, pressure: 13.5, correction: 50 },
-    { days: 19, pressure: 14.25, correction: 100 },
-    { days: 27, pressure: 20.25, correction: 100 },
-    { days: 28, pressure: 21, correction: 150 },
+    { days: 9, surplusPressure: 6.75, correction: 0 },
+    { days: 10, surplusPressure: 7.5, correction: 50 },
+    { days: 18, surplusPressure: 13.5, correction: 50 },
+    { days: 19, surplusPressure: 14.25, correction: 100 },
+    { days: 27, surplusPressure: 20.25, correction: 100 },
+    { days: 28, surplusPressure: 21, correction: 150 },
   ];
 
-  expectations.forEach(({ days, pressure, correction }) => {
+  expectations.forEach(({ days, surplusPressure, correction }) => {
     const { snapshots, endDateKey } = buildGoalHistory({
       days,
       endDay: days,
@@ -122,8 +132,18 @@ test('crude mode maps surplus pressure tiers to milestone corrections', () => {
 
     assert.equal(
       result.details.balancePressure,
-      pressure,
-      `pressure after ${days} surplus days`
+      surplusPressure,
+      `net pressure after ${days} surplus days`
+    );
+    assert.equal(
+      result.details.surplusPressure,
+      surplusPressure,
+      `surplus pressure after ${days} surplus days`
+    );
+    assert.equal(
+      result.details.cutPressure,
+      0,
+      `cut pressure after ${days} surplus days`
     );
     assert.equal(
       result.correction,
@@ -148,6 +168,8 @@ test('crude keeps a non-zero high-tier correction on an isolated maintenance day
   });
 
   assert.equal(result.details.balancePressure, -19.75);
+  assert.equal(result.details.cutPressure, 19.75);
+  assert.equal(result.details.surplusPressure, 0);
   assert.equal(result.correction, -175);
   assert.equal(result.active, true);
 });
@@ -230,10 +252,14 @@ test('crude surplus clears a deep cut deficit within the lookback window while m
     dailySnapshots: cutThenMaintenance.snapshots,
   });
 
-  // 18 cut + 10 surplus: -18 unwound at +2/day -> 0 then +0.75 (neutral zone).
+  // 18 cut + 10 surplus: cut unwound at +2/day to 0, then surplus +0.75.
+  assert.equal(surplusResult.details.cutPressure, 0);
+  assert.equal(surplusResult.details.surplusPressure, 0.75);
   assert.equal(surplusResult.details.balancePressure, 0.75);
   assert.equal(surplusResult.correction, 0);
-  // 18 cut + 10 maintenance: -18 + 2.5 -> still deep deficit, still -175.
+  // 18 cut + 10 maintenance: cut decays by +0.25/day to 15.5 -> still -175.
+  assert.equal(maintenanceResult.details.cutPressure, 15.5);
+  assert.equal(maintenanceResult.details.surplusPressure, 0);
   assert.equal(maintenanceResult.details.balancePressure, -15.5);
   assert.equal(maintenanceResult.correction, -175);
 });
@@ -252,6 +278,8 @@ test('crude resets to -1.0 when a cut day follows positive (surplus) pressure', 
     dailySnapshots: snapshots,
   });
 
+  assert.equal(result.details.cutPressure, 1);
+  assert.equal(result.details.surplusPressure, 0);
   assert.equal(result.details.balancePressure, -1);
   assert.equal(result.correction, 0);
 });
