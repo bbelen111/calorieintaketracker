@@ -237,6 +237,7 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
   - Online batch size: `80`
   - "Show more" increments visible rows and can trigger additional local DB page fetches.
 - Local DB paging in search mode uses `LOCAL_DB_QUERY_PAGE_SIZE = 500` with offset-based fetches when users load more.
+- **Online mode pages server-side too**: each fetch requests up to `ONLINE_SEARCH_PAGE_SIZE` (50, the RPC cap) and "Show more" appends the next page via `performOnlineSearch(query, { append: true })` with ID-dedupe. A request-id guard (`onlineSearchRequestIdRef`) drops stale responses so a slow earlier query can never overwrite newer results, and the paging cursor resets on query/mode changes.
 - Filter/result header intentionally shows **current loaded count only** in search mode (e.g. `240 foods found`) and updates as more rows are loaded.
 - Online mode remains debounced (`DEBOUNCE_DELAY = 500ms`) and enforces a minimum query length (`2` chars).
 - Long-press pinning is owned by `FoodSearchModal` UI interaction (`LONG_PRESS_DURATION = 650ms`) and persists through store `togglePinnedFood`.
@@ -933,7 +934,7 @@ Online text search and barcode lookup are split across two proxied services for 
 
 **Architecture:**
 - `services/foodCloud.js` — Client service for online text search (Supabase-backed curated catalog), with timeout + native base URL guard; maps canonical catalog rows to the app food shape.
-- `api/foods.js` — Vercel proxy for `action=search` over the Supabase PostgREST RPCs `search_foods` / `search_foods_total` (read-only **anon** key; RLS grants public SELECT + the RPCs are EXECUTE-granted to anon). Payload builders live in `api/foodRows.js` (canonical `catalogFoods` + synthetic FDC `foods` envelope for legacy native builds during the transition window).
+- `api/foods.js` — Vercel proxy for `action=search` over the Supabase PostgREST RPC `search_foods` (read-only **anon** key; RLS grants public SELECT + the RPCs are EXECUTE-granted to anon). Responses are **lean by default** — `{ catalogFoods, page }`; the legacy FDC `foods` envelope and the `search_foods_total` count RPC are only exercised when a caller opts in via `legacy=1` (or when served through `/api/usda`) so already-shipped native builds keep working while modern clients skip the duplicate payload + extra count call. Responses carry `Cache-Control: public, s-maxage=120, stale-while-revalidate=600`. Payload builders live in `api/foodRows.js` (canonical `catalogFoods` always, synthetic FDC `foods` envelope only on the legacy path).
 - `api/usda.js` — legacy alias of `api/foods.js` serving the old `/api/usda` URL so already-shipped builds keep working.
 - `services/openFoodFacts.js` — Client service for barcode lookups.
 - `api/openfoodfacts.js` — Vercel proxy supporting `action=barcode` (product lookup).
@@ -958,7 +959,9 @@ const results = await searchOnlineFoods('chicken breast', { page: 1, pageSize: 2
 const food = await searchBarcode('012345678901');
 ```
 
-Results are cached in `userData.cachedFoods` to reduce repeated network requests.
+Search results are cached at two layers:
+- **In-memory query-result cache** (`FOODS_SEARCH_CACHE_TTL_MS` = 5 min, `FOODS_SEARCH_CACHE_MAX_ENTRIES` = 64, LRU-recency-refreshed) inside `services/foodCloud.js` — dedupes identical query/page/size reads within a session (`clearFoodsSearchCache()` clears it and is used by tests).
+- **Persisted cache-on-select** in `userData.cachedFoods` — only foods the user actually selects/logs survive across sessions.
 
 **Rename scope:** the online path is branded "online database / food cloud" end-to-end: `/api/foods` (+ legacy `/api/usda` alias), `VITE_FOODS_API_BASE`, `services/foodCloud.js`, `api/foodRows.js`, and the internal RAG pipeline is now cloud-native (`FOOD_SEARCH_SOURCE.CLOUD` = `'cloud'`, `cloud_search_failed`/`cloud_search_aborted`, `try_cloud`, `cloud_*` decision/telemetry keys, `defaultSource: 'cloud'`). Two deliberate exceptions stay USDA-encoded: the persisted `usda_<fdcId>` food-id prefix (data provenance; backs stored favourites/pins) and the `'usda'` nutrient-invariant scope in `constants/nutrients/nutrients.js` (US "carb by difference" semantics — a different domain, not the search source).
 

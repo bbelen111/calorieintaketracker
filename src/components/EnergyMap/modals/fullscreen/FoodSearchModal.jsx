@@ -86,6 +86,7 @@ const DEFAULT_MAX_IMAGE_COUNT = 3;
 const LOCAL_RESULT_BATCH_SIZE = 120;
 const ONLINE_RESULT_BATCH_SIZE = 80;
 const LOCAL_DB_QUERY_PAGE_SIZE = 500;
+const ONLINE_SEARCH_PAGE_SIZE = 50; // Supabase search RPC caps pageSize at 50
 const PANEL_EASE = [0.32, 0.72, 0, 1];
 const CHAT_REQUEST_STAGE = CHAT_PIPELINE_STAGE;
 const FOOD_SEARCH_DEFAULT_ENTRY_SET = new Set([
@@ -457,6 +458,8 @@ export const FoodSearchModal = ({
   );
   const [searchFallbackUsed, setSearchFallbackUsed] = useState(false);
   const [, setSearchErrorsBySource] = useState({});
+  const [hasMoreOnlineResults, setHasMoreOnlineResults] = useState(false);
+  const [isOnlineLoadingMore, setIsOnlineLoadingMore] = useState(false);
   const [loadingFoodId, setLoadingFoodId] = useState(null);
   const [localDbResults, setLocalDbResults] = useState([]);
   const [isLocalSearching, setIsLocalSearching] = useState(false);
@@ -481,6 +484,8 @@ export const FoodSearchModal = ({
   const searchTimeoutRef = useRef(null);
   const abortControllerRef = useRef(null);
   const hasAppliedDefaultEntryRef = useRef(false);
+  const onlineSearchRequestIdRef = useRef(0);
+  const onlinePageRef = useRef(0);
 
   // Network status
   const { isOnline } = useNetworkStatus();
@@ -941,47 +946,96 @@ export const FoodSearchModal = ({
     }
   }, [isManualAddConfirmClosing, isManualAddConfirmOpen]);
 
-  // Debounced online search
+  // Debounced online search. `append` fetches the next server page and appends
+  // it to the existing results; a request-id guard drops stale responses so a
+  // slow earlier query can never overwrite a newer one.
   const performOnlineSearch = useCallback(
-    async (query) => {
+    async (query, { append = false } = {}) => {
       if (!query || query.trim().length < 2) {
+        onlineSearchRequestIdRef.current += 1;
+        onlinePageRef.current = 0;
         setOnlineResults([]);
         setIsSearching(false);
+        setIsOnlineLoadingMore(false);
         setSearchFallbackUsed(false);
         setSearchErrorsBySource({});
         setActiveSearchSource(FOOD_SEARCH_SOURCE.CLOUD);
+        setHasMoreOnlineResults(false);
         return;
       }
 
       if (!isOnline) {
-        setOnlineResults([]);
+        onlineSearchRequestIdRef.current += 1;
+        if (!append) {
+          setOnlineResults([]);
+        }
         setSearchError('You are offline. Connect to search online foods.');
         setIsSearching(false);
+        setIsOnlineLoadingMore(false);
+        setHasMoreOnlineResults(false);
         return;
       }
 
-      setIsSearching(true);
+      const requestId = onlineSearchRequestIdRef.current + 1;
+      onlineSearchRequestIdRef.current = requestId;
+      const page = append ? Math.max(onlinePageRef.current + 1, 1) : 1;
+
+      if (append) {
+        setIsOnlineLoadingMore(true);
+      } else {
+        setIsSearching(true);
+        setIsOnlineLoadingMore(false);
+        setHasMoreOnlineResults(false);
+      }
       setSearchError(null);
+
       try {
         const result = await searchFoodsOnline({
           query,
+          onlinePage: page,
+          onlinePageSize: ONLINE_SEARCH_PAGE_SIZE,
         });
+
+        if (requestId !== onlineSearchRequestIdRef.current) {
+          return;
+        }
 
         const safeResults = Array.isArray(result?.results)
           ? result.results
           : [];
 
-        setOnlineResults(safeResults);
+        setOnlineResults((prev) => {
+          if (!append) {
+            return safeResults;
+          }
+          const seenIds = new Set(
+            prev.map((food) => food?.id).filter((id) => Boolean(id))
+          );
+          return [
+            ...prev,
+            ...safeResults.filter((food) => !seenIds.has(food?.id)),
+          ];
+        });
+        onlinePageRef.current = page;
+        setHasMoreOnlineResults(safeResults.length >= ONLINE_SEARCH_PAGE_SIZE);
         setActiveSearchSource(result?.source || FOOD_SEARCH_SOURCE.CLOUD);
         setSearchFallbackUsed(Boolean(result?.fallbackUsed));
         setSearchErrorsBySource(result?.errorsBySource || {});
         setSearchError(resolveSourceSearchError(result?.errorsBySource));
       } catch (error) {
+        if (requestId !== onlineSearchRequestIdRef.current) {
+          return;
+        }
         console.error('Online search error:', error);
         setSearchError(error?.message || 'Search failed. Please try again.');
-        setOnlineResults([]);
+        if (!append) {
+          setOnlineResults([]);
+        }
       } finally {
-        setIsSearching(false);
+        if (requestId === onlineSearchRequestIdRef.current) {
+          setIsSearching(false);
+          setIsOnlineLoadingMore(false);
+        }
       }
     },
     [isOnline, resolveSourceSearchError]
@@ -991,19 +1045,23 @@ export const FoodSearchModal = ({
   useEffect(() => {
     if (searchMode !== 'online') return;
 
+    // Invalidate any in-flight response for the previous query/window so it can
+    // never resolve into state after the query changed.
+    onlineSearchRequestIdRef.current += 1;
+    onlinePageRef.current = 0;
+
     // Clear previous timeout
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
 
-    // Don't search if query too short
+    // Short queries clear through the same performOnlineSearch path — scheduled
+    // like the normal debounce so results, loading flags and the paging cursor
+    // reset consistently (and are cancelable by the effect cleanup).
     if (searchQuery.trim().length < 2) {
-      setOnlineResults([]);
-      setIsSearching(false);
-      setSearchError(null);
-      setSearchFallbackUsed(false);
-      setSearchErrorsBySource({});
-      setActiveSearchSource(FOOD_SEARCH_SOURCE.CLOUD);
+      searchTimeoutRef.current = setTimeout(() => {
+        performOnlineSearch(searchQuery);
+      }, 0);
       return;
     }
 
@@ -1021,6 +1079,14 @@ export const FoodSearchModal = ({
       }
     };
   }, [searchQuery, searchMode, performOnlineSearch]);
+
+  // When switching in/out of online mode, drop any in-flight online response
+  // and reset the paging cursor. Results/loading flags are reset by the next
+  // performOnlineSearch call (fresh query or short-query reset).
+  useEffect(() => {
+    onlineSearchRequestIdRef.current += 1;
+    onlinePageRef.current = 0;
+  }, [searchMode]);
 
   // Handle selecting an online food (cache and select)
   const handleOnlineFoodSelect = async (previewFood) => {
@@ -1815,7 +1881,8 @@ export const FoodSearchModal = ({
 
   const hasMoreResults =
     visibleResultCount < displayResults.length ||
-    (searchMode === 'local' && hasMoreLocalDbResults);
+    (searchMode === 'local' && hasMoreLocalDbResults) ||
+    (searchMode === 'online' && hasMoreOnlineResults);
 
   const handleLoadMoreResults = useCallback(() => {
     const batchSize =
@@ -1827,25 +1894,42 @@ export const FoodSearchModal = ({
       Math.min(current + batchSize, displayResults.length)
     );
 
+    if (!isOpen || viewMode !== 'search') {
+      return;
+    }
+
     if (
-      isOpen &&
-      viewMode === 'search' &&
       searchMode === 'local' &&
       !isLocalSearching &&
       !isLocalLoadingMore &&
       hasMoreLocalDbResults
     ) {
       runLocalSearch({ append: true, offset: localDbOffset });
+      return;
+    }
+
+    if (
+      searchMode === 'online' &&
+      !isSearching &&
+      !isOnlineLoadingMore &&
+      hasMoreOnlineResults
+    ) {
+      void performOnlineSearch(searchQuery, { append: true });
     }
   }, [
     displayResults.length,
     hasMoreLocalDbResults,
+    hasMoreOnlineResults,
     isLocalLoadingMore,
     isLocalSearching,
+    isOnlineLoadingMore,
     isOpen,
+    isSearching,
     localDbOffset,
+    performOnlineSearch,
     runLocalSearch,
     searchMode,
+    searchQuery,
     viewMode,
   ]);
 
@@ -3679,7 +3763,7 @@ export const FoodSearchModal = ({
                       <div className="pt-2 pb-1 flex justify-center">
                         <motion.button
                           onClick={handleLoadMoreResults}
-                          disabled={isLocalLoadingMore}
+                          disabled={isLocalLoadingMore || isOnlineLoadingMore}
                           initial={
                             prefersReducedMotion ? false : { opacity: 0, y: 6 }
                           }
@@ -3694,7 +3778,7 @@ export const FoodSearchModal = ({
                           }
                           className="px-4 py-2 rounded-lg border border-border bg-surface-highlight text-foreground text-sm font-medium md:hover:bg-surface pressable-card focus-ring"
                         >
-                          {isLocalLoadingMore
+                          {isLocalLoadingMore || isOnlineLoadingMore
                             ? 'Loading more...'
                             : `Show more (${visibleDisplayResults.length} loaded)`}
                         </motion.button>

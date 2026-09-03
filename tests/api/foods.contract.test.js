@@ -1,4 +1,5 @@
-﻿import test from 'node:test';
+/* eslint-disable no-undef -- process is a Node/Vercel Serverless global */
+import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import handler from '../../api/foods.js';
@@ -83,13 +84,15 @@ const withFakeTimers = async (fn) => {
   }
 };
 
-test('proxy queries the Supabase search RPCs with service-role auth and returns both envelopes', async () => {
+test('proxy queries the search RPC with anon auth and returns the lean catalog envelope by default', async () => {
   const originalFetch = globalThis.fetch;
   let capturedUrl;
   let capturedHeaders;
+  let totalCalls = 0;
   globalThis.fetch = async (url, options) => {
     const parsed = new URL(url);
     if (parsed.pathname.endsWith('/search_foods_total')) {
+      totalCalls += 1;
       return createJsonFetchResponse({
         ok: true,
         status: 200,
@@ -117,6 +120,7 @@ test('proxy queries the Supabase search RPCs with service-role auth and returns 
         handler(
           {
             method: 'GET',
+            url: '/api/foods?action=search&query=chicken',
             query: {
               action: 'search',
               query: 'chicken',
@@ -141,16 +145,11 @@ test('proxy queries the Supabase search RPCs with service-role auth and returns 
       { id: 'p_100g', label: '100g', grams: 100 },
     ]);
 
-    // Legacy FDC envelope for old native builds.
-    assert.equal(response.jsonPayload.foods.length, 1);
-    assert.equal(response.jsonPayload.foods[0].fdcId, '171077');
-    assert.equal(
-      response.jsonPayload.foods[0].description,
-      'Chicken breast, raw'
-    );
-    assert.equal(response.jsonPayload.foods[0].servingSize, 100);
+    // Lean default: no legacy FDC envelope and no count RPC for modern clients.
+    assert.equal('foods' in response.jsonPayload, false);
+    assert.equal('totalHits' in response.jsonPayload, false);
+    assert.equal(totalCalls, 0);
 
-    assert.equal(response.jsonPayload.totalHits, 561);
     assert.equal(response.jsonPayload.page, 1);
 
     assert.equal(
@@ -162,6 +161,110 @@ test('proxy queries the Supabase search RPCs with service-role auth and returns 
     assert.equal(capturedUrl.searchParams.get('p_offset'), '0');
     assert.equal(capturedHeaders.apikey, 'anon-key');
     assert.equal(capturedHeaders.Authorization, 'Bearer anon-key');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('proxy includes the legacy FDC envelope + real totalHits when legacy=1', async () => {
+  const originalFetch = globalThis.fetch;
+  let totalCalls = 0;
+  globalThis.fetch = async (url) => {
+    const parsed = new URL(url);
+    if (parsed.pathname.endsWith('/search_foods_total')) {
+      totalCalls += 1;
+      return createJsonFetchResponse({
+        ok: true,
+        status: 200,
+        payload: 561,
+      });
+    }
+    return createJsonFetchResponse({
+      ok: true,
+      status: 200,
+      payload: [SAMPLE_ROW],
+    });
+  };
+
+  try {
+    const response = createResponse();
+    await withEnv(
+      {
+        SUPABASE_URL: 'https://proj.supabase.co',
+        SUPABASE_ANON_KEY: 'anon-key',
+      },
+      () =>
+        handler(
+          {
+            method: 'GET',
+            url: '/api/foods?action=search&query=chicken&legacy=1',
+            query: { action: 'search', query: 'chicken', legacy: '1' },
+            headers: {},
+          },
+          response
+        )
+    );
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.jsonPayload.catalogFoods.length, 1);
+
+    // Legacy FDC envelope for old native builds.
+    assert.equal(response.jsonPayload.foods.length, 1);
+    assert.equal(response.jsonPayload.foods[0].fdcId, '171077');
+    assert.equal(
+      response.jsonPayload.foods[0].description,
+      'Chicken breast, raw'
+    );
+    assert.equal(response.jsonPayload.foods[0].servingSize, 100);
+
+    assert.equal(response.jsonPayload.totalHits, 561);
+    assert.equal(response.jsonPayload.page, 1);
+    assert.equal(totalCalls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('proxy forces the legacy envelope on the /api/usda route', async () => {
+  const originalFetch = globalThis.fetch;
+  let totalCalls = 0;
+  globalThis.fetch = async (url) => {
+    const parsed = new URL(url);
+    if (parsed.pathname.endsWith('/search_foods_total')) {
+      totalCalls += 1;
+      return createJsonFetchResponse({ ok: true, status: 200, payload: 3 });
+    }
+    return createJsonFetchResponse({
+      ok: true,
+      status: 200,
+      payload: [SAMPLE_ROW],
+    });
+  };
+
+  try {
+    const response = createResponse();
+    await withEnv(
+      {
+        SUPABASE_URL: 'https://proj.supabase.co',
+        SUPABASE_ANON_KEY: 'anon-key',
+      },
+      () =>
+        handler(
+          {
+            method: 'GET',
+            url: '/api/usda?action=search&query=chicken',
+            query: { action: 'search', query: 'chicken' },
+            headers: {},
+          },
+          response
+        )
+    );
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.jsonPayload.catalogFoods.length, 1);
+    assert.equal(response.jsonPayload.foods.length, 1);
+    assert.equal(response.jsonPayload.totalHits, 3);
+    assert.equal(totalCalls, 1);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -392,7 +495,7 @@ test('proxy does not retry non-transient upstream statuses', async () => {
   }
 });
 
-test('proxy degrades totalHits to rows.length when the count RPC fails', async () => {
+test('proxy degrades totalHits to rows.length when the count RPC fails (legacy path)', async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url) => {
     const parsed = new URL(url);
@@ -417,7 +520,8 @@ test('proxy degrades totalHits to rows.length when the count RPC fails', async (
         handler(
           {
             method: 'GET',
-            query: { action: 'search', query: 'chicken' },
+            query: { action: 'search', query: 'chicken', legacy: '1' },
+            url: '/api/foods?action=search&query=chicken&legacy=1',
             headers: {},
           },
           response
@@ -426,6 +530,7 @@ test('proxy degrades totalHits to rows.length when the count RPC fails', async (
 
     assert.equal(response.statusCode, 200);
     assert.equal(response.jsonPayload.catalogFoods.length, 2);
+    assert.equal(response.jsonPayload.foods.length, 2);
     assert.equal(response.jsonPayload.totalHits, 2);
   } finally {
     globalThis.fetch = originalFetch;

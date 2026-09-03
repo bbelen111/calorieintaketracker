@@ -8,7 +8,10 @@
 // writes are service-role only, via the pipeline seeder.
 //
 // Response envelope (see api/foodRows.js):
-//   { catalogFoods: [canonical rows…], foods: [legacy FDC rows…], totalHits, page }
+//   Lean default:  { catalogFoods: [canonical rows…], page }
+//   Legacy opt-in: { catalogFoods, foods: [legacy FDC rows…], totalHits, page }
+//     (enabled via `legacy=1` or when served through the /api/usda route so
+//     already-shipped native builds keep their FDC envelope + real totalHits)
 
 import { toCatalogPayloadRows, toLegacyFdcRows } from './foodRows.js';
 
@@ -134,6 +137,12 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  // Read-only search results over a rarely-changing catalog are safe to cache
+  // at the CDN/edge layer for a short window (Vercel s-maxage semantics).
+  res.setHeader(
+    'Cache-Control',
+    'public, s-maxage=120, stale-while-revalidate=600'
+  );
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -156,7 +165,16 @@ export default async function handler(req, res) {
     });
   }
 
-  const { action, query, page, pageSize } = req.query;
+  const { action, query, page, pageSize, legacy } = req.query;
+  // The legacy FDC envelope + real totalHits are opt-in: only already-shipped
+  // native builds (via `legacy=1` or the /api/usda route) still need them, so
+  // modern clients skip the duplicate payload and the extra count RPC.
+  const wantsLegacyEnvelope =
+    String(legacy) === '1' ||
+    String(legacy).toLowerCase() === 'true' ||
+    String(req.url || '')
+      .split('?')[0]
+      .endsWith('/api/usda');
   const normalizedAction = String(action || 'search').toLowerCase();
 
   if (normalizedAction !== 'search') {
@@ -191,16 +209,21 @@ export default async function handler(req, res) {
       supabaseUrl,
       apiKey
     );
-    const totalHits =
-      (await searchCatalogTotal(normalizedQuery, supabaseUrl, apiKey)) ??
-      rows.length;
 
-    return res.status(200).json({
+    const payload = {
       catalogFoods: toCatalogPayloadRows(rows),
-      foods: toLegacyFdcRows(rows),
-      totalHits,
       page: safePage,
-    });
+    };
+
+    if (wantsLegacyEnvelope) {
+      const totalHits =
+        (await searchCatalogTotal(normalizedQuery, supabaseUrl, apiKey)) ??
+        rows.length;
+      payload.foods = toLegacyFdcRows(rows);
+      payload.totalHits = totalHits;
+    }
+
+    return res.status(200).json(payload);
   } catch (error) {
     console.error('food search proxy error:', error);
     return res.status(error?.status || 500).json({
