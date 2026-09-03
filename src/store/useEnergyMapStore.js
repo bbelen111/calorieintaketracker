@@ -570,6 +570,14 @@ export const useEnergyMapStore = createWithEqualityFn(
             : Date.now(),
         };
       });
+
+      // Keep today's daily snapshot goal metadata in sync on an actual switch:
+      // snapshots are the per-day goal history the Crude AT pressure
+      // accumulator evaluates, so a same-day toggle must be reflected now
+      // rather than waiting for app-resume/day-rollover refinalization.
+      if (get().userData.selectedGoal === goalKey) {
+        get().upsertDailySnapshot(getTodayDateKey());
+      }
     },
 
     setFoodSearchDefaultEntry: (nextEntry) => {

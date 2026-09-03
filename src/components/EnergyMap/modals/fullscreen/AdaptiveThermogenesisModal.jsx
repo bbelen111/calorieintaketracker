@@ -95,7 +95,17 @@ export const AdaptiveThermogenesisModal = ({
         ? 'text-accent-blue'
         : 'text-foreground';
   const preview = data && !data.enabled;
-  const next = getNextStage(result, data?.stages, data?.days);
+  const crudeDetails = data?.crude?.details ?? null;
+  const crudeMilestone = crudeDetails?.milestone ?? null;
+  const crudePressure = Number(crudeDetails?.balancePressure) || 0;
+  const nextDirection = crudeMilestone
+    ? crudeMilestone.kcal < 0
+      ? 'cut'
+      : 'surplus'
+    : crudeDetails?.goalType === 'cut' || crudeDetails?.goalType === 'surplus'
+      ? crudeDetails.goalType
+      : null;
+  const next = getNextMilestone(crudePressure, nextDirection);
 
   return (
     <ModalShell
@@ -175,7 +185,7 @@ export const AdaptiveThermogenesisModal = ({
             <p className="text-xs text-muted">
               {tab === 'smart'
                 ? 'Compares logged balance with your weight trend.'
-                : 'A scheduled adjustment based on time spent in your goal.'}
+                : 'A rolling adjustment built from your daily goal history.'}
             </p>
             <ActiveModeBadge enabled={data?.enabled} mode={data?.activeMode} />
           </div>
@@ -217,7 +227,11 @@ export const AdaptiveThermogenesisModal = ({
                 value={goalLabel(
                   result?.details?.goalType ?? store.userData?.selectedGoal
                 )}
-                detail={String(data.days) + ' days in goal'}
+                detail={
+                  tab === 'crude'
+                    ? String(crudeDetails?.windowDays ?? 0) + ' snapshot days'
+                    : String(data.days) + ' days in goal'
+                }
               />
               <Metric
                 label={tab === 'smart' ? 'Confidence' : 'Next change'}
@@ -225,15 +239,20 @@ export const AdaptiveThermogenesisModal = ({
                   tab === 'smart'
                     ? String(Math.round((result?.confidence ?? 0) * 100)) + '%'
                     : next
-                      ? 'Day ' + next.minDays
-                      : 'Complete'
+                      ? (nextDirection === 'cut' ? '≤ -' : '≥ ') +
+                        next.minPressure
+                      : crudeMilestone
+                        ? 'Complete'
+                        : '—'
                 }
                 detail={
                   tab === 'smart'
                     ? 'signal quality'
                     : next
                       ? signed(next.kcal) + ' kcal/day'
-                      : 'final timeline stage'
+                      : crudeMilestone
+                        ? 'final stage reached'
+                        : 'no adaptation pressure yet'
                 }
               />
             </section>
@@ -246,11 +265,7 @@ export const AdaptiveThermogenesisModal = ({
                   onOpenRollingBalance={onOpenRollingBalance}
                 />
               ) : (
-                <TimelineView
-                  result={data.crude}
-                  stages={data.stages}
-                  days={data.days}
-                />
+                <TimelineView result={data.crude} stages={data.stages} />
               )}
             </div>
           </>
@@ -383,25 +398,36 @@ function SmartView({ result, onOpenRollingBalance }) {
   );
 }
 
-function TimelineView({ result, stages, days }) {
+function TimelineView({ result, stages }) {
   if (!result) return <EmptyState message="No timeline result was provided." />;
   const goal = result.details?.goalType;
-  const timeline = goal ? stages?.[goal] : null;
+  const milestone = result.details?.milestone ?? null;
+  const timelineGoal = milestone
+    ? milestone.kcal < 0
+      ? 'cut'
+      : 'surplus'
+    : goal;
+  const timeline = timelineGoal ? stages?.[timelineGoal] : null;
   if (!timeline)
     return (
       <EmptyState message="Choose a cut or surplus goal to see an adaptation timeline." />
     );
-  const current = result.details?.stage;
+  const isCut = timelineGoal === 'cut';
+  const pressure = Number(result.details?.balancePressure) || 0;
+  const windowDays = Number(result.details?.windowDays) || 0;
   const max = Math.max(...timeline.map((stage) => Math.abs(stage.kcal)), 1);
   return (
     <div className="space-y-5">
       <div className="flex items-end justify-between gap-4">
         <div>
           <p className="text-muted text-xs uppercase tracking-wide">
-            {goalLabel(goal)} timeline
+            {goalLabel(timelineGoal)} milestones
           </p>
           <p className="text-foreground text-lg font-semibold mt-1">
-            Day {days} of your goal
+            Pressure <span className="tabular-nums">{signed(pressure)}</span>
+            {windowDays
+              ? ` · ${windowDays} snapshot day${windowDays === 1 ? '' : 's'}`
+              : ''}
           </p>
         </div>
         <span className="text-sm font-semibold text-accent-blue">
@@ -410,8 +436,10 @@ function TimelineView({ result, stages, days }) {
       </div>
       <div className="space-y-3">
         {timeline.map((stage) => {
-          const reached = days >= stage.minDays;
-          const active = current?.minDays === stage.minDays;
+          const reached = isCut
+            ? pressure <= -stage.minPressure
+            : pressure >= stage.minPressure;
+          const active = milestone?.minPressure === stage.minPressure;
           const width = Math.max(10, (Math.abs(stage.kcal) / max) * 100) + '%';
           const tone = active
             ? 'bg-accent-blue'
@@ -425,11 +453,11 @@ function TimelineView({ result, stages, days }) {
               : 'text-muted';
           return (
             <div
-              key={stage.minDays}
-              className="grid grid-cols-[42px_1fr_auto] items-center gap-3"
+              key={stage.minPressure}
+              className="grid grid-cols-[64px_1fr_auto] items-center gap-3"
             >
               <span className={'text-xs font-semibold ' + textTone}>
-                D{stage.minDays}
+                {isCut ? `≤ -${stage.minPressure}` : `≥ ${stage.minPressure}`}
               </span>
               <div className="h-8 flex items-center rounded-r-lg bg-surface-highlight/55 overflow-hidden">
                 <div
@@ -450,8 +478,9 @@ function TimelineView({ result, stages, days }) {
         })}
       </div>
       <p className="text-xs text-muted">
-        The highlighted stage is the correction currently scheduled for your
-        goal duration.
+        Pressure accumulates from your daily goal history (up to 28 days): cut
+        days push it down, surplus days unwind it fastest, and maintenance days
+        slowly decay it. The highlighted stage is the correction applied today.
       </p>
     </div>
   );
@@ -567,11 +596,18 @@ function PreviewNote() {
     </div>
   );
 }
-function getNextStage(result, stages, days) {
-  const timeline = result?.details?.goalType
-    ? stages?.[result.details.goalType]
-    : null;
-  return timeline?.find((stage) => stage.minDays > days) ?? null;
+function getNextMilestone(pressure, goalType) {
+  if (goalType === 'cut') {
+    return (
+      CRUDE_CUT_STAGES.find((stage) => stage.minPressure > -pressure) ?? null
+    );
+  }
+  if (goalType === 'surplus') {
+    return (
+      CRUDE_SURPLUS_STAGES.find((stage) => stage.minPressure > pressure) ?? null
+    );
+  }
+  return null;
 }
 function EmptyState({ message }) {
   return (

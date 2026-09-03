@@ -73,7 +73,7 @@ $$
 
 ### 5. Adaptive Thermogenesis (AT)
 
-An algorithmic feedback loop with crude and smart modes. Smart mode derives a bounded correction from historical snapshot and weight-trend signals, with configurable EMA or SMA smoothing, and clamps the correction to ±300 kcal/day:
+An algorithmic feedback loop with crude and smart modes. Crude mode accumulates signed balance pressure over up to 28 days of daily-goal history (cut days deepen it, surplus unwinds it quickly, maintenance decays it — so isolated goal switches never reset weeks of adaptation) and maps that pressure to −250…+150 kcal/day milestones. Smart mode derives a bounded correction from historical snapshot and weight-trend signals, with configurable EMA or SMA smoothing, and clamps the correction to ±300 kcal/day:
 
 $$
 \Delta_{\text{metabolic}} = \text{Expected Weight Change} - \text{Actual Weight Change}

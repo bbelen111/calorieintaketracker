@@ -54,27 +54,37 @@ export const AdaptiveThermogenesisInfoModal = ({
             baseline TDEE + AT correction = adjusted TDEE
           </p>
           <p className="text-xs">
-            Corrections are bounded to keep things sane (up to ±300 kcal/day).
+            Corrections are bounded: crude −250 to +150 kcal/day, smart up to
+            ±300 kcal/day.
           </p>
         </div>
 
         <div className="bg-accent-blue/10 border border-accent-blue/30 rounded-lg p-4 space-y-2 text-sm">
-          <p className="font-bold text-accent-blue">Crude mode (staged)</p>
+          <p className="font-bold text-accent-blue">
+            Crude mode (rolling pressure)
+          </p>
           <p>
-            Uses goal duration milestones with fixed corrections. It&apos;s
-            fast, deterministic, and works even with sparse data.
+            Built from up to 28 days of your daily goal history. Cut days push
+            the adaptation pressure down, surplus days unwind it quickly, and
+            maintenance days slowly decay it toward neutral — so a single refeed
+            or maintenance day won&apos;t reset weeks of accumulated adaptation.
           </p>
           <ul className="list-disc pl-5 space-y-1">
             <li>
               <span className="text-foreground font-semibold">Cut goals</span>{' '}
-              increase adaptation over time (for example from about -50 toward
-              larger negative corrections after multiple weeks).
+              deepen the negative pressure over time, growing from −50 toward
+              −250 kcal/day as pressure stays deeply negative.
             </li>
             <li>
               <span className="text-foreground font-semibold">
                 Surplus goals
               </span>{' '}
-              use smaller positive staged corrections.
+              unwind deficits roughly twice as fast as maintenance, then build
+              small positive corrections up to +150 kcal/day.
+            </li>
+            <li>
+              <span className="text-foreground font-semibold">Maintenance</span>{' '}
+              decays accumulated pressure instead of zeroing it instantly.
             </li>
           </ul>
         </div>

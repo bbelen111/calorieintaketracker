@@ -79,12 +79,19 @@ function AdaptiveCorrectionCard({ result, mode, goalDurationDays, onOpen }) {
           ? 'Inactive'
           : `${correction > 0 ? '+' : ''}${correction} kcal/day`;
 
+  const formatPressure = (value) => {
+    const number = Number(value) || 0;
+    return (number > 0 ? '+' : '') + Math.round(number * 100) / 100;
+  };
+  const crudePressure =
+    mode === 'crude' ? formatPressure(result?.details?.balancePressure) : null;
+
   const subtitle =
     mode === 'off'
       ? 'Not enabled'
       : mode === 'crude'
         ? active
-          ? `Crude mode · Day ${goalDurationDays ?? 0}`
+          ? `Crude mode · Pressure ${crudePressure}`
           : 'Crude mode · not yet active'
         : insufficientData
           ? 'Still collecting data'
@@ -94,14 +101,19 @@ function AdaptiveCorrectionCard({ result, mode, goalDurationDays, onOpen }) {
 
   const stats = [];
   if (mode === 'crude') {
-    const stage = result?.details?.stage;
+    const milestone = result?.details?.milestone;
+    const windowDays = Number(result?.details?.windowDays) || 0;
     stats.push(
-      { label: 'Days on goal', value: `${goalDurationDays ?? 0} days` },
+      { label: 'Pressure', value: crudePressure },
       {
         label: 'Active stage',
-        value: stage
-          ? `Day ${stage.minDays} · ${stage.kcal > 0 ? '+' : ''}${stage.kcal} kcal`
+        value: milestone
+          ? `${milestone.kcal > 0 ? '+' : ''}${milestone.kcal} kcal`
           : 'Not reached yet',
+      },
+      {
+        label: 'Snapshot days',
+        value: `${windowDays} day${windowDays === 1 ? '' : 's'}`,
       }
     );
   } else if (mode === 'smart' && insufficientData) {
