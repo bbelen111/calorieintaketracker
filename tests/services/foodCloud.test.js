@@ -1,4 +1,4 @@
-﻿import test from 'node:test';
+﻿import test, { beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
@@ -6,8 +6,17 @@ import {
   resetFoodsClientRetry,
   searchFoods,
   FOODS_CLIENT_RETRY,
+  FOODS_SEARCH_CACHE_TTL_MS,
   FoodsApiError,
+  clearFoodsSearchCache,
+  getFoodsSearchCacheSize,
 } from '../../src/services/foodCloud.js';
+
+// The in-memory query-result cache is a session-level concern; every test
+// starts with an empty cache so tests keep their fetch-isolation contract.
+beforeEach(() => {
+  clearFoodsSearchCache();
+});
 
 const createJsonResponse = ({ ok, status, payload = {} }) => ({
   ok,
@@ -401,6 +410,124 @@ test('searchFoods respects the mutable FOODS_CLIENT_RETRY config', async () => {
     assert.equal(fetchCalls, 2);
   } finally {
     resetFoodsClientRetry();
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('searchFoods caches successful results per query/page and returns fresh copies', async () => {
+  clearFoodsSearchCache();
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return createJsonResponse({
+      ok: true,
+      status: 200,
+      payload: { catalogFoods: [CHICKEN_ROW], page: 1 },
+    });
+  };
+
+  try {
+    const first = await searchFoods('chicken breast');
+    assert.equal(first.foods.length, 1);
+    assert.equal(first.page, 1);
+    assert.equal(fetchCalls, 1);
+
+    // Same query+page+pageSize hits the in-memory cache.
+    const second = await searchFoods('chicken breast');
+    assert.equal(second.foods.length, 1);
+    assert.equal(fetchCalls, 1);
+    assert.equal(getFoodsSearchCacheSize(), 1);
+
+    // Mutating a returned copy must never poison the shared cache entry.
+    second.foods.push({ id: 'injected' });
+    const third = await searchFoods('chicken breast');
+    assert.equal(third.foods.length, 1);
+
+    // A different page is a different cache key.
+    await searchFoods('chicken breast', { page: 2 });
+    assert.equal(fetchCalls, 2);
+
+    // A different query is a different cache key.
+    await searchFoods('pasta');
+    assert.equal(fetchCalls, 3);
+  } finally {
+    clearFoodsSearchCache();
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('searchFoods cache respects its TTL and clears on demand', async () => {
+  clearFoodsSearchCache();
+  const originalNow = Date.now;
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return createJsonResponse({
+      ok: true,
+      status: 200,
+      payload: { catalogFoods: [CHICKEN_ROW], page: 1 },
+    });
+  };
+
+  try {
+    let now = 1_700_000_000_000;
+    Date.now = () => now;
+
+    await searchFoods('ttl egg');
+    assert.equal(fetchCalls, 1);
+
+    // Still fresh just before the TTL boundary.
+    now += FOODS_SEARCH_CACHE_TTL_MS - 1;
+    await searchFoods('ttl egg');
+    assert.equal(fetchCalls, 1);
+
+    // Past the TTL: the next read refetches.
+    now += 1_500;
+    await searchFoods('ttl egg');
+    assert.equal(fetchCalls, 2);
+
+    clearFoodsSearchCache();
+    assert.equal(getFoodsSearchCacheSize(), 0);
+    await searchFoods('ttl egg');
+    assert.equal(fetchCalls, 3);
+  } finally {
+    Date.now = originalNow;
+    clearFoodsSearchCache();
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('searchFoods does not cache aborted or failed requests', async () => {
+  clearFoodsSearchCache();
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  const controller = new globalThis.AbortController();
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    controller.abort();
+    const abortError = new Error('The operation was aborted.');
+    abortError.name = 'AbortError';
+    throw abortError;
+  };
+
+  try {
+    await assert.rejects(
+      searchFoods('aborted egg', {
+        signal: controller.signal,
+      }),
+      (error) => {
+        assert.ok(error instanceof FoodsApiError);
+        assert.equal(error.status, 0);
+        assert.equal(error.message, 'Request aborted');
+        return true;
+      }
+    );
+    assert.equal(fetchCalls, 1);
+    assert.equal(getFoodsSearchCacheSize(), 0);
+  } finally {
+    clearFoodsSearchCache();
     globalThis.fetch = originalFetch;
   }
 });

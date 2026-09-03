@@ -1,11 +1,14 @@
 // Payload builders for the /api/foods gateway (legacy /api/usda alias shares it).
 //
 // The proxy now serves the curated Supabase catalog instead of FoodData
-// Central. Two envelopes are emitted per search:
-//   - `catalogFoods`: the canonical per-100g row shape (new clients)
+// Central. Two envelopes exist, but only the canonical one is emitted by
+// default:
+//   - `catalogFoods`: the canonical per-100g row shape (new clients) — always
 //   - `foods`:        a synthetic FDC envelope so already-shipped native
 //                     builds still running the old FDC mapper keep working
-//                     during the transition window (grace period only)
+//                     during the transition window (grace period only); only
+//                     emitted when the caller opts in via `legacy=1` or the
+//                     /api/usda route
 //
 // Keep this module dependency-free and pure so it stays unit-testable under
 // `node --test` (see tests/api/usdaRows.test.js).

@@ -59,6 +59,7 @@ Conservative estimation policy (HIGH PRIORITY):
   - Keep assumptions explicit and brief.
 - Never invent foods, side items, toppings, or beverages not explicitly mentioned or visually evident.
 - For entries, include practical lookupTerms that improve local/USDA matching (food name, key descriptor, and brand when clearly provided).
+- Lookup terms must be whole words — the online catalog matches word prefixes, so "chicken" matches "chicken breast" but a mid-word fragment like "chic" will not. Split compound phrases into individual whole words.
 - Prefer canonical food names in "name" for lookup stability (brand can still be included in lookupTerms).
 - If multiple plausible interpretations exist, either:
   1) ask one concise follow-up question (preferred for low confidence), or

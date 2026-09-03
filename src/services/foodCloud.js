@@ -33,6 +33,53 @@ export const resetFoodsClientRetry = () => {
   Object.assign(FOODS_CLIENT_RETRY, FOODS_CLIENT_DEFAULT_RETRY);
 };
 
+// ---- in-memory query-result cache (TTL + LRU) ----
+//
+// Search results are repeatable reads over a rarely-changing catalog, so a
+// short-lived module cache avoids redundant network/DB work for identical
+// queries (typing patterns, repeated favourites lookups, paging back/forth).
+// Purged by TTL and capped by entry count; never persisted — the persisted
+// cache (cache-on-select) lives in `userData.cachedFoods`.
+
+export const FOODS_SEARCH_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+export const FOODS_SEARCH_CACHE_MAX_ENTRIES = 64;
+
+const foodsSearchCache = new Map(); // key -> { expiresAt, value }
+
+export const clearFoodsSearchCache = () => {
+  foodsSearchCache.clear();
+};
+
+export const getFoodsSearchCacheSize = () => foodsSearchCache.size;
+
+const readFoodsSearchCache = (key) => {
+  const entry = foodsSearchCache.get(key);
+  if (!entry) {
+    return null;
+  }
+  if (entry.expiresAt <= Date.now()) {
+    foodsSearchCache.delete(key);
+    return null;
+  }
+  // Refresh LRU recency on hit.
+  foodsSearchCache.delete(key);
+  foodsSearchCache.set(key, entry);
+  return entry.value;
+};
+
+const writeFoodsSearchCache = (key, value) => {
+  if (foodsSearchCache.size >= FOODS_SEARCH_CACHE_MAX_ENTRIES) {
+    const oldestKey = foodsSearchCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      foodsSearchCache.delete(oldestKey);
+    }
+  }
+  foodsSearchCache.set(key, {
+    expiresAt: Date.now() + FOODS_SEARCH_CACHE_TTL_MS,
+    value,
+  });
+};
+
 // Kept identical to the legacy client set: transient 404/408/409/425/429 plus
 // 5xx and network failures (status 0) are retried. PostgREST 404 = misdeploy,
 // which a bounded retry masks harmlessly during rollouts.
@@ -287,6 +334,13 @@ export async function searchFoods(
     ? Math.min(Math.max(parsedPageSize, 1), 50)
     : 20;
 
+  const cacheKey = `${normalizedQuery}|${safePage}|${safePageSize}`;
+  const cached = readFoodsSearchCache(cacheKey);
+  if (cached) {
+    // Fresh copy so callers cannot mutate the shared cached result.
+    return { ...cached, foods: Array.from(cached.foods) };
+  }
+
   const data = await apiRequest(
     'search',
     {
@@ -314,9 +368,11 @@ export async function searchFoods(
     10
   );
 
-  return {
+  const result = {
     foods,
     totalResults: Number.isFinite(totalResults) ? totalResults : foods.length,
     page: safePage,
   };
+  writeFoodsSearchCache(cacheKey, result);
+  return result;
 }
