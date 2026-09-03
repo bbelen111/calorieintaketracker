@@ -53,6 +53,32 @@ const baseUserData = {
   adaptiveThermogenesisSmartMode: false,
 };
 
+const buildCrudeCutSnapshots = (endDateKey) => {
+  const snapshots = {};
+  const endDate = new Date(`${endDateKey}T00:00:00Z`);
+  if (Number.isNaN(endDate.getTime())) {
+    return snapshots;
+  }
+
+  for (let offset = 27; offset >= 0; offset -= 1) {
+    const day = new Date(endDate);
+    day.setUTCDate(day.getUTCDate() - offset);
+    const year = day.getUTCFullYear();
+    const month = String(day.getUTCMonth() + 1).padStart(2, '0');
+    const dayNumber = String(day.getUTCDate()).padStart(2, '0');
+    const dateKey = `${year}-${month}-${dayNumber}`;
+    snapshots[dateKey] = {
+      date: dateKey,
+      goalAtSnapshot: 'cutting',
+      baselineTdee: 2500,
+      tdee: 2500,
+      intake: 2000,
+    };
+  }
+
+  return snapshots;
+};
+
 const trainingTypes = {
   trainingtype_1: {
     label: 'Bodybuilding',
@@ -413,7 +439,10 @@ test('adaptive thermogenesis crude mode adjusts final tdee while preserving base
   const breakdown = calculateCalorieBreakdown({
     steps: '10k',
     isTrainingDay: false,
-    userData: baseUserData,
+    userData: {
+      ...baseUserData,
+      dailySnapshots: buildCrudeCutSnapshots(todayDateKey),
+    },
     bmr,
     cardioTypes,
     trainingTypes,

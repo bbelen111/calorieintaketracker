@@ -3,19 +3,41 @@ import { normalizeDateKey } from '../measurements/weight.js';
 const GOAL_CUT_KEYS = new Set(['cutting', 'aggressive_cut']);
 const GOAL_SURPLUS_KEYS = new Set(['bulking', 'aggressive_bulk']);
 
+/**
+ * Crude-mode correction milestones keyed by signed balance pressure.
+ * `minPressure` is the threshold magnitude: a cut milestone applies when
+ * `pressure <= -minPressure`, a surplus milestone when `pressure >= minPressure`.
+ */
 export const CRUDE_CUT_STAGES = [
-  { minDays: 21, kcal: -50 },
-  { minDays: 35, kcal: -100 },
-  { minDays: 49, kcal: -150 },
-  { minDays: 63, kcal: -200 },
-  { minDays: 84, kcal: -250 },
+  { minPressure: 3, kcal: -50 },
+  { minPressure: 7, kcal: -100 },
+  { minPressure: 14, kcal: -175 },
+  { minPressure: 21, kcal: -250 },
 ];
 
 export const CRUDE_SURPLUS_STAGES = [
-  { minDays: 42, kcal: 25 },
-  { minDays: 70, kcal: 50 },
-  { minDays: 98, kcal: 75 },
+  { minPressure: 7, kcal: 50 },
+  { minPressure: 14, kcal: 100 },
+  { minPressure: 21, kcal: 150 },
 ];
+
+/**
+ * Signed, asymmetric pressure accumulator for Crude mode. Each day's recorded
+ * goal drives the pressure: cut days deepen it, surplus days unwind it fastest,
+ * and maintenance days slowly decay it toward neutral, so an isolated goal
+ * switch never resets weeks of accumulated adaptation. The lookback window is
+ * capped at this many snapshots (kept in sync with the +/-28 pressure bounds).
+ */
+export const CRUDE_WINDOW_DAYS = 28;
+
+// Each side of the split accumulator is bounded to [0, CRUDE_MAX_PRESSURE].
+const CRUDE_MAX_PRESSURE = CRUDE_WINDOW_DAYS;
+const CRUDE_CUT_DECAY_STEP = 1.0;
+const CRUDE_CUT_RESET_VALUE = 1.0;
+const CRUDE_SURPLUS_RECOVERY_STEP = 2.0;
+const CRUDE_SURPLUS_ACCUMULATION_STEP = 0.75;
+const CRUDE_MAINTENANCE_NEGATIVE_DECAY = 0.25;
+const CRUDE_MAINTENANCE_POSITIVE_DECAY = 0.5;
 
 const SMART_WINDOW_DAYS = 28;
 const SMART_MIN_VALID_DAYS = 14;
@@ -101,16 +123,195 @@ const buildWindowDateKeys = (dateKey, windowDays) => {
   return keys;
 };
 
-const resolveCrudeStage = (stages, goalDurationDays) => {
-  let active = null;
+/**
+ * Resolves a snapshot's per-day goal to a crude direction. Accepts the
+ * handoff-documented `selectedGoal` field first and falls back to the persisted
+ * `goalAtSnapshot` for backward compatibility. Returns null for malformed or
+ * unrecognised records so unknown days are simply skipped (never zero-filled).
+ */
+const normalizeSnapshotGoal = (snapshot) => {
+  if (!snapshot || typeof snapshot !== 'object') {
+    return null;
+  }
 
-  stages.forEach((stage) => {
-    if (goalDurationDays >= stage.minDays) {
-      active = stage;
+  const raw = snapshot.selectedGoal ?? snapshot.goalAtSnapshot;
+  const normalized = String(raw ?? '').trim();
+  if (GOAL_CUT_KEYS.has(normalized)) {
+    return 'cut';
+  }
+  if (GOAL_SURPLUS_KEYS.has(normalized)) {
+    return 'surplus';
+  }
+  if (normalized === 'maintenance') {
+    return 'maintenance';
+  }
+  return null;
+};
+
+/**
+ * Signed, asymmetric pressure model for Crude mode, tracked as two non-negative
+ * accumulators so branches read naturally per phase:
+ *   - `cutPressure`      deficit depth (grows on cut days, shrinks on surplus/maintenance)
+ *   - `surplusPressure`  surplus height (grows once a deficit is cleared, decays on maintenance)
+ * At most one accumulator is ever non-zero, and their net (`surplus - cut`) is
+ * what the milestone tiers consume. An isolated maintenance/refeed day decays
+ * whichever side is active instead of resetting weeks of adaptation.
+ */
+const computeCrudePressureAccumulators = ({
+  dailySnapshots,
+  windowDateKeys,
+}) => {
+  let cutPressure = 0;
+  let surplusPressure = 0;
+  const dailyPressure = [];
+
+  windowDateKeys.forEach((dateKey) => {
+    const goal = normalizeSnapshotGoal(dailySnapshots?.[dateKey]);
+    if (!goal) {
+      return;
     }
+
+    if (goal === 'cut') {
+      // Leaving an active surplus resets to a fresh single cut day; otherwise
+      // the cut side simply deepens by one.
+      if (surplusPressure > 0) {
+        cutPressure = CRUDE_CUT_RESET_VALUE;
+        surplusPressure = 0;
+      } else {
+        cutPressure = Math.min(
+          CRUDE_MAX_PRESSURE,
+          cutPressure + CRUDE_CUT_DECAY_STEP
+        );
+      }
+    } else if (goal === 'surplus') {
+      // Surplus first unwinds any accumulated cut pressure quickly, then
+      // starts building its own positive pressure.
+      if (cutPressure > 0) {
+        cutPressure = Math.max(0, cutPressure - CRUDE_SURPLUS_RECOVERY_STEP);
+      } else {
+        surplusPressure = Math.min(
+          CRUDE_MAX_PRESSURE,
+          surplusPressure + CRUDE_SURPLUS_ACCUMULATION_STEP
+        );
+      }
+    } else {
+      // Maintenance decays whichever side is active toward zero (slower out of
+      // a deficit than surplus, faster out of a surplus).
+      if (cutPressure > 0) {
+        cutPressure = Math.max(
+          0,
+          cutPressure - CRUDE_MAINTENANCE_NEGATIVE_DECAY
+        );
+      } else if (surplusPressure > 0) {
+        surplusPressure = Math.max(
+          0,
+          surplusPressure - CRUDE_MAINTENANCE_POSITIVE_DECAY
+        );
+      }
+    }
+
+    dailyPressure.push({
+      date: dateKey,
+      goal,
+      cutPressure: Math.round(cutPressure * 100) / 100,
+      surplusPressure: Math.round(surplusPressure * 100) / 100,
+    });
   });
 
-  return active;
+  return { cutPressure, surplusPressure, dailyPressure };
+};
+
+const resolveCrudeMilestone = (stages, cutPressure, surplusPressure) => {
+  if (cutPressure > 0) {
+    let milestone = null;
+    (stages?.cut ?? []).forEach((stage) => {
+      if (cutPressure >= stage.minPressure) {
+        milestone = stage;
+      }
+    });
+    return milestone;
+  }
+
+  if (surplusPressure > 0) {
+    let milestone = null;
+    (stages?.surplus ?? []).forEach((stage) => {
+      if (surplusPressure >= stage.minPressure) {
+        milestone = stage;
+      }
+    });
+    return milestone;
+  }
+
+  return null;
+};
+
+/**
+ * Crude-mode core: evaluates the split (cut/surplus) pressure accumulators
+ * across up to CRUDE_WINDOW_DAYS of daily snapshots ending at `dateKey`, maps
+ * the dominant accumulator to the correction milestone, and exposes the signed
+ * net (`surplus - cut`) for the public API/UI. Deterministic and strictly
+ * goal-driven — never reads intake, energy balance, or weight logs.
+ */
+const computeCrudeCorrection = ({ dateKey, dailySnapshots, selectedGoal }) => {
+  const windowDateKeys = buildWindowDateKeys(dateKey, CRUDE_WINDOW_DAYS);
+  if (!windowDateKeys.length) {
+    return {
+      mode: 'crude',
+      correction: 0,
+      active: false,
+      insufficientData: false,
+      confidence: 0,
+      signal: null,
+      details: {
+        reason: 'invalid-date',
+      },
+    };
+  }
+
+  const { cutPressure, surplusPressure, dailyPressure } =
+    computeCrudePressureAccumulators({
+      dailySnapshots,
+      windowDateKeys,
+    });
+  const roundedCutPressure = Math.round(cutPressure * 100) / 100;
+  const roundedSurplusPressure = Math.round(surplusPressure * 100) / 100;
+  const balancePressure =
+    Math.round((surplusPressure - cutPressure) * 100) / 100;
+  const isCut = GOAL_CUT_KEYS.has(selectedGoal);
+  const isSurplus = GOAL_SURPLUS_KEYS.has(selectedGoal);
+  const milestone = resolveCrudeMilestone(
+    { cut: CRUDE_CUT_STAGES, surplus: CRUDE_SURPLUS_STAGES },
+    roundedCutPressure,
+    roundedSurplusPressure
+  );
+  const correction = clampCorrection(milestone?.kcal ?? 0);
+
+  return {
+    mode: 'crude',
+    correction,
+    active: milestone !== null,
+    insufficientData: false,
+    confidence: milestone ? 1 : 0,
+    signal: {
+      balancePressure,
+      cutPressure: roundedCutPressure,
+      surplusPressure: roundedSurplusPressure,
+      windowDays: dailyPressure.length,
+    },
+    details: {
+      // Current-goal type for display; the milestone carries the actual
+      // adaptation direction so a maintenance/surplus day keeps its history.
+      goalType: isCut ? 'cut' : isSurplus ? 'surplus' : 'maintenance',
+      balancePressure,
+      cutPressure: roundedCutPressure,
+      surplusPressure: roundedSurplusPressure,
+      windowDays: dailyPressure.length,
+      windowStart: windowDateKeys[0],
+      windowEnd: windowDateKeys[windowDateKeys.length - 1],
+      milestone: milestone ?? null,
+      dailyPressure,
+    },
+  };
 };
 
 const normalizeSmoothingWindowDays = (value) => {
@@ -535,8 +736,6 @@ export const resolveAdaptiveThermogenesisMode = ({
 export const computeAdaptiveThermogenesis = ({
   mode,
   selectedGoal,
-  goalDurationDays,
-  goalChangedAt,
   dateKey,
   dailySnapshots,
   weightEntries,
@@ -560,9 +759,17 @@ export const computeAdaptiveThermogenesis = ({
 
   const isCut = GOAL_CUT_KEYS.has(selectedGoal);
   const isSurplus = GOAL_SURPLUS_KEYS.has(selectedGoal);
+
+  if (normalizedMode === 'crude') {
+    // Crude is strictly goal-driven (snapshot per-day goals only) and stays
+    // active even when the current goal is maintenance, so isolated refeed
+    // days decay pressure instead of discarding accumulated adaptation.
+    return computeCrudeCorrection({ dateKey, dailySnapshots, selectedGoal });
+  }
+
   if (!isCut && !isSurplus) {
     return {
-      mode: normalizedMode,
+      mode: 'smart',
       correction: 0,
       active: false,
       insufficientData: false,
@@ -570,38 +777,6 @@ export const computeAdaptiveThermogenesis = ({
       signal: null,
       details: {
         reason: 'maintenance-goal',
-      },
-    };
-  }
-
-  if (normalizedMode === 'crude') {
-    const explicitGoalDurationDays = Number(goalDurationDays);
-    const changedAt = Number(goalChangedAt);
-    const derivedGoalDurationDays =
-      Number.isFinite(changedAt) && changedAt > 0
-        ? Math.max(0, Math.floor((Date.now() - changedAt) / 86_400_000))
-        : 0;
-    const resolvedGoalDurationDays = Number.isFinite(explicitGoalDurationDays)
-      ? Math.max(0, Math.floor(explicitGoalDurationDays))
-      : derivedGoalDurationDays;
-
-    const stage = resolveCrudeStage(
-      isCut ? CRUDE_CUT_STAGES : CRUDE_SURPLUS_STAGES,
-      resolvedGoalDurationDays
-    );
-
-    const correction = clampCorrection(stage?.kcal ?? 0);
-    return {
-      mode: 'crude',
-      correction,
-      active: Math.abs(correction) > 0,
-      insufficientData: false,
-      confidence: stage ? 1 : 0,
-      signal: null,
-      details: {
-        goalType: isCut ? 'cut' : 'surplus',
-        goalDurationDays: resolvedGoalDurationDays,
-        stage: stage ?? null,
       },
     };
   }

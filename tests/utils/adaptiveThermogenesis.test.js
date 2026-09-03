@@ -8,6 +8,25 @@ import {
   SMART_WEIGHT_STALENESS_MAX_AGE_DAYS,
 } from '../../src/utils/calculations/adaptiveThermogenesis.js';
 
+const padDay = (day) => String(day).padStart(2, '0');
+const makeDateKey = (day) => `2026-03-${padDay(day)}`;
+
+const buildGoalHistory = ({ days, endDay, dayGoal }) => {
+  const snapshots = {};
+  for (let offset = 0; offset < days; offset += 1) {
+    const day = endDay - days + 1 + offset;
+    const dateKey = makeDateKey(day);
+    snapshots[dateKey] = {
+      date: dateKey,
+      goalAtSnapshot: dayGoal(day),
+      baselineTdee: 2500,
+      tdee: 2500,
+      intake: 2000,
+    };
+  }
+  return { snapshots, endDateKey: makeDateKey(endDay) };
+};
+
 test('resolveAdaptiveThermogenesisMode respects explicit context mode overrides', () => {
   const mode = resolveAdaptiveThermogenesisMode({
     userData: {
@@ -23,16 +42,365 @@ test('resolveAdaptiveThermogenesisMode respects explicit context mode overrides'
 });
 
 test('computeAdaptiveThermogenesis crude mode returns staged negative correction during extended cut', () => {
+  const { snapshots, endDateKey } = buildGoalHistory({
+    days: 28,
+    endDay: 28,
+    dayGoal: () => 'cutting',
+  });
+
   const result = computeAdaptiveThermogenesis({
     mode: 'crude',
     selectedGoal: 'cutting',
-    goalDurationDays: 85,
-    dateKey: '2026-03-24',
+    dateKey: endDateKey,
+    dailySnapshots: snapshots,
   });
 
   assert.equal(result.mode, 'crude');
   assert.equal(result.correction, -250);
   assert.equal(result.active, true);
+});
+
+test('crude mode maps cut pressure tiers to milestone corrections', () => {
+  const expectations = [
+    { days: 1, cutPressure: 1, correction: 0 },
+    { days: 2, cutPressure: 2, correction: 0 },
+    { days: 3, cutPressure: 3, correction: -50 },
+    { days: 7, cutPressure: 7, correction: -100 },
+    { days: 14, cutPressure: 14, correction: -175 },
+    { days: 21, cutPressure: 21, correction: -250 },
+    { days: 28, cutPressure: 28, correction: -250 },
+  ];
+
+  expectations.forEach(({ days, cutPressure, correction }) => {
+    const { snapshots, endDateKey } = buildGoalHistory({
+      days,
+      endDay: days,
+      dayGoal: () => 'cutting',
+    });
+    const result = computeAdaptiveThermogenesis({
+      mode: 'crude',
+      selectedGoal: 'cutting',
+      dateKey: endDateKey,
+      dailySnapshots: snapshots,
+    });
+
+    assert.equal(
+      result.details.balancePressure,
+      -cutPressure,
+      `net pressure after ${days} cut days`
+    );
+    assert.equal(
+      result.details.cutPressure,
+      cutPressure,
+      `cut pressure after ${days} cut days`
+    );
+    assert.equal(
+      result.details.surplusPressure,
+      0,
+      `surplus pressure after ${days} cut days`
+    );
+    assert.equal(
+      result.correction,
+      correction,
+      `correction after ${days} cut days`
+    );
+  });
+});
+
+test('crude mode maps surplus pressure tiers to milestone corrections', () => {
+  const expectations = [
+    { days: 9, surplusPressure: 6.75, correction: 0 },
+    { days: 10, surplusPressure: 7.5, correction: 50 },
+    { days: 18, surplusPressure: 13.5, correction: 50 },
+    { days: 19, surplusPressure: 14.25, correction: 100 },
+    { days: 27, surplusPressure: 20.25, correction: 100 },
+    { days: 28, surplusPressure: 21, correction: 150 },
+  ];
+
+  expectations.forEach(({ days, surplusPressure, correction }) => {
+    const { snapshots, endDateKey } = buildGoalHistory({
+      days,
+      endDay: days,
+      dayGoal: () => 'bulking',
+    });
+    const result = computeAdaptiveThermogenesis({
+      mode: 'crude',
+      selectedGoal: 'bulking',
+      dateKey: endDateKey,
+      dailySnapshots: snapshots,
+    });
+
+    assert.equal(
+      result.details.balancePressure,
+      surplusPressure,
+      `net pressure after ${days} surplus days`
+    );
+    assert.equal(
+      result.details.surplusPressure,
+      surplusPressure,
+      `surplus pressure after ${days} surplus days`
+    );
+    assert.equal(
+      result.details.cutPressure,
+      0,
+      `cut pressure after ${days} surplus days`
+    );
+    assert.equal(
+      result.correction,
+      correction,
+      `correction after ${days} surplus days`
+    );
+  });
+});
+
+test('crude keeps a non-zero high-tier correction on an isolated maintenance day after a long cut', () => {
+  const { snapshots, endDateKey } = buildGoalHistory({
+    days: 21,
+    endDay: 21,
+    dayGoal: (day) => (day === 21 ? 'maintenance' : 'cutting'),
+  });
+
+  const result = computeAdaptiveThermogenesis({
+    mode: 'crude',
+    selectedGoal: 'maintenance',
+    dateKey: endDateKey,
+    dailySnapshots: snapshots,
+  });
+
+  assert.equal(result.details.balancePressure, -19.75);
+  assert.equal(result.details.cutPressure, 19.75);
+  assert.equal(result.details.surplusPressure, 0);
+  assert.equal(result.correction, -175);
+  assert.equal(result.active, true);
+});
+
+test('crude preserves the accumulated deficit into the cut days that follow a maintenance day', () => {
+  const { snapshots, endDateKey } = buildGoalHistory({
+    days: 22,
+    endDay: 22,
+    dayGoal: (day) => (day === 21 ? 'maintenance' : 'cutting'),
+  });
+
+  const result = computeAdaptiveThermogenesis({
+    mode: 'crude',
+    selectedGoal: 'cutting',
+    dateKey: endDateKey,
+    dailySnapshots: snapshots,
+  });
+
+  assert.equal(result.details.balancePressure, -20.75);
+  assert.equal(result.correction, -175);
+});
+
+test('crude unwinds negative pressure faster with surplus than with maintenance', () => {
+  const singleSurplus = buildGoalHistory({
+    days: 21,
+    endDay: 21,
+    dayGoal: (day) => (day === 21 ? 'bulking' : 'cutting'),
+  });
+  const singleMaintenance = buildGoalHistory({
+    days: 21,
+    endDay: 21,
+    dayGoal: (day) => (day === 21 ? 'maintenance' : 'cutting'),
+  });
+
+  const afterSurplus = computeAdaptiveThermogenesis({
+    mode: 'crude',
+    selectedGoal: 'bulking',
+    dateKey: singleSurplus.endDateKey,
+    dailySnapshots: singleSurplus.snapshots,
+  });
+  const afterMaintenance = computeAdaptiveThermogenesis({
+    mode: 'crude',
+    selectedGoal: 'maintenance',
+    dateKey: singleMaintenance.endDateKey,
+    dailySnapshots: singleMaintenance.snapshots,
+  });
+
+  assert.equal(afterSurplus.details.balancePressure, -18);
+  assert.equal(afterMaintenance.details.balancePressure, -19.75);
+  assert.ok(
+    afterSurplus.details.balancePressure >
+      afterMaintenance.details.balancePressure
+  );
+  assert.equal(afterSurplus.correction, -175);
+  assert.equal(afterMaintenance.correction, -175);
+});
+
+test('crude surplus clears a deep cut deficit within the lookback window while maintenance lingers', () => {
+  const cutThenSurplus = buildGoalHistory({
+    days: 28,
+    endDay: 28,
+    dayGoal: (day) => (day <= 18 ? 'cutting' : 'bulking'),
+  });
+  const cutThenMaintenance = buildGoalHistory({
+    days: 28,
+    endDay: 28,
+    dayGoal: (day) => (day <= 18 ? 'cutting' : 'maintenance'),
+  });
+
+  const surplusResult = computeAdaptiveThermogenesis({
+    mode: 'crude',
+    selectedGoal: 'bulking',
+    dateKey: cutThenSurplus.endDateKey,
+    dailySnapshots: cutThenSurplus.snapshots,
+  });
+  const maintenanceResult = computeAdaptiveThermogenesis({
+    mode: 'crude',
+    selectedGoal: 'maintenance',
+    dateKey: cutThenMaintenance.endDateKey,
+    dailySnapshots: cutThenMaintenance.snapshots,
+  });
+
+  // 18 cut + 10 surplus: cut unwound at +2/day to 0, then surplus +0.75.
+  assert.equal(surplusResult.details.cutPressure, 0);
+  assert.equal(surplusResult.details.surplusPressure, 0.75);
+  assert.equal(surplusResult.details.balancePressure, 0.75);
+  assert.equal(surplusResult.correction, 0);
+  // 18 cut + 10 maintenance: cut decays by +0.25/day to 15.5 -> still -175.
+  assert.equal(maintenanceResult.details.cutPressure, 15.5);
+  assert.equal(maintenanceResult.details.surplusPressure, 0);
+  assert.equal(maintenanceResult.details.balancePressure, -15.5);
+  assert.equal(maintenanceResult.correction, -175);
+});
+
+test('crude resets to -1.0 when a cut day follows positive (surplus) pressure', () => {
+  const { snapshots, endDateKey } = buildGoalHistory({
+    days: 11,
+    endDay: 11,
+    dayGoal: (day) => (day === 11 ? 'cutting' : 'bulking'),
+  });
+
+  const result = computeAdaptiveThermogenesis({
+    mode: 'crude',
+    selectedGoal: 'cutting',
+    dateKey: endDateKey,
+    dailySnapshots: snapshots,
+  });
+
+  assert.equal(result.details.cutPressure, 1);
+  assert.equal(result.details.surplusPressure, 0);
+  assert.equal(result.details.balancePressure, -1);
+  assert.equal(result.correction, 0);
+});
+
+test('crude prefers snapshot.selectedGoal over goalAtSnapshot', () => {
+  const { snapshots, endDateKey } = buildGoalHistory({
+    days: 5,
+    endDay: 5,
+    dayGoal: () => 'cutting',
+  });
+  const lastKey = makeDateKey(5);
+  snapshots[lastKey].selectedGoal = 'bulking';
+  snapshots[lastKey].goalAtSnapshot = 'cutting';
+
+  const result = computeAdaptiveThermogenesis({
+    mode: 'crude',
+    selectedGoal: 'bulking',
+    dateKey: endDateKey,
+    dailySnapshots: snapshots,
+  });
+
+  // Days 1-4 cut (-4), day 5 surplus (+2) => -2, still neutral zone.
+  assert.equal(result.details.balancePressure, -2);
+  assert.equal(result.correction, 0);
+});
+
+test('crude falls back to goalAtSnapshot and skips snapshots without a goal', () => {
+  const snapshots = {
+    [makeDateKey(1)]: { date: makeDateKey(1), goalAtSnapshot: 'cutting' },
+    [makeDateKey(2)]: { date: makeDateKey(2) },
+    [makeDateKey(3)]: { date: makeDateKey(3), goalAtSnapshot: 'cutting' },
+  };
+
+  const result = computeAdaptiveThermogenesis({
+    mode: 'crude',
+    selectedGoal: 'cutting',
+    dateKey: makeDateKey(3),
+    dailySnapshots: snapshots,
+  });
+
+  assert.equal(result.details.windowDays, 2);
+  assert.equal(result.details.balancePressure, -2);
+  assert.equal(result.correction, 0);
+});
+
+test('crude stays neutral with maintenance-only goal history', () => {
+  const { snapshots, endDateKey } = buildGoalHistory({
+    days: 10,
+    endDay: 10,
+    dayGoal: () => 'maintenance',
+  });
+
+  const result = computeAdaptiveThermogenesis({
+    mode: 'crude',
+    selectedGoal: 'maintenance',
+    dateKey: endDateKey,
+    dailySnapshots: snapshots,
+  });
+
+  assert.equal(result.details.balancePressure, 0);
+  assert.equal(result.correction, 0);
+  assert.equal(result.active, false);
+});
+
+test('crude only evaluates snapshots inside the 28-day window', () => {
+  const snapshots = {
+    '2026-02-28': { date: '2026-02-28', goalAtSnapshot: 'cutting' },
+  };
+
+  const result = computeAdaptiveThermogenesis({
+    mode: 'crude',
+    selectedGoal: 'cutting',
+    dateKey: '2026-03-28',
+    dailySnapshots: snapshots,
+  });
+
+  assert.equal(result.details.windowDays, 0);
+  assert.equal(result.correction, 0);
+  assert.equal(result.active, false);
+});
+
+test('crude returns an invalid-date state for an unparseable dateKey', () => {
+  const result = computeAdaptiveThermogenesis({
+    mode: 'crude',
+    selectedGoal: 'cutting',
+    dateKey: 'not-a-date',
+    dailySnapshots: {},
+  });
+
+  assert.equal(result.correction, 0);
+  assert.equal(result.active, false);
+  assert.equal(result.details.reason, 'invalid-date');
+});
+
+test('crude corrections stay bounded at the lookback extremes', () => {
+  const cut = buildGoalHistory({
+    days: 28,
+    endDay: 28,
+    dayGoal: () => 'cutting',
+  });
+  const surplus = buildGoalHistory({
+    days: 28,
+    endDay: 28,
+    dayGoal: () => 'bulking',
+  });
+
+  const cutResult = computeAdaptiveThermogenesis({
+    mode: 'crude',
+    selectedGoal: 'cutting',
+    dateKey: cut.endDateKey,
+    dailySnapshots: cut.snapshots,
+  });
+  const surplusResult = computeAdaptiveThermogenesis({
+    mode: 'crude',
+    selectedGoal: 'bulking',
+    dateKey: surplus.endDateKey,
+    dailySnapshots: surplus.snapshots,
+  });
+
+  assert.equal(cutResult.correction, -250);
+  assert.equal(surplusResult.correction, 150);
 });
 
 test('computeAdaptiveThermogenesis smart mode returns negative correction when observed loss is slower than expected', () => {
