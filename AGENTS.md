@@ -211,6 +211,12 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 - All display math lives in `utils/calculations/dayLedgerPresentation.js`; both modals are thin renderers (see 03-state-and-calcs / State & Calculations docs).
 
 
+### Calendar Picker Dual Panel (Tracker date selection)
+
+- `CalendarPickerModal` (`modals/pickers/`) uses the same grid-stacked "auto-fixed" height contract as `DayLedgerListModal`: the day-preview panel and the Monthly Average card are **always mounted and stacked in the same grid cell** (`row-start-1 col-start-1`), toggled via opacity + `pointer-events-none` + `aria-hidden` — no floating tooltip, no AnimatePresence unmount swaps for the panel surfaces, no animated height.
+- Interaction: tapping a non-ghost day previews it in the panel (empty days show an honest "No entries" state; macros come from `nutritionData` only — no snapshot props); tapping the previewed day again deselects back to the Monthly Average card; the day-preview card itself is a **whole-card button** (DayLedger's "tap to view full ledger" grammar: `pressable-card` + `focus-ring` + muted `border-t` footer with chevron) so tapping it anywhere — or keyboard Enter / the Today button — calls `onSelectDate` and closes. Month changes reset the preview via the `changeMonth` wrapper, and closing the modal resets all preview state (render-phase retention pattern — no refs read during render, no setState-in-effect).
+- Its month/year picker overlays use the anchored pattern (relative nav-row wrapper + `absolute inset-x-0 top-full mt-2 flex justify-center pointer-events-none`, Motion animates only the inner card) — never `left-1/5`/`top-29` or Tailwind translate on Motion elements.
+
 ### Modal Performance Loading Strategy
 
 - Heavy fullscreen modals are lazy-loaded via `React.lazy(...)` in `EnergyMapCalculator`.
