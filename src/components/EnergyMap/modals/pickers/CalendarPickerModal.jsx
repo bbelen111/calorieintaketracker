@@ -4,19 +4,66 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar as CalendarIcon,
-  TrendingUp,
   Flame,
   Beef,
   Cookie,
   Droplet,
+  CalendarCheck,
+  CalendarX,
+  Utensils,
 } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import {
   formatDateKeyUtc,
   getTodayDateKey,
 } from '../../../../utils/data/dateKeys';
+import { formatDateLabel } from '../../../../utils/measurements/weight';
 
-const TOOLTIP_VERTICAL_OFFSET = 12;
+// Mirrors DayLedgerListModal's SummaryTile grammar (module-local there) so the
+// calendar picker's dual panel shares one design language with the ledger.
+const SummaryTile = ({ icon: Icon, label, children }) => (
+  <div className="bg-surface rounded-lg p-2 border border-border/60">
+    <p className="flex items-center gap-1 text-[11px] text-muted mb-0.5">
+      <Icon size={12} />
+      {label}
+    </p>
+    {children}
+  </div>
+);
+
+// Count-up number for tile values. Module-scope (not nested inside the modal
+// component) so the RAF tween survives parent re-renders and actually plays.
+function AnimatedNumber({ value, duration = 500 }) {
+  const [displayValue, setDisplayValue] = useState(value);
+  const rafRef = useRef();
+  const startValueRef = useRef(value);
+  const startTimeRef = useRef();
+
+  useEffect(() => {
+    if (value === displayValue) return;
+    startValueRef.current = displayValue;
+    startTimeRef.current = window.performance.now();
+
+    const animate = (now) => {
+      const elapsed = now - startTimeRef.current;
+      if (elapsed >= duration) {
+        setDisplayValue(value);
+        return;
+      }
+      const progress = Math.min(elapsed / duration, 1);
+      const newValue = Math.round(
+        startValueRef.current + (value - startValueRef.current) * progress
+      );
+      setDisplayValue(newValue);
+      rafRef.current = requestAnimationFrame(animate);
+    };
+    rafRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafRef.current);
+    // eslint-disable-next-line
+  }, [value]);
+
+  return <span>{displayValue}</span>;
+}
 
 const getMacrosForDate = (date, nutritionData) => {
   const dateData = nutritionData[date] || {};
@@ -127,9 +174,9 @@ const CalendarHeatmap = ({
     return new Date(date + 'T00:00:00Z').getUTCDate();
   };
 
-  const handleDateClick = (date, event) => {
+  const handleDateClick = (date) => {
     setFocusedDate(date);
-    onDateClick(date, event);
+    onDateClick(date);
   };
 
   if (weeks.length === 0) {
@@ -186,15 +233,12 @@ const CalendarHeatmap = ({
                     <motion.button
                       key={day.date}
                       type="button"
-                      onClick={(event) =>
-                        !isGhost && handleDateClick(day.date, event)
-                      }
+                      onClick={() => !isGhost && handleDateClick(day.date)}
                       onMouseEnter={() => !isGhost && setFocusedDate(day.date)}
                       whileHover={!isGhost ? { scale: 1.05 } : {}}
                       whileTap={!isGhost ? { scale: 0.98 } : {}}
                       transition={{ duration: 0.15 }}
                       disabled={isGhost}
-                      data-calendar-date={day.date}
                       className={`aspect-square rounded-lg border-2 flex flex-col items-center justify-center text-xs font-bold transition-colors relative ${getStatusColor(day.date, isGhost, hasData)}`}
                       aria-label={
                         isGhost
@@ -271,11 +315,31 @@ export const CalendarPickerModal = ({
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
   const [slideDirection, setSlideDirection] = useState(0); // -1 for left, 1 for right
-  const [tooltipDate, setTooltipDate] = useState(null);
-  const [tooltipEntered, setTooltipEntered] = useState(false);
-  const [tooltipClosing, setTooltipClosing] = useState(false);
-  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
-  const tooltipRef = useRef(null);
+
+  // Day preview state for the bottom dual-mode panel (replaces the old
+  // floating tooltip). previewDate drives panel visibility; lastPreviewDate
+  // keeps the panel mounted (hidden) after deselect so the stacked container
+  // height never changes. Render-phase retention mirrors the
+  // DayLedgerListModal contract (no refs read during render, no
+  // setState-in-effect).
+  const [previewDate, setPreviewDate] = useState(null);
+  const [lastPreviewDate, setLastPreviewDate] = useState(null);
+  const [previewSource, setPreviewSource] = useState(null);
+  if (!isOpen) {
+    if (previewDate !== null) {
+      setPreviewDate(null);
+    }
+    if (lastPreviewDate !== null) {
+      setLastPreviewDate(null);
+      setPreviewSource(null);
+    }
+  } else if (previewDate !== previewSource) {
+    setPreviewSource(previewDate);
+    if (previewDate) {
+      setLastPreviewDate(previewDate);
+    }
+  }
+  const dayPanelDate = previewDate ?? lastPreviewDate;
 
   const todayStr = useMemo(() => getTodayDateKey(), []);
 
@@ -435,26 +499,17 @@ export const CalendarPickerModal = ({
     return data;
   }, [currentMonth, currentYear, nutritionData]);
 
-  const handleDateClick = (date, event) => {
-    const target = event?.currentTarget;
-    if (!target) {
-      return;
+  // Toggle preview: tapping the previewed day again deselects it and the
+  // bottom panel returns to the Monthly Average card.
+  const handleDayClick = (date) => {
+    setPreviewDate((prev) => (prev === date ? null : date));
+  };
+
+  const handleSelectPreviewedDay = () => {
+    if (dayPanelDate) {
+      onSelectDate(dayPanelDate);
+      onClose();
     }
-
-    const rect = target.getBoundingClientRect();
-    const nextPosition = {
-      x: rect.left + rect.width / 2,
-      y: rect.top,
-    };
-
-    if (tooltipDate && tooltipDate !== date) {
-      setTooltipClosing(true);
-      setTooltipEntered(false);
-    }
-
-    setTooltipPosition(nextPosition);
-    setTooltipDate(date);
-    setTooltipClosing(false);
   };
 
   const handleKeyboardSelect = (date) => {
@@ -462,34 +517,39 @@ export const CalendarPickerModal = ({
     onClose();
   };
 
+  // Changing months always clears any previewed day so the bottom panel
+  // predictably falls back to the Monthly Average card.
+  const changeMonth = (month, year) => {
+    setPreviewDate(null);
+    onMonthChange(month, year);
+  };
+
   const handlePrevMonth = () => {
     setSlideDirection(-1);
     if (currentMonth === 0) {
-      onMonthChange(11, currentYear - 1);
+      changeMonth(11, currentYear - 1);
     } else {
-      onMonthChange(currentMonth - 1, currentYear);
+      changeMonth(currentMonth - 1, currentYear);
     }
   };
 
   const handleNextMonth = () => {
     setSlideDirection(1);
     if (currentMonth === 11) {
-      onMonthChange(0, currentYear + 1);
+      changeMonth(0, currentYear + 1);
     } else {
-      onMonthChange(currentMonth + 1, currentYear);
+      changeMonth(currentMonth + 1, currentYear);
     }
   };
 
   const handleMonthSelect = (month) => {
-    onMonthChange(month, currentYear);
+    changeMonth(month, currentYear);
     setShowMonthPicker(false);
-    setTooltipDate(null);
   };
 
   const handleYearSelect = (year) => {
-    onMonthChange(currentMonth, year);
+    changeMonth(currentMonth, year);
     setShowYearPicker(false);
-    setTooltipDate(null);
   };
 
   const handleTodayClick = () => {
@@ -502,74 +562,30 @@ export const CalendarPickerModal = ({
     }, 100);
   };
 
-  const closeTooltip = () => {
-    setTooltipClosing(true);
-    setTimeout(() => {
-      setTooltipDate(null);
-      setTooltipClosing(false);
-    }, 150);
-  };
-
-  const handleTooltipClick = () => {
-    if (tooltipDate) {
-      onSelectDate(tooltipDate);
-      onClose();
-      closeTooltip();
-    }
-  };
-
-  useEffect(() => {
-    if (!tooltipDate) {
-      return undefined;
-    }
-
-    const handlePointerDown = (event) => {
-      const tooltipNode = tooltipRef.current;
-      const calendarCell = event.target.closest('[data-calendar-date]');
-
-      if (tooltipNode?.contains(event.target) || calendarCell) {
-        return;
-      }
-
-      closeTooltip();
-    };
-
-    document.addEventListener('pointerdown', handlePointerDown, true);
-    return () =>
-      document.removeEventListener('pointerdown', handlePointerDown, true);
-  }, [tooltipDate]);
-
-  useEffect(() => {
-    if (tooltipDate && !tooltipClosing) {
-      const frame = requestAnimationFrame(() => setTooltipEntered(true));
-      return () => cancelAnimationFrame(frame);
-    }
-    if (!tooltipDate) {
-      Promise.resolve().then(() => setTooltipEntered(false));
-    }
-    return undefined;
-  }, [tooltipDate, tooltipClosing]);
-
-  useEffect(() => {
-    if (!isOpen) {
-      setTooltipDate(null);
-    }
-  }, [isOpen]);
-
-  const tooltipMacros = useMemo(() => {
-    if (!tooltipDate) {
+  const dayMacros = useMemo(() => {
+    if (!dayPanelDate) {
       return { calories: 0, protein: 0, carbs: 0, fats: 0 };
     }
-    return getMacrosForDate(tooltipDate, nutritionData);
-  }, [tooltipDate, nutritionData]);
+    return getMacrosForDate(dayPanelDate, nutritionData);
+  }, [dayPanelDate, nutritionData]);
 
-  const hasTooltipData = useMemo(() => {
-    if (!tooltipDate) return false;
-    const dateData = nutritionData[tooltipDate] || {};
+  const hasDayData = useMemo(() => {
+    if (!dayPanelDate) return false;
+    const dateData = nutritionData[dayPanelDate] || {};
     return Object.values(dateData).some(
       (entries) => Array.isArray(entries) && entries.length > 0
     );
-  }, [tooltipDate, nutritionData]);
+  }, [dayPanelDate, nutritionData]);
+
+  // Total food items logged on the previewed day (drives the entries pill).
+  const dayEntryCount = useMemo(() => {
+    if (!dayPanelDate) return 0;
+    const dateData = nutritionData[dayPanelDate] || {};
+    return Object.values(dateData).reduce(
+      (sum, entries) => sum + (Array.isArray(entries) ? entries.length : 0),
+      0
+    );
+  }, [dayPanelDate, nutritionData]);
 
   // Swipe handlers for calendar navigation
   const minSwipeDistance = 50;
@@ -624,143 +640,146 @@ export const CalendarPickerModal = ({
             </motion.button>
           </div>
 
-          {/* Compact Month/Year Header with Navigation */}
-          <div className="flex items-center justify-between mb-6 gap-2">
-            <motion.button
-              type="button"
-              onClick={handlePrevMonth}
-              whileHover={{ scale: 1.05, x: -2 }}
-              whileTap={{ scale: 0.95 }}
-              className="p-2 bg-surface-highlight md:hover:bg-surface text-foreground rounded-lg transition-colors"
-              aria-label="Previous month"
-            >
-              <ChevronLeft size={20} />
-            </motion.button>
-
-            <div className="flex items-center gap-2 justify-center">
-              <button
+          {/* Compact Month/Year Header with Navigation (month/year overlays
+              anchor beneath this row via the relative wrapper) */}
+          <div className="relative">
+            <div className="flex items-center justify-between mb-6 gap-2">
+              <motion.button
                 type="button"
-                onClick={() => {
-                  setShowMonthPicker(!showMonthPicker);
-                  setShowYearPicker(false);
-                }}
-                className="text-foreground font-semibold text-xl md:hover:text-accent-blue transition-colors cursor-pointer underline underline-offset-4"
+                onClick={handlePrevMonth}
+                whileHover={{ scale: 1.05, x: -2 }}
+                whileTap={{ scale: 0.95 }}
+                className="p-2 bg-surface-highlight md:hover:bg-surface text-foreground rounded-lg transition-colors"
+                aria-label="Previous month"
               >
-                {monthNames[currentMonth]}
-              </button>
+                <ChevronLeft size={20} />
+              </motion.button>
 
-              {/* Centered separator dot */}
-              <span className="text-muted pointer-events-none select-none">
-                •
-              </span>
+              <div className="flex items-center gap-2 justify-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMonthPicker(!showMonthPicker);
+                    setShowYearPicker(false);
+                  }}
+                  className="text-foreground font-semibold text-xl md:hover:text-accent-blue transition-colors cursor-pointer underline underline-offset-4"
+                >
+                  {monthNames[currentMonth]}
+                </button>
 
-              <button
+                {/* Centered separator dot */}
+                <span className="text-muted pointer-events-none select-none">
+                  •
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowYearPicker(!showYearPicker);
+                    setShowMonthPicker(false);
+                  }}
+                  className="text-foreground font-semibold text-xl md:hover:text-accent-blue transition-colors cursor-pointer underline underline-offset-4"
+                >
+                  {currentYear}
+                </button>
+              </div>
+
+              <motion.button
                 type="button"
-                onClick={() => {
-                  setShowYearPicker(!showYearPicker);
-                  setShowMonthPicker(false);
-                }}
-                className="text-foreground font-semibold text-xl md:hover:text-accent-blue transition-colors cursor-pointer underline underline-offset-4"
+                onClick={handleNextMonth}
+                whileHover={{ scale: 1.05, x: 2 }}
+                whileTap={{ scale: 0.95 }}
+                className="p-2 bg-surface-highlight md:hover:bg-surface text-foreground rounded-lg transition-colors"
+                aria-label="Next month"
               >
-                {currentYear}
-              </button>
+                <ChevronRight size={20} />
+              </motion.button>
             </div>
 
-            <motion.button
-              type="button"
-              onClick={handleNextMonth}
-              whileHover={{ scale: 1.05, x: 2 }}
-              whileTap={{ scale: 0.95 }}
-              className="p-2 bg-surface-highlight md:hover:bg-surface text-foreground rounded-lg transition-colors"
-              aria-label="Next month"
-            >
-              <ChevronRight size={20} />
-            </motion.button>
+            {/* Month Picker Overlay */}
+            <AnimatePresence>
+              {showMonthPicker && (
+                <>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowMonthPicker(false)}
+                  />
+                  <div className="absolute inset-x-0 top-full mt-2 z-50 flex justify-center pointer-events-none">
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                      className="pointer-events-auto grid grid-cols-3 gap-2 p-1 bg-surface rounded-lg border-2 border-border shadow-2xl w-64"
+                    >
+                      {monthNames.map((month, index) => (
+                        <motion.button
+                          key={month}
+                          type="button"
+                          onClick={() => handleMonthSelect(index)}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          className={`px-3 py-2 rounded font-semibold transition-colors text-sm whitespace-nowrap ${
+                            index === currentMonth
+                              ? 'text-primary-foreground bg-primary'
+                              : 'text-foreground md:hover:bg-surface'
+                          }`}
+                        >
+                          {month.slice(0, 3)}
+                        </motion.button>
+                      ))}
+                    </motion.div>
+                  </div>
+                </>
+              )}
+            </AnimatePresence>
+
+            {/* Year Picker Overlay */}
+            <AnimatePresence>
+              {showYearPicker && (
+                <>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowYearPicker(false)}
+                  />
+                  <div className="absolute inset-x-0 top-full mt-2 z-50 flex justify-center pointer-events-none">
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                      className="pointer-events-auto grid grid-cols-4 gap-1.5 p-1 bg-surface rounded-lg border-2 border-border shadow-2xl w-56"
+                    >
+                      {yearRange.map((year) => (
+                        <motion.button
+                          key={year}
+                          type="button"
+                          onClick={() => handleYearSelect(year)}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          className={`px-2 py-3 rounded font-semibold transition-colors text-sm ${
+                            year === currentYear
+                              ? 'bg-primary text-primary-foreground'
+                              : 'text-foreground md:hover:bg-surface'
+                          }`}
+                        >
+                          {year}
+                        </motion.button>
+                      ))}
+                    </motion.div>
+                  </div>
+                </>
+              )}
+            </AnimatePresence>
           </div>
-
-          {/* Month Picker Overlay */}
-          <AnimatePresence>
-            {showMonthPicker && (
-              <>
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15 }}
-                  className="fixed inset-0 z-40"
-                  onClick={() => setShowMonthPicker(false)}
-                />
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                  transition={{ duration: 0.2 }}
-                  className="absolute left-1/5 -translate-x-1/2 top-29 z-50"
-                >
-                  <div className="grid grid-cols-3 gap-2 p-1 bg-surface rounded-lg border-2 border-border shadow-2xl w-64">
-                    {monthNames.map((month, index) => (
-                      <motion.button
-                        key={month}
-                        type="button"
-                        onClick={() => handleMonthSelect(index)}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className={`px-3 py-2 rounded font-semibold transition-colors text-sm whitespace-nowrap ${
-                          index === currentMonth
-                            ? 'text-primary-foreground bg-primary'
-                            : 'text-foreground md:hover:bg-surface'
-                        }`}
-                      >
-                        {month.slice(0, 3)}
-                      </motion.button>
-                    ))}
-                  </div>
-                </motion.div>
-              </>
-            )}
-          </AnimatePresence>
-
-          {/* Year Picker Overlay */}
-          <AnimatePresence>
-            {showYearPicker && (
-              <>
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15 }}
-                  className="fixed inset-0 z-40"
-                  onClick={() => setShowYearPicker(false)}
-                />
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                  transition={{ duration: 0.2 }}
-                  className="absolute left-1/2 -translate-x-1/2 top-29 z-50"
-                >
-                  <div className="grid grid-cols-4 gap-1.5 p-1 bg-surface rounded-lg border-2 border-border shadow-2xl w-56">
-                    {yearRange.map((year) => (
-                      <motion.button
-                        key={year}
-                        type="button"
-                        onClick={() => handleYearSelect(year)}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className={`px-2 py-3 rounded font-semibold transition-colors text-sm ${
-                          year === currentYear
-                            ? 'bg-primary text-primary-foreground'
-                            : 'text-foreground md:hover:bg-surface'
-                        }`}
-                      >
-                        {year}
-                      </motion.button>
-                    ))}
-                  </div>
-                </motion.div>
-              </>
-            )}
-          </AnimatePresence>
 
           {/* Calendar */}
           <div
@@ -771,7 +790,7 @@ export const CalendarPickerModal = ({
           >
             <CalendarHeatmap
               calendarData={calendarData}
-              onDateClick={handleDateClick}
+              onDateClick={handleDayClick}
               onKeyboardSelect={handleKeyboardSelect}
               selectedDate={selectedDate}
               slideDirection={slideDirection}
@@ -779,127 +798,291 @@ export const CalendarPickerModal = ({
             />
           </div>
 
-          {/* Monthly Insights */}
-          <div className="mt-4 bg-surface-highlight rounded-lg p-4 border border-border">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="text-accent-blue" size={20} />
-                <h4 className="text-foreground font-bold text-md">
-                  Monthly Average
-                </h4>
-              </div>
-              <motion.span
-                className="text-foreground/80 text-sm ml-auto"
-                key={monthlyInsights.daysWithData}
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
+          {/* Dual-mode panel: grid-stacked "auto-fixed" height (same contract
+              as DayLedgerListModal). The day-preview card (a whole-card button,
+              like DayLedger's "tap to view full ledger" card) and the Monthly
+              Averages card are ALWAYS mounted, stacked in the same grid cell
+              (row-start-1 col-start-1); opacity decides which is visible, so
+              the container height is the natural max across all states -
+              zero layout shift, no height animation, no unmount swaps.
+              Both surfaces share DayLedgerListModal's design language: /40
+              chrome, header row with pill chips, SummaryTile stat grid and
+              0.16s opacity+y crossfades (filled/empty branches stacked the
+              same way inside each surface). */}
+          <div className="grid mt-4">
+            {dayPanelDate && (
+              <motion.button
+                type="button"
+                onClick={handleSelectPreviewedDay}
+                initial={false}
+                animate={{
+                  opacity: previewDate ? 1 : 0,
+                  y: previewDate ? 0 : 8,
+                }}
+                transition={{ duration: 0.16 }}
+                aria-label={`Select ${formatDateLabel(dayPanelDate)}`}
+                aria-hidden={!previewDate}
+                tabIndex={previewDate ? 0 : -1}
+                className={`row-start-1 col-start-1 overflow-y-auto text-left bg-surface-highlight/40 rounded-xl border border-border p-3 pressable-card focus-ring md:hover:border-accent-blue/50 transition-all ${
+                  previewDate ? '' : 'pointer-events-none'
+                }`}
               >
-                {monthlyInsights.daysWithData > 0 ? (
-                  <>
-                    {monthlyInsights.daysWithData}/{monthlyInsights.daysInMonth}{' '}
-                    days tracked
-                  </>
-                ) : (
-                  'No data yet'
-                )}
-              </motion.span>
-            </div>
+                {/* Header row: date + pill chips (DayLedger grammar) */}
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <p className="text-foreground font-bold text-sm min-w-0 truncate">
+                    {formatDateLabel(dayPanelDate, {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </p>
+                  <div className="flex items-center gap-1.5 flex-wrap justify-end flex-shrink-0">
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${
+                        hasDayData
+                          ? 'text-accent-blue border-accent-blue/20 bg-accent-blue/10'
+                          : 'text-muted border-border bg-surface'
+                      }`}
+                    >
+                      <Utensils size={11} />
+                      {hasDayData
+                        ? `${dayEntryCount} ${
+                            dayEntryCount === 1 ? 'entry' : 'entries'
+                          }`
+                        : 'No entries'}
+                    </span>
+                    {dayPanelDate === todayStr && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold text-accent-green border border-accent-green/20 bg-accent-green/10">
+                        <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />
+                        In progress
+                      </span>
+                    )}
+                  </div>
+                </div>
 
-            {/* Days Tracked Progress Bar */}
-            <div className="mb-4 mt-1">
-              <motion.div
-                className="h-2 w-full rounded-full overflow-hidden bg-surface"
-                initial={{ opacity: 0, y: -5 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.1 }}
-              >
+                {/* Filled vs empty day branch, stacked like DayLedgerListModal's
+                    inner month states so the surface height stays constant */}
+                <div className="grid">
+                  <motion.div
+                    initial={false}
+                    animate={{
+                      opacity: hasDayData ? 0 : 1,
+                      y: hasDayData ? -6 : 0,
+                    }}
+                    transition={{ duration: 0.16 }}
+                    aria-hidden={hasDayData}
+                    className={`row-start-1 col-start-1 min-h-[88px] flex flex-col items-center justify-center text-center py-3 ${
+                      hasDayData ? 'pointer-events-none' : ''
+                    }`}
+                  >
+                    <Utensils className="text-muted/50" size={28} />
+                    <p className="text-muted text-xs mt-2 max-w-[220px]">
+                      No food logged for this day yet.
+                    </p>
+                  </motion.div>
+
+                  <motion.div
+                    initial={false}
+                    animate={{
+                      opacity: hasDayData ? 1 : 0,
+                      y: hasDayData ? 0 : 6,
+                    }}
+                    transition={{ duration: 0.16 }}
+                    aria-hidden={!hasDayData}
+                    className={`row-start-1 col-start-1 ${
+                      hasDayData ? '' : 'pointer-events-none'
+                    }`}
+                  >
+                    <div className="grid grid-cols-2 gap-2">
+                      <SummaryTile icon={Flame} label="Calories">
+                        <p className="text-accent-emerald font-bold text-sm leading-tight">
+                          <AnimatedNumber
+                            value={Math.round(dayMacros.calories)}
+                          />
+                          <span className="text-muted text-[10px] font-medium">
+                            {' '}
+                            kcal
+                          </span>
+                        </p>
+                      </SummaryTile>
+                      <SummaryTile icon={Beef} label="Protein">
+                        <p className="text-accent-red font-bold text-sm leading-tight">
+                          <AnimatedNumber
+                            value={Math.round(dayMacros.protein)}
+                          />
+                          <span className="text-muted text-[10px] font-medium">
+                            {' '}
+                            g
+                          </span>
+                        </p>
+                      </SummaryTile>
+                      <SummaryTile icon={Cookie} label="Carbs">
+                        <p className="text-accent-amber font-bold text-sm leading-tight">
+                          <AnimatedNumber value={Math.round(dayMacros.carbs)} />
+                          <span className="text-muted text-[10px] font-medium">
+                            {' '}
+                            g
+                          </span>
+                        </p>
+                      </SummaryTile>
+                      <SummaryTile icon={Droplet} label="Fats">
+                        <p className="text-accent-yellow font-bold text-sm leading-tight">
+                          <AnimatedNumber value={Math.round(dayMacros.fats)} />
+                          <span className="text-muted text-[10px] font-medium">
+                            {' '}
+                            g
+                          </span>
+                        </p>
+                      </SummaryTile>
+                    </div>
+                  </motion.div>
+                </div>
+
+                {/* Whole-card tap-target footer (DayLedger grammar) */}
+                <div className="flex items-center justify-end gap-1 mt-1.5 pt-1.5 border-t border-border text-muted">
+                  <span className="text-xs font-medium">
+                    Tap to select this day
+                  </span>
+                  <ChevronRight size={14} />
+                </div>
+              </motion.button>
+            )}
+
+            {/* Monthly Averages surface (hidden while a day is previewed) */}
+            <motion.div
+              initial={false}
+              animate={{
+                opacity: previewDate ? 0 : 1,
+                y: previewDate ? -8 : 0,
+              }}
+              transition={{ duration: 0.16 }}
+              aria-hidden={!!previewDate}
+              className={`row-start-1 col-start-1 overflow-y-auto bg-surface-highlight/40 rounded-xl border border-border p-3 ${
+                previewDate ? 'pointer-events-none' : ''
+              }`}
+            >
+              {/* Header row: title + days-tracked pill (DayLedger grammar) */}
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="min-w-0">
+                  <p className="text-foreground font-bold text-sm">
+                    Monthly Averages
+                  </p>
+                  <p className="text-muted text-xs mt-0.5">
+                    {monthNames[currentMonth]} {currentYear}
+                  </p>
+                </div>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold text-accent-blue border border-accent-blue/20 bg-accent-blue/10 flex-shrink-0">
+                  <CalendarCheck size={11} />
+                  <motion.span
+                    key={monthlyInsights.daysWithData}
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="inline-flex items-center"
+                  >
+                    {monthlyInsights.daysWithData}/{monthlyInsights.daysInMonth}{' '}
+                    days
+                  </motion.span>
+                </span>
+              </div>
+
+              {/* Empty vs filled month branch, stacked like DayLedgerListModal
+                  (constant surface height, crossfade only) */}
+              <div className="grid">
                 <motion.div
-                  className="h-full rounded-full bg-accent-blue"
-                  initial={{ width: 0 }}
+                  initial={false}
                   animate={{
-                    width: `${
-                      monthlyInsights.daysWithData > 0
-                        ? (monthlyInsights.daysWithData /
+                    opacity: monthlyInsights.daysWithData === 0 ? 1 : 0,
+                    y: monthlyInsights.daysWithData === 0 ? 0 : 6,
+                  }}
+                  transition={{ duration: 0.16 }}
+                  aria-hidden={monthlyInsights.daysWithData !== 0}
+                  className={`row-start-1 col-start-1 min-h-[110px] flex flex-col items-center justify-center text-center py-2 ${
+                    monthlyInsights.daysWithData === 0
+                      ? ''
+                      : 'pointer-events-none'
+                  }`}
+                >
+                  <CalendarX className="text-muted/50" size={36} />
+                  <p className="text-muted text-xs mt-2 max-w-[240px]">
+                    No logged food this month yet. Tap a highlighted day to
+                    preview it.
+                  </p>
+                </motion.div>
+
+                <motion.div
+                  initial={false}
+                  animate={{
+                    opacity: monthlyInsights.daysWithData > 0 ? 1 : 0,
+                    y: monthlyInsights.daysWithData > 0 ? 0 : -6,
+                  }}
+                  transition={{ duration: 0.16 }}
+                  aria-hidden={monthlyInsights.daysWithData === 0}
+                  className={`row-start-1 col-start-1 ${
+                    monthlyInsights.daysWithData > 0
+                      ? ''
+                      : 'pointer-events-none'
+                  }`}
+                >
+                  {/* Tracked-days progress bar (DayLedger mini-bar anatomy:
+                      solid bg-surface-highlight track on the /40 surface) */}
+                  <div className="h-2 w-full rounded-full overflow-hidden bg-surface-highlight">
+                    <motion.div
+                      className="h-full rounded-full bg-accent-blue"
+                      initial={{ width: 0 }}
+                      animate={{
+                        width: `${
+                          (monthlyInsights.daysWithData /
                             monthlyInsights.daysInMonth) *
                           100
-                        : 0
-                    }%`,
-                  }}
-                  transition={{ duration: 0.5, ease: 'easeOut' }}
-                />
-              </motion.div>
-            </div>
+                        }%`,
+                      }}
+                      transition={{ duration: 0.5, ease: 'easeOut' }}
+                    />
+                  </div>
 
-            <div className="grid grid-cols-4 gap-3">
-              {/* Calories */}
-              <div className="flex flex-col items-center">
-                <div className="bg-surface/80 rounded-lg px-2 py-3 w-full flex flex-col items-center border border-border">
-                  <Flame className="text-accent-emerald mb-1" size={16} />
-                  <motion.p
-                    className="text-accent-emerald font-black text-base"
-                    key={monthlyInsights.avgCalories}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.5 }}
-                  >
-                    <AnimatedNumber value={monthlyInsights.avgCalories} />
-                  </motion.p>
-                  <p className="text-muted text-[9px] font-medium">kcal</p>
-                </div>
+                  <div className="grid grid-cols-2 gap-1.5 mt-2">
+                    <SummaryTile icon={Flame} label="Avg Energy">
+                      <p className="text-accent-emerald font-bold text-sm leading-tight">
+                        <AnimatedNumber value={monthlyInsights.avgCalories} />
+                        <span className="text-muted text-[10px] font-medium">
+                          {' '}
+                          kcal
+                        </span>
+                      </p>
+                    </SummaryTile>
+                    <SummaryTile icon={Beef} label="Avg Protein">
+                      <p className="text-accent-red font-bold text-sm leading-tight">
+                        <AnimatedNumber value={monthlyInsights.avgProtein} />
+                        <span className="text-muted text-[10px] font-medium">
+                          {' '}
+                          g
+                        </span>
+                      </p>
+                    </SummaryTile>
+                    <SummaryTile icon={Cookie} label="Avg Carbs">
+                      <p className="text-accent-amber font-bold text-sm leading-tight">
+                        <AnimatedNumber value={monthlyInsights.avgCarbs} />
+                        <span className="text-muted text-[10px] font-medium">
+                          {' '}
+                          g
+                        </span>
+                      </p>
+                    </SummaryTile>
+                    <SummaryTile icon={Droplet} label="Avg Fats">
+                      <p className="text-accent-yellow font-bold text-sm leading-tight">
+                        <AnimatedNumber value={monthlyInsights.avgFats} />
+                        <span className="text-muted text-[10px] font-medium">
+                          {' '}
+                          g
+                        </span>
+                      </p>
+                    </SummaryTile>
+                  </div>
+                </motion.div>
               </div>
-
-              {/* Protein */}
-              <div className="flex flex-col items-center">
-                <div className="bg-surface/80 rounded-lg px-2 py-3 w-full flex flex-col items-center border border-border">
-                  <Beef className="text-accent-red mb-1" size={16} />
-                  <motion.p
-                    className="text-accent-red font-black text-base"
-                    key={monthlyInsights.avgProtein}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.5 }}
-                  >
-                    <AnimatedNumber value={monthlyInsights.avgProtein} />
-                  </motion.p>
-                  <p className="text-muted text-[9px] font-medium">protein</p>
-                </div>
-              </div>
-
-              {/* Fats */}
-              <div className="flex flex-col items-center">
-                <div className="bg-surface/80 rounded-lg px-2 py-3 w-full flex flex-col items-center border border-border">
-                  <Droplet className="text-accent-yellow mb-1" size={16} />
-                  <motion.p
-                    className="text-accent-yellow font-black text-base"
-                    key={monthlyInsights.avgFats}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.5 }}
-                  >
-                    <AnimatedNumber value={monthlyInsights.avgFats} />
-                  </motion.p>
-                  <p className="text-muted text-[9px] font-medium">fats</p>
-                </div>
-              </div>
-
-              {/* Carbs */}
-              <div className="flex flex-col items-center">
-                <div className="bg-surface/80 rounded-lg px-2 py-3 w-full flex flex-col items-center border border-border">
-                  <Cookie className="text-accent-amber mb-1" size={16} />
-                  <motion.p
-                    className="text-accent-amber font-black text-base"
-                    key={monthlyInsights.avgCarbs}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.5 }}
-                  >
-                    <AnimatedNumber value={monthlyInsights.avgCarbs} />
-                  </motion.p>
-                  <p className="text-muted text-[9px] font-medium">carbs</p>
-                </div>
-              </div>
-            </div>
+            </motion.div>
           </div>
 
           {/* Close Button */}
@@ -913,107 +1096,6 @@ export const CalendarPickerModal = ({
           </motion.button>
         </div>
       </ModalShell>
-
-      {tooltipDate && (
-        <div
-          ref={tooltipRef}
-          className={`fixed z-[1200] bg-surface border border-border rounded-lg shadow-2xl p-4 transform -translate-x-1/2 -translate-y-full pointer-events-auto transition duration-150 ease-out min-w-[100px] w-max ${
-            tooltipEntered && !tooltipClosing
-              ? 'opacity-100 scale-100'
-              : 'opacity-0 scale-95'
-          }`}
-          style={{
-            left: `${tooltipPosition.x}px`,
-            top: `${tooltipPosition.y - TOOLTIP_VERTICAL_OFFSET}px`,
-          }}
-          onClick={handleTooltipClick}
-        >
-          <div className="flex flex-col items-center p-0.5">
-            <p className="text-muted text-[11.5px] mb-1 whitespace-nowrap">
-              {new Date(tooltipDate + 'T00:00:00Z').toLocaleDateString(
-                'en-US',
-                {
-                  weekday: 'short',
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                }
-              )}
-            </p>
-            {hasTooltipData ? (
-              <>
-                <p className="text-accent-emerald text-2xl font-bold whitespace-nowrap">
-                  {Math.round(tooltipMacros.calories)}{' '}
-                  <span className="text-muted text-sm font-normal">kcal</span>
-                </p>
-                <div className="mt-2 pt-2 border-t border-border flex justify-between gap-4 text-sm">
-                  <div>
-                    <p className="text-muted text-[10px] uppercase">Prot</p>
-                    <p className="text-accent-red font-semibold whitespace-nowrap">
-                      {Math.round(tooltipMacros.protein)}g
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-muted text-[10px] uppercase">Carb</p>
-                    <p className="text-accent-amber font-semibold whitespace-nowrap">
-                      {Math.round(tooltipMacros.carbs)}g
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-muted text-[10px] uppercase">Fats</p>
-                    <p className="text-accent-yellow font-semibold whitespace-nowrap">
-                      {Math.round(tooltipMacros.fats)}g
-                    </p>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <p className="text-foreground text-lg font-semibold whitespace-nowrap">
-                No entries
-              </p>
-            )}
-            <p className="text-muted text-[10px] mt-2 pt-2 border-t border-border uppercase tracking-wide whitespace-nowrap text-center">
-              Tap to open day
-            </p>
-          </div>
-
-          {/* Arrow */}
-          <div className="absolute left-1/2 transform -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-border"></div>
-        </div>
-      )}
     </>
   );
-
-  // AnimatedNumber component for smooth transitions
-  function AnimatedNumber({ value, duration = 500 }) {
-    const [displayValue, setDisplayValue] = useState(value);
-    const rafRef = useRef();
-    const startValueRef = useRef(value);
-    const startTimeRef = useRef();
-
-    useEffect(() => {
-      if (value === displayValue) return;
-      startValueRef.current = displayValue;
-      startTimeRef.current = window.performance.now();
-
-      const animate = (now) => {
-        const elapsed = now - startTimeRef.current;
-        if (elapsed >= duration) {
-          setDisplayValue(value);
-          return;
-        }
-        const progress = Math.min(elapsed / duration, 1);
-        const newValue = Math.round(
-          startValueRef.current + (value - startValueRef.current) * progress
-        );
-        setDisplayValue(newValue);
-        rafRef.current = requestAnimationFrame(animate);
-      };
-      rafRef.current = requestAnimationFrame(animate);
-      return () => cancelAnimationFrame(rafRef.current);
-      // eslint-disable-next-line
-    }, [value]);
-
-    return <span>{displayValue}</span>;
-  }
 };
