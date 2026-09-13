@@ -20,6 +20,7 @@ import {
   getCustomActivityPercent,
 } from '../../constants/activity/activityPresets';
 import {
+  runResumeDayTurnoverCatchUp,
   setupEnergyMapStore,
   useEnergyMapStore,
 } from '../../store/useEnergyMapStore';
@@ -1203,13 +1204,16 @@ export const EnergyMapCalculator = () => {
             return;
           }
 
-          const todayDateKey = getTodayDateString();
-          const yesterdayDate = new Date(`${todayDateKey}T00:00:00Z`);
-          yesterdayDate.setUTCDate(yesterdayDate.getUTCDate() - 1);
-          const yesterdayDateKey = formatDateKeyUtc(yesterdayDate);
-
-          store.upsertDailySnapshot(yesterdayDateKey);
-          store.upsertDailySnapshot(todayDateKey);
+          // Defer the day-turnover catch-up out of the native listener
+          // callback: it performs synchronous store updates, which must
+          // never run inside the listener (midnight turnover freeze guard).
+          setTimeout(() => {
+            try {
+              runResumeDayTurnoverCatchUp();
+            } catch (error) {
+              console.error('Failed resume day-turnover catch-up', error);
+            }
+          }, 0);
         }
       );
     };

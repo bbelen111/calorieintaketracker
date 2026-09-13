@@ -26,6 +26,7 @@ import {
   sortWeightEntries,
   formatWeight,
 } from '../../../utils/measurements/weight';
+import { getTodayDateKey } from '../../../utils/data/dateKeys';
 import {
   sortBodyFatEntries,
   formatBodyFat,
@@ -99,8 +100,9 @@ export const HomeScreen = ({
     const normalized = String(value).trim();
     return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : null;
   };
-  const now = new Date();
-  const todayDateKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  // Canonical local date key helper (midnight-turnover safe); see
+  // utils/data/dateKeys.js — no hand-rolled YYYY-MM-DD assembly here.
+  const todayDateKey = getTodayDateKey();
   const resolvedCardioSessions = (
     cardioSessions ?? store.cardioSessions
   ).filter((session) => toDateKey(session?.date) === todayDateKey);

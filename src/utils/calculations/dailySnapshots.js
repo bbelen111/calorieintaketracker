@@ -70,6 +70,18 @@ const META_FIELDS = new Set(['createdAt', 'updatedAt']);
 const getComparableKeys = (snapshot) =>
   Object.keys(snapshot).filter((key) => !META_FIELDS.has(key));
 
+const isPlainObjectValue = (value) =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+const arePlainObjectsEqual = (a, b) => {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) {
+    return false;
+  }
+  return aKeys.every((key) => a[key] === b[key]);
+};
+
 export const areDailySnapshotsEquivalent = (previousSnapshot, nextSnapshot) => {
   if (previousSnapshot === nextSnapshot) {
     return true;
@@ -92,7 +104,20 @@ export const areDailySnapshotsEquivalent = (previousSnapshot, nextSnapshot) => {
       return false;
     }
 
-    if (previousSnapshot[key] !== nextSnapshot[key]) {
+    const previousValue = previousSnapshot[key];
+    const nextValue = nextSnapshot[key];
+
+    // Object-valued fields (`micros`, `microsCoverage`) are rebuilt as fresh
+    // objects on every snapshot build, so they must be compared structurally.
+    // Reference comparison here made every rebuild look "different", which
+    // (1) defeated the idempotent-upsert guarantee and (2) drove the midnight
+    // day-turnover rollover into an unbounded write/re-fire recursion that
+    // froze and crashed the app at 12:00 AM.
+    if (isPlainObjectValue(previousValue) && isPlainObjectValue(nextValue)) {
+      if (!arePlainObjectsEqual(previousValue, nextValue)) {
+        return false;
+      }
+    } else if (previousValue !== nextValue) {
       return false;
     }
   }
