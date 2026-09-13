@@ -145,7 +145,6 @@ src/
 │   │  ├─ dailySnapshots.js      # Derived daily snapshot builder + equality helpers
 │   │  ├─ rollingEnergyBalance.js # Rolling energy-balance calculator (3/7/14/28-day windows; consumes snapshot tdee/intake)
 │   │  ├─ dayLedgerPresentation.js # Daily Ledger display-model builders (read-only snapshot projections)
-│   │  ├─ healthConnectWindow.js # Strict Health Connect step-read window helper (guarantees end > start)
 │   │  ├─ epoc.js                # Session EPOC estimate + carryover window resolution
 │   │  ├─ goalAlignment.js       # Weight trend vs goal alignment evaluation
 │   │  ├─ phaseTargetPlanning.js # Target-mode phase planning (delta estimation + feasible date bands)
@@ -202,7 +201,7 @@ src/
   │   └─ openrouter.contract.test.js
   ├─ constants/
   │   └─ activityPresets.test.js
-  │   └─ nutrients.test.js      # Canonical micro nutrient defs, soft invariants, OFF sodium conversion
+│   └─ nutrients.test.js      # Canonical micro nutrient defs, soft invariants, OFF sodium conversion
   ├─ services/
   │   ├─ foodLookupContext.test.js
   │   ├─ foodSearch.test.js
