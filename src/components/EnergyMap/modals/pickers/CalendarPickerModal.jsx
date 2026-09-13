@@ -269,32 +269,6 @@ const CalendarHeatmap = ({
           </motion.div>
         </AnimatePresence>
       </div>
-
-      {/* Legend
-      <div className="flex items-center justify-center gap-4 pt-4 text-xs text-muted border-t border-border mt-4">
-            <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-surface border-2 border-border flex flex-col items-center justify-center gap-0.5 shadow-sm relative">
-            <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-accent-blue rounded-full border border-accent-blue/70" />
-            <span className="text-foreground font-bold text-[10px]">15</span>
-            <span className="text-foreground text-[6px] leading-none opacity-80">
-              2k
-            </span>
-          </div>
-          <span>Has entries</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-surface border-2 border-border flex items-center justify-center shadow-sm">
-            <span className="text-foreground font-bold text-xs">1</span>
-          </div>
-          <span>No entries</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-accent-blue border-2 border-accent-blue/70 ring-2 ring-accent-blue/40 flex items-center justify-center shadow-sm">
-            <span className="text-primary-foreground font-bold text-xs">1</span>
-          </div>
-          <span>Selected</span>
-        </div>
-      </div> */}
     </div>
   );
 };
@@ -796,6 +770,28 @@ export const CalendarPickerModal = ({
               slideDirection={slideDirection}
               monthNames={monthNames}
             />
+          </div>
+
+          {/* Calendar-cell legend - DayLedgerListModal's legend grammar
+              (swatch + label, shared separator + type scale) adapted to this
+              modal's cell states instead of balance kinds: the round blue dot
+              mirrors the in-cell marker that flags logged days, plain cells
+              are untracked, and the filled blue cell is the current
+              selection. Always rendered (static reference, never toggled by
+              panel state, so it cannot shift layout). */}
+          <div className="flex items-center justify-center gap-3 pt-3 mt-3 border-t border-border text-[10px] text-muted flex-wrap">
+            <span className="inline-flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-accent-blue" />
+              Has entries
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="w-2 h-2 rounded-sm bg-accent-slate" />
+              No entries
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="w-2 h-2 rounded-sm bg-accent-blue" />
+              Selected
+            </span>
           </div>
 
           {/* Dual-mode panel: grid-stacked "auto-fixed" height (same contract
