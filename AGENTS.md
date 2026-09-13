@@ -1189,6 +1189,7 @@ src/
 │   │  ├─ bezierPath.js          # SVG cubic Bézier curve interpolation + gap-aware chart path runs
 │   │  ├─ carouselLoop.js        # Canonical swipe-shell loop math (wrapped offsets/fades, transforms,
 │   │  │                         #   teleport tiers, settle planning, interruption clock, ease)
+│   │  ├─ modalStack.js          # Modal z-lane allocation + backdrop opacity math (extracted from ModalShell)
 │   │  ├─ scroll.js              # Scroll utilities
 │   │  └─ trackerHelpers.jsx
 │   ├─ theme.js                  # Native theme application (status bar, transparent nav bar, keyboard)
@@ -1212,7 +1213,7 @@ src/
 │      ├─ enrich-nutrients.js    # FDC bulk CSV join -> backfills fiber/sodium/saturated_fats/sugars by fdc_id
 │      └─ config/
 │         └─ taxonomy.js         # Canonical taxonomy maps + alias/portion sanitation config
-└─ tests/                        # Node test runner suite (`node --test`)
+└─ tests/                        # Node test runner suite (`node --test`) — repo-root `tests/`, NOT under `src/`
   ├─ api/
   │   └─ openrouter.contract.test.js
   ├─ constants/
@@ -1269,15 +1270,20 @@ npx cap open ios       # Open in Xcode (Mac only)
 npm run lint           # ESLint check (flat config, Babel parser, Prettier integration)
 npm run lint:fix       # Auto-fix lint issues
 npm run format         # Prettier formatting
-npm run test           # Node test runner
+npm run test           # Node test runner (logic tier)
 npm run test:watch     # Node test runner in watch mode
+npm run test:coverage  # Node test runner + coverage report (see tests/README.md)
+npm run test:ui        # Vitest (jsdom) UI tier — components + hooks (`src/**/*.spec.{js,jsx}`)
+npm run test:ui:watch  # Vitest watch mode
+npm run test:ui:coverage # UI-tier coverage (components + hooks + modalStack)
 ```
 
 **Testing notes:**
 - Tests use `node --test` with ESM; use explicit `.js` extensions in relative imports for test-executed modules.
 - `npm run lint` can include pre-existing warnings in untouched files. Prefer targeted lint for changed files during incremental work, then full lint when practical.
 - Storage tests intentionally run with in-memory `window.localStorage` shims in Node context; avoid plugin monkey-patching when possible.
-- Full `npm run test` is green (363 tests; the shell's loop math — px transform geometry, teleport tiers, settle clock, wrap periods, shortest tab path, ease — is covered by `tests/utils/carouselLoop.test.js`). Earlier additions: `tests/utils/bezierPath.test.js` (gap-aware path runs), `tests/utils/trendAverages.test.js` (trapezoidal N-day averages + capped trend fallback), and staleness-gate cases in `tests/utils/adaptiveThermogenesis.test.js`. The canonical defaults are asserted by `tests/constants/activityPresets.test.js` against `DEFAULT_ACTIVITY_MULTIPLIERS` (`{ training: 0.2, rest: 0.22 }`).
+- Full `npm run test` is green (371 tests; the shell's loop math — px transform geometry, teleport tiers, settle clock, wrap periods, shortest tab path, ease — is covered by `tests/utils/carouselLoop.test.js`). Earlier additions: `tests/utils/bezierPath.test.js` (gap-aware path runs), `tests/utils/trendAverages.test.js` (trapezoidal N-day averages + capped trend fallback), and staleness-gate cases in `tests/utils/adaptiveThermogenesis.test.js`. The canonical defaults are asserted by `tests/constants/activityPresets.test.js` against `DEFAULT_ACTIVITY_MULTIPLIERS` (`{ training: 0.2, rest: 0.22 }`).
+- The **UI tier is separate**: `npm run test:ui` runs Vitest 5 (jsdom + Testing Library) over `src/**/*.spec.{js,jsx}` for components and hooks. Logic specs stay `tests/**/*.test.js` under `node --test`, so neither runner can pick up the other's files. Harness: `vitest.config.js` (standalone, deliberately NOT extending `vite.config.js`) + `src/tests/setup.js` (Capacitor plugin doubles in `src/tests/mocks/capacitor.js`, `visualViewport`/`scrollTo` shims, explicit RTL `cleanup` because `globals: false`). Modal stack/backdrop math was extracted to `src/utils/visuals/modalStack.js` so it is unit-testable without a DOM.
 
 **ESLint config:** Flat config format (`eslint.config.js`), uses `@babel/eslint-parser` with JSX preset. `react/prop-types` is disabled. Prettier runs as an ESLint rule.
 

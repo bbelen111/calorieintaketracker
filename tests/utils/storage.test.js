@@ -11,47 +11,12 @@ import {
   deleteHistoryDocumentsFromDexie,
   loadAllHistoryDocuments,
 } from '../../src/utils/data/historyDatabase.js';
+import {
+  getTodayDateKey,
+  withWindowStorage,
+} from '../helpers/capacitorShims.js';
 
 const PROFILE_KEY = 'energyMapData_profile';
-const getTodayDateKey = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const createMemoryLocalStorage = () => {
-  const store = {};
-  return {
-    getItem(key) {
-      return Object.prototype.hasOwnProperty.call(store, key)
-        ? store[key]
-        : null;
-    },
-    setItem(key, value) {
-      store[key] = String(value);
-    },
-    removeItem(key) {
-      delete store[key];
-    },
-    clear() {
-      Object.keys(store).forEach((key) => delete store[key]);
-    },
-  };
-};
-
-const withWindowStorage = async (run) => {
-  const originalWindow = globalThis.window;
-  const localStorage = createMemoryLocalStorage();
-  globalThis.window = { localStorage };
-
-  try {
-    await run({ localStorage });
-  } finally {
-    globalThis.window = originalWindow;
-  }
-};
 
 const clearDexieHistory = async () => {
   const snapshot = await loadAllHistoryDocuments();

@@ -8,29 +8,13 @@ import {
   useEnergyMapStore,
 } from '../../src/store/useEnergyMapStore.js';
 import { getPreviousDateKey } from '../../src/utils/calculations/dailySnapshots.js';
+import {
+  getTodayDateKey,
+  installWindowStorage,
+} from '../helpers/capacitorShims.js';
 
 // @capacitor/preferences' web implementation reads window.localStorage, which
 // does not exist in Node \u2014 mirror the shim used by tests/utils/storage.test.js.
-const createMemoryLocalStorage = () => {
-  const store = {};
-  return {
-    getItem(key) {
-      return Object.prototype.hasOwnProperty.call(store, key)
-        ? store[key]
-        : null;
-    },
-    setItem(key, value) {
-      store[key] = String(value);
-    },
-    removeItem(key) {
-      delete store[key];
-    },
-    clear() {
-      Object.keys(store).forEach((key) => delete store[key]);
-    },
-  };
-};
-
 const originalWindow = globalThis.window;
 const originalConsoleWarn = console.warn;
 
@@ -39,10 +23,6 @@ const originalConsoleWarn = console.warn;
 // shim installed for the whole file (each file runs in its own node --test
 // child process) so the store's pending debounced save can never fail after
 // teardown.
-const installWindowStorage = () => {
-  globalThis.window = { localStorage: createMemoryLocalStorage() };
-};
-
 installWindowStorage();
 
 // Suppress console.warn noise from expected Dexie-unavailable / Preferences
@@ -63,14 +43,6 @@ test.after(async () => {
 const withWindowStorage = async (run) => {
   installWindowStorage();
   await run();
-};
-
-const getTodayDateKey = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
 };
 
 const waitForLoaded = async () => {

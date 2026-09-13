@@ -8,157 +8,28 @@ import React, {
 import { createPortal } from 'react-dom';
 import PropTypes from 'prop-types';
 import { Capacitor } from '@capacitor/core';
+import {
+  BASE_Z_INDEX,
+  OVERLAY_FADE_MS,
+  ModalStackManager,
+  calculateLayerOpacity,
+  queueTask,
+} from '../../../utils/visuals/modalStack.js';
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
 
-const BASE_Z_INDEX = 1000;
-const OVERLAY_FADE_MS = 180;
 const KEYBOARD_RESIZE_MIN_DELTA = 120;
 const KEYBOARD_RESIZE_MAX_DELTA = 420;
 const VIEWPORT_WIDTH_LAYOUT_DELTA = 80;
-
-// Overlay opacity configuration - increases with modal depth for visual hierarchy
-const OVERLAY_BASE_OPACITY = 0.56; // Single modal backdrop
-const OVERLAY_STACK_PRIMARY_INCREMENT = 0.15; // Depths 2-3
-const OVERLAY_STACK_EXTRA_INCREMENT = 0.05; // Depth 4+
-const OVERLAY_MAX_OPACITY = 0.95; // Cap to prevent complete blackout
-
-const queueTask =
-  typeof globalThis.queueMicrotask === 'function'
-    ? globalThis.queueMicrotask
-    : (cb) => Promise.resolve().then(cb);
-
-const calculateStackTargetOpacity = (depth) => {
-  if (depth <= 0) return 0;
-  if (depth === 1) return OVERLAY_BASE_OPACITY;
-
-  const primaryLayers = Math.min(depth - 1, 2);
-  const extraLayers = Math.max(depth - 3, 0);
-  const target =
-    OVERLAY_BASE_OPACITY +
-    OVERLAY_STACK_PRIMARY_INCREMENT * primaryLayers +
-    OVERLAY_STACK_EXTRA_INCREMENT * extraLayers;
-
-  return Math.min(target, OVERLAY_MAX_OPACITY);
-};
-
-/**
- * Convert cumulative target opacity into per-layer opacity so each modal can
- * own its own backdrop while preserving progressive darkening.
- */
-const calculateLayerOpacity = (depth) => {
-  if (depth <= 0) return 0;
-
-  const currentTarget = calculateStackTargetOpacity(depth);
-  const previousTarget = calculateStackTargetOpacity(depth - 1);
-
-  if (currentTarget <= previousTarget) return 0;
-
-  const remainingVisibility = 1 - previousTarget;
-  if (remainingVisibility <= 0) return 0;
-
-  const layerOpacity = (currentTarget - previousTarget) / remainingVisibility;
-  return Math.max(0, Math.min(layerOpacity, 1));
-};
 
 // ============================================================================
 // MODAL STACK MANAGER - Tracks all open modals with stable ordering
 // ============================================================================
 
-class ModalStackManager {
-  constructor() {
-    // Map of modalId -> { zIndex, isClosing }
-    this.modals = new Map();
-    this.nextId = 1;
-    this.listeners = new Set();
-  }
-
-  register(isClosing = false) {
-    const id = this.nextId++;
-    // Reserve one z-index lane between modal wrappers for the shared overlay.
-    // This guarantees: lower modal < overlay < top modal.
-    const zIndex = this.getHighestZIndex() + 2;
-    this.modals.set(id, { zIndex, isClosing });
-    this.notifyListeners();
-    return { id, zIndex };
-  }
-
-  unregister(id) {
-    if (!this.modals.has(id)) return;
-    this.modals.delete(id);
-    this.notifyListeners();
-  }
-
-  setClosing(id, isClosing) {
-    const modal = this.modals.get(id);
-    if (modal) {
-      modal.isClosing = isClosing;
-      this.notifyListeners();
-    }
-  }
-
-  getTopModal() {
-    let topId = null;
-    let topZIndex = 0;
-
-    for (const [id, data] of this.modals) {
-      // Only consider non-closing modals for "topmost" status
-      if (!data.isClosing && data.zIndex > topZIndex) {
-        topZIndex = data.zIndex;
-        topId = id;
-      }
-    }
-
-    return { id: topId, zIndex: topZIndex };
-  }
-
-  getActiveCount() {
-    // Count modals that are not in closing state (used for topmost logic)
-    let count = 0;
-    for (const data of this.modals.values()) {
-      if (!data.isClosing) count++;
-    }
-    return count;
-  }
-
-  getTotalCount() {
-    return this.modals.size;
-  }
-
-  getHighestZIndex() {
-    let highest = BASE_Z_INDEX;
-    for (const data of this.modals.values()) {
-      if (data.zIndex > highest) highest = data.zIndex;
-    }
-    return highest;
-  }
-
-  getDepth(id) {
-    if (!this.modals.has(id)) return 0;
-
-    const orderedIds = [...this.modals.entries()]
-      .sort((a, b) => a[1].zIndex - b[1].zIndex)
-      .map(([modalId]) => modalId);
-
-    return orderedIds.indexOf(id) + 1;
-  }
-
-  subscribe(listener) {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
-  }
-
-  notifyListeners() {
-    // Use microtask to batch notifications
-    queueTask(() => {
-      this.listeners.forEach((listener) => listener());
-    });
-  }
-}
-
-// Singleton instance
+// Singleton instance. Lane allocation + backdrop opacity math live in
+// `utils/visuals/modalStack.js` so they stay unit-testable without a DOM.
 const modalStackManager = new ModalStackManager();
 
 // ============================================================================
