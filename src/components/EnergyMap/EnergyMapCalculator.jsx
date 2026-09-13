@@ -32,7 +32,10 @@ import {
   HealthConnectStatus,
 } from '../../hooks/useHealthConnect';
 import { saveLastSelectedCardioType } from '../../utils/data/storage';
-import { ScreenTabs } from './common/ScreenTabs';
+import {
+  ScreenTabs,
+  SCREEN_TABS_BOTTOM_CLEARANCE_PX,
+} from './common/ScreenTabs';
 import { AppHeader } from './common/AppHeader';
 import { LogbookScreen } from './screens/LogbookScreen';
 import { TrackerScreen } from './screens/TrackerScreen';
@@ -4036,8 +4039,9 @@ export const EnergyMapCalculator = () => {
       className="min-h-screen bg-gradient-to-br from-background via-surface to-background p-4 md:p-6"
       style={{
         paddingTop: 'calc(1rem + var(--sat))',
-        // Extra bottom space clears the floating glass tab bar (54px + margins)
-        paddingBottom: 'calc(5.5rem + var(--sab))',
+        // Extra bottom space clears the floating glass tab bar. The value is
+        // derived from ScreenTabs' own geometry so the two cannot drift apart.
+        paddingBottom: `calc(${SCREEN_TABS_BOTTOM_CLEARANCE_PX}px + var(--sab))`,
         paddingLeft: 'calc(1rem + var(--sal))',
         paddingRight: 'calc(1rem + var(--sar))',
       }}
@@ -4057,7 +4061,9 @@ export const EnergyMapCalculator = () => {
             exit={{ opacity: 0, y: 10 }}
             transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
             className="fixed inset-x-0 z-[1300] flex justify-center pointer-events-none"
-            style={{ bottom: 'calc(var(--sab) + 5.5rem)' }}
+            style={{
+              bottom: `calc(var(--sab) + ${SCREEN_TABS_BOTTOM_CLEARANCE_PX}px)`,
+            }}
             role="status"
             aria-live="polite"
           >

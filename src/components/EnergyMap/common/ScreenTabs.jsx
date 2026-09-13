@@ -7,11 +7,28 @@ import {
 
 const CIRCLE_SIZE_PX = 44; // in the 54px bar
 const BAR_HEIGHT_PX = 54;
+// Outer geometry is px-only on purpose: the app root font is rem-based (13.5px
+// mobile / 17px desktop), so rem paddings silently changed the bar's gaps and
+// width between phone and desktop.
+const BAR_SIDE_GAP_PX = 40; // narrower pill than the screen edges
+const BAR_BOTTOM_GAP_PX = 36; // lift the bar clear of the home indicator
+const BAR_MAX_WIDTH_PX = 384; // large viewports get a narrower pill, not a wider one
+
+/*
+  Content clearance for the floating bar. Exported (and derived from the geometry
+  above) so the orchestrator's bottom padding and the native-back exit hint can
+  never drift out of sync with the bar.
+*/
+export const SCREEN_TABS_BOTTOM_CLEARANCE_PX =
+  BAR_BOTTOM_GAP_PX + BAR_HEIGHT_PX + 12; // 12px of slack above the bar
 
 /**
  * Fixed bottom floating glass tab bar (blur/glassmorphic pill).
  *
- * - Floats with generous margins on all sides (never edge-to-edge).
+ * - Floats with generous margins on all sides (never edge-to-edge): 40px side
+ *   insets and a 36px bottom lift, both in px so the gaps cannot drift with the
+ *   rem-based root font, and capped at 384px wide so large viewports get a
+ *   narrower pill rather than a wider one.
  * - Fully rounded pill with a very translucent fill + heavy backdrop blur.
  * - Icon-only tabs; the active tab is a filled accent circle behind the icon.
  * - The circle is a **ring**: `RING_COPY_OFFSETS` copies all read the live
@@ -46,14 +63,17 @@ export const ScreenTabs = ({ tabs, activeScreen, onSelect }) => {
     <nav
       className="fixed inset-x-0 bottom-0 z-[900]"
       style={{
-        paddingBottom: `calc(1.5rem + var(--sab, 0px))`,
-        paddingLeft: `calc(2rem + var(--sal, 0px))`,
-        paddingRight: `calc(2rem + var(--sar, 0px))`,
+        paddingBottom: `calc(${BAR_BOTTOM_GAP_PX}px + var(--sab, 0px))`,
+        paddingLeft: `calc(${BAR_SIDE_GAP_PX}px + var(--sal, 0px))`,
+        paddingRight: `calc(${BAR_SIDE_GAP_PX}px + var(--sar, 0px))`,
         pointerEvents: 'none',
       }}
       aria-label="Screens"
     >
-      <div className="mx-auto max-w-md" style={{ pointerEvents: 'auto' }}>
+      <div
+        className="mx-auto"
+        style={{ pointerEvents: 'auto', maxWidth: BAR_MAX_WIDTH_PX }}
+      >
         <div
           className="relative flex items-stretch rounded-full border border-border/40 bg-surface/35 shadow-lg shadow-background/30 backdrop-blur-2xl"
           style={{ height: BAR_HEIGHT_PX }}
