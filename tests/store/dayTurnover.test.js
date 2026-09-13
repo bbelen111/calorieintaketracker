@@ -31,15 +31,38 @@ const createMemoryLocalStorage = () => {
   };
 };
 
-const withWindowStorage = async (run) => {
-  const originalWindow = globalThis.window;
-  globalThis.window = { localStorage: createMemoryLocalStorage() };
+const originalWindow = globalThis.window;
+const originalConsoleWarn = console.warn;
 
-  try {
-    await run();
-  } finally {
-    globalThis.window = originalWindow;
-  }
+// @capacitor/preferences' web implementation reads window.localStorage, which
+// does not exist in Node. Give each test a fresh in-memory shim and keep the
+// shim installed for the whole file (each file runs in its own node --test
+// child process) so the store's pending debounced save can never fail after
+// teardown.
+const installWindowStorage = () => {
+  globalThis.window = { localStorage: createMemoryLocalStorage() };
+};
+
+installWindowStorage();
+
+// Suppress console.warn noise from expected Dexie-unavailable / Preferences
+// warnings while the debounced save runs in the Node test environment.
+console.warn = () => {};
+
+// The store debounces persistence by SAVE_DEBOUNCE_MS (1000ms), so the last
+// mutation's write lands after the final assertions. Let it settle inside the
+// shim and the suppressed-warning window before restoring the globals --
+// otherwise the pending write fires post-teardown and logs a spurious
+// "storage save operations failed" warning.
+test.after(async () => {
+  await new Promise((resolve) => setTimeout(resolve, 1100));
+  console.warn = originalConsoleWarn;
+  globalThis.window = originalWindow;
+});
+
+const withWindowStorage = async (run) => {
+  installWindowStorage();
+  await run();
 };
 
 const getTodayDateKey = () => {
@@ -69,19 +92,6 @@ const ensureStoreSetup = async () => {
   }
   assert.ok(await waitForLoaded(), 'store did not finish hydrating (isLoaded)');
 };
-
-// Suppress console.warn noise from expected Dexie-unavailable / Preferences
-// warnings while the debounced save runs in the Node test environment.
-let originalConsoleWarn;
-
-test.beforeEach(() => {
-  originalConsoleWarn = console.warn;
-  console.warn = () => {};
-});
-
-test.afterEach(() => {
-  console.warn = originalConsoleWarn;
-});
 
 test('day turnover finalizes the previous day and seeds today', async () => {
   await withWindowStorage(async () => {

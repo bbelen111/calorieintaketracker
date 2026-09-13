@@ -451,6 +451,13 @@ test('proxy retries transient 5xx upstream errors and succeeds', async () => {
 
 test('proxy does not retry non-transient upstream statuses', async () => {
   const originalFetch = globalThis.fetch;
+  const originalConsoleError = console.error;
+  const loggedErrors = [];
+  // The proxy intentionally logs before answering; capture it so this expected
+  // error path cannot leak a stack trace into the test runner output.
+  console.error = (...args) => {
+    loggedErrors.push(args);
+  };
   let dataCalls = 0;
   globalThis.fetch = async (url) => {
     const parsed = new URL(url);
@@ -490,8 +497,15 @@ test('proxy does not retry non-transient upstream statuses', async () => {
     assert.equal(dataCalls, 1);
     assert.equal(response.statusCode, 400);
     assert.match(response.jsonPayload.error, /bad request/);
+
+    // The 400 is an expected upstream outcome, not a proxy fault: one log
+    // entry, carrying the upstream status, and no retry.
+    assert.equal(loggedErrors.length, 1);
+    assert.match(String(loggedErrors[0][0]), /food search proxy error/);
+    assert.equal(loggedErrors[0][1]?.status, 400);
   } finally {
     globalThis.fetch = originalFetch;
+    console.error = originalConsoleError;
   }
 });
 
