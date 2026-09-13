@@ -3,16 +3,29 @@ import test from 'node:test';
 
 import {
   CAROUSEL_SETTLE_MS,
+  RING_COPY_OFFSETS,
+  SCREEN_DRAG_DURATION_ANIMATED,
+  SCREEN_DRAG_DURATION_INSTANT,
+  SCREEN_DRAG_DURATION_VAR,
+  SCREEN_DRAG_PROGRESS_VAR,
   SCREEN_EDGE_PEEK_PX,
+  SLIDE_FADE_LEFT_VAR,
+  SLIDE_FADE_RIGHT_VAR,
+  SLIDE_FADE_WINDOW_PX,
   SLIDE_HORIZONTAL_INSET_PX,
+  SLIDE_SETTLE_EASING,
+  SLIDE_SETTLE_TRANSITION,
+  SLIDE_SETTLE_TRANSITION_SET,
   alignPositionToReference,
   buildSlideTransform,
   carouselEase,
-  getLoopSlideFadeSide,
+  isSlideTeleport,
   normalizePosition,
   resolveCarouselStride,
+  resolveSettlePositionAt,
   resolveSettleTarget,
   resolveShortestScreenDelta,
+  resolveSlideFadeStrengths,
   resolveSlideOffsets,
   slideTransformFactor,
   wrapSlideOffset,
@@ -106,16 +119,152 @@ test('slide transforms cancel the flex layout offset and add the peek inset', ()
       index * STRIDE + factor * STRIDE + SCREEN_EDGE_PEEK_PX;
 
     assert.equal(
+      factor,
+      offsets[index] - index,
+      `slide ${index} unitless factor`
+    );
+    assert.equal(
       onScreenLeftEdge,
       SCREEN_EDGE_PEEK_PX + offsets[index] * STRIDE,
       `slide ${index} left edge geometry`
     );
   }
 
+  // The write is percentage-based: the browser resolves `100%` against the slide
+  // box (which IS the stride), so no viewport measurement is involved and a
+  // stale/absent width can never mis-position a slide.
   assert.equal(
     buildSlideTransform(offsets[2], 2),
     `translateX(calc(-2 * 100% + ${SCREEN_EDGE_PEEK_PX}px))`
   );
+  assert.equal(
+    buildSlideTransform(0, 0),
+    `translateX(calc(0 * 100% + ${SCREEN_EDGE_PEEK_PX}px))`
+  );
+  assert.equal(
+    buildSlideTransform(1, 0),
+    `translateX(calc(1 * 100% + ${SCREEN_EDGE_PEEK_PX}px))`
+  );
+});
+
+test('slide transforms are stride-agnostic at every viewport size', () => {
+  const offsets = resolveSlideOffsets(2, SCREEN_COUNT);
+
+  for (const viewportWidth of [320, 390, 768, 1440]) {
+    const stride = resolveCarouselStride(viewportWidth);
+
+    for (let index = 0; index < SCREEN_COUNT; index += 1) {
+      assert.equal(
+        index * stride +
+          slideTransformFactor(offsets[index], index) * stride +
+          SCREEN_EDGE_PEEK_PX,
+        SCREEN_EDGE_PEEK_PX + offsets[index] * stride,
+        `slide ${index} left edge geometry at ${viewportWidth}px`
+      );
+    }
+  }
+
+  // No px in the lateral term: the stride lives in the `100%`, not in the string.
+  assert.ok(buildSlideTransform(1, 0).startsWith('translateX(calc('));
+  assert.ok(buildSlideTransform(1, 0).includes('* 100%'));
+});
+
+test('isSlideTeleport only flags the off-screen ring jump', () => {
+  // Crossing the ring seam swaps a slide's representative by ~one loop (5
+  // units): 2.5 -> -2.5. Any change past N/2 can only come from that wrap.
+  assert.equal(isSlideTeleport(2.5, -2.5, SCREEN_COUNT), true);
+  assert.equal(isSlideTeleport(-2.5, 2.5, SCREEN_COUNT), true);
+  assert.equal(isSlideTeleport(2, -2, SCREEN_COUNT), true);
+  // Continuous motion never teleports, including multi-screen drags.
+  assert.equal(isSlideTeleport(1.2, -1.2, SCREEN_COUNT), false);
+  assert.equal(isSlideTeleport(1, -1, SCREEN_COUNT), false);
+  assert.equal(isSlideTeleport(0, 1, SCREEN_COUNT), false);
+  assert.equal(isSlideTeleport(0.2, 0.9, SCREEN_COUNT), false);
+  assert.equal(isSlideTeleport(-2, 0, SCREEN_COUNT), false);
+  // Unknown / initial offsets and degenerate shells never teleport.
+  assert.equal(isSlideTeleport(undefined, 1, SCREEN_COUNT), false);
+  assert.equal(isSlideTeleport(Number.NaN, 1, SCREEN_COUNT), false);
+  assert.equal(isSlideTeleport(0, 1, 1), false);
+});
+
+test('resolveSettlePositionAt reproduces the CSS transition clock', () => {
+  const settle = {
+    fromPosition: 3,
+    toPosition: 4,
+    startedAt: 1_000,
+  };
+
+  assert.equal(
+    resolveSettlePositionAt({ ...settle, now: 1_000 }),
+    3,
+    'starts exactly at the frozen position'
+  );
+  assert.equal(
+    resolveSettlePositionAt({ ...settle, now: 1_000 + CAROUSEL_SETTLE_MS }),
+    4,
+    'ends exactly on the target'
+  );
+  assert.equal(
+    resolveSettlePositionAt({
+      ...settle,
+      now: 1_000 + CAROUSEL_SETTLE_MS * 4,
+    }),
+    4,
+    'clamps after the duration'
+  );
+  assert.equal(
+    resolveSettlePositionAt({ ...settle, now: 500 }),
+    3,
+    'clamps before the start'
+  );
+
+  // Monotonic, and easing-consistent with the shared curve.
+  let previous = 2;
+  for (let step = 0; step <= 20; step += 1) {
+    const value = resolveSettlePositionAt({
+      ...settle,
+      now: 1_000 + (CAROUSEL_SETTLE_MS * step) / 20,
+    });
+    assert.ok(value >= previous, 'interrupted position must be monotonic');
+    previous = value;
+  }
+  assert.equal(
+    resolveSettlePositionAt({ ...settle, now: 1_000 + CAROUSEL_SETTLE_MS / 2 }),
+    3 + carouselEase(0.5),
+    'same curve as the slides'
+  );
+
+  // Wrap settles interpolate in the live period (never the long way round).
+  const wrapSettle = { fromPosition: 5.5, toPosition: 6, startedAt: 0 };
+  assert.equal(
+    resolveSettlePositionAt({ ...wrapSettle, now: CAROUSEL_SETTLE_MS }),
+    6
+  );
+
+  // Degenerate input stays finite.
+  assert.ok(
+    Number.isFinite(resolveSettlePositionAt({ now: Number.NaN })),
+    'invalid input must not produce NaN'
+  );
+});
+
+test('the affordance contract is a single settle transition', () => {
+  assert.equal(
+    SLIDE_SETTLE_TRANSITION,
+    `transform ${CAROUSEL_SETTLE_MS}ms ${SLIDE_SETTLE_EASING}`
+  );
+  // The edge-fade ramp rides the same duration + curve as the transform, so the
+  // fade and the slide interpolate on one clock without per-frame JS.
+  assert.equal(
+    SLIDE_SETTLE_TRANSITION_SET,
+    `${SLIDE_SETTLE_TRANSITION}, mask-position ${CAROUSEL_SETTLE_MS}ms ${SLIDE_SETTLE_EASING}`
+  );
+  assert.equal(SCREEN_DRAG_DURATION_ANIMATED, `${CAROUSEL_SETTLE_MS}ms`);
+  // Instant is a 0-duration transition (valid in the shorthand) so a loop-seam
+  // swap cannot animate backwards across the tab bar / dot row.
+  assert.equal(SCREEN_DRAG_DURATION_INSTANT, '0s');
+  assert.equal(SCREEN_DRAG_PROGRESS_VAR, '--screen-drag-progress');
+  assert.equal(SCREEN_DRAG_DURATION_VAR, '--screen-drag-duration');
 });
 
 test('resolveCarouselStride subtracts the shared 32px slide inset', () => {
@@ -270,14 +419,96 @@ test('resolveShortestScreenDelta takes the wrapped direction', () => {
   assert.equal(resolveShortestScreenDelta(3, 1, 1), 0);
 });
 
-test('getLoopSlideFadeSide resolves wrapped neighbours', () => {
-  assert.equal(getLoopSlideFadeSide(1, 0, SCREEN_COUNT), 'left');
-  assert.equal(getLoopSlideFadeSide(4, 0, SCREEN_COUNT), 'right');
-  assert.equal(getLoopSlideFadeSide(0, 4, SCREEN_COUNT), 'left');
-  assert.equal(getLoopSlideFadeSide(3, 4, SCREEN_COUNT), 'right');
-  assert.equal(getLoopSlideFadeSide(0, 0, SCREEN_COUNT), '');
-  assert.equal(getLoopSlideFadeSide(2, 0, SCREEN_COUNT), '');
-  assert.equal(getLoopSlideFadeSide(0, 0, 1), '');
+test('resolveSlideFadeStrengths ramps the leading edge and never pops', () => {
+  // Centred: no fade at all.
+  assert.deepEqual(resolveSlideFadeStrengths(0), { left: 0, right: 0 });
+
+  // A full neighbour keeps the resting peek look (ramp on the peek edge only).
+  assert.deepEqual(resolveSlideFadeStrengths(1), { left: 1, right: 0 });
+  assert.deepEqual(resolveSlideFadeStrengths(-1), { left: 0, right: 1 });
+
+  // In between the ramp is partial — this continuity is what replaced the
+  // class toggle that made the peeks pop.
+  assert.deepEqual(resolveSlideFadeStrengths(0.5), { left: 0.5, right: 0 });
+  assert.deepEqual(resolveSlideFadeStrengths(-0.25), { left: 0, right: 0.25 });
+
+  // Off-screen slides clamp to a full ramp (harmless: they are clipped).
+  assert.deepEqual(resolveSlideFadeStrengths(2), { left: 1, right: 0 });
+  assert.deepEqual(resolveSlideFadeStrengths(-2.5), { left: 0, right: 1 });
+
+  // Defensive input.
+  assert.deepEqual(resolveSlideFadeStrengths(Number.NaN), {
+    left: 0,
+    right: 0,
+  });
+  assert.deepEqual(resolveSlideFadeStrengths('0.5'), { left: 0, right: 0 });
+});
+
+test('the fade ramp geometry is shared between CSS and the loop math', () => {
+  assert.equal(SLIDE_FADE_WINDOW_PX, 20);
+  assert.equal(SLIDE_FADE_LEFT_VAR, '--slide-fade-left');
+  assert.equal(SLIDE_FADE_RIGHT_VAR, '--slide-fade-right');
+});
+
+test('ring affordances never leave the track empty across a wrap', () => {
+  // Real mobile geometry: a 390px viewport, the bar's 2rem side paddings, the
+  // 44px circle. The header dot ring uses the same factors on a smaller pitch.
+  const BAR_WIDTH_PX = 336;
+  const PILL_SIZE_PX = 44;
+  const PITCH_PX = BAR_WIDTH_PX / SCREEN_COUNT;
+  // The circle's resting `left` is `pitch / 2 - size / 2` (see ScreenTabs).
+  const INSET_PX = PITCH_PX / 2 - PILL_SIZE_PX / 2;
+
+  const factorToLeftPx = (factor) => INSET_PX + factor * PITCH_PX;
+  const isCopyVisible = (factor) => {
+    const left = factorToLeftPx(factor);
+    return left + PILL_SIZE_PX > 0 && left < BAR_WIDTH_PX;
+  };
+  const copyFactors = (position) =>
+    RING_COPY_OFFSETS.map((copy) => position - 1 + copy * SCREEN_COUNT);
+  const visibleFactors = (position) =>
+    copyFactors(position).filter(isCopyVisible);
+
+  // Three copies, one full loop apart, all driven by the same position.
+  assert.deepEqual(RING_COPY_OFFSETS, [-1, 0, 1]);
+
+  // A drag can only reach ~±1.1 screens past the ends, and a settle at most two;
+  // cover well beyond that.
+  for (let position = -2; position <= 7.0001; position += 0.05) {
+    assert.ok(
+      visibleFactors(position).length > 0,
+      `position ${position.toFixed(2)} leaves the bar without an indicator`
+    );
+  }
+});
+
+test('normalizing a wrap never moves the visible ring copy', () => {
+  const BAR_WIDTH_PX = 336;
+  const PILL_SIZE_PX = 44;
+  const PITCH_PX = BAR_WIDTH_PX / SCREEN_COUNT;
+  const INSET_PX = PITCH_PX / 2 - PILL_SIZE_PX / 2;
+
+  const visibleFactors = (position) =>
+    RING_COPY_OFFSETS.map((copy) => position - 1 + copy * SCREEN_COUNT).filter(
+      (factor) => {
+        const left = INSET_PX + factor * PITCH_PX;
+        return left + PILL_SIZE_PX > 0 && left < BAR_WIDTH_PX;
+      }
+    );
+
+  // A forward wrap settles to N+1 (e.g. 6) and normalizes to 1; a backward wrap
+  // settles to 0 and normalizes to N. In both cases the copy that is *on the
+  // track* keeps its exact factor — which is why landing the settle with an
+  // instant write is invisible, while the copies that jump a whole loop are
+  // clipped off-track. Only settled (integer) positions are compared: mid-settle
+  // fractional positions are never normalized.
+  for (const wrapped of [0, SCREEN_COUNT + 1, 1, SCREEN_COUNT, 2, -1]) {
+    assert.deepEqual(
+      visibleFactors(wrapped),
+      visibleFactors(normalizePosition(wrapped, SCREEN_COUNT).position),
+      `wrap at ${wrapped} moved the visible indicator`
+    );
+  }
 });
 
 test('wrap swipe releases loop in both directions and normalize invisibly', () => {

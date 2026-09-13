@@ -291,29 +291,73 @@
   neighbouring screens peek 16px into view, flush against the screen edge (the
   carousel viewport is full-bleed). Keep in sync with SCREEN_EDGE_PEEK_PX in
   utils/visuals/carouselLoop.js (16px per side), which each slide's wrapped
-  transform also uses as its +16px inset.
- */
+  `translateX(calc(<factor> * 100% + 16px))` also uses as its +16px inset — the
+  `100%` resolves against THIS width, which is exactly the slide stride, so the
+  geometry needs no measurement. Slides carry no transition for transform here on
+  purpose: useSwipeableScreens owns the slide transform + mask transition and
+  always writes them together.
+*/
 .carousel-slide {
   width: calc(100% - 32px);
+  /*
+    Peek edge alpha fade. The ramps are PERMANENT (one per edge) and only their
+    strength moves, driven by the per-slide `--slide-fade-left/right` numbers the
+    shell writes imperatively (utils/visuals/carouselLoop.js →
+    resolveSlideFadeStrengths, quantized + written only on change):
+
+      0 = the ramp is parked completely outside the slide → no fade
+      1 = the ramp sits on the edge → the resting peek look
+
+    Toggling a `.slide-fade-*` class instead popped, because a mask cannot be
+    transitioned as a class. Here the ramp retracts instead: the shell pairs this
+    transition with the slide transform (same duration + curve), so the fade and
+    the slide interpolate on one clock with no per-frame JS. `mask-position` is
+    the only animated property; `mask-size` is 20px wider than the box so the
+    parked ramp still leaves the slide fully covered. Sync the 20px with
+    SLIDE_FADE_WINDOW_PX.
+  */
+  --slide-fade-left: 0;
+  --slide-fade-right: 0;
+  -webkit-mask-image:
+    linear-gradient(to right, transparent 0, #000 20px),
+    linear-gradient(to right, #000 calc(100% - 20px), transparent 100%);
+  mask-image:
+    linear-gradient(to right, transparent 0, #000 20px),
+    linear-gradient(to right, #000 calc(100% - 20px), transparent 100%);
+  -webkit-mask-size:
+    calc(100% + 20px) 100%,
+    calc(100% + 20px) 100%;
+  mask-size:
+    calc(100% + 20px) 100%,
+    calc(100% + 20px) 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position:
+    calc(var(--slide-fade-left) * 20px - 20px) 0,
+    calc(var(--slide-fade-right) * -20px) 0;
+  mask-position:
+    calc(var(--slide-fade-left) * 20px - 20px) 0,
+    calc(var(--slide-fade-right) * -20px) 0;
 }
 
 /*
-  Peek edge alpha fade: applied ONLY to the neighbouring slides (current ± 1)
-  so the peeked sliver fades to true transparency — the page gradient shows
-  through the faded pixels instead of an overlay tinting them.
-  .slide-fade-left fades a slide's LEFT edge (it peeks in from the right);
-  .slide-fade-right fades its RIGHT edge (it peeks in from the left).
-  The 20px window spans the 16px peek zone so the sliver is visible but still
-  fades to fully transparent at the screen edge.
- */
-.slide-fade-left {
-  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 20px);
-  mask-image: linear-gradient(to right, transparent 0, #000 20px);
+  Header glanceable stat line swap: a short fade/rise-in when the screen changes
+  (the element is re-keyed, so no exit animation and no unmount gap that would
+  shuffle the swipe dots).
+*/
+@keyframes headerStatIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.slide-fade-right {
-  -webkit-mask-image: linear-gradient(to left, transparent 0, #000 20px);
-  mask-image: linear-gradient(to left, transparent 0, #000 20px);
+.header-stat-in {
+  animation: headerStatIn 150ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /*
@@ -647,9 +691,16 @@ select,
   .tracker-graph-path,
   .tracker-graph-fill,
   .tracker-graph-point,
-  .tracker-bar-animated {
+  .tracker-bar-animated,
+  .header-stat-in {
     animation: none !important;
     transform: none !important;
+  }
+
+  /* The carousel already settles instantly under reduced motion (the shell skips
+     the animated write); keep the edge-fade ramp from gliding too. */
+  .carousel-slide {
+    transition: none !important;
   }
 }
 

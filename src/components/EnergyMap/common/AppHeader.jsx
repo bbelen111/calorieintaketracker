@@ -18,6 +18,11 @@ import {
   sortWeightEntries,
 } from '../../../utils/measurements/weight';
 import { formatOne } from '../../../utils/formatting/format';
+import {
+  RING_COPY_OFFSETS,
+  SCREEN_DRAG_DURATION_VAR,
+  SCREEN_DRAG_PROGRESS_VAR,
+} from '../../../utils/visuals/carouselLoop';
 
 const MINUTE_MS = 60_000;
 
@@ -33,9 +38,9 @@ const getGreeting = (hour) => {
 const DOT_SIZE_PX = 6;
 const DOT_STEP_PX = 12; // 6px dot + 6px spacing
 
-const SwipeDots = ({ count, isSwiping }) => (
+const SwipeDots = ({ count, activeScreen }) => (
   <div
-    className="relative"
+    className="relative overflow-hidden"
     style={{
       width: (count - 1) * DOT_STEP_PX + DOT_SIZE_PX,
       height: DOT_SIZE_PX,
@@ -54,17 +59,24 @@ const SwipeDots = ({ count, isSwiping }) => (
         }}
       />
     ))}
-    <span
-      className="absolute left-0 top-0 rounded-full bg-primary"
-      style={{
-        width: DOT_SIZE_PX,
-        height: DOT_SIZE_PX,
-        transform: `translateX(calc(var(--screen-drag-progress, 0) * ${DOT_STEP_PX}px))`,
-        transition: isSwiping
-          ? 'none'
-          : 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)',
-      }}
-    />
+    {/* Same ring trick as the tab-bar circle: three copies one track apart, so a
+        loop-seam crossing glides the moving dot off one end and the next copy in
+        at the other (clipped by this row) instead of snapping back. */}
+    {RING_COPY_OFFSETS.map((copy) => (
+      <span
+        key={copy}
+        className="absolute left-0 top-0 rounded-full bg-primary"
+        style={{
+          width: DOT_SIZE_PX,
+          height: DOT_SIZE_PX,
+          transform: `translateX(calc((var(${SCREEN_DRAG_PROGRESS_VAR}, ${activeScreen + 1}) - 1 + ${copy * count}) * ${DOT_STEP_PX}px))`,
+          // Duration is owned by the hook (0s while dragging or when a wrap
+          // normalizes, the settle duration otherwise) so the dot can never be
+          // re-targeted on every settle frame.
+          transition: `transform var(${SCREEN_DRAG_DURATION_VAR}, 0.35s) cubic-bezier(0.22, 1, 0.36, 1)`,
+        }}
+      />
+    ))}
   </div>
 );
 
@@ -77,8 +89,7 @@ const SwipeDots = ({ count, isSwiping }) => (
  * derived daily snapshot fields); no calculation logic is duplicated here.
  */
 export const AppHeader = ({
-  currentScreen,
-  isSwiping,
+  activeScreen,
   screenCount,
   nutritionData,
   trackerSelectedDate,
@@ -127,7 +138,7 @@ export const AppHeader = ({
       (phase) => phase?.status === 'completed'
     ).length;
 
-    switch (currentScreen) {
+    switch (activeScreen) {
       case 0: {
         // Logbook
         const phaseCount = activePhases + completedPhases;
@@ -198,8 +209,8 @@ export const AppHeader = ({
         return null;
     }
   }, [
+    activeScreen,
     calorieTargetCalories,
-    currentScreen,
     phases,
     todaySnapshot,
     trackerTotals.calories,
@@ -253,15 +264,16 @@ export const AppHeader = ({
       </div>
 
       <div className="flex items-center justify-between gap-3">
-        <AnimatePresence mode="wait" initial={false}>
+        {/* `flex-1 min-w-0` pins the dots to the right so a longer/shorter stat
+            string can never shuffle them. */}
+        <div className="flex min-w-0 flex-1 items-center gap-1.5">
           {stat ? (
-            <motion.div
+            <div
+              // Re-keyed on the screen: the text swaps instantly (no
+              // `AnimatePresence mode="wait"` exit-then-enter latency) and plays a
+              // short fade/rise-in, the app's usual swap convention.
               key={stat.key}
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
-              className="flex min-w-0 items-center gap-1.5"
+              className="header-stat-in flex min-w-0 items-center gap-1.5"
             >
               {StatIcon ? (
                 <StatIcon
@@ -272,11 +284,11 @@ export const AppHeader = ({
               <span className="truncate text-xs font-medium text-muted">
                 {stat.text}
               </span>
-            </motion.div>
+            </div>
           ) : null}
-        </AnimatePresence>
+        </div>
 
-        <SwipeDots count={screenCount} isSwiping={isSwiping} />
+        <SwipeDots count={screenCount} activeScreen={activeScreen} />
       </div>
     </header>
   );
