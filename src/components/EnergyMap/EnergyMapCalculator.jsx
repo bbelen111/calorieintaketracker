@@ -537,18 +537,6 @@ const createDefaultPhaseDraft = () => ({
   targetBodyFat: '',
 });
 
-/**
- * Edge alpha-fade class for a carousel slide. Only the immediate neighbours of
- * the current screen get a mask, so their peeked sliver fades to transparency
- * at the screen edge; the current screen is never masked. Kept at module level
- * (pure) and cheap to call during render.
- */
-const getSlideEdgeFadeClass = (index, currentScreen) => {
-  if (index === currentScreen + 1) return 'slide-fade-left';
-  if (index === currentScreen - 1) return 'slide-fade-right';
-  return '';
-};
-
 export const EnergyMapCalculator = () => {
   useEffect(() => {
     setupEnergyMapStore();
@@ -699,8 +687,8 @@ export const EnergyMapCalculator = () => {
   const viewportRef = useRef(null);
   const {
     currentScreen,
-    sliderStyle,
-    setSliderElement,
+    visibleScreen,
+    getSlideProps,
     handlers,
     goToScreen,
     isSwiping,
@@ -4079,16 +4067,14 @@ export const EnergyMapCalculator = () => {
       {/* Bottom glass tab bar — always visible, below modal z-lanes */}
       <ScreenTabs
         tabs={screenTabs}
-        currentScreen={currentScreen}
+        activeScreen={visibleScreen}
         onSelect={handleTabSelect}
-        isSwiping={isSwiping}
       />
 
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Top header zone: greeting + per-screen glanceable stat + swipe dots */}
         <AppHeader
-          currentScreen={currentScreen}
-          isSwiping={isSwiping}
+          activeScreen={visibleScreen}
           screenCount={screenTabs.length}
           nutritionData={nutritionData}
           trackerSelectedDate={trackerSelectedDate}
@@ -4104,7 +4090,7 @@ export const EnergyMapCalculator = () => {
         <div className="relative">
           <div
             ref={viewportRef}
-            className={`relative -mx-4 md:-mx-6 overflow-hidden touch-pan-y ${isSwiping ? 'cursor-grabbing' : 'cursor-grab'}`}
+            className="relative -mx-4 md:-mx-6 overflow-hidden touch-pan-y cursor-grab active:cursor-grabbing"
             {...handlers}
           >
             {/* Edge tap guards (invisible): the peek slivers belong to the
@@ -4119,17 +4105,20 @@ export const EnergyMapCalculator = () => {
               aria-hidden="true"
               className="absolute inset-y-0 right-0 z-10 w-4"
             />
-            <div
-              ref={setSliderElement}
-              className="flex w-full"
-              style={{
-                ...sliderStyle,
-                willChange: isSwiping ? 'transform' : 'auto',
-                backfaceVisibility: 'hidden',
-              }}
-            >
+            {/* Pure layout row: each slide positions itself with its own wrapped
+                transform (written imperatively by useSwipeableScreens), so the
+                row is never transformed and its height still tracks the tallest
+                screen while the carousel loops in both directions. */}
+            <div className="flex w-full">
               <div
-                className={`carousel-slide flex-shrink-0 px-2 sm:px-4 md:px-6 ${getSlideEdgeFadeClass(0, currentScreen)}`}
+                {...getSlideProps(0)}
+                className={`carousel-slide flex-shrink-0 px-2 sm:px-4 md:px-6`}
+                style={{
+                  // Static promotion hint: toggling it with the drag state
+                  // demoted these layers exactly when a settle started.
+                  willChange: 'transform',
+                  backfaceVisibility: 'hidden',
+                }}
               >
                 <div className="relative overflow-hidden">
                   <AnimatePresence mode="wait" initial={false}>
@@ -4183,7 +4172,12 @@ export const EnergyMapCalculator = () => {
               </div>
 
               <div
-                className={`carousel-slide flex-shrink-0 px-2 sm:px-4 md:px-6 ${getSlideEdgeFadeClass(1, currentScreen)}`}
+                {...getSlideProps(1)}
+                className={`carousel-slide flex-shrink-0 px-2 sm:px-4 md:px-6`}
+                style={{
+                  willChange: 'transform',
+                  backfaceVisibility: 'hidden',
+                }}
               >
                 <TrackerScreen
                   nutritionData={nutritionData}
@@ -4202,12 +4196,16 @@ export const EnergyMapCalculator = () => {
                     selectedCalorieTargetData.targetCalories
                   }
                   onOpenCalorieTargetModal={openCalorieTargetPicker}
-                  isSwiping={isSwiping}
                 />
               </div>
 
               <div
-                className={`carousel-slide flex-shrink-0 px-2 sm:px-4 md:px-6 ${getSlideEdgeFadeClass(2, currentScreen)}`}
+                {...getSlideProps(2)}
+                className={`carousel-slide flex-shrink-0 px-2 sm:px-4 md:px-6`}
+                style={{
+                  willChange: 'transform',
+                  backfaceVisibility: 'hidden',
+                }}
               >
                 <HomeScreen
                   userData={userData}
@@ -4242,12 +4240,16 @@ export const EnergyMapCalculator = () => {
                   totalCardioBurn={totalCardioBurn}
                   onOpenDailyActivityOverride={openDailyNeatOverrideModal}
                   onOpenTodayBreakdown={openTodayCalorieBreakdown}
-                  isSwiping={isSwiping}
                 />
               </div>
 
               <div
-                className={`carousel-slide flex-shrink-0 px-2 sm:px-4 md:px-6 ${getSlideEdgeFadeClass(3, currentScreen)}`}
+                {...getSlideProps(3)}
+                className={`carousel-slide flex-shrink-0 px-2 sm:px-4 md:px-6`}
+                style={{
+                  willChange: 'transform',
+                  backfaceVisibility: 'hidden',
+                }}
               >
                 <CalorieMapScreen
                   stepRanges={userData.stepRanges}
@@ -4269,7 +4271,12 @@ export const EnergyMapCalculator = () => {
               </div>
 
               <div
-                className={`carousel-slide flex-shrink-0 px-2 sm:px-4 md:px-6 ${getSlideEdgeFadeClass(4, currentScreen)}`}
+                {...getSlideProps(4)}
+                className={`carousel-slide flex-shrink-0 px-2 sm:px-4 md:px-6`}
+                style={{
+                  willChange: 'transform',
+                  backfaceVisibility: 'hidden',
+                }}
               >
                 <InsightsScreen
                   userData={userData}
