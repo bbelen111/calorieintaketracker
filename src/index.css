@@ -290,7 +290,8 @@
   Carousel slide sizing: each slide is 32px narrower than the viewport so the
   neighbouring screens peek 16px into view, flush against the screen edge (the
   carousel viewport is full-bleed). Keep in sync with SCREEN_EDGE_PEEK_PX in
-  useSwipeableScreens.js (16px per side).
+  utils/visuals/carouselLoop.js (16px per side), which each slide's wrapped
+  transform also uses as its +16px inset.
  */
 .carousel-slide {
   width: calc(100% - 32px);

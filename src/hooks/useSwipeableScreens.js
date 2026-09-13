@@ -1,154 +1,223 @@
-import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  CAROUSEL_SETTLE_MS,
+  SCREEN_EDGE_PEEK_PX,
+  alignPositionToReference,
+  buildSlideTransform,
+  carouselEase,
+  normalizePosition,
+  resolveCarouselStride,
+  resolveSettleTarget,
+  resolveShortestScreenDelta,
+  resolveSlideOffsets,
+} from '../utils/visuals/carouselLoop';
+
+// Re-exported for callers that key off the peek geometry (hard sync point with
+// `.carousel-slide` in index.css); the canonical definition lives in
+// utils/visuals/carouselLoop.js.
+export { SCREEN_EDGE_PEEK_PX };
 
 const BASE_SWIPE_THRESHOLD = 130;
 const SWIPE_DIRECTION_LOCK_THRESHOLD = 8;
 const AXIS_DOMINANCE_RATIO = 1.15;
-// Each slide is inset by this many px per side (see `.carousel-slide` in
-// index.css) so neighbouring screens peek flush against the screen edge and
-// get alpha-faded via the .slide-fade-* masks. The transform below compensates
-// so slide alignment stays exact.
-export const SCREEN_EDGE_PEEK_PX = 16;
+const MIN_SWIPE_DIRECTION_PX = 6;
 
-// Settle curve shared by the imperative release path and the React
-// `sliderStyle` so both paths animate identically.
-const SETTLE_TRANSITION = 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)';
-
+/**
+ * Looping, clone-free carousel for the five app screens.
+ *
+ * Every screen is rendered exactly once and positioned by its own wrapped
+ * transform (see utils/visuals/carouselLoop.js), so the carousel loops in both
+ * directions without duplicated slides, ghost cells or normalization timers.
+ * The position is a single continuous, unbounded value; normalizing it after a
+ * wrap is invisible because the transforms are periodic.
+ *
+ * All motion (drag frames and settles) is written imperatively to the slide
+ * elements — never through React style props and never through a CSS
+ * transition. That keeps drags free of React re-renders and removes the class
+ * of bug where a stranded inline `transition: none` (left behind by a gesture
+ * that never advanced `isSwiping`, e.g. a vertical scroll) made the next
+ * programmatic navigation snap instead of slide.
+ */
 export const useSwipeableScreens = (
   totalScreens,
   viewportRef,
   initialScreen = 0
 ) => {
-  const [currentScreen, setCurrentScreen] = useState(initialScreen);
-  const [dragOffset, setDragOffset] = useState(0);
+  const screenCount = Math.max(Math.floor(Number(totalScreens)) || 0, 1);
+  const clampedInitialScreen = Math.max(
+    0,
+    Math.min(Math.round(Number(initialScreen) || 0), screenCount - 1)
+  );
+
+  const [currentScreen, setCurrentScreen] = useState(clampedInitialScreen);
   const [isSwiping, setIsSwiping] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(1);
+
   const resizeFrameIdRef = useRef(null);
   const swipeFrameIdRef = useRef(null);
-  const pendingDragOffsetRef = useRef(0);
-  const dragOffsetRef = useRef(0);
-  const sliderElementRef = useRef(null);
-  const currentScreenRef = useRef(initialScreen);
-  const viewportWidthRef = useRef(1);
+  const settleFrameIdRef = useRef(null);
+  const settleStateRef = useRef(null);
+  const slideElementsRef = useRef([]);
+  const positionRef = useRef(clampedInitialScreen + 1);
+  const pendingPositionRef = useRef(clampedInitialScreen + 1);
+  const dragStartPositionRef = useRef(clampedInitialScreen + 1);
+  const restPositionRef = useRef(clampedInitialScreen + 1);
+  const gestureRef = useRef({
+    startX: null,
+    startY: null,
+    isActive: false,
+    hasDirection: false,
+    lockedAxis: null,
+  });
 
-  const swipeStartX = useRef(null);
-  const swipeStartY = useRef(null);
-  const isSwipeActive = useRef(false);
-  const hasSwipeDirection = useRef(false);
-  const lockedAxis = useRef(null);
-
-  const applySliderTransform = useCallback(
-    (offset, isDragging = false, publishProgress = true) => {
-      const sliderElement = sliderElementRef.current;
-      if (!sliderElement) {
-        return;
-      }
-
-      // Slide advance = slide width = 100% - 2*PEEK of the slider, so the px
-      // compensation term is PEEK * (1 + 2 * screen):
-      // T = PEEK + 2*PEEK*screen - screen * 100% centers screen `screen` with an
-      // 8px neighbour peek on each edge.
-      const screen = currentScreenRef.current;
-      const peekPx = SCREEN_EDGE_PEEK_PX * (1 + 2 * screen);
-      const translateCalc = `calc(${peekPx + offset}px - ${screen * 100}%)`;
-
-      sliderElement.style.transform = `translateX(${translateCalc})`;
-
-      // Publish the live carousel position (float) for swipe-affordance UI
-      // (bottom tab pill + header dots). Written imperatively so consumers can
-      // track the drag frame-by-frame without re-rendering React state.
-      // dragOffset is negative when dragging towards the next screen, so the
-      // fraction is subtracted to make progress advance in the drag direction.
-      // The settle path skips this so the drag-position value survives until
-      // the post-render sync publishes the target — letting the tab circle /
-      // dots glide from the true release position instead of jumping.
-      if (publishProgress) {
-        const safeViewportWidth = viewportWidthRef.current || 1;
-        const progress = Math.max(
-          0,
-          Math.min(screen - offset / safeViewportWidth, totalScreens - 1)
-        );
-        document.documentElement.style.setProperty(
-          '--screen-drag-progress',
-          progress.toFixed(4)
-        );
-      }
-
-      if (isDragging) {
-        sliderElement.style.transition = 'none';
-      }
+  const publishProgress = useCallback(
+    (position) => {
+      // Progress is clamped to the tab range on purpose: during a wrap drag the
+      // affordance UI pins at the end it is leaving, then glides to the wrapped
+      // tab once the settle normalizes the position.
+      const clamped = Math.max(0, Math.min(position - 1, screenCount - 1));
+      document.documentElement.style.setProperty(
+        '--screen-drag-progress',
+        clamped.toFixed(4)
+      );
     },
-    [totalScreens]
+    [screenCount]
   );
 
-  const setSliderElement = useCallback(
-    (node) => {
-      sliderElementRef.current = node;
-      if (!node) {
-        return;
-      }
+  const writeSlideTransforms = useCallback(
+    (position) => {
+      const offsets = resolveSlideOffsets(position, screenCount);
 
-      applySliderTransform(dragOffsetRef.current, isSwipeActive.current);
+      for (let index = 0; index < screenCount; index += 1) {
+        const element = slideElementsRef.current[index];
+        if (element) {
+          element.style.transform = buildSlideTransform(offsets[index], index);
+        }
+      }
     },
-    [applySliderTransform]
+    [screenCount]
   );
 
-  const cancelPendingDragOffsetUpdate = useCallback(() => {
+  const commitPosition = useCallback(
+    (position, { publish = true } = {}) => {
+      positionRef.current = position;
+      writeSlideTransforms(position);
+
+      if (publish) {
+        publishProgress(position);
+      }
+    },
+    [publishProgress, writeSlideTransforms]
+  );
+
+  const slideRefCallbacks = useMemo(
+    () =>
+      Array.from({ length: screenCount }, (_, index) => (node) => {
+        slideElementsRef.current[index] = node;
+        if (!node) {
+          return;
+        }
+
+        // Refs commit before paint, so this first write prevents a flash of the
+        // un-shifted flex layout on mount.
+        const offsets = resolveSlideOffsets(positionRef.current, screenCount);
+        node.style.transform = buildSlideTransform(offsets[index], index);
+      }),
+    [screenCount]
+  );
+
+  const getSlideProps = useCallback(
+    (index) => ({ ref: slideRefCallbacks[index] }),
+    [slideRefCallbacks]
+  );
+
+  const cancelSettleAnimation = useCallback(() => {
+    if (settleFrameIdRef.current != null) {
+      window.cancelAnimationFrame(settleFrameIdRef.current);
+      settleFrameIdRef.current = null;
+    }
+    settleStateRef.current = null;
+  }, []);
+
+  // Wrapped normalization rewrites byte-identical transforms, so applying it at
+  // the end of a wrap settle is invisible on screen — it only re-syncs the React
+  // screen state (fade masks, tab pill, header dots, hardware-back logic).
+  const applyNormalizedPosition = useCallback(
+    (position) => {
+      const normalized = normalizePosition(position, screenCount);
+      commitPosition(normalized.position);
+      setCurrentScreen((previousScreen) =>
+        previousScreen === normalized.screenIndex
+          ? previousScreen
+          : normalized.screenIndex
+      );
+      return normalized.screenIndex;
+    },
+    [commitPosition, screenCount]
+  );
+
+  // Single rAF settle used by both swipe releases and programmatic navigation.
+  // It always starts from the live position, so an interrupted settle simply
+  // hands its momentum to the new target.
+  const runSettleAnimation = useCallback(
+    (targetPosition, { fromPosition } = {}) => {
+      cancelSettleAnimation();
+
+      const startPosition = Number.isFinite(fromPosition)
+        ? fromPosition
+        : positionRef.current;
+
+      if (
+        !Number.isFinite(startPosition) ||
+        Math.abs(targetPosition - startPosition) < 0.0005
+      ) {
+        applyNormalizedPosition(targetPosition);
+        return false;
+      }
+
+      const startedAt = window.performance.now();
+      settleStateRef.current = { startPosition, targetPosition, startedAt };
+
+      const step = () => {
+        settleFrameIdRef.current = null;
+        const state = settleStateRef.current;
+        if (!state) {
+          return;
+        }
+
+        const elapsed = window.performance.now() - state.startedAt;
+        const progress = Math.min(elapsed / CAROUSEL_SETTLE_MS, 1);
+
+        if (progress >= 1) {
+          settleStateRef.current = null;
+          applyNormalizedPosition(state.targetPosition);
+          return;
+        }
+
+        const eased = carouselEase(progress);
+        commitPosition(
+          state.startPosition +
+            (state.targetPosition - state.startPosition) * eased
+        );
+        settleFrameIdRef.current = window.requestAnimationFrame(step);
+      };
+
+      settleFrameIdRef.current = window.requestAnimationFrame(step);
+      return true;
+    },
+    [applyNormalizedPosition, cancelSettleAnimation, commitPosition]
+  );
+
+  const cancelPendingDragFrame = useCallback(() => {
     if (swipeFrameIdRef.current != null) {
       window.cancelAnimationFrame(swipeFrameIdRef.current);
       swipeFrameIdRef.current = null;
     }
   }, []);
 
-  const commitDragOffset = useCallback(
-    (nextOffset, syncState = false) => {
-      dragOffsetRef.current = nextOffset;
-      applySliderTransform(nextOffset, isSwipeActive.current);
-
-      if (!syncState) {
-        return;
-      }
-
-      setDragOffset((previousOffset) =>
-        previousOffset === nextOffset ? previousOffset : nextOffset
-      );
-    },
-    [applySliderTransform]
-  );
-
-  const resetDragOffsetImmediate = useCallback(() => {
-    cancelPendingDragOffsetUpdate();
-    pendingDragOffsetRef.current = 0;
-    commitDragOffset(0, true);
-  }, [cancelPendingDragOffsetUpdate, commitDragOffset]);
-
-  // Animate the slider from its current dragged position straight to the
-  // target screen (offset 0) using the settle transition. Must run BEFORE
-  // React commits the new screen state: currentScreenRef is advanced first so
-  // the imperative transform targets the right screen, and the settle
-  // transition is re-enabled BEFORE the transform write — otherwise the
-  // slider would snap back to the old screen with `transition: none` and only
-  // then animate (a visible double-jump hiccup on every release).
-  // Progress publication is skipped so the last drag position survives until
-  // the post-render sync effect publishes the target, letting the tab circle
-  // and header dots glide from the true release position.
-  const settleSliderToScreen = useCallback(
-    (targetScreen) => {
-      cancelPendingDragOffsetUpdate();
-      pendingDragOffsetRef.current = 0;
-      dragOffsetRef.current = 0;
-      currentScreenRef.current = targetScreen;
-      const sliderElement = sliderElementRef.current;
-      if (sliderElement) {
-        sliderElement.style.transition = SETTLE_TRANSITION;
-      }
-      applySliderTransform(0, false, false);
-    },
-    [applySliderTransform, cancelPendingDragOffsetUpdate]
-  );
-
-  const queueDragOffsetUpdate = useCallback(
-    (nextOffset) => {
-      pendingDragOffsetRef.current = nextOffset;
+  const queueDragPosition = useCallback(
+    (nextPosition) => {
+      pendingPositionRef.current = nextPosition;
 
       if (swipeFrameIdRef.current != null) {
         return;
@@ -156,18 +225,20 @@ export const useSwipeableScreens = (
 
       swipeFrameIdRef.current = window.requestAnimationFrame(() => {
         swipeFrameIdRef.current = null;
-        commitDragOffset(pendingDragOffsetRef.current);
+        commitPosition(pendingPositionRef.current);
       });
     },
-    [commitDragOffset]
+    [commitPosition]
   );
 
-  const getLatestDragOffset = useCallback(() => {
-    if (swipeFrameIdRef.current != null) {
-      return pendingDragOffsetRef.current;
-    }
-    return dragOffsetRef.current;
-  }, []);
+  const getLatestPosition = useCallback(
+    () =>
+      swipeFrameIdRef.current != null
+        ? pendingPositionRef.current
+        : positionRef.current,
+    []
+  );
+
   const readViewportWidth = useCallback(() => {
     const elementWidth = viewportRef.current?.clientWidth;
     if (Number.isFinite(elementWidth) && elementWidth > 0) {
@@ -176,23 +247,12 @@ export const useSwipeableScreens = (
     return viewportWidth || 1;
   }, [viewportRef, viewportWidth]);
 
+  // Keep the swipe-affordance custom property in sync after screen changes,
+  // hydration and resizes. Only the custom property is published here — slide
+  // transforms stay imperative-only so this can never fight a drag frame.
   useEffect(() => {
-    viewportWidthRef.current = viewportWidth;
-  }, [viewportWidth]);
-
-  useEffect(() => {
-    currentScreenRef.current = currentScreen;
-  }, [currentScreen]);
-
-  useEffect(() => {
-    applySliderTransform(dragOffset, isSwiping);
-  }, [
-    applySliderTransform,
-    currentScreen,
-    dragOffset,
-    isSwiping,
-    viewportWidth,
-  ]);
+    publishProgress(positionRef.current);
+  }, [publishProgress, currentScreen, viewportWidth]);
 
   useEffect(() => {
     const element = viewportRef.current;
@@ -232,39 +292,66 @@ export const useSwipeableScreens = (
 
   useEffect(
     () => () => {
-      cancelPendingDragOffsetUpdate();
+      cancelPendingDragFrame();
+      cancelSettleAnimation();
     },
-    [cancelPendingDragOffsetUpdate]
+    [cancelPendingDragFrame, cancelSettleAnimation]
   );
 
   const beginSwipe = useCallback(
     (clientX, clientY) => {
+      // Take over any in-flight settle from its live position. Note there is no
+      // style write here at all: starting a gesture must never mutate the slide
+      // styles (that is what used to strand `transition: none` on the track).
+      cancelPendingDragFrame();
+      cancelSettleAnimation();
+
       const width = readViewportWidth();
       if (width !== viewportWidth) {
         setViewportWidth(width);
       }
-      swipeStartX.current = clientX;
-      swipeStartY.current = clientY;
-      isSwipeActive.current = true;
-      hasSwipeDirection.current = false;
-      lockedAxis.current = null;
+
+      const livePosition = positionRef.current;
+      gestureRef.current = {
+        startX: clientX,
+        startY: clientY,
+        isActive: true,
+        hasDirection: false,
+        lockedAxis: null,
+      };
+      dragStartPositionRef.current = livePosition;
+      // Keep the rest position in the live position's period (an interrupted
+      // wrap settle can sit at e.g. 6.2 -> rest 6, not 1) so the release
+      // animation always travels the short way.
+      restPositionRef.current = alignPositionToReference(
+        normalizePosition(livePosition, screenCount).position,
+        livePosition,
+        screenCount
+      );
+      pendingPositionRef.current = livePosition;
       setIsSwiping(false);
-      resetDragOffsetImmediate();
     },
-    [readViewportWidth, resetDragOffsetImmediate, viewportWidth]
+    [
+      cancelPendingDragFrame,
+      cancelSettleAnimation,
+      readViewportWidth,
+      screenCount,
+      viewportWidth,
+    ]
   );
 
   const updateSwipePosition = useCallback(
     (clientX, clientY) => {
-      if (!isSwipeActive.current || swipeStartX.current === null) return;
+      const gesture = gestureRef.current;
+      if (!gesture.isActive || gesture.startX === null) return;
 
-      const deltaX = clientX - swipeStartX.current;
-      const startY = swipeStartY.current ?? clientY;
+      const deltaX = clientX - gesture.startX;
+      const startY = gesture.startY ?? clientY;
       const deltaY = clientY - startY;
       const absDeltaX = Math.abs(deltaX);
       const absDeltaY = Math.abs(deltaY);
 
-      if (!lockedAxis.current) {
+      if (!gesture.lockedAxis) {
         if (
           absDeltaX < SWIPE_DIRECTION_LOCK_THRESHOLD &&
           absDeltaY < SWIPE_DIRECTION_LOCK_THRESHOLD
@@ -273,78 +360,84 @@ export const useSwipeableScreens = (
         }
 
         if (absDeltaY > absDeltaX * AXIS_DOMINANCE_RATIO) {
-          lockedAxis.current = 'y';
+          gesture.lockedAxis = 'y';
         } else if (absDeltaX > absDeltaY * AXIS_DOMINANCE_RATIO) {
-          lockedAxis.current = 'x';
+          gesture.lockedAxis = 'x';
         } else {
           return;
         }
       }
 
-      if (lockedAxis.current === 'y') {
-        isSwipeActive.current = false;
-        swipeStartX.current = null;
-        swipeStartY.current = null;
+      if (gesture.lockedAxis === 'y') {
+        // Vertical scrolling wins: abandon the gesture and re-sync the carousel
+        // to its rest screen (also repairs the screen state if a settle was
+        // interrupted mid-flight) without ever touching CSS transitions.
+        gesture.isActive = false;
+        gesture.hasDirection = false;
+        gesture.startX = null;
+        gesture.startY = null;
         setIsSwiping(false);
-        resetDragOffsetImmediate();
+        applyNormalizedPosition(restPositionRef.current);
         return;
       }
 
-      if (!hasSwipeDirection.current) {
-        if (absDeltaX > 6) {
-          hasSwipeDirection.current = true;
+      if (!gesture.hasDirection) {
+        if (absDeltaX > MIN_SWIPE_DIRECTION_PX) {
+          gesture.hasDirection = true;
           setIsSwiping(true);
         } else {
           return;
         }
       }
 
-      queueDragOffsetUpdate(deltaX);
+      const stride = resolveCarouselStride(
+        viewportWidth || readViewportWidth()
+      );
+      queueDragPosition(dragStartPositionRef.current - deltaX / stride);
     },
-    [queueDragOffsetUpdate, resetDragOffsetImmediate]
+    [
+      applyNormalizedPosition,
+      queueDragPosition,
+      readViewportWidth,
+      viewportWidth,
+    ]
   );
 
   const finishSwipe = useCallback(() => {
-    if (swipeStartX.current === null) {
+    const gesture = gestureRef.current;
+    if (gesture.startX === null) {
       return;
     }
 
-    // Decide the target screen first, then settle the slider imperatively so
-    // it animates directly from the dragged position — accepted swipes glide
-    // to the next/previous screen, rejected swipes glide back to the current
-    // one. No intermediate snap, no transition:none jump.
-    let nextScreen = currentScreen;
-    if (hasSwipeDirection.current) {
-      const width = viewportWidth || readViewportWidth();
-      const threshold = width
-        ? Math.min(width * 0.25, BASE_SWIPE_THRESHOLD)
-        : BASE_SWIPE_THRESHOLD;
-      const delta = getLatestDragOffset();
-
-      if (delta < -threshold && currentScreen < totalScreens - 1) {
-        nextScreen = currentScreen + 1;
-      } else if (delta > threshold && currentScreen > 0) {
-        nextScreen = currentScreen - 1;
-      }
-    }
-
-    settleSliderToScreen(nextScreen);
-
-    if (nextScreen !== currentScreen) {
-      setCurrentScreen(nextScreen);
-    }
+    const hadDirection = gesture.hasDirection;
+    gesture.isActive = false;
+    gesture.hasDirection = false;
+    gesture.lockedAxis = null;
+    gesture.startX = null;
+    gesture.startY = null;
     setIsSwiping(false);
-    isSwipeActive.current = false;
-    hasSwipeDirection.current = false;
-    lockedAxis.current = null;
-    swipeStartX.current = null;
-    swipeStartY.current = null;
+
+    // Decide the target screen, then settle imperatively with rAF from the live
+    // dragged position — accepted swipes glide on, rejected swipes glide back,
+    // and drags of a full slide or more land where the finger left them.
+    const width = viewportWidth || readViewportWidth();
+    const stride = resolveCarouselStride(width);
+    const thresholdPx = width
+      ? Math.min(width * 0.25, BASE_SWIPE_THRESHOLD)
+      : BASE_SWIPE_THRESHOLD;
+    const { targetPosition } = resolveSettleTarget({
+      position: hadDirection ? getLatestPosition() : restPositionRef.current,
+      restPosition: restPositionRef.current,
+      thresholdSlides: Math.min(thresholdPx / stride, 0.5),
+      totalScreens: screenCount,
+    });
+
+    runSettleAnimation(targetPosition);
   }, [
-    currentScreen,
-    getLatestDragOffset,
+    getLatestPosition,
     readViewportWidth,
-    settleSliderToScreen,
-    totalScreens,
+    runSettleAnimation,
+    screenCount,
     viewportWidth,
   ]);
 
@@ -366,7 +459,7 @@ export const useSwipeableScreens = (
       // Lock vertical page scrolling once horizontal swipe intent is confirmed.
       // This creates symmetrical axis behavior with the existing vertical-first
       // cancellation logic.
-      if (lockedAxis.current === 'x' && event.cancelable) {
+      if (gestureRef.current.lockedAxis === 'x' && event.cancelable) {
         event.preventDefault();
       }
     },
@@ -387,7 +480,9 @@ export const useSwipeableScreens = (
 
   const handleMouseMove = useCallback(
     (event) => {
-      if (!isSwipeActive.current && !hasSwipeDirection.current) return;
+      if (!gestureRef.current.isActive && !gestureRef.current.hasDirection) {
+        return;
+      }
       updateSwipePosition(event.clientX, event.clientY);
     },
     [updateSwipePosition]
@@ -403,29 +498,54 @@ export const useSwipeableScreens = (
 
   const goToScreen = useCallback(
     (index) => {
-      const clampedIndex = Math.max(0, Math.min(index, totalScreens - 1));
-      setCurrentScreen(clampedIndex);
-      resetDragOffsetImmediate();
+      const targetScreen = Math.max(
+        0,
+        Math.min(Math.round(Number(index) || 0), screenCount - 1)
+      );
+      const livePosition = positionRef.current;
+      const rest = normalizePosition(livePosition, screenCount);
+      const delta = resolveShortestScreenDelta(
+        rest.screenIndex,
+        targetScreen,
+        screenCount
+      );
+      // Same period as the live position so the tick always animates the short
+      // way (a tab tap during a wrap settle must not spin the whole track).
+      const restInPeriod = alignPositionToReference(
+        rest.position,
+        livePosition,
+        screenCount
+      );
+
+      cancelPendingDragFrame();
+      cancelSettleAnimation();
+      gestureRef.current = {
+        startX: null,
+        startY: null,
+        isActive: false,
+        hasDirection: false,
+        lockedAxis: null,
+      };
       setIsSwiping(false);
-      isSwipeActive.current = false;
-      hasSwipeDirection.current = false;
-      lockedAxis.current = null;
-      swipeStartX.current = null;
-      swipeStartY.current = null;
+
+      if (delta === 0) {
+        runSettleAnimation(restInPeriod);
+        return;
+      }
+
+      // Update the fade masks / affordances immediately (as before), while the
+      // slides themselves glide from the live position via the rAF settle.
+      // Tab taps travel the wrapped way around: 4 -> 0 is one screen forward.
+      setCurrentScreen(targetScreen);
+      runSettleAnimation(restInPeriod + delta);
     },
-    [resetDragOffsetImmediate, totalScreens]
+    [
+      cancelPendingDragFrame,
+      cancelSettleAnimation,
+      runSettleAnimation,
+      screenCount,
+    ]
   );
-
-  const sliderStyle = useMemo(() => {
-    const peekPx = SCREEN_EDGE_PEEK_PX * (1 + 2 * currentScreen);
-    const translateCalc = `calc(${peekPx + dragOffset}px - ${currentScreen * 100}%)`;
-    const sliderTransition = isSwiping ? 'none' : SETTLE_TRANSITION;
-
-    return {
-      transform: `translateX(${translateCalc})`,
-      transition: sliderTransition,
-    };
-  }, [currentScreen, dragOffset, isSwiping]);
 
   const handlers = {
     onTouchStart: handleTouchStart,
@@ -440,11 +560,9 @@ export const useSwipeableScreens = (
 
   return {
     currentScreen,
-    dragOffset,
     isSwiping,
     goToScreen,
-    sliderStyle,
-    setSliderElement,
+    getSlideProps,
     handlers,
   };
 };

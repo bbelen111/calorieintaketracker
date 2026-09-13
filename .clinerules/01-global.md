@@ -86,7 +86,7 @@ User action → Store action (updateUserData) → deriveState() recalculates (wi
 
 11. **Goal-mode percentage projection is weight-relative, not body-fat change.** `estimateGoalModeProjection(...)` returns `predictedWeightDeltaPercent` (bodyweight-relative delta) and keeps deprecated `predictedBodyFatDeltaPercent` as a compatibility alias only.
 
-12. **The swipe shell is a coordinated design system:** full-bleed carousel viewport + 16px edge peek with alpha-faded neighbour slides, a floating glass bottom tab bar (`ScreenTabs`), and a header zone (`AppHeader`) with greeting + per-screen glanceable stats + drag-linked swipe dots. All peek/peek-fade/bar/dot geometry constants are inline **px** (the app root font is rem-based: 13px mobile / 17px desktop) and have hard sync points — see the UI rules for details.
+12. **The swipe shell is a coordinated, looping design system:** all five screens render exactly once and each is positioned by its own wrapped transform (canonical math in `utils/visuals/carouselLoop.js`), so the carousel loops in both directions with no cloned slides, ghost cells or normalization timers; a full-bleed carousel viewport + 16px edge peek with alpha-faded neighbour slides, a floating glass bottom tab bar (`ScreenTabs`), and a header zone (`AppHeader`) with greeting + per-screen glanceable stats + drag-linked swipe dots. All peek/peek-fade/bar/dot geometry constants are inline **px** (the app root font is rem-based: 13px mobile / 17px desktop) and have hard sync points — see the UI rules for details.
 
 ---
 
@@ -173,6 +173,7 @@ src/
 │   │  └─ phases.js              # Phase metrics calculation
 │   ├─ visuals/
 │   │  ├─ bezierPath.js          # SVG cubic Bézier curve interpolation + gap-aware chart path runs
+│   │  ├─ carouselLoop.js        # Canonical swipe-shell loop math (wrapped slide offsets/fades, settle planning, ease)
 │   │  ├─ scroll.js              # Scroll utilities
 │   │  └─ trackerHelpers.jsx
 │   ├─ theme.js                  # Native theme application (status bar, transparent nav bar, keyboard)
@@ -230,6 +231,7 @@ src/
     ├─ sessionCarryover.test.js
     ├─ steps.test.js
     ├─ foodTags.test.js
+    ├─ carouselLoop.test.js      # Swipe-shell loop math (wrap periods, settle planning, shortest tab path, ease)
     ├─ storage.sharding.test.js
     └─ storage.test.js           # Persistence split + Dexie-first behavior tests
 ```
@@ -259,7 +261,7 @@ npm run test:watch     # Node test runner in watch mode
 - Tests use `node --test` with ESM; use explicit `.js` extensions in relative imports for test-executed modules.
 - `npm run lint` can include pre-existing warnings in untouched files. Prefer targeted lint for changed files during incremental work, then full lint when practical.
 - Storage tests intentionally run with in-memory `window.localStorage` shims in Node context; avoid plugin monkey-patching when possible.
-- Full `npm run test` is green (as of the chart-gap rendering continuity fix, 283 tests pass). Recent additions: `tests/utils/bezierPath.test.js` (gap-aware path runs), `tests/utils/trendAverages.test.js` (trapezoidal N-day averages + capped trend fallback), and staleness-gate cases in `tests/utils/adaptiveThermogenesis.test.js`. The canonical defaults are asserted by `tests/constants/activityPresets.test.js` against `DEFAULT_ACTIVITY_MULTIPLIERS` (`{ training: 0.2, rest: 0.22 }`).
+- Full `npm run test` is green (354 tests pass as of the looping swipe-shell change; the shell's loop math is covered by `tests/utils/carouselLoop.test.js`). Earlier additions: `tests/utils/bezierPath.test.js` (gap-aware path runs), `tests/utils/trendAverages.test.js` (trapezoidal N-day averages + capped trend fallback), and staleness-gate cases in `tests/utils/adaptiveThermogenesis.test.js`. The canonical defaults are asserted by `tests/constants/activityPresets.test.js` against `DEFAULT_ACTIVITY_MULTIPLIERS` (`{ training: 0.2, rest: 0.22 }`).
 
 **ESLint config:** Flat config format (`eslint.config.js`), uses `@babel/eslint-parser` with JSX preset. `react/prop-types` is disabled. Prettier runs as an ESLint rule.
 
@@ -283,4 +285,4 @@ npm run test:watch     # Node test runner in watch mode
 14. **Daily NEAT overrides are date-scoped + clamped history data:** `dailyNeatOverrides` is a **history field** (not profile), sharded by date (`dailyNeatOverrides:YYYY-MM-DD`). Route writes only through the store action `setDailyNeatOverride(dateKey, overrideOrNull)`; normalize dates via `normalizeDateKey()` and clamp multipliers with `clampCustomActivityMultiplier()` (0.1–1.0). The multiplier applies override-first in `calculateCalorieBreakdown` for the resolved `dateKey` only — never leak it across other dates or into global settings.
 15. **Measurement averages / trends / charts are data-honesty-first:** N-day averages use the shared trapezoidal window integral (`calculateTrapezoidalWindowAverage` in `weight.js`, consumed by `bodyFat.js`; `null` on empty window), day windows come from `getWindowDateKeys(endDateKey, n)` in `dateKeys.js`, trend last-two-entry fallback is capped at `MAX_TREND_FALLBACK_SPAN_DAYS` (14) via `isStaleFallback`, smart AT is gated by weigh-in freshness (`SMART_WEIGHT_STALENESS_MAX_AGE_DAYS = 3`, reason `weight-data-stale`), and tracker-chart gaps tier through `buildTaggedChartSlots(...)` + `buildGapAwarePathRuns(...)` (≤7d solid, 8–14d dashed, >14d broken). Do not duplicate any of this math in components or UI surfaces.
 16. **Daily Ledger helpers are canonical:** all Daily Ledger display math (day previews, month summaries, measurement lookups, balance-kind metadata) lives in `utils/calculations/dayLedgerPresentation.js`; the Logbook modals (`DayLedgerListModal` / `DayLedgerModal`) are thin read-only renderers over `dailySnapshots` (cache, not truth) and must never mutate or zero-fill snapshot data.
-17. **Swipe shell has hard sync points and px-only geometry:** `SCREEN_EDGE_PEEK_PX` (16) in `useSwipeableScreens.js` ↔ `.carousel-slide { width: calc(100% - 32px) }` + `.slide-fade-*` masks in `index.css` ↔ slide inner padding (`px-2`). The bottom bar (`ScreenTabs`, z-[900]) and header (`AppHeader`) track drags via the imperative `--screen-drag-progress` CSS variable on `:root` — never via React state. All swipe-shell geometry constants are inline px (root font is 13px mobile / 17px desktop). `FloatingScreenTabs` and `useScrollOffScreen.js` were removed — do not reintroduce.
+17. **Swipe shell has hard sync points and px-only geometry:** `SCREEN_EDGE_PEEK_PX` (16, canonical in `utils/visuals/carouselLoop.js` and re-exported by `useSwipeableScreens.js`) ↔ `.carousel-slide { width: calc(100% - 32px) }` + `.slide-fade-*` masks in `index.css` ↔ slide inner padding (`px-2`). The bottom bar (`ScreenTabs`, z-[900]) and header (`AppHeader`) track drags via the imperative `--screen-drag-progress` CSS variable on `:root` — never via React state. All swipe-shell geometry constants are inline px (root font is 13px mobile / 17px desktop). `FloatingScreenTabs` and `useScrollOffScreen.js` were removed — do not reintroduce.
