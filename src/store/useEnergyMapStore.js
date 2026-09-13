@@ -1,6 +1,6 @@
 import { createWithEqualityFn } from 'zustand/traditional';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { cardioTypes as baseCardioTypes } from '../constants/cardio/cardioTypes';
+import { cardioTypes as baseCardioTypes } from '../constants/cardio/cardioTypes.js';
 import {
   calculateBMR,
   calculateCalorieBreakdown,
@@ -10,30 +10,30 @@ import {
   getTotalCardioBurnForDate,
   getTotalTrainingBurnForDate,
   resolveGoalCalorieDelta,
-} from '../utils/calculations/calculations';
+} from '../utils/calculations/calculations.js';
 import { deriveTargetCreationModePayload } from '../utils/calculations/phaseTargetPlanning.js';
-import { getStepRangeSortValue } from '../utils/calculations/steps';
+import { getStepRangeSortValue } from '../utils/calculations/steps.js';
 import { clampCustomActivityMultiplier } from '../constants/activity/activityPresets.js';
 import {
   getDefaultEnergyMapData,
   loadEnergyMapData,
   saveEnergyMapData,
-} from '../utils/data/storage';
+} from '../utils/data/storage.js';
 import {
   clampWeight,
   normalizeDateKey,
   sortWeightEntries,
-} from '../utils/measurements/weight';
+} from '../utils/measurements/weight.js';
 import {
   clampBodyFat,
   sortBodyFatEntries,
-} from '../utils/measurements/bodyFat';
-import { sanitizeAge, sanitizeHeight } from '../utils/measurements/profile';
+} from '../utils/measurements/bodyFat.js';
+import { sanitizeAge, sanitizeHeight } from '../utils/measurements/profile.js';
 import {
   areDailySnapshotsEquivalent,
   buildDailySnapshot,
   getPreviousDateKey,
-} from '../utils/calculations/dailySnapshots';
+} from '../utils/calculations/dailySnapshots.js';
 import {
   PHASE_STATUS,
   deriveDailyLogStatus,
@@ -41,9 +41,9 @@ import {
   normalizePhaseLogV2State,
   removePhaseLogV2DailyLog,
   upsertPhaseLogV2DailyLog,
-} from '../utils/data/phaseLogV2';
-import { hasNutritionEntriesForDate } from '../utils/phases/phases';
-import { getTodayDateKey } from '../utils/data/dateKeys';
+} from '../utils/data/phaseLogV2.js';
+import { hasNutritionEntriesForDate } from '../utils/phases/phases.js';
+import { getTodayDateKey } from '../utils/data/dateKeys.js';
 
 const SAVE_DEBOUNCE_MS = 1000;
 const DEFAULT_TRAINING_TYPE_CATALOG =
@@ -1008,14 +1008,26 @@ export const useEnergyMapStore = createWithEqualityFn(
         return existingSnapshot;
       }
 
-      const nextSnapshot = buildDailySnapshot({
-        dateKey: normalizedDate,
-        userData,
-        bmr,
-        cardioTypes,
-        trainingTypes,
-        existingSnapshot,
-      });
+      let nextSnapshot = null;
+      try {
+        nextSnapshot = buildDailySnapshot({
+          dateKey: normalizedDate,
+          userData,
+          bmr,
+          cardioTypes,
+          trainingTypes,
+          existingSnapshot,
+        });
+      } catch (error) {
+        // A snapshot-build failure must never break the store's subscription
+        // chain: the debounced save and the day-turnover rollover both run
+        // through this action. Surface the error and keep the existing
+        // snapshot so the app stays usable.
+        console.error('Failed to build daily snapshot', {
+          dateKey: normalizedDate,
+          error,
+        });
+      }
 
       if (!nextSnapshot) {
         return existingSnapshot ?? null;
@@ -1807,6 +1819,53 @@ export const useEnergyMapStore = createWithEqualityFn(
   }))
 );
 
+/**
+ * Midnight day-turnover snapshot maintenance: rebuilds (finalizes) the
+ * previous day's snapshot — required so EPOC carryover and other
+ * cross-midnight effects are reflected — and seeds the current day when
+ * missing. Hardened with try/catch so a build failure can never break the
+ * store subscription/save chain, and safe to call repeatedly (idempotent via
+ * the snapshot equivalence check).
+ */
+export const runDayTurnoverSnapshots = (previousDateKey, todayDateKey) => {
+  const storeState = useEnergyMapStore.getState();
+  if (!storeState.isLoaded) {
+    return;
+  }
+
+  try {
+    if (previousDateKey) {
+      storeState.upsertDailySnapshot(previousDateKey);
+    }
+    storeState.upsertDailySnapshot(todayDateKey, { onlyIfMissing: true });
+  } catch (error) {
+    console.error('Failed day-turnover snapshot update', error);
+  }
+};
+
+/**
+ * Native app-resume catch-up: finalizes the last observed day (which may now
+ * be yesterday after a midnight turnover while the app was backgrounded) and
+ * seeds today. Marks the observed day as current so the debounced-save
+ * subscriber does not repeat the same rollover.
+ */
+export const runResumeDayTurnoverCatchUp = () => {
+  const storeState = useEnergyMapStore.getState();
+  if (!storeState.isLoaded) {
+    return false;
+  }
+
+  const todayDateKey = getTodayDateKey();
+  const previousDateKey =
+    lastObservedDateKey && lastObservedDateKey !== todayDateKey
+      ? lastObservedDateKey
+      : getPreviousDateKey(todayDateKey);
+
+  runDayTurnoverSnapshots(previousDateKey, todayDateKey);
+  lastObservedDateKey = todayDateKey;
+  return true;
+};
+
 let hasSetup = false;
 let saveTimeoutId = null;
 let lastObservedDateKey = getTodayDateKey();
@@ -1831,9 +1890,18 @@ export const setupEnergyMapStore = () => {
 
       const todayDateKey = getTodayDateKey();
       if (todayDateKey !== lastObservedDateKey) {
-        storeState.upsertDailySnapshot(lastObservedDateKey);
-        storeState.upsertDailySnapshot(todayDateKey, { onlyIfMissing: true });
+        const previousDateKey = lastObservedDateKey;
+        // Mark before deferring: the deferred upserts below synchronously
+        // re-fire this subscriber, so the marker must already be current or
+        // the rollover would re-enter on every nested invocation.
         lastObservedDateKey = todayDateKey;
+        // Defer out of the subscriber: upsertDailySnapshot performs
+        // synchronous nested state updates, which must never run while
+        // zustand is notifying listeners (re-entrant set inside a listener
+        // wedged the UI at the midnight turnover).
+        setTimeout(() => {
+          runDayTurnoverSnapshots(previousDateKey, todayDateKey);
+        }, 0);
       }
 
       if (saveTimeoutId) {
