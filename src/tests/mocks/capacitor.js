@@ -83,7 +83,10 @@ export const BarcodeScannerMock = {
   CapacitorBarcodeScanner: {
     scanBarcode: vi.fn(async () => ({ ScanResult: '' })),
   },
-  CapacitorBarcodeScannerAndroidScanningLibrary: { ZXing: 'zxing' },
+  CapacitorBarcodeScannerAndroidScanningLibrary: {
+    ZXing: 'zxing',
+    MLKIT: 'mlkit',
+  },
   CapacitorBarcodeScannerCameraDirection: { BACK: 1, FRONT: 0 },
   CapacitorBarcodeScannerScanOrientation: { PORTRAIT: 1, ADAPTIVE: 0 },
   CapacitorBarcodeScannerTypeHint: { ALL: 0, QR_CODE: 1, EAN_13: 2 },

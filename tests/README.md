@@ -49,6 +49,9 @@ Per-file coverage from the initial UI-tier work:
 | --- | --- | --- |
 | `hooks/useAnimatedModal.js` | 100% | open / requestClose / forceClose lifecycle |
 | `hooks/useNetworkStatus.js` | 100% | online/offline + visibility re-poll + listener cleanup |
+| `hooks/useHardwareBackButton.js` | 100% | modal → home-first → double-exit + hint timing |
+| `hooks/useHealthConnect.js` | 94.5% | status lifecycle, read-window order, aggregation |
+| `services/barcodeScanner.js` | 100% | platform gating + error-code mapping |
 | `utils/visuals/modalStack.js` | 98.4% | z-lane allocation + backdrop opacity composition |
 | `components/.../common/ScreenTabs.jsx` | 100% | active tab, ring copies, px geometry |
 | `components/.../modals/common/ConfirmActionModal.jsx` | 100% | tone treatments + handlers |
@@ -59,6 +62,22 @@ Per-file coverage from the initial UI-tier work:
 
 Screens, the orchestrator and the remaining ~50 modals are still untested, so the tier's aggregate is
 low by design — extend it per surface rather than chasing the number.
+
+## Plugin Boundary Tier
+
+Capacitor plugins are mocked at the module boundary in `src/tests/mocks/capacitor.js` (registered by
+`src/tests/setup.js`), so these specs drive the real callbacks and options the app hands to the plugins.
+Mock surfaces mirror only the API the app actually calls, so an uncovered plugin call fails loudly rather
+than silently returning `undefined`.
+
+| Plugin | Spec | Invariants pinned |
+| --- | --- | --- |
+| `@capacitor/barcode-scanner` | `services/barcodeScanner.spec.js` | Off-platform throws `UNSUPPORTED` **without invoking the plugin**; digits are normalised; empty result → `NO_RESULT`, cancel → `CANCELLED`, permission → `PERMISSION_DENIED`, else `SCAN_FAILED`; already-mapped errors pass through; the exact scanner option payload is asserted |
+| `@capacitor/app` (back button) | `hooks/useHardwareBackButton.spec.js` | Nothing is registered off-platform; topmost modal wins; otherwise navigate home; from Home a second press inside the confirm window exits, outside it re-shows the hint; hint auto-hides; leaving Home resets the pending exit; listener removed on unmount |
+| `@capacitor/app` + `@capgo/capacitor-health` | `hooks/useHealthConnect.spec.js` | Platform/availability gating; **today-scoped read window is primary** (asserted to start at local midnight, i.e. not the plugin's rolling 24h default); plugin default is the degraded fallback and omits the window; exact-midnight error retries a rolling window; total failure degrades to `null` instead of throwing; samples are deduped **max-per-source, never summed**; refresh only while connected; foreground refreshes only when `isActive` |
+
+Remaining gap in this tier: `hooks/useSwipeableScreens.js` (the largest hook, 0% — its pure loop math is
+covered by `tests/utils/carouselLoop.test.js`, but the DOM-exposed drag/settle wiring is not).
 
 ## Known Defect Documented By A Test
 

@@ -29,6 +29,9 @@ export default defineConfig({
         'src/components/**/*.{js,jsx}',
         'src/hooks/**/*.{js,jsx}',
         'src/utils/visuals/modalStack.js',
+        // Plugin-boundary service owned by this tier (the rest of services/** is
+        // logic-only and covered by the Node tier).
+        'src/services/barcodeScanner.js',
       ],
       exclude: ['src/tests/**', 'src/**/*.spec.{js,jsx}'],
       reporter: ['text-summary', 'text'],
