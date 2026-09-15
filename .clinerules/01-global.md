@@ -175,6 +175,7 @@ src/
 │   │  ├─ bezierPath.js          # SVG cubic Bézier curve interpolation + gap-aware chart path runs
 │   │  ├─ carouselLoop.js        # Canonical swipe-shell loop math (wrapped offsets/fades, transforms,
 │   │  │                         #   teleport tiers, settle planning, interruption clock, ease)
+│   │  ├─ modalStack.js          # Modal z-lane allocation + backdrop opacity math (extracted from ModalShell)
 │   │  ├─ scroll.js              # Scroll utilities
 │   │  └─ trackerHelpers.jsx
 │   ├─ theme.js                  # Native theme application (status bar, transparent nav bar, keyboard)
@@ -192,13 +193,16 @@ src/
 │   ├─ openFoodFacts.js          # OpenFoodFacts barcode lookup client
 │   ├─ barcodeScanner.js         # Official Capacitor barcode scanner wrapper
 │   └─ foodCatalog.js            # SQLite-backed local food catalog service (sql.js)
+├─ tests/                        # UI-tier harness ONLY — setup.js (plugin doubles) + mocks/capacitor.js
+│                                #   UI specs live beside their sources as `src/**/*.spec.{js,jsx}` (Vitest)
 ├─ scripts/
 │   └─ food-db/
 │      ├─ index.js               # Offline food DB audit/clean/replace pipeline
 │      ├─ enrich-nutrients.js    # FDC bulk CSV join -> backfills fiber/sodium/saturated_fats/sugars by fdc_id
 │      └─ config/
 │         └─ taxonomy.js         # Canonical taxonomy maps + alias/portion sanitation config
-└─ tests/                        # Node test runner suite (`node --test`)
+└─ tests/                        # Node test runner suite (`node --test`) — repo-root `tests/`, NOT under `src/`
+  ├─ helpers/                    # Shared Node-env shims (capacitorShims.js) + README.md (documents both tiers)
   ├─ api/
   │   └─ openrouter.contract.test.js
   ├─ constants/
@@ -269,6 +273,9 @@ npm run test:ui:coverage # UI-tier coverage (components + hooks + modalStack)
 - Storage tests intentionally run with in-memory `window.localStorage` shims in Node context; avoid plugin monkey-patching when possible.
 - Full `npm run test` is green (371 tests; the shell's loop math — px transform geometry, teleport tiers, settle clock, wrap periods, shortest tab path, ease — is covered by `tests/utils/carouselLoop.test.js`). Earlier additions: `tests/utils/bezierPath.test.js` (gap-aware path runs), `tests/utils/trendAverages.test.js` (trapezoidal N-day averages + capped trend fallback), and staleness-gate cases in `tests/utils/adaptiveThermogenesis.test.js`. The canonical defaults are asserted by `tests/constants/activityPresets.test.js` against `DEFAULT_ACTIVITY_MULTIPLIERS` (`{ training: 0.2, rest: 0.22 }`).
 - The **UI tier is separate**: `npm run test:ui` runs Vitest 5 (jsdom + Testing Library) over `src/**/*.spec.{js,jsx}` for components and hooks. Logic specs stay `tests/**/*.test.js` under `node --test`, so neither runner can pick up the other's files. Harness: `vitest.config.js` (standalone, deliberately NOT extending `vite.config.js`) + `src/tests/setup.js` (Capacitor plugin doubles in `src/tests/mocks/capacitor.js`, `visualViewport`/`scrollTo` shims, explicit RTL `cleanup` because `globals: false`). Modal stack/backdrop math was extracted to `src/utils/visuals/modalStack.js` so it is unit-testable without a DOM.
+- **Plugin boundaries are covered at the module boundary, not by monkey-patching plugin internals.** `src/tests/mocks/capacitor.js` doubles `@capacitor/core`, `preferences`, `app`, `status-bar`, `keyboard`, `splash-screen`, `barcode-scanner`, `@capgo/capacitor-health` and `navigation-bar`, and each double exposes **only the API surface the app actually calls** (verified by grep) so an uncovered plugin call fails loudly instead of silently returning `undefined`. Keep it that way: extend the double when the app starts using a new plugin method, and never reach into real plugin internals from a spec.
+- Covered plugin contracts: `services/barcodeScanner.spec.js` (platform gating without invoking the plugin, digit normalisation, `UNSUPPORTED`/`NO_RESULT`/`CANCELLED`/`PERMISSION_DENIED`/`SCAN_FAILED` mapping, and the exact scanner option payload), `hooks/useHardwareBackButton.spec.js` (modal → home-first → double-exit + hint timing + listener cleanup), and `hooks/useHealthConnect.spec.js` (status lifecycle, **today-scoped window as the primary read**, plugin default only as the degraded fallback, exact-midnight rolling retry, degradation to `null` instead of throwing, max-per-source step dedupe, refresh only while connected, foreground refresh only when `isActive`).
+- UI-tier coverage scope is deliberately narrow: `src/components/**`, `src/hooks/**`, `src/utils/visuals/modalStack.js` and `src/services/barcodeScanner.js` (the plugin bridge this tier owns). The rest of `src/services/**` and all of `src/utils/**` remain the Node tier's job, so `npm run test:ui:coverage` stays meaningful. Remaining UI-tier gap: `hooks/useSwipeableScreens.js` (its pure loop math is covered by `tests/utils/carouselLoop.test.js`, but the DOM drag/settle wiring is not).
 
 **ESLint config:** Flat config format (`eslint.config.js`), uses `@babel/eslint-parser` with JSX preset. `react/prop-types` is disabled. Prettier runs as an ESLint rule.
 
