@@ -9,7 +9,7 @@ Two test tiers run side by side. They never see each other's files — keep it t
 | `npm test` | `node --test` | `tests/**/*.test.js` | Pure logic: calculations, services, storage, store, API handler contracts |
 | `npm run test:watch` | `node --test --watch` | `tests/**/*.test.js` | Watch mode for the logic tier |
 | `npm run test:coverage` | `node --test --experimental-test-coverage` | `tests/**/*.test.js` | Line/branch/function coverage for `src/**` |
-| `npm run test:ui` | Vitest (jsdom) | `src/**/*.spec.{js,jsx}` | Component / hook rendering + interaction |
+| `npm run test:ui` | Vitest (jsdom) | `src/**/*.spec.{js,jsx}` | Components, hooks, plugin bridges **and** orchestrator/screen integration |
 
 **Naming rule (hard requirement):** UI specs are `*.spec.jsx` / `*.spec.js` under `src/`. Logic specs are
 `*.test.js` under `tests/`. `node --test` discovery matches `*.test.js` only, so a UI spec can never be
@@ -59,9 +59,46 @@ Per-file coverage from the initial UI-tier work:
 | `components/.../modals/forms/DailyNeatOverrideModal.jsx` | 96.9% | preset staging + apply/clear |
 | `components/.../common/AppHeader.jsx` | 97.9% | per-screen stat line + coach mark |
 | `components/.../common/ModalShell.jsx` | 56.4% | stack/overlay paths via mount tests |
+| `components/EnergyMap/EnergyMapCalculator.jsx` | 32.2% | orchestrator: hydration gate, screens, tab wiring |
+| `components/.../screens/InsightsScreen.jsx` | 89.2% | mounted via the orchestrator |
+| `components/.../screens/TrackerScreen.jsx` | 67.8% | mounted via the orchestrator |
+| `components/.../screens/HomeScreen.jsx` | 61.9% | mounted via the orchestrator |
+| `components/.../screens/CalorieMapScreen.jsx` | 50% | mounted via the orchestrator |
+| `components/.../screens/LogbookScreen.jsx` | 41.8% | mounted via the orchestrator |
+| `hooks/useSwipeableScreens.js` | 47.1% | driven through the tab bar (pure loop math stays in the Node tier) |
+| `components/.../screens/PhaseDetailScreen.jsx` | 6.3% | drill-down, not in the carousel — still untested |
 
-Screens, the orchestrator and the remaining ~50 modals are still untested, so the tier's aggregate is
-low by design — extend it per surface rather than chasing the number.
+The remaining ~50 modals are mostly untouched, so the tier's aggregate (24.8% lines) is low by design —
+extend it per surface rather than chasing the number.
+
+## Orchestrator Integration Tier
+
+`src/components/EnergyMap/EnergyMapCalculator.spec.jsx` mounts the **real** 4,600-line orchestrator
+against the **real** store (Capacitor doubles supply the web-shaped platform). It covers what no unit
+spec can and is the reason the orchestrator/screens are no longer at 0%:
+
+- the hydration gate (`Loading your data…` until `initialize()` lands — no flash of default data);
+- all five carousel screens mounted exactly once (`.carousel-slide`) behind the floating tab bar;
+- tab tap → chrome wiring (the header's per-screen stat line, scoped with `within(header)` because
+  screens render their own summary copy);
+- store → screen propagation (a logged food appears in the Tracker's rendered totals);
+- a lazy `SettingsModal` open/close round trip through the shared modal stack (Suspense included).
+
+**Two lessons to keep:**
+
+1. **Scope text queries to the region under test.** A document-wide `findByText('No data yet')` matches
+   both `AppHeader` and the Insights trend card — the ambiguity hides which one you actually asserted.
+2. **The Preferences double is module-scoped for the whole file, and the store saves on a 1s debounce.**
+   A previous test's pending save can land mid-run and be reloaded by the next `initialize()`, which made
+   the coach-mark/gear assertions pass fast and fail under coverage instrumentation. Tests that depend on
+   a persisted flag now pin it explicitly (`setSwipeHintSeen(...)`), and `beforeEach` clears the double.
+
+**Deliberately deferred: full-browser E2E (Playwright).** Not run today, because it would require adding
+selectors across the orchestrator and 60 modal files (the app has zero `data-testid`/`aria-label`/`role`
+hooks), a ~150 MB Chromium download, and it fights the swipe shell's rAF/compositor settles. Entry
+criteria — reach for it when a defect escapes that only a real browser would catch. What this tier
+cannot replace, and Playwright would add: real layout/paint (carousel + tab-bar/dot geometry),
+IndexedDB persistence across a reload, and visual regression.
 
 ## Plugin Boundary Tier
 
@@ -76,8 +113,9 @@ than silently returning `undefined`.
 | `@capacitor/app` (back button) | `hooks/useHardwareBackButton.spec.js` | Nothing is registered off-platform; topmost modal wins; otherwise navigate home; from Home a second press inside the confirm window exits, outside it re-shows the hint; hint auto-hides; leaving Home resets the pending exit; listener removed on unmount |
 | `@capacitor/app` + `@capgo/capacitor-health` | `hooks/useHealthConnect.spec.js` | Platform/availability gating; **today-scoped read window is primary** (asserted to start at local midnight, i.e. not the plugin's rolling 24h default); plugin default is the degraded fallback and omits the window; exact-midnight error retries a rolling window; total failure degrades to `null` instead of throwing; samples are deduped **max-per-source, never summed**; refresh only while connected; foreground refreshes only when `isActive` |
 
-Remaining gap in this tier: `hooks/useSwipeableScreens.js` (the largest hook, 0% — its pure loop math is
-covered by `tests/utils/carouselLoop.test.js`, but the DOM-exposed drag/settle wiring is not).
+`hooks/useSwipeableScreens.js` is now reached indirectly (47% lines) through the orchestrator's tab bar,
+but its DOM drag/settle wiring is still not directly asserted — its pure loop math remains the Node
+tier's job (`tests/utils/carouselLoop.test.js`).
 
 ## Known Defect Documented By A Test
 
