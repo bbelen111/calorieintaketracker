@@ -33,11 +33,16 @@ const getChartPoints = (baseElement) =>
 const getSlotLabels = (baseElement) =>
   baseElement.querySelectorAll('div.absolute.cursor-pointer');
 
-/** The card's positioned wrapper (ModalShell portals its content to body). */
+/**
+ * The card's positioned wrapper (ModalShell portals its content to body). Found
+ * through the card body rather than a close button — the card has none:
+ * dismissal is a tap on the plot.
+ */
+const CARD_BODY_SELECTOR =
+  'button[aria-label="Edit weight entry"], button[aria-label="Add weight entry"]';
+
 const getCardWrapper = (baseElement) =>
-  baseElement
-    .querySelector('[aria-label="Dismiss selection"]')
-    .closest('[aria-hidden]');
+  baseElement.querySelector(CARD_BODY_SELECTOR).closest('[aria-hidden]');
 
 /**
  * The tracker detail surface is a single card pinned to the top centre of the
@@ -55,9 +60,10 @@ describe('WeightTrackerModal selection card', () => {
 
     // No floating tooltip: no node escapes the ModalShell z-lanes...
     expect(baseElement.querySelector('[class*="z-[1200]"]')).toBeNull();
-    // ...and the card is never positioned from the tapped point.
-    expect(card.className).toContain('top-2');
-    expect(card.getAttribute('style')).toBeNull();
+    // ...and the card is pinned to the plot's top edge by a constant, never
+    // measured from the tapped point (and never given a `left`).
+    expect(card.style.top).toBe('8px');
+    expect(card.style.left).toBe('');
   });
 
   it('shows the tapped day in the card, tied to it by a vertical guide line', async () => {
@@ -125,13 +131,36 @@ describe('WeightTrackerModal selection card', () => {
     );
   });
 
-  it('dismisses with the X while keeping the last content mounted', async () => {
+  it('re-targets instead of dismissing when another point is tapped', async () => {
+    const user = userEvent.setup();
+    const { baseElement } = renderModal();
+
+    const points = getChartPoints(baseElement);
+    await user.click(points[0]);
+    expect(
+      within(getCardWrapper(baseElement)).getByText(/74(\.0)? kg/)
+    ).toBeInTheDocument();
+
+    await user.click(points[1]);
+
+    const card = getCardWrapper(baseElement);
+    expect(card).toHaveAttribute('aria-hidden', 'false');
+    expect(within(card).getByText('74.4 kg')).toBeInTheDocument();
+  });
+
+  it('dismisses when the plot is tapped, keeping the last content mounted', async () => {
     const user = userEvent.setup();
     const { baseElement } = renderModal();
 
     const points = getChartPoints(baseElement);
     await user.click(points[points.length - 1]);
-    await user.click(screen.getByRole('button', { name: 'Dismiss selection' }));
+    expect(getCardWrapper(baseElement)).toHaveAttribute('aria-hidden', 'false');
+
+    // Dismissal is the graph container's own handler — there is no close button.
+    expect(
+      screen.queryByRole('button', { name: 'Dismiss selection' })
+    ).toBeNull();
+    await user.click(getCardWrapper(baseElement).parentElement);
 
     const card = getCardWrapper(baseElement);
     expect(card).toHaveAttribute('aria-hidden', 'true');

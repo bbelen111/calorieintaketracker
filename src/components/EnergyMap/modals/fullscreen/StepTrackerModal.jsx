@@ -611,6 +611,16 @@ export const StepTrackerModal = ({
       ? WEEK_BRACKET_HEIGHT + WEEK_BRACKET_TOP_PADDING
       : 0;
 
+  /*
+    The plot's top edge, in px from the graph container's top. Every layer that
+    aligns to the plot uses this one value — the chart, the y-axis column and the
+    selection card — so in 7d they all clear the weekly-average bracket band
+    together instead of the card sitting on top of the brackets. `weekBracketAreaHeight`
+    is already 0 outside 7d, so this collapses to the 8px every other tracker
+    modal uses.
+  */
+  const plotTopPx = weekBracketAreaHeight + 8;
+
   const chartHeight = useMemo(
     () =>
       graphViewportHeight > 0
@@ -1057,16 +1067,17 @@ export const StepTrackerModal = ({
     []
   );
 
-  // Empty slots carry no step data, so they are not selectable (the old
-  // tooltip applied the same rule by never rendering for them).
+  // Empty slots carry no step data, so they are not selectable — and the tap is
+  // deliberately NOT stopped, so it bubbles to the graph container's dismiss
+  // handler: tapping a gap in the plot closes the card, it never dead-ends.
   const handleDateClick = useCallback(
     (date, event) => {
       if (!date) return;
-      event?.stopPropagation();
       const hasData = isMonthSelection
         ? (monthsMap[date]?.entries?.length ?? 0) > 0
         : Boolean(entriesMap[date]);
       if (!hasData) return;
+      event?.stopPropagation();
       setSelectedDate((current) => (current === date ? null : date));
     },
     [isMonthSelection, monthsMap, entriesMap]
@@ -1521,7 +1532,7 @@ export const StepTrackerModal = ({
         <div
           className="absolute left-0"
           style={{
-            top: `${weekBracketAreaHeight + 8}px`,
+            top: `${plotTopPx}px`,
             width: `${totalWidth}px`,
             height: `${chartHeight}px`,
           }}
@@ -1828,7 +1839,10 @@ export const StepTrackerModal = ({
           <div className="border-b border-border flex-shrink-0" />
 
           {/* Graph carousel + Y-axis */}
-          <div className="relative flex-1 flex flex-col min-h-0">
+          <div
+            className="relative flex-1 flex flex-col min-h-0"
+            onClick={dismissSelection}
+          >
             <div className="flex-1 pr-2 pb-1 overflow-hidden flex">
               {/* Carousel */}
               <div className="relative rounded-l-lg flex-1 overflow-hidden">
@@ -1870,7 +1884,7 @@ export const StepTrackerModal = ({
                 <div
                   className="absolute inset-x-0 px-1"
                   style={{
-                    top: `${(viewMode === '7d' ? weekBracketAreaHeight : 0) + 8}px`,
+                    top: `${plotTopPx}px`,
                     height: `${chartHeight}px`,
                   }}
                 >
@@ -1928,13 +1942,15 @@ export const StepTrackerModal = ({
               </div>
             </div>
 
-            {/* Selection card — one fixed top-centre slot over the plot (right
-                inset clears the y-axis column). The guide line drawn inside the
-                chart is what ties the tapped bar to this card. Read-only: the
-                step tracker has no edit/add flow. */}
+            {/* Selection card — one fixed top-centre slot aligned to the plot's
+                top edge (`plotTopPx`), so in 7d it sits below the weekly-average
+                bracket band instead of covering it (right inset clears the y-axis
+                column). The guide line drawn inside the chart is what ties the
+                tapped bar to this card. Read-only: the step tracker has no
+                edit/add flow, and dismissal is a tap on the graph. */}
             <TrackerSelectionCard
               isOpen={isCardOpen}
-              onDismiss={dismissSelection}
+              topPx={plotTopPx}
               ariaLabel={
                 isMonthSelection ? 'Selected month steps' : 'Selected day steps'
               }

@@ -26,19 +26,30 @@ const renderModal = (props = {}) =>
   );
 
 /**
+ * The card's positioned wrapper — found through the card body, since the card
+ * has no close button (dismissal is a tap on the plot).
+ */
+const CARD_BODY_SELECTOR =
+  'button[aria-label="Edit body fat entry"], button[aria-label="Add body fat entry"]';
+
+const getCardWrapper = (baseElement) =>
+  baseElement.querySelector(CARD_BODY_SELECTOR).closest('[aria-hidden]');
+
+/**
  * Same selection-card contract as `WeightTrackerModal` (see that spec for the
  * full round trip): the shared card is always mounted in a fixed slot inside the
- * graph container and no measured `z-[1200]` tooltip exists.
+ * graph container, no measured `z-[1200]` tooltip exists, and the plot's own
+ * handler dismisses it.
  */
 describe('BodyFatTrackerModal selection card', () => {
   it('mounts the shared card and no measured tooltip', () => {
     const { baseElement } = renderModal();
 
-    const wrapper = baseElement
-      .querySelector('[aria-label="Dismiss selection"]')
-      .closest('[aria-hidden]');
+    const wrapper = getCardWrapper(baseElement);
     expect(wrapper).toHaveAttribute('aria-hidden', 'true');
-    expect(wrapper.getAttribute('style')).toBeNull();
+    // Constant plot-top, never measured geometry.
+    expect(wrapper.style.top).toBe('8px');
+    expect(wrapper.style.left).toBe('');
     expect(baseElement.querySelector('[class*="z-[1200]"]')).toBeNull();
   });
 
@@ -56,5 +67,20 @@ describe('BodyFatTrackerModal selection card', () => {
     const guide = baseElement.querySelector('svg line[stroke-dasharray="3 4"]');
     expect(guide).not.toBeNull();
     expect(guide.getAttribute('x1')).toBe(guide.getAttribute('x2'));
+  });
+
+  it('dismisses when the plot is tapped', async () => {
+    const user = userEvent.setup();
+    const { baseElement } = renderModal();
+
+    const points = baseElement.querySelectorAll('svg g.cursor-pointer');
+    await user.click(points[points.length - 1]);
+    expect(getCardWrapper(baseElement)).toHaveAttribute('aria-hidden', 'false');
+
+    await user.click(getCardWrapper(baseElement).parentElement);
+
+    const card = getCardWrapper(baseElement);
+    expect(card).toHaveAttribute('aria-hidden', 'true');
+    expect(within(card).getByText('17.6%')).toBeInTheDocument();
   });
 });

@@ -1772,7 +1772,10 @@ export const WeightTrackerModal = ({
           )}
 
           {/* Graph carousel + Y-axis */}
-          <div className="relative flex-1 flex flex-col min-h-0">
+          <div
+            className="relative flex-1 flex flex-col min-h-0"
+            onClick={dismissSelection}
+          >
             <div className="flex-1 pr-2 pb-1 overflow-hidden flex">
               {/* Carousel */}
               <div className="relative rounded-l-lg flex-1 overflow-hidden">
@@ -1846,7 +1849,6 @@ export const WeightTrackerModal = ({
                 chart is what ties the tapped slot to this card. */}
             <TrackerSelectionCard
               isOpen={isCardOpen}
-              onDismiss={dismissSelection}
               actionLabel={cardActionLabel}
               onAction={isMonthSelection ? undefined : handleCardAction}
               ariaLabel={cardAriaLabel}
@@ -1869,32 +1871,15 @@ export const WeightTrackerModal = ({
                       ? `${formatWeight(panelEntry.weight)} kg`
                       : 'No entry'}
                 </p>
-                <span className="flex items-center gap-2 flex-wrap pb-0.5">
-                  {isMonthSelection ? (
-                    panelMonth?.avg != null && (
-                      <TrackerCardMetric
-                        label="Tracked"
-                        value={`${getTrackedDaysCount(panelMonth.entries)}/${getDaysInMonthUtc(
-                          panelMonth.year,
-                          panelMonth.month
-                        )} d`}
-                      />
-                    )
-                  ) : (
-                    <>
-                      <TrackerCardMetric
-                        label="7d"
-                        value={avg7 != null ? `${formatWeight(avg7)} kg` : '—'}
-                      />
-                      <TrackerCardMetric
-                        label="14d"
-                        value={
-                          avg14 != null ? `${formatWeight(avg14)} kg` : '—'
-                        }
-                      />
-                    </>
-                  )}
-                </span>
+                {isMonthSelection && panelMonth?.avg != null && (
+                  <TrackerCardMetric
+                    label="Tracked"
+                    value={`${getTrackedDaysCount(panelMonth.entries)}/${getDaysInMonthUtc(
+                      panelMonth.year,
+                      panelMonth.month
+                    )} d`}
+                  />
+                )}
               </div>
             </TrackerSelectionCard>
           </div>

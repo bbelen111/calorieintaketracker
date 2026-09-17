@@ -41,22 +41,30 @@ const renderModal = (props = {}) =>
     />
   );
 
+/** The card's wrapper — found through the read-only body (the card has no X). */
+const getCardWrapper = (baseElement) =>
+  baseElement
+    .querySelector('[role="status"][aria-label="Selected day energy balance"]')
+    .closest('[aria-hidden]');
+
 /**
  * The rolling balance surface is read-only analytics, so its shared card has no
- * action footer and only *tracked* days are selectable (an empty day must not be
- * able to open a card that would have nothing honest to show).
+ * action footer, only *tracked* days are selectable, and a tap on an untracked
+ * day closes the card rather than opening one with nothing honest to show.
  */
 describe('RollingEnergyBalanceModal selection card', () => {
-  it('mounts a read-only card in the graph container and no measured tooltip', () => {
+  it('mounts a read-only card in the plot top slot, and no measured tooltip', () => {
     seedLedger();
     const { baseElement } = renderModal();
+    const card = getCardWrapper(baseElement);
 
-    const wrapper = baseElement
-      .querySelector('[aria-label="Dismiss selection"]')
-      .closest('[aria-hidden]');
-    expect(wrapper).toHaveAttribute('aria-hidden', 'true');
-    expect(wrapper.getAttribute('style')).toBeNull();
+    expect(card).toHaveAttribute('aria-hidden', 'true');
+    expect(card.style.top).toBe('8px');
+    expect(card.style.left).toBe('');
     expect(baseElement.querySelector('[class*="z-[1200]"]')).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Dismiss selection' })
+    ).toBeNull();
   });
 
   it('shows the tapped day balance, tied to it by a guide line', async () => {
@@ -79,18 +87,21 @@ describe('RollingEnergyBalanceModal selection card', () => {
     expect(guide.getAttribute('x1')).toBe(guide.getAttribute('x2'));
   });
 
-  it('ignores taps on days with no snapshot', async () => {
+  it('dismisses when an untracked day is tapped', async () => {
     seedLedger();
     const user = userEvent.setup();
     const { baseElement } = renderModal();
 
     const bars = baseElement.querySelectorAll('svg g.cursor-pointer');
-    // Slot order is oldest → newest, so the first bar is an untracked day.
+    // Slot order is oldest → newest, so the last bar is today's snapshot.
+    await user.click(bars[bars.length - 1]);
+    expect(getCardWrapper(baseElement)).toHaveAttribute('aria-hidden', 'false');
+
     await user.click(bars[0]);
 
-    const wrapper = baseElement
-      .querySelector('[aria-label="Dismiss selection"]')
-      .closest('[aria-hidden]');
-    expect(wrapper).toHaveAttribute('aria-hidden', 'true');
+    const card = getCardWrapper(baseElement);
+    expect(card).toHaveAttribute('aria-hidden', 'true');
+    // The retained day keeps the content mounted through the fade.
+    expect(within(card).getByText('2,600 kcal')).toBeInTheDocument();
   });
 });

@@ -18,10 +18,11 @@ const renderCard = (props = {}) =>
 
 /**
  * The selection card replaced the four tracker modals' floating tooltips. It
- * owns the shared contract those modals must not re-implement: one fixed
- * top-centre slot inside the graph container, a pure crossfade instead of an
- * unmount swap, `aria-hidden` + inert while closed, and an explicit X that is a
- * sibling of the body (never a nested button) so it cannot commit the action.
+ * owns the shared contract those modals must not re-implement: one fixed slot
+ * inside the graph container, a pure crossfade instead of an unmount swap,
+ * `aria-hidden` + inert while closed, a glass surface, and no close button —
+ * dismissal belongs to the modal's "tap the graph" handler, which the card must
+ * never let its own taps reach.
  */
 describe('TrackerSelectionCard', () => {
   it('stays mounted and crossfades instead of unmounting', () => {
@@ -42,17 +43,78 @@ describe('TrackerSelectionCard', () => {
     expect(container.firstChild.className).toContain('opacity-100');
   });
 
-  it('positions itself in one fixed slot, never from the tapped point', () => {
+  it('sits in one fixed slot: a constant top, never measured geometry', () => {
     const { container } = renderCard({ className: 'left-0 right-14' });
 
     const wrapper = container.firstChild;
-    // `className` replaces the default `inset-x-0`; no inline left/top is ever
-    // written (that measurement is what made the old tooltip drift).
+    // `className` replaces the default `inset-x-0`; the only inline geometry is
+    // the constant plot-top the modal hands in (never a measurement, and never
+    // a `left` — that is what made the old tooltip drift off its point).
     expect(wrapper.className).toContain('left-0');
     expect(wrapper.className).toContain('right-14');
-    expect(wrapper.className).toContain('top-2');
     expect(wrapper.className).not.toContain('inset-x-0');
-    expect(wrapper.getAttribute('style')).toBeNull();
+    expect(wrapper.getAttribute('style')).toBe('top: 8px;');
+  });
+
+  it('aligns to the plot top the modal passes', () => {
+    // StepTrackerModal passes weekBracketAreaHeight + 8 in 7d so the card clears
+    // the weekly-average bracket band instead of covering it.
+    const { container } = renderCard({ topPx: 48 });
+
+    expect(container.firstChild.style.top).toBe('48px');
+    expect(container.firstChild.style.left).toBe('');
+  });
+
+  it('frosts the card over the chart', () => {
+    const { container } = renderCard();
+    const card = container.querySelector('.pointer-events-auto');
+
+    expect(card.className).toContain('backdrop-blur-2xl');
+    expect(card.className).toContain('backdrop-saturate-150');
+    expect(card.className).toContain('border-border/40');
+    expect(card.className).toContain('bg-surface/85');
+    // Readable without blur on engines that lack backdrop-filter.
+    expect(card.className).toContain(
+      'supports-[backdrop-filter]:bg-surface/55'
+    );
+    // Content-sized, not a fixed 280px block eating a quarter of the plot.
+    expect(card.className).toContain('w-auto');
+    expect(card.className).not.toContain('max-w-[280px]');
+  });
+
+  it('has no close button — the graph owns dismissal', () => {
+    renderCard({
+      actionLabel: 'Tap to edit entry',
+      onAction: vi.fn(),
+      ariaLabel: 'Edit weight entry',
+    });
+
+    // The old X was a 21px tap target in the corner, which is unusable on a
+    // phone: dismissal is a tap on the plot instead.
+    expect(
+      screen.queryByRole('button', { name: 'Dismiss selection' })
+    ).toBeNull();
+  });
+
+  it('keeps its own taps away from the graph dismiss handler', async () => {
+    const onGraphTap = vi.fn();
+
+    render(
+      <div onClick={onGraphTap}>
+        <button type="button">plot</button>
+        <TrackerSelectionCard isOpen ariaLabel="Selected day steps">
+          <p>74.2 kg</p>
+        </TrackerSelectionCard>
+      </div>
+    );
+
+    // A tap on the card means "let me read this", not "close".
+    await userEvent.click(screen.getByText('74.2 kg'));
+    expect(onGraphTap).not.toHaveBeenCalled();
+
+    // ...while the graph around it still reaches the modal's handler.
+    await userEvent.click(screen.getByRole('button', { name: 'plot' }));
+    expect(onGraphTap).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the wrapper transparent to pointers but the card tappable', () => {
@@ -86,29 +148,15 @@ describe('TrackerSelectionCard', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
-  it('dismisses from the X without committing the action', async () => {
-    const onAction = vi.fn();
-    const onDismiss = vi.fn();
-    renderCard({ actionLabel: 'Tap to add entry', onAction, onDismiss });
-
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Dismiss selection' })
-    );
-
-    expect(onDismiss).toHaveBeenCalledTimes(1);
-    expect(onAction).not.toHaveBeenCalled();
-  });
-
   it('takes the closed card out of the tab order', () => {
     const { container } = renderCard({
       isOpen: false,
       actionLabel: 'Tap to edit entry',
       onAction: vi.fn(),
-      onDismiss: vi.fn(),
     });
 
     const buttons = container.querySelectorAll('button');
-    expect(buttons.length).toBe(2);
+    expect(buttons.length).toBe(1);
     for (const button of buttons) {
       expect(button).toHaveAttribute('tabindex', '-1');
     }

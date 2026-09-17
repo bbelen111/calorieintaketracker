@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronRight, X } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 
 /**
  * Inline `label value` metric pair used inside the selection card.
@@ -36,18 +36,27 @@ export const TrackerCardMetric = ({
  *   `translate-y`), so there is no mount churn and never an animated height.
  * - The wrapper is `pointer-events-none` and only the card captures pointer
  *   events, so the chart stays tappable everywhere except behind the card.
+ * - The card stops click propagation, so a tap on it can never fall through to
+ *   the modal's "tap the graph to dismiss" handler (a tap on a read-only card
+ *   means "let me read this", not "close").
  * - The hidden state is `aria-hidden` and removed from the tab order.
+ * - `topPx` is the plot's top edge (default 8, which is where every chart layer
+ *   starts). It is a CONSTANT handed down by the modal, never a measurement —
+ *   `StepTrackerModal` passes `weekBracketAreaHeight + 8` in 7d so the card
+ *   clears the weekly-average bracket band instead of covering it, exactly like
+ *   that modal's chart layer and y-axis column do. No `left` is ever written.
  * - `onAction` + `actionLabel` turn the card body into a button (the
  *   "tap to edit / tap to add" affordance); without them the card renders
  *   read-only as a polite live region with no footer action.
- * - `onDismiss` renders the explicit X. It is a SIBLING of the body (never a
- *   nested button) and never triggers `onAction`.
- * - Read `children` only compose content — placement/animation stay here, so
- *   the four tracker modals cannot drift apart.
+ * - Dismissal is the modal's job (`onClick` on the graph container), so there is
+ *   deliberately no close button: the old X was a 21px tap target in the corner,
+ *   which is unusable on a phone.
+ * - Read `children` only compose content — placement/animation/glass stay here,
+ *   so the four tracker modals cannot drift apart.
  */
 export const TrackerSelectionCard = ({
   isOpen = false,
-  onDismiss,
+  topPx = 8,
   actionLabel = null,
   onAction,
   ariaLabel,
@@ -62,9 +71,9 @@ export const TrackerSelectionCard = ({
 
   const content = (
     <>
-      <div className={`px-2.5 py-2 ${onDismiss ? 'pr-8' : ''}`}>{children}</div>
+      <div className="px-3 py-2.5">{children}</div>
       {isActionable && (
-        <div className="flex items-center justify-between gap-2 border-t border-border/60 px-2.5 py-1">
+        <div className="flex items-center justify-between gap-2 border-t border-border/30 px-3 py-1.5">
           <span className="text-muted text-[10px] uppercase tracking-wide">
             {actionLabel}
           </span>
@@ -79,12 +88,14 @@ export const TrackerSelectionCard = ({
       aria-hidden={!isOpen}
       className={`absolute ${
         className || 'inset-x-0'
-      } top-2 z-20 flex justify-center pointer-events-none transition-[opacity,transform] duration-150 ease-out ${
+      } z-20 flex justify-center pointer-events-none transition-[opacity,transform] duration-150 ease-out ${
         isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'
       }`}
+      style={{ top: topPx }}
     >
       <div
-        className={`pointer-events-auto relative w-full max-w-[280px] rounded-xl border border-border bg-surface/95 backdrop-blur-md shadow-2xl overflow-hidden ${
+        onClick={(event) => event.stopPropagation()}
+        className={`pointer-events-auto relative w-auto max-w-[calc(100%-1rem)] rounded-xl border border-border/40 bg-surface/85 supports-[backdrop-filter]:bg-surface/55 backdrop-blur-2xl backdrop-saturate-150 shadow-2xl shadow-background/40 overflow-hidden ${
           isOpen ? '' : 'pointer-events-none'
         }`}
       >
@@ -108,18 +119,6 @@ export const TrackerSelectionCard = ({
           >
             {content}
           </div>
-        )}
-
-        {onDismiss && (
-          <button
-            type="button"
-            onClick={onDismiss}
-            aria-label="Dismiss selection"
-            tabIndex={isOpen ? 0 : -1}
-            className="absolute right-1 top-1 rounded-md p-1 text-muted md:hover:text-foreground md:hover:bg-surface-highlight/60 pressable-inline focus-ring"
-          >
-            <X size={13} />
-          </button>
         )}
       </div>
     </div>

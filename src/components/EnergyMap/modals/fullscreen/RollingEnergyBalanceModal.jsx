@@ -646,14 +646,15 @@ export const RollingEnergyBalanceModal = ({
     setSelectedDate(null);
   }, []);
 
-  // Empty days are not selectable (the old tooltip applied the same rule by
-  // requiring `hasData` before rendering).
+  // Empty days are not selectable — and the tap is deliberately NOT stopped, so
+  // it bubbles to the graph container's dismiss handler: tapping a gap in the
+  // plot closes the card, it never dead-ends.
   const handleDateClick = useCallback(
     (date, event) => {
       if (!date) return;
-      event?.stopPropagation();
       const bar = bars.find((b) => b.date === date);
       if (!bar?.hasData) return;
+      event?.stopPropagation();
       setSelectedDate((current) => (current === date ? null : date));
     },
     [bars]
@@ -1155,7 +1156,10 @@ export const RollingEnergyBalanceModal = ({
               <Legend />
 
               {/* Graph carousel + Y-axis */}
-              <div className="relative flex-1 flex flex-col min-h-0 pb-2">
+              <div
+                className="relative flex-1 flex flex-col min-h-0 pb-2"
+                onClick={dismissSelection}
+              >
                 <div className="flex-1 pr-2 pb-1 overflow-hidden flex">
                   {/* Carousel */}
                   <div className="relative flex-1 overflow-hidden">
@@ -1312,7 +1316,6 @@ export const RollingEnergyBalanceModal = ({
                     Read-only: this surface is analytics. */}
                 <TrackerSelectionCard
                   isOpen={isCardOpen}
-                  onDismiss={dismissSelection}
                   ariaLabel="Selected day energy balance"
                   className="left-0 right-16"
                 >
