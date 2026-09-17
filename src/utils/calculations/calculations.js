@@ -170,8 +170,6 @@ const resolveTargetMacroDetails = ({ targetCalories, weightKg, userData }) => {
   const proteinGrams = recommendation.grams.protein;
   const carbsGrams = recommendation.grams.carbs;
   const fatsGrams = recommendation.grams.fats;
-  const proteinCalories = proteinGrams * PROTEIN_CALORIES_PER_GRAM;
-  const fatCalories = fatsGrams * FAT_CALORIES_PER_GRAM;
   const carbCalories = carbsGrams * CARB_CALORIES_PER_GRAM;
   const remainingCaloriesForCarbs = roundToTenth(carbCalories);
 

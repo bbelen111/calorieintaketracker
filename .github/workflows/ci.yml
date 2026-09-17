@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# One run per ref: a new push supersedes an in-flight run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Lint, test, build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          # '22.x' resolves to the newest 22 — Vitest 5 requires >= 22.12.0, so
+          # pinning '22.0' would install an unusable runtime.
+          node-version: '22.x'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # CI profile: same config as `npm run lint`, with the two pre-existing
+      # React-Compiler advisory rules reported as warnings instead of errors
+      # (see eslint.ci.config.js). Everything else is blocking.
+      - name: Lint
+        run: npm run lint:ci
+
+      # Runs the logic tier with the same coverage floors CI enforces.
+      - name: Logic tests + coverage floors
+        run: npm run test:coverage
+
+      - name: UI tests (jsdom)
+        run: npm run test:ui
+
+      - name: Build
+        run: npm run build
+
+      # Guards the documented Vite 8 / Rolldown `manualChunks` regression: the old
+      # object-map form throws `manualChunks is not a function` and stops emitting
+      # dist/index.html, which silently breaks `npx cap sync` on already-shipped
+      # builds. Assert the output Capacitor needs is actually there.
+      - name: Assert build output is Capacitor-syncable
+        run: |
+          set -euo pipefail
+
+          if [ ! -f dist/index.html ]; then
+            echo "::error::dist/index.html is missing — Capacitor would ship a broken bundle"
+            exit 1
+          fi
+
+          for chunk in react capacitor framer-motion zustand lucide dexie; do
+            if ! ls dist/assets | grep -q "^chunk-${chunk}-"; then
+              echo "::error::chunk-${chunk}-*.js missing — check build.rollupOptions.output.manualChunks in vite.config.js"
+              exit 1
+            fi
+          done
+
+          if [ -z "$(ls dist/assets/*.css 2>/dev/null)" ]; then
+            echo "::error::no CSS emitted into dist/assets"
+            exit 1
+          fi
+
+          echo "Build output verified: dist/index.html + expected vendor chunks."
+
+      # Deliberately `cap copy` (web assets + config only) rather than `cap sync`:
+      # sync also runs the Gradle update step, which needs the Android SDK and
+      # adds minutes for no extra signal here. The generated assets are gitignored.
+      - name: Copy web assets into the Android project
+        run: npx cap copy android

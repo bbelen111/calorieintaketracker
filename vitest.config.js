@@ -35,6 +35,15 @@ export default defineConfig({
       ],
       exclude: ['src/tests/**', 'src/**/*.spec.{js,jsx}'],
       reporter: ['text-summary', 'text'],
+      // Floors, not exact ratchets: deliberately a few points below the current
+      // measured values (lines 24.8 / branches 13.5 / functions 20.8) so adding
+      // an untested surface nudges rather than blocks CI, while a real collapse
+      // fails the build. Raise these as coverage improves.
+      thresholds: {
+        lines: 22,
+        branches: 11,
+        functions: 18,
+      },
     },
   },
 });

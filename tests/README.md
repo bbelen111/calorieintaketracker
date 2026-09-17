@@ -129,6 +129,56 @@ The test asserts the **desired** behaviour and is marked `it.fails`, so the suit
 be reported as an unexpected pass the moment the defect is fixed — then delete `.fails` and keep it as a
 normal regression test.
 
+## Continuous Integration
+
+`.github/workflows/ci.yml` runs on pushes to `main`, on pull requests, and manually (`workflow_dispatch`).
+One job, in this order — every step was run locally to confirm it passes:
+
+| Step | Command | Why |
+| --- | --- | --- |
+| Install | `npm ci` | Also proves `package-lock.json` is in sync with `package.json` (npm errors if not) |
+| Lint | `npm run lint:ci` | Blocking — see the profile note below |
+| Logic tier | `npm run test:coverage` | The 371 tests **and** the coverage floors |
+| UI tier | `npm run test:ui` | Vitest + jsdom (its own floors live in `vitest.config.js`) |
+| Build | `npm run build` | Must emit `dist/index.html` |
+| Build assertion | inline bash | Guards the Rolldown `manualChunks` regression |
+| Android copy | `npx cap copy android` | Proves the built web bundle lands in the native project |
+
+### Lint profiles
+
+- `npm run lint` — the strict profile (`eslint.config.js`). Two React-Compiler-era advisory rules that
+  `eslint-plugin-react-hooks` v7's recommended preset enables are **errors** here, so this command
+  currently reports 38 problems (37 errors) in pre-existing code.
+- `npm run lint:ci` — identical except those two rules are **warnings** (`eslint.ci.config.js`). This is
+  what CI gates on, so a red build on day one cannot hide genuine regressions in every other rule.
+
+The debt is real, not a false positive: `react-hooks/set-state-in-effect` (36 instances) and
+`react-hooks/preserve-manual-memoization` (1 instance) sit in the 4,600-line orchestrator plus 11
+modal/screen files that sync state on prop change and use manual memoization. Refactoring them belongs in
+its own change with UI verification. **Do not add new instances** — they appear as warnings in CI and as
+errors in `npm run lint`.
+
+### Coverage floors
+
+Floors, not exact ratchets: deliberately a few points below the measured values so that adding an
+untested surface nudges rather than blocks, while a real collapse fails the build.
+
+| Tier | Measured (lines / branch / funcs) | Enforced floor |
+| --- | --- | --- |
+| Logic — `npm run test:coverage` flags | 78.4 / 68.2 / 79.6 | 75 / 63 / 75 |
+| UI — `vitest.config.js` `coverage.thresholds` | 24.8 / 13.5 / 20.8 | 22 / 11 / 18 |
+
+A failure names the metric and the shortfall (e.g. `84.52% line coverage does not meet threshold of 99%`),
+and the gate was verified by running it with an impossible floor. Raise the floors as coverage improves.
+
+### Why `cap copy` instead of `cap sync`
+
+`cap sync` also runs the Gradle update step, which needs the Android SDK on the runner — minutes of setup
+for no extra signal here. `cap copy` is exactly what validates "the built web bundle lands in the native
+project", and every file it writes (`android/app/src/main/assets/public`, the generated
+`capacitor.config.json` / `capacitor.plugins.json`) is gitignored, so nothing native is written back into
+the repo.
+
 ## Conventions
 
 - ESM with explicit `.js` file extensions on relative imports (test-executed modules are resolved by Node directly).

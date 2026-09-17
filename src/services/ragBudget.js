@@ -51,9 +51,7 @@ export const RAG_GROUNDING_BATCH_FACTOR = 3;
 export const assertRagTimingInvariants = () => {
   const worstCaseBatchedLookups = Math.max(
     1,
-    Math.ceil(
-      RAG_MAX_DEFERRED_GROUNDING_ENTRIES / RAG_LOOKUP_CONCURRENCY_LIMIT
-    )
+    Math.ceil(RAG_MAX_DEFERRED_GROUNDING_ENTRIES / RAG_LOOKUP_CONCURRENCY_LIMIT)
   );
   const requiredBatchMs =
     RAG_TIMING.groundingLookupMs * worstCaseBatchedLookups;

@@ -1270,8 +1270,9 @@ npx cap open ios       # Open in Xcode (Mac only)
 ```
 
 ```powershell
-npm run lint           # ESLint check (flat config, Babel parser, Prettier integration)
+npm run lint           # ESLint check (flat config, Babel parser, Prettier integration) — strict profile
 npm run lint:fix       # Auto-fix lint issues
+npm run lint:ci        # CI profile (eslint.ci.config.js): same rules, two pre-existing advisory rules as warnings
 npm run format         # Prettier formatting
 npm run test           # Node test runner (logic tier)
 npm run test:watch     # Node test runner in watch mode
@@ -1292,8 +1293,11 @@ npm run test:ui:coverage # UI-tier coverage (components + hooks + modalStack)
 - UI-tier coverage scope is deliberately narrow: `src/components/**`, `src/hooks/**`, `src/utils/visuals/modalStack.js` and `src/services/barcodeScanner.js` (the plugin bridge this tier owns). The rest of `src/services/**` and all of `src/utils/**` remain the Node tier's job, so `npm run test:ui:coverage` stays meaningful. `hooks/useSwipeableScreens.js` is now reached indirectly (~47%) through the orchestrator's tab bar; its DOM drag/settle wiring is still not directly asserted, and its pure loop math belongs to `tests/utils/carouselLoop.test.js`.
 - **The orchestrator is covered by mounting it, not by extracting it.** `src/components/EnergyMap/EnergyMapCalculator.spec.jsx` mounts the real (4,600+ line) orchestrator against the real store, giving the hydration gate, all five carousel screens, tab→chrome wiring, store→screen propagation and a lazy `SettingsModal` open/close round trip. When adding to it: **scope text queries to the region under test** (`within(header)`) because screens render their own summary copy and a document-wide query silently matches the wrong element. Also note the store saves on a 1s debounce into a **module-scoped** Preferences double, so a previous test's pending save can be reloaded by the next `initialize()` — pin persisted flags explicitly (see `setSwipeHintSeen(...)` in that spec) instead of assuming a default.
 - **Full-browser E2E (Playwright) is deliberately deferred, not forgotten.** It was skipped because it needs selectors added across the orchestrator and 60 modal files (the app has zero `data-testid`/`aria-label`/`role` hooks today), a ~150 MB Chromium download, and it fights the swipe shell's rAF/compositor settles. Entry criteria: reach for it when a defect escapes that only a real browser would catch. What the integration tier cannot replace and Playwright would add: real layout/paint (carousel + tab-bar/dot geometry), IndexedDB persistence across a reload, and visual regression.
+- **CI (`.github/workflows/ci.yml`) gates the release path**, in this order: `npm ci` → `npm run lint:ci` → `npm run test:coverage` → `npm run test:ui` → `npm run build` → an inline assertion that `dist/index.html` plus the expected `chunk-*` vendor bundles exist → `npx cap copy android`. Every step was verified locally before being wired up, including the assertion's failure paths (missing `index.html`, missing chunk) and the coverage floors (an impossible floor exits 1).
+- **`lint:ci` exists because the strict profile is red on pre-existing code.** `npm run lint` reports 37 errors: 36 × `react-hooks/set-state-in-effect` and 1 × `react-hooks/preserve-manual-memoization`, both enabled as errors by `eslint-plugin-react-hooks` v7's recommended preset, across the orchestrator plus 11 modal/screen files that sync state on prop change. `eslint.ci.config.js` downgrades only those two rules to warnings so the CI gate is meaningful on day one; `npm run lint` stays strict so the debt is visible locally and in editors. **Do not add new instances** — refactoring them is its own change with UI verification.
+- **Coverage floors are floors, not ratchets:** logic tier 75 lines / 63 branch / 75 funcs (measured 78.4/68.2/79.6) and UI tier 22/11/18 (measured 24.8/13.5/20.8). They are deliberately a few points below the measured values so adding an untested surface nudges rather than blocks CI. Raise them as coverage improves. Never use `cap sync` in CI: it runs Gradle and needs the Android SDK, while `cap copy` is what actually proves the web bundle lands in the native project (and its output is gitignored).
 
-**ESLint config:** Flat config format (`eslint.config.js`), uses `@babel/eslint-parser` with JSX preset. `react/prop-types` is disabled. Prettier runs as an ESLint rule.
+**ESLint config:** Flat config format (`eslint.config.js`), uses `@babel/eslint-parser` with JSX preset. `react/prop-types` is disabled. Prettier runs as an ESLint rule. `eslint.ci.config.js` extends it for the CI gate, downgrading the two pre-existing React-Compiler advisory rules to warnings (see the CI notes above).
 
 ---
 
