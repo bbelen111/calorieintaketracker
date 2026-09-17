@@ -19,6 +19,10 @@ import {
 } from 'lucide-react';
 import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
+import {
+  TrackerSelectionCard,
+  TrackerCardMetric,
+} from '../../common/TrackerSelectionCard';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import {
   formatDateKeyUtc,
@@ -80,8 +84,6 @@ const KIND_META = {
 
 const TIMELINE_TRACK_HEIGHT = 36;
 const Y_TICK_COUNT = 5;
-const TOOLTIP_WIDTH = 150;
-const TOOLTIP_VERTICAL_OFFSET = 27;
 const SCROLL_SETTLE_DELAY_MS = 140;
 const GRAPH_ENTER_DURATION_MS = 280;
 const GRAPH_SWITCH_DURATION_MS = 220;
@@ -280,11 +282,25 @@ export const RollingEnergyBalanceModal = ({
     shallow
   );
 
-  // --- Selection tooltip state ---
+  // --- Selection state ---
   const [selectedDate, setSelectedDate] = useState(null);
-  const [tooltipEntered, setTooltipEntered] = useState(false);
-  const [tooltipClosing, setTooltipClosing] = useState(false);
-  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+  const [lastSelectedDate, setLastSelectedDate] = useState(null);
+  const [selectionSource, setSelectionSource] = useState(null);
+  // Render-phase retention (same contract as CalendarPickerModal /
+  // DayLedgerListModal): the retained date keeps the selection card's content
+  // after a deselect so the card cannot blank mid-fade, and no ref is read
+  // during render and no state is set from an effect.
+  if (!isOpen) {
+    if (selectedDate !== null) setSelectedDate(null);
+    if (lastSelectedDate !== null) {
+      setLastSelectedDate(null);
+      setSelectionSource(null);
+    }
+  } else if (selectedDate !== selectionSource) {
+    setSelectionSource(selectedDate);
+    if (selectedDate) setLastSelectedDate(selectedDate);
+  }
+  const panelDate = selectedDate ?? lastSelectedDate;
 
   // --- Carousel + animation state (mirrors the tracker modals) ---
   // activePageIndex tracks live scroll position (used only as a setter).
@@ -296,7 +312,6 @@ export const RollingEnergyBalanceModal = ({
   const [settledWindowData, setSettledWindowData] = useState(null);
 
   const carouselRef = useRef(null);
-  const tooltipRef = useRef(null);
   const headerSettleTimeoutRef = useRef(null);
   const graphAnimationTimeoutRef = useRef(null);
   const wasOpenRef = useRef(false);
@@ -626,97 +641,25 @@ export const RollingEnergyBalanceModal = ({
     });
   }, [timelineSlots, PAD, STEP, maxAbs, halfExtent, midlineY]);
 
-  // --- Tooltip / selection ---
-  const closeTooltip = useCallback(() => {
-    setTooltipClosing(true);
-    setTimeout(() => {
-      setSelectedDate(null);
-      setTooltipClosing(false);
-    }, 150);
+  // --- Selection (drives the selection card + the chart guide line) ---
+  const dismissSelection = useCallback(() => {
+    setSelectedDate(null);
   }, []);
 
+  // Empty days are not selectable (the old tooltip applied the same rule by
+  // requiring `hasData` before rendering).
   const handleDateClick = useCallback(
     (date, event) => {
       if (!date) return;
       event?.stopPropagation();
-      if (selectedDate === date) {
-        closeTooltip();
-      } else {
-        if (selectedDate) {
-          setTooltipClosing(true);
-          setTooltipEntered(false);
-        }
-        setSelectedDate(date);
-        setTooltipClosing(false);
-      }
+      const bar = bars.find((b) => b.date === date);
+      if (!bar?.hasData) return;
+      setSelectedDate((current) => (current === date ? null : date));
     },
-    [selectedDate, closeTooltip]
+    [bars]
   );
 
-  const handleLabelClick = useCallback(
-    (date, event) => {
-      if (!date) return;
-      event?.stopPropagation();
-      if (selectedDate === date) {
-        closeTooltip();
-      } else {
-        if (selectedDate) {
-          setTooltipClosing(true);
-          setTooltipEntered(false);
-        }
-        setSelectedDate(date);
-        setTooltipClosing(false);
-      }
-    },
-    [selectedDate, closeTooltip]
-  );
-
-  // Close tooltip on outside click (mirrors tracker modals).
-  useEffect(() => {
-    if (!selectedDate) return undefined;
-    const handlePointerDown = (event) => {
-      if (tooltipRef.current?.contains(event.target)) return;
-      const target = event.target;
-      if (target.tagName === 'rect' || target.tagName === 'g') return;
-      if (target.closest('[data-date-label]')) return;
-      closeTooltip();
-    };
-    document.addEventListener('pointerdown', handlePointerDown, true);
-    return () =>
-      document.removeEventListener('pointerdown', handlePointerDown, true);
-  }, [closeTooltip, selectedDate]);
-
-  // Tooltip enter animation.
-  useEffect(() => {
-    if (selectedDate && !tooltipClosing) {
-      const frame = requestAnimationFrame(() => setTooltipEntered(true));
-      return () => cancelAnimationFrame(frame);
-    }
-    if (!selectedDate) {
-      Promise.resolve().then(() => setTooltipEntered(false));
-    }
-    return undefined;
-  }, [selectedDate, tooltipClosing]);
-
-  const updateTooltipPosition = useCallback(() => {
-    if (!selectedDate) return;
-    const node = carouselRef.current;
-    if (!node) return;
-    const selectedBar = bars.find((b) => b.date === selectedDate);
-    if (!selectedBar) return;
-    const rect = node.getBoundingClientRect();
-    const rawX = rect.left + selectedBar.x - node.scrollLeft;
-    const rawY = rect.top + 8 + selectedBar.y;
-    setTooltipPosition({ x: rawX, y: rawY });
-  }, [selectedDate, bars]);
-
-  useLayoutEffect(() => {
-    if (!selectedDate) return undefined;
-    updateTooltipPosition();
-    const handleResize = () => updateTooltipPosition();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [selectedDate, updateTooltipPosition]);
+  const handleLabelClick = handleDateClick;
 
   // --- Snap detection (auto-lock), mirrors WeightTrackerModal ---
   const handleCarouselScroll = useCallback(() => {
@@ -732,14 +675,7 @@ export const RollingEnergyBalanceModal = ({
       setSettledPageIndex(idx);
       headerSettleTimeoutRef.current = null;
     }, SCROLL_SETTLE_DELAY_MS);
-    if (selectedDate) {
-      setTooltipClosing(true);
-      setTimeout(() => {
-        setSelectedDate(null);
-        setTooltipClosing(false);
-      }, 150);
-    }
-  }, [selectedDate, windowDays]);
+  }, [windowDays]);
 
   // Re-anchor header stats to the settled page.
   useEffect(() => {
@@ -811,7 +747,7 @@ export const RollingEnergyBalanceModal = ({
       // exits back to the ordinary ledger window.
       if (analysisActive) {
         onDismissAnalysisContext?.();
-        if (selectedDate) closeTooltip();
+        dismissSelection();
         triggerGraphAnimation('switch');
         if (next !== windowDays) {
           setWindowDays(next);
@@ -822,7 +758,7 @@ export const RollingEnergyBalanceModal = ({
         return;
       }
       if (next === windowDays) return;
-      if (selectedDate) closeTooltip();
+      dismissSelection();
       setWindowDays(next);
       setSettledPageIndex(-1);
       setSettledWindowData(null);
@@ -831,8 +767,7 @@ export const RollingEnergyBalanceModal = ({
     },
     [
       windowDays,
-      selectedDate,
-      closeTooltip,
+      dismissSelection,
       triggerGraphAnimation,
       analysisActive,
       onDismissAnalysisContext,
@@ -868,11 +803,18 @@ export const RollingEnergyBalanceModal = ({
         ? 'tracker-graph-switch'
         : '';
 
-  // --- Selected day for the tooltip ---
+  // --- Selected day for the selection card ---
   const selectedBar = selectedDate
     ? (bars.find((b) => b.date === selectedDate) ?? null)
     : null;
   const selectedKind = selectedBar ? selectedBar.kind : 'maintenance';
+
+  // Retained day keeps the card's content stable while it fades out.
+  const panelBar = panelDate
+    ? (bars.find((b) => b.date === panelDate) ?? null)
+    : null;
+  const panelKind = panelBar ? panelBar.kind : selectedKind;
+  const isCardOpen = Boolean(selectedBar?.hasData);
 
   // --- Render a single bar (StepTracker-style) ---
   const renderBar = (bar) => {
@@ -895,6 +837,21 @@ export const RollingEnergyBalanceModal = ({
         onClick={(e) => handleDateClick(bar.date, e)}
         className="cursor-pointer"
       >
+        {/* Selection guide line — ties the tapped bar to the top-centre
+            selection card. Drawn in chart coordinates (x = the bar's own x),
+            so panning and resizing can never make it drift off its bar. */}
+        {isSelected && (
+          <line
+            x1={bar.x}
+            y1={0}
+            x2={bar.x}
+            y2={chartHeight}
+            stroke="rgb(var(--accent-blue) / 0.45)"
+            strokeWidth={1.5}
+            strokeDasharray="3 4"
+            pointerEvents="none"
+          />
+        )}
         <rect
           x={bar.x - barW}
           y={0}
@@ -979,7 +936,6 @@ export const RollingEnergyBalanceModal = ({
             {showLabel && (
               <div
                 className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-pointer"
-                data-date-label
                 style={{ left: `${STEP / 2}px` }}
                 onClick={(e) => handleLabelClick(slot.date, e)}
               >
@@ -1199,7 +1155,7 @@ export const RollingEnergyBalanceModal = ({
               <Legend />
 
               {/* Graph carousel + Y-axis */}
-              <div className="flex-1 flex flex-col min-h-0 pb-2">
+              <div className="relative flex-1 flex flex-col min-h-0 pb-2">
                 <div className="flex-1 pr-2 pb-1 overflow-hidden flex">
                   {/* Carousel */}
                   <div className="relative flex-1 overflow-hidden">
@@ -1349,56 +1305,45 @@ export const RollingEnergyBalanceModal = ({
                     </div>
                   </div>
                 </div>
+
+                {/* Selection card — one fixed top-centre slot over the plot
+                    (right inset clears the y-axis column). The guide line drawn
+                    inside the chart is what ties the tapped bar to this card.
+                    Read-only: this surface is analytics. */}
+                <TrackerSelectionCard
+                  isOpen={isCardOpen}
+                  onDismiss={dismissSelection}
+                  ariaLabel="Selected day energy balance"
+                  className="left-0 right-16"
+                >
+                  <p className="text-muted text-[11px] truncate">
+                    {panelBar ? formatDateLabel(panelBar.date) : ''}
+                  </p>
+                  <div className="flex items-end justify-between gap-2 flex-wrap mt-0.5">
+                    <p
+                      className={`text-2xl font-bold leading-tight ${
+                        KIND_META[panelKind].textClass
+                      }`}
+                    >
+                      {panelBar ? formatSignedKcal(panelBar.balance) : ''}
+                    </p>
+                    <span className="flex items-center gap-2 flex-wrap pb-0.5">
+                      <TrackerCardMetric
+                        label="TDEE"
+                        value={panelBar ? formatKcal(panelBar.tdee) : ''}
+                      />
+                      <TrackerCardMetric
+                        label="Intake"
+                        value={panelBar ? formatKcal(panelBar.intake) : ''}
+                      />
+                    </span>
+                  </div>
+                </TrackerSelectionCard>
               </div>
             </>
           )}
         </div>
       </ModalShell>
-
-      {/* Selected-day tooltip */}
-      {selectedDate && selectedBar && selectedBar.hasData && (
-        <div
-          ref={tooltipRef}
-          className={`fixed z-[1200] bg-surface border border-border rounded-lg shadow-2xl p-4 transform -translate-x-1/2 -translate-y-full pointer-events-auto transition duration-150 ease-out ${
-            tooltipEntered && !tooltipClosing
-              ? 'opacity-100 scale-100'
-              : 'opacity-0 scale-95'
-          }`}
-          style={{
-            left: `${tooltipPosition.x}px`,
-            top: `${tooltipPosition.y - TOOLTIP_VERTICAL_OFFSET}px`,
-            width: `${TOOLTIP_WIDTH}px`,
-          }}
-          role="status"
-          tabIndex={-1}
-        >
-          <div className="rounded p-2">
-            <p className="text-muted text-[11.5px] mb-1">
-              {formatDateLabel(selectedBar.date)}
-            </p>
-            <p
-              className={`text-lg font-bold ${KIND_META[selectedKind].textClass}`}
-            >
-              {formatSignedKcal(selectedBar.balance)}
-            </p>
-            <div className="mt-2 pt-2 border-t border-border flex justify-between text-sm">
-              <div>
-                <p className="text-muted text-[10px] uppercase">TDEE</p>
-                <p className="text-foreground font-semibold">
-                  {formatKcal(selectedBar.tdee)}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-muted text-[10px] uppercase">Intake</p>
-                <p className="text-foreground font-semibold">
-                  {formatKcal(selectedBar.intake)}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="absolute left-1/2 transform -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-border" />
-        </div>
-      )}
     </>
   );
 };

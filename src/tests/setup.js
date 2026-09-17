@@ -98,3 +98,17 @@ if (!window.visualViewport) {
 
 // jsdom throws "Not implemented: window.scrollTo" through its virtual console.
 window.scrollTo = () => {};
+
+// jsdom implements neither `Element.prototype.scrollTo` nor `scrollBy`, and the
+// tracker modals drive their chart carousels imperatively (`carouselRef.current
+// .scrollTo({ left, behavior })`) from effects, so mounting one would emit an
+// unhandled `TypeError` per effect run. Shimmed at the prototype so every scroll
+// container in the tree is covered; scroll *position* stays 0, which is what the
+// snap maths expects from an unlaid-out jsdom element anyway.
+const elementPrototype = window.Element?.prototype;
+if (elementPrototype && typeof elementPrototype.scrollTo !== 'function') {
+  elementPrototype.scrollTo = () => {};
+}
+if (elementPrototype && typeof elementPrototype.scrollBy !== 'function') {
+  elementPrototype.scrollBy = () => {};
+}

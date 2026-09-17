@@ -178,7 +178,7 @@ src/
 │   │   ├─ forms/                  # Data entry (CardioModal, GoalModal, etc.)
 │   │   ├─ lists/                  # Browseable lists (`CalorieTargetModal`, CardioFavourites, CardioTypeList)
 │   │   └─ common/                 # ConfirmActionModal
-│   ├─ common/                     # Shared components (e.g., ModalShell, ScreenTabs, FoodTagBadges)
+│   ├─ common/                     # Shared components (e.g., ModalShell, ScreenTabs, FoodTagBadges, TrackerSelectionCard)
 │   └─ screens/                    # 5 carousel screens + PhaseDetailScreen
 ├─ store/
 │   └─ useEnergyMapStore.js        # Zustand store (state, actions, derived values, persistence)

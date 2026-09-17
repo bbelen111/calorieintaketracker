@@ -9,6 +9,10 @@ import React, {
 import { ChevronLeft, Info, Repeat, AlertCircle } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import {
+  TrackerSelectionCard,
+  TrackerCardMetric,
+} from '../../common/TrackerSelectionCard';
+import {
   calculateBodyFatTrend,
   formatBodyFat,
   sortBodyFatEntries,
@@ -22,7 +26,7 @@ import {
   getGoalAlignmentText,
   getGoalWeeklyTarget,
   formatWeeklyRate,
-  formatTooltipDate,
+  formatPanelDate,
   getOldDataWarningText,
   buildTaggedChartSlots,
 } from '../../../../utils/visuals/trackerHelpers';
@@ -38,7 +42,7 @@ import { formatDateKeyUtc } from '../../../../utils/data/dateKeys';
 
 // Local helpers that remain specific to this modal are below.
 // Shared helpers (TrendIcon, getTrendToneClass, getGoalAlignmentText,
-// getGoalWeeklyTarget, formatWeeklyRate, formatTooltipDate,
+// getGoalWeeklyTarget, formatWeeklyRate, formatPanelDate,
 // getOldDataWarningText) are imported from utils/trackerHelpers.
 
 // ---------------------------------------------------------------------------
@@ -49,8 +53,6 @@ const Y_TICK_COUNT = 7;
 const MIN_VISIBLE_BODY_FAT_RANGE = 4;
 const MIN_RANGE_PADDING = 0.5;
 const BASELINE_Y_OFFSET = 0;
-const TOOLTIP_WIDTH = 120;
-const TOOLTIP_VERTICAL_OFFSET = 27;
 const SCROLL_SETTLE_DELAY_MS = 140;
 const GRAPH_ENTER_DURATION_MS = 280;
 const GRAPH_SWITCH_DURATION_MS = 220;
@@ -98,7 +100,18 @@ const formatShortDate = (dateStr) => {
   return parts.replace(/^[A-Za-z]{3}/, (m) => m.toUpperCase());
 };
 
-// formatTooltipDate is now imported from utils/trackerHelpers
+// formatPanelDate is now imported from utils/trackerHelpers
+
+/** Month group → "January 2026" (selection card header in 12m mode). */
+const formatMonthLabel = (monthGroup) => {
+  if (!monthGroup) return '';
+  const date = new Date(Date.UTC(monthGroup.year, monthGroup.month, 1));
+  return date.toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+};
 
 const getWeekday = (dateStr) => {
   const date = new Date(dateStr + 'T00:00:00Z');
@@ -186,20 +199,34 @@ export const BodyFatTrackerModal = ({
   const [, setActivePageIndex] = useState(-1);
   const [settledPageIndex, setSettledPageIndex] = useState(-1);
   const [selectedDate, setSelectedDate] = useState(null);
-  const [tooltipEntered, setTooltipEntered] = useState(false);
-  const [tooltipClosing, setTooltipClosing] = useState(false);
-  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [graphViewportWidth, setGraphViewportWidth] = useState(0);
   const [graphViewportHeight, setGraphViewportHeight] = useState(0);
   const [graphAnimationPhase, setGraphAnimationPhase] = useState('idle');
 
   const carouselRef = useRef(null);
-  const tooltipRef = useRef(null);
-  const scrollCloseTimeoutRef = useRef(null);
   const headerSettleTimeoutRef = useRef(null);
   const graphAnimationTimeoutRef = useRef(null);
   const wasOpenRef = useRef(false);
   const prevEntriesLengthRef = useRef(resolvedEntries?.length ?? 0);
+
+  // --- Selection retention ---
+  // Render-phase retention (same contract as CalendarPickerModal /
+  // DayLedgerListModal): `lastSelectedDate` keeps the selection card's content
+  // after a deselect so the card cannot blank mid-fade, and no ref is read
+  // during render and no state is set from an effect.
+  const [lastSelectedDate, setLastSelectedDate] = useState(null);
+  const [selectionSource, setSelectionSource] = useState(null);
+  if (!isOpen) {
+    if (selectedDate !== null) setSelectedDate(null);
+    if (lastSelectedDate !== null) {
+      setLastSelectedDate(null);
+      setSelectionSource(null);
+    }
+  } else if (selectedDate !== selectionSource) {
+    setSelectionSource(selectedDate);
+    if (selectedDate) setLastSelectedDate(selectedDate);
+  }
+  const panelDate = selectedDate ?? lastSelectedDate;
 
   const prefersReducedMotion = useMemo(() => {
     if (
@@ -437,15 +464,7 @@ export const BodyFatTrackerModal = ({
       setSettledPageIndex(idx);
       headerSettleTimeoutRef.current = null;
     }, SCROLL_SETTLE_DELAY_MS);
-    // Close tooltip on scroll
-    if (selectedDate) {
-      setTooltipClosing(true);
-      setTimeout(() => {
-        setSelectedDate(null);
-        setTooltipClosing(false);
-      }, 150);
-    }
-  }, [selectedDate, viewMode]);
+  }, [viewMode]);
 
   // --- Global chart data (used for Y-axis in all modes) ---
   const globalChartData = useMemo(() => {
@@ -664,7 +683,7 @@ export const BodyFatTrackerModal = ({
     return { yPx: y, value: latestBf };
   }, [effectiveChartData, chartHeight, latestBf]);
 
-  // Entries map for tooltip
+  // Entries map for the selection card (and tap targets)
   const entriesMap = useMemo(() => {
     const map = {};
     sortedEntries.forEach((entry) => {
@@ -673,7 +692,7 @@ export const BodyFatTrackerModal = ({
     return map;
   }, [sortedEntries]);
 
-  // Months map for 12m tooltip
+  // Months map for 12m selection
   const monthsMap = useMemo(() => {
     const map = {};
     filledMonthGroups.forEach((m) => {
@@ -789,8 +808,8 @@ export const BodyFatTrackerModal = ({
     return '';
   }, [viewMode, timeline30d, timeline12m, settledPageIndex]);
 
-  // --- Tooltip ---
-  const selectedPoint = useMemo(() => {
+  // --- Selected slot (drives the selection card + the chart guide line) ---
+  const selectedSlot = useMemo(() => {
     if (!selectedDate) return null;
     if (viewMode === '7d') {
       const real = allPoints7d.find(
@@ -848,12 +867,8 @@ export const BodyFatTrackerModal = ({
     chartHeight,
   ]);
 
-  const closeTooltip = useCallback(() => {
-    setTooltipClosing(true);
-    setTimeout(() => {
-      setSelectedDate(null);
-      setTooltipClosing(false);
-    }, 150);
+  const dismissSelection = useCallback(() => {
+    setSelectedDate(null);
   }, []);
 
   const handleViewModeChange = useCallback(
@@ -862,22 +877,12 @@ export const BodyFatTrackerModal = ({
         return;
       }
 
-      if (selectedDate) {
-        closeTooltip();
-      }
-
+      dismissSelection();
       setViewMode(nextMode);
       triggerGraphAnimation('switch');
     },
-    [closeTooltip, selectedDate, triggerGraphAnimation, viewMode]
+    [dismissSelection, triggerGraphAnimation, viewMode]
   );
-
-  useEffect(() => {
-    const timeoutId = scrollCloseTimeoutRef.current;
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, []);
 
   useEffect(
     () => () => {
@@ -908,117 +913,82 @@ export const BodyFatTrackerModal = ({
     []
   );
 
+  const handleSelectedSlotTap = useCallback(
+    (date) => {
+      // Months are read-only, so re-tapping toggles the selection off. Days
+      // keep the long-standing "tap the same day again to edit/add" gesture;
+      // the selection card is the second, discoverable route to it.
+      if (viewMode === '12m') {
+        setSelectedDate(null);
+        return;
+      }
+      const entry = entriesMap[date];
+      if (entry) {
+        onEditEntry?.(entry);
+      } else {
+        onAddEntry?.(date);
+      }
+    },
+    [viewMode, entriesMap, onEditEntry, onAddEntry]
+  );
+
   const handleDateClick = useCallback(
     (date, event) => {
       if (!date) return;
       event?.stopPropagation();
-      const entry = entriesMap[date];
       if (selectedDate === date) {
-        if (viewMode !== '12m') {
-          if (entry) {
-            onEditEntry?.(entry);
-          } else {
-            onAddEntry?.(date);
-          }
-        }
-        closeTooltip();
-      } else {
-        if (selectedDate) {
-          setTooltipClosing(true);
-          setTooltipEntered(false);
-        }
-        setSelectedDate(date);
-        setTooltipClosing(false);
+        handleSelectedSlotTap(date);
+        return;
       }
+      setSelectedDate(date);
     },
-    [entriesMap, selectedDate, onEditEntry, onAddEntry, closeTooltip, viewMode]
+    [selectedDate, handleSelectedSlotTap]
   );
 
-  const handleLabelClick = useCallback(
-    (date, event) => {
-      if (!date) return;
-      event?.stopPropagation();
-      if (selectedDate === date) {
-        closeTooltip();
-      } else {
-        if (selectedDate) {
-          setTooltipClosing(true);
-          setTooltipEntered(false);
-        }
-        setSelectedDate(date);
-        setTooltipClosing(false);
-      }
-    },
-    [selectedDate, closeTooltip]
-  );
+  // Axis labels are a bigger touch target than the points in 7d/30d: tapping
+  // one selects its day, tapping it again deselects. Labels never commit an
+  // edit — that stays on the point and the card.
+  const handleLabelClick = useCallback((date, event) => {
+    if (!date) return;
+    event?.stopPropagation();
+    setSelectedDate((current) => (current === date ? null : date));
+  }, []);
 
-  // Close tooltip on outside click
-  useEffect(() => {
-    if (!selectedDate) return undefined;
-    const handlePointerDown = (event) => {
-      if (tooltipRef.current?.contains(event.target)) return;
-      const target = event.target;
-      if (target.tagName === 'circle' || target.tagName === 'g') return;
-      if (target.closest('[data-date-label]')) return;
-      closeTooltip();
-    };
-    document.addEventListener('pointerdown', handlePointerDown, true);
-    return () =>
-      document.removeEventListener('pointerdown', handlePointerDown, true);
-  }, [closeTooltip, selectedDate]);
+  // The card body is the discoverable edit/add route and commits the same
+  // action as re-tapping the slot, then dismisses.
+  const handleCardAction = useCallback(() => {
+    if (!selectedDate) return;
+    handleSelectedSlotTap(selectedDate);
+    setSelectedDate(null);
+  }, [selectedDate, handleSelectedSlotTap]);
 
-  // Tooltip enter animation
-  useEffect(() => {
-    if (selectedDate && !tooltipClosing) {
-      const frame = requestAnimationFrame(() => setTooltipEntered(true));
-      return () => cancelAnimationFrame(frame);
-    }
-    if (!selectedDate) {
-      Promise.resolve().then(() => setTooltipEntered(false));
-    }
-    return undefined;
-  }, [selectedDate, tooltipClosing]);
-
-  const handleTooltipClick = useCallback(
-    (e) => {
-      e.stopPropagation();
-      if (selectedDate) {
-        if (viewMode !== '12m') {
-          const entry = entriesMap[selectedDate];
-          if (entry) {
-            onEditEntry?.(entry);
-          } else {
-            onAddEntry?.(selectedDate);
-          }
-        }
-        closeTooltip();
-      }
-    },
-    [selectedDate, entriesMap, onEditEntry, onAddEntry, closeTooltip, viewMode]
-  );
-
-  const updateTooltipPosition = useCallback(() => {
-    if (!selectedPoint) return;
-    const node = carouselRef.current;
-    if (!node) return;
-    // All modes now use continuous scrolling — account for scroll offset
-    const rect = node.getBoundingClientRect();
-    const rawX = rect.left + selectedPoint.x - node.scrollLeft;
-    const rawY = rect.top + 16 + selectedPoint.y;
-    setTooltipPosition({ x: rawX, y: rawY });
-  }, [selectedPoint]);
-
-  useIsomorphicLayoutEffect(() => {
-    if (!selectedPoint) return undefined;
-    updateTooltipPosition();
-    const handleResize = () => updateTooltipPosition();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [selectedPoint, updateTooltipPosition]);
+  // --- Selection card content (retained date keeps the card from blanking) ---
+  const isMonthSelection = viewMode === '12m';
+  const panelEntry = panelDate ? (entriesMap[panelDate] ?? null) : null;
+  const panelMonth =
+    isMonthSelection && panelDate ? (monthsMap[panelDate] ?? null) : null;
+  const isCardOpen =
+    Boolean(selectedDate) &&
+    (isMonthSelection
+      ? Boolean(monthsMap[selectedDate])
+      : Boolean(selectedSlot));
+  const cardActionLabel = isMonthSelection
+    ? null
+    : panelEntry
+      ? 'Tap to edit entry'
+      : 'Tap to add entry';
+  const cardAriaLabel = isMonthSelection
+    ? 'Selected month summary'
+    : panelEntry
+      ? 'Edit body fat entry'
+      : 'Add body fat entry';
 
   // --- Mode-specific point sizing ---
   const pointRadius = MODE_POINT[viewMode]?.radius ?? 6;
   const pointHitRadius = MODE_POINT[viewMode]?.hitRadius ?? 12;
+  // x of the selected slot in chart coordinates (real points and empty slots
+  // both resolve), used for the guide line that ties the plot to the card.
+  const selectedGuideX = selectedSlot ? selectedSlot.x : null;
   const graphAnimationClass =
     graphAnimationPhase === 'enter'
       ? 'tracker-graph-enter'
@@ -1117,6 +1087,23 @@ export const BodyFatTrackerModal = ({
               );
             })}
 
+            {/* Selection guide line — the visible tie between the tapped slot
+                and the top-centre selection card. Drawn in chart coordinates
+                (x = the slot's own x), so panning and resizing can never make
+                it drift off its point. */}
+            {selectedGuideX != null && (
+              <line
+                x1={selectedGuideX}
+                y1={0}
+                x2={selectedGuideX}
+                y2={chartHeight}
+                stroke="rgb(var(--accent-blue) / 0.45)"
+                strokeWidth={1.5}
+                strokeDasharray="3 4"
+                pointerEvents="none"
+              />
+            )}
+
             {/* Area fill + line, drawn per gap-aware run */}
             {runs.map((run, runIndex) => {
               if (!run.points.length) return null;
@@ -1171,29 +1158,38 @@ export const BodyFatTrackerModal = ({
             {/* Points — real entries only; interpolated bridge slots get no dot */}
             {points
               .filter((p) => !p.isInterpolated)
-              .map((p) => (
-                <g
-                  key={p.date}
-                  onClick={(e) => handleDateClick(p.date, e)}
-                  className="cursor-pointer"
-                >
-                  <circle
-                    cx={p.x}
-                    cy={p.y}
-                    r={pointHitRadius}
-                    fill="transparent"
-                  />
-                  <circle
-                    cx={p.x}
-                    cy={p.y}
-                    r={pointRadius}
-                    fill="rgb(var(--surface))"
-                    stroke={trendVisual.color}
-                    strokeWidth="2"
-                    className="transition-all tracker-graph-point"
-                  />
-                </g>
-              ))}
+              .map((p) => {
+                const isSelected = p.date === selectedDate;
+                return (
+                  <g
+                    key={p.date}
+                    onClick={(e) => handleDateClick(p.date, e)}
+                    className="cursor-pointer"
+                  >
+                    <circle
+                      cx={p.x}
+                      cy={p.y}
+                      r={pointHitRadius}
+                      fill="transparent"
+                    />
+                    <circle
+                      cx={p.x}
+                      cy={p.y}
+                      r={isSelected ? pointRadius + 2 : pointRadius}
+                      fill={
+                        isSelected
+                          ? 'rgb(var(--accent-blue))'
+                          : 'rgb(var(--surface))'
+                      }
+                      stroke={
+                        isSelected ? 'rgb(var(--surface))' : trendVisual.color
+                      }
+                      strokeWidth={isSelected ? 3 : 2}
+                      className="transition-all tracker-graph-point"
+                    />
+                  </g>
+                );
+              })}
           </svg>
         </div>
 
@@ -1241,7 +1237,6 @@ export const BodyFatTrackerModal = ({
             >
               <div
                 className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-pointer"
-                data-date-label
                 style={{ left: `${STEP / 2}px` }}
                 onClick={(e) => handleLabelClick(s.date, e)}
               >
@@ -1320,7 +1315,6 @@ export const BodyFatTrackerModal = ({
               {showLabel && (
                 <div
                   className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-pointer"
-                  data-date-label
                   style={{ left: `${STEP / 2}px` }}
                   onClick={(e) => handleLabelClick(s.date, e)}
                 >
@@ -1385,7 +1379,6 @@ export const BodyFatTrackerModal = ({
           >
             <div
               className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-pointer"
-              data-date-label
               style={{ left: `${STEP / 2}px` }}
               onClick={(e) => handleLabelClick(m.key, e)}
             >
@@ -1509,7 +1502,7 @@ export const BodyFatTrackerModal = ({
                   <p className="text-muted text-[11px] mt-1">
                     {latestDate ? (
                       <span className="inline-flex items-center gap-2">
-                        <span>{formatTooltipDate(latestDate)}</span>
+                        <span>{formatPanelDate(latestDate)}</span>
                         {oldDataWarningText && (
                           <span className="inline-flex items-center gap-1 text-accent-yellow">
                             <AlertCircle size={10} className="shrink-0" />
@@ -1621,7 +1614,7 @@ export const BodyFatTrackerModal = ({
                       <p className="text-muted text-[11px] mt-1">
                         {latestDate ? (
                           <span className="inline-flex items-center gap-2">
-                            <span>{formatTooltipDate(latestDate)}</span>
+                            <span>{formatPanelDate(latestDate)}</span>
                             {oldDataWarningText && (
                               <span className="inline-flex items-center gap-1 text-accent-yellow">
                                 <AlertCircle size={10} className="shrink-0" />
@@ -1766,7 +1759,7 @@ export const BodyFatTrackerModal = ({
           )}
 
           {/* Graph carousel + Y-axis */}
-          <div className="flex-1 flex flex-col min-h-0">
+          <div className="relative flex-1 flex flex-col min-h-0">
             <div className="flex-1 pr-2 pb-1 overflow-hidden flex">
               {/* Carousel */}
               <div className="relative rounded-l-lg flex-1 overflow-hidden">
@@ -1836,112 +1829,64 @@ export const BodyFatTrackerModal = ({
                 </div>
               </div>
             </div>
+
+            {/* Selection card — one fixed top-centre slot over the plot (right
+                inset clears the y-axis column). The guide line drawn inside the
+                chart is what ties the tapped slot to this card. */}
+            <TrackerSelectionCard
+              isOpen={isCardOpen}
+              onDismiss={dismissSelection}
+              actionLabel={cardActionLabel}
+              onAction={isMonthSelection ? undefined : handleCardAction}
+              ariaLabel={cardAriaLabel}
+              className="left-0 right-14"
+            >
+              <p className="text-muted text-[11px] truncate">
+                {isMonthSelection
+                  ? formatMonthLabel(panelMonth)
+                  : panelDate
+                    ? formatPanelDate(panelDate)
+                    : ''}
+              </p>
+              <div className="flex items-end justify-between gap-2 flex-wrap mt-0.5">
+                <p className="text-foreground text-2xl font-bold leading-tight">
+                  {isMonthSelection
+                    ? panelMonth?.avg != null
+                      ? `${formatBodyFat(panelMonth.avg)}%`
+                      : 'No entries'
+                    : panelEntry
+                      ? `${formatBodyFat(panelEntry.bodyFat)}%`
+                      : 'No entry'}
+                </p>
+                <span className="flex items-center gap-2 flex-wrap pb-0.5">
+                  {isMonthSelection ? (
+                    panelMonth?.avg != null && (
+                      <TrackerCardMetric
+                        label="Tracked"
+                        value={`${getTrackedDaysCount(panelMonth.entries)}/${getDaysInMonthUtc(
+                          panelMonth.year,
+                          panelMonth.month
+                        )} d`}
+                      />
+                    )
+                  ) : (
+                    <>
+                      <TrackerCardMetric
+                        label="7d"
+                        value={avg7 != null ? `${formatBodyFat(avg7)}%` : '—'}
+                      />
+                      <TrackerCardMetric
+                        label="14d"
+                        value={avg14 != null ? `${formatBodyFat(avg14)}%` : '—'}
+                      />
+                    </>
+                  )}
+                </span>
+              </div>
+            </TrackerSelectionCard>
           </div>
         </div>
       </ModalShell>
-
-      {/* Tooltip */}
-      {selectedPoint &&
-        selectedDate &&
-        (viewMode === '12m'
-          ? !!monthsMap[selectedDate]
-          : entriesMap[selectedDate] || selectedPoint.isGhost) && (
-          <div
-            ref={tooltipRef}
-            className={`fixed z-[1200] bg-surface border border-border rounded-lg shadow-2xl p-4 transform -translate-x-1/2 -translate-y-full pointer-events-auto transition duration-150 ease-out ${
-              tooltipEntered && !tooltipClosing
-                ? 'opacity-100 scale-100'
-                : 'opacity-0 scale-95'
-            }`}
-            style={{
-              left: `${tooltipPosition.x}px`,
-              top: `${tooltipPosition.y - TOOLTIP_VERTICAL_OFFSET}px`,
-              width: `${TOOLTIP_WIDTH}px`,
-            }}
-            role={viewMode === '12m' ? 'status' : 'button'}
-            tabIndex={viewMode === '12m' ? -1 : 0}
-            aria-label={
-              viewMode === '12m'
-                ? 'Month info'
-                : entriesMap[selectedDate]
-                  ? 'Edit body fat entry'
-                  : 'Add body fat entry'
-            }
-            onClick={viewMode === '12m' ? undefined : handleTooltipClick}
-            onKeyDown={
-              viewMode === '12m'
-                ? undefined
-                : (event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      handleTooltipClick(event);
-                    }
-                  }
-            }
-          >
-            {viewMode === '12m' ? (
-              <div className="rounded p-2">
-                <p className="text-muted text-[11.5px] mb-1">
-                  {(() => {
-                    const m = monthsMap[selectedDate];
-                    if (!m) return selectedDate;
-                    const d = new Date(Date.UTC(m.year, m.month, 1));
-                    return d.toLocaleDateString('en-US', {
-                      month: 'long',
-                      year: 'numeric',
-                      timeZone: 'UTC',
-                    });
-                  })()}
-                </p>
-                {monthsMap[selectedDate]?.avg != null ? (
-                  <>
-                    <p className="text-foreground text-2xl font-bold">
-                      {formatBodyFat(monthsMap[selectedDate].avg)}%
-                    </p>
-                    <p className="text-muted text-[10px] mt-2 uppercase tracking-wide">
-                      {(() => {
-                        const month = monthsMap[selectedDate];
-                        if (!month) return '0/0 days tracked';
-                        const trackedDays = getTrackedDaysCount(month.entries);
-                        const daysInMonth = getDaysInMonthUtc(
-                          month.year,
-                          month.month
-                        );
-                        return `${trackedDays}/${daysInMonth} days tracked`;
-                      })()}
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-muted text-lg font-semibold">No entries</p>
-                )}
-              </div>
-            ) : (
-              <div className="cursor-pointer md:hover:bg-surface-highlight/50 rounded p-2 transition-all pressable focus-ring">
-                <p className="text-muted text-[11.5px] mb-1">
-                  {formatTooltipDate(selectedDate)}
-                </p>
-                {entriesMap[selectedDate] ? (
-                  <>
-                    <p className="text-foreground text-2xl font-bold">
-                      {formatBodyFat(entriesMap[selectedDate].bodyFat)}%
-                    </p>
-                    <p className="text-muted text-[10px] mt-2 uppercase tracking-wide">
-                      Tap to edit
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-muted text-lg font-semibold">No entry</p>
-                    <p className="text-accent-blue text-[10px] mt-2 uppercase tracking-wide">
-                      Tap to add
-                    </p>
-                  </>
-                )}
-              </div>
-            )}
-            <div className="absolute left-1/2 transform -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-border" />
-          </div>
-        )}
 
       {/* Body Fat Trend Info Modal */}
       <BodyFatTrendInfoModal
