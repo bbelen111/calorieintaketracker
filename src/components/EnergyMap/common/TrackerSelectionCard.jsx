@@ -26,14 +26,22 @@ export const TrackerCardMetric = ({
  * Replaces the old per-modal floating tooltip. Instead of being measured onto
  * the tapped point (`getBoundingClientRect()` + `scrollLeft` + a resize
  * listener + an outside-click document listener), the card lives in ONE fixed
- * slot: absolutely positioned, horizontally centred over the chart plot and
- * pinned to the top of the graph container. The selected slot is tied to the
- * card by a vertical guide line drawn inside the chart SVG, so nothing about
- * the card depends on scroll offset, viewport size, or which slot was tapped.
+ * slot: a plot-wide strip absolutely positioned inside the graph container and
+ * pinned to the plot's top edge. The selected slot is tied to the card by a
+ * vertical guide line drawn inside the chart SVG, so nothing about the card
+ * depends on scroll offset, viewport size, or which slot was tapped.
  *
  * Contract (mirrors the CalendarPicker / Daily Ledger panel conventions):
  * - Always mounted; visibility is a pure crossfade (`opacity` + a 4px
  *   `translate-y`), so there is no mount churn and never an animated height.
+ * - **It spans the plot, not its content.** `w-full` fills the wrapper the modal
+ *   insets to the plot area (`left-0 right-14`, or `right-16` for Rolling's
+ *   wider axis), so the strip is flush with the plot's left origin — the same
+ *   edge the carousel rounds with `rounded-l-lg` — and clears the y-axis column
+ *   whose scale would otherwise be covered. Content is padded `px-4` so the card's
+ *   text lands on the modal's own 16px gutter, lining the date up with the stat
+ *   labels above it, while the modals' `justify-between` value row pushes their
+ *   inline metrics to the strip's right edge.
  * - The wrapper is `pointer-events-none` and only the card captures pointer
  *   events, so the chart stays tappable everywhere except behind the card.
  * - The card stops click propagation, so a tap on it can never fall through to
@@ -71,9 +79,9 @@ export const TrackerSelectionCard = ({
 
   const content = (
     <>
-      <div className="px-3 py-2.5">{children}</div>
+      <div className="px-4 py-3">{children}</div>
       {isActionable && (
-        <div className="flex items-center justify-between gap-2 border-t border-border/30 px-3 py-1.5">
+        <div className="flex items-center justify-between gap-2 border-t border-border/30 px-4 py-2">
           <span className="text-muted text-[10px] uppercase tracking-wide">
             {actionLabel}
           </span>
@@ -95,7 +103,7 @@ export const TrackerSelectionCard = ({
     >
       <div
         onClick={(event) => event.stopPropagation()}
-        className={`pointer-events-auto relative w-auto max-w-[calc(100%-1rem)] rounded-xl border border-border/40 bg-surface/85 supports-[backdrop-filter]:bg-surface/55 backdrop-blur-2xl backdrop-saturate-150 shadow-2xl shadow-background/40 overflow-hidden ${
+        className={`pointer-events-auto relative w-full rounded-xl border border-border/40 bg-surface/85 supports-[backdrop-filter]:bg-surface/55 backdrop-blur-2xl backdrop-saturate-150 shadow-2xl shadow-background/40 overflow-hidden ${
           isOpen ? '' : 'pointer-events-none'
         }`}
       >

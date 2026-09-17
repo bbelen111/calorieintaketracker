@@ -77,9 +77,18 @@ describe('TrackerSelectionCard', () => {
     expect(card.className).toContain(
       'supports-[backdrop-filter]:bg-surface/55'
     );
-    // Content-sized, not a fixed 280px block eating a quarter of the plot.
-    expect(card.className).toContain('w-auto');
-    expect(card.className).not.toContain('max-w-[280px]');
+    // A plot-wide strip: it fills the wrapper the modal insets to the plot area,
+    // rather than shrink-wrapping its content.
+    expect(card.className).toContain('w-full');
+    expect(card.className).not.toContain('w-auto');
+  });
+
+  it('pads its text to the modal gutter', () => {
+    const { container } = renderCard();
+
+    // px-4 matches the tracker modals' own content gutter, so the card's date sits
+    // on the same vertical line as the stat labels above the chart.
+    expect(container.querySelector('.px-4')).toBeInTheDocument();
   });
 
   it('has no close button — the graph owns dismissal', () => {
