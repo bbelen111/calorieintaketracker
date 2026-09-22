@@ -6,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { ChevronLeft, Info, Repeat, AlertCircle } from 'lucide-react';
+import { ChevronLeft, Info, Repeat, AlertCircle, Plus } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import {
   TrackerSelectionCard,
@@ -1815,8 +1815,9 @@ export const WeightTrackerModal = ({
               <button
                 type="button"
                 onClick={() => onAddEntry?.()}
-                className="px-4 py-1.5 md:px-4 md:py-2.5 rounded-lg border-2 bg-accent-blue border-accent-blue/70 text-primary-foreground transition-all font-semibold text-sm md:hover:brightness-110 press-feedback focus-ring"
+                className="px-4 py-1.5 md:px-4 md:py-2.5 rounded-lg border-2 bg-accent-blue border-accent-blue/70 text-primary-foreground transition-all font-semibold text-sm md:hover:brightness-110 press-feedback focus-ring flex justify-center items-center"
               >
+                <Plus size={16} className="mr-1" />
                 Add Entry
               </button>
             </div>
