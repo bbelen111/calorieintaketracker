@@ -178,257 +178,259 @@ export const AddCustomFoodModal = ({
       isOpen={isOpen}
       isClosing={isClosing}
       onClose={onClose}
-      contentClassName="w-full md:max-w-2xl p-6"
+      allowKeyboardViewportResize
+      contentClassName="w-full md:max-w-2xl p-0 overflow-hidden"
     >
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <Utensils className="text-accent-blue" size={28} />
-        <h3 className="text-foreground font-bold text-2xl">Add Custom Food</h3>
-      </div>
-
-      <div className="space-y-5">
-        {/* Food Name */}
-        <div>
-          <label className="block text-foreground text-sm font-semibold mb-2">
-            Food Name
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g., Mom's Chicken Curry"
-            className="w-full bg-surface-highlight border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus-ring"
-          />
+      <div className="flex flex-col max-h-[86dvh] md:max-h-[46rem]">
+        <div className="flex items-center gap-3 px-4 py-4 sm:px-5 border-b border-border">
+          <Utensils className="text-accent-blue" size={28} />
+          <h3 className="text-foreground font-bold text-2xl">
+            Add Custom Food
+          </h3>
         </div>
 
-        {/* Tags */}
-        <div>
-          <label className="block text-foreground text-sm font-semibold mb-2">
-            Category
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {CUSTOM_FOOD_TAGS.map((tag) => {
-              const isSelected = selectedTags.includes(tag.id);
-              return (
-                <button
-                  key={tag.id}
-                  type="button"
-                  onClick={() => toggleTag(tag.id)}
-                  className={`px-2.5 py-1 rounded text-xs font-medium border transition-all cursor-pointer md:hover:opacity-80 ${getTagClasses(tag.id, isSelected)}`}
-                >
-                  {tag.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Nutrition per 100g */}
-        <div>
-          <label className="block text-foreground text-sm font-semibold mb-2">
-            Nutrition per 100g
-          </label>
-
-          {/* Calories */}
-          <div className="mb-3">
-            <label className="block text-muted text-xs mb-1.5">Calories</label>
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 sm:px-5 space-y-4 pb-6">
+          <div>
+            <label className="block text-foreground text-sm font-semibold mb-2">
+              Food Name
+            </label>
             <input
               type="text"
-              inputMode="decimal"
-              value={calories}
-              onChange={(e) =>
-                setCalories(sanitizeNumericInput(e.target.value))
-              }
-              placeholder="0"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g., Mom's Chicken Curry"
               className="w-full bg-surface-highlight border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus-ring"
             />
           </div>
 
-          {/* Macros Grid */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="block text-muted text-xs mb-1.5">
-                Protein (g)
-              </label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={protein}
-                onChange={(e) =>
-                  setProtein(sanitizeNumericInput(e.target.value))
-                }
-                placeholder="0"
-                className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
-              />
-            </div>
-            <div>
-              <label className="block text-muted text-xs mb-1.5">
-                Carbs (g)
-              </label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={carbs}
-                onChange={(e) => setCarbs(sanitizeNumericInput(e.target.value))}
-                placeholder="0"
-                className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
-              />
-            </div>
-            <div>
-              <label className="block text-muted text-xs mb-1.5">
-                Fats (g)
-              </label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={fats}
-                onChange={(e) => setFats(sanitizeNumericInput(e.target.value))}
-                placeholder="0"
-                className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
-              />
-            </div>
-          </div>
-
-          {/* Micros Grid (optional, nullable; empty = untracked) */}
-          <div className="grid grid-cols-2 gap-3 mt-3">
-            <div>
-              <label className="block text-muted text-xs mb-1.5">
-                Fiber (g)
-              </label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={fiber}
-                onChange={(e) => setFiber(sanitizeNumericInput(e.target.value))}
-                placeholder="0"
-                className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
-              />
-            </div>
-            <div>
-              <label className="block text-muted text-xs mb-1.5">
-                Sodium (mg)
-              </label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={sodium}
-                onChange={(e) =>
-                  setSodium(sanitizeNumericInput(e.target.value))
-                }
-                placeholder="0"
-                className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
-              />
-            </div>
-            <div>
-              <label className="block text-muted text-xs mb-1.5">
-                Sat. Fat (g)
-              </label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={saturatedFats}
-                onChange={(e) =>
-                  setSaturatedFats(sanitizeNumericInput(e.target.value))
-                }
-                placeholder="0"
-                className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
-              />
-            </div>
-            <div>
-              <label className="block text-muted text-xs mb-1.5">
-                Sugars (g)
-              </label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={sugars}
-                onChange={(e) =>
-                  setSugars(sanitizeNumericInput(e.target.value))
-                }
-                placeholder="0"
-                className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Custom Portions */}
-        <div>
-          <label className="block text-foreground text-sm font-semibold mb-2">
-            Custom Portions{' '}
-            <span className="text-muted text-xs font-normal">(optional)</span>
-          </label>
-
-          {/* Existing portions list */}
-          {portions.length > 0 && (
-            <div className="space-y-2 mb-3">
-              {portions.map((portion) => (
-                <div
-                  key={portion.id}
-                  className="flex items-center justify-between bg-surface/60 border border-border rounded-lg px-3 py-2"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-foreground font-medium text-sm">
-                      {portion.label}
-                    </span>
-                    <span className="text-muted text-sm">
-                      ({portion.grams}g)
-                    </span>
-                  </div>
+          <div>
+            <label className="block text-foreground text-sm font-semibold mb-2">
+              Category
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {CUSTOM_FOOD_TAGS.map((tag) => {
+                const isSelected = selectedTags.includes(tag.id);
+                return (
                   <button
+                    key={tag.id}
                     type="button"
-                    onClick={() => removePortion(portion.id)}
-                    className="text-muted md:hover:text-accent-red transition-colors pressable-inline focus-ring"
-                    aria-label={`Remove ${portion.label}`}
+                    onClick={() => toggleTag(tag.id)}
+                    className={`px-2.5 py-1 rounded text-xs font-medium border transition-all cursor-pointer md:hover:opacity-80 ${getTagClasses(tag.id, isSelected)}`}
                   >
-                    <Trash2 size={16} />
+                    {tag.label}
                   </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
-          )}
+          </div>
 
-          {/* Add new portion */}
-          <div className="flex items-end gap-2">
-            <div className="flex-1">
+          <div>
+            <label className="block text-foreground text-sm font-semibold mb-2">
+              Nutrition per 100g
+            </label>
+
+            <div className="mb-3">
               <label className="block text-muted text-xs mb-1.5">
-                Portion name
+                Calories
               </label>
               <input
                 type="text"
-                value={newPortionLabel}
-                onChange={(e) => setNewPortionLabel(e.target.value)}
-                placeholder="e.g., 1 serving"
-                className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2.5 text-foreground placeholder:text-muted focus-ring text-sm"
-              />
-            </div>
-            <div className="w-24">
-              <label className="block text-muted text-xs mb-1.5">Grams</label>
-              <input
-                type="text"
                 inputMode="decimal"
-                value={newPortionGrams}
+                value={calories}
                 onChange={(e) =>
-                  setNewPortionGrams(sanitizeNumericInput(e.target.value))
+                  setCalories(sanitizeNumericInput(e.target.value))
                 }
                 placeholder="0"
-                className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2.5 text-foreground placeholder:text-muted focus-ring text-sm"
+                className="w-full bg-surface-highlight border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus-ring"
               />
             </div>
-            <button
-              type="button"
-              onClick={addPortion}
-              disabled={!newPortionLabel.trim() || !newPortionGrams}
-              className="px-3 py-2.5 bg-primary md:hover:brightness-110 disabled:bg-surface-highlight/60 disabled:cursor-not-allowed disabled:text-muted text-primary-foreground rounded-lg font-medium transition-all press-feedback focus-ring"
-              aria-label="Add portion"
-            >
-              <Plus size={20} />
-            </button>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-muted text-xs mb-1.5">
+                  Protein (g)
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={protein}
+                  onChange={(e) =>
+                    setProtein(sanitizeNumericInput(e.target.value))
+                  }
+                  placeholder="0"
+                  className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
+                />
+              </div>
+              <div>
+                <label className="block text-muted text-xs mb-1.5">
+                  Carbs (g)
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={carbs}
+                  onChange={(e) =>
+                    setCarbs(sanitizeNumericInput(e.target.value))
+                  }
+                  placeholder="0"
+                  className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
+                />
+              </div>
+              <div>
+                <label className="block text-muted text-xs mb-1.5">
+                  Fats (g)
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={fats}
+                  onChange={(e) =>
+                    setFats(sanitizeNumericInput(e.target.value))
+                  }
+                  placeholder="0"
+                  className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <div>
+                <label className="block text-muted text-xs mb-1.5">
+                  Fiber (g)
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={fiber}
+                  onChange={(e) =>
+                    setFiber(sanitizeNumericInput(e.target.value))
+                  }
+                  placeholder="0"
+                  className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
+                />
+              </div>
+              <div>
+                <label className="block text-muted text-xs mb-1.5">
+                  Sodium (mg)
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={sodium}
+                  onChange={(e) =>
+                    setSodium(sanitizeNumericInput(e.target.value))
+                  }
+                  placeholder="0"
+                  className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
+                />
+              </div>
+              <div>
+                <label className="block text-muted text-xs mb-1.5">
+                  Sat. Fat (g)
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={saturatedFats}
+                  onChange={(e) =>
+                    setSaturatedFats(sanitizeNumericInput(e.target.value))
+                  }
+                  placeholder="0"
+                  className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
+                />
+              </div>
+              <div>
+                <label className="block text-muted text-xs mb-1.5">
+                  Sugars (g)
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={sugars}
+                  onChange={(e) =>
+                    setSugars(sanitizeNumericInput(e.target.value))
+                  }
+                  placeholder="0"
+                  className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted focus-ring"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-foreground text-sm font-semibold mb-2">
+              Custom Portions{' '}
+              <span className="text-muted text-xs font-normal">(optional)</span>
+            </label>
+
+            {portions.length > 0 && (
+              <div className="space-y-2 mb-3">
+                {portions.map((portion) => (
+                  <div
+                    key={portion.id}
+                    className="flex items-center justify-between bg-surface/60 border border-border rounded-lg px-3 py-2"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-foreground font-medium text-sm">
+                        {portion.label}
+                      </span>
+                      <span className="text-muted text-sm">
+                        ({portion.grams}g)
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removePortion(portion.id)}
+                      className="text-muted md:hover:text-accent-red transition-colors pressable-inline focus-ring"
+                      aria-label={`Remove ${portion.label}`}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <label className="block text-muted text-xs mb-1.5">
+                  Portion name
+                </label>
+                <input
+                  type="text"
+                  value={newPortionLabel}
+                  onChange={(e) => setNewPortionLabel(e.target.value)}
+                  placeholder="e.g., 1 serving"
+                  className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2.5 text-foreground placeholder:text-muted focus-ring text-sm"
+                />
+              </div>
+              <div className="w-24">
+                <label className="block text-muted text-xs mb-1.5">Grams</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={newPortionGrams}
+                  onChange={(e) =>
+                    setNewPortionGrams(sanitizeNumericInput(e.target.value))
+                  }
+                  placeholder="0"
+                  className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2.5 text-foreground placeholder:text-muted focus-ring text-sm"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={addPortion}
+                disabled={!newPortionLabel.trim() || !newPortionGrams}
+                className="px-3 py-2.5 bg-primary md:hover:brightness-110 disabled:bg-surface-highlight/60 disabled:cursor-not-allowed disabled:text-muted text-primary-foreground rounded-lg font-medium transition-all press-feedback focus-ring"
+                aria-label="Add portion"
+              >
+                <Plus size={20} />
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex gap-2 pt-2">
+        <div className="flex gap-2 px-4 py-3 sm:px-5 border-t border-border bg-surface pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
           <button
             type="button"
             onClick={() => onClose?.()}

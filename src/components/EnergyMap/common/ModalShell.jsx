@@ -116,6 +116,7 @@ export const ModalShell = ({
   const contentRef = useRef(null);
   const [isTopmost, setIsTopmost] = useState(false);
   const [stackDepth, setStackDepth] = useState(0);
+  const keyboardViewportActiveRef = useRef(false);
   const hasRegisteredRef = useRef(false);
   const lockedViewportHeightRef = useRef(null);
   const baseViewportHeightRef = useRef(null);
@@ -264,6 +265,15 @@ export const ModalShell = ({
     const overlayNode = overlayRef.current;
     const contentNode = contentRef.current;
 
+    const applyKeyboardLayout = (active) => {
+      keyboardViewportActiveRef.current = active;
+      if (!overlayNode || shouldFullHeight) return;
+
+      overlayNode.style.alignItems = active ? 'flex-end' : 'center';
+      overlayNode.style.padding = active ? '0.75rem' : '1rem';
+      overlayNode.style.paddingTop = '1rem';
+    };
+
     const getViewportHeight = () =>
       Math.round(window.visualViewport?.height || window.innerHeight || 0);
     const getViewportWidth = () =>
@@ -271,6 +281,7 @@ export const ModalShell = ({
 
     const initialHeight = getViewportHeight();
     const initialWidth = getViewportWidth();
+    applyKeyboardLayout(false);
     baseViewportHeightRef.current = initialHeight;
     baseViewportWidthRef.current = initialWidth;
     lockedViewportHeightRef.current = initialHeight || null;
@@ -284,9 +295,10 @@ export const ModalShell = ({
         contentNode.style.maxHeight = '';
       } else {
         contentNode.style.height = '';
-        contentNode.style.maxHeight = height
-          ? `${Math.round(height * 0.9)}px`
-          : '';
+        const maxHeight = allowKeyboardViewportResize
+          ? Math.max(Math.round(height - 24), 0)
+          : Math.round(height * 0.9);
+        contentNode.style.maxHeight = height ? `${maxHeight}px` : '';
       }
     };
 
@@ -299,11 +311,24 @@ export const ModalShell = ({
       const baseWidth = baseViewportWidthRef.current || currentWidth;
       const diff = Math.abs(currentHeight - baseHeight);
       const widthDiff = Math.abs(currentWidth - baseWidth);
+      const hasSignificantWidthChange =
+        widthDiff >= VIEWPORT_WIDTH_LAYOUT_DELTA;
+      const hasLargeHeightLayoutChange = diff > KEYBOARD_RESIZE_MAX_DELTA;
 
       if (allowKeyboardViewportResize) {
-        if (diff > 1 || widthDiff > 1) {
+        const isKeyboardSizedDelta =
+          diff >= KEYBOARD_RESIZE_MIN_DELTA &&
+          diff <= KEYBOARD_RESIZE_MAX_DELTA &&
+          widthDiff < VIEWPORT_WIDTH_LAYOUT_DELTA;
+        applyKeyboardLayout(isKeyboardSizedDelta);
+
+        if (hasSignificantWidthChange || hasLargeHeightLayoutChange) {
           baseViewportHeightRef.current = currentHeight;
           baseViewportWidthRef.current = currentWidth;
+          applyKeyboardLayout(false);
+        }
+
+        if (diff > 1 || widthDiff > 1) {
           lockedViewportHeightRef.current = currentHeight || null;
           applyHeight(currentHeight);
         }
@@ -313,9 +338,6 @@ export const ModalShell = ({
       // Ignore keyboard-driven viewport changes; only relock on true layout changes.
       const isKeyboardSizedDelta =
         diff >= KEYBOARD_RESIZE_MIN_DELTA && diff <= KEYBOARD_RESIZE_MAX_DELTA;
-      const hasSignificantWidthChange =
-        widthDiff >= VIEWPORT_WIDTH_LAYOUT_DELTA;
-      const hasLargeHeightLayoutChange = diff > KEYBOARD_RESIZE_MAX_DELTA;
 
       if (hasSignificantWidthChange || hasLargeHeightLayoutChange) {
         baseViewportHeightRef.current = currentHeight;
@@ -326,8 +348,11 @@ export const ModalShell = ({
       }
 
       if (isKeyboardSizedDelta) {
+        applyKeyboardLayout(false);
         return;
       }
+
+      applyKeyboardLayout(false);
     };
 
     window.addEventListener('resize', handleResize);
@@ -339,8 +364,12 @@ export const ModalShell = ({
       baseViewportHeightRef.current = null;
       baseViewportWidthRef.current = null;
       lockedViewportHeightRef.current = null;
+      applyKeyboardLayout(false);
       if (overlayNode) {
         overlayNode.style.height = '';
+        overlayNode.style.alignItems = '';
+        overlayNode.style.padding = '';
+        overlayNode.style.paddingTop = '';
       }
       if (contentNode) {
         contentNode.style.height = '';
