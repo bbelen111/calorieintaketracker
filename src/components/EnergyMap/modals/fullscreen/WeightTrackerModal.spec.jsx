@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -32,6 +32,10 @@ const getChartPoints = (baseElement) =>
 /** Axis label wrappers — the bigger tap target, and the only route to empty days. */
 const getSlotLabels = (baseElement) =>
   baseElement.querySelectorAll('div.absolute.cursor-pointer');
+
+/** The chart carousel — the modal's one horizontally scrollable container. */
+const getCarousel = (baseElement) =>
+  baseElement.querySelector('.overflow-x-auto');
 
 /**
  * The card's positioned wrapper (ModalShell portals its content to body). Found
@@ -161,6 +165,83 @@ describe('WeightTrackerModal selection card', () => {
       screen.queryByRole('button', { name: 'Dismiss selection' })
     ).toBeNull();
     await user.click(getCardWrapper(baseElement).parentElement);
+
+    const card = getCardWrapper(baseElement);
+    expect(card).toHaveAttribute('aria-hidden', 'true');
+    expect(within(card).getByText('74.4 kg')).toBeInTheDocument();
+  });
+
+  it('spans the full graph region, y-axis column included', () => {
+    const { baseElement } = renderModal();
+
+    // The card's default inset: an 8px gutter from the screen edges, so the strip
+    // never touches them (the axis column is still fully covered — its own right
+    // gutter is that same 8px).
+    const card = getCardWrapper(baseElement);
+    expect(card.className).toContain('inset-x-2');
+    expect(card.className).not.toContain('right-14');
+  });
+
+  it('adds signed deltas to the selected day', async () => {
+    const user = userEvent.setup();
+    const { baseElement } = renderModal();
+
+    const points = getChartPoints(baseElement);
+    await user.click(points[points.length - 1]);
+
+    const card = screen.getByRole('button', { name: 'Edit weight entry' });
+    // Change since the previous weigh-in (74 -> 74.4 the next day)...
+    expect(within(card).getByText('vs prev')).toBeInTheDocument();
+    expect(within(card).getByText('+0.4 kg')).toBeInTheDocument();
+    // ...and how far the reading sits from its own 7-day trend (74.1 kg avg).
+    expect(within(card).getByText('vs 7d avg')).toBeInTheDocument();
+    expect(within(card).getByText('+0.3 kg')).toBeInTheDocument();
+  });
+
+  it('discloses an irregular sampling span in the delta label', async () => {
+    const user = userEvent.setup();
+    const { baseElement } = renderModal({
+      entries: [
+        { date: '2026-01-01', weight: 74 },
+        { date: '2026-01-07', weight: 73.4 },
+      ],
+    });
+
+    const points = getChartPoints(baseElement);
+    await user.click(points[points.length - 1]);
+
+    const card = screen.getByRole('button', { name: 'Edit weight entry' });
+    // Six days between weigh-ins: the chip says so instead of implying "yesterday".
+    expect(within(card).getByText('vs prev (6d)')).toBeInTheDocument();
+    expect(within(card).getByText('-0.6 kg')).toBeInTheDocument();
+  });
+
+  it('omits the deltas when there is nothing honest to compare', async () => {
+    const user = userEvent.setup();
+    const { baseElement } = renderModal();
+
+    // The 7d timeline pads empty days before the first entry; they are selectable
+    // through their axis label and carry no reading to compare against.
+    const labels = getSlotLabels(baseElement);
+    await user.click(labels[0]);
+
+    const card = screen.getByRole('button', { name: 'Add weight entry' });
+    expect(within(card).getByText('No entry')).toBeInTheDocument();
+    expect(within(card).queryByText('vs prev')).toBeNull();
+    expect(within(card).queryByText('vs 7d avg')).toBeNull();
+  });
+
+  it('dismisses the card when the plot is panned', async () => {
+    const user = userEvent.setup();
+    const { baseElement } = renderModal();
+
+    const points = getChartPoints(baseElement);
+    await user.click(points[points.length - 1]);
+    expect(getCardWrapper(baseElement)).toHaveAttribute('aria-hidden', 'false');
+
+    // A swipe means "let me read the plot", so the card closes — and the retained
+    // content keeps it from blanking while it fades out.
+    fireEvent.scroll(getCarousel(baseElement));
 
     const card = getCardWrapper(baseElement);
     expect(card).toHaveAttribute('aria-hidden', 'true');

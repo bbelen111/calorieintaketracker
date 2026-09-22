@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -33,6 +33,10 @@ const getCardWrapper = (baseElement) =>
   baseElement
     .querySelector('[role="status"][aria-label="Selected day steps"]')
     .closest('[aria-hidden]');
+
+/** The chart carousel — the modal's one horizontally scrollable container. */
+const getCarousel = (baseElement) =>
+  baseElement.querySelector('.overflow-x-auto');
 
 /** The plot's own layer: the div wrapping the main (last) chart svg. */
 const getPlotLayer = (baseElement) => {
@@ -109,5 +113,42 @@ describe('StepTrackerModal selection card', () => {
     const card = getCardWrapper(baseElement);
     expect(card).toHaveAttribute('aria-hidden', 'true');
     expect(within(card).getByText('12,500 steps')).toBeInTheDocument();
+  });
+
+  it('keeps an 8px gutter from the screen edges, y-axis still covered', () => {
+    const { baseElement } = renderModal();
+
+    const card = getCardWrapper(baseElement);
+    expect(card.className).toContain('inset-x-2');
+    expect(card.className).not.toContain('right-16');
+  });
+
+  it('dismisses the card when the plot is panned', async () => {
+    const user = userEvent.setup();
+    const { baseElement } = renderModal();
+
+    const bars = baseElement.querySelectorAll('svg g.cursor-pointer');
+    await user.click(bars[bars.length - 1]);
+    expect(getCardWrapper(baseElement)).toHaveAttribute('aria-hidden', 'false');
+
+    fireEvent.scroll(getCarousel(baseElement));
+
+    const card = getCardWrapper(baseElement);
+    expect(card).toHaveAttribute('aria-hidden', 'true');
+    expect(within(card).getByText('12,500 steps')).toBeInTheDocument();
+  });
+
+  it('stays a plain step card — no weight / body fat delta chips', async () => {
+    const user = userEvent.setup();
+    const { baseElement } = renderModal();
+
+    const bars = baseElement.querySelectorAll('svg g.cursor-pointer');
+    await user.click(bars[bars.length - 1]);
+
+    // The deltas are a Weight / Body Fat detail: steps have no "previous reading"
+    // story to tell, and the card's Distance / Burned metrics are its detail.
+    const card = getCardWrapper(baseElement);
+    expect(within(card).queryByText('vs prev')).toBeNull();
+    expect(within(card).queryByText('vs 7d avg')).toBeNull();
   });
 });

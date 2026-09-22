@@ -1310,21 +1310,22 @@ export const RollingEnergyBalanceModal = ({
                   </div>
                 </div>
 
-                {/* Selection card — one fixed top-centre slot over the plot
-                    (right inset clears the y-axis column). The guide line drawn
-                    inside the chart is what ties the tapped bar to this card.
-                    Read-only: this surface is analytics. */}
+                {/* Selection card — one fixed slot inset 8px from the screen edges
+                    (so the strip never touches them) while still covering the y-axis
+                    column, whose own right gutter is that same 8px — matching the
+                    other tracker surfaces. The guide line drawn inside the chart is
+                    what ties the tapped bar to this card. Read-only analytics, so a
+                    tap on the plot (not a swipe) is what dismisses it. */}
                 <TrackerSelectionCard
                   isOpen={isCardOpen}
                   ariaLabel="Selected day energy balance"
-                  className="left-0 right-16"
                 >
                   <p className="text-muted text-[11px] truncate">
                     {panelBar ? formatDateLabel(panelBar.date) : ''}
                   </p>
                   <div className="flex items-end justify-between gap-2 flex-wrap mt-0.5">
                     <p
-                      className={`text-2xl font-bold leading-tight ${
+                      className={`text-xl font-bold leading-tight ${
                         KIND_META[panelKind].textClass
                       }`}
                     >

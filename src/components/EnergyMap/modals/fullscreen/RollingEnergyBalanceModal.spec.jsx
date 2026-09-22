@@ -61,6 +61,10 @@ describe('RollingEnergyBalanceModal selection card', () => {
     expect(card).toHaveAttribute('aria-hidden', 'true');
     expect(card.style.top).toBe('8px');
     expect(card.style.left).toBe('');
+    // The 8px gutter from the screen edges, like the other three tracker cards: the
+    // strip never touches the edges, and the y-axis column is still behind it while
+    // it is open.
+    expect(card.className).toContain('inset-x-2');
     expect(baseElement.querySelector('[class*="z-[1200]"]')).toBeNull();
     expect(
       screen.queryByRole('button', { name: 'Dismiss selection' })

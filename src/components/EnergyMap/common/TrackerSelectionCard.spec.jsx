@@ -47,13 +47,31 @@ describe('TrackerSelectionCard', () => {
     const { container } = renderCard({ className: 'left-0 right-14' });
 
     const wrapper = container.firstChild;
-    // `className` replaces the default `inset-x-0`; the only inline geometry is
-    // the constant plot-top the modal hands in (never a measurement, and never
-    // a `left` — that is what made the old tooltip drift off its point).
+    // `className` still overrides the default `inset-x-2` inset (no tracker modal
+    // needs it today, but the hook stays for a surface that must clear the axis);
+    // the only inline geometry is the constant plot-top the modal hands in —
+    // never a measurement, and never a `left`, which is what made the old tooltip
+    // drift off its point.
     expect(wrapper.className).toContain('left-0');
     expect(wrapper.className).toContain('right-14');
-    expect(wrapper.className).not.toContain('inset-x-0');
+    expect(wrapper.className).not.toContain('inset-x-2');
     expect(wrapper.getAttribute('style')).toBe('top: 8px;');
+  });
+
+  it('keeps an 8px gutter from the screen edges and still covers the y-axis', () => {
+    const { container } = renderCard();
+
+    // All four tracker modals render the card without a `className`, so this
+    // default is what they get: an 8px breathing strip at each screen edge (the
+    // same gutter the modals' graph row carries as `pr-2`), with the right edge
+    // still landing on the y-axis column's own right edge — so the axis scale and
+    // the current-value pill stay behind the card instead of peeking out beside it.
+    // That trade-off is accepted: the card's own value is the reading you need, and
+    // a tap or a swipe dismisses it.
+    const wrapper = container.firstChild;
+    expect(wrapper.className).toContain('inset-x-2');
+    expect(wrapper.className).not.toContain('right-14');
+    expect(wrapper.className).not.toContain('right-16');
   });
 
   it('aligns to the plot top the modal passes', () => {

@@ -34,14 +34,20 @@ export const TrackerCardMetric = ({
  * Contract (mirrors the CalendarPicker / Daily Ledger panel conventions):
  * - Always mounted; visibility is a pure crossfade (`opacity` + a 4px
  *   `translate-y`), so there is no mount churn and never an animated height.
- * - **It spans the plot, not its content.** `w-full` fills the wrapper the modal
- *   insets to the plot area (`left-0 right-14`, or `right-16` for Rolling's
- *   wider axis), so the strip is flush with the plot's left origin — the same
- *   edge the carousel rounds with `rounded-l-lg` — and clears the y-axis column
- *   whose scale would otherwise be covered. Content is padded `px-4` so the card's
- *   text lands on the modal's own 16px gutter, lining the date up with the stat
- *   labels above it, while the modals' `justify-between` value row pushes their
- *   inline metrics to the strip's right edge.
+ * - **It spans the graph region, not its content.** The default wrapper inset is
+ *   `inset-x-2` — 8px, the same gutter the modals' graph row already carries as
+ *   `pr-2` — so `w-full` fills the graph container minus a breathing strip at each
+ *   screen edge: the strip never touches the screen edges, and its right edge still
+ *   lands on the y-axis column's own right edge, so the axis (ticks and the
+ *   current-value pill) stays fully behind the card while it is open. That is the
+ *   accepted trade-off: the card's own value is the reading you need, and any tap or
+ *   swipe dismisses it. `className` still overrides the inset if a future surface
+ *   needs to clear the axis. Content is padded `px-4 py-2.5` — `px-4` so the card's
+ *   text lands on the modal's own 16px gutter (lining the date up with the stat
+ *   labels above it), and a deliberately compact vertical rhythm because the card
+ *   overlays the plot's top band, where height is the budget. The modals'
+ *   `justify-between` value row pushes their inline metrics (and the Weight / Body
+ *   Fat day deltas) to the strip's right edge.
  * - The wrapper is `pointer-events-none` and only the card captures pointer
  *   events, so the chart stays tappable everywhere except behind the card.
  * - The card stops click propagation, so a tap on it can never fall through to
@@ -56,7 +62,8 @@ export const TrackerCardMetric = ({
  * - `onAction` + `actionLabel` turn the card body into a button (the
  *   "tap to edit / tap to add" affordance); without them the card renders
  *   read-only as a polite live region with no footer action.
- * - Dismissal is the modal's job (`onClick` on the graph container), so there is
+ * - Dismissal is the modal's job (`onClick` on the graph container, plus a
+ *   scroll-driven dismiss in the Weight / Body Fat / Step carousels), so there is
  *   deliberately no close button: the old X was a 21px tap target in the corner,
  *   which is unusable on a phone.
  * - Read `children` only compose content — placement/animation/glass stay here,
@@ -79,9 +86,9 @@ export const TrackerSelectionCard = ({
 
   const content = (
     <>
-      <div className="px-4 py-3">{children}</div>
+      <div className="px-4 py-2.5">{children}</div>
       {isActionable && (
-        <div className="flex items-center justify-between gap-2 border-t border-border/30 px-4 py-2">
+        <div className="flex items-center justify-between gap-2 border-t border-border/30 px-4 py-1.5">
           <span className="text-muted text-[10px] uppercase tracking-wide">
             {actionLabel}
           </span>
@@ -95,7 +102,7 @@ export const TrackerSelectionCard = ({
     <div
       aria-hidden={!isOpen}
       className={`absolute ${
-        className || 'inset-x-0'
+        className || 'inset-x-2'
       } z-20 flex justify-center pointer-events-none transition-[opacity,transform] duration-150 ease-out ${
         isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'
       }`}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -34,6 +34,10 @@ const CARD_BODY_SELECTOR =
 
 const getCardWrapper = (baseElement) =>
   baseElement.querySelector(CARD_BODY_SELECTOR).closest('[aria-hidden]');
+
+/** The chart carousel — the modal's one horizontally scrollable container. */
+const getCarousel = (baseElement) =>
+  baseElement.querySelector('.overflow-x-auto');
 
 /**
  * Same selection-card contract as `WeightTrackerModal` (see that spec for the
@@ -78,6 +82,60 @@ describe('BodyFatTrackerModal selection card', () => {
     expect(getCardWrapper(baseElement)).toHaveAttribute('aria-hidden', 'false');
 
     await user.click(getCardWrapper(baseElement).parentElement);
+
+    const card = getCardWrapper(baseElement);
+    expect(card).toHaveAttribute('aria-hidden', 'true');
+    expect(within(card).getByText('17.6%')).toBeInTheDocument();
+  });
+
+  it('keeps an 8px gutter from the screen edges, y-axis still covered', () => {
+    const { baseElement } = renderModal();
+
+    const card = getCardWrapper(baseElement);
+    expect(card.className).toContain('inset-x-2');
+    expect(card.className).not.toContain('right-14');
+  });
+
+  it('adds signed deltas to the selected day', async () => {
+    const user = userEvent.setup();
+    const { baseElement } = renderModal();
+
+    const points = baseElement.querySelectorAll('svg g.cursor-pointer');
+    await user.click(points[points.length - 1]);
+
+    const card = screen.getByRole('button', { name: 'Edit body fat entry' });
+    // Change since the previous measurement (18 -> 17.6 the next day)...
+    expect(within(card).getByText('vs prev')).toBeInTheDocument();
+    expect(within(card).getByText('-0.4%')).toBeInTheDocument();
+    // ...and how far the reading sits from its own 7-day trend (17.9% avg).
+    expect(within(card).getByText('vs 7d avg')).toBeInTheDocument();
+    expect(within(card).getByText('-0.3%')).toBeInTheDocument();
+  });
+
+  it('omits the deltas when there is nothing honest to compare', async () => {
+    const user = userEvent.setup();
+    const { baseElement } = renderModal();
+
+    // The 7d timeline pads empty days before the first entry; they are selectable
+    // through their axis label and carry no reading to compare against.
+    const labels = baseElement.querySelectorAll('div.absolute.cursor-pointer');
+    await user.click(labels[0]);
+
+    const card = screen.getByRole('button', { name: 'Add body fat entry' });
+    expect(within(card).getByText('No entry')).toBeInTheDocument();
+    expect(within(card).queryByText('vs prev')).toBeNull();
+    expect(within(card).queryByText('vs 7d avg')).toBeNull();
+  });
+
+  it('dismisses the card when the plot is panned', async () => {
+    const user = userEvent.setup();
+    const { baseElement } = renderModal();
+
+    const points = baseElement.querySelectorAll('svg g.cursor-pointer');
+    await user.click(points[points.length - 1]);
+    expect(getCardWrapper(baseElement)).toHaveAttribute('aria-hidden', 'false');
+
+    fireEvent.scroll(getCarousel(baseElement));
 
     const card = getCardWrapper(baseElement);
     expect(card).toHaveAttribute('aria-hidden', 'true');

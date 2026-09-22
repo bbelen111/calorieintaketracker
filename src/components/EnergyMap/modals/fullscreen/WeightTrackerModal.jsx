@@ -18,6 +18,9 @@ import {
   sortWeightEntries,
   calculateNDayWeightAverage,
   groupWeightEntriesByMonth,
+  getPreviousEntryDelta,
+  getWindowAverageDeviation,
+  formatSignedDelta,
 } from '../../../../utils/measurements/weight';
 import { getGoalAlignedStyle } from '../../../../utils/calculations/goalAlignment';
 import {
@@ -456,7 +459,16 @@ export const WeightTrackerModal = ({
   }, [viewMode, isOpen]);
 
   // --- Snap detection via scroll ---
+  // Panning the plot dismisses the card: a swipe means "let me read the plot".
+  // Deliberately the first statement — ahead of the geometry guard — so it also
+  // holds while the container is still unmeasured, and the functional update
+  // keeps it inert (no re-render, no `selectedDate` dependency) while nothing is
+  // selected, which is most scroll frames. Dismissing on `pointerdown` instead
+  // would fire on plain taps and kill the "tap the same day again to edit"
+  // gesture.
   const handleCarouselScroll = useCallback(() => {
+    setSelectedDate((current) => (current === null ? current : null));
+
     const node = carouselRef.current;
     if (!node || !node.clientWidth) return;
     const windowSize = viewMode === '7d' ? 7 : viewMode === '30d' ? 30 : 12;
@@ -992,6 +1004,47 @@ export const WeightTrackerModal = ({
     : panelEntry
       ? 'Edit weight entry'
       : 'Add weight entry';
+
+  // --- Card deltas -------------------------------------------------------
+  // The change since the previous weigh-in (with the span, since weigh-ins are
+  // not daily) and how far this reading sits from its own 7-day trend. Both are
+  // derived from the RETAINED `panelEntry` / `panelMonth`, not `selectedDate`,
+  // so the chips fade out with the card instead of blanking mid-fade — and both
+  // are `null` when there is no honest comparison, so nothing is zero-filled.
+  // Memoised because these modals re-render on every scroll frame (the header
+  // settle index) and each helper walks the entry list.
+  const { previousEntryDelta, trendDeviation } = useMemo(() => {
+    if (isMonthSelection || !panelEntry) {
+      return { previousEntryDelta: null, trendDeviation: null };
+    }
+    return {
+      previousEntryDelta: getPreviousEntryDelta(
+        sortedEntries,
+        panelEntry.date,
+        'weight'
+      ),
+      trendDeviation: getWindowAverageDeviation(
+        sortedEntries,
+        panelEntry.date,
+        7,
+        'weight'
+      ),
+    };
+  }, [isMonthSelection, panelEntry, sortedEntries]);
+
+  const previousMonthGroup = useMemo(() => {
+    if (!isMonthSelection || !panelMonth) return null;
+    const index = filledMonthGroups.findIndex((m) => m.key === panelMonth.key);
+    for (let i = index - 1; i >= 0; i -= 1) {
+      if (filledMonthGroups[i]?.avg != null) return filledMonthGroups[i];
+    }
+    return null;
+  }, [isMonthSelection, panelMonth, filledMonthGroups]);
+
+  const monthOverMonthDelta =
+    previousMonthGroup?.avg != null && panelMonth?.avg != null
+      ? Math.round((panelMonth.avg - previousMonthGroup.avg) * 10) / 10
+      : null;
 
   // --- Mode-specific point sizing ---
   const pointRadius = MODE_POINT[viewMode]?.radius ?? 6;
@@ -1844,15 +1897,16 @@ export const WeightTrackerModal = ({
               </div>
             </div>
 
-            {/* Selection card — one fixed top-centre slot over the plot (right
-                inset clears the y-axis column). The guide line drawn inside the
-                chart is what ties the tapped slot to this card. */}
+            {/* Selection card — one fixed slot inset 8px from the screen edges (so
+                the strip never touches them) while still covering the y-axis column,
+                whose own right gutter is that same 8px. The guide line drawn inside
+                the chart is what ties the tapped slot to this card, and panning the
+                plot dismisses it. */}
             <TrackerSelectionCard
               isOpen={isCardOpen}
               actionLabel={cardActionLabel}
               onAction={isMonthSelection ? undefined : handleCardAction}
               ariaLabel={cardAriaLabel}
-              className="left-0 right-14"
             >
               <p className="text-muted text-[11px] truncate">
                 {isMonthSelection
@@ -1862,7 +1916,7 @@ export const WeightTrackerModal = ({
                     : ''}
               </p>
               <div className="flex items-end justify-between gap-2 flex-wrap mt-0.5">
-                <p className="text-foreground text-2xl font-bold leading-tight">
+                <p className="text-foreground text-xl font-bold leading-tight">
                   {isMonthSelection
                     ? panelMonth?.avg != null
                       ? `${formatWeight(panelMonth.avg)} kg`
@@ -1871,15 +1925,39 @@ export const WeightTrackerModal = ({
                       ? `${formatWeight(panelEntry.weight)} kg`
                       : 'No entry'}
                 </p>
-                {isMonthSelection && panelMonth?.avg != null && (
-                  <TrackerCardMetric
-                    label="Tracked"
-                    value={`${getTrackedDaysCount(panelMonth.entries)}/${getDaysInMonthUtc(
-                      panelMonth.year,
-                      panelMonth.month
-                    )} d`}
-                  />
-                )}
+                <span className="flex items-center gap-2 flex-wrap pb-0.5">
+                  {monthOverMonthDelta != null && (
+                    <TrackerCardMetric
+                      label="vs prev month"
+                      value={formatSignedDelta(monthOverMonthDelta, 'kg')}
+                    />
+                  )}
+                  {previousEntryDelta && (
+                    <TrackerCardMetric
+                      label={
+                        previousEntryDelta.spanDays > 1
+                          ? `vs prev (${previousEntryDelta.spanDays}d)`
+                          : 'vs prev'
+                      }
+                      value={formatSignedDelta(previousEntryDelta.delta, 'kg')}
+                    />
+                  )}
+                  {trendDeviation != null && (
+                    <TrackerCardMetric
+                      label="vs 7d avg"
+                      value={formatSignedDelta(trendDeviation, 'kg')}
+                    />
+                  )}
+                  {isMonthSelection && panelMonth?.avg != null && (
+                    <TrackerCardMetric
+                      label="Tracked"
+                      value={`${getTrackedDaysCount(panelMonth.entries)}/${getDaysInMonthUtc(
+                        panelMonth.year,
+                        panelMonth.month
+                      )} d`}
+                    />
+                  )}
+                </span>
               </div>
             </TrackerSelectionCard>
           </div>

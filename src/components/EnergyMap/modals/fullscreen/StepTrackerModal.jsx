@@ -430,7 +430,14 @@ export const StepTrackerModal = ({
   }, [viewMode, isOpen]);
 
   // --- Snap detection via scroll ---
+  // Panning the plot dismisses the card: a swipe means "let me read the plot".
+  // Deliberately the first statement — ahead of the geometry guard — so it also
+  // holds while the container is still unmeasured, and the functional update
+  // keeps it inert (no re-render, no `selectedDate` dependency) while nothing is
+  // selected, which is most scroll frames.
   const handleCarouselScroll = useCallback(() => {
+    setSelectedDate((current) => (current === null ? current : null));
+
     const node = carouselRef.current;
     if (!node || !node.clientWidth) return;
     const windowSize = viewMode === '7d' ? 7 : viewMode === '30d' ? 30 : 12;
@@ -1942,19 +1949,20 @@ export const StepTrackerModal = ({
               </div>
             </div>
 
-            {/* Selection card — one fixed top-centre slot aligned to the plot's
-                top edge (`plotTopPx`), so in 7d it sits below the weekly-average
-                bracket band instead of covering it (right inset clears the y-axis
-                column). The guide line drawn inside the chart is what ties the
-                tapped bar to this card. Read-only: the step tracker has no
-                edit/add flow, and dismissal is a tap on the graph. */}
+            {/* Selection card — one fixed slot aligned to the plot's top edge
+                (`plotTopPx`), so in 7d it sits below the weekly-average bracket
+                band instead of covering it, and inset 8px from the screen edges (so
+                the strip never touches them) while still covering the y-axis column,
+                whose own right gutter is that same 8px. The guide line drawn inside
+                the chart is what ties the tapped bar to this card. Read-only: the
+                step tracker has no edit/add flow, and dismissal is a tap on the
+                graph or a swipe across the plot. */}
             <TrackerSelectionCard
               isOpen={isCardOpen}
               topPx={plotTopPx}
               ariaLabel={
                 isMonthSelection ? 'Selected month steps' : 'Selected day steps'
               }
-              className="left-0 right-16"
             >
               <p className="text-muted text-[11px] truncate">
                 {isMonthSelection
@@ -1964,7 +1972,7 @@ export const StepTrackerModal = ({
                     : ''}
               </p>
               <div className="flex items-end justify-between gap-2 flex-wrap mt-0.5">
-                <p className="text-foreground text-2xl font-bold leading-tight">
+                <p className="text-foreground text-xl font-bold leading-tight">
                   {isMonthSelection
                     ? panelMonth?.avg != null
                       ? `${formatStepCount(panelMonth.avg)} /day`
