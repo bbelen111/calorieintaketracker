@@ -32,7 +32,7 @@ import {
   formatBodyFat,
 } from '../../../utils/measurements/bodyFat';
 import {
-  formatTooltipDate,
+  formatPanelDate,
   getOldDataWarningText,
 } from '../../../utils/visuals/trackerHelpers';
 
@@ -130,7 +130,7 @@ export const HomeScreen = ({
     weightLatest?.weight ?? resolvedUserData.weight
   );
   const weightDateLabel = weightLatest?.date
-    ? formatTooltipDate(weightLatest.date)
+    ? formatPanelDate(weightLatest.date)
     : 'No entries yet';
   const weightOldDataWarning = weightLatest?.date
     ? getOldDataWarningText(weightLatest.date)
@@ -151,7 +151,7 @@ export const HomeScreen = ({
     ? formatBodyFat(bodyFatLatest.bodyFat)
     : null;
   const bodyFatDateLabel = bodyFatLatest?.date
-    ? formatTooltipDate(bodyFatLatest.date)
+    ? formatPanelDate(bodyFatLatest.date)
     : 'No entries yet';
   const bodyFatOldDataWarning = bodyFatLatest?.date
     ? getOldDataWarningText(bodyFatLatest.date)

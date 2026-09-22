@@ -303,6 +303,143 @@ export const getTotalWeightChange = (entries) => {
   return last.weight - first.weight;
 };
 
+// ---------------------------------------------------------------------------
+// Entry deltas (tracker selection-card detail)
+// ---------------------------------------------------------------------------
+
+/**
+ * Previous tracked sample relative to `dateKey`, for the tracker selection
+ * cards' "vs prev" delta. Generic over `valueField` (the same convention
+ * `calculateTrapezoidalWindowAverage` uses) so weight and body fat share one
+ * implementation instead of drifting apart.
+ *
+ * Returns `null` whenever an honest comparison is impossible: no earlier
+ * sample, `dateKey` absent from the list, or a non-finite value on either side.
+ *
+ * @param {Array<{ date: string }>} sortedEntries - Entries sorted ascending by date key
+ * @param {string} dateKey - `YYYY-MM-DD` of the selected sample
+ * @param {string} valueField - Numeric field to compare ('weight' | 'bodyFat')
+ * @returns {{ currentValue: number, previousValue: number, previousDate: string, delta: number, spanDays: number }|null}
+ */
+export const getPreviousEntryDelta = (sortedEntries, dateKey, valueField) => {
+  const normalized = normalizeDateKey(dateKey);
+  if (!normalized || !Array.isArray(sortedEntries)) {
+    return null;
+  }
+
+  const index = sortedEntries.findIndex((entry) => entry?.date === normalized);
+  if (index <= 0) {
+    return null;
+  }
+
+  const current = sortedEntries[index];
+  const previous = sortedEntries[index - 1];
+  const currentValue = Number(current?.[valueField]);
+  const previousValue = Number(previous?.[valueField]);
+  if (!Number.isFinite(currentValue) || !Number.isFinite(previousValue)) {
+    return null;
+  }
+
+  const currentTime = new Date(`${normalized}T00:00:00Z`).getTime();
+  const previousTime = new Date(`${previous.date}T00:00:00Z`).getTime();
+  const spanDays = Math.round((currentTime - previousTime) / MS_PER_DAY);
+
+  return {
+    currentValue,
+    previousValue,
+    previousDate: previous.date,
+    delta: Math.round((currentValue - previousValue) * 10) / 10,
+    spanDays,
+  };
+};
+
+/**
+ * How far one reading sits from its own n-day trend: the sample at `dateKey`
+ * minus the trapezoidal n-day average ending on that same day. Answers "is this
+ * reading high or low for me right now?" without extrapolating a rate out of a
+ * single day's noise.
+ *
+ * Returns `null` when the window holds fewer than two distinct samples: with a
+ * single sample the flat-hold makes the average identical to the value, so the
+ * deviation would be a vacuous `0.0`.
+ *
+ * @param {Array<{ date: string }>} sortedEntries - Entries sorted ascending by date key
+ * @param {string} dateKey - `YYYY-MM-DD` sample to compare (window end)
+ * @param {number} n - Window size in days
+ * @param {string} valueField - Numeric field ('weight' | 'bodyFat')
+ * @returns {number|null} Signed deviation in the field's unit, or null
+ */
+export const getWindowAverageDeviation = (
+  sortedEntries,
+  dateKey,
+  n,
+  valueField
+) => {
+  const normalized = normalizeDateKey(dateKey);
+  if (!normalized || !Array.isArray(sortedEntries)) {
+    return null;
+  }
+
+  const entry = sortedEntries.find((item) => item?.date === normalized);
+  const value = Number(entry?.[valueField]);
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+
+  const windowKeys = getWindowDateKeys(normalized, n);
+  if (!windowKeys.length) {
+    return null;
+  }
+
+  const windowStart = windowKeys[0];
+  const distinctSamples = new Set(
+    sortedEntries
+      .filter(
+        (item) =>
+          item?.date >= windowStart &&
+          item.date <= normalized &&
+          Number.isFinite(Number(item[valueField]))
+      )
+      .map((item) => item.date)
+  );
+  if (distinctSamples.size < 2) {
+    return null;
+  }
+
+  const average = calculateTrapezoidalWindowAverage(
+    sortedEntries,
+    n,
+    normalized,
+    valueField
+  );
+  if (average == null) {
+    return null;
+  }
+
+  return Math.round((value - average) * 10) / 10;
+};
+
+/**
+ * Format a signed change for the tracker cards, e.g. `+0.4 kg`, `-0.4%`,
+ * `0.0 kg`. Same sign language as `formatWeeklyRate`, always one decimal so a
+ * row of delta chips aligns. Returns `''` for non-finite input so callers can
+ * render nothing rather than a fake zero.
+ *
+ * @param {number} value - Signed delta
+ * @param {string} [unit=''] - Unit label, appended after `separator`
+ * @param {string} [separator=' '] - Separator before the unit ('' for `%`)
+ */
+export const formatSignedDelta = (value, unit = '', separator = ' ') => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return '';
+  }
+
+  const sign = numeric > 0 ? '+' : numeric < 0 ? '-' : '';
+  const magnitude = Math.abs(numeric).toFixed(1);
+  return `${sign}${magnitude}${unit ? `${separator}${unit}` : ''}`;
+};
+
 /**
  * Calculate the average weight over the last N calendar days, anchored to
  * today (or an explicit `endDateKey`). Uses a trapezoidal (time-weighted)

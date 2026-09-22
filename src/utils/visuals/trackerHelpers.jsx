@@ -161,10 +161,12 @@ export const formatWeeklyRate = (value, metricType = 'weight') => {
 // ---------------------------------------------------------------------------
 
 /**
- * Format a YYYY-MM-DD date string into a rich tooltip date
- * (e.g. "Thu, 1 Jan 2026").
+ * Format a YYYY-MM-DD date string into a rich long date
+ * (e.g. "Thu, 1 Jan 2026"). Used by the tracker selection card and the
+ * tracker date captions — the old `formatTooltipDate` name is gone with the
+ * floating tooltip system it was named after.
  */
-export const formatTooltipDate = (dateStr) => {
+export const formatPanelDate = (dateStr) => {
   const date = new Date(dateStr + 'T00:00:00Z');
   return date.toLocaleDateString('en-US', {
     weekday: 'short',

@@ -1,0 +1,250 @@
+import React from 'react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
+
+import { WeightTrackerModal } from './WeightTrackerModal';
+
+const ENTRIES = [
+  { date: '2026-01-01', weight: 74 },
+  { date: '2026-01-02', weight: 74.4 },
+];
+
+const renderModal = (props = {}) =>
+  render(
+    <WeightTrackerModal
+      isOpen
+      isClosing={false}
+      entries={ENTRIES}
+      latestWeight={74.4}
+      selectedGoal="maintenance"
+      onClose={vi.fn()}
+      onAddEntry={vi.fn()}
+      onEditEntry={vi.fn()}
+      {...props}
+    />
+  );
+
+/** Real chart points (one `<g>` tap target per entry). */
+const getChartPoints = (baseElement) =>
+  baseElement.querySelectorAll('svg g.cursor-pointer');
+
+/** Axis label wrappers — the bigger tap target, and the only route to empty days. */
+const getSlotLabels = (baseElement) =>
+  baseElement.querySelectorAll('div.absolute.cursor-pointer');
+
+/** The chart carousel — the modal's one horizontally scrollable container. */
+const getCarousel = (baseElement) =>
+  baseElement.querySelector('.overflow-x-auto');
+
+/**
+ * The card's positioned wrapper (ModalShell portals its content to body). Found
+ * through the card body rather than a close button — the card has none:
+ * dismissal is a tap on the plot.
+ */
+const CARD_BODY_SELECTOR =
+  'button[aria-label="Edit weight entry"], button[aria-label="Add weight entry"]';
+
+const getCardWrapper = (baseElement) =>
+  baseElement.querySelector(CARD_BODY_SELECTOR).closest('[aria-hidden]');
+
+/**
+ * The tracker detail surface is a single card pinned to the top centre of the
+ * plot, tied to the tapped slot by a guide line drawn inside the chart. The old
+ * floating tooltip (measured onto the point, `fixed` + `z-[1200]`, dismissed by
+ * an outside pointerdown listener) must not come back: it drifted on scroll,
+ * escaped the modal z-lanes and rendered outside `ModalShell`.
+ */
+describe('WeightTrackerModal selection card', () => {
+  it('mounts one hidden card in a fixed slot and no measured tooltip', () => {
+    const { baseElement } = renderModal();
+
+    const card = getCardWrapper(baseElement);
+    expect(card).toHaveAttribute('aria-hidden', 'true');
+
+    // No floating tooltip: no node escapes the ModalShell z-lanes...
+    expect(baseElement.querySelector('[class*="z-[1200]"]')).toBeNull();
+    // ...and the card is pinned to the plot's top edge by a constant, never
+    // measured from the tapped point (and never given a `left`).
+    expect(card.style.top).toBe('8px');
+    expect(card.style.left).toBe('');
+  });
+
+  it('shows the tapped day in the card, tied to it by a vertical guide line', async () => {
+    const user = userEvent.setup();
+    const { baseElement } = renderModal();
+
+    const points = getChartPoints(baseElement);
+    expect(points.length).toBeGreaterThan(0);
+    await user.click(points[points.length - 1]);
+
+    const card = screen.getByRole('button', { name: 'Edit weight entry' });
+    expect(within(card).getByText('74.4 kg')).toBeInTheDocument();
+    expect(within(card).getByText('Tap to edit entry')).toBeInTheDocument();
+    expect(getCardWrapper(baseElement)).toHaveAttribute('aria-hidden', 'false');
+
+    const guide = baseElement.querySelector('svg line[stroke-dasharray="3 4"]');
+    expect(guide).not.toBeNull();
+    expect(guide.getAttribute('x1')).toBe(guide.getAttribute('x2'));
+  });
+
+  it('commits the edit from the card body', async () => {
+    const user = userEvent.setup();
+    const onEditEntry = vi.fn();
+    const { baseElement } = renderModal({ onEditEntry });
+
+    const points = getChartPoints(baseElement);
+    await user.click(points[points.length - 1]);
+    await user.click(screen.getByRole('button', { name: 'Edit weight entry' }));
+
+    expect(onEditEntry).toHaveBeenCalledWith(
+      expect.objectContaining({ date: '2026-01-02', weight: 74.4 })
+    );
+  });
+
+  it('keeps the re-tap-to-edit gesture on the tapped point', async () => {
+    const user = userEvent.setup();
+    const onEditEntry = vi.fn();
+    const { baseElement } = renderModal({ onEditEntry });
+
+    const point = getChartPoints(baseElement)[1];
+    await user.click(point);
+    expect(onEditEntry).not.toHaveBeenCalled();
+
+    await user.click(point);
+    expect(onEditEntry).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers the add flow for a day with no entry', async () => {
+    const user = userEvent.setup();
+    const onAddEntry = vi.fn();
+    const { baseElement } = renderModal({ onAddEntry });
+
+    // The 7d timeline pads empty days before the first entry; those slots are
+    // selectable through their axis label (there is no data point to tap).
+    const labels = getSlotLabels(baseElement);
+    expect(labels.length).toBeGreaterThan(ENTRIES.length);
+    await user.click(labels[0]);
+
+    const card = screen.getByRole('button', { name: 'Add weight entry' });
+    expect(within(card).getByText('No entry')).toBeInTheDocument();
+
+    await user.click(card);
+    expect(onAddEntry).toHaveBeenCalledWith(
+      expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)
+    );
+  });
+
+  it('re-targets instead of dismissing when another point is tapped', async () => {
+    const user = userEvent.setup();
+    const { baseElement } = renderModal();
+
+    const points = getChartPoints(baseElement);
+    await user.click(points[0]);
+    expect(
+      within(getCardWrapper(baseElement)).getByText(/74(\.0)? kg/)
+    ).toBeInTheDocument();
+
+    await user.click(points[1]);
+
+    const card = getCardWrapper(baseElement);
+    expect(card).toHaveAttribute('aria-hidden', 'false');
+    expect(within(card).getByText('74.4 kg')).toBeInTheDocument();
+  });
+
+  it('dismisses when the plot is tapped, keeping the last content mounted', async () => {
+    const user = userEvent.setup();
+    const { baseElement } = renderModal();
+
+    const points = getChartPoints(baseElement);
+    await user.click(points[points.length - 1]);
+    expect(getCardWrapper(baseElement)).toHaveAttribute('aria-hidden', 'false');
+
+    // Dismissal is the graph container's own handler — there is no close button.
+    expect(
+      screen.queryByRole('button', { name: 'Dismiss selection' })
+    ).toBeNull();
+    await user.click(getCardWrapper(baseElement).parentElement);
+
+    const card = getCardWrapper(baseElement);
+    expect(card).toHaveAttribute('aria-hidden', 'true');
+    expect(within(card).getByText('74.4 kg')).toBeInTheDocument();
+  });
+
+  it('spans the full graph region, y-axis column included', () => {
+    const { baseElement } = renderModal();
+
+    // The card's default inset: an 8px gutter from the screen edges, so the strip
+    // never touches them (the axis column is still fully covered — its own right
+    // gutter is that same 8px).
+    const card = getCardWrapper(baseElement);
+    expect(card.className).toContain('inset-x-2');
+    expect(card.className).not.toContain('right-14');
+  });
+
+  it('adds signed deltas to the selected day', async () => {
+    const user = userEvent.setup();
+    const { baseElement } = renderModal();
+
+    const points = getChartPoints(baseElement);
+    await user.click(points[points.length - 1]);
+
+    const card = screen.getByRole('button', { name: 'Edit weight entry' });
+    // Change since the previous weigh-in (74 -> 74.4 the next day)...
+    expect(within(card).getByText('vs prev')).toBeInTheDocument();
+    expect(within(card).getByText('+0.4 kg')).toBeInTheDocument();
+    // ...and how far the reading sits from its own 7-day trend (74.1 kg avg).
+    expect(within(card).getByText('vs 7d avg')).toBeInTheDocument();
+    expect(within(card).getByText('+0.3 kg')).toBeInTheDocument();
+  });
+
+  it('discloses an irregular sampling span in the delta label', async () => {
+    const user = userEvent.setup();
+    const { baseElement } = renderModal({
+      entries: [
+        { date: '2026-01-01', weight: 74 },
+        { date: '2026-01-07', weight: 73.4 },
+      ],
+    });
+
+    const points = getChartPoints(baseElement);
+    await user.click(points[points.length - 1]);
+
+    const card = screen.getByRole('button', { name: 'Edit weight entry' });
+    // Six days between weigh-ins: the chip says so instead of implying "yesterday".
+    expect(within(card).getByText('vs prev (6d)')).toBeInTheDocument();
+    expect(within(card).getByText('-0.6 kg')).toBeInTheDocument();
+  });
+
+  it('omits the deltas when there is nothing honest to compare', async () => {
+    const user = userEvent.setup();
+    const { baseElement } = renderModal();
+
+    // The 7d timeline pads empty days before the first entry; they are selectable
+    // through their axis label and carry no reading to compare against.
+    const labels = getSlotLabels(baseElement);
+    await user.click(labels[0]);
+
+    const card = screen.getByRole('button', { name: 'Add weight entry' });
+    expect(within(card).getByText('No entry')).toBeInTheDocument();
+    expect(within(card).queryByText('vs prev')).toBeNull();
+    expect(within(card).queryByText('vs 7d avg')).toBeNull();
+  });
+
+  it('dismisses the card when the plot is panned', async () => {
+    const user = userEvent.setup();
+    const { baseElement } = renderModal();
+
+    const points = getChartPoints(baseElement);
+    await user.click(points[points.length - 1]);
+    expect(getCardWrapper(baseElement)).toHaveAttribute('aria-hidden', 'false');
+
+    // A swipe means "let me read the plot", so the card closes — and the retained
+    // content keeps it from blanking while it fades out.
+    fireEvent.scroll(getCarousel(baseElement));
+
+    const card = getCardWrapper(baseElement);
+    expect(card).toHaveAttribute('aria-hidden', 'true');
+    expect(within(card).getByText('74.4 kg')).toBeInTheDocument();
+  });
+});

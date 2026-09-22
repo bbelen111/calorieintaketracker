@@ -8,6 +8,11 @@
 } from 'react';
 import { ChevronLeft, Footprints, Target } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
+import {
+  TrackerSelectionCard,
+  TrackerCardMetric,
+} from '../../common/TrackerSelectionCard';
+import { formatPanelDate } from '../../../../utils/visuals/trackerHelpers';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { getStepCaloriesDetails } from '../../../../utils/calculations/steps';
@@ -67,8 +72,6 @@ const Y_TICK_COUNT = 7;
 const MIN_VISIBLE_STEP_RANGE = 5000;
 const MIN_RANGE_PADDING = 500;
 const BASELINE_Y_OFFSET = 0;
-const TOOLTIP_WIDTH = 144;
-const TOOLTIP_VERTICAL_OFFSET = 27;
 const BAR_WIDTH = 28;
 const BAR_RADIUS = 6;
 const BAR_WIDTH_30D = 6;
@@ -117,13 +120,17 @@ const formatShortDate = (dateStr) => {
   return parts.replace(/^[A-Za-z]{3}/, (m) => m.toUpperCase());
 };
 
-const formatTooltipDate = (dateStr) => {
-  const date = new Date(dateStr + 'T00:00:00Z');
+// formatPanelDate (the long "Thu, 1 Jan 2026" label) is imported from
+// utils/trackerHelpers — the local copy drifted from the canonical helper.
+
+/** Month group → "January 2026" (selection card header in 12m mode). */
+const formatMonthLabel = (monthGroup) => {
+  if (!monthGroup) return '';
+  const date = new Date(Date.UTC(monthGroup.year, monthGroup.month, 1));
   return date.toLocaleDateString('en-US', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
+    month: 'long',
     year: 'numeric',
+    timeZone: 'UTC',
   });
 };
 
@@ -214,20 +221,34 @@ export const StepTrackerModal = ({
   const [, setActivePageIndex] = useState(-1);
   const [settledPageIndex, setSettledPageIndex] = useState(-1);
   const [selectedDate, setSelectedDate] = useState(null);
-  const [tooltipEntered, setTooltipEntered] = useState(false);
-  const [tooltipClosing, setTooltipClosing] = useState(false);
-  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [graphViewportWidth, setGraphViewportWidth] = useState(0);
   const [graphViewportHeight, setGraphViewportHeight] = useState(0);
   const [graphAnimationPhase, setGraphAnimationPhase] = useState('idle');
 
   const carouselRef = useRef(null);
-  const tooltipRef = useRef(null);
-  const scrollCloseTimeoutRef = useRef(null);
   const headerSettleTimeoutRef = useRef(null);
   const graphAnimationTimeoutRef = useRef(null);
   const wasOpenRef = useRef(false);
   const prevEntriesLengthRef = useRef(resolvedEntries?.length ?? 0);
+
+  // --- Selection retention ---
+  // Render-phase retention (same contract as CalendarPickerModal /
+  // DayLedgerListModal): `lastSelectedDate` keeps the selection card's content
+  // after a deselect so the card cannot blank mid-fade, and no ref is read
+  // during render and no state is set from an effect.
+  const [lastSelectedDate, setLastSelectedDate] = useState(null);
+  const [selectionSource, setSelectionSource] = useState(null);
+  if (!isOpen) {
+    if (selectedDate !== null) setSelectedDate(null);
+    if (lastSelectedDate !== null) {
+      setLastSelectedDate(null);
+      setSelectionSource(null);
+    }
+  } else if (selectedDate !== selectionSource) {
+    setSelectionSource(selectedDate);
+    if (selectedDate) setLastSelectedDate(selectedDate);
+  }
+  const panelDate = selectedDate ?? lastSelectedDate;
 
   const prefersReducedMotion = useMemo(() => {
     if (
@@ -409,7 +430,14 @@ export const StepTrackerModal = ({
   }, [viewMode, isOpen]);
 
   // --- Snap detection via scroll ---
+  // Panning the plot dismisses the card: a swipe means "let me read the plot".
+  // Deliberately the first statement — ahead of the geometry guard — so it also
+  // holds while the container is still unmeasured, and the functional update
+  // keeps it inert (no re-render, no `selectedDate` dependency) while nothing is
+  // selected, which is most scroll frames.
   const handleCarouselScroll = useCallback(() => {
+    setSelectedDate((current) => (current === null ? current : null));
+
     const node = carouselRef.current;
     if (!node || !node.clientWidth) return;
     const windowSize = viewMode === '7d' ? 7 : viewMode === '30d' ? 30 : 12;
@@ -423,15 +451,7 @@ export const StepTrackerModal = ({
       setSettledPageIndex(idx);
       headerSettleTimeoutRef.current = null;
     }, SCROLL_SETTLE_DELAY_MS);
-    // Close tooltip on scroll
-    if (selectedDate) {
-      setTooltipClosing(true);
-      setTimeout(() => {
-        setSelectedDate(null);
-        setTooltipClosing(false);
-      }, 150);
-    }
-  }, [selectedDate, viewMode]);
+  }, [viewMode]);
 
   // --- Chart-wide computed data ---
   const chartWidth = graphViewportWidth || 300;
@@ -597,6 +617,16 @@ export const StepTrackerModal = ({
     viewMode === '7d' && weekBracketGroups.length > 0
       ? WEEK_BRACKET_HEIGHT + WEEK_BRACKET_TOP_PADDING
       : 0;
+
+  /*
+    The plot's top edge, in px from the graph container's top. Every layer that
+    aligns to the plot uses this one value — the chart, the y-axis column and the
+    selection card — so in 7d they all clear the weekly-average bracket band
+    together instead of the card sitting on top of the brackets. `weekBracketAreaHeight`
+    is already 0 outside 7d, so this collapses to the 8px every other tracker
+    modal uses.
+  */
+  const plotTopPx = weekBracketAreaHeight + 8;
 
   const chartHeight = useMemo(
     () =>
@@ -819,7 +849,7 @@ export const StepTrackerModal = ({
     }));
   }, [viewMode, weekBracketGroups, chartWidth]);
 
-  // Entries map for tooltip
+  // Entries map for the selection card (and tap targets)
   const entriesMap = useMemo(() => {
     const map = {};
     sortedEntries.forEach((entry) => {
@@ -828,7 +858,7 @@ export const StepTrackerModal = ({
     return map;
   }, [sortedEntries]);
 
-  // Months map for 12m tooltip
+  // Months map for 12m selection
   const monthsMap = useMemo(() => {
     const map = {};
     filledMonthGroups.forEach((m) => {
@@ -981,7 +1011,9 @@ export const StepTrackerModal = ({
     gender,
   ]);
 
-  // --- Tooltip ---
+  // --- Selected slot (drives the selection card + the chart guide line) ---
+  const isMonthSelection = viewMode === '12m';
+
   const selectedBar = useMemo(() => {
     if (!selectedDate) return null;
     if (viewMode === '7d') {
@@ -996,12 +1028,8 @@ export const StepTrackerModal = ({
     return null;
   }, [selectedDate, viewMode, allBars7d, allBars30d, allBars12m]);
 
-  const closeTooltip = useCallback(() => {
-    setTooltipClosing(true);
-    setTimeout(() => {
-      setSelectedDate(null);
-      setTooltipClosing(false);
-    }, 150);
+  const dismissSelection = useCallback(() => {
+    setSelectedDate(null);
   }, []);
 
   const handleViewModeChange = useCallback(
@@ -1010,22 +1038,12 @@ export const StepTrackerModal = ({
         return;
       }
 
-      if (selectedDate) {
-        closeTooltip();
-      }
-
+      dismissSelection();
       setViewMode(nextMode);
       triggerGraphAnimation('switch');
     },
-    [closeTooltip, selectedDate, triggerGraphAnimation, viewMode]
+    [dismissSelection, triggerGraphAnimation, viewMode]
   );
-
-  useEffect(() => {
-    const timeoutId = scrollCloseTimeoutRef.current;
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, []);
 
   useEffect(
     () => () => {
@@ -1056,92 +1074,41 @@ export const StepTrackerModal = ({
     []
   );
 
+  // Empty slots carry no step data, so they are not selectable — and the tap is
+  // deliberately NOT stopped, so it bubbles to the graph container's dismiss
+  // handler: tapping a gap in the plot closes the card, it never dead-ends.
   const handleDateClick = useCallback(
     (date, event) => {
       if (!date) return;
+      const hasData = isMonthSelection
+        ? (monthsMap[date]?.entries?.length ?? 0) > 0
+        : Boolean(entriesMap[date]);
+      if (!hasData) return;
       event?.stopPropagation();
-      if (viewMode === '12m' && (monthsMap[date]?.entries?.length ?? 0) === 0)
-        return;
-      if (selectedDate === date) {
-        closeTooltip();
-      } else {
-        if (selectedDate) {
-          setTooltipClosing(true);
-          setTooltipEntered(false);
-        }
-        setSelectedDate(date);
-        setTooltipClosing(false);
-      }
+      setSelectedDate((current) => (current === date ? null : date));
     },
-    [selectedDate, closeTooltip, viewMode, monthsMap]
+    [isMonthSelection, monthsMap, entriesMap]
   );
 
-  const handleLabelClick = useCallback(
-    (date, event) => {
-      if (!date) return;
-      event?.stopPropagation();
-      if (viewMode === '12m' && (monthsMap[date]?.entries?.length ?? 0) === 0)
-        return;
-      if (selectedDate === date) {
-        closeTooltip();
-      } else {
-        if (selectedDate) {
-          setTooltipClosing(true);
-          setTooltipEntered(false);
-        }
-        setSelectedDate(date);
-        setTooltipClosing(false);
-      }
-    },
-    [selectedDate, closeTooltip, viewMode, monthsMap]
-  );
+  const handleLabelClick = handleDateClick;
 
-  // Close tooltip on outside click
-  useEffect(() => {
-    if (!selectedDate) return undefined;
-    const handlePointerDown = (event) => {
-      if (tooltipRef.current?.contains(event.target)) return;
-      const target = event.target;
-      if (target.tagName === 'rect' || target.tagName === 'g') return;
-      if (target.closest('[data-date-label]')) return;
-      closeTooltip();
-    };
-    document.addEventListener('pointerdown', handlePointerDown, true);
-    return () =>
-      document.removeEventListener('pointerdown', handlePointerDown, true);
-  }, [closeTooltip, selectedDate]);
-
-  // Tooltip enter animation
-  useEffect(() => {
-    if (selectedDate && !tooltipClosing) {
-      const frame = requestAnimationFrame(() => setTooltipEntered(true));
-      return () => cancelAnimationFrame(frame);
-    }
-    if (!selectedDate) {
-      Promise.resolve().then(() => setTooltipEntered(false));
-    }
-    return undefined;
-  }, [selectedDate, tooltipClosing]);
-
-  const updateTooltipPosition = useCallback(() => {
-    if (!selectedBar) return;
-    const node = carouselRef.current;
-    if (!node) return;
-    // All modes now use continuous scrolling — account for scroll offset
-    const rect = node.getBoundingClientRect();
-    const bracketArea = viewMode === '7d' ? weekBracketAreaHeight : 0;
-    const rawX = rect.left + selectedBar.x - node.scrollLeft;
-    const rawY = rect.top + bracketArea + 8 + selectedBar.y;
-    setTooltipPosition({ x: rawX, y: rawY });
-  }, [selectedBar, viewMode, weekBracketAreaHeight]);
-
-  useIsomorphicLayoutEffect(() => {
-    if (!selectedBar) return undefined;
-    updateTooltipPosition();
-    const handleResize = () => updateTooltipPosition();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [selectedBar, updateTooltipPosition]);
+  // --- Selection card content (retained date keeps the card from blanking) ---
+  const panelEntry =
+    !isMonthSelection && panelDate ? (entriesMap[panelDate] ?? null) : null;
+  const panelMonth =
+    isMonthSelection && panelDate ? (monthsMap[panelDate] ?? null) : null;
+  const isCardOpen = Boolean(selectedDate) && Boolean(selectedBar);
+  const panelStepsCount = isMonthSelection
+    ? (panelMonth?.entries ?? []).reduce((sum, e) => sum + (e.steps || 0), 0)
+    : (panelEntry?.steps ?? 0);
+  const panelStepDetails =
+    weight && height && panelStepsCount > 0
+      ? getStepCaloriesDetails(panelStepsCount, {
+          weight,
+          height,
+          gender: gender || 'male',
+        })
+      : null;
 
   const graphAnimationClass =
     graphAnimationPhase === 'enter'
@@ -1177,6 +1144,21 @@ export const StepTrackerModal = ({
         onClick={(e) => onClickDate(bar.date, e)}
         className="cursor-pointer"
       >
+        {/* Selection guide line — ties the tapped bar to the top-centre
+            selection card. Drawn in chart coordinates (x = the bar's own x),
+            so panning and resizing can never make it drift off its bar. */}
+        {isSelected && (
+          <line
+            x1={bar.x}
+            y1={0}
+            x2={bar.x}
+            y2={chartHeight}
+            stroke="rgb(var(--accent-blue) / 0.45)"
+            strokeWidth={1.5}
+            strokeDasharray="3 4"
+            pointerEvents="none"
+          />
+        )}
         <rect
           x={bar.x - barW}
           y={0}
@@ -1328,7 +1310,6 @@ export const StepTrackerModal = ({
               {showLabel && (
                 <div
                   className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-pointer"
-                  data-date-label
                   style={{ left: `${STEP / 2}px` }}
                   onClick={(e) => handleLabelClick(s.date, e)}
                 >
@@ -1396,7 +1377,6 @@ export const StepTrackerModal = ({
           >
             <div
               className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-pointer"
-              data-date-label
               style={{ left: `${STEP / 2}px` }}
               onClick={(e) => handleLabelClick(m.key, e)}
             >
@@ -1559,7 +1539,7 @@ export const StepTrackerModal = ({
         <div
           className="absolute left-0"
           style={{
-            top: `${weekBracketAreaHeight + 8}px`,
+            top: `${plotTopPx}px`,
             width: `${totalWidth}px`,
             height: `${chartHeight}px`,
           }}
@@ -1624,7 +1604,6 @@ export const StepTrackerModal = ({
                   >
                     <div
                       className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-pointer"
-                      data-date-label
                       style={{ left: `${STEP / 2}px` }}
                       onClick={(e) => handleLabelClick(s.date, e)}
                     >
@@ -1749,9 +1728,9 @@ export const StepTrackerModal = ({
                   </p>
                   <p className="text-muted text-[11px] mt-1">
                     {todaySteps != null
-                      ? formatTooltipDate(getTodayDateKey())
+                      ? formatPanelDate(getTodayDateKey())
                       : latestDate
-                        ? formatTooltipDate(latestDate)
+                        ? formatPanelDate(latestDate)
                         : 'steps'}
                   </p>
                 </div>
@@ -1867,7 +1846,10 @@ export const StepTrackerModal = ({
           <div className="border-b border-border flex-shrink-0" />
 
           {/* Graph carousel + Y-axis */}
-          <div className="flex-1 flex flex-col min-h-0">
+          <div
+            className="relative flex-1 flex flex-col min-h-0"
+            onClick={dismissSelection}
+          >
             <div className="flex-1 pr-2 pb-1 overflow-hidden flex">
               {/* Carousel */}
               <div className="relative rounded-l-lg flex-1 overflow-hidden">
@@ -1909,7 +1891,7 @@ export const StepTrackerModal = ({
                 <div
                   className="absolute inset-x-0 px-1"
                   style={{
-                    top: `${(viewMode === '7d' ? weekBracketAreaHeight : 0) + 8}px`,
+                    top: `${plotTopPx}px`,
                     height: `${chartHeight}px`,
                   }}
                 >
@@ -1966,156 +1948,66 @@ export const StepTrackerModal = ({
                 </div>
               </div>
             </div>
+
+            {/* Selection card — one fixed slot aligned to the plot's top edge
+                (`plotTopPx`), so in 7d it sits below the weekly-average bracket
+                band instead of covering it, and inset 8px from the screen edges (so
+                the strip never touches them) while still covering the y-axis column,
+                whose own right gutter is that same 8px. The guide line drawn inside
+                the chart is what ties the tapped bar to this card. Read-only: the
+                step tracker has no edit/add flow, and dismissal is a tap on the
+                graph or a swipe across the plot. */}
+            <TrackerSelectionCard
+              isOpen={isCardOpen}
+              topPx={plotTopPx}
+              ariaLabel={
+                isMonthSelection ? 'Selected month steps' : 'Selected day steps'
+              }
+            >
+              <p className="text-muted text-[11px] truncate">
+                {isMonthSelection
+                  ? formatMonthLabel(panelMonth)
+                  : panelDate
+                    ? formatPanelDate(panelDate)
+                    : ''}
+              </p>
+              <div className="flex items-end justify-between gap-2 flex-wrap mt-0.5">
+                <p className="text-foreground text-xl font-bold leading-tight">
+                  {isMonthSelection
+                    ? panelMonth?.avg != null
+                      ? `${formatStepCount(panelMonth.avg)} /day`
+                      : 'No entries'
+                    : panelEntry
+                      ? `${panelEntry.steps.toLocaleString()} steps`
+                      : 'No entry'}
+                </p>
+                <span className="flex items-center gap-2 flex-wrap pb-0.5">
+                  {isMonthSelection && panelMonth?.avg != null && (
+                    <TrackerCardMetric
+                      label="Total"
+                      value={`${panelStepsCount.toLocaleString()}`}
+                    />
+                  )}
+                  {panelStepDetails && (
+                    <>
+                      <TrackerCardMetric
+                        label="Distance"
+                        value={`${panelStepDetails.distanceKm.toFixed(
+                          isMonthSelection ? 1 : 2
+                        )} km`}
+                      />
+                      <TrackerCardMetric
+                        label="Burned"
+                        value={`${Math.round(panelStepDetails.calories)} kcal`}
+                      />
+                    </>
+                  )}
+                </span>
+              </div>
+            </TrackerSelectionCard>
           </div>
         </div>
       </ModalShell>
-
-      {/* Tooltip */}
-      {selectedBar &&
-        selectedDate &&
-        (viewMode === '12m'
-          ? (monthsMap[selectedDate]?.entries?.length ?? 0) > 0
-          : !!entriesMap[selectedDate] || selectedBar.hasEntry) && (
-          <div
-            ref={tooltipRef}
-            className={`fixed z-[1200] bg-surface border border-border rounded-lg shadow-2xl p-4 transform -translate-x-1/2 -translate-y-full pointer-events-auto transition duration-150 ease-out ${
-              tooltipEntered && !tooltipClosing
-                ? 'opacity-100 scale-100'
-                : 'opacity-0 scale-95'
-            }`}
-            style={{
-              left: `${tooltipPosition.x}px`,
-              top: `${tooltipPosition.y - TOOLTIP_VERTICAL_OFFSET}px`,
-              width: `${TOOLTIP_WIDTH}px`,
-            }}
-            role="status"
-            tabIndex={-1}
-          >
-            {viewMode === '12m' ? (
-              <div className="rounded p-2">
-                <p className="text-muted text-[11.5px] mb-1">
-                  {(() => {
-                    const m = monthsMap[selectedDate];
-                    if (!m) return selectedDate;
-                    const d = new Date(Date.UTC(m.year, m.month, 1));
-                    return d.toLocaleDateString('en-US', {
-                      month: 'long',
-                      year: 'numeric',
-                      timeZone: 'UTC',
-                    });
-                  })()}
-                </p>
-                {monthsMap[selectedDate]?.avg != null ? (
-                  <>
-                    <p className="text-foreground text-2xl font-bold">
-                      {monthsMap[selectedDate].avg.toLocaleString()}
-                      <span className="text-muted text-sm font-normal ml-1">
-                        avg/day
-                      </span>
-                    </p>
-                    <p className="text-muted text-[10px] mt-1 uppercase tracking-wide">
-                      {monthsMap[selectedDate].entries
-                        .reduce((s, e) => s + (e.steps || 0), 0)
-                        .toLocaleString()}{' '}
-                      total steps
-                    </p>
-                    {weight &&
-                      height &&
-                      (() => {
-                        const totalSteps = monthsMap[
-                          selectedDate
-                        ].entries.reduce((s, e) => s + (e.steps || 0), 0);
-                        const d = getStepCaloriesDetails(totalSteps, {
-                          weight,
-                          height,
-                          gender: gender || 'male',
-                        });
-                        return (
-                          <div className="mt-2 pt-2 border-t border-border flex justify-between text-sm">
-                            <div>
-                              <p className="text-muted text-[10px] uppercase">
-                                Distance
-                              </p>
-                              <p className="text-foreground font-semibold">
-                                {d.distanceKm.toFixed(1)} km
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-muted text-[10px] uppercase">
-                                Calories
-                              </p>
-                              <p className="text-foreground font-semibold">
-                                {Math.round(d.calories)} kcal
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })()}
-                  </>
-                ) : (
-                  <p className="text-muted text-lg font-semibold">No entries</p>
-                )}
-              </div>
-            ) : (
-              <div className="rounded p-2">
-                <p className="text-muted text-[11.5px] mb-1">
-                  {formatTooltipDate(selectedDate)}
-                </p>
-                {entriesMap[selectedDate] ? (
-                  <>
-                    <p className="text-foreground text-2xl font-bold">
-                      {entriesMap[selectedDate].steps.toLocaleString()}{' '}
-                      <span className="text-muted text-sm font-normal">
-                        steps
-                      </span>
-                    </p>
-                    {weight && height && (
-                      <div className="mt-2 pt-2 border-t border-border flex justify-between text-sm">
-                        <div>
-                          <p className="text-muted text-[10px] uppercase">
-                            Distance
-                          </p>
-                          <p className="text-foreground font-semibold">
-                            {getStepCaloriesDetails(
-                              entriesMap[selectedDate].steps,
-                              {
-                                weight,
-                                height,
-                                gender: gender || 'male',
-                              }
-                            ).distanceKm.toFixed(2)}{' '}
-                            km
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-muted text-[10px] uppercase">
-                            Calories
-                          </p>
-                          <p className="text-foreground font-semibold">
-                            {Math.round(
-                              getStepCaloriesDetails(
-                                entriesMap[selectedDate].steps,
-                                {
-                                  weight,
-                                  height,
-                                  gender: gender || 'male',
-                                }
-                              ).calories
-                            )}{' '}
-                            kcal
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <p className="text-muted text-lg font-semibold">No entry</p>
-                )}
-              </div>
-            )}
-            <div className="absolute left-1/2 transform -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-border" />
-          </div>
-        )}
     </>
   );
 };
