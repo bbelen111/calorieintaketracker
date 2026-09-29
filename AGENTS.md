@@ -23,8 +23,9 @@ React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor 
 - `@capacitor/keyboard` — Input handling (`resize: "none"` in config)
 - `@capacitor/splash-screen` — Launch screen
 - `@capacitor/barcode-scanner` — Native barcode scanning (FoodSearch barcode action)
-- `@capgo/capacitor-health` — Health Connect step sync (Android only)
+- `@capgo/capacitor-health` — Step sync (Health Connect on Android, HealthKit on iOS)
 - `@capgo/capacitor-navigation-bar` — Android navigation bar theming
+- `@capacitor/filesystem` + `@capacitor/share` — Native export delivery (Cache write + OS share sheet)
 
 **Testing exists (Node test runner), no CI pipeline yet.** Use automated tests for touched logic and then perform manual UI checks. No router — single-page app with swipeable screen carousel.
 
@@ -1100,24 +1101,36 @@ The cleanup path is source-first. Do not add per-query runtime quality enforceme
 
 ---
 
-## Health Connect Integration (`hooks/useHealthConnect.js`)
+## Step Sync Integration (`hooks/useHealthConnect.js`)
 
-Android-only step data sync via `@capgo/capacitor-health`.
+Native step data sync via `@capgo/capacitor-health` on **both** native platforms: Health Connect on Android, HealthKit on iOS. The hook is gated by `isAndroid() || isIOS()` from `src/utils/platform.js` — never by an inline `Capacitor.getPlatform() === 'android'`.
 
 **Status lifecycle:** `'unavailable'` → `'not_installed'` → `'disconnected'` → `'connecting'` → `'connected'` | `'error'`
 
 Returns `{ status, steps, lastSynced, isLoading, error, connect, refresh, disconnect, openSettings, writeTestData }`.
 
-- `openSettings()` — Opens Health Connect settings on Android
-- `writeTestData()` — Writes 1000 test steps for debugging
-- Step aggregation uses max-per-source strategy to prevent double counting from multiple health apps
-- Auto-refreshes on app foreground via `App.addListener('appStateChange')`
+- Status vocabulary and the brand name are canonical in `src/constants/health/healthSources.js` (`HealthConnectStatus`, `getHealthSourceName()` → `'Apple Health'` on iOS, `'Health Connect'` elsewhere). Both the hook and `CalorieMapScreen` read them from there — the screen used to keep an inline copy that could drift. Do not re-declare either.
+- `openSettings()` — Opens Health Connect settings on Android; on iOS it is an explicit no-op with an info log (the plugin documents the method as Android-only and Capacitor exposes no API for launching the Health app).
+- `writeTestData()` — Android-only debug helper (writes 1000 test steps). iOS is read-only, so it returns `false` without touching the plugin.
+- Step aggregation uses max-per-source strategy to prevent double counting from multiple health apps (on iOS this covers iPhone + Apple Watch).
+- Auto-refreshes on app foreground via `App.addListener('appStateChange')` on both platforms.
+- Read windows are built through `buildHealthConnectStepReadWindow()` in `src/utils/healthConnectWindow.js`; keep that helper the single source of truth for explicit `startDate`/`endDate` normalization and strict `end > start` validation.
 - `fetchSteps()` must use the **today-scoped window** (`buildHealthConnectStepReadWindow()`, local midnight → now) as the primary read path. The plugin's native default range is a rolling 24 hours and would include previous-day steps in today's live count, so it must only be used as a degraded fallback when the explicit today window fails. If all reads fail, return `null` and degrade gracefully rather than throwing a connection error into the live card flow.
 - Step aggregation is centralized in `aggregateStepsBySource()` in `src/utils/healthConnectWindow.js`; use it for all read paths (today-scoped, native default, and rolling fallback) to keep max-per-source dedup consistent.
 
-Always returns `'unavailable'` on web and iOS. Status constants exported as `HealthConnectStatus` enum object.
+**Platform differences that are load-bearing:**
+
+- **Scope request:** `buildPermissionRequest()` asks for `{ read: ['steps'], write: ['steps'] }` on Android and `{ read: ['steps'] }` on iOS. iOS is deliberately **read-only** — no `NSHealthUpdateUsageDescription` in `Info.plist` and no HealthKit share entitlement — so a write scope would prompt for a capability the app cannot use. Omitting `write` is safe: the plugin's Swift side defaults a missing array to `[]` for both `requestAuthorization` and `checkAuthorization`.
+- **Availability:** `NOT_INSTALLED` is Android-only (Health Connect is a separate Play Store app). On iOS `isAvailable() === false` means HealthKit does not exist on the device (iPad, or restricted) and must map to `UNAVAILABLE`, because there is nothing the user could install.
+- **Authorization semantics (iOS):** HealthKit never reveals whether READ access was granted (deliberate Apple privacy design). The plugin maps `getRequestStatusForAuthorization` (`unnecessary` → authorized), so `checkAuthorization()` answers *"has the user already been asked?"* — exactly what `initialize()` needs to avoid re-prompting on every launch. A user who denied access still reads back as authorized and simply gets zero samples; that is a HealthKit limitation, not an app bug to paper over.
+- **Entitlement:** HealthKit requires `ios/App/App/App.entitlements` (`com.apple.developer.healthkit`), wired through `CODE_SIGN_ENTITLEMENTS` in both App build configs. When it is absent (e.g. an unsigned build) the plugin fails with `Missing com.apple.developer.healthkit entitlement` and the hook degrades to `UNAVAILABLE` — this path must never crash the app.
+
+Always returns `'unavailable'` on **web** (and on any native platform that owns no health store). Status constants live in `src/constants/health/healthSources.js`.
 
 ---
+
+13. **Platform divergence is centralized in `utils/platform.js`.** `getPlatform` / `isNative` / `isIOS` / `isAndroid` are the only sanctioned way to branch on platform; they read the bridge lazily (never at module scope) and `isIOS()`/`isAndroid()` are additionally native-gated. Each platform may only call the plugin APIs it owns — themed through per-platform appliers in `utils/theme.js` (iOS keeps `StatusBar.setOverlaysWebView({ overlay: true })` because the app renders its own status-bar vignette and derives every inset from `env(safe-area-inset-*)`; Android insets the WebView and paints an opaque bar), the `backButton` listener is Android-only (`hooks/useHardwareBackButton.js`), the iOS-only `Keyboard.setResizeMode`/`setScroll` calls are gated in `main.jsx`, and export delivery splits web-download vs native share sheet in `services/fileShare.js`. **Gating beats try/catch:** an `await` that always rejects is a silent per-launch failure nobody notices. New platform branches must consume these helpers instead of hand-writing `Capacitor.getPlatform()` comparisons.
+14. **iOS HealthKit is read-only and has different authorization semantics.** The health bridge (`hooks/useHealthConnect.js`) runs on both native platforms; iOS requests `{ read: ['steps'] }` only (no `NSHealthUpdateUsageDescription`, no HealthKit share entitlement) and treats HealthKit-unavailable as `UNAVAILABLE`, never `NOT_INSTALLED`. HealthKit cannot report whether READ access was granted, so `checkAuthorization` answers "has the user already been asked?" — see 04-data-and-backend for the full contract. The capability lives in `ios/App/App/App.entitlements` and only takes effect in a **signed** build.
 
 ## File Organization
 
@@ -1157,11 +1170,14 @@ src/
 │   ├─ nutrients/
 │   │  └─ nutrients.js           # Canonical micro nutrients (fiber/sodium/saturatedFats/sugars): units, clamps,
 │   │                            #   source-scoped soft invariants, OFF sodium conversion, totals/coverage helpers
+│   ├─ health/
+│   │  └─ healthSources.js       # Health-store vocabulary shared by the bridge hook and the UI
+│   │                            #   (HealthConnectStatus + getHealthSourceName → "Apple Health"/"Health Connect")
 ├─ hooks/
 │   ├─ useAnimatedModal.js       # Modal lifecycle (isOpen/isClosing/requestClose)
-│   ├─ useHardwareBackButton.js  # Native back handling (home-first + double-exit)
+│   ├─ useHardwareBackButton.js  # Android back handling (home-first + double-exit; registers nothing on iOS)
 │   ├─ useSwipeableScreens.js    # 5-screen horizontal carousel (edge peek, compositor settles, drag-progress vars)
-│   ├─ useHealthConnect.js       # Android Health Connect integration
+│   ├─ useHealthConnect.js       # Step sync bridge (Health Connect on Android, HealthKit read-only on iOS)
 │   └─ useNetworkStatus.js       # Online/offline detection
 ├─ store/
 │   └─ useEnergyMapStore.js      # Zustand store: state, actions, derived values, persistence
@@ -1210,8 +1226,9 @@ src/
 │   │  ├─ modalStack.js          # Modal z-lane allocation + backdrop opacity math (extracted from ModalShell)
 │   │  ├─ scroll.js              # Scroll utilities
 │   │  └─ trackerHelpers.jsx
-│   ├─ theme.js                  # Native theme application (status bar, transparent nav bar, keyboard)
-│   ├─ export.js                 # CSV/JSON export generation
+│   ├─ theme.js                  # Native theme application (status bar, transparent nav bar, keyboard) — per-platform appliers
+│   ├─ platform.js               # Canonical platform resolution (getPlatform/isNative/isIOS/isAndroid); lazy reads
+│   ├─ export.js                 # CSV/JSON export generation (delegates delivery to services/fileShare.js)
 ├─ services/
 │   ├─ openrouter.js             # OpenRouter client + mode helpers (extraction/presentation/grounding)
 │   ├─ foodCache.js              # Cached food dedupe/trim helpers
@@ -1224,6 +1241,7 @@ src/
 │   ├─ foodCloud.js              # Supabase catalog online search client
 │   ├─ openFoodFacts.js          # OpenFoodFacts barcode lookup client
 │   ├─ barcodeScanner.js         # Official Capacitor barcode scanner wrapper
+│   ├─ fileShare.js              # Export delivery bridge (web download / native Filesystem+Share sheet)
 │   └─ foodCatalog.js            # SQLite-backed local food catalog service (sql.js)
 ├─ tests/                        # UI-tier harness ONLY — setup.js (plugin doubles) + mocks/capacitor.js
 │                                #   UI specs live beside their sources as `src/**/*.spec.{js,jsx}` (Vitest)
@@ -1307,12 +1325,13 @@ npm run test:ui:coverage # UI-tier coverage (components + hooks + modalStack)
 - Storage tests intentionally run with in-memory `window.localStorage` shims in Node context; avoid plugin monkey-patching when possible.
 - Full `npm run test` is green (381 tests; the shell's loop math — px transform geometry, teleport tiers, settle clock, wrap periods, shortest tab path, ease — is covered by `tests/utils/carouselLoop.test.js`). Earlier additions: `tests/utils/bezierPath.test.js` (gap-aware path runs), `tests/utils/trendAverages.test.js` (trapezoidal N-day averages + capped trend fallback), `tests/utils/entryDeltas.test.js` (tracker entry deltas + signed-delta formatting), and staleness-gate cases in `tests/utils/adaptiveThermogenesis.test.js`. The canonical defaults are asserted by `tests/constants/activityPresets.test.js` against `DEFAULT_ACTIVITY_MULTIPLIERS` (`{ training: 0.2, rest: 0.22 }`).
 - The **UI tier is separate**: `npm run test:ui` runs Vitest 5 (jsdom + Testing Library) over `src/**/*.spec.{js,jsx}` for components and hooks. Logic specs stay `tests/**/*.test.js` under `node --test`, so neither runner can pick up the other's files. Harness: `vitest.config.js` (standalone, deliberately NOT extending `vite.config.js`) + `src/tests/setup.js` (Capacitor plugin doubles in `src/tests/mocks/capacitor.js`, `visualViewport`/`window.scrollTo`/`Element.prototype.scrollTo` shims — the tracker modals drive their chart carousels imperatively from effects — plus explicit RTL `cleanup` because `globals: false`). Modal stack/backdrop math was extracted to `src/utils/visuals/modalStack.js` so it is unit-testable without a DOM.
-- **Plugin boundaries are covered at the module boundary, not by monkey-patching plugin internals.** `src/tests/mocks/capacitor.js` doubles `@capacitor/core`, `preferences`, `app`, `status-bar`, `keyboard`, `splash-screen`, `barcode-scanner`, `@capgo/capacitor-health` and `navigation-bar`, and each double exposes **only the API surface the app actually calls** (verified by grep) so an uncovered plugin call fails loudly instead of silently returning `undefined`. Keep it that way: extend the double when the app starts using a new plugin method, and never reach into real plugin internals from a spec.
-- Covered plugin contracts: `services/barcodeScanner.spec.js` (platform gating without invoking the plugin, digit normalisation, `UNSUPPORTED`/`NO_RESULT`/`CANCELLED`/`PERMISSION_DENIED`/`SCAN_FAILED` mapping, and the exact scanner option payload), `hooks/useHardwareBackButton.spec.js` (modal → home-first → double-exit + hint timing + listener cleanup), and `hooks/useHealthConnect.spec.js` (status lifecycle, **today-scoped window as the primary read**, plugin default only as the degraded fallback, exact-midnight rolling retry, degradation to `null` instead of throwing, max-per-source step dedupe, refresh only while connected, foreground refresh only when `isActive`).
+- **Plugin boundaries are covered at the module boundary, not by monkey-patching plugin internals.** `src/tests/mocks/capacitor.js` doubles `@capacitor/core`, `preferences`, `app`, `status-bar`, `keyboard`, `splash-screen`, `barcode-scanner`, `@capgo/capacitor-health`, `navigation-bar`, `@capacitor/filesystem` and `@capacitor/share`, and each double exposes **only the API surface the app actually calls** (verified by grep) so an uncovered plugin call fails loudly instead of silently returning `undefined`. Keep it that way: extend the double when the app starts using a new plugin method, and never reach into real plugin internals from a spec.
+- Covered plugin contracts: `services/barcodeScanner.spec.js` (platform gating without invoking the plugin, digit normalisation, `UNSUPPORTED`/`NO_RESULT`/`CANCELLED`/`PERMISSION_DENIED`/`SCAN_FAILED` mapping, and the exact scanner option payload), `hooks/useHardwareBackButton.spec.js` (modal → home-first → double-exit + hint timing + listener cleanup, **plus: nothing is registered on iOS**), `hooks/useHealthConnect.spec.js` (status lifecycle, **today-scoped window as the primary read**, plugin default only as the degraded fallback, exact-midnight rolling retry, degradation to `null` instead of throwing, max-per-source step dedupe, refresh only while connected, foreground refresh only when `isActive`, **plus the iOS contract**: read-only scope, `UNAVAILABLE` instead of `NOT_INSTALLED`, Apple Health copy, Android-only settings/write helpers), `services/fileShare.spec.js` (web download vs native Cache-write + share sheet, share-sheet dismissal as success, never throwing) and `utils/theme.spec.js` (which plugin APIs each platform may touch).
+- **Two platform helpers are covered beside their sources even though `src/utils/**` is otherwise the Node tier's job.** `src/utils/platform.spec.js` and `src/utils/theme.spec.js` live in the UI tier because driving them requires the Capacitor doubles (which only exist there); neither is in the UI coverage include list, so the tier's headline coverage stays meaningful. Pure-logic `src/utils/**` modules still belong in `tests/utils/*.test.js`.
 - UI-tier coverage scope is deliberately narrow: `src/components/**`, `src/hooks/**`, `src/utils/visuals/modalStack.js` and `src/services/barcodeScanner.js` (the plugin bridge this tier owns). The rest of `src/services/**` and all of `src/utils/**` remain the Node tier's job, so `npm run test:ui:coverage` stays meaningful. `hooks/useSwipeableScreens.js` is now reached indirectly (~47%) through the orchestrator's tab bar; its DOM drag/settle wiring is still not directly asserted, and its pure loop math belongs to `tests/utils/carouselLoop.test.js`.
 - **The orchestrator is covered by mounting it, not by extracting it.** `src/components/EnergyMap/EnergyMapCalculator.spec.jsx` mounts the real (4,600+ line) orchestrator against the real store, giving the hydration gate, all five carousel screens, tab→chrome wiring, store→screen propagation and a lazy `SettingsModal` open/close round trip. When adding to it: **scope text queries to the region under test** (`within(header)`) because screens render their own summary copy and a document-wide query silently matches the wrong element. Also note the store saves on a 1s debounce into a **module-scoped** Preferences double, so a previous test's pending save can be reloaded by the next `initialize()` — pin persisted flags explicitly (see `setSwipeHintSeen(...)` in that spec) instead of assuming a default.
 - **Full-browser E2E (Playwright) is deliberately deferred, not forgotten.** It was skipped because it needs selectors added across the orchestrator and 60 modal files (the app has zero `data-testid`/`aria-label`/`role` hooks today), a ~150 MB Chromium download, and it fights the swipe shell's rAF/compositor settles. Entry criteria: reach for it when a defect escapes that only a real browser would catch. What the integration tier cannot replace and Playwright would add: real layout/paint (carousel + tab-bar/dot geometry), IndexedDB persistence across a reload, and visual regression.
-- **CI (`.github/workflows/ci.yml`) gates the release path**, in this order: `npm ci` → `npm run lint:ci` → `npm run test:coverage` → `npm run test:ui` → `npm run build` → an inline assertion that `dist/index.html` plus the expected `chunk-*` vendor bundles exist → `npx cap copy android`. Every step was verified locally before being wired up, including the assertion's failure paths (missing `index.html`, missing chunk) and the coverage floors (an impossible floor exits 1).
+- **CI (`.github/workflows/ci.yml`) gates the release path with two jobs.** The `verify` job (ubuntu) runs, in this order: `npm ci` → `npm run lint:ci` → `npm run test:coverage` → `npm run test:ui` → `npm run build` → an inline assertion that `dist/index.html` plus the expected `chunk-*` vendor bundles exist → `npx cap copy android`. Every step was verified locally before being wired up, including the assertion's failure paths (missing `index.html`, missing chunk) and the coverage floors (an impossible floor exits 1). The `ios` job (macOS) runs `npm ci` → `npm run build` → `npx cap copy ios` → `xcodebuild -scheme App -sdk iphonesimulator -destination 'generic/platform=iOS Simulator'` with signing disabled; it proves the web bundle lands in the iOS project **and** that the Xcode project still compiles with every Capacitor plugin linked through SPM (the manifest references plugins by relative path into `node_modules`, so it also catches "plugin added to package.json but the iOS project was never re-synced"). Entitlements are deliberately not applied in that job, so HealthKit runtime access is out of its scope — it needs a signed build.
 - **`lint:ci` exists because the strict profile is red on pre-existing code.** `npm run lint` reports 37 errors: 36 × `react-hooks/set-state-in-effect` and 1 × `react-hooks/preserve-manual-memoization`, both enabled as errors by `eslint-plugin-react-hooks` v7's recommended preset, across the orchestrator plus 11 modal/screen files that sync state on prop change. `eslint.ci.config.js` downgrades only those two rules to warnings so the CI gate is meaningful on day one; `npm run lint` stays strict so the debt is visible locally and in editors. **Do not add new instances** — refactoring them is its own change with UI verification.
 - **Coverage floors are floors, not ratchets:** logic tier 75 lines / 63 branch / 75 funcs (measured 78.9/68.5/79.9) and UI tier 22/11/18 (measured 24.8/13.5/20.8). They are deliberately a few points below the measured values so adding an untested surface nudges rather than blocks CI. Raise them as coverage improves. Never use `cap sync` in CI: it runs Gradle and needs the Android SDK, while `cap copy` is what actually proves the web bundle lands in the native project (and its output is gitignored).
 

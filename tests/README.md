@@ -67,6 +67,15 @@ Per-file coverage from the initial UI-tier work:
 | `components/.../screens/LogbookScreen.jsx` | 41.8% | mounted via the orchestrator |
 | `hooks/useSwipeableScreens.js` | 47.1% | driven through the tab bar (pure loop math stays in the Node tier) |
 | `components/.../screens/PhaseDetailScreen.jsx` | 6.3% | drill-down, not in the carousel — still untested |
+| `services/fileShare.js` | covered (not in the UI include list) | web download vs native Cache-write + share sheet |
+| `utils/platform.js` + `utils/theme.js` | covered (not in the UI include list) | platform resolution + per-platform theme appliers |
+
+**Platform specs live beside their sources, not in the Node tier.** `src/utils/platform.spec.js`,
+`src/utils/theme.spec.js` and `src/services/fileShare.spec.js` are UI-tier specs even though they cover
+`src/utils/**` and `src/services/**`: driving them needs the Capacitor plugin doubles, which only exist in
+this tier (`src/tests/mocks/capacitor.js`). None of them is in the UI coverage include list, so the
+headline number above stays a statement about components/hooks. Pure-logic `src/utils/**` modules
+(everything that does not touch a plugin) still belong in `tests/**/*.test.js`.
 
 The remaining ~50 modals are mostly untouched, so the tier's aggregate (24.8% lines) is low by design —
 extend it per surface rather than chasing the number.

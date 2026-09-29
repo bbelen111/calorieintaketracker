@@ -106,7 +106,9 @@ $$
 | **External APIs** | Supabase food catalog (seeded from USDA FDC), OpenFoodFacts, OpenRouter | — |
 
 **Key Capacitor Plugins:**
-- `@capacitor/preferences`, `@capacitor/app`, `@capacitor/status-bar`, `@capacitor/keyboard`, `@capacitor/barcode-scanner`, `@capgo/capacitor-health`, `@capgo/capacitor-navigation-bar`
+- `@capacitor/preferences`, `@capacitor/app`, `@capacitor/status-bar`, `@capacitor/keyboard`, `@capacitor/barcode-scanner`, `@capgo/capacitor-health`, `@capgo/capacitor-navigation-bar`, `@capacitor/filesystem`, `@capacitor/share`
+
+**Both native platforms are supported:** Android (Health Connect + nav-bar theming + hardware back button) and iOS (HealthKit + native share sheet). Platform-divergent behaviour is resolved centrally through `src/utils/platform.js` — see [Platform Awareness](#-platform-awareness).
 
 ## 🏗 Architecture
 
@@ -264,20 +266,178 @@ npm run dev              # Vite dev server (localhost:5173, strictPort)
 
 ```bash
 npm run build            # Build → dist/
-npx cap sync             # Sync native projects
+npx cap sync             # Sync native projects (also updates the iOS SPM manifest)
+npx cap copy android     # Web assets only, no Gradle (what CI uses)
 npx cap open android     # Open in Android Studio
-npx cap open ios         # Open in Xcode (Mac only)
+npx cap open ios         # Open in Xcode (macOS only)
 ```
+
+### iOS
+
+The `ios/` project is **Swift Package Manager native** (`ios.packageManager: "SPM"`) — every Capacitor plugin ships a `Package.swift`, so **CocoaPods is not required** and `pod install` is never run. Minimum deployment target is **iOS 15.0** (required by `@capacitor/barcode-scanner`).
+
+The Android flow maps **one-to-one**; only the platform name changes:
+
+```bash
+# Android (yours)                        # iOS
+npx vite build                           npm run build            # or: npx vite build
+npx cap sync                             npm run ios:sync         # npm run build && npx cap sync ios
+npx cap open android                     npm run ios:open         # npx cap open ios
+```
+
+Convenience scripts:
+
+| Script | Does |
+|---|---|
+| `npm run ios:sync` | `vite build` + `cap sync ios` (web assets → `ios/App/App/public`, regenerates `CapApp-SPM/Package.swift`, resolves SPM deps) |
+| `npm run ios:copy` | `vite build` + `cap copy ios` — web assets only, skips the plugin-manifest update. Use this for the tight JS-only loop |
+| `npm run ios:open` | Opens `ios/App/App.xcodeproj` in Xcode (SPM → **no `.xcworkspace`**, that is expected) |
+| `npm run ios:run` | Full headless loop: build → sync → `xcodebuild` → `simctl install` → `simctl launch` on a booted simulator |
+
+Then press ▶ Run in Xcode, or go fully command-line:
+
+```bash
+npm run ios:run
+# or by hand:
+npm run build
+npx cap copy ios                                            # web assets into ios/App/App/public
+xcodebuild -project ios/App/App.xcodeproj -scheme App \
+  -sdk iphonesimulator -configuration Debug \
+  -destination 'id=<booted simulator UDID>' build
+xcrun simctl install <UDID> ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app
+xcrun simctl launch <UDID> com.energymap.tracker
+```
+
+`ios/DerivedData` is gitignored, so nothing build-related lands in a commit. Simulator list: `xcrun simctl list devices booted`.
+
+### Running & live-reloading on a real iPhone
+
+Everything below needs **one** one-time setup step: an Apple ID signed into Xcode
+(Xcode → Settings → Accounts) and a **Team** selected for the `App` target
+(Signing & Capabilities → Automatically manage signing). The project ships with **no**
+`DEVELOPMENT_TEAM`, so a device build fails until you pick one. A simulator build does
+not need it.
+
+```bash
+npm run ios:device     # cap run ios — syncs, builds and installs on a selected device
+npm run ios:live       # same, but the app loads the Vite dev server (live reload)
+```
+
+`ios:live` needs the dev server listening on your LAN in a second terminal:
+
+```bash
+npm run dev -- --host          # vite already has strictPort:true, so it stays on 5173
+```
+
+Then edit any JS/CSS and the iPhone reloads in place — no rebuild, no reinstall.
+
+**Two Info.plist keys are involved in live reload over the LAN**, and this project
+currently ships **neither** (the Capacitor template does not add them):
+
+| Key | Why |
+|---|---|
+| `NSAppTransportSecurity` → `NSAllowsLocalNetworking` = `true` | Apple: *"controls whether App Transport Security (ATS) allows your app to connect to unqualified domains, `.local` domains, and IP addresses using IPv4 or IPv6."* Default is `NO`, so ATS blocks the plain-HTTP dev server at `http://192.168.x.x:5173`. Set it to `YES` for local development (it is the Apple-sanctioned key for exactly this; release builds talking only to `https://` endpoints can drop it again). |
+| `NSLocalNetworkUsageDescription` | iOS 14+ gates local-network access behind a user prompt; this is its usage string, the same mechanism as the camera/Health descriptions already present. Add it if the device silently fails to reach the dev server. |
+
+The alternative to the ATS key is serving the dev server over HTTPS (`npm run ios:live -- --https`), which needs a trusted certificate on the device — usually more work than one plist key.
+
+The project deliberately keeps **production** `Info.plist` clean (nothing in the shipped app talks to a LAN host), so live reload needs this pasted into `ios/App/App/Info.plist` once, inside the top-level `<dict>`:
+
+```xml
+<key>NSAppTransportSecurity</key>
+<dict>
+  <key>NSAllowsLocalNetworking</key>
+  <true/>
+</dict>
+<key>NSLocalNetworkUsageDescription</key>
+<string>Energy Map connects to the local development server.</string>
+```
+
+It only relaxes ATS for **private/local** addresses — public hosts still require HTTPS — but remove it before an App Store upload unless the app genuinely uses the local network.
+
+On the iPhone itself (first device build only):
+
+- **Developer Mode** (iOS 16+) — Settings → Privacy & Security → Developer Mode → on → restart.
+- **Trust the developer** — after the first install, Settings → General → VPN & Device Management → your Apple ID → Trust.
+- Wireless deploys need the phone paired to the Mac in Finder with *"Show this iPhone when on Wi-Fi"* checked; then `npx cap run ios --list` sees it.
+
+**HealthKit is the one capability that can be refused.** It is a paid-program capability, so a free *Personal Team* may be rejected at signing time (`Provisioning profile doesn't include the com.apple.developer.healthkit entitlement`, or Xcode naming the capability it will not enable). The app itself is fine either way — it degrades to step-sync unavailable instead of crashing — but the *build* stops. To do a free-team device build, drop the entitlement for that build only:
+
+```bash
+xcodebuild -project ios/App/App.xcodeproj -scheme App \
+  -destination 'id=<device UDID>' \
+  CODE_SIGN_ENTITLEMENTS=App/App/NoHealthKit.entitlements build
+```
+
+…where `NoHealthKit.entitlements` is an empty `<dict/>` plist, or simply comment out the
+`CODE_SIGN_ENTITLEMENTS` line in `App.xcodeproj` (guard it with git so it is not committed).
+With a paid Apple Developer Program membership, Xcode's automatic signing enables HealthKit
+on the App ID for you and nothing needs removing.
+
+Also note `com.energymap.tracker` must be **registerable by your team** — automatic signing
+registers it on first use, but if that bundle ID is already taken globally, change it
+(`PRODUCT_BUNDLE_IDENTIFIER`) to something personal, e.g. `com.<you>.energymap`.
+
+For sharing a build with other testers rather than your own device, that is a different
+path: archiving and uploading to **TestFlight** (needs the paid program + App Store
+Connect), not `cap run`.
+
+Notes that are easy to lose an afternoon to:
+
+- **`npm run ios:run` needs no Xcode GUI and no Team** — a simulator build is signed ad-hoc, which is enough for the HealthKit entitlement to apply. Only *device*/App Store builds need a Team.
+
+- **HealthKit needs a *signed* build.** The HealthKit capability is wired through `ios/App/App/App.entitlements`, which Xcode applies when signing. An unsigned build
+  (`CODE_SIGNING_ALLOWED=NO`, as in the CI job) logs
+  `Missing com.apple.developer.healthkit entitlement` at launch and the step-sync card
+  stays hidden — by design, the hook degrades to `UNAVAILABLE` rather than crashing.
+  HealthKit only needs signing; the iOS **simulator is fine** for testing it (a device
+  and a paid team are not required locally).
+- **Device/App Store builds** additionally need the HealthKit capability enabled for the
+  App ID in the Apple Developer portal. Xcode's automatic signing does this once a team
+  is selected.
+- `Info.plist` carries `NSCameraUsageDescription` (barcode scanning) and
+  `NSHealthShareUsageDescription` (read-only step access — the app never writes health
+  data on iOS, so `NSHealthUpdateUsageDescription` is deliberately absent).
+  iPhone orientation is locked to portrait (the UI is designed for phone portrait), iPad
+  keeps all orientations.
+- `ios.packageManager`, `contentInset`, `scrollEnabled`, the splash background and
+  `Keyboard.autoBackdropColor` all live in `capacitor.config.json`. Two of those entries
+  also affect **Android**: the root `backgroundColor` (`#0f172a`) and the `SplashScreen`
+  block (dark background, `showSpinner: false`) replace the template's white, spinner-bearing
+  splash. That is a deliberate, cross-platform launch-appearance change, not an iOS-only one.
 
 ### Linting & Testing
 
 ```bash
-npm run lint             # ESLint check
+npm run lint             # ESLint check (strict — includes pre-existing advisory errors)
+npm run lint:ci          # CI profile: the two advisory rules become warnings
 npm run lint:fix         # Auto-fix lint issues
 npm run format           # Prettier formatting
-npm run test             # Node test runner
-npm run test:watch       # Node test runner (watch mode)
+npm run test             # Logic tier — node --test (tests/**)
+npm run test:watch       # Logic tier (watch mode)
+npm run test:coverage    # Logic tier + coverage floors
+npm run test:ui          # UI tier — Vitest/jsdom (src/**/*.spec.{js,jsx})
+npm run test:ui:coverage # UI tier + coverage floors
 ```
+
+## 🧭 Platform Awareness
+
+Every platform-divergent branch resolves through **`src/utils/platform.js`** (`getPlatform`, `isNative`, `isIOS`, `isAndroid`) instead of an inline `Capacitor.getPlatform()` comparison. The helpers read the bridge lazily — never at module scope, so a value can never be frozen before the native bridge boots — and `isIOS()`/`isAndroid()` are additionally native-gated, so a browser can never unlock a native-only plugin API.
+
+What actually differs, and where each difference is owned:
+
+| Concern | Android | iOS | Owner |
+|---|---|---|---|
+| Status bar | WebView **inset** below an opaque bar painted with the theme colour | WebView **overlays** the bar; the app's own vignette plus `env(safe-area-inset-*)` insets do the work | `utils/theme.js` |
+| Navigation-bar theming | transparent + theme colour | not applicable | `utils/theme.js` |
+| Keyboard style | not applicable | `Keyboard.setStyle` is an iOS-only API | `utils/theme.js` |
+| Keyboard resize/scroll | handled natively | `setResizeMode` / `setScroll` are iOS-only APIs | `main.jsx` |
+| Context-menu suppression | suppresses the broken WebView menu | **not** applied — it would remove the long-press callout/copy-paste in inputs | `main.jsx` |
+| Hardware back button | modal → Home → double-press to exit | the `backButton` event does not exist; nothing is registered | `hooks/useHardwareBackButton.js` |
+| Step sync | Health Connect (read + write scope) | HealthKit (read-only) | `hooks/useHealthConnect.js` |
+| File export | OS share sheet | OS share sheet | `services/fileShare.js` |
+
+**Rule:** new platform branches must consume the helpers and only call APIs the platform actually owns. Gating beats `try`/`catch` here — an `await` that always rejects is a silent failure on every launch rather than a bug anybody notices.
 
 ## 🔄 Key Patterns
 
@@ -435,14 +595,32 @@ import { searchFoods, getFoodById } from './services/foodCatalog';
 const results = await searchFoods({ query: 'chicken', category: 'Meat', limit: 50 });
 ```
 
-### Health Connect (Android)
+### Step Sync (Android Health Connect + iOS HealthKit)
 
-Native step data sync via `@capgo/capacitor-health`.
+Native step data sync via `@capgo/capacitor-health` on **both** native platforms — Health Connect on Android, HealthKit on iOS.
 
 ```javascript
 const health = useHealthConnect();
-// Returns: { status, steps, lastSynced, connect, refresh, disconnect }
+// Returns: { status, steps, lastSynced, isLoading, error, connect, refresh, disconnect, openSettings, writeTestData }
 ```
+
+- Reads are **today-scoped** (local midnight → now) so previous-day steps never leak into today's live count; the plugin's rolling-24h default is only a degraded fallback.
+- Samples are deduped **max-per-source** (iPhone + Apple Watch, or Samsung Health + Google Fit, both record the same walk — summing them would double count).
+- iOS is **read-only**: no `NSHealthUpdateUsageDescription`, no write scope, and `writeTestData` / `openSettings` are Android-only.
+- HealthKit is the one place the two APIs genuinely disagree: it never reveals whether **read** access was granted. The plugin maps `getRequestStatusForAuthorization`, so `checkAuthorization` answers *"has the user already been asked?"* — which is what `initialize()` needs to avoid re-prompting on every launch. A user who denied access still reads back as authorized and simply gets zero samples; that is a HealthKit limitation, not an app bug.
+- Status vocabulary and the brand name live in `src/constants/health/healthSources.js` (`HealthConnectStatus`, `getHealthSourceName()` → "Health Connect" / "Apple Health"), shared by the hook and the screen so the copy cannot drift.
+
+### File Delivery (Export)
+
+`utils/export.js` builds the CSV/JSON payload and hands it to `services/fileShare.js`, which picks the platform's mechanism:
+
+```javascript
+import { saveTextFile } from './services/fileShare';
+await saveTextFile({ fileName: 'phase.csv', content: csv, mimeType: 'text/csv' });
+// → { success, method: 'download' | 'share' | 'none', fileName, uri?, canceled?, error? }
+```
+
+An anchor `download` click is a **silent no-op inside a native WebView** (neither WKWebView nor the Android WebView implements it), so on native the payload is written to the app's Cache directory and handed to the OS share sheet instead. The plugin modules are imported dynamically so the web bundle never ships native-only code.
 
 ## 📊 Calorie Calculation System
 
