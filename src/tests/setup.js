@@ -74,6 +74,21 @@ vi.mock('@capgo/capacitor-navigation-bar', async () => {
   return { NavigationBar: NavigationBarMock };
 });
 
+vi.mock('@capacitor/filesystem', async () => {
+  const { DirectoryMock, EncodingMock, FilesystemMock } =
+    await import('./mocks/capacitor.js');
+  return {
+    Filesystem: FilesystemMock,
+    Directory: DirectoryMock,
+    Encoding: EncodingMock,
+  };
+});
+
+vi.mock('@capacitor/share', async () => {
+  const { ShareMock } = await import('./mocks/capacitor.js');
+  return { Share: ShareMock };
+});
+
 // ---------------------------------------------------------------------------
 // jsdom gaps
 // ---------------------------------------------------------------------------

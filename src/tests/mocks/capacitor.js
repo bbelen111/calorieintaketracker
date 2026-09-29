@@ -107,6 +107,27 @@ export const HealthMock = {
   openHealthConnectSettings: vi.fn(async () => {}),
 };
 
+/**
+ * `@capacitor/filesystem` double. Only `writeFile` is exposed because that is
+ * the single Filesystem call the native export path makes — a future call to an
+ * uncovered method should fail loudly instead of silently returning `undefined`.
+ */
+export const FilesystemMock = {
+  writeFile: vi.fn(async ({ path }) => ({ uri: `file:///mock-cache/${path}` })),
+};
+
+/** Enum members the app actually reads (data, not API surface). */
+export const DirectoryMock = { Cache: 'CACHE' };
+export const EncodingMock = { UTF8: 'utf8' };
+
+/**
+ * `@capacitor/share` double. The iOS implementation rejects with
+ * `"Share canceled"` when the sheet is dismissed, so specs can reproduce that.
+ */
+export const ShareMock = {
+  share: vi.fn(async () => ({ activityType: 'com.mock.share' })),
+};
+
 /** Enum-shaped exports consumed from the plugin modules. */
 export const StyleMock = { Dark: 'DARK', Light: 'LIGHT', Default: 'DEFAULT' };
 export const KeyboardStyleMock = {
