@@ -8,16 +8,20 @@ const EXIT_WINDOW_MS = 2000;
 const HOME_INDEX = 2;
 
 /**
- * Native back-button policy: a modal wins, otherwise return Home, and only from
+ * Android back-button policy: a modal wins, otherwise return Home, and only from
  * Home does a second press within the confirm window exit the app.
  *
  * The listener is registered through `App.addListener` (mocked here), so these
  * tests drive the real callback the hook hands to the plugin.
+ *
+ * `backButton` is an Android-only event, so the hook must register nothing at
+ * all on iOS — see the dedicated iOS case below.
  */
 describe('useHardwareBackButton', () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     CapacitorMock.isNativePlatform.mockReturnValue(true);
+    CapacitorMock.getPlatform.mockReturnValue('android');
     AppMock.exitApp.mockClear();
     AppMock.addListener.mockClear();
   });
@@ -66,6 +70,19 @@ describe('useHardwareBackButton', () => {
 
     renderBackButton();
 
+    expect(getBackHandler()).toBeUndefined();
+    expect(AppMock.addListener).not.toHaveBeenCalled();
+  });
+
+  it('never registers on iOS, where backButton does not exist', () => {
+    CapacitorMock.getPlatform.mockReturnValue('ios');
+
+    renderBackButton();
+
+    // `@capacitor/app` documents `backButton` as Android-only and its iOS
+    // AppPlugin emits no such notification, so anything registered here would be
+    // a listener that can never fire — plus the home-first / double-exit policy
+    // (and `App.exitApp()`) is Android behaviour that iOS must not reach.
     expect(getBackHandler()).toBeUndefined();
     expect(AppMock.addListener).not.toHaveBeenCalled();
   });

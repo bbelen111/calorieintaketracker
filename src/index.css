@@ -25,12 +25,16 @@
     U+0030-0039, U+0025, U+002B, U+002C, U+002D, U+002E, U+002F, U+003A, U+2212;
 }
 
-/* Safe Area Insets for Capacitor/Mobile */
+/* Safe Area Insets for Capacitor/Mobile.
+   The `0px` fallbacks are load-bearing: when an engine cannot resolve `env()`
+   the custom property becomes an empty value, which makes every dependent
+   `calc(1rem + var(--sat))` INVALID — so the whole declaration is dropped and
+   the padding silently disappears instead of degrading to zero. */
 :root {
-  --sat: env(safe-area-inset-top);
-  --sab: env(safe-area-inset-bottom);
-  --sal: env(safe-area-inset-left);
-  --sar: env(safe-area-inset-right);
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
   color-scheme: dark;
 
   /* Semantic Theme Variables - Dark (Default) */
@@ -377,10 +381,34 @@ html,
 body {
   -ms-overflow-style: none;
   touch-action: pan-x pan-y;
+  /* The app owns every scroll container (fixed shell + per-screen scroll
+     areas). Killing page-level rubber-banding stops an iOS overscroll from
+     dragging the whole shell — and stops WKWebView from handing the gesture to
+     its own scroll view, which is what makes a body scroll-lock unreliable. */
+  overscroll-behavior: none;
 }
 
 * {
   -webkit-tap-highlight-color: transparent;
+  /* iOS long-press callout/highlight. `user-select: none` does NOT suppress it,
+     so a long-press on a non-selectable card could still pop the selection UI.
+     Re-enabled for form controls below (see the `input, textarea, select` rule). */
+  -webkit-touch-callout: none;
+}
+
+/*
+  iOS input-focus zoom guard. WKWebView scales the whole page when a focused
+  form control resolves below 16px, and the app's root font is 13.5px on phones
+  — so every input focus would zoom the layout and leave it scaled. Deliberately
+  unlayered so it also beats a `text-sm` utility on an individual field; the
+  768px+ branch keeps the design's own larger scale.
+*/
+@media (max-width: 767px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
 }
 
 @media (min-width: 768px) {
@@ -523,7 +551,8 @@ body {
   -webkit-appearance: none !important;
 }
 
-/* Re-enable selection where text input is necessary */
+/* Re-enable selection where text input is necessary (and restore the iOS
+   long-press callout with it, so copy/paste still works in a field). */
 input,
 textarea,
 select,
@@ -532,7 +561,16 @@ select,
   -webkit-user-select: text;
   -ms-user-select: text;
   user-select: text;
+  -webkit-touch-callout: default;
   caret-color: rgb(var(--accent-blue));
+}
+
+/* iOS/WKWebView can start an image or link drag from a long-press, which shows
+   a drag ghost over the UI. Nothing in the app is draggable. */
+img,
+svg,
+a {
+  -webkit-user-drag: none;
 }
 
 /* Hide scrollbar for Chrome, Safari and Opera */
