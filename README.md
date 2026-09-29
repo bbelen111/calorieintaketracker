@@ -9,15 +9,16 @@ A **React + Vite** single-page app for fitness calorie tracking, wrapped by Capa
 - **Phase Management** — Dual-mode phase creation (`goal` / `target`) with smart planning, always-visible goal prediction card, and daily logs/metrics
 - **Phase-Based Analytics** — Weight trends, nutrition rollups, daily snapshots
 - **Barcode Scanning** — Native barcode lookup via Capacitor
-- **Health Connect Integration** — Android step sync (iOS/web unsupported)
-- **Offline-First** — SQLite local food catalog (13k+ foods), IndexedDB history
+- **Step Sync** — Health Connect on Android, read-only HealthKit on iOS, through one hook (no step double-counting)
+- **Daily Ledger & Rolling Energy Balance** — Date-keyed snapshot analytics: a calendar ledger plus 3/7/14/28-day energy-balance rollups
+- **Offline-First** — SQLite local food catalog (13k+ foods) queried in-browser via `sql.js`, IndexedDB history
 - **AI-Powered Food Parsing** — OpenRouter-backed food entry assistance with Fast / Balanced / Precision quality modes
 - **Bundle-Split Performance** — Heavy modals and data/AI services are lazy-loaded to reduce startup cost
 - **4 Theme Modes** — Auto, dark, light, AMOLED
 - **Mobile-Optimized UI** — Touch-first design, no hardcoded colors, semantic tokens
-- **Progressive Web App** — Works offline, installable on mobile
+- **Native Delivery** — One web bundle wrapped as an SPM-native iOS app and an Android app, with exports handed to the OS share sheet on device
 
-## � Theoretical Foundation (The TDEE Stack)
+## 🧮 Theoretical Foundation (The TDEE Stack)
 
 Energy Map Calorie Tracker abandons static daily targets in favor of a dynamically rebuilt Total Daily Energy Expenditure (TDEE) stack for each day. The calculation is mathematically rigorous and resolves layer-by-layer to ensure energy balance accuracy.
 
@@ -94,15 +95,16 @@ $$
 | Layer | Technology | Version |
 |-------|-----------|---------|
 | **Frontend** | React | 18.3.1 |
-| **Build & Dev** | Vite | 5.4.11 |
-| **Mobile Wrapper** | Capacitor | 8.0.1 |
-| **State Management** | Zustand | 4.5.5 |
+| **Build & Dev** | Vite (Rolldown) | 8.x |
+| **Mobile Wrapper** | Capacitor | 8.x |
+| **State Management** | Zustand | 4.5.x |
 | **History Storage** | Dexie (IndexedDB) | 4.x |
 | **Settings Storage** | @capacitor/preferences | — |
 | **Food Catalog** | SQLite (sql.js WASM) | — |
-| **Animations** | Framer Motion | 12.23.24 |
-| **Styling** | Tailwind CSS | 3.4.17 |
+| **Animations** | Framer Motion | 12.x |
+| **Styling** | Tailwind CSS | 3.4.x |
 | **Icons** | Lucide React | 0.562.0 |
+| **Testing** | Node test runner (logic) + Vitest/jsdom (UI) | — |
 | **External APIs** | Supabase food catalog (seeded from USDA FDC), OpenFoodFacts, OpenRouter | — |
 
 **Key Capacitor Plugins:**
@@ -116,15 +118,16 @@ $$
 
 ```
 App.jsx (theme management, store hydration gate)
-  └─ EnergyMapCalculator.jsx (orchestrator, 4,100+ lines)
-      ├─ 5-screen carousel
+  └─ EnergyMapCalculator.jsx (orchestrator, 5,100+ lines)
+      ├─ 5-screen carousel (`useSwipeableScreens`)
       │   ├─ LogbookScreen
       │   ├─ TrackerScreen
-      │   ├─ HomeScreen
+      │   ├─ HomeScreen (default)
       │   ├─ CalorieMapScreen
       │   └─ InsightsScreen
-      ├─ PhaseDetailScreen (drill-down)
-      └─ 41 top-level modals + ~21 child-level modals
+      ├─ PhaseDetailScreen (drill-down, not in the carousel)
+      ├─ AppHeader + ScreenTabs (header zone + floating glass tab bar)
+      └─ 48 top-level modals + ~21 child-level modals
 
 Performance loading strategy:
   - Fullscreen heavy modals are lazy-loaded (`React.lazy` + `Suspense`)
@@ -143,8 +146,11 @@ Persistence:
     ├─ cardioSessions
     ├─ trainingSessions
     ├─ cachedFoods
-    └─ dailySnapshots
+    ├─ dailySnapshots
+    └─ dailyNeatOverrides
 ```
+
+`dailySnapshots` and `dailyNeatOverrides` are further **sharded by date** (`dailySnapshots:YYYY-MM-DD`) so only changed days are written.
 
 ### Data Flow
 
@@ -173,26 +179,33 @@ The store's canonical fields (computed via `deriveState`) are:
 src/
 ├─ components/EnergyMap/
 │   ├─ EnergyMapCalculator.jsx    # Main orchestrator
-│   ├─ modals/                     # 51 modal components (6 subfolders) + 5 panel helpers
-│   │   ├─ fullscreen/             # WeightTracker, BodyFatTracker, StepTracker, Settings, FoodSearch
-│   │   ├─ pickers/                # Value selectors (Age, Calendar, Duration, etc.)
-│   │   ├─ info/                   # Info/reference modals (BmiInfo, BmrInfo, etc.)
-│   │   ├─ forms/                  # Data entry (CardioModal, GoalModal, etc.)
-│   │   ├─ lists/                  # Browseable lists (`CalorieTargetModal`, CardioFavourites, CardioTypeList)
+│   ├─ modals/                     # 59 modal components (6 subfolders) + 6 panel helpers
+│   │   ├─ fullscreen/             # WeightTracker, BodyFatTracker, StepTracker, Settings, FoodSearch,
+│   │   │                          #   AdaptiveThermogenesis, RollingEnergyBalance
+│   │   │   └─ panels/             # FoodSearch sub-panels (chat, results, favourites, meal preview,
+│   │   │                          #   filter controls, entry card)
+│   │   ├─ pickers/                # Value selectors (Age, Calendar, Duration, Macro, Numeric, etc.)
+│   │   ├─ info/                   # Info/reference modals (BmiInfo, BmrInfo, TefInfo, DayLedger, etc.)
+│   │   ├─ forms/                  # Data entry (CardioModal, GoalModal, PhaseCreationModal,
+│   │   │                          #   DailyNeatOverrideModal, etc.)
+│   │   ├─ lists/                  # Browseable lists (CalorieTarget, CardioFavourites, DayLedgerList, ...)
 │   │   └─ common/                 # ConfirmActionModal
-│   ├─ common/                     # Shared components (e.g., ModalShell, ScreenTabs, FoodTagBadges, TrackerSelectionCard)
+│   ├─ common/                     # Shared chrome (ModalShell, AppHeader, ScreenTabs,
+│   │                              #   TrackerSelectionCard, FoodTagBadges, DateInput)
 │   └─ screens/                    # 5 carousel screens + PhaseDetailScreen
 ├─ store/
 │   └─ useEnergyMapStore.js        # Zustand store (state, actions, derived values, persistence)
 ├─ utils/
 │   ├─ calculations/               # Core calorie formulas and related helpers
-│   │   ├─ calculations.js         # BMR, TDEE, cardio, training, TEF, AT
+│   │   ├─ calculations.js         # BMR, TDEE, cardio, training, TEF, AT, EPOC
 │   │   ├─ adaptiveThermogenesis.js
-│   │   ├─ dailySnapshots.js
+│   │   ├─ dailySnapshots.js       # Derived snapshot builder + equality helpers
+│   │   ├─ dayLedgerPresentation.js # Daily Ledger display models (read-only snapshot projections)
 │   │   ├─ epoc.js
 │   │   ├─ goalAlignment.js
 │   │   ├─ phaseTargetPlanning.js  # Target-mode planning + goal-mode projection helpers
 │   │   ├─ macroRecommendations.js
+│   │   ├─ rollingEnergyBalance.js # 3/7/14/28-day rolling energy-balance rollup
 │   │   ├─ sessionCarryover.js
 │   │   └─ steps.js
 │   ├─ data/                       # Persistence, date keys, phase-log normalization
@@ -204,49 +217,61 @@ src/
 │   │   ├─ bodyFat.js
 │   │   ├─ profile.js
 │   │   └─ weight.js
-│   ├─ food/                       # Food presentation and tag helpers
+│   ├─ food/                       # Food presentation, tags, and AI merge/normalization helpers
+│   │   ├─ aiFinalizedEntryState.js # Finalized chat entry card badges/labels
+│   │   ├─ aiPresentationMerge.js  # Presentation → verified merge guardrails
 │   │   ├─ foodPresentation.js
-│   │   └─ foodTags.js
+│   │   ├─ foodTags.js
+│   │   └─ portionNormalization.js # Portion → grams normalization + per-100g scaling
 │   ├─ formatting/                 # Number/time formatting helpers
 │   │   ├─ format.js
 │   │   └─ time.js
 │   ├─ phases/                     # Phase metrics helpers
 │   │   └─ phases.js
-│   ├─ visuals/                    # Path, scroll, and tracker helpers
-│   │   ├─ bezierPath.js
+│   ├─ visuals/                    # Path, carousel, scroll, and tracker helpers
+│   │   ├─ bezierPath.js           # Bézier paths + gap-aware chart path runs
+│   │   ├─ carouselLoop.js         # Canonical swipe-shell loop math (offsets, settles, fades)
+│   │   ├─ modalStack.js           # Modal z-lane + backdrop opacity math
 │   │   ├─ scroll.js
 │   │   └─ trackerHelpers.jsx
-│   ├─ theme.js                    # Native theme application
+│   ├─ healthConnectWindow.js      # Health read-window building + max-per-source step aggregation
+│   ├─ platform.js                 # Canonical platform resolution (getPlatform/isNative/isIOS/isAndroid)
+│   ├─ theme.js                    # Native theme application (per-platform appliers)
 │   └─ export.js                   # CSV/JSON export generation
 ├─ services/
-│   ├─ foodCatalog.js              # SQLite local food search
+│   ├─ foodCatalog.js              # SQLite local food search (sql.js)
 │   ├─ foodCache.js                # Cache dedupe/trim helpers
+│   ├─ foodCloud.js                # Supabase catalog online search
 │   ├─ foodLookupContext.js        # AI lookup context + diagnostics metadata
-│   ├─ foodSearch.js               # Local/online-catalog/RAG search orchestration
-│   ├─ ragTelemetry.js             # RAG telemetry aggregation
-│   ├─ foodCloud.js                     # Supabase catalog online search
+│   ├─ foodLookupReasons.js        # Canonical lookup reason codes/labels
+│   ├─ foodSearch.js               # Local/online-catalog/grounded lookup orchestration
 │   ├─ openFoodFacts.js            # OpenFoodFacts barcode lookup
-│   ├─ openrouter.js                # AI food parsing via OpenRouter
-│   └─ barcodeScanner.js
+│   ├─ openrouter.js               # AI food parsing client (extraction/presentation/grounding)
+│   ├─ ragBudget.js                # RAG stage timing/budget constants
+│   ├─ ragChatPipeline.js          # Extraction → retrieval → verification → presentation
+│   ├─ ragTelemetry.js             # RAG telemetry aggregation
+│   ├─ barcodeScanner.js           # Capacitor barcode-scanner wrapper
+│   └─ fileShare.js                # Export delivery (web download / native share sheet)
 ├─ hooks/
 │   ├─ useAnimatedModal.js         # Modal lifecycle (isOpen/isClosing/requestClose)
-│   ├─ useHardwareBackButton.js    # Native back handling (home-first + double-exit)
-│   ├─ useSwipeableScreens.js      # 5-screen carousel
-│   ├─ useHealthConnect.js         # Android Health Connect
-│   ├─ useNetworkStatus.js         # Online/offline detection
-│   └─ useScrollOffScreen.js       # Floating tabs visibility
+│   ├─ useHardwareBackButton.js    # Android back handling (home-first + double-exit; no-op on iOS)
+│   ├─ useSwipeableScreens.js      # 5-screen looping carousel (edge peek, compositor settles)
+│   ├─ useHealthConnect.js         # Step sync (Health Connect on Android, read-only HealthKit on iOS)
+│   └─ useNetworkStatus.js         # Online/offline detection
 ├─ constants/
 │   ├─ activity/                   # Activity multipliers and presets
 │   ├─ cardio/                     # Cardio metadata and cadence/ambulatory flags
-│   ├─ food/                       # Food category metadata and catalog helpers
+│   ├─ food/                       # Food category metadata + bundled foodDatabase.sqlite
 │   ├─ goals/                      # Goal definitions
+│   ├─ health/                     # Health-store vocabulary (status + source names)
 │   ├─ meal/                       # Meal type ordering/helpers
+│   ├─ nutrients/                  # Micro nutrient defs, clamps, source-scoped invariants
 │   └─ phases/                     # Phase templates
-└─ tests/
-    ├─ utils/                       # calc, steps, phases, storage, etc.
-    ├─ services/
-    └─ constants/
+└─ tests/                          # UI-tier harness only (Capacitor doubles + jsdom setup)
 ```
+
+The **logic tier lives at the repo root** (`tests/**/*.test.js`, run by `node --test`); UI specs live beside their
+sources as `src/**/*.spec.{js,jsx}` (Vitest). Offline catalog tooling sits in `scripts/food-db/`.
 
 ## 🚀 Getting Started
 
@@ -679,10 +704,12 @@ Auto-adjust: 400-level shades (dark/AMOLED), 600-level (light).
 4. **Do not duplicate calculations** — Always consume from store or `utils/calculations/calculations.js`
 5. **Save debounce is critical** — Removing 1-second debounce causes UI freezes on large JSON writes
 6. **Modal close must use `requestClose()`** — `forceClose()` skips exit animations
-7. **Always use `seedDate` helpers** — Avoid ad-hoc `toISOString().split('T')[0]` for date keys
+7. **Always use the `dateKeys` helpers** — Avoid ad-hoc `toISOString().split('T')[0]` for date keys (see `utils/data/dateKeys.js`)
 8. **No bare `hover:` classes** — Always gate to desktop with `md:hover:`
 9. **Preserve session timing fields** — `startTime`, `startedAt`, `endedAt` are used for carryover/boundary logic
 10. **Daily snapshots are derived cache** — Never manually edit; always use `upsertDailySnapshot(...)`
+11. **Ledger/tracker surfaces are read-only projections** — `DayLedger*`, the tracker charts and `TrackerSelectionCard` never mutate snapshots, and missing days are unavailable rather than zero-filled
+12. **Platform branches go through `utils/platform.js`** — Never hand-write `Capacitor.getPlatform()` comparisons, and only call the plugin APIs the platform actually owns
 
 ## 🔧 Configuration
 
@@ -741,51 +768,63 @@ OPENROUTER_RATE_LIMIT_FAIL_CLOSED=false
 
 ### Vite Config
 
+Vite 8 builds with **Rolldown**, which requires the **function** form of `manualChunks`. The old object-map form throws `manualChunks is not a function` and stops `dist/index.html` from being emitted, which silently breaks `npx cap sync`:
+
 ```javascript
 // vite.config.js
-{
-  "server": { "strictPort": true, "port": 5173 },
-  "build": {
-    "rollupOptions": {
-      "output": {
-        "manualChunks": {
-          "chunk-react": ["react", "react-dom"],
-          "chunk-framer-motion": ["framer-motion"],
-          "chunk-zustand": ["zustand", "zustand/traditional", "zustand/middleware"],
-          "chunk-capacitor": ["@capacitor/core", "@capacitor/app", "@capacitor/keyboard", "@capacitor/preferences", "@capacitor/splash-screen", "@capacitor/status-bar", "@capacitor/barcode-scanner", "@capgo/capacitor-health", "@capgo/capacitor-navigation-bar"],
-          "chunk-lucide": ["lucide-react"],
-          "chunk-dexie": ["dexie"],
-          "chunk-sql-vendor": ["sql.js"],
-          "chunk-food-catalog": ["./src/services/foodCatalog.js"],
-          "chunk-openrouter": ["./src/services/openrouter.js"]
-        }
-      }
-    }
-  },
-  "// ... more config"
+manualChunks(id) {
+  if (id.includes('node_modules')) {
+    if (id.includes('/react/') || id.includes('/react-dom/')) return 'chunk-react';
+    if (id.includes('/framer-motion/')) return 'chunk-framer-motion';
+    if (id.includes('/zustand/')) return 'chunk-zustand';
+    if (id.includes('/@capacitor/') || id.includes('/@capgo/')) return 'chunk-capacitor';
+    if (id.includes('/lucide-react/')) return 'chunk-lucide';
+    if (id.includes('/dexie/')) return 'chunk-dexie';
+    if (id.includes('/sql.js/')) return 'chunk-sql-vendor';
+  }
+
+  if (id.includes('/src/services/foodCatalog.js')) return 'chunk-food-catalog';
+  if (id.includes('/src/services/openrouter.js')) return 'chunk-openrouter';
+
+  return undefined;
 }
 ```
 
+CI asserts that `dist/index.html` plus the expected `chunk-*` vendor bundles are actually emitted, which is what guards this regression.
+
 ### Bundle Notes
 
-- Recent production builds split heavy modal chunks successfully and reduced the main `index` bundle to roughly ~425 kB (pre-gzip) in current local runs.
+- Heavy surfaces are emitted as their own chunks (`FoodSearchModal` ~183 kB, `chunk-capacitor` ~397 kB, `WeightTrackerModal`/`BodyFatTrackerModal` ~40 kB each, `SettingsModal` ~21 kB, …) next to the `chunk-*` vendor split.
+- In current local runs the main `index` entry is ~494 kB pre-gzip (~116 kB gzip).
 - Large assets remain separate from JS chunks:
-  - `foodDatabase.sqlite` (~5.5 MB)
+  - `foodDatabase.sqlite` (~2.2 MB)
   - `sql-wasm.wasm` (~660 kB)
 - The SQLite database is fetched on first catalog use and then held in memory by `sql.js` for runtime queries.
 
 ## 📝 Testing
 
-Tests use Node's built-in `--test` runner with ESM. Coverage includes:
-- **Calculations** — BMR, TDEE, cardio, training, TEF, AT, EPOC
-- **Storage** — Persistence split, Dexie sharding, profile/history semantics
-- **Utilities** — Steps, weight, body fat, phases, snapshots, date keys
-- **Services** — Food search, online catalog, OpenFoodFacts barcode, food catalog
+Two tiers run side by side and never see each other's files — see `tests/README.md` for the full guide.
+
+**Logic tier — `node --test` over `tests/**/*.test.js`** (381 tests in 36 files, ESM):
 
 ```bash
-npm test
-npm test:watch
+npm test                 # run once
+npm run test:watch       # watch mode
+npm run test:coverage    # + line/branch/function floors (75 / 63 / 75)
 ```
+
+Covers the calorie stack (BMR, TDEE, cardio, training, TEF, AT, EPOC), storage (persistence split, Dexie sharding, store day turnover), API handler contracts, and the pure utilities (steps, weight/body fat averages, phases, snapshots, date keys, carousel loop math, chart gap tiering).
+
+**UI tier — Vitest + jsdom over `src/**/*.spec.{js,jsx}`** (22 spec files; 252 passing + 1 expected failure documenting a known defect):
+
+```bash
+npm run test:ui
+npm run test:ui:coverage
+```
+
+Mounts the real orchestrator against the real store, plus the tracker modals, the shared `TrackerSelectionCard`, the header/tab-bar chrome, and the Capacitor plugin bridges (barcode scanner, back button, health sync, file share, theme/platform) against module-boundary doubles.
+
+`npm run lint` is the strict profile and currently reports 37 pre-existing advisory errors; `npm run lint:ci` downgrades only those two React-Compiler-era rules to warnings and is what CI gates on. CI (`.github/workflows/ci.yml`) runs a `verify` job (`npm ci` → lint → logic coverage → UI tests → build + bundle assertion → `cap copy android`) and an `ios` job that compiles the Xcode project with every Capacitor plugin linked through SPM.
 
 ## 📖 Additional Resources
 
@@ -793,8 +832,9 @@ npm test:watch
 - `utils/calculations/calculations.js` — Comment-heavy calorie formula reference
 - `constants/cardio/cardioTypes.js` — Cardio metadata reference
 - `store/useEnergyMapStore.js` — Store structure & action patterns
+- `tests/README.md` — Two-tier test guide (logic vs UI), coverage baselines and CI
 - `tests/` — Working examples of utility usage & calculation validation
 
 ---
 
-**Last Updated:** April 2026
+**Last Updated:** September 2026
