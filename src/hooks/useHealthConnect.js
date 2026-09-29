@@ -1,7 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
 import { Health } from '@capgo/capacitor-health';
+import { isAndroid, isIOS } from '../utils/platform.js';
+import {
+  HealthConnectStatus,
+  getHealthSourceName,
+} from '../constants/health/healthSources.js';
 import {
   aggregateStepsBySource,
   buildHealthConnectFallbackReadWindow,
@@ -9,20 +13,25 @@ import {
 } from '../utils/healthConnectWindow.js';
 
 /**
- * Connection status states
- * @type {Object}
+ * The plugin's read/write scope request for the current platform.
+ *
+ * Android asks for read + write: Health Connect reports real write denials, and
+ * the connect flow has always requested both.
+ *
+ * iOS is READ-ONLY. `NSHealthUpdateUsageDescription` is deliberately absent from
+ * `Info.plist` (least privilege) and nothing in the app writes health data on
+ * iOS, so asking for write access would prompt for a capability the app cannot
+ * use. Omitting the key is safe — the plugin's Swift side defaults a missing
+ * array to `[]` for both `requestAuthorization` and `checkAuthorization`.
  */
-export const HealthConnectStatus = {
-  UNAVAILABLE: 'unavailable', // Platform doesn't support Health Connect (web, old Android)
-  NOT_INSTALLED: 'not_installed', // Health Connect app not installed
-  DISCONNECTED: 'disconnected', // Health Connect available but not authorized
-  CONNECTING: 'connecting', // Requesting permissions
-  CONNECTED: 'connected', // Authorized and ready
-  ERROR: 'error', // An error occurred
-};
+const buildPermissionRequest = () =>
+  isAndroid() ? { read: ['steps'], write: ['steps'] } : { read: ['steps'] };
 
 /**
- * Hook for integrating with Android Health Connect to read step data
+ * Hook for reading step data from the platform health store.
+ *
+ * Android → Health Connect (`@capgo/capacitor-health`).
+ * iOS     → HealthKit, through the same plugin. Read-only on iOS.
  *
  * @returns {{
  *   status: string,
@@ -45,14 +54,13 @@ export const useHealthConnect = () => {
   const isInitializedRef = useRef(false);
 
   /**
-   * Check if Health Connect is available on this device
+   * Check if a usable health store exists on this device.
+   *
+   * Android → Health Connect (a separate Play Store app on older devices).
+   * iOS     → HealthKit, which is present on iPhone but NOT on iPad.
    */
   const checkAvailability = useCallback(async () => {
-    // Only supported on native Android
-    if (
-      !Capacitor.isNativePlatform() ||
-      Capacitor.getPlatform() !== 'android'
-    ) {
+    if (!isAndroid() && !isIOS()) {
       setStatus(HealthConnectStatus.UNAVAILABLE);
       return false;
     }
@@ -62,7 +70,15 @@ export const useHealthConnect = () => {
       const available = result?.available;
 
       if (!available) {
-        setStatus(HealthConnectStatus.NOT_INSTALLED);
+        // Android: the provider app is missing and the user must install it.
+        // iOS: HealthKit is not available on this device at all (iPad, or
+        // restricted by a device-management profile) — nothing to install, so
+        // this is UNAVAILABLE and the step card stays hidden.
+        setStatus(
+          isIOS()
+            ? HealthConnectStatus.UNAVAILABLE
+            : HealthConnectStatus.NOT_INSTALLED
+        );
         return false;
       }
 
@@ -75,14 +91,26 @@ export const useHealthConnect = () => {
   }, []);
 
   /**
-   * Check if we already have authorization
+   * Check if steps access has already been granted.
+   *
+   * iOS SEMANTIC — this is the one place the two platforms genuinely differ, and
+   * it is worth understanding before changing anything here: HealthKit never
+   * reveals whether READ access was granted (deliberate Apple privacy design —
+   * a denial must not itself be readable data). The plugin works around it with
+   * `getRequestStatusForAuthorization`, which reports `.unnecessary` once the app
+   * has already presented the request; the plugin maps that to `readAuthorized`.
+   *
+   * So on iOS this answers "has the user already been asked?", which is exactly
+   * what `initialize()` needs — don't re-prompt on every launch, just read.
+   *
+   * Be honest about the consequence: a user who DENIED access in the sheet still
+   * reads back as authorized on iOS, and the subsequent read returns zero samples
+   * rather than an error (Android can distinguish the two). That is a HealthKit
+   * limitation, not something to paper over here.
    */
   const checkAuthorization = useCallback(async () => {
     try {
-      const result = await Health.checkAuthorization({
-        read: ['steps'],
-        write: ['steps'],
-      });
+      const result = await Health.checkAuthorization(buildPermissionRequest());
 
       // Check if steps is in readAuthorized array
       const isAuthorized = result?.readAuthorized?.includes('steps') ?? false;
@@ -219,7 +247,7 @@ export const useHealthConnect = () => {
   }, [checkAvailability, checkAuthorization, fetchSteps]);
 
   /**
-   * Request authorization and connect to Health Connect
+   * Request authorization and connect to the platform health store
    */
   const connect = useCallback(async () => {
     setIsLoading(true);
@@ -227,10 +255,9 @@ export const useHealthConnect = () => {
     setError(null);
 
     try {
-      const result = await Health.requestAuthorization({
-        read: ['steps'],
-        write: ['steps'],
-      });
+      const result = await Health.requestAuthorization(
+        buildPermissionRequest()
+      );
 
       // Check if steps is in readAuthorized array
       const authorized = result?.readAuthorized?.includes('steps') ?? false;
@@ -245,11 +272,13 @@ export const useHealthConnect = () => {
         }
       } else {
         setStatus(HealthConnectStatus.DISCONNECTED);
-        setError('Permission denied. Please allow access to step data.');
+        setError(
+          `Permission denied. Please allow access to step data in ${getHealthSourceName()}.`
+        );
       }
     } catch (err) {
       console.error('[HealthConnect] Connect failed:', err);
-      setError(err.message || 'Failed to connect to Health Connect');
+      setError(err.message || `Failed to connect to ${getHealthSourceName()}`);
       setStatus(HealthConnectStatus.ERROR);
     } finally {
       setIsLoading(false);
@@ -292,9 +321,22 @@ export const useHealthConnect = () => {
   }, []);
 
   /**
-   * Open Health Connect settings (useful if user needs to configure data sources)
+   * Open the health-permission settings surface (Android only).
+   *
+   * `openHealthConnectSettings()` is documented as a no-op on iOS, and Capacitor
+   * exposes no API for launching another app (`@capacitor/app` v8 has no
+   * `openUrl`), so there is nothing meaningful to call on iOS. Return early and
+   * log it rather than silently pretending: iOS users manage access inside the
+   * Health app (Profile → Privacy → Apps), which the step card's copy points at.
    */
   const openSettings = useCallback(async () => {
+    if (!isAndroid()) {
+      console.info(
+        '[HealthConnect] Permission settings can only be opened on Android; on iOS this is managed in the Health app.'
+      );
+      return;
+    }
+
     try {
       await Health.openHealthConnectSettings();
     } catch (err) {
@@ -303,10 +345,19 @@ export const useHealthConnect = () => {
   }, []);
 
   /**
-   * Write test step data to Health Connect (for debugging)
-   * This helps verify the plugin is working correctly
+   * Write test step data to the health store (debug helper, Android only).
+   *
+   * iOS is read-only by design: `saveSample` would need the HealthKit share
+   * entitlement plus `NSHealthUpdateUsageDescription`, neither of which is
+   * declared, so on iOS it would fail at the HealthKit layer with a confusing
+   * error. Refuse explicitly instead.
    */
   const writeTestData = useCallback(async () => {
+    if (!isAndroid()) {
+      console.info('[HealthConnect] Writing test data is Android-only.');
+      return false;
+    }
+
     try {
       // Write 1000 test steps
       const now = new Date();
@@ -346,9 +397,11 @@ export const useHealthConnect = () => {
     initialize();
   }, [initialize]);
 
-  // Refresh when app comes to foreground
+  // Refresh when the app comes to the foreground. Both platforms emit
+  // `appStateChange` from `@capacitor/app`, so gate on health-store support
+  // rather than on "native" (which would also cover a platform with no store).
   useEffect(() => {
-    if (!Capacitor.isNativePlatform()) {
+    if (!isAndroid() && !isIOS()) {
       return;
     }
 

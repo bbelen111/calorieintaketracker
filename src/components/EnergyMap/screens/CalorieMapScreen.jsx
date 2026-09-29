@@ -11,17 +11,11 @@ import {
 } from 'lucide-react';
 import { shallow } from 'zustand/shallow';
 import { goals as baseGoals } from '../../../constants/goals/goals';
+import {
+  HealthConnectStatus,
+  getHealthSourceName,
+} from '../../../constants/health/healthSources.js';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
-
-// Status constants imported from hook - duplicated here to avoid circular import
-const HealthConnectStatus = {
-  UNAVAILABLE: 'unavailable',
-  NOT_INSTALLED: 'not_installed',
-  DISCONNECTED: 'disconnected',
-  CONNECTING: 'connecting',
-  CONNECTED: 'connected',
-  ERROR: 'error',
-};
 
 const formatLastSynced = (date) => {
   if (!date) return '';
@@ -59,6 +53,9 @@ const LiveStepsCard = ({
     healthConnectStatus === HealthConnectStatus.DISCONNECTED;
   const isConnecting = healthConnectStatus === HealthConnectStatus.CONNECTING;
   const hasError = healthConnectStatus === HealthConnectStatus.ERROR;
+  // "Health Connect" on Android, "Apple Health" on iOS. Single source of the
+  // brand name (constants/health/healthSources.js), so the copy cannot drift.
+  const healthSourceName = getHealthSourceName();
 
   // Don't show anything if Health Connect is unavailable (web platform)
   if (isUnavailable) {
@@ -120,7 +117,7 @@ const LiveStepsCard = ({
           </p>
         )}
         <p className="text-muted text-xs mb-3">
-          Sync steps from wearables and fitness apps via Health Connect.
+          {`Sync steps from your phone, wearables and fitness apps via ${healthSourceName}.`}
         </p>
         <button
           type="button"
@@ -146,7 +143,7 @@ const LiveStepsCard = ({
         <div className="flex items-center gap-3">
           <Loader2 className="text-accent-blue animate-spin" size={24} />
           <span className="text-foreground font-medium">
-            Connecting to Health Connect...
+            {`Connecting to ${healthSourceName}...`}
           </span>
         </div>
       </div>

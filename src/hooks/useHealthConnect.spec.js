@@ -1,7 +1,11 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { HealthConnectStatus, useHealthConnect } from './useHealthConnect';
+import { useHealthConnect } from './useHealthConnect';
+import {
+  HealthConnectStatus,
+  getHealthSourceName,
+} from '../constants/health/healthSources.js';
 import {
   AppMock,
   CapacitorMock,
@@ -72,8 +76,10 @@ describe('useHealthConnect', () => {
       expect(HealthMock.readSamples).not.toHaveBeenCalled();
     });
 
-    it('stays unavailable on non-Android native platforms', async () => {
-      CapacitorMock.getPlatform.mockReturnValue('ios');
+    it('stays unavailable on a native platform with no health store', async () => {
+      // Native shell reporting a platform that owns no health store (and, more
+      // importantly, one where neither isAndroid() nor isIOS() is true).
+      CapacitorMock.getPlatform.mockReturnValue('web');
 
       const { result } = renderHealth();
 
@@ -541,6 +547,155 @@ describe('useHealthConnect', () => {
       });
 
       expect(HealthMock.readSamples).toHaveBeenCalledTimes(before);
+    });
+  });
+
+  describe('permission scope request', () => {
+    it('keeps read + write scope on Android (unchanged behaviour)', async () => {
+      const { result } = renderHealth();
+      await waitFor(() =>
+        expect(result.current.status).toBe(HealthConnectStatus.CONNECTED)
+      );
+
+      // The scope is only requested on demand — never during initialize().
+      expect(HealthMock.requestAuthorization).not.toHaveBeenCalled();
+
+      await act(async () => {
+        await result.current.connect();
+      });
+
+      expect(HealthMock.requestAuthorization).toHaveBeenCalledWith({
+        read: ['steps'],
+        write: ['steps'],
+      });
+      expect(HealthMock.checkAuthorization).toHaveBeenCalledWith({
+        read: ['steps'],
+        write: ['steps'],
+      });
+    });
+
+    it('asks for READ-ONLY scope on iOS, where nothing writes health data', async () => {
+      CapacitorMock.getPlatform.mockReturnValue('ios');
+
+      const { result } = renderHealth();
+      await waitFor(() =>
+        expect(result.current.status).toBe(HealthConnectStatus.CONNECTED)
+      );
+
+      await act(async () => {
+        await result.current.connect();
+      });
+
+      // A write scope on iOS would demand NSHealthUpdateUsageDescription plus the
+      // HealthKit share entitlement, neither of which the app ships.
+      expect(HealthMock.requestAuthorization).toHaveBeenCalledWith({
+        read: ['steps'],
+      });
+      expect(HealthMock.checkAuthorization).toHaveBeenCalledWith({
+        read: ['steps'],
+      });
+    });
+  });
+
+  describe('iOS (HealthKit)', () => {
+    beforeEach(() => {
+      CapacitorMock.getPlatform.mockReturnValue('ios');
+    });
+
+    it('names the health store per platform', () => {
+      expect(getHealthSourceName()).toBe('Apple Health');
+
+      CapacitorMock.getPlatform.mockReturnValue('android');
+
+      expect(getHealthSourceName()).toBe('Health Connect');
+    });
+
+    it('initializes through HealthKit instead of bailing out', async () => {
+      const { result } = renderHealth();
+
+      await waitFor(() =>
+        expect(result.current.status).toBe(HealthConnectStatus.CONNECTED)
+      );
+
+      expect(HealthMock.isAvailable).toHaveBeenCalledTimes(1);
+      expect(HealthMock.checkAuthorization).toHaveBeenCalledTimes(1);
+    });
+
+    it('reads steps with the same today-scoped window as Android', async () => {
+      HealthMock.readSamples.mockResolvedValue({
+        samples: [
+          { sourceId: 'com.apple.health', value: 3000 },
+          { sourceId: 'com.apple.health.watch', value: 1200 },
+        ],
+      });
+
+      const { result } = renderHealth();
+
+      // Max-per-source dedupe still applies (iPhone + Watch both record steps).
+      await waitFor(() => expect(result.current.steps).toBe(3000));
+
+      const options = HealthMock.readSamples.mock.calls[0][0];
+      expect(options.dataType).toBe('steps');
+      expect(new Date(options.startDate).getTime()).toBeGreaterThan(0);
+    });
+
+    it('maps an unavailable HealthKit to UNAVAILABLE, never NOT_INSTALLED', async () => {
+      // HealthKit genuinely does not exist on iPad, and there is nothing the
+      // user could install — so "not installed" would be a lie plus a dead end.
+      HealthMock.isAvailable.mockResolvedValue({ available: false });
+
+      const { result } = renderHealth();
+
+      await waitFor(() =>
+        expect(result.current.status).toBe(HealthConnectStatus.UNAVAILABLE)
+      );
+      expect(result.current.status).not.toBe(HealthConnectStatus.NOT_INSTALLED);
+    });
+
+    it('names Apple Health in the denial message', async () => {
+      HealthMock.checkAuthorization.mockResolvedValue({ readAuthorized: [] });
+      HealthMock.requestAuthorization.mockResolvedValue({ readAuthorized: [] });
+
+      const { result } = renderHealth();
+      await waitFor(() =>
+        expect(result.current.status).toBe(HealthConnectStatus.DISCONNECTED)
+      );
+
+      await act(async () => {
+        await result.current.connect();
+      });
+
+      expect(result.current.error).toMatch(/Apple Health/);
+      expect(result.current.error).not.toMatch(/Health Connect/);
+    });
+
+    it('never calls the Android-only settings or write helpers', async () => {
+      const { result } = renderHealth();
+      await waitFor(() =>
+        expect(result.current.status).toBe(HealthConnectStatus.CONNECTED)
+      );
+
+      let written = null;
+      await act(async () => {
+        await result.current.openSettings();
+        written = await result.current.writeTestData();
+      });
+
+      expect(HealthMock.openHealthConnectSettings).not.toHaveBeenCalled();
+      expect(HealthMock.saveSample).not.toHaveBeenCalled();
+      expect(written).toBe(false);
+    });
+
+    it('registers the foreground refresh listener', async () => {
+      const { result } = renderHealth();
+      await waitFor(() =>
+        expect(result.current.status).toBe(HealthConnectStatus.CONNECTED)
+      );
+
+      const handlers = AppMock.addListener.mock.calls.filter(
+        ([event]) => event === 'appStateChange'
+      );
+      expect(handlers.length).toBeGreaterThan(0);
     });
   });
 });
