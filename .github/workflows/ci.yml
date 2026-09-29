@@ -82,3 +82,62 @@ jobs:
       # adds minutes for no extra signal here. The generated assets are gitignored.
       - name: Copy web assets into the Android project
         run: npx cap copy android
+
+  # The iOS half of the release path. Kept as its own job (not a step in
+  # `verify`) because it needs a macOS runner and is the slowest thing in CI.
+  #
+  # What this actually proves, and why each step earns its place:
+  #  - `npm run build` + `npx cap copy ios`: the web bundle lands in
+  #    `ios/App/App/public` (the same assertion the Android step makes);
+  #  - `xcodebuild`: the Xcode project still compiles WITH every Capacitor plugin
+  #    linked through Swift Package Manager. The SPM manifest references plugins
+  #    by relative path into `node_modules` (`../../../node_modules/@capacitor/…`),
+  #    so this is also the check that catches "plugin added to package.json but
+  #    the iOS project was never re-synced" — which is otherwise only discovered
+  #    at archive time.
+  #
+  # No CocoaPods anywhere: every plugin ships a `Package.swift`, so the project is
+  # SPM-native (`ios.packageManager: "SPM"` in capacitor.config.json) and the
+  # runner needs no `pod install`.
+  ios:
+    name: iOS build (SPM)
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22.x'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web bundle
+        run: npm run build
+
+      - name: Copy web assets into the iOS project
+        run: npx cap copy ios
+
+      # `generic/platform=iOS Simulator` builds for both simulator slices without
+      # needing a booted device or a dev team. Signing is disabled because
+      # entitlements (HealthKit) cannot be embedded without a team anyway — this
+      # job gates compilation and plugin linking, not runtime HealthKit access,
+      # which needs a signed build (see README → iOS).
+      - name: Build iOS app
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/ios-derived-data" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build

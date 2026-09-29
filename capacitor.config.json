@@ -2,9 +2,22 @@
   "appId": "com.energymap.tracker",
   "appName": "Energy Map",
   "webDir": "dist",
+  "backgroundColor": "#0f172a",
+  "ios": {
+    "packageManager": "SPM",
+    "contentInset": "never",
+    "scrollEnabled": true
+  },
   "plugins": {
     "Keyboard": {
-      "resize": "none"
+      "resize": "none",
+      "autoBackdropColor": "dom"
+    },
+    "SplashScreen": {
+      "launchShowDuration": 600,
+      "launchAutoHide": true,
+      "showSpinner": false,
+      "backgroundColor": "#0f172a"
     }
   }
 }

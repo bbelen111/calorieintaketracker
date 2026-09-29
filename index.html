@@ -7,6 +7,21 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
+    <!--
+      iOS-only hardening:
+      - `format-detection: telephone=no` — WKWebView auto-links phone-number-like
+        digit strings, which in a calorie tracker (weights, grams, mg, kcal) can
+        turn plain numbers into blue tel: links.
+      - `apple-mobile-web-app-*` — title/status style for a home-screen launch.
+      - `theme-color` — the app's default dark background (slate 900), so the
+        browser chrome / PWA tint matches before CSS loads.
+    -->
+    <meta name="format-detection" content="telephone=no,date=no,address=no,email=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Energy Map" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="color-scheme" content="dark light" />
     <title>Energy Map Calculator</title>
   </head>
   <body>

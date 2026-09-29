@@ -3,10 +3,10 @@
  * Handles Status Bar, Navigation Bar, Keyboard appearance based on theme
  */
 
-import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Keyboard, KeyboardStyle } from '@capacitor/keyboard';
 import { NavigationBar } from '@capgo/capacitor-navigation-bar';
+import { isAndroid, isIOS, isNative } from './platform.js';
 
 const toHexChannel = (value) => {
   const normalized = Math.max(0, Math.min(255, Math.round(Number(value) || 0)));
@@ -111,11 +111,86 @@ export const resolveTheme = (theme) => {
 };
 
 /**
- * Apply theme to all native platform components
+ * Status bar — the one place where iOS and Android genuinely diverge.
+ *
+ * ANDROID draws its own status-bar background, so the WebView is inset below
+ * the bar (`overlay: false`) and the bar is painted with the theme colour.
+ *
+ * iOS must stay OVERLAYING. The app renders its own gradient vignette
+ * (`.status-bar-vignette`, `calc(var(--sat) + 24px)`) under the status bar and
+ * derives every other top inset from `env(safe-area-inset-top)` — which reads 0
+ * once the WebView is inset. Worse, `setOverlaysWebView(false)` makes the plugin
+ * insert its own opaque background view AND resize the WebView, so the previous
+ * platform-agnostic `overlay: false` produced a flat opaque bar (killing the
+ * vignette), zeroed `--sat`, and shifted the whole layout down mid-launch
+ * because iOS boots with `overlaysWebView: true` and only flipped it once
+ * `App.jsx` had hydrated. `setBackgroundColor` is skipped on iOS: it only ever
+ * tinted that plugin-owned background view.
+ */
+const applyStatusBarTheme = async (config, results) => {
+  try {
+    await StatusBar.setOverlaysWebView({ overlay: isIOS() });
+    if (!isIOS()) {
+      await StatusBar.setBackgroundColor({ color: config.statusBarColor });
+    }
+    await StatusBar.setStyle({ style: config.statusBarStyle });
+    results.statusBar = { success: true };
+  } catch (error) {
+    console.warn('Failed to set status bar style:', error);
+    results.statusBar = { success: false, error: error.message };
+  }
+};
+
+/**
+ * Android navigation bar styling. `@capgo/capacitor-navigation-bar` is an
+ * Android-only plugin — on iOS the call rejects, so it is gated rather than
+ * attempted-and-caught.
+ */
+const applyNavigationBarTheme = async (results) => {
+  if (!isAndroid()) {
+    return;
+  }
+
+  try {
+    await NavigationBar.setTransparency({ isTransparent: true });
+    await NavigationBar.setColor({ color: TRANSPARENT_COLOR });
+    results.navigationBar = { success: true };
+  } catch (error) {
+    console.warn('Failed to set navigation bar style:', error);
+    results.navigationBar = { success: false, error: error.message };
+  }
+};
+
+/**
+ * Keyboard styling. `Keyboard.setStyle` is documented as iOS-only, so on
+ * Android it used to reject and log `Failed to set keyboard style` on every
+ * single theme change.
+ */
+const applyKeyboardTheme = async (config, results) => {
+  if (!isIOS()) {
+    return;
+  }
+
+  try {
+    await Keyboard.setStyle({ style: config.keyboardStyle });
+    results.keyboard = { success: true };
+  } catch (error) {
+    console.warn('Failed to set keyboard style:', error);
+    results.keyboard = { success: false, error: error.message };
+  }
+};
+
+/**
+ * Apply theme to all native platform components.
+ *
+ * Each platform only calls the APIs it actually owns; a key that the platform
+ * does not handle is reported as `null` (not as a failure) so a caller can tell
+ * "not applicable here" apart from "tried and failed".
+ *
  * @param {string} theme - Theme key
  */
 export const applyNativeTheme = async (theme) => {
-  if (!Capacitor.isNativePlatform()) {
+  if (!isNative()) {
     return { success: false, message: 'Not on native platform' };
   }
 
@@ -127,37 +202,9 @@ export const applyNativeTheme = async (theme) => {
     keyboard: null,
   };
 
-  // Apply Status Bar styling
-  try {
-    await StatusBar.setOverlaysWebView({ overlay: false });
-    await StatusBar.setBackgroundColor({ color: config.statusBarColor });
-    await StatusBar.setStyle({ style: config.statusBarStyle });
-    results.statusBar = { success: true };
-  } catch (error) {
-    console.warn('Failed to set status bar style:', error);
-    results.statusBar = { success: false, error: error.message };
-  }
-
-  // Apply Navigation Bar styling (Android only)
-  if (Capacitor.getPlatform() === 'android') {
-    try {
-      await NavigationBar.setTransparency({ isTransparent: true });
-      await NavigationBar.setColor({ color: TRANSPARENT_COLOR });
-      results.navigationBar = { success: true };
-    } catch (error) {
-      console.warn('Failed to set navigation bar style:', error);
-      results.navigationBar = { success: false, error: error.message };
-    }
-  }
-
-  // Apply Keyboard styling (iOS primarily)
-  try {
-    await Keyboard.setStyle({ style: config.keyboardStyle });
-    results.keyboard = { success: true };
-  } catch (error) {
-    console.warn('Failed to set keyboard style:', error);
-    results.keyboard = { success: false, error: error.message };
-  }
+  await applyStatusBarTheme(config, results);
+  await applyNavigationBarTheme(results);
+  await applyKeyboardTheme(config, results);
 
   return { success: true, results };
 };

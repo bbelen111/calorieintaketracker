@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+		HealthKit capability (the same key Xcode's "+ Capability → Health" writes).
+		Read-only usage: the app never writes health data on iOS, so
+		NSHealthUpdateUsageDescription is deliberately absent from Info.plist and
+		this entitlement carries no clinical-records (`healthkit.access`) array.
+
+		Shipping to a device requires the HealthKit capability enabled on the App ID
+		in the Apple Developer portal and a provisioning profile that includes it —
+		Xcode's automatic signing does this when a team is selected. Simulator
+		builds do not need it.
+	-->
+	<key>com.apple.developer.healthkit</key>
+	<true/>
+</dict>
+</plist>

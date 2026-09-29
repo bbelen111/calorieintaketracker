@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+		Empty entitlements for device builds on a *free* Apple ID (Personal Team), which
+		cannot enable the HealthKit capability that App.entitlements requests.
+
+		Use it as a per-build override so the paid-only capability never has to be
+		removed from the real entitlements file:
+
+		  xcodebuild -project ios/App/App.xcodeproj -scheme App \
+		    -destination 'id=<device UDID>' \
+		    CODE_SIGN_ENTITLEMENTS=App/App/NoHealthKit.entitlements build
+
+		Cost: step sync reports UNAVAILABLE on that build (the app runs normally —
+		it never crashes on a missing entitlement). Paid-team builds ignore this file
+		and use App.entitlements, which is what the Xcode project references.
+	-->
+</dict>
+</plist>

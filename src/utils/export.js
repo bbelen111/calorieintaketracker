@@ -3,12 +3,33 @@ import {
   getNutritionTotalsForDate,
 } from './phases/phases';
 import { getTodayDateKey } from './data/dateKeys';
+import { saveTextFile } from '../services/fileShare.js';
 
 /**
- * Export phase data as CSV
+ * `Phase Name 1` → `Phase_Name_1_2026-09-29.csv`.
+ *
+ * The character-stripping expression is deliberately identical to the one the
+ * web flow has always used, so exporting the same phase produces the same file
+ * name it always did.
  */
-export const exportPhaseAsCSV = (phase, weightEntries, nutritionData = {}) => {
-  if (!phase) return;
+const buildPhaseExportFileName = (phase, extension) =>
+  `${phase.name.replace(/[^a-z0-9]/gi, '_')}_${getTodayDateKey()}.${extension}`;
+
+/**
+ * Export phase data as CSV.
+ *
+ * Delivery is platform-dependent — a web download in the browser, the native
+ * share sheet inside the iOS/Android shell (`utils/../services/fileShare.js`).
+ * Returns the delivery result; it never throws.
+ */
+export const exportPhaseAsCSV = async (
+  phase,
+  weightEntries,
+  nutritionData = {}
+) => {
+  if (!phase) {
+    return { success: false, method: 'none', error: 'No phase selected' };
+  }
 
   const metrics = calculatePhaseMetrics(phase, weightEntries, nutritionData);
 
@@ -105,26 +126,28 @@ export const exportPhaseAsCSV = (phase, weightEntries, nutritionData = {}) => {
     csv += `${entry.date},${entry.weight}\n`;
   });
 
-  // Trigger download
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
-  const url = URL.createObjectURL(blob);
-  link.setAttribute('href', url);
-  link.setAttribute(
-    'download',
-    `${phase.name.replace(/[^a-z0-9]/gi, '_')}_${getTodayDateKey()}.csv`
-  );
-  link.style.visibility = 'hidden';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  return saveTextFile({
+    fileName: buildPhaseExportFileName(phase, 'csv'),
+    content: csv,
+    mimeType: 'text/csv;charset=utf-8;',
+    title: `Export ${phase.name}`,
+    dialogTitle: 'Export phase data',
+  });
 };
 
 /**
- * Export phase data as JSON
+ * Export phase data as JSON.
+ *
+ * Same delivery contract as `exportPhaseAsCSV`.
  */
-export const exportPhaseAsJSON = (phase, weightEntries, nutritionData = {}) => {
-  if (!phase) return;
+export const exportPhaseAsJSON = async (
+  phase,
+  weightEntries,
+  nutritionData = {}
+) => {
+  if (!phase) {
+    return { success: false, method: 'none', error: 'No phase selected' };
+  }
 
   const metrics = calculatePhaseMetrics(phase, weightEntries, nutritionData);
 
@@ -198,19 +221,11 @@ export const exportPhaseAsJSON = (phase, weightEntries, nutritionData = {}) => {
     exportedAt: new Date().toISOString(),
   };
 
-  // Trigger download
-  const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-    type: 'application/json',
+  return saveTextFile({
+    fileName: buildPhaseExportFileName(phase, 'json'),
+    content: JSON.stringify(exportData, null, 2),
+    mimeType: 'application/json',
+    title: `Export ${phase.name}`,
+    dialogTitle: 'Export phase data',
   });
-  const link = document.createElement('a');
-  const url = URL.createObjectURL(blob);
-  link.setAttribute('href', url);
-  link.setAttribute(
-    'download',
-    `${phase.name.replace(/[^a-z0-9]/gi, '_')}_${getTodayDateKey()}.json`
-  );
-  link.style.visibility = 'hidden';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
 };

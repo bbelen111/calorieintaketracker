@@ -233,24 +233,32 @@ The cleanup path is source-first. Do not add per-query runtime quality enforceme
 
 ---
 
-## Health Connect Integration (`hooks/useHealthConnect.js`)
+## Step Sync Integration (`hooks/useHealthConnect.js`)
 
-Android-only step data sync via `@capgo/capacitor-health`.
+Native step data sync via `@capgo/capacitor-health` on **both** native platforms: Health Connect on Android, HealthKit on iOS. The hook is gated by `isAndroid() || isIOS()` from `src/utils/platform.js` — never by an inline `Capacitor.getPlatform() === 'android'`.
 
 **Status lifecycle:** `'unavailable'` → `'not_installed'` → `'disconnected'` → `'connecting'` → `'connected'` | `'error'`
 
 Returns `{ status, steps, lastSynced, isLoading, error, connect, refresh, disconnect, openSettings, writeTestData }`.
 
-- `openSettings()` — Opens Health Connect settings on Android
-- `writeTestData()` — Writes 1000 test steps for debugging
-- Step aggregation uses max-per-source strategy to prevent double counting from multiple health apps
-- Auto-refreshes on app foreground via `App.addListener('appStateChange')`
+- Status vocabulary and the brand name are canonical in `src/constants/health/healthSources.js` (`HealthConnectStatus`, `getHealthSourceName()` → `'Apple Health'` on iOS, `'Health Connect'` elsewhere). Both the hook and `CalorieMapScreen` read them from there — the screen used to keep an inline copy that could drift. Do not re-declare either.
+- `openSettings()` — Opens Health Connect settings on Android; on iOS it is an explicit no-op with an info log (the plugin documents the method as Android-only and Capacitor exposes no API for launching the Health app).
+- `writeTestData()` — Android-only debug helper (writes 1000 test steps). iOS is read-only, so it returns `false` without touching the plugin.
+- Step aggregation uses max-per-source strategy to prevent double counting from multiple health apps (on iOS this covers iPhone + Apple Watch).
+- Auto-refreshes on app foreground via `App.addListener('appStateChange')` on both platforms.
 - Read windows are built through `buildHealthConnectStepReadWindow()` in `src/utils/healthConnectWindow.js`; keep that helper the single source of truth for explicit `startDate`/`endDate` normalization and strict `end > start` validation.
 - `fetchSteps()` must use the **today-scoped window** (`buildHealthConnectStepReadWindow()`, local midnight → now) as the primary read path. The plugin's native default range is a rolling 24 hours and would include previous-day steps in today's live count, so it must only be used as a degraded fallback when the explicit today window fails. If all reads fail, return `null` and degrade gracefully rather than throwing a connection error into the live card flow.
 - Step aggregation is centralized in `aggregateStepsBySource()` in `src/utils/healthConnectWindow.js`; use it for all read paths (today-scoped, native default, and rolling fallback) to keep max-per-source dedup consistent.
 - The `Health.readSamples()` failure path should log the resolved window so exact-midnight or clock-skew issues are diagnosable without touching calorie math.
 
-Always returns `'unavailable'` on web and iOS. Status constants exported as `HealthConnectStatus` enum object.
+**Platform differences that are load-bearing:**
+
+- **Scope request:** `buildPermissionRequest()` asks for `{ read: ['steps'], write: ['steps'] }` on Android and `{ read: ['steps'] }` on iOS. iOS is deliberately **read-only** — no `NSHealthUpdateUsageDescription` in `Info.plist` and no HealthKit share entitlement — so a write scope would prompt for a capability the app cannot use. Omitting `write` is safe: the plugin's Swift side defaults a missing array to `[]` for both `requestAuthorization` and `checkAuthorization`.
+- **Availability:** `NOT_INSTALLED` is Android-only (Health Connect is a separate Play Store app). On iOS `isAvailable() === false` means HealthKit does not exist on the device (iPad, or restricted) and must map to `UNAVAILABLE`, because there is nothing the user could install.
+- **Authorization semantics (iOS):** HealthKit never reveals whether READ access was granted (deliberate Apple privacy design). The plugin maps `getRequestStatusForAuthorization` (`unnecessary` → authorized), so `checkAuthorization()` answers *"has the user already been asked?"* — exactly what `initialize()` needs to avoid re-prompting on every launch. A user who denied access still reads back as authorized and simply gets zero samples; that is a HealthKit limitation, not an app bug to paper over.
+- **Entitlement:** HealthKit requires `ios/App/App/App.entitlements` (`com.apple.developer.healthkit`), wired through `CODE_SIGN_ENTITLEMENTS` in both App build configs. When it is absent (e.g. an unsigned build) the plugin fails with `Missing com.apple.developer.healthkit entitlement` and the hook degrades to `UNAVAILABLE` — this path must never crash the app.
+
+Always returns `'unavailable'` on **web** (and on any native platform that owns no health store). Status constants live in `src/constants/health/healthSources.js`.
 
 ---
 

@@ -21,7 +21,13 @@
     "db:food:clean:dry": "node scripts/food-db/index.js --clean --dry-run",
     "db:food:clean": "node scripts/food-db/index.js --clean --replace",
     "db:food:build": "node scripts/food-db/build.js",
-    "db:food:enrich": "node scripts/food-db/enrich-nutrients.js"
+    "db:food:enrich": "node scripts/food-db/enrich-nutrients.js",
+    "ios:sync": "npm run build && npx cap sync ios",
+    "ios:copy": "npm run build && npx cap copy ios",
+    "ios:open": "npx cap open ios",
+    "ios:run": "bash scripts/ios/run-simulator.sh",
+    "ios:device": "npx cap run ios",
+    "ios:live": "npx cap run ios --live-reload --port 5173"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.1",
@@ -29,9 +35,11 @@
     "@capacitor/barcode-scanner": "^3.0.2",
     "@capacitor/cli": "^8.0.1",
     "@capacitor/core": "^8.0.1",
+    "@capacitor/filesystem": "^8.1.3",
     "@capacitor/ios": "^8.0.1",
     "@capacitor/keyboard": "^8.0.0",
     "@capacitor/preferences": "^8.0.0",
+    "@capacitor/share": "^8.0.2",
     "@capacitor/splash-screen": "^8.0.0",
     "@capacitor/status-bar": "^8.0.0",
     "@capgo/capacitor-health": "^8.2.5",

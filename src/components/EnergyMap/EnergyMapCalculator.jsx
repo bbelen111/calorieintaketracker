@@ -27,10 +27,8 @@ import {
 import { useSwipeableScreens } from '../../hooks/useSwipeableScreens';
 import { useAnimatedModal } from '../../hooks/useAnimatedModal';
 import { useHardwareBackButton } from '../../hooks/useHardwareBackButton';
-import {
-  useHealthConnect,
-  HealthConnectStatus,
-} from '../../hooks/useHealthConnect';
+import { useHealthConnect } from '../../hooks/useHealthConnect';
+import { HealthConnectStatus } from '../../constants/health/healthSources.js';
 import { saveLastSelectedCardioType } from '../../utils/data/storage';
 import {
   ScreenTabs,
