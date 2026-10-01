@@ -38,7 +38,7 @@ It ships as a single **React + Vite** bundle wrapped by **Capacitor** into nativ
 - **Offline-First** — SQLite local food catalog (13k+ foods) queried in-browser via `sql.js`, IndexedDB history
 - **AI-Powered Food Parsing** — OpenRouter-backed food entry assistance with Fast / Balanced / Precision quality modes
 - **Bundle-Split Performance** — Heavy modals and data/AI services are lazy-loaded to reduce startup cost
-- **4 Theme Modes** — Auto, dark, light, AMOLED
+- **8 Theme Modes** — Auto, Dark, Light, Darker (AMOLED), Forest, Dawn, Dusk, Midnight
 - **Mobile-Optimized UI** — Touch-first design, no hardcoded colors, semantic tokens
 - **Native Delivery** — One web bundle wrapped as an SPM-native iOS app and an Android app, with exports handed to the OS share sheet on device
 
@@ -697,28 +697,38 @@ Target/goal phase planning helpers are centralized in `utils/calculations/phaseT
 
 ## 🎨 Theme System
 
-### 4 Theme Modes
+### 8 Theme Modes
 
 - **Auto (default):** Follows system `prefers-color-scheme`, real-time updates
-- **Dark:** Slate 900 background
+- **Dark:** Slate 900 background (default; uses `:root`, no class)
 - **Light:** Slate 100 background, dark text
-- **AMOLED:** Pure black (#000000)
+- **Darker (AMOLED):** Pure black (#000000)
+- **Forest:** Deep evergreen surfaces with crisp botanical accents (dark)
+- **Dawn:** Warm paper surfaces with earthy, high-contrast accents (light)
+- **Dusk:** Plum shadows with ember highlights for a softer night mode (dark)
+- **Midnight:** Near-black navy with clear arctic-blue instrumentation (dark)
+
+Theme keys, CSS classes and native colors are defined together in `SettingsModal` (`THEME_OPTIONS`), `utils/theme.js` (`THEME_CONFIG` / `NATIVE_THEME_RGB` / `getThemeClass`) and `index.css` (`.theme-*` blocks).
 
 ### Semantic Tokens
 
 | Token | Use | Light | Dark |
 |-------|-----|-------|------|
 | `bg-background` | Primary background | Slate 100 | Slate 900 |
-| `bg-surface` | Secondary surface | Slate 50 | Slate 800 |
-| `text-foreground` | Primary text | Slate 900 | Slate 50 |
-| `text-muted` | Secondary text | Slate 600 | Slate 400 |
+| `bg-surface` | Secondary surface | White | Slate 800 |
+| `bg-surface-highlight` | Elevated surface | Slate 200 | Slate 700 |
+| `text-foreground` | Primary text | Slate 900 | White |
+| `text-muted` | Secondary text | Slate 500 | Slate 400 |
+| `border-border` | Dividers / borders | Slate 200 | Slate 700 |
 | `bg-primary`, `text-primary-foreground` | Primary action | Blue | Blue |
 
-### Accent Colors (12 flavors)
+The remaining themes override the same variables with their own palettes.
 
-`accent-blue`, `accent-red`, `accent-green`, `accent-yellow`, `accent-orange`, `accent-purple`, `accent-lime`, `accent-emerald`, `accent-amber`, `accent-slate`, `accent-indigo`, `accent-pink`
+### Accent Colors (14 flavors)
 
-Auto-adjust: 400-level shades (dark/AMOLED), 600-level (light).
+`accent-blue`, `accent-red`, `accent-green`, `accent-yellow`, `accent-orange`, `accent-purple`, `accent-lime`, `accent-emerald`, `accent-amber`, `accent-slate`, `accent-indigo`, `accent-pink`, `accent-teal`, `accent-coral`
+
+Each theme hardcodes its own accent values, so the shade differs per theme: dark / AMOLED use 500-level, light uses 600-level, forest and midnight use 400-level, dusk uses 300-level, and dawn uses 700-level. (`accent-teal` = EPOC; `accent-coral` = adaptive thermogenesis correction.)
 
 ## ⚠️ Common Pitfalls
 

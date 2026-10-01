@@ -468,18 +468,24 @@ Screens also subscribe to the store directly with `shallow` selectors as a fallb
 
 ## Theme System
 
-### 4 Theme Modes
+### 8 Theme Modes
 
-`'auto'` | `'dark'` | `'light'` | `'amoled_dark'`
+`'auto'` | `'dark'` | `'light'` | `'amoled_dark'` | `'forest'` | `'dawn'` | `'dusk'` | `'midnight'`
 
 - **Auto (default):** Follows `prefers-color-scheme`, updates in real-time
-- **Dark:** Slate 900 background
+- **Dark:** Slate 900 background (default; uses `:root`, no class)
 - **Light:** Slate 100 background, dark text
-- **AMOLED:** Pure black (#000000)
+- **Darker (AMOLED):** Pure black (#000000)
+- **Forest:** Deep evergreen surfaces with crisp botanical accents (dark)
+- **Dawn:** Warm paper surfaces with earthy, high-contrast accents (light)
+- **Dusk:** Plum shadows with ember highlights for a softer night mode (dark)
+- **Midnight:** Near-black navy with clear arctic-blue instrumentation (dark)
+
+The theme keys, their `isDark` flag, native colors and CSS classes are defined together in `SettingsModal` `THEME_OPTIONS`, `utils/theme.js` (`THEME_CONFIG` / `NATIVE_THEME_RGB` / `getThemeClass`) and `index.css`. Keep all three in sync when adding a theme.
 
 ### Implementation Chain
 
-1. **CSS Variables** in `index.css`: `:root` = dark, `.theme-light`, `.theme-amoled-dark`
+1. **CSS Variables** in `index.css`: `:root` = dark, `.theme-light`, `.theme-amoled-dark`, `.theme-forest`, `.theme-dawn`, `.theme-dusk`, `.theme-midnight`
 2. **Tailwind config** maps variables to utilities: `bg-background`, `text-foreground`, etc.
 3. **`App.jsx`** watches `userData.theme` + system preference, applies body class + `applyNativeTheme()`
 4. **`utils/theme.js`** handles native Status Bar, Navigation Bar, Keyboard styling
@@ -501,7 +507,7 @@ className="bg-accent-red/20 text-accent-red"
 
 **Semantic tokens:** `bg-background`, `bg-surface`, `bg-surface-highlight`, `bg-primary`, `text-foreground`, `text-muted`, `text-primary-foreground`, `border-border`
 
-**12 accent tokens:** `accent-blue`, `accent-green`, `accent-lime`, `accent-emerald`, `accent-yellow`, `accent-amber`, `accent-orange`, `accent-red`, `accent-purple`, `accent-slate`, `accent-indigo`, `accent-pink`
+**14 accent tokens:** `accent-blue`, `accent-green`, `accent-lime`, `accent-emerald`, `accent-yellow`, `accent-amber`, `accent-orange`, `accent-red`, `accent-purple`, `accent-slate`, `accent-indigo`, `accent-pink`, `accent-teal`, `accent-coral`
 
 Accent semantic use:
 | Token | Semantic Use |
@@ -518,8 +524,10 @@ Accent semantic use:
 | `accent-slate` | Neutral, fallback |
 | `accent-indigo` | Barcode, manual entries |
 | `accent-pink` | Secondary highlight, specialty emphasis |
+| `accent-teal` | EPOC / post-exercise burn |
+| `accent-coral` | Adaptive thermogenesis correction |
 
-Accents auto-adjust: 400-level shades for dark/AMOLED, 600-level for light.
+Each theme hardcodes its own accent values in `index.css`, so the shade differs per theme rather than following one rule: dark / AMOLED use 500-level, light uses 600-level, forest and midnight use 400-level, dusk uses 300-level, and dawn uses 700-level.
 
 **`--action-border` exception:** Not a Tailwind utility. Access via: `border-[rgb(var(--action-border))]`
 
@@ -799,7 +807,7 @@ Migration behavior is now intentionally minimal:
 {
   // Profile
   age, weight, height, gender,
-  theme: 'auto',                    // 'auto' | 'dark' | 'light' | 'amoled_dark'
+  theme: 'auto',                    // 'auto' | 'dark' | 'light' | 'amoled_dark' | 'forest' | 'dawn' | 'dusk' | 'midnight'
   selectedGoal: 'maintenance',      // Canonical current goal key
   goalChangedAt: 1700000000000,     // Epoch ms when selectedGoal last changed (persisted)
   phaseGoalCalorieDelta: null,      // Active phase smart delta override (kcal/day), if any

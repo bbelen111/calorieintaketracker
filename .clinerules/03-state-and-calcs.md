@@ -197,7 +197,7 @@ Do not duplicate target planning formulas in components.
 {
   // Profile
   age, weight, height, gender,
-  theme: 'auto',                    // 'auto' | 'dark' | 'light' | 'amoled_dark'
+  theme: 'auto',                    // 'auto' | 'dark' | 'light' | 'amoled_dark' | 'forest' | 'dawn' | 'dusk' | 'midnight'
   selectedGoal: 'maintenance',      // Canonical current goal key
   goalChangedAt: 1700000000000,     // Epoch ms when selectedGoal last changed (persisted)
   phaseGoalCalorieDelta: null,      // Active phase smart delta override (kcal/day), if any
