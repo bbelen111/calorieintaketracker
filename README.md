@@ -2,6 +2,22 @@
 
 A **React + Vite** single-page app for fitness calorie tracking, wrapped by Capacitor for mobile deployment (iOS/Android). Local-first architecture with Zustand state management, Dexie-backed history persistence, Supabase-catalog-backed online food search, and OpenFoodFacts barcode lookup.
 
+## 📸 Screenshots
+
+<p align="center">
+  <img src=".github/assets/homescreen.png" alt="Home screen showing the day's energy map" width="200">
+  <img src=".github/assets/caloriebreakdown.png" alt="Calorie breakdown of BMR, NEAT, steps, exercise, EPOC, TEF and adaptive thermogenesis" width="200">
+  <img src=".github/assets/steptracker.png" alt="Step tracker chart with daily and weekly averages" width="200">
+  <img src=".github/assets/dailyledgercalendar.png" alt="Daily Ledger calendar with energy-balance day previews" width="200">
+</p>
+
+<p align="center">
+  <img src=".github/assets/foodsearchlistlocaldb.png" alt="Local food catalog search results" width="200">
+  <img src=".github/assets/aifoodlogger.png" alt="AI food logger chat parsing a meal" width="200">
+  <img src=".github/assets/macrosplit.png" alt="Macro split picker" width="200">
+  <img src=".github/assets/phasecreation.png" alt="Phase creation with goal projection" width="200">
+</p>
+
 ## 🎯 Features
 
 - **Comprehensive Calorie Tracking** — Foods, steps, cardio, and training sessions
@@ -834,6 +850,7 @@ Mounts the real orchestrator against the real store, plus the tracker modals, th
 - `store/useEnergyMapStore.js` — Store structure & action patterns
 - `tests/README.md` — Two-tier test guide (logic vs UI), coverage baselines and CI
 - `tests/` — Working examples of utility usage & calculation validation
+- `.github/assets/` — README screenshots (captured on Android / Galaxy S23 Ultra)
 
 ---
 
