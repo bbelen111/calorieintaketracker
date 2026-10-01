@@ -1,5 +1,11 @@
 ﻿# Energy Map Calorie Tracker
 
+<p align="center">
+  <img src="https://github.com/bbelen111/calorieintaketracker/actions/workflows/ci.yml/badge.svg" alt="CI status">
+  <img src="https://img.shields.io/badge/platform-iOS%20%7C%20Android-blue" alt="Platforms: iOS and Android">
+  <img src="https://img.shields.io/badge/license-All%20Rights%20Reserved-red" alt="License: All Rights Reserved">
+</p>
+
 **Energy Map Calorie Tracker** is a local-first calorie and energy-balance tracker for iOS and Android that refuses to hand you a static number. Every day it rebuilds your true Total Daily Energy Expenditure — BMR, activity (NEAT), net steps, exercise, EPOC, TEF and adaptive thermogenesis — and applies your goal or phase on top, so the target you eat against reflects what your body actually burned. Log meals by search, barcode or AI chat against a bundled 13,000-food offline catalog, sync steps from Health Connect or Apple Health, and follow weight, body fat, macros and phases through date-keyed Daily Ledger and rolling energy-balance analytics.
 
 It ships as a single **React + Vite** bundle wrapped by **Capacitor** into native apps, with on-device persistence (Dexie/IndexedDB + Capacitor Preferences), a `sql.js`-queried SQLite food catalog, and Supabase / OpenFoodFacts / OpenRouter behind the online features.
