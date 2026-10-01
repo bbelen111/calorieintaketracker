@@ -17,14 +17,6 @@ import {
 } from '../../../utils/visuals/modalStack.js';
 
 // ============================================================================
-// CONSTANTS
-// ============================================================================
-
-const KEYBOARD_RESIZE_MIN_DELTA = 120;
-const KEYBOARD_RESIZE_MAX_DELTA = 420;
-const VIEWPORT_WIDTH_LAYOUT_DELTA = 80;
-
-// ============================================================================
 // MODAL STACK MANAGER - Tracks all open modals with stable ordering
 // ============================================================================
 
@@ -108,7 +100,6 @@ export const ModalShell = ({
   closeOnEscape = true,
   closeOnOverlayClick = true,
   fullHeight = false,
-  allowKeyboardViewportResize = false,
 }) => {
   const modalIdRef = useRef(null);
   const zIndexRef = useRef(BASE_Z_INDEX);
@@ -117,9 +108,6 @@ export const ModalShell = ({
   const [isTopmost, setIsTopmost] = useState(false);
   const [stackDepth, setStackDepth] = useState(0);
   const hasRegisteredRef = useRef(false);
-  const lockedViewportHeightRef = useRef(null);
-  const baseViewportHeightRef = useRef(null);
-  const baseViewportWidthRef = useRef(null);
   const isNative = Capacitor.isNativePlatform();
   const shouldFullHeight = fullHeight && isNative;
   const sanitizedOverlayClassName = overlayClassName
@@ -256,104 +244,38 @@ export const ModalShell = ({
     [closeOnOverlayClick, onClose, isTopmost, isClosing]
   );
 
-  // Lock viewport height on native to prevent keyboard resize squish
-  useEffect(() => {
-    if (!isOpen || typeof window === 'undefined') return undefined;
-    if (!isNative) return undefined;
+  /*
+    Keyboard behaviour is owned by the platform + CSS, never by JS height writes.
 
-    const overlayNode = overlayRef.current;
-    const contentNode = contentRef.current;
-
-    const getViewportHeight = () =>
-      Math.round(window.visualViewport?.height || window.innerHeight || 0);
-    const getViewportWidth = () =>
-      Math.round(window.visualViewport?.width || window.innerWidth || 0);
-
-    const initialHeight = getViewportHeight();
-    const initialWidth = getViewportWidth();
-    baseViewportHeightRef.current = initialHeight;
-    baseViewportWidthRef.current = initialWidth;
-    lockedViewportHeightRef.current = initialHeight || null;
-
-    const applyHeight = (height) => {
-      if (!overlayNode || !contentNode) return;
-      overlayNode.style.height = height ? `${height}px` : '';
-
-      if (shouldFullHeight) {
-        contentNode.style.height = height ? `${height}px` : '';
-        contentNode.style.maxHeight = '';
-      } else {
-        contentNode.style.height = '';
-        contentNode.style.maxHeight = height
-          ? `${Math.round(height * 0.9)}px`
-          : '';
-      }
-    };
-
-    applyHeight(initialHeight);
-
-    const handleResize = () => {
-      const currentHeight = getViewportHeight();
-      const currentWidth = getViewportWidth();
-      const baseHeight = baseViewportHeightRef.current || currentHeight;
-      const baseWidth = baseViewportWidthRef.current || currentWidth;
-      const diff = Math.abs(currentHeight - baseHeight);
-      const widthDiff = Math.abs(currentWidth - baseWidth);
-
-      if (allowKeyboardViewportResize) {
-        if (diff > 1 || widthDiff > 1) {
-          baseViewportHeightRef.current = currentHeight;
-          baseViewportWidthRef.current = currentWidth;
-          lockedViewportHeightRef.current = currentHeight || null;
-          applyHeight(currentHeight);
-        }
-        return;
-      }
-
-      // Ignore keyboard-driven viewport changes; only relock on true layout changes.
-      const isKeyboardSizedDelta =
-        diff >= KEYBOARD_RESIZE_MIN_DELTA && diff <= KEYBOARD_RESIZE_MAX_DELTA;
-      const hasSignificantWidthChange =
-        widthDiff >= VIEWPORT_WIDTH_LAYOUT_DELTA;
-      const hasLargeHeightLayoutChange = diff > KEYBOARD_RESIZE_MAX_DELTA;
-
-      if (hasSignificantWidthChange || hasLargeHeightLayoutChange) {
-        baseViewportHeightRef.current = currentHeight;
-        baseViewportWidthRef.current = currentWidth;
-        lockedViewportHeightRef.current = currentHeight || null;
-        applyHeight(currentHeight);
-        return;
-      }
-
-      if (isKeyboardSizedDelta) {
-        return;
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    window.visualViewport?.addEventListener('resize', handleResize);
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      window.visualViewport?.removeEventListener('resize', handleResize);
-      baseViewportHeightRef.current = null;
-      baseViewportWidthRef.current = null;
-      lockedViewportHeightRef.current = null;
-      if (overlayNode) {
-        overlayNode.style.height = '';
-      }
-      if (contentNode) {
-        contentNode.style.height = '';
-        contentNode.style.maxHeight = '';
-      }
-    };
-  }, [isOpen, isNative, shouldFullHeight, allowKeyboardViewportResize]);
+    On Android the manifest's `adjustResize` makes the layout viewport the visible
+    band, so everything below is inert there. On iOS the keyboard overlays a
+    full-height WebView (`resize: "none"`), so the covered height arrives as
+    `--keyboard-inset` (hooks/useKeyboardVisible.js) and is applied as *padding* on
+    the centering wrapper plus a `min()` cap on the content — never as a measured
+    `height` write, which is what used to make the backdrop stop covering the
+    screen (app content showing through below the modal) and leave the modal's
+    lower half behind the keyboard.
+  */
 
   // Early return if not open
   if (!isOpen || typeof document === 'undefined') return null;
 
   const layerOpacity = calculateLayerOpacity(stackDepth);
   const backdropOpacity = !isClosing ? layerOpacity : 0;
+
+  // Keyboard-aware sizing for the *centered* overlays. On Android `adjustResize`
+  // already ends the layout viewport at the keyboard, so `--keyboard-inset` is 0
+  // and both values below reduce to today's resting behaviour (`p-4` gutter,
+  // `90dvh` cap). On iOS the keyboard overlays the WebView, so the inset shortens
+  // the centering band *and* caps the content to what is left of it — otherwise a
+  // tall modal would overflow the band symmetrically (clipped at the top) with its
+  // action row behind the keyboard. Never a measured `height` write.
+  const centeredOverlayPadding = shouldFullHeight
+    ? undefined
+    : 'max(1rem, var(--keyboard-inset, 0px))';
+  const centeredContentMaxHeight = shouldFullHeight
+    ? undefined
+    : 'min(90dvh, calc(100dvh - var(--keyboard-inset, 0px) - 2rem))';
 
   const overlay = (
     <div
@@ -365,6 +287,7 @@ export const ModalShell = ({
         backgroundColor: `rgb(var(--overlay-base) / ${backdropOpacity})`,
         transition: `background-color ${OVERLAY_FADE_MS}ms ease-out`,
         willChange: 'background-color',
+        paddingBottom: centeredOverlayPadding,
       }}
       className={`${sanitizedOverlayClassName} modal-overlay-wrapper fixed inset-0 !mt-0 bg-transparent flex justify-center ${
         shouldFullHeight ? 'items-stretch p-0' : 'items-center p-4'
@@ -382,6 +305,7 @@ export const ModalShell = ({
         } ${contentClassName}`}
         style={{
           pointerEvents: isTopmost || isClosing ? 'auto' : 'none',
+          maxHeight: centeredContentMaxHeight,
         }}
       >
         {children}
@@ -402,7 +326,6 @@ ModalShell.propTypes = {
   closeOnEscape: PropTypes.bool,
   closeOnOverlayClick: PropTypes.bool,
   fullHeight: PropTypes.bool,
-  allowKeyboardViewportResize: PropTypes.bool,
 };
 
 // ============================================================================

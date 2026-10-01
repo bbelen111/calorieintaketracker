@@ -39,6 +39,13 @@ if (isIOS()) {
   Keyboard.setScroll({ isDisabled: true }).catch(() => null);
 }
 
+// `resize: "none"` (iOS) means the keyboard OVERLAYS a full-height WebView, so
+// nothing resizes for it there: `hooks/useKeyboardVisible.js` publishes
+// `--keyboard-inset` and `.keyboard-bottom-inset` / `ModalShell` use it to lift
+// bottom chrome and the modal centering band clear of the keyboard. Android
+// needs none of that — its `android:windowSoftInputMode="adjustResize"`
+// (AndroidManifest.xml) makes the layout viewport the visible band.
+
 // Suppress the broken native context menu on the Android WebView (a white panel
 // with a logo). Deliberately NOT applied on iOS: there it also removes the
 // long-press callout / copy-paste affordance inside text inputs, which are the

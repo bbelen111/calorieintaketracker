@@ -1,7 +1,7 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClipboardList, Flame, Target } from 'lucide-react';
 
 import { ScreenTabs } from './ScreenTabs';
@@ -10,6 +10,10 @@ import {
   SCREEN_DRAG_DURATION_VAR,
   SCREEN_DRAG_PROGRESS_VAR,
 } from '../../../utils/visuals/carouselLoop';
+import {
+  restoreKeyboardViewport,
+  setKeyboardViewport,
+} from '../../../tests/helpers/keyboardViewport';
 
 const TABS = [
   { key: 'logbook', label: 'Logbook', icon: ClipboardList },
@@ -30,6 +34,10 @@ const renderTabs = (props = {}) =>
  * jumping).
  */
 describe('ScreenTabs', () => {
+  afterEach(() => {
+    restoreKeyboardViewport();
+  });
+
   it('renders one accessible button per tab', () => {
     renderTabs();
 
@@ -113,5 +121,27 @@ describe('ScreenTabs', () => {
         `var(${SCREEN_DRAG_DURATION_VAR}, 0.35s)`
       );
     });
+  });
+
+  it('fades out of the way while the on-screen keyboard is visible', () => {
+    renderTabs();
+
+    const bar = screen.getByRole('navigation', { name: 'Screens' });
+    expect(bar).toHaveClass('opacity-100');
+    expect(bar).not.toHaveAttribute('aria-hidden');
+
+    act(() => {
+      setKeyboardViewport({ layoutHeight: 900, visualHeight: 520 });
+    });
+
+    expect(bar).toHaveClass('opacity-0');
+    expect(bar).toHaveAttribute('aria-hidden', 'true');
+
+    act(() => {
+      setKeyboardViewport({ layoutHeight: 900, visualHeight: 900 });
+    });
+
+    expect(bar).toHaveClass('opacity-100');
+    expect(bar).not.toHaveAttribute('aria-hidden');
   });
 });

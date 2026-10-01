@@ -9,6 +9,13 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
+        <!-- Keyboard behaviour: `adjustResize` (never `adjustPan`). The layout
+             viewport must equal the visible band while the keyboard is up, so
+             `fixed inset-0` overlays, `dvh` and modal centering all agree with
+             the keyboard. `adjustPan` instead slides the whole window up, which
+             clips a modal's header behind the status bar, exposes an undimmed
+             band of the app between the modal and the keyboard, and drags fixed
+             chrome (the floating tab bar) up into that band. -->
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:name=".MainActivity"
@@ -16,7 +23,7 @@
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
             android:screenOrientation="portrait"
-            android:windowSoftInputMode="adjustPan"
+            android:windowSoftInputMode="adjustResize"
             android:exported="true">
 
             <intent-filter>

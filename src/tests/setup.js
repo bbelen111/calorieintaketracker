@@ -4,8 +4,9 @@
  * Responsibilities:
  *  1. Register Capacitor plugin doubles for the whole run (see ./mocks/capacitor.js).
  *  2. Add the two browser APIs jsdom does not implement that app code relies on
- *     (`visualViewport` — used by `common/ModalShell.jsx`; and `window.scrollTo`,
- *     which jsdom logs "Not implemented" for).
+ *     (`visualViewport` — read by `hooks/useKeyboardVisible.js` to tell a
+ *     keyboard-overlay viewport from a keyboard-resized one; and
+ *     `window.scrollTo`, which jsdom logs "Not implemented" for).
  *  3. Install `@testing-library/jest-dom` matchers.
  *
  * Deliberately no IntersectionObserver / scrollIntoView stubs: nothing in `src/`

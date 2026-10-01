@@ -62,10 +62,18 @@ export const StatusBarMock = {
 
 export const KeyboardMock = {
   setStyle: vi.fn(async () => {}),
+  // Called from `main.jsx` inside `if (isIOS())`; the resize mode itself lives in
+  // capacitor.config.json and these only keep a long-lived session honest.
   setResizeMode: vi.fn(async () => {}),
   setScroll: vi.fn(async () => {}),
   show: vi.fn(async () => {}),
   hide: vi.fn(async () => {}),
+  // Mirrors AppMock: the keyboard hook only registers `keyboardDidShow` /
+  // `keyboardDidHide` and stores the handle to remove it again, so specs read the
+  // registered callback straight off `addListener.mock.calls`.
+  addListener: vi.fn(async () => ({
+    remove: vi.fn(async () => {}),
+  })),
 };
 
 export const NavigationBarMock = {

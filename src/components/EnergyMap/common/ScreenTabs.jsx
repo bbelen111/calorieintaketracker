@@ -1,4 +1,5 @@
 import React from 'react';
+import { useKeyboardVisible } from '../../../hooks/useKeyboardVisible';
 import {
   RING_COPY_OFFSETS,
   SCREEN_DRAG_DURATION_VAR,
@@ -55,13 +56,21 @@ export const SCREEN_TABS_BOTTOM_CLEARANCE_PX =
  *   rem-based root font size.
  * - Sits below the ModalShell z-lanes (z-[900] < 1000) so modals always cover
  *   it, and respects the safe-area insets on all sides.
+ * - Fades out while the on-screen keyboard is visible: a floating bar riding on
+ *   top of a keyboard is noise. On Android (where the window resizes) this is
+ *   mostly defensive — the bar is already behind the modal overlay while typing —
+ *   but on iOS (`resize: "none"`, so the keyboard overlays) it would otherwise sit
+ *   right on top of the keyboard.
  */
 export const ScreenTabs = ({ tabs, activeScreen, onSelect }) => {
+  const { isKeyboardVisible } = useKeyboardVisible();
   const tabSharePercent = 100 / tabs.length;
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-[900]"
+      className={`fixed inset-x-0 bottom-0 z-[900] transition-opacity duration-200 ${
+        isKeyboardVisible ? 'opacity-0' : 'opacity-100'
+      }`}
       style={{
         paddingBottom: `calc(${BAR_BOTTOM_GAP_PX}px + var(--sab, 0px))`,
         paddingLeft: `calc(${BAR_SIDE_GAP_PX}px + var(--sal, 0px))`,
@@ -69,10 +78,14 @@ export const ScreenTabs = ({ tabs, activeScreen, onSelect }) => {
         pointerEvents: 'none',
       }}
       aria-label="Screens"
+      aria-hidden={isKeyboardVisible || undefined}
     >
       <div
         className="mx-auto"
-        style={{ pointerEvents: 'auto', maxWidth: BAR_MAX_WIDTH_PX }}
+        style={{
+          pointerEvents: isKeyboardVisible ? 'none' : 'auto',
+          maxWidth: BAR_MAX_WIDTH_PX,
+        }}
       >
         <div
           className="relative flex items-stretch rounded-full border border-border/40 bg-surface/35 shadow-lg shadow-background/30 backdrop-blur-2xl"

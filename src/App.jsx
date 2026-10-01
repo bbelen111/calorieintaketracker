@@ -1,6 +1,7 @@
 import React, { useEffect, useCallback } from 'react';
 import { EnergyMapCalculator } from './components/EnergyMap/EnergyMapCalculator';
 import { useEnergyMapStore } from './store/useEnergyMapStore';
+import { useKeyboardVisible } from './hooks/useKeyboardVisible';
 import { applyNativeTheme, getThemeClass } from './utils/theme';
 
 const THEME_CLASSES = [
@@ -15,6 +16,13 @@ const THEME_CLASSES = [
 const App = () => {
   const theme = useEnergyMapStore((state) => state.theme);
   const isLoaded = useEnergyMapStore((state) => state.isLoaded);
+
+  // Single app-wide publisher for the keyboard state: `--keyboard-inset` on
+  // `:root` (consumed by `.keyboard-bottom-inset`) plus the visible flag the
+  // floating tab bar reads. Mounted here so the signal exists even when no
+  // modal is open; the hook is a module-scoped singleton, so consumers that call
+  // it again (ScreenTabs) share this one subscription.
+  useKeyboardVisible();
 
   const applyTheme = useCallback((themeValue) => {
     // Remove all theme classes first

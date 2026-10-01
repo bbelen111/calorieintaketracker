@@ -476,6 +476,22 @@ body {
     @apply active:brightness-105 active:border-primary/80 active:shadow-inner;
   }
 
+  /*
+    Bottom padding for chrome that must clear the on-screen keyboard (fullscreen
+    modal footers/inputs). `max()` — never the sum: while the keyboard is up the
+    home-indicator safe area sits *inside* the keyboard region, so adding both
+    would leave a phantom gap above the keyboard. `--keyboard-inset` is 0 on
+    Android (the window itself resizes) and carries the covered height on iOS,
+    where `resize: "none"` lets the keyboard overlay a full-height WebView.
+    Published by hooks/useKeyboardVisible.js.
+  */
+  .keyboard-bottom-inset {
+    padding-bottom: max(
+      env(safe-area-inset-bottom, 0px),
+      var(--keyboard-inset, 0px)
+    );
+  }
+
   /* Range input styling */
   input[type='range'] {
     @apply appearance-none w-full h-2 bg-surface-highlight rounded-lg outline-none cursor-pointer;
