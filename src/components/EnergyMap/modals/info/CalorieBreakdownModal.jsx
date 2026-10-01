@@ -162,9 +162,17 @@ export const CalorieBreakdownModal = ({
       <div>
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
-            <h3 className="text-foreground font-bold text-xl">
-              Calorie Breakdown
-            </h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-foreground font-bold text-xl">
+                Calorie Breakdown
+              </h3>
+              {showDateChip && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold text-accent-blue border border-accent-blue/20 bg-accent-blue/10">
+                  <CalendarDays size={11} />
+                  {dateLabel}
+                </span>
+              )}
+            </div>
             <p className="text-muted text-sm mt-1">
               {typeof stepRange === 'number'
                 ? stepRange.toLocaleString()
@@ -172,12 +180,6 @@ export const CalorieBreakdownModal = ({
               steps • {selectedDay === 'training' ? 'Training' : 'Rest'} day •{' '}
               {goal.label}
             </p>
-            {showDateChip && (
-              <span className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold text-accent-blue border border-accent-blue/20 bg-accent-blue/10">
-                <CalendarDays size={11} />
-                {dateLabel}
-              </span>
-            )}
           </div>
           <button
             type="button"
