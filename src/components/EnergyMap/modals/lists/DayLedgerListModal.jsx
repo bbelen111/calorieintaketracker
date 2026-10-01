@@ -717,20 +717,22 @@ export const DayLedgerListModal = ({
                 )}
               </div>
 
-              {/* Always occupies a line so per-day EPOC variance cannot
-                  resize the panel */}
+              {/* Hero-card EPOC language: bold value + muted suffix. Always
+                  occupies a line so per-day EPOC variance cannot resize the
+                  panel */}
               <p
-                className={`text-muted text-[11px] mt-1 ${
+                className={`text-[11px] mt-1 ${
                   dayPanelPreview.epocCarryInCalories > 0 ? '' : 'invisible'
                 }`}
               >
-                +{dayPanelPreview.epocCarryInCalories} kcal EPOC carried in
+                <span className="text-foreground font-semibold">
+                  +{dayPanelPreview.epocCarryInCalories} kcal EPOC
+                </span>
+                <span className="text-muted"> carried in</span>
               </p>
 
-              <div className="flex items-center justify-end gap-1 mt-1.5 pt-1.5 border-t border-border text-muted">
-                <span className="text-xs font-medium">
-                  Tap to view full ledger
-                </span>
+              <div className="flex items-center justify-end gap-0.5 mt-2 pt-1.5 border-t border-border text-accent-blue">
+                <span className="text-xs font-semibold">View full ledger</span>
                 <ChevronRight size={14} />
               </div>
             </motion.button>

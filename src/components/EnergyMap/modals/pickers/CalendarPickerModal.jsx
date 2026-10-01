@@ -936,8 +936,8 @@ export const CalendarPickerModal = ({
                 </div>
 
                 {/* Whole-card tap-target footer (DayLedger grammar) */}
-                <div className="flex items-center justify-end gap-1 mt-1.5 pt-1.5 border-t border-border text-muted">
-                  <span className="text-xs font-medium">
+                <div className="flex items-center justify-end gap-0.5 mt-2 pt-1.5 border-t border-border text-accent-blue">
+                  <span className="text-xs font-semibold">
                     Tap to select this day
                   </span>
                   <ChevronRight size={14} />

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
@@ -140,9 +140,15 @@ describe('DayLedgerModal', () => {
     // Per-meal breakdown names the meals + item counts
     expect(screen.getByText(/Breakfast/)).toBeInTheDocument();
     expect(screen.getByText(/Lunch/)).toBeInTheDocument();
-    // Measurement + provenance
+    // Measurement rows (steps is now a single number — no provenance caption)
     expect(screen.getByText('74 kg')).toBeInTheDocument();
-    expect(screen.getByText('Health store')).toBeInTheDocument();
+    expect(screen.getByText('8,000')).toBeInTheDocument();
+    expect(screen.queryByText('Health store')).not.toBeInTheDocument();
+    // Nutrition macros render in one row with the app's macro icons
+    expect(screen.getByText('Protein')).toBeInTheDocument();
+    expect(screen.getByText('Carbs')).toBeInTheDocument();
+    // A real change renders the shared "vs prev" chip
+    expect(screen.getByText(/vs prev/)).toBeInTheDocument();
   });
 
   it('renders nothing while closed', () => {
@@ -179,18 +185,46 @@ describe('DayLedgerModal', () => {
     const onOpenBreakdown = vi.fn();
     renderModal({ onOpenBreakdown });
 
-    await user.click(
-      screen.getByRole('button', { name: /Tap to open full breakdown/i })
-    );
+    await user.click(screen.getByText(/Full breakdown/i));
     expect(onOpenBreakdown).toHaveBeenCalledWith(SNAP_DATE);
   });
 
-  it('swaps the body-fat tile for a sessions tile when tracking is off', () => {
+  it('swaps the body-fat row for a sessions row when tracking is off', () => {
     renderModal({ bodyFatTrackingEnabled: false });
 
-    expect(screen.queryByText('Body Fat')).not.toBeInTheDocument();
+    expect(screen.queryByText('Body fat')).not.toBeInTheDocument();
+    expect(screen.getByText('Sessions')).toBeInTheDocument();
     // 296 + 344 = 640
     expect(screen.getByText('640 kcal')).toBeInTheDocument();
+  });
+
+  it('renders fiber as a nutrient beside sugars/sodium, never as a macro', () => {
+    renderModal({
+      nutritionData: {
+        [SNAP_DATE]: {
+          lunch: [
+            {
+              id: 'f3',
+              name: 'Lentils',
+              grams: 100,
+              calories: 116,
+              protein: 9,
+              carbs: 20,
+              fats: 0.4,
+              fiber: 8,
+              sodium: 2,
+              saturatedFats: 0.1,
+              sugars: 1.8,
+            },
+          ],
+        },
+      },
+    });
+
+    expect(screen.getByText('Fiber')).toBeInTheDocument();
+    expect(screen.getByText('8 g')).toBeInTheDocument();
+    expect(screen.getByText('Sodium')).toBeInTheDocument();
+    expect(screen.getByText('2 mg')).toBeInTheDocument();
   });
 
   it('surfaces the NEAT override chip only when one exists', () => {
@@ -214,5 +248,85 @@ describe('DayLedgerModal', () => {
 
     // The fundraising "Phase" section header only renders with a phase log.
     expect(screen.queryByText('Phase')).not.toBeInTheDocument();
+  });
+
+  it('hides the change chip when the reading is unchanged', () => {
+    renderModal({
+      weightEntries: [
+        { date: '2026-03-05', weight: 74 },
+        { date: SNAP_DATE, weight: 74 },
+      ],
+      bodyFatEntries: [
+        { date: '2026-03-05', bodyFat: 15.2 },
+        { date: SNAP_DATE, bodyFat: 15.2 },
+      ],
+    });
+
+    expect(screen.queryByText(/vs prev/)).not.toBeInTheDocument();
+  });
+
+  it('drops the EPOC block so the hero card shrinks when there is no EPOC', () => {
+    renderModal({
+      snapshot: {
+        ...SNAPSHOT,
+        epoc: 0,
+        epocTraining: 0,
+        epocCardio: 0,
+        epocFromTodaySessions: 0,
+        epocCarryInCalories: 0,
+      },
+    });
+
+    expect(screen.queryByText(/EPOC/)).not.toBeInTheDocument();
+    // The breakdown prompt stays available even without EPOC.
+    expect(screen.getByText('Full breakdown')).toBeInTheDocument();
+  });
+
+  it('steps to the next tracked day on a leftward swipe', () => {
+    const onSelectDate = vi.fn();
+    renderModal({ onSelectDate });
+
+    const surface = screen.getByText('2,540');
+    fireEvent.touchStart(surface, {
+      touches: [{ clientX: 240, clientY: 120 }],
+    });
+    fireEvent.touchMove(surface, {
+      touches: [{ clientX: 120, clientY: 128 }],
+    });
+    fireEvent.touchEnd(surface);
+
+    expect(onSelectDate).toHaveBeenCalledWith('2026-03-11');
+  });
+
+  it('steps to the previous tracked day on a rightward swipe', () => {
+    const onSelectDate = vi.fn();
+    renderModal({ onSelectDate });
+
+    const surface = screen.getByText('2,540');
+    fireEvent.touchStart(surface, {
+      touches: [{ clientX: 100, clientY: 120 }],
+    });
+    fireEvent.touchMove(surface, {
+      touches: [{ clientX: 220, clientY: 126 }],
+    });
+    fireEvent.touchEnd(surface);
+
+    expect(onSelectDate).toHaveBeenCalledWith('2026-03-09');
+  });
+
+  it('ignores a mostly-vertical drag so scrolling never switches days', () => {
+    const onSelectDate = vi.fn();
+    renderModal({ onSelectDate });
+
+    const surface = screen.getByText('2,540');
+    fireEvent.touchStart(surface, {
+      touches: [{ clientX: 200, clientY: 100 }],
+    });
+    fireEvent.touchMove(surface, {
+      touches: [{ clientX: 140, clientY: 260 }],
+    });
+    fireEvent.touchEnd(surface);
+
+    expect(onSelectDate).not.toHaveBeenCalled();
   });
 });
