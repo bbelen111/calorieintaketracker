@@ -2,14 +2,18 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  buildDisplayTefContext,
+  buildTefContextForMode,
   calculateBMR,
   calculateCalorieBreakdown,
   calculateCardioCalories,
   calculateGoalCalories,
+  calculateGoalSeededBreakdown,
   calculateTrainingSessionCalories,
   getTotalTrainingBurnForDate,
   getTrainingCalories,
   resolveGoalCalorieDelta,
+  resolveUserTefDisplayMode,
 } from '../../src/utils/calculations/calculations.js';
 import { DEFAULT_ACTIVITY_MULTIPLIERS } from '../../src/constants/activity/activityPresets.js';
 
@@ -622,4 +626,109 @@ test('daily NEAT override multiplier feeds the effective multiplier used for bas
 
   assert.equal(breakdown.rawActivityMultiplier, 0.35);
   assert.ok(breakdown.baseActivity > 0);
+});
+
+test('resolveUserTefDisplayMode mirrors the Smart TEF display settings', () => {
+  assert.equal(resolveUserTefDisplayMode({ smartTefEnabled: false }), 'off');
+  assert.equal(resolveUserTefDisplayMode({ smartTefEnabled: true }), 'target');
+  assert.equal(
+    resolveUserTefDisplayMode({
+      smartTefEnabled: true,
+      smartTefQuickEstimatesTargetMode: true,
+    }),
+    'target'
+  );
+  assert.equal(
+    resolveUserTefDisplayMode({
+      smartTefEnabled: true,
+      smartTefQuickEstimatesTargetMode: false,
+    }),
+    'dynamic'
+  );
+});
+
+test('buildTefContextForMode pins enabled so off/dynamic cannot fall back to current settings', () => {
+  assert.deepEqual(buildTefContextForMode('target'), {
+    mode: 'target',
+    enabled: true,
+  });
+  assert.deepEqual(
+    buildTefContextForMode('dynamic', { nutritionTotals: { protein: 5 } }),
+    { mode: 'dynamic', enabled: true, totals: { protein: 5 } }
+  );
+  assert.deepEqual(buildTefContextForMode('off'), {
+    mode: 'off',
+    enabled: false,
+  });
+  assert.deepEqual(buildTefContextForMode('nonsense'), {
+    mode: 'off',
+    enabled: false,
+  });
+});
+
+test('buildDisplayTefContext resolves the user mode and totals', () => {
+  const context = buildDisplayTefContext(
+    { smartTefEnabled: true, smartTefQuickEstimatesTargetMode: false },
+    { nutritionTotals: { protein: 10 } }
+  );
+  assert.deepEqual(context, {
+    mode: 'dynamic',
+    enabled: true,
+    totals: { protein: 10 },
+  });
+});
+
+test('calculateGoalSeededBreakdown goal-seeds target-mode TEF like the live target path', () => {
+  const targetUser = {
+    ...baseUserData,
+    smartTefEnabled: true,
+    selectedGoal: 'cutting',
+  };
+  const tefContext = { mode: 'target', enabled: true };
+  const args = {
+    steps: 8000,
+    isTrainingDay: false,
+    userData: targetUser,
+    bmr: Math.round(calculateBMR(targetUser)),
+    cardioTypes: {},
+    trainingTypes,
+    tefContext,
+    adaptiveThermogenesisContext: { mode: 'off', enabled: false },
+    goalKey: 'cutting',
+  };
+
+  const seeded = calculateGoalSeededBreakdown(args);
+  const unseeded = calculateCalorieBreakdown({
+    steps: args.steps,
+    isTrainingDay: args.isTrainingDay,
+    userData: targetUser,
+    bmr: args.bmr,
+    cardioTypes: {},
+    trainingTypes,
+    tefContext,
+    adaptiveThermogenesisContext: args.adaptiveThermogenesisContext,
+  });
+
+  assert.equal(seeded.tefMode, 'target');
+  assert.ok(seeded.smartTefCalories > 0);
+  // Goal-seeding lowers target-mode TEF versus the self-seeded subtotal.
+  assert.notEqual(seeded.total, unseeded.total);
+  // Deterministic across calls.
+  assert.equal(seeded.total, calculateGoalSeededBreakdown(args).total);
+});
+
+test('calculateGoalSeededBreakdown leaves non-target modes untouched', () => {
+  const offBreakdown = calculateGoalSeededBreakdown({
+    steps: 8000,
+    isTrainingDay: false,
+    userData: { ...baseUserData, smartTefEnabled: false },
+    bmr: 1800,
+    cardioTypes: {},
+    trainingTypes,
+    tefContext: { mode: 'off', enabled: false },
+    adaptiveThermogenesisContext: { mode: 'off', enabled: false },
+    goalKey: 'cutting',
+  });
+  assert.equal(offBreakdown.tefMode, 'off');
+  assert.equal(offBreakdown.smartTefCalories, 0);
 });

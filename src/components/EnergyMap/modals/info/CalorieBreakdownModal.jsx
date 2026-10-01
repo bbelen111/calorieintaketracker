@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { X, ChevronDown } from 'lucide-react';
+import { X, ChevronDown, CalendarDays } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import { goals as baseGoals } from '../../../../constants/goals/goals';
+import { getTodayDateKey } from '../../../../utils/data/dateKeys';
+import { formatDateLabel } from '../../../../utils/measurements/weight';
 
 export const CalorieBreakdownModal = ({
   isOpen,
@@ -13,6 +15,8 @@ export const CalorieBreakdownModal = ({
   breakdown,
   targetCalories,
   difference,
+  dateKey,
+  recordedTdee,
   onOpenBmrInfo,
   onOpenTefInfo,
   onOpenAdaptiveThermogenesisInfo,
@@ -21,6 +25,21 @@ export const CalorieBreakdownModal = ({
 }) => {
   const [expandedItem, setExpandedItem] = useState(null);
   const resolvedGoals = goals ?? baseGoals;
+  const showDateChip = Boolean(dateKey) && dateKey !== getTodayDateKey();
+  const dateLabel = showDateChip
+    ? formatDateLabel(dateKey, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : null;
+  const recordedTdeeValue = Number.isFinite(Number(recordedTdee))
+    ? Math.round(Number(recordedTdee))
+    : null;
+  const showRecordedTdee =
+    recordedTdeeValue !== null &&
+    recordedTdeeValue !== Math.round(Number(breakdown?.total) || 0);
 
   if (!isOpen || !breakdown) {
     return null;
@@ -153,6 +172,12 @@ export const CalorieBreakdownModal = ({
               steps • {selectedDay === 'training' ? 'Training' : 'Rest'} day •{' '}
               {goal.label}
             </p>
+            {showDateChip && (
+              <span className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold text-accent-blue border border-accent-blue/20 bg-accent-blue/10">
+                <CalendarDays size={11} />
+                {dateLabel}
+              </span>
+            )}
           </div>
           <button
             type="button"
@@ -554,6 +579,11 @@ export const CalorieBreakdownModal = ({
               {breakdown.total.toLocaleString()} kcal
             </span>
           </div>
+          {showRecordedTdee && (
+            <p className="text-muted text-xs mt-2 text-right">
+              Recorded that day: {recordedTdeeValue.toLocaleString()} kcal
+            </p>
+          )}
         </div>
 
         <button

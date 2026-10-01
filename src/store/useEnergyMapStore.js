@@ -6,6 +6,7 @@ import {
   calculateCalorieBreakdown,
   calculateCardioCalories,
   calculateGoalCalories,
+  calculateGoalSeededBreakdown,
   calculateTrainingSessionCalories,
   getTotalCardioBurnForDate,
   getTotalTrainingBurnForDate,
@@ -48,6 +49,27 @@ import { getTodayDateKey } from '../utils/data/dateKeys.js';
 const SAVE_DEBOUNCE_MS = 1000;
 const DEFAULT_TRAINING_TYPE_CATALOG =
   getDefaultEnergyMapData().trainingType ?? {};
+
+/**
+ * Resolve the active-phase calorie-delta override for a goal, mirroring the
+ * rule `deriveState` uses for `goalDailyBalanceTarget`. Shared by
+ * `calculateTargetForGoal` and the daily-snapshot builder so a locked phase
+ * delta seeds the snapshot's target-mode TEF exactly like the live display.
+ */
+const resolveGoalDeltaOverride = (storeState, goalKey) => {
+  const phaseGoalDelta = Number(storeState.userData?.phaseGoalCalorieDelta);
+  const phaseGoalDeltaSourcePhaseId =
+    storeState.userData?.phaseGoalCalorieDeltaSourcePhaseId;
+  const shouldApplyPhaseDelta =
+    storeState.isGoalLockedByActivePhase &&
+    goalKey === storeState.selectedGoal &&
+    phaseGoalDeltaSourcePhaseId != null &&
+    phaseGoalDeltaSourcePhaseId === storeState.activePhaseId &&
+    Number.isFinite(phaseGoalDelta);
+
+  return shouldApplyPhaseDelta ? Math.round(phaseGoalDelta) : null;
+};
+
 const trainingTypesCache = new WeakMap();
 const cardioTypesCache = new WeakMap();
 const weightEntriesSortCache = new WeakMap();
@@ -935,43 +957,24 @@ export const useEnergyMapStore = createWithEqualityFn(
 
     calculateTargetForGoal: (steps, isTrainingDay, goalKey, options = {}) => {
       const storeState = get();
-      const phaseGoalDelta = Number(storeState.userData?.phaseGoalCalorieDelta);
-      const phaseGoalDeltaSourcePhaseId =
-        storeState.userData?.phaseGoalCalorieDeltaSourcePhaseId;
-      const shouldApplyPhaseDelta =
-        storeState.isGoalLockedByActivePhase &&
-        goalKey === storeState.selectedGoal &&
-        phaseGoalDeltaSourcePhaseId != null &&
-        phaseGoalDeltaSourcePhaseId === storeState.activePhaseId &&
-        Number.isFinite(phaseGoalDelta);
-      const goalDeltaOverride = shouldApplyPhaseDelta
-        ? Math.round(phaseGoalDelta)
-        : null;
+      const { userData, bmr, cardioTypes, trainingTypes } = storeState;
+      const goalDeltaOverride = resolveGoalDeltaOverride(storeState, goalKey);
 
-      const requestedTefContext = options?.tefContext;
-      const shouldResolveTargetCalories =
-        requestedTefContext?.mode === 'target' &&
-        !Number.isFinite(Number(requestedTefContext?.targetCalories));
-
-      let breakdown = get().calculateBreakdown(steps, isTrainingDay, options);
-
-      if (shouldResolveTargetCalories) {
-        for (let pass = 0; pass < 2; pass += 1) {
-          const targetCaloriesForTef = calculateGoalCalories(
-            breakdown.total,
-            goalKey,
-            goalDeltaOverride
-          );
-
-          breakdown = get().calculateBreakdown(steps, isTrainingDay, {
-            ...options,
-            tefContext: {
-              ...requestedTefContext,
-              targetCalories: targetCaloriesForTef,
-            },
-          });
-        }
-      }
+      // Shared with the daily-snapshot builder (see calculateGoalSeededBreakdown)
+      // so the recorded snapshot TDEE and the live target breakdown cannot drift.
+      const breakdown = calculateGoalSeededBreakdown({
+        steps,
+        isTrainingDay,
+        userData,
+        bmr,
+        cardioTypes,
+        trainingTypes,
+        tefContext: options?.tefContext,
+        adaptiveThermogenesisContext: options?.adaptiveThermogenesisContext,
+        dateKey: options?.dateKey,
+        goalKey,
+        goalDeltaOverride,
+      });
 
       const targetCalories = calculateGoalCalories(
         breakdown.total,
@@ -1001,13 +1004,15 @@ export const useEnergyMapStore = createWithEqualityFn(
         return null;
       }
 
-      const { userData, bmr, cardioTypes, trainingTypes } = get();
+      const storeState = get();
+      const { userData, bmr, cardioTypes, trainingTypes } = storeState;
       const existingSnapshot = userData.dailySnapshots?.[normalizedDate];
 
       if (options.onlyIfMissing && existingSnapshot) {
         return existingSnapshot;
       }
 
+      const goalKey = userData?.selectedGoal;
       let nextSnapshot = null;
       try {
         nextSnapshot = buildDailySnapshot({
@@ -1017,6 +1022,8 @@ export const useEnergyMapStore = createWithEqualityFn(
           cardioTypes,
           trainingTypes,
           existingSnapshot,
+          goalKey,
+          goalDeltaOverride: resolveGoalDeltaOverride(storeState, goalKey),
         });
       } catch (error) {
         // A snapshot-build failure must never break the store's subscription

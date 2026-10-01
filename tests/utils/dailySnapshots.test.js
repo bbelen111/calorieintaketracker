@@ -5,7 +5,10 @@ import {
   areDailySnapshotsEquivalent,
   buildDailySnapshot,
   getPreviousDateKey,
+  resolveSnapshotBreakdownContexts,
 } from '../../src/utils/calculations/dailySnapshots.js';
+import { calculateGoalSeededBreakdown } from '../../src/utils/calculations/calculations.js';
+import { getNutritionTotalsForDate } from '../../src/utils/phases/phases.js';
 import { DEFAULT_ACTIVITY_MULTIPLIERS } from '../../src/constants/activity/activityPresets.js';
 
 const dateKey = '2026-03-21';
@@ -258,7 +261,9 @@ test('snapshot micros are null when no micro data is logged that day', () => {
     ...userData,
     nutritionData: {
       [dateKey]: {
-        breakfast: [{ id: 'p1', calories: 300, protein: 20, carbs: 40, fats: 8 }],
+        breakfast: [
+          { id: 'p1', calories: 300, protein: 20, carbs: 40, fats: 8 },
+        ],
         lunch: [],
         dinner: [],
       },
@@ -276,4 +281,105 @@ test('snapshot micros are null when no micro data is logged that day', () => {
   assert.equal(snapshot.micros.fiber, null);
   assert.equal(snapshot.micros.sodium, null);
   assert.equal(snapshot.microsCoverage.fiber, false);
+});
+
+test('buildDailySnapshot records the user TEF display mode', () => {
+  // smartTefEnabled + default target flag -> target (the non-logger case).
+  const targetSnapshot = buildDailySnapshot({
+    dateKey,
+    userData,
+    trainingTypes,
+    cardioTypes,
+    existingSnapshot: null,
+  });
+  assert.equal(targetSnapshot.tefMode, 'target');
+  assert.ok(targetSnapshot.tef > 0);
+
+  const dynamicSnapshot = buildDailySnapshot({
+    dateKey,
+    userData: { ...userData, smartTefQuickEstimatesTargetMode: false },
+    trainingTypes,
+    cardioTypes,
+    existingSnapshot: null,
+  });
+  assert.equal(dynamicSnapshot.tefMode, 'dynamic');
+
+  const offSnapshot = buildDailySnapshot({
+    dateKey,
+    userData: { ...userData, smartTefEnabled: false },
+    trainingTypes,
+    cardioTypes,
+    existingSnapshot: null,
+  });
+  assert.equal(offSnapshot.tefMode, 'off');
+  assert.equal(offSnapshot.tef, 0);
+});
+
+test('snapshot TDEE matches the ledger recompute for the recorded mode', () => {
+  const snapshot = buildDailySnapshot({
+    dateKey,
+    userData,
+    trainingTypes,
+    cardioTypes,
+    existingSnapshot: null,
+    goalKey: 'cutting',
+  });
+
+  const { tefContext, adaptiveThermogenesisContext } =
+    resolveSnapshotBreakdownContexts(snapshot, {
+      nutritionTotals: getNutritionTotalsForDate(
+        userData.nutritionData,
+        dateKey
+      ),
+    });
+
+  const recomputed = calculateGoalSeededBreakdown({
+    steps: snapshot.stepCount,
+    isTrainingDay: snapshot.isTrainingDay,
+    userData,
+    bmr: snapshot.bmr,
+    cardioTypes,
+    trainingTypes,
+    tefContext,
+    adaptiveThermogenesisContext,
+    dateKey,
+    goalKey: 'cutting',
+  });
+
+  assert.equal(recomputed.total, snapshot.tdee);
+  assert.equal(recomputed.tefMode, snapshot.tefMode);
+  assert.equal(Math.round(recomputed.smartTefCalories), snapshot.tef);
+});
+
+test('resolveSnapshotBreakdownContexts rebuilds recorded modes with pinned enabled flags', () => {
+  assert.deepEqual(
+    resolveSnapshotBreakdownContexts({
+      tefMode: 'target',
+      adaptiveThermogenesisMode: 'smart',
+    }),
+    {
+      tefContext: { mode: 'target', enabled: true },
+      adaptiveThermogenesisContext: { mode: 'smart' },
+    }
+  );
+
+  assert.deepEqual(
+    resolveSnapshotBreakdownContexts(
+      { tefMode: 'dynamic', adaptiveThermogenesisMode: 'off' },
+      { nutritionTotals: { protein: 1, carbs: 2, fats: 3 } }
+    ),
+    {
+      tefContext: {
+        mode: 'dynamic',
+        enabled: true,
+        totals: { protein: 1, carbs: 2, fats: 3 },
+      },
+      adaptiveThermogenesisContext: { mode: 'off', enabled: false },
+    }
+  );
+
+  assert.deepEqual(resolveSnapshotBreakdownContexts({}), {
+    tefContext: { mode: 'off', enabled: false },
+    adaptiveThermogenesisContext: { mode: 'off', enabled: false },
+  });
 });

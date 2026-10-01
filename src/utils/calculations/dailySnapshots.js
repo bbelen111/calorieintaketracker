@@ -1,4 +1,9 @@
-import { calculateBMR, calculateCalorieBreakdown } from './calculations.js';
+import {
+  buildDisplayTefContext,
+  buildTefContextForMode,
+  calculateBMR,
+  calculateGoalSeededBreakdown,
+} from './calculations.js';
 import { getNutritionTotalsForDate } from '../phases/phases.js';
 import { normalizeDateKey } from '../measurements/weight.js';
 import {
@@ -132,6 +137,8 @@ export const buildDailySnapshot = ({
   cardioTypes,
   bmr,
   existingSnapshot,
+  goalKey,
+  goalDeltaOverride = null,
 }) => {
   const normalizedDateKey = normalizeDateKey(dateKey);
   if (!normalizedDateKey) {
@@ -148,18 +155,12 @@ export const buildDailySnapshot = ({
     ? Math.round(Number(bmr))
     : Math.round(calculateBMR(userData ?? {}));
 
-  const tefContext = userData?.smartTefEnabled
-    ? {
-        mode: 'dynamic',
-        enabled: true,
-        totals: nutritionTotals,
-      }
-    : {
-        mode: 'off',
-        enabled: false,
-      };
+  // Record the TEF mode the user actually sees (Smart TEF's Target option is
+  // what non-logging users run), not a hardcoded dynamic/off choice — the
+  // ledger, the breakdown modal it opens and the hero all read this snapshot.
+  const tefContext = buildDisplayTefContext(userData, { nutritionTotals });
 
-  const breakdown = calculateCalorieBreakdown({
+  const breakdown = calculateGoalSeededBreakdown({
     steps: stepCount,
     isTrainingDay,
     userData,
@@ -176,6 +177,8 @@ export const buildDailySnapshot = ({
         : 'off',
     },
     dateKey: normalizedDateKey,
+    goalKey: goalKey ?? userData?.selectedGoal,
+    goalDeltaOverride,
   });
 
   const intake = Math.round(Number(nutritionTotals?.calories) || 0);
@@ -234,4 +237,25 @@ export const buildDailySnapshot = ({
     createdAt: Number(existingSnapshot?.createdAt) || now,
     updatedAt: now,
   };
+};
+
+/**
+ * Rebuild the TEF / Adaptive-Thermogenesis contexts a recorded snapshot was
+ * built with, so a historical breakdown recomputes with the *recorded* modes
+ * rather than today's settings. Both resolvers fall back to current
+ * `userData` flags, so the off cases are pinned with `enabled: false`.
+ *
+ * @param {object} snapshot – a `dailySnapshots[dateKey]` record
+ * @param {{ nutritionTotals?: object }} [options]
+ */
+export const resolveSnapshotBreakdownContexts = (snapshot, options = {}) => {
+  const tefContext = buildTefContextForMode(
+    snapshot?.tefMode ?? 'off',
+    options
+  );
+  const atMode = snapshot?.adaptiveThermogenesisMode ?? 'off';
+  const adaptiveThermogenesisContext =
+    atMode === 'off' ? { mode: 'off', enabled: false } : { mode: atMode };
+
+  return { tefContext, adaptiveThermogenesisContext };
 };

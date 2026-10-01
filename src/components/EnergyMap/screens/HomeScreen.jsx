@@ -16,8 +16,12 @@ import {
 import { shallow } from 'zustand/shallow';
 import { goals as baseGoals } from '../../../constants/goals/goals';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
-import { calculateTrainingSessionCalories } from '../../../utils/calculations/calculations';
+import {
+  buildDisplayTefContext,
+  calculateTrainingSessionCalories,
+} from '../../../utils/calculations/calculations';
 import { calculateCaloriesFromSteps } from '../../../utils/calculations/steps';
+import { getNutritionTotalsForDate } from '../../../utils/phases/phases';
 import {
   resolveCardioSessionEpoc,
   resolveTrainingSessionEpoc,
@@ -85,7 +89,7 @@ export const HomeScreen = ({
       cardioSessions: state.userData.cardioSessions ?? [],
       weightEntries: state.weightEntries ?? [],
       bodyFatEntries: state.bodyFatEntries ?? [],
-      calculateBreakdown: state.calculateBreakdown,
+      calculateTargetForGoal: state.calculateTargetForGoal,
     }),
     shallow
   );
@@ -203,11 +207,26 @@ export const HomeScreen = ({
     todayStepCount > 0
       ? Math.round(calculateCaloriesFromSteps(todayStepCount, resolvedUserData))
       : 0;
-  const todayBreakdown = store.calculateBreakdown(
+  // Match the recorded daily snapshot / ledger: use this user's canonical TEF
+  // mode (target for non-logging users) with the same goal-seeded refinement,
+  // instead of passing no context (which silently drops TEF entirely and made
+  // the hero disagree with the header, the snapshot and the ledger).
+  const todayTefContext = useMemo(
+    () =>
+      buildDisplayTefContext(resolvedUserData, {
+        nutritionTotals: getNutritionTotalsForDate(
+          resolvedUserData?.nutritionData ?? {},
+          todayDateKey
+        ),
+      }),
+    [resolvedUserData, todayDateKey]
+  );
+  const todayBreakdown = store.calculateTargetForGoal(
     todayStepCount,
     resolvedTodayTrainingSessions.length > 0,
-    { dateKey: todayDateKey }
-  );
+    selectedGoal,
+    { tefContext: todayTefContext, dateKey: todayDateKey }
+  ).breakdown;
   const todayTdee = Math.round(Number(todayBreakdown?.total) || 0);
 
   const todayNeatOverride =

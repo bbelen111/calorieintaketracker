@@ -87,6 +87,7 @@ import {
   getNutritionTotalsForDate,
   hasNutritionEntriesForDate,
 } from '../../utils/phases/phases';
+import { resolveSnapshotBreakdownContexts } from '../../utils/calculations/dailySnapshots';
 import { isStepBasedCardioType } from '../../utils/calculations/steps';
 import {
   deriveSessionTimestamps,
@@ -2245,30 +2246,31 @@ export const EnergyMapCalculator = () => {
   const handleOpenDayLedgerBreakdown = useCallback(
     (dateKey) => {
       const normalized = normalizeDateKey(dateKey);
-      if (!normalized || !userData.dailySnapshots?.[normalized]) {
+      const snapshot = normalized
+        ? userData.dailySnapshots?.[normalized]
+        : null;
+      if (!normalized || !snapshot) {
         return;
       }
       const stepEntry = (userData.stepEntries ?? []).find(
         (entry) => entry?.date === normalized
       );
       const totals = getNutritionTotalsForDate(nutritionData, normalized);
+      // Recompute with the modes the snapshot was RECORDED with (target TEF for
+      // non-logging users), not today's settings — otherwise toggling Smart TEF
+      // or Adaptive Thermogenesis silently rewrites a historical breakdown.
+      const { tefContext, adaptiveThermogenesisContext } =
+        resolveSnapshotBreakdownContexts(snapshot, {
+          nutritionTotals: totals,
+        });
       openCalorieBreakdown({
         steps: Number(stepEntry?.steps) || 0,
-        tefContext: userData.smartTefEnabled
-          ? { mode: 'dynamic', enabled: true, totals }
-          : { mode: 'off', enabled: false },
-        adaptiveThermogenesisContext: {
-          mode: defaultAdaptiveThermogenesisMode,
-        },
+        tefContext,
+        adaptiveThermogenesisContext,
         dateKey: normalized,
       });
     },
-    [
-      defaultAdaptiveThermogenesisMode,
-      nutritionData,
-      openCalorieBreakdown,
-      userData,
-    ]
+    [nutritionData, openCalorieBreakdown, userData]
   );
 
   const closeCalorieBreakdown = useCallback(() => {
@@ -4332,6 +4334,13 @@ export const EnergyMapCalculator = () => {
             breakdown={selectedRangeData?.breakdown ?? null}
             targetCalories={selectedRangeData?.targetCalories ?? null}
             difference={selectedRangeData?.difference ?? null}
+            dateKey={breakdownRequestDateKey}
+            recordedTdee={
+              isHistoricalBreakdownRequest
+                ? (userData.dailySnapshots?.[breakdownRequestDateKey]?.tdee ??
+                  null)
+                : null
+            }
             onOpenBmrInfo={bmrModal.open}
             onOpenTefInfo={tefInfoModal.open}
             onOpenAdaptiveThermogenesisInfo={
