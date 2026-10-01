@@ -1005,6 +1005,111 @@ export const calculateGoalCalories = (tdee, goal, deltaOverride = null) => {
 };
 
 /**
+ * Canonical "which TEF mode does this user actually see?" resolver.
+ *
+ * Smart TEF's Target option exists for users who only use the app to deduce
+ * their expenditure (TDEE) and never log food: with no logged macros, dynamic
+ * mode collapses to a zero TEF (only the NEAT offset applies), so those users
+ * run target mode instead. This resolver mirrors the persisted display
+ * settings (`smartTefQuickEstimatesTargetMode` is the master target flag;
+ * `smartTefLiveCardTargetMode` only scopes the hero/live card) so the recorded
+ * daily snapshot, the ledger breakdown, the hero and the quick estimates all
+ * agree on one mode.
+ *
+ * @returns {'off' | 'dynamic' | 'target'}
+ */
+export const resolveUserTefDisplayMode = (userData) => {
+  if (!userData?.smartTefEnabled) {
+    return 'off';
+  }
+  return (userData?.smartTefQuickEstimatesTargetMode ?? true)
+    ? 'target'
+    : 'dynamic';
+};
+
+/**
+ * Build a `tefContext` for an explicit mode. Off/dynamic are pinned with
+ * `enabled: false` / `enabled: true` because `resolveSmartTef` otherwise falls
+ * back to the *current* `userData.smartTefEnabled` flag.
+ */
+export const buildTefContextForMode = (mode, { nutritionTotals } = {}) => {
+  if (mode === 'target') {
+    return { mode: 'target', enabled: true };
+  }
+  if (mode === 'dynamic') {
+    return { mode: 'dynamic', enabled: true, totals: nutritionTotals ?? {} };
+  }
+  return { mode: 'off', enabled: false };
+};
+
+/** Convenience wrapper: resolve this user's display mode, then build its context. */
+export const buildDisplayTefContext = (userData, options = {}) =>
+  buildTefContextForMode(resolveUserTefDisplayMode(userData), options);
+
+/**
+ * Single source of truth for the goal-seeded TEF refinement.
+ *
+ * In target mode the TEF is estimated from the goal's target macros, which are
+ * derived from the goal-target calories — a chicken-and-egg loop. This runs the
+ * bounded 2-pass refinement the store's `calculateTargetForGoal` action has
+ * always used, so the daily snapshot, the ledger breakdown modal and the hero
+ * all resolve the *same* target-mode TDEE.
+ */
+export const calculateGoalSeededBreakdown = ({
+  steps,
+  isTrainingDay,
+  userData,
+  bmr,
+  cardioTypes,
+  trainingTypes,
+  tefContext,
+  adaptiveThermogenesisContext,
+  dateKey,
+  goalKey,
+  goalDeltaOverride = null,
+}) => {
+  let breakdown = calculateCalorieBreakdown({
+    steps,
+    isTrainingDay,
+    userData,
+    bmr,
+    cardioTypes,
+    trainingTypes,
+    tefContext,
+    adaptiveThermogenesisContext,
+    dateKey,
+  });
+
+  const shouldResolveTargetCalories =
+    tefContext?.mode === 'target' &&
+    !Number.isFinite(Number(tefContext?.targetCalories));
+
+  if (shouldResolveTargetCalories) {
+    for (let pass = 0; pass < 2; pass += 1) {
+      const targetCaloriesForTef = calculateGoalCalories(
+        breakdown.total,
+        goalKey,
+        goalDeltaOverride
+      );
+
+      breakdown = calculateCalorieBreakdown({
+        steps,
+        isTrainingDay,
+        userData,
+        bmr,
+        cardioTypes,
+        trainingTypes,
+        tefContext: { ...tefContext, targetCalories: targetCaloriesForTef },
+        adaptiveThermogenesisContext,
+        dateKey,
+      });
+    }
+  }
+
+  return breakdown;
+};
+
+/**
  * Calculate BMI (Body Mass Index)
  * Formula: weight (kg) / height (m)²
  */

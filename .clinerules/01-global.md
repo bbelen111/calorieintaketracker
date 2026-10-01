@@ -143,7 +143,8 @@ src/
 ├─ store/
 │   └─ useEnergyMapStore.js      # Zustand store: state, actions, derived values, persistence
 │                                #   calculateBreakdown(steps, isTrainingDay, options?) — options.tefContext + options.adaptiveThermogenesisContext forwarded to core calc
-│                                #   calculateTargetForGoal(steps, isTrainingDay, goalKey, options?) — 2-pass refinement for target TEF mode
+│                                #   calculateTargetForGoal(steps, isTrainingDay, goalKey, options?) — 2-pass refinement for target TEF mode (shared calculateGoalSeededBreakdown helper)
+│                                #   buildDailySnapshot consumes buildDisplayTefContext + calculateGoalSeededBreakdown so the recorded TDEE matches the live target path
 │                                #   goalDailyBalanceTarget — derived phase-lock-aware goal daily balance target (positive = deficit)
 ├─ utils/
 │   ├─ calculations/
