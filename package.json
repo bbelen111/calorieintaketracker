@@ -8,6 +8,7 @@
     "type": "git",
     "url": "https://github.com/bbelen111/calorieintaketracker.git"
   },
+  "author": "Brendon Justine Alvero Belen",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -23,6 +24,7 @@
     "lint:fix": "eslint src --ext .js,.jsx,.ts,.tsx --fix",
     "lint:ci": "eslint src --ext .js,.jsx,.ts,.tsx --config eslint.ci.config.js",
     "format": "prettier --write src/**/*.{js,jsx,ts,tsx,json,css,md}",
+    "licenses:generate": "node scripts/licenses/generate-notices.js",
     "db:food:audit": "node scripts/food-db/index.js",
     "db:food:clean:dry": "node scripts/food-db/index.js --clean --dry-run",
     "db:food:clean": "node scripts/food-db/index.js --clean --replace",
