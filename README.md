@@ -1,6 +1,8 @@
 ﻿# Energy Map Calorie Tracker
 
-A **React + Vite** single-page app for fitness calorie tracking, wrapped by Capacitor for mobile deployment (iOS/Android). Local-first architecture with Zustand state management, Dexie-backed history persistence, Supabase-catalog-backed online food search, and OpenFoodFacts barcode lookup.
+**Energy Map Calorie Tracker** is a local-first calorie and energy-balance tracker for iOS and Android that refuses to hand you a static number. Every day it rebuilds your true Total Daily Energy Expenditure — BMR, activity (NEAT), net steps, exercise, EPOC, TEF and adaptive thermogenesis — and applies your goal or phase on top, so the target you eat against reflects what your body actually burned. Log meals by search, barcode or AI chat against a bundled 13,000-food offline catalog, sync steps from Health Connect or Apple Health, and follow weight, body fat, macros and phases through date-keyed Daily Ledger and rolling energy-balance analytics.
+
+It ships as a single **React + Vite** bundle wrapped by **Capacitor** into native apps, with on-device persistence (Dexie/IndexedDB + Capacitor Preferences), a `sql.js`-queried SQLite food catalog, and Supabase / OpenFoodFacts / OpenRouter behind the online features.
 
 ## 📸 Screenshots
 
