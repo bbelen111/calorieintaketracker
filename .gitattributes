@@ -10,6 +10,14 @@
 *.css text eol=lf
 *.md text eol=lf
 
+# Capacitor rewrites these native manifests with LF on every `cap sync`.
+# Pinning them to eol=lf keeps a checkout in the same form as the tool's output,
+# so a sync cannot leave a CRLF/LF mismatch behind on a core.autocrlf=true setup
+# (which surfaces as a modified file with an empty diff).
+android/app/capacitor.build.gradle text eol=lf
+android/capacitor.settings.gradle text eol=lf
+ios/App/CapApp-SPM/Package.swift text eol=lf
+
 # Denote all files that are truly binary and should not be modified
 *.png binary
 *.jpg binary
