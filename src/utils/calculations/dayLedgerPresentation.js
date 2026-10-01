@@ -2,8 +2,20 @@ import {
   getDailyBalanceKind,
   ESTIMATED_ENERGY_PER_KG,
 } from './rollingEnergyBalance.js';
-import { normalizeDateKey } from '../measurements/weight.js';
+import {
+  calculateCardioCalories,
+  calculateTrainingSessionCalories,
+} from './calculations.js';
+import {
+  getPreviousEntryDelta,
+  normalizeDateKey,
+} from '../measurements/weight.js';
 import { formatDateKeyUtc, getTodayDateKey } from '../data/dateKeys.js';
+import { MEAL_TYPE_ORDER, MEAL_TYPES } from '../../constants/meal/mealTypes.js';
+import {
+  deriveDailyLogStatus,
+  LOG_COMPLETION_STATUS,
+} from '../data/phaseLogV2.js';
 
 /**
  * Daily Ledger presentation helpers.
@@ -426,4 +438,397 @@ export const getMeasurementForDate = (entries, dateKey, field) => {
   );
   const value = Number(entry?.[field]);
   return Number.isFinite(value) && value > 0 ? value : null;
+};
+
+const MICRO_KEYS = ['fiber', 'sodium', 'saturatedFats', 'sugars'];
+
+const num0 = (value) => Math.max(0, Math.round(toNumber(value) ?? 0));
+
+/** Aggregate one day's entries; null-scalar semantics for the four micros. */
+const sumNutritionEntries = (entries) => {
+  const totals = {
+    calories: 0,
+    protein: 0,
+    carbs: 0,
+    fats: 0,
+    fiber: null,
+    sodium: null,
+    saturatedFats: null,
+    sugars: null,
+  };
+  const coverage = {
+    fiber: false,
+    sodium: false,
+    saturatedFats: false,
+    sugars: false,
+  };
+  (Array.isArray(entries) ? entries : []).forEach((entry) => {
+    const calories = Number(entry?.calories);
+    if (Number.isFinite(calories)) {
+      totals.calories += calories;
+    }
+    ['protein', 'carbs', 'fats'].forEach((macro) => {
+      const macroValue = Number(entry?.[macro]);
+      if (Number.isFinite(macroValue)) {
+        totals[macro] += macroValue;
+      }
+    });
+    MICRO_KEYS.forEach((micro) => {
+      if (entry?.[micro] == null) {
+        coverage[micro] = true;
+        return;
+      }
+      const microValue = Number(entry[micro]);
+      if (Number.isFinite(microValue)) {
+        totals[micro] = (totals[micro] ?? 0) + microValue;
+      }
+    });
+  });
+  return { totals, coverage };
+};
+
+/** Sort canonical entry arrays ascending by normalized date key. */
+const sortEntriesByDate = (entries) =>
+  (Array.isArray(entries) ? entries : [])
+    .map((entry) => ({ ...entry, date: normalizeDateKey(entry?.date) }))
+    .filter((entry) => entry.date !== null)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+/**
+ * Measurement pair for one exact date: the value plus its honest "vs prev"
+ * delta object (carries `spanDays` so the UI can label irregular sampling).
+ * Both nullable — never zero-filled.
+ */
+const buildMeasurementWithDelta = (entries, dateKey, valueField) => {
+  const value = getMeasurementForDate(entries, dateKey, valueField);
+  if (value == null) {
+    return { value: null, delta: null };
+  }
+  return {
+    value,
+    delta: getPreviousEntryDelta(
+      sortEntriesByDate(entries),
+      dateKey,
+      valueField
+    ),
+  };
+};
+
+/** Normalized NEAT override for the chip row (null → no override that day). */
+const buildNeatOverrideDisplay = (override) => {
+  if (!override || typeof override !== 'object') {
+    return null;
+  }
+  const multiplier = Number(override.multiplier);
+  if (!Number.isFinite(multiplier) || multiplier <= 0) {
+    return null;
+  }
+  return {
+    multiplier: Math.round(multiplier * 100) / 100,
+    presetKey:
+      typeof override.presetKey === 'string' ? override.presetKey : null,
+    label:
+      typeof override.label === 'string' && override.label.trim() !== ''
+        ? override.label
+        : null,
+  };
+};
+
+/** Session provenance: only the two canonical step-entry sources surface. */
+const resolveStepProvenance = (stepEntries, dateKey) => {
+  const normalized = normalizeDateKey(dateKey);
+  if (!normalized || !Array.isArray(stepEntries)) {
+    return null;
+  }
+  const entry = stepEntries.find(
+    (item) => normalizeDateKey(item?.date) === normalized
+  );
+  if (!entry) {
+    return null;
+  }
+  const source =
+    entry.source === 'healthConnect' || entry.source === 'manual'
+      ? entry.source
+      : null;
+  return { source, steps: Math.max(0, Math.round(Number(entry?.steps) || 0)) };
+};
+
+/** "Moderate" / "Light" / "132 bpm" — mirrors HomeScreen's row copy. */
+const buildSessionEffortDisplay = (session) => {
+  const effortType = session?.effortType ?? 'intensity';
+  if (effortType === 'heartRate') {
+    const heartRate = Number(session?.averageHeartRate);
+    return Number.isFinite(heartRate)
+      ? `${Math.round(heartRate)} bpm`
+      : 'N/A bpm';
+  }
+  const intensity = String(session?.intensity ?? 'moderate');
+  return intensity.charAt(0).toUpperCase() + intensity.slice(1);
+};
+
+const sortSessionRows = (rows) =>
+  rows.filter(Boolean).sort((a, b) => {
+    if (a.startTime && b.startTime) {
+      return String(a.startTime).localeCompare(String(b.startTime));
+    }
+    return a.startTime ? -1 : b.startTime ? 1 : 0;
+  });
+
+/**
+ * Read-only session rows for one tracked day. Calories resolve through the
+ * same canonical formulas the HomeScreen rows and the breakdown use, so the
+ * ledger can never disagree with the numbers computed elsewhere.
+ */
+const buildDaySessionRows = ({
+  sessions,
+  dateKey,
+  kind,
+  types,
+  typeLabelFallback,
+  resolveCalories,
+}) =>
+  sortSessionRows(
+    (Array.isArray(sessions) ? sessions : []).map((session) => {
+      if (normalizeDateKey(session?.date) !== dateKey) {
+        return null;
+      }
+      const typeId = session?.type;
+      return {
+        id: String(session?.id ?? `${typeId}:${session?.startTime ?? ''}`),
+        kind,
+        typeId,
+        label: types?.[typeId]?.label ?? typeLabelFallback,
+        hasType: Boolean(types?.[typeId]),
+        durationMin: Math.max(0, Math.round(Number(session?.duration) || 0)),
+        effortDisplay: buildSessionEffortDisplay(session),
+        calories: Math.max(0, Math.round(resolveCalories(session))),
+        startTime:
+          typeof session?.startTime === 'string' ? session.startTime : null,
+        // Cardio only: step-overlap affects how that day's steps are counted.
+        stepOverlapEnabled:
+          kind === 'cardio'
+            ? Boolean(types?.[typeId]?.ambulatory) &&
+              Boolean(session?.stepOverlapEnabled)
+            : null,
+      };
+    })
+  );
+
+/**
+ * Phase-membership context for one date (read-only). Scans the normalized
+ * v2 logs for the day's log record; missing phases degrade to `null`.
+ */
+const buildPhaseContext = (phaseLogV2, dateKey) => {
+  if (!phaseLogV2 || typeof phaseLogV2 !== 'object') {
+    return null;
+  }
+  const logsById =
+    phaseLogV2.logsById && typeof phaseLogV2.logsById === 'object'
+      ? phaseLogV2.logsById
+      : {};
+  const log = Object.values(logsById).find((entry) => entry?.date === dateKey);
+  if (!log) {
+    return null;
+  }
+  const phase = phaseLogV2.phasesById?.[log?.phaseId];
+  if (!phase) {
+    return null;
+  }
+  const status = deriveDailyLogStatus(log);
+  return {
+    id: phase.id,
+    name: phase?.name ?? 'Phase',
+    goalType: phase?.goalType ?? null,
+    status,
+    complete: status === LOG_COMPLETION_STATUS.COMPLETE,
+    partial: status === LOG_COMPLETION_STATUS.PARTIAL,
+    empty: status === LOG_COMPLETION_STATUS.EMPTY,
+    notes: typeof log?.notes === 'string' ? log.notes.trim() : '',
+  };
+};
+
+/**
+ * Full read-only display model for the DayLedger detail modal.
+ *
+ * Consumes canonical datasets only (snapshot cache + nutrition + sessions +
+ * trackers + phase log v2). Never mutates anything; missing days and
+ * malformed records degrade to `null` / dash, never zeros.
+ *
+ * @param {object} params
+ * @param {object|null} params.snapshot – `dailySnapshots[dateKey]` record
+ * @param {string} params.dateKey – `YYYY-MM-DD` the modal is presenting
+ * @param {object} [params.nutritionData]
+ * @param {object} [params.userData] – profile for session kcal formulas
+ * @param {Array} [params.cardioSessions]
+ * @param {Array} [params.trainingSessions]
+ * @param {object} [params.cardioTypes] – resolved cardio metadata
+ * @param {object} [params.trainingTypes] – resolved training metadata
+ * @param {Array} [params.weightEntries]
+ * @param {Array} [params.bodyFatEntries]
+ * @param {Array} [params.stepEntries]
+ * @param {object|null} [params.neatOverride] – that date's `dailyNeatOverrides` record
+ * @param {object|null} [params.phaseLogV2]
+ * @param {boolean} [params.bodyFatTrackingEnabled=true]
+ * @returns {object|null} Display model, or `null` when the snapshot is
+ *   missing/malformed or `dateKey` disagrees with the recorded date
+ */
+export const buildDayLedgerDetailModel = (params) => {
+  const {
+    snapshot,
+    dateKey,
+    nutritionData = {},
+    userData = {},
+    cardioSessions = [],
+    trainingSessions = [],
+    cardioTypes = {},
+    trainingTypes = {},
+    weightEntries = [],
+    bodyFatEntries = [],
+    stepEntries = [],
+    neatOverride = null,
+    phaseLogV2 = null,
+    bodyFatTrackingEnabled = true,
+  } = params ?? {};
+
+  const preview = buildDaySnapshotPreview(snapshot);
+  if (!preview) {
+    return null;
+  }
+  const dayDate = preview.date;
+
+  // The recorded date is canonical; a stale selection cannot re-target it.
+  if (normalizeDateKey(dateKey) && normalizeDateKey(dateKey) !== dayDate) {
+    return null;
+  }
+
+  const epoc = {
+    total: num0(snapshot.epoc),
+    training: num0(snapshot.epocTraining),
+    cardio: num0(snapshot.epocCardio),
+    fromToday: num0(snapshot.epocFromTodaySessions),
+    carryIn: num0(snapshot.epocCarryInCalories),
+  };
+
+  // --- Sessions (read-only rows; canonical kcal formulas) ---
+  const sessions = [
+    ...buildDaySessionRows({
+      sessions: cardioSessions,
+      dateKey: dayDate,
+      kind: 'cardio',
+      types: cardioTypes,
+      typeLabelFallback: 'Unknown cardio type',
+      resolveCalories: (session) =>
+        calculateCardioCalories(session, userData, cardioTypes),
+    }),
+    ...buildDaySessionRows({
+      sessions: trainingSessions,
+      dateKey: dayDate,
+      kind: 'training',
+      types: trainingTypes,
+      typeLabelFallback: 'Unknown training type',
+      resolveCalories: (session) =>
+        calculateTrainingSessionCalories(session, userData, trainingTypes),
+    }),
+  ];
+  const sessionsTotal = sessions.reduce((sum, row) => sum + row.calories, 0);
+  // --- Nutrition (canonical `nutritionData`, per-meal ledger) ---
+  const dayNutrition =
+    nutritionData && typeof nutritionData === 'object'
+      ? (nutritionData[dayDate] ?? {})
+      : {};
+  const mealRows = MEAL_TYPE_ORDER.filter((key) => {
+    const entries = dayNutrition?.[key];
+    return Array.isArray(entries) && entries.length > 0;
+  }).map((key) => {
+    const entries = dayNutrition[key];
+    const { totals } = sumNutritionEntries(entries);
+    return {
+      key,
+      label: MEAL_TYPES[key]?.label ?? key,
+      icon: MEAL_TYPES[key]?.icon ?? null,
+      calories: Math.round(totals.calories),
+      protein: Math.round(totals.protein),
+      carbs: Math.round(totals.carbs),
+      fats: Math.round(totals.fats),
+      entryCount: entries.length,
+      foods: entries
+        .map((entry) => ({
+          name: String(entry?.name ?? ''),
+          grams: Number.isFinite(Number(entry?.grams))
+            ? Math.round(Number(entry.grams))
+            : null,
+          calories: Number.isFinite(Number(entry?.calories))
+            ? Math.round(Number(entry.calories))
+            : null,
+        }))
+        .filter((food) => food.name !== ''),
+    };
+  });
+  const dayTotals = sumNutritionEntries(
+    MEAL_TYPE_ORDER.flatMap((key) =>
+      Array.isArray(dayNutrition?.[key]) ? dayNutrition[key] : []
+    )
+  );
+  const nutrition = {
+    hasEntries: mealRows.length > 0,
+    totals: {
+      calories: Math.round(dayTotals.totals.calories),
+      protein: Math.round(dayTotals.totals.protein),
+      carbs: Math.round(dayTotals.totals.carbs),
+      fats: Math.round(dayTotals.totals.fats),
+    },
+    micros: {
+      fiber:
+        dayTotals.totals.fiber != null
+          ? Math.round(dayTotals.totals.fiber)
+          : null,
+      sodium:
+        dayTotals.totals.sodium != null
+          ? Math.round(dayTotals.totals.sodium)
+          : null,
+      saturatedFats:
+        dayTotals.totals.saturatedFats != null
+          ? Math.round(dayTotals.totals.saturatedFats)
+          : null,
+      sugars:
+        dayTotals.totals.sugars != null
+          ? Math.round(dayTotals.totals.sugars)
+          : null,
+    },
+    microCoverage: Object.fromEntries(
+      MICRO_KEYS.map((key) => [key, Boolean(dayTotals.coverage[key])])
+    ),
+    meals: mealRows,
+  };
+
+  const dayShape = {
+    tefMode: preview.tefMode,
+    atMode: preview.adaptiveThermogenesisMode,
+    // Signed: a negative (cut-side) correction must not be clamped away.
+    atCorrection: Math.round(
+      toNumber(snapshot.adaptiveThermogenesisCorrection) ?? 0
+    ),
+  };
+  return {
+    date: dayDate,
+    preview,
+    bmr: num0(snapshot.bmr),
+    baselineTdee: toNumber(snapshot.baselineTdee),
+    tef: num0(snapshot.tef),
+    epoc,
+    sessions,
+    sessionsTotal,
+    nutrition,
+    measurements: {
+      weight: buildMeasurementWithDelta(weightEntries, dayDate, 'weight'),
+      bodyFat:
+        bodyFatTrackingEnabled === false
+          ? { value: null, delta: null }
+          : buildMeasurementWithDelta(bodyFatEntries, dayDate, 'bodyFat'),
+    },
+    stepProvenance: resolveStepProvenance(stepEntries, dayDate),
+    neatOverride: buildNeatOverrideDisplay(neatOverride),
+    phaseContext: buildPhaseContext(phaseLogV2, dayDate),
+    dayShape,
+  };
 };

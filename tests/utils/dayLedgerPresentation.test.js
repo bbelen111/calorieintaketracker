@@ -353,3 +353,251 @@ test('summarizeMonthSnapshots keeps measurement fields null without input', () =
   assert.equal(degraded.avgWeightKg, null);
   assert.equal(degraded.avgBodyFatPercent, null);
 });
+import { buildDayLedgerDetailModel } from '../../src/utils/calculations/dayLedgerPresentation.js';
+
+const detailSnapshot = (overrides = {}) => ({
+  date: '2026-03-10',
+  goalAtSnapshot: 'cutting',
+  tdee: 2540,
+  baselineTdee: 2600,
+  intake: 2000,
+  deficit: 540,
+  bmr: 1650,
+  stepCalories: 150,
+  trainingBurn: 300,
+  cardioBurn: 100,
+  stepCount: 8000,
+  isTrainingDay: true,
+  tef: 100,
+  tefMode: 'dynamic',
+  epoc: 60,
+  epocTraining: 40,
+  epocCardio: 20,
+  epocFromTodaySessions: 60,
+  epocCarryInCalories: 25,
+  adaptiveThermogenesisCorrection: -120,
+  adaptiveThermogenesisMode: 'smart',
+  createdAt: 1000,
+  updatedAt: 2000,
+  ...overrides,
+});
+
+const detailInput = (overrides = {}) => ({
+  snapshot: detailSnapshot(),
+  dateKey: '2026-03-10',
+  nutritionData: {
+    '2026-03-10': {
+      breakfast: [
+        {
+          id: 'f1',
+          name: 'Oats',
+          grams: 60,
+          calories: 230,
+          protein: 8,
+          carbs: 40,
+          fats: 4,
+          fiber: 6,
+          sodium: 2,
+        },
+      ],
+      lunch: [
+        {
+          id: 'f2',
+          name: 'Chicken breast',
+          grams: 180,
+          calories: 297,
+          protein: 56,
+          carbs: 0,
+          fats: 6,
+          fiber: null,
+          sodium: null,
+        },
+        {
+          id: 'f3',
+          name: 'Rice',
+          grams: 150,
+          calories: 195,
+          protein: 4,
+          carbs: 43,
+          fats: 0.5,
+          fiber: 1,
+          sodium: 5,
+        },
+      ],
+    },
+  },
+  userData: { age: 30, weight: 74, height: 178, gender: 'male' },
+  cardioSessions: [
+    {
+      id: 'c1',
+      date: '2026-03-10',
+      type: 'running',
+      duration: 30,
+      intensity: 'moderate',
+      effortType: 'intensity',
+      startTime: '18:00',
+      stepOverlapEnabled: true,
+    },
+    {
+      id: 'c2',
+      date: '2026-03-11',
+      type: 'running',
+      duration: 30,
+      intensity: 'moderate',
+      effortType: 'intensity',
+    },
+  ],
+  trainingSessions: [
+    {
+      id: 't1',
+      date: '2026-03-10',
+      type: 'trainingtype_1',
+      duration: 75,
+      intensity: 'vigorous',
+      effortType: 'intensity',
+      startTime: '07:30',
+    },
+  ],
+  cardioTypes: {
+    running: { label: 'Running', met: { moderate: 8 }, ambulatory: true },
+  },
+  trainingTypes: {
+    trainingtype_1: { label: 'Bodybuilding', caloriesPerHour: 220 },
+  },
+  weightEntries: [
+    { date: '2026-03-05', weight: 74.2 },
+    { date: '2026-03-10', weight: 74 },
+  ],
+  bodyFatEntries: [{ date: '2026-03-10', bodyFat: 15.2 }],
+  stepEntries: [{ date: '2026-03-10', steps: 8000, source: 'healthConnect' }],
+  neatOverride: null,
+  phaseLogV2: null,
+  bodyFatTrackingEnabled: true,
+  ...overrides,
+});
+test('buildDayLedgerDetailModel assembles sessions, meals and measurements', () => {
+  const model = buildDayLedgerDetailModel(detailInput());
+
+  assert.ok(model);
+  assert.equal(model.date, '2026-03-10');
+
+  // Sessions: only this date's, both kinds, calories via canonical formulas
+  assert.equal(model.sessions.length, 2);
+  const cardio = model.sessions.find((row) => row.kind === 'cardio');
+  const training = model.sessions.find((row) => row.kind === 'training');
+  assert.equal(cardio.label, 'Running');
+  assert.equal(cardio.effortDisplay, 'Moderate');
+  assert.equal(cardio.stepOverlapEnabled, true);
+  assert.equal(training.label, 'Bodybuilding');
+  assert.equal(training.effortDisplay, 'Vigorous');
+  // MET 8 x 74kg x 0.5h = 296
+  assert.equal(cardio.calories, 296);
+  // 220 cal/h x 1.25 (vigorous) x 1.25h = 343.75 -> 344
+  assert.equal(training.calories, 344);
+  assert.equal(model.sessionsTotal, 296 + 344);
+
+  // Nutrition: meal rows in MEAL_TYPE_ORDER, only non-empty meals
+  assert.equal(model.nutrition.hasEntries, true);
+  assert.deepEqual(
+    model.nutrition.meals.map((meal) => meal.key),
+    ['breakfast', 'lunch']
+  );
+  const lunch = model.nutrition.meals[1];
+  assert.equal(lunch.calories, 297 + 195);
+  assert.equal(lunch.entryCount, 2);
+  assert.equal(model.nutrition.totals.calories, 230 + 297 + 195);
+  // Fiber: chicken entry has fiber:null (untracked) -> partial; sodium missing on 2 of 3
+  assert.equal(model.nutrition.microCoverage.fiber, true);
+  assert.equal(model.nutrition.microCoverage.sodium, true);
+
+  // Measurements: exact-date value + honest vs-prev delta
+  assert.equal(model.measurements.weight.value, 74);
+  assert.equal(model.measurements.weight.delta.delta, -0.2);
+  assert.equal(model.measurements.weight.delta.spanDays, 5);
+  assert.equal(model.measurements.bodyFat.value, 15.2);
+  assert.equal(model.measurements.bodyFat.delta, null);
+
+  // Step provenance + snapshot-context chips
+  assert.equal(model.stepProvenance.source, 'healthConnect');
+  assert.equal(model.stepProvenance.steps, 8000);
+  assert.equal(model.dayShape.tefMode, 'dynamic');
+  assert.equal(model.dayShape.atMode, 'smart');
+  assert.equal(model.dayShape.atCorrection, -120);
+  assert.equal(model.epoc.total, 60);
+  assert.equal(model.epoc.carryIn, 25);
+  assert.equal(model.epoc.fromToday, 60);
+});
+
+test('buildDayLedgerDetailModel rejects a stale dateKey and malformed snapshots', () => {
+  assert.equal(
+    buildDayLedgerDetailModel(detailInput({ dateKey: '2026-03-09' })),
+    null
+  );
+  assert.equal(
+    buildDayLedgerDetailModel(detailInput({ snapshot: null })),
+    null
+  );
+  assert.equal(
+    buildDayLedgerDetailModel(
+      detailInput({ snapshot: { date: '2026-03-10' } })
+    ),
+    null
+  );
+  // No food logged that day -> honest empty state
+  assert.equal(
+    buildDayLedgerDetailModel(detailInput({ nutritionData: {} })).nutrition
+      .hasEntries,
+    false
+  );
+});
+
+test('buildDayLedgerDetailModel honors BF-off, NEAT override and phase context', () => {
+  const model = buildDayLedgerDetailModel(
+    detailInput({
+      bodyFatTrackingEnabled: false,
+      neatOverride: {
+        multiplier: 0.3,
+        presetKey: 'active',
+        label: 'Highly Active',
+        updatedAt: 1,
+      },
+      phaseLogV2: {
+        version: 2,
+        phasesById: {
+          p1: {
+            id: 'p1',
+            name: 'Summer cut',
+            goalType: 'cutting',
+            startDate: '2026-03-01',
+            status: 'active',
+          },
+        },
+        phaseOrder: ['p1'],
+        activePhaseId: 'p1',
+        logsById: {
+          'p1:2026-03-10': {
+            id: 'p1:2026-03-10',
+            phaseId: 'p1',
+            date: '2026-03-10',
+            links: {},
+            notes: 'Felt strong today.',
+            createdAt: 1,
+            updatedAt: 1,
+          },
+        },
+        logIdsByPhaseId: { p1: ['p1:2026-03-10'] },
+        logIdByPhaseDate: { p1: { '2026-03-10': 'p1:2026-03-10' } },
+      },
+    })
+  );
+
+  assert.equal(model.measurements.bodyFat.value, null);
+  assert.equal(model.neatOverride.label, 'Highly Active');
+  assert.equal(model.neatOverride.multiplier, 0.3);
+  assert.ok(model.phaseContext);
+  assert.equal(model.phaseContext.name, 'Summer cut');
+  assert.equal(model.phaseContext.notes, 'Felt strong today.');
+  // links empty + notes -> PARTIAL (never COMPLETE)
+  assert.equal(model.phaseContext.complete, false);
+  assert.equal(model.phaseContext.partial, true);
+});
