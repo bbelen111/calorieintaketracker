@@ -18,6 +18,7 @@ import {
   getTodayDateKey,
 } from '../../../../utils/data/dateKeys';
 import { formatDateLabel } from '../../../../utils/measurements/weight';
+import { useContentRefresh } from '../../../../hooks/useContentRefresh';
 
 // Mirrors DayLedgerListModal's SummaryTile grammar (module-local there) so the
 // calendar picker's dual panel shares one design language with the ledger.
@@ -561,6 +562,17 @@ export const CalendarPickerModal = ({
     );
   }, [dayPanelDate, nutritionData]);
 
+  // Same-state content refresh: previewing another day (panel already visible)
+  // or changing month (averages already visible) replays a subtle cue that is
+  // deliberately weaker than the panels' state-transition crossfades. See
+  // `hooks/useContentRefresh.js` for the when-to-play contract.
+  const dayRefreshRef = useContentRefresh(dayPanelDate ?? null, {
+    enabled: Boolean(previewDate),
+  });
+  const monthRefreshRef = useContentRefresh(`${currentYear}-${currentMonth}`, {
+    enabled: !previewDate,
+  });
+
   // Swipe handlers for calendar navigation
   const minSwipeDistance = 50;
 
@@ -823,124 +835,130 @@ export const CalendarPickerModal = ({
                   previewDate ? '' : 'pointer-events-none'
                 }`}
               >
-                {/* Header row: date + pill chips (DayLedger grammar) */}
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <p className="text-foreground font-bold text-sm min-w-0 truncate">
-                    {formatDateLabel(dayPanelDate, {
-                      weekday: 'short',
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
-                    })}
-                  </p>
-                  <div className="flex items-center gap-1.5 flex-wrap justify-end flex-shrink-0">
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${
-                        hasDayData
-                          ? 'text-accent-blue border-accent-blue/20 bg-accent-blue/10'
-                          : 'text-muted border-border bg-surface'
+                <div ref={dayRefreshRef}>
+                  {/* Header row: date + pill chips (DayLedger grammar) */}
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <p className="text-foreground font-bold text-sm min-w-0 truncate">
+                      {formatDateLabel(dayPanelDate, {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </p>
+                    <div className="flex items-center gap-1.5 flex-wrap justify-end flex-shrink-0">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${
+                          hasDayData
+                            ? 'text-accent-blue border-accent-blue/20 bg-accent-blue/10'
+                            : 'text-muted border-border bg-surface'
+                        }`}
+                      >
+                        <Utensils size={11} />
+                        {hasDayData
+                          ? `${dayEntryCount} ${
+                              dayEntryCount === 1 ? 'entry' : 'entries'
+                            }`
+                          : 'No entries'}
+                      </span>
+                      {dayPanelDate === todayStr && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold text-accent-green border border-accent-green/20 bg-accent-green/10">
+                          <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />
+                          In progress
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Filled vs empty day branch, stacked like DayLedgerListModal's
+                    inner month states so the surface height stays constant */}
+                  <div className="grid">
+                    <motion.div
+                      initial={false}
+                      animate={{
+                        opacity: hasDayData ? 0 : 1,
+                        y: hasDayData ? -6 : 0,
+                      }}
+                      transition={{ duration: 0.16 }}
+                      aria-hidden={hasDayData}
+                      className={`row-start-1 col-start-1 min-h-[88px] flex flex-col items-center justify-center text-center py-3 ${
+                        hasDayData ? 'pointer-events-none' : ''
                       }`}
                     >
-                      <Utensils size={11} />
-                      {hasDayData
-                        ? `${dayEntryCount} ${
-                            dayEntryCount === 1 ? 'entry' : 'entries'
-                          }`
-                        : 'No entries'}
-                    </span>
-                    {dayPanelDate === todayStr && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold text-accent-green border border-accent-green/20 bg-accent-green/10">
-                        <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />
-                        In progress
-                      </span>
-                    )}
+                      <Utensils className="text-muted/50" size={28} />
+                      <p className="text-muted text-xs mt-2 max-w-[220px]">
+                        No food logged for this day yet.
+                      </p>
+                    </motion.div>
+
+                    <motion.div
+                      initial={false}
+                      animate={{
+                        opacity: hasDayData ? 1 : 0,
+                        y: hasDayData ? 0 : 6,
+                      }}
+                      transition={{ duration: 0.16 }}
+                      aria-hidden={!hasDayData}
+                      className={`row-start-1 col-start-1 ${
+                        hasDayData ? '' : 'pointer-events-none'
+                      }`}
+                    >
+                      <div className="grid grid-cols-2 gap-2">
+                        <SummaryTile icon={Flame} label="Calories">
+                          <p className="text-accent-emerald font-bold text-sm leading-tight">
+                            <AnimatedNumber
+                              value={Math.round(dayMacros.calories)}
+                            />
+                            <span className="text-muted text-[10px] font-medium">
+                              {' '}
+                              kcal
+                            </span>
+                          </p>
+                        </SummaryTile>
+                        <SummaryTile icon={Beef} label="Protein">
+                          <p className="text-accent-red font-bold text-sm leading-tight">
+                            <AnimatedNumber
+                              value={Math.round(dayMacros.protein)}
+                            />
+                            <span className="text-muted text-[10px] font-medium">
+                              {' '}
+                              g
+                            </span>
+                          </p>
+                        </SummaryTile>
+                        <SummaryTile icon={Cookie} label="Carbs">
+                          <p className="text-accent-amber font-bold text-sm leading-tight">
+                            <AnimatedNumber
+                              value={Math.round(dayMacros.carbs)}
+                            />
+                            <span className="text-muted text-[10px] font-medium">
+                              {' '}
+                              g
+                            </span>
+                          </p>
+                        </SummaryTile>
+                        <SummaryTile icon={Droplet} label="Fats">
+                          <p className="text-accent-yellow font-bold text-sm leading-tight">
+                            <AnimatedNumber
+                              value={Math.round(dayMacros.fats)}
+                            />
+                            <span className="text-muted text-[10px] font-medium">
+                              {' '}
+                              g
+                            </span>
+                          </p>
+                        </SummaryTile>
+                      </div>
+                    </motion.div>
                   </div>
-                </div>
 
-                {/* Filled vs empty day branch, stacked like DayLedgerListModal's
-                    inner month states so the surface height stays constant */}
-                <div className="grid">
-                  <motion.div
-                    initial={false}
-                    animate={{
-                      opacity: hasDayData ? 0 : 1,
-                      y: hasDayData ? -6 : 0,
-                    }}
-                    transition={{ duration: 0.16 }}
-                    aria-hidden={hasDayData}
-                    className={`row-start-1 col-start-1 min-h-[88px] flex flex-col items-center justify-center text-center py-3 ${
-                      hasDayData ? 'pointer-events-none' : ''
-                    }`}
-                  >
-                    <Utensils className="text-muted/50" size={28} />
-                    <p className="text-muted text-xs mt-2 max-w-[220px]">
-                      No food logged for this day yet.
-                    </p>
-                  </motion.div>
-
-                  <motion.div
-                    initial={false}
-                    animate={{
-                      opacity: hasDayData ? 1 : 0,
-                      y: hasDayData ? 0 : 6,
-                    }}
-                    transition={{ duration: 0.16 }}
-                    aria-hidden={!hasDayData}
-                    className={`row-start-1 col-start-1 ${
-                      hasDayData ? '' : 'pointer-events-none'
-                    }`}
-                  >
-                    <div className="grid grid-cols-2 gap-2">
-                      <SummaryTile icon={Flame} label="Calories">
-                        <p className="text-accent-emerald font-bold text-sm leading-tight">
-                          <AnimatedNumber
-                            value={Math.round(dayMacros.calories)}
-                          />
-                          <span className="text-muted text-[10px] font-medium">
-                            {' '}
-                            kcal
-                          </span>
-                        </p>
-                      </SummaryTile>
-                      <SummaryTile icon={Beef} label="Protein">
-                        <p className="text-accent-red font-bold text-sm leading-tight">
-                          <AnimatedNumber
-                            value={Math.round(dayMacros.protein)}
-                          />
-                          <span className="text-muted text-[10px] font-medium">
-                            {' '}
-                            g
-                          </span>
-                        </p>
-                      </SummaryTile>
-                      <SummaryTile icon={Cookie} label="Carbs">
-                        <p className="text-accent-amber font-bold text-sm leading-tight">
-                          <AnimatedNumber value={Math.round(dayMacros.carbs)} />
-                          <span className="text-muted text-[10px] font-medium">
-                            {' '}
-                            g
-                          </span>
-                        </p>
-                      </SummaryTile>
-                      <SummaryTile icon={Droplet} label="Fats">
-                        <p className="text-accent-yellow font-bold text-sm leading-tight">
-                          <AnimatedNumber value={Math.round(dayMacros.fats)} />
-                          <span className="text-muted text-[10px] font-medium">
-                            {' '}
-                            g
-                          </span>
-                        </p>
-                      </SummaryTile>
-                    </div>
-                  </motion.div>
-                </div>
-
-                {/* Whole-card tap-target footer (DayLedger grammar) */}
-                <div className="flex items-center justify-end gap-0.5 mt-2 pt-1.5 border-t border-border text-accent-blue">
-                  <span className="text-xs font-semibold">
-                    Tap to select this day
-                  </span>
-                  <ChevronRight size={14} />
+                  {/* Whole-card tap-target footer (DayLedger grammar) */}
+                  <div className="flex items-center justify-end gap-0.5 mt-2 pt-1.5 border-t border-border text-accent-blue">
+                    <span className="text-xs font-semibold">
+                      Tap to select this day
+                    </span>
+                    <ChevronRight size={14} />
+                  </div>
                 </div>
               </motion.button>
             )}
@@ -958,125 +976,127 @@ export const CalendarPickerModal = ({
                 previewDate ? 'pointer-events-none' : ''
               }`}
             >
-              {/* Header row: title + days-tracked pill (DayLedger grammar) */}
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <div className="min-w-0">
-                  <p className="text-foreground font-bold text-sm">
-                    Monthly Averages
-                  </p>
-                  <p className="text-muted text-xs mt-0.5">
-                    {monthNames[currentMonth]} {currentYear}
-                  </p>
+              <div ref={monthRefreshRef}>
+                {/* Header row: title + days-tracked pill (DayLedger grammar) */}
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="min-w-0">
+                    <p className="text-foreground font-bold text-sm">
+                      Monthly Averages
+                    </p>
+                    <p className="text-muted text-xs mt-0.5">
+                      {monthNames[currentMonth]} {currentYear}
+                    </p>
+                  </div>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold text-accent-blue border border-accent-blue/20 bg-accent-blue/10 flex-shrink-0">
+                    <CalendarCheck size={11} />
+                    <motion.span
+                      key={monthlyInsights.daysWithData}
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="inline-flex items-center"
+                    >
+                      {monthlyInsights.daysWithData}/
+                      {monthlyInsights.daysInMonth} days
+                    </motion.span>
+                  </span>
                 </div>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold text-accent-blue border border-accent-blue/20 bg-accent-blue/10 flex-shrink-0">
-                  <CalendarCheck size={11} />
-                  <motion.span
-                    key={monthlyInsights.daysWithData}
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="inline-flex items-center"
-                  >
-                    {monthlyInsights.daysWithData}/{monthlyInsights.daysInMonth}{' '}
-                    days
-                  </motion.span>
-                </span>
-              </div>
 
-              {/* Empty vs filled month branch, stacked like DayLedgerListModal
+                {/* Empty vs filled month branch, stacked like DayLedgerListModal
                   (constant surface height, crossfade only) */}
-              <div className="grid">
-                <motion.div
-                  initial={false}
-                  animate={{
-                    opacity: monthlyInsights.daysWithData === 0 ? 1 : 0,
-                    y: monthlyInsights.daysWithData === 0 ? 0 : 6,
-                  }}
-                  transition={{ duration: 0.16 }}
-                  aria-hidden={monthlyInsights.daysWithData !== 0}
-                  className={`row-start-1 col-start-1 min-h-[110px] flex flex-col items-center justify-center text-center py-2 ${
-                    monthlyInsights.daysWithData === 0
-                      ? ''
-                      : 'pointer-events-none'
-                  }`}
-                >
-                  <CalendarX className="text-muted/50" size={36} />
-                  <p className="text-muted text-xs mt-2 max-w-[240px]">
-                    No logged food this month yet. Tap a highlighted day to
-                    preview it.
-                  </p>
-                </motion.div>
+                <div className="grid">
+                  <motion.div
+                    initial={false}
+                    animate={{
+                      opacity: monthlyInsights.daysWithData === 0 ? 1 : 0,
+                      y: monthlyInsights.daysWithData === 0 ? 0 : 6,
+                    }}
+                    transition={{ duration: 0.16 }}
+                    aria-hidden={monthlyInsights.daysWithData !== 0}
+                    className={`row-start-1 col-start-1 min-h-[110px] flex flex-col items-center justify-center text-center py-2 ${
+                      monthlyInsights.daysWithData === 0
+                        ? ''
+                        : 'pointer-events-none'
+                    }`}
+                  >
+                    <CalendarX className="text-muted/50" size={36} />
+                    <p className="text-muted text-xs mt-2 max-w-[240px]">
+                      No logged food this month yet. Tap a highlighted day to
+                      preview it.
+                    </p>
+                  </motion.div>
 
-                <motion.div
-                  initial={false}
-                  animate={{
-                    opacity: monthlyInsights.daysWithData > 0 ? 1 : 0,
-                    y: monthlyInsights.daysWithData > 0 ? 0 : -6,
-                  }}
-                  transition={{ duration: 0.16 }}
-                  aria-hidden={monthlyInsights.daysWithData === 0}
-                  className={`row-start-1 col-start-1 ${
-                    monthlyInsights.daysWithData > 0
-                      ? ''
-                      : 'pointer-events-none'
-                  }`}
-                >
-                  {/* Tracked-days progress bar (DayLedger mini-bar anatomy:
+                  <motion.div
+                    initial={false}
+                    animate={{
+                      opacity: monthlyInsights.daysWithData > 0 ? 1 : 0,
+                      y: monthlyInsights.daysWithData > 0 ? 0 : -6,
+                    }}
+                    transition={{ duration: 0.16 }}
+                    aria-hidden={monthlyInsights.daysWithData === 0}
+                    className={`row-start-1 col-start-1 ${
+                      monthlyInsights.daysWithData > 0
+                        ? ''
+                        : 'pointer-events-none'
+                    }`}
+                  >
+                    {/* Tracked-days progress bar (DayLedger mini-bar anatomy:
                       solid bg-surface-highlight track on the /40 surface) */}
-                  <div className="h-2 w-full rounded-full overflow-hidden bg-surface-highlight">
-                    <motion.div
-                      className="h-full rounded-full bg-accent-blue"
-                      initial={{ width: 0 }}
-                      animate={{
-                        width: `${
-                          (monthlyInsights.daysWithData /
-                            monthlyInsights.daysInMonth) *
-                          100
-                        }%`,
-                      }}
-                      transition={{ duration: 0.5, ease: 'easeOut' }}
-                    />
-                  </div>
+                    <div className="h-2 w-full rounded-full overflow-hidden bg-surface-highlight">
+                      <motion.div
+                        className="h-full rounded-full bg-accent-blue"
+                        initial={{ width: 0 }}
+                        animate={{
+                          width: `${
+                            (monthlyInsights.daysWithData /
+                              monthlyInsights.daysInMonth) *
+                            100
+                          }%`,
+                        }}
+                        transition={{ duration: 0.5, ease: 'easeOut' }}
+                      />
+                    </div>
 
-                  <div className="grid grid-cols-2 gap-1.5 mt-2">
-                    <SummaryTile icon={Flame} label="Avg Energy">
-                      <p className="text-accent-emerald font-bold text-sm leading-tight">
-                        <AnimatedNumber value={monthlyInsights.avgCalories} />
-                        <span className="text-muted text-[10px] font-medium">
-                          {' '}
-                          kcal
-                        </span>
-                      </p>
-                    </SummaryTile>
-                    <SummaryTile icon={Beef} label="Avg Protein">
-                      <p className="text-accent-red font-bold text-sm leading-tight">
-                        <AnimatedNumber value={monthlyInsights.avgProtein} />
-                        <span className="text-muted text-[10px] font-medium">
-                          {' '}
-                          g
-                        </span>
-                      </p>
-                    </SummaryTile>
-                    <SummaryTile icon={Cookie} label="Avg Carbs">
-                      <p className="text-accent-amber font-bold text-sm leading-tight">
-                        <AnimatedNumber value={monthlyInsights.avgCarbs} />
-                        <span className="text-muted text-[10px] font-medium">
-                          {' '}
-                          g
-                        </span>
-                      </p>
-                    </SummaryTile>
-                    <SummaryTile icon={Droplet} label="Avg Fats">
-                      <p className="text-accent-yellow font-bold text-sm leading-tight">
-                        <AnimatedNumber value={monthlyInsights.avgFats} />
-                        <span className="text-muted text-[10px] font-medium">
-                          {' '}
-                          g
-                        </span>
-                      </p>
-                    </SummaryTile>
-                  </div>
-                </motion.div>
+                    <div className="grid grid-cols-2 gap-1.5 mt-2">
+                      <SummaryTile icon={Flame} label="Avg Energy">
+                        <p className="text-accent-emerald font-bold text-sm leading-tight">
+                          <AnimatedNumber value={monthlyInsights.avgCalories} />
+                          <span className="text-muted text-[10px] font-medium">
+                            {' '}
+                            kcal
+                          </span>
+                        </p>
+                      </SummaryTile>
+                      <SummaryTile icon={Beef} label="Avg Protein">
+                        <p className="text-accent-red font-bold text-sm leading-tight">
+                          <AnimatedNumber value={monthlyInsights.avgProtein} />
+                          <span className="text-muted text-[10px] font-medium">
+                            {' '}
+                            g
+                          </span>
+                        </p>
+                      </SummaryTile>
+                      <SummaryTile icon={Cookie} label="Avg Carbs">
+                        <p className="text-accent-amber font-bold text-sm leading-tight">
+                          <AnimatedNumber value={monthlyInsights.avgCarbs} />
+                          <span className="text-muted text-[10px] font-medium">
+                            {' '}
+                            g
+                          </span>
+                        </p>
+                      </SummaryTile>
+                      <SummaryTile icon={Droplet} label="Avg Fats">
+                        <p className="text-accent-yellow font-bold text-sm leading-tight">
+                          <AnimatedNumber value={monthlyInsights.avgFats} />
+                          <span className="text-muted text-[10px] font-medium">
+                            {' '}
+                            g
+                          </span>
+                        </p>
+                      </SummaryTile>
+                    </div>
+                  </motion.div>
+                </div>
               </div>
             </motion.div>
           </div>
