@@ -1,9 +1,9 @@
 import { useLayoutEffect, useRef } from 'react';
-import { animate, useReducedMotion } from 'framer-motion';
+import { useReducedMotion } from 'framer-motion';
 
 const DEFAULT_FROM_OPACITY = 0.6;
 const DEFAULT_FROM_OFFSET_PX = 2;
-const DEFAULT_DURATION_S = 0.16;
+const DEFAULT_DURATION_MS = 160;
 
 /**
  * Subtle "content refreshed" cue for the always-mounted dual panels in the
@@ -16,13 +16,17 @@ const DEFAULT_DURATION_S = 0.16;
  * never fades to 0 (so there is no blink) and moves 2px instead of 8px, so it
  * reads as "the content refreshed" rather than "a panel appeared".
  *
- * Why imperative `animate()` inside `useLayoutEffect` rather than a keyed
- * remount:
- * - A remount resets CalendarPickerModal's `AnimatedNumber`, so the numbers
- *   would mount at their final value and never roll.
- * - Starting the tween from a plain effect (after paint) would flash the new
- *   content at full opacity for one frame; a layout effect writes the start
- *   style before the browser paints.
+ * Implementation notes (both learned the hard way):
+ * - It is a plain CSS transition, NOT framer's imperative `animate()`. That API
+ *   caches per-element animation state: after the first run it resolves the
+ *   "from" value from its own stale state (`opacity: 1`), so every later run
+ *   animates `1 -> 1` - a no-op - and never overwrites the start style this hook
+ *   just wrote. The symptom was a panel that animated once and then stayed
+ *   faded until the modal was remounted. A CSS transition has no "from"
+ *   resolution: the browser interpolates from the inline start values.
+ * - It runs in a `useLayoutEffect` so the start values are applied before paint
+ *   (no flash of the new content at full opacity), and it CLEARS every inline
+ *   style it wrote once the transition ends, so nothing can ever be left behind.
  *
  * It fires ONLY when the panel is already visible and its identity changes, so
  * it never stacks on top of the existing state-transition crossfade:
@@ -34,7 +38,7 @@ const DEFAULT_DURATION_S = 0.16;
  * @param {boolean} [options.enabled=true] - Whether the panel is currently visible
  * @param {number} [options.fromOpacity=0.6] - Start opacity (partial: never 0)
  * @param {number} [options.fromOffsetPx=2] - Start vertical offset
- * @param {number} [options.duration=0.16] - Tween duration in seconds
+ * @param {number} [options.durationMs=160] - Transition duration in milliseconds
  * @returns {import('react').MutableRefObject<HTMLElement|null>} ref for a wrapper inside the panel
  */
 export const useContentRefresh = (
@@ -43,7 +47,7 @@ export const useContentRefresh = (
     enabled = true,
     fromOpacity = DEFAULT_FROM_OPACITY,
     fromOffsetPx = DEFAULT_FROM_OFFSET_PX,
-    duration = DEFAULT_DURATION_S,
+    durationMs = DEFAULT_DURATION_MS,
   } = {}
 ) => {
   const ref = useRef(null);
@@ -71,22 +75,40 @@ export const useContentRefresh = (
       return undefined;
     }
 
+    let frame = 0;
+    let timeout = 0;
+
+    const clearStyles = () => {
+      node.style.transition = '';
+      node.style.opacity = '';
+      node.style.transform = '';
+    };
+
+    // Park at the start values with transitions off, then arm the transition on
+    // the next frame so the browser has a painted "from" state to interpolate.
+    node.style.transition = 'none';
     node.style.opacity = String(fromOpacity);
     node.style.transform = `translateY(${fromOffsetPx}px)`;
-    const controls = animate(
-      node,
-      { opacity: 1, y: 0 },
-      { duration, ease: 'easeOut' }
-    );
 
-    return () => controls.stop();
+    frame = requestAnimationFrame(() => {
+      node.style.transition = `opacity ${durationMs}ms ease-out, transform ${durationMs}ms ease-out`;
+      node.style.opacity = '1';
+      node.style.transform = 'translateY(0px)';
+      timeout = setTimeout(clearStyles, durationMs + 40);
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timeout);
+      clearStyles();
+    };
   }, [
     identity,
     enabled,
     prefersReducedMotion,
     fromOpacity,
     fromOffsetPx,
-    duration,
+    durationMs,
   ]);
 
   return ref;
