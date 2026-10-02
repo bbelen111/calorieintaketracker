@@ -773,21 +773,37 @@ OPENROUTER_MAX_TOKENS_EXTRACTION=2400
 OPENROUTER_MAX_TOKENS_PRESENTATION=1600
 OPENROUTER_MAX_TOKENS_GROUNDING=800
 
-# Optional stateless rate limiting via Upstash REST
-UPSTASH_REDIS_REST_URL=
-UPSTASH_REDIS_REST_TOKEN=
-OPENROUTER_RATE_LIMIT_MAX_REQUESTS=60
+# Per-IP rate limiting for api/openrouter.js. REQUIRED in production: without
+# BOTH Upstash values the limiter is skipped and the paid LLM endpoint is open.
+UPSTASH_REDIS_REST_URL=https://your-db.upstash.io
+UPSTASH_REDIS_REST_TOKEN=your_upstash_rest_token
+# 15/min mirrors the client-side budget (CLIENT_RATE_LIMIT_MAX_REQUESTS_PER_WINDOW)
+OPENROUTER_RATE_LIMIT_MAX_REQUESTS=15
 OPENROUTER_RATE_LIMIT_WINDOW_SECONDS=60
 # true = fail closed if limiter backend is unavailable
-OPENROUTER_RATE_LIMIT_FAIL_CLOSED=false
+OPENROUTER_RATE_LIMIT_FAIL_CLOSED=true
 ```
 
 ### OpenRouter Proxy Security Notes
 
 - `api/openrouter.js` applies an origin allowlist when `ALLOWED_ORIGINS` is set.
 - Request payloads are bounded (`messages` item count and serialized payload size).
-- Per-IP stateless throttling is supported through Upstash REST credentials.
-- If Upstash credentials are not configured, rate limiting is bypassed by default (set `OPENROUTER_RATE_LIMIT_FAIL_CLOSED=true` to fail closed when backend is configured but unavailable).
+- **Per-IP throttling is the only control that actually bounds spend.** It needs BOTH `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`; with either missing the limiter is skipped entirely, so an unconfigured deployment lets any caller spend your OpenRouter credits.
+- The bucket key comes from `x-real-ip`, falling back to the **last** `x-forwarded-for` hop. `x-forwarded-for` is a client-appendable list, so its first entry can be forged: keying on it would let a caller mint a fresh bucket per request and bypass the limit.
+- The origin allowlist is **not** a security boundary: any HTTP client can forge `Origin`, and the native app itself runs from `capacitor://localhost` / `https://localhost`. Both are always allowed, alongside `http://localhost:*` and `127.0.0.1` for local dev.
+- Keep `OPENROUTER_RATE_LIMIT_FAIL_CLOSED=true` so an Upstash outage tightens rather than removes the limit.
+
+### Vercel Deployment (API-only)
+
+The Vercel project deploys **only** the serverless functions under `api/` - there is no web app. `vercel.json` sets `framework`, `buildCommand` and `outputDirectory` to `null`, so no static output is produced and every non-API path (including `/`) returns a bare 404. The native app bundles `dist/` itself through `npx cap sync`, so it never depends on this deployment for anything except `/api/*`.
+
+> **Do not rename, move or delete this project.** `https://calorieintaketracker.vercel.app` is the baked-in default base URL for `/api/foods`, `/api/openfoodfacts` and `/api/openrouter`, and `/api/usda` exists purely as a legacy alias for already-shipped builds. Changing the domain breaks online search, barcode lookup and AI chat in every installed app until users update.
+
+```bash
+vercel env pull   # pull the linked project env into .env.local
+vercel dev        # run the api/ functions locally
+vercel --prod     # deploy the API only
+```
 
 ### Capacitor Config
 

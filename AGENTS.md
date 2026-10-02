@@ -1002,6 +1002,8 @@ Online text search and barcode lookup are split across two proxied services for 
   - Optional: `OPENFOODFACTS_API_BASE` (defaults to `https://world.openfoodfacts.org`)
   - The legacy `USDA_API_KEY` / `USDA_USER_AGENT` vars are obsolete (FDC is never called at runtime)
 
+**Deployment shape (API-only):** the Vercel project ships **only** the `api/` functions. `vercel.json` pins `framework` / `buildCommand` / `outputDirectory` to `null`, so no static output is produced and every non-API path (including `/`) returns a bare 404 - there is no public web app. The native app bundles `dist/` itself through `npx cap sync`. **Never rename, move or delete the project, and never change `calorieintaketracker.vercel.app`:** that host is the baked-in default base URL behind the three `VITE_*_API_BASE` defaults as well as `/api/usda` (legacy alias for shipped builds), so the domain is a hard compatibility contract with installed apps.
+
 **Key functions:**
 ```javascript
 import { searchFoods as searchOnlineFoods } from './services/foodCloud';
@@ -1055,12 +1057,14 @@ OpenRouter food parsing is proxied through `api/openrouter.js` (server-side key 
 **Serverless security/env configuration (`api/openrouter.js`):**
 - CORS allowlist is driven by `ALLOWED_ORIGINS` (or singular fallback `ALLOWED_ORIGIN`).
 - Payload guards are enforced server-side (`messages` count + serialized payload size cap).
-- Optional stateless per-IP throttling uses Upstash REST:
+- Per-IP throttling via Upstash REST - the only control that bounds LLM spend, and a no-op unless BOTH credentials are set:
   - `UPSTASH_REDIS_REST_URL`
   - `UPSTASH_REDIS_REST_TOKEN`
-  - `OPENROUTER_RATE_LIMIT_MAX_REQUESTS` (default `60`)
+  - `OPENROUTER_RATE_LIMIT_MAX_REQUESTS` (default `60`; production uses `15` to mirror the client budget)
   - `OPENROUTER_RATE_LIMIT_WINDOW_SECONDS` (default `60`)
-  - `OPENROUTER_RATE_LIMIT_FAIL_CLOSED` (`true`/`false`, default fail-open)
+  - `OPENROUTER_RATE_LIMIT_FAIL_CLOSED` (`true`/`false`, default fail-open; production sets `true`)
+- The bucket key comes from `resolveClientIp(...)`: `x-real-ip` first, then the **LAST** `x-forwarded-for` hop, then the socket address. `x-forwarded-for` is client-appendable, so its first entry is forgeable - keying on it lets a caller mint a fresh bucket per request and bypass the limit. Never move the XFF fallback back to index `0`.
+- A CORS origin allowlist is not a security boundary on its own: any client can forge `Origin`, and the native app legitimately runs from `capacitor://localhost` / `https://localhost` (both always allowed, plus `http://localhost:*` and `127.0.0.1` for local dev).
 - Optional per-mode output token overrides:
   - `OPENROUTER_MAX_TOKENS_EXTRACTION`
   - `OPENROUTER_MAX_TOKENS_PRESENTATION`
@@ -1451,7 +1455,7 @@ npm run test:ui:coverage # UI-tier coverage (components + hooks + modalStack)
 80. **Goal prediction card should stay mounted in goal mode:** keep render gating on `creationMode === 'goal'` (not on projection availability) and use a placeholder message when start/end inputs cannot yet produce `estimateGoalModeProjection(...)` output.
 81. **Do not label weight-relative % as body-fat %.** Use `predictedWeightDeltaPercent` wording in UI copy; treat `predictedBodyFatDeltaPercent` as deprecated alias for compatibility only.
 82. **Feasible-date band API is opt-in for heavy arrays.** Prefer summary fields (`strictCount`, `lenientCount`, `feasibleMinDateKey`, `feasibleMaxDateKey`, day-span ranges) and only request date/evaluation arrays when the caller explicitly needs them.
-83. **OpenRouter proxy hardening is config-sensitive:** keep `ALLOWED_ORIGINS` and (if enabled) Upstash rate-limit env vars configured in deployment; mismatched env config can silently alter CORS/throttling behavior across environments.
+83. **OpenRouter proxy hardening is config-sensitive:** keep `ALLOWED_ORIGINS` and the Upstash rate-limit env vars configured in deployment (`UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`, `OPENROUTER_RATE_LIMIT_MAX_REQUESTS=15`, `OPENROUTER_RATE_LIMIT_FAIL_CLOSED=true`); mismatched env config silently alters CORS/throttling behavior across environments, and missing Upstash credentials disable the limiter outright, leaving the paid LLM endpoint open.
 84. **Health Connect step reads must be today-scoped first:** `useHealthConnect.fetchSteps()` must use the explicit today window from `buildHealthConnectStepReadWindow()` (local midnight → now) as the primary read. The plugin's native default (`now - 1 day` / `now`) is a rolling 24 hours and would include previous-day steps in today's live count, so it must only be used as a degraded fallback when the explicit today window fails. Keep the rolling 24-hour fallback in the same helper module for recovery paths. If every read still fails on a real device, return `null` and keep the app usable instead of surfacing a connection error.
 85. **CalorieMap live card is a consumer, not the source of Health Connect failures:** `CalorieMapScreen` should keep passing `{ steps, tefContext }` to the breakdown modal, but any time-window fix belongs in the Health Connect hook/helper layer.
 84. **Scroll pickers must not fight the user's gesture:** Embedded pickers that live-update a parent `value` prop on every scroll (e.g. `WeightPicker`/`BodyFatPicker` in the entry modals) must guard the `[value]` alignment effect with a user-driven flag (`isUserDrivenRef` + short auto-reset timeout). Without this, the effect re-runs on every scroll update and calls `alignScrollContainerToValue(...)` mid-gesture, causing choppy, fighting-the-finger scrolling. The settle-timeout in `createPickerScrollHandler` already snap-aligns after the gesture ends, so `handleWholeChange`/`handleDecimalChange` should not call `alignScrollContainerToValue` directly either. Keep initial open alignment, clamping, and max-value decimal reset behavior intact.
