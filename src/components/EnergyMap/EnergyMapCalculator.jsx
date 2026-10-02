@@ -4991,8 +4991,20 @@ export const EnergyMapCalculator = () => {
             dailySnapshots={userData.dailySnapshots ?? {}}
             weightEntries={weightEntries}
             bodyFatEntries={bodyFatEntries}
+            stepEntries={stepEntries}
             bodyFatTrackingEnabled={userData.bodyFatTrackingEnabled}
             nutritionData={nutritionData}
+            userData={userData}
+            cardioSessions={userData.cardioSessions ?? []}
+            trainingSessions={trainingSessions}
+            cardioTypes={cardioTypes}
+            trainingTypes={trainingTypes}
+            neatOverride={
+              dayLedgerSelectedDate
+                ? (userData.dailyNeatOverrides?.[dayLedgerSelectedDate] ?? null)
+                : null
+            }
+            phaseLogV2={userData.phaseLogV2 ?? null}
             onSelectDate={setDayLedgerSelectedDate}
             onOpenBreakdown={handleOpenDayLedgerBreakdown}
           />

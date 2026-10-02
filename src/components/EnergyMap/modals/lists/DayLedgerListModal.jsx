@@ -33,6 +33,7 @@ import {
   DAY_LEDGER_BALANCE_META,
 } from '../../../../utils/calculations/dayLedgerPresentation';
 import { getDailyBalanceKind } from '../../../../utils/calculations/rollingEnergyBalance';
+import { useContentRefresh } from '../../../../hooks/useContentRefresh';
 
 const MONTH_NAMES = [
   'January',
@@ -169,6 +170,17 @@ export const DayLedgerListModal = ({
   const dayPanelPreview = selectedPreview ?? lastPreview;
 
   const showBodyFat = bodyFatTrackingEnabled !== false;
+
+  // Same-state content refresh: picking another day (panel already visible) or
+  // changing month (summary already visible) replays a subtle cue that is
+  // deliberately weaker than the panels' state-transition crossfades. See
+  // `hooks/useContentRefresh.js` for the when-to-play contract.
+  const dayRefreshRef = useContentRefresh(dayPanelPreview?.date ?? null, {
+    enabled: Boolean(selectedPreview),
+  });
+  const monthRefreshRef = useContentRefresh(`${currentYear}-${currentMonth}`, {
+    enabled: !selectedPreview,
+  });
 
   // Measurements recorded on the picked day (exact-date lookups; dash-safe).
   const previewMeasurements = useMemo(
@@ -583,155 +595,166 @@ export const DayLedgerListModal = ({
                 selectedPreview ? '' : 'pointer-events-none'
               }`}
             >
-              <div className="flex items-start justify-between gap-2 mb-1.5">
-                <div className="min-w-0">
-                  <p className="text-foreground font-bold text-sm">
-                    {formatDateLabel(dayPanelPreview.date)}
-                  </p>
-                  <p className="text-muted text-xs mt-0.5 truncate">
-                    {dayPanelPreview.stepCount.toLocaleString()} steps
-                    {showBodyFat && pickedSessionBurn > 0
-                      ? `\u00B7 ~${pickedSessionBurn.toLocaleString()} kcal sessions`
-                      : ''}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1.5 flex-wrap justify-end flex-shrink-0">
-                  {(() => {
-                    const goalMeta =
-                      baseGoals[dayPanelPreview.goalAtSnapshot] ?? null;
-                    if (!goalMeta) return null;
-                    return (
-                      <span
-                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${goalMeta.color} text-primary-foreground`}
-                      >
-                        {goalMeta.label}
-                      </span>
-                    );
-                  })()}
-                  <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border ${
-                      dayPanelPreview.isTrainingDay
-                        ? DAY_PILL_CLASS.training
-                        : DAY_PILL_CLASS.rest
-                    }`}
-                  >
-                    {dayPanelPreview.isTrainingDay ? 'Training' : 'Rest'}
-                  </span>
-                  {dayPanelPreview.date === todayStr && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold text-accent-green border border-accent-green/20 bg-accent-green/10">
-                      <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />
-                      In progress
+              <div ref={dayRefreshRef}>
+                <div className="flex items-start justify-between gap-2 mb-1.5">
+                  <div className="min-w-0">
+                    <p className="text-foreground font-bold text-sm">
+                      {formatDateLabel(dayPanelPreview.date)}
+                    </p>
+                    <p className="text-muted text-xs mt-0.5 truncate">
+                      {dayPanelPreview.stepCount.toLocaleString()} steps
+                      {showBodyFat && pickedSessionBurn > 0
+                        ? `\u00B7 ~${pickedSessionBurn.toLocaleString()} kcal sessions`
+                        : ''}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap justify-end flex-shrink-0">
+                    {(() => {
+                      const goalMeta =
+                        baseGoals[dayPanelPreview.goalAtSnapshot] ?? null;
+                      if (!goalMeta) return null;
+                      return (
+                        <span
+                          className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${goalMeta.color} text-primary-foreground`}
+                        >
+                          {goalMeta.label}
+                        </span>
+                      );
+                    })()}
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border ${
+                        dayPanelPreview.isTrainingDay
+                          ? DAY_PILL_CLASS.training
+                          : DAY_PILL_CLASS.rest
+                      }`}
+                    >
+                      {dayPanelPreview.isTrainingDay ? 'Training' : 'Rest'}
                     </span>
+                    {dayPanelPreview.date === todayStr && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold text-accent-green border border-accent-green/20 bg-accent-green/10">
+                        <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />
+                        In progress
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-end justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-muted text-[11px]">Eaten</p>
+                    <p className="text-foreground font-bold text-base leading-tight">
+                      {Math.round(dayPanelPreview.intake).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="text-center flex-shrink-0">
+                    <p
+                      className={`text-xl font-black leading-none ${
+                        DAY_LEDGER_BALANCE_META[dayPanelPreview.balanceKind]
+                          .textClass
+                      }`}
+                    >
+                      {formatSignedKcal(dayPanelPreview.deficit)}
+                    </p>
+                    <p
+                      className={`text-[10px] font-semibold mt-1 ${
+                        DAY_LEDGER_BALANCE_META[dayPanelPreview.balanceKind]
+                          .textClass
+                      }`}
+                    >
+                      {
+                        DAY_LEDGER_BALANCE_META[dayPanelPreview.balanceKind]
+                          .label
+                      }
+                    </p>
+                  </div>
+                  <div className="min-w-0 text-right">
+                    <p className="text-muted text-[11px]">Burned</p>
+                    <p className="text-foreground font-bold text-base leading-tight">
+                      {Math.round(dayPanelPreview.tdee).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Mini composition bar (positive contributions only) */}
+                {(() => {
+                  const total = dayPanelPreview.barSegments.reduce(
+                    (sum, segment) => sum + segment.value,
+                    0
+                  );
+                  if (total <= 0) return null;
+                  return (
+                    <div className="flex h-2 rounded-full overflow-hidden bg-surface-highlight mt-1.5">
+                      {dayPanelPreview.barSegments.map((segment) => (
+                        <div
+                          key={segment.key}
+                          className={segment.colorClass}
+                          style={{
+                            width: `${Math.max(2, (segment.value / total) * 100)}%`,
+                          }}
+                        />
+                      ))}
+                    </div>
+                  );
+                })()}
+
+                {/* Measurement / session cards (mirror the month-summary tiles) */}
+                <div className="grid grid-cols-2 gap-2 mt-1.5">
+                  <SummaryTile icon={Scale} label="Weight">
+                    <p className="text-foreground font-bold text-base leading-tight">
+                      {previewMeasurements.weight != null
+                        ? `${formatWeight(previewMeasurements.weight)} kg`
+                        : '\u2014'}
+                    </p>
+                  </SummaryTile>
+                  {showBodyFat ? (
+                    <SummaryTile icon={Percent} label="Body Fat">
+                      <p className="text-foreground font-bold text-base leading-tight">
+                        {previewMeasurements.bodyFat != null
+                          ? `${formatBodyFat(previewMeasurements.bodyFat)} %`
+                          : '\u2014'}
+                      </p>
+                    </SummaryTile>
+                  ) : (
+                    <SummaryTile icon={Dumbbell} label="Sessions">
+                      <p className="text-foreground font-bold text-base leading-tight">
+                        {pickedSessionBurn > 0
+                          ? `${pickedSessionBurn.toLocaleString()} kcal`
+                          : '\u2014'}
+                      </p>
+                      <p className="text-muted text-[10px] font-medium leading-tight">
+                        Cardio{' '}
+                        {Math.round(
+                          dayPanelPreview.cardioBurn
+                        ).toLocaleString()}{' '}
+                        {'\u00B7'} Training{' '}
+                        {Math.round(
+                          dayPanelPreview.trainingBurn
+                        ).toLocaleString()}
+                      </p>
+                    </SummaryTile>
                   )}
                 </div>
-              </div>
 
-              <div className="flex items-end justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-muted text-[11px]">Eaten</p>
-                  <p className="text-foreground font-bold text-base leading-tight">
-                    {Math.round(dayPanelPreview.intake).toLocaleString()}
-                  </p>
+                {/* Hero-card EPOC language: bold value + muted suffix. Always
+                  occupies a line so per-day EPOC variance cannot resize the
+                  panel */}
+                <p
+                  className={`text-[11px] mt-1 ${
+                    dayPanelPreview.epocCarryInCalories > 0 ? '' : 'invisible'
+                  }`}
+                >
+                  <span className="text-foreground font-semibold">
+                    +{dayPanelPreview.epocCarryInCalories} kcal EPOC
+                  </span>
+                  <span className="text-muted"> carried in</span>
+                </p>
+
+                <div className="flex items-center justify-end gap-0.5 mt-2 pt-1.5 border-t border-border text-accent-blue">
+                  <span className="text-xs font-semibold">
+                    View full ledger
+                  </span>
+                  <ChevronRight size={14} />
                 </div>
-                <div className="text-center flex-shrink-0">
-                  <p
-                    className={`text-xl font-black leading-none ${
-                      DAY_LEDGER_BALANCE_META[dayPanelPreview.balanceKind]
-                        .textClass
-                    }`}
-                  >
-                    {formatSignedKcal(dayPanelPreview.deficit)}
-                  </p>
-                  <p
-                    className={`text-[10px] font-semibold mt-1 ${
-                      DAY_LEDGER_BALANCE_META[dayPanelPreview.balanceKind]
-                        .textClass
-                    }`}
-                  >
-                    {DAY_LEDGER_BALANCE_META[dayPanelPreview.balanceKind].label}
-                  </p>
-                </div>
-                <div className="min-w-0 text-right">
-                  <p className="text-muted text-[11px]">Burned</p>
-                  <p className="text-foreground font-bold text-base leading-tight">
-                    {Math.round(dayPanelPreview.tdee).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-
-              {/* Mini composition bar (positive contributions only) */}
-              {(() => {
-                const total = dayPanelPreview.barSegments.reduce(
-                  (sum, segment) => sum + segment.value,
-                  0
-                );
-                if (total <= 0) return null;
-                return (
-                  <div className="flex h-2 rounded-full overflow-hidden bg-surface-highlight mt-1.5">
-                    {dayPanelPreview.barSegments.map((segment) => (
-                      <div
-                        key={segment.key}
-                        className={segment.colorClass}
-                        style={{
-                          width: `${Math.max(2, (segment.value / total) * 100)}%`,
-                        }}
-                      />
-                    ))}
-                  </div>
-                );
-              })()}
-
-              {/* Measurement / session cards (mirror the month-summary tiles) */}
-              <div className="grid grid-cols-2 gap-2 mt-1.5">
-                <SummaryTile icon={Scale} label="Weight">
-                  <p className="text-foreground font-bold text-base leading-tight">
-                    {previewMeasurements.weight != null
-                      ? `${formatWeight(previewMeasurements.weight)} kg`
-                      : '\u2014'}
-                  </p>
-                </SummaryTile>
-                {showBodyFat ? (
-                  <SummaryTile icon={Percent} label="Body Fat">
-                    <p className="text-foreground font-bold text-base leading-tight">
-                      {previewMeasurements.bodyFat != null
-                        ? `${formatBodyFat(previewMeasurements.bodyFat)} %`
-                        : '\u2014'}
-                    </p>
-                  </SummaryTile>
-                ) : (
-                  <SummaryTile icon={Dumbbell} label="Sessions">
-                    <p className="text-foreground font-bold text-base leading-tight">
-                      {pickedSessionBurn > 0
-                        ? `${pickedSessionBurn.toLocaleString()} kcal`
-                        : '\u2014'}
-                    </p>
-                    <p className="text-muted text-[10px] font-medium leading-tight">
-                      Cardio{' '}
-                      {Math.round(dayPanelPreview.cardioBurn).toLocaleString()}{' '}
-                      {'\u00B7'} Training{' '}
-                      {Math.round(
-                        dayPanelPreview.trainingBurn
-                      ).toLocaleString()}
-                    </p>
-                  </SummaryTile>
-                )}
-              </div>
-
-              {/* Always occupies a line so per-day EPOC variance cannot
-                  resize the panel */}
-              <p
-                className={`text-muted text-[11px] mt-1 ${
-                  dayPanelPreview.epocCarryInCalories > 0 ? '' : 'invisible'
-                }`}
-              >
-                +{dayPanelPreview.epocCarryInCalories} kcal EPOC carried in
-              </p>
-
-              <div className="flex items-center justify-end gap-1 mt-1.5 pt-1.5 border-t border-border text-muted">
-                <span className="text-xs font-medium">
-                  Tap to view full ledger
-                </span>
-                <ChevronRight size={14} />
               </div>
             </motion.button>
           )}
@@ -749,141 +772,144 @@ export const DayLedgerListModal = ({
               selectedPreview ? 'pointer-events-none' : ''
             }`}
           >
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <p className="text-foreground font-bold text-sm">
-                  Month Summary
-                </p>
-                <p className="text-muted text-xs">
-                  {MONTH_NAMES[currentMonth]} {currentYear}
-                </p>
+            <div ref={monthRefreshRef}>
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <p className="text-foreground font-bold text-sm">
+                    Month Summary
+                  </p>
+                  <p className="text-muted text-xs">
+                    {MONTH_NAMES[currentMonth]} {currentYear}
+                  </p>
+                </div>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold text-accent-blue border border-accent-blue/20 bg-accent-blue/10">
+                  <CalendarCheck size={11} />
+                  {monthSummary.daysTracked}/{monthSummary.daysInMonth} days
+                </span>
               </div>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold text-accent-blue border border-accent-blue/20 bg-accent-blue/10">
-                <CalendarCheck size={11} />
-                {monthSummary.daysTracked}/{monthSummary.daysInMonth} days
-              </span>
-            </div>
 
-            {/* Empty vs filled months are stacked in the same cell too, so
+              {/* Empty vs filled months are stacked in the same cell too, so
                 the summary surface height never depends on tracked-day count */}
-            <div className="grid">
-              <motion.div
-                initial={false}
-                animate={{
-                  opacity: monthSummary.daysTracked === 0 ? 1 : 0,
-                  y: monthSummary.daysTracked === 0 ? 0 : 6,
-                }}
-                transition={{ duration: 0.16 }}
-                aria-hidden={monthSummary.daysTracked !== 0}
-                className={`row-start-1 col-start-1 min-h-[110px] flex flex-col items-center justify-center text-center py-2 ${
-                  monthSummary.daysTracked === 0 ? '' : 'pointer-events-none'
-                }`}
-              >
-                <CalendarX className="text-muted/50" size={36} />
-                <p className="text-muted text-xs mt-2 max-w-[240px]">
-                  No recorded days this month yet. Tap a highlighted day to
-                  preview its ledger.
-                </p>
-              </motion.div>
+              <div className="grid">
+                <motion.div
+                  initial={false}
+                  animate={{
+                    opacity: monthSummary.daysTracked === 0 ? 1 : 0,
+                    y: monthSummary.daysTracked === 0 ? 0 : 6,
+                  }}
+                  transition={{ duration: 0.16 }}
+                  aria-hidden={monthSummary.daysTracked !== 0}
+                  className={`row-start-1 col-start-1 min-h-[110px] flex flex-col items-center justify-center text-center py-2 ${
+                    monthSummary.daysTracked === 0 ? '' : 'pointer-events-none'
+                  }`}
+                >
+                  <CalendarX className="text-muted/50" size={36} />
+                  <p className="text-muted text-xs mt-2 max-w-[240px]">
+                    No recorded days this month yet. Tap a highlighted day to
+                    preview its ledger.
+                  </p>
+                </motion.div>
 
-              <motion.div
-                initial={false}
-                animate={{
-                  opacity: monthSummary.daysTracked > 0 ? 1 : 0,
-                  y: monthSummary.daysTracked > 0 ? 0 : -6,
-                }}
-                transition={{ duration: 0.16 }}
-                aria-hidden={monthSummary.daysTracked === 0}
-                className={`row-start-1 col-start-1 ${
-                  monthSummary.daysTracked > 0 ? '' : 'pointer-events-none'
-                }`}
-              >
-                <div className="grid grid-cols-2 gap-1.5">
-                  <SummaryTile icon={Utensils} label="Avg Energy">
-                    <p className="text-foreground font-bold text-sm leading-tight">
-                      {monthSummary.avgIntake.toLocaleString()}
-                      <span className="text-muted text-[10px] font-medium">
-                        {' '}
-                        in
-                      </span>
-                    </p>
-                    <p className="text-foreground font-bold text-sm leading-tight">
-                      {monthSummary.avgTdee.toLocaleString()}
-                      <span className="text-muted text-[10px] font-medium">
-                        {' '}
-                        burn
-                      </span>
-                    </p>
-                  </SummaryTile>
-                  <SummaryTile icon={TrendingUp} label="Balance">
-                    <p
-                      className={`font-bold text-sm leading-tight ${
-                        DAY_LEDGER_BALANCE_META[
-                          getDailyBalanceKind(monthSummary.avgBalance)
-                        ].textClass
-                      }`}
-                    >
-                      {formatSignedKcal(monthSummary.avgBalance)}
-                      <span className="text-muted text-[10px] font-medium">
-                        {' '}
-                        avg
-                      </span>
-                    </p>
-                    <p
-                      className={`font-bold text-sm leading-tight ${
-                        DAY_LEDGER_BALANCE_META[
-                          getDailyBalanceKind(monthSummary.totalBalance)
-                        ].textClass
-                      }`}
-                    >
-                      {formatSignedKcal(monthSummary.totalBalance)}
-                      <span className="text-muted text-[10px] font-medium">
-                        {' '}
-                        total
-                      </span>
-                    </p>
-                  </SummaryTile>
-                  <SummaryTile icon={Scale} label="Avg Weight">
-                    <p className="text-foreground font-bold text-sm leading-tight">
-                      {monthSummary.avgWeightKg != null
-                        ? `${monthSummary.avgWeightKg} kg`
-                        : '\u2014'}
-                    </p>
-                    {showBodyFat && monthSummary.avgBodyFatPercent != null && (
-                      <p className="text-accent-pink font-semibold text-[11px] leading-tight">
-                        {monthSummary.avgBodyFatPercent}% BF
+                <motion.div
+                  initial={false}
+                  animate={{
+                    opacity: monthSummary.daysTracked > 0 ? 1 : 0,
+                    y: monthSummary.daysTracked > 0 ? 0 : -6,
+                  }}
+                  transition={{ duration: 0.16 }}
+                  aria-hidden={monthSummary.daysTracked === 0}
+                  className={`row-start-1 col-start-1 ${
+                    monthSummary.daysTracked > 0 ? '' : 'pointer-events-none'
+                  }`}
+                >
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <SummaryTile icon={Utensils} label="Avg Energy">
+                      <p className="text-foreground font-bold text-sm leading-tight">
+                        {monthSummary.avgIntake.toLocaleString()}
+                        <span className="text-muted text-[10px] font-medium">
+                          {' '}
+                          in
+                        </span>
                       </p>
-                    )}
-                  </SummaryTile>
-                  <SummaryTile icon={Footprints} label="Avg Steps">
-                    <p className="text-foreground font-bold text-sm leading-tight">
-                      {monthSummary.avgSteps.toLocaleString()}
-                    </p>
-                  </SummaryTile>
-                </div>
+                      <p className="text-foreground font-bold text-sm leading-tight">
+                        {monthSummary.avgTdee.toLocaleString()}
+                        <span className="text-muted text-[10px] font-medium">
+                          {' '}
+                          burn
+                        </span>
+                      </p>
+                    </SummaryTile>
+                    <SummaryTile icon={TrendingUp} label="Balance">
+                      <p
+                        className={`font-bold text-sm leading-tight ${
+                          DAY_LEDGER_BALANCE_META[
+                            getDailyBalanceKind(monthSummary.avgBalance)
+                          ].textClass
+                        }`}
+                      >
+                        {formatSignedKcal(monthSummary.avgBalance)}
+                        <span className="text-muted text-[10px] font-medium">
+                          {' '}
+                          avg
+                        </span>
+                      </p>
+                      <p
+                        className={`font-bold text-sm leading-tight ${
+                          DAY_LEDGER_BALANCE_META[
+                            getDailyBalanceKind(monthSummary.totalBalance)
+                          ].textClass
+                        }`}
+                      >
+                        {formatSignedKcal(monthSummary.totalBalance)}
+                        <span className="text-muted text-[10px] font-medium">
+                          {' '}
+                          total
+                        </span>
+                      </p>
+                    </SummaryTile>
+                    <SummaryTile icon={Scale} label="Avg Weight">
+                      <p className="text-foreground font-bold text-sm leading-tight">
+                        {monthSummary.avgWeightKg != null
+                          ? `${monthSummary.avgWeightKg} kg`
+                          : '\u2014'}
+                      </p>
+                      {showBodyFat &&
+                        monthSummary.avgBodyFatPercent != null && (
+                          <p className="text-accent-pink font-semibold text-[11px] leading-tight">
+                            {monthSummary.avgBodyFatPercent}% BF
+                          </p>
+                        )}
+                    </SummaryTile>
+                    <SummaryTile icon={Footprints} label="Avg Steps">
+                      <p className="text-foreground font-bold text-sm leading-tight">
+                        {monthSummary.avgSteps.toLocaleString()}
+                      </p>
+                    </SummaryTile>
+                  </div>
 
-                <div className="mt-2 pt-1.5 border-t border-border flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-muted">
-                  <span className="inline-flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-accent-red" />
-                    {monthSummary.deficitDays} deficit
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-accent-green" />
-                    {monthSummary.surplusDays} surplus
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-accent-slate" />
-                    {monthSummary.maintenanceDays} maintenance
-                  </span>
-                  <span className="ml-auto font-medium text-foreground/80">
-                    Est. change {'\u2248'}{' '}
-                    {monthSummary.estimatedWeightChangeKg === 0
-                      ? '\u00B10'
-                      : `${monthSummary.estimatedWeightChangeKg > 0 ? '-' : '+'}${Math.abs(monthSummary.estimatedWeightChangeKg).toFixed(2)}`}
-                    {' kg'}
-                  </span>
-                </div>
-              </motion.div>
+                  <div className="mt-2 pt-1.5 border-t border-border flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-muted">
+                    <span className="inline-flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-accent-red" />
+                      {monthSummary.deficitDays} deficit
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-accent-green" />
+                      {monthSummary.surplusDays} surplus
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-accent-slate" />
+                      {monthSummary.maintenanceDays} maintenance
+                    </span>
+                    <span className="ml-auto font-medium text-foreground/80">
+                      Est. change {'\u2248'}{' '}
+                      {monthSummary.estimatedWeightChangeKg === 0
+                        ? '\u00B10'
+                        : `${monthSummary.estimatedWeightChangeKg > 0 ? '-' : '+'}${Math.abs(monthSummary.estimatedWeightChangeKg).toFixed(2)}`}
+                      {' kg'}
+                    </span>
+                  </div>
+                </motion.div>
+              </div>
             </div>
           </motion.div>
         </div>

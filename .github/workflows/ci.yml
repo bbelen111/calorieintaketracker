@@ -122,22 +122,79 @@ jobs:
       - name: Copy web assets into the iOS project
         run: npx cap copy ios
 
+      # SwiftPM downloads a package's binary artifacts (`Capacitor.xcframework.zip`
+      # for capacitor-swift-pm) into one shared cache under
+      # ~/Library/Caches/org.swift.swiftpm/artifacts, and its resolvers are not
+      # safe to run concurrently: when two of them want the same artifact from a
+      # cold cache, one loses and dies with
+      #   failed downloading '...Capacitor.xcframework.zip' ... already exists in
+      #   file system   →   Could not resolve package dependencies   →   exit 74
+      # before a single file compiles. Upstream: swiftlang/swift-package-manager#10138
+      # ("also happens with xcodebuild"); the fix was closed unmerged, so the Xcode
+      # 16.4 toolchain macos-15 pins still has the race. It needs a COLD cache,
+      # which is exactly what a fresh runner has — that is why this showed up only
+      # once the job went to CI.
+      #
+      # `xcodebuild build` resolves the graph for both simulator slices, which is
+      # the concurrency. Resolving ONCE here — a single serial resolve action, with
+      # no destination to fan out over — warms the shared artifact cache first, so
+      # the build's own resolvers find the artifact already present and download
+      # nothing. `continue-on-error` because this step is only a warm-up: the build
+      # below still resolves (and reports) for itself, so this must never be able to
+      # replace or mask the real gate.
+      - name: Warm the SwiftPM artifact cache
+        continue-on-error: true
+        run: |
+          xcodebuild \
+            -resolvePackageDependencies \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -derivedDataPath "$RUNNER_TEMP/ios-derived-data"
+
       # `generic/platform=iOS Simulator` builds for both simulator slices without
       # needing a booted device or a dev team. Signing is disabled because
       # entitlements (HealthKit) cannot be embedded without a team anyway — this
       # job gates compilation and plugin linking, not runtime HealthKit access,
       # which needs a signed build (see README → iOS).
+      #
+      # The retry is deliberately not blanket flakiness-tolerance: it fires ONLY on
+      # the artifact-cache race above. Losing that race still leaves the WINNER's
+      # copy in the shared cache, so a plain second attempt finds the artifact and
+      # downloads nothing. Anything else — a Swift compile error, a plugin that is
+      # not linked, a network fault that is not this race — exits on the first
+      # attempt, immediately, exactly as before.
       - name: Build iOS app
         run: |
           set -euo pipefail
-          xcodebuild \
-            -project ios/App/App.xcodeproj \
-            -scheme App \
-            -sdk iphonesimulator \
-            -configuration Debug \
-            -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath "$RUNNER_TEMP/ios-derived-data" \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            build
+
+          log="$RUNNER_TEMP/ios-build.log"
+
+          for attempt in 1 2 3; do
+            if xcodebuild \
+              -project ios/App/App.xcodeproj \
+              -scheme App \
+              -sdk iphonesimulator \
+              -configuration Debug \
+              -destination 'generic/platform=iOS Simulator' \
+              -derivedDataPath "$RUNNER_TEMP/ios-derived-data" \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY="" \
+              build 2>&1 | tee "$log"; then
+              exit 0
+            fi
+
+            if ! grep -qE 'already exists in file system|Could not resolve package dependencies' "$log"; then
+              echo "::error::xcodebuild failed for a reason other than the SwiftPM artifact-cache race"
+              exit 1
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::SwiftPM artifact-cache race survived 3 attempts — the cold-cache download keeps losing"
+              exit 1
+            fi
+
+            echo "::warning::SwiftPM artifact-cache race on attempt $attempt; retrying against the now-warm cache"
+          done
+
+          exit 1

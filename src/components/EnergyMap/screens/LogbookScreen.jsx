@@ -183,7 +183,7 @@ const DayLedgerCard = ({ dailySnapshots, onOpen }) => {
     <button
       type="button"
       onClick={onOpen}
-      className="bg-surface rounded-2xl w-full p-6 border border-border shadow-lg flex items-center justify-between mb-4"
+      className="bg-surface rounded-2xl w-full p-8 border border-border shadow-lg flex items-center justify-between mb-4"
     >
       <div className="flex items-center gap-3 min-w-0">
         <CalendarRange className="text-accent-blue shrink-0" size={24} />

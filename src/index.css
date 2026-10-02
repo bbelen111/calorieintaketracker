@@ -364,6 +364,57 @@
   animation: headerStatIn 150ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* DayLedgerModal content swap: a gentle fade/slide replayed when prev/next
+   navigation lands on a different tracked day. Kept short so it feels like
+   a content swap, not a page transition. */
+@keyframes dayLedgerContentIn {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.day-ledger-in {
+  animation: dayLedgerContentIn 140ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Directional day swap for finger swipes / prev-next arrows: the incoming day
+   slides in from the side it came from. Same enter-only, re-keyed idiom as
+   `header-stat-in` (no exit phase, so the scrolling body never goes blank). */
+@keyframes dayLedgerSlideFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes dayLedgerSlideFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.day-ledger-in-right {
+  animation: dayLedgerSlideFromRight 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.day-ledger-in-left {
+  animation: dayLedgerSlideFromLeft 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
 /*
   Mobile Density Fix + Font Scaling Cap:
   16px * 0.75 = 12px.
@@ -746,7 +797,10 @@ a {
   .tracker-graph-fill,
   .tracker-graph-point,
   .tracker-bar-animated,
-  .header-stat-in {
+  .header-stat-in,
+  .day-ledger-in,
+  .day-ledger-in-right,
+  .day-ledger-in-left {
     animation: none !important;
     transform: none !important;
   }
