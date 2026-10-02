@@ -173,6 +173,7 @@ const postChat = (headers, response = createResponse()) =>
     { method: 'POST', body: { mode: 'extraction', messages }, headers },
     response
   );
+
 test('rate limit: an over-limit request gets 429 + Retry-After and never reaches OpenRouter', async () => {
   const originalFetch = globalThis.fetch;
   const originalKey = process.env.OPENROUTER_API_KEY;
@@ -294,6 +295,7 @@ test('rate limit: distinct clients get distinct buckets', async () => {
     restoreEnv({ ...envSnapshot, OPENROUTER_API_KEY: originalKey });
   }
 });
+
 test('rate limit: the limiter is a no-op when Upstash credentials are absent', async () => {
   const originalFetch = globalThis.fetch;
   const originalKey = process.env.OPENROUTER_API_KEY;
