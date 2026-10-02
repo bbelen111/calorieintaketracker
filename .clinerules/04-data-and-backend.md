@@ -108,6 +108,8 @@ Online text search and barcode lookup are split across two proxied services for 
   - Optional: `OPENFOODFACTS_API_BASE` (defaults to `https://world.openfoodfacts.org`)
   - The legacy `USDA_API_KEY` / `USDA_USER_AGENT` vars are obsolete (FDC is never called at runtime)
 
+**Deployment shape (API-only):** the Vercel project ships **only** the `api/` functions. `vercel.json` pins `framework` / `buildCommand` / `outputDirectory` to `null`, so no static output is produced and every non-API path (including `/`) returns a bare 404 - there is no public web app. The native app bundles `dist/` itself through `npx cap sync`. **Never rename, move or delete the project, and never change `calorieintaketracker.vercel.app`:** that host is the baked-in default base URL behind the three `VITE_*_API_BASE` defaults as well as `/api/usda` (legacy alias for shipped builds), so the domain is a hard compatibility contract with installed apps.
+
 **Key functions:**
 ```javascript
 import { searchFoods as searchOnlineFoods } from './services/foodCloud';
@@ -161,12 +163,14 @@ OpenRouter food parsing is proxied through `api/openrouter.js` (server-side key 
 **Serverless security/env configuration (`api/openrouter.js`):**
 - CORS allowlist is driven by `ALLOWED_ORIGINS` (or singular fallback `ALLOWED_ORIGIN`).
 - Payload guards are enforced server-side (`messages` count + serialized payload size cap).
-- Optional stateless per-IP throttling uses Upstash REST:
+- Per-IP throttling via Upstash REST - the only control that bounds LLM spend, and a no-op unless BOTH credentials are set:
   - `UPSTASH_REDIS_REST_URL`
   - `UPSTASH_REDIS_REST_TOKEN`
-  - `OPENROUTER_RATE_LIMIT_MAX_REQUESTS` (default `60`)
+  - `OPENROUTER_RATE_LIMIT_MAX_REQUESTS` (default `60`; production uses `15` to mirror the client budget)
   - `OPENROUTER_RATE_LIMIT_WINDOW_SECONDS` (default `60`)
-  - `OPENROUTER_RATE_LIMIT_FAIL_CLOSED` (`true`/`false`, default fail-open)
+  - `OPENROUTER_RATE_LIMIT_FAIL_CLOSED` (`true`/`false`, default fail-open; production sets `true`)
+- The bucket key comes from `resolveClientIp(...)`: `x-real-ip` first, then the **LAST** `x-forwarded-for` hop, then the socket address. `x-forwarded-for` is client-appendable, so its first entry is forgeable - keying on it lets a caller mint a fresh bucket per request and bypass the limit. Never move the XFF fallback back to index `0`.
+- A CORS origin allowlist is not a security boundary on its own: any client can forge `Origin`, and the native app legitimately runs from `capacitor://localhost` / `https://localhost` (both always allowed, plus `http://localhost:*` and `127.0.0.1` for local dev).
 - Optional per-mode output token overrides:
   - `OPENROUTER_MAX_TOKENS_EXTRACTION`
   - `OPENROUTER_MAX_TOKENS_PRESENTATION`
@@ -281,5 +285,5 @@ Always returns `'unavailable'` on **web** (and on any native platform that owns 
 15. **Keep lookup reason/hint helpers canonical:** use `getLookupErrorReasonMessage(...)` and `getLookupErrorRecoveryHint(...)` from `services/foodLookupContext.js`; avoid ad-hoc per-component strings.
 16. **OpenRouter transient retry parity is intentional:** `sendOpenRouterMessage` retries transient upstream `502/503/504` with bounded backoff; do not remove unless replacing with equivalent resilience.
 17. **Rate-limit queueing is intentional:** `429` handling uses serialized backoff queue semantics; preserve this when adjusting retry logic.
-18. **OpenRouter proxy hardening is config-sensitive:** keep `ALLOWED_ORIGINS` and (if enabled) Upstash rate-limit env vars configured in deployment; mismatched env config can silently alter CORS/throttling behavior across environments.
+18. **OpenRouter proxy hardening is config-sensitive:** keep `ALLOWED_ORIGINS` and the Upstash rate-limit env vars configured in deployment (`UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`, `OPENROUTER_RATE_LIMIT_MAX_REQUESTS=15`, `OPENROUTER_RATE_LIMIT_FAIL_CLOSED=true`); mismatched env config silently alters CORS/throttling behavior across environments, and missing Upstash credentials disable the limiter outright, leaving the paid LLM endpoint open.
 19. **Daily NEAT overrides persist via sharded history, not profile:** `dailyNeatOverrides` lives in the Dexie history split (`HISTORY_FIELDS`) with per-date sharding (`dailyNeatOverrides:YYYY-MM-DD`) so only changed days are written. Add/remove any change to this field via the store action `setDailyNeatOverride(...)`; on load, `mergeWithDefaults()` drops invalid date keys and clamps multipliers. Do not reintroduce a profile or Preferences fallback for this data.

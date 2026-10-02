@@ -311,17 +311,33 @@ const applyCorsHeaders = (req, res) => {
   return requestOrigin ? isOriginAllowed(requestOrigin, allowedOrigins) : true;
 };
 
+// Client IP, used as the per-IP rate-limit bucket key.
+//
+// `x-forwarded-for` is a client-appendable list, so its FIRST entry can be
+// attacker-supplied: bucket keying on that value lets a caller mint a fresh
+// bucket for every request just by sending a forged header prefix, which makes
+// the throttle trivially bypassable. `x-real-ip` is set by the platform and is
+// not appendable, so it wins; the XFF fallback takes the LAST entry (written
+// closest to the platform) rather than the first.
 const resolveClientIp = (req) => {
-  const forwardedFor = String(req?.headers?.['x-forwarded-for'] || '').trim();
-  if (forwardedFor) {
-    return forwardedFor.split(',')[0].trim();
+  const realIp = String(req?.headers?.['x-real-ip'] || '').trim();
+  if (realIp) {
+    return realIp;
   }
 
-  return (
-    String(req?.headers?.['x-real-ip'] || '').trim() ||
-    String(req?.socket?.remoteAddress || '').trim() ||
-    'unknown'
-  );
+  const forwardedFor = String(req?.headers?.['x-forwarded-for'] || '').trim();
+  if (forwardedFor) {
+    const hops = forwardedFor
+      .split(',')
+      .map((hop) => hop.trim())
+      .filter(Boolean);
+
+    if (hops.length > 0) {
+      return hops[hops.length - 1];
+    }
+  }
+
+  return String(req?.socket?.remoteAddress || '').trim() || 'unknown';
 };
 
 const checkRequestRateLimit = async (req) => {
