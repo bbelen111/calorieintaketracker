@@ -795,7 +795,7 @@ OPENROUTER_RATE_LIMIT_FAIL_CLOSED=true
 
 ### Vercel Deployment (API-only)
 
-The Vercel project deploys **only** the serverless functions under `api/` - there is no web app. `vercel.json` sets `framework`, `buildCommand` and `outputDirectory` to `null`, so no static output is produced and every non-API path (including `/`) returns a bare 404. The native app bundles `dist/` itself through `npx cap sync`, so it never depends on this deployment for anything except `/api/*`.
+The Vercel project deploys **only** the serverless functions under `api/` - there is no web app. the 404s come from a `routes` block alone (`/api/(.*)` proxied to the function, `/(.*)` returning `status: 404`), and routing is evaluated **before** file serving, so every non-API path 404s regardless of what the build produced. Do **not** re-add `framework` / `buildCommand` / `outputDirectory` overrides to `vercel.json` - setting them (even to `null`) stopped the deployment from landing at all, and they are unnecessary because the router never serves the build output. The native app bundles `dist/` itself through `npx cap sync`, so it never depends on this deployment for anything except `/api/*`.
 
 > **Do not rename, move or delete this project.** `https://calorieintaketracker.vercel.app` is the baked-in default base URL for `/api/foods`, `/api/openfoodfacts` and `/api/openrouter`, and `/api/usda` exists purely as a legacy alias for already-shipped builds. Changing the domain breaks online search, barcode lookup and AI chat in every installed app until users update.
 
