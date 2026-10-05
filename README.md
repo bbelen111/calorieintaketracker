@@ -10,21 +10,65 @@
 
 It ships as a single **React + Vite** bundle wrapped by **Capacitor** into native apps, with on-device persistence (Dexie/IndexedDB + Capacitor Preferences), a `sql.js`-queried SQLite food catalog, and Supabase / OpenFoodFacts / OpenRouter behind the online features.
 
+> **📦 Distribution:** iOS and Android only. There is **no hosted web app** — the only Vercel deployment is **API-only** (`/api/*`; every other path returns `404`). The only way to run this in a desktop browser is the local dev server (`npm run dev` → `localhost:5173`), which is a development/QA convenience rather than a supported target. The web code branches (`services/fileShare.js`, `utils/platform.js`) are kept for development but are never deployed — see [Vercel Deployment (API-only)](#vercel-deployment-api-only).
+
 ## 📸 Screenshots
 
-<p align="center">
-  <img src=".github/assets/homescreen.png" alt="Home screen showing the day's energy map" width="200">
-  <img src=".github/assets/caloriebreakdown.png" alt="Calorie breakdown of BMR, NEAT, steps, exercise, EPOC, TEF and adaptive thermogenesis" width="200">
-  <img src=".github/assets/steptracker.png" alt="Step tracker chart with daily and weekly averages" width="200">
-  <img src=".github/assets/dailyledgercalendar.png" alt="Daily Ledger calendar with energy-balance day previews" width="200">
-</p>
-
-<p align="center">
-  <img src=".github/assets/foodsearchlistlocaldb.png" alt="Local food catalog search results" width="200">
-  <img src=".github/assets/aifoodlogger.png" alt="AI food logger chat parsing a meal" width="200">
-  <img src=".github/assets/macrosplit.png" alt="Macro split picker" width="200">
-  <img src=".github/assets/phasecreation.png" alt="Phase creation with goal projection" width="200">
-</p>
+<!--
+  Borderless (HTML, no `border`) 2-up table so the gallery reflows on small
+  screens instead of overflowing a centered `<p>` of fixed-width images.
+  Each cell pairs a screenshot with a one-line caption.
+-->
+<table>
+  <tr>
+    <td align="center">
+      <img src=".github/assets/homescreen.png" alt="Home screen showing the day's energy map" width="200">
+      <br>
+      <sub><b>Home</b> — today's energy map</sub>
+    </td>
+    <td align="center">
+      <img src=".github/assets/caloriebreakdown.png" alt="Calorie breakdown of BMR, NEAT, steps, exercise, EPOC, TEF and adaptive thermogenesis" width="200">
+      <br>
+      <sub><b>Breakdown</b> — the full TDEE stack</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src=".github/assets/steptracker.png" alt="Step tracker chart with daily and weekly averages" width="200">
+      <br>
+      <sub><b>Step tracker</b> — daily &amp; weekly averages</sub>
+    </td>
+    <td align="center">
+      <img src=".github/assets/dailyledgercalendar.png" alt="Daily Ledger calendar with energy-balance day previews" width="200">
+      <br>
+      <sub><b>Daily Ledger</b> — calendar of energy balance</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src=".github/assets/foodsearchlistlocaldb.png" alt="Local food catalog search results" width="200">
+      <br>
+      <sub><b>Food search</b> — offline catalog</sub>
+    </td>
+    <td align="center">
+      <img src=".github/assets/aifoodlogger.png" alt="AI food logger chat parsing a meal" width="200">
+      <br>
+      <sub><b>AI logger</b> — meal parsing chat</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src=".github/assets/macrosplit.png" alt="Macro split picker" width="200">
+      <br>
+      <sub><b>Macro split</b> — target picker</sub>
+    </td>
+    <td align="center">
+      <img src=".github/assets/phasecreation.png" alt="Phase creation with goal projection" width="200">
+      <br>
+      <sub><b>Phase creation</b> — goal projection</sub>
+    </td>
+  </tr>
+</table>
 
 ## 🎯 Features
 
@@ -142,7 +186,7 @@ $$
 
 ```
 App.jsx (theme management, store hydration gate)
-  └─ EnergyMapCalculator.jsx (orchestrator, 5,100+ lines)
+  └─ EnergyMapCalculator.jsx (orchestrator, ~4,675 lines)
       ├─ 5-screen carousel (`useSwipeableScreens`)
       │   ├─ LogbookScreen
       │   ├─ TrackerScreen
@@ -151,7 +195,7 @@ App.jsx (theme management, store hydration gate)
       │   └─ InsightsScreen
       ├─ PhaseDetailScreen (drill-down, not in the carousel)
       ├─ AppHeader + ScreenTabs (header zone + floating glass tab bar)
-      └─ 48 top-level modals + ~21 child-level modals
+      └─ 48 top-level modals + 25 child-level modal instances
 
 Performance loading strategy:
   - Fullscreen heavy modals are lazy-loaded (`React.lazy` + `Suspense`)
@@ -298,6 +342,8 @@ The **logic tier lives at the repo root** (`tests/**/*.test.js`, run by `node --
 sources as `src/**/*.spec.{js,jsx}` (Vitest). Offline catalog tooling sits in `scripts/food-db/`.
 
 ## 🚀 Getting Started
+
+> **Note:** the browser build (`npm run dev`) is for development and QA only. Production ships as iOS and Android apps, and the Vercel project is API-only — see [Vercel Deployment (API-only)](#vercel-deployment-api-only).
 
 ### Installation
 
@@ -888,4 +934,4 @@ Mounts the real orchestrator against the real store, plus the tracker modals, th
 
 ---
 
-**Last Updated:** September 2026
+**Last Updated:** October 2026

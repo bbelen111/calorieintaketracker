@@ -4,6 +4,8 @@
 
 React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor for mobile deployment (iOS/Android). Local-first architecture with Zustand state management, Dexie-backed history persistence plus Capacitor Preferences for profile/settings, and Supabase-catalog-backed online food search + OpenFoodFacts barcode lookup.
 
+**Distribution:** native iOS + Android only. There is **no public web app** — the only Vercel deployment is **API-only** (`/api/*`; every other path returns `404`). The browser target exists but is **dev-only** (`npm run dev`, `localhost:5173`); the web branches in `services/fileShare.js` / `utils/platform.js` are retained for development and are never deployed.
+
 **Tech Stack:**
 - React 18.3.1 + Vite 8.2.0 (dev server on `localhost:5173`, `strictPort: true`)
 - Capacitor 8.0.1 (`appId: com.energymap.tracker`, `webDir: dist`)
@@ -27,7 +29,7 @@ React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor 
 - `@capgo/capacitor-navigation-bar` — Android navigation bar theming
 - `@capacitor/filesystem` + `@capacitor/share` — Native export delivery (Cache write + OS share sheet)
 
-**Testing exists (Node test runner), no CI pipeline yet.** Use automated tests for touched logic and then perform manual UI checks. No router — single-page app with swipeable screen carousel.
+**Two test tiers are automated and CI-gated** — `node --test` for logic (`tests/**/*.test.js`) and Vitest/jsdom for UI (`src/**/*.spec.{js,jsx}`), with coverage floors enforced by `.github/workflows/ci.yml` (`verify` + `ios` jobs; `npm run lint:ci` downgrades the two pre-existing advisory rules to warnings). Still do manual UI checks for visual/interaction changes. No router — single-page app with swipeable screen carousel.
 
 **Vite 8 / Rolldown note:** `build.rollupOptions.output.manualChunks` must be a function. The old object-map form throws `manualChunks is not a function` and prevents `dist/index.html` from being emitted, which breaks Capacitor sync.
 
@@ -40,7 +42,7 @@ React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor 
 ```
 main.jsx
   └─ App.jsx (theme management, store hydration gate)
-      └─ EnergyMapCalculator.jsx (4,100+ lines — THE orchestrator)
+      └─ EnergyMapCalculator.jsx (4,675 lines — THE orchestrator)
             ├─ 5-screen carousel (useSwipeableScreens)
             │   ├─ LogbookScreen
             │   ├─ TrackerScreen
@@ -48,8 +50,8 @@ main.jsx
             │   ├─ CalorieMapScreen
             │   └─ InsightsScreen
             ├─ PhaseDetailScreen (drill-down, not in carousel)
-                └─ 44 top-level useAnimatedModal instances → 59 modal-related files (54 modals + 5 panels)
-                 └─ ~21 additional child-level modals inside modal components
+                └─ 48 top-level useAnimatedModal instances → 65 modal-related files (59 modals + 6 panels)
+                 └─ 25 additional child-level modal instances inside modal components
 ```
 
 ### Data Flow
@@ -65,7 +67,7 @@ User action → Store action (updateUserData) → deriveState() recalculates (wi
 
 ### Key Architectural Decisions
 
-1. **Single orchestrator file (`EnergyMapCalculator.jsx`)** owns all modal lifecycle state, temporary form drafts, and screen navigation. At 4,100+ lines, it's deliberately centralized — not a candidate for splitting. New modals are instantiated here.
+1. **Single orchestrator file (`EnergyMapCalculator.jsx`)** owns all modal lifecycle state, temporary form drafts, and screen navigation. At 4,675 lines, it's deliberately centralized — not a candidate for splitting. New modals are instantiated here.
 
 2. **Derived state pattern:** The Zustand store's `deriveState()` owns canonical fields (`bmr`, `trainingCalories`, `totalCardioBurn`, sorted entries, resolved types). Hot-path caching is intentional (resolved type maps, sorted arrays, normalized phase state, phase view projection) and `updateUserData` short-circuits no-op mutations. Never duplicate these calculations — consume them from the store.
 
@@ -99,13 +101,13 @@ User action → Store action (updateUserData) → deriveState() recalculates (wi
 ```
 src/
 ├─ components/EnergyMap/
-│   ├─ EnergyMapCalculator.jsx   # THE orchestrator (4,100+ lines; lazy-loads heavy modals)
+│   ├─ EnergyMapCalculator.jsx   # THE orchestrator (4,675 lines; lazy-loads heavy modals)
 │   ├─ common/
 │   │   ├─ ModalShell.jsx        # Core modal wrapper (singleton managers)
 │   │   ├─ FoodTagBadges.jsx     # Shared food tag/source badge renderer
 │   │   ├─ AppHeader.jsx         # Header zone (greeting, per-screen stat line, swipe dots, coach mark, settings gear)
 │   │   └─ ScreenTabs.jsx        # Fixed floating glass bottom tab bar (drag-linked active circle)
-│   ├─ modals/                   # 53 modal files in 6 subfolders + 5 fullscreen panel components
+│   ├─ modals/                   # 59 modal files in 6 subfolders + 6 fullscreen panel components
 │   │   ├─ fullscreen/           # Full-screen takeover modals (WeightTracker, BodyFatTracker, StepTracker, Settings, FoodSearch)
 │   │   ├─ pickers/              # Scroll-wheel value pickers (Age, Calendar, Height, MealType, etc.)
 │   │   ├─ info/                 # Read-only info/reference sheets (AdaptiveThermogenesisInfo, BmiInfo, BmrInfo, CalorieBreakdown, TefInfo, etc.)
@@ -296,7 +298,7 @@ npm run test:ui:coverage # UI-tier coverage (components + hooks + modalStack)
 - **Two platform helpers are covered beside their sources even though `src/utils/**` is otherwise the Node tier's job.** `src/utils/platform.spec.js` and `src/utils/theme.spec.js` live in the UI tier because driving them requires the Capacitor doubles (which only exist there); neither is in the UI coverage include list, so the tier's headline coverage stays meaningful. Pure-logic `src/utils/**` modules still belong in `tests/utils/*.test.js`.
 - UI-tier coverage scope is deliberately narrow: `src/components/**`, `src/hooks/**`, `src/utils/visuals/modalStack.js` and `src/services/barcodeScanner.js` (the plugin bridge this tier owns). The rest of `src/services/**` and all of `src/utils/**` remain the Node tier's job, so `npm run test:ui:coverage` stays meaningful. `hooks/useSwipeableScreens.js` is now reached indirectly (~47%) through the orchestrator's tab bar; its DOM drag/settle wiring is still not directly asserted, and its pure loop math belongs to `tests/utils/carouselLoop.test.js`.
 - **The orchestrator is covered by mounting it, not by extracting it.** `src/components/EnergyMap/EnergyMapCalculator.spec.jsx` mounts the real (4,600+ line) orchestrator against the real store, giving the hydration gate, all five carousel screens, tab→chrome wiring, store→screen propagation and a lazy `SettingsModal` open/close round trip. When adding to it: **scope text queries to the region under test** (`within(header)`) because screens render their own summary copy and a document-wide query silently matches the wrong element. Also note the store saves on a 1s debounce into a **module-scoped** Preferences double, so a previous test's pending save can be reloaded by the next `initialize()` — pin persisted flags explicitly (see `setSwipeHintSeen(...)` in that spec) instead of assuming a default.
-- **Full-browser E2E (Playwright) is deliberately deferred, not forgotten.** It was skipped because it needs selectors added across the orchestrator and 60 modal files (the app has zero `data-testid`/`aria-label`/`role` hooks today), a ~150 MB Chromium download, and it fights the swipe shell's rAF/compositor settles. Entry criteria: reach for it when a defect escapes that only a real browser would catch. What the integration tier cannot replace and Playwright would add: real layout/paint (carousel + tab-bar/dot geometry), IndexedDB persistence across a reload, and visual regression.
+- **Full-browser E2E (Playwright) is deliberately deferred, not forgotten.** It was skipped because it needs selectors added across the orchestrator and 59 modal files (the app has zero `data-testid`/`aria-label`/`role` hooks today), a ~150 MB Chromium download, and it fights the swipe shell's rAF/compositor settles. Entry criteria: reach for it when a defect escapes that only a real browser would catch. What the integration tier cannot replace and Playwright would add: real layout/paint (carousel + tab-bar/dot geometry), IndexedDB persistence across a reload, and visual regression.
 - **CI (`.github/workflows/ci.yml`) gates the release path with two jobs.** The `verify` job (ubuntu) runs, in this order: `npm ci` → `npm run lint:ci` → `npm run test:coverage` → `npm run test:ui` → `npm run build` → an inline assertion that `dist/index.html` plus the expected `chunk-*` vendor bundles exist → `npx cap copy android`. Every step was verified locally before being wired up, including the assertion's failure paths (missing `index.html`, missing chunk) and the coverage floors (an impossible floor exits 1). The `ios` job (macOS) runs `npm ci` → `npm run build` → `npx cap copy ios` → `xcodebuild -scheme App -sdk iphonesimulator -destination 'generic/platform=iOS Simulator'` with signing disabled; it proves the web bundle lands in the iOS project **and** that the Xcode project still compiles with every Capacitor plugin linked through SPM (the manifest references plugins by relative path into `node_modules`, so it also catches "plugin added to package.json but the iOS project was never re-synced"). Entitlements are deliberately not applied in that job, so HealthKit runtime access is out of its scope — it needs a signed build.
 - **`lint:ci` exists because the strict profile is red on pre-existing code.** `npm run lint` reports 37 errors: 36 × `react-hooks/set-state-in-effect` and 1 × `react-hooks/preserve-manual-memoization`, both enabled as errors by `eslint-plugin-react-hooks` v7's recommended preset, across the orchestrator plus 11 modal/screen files that sync state on prop change. `eslint.ci.config.js` downgrades only those two rules to warnings so the CI gate is meaningful on day one; `npm run lint` stays strict so the debt is visible locally and in editors. **Do not add new instances** — refactoring them is its own change with UI verification.
 - **Coverage floors are floors, not ratchets:** logic tier 75 lines / 63 branch / 75 funcs (measured 78.9/68.5/79.9) and UI tier 22/11/18 (measured 24.8/13.5/20.8). They are deliberately a few points below the measured values so adding an untested surface nudges rather than blocks CI. Raise them as coverage improves. Never use `cap sync` in CI: it runs Gradle and needs the Android SDK, while `cap copy` is what actually proves the web bundle lands in the native project (and its output is gitignored).

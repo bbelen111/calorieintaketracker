@@ -10,15 +10,15 @@ paths:
 ### Modal Count
 
 - **48 top-level `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
-- **~21 additional child-level modals** declared inside modal components (e.g., delete confirmations, sub-pickers)
-- **59 modal component files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`, plus 5 supporting panel components under `fullscreen/panels/`:
+- **25 additional child-level modal instances** declared inside modal components (e.g., delete confirmations, sub-pickers)
+- **59 modal component files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`, plus 6 supporting panel components under `fullscreen/panels/`:
   - `fullscreen/` — WeightTrackerModal, BodyFatTrackerModal, StepTrackerModal, SettingsModal, FoodSearchModal, AdaptiveThermogenesisModal, RollingEnergyBalanceModal
   - `pickers/` — AgePickerModal, CalendarPickerModal, **CaloriesPerHourPickerModal**, DatePickerModal, DurationPickerModal, EpocWindowPickerModal, FoodPortionModal, HeartRatePickerModal, HeightPickerModal, **MacroPickerModal**, MealTypePickerModal, MetValuePickerModal, **NumericValuePickerModal**, StepGoalPickerModal, TemplatePickerModal, TimePickerModal
   - `info/` — AdaptiveThermogenesisInfoModal, BmiInfoModal, BmrInfoModal, BodyFatTrendInfoModal, CalorieBreakdownModal, CaloriesPerHourGuideModal, DayLedgerModal, EpocInfoModal, FfmiInfoModal, TefInfoModal, WeightTrendInfoModal
   - `forms/` — AddCustomFoodModal, BarcodeEntryModal, BodyFatEntryModal, CardioModal, CustomCardioTypeModal, DailyActivityCustomModal, DailyActivityEditorModal, DailyActivityModal, DailyLogModal, **DailyNeatOverrideModal**, FoodEntryModal, GoalModal, PhaseCreationModal, TrainingModal, StepRangesModal, TrainingTypeEditorModal, WeightEntryModal
   - `lists/` — CardioFavouritesModal, CardioTypeListModal, CalorieTargetModal, DayLedgerListModal
   - `common/` — ConfirmActionModal
-- Total across codebase: ~69 modal hook instances (`useAnimatedModal`)
+- Total across codebase: 73 modal hook instances (`useAnimatedModal`)
 
 ### Adaptive Thermogenesis Frontend
 
