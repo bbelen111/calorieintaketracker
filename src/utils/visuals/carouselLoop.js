@@ -77,10 +77,14 @@ export const SLIDE_FADE_LEFT_VAR = '--slide-fade-left';
 export const SLIDE_FADE_RIGHT_VAR = '--slide-fade-right';
 
 // Drag-linked affordances (tab-bar circle, header dots) read the live carousel
-// position from these root variables. The shell also owns their *duration* so it
-// can let them follow the finger with no transition, glide them in lockstep with
-// the slides on a settle, and swap them instantly when a settle crosses the loop
-// seam (animating that jump would sweep the pill backwards across every tab).
+// position from these variables. The shell writes them onto the chrome elements
+// themselves (registered sinks — see utils/visuals/carouselDragVars.js), never
+// `:root`: an inherited custom property written on `:root` invalidates style for
+// the whole document on every write, and the shell writes the position on every
+// drag frame. The shell also owns their *duration* so it can let them follow the
+// finger with no transition, glide them in lockstep with the slides on a settle,
+// and swap them instantly when a settle crosses the loop seam (animating that
+// jump would sweep the pill backwards across every tab).
 export const SCREEN_DRAG_PROGRESS_VAR = '--screen-drag-progress';
 export const SCREEN_DRAG_DURATION_VAR = '--screen-drag-duration';
 export const SCREEN_DRAG_DURATION_ANIMATED = `${CAROUSEL_SETTLE_MS}ms`;

@@ -39,6 +39,18 @@ Helper surface:
 
 Return semantics are intentionally boolean-oriented for save helpers (`true`/`false`) so callers can handle non-throw failures.
 
+### Incremental Persistence (identity diffing)
+
+The save path is **O(changed), never O(entire history)**. This is what keeps the app responsive as data accumulates: the old path `JSON.stringify`-ed every history field and rebuilt every shard on each debounced save, so one logged food re-serialized the whole nutrition log and every snapshot. It got slower the more you logged.
+
+- History fields are replaced **immutably** by the store, so `storage.js` tracks a per-field value **reference** (`lastSavedHistoryRefByField`). A field whose reference is unchanged is skipped entirely — no normalization, no shard build, no serialization.
+- Sharded fields diff **per shard** via `SHARDED_HISTORY_FIELD_CONFIG[field].shardEntries(value)` → `{ key, source, sourceRef, order }` (no payload allocation). A shard is rewritten only when its `sourceRef` or `order` moved, and is then compared structurally (`areShardPayloadsEqual`) so a rebuilt-but-identical payload (e.g. `normalizePhaseLogV2State` re-creating objects) is not rewritten.
+- Deletes are the shards present in the previous identity map but absent now; an `__order` shift only rewrites the affected tail.
+- `primePersistenceBaseline(userData)` records the loaded state as already-persisted (after `mergeWithDefaults`) so the first save after launch writes only what the user actually changes. `sanitizeHistoryForPersistence` is now **load-only**; `cachedFoods` normalization happens lazily inside its shard config.
+- `resetPersistenceTracking()` clears the baselines — call it after any wholesale data replacement (import/reset).
+- `diffShardedHistoryField(fieldName, prev, next)` is the pure test seam; `getPersistenceFootprint()` reports tracked shard counts for diagnostics.
+- **Do not** reintroduce whole-field or per-shard `JSON.stringify` diffing, and **never** mutate a history field in place — the identity diff depends on immutable replacement.
+
 ### Data Integrity Helpers
 
 | Utility | Module | Purpose |
@@ -287,3 +299,5 @@ Always returns `'unavailable'` on **web** (and on any native platform that owns 
 17. **Rate-limit queueing is intentional:** `429` handling uses serialized backoff queue semantics; preserve this when adjusting retry logic.
 18. **OpenRouter proxy hardening is config-sensitive:** keep `ALLOWED_ORIGINS` and the Upstash rate-limit env vars configured in deployment (`UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`, `OPENROUTER_RATE_LIMIT_MAX_REQUESTS=15`, `OPENROUTER_RATE_LIMIT_FAIL_CLOSED=true`); mismatched env config silently alters CORS/throttling behavior across environments, and missing Upstash credentials disable the limiter outright, leaving the paid LLM endpoint open.
 19. **Daily NEAT overrides persist via sharded history, not profile:** `dailyNeatOverrides` lives in the Dexie history split (`HISTORY_FIELDS`) with per-date sharding (`dailyNeatOverrides:YYYY-MM-DD`) so only changed days are written. Add/remove any change to this field via the store action `setDailyNeatOverride(...)`; on load, `mergeWithDefaults()` drops invalid date keys and clamps multipliers. Do not reintroduce a profile or Preferences fallback for this data.
+20. **History saves are incremental (identity-diffed) — keep them that way:** `saveEnergyMapData` gates each history field on its **object reference** and each shard on `(sourceRef, order)`, so an unchanged field costs O(1) and a single-day edit writes exactly one shard. Never reintroduce `JSON.stringify` diffing over whole fields/shards, never mutate history arrays/objects in place (the diff relies on immutable replacement), and call `resetPersistenceTracking()` after an import/reset (a wholesale replacement that reference identity cannot describe). `sanitizeHistoryForPersistence` is load-only; `cachedFoods` normalization lives in its shard config.
+

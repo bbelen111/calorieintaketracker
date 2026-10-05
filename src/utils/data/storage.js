@@ -105,7 +105,7 @@ const buildPhaseLogV2Indexes = (phaseLogV2State) => {
 const SHARDED_HISTORY_FIELD_CONFIG = {
   nutritionData: {
     prefix: 'nutritionData:',
-    toDocuments: (value) => {
+    shardEntries: (value) => {
       if (!value || typeof value !== 'object') {
         return [];
       }
@@ -114,9 +114,13 @@ const SHARDED_HISTORY_FIELD_CONFIG = {
         .filter(([date]) => typeof date === 'string' && date.trim().length > 0)
         .map(([date, meals]) => ({
           key: date,
-          payload: meals && typeof meals === 'object' ? meals : {},
+          source: meals,
+          sourceRef: meals,
+          order: 0,
         }));
     },
+    toPayload: ({ source }) =>
+      source && typeof source === 'object' ? source : {},
     fromDocuments: (documents) => {
       const next = {};
       documents.forEach(({ key, payload }) => {
@@ -128,7 +132,7 @@ const SHARDED_HISTORY_FIELD_CONFIG = {
   },
   weightEntries: {
     prefix: 'weightEntries:',
-    toDocuments: (value) => {
+    shardEntries: (value) => {
       if (!Array.isArray(value)) {
         return [];
       }
@@ -141,16 +145,14 @@ const SHARDED_HISTORY_FIELD_CONFIG = {
             return null;
           }
 
-          return {
-            key: dateKey,
-            payload: {
-              date: dateKey,
-              weight: weightValue,
-            },
-          };
+          return { key: dateKey, source: entry, sourceRef: entry, order: 0 };
         })
         .filter(Boolean);
     },
+    toPayload: ({ key, source }) => ({
+      date: key,
+      weight: Number(source?.weight),
+    }),
     fromDocuments: (documents) =>
       documents
         .map(({ payload }) => payload)
@@ -160,7 +162,7 @@ const SHARDED_HISTORY_FIELD_CONFIG = {
   },
   bodyFatEntries: {
     prefix: 'bodyFatEntries:',
-    toDocuments: (value) => {
+    shardEntries: (value) => {
       if (!Array.isArray(value)) {
         return [];
       }
@@ -173,16 +175,14 @@ const SHARDED_HISTORY_FIELD_CONFIG = {
             return null;
           }
 
-          return {
-            key: dateKey,
-            payload: {
-              date: dateKey,
-              bodyFat: bodyFatValue,
-            },
-          };
+          return { key: dateKey, source: entry, sourceRef: entry, order: 0 };
         })
         .filter(Boolean);
     },
+    toPayload: ({ key, source }) => ({
+      date: key,
+      bodyFat: clampBodyFat(source?.bodyFat),
+    }),
     fromDocuments: (documents) =>
       documents
         .map(({ payload }) => payload)
@@ -194,7 +194,7 @@ const SHARDED_HISTORY_FIELD_CONFIG = {
   },
   stepEntries: {
     prefix: 'stepEntries:',
-    toDocuments: (value) => {
+    shardEntries: (value) => {
       if (!Array.isArray(value)) {
         return [];
       }
@@ -207,17 +207,15 @@ const SHARDED_HISTORY_FIELD_CONFIG = {
             return null;
           }
 
-          return {
-            key: dateKey,
-            payload: {
-              date: dateKey,
-              steps: Math.round(numericSteps),
-              source: entry?.source ?? 'manual',
-            },
-          };
+          return { key: dateKey, source: entry, sourceRef: entry, order: 0 };
         })
         .filter(Boolean);
     },
+    toPayload: ({ key, source }) => ({
+      date: key,
+      steps: Math.round(Number(source?.steps)),
+      source: source?.source ?? 'manual',
+    }),
     fromDocuments: (documents) =>
       documents
         .map(({ payload }) => payload)
@@ -230,7 +228,7 @@ const SHARDED_HISTORY_FIELD_CONFIG = {
   },
   cardioSessions: {
     prefix: 'cardioSessions:',
-    toDocuments: (value) => {
+    shardEntries: (value) => {
       if (!Array.isArray(value)) {
         return [];
       }
@@ -246,15 +244,18 @@ const SHARDED_HISTORY_FIELD_CONFIG = {
 
           return {
             key: sessionId,
-            payload: {
-              ...session,
-              id: sessionId,
-              __order: index,
-            },
+            source: session,
+            sourceRef: session,
+            order: index,
           };
         })
         .filter(Boolean);
     },
+    toPayload: ({ key, source, order }) => ({
+      ...source,
+      id: key,
+      __order: order,
+    }),
     fromDocuments: (documents) =>
       documents
         .map(({ payload }) => payload)
@@ -268,7 +269,7 @@ const SHARDED_HISTORY_FIELD_CONFIG = {
   },
   trainingSessions: {
     prefix: 'trainingSessions:',
-    toDocuments: (value) => {
+    shardEntries: (value) => {
       if (!Array.isArray(value)) {
         return [];
       }
@@ -284,15 +285,18 @@ const SHARDED_HISTORY_FIELD_CONFIG = {
 
           return {
             key: sessionId,
-            payload: {
-              ...session,
-              id: sessionId,
-              __order: index,
-            },
+            source: session,
+            sourceRef: session,
+            order: index,
           };
         })
         .filter(Boolean);
     },
+    toPayload: ({ key, source, order }) => ({
+      ...source,
+      id: key,
+      __order: order,
+    }),
     fromDocuments: (documents) =>
       documents
         .map(({ payload }) => payload)
@@ -306,7 +310,7 @@ const SHARDED_HISTORY_FIELD_CONFIG = {
   },
   cachedFoods: {
     prefix: 'cachedFoods:',
-    toDocuments: (value) => {
+    shardEntries: (value) => {
       const normalized = normalizeCachedFoodsForPersistence(value);
       if (!Array.isArray(normalized)) {
         return [];
@@ -315,13 +319,18 @@ const SHARDED_HISTORY_FIELD_CONFIG = {
       return normalized
         .map((entry, index) => ({
           key: getFoodCacheIdentity(entry, index),
-          payload: {
-            entry,
-            __order: index,
-          },
+          source: entry,
+          sourceRef: entry,
+          order: index,
         }))
-        .filter((doc) => typeof doc.key === 'string' && doc.key.length > 0);
+        .filter(
+          (entry) => typeof entry.key === 'string' && entry.key.length > 0
+        );
     },
+    toPayload: ({ source, order }) => ({
+      entry: source,
+      __order: order,
+    }),
     fromDocuments: (documents) =>
       documents
         .map(({ payload }) => payload)
@@ -332,35 +341,46 @@ const SHARDED_HISTORY_FIELD_CONFIG = {
   },
   phaseLogV2: {
     prefix: 'phaseLogV2:',
-    toDocuments: (value) => {
+    // `normalizePhaseLogV2State` rebuilds fresh phase/log objects on every call,
+    // so a moved reference does not prove the content changed — this is the one
+    // field that keeps the previous payload to compare against. Every other field
+    // relies on reference equality alone (see buildShardedFieldDiff), which is
+    // what keeps the persistence layer from retaining a second copy of history.
+    needsStructuralCompare: true,
+    shardEntries: (value) => {
       const normalized = normalizePhaseLogV2State(value);
-      const documents = [
-        {
-          key: 'meta',
-          payload: {
-            version: normalized.version,
-            phaseOrder: normalized.phaseOrder,
-            activePhaseId: normalized.activePhaseId,
-          },
-        },
+      const entries = [
+        { key: 'meta', source: normalized, sourceRef: normalized, order: 0 },
       ];
 
       Object.entries(normalized.phasesById).forEach(([phaseId, phase]) => {
-        documents.push({
+        entries.push({
           key: `phase:${phaseId}`,
-          payload: phase,
+          source: phase,
+          sourceRef: phase,
+          order: 0,
         });
       });
 
       Object.entries(normalized.logsById).forEach(([logId, log]) => {
-        documents.push({
+        entries.push({
           key: `log:${logId}`,
-          payload: log,
+          source: log,
+          sourceRef: log,
+          order: 0,
         });
       });
 
-      return documents;
+      return entries;
     },
+    toPayload: ({ key, source }) =>
+      key === 'meta'
+        ? {
+            version: source.version,
+            phaseOrder: source.phaseOrder,
+            activePhaseId: source.activePhaseId,
+          }
+        : source,
     fromDocuments: (documents) => {
       const phasesById = {};
       const logsById = {};
@@ -418,7 +438,7 @@ const SHARDED_HISTORY_FIELD_CONFIG = {
   },
   dailySnapshots: {
     prefix: 'dailySnapshots:',
-    toDocuments: (value) => {
+    shardEntries: (value) => {
       if (!value || typeof value !== 'object') {
         return [];
       }
@@ -432,14 +452,14 @@ const SHARDED_HISTORY_FIELD_CONFIG = {
 
           return {
             key: normalizedDateKey,
-            payload: {
-              ...snapshot,
-              date: normalizedDateKey,
-            },
+            source: snapshot,
+            sourceRef: snapshot,
+            order: 0,
           };
         })
         .filter(Boolean);
     },
+    toPayload: ({ key, source }) => ({ ...source, date: key }),
     fromDocuments: (documents) => {
       const next = {};
 
@@ -460,7 +480,7 @@ const SHARDED_HISTORY_FIELD_CONFIG = {
   },
   dailyNeatOverrides: {
     prefix: 'dailyNeatOverrides:',
-    toDocuments: (value) => {
+    shardEntries: (value) => {
       if (!value || typeof value !== 'object') {
         return [];
       }
@@ -479,11 +499,14 @@ const SHARDED_HISTORY_FIELD_CONFIG = {
 
           return {
             key: normalizedDateKey,
-            payload: override,
+            source: override,
+            sourceRef: override,
+            order: 0,
           };
         })
         .filter(Boolean);
     },
+    toPayload: ({ source }) => source,
     fromDocuments: (documents) => {
       const next = {};
 
@@ -530,9 +553,13 @@ const FOOD_SEARCH_DEFAULT_ENTRIES = new Set([
   'barcode',
 ]);
 let lastSavedProfileSerialized = null;
-let lastSavedHistorySerializedByField = new Map();
-let lastSavedShardedDocIdsByField = new Map();
-let lastSavedShardedDocSerializedByField = new Map();
+// Identity-based persistence baselines. History fields are replaced immutably
+// by the store, so a field only needs work when its reference moves, and a
+// shard only needs re-reading when its own source reference / order moves.
+// This replaces whole-field + whole-shard `JSON.stringify` diffing, which was
+// O(entire history) on every debounced save (the data-scale lag).
+let lastSavedHistoryRefByField = new Map();
+let lastSavedShardIdentityByField = new Map();
 
 const parseJsonOrEmpty = (value) => {
   if (!value) {
@@ -674,9 +701,6 @@ export const reconstructHistoryFromDexieDocuments = (documents = []) => {
   const shardDocIdsByField = new Map(
     SHARDED_HISTORY_FIELDS.map((field) => [field, new Set()])
   );
-  const shardDocSerializedByField = new Map(
-    SHARDED_HISTORY_FIELDS.map((field) => [field, new Map()])
-  );
 
   documents.forEach((document) => {
     const documentId = document?.id;
@@ -700,9 +724,6 @@ export const reconstructHistoryFromDexieDocuments = (documents = []) => {
       payload: document.payload,
     });
     shardDocIdsByField.get(fieldName)?.add(documentId);
-    shardDocSerializedByField
-      .get(fieldName)
-      ?.set(documentId, JSON.stringify(document.payload));
   });
 
   SHARDED_HISTORY_FIELDS.forEach((fieldName) => {
@@ -719,66 +740,128 @@ export const reconstructHistoryFromDexieDocuments = (documents = []) => {
     historyData,
     hasAnyHistory: Array.isArray(documents) && documents.length > 0,
     shardDocIdsByField,
-    shardDocSerializedByField,
   };
 };
 
-const getShardedFieldDocuments = (fieldName, fieldValue) => {
-  const config = SHARDED_HISTORY_FIELD_CONFIG[fieldName];
-  if (!config) {
-    return [];
+/**
+ * Structural fallback for the rare case where a shard's source reference moved
+ * but its payload is byte-identical (e.g. `normalizePhaseLogV2State` rebuilds
+ * fresh objects on every call). Reference equality is checked first, so this
+ * only ever runs for shards whose reference actually changed.
+ */
+const areShardPayloadsEqual = (previousPayload, nextPayload) => {
+  if (previousPayload === nextPayload) {
+    return true;
   }
+  if (previousPayload == null || nextPayload == null) {
+    return false;
+  }
+  try {
+    return JSON.stringify(previousPayload) === JSON.stringify(nextPayload);
+  } catch {
+    return false;
+  }
+};
 
-  return config.toDocuments(fieldValue).map(({ key, payload }) => ({
-    id: buildShardedDocumentId(config.prefix, key),
-    payload,
-  }));
+/**
+ * Build the identity record for one shard. Only fields flagged
+ * `needsStructuralCompare` retain the payload (for a later structural compare).
+ * Everything else keeps just its source reference + order, so the persistence
+ * layer never holds a second in-memory copy of the history.
+ */
+const buildIdentityEntry = (config, entry) => ({
+  sourceRef: entry.sourceRef,
+  order: entry.order,
+  payload: config.needsStructuralCompare ? config.toPayload(entry) : undefined,
+});
+
+/**
+ * Diff one sharded field against its last-persisted identity map, returning
+ * only the documents that must be written or deleted. Unchanged shards are
+ * skipped by reference equality (no payload build, no serialization), which is
+ * what keeps a save O(changed) instead of O(entire history).
+ */
+const buildShardedFieldDiff = (config, previousIdentityMap, fieldValue) => {
+  const entries = config.shardEntries(fieldValue);
+  const nextIdentityMap = new Map();
+  const documents = [];
+
+  entries.forEach((entry) => {
+    const id = buildShardedDocumentId(config.prefix, entry.key);
+    const previous = previousIdentityMap.get(id);
+
+    const referenceChanged =
+      !previous ||
+      previous.sourceRef !== entry.sourceRef ||
+      previous.order !== entry.order;
+
+    if (!referenceChanged) {
+      // Reuse the previous identity object: no allocation, no payload rebuild.
+      nextIdentityMap.set(id, previous);
+      return;
+    }
+
+    const payload = config.toPayload(entry);
+
+    if (config.needsStructuralCompare) {
+      // A structural rebuild can re-create identical content, so keep the
+      // payload to compare against next time (bounded: phases + daily logs).
+      nextIdentityMap.set(id, {
+        sourceRef: entry.sourceRef,
+        order: entry.order,
+        payload,
+      });
+      if (!previous || !areShardPayloadsEqual(previous.payload, payload)) {
+        documents.push({ id, payload });
+      }
+      return;
+    }
+
+    // Reference/order equality is authoritative for the immutable store fields,
+    // so a moved reference IS a content change. Retain only the reference so the
+    // identity map stays O(shards) rather than a second copy of the history.
+    nextIdentityMap.set(id, {
+      sourceRef: entry.sourceRef,
+      order: entry.order,
+      payload: undefined,
+    });
+    documents.push({ id, payload });
+  });
+
+  const deletes = [];
+  previousIdentityMap.forEach((_identity, id) => {
+    if (!nextIdentityMap.has(id)) {
+      deletes.push(id);
+    }
+  });
+
+  return { documents, deletes, nextIdentityMap };
 };
 
 const saveHistoryToDexieWithSharding = async (changedHistoryData = {}) => {
   const standardHistoryUpdates = {};
   const shardedDocsToSave = [];
   const shardedDocIdsToDelete = [];
-  const nextShardedDocIdsByField = new Map();
-  const nextShardedDocSerializedByField = new Map();
+  const nextShardIdentityByField = new Map();
 
   Object.entries(changedHistoryData).forEach(([fieldName, fieldValue]) => {
-    if (!SHARDED_HISTORY_FIELD_CONFIG[fieldName]) {
+    const config = SHARDED_HISTORY_FIELD_CONFIG[fieldName];
+    if (!config) {
       standardHistoryUpdates[fieldName] = fieldValue;
       return;
     }
 
-    const documents = getShardedFieldDocuments(fieldName, fieldValue);
-    const nextDocIds = new Set(documents.map((document) => document.id));
-    const nextDocSerializedMap = new Map(
-      documents.map((document) => [
-        document.id,
-        JSON.stringify(document.payload),
-      ])
+    const previousIdentityMap =
+      lastSavedShardIdentityByField.get(fieldName) ?? new Map();
+    const { documents, deletes, nextIdentityMap } = buildShardedFieldDiff(
+      config,
+      previousIdentityMap,
+      fieldValue
     );
 
-    const previousDocSerializedMap =
-      lastSavedShardedDocSerializedByField.get(fieldName) ?? new Map();
-
-    documents.forEach((document) => {
-      const nextSerialized = nextDocSerializedMap.get(document.id);
-      const previousSerialized = previousDocSerializedMap.get(document.id);
-      if (nextSerialized !== previousSerialized) {
-        shardedDocsToSave.push(document);
-      }
-    });
-
-    const previousDocIds =
-      lastSavedShardedDocIdsByField.get(fieldName) ?? new Set();
-
-    previousDocIds.forEach((previousDocId) => {
-      if (!nextDocIds.has(previousDocId)) {
-        shardedDocIdsToDelete.push(previousDocId);
-      }
-    });
-
-    nextShardedDocIdsByField.set(fieldName, nextDocIds);
-    nextShardedDocSerializedByField.set(fieldName, nextDocSerializedMap);
+    documents.forEach((document) => shardedDocsToSave.push(document));
+    deletes.forEach((id) => shardedDocIdsToDelete.push(id));
+    nextShardIdentityByField.set(fieldName, nextIdentityMap);
   });
 
   const writeOperations = [];
@@ -795,6 +878,12 @@ const saveHistoryToDexieWithSharding = async (changedHistoryData = {}) => {
   }
 
   if (writeOperations.length === 0) {
+    // Field references moved but nothing actually changed on disk (e.g. a
+    // structural rebuild produced identical payloads). Advance the baselines so
+    // the next save skips them too.
+    nextShardIdentityByField.forEach((identityMap, fieldName) => {
+      lastSavedShardIdentityByField.set(fieldName, identityMap);
+    });
     return true;
   }
 
@@ -802,11 +891,8 @@ const saveHistoryToDexieWithSharding = async (changedHistoryData = {}) => {
   const didSucceed = writeResults.every((result) => result === true);
 
   if (didSucceed) {
-    nextShardedDocIdsByField.forEach((docIds, fieldName) => {
-      lastSavedShardedDocIdsByField.set(fieldName, docIds);
-    });
-    nextShardedDocSerializedByField.forEach((docSerialized, fieldName) => {
-      lastSavedShardedDocSerializedByField.set(fieldName, docSerialized);
+    nextShardIdentityByField.forEach((identityMap, fieldName) => {
+      lastSavedShardIdentityByField.set(fieldName, identityMap);
     });
   }
 
@@ -962,28 +1048,117 @@ const sanitizeHistoryForPersistence = (historyData) => ({
   cachedFoods: normalizeCachedFoodsForPersistence(historyData.cachedFoods),
 });
 
-const createHistorySerializedMap = (historyData) => {
-  const serializedByField = new Map();
-  Object.entries(historyData).forEach(([field, payload]) => {
-    serializedByField.set(field, JSON.stringify(payload));
-  });
-  return serializedByField;
+/**
+ * Establish the persistence baselines from an in-memory `userData` object
+ * WITHOUT writing anything. Used after a load (or import) so the first save
+ * only touches what the user actually changes. The app's normalization is
+ * deterministic and re-applied on every load, so a normalization-only
+ * difference between the in-memory value and what is recorded on disk is
+ * harmless until that field is next edited (then the shard diff writes it).
+ */
+export const primePersistenceBaseline = (userData) => {
+  lastSavedHistoryRefByField = new Map();
+  lastSavedShardIdentityByField = new Map();
+
+  Object.entries(SHARDED_HISTORY_FIELD_CONFIG).forEach(
+    ([fieldName, config]) => {
+      const fieldValue = userData?.[fieldName];
+      lastSavedHistoryRefByField.set(fieldName, fieldValue);
+
+      const identityMap = new Map();
+      config.shardEntries(fieldValue).forEach((entry) => {
+        identityMap.set(
+          buildShardedDocumentId(config.prefix, entry.key),
+          buildIdentityEntry(config, entry)
+        );
+      });
+      lastSavedShardIdentityByField.set(fieldName, identityMap);
+    }
+  );
 };
 
-const getChangedHistoryData = (historyData) => {
-  const changedHistoryData = {};
-  const serializedByField = createHistorySerializedMap(historyData);
+/**
+ * Pure, side-effect-free shard diff for a single history field. Used by tests
+ * to assert the incremental contract (a no-op produces no documents; a
+ * single-day edit produces exactly one document) without touching Dexie.
+ */
+export const diffShardedHistoryField = (
+  fieldName,
+  previousFieldValue,
+  nextFieldValue
+) => {
+  const config = SHARDED_HISTORY_FIELD_CONFIG[fieldName];
+  if (!config) {
+    return { documents: [], deletes: [] };
+  }
 
-  serializedByField.forEach((serialized, field) => {
-    if (lastSavedHistorySerializedByField.get(field) !== serialized) {
-      changedHistoryData[field] = historyData[field];
-    }
+  const previousIdentityMap = new Map();
+  config.shardEntries(previousFieldValue).forEach((entry) => {
+    previousIdentityMap.set(
+      buildShardedDocumentId(config.prefix, entry.key),
+      buildIdentityEntry(config, entry)
+    );
+  });
+
+  const { documents, deletes } = buildShardedFieldDiff(
+    config,
+    previousIdentityMap,
+    nextFieldValue
+  );
+
+  return { documents, deletes };
+};
+
+/**
+ * Drop every persistence baseline so the next save rewrites the full history.
+ * Call this after an import or a data reset, where a wholesale replacement
+ * means reference identity can no longer describe what changed.
+ */
+export const resetPersistenceTracking = () => {
+  lastSavedProfileSerialized = null;
+  lastSavedHistoryRefByField = new Map();
+  lastSavedShardIdentityByField = new Map();
+};
+
+/**
+ * Cheap diagnostic describing what the identity-diff layer is currently
+ * tracking. Used to verify the incremental save path scales: the tracked shard
+ * count should equal the number of real history documents, not the number of
+ * entries, and should not grow per save.
+ */
+export const getPersistenceFootprint = () => {
+  const shardsByField = {};
+  let totalTrackedShards = 0;
+
+  lastSavedShardIdentityByField.forEach((identityMap, fieldName) => {
+    shardsByField[fieldName] = identityMap.size;
+    totalTrackedShards += identityMap.size;
   });
 
   return {
-    changedHistoryData,
-    serializedByField,
+    trackedFields: lastSavedHistoryRefByField.size,
+    totalTrackedShards,
+    shardsByField,
   };
+};
+
+/**
+ * Identity gate: a history field only needs work when its object reference
+ * moved. The store replaces history fields immutably, so an unchanged field
+ * can never have a changed payload — letting us skip it entirely (no
+ * normalization, no shard build, no serialization). This is what turns a save
+ * from O(entire history) into O(changed fields).
+ */
+const collectChangedHistoryFields = (historyData) => {
+  const changedHistoryData = {};
+
+  Object.entries(historyData).forEach(([field, value]) => {
+    if (lastSavedHistoryRefByField.get(field) !== value) {
+      changedHistoryData[field] = value;
+    }
+  });
+
+  return changedHistoryData;
 };
 
 export const loadEnergyMapData = async () => {
@@ -1008,24 +1183,29 @@ export const loadEnergyMapData = async () => {
     );
     let historyData = { ...(dexieResult.historyData ?? {}) };
 
-    lastSavedShardedDocIdsByField = dexieResult.shardDocIdsByField ?? new Map();
-    lastSavedShardedDocSerializedByField =
-      dexieResult.shardDocSerializedByField ?? new Map();
-
     historyData = sanitizeHistoryForPersistence(historyData);
 
     if (
       Object.keys(profileData).length === 0 &&
       Object.keys(historyData).length === 0
     ) {
-      return getDefaultEnergyMapData();
+      const defaults = getDefaultEnergyMapData();
+      primePersistenceBaseline(defaults);
+      return defaults;
     }
 
     // 4. Merge everything into in-memory shape
-    return mergeWithDefaults({
+    const merged = mergeWithDefaults({
       ...profileData,
       ...historyData,
     });
+
+    // Record the loaded state as already-persisted so the first save after
+    // launch only writes what the user actually changes (see the identity-diff
+    // contract on `lastSavedHistoryRefByField`).
+    primePersistenceBaseline(merged);
+
+    return merged;
   } catch (error) {
     console.warn('Failed to load energy map data from storage', error);
     return getDefaultEnergyMapData();
@@ -1046,11 +1226,8 @@ export const saveEnergyMapData = async (data) => {
       }
     });
 
-    const normalizedHistoryData = sanitizeHistoryForPersistence(historyData);
     const profileSerialized = JSON.stringify(profileData);
-    const { changedHistoryData, serializedByField } = getChangedHistoryData(
-      normalizedHistoryData
-    );
+    const changedHistoryData = collectChangedHistoryFields(historyData);
     const hasProfileChanges = profileSerialized !== lastSavedProfileSerialized;
     const hasHistoryChanges = Object.keys(changedHistoryData).length > 0;
 
@@ -1090,7 +1267,9 @@ export const saveEnergyMapData = async (data) => {
       lastSavedProfileSerialized = profileSerialized;
     }
     if (historyWriteSucceeded) {
-      lastSavedHistorySerializedByField = serializedByField;
+      Object.keys(changedHistoryData).forEach((field) => {
+        lastSavedHistoryRefByField.set(field, historyData[field]);
+      });
     }
 
     const hasPersistenceRisk = rejected.length > 0 || hasExplicitFailureValue;

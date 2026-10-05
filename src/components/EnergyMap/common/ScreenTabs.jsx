@@ -1,5 +1,6 @@
 import React from 'react';
 import { useKeyboardVisible } from '../../../hooks/useKeyboardVisible';
+import { useCarouselDragVarSink } from '../../../hooks/useCarouselDragVarSink';
 import {
   RING_COPY_OFFSETS,
   SCREEN_DRAG_DURATION_VAR,
@@ -64,6 +65,11 @@ export const SCREEN_TABS_BOTTOM_CLEARANCE_PX =
  */
 export const ScreenTabs = ({ tabs, activeScreen, onSelect }) => {
   const { isKeyboardVisible } = useKeyboardVisible();
+  // The bar (and its descendants: the ring copies + the icon buttons' colour
+  // transitions) reads the live drag variables. They are written onto this
+  // element instead of `:root` so a drag frame only invalidates the bar's own
+  // subtree — see utils/visuals/carouselDragVars.js.
+  const dragVarSinkRef = useCarouselDragVarSink();
   const tabSharePercent = 100 / tabs.length;
 
   return (
@@ -88,6 +94,7 @@ export const ScreenTabs = ({ tabs, activeScreen, onSelect }) => {
         }}
       >
         <div
+          ref={dragVarSinkRef}
           className="relative flex items-stretch rounded-full border border-border/40 bg-surface/35 shadow-lg shadow-background/30 backdrop-blur-2xl"
           style={{ height: BAR_HEIGHT_PX }}
         >

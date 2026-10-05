@@ -13,6 +13,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { getNutritionTotalsForDate } from '../../../utils/phases/phases';
+import { useCarouselDragVarSink } from '../../../hooks/useCarouselDragVarSink';
 import {
   calculateWeightTrend,
   sortWeightEntries,
@@ -38,47 +39,55 @@ const getGreeting = (hour) => {
 const DOT_SIZE_PX = 6;
 const DOT_STEP_PX = 12; // 6px dot + 6px spacing
 
-const SwipeDots = ({ count, activeScreen }) => (
-  <div
-    className="relative overflow-hidden"
-    style={{
-      width: (count - 1) * DOT_STEP_PX + DOT_SIZE_PX,
-      height: DOT_SIZE_PX,
-    }}
-    aria-hidden="true"
-  >
-    {Array.from({ length: count }).map((_, index) => (
-      <span
-        key={index}
-        className="absolute rounded-full bg-muted/40"
-        style={{
-          width: DOT_SIZE_PX,
-          height: DOT_SIZE_PX,
-          left: index * DOT_STEP_PX,
-          top: 0,
-        }}
-      />
-    ))}
-    {/* Same ring trick as the tab-bar circle: three copies one track apart, so a
-        loop-seam crossing glides the moving dot off one end and the next copy in
-        at the other (clipped by this row) instead of snapping back. */}
-    {RING_COPY_OFFSETS.map((copy) => (
-      <span
-        key={copy}
-        className="absolute left-0 top-0 rounded-full bg-primary"
-        style={{
-          width: DOT_SIZE_PX,
-          height: DOT_SIZE_PX,
-          transform: `translateX(calc((var(${SCREEN_DRAG_PROGRESS_VAR}, ${activeScreen + 1}) - 1 + ${copy * count}) * ${DOT_STEP_PX}px))`,
-          // Duration is owned by the hook (0s while dragging or when a wrap
-          // normalizes, the settle duration otherwise) so the dot can never be
-          // re-targeted on every settle frame.
-          transition: `transform var(${SCREEN_DRAG_DURATION_VAR}, 0.35s) cubic-bezier(0.22, 1, 0.36, 1)`,
-        }}
-      />
-    ))}
-  </div>
-);
+const SwipeDots = ({ count, activeScreen }) => {
+  // The dots row (and its ring copies) reads the live drag variables; they are
+  // written onto this element instead of `:root` so a drag frame only invalidates
+  // this tiny subtree — see utils/visuals/carouselDragVars.js.
+  const dragVarSinkRef = useCarouselDragVarSink();
+
+  return (
+    <div
+      ref={dragVarSinkRef}
+      className="relative overflow-hidden"
+      style={{
+        width: (count - 1) * DOT_STEP_PX + DOT_SIZE_PX,
+        height: DOT_SIZE_PX,
+      }}
+      aria-hidden="true"
+    >
+      {Array.from({ length: count }).map((_, index) => (
+        <span
+          key={index}
+          className="absolute rounded-full bg-muted/40"
+          style={{
+            width: DOT_SIZE_PX,
+            height: DOT_SIZE_PX,
+            left: index * DOT_STEP_PX,
+            top: 0,
+          }}
+        />
+      ))}
+      {/* Same ring trick as the tab-bar circle: three copies one track apart, so a
+          loop-seam crossing glides the moving dot off one end and the next copy in
+          at the other (clipped by this row) instead of snapping back. */}
+      {RING_COPY_OFFSETS.map((copy) => (
+        <span
+          key={copy}
+          className="absolute left-0 top-0 rounded-full bg-primary"
+          style={{
+            width: DOT_SIZE_PX,
+            height: DOT_SIZE_PX,
+            transform: `translateX(calc((var(${SCREEN_DRAG_PROGRESS_VAR}, ${activeScreen + 1}) - 1 + ${copy * count}) * ${DOT_STEP_PX}px))`,
+            // Duration is owned by the hook (0s while dragging or when a wrap
+            // normalizes, the settle duration otherwise) so the dot can never be
+            // re-targeted on every settle frame.
+            transition: `transform var(${SCREEN_DRAG_DURATION_VAR}, 0.35s) cubic-bezier(0.22, 1, 0.36, 1)`,
+          }}
+        />
+      ))}
+    </div>
+  );
+};
 
 /**
  * Top header zone: ambient greeting/date context plus a per-screen glanceable

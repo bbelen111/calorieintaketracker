@@ -3,8 +3,6 @@ import {
   CAROUSEL_SETTLE_MS,
   SCREEN_DRAG_DURATION_ANIMATED,
   SCREEN_DRAG_DURATION_INSTANT,
-  SCREEN_DRAG_DURATION_VAR,
-  SCREEN_DRAG_PROGRESS_VAR,
   SCREEN_EDGE_PEEK_PX,
   SLIDE_FADE_LEFT_VAR,
   SLIDE_FADE_RIGHT_VAR,
@@ -20,6 +18,7 @@ import {
   resolveSlideFadeStrengths,
   resolveSlideOffsets,
 } from '../utils/visuals/carouselLoop';
+import { publishCarouselDragVars } from '../utils/visuals/carouselDragVars';
 
 // Re-exported for callers that key off the peek geometry (hard sync point with
 // `.carousel-slide` in index.css); the canonical definition lives in
@@ -148,15 +147,18 @@ export const useSwipeableScreens = (
     // see RING_COPY_OFFSETS), so a loop-seam crossing must be free to glide one
     // copy off the end of the track while the next enters from the other end.
     // Clamping here (and swapping at normalize) is what made a wrap jump.
+    //
+    // The variables are written onto the drag-linked chrome elements themselves
+    // (registered sinks), NOT `:root`: a `:root` custom-property write invalidates
+    // style for the whole document on every drag frame, so that was an O(all
+    // mounted DOM) recalc per frame. The shell also owns the affordances'
+    // transition duration so they follow the finger (0s), glide in lockstep with
+    // the slides on a settle, or jump instantly when a wrap normalizes — the ring
+    // copies land on byte-identical positions there, so that swap must not
+    // animate.
     const value = Number.isFinite(position) ? position : 1;
-    const root = document.documentElement.style;
-    root.setProperty(SCREEN_DRAG_PROGRESS_VAR, value.toFixed(4));
-    // The shell owns the affordances' transition duration so they follow the
-    // finger (0s), glide in lockstep with the slides on a settle, or jump
-    // instantly when a wrap normalizes — the ring copies land on byte-identical
-    // positions there, so that swap must not animate.
-    root.setProperty(
-      SCREEN_DRAG_DURATION_VAR,
+    publishCarouselDragVars(
+      value,
       animate ? SCREEN_DRAG_DURATION_ANIMATED : SCREEN_DRAG_DURATION_INSTANT
     );
   }, []);

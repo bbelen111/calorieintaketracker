@@ -11,6 +11,10 @@ import {
   SCREEN_DRAG_PROGRESS_VAR,
 } from '../../../utils/visuals/carouselLoop';
 import {
+  publishCarouselDragVars,
+  resetCarouselDragVars,
+} from '../../../utils/visuals/carouselDragVars';
+import {
   restoreKeyboardViewport,
   setKeyboardViewport,
 } from '../../../tests/helpers/keyboardViewport';
@@ -35,6 +39,7 @@ const renderTabs = (props = {}) =>
  */
 describe('ScreenTabs', () => {
   afterEach(() => {
+    resetCarouselDragVars();
     restoreKeyboardViewport();
   });
 
@@ -121,6 +126,26 @@ describe('ScreenTabs', () => {
         `var(${SCREEN_DRAG_DURATION_VAR}, 0.35s)`
       );
     });
+  });
+
+  it('receives the live drag variables on its own element, never :root', () => {
+    const { container } = renderTabs({ activeScreen: 2 });
+
+    // The tracker (ring copies) is the aria-hidden layer inside the bar; its
+    // parent is the bar element the sink is attached to.
+    const tracker = container.querySelector('[aria-hidden="true"]');
+    const bar = tracker.parentElement;
+
+    act(() => {
+      publishCarouselDragVars(2.5, '0s');
+    });
+
+    expect(bar.style.getPropertyValue(SCREEN_DRAG_PROGRESS_VAR)).toBe('2.5000');
+    expect(bar.style.getPropertyValue(SCREEN_DRAG_DURATION_VAR)).toBe('0s');
+    // The whole point of the sinks: nothing is written to the document root.
+    expect(
+      document.documentElement.style.getPropertyValue(SCREEN_DRAG_PROGRESS_VAR)
+    ).toBe('');
   });
 
   it('fades out of the way while the on-screen keyboard is visible', () => {

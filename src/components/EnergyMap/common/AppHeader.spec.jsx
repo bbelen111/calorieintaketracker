@@ -1,9 +1,17 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AppHeader } from './AppHeader';
+import {
+  publishCarouselDragVars,
+  resetCarouselDragVars,
+} from '../../../utils/visuals/carouselDragVars';
+import {
+  SCREEN_DRAG_DURATION_VAR,
+  SCREEN_DRAG_PROGRESS_VAR,
+} from '../../../utils/visuals/carouselLoop';
 
 const SCREEN_COUNT = 5;
 
@@ -31,6 +39,7 @@ const renderHeader = (props = {}) =>
  */
 describe('AppHeader', () => {
   afterEach(() => {
+    resetCarouselDragVars();
     vi.useRealTimers();
   });
 
@@ -204,6 +213,31 @@ describe('AppHeader', () => {
       expect(dots).toHaveStyle({ width: '54px', height: '6px' });
       // Static dots + the ring copies that track the live drag position.
       expect(dots.children).toHaveLength(SCREEN_COUNT + 3);
+    });
+
+    it('receives the live drag variables on the dots row, not :root', () => {
+      const { container } = renderHeader({ screenCount: SCREEN_COUNT });
+
+      const dots = Array.from(
+        container.querySelectorAll('div[aria-hidden="true"]')
+      ).find((node) => node.style.height === '6px');
+      expect(dots).toBeTruthy();
+
+      act(() => {
+        publishCarouselDragVars(3.25, '350ms');
+      });
+
+      expect(dots.style.getPropertyValue(SCREEN_DRAG_PROGRESS_VAR)).toBe(
+        '3.2500'
+      );
+      expect(dots.style.getPropertyValue(SCREEN_DRAG_DURATION_VAR)).toBe(
+        '350ms'
+      );
+      expect(
+        document.documentElement.style.getPropertyValue(
+          SCREEN_DRAG_PROGRESS_VAR
+        )
+      ).toBe('');
     });
   });
 });
