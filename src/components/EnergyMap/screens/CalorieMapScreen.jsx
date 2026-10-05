@@ -162,7 +162,7 @@ const LiveStepsCard = ({
     return (
       <div
         onClick={handleCardClick}
-        className="w-full bg-surface-highlight/60 rounded-2xl p-5 border border-border/50 mb-4 text-left md:hover:border-accent-blue/40 transition-all focus-ring cursor-pointer active:scale-[0.99]"
+        className="w-full bg-surface-highlight/60 rounded-2xl p-4 border border-border/50 mb-4 text-left md:hover:border-accent-blue/40 transition-all focus-ring cursor-pointer active:scale-[0.99]"
       >
         <div className="flex items-start justify-between mb-3">
           <div>
