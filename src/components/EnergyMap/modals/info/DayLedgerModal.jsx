@@ -38,7 +38,7 @@ const DAY_PILL_CLASS = {
 };
 
 const chipRow =
-  'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold border';
+  'inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-semibold border';
 
 // Canonical nutrient text colors (mirrors `NUTRIENT_META` color names) and the
 // app's canonical micro order — fiber is a nutrient here, never a macro.
@@ -244,8 +244,8 @@ export const DayLedgerModal = ({
             <BookOpen size={12} />
             Daily ledger
             {isToday && (
-              <span className="inline-flex items-center gap-1 px-2 py-px rounded-full text-[10px] font-semibold text-accent-green border border-accent-green/20 bg-accent-green/10">
-                <span className="w-1 h-1 rounded-full bg-accent-green animate-pulse" />
+              <span className="inline-flex items-center gap-1 px-2 py-px rounded-md text-[10px] font-semibold text-accent-green border border-accent-green/20 bg-accent-green/10">
+                <span className="w-1 h-1 bg-accent-green animate-pulse" />
                 In progress
               </span>
             )}
