@@ -1,8 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": null,
-  "buildCommand": "node -e \"const fs=require('fs');fs.mkdirSync('dist-empty',{recursive:true})\"",
-  "outputDirectory": "dist-empty",
   "routes": [
     {
       "src": "/api/(.*)",
