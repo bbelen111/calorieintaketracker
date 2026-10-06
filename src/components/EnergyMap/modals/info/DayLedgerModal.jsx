@@ -473,7 +473,7 @@ export const DayLedgerModal = ({
                   <div className="flex items-center gap-3 min-w-0">
                     <Percent
                       size={18}
-                      className="text-accent-purple flex-shrink-0"
+                      className="text-accent-blue flex-shrink-0"
                     />
                     <span className="text-foreground text-sm font-medium">
                       Body fat
@@ -525,7 +525,7 @@ export const DayLedgerModal = ({
                 <div className="flex items-center gap-3 min-w-0">
                   <Footprints
                     size={18}
-                    className="text-accent-green flex-shrink-0"
+                    className="text-accent-blue flex-shrink-0"
                   />
                   <span className="text-foreground text-sm font-medium">
                     Steps
@@ -548,10 +548,6 @@ export const DayLedgerModal = ({
                   <div className="flex flex-col gap-3">
                     {model.sessions.map((row) => {
                       const Icon = row.kind === 'cardio' ? Heart : Dumbbell;
-                      const iconClass =
-                        row.kind === 'cardio'
-                          ? 'text-accent-red'
-                          : 'text-accent-blue';
                       return (
                         <div
                           key={`${row.kind}-${row.id}`}
@@ -559,7 +555,7 @@ export const DayLedgerModal = ({
                         >
                           <Icon
                             size={18}
-                            className={`${iconClass} flex-shrink-0`}
+                            className="text-accent-blue flex-shrink-0"
                           />
                           <div className="min-w-0 flex-1">
                             <p className="text-foreground font-semibold text-sm truncate">
