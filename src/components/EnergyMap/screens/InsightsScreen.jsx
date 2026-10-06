@@ -104,7 +104,6 @@ function AdaptiveCorrectionCard({ result, mode, goalDurationDays, onOpen }) {
     const milestone = result?.details?.milestone;
     const windowDays = Number(result?.details?.windowDays) || 0;
     stats.push(
-      { label: 'Pressure', value: crudePressure },
       {
         label: 'Active stage',
         value: milestone
