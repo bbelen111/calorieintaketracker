@@ -242,4 +242,53 @@ describe('EnergyMapCalculator (orchestrator integration)', () => {
       expect(screen.queryByRole('button', { name: 'Back' })).toBeNull()
     );
   });
+
+  it("shows today's calories in the Home meal pill and opens the meal flow", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await hydrateStore();
+    await findTabBar();
+
+    // Home is the default screen. The pill is both the readout and the
+    // add-meal action, so one labelled button proves the whole wiring.
+    expect(
+      await screen.findByRole('heading', { name: 'Energy Map' })
+    ).toBeInTheDocument();
+    const mealPill = await screen.findByRole('button', {
+      name: /^Add meal, 0 of [\d,]+ kcal$/,
+    });
+    expect(mealPill).toHaveTextContent(/0 \/ [\d,]+ kcal/);
+
+    await user.click(mealPill);
+
+    // First step of the canonical flow: the meal-type picker.
+    expect(
+      await screen.findByRole('heading', { name: 'Meal Type' })
+    ).toBeInTheDocument();
+  });
+
+  it('drives the Home meal pill from the store', async () => {
+    renderApp();
+    await hydrateStore();
+    await findTabBar();
+
+    await waitFor(() => {
+      get().addFoodEntry(TODAY, 'lunch', {
+        id: 'home-pill-entry',
+        foodId: 'usda_171077',
+        name: 'Chicken breast, raw',
+        grams: 150,
+        calories: 500,
+        protein: 33.8,
+        carbs: 0,
+        fats: 3.9,
+        timestamp: Date.now(),
+      });
+    });
+
+    // Store mutation -> orchestrator props -> HomeScreen -> the pill's readout.
+    expect(
+      await screen.findByRole('button', { name: /^Add meal, 500 of/ })
+    ).toBeInTheDocument();
+  });
 });

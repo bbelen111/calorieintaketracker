@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Activity,
-  Settings,
   Edit3,
   ChevronRight,
   AlertCircle,
@@ -39,6 +38,7 @@ import {
   formatPanelDate,
   getOldDataWarningText,
 } from '../../../utils/visuals/trackerHelpers';
+import { CalorieProgressPill } from '../common/CalorieProgressPill';
 
 const GOAL_BORDER_CLASS_BY_BG = {
   'bg-accent-purple': 'border-accent-purple',
@@ -55,7 +55,7 @@ export const HomeScreen = ({
   isGoalLocked,
   goalLockPhaseName,
   onGoalClick,
-  onSettingsClick,
+  onLogFoodClick,
   onBodyFatClick,
   onWeightClick,
   bodyFatTrackingEnabled,
@@ -77,6 +77,7 @@ export const HomeScreen = ({
   bodyFatEntries,
   onOpenDailyActivityOverride,
   onOpenTodayBreakdown,
+  calorieTargetCalories,
 }) => {
   const store = useEnergyMapStore(
     (state) => ({
@@ -207,6 +208,16 @@ export const HomeScreen = ({
     todayStepCount > 0
       ? Math.round(calculateCaloriesFromSteps(todayStepCount, resolvedUserData))
       : 0;
+  // Today's logged nutrition, computed once and shared by the TEF context below
+  // and the hero's calorie pill, so the same day is never read twice.
+  const todayNutritionTotals = useMemo(
+    () =>
+      getNutritionTotalsForDate(
+        resolvedUserData?.nutritionData ?? {},
+        todayDateKey
+      ),
+    [resolvedUserData, todayDateKey]
+  );
   // Match the recorded daily snapshot / ledger: use this user's canonical TEF
   // mode (target for non-logging users) with the same goal-seeded refinement,
   // instead of passing no context (which silently drops TEF entirely and made
@@ -214,12 +225,9 @@ export const HomeScreen = ({
   const todayTefContext = useMemo(
     () =>
       buildDisplayTefContext(resolvedUserData, {
-        nutritionTotals: getNutritionTotalsForDate(
-          resolvedUserData?.nutritionData ?? {},
-          todayDateKey
-        ),
+        nutritionTotals: todayNutritionTotals,
       }),
-    [resolvedUserData, todayDateKey]
+    [resolvedUserData, todayNutritionTotals]
   );
   const todayBreakdown = store.calculateTargetForGoal(
     todayStepCount,
@@ -228,6 +236,16 @@ export const HomeScreen = ({
     { tefContext: todayTefContext, dateKey: todayDateKey }
   ).breakdown;
   const todayTdee = Math.round(Number(todayBreakdown?.total) || 0);
+
+  // Calories in, the mirror of the burn figure above: the hero pill reads this
+  // against the goal and doubles as the add-meal action (a tap target, not a
+  // read-only chip).
+  const todayIntakeCalories = Math.round(
+    Number(todayNutritionTotals?.calories) || 0
+  );
+  const todayCalorieTarget = Number.isFinite(Number(calorieTargetCalories))
+    ? Math.round(Number(calorieTargetCalories))
+    : null;
 
   const todayNeatOverride =
     resolvedUserData?.dailyNeatOverrides?.[todayDateKey] ?? null;
@@ -518,21 +536,21 @@ export const HomeScreen = ({
   return (
     <div className="space-y-6 pb-10">
       <div className="bg-surface rounded-2xl p-6 md:p-8 border border-border shadow-lg">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <Activity className="text-accent-blue" size={32} />
-            <h1 className="text-2xl md:text-3xl font-black text-foreground">
-              Your Energy Map
+            <h1 className="text-xl font-black text-foreground md:text-3xl">
+              Energy Map
             </h1>
           </div>
-          <button
-            onClick={onSettingsClick}
-            type="button"
-            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg transition-all press-feedback focus-ring md:hover:brightness-110"
-          >
-            <Settings size={20} />
-            <span className="hidden md:inline">Settings</span>
-          </button>
+          {/* The header gear already owns Settings from every screen, so this
+              action slot carries the one core job Home could not do: logging
+              today's food — plus the day's progress at a glance. */}
+          <CalorieProgressPill
+            consumed={todayIntakeCalories}
+            goal={todayCalorieTarget}
+            onPress={onLogFoodClick}
+          />
         </div>
         <div className="grid grid-cols-2 gap-3">
           {/* ── Compact Weight widget ── */}

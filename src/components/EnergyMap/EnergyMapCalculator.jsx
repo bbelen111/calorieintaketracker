@@ -75,12 +75,7 @@ import { NumericValuePickerModal } from './modals/pickers/NumericValuePickerModa
 import { CalorieTargetModal } from './modals/lists/CalorieTargetModal';
 // ...existing code...
 import { ConfirmActionModal } from './modals/common/ConfirmActionModal';
-import {
-  clampWeight,
-  normalizeDateKey,
-  formatWeight,
-  formatDateLabel,
-} from '../../utils/measurements/weight';
+import { clampWeight, normalizeDateKey } from '../../utils/measurements/weight';
 import { clampBodyFat } from '../../utils/measurements/bodyFat';
 import { exportPhaseAsCSV, exportPhaseAsJSON } from '../../utils/export';
 import {
@@ -1247,55 +1242,11 @@ export const EnergyMapCalculator = () => {
     [weightEntries]
   );
 
-  const todayWeightEntry = useMemo(() => {
-    const todayKey = getTodayDateString();
-    return weightEntries.find((entry) => entry.date === todayKey) ?? null;
-  }, [weightEntries]);
-
-  const hasTodayWeightEntry = Boolean(todayWeightEntry);
-  const weightDisplay = useMemo(() => {
-    const resolved = latestWeightEntry?.weight ?? userData.weight;
-    const formatted = formatWeight(resolved);
-    if (formatted) {
-      return `${formatted} kg`;
-    }
-    if (Number.isFinite(resolved)) {
-      return `${Math.round(resolved)} kg`;
-    }
-    return '—';
-  }, [latestWeightEntry?.weight, userData.weight]);
-
-  const weightButtonSubtitle = useMemo(() => {
-    if (hasTodayWeightEntry) {
-      return 'Logged today';
-    }
-    if (latestWeightEntry?.date) {
-      const formattedDate = formatDateLabel(latestWeightEntry.date, {
-        month: 'short',
-        day: 'numeric',
-      });
-      return formattedDate
-        ? `Last entry ${formattedDate}`
-        : 'Last entry recorded';
-    }
-    return 'Tap to start logging';
-  }, [hasTodayWeightEntry, latestWeightEntry?.date]);
-  const weightPrimaryActionLabel = hasTodayWeightEntry
-    ? 'Edit Entry'
-    : 'Add Entry';
-
   const latestBodyFatEntry = useMemo(
     () =>
       bodyFatEntries.length ? bodyFatEntries[bodyFatEntries.length - 1] : null,
     [bodyFatEntries]
   );
-
-  const bodyFatDisplay = useMemo(() => {
-    if (latestBodyFatEntry?.bodyFat) {
-      return `${latestBodyFatEntry.bodyFat}%`;
-    }
-    return 'Set';
-  }, [latestBodyFatEntry]);
 
   const openWeightTracker = useCallback(() => {
     setWeightEntryError('');
@@ -2667,6 +2618,14 @@ export const EnergyMapCalculator = () => {
     },
     [foodSearchModal, mealTypePickerModal, resetFoodEntryForm]
   );
+
+  // Home's "Log food" shortcut. The canonical add path writes to
+  // `trackerSelectedDate`, so pin it to today first: a tap from Home must
+  // never silently log onto whatever past date the Tracker was left browsing.
+  const handleLogFoodFromHome = useCallback(() => {
+    setTrackerSelectedDate(getTodayDateString());
+    startMealEntryFlow();
+  }, [startMealEntryFlow]);
 
   // Handle meal type selection from picker modal
   const handleMealTypeSelect = useCallback(
@@ -4219,21 +4178,17 @@ export const EnergyMapCalculator = () => {
               >
                 <HomeScreen
                   userData={userData}
-                  bmr={bmr}
                   goals={goals}
                   selectedGoal={selectedGoal}
                   isGoalLocked={isGoalLockedByActivePhase}
                   goalLockPhaseName={activePhase?.name ?? ''}
                   onGoalClick={openGoalModal}
-                  onSettingsClick={settingsModal.open}
+                  onLogFoodClick={handleLogFoodFromHome}
                   onBodyFatClick={openBodyFatTracker}
-                  onHeightClick={openHeightModal}
                   onWeightClick={openWeightTracker}
-                  weightDisplay={weightDisplay}
-                  bodyFatDisplay={bodyFatDisplay}
-                  weightButtonLabel={weightPrimaryActionLabel}
-                  weightButtonSubtitle={weightButtonSubtitle}
-                  onBmrClick={bmrModal.open}
+                  calorieTargetCalories={
+                    selectedCalorieTargetData?.targetCalories
+                  }
                   onTrainingDayClick={handleTrainingDayClick}
                   onEditTrainingSession={handleEditTrainingSession}
                   onRemoveTrainingSession={handleRemoveTrainingSession}
