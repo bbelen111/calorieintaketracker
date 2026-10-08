@@ -369,7 +369,7 @@ npx cap open ios         # Open in Xcode (macOS only)
 
 ### iOS
 
-The `ios/` project is **Swift Package Manager native** (`ios.packageManager: "SPM"`) — every Capacitor plugin ships a `Package.swift`, so **CocoaPods is not required** and `pod install` is never run. Minimum deployment target is **iOS 15.0** (required by `@capacitor/barcode-scanner`).
+The `ios/` project is **Swift Package Manager native** (`ios.packageManager: "SPM"`) — every Capacitor plugin ships a `Package.swift`, so **CocoaPods is not required** and `pod install` is never run. Minimum deployment target is **iOS 16.4**, raised from iOS 15.0 when Tailwind CSS moved to v4 — v4 targets Safari 16.4+, so devices on iOS 15.0–16.3 are no longer supported (`@capacitor/barcode-scanner` itself only requires iOS 15.0).
 
 The Android flow maps **one-to-one**; only the platform name changes:
 
