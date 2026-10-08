@@ -319,10 +319,7 @@ export const TrackerScreen = ({
 
   const targetCalories = calorieTargetCalories || 2500;
   const caloriesRemaining = targetCalories - totals.calories;
-  const caloriesPercent = Math.min(
-    100,
-    Math.round((totals.calories / targetCalories) * 100)
-  );
+  const caloriesPercent = Math.round((totals.calories / targetCalories) * 100);
 
   const macroRecommendation = useMemo(
     () =>
@@ -867,38 +864,49 @@ export const TrackerScreen = ({
                 caloriesPercent >= 100 ? 'bg-accent-red' : 'bg-accent-emerald'
               }`}
               style={{
-                width: `${caloriesPercent}%`,
+                width: `${Math.min(100, caloriesPercent)}%`,
                 transition: 'width 220ms ease',
               }}
             />
           </div>
-          <div className="text-muted text-xs mt-1">
-            <AnimatePresence mode="wait">
-              <motion.span
-                key={`remaining-${caloriesRemaining}`}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.22 }}
-                className="inline-block"
-              >
-                {caloriesRemaining >= 0 ? (
-                  <>
-                    <span className="text-accent-emerald font-semibold">
-                      {formatOne(caloriesRemaining)}
-                    </span>{' '}
-                    remaining
-                  </>
-                ) : (
-                  <>
-                    <span className="text-accent-red font-semibold">
-                      {formatOne(Math.abs(caloriesRemaining))}
-                    </span>{' '}
-                    over target
-                  </>
-                )}
-              </motion.span>
-            </AnimatePresence>
+          <div className="flex items-center justify-between mt-1">
+            <div className="text-muted text-xs">
+              <AnimatePresence mode="wait">
+                <motion.span
+                  key={`remaining-${caloriesRemaining}`}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.22 }}
+                  className="inline-block"
+                >
+                  {caloriesRemaining >= 0 ? (
+                    <>
+                      <span className="text-accent-emerald font-semibold">
+                        {formatOne(caloriesRemaining)}
+                      </span>{' '}
+                      remaining
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-accent-red font-semibold">
+                        {formatOne(Math.abs(caloriesRemaining))}
+                      </span>{' '}
+                      over target
+                    </>
+                  )}
+                </motion.span>
+              </AnimatePresence>
+            </div>
+            <p
+              className={`text-xs font-semibold ${
+                caloriesPercent >= 100
+                  ? 'text-accent-red'
+                  : 'text-accent-emerald'
+              }`}
+            >
+              {caloriesPercent}%
+            </p>
           </div>
         </div>
 
