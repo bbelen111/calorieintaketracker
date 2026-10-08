@@ -838,6 +838,7 @@ OPENROUTER_RATE_LIMIT_FAIL_CLOSED=true
 - The bucket key comes from `x-real-ip`, falling back to the **last** `x-forwarded-for` hop. `x-forwarded-for` is a client-appendable list, so its first entry can be forged: keying on it would let a caller mint a fresh bucket per request and bypass the limit.
 - The origin allowlist is **not** a security boundary: any HTTP client can forge `Origin`, and the native app itself runs from `capacitor://localhost` / `https://localhost`. Both are always allowed, alongside `http://localhost:*` and `127.0.0.1` for local dev.
 - Keep `OPENROUTER_RATE_LIMIT_FAIL_CLOSED=true` so an Upstash outage tightens rather than removes the limit.
+- See [`SECURITY.md`](SECURITY.md) for the full threat model, scope, accepted limitations and the private vulnerability-reporting process.
 
 ### Vercel Deployment (API-only)
 
@@ -929,6 +930,7 @@ Mounts the real orchestrator against the real store, plus the tracker modals, th
 - `constants/cardio/cardioTypes.js` — Cardio metadata reference
 - `store/useEnergyMapStore.js` — Store structure & action patterns
 - `tests/README.md` — Two-tier test guide (logic vs UI), coverage baselines and CI
+- [`SECURITY.md`](SECURITY.md) — Vulnerability disclosure policy, implemented controls, accepted limitations and the deployment hardening checklist
 - `tests/` — Working examples of utility usage & calculation validation
 - `.github/assets/` — README screenshots (captured on Android / Galaxy S23 Ultra)
 
