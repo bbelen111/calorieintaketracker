@@ -43,13 +43,12 @@ jobs:
           curl -sSLo /tmp/actionlint.tar.gz \
             "https://github.com/rhysd/actionlint/releases/download/v${version}/actionlint_${version}_linux_amd64.tar.gz"
           tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
-          # Shellcheck integration is deliberately off: GitHub runners ship
-          # shellcheck, and leaving it on would fail this gate immediately on a
-          # PRE-EXISTING warning in the build-output assertion below (SC2010,
-          # `ls dist/assets | grep -q`). That is its own cleanup, not something
-          # to bundle into adding a linter. Drop -shellcheck= to re-enable it
-          # once that loop is rewritten to use a glob.
-          /tmp/actionlint -shellcheck= -color
+          # Shellcheck integration is ON here (GitHub's runner ships shellcheck),
+          # so the `run:` blocks are linted as well as the workflow syntax. The
+          # one pre-existing finding it surfaced — SC2010, `ls dist/assets | grep
+          # -q` in the build-output assertion below — has been fixed, so this
+          # gate starts green rather than red on arrival.
+          /tmp/actionlint -color
 
       - name: Set up Node
         uses: actions/setup-node@v7
@@ -91,8 +90,13 @@ jobs:
             exit 1
           fi
 
+          # `compgen -G` tests the glob directly and returns non-zero when
+          # nothing matches, which is both correct for non-alphanumeric
+          # filenames and what shellcheck's SC2010 wants (`ls | grep` is the
+          # anti-pattern it flags). Both paths verified: match -> 0,
+          # no match -> non-zero.
           for chunk in react capacitor framer-motion zustand lucide dexie; do
-            if ! ls dist/assets | grep -q "^chunk-${chunk}-"; then
+            if ! compgen -G "dist/assets/chunk-${chunk}-*" >/dev/null; then
               echo "::error::chunk-${chunk}-*.js missing — check build.rollupOptions.output.manualChunks in vite.config.js"
               exit 1
             fi
