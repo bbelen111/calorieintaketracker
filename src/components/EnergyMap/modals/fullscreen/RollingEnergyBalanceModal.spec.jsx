@@ -65,7 +65,7 @@ describe('RollingEnergyBalanceModal selection card', () => {
     // strip never touches the edges, and the y-axis column is still behind it while
     // it is open.
     expect(card.className).toContain('inset-x-2');
-    expect(baseElement.querySelector('[class*="z-[1200]"]')).toBeNull();
+    expect(baseElement.querySelector('[class*="z-1200"]')).toBeNull();
     expect(
       screen.queryByRole('button', { name: 'Dismiss selection' })
     ).toBeNull();

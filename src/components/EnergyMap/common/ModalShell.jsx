@@ -289,7 +289,7 @@ export const ModalShell = ({
         willChange: 'background-color',
         paddingBottom: centeredOverlayPadding,
       }}
-      className={`${sanitizedOverlayClassName} modal-overlay-wrapper fixed inset-0 !mt-0 bg-transparent flex justify-center ${
+      className={`${sanitizedOverlayClassName} modal-overlay-wrapper fixed inset-0 mt-0! bg-transparent flex justify-center ${
         shouldFullHeight ? 'items-stretch p-0' : 'items-center p-4'
       }`}
       onClick={handleOverlayClick}

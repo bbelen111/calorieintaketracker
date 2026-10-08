@@ -233,7 +233,7 @@ const EmptyState = () => (
 );
 
 const Legend = () => (
-  <div className="flex items-center justify-center gap-4 py-1 flex-shrink-0">
+  <div className="flex items-center justify-center gap-4 py-1 shrink-0">
     <span className="flex items-center gap-1 text-[11px] text-accent-red">
       <TrendingDown size={12} /> Deficit
     </span>
@@ -926,7 +926,7 @@ export const RollingEnergyBalanceModal = ({
     return (
       <div
         key={slot.date}
-        className="flex-shrink-0 flex flex-col justify-end"
+        className="shrink-0 flex flex-col justify-end"
         style={{ width: `${STEP}px`, scrollSnapAlign: 'start' }}
       >
         <div className="pb-2">
@@ -977,11 +977,11 @@ export const RollingEnergyBalanceModal = ({
       <ModalShell
         isOpen={isOpen}
         isClosing={isClosing}
-        overlayClassName="fixed inset-0 bg-surface/70 !p-0 !flex-none !items-stretch !justify-stretch z-[1000]"
-        contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none !max-h-none flex flex-col pt-[env(safe-area-inset-top)] keyboard-bottom-inset pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] z-[1001]"
+        overlayClassName="fixed inset-0 bg-surface/70 p-0! flex-none! items-stretch! justify-stretch! z-1000"
+        contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none max-h-none! flex flex-col pt-[env(safe-area-inset-top)] keyboard-bottom-inset pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] z-1001"
       >
         {/* Header bar */}
-        <div className="flex items-center justify-between px-4 py-3 bg-background border-b border-border flex-shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 bg-background border-b border-border shrink-0">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -1021,7 +1021,7 @@ export const RollingEnergyBalanceModal = ({
         {/* Main content area */}
         <div className="flex-1 bg-surface border-t border-border overflow-y-auto flex flex-col">
           {/* Window selector */}
-          <div className="px-4 pt-3 pb-2 flex-shrink-0">
+          <div className="px-4 pt-3 pb-2 shrink-0">
             <div className="relative flex items-center gap-1 p-1 bg-surface-highlight rounded-lg">
               <div
                 className="absolute inset-y-1 rounded-md shadow-md bg-accent-blue"
@@ -1064,7 +1064,7 @@ export const RollingEnergyBalanceModal = ({
                   onClick={() => handleWindowChange(windowDays)}
                   aria-label="Exit Smart signal view"
                   title="Back to ledger"
-                  className="flex-shrink-0 rounded-lg p-1.5 text-accent-purple md:hover:bg-surface-highlight/50 pressable-inline focus-ring"
+                  className="shrink-0 rounded-lg p-1.5 text-accent-purple md:hover:bg-surface-highlight/50 pressable-inline focus-ring"
                 >
                   <X size={16} />
                 </button>
@@ -1084,7 +1084,7 @@ export const RollingEnergyBalanceModal = ({
           ) : (
             <>
               {/* Stat grid (4 blocks, 2x2) */}
-              <div className="px-4 pt-1 pb-3 grid grid-cols-2 gap-3 flex-shrink-0">
+              <div className="px-4 pt-1 pb-3 grid grid-cols-2 gap-3 shrink-0">
                 <Stat label="Total Balance">
                   <p className={`text-3xl font-bold ${balanceTone}`}>
                     {formatSignedKcal(-data.rollingBalance)}
@@ -1150,7 +1150,7 @@ export const RollingEnergyBalanceModal = ({
               </div>
 
               {/* Separator */}
-              <div className="border-b border-border flex-shrink-0" />
+              <div className="border-b border-border shrink-0" />
 
               {/* Legend */}
               <Legend />
@@ -1271,11 +1271,11 @@ export const RollingEnergyBalanceModal = ({
                         <div className="flex h-full">{timelineTrack}</div>
                       </div>
                     </div>
-                    <div className="pointer-events-none absolute right-0 -mr-1 top-0 h-full w-3 bg-gradient-to-l from-surface/90 to-transparent" />
+                    <div className="pointer-events-none absolute right-0 -mr-1 top-0 h-full w-3 bg-linear-to-l from-surface/90 to-transparent" />
                   </div>
 
                   {/* Y-axis (right column) */}
-                  <div className="rounded-r-lg w-14 flex-shrink-0 relative">
+                  <div className="rounded-r-lg w-14 shrink-0 relative">
                     <div
                       className="absolute inset-x-0 px-1"
                       style={{ top: '8px', height: `${chartHeight}px` }}

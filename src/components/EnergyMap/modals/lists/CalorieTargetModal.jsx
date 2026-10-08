@@ -151,7 +151,7 @@ export const CalorieTargetModal = ({
     >
       <div className="flex items-start justify-between gap-3 mb-4">
         <div className="flex items-center gap-2 min-w-0">
-          <Flame className="text-accent-blue flex-shrink-0" size={28} />
+          <Flame className="text-accent-blue shrink-0" size={28} />
           <div>
             <h3 className="text-foreground font-bold text-xl">
               Calorie Target
@@ -170,7 +170,7 @@ export const CalorieTargetModal = ({
           </div>
         </div>
 
-        <div className="relative flex-shrink-0">
+        <div className="relative shrink-0">
           <button
             type="button"
             onClick={() => setIsInfoOpen((prev) => !prev)}
@@ -194,7 +194,7 @@ export const CalorieTargetModal = ({
                 <button
                   type="button"
                   onClick={() => setIsInfoOpen(false)}
-                  className="text-muted md:hover:text-foreground transition-colors focus-ring pressable-inline rounded"
+                  className="text-muted md:hover:text-foreground transition-colors focus-ring pressable-inline rounded-sm"
                   aria-label="Close calorie target info"
                 >
                   <X size={14} />
@@ -278,7 +278,7 @@ export const CalorieTargetModal = ({
                     {formatStepsLabel(option.steps)}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
                   <div className="text-right">
                     <p className="text-lg font-bold text-foreground">
                       {Math.round(option.targetCalories || 0).toLocaleString()}

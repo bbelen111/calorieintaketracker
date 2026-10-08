@@ -535,7 +535,7 @@ export const FoodPortionModal = ({
               <select
                 value={selectedUnit}
                 onChange={handleUnitChange}
-                className="bg-surface-highlight border border-border rounded px-3 py-1.5 pr-8 text-muted text-xs uppercase tracking-wide appearance-none focus:outline-none focus:ring-1 focus:ring-accent-blue cursor-pointer md:hover:bg-surface transition-all"
+                className="bg-surface-highlight border border-border rounded-sm px-3 py-1.5 pr-8 text-muted text-xs uppercase tracking-wide appearance-none focus:outline-hidden focus:ring-1 focus:ring-accent-blue cursor-pointer md:hover:bg-surface transition-all"
               >
                 <option value="grams">Grammes</option>
                 {selectedFood.portions.map((portion) => (
@@ -561,9 +561,9 @@ export const FoodPortionModal = ({
           <div className="w-[220px]">
             <div className="relative h-48 overflow-hidden rounded-xl bg-surface/80">
               <div className="absolute inset-0 pointer-events-none z-10">
-                <div className="h-16 bg-gradient-to-b from-surface to-transparent" />
+                <div className="h-16 bg-linear-to-b from-surface to-transparent" />
                 <div className="h-16 bg-transparent" />
-                <div className="h-16 bg-gradient-to-t from-surface to-transparent" />
+                <div className="h-16 bg-linear-to-t from-surface to-transparent" />
               </div>
               <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-16 border-y-2 border-accent-blue/70 pointer-events-none z-10" />
 
@@ -598,12 +598,12 @@ export const FoodPortionModal = ({
             </div>
           </div>
 
-          <div className="w-24 flex-shrink-0">
+          <div className="w-24 shrink-0">
             <div className="relative h-48 overflow-hidden rounded-xl bg-surface/80">
               <div className="absolute inset-0 pointer-events-none z-10">
-                <div className="h-16 bg-gradient-to-b from-surface to-transparent" />
+                <div className="h-16 bg-linear-to-b from-surface to-transparent" />
                 <div className="h-16 bg-transparent" />
-                <div className="h-16 bg-gradient-to-t from-surface to-transparent" />
+                <div className="h-16 bg-linear-to-t from-surface to-transparent" />
               </div>
               <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 h-16 border-y-2 border-accent-blue/70 pointer-events-none z-10" />
 

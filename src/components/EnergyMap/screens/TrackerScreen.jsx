@@ -504,7 +504,7 @@ export const TrackerScreen = ({
     return (
       <div
         key={`meal-${mealTypeId}`}
-        className="bg-surface-highlight/50 rounded-xl p-2 border border-border/50 shadow-sm"
+        className="bg-surface-highlight/50 rounded-xl p-2 border border-border/50 shadow-xs"
       >
         <div
           role="button"
@@ -700,12 +700,12 @@ export const TrackerScreen = ({
           </button>
         </div>
         <div className="p-0">
-          <div className="flex items-center justify-between mt-5 mb-2 border border-border/50 rounded-md px-1 py-1.5 bg-surface-highlight/50 shadow-sm">
+          <div className="flex items-center justify-between mt-5 mb-2 border border-border/50 rounded-md px-1 py-1.5 bg-surface-highlight/50 shadow-xs">
             <div className="flex items-center gap-1.5 h-6">
               <button
                 onClick={() => changeDateBy(-7)}
                 type="button"
-                className="rounded transition-colors flex items-center"
+                className="rounded-sm transition-colors flex items-center"
                 title="Previous week"
               >
                 <div>
@@ -748,7 +748,7 @@ export const TrackerScreen = ({
               <button
                 onClick={() => changeDateBy(7)}
                 type="button"
-                className="rounded transition-colors flex items-center"
+                className="rounded-sm transition-colors flex items-center"
                 title="Next week"
               >
                 <div>
@@ -782,7 +782,7 @@ export const TrackerScreen = ({
                         setInternalSelectedDate(weekDate.key);
                       }
                     }}
-                    className={`relative flex flex-col items-center justify-center rounded-md border py-1.5 text-[15px] font-semibold transition-all active:scale-95 focus-ring shadow-sm ${
+                    className={`relative flex flex-col items-center justify-center rounded-md border py-1.5 text-[15px] font-semibold transition-all active:scale-95 focus-ring shadow-xs ${
                       isSelected
                         ? 'bg-primary border-accent-blue text-primary-foreground'
                         : 'bg-surface-highlight/60 border-border/50 text-foreground/80 md:hover:bg-surface-highlight/70'
@@ -844,7 +844,7 @@ export const TrackerScreen = ({
         <div className="relative">
           <button
             onClick={() => onOpenCalorieTargetModal?.()}
-            className="w-full bg-surface-highlight/50 border border-border/50 rounded-lg px-3 py-2 text-left flex items-center justify-between md:hover:bg-surface-highlight transition-all shadow-sm pressable-card focus-ring"
+            className="w-full bg-surface-highlight/50 border border-border/50 rounded-lg px-3 py-2 text-left flex items-center justify-between md:hover:bg-surface-highlight transition-all shadow-xs pressable-card focus-ring"
           >
             <div className="flex-1">
               <p className="text-muted text-xs mb-0.5">Target</p>

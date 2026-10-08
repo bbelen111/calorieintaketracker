@@ -362,7 +362,7 @@ export const DayLedgerModal = ({
                     </span>
                   </p>
                 </div>
-                <div className="text-right flex-shrink-0">
+                <div className="text-right shrink-0">
                   <p
                     className={`text-lg font-black leading-none ${kindMeta.textClass}`}
                   >
@@ -429,7 +429,7 @@ export const DayLedgerModal = ({
                     </p>
                   </div>
                 )}
-                <div className="flex items-center gap-0.5 text-accent-blue flex-shrink-0">
+                <div className="flex items-center gap-0.5 text-accent-blue shrink-0">
                   <span className="text-xs font-semibold">Full breakdown</span>
                   <ChevronRight size={14} />
                 </div>
@@ -440,12 +440,12 @@ export const DayLedgerModal = ({
             <div className="bg-surface-highlight/40 rounded-xl border border-border/60 overflow-hidden">
               <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border/40">
                 <div className="flex items-center gap-3 min-w-0">
-                  <Scale size={18} className="text-accent-blue flex-shrink-0" />
+                  <Scale size={18} className="text-accent-blue shrink-0" />
                   <span className="text-foreground text-sm font-medium">
                     Weight
                   </span>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
                   <span className="text-foreground font-bold text-base">
                     {model.measurements.weight.value != null
                       ? `${formatWeight(model.measurements.weight.value)} kg`
@@ -471,15 +471,12 @@ export const DayLedgerModal = ({
               {showBodyFat ? (
                 <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border/40">
                   <div className="flex items-center gap-3 min-w-0">
-                    <Percent
-                      size={18}
-                      className="text-accent-blue flex-shrink-0"
-                    />
+                    <Percent size={18} className="text-accent-blue shrink-0" />
                     <span className="text-foreground text-sm font-medium">
                       Body fat
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-2 shrink-0">
                     <span className="text-foreground font-bold text-base">
                       {model.measurements.bodyFat.value != null
                         ? `${formatBodyFat(model.measurements.bodyFat.value)} %`
@@ -505,15 +502,12 @@ export const DayLedgerModal = ({
               ) : (
                 <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border/40">
                   <div className="flex items-center gap-3 min-w-0">
-                    <Dumbbell
-                      size={18}
-                      className="text-accent-blue flex-shrink-0"
-                    />
+                    <Dumbbell size={18} className="text-accent-blue shrink-0" />
                     <span className="text-foreground text-sm font-medium">
                       Sessions
                     </span>
                   </div>
-                  <span className="text-foreground font-bold text-base flex-shrink-0">
+                  <span className="text-foreground font-bold text-base shrink-0">
                     {model.sessionsTotal > 0
                       ? `${model.sessionsTotal.toLocaleString()} kcal`
                       : '\u2014'}
@@ -523,15 +517,12 @@ export const DayLedgerModal = ({
 
               <div className="flex items-center justify-between gap-3 px-4 py-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <Footprints
-                    size={18}
-                    className="text-accent-blue flex-shrink-0"
-                  />
+                  <Footprints size={18} className="text-accent-blue shrink-0" />
                   <span className="text-foreground text-sm font-medium">
                     Steps
                   </span>
                 </div>
-                <span className="text-foreground font-bold text-base flex-shrink-0">
+                <span className="text-foreground font-bold text-base shrink-0">
                   {preview.stepCount.toLocaleString()}
                 </span>
               </div>
@@ -555,7 +546,7 @@ export const DayLedgerModal = ({
                         >
                           <Icon
                             size={18}
-                            className="text-accent-blue flex-shrink-0"
+                            className="text-accent-blue shrink-0"
                           />
                           <div className="min-w-0 flex-1">
                             <p className="text-foreground font-semibold text-sm truncate">
@@ -576,7 +567,7 @@ export const DayLedgerModal = ({
                                 : ''}
                             </p>
                           </div>
-                          <div className="text-right flex-shrink-0">
+                          <div className="text-right shrink-0">
                             <p className="text-foreground font-bold text-sm leading-none">
                               ~{row.calories.toLocaleString()}
                               <span className="text-[10px] font-medium text-muted ml-0.5">
@@ -718,7 +709,7 @@ export const DayLedgerModal = ({
                                 {meal.entryCount === 1 ? 'item' : 'items'}
                               </span>
                             </p>
-                            <p className="text-foreground font-bold text-sm flex-shrink-0">
+                            <p className="text-foreground font-bold text-sm shrink-0">
                               {meal.calories.toLocaleString()} kcal
                             </p>
                           </div>

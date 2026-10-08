@@ -604,7 +604,7 @@ const LearnMoreButton = ({ onClick }) => (
   <button
     type="button"
     onClick={onClick}
-    className="text-xs text-accent-blue md:hover:text-accent-blue/80 transition-colors focus-ring rounded pressable-inline"
+    className="text-xs text-accent-blue md:hover:text-accent-blue/80 transition-colors focus-ring rounded-sm pressable-inline"
   >
     Learn more
   </button>

@@ -692,7 +692,7 @@ export const MacroPickerModal = ({
         <button
           type="button"
           onClick={onOpenCalorieTargetModal}
-          className="w-full bg-surface-highlight/50 border border-border/50 rounded-lg px-3 py-2 text-left flex items-center justify-between md:hover:bg-surface-highlight transition-all shadow-sm pressable-card focus-ring"
+          className="w-full bg-surface-highlight/50 border border-border/50 rounded-lg px-3 py-2 text-left flex items-center justify-between md:hover:bg-surface-highlight transition-all shadow-xs pressable-card focus-ring"
           aria-label="Change calorie target"
           title="Change calorie target"
         >

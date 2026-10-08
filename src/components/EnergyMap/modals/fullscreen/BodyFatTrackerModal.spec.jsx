@@ -42,7 +42,7 @@ const getCarousel = (baseElement) =>
 /**
  * Same selection-card contract as `WeightTrackerModal` (see that spec for the
  * full round trip): the shared card is always mounted in a fixed slot inside the
- * graph container, no measured `z-[1200]` tooltip exists, and the plot's own
+ * graph container, no measured `z-1200` tooltip exists, and the plot's own
  * handler dismisses it.
  */
 describe('BodyFatTrackerModal selection card', () => {
@@ -54,7 +54,7 @@ describe('BodyFatTrackerModal selection card', () => {
     // Constant plot-top, never measured geometry.
     expect(wrapper.style.top).toBe('8px');
     expect(wrapper.style.left).toBe('');
-    expect(baseElement.querySelector('[class*="z-[1200]"]')).toBeNull();
+    expect(baseElement.querySelector('[class*="z-1200"]')).toBeNull();
   });
 
   it('shows the tapped day and ties it to the card with a guide line', async () => {

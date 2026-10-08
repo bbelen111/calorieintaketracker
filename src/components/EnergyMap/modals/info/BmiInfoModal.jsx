@@ -60,7 +60,7 @@ export const BmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
 
         <div className="bg-surface-highlight/50 rounded-lg p-4">
           <p className="font-bold text-foreground mb-2">Formula:</p>
-          <div className="p-3 bg-background/50 rounded font-mono text-sm">
+          <div className="p-3 bg-background/50 rounded-sm font-mono text-sm">
             <p className="text-accent-blue">BMI = weight (kg) ÷ height (m)²</p>
           </div>
         </div>

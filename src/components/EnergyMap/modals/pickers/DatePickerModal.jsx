@@ -151,7 +151,7 @@ export const DatePickerModal = ({
         <button
           type="button"
           onClick={goToToday}
-          className="text-foreground font-bold text-base md:hover:text-accent-blue transition-colors focus-ring rounded px-2 py-1"
+          className="text-foreground font-bold text-base md:hover:text-accent-blue transition-colors focus-ring rounded-sm px-2 py-1"
           aria-label="Go to today"
         >
           {MONTH_NAMES[viewMonth]} {viewYear}

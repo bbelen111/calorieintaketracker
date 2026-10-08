@@ -92,9 +92,7 @@ describe('TrackerSelectionCard', () => {
     expect(card.className).toContain('border-border/40');
     expect(card.className).toContain('bg-surface/85');
     // Readable without blur on engines that lack backdrop-filter.
-    expect(card.className).toContain(
-      'supports-[backdrop-filter]:bg-surface/55'
-    );
+    expect(card.className).toContain('supports-backdrop-filter:bg-surface/55');
     // A plot-wide strip: it fills the wrapper the modal insets to the plot area,
     // rather than shrink-wrapping its content.
     expect(card.className).toContain('w-full');

@@ -187,8 +187,8 @@ export const FoodSearchChatPanel = ({
   return (
     <div className="flex-1 min-h-0 flex flex-col mt-2">
       {!isOnline && (
-        <div className="mx-4 mt-3 flex items-center gap-2 px-3 py-2 bg-accent-amber/10 border border-accent-amber/30 rounded-xl flex-shrink-0">
-          <CloudOff size={14} className="text-accent-amber flex-shrink-0" />
+        <div className="mx-4 mt-3 flex items-center gap-2 px-3 py-2 bg-accent-amber/10 border border-accent-amber/30 rounded-xl shrink-0">
+          <CloudOff size={14} className="text-accent-amber shrink-0" />
           <p className="text-accent-amber text-xs">
             You&apos;re offline. AI chat requires an internet connection.
           </p>
@@ -202,7 +202,7 @@ export const FoodSearchChatPanel = ({
         {chatMessages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center gap-6 px-2 py-6">
             <div className="flex flex-col items-center gap-3 text-center">
-              <div className="w-14 h-14 rounded-[20px] bg-gradient-to-br from-accent-blue to-accent-blue/70 shadow-[0_4px_14px_-2px_rgba(59,130,246,0.45)] flex items-center justify-center">
+              <div className="w-14 h-14 rounded-[20px] bg-linear-to-br from-accent-blue to-accent-blue/70 shadow-[0_4px_14px_-2px_rgba(59,130,246,0.45)] flex items-center justify-center">
                 <Sparkles size={24} className="text-white" strokeWidth={2} />
               </div>
               <div>
@@ -224,7 +224,7 @@ export const FoodSearchChatPanel = ({
                   onClick={() => setChatInput(prompt)}
                   className="flex flex-col items-start gap-2.5 px-3.5 py-3.5 bg-surface-highlight border border-border/70 rounded-2xl text-left transition-all pressable-inline focus-ring md:hover:border-accent-blue/40 md:hover:bg-accent-blue/5 md:hover:-translate-y-0.5"
                 >
-                  <div className="w-8 h-8 rounded-full bg-accent-blue/12 flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-accent-blue/12 flex items-center justify-center shrink-0">
                     <Icon size={15} className="text-accent-blue" />
                   </div>
                   <span className="text-[12.5px] font-medium text-foreground leading-tight">
@@ -262,7 +262,7 @@ export const FoodSearchChatPanel = ({
                         {message.attachments.map((attachment) => (
                           <div
                             key={attachment.id}
-                            className="rounded-xl overflow-hidden border border-border bg-surface w-20 h-20 flex-shrink-0 shadow-sm"
+                            className="rounded-xl overflow-hidden border border-border bg-surface w-20 h-20 shrink-0 shadow-xs"
                           >
                             <img
                               src={attachment.previewUrl}
@@ -282,7 +282,7 @@ export const FoodSearchChatPanel = ({
                     // living inside the colored fill.
                     <div className="w-full flex flex-col items-end gap-1.5">
                       <div
-                        className={`max-w-[85%] px-4 py-2.5 rounded-[20px] rounded-br-lg bg-gradient-to-br from-accent-blue to-accent-blue/90 text-primary-foreground text-[14.5px] leading-relaxed whitespace-pre-wrap break-words shadow-[0_2px_8px_-2px_rgba(59,130,246,0.4)] transition-opacity ${
+                        className={`max-w-[85%] px-4 py-2.5 rounded-[20px] rounded-br-lg bg-linear-to-br from-accent-blue to-accent-blue/90 text-primary-foreground text-[14.5px] leading-relaxed whitespace-pre-wrap wrap-break-word shadow-[0_2px_8px_-2px_rgba(59,130,246,0.4)] transition-opacity ${
                           message.status === 'sending'
                             ? 'opacity-70'
                             : 'opacity-100'
@@ -308,7 +308,7 @@ export const FoodSearchChatPanel = ({
                     // Assistant message: full-width card, not a bubble
                     <div className="w-full rounded-[22px] bg-surface border border-border/70 shadow-[0_1px_4px_rgba(0,0,0,0.05)] overflow-hidden">
                       <div className="flex items-center gap-2 px-4 pt-3.5">
-                        <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gradient-to-br from-accent-blue to-accent-blue/70 flex items-center justify-center">
+                        <div className="shrink-0 w-6 h-6 rounded-full bg-linear-to-br from-accent-blue to-accent-blue/70 flex items-center justify-center">
                           <Sparkles size={11} className="text-white" />
                         </div>
                         <span className="text-[11px] font-semibold text-muted uppercase tracking-wide">
@@ -445,7 +445,7 @@ export const FoodSearchChatPanel = ({
                                             className={`px-2.5 py-2 rounded-xl text-[12px] font-semibold transition-all press-feedback focus-ring ${
                                               allLogged
                                                 ? 'bg-surface border border-border text-muted cursor-not-allowed'
-                                                : 'bg-primary text-primary-foreground shadow-sm md:hover:brightness-110'
+                                                : 'bg-primary text-primary-foreground shadow-xs md:hover:brightness-110'
                                             }`}
                                           >
                                             {allLogged
@@ -465,7 +465,7 @@ export const FoodSearchChatPanel = ({
                                             className={`px-2.5 py-2 rounded-xl text-[12px] font-semibold transition-all press-feedback focus-ring ${
                                               allLogged
                                                 ? 'bg-surface border border-border text-muted cursor-not-allowed'
-                                                : 'bg-accent-blue text-primary-foreground shadow-sm md:hover:brightness-110'
+                                                : 'bg-accent-blue text-primary-foreground shadow-xs md:hover:brightness-110'
                                             }`}
                                           >
                                             {allLogged
@@ -582,7 +582,7 @@ export const FoodSearchChatPanel = ({
                     role="status"
                     aria-live="polite"
                   >
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gradient-to-br from-accent-blue to-accent-blue/70 flex items-center justify-center">
+                    <div className="shrink-0 w-6 h-6 rounded-full bg-linear-to-br from-accent-blue to-accent-blue/70 flex items-center justify-center">
                       <Sparkles size={11} className="text-white" />
                     </div>
                     <span className="text-[11px] font-semibold text-muted uppercase tracking-wide">
@@ -628,9 +628,9 @@ export const FoodSearchChatPanel = ({
       </div>
 
       {chatError && (
-        <div className="mx-4 mb-1 flex-shrink-0">
+        <div className="mx-4 mb-1 shrink-0">
           <div className="bg-accent-red/10 border border-accent-red/30 rounded-xl px-3 py-2 text-accent-red text-xs flex items-start gap-2">
-            <AlertCircle size={13} className="mt-0.5 flex-shrink-0" />
+            <AlertCircle size={13} className="mt-0.5 shrink-0" />
             <span>{chatError}</span>
           </div>
         </div>
@@ -638,13 +638,13 @@ export const FoodSearchChatPanel = ({
 
       {Array.isArray(chatAttachmentErrors) &&
         chatAttachmentErrors.length > 0 && (
-          <div className="mx-4 mb-1 flex-shrink-0 space-y-1">
+          <div className="mx-4 mb-1 shrink-0 space-y-1">
             {chatAttachmentErrors.map((attachmentError) => (
               <div
                 key={attachmentError.id}
                 className="bg-accent-amber/10 border border-accent-amber/30 rounded-xl px-3 py-2 text-accent-amber text-xs flex items-start gap-2"
               >
-                <AlertCircle size={13} className="mt-0.5 flex-shrink-0" />
+                <AlertCircle size={13} className="mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold truncate">
                     {attachmentError.name}
@@ -664,10 +664,10 @@ export const FoodSearchChatPanel = ({
           </div>
         )}
 
-      <div className="px-4 pb-3 pt-2 flex-shrink-0">
+      <div className="px-4 pb-3 pt-2 shrink-0">
         <div className="relative">
           {chatAttachments.length > 0 && (
-            <div className="pointer-events-none absolute -top-[4.6rem] right-2 z-20 max-w-[85%]">
+            <div className="pointer-events-none absolute top-[-4.6rem] right-2 z-20 max-w-[85%]">
               <div className="pointer-events-auto overflow-x-auto touch-action-pan-x scrollbar-hide">
                 <div className="flex gap-2 w-max py-1">
                   {chatAttachments.map((attachment) => (
@@ -675,7 +675,7 @@ export const FoodSearchChatPanel = ({
                       key={attachment.id}
                       initial={{ opacity: 0, y: 4 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="relative w-16 h-16 rounded-xl border border-border overflow-hidden bg-surface-highlight flex-shrink-0 shadow-md"
+                      className="relative w-16 h-16 rounded-xl border border-border overflow-hidden bg-surface-highlight shrink-0 shadow-md"
                     >
                       <img
                         src={attachment.previewUrl}
@@ -685,7 +685,7 @@ export const FoodSearchChatPanel = ({
                       <button
                         type="button"
                         onClick={() => removeAttachment(attachment.id)}
-                        className="absolute top-0.5 right-0.5 w-5.5 h-5.5 rounded-full bg-background/90 backdrop-blur-sm text-foreground md:hover:text-foreground flex items-center justify-center pressable-inline focus-ring border border-border/50"
+                        className="absolute top-0.5 right-0.5 w-5.5 h-5.5 rounded-full bg-background/90 backdrop-blur-xs text-foreground md:hover:text-foreground flex items-center justify-center pressable-inline focus-ring border border-border/50"
                         aria-label="Remove image"
                       >
                         <X size={11} />
@@ -700,7 +700,7 @@ export const FoodSearchChatPanel = ({
           {/* Pill-shaped composer, iMessage-style */}
           <div className="rounded-full border border-border bg-surface-highlight overflow-hidden shadow-[0_2px_10px_-2px_rgba(0,0,0,0.08)]">
             <div className="flex items-center gap-1.5 pl-1.5 pr-1.5 py-1.5 min-h-[56px]">
-              <div className="flex items-center gap-0.5 flex-shrink-0">
+              <div className="flex items-center gap-0.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -729,7 +729,7 @@ export const FoodSearchChatPanel = ({
                 onPaste={handleChatInputPaste}
                 placeholder={chatPlaceholder}
                 rows={1}
-                className="flex-1 resize-none max-h-28 min-h-11 bg-transparent text-foreground placeholder:text-muted outline-none py-2.5 px-1 text-[15px] leading-relaxed overflow-y-auto"
+                className="flex-1 resize-none max-h-28 min-h-11 bg-transparent text-foreground placeholder:text-muted outline-hidden py-2.5 px-1 text-[15px] leading-relaxed overflow-y-auto"
               />
 
               <button
@@ -740,10 +740,10 @@ export const FoodSearchChatPanel = ({
                   !chatInput.trim() &&
                   chatAttachments.length === 0
                 }
-                className={`flex-shrink-0 w-10 h-10 rounded-full text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center press-feedback focus-ring shadow-sm ${
+                className={`shrink-0 w-10 h-10 rounded-full text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center press-feedback focus-ring shadow-xs ${
                   isSendingChat
                     ? 'bg-accent-red md:hover:brightness-110'
-                    : 'bg-gradient-to-br from-accent-blue to-accent-blue/80 md:hover:brightness-110'
+                    : 'bg-linear-to-br from-accent-blue to-accent-blue/80 md:hover:brightness-110'
                 }`}
                 aria-label={isSendingChat ? 'Stop generating' : 'Send message'}
               >

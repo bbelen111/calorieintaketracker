@@ -168,7 +168,7 @@ export const CardioTypeListModal = ({
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
-      overlayClassName="bg-surface/80 z-[70]"
+      overlayClassName="bg-surface/80 z-70"
       contentClassName="p-4 md:p-6 w-full md:max-w-2xl"
     >
       <div className="flex flex-col gap-4 md:gap-6 h-full">
@@ -197,7 +197,7 @@ export const CardioTypeListModal = ({
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search by name, equipment, or intensity"
-              className="w-full bg-surface-highlight text-foreground placeholder:text-muted pl-10 pr-4 py-2 rounded-lg border border-border focus:border-accent-blue focus:outline-none"
+              className="w-full bg-surface-highlight text-foreground placeholder:text-muted pl-10 pr-4 py-2 rounded-lg border border-border focus:border-accent-blue focus:outline-hidden"
               type="text"
             />
           </div>
@@ -244,7 +244,7 @@ export const CardioTypeListModal = ({
                     />
                   )}
                   <div className="flex items-center gap-3">
-                    <div className="flex-shrink-0 rounded-full p-1 bg-surface-highlight/20">
+                    <div className="shrink-0 rounded-full p-1 bg-surface-highlight/20">
                       <Flame size={24} className="text-foreground" />
                     </div>
                     <div className="flex-1">
@@ -273,7 +273,7 @@ export const CardioTypeListModal = ({
                         onPointerDown={(event) => event.stopPropagation()}
                         onPointerUp={(event) => event.stopPropagation()}
                         onPointerCancel={(event) => event.stopPropagation()}
-                        className="flex-shrink-0 w-8 h-8 rounded-full bg-foreground/10 md:hover:bg-foreground/20 transition-colors flex items-center justify-center focus-ring pressable"
+                        className="shrink-0 w-8 h-8 rounded-full bg-foreground/10 md:hover:bg-foreground/20 transition-colors flex items-center justify-center focus-ring pressable"
                         aria-label="Delete custom cardio type"
                       >
                         <Trash2 size={14} />

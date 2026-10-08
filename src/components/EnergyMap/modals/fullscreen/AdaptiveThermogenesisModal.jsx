@@ -111,10 +111,10 @@ export const AdaptiveThermogenesisModal = ({
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
-      overlayClassName="fixed inset-0 bg-surface/70 !p-0 !flex-none !items-stretch !justify-stretch z-[1000]"
-      contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none !max-h-none flex flex-col pt-[env(safe-area-inset-top)] keyboard-bottom-inset pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] z-[1001]"
+      overlayClassName="fixed inset-0 bg-surface/70 p-0! flex-none! items-stretch! justify-stretch! z-1000"
+      contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none max-h-none! flex flex-col pt-[env(safe-area-inset-top)] keyboard-bottom-inset pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] z-1001"
     >
-      <header className="flex items-center justify-between px-4 py-3 bg-background border-b border-border flex-shrink-0">
+      <header className="flex items-center justify-between px-4 py-3 bg-background border-b border-border shrink-0">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -152,7 +152,7 @@ export const AdaptiveThermogenesisModal = ({
       </header>
 
       <main className="flex-1 bg-surface border-t border-border overflow-y-auto flex flex-col">
-        <div className="px-4 pt-3 pb-2 flex-shrink-0">
+        <div className="px-4 pt-3 pb-2 shrink-0">
           <div className="relative flex items-center gap-2 p-1 bg-surface-highlight rounded-lg">
             <div
               className="absolute inset-y-1 rounded-md shadow-md bg-accent-blue"
@@ -195,7 +195,7 @@ export const AdaptiveThermogenesisModal = ({
           <EmptyState message="No energy data is available yet." />
         ) : (
           <>
-            <section className="px-4 pt-2 pb-3 grid grid-cols-2 gap-x-4 gap-y-3 flex-shrink-0">
+            <section className="px-4 pt-2 pb-3 grid grid-cols-2 gap-x-4 gap-y-3 shrink-0">
               <Metric
                 label={preview ? 'Preview correction' : 'Applied correction'}
                 value={signed(correction)}
@@ -256,7 +256,7 @@ export const AdaptiveThermogenesisModal = ({
                 }
               />
             </section>
-            <div className="border-b border-border flex-shrink-0" />
+            <div className="border-b border-border shrink-0" />
             {preview && <PreviewNote />}
             <div key={tab} className="tracker-graph-switch px-4 py-4 flex-1">
               {tab === 'smart' ? (

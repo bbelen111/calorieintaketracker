@@ -132,15 +132,15 @@ const CalendarHeatmap = ({ calendarData, onDateClick }) => {
       {/* Legend */}
       <div className="flex items-center justify-center gap-4 pt-2 text-xs text-muted">
         <div className="flex items-center gap-1">
-          <div className="w-4 h-4 rounded bg-accent-green border border-accent-green" />
+          <div className="w-4 h-4 rounded-sm bg-accent-green border border-accent-green" />
           <span>Completed</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-4 h-4 rounded bg-accent-yellow border border-accent-yellow" />
+          <div className="w-4 h-4 rounded-sm bg-accent-yellow border border-accent-yellow" />
           <span>Partial</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-4 h-4 rounded bg-surface-highlight border border-border" />
+          <div className="w-4 h-4 rounded-sm bg-surface-highlight border border-border" />
           <span>Empty</span>
         </div>
       </div>
@@ -171,7 +171,7 @@ const DailyLogCard = ({ log, nutritionTotals, onEdit }) => {
               {formatDate(log.date)}
             </span>
             {log.completed && (
-              <span className="px-2 py-0.5 bg-accent-green/15 border border-accent-green/50 rounded text-accent-green text-xs font-semibold">
+              <span className="px-2 py-0.5 bg-accent-green/15 border border-accent-green/50 rounded-sm text-accent-green text-xs font-semibold">
                 ✓ Complete
               </span>
             )}

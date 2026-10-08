@@ -25,7 +25,7 @@ export const FoodSearchMealPreviewPanel = ({
   const safeEntries = Array.isArray(mealEntries) ? mealEntries : [];
 
   return (
-    <div className="fixed inset-0 z-[1250]">
+    <div className="fixed inset-0 z-1250">
       <motion.button
         type="button"
         aria-label="Close meal preview"

@@ -252,7 +252,7 @@ export const WeightTrendInfoModal = ({
             </p>
             <div className="mt-3 pt-3 border-t border-accent-emerald/30">
               <div className="flex items-center gap-3">
-                <span className="flex-shrink-0">{statusVisual.icon}</span>
+                <span className="shrink-0">{statusVisual.icon}</span>
                 <p className={statusVisual.textClass}>
                   {toPrettyDescription(alignment.description)}
                 </p>

@@ -101,7 +101,7 @@ describe('ScreenTabs', () => {
     expect(onSelect).toHaveBeenLastCalledWith(2);
   });
 
-  it('renders one clipped ring copy per RING_COPY_OFFSETS entry, all reading the live position', () => {
+  it('renders one clipped ring-3 copy per RING_COPY_OFFSETS entry, all reading the live position', () => {
     const { container } = renderTabs({ activeScreen: 2 });
 
     const tracker = container.querySelector('[aria-hidden="true"]');

@@ -28,7 +28,7 @@ export const ConfirmActionModal = ({
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
-      overlayClassName="bg-surface/80 z-[90]"
+      overlayClassName="bg-surface/80 z-90"
       contentClassName="p-6 w-full max-w-md"
     >
       <div className="space-y-4">

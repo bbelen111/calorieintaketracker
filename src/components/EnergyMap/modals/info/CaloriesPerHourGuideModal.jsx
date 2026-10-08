@@ -6,7 +6,7 @@ export const CaloriesPerHourGuideModal = ({ isOpen, isClosing, onClose }) => (
   <ModalShell
     isOpen={isOpen}
     isClosing={isClosing}
-    overlayClassName="bg-surface/90 z-[75]"
+    overlayClassName="bg-surface/90 z-75"
     contentClassName="p-6 max-w-lg w-full"
   >
     <div className="flex items-center gap-3 mb-4">

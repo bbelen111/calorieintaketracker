@@ -55,7 +55,7 @@ describe('StepTrackerModal selection card', () => {
     const card = getCardWrapper(baseElement);
 
     expect(card).toHaveAttribute('aria-hidden', 'true');
-    expect(baseElement.querySelector('[class*="z-[1200]"]')).toBeNull();
+    expect(baseElement.querySelector('[class*="z-1200"]')).toBeNull();
     expect(
       screen.queryByRole('button', { name: 'Dismiss selection' })
     ).toBeNull();

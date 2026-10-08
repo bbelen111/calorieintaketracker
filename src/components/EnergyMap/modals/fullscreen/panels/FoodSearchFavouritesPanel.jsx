@@ -173,7 +173,7 @@ export const FoodSearchFavouritesPanel = ({
                   <button
                     type="button"
                     onClick={(e) => handleFavouriteEdit(favourite, e)}
-                    className="flex-shrink-0 w-11 h-11 rounded-full bg-surface-highlight/20 md:hover:bg-accent-blue/20 transition-colors flex items-center justify-center"
+                    className="shrink-0 w-11 h-11 rounded-full bg-surface-highlight/20 md:hover:bg-accent-blue/20 transition-colors flex items-center justify-center"
                     aria-label="Edit manual entry"
                     title="Edit entry"
                   >
@@ -190,7 +190,7 @@ export const FoodSearchFavouritesPanel = ({
                         setPendingDeleteId(favourite.id);
                         openDeleteConfirm();
                       }}
-                      className="flex-shrink-0 w-11 h-11 rounded-full bg-surface-highlight/20 md:hover:bg-accent-red/20 transition-colors flex items-center justify-center"
+                      className="shrink-0 w-11 h-11 rounded-full bg-surface-highlight/20 md:hover:bg-accent-red/20 transition-colors flex items-center justify-center"
                       aria-label="Delete favourite food"
                       title="Remove from favourites"
                     >

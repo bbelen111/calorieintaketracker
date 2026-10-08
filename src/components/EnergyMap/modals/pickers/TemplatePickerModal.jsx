@@ -13,7 +13,7 @@ export const TemplatePickerModal = ({
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
-      overlayClassName="bg-surface/80 z-[60]"
+      overlayClassName="bg-surface/80 z-60"
       contentClassName="p-4 md:p-6 w-full md:max-w-xl"
     >
       <div className="flex flex-col gap-4 md:gap-6">
@@ -48,11 +48,11 @@ export const TemplatePickerModal = ({
                   onSelectTemplate(template);
                   onClose();
                 }}
-                className="w-full text-left p-3 md:p-4 rounded-xl flex flex-col gap-2 transition-all pressable-card focus-ring border border-primary bg-primary/90 text-primary-foreground shadow-sm"
+                className="w-full text-left p-3 md:p-4 rounded-xl flex flex-col gap-2 transition-all pressable-card focus-ring border border-primary bg-primary/90 text-primary-foreground shadow-xs"
                 role="listitem"
               >
                 <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 rounded-full p-2 bg-surface-highlight/20">
+                  <div className="shrink-0 rounded-full p-2 bg-surface-highlight/20">
                     <Icon size={16} />
                   </div>
                   <div className="flex-1">
@@ -71,7 +71,7 @@ export const TemplatePickerModal = ({
                       <span className="capitalize">{template.goalType}</span>
                     </div>
                   </div>
-                  <div className="text-right flex-shrink-0">
+                  <div className="text-right shrink-0">
                     <div
                       className={`text-lg font-bold ${
                         template.targetWeightChange > 0

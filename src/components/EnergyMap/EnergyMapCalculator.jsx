@@ -3977,7 +3977,7 @@ export const EnergyMapCalculator = () => {
   if (!isLoaded) {
     return (
       <div
-        className="min-h-screen bg-gradient-to-br from-background via-surface to-background p-4 md:p-6 flex items-center justify-center"
+        className="min-h-screen bg-linear-to-br from-background via-surface to-background p-4 md:p-6 flex items-center justify-center"
         style={{
           paddingTop: 'calc(1rem + var(--sat))',
           paddingBottom: 'calc(1rem + var(--sab))',
@@ -3995,7 +3995,7 @@ export const EnergyMapCalculator = () => {
 
   return (
     <div
-      className="min-h-screen bg-gradient-to-br from-background via-surface to-background p-4 md:p-6"
+      className="min-h-screen bg-linear-to-br from-background via-surface to-background p-4 md:p-6"
       style={{
         paddingTop: 'calc(1rem + var(--sat))',
         // Extra bottom space clears the floating glass tab bar. The value is
@@ -4019,14 +4019,14 @@ export const EnergyMapCalculator = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
             transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
-            className="fixed inset-x-0 z-[1300] flex justify-center pointer-events-none"
+            className="fixed inset-x-0 z-1300 flex justify-center pointer-events-none"
             style={{
               bottom: `calc(var(--sab) + ${SCREEN_TABS_BOTTOM_CLEARANCE_PX}px)`,
             }}
             role="status"
             aria-live="polite"
           >
-            <div className="rounded-full border border-border bg-surface/95 px-4 py-2 text-sm text-foreground shadow-xl backdrop-blur-sm">
+            <div className="rounded-full border border-border bg-surface/95 px-4 py-2 text-sm text-foreground shadow-xl backdrop-blur-xs">
               Swipe or tap again to exit
             </div>
           </motion.div>
@@ -4081,7 +4081,7 @@ export const EnergyMapCalculator = () => {
             <div className="flex w-full">
               <div
                 {...getSlideProps(0)}
-                className={`carousel-slide flex-shrink-0 px-2 sm:px-4 md:px-6`}
+                className={`carousel-slide shrink-0 px-2 sm:px-4 md:px-6`}
                 style={{
                   // Static promotion hint: toggling it with the drag state
                   // demoted these layers exactly when a settle started.
@@ -4142,7 +4142,7 @@ export const EnergyMapCalculator = () => {
 
               <div
                 {...getSlideProps(1)}
-                className={`carousel-slide flex-shrink-0 px-2 sm:px-4 md:px-6`}
+                className={`carousel-slide shrink-0 px-2 sm:px-4 md:px-6`}
                 style={{
                   willChange: 'transform',
                   backfaceVisibility: 'hidden',
@@ -4170,7 +4170,7 @@ export const EnergyMapCalculator = () => {
 
               <div
                 {...getSlideProps(2)}
-                className={`carousel-slide flex-shrink-0 px-2 sm:px-4 md:px-6`}
+                className={`carousel-slide shrink-0 px-2 sm:px-4 md:px-6`}
                 style={{
                   willChange: 'transform',
                   backfaceVisibility: 'hidden',
@@ -4210,7 +4210,7 @@ export const EnergyMapCalculator = () => {
 
               <div
                 {...getSlideProps(3)}
-                className={`carousel-slide flex-shrink-0 px-2 sm:px-4 md:px-6`}
+                className={`carousel-slide shrink-0 px-2 sm:px-4 md:px-6`}
                 style={{
                   willChange: 'transform',
                   backfaceVisibility: 'hidden',
@@ -4237,7 +4237,7 @@ export const EnergyMapCalculator = () => {
 
               <div
                 {...getSlideProps(4)}
-                className={`carousel-slide flex-shrink-0 px-2 sm:px-4 md:px-6`}
+                className={`carousel-slide shrink-0 px-2 sm:px-4 md:px-6`}
                 style={{
                   willChange: 'transform',
                   backfaceVisibility: 'hidden',
