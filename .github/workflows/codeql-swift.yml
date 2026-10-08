@@ -132,7 +132,7 @@ jobs:
       # an earlier failure (e.g. npm ci) does not produce a bogus "database not
       # found" error.
       - name: Analyze
-        if: always() && steps.init.outcome == "success"
+        if: always() && steps.init.outcome == 'success'
         uses: github/codeql-action/analyze@v4
         with:
           category: "/language:swift"
