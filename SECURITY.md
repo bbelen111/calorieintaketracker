@@ -280,9 +280,10 @@ risk instead of rediscovering it. They are not unreported vulnerabilities.
 10. **`vercel.json` must stay routes-only.** `framework` / `buildCommand` / `outputDirectory`
     overrides (even set to `null`) previously stopped the deployment from landing. Routing is
     evaluated before file serving, which is what makes every non-`/api` path return `404`.
-11. **No automated dependency or secret scanning yet.** CI gates lint, tests, build output and
-    native compilation, but there is no `npm audit`, Dependabot, CodeQL or secret-scanning job. See
-    the supply-chain section.
+11. **Dependency and secret scanning are only partly automated.** Dependabot security alerts are
+    enabled on the repository, but `npm audit` does not run in CI (so advisories never fail the
+    build), there is no Dependabot version-update configuration, and there is no CodeQL or
+    secret-scanning workflow. See the supply-chain section.
 
 ---
 
@@ -334,6 +335,8 @@ Before exposing the API deployment to users, confirm every item:
 - `package-lock.json` is committed, so installs are reproducible and CI uses `npm ci`.
 - Third-party licence obligations are tracked in `THIRD_PARTY_NOTICES.md`, regenerated with
   `npm run licenses:generate`.
+- **Dependabot security alerts are enabled**, so GitHub surfaces dependency advisories on the
+  default branch.
 - CI (`.github/workflows/ci.yml`) runs two jobs:
   - `verify` — `npm ci` → `npm run lint:ci` → `npm run test:coverage` → `npm run test:ui` →
     `npm run build` → an assertion that `dist/index.html` and the expected `chunk-*` vendor bundles
@@ -342,17 +345,27 @@ Before exposing the API deployment to users, confirm every item:
     Xcode project still compiles with every Capacitor plugin linked through Swift Package Manager.
 - Android release signing keys and iOS provisioning profiles are not committed to the repository.
 
+**Current advisory snapshot (October 2026)**
+
+`npm audit` reports 11 advisories (5 moderate, 6 high), all confined to the **build/dev toolchain**
+— Tailwind's `braces` and `postcss-selector-parser`, Vite's `source-map-js`, and `@capacitor/cli`'s
+transitive `uuid`/`xcode`. None is runtime code in the shipped app bundle.
+
+- `source-map-js` and `uuid` are resolvable with a plain `npm audit fix`.
+- The Tailwind chain only resolves with `npm audit fix --force`, which installs `tailwindcss@4.3.3`
+  — a breaking major version change.
+
 **Known gaps (planned, not claimed as done)**
 
-- No `npm audit` / Dependabot / Renovate job, so dependency advisories are not surfaced
-  automatically.
+- `npm audit` is **not** run in CI, so advisories are visible but never fail the build.
+- No Dependabot **version-update** configuration (`.github/dependabot.yml`), so advisories are
+  surfaced without automated update PRs.
 - No secret scanning or SAST (e.g. CodeQL) workflow.
 - No SBOM beyond `THIRD_PARTY_NOTICES.md`.
 - No reproducible-build or artifact-provenance attestation for the native binaries.
 
 If you are reviewing this project, treat the dependency graph and the native build toolchain as
-part of the attack surface, and see the "No automated dependency or secret scanning yet" limitation
-above.
+part of the attack surface.
 
 ---
 
