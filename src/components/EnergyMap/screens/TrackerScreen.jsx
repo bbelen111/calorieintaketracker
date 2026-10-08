@@ -80,39 +80,33 @@ const CircularProgress = ({ percent, color, size = 120, strokeWidth = 10 }) => {
   );
 };
 
-// One micronutrient cell for the Tracker macro card. Untracked renders as —,
-// tracked values show unit (mg for sodium, g otherwise), and a trailing "~"
-// with tooltip marks a partial day sum (some logged foods lack the nutrient).
+// One compact micronutrient item for the Tracker card, rendered inline as
+// "Fiber: 12.3g". Untracked renders as — (no unit), tracked values show their
+// unit (mg for sodium, g otherwise), and a leading "~" with tooltip marks a
+// partial day sum (some logged foods lack the nutrient).
 const MicroStat = ({ label, value, coverage, unit, colorClass }) => {
   const isTracked = value != null && value !== '';
   const isPartial = isTracked && coverage?.hasUntracked === true;
-
-  if (!isTracked) {
-    return (
-      <div className="flex flex-col items-center">
-        <p className="text-foreground/70 font-bold text-sm">—</p>
-        <p className="text-muted text-[10px] font-semibold mt-0.5">{label}</p>
-      </div>
-    );
-  }
-
-  const displayValue =
-    unit === 'mg' ? Math.round(Number(value)) : formatOne(Number(value));
+  const displayValue = isTracked
+    ? unit === 'mg'
+      ? Math.round(Number(value))
+      : formatOne(Number(value))
+    : '—';
 
   return (
-    <div
-      className="flex flex-col items-center"
+    <span
+      className="text-xs whitespace-nowrap"
       title={isPartial ? 'Some logged foods lack this nutrient' : undefined}
     >
-      <p className={`font-bold text-sm ${colorClass}`}>
+      <span className="text-muted">{label}: </span>
+      <span
+        className={`font-semibold ${isTracked ? colorClass : 'text-foreground/70'}`}
+      >
         {isPartial ? '~' : ''}
         {displayValue}
-        <span className="text-muted text-[10px] font-medium ml-0.5">
-          {unit}
-        </span>
-      </p>
-      <p className="text-muted text-[10px] font-semibold mt-0.5">{label}</p>
-    </div>
+        {isTracked ? unit : ''}
+      </span>
+    </span>
   );
 };
 
@@ -814,30 +808,25 @@ export const TrackerScreen = ({
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Flame className="text-accent-blue" size={20} />
-            <span className="text-foreground text-xl font-bold tracking-wide">
+            <span className="text-foreground text-lg font-bold tracking-wide">
               Total Calories
             </span>
           </div>
-          <div
-            className={`font-black text-2xl px-4 h-8 tracking-wide rounded-full flex items-center justify-center ${caloriesRemaining < 0 ? 'bg-accent-red/15 text-accent-red border border-accent-red/30' : 'bg-accent-emerald/15 text-accent-emerald border border-accent-emerald/30'}`}
-          >
+          <span className="text-foreground font-bold text-xl tracking-wide">
             <AnimatePresence mode="wait">
-              <motion.p
+              <motion.span
                 key={`totals-cal-${totals.calories}`}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.22 }}
-                className={`leading-none m-0 ${
-                  caloriesRemaining < 0
-                    ? 'text-accent-red'
-                    : 'text-accent-emerald'
-                }`}
+                className="inline-block leading-none"
               >
-                {formatOne(totals.calories)}
-              </motion.p>
+                {Math.round(totals.calories).toLocaleString()} /{' '}
+                {Math.round(targetCalories).toLocaleString()} kcal
+              </motion.span>
             </AnimatePresence>
-          </div>
+          </span>
         </div>
 
         {/* Calorie Target Selector */}
@@ -871,7 +860,7 @@ export const TrackerScreen = ({
         </div>
 
         {/* Progress Bar */}
-        <div className="mt-4 mb-6">
+        <div className="mt-4 mb-5">
           <div className="w-full bg-surface-highlight rounded-full h-4 overflow-hidden">
             <div
               className={`h-full ${
@@ -913,29 +902,39 @@ export const TrackerScreen = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-6">
           {/* Protein */}
           <div className="flex flex-col items-center">
             <div className="relative">
               <CircularProgress
                 percent={proteinPercent}
                 color={proteinOver ? 'text-accent-red' : 'text-accent-red'}
-                size={100}
+                size={104}
                 strokeWidth={8}
               />
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <Beef className="text-accent-red mb-1" size={20} />
                 <AnimatePresence mode="wait">
-                  <motion.p
+                  <motion.div
                     key={`protein-${totals.protein}`}
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
                     transition={{ duration: 0.22 }}
-                    className="text-foreground/80 font-bold text-lg"
+                    className="flex flex-col items-center leading-none"
                   >
-                    {formatOne(totals.protein)}
-                  </motion.p>
+                    <span className="relative text-foreground/80 font-bold text-lg">
+                      {formatOne(totals.protein)}
+                      <span className="text-muted text-sm font-medium">g</span>
+                      <span className="absolute left-full top-0 bottom-0 ml-0.5 flex items-center text-sm font-medium text-muted">
+                        /
+                      </span>
+                    </span>
+                    <span className="text-muted font-bold text-xs mt-0.5">
+                      {formatOne(targetProtein)}
+                      <span className="text-muted font-medium">g</span>
+                    </span>
+                  </motion.div>
                 </AnimatePresence>
                 {proteinOver ? (
                   <AlertTriangle className="mt-1 text-accent-red" size={12} />
@@ -945,9 +944,6 @@ export const TrackerScreen = ({
               </div>
             </div>
             <p className="text-muted text-xs font-semibold mt-2">Protein</p>
-            <p className="text-muted text-xs">
-              <span>{formatOne(targetProtein)}g target</span>
-            </p>
           </div>
 
           {/* Fats */}
@@ -956,22 +952,32 @@ export const TrackerScreen = ({
               <CircularProgress
                 percent={fatsPercent}
                 color={fatsOver ? 'text-accent-red' : 'text-accent-yellow'}
-                size={100}
+                size={104}
                 strokeWidth={8}
               />
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <Droplet className="text-accent-yellow mb-1" size={20} />
                 <AnimatePresence mode="wait">
-                  <motion.p
+                  <motion.div
                     key={`fats-${totals.fats}`}
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
                     transition={{ duration: 0.22 }}
-                    className="text-foreground/80 font-bold text-lg"
+                    className="flex flex-col items-center leading-none"
                   >
-                    {formatOne(totals.fats)}
-                  </motion.p>
+                    <span className="relative text-foreground/80 font-bold text-lg">
+                      {formatOne(totals.fats)}
+                      <span className="text-muted text-sm font-medium">g</span>
+                      <span className="absolute left-full top-0 bottom-0 ml-0.5 flex items-center text-sm font-medium text-muted">
+                        /
+                      </span>
+                    </span>
+                    <span className="text-muted font-bold text-xs mt-0.5">
+                      {formatOne(targetFats)}
+                      <span className="text-muted font-medium">g</span>
+                    </span>
+                  </motion.div>
                 </AnimatePresence>
                 {fatsOver ? (
                   <AlertTriangle className="mt-1 text-accent-red" size={12} />
@@ -981,9 +987,6 @@ export const TrackerScreen = ({
               </div>
             </div>
             <p className="text-muted text-xs font-semibold mt-2">Fats</p>
-            <p className="text-muted text-xs">
-              <span>{formatOne(targetFats)}g target</span>
-            </p>
           </div>
 
           {/* Carbs */}
@@ -992,22 +995,36 @@ export const TrackerScreen = ({
               <CircularProgress
                 percent={carbsPercent}
                 color={carbsOver ? 'text-accent-red' : 'text-accent-amber'}
-                size={100}
+                size={104}
                 strokeWidth={8}
               />
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <Cookie className="text-accent-amber mb-1" size={20} />
                 <AnimatePresence mode="wait">
-                  <motion.p
+                  <motion.div
                     key={`carbs-${totals.carbs}`}
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
                     transition={{ duration: 0.22 }}
-                    className="text-foreground/80 font-bold text-lg"
+                    className="flex flex-col items-center leading-none"
                   >
-                    {formatOne(totals.carbs)}
-                  </motion.p>
+                    <span className="relative text-foreground/80 font-bold text-lg">
+                      {formatOne(totals.carbs)}
+                      <span className="text-muted text-sm font-medium">g</span>
+                      {targetCarbs > 0 && (
+                        <span className="absolute left-full top-0 bottom-0 ml-0.5 flex items-center text-sm font-medium text-muted">
+                          /
+                        </span>
+                      )}
+                    </span>
+                    {targetCarbs > 0 && (
+                      <span className="text-muted font-bold text-xs mt-0.5">
+                        {formatOne(targetCarbs)}
+                        <span className="text-muted font-medium">g</span>
+                      </span>
+                    )}
+                  </motion.div>
                 </AnimatePresence>
                 {carbsOver ? (
                   <AlertTriangle className="mt-1 text-accent-red" size={12} />
@@ -1015,51 +1032,42 @@ export const TrackerScreen = ({
               </div>
             </div>
             <p className="text-muted text-xs font-semibold mt-2">Carbs</p>
-            <p className="text-muted text-xs">
-              {targetCarbs > 0 ? (
-                <span>{formatOne(targetCarbs)}g target</span>
-              ) : (
-                <span>No room</span>
-              )}
-            </p>
+            {targetCarbs > 0 ? null : (
+              <p className="text-muted text-xs">No room</p>
+            )}
           </div>
         </div>
 
-        {/* Micronutrients row (null = untracked; ~ = partial sum) */}
-        <div className="mt-5 pt-4 border-t border-border/70">
-          <p className="text-muted text-[11px] font-semibold uppercase tracking-wide mb-2.5">
-            Micronutrients
-          </p>
-          <div className="grid grid-cols-4 gap-2 text-center">
-            <MicroStat
-              label="Fiber"
-              value={totals.fiber}
-              coverage={totals.microCoverage?.fiber}
-              unit="g"
-              colorClass="text-accent-green"
-            />
-            <MicroStat
-              label="Sodium"
-              value={totals.sodium}
-              coverage={totals.microCoverage?.sodium}
-              unit="mg"
-              colorClass="text-accent-indigo"
-            />
-            <MicroStat
-              label="Sat. Fat"
-              value={totals.saturatedFats}
-              coverage={totals.microCoverage?.saturatedFats}
-              unit="g"
-              colorClass="text-accent-yellow"
-            />
-            <MicroStat
-              label="Sugars"
-              value={totals.sugars}
-              coverage={totals.microCoverage?.sugars}
-              unit="g"
-              colorClass="text-accent-pink"
-            />
-          </div>
+        {/* Compact micronutrient row (null = untracked; ~ = partial sum) */}
+        <div className="mt-5 pt-4 border-t border-border/70 flex flex-wrap items-center justify-center gap-x-8 gap-y-1">
+          <MicroStat
+            label="Fiber"
+            value={totals.fiber}
+            coverage={totals.microCoverage?.fiber}
+            unit="g"
+            colorClass="text-accent-green"
+          />
+          <MicroStat
+            label="Sodium"
+            value={totals.sodium}
+            coverage={totals.microCoverage?.sodium}
+            unit="mg"
+            colorClass="text-accent-indigo"
+          />
+          <MicroStat
+            label="Sat. Fat"
+            value={totals.saturatedFats}
+            coverage={totals.microCoverage?.saturatedFats}
+            unit="g"
+            colorClass="text-accent-yellow"
+          />
+          <MicroStat
+            label="Sugars"
+            value={totals.sugars}
+            coverage={totals.microCoverage?.sugars}
+            unit="g"
+            colorClass="text-accent-pink"
+          />
         </div>
       </div>
 
