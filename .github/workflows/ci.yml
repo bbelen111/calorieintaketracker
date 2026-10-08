@@ -23,6 +23,34 @@ jobs:
         # and reports as deprecated on every run.
         uses: actions/checkout@v7
 
+      # Runs first because it is the cheapest gate: no dependencies to install,
+      # a few seconds, and it catches a class of failure that nothing else does.
+      #
+      # Workflow files are YAML *and* their own expression language, so parsing
+      # the YAML proves nothing about the Actions syntax. `if: ... == "success"`
+      # is perfectly valid YAML but invalid Actions (string literals need single
+      # quotes) — and GitHub does not partially run a malformed workflow, it
+      # skips the file entirely, so a whole workflow can be silently dead.
+      # actionlint parses the expression grammar and also validates runner
+      # labels, action inputs and shell quoting in `run:` blocks.
+      #
+      # Pinned to an exact version on purpose: never `curl | bash` the upstream
+      # download script, which executes an unpinned script fetched from `main`.
+      - name: Lint GitHub Actions workflows
+        run: |
+          set -euo pipefail
+          version=1.7.12
+          curl -sSLo /tmp/actionlint.tar.gz \
+            "https://github.com/rhysd/actionlint/releases/download/v${version}/actionlint_${version}_linux_amd64.tar.gz"
+          tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
+          # Shellcheck integration is deliberately off: GitHub runners ship
+          # shellcheck, and leaving it on would fail this gate immediately on a
+          # PRE-EXISTING warning in the build-output assertion below (SC2010,
+          # `ls dist/assets | grep -q`). That is its own cleanup, not something
+          # to bundle into adding a linter. Drop -shellcheck= to re-enable it
+          # once that loop is rewritten to use a glob.
+          /tmp/actionlint -shellcheck= -color
+
       - name: Set up Node
         uses: actions/setup-node@v7
         with:
