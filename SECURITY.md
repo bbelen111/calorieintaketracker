@@ -351,13 +351,14 @@ Before exposing the API deployment to users, confirm every item:
 
 **Current advisory snapshot (October 2026)**
 
-`npm audit` reports 11 advisories (5 moderate, 6 high), all confined to the **build/dev toolchain**
-— Tailwind's `braces` and `postcss-selector-parser`, Vite's `source-map-js`, and `@capacitor/cli`'s
-transitive `uuid`/`xcode`. None is runtime code in the shipped app bundle.
+`npm audit` reports 4 advisories (3 moderate, 1 high), all confined to the **build/dev toolchain**:
+`source-map-js`, plus `uuid`/`xcode` reached through `@capacitor/cli`. None is runtime code in the
+shipped app bundle.
 
-- `source-map-js` and `uuid` are resolvable with a plain `npm audit fix`.
-- The Tailwind chain only resolves with `npm audit fix --force`, which installs `tailwindcss@4.3.3`
-  — a breaking major version change.
+The Tailwind v3 chain (`braces`, `postcss-selector-parser`) accounted for the rest and disappeared
+when Tailwind moved to v4, which drops those dependencies entirely.
+
+- `source-map-js` is resolvable with a plain `npm audit fix`.
 
 **Known gaps (planned, not claimed as done)**
 
