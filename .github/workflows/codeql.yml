@@ -1,0 +1,67 @@
+name: CodeQL (JavaScript/TypeScript)
+
+# Advanced setup. CodeQL *default* setup cannot coexist with this workflow -
+# disable it in Settings -> Code security -> Code scanning first, or GitHub
+# reports "Two CodeQL workflows" and neither analysis runs reliably.
+#
+# Why JavaScript/TypeScript is the analysis that matters here: it is ~67k lines
+# across src/ plus the five security-critical api/* handlers, i.e. the entire
+# product. The repo's only compiled language is Swift, and all ~120 lines of it
+# are Capacitor-generated boilerplate (stock AppDelegate/SceneDelegate, a
+# one-line CapApp-SPM.swift, and a README saying "do not modify").
+#
+# Crucially, JavaScript/TypeScript needs NO build. CodeQL extracts it straight
+# from source, which keeps this job to a couple of minutes and makes it
+# structurally immune to the SwiftPM resolution failure that broke the
+# default-setup run (ios/App/CapApp-SPM/Package.swift declares ten local path
+# dependencies into node_modules, which a fresh checkout does not have).
+#
+# Swift is attempted separately, and only when iOS files change, in
+# codeql-swift.yml.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly, so newly published CodeQL queries still run on a quiet repo.
+    - cron: '27 4 * * 1'
+  workflow_dispatch:
+
+# One run per ref: a new push supersedes an in-flight run (matches ci.yml).
+concurrency:
+  group: codeql-js-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  # Uploads the SARIF results to code scanning.
+  security-events: write
+  # Lets CodeQL fetch its query packs.
+  packages: read
+  actions: read
+
+jobs:
+  analyze:
+    name: Analyze JavaScript/TypeScript
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        # v7+, matching ci.yml: v4 targets Node 20, which GitHub now force-runs
+        # on Node 24 and reports as deprecated on every run.
+        uses: actions/checkout@v7
+
+      # No `build-mode` on purpose. It is a compiled-language input; for
+      # JavaScript/TypeScript the default (source extraction, no build) is
+      # already what we want, and passing it risks an unsupported-input error.
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: '/language:javascript-typescript'
