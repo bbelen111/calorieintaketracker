@@ -351,14 +351,26 @@ Before exposing the API deployment to users, confirm every item:
 
 **Current advisory snapshot (October 2026)**
 
-`npm audit` reports 4 advisories (3 moderate, 1 high), all confined to the **build/dev toolchain**:
-`source-map-js`, plus `uuid`/`xcode` reached through `@capacitor/cli`. None is runtime code in the
-shipped app bundle.
+`npm audit` reports **0 advisories**.
 
-The Tailwind v3 chain (`braces`, `postcss-selector-parser`) accounted for the rest and disappeared
-when Tailwind moved to v4, which drops those dependencies entirely.
+Getting there took three steps, all confined to the build/dev toolchain — none of it is runtime code
+in the shipped app bundle:
 
-- `source-map-js` is resolvable with a plain `npm audit fix`.
+- The Tailwind v3 chain (`braces`, `postcss-selector-parser`) disappeared when Tailwind moved to v4,
+  which drops those dependencies entirely.
+- `source-map-js` was cleared by a plain `npm audit fix` (1.2.1 → 1.2.2).
+- `uuid` (GHSA-w5hq-g745-h8pq, `<11.1.1`) is forced to `^11.1.1` for `xcode` through a **scoped**
+  `overrides` entry in `package.json`. `xcode@3.0.1` is the latest release and still pins
+  `uuid: ^7.0.3`, so no upstream fix exists and `npm audit fix` cannot reach it without `--force`
+  (which would also risk downgrading `@capacitor/cli`).
+
+The override is safe here because `xcode` has exactly **one** `uuid` call site — `uuid.v4()` with no
+arguments, in `generateUuid()` — while the advisory only affects `v3`/`v5`/`v6` **when a `buf`
+argument is passed**. The vulnerable path is unreachable. Verified before committing: `xcode` still
+parses the real `ios/App/App.xcodeproj/project.pbxproj`, `generateUuid()` still returns unique
+24-character uppercase hex, `npx cap copy ios` succeeds, and build plus both test tiers are
+unaffected. The override is scoped to `xcode` rather than global so it cannot leak to another
+consumer if one is ever added.
 
 **Known gaps (planned, not claimed as done)**
 
