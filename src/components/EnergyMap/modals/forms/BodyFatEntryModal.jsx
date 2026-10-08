@@ -253,9 +253,9 @@ export const BodyFatPicker = ({ value, onChange }) => {
       <div className="flex-1">
         <div className="relative h-48 overflow-hidden rounded-xl bg-surface/80">
           <div className="absolute inset-0 pointer-events-none z-10">
-            <div className="h-16 bg-gradient-to-b from-surface to-transparent" />
+            <div className="h-16 bg-linear-to-b from-surface to-transparent" />
             <div className="h-16 bg-transparent" />
-            <div className="h-16 bg-gradient-to-t from-surface to-transparent" />
+            <div className="h-16 bg-linear-to-t from-surface to-transparent" />
           </div>
           <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-16 border-y-2 border-accent-blue/70 pointer-events-none z-10" />
 
@@ -291,12 +291,12 @@ export const BodyFatPicker = ({ value, onChange }) => {
         </div>
       </div>
 
-      <div className="w-20 flex-shrink-0">
+      <div className="w-20 shrink-0">
         <div className="relative h-48 overflow-hidden rounded-xl bg-surface/80">
           <div className="absolute inset-0 pointer-events-none z-10">
-            <div className="h-16 bg-gradient-to-b from-surface to-transparent" />
+            <div className="h-16 bg-linear-to-b from-surface to-transparent" />
             <div className="h-16 bg-transparent" />
-            <div className="h-16 bg-gradient-to-t from-surface to-transparent" />
+            <div className="h-16 bg-linear-to-t from-surface to-transparent" />
           </div>
           <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 h-16 border-y-2 border-accent-blue/70 pointer-events-none z-10" />
 
@@ -445,7 +445,7 @@ export const BodyFatEntryModal = ({
               value={date ?? ''}
               onChange={(val) => onDateChange?.(val)}
               disabled={isEdit || isDateLocked}
-              className={`w-full bg-surface-highlight text-foreground px-4 py-2 rounded-lg border focus:outline-none focus-ring ${
+              className={`w-full bg-surface-highlight text-foreground px-4 py-2 rounded-lg border focus:outline-hidden focus-ring ${
                 isEdit || isDateLocked
                   ? 'border-border opacity-80 cursor-not-allowed'
                   : 'border-border focus:border-accent-blue'

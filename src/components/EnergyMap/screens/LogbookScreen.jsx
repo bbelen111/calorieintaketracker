@@ -96,7 +96,7 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
       onClick={() => onPhaseClick(phase)}
       className={`w-full text-left p-5 rounded-xl border-2 transition-all md:hover:scale-[1.02] pressable-card focus-ring ${
         isActive
-          ? 'bg-gradient-to-br from-surface to-background border-accent-blue shadow-lg'
+          ? 'bg-linear-to-br from-surface to-background border-accent-blue shadow-lg'
           : 'bg-surface-highlight/50 border border-border/50 md:hover:border-border'
       }`}
     >

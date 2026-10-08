@@ -84,7 +84,7 @@ export const TrainingModal = ({
       ? 'Edit Training Session'
       : 'Add Training Session';
   const saveLabel = isFavouriteMode ? 'Save Favourite' : 'Save';
-  const overlayClassName = isFavouriteMode ? 'z-[80]' : '';
+  const overlayClassName = isFavouriteMode ? 'z-80' : '';
 
   const pseudoTrainingSession = useMemo(() => {
     const durationHours = Number(session?.durationHours);
@@ -185,14 +185,14 @@ export const TrainingModal = ({
   const effortButtonClass = (type) =>
     `w-full rounded-lg border px-3 py-1.5 text-sm transition-all focus-ring pressable-inline ${
       effortType === type
-        ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+        ? 'bg-primary text-primary-foreground border-primary shadow-xs'
         : 'bg-surface-highlight text-muted border-border md:hover:border-accent-blue'
     }`;
 
   const intensityButtonClass = (level) =>
     `w-full rounded-lg border px-3 py-2 text-sm transition-all focus-ring pressable-inline ${
       intensityValue === level
-        ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+        ? 'bg-primary text-primary-foreground border-primary shadow-xs'
         : 'bg-surface-highlight text-muted border-border md:hover:border-accent-blue'
     }`;
 

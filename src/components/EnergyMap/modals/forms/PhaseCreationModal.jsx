@@ -37,7 +37,7 @@ const getGoalClasses = (key, selected) => {
 const getModeButtonClass = (mode, activeMode) =>
   `w-full rounded-lg border px-3 py-1.5 text-sm transition-all focus-ring pressable-inline ${
     activeMode === mode
-      ? 'bg-primary border-primary text-primary-foreground shadow-sm'
+      ? 'bg-primary border-primary text-primary-foreground shadow-xs'
       : 'bg-surface-highlight text-muted border-border md:hover:border-accent-blue'
   }`;
 
@@ -314,7 +314,7 @@ export const PhaseCreationModal = ({
             value={phaseName}
             onChange={(e) => onNameChange(e.target.value)}
             placeholder="e.g., Winter Bulk 2025, Summer Shred"
-            className="w-full bg-surface-highlight border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus:outline-none focus:border-accent-blue focus-ring"
+            className="w-full bg-surface-highlight border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus:outline-hidden focus:border-accent-blue focus-ring"
             maxLength={50}
           />
         </div>
@@ -328,7 +328,7 @@ export const PhaseCreationModal = ({
             <DateInput
               value={startDate}
               onChange={(val) => onStartDateChange(val)}
-              className="w-full bg-surface-highlight border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:border-accent-blue focus-ring"
+              className="w-full bg-surface-highlight border border-border rounded-lg px-4 py-3 text-foreground focus:outline-hidden focus:border-accent-blue focus-ring"
             />
           </div>
         </div>
@@ -373,7 +373,7 @@ export const PhaseCreationModal = ({
               className={`w-full px-4 py-3 rounded-lg transition-all press-feedback focus-ring flex items-start justify-between gap-3 ${getGoalClasses(goalType, true)}`}
             >
               <span className="flex min-w-0 flex-1 items-start gap-2.5 text-left">
-                <GoalIcon size={18} className="mt-0.5 flex-shrink-0" />
+                <GoalIcon size={18} className="mt-0.5 shrink-0" />
                 <span className="min-w-0">
                   <span className="font-semibold text-sm md:text-base block truncate">
                     {selectedGoalConfig.label}
@@ -467,7 +467,7 @@ export const PhaseCreationModal = ({
                 : startDate
             }
             max={normalizedMode === 'target' ? constrainedDateBounds.max : null}
-            className="w-full bg-surface-highlight border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:border-accent-blue focus-ring"
+            className="w-full bg-surface-highlight border border-border rounded-lg px-4 py-3 text-foreground focus:outline-hidden focus:border-accent-blue focus-ring"
           />
         </div>
 

@@ -64,7 +64,7 @@ const LiveStepsCard = ({
 
   if (isNotInstalled) {
     return (
-      <div className="bg-gradient-to-br from-surface-highlight/80 to-surface/80 rounded-2xl p-5 border border-border/50 mb-4">
+      <div className="bg-linear-to-br from-surface-highlight/80 to-surface/80 rounded-2xl p-5 border border-border/50 mb-4">
         <div className="flex items-center gap-3 mb-3">
           <div className="p-2 bg-accent-amber/20 rounded-xl">
             <AlertCircle className="text-accent-amber" size={24} />
@@ -98,7 +98,7 @@ const LiveStepsCard = ({
   // Disconnected - prompt to connect
   if (isDisconnected || hasError) {
     return (
-      <div className="bg-gradient-to-br from-surface-highlight/80 to-surface/80 rounded-2xl p-5 border border-border/50 mb-4">
+      <div className="bg-linear-to-br from-surface-highlight/80 to-surface/80 rounded-2xl p-5 border border-border/50 mb-4">
         <div className="flex items-center gap-3 mb-3">
           <div className="p-2 bg-accent-blue/20 rounded-xl">
             <Footprints className="text-accent-blue" size={24} />
@@ -139,7 +139,7 @@ const LiveStepsCard = ({
   // Connecting state
   if (isConnecting) {
     return (
-      <div className="bg-gradient-to-br from-accent-blue/15 to-surface/80 rounded-2xl p-5 border border-accent-blue/30 mb-4">
+      <div className="bg-linear-to-br from-accent-blue/15 to-surface/80 rounded-2xl p-5 border border-accent-blue/30 mb-4">
         <div className="flex items-center gap-3">
           <Loader2 className="text-accent-blue animate-spin" size={24} />
           <span className="text-foreground font-medium">
@@ -179,7 +179,7 @@ const LiveStepsCard = ({
               type="button"
               onClick={onRefreshSteps}
               disabled={healthConnectLoading}
-              className="p-2 text-muted rounded-lg border border-border/60 bg-surface-highlight/40 transition-colors focus-ring md:hover:text-foreground md:hover:bg-border/60 disabled:opacity-50 disabled:cursor-not-allowed active:!scale-100"
+              className="p-2 text-muted rounded-lg border border-border/60 bg-surface-highlight/40 transition-colors focus-ring md:hover:text-foreground md:hover:bg-border/60 disabled:opacity-50 disabled:cursor-not-allowed active:scale-100!"
               aria-label="Refresh steps"
             >
               <RefreshCw
@@ -277,7 +277,7 @@ const LiveStepsCard = ({
   // Fallback - loading initial state
   if (healthConnectLoading) {
     return (
-      <div className="bg-gradient-to-br from-surface-highlight/80 to-surface/80 rounded-2xl p-5 border border-border/50 mb-4">
+      <div className="bg-linear-to-br from-surface-highlight/80 to-surface/80 rounded-2xl p-5 border border-border/50 mb-4">
         <div className="flex items-center gap-3">
           <Loader2 className="text-accent-blue animate-spin" size={24} />
           <span className="text-foreground font-medium">

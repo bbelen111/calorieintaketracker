@@ -797,11 +797,11 @@ export const CalendarPickerModal = ({
               Has entries
             </span>
             <span className="inline-flex items-center gap-1">
-              <span className="w-2 h-2 rounded-sm bg-accent-slate" />
+              <span className="w-2 h-2 rounded-xs bg-accent-slate" />
               No entries
             </span>
             <span className="inline-flex items-center gap-1">
-              <span className="w-2 h-2 rounded-sm bg-accent-blue" />
+              <span className="w-2 h-2 rounded-xs bg-accent-blue" />
               Selected
             </span>
           </div>
@@ -846,7 +846,7 @@ export const CalendarPickerModal = ({
                         year: 'numeric',
                       })}
                     </p>
-                    <div className="flex items-center gap-1.5 flex-wrap justify-end flex-shrink-0">
+                    <div className="flex items-center gap-1.5 flex-wrap justify-end shrink-0">
                       <span
                         className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${
                           hasDayData
@@ -987,7 +987,7 @@ export const CalendarPickerModal = ({
                       {monthNames[currentMonth]} {currentYear}
                     </p>
                   </div>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold text-accent-blue border border-accent-blue/20 bg-accent-blue/10 flex-shrink-0">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold text-accent-blue border border-accent-blue/20 bg-accent-blue/10 shrink-0">
                     <CalendarCheck size={11} />
                     <motion.span
                       key={monthlyInsights.daysWithData}

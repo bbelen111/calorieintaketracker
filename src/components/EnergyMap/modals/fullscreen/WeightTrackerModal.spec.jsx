@@ -51,7 +51,7 @@ const getCardWrapper = (baseElement) =>
 /**
  * The tracker detail surface is a single card pinned to the top centre of the
  * plot, tied to the tapped slot by a guide line drawn inside the chart. The old
- * floating tooltip (measured onto the point, `fixed` + `z-[1200]`, dismissed by
+ * floating tooltip (measured onto the point, `fixed` + `z-1200`, dismissed by
  * an outside pointerdown listener) must not come back: it drifted on scroll,
  * escaped the modal z-lanes and rendered outside `ModalShell`.
  */
@@ -63,7 +63,7 @@ describe('WeightTrackerModal selection card', () => {
     expect(card).toHaveAttribute('aria-hidden', 'true');
 
     // No floating tooltip: no node escapes the ModalShell z-lanes...
-    expect(baseElement.querySelector('[class*="z-[1200]"]')).toBeNull();
+    expect(baseElement.querySelector('[class*="z-1200"]')).toBeNull();
     // ...and the card is pinned to the plot's top edge by a constant, never
     // measured from the tapped point (and never given a `left`).
     expect(card.style.top).toBe('8px');

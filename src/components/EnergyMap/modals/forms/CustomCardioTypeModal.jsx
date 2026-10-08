@@ -154,7 +154,7 @@ export const CustomCardioTypeModal = ({
       <ModalShell
         isOpen={isOpen}
         isClosing={isClosing}
-        overlayClassName="bg-surface/90 z-[80]"
+        overlayClassName="bg-surface/90 z-80"
         contentClassName="p-6 w-full max-w-md"
       >
         <h3 className="text-foreground font-bold text-xl mb-4 text-center">
@@ -171,7 +171,7 @@ export const CustomCardioTypeModal = ({
               value={name}
               onChange={(event) => onNameChange(event.target.value)}
               placeholder="e.g., Outdoor Soccer Scrimmage"
-              className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border focus:border-accent-blue focus:outline-none focus-ring text-base"
+              className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border focus:border-accent-blue focus:outline-hidden focus-ring text-base"
             />
           </div>
 

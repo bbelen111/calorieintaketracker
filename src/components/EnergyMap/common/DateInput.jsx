@@ -44,7 +44,7 @@ export const DateInput = ({
         className={`flex items-center justify-between text-left ${className}`}
       >
         <span className={value ? '' : 'text-muted'}>{displayText}</span>
-        <Calendar size={16} className="text-muted flex-shrink-0 ml-2" />
+        <Calendar size={16} className="text-muted shrink-0 ml-2" />
       </button>
 
       <DatePickerModal

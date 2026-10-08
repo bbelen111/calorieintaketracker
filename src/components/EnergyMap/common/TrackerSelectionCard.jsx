@@ -92,7 +92,7 @@ export const TrackerSelectionCard = ({
           <span className="text-muted text-[10px] uppercase tracking-wide">
             {actionLabel}
           </span>
-          <ChevronRight size={13} className="text-muted flex-shrink-0" />
+          <ChevronRight size={13} className="text-muted shrink-0" />
         </div>
       )}
     </>
@@ -110,7 +110,7 @@ export const TrackerSelectionCard = ({
     >
       <div
         onClick={(event) => event.stopPropagation()}
-        className={`pointer-events-auto relative w-full rounded-xl border border-border/40 bg-surface/85 supports-[backdrop-filter]:bg-surface/55 backdrop-blur-2xl backdrop-saturate-150 shadow-2xl shadow-background/40 overflow-hidden ${
+        className={`pointer-events-auto relative w-full rounded-xl border border-border/40 bg-surface/85 supports-backdrop-filter:bg-surface/55 backdrop-blur-2xl backdrop-saturate-150 shadow-2xl shadow-background/40 overflow-hidden ${
           isOpen ? '' : 'pointer-events-none'
         }`}
       >

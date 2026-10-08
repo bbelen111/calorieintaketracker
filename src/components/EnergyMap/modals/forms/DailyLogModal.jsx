@@ -178,7 +178,7 @@ export const DailyLogModal = ({
             <DateInput
               value={formatDateForInput(date)}
               onChange={(val) => onDateChange(val)}
-              className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:border-accent-blue focus-ring"
+              className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground focus:outline-hidden focus:border-accent-blue focus-ring"
             />
           )}
         </div>
@@ -344,7 +344,7 @@ export const DailyLogModal = ({
         </div>
 
         {/* Notes Toggle */}
-        <div className="!mt-10">
+        <div className="mt-10!">
           <button
             type="button"
             onClick={() => {
@@ -383,7 +383,7 @@ export const DailyLogModal = ({
               placeholder="Any notes about this day..."
               rows={3}
               maxLength={500}
-              className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus:outline-none focus:border-accent-blue focus-ring resize-none"
+              className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus:outline-hidden focus:border-accent-blue focus-ring resize-none"
               autoFocus={showNotes}
             />
             <div className="text-muted text-xs mt-1 text-right">

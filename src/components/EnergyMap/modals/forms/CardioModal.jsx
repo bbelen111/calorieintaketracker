@@ -64,7 +64,7 @@ export const CardioModal = ({
       ? 'Edit Cardio Session'
       : 'Add Cardio Session';
   const saveLabel = isFavouriteMode ? 'Save Favourite' : 'Save';
-  const overlayClassName = isFavouriteMode ? 'z-[80]' : '';
+  const overlayClassName = isFavouriteMode ? 'z-80' : '';
   const estimatedBurn = calculateCardioCalories(
     session,
     {
@@ -320,14 +320,14 @@ export const CardioModal = ({
   const effortButtonClass = (type) =>
     `w-full rounded-lg border px-3 py-1.5 text-sm transition-all focus-ring pressable-inline ${
       effortType === type
-        ? 'bg-primary border-primary text-primary-foreground shadow-sm'
+        ? 'bg-primary border-primary text-primary-foreground shadow-xs'
         : 'bg-surface-highlight text-muted border-border md:hover:border-accent-blue'
     }`;
 
   const intensityButtonClass = (level) =>
     `w-full rounded-lg border px-3 py-2 text-sm transition-all focus-ring pressable-inline ${
       intensityValue === level
-        ? 'bg-primary border-primary text-primary-foreground shadow-sm'
+        ? 'bg-primary border-primary text-primary-foreground shadow-xs'
         : 'bg-surface-highlight text-muted border-border md:hover:border-accent-blue'
     }`;
 
@@ -589,7 +589,7 @@ export const CardioModal = ({
                     }`}
                   >
                     <span
-                      className={`h-4 w-4 rounded-full bg-primary-foreground shadow-sm transition-transform duration-200 ${stepOverlapEnabled ? 'translate-x-6' : 'translate-x-1'}`}
+                      className={`h-4 w-4 rounded-full bg-primary-foreground shadow-xs transition-transform duration-200 ${stepOverlapEnabled ? 'translate-x-6' : 'translate-x-1'}`}
                     />
                   </span>
                 </button>

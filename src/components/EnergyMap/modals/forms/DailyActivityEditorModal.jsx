@@ -80,7 +80,7 @@ export const DailyActivityEditorModal = ({
       isOpen={isOpen}
       isClosing={isClosing}
       onClose={onClose}
-      overlayClassName="bg-surface/80 z-[70]"
+      overlayClassName="bg-surface/80 z-70"
       contentClassName="p-4 md:p-6 w-full md:max-w-xl"
     >
       <div className="flex items-center justify-between mb-4 md:mb-6">
@@ -150,8 +150,8 @@ const ActivityOptionCard = ({
       isActive ? ACTIVE_CARD_CLASS : INACTIVE_CARD_CLASS
     }`}
   >
-    <div className="flex-shrink-0 rounded-full p-2 bg-surface-highlight/20">
-      <Icon size={28} className="flex-shrink-0" />
+    <div className="shrink-0 rounded-full p-2 bg-surface-highlight/20">
+      <Icon size={28} className="shrink-0" />
     </div>
     <div className="flex-1">
       <p className="font-semibold text-lg">{title}</p>

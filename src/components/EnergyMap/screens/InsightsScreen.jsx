@@ -595,7 +595,7 @@ export const InsightsScreen = ({
                 </p>
               </div>
               {sparkline.pathData && sortedEntries.length > 1 && (
-                <div className="w-36 h-16 relative [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
+                <div className="w-36 h-16 relative mask-[linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
                   <svg
                     width="100%"
                     height="100%"
@@ -663,7 +663,7 @@ export const InsightsScreen = ({
                         cy={coord.y}
                         r="2.5"
                         fill={weightVisualStyle.color}
-                        className="drop-shadow-sm"
+                        className="drop-shadow-xs"
                       />
                     ))}
                   </svg>
@@ -731,7 +731,7 @@ export const InsightsScreen = ({
                 </div>
                 {bodyFatSparkline.pathData &&
                   sortedBodyFatEntries.length > 1 && (
-                    <div className="w-36 h-16 relative [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
+                    <div className="w-36 h-16 relative mask-[linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
                       <svg
                         width="100%"
                         height="100%"
@@ -799,7 +799,7 @@ export const InsightsScreen = ({
                             cy={coord.y}
                             r="2.5"
                             fill={bodyFatVisualStyle.color}
-                            className="drop-shadow-sm"
+                            className="drop-shadow-xs"
                           />
                         ))}
                       </svg>

@@ -214,7 +214,7 @@ export const AddCustomFoodModal = ({
                   key={tag.id}
                   type="button"
                   onClick={() => toggleTag(tag.id)}
-                  className={`px-2.5 py-1 rounded text-xs font-medium border transition-all cursor-pointer md:hover:opacity-80 ${getTagClasses(tag.id, isSelected)}`}
+                  className={`px-2.5 py-1 rounded-sm text-xs font-medium border transition-all cursor-pointer md:hover:opacity-80 ${getTagClasses(tag.id, isSelected)}`}
                 >
                   {tag.label}
                 </button>

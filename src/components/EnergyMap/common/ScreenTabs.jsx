@@ -74,7 +74,7 @@ export const ScreenTabs = ({ tabs, activeScreen, onSelect }) => {
 
   return (
     <nav
-      className={`fixed inset-x-0 bottom-0 z-[900] transition-opacity duration-200 ${
+      className={`fixed inset-x-0 bottom-0 z-900 transition-opacity duration-200 ${
         isKeyboardVisible ? 'opacity-0' : 'opacity-100'
       }`}
       style={{

@@ -1286,7 +1286,7 @@ export const BodyFatTrackerModal = ({
       return (
         <div
           key={s.date}
-          className="flex-shrink-0 flex flex-col justify-end"
+          className="shrink-0 flex flex-col justify-end"
           style={{ width: `${STEP}px`, scrollSnapAlign: 'start' }}
         >
           <div className="pb-2">
@@ -1363,7 +1363,7 @@ export const BodyFatTrackerModal = ({
       return (
         <div
           key={s.date}
-          className="flex-shrink-0 flex flex-col justify-end"
+          className="shrink-0 flex flex-col justify-end"
           style={{ width: `${STEP}px`, scrollSnapAlign: 'start' }}
         >
           <div className="pb-2">
@@ -1428,7 +1428,7 @@ export const BodyFatTrackerModal = ({
     const timelineSlots = timeline12m.months.map((m) => (
       <div
         key={m.key}
-        className="flex-shrink-0 flex flex-col justify-end"
+        className="shrink-0 flex flex-col justify-end"
         style={{ width: `${STEP}px`, scrollSnapAlign: 'start' }}
       >
         <div className="pb-2">
@@ -1477,11 +1477,11 @@ export const BodyFatTrackerModal = ({
       <ModalShell
         isOpen={isOpen}
         isClosing={isClosing}
-        overlayClassName="fixed inset-0 bg-surface/70 !p-0 !flex-none !items-stretch !justify-stretch z-[1000]"
-        contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none !max-h-none flex flex-col pt-[env(safe-area-inset-top)] keyboard-bottom-inset pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] z-[1001]"
+        overlayClassName="fixed inset-0 bg-surface/70 p-0! flex-none! items-stretch! justify-stretch! z-1000"
+        contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none max-h-none! flex flex-col pt-[env(safe-area-inset-top)] keyboard-bottom-inset pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] z-1001"
       >
         {/* Header bar */}
-        <div className="flex items-center justify-between px-4 py-3 bg-background border-b border-border flex-shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 bg-background border-b border-border shrink-0">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -1509,7 +1509,7 @@ export const BodyFatTrackerModal = ({
         {/* Main content area */}
         <div className="flex-1 bg-surface border-t border-border overflow-y-auto flex flex-col">
           {/* View mode toggle */}
-          <div className="px-4 pt-3 pb-1 flex-shrink-0">
+          <div className="px-4 pt-3 pb-1 shrink-0">
             <div className="relative flex items-center gap-2 p-1 bg-surface-highlight rounded-lg">
               <div
                 className="absolute inset-y-1 rounded-md shadow-md bg-accent-blue"
@@ -1544,7 +1544,7 @@ export const BodyFatTrackerModal = ({
 
           {/* Dynamic stat cards */}
           <div
-            className={`px-4 pt-3 pb-3 grid gap-3 flex-shrink-0 ${
+            className={`px-4 pt-3 pb-3 grid gap-3 shrink-0 ${
               viewMode === '12m' ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-4'
             }`}
           >
@@ -1804,7 +1804,7 @@ export const BodyFatTrackerModal = ({
 
           {/* Add Entry button (hidden in 12m mode) */}
           {viewMode !== '12m' ? (
-            <div className="sticky top-0 z-10 px-4 py-2 bg-surface/95 backdrop-blur border-b border-border flex-shrink-0">
+            <div className="sticky top-0 z-10 px-4 py-2 bg-surface/95 backdrop-blur-sm border-b border-border shrink-0">
               <button
                 type="button"
                 onClick={() => onAddEntry?.()}
@@ -1815,7 +1815,7 @@ export const BodyFatTrackerModal = ({
               </button>
             </div>
           ) : (
-            <div className="border-b border-border flex-shrink-0" />
+            <div className="border-b border-border shrink-0" />
           )}
 
           {/* Graph carousel + Y-axis */}
@@ -1849,11 +1849,11 @@ export const BodyFatTrackerModal = ({
                     </div>
                   )}
                 </div>
-                <div className="pointer-events-none absolute right-0 -mr-1 top-0 h-full w-3 bg-gradient-to-l from-surface/90 to-transparent" />
+                <div className="pointer-events-none absolute right-0 -mr-1 top-0 h-full w-3 bg-linear-to-l from-surface/90 to-transparent" />
               </div>
 
               {/* Y-axis — uses effective chart data with smooth transitions */}
-              <div className="rounded-r-lg w-12 flex-shrink-0 relative">
+              <div className="rounded-r-lg w-12 shrink-0 relative">
                 <div
                   className="absolute inset-x-0 px-1"
                   style={{ top: '8px', height: `${chartHeight}px` }}

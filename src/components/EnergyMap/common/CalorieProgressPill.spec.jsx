@@ -77,7 +77,7 @@ describe('CalorieProgressPill', () => {
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
-  it('draws the outline with the tracker palette without clipping the glow', () => {
+  it('draws the outline-solid with the tracker palette without clipping the glow', () => {
     const { container } = render(
       <CalorieProgressPill consumed={1000} goal={2000} />
     );
@@ -105,7 +105,7 @@ describe('CalorieProgressPill', () => {
     expect(svg.getAttribute('style')).toContain('overflow: visible');
   });
 
-  it('clamps the outline at a full ring past the goal', () => {
+  it('clamps the outline-solid at a full ring-3 past the goal', () => {
     const { container } = render(
       <CalorieProgressPill consumed={5000} goal={2000} />
     );
@@ -126,7 +126,7 @@ describe('CalorieProgressPill', () => {
     );
   });
 
-  it('stays flat at rest, with no outline, rim or shadow', () => {
+  it('stays flat at rest, with no outline, rim or shadow-sm', () => {
     const { container } = render(
       <CalorieProgressPill consumed={0} goal={2000} />
     );

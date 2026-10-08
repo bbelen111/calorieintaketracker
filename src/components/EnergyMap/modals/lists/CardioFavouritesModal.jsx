@@ -198,7 +198,7 @@ export const CardioFavouritesModal = ({
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
-      overlayClassName="bg-surface/80 z-[60]"
+      overlayClassName="bg-surface/80 z-60"
       contentClassName="p-4 md:p-6 w-full md:max-w-lg"
     >
       <div className="flex flex-col gap-4 md:gap-6">
@@ -247,12 +247,12 @@ export const CardioFavouritesModal = ({
                   key={key}
                   type="button"
                   onClick={() => onSelectFavourite?.(normalizedFavourite)}
-                  className="w-full text-left p-3 md:p-4 rounded-xl flex flex-col gap-2 transition-all pressable-card focus-ring border border-primary bg-primary/90 text-primary-foreground shadow-sm"
+                  className="w-full text-left p-3 md:p-4 rounded-xl flex flex-col gap-2 transition-all pressable-card focus-ring border border-primary bg-primary/90 text-primary-foreground shadow-xs"
                   role="listitem"
                   aria-current={active ? 'true' : 'false'}
                 >
                   <div className="flex items-center gap-2 md:gap-3">
-                    <div className="flex-shrink-0 rounded-full p-2 bg-surface-highlight/20">
+                    <div className="shrink-0 rounded-full p-2 bg-surface-highlight/20">
                       <Heart size={18} className="text-primary-foreground" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -273,7 +273,7 @@ export const CardioFavouritesModal = ({
                             setPendingDeleteId(favourite.id);
                             openConfirm();
                           }}
-                          className="flex-shrink-0 w-8 h-8 rounded-full bg-surface-highlight/20 md:hover:bg-surface-highlight/40 pressable-inline focus-ring flex items-center justify-center text-primary-foreground"
+                          className="shrink-0 w-8 h-8 rounded-full bg-surface-highlight/20 md:hover:bg-surface-highlight/40 pressable-inline focus-ring flex items-center justify-center text-primary-foreground"
                           aria-label="Delete favourite cardio session"
                         >
                           <Trash2 size={14} />

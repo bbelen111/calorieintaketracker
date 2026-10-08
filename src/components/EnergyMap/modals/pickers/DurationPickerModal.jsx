@@ -313,9 +313,9 @@ export const DurationPickerModal = ({
           </p>
           <div className="relative h-40 overflow-hidden rounded-xl bg-surface/80">
             <div className="absolute inset-0 pointer-events-none z-10">
-              <div className="h-16 bg-gradient-to-b from-surface to-transparent" />
+              <div className="h-16 bg-linear-to-b from-surface to-transparent" />
               <div className="h-16 bg-transparent" />
-              <div className="h-16 bg-gradient-to-t from-surface to-transparent" />
+              <div className="h-16 bg-linear-to-t from-surface to-transparent" />
             </div>
             <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-16 border-y-2 border-accent-blue/70 pointer-events-none z-10" />
 
@@ -352,9 +352,9 @@ export const DurationPickerModal = ({
           </p>
           <div className="relative h-40 overflow-hidden rounded-xl bg-surface/80">
             <div className="absolute inset-0 pointer-events-none z-10">
-              <div className="h-16 bg-gradient-to-b from-surface to-transparent" />
+              <div className="h-16 bg-linear-to-b from-surface to-transparent" />
               <div className="h-16 bg-transparent" />
-              <div className="h-16 bg-gradient-to-t from-surface to-transparent" />
+              <div className="h-16 bg-linear-to-t from-surface to-transparent" />
             </div>
             <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-16 border-y-2 border-accent-blue/70 pointer-events-none z-10" />
 

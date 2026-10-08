@@ -559,13 +559,13 @@ export const DayLedgerListModal = ({
           {['deficit', 'surplus', 'maintenance'].map((kind) => (
             <span key={kind} className="inline-flex items-center gap-1">
               <span
-                className={`w-2 h-2 rounded-sm ${DAY_LEDGER_BALANCE_META[kind].dotClass}`}
+                className={`w-2 h-2 rounded-xs ${DAY_LEDGER_BALANCE_META[kind].dotClass}`}
               />
               {DAY_LEDGER_BALANCE_META[kind].label}
             </span>
           ))}
           <span className="inline-flex items-center gap-1">
-            <span className="w-2 h-2 rounded-sm bg-accent-blue" />
+            <span className="w-2 h-2 rounded-xs bg-accent-blue" />
             Selected
           </span>
         </div>
@@ -608,7 +608,7 @@ export const DayLedgerListModal = ({
                         : ''}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1.5 flex-wrap justify-end flex-shrink-0">
+                  <div className="flex items-center gap-1.5 flex-wrap justify-end shrink-0">
                     {(() => {
                       const goalMeta =
                         baseGoals[dayPanelPreview.goalAtSnapshot] ?? null;
@@ -646,7 +646,7 @@ export const DayLedgerListModal = ({
                       {Math.round(dayPanelPreview.intake).toLocaleString()}
                     </p>
                   </div>
-                  <div className="text-center flex-shrink-0">
+                  <div className="text-center shrink-0">
                     <p
                       className={`text-xl font-black leading-none ${
                         DAY_LEDGER_BALANCE_META[dayPanelPreview.balanceKind]

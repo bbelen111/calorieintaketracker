@@ -48,7 +48,7 @@ export const BarcodeEntryModal = ({
               }
             }}
             placeholder="e.g. 012345678905"
-            className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2.5 text-foreground placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent-blue focus-ring"
+            className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2.5 text-foreground placeholder:text-muted focus:outline-hidden focus:ring-1 focus:ring-accent-blue focus-ring"
           />
         </div>
 

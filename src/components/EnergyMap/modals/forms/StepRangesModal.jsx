@@ -24,7 +24,7 @@ export const StepRangesModal = ({
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
-      overlayClassName="z-[60]"
+      overlayClassName="z-60"
       contentClassName="p-6 max-w-md w-full"
     >
       <h3 className="text-foreground font-bold text-xl mb-4">
@@ -40,7 +40,7 @@ export const StepRangesModal = ({
               value={newStepRange}
               onChange={(event) => onNewStepRangeChange(event.target.value)}
               placeholder="e.g., 15k or >25k"
-              className="flex-1 bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border focus:border-accent-blue focus:outline-none text-base"
+              className="flex-1 bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border focus:border-accent-blue focus:outline-hidden text-base"
             />
             <button
               onClick={onAddRange}

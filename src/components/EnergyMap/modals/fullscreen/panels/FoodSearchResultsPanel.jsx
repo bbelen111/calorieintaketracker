@@ -105,10 +105,7 @@ export const FoodSearchResultsPanel = ({
 
     {searchError && (
       <div className="bg-accent-red/10 border border-accent-red/30 rounded-lg p-4 flex items-start gap-3">
-        <AlertCircle
-          size={20}
-          className="text-accent-red flex-shrink-0 mt-0.5"
-        />
+        <AlertCircle size={20} className="text-accent-red shrink-0 mt-0.5" />
         <div>
           <p className="text-accent-red font-medium text-sm">{searchError}</p>
           <button
@@ -123,10 +120,7 @@ export const FoodSearchResultsPanel = ({
 
     {searchMode === 'local' && localSearchError && (
       <div className="bg-accent-red/10 border border-accent-red/30 rounded-lg p-4 flex items-start gap-3">
-        <AlertCircle
-          size={20}
-          className="text-accent-red flex-shrink-0 mt-0.5"
-        />
+        <AlertCircle size={20} className="text-accent-red shrink-0 mt-0.5" />
         <p className="text-accent-red font-medium text-sm">
           {localSearchError}
         </p>
@@ -261,14 +255,14 @@ export const FoodSearchResultsPanel = ({
                     <div className="mt-1 flex items-center gap-2 flex-wrap">
                       {onlineSourceBadge && (
                         <span
-                          className={`text-xs px-2 py-0.5 rounded ${onlineSourceBadge.className}`}
+                          className={`text-xs px-2 py-0.5 rounded-sm ${onlineSourceBadge.className}`}
                         >
                           {onlineSourceBadge.label}
                         </span>
                       )}
                       {onlineTypeBadge && (
                         <span
-                          className={`text-xs px-2 py-0.5 rounded ${onlineTypeBadge.className}`}
+                          className={`text-xs px-2 py-0.5 rounded-sm ${onlineTypeBadge.className}`}
                         >
                           {onlineTypeBadge.label}
                         </span>

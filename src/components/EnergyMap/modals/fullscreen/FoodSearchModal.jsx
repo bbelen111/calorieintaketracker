@@ -3122,10 +3122,10 @@ export const FoodSearchModal = ({
       isClosing={isClosing}
       onClose={onClose}
       fullHeight
-      overlayClassName="fixed inset-0 bg-surface/70 !p-0 !flex-none !items-stretch !justify-stretch"
-      contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none !max-h-none flex flex-col overflow-x-hidden pt-[env(safe-area-inset-top)] keyboard-bottom-inset pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
+      overlayClassName="fixed inset-0 bg-surface/70 p-0! flex-none! items-stretch! justify-stretch!"
+      contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none max-h-none! flex flex-col overflow-x-hidden pt-[env(safe-area-inset-top)] keyboard-bottom-inset pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
     >
-      <div className="flex items-center justify-between px-4 py-3 bg-background border-b border-border flex-shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 bg-background border-b border-border shrink-0">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -3156,7 +3156,7 @@ export const FoodSearchModal = ({
               transition={{ type: 'spring', stiffness: 360, damping: 34 }}
             >
               <Utensils size={14} className="text-accent-blue" />
-              <span className="relative inline-flex max-w-[7.25rem] overflow-hidden">
+              <span className="relative inline-flex max-w-29 overflow-hidden">
                 <AnimatePresence mode="wait" initial={false}>
                   <motion.span
                     key={`meal-type-${mealTypeLabel}`}
@@ -3316,7 +3316,7 @@ export const FoodSearchModal = ({
                 <button
                   onClick={() => setViewMode('chat')}
                   aria-label="AI Chat"
-                  className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-primary md:hover:brightness-110 text-primary-foreground rounded-full text-sm font-semibold transition-all shadow-md whitespace-nowrap press-feedback focus-ring border ${
+                  className={`shrink-0 flex items-center gap-2 px-3 py-2 bg-primary md:hover:brightness-110 text-primary-foreground rounded-full text-sm font-semibold transition-all shadow-md whitespace-nowrap press-feedback focus-ring border ${
                     viewMode === 'chat'
                       ? 'border-[rgb(var(--action-border)/0.7)]'
                       : 'border-transparent'
@@ -3329,7 +3329,7 @@ export const FoodSearchModal = ({
                 <button
                   onClick={onOpenManualEntry}
                   aria-label="Manual Entry"
-                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-primary md:hover:brightness-110 text-primary-foreground rounded-full text-sm font-semibold transition-all shadow-md whitespace-nowrap press-feedback focus-ring border border-transparent"
+                  className="shrink-0 flex items-center gap-2 px-3 py-2 bg-primary md:hover:brightness-110 text-primary-foreground rounded-full text-sm font-semibold transition-all shadow-md whitespace-nowrap press-feedback focus-ring border border-transparent"
                 >
                   <Edit3 size={16} />
                   <span>Manual Entry</span>
@@ -3339,7 +3339,7 @@ export const FoodSearchModal = ({
                   onClick={handleBarcodeScanClick}
                   aria-label="Barcode Scan"
                   disabled={isBarcodeScanning || isBarcodeLookupPending}
-                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-primary md:hover:brightness-110 text-primary-foreground rounded-full text-sm font-semibold transition-all shadow-md whitespace-nowrap press-feedback focus-ring border border-transparent disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="shrink-0 flex items-center gap-2 px-3 py-2 bg-primary md:hover:brightness-110 text-primary-foreground rounded-full text-sm font-semibold transition-all shadow-md whitespace-nowrap press-feedback focus-ring border border-transparent disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <ScanBarcode size={16} />
                   <span>Barcode Scan</span>
@@ -3349,12 +3349,12 @@ export const FoodSearchModal = ({
 
             <div className="pointer-events-none absolute inset-y-0 -left-px w-3 z-20">
               <div className="absolute inset-y-0 left-0 w-1 bg-surface" />
-              <div className="absolute inset-y-0 left-1 right-0 bg-gradient-to-r from-surface via-surface/80 to-transparent" />
+              <div className="absolute inset-y-0 left-1 right-0 bg-linear-to-r from-surface via-surface/80 to-transparent" />
             </div>
 
             <div className="pointer-events-none absolute inset-y-0 -right-px w-3 z-20">
               <div className="absolute inset-y-0 right-0 w-1 bg-surface" />
-              <div className="absolute inset-y-0 left-0 right-1 bg-gradient-to-l from-surface via-surface/80 to-transparent" />
+              <div className="absolute inset-y-0 left-0 right-1 bg-linear-to-l from-surface via-surface/80 to-transparent" />
             </div>
           </div>
         </div>
@@ -3367,13 +3367,13 @@ export const FoodSearchModal = ({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 8 }}
               transition={{ duration: 0.16, ease: [0.4, 0, 0.2, 1] }}
-              className="fixed inset-x-0 z-[1300] flex justify-center pointer-events-none px-4"
+              className="fixed inset-x-0 z-1300 flex justify-center pointer-events-none px-4"
               style={{ bottom: 'calc(var(--sab) + 1.5rem)' }}
               role="status"
               aria-live="polite"
             >
-              <div className="max-w-sm w-full rounded-xl border border-accent-blue/30 bg-surface/95 px-3 py-2.5 shadow-xl backdrop-blur-sm flex items-center gap-2 text-sm text-foreground">
-                <div className="w-4 h-4 border-2 border-accent-blue/30 border-t-accent-blue rounded-full animate-spin-fast flex-shrink-0" />
+              <div className="max-w-sm w-full rounded-xl border border-accent-blue/30 bg-surface/95 px-3 py-2.5 shadow-xl backdrop-blur-xs flex items-center gap-2 text-sm text-foreground">
+                <div className="w-4 h-4 border-2 border-accent-blue/30 border-t-accent-blue rounded-full animate-spin-fast shrink-0" />
                 <span className="leading-tight">
                   {activeBarcodeStatusToastMessage}
                 </span>
@@ -3390,22 +3390,22 @@ export const FoodSearchModal = ({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 8 }}
               transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
-              className="fixed inset-x-0 z-[1300] flex justify-center pointer-events-none px-4"
+              className="fixed inset-x-0 z-1300 flex justify-center pointer-events-none px-4"
               style={{ bottom: 'calc(var(--sab) + 1.5rem)' }}
               role="status"
               aria-live="polite"
             >
               <div
-                className={`max-w-sm w-full rounded-xl border px-3 py-2.5 shadow-xl backdrop-blur-sm flex items-center gap-2 text-sm leading-tight ${
+                className={`max-w-sm w-full rounded-xl border px-3 py-2.5 shadow-xl backdrop-blur-xs flex items-center gap-2 text-sm leading-tight ${
                   barcodeToast.tone === 'error'
                     ? 'border-accent-red/35 bg-accent-red/10 text-accent-red'
                     : 'border-accent-blue/30 bg-surface/95 text-foreground'
                 }`}
               >
                 {barcodeToast.tone === 'error' ? (
-                  <AlertCircle size={15} className="flex-shrink-0" />
+                  <AlertCircle size={15} className="shrink-0" />
                 ) : (
-                  <ScanBarcode size={15} className="flex-shrink-0" />
+                  <ScanBarcode size={15} className="shrink-0" />
                 )}
                 <span>{barcodeToast.message}</span>
               </div>
@@ -3501,7 +3501,7 @@ export const FoodSearchModal = ({
                 <div className="px-4 mt-3">
                   <div className="relative flex items-center">
                     <Search
-                      className="absolute left-3 text-muted flex-shrink-0 pointer-events-none"
+                      className="absolute left-3 text-muted shrink-0 pointer-events-none"
                       size={20}
                     />
                     <input
@@ -3515,12 +3515,12 @@ export const FoodSearchModal = ({
                           ? 'Search the online food database...'
                           : 'Search local foods...'
                       }
-                      className="w-full bg-surface-highlight border border-border rounded-lg pl-11 pr-10 py-3 text-foreground placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent-blue"
+                      className="w-full bg-surface-highlight border border-border rounded-lg pl-11 pr-10 py-3 text-foreground placeholder:text-muted focus:outline-hidden focus:ring-1 focus:ring-accent-blue"
                     />
                     {searchQuery && (
                       <button
                         onClick={() => setSearchQuery('')}
-                        className="absolute right-3 text-muted md:hover:text-foreground pressable-inline focus-ring flex-shrink-0"
+                        className="absolute right-3 text-muted md:hover:text-foreground pressable-inline focus-ring shrink-0"
                         aria-label="Clear search"
                       >
                         <X size={18} />
@@ -3535,7 +3535,7 @@ export const FoodSearchModal = ({
                 <div className="px-4 mt-3">
                   <div className="relative flex items-center">
                     <Search
-                      className="absolute left-3 text-muted flex-shrink-0 pointer-events-none"
+                      className="absolute left-3 text-muted shrink-0 pointer-events-none"
                       size={20}
                     />
                     <input
@@ -3543,12 +3543,12 @@ export const FoodSearchModal = ({
                       value={favouritesSearchQuery}
                       onChange={(e) => setFavouritesSearchQuery(e.target.value)}
                       placeholder="Search favourites..."
-                      className="w-full bg-surface-highlight border border-border rounded-lg pl-11 pr-10 py-3 text-foreground placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent-blue"
+                      className="w-full bg-surface-highlight border border-border rounded-lg pl-11 pr-10 py-3 text-foreground placeholder:text-muted focus:outline-hidden focus:ring-1 focus:ring-accent-blue"
                     />
                     {favouritesSearchQuery && (
                       <button
                         onClick={() => setFavouritesSearchQuery('')}
-                        className="absolute right-3 text-muted md:hover:text-foreground pressable-inline focus-ring flex-shrink-0"
+                        className="absolute right-3 text-muted md:hover:text-foreground pressable-inline focus-ring shrink-0"
                         aria-label="Clear search"
                       >
                         <X size={18} />
@@ -3623,7 +3623,7 @@ export const FoodSearchModal = ({
                   <div className="mt-2 flex items-center gap-2 px-3 py-2 bg-accent-amber/10 border border-accent-amber/30 rounded-lg">
                     <CloudOff
                       size={16}
-                      className="text-accent-amber flex-shrink-0"
+                      className="text-accent-amber shrink-0"
                     />
                     <p className="text-accent-amber text-xs">
                       You&apos;re offline. Online search requires an internet

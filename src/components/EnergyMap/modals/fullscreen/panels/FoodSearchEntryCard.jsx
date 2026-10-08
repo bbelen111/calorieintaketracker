@@ -148,11 +148,11 @@ export const FoodSearchEntryCard = ({
       {/* Header */}
       <div className="px-3.5 pt-3.5 pb-3">
         <div className="flex items-start justify-between gap-2">
-          <p className="text-[14px] font-semibold text-foreground leading-snug tracking-[-0.01em] break-words">
+          <p className="text-[14px] font-semibold text-foreground leading-snug tracking-[-0.01em] wrap-break-word">
             {entry.name}
           </p>
           {Number.isFinite(Number(entry.grams)) && (
-            <span className="flex-shrink-0 text-[11px] font-medium text-muted bg-surface-highlight rounded-full px-2 py-0.5">
+            <span className="shrink-0 text-[11px] font-medium text-muted bg-surface-highlight rounded-full px-2 py-0.5">
               {formatOne(entry.grams)}g
             </span>
           )}
@@ -249,10 +249,7 @@ export const FoodSearchEntryCard = ({
         {isLastResortEstimate &&
           (primaryLookupReasonMessage || primaryLookupRecoveryHint) && (
             <div className="mt-2.5 flex items-start gap-1.5 rounded-lg border border-accent-amber/25 bg-accent-amber/10 px-2.5 py-2">
-              <Info
-                size={12}
-                className="text-accent-amber flex-shrink-0 mt-0.5"
-              />
+              <Info size={12} className="text-accent-amber shrink-0 mt-0.5" />
               <div className="space-y-0.5">
                 {primaryLookupReasonMessage && (
                   <p className="text-[10px] text-accent-amber leading-snug">
@@ -489,7 +486,7 @@ export const FoodSearchEntryCard = ({
           className={`w-full px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-all press-feedback focus-ring ${
             isLogged
               ? 'bg-surface-highlight border border-border text-muted cursor-not-allowed'
-              : 'bg-primary text-primary-foreground shadow-sm md:hover:brightness-110'
+              : 'bg-primary text-primary-foreground shadow-xs md:hover:brightness-110'
           }`}
         >
           {isLogged ? 'Logged' : 'Log entry'}

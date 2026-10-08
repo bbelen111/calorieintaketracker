@@ -167,7 +167,7 @@ export const MealTypePickerModal = ({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.18, ease: 'easeOut' }}
-                className="absolute right-0 top-full mt-2 z-[1250] w-72 rounded-xl border border-border bg-surface shadow-xl p-2"
+                className="absolute right-0 top-full mt-2 z-1250 w-72 rounded-xl border border-border bg-surface shadow-xl p-2"
               >
                 <p className="px-2 pt-1 pb-2 text-xs text-muted font-medium">
                   Default Food Search start
@@ -218,7 +218,7 @@ export const MealTypePickerModal = ({
             <button
               key={`meal-${mealTypeId}`}
               onClick={() => handleSelect(mealTypeId)}
-              className="w-full p-4 rounded-xl border-2 transition-all flex items-center gap-4 shadow-sm bg-surface-highlight border-border md:hover:border-accent-blue/50 focus-ring pressable-card"
+              className="w-full p-4 rounded-xl border-2 transition-all flex items-center gap-4 shadow-xs bg-surface-highlight border-border md:hover:border-accent-blue/50 focus-ring pressable-card"
               tabIndex={0}
             >
               <Icon className="text-foreground" size={24} />
@@ -229,7 +229,7 @@ export const MealTypePickerModal = ({
               </div>
               {/* Item count on right if > 0, subtle style */}
               {itemCount > 0 && (
-                <span className="ml-2 text-xs text-muted font-medium px-2 py-1 rounded bg-foreground/10 border border-border">
+                <span className="ml-2 text-xs text-muted font-medium px-2 py-1 rounded-sm bg-foreground/10 border border-border">
                   {itemCount} food {itemCount === 1 ? 'item' : 'items'}
                 </span>
               )}

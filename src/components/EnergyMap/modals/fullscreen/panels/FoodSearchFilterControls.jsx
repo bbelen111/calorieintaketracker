@@ -179,7 +179,7 @@ export const FoodSearchFilterControls = ({
                     <div className="pt-3 border-t border-border">
                       <p className="text-muted text-xs mb-2">Active Sorting:</p>
                       <div className="flex flex-wrap gap-1.5">
-                        <span className="px-2 py-1 bg-surface-highlight text-foreground rounded text-xs">
+                        <span className="px-2 py-1 bg-surface-highlight text-foreground rounded-sm text-xs">
                           {getFavouritesSortLabel()}
                         </span>
                       </div>
@@ -365,7 +365,7 @@ export const FoodSearchFilterControls = ({
                       <p className="text-muted text-xs mb-2">Active Filters:</p>
                       <div className="flex flex-wrap gap-1.5">
                         {selectedCategory && (
-                          <span className="px-2 py-1 bg-surface-highlight text-foreground rounded text-xs flex items-center gap-1">
+                          <span className="px-2 py-1 bg-surface-highlight text-foreground rounded-sm text-xs flex items-center gap-1">
                             {categoryOptions[selectedCategory]?.label ||
                               selectedCategory}
                             <X
@@ -379,7 +379,7 @@ export const FoodSearchFilterControls = ({
                           </span>
                         )}
                         {selectedSubcategory && (
-                          <span className="px-2 py-1 bg-surface-highlight text-foreground rounded text-xs flex items-center gap-1">
+                          <span className="px-2 py-1 bg-surface-highlight text-foreground rounded-sm text-xs flex items-center gap-1">
                             {searchMode === 'online'
                               ? selectedSubcategory
                               : selectedSubcategory.replace(/-/g, ' ')}
@@ -391,7 +391,7 @@ export const FoodSearchFilterControls = ({
                           </span>
                         )}
                         {(sortBy !== 'name' || sortOrder !== 'asc') && (
-                          <span className="px-2 py-1 bg-surface-highlight text-foreground rounded text-xs">
+                          <span className="px-2 py-1 bg-surface-highlight text-foreground rounded-sm text-xs">
                             {getSortLabel()}
                           </span>
                         )}

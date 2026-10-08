@@ -1,296 +1,446 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
 
-/* Local numeric font override (digits + numeric punctuation only) */
-@font-face {
-  font-family: 'BarlowDigits';
-  src: url('@fontsource/barlow/files/barlow-latin-400-normal.woff2')
-    format('woff2');
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  unicode-range:
-    U+0030-0039, U+0025, U+002B, U+002C, U+002D, U+002E, U+002F, U+003A, U+2212;
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-background: rgb(var(--background));
+  --color-surface: rgb(var(--surface));
+  --color-surface-highlight: rgb(var(--surface-highlight));
+  --color-primary: rgb(var(--primary));
+  --color-primary-foreground: rgb(var(--primary-foreground));
+  --color-muted: rgb(var(--muted));
+  --color-border: rgb(var(--border));
+  --color-foreground: rgb(var(--foreground));
+  --color-white: rgb(var(--on-accent));
+  --color-black: rgb(var(--overlay-base));
+
+  --color-blue-300: rgb(var(--accent-blue));
+  --color-blue-400: rgb(var(--accent-blue));
+  --color-blue-500: rgb(var(--accent-blue));
+  --color-blue-600: rgb(var(--accent-blue));
+  --color-blue-700: rgb(var(--accent-blue));
+  --color-blue-900: rgb(var(--accent-blue));
+
+  --color-green-400: rgb(var(--accent-green));
+  --color-green-500: rgb(var(--accent-green));
+  --color-green-600: rgb(var(--accent-green));
+
+  --color-lime-400: rgb(var(--accent-lime));
+  --color-lime-500: rgb(var(--accent-lime));
+  --color-lime-600: rgb(var(--accent-lime));
+
+  --color-emerald-400: rgb(var(--accent-emerald));
+  --color-emerald-500: rgb(var(--accent-emerald));
+  --color-emerald-600: rgb(var(--accent-emerald));
+
+  --color-yellow-300: rgb(var(--accent-yellow));
+  --color-yellow-400: rgb(var(--accent-yellow));
+  --color-yellow-500: rgb(var(--accent-yellow));
+  --color-yellow-600: rgb(var(--accent-yellow));
+
+  --color-amber-300: rgb(var(--accent-amber));
+  --color-amber-400: rgb(var(--accent-amber));
+  --color-amber-500: rgb(var(--accent-amber));
+  --color-amber-600: rgb(var(--accent-amber));
+
+  --color-orange-500: rgb(var(--accent-orange));
+  --color-orange-600: rgb(var(--accent-orange));
+
+  --color-red-300: rgb(var(--accent-red));
+  --color-red-400: rgb(var(--accent-red));
+  --color-red-500: rgb(var(--accent-red));
+  --color-red-600: rgb(var(--accent-red));
+  --color-red-700: rgb(var(--accent-red));
+  --color-red-800: rgb(var(--accent-red));
+  --color-red-900: rgb(var(--accent-red));
+
+  --color-purple-400: rgb(var(--accent-purple));
+  --color-purple-500: rgb(var(--accent-purple));
+  --color-purple-600: rgb(var(--accent-purple));
+
+  --color-indigo-300: rgb(var(--accent-indigo));
+  --color-indigo-400: rgb(var(--accent-indigo));
+  --color-indigo-500: rgb(var(--accent-indigo));
+  --color-indigo-600: rgb(var(--accent-indigo));
+
+  --color-pink-400: rgb(var(--accent-pink));
+
+  --color-teal-400: rgb(var(--accent-teal));
+  --color-teal-500: rgb(var(--accent-teal));
+  --color-teal-600: rgb(var(--accent-teal));
+
+  --color-coral-400: rgb(var(--accent-coral));
+  --color-coral-500: rgb(var(--accent-coral));
+  --color-coral-600: rgb(var(--accent-coral));
+
+  --color-accent-blue: rgb(var(--accent-blue));
+  --color-accent-green: rgb(var(--accent-green));
+  --color-accent-lime: rgb(var(--accent-lime));
+  --color-accent-emerald: rgb(var(--accent-emerald));
+  --color-accent-yellow: rgb(var(--accent-yellow));
+  --color-accent-amber: rgb(var(--accent-amber));
+  --color-accent-orange: rgb(var(--accent-orange));
+  --color-accent-red: rgb(var(--accent-red));
+  --color-accent-purple: rgb(var(--accent-purple));
+  --color-accent-slate: rgb(var(--accent-slate));
+  --color-accent-indigo: rgb(var(--accent-indigo));
+  --color-accent-pink: rgb(var(--accent-pink));
+  --color-accent-teal: rgb(var(--accent-teal));
+  --color-accent-coral: rgb(var(--accent-coral));
 }
 
-@font-face {
-  font-family: 'BarlowDigits';
-  src: url('@fontsource/barlow/files/barlow-latin-700-normal.woff2')
-    format('woff2');
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  unicode-range:
-    U+0030-0039, U+0025, U+002B, U+002C, U+002D, U+002E, U+002F, U+003A, U+2212;
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
 }
 
-/* Safe Area Insets for Capacitor/Mobile.
+@utility focus-ring {
+  @apply focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 focus-visible:ring-0;
+}
+
+@utility press-feedback {
+  @apply transition-transform active:scale-[0.98] active:brightness-110;
+}
+
+@utility surface-active {
+  @apply active:brightness-105 active:border-primary/80 active:shadow-inner;
+}
+
+@utility keyboard-bottom-inset {
+  /*
+    Bottom padding for chrome that must clear the on-screen keyboard (fullscreen
+    modal footers/inputs). `max()` — never the sum: while the keyboard is up the
+    home-indicator safe area sits *inside* the keyboard region, so adding both
+    would leave a phantom gap above the keyboard. `--keyboard-inset` is 0 on
+    Android (the window itself resizes) and carries the covered height on iOS,
+    where `resize: "none"` lets the keyboard overlay a full-height WebView.
+    Published by hooks/useKeyboardVisible.js.
+  */
+  padding-bottom: max(
+    env(safe-area-inset-bottom, 0px),
+    var(--keyboard-inset, 0px)
+  );
+}
+
+@utility fade-in {
+  animation: fadeIn 0.2s ease-out;
+}
+
+@utility slide-in-from-top-2 {
+  animation: slideInFromTop 0.2s ease-out;
+}
+
+@utility animate-spin-fast {
+  /* Optimized spinner animation for better device compatibility */
+  animation: optimizedSpin 0.8s linear infinite;
+  transform-origin: center center;
+}
+
+@layer utilities {
+  /* Local numeric font override (digits + numeric punctuation only) */
+  @font-face {
+    font-family: 'BarlowDigits';
+    src: url('@fontsource/barlow/files/barlow-latin-400-normal.woff2')
+      format('woff2');
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    unicode-range:
+      U+0030-0039, U+0025, U+002B, U+002C, U+002D, U+002E, U+002F, U+003A,
+      U+2212;
+  }
+
+  @font-face {
+    font-family: 'BarlowDigits';
+    src: url('@fontsource/barlow/files/barlow-latin-700-normal.woff2')
+      format('woff2');
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    unicode-range:
+      U+0030-0039, U+0025, U+002B, U+002C, U+002D, U+002E, U+002F, U+003A,
+      U+2212;
+  }
+
+  /* Safe Area Insets for Capacitor/Mobile.
    The `0px` fallbacks are load-bearing: when an engine cannot resolve `env()`
    the custom property becomes an empty value, which makes every dependent
    `calc(1rem + var(--sat))` INVALID — so the whole declaration is dropped and
    the padding silently disappears instead of degrading to zero. */
-:root {
-  --sat: env(safe-area-inset-top, 0px);
-  --sab: env(safe-area-inset-bottom, 0px);
-  --sal: env(safe-area-inset-left, 0px);
-  --sar: env(safe-area-inset-right, 0px);
-  color-scheme: dark;
+  :root {
+    --sat: env(safe-area-inset-top, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left, 0px);
+    --sar: env(safe-area-inset-right, 0px);
+    color-scheme: dark;
 
-  /* Semantic Theme Variables - Dark (Default) */
-  --background: 15 23 42; /* Slate 900 */
-  --surface: 30 41 59; /* Slate 800 */
-  --surface-highlight: 51 65 85; /* Slate 700 */
-  --primary: 37 99 235; /* Blue 600 */
-  --primary-foreground: 255 255 255;
-  --on-accent: 255 255 255;
-  --overlay-base: 0 0 0;
-  --muted: 148 163 184; /* Slate 400 */
-  --border: 51 65 85; /* Slate 700 */
-  --foreground: 255 255 255; /* White */
-  --action-border: 255 255 255; /* White */
-  --surface-highlight-rgb: 51 65 85;
+    /* Semantic Theme Variables - Dark (Default) */
+    --background: 15 23 42; /* Slate 900 */
+    --surface: 30 41 59; /* Slate 800 */
+    --surface-highlight: 51 65 85; /* Slate 700 */
+    --primary: 37 99 235; /* Blue 600 */
+    --primary-foreground: 255 255 255;
+    --on-accent: 255 255 255;
+    --overlay-base: 0 0 0;
+    --muted: 148 163 184; /* Slate 400 */
+    --border: 51 65 85; /* Slate 700 */
+    --foreground: 255 255 255; /* White */
+    --action-border: 255 255 255; /* White */
+    --surface-highlight-rgb: 51 65 85;
 
-  /* Accent Colors - Dark */
-  --accent-blue: 59 130 246; /* Blue 500 */
-  --accent-green: 34 197 94; /* Green 500 */
-  --accent-lime: 132 204 22; /* Lime 500 */
-  --accent-emerald: 16 185 129; /* Emerald 500 */
-  --accent-yellow: 234 179 8; /* Yellow 500 */
-  --accent-amber: 245 158 11; /* Amber 500 */
-  --accent-orange: 249 115 22; /* Orange 500 */
-  --accent-red: 239 68 68; /* Red 500 */
-  --accent-purple: 168 85 247; /* Purple 500 */
-  --accent-slate: 100 116 139; /* Slate 500 */
-  --accent-indigo: 99 102 241; /* Indigo 500 */
-  --accent-pink: 236 72 153; /* Pink 500 */
-  --accent-teal: 20 184 166; /* Teal 500 */
-  --accent-coral: 255 111 97; /* Coral 500 */
-}
-
-/* Light Theme */
-.theme-light {
-  color-scheme: light;
-  --background: 241 245 249; /* Slate 100 */
-  --surface: 255 255 255; /* White */
-  --surface-highlight: 226 232 240; /* Slate 200 */
-  --primary: 37 99 235; /* Blue 600 */
-  --primary-foreground: 255 255 255;
-  --on-accent: 255 255 255;
-  --overlay-base: 0 0 0;
-  --muted: 100 116 139; /* Slate 500 */
-  --border: 226 232 240; /* Slate 200 */
-  --foreground: 15 23 42; /* Slate 900 (Dark text) */
-  --action-border: 30 64 175; /* Blue 700 (Darker for better contrast) */
-  --surface-highlight-rgb: 226 232 240;
-
-  /* Accent Colors - Light (darker for contrast) */
-  --accent-blue: 37 99 235; /* Blue 600 */
-  --accent-green: 22 163 74; /* Green 600 */
-  --accent-lime: 101 163 13; /* Lime 600 */
-  --accent-emerald: 5 150 105; /* Emerald 600 */
-  --accent-yellow: 202 138 4; /* Yellow 600 */
-  --accent-amber: 217 119 6; /* Amber 600 */
-  --accent-orange: 234 88 12; /* Orange 600 */
-  --accent-red: 220 38 38; /* Red 600 */
-  --accent-purple: 147 51 234; /* Purple 600 */
-  --accent-slate: 71 85 105; /* Slate 600 */
-  --accent-indigo: 79 70 229; /* Indigo 600 */
-  --accent-pink: 219 39 119; /* Pink 600 */
-  --accent-teal: 13 148 136; /* Teal 600 */
-  --accent-coral: 222 80 62; /* Coral 600 */
-}
-
-/* AMOLED Dark Theme (True Black) */
-.theme-amoled-dark {
-  color-scheme: dark;
-  --background: 0 0 0; /* Pure Black */
-  --surface: 22 22 22; /* Gray 900 */
-  --surface-highlight: 38 38 38; /* Gray 800 */
-  --primary: 59 130 246; /* Blue 500 */
-  --primary-foreground: 255 255 255;
-  --on-accent: 255 255 255;
-  --overlay-base: 0 0 0;
-  --muted: 163 163 163; /* Neutral 400 */
-  --border: 38 38 38; /* Gray 800 */
-  --foreground: 255 255 255; /* White */
-  --action-border: 255 255 255; /* White */
-  --surface-highlight-rgb: 38 38 38;
-
-  /* Accent Colors - AMOLED Dark */
-  --accent-blue: 59 130 246; /* Blue 500 */
-  --accent-green: 34 197 94; /* Green 500 */
-  --accent-lime: 132 204 22; /* Lime 500 */
-  --accent-emerald: 16 185 129; /* Emerald 500 */
-  --accent-yellow: 234 179 8; /* Yellow 500 */
-  --accent-amber: 245 158 11; /* Amber 500 */
-  --accent-orange: 249 115 22; /* Orange 500 */
-  --accent-red: 239 68 68; /* Red 500 */
-  --accent-purple: 168 85 247; /* Purple 500 */
-  --accent-slate: 100 116 139; /* Slate 500 */
-  --accent-indigo: 99 102 241; /* Indigo 500 */
-  --accent-pink: 236 72 153; /* Pink 500 */
-  --accent-teal: 20 184 166; /* Teal 500 */
-  --accent-coral: 255 111 97; /* Coral 500 */
-}
-
-/* Forest Theme — deep evergreen surfaces with crisp botanical accents */
-.theme-forest {
-  color-scheme: dark;
-  --background: 13 31 27; /* Deep forest */
-  --surface: 24 49 42; /* Evergreen */
-  --surface-highlight: 39 69 59; /* Moss */
-  --primary: 5 150 105; /* Emerald 600 */
-  --primary-foreground: 255 255 255;
-  --on-accent: 255 255 255;
-  --overlay-base: 0 0 0;
-  --muted: 151 180 164; /* Soft sage */
-  --border: 45 78 66; /* Muted evergreen */
-  --foreground: 244 251 247; /* Frost */
-  --action-border: 209 250 229; /* Mint */
-  --surface-highlight-rgb: 39 69 59;
-
-  --accent-blue: 56 189 248; /* Sky 400 */
-  --accent-green: 74 222 128; /* Green 400 */
-  --accent-lime: 163 230 53; /* Lime 400 */
-  --accent-emerald: 52 211 153; /* Emerald 400 */
-  --accent-yellow: 250 204 21; /* Yellow 400 */
-  --accent-amber: 251 191 36; /* Amber 400 */
-  --accent-orange: 251 146 60; /* Orange 400 */
-  --accent-red: 251 113 133; /* Rose 400 */
-  --accent-purple: 196 181 253; /* Violet 300 */
-  --accent-slate: 148 163 184; /* Slate 400 */
-  --accent-indigo: 129 140 248; /* Indigo 400 */
-  --accent-pink: 244 114 182; /* Pink 400 */
-  --accent-teal: 45 212 191; /* Teal 400 */
-  --accent-coral: 251 146 120; /* Coral */
-}
-
-/* Dawn Theme — warm paper surfaces with earthy, high-contrast accents */
-.theme-dawn {
-  color-scheme: light;
-  --background: 255 247 237; /* Orange 50 */
-  --surface: 255 253 248; /* Warm white */
-  --surface-highlight: 254 235 207; /* Orange 100 */
-  --primary: 194 65 12; /* Orange 700 */
-  --primary-foreground: 255 255 255;
-  --on-accent: 255 255 255;
-  --overlay-base: 68 30 12; /* Warm charcoal */
-  --muted: 120 83 57; /* Cocoa */
-  --border: 237 213 184; /* Sand */
-  --foreground: 67 32 17; /* Espresso */
-  --action-border: 154 52 18; /* Burnt orange */
-  --surface-highlight-rgb: 254 235 207;
-
-  --accent-blue: 3 105 161; /* Sky 700 */
-  --accent-green: 21 128 61; /* Green 700 */
-  --accent-lime: 77 124 15; /* Lime 700 */
-  --accent-emerald: 4 120 87; /* Emerald 700 */
-  --accent-yellow: 161 98 7; /* Yellow 700 */
-  --accent-amber: 180 83 9; /* Amber 700 */
-  --accent-orange: 194 65 12; /* Orange 700 */
-  --accent-red: 190 24 93; /* Pink 700 */
-  --accent-purple: 109 40 217; /* Violet 700 */
-  --accent-slate: 71 85 105; /* Slate 600 */
-  --accent-indigo: 67 56 202; /* Indigo 700 */
-  --accent-pink: 190 24 93; /* Pink 700 */
-  --accent-teal: 15 118 110; /* Teal 700 */
-  --accent-coral: 194 65 12; /* Burnt orange */
-}
-
-/* Dusk Theme — plum shadows with ember highlights for a softer night mode */
-.theme-dusk {
-  color-scheme: dark;
-  --background: 31 24 43; /* Aubergine */
-  --surface: 48 37 62; /* Twilight plum */
-  --surface-highlight: 70 54 86; /* Heather */
-  --primary: 217 70 239; /* Fuchsia 500 */
-  --primary-foreground: 255 255 255;
-  --on-accent: 255 255 255;
-  --overlay-base: 15 10 23; /* Night plum */
-  --muted: 190 174 204; /* Lavender mist */
-  --border: 79 61 97; /* Muted violet */
-  --foreground: 253 248 255; /* Moonlight */
-  --action-border: 250 232 255; /* Pale lilac */
-  --surface-highlight-rgb: 70 54 86;
-
-  --accent-blue: 125 211 252; /* Sky 300 */
-  --accent-green: 110 231 183; /* Emerald 300 */
-  --accent-lime: 190 242 100; /* Lime 300 */
-  --accent-emerald: 94 234 212; /* Teal 300 */
-  --accent-yellow: 253 224 71; /* Yellow 300 */
-  --accent-amber: 252 211 77; /* Amber 300 */
-  --accent-orange: 253 186 116; /* Orange 300 */
-  --accent-red: 253 164 175; /* Rose 300 */
-  --accent-purple: 216 180 254; /* Purple 300 */
-  --accent-slate: 203 213 225; /* Slate 300 */
-  --accent-indigo: 165 180 252; /* Indigo 300 */
-  --accent-pink: 249 168 212; /* Pink 300 */
-  --accent-teal: 94 234 212; /* Teal 300 */
-  --accent-coral: 253 186 116; /* Coral */
-}
-
-/* Midnight Theme — near-black navy with clear arctic-blue instrumentation */
-.theme-midnight {
-  color-scheme: dark;
-  --background: 8 18 34; /* Midnight navy */
-  --surface: 15 32 54; /* Deep ocean */
-  --surface-highlight: 25 50 78; /* Storm blue */
-  --primary: 14 165 233; /* Sky 500 */
-  --primary-foreground: 255 255 255;
-  --on-accent: 255 255 255;
-  --overlay-base: 3 9 19; /* Ink */
-  --muted: 151 177 207; /* Blue-gray */
-  --border: 31 58 89; /* Navy border */
-  --foreground: 241 248 255; /* Ice */
-  --action-border: 224 242 254; /* Frost */
-  --surface-highlight-rgb: 25 50 78;
-
-  --accent-blue: 56 189 248; /* Sky 400 */
-  --accent-green: 74 222 128; /* Green 400 */
-  --accent-lime: 163 230 53; /* Lime 400 */
-  --accent-emerald: 45 212 191; /* Teal 400 */
-  --accent-yellow: 250 204 21; /* Yellow 400 */
-  --accent-amber: 251 191 36; /* Amber 400 */
-  --accent-orange: 251 146 60; /* Orange 400 */
-  --accent-red: 251 113 133; /* Rose 400 */
-  --accent-purple: 196 181 253; /* Violet 300 */
-  --accent-slate: 148 163 184; /* Slate 400 */
-  --accent-indigo: 129 140 248; /* Indigo 400 */
-  --accent-pink: 244 114 182; /* Pink 400 */
-  --accent-teal: 45 212 191; /* Teal 400 */
-  --accent-coral: 251 146 120; /* Coral */
-}
-
-/* Status bar vignette - gradient overlay at top of screen */
-.status-bar-vignette {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: calc(var(--sat, 0px) + 24px);
-  background: linear-gradient(
-    to bottom,
-    rgb(var(--background) / 0.95) 0%,
-    rgb(var(--background) / 0.8) 40%,
-    rgb(var(--background) / 0.4) 70%,
-    transparent 100%
-  );
-  pointer-events: none;
-  z-index: 9999;
-  animation: vignetteIn 0.4s ease-out forwards;
-}
-
-@keyframes vignetteIn {
-  from {
-    opacity: 0;
+    /* Accent Colors - Dark */
+    --accent-blue: 59 130 246; /* Blue 500 */
+    --accent-green: 34 197 94; /* Green 500 */
+    --accent-lime: 132 204 22; /* Lime 500 */
+    --accent-emerald: 16 185 129; /* Emerald 500 */
+    --accent-yellow: 234 179 8; /* Yellow 500 */
+    --accent-amber: 245 158 11; /* Amber 500 */
+    --accent-orange: 249 115 22; /* Orange 500 */
+    --accent-red: 239 68 68; /* Red 500 */
+    --accent-purple: 168 85 247; /* Purple 500 */
+    --accent-slate: 100 116 139; /* Slate 500 */
+    --accent-indigo: 99 102 241; /* Indigo 500 */
+    --accent-pink: 236 72 153; /* Pink 500 */
+    --accent-teal: 20 184 166; /* Teal 500 */
+    --accent-coral: 255 111 97; /* Coral 500 */
   }
-  to {
-    opacity: 1;
-  }
-}
 
-/*
+  /* Light Theme */
+  .theme-light {
+    color-scheme: light;
+    --background: 241 245 249; /* Slate 100 */
+    --surface: 255 255 255; /* White */
+    --surface-highlight: 226 232 240; /* Slate 200 */
+    --primary: 37 99 235; /* Blue 600 */
+    --primary-foreground: 255 255 255;
+    --on-accent: 255 255 255;
+    --overlay-base: 0 0 0;
+    --muted: 100 116 139; /* Slate 500 */
+    --border: 226 232 240; /* Slate 200 */
+    --foreground: 15 23 42; /* Slate 900 (Dark text) */
+    --action-border: 30 64 175; /* Blue 700 (Darker for better contrast) */
+    --surface-highlight-rgb: 226 232 240;
+
+    /* Accent Colors - Light (darker for contrast) */
+    --accent-blue: 37 99 235; /* Blue 600 */
+    --accent-green: 22 163 74; /* Green 600 */
+    --accent-lime: 101 163 13; /* Lime 600 */
+    --accent-emerald: 5 150 105; /* Emerald 600 */
+    --accent-yellow: 202 138 4; /* Yellow 600 */
+    --accent-amber: 217 119 6; /* Amber 600 */
+    --accent-orange: 234 88 12; /* Orange 600 */
+    --accent-red: 220 38 38; /* Red 600 */
+    --accent-purple: 147 51 234; /* Purple 600 */
+    --accent-slate: 71 85 105; /* Slate 600 */
+    --accent-indigo: 79 70 229; /* Indigo 600 */
+    --accent-pink: 219 39 119; /* Pink 600 */
+    --accent-teal: 13 148 136; /* Teal 600 */
+    --accent-coral: 222 80 62; /* Coral 600 */
+  }
+
+  /* AMOLED Dark Theme (True Black) */
+  .theme-amoled-dark {
+    color-scheme: dark;
+    --background: 0 0 0; /* Pure Black */
+    --surface: 22 22 22; /* Gray 900 */
+    --surface-highlight: 38 38 38; /* Gray 800 */
+    --primary: 59 130 246; /* Blue 500 */
+    --primary-foreground: 255 255 255;
+    --on-accent: 255 255 255;
+    --overlay-base: 0 0 0;
+    --muted: 163 163 163; /* Neutral 400 */
+    --border: 38 38 38; /* Gray 800 */
+    --foreground: 255 255 255; /* White */
+    --action-border: 255 255 255; /* White */
+    --surface-highlight-rgb: 38 38 38;
+
+    /* Accent Colors - AMOLED Dark */
+    --accent-blue: 59 130 246; /* Blue 500 */
+    --accent-green: 34 197 94; /* Green 500 */
+    --accent-lime: 132 204 22; /* Lime 500 */
+    --accent-emerald: 16 185 129; /* Emerald 500 */
+    --accent-yellow: 234 179 8; /* Yellow 500 */
+    --accent-amber: 245 158 11; /* Amber 500 */
+    --accent-orange: 249 115 22; /* Orange 500 */
+    --accent-red: 239 68 68; /* Red 500 */
+    --accent-purple: 168 85 247; /* Purple 500 */
+    --accent-slate: 100 116 139; /* Slate 500 */
+    --accent-indigo: 99 102 241; /* Indigo 500 */
+    --accent-pink: 236 72 153; /* Pink 500 */
+    --accent-teal: 20 184 166; /* Teal 500 */
+    --accent-coral: 255 111 97; /* Coral 500 */
+  }
+
+  /* Forest Theme — deep evergreen surfaces with crisp botanical accents */
+  .theme-forest {
+    color-scheme: dark;
+    --background: 13 31 27; /* Deep forest */
+    --surface: 24 49 42; /* Evergreen */
+    --surface-highlight: 39 69 59; /* Moss */
+    --primary: 5 150 105; /* Emerald 600 */
+    --primary-foreground: 255 255 255;
+    --on-accent: 255 255 255;
+    --overlay-base: 0 0 0;
+    --muted: 151 180 164; /* Soft sage */
+    --border: 45 78 66; /* Muted evergreen */
+    --foreground: 244 251 247; /* Frost */
+    --action-border: 209 250 229; /* Mint */
+    --surface-highlight-rgb: 39 69 59;
+
+    --accent-blue: 56 189 248; /* Sky 400 */
+    --accent-green: 74 222 128; /* Green 400 */
+    --accent-lime: 163 230 53; /* Lime 400 */
+    --accent-emerald: 52 211 153; /* Emerald 400 */
+    --accent-yellow: 250 204 21; /* Yellow 400 */
+    --accent-amber: 251 191 36; /* Amber 400 */
+    --accent-orange: 251 146 60; /* Orange 400 */
+    --accent-red: 251 113 133; /* Rose 400 */
+    --accent-purple: 196 181 253; /* Violet 300 */
+    --accent-slate: 148 163 184; /* Slate 400 */
+    --accent-indigo: 129 140 248; /* Indigo 400 */
+    --accent-pink: 244 114 182; /* Pink 400 */
+    --accent-teal: 45 212 191; /* Teal 400 */
+    --accent-coral: 251 146 120; /* Coral */
+  }
+
+  /* Dawn Theme — warm paper surfaces with earthy, high-contrast accents */
+  .theme-dawn {
+    color-scheme: light;
+    --background: 255 247 237; /* Orange 50 */
+    --surface: 255 253 248; /* Warm white */
+    --surface-highlight: 254 235 207; /* Orange 100 */
+    --primary: 194 65 12; /* Orange 700 */
+    --primary-foreground: 255 255 255;
+    --on-accent: 255 255 255;
+    --overlay-base: 68 30 12; /* Warm charcoal */
+    --muted: 120 83 57; /* Cocoa */
+    --border: 237 213 184; /* Sand */
+    --foreground: 67 32 17; /* Espresso */
+    --action-border: 154 52 18; /* Burnt orange */
+    --surface-highlight-rgb: 254 235 207;
+
+    --accent-blue: 3 105 161; /* Sky 700 */
+    --accent-green: 21 128 61; /* Green 700 */
+    --accent-lime: 77 124 15; /* Lime 700 */
+    --accent-emerald: 4 120 87; /* Emerald 700 */
+    --accent-yellow: 161 98 7; /* Yellow 700 */
+    --accent-amber: 180 83 9; /* Amber 700 */
+    --accent-orange: 194 65 12; /* Orange 700 */
+    --accent-red: 190 24 93; /* Pink 700 */
+    --accent-purple: 109 40 217; /* Violet 700 */
+    --accent-slate: 71 85 105; /* Slate 600 */
+    --accent-indigo: 67 56 202; /* Indigo 700 */
+    --accent-pink: 190 24 93; /* Pink 700 */
+    --accent-teal: 15 118 110; /* Teal 700 */
+    --accent-coral: 194 65 12; /* Burnt orange */
+  }
+
+  /* Dusk Theme — plum shadows with ember highlights for a softer night mode */
+  .theme-dusk {
+    color-scheme: dark;
+    --background: 31 24 43; /* Aubergine */
+    --surface: 48 37 62; /* Twilight plum */
+    --surface-highlight: 70 54 86; /* Heather */
+    --primary: 217 70 239; /* Fuchsia 500 */
+    --primary-foreground: 255 255 255;
+    --on-accent: 255 255 255;
+    --overlay-base: 15 10 23; /* Night plum */
+    --muted: 190 174 204; /* Lavender mist */
+    --border: 79 61 97; /* Muted violet */
+    --foreground: 253 248 255; /* Moonlight */
+    --action-border: 250 232 255; /* Pale lilac */
+    --surface-highlight-rgb: 70 54 86;
+
+    --accent-blue: 125 211 252; /* Sky 300 */
+    --accent-green: 110 231 183; /* Emerald 300 */
+    --accent-lime: 190 242 100; /* Lime 300 */
+    --accent-emerald: 94 234 212; /* Teal 300 */
+    --accent-yellow: 253 224 71; /* Yellow 300 */
+    --accent-amber: 252 211 77; /* Amber 300 */
+    --accent-orange: 253 186 116; /* Orange 300 */
+    --accent-red: 253 164 175; /* Rose 300 */
+    --accent-purple: 216 180 254; /* Purple 300 */
+    --accent-slate: 203 213 225; /* Slate 300 */
+    --accent-indigo: 165 180 252; /* Indigo 300 */
+    --accent-pink: 249 168 212; /* Pink 300 */
+    --accent-teal: 94 234 212; /* Teal 300 */
+    --accent-coral: 253 186 116; /* Coral */
+  }
+
+  /* Midnight Theme — near-black navy with clear arctic-blue instrumentation */
+  .theme-midnight {
+    color-scheme: dark;
+    --background: 8 18 34; /* Midnight navy */
+    --surface: 15 32 54; /* Deep ocean */
+    --surface-highlight: 25 50 78; /* Storm blue */
+    --primary: 14 165 233; /* Sky 500 */
+    --primary-foreground: 255 255 255;
+    --on-accent: 255 255 255;
+    --overlay-base: 3 9 19; /* Ink */
+    --muted: 151 177 207; /* Blue-gray */
+    --border: 31 58 89; /* Navy border */
+    --foreground: 241 248 255; /* Ice */
+    --action-border: 224 242 254; /* Frost */
+    --surface-highlight-rgb: 25 50 78;
+
+    --accent-blue: 56 189 248; /* Sky 400 */
+    --accent-green: 74 222 128; /* Green 400 */
+    --accent-lime: 163 230 53; /* Lime 400 */
+    --accent-emerald: 45 212 191; /* Teal 400 */
+    --accent-yellow: 250 204 21; /* Yellow 400 */
+    --accent-amber: 251 191 36; /* Amber 400 */
+    --accent-orange: 251 146 60; /* Orange 400 */
+    --accent-red: 251 113 133; /* Rose 400 */
+    --accent-purple: 196 181 253; /* Violet 300 */
+    --accent-slate: 148 163 184; /* Slate 400 */
+    --accent-indigo: 129 140 248; /* Indigo 400 */
+    --accent-pink: 244 114 182; /* Pink 400 */
+    --accent-teal: 45 212 191; /* Teal 400 */
+    --accent-coral: 251 146 120; /* Coral */
+  }
+
+  /* Status bar vignette - gradient overlay at top of screen */
+  .status-bar-vignette {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: calc(var(--sat, 0px) + 24px);
+    background: linear-gradient(
+      to bottom,
+      rgb(var(--background) / 0.95) 0%,
+      rgb(var(--background) / 0.8) 40%,
+      rgb(var(--background) / 0.4) 70%,
+      transparent 100%
+    );
+    pointer-events: none;
+    z-index: 9999;
+    animation: vignetteIn 0.4s ease-out forwards;
+  }
+
+  @keyframes vignetteIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /*
   Carousel slide sizing: each slide is 32px narrower than the viewport so the
   neighbouring screens peek 16px into view, flush against the screen edge (the
   carousel viewport is full-bleed). Keep in sync with SCREEN_EDGE_PEEK_PX in
@@ -301,9 +451,9 @@
   purpose: useSwipeableScreens owns the slide transform + mask transition and
   always writes them together.
 */
-.carousel-slide {
-  width: calc(100% - 32px);
-  /*
+  .carousel-slide {
+    width: calc(100% - 32px);
+    /*
     Peek edge alpha fade. The ramps are PERMANENT (one per edge) and only their
     strength moves, driven by the per-slide `--slide-fade-left/right` numbers the
     shell writes imperatively (utils/visuals/carouselLoop.js →
@@ -320,173 +470,174 @@
     parked ramp still leaves the slide fully covered. Sync the 20px with
     SLIDE_FADE_WINDOW_PX.
   */
-  --slide-fade-left: 0;
-  --slide-fade-right: 0;
-  -webkit-mask-image:
-    linear-gradient(to right, transparent 0, #000 20px),
-    linear-gradient(to right, #000 calc(100% - 20px), transparent 100%);
-  mask-image:
-    linear-gradient(to right, transparent 0, #000 20px),
-    linear-gradient(to right, #000 calc(100% - 20px), transparent 100%);
-  -webkit-mask-size:
-    calc(100% + 20px) 100%,
-    calc(100% + 20px) 100%;
-  mask-size:
-    calc(100% + 20px) 100%,
-    calc(100% + 20px) 100%;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  -webkit-mask-position:
-    calc(var(--slide-fade-left) * 20px - 20px) 0,
-    calc(var(--slide-fade-right) * -20px) 0;
-  mask-position:
-    calc(var(--slide-fade-left) * 20px - 20px) 0,
-    calc(var(--slide-fade-right) * -20px) 0;
-}
+    --slide-fade-left: 0;
+    --slide-fade-right: 0;
+    -webkit-mask-image:
+      linear-gradient(to right, transparent 0, #000 20px),
+      linear-gradient(to right, #000 calc(100% - 20px), transparent 100%);
+    mask-image:
+      linear-gradient(to right, transparent 0, #000 20px),
+      linear-gradient(to right, #000 calc(100% - 20px), transparent 100%);
+    -webkit-mask-size:
+      calc(100% + 20px) 100%,
+      calc(100% + 20px) 100%;
+    mask-size:
+      calc(100% + 20px) 100%,
+      calc(100% + 20px) 100%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position:
+      calc(var(--slide-fade-left) * 20px - 20px) 0,
+      calc(var(--slide-fade-right) * -20px) 0;
+    mask-position:
+      calc(var(--slide-fade-left) * 20px - 20px) 0,
+      calc(var(--slide-fade-right) * -20px) 0;
+  }
 
-/*
+  /*
   Header glanceable stat line swap: a short fade/rise-in when the screen changes
   (the element is re-keyed, so no exit animation and no unmount gap that would
   shuffle the swipe dots).
 */
-@keyframes headerStatIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
+  @keyframes headerStatIn {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+
+  .header-stat-in {
+    animation: headerStatIn 150ms cubic-bezier(0.4, 0, 0.2, 1);
   }
-}
 
-.header-stat-in {
-  animation: headerStatIn 150ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* DayLedgerModal content swap: a gentle fade/slide replayed when prev/next
+  /* DayLedgerModal content swap: a gentle fade/slide replayed when prev/next
    navigation lands on a different tracked day. Kept short so it feels like
    a content swap, not a page transition. */
-@keyframes dayLedgerContentIn {
-  from {
-    opacity: 0;
-    transform: translateY(3px);
+  @keyframes dayLedgerContentIn {
+    from {
+      opacity: 0;
+      transform: translateY(3px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+
+  .day-ledger-in {
+    animation: dayLedgerContentIn 140ms cubic-bezier(0.4, 0, 0.2, 1);
   }
-}
 
-.day-ledger-in {
-  animation: dayLedgerContentIn 140ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Directional day swap for finger swipes / prev-next arrows: the incoming day
+  /* Directional day swap for finger swipes / prev-next arrows: the incoming day
    slides in from the side it came from. Same enter-only, re-keyed idiom as
    `header-stat-in` (no exit phase, so the scrolling body never goes blank). */
-@keyframes dayLedgerSlideFromRight {
-  from {
-    opacity: 0;
-    transform: translateX(24px);
+  @keyframes dayLedgerSlideFromRight {
+    from {
+      opacity: 0;
+      transform: translateX(24px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
   }
-  to {
-    opacity: 1;
-    transform: translateX(0);
+
+  @keyframes dayLedgerSlideFromLeft {
+    from {
+      opacity: 0;
+      transform: translateX(-24px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
   }
-}
 
-@keyframes dayLedgerSlideFromLeft {
-  from {
-    opacity: 0;
-    transform: translateX(-24px);
+  .day-ledger-in-right {
+    animation: dayLedgerSlideFromRight 200ms cubic-bezier(0.32, 0.72, 0, 1);
   }
-  to {
-    opacity: 1;
-    transform: translateX(0);
+
+  .day-ledger-in-left {
+    animation: dayLedgerSlideFromLeft 200ms cubic-bezier(0.32, 0.72, 0, 1);
   }
-}
 
-.day-ledger-in-right {
-  animation: dayLedgerSlideFromRight 200ms cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-.day-ledger-in-left {
-  animation: dayLedgerSlideFromLeft 200ms cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-/*
+  /*
   Mobile Density Fix + Font Scaling Cap:
   16px * 0.75 = 12px.
   text-size-adjust caps browser/acc escalations of these sizes
   while still allowing user pinch-zoom and desktop↔mobile
   font-size media-query scaling.
 */
-html {
-  font-size: 13.5px;
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
-}
+  html {
+    font-size: 13.5px;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
 
-html,
-body {
-  -ms-overflow-style: none;
-  touch-action: pan-x pan-y;
-  /* The app owns every scroll container (fixed shell + per-screen scroll
+  html,
+  body {
+    -ms-overflow-style: none;
+    touch-action: pan-x pan-y;
+    /* The app owns every scroll container (fixed shell + per-screen scroll
      areas). Killing page-level rubber-banding stops an iOS overscroll from
      dragging the whole shell — and stops WKWebView from handing the gesture to
      its own scroll view, which is what makes a body scroll-lock unreliable. */
-  overscroll-behavior: none;
-}
+    overscroll-behavior: none;
+  }
 
-* {
-  -webkit-tap-highlight-color: transparent;
-  /* iOS long-press callout/highlight. `user-select: none` does NOT suppress it,
+  * {
+    -webkit-tap-highlight-color: transparent;
+    /* iOS long-press callout/highlight. `user-select: none` does NOT suppress it,
      so a long-press on a non-selectable card could still pop the selection UI.
      Re-enabled for form controls below (see the `input, textarea, select` rule). */
-  -webkit-touch-callout: none;
-}
+    -webkit-touch-callout: none;
+  }
 
-/*
+  /*
   iOS input-focus zoom guard. WKWebView scales the whole page when a focused
   form control resolves below 16px, and the app's root font is 13.5px on phones
   — so every input focus would zoom the layout and leave it scaled. Deliberately
   unlayered so it also beats a `text-sm` utility on an individual field; the
   768px+ branch keeps the design's own larger scale.
 */
-@media (max-width: 767px) {
-  input,
-  textarea,
-  select {
-    font-size: 16px;
+  @media (max-width: 767px) {
+    input,
+    textarea,
+    select {
+      font-size: 16px;
+    }
   }
-}
 
-@media (min-width: 768px) {
-  html {
-    font-size: 17px;
+  @media (min-width: 768px) {
+    html {
+      font-size: 17px;
+    }
   }
-}
 
-body {
-  margin: 0;
-  font-family:
-    'BarlowDigits',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    'Roboto',
-    'Oxygen',
-    'Ubuntu',
-    'Cantarell',
-    'Fira Sans',
-    'Droid Sans',
-    'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-user-select: none;
-  user-select: none;
+  body {
+    margin: 0;
+    font-family:
+      'BarlowDigits',
+      -apple-system,
+      BlinkMacSystemFont,
+      'Segoe UI',
+      'Roboto',
+      'Oxygen',
+      'Ubuntu',
+      'Cantarell',
+      'Fira Sans',
+      'Droid Sans',
+      'Helvetica Neue',
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-user-select: none;
+    user-select: none;
+  }
 }
 
 @layer base {
@@ -515,37 +666,9 @@ body {
 }
 
 @layer components {
-  .focus-ring {
-    @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 focus-visible:ring-0;
-  }
-
-  .press-feedback {
-    @apply transition-transform active:scale-[0.98] active:brightness-110;
-  }
-
-  .surface-active {
-    @apply active:brightness-105 active:border-primary/80 active:shadow-inner;
-  }
-
-  /*
-    Bottom padding for chrome that must clear the on-screen keyboard (fullscreen
-    modal footers/inputs). `max()` — never the sum: while the keyboard is up the
-    home-indicator safe area sits *inside* the keyboard region, so adding both
-    would leave a phantom gap above the keyboard. `--keyboard-inset` is 0 on
-    Android (the window itself resizes) and carries the covered height on iOS,
-    where `resize: "none"` lets the keyboard overlay a full-height WebView.
-    Published by hooks/useKeyboardVisible.js.
-  */
-  .keyboard-bottom-inset {
-    padding-bottom: max(
-      env(safe-area-inset-bottom, 0px),
-      var(--keyboard-inset, 0px)
-    );
-  }
-
   /* Range input styling */
   input[type='range'] {
-    @apply appearance-none w-full h-2 bg-surface-highlight rounded-lg outline-none cursor-pointer;
+    @apply appearance-none w-full h-2 bg-surface-highlight rounded-lg outline-hidden cursor-pointer;
     background: linear-gradient(
       to right,
       rgb(var(--accent-blue)) 0%,
@@ -585,275 +708,261 @@ body {
   }
 
   input[type='range']::-moz-range-progress {
-    @apply bg-accent-blue rounded-lg h-2 shadow-sm;
+    @apply bg-accent-blue rounded-lg h-2 shadow-xs;
   }
-}
-
-@media (hover: hover) {
-  .hover-supported\:surface:hover {
-    filter: brightness(1.05);
-  }
-
-  .hover-supported\:lift:hover {
-    transform: translateY(-1px);
-  }
-}
-
-/* Global scrollbar suppression while preserving scroll behaviour */
-*,
-*::before,
-*::after {
-  -ms-overflow-style: none;
-  -webkit-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-}
-
-/* Hide scrollbar for EVERYTHING */
-*::-webkit-scrollbar {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
-  background: transparent !important;
-  -webkit-appearance: none !important;
-}
-
-/* Re-enable selection where text input is necessary (and restore the iOS
-   long-press callout with it, so copy/paste still works in a field). */
-input,
-textarea,
-select,
-[contenteditable='true'],
-.allow-text-selection {
-  -webkit-user-select: text;
-  -ms-user-select: text;
-  user-select: text;
-  -webkit-touch-callout: default;
-  caret-color: rgb(var(--accent-blue));
-}
-
-/* iOS/WKWebView can start an image or link drag from a long-press, which shows
-   a drag ghost over the UI. Nothing in the app is draggable. */
-img,
-svg,
-a {
-  -webkit-user-drag: none;
-}
-
-/* Hide scrollbar for Chrome, Safari and Opera */
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-
-/* Hide scrollbar for IE, Edge and Firefox */
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  /* IE and Edge */
-}
-
-/* Modal animations */
-@keyframes modalSlideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px) scale(0.96);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes modalSlideDown {
-  from {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-
-  to {
-    opacity: 0;
-    transform: translateY(20px) scale(0.96);
-  }
-}
-
-/* Modal content animations only - overlay wrapper has no animation */
-.modal-content {
-  animation: modalSlideUp 0.2s cubic-bezier(0.32, 0.72, 0, 1) forwards;
-  will-change: transform, opacity;
-  backface-visibility: hidden;
-  transform-origin: center center;
-}
-
-.modal-content.closing {
-  animation: modalSlideDown 0.15s cubic-bezier(0.32, 0, 0.67, 0) forwards;
-  pointer-events: none;
-}
-
-/* Tracker graph animations (weight/body-fat/steps) */
-@keyframes trackerGraphEnter {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.992);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes trackerGraphSwitch {
-  from {
-    opacity: 0.35;
-    transform: translateY(6px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes trackerPathDraw {
-  from {
-    stroke-dashoffset: 1;
-  }
-
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes trackerFillIn {
-  from {
-    opacity: 0.2;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes trackerPointIn {
-  from {
-    opacity: 0;
-    transform: scale(0.82);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes trackerBarIn {
-  from {
-    opacity: 0.25;
-    transform: scaleY(0.18);
-  }
-
-  to {
-    opacity: 1;
-    transform: scaleY(1);
-  }
-}
-
-.tracker-graph-enter {
-  animation: trackerGraphEnter 0.28s cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-.tracker-graph-switch {
-  animation: trackerGraphSwitch 0.22s ease-out;
-}
-
-.tracker-graph-enter .tracker-graph-path,
-.tracker-graph-switch .tracker-graph-path {
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  animation: trackerPathDraw 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
-}
-
-.tracker-graph-enter .tracker-graph-fill,
-.tracker-graph-switch .tracker-graph-fill {
-  animation: trackerFillIn 0.24s ease-out;
-}
-
-.tracker-graph-enter .tracker-graph-point,
-.tracker-graph-switch .tracker-graph-point {
-  transform-origin: center;
-  animation: trackerPointIn 0.22s ease-out;
-}
-
-.tracker-graph-enter .tracker-bar-animated,
-.tracker-graph-switch .tracker-bar-animated {
-  transform-origin: center bottom;
-  animation: trackerBarIn 0.24s cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .tracker-graph-enter,
-  .tracker-graph-switch,
-  .tracker-graph-path,
-  .tracker-graph-fill,
-  .tracker-graph-point,
-  .tracker-bar-animated,
-  .header-stat-in,
-  .day-ledger-in,
-  .day-ledger-in-right,
-  .day-ledger-in-left {
-    animation: none !important;
-    transform: none !important;
-  }
-
-  /* The carousel already settles instantly under reduced motion (the shell skips
-     the animated write); keep the edge-fade ramp from gliding too. */
-  .carousel-slide {
-    transition: none !important;
-  }
-}
-
-/* Dropdown animations */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes slideInFromTop {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-in {
-  animation:
-    fadeIn 0.2s ease-out,
-    slideInFromTop 0.2s ease-out;
 }
 
 @layer utilities {
-  .fade-in {
-    animation: fadeIn 0.2s ease-out;
+  @media (hover: hover) {
+    .hover-supported\:surface:hover {
+      filter: brightness(1.05);
+    }
+
+    .hover-supported\:lift:hover {
+      transform: translateY(-1px);
+    }
   }
 
-  .slide-in-from-top-2 {
-    animation: slideInFromTop 0.2s ease-out;
+  /* Global scrollbar suppression while preserving scroll behaviour */
+  *,
+  *::before,
+  *::after {
+    -ms-overflow-style: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
   }
 
-  /* Optimized spinner animation for better device compatibility */
-  .animate-spin-fast {
-    animation: optimizedSpin 0.8s linear infinite;
+  /* Hide scrollbar for EVERYTHING */
+  *::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
+    -webkit-appearance: none !important;
+  }
+
+  /* Re-enable selection where text input is necessary (and restore the iOS
+   long-press callout with it, so copy/paste still works in a field). */
+  input,
+  textarea,
+  select,
+  [contenteditable='true'],
+  .allow-text-selection {
+    -webkit-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
+    caret-color: rgb(var(--accent-blue));
+  }
+
+  /* iOS/WKWebView can start an image or link drag from a long-press, which shows
+   a drag ghost over the UI. Nothing in the app is draggable. */
+  img,
+  svg,
+  a {
+    -webkit-user-drag: none;
+  }
+
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Hide scrollbar for IE, Edge and Firefox */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    /* IE and Edge */
+  }
+
+  /* Modal animations */
+  @keyframes modalSlideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px) scale(0.96);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes modalSlideDown {
+    from {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    to {
+      opacity: 0;
+      transform: translateY(20px) scale(0.96);
+    }
+  }
+
+  /* Modal content animations only - overlay wrapper has no animation */
+  .modal-content {
+    animation: modalSlideUp 0.2s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+    will-change: transform, opacity;
+    backface-visibility: hidden;
     transform-origin: center center;
+  }
+
+  .modal-content.closing {
+    animation: modalSlideDown 0.15s cubic-bezier(0.32, 0, 0.67, 0) forwards;
+    pointer-events: none;
+  }
+
+  /* Tracker graph animations (weight/body-fat/steps) */
+  @keyframes trackerGraphEnter {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.992);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes trackerGraphSwitch {
+    from {
+      opacity: 0.35;
+      transform: translateY(6px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes trackerPathDraw {
+    from {
+      stroke-dashoffset: 1;
+    }
+
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes trackerFillIn {
+    from {
+      opacity: 0.2;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes trackerPointIn {
+    from {
+      opacity: 0;
+      transform: scale(0.82);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes trackerBarIn {
+    from {
+      opacity: 0.25;
+      transform: scaleY(0.18);
+    }
+
+    to {
+      opacity: 1;
+      transform: scaleY(1);
+    }
+  }
+
+  .tracker-graph-enter {
+    animation: trackerGraphEnter 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  .tracker-graph-switch {
+    animation: trackerGraphSwitch 0.22s ease-out;
+  }
+
+  .tracker-graph-enter .tracker-graph-path,
+  .tracker-graph-switch .tracker-graph-path {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: trackerPathDraw 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  }
+
+  .tracker-graph-enter .tracker-graph-fill,
+  .tracker-graph-switch .tracker-graph-fill {
+    animation: trackerFillIn 0.24s ease-out;
+  }
+
+  .tracker-graph-enter .tracker-graph-point,
+  .tracker-graph-switch .tracker-graph-point {
+    transform-origin: center;
+    animation: trackerPointIn 0.22s ease-out;
+  }
+
+  .tracker-graph-enter .tracker-bar-animated,
+  .tracker-graph-switch .tracker-bar-animated {
+    transform-origin: center bottom;
+    animation: trackerBarIn 0.24s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tracker-graph-enter,
+    .tracker-graph-switch,
+    .tracker-graph-path,
+    .tracker-graph-fill,
+    .tracker-graph-point,
+    .tracker-bar-animated,
+    .header-stat-in,
+    .day-ledger-in,
+    .day-ledger-in-right,
+    .day-ledger-in-left {
+      animation: none !important;
+      transform: none !important;
+    }
+
+    /* The carousel already settles instantly under reduced motion (the shell skips
+     the animated write); keep the edge-fade ramp from gliding too. */
+    .carousel-slide {
+      transition: none !important;
+    }
+  }
+
+  /* Dropdown animations */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideInFromTop {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-in {
+    animation:
+      fadeIn 0.2s ease-out,
+      slideInFromTop 0.2s ease-out;
   }
 }
 

@@ -50,7 +50,7 @@ export const GoalModal = ({
               type="button"
             >
               <div className="flex items-center gap-4">
-                <Icon size={32} className="flex-shrink-0" />
+                <Icon size={32} className="shrink-0" />
                 <div className="flex-1">
                   <p className="font-bold text-lg">{goal.label}</p>
                   <p className="text-sm opacity-90 mt-1">{goal.desc}</p>
@@ -61,7 +61,7 @@ export const GoalModal = ({
                   )}
                 </div>
                 {isActive && (
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary-foreground/20 flex items-center justify-center">
+                  <div className="shrink-0 w-6 h-6 rounded-full bg-primary-foreground/20 flex items-center justify-center">
                     <div className="w-3 h-3 rounded-full bg-primary-foreground" />
                   </div>
                 )}
