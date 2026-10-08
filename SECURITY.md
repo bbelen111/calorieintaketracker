@@ -280,10 +280,10 @@ risk instead of rediscovering it. They are not unreported vulnerabilities.
 10. **`vercel.json` must stay routes-only.** `framework` / `buildCommand` / `outputDirectory`
     overrides (even set to `null`) previously stopped the deployment from landing. Routing is
     evaluated before file serving, which is what makes every non-`/api` path return `404`.
-11. **Dependency and secret scanning are only partly automated.** Dependabot security alerts are
-    enabled on the repository, but `npm audit` does not run in CI (so advisories never fail the
-    build), there is no Dependabot version-update configuration, and there is no CodeQL or
-    secret-scanning workflow. See the supply-chain section.
+11. **Dependency and secret scanning are only partly automated.** Dependabot security alerts and
+    CodeQL code scanning are both enabled, but `npm audit` does not run in CI (so advisories never
+    fail the build), there is no Dependabot version-update configuration, and there is no secret
+    scanning workflow. See the supply-chain section.
 
 ---
 
@@ -337,6 +337,10 @@ Before exposing the API deployment to users, confirm every item:
   `npm run licenses:generate`.
 - **Dependabot security alerts are enabled**, so GitHub surfaces dependency advisories on the
   default branch.
+- **CodeQL code scanning is enabled** (advanced setup — `.github/workflows/codeql.yml` and
+  `codeql-swift.yml`). JavaScript/TypeScript — ~67k lines and effectively the whole product — is
+  analysed on every push and pull request to `main`, weekly, and on demand, and needs no build.
+  Swift is analysed best-effort and path-gated; see the note under the gap list for why.
 - CI (`.github/workflows/ci.yml`) runs two jobs:
   - `verify` — `npm ci` → `npm run lint:ci` → `npm run test:coverage` → `npm run test:ui` →
     `npm run build` → an assertion that `dist/index.html` and the expected `chunk-*` vendor bundles
@@ -360,9 +364,15 @@ transitive `uuid`/`xcode`. None is runtime code in the shipped app bundle.
 - `npm audit` is **not** run in CI, so advisories are visible but never fail the build.
 - No Dependabot **version-update** configuration (`.github/dependabot.yml`), so advisories are
   surfaced without automated update PRs.
-- No secret scanning or SAST (e.g. CodeQL) workflow.
+- No secret scanning workflow (CodeQL code scanning now covers JavaScript/TypeScript and Swift).
 - No SBOM beyond `THIRD_PARTY_NOTICES.md`.
 - No reproducible-build or artifact-provenance attestation for the native binaries.
+
+**Note on Swift coverage:** Swift analysis is deliberately best-effort. Its workflow is path-gated to
+iOS-relevant changes and its job is `continue-on-error`, because CodeQL supports only `autobuild` and
+`manual` for Swift (`build-mode: none` exists for C/C++, C#, Java and Rust only) and can therefore
+only analyse Swift by compiling it — which requires `npm ci` first, since
+`ios/App/CapApp-SPM/Package.swift` declares ten local path dependencies into `node_modules`.
 
 If you are reviewing this project, treat the dependency graph and the native build toolchain as
 part of the attack surface.
