@@ -2,7 +2,22 @@
 
 @custom-variant dark (&:is(.dark *));
 
-@theme {
+/*
+  `inline` is load-bearing here, not cosmetic.
+
+  Without it, v4 emits `--color-surface: rgb(var(--surface))` into `:root` and
+  each utility references `var(--color-surface)`. The browser resolves that at
+  `:root`, so the token is frozen to the dark default and every `.theme-*` class
+  is ignored - all 8 themes render as dark.
+
+  With `inline`, the value is written into each utility instead
+  (`background-color: rgb(var(--surface))`), so `var(--surface)` resolves on the
+  element using it and the themes switch correctly.
+
+  Verified in a browser: without `inline`, `bg-surface` stayed rgb(30, 41, 59)
+  while `theme-light` was applied; with it, each theme resolves its own values.
+*/
+@theme inline {
   --color-background: rgb(var(--background));
   --color-surface: rgb(var(--surface));
   --color-surface-highlight: rgb(var(--surface-highlight));
