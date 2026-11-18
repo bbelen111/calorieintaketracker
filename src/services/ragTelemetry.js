@@ -102,8 +102,36 @@ const createEmptySnapshot = () => ({
   schemaVersionCounts: {},
 });
 
+// Session ids are correlation keys for persisted telemetry rows, so they are
+// generated from the platform CSPRNG rather than `Math.random()` (which code
+// scanning flags as insecure randomness: its output is predictable and
+// colliding ids would silently merge two sessions). `crypto.randomUUID()` needs
+// a secure context, so fall back to 16 CSPRNG bytes as hex; the counter is only
+// reached by a runtime that ships no Web Crypto at all, and then uniqueness -
+// now obviously monotonic - is all it can offer.
+let telemetrySessionSequence = 0;
+
+const getCryptoApi = () => globalThis.crypto ?? null;
+
+const createTelemetrySessionId = () => {
+  const cryptoApi = getCryptoApi();
+
+  if (typeof cryptoApi?.randomUUID === 'function') {
+    return `rag-${cryptoApi.randomUUID()}`;
+  }
+
+  if (typeof cryptoApi?.getRandomValues === 'function') {
+    const bytes = cryptoApi.getRandomValues(new Uint8Array(16));
+    const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0'));
+    return `rag-${hex.join('')}`;
+  }
+
+  telemetrySessionSequence += 1;
+  return `rag-${Date.now()}-${telemetrySessionSequence}`;
+};
+
 const createEmptySession = () => ({
-  sessionId: `rag-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  sessionId: createTelemetrySessionId(),
   startedAt: Date.now(),
   updatedAt: Date.now(),
   metrics: createEmptySnapshot(),

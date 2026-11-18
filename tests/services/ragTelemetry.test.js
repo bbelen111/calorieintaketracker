@@ -18,6 +18,25 @@ test.beforeEach(() => {
   __resetRagTelemetryForTests();
 });
 
+// Session ids are correlation keys for persisted telemetry rows, so they must
+// come from the platform CSPRNG rather than `Math.random()` (code scanning's
+// js/insecure-randomness rule). Uniqueness across sessions is the observable
+// contract: a predictable-but-still-distinct id would pass this test, but a
+// colliding one - the actual failure mode of a weak PRNG - cannot.
+test('generates unique session ids from the platform CSPRNG', () => {
+  const sessionIdPattern = /^rag-[0-9a-f-]+$/;
+  const ids = new Set();
+
+  for (let index = 0; index < 50; index += 1) {
+    const { sessionId } = getRagTelemetrySessionSnapshot();
+    assert.match(sessionId, sessionIdPattern);
+    ids.add(sessionId);
+    __resetRagTelemetryForTests();
+  }
+
+  assert.equal(ids.size, 50);
+});
+
 test('records stage latency and extraction outcomes with schema versions', async () => {
   await recordRagStageLatency({
     stage: 'extraction',

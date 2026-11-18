@@ -12,6 +12,14 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Least privilege for GITHUB_TOKEN: this gate only reads the repo. The default
+# token can be read/write on older repositories, so declaring this explicitly
+# keeps a compromised or malicious step from pushing, publishing or editing
+# releases. Scoped at workflow level so every job (verify + ios) inherits it -
+# code scanning's `actions/missing-workflow-permissions` checks each job.
+permissions:
+  contents: read
+
 jobs:
   verify:
     name: Lint, test, build
