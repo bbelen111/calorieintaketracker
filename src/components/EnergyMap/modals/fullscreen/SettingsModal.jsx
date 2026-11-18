@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ChevronsUpDown,
   Mars,
@@ -371,6 +371,18 @@ export const SettingsModal = ({
     return `Last logged ${formatDateLabel(latestBodyFatEntry.date, { month: 'short', day: 'numeric' })}`;
   }, [latestBodyFatEntry]);
 
+  // The hub slides in from the left only when the user came BACK to it from a
+  // page - never on the modal's own first open (the shell already animates that).
+  // Derived during render (the app's retention pattern) rather than in an effect:
+  // flip on the first navigation into a page, reset once the modal is closed.
+  const [hasNavigated, setHasNavigated] = useState(false);
+  const isOnHub = resolvedActions.navigation.activePage === 'home';
+  if (!isOpen && hasNavigated) {
+    setHasNavigated(false);
+  } else if (isOpen && !isOnHub && !hasNavigated) {
+    setHasNavigated(true);
+  }
+
   return (
     <FullscreenModalFrame
       isOpen={isOpen}
@@ -383,7 +395,7 @@ export const SettingsModal = ({
       }
     >
       {resolvedActions.navigation.activePage === 'home' ? (
-        <SettingsHome onOpenPage={handleOpenPage} />
+        <SettingsHome onOpenPage={handleOpenPage} animateIn={hasNavigated} />
       ) : (
         <SettingsPageContent
           page={resolvedActions.navigation.activePage}
@@ -434,10 +446,12 @@ export const SettingsModal = ({
   );
 };
 
-const SettingsHome = ({ onOpenPage }) => (
+const SettingsHome = ({ onOpenPage, animateIn = false }) => (
   <nav
     aria-label="Settings categories"
-    className="mx-auto w-full max-w-3xl space-y-2 p-4 md:p-6"
+    className={`mx-auto w-full max-w-3xl space-y-2 p-4 md:p-6 ${
+      animateIn ? 'settings-hub-enter' : ''
+    }`}
   >
     {SETTINGS_PAGES.map(({ id, title, icon: Icon }) => (
       <button
@@ -447,7 +461,7 @@ const SettingsHome = ({ onOpenPage }) => (
         className="group flex min-h-14 w-full items-center gap-3 rounded-xl border border-border bg-surface-highlight/40 px-3 py-2.5 text-left shadow-sm transition-all pressable-card focus-ring md:hover:border-muted/50 md:hover:bg-surface-highlight/70"
         aria-label={`Open ${title}`}
       >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-blue/10 ring-1 ring-accent-blue/20">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-blue/10 ring-1 ring-accent-blue/20 transition-transform duration-200 group-active:scale-90 md:group-hover:scale-105">
           <Icon
             size={19}
             className="shrink-0 text-accent-blue"
@@ -497,7 +511,10 @@ const SettingsPageContent = ({
   adaptiveThermogenesisSmoothingMethod,
   adaptiveThermogenesisSmoothingWindowDays,
 }) => (
-  <div key={page} className="mx-auto w-full max-w-3xl p-4 pb-8 md:p-8">
+  <div
+    key={page}
+    className="settings-page-enter mx-auto w-full max-w-3xl p-4 pb-8 md:p-8"
+  >
     {page === 'profile' && (
       <ProfileSection
         userData={userData}
@@ -600,7 +617,13 @@ const FullscreenModalFrame = ({
         >
           <ChevronLeft size={24} />
         </button>
-        <h3 className="text-foreground font-bold text-xl">{title}</h3>
+        {/* Re-keyed on the title: a short fade/rise when hub <-> page changes. */}
+        <h3
+          key={title}
+          className="header-stat-in text-foreground font-bold text-xl"
+        >
+          {title}
+        </h3>
       </div>
     </header>
 
@@ -640,14 +663,16 @@ const BinarySwitch = ({ checked, onClick, ariaLabel, disabled = false }) => (
     }`}
   >
     <span
-      className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-all ${
+      className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-[background-color,border-color,box-shadow] duration-300 ${
         checked
-          ? 'bg-accent-emerald border-accent-emerald/70'
-          : 'bg-surface-highlight border-border'
+          ? 'bg-accent-emerald border-accent-emerald/70 shadow-[0_0_10px_rgb(var(--accent-emerald)/0.4)]'
+          : 'bg-surface-highlight border-border shadow-none'
       }`}
     >
+      {/* Springy thumb: a slight overshoot on the slide makes the flip feel
+          physical instead of a linear glide. */}
       <span
-        className={`h-4 w-4 rounded-full bg-primary-foreground shadow-xs transition-transform duration-200 ${
+        className={`h-4 w-4 rounded-full bg-primary-foreground shadow-xs transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
           checked ? 'translate-x-6' : 'translate-x-1'
         }`}
       />
@@ -655,15 +680,32 @@ const BinarySwitch = ({ checked, onClick, ariaLabel, disabled = false }) => (
   </button>
 );
 
-const SegmentedButton = ({ active, activeClassName, children, ...props }) => (
-  <button
-    type="button"
-    className={`${BUTTON_BASE_CLASS} ${active ? activeClassName : BUTTON_INACTIVE_CLASS}`}
-    {...props}
-  >
-    {children}
-  </button>
-);
+const SegmentedButton = ({ active, activeClassName, children, ...props }) => {
+  // The selection "pop" must play when the user CHANGES the selection, not on
+  // mount (a page opening would otherwise pulse every already-selected button).
+  // Tracked during render, not in an effect: remember the last `active` and arm
+  // the pop only on a false -> true flip.
+  const [lastActive, setLastActive] = useState(active);
+  const [shouldPop, setShouldPop] = useState(false);
+  if (lastActive !== active) {
+    setLastActive(active);
+    setShouldPop(active);
+  }
+
+  return (
+    <button
+      type="button"
+      className={`${BUTTON_BASE_CLASS} ${
+        active
+          ? `${activeClassName} ${shouldPop ? 'settings-select-pop' : ''}`
+          : BUTTON_INACTIVE_CLASS
+      }`}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+};
 
 const InfoHeaderWithToggle = ({
   title,
@@ -829,8 +871,12 @@ const AppearanceSection = ({ userData, onFieldChange }) => (
           aria-pressed={userData.theme === value}
           onClick={() => onFieldChange?.('theme', value)}
         >
-          <ThemeSwatch swatchClass={swatchClass} />
-          <span className="text-sm">{label}</span>
+          {/* Stacked + centered so every swatch shares one x-position per
+              column regardless of label width. */}
+          <span className="flex flex-col items-center gap-1.5">
+            <ThemeSwatch swatchClass={swatchClass} />
+            <span className="text-sm">{label}</span>
+          </span>
         </SegmentedButton>
       ))}
     </div>
@@ -859,27 +905,28 @@ const EpocSection = ({
     </p>
 
     {epocEnabled && (
-      <div className="mt-3 rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-foreground text-sm font-medium leading-tight">
-              Carryover window
-            </p>
-            <p className="text-muted text-xs mt-0.5">
-              Higher values extend how long EPOC can spill into the next day.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => onOpenWindowPicker?.()}
-            className="bg-surface-highlight text-foreground px-3 py-1 rounded-md border border-border transition-all text-right focus-ring md:hover:border-muted/50 flex items-center justify-center gap-2 pressable-inline font-medium text-sm"
-            aria-label="Open carryover window picker"
-          >
-            <span>{epocCarryoverHours}h</span>
-            <ChevronsUpDown size={14} className="text-muted shrink-0" />
-          </button>
-        </div>
-      </div>
+      // The whole card is the tap target (not just the value chip); the chip is
+      // a visual affordance only. Spans, not <p>/<div>: button content must be
+      // phrasing content.
+      <button
+        type="button"
+        onClick={() => onOpenWindowPicker?.()}
+        aria-label="Open carryover window picker"
+        className="settings-reveal group mt-3 flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5 text-left transition-all pressable-card focus-ring md:hover:border-muted/50 md:hover:bg-surface-highlight/70"
+      >
+        <span className="block">
+          <span className="block text-foreground text-sm font-medium leading-tight">
+            Carryover window
+          </span>
+          <span className="mt-0.5 block text-muted text-xs">
+            Higher values extend how long EPOC can spill into the next day.
+          </span>
+        </span>
+        <span className="flex shrink-0 items-center justify-center gap-2 rounded-md border border-border bg-surface-highlight px-3 py-1 text-sm font-medium text-foreground transition-colors md:group-hover:border-muted/50">
+          <span>{epocCarryoverHours}h</span>
+          <ChevronsUpDown size={14} className="text-muted shrink-0" />
+        </span>
+      </button>
     )}
   </div>
 );
@@ -942,7 +989,7 @@ const SmartTefSection = ({
       </p>
 
       {userData.smartTefEnabled && (
-        <div className="mt-3 space-y-2">
+        <div className="settings-reveal mt-3 space-y-2">
           {smartTefToggles.map((toggle) => (
             <SettingToggleCard key={toggle.key} {...toggle} />
           ))}
@@ -1005,7 +1052,7 @@ const AdaptiveThermogenesisSection = ({
 
       {adaptiveThermogenesisEnabled && (
         <div
-          className={`mt-3 rounded-lg border px-3 py-2.5 ${
+          className={`settings-reveal mt-3 rounded-lg border px-3 py-2.5 ${
             adaptiveThermogenesisSmartModeAvailable
               ? 'border-border bg-surface-highlight/40'
               : 'border-border/70 bg-surface-highlight/20'
@@ -1044,7 +1091,7 @@ const AdaptiveThermogenesisSection = ({
       )}
 
       {adaptiveThermogenesisEnabled && resolvedSmartModeEnabled && (
-        <div className="mt-2 space-y-2">
+        <div className="settings-reveal mt-2 space-y-2">
           <SettingToggleCard
             title="Smooth weight signal"
             description="Reduces day-to-day noise before trend slope is calculated."
@@ -1059,7 +1106,7 @@ const AdaptiveThermogenesisSection = ({
           />
 
           {adaptiveThermogenesisSmoothingEnabled && (
-            <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5 space-y-2">
+            <div className="settings-reveal rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5 space-y-2">
               <div className="grid grid-cols-2 gap-2">
                 <SegmentedButton
                   active={adaptiveThermogenesisSmoothingMethod === 'ema'}
@@ -1186,7 +1233,7 @@ const DailyActivitySection = ({ userData, bmr, onDailyActivityClick }) => {
         </span>
       </button>
       {Number.isFinite(bmr) && (
-        <div className="mt-2 space-y-1 text-xs text-foreground/80">
+        <div className="settings-reveal mt-2 space-y-1 text-xs text-foreground/80">
           {restBaseline !== null && (
             <p>
               Rest day baseline: ~{restBaseline.toLocaleString()} cal (BMR +

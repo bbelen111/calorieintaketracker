@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useRef } from 'react';
 import { EnergyMapCalculator } from './components/EnergyMap/EnergyMapCalculator';
 import { useEnergyMapStore } from './store/useEnergyMapStore';
 import { useKeyboardVisible } from './hooks/useKeyboardVisible';
@@ -24,14 +24,34 @@ const App = () => {
   // it again (ScreenTabs) share this one subscription.
   useKeyboardVisible();
 
-  const applyTheme = useCallback((themeValue) => {
-    // Remove all theme classes first
-    document.body.classList.remove(...THEME_CLASSES);
+  // True once the first theme has been applied, so only a *change* (the user
+  // picking a theme in Settings) cross-fades - the initial paint never does.
+  const hasAppliedThemeRef = useRef(false);
 
-    // Get the appropriate class for the theme (resolves 'auto' to system preference)
-    const themeClass = getThemeClass(themeValue);
-    if (themeClass) {
-      document.body.classList.add(themeClass);
+  const applyTheme = useCallback((themeValue, { animate = false } = {}) => {
+    const swapThemeClass = () => {
+      // Remove all theme classes first
+      document.body.classList.remove(...THEME_CLASSES);
+
+      // Get the appropriate class for the theme (resolves 'auto' to system preference)
+      const themeClass = getThemeClass(themeValue);
+      if (themeClass) {
+        document.body.classList.add(themeClass);
+      }
+    };
+
+    // Cross-fade the whole page between palettes where the View Transition API
+    // exists; everywhere else (and under reduced motion) it is the same instant
+    // class swap as before. The swap itself is synchronous either way.
+    const canCrossFade =
+      animate &&
+      typeof document.startViewTransition === 'function' &&
+      !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (canCrossFade) {
+      document.startViewTransition(swapThemeClass);
+    } else {
+      swapThemeClass();
     }
 
     // Apply native platform theme (status bar, nav bar, keyboard)
@@ -41,8 +61,9 @@ const App = () => {
   useEffect(() => {
     if (!isLoaded) return;
 
-    // Apply theme immediately
-    applyTheme(theme);
+    // Apply theme immediately (animated only when switching, not on first apply)
+    applyTheme(theme, { animate: hasAppliedThemeRef.current });
+    hasAppliedThemeRef.current = true;
 
     // If theme is 'auto', listen for system preference changes
     if (theme === 'auto') {

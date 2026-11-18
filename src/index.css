@@ -620,6 +620,122 @@
   }
 
   /*
+    Settings navigation. The hub and its four pages swap in place (no router, no
+    exit phase - same enter-only idiom as `header-stat-in`), so direction is
+    expressed on the way IN: a page slides in from the right, the hub from the
+    left. The blocks stagger by child index (capped at 7 so a long page never
+    feels slow).
+
+    `backwards` fill is load-bearing: the animation only holds the `from` state
+    during its delay, then RELEASES `transform`/`opacity`. A `both`/`forwards`
+    fill would pin `transform: none` over every button's own press feedback
+    (`active:scale-*`) for the life of the page.
+
+    Targets: the hub's rows are direct children of `.settings-hub-enter`; a page's
+    blocks are the children of the section root, which is the wrapper's only
+    child, hence `> * > *`.
+  */
+  @keyframes settingsEnterForward {
+    from {
+      opacity: 0;
+      transform: translateX(18px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes settingsEnterBack {
+    from {
+      opacity: 0;
+      transform: translateX(-18px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .settings-page-enter > * > * {
+    animation: settingsEnterForward 300ms cubic-bezier(0.32, 0.72, 0, 1)
+      backwards;
+  }
+
+  .settings-hub-enter > * {
+    animation: settingsEnterBack 300ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
+  }
+
+  .settings-page-enter > * > *:nth-child(2),
+  .settings-hub-enter > *:nth-child(2) {
+    animation-delay: 45ms;
+  }
+  .settings-page-enter > * > *:nth-child(3),
+  .settings-hub-enter > *:nth-child(3) {
+    animation-delay: 90ms;
+  }
+  .settings-page-enter > * > *:nth-child(4),
+  .settings-hub-enter > *:nth-child(4) {
+    animation-delay: 135ms;
+  }
+  .settings-page-enter > * > *:nth-child(5) {
+    animation-delay: 180ms;
+  }
+  .settings-page-enter > * > *:nth-child(6) {
+    animation-delay: 225ms;
+  }
+  .settings-page-enter > * > *:nth-child(n + 7) {
+    animation-delay: 270ms;
+  }
+
+  /* An option that only exists while its parent switch is on (EPOC carryover,
+     Smart TEF sub-toggles, AT smoothing...) eases in instead of popping. */
+  @keyframes settingsReveal {
+    from {
+      opacity: 0;
+      transform: translateY(-6px) scale(0.985);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .settings-reveal {
+    animation: settingsReveal 240ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
+    transform-origin: top center;
+  }
+
+  /* A segmented choice that just became active: a quick press-in + a soft ring
+     that expands and fades. Played when the active class is added (the animation
+     restarts whenever it is re-applied), so it reads as the selection landing. */
+  @keyframes settingsSelectPop {
+    0% {
+      transform: scale(0.96);
+      box-shadow: 0 0 0 0 rgb(var(--primary) / 0.45);
+    }
+    55% {
+      transform: scale(1.015);
+    }
+    100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 7px rgb(var(--primary) / 0);
+    }
+  }
+
+  .settings-select-pop {
+    animation: settingsSelectPop 360ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  /* Theme change cross-fade (View Transition API; see App.jsx). Unsupported
+     engines simply switch instantly. */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 260ms;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /*
   Mobile Density Fix + Font Scaling Cap:
   16px * 0.75 = 12px.
   text-size-adjust caps browser/acc escalations of these sizes
@@ -818,6 +934,36 @@
       to bottom,
       rgb(var(--card-sheen)),
       rgb(255 255 255 / 0) 240px
+    );
+  }
+
+  /*
+    Edge fade for a horizontally scrolling row. A MASK on the scroller itself,
+    not overlay strips painted in the surface colour: an overlay has to match the
+    background behind it exactly (it stopped matching the moment the fullscreen
+    body gained its top-light gradient, leaving dark boxes at the edges), and a
+    mask fades the content whatever the background is. The two ramps are
+    permanent; only their strength moves (`--fade-left` / `--fade-right`, 0..1,
+    written by the owning component from the scroll position - 0 parks the ramp
+    at the edge so nothing is faded). Same idea as the carousel's peek fades.
+  */
+  .fade-scroll-x {
+    --fade-left: 0;
+    --fade-right: 0;
+    --fade-size: 28px;
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 calc(var(--fade-left) * var(--fade-size)),
+      #000 calc(100% - var(--fade-right) * var(--fade-size)),
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 calc(var(--fade-left) * var(--fade-size)),
+      #000 calc(100% - var(--fade-right) * var(--fade-size)),
+      transparent 100%
     );
   }
 
@@ -1087,9 +1233,18 @@
     .header-stat-in,
     .day-ledger-in,
     .day-ledger-in-right,
-    .day-ledger-in-left {
+    .day-ledger-in-left,
+    .settings-page-enter > * > *,
+    .settings-hub-enter > *,
+    .settings-reveal,
+    .settings-select-pop {
       animation: none !important;
       transform: none !important;
+    }
+
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+      animation-duration: 0.01ms;
     }
 
     /* The carousel already settles instantly under reduced motion (the shell skips

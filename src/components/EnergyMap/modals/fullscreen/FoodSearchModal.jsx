@@ -490,8 +490,10 @@ export const FoodSearchModal = ({
   // Network status
   const { isOnline } = useNetworkStatus();
 
-  // Scroll/fade overlays for action buttons
-  const actionScrollRef = useRef(null);
+  // Action-button row: the scroller element (state, not a ref, because the modal
+  // body mounts after the component does) so the edge-fade effect below can attach
+  // once it exists.
+  const [actionScrollEl, setActionScrollEl] = useState(null);
 
   // AI chat state
   const [chatMessages, setChatMessages] = useState([]);
@@ -1640,7 +1642,36 @@ export const FoodSearchModal = ({
     };
   }, []);
 
-  // Show small fade overlays on scrollable action buttons container
+  // Edge fade for the scrollable action-button row (`.fade-scroll-x` in
+  // index.css). Strength per side is derived from the scroll position and written
+  // straight onto the element - no state, so scrolling never re-renders this
+  // 3,800-line modal. A ramp only shows on a side that actually has more content,
+  // and eases in over the first/last 16px of travel.
+  const updateActionFade = useCallback(() => {
+    if (!actionScrollEl) return;
+    const maxScroll = actionScrollEl.scrollWidth - actionScrollEl.clientWidth;
+    const left = Math.min(1, Math.max(0, actionScrollEl.scrollLeft / 16));
+    const right = Math.min(
+      1,
+      Math.max(0, (maxScroll - actionScrollEl.scrollLeft) / 16)
+    );
+    actionScrollEl.style.setProperty('--fade-left', left.toFixed(2));
+    actionScrollEl.style.setProperty('--fade-right', right.toFixed(2));
+  }, [actionScrollEl]);
+
+  useEffect(() => {
+    if (!actionScrollEl) return undefined;
+    updateActionFade();
+    // The row's width changes without a scroll event (the Search pill expands to
+    // reveal "Add"), so watch the box sizes too.
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(updateActionFade);
+    observer.observe(actionScrollEl);
+    if (actionScrollEl.firstElementChild) {
+      observer.observe(actionScrollEl.firstElementChild);
+    }
+    return () => observer.disconnect();
+  }, [actionScrollEl, updateActionFade]);
 
   const localCategoryOptions = useMemo(() => {
     const merged = { ...FOOD_CATEGORIES };
@@ -3253,8 +3284,9 @@ export const FoodSearchModal = ({
         <div className="px-4 pt-4 pb-3 border-b border-border">
           <div className="relative overflow-hidden">
             <div
-              ref={actionScrollRef}
-              className="relative overflow-x-auto touch-action-pan-x scrollbar-hide"
+              ref={setActionScrollEl}
+              onScroll={updateActionFade}
+              className="fade-scroll-x relative overflow-x-auto touch-action-pan-x scrollbar-hide"
             >
               <div className="flex gap-2 w-max mx-2 py-2">
                 {/* Search + Add Food as single pill when search is active */}
@@ -3345,16 +3377,6 @@ export const FoodSearchModal = ({
                   <span>Barcode Scan</span>
                 </button>
               </div>
-            </div>
-
-            <div className="pointer-events-none absolute inset-y-0 -left-px w-3 z-20">
-              <div className="absolute inset-y-0 left-0 w-1 bg-surface" />
-              <div className="absolute inset-y-0 left-1 right-0 bg-linear-to-r from-surface via-surface/80 to-transparent" />
-            </div>
-
-            <div className="pointer-events-none absolute inset-y-0 -right-px w-3 z-20">
-              <div className="absolute inset-y-0 right-0 w-1 bg-surface" />
-              <div className="absolute inset-y-0 left-0 right-1 bg-linear-to-l from-surface via-surface/80 to-transparent" />
             </div>
           </div>
         </div>
