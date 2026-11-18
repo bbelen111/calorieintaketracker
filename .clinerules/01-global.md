@@ -14,7 +14,7 @@ React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor 
 - **Food Catalog Runtime:** `sql.js` (WASM SQLite reader in browser)
 - Dexie 4.x (history document store)
 - Framer Motion 12.23.24 (animations)
-- Tailwind 3.4.17 (styling via CSS variable–based semantic tokens)
+- Tailwind 4.x (CSS-first: `@import 'tailwindcss'` + `@theme inline` in `src/index.css`, no `tailwind.config.js`; styling via CSS variable–based semantic tokens)
 - Lucide React 0.562.0 (icons)
 - **External APIs:** Supabase food catalog (online text search via `api/foods.js`; legacy `/api/usda` alias retained), OpenFoodFacts (barcode lookup via `api/openfoodfacts.js`), OpenRouter (AI parsing via `api/openrouter.js`)
 

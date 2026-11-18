@@ -102,6 +102,33 @@
   --color-accent-pink: rgb(var(--accent-pink));
   --color-accent-teal: rgb(var(--accent-teal));
   --color-accent-coral: rgb(var(--accent-coral));
+
+  /*
+    Elevation scale. Each step is a tight contact shadow plus a long, soft,
+    negatively-spread ambient shadow, tinted by the theme's `--overlay-base`
+    (warm charcoal on Dawn, ink on Midnight) instead of flat black. This
+    replaces Tailwind's default single-layer shadows for every `shadow-*`
+    utility in the app at once. Lives in this `inline` block for the same reason
+    as the colours above: the `var(--overlay-base)` must resolve on the element
+    using it, not at :root.
+  */
+  --shadow-xs: 0 1px 2px rgb(var(--overlay-base) / 0.06);
+  --shadow-sm:
+    0 1px 2px rgb(var(--overlay-base) / 0.07),
+    0 2px 6px -2px rgb(var(--overlay-base) / 0.08);
+  --shadow-md:
+    0 1px 2px rgb(var(--overlay-base) / 0.06),
+    0 6px 14px -4px rgb(var(--overlay-base) / 0.14);
+  --shadow-lg:
+    0 1px 2px rgb(var(--overlay-base) / 0.06),
+    0 10px 28px -8px rgb(var(--overlay-base) / 0.2),
+    0 3px 8px -3px rgb(var(--overlay-base) / 0.08);
+  --shadow-xl:
+    0 2px 4px rgb(var(--overlay-base) / 0.08),
+    0 18px 44px -12px rgb(var(--overlay-base) / 0.3);
+  --shadow-2xl:
+    0 4px 8px rgb(var(--overlay-base) / 0.1),
+    0 30px 64px -16px rgb(var(--overlay-base) / 0.45);
 }
 
 /*
@@ -216,6 +243,11 @@
     --action-border: 255 255 255; /* White */
     --surface-highlight-rgb: 51 65 85;
 
+    /* Glow-up tokens. `--card-sheen` is the faint top-edge light a raised card
+       catches (dark themes only - on light themes a white highlight on a white
+       card is invisible, so those set it transparent). */
+    --card-sheen: 255 255 255 / 0.03;
+
     /* Accent Colors - Dark */
     --accent-blue: 59 130 246; /* Blue 500 */
     --accent-green: 34 197 94; /* Green 500 */
@@ -248,6 +280,7 @@
     --foreground: 15 23 42; /* Slate 900 (Dark text) */
     --action-border: 30 64 175; /* Blue 700 (Darker for better contrast) */
     --surface-highlight-rgb: 226 232 240;
+    --card-sheen: 255 255 255 / 0;
 
     /* Accent Colors - Light (darker for contrast) */
     --accent-blue: 37 99 235; /* Blue 600 */
@@ -346,6 +379,7 @@
     --foreground: 67 32 17; /* Espresso */
     --action-border: 154 52 18; /* Burnt orange */
     --surface-highlight-rgb: 254 235 207;
+    --card-sheen: 255 255 255 / 0;
 
     --accent-blue: 3 105 161; /* Sky 700 */
     --accent-green: 21 128 61; /* Green 700 */
@@ -681,6 +715,83 @@
 }
 
 @layer components {
+  /* App backdrop: the plain diagonal background -> surface -> background wash. */
+  .app-backdrop {
+    background-color: rgb(var(--background));
+    background-image: linear-gradient(
+      to bottom right,
+      rgb(var(--background)),
+      rgb(var(--surface)),
+      rgb(var(--background))
+    );
+  }
+
+  /*
+    Raised-card light. Every `rounded-2xl bg-surface` card (screens, modals,
+    sheets) picks up a faint top-edge highlight on dark themes. It is a
+    background-image over the existing `bg-surface` colour, so a card that opts
+    into its own gradient utility still wins (utilities layer sits above this).
+  */
+  .rounded-2xl.bg-surface {
+    background-image: linear-gradient(
+      to bottom,
+      rgb(var(--card-sheen)),
+      rgb(255 255 255 / 0) 45%
+    );
+  }
+
+  /*
+    Solid action buttons: a glassy top-light sheen plus a coloured under-glow.
+    Scoped to <button> so fills, dots and progress bars that happen to use the
+    same colour token are untouched, and to :not(:disabled) for the glow so a
+    disabled button reads as inert. The box-shadow lives in this layer on purpose:
+    any explicit `shadow-*` / `ring-*` utility on the button still overrides it.
+  */
+  button.bg-primary,
+  button.bg-accent-blue,
+  button.bg-accent-green,
+  button.bg-accent-red,
+  div.bg-primary:is(.rounded-lg, .rounded-xl, .rounded-2xl) {
+    background-image: linear-gradient(
+      to bottom,
+      rgb(255 255 255 / 0.1),
+      rgb(255 255 255 / 0) 55%,
+      rgb(0 0 0 / 0.04)
+    );
+  }
+
+  button.bg-primary:not(:disabled) {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.12),
+      0 6px 16px -6px rgb(var(--primary) / 0.5);
+  }
+
+  button.bg-accent-blue:not(:disabled) {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.12),
+      0 6px 16px -6px rgb(var(--accent-blue) / 0.5);
+  }
+
+  button.bg-accent-green:not(:disabled) {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.12),
+      0 6px 16px -6px rgb(var(--accent-green) / 0.5);
+  }
+
+  button.bg-accent-red:not(:disabled) {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.12),
+      0 6px 16px -6px rgb(var(--accent-red) / 0.5);
+  }
+
+  /* Slightly tighter display type: headings and the big stat numbers look
+     crisper and more deliberate with a touch of negative tracking. */
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.01em;
+  }
+
   /* Range input styling */
   input[type='range'] {
     @apply appearance-none w-full h-2 bg-surface-highlight rounded-lg outline-hidden cursor-pointer;

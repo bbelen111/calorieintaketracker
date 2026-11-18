@@ -58,8 +58,9 @@ export const getCalorieProgressPercent = (consumed, goal) => {
  * readout and the add-meal action in a single tap target.
  *
  * It is a *sibling* of the other screens' hero buttons, not a lookalike: same
- * `bg-primary` fill, `rounded-lg`, 36px height, semibold label, flat (no shadow,
- * no rim) and the same press/hover behaviour — it just carries a number and a
+ * `bg-primary` fill, `rounded-lg`, 36px height, semibold label, no shadow
+ * utility and no rim of its own (the global `button.bg-primary` sheen/glow rule styles
+ * it and its siblings alike) and the same press/hover behaviour — it just carries a number and a
  * progress outline. It hugs its content, so a long number widens it instead of
  * clipping. `shrink-0` matters: the hero title row must wrap the pill rather
  * than squeeze it, because a squeezed box used to letterbox the fixed-viewBox

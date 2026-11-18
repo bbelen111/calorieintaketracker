@@ -3992,7 +3992,7 @@ export const EnergyMapCalculator = () => {
   if (!isLoaded) {
     return (
       <div
-        className="min-h-screen bg-linear-to-br from-background via-surface to-background p-4 md:p-6 flex items-center justify-center"
+        className="app-backdrop min-h-screen p-4 md:p-6 flex items-center justify-center"
         style={{
           paddingTop: 'calc(1rem + var(--sat))',
           paddingBottom: 'calc(1rem + var(--sab))',
@@ -4010,7 +4010,7 @@ export const EnergyMapCalculator = () => {
 
   return (
     <div
-      className="min-h-screen bg-linear-to-br from-background via-surface to-background p-4 md:p-6"
+      className="app-backdrop min-h-screen p-4 md:p-6"
       style={{
         paddingTop: 'calc(1rem + var(--sat))',
         // Extra bottom space clears the floating glass tab bar. The value is

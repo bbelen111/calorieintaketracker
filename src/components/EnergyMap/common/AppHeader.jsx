@@ -264,7 +264,7 @@ export const AppHeader = ({
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 8 }}
               transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
-              className="rounded-full p-2 text-muted md:hover:bg-surface-highlight/50 md:hover:text-foreground pressable-inline focus-ring"
+              className="rounded-full border border-border/50 bg-surface/60 p-2 text-muted shadow-sm md:hover:bg-surface-highlight/60 md:hover:text-foreground pressable-inline focus-ring"
             >
               <Settings size={20} className="shrink-0" />
             </motion.button>
@@ -282,7 +282,7 @@ export const AppHeader = ({
               // `AnimatePresence mode="wait"` exit-then-enter latency) and plays a
               // short fade/rise-in, the app's usual swap convention.
               key={stat.key}
-              className="header-stat-in flex min-w-0 items-center gap-1.5"
+              className="header-stat-in flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-border/40 bg-surface/50 px-2.5 py-1 shadow-xs"
             >
               {StatIcon ? (
                 <StatIcon
