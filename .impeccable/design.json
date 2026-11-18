@@ -1,0 +1,652 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-18T00:00:00.000Z",
+  "title": "Design System: Energy Map Calorie Tracker",
+  "extensions": {
+    "colorMeta": {
+      "slate-chamber": {
+        "role": "neutral",
+        "displayName": "Slate Chamber",
+        "canonical": "oklch(0.208 0.04 265.8)",
+        "tonalRamp": [
+          "oklch(18% 0.016 265.8)",
+          "oklch(28% 0.026 265.8)",
+          "oklch(38% 0.035 265.8)",
+          "oklch(48% 0.040 265.8)",
+          "oklch(58% 0.040 265.8)",
+          "oklch(70% 0.037 265.8)",
+          "oklch(82% 0.022 265.8)",
+          "oklch(94% 0.007 265.8)"
+        ]
+      },
+      "slate-panel": {
+        "role": "neutral",
+        "displayName": "Slate Panel",
+        "canonical": "oklch(0.279 0.037 260)",
+        "tonalRamp": [
+          "oklch(18% 0.015 260.0)",
+          "oklch(28% 0.024 260.0)",
+          "oklch(38% 0.032 260.0)",
+          "oklch(48% 0.037 260.0)",
+          "oklch(58% 0.037 260.0)",
+          "oklch(70% 0.035 260.0)",
+          "oklch(82% 0.021 260.0)",
+          "oklch(94% 0.007 260.0)"
+        ]
+      },
+      "slate-rail": {
+        "role": "neutral",
+        "displayName": "Slate Rail",
+        "canonical": "oklch(0.372 0.039 257.3)",
+        "tonalRamp": [
+          "oklch(18% 0.016 257.3)",
+          "oklch(28% 0.025 257.3)",
+          "oklch(38% 0.034 257.3)",
+          "oklch(48% 0.039 257.3)",
+          "oklch(58% 0.039 257.3)",
+          "oklch(70% 0.037 257.3)",
+          "oklch(82% 0.022 257.3)",
+          "oklch(94% 0.007 257.3)"
+        ]
+      },
+      "slate-edge": {
+        "role": "neutral",
+        "displayName": "Slate Edge",
+        "canonical": "oklch(0.372 0.039 257.3)",
+        "tonalRamp": [
+          "oklch(18% 0.016 257.3)",
+          "oklch(28% 0.025 257.3)",
+          "oklch(38% 0.034 257.3)",
+          "oklch(48% 0.039 257.3)",
+          "oklch(58% 0.039 257.3)",
+          "oklch(70% 0.037 257.3)",
+          "oklch(82% 0.022 257.3)",
+          "oklch(94% 0.007 257.3)"
+        ]
+      },
+      "muted-slate": {
+        "role": "neutral",
+        "displayName": "Muted Slate",
+        "canonical": "oklch(0.711 0.035 256.8)",
+        "tonalRamp": [
+          "oklch(18% 0.015 256.8)",
+          "oklch(28% 0.023 256.8)",
+          "oklch(38% 0.031 256.8)",
+          "oklch(48% 0.035 256.8)",
+          "oklch(58% 0.035 256.8)",
+          "oklch(70% 0.033 256.8)",
+          "oklch(82% 0.020 256.8)",
+          "oklch(94% 0.007 256.8)"
+        ]
+      },
+      "plate-white": {
+        "role": "neutral",
+        "displayName": "Plate White",
+        "canonical": "oklch(1 0 89.9)",
+        "tonalRamp": [
+          "oklch(18% 0.004 89.9)",
+          "oklch(28% 0.004 89.9)",
+          "oklch(38% 0.004 89.9)",
+          "oklch(48% 0.004 89.9)",
+          "oklch(58% 0.004 89.9)",
+          "oklch(70% 0.004 89.9)",
+          "oklch(82% 0.004 89.9)",
+          "oklch(94% 0.004 89.9)"
+        ]
+      },
+      "ink-black": {
+        "role": "neutral",
+        "displayName": "Ink Black",
+        "canonical": "oklch(0 0 0)",
+        "tonalRamp": [
+          "oklch(18% 0.004 0.0)",
+          "oklch(28% 0.004 0.0)",
+          "oklch(38% 0.004 0.0)",
+          "oklch(48% 0.004 0.0)",
+          "oklch(58% 0.004 0.0)",
+          "oklch(70% 0.004 0.0)",
+          "oklch(82% 0.004 0.0)",
+          "oklch(94% 0.004 0.0)"
+        ]
+      },
+      "selection-hairline": {
+        "role": "neutral",
+        "displayName": "Selection Hairline",
+        "canonical": "oklch(1 0 89.9)",
+        "tonalRamp": [
+          "oklch(18% 0.004 89.9)",
+          "oklch(28% 0.004 89.9)",
+          "oklch(38% 0.004 89.9)",
+          "oklch(48% 0.004 89.9)",
+          "oklch(58% 0.004 89.9)",
+          "oklch(70% 0.004 89.9)",
+          "oklch(82% 0.004 89.9)",
+          "oklch(94% 0.004 89.9)"
+        ]
+      },
+      "signal-blue": {
+        "role": "primary",
+        "displayName": "Signal Blue",
+        "canonical": "oklch(0.546 0.215 262.9)",
+        "tonalRamp": [
+          "oklch(18% 0.089 262.9)",
+          "oklch(28% 0.139 262.9)",
+          "oklch(38% 0.188 262.9)",
+          "oklch(48% 0.215 262.9)",
+          "oklch(58% 0.215 262.9)",
+          "oklch(70% 0.202 262.9)",
+          "oklch(82% 0.121 262.9)",
+          "oklch(94% 0.040 262.9)"
+        ]
+      },
+      "accent-blue": {
+        "role": "secondary",
+        "displayName": "Signal Blue (raised)",
+        "canonical": "oklch(0.623 0.188 259.8)",
+        "tonalRamp": [
+          "oklch(18% 0.078 259.8)",
+          "oklch(28% 0.121 259.8)",
+          "oklch(38% 0.164 259.8)",
+          "oklch(48% 0.188 259.8)",
+          "oklch(58% 0.188 259.8)",
+          "oklch(70% 0.176 259.8)",
+          "oklch(82% 0.106 259.8)",
+          "oklch(94% 0.035 259.8)"
+        ]
+      },
+      "accent-green": {
+        "role": "secondary",
+        "displayName": "On-Target Green",
+        "canonical": "oklch(0.723 0.192 149.6)",
+        "tonalRamp": [
+          "oklch(18% 0.079 149.6)",
+          "oklch(28% 0.124 149.6)",
+          "oklch(38% 0.168 149.6)",
+          "oklch(48% 0.192 149.6)",
+          "oklch(58% 0.192 149.6)",
+          "oklch(70% 0.180 149.6)",
+          "oklch(82% 0.108 149.6)",
+          "oklch(94% 0.036 149.6)"
+        ]
+      },
+      "accent-lime": {
+        "role": "secondary",
+        "displayName": "Alignment Lime",
+        "canonical": "oklch(0.768 0.204 130.8)",
+        "tonalRamp": [
+          "oklch(18% 0.085 130.8)",
+          "oklch(28% 0.132 130.8)",
+          "oklch(38% 0.179 130.8)",
+          "oklch(48% 0.204 130.8)",
+          "oklch(58% 0.204 130.8)",
+          "oklch(70% 0.192 130.8)",
+          "oklch(82% 0.115 130.8)",
+          "oklch(94% 0.038 130.8)"
+        ]
+      },
+      "accent-emerald": {
+        "role": "secondary",
+        "displayName": "Switch Emerald",
+        "canonical": "oklch(0.696 0.149 162.5)",
+        "tonalRamp": [
+          "oklch(18% 0.062 162.5)",
+          "oklch(28% 0.096 162.5)",
+          "oklch(38% 0.130 162.5)",
+          "oklch(48% 0.149 162.5)",
+          "oklch(58% 0.149 162.5)",
+          "oklch(70% 0.140 162.5)",
+          "oklch(82% 0.084 162.5)",
+          "oklch(94% 0.028 162.5)"
+        ]
+      },
+      "accent-yellow": {
+        "role": "secondary",
+        "displayName": "Caution Yellow",
+        "canonical": "oklch(0.795 0.162 86)",
+        "tonalRamp": [
+          "oklch(18% 0.067 86.0)",
+          "oklch(28% 0.104 86.0)",
+          "oklch(38% 0.141 86.0)",
+          "oklch(48% 0.162 86.0)",
+          "oklch(58% 0.162 86.0)",
+          "oklch(70% 0.152 86.0)",
+          "oklch(82% 0.091 86.0)",
+          "oklch(94% 0.030 86.0)"
+        ]
+      },
+      "accent-amber": {
+        "role": "secondary",
+        "displayName": "Carbohydrate Amber",
+        "canonical": "oklch(0.769 0.165 70.1)",
+        "tonalRamp": [
+          "oklch(18% 0.068 70.1)",
+          "oklch(28% 0.106 70.1)",
+          "oklch(38% 0.144 70.1)",
+          "oklch(48% 0.165 70.1)",
+          "oklch(58% 0.165 70.1)",
+          "oklch(70% 0.154 70.1)",
+          "oklch(82% 0.093 70.1)",
+          "oklch(94% 0.031 70.1)"
+        ]
+      },
+      "accent-orange": {
+        "role": "secondary",
+        "displayName": "Warning Orange",
+        "canonical": "oklch(0.705 0.187 47.6)",
+        "tonalRamp": [
+          "oklch(18% 0.077 47.6)",
+          "oklch(28% 0.120 47.6)",
+          "oklch(38% 0.163 47.6)",
+          "oklch(48% 0.187 47.6)",
+          "oklch(58% 0.187 47.6)",
+          "oklch(70% 0.175 47.6)",
+          "oklch(82% 0.105 47.6)",
+          "oklch(94% 0.035 47.6)"
+        ]
+      },
+      "accent-red": {
+        "role": "secondary",
+        "displayName": "Protein Red",
+        "canonical": "oklch(0.637 0.208 25.3)",
+        "tonalRamp": [
+          "oklch(18% 0.086 25.3)",
+          "oklch(28% 0.134 25.3)",
+          "oklch(38% 0.182 25.3)",
+          "oklch(48% 0.208 25.3)",
+          "oklch(58% 0.208 25.3)",
+          "oklch(70% 0.195 25.3)",
+          "oklch(82% 0.117 25.3)",
+          "oklch(94% 0.039 25.3)"
+        ]
+      },
+      "accent-purple": {
+        "role": "secondary",
+        "displayName": "NEAT Purple",
+        "canonical": "oklch(0.627 0.233 303.9)",
+        "tonalRamp": [
+          "oklch(18% 0.096 303.9)",
+          "oklch(28% 0.150 303.9)",
+          "oklch(38% 0.203 303.9)",
+          "oklch(48% 0.233 303.9)",
+          "oklch(58% 0.233 303.9)",
+          "oklch(70% 0.218 303.9)",
+          "oklch(82% 0.131 303.9)",
+          "oklch(94% 0.044 303.9)"
+        ]
+      },
+      "accent-slate": {
+        "role": "secondary",
+        "displayName": "No-Signal Slate",
+        "canonical": "oklch(0.554 0.041 257.4)",
+        "tonalRamp": [
+          "oklch(18% 0.017 257.4)",
+          "oklch(28% 0.026 257.4)",
+          "oklch(38% 0.036 257.4)",
+          "oklch(48% 0.041 257.4)",
+          "oklch(58% 0.041 257.4)",
+          "oklch(70% 0.038 257.4)",
+          "oklch(82% 0.023 257.4)",
+          "oklch(94% 0.008 257.4)"
+        ]
+      },
+      "accent-indigo": {
+        "role": "secondary",
+        "displayName": "Barcode Indigo",
+        "canonical": "oklch(0.585 0.204 277.1)",
+        "tonalRamp": [
+          "oklch(18% 0.084 277.1)",
+          "oklch(28% 0.131 277.1)",
+          "oklch(38% 0.178 277.1)",
+          "oklch(48% 0.204 277.1)",
+          "oklch(58% 0.204 277.1)",
+          "oklch(70% 0.191 277.1)",
+          "oklch(82% 0.115 277.1)",
+          "oklch(94% 0.038 277.1)"
+        ]
+      },
+      "accent-pink": {
+        "role": "secondary",
+        "displayName": "Specialty Pink",
+        "canonical": "oklch(0.656 0.212 354.3)",
+        "tonalRamp": [
+          "oklch(18% 0.088 354.3)",
+          "oklch(28% 0.136 354.3)",
+          "oklch(38% 0.185 354.3)",
+          "oklch(48% 0.212 354.3)",
+          "oklch(58% 0.212 354.3)",
+          "oklch(70% 0.199 354.3)",
+          "oklch(82% 0.119 354.3)",
+          "oklch(94% 0.040 354.3)"
+        ]
+      },
+      "accent-teal": {
+        "role": "secondary",
+        "displayName": "EPOC Teal",
+        "canonical": "oklch(0.704 0.123 182.5)",
+        "tonalRamp": [
+          "oklch(18% 0.051 182.5)",
+          "oklch(28% 0.079 182.5)",
+          "oklch(38% 0.108 182.5)",
+          "oklch(48% 0.123 182.5)",
+          "oklch(58% 0.123 182.5)",
+          "oklch(70% 0.115 182.5)",
+          "oklch(82% 0.069 182.5)",
+          "oklch(94% 0.023 182.5)"
+        ]
+      },
+      "accent-coral": {
+        "role": "secondary",
+        "displayName": "Correction Coral",
+        "canonical": "oklch(0.715 0.178 28)",
+        "tonalRamp": [
+          "oklch(18% 0.074 28.0)",
+          "oklch(28% 0.115 28.0)",
+          "oklch(38% 0.156 28.0)",
+          "oklch(48% 0.178 28.0)",
+          "oklch(58% 0.178 28.0)",
+          "oklch(70% 0.167 28.0)",
+          "oklch(82% 0.100 28.0)",
+          "oklch(94% 0.033 28.0)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "One per screen, always the screen's own name. The only place font-black is allowed."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Card titles, fullscreen modal titles, the hero calorie figure."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Section titles inside a card and generated food names."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Row and paragraph copy; the support line drops to text-sm (0.875rem)."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "The muted line above a reading. 118 uses of text-[11px] - the app's most common size."
+      },
+      "numeric": {
+        "displayName": "Numeric",
+        "purpose": "The emphasised reading in a card or tile; tabular figures wherever two numbers are compared."
+      }
+    },
+    "shadows": [
+      {
+        "name": "shadow-xs",
+        "value": "0 1px 2px rgb(var(--overlay-base) / 0.06)",
+        "purpose": "Stat chips, selected segmented options, small inset buttons."
+      },
+      {
+        "name": "shadow-sm",
+        "value": "0 1px 2px rgb(var(--overlay-base) / 0.07), 0 2px 6px -2px rgb(var(--overlay-base) / 0.08)",
+        "purpose": "Settings rows and header chrome."
+      },
+      {
+        "name": "shadow-md",
+        "value": "0 1px 2px rgb(var(--overlay-base) / 0.06), 0 6px 14px -4px rgb(var(--overlay-base) / 0.14)",
+        "purpose": "Range thumbs and small raised controls."
+      },
+      {
+        "name": "shadow-lg",
+        "value": "0 1px 2px rgb(var(--overlay-base) / 0.06), 0 10px 28px -8px rgb(var(--overlay-base) / 0.2), 0 3px 8px -3px rgb(var(--overlay-base) / 0.08)",
+        "purpose": "The standard screen card and inner session row."
+      },
+      {
+        "name": "shadow-xl",
+        "value": "0 2px 4px rgb(var(--overlay-base) / 0.08), 0 18px 44px -12px rgb(var(--overlay-base) / 0.3)",
+        "purpose": "A card that must read above another card."
+      },
+      {
+        "name": "shadow-2xl",
+        "value": "0 4px 8px rgb(var(--overlay-base) / 0.1), 0 30px 64px -16px rgb(var(--overlay-base) / 0.45)",
+        "purpose": "Modal sheets and the glass tracker reading card."
+      },
+      {
+        "name": "card-sheen",
+        "value": "linear-gradient(to bottom, rgb(var(--card-sheen)), rgb(255 255 255 / 0) 45%)",
+        "purpose": "Top-edge light on every rounded-2xl bg-surface card. Transparent on the light themes."
+      },
+      {
+        "name": "action-glow",
+        "value": "inset 0 1px 0 rgb(255 255 255 / 0.12), 0 6px 16px -6px rgb(var(--primary) / 0.5)",
+        "purpose": "Filled action buttons only, and only while enabled. Accent variants substitute their own hue."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-emphasized",
+        "value": "cubic-bezier(0.32, 0.72, 0, 1)",
+        "purpose": "The house curve: modal entrance, wheel pickers, settings page swaps, chart entrances, portion sheet."
+      },
+      {
+        "name": "ease-settle",
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Carousel settle and the tab-bar icon colour crossfade - long tail, no overshoot."
+      },
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "150-200ms fades and the theme view-transition cross-fade."
+      },
+      {
+        "name": "ease-exit",
+        "value": "cubic-bezier(0.32, 0, 0.67, 0)",
+        "purpose": "Modal content leaving (150ms)."
+      },
+      {
+        "name": "ease-thumb",
+        "value": "cubic-bezier(0.34, 1.56, 0.64, 1)",
+        "purpose": "The BinarySwitch thumb's slight overshoot."
+      },
+      {
+        "name": "duration-fast",
+        "value": "150ms",
+        "purpose": "Header stat swap, modal exit."
+      },
+      {
+        "name": "duration-base",
+        "value": "200ms",
+        "purpose": "Modal entrance and dropdowns; the modal backdrop itself fades over 180ms."
+      },
+      {
+        "name": "duration-settle",
+        "value": "350ms",
+        "purpose": "Carousel settle and its drag-linked chrome."
+      },
+      {
+        "name": "duration-theme",
+        "value": "260ms",
+        "purpose": "Root cross-fade on a theme change (View Transition API)."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one filled action in a region. Blue fill, sheen and under-glow from the global rule, 20px leading icon.",
+      "html": "<button class=\"ds-btn-primary\"><svg class=\"ds-icon\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 5v14M5 12h14\"/></svg>Add</button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;gap:.5rem;padding:.5rem 1rem;border:0;border-radius:.5rem;background-color:rgb(var(--primary,37 99 235));background-image:linear-gradient(to bottom,rgb(255 255 255 / .1),rgb(255 255 255 / 0) 55%,rgb(0 0 0 / .04));color:rgb(var(--primary-foreground,255 255 255));font-family:inherit;font-size:.875rem;font-weight:600;cursor:pointer;box-shadow:inset 0 1px 0 rgb(255 255 255 / .12),0 6px 16px -6px rgb(var(--primary,37 99 235) / .5);transition:transform .12s ease-out,filter .12s ease-out}.ds-btn-primary:hover{filter:brightness(1.1)}.ds-btn-primary:active{transform:scale(.98);filter:brightness(1.1)}.ds-btn-primary:focus-visible{outline:2px solid rgb(var(--accent-blue,59 130 246));outline-offset:3px}.ds-icon{width:20px;height:20px;flex:none}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "A recessed action: dialog Cancel, picker dismiss, a settings row action.",
+      "html": "<button class=\"ds-btn-secondary\">Cancel</button>",
+      "css": ".ds-btn-secondary{padding:.75rem 1rem;border:0;border-radius:.5rem;background-color:rgb(var(--surface-highlight,51 65 85));color:rgb(var(--foreground,255 255 255));font-family:inherit;font-size:.875rem;font-weight:600;cursor:pointer;transition:transform .12s ease-out,filter .12s ease-out}.ds-btn-secondary:hover{filter:brightness(1.07)}.ds-btn-secondary:active{transform:scale(.985);filter:brightness(.95)}.ds-btn-secondary:focus-visible{outline:2px solid rgb(var(--accent-blue,59 130 246));outline-offset:3px}"
+    },
+    {
+      "name": "Destructive Button",
+      "kind": "button",
+      "refersTo": "button-destructive",
+      "description": "Confirm-dialog confirm at tone=\"danger\". Same sheen grammar, red hue, never a border-only signal.",
+      "html": "<button class=\"ds-btn-danger\">Delete</button>",
+      "css": ".ds-btn-danger{padding:.75rem 1rem;border:0;border-radius:.5rem;background-color:rgb(var(--accent-red,239 68 68));background-image:linear-gradient(to bottom,rgb(255 255 255 / .1),rgb(255 255 255 / 0) 55%,rgb(0 0 0 / .04));color:rgb(var(--primary-foreground,255 255 255));font-family:inherit;font-size:.875rem;font-weight:600;cursor:pointer;box-shadow:inset 0 1px 0 rgb(255 255 255 / .12),0 6px 16px -6px rgb(var(--accent-red,239 68 68) / .5);transition:transform .12s ease-out,filter .12s ease-out}.ds-btn-danger:hover{filter:brightness(1.08)}.ds-btn-danger:active{transform:scale(.98)}.ds-btn-danger:focus-visible{outline:2px solid rgb(var(--accent-blue,59 130 246));outline-offset:3px}"
+    },
+    {
+      "name": "Screen Card",
+      "kind": "card",
+      "refersTo": "card-surface",
+      "description": "The structural unit: panel fill, hairline border, ambient shadow, top-light sheen, one reading per card.",
+      "html": "<section class=\"ds-card\"><p class=\"ds-card-label\">Weight</p><p class=\"ds-card-value\">74.2 <span class=\"ds-card-unit\">kg</span></p><p class=\"ds-card-meta\">Today</p></section>",
+      "css": ".ds-card{background-color:rgb(var(--surface,30 41 59));background-image:linear-gradient(to bottom,rgb(var(--card-sheen,255 255 255 / .03)),rgb(255 255 255 / 0) 45%);border:1px solid rgb(var(--border,51 65 85));border-radius:1rem;padding:1.5rem;box-shadow:0 1px 2px rgb(var(--overlay-base,0 0 0) / .06),0 10px 28px -8px rgb(var(--overlay-base,0 0 0) / .2),0 3px 8px -3px rgb(var(--overlay-base,0 0 0) / .08);color:rgb(var(--foreground,255 255 255))}.ds-card-label{margin:0;color:rgb(var(--muted,148 163 184));font-size:.6875rem;font-weight:500}.ds-card-value{margin:.25rem 0 0;font-size:1.5rem;font-weight:700;line-height:1.15;letter-spacing:-.01em;font-variant-numeric:tabular-nums}.ds-card-unit{font-size:1rem;font-weight:600;color:rgb(var(--muted,148 163 184))}.ds-card-meta{margin:.25rem 0 0;color:rgb(var(--muted,148 163 184));font-size:.6875rem}"
+    },
+    {
+      "name": "Inset Row",
+      "kind": "card",
+      "refersTo": "row-inset",
+      "description": "The one level of nesting: a session row, tile or picker button on top of a card.",
+      "html": "<div class=\"ds-row\"><div><p class=\"ds-row-title\">Leg Press</p><p class=\"ds-row-meta\">45 min &bull; Moderate &bull; ~412 kcal</p></div><svg class=\"ds-row-chev\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m9 18 6-6-6-6\"/></svg></div>",
+      "css": ".ds-row{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;background-color:rgb(var(--surface-highlight,51 65 85) / .5);border:1px solid rgb(var(--border,51 65 85) / .5);border-radius:.75rem;padding:1rem;color:rgb(var(--foreground,255 255 255))}.ds-row-title{margin:0;font-size:.875rem;font-weight:600}.ds-row-meta{margin:.25rem 0 0;color:rgb(var(--muted,148 163 184));font-size:.75rem}.ds-row-chev{width:20px;height:20px;flex:none;margin-top:.15rem;color:rgb(var(--muted,148 163 184) / .6)}"
+    },
+    {
+      "name": "Stat Chip",
+      "kind": "chip",
+      "refersTo": "stat-chip",
+      "description": "The header's glanceable per-screen reading: one accent icon, one muted line, fully rounded.",
+      "html": "<div class=\"ds-chip\"><svg viewBox=\"0 0 24 24\" fill=\"currentColor\"><circle cx=\"12\" cy=\"12\" r=\"5\"/></svg><span>Training day &middot; &asymp;2,840 kcal TDEE</span></div>",
+      "css": ".ds-chip{display:inline-flex;align-items:center;gap:.375rem;max-width:100%;border-radius:9999px;border:1px solid rgb(var(--border,51 65 85) / .4);background-color:rgb(var(--surface,30 41 59) / .5);padding:.25rem .625rem;color:rgb(var(--muted,148 163 184));font-size:.6875rem;font-weight:500;box-shadow:0 1px 2px rgb(var(--overlay-base,0 0 0) / .06)}.ds-chip svg{width:15px;height:15px;flex:none;color:rgb(var(--accent-blue,59 130 246))}.ds-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Picker-button shaped field: rail fill, hairline border, blue focus outline. 16px on phones to stop focus-zoom.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Name</span><input class=\"ds-input\" type=\"text\" placeholder=\"Chicken breast, raw\" /></label>",
+      "css": ".ds-field{display:block}.ds-field-label{display:block;margin-bottom:.5rem;color:rgb(var(--foreground,255 255 255) / .8);font-size:.875rem}.ds-input{width:100%;box-sizing:border-box;background-color:rgb(var(--surface-highlight,51 65 85));border:1px solid rgb(var(--border,51 65 85));border-radius:.5rem;padding:.75rem 1rem;color:rgb(var(--foreground,255 255 255));font-family:inherit;font-size:.875rem;transition:border-color .15s ease}.ds-input::placeholder{color:rgb(var(--muted,148 163 184))}.ds-input:focus-visible{outline:2px solid rgb(var(--accent-blue,59 130 246));outline-offset:3px;border-color:transparent}"
+    },
+    {
+      "name": "Floating Tab Bar",
+      "kind": "nav",
+      "refersTo": "tab-bar",
+      "description": "The only global navigation: glass pill, icon-only tabs, one 44px filled circle for the active tab.",
+      "html": "<nav class=\"ds-tabs\"><span class=\"ds-tabs-track\"></span><button class=\"ds-tab ds-tab-active\" aria-label=\"Logbook\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><path d=\"M4 6h16M4 12h16M4 18h16\"/></svg></button><button class=\"ds-tab\" aria-label=\"Tracker\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><path d=\"M6 20V10M12 20V4M18 20v-7\"/></svg></button><button class=\"ds-tab\" aria-label=\"Home\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 10.5 12 3l9 7.5V21H3z\"/></svg></button><button class=\"ds-tab\" aria-label=\"Insights\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><path d=\"M4 14l5-5 4 4 7-8\"/></svg></button></nav>",
+      "css": ".ds-tabs{position:relative;display:flex;align-items:stretch;width:384px;max-width:100%;height:54px;border-radius:9999px;border:1px solid rgb(var(--border,51 65 85) / .5);background-color:rgb(var(--surface,30 41 59) / .35);-webkit-backdrop-filter:blur(40px);backdrop-filter:blur(40px);box-shadow:inset 0 1px 0 rgb(255 255 255 / .07),0 10px 28px -8px rgb(var(--background,15 23 42) / .3)}.ds-tabs-track{position:absolute;top:50%;left:calc(12.5% - 22px);width:44px;height:44px;margin-top:-22px;border-radius:9999px;background-color:rgb(var(--primary,37 99 235));background-image:linear-gradient(to bottom,rgb(255 255 255 / .16),rgb(255 255 255 / 0) 55%,rgb(0 0 0 / .06));box-shadow:inset 0 1px 0 rgb(255 255 255 / .22),0 0 14px rgb(var(--primary,37 99 235) / .5);transition:left .35s cubic-bezier(.22,1,.36,1)}.ds-tab{position:relative;z-index:1;display:flex;flex:1;align-items:center;justify-content:center;border:0;background:none;cursor:pointer;color:rgb(var(--muted,148 163 184));transition:color .35s cubic-bezier(.22,1,.36,1)}.ds-tab svg{width:20px;height:20px;flex:none}.ds-tab-active{color:rgb(var(--primary-foreground,255 255 255))}.ds-tab:active{transform:scale(.985)}.ds-tab:focus-visible{outline:2px solid rgb(var(--accent-blue,59 130 246));outline-offset:-2px;border-radius:9999px}"
+    },
+    {
+      "name": "Wheel Picker",
+      "kind": "custom",
+      "refersTo": "wheel-picker",
+      "description": "The value-entry primitive: 160px window, 64px centre row between two blue rails, gradient fades top and bottom.",
+      "html": "<div class=\"ds-wheel\"><div class=\"ds-wheel-fade ds-wheel-fade-top\"></div><div class=\"ds-wheel-rail\"></div><div class=\"ds-wheel-rows\"><span class=\"ds-wheel-row\">73</span><span class=\"ds-wheel-row ds-wheel-row-active\">74</span><span class=\"ds-wheel-row\">75</span></div><div class=\"ds-wheel-fade ds-wheel-fade-bottom\"></div></div>",
+      "css": ".ds-wheel{position:relative;width:9rem;height:10rem;overflow:hidden;border-radius:.75rem;background-color:rgb(var(--surface,30 41 59) / .8);color:rgb(var(--foreground,255 255 255))}.ds-wheel-rail{position:absolute;left:1rem;right:1rem;top:50%;height:4rem;margin-top:-2rem;border-top:2px solid rgb(var(--accent-blue,59 130 246) / .7);border-bottom:2px solid rgb(var(--accent-blue,59 130 246) / .7);pointer-events:none;z-index:2}.ds-wheel-rows{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center}.ds-wheel-row{height:4rem;display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:700;color:rgb(var(--muted,148 163 184))}.ds-wheel-row-active{color:rgb(var(--foreground,255 255 255))}.ds-wheel-fade{position:absolute;left:0;right:0;height:4rem;z-index:3;pointer-events:none}.ds-wheel-fade-top{top:0;background:linear-gradient(to bottom,rgb(var(--surface,30 41 59)),rgb(var(--surface,30 41 59) / 0))}.ds-wheel-fade-bottom{bottom:0;background:linear-gradient(to top,rgb(var(--surface,30 41 59)),rgb(var(--surface,30 41 59) / 0))}"
+    },
+    {
+      "name": "Modal Sheet",
+      "kind": "custom",
+      "refersTo": "card-surface",
+      "description": "Centered dialog: 90dvh cap, rounded-2xl, hairline border, ambient shadow, 200ms rise-and-scale entrance.",
+      "html": "<div class=\"ds-modal\"><h3 class=\"ds-modal-title\">Delete Entry?</h3><p class=\"ds-modal-body\">This cannot be undone.</p><div class=\"ds-modal-actions\"><button class=\"ds-modal-cancel\">Cancel</button><button class=\"ds-modal-confirm\">Delete</button></div></div>",
+      "css": ".ds-modal{width:22rem;max-width:100%;box-sizing:border-box;padding:1.5rem;border-radius:1rem;border:1px solid rgb(var(--border,51 65 85) / .6);background-color:rgb(var(--surface,30 41 59));color:rgb(var(--foreground,255 255 255));box-shadow:0 4px 8px rgb(var(--overlay-base,0 0 0) / .1),0 30px 64px -16px rgb(var(--overlay-base,0 0 0) / .45);animation:dsModalIn .2s cubic-bezier(.32,.72,0,1) both}.ds-modal-title{margin:0;text-align:center;font-size:1.25rem;font-weight:700;letter-spacing:-.01em}.ds-modal-body{margin:.5rem 0 0;text-align:center;color:rgb(var(--muted,148 163 184));font-size:.875rem;line-height:1.5}.ds-modal-actions{display:flex;gap:.75rem;margin-top:1rem}.ds-modal-cancel,.ds-modal-confirm{flex:1;padding:.75rem 1rem;border:0;border-radius:.5rem;font-family:inherit;font-size:.875rem;font-weight:600;cursor:pointer;transition:transform .12s ease,filter .12s ease}.ds-modal-cancel{background-color:rgb(var(--surface-highlight,51 65 85));color:rgb(var(--foreground,255 255 255))}.ds-modal-cancel:hover{filter:brightness(1.07)}.ds-modal-confirm{background-color:rgb(var(--primary,37 99 235));color:rgb(var(--primary-foreground,255 255 255));box-shadow:inset 0 1px 0 rgb(255 255 255 / .12),0 6px 16px -6px rgb(var(--primary,37 99 235) / .5)}.ds-modal-confirm:hover{filter:brightness(1.1)}.ds-modal-cancel:active,.ds-modal-confirm:active{transform:scale(.98)}.ds-modal-cancel:focus-visible,.ds-modal-confirm:focus-visible{outline:2px solid rgb(var(--accent-blue,59 130 246));outline-offset:3px}@keyframes dsModalIn{from{opacity:0;transform:translateY(20px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Calibrated Instrument",
+    "overview": "This is a device you read, not a page you browse. Every screen is a stack of inset panels — a background slate, a raised card, a recessed row inside it — and each panel exists to hold one reading or one action. Nothing is framed for atmosphere: the frame is the hairline, the reading is the number, and the colour is either the working blue that means \"you can touch this\" or one of fourteen encoder hues that names a quantity.\n\nThe atmosphere is quiet, technical and exact. Darkness is the working condition — the app is used on a phone at 6am for a weigh-in and at 10pm for a ledger review — so the neutral ladder is a cool slate and text is white or a muted slate, never pure black on pure white. Density is deliberate but never cramped: a card carries its own heading, one emphasised number, and a support line, and then stops. The one moment of looseness is the glass chrome (tab bar, tracker reading card), which stays glass because it sits over content it must not erase.\n\nMotion is treated as instrumentation, not as delight: entrances are short (140–200ms) fade-and-rise moves; settles are compositor CSS transitions at 350ms on an exponential ease-out; state changes are a sub-1% scale press and a brightness step. Every animation has a `prefers-reduced-motion` opt-out, because an instrument that wobbles is an instrument you stop trusting.\n\nThe design's anti-reference is dashboard theatre: gradient hero cards, glow for glow's sake, a coloured border-left announcing importance, or a big number with nothing behind it. Where a neighbouring fitness app sells momentum, this one sells a number you can audit down to the formula that produced it — and the visual system has to look like it can be audited.",
+    "keyCharacteristics": [
+      "One working accent — Signal Blue — carries interaction; the other thirteen accents encode values, categories and states, never decoration.",
+      "Three neutral slates (`chamber` → `panel` → `rail`) separated by 1px hairlines carry all structure; borders are never heavy.",
+      "Numbers are the content: a dedicated digit face (Barlow, digits-only subset), tabular numerals wherever two values are compared, and a 2xl/3xl bold figure beside an 11px muted label.",
+      "Cards on cards: 21 `rounded-2xl bg-surface` screen cards hold `bg-surface-highlight/50` rows, tiles and insets — nesting is the layout grammar, at two levels and no more.",
+      "Depth is tonal first, ambient second: a theme-tinted shadow scale plus a faint top-edge sheen (`--card-sheen`), never a shadow that appears on hover.",
+      "Glass is an effect with a job, used at full strength in exactly two places (floating tab bar, tracker reading card); lighter blur belongs to sticky chart headers and transient toasts.",
+      "Every number traces to an input; absence is shown as `—` or \"No entries yet\", never as a zero."
+    ],
+    "rules": [
+      {
+        "name": "The One Working Accent Rule",
+        "body": "Signal Blue owns every interactive state. If a control needs to look tappable, it is blue, a tinted blue (`/10` fill, `/20` border), or neutral — never another hue. An accent that is not blue must be reporting a value.",
+        "section": "colors"
+      },
+      {
+        "name": "The Encoded Hue Rule",
+        "body": "A hue may appear only where it names a quantity, a category or a state. Red on a trash icon is a state; red on a heading is a decoration and does not ship.",
+        "section": "colors"
+      },
+      {
+        "name": "The Absence Rule",
+        "body": "Missing data is `—`, \"No entries yet\", or \"Need more data\" in Muted Slate. Never a plausible zero, never an interpolated claim, never a green tick for an untracked field.",
+        "section": "colors"
+      },
+      {
+        "name": "The Digits Are Data Rule",
+        "body": "Use `tabular-nums` on any figure that sits beside another figure, and never set a number in a different family by hand — the font stack already routes digits to Barlow. A proportionally-set column of numbers is a bug you can see.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Black Title Rule",
+        "body": "Exactly one `font-black` per screen: the screen title. Card and section headings stop at `font-bold`; row lead lines stop at `font-semibold`. Emphasis comes from weight and size, never from a colour change alone.",
+        "section": "typography"
+      },
+      {
+        "name": "The Label Stays Muted Rule",
+        "body": "A label is Muted Slate and small; the value is Plate White and large. Grey out the label, never the reading.",
+        "section": "typography"
+      },
+      {
+        "name": "The Theme-Tinted Shadow Rule",
+        "body": "Depth is mixed from `--overlay-base`, never from flat black. A hardcoded `rgba(0,0,0,…)` shadow is off-palette on three of the eight themes (Dawn's warm charcoal, Dusk's night plum, Midnight's ink) and flattens the rest.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Thumb Answers, Not the Shadow Rule",
+        "body": "State is carried by a sub-1% scale press (`0.985` generic, `0.98` primary, `0.99` cards) and a brightness step, plus a blue outline ring on `:focus-visible` (2px, 3px offset, 12px radius). Shadows are static: a shadow that grows on hover reads as a web page, not an instrument.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Glass Has A Job Rule",
+        "body": "`backdrop-blur-2xl` appears in exactly two places — the floating tab bar and the tracker reading card. Sticky chart headers and transient toasts use `backdrop-blur-sm`/`xs`, and the header gear is a translucent circle (`bg-surface/60`) with no blur at all. Glass marks \"this floats over content and must let it through\"; applied to a resting card it is decoration, and decoration is not in this palette.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Hairline First Rule",
+        "body": "Structure is stated by a hairline and a tonal step before it is stated by a shadow. If a region needs separating, move it one slate down before reaching for elevation.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Two Levels Rule",
+        "body": "Card inside card is the grammar; a third nested panel is a redesign signal. When a card needs more levels, split it into two cards.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "Do build from the semantic tokens (`bg-background`, `bg-surface`, `bg-surface-highlight`, `text-foreground`, `text-muted`, `border-border`) and the accent tokens. A new hue has to earn a meaning.",
+      "Do lead every card with one reading: a muted `text-[11px]` label, then a `text-2xl`/`text-3xl` bold value, then at most one muted support line.",
+      "Do put `md:` in front of every hover state, and pair it with `press-feedback` / `pressable-card` / `pressable-inline` plus `focus-ring`.",
+      "Do use `tabular-nums` whenever two numbers will be read against each other, and let the font stack route digits through BarlowDigits instead of setting a face by hand.",
+      "Do keep the floating bar's geometry in inline px and derive content clearance from `SCREEN_TABS_BOTTOM_CLEARANCE_PX` (102px) rather than hardcoding padding.",
+      "Do show absence honestly: `—`, \"No entries yet\", \"Need more data\", or a dedicated empty card with the action that fills it.",
+      "Do respect the safe-area variables and the keyboard inset (`max(...)`, never a sum) on anything pinned to the bottom, and give every animation a `prefers-reduced-motion` opt-out.",
+      "Do scale type with `--font-scale` and layout with `--density`; if you add a new `text-[Npx]` size, add it to the override block in `index.css`."
+    ],
+    "donts": [
+      "Don't hardcode a colour — no `bg-slate-800`, `text-white`, `border-slate-700`, `text-blue-400`, and no `rgba(0,0,0,…)` shadow. Literal white/black at low alpha is permitted only for lighting (sheen, top-light, inset highlight), never for a hue.",
+      "Don't use a bare `hover:`; on touch it leaves a stuck state. `group-hover:` follows the same rule.",
+      "Don't add gradient text, decorative radial glows, coloured `border-left`/`border-right` accents, or a shadow that appears on hover.",
+      "Don't use `font-black` twice on one screen, or promote a card heading to display size — emphasis is one step, not two.",
+      "Don't put `backdrop-blur` on a resting card, or introduce another full-strength glass surface without a reason the user would notice.",
+      "Don't nest a third level of panels; split the card instead.",
+      "Don't hand-roll a wheel, a switch, a segmented control or a modal stack — the wheel picker, `BinarySwitch`, `SegmentedButton` and `ModalShell` are the primitives, and a second version of any of them is a drift bug.",
+      "Don't zero-fill missing data, invent an interpolation at a chart edge, or present a derived estimate as a measurement. `—` is the correct answer; it is also the one the product's honesty rests on.",
+      "Don't change the root font-size to scale text (it would grow the layout with it), write a modal's `height` for the keyboard, or position anything against the peek sliver — those are the platform contracts, not style choices."
+    ]
+  }
+}
