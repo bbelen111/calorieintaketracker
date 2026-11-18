@@ -387,6 +387,7 @@ const myNewModal = useAnimatedModal();
 Darkening is **per-modal overlay wrapper**, not a shared overlay singleton. Each modal calculates cumulative target darkness by depth, then converts it to a per-layer opacity (`calculateStackTargetOpacity` + `calculateLayerOpacity`) so nested stacks darken progressively without over-darkening lower layers. Overlay fade timing is `OVERLAY_FADE_MS = 180` and content motion still uses `index.css` modal animations (`modalSlideUp`/`modalSlideDown`).
 
 Additional implementation details to preserve:
+- **Centered card surface:** non-fullscreen modals render `rounded-2xl border border-border/60 shadow-2xl` on the card (plus the `.rounded-2xl.bg-surface` top-light), so a dialog separates from the dimmed page and a child modal reads as sitting above its parent even though both are `bg-surface`. This is applied once in `ModalShell`, never per modal; fullscreen modals opt out through their own `rounded-none border-none` content classes.
 - `overlayClassName` is sanitized to strip `bg-*` utilities so backdrop color remains controlled by inline opacity math.
 - Only the **topmost non-closing modal** handles Escape and overlay-click close; non-top layers disable content pointer events.
 - Keyboard handling is platform + CSS owned: no inline overlay/content `height` writes and no viewport-delta heuristics. See "On-Screen Keyboard Contract" below.

@@ -301,7 +301,7 @@ export const ModalShell = ({
         } ${
           shouldFullHeight
             ? 'h-full w-full rounded-none border-0'
-            : 'max-h-[90dvh] rounded-2xl'
+            : 'max-h-[90dvh] rounded-2xl border border-border/60 shadow-2xl'
         } ${contentClassName}`}
         style={{
           pointerEvents: isTopmost || isClosing ? 'auto' : 'none',
