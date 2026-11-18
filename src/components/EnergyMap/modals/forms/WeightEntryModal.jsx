@@ -395,6 +395,7 @@ export const WeightEntryModal = ({
   mode = 'add',
   date,
   weight,
+  canDelete = true,
   isDateLocked,
   error,
   onDateChange,
@@ -404,6 +405,7 @@ export const WeightEntryModal = ({
   onDelete,
 }) => {
   const isEdit = mode === 'edit';
+  const showDelete = isEdit && canDelete && onDelete;
 
   const {
     isOpen: isConfirmOpen,
@@ -467,7 +469,7 @@ export const WeightEntryModal = ({
       {error && <p className="text-accent-red text-sm mt-4">{error}</p>}
 
       <div className="flex gap-3 mt-6">
-        {isEdit && onDelete && (
+        {showDelete && (
           <button
             type="button"
             onClick={() => openConfirm()}
@@ -479,14 +481,14 @@ export const WeightEntryModal = ({
         <button
           type="button"
           onClick={onCancel}
-          className={`flex-1 bg-surface-highlight active:bg-surface-highlight/80 text-foreground ${isEdit ? 'px-3' : 'px-6'} py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback`}
+          className={`flex-1 bg-surface-highlight active:bg-surface-highlight/80 text-foreground ${showDelete ? 'px-3' : 'px-6'} py-3 rounded-lg transition-all active:scale-95 font-medium focus-ring press-feedback`}
         >
           Cancel
         </button>
         <button
           type="button"
           onClick={onSave}
-          className={`flex-1 bg-primary active:brightness-110 text-primary-foreground ${isEdit ? 'px-3' : 'px-6'} py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback`}
+          className={`flex-1 bg-primary active:brightness-110 text-primary-foreground ${showDelete ? 'px-3' : 'px-6'} py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback`}
         >
           <Save size={20} />
           Save

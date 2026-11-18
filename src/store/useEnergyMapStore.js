@@ -1122,6 +1122,9 @@ export const useEnergyMapStore = createWithEqualityFn(
         }
 
         const nextEntries = sortWeightEntries(filtered);
+        if (nextEntries.length === 0) {
+          return prev;
+        }
         const latestWeight = nextEntries.length
           ? nextEntries[nextEntries.length - 1].weight
           : prev.weight;
@@ -1198,6 +1201,9 @@ export const useEnergyMapStore = createWithEqualityFn(
         }
 
         const nextEntries = sortBodyFatEntries(filtered);
+        if (nextEntries.length === 0) {
+          return prev;
+        }
 
         const nextUserData = {
           ...prev,

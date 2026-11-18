@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { EnergyMapCalculator } from './EnergyMapCalculator';
 import { useEnergyMapStore } from '../../store/useEnergyMapStore';
-import { getTodayDateKey } from '../../utils/data/dateKeys';
+import { getTodayDateKey, getWindowDateKeys } from '../../utils/data/dateKeys';
 import {
   AppMock,
   CapacitorMock,
@@ -339,6 +339,75 @@ describe('EnergyMapCalculator (orchestrator integration)', () => {
     expect(
       screen.getByRole('heading', { name: 'Profile & Measurements' })
     ).toBeInTheDocument();
+  });
+
+  it('confirms before overwriting a weight entry while adding', async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await hydrateStore();
+    await findTabBar();
+
+    act(() => get().saveWeightEntry({ date: TODAY, weight: 75 }));
+    await tapTab(user, 'Insights');
+    await user.click(
+      await screen.findByRole('button', { name: /Weight Snapshot/ })
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Weight Tracker' })
+    ).toBeInTheDocument();
+
+    const emptyDate = getWindowDateKeys(TODAY, 7)[0];
+    const emptySlot = document.querySelector('div.absolute.cursor-pointer');
+    expect(emptySlot).toBeTruthy();
+    await user.click(emptySlot);
+    await user.click(
+      await screen.findByRole('button', { name: 'Add weight entry' })
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Add Weight Entry' })
+    ).toBeInTheDocument();
+
+    // Simulate the date becoming occupied while the add form is open.
+    act(() => get().saveWeightEntry({ date: emptyDate, weight: 70 }));
+    await user.click(screen.getByRole('button', { name: 'Save', exact: true }));
+
+    expect(
+      await screen.findByRole('heading', { name: 'Overwrite weight entry?' })
+    ).toBeInTheDocument();
+    expect(
+      get().userData.weightEntries.find((entry) => entry.date === emptyDate)
+        .weight
+    ).toBe(70);
+
+    const cancelButtons = screen.getAllByRole('button', {
+      name: 'Cancel',
+      exact: true,
+    });
+    await user.click(cancelButtons[cancelButtons.length - 1]);
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', { name: 'Overwrite weight entry?' })
+      ).toBeNull()
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Add Weight Entry' })
+    ).toBeInTheDocument();
+    expect(
+      get().userData.weightEntries.find((entry) => entry.date === emptyDate)
+        .weight
+    ).toBe(70);
+
+    await user.click(screen.getByRole('button', { name: 'Save', exact: true }));
+    await user.click(
+      await screen.findByRole('button', { name: 'Overwrite', exact: true })
+    );
+
+    await waitFor(() =>
+      expect(
+        get().userData.weightEntries.find((entry) => entry.date === emptyDate)
+          .weight
+      ).toBe(75)
+    );
   });
 
   it("shows today's calories in the Home meal pill and opens the meal flow", async () => {

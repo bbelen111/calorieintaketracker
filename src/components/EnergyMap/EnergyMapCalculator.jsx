@@ -1433,21 +1433,36 @@ export const EnergyMapCalculator = () => {
       return entry.date === normalizedDate;
     });
 
-    if (hasConflict) {
-      setWeightEntryError(
-        'An entry already exists for this date. Edit that entry instead.'
+    const saveEntry = () => {
+      saveWeightEntry(
+        { date: normalizedDate, weight: normalizedWeight },
+        originalDateKey
       );
+      setWeightEntryError('');
+      weightEntryModal.requestClose();
+    };
+
+    if (hasConflict) {
+      if (weightEntryMode === 'add') {
+        setConfirmActionTitle('Overwrite weight entry?');
+        setConfirmActionDescription(
+          'A weight entry already exists for this date. Do you want to overwrite it?'
+        );
+        setConfirmActionLabel('Overwrite');
+        setConfirmActionTone('default');
+        setConfirmActionCallback(() => saveEntry);
+        confirmActionModal.open();
+      } else {
+        setWeightEntryError(
+          'An entry already exists for this date. Edit that entry instead.'
+        );
+      }
       return;
     }
 
-    saveWeightEntry(
-      { date: normalizedDate, weight: normalizedWeight },
-      originalDateKey
-    );
-
-    setWeightEntryError('');
-    weightEntryModal.requestClose();
+    saveEntry();
   }, [
+    confirmActionModal,
     saveWeightEntry,
     weightEntries,
     weightEntryDraft.date,
@@ -4546,6 +4561,7 @@ export const EnergyMapCalculator = () => {
         mode={weightEntryMode}
         date={weightEntryDraft.date}
         weight={weightEntryDraft.weight}
+        canDelete={weightEntries.length > 1}
         isDateLocked={isWeightDateLocked}
         error={weightEntryError}
         onDateChange={handleWeightEntryDateChange}
@@ -4564,6 +4580,7 @@ export const EnergyMapCalculator = () => {
           mode={bodyFatEntryMode}
           date={bodyFatEntryDraft.date}
           bodyFat={bodyFatEntryDraft.bodyFat}
+          canDelete={bodyFatEntries.length > 1}
           isDateLocked={isBodyFatDateLocked}
           error={bodyFatEntryError}
           onDateChange={handleBodyFatEntryDateChange}

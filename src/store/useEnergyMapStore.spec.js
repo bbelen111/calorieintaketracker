@@ -161,6 +161,54 @@ describe('store - deleteFoodEntry', () => {
   });
 });
 
+describe('store - deleteWeightEntry', () => {
+  it('keeps the final weight entry', () => {
+    const entry = { date: '2026-01-01', weight: 74 };
+    get().saveWeightEntry(entry);
+    const before = get().userData;
+
+    get().deleteWeightEntry(entry.date);
+
+    expect(get().userData).toBe(before);
+    expect(get().userData.weightEntries).toEqual([entry]);
+  });
+
+  it('deletes an entry when another weight entry remains', () => {
+    get().saveWeightEntry({ date: '2026-01-01', weight: 74 });
+    get().saveWeightEntry({ date: '2026-01-02', weight: 74.5 });
+
+    get().deleteWeightEntry('2026-01-01');
+
+    expect(get().userData.weightEntries).toEqual([
+      { date: '2026-01-02', weight: 74.5 },
+    ]);
+  });
+});
+
+describe('store - deleteBodyFatEntry', () => {
+  it('keeps the final body fat entry', () => {
+    const entry = { date: '2026-01-01', bodyFat: 18 };
+    get().saveBodyFatEntry(entry);
+    const before = get().userData;
+
+    get().deleteBodyFatEntry(entry.date);
+
+    expect(get().userData).toBe(before);
+    expect(get().userData.bodyFatEntries).toEqual([entry]);
+  });
+
+  it('deletes an entry when another body fat entry remains', () => {
+    get().saveBodyFatEntry({ date: '2026-01-01', bodyFat: 18 });
+    get().saveBodyFatEntry({ date: '2026-01-02', bodyFat: 17.5 });
+
+    get().deleteBodyFatEntry('2026-01-01');
+
+    expect(get().userData.bodyFatEntries).toEqual([
+      { date: '2026-01-02', bodyFat: 17.5 },
+    ]);
+  });
+});
+
 describe('store - setSelectedGoal', () => {
   it('stores the goal and change timestamp', () => {
     get().setSelectedGoal('cutting', 1_700_000_000_000);
