@@ -340,21 +340,53 @@ Before exposing the API deployment to users, confirm every item:
 - **CodeQL code scanning is enabled** (advanced setup — `.github/workflows/codeql.yml` and
   `codeql-swift.yml`). JavaScript/TypeScript — ~67k lines and effectively the whole product — is
   analysed on every push and pull request to `main`, weekly, and on demand, and needs no build.
-  Swift is analysed best-effort and path-gated; see the note under the gap list for why.
+  The workflows are analysed as well (`analyze-actions` job, category `/language:actions`), which is
+  what makes `GITHUB_TOKEN` scope an enforced property rather than a one-off review finding: without
+  that job the October 2026 alerts could only ever have been dismissed by hand. Swift is analysed
+  best-effort and path-gated; see the note under the gap list for why.
 - CI (`.github/workflows/ci.yml`) runs two jobs:
   - `verify` — `npm ci` → `npm run lint:ci` → `npm run test:coverage` → `npm run test:ui` →
     `npm run build` → an assertion that `dist/index.html` and the expected `chunk-*` vendor bundles
     were emitted → `npx cap copy android`.
   - `ios` — `npm ci` → build → `npx cap copy ios` → `xcodebuild` with signing disabled, proving the
     Xcode project still compiles with every Capacitor plugin linked through Swift Package Manager.
+- **Every workflow declares its `GITHUB_TOKEN` scope.** `ci.yml` runs with `permissions:
+  contents: read` (it only checks out and builds); the CodeQL workflows add `security-events: write`
+  so their SARIF can be uploaded, plus `packages: read` and `actions: read` for the analysis itself.
+  Nothing here needs a write token to build, test or ship.
 - Android release signing keys and iOS provisioning profiles are not committed to the repository.
 
-**Current advisory snapshot (October 2026)**
+**Current advisory snapshot (November 2026)**
 
-`npm audit` reports **0 advisories**.
+Dependabot reports **0 open alerts**, and code scanning reports **0 open alerts**. Clearing the
+dependency alerts took three lockfile-level fixes, all confined to the build/dev toolchain — none of
+it is runtime code in the shipped app bundle:
 
-Getting there took three steps, all confined to the build/dev toolchain — none of it is runtime code
-in the shipped app bundle:
+- `glob` ≤14.0.1 (GHSA-3g3m-2fjr-6pw4) and `minimatch` <11.0.1 (GHSA-g3hv-75wg-m249) arrive through
+  `@capacitor/cli → rimraf → glob`. `rimraf` 6.1.3 → 6.1.4 moves to `glob ^14.0.3`, which resolves
+  glob 14.0.6 and minimatch 11.0.9 — inside the ranges `rimraf` already declares, so no override and
+  no `@capacitor/*` major change were needed. (The `minimatch` copies eslint uses are 3.1.x, outside
+  the affected range.)
+- `undici` <7.30.1 (five advisories, incl. GHSA-4w7w-5xrc-9h26 and GHSA-2m5v-pch6-74hx) is a
+  `jsdom` dependency. `jsdom@29` already allows `^7.25.0`, so the lockfile moved to 7.30.2 while
+  `jsdom` stayed put.
+- `@vitest/mocker` <5.0.3 (GHSA-qxg6-89mg-rqv8, GHSA-xp26-3454-mjgp) is a `vitest` dependency.
+  `vitest` and `@vitest/coverage-v8` were moved together 5.0.2 → 5.1.1, which brings
+  `@vitest/mocker` 5.1.1. They must stay on the same version: `vitest` declares its coverage
+  provider as an exact-version peer, so a one-sided bump is an `ERESOLVE` warning and a mismatched
+  provider.
+
+The one other advisory `npm audit` was showing at the time — `zod` <4.6.6 (GHSA-mrhx-c7xc-m3w5),
+reached through `eslint-plugin-react-hooks` — already had a patch, so it moved to 4.6.7 in the same
+pass.
+
+`npm audit` still lists **7 high** entries for a single advisory that cannot be fixed by upgrading:
+GHSA-fc5q-39xc-vjpf (`picomatch` ≤4.0.7, ReDoS via repeated single-branch extglobs) has **no patched
+release** — 4.0.7 is the newest publish. It reaches the tree only through Vite / Vitest / tinyglobby
+/ fdir in the dev toolchain, and Dependabot files no alert for it because there is no version to
+propose. Re-check when 4.0.8 lands.
+
+Earlier resolutions, still in force:
 
 - The Tailwind v3 chain (`braces`, `postcss-selector-parser`) disappeared when Tailwind moved to v4,
   which drops those dependencies entirely.
@@ -377,7 +409,8 @@ consumer if one is ever added.
 - `npm audit` is **not** run in CI, so advisories are visible but never fail the build.
 - No Dependabot **version-update** configuration (`.github/dependabot.yml`), so advisories are
   surfaced without automated update PRs.
-- No secret scanning workflow (CodeQL code scanning now covers JavaScript/TypeScript and Swift).
+- No secret scanning workflow (CodeQL code scanning now covers JavaScript/TypeScript, Swift and the
+  workflow files themselves).
 - No SBOM beyond `THIRD_PARTY_NOTICES.md`.
 - No reproducible-build or artifact-provenance attestation for the native binaries.
 
