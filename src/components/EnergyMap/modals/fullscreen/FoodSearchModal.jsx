@@ -85,6 +85,13 @@ const CHAT_TEXTAREA_MAX_HEIGHT = 112;
 const DEFAULT_CHAT_PLACEHOLDER = 'Describe food + portion...';
 const DEFAULT_MAX_IMAGE_COUNT = 3;
 const LOCAL_RESULT_BATCH_SIZE = 120;
+// The sheet's slide-in lasts ~200ms. The first local search of an open waits it out
+// so the heavy first mount of the result list (and the synchronous sql.js query)
+// never competes with that animation.
+const FIRST_LOCAL_SEARCH_DELAY_MS = 220;
+// Stable empty list for "nothing to show yet" (a fresh [] each render would defeat
+// memoisation downstream).
+const EMPTY_RESULTS = [];
 const ONLINE_RESULT_BATCH_SIZE = 80;
 const LOCAL_DB_QUERY_PAGE_SIZE = 500;
 const ONLINE_SEARCH_PAGE_SIZE = 50; // Supabase search RPC caps pageSize at 50
@@ -444,6 +451,14 @@ export const FoodSearchModal = ({
   // Online search state
   const [onlineResults, setOnlineResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  // False from open until the first local search of that open has finished. While
+  // it is false the list shows ONLY a skeleton: rendering a partial list (cached /
+  // custom foods) first, then covering it with a skeleton, then swapping in the
+  // database page - while the old rows were still playing their exit animation -
+  // was the open-time flicker. The ref mirrors it for the effect that must read it
+  // without re-running when it flips.
+  const [hasLocalSearchCompleted, setHasLocalSearchCompleted] = useState(false);
+  const hasLocalSearchCompletedRef = useRef(false);
   const [searchError, setSearchError] = useState(null);
   const [activeSearchSource, setActiveSearchSource] = useState(
     FOOD_SEARCH_SOURCE.LOCAL
@@ -603,6 +618,8 @@ export const FoodSearchModal = ({
       setSearchErrorsBySource({});
       setActiveSearchSource(FOOD_SEARCH_SOURCE.LOCAL);
       setLocalDbResults([]);
+      hasLocalSearchCompletedRef.current = false;
+      setHasLocalSearchCompleted(false);
       setLocalSearchError(null);
       setIsSearching(false);
       setIsLocalSearching(false);
@@ -806,6 +823,8 @@ export const FoodSearchModal = ({
             setIsLocalLoadingMore(false);
           } else {
             setIsLocalSearching(false);
+            hasLocalSearchCompletedRef.current = true;
+            setHasLocalSearchCompleted(true);
           }
         }
       }
@@ -823,12 +842,28 @@ export const FoodSearchModal = ({
 
   useEffect(() => {
     if (!isOpen || searchMode !== 'local' || viewMode !== 'search') {
-      return;
+      return undefined;
     }
 
     setLocalDbOffset(0);
     setHasMoreLocalDbResults(false);
-    runLocalSearch({ append: false, offset: 0 });
+
+    // Only the first search of an open waits for the slide-in; later ones (typing,
+    // filters, coming back from Favourites) run immediately. Read from the ref so
+    // this effect does not re-run - and re-search - when the flag flips.
+    if (hasLocalSearchCompletedRef.current) {
+      // Start synchronously, exactly as before: deferring even by a macrotask
+      // leaves a frame where nothing is "searching" yet (a no-match query would
+      // flash "No foods found" before the skeleton).
+      runLocalSearch({ append: false, offset: 0 });
+      return undefined;
+    }
+
+    const timerId = window.setTimeout(() => {
+      runLocalSearch({ append: false, offset: 0 });
+    }, FIRST_LOCAL_SEARCH_DELAY_MS);
+
+    return () => window.clearTimeout(timerId);
   }, [isOpen, runLocalSearch, searchMode, viewMode]);
 
   useEffect(() => {
@@ -1860,6 +1895,18 @@ export const FoodSearchModal = ({
     () => displayResults.slice(0, visibleResultCount),
     [displayResults, visibleResultCount]
   );
+
+  // Skeleton rules for the local list:
+  //  - first load of an open: skeleton only (see `hasLocalSearchCompleted`);
+  //  - a later re-search: keep showing the current rows (the client-side filter
+  //    already keeps them consistent with the query) and only fall back to the
+  //    skeleton when there is nothing to show - rows used to be swapped for a
+  //    skeleton on every keystroke.
+  const isFirstLocalLoad = searchMode === 'local' && !hasLocalSearchCompleted;
+  const showLocalSkeleton =
+    searchMode === 'local' &&
+    (isFirstLocalLoad ||
+      (isLocalSearching && visibleDisplayResults.length === 0));
 
   useEffect(() => {
     if (viewMode !== 'search') {
@@ -3628,7 +3675,7 @@ export const FoodSearchModal = ({
                 favouritesSearchQuery={favouritesSearchQuery}
                 resolvedFavourites={resolvedFavourites}
                 isSearching={isSearching}
-                isLocalSearching={isLocalSearching}
+                isLocalSearching={showLocalSkeleton}
                 resolvedCachedFoods={resolvedCachedFoods}
                 favouritesDropdownRef={favouritesDropdownRef}
                 dropdownRef={dropdownRef}
@@ -3722,9 +3769,13 @@ export const FoodSearchModal = ({
                           fallbackUsed={searchFallbackUsed}
                           searchError={searchError}
                           localSearchError={localSearchError}
-                          isLocalSearching={isLocalSearching}
+                          isLocalSearching={showLocalSkeleton}
                           isSearching={isSearching}
-                          displayResults={visibleDisplayResults}
+                          displayResults={
+                            isFirstLocalLoad
+                              ? EMPTY_RESULTS
+                              : visibleDisplayResults
+                          }
                           searchQuery={searchQuery}
                           loadingFoodId={loadingFoodId}
                           handleOnlineFoodSelect={handleOnlineFoodSelect}

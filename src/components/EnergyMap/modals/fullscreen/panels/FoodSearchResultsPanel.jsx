@@ -8,7 +8,19 @@ import { rememberPortionOrigin } from '../../../../../utils/visuals/portionTrans
 
 const STAGGER_EASE = [0.32, 0.72, 0, 1];
 const getRowDelay = (index) => Math.min(index * 0.018, 0.12);
-const SKELETON_ROW_COUNT = 6;
+// Skeleton rows are the same height as a real result card (about 68px: name + tag
+// row) so swapping skeleton -> list does not shift the layout, and there are enough
+// of them to fill the viewport.
+const SKELETON_ROW_COUNT = 8;
+const SKELETON_ROW_CLASS =
+  'h-[68px] rounded-xl border border-border bg-surface-highlight animate-pulse';
+// Result cards skip layout/paint while off-screen: a first page is ~120 cards and
+// only ~8 are ever visible. `auto` in the intrinsic size remembers each card's
+// real height once rendered.
+const RESULT_CARD_STYLE = {
+  contentVisibility: 'auto',
+  containIntrinsicSize: 'auto 68px',
+};
 
 const resolveOnlineSourceBadge = (source) => {
   const normalizedSource = String(source || '')
@@ -136,10 +148,7 @@ export const FoodSearchResultsPanel = ({
         className="space-y-2 py-1"
       >
         {Array.from({ length: SKELETON_ROW_COUNT }).map((_, index) => (
-          <div
-            key={`local-skeleton-${index}`}
-            className="h-[84px] rounded-xl border border-border bg-surface-highlight animate-pulse"
-          />
+          <div key={`local-skeleton-${index}`} className={SKELETON_ROW_CLASS} />
         ))}
       </motion.div>
     )}
@@ -154,7 +163,7 @@ export const FoodSearchResultsPanel = ({
         {Array.from({ length: SKELETON_ROW_COUNT }).map((_, index) => (
           <div
             key={`online-skeleton-${index}`}
-            className="h-[84px] rounded-xl border border-border bg-surface-highlight animate-pulse"
+            className={SKELETON_ROW_CLASS}
           />
         ))}
       </motion.div>
@@ -206,6 +215,7 @@ export const FoodSearchResultsPanel = ({
           return (
             <motion.button
               key={food.id}
+              style={RESULT_CARD_STYLE}
               initial={
                 !prefersReducedMotion && shouldAnimate
                   ? { opacity: 0, y: 8 }
@@ -327,6 +337,7 @@ export const FoodSearchResultsPanel = ({
             return (
               <motion.button
                 key={food.id}
+                style={RESULT_CARD_STYLE}
                 initial={
                   !prefersReducedMotion && shouldAnimate
                     ? { opacity: 0, y: 8 }
