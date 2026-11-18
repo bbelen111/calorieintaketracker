@@ -5,9 +5,11 @@ import React, {
   useCallback,
   useMemo,
 } from 'react';
-import { Plus, ChevronDown, Heart } from 'lucide-react';
+import { ChevronDown, Heart } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import { FoodTagBadges } from '../../common/FoodTagBadges';
+import { MicroStat } from '../../common/MicroStat';
+import { usePortionCardFlight } from '../../../../hooks/usePortionCardFlight';
 import { formatOne } from '../../../../utils/formatting/format';
 import { formatFoodDisplayName } from '../../../../utils/food/foodPresentation';
 import {
@@ -101,6 +103,10 @@ export const FoodPortionModal = ({
   const idCounterRef = useRef(0);
   const hasAlignedRef = useRef(false);
   const selectionRef = useRef(convertGramsToParts(initialGrams));
+  // The modal's top item card (the element that flies) and a flag that skips the
+  // return flight when the whole search modal is closing too (Log & exit).
+  const cardRef = useRef(null);
+  const skipReturnRef = useRef(false);
 
   // Track if user has marked this as favourite during this session
   const [markedAsFavourite, setMarkedAsFavourite] = useState(false);
@@ -372,6 +378,7 @@ export const FoodPortionModal = ({
 
   const handleAddFood = (options = {}) => {
     if (!nutrition) return;
+    skipReturnRef.current = options.closeSearchModal === true;
 
     const foodEntry = {
       id: (() => {
@@ -437,6 +444,10 @@ export const FoodPortionModal = ({
   // Determine if currently favourited (either pre-existing or just marked)
   const isCurrentlyFavourited = isFoodFavourited || markedAsFavourite;
 
+  // Shared-element transition: the top card flies in from the tapped search
+  // result (and back on close). Must run before the early return below.
+  usePortionCardFlight({ isOpen, isClosing, cardRef, skipReturnRef });
+
   if (!selectedFood) return null;
 
   return (
@@ -444,79 +455,53 @@ export const FoodPortionModal = ({
       isOpen={isOpen}
       isClosing={isClosing}
       onClose={handleClose}
-      contentClassName="p-6 w-full max-w-md"
+      contentClassName="modal-content-fade portion-enter p-5 w-full max-w-md"
     >
-      {/* Header */}
-      <div className="mb-4">
-        <div className="bg-surface-highlight border border-border rounded-lg p-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <h4 className="text-foreground font-semibold text-sm truncate">
-                {formatFoodDisplayName({
-                  name: selectedFood.name,
-                  brand: selectedFood.brand,
-                })}
-              </h4>
-              <FoodTagBadges food={selectedFood} className="mt-1" />
-            </div>
-            <div className="flex flex-col items-end gap-1">
-              <span className="text-muted text-[10px] font-medium">
-                per 100g
-              </span>
-              <div className="flex items-center gap-3 text-xs">
-                <div className="text-center">
-                  <p className="text-accent-emerald font-bold">
-                    {formatOne(selectedFood.per100g.calories)}
-                  </p>
-                  <p className="text-muted">cal</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-accent-red font-bold">
-                    {formatOne(selectedFood.per100g.protein)}g
-                  </p>
-                  <p className="text-muted">prot</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-accent-amber font-bold">
-                    {formatOne(selectedFood.per100g.carbs)}g
-                  </p>
-                  <p className="text-muted">carb</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-accent-yellow font-bold">
-                    {formatOne(selectedFood.per100g.fats)}g
-                  </p>
-                  <p className="text-muted">fat</p>
-                </div>
+      {/* Item card - the shared element. It matches the Food Search result card
+          it came from (same surface, radius and layout), which is what lets the
+          card fly in from the list. Micronutrients live in the "For Ng" card
+          below, scaled to the chosen amount. */}
+      <div
+        ref={cardRef}
+        className="mb-5 rounded-xl border border-border bg-surface-highlight p-3 text-left"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <h4 className="truncate text-sm font-semibold text-foreground">
+              {formatFoodDisplayName({
+                name: selectedFood.name,
+                brand: selectedFood.brand,
+              })}
+            </h4>
+            <FoodTagBadges food={selectedFood} className="mt-1" />
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            <span className="text-[10px] font-medium text-muted">per 100g</span>
+            <div className="flex items-center gap-3 text-xs">
+              <div className="text-center">
+                <p className="font-bold text-accent-emerald">
+                  {formatOne(selectedFood.per100g.calories)}
+                </p>
+                <p className="text-muted">cal</p>
               </div>
-              {selectedFood.per100g &&
-                (selectedFood.per100g.fiber != null ||
-                  selectedFood.per100g.sodium != null ||
-                  selectedFood.per100g.saturatedFats != null ||
-                  selectedFood.per100g.sugars != null) && (
-                  <div className="flex items-center gap-2.5 text-[11px] mt-1.5 flex-wrap justify-end">
-                    {selectedFood.per100g.fiber != null && (
-                      <span className="text-accent-green font-semibold whitespace-nowrap">
-                        {formatOne(selectedFood.per100g.fiber)}g fiber
-                      </span>
-                    )}
-                    {selectedFood.per100g.sodium != null && (
-                      <span className="text-accent-indigo font-semibold whitespace-nowrap">
-                        {Math.round(selectedFood.per100g.sodium)}mg Na
-                      </span>
-                    )}
-                    {selectedFood.per100g.saturatedFats != null && (
-                      <span className="text-accent-yellow font-semibold whitespace-nowrap">
-                        {formatOne(selectedFood.per100g.saturatedFats)}g sat fat
-                      </span>
-                    )}
-                    {selectedFood.per100g.sugars != null && (
-                      <span className="text-accent-pink font-semibold whitespace-nowrap">
-                        {formatOne(selectedFood.per100g.sugars)}g sugar
-                      </span>
-                    )}
-                  </div>
-                )}
+              <div className="text-center">
+                <p className="font-bold text-accent-red">
+                  {formatOne(selectedFood.per100g.protein)}g
+                </p>
+                <p className="text-muted">prot</p>
+              </div>
+              <div className="text-center">
+                <p className="font-bold text-accent-amber">
+                  {formatOne(selectedFood.per100g.carbs)}g
+                </p>
+                <p className="text-muted">carb</p>
+              </div>
+              <div className="text-center">
+                <p className="font-bold text-accent-yellow">
+                  {formatOne(selectedFood.per100g.fats)}g
+                </p>
+                <p className="text-muted">fat</p>
+              </div>
             </div>
           </div>
         </div>
@@ -664,7 +649,7 @@ export const FoodPortionModal = ({
 
       {/* Calculated Nutrition */}
       {nutrition && (
-        <div className="bg-surface-highlight border border-border rounded-lg p-4 mb-6 shadow-lg">
+        <div className="bg-surface-highlight/75 border border-border rounded-lg p-4 mb-6 shadow-lg">
           <p className="text-muted text-xs mb-3 text-center">
             For {formatOne(grams)}g:
           </p>
@@ -693,6 +678,33 @@ export const FoodPortionModal = ({
               </p>
               <p className="text-muted text-xs">fats</p>
             </div>
+          </div>
+          {/* Micronutrients at the chosen amount (null = untracked -> a dash). */}
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-border/70 pt-3">
+            <MicroStat
+              label="Fiber"
+              value={nutrition.fiber}
+              unit="g"
+              colorClass="text-accent-green"
+            />
+            <MicroStat
+              label="Sodium"
+              value={nutrition.sodium}
+              unit="mg"
+              colorClass="text-accent-indigo"
+            />
+            <MicroStat
+              label="Sat. Fat"
+              value={nutrition.saturatedFats}
+              unit="g"
+              colorClass="text-accent-yellow"
+            />
+            <MicroStat
+              label="Sugars"
+              value={nutrition.sugars}
+              unit="g"
+              colorClass="text-accent-pink"
+            />
           </div>
           {smartTefEnabled && tefBreakdown && (
             <div className="mt-4 rounded-lg border border-accent-blue/70 bg-accent-blue overflow-hidden">
@@ -775,43 +787,43 @@ export const FoodPortionModal = ({
         </div>
       )}
 
-      {/* Actions */}
-      <div className="flex flex-col gap-2">
-        <div className="grid grid-cols-2 gap-2">
+      {/* Actions - same hierarchy as the AI Chat result card: one dominant
+          primary and two quiet tinted secondaries. */}
+      <div className="flex flex-col gap-1.5">
+        <button
+          type="button"
+          onClick={() =>
+            handleAddFood({
+              closePortionModal: true,
+              closeSearchModal: false,
+            })
+          }
+          disabled={!nutrition}
+          className="w-full rounded-xl bg-primary px-3 py-2.5 text-[13px] font-semibold text-primary-foreground shadow-xs transition-all press-feedback focus-ring disabled:cursor-not-allowed disabled:bg-surface-highlight/60 disabled:text-muted md:hover:brightness-110"
+        >
+          {isEditing ? 'Save entry' : 'Log entry'}
+        </button>
+
+        <div
+          className={`grid gap-1.5 ${
+            typeof onSaveAsFavourite === 'function' && !isEditing
+              ? 'grid-cols-2'
+              : 'grid-cols-1'
+          }`}
+        >
           <button
-            onClick={() =>
-              handleAddFood({
-                closePortionModal: true,
-                closeSearchModal: false,
-              })
-            }
-            disabled={!nutrition}
-            className="h-10 px-3 bg-primary md:hover:brightness-110 disabled:bg-surface-highlight/60 disabled:cursor-not-allowed disabled:text-muted text-primary-foreground rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring"
-          >
-            <Plus size={18} />
-            {isEditing ? 'Save' : 'Log'}
-          </button>
-          <button
+            type="button"
             onClick={() =>
               handleAddFood({ closePortionModal: true, closeSearchModal: true })
             }
             disabled={!nutrition}
-            className="h-10 px-3 bg-accent-blue md:hover:brightness-110 disabled:bg-surface-highlight/60 disabled:cursor-not-allowed disabled:text-muted text-primary-foreground rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring"
+            className="rounded-xl bg-accent-blue/10 px-2.5 py-2 text-[12px] font-semibold text-accent-blue transition-all press-feedback focus-ring disabled:cursor-not-allowed disabled:bg-surface-highlight/60 disabled:text-muted md:hover:bg-accent-blue/15"
           >
-            <Plus size={18} />
-            {isEditing ? 'Save & Exit' : 'Log & Exit'}
-          </button>
-        </div>
-
-        <div className="flex gap-2 items-center">
-          <button
-            onClick={handleClose}
-            className="flex-1 h-10 px-4 bg-surface-highlight md:hover:bg-surface text-foreground rounded-lg font-semibold transition-all text-sm press-feedback focus-ring"
-          >
-            Cancel
+            {isEditing ? 'Save & exit' : 'Log & exit'}
           </button>
           {typeof onSaveAsFavourite === 'function' && !isEditing && (
             <button
+              type="button"
               onClick={handleSaveAsFavourite}
               disabled={isCurrentlyFavourited || !nutrition}
               aria-label={
@@ -819,22 +831,18 @@ export const FoodPortionModal = ({
                   ? 'Already favourited'
                   : 'Save as favourite'
               }
-              title={
+              className={`flex items-center justify-center gap-1.5 rounded-xl px-2.5 py-2 text-[12px] font-semibold transition-all press-feedback focus-ring ${
                 isCurrentlyFavourited
-                  ? 'Already favourited'
-                  : 'Save as favourite'
-              }
-              className={`w-10 h-10 border rounded-lg font-medium transition-all flex items-center justify-center press-feedback focus-ring ${
-                isCurrentlyFavourited
-                  ? 'bg-accent-indigo/30 border-accent-indigo/50 text-accent-indigo cursor-default'
-                  : 'bg-accent-indigo md:hover:brightness-110 border-accent-indigo/50 text-primary-foreground disabled:bg-surface-highlight/30 disabled:border-border/60 disabled:cursor-not-allowed disabled:text-muted'
+                  ? 'cursor-default bg-accent-green/15 text-accent-green'
+                  : 'bg-accent-green/10 text-accent-green disabled:cursor-not-allowed disabled:bg-surface-highlight/60 disabled:text-muted md:hover:bg-accent-green/15'
               }`}
             >
               <Heart
-                size={20}
+                size={13}
                 fill={isCurrentlyFavourited ? 'currentColor' : 'none'}
-                className={isCurrentlyFavourited ? 'text-accent-indigo' : ''}
+                aria-hidden="true"
               />
+              {isCurrentlyFavourited ? 'Favourited' : 'Save & favourite'}
             </button>
           )}
         </div>

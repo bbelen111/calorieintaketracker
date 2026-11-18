@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { FoodTagBadges } from '../../../common/FoodTagBadges';
 import { formatOne } from '../../../../../utils/formatting/format';
 import { formatFoodDisplayName } from '../../../../../utils/food/foodPresentation';
+import { rememberPortionOrigin } from '../../../../../utils/visuals/portionTransition';
 
 const STAGGER_EASE = [0.32, 0.72, 0, 1];
 const getRowDelay = (index) => Math.min(index * 0.018, 0.12);
@@ -225,7 +226,11 @@ export const FoodSearchResultsPanel = ({
                       delay: shouldAnimate ? getRowDelay(index) : 0,
                     }
               }
-              onClick={() => !isLoading && handleOnlineFoodSelect(food)}
+              onClick={(event) => {
+                if (isLoading) return;
+                rememberPortionOrigin(event.currentTarget);
+                handleOnlineFoodSelect(food);
+              }}
               disabled={isLoading}
               className={`relative w-full bg-surface-highlight border border-border rounded-xl p-3 text-left transition-all ${
                 isLoading
@@ -342,7 +347,10 @@ export const FoodSearchResultsPanel = ({
                         delay: shouldAnimate ? getRowDelay(index) : 0,
                       }
                 }
-                onClick={() => handleFoodClick(food)}
+                onClick={(event) => {
+                  rememberPortionOrigin(event.currentTarget);
+                  handleFoodClick(food);
+                }}
                 onPointerDown={(event) => handlePressStart(food.id, event)}
                 onPointerUp={() => handlePressEnd(false)}
                 onPointerLeave={() => handlePressEnd(true)}

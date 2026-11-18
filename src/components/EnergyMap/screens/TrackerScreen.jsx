@@ -39,6 +39,7 @@ import {
   computeNutrientCoverage,
 } from '../../../constants/nutrients/nutrients';
 import { formatFoodDisplayName } from '../../../utils/food/foodPresentation';
+import { MicroStat } from '../common/MicroStat';
 
 const getTodayDate = () => getTodayDateKey();
 
@@ -84,32 +85,6 @@ const CircularProgress = ({ percent, color, size = 120, strokeWidth = 10 }) => {
 // "Fiber: 12.3g". Untracked renders as — (no unit), tracked values show their
 // unit (mg for sodium, g otherwise), and a leading "~" with tooltip marks a
 // partial day sum (some logged foods lack the nutrient).
-const MicroStat = ({ label, value, coverage, unit, colorClass }) => {
-  const isTracked = value != null && value !== '';
-  const isPartial = isTracked && coverage?.hasUntracked === true;
-  const displayValue = isTracked
-    ? unit === 'mg'
-      ? Math.round(Number(value))
-      : formatOne(Number(value))
-    : '—';
-
-  return (
-    <span
-      className="text-xs whitespace-nowrap"
-      title={isPartial ? 'Some logged foods lack this nutrient' : undefined}
-    >
-      <span className="text-muted">{label}: </span>
-      <span
-        className={`font-semibold ${isTracked ? colorClass : 'text-foreground/70'}`}
-      >
-        {isPartial ? '~' : ''}
-        {displayValue}
-        {isTracked ? unit : ''}
-      </span>
-    </span>
-  );
-};
-
 // Shorten a long name for UI while keeping full name available via title
 const shortenName = (name, maxLength = 36) => {
   if (typeof name !== 'string') return name ?? '';
