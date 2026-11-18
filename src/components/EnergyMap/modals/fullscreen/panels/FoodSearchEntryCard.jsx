@@ -4,10 +4,40 @@ import { ChevronDown, Flame, Info } from 'lucide-react';
 import { formatOne } from '../../../../../utils/formatting/format';
 import { FoodTagBadges } from '../../../common/FoodTagBadges';
 import { buildFinalizedEntryCardState } from '../../../../../utils/food/aiFinalizedEntryState';
+import { resolveAiEntryCategory } from '../../../../../utils/food/aiCategory';
 import {
   getLookupErrorReasonMessage,
   getLookupErrorRecoveryHint,
 } from '../../../../../services/foodLookupContext';
+
+// Micronutrients shown beside the category tag - same labels/colours as the
+// Tracker's micro row. `null`/absent means untracked and is simply not rendered.
+const MICRO_ITEMS = [
+  {
+    key: 'fiber',
+    label: 'Fiber',
+    className: 'text-accent-green',
+    format: (value) => `${formatOne(value)}g`,
+  },
+  {
+    key: 'sodium',
+    label: 'Sodium',
+    className: 'text-accent-indigo',
+    format: (value) => `${Math.round(value)}mg`,
+  },
+  {
+    key: 'saturatedFats',
+    label: 'Sat. Fat',
+    className: 'text-accent-yellow',
+    format: (value) => `${formatOne(value)}g`,
+  },
+  {
+    key: 'sugars',
+    label: 'Sugars',
+    className: 'text-accent-pink',
+    format: (value) => `${formatOne(value)}g`,
+  },
+];
 
 const getLookupStatusLabel = (lookupMeta) => {
   const decisionReason = String(lookupMeta?.decisionReason || '')
@@ -128,11 +158,14 @@ export const FoodSearchEntryCard = ({
     primaryLookupReasonCode,
   });
   const isLastResortEstimate = resolvedSource === 'estimate';
+  // Same resolver the modal logs with, so the tag always matches what gets saved.
+  // `null` (nothing known) renders no category tag - never an invented "Custom".
   const aiTagFood = {
     name: entry.name,
-    category: entry.category || lookupMeta?.matchedFood?.category || 'custom',
+    category: resolveAiEntryCategory(entry, lookupMeta),
     source: 'ai',
   };
+  const microItems = MICRO_ITEMS.filter(({ key }) => entry?.[key] != null);
   const hasDetailsSection =
     entry.rationale ||
     (Array.isArray(entry.assumptions) && entry.assumptions.length > 0);
@@ -196,55 +229,30 @@ export const FoodSearchEntryCard = ({
               dotClassName="bg-accent-yellow"
             />
           </div>
-          {(entry?.fiber != null ||
-            entry?.sodium != null ||
-            entry?.saturatedFats != null ||
-            entry?.sugars != null) && (
-            <div className="flex items-center gap-2.5 px-2.5 mt-1.5 text-[10.5px]">
-              {entry.fiber != null && (
-                <span className="text-accent-green font-semibold">
-                  {formatOne(entry.fiber)}g fiber
+        </div>
+
+        {/* Tag on the left, micronutrients on the right. Wraps (right-aligned) to a
+            second line rather than squeezing when a long set doesn't fit. */}
+        <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+          <FoodTagBadges
+            food={aiTagFood}
+            showCategory
+            showSource={false}
+            showPortion={false}
+          />
+          {microItems.length > 0 && (
+            <div className="ml-auto flex items-center gap-2.5 text-[10px] text-muted">
+              {microItems.map(({ key, label, className, format }) => (
+                <span key={key} className="whitespace-nowrap">
+                  {label}:{' '}
+                  <span className={`font-semibold ${className}`}>
+                    {format(entry[key])}
+                  </span>
                 </span>
-              )}
-              {entry.fiber != null &&
-                (entry.sodium != null ||
-                  entry.saturatedFats != null ||
-                  entry.sugars != null) && (
-                  <span className="text-muted">·</span>
-                )}
-              {entry.sodium != null && (
-                <span className="text-accent-indigo font-semibold">
-                  {Math.round(entry.sodium)}mg Na
-                </span>
-              )}
-              {entry.sodium != null &&
-                (entry.saturatedFats != null || entry.sugars != null) && (
-                  <span className="text-muted">·</span>
-                )}
-              {entry.saturatedFats != null && (
-                <span className="text-accent-yellow font-semibold">
-                  {formatOne(entry.saturatedFats)}g sat
-                </span>
-              )}
-              {entry.saturatedFats != null && entry.sugars != null && (
-                <span className="text-muted">·</span>
-              )}
-              {entry.sugars != null && (
-                <span className="text-accent-pink font-semibold">
-                  {formatOne(entry.sugars)}g sugar
-                </span>
-              )}
+              ))}
             </div>
           )}
         </div>
-
-        <FoodTagBadges
-          food={aiTagFood}
-          showCategory
-          showSource={false}
-          showPortion={false}
-          className="mt-2.5"
-        />
 
         {isLastResortEstimate &&
           (primaryLookupReasonMessage || primaryLookupRecoveryHint) && (

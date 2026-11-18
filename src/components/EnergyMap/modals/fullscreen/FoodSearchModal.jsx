@@ -42,6 +42,7 @@ import {
   getMealTypeById,
 } from '../../../../constants/meal/mealTypes';
 import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { resolveAiEntryCategory } from '../../../../utils/food/aiCategory';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { addToFoodCache, trimFoodCache } from '../../../../services/foodCache';
 import {
@@ -96,15 +97,6 @@ const FOOD_SEARCH_DEFAULT_ENTRY_SET = new Set([
   'chat',
   'manual_entry',
   'barcode',
-]);
-const AI_CATEGORY_KEYS = new Set([
-  'protein',
-  'carbs',
-  'vegetables',
-  'fats',
-  'supplements',
-  'custom',
-  'manual',
 ]);
 
 const normalizeSearchText = (value) =>
@@ -2175,41 +2167,13 @@ export const FoodSearchModal = ({
     }
   }, []);
 
-  const inferAiCategoryFromMacros = useCallback((entry) => {
-    const protein = Math.max(0, Number(entry?.protein) || 0);
-    const carbs = Math.max(0, Number(entry?.carbs) || 0);
-    const fats = Math.max(0, Number(entry?.fats) || 0);
-
-    if (protein <= 0 && carbs <= 0 && fats <= 0) {
-      return 'custom';
-    }
-
-    if (protein >= carbs && protein >= fats) {
-      return 'protein';
-    }
-    if (carbs >= protein && carbs >= fats) {
-      return 'carbs';
-    }
-    return 'fats';
-  }, []);
-
+  // Category an AI entry is saved/logged under. Shares one resolver with the chat
+  // card's tag (`utils/food/aiCategory.js`) so the two never disagree; 'custom' is
+  // only the *saved* fallback when nothing at all is known (the card shows no tag).
   const resolveAiCategory = useCallback(
-    (entry, lookupMeta = null) => {
-      const explicitCategory = String(entry?.category || '').toLowerCase();
-      if (AI_CATEGORY_KEYS.has(explicitCategory)) {
-        return explicitCategory;
-      }
-
-      const matchedCategory = String(
-        lookupMeta?.matchedFood?.category || ''
-      ).toLowerCase();
-      if (AI_CATEGORY_KEYS.has(matchedCategory)) {
-        return matchedCategory;
-      }
-
-      return inferAiCategoryFromMacros(entry);
-    },
-    [inferAiCategoryFromMacros]
+    (entry, lookupMeta = null) =>
+      resolveAiEntryCategory(entry, lookupMeta) ?? 'custom',
+    []
   );
 
   const resolveAiSubcategory = useCallback((lookupMeta = null) => {

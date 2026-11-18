@@ -175,6 +175,7 @@ src/
 │   │                            #   calculateTrapezoidalWindowAverage + tracker entry deltas
 │   │                            #   (getPreviousEntryDelta / getWindowAverageDeviation / formatSignedDelta)
 │   ├─ food/
+│   │  ├─ aiCategory.js          # Shared AI entry category resolver (food-type -> matched food -> macro inference; null = unknown)
 │   │  ├─ aiFinalizedEntryState.js # Finalized chat entry card state (calm primary badges + disclosure chip labels)
 │   │  ├─ foodPresentation.js    # Food display naming helpers (brand + name formatting)
 │   │  ├─ foodTags.js            # Canonical food source/type resolver + badge metadata/classes
