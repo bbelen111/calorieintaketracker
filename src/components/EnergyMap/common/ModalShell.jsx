@@ -9,6 +9,11 @@ import { createPortal } from 'react-dom';
 import PropTypes from 'prop-types';
 import { Capacitor } from '@capacitor/core';
 import {
+  KEYBOARD_GLIDE_EASING,
+  KEYBOARD_GLIDE_MS,
+  useKeyboardGlide,
+} from '../../../hooks/useKeyboardGlide';
+import {
   BASE_Z_INDEX,
   OVERLAY_FADE_MS,
   ModalStackManager,
@@ -257,6 +262,11 @@ export const ModalShell = ({
     lower half behind the keyboard.
   */
 
+  // Android resizes the window for the keyboard, which snaps a centred modal to its
+  // new centre in one frame; glide it there instead (see the hook for why this is
+  // an animation of the result, not a change to the layout contract above).
+  useKeyboardGlide({ enabled: isOpen && !shouldFullHeight, contentRef });
+
   // Early return if not open
   if (!isOpen || typeof document === 'undefined') return null;
 
@@ -277,6 +287,20 @@ export const ModalShell = ({
     ? undefined
     : 'min(90dvh, calc(100dvh - var(--keyboard-inset, 0px) - 2rem))';
 
+  // iOS delivers the keyboard as `--keyboard-inset`, which changes the two values
+  // above instantly; transition them so the centred sheet glides to its new band
+  // instead of snapping (Android's window resize is smoothed by `useKeyboardGlide`
+  // above). Reduced motion keeps the instant behaviour.
+  const smoothKeyboardChanges =
+    !shouldFullHeight &&
+    !(
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    );
+  const keyboardTransition = (property) =>
+    `${property} ${KEYBOARD_GLIDE_MS}ms ${KEYBOARD_GLIDE_EASING}`;
+
   const overlay = (
     <div
       ref={overlayRef}
@@ -285,7 +309,12 @@ export const ModalShell = ({
       style={{
         isolation: 'isolate',
         backgroundColor: `rgb(var(--overlay-base) / ${backdropOpacity})`,
-        transition: `background-color ${OVERLAY_FADE_MS}ms ease-out`,
+        transition: [
+          `background-color ${OVERLAY_FADE_MS}ms ease-out`,
+          smoothKeyboardChanges ? keyboardTransition('padding-bottom') : null,
+        ]
+          .filter(Boolean)
+          .join(', '),
         willChange: 'background-color',
         paddingBottom: centeredOverlayPadding,
       }}
@@ -306,6 +335,9 @@ export const ModalShell = ({
         style={{
           pointerEvents: isTopmost || isClosing ? 'auto' : 'none',
           maxHeight: centeredContentMaxHeight,
+          transition: smoothKeyboardChanges
+            ? keyboardTransition('max-height')
+            : undefined,
         }}
       >
         {children}

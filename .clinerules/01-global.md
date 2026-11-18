@@ -141,6 +141,7 @@ src/
 │   ├─ useHardwareBackButton.js  # Android back handling (home-first + double-exit; registers nothing on iOS)
 │   ├─ useSwipeableScreens.js    # 5-screen horizontal carousel (edge peek, compositor settles, drag-progress vars)
 │   ├─ useHealthConnect.js       # Step sync bridge (Health Connect on Android, HealthKit read-only on iOS)
+│   ├─ useKeyboardGlide.js       # Smooths a centred modal's jump when the Android window resizes for the keyboard (FLIP via `translate`; iOS uses CSS transitions in ModalShell)
 │   ├─ useKeyboardVisible.js     # App-wide keyboard state (Capacitor events + visualViewport;
 │   │                            #   publishes `--keyboard-inset` on :root; singleton)
 │   └─ useNetworkStatus.js       # Online/offline detection

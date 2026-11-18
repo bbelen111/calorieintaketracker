@@ -175,6 +175,10 @@
     env(safe-area-inset-bottom, 0px),
     var(--keyboard-inset, 0px)
   );
+  /* The inset arrives as a jump (the keyboard is done by then); glide the chrome
+     up to it instead of snapping. Same duration/curve as ModalShell's centred
+     modals (KEYBOARD_GLIDE_* in hooks/useKeyboardGlide.js). */
+  transition: padding-bottom 0.28s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 @utility fade-in {
@@ -1307,6 +1311,10 @@
     ::view-transition-old(root),
     ::view-transition-new(root) {
       animation-duration: 0.01ms;
+    }
+
+    .keyboard-bottom-inset {
+      transition: none !important;
     }
 
     /* The carousel already settles instantly under reduced motion (the shell skips
