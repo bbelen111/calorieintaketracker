@@ -895,6 +895,20 @@ export const EnergyMapCalculator = () => {
   const bodyFatTrackerModal = useAnimatedModal();
   const bodyFatEntryModal = useAnimatedModal();
   const settingsModal = useAnimatedModal();
+  const [settingsPage, setSettingsPage] = useState('home');
+  const openSettingsModal = useCallback(() => {
+    setSettingsPage('home');
+    settingsModal.open();
+  }, [settingsModal.open]);
+  const handleSettingsBack = useCallback(() => {
+    if (settingsPage !== 'home') {
+      setSettingsPage('home');
+      return true;
+    }
+
+    settingsModal.requestClose();
+    return true;
+  }, [settingsModal.requestClose, settingsPage]);
   const dailyActivityModal = useAnimatedModal();
   const dailyActivityEditorModal = useAnimatedModal();
   const dailyActivityCustomModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
@@ -1099,7 +1113,6 @@ export const EnergyMapCalculator = () => {
       dailyActivityEditorModal,
       dailyActivityModal,
       dailyNeatOverrideModal,
-      settingsModal,
       bodyFatEntryModal,
       bodyFatTrackerModal,
       weightEntryModal,
@@ -1113,11 +1126,16 @@ export const EnergyMapCalculator = () => {
       timePickerModal,
       epocWindowPickerModal,
       epocInfoModal,
+      settingsModal,
     ];
 
     for (const modal of modalStack) {
       if (modal?.isOpen && !modal.isClosing) {
-        modal.requestClose();
+        if (modal === settingsModal) {
+          handleSettingsBack();
+        } else {
+          modal.requestClose();
+        }
         return true;
       }
     }
@@ -1172,6 +1190,7 @@ export const EnergyMapCalculator = () => {
     trainingModal,
     weightEntryModal,
     weightTrackerModal,
+    handleSettingsBack,
   ]);
 
   const { showExitHint } = useHardwareBackButton({
@@ -3533,10 +3552,6 @@ export const EnergyMapCalculator = () => {
     [durationPickerModal]
   );
 
-  const handleSettingsSave = useCallback(() => {
-    settingsModal.requestClose();
-  }, [settingsModal]);
-
   // Phase handlers
   const openPhaseCreationModal = useCallback(() => {
     setPhaseDraft(createDefaultPhaseDraft());
@@ -4053,7 +4068,7 @@ export const EnergyMapCalculator = () => {
           todaySnapshot={todaySnapshot}
           showSwipeHint={!hasSeenSwipeHint && !isAnyModalOpen}
           onDismissSwipeHint={markSwipeHintSeen}
-          onOpenSettings={settingsModal.open}
+          onOpenSettings={openSettingsModal}
         />
 
         <div className="relative">
@@ -4566,6 +4581,8 @@ export const EnergyMapCalculator = () => {
           <SettingsModal
             isOpen={settingsModal.isOpen}
             isClosing={settingsModal.isClosing}
+            activePage={settingsPage}
+            onNavigate={setSettingsPage}
             userData={userData}
             weightEntries={weightEntries}
             bodyFatEntries={bodyFatEntries}
@@ -4588,7 +4605,11 @@ export const EnergyMapCalculator = () => {
               },
               lifecycle: {
                 cancel: settingsModal.requestClose,
-                save: handleSettingsSave,
+              },
+              navigation: {
+                activePage: settingsPage,
+                navigate: setSettingsPage,
+                back: handleSettingsBack,
               },
             }}
           />

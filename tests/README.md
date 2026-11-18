@@ -96,7 +96,8 @@ spec can and is the reason the orchestrator/screens are no longer at 0%:
 - tab tap → chrome wiring (the header's per-screen stat line, scoped with `within(header)` because
   screens render their own summary copy);
 - store → screen propagation (a logged food appears in the Tracker's rendered totals);
-- a lazy `SettingsModal` open/close round trip through the shared modal stack (Suspense included).
+- a lazy `SettingsModal` open/close round trip through the shared modal stack (Suspense included);
+- Settings hub-to-subpage navigation and immediate change callbacks (`SettingsModal.spec.jsx`), plus Android back returning from a Settings subpage and child-picker-first closing (`EnergyMapCalculator.spec.jsx`).
 
 **Two lessons to keep:**
 

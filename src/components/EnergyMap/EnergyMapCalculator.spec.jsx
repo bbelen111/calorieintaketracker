@@ -6,7 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EnergyMapCalculator } from './EnergyMapCalculator';
 import { useEnergyMapStore } from '../../store/useEnergyMapStore';
 import { getTodayDateKey } from '../../utils/data/dateKeys';
-import { PreferencesMock } from '../../tests/mocks/capacitor.js';
+import {
+  AppMock,
+  CapacitorMock,
+  PreferencesMock,
+} from '../../tests/mocks/capacitor.js';
 
 /**
  * Orchestrator integration tier.
@@ -35,6 +39,9 @@ const hydrateStore = async () => {
 
 describe('EnergyMapCalculator (orchestrator integration)', () => {
   beforeEach(async () => {
+    CapacitorMock.isNativePlatform.mockReturnValue(false);
+    CapacitorMock.getPlatform.mockReturnValue('web');
+    AppMock.addListener.mockClear();
     // Restore the pre-hydration state so every test starts from a cold start...
     useEnergyMapStore.setState(INITIAL_STATE);
     // ...and drop anything a previous test's debounced save persisted, since the
@@ -224,14 +231,16 @@ describe('EnergyMapCalculator (orchestrator integration)', () => {
     await findTabBar();
     // The settings gear shares the header slot with the one-time swipe coach
     // mark, so retire that hint first (its own interaction is covered above).
-    await setSwipeHintSeen(true);
+    await setSwipeHintSeen(false);
+    await user.click(
+      await screen.findByRole('button', { name: /Swipe between screens/ })
+    );
 
     await user.click(
       await screen.findByRole('button', { name: 'Open settings' })
     );
 
-    // Lazy + Suspense: the fullscreen editor mounts on demand. Its Back control
-    // is unique to that surface, so it doubles as the open/closed probe.
+    // Lazy + Suspense: the fullscreen editor mounts on demand.
     expect(
       await screen.findByRole('button', { name: 'Back' })
     ).toBeInTheDocument();
@@ -241,6 +250,95 @@ describe('EnergyMapCalculator (orchestrator integration)', () => {
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'Back' })).toBeNull()
     );
+  });
+
+  it('routes Android back from a Settings subpage to the hub before closing', async () => {
+    CapacitorMock.isNativePlatform.mockReturnValue(true);
+    CapacitorMock.getPlatform.mockReturnValue('android');
+    const user = userEvent.setup();
+    renderApp();
+    await hydrateStore();
+    await findTabBar();
+    await setSwipeHintSeen(false);
+    await user.click(
+      await screen.findByRole('button', { name: /Swipe between screens/ })
+    );
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Open settings' })
+    );
+    await user.click(
+      await screen.findByRole('button', { name: 'Open Appearance' })
+    );
+
+    const pressAndroidBack = async () => {
+      let handler;
+      await waitFor(() => {
+        handler = AppMock.addListener.mock.calls.find(
+          ([event]) => event === 'backButton'
+        )?.[1];
+        expect(handler).toBeTypeOf('function');
+      });
+      act(() => handler());
+    };
+
+    await pressAndroidBack();
+    expect(
+      screen.getByRole('navigation', { name: 'Settings categories' })
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Appearance' })).toBeNull();
+
+    await pressAndroidBack();
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('navigation', { name: 'Settings categories' })
+      ).toBeNull()
+    );
+  });
+
+  it('closes a Settings child picker before navigating out of its subpage', async () => {
+    CapacitorMock.isNativePlatform.mockReturnValue(true);
+    CapacitorMock.getPlatform.mockReturnValue('android');
+    const user = userEvent.setup();
+    renderApp();
+    await hydrateStore();
+    await findTabBar();
+    await setSwipeHintSeen(false);
+    await user.click(
+      await screen.findByRole('button', { name: /Swipe between screens/ })
+    );
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Open settings' })
+    );
+    await user.click(
+      await screen.findByRole('button', { name: 'Open Profile & Measurements' })
+    );
+    await user.click(
+      await screen.findByRole('button', { name: 'Open age picker' })
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Select Age' })
+    ).toBeInTheDocument();
+
+    const pressAndroidBack = async () => {
+      let handler;
+      await waitFor(() => {
+        handler = AppMock.addListener.mock.calls.find(
+          ([event]) => event === 'backButton'
+        )?.[1];
+        expect(handler).toBeTypeOf('function');
+      });
+      act(() => handler());
+    };
+
+    await pressAndroidBack();
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { name: 'Select Age' })).toBeNull()
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Profile & Measurements' })
+    ).toBeInTheDocument();
   });
 
   it("shows today's calories in the Home meal pill and opens the meal flow", async () => {

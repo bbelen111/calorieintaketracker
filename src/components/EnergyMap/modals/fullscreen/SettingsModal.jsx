@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
 import {
-  Save,
   ChevronsUpDown,
   Mars,
   Venus,
   ChevronLeft,
+  ChevronRight,
   Sun,
   Moon,
   MoonStar,
@@ -14,6 +14,10 @@ import {
   Sunset,
   Sparkles,
   Info,
+  UserRound,
+  Palette,
+  Activity,
+  SlidersHorizontal,
 } from 'lucide-react';
 import {
   DEFAULT_ACTIVITY_MULTIPLIERS,
@@ -43,6 +47,29 @@ const THEME_OPTIONS = [
   { value: 'dawn', label: 'Dawn', icon: Sunrise },
   { value: 'dusk', label: 'Dusk', icon: Sunset },
   { value: 'midnight', label: 'Midnight', icon: Sparkles },
+];
+
+const SETTINGS_PAGES = [
+  {
+    id: 'profile',
+    title: 'Profile & Measurements',
+    icon: UserRound,
+  },
+  {
+    id: 'appearance',
+    title: 'Appearance',
+    icon: Palette,
+  },
+  {
+    id: 'activity',
+    title: 'Daily Activity',
+    icon: Activity,
+  },
+  {
+    id: 'adjustments',
+    title: 'Calorie Adjustments',
+    icon: SlidersHorizontal,
+  },
 ];
 
 const defaultPresetKeys = { training: 'default', rest: 'default' };
@@ -115,6 +142,9 @@ const resolveSettingsData = ({
 export const SettingsModal = ({
   isOpen,
   isClosing,
+  activePage = 'home',
+  onNavigate,
+  onRequestBack,
   userData,
   onChange,
   bmr,
@@ -131,7 +161,6 @@ export const SettingsModal = ({
   onOpenEpocInfo,
   onEpocWindowPickerClick,
   onCancel,
-  onSave,
   actions,
 }) => {
   const store = useEnergyMapStore(
@@ -170,14 +199,20 @@ export const SettingsModal = ({
       },
       lifecycle: actions?.lifecycle ?? {
         cancel: onCancel,
-        save: onSave,
+      },
+      navigation: actions?.navigation ?? {
+        activePage,
+        navigate: onNavigate,
+        back: onRequestBack,
       },
     }),
     [
       actions?.info,
       actions?.lifecycle,
+      actions?.navigation,
       actions?.onFieldChange,
       actions?.openers,
+      activePage,
       onAgePickerClick,
       onCancel,
       onChange,
@@ -189,7 +224,8 @@ export const SettingsModal = ({
       onOpenAdaptiveThermogenesisInfo,
       onOpenEpocInfo,
       onOpenTefInfo,
-      onSave,
+      onNavigate,
+      onRequestBack,
     ]
   );
 
@@ -258,9 +294,18 @@ export const SettingsModal = ({
     resolvedActions.lifecycle.cancel?.();
   }, [resolvedActions.lifecycle]);
 
-  const handleSave = useCallback(() => {
-    resolvedActions.lifecycle.save?.();
-  }, [resolvedActions.lifecycle]);
+  const handleBack = useCallback(() => {
+    if (typeof resolvedActions.navigation.back === 'function') {
+      resolvedActions.navigation.back();
+      return;
+    }
+    handleCancel();
+  }, [handleCancel, resolvedActions.navigation]);
+
+  const handleOpenPage = useCallback(
+    (page) => resolvedActions.navigation.navigate?.(page),
+    [resolvedActions.navigation]
+  );
 
   const latestWeightEntry = useMemo(
     () =>
@@ -307,16 +352,20 @@ export const SettingsModal = ({
     <FullscreenModalFrame
       isOpen={isOpen}
       isClosing={isClosing}
-      onBack={handleCancel}
-      onClose={handleCancel}
-      title="Settings"
-      footer={
-        <SettingsActionFooter onCancel={handleCancel} onSave={handleSave} />
+      onBack={handleBack}
+      title={
+        SETTINGS_PAGES.find(
+          (page) => page.id === resolvedActions.navigation.activePage
+        )?.title ?? 'Settings'
       }
     >
-      <div className="p-4 space-y-4 md:space-y-6">
-        <ProfileSection
+      {resolvedActions.navigation.activePage === 'home' ? (
+        <SettingsHome onOpenPage={handleOpenPage} />
+      ) : (
+        <SettingsPageContent
+          page={resolvedActions.navigation.activePage}
           userData={resolvedUserData}
+          bmr={resolvedBmr}
           displayedWeight={displayedWeight}
           lastLoggedLabel={lastLoggedLabel}
           displayedBodyFat={displayedBodyFat}
@@ -327,32 +376,18 @@ export const SettingsModal = ({
           onOpenHeightPicker={resolvedActions.openers.heightPicker}
           onOpenWeightManager={resolvedActions.openers.manageWeight}
           onOpenBodyFatManager={resolvedActions.openers.manageBodyFat}
-        />
-
-        <DailyActivitySection
-          userData={resolvedUserData}
-          bmr={resolvedBmr}
           onDailyActivityClick={resolvedActions.openers.dailyActivity}
-        />
-
-        <EpocSection
+          onOpenEpocWindowPicker={resolvedActions.openers.epocWindowPicker}
+          onOpenTefInfo={resolvedActions.info.tef}
+          onOpenAdaptiveThermogenesisInfo={
+            resolvedActions.info.adaptiveThermogenesis
+          }
+          onOpenEpocInfo={resolvedActions.info.epoc}
           epocEnabled={epocEnabled}
           epocCarryoverHours={epocCarryoverHours}
-          onOpenInfo={resolvedActions.info.epoc}
-          onOpenWindowPicker={resolvedActions.openers.epocWindowPicker}
-          onFieldChange={handleFieldChange}
-        />
-
-        <SmartTefSection
-          userData={resolvedUserData}
           useTargetQuickEstimates={useTargetQuickEstimates}
           showFoodModalTefBurn={showFoodModalTefBurn}
           useTargetLiveCard={useTargetLiveCard}
-          onOpenInfo={resolvedActions.info.tef}
-          onFieldChange={handleFieldChange}
-        />
-
-        <AdaptiveThermogenesisSection
           adaptiveThermogenesisEnabled={adaptiveThermogenesisEnabled}
           adaptiveThermogenesisSmartMode={adaptiveThermogenesisSmartMode}
           adaptiveThermogenesisSmartModeAvailable={
@@ -370,31 +405,167 @@ export const SettingsModal = ({
           adaptiveThermogenesisSmoothingWindowDays={
             adaptiveThermogenesisSmoothingWindowDays
           }
-          onOpenInfo={resolvedActions.info.adaptiveThermogenesis}
-          onFieldChange={handleFieldChange}
         />
-      </div>
+      )}
     </FullscreenModalFrame>
   );
 };
+
+const SettingsHome = ({ onOpenPage }) => (
+  <nav
+    aria-label="Settings categories"
+    className="mx-auto w-full max-w-3xl space-y-2 p-4 md:p-6"
+  >
+    {SETTINGS_PAGES.map(({ id, title, icon: Icon }) => (
+      <button
+        key={id}
+        type="button"
+        onClick={() => onOpenPage(id)}
+        className="group flex min-h-14 w-full items-center gap-3 rounded-lg border border-border bg-surface-highlight/40 px-4 py-3 text-left transition-all pressable-card focus-ring md:hover:border-muted/50 md:hover:bg-surface-highlight/70"
+        aria-label={`Open ${title}`}
+      >
+        <Icon
+          size={19}
+          className="shrink-0 text-accent-blue"
+          aria-hidden="true"
+        />
+        <span className="flex-1 font-medium text-foreground">{title}</span>
+        <ChevronRight
+          size={18}
+          className="shrink-0 text-muted transition-transform group-active:translate-x-0.5 md:group-hover:translate-x-0.5"
+          aria-hidden="true"
+        />
+      </button>
+    ))}
+  </nav>
+);
+
+const SettingsPageContent = ({
+  page,
+  userData,
+  bmr,
+  displayedWeight,
+  lastLoggedLabel,
+  displayedBodyFat,
+  bodyFatLoggedLabel,
+  bodyFatTrackingEnabled,
+  onFieldChange,
+  onOpenAgePicker,
+  onOpenHeightPicker,
+  onOpenWeightManager,
+  onOpenBodyFatManager,
+  onDailyActivityClick,
+  onOpenEpocWindowPicker,
+  onOpenTefInfo,
+  onOpenAdaptiveThermogenesisInfo,
+  onOpenEpocInfo,
+  epocEnabled,
+  epocCarryoverHours,
+  useTargetQuickEstimates,
+  showFoodModalTefBurn,
+  useTargetLiveCard,
+  adaptiveThermogenesisEnabled,
+  adaptiveThermogenesisSmartMode,
+  adaptiveThermogenesisSmartModeAvailable,
+  adaptiveThermogenesisSmartModeDataStatus,
+  adaptiveThermogenesisSmoothingEnabled,
+  adaptiveThermogenesisSmoothingMethod,
+  adaptiveThermogenesisSmoothingWindowDays,
+}) => (
+  <div key={page} className="mx-auto w-full max-w-3xl p-4 pb-8 md:p-8">
+    {page === 'profile' && (
+      <ProfileSection
+        userData={userData}
+        displayedWeight={displayedWeight}
+        lastLoggedLabel={lastLoggedLabel}
+        displayedBodyFat={displayedBodyFat}
+        bodyFatLoggedLabel={bodyFatLoggedLabel}
+        bodyFatTrackingEnabled={bodyFatTrackingEnabled}
+        onFieldChange={onFieldChange}
+        onOpenAgePicker={onOpenAgePicker}
+        onOpenHeightPicker={onOpenHeightPicker}
+        onOpenWeightManager={onOpenWeightManager}
+        onOpenBodyFatManager={onOpenBodyFatManager}
+      />
+    )}
+
+    {page === 'appearance' && (
+      <AppearanceSection userData={userData} onFieldChange={onFieldChange} />
+    )}
+
+    {page === 'activity' && (
+      <DailyActivitySection
+        userData={userData}
+        bmr={bmr}
+        onDailyActivityClick={onDailyActivityClick}
+      />
+    )}
+
+    {page === 'adjustments' && (
+      <div className="space-y-7 divide-y divide-border/70">
+        <EpocSection
+          epocEnabled={epocEnabled}
+          epocCarryoverHours={epocCarryoverHours}
+          onOpenInfo={onOpenEpocInfo}
+          onOpenWindowPicker={onOpenEpocWindowPicker}
+          onFieldChange={onFieldChange}
+        />
+
+        <div className="pt-6">
+          <SmartTefSection
+            userData={userData}
+            useTargetQuickEstimates={useTargetQuickEstimates}
+            showFoodModalTefBurn={showFoodModalTefBurn}
+            useTargetLiveCard={useTargetLiveCard}
+            onOpenInfo={onOpenTefInfo}
+            onFieldChange={onFieldChange}
+          />
+        </div>
+
+        <div className="pt-6">
+          <AdaptiveThermogenesisSection
+            adaptiveThermogenesisEnabled={adaptiveThermogenesisEnabled}
+            adaptiveThermogenesisSmartMode={adaptiveThermogenesisSmartMode}
+            adaptiveThermogenesisSmartModeAvailable={
+              adaptiveThermogenesisSmartModeAvailable
+            }
+            adaptiveThermogenesisSmartModeDataStatus={
+              adaptiveThermogenesisSmartModeDataStatus
+            }
+            adaptiveThermogenesisSmoothingEnabled={
+              adaptiveThermogenesisSmoothingEnabled
+            }
+            adaptiveThermogenesisSmoothingMethod={
+              adaptiveThermogenesisSmoothingMethod
+            }
+            adaptiveThermogenesisSmoothingWindowDays={
+              adaptiveThermogenesisSmoothingWindowDays
+            }
+            onOpenInfo={onOpenAdaptiveThermogenesisInfo}
+            onFieldChange={onFieldChange}
+          />
+        </div>
+      </div>
+    )}
+  </div>
+);
+
 const FullscreenModalFrame = ({
   isOpen,
   isClosing,
-  onClose,
   onBack,
   title,
   children,
-  footer,
 }) => (
   <ModalShell
     isOpen={isOpen}
     isClosing={isClosing}
-    onClose={onClose}
+    onClose={onBack}
     fullHeight
     overlayClassName="fixed inset-0 bg-surface/70 p-0! flex-none! items-stretch! justify-stretch!"
     contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none max-h-none! flex flex-col pt-[env(safe-area-inset-top)] keyboard-bottom-inset pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
   >
-    <div className="flex items-center justify-between px-4 py-3 bg-background border-b border-border shrink-0">
+    <header className="flex items-center justify-between px-4 py-3 bg-background border-b border-border shrink-0">
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -404,37 +575,14 @@ const FullscreenModalFrame = ({
         >
           <ChevronLeft size={24} />
         </button>
-        <h3 className="text-foreground font-bold text-xl md:text-2xl">
-          {title}
-        </h3>
+        <h3 className="text-foreground font-bold text-xl">{title}</h3>
       </div>
-    </div>
+    </header>
 
-    <div className="flex-1 bg-surface border-t border-border flex flex-col">
+    <div className="flex-1 bg-surface border-t border-border overflow-y-auto flex flex-col">
       <div className="flex-1 overflow-y-auto">{children}</div>
-      {footer}
     </div>
   </ModalShell>
-);
-
-const SettingsActionFooter = ({ onCancel, onSave }) => (
-  <div className="flex gap-2 md:gap-3 p-4 border-t border-border bg-background/60">
-    <button
-      onClick={onCancel}
-      type="button"
-      className="flex-1 bg-surface-highlight text-foreground px-4 md:px-6 py-3 md:py-2 rounded-lg transition-all press-feedback focus-ring font-medium"
-    >
-      Cancel
-    </button>
-    <button
-      onClick={onSave}
-      type="button"
-      className="flex-1 bg-primary text-primary-foreground px-4 md:px-6 py-3 md:py-2 rounded-lg flex items-center justify-center gap-2 transition-all press-feedback focus-ring md:hover:brightness-110 font-medium"
-    >
-      <Save size={20} />
-      Save
-    </button>
-  </div>
 );
 
 const SettingLabel = ({ children }) => (
@@ -583,23 +731,6 @@ const ProfileSection = ({
     </div>
 
     <div>
-      <SettingLabel>Theme</SettingLabel>
-      <div className="grid grid-cols-2 gap-2">
-        {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
-          <SegmentedButton
-            key={value}
-            active={userData.theme === value}
-            activeClassName={BUTTON_ACTIVE_PRIMARY_CLASS}
-            onClick={() => onFieldChange?.('theme', value)}
-          >
-            <Icon size={16} />
-            <span className="text-sm">{label}</span>
-          </SegmentedButton>
-        ))}
-      </div>
-    </div>
-
-    <div>
       <SettingLabel>Weight (kg)</SettingLabel>
       <button
         type="button"
@@ -657,6 +788,26 @@ const ProfileSection = ({
       >
         {sanitizeHeight(userData.height)} cm
       </PickerButton>
+    </div>
+  </div>
+);
+
+const AppearanceSection = ({ userData, onFieldChange }) => (
+  <div>
+    <SettingLabel>Color theme</SettingLabel>
+    <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+      {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
+        <SegmentedButton
+          key={value}
+          active={userData.theme === value}
+          activeClassName={BUTTON_ACTIVE_PRIMARY_CLASS}
+          aria-pressed={userData.theme === value}
+          onClick={() => onFieldChange?.('theme', value)}
+        >
+          <Icon size={16} aria-hidden="true" />
+          <span className="text-sm">{label}</span>
+        </SegmentedButton>
+      ))}
     </div>
   </div>
 );

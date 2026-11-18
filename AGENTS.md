@@ -173,6 +173,15 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
   - `common/` — ConfirmActionModal
 - Total across codebase: 73 modal hook instances (`useAnimatedModal`)
 
+### Settings Modal Navigation
+
+- `SettingsModal` remains one fullscreen modal. Its home page is a simple vertical list of four category buttons: Profile & Measurements, Appearance, Daily Activity, and Calorie Adjustments. Do not add numbering, descriptions, or a second page title to the hub.
+- Each category opens in place, using the shared fullscreen header pattern (back chevron + current page title); pages start directly with their controls rather than a separate intro heading/description.
+- Settings changes apply immediately through the existing `onFieldChange`/store path. There is no draft, Save, Cancel, or rollback when navigating between pages or closing the modal.
+- Header back and Escape return to the hub from a category page; from the hub they close Settings. Android hardware back follows the same rule through `closeTopmostModal`.
+- Keep child pickers and info modals ahead of Settings in the orchestrator's close priority so the active child closes first. Categories are not separate or stacked modals.
+- Preserve the existing control ownership: Profile & Measurements contains profile and body-measurement settings; Appearance owns theme selection; Daily Activity opens the existing global NEAT controls; Calorie Adjustments contains EPOC, Smart TEF, and Adaptive Thermogenesis settings.
+
 ### Adaptive Thermogenesis Frontend
 
 - `AdaptiveThermogenesisModal` (`modals/fullscreen/`) is the fullscreen, lazy-loaded frontend for the AT subsystem. It subscribes to the store and recomputes both `crude` and `smart` results live, rendering Crude/Smart tabs over the exported `CRUDE_CUT_STAGES`/`CRUDE_SURPLUS_STAGES` timeline.
