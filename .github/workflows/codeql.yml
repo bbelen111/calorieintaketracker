@@ -65,3 +65,34 @@ jobs:
         uses: github/codeql-action/analyze@v4
         with:
           category: '/language:javascript-typescript'
+
+  # The workflows are part of the attack surface too (an over-permissioned
+  # GITHUB_TOKEN is what `actions/missing-workflow-permissions` reports), and
+  # without this job nothing re-evaluates them: actionlint in ci.yml validates
+  # syntax and expressions, not permissions. This job is also what lets those
+  # findings close by analysis rather than by hand — two alerts were opened by a
+  # one-off default-setup run in October 2026 and, with no `actions` analysis
+  # configured, they could never be re-checked against the default branch.
+  #
+  # It needs no checkout build step and runs in about a minute. `actions` is a
+  # separate job rather than a second entry in `languages` because the SARIF
+  # category is per-analysis: the JavaScript results are already tagged
+  # `/language:javascript-typescript`, and relabelling them would orphan every
+  # existing alert in that category.
+  analyze-actions:
+    name: Analyze GitHub Actions
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: actions
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: '/language:actions'
