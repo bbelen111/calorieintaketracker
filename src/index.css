@@ -222,7 +222,12 @@
    the custom property becomes an empty value, which makes every dependent
    `calc(1rem + var(--sat))` INVALID — so the whole declaration is dropped and
    the padding silently disappears instead of degrading to zero. */
-  :root {
+  /* `.theme-dark` is a swatch-only alias of the default: the app never applies it
+     to <body> (dark is the unclassed `:root` state), but the Settings theme
+     picker needs an element that resolves the dark palette even while a light
+     theme class is active on <body>. */
+  :root,
+  .theme-dark {
     --sat: env(safe-area-inset-top, 0px);
     --sab: env(safe-area-inset-bottom, 0px);
     --sal: env(safe-area-inset-left, 0px);
@@ -751,7 +756,8 @@
   button.bg-accent-blue,
   button.bg-accent-green,
   button.bg-accent-red,
-  div.bg-primary:is(.rounded-lg, .rounded-xl, .rounded-2xl) {
+  div.bg-primary:is(.rounded-lg, .rounded-xl, .rounded-2xl),
+  div.bg-accent-blue.absolute:is(.rounded-md, .rounded-lg) {
     background-image: linear-gradient(
       to bottom,
       rgb(255 255 255 / 0.1),
@@ -782,6 +788,37 @@
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 0.12),
       0 6px 16px -6px rgb(var(--accent-red) / 0.5);
+  }
+
+  /*
+    Fullscreen modal chrome (the 7 fullscreen modals share this skeleton: a
+    `bg-background` header over a `bg-surface` body). The header is lit from the
+    top and lifted above the body with a soft shadow, so scrolling content
+    passes beneath it instead of butting against a hard line; the body catches
+    the same faint top-light as cards. Both are background-image/box-shadow only,
+    so the `bg-*` colour utilities on the elements still own the base colour and
+    every theme follows its own tokens. The header needs `position: relative` +
+    a z-index so its shadow paints over the scrolling body.
+  */
+  .fullscreen-header {
+    position: relative;
+    z-index: 2;
+    background-image: linear-gradient(
+      to bottom,
+      rgb(var(--surface) / 0.55),
+      rgb(var(--background) / 0)
+    );
+    box-shadow:
+      inset 0 1px 0 rgb(var(--card-sheen)),
+      0 10px 24px -14px rgb(var(--overlay-base) / 0.5);
+  }
+
+  .fullscreen-body {
+    background-image: linear-gradient(
+      to bottom,
+      rgb(var(--card-sheen)),
+      rgb(255 255 255 / 0) 240px
+    );
   }
 
   /* Slightly tighter display type: headings and the big stat numbers look

@@ -27,7 +27,7 @@ paths:
 - Settings changes apply immediately through the existing `onFieldChange`/store path. There is no draft, Save, Cancel, or rollback when navigating between pages or closing the modal.
 - Header back and Escape return to the hub from a category page; from the hub they close Settings. Android hardware back follows the same rule through `closeTopmostModal`.
 - Keep child pickers and info modals ahead of Settings in the orchestrator's close priority so the active child closes first. Categories are not separate or stacked modals.
-- Preserve the existing control ownership: Profile & Measurements contains profile and body-measurement settings; Appearance owns theme selection; Daily Activity opens the existing global NEAT controls; Calorie Adjustments contains EPOC, Smart TEF, and Adaptive Thermogenesis settings.
+- Preserve the existing control ownership: Profile & Measurements contains profile and body-measurement settings; Appearance owns theme selection; Daily Activity opens the existing global NEAT controls; Calorie Adjustments contains EPOC, Smart TEF, and Adaptive Thermogenesis settings. **Appearance renders each theme as a live preview swatch**: `THEME_OPTIONS` carries a `swatchClass` per theme (`auto` is a dark/light split), and the swatch element wears that theme class so its `bg-background` / `bg-surface` / `bg-primary` resolve from the real theme definition in `index.css` - never hardcode a theme's colours in the picker. `.theme-dark` exists only as a swatch alias of the `:root` default (it is never applied to `<body>`).
 
 ### Adaptive Thermogenesis Frontend
 
@@ -370,7 +370,7 @@ Screens also subscribe to the store directly with `shallow` selectors as a fallb
 - **Dusk:** Plum shadows with ember highlights for a softer night mode (dark)
 - **Midnight:** Near-black navy with clear arctic-blue instrumentation (dark)
 
-The theme keys, their `isDark` flag, native colors and CSS classes are defined together in `SettingsModal` `THEME_OPTIONS`, `utils/theme.js` (`THEME_CONFIG` / `NATIVE_THEME_RGB` / `getThemeClass`) and `index.css`. Keep all three in sync when adding a theme.
+The theme keys, their `isDark` flag, native colors and CSS classes are defined together in `SettingsModal` `THEME_OPTIONS`, `utils/theme.js` (`THEME_CONFIG` / `NATIVE_THEME_RGB` / `getThemeClass`) and `index.css`. Keep all three in sync when adding a theme, and give it a `swatchClass` in `THEME_OPTIONS` (plus a `--card-sheen` value in its `index.css` block) so it gets a preview swatch and card top-light.
 
 ### Implementation Chain
 
@@ -429,6 +429,7 @@ Depth is produced by a few **global rules in `src/index.css`**, not by per-compo
 - **Solid action sheen + glow.** `button.bg-primary`, `button.bg-accent-blue`, `button.bg-accent-green` and `button.bg-accent-red` get a top-light gradient and, while `:not(:disabled)`, a coloured under-glow; `div.bg-primary` with `rounded-lg|xl|2xl` (hero tiles such as the Calorie Map cards) gets the sheen only. The scope is deliberately `button` / rounded blocks so dots, progress fills and chips that reuse the same token are untouched. The box-shadow is in `@layer components`, so an explicit `shadow-*` / `ring-*` utility on the element still overrides it. The strengths (`0.10` sheen, `0.12` inset line, `0.5` glow) were dialled back on purpose - keep the effect subtle, it should read as depth, not as "glass".
 - **The page backdrop is a plain diagonal wash** (`.app-backdrop`: background → surface → background, used by both orchestrator roots). Radial accent "glows" over it were tried and rejected - do not reintroduce them.
 - `h1`-`h3` use `letter-spacing: -0.01em`.
+- **Fullscreen modal chrome.** All seven fullscreen modals share one skeleton - a `bg-background` header over a `bg-surface` body - and carry the shared `.fullscreen-header` / `.fullscreen-body` classes from `index.css` on those two elements (a new fullscreen modal must too). The header is lit from the top and lifted above the body with a soft shadow (it needs `position: relative` + a z-index so the shadow paints over the scrolling body, which the class sets); the body catches the card top-light. Both are `background-image`/`box-shadow` only, so the `bg-*` utilities still own the base colour. The segmented-control sliding pill (`div.bg-accent-blue.absolute.rounded-md|lg`) gets the same sheen as solid buttons.
 - **Chrome uses the same grammar.** The header gear is a soft glass circle (`border-border/50 bg-surface/60 shadow-sm`); the per-screen stat is a content-hugging chip (`rounded-full border-border/40 bg-surface/50`); the tab-bar pill has a `border-border/50` edge plus an `inset-shadow-[0_1px_0_rgb(255_255_255/0.07)]` top highlight, and its active circle carries a glassy gradient and a `0 0 14px rgb(var(--primary)/0.5)` glow that the rounded tracker clips, so it halos along the pill.
 - **Colour-rule note:** the sheen/highlight layers use literal white/black overlays at low alpha. That is theme-invariant *lighting*, not palette colour, and is the one sanctioned exception to "never hardcode colours" - anything that is a hue still uses semantic/accent tokens.
 

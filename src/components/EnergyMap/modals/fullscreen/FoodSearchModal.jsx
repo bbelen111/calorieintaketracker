@@ -3125,7 +3125,7 @@ export const FoodSearchModal = ({
       overlayClassName="fixed inset-0 bg-surface/70 p-0! flex-none! items-stretch! justify-stretch!"
       contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none max-h-none! flex flex-col overflow-x-hidden pt-[env(safe-area-inset-top)] keyboard-bottom-inset pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
     >
-      <div className="flex items-center justify-between px-4 py-3 bg-background border-b border-border shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 fullscreen-header bg-background border-b border-border shrink-0">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -3248,7 +3248,7 @@ export const FoodSearchModal = ({
         </motion.div>
       </div>
 
-      <div className="flex-1 bg-surface border-t border-border overflow-y-auto flex flex-col">
+      <div className="flex-1 fullscreen-body bg-surface border-t border-border overflow-y-auto flex flex-col">
         {/* Action Buttons - Always on top */}
         <div className="px-4 pt-4 pb-3 border-b border-border">
           <div className="relative overflow-hidden">

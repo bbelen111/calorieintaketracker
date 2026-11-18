@@ -5,14 +5,6 @@ import {
   Venus,
   ChevronLeft,
   ChevronRight,
-  Sun,
-  Moon,
-  MoonStar,
-  Monitor,
-  Leaf,
-  Sunrise,
-  Sunset,
-  Sparkles,
   Info,
   UserRound,
   Palette,
@@ -38,16 +30,47 @@ import {
 import { getTodayDateKey } from '../../../../utils/data/dateKeys';
 import { getAdaptiveThermogenesisSmartModeDataStatus } from '../../../../utils/calculations/adaptiveThermogenesis';
 
+// `swatchClass` is the CSS class that carries the theme's variables, so the
+// preview swatch below resolves its colours from the real theme definition in
+// `index.css` instead of a hardcoded copy. `theme-dark` is a swatch-only alias
+// of the `:root` default (the app never puts it on <body>); `auto` previews as
+// a dark/light split.
 const THEME_OPTIONS = [
-  { value: 'auto', label: 'Auto', icon: Monitor },
-  { value: 'dark', label: 'Dark', icon: Moon },
-  { value: 'light', label: 'Light', icon: Sun },
-  { value: 'amoled_dark', label: 'Darker', icon: MoonStar },
-  { value: 'forest', label: 'Forest', icon: Leaf },
-  { value: 'dawn', label: 'Dawn', icon: Sunrise },
-  { value: 'dusk', label: 'Dusk', icon: Sunset },
-  { value: 'midnight', label: 'Midnight', icon: Sparkles },
+  { value: 'auto', label: 'Auto', swatchClass: null },
+  { value: 'dark', label: 'Dark', swatchClass: 'theme-dark' },
+  { value: 'light', label: 'Light', swatchClass: 'theme-light' },
+  { value: 'amoled_dark', label: 'Darker', swatchClass: 'theme-amoled-dark' },
+  { value: 'forest', label: 'Forest', swatchClass: 'theme-forest' },
+  { value: 'dawn', label: 'Dawn', swatchClass: 'theme-dawn' },
+  { value: 'dusk', label: 'Dusk', swatchClass: 'theme-dusk' },
+  { value: 'midnight', label: 'Midnight', swatchClass: 'theme-midnight' },
 ];
+
+// One miniature app: page background, a surface card and the primary accent.
+const ThemeSwatchFace = ({ themeClass, className = '' }) => (
+  <span
+    className={`${themeClass} relative block overflow-hidden bg-background ${className}`}
+  >
+    <span className="absolute inset-x-0 bottom-0 h-1/2 bg-surface" />
+    <span className="absolute left-1 top-1 h-1.5 w-1.5 rounded-full bg-primary" />
+  </span>
+);
+
+const ThemeSwatch = ({ swatchClass }) => (
+  <span
+    aria-hidden="true"
+    className="relative flex h-6 w-9 shrink-0 overflow-hidden rounded-md border border-foreground/25 shadow-xs"
+  >
+    {swatchClass ? (
+      <ThemeSwatchFace themeClass={swatchClass} className="h-full w-full" />
+    ) : (
+      <>
+        <ThemeSwatchFace themeClass="theme-dark" className="h-full w-1/2" />
+        <ThemeSwatchFace themeClass="theme-light" className="h-full w-1/2" />
+      </>
+    )}
+  </span>
+);
 
 const SETTINGS_PAGES = [
   {
@@ -421,14 +444,16 @@ const SettingsHome = ({ onOpenPage }) => (
         key={id}
         type="button"
         onClick={() => onOpenPage(id)}
-        className="group flex min-h-14 w-full items-center gap-3 rounded-lg border border-border bg-surface-highlight/40 px-4 py-3 text-left transition-all pressable-card focus-ring md:hover:border-muted/50 md:hover:bg-surface-highlight/70"
+        className="group flex min-h-14 w-full items-center gap-3 rounded-xl border border-border bg-surface-highlight/40 px-3 py-2.5 text-left shadow-sm transition-all pressable-card focus-ring md:hover:border-muted/50 md:hover:bg-surface-highlight/70"
         aria-label={`Open ${title}`}
       >
-        <Icon
-          size={19}
-          className="shrink-0 text-accent-blue"
-          aria-hidden="true"
-        />
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-blue/10 ring-1 ring-accent-blue/20">
+          <Icon
+            size={19}
+            className="shrink-0 text-accent-blue"
+            aria-hidden="true"
+          />
+        </span>
         <span className="flex-1 font-medium text-foreground">{title}</span>
         <ChevronRight
           size={18}
@@ -565,7 +590,7 @@ const FullscreenModalFrame = ({
     overlayClassName="fixed inset-0 bg-surface/70 p-0! flex-none! items-stretch! justify-stretch!"
     contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none max-h-none! flex flex-col pt-[env(safe-area-inset-top)] keyboard-bottom-inset pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
   >
-    <header className="flex items-center justify-between px-4 py-3 bg-background border-b border-border shrink-0">
+    <header className="flex items-center justify-between px-4 py-3 fullscreen-header bg-background border-b border-border shrink-0">
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -579,7 +604,7 @@ const FullscreenModalFrame = ({
       </div>
     </header>
 
-    <div className="flex-1 bg-surface border-t border-border overflow-y-auto flex flex-col">
+    <div className="flex-1 fullscreen-body bg-surface border-t border-border overflow-y-auto flex flex-col">
       <div className="flex-1 overflow-y-auto">{children}</div>
     </div>
   </ModalShell>
@@ -796,7 +821,7 @@ const AppearanceSection = ({ userData, onFieldChange }) => (
   <div>
     <SettingLabel>Color theme</SettingLabel>
     <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-      {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
+      {THEME_OPTIONS.map(({ value, label, swatchClass }) => (
         <SegmentedButton
           key={value}
           active={userData.theme === value}
@@ -804,7 +829,7 @@ const AppearanceSection = ({ userData, onFieldChange }) => (
           aria-pressed={userData.theme === value}
           onClick={() => onFieldChange?.('theme', value)}
         >
-          <Icon size={16} aria-hidden="true" />
+          <ThemeSwatch swatchClass={swatchClass} />
           <span className="text-sm">{label}</span>
         </SegmentedButton>
       ))}
