@@ -238,6 +238,34 @@
     --sar: env(safe-area-inset-right, 0px);
     color-scheme: dark;
 
+    /* Display scale (Settings -> Appearance). `--font-scale` / `--density` are
+       published on <html> by App.jsx from the persisted `fontScale` / `uiDensity`
+       (constants/appearance/uiScale.js); these are the defaults.
+
+       Tailwind v4 derives every numeric spacing/size utility (p-4, gap-2, h-10,
+       w-11...) from the single `--spacing` unit, so scaling it is a whole-layout
+       density control in one declaration. This declaration sits in a later layer
+       than Tailwind's theme, which is why it wins. The `--text-*` tokens are
+       multiplied by `--font-scale`, so text scales WITHOUT growing the layout
+       (the app's root font-size stays 13.5px / 17px). The `--text-*--line-height`
+       tokens are unitless ratios, so line height follows automatically. */
+    --font-scale: 1;
+    --density: 1;
+    --spacing: calc(0.25rem * var(--density));
+    --text-xs: calc(0.75rem * var(--font-scale));
+    --text-sm: calc(0.875rem * var(--font-scale));
+    --text-base: calc(1rem * var(--font-scale));
+    --text-lg: calc(1.125rem * var(--font-scale));
+    --text-xl: calc(1.25rem * var(--font-scale));
+    --text-2xl: calc(1.5rem * var(--font-scale));
+    --text-3xl: calc(1.875rem * var(--font-scale));
+    --text-4xl: calc(2.25rem * var(--font-scale));
+    --text-5xl: calc(3rem * var(--font-scale));
+    --text-6xl: calc(3.75rem * var(--font-scale));
+    --text-7xl: calc(4.5rem * var(--font-scale));
+    --text-8xl: calc(6rem * var(--font-scale));
+    --text-9xl: calc(8rem * var(--font-scale));
+
     /* Semantic Theme Variables - Dark (Default) */
     --background: 15 23 42; /* Slate 900 */
     --surface: 30 41 59; /* Slate 800 */
@@ -1373,5 +1401,54 @@
   .modal-content,
   .modal-overlay-wrapper {
     -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/*
+  Fixed-px text sizes follow the Text size setting too. `text-[11px]` and friends
+  are arbitrary values, so the `--text-*` tokens above cannot reach them; each size
+  used in src/ is listed here. This block must stay LAST (same layer, later in the
+  file than Tailwind's generated utilities) so it wins. When a new `text-[Npx]`
+  size is introduced, add it here - otherwise it silently ignores the setting.
+*/
+@layer utilities {
+  .text-\[8px\] {
+    font-size: calc(8px * var(--font-scale));
+  }
+  .text-\[9px\] {
+    font-size: calc(9px * var(--font-scale));
+  }
+  .text-\[9\.5px\] {
+    font-size: calc(9.5px * var(--font-scale));
+  }
+  .text-\[10px\] {
+    font-size: calc(10px * var(--font-scale));
+  }
+  .text-\[11px\] {
+    font-size: calc(11px * var(--font-scale));
+  }
+  .text-\[11\.5px\] {
+    font-size: calc(11.5px * var(--font-scale));
+  }
+  .text-\[12px\] {
+    font-size: calc(12px * var(--font-scale));
+  }
+  .text-\[12\.5px\] {
+    font-size: calc(12.5px * var(--font-scale));
+  }
+  .text-\[13px\] {
+    font-size: calc(13px * var(--font-scale));
+  }
+  .text-\[14px\] {
+    font-size: calc(14px * var(--font-scale));
+  }
+  .text-\[14\.5px\] {
+    font-size: calc(14.5px * var(--font-scale));
+  }
+  .text-\[15px\] {
+    font-size: calc(15px * var(--font-scale));
+  }
+  .text-\[17px\] {
+    font-size: calc(17px * var(--font-scale));
   }
 }

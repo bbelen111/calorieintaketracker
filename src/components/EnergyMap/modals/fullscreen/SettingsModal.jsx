@@ -28,6 +28,12 @@ import {
   sanitizeHeight,
 } from '../../../../utils/measurements/profile';
 import { getTodayDateKey } from '../../../../utils/data/dateKeys';
+import {
+  DENSITY_OPTIONS,
+  FONT_SCALE_OPTIONS,
+  normalizeFontScaleKey,
+  normalizeUiDensityKey,
+} from '../../../../constants/appearance/uiScale';
 import { getAdaptiveThermogenesisSmartModeDataStatus } from '../../../../utils/calculations/adaptiveThermogenesis';
 
 // `swatchClass` is the CSS class that carries the theme's variables, so the
@@ -859,29 +865,76 @@ const ProfileSection = ({
   </div>
 );
 
-const AppearanceSection = ({ userData, onFieldChange }) => (
-  <div>
-    <SettingLabel>Color theme</SettingLabel>
-    <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-      {THEME_OPTIONS.map(({ value, label, swatchClass }) => (
-        <SegmentedButton
-          key={value}
-          active={userData.theme === value}
-          activeClassName={BUTTON_ACTIVE_PRIMARY_CLASS}
-          aria-pressed={userData.theme === value}
-          onClick={() => onFieldChange?.('theme', value)}
-        >
-          {/* Stacked + centered so every swatch shares one x-position per
-              column regardless of label width. */}
-          <span className="flex flex-col items-center gap-1.5">
-            <ThemeSwatch swatchClass={swatchClass} />
-            <span className="text-sm">{label}</span>
-          </span>
-        </SegmentedButton>
-      ))}
+const AppearanceSection = ({ userData, onFieldChange }) => {
+  const fontScaleKey = normalizeFontScaleKey(userData.fontScale);
+  const densityKey = normalizeUiDensityKey(userData.uiDensity);
+
+  // One block per setting (the page staggers its blocks in); text size and
+  // density apply live to the whole app, including this page, so there is no
+  // separate preview to maintain.
+  return (
+    <div className="space-y-6">
+      <div>
+        <SettingLabel>Color theme</SettingLabel>
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+          {THEME_OPTIONS.map(({ value, label, swatchClass }) => (
+            <SegmentedButton
+              key={value}
+              active={userData.theme === value}
+              activeClassName={BUTTON_ACTIVE_PRIMARY_CLASS}
+              aria-pressed={userData.theme === value}
+              onClick={() => onFieldChange?.('theme', value)}
+            >
+              {/* Stacked + centered so every swatch shares one x-position per
+                  column regardless of label width. */}
+              <span className="flex flex-col items-center gap-1.5">
+                <ThemeSwatch swatchClass={swatchClass} />
+                <span className="text-sm">{label}</span>
+              </span>
+            </SegmentedButton>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <SettingLabel>Text size</SettingLabel>
+        <div className="grid grid-cols-4 gap-2">
+          {FONT_SCALE_OPTIONS.map(({ key, label, scale }) => (
+            <SegmentedButton
+              key={key}
+              active={fontScaleKey === key}
+              activeClassName={BUTTON_ACTIVE_PRIMARY_CLASS}
+              aria-pressed={fontScaleKey === key}
+              onClick={() => onFieldChange?.('fontScale', key)}
+            >
+              {/* Each label is drawn at the size it stands for, so the row reads
+                  as a preview. Absolute rem, so it does not move with the
+                  setting it is describing. */}
+              <span style={{ fontSize: `${0.875 * scale}rem` }}>{label}</span>
+            </SegmentedButton>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <SettingLabel>Density</SettingLabel>
+        <div className="grid grid-cols-3 gap-2">
+          {DENSITY_OPTIONS.map(({ key, label }) => (
+            <SegmentedButton
+              key={key}
+              active={densityKey === key}
+              activeClassName={BUTTON_ACTIVE_PRIMARY_CLASS}
+              aria-pressed={densityKey === key}
+              onClick={() => onFieldChange?.('uiDensity', key)}
+            >
+              <span className="text-sm">{label}</span>
+            </SegmentedButton>
+          ))}
+        </div>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const EpocSection = ({
   epocEnabled,

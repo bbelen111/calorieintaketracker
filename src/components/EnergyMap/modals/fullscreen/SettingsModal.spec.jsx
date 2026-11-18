@@ -135,6 +135,61 @@ describe('SettingsModal segmented navigation', () => {
     expect(onFieldChange).toHaveBeenLastCalledWith('theme', 'forest');
   });
 
+  it('offers Text size and Density on the Appearance page and reports each choice', async () => {
+    const user = userEvent.setup();
+    const onFieldChange = vi.fn();
+    render(<SettingsHarness onFieldChange={onFieldChange} />);
+
+    await user.click(screen.getByRole('button', { name: 'Open Appearance' }));
+
+    expect(screen.getByText('Text size')).toBeInTheDocument();
+    expect(screen.getByText('Density')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Large' }));
+    expect(onFieldChange).toHaveBeenLastCalledWith('fontScale', 'large');
+
+    await user.click(screen.getByRole('button', { name: 'Largest' }));
+    expect(onFieldChange).toHaveBeenLastCalledWith('fontScale', 'xlarge');
+
+    await user.click(screen.getByRole('button', { name: 'Compact' }));
+    expect(onFieldChange).toHaveBeenLastCalledWith('uiDensity', 'compact');
+
+    await user.click(screen.getByRole('button', { name: 'Comfortable' }));
+    expect(onFieldChange).toHaveBeenLastCalledWith('uiDensity', 'comfortable');
+  });
+
+  it('shows the stored text size and density as pressed, and Default when unset or invalid', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(
+      <SettingsHarness
+        userData={createUserData({ fontScale: 'small', uiDensity: 'compact' })}
+      />
+    );
+    await user.click(screen.getByRole('button', { name: 'Open Appearance' }));
+
+    expect(screen.getByRole('button', { name: 'Small' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    expect(screen.getByRole('button', { name: 'Compact' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    unmount();
+
+    // Unset (an older profile) and corrupt values both read as Default.
+    render(
+      <SettingsHarness userData={createUserData({ fontScale: 'galactic' })} />
+    );
+    await user.click(screen.getByRole('button', { name: 'Open Appearance' }));
+
+    const defaults = screen.getAllByRole('button', { name: 'Default' });
+    expect(defaults).toHaveLength(2); // one per row
+    defaults.forEach((button) =>
+      expect(button).toHaveAttribute('aria-pressed', 'true')
+    );
+  });
+
   it('keeps Daily Activity and calorie adjustment controls on their own pages', async () => {
     const user = userEvent.setup();
     const onFieldChange = vi.fn();

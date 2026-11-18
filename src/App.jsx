@@ -3,6 +3,7 @@ import { EnergyMapCalculator } from './components/EnergyMap/EnergyMapCalculator'
 import { useEnergyMapStore } from './store/useEnergyMapStore';
 import { useKeyboardVisible } from './hooks/useKeyboardVisible';
 import { applyNativeTheme, getThemeClass } from './utils/theme';
+import { applyUiScale } from './constants/appearance/uiScale';
 
 const THEME_CLASSES = [
   'theme-light',
@@ -16,6 +17,10 @@ const THEME_CLASSES = [
 const App = () => {
   const theme = useEnergyMapStore((state) => state.theme);
   const isLoaded = useEnergyMapStore((state) => state.isLoaded);
+  // Display scale (see constants/appearance/uiScale.js): primitives, so this only
+  // re-renders when the user actually changes one of them.
+  const fontScale = useEnergyMapStore((state) => state.userData?.fontScale);
+  const uiDensity = useEnergyMapStore((state) => state.userData?.uiDensity);
 
   // Single app-wide publisher for the keyboard state: `--keyboard-inset` on
   // `:root` (consumed by `.keyboard-bottom-inset`) plus the visible flag the
@@ -57,6 +62,13 @@ const App = () => {
     // Apply native platform theme (status bar, nav bar, keyboard)
     applyNativeTheme(themeValue);
   }, []);
+
+  // Text size + density are plain CSS variables on <html>, consumed by index.css;
+  // no re-render of the tree is involved when they change.
+  useEffect(() => {
+    if (!isLoaded) return;
+    applyUiScale({ fontScale, uiDensity }, document.documentElement);
+  }, [isLoaded, fontScale, uiDensity]);
 
   useEffect(() => {
     if (!isLoaded) return;

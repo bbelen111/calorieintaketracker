@@ -5,6 +5,12 @@ import {
 } from '../../constants/activity/activityPresets.js';
 import { cardioTypes as baseCardioTypes } from '../../constants/cardio/cardioTypes.js';
 import {
+  DEFAULT_FONT_SCALE_KEY,
+  DEFAULT_UI_DENSITY_KEY,
+  normalizeFontScaleKey,
+  normalizeUiDensityKey,
+} from '../../constants/appearance/uiScale.js';
+import {
   deleteHistoryDocumentsFromDexie,
   loadAllHistoryDocuments,
   saveHistoryToDexie,
@@ -1330,6 +1336,8 @@ export const getDefaultEnergyMapData = () => ({
   bodyFatTrackingEnabled: true,
   gender: 'male',
   theme: 'auto', // 'auto' | 'dark' | 'light' | 'amoled_dark' | 'forest' | 'dawn' | 'dusk' | 'midnight'
+  fontScale: DEFAULT_FONT_SCALE_KEY, // 'small' | 'default' | 'large' | 'xlarge' (text only)
+  uiDensity: DEFAULT_UI_DENSITY_KEY, // 'compact' | 'default' | 'comfortable' (spacing/size unit)
   selectedGoal: 'maintenance',
   goalChangedAt: Date.now(),
   hasSeenSwipeHint: false,
@@ -1570,6 +1578,10 @@ function mergeWithDefaults(data) {
     ...normalizedInput,
     age: sanitizeAge(normalizedInput.age, defaults.age),
     height: sanitizeHeight(normalizedInput.height, defaults.height),
+    // Unknown/corrupt display-scale keys fall back to the default rather than
+    // reaching the CSS variables.
+    fontScale: normalizeFontScaleKey(normalizedInput.fontScale),
+    uiDensity: normalizeUiDensityKey(normalizedInput.uiDensity),
     selectedGoal: normalizeSelectedGoal(
       normalizedInput.selectedGoal,
       defaults.selectedGoal
