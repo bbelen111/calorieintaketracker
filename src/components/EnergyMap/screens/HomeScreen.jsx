@@ -361,8 +361,21 @@ export const HomeScreen = ({
               <div>
                 <p className="text-foreground font-semibold">{label}</p>
                 <p className="text-muted text-sm">
-                  {durationValue} min • {effortDisplay} • ~{calories} kcal
-                  {epocEnabled && ` + ~${Math.round(epocCalories)} EPOC`}
+                  <span className="text-foreground/70">
+                    {durationValue} min
+                  </span>
+                  {' • '}
+                  {effortDisplay}
+                  {' • '}
+                  <span className="text-foreground/70">~{calories} kcal</span>
+                  {epocEnabled && (
+                    <>
+                      {' + '}
+                      <span className="text-foreground/70">
+                        ~{Math.round(epocCalories)} EPOC
+                      </span>
+                    </>
+                  )}
                 </p>
                 {showMissingTypeWarning && (
                   <p className="text-accent-amber text-xs mt-1">
@@ -479,8 +492,21 @@ export const HomeScreen = ({
               <div>
                 <p className="text-foreground font-semibold">{label}</p>
                 <p className="text-muted text-sm">
-                  {durationValue} min • {effortDisplay} • ~{calories} kcal
-                  {epocEnabled && ` + ~${Math.round(epocCalories)} EPOC`}
+                  <span className="text-foreground/70">
+                    {durationValue} min
+                  </span>
+                  {' • '}
+                  {effortDisplay}
+                  {' • '}
+                  <span className="text-foreground/70">~{calories} kcal</span>
+                  {epocEnabled && (
+                    <>
+                      {' + '}
+                      <span className="text-foreground/70">
+                        ~{Math.round(epocCalories)} EPOC
+                      </span>
+                    </>
+                  )}
                 </p>
                 {showMissingTypeWarning && (
                   <p className="text-accent-amber text-xs mt-1">
