@@ -905,6 +905,16 @@
   button.bg-accent-blue,
   button.bg-accent-green,
   button.bg-accent-red,
+  button.bg-accent-indigo,
+  button.bg-accent-purple,
+  button.bg-accent-yellow,
+  button.bg-accent-orange,
+  button.bg-accent-amber,
+  button.bg-accent-lime,
+  button.bg-accent-emerald,
+  button.bg-accent-pink,
+  button.bg-accent-teal,
+  button.bg-accent-coral,
   div.bg-primary:is(.rounded-lg, .rounded-xl, .rounded-2xl),
   div.bg-accent-blue.absolute:is(.rounded-md, .rounded-lg) {
     background-image: linear-gradient(
@@ -937,6 +947,71 @@
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 0.12),
       0 6px 16px -6px rgb(var(--accent-red) / 0.5);
+  }
+
+  /*
+    Every solid accent fill gets the same glow as blue/green/red, so selected
+    states (goal cards, gender, NEAT card) read as one family regardless of hue.
+    `accent-slate` is deliberately excluded: it is the neutral/fallback fill.
+  */
+  button.bg-accent-indigo:not(:disabled) {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.12),
+      0 6px 16px -6px rgb(var(--accent-indigo) / 0.5);
+  }
+
+  button.bg-accent-purple:not(:disabled) {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.12),
+      0 6px 16px -6px rgb(var(--accent-purple) / 0.5);
+  }
+
+  button.bg-accent-yellow:not(:disabled) {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.12),
+      0 6px 16px -6px rgb(var(--accent-yellow) / 0.5);
+  }
+
+  button.bg-accent-orange:not(:disabled) {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.12),
+      0 6px 16px -6px rgb(var(--accent-orange) / 0.5);
+  }
+
+  button.bg-accent-amber:not(:disabled) {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.12),
+      0 6px 16px -6px rgb(var(--accent-amber) / 0.5);
+  }
+
+  button.bg-accent-lime:not(:disabled) {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.12),
+      0 6px 16px -6px rgb(var(--accent-lime) / 0.5);
+  }
+
+  button.bg-accent-emerald:not(:disabled) {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.12),
+      0 6px 16px -6px rgb(var(--accent-emerald) / 0.5);
+  }
+
+  button.bg-accent-pink:not(:disabled) {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.12),
+      0 6px 16px -6px rgb(var(--accent-pink) / 0.5);
+  }
+
+  button.bg-accent-teal:not(:disabled) {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.12),
+      0 6px 16px -6px rgb(var(--accent-teal) / 0.5);
+  }
+
+  button.bg-accent-coral:not(:disabled) {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.12),
+      0 6px 16px -6px rgb(var(--accent-coral) / 0.5);
   }
 
   /*
