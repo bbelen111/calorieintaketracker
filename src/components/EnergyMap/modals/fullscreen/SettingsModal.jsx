@@ -10,6 +10,10 @@ import {
   Palette,
   Activity,
   SlidersHorizontal,
+  Type,
+  Rows2,
+  Rows3,
+  Rows4,
 } from 'lucide-react';
 import {
   DEFAULT_ACTIVITY_MULTIPLIERS,
@@ -102,6 +106,18 @@ const SETTINGS_PAGES = [
 ];
 
 const defaultPresetKeys = { training: 'default', rest: 'default' };
+
+// Icons for the display-scale rows. Presentation only - the options themselves
+// (keys, labels, multipliers) live in constants/appearance/uiScale.js.
+//  - Text size: the same glyph drawn progressively larger (px, so it does not move
+//    with the setting it illustrates).
+//  - Density: a stack of rows - more, tighter rows = more compact.
+const FONT_SCALE_ICON_PX = { small: 13, default: 16, large: 19, xlarge: 22 };
+const DENSITY_ICONS = {
+  compact: Rows4,
+  default: Rows3,
+  comfortable: Rows2,
+};
 
 const BUTTON_BASE_CLASS =
   'py-3 px-2 rounded-lg border-2 transition-all font-semibold flex items-center justify-center gap-2 focus-ring pressable-inline';
@@ -907,10 +923,20 @@ const AppearanceSection = ({ userData, onFieldChange }) => {
               aria-pressed={fontScaleKey === key}
               onClick={() => onFieldChange?.('fontScale', key)}
             >
-              {/* Each label is drawn at the size it stands for, so the row reads
-                  as a preview. Absolute rem, so it does not move with the
-                  setting it is describing. */}
-              <span style={{ fontSize: `${0.875 * scale}rem` }}>{label}</span>
+              {/* Stacked like the theme buttons. The glyph grows with the size, and
+                  each label is drawn at the size it stands for (absolute units, so
+                  neither moves with the setting they describe) - the row reads as
+                  a preview. Fixed-height icon slot keeps the labels on one line. */}
+              <span className="flex flex-col items-center gap-1">
+                <span className="flex h-6 items-end">
+                  <Type
+                    size={FONT_SCALE_ICON_PX[key]}
+                    aria-hidden="true"
+                    className="shrink-0"
+                  />
+                </span>
+                <span style={{ fontSize: `${0.875 * scale}rem` }}>{label}</span>
+              </span>
             </SegmentedButton>
           ))}
         </div>
@@ -919,17 +945,27 @@ const AppearanceSection = ({ userData, onFieldChange }) => {
       <div>
         <SettingLabel>Density</SettingLabel>
         <div className="grid grid-cols-3 gap-2">
-          {DENSITY_OPTIONS.map(({ key, label }) => (
-            <SegmentedButton
-              key={key}
-              active={densityKey === key}
-              activeClassName={BUTTON_ACTIVE_PRIMARY_CLASS}
-              aria-pressed={densityKey === key}
-              onClick={() => onFieldChange?.('uiDensity', key)}
-            >
-              <span className="text-sm">{label}</span>
-            </SegmentedButton>
-          ))}
+          {DENSITY_OPTIONS.map(({ key, label }) => {
+            const DensityIcon = DENSITY_ICONS[key];
+            return (
+              <SegmentedButton
+                key={key}
+                active={densityKey === key}
+                activeClassName={BUTTON_ACTIVE_PRIMARY_CLASS}
+                aria-pressed={densityKey === key}
+                onClick={() => onFieldChange?.('uiDensity', key)}
+              >
+                <span className="flex flex-col items-center gap-1">
+                  <DensityIcon
+                    size={20}
+                    aria-hidden="true"
+                    className="shrink-0"
+                  />
+                  <span className="text-sm">{label}</span>
+                </span>
+              </SegmentedButton>
+            );
+          })}
         </div>
       </div>
     </div>
