@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -188,6 +188,72 @@ describe('SettingsModal segmented navigation', () => {
     defaults.forEach((button) =>
       expect(button).toHaveAttribute('aria-pressed', 'true')
     );
+  });
+
+  it('offers an Animations preference and reports each choice', async () => {
+    const user = userEvent.setup();
+    const onFieldChange = vi.fn();
+    render(<SettingsHarness onFieldChange={onFieldChange} />);
+
+    await user.click(screen.getByRole('button', { name: 'Open Appearance' }));
+    expect(screen.getByText('Animations')).toBeInTheDocument();
+    // "Auto" also exists in the Color theme row, so scope to the group.
+    const animations = within(
+      screen.getByRole('group', { name: 'Animations' })
+    );
+
+    await user.click(animations.getByRole('button', { name: 'Full' }));
+    expect(onFieldChange).toHaveBeenLastCalledWith('motionPreference', 'full');
+
+    await user.click(animations.getByRole('button', { name: 'Reduced' }));
+    expect(onFieldChange).toHaveBeenLastCalledWith(
+      'motionPreference',
+      'reduced'
+    );
+
+    await user.click(animations.getByRole('button', { name: 'Off' }));
+    expect(onFieldChange).toHaveBeenLastCalledWith('motionPreference', 'off');
+
+    await user.click(animations.getByRole('button', { name: 'Auto' }));
+    expect(onFieldChange).toHaveBeenLastCalledWith(
+      'motionPreference',
+      'system'
+    );
+  });
+
+  it('shows the stored Animations preference as pressed, and Auto when unset or invalid', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(
+      <SettingsHarness userData={createUserData({ motionPreference: 'off' })} />
+    );
+    await user.click(screen.getByRole('button', { name: 'Open Appearance' }));
+
+    expect(
+      within(screen.getByRole('group', { name: 'Animations' })).getByRole(
+        'button',
+        { name: 'Off' }
+      )
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      within(screen.getByRole('group', { name: 'Animations' })).getByRole(
+        'button',
+        { name: 'Auto' }
+      )
+    ).toHaveAttribute('aria-pressed', 'false');
+    unmount();
+
+    render(
+      <SettingsHarness
+        userData={createUserData({ motionPreference: 'ludicrous' })}
+      />
+    );
+    await user.click(screen.getByRole('button', { name: 'Open Appearance' }));
+    expect(
+      within(screen.getByRole('group', { name: 'Animations' })).getByRole(
+        'button',
+        { name: 'Auto' }
+      )
+    ).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('keeps Daily Activity and calorie adjustment controls on their own pages', async () => {

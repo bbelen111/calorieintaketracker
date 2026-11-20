@@ -3,8 +3,8 @@ import {
   clearPortionOrigin,
   flyCard,
   peekPortionOrigin,
-  prefersReducedMotion,
 } from '../utils/visuals/portionTransition';
+import { prefersReducedMotion } from '../utils/visuals/motionPreference';
 
 /**
  * Drives the Food Portion modal's shared-element transition: when the modal

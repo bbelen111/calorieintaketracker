@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from 'react';
-import { useReducedMotion } from 'framer-motion';
+import { useReducedMotionPreference } from './useMotionMode';
 
 const DEFAULT_FROM_OPACITY = 0.6;
 const DEFAULT_FROM_OFFSET_PX = 2;
@@ -51,7 +51,7 @@ export const useContentRefresh = (
   } = {}
 ) => {
   const ref = useRef(null);
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = useReducedMotionPreference();
   const previousIdentityRef = useRef(identity);
   const wasEnabledRef = useRef(enabled);
 

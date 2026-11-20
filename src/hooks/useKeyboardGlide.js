@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { prefersReducedMotion } from '../utils/visuals/motionPreference';
 
 /**
  * Smooths the jump a centred modal makes when the on-screen keyboard opens or
@@ -31,10 +32,6 @@ const MIN_SHIFT_PX = 1;
 export const KEYBOARD_GLIDE_MS = 280;
 // Decelerating, like the platform keyboard's own slide.
 export const KEYBOARD_GLIDE_EASING = 'cubic-bezier(0.25, 0.8, 0.25, 1)';
-
-const prefersReducedMotion = () =>
-  typeof window.matchMedia === 'function' &&
-  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // `translate` is "none" or "<x> [<y>]" in px.
 const readTranslateY = (element) => {

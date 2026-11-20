@@ -3,7 +3,24 @@ import ReactDOM from 'react-dom/client';
 import { Keyboard } from '@capacitor/keyboard';
 import App from './App.jsx';
 import { isAndroid, isIOS } from './utils/platform.js';
+import { resolveMotionMode } from './constants/appearance/motion.js';
+import { setMotionMode } from './utils/visuals/motionPreference.js';
 import './index.css';
+
+// Publish a motion mode BEFORE React renders: index.css keys its reduced/off rules
+// on `<html data-motion>`, so without this a device that asks for reduced motion
+// would see one un-reduced first frame. This is the device default (`system`); App.jsx
+// replaces it with the user's saved preference as soon as the store has hydrated.
+if (typeof document !== 'undefined') {
+  const deviceQuery =
+    typeof window.matchMedia === 'function'
+      ? window.matchMedia('(prefers-reduced-motion: reduce)')
+      : null;
+  setMotionMode(
+    resolveMotionMode('system', Boolean(deviceQuery?.matches)),
+    document.documentElement
+  );
+}
 
 if (typeof document !== 'undefined') {
   const preventGesture = (event) => event.preventDefault();

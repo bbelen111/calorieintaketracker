@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { shallow } from 'zustand/shallow';
+import { useReducedMotionPreference } from '../../../../hooks/useMotionMode';
 import { ModalShell } from '../../common/ModalShell';
 import {
   TrackerSelectionCard,
@@ -321,15 +322,7 @@ export const RollingEnergyBalanceModal = ({
   // header stats to whatever page the carousel has settled on. ---
   const settledAsOfRef = useRef(null);
 
-  const prefersReducedMotion = useMemo(() => {
-    if (
-      typeof window === 'undefined' ||
-      typeof window.matchMedia !== 'function'
-    ) {
-      return false;
-    }
-    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  }, []);
+  const prefersReducedMotion = useReducedMotionPreference();
 
   const clearGraphAnimationTimeout = useCallback(() => {
     if (graphAnimationTimeoutRef.current) {

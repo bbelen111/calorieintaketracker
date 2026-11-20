@@ -14,6 +14,10 @@ import {
   Rows2,
   Rows3,
   Rows4,
+  MonitorSmartphone,
+  Sparkles,
+  Feather,
+  CircleOff,
 } from 'lucide-react';
 import {
   DEFAULT_ACTIVITY_MULTIPLIERS,
@@ -38,6 +42,10 @@ import {
   normalizeFontScaleKey,
   normalizeUiDensityKey,
 } from '../../../../constants/appearance/uiScale';
+import {
+  MOTION_PREFERENCE_OPTIONS,
+  normalizeMotionPreferenceKey,
+} from '../../../../constants/appearance/motion';
 import { getAdaptiveThermogenesisSmartModeDataStatus } from '../../../../utils/calculations/adaptiveThermogenesis';
 
 // `swatchClass` is the CSS class that carries the theme's variables, so the
@@ -117,6 +125,14 @@ const DENSITY_ICONS = {
   compact: Rows4,
   default: Rows3,
   comfortable: Rows2,
+};
+//  - Animations: Auto = "follow the device", Full = lively, Reduced = light,
+//    Off = nothing.
+const MOTION_ICONS = {
+  system: MonitorSmartphone,
+  full: Sparkles,
+  reduced: Feather,
+  off: CircleOff,
 };
 
 const BUTTON_BASE_CLASS =
@@ -884,6 +900,7 @@ const ProfileSection = ({
 const AppearanceSection = ({ userData, onFieldChange }) => {
   const fontScaleKey = normalizeFontScaleKey(userData.fontScale);
   const densityKey = normalizeUiDensityKey(userData.uiDensity);
+  const motionKey = normalizeMotionPreferenceKey(userData.motionPreference);
 
   // One block per setting (the page staggers its blocks in); text size and
   // density apply live to the whole app, including this page, so there is no
@@ -892,7 +909,11 @@ const AppearanceSection = ({ userData, onFieldChange }) => {
     <div className="space-y-6">
       <div>
         <SettingLabel>Color theme</SettingLabel>
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+        <div
+          role="group"
+          aria-label="Color theme"
+          className="grid grid-cols-2 gap-2 md:grid-cols-4"
+        >
           {THEME_OPTIONS.map(({ value, label, swatchClass }) => (
             <SegmentedButton
               key={value}
@@ -914,7 +935,11 @@ const AppearanceSection = ({ userData, onFieldChange }) => {
 
       <div>
         <SettingLabel>Text size</SettingLabel>
-        <div className="grid grid-cols-4 gap-2">
+        <div
+          role="group"
+          aria-label="Text size"
+          className="grid grid-cols-4 gap-2"
+        >
           {FONT_SCALE_OPTIONS.map(({ key, label, scale }) => (
             <SegmentedButton
               key={key}
@@ -944,7 +969,11 @@ const AppearanceSection = ({ userData, onFieldChange }) => {
 
       <div>
         <SettingLabel>Density</SettingLabel>
-        <div className="grid grid-cols-3 gap-2">
+        <div
+          role="group"
+          aria-label="Density"
+          className="grid grid-cols-3 gap-2"
+        >
           {DENSITY_OPTIONS.map(({ key, label }) => {
             const DensityIcon = DENSITY_ICONS[key];
             return (
@@ -957,6 +986,37 @@ const AppearanceSection = ({ userData, onFieldChange }) => {
               >
                 <span className="flex flex-col items-center gap-1">
                   <DensityIcon
+                    size={20}
+                    aria-hidden="true"
+                    className="shrink-0"
+                  />
+                  <span className="text-sm">{label}</span>
+                </span>
+              </SegmentedButton>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <SettingLabel>Animations</SettingLabel>
+        <div
+          role="group"
+          aria-label="Animations"
+          className="grid grid-cols-4 gap-2"
+        >
+          {MOTION_PREFERENCE_OPTIONS.map(({ key, label }) => {
+            const MotionIcon = MOTION_ICONS[key];
+            return (
+              <SegmentedButton
+                key={key}
+                active={motionKey === key}
+                activeClassName={BUTTON_ACTIVE_PRIMARY_CLASS}
+                aria-pressed={motionKey === key}
+                onClick={() => onFieldChange?.('motionPreference', key)}
+              >
+                <span className="flex flex-col items-center gap-1">
+                  <MotionIcon
                     size={20}
                     aria-hidden="true"
                     className="shrink-0"

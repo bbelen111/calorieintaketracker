@@ -1,9 +1,16 @@
 import React, { useEffect, useCallback, useRef } from 'react';
+import { MotionConfig, MotionGlobalConfig } from 'framer-motion';
 import { EnergyMapCalculator } from './components/EnergyMap/EnergyMapCalculator';
 import { useEnergyMapStore } from './store/useEnergyMapStore';
 import { useKeyboardVisible } from './hooks/useKeyboardVisible';
 import { applyNativeTheme, getThemeClass } from './utils/theme';
 import { applyUiScale } from './constants/appearance/uiScale';
+import { resolveMotionMode } from './constants/appearance/motion';
+import { useMotionMode } from './hooks/useMotionMode';
+import {
+  prefersReducedMotion,
+  setMotionMode,
+} from './utils/visuals/motionPreference';
 
 const THEME_CLASSES = [
   'theme-light',
@@ -21,6 +28,12 @@ const App = () => {
   // re-renders when the user actually changes one of them.
   const fontScale = useEnergyMapStore((state) => state.userData?.fontScale);
   const uiDensity = useEnergyMapStore((state) => state.userData?.uiDensity);
+  // Animations preference (see constants/appearance/motion.js) and the mode it
+  // resolves to, which every motion-aware component reads.
+  const motionPreference = useEnergyMapStore(
+    (state) => state.userData?.motionPreference
+  );
+  const motionMode = useMotionMode();
 
   // Single app-wide publisher for the keyboard state: `--keyboard-inset` on
   // `:root` (consumed by `.keyboard-bottom-inset`) plus the visible flag the
@@ -51,7 +64,7 @@ const App = () => {
     const canCrossFade =
       animate &&
       typeof document.startViewTransition === 'function' &&
-      !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      !prefersReducedMotion();
 
     if (canCrossFade) {
       document.startViewTransition(swapThemeClass);
@@ -70,6 +83,35 @@ const App = () => {
     applyUiScale({ fontScale, uiDensity }, document.documentElement);
   }, [isLoaded, fontScale, uiDensity]);
 
+  // Resolve the Animations preference against the device's Reduce Motion setting
+  // and publish the result (the `data-motion` attribute for CSS, the store for JS).
+  // `system` follows the device live, so toggling Reduce Motion while the app is open
+  // takes effect without a restart.
+  useEffect(() => {
+    if (!isLoaded) return undefined;
+
+    const deviceQuery =
+      typeof window.matchMedia === 'function'
+        ? window.matchMedia('(prefers-reduced-motion: reduce)')
+        : null;
+    const apply = () =>
+      setMotionMode(
+        resolveMotionMode(motionPreference, Boolean(deviceQuery?.matches)),
+        document.documentElement
+      );
+
+    apply();
+    deviceQuery?.addEventListener?.('change', apply);
+    return () => deviceQuery?.removeEventListener?.('change', apply);
+  }, [isLoaded, motionPreference]);
+
+  // framer-motion: `off` completes every animation instantly (including exits, so
+  // AnimatePresence never holds a node), and `reduced` keeps opacity fades but drops
+  // transform/layout motion. `full` forces motion on regardless of the device flag.
+  useEffect(() => {
+    MotionGlobalConfig.skipAnimations = motionMode === 'off';
+  }, [motionMode]);
+
   useEffect(() => {
     if (!isLoaded) return;
 
@@ -87,7 +129,11 @@ const App = () => {
     }
   }, [theme, isLoaded, applyTheme]);
 
-  return <EnergyMapCalculator />;
+  return (
+    <MotionConfig reducedMotion={motionMode === 'full' ? 'never' : 'always'}>
+      <EnergyMapCalculator />
+    </MotionConfig>
+  );
 };
 
 export default App;

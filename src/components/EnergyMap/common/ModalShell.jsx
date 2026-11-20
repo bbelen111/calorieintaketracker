@@ -8,6 +8,7 @@ import React, {
 import { createPortal } from 'react-dom';
 import PropTypes from 'prop-types';
 import { Capacitor } from '@capacitor/core';
+import { useReducedMotionPreference } from '../../../hooks/useMotionMode';
 import {
   KEYBOARD_GLIDE_EASING,
   KEYBOARD_GLIDE_MS,
@@ -266,6 +267,8 @@ export const ModalShell = ({
   // new centre in one frame; glide it there instead (see the hook for why this is
   // an animation of the result, not a change to the layout contract above).
   useKeyboardGlide({ enabled: isOpen && !shouldFullHeight, contentRef });
+  // Reduced / off motion (the Animations preference) keeps the keyboard change instant.
+  const reduceMotion = useReducedMotionPreference();
 
   // Early return if not open
   if (!isOpen || typeof document === 'undefined') return null;
@@ -291,13 +294,7 @@ export const ModalShell = ({
   // above instantly; transition them so the centred sheet glides to its new band
   // instead of snapping (Android's window resize is smoothed by `useKeyboardGlide`
   // above). Reduced motion keeps the instant behaviour.
-  const smoothKeyboardChanges =
-    !shouldFullHeight &&
-    !(
-      typeof window !== 'undefined' &&
-      typeof window.matchMedia === 'function' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    );
+  const smoothKeyboardChanges = !shouldFullHeight && !reduceMotion;
   const keyboardTransition = (property) =>
     `${property} ${KEYBOARD_GLIDE_MS}ms ${KEYBOARD_GLIDE_EASING}`;
 

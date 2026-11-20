@@ -24,7 +24,9 @@ import {
   Sparkles,
   Utensils,
 } from 'lucide-react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useReducedMotionPreference } from '../../../../hooks/useMotionMode';
+import { resolveScrollBehavior } from '../../../../utils/visuals/motionPreference';
 import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
@@ -322,7 +324,7 @@ export const FoodSearchModal = ({
   onEditMealEntry,
   onDeleteMealEntry,
 }) => {
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = useReducedMotionPreference();
   const {
     foodFavourites,
     pinnedFoods: storePinnedFoods,
@@ -3154,7 +3156,7 @@ export const FoodSearchModal = ({
     if (viewMode !== 'chat') return;
     chatScrollRef.current?.scrollTo({
       top: chatScrollRef.current.scrollHeight,
-      behavior: 'smooth',
+      behavior: resolveScrollBehavior('smooth'),
     });
   }, [chatMessages, chatAttachments, viewMode]);
 

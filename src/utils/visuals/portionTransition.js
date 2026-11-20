@@ -58,11 +58,6 @@ export const clearPortionOrigin = () => {
   pendingOrigin = null;
 };
 
-export const prefersReducedMotion = () =>
-  typeof window !== 'undefined' &&
-  typeof window.matchMedia === 'function' &&
-  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
 /** `translate + scale` that maps a box at `rest` onto the box at `other`. */
 export const buildFlightTransform = (rest, other) => {
   const scaleX = rest.width > 0 ? other.width / rest.width : 1;

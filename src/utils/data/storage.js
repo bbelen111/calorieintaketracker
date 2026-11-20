@@ -11,6 +11,10 @@ import {
   normalizeUiDensityKey,
 } from '../../constants/appearance/uiScale.js';
 import {
+  DEFAULT_MOTION_PREFERENCE_KEY,
+  normalizeMotionPreferenceKey,
+} from '../../constants/appearance/motion.js';
+import {
   deleteHistoryDocumentsFromDexie,
   loadAllHistoryDocuments,
   saveHistoryToDexie,
@@ -1338,6 +1342,7 @@ export const getDefaultEnergyMapData = () => ({
   theme: 'auto', // 'auto' | 'dark' | 'light' | 'amoled_dark' | 'forest' | 'dawn' | 'dusk' | 'midnight'
   fontScale: DEFAULT_FONT_SCALE_KEY, // 'small' | 'default' | 'large' | 'xlarge' (text only)
   uiDensity: DEFAULT_UI_DENSITY_KEY, // 'compact' | 'default' | 'comfortable' (spacing/size unit)
+  motionPreference: DEFAULT_MOTION_PREFERENCE_KEY, // 'system' | 'full' | 'reduced' | 'off' (animations)
   selectedGoal: 'maintenance',
   goalChangedAt: Date.now(),
   hasSeenSwipeHint: false,
@@ -1582,6 +1587,9 @@ function mergeWithDefaults(data) {
     // reaching the CSS variables.
     fontScale: normalizeFontScaleKey(normalizedInput.fontScale),
     uiDensity: normalizeUiDensityKey(normalizedInput.uiDensity),
+    motionPreference: normalizeMotionPreferenceKey(
+      normalizedInput.motionPreference
+    ),
     selectedGoal: normalizeSelectedGoal(
       normalizedInput.selectedGoal,
       defaults.selectedGoal

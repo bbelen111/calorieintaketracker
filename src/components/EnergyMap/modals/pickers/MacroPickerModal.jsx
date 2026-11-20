@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useRef } from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useReducedMotionPreference } from '../../../../hooks/useMotionMode';
 import {
   Save,
   Beef,
@@ -263,7 +264,7 @@ export const MacroPickerModal = ({
   // state behind the slider. Reduced-motion users get an opacity-only
   // crossfade (the global prefers-reduced-motion block in index.css only
   // covers tracker CSS animations, not Framer Motion).
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = useReducedMotionPreference();
 
   const triangleForegroundState = useMemo(
     () =>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { prefersReducedMotion } from '../utils/visuals/motionPreference';
 import {
   CAROUSEL_SETTLE_MS,
   SCREEN_DRAG_DURATION_ANIMATED,
@@ -49,13 +50,9 @@ const FADE_QUANTIZATION_STEPS = 50;
 const quantizeFade = (value) =>
   Math.round(value * FADE_QUANTIZATION_STEPS) / FADE_QUANTIZATION_STEPS;
 
-const shouldAnimateSettle = () => {
-  if (typeof window.matchMedia !== 'function') {
-    return true;
-  }
-
-  return !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-};
+// Reduced and off both settle instantly (the Animations preference; see
+// constants/appearance/motion.js). Read per settle, so a change applies at once.
+const shouldAnimateSettle = () => !prefersReducedMotion();
 
 /**
  * Looping, clone-free carousel for the five app screens.

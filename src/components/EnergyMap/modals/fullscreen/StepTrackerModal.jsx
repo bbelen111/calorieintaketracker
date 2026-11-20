@@ -7,6 +7,8 @@
   useState,
 } from 'react';
 import { ChevronLeft, Footprints, Target } from 'lucide-react';
+import { resolveScrollBehavior } from '../../../../utils/visuals/motionPreference';
+import { useReducedMotionPreference } from '../../../../hooks/useMotionMode';
 import { ModalShell } from '../../common/ModalShell';
 import {
   TrackerSelectionCard,
@@ -250,16 +252,7 @@ export const StepTrackerModal = ({
   }
   const panelDate = selectedDate ?? lastSelectedDate;
 
-  const prefersReducedMotion = useMemo(() => {
-    if (
-      typeof window === 'undefined' ||
-      typeof window.matchMedia !== 'function'
-    ) {
-      return false;
-    }
-
-    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  }, []);
+  const prefersReducedMotion = useReducedMotionPreference();
 
   const clearGraphAnimationTimeout = useCallback(() => {
     if (graphAnimationTimeoutRef.current) {
@@ -403,7 +396,7 @@ export const StepTrackerModal = ({
         if (node) {
           node.scrollTo({
             left: node.scrollWidth - node.clientWidth,
-            behavior: 'smooth',
+            behavior: resolveScrollBehavior('smooth'),
           });
         }
       }, 100);

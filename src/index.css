@@ -1316,40 +1316,93 @@
     animation: trackerBarIn 0.24s cubic-bezier(0.32, 0.72, 0, 1);
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .tracker-graph-enter,
-    .tracker-graph-switch,
-    .tracker-graph-path,
-    .tracker-graph-fill,
-    .tracker-graph-point,
-    .tracker-bar-animated,
-    .header-stat-in,
-    .day-ledger-in,
-    .day-ledger-in-right,
-    .day-ledger-in-left,
-    .settings-page-enter > * > *,
-    .settings-hub-enter > *,
-    .settings-reveal,
-    .settings-select-pop,
-    .portion-enter > *:nth-child(n + 2) {
-      animation: none !important;
-      transform: none !important;
-    }
+  /*
+    Motion modes (Settings -> Appearance -> Animations). `<html data-motion>` is the
+    resolved mode - set by main.jsx at startup and by App.jsx from the saved
+    preference (constants/appearance/motion.js). Replaces the old device-only
+    `@media (prefers-reduced-motion)` block: `system` now resolves from that same
+    media query in JS, so a device that asks for reduced motion still gets it, but a
+    user can also choose it (or turn animation off) explicitly.
 
-    ::view-transition-old(root),
-    ::view-transition-new(root) {
-      animation-duration: 0.01ms;
-    }
+      full     no rule here - everything plays.
+      reduced  movement goes; crossfades and short colour transitions stay.
+      off      nothing animates (see the universal rule below).
+  */
+  :root:is([data-motion='reduced'], [data-motion='off'])
+    :is(
+      .tracker-graph-enter,
+      .tracker-graph-switch,
+      .tracker-graph-path,
+      .tracker-graph-fill,
+      .tracker-graph-point,
+      .tracker-bar-animated,
+      .header-stat-in,
+      .day-ledger-in,
+      .day-ledger-in-right,
+      .day-ledger-in-left,
+      .settings-page-enter > * > *,
+      .settings-hub-enter > *,
+      .settings-reveal,
+      .settings-select-pop,
+      .portion-enter > *:nth-child(n + 2)
+    ) {
+    animation: none !important;
+    transform: none !important;
+  }
 
+  /* The modal sheet's slide/scale becomes a plain fade. */
+  :root:is([data-motion='reduced'], [data-motion='off']) .modal-content {
+    animation-name: modalFadeIn;
+  }
+
+  :root:is([data-motion='reduced'], [data-motion='off'])
+    .modal-content.closing {
+    animation-name: modalFadeOut;
+  }
+
+  :root:is([data-motion='reduced'], [data-motion='off'])::view-transition-old(
+      root
+    ),
+  :root:is([data-motion='reduced'], [data-motion='off'])::view-transition-new(
+      root
+    ) {
+    animation-duration: 0.01ms;
+  }
+
+  :root:is([data-motion='reduced'], [data-motion='off'])
     .keyboard-bottom-inset {
-      transition: none !important;
-    }
+    transition: none !important;
+  }
 
-    /* The carousel already settles instantly under reduced motion (the shell skips
-     the animated write); keep the edge-fade ramp from gliding too. */
-    .carousel-slide {
-      transition: none !important;
-    }
+  /* The carousel settles instantly (the shell skips the animated write); keep the
+     edge-fade ramp from gliding too. */
+  :root:is([data-motion='reduced'], [data-motion='off']) .carousel-slide {
+    transition: none !important;
+  }
+
+  /* Off: collapse every remaining CSS animation and transition (fades, colour
+     transitions, press feedback) to an instant change. The standard reset: a
+     ~0 duration rather than `none`, so `animationend` / `transitionend` listeners
+     still fire. Spinners are exempt - a frozen spinner just looks hung. */
+  :root[data-motion='off'] *,
+  :root[data-motion='off'] *::before,
+  :root[data-motion='off'] *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
+
+  :root[data-motion='off'] .animate-spin {
+    animation-duration: 1s !important;
+    animation-iteration-count: infinite !important;
+  }
+
+  :root[data-motion='off'] .animate-spin-fast {
+    animation-duration: 0.8s !important;
+    animation-iteration-count: infinite !important;
   }
 
   /* Dropdown animations */

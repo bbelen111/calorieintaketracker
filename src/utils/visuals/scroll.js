@@ -1,3 +1,5 @@
+import { resolveScrollBehavior } from './motionPreference';
+
 export const SCROLL_SETTLE_DELAY = 140;
 
 export const findClosestScrollItem = (container) => {
@@ -29,7 +31,10 @@ export const alignScrollContainerToElement = (
 
   const targetScrollTop =
     element.offsetTop - container.clientHeight / 2 + element.offsetHeight / 2;
-  container.scrollTo({ top: targetScrollTop, behavior });
+  container.scrollTo({
+    top: targetScrollTop,
+    behavior: resolveScrollBehavior(behavior),
+  });
 };
 
 export const alignScrollContainerToValue = (
