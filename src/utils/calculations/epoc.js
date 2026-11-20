@@ -1,6 +1,7 @@
 const MIN_DURATION_MINUTES = 10;
 const DEFAULT_CARRYOVER_HOURS = 6;
 const MAX_CARRYOVER_HOURS = 24;
+const MAX_DURATION_BOOST_HOURS = 2;
 
 const INTENSITY_FACTOR_BY_LEVEL = {
   light: 0.04,
@@ -100,7 +101,7 @@ const resolveCarryoverWindowMinutes = ({
   const durationBoostHours = clamp(
     normalizeNumber(durationMinutes, 0) / 120,
     0,
-    2
+    MAX_DURATION_BOOST_HOURS
   );
 
   return Math.round(
@@ -232,6 +233,19 @@ export const resolveCardioSessionEpoc = ({
     carryoverWindowMinutes,
   });
 };
+
+// Hard upper bound on any session's EPOC carryover window, derived from the
+// same clamps the window formula uses: (max baseline intensity hours + max
+// duration boost) * max configured hours * 0.5, in minutes. Exported so
+// `sessionCarryover` can pre-filter sessions by date distance without
+// computing each session's burn (see getCarryoverForDateFromSessions).
+export const MAX_EPOC_CARRYOVER_WINDOW_MINUTES = Math.round(
+  (Math.max(...Object.values(CARRYOVER_HOURS_BY_INTENSITY)) +
+    MAX_DURATION_BOOST_HOURS) *
+    MAX_CARRYOVER_HOURS *
+    0.5 *
+    60
+);
 
 export {
   DEFAULT_CARRYOVER_HOURS,

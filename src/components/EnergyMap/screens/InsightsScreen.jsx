@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { memo, useMemo } from 'react';
 import {
   Info,
   PieChart,
@@ -251,7 +251,78 @@ function RollingBalancePreviewCard({ summary, onOpen }) {
   );
 }
 
-export const InsightsScreen = ({
+// Static category color classes for the BMI / FFMI chips (module scope —
+// these literals used to be rebuilt on every render).
+const BMI_COLOR_MAP = {
+  blue: {
+    text: 'text-accent-blue',
+    border: 'border-accent-blue/50',
+    bg: 'bg-accent-blue/20',
+  },
+  green: {
+    text: 'text-accent-green',
+    border: 'border-accent-green/50',
+    bg: 'bg-accent-green/20',
+  },
+  yellow: {
+    text: 'text-accent-yellow',
+    border: 'border-accent-yellow/50',
+    bg: 'bg-accent-yellow/20',
+  },
+  red: {
+    text: 'text-accent-red',
+    border: 'border-accent-red/50',
+    bg: 'bg-accent-red/20',
+  },
+  slate: {
+    text: 'text-accent-slate',
+    border: 'border-accent-slate/50',
+    bg: 'bg-accent-slate/20',
+  },
+};
+
+const FFMI_COLOR_MAP = {
+  blue: {
+    text: 'text-accent-blue',
+    border: 'border-accent-blue/50',
+    bg: 'bg-accent-blue/20',
+  },
+  green: {
+    text: 'text-accent-green',
+    border: 'border-accent-green/50',
+    bg: 'bg-accent-green/20',
+  },
+  emerald: {
+    text: 'text-accent-emerald',
+    border: 'border-accent-emerald/50',
+    bg: 'bg-accent-emerald/20',
+  },
+  purple: {
+    text: 'text-accent-purple',
+    border: 'border-accent-purple/50',
+    bg: 'bg-accent-purple/20',
+  },
+  amber: {
+    text: 'text-accent-amber',
+    border: 'border-accent-amber/50',
+    bg: 'bg-accent-amber/20',
+  },
+  red: {
+    text: 'text-accent-red',
+    border: 'border-accent-red/50',
+    bg: 'bg-accent-red/20',
+  },
+  slate: {
+    text: 'text-accent-slate',
+    border: 'border-accent-slate/50',
+    bg: 'bg-accent-slate/20',
+  },
+};
+
+// Memoized: the orchestrator's local state churn (modal opens, drafts,
+// pickers) re-renders its whole tree; the carousel screens receive stable
+// props, so React.memo keeps unrelated screens from reconciling each time.
+export const InsightsScreen = memo(function InsightsScreen({
   userData,
   selectedGoal,
   weightEntries,
@@ -266,7 +337,7 @@ export const InsightsScreen = ({
   onOpenAdaptiveThermogenesis,
   onOpenRollingEnergyBalance,
   macroLocks,
-}) => {
+}) {
   const store = useEnergyMapStore(
     (state) => ({
       userData: state.userData,
@@ -428,33 +499,59 @@ export const InsightsScreen = ({
     [macroSplit, resolvedMacroLocks, resolvedUserData, targetCalories]
   );
 
-  // Adaptive Thermogenesis preview (matches what the store applies today)
+  // Adaptive Thermogenesis preview (matches what the store applies today).
+  // Deps are narrowed to the fields this computation actually reads: the
+  // whole `resolvedUserData` object is replaced on EVERY store write, so
+  // keying on its identity re-ran this 28-snapshot scan (plus the smart-mode
+  // weight filter/sort/regression) on unrelated changes like theme toggles.
+  // The AT-mode resolver is fed a narrow object on purpose — it only reads
+  // the enabled/smartMode fields — so the memo never needs the full
+  // `resolvedUserData` identity.
+  const {
+    goalChangedAt,
+    dailySnapshots,
+    adaptiveThermogenesisEnabled,
+    adaptiveThermogenesisSmartMode,
+    adaptiveThermogenesisSmoothingEnabled: adaptiveSmoothingEnabled,
+    adaptiveThermogenesisSmoothingMethod: adaptiveSmoothingMethod,
+    adaptiveThermogenesisSmoothingWindowDays: adaptiveSmoothingWindowDays,
+  } = resolvedUserData ?? {};
   const adaptiveThermogenesis = useMemo(() => {
-    const ud = resolvedUserData;
     const today = getTodayDateKey();
     const goalDurationDays = store.goalDurationDays ?? 0;
     const props = {
       selectedGoal,
       goalDurationDays,
-      goalChangedAt: ud?.goalChangedAt,
+      goalChangedAt,
       dateKey: today,
-      dailySnapshots: ud?.dailySnapshots,
+      dailySnapshots,
       weightEntries: resolvedWeightEntries,
-      adaptiveSmoothingEnabled: ud?.adaptiveThermogenesisSmoothingEnabled,
-      adaptiveSmoothingMethod: ud?.adaptiveThermogenesisSmoothingMethod,
-      adaptiveSmoothingWindowDays: ud?.adaptiveThermogenesisSmoothingWindowDays,
+      adaptiveSmoothingEnabled,
+      adaptiveSmoothingMethod,
+      adaptiveSmoothingWindowDays,
     };
-    const mode = resolveAdaptiveThermogenesisMode({ userData: ud });
+    const mode = resolveAdaptiveThermogenesisMode({
+      userData: {
+        adaptiveThermogenesisEnabled,
+        adaptiveThermogenesisSmartMode,
+      },
+    });
     return {
       mode,
       result: computeAdaptiveThermogenesis({ ...props, mode }),
       goalDurationDays,
     };
   }, [
-    resolvedUserData,
-    resolvedWeightEntries,
     selectedGoal,
     store.goalDurationDays,
+    resolvedWeightEntries,
+    goalChangedAt,
+    dailySnapshots,
+    adaptiveThermogenesisEnabled,
+    adaptiveThermogenesisSmartMode,
+    adaptiveSmoothingEnabled,
+    adaptiveSmoothingMethod,
+    adaptiveSmoothingWindowDays,
   ]);
   // Rolling Energy Balance preview (7-day primary view)
   const rollingBalanceSummary = useMemo(
@@ -467,72 +564,6 @@ export const InsightsScreen = ({
       }),
     [resolvedUserData.dailySnapshots, store.goalDailyBalanceTarget]
   );
-
-  const bmiColorMap = {
-    blue: {
-      text: 'text-accent-blue',
-      border: 'border-accent-blue/50',
-      bg: 'bg-accent-blue/20',
-    },
-    green: {
-      text: 'text-accent-green',
-      border: 'border-accent-green/50',
-      bg: 'bg-accent-green/20',
-    },
-    yellow: {
-      text: 'text-accent-yellow',
-      border: 'border-accent-yellow/50',
-      bg: 'bg-accent-yellow/20',
-    },
-    red: {
-      text: 'text-accent-red',
-      border: 'border-accent-red/50',
-      bg: 'bg-accent-red/20',
-    },
-    slate: {
-      text: 'text-accent-slate',
-      border: 'border-accent-slate/50',
-      bg: 'bg-accent-slate/20',
-    },
-  };
-
-  const ffmiColorMap = {
-    blue: {
-      text: 'text-accent-blue',
-      border: 'border-accent-blue/50',
-      bg: 'bg-accent-blue/20',
-    },
-    green: {
-      text: 'text-accent-green',
-      border: 'border-accent-green/50',
-      bg: 'bg-accent-green/20',
-    },
-    emerald: {
-      text: 'text-accent-emerald',
-      border: 'border-accent-emerald/50',
-      bg: 'bg-accent-emerald/20',
-    },
-    purple: {
-      text: 'text-accent-purple',
-      border: 'border-accent-purple/50',
-      bg: 'bg-accent-purple/20',
-    },
-    amber: {
-      text: 'text-accent-amber',
-      border: 'border-accent-amber/50',
-      bg: 'bg-accent-amber/20',
-    },
-    red: {
-      text: 'text-accent-red',
-      border: 'border-accent-red/50',
-      bg: 'bg-accent-red/20',
-    },
-    slate: {
-      text: 'text-accent-slate',
-      border: 'border-accent-slate/50',
-      bg: 'bg-accent-slate/20',
-    },
-  };
 
   return (
     <div className="space-y-6 pb-10">
@@ -827,12 +858,12 @@ export const InsightsScreen = ({
                     BMI
                   </p>
                   <p
-                    className={`text-xl font-bold ${bmiColorMap[bmiCategory.color]?.text || 'text-accent-slate'}`}
+                    className={`text-xl font-bold ${BMI_COLOR_MAP[bmiCategory.color]?.text || 'text-accent-slate'}`}
                   >
                     {bmi ? bmi.toFixed(1) : '—'}
                   </p>
                   <p
-                    className={`text-xs mt-1 ${bmiColorMap[bmiCategory.color]?.text || 'text-accent-slate'}`}
+                    className={`text-xs mt-1 ${BMI_COLOR_MAP[bmiCategory.color]?.text || 'text-accent-slate'}`}
                   >
                     {bmiCategory.label}
                   </p>
@@ -857,12 +888,12 @@ export const InsightsScreen = ({
                     BMI
                   </p>
                   <p
-                    className={`text-2xl font-bold ${bmiColorMap[bmiCategory.color]?.text || 'text-accent-slate'}`}
+                    className={`text-2xl font-bold ${BMI_COLOR_MAP[bmiCategory.color]?.text || 'text-accent-slate'}`}
                   >
                     {bmi ? bmi.toFixed(1) : '—'}
                   </p>
                   <p
-                    className={`text-xs mt-1 leading-tight ${bmiColorMap[bmiCategory.color]?.text || 'text-accent-slate'}`}
+                    className={`text-xs mt-1 leading-tight ${BMI_COLOR_MAP[bmiCategory.color]?.text || 'text-accent-slate'}`}
                   >
                     {bmiCategory.label}
                   </p>
@@ -881,12 +912,12 @@ export const InsightsScreen = ({
                     FFMI
                   </p>
                   <p
-                    className={`text-2xl font-bold ${ffmiData ? ffmiColorMap[ffmiCategory.color]?.text || 'text-accent-slate' : 'text-muted'}`}
+                    className={`text-2xl font-bold ${ffmiData ? FFMI_COLOR_MAP[ffmiCategory.color]?.text || 'text-accent-slate' : 'text-muted'}`}
                   >
                     {ffmiData ? ffmiData.normalized.toFixed(1) : '—'}
                   </p>
                   <p
-                    className={`text-xs mt-1 leading-tight ${ffmiData ? ffmiColorMap[ffmiCategory.color]?.text || 'text-accent-slate' : 'text-muted'}`}
+                    className={`text-xs mt-1 leading-tight ${ffmiData ? FFMI_COLOR_MAP[ffmiCategory.color]?.text || 'text-accent-slate' : 'text-muted'}`}
                   >
                     {ffmiData ? ffmiCategory.label : 'Requires body fat data'}
                   </p>
@@ -951,4 +982,4 @@ export const InsightsScreen = ({
       </div>
     </div>
   );
-};
+});

@@ -97,9 +97,12 @@ paths:
 ### Modal Performance Loading Strategy
 
 - Heavy fullscreen modals are lazy-loaded via `React.lazy(...)` in `EnergyMapCalculator`.
-- Selected additional heavyweight modals are also lazy-loaded (`CalorieBreakdownModal`, `TrainingModal`, `CardioModal`, `PhaseCreationModal`, `DailyLogModal`).
+- Selected additional heavyweight modals are also lazy-loaded (`CalorieBreakdownModal`, `TrainingModal`, `CardioModal`, `PhaseCreationModal`, `DailyLogModal`), plus three heavyweight pickers (`CalendarPickerModal` ~42 kB source, `FoodPortionModal`, `MacroPickerModal`) that used to live in the boot-critical bundle.
 - Mounting uses `isOpen || isClosing` guards to preserve exit animations and prevent unmounting during close transitions.
 - Keep `fallback={null}` unless introducing a deliberate loading affordance that does not break modal stack timing.
+- **Tracker chart geometry is precomputed, not per-render:** the Weight/BodyFat tracker modals memoize their gap-aware run geometry (`buildChartRunsGeometry` → `chartRunsGeometry7d/30d/12m`) — `buildGapAwarePathRuns` + `buildBezierPaths` used to run inside the chart render helper on every render (each selection tap or store write while the modal was open rebuilt every path string). The shared render helper takes the memoized geometry as its last parameter; first/last-run edge extension is resolved against the FULL runs array inside the builder. Do not move path construction back into the render body.
+- **Entry-modal wheel drafts relay on settle:** `WeightEntryModal` / `BodyFatEntryModal` stage wheel scroll changes locally (the picker keeps its own live selection state, so the display never lags) and relay `onWeightChange` / `onBodyFatChange` to the orchestrator's draft on a `SCROLL_SETTLE_DELAY` trailing debounce. Their Save buttons pass the live value (`onSave?.(pendingWeightRef.current ?? weight)`) so a save racing the trailing commit can never persist a stale draft; pending commits are dropped when the modal closes. Do not wire wheel scroll frames straight into orchestrator state.
+- **The only continuous store-bound control in Settings commits on release:** the AT smoothing-window slider stages its drag value in local state and writes the store on pointer up / key up / blur. Every other Settings control still applies immediately through `onFieldChange`.
 
 ### Food Search/Favourites UI Architecture
 
@@ -325,6 +328,14 @@ Screens receive a large props bundle from `EnergyMapCalculator` containing:
 - **UI state:** `selectedDay`, display strings, step ranges
 
 Screens also subscribe to the store directly with `shallow` selectors as a fallback pattern. Prefer passing through props for new features.
+
+**All five carousel screens are `React.memo`-wrapped** so the orchestrator's local state churn (modal opens, drafts, pickers) does not reconcile unrelated screens. That makes prop stability load-bearing: new props passed to a screen must be reference-stable (`useCallback`/`useMemo`/module constants), never inline object/array/function literals — an unstable prop silently defeats the memo for that screen. Known exception: `TrackerScreen` receives the `calendarModal` hook object (per-render identity), so its memo compare currently misses on that prop.
+
+**Heavy screen math is memoized, never inline in a render body:**
+- `CalorieMapScreen` consumes the orchestrator's memoized `stepRangeDetailsBySteps` (per-step-range goal-seeded breakdown details) via the `rangeDetailsBySteps` prop — never call `getRangeDetails` per card. (The map is a plain object, not a `Map`: the orchestrator imports the lucide `Map` icon, which shadows the global constructor.)
+- `HomeScreen` memoizes its hero goal-seeded TDEE (`calculateTargetForGoal`, destructured from the store so the memo keys on the stable function, not the whole store object), today's per-session EPOC reduces, and today's session/step-entry filters.
+- `InsightsScreen`'s AT preview memo is keyed on the narrow fields it reads (`goalChangedAt`, `dailySnapshots`, the AT enable/mode/smoothing settings, `selectedGoal`, `goalDurationDays`, weight entries); the AT-mode resolver is fed a narrow `{ adaptiveThermogenesisEnabled, adaptiveThermogenesisSmartMode }` object so the memo never needs the full `userData` identity.
+- Static lookup literals (`GOAL_TEXT_CLASSES` in CalorieMapScreen, `BMI_COLOR_MAP`/`FFMI_COLOR_MAP` in InsightsScreen) live at module scope.
 
 ### Bottom Tab Bar (`ScreenTabs`)
 

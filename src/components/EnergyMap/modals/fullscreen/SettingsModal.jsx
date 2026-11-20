@@ -1261,6 +1261,29 @@ const AdaptiveThermogenesisSection = ({
     ? null
     : `Requires ${adaptiveThermogenesisSmartModeDataStatus.minValidDays} intake days and ${adaptiveThermogenesisSmartModeDataStatus.minWeightEntries} weight entries in the last ${adaptiveThermogenesisSmartModeDataStatus.windowDays} days.`;
 
+  // The smoothing-window slider stages its drag value locally and commits to
+  // the store on release (pointer up / key up / blur). Writing the store per
+  // drag frame re-ran deriveState + the full orchestrator tree at ~60fps.
+  // This is the only continuous store-bound control in Settings; every other
+  // control still applies immediately through onFieldChange.
+  const [dragWindowDays, setDragWindowDays] = useState(null);
+  const resolvedWindowDays =
+    dragWindowDays ?? adaptiveThermogenesisSmoothingWindowDays;
+  const commitWindowDays = () => {
+    if (dragWindowDays == null) {
+      return;
+    }
+
+    const valueToCommit = dragWindowDays;
+    setDragWindowDays(null);
+    if (valueToCommit !== adaptiveThermogenesisSmoothingWindowDays) {
+      onFieldChange?.(
+        'adaptiveThermogenesisSmoothingWindowDays',
+        valueToCommit
+      );
+    }
+  };
+
   return (
     <div>
       <InfoHeaderWithToggle
@@ -1372,22 +1395,22 @@ const AdaptiveThermogenesisSection = ({
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-xs text-muted">
                   <span>Window</span>
-                  <span>{adaptiveThermogenesisSmoothingWindowDays} days</span>
+                  <span>{resolvedWindowDays} days</span>
                 </div>
                 <input
                   type="range"
                   min={3}
                   max={14}
                   step={1}
-                  value={adaptiveThermogenesisSmoothingWindowDays}
+                  value={resolvedWindowDays}
                   onChange={(event) =>
-                    onFieldChange?.(
-                      'adaptiveThermogenesisSmoothingWindowDays',
-                      Number(event.target.value)
-                    )
+                    setDragWindowDays(Number(event.target.value))
                   }
+                  onPointerUp={commitWindowDays}
+                  onKeyUp={commitWindowDays}
+                  onBlur={commitWindowDays}
                   style={{
-                    '--value': `${((adaptiveThermogenesisSmoothingWindowDays - 3) / 11) * 100}%`,
+                    '--value': `${((resolvedWindowDays - 3) / 11) * 100}%`,
                   }}
                   className="w-full cursor-pointer transition-all"
                   aria-label="Adaptive thermogenesis smoothing window"

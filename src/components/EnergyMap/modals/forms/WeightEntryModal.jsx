@@ -5,6 +5,7 @@ import { DateInput } from '../../common/DateInput';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { ConfirmActionModal } from '../common/ConfirmActionModal';
 import {
+  SCROLL_SETTLE_DELAY,
   alignScrollContainerToValue,
   createPickerScrollHandler,
 } from '../../../../utils/visuals/scroll';
@@ -415,6 +416,61 @@ export const WeightEntryModal = ({
     forceClose: forceConfirmClose,
   } = useAnimatedModal(false);
 
+  // Wheel drafts relay to the parent on settle, not per scroll frame. The
+  // picker keeps its own live selection state, so the visible value never
+  // lags — only the parent's draft copy does, by at most one settle window
+  // (relaying per frame re-rendered the whole orchestrator at ~60fps during
+  // a flick). Save passes the live value explicitly, so a save racing the
+  // trailing commit can never persist a stale draft.
+  const pendingWeightRef = useRef(null);
+  const weightCommitTimerRef = useRef(null);
+
+  const clearPendingWeightCommit = useCallback(() => {
+    if (weightCommitTimerRef.current) {
+      clearTimeout(weightCommitTimerRef.current);
+      weightCommitTimerRef.current = null;
+    }
+  }, []);
+
+  const relayWeightChange = useCallback(
+    (nextValue) => {
+      pendingWeightRef.current = nextValue;
+      clearPendingWeightCommit();
+      weightCommitTimerRef.current = setTimeout(() => {
+        weightCommitTimerRef.current = null;
+        const pending = pendingWeightRef.current;
+        pendingWeightRef.current = null;
+        if (pending != null) {
+          onWeightChange?.(pending);
+        }
+      }, SCROLL_SETTLE_DELAY);
+    },
+    [clearPendingWeightCommit, onWeightChange]
+  );
+
+  // Never let a trailing commit land after the modal has closed (the parent
+  // resets its draft on close).
+  useEffect(() => {
+    if (!isOpen) {
+      pendingWeightRef.current = null;
+      clearPendingWeightCommit();
+    }
+  }, [clearPendingWeightCommit, isOpen]);
+
+  useEffect(
+    () => () => {
+      clearPendingWeightCommit();
+    },
+    [clearPendingWeightCommit]
+  );
+
+  const handleSaveClick = useCallback(() => {
+    const liveValue = pendingWeightRef.current ?? weight;
+    pendingWeightRef.current = null;
+    clearPendingWeightCommit();
+    onSave?.(liveValue);
+  }, [clearPendingWeightCommit, onSave, weight]);
+
   useEffect(() => {
     if (!isOpen) {
       forceConfirmClose();
@@ -436,7 +492,7 @@ export const WeightEntryModal = ({
           <p className="text-muted text-xs text-center mb-2 uppercase tracking-wide">
             Kilograms
           </p>
-          <WeightPicker value={weight} onChange={onWeightChange} />
+          <WeightPicker value={weight} onChange={relayWeightChange} />
         </div>
 
         <div>
@@ -487,7 +543,7 @@ export const WeightEntryModal = ({
         </button>
         <button
           type="button"
-          onClick={onSave}
+          onClick={handleSaveClick}
           className={`flex-1 bg-primary active:brightness-110 text-primary-foreground ${showDelete ? 'px-3' : 'px-6'} py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback`}
         >
           <Save size={20} />

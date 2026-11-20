@@ -76,6 +76,37 @@ const weightEntriesSortCache = new WeakMap();
 const bodyFatEntriesSortCache = new WeakMap();
 const stepEntriesSortCache = new WeakMap();
 
+// Date-scoped session-burn caches for deriveState. `getTotal*BurnForDate`
+// full-scans the sessions array and re-prices every matching session, which
+// used to run on EVERY updateUserData — including profile-only writes like a
+// theme or fontScale toggle that cannot affect burns. Keyed on the sessions
+// array reference (replaced immutably by updateUserData — the same contract
+// the persistence diff relies on), the resolved types reference, and the
+// profile fields the burn formulas actually read (weight/age/height/gender,
+// via normalizeCalculationProfile).
+const EMPTY_SESSIONS = [];
+const trainingBurnCache = new WeakMap();
+const cardioBurnCache = new WeakMap();
+
+const getCachedDateBurn = ({
+  cache,
+  sessions,
+  cacheKey,
+  typesRef,
+  compute,
+}) => {
+  const sessionsRef = Array.isArray(sessions) ? sessions : EMPTY_SESSIONS;
+  const cached = cache.get(sessionsRef);
+
+  if (cached && cached.key === cacheKey && cached.typesRef === typesRef) {
+    return cached.value;
+  }
+
+  const value = compute();
+  cache.set(sessionsRef, { key: cacheKey, typesRef, value });
+  return value;
+};
+
 const normalizeTrainingTypeCatalog = (trainingTypeCatalog) =>
   Object.entries(trainingTypeCatalog).reduce((acc, [key, entry]) => {
     const numericCalories = Number(entry?.caloriesPerHour);
@@ -421,16 +452,23 @@ const deriveState = (userData) => {
   const cardioTypes = resolveCardioTypes(userData);
   const todayDateKey = getTodayDateKey();
   const bmr = calculateBMR(userData);
-  const trainingCalories = getTotalTrainingBurnForDate(
-    userData,
-    trainingTypes,
-    todayDateKey
-  );
-  const totalCardioBurn = getTotalCardioBurnForDate(
-    userData,
-    cardioTypes,
-    todayDateKey
-  );
+  const todayBurnProfileKey = `${todayDateKey}|${userData.weight}|${userData.age}|${userData.height}|${userData.gender}`;
+  const trainingCalories = getCachedDateBurn({
+    cache: trainingBurnCache,
+    sessions: userData.trainingSessions,
+    cacheKey: todayBurnProfileKey,
+    typesRef: trainingTypes,
+    compute: () =>
+      getTotalTrainingBurnForDate(userData, trainingTypes, todayDateKey),
+  });
+  const totalCardioBurn = getCachedDateBurn({
+    cache: cardioBurnCache,
+    sessions: userData.cardioSessions,
+    cacheKey: todayBurnProfileKey,
+    typesRef: cardioTypes,
+    compute: () =>
+      getTotalCardioBurnForDate(userData, cardioTypes, todayDateKey),
+  });
   const weightEntries = getCachedSortedWeightEntries(userData.weightEntries);
   const bodyFatEntries = getCachedSortedBodyFatEntries(userData.bodyFatEntries);
   const stepEntries = getCachedSortedStepEntries(userData.stepEntries);

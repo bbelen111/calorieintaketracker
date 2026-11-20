@@ -28,6 +28,7 @@ import { useSwipeableScreens } from '../../hooks/useSwipeableScreens';
 import { useAnimatedModal } from '../../hooks/useAnimatedModal';
 import { useHardwareBackButton } from '../../hooks/useHardwareBackButton';
 import { useHealthConnect } from '../../hooks/useHealthConnect';
+import { useFoodCatalogWarmUp } from '../../hooks/useFoodCatalogWarmUp';
 import { HealthConnectStatus } from '../../constants/health/healthSources.js';
 import { saveLastSelectedCardioType } from '../../utils/data/storage';
 import {
@@ -65,12 +66,9 @@ import { DailyActivityEditorModal } from './modals/forms/DailyActivityEditorModa
 import { DailyActivityCustomModal } from './modals/forms/DailyActivityCustomModal';
 import { DailyNeatOverrideModal } from './modals/forms/DailyNeatOverrideModal';
 import { TemplatePickerModal } from './modals/pickers/TemplatePickerModal';
-import { CalendarPickerModal } from './modals/pickers/CalendarPickerModal';
 import { FoodEntryModal } from './modals/forms/FoodEntryModal';
 import { MealTypePickerModal } from './modals/pickers/MealTypePickerModal';
-import { FoodPortionModal } from './modals/pickers/FoodPortionModal';
 import { StepGoalPickerModal } from './modals/pickers/StepGoalPickerModal';
-import { MacroPickerModal } from './modals/pickers/MacroPickerModal';
 import { NumericValuePickerModal } from './modals/pickers/NumericValuePickerModal';
 import { CalorieTargetModal } from './modals/lists/CalorieTargetModal';
 // ...existing code...
@@ -166,6 +164,24 @@ const AdaptiveThermogenesisModal = lazy(() =>
 const RollingEnergyBalanceModal = lazy(() =>
   import('./modals/fullscreen/RollingEnergyBalanceModal').then((module) => ({
     default: module.RollingEnergyBalanceModal,
+  }))
+);
+// Heavy pickers, lazy like the fullscreen modals above: CalendarPickerModal
+// (~42 kB source), FoodPortionModal and MacroPickerModal used to sit in the
+// boot-critical bundle even though they are rarely-opened surfaces.
+const CalendarPickerModal = lazy(() =>
+  import('./modals/pickers/CalendarPickerModal').then((module) => ({
+    default: module.CalendarPickerModal,
+  }))
+);
+const FoodPortionModal = lazy(() =>
+  import('./modals/pickers/FoodPortionModal').then((module) => ({
+    default: module.FoodPortionModal,
+  }))
+);
+const MacroPickerModal = lazy(() =>
+  import('./modals/pickers/MacroPickerModal').then((module) => ({
+    default: module.MacroPickerModal,
   }))
 );
 const MODAL_CLOSE_DELAY = 180; // Match CSS animation duration (150ms) + buffer
@@ -681,6 +697,11 @@ export const EnergyMapCalculator = () => {
 
   // Health Connect integration for live step tracking
   const healthConnect = useHealthConnect();
+
+  // Idle warm-up for the local food catalog (sql.js + bundled SQLite): hides
+  // the first-search initialization cost once the app has settled. See
+  // hooks/useFoodCatalogWarmUp.js.
+  useFoodCatalogWarmUp();
 
   const viewportRef = useRef(null);
   const {
@@ -1408,118 +1429,138 @@ export const EnergyMapCalculator = () => {
     [bodyFatEntryModal]
   );
 
-  const handleWeightEntrySave = useCallback(() => {
-    const normalizedDate = normalizeDateKey(weightEntryDraft.date);
-    if (!normalizedDate) {
-      setWeightEntryError('Select a valid date.');
-      return;
-    }
-
-    const normalizedWeight = clampWeight(weightEntryDraft.weight);
-    if (normalizedWeight == null) {
-      setWeightEntryError('Select a valid weight.');
-      return;
-    }
-
-    const originalDateKey =
-      weightEntryMode === 'edit' ? weightEntryOriginalDate : null;
-    const hasConflict = weightEntries.some((entry) => {
-      if (!entry?.date) {
-        return false;
+  // `nextWeight` is passed by the entry modal's Save button (the wheel
+  // relays drafts on a settle debounce, so the draft state here can lag one
+  // settle window behind the picker when Save is tapped right after a
+  // flick). Falls back to the draft when called without an argument.
+  const handleWeightEntrySave = useCallback(
+    (nextWeight) => {
+      const normalizedDate = normalizeDateKey(weightEntryDraft.date);
+      if (!normalizedDate) {
+        setWeightEntryError('Select a valid date.');
+        return;
       }
-      if (originalDateKey && entry.date === originalDateKey) {
-        return false;
+
+      const sourceWeight = Number.isFinite(Number(nextWeight))
+        ? nextWeight
+        : weightEntryDraft.weight;
+      const normalizedWeight = clampWeight(sourceWeight);
+      if (normalizedWeight == null) {
+        setWeightEntryError('Select a valid weight.');
+        return;
       }
-      return entry.date === normalizedDate;
-    });
 
-    const saveEntry = () => {
-      saveWeightEntry(
-        { date: normalizedDate, weight: normalizedWeight },
-        originalDateKey
-      );
-      setWeightEntryError('');
-      weightEntryModal.requestClose();
-    };
+      const originalDateKey =
+        weightEntryMode === 'edit' ? weightEntryOriginalDate : null;
+      const hasConflict = weightEntries.some((entry) => {
+        if (!entry?.date) {
+          return false;
+        }
+        if (originalDateKey && entry.date === originalDateKey) {
+          return false;
+        }
+        return entry.date === normalizedDate;
+      });
 
-    if (hasConflict) {
-      if (weightEntryMode === 'add') {
-        setConfirmActionTitle('Overwrite weight entry?');
-        setConfirmActionDescription(
-          'A weight entry already exists for this date. Do you want to overwrite it?'
+      const saveEntry = () => {
+        saveWeightEntry(
+          { date: normalizedDate, weight: normalizedWeight },
+          originalDateKey
         );
-        setConfirmActionLabel('Overwrite');
-        setConfirmActionTone('default');
-        setConfirmActionCallback(() => saveEntry);
-        confirmActionModal.open();
-      } else {
-        setWeightEntryError(
+        setWeightEntryError('');
+        weightEntryModal.requestClose();
+      };
+
+      if (hasConflict) {
+        if (weightEntryMode === 'add') {
+          setConfirmActionTitle('Overwrite weight entry?');
+          setConfirmActionDescription(
+            'A weight entry already exists for this date. Do you want to overwrite it?'
+          );
+          setConfirmActionLabel('Overwrite');
+          setConfirmActionTone('default');
+          setConfirmActionCallback(() => saveEntry);
+          confirmActionModal.open();
+        } else {
+          setWeightEntryError(
+            'An entry already exists for this date. Edit that entry instead.'
+          );
+        }
+        return;
+      }
+
+      saveEntry();
+    },
+    [
+      confirmActionModal,
+      saveWeightEntry,
+      weightEntries,
+      weightEntryDraft.date,
+      weightEntryDraft.weight,
+      weightEntryMode,
+      weightEntryOriginalDate,
+      weightEntryModal,
+    ]
+  );
+
+  // `nextBodyFat` is passed by the entry modal's Save button (the wheel
+  // relays drafts on a settle debounce, so the draft state here can lag one
+  // settle window behind the picker when Save is tapped right after a
+  // flick). Falls back to the draft when called without an argument.
+  const handleBodyFatEntrySave = useCallback(
+    (nextBodyFat) => {
+      const normalizedDate = normalizeDateKey(bodyFatEntryDraft.date);
+      if (!normalizedDate) {
+        setBodyFatEntryError('Select a valid date.');
+        return;
+      }
+
+      const sourceBodyFat = Number.isFinite(Number(nextBodyFat))
+        ? nextBodyFat
+        : bodyFatEntryDraft.bodyFat;
+      const normalizedBodyFat = clampBodyFat(sourceBodyFat);
+      if (normalizedBodyFat == null) {
+        setBodyFatEntryError('Select a valid body fat percentage.');
+        return;
+      }
+
+      const originalDateKey =
+        bodyFatEntryMode === 'edit' ? bodyFatEntryOriginalDate : null;
+      const hasConflict = bodyFatEntries.some((entry) => {
+        if (!entry?.date) {
+          return false;
+        }
+        if (originalDateKey && entry.date === originalDateKey) {
+          return false;
+        }
+        return entry.date === normalizedDate;
+      });
+
+      if (hasConflict) {
+        setBodyFatEntryError(
           'An entry already exists for this date. Edit that entry instead.'
         );
+        return;
       }
-      return;
-    }
 
-    saveEntry();
-  }, [
-    confirmActionModal,
-    saveWeightEntry,
-    weightEntries,
-    weightEntryDraft.date,
-    weightEntryDraft.weight,
-    weightEntryMode,
-    weightEntryOriginalDate,
-    weightEntryModal,
-  ]);
-
-  const handleBodyFatEntrySave = useCallback(() => {
-    const normalizedDate = normalizeDateKey(bodyFatEntryDraft.date);
-    if (!normalizedDate) {
-      setBodyFatEntryError('Select a valid date.');
-      return;
-    }
-
-    const normalizedBodyFat = clampBodyFat(bodyFatEntryDraft.bodyFat);
-    if (normalizedBodyFat == null) {
-      setBodyFatEntryError('Select a valid body fat percentage.');
-      return;
-    }
-
-    const originalDateKey =
-      bodyFatEntryMode === 'edit' ? bodyFatEntryOriginalDate : null;
-    const hasConflict = bodyFatEntries.some((entry) => {
-      if (!entry?.date) {
-        return false;
-      }
-      if (originalDateKey && entry.date === originalDateKey) {
-        return false;
-      }
-      return entry.date === normalizedDate;
-    });
-
-    if (hasConflict) {
-      setBodyFatEntryError(
-        'An entry already exists for this date. Edit that entry instead.'
+      saveBodyFatEntry(
+        { date: normalizedDate, bodyFat: normalizedBodyFat },
+        originalDateKey
       );
-      return;
-    }
 
-    saveBodyFatEntry(
-      { date: normalizedDate, bodyFat: normalizedBodyFat },
-      originalDateKey
-    );
-
-    setBodyFatEntryError('');
-    bodyFatEntryModal.requestClose();
-  }, [
-    bodyFatEntries,
-    bodyFatEntryDraft.bodyFat,
-    bodyFatEntryDraft.date,
-    bodyFatEntryMode,
-    bodyFatEntryOriginalDate,
-    bodyFatEntryModal,
-    saveBodyFatEntry,
-  ]);
+      setBodyFatEntryError('');
+      bodyFatEntryModal.requestClose();
+    },
+    [
+      bodyFatEntries,
+      bodyFatEntryDraft.bodyFat,
+      bodyFatEntryDraft.date,
+      bodyFatEntryMode,
+      bodyFatEntryOriginalDate,
+      bodyFatEntryModal,
+      saveBodyFatEntry,
+    ]
+  );
 
   const handleWeightEntryDelete = useCallback(() => {
     const targetDate = normalizeDateKey(
@@ -2454,9 +2495,24 @@ export const EnergyMapCalculator = () => {
     trackerStepRange,
   ]);
 
+  // Per-step-range goal-seeded TDEE details, computed ONCE for every
+  // consumer (Calorie Map cards + calorie target options). Previously the
+  // Calorie Map cards called `getRangeDetails` inline per card, per render —
+  // ~24 full breakdowns per render (3 per range in target-TEF mode), each
+  // scanning today's sessions. Consumers must read from this map instead of
+  // re-running `getRangeDetails` per render. (Plain object, not a `Map` —
+  // this module imports the lucide `Map` icon, which shadows the global.)
+  const stepRangeDetailsBySteps = useMemo(() => {
+    const detailsBySteps = {};
+    normalizedStepRanges.forEach((range) => {
+      detailsBySteps[range] = getRangeDetails(range);
+    });
+    return detailsBySteps;
+  }, [getRangeDetails, normalizedStepRanges]);
+
   const calorieTargetOptions = useMemo(() => {
     const stepRangeOptions = normalizedStepRanges.map((range) => {
-      const details = getRangeDetails(range);
+      const details = stepRangeDetailsBySteps[range];
       return {
         id: `step_range:${range}`,
         key: `step_range:${range}`,
@@ -2486,7 +2542,7 @@ export const EnergyMapCalculator = () => {
       },
       ...stepRangeOptions,
     ];
-  }, [getRangeDetails, liveStepData, normalizedStepRanges]);
+  }, [liveStepData, normalizedStepRanges, stepRangeDetailsBySteps]);
 
   // Auto-save step entries when Health Connect data updates
   useEffect(() => {
@@ -3992,8 +4048,12 @@ export const EnergyMapCalculator = () => {
     userData?.lastSelectedCardioType,
   ]);
 
-  const hasCardioSessions = userData.cardioSessions.some(
-    (session) => normalizeDateKey(session?.date) === getTodayDateString()
+  const hasCardioSessions = useMemo(
+    () =>
+      userData.cardioSessions.some(
+        (session) => normalizeDateKey(session?.date) === getTodayDateString()
+      ),
+    [userData.cardioSessions]
   );
   const activityPresets = useMemo(
     () => ({
@@ -4269,7 +4329,7 @@ export const EnergyMapCalculator = () => {
                   goals={goals}
                   onManageStepRanges={stepRangesModal.open}
                   onOpenBreakdown={openCalorieBreakdown}
-                  getRangeDetails={getRangeDetails}
+                  rangeDetailsBySteps={stepRangeDetailsBySteps}
                   isSelectedRange={isSelectedRange}
                   liveStepData={liveStepData}
                   healthConnectStatus={healthConnect.status}
@@ -4510,20 +4570,24 @@ export const EnergyMapCalculator = () => {
         onSave={handleStepGoalSave}
       />
 
-      <MacroPickerModal
-        isOpen={macroPickerModal.isOpen}
-        isClosing={macroPickerModal.isClosing}
-        value={tempMacroRecommendationSplit}
-        onChange={handleMacroPickerChange}
-        macroLocks={tempMacroLocks}
-        onLocksChange={handleMacroLocksChange}
-        targetCalories={selectedCalorieTargetData.targetCalories ?? 2500}
-        userData={userData}
-        targetLabel={selectedCalorieTargetData.label}
-        onOpenCalorieTargetModal={openCalorieTargetPicker}
-        onCancel={macroPickerModal.requestClose}
-        onSave={handleMacroPickerSave}
-      />
+      {(macroPickerModal.isOpen || macroPickerModal.isClosing) && (
+        <Suspense fallback={null}>
+          <MacroPickerModal
+            isOpen={macroPickerModal.isOpen}
+            isClosing={macroPickerModal.isClosing}
+            value={tempMacroRecommendationSplit}
+            onChange={handleMacroPickerChange}
+            macroLocks={tempMacroLocks}
+            onLocksChange={handleMacroLocksChange}
+            targetCalories={selectedCalorieTargetData.targetCalories ?? 2500}
+            userData={userData}
+            targetLabel={selectedCalorieTargetData.label}
+            onOpenCalorieTargetModal={openCalorieTargetPicker}
+            onCancel={macroPickerModal.requestClose}
+            onSave={handleMacroPickerSave}
+          />
+        </Suspense>
+      )}
 
       <CalorieTargetModal
         isOpen={calorieTargetModal.isOpen}
@@ -4951,20 +5015,24 @@ export const EnergyMapCalculator = () => {
         </Suspense>
       )}
 
-      <CalendarPickerModal
-        isOpen={calendarPickerModal.isOpen}
-        isClosing={calendarPickerModal.isClosing}
-        onClose={calendarPickerModal.requestClose}
-        onSelectDate={setTrackerSelectedDate}
-        nutritionData={nutritionData}
-        selectedDate={trackerSelectedDate}
-        currentMonth={calendarMonth}
-        currentYear={calendarYear}
-        onMonthChange={(month, year) => {
-          setCalendarMonth(month);
-          setCalendarYear(year);
-        }}
-      />
+      {(calendarPickerModal.isOpen || calendarPickerModal.isClosing) && (
+        <Suspense fallback={null}>
+          <CalendarPickerModal
+            isOpen={calendarPickerModal.isOpen}
+            isClosing={calendarPickerModal.isClosing}
+            onClose={calendarPickerModal.requestClose}
+            onSelectDate={setTrackerSelectedDate}
+            nutritionData={nutritionData}
+            selectedDate={trackerSelectedDate}
+            currentMonth={calendarMonth}
+            currentYear={calendarYear}
+            onMonthChange={(month, year) => {
+              setCalendarMonth(month);
+              setCalendarYear(year);
+            }}
+          />
+        </Suspense>
+      )}
 
       {(dayLedgerListModal.isOpen || dayLedgerListModal.isClosing) && (
         <Suspense fallback={null}>
@@ -5111,33 +5179,37 @@ export const EnergyMapCalculator = () => {
         </Suspense>
       )}
 
-      <FoodPortionModal
-        isOpen={foodPortionModal.isOpen}
-        isClosing={foodPortionModal.isClosing}
-        onClose={foodPortionModal.requestClose}
-        onAddFood={handleAddFoodFromPortion}
-        onSaveAsFavourite={handleCreateFoodFavourite}
-        selectedFood={selectedFoodForPortion}
-        initialGrams={portionInitialGrams ?? undefined}
-        smartTefEnabled={
-          userData.smartTefEnabled &&
-          (userData.smartTefFoodTefBurnEnabled ?? true)
-        }
-        isEditing={Boolean(editingPortionEntry)}
-        isFoodFavourited={
-          selectedFoodForPortion
-            ? foodFavourites.some(
-                (fav) =>
-                  // Check by foodId first for database foods
-                  (selectedFoodForPortion.id &&
-                    fav.foodId === selectedFoodForPortion.id) ||
-                  // Check by name for all foods (prevents duplicates)
-                  fav.name?.toLowerCase() ===
-                    selectedFoodForPortion.name?.toLowerCase()
-              )
-            : false
-        }
-      />
+      {(foodPortionModal.isOpen || foodPortionModal.isClosing) && (
+        <Suspense fallback={null}>
+          <FoodPortionModal
+            isOpen={foodPortionModal.isOpen}
+            isClosing={foodPortionModal.isClosing}
+            onClose={foodPortionModal.requestClose}
+            onAddFood={handleAddFoodFromPortion}
+            onSaveAsFavourite={handleCreateFoodFavourite}
+            selectedFood={selectedFoodForPortion}
+            initialGrams={portionInitialGrams ?? undefined}
+            smartTefEnabled={
+              userData.smartTefEnabled &&
+              (userData.smartTefFoodTefBurnEnabled ?? true)
+            }
+            isEditing={Boolean(editingPortionEntry)}
+            isFoodFavourited={
+              selectedFoodForPortion
+                ? foodFavourites.some(
+                    (fav) =>
+                      // Check by foodId first for database foods
+                      (selectedFoodForPortion.id &&
+                        fav.foodId === selectedFoodForPortion.id) ||
+                      // Check by name for all foods (prevents duplicates)
+                      fav.name?.toLowerCase() ===
+                        selectedFoodForPortion.name?.toLowerCase()
+                  )
+                : false
+            }
+          />
+        </Suspense>
+      )}
 
       {/* PhaseInsightsModal removed */}
 

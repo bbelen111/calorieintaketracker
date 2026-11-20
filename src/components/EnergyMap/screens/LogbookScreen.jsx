@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { memo, useMemo } from 'react';
 import {
   ClipboardList,
   Plus,
@@ -204,14 +204,17 @@ const DayLedgerCard = ({ dailySnapshots, onOpen }) => {
   );
 };
 
-export const LogbookScreen = ({
+// Memoized: the orchestrator's local state churn (modal opens, drafts,
+// pickers) re-renders its whole tree; the carousel screens receive stable
+// props, so React.memo keeps unrelated screens from reconciling each time.
+export const LogbookScreen = memo(function LogbookScreen({
   phases,
   weightEntries,
   nutritionData,
   onCreatePhase,
   onPhaseClick,
   onOpenDayLedger,
-}) => {
+}) {
   const store = useEnergyMapStore(
     (state) => ({
       phases: state.phases ?? [],
@@ -345,4 +348,4 @@ export const LogbookScreen = ({
       />
     </div>
   );
-};
+});

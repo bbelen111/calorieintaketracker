@@ -620,6 +620,17 @@ className="md:hover:bg-blue-600 press-feedback focus-ring"
 className="hover:bg-blue-600"
 ```
 
+### Performance Budgets
+
+The app ships native-only, so cold-start JS and per-frame render cost are the two budgets that matter. The rules below are enforced conventions (see `AGENTS.md` pitfalls 111–115 for the full contracts):
+
+- **Boot-critical bundle:** heavy modals are `React.lazy`-loaded behind `isOpen || isClosing` mount guards (including the `CalendarPickerModal`, `FoodPortionModal` and `MacroPickerModal` pickers), and the barcode scanner's web-only html5-qrcode engine stays in its own async chunk — never in the eagerly-loaded capacitor chunk. Boot JS is ~880 kB (from ~1.3 MB before these rules).
+- **Screens are `React.memo`-wrapped with reference-stable props**, and screen-level math (Calorie Map per-range TDEE, Home hero TDEE/EPOC, Insights AT preview) lives behind `useMemo` keyed on real inputs — never inline in a render body.
+- **TDEE breakdowns are O(today), not O(all history):** the EPOC carryover allocator pre-filters sessions by date distance (`MAX_EPOC_CARRYOVER_WINDOW_MINUTES`), and `deriveState` caches the date-scoped session burns per sessions/profile reference.
+- **Persistence is identity-diffed on both scopes:** history fields diff per reference + per shard, and the profile gates its `JSON.stringify` on per-field reference movement — an unchanged payload costs no serialization on the 1s debounced save.
+- **High-frequency input never writes the store per frame:** the weight/body-fat entry wheels relay drafts on a settle debounce (Save passes the live value), and the Settings smoothing-window slider commits on release.
+- **The food catalog warms up during idle time** (`hooks/useFoodCatalogWarmUp.js`, dynamic import only), so the first Food Search open does not pay the sql.js WASM compile + SQLite parse.
+
 ## 💾 Storage Architecture
 
 ### Split Persistence

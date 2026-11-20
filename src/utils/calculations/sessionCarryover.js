@@ -4,6 +4,7 @@ import {
   getEpochMsFromDateAndTime,
   normalizeTimeOfDay,
 } from '../formatting/time.js';
+import { MAX_EPOC_CARRYOVER_WINDOW_MINUTES } from './epoc.js';
 
 const MS_PER_MINUTE = 60 * 1000;
 
@@ -148,10 +149,43 @@ export const getCarryoverForDateFromSessions = ({
   const list = Array.isArray(sessions) ? sessions : [];
   const allocations = [];
 
+  // Date-distance pre-filter: a session's carryover window starts when the
+  // session ENDS, so only sessions that ended before the target day's end
+  // (window starts inside the day) and within a carryover window's reach of
+  // the day's start can possibly allocate into it. Without this, every
+  // breakdown iterated (and re-priced via resolveCarryover) EVERY session in
+  // history — O(all sessions) per TDEE call, growing with app usage.
+  //
+  // The bound must cover both carryover sources:
+  //  - the resolved EPOC window (clamped by epoc.js to
+  //    MAX_EPOC_CARRYOVER_WINDOW_MINUTES), and
+  //  - a session-provided carryoverMinutesField value (legacy/stored), which
+  //    is taken verbatim — so it widens the per-session bound when present.
+  const targetBounds = getDateBoundsFromDateKey(targetDateKey);
+
   list.forEach((session) => {
     const window = resolveSessionWindowFromSession(session);
     if (!window) {
       return;
+    }
+
+    if (targetBounds) {
+      if (window.endedAt >= targetBounds.endMs) {
+        return;
+      }
+
+      const sessionOwnMinutes = Number(session?.[carryoverMinutesField]);
+      const reachMinutes =
+        Number.isFinite(sessionOwnMinutes) && sessionOwnMinutes > 0
+          ? Math.max(sessionOwnMinutes, MAX_EPOC_CARRYOVER_WINDOW_MINUTES)
+          : MAX_EPOC_CARRYOVER_WINDOW_MINUTES;
+
+      if (
+        window.endedAt + reachMinutes * MS_PER_MINUTE <=
+        targetBounds.startMs
+      ) {
+        return;
+      }
     }
 
     const resolvedCarryover =

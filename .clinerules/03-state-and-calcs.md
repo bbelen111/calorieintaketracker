@@ -31,6 +31,8 @@ All mutations go through `updateUserData(set, get, updater)` which:
 2. Calls `deriveState(nextUserData)` to recompute all derived values
 3. Calls `set()` with both the new `userData` and derived fields
 
+**`deriveState` hot-path caching:** the date-scoped session burns (`trainingCalories`, `totalCardioBurn`) are WeakMap-cached per `(sessionsRef, typesRef, dateKey|weight|age|height|gender)` via `getCachedDateBurn` — the sessions arrays are replaced immutably by `updateUserData` (the same contract the persistence diff relies on), so a profile-only write like a theme or fontScale toggle no longer re-scans/re-prices every session. Type resolution, entry sorting, phase normalization and the phase view keep their own WeakMap caches. Do not remove or bypass these caches; if you add a profile field the burn formulas read, extend `todayBurnProfileKey`.
+
 **Derived `goalDailyBalanceTarget`:** `deriveState` exposes a canonical, phase-lock-aware goal daily balance target in **balance convention** (positive = deficit). It mirrors the same phase-lock rule `calculateTargetForGoal` uses: when an active phase owns the delta (`isGoalLockedByActivePhase` and `phaseGoalCalorieDeltaSourcePhaseId === activePhaseId`), it is `-phaseGoalCalorieDelta`, otherwise `-resolveGoalCalorieDelta(selectedGoal)`. Rolling Energy Balance and any analytics consume this field rather than recomputing the goal/phase delta in UI.
 
 **Adding a new store action:**
@@ -91,7 +93,7 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 | Cardio (for date) | `getTotalCardioBurnForDate(userData, cardioTypes, dateKey)` | Sums cardio calories for a specific `dateKey` |
 | Training EPOC (single) | `resolveTrainingSessionEpoc({ session, exerciseCalories, trainingType, userData })` | Post-exercise burn estimate + carryover window for one training session (`utils/epoc.js`) |
 | Cardio EPOC (single) | `resolveCardioSessionEpoc({ session, exerciseCalories, cardioType, userData })` | Post-exercise burn estimate + carryover window for one cardio session (`utils/epoc.js`) |
-| Session carryover (date) | `getCarryoverForDateFromSessions({ dateKey, sessions, resolveCarryover })` | Allocates carryover calories across date boundaries (`utils/sessionCarryover.js`) |
+| Session carryover (date) | `getCarryoverForDateFromSessions({ dateKey, sessions, resolveCarryover })` | Allocates carryover calories across date boundaries (`utils/sessionCarryover.js`). **Date-distance pre-filtered:** only sessions that ended before the target day's end and within `MAX_EPOC_CARRYOVER_WINDOW_MINUTES` (exported from `epoc.js`; a session-provided `epocCarryoverMinutes` widens the per-session reach) reach the expensive `resolveCarryover` pricing pass — never revert to iterating (and re-pricing) every session in history per TDEE call. |
 | Training cal/hr | `getTrainingCaloriesPerHour(userData, trainingTypes)` | Base cal/hr × intensity multiplier (light 0.75 / moderate 1.0 / vigorous 1.25) |
 | Training (total) | `getTotalTrainingBurnForDate(userData, trainingTypes, dateKey)` | Session-first burn from `trainingSessions` (`effortType` + `averageHeartRate` or `intensity`) |
 | Training (for date) | `getTotalTrainingBurnForDate(userData, trainingTypes, dateKey)` | Sums training-session calories for a specific `dateKey` |
@@ -155,7 +157,7 @@ Do not duplicate target planning formulas in components.
 
 **Smart AT smoothing mechanic:** When `adaptiveThermogenesisSmoothingEnabled` is true, smart mode smooths the weight series before slope regression (`adaptiveThermogenesisSmoothingMethod`: `'ema' | 'sma'`, `adaptiveThermogenesisSmoothingWindowDays`: clamped 3–14). Smoothing metadata is included in the AT smart signal for debugging (`smoothingEnabled`, `smoothingMethod`, `smoothingWindowDays`).
 
-**EPOC mechanic:** `calculateCalorieBreakdown()` resolves per-session EPOC from `utils/epoc.js`, then uses `getCarryoverForDateFromSessions()` (`utils/sessionCarryover.js`) to allocate carryover calories to the requested `dateKey`. Returned fields include `epocEnabled`, `epocCalories`, `trainingEpoc`, `cardioEpoc`, `epocFromTodaySessions`, `epocCarryInCalories`, `trainingEpocDetails`, and `cardioEpocDetails`.
+**EPOC mechanic:** `calculateCalorieBreakdown()` resolves per-session EPOC from `utils/epoc.js`, then uses `getCarryoverForDateFromSessions()` (`utils/sessionCarryover.js`) to allocate carryover calories to the requested `dateKey`. Returned fields include `epocEnabled`, `epocCalories`, `trainingEpoc`, `cardioEpoc`, `epocFromTodaySessions`, `epocCarryInCalories`, `trainingEpocDetails`, and `cardioEpocDetails`. The carryover allocation is **date-distance pre-filtered** (see the table row above): a session's carryover window starts when the session ENDS, so only sessions that ended inside the target day or within one carryover window's reach of its start can allocate into it. This is what keeps a single breakdown O(today + carry-in) instead of O(all history) — without it, every TDEE call re-priced every session ever logged, and the app visibly slowed as usage accumulated.
 
 **Training types** are resolved at the store level (`resolveTrainingTypes`) by merging `trainingTypes` constants with `userData.trainingType` (catalog). Never use raw constants directly.
 

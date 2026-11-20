@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Activity,
@@ -48,7 +48,18 @@ const GOAL_BORDER_CLASS_BY_BG = {
   'bg-accent-orange': 'border-accent-orange',
 };
 
-export const HomeScreen = ({
+// Pure date-key validator (module scope — the component body used to rebuild
+// this closure on every render).
+const toDateKey = (value) => {
+  if (value == null) return null;
+  const normalized = String(value).trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : null;
+};
+
+// Memoized: the orchestrator's local state churn (modal opens, drafts,
+// pickers) re-renders its whole tree; the carousel screens receive stable
+// props, so React.memo keeps unrelated screens from reconciling each time.
+export const HomeScreen = memo(function HomeScreen({
   userData,
   goals,
   selectedGoal,
@@ -78,7 +89,7 @@ export const HomeScreen = ({
   onOpenDailyActivityOverride,
   onOpenTodayBreakdown,
   calorieTargetCalories,
-}) => {
+}) {
   const store = useEnergyMapStore(
     (state) => ({
       userData: state.userData,
@@ -100,17 +111,16 @@ export const HomeScreen = ({
   const resolvedTrainingSessions = trainingSessions ?? store.trainingSessions;
   const resolvedTrainingTypes = trainingTypes ?? store.trainingTypes;
   const resolvedCardioTypes = cardioTypes ?? store.cardioTypes;
-  const toDateKey = (value) => {
-    if (value == null) return null;
-    const normalized = String(value).trim();
-    return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : null;
-  };
   // Canonical local date key helper (midnight-turnover safe); see
   // utils/data/dateKeys.js — no hand-rolled YYYY-MM-DD assembly here.
   const todayDateKey = getTodayDateKey();
-  const resolvedCardioSessions = (
-    cardioSessions ?? store.cardioSessions
-  ).filter((session) => toDateKey(session?.date) === todayDateKey);
+  const resolvedCardioSessions = useMemo(
+    () =>
+      (cardioSessions ?? store.cardioSessions).filter(
+        (session) => toDateKey(session?.date) === todayDateKey
+      ),
+    [cardioSessions, store.cardioSessions, todayDateKey]
+  );
   const resolvedTotalCardioBurn = totalCardioBurn ?? store.totalCardioBurn;
   const resolvedGoals = goals ?? baseGoals;
   const resolvedWeightEntries = weightEntries ?? store.weightEntries;
@@ -161,48 +171,79 @@ export const HomeScreen = ({
   const bodyFatOldDataWarning = bodyFatLatest?.date
     ? getOldDataWarningText(bodyFatLatest.date)
     : null;
-  const resolvedTodayTrainingSessions = resolvedTrainingSessions.filter(
-    (session) => toDateKey(session?.date) === todayDateKey
+  // Today's training sessions and the per-session EPOC totals below are
+  // memoized: they re-price every matching session's burn + EPOC estimate,
+  // which used to run on every render (including orchestrator-driven
+  // re-renders from unrelated modal/draft state).
+  const resolvedTodayTrainingSessions = useMemo(
+    () =>
+      resolvedTrainingSessions.filter(
+        (session) => toDateKey(session?.date) === todayDateKey
+      ),
+    [resolvedTrainingSessions, todayDateKey]
   );
   const epocEnabled = resolvedUserData?.epocEnabled ?? true;
-  const resolvedTrainingEpocTotal = epocEnabled
-    ? resolvedTodayTrainingSessions.reduce((sum, session) => {
-        const sessionCalories = calculateTrainingSessionCalories(
-          session,
-          resolvedUserData,
-          resolvedTrainingTypes
-        );
-        const epoc = resolveTrainingSessionEpoc({
-          session,
-          exerciseCalories: sessionCalories,
-          trainingType: resolvedTrainingTypes?.[session?.type],
-          userData: resolvedUserData,
-        });
-        return sum + (Number(epoc?.totalCalories) || 0);
-      }, 0)
-    : 0;
-  const resolvedCardioEpocTotal = epocEnabled
-    ? resolvedCardioSessions.reduce((sum, session) => {
-        const sessionCalories = calculateCardioCalories(session);
-        const epoc = resolveCardioSessionEpoc({
-          session,
-          exerciseCalories: sessionCalories,
-          cardioType: resolvedCardioTypes?.[session?.type],
-          userData: resolvedUserData,
-        });
-        return sum + (Number(epoc?.totalCalories) || 0);
-      }, 0)
-    : 0;
+  const resolvedTrainingEpocTotal = useMemo(
+    () =>
+      epocEnabled
+        ? resolvedTodayTrainingSessions.reduce((sum, session) => {
+            const sessionCalories = calculateTrainingSessionCalories(
+              session,
+              resolvedUserData,
+              resolvedTrainingTypes
+            );
+            const epoc = resolveTrainingSessionEpoc({
+              session,
+              exerciseCalories: sessionCalories,
+              trainingType: resolvedTrainingTypes?.[session?.type],
+              userData: resolvedUserData,
+            });
+            return sum + (Number(epoc?.totalCalories) || 0);
+          }, 0)
+        : 0,
+    [
+      epocEnabled,
+      resolvedTodayTrainingSessions,
+      resolvedTrainingTypes,
+      resolvedUserData,
+    ]
+  );
+  const resolvedCardioEpocTotal = useMemo(
+    () =>
+      epocEnabled
+        ? resolvedCardioSessions.reduce((sum, session) => {
+            const sessionCalories = calculateCardioCalories(session);
+            const epoc = resolveCardioSessionEpoc({
+              session,
+              exerciseCalories: sessionCalories,
+              cardioType: resolvedCardioTypes?.[session?.type],
+              userData: resolvedUserData,
+            });
+            return sum + (Number(epoc?.totalCalories) || 0);
+          }, 0)
+        : 0,
+    [
+      calculateCardioCalories,
+      epocEnabled,
+      resolvedCardioSessions,
+      resolvedCardioTypes,
+      resolvedUserData,
+    ]
+  );
   const resolvedHasCardioSessions =
     typeof hasCardioSessions === 'boolean'
       ? hasCardioSessions
       : resolvedCardioSessions.length > 0;
 
-  const todayStepEntry = Array.isArray(resolvedUserData?.stepEntries)
-    ? resolvedUserData.stepEntries.find(
-        (entry) => toDateKey(entry?.date) === todayDateKey
-      )
-    : null;
+  const todayStepEntry = useMemo(
+    () =>
+      Array.isArray(resolvedUserData?.stepEntries)
+        ? resolvedUserData.stepEntries.find(
+            (entry) => toDateKey(entry?.date) === todayDateKey
+          )
+        : null,
+    [resolvedUserData, todayDateKey]
+  );
   const todayStepCount = Number(todayStepEntry?.steps) || 0;
   const todayStepCalories =
     todayStepCount > 0
@@ -229,12 +270,30 @@ export const HomeScreen = ({
       }),
     [resolvedUserData, todayNutritionTotals]
   );
-  const todayBreakdown = store.calculateTargetForGoal(
-    todayStepCount,
-    resolvedTodayTrainingSessions.length > 0,
-    selectedGoal,
-    { tefContext: todayTefContext, dateKey: todayDateKey }
-  ).breakdown;
+  // Memoized: this is the hero's goal-seeded TDEE (3 full breakdowns in
+  // target-TEF mode plus AT/EPOC passes) — it used to run on every render,
+  // including re-renders triggered by unrelated orchestrator state (modal
+  // opens, drafts, pickers). Destructured store function so the memo can
+  // depend on the stable callback itself instead of the whole store object
+  // (whose identity changes whenever ANY selected field changes).
+  const calculateTargetForGoal = store.calculateTargetForGoal;
+  const todayBreakdown = useMemo(
+    () =>
+      calculateTargetForGoal(
+        todayStepCount,
+        resolvedTodayTrainingSessions.length > 0,
+        selectedGoal,
+        { tefContext: todayTefContext, dateKey: todayDateKey }
+      ).breakdown,
+    [
+      calculateTargetForGoal,
+      todayStepCount,
+      resolvedTodayTrainingSessions,
+      selectedGoal,
+      todayTefContext,
+      todayDateKey,
+    ]
+  );
   const todayTdee = Math.round(Number(todayBreakdown?.total) || 0);
 
   // Calories in, the mirror of the burn figure above: the hero pill reads this
@@ -889,4 +948,4 @@ export const HomeScreen = ({
       </div>
     </div>
   );
-};
+});

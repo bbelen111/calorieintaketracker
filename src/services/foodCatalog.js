@@ -130,8 +130,19 @@ const getDatabase = async () => {
   return dbPromise;
 };
 
-const getSortColumn = (sortBy) => SORTABLE_COLUMNS[sortBy] ?? 'name';
+// Best-effort idle warm-up: initialises the sql.js WASM engine, fetches and
+// parses the bundled SQLite catalog, and primes the `foods` table-column
+// detection — everything the first real query pays for. Called from the
+// orchestrator's idle warm-up hook (hooks/useFoodCatalogWarmUp.js) so the
+// first Food Search open does not stall on all of it at once. Safe to call
+// repeatedly: both initialisation steps are singletons, and failures simply
+// fall back to the existing lazy first-query path.
+export const warmUpFoodCatalog = async () => {
+  await getDatabase();
+  await getFoodsTableColumns();
+};
 
+const getSortColumn = (sortBy) => SORTABLE_COLUMNS[sortBy] ?? 'name';
 const getSortDirection = (sortOrder) =>
   String(sortOrder).toLowerCase() === 'desc' ? 'DESC' : 'ASC';
 

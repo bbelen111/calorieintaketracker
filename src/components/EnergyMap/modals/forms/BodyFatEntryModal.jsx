@@ -5,6 +5,7 @@ import { DateInput } from '../../common/DateInput';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { ConfirmActionModal } from '../common/ConfirmActionModal';
 import {
+  SCROLL_SETTLE_DELAY,
   alignScrollContainerToValue,
   createPickerScrollHandler,
 } from '../../../../utils/visuals/scroll';
@@ -416,6 +417,58 @@ export const BodyFatEntryModal = ({
     forceClose: forceConfirmClose,
   } = useAnimatedModal(false);
 
+  // Wheel drafts relay to the parent on settle, not per scroll frame (see
+  // the matching comment in WeightEntryModal); save passes the live value so
+  // a save racing the trailing commit can never persist a stale draft.
+  const pendingBodyFatRef = useRef(null);
+  const bodyFatCommitTimerRef = useRef(null);
+
+  const clearPendingBodyFatCommit = useCallback(() => {
+    if (bodyFatCommitTimerRef.current) {
+      clearTimeout(bodyFatCommitTimerRef.current);
+      bodyFatCommitTimerRef.current = null;
+    }
+  }, []);
+
+  const relayBodyFatChange = useCallback(
+    (nextValue) => {
+      pendingBodyFatRef.current = nextValue;
+      clearPendingBodyFatCommit();
+      bodyFatCommitTimerRef.current = setTimeout(() => {
+        bodyFatCommitTimerRef.current = null;
+        const pending = pendingBodyFatRef.current;
+        pendingBodyFatRef.current = null;
+        if (pending != null) {
+          onBodyFatChange?.(pending);
+        }
+      }, SCROLL_SETTLE_DELAY);
+    },
+    [clearPendingBodyFatCommit, onBodyFatChange]
+  );
+
+  // Never let a trailing commit land after the modal has closed (the parent
+  // resets its draft on close).
+  useEffect(() => {
+    if (!isOpen) {
+      pendingBodyFatRef.current = null;
+      clearPendingBodyFatCommit();
+    }
+  }, [clearPendingBodyFatCommit, isOpen]);
+
+  useEffect(
+    () => () => {
+      clearPendingBodyFatCommit();
+    },
+    [clearPendingBodyFatCommit]
+  );
+
+  const handleSaveClick = useCallback(() => {
+    const liveValue = pendingBodyFatRef.current ?? bodyFat;
+    pendingBodyFatRef.current = null;
+    clearPendingBodyFatCommit();
+    onSave?.(liveValue);
+  }, [bodyFat, clearPendingBodyFatCommit, onSave]);
+
   useEffect(() => {
     if (!isOpen) {
       forceConfirmClose();
@@ -437,7 +490,7 @@ export const BodyFatEntryModal = ({
           <p className="text-muted text-xs text-center mb-2 uppercase tracking-wide">
             Percentage
           </p>
-          <BodyFatPicker value={bodyFat} onChange={onBodyFatChange} />
+          <BodyFatPicker value={bodyFat} onChange={relayBodyFatChange} />
         </div>
 
         <div>
@@ -488,7 +541,7 @@ export const BodyFatEntryModal = ({
         </button>
         <button
           type="button"
-          onClick={onSave}
+          onClick={handleSaveClick}
           className={`flex-1 bg-primary active:brightness-110 text-primary-foreground ${showDelete ? 'px-3' : 'px-6'} py-3 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 font-medium focus-ring press-feedback`}
         >
           <Save size={20} />

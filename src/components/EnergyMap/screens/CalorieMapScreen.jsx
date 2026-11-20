@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import {
   Info,
   ListChecks,
@@ -16,6 +16,16 @@ import {
   getHealthSourceName,
 } from '../../../constants/health/healthSources.js';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
+
+// Module-scope static map (hoisted out of the component body so the screen's
+// render does not rebuild the literal per render).
+const GOAL_TEXT_CLASSES = {
+  aggressive_bulk: 'text-accent-purple',
+  bulking: 'text-accent-green',
+  maintenance: 'text-accent-blue/80',
+  cutting: 'text-accent-yellow',
+  aggressive_cut: 'text-accent-orange',
+};
 
 const formatLastSynced = (date) => {
   if (!date) return '';
@@ -291,14 +301,21 @@ const LiveStepsCard = ({
   return null;
 };
 
-export const CalorieMapScreen = ({
+// Memoized: the orchestrator's local state churn (modal opens, drafts,
+// pickers) re-renders its whole tree; the carousel screens receive stable
+// props, so React.memo keeps unrelated screens from reconciling each time.
+export const CalorieMapScreen = memo(function CalorieMapScreen({
   stepRanges,
   selectedGoal,
   selectedDay,
   goals,
   onManageStepRanges,
   onOpenBreakdown,
-  getRangeDetails,
+  // Map<steps, details> — the orchestrator's memoized per-range goal-seeded
+  // breakdown details (targetCalories/breakdown/difference). Reading from
+  // this map replaces the old per-render `getRangeDetails(steps)` call per
+  // card, which re-ran ~24 full TDEE breakdowns on every render.
+  rangeDetailsBySteps,
   isSelectedRange,
   // Health Connect props
   liveStepData,
@@ -309,7 +326,7 @@ export const CalorieMapScreen = ({
   onRefreshSteps,
   onOpenStepTracker,
   stepGoal,
-}) => {
+}) {
   const store = useEnergyMapStore(
     (state) => ({
       stepRanges: state.userData.stepRanges ?? [],
@@ -320,14 +337,8 @@ export const CalorieMapScreen = ({
   const resolvedStepRanges = stepRanges ?? store.stepRanges;
   const resolvedStepGoal = stepGoal ?? store.stepGoal;
   const resolvedGoals = goals ?? baseGoals;
-  const goalTextClasses = {
-    aggressive_bulk: 'text-accent-purple',
-    bulking: 'text-accent-green',
-    maintenance: 'text-accent-blue/80',
-    cutting: 'text-accent-yellow',
-    aggressive_cut: 'text-accent-orange',
-  };
-  const goalTextClass = goalTextClasses[selectedGoal] ?? 'text-accent-blue/80';
+  const goalTextClass =
+    GOAL_TEXT_CLASSES[selectedGoal] ?? 'text-accent-blue/80';
   const isTrainingDay = selectedDay === 'training';
   const dayLabel = isTrainingDay ? 'Training Day' : 'Rest Day';
   const dayTextClass = isTrainingDay
@@ -400,8 +411,10 @@ export const CalorieMapScreen = ({
         {/* Step Range Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {resolvedStepRanges.map((steps) => {
-            const { breakdown, targetCalories, difference } =
-              getRangeDetails(steps);
+            const rangeDetails = rangeDetailsBySteps?.[steps];
+            const breakdown = rangeDetails?.breakdown ?? { total: 0 };
+            const targetCalories = rangeDetails?.targetCalories ?? 0;
+            const difference = rangeDetails?.difference ?? 0;
             const isActive = isSelectedRange(steps);
 
             return (
@@ -449,4 +462,4 @@ export const CalorieMapScreen = ({
       </div>
     </div>
   );
-};
+});

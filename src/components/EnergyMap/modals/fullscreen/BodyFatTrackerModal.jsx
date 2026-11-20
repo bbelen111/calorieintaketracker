@@ -654,6 +654,77 @@ export const BodyFatTrackerModal = ({
     timeline12m,
   ]);
 
+  // Gap-aware run geometry per chart, memoized. `buildGapAwarePathRuns` +
+  // `buildBezierPaths` used to run inside the chart render helper on EVERY
+  // render (each selection tap or store write while the modal is open rebuilt
+  // every path string); the geometry only depends on the point set and the
+  // chart box, so it is computed once per input change here. First/last-run
+  // edge extension is resolved against the FULL runs array inside the
+  // builder (empty runs are skipped only afterward), matching the render
+  // helper's original semantics.
+  const buildChartRunsGeometry = useCallback(
+    (points, timelineLength, windowSize) => {
+      const STEP = chartWidth / windowSize;
+      const totalWidth = timelineLength * STEP;
+
+      // Preserve interpolation tags so gaps tier into solid/dashed/broken runs.
+      const pts = points.map((p) => ({
+        x: p.x,
+        y: p.y,
+        isInterpolated: Boolean(p.isInterpolated),
+        gapLength: p.gapLength,
+      }));
+      const runs = buildGapAwarePathRuns(pts);
+
+      const renderedRuns = [];
+      runs.forEach((run, runIndex) => {
+        if (!run.points.length) return;
+        const isFirstRun = runIndex === 0;
+        const isLastRun = runIndex === runs.length - 1;
+        const extendToEdges =
+          isFirstRun && isLastRun
+            ? true
+            : isFirstRun
+              ? 'left'
+              : isLastRun
+                ? 'right'
+                : false;
+        const { pathData: runPath, areaData: runArea } = buildBezierPaths(
+          run.points,
+          {
+            chartWidth: totalWidth,
+            chartHeight,
+            extendToEdges,
+            singlePointStretch:
+              run.points.length === 1 && isFirstRun && isLastRun,
+          }
+        );
+        renderedRuns.push({
+          points: run.points,
+          dashArray: run.dashArray,
+          runPath,
+          runArea,
+        });
+      });
+
+      return { STEP, totalWidth, renderedRuns };
+    },
+    [chartHeight, chartWidth]
+  );
+
+  const chartRunsGeometry7d = useMemo(
+    () => buildChartRunsGeometry(allPoints7d, timeline7d.days.length, 7),
+    [allPoints7d, buildChartRunsGeometry, timeline7d]
+  );
+  const chartRunsGeometry30d = useMemo(
+    () => buildChartRunsGeometry(allPoints30d, timeline30d.days.length, 30),
+    [allPoints30d, buildChartRunsGeometry, timeline30d]
+  );
+  const chartRunsGeometry12m = useMemo(
+    () => buildChartRunsGeometry(allPoints12m, timeline12m.months.length, 12),
+    [allPoints12m, buildChartRunsGeometry, timeline12m]
+  );
+
   // Y ticks (use effectiveChartData — global for 7d, per-page for 30d/12m)
   const yTicks = useMemo(() => {
     if (!effectiveChartData) return [];
@@ -1049,25 +1120,18 @@ export const BodyFatTrackerModal = ({
         : '';
 
   // --- Render continuous chart (shared helper) ---
+  // `runsGeometry` comes precomputed from the memoized builders above
+  // (chartRunsGeometry7d/30d/12m) — path runs and bezier strings are no
+  // longer rebuilt on every render of this modal.
   const renderContinuousChart = (
     points,
     timeline,
     windowSize,
     gradIdSuffix,
-    strokeW = '3'
+    strokeW = '3',
+    runsGeometry
   ) => {
-    const STEP = chartWidth / windowSize;
-    const totalSlots = timeline.length;
-    const totalWidth = totalSlots * STEP;
-
-    // Preserve interpolation tags so gaps tier into solid/dashed/broken runs.
-    const pts = points.map((p) => ({
-      x: p.x,
-      y: p.y,
-      isInterpolated: Boolean(p.isInterpolated),
-      gapLength: p.gapLength,
-    }));
-    const runs = buildGapAwarePathRuns(pts);
+    const { totalWidth, renderedRuns } = runsGeometry;
 
     const gradId = `areaGradient-bf-${gradIdSuffix}`;
 
@@ -1156,43 +1220,22 @@ export const BodyFatTrackerModal = ({
               />
             )}
 
-            {/* Area fill + line, drawn per gap-aware run */}
-            {runs.map((run, runIndex) => {
-              if (!run.points.length) return null;
-              const isFirstRun = runIndex === 0;
-              const isLastRun = runIndex === runs.length - 1;
-              const extendToEdges =
-                isFirstRun && isLastRun
-                  ? true
-                  : isFirstRun
-                    ? 'left'
-                    : isLastRun
-                      ? 'right'
-                      : false;
-              const { pathData: runPath, areaData: runArea } = buildBezierPaths(
-                run.points,
-                {
-                  chartWidth: totalWidth,
-                  chartHeight,
-                  extendToEdges,
-                  singlePointStretch:
-                    run.points.length === 1 && isFirstRun && isLastRun,
-                }
-              );
+            {/* Area fill + line, drawn per gap-aware run (precomputed geometry) */}
+            {renderedRuns.map((run, runIndex) => {
               return (
                 <React.Fragment key={`run-${runIndex}`}>
-                  {runArea && (
+                  {run.runArea && (
                     <path
-                      d={runArea}
+                      d={run.runArea}
                       fill={`url(#${gradId})`}
                       className="tracker-graph-fill"
                     />
                   )}
 
                   {/* Line (dashed when bridging a medium gap) */}
-                  {runPath && (
+                  {run.runPath && (
                     <path
-                      d={runPath}
+                      d={run.runPath}
                       fill="none"
                       stroke={trendVisual.color}
                       strokeWidth={strokeW}
@@ -1323,7 +1366,14 @@ export const BodyFatTrackerModal = ({
       );
     });
 
-    return renderContinuousChart(allPoints7d, timelineSlots, 7, '7d-cont', '3');
+    return renderContinuousChart(
+      allPoints7d,
+      timelineSlots,
+      7,
+      '7d-cont',
+      '3',
+      chartRunsGeometry7d
+    );
   };
 
   // --- Render 30d continuous chart ---
@@ -1403,7 +1453,8 @@ export const BodyFatTrackerModal = ({
       timelineSlots,
       30,
       '30d-cont',
-      '2'
+      '2',
+      chartRunsGeometry30d
     );
   };
 
@@ -1461,7 +1512,8 @@ export const BodyFatTrackerModal = ({
       timelineSlots,
       12,
       '12m-cont',
-      '3'
+      '3',
+      chartRunsGeometry12m
     );
   };
 

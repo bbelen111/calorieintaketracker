@@ -46,10 +46,11 @@ The save path is **O(changed), never O(entire history)**. This is what keeps the
 - History fields are replaced **immutably** by the store, so `storage.js` tracks a per-field value **reference** (`lastSavedHistoryRefByField`). A field whose reference is unchanged is skipped entirely — no normalization, no shard build, no serialization.
 - Sharded fields diff **per shard** via `SHARDED_HISTORY_FIELD_CONFIG[field].shardEntries(value)` → `{ key, source, sourceRef, order }` (no payload allocation). A shard is rewritten only when its `sourceRef` or `order` moved, and is then compared structurally (`areShardPayloadsEqual`) so a rebuilt-but-identical payload (e.g. `normalizePhaseLogV2State` re-creating objects) is not rewritten.
 - Deletes are the shards present in the previous identity map but absent now; an `__order` shift only rewrites the affected tail.
-- `primePersistenceBaseline(userData)` records the loaded state as already-persisted (after `mergeWithDefaults`) so the first save after launch writes only what the user actually changes. `sanitizeHistoryForPersistence` is now **load-only**; `cachedFoods` normalization happens lazily inside its shard config.
+- `primePersistenceBaseline(userData)` records the loaded state as already-persisted (after `mergeWithDefaults`) so the first save after launch writes only what the user actually changes. This covers BOTH scopes: history field refs + shard identities, and the profile field refs (`lastSavedProfileFieldRefByField` — previously the profile always wrote once on the first save because its old stringify baseline started null). `sanitizeHistoryForPersistence` is now **load-only**; `cachedFoods` normalization happens lazily inside its shard config.
+- **Profile change detection is reference-based too** (`collectChangedProfileFields`): the debounced save used to `JSON.stringify` the whole profile (favourites/pins lists included) on EVERY save just to compare against the last serialized payload; now an unchanged profile short-circuits to O(fields) reference comparisons and the stringify only runs when a non-history top-level field's reference actually moved. Key removals are detected (baseline keys absent from the payload count as changes), and the baseline is rebuilt **wholesale** after a successful write so removed keys leave it. Same immutability contract as the history diff.
 - `resetPersistenceTracking()` clears the baselines — call it after any wholesale data replacement (import/reset).
 - `diffShardedHistoryField(fieldName, prev, next)` is the pure test seam; `getPersistenceFootprint()` reports tracked shard counts for diagnostics.
-- **Do not** reintroduce whole-field or per-shard `JSON.stringify` diffing, and **never** mutate a history field in place — the identity diff depends on immutable replacement.
+- **Do not** reintroduce whole-field or per-shard `JSON.stringify` diffing (or whole-profile stringify-per-save), and **never** mutate a history field or profile field in place — the identity diffs depend on immutable replacement.
 
 ### Data Integrity Helpers
 
@@ -224,6 +225,7 @@ Food search now reads from `src/constants/food/foodDatabase.sqlite` through `src
 - `getFoodById(id)`
 - `getFoodsByIds(ids)`
 - `getDistinctSubcategories(category)`
+- `warmUpFoodCatalog()` — initialises the sql.js WASM engine + fetches/parses the bundled SQLite DB + primes the `foods` table-column detection (best-effort, singleton-backed; failures fall back to the lazy first-query path). Called from `hooks/useFoodCatalogWarmUp.js` during idle time after hydration so the first Food Search open does not pay all of it at once. The import in that hook must stay **dynamic** — a static import anywhere on the boot path would pull the catalog back into the eager bundle.
 
 `searchFoods(...)` intentionally applies query-aware relevance ordering for name searches (`sortBy === 'name'`) so exact/prefix name matches rank above broad contains matches.
 

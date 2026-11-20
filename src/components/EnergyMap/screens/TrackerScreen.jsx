@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Target,
@@ -128,7 +128,14 @@ const getWeekStartDate = (dateStr) => {
   return date;
 };
 
-export const TrackerScreen = ({
+// Memoized: the orchestrator's local state churn (modal opens, drafts,
+// pickers) re-renders its whole tree; the carousel screens receive stable
+// props, so React.memo keeps unrelated screens from reconciling each time.
+// (TrackerScreen also receives the calendar modal hook object, whose
+// identity is per-render — its memo compare will simply miss on that prop
+// until the modal state is flattened; the other four screens benefit
+// immediately.)
+export const TrackerScreen = memo(function TrackerScreen({
   nutritionData,
   onAddMealEntry,
   onAddFoodToMeal,
@@ -143,7 +150,7 @@ export const TrackerScreen = ({
   calorieTargetLabel = '',
   calorieTargetCalories = 2500,
   onOpenCalorieTargetModal,
-}) => {
+}) {
   const store = useEnergyMapStore(
     (state) => ({
       nutritionData: state.nutritionData ?? {},
@@ -1140,4 +1147,4 @@ export const TrackerScreen = ({
       />
     </div>
   );
-};
+});

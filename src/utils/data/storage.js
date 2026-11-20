@@ -562,7 +562,15 @@ const FOOD_SEARCH_DEFAULT_ENTRIES = new Set([
   'manual_entry',
   'barcode',
 ]);
-let lastSavedProfileSerialized = null;
+// Per-field profile identity baseline — the profile-side twin of
+// `lastSavedHistoryRefByField`. The debounced save used to
+// `JSON.stringify` the whole profile (favourites/pins lists included) on
+// EVERY save just to detect changes; with this map an unchanged profile
+// short-circuits to O(fields) reference comparisons and the stringify only
+// runs when a field's reference actually moved (same immutability contract
+// the history diff already relies on). Keys tracked here are exactly the
+// non-history top-level fields of `userData`.
+let lastSavedProfileFieldRefByField = new Map();
 // Identity-based persistence baselines. History fields are replaced immutably
 // by the store, so a field only needs work when its reference moves, and a
 // shard only needs re-reading when its own source reference / order moves.
@@ -570,6 +578,33 @@ let lastSavedProfileSerialized = null;
 // O(entire history) on every debounced save (the data-scale lag).
 let lastSavedHistoryRefByField = new Map();
 let lastSavedShardIdentityByField = new Map();
+
+/**
+ * Profile-side change detection: returns the set of profile keys whose
+ * reference moved since the last successful save (or that were added /
+ * removed). Reference-identity only — profile fields are replaced immutably
+ * by the store's `updateUserData`, the same contract the history diff and
+ * the sharded identity maps depend on.
+ */
+const collectChangedProfileFields = (profileData) => {
+  const changed = {};
+
+  Object.keys(profileData).forEach((key) => {
+    if (lastSavedProfileFieldRefByField.get(key) !== profileData[key]) {
+      changed[key] = true;
+    }
+  });
+
+  // Removed keys (present in the baseline, absent from the payload) must
+  // still count as changes — the old stringify-compare caught them.
+  lastSavedProfileFieldRefByField.forEach((ref, key) => {
+    if (!(key in profileData)) {
+      changed[key] = true;
+    }
+  });
+
+  return changed;
+};
 
 const parseJsonOrEmpty = (value) => {
   if (!value) {
@@ -1067,8 +1102,21 @@ const sanitizeHistoryForPersistence = (historyData) => ({
  * harmless until that field is next edited (then the shard diff writes it).
  */
 export const primePersistenceBaseline = (userData) => {
+  lastSavedProfileFieldRefByField = new Map();
   lastSavedHistoryRefByField = new Map();
   lastSavedShardIdentityByField = new Map();
+
+  // Profile scope: record every non-history top-level field's reference so
+  // the first save after launch also writes only what the user changes
+  // (previously the profile always wrote once on the first save, because the
+  // old stringify-compare had no primed baseline).
+  if (userData && typeof userData === 'object') {
+    Object.keys(userData).forEach((key) => {
+      if (!HISTORY_FIELDS.includes(key)) {
+        lastSavedProfileFieldRefByField.set(key, userData[key]);
+      }
+    });
+  }
 
   Object.entries(SHARDED_HISTORY_FIELD_CONFIG).forEach(
     ([fieldName, config]) => {
@@ -1125,7 +1173,7 @@ export const diffShardedHistoryField = (
  * means reference identity can no longer describe what changed.
  */
 export const resetPersistenceTracking = () => {
-  lastSavedProfileSerialized = null;
+  lastSavedProfileFieldRefByField = new Map();
   lastSavedHistoryRefByField = new Map();
   lastSavedShardIdentityByField = new Map();
 };
@@ -1236,14 +1284,22 @@ export const saveEnergyMapData = async (data) => {
       }
     });
 
-    const profileSerialized = JSON.stringify(profileData);
+    // Profile change detection is reference-based (see
+    // collectChangedProfileFields): the stringify only happens when a
+    // profile field actually moved, instead of serialising the whole
+    // profile (favourites/pins included) on every debounced save.
+    const changedProfileFields = collectChangedProfileFields(profileData);
+    const hasProfileChanges = Object.keys(changedProfileFields).length > 0;
     const changedHistoryData = collectChangedHistoryFields(historyData);
-    const hasProfileChanges = profileSerialized !== lastSavedProfileSerialized;
     const hasHistoryChanges = Object.keys(changedHistoryData).length > 0;
 
     if (!hasProfileChanges && !hasHistoryChanges) {
       return;
     }
+
+    const profileSerialized = hasProfileChanges
+      ? JSON.stringify(profileData)
+      : null;
 
     const primaryResults = await Promise.allSettled([
       hasProfileChanges
@@ -1274,7 +1330,16 @@ export const saveEnergyMapData = async (data) => {
     const historyWriteSucceeded = !hasHistoryChanges || dexieSucceeded;
 
     if (profileWriteSucceeded) {
-      lastSavedProfileSerialized = profileSerialized;
+      if (hasProfileChanges) {
+        // Wholesale rebuild (not per-key update) so a REMOVED key leaves the
+        // baseline too — otherwise it would be re-detected as a removal on
+        // every subsequent save and force a profile write each time.
+        const nextProfileRefs = new Map();
+        Object.keys(profileData).forEach((key) => {
+          nextProfileRefs.set(key, profileData[key]);
+        });
+        lastSavedProfileFieldRefByField = nextProfileRefs;
+      }
     }
     if (historyWriteSucceeded) {
       Object.keys(changedHistoryData).forEach((field) => {
