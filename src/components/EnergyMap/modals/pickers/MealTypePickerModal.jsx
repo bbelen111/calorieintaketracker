@@ -9,7 +9,8 @@ import {
   getMealTypeById,
 } from '../../../../constants/meal/mealTypes';
 
-const FOOD_SEARCH_DEFAULT_ENTRY_OPTIONS = [
+// Also consumed by Settings -> Food & Nutrition so the two surfaces share one list.
+export const FOOD_SEARCH_DEFAULT_ENTRY_OPTIONS = [
   {
     id: 'search_local',
     label: 'Search · Local',
@@ -46,7 +47,7 @@ const FOOD_SEARCH_DEFAULT_ENTRY_SET = new Set(
   FOOD_SEARCH_DEFAULT_ENTRY_OPTIONS.map((option) => option.id)
 );
 
-const normalizeFoodSearchDefaultEntry = (value) => {
+export const normalizeFoodSearchDefaultEntry = (value) => {
   const normalized = String(value ?? '')
     .trim()
     .toLowerCase();

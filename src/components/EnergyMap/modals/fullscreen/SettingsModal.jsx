@@ -18,6 +18,10 @@ import {
   Sparkles,
   Feather,
   CircleOff,
+  UtensilsCrossed,
+  ChartPie,
+  Trash2,
+  Lightbulb,
 } from 'lucide-react';
 import {
   DEFAULT_ACTIVITY_MULTIPLIERS,
@@ -47,6 +51,14 @@ import {
   normalizeMotionPreferenceKey,
 } from '../../../../constants/appearance/motion';
 import { getAdaptiveThermogenesisSmartModeDataStatus } from '../../../../utils/calculations/adaptiveThermogenesis';
+import {
+  normalizeMacroLocks,
+  normalizeMacroRecommendationSplit,
+} from '../../../../utils/calculations/macroRecommendations';
+import {
+  FOOD_SEARCH_DEFAULT_ENTRY_OPTIONS,
+  normalizeFoodSearchDefaultEntry,
+} from '../pickers/MealTypePickerModal';
 
 // `swatchClass` is the CSS class that carries the theme's variables, so the
 // preview swatch below resolves its colours from the real theme definition in
@@ -110,6 +122,11 @@ const SETTINGS_PAGES = [
     id: 'adjustments',
     title: 'Calorie Adjustments',
     icon: SlidersHorizontal,
+  },
+  {
+    id: 'food',
+    title: 'Food & Nutrition',
+    icon: UtensilsCrossed,
   },
 ];
 
@@ -221,6 +238,10 @@ export const SettingsModal = ({
   onOpenAdaptiveThermogenesisInfo,
   onOpenEpocInfo,
   onEpocWindowPickerClick,
+  onStepGoalPickerClick,
+  onStepRangesClick,
+  onMacroPickerClick,
+  onClearCachedFoodsClick,
   onCancel,
   actions,
 }) => {
@@ -252,6 +273,10 @@ export const SettingsModal = ({
         manageBodyFat: onManageBodyFatClick,
         dailyActivity: onDailyActivityClick,
         epocWindowPicker: onEpocWindowPickerClick,
+        stepGoalPicker: onStepGoalPickerClick,
+        stepRanges: onStepRangesClick,
+        macroPicker: onMacroPickerClick,
+        clearCachedFoods: onClearCachedFoodsClick,
       },
       info: actions?.info ?? {
         tef: onOpenTefInfo,
@@ -279,7 +304,9 @@ export const SettingsModal = ({
       onChange,
       onDailyActivityClick,
       onEpocWindowPickerClick,
+      onClearCachedFoodsClick,
       onHeightPickerClick,
+      onMacroPickerClick,
       onManageBodyFatClick,
       onManageWeightClick,
       onOpenAdaptiveThermogenesisInfo,
@@ -287,6 +314,8 @@ export const SettingsModal = ({
       onOpenTefInfo,
       onNavigate,
       onRequestBack,
+      onStepGoalPickerClick,
+      onStepRangesClick,
     ]
   );
 
@@ -451,6 +480,10 @@ export const SettingsModal = ({
           onOpenBodyFatManager={resolvedActions.openers.manageBodyFat}
           onDailyActivityClick={resolvedActions.openers.dailyActivity}
           onOpenEpocWindowPicker={resolvedActions.openers.epocWindowPicker}
+          onOpenStepGoalPicker={resolvedActions.openers.stepGoalPicker}
+          onOpenStepRanges={resolvedActions.openers.stepRanges}
+          onOpenMacroPicker={resolvedActions.openers.macroPicker}
+          onClearCachedFoods={resolvedActions.openers.clearCachedFoods}
           onOpenTefInfo={resolvedActions.info.tef}
           onOpenAdaptiveThermogenesisInfo={
             resolvedActions.info.adaptiveThermogenesis
@@ -533,6 +566,10 @@ const SettingsPageContent = ({
   onOpenBodyFatManager,
   onDailyActivityClick,
   onOpenEpocWindowPicker,
+  onOpenStepGoalPicker,
+  onOpenStepRanges,
+  onOpenMacroPicker,
+  onClearCachedFoods,
   onOpenTefInfo,
   onOpenAdaptiveThermogenesisInfo,
   onOpenEpocInfo,
@@ -578,6 +615,17 @@ const SettingsPageContent = ({
         userData={userData}
         bmr={bmr}
         onDailyActivityClick={onDailyActivityClick}
+        onOpenStepGoalPicker={onOpenStepGoalPicker}
+        onOpenStepRanges={onOpenStepRanges}
+      />
+    )}
+
+    {page === 'food' && (
+      <FoodNutritionSection
+        userData={userData}
+        onFieldChange={onFieldChange}
+        onOpenMacroPicker={onOpenMacroPicker}
+        onClearCachedFoods={onClearCachedFoods}
       />
     )}
 
@@ -901,6 +949,7 @@ const AppearanceSection = ({ userData, onFieldChange }) => {
   const fontScaleKey = normalizeFontScaleKey(userData.fontScale);
   const densityKey = normalizeUiDensityKey(userData.uiDensity);
   const motionKey = normalizeMotionPreferenceKey(userData.motionPreference);
+  const hasSeenSwipeHint = userData.hasSeenSwipeHint === true;
 
   // One block per setting (the page staggers its blocks in); text size and
   // density apply live to the whole app, including this page, so there is no
@@ -1027,6 +1076,39 @@ const AppearanceSection = ({ userData, onFieldChange }) => {
             );
           })}
         </div>
+      </div>
+
+      <div>
+        <SettingLabel>Swipe tip</SettingLabel>
+        <button
+          type="button"
+          disabled={!hasSeenSwipeHint}
+          onClick={() => onFieldChange?.('hasSeenSwipeHint', false)}
+          aria-label="Show swipe tip again"
+          className={`w-full px-4 py-3 rounded-lg border transition-all text-left flex items-center justify-between gap-3 focus-ring ${
+            hasSeenSwipeHint
+              ? 'bg-surface-highlight text-foreground border-border md:hover:border-muted/50 pressable-inline'
+              : 'bg-surface-highlight/40 text-muted border-border/60 cursor-not-allowed'
+          }`}
+        >
+          <span className="flex items-center gap-3 min-w-0">
+            <Lightbulb
+              size={18}
+              aria-hidden="true"
+              className={`shrink-0 ${
+                hasSeenSwipeHint ? 'text-accent-amber' : 'text-muted'
+              }`}
+            />
+            <span className="min-w-0">
+              <span className="block font-medium text-base">
+                {hasSeenSwipeHint ? 'Show again' : 'Waiting to be shown'}
+              </span>
+              <span className="block text-xs text-muted">
+                The “Swipe between screens” hint in the header
+              </span>
+            </span>
+          </span>
+        </button>
       </div>
     </div>
   );
@@ -1330,7 +1412,18 @@ const formatMultiplier = (value) => {
     : `${rounded.toFixed(1)}%`;
 };
 
-const DailyActivitySection = ({ userData, bmr, onDailyActivityClick }) => {
+const DailyActivitySection = ({
+  userData,
+  bmr,
+  onDailyActivityClick,
+  onOpenStepGoalPicker,
+  onOpenStepRanges,
+}) => {
+  const stepGoal = Number(userData.stepGoal);
+  const stepRanges = Array.isArray(userData.stepRanges)
+    ? userData.stepRanges
+    : [];
+
   const presets = userData.activityPresets ?? defaultPresetKeys;
   const multipliers =
     userData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS;
@@ -1356,47 +1449,187 @@ const DailyActivitySection = ({ userData, bmr, onDailyActivityClick }) => {
     : null;
 
   return (
-    <div>
-      <SettingLabel>Daily NEAT (Non-Exercise Activity)</SettingLabel>
-      <button
-        onClick={onDailyActivityClick}
-        type="button"
-        className="relative w-full text-left p-3 md:p-4 rounded-lg border-2 border-accent-indigo bg-accent-indigo text-primary-foreground transition-all press-feedback focus-ring md:hover:brightness-110"
-      >
-        <div className="min-w-0 pr-24 md:pr-28">
-          <div className="font-semibold text-sm md:text-base">
-            Training Day • {trainingLabel}
+    <div className="space-y-6">
+      <div>
+        <SettingLabel>Daily NEAT (Non-Exercise Activity)</SettingLabel>
+        <button
+          onClick={onDailyActivityClick}
+          type="button"
+          className="relative w-full text-left p-3 md:p-4 rounded-lg border-2 border-accent-indigo bg-accent-indigo text-primary-foreground transition-all press-feedback focus-ring md:hover:brightness-110"
+        >
+          <div className="min-w-0 pr-24 md:pr-28">
+            <div className="font-semibold text-sm md:text-base">
+              Training Day • {trainingLabel}
+            </div>
+            <div className="text-xs md:text-sm opacity-90">
+              NEAT offset: {formatMultiplier(trainingMultiplier)}
+            </div>
+            <div className="font-semibold text-sm md:text-base mt-3">
+              Rest Day • {restLabel}
+            </div>
+            <div className="text-xs md:text-sm opacity-90">
+              NEAT offset: {formatMultiplier(restMultiplier)}
+            </div>
           </div>
-          <div className="text-xs md:text-sm opacity-90">
-            NEAT offset: {formatMultiplier(trainingMultiplier)}
+          <span className="pointer-events-none absolute top-3 right-3 md:top-4 md:right-4 text-[11px] opacity-75 whitespace-nowrap">
+            Tap to adjust
+          </span>
+        </button>
+        {Number.isFinite(bmr) && (
+          <div className="settings-reveal mt-2 space-y-1 text-xs text-foreground/80">
+            {restBaseline !== null && (
+              <p>
+                Rest day baseline: ~{restBaseline.toLocaleString()} cal (BMR +
+                NEAT)
+              </p>
+            )}
+            {trainingBaseline !== null && (
+              <p>
+                Training day baseline: ~{trainingBaseline.toLocaleString()} cal
+                (BMR + NEAT)
+              </p>
+            )}
           </div>
-          <div className="font-semibold text-sm md:text-base mt-3">
-            Rest Day • {restLabel}
-          </div>
-          <div className="text-xs md:text-sm opacity-90">
-            NEAT offset: {formatMultiplier(restMultiplier)}
-          </div>
-        </div>
-        <span className="pointer-events-none absolute top-3 right-3 md:top-4 md:right-4 text-[11px] opacity-75 whitespace-nowrap">
-          Tap to adjust
-        </span>
-      </button>
-      {Number.isFinite(bmr) && (
-        <div className="settings-reveal mt-2 space-y-1 text-xs text-foreground/80">
-          {restBaseline !== null && (
-            <p>
-              Rest day baseline: ~{restBaseline.toLocaleString()} cal (BMR +
-              NEAT)
-            </p>
+        )}
+      </div>
+
+      <div>
+        <SettingLabel>Daily step goal</SettingLabel>
+        <PickerButton
+          onClick={() => onOpenStepGoalPicker?.()}
+          ariaLabel="Open step goal picker"
+        >
+          {Number.isFinite(stepGoal) && stepGoal > 0
+            ? `${stepGoal.toLocaleString()} steps`
+            : 'Not set'}
+        </PickerButton>
+      </div>
+
+      <div>
+        <SettingLabel>Step ranges</SettingLabel>
+        <PickerButton
+          onClick={() => onOpenStepRanges?.()}
+          ariaLabel="Open step ranges"
+        >
+          {stepRanges.length} {stepRanges.length === 1 ? 'range' : 'ranges'}
+          {stepRanges.length > 0 && (
+            <span className="block truncate text-xs font-normal text-muted">
+              {stepRanges.join(' · ')}
+            </span>
           )}
-          {trainingBaseline !== null && (
-            <p>
-              Training day baseline: ~{trainingBaseline.toLocaleString()} cal
-              (BMR + NEAT)
-            </p>
-          )}
+        </PickerButton>
+      </div>
+    </div>
+  );
+};
+
+const FoodNutritionSection = ({
+  userData,
+  onFieldChange,
+  onOpenMacroPicker,
+  onClearCachedFoods,
+}) => {
+  const defaultEntry = normalizeFoodSearchDefaultEntry(
+    userData.foodSearchDefaultEntry
+  );
+  const defaultEntryOption =
+    FOOD_SEARCH_DEFAULT_ENTRY_OPTIONS.find(
+      (option) => option.id === defaultEntry
+    ) ?? FOOD_SEARCH_DEFAULT_ENTRY_OPTIONS[0];
+
+  const split = normalizeMacroRecommendationSplit(
+    userData.macroRecommendationSplit
+  );
+  const lockedMacroCount = Object.values(
+    normalizeMacroLocks(userData.macroLocks)
+  ).filter((grams) => grams !== null && grams !== undefined).length;
+
+  const cachedFoodCount = Array.isArray(userData.cachedFoods)
+    ? userData.cachedFoods.length
+    : 0;
+
+  const toPercent = (ratio) => `${Math.round((Number(ratio) || 0) * 100)}%`;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <SettingLabel>Food search opens in</SettingLabel>
+        <div
+          role="group"
+          aria-label="Food search default view"
+          className="grid grid-cols-2 gap-2"
+        >
+          {FOOD_SEARCH_DEFAULT_ENTRY_OPTIONS.map(({ id, label }) => (
+            <SegmentedButton
+              key={id}
+              active={defaultEntry === id}
+              activeClassName={BUTTON_ACTIVE_PRIMARY_CLASS}
+              aria-pressed={defaultEntry === id}
+              onClick={() => onFieldChange?.('foodSearchDefaultEntry', id)}
+            >
+              <span className="text-sm">{label}</span>
+            </SegmentedButton>
+          ))}
         </div>
-      )}
+        <p className="mt-2 text-xs text-muted">
+          {defaultEntryOption.description}
+        </p>
+      </div>
+
+      <div>
+        <SettingLabel>Macro targets</SettingLabel>
+        <PickerButton
+          onClick={() => onOpenMacroPicker?.()}
+          ariaLabel="Open macro split picker"
+        >
+          <span className="inline-flex items-center gap-2">
+            <ChartPie
+              size={18}
+              aria-hidden="true"
+              className="shrink-0 text-accent-blue"
+            />
+            <span>
+              P {toPercent(split.protein)} · C {toPercent(split.carbs)} · F{' '}
+              {toPercent(split.fats)}
+            </span>
+          </span>
+          {lockedMacroCount > 0 && (
+            <span className="block text-xs font-normal text-muted">
+              {lockedMacroCount} {lockedMacroCount === 1 ? 'macro' : 'macros'}{' '}
+              locked to grams
+            </span>
+          )}
+        </PickerButton>
+      </div>
+
+      <div>
+        <SettingLabel>Cached foods</SettingLabel>
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5">
+          <div className="min-w-0">
+            <p className="text-sm font-medium leading-tight text-foreground">
+              {cachedFoodCount.toLocaleString()}{' '}
+              {cachedFoodCount === 1 ? 'food' : 'foods'} saved
+            </p>
+            <p className="mt-0.5 text-xs text-muted">
+              From online search and barcode scans
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={cachedFoodCount === 0}
+            onClick={() => onClearCachedFoods?.()}
+            aria-label="Clear cached foods"
+            className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold transition-all focus-ring ${
+              cachedFoodCount === 0
+                ? 'cursor-not-allowed border-border/60 text-muted opacity-60'
+                : 'border-accent-red/40 bg-accent-red/15 text-accent-red pressable-inline md:hover:bg-accent-red/25'
+            }`}
+          >
+            <Trash2 size={15} aria-hidden="true" />
+            <span>Clear</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

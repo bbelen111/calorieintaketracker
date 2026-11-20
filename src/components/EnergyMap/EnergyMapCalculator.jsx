@@ -3908,6 +3908,22 @@ export const EnergyMapCalculator = () => {
     confirmActionModal.open();
   }, [selectedPhase, deletePhase, confirmActionModal]);
 
+  // Settings -> Food & Nutrition. Favourites hold full food objects and logged
+  // meals carry their own values, so only the online/barcode foods that were
+  // cached on select go away (plus the pins that pointed at them).
+  const handleClearCachedFoods = useCallback(() => {
+    setConfirmActionTitle('Clear cached foods?');
+    setConfirmActionDescription(
+      'Foods saved from online search and barcode scans will no longer appear in local search, and any pins on them will stop showing. Your favourites and logged meals are not affected.'
+    );
+    setConfirmActionLabel('Clear');
+    setConfirmActionTone('danger');
+    setConfirmActionCallback(() => () => {
+      updateCachedFoods([]);
+    });
+    confirmActionModal.open();
+  }, [confirmActionModal, updateCachedFoods]);
+
   useEffect(() => {
     if (!dailyLogModal.isOpen && !dailyLogModal.isClosing) {
       setDailyLogDate(getTodayDateString());
@@ -4614,6 +4630,10 @@ export const EnergyMapCalculator = () => {
                 manageBodyFat: openBodyFatTracker,
                 dailyActivity: openDailyActivitySettings,
                 epocWindowPicker: openEpocWindowPickerModal,
+                stepGoalPicker: openStepGoalPicker,
+                stepRanges: stepRangesModal.open,
+                macroPicker: openMacroPickerModal,
+                clearCachedFoods: handleClearCachedFoods,
               },
               info: {
                 tef: tefInfoModal.open,

@@ -710,7 +710,8 @@
   .settings-hub-enter > *:nth-child(4) {
     animation-delay: 135ms;
   }
-  .settings-page-enter > * > *:nth-child(5) {
+  .settings-page-enter > * > *:nth-child(5),
+  .settings-hub-enter > *:nth-child(5) {
     animation-delay: 180ms;
   }
   .settings-page-enter > * > *:nth-child(6) {

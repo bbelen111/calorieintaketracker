@@ -25,6 +25,7 @@ const SettingsHarness = ({
   onCancel = vi.fn(),
   onFieldChange = vi.fn(),
   onDailyActivityClick = vi.fn(),
+  openers = {},
   userData = createUserData(),
 }) => {
   const [activePage, setActivePage] = useState('home');
@@ -56,6 +57,11 @@ const SettingsHarness = ({
           manageBodyFat: vi.fn(),
           dailyActivity: onDailyActivityClick,
           epocWindowPicker: vi.fn(),
+          stepGoalPicker: vi.fn(),
+          stepRanges: vi.fn(),
+          macroPicker: vi.fn(),
+          clearCachedFoods: vi.fn(),
+          ...openers,
         },
         info: {
           tef: vi.fn(),
@@ -100,6 +106,7 @@ describe('SettingsModal segmented navigation', () => {
         'Calorie Adjustments',
         /EPOC \(Post-Exercise Burn\)/,
       ],
+      ['Open Food & Nutrition', 'Food & Nutrition', 'Food search opens in'],
     ];
 
     for (const [buttonName, pageTitle, contentMatcher] of pages) {
@@ -292,6 +299,139 @@ describe('SettingsModal segmented navigation', () => {
     ).toBeInTheDocument();
     await user.click(screen.getByRole('switch', { name: 'Toggle EPOC' }));
     expect(onFieldChange).toHaveBeenCalledWith('epocEnabled', false);
+  });
+
+  it('opens the step goal and step range editors from Daily Activity', async () => {
+    const user = userEvent.setup();
+    const stepGoalPicker = vi.fn();
+    const stepRanges = vi.fn();
+    render(
+      <SettingsHarness
+        openers={{ stepGoalPicker, stepRanges }}
+        userData={createUserData({
+          stepGoal: 12000,
+          stepRanges: ['<10k', '10k', '>20k'],
+        })}
+      />
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: 'Open Daily Activity' })
+    );
+
+    const goalButton = screen.getByRole('button', {
+      name: 'Open step goal picker',
+    });
+    expect(goalButton).toHaveTextContent(/12,000 steps/);
+    await user.click(goalButton);
+    expect(stepGoalPicker).toHaveBeenCalledTimes(1);
+
+    const rangesButton = screen.getByRole('button', {
+      name: 'Open step ranges',
+    });
+    expect(rangesButton).toHaveTextContent('3 ranges');
+    expect(rangesButton).toHaveTextContent('<10k · 10k · >20k');
+    await user.click(rangesButton);
+    expect(stepRanges).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets the swipe tip be shown again only once it has been seen', async () => {
+    const user = userEvent.setup();
+    const onFieldChange = vi.fn();
+    const { unmount } = render(
+      <SettingsHarness
+        onFieldChange={onFieldChange}
+        userData={createUserData({ hasSeenSwipeHint: true })}
+      />
+    );
+    await user.click(screen.getByRole('button', { name: 'Open Appearance' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Show swipe tip again' })
+    );
+    expect(onFieldChange).toHaveBeenLastCalledWith('hasSeenSwipeHint', false);
+    unmount();
+
+    // Not seen yet: it is already pending, so there is nothing to reset.
+    render(
+      <SettingsHarness userData={createUserData({ hasSeenSwipeHint: false })} />
+    );
+    await user.click(screen.getByRole('button', { name: 'Open Appearance' }));
+    expect(
+      screen.getByRole('button', { name: 'Show swipe tip again' })
+    ).toBeDisabled();
+  });
+
+  it('exposes food search, macro and cached-food controls on Food & Nutrition', async () => {
+    const user = userEvent.setup();
+    const onFieldChange = vi.fn();
+    const macroPicker = vi.fn();
+    const clearCachedFoods = vi.fn();
+    render(
+      <SettingsHarness
+        onFieldChange={onFieldChange}
+        openers={{ macroPicker, clearCachedFoods }}
+        userData={createUserData({
+          foodSearchDefaultEntry: 'favourites',
+          macroRecommendationSplit: { protein: 0.3, carbs: 0.4, fats: 0.3 },
+          macroLocks: { protein: 150, carbs: null, fats: null },
+          cachedFoods: [{ id: 'a' }, { id: 'b' }],
+        })}
+      />
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: 'Open Food & Nutrition' })
+    );
+
+    const entryGroup = within(
+      screen.getByRole('group', { name: 'Food search default view' })
+    );
+    expect(
+      entryGroup.getByRole('button', { name: 'Favorites' })
+    ).toHaveAttribute('aria-pressed', 'true');
+    await user.click(
+      entryGroup.getByRole('button', { name: 'Search · Online' })
+    );
+    expect(onFieldChange).toHaveBeenLastCalledWith(
+      'foodSearchDefaultEntry',
+      'search_online'
+    );
+
+    const macroButton = screen.getByRole('button', {
+      name: 'Open macro split picker',
+    });
+    expect(macroButton).toHaveTextContent('P 30% · C 40% · F 30%');
+    expect(macroButton).toHaveTextContent('1 macro locked to grams');
+    await user.click(macroButton);
+    expect(macroPicker).toHaveBeenCalledTimes(1);
+
+    expect(screen.getByText(/2 foods saved/)).toBeInTheDocument();
+    await user.click(
+      screen.getByRole('button', { name: 'Clear cached foods' })
+    );
+    expect(clearCachedFoods).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables Clear cached foods when nothing is cached and falls back to Local search', async () => {
+    const user = userEvent.setup();
+    render(
+      <SettingsHarness
+        userData={createUserData({ foodSearchDefaultEntry: 'nonsense' })}
+      />
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: 'Open Food & Nutrition' })
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Clear cached foods' })
+    ).toBeDisabled();
+    expect(
+      within(
+        screen.getByRole('group', { name: 'Food search default view' })
+      ).getByRole('button', { name: 'Search · Local' })
+    ).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('returns to the hub on Escape from a subpage and closes from the hub', async () => {
