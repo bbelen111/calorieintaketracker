@@ -20,11 +20,11 @@ import { normalizeSessionHeartRate } from '../../../../constants/health/heartRat
 import {
   applyManualHeartRate,
   clearHeartRateFields,
-  resolveDraftWindow,
   resolveTrainingHrBurnModel,
 } from '../../../../utils/calculations/sessionHeartRate';
 import { getTodayDateKey } from '../../../../utils/data/dateKeys';
 import { SessionHeartRatePanel } from '../../common/SessionHeartRatePanel';
+import { ImportWorkoutButton } from '../../common/ImportWorkoutButton';
 
 const DEFAULT_TRAINING_TYPE_CATALOG =
   getDefaultEnergyMapData().trainingType ?? {};
@@ -50,7 +50,6 @@ export const TrainingModal = ({
   isEditing: isEditingProp,
   onCancel,
   onSave,
-  onRecordLive,
 }) => {
   const store = useEnergyMapStore(
     (state) => ({
@@ -158,14 +157,8 @@ export const TrainingModal = ({
     pricingUserData,
   ]);
 
-  const sessionWindow = useMemo(() => {
-    const hours = Number(session?.durationHours);
-    return resolveDraftWindow({
-      dateKey: sessionDateKey,
-      startTime: session?.startTime,
-      durationMinutes: Number.isFinite(hours) ? Math.round(hours * 60) : 0,
-    });
-  }, [sessionDateKey, session?.startTime, session?.durationHours]);
+  // One-line result of an "Import" from the watch (shown under the header).
+  const [importNote, setImportNote] = React.useState(null);
   const hrBurnModel =
     effortType === 'heartRate' ? resolveTrainingHrBurnModel(session) : null;
 
@@ -369,19 +362,36 @@ export const TrainingModal = ({
         contentClassName="p-6 w-full max-w-md"
         overlayClassName={overlayClassName}
       >
-        <div className="flex items-center justify-between mb-4 gap-3">
+        <div className="flex flex-wrap items-center justify-between mb-4 gap-x-3 gap-y-2">
           <h3 className="text-foreground font-bold text-xl">{headerTitle}</h3>
-          {showFavouritesButton && typeof onOpenFavourites === 'function' && (
-            <button
-              type="button"
-              onClick={onOpenFavourites}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-highlight px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-foreground transition-colors press-feedback focus-ring md:hover:border-accent-amber"
-            >
-              <Star size={14} />
-              Favourites
-            </button>
-          )}
+          {/* Wraps under the title on narrow screens, staying side by side. */}
+          <div className="ml-auto flex items-center gap-2">
+            {!isFavouriteMode && (
+              <ImportWorkoutButton
+                kind="training"
+                session={session}
+                onChange={onChange}
+                dateKey={sessionDateKey}
+                onNote={setImportNote}
+              />
+            )}
+            {showFavouritesButton && typeof onOpenFavourites === 'function' && (
+              <button
+                type="button"
+                onClick={onOpenFavourites}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-highlight px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-foreground transition-colors press-feedback focus-ring md:hover:border-accent-amber"
+              >
+                <Star size={14} />
+                Favourites
+              </button>
+            )}
+          </div>
         </div>
+        {importNote && (
+          <p aria-live="polite" className="-mt-2 mb-3 text-xs text-muted">
+            {importNote}
+          </p>
+        )}
 
         <div className="space-y-4">
           <div>
@@ -533,13 +543,8 @@ export const TrainingModal = ({
                   : 'Heart rate sets the intensity; your training type keeps its kcal per hour.'}
               </p>
               <SessionHeartRatePanel
-                kind="training"
                 session={session}
-                onChange={onChange}
                 dateKey={sessionDateKey}
-                window={sessionWindow}
-                isFavouriteMode={isFavouriteMode}
-                onRecordLive={onRecordLive}
               />
             </div>
           )}

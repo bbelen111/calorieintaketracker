@@ -20,10 +20,10 @@ import { normalizeSessionHeartRate } from '../../../../constants/health/heartRat
 import {
   applyManualHeartRate,
   clearHeartRateFields,
-  resolveDraftWindow,
 } from '../../../../utils/calculations/sessionHeartRate';
 import { getTodayDateKey } from '../../../../utils/data/dateKeys';
 import { SessionHeartRatePanel } from '../../common/SessionHeartRatePanel';
+import { ImportWorkoutButton } from '../../common/ImportWorkoutButton';
 
 export const CardioModal = ({
   isOpen,
@@ -44,7 +44,6 @@ export const CardioModal = ({
   showFavouritesButton = false,
   mode = 'session',
   isEditing: isEditingProp,
-  onRecordLive,
 }) => {
   const {
     cardioTypes: storeCardioTypes,
@@ -112,15 +111,8 @@ export const CardioModal = ({
     session?.type,
     pricingUserData,
   ]);
-  const sessionWindow = React.useMemo(
-    () =>
-      resolveDraftWindow({
-        dateKey: sessionDateKey,
-        startTime: session?.startTime,
-        durationMinutes: session?.duration,
-      }),
-    [sessionDateKey, session?.startTime, session?.duration]
-  );
+  // One-line result of an "Import" from the watch (shown under the header).
+  const [importNote, setImportNote] = React.useState(null);
   const hasValidDuration =
     Number.isFinite(Number(session.duration)) && Number(session.duration) > 0;
   const hasValidStartTime = /^([01]\d|2[0-3]):([0-5]\d)$/.test(
@@ -420,19 +412,37 @@ export const CardioModal = ({
         contentClassName="p-6 max-w-md w-full"
         overlayClassName={overlayClassName}
       >
-        <div className="flex items-center justify-between mb-4 gap-3">
+        <div className="flex flex-wrap items-center justify-between mb-4 gap-x-3 gap-y-2">
           <h3 className="text-foreground font-bold text-xl">{headerTitle}</h3>
-          {showFavouritesButton && typeof onOpenFavourites === 'function' && (
-            <button
-              type="button"
-              onClick={onOpenFavourites}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-highlight px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-foreground transition-colors press-feedback focus-ring md:hover:border-accent-amber"
-            >
-              <Star size={14} />
-              Favourites
-            </button>
-          )}
+          {/* Wraps under the title on narrow screens, staying side by side. */}
+          <div className="ml-auto flex items-center gap-2">
+            {!isFavouriteMode && (
+              <ImportWorkoutButton
+                kind="cardio"
+                session={session}
+                onChange={onChange}
+                dateKey={sessionDateKey}
+                cardioTypes={resolvedCardioTypes}
+                onNote={setImportNote}
+              />
+            )}
+            {showFavouritesButton && typeof onOpenFavourites === 'function' && (
+              <button
+                type="button"
+                onClick={onOpenFavourites}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-highlight px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-foreground transition-colors press-feedback focus-ring md:hover:border-accent-amber"
+              >
+                <Star size={14} />
+                Favourites
+              </button>
+            )}
+          </div>
         </div>
+        {importNote && (
+          <p aria-live="polite" className="-mt-2 mb-3 text-xs text-muted">
+            {importNote}
+          </p>
+        )}
 
         <div className="space-y-4">
           <div>
@@ -587,14 +597,8 @@ export const CardioModal = ({
                 session.
               </p>
               <SessionHeartRatePanel
-                kind="cardio"
                 session={session}
-                onChange={onChange}
                 dateKey={sessionDateKey}
-                window={sessionWindow}
-                cardioTypes={resolvedCardioTypes}
-                isFavouriteMode={isFavouriteMode}
-                onRecordLive={onRecordLive}
               />
             </div>
           )}

@@ -5173,7 +5173,6 @@ export const EnergyMapCalculator = () => {
             userGender={userData.gender}
             onCancel={trainingModal.requestClose}
             onSave={handleTrainingSave}
-            onRecordLive={openLiveHeartRate}
           />
         </Suspense>
       )}
@@ -5208,7 +5207,6 @@ export const EnergyMapCalculator = () => {
             onStartTimePickerClick={openCardioStartTimePicker}
             showFavouritesButton={showFavouritesButton}
             isEditing={cardioModalMode === 'edit'}
-            onRecordLive={openLiveHeartRate}
           />
         </Suspense>
       )}
