@@ -64,6 +64,7 @@ import {
   parseLookupContextEntryKeyMessageId,
 } from '../../../../services/foodLookupContext';
 import {
+  CHAT_HISTORY_MESSAGE_LIMIT,
   CHAT_PIPELINE_STAGE,
   mergeEntriesWithLookupContext,
   runRagChatPipeline,
@@ -80,9 +81,9 @@ import {
   recordRagPresentationIssues,
   recordRagPresentationNameDrift,
   recordRagStageLatency,
+  recordRagTokenUsage,
 } from '../../../../services/ragTelemetry';
 
-const CHAT_HISTORY_MESSAGE_LIMIT = 48;
 const CHAT_TEXTAREA_MAX_HEIGHT = 112;
 const DEFAULT_CHAT_PLACEHOLDER = 'Describe food + portion...';
 const DEFAULT_MAX_IMAGE_COUNT = 3;
@@ -2437,6 +2438,7 @@ export const FoodSearchModal = ({
             recordRagLookupStats,
             recordRagPresentationNameDrift,
             recordRagPresentationIssues,
+            recordRagTokenUsage,
           },
         });
 

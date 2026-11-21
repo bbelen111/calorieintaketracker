@@ -45,12 +45,6 @@ export const RAG_TIMING = Object.freeze({
 });
 
 /**
- * Batch budget factor used to derive the deferred-grounding budget from the
- * per-lookup budget (3x headroom for multi-entry messages).
- */
-export const RAG_GROUNDING_BATCH_FACTOR = 3;
-
-/**
  * Enforces the pinned timeout invariant:
  *   groundingBatchMs >= groundingLookupMs * ceil(maxDeferred / maxBatchNames)
  *
