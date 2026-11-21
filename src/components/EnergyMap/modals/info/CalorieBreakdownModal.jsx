@@ -649,13 +649,20 @@ const BreakdownItem = ({
           {displayValue} kcal
         </span>
       </button>
+      {/* Animate the real content height (0fr -> 1fr) instead of a max-height
+          cap: a cap far above the content height makes collapse sit idle while
+          the text fades, then snap shut, and it clips tall sections. */}
       <div
-        className={`overflow-hidden transition-all duration-300 ${
-          expanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+        aria-hidden={!expanded}
+        inert={expanded ? undefined : ''}
+        className={`grid transition-[grid-template-rows,opacity] duration-300 ease-out ${
+          expanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
         }`}
       >
-        <div className="px-4 pb-3 pt-1 border-t border-border/50 space-y-2">
-          {children}
+        <div className="min-h-0 overflow-hidden">
+          <div className="px-4 pb-3 pt-1 border-t border-border/50 space-y-2">
+            {children}
+          </div>
         </div>
       </div>
     </div>
