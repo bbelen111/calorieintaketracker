@@ -5,10 +5,20 @@
 const OPENROUTER_CHAT_COMPLETIONS_URL =
   'https://openrouter.ai/api/v1/chat/completions';
 const FALLBACK_MODEL = 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free';
+// NOTE: the fallback default is a *reasoning* model. Reasoning tokens count
+// against `max_tokens` and push structured-JSON extraction toward truncated
+// payloads (which trigger the client's malformed-parser retry — another
+// billable call). For production, prefer pointing OPENROUTER_MODEL at a
+// non-reasoning instruct model for the extraction/presentation modes.
 const FOOD_PARSER_SCHEMA_VERSION = '1.1.0';
 const MAX_CONTENT_ITEMS = 30;
 const MAX_CONTENTS_PAYLOAD_BYTES = 500000;
 const MAX_FALLBACK_MODELS = 3;
+// The client aborts each stage at 30s (RAG_TIMING). The upstream call must
+// give up just BEFORE that so the client sees a clean 504 instead of a
+// network reset — and so the function does not keep spending on a response
+// nobody is waiting for anymore.
+const UPSTREAM_TIMEOUT_DEFAULT_MS = 28000;
 const OPENROUTER_MODES = Object.freeze({
   EXTRACTION: 'extraction',
   PRESENTATION: 'presentation',
@@ -49,21 +59,17 @@ Conversation context behavior:
 Confidence behavior:
 - High confidence: return actionable food entries.
 - Medium confidence: return actionable food entries and clearly note uncertainty.
-- Low confidence: do not guess aggressively; ask a focused follow-up question first.
+- Low confidence: still return conservative, actionable entries with explicit assumptions whenever the food is identifiable at all. Reserve messageType "clarification" for requests that are truly uninterpretable (no identifiable food, contradictory or missing critical information).
 
 Conservative estimation policy (HIGH PRIORITY):
-- Prefer a clarification question whenever key uncertainty would materially change calories/macros (e.g., portion size, cooked vs raw weight, oily vs dry prep, single vs double patty, sauce amount, full-sugar vs diet drink).
-- If user intent is clear enough to log now, still provide entries, but choose conservative defaults:
-  - Avoid extreme values unless user explicitly states them.
-  - Use typical serving ranges and pick a reasonable midpoint or slightly conservative estimate.
-  - Keep assumptions explicit and brief.
+- Prefer returning a conservative food entry over asking a clarification question whenever a reasonable estimate is possible: pick typical serving ranges, a reasonable midpoint or slightly conservative value, and state the assumption.
+- Ask ONE clarification question only when key uncertainty would materially change calories/macros AND no reasonable default exists (e.g., portion size unknown for a multi-serving dish, cooked vs raw weight changes the entry, single vs double patty, full-sugar vs diet drink with no way to tell).
+- Avoid extreme values unless user explicitly states them.
 - Never invent foods, side items, toppings, or beverages not explicitly mentioned or visually evident.
 - For entries, include practical lookupTerms that improve local/USDA matching (food name, key descriptor, and brand when clearly provided).
 - Lookup terms must be whole words — the online catalog matches word prefixes, so "chicken" matches "chicken breast" but a mid-word fragment like "chic" will not. Split compound phrases into individual whole words.
 - Prefer canonical food names in "name" for lookup stability (brand can still be included in lookupTerms).
-- If multiple plausible interpretations exist, either:
-  1) ask one concise follow-up question (preferred for low confidence), or
-  2) provide one best estimate with medium confidence and explicit assumptions.
+- When you DO respond with messageType "clarification", include a top-level "lookupTerms" array with concise whole-word search terms for the food(s) under discussion, so downstream lookups can still resolve them while the user answers.
 
 Every reply must include a short explanation of how estimates were produced (e.g., assumed portion size, common diner serving, visual cues, typical database ranges) and invite more context for better accuracy.
 
@@ -78,6 +84,7 @@ JSON schema:
   "messageType": "food_entries" | "clarification" | "error",
   "assistantMessage": "string",
   "followUpQuestion": "string (optional)",
+  "lookupTerms": ["string", "..."] (optional — REQUIRED on clarification: whole-word search terms for the foods under discussion),
   "entries": [
     {
       "name": "string",
@@ -176,11 +183,15 @@ Required JSON schema:
   "entries": [
     {
       "name": "string",
-      "grams": 100,
-      "calories": number,
+      "grams": number (best estimate of the portion described in the request; use 100 when no portion is evident),
+      "calories": number (for the grams above, i.e. the per-portion total),
       "protein": number,
       "carbs": number,
       "fats": number,
+      "fiber": number (optional, grams),
+      "sodium": number (optional, milligrams),
+      "saturatedFats": number (optional, grams),
+      "sugars": number (optional, grams),
       "confidence": "low" | "medium",
       "rationale": "string",
       "assumptions": ["string", "..."],
@@ -190,7 +201,10 @@ Required JSON schema:
 }
 
 Rules:
-- Always include "version" and set it exactly to "${FOOD_PARSER_SCHEMA_VERSION}".`;
+- Always include "version" and set it exactly to "${FOOD_PARSER_SCHEMA_VERSION}".
+- calories/protein/carbs/fats are per-100g BASELINE values scaled to the "grams" portion you estimated; keep them consistent with each other.
+- Micro nutrients (fiber, sodium, saturatedFats, sugars) are OPTIONAL. Provide them only when the search results support them with reasonable confidence; omit a micro nutrient entirely when you cannot estimate it.
+- "grams" reflects the portion described in the request (default 100). The caller derives the per-100g baseline from your values.`;
 
 function resolveSystemInstruction(mode) {
   switch (mode) {
@@ -459,6 +473,18 @@ const parseFallbackModels = (rawValue, primaryModel) => {
   ].slice(0, MAX_FALLBACK_MODELS);
 };
 
+const resolveUpstreamTimeoutMs = () => {
+  const parsed = Number.parseInt(
+    String(process.env.OPENROUTER_UPSTREAM_TIMEOUT_MS || '').trim(),
+    10
+  );
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed;
+  }
+
+  return UPSTREAM_TIMEOUT_DEFAULT_MS;
+};
+
 export default async function handler(req, res) {
   const isCorsAllowed = applyCorsHeaders(req, res);
 
@@ -563,13 +589,24 @@ export default async function handler(req, res) {
     });
   }
 
+  // Extraction is a structured-JSON parsing task: low temperature keeps the
+  // payload deterministic and avoids the malformed-parser retry (another
+  // billable call). Presentation writes user-facing prose (0.5), grounding is
+  // retrieval (0.2).
+  const modeTemperature =
+    mode === OPENROUTER_MODES.GROUNDING_LOOKUP
+      ? 0.2
+      : mode === OPENROUTER_MODES.EXTRACTION
+        ? 0.3
+        : 0.5;
+
   const payload = {
     model,
     messages: [
       { role: 'system', content: resolveSystemInstruction(mode) },
       ...messages,
     ],
-    temperature: mode === OPENROUTER_MODES.GROUNDING_LOOKUP ? 0.2 : 0.5,
+    temperature: modeTemperature,
     max_tokens: resolveModeMaxTokens(mode),
     ...(fallbackModels.length > 0 ? { models: fallbackModels } : {}),
   };
@@ -577,6 +614,15 @@ export default async function handler(req, res) {
   if (mode === OPENROUTER_MODES.GROUNDING_LOOKUP && useGrounding) {
     payload.tools = [{ type: 'openrouter:web_search' }];
   }
+
+  // Abort the upstream call just before the client's own stage timeout so a
+  // slow model does not keep burning spend after the caller has given up.
+  const upstreamTimeoutMs = resolveUpstreamTimeoutMs();
+  const upstreamController = new AbortController();
+  const upstreamTimeoutId = setTimeout(
+    () => upstreamController.abort(),
+    upstreamTimeoutMs
+  );
 
   try {
     const response = await fetch(OPENROUTER_CHAT_COMPLETIONS_URL, {
@@ -592,6 +638,7 @@ export default async function handler(req, res) {
           : {}),
       },
       body: JSON.stringify(payload),
+      signal: upstreamController.signal,
     });
 
     const responseData = await response.json().catch(() => ({}));
@@ -609,11 +656,20 @@ export default async function handler(req, res) {
 
     return res.status(200).json(responseData);
   } catch (error) {
+    if (error?.name === 'AbortError') {
+      return res.status(504).json({
+        error: 'Upstream model request timed out.',
+        timeoutMs: upstreamTimeoutMs,
+      });
+    }
+
     console.error('OpenRouter proxy error:', error);
     return res.status(500).json({
       error: 'Internal server error',
       message:
         process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
+  } finally {
+    clearTimeout(upstreamTimeoutId);
   }
 }

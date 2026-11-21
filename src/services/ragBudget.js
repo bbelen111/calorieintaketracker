@@ -15,6 +15,16 @@ export const RAG_LOOKUP_CONCURRENCY_LIMIT = 10;
  */
 export const RAG_MAX_DEFERRED_GROUNDING_ENTRIES = 20;
 
+/**
+ * Maximum food names a single grounded batch LLM call may carry
+ * (`fetchMacrosWithGroundingBatch` slices to this). The deferred-grounding
+ * resolver chunks its requests into groups of this size so a full
+ * `RAG_MAX_DEFERRED_GROUNDING_ENTRIES` batch is satisfied by
+ * ceil(maxDeferred / maxNames) batch calls instead of silently dropping every
+ * name past the first batch.
+ */
+export const RAG_GROUNDING_BATCH_MAX_NAMES = 10;
+
 export const RAG_TIMING = Object.freeze({
   /** Extraction LLM pass (food entries from raw user text). */
   extractionMs: 30000,
@@ -42,16 +52,20 @@ export const RAG_GROUNDING_BATCH_FACTOR = 3;
 
 /**
  * Enforces the pinned timeout invariant:
- *   groundingBatchMs >= groundingLookupMs * ceil(maxDeferred / concurrency)
+ *   groundingBatchMs >= groundingLookupMs * ceil(maxDeferred / maxBatchNames)
  *
- * Missing days are handled internally: the worst case is a full batch of
- * deferred per-entry grounding calls running at concurrency, so the batch
- * budget must be large enough to cover that many per-lookup timeouts.
+ * The deferred-grounding resolver chunks requests into waves of at most
+ * `RAG_GROUNDING_BATCH_MAX_NAMES` batched LLM calls, so the worst case is
+ * that many full per-lookup timeouts back to back and the batch budget must
+ * cover them. (The per-entry concurrency limit bounds the fallback path that
+ * runs single lookups when no batch module is available.)
  */
 export const assertRagTimingInvariants = () => {
   const worstCaseBatchedLookups = Math.max(
     1,
-    Math.ceil(RAG_MAX_DEFERRED_GROUNDING_ENTRIES / RAG_LOOKUP_CONCURRENCY_LIMIT)
+    Math.ceil(
+      RAG_MAX_DEFERRED_GROUNDING_ENTRIES / RAG_GROUNDING_BATCH_MAX_NAMES
+    )
   );
   const requiredBatchMs =
     RAG_TIMING.groundingLookupMs * worstCaseBatchedLookups;

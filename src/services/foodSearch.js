@@ -2,7 +2,7 @@ import {
   resolveEntryGrams,
   scaleMacrosFromPer100g,
 } from '../utils/food/portionNormalization.js';
-import { RAG_TIMING } from './ragBudget.js';
+import { RAG_GROUNDING_BATCH_MAX_NAMES, RAG_TIMING } from './ragBudget.js';
 import { FOOD_LOOKUP_ERROR_REASON_CODES } from './foodLookupReasons.js';
 import { getRagSourcePreferenceWeightsForCategory } from './ragTelemetry.js';
 
@@ -35,6 +35,23 @@ const AI_SCORE_THRESHOLD = Object.freeze({
   low: 0.55,
 });
 
+/**
+ * Raw match score assigned to a grounded web estimate by its categorical
+ * confidence. Shared by the single grounded lookup and the deferred batch so
+ * the two paths cannot drift (the batch used to flat-score every estimate at
+ * the low threshold regardless of the model's stated confidence).
+ */
+const GROUNDED_CONFIDENCE_SCORE_MAP = Object.freeze({
+  high: 0.78,
+  medium: 0.64,
+  low: AI_SCORE_THRESHOLD.low,
+});
+
+const resolveGroundedScoreFromConfidence = (confidence) => {
+  const key = String(confidence || '').toLowerCase();
+  return GROUNDED_CONFIDENCE_SCORE_MAP[key] || AI_SCORE_THRESHOLD.low;
+};
+
 const DEDUPE_NAME_ALIAS_MAP = Object.freeze({
   kanin: 'rice',
   sinangag: 'rice',
@@ -42,29 +59,69 @@ const DEDUPE_NAME_ALIAS_MAP = Object.freeze({
   'fried rice': 'rice',
 });
 
+/**
+ * Light plural stemmer for token-overlap matching.
+ *
+ * Food names routinely differ only in plurality ("2 eggs" vs "Egg, whole",
+ * "bananas" vs "Banana, raw"), and the match scorer gates the entire
+ * local-accept/cloud-escalation decision on exact token equality. The rules
+ * collapse the common English plural suffixes so both sides normalize to the
+ * same token; anything unusual is left untouched (both sides normalize
+ * identically, so unmatched words never regress).
+ */
+const stemPluralToken = (token) => {
+  if (token.length <= 3) {
+    return token;
+  }
+
+  if (/ies$/.test(token) && token.length > 4) {
+    return `${token.slice(0, -3)}y`;
+  }
+
+  if (/oes$/.test(token) && token.length > 4) {
+    return `${token.slice(0, -3)}o`;
+  }
+
+  if (/(ches|shes|sses|xes|zes)$/.test(token) && token.length > 5) {
+    return token.slice(0, -2);
+  }
+
+  // Plain trailing "s", guarded against "ss"/"us"/"is" endings
+  // (bass, asparagus, analysis keep their final s).
+  if (/[^sui]s$/.test(token)) {
+    return token.slice(0, -1);
+  }
+
+  return token;
+};
+
 const BRAND_INTENT_KEYWORDS = new Set(['brand', 'branded', 'official']);
 
-const BRAND_INTENT_TOKEN_HINTS = new Set([
-  'coca',
-  'cola',
-  'pepsi',
-  'heinz',
-  'nestle',
-  'oreo',
-  'kellogg',
-  'lays',
-  'doritos',
-  'pringles',
-  'mcdonalds',
-  'kfc',
-  'starbucks',
-  'monster',
-  'redbull',
-  'gatorade',
-  'powerade',
-  'snickers',
-  'hershey',
-]);
+// Hints are matched against stemmed tokens ("lays chips" tokenizes to
+// "lay chip"), so the hint set is stored pre-stemmed to stay comparable.
+const BRAND_INTENT_TOKEN_HINTS = new Set(
+  [
+    'coca',
+    'cola',
+    'pepsi',
+    'heinz',
+    'nestle',
+    'oreo',
+    'kellogg',
+    'lays',
+    'doritos',
+    'pringles',
+    'mcdonalds',
+    'kfc',
+    'starbucks',
+    'monster',
+    'redbull',
+    'gatorade',
+    'powerade',
+    'snickers',
+    'hershey',
+  ].map(stemPluralToken)
+);
 
 const SOURCE_TRUST_MULTIPLIER = Object.freeze({
   [FOOD_SEARCH_SOURCE.LOCAL]: 1,
@@ -72,6 +129,12 @@ const SOURCE_TRUST_MULTIPLIER = Object.freeze({
   [FOOD_SEARCH_SOURCE.AI_WEB_SEARCH]: 0.75,
   estimate: 0.55,
 });
+
+// Single canonical definition — foodLookupContext.js imports this instead of
+// keeping a drifting copy.
+export const resolveSourceTrustMultiplier = (source) => {
+  return SOURCE_TRUST_MULTIPLIER[source] || SOURCE_TRUST_MULTIPLIER.estimate;
+};
 
 const SOURCE_ERROR_REASON = Object.freeze({
   LOCAL_SEARCH_FAILED: FOOD_LOOKUP_ERROR_REASON_CODES.local_search_failed,
@@ -216,7 +279,12 @@ const normalizeTokenString = (value) =>
 
 const tokenize = (value) => {
   const normalized = normalizeTokenString(value);
-  return normalized ? normalized.split(' ') : [];
+  if (!normalized) {
+    return [];
+  }
+  // Stems BOTH sides of every comparison (query and food name), so plurality
+  // never costs recall and the cache keys built from tokens stay consistent.
+  return normalized.split(' ').map(stemPluralToken);
 };
 
 const toSortedUniqueTokens = (value) =>
@@ -363,10 +431,6 @@ const cloneLookupResult = (result) => {
   }
 
   return JSON.parse(JSON.stringify(result));
-};
-
-const resolveSourceTrustMultiplier = (source) => {
-  return SOURCE_TRUST_MULTIPLIER[source] || SOURCE_TRUST_MULTIPLIER.estimate;
 };
 
 const resolveWeightedConfidence = ({
@@ -549,22 +613,9 @@ const isDataQualityUsable = (dataQuality) =>
 const hasMaterialNewTokens = ({
   currentTokens = [],
   acceptedTokens = [],
-  preferBrandMatches = false,
-}) => {
+} = {}) => {
   const acceptedTokenSet = new Set(acceptedTokens);
-  const newTokens = currentTokens.filter(
-    (token) => !acceptedTokenSet.has(token)
-  );
-
-  if (newTokens.length === 0) {
-    return false;
-  }
-
-  if (preferBrandMatches) {
-    return true;
-  }
-
-  return newTokens.length > 0;
+  return currentTokens.some((token) => !acceptedTokenSet.has(token));
 };
 
 const buildLookupDecisionMeta = ({
@@ -582,6 +633,39 @@ const buildLookupDecisionMeta = ({
   escalationAttempted,
   escalationReason,
 });
+
+// Null-preserving micro passthrough for matched foods: the four macros are
+// always present; micro nutrients only appear when the source actually
+// provided one (grounded estimates with micro support). Untracked stays
+// absent, never zero.
+const MATCHED_FOOD_MICRO_KEYS = ['fiber', 'sodium', 'saturatedFats', 'sugars'];
+
+const buildMatchedFoodPer100g = (per100g) => {
+  if (!per100g || typeof per100g !== 'object') {
+    return null;
+  }
+
+  const normalized = {
+    calories: Number(per100g.calories) || 0,
+    protein: Number(per100g.protein) || 0,
+    carbs: Number(per100g.carbs) || 0,
+    fats: Number(per100g.fats) || 0,
+  };
+
+  MATCHED_FOOD_MICRO_KEYS.forEach((key) => {
+    const raw = per100g[key];
+    if (raw == null || raw === '') {
+      return;
+    }
+    const numeric = Number(raw);
+    if (!Number.isFinite(numeric) || numeric < 0) {
+      return;
+    }
+    normalized[key] = numeric;
+  });
+
+  return normalized;
+};
 
 const buildCandidate = ({
   source,
@@ -790,21 +874,7 @@ const buildResolvedLookupResult = ({
       brand: candidate.food.brand || null,
       category: candidate.food.category || null,
       subcategory: candidate.food.subcategory || null,
-      per100g: hasUsablePer100g(candidate.food?.per100g)
-        ? {
-            calories: Number(candidate.food.per100g.calories) || 0,
-            protein: Number(candidate.food.per100g.protein) || 0,
-            carbs: Number(candidate.food.per100g.carbs) || 0,
-            fats: Number(candidate.food.per100g.fats) || 0,
-          }
-        : candidate.food?.per100g && typeof candidate.food.per100g === 'object'
-          ? {
-              calories: Number(candidate.food.per100g.calories) || 0,
-              protein: Number(candidate.food.per100g.protein) || 0,
-              carbs: Number(candidate.food.per100g.carbs) || 0,
-              fats: Number(candidate.food.per100g.fats) || 0,
-            }
-          : null,
+      per100g: buildMatchedFoodPer100g(candidate.food?.per100g),
     },
     errorsBySource,
     errorReasonsBySource,
@@ -1335,7 +1405,6 @@ const resolveAcceptedHistoryMatch = ({
       acceptedTokens: Array.isArray(record.queryTokens)
         ? record.queryTokens
         : [],
-      preferBrandMatches,
     })
   ) {
     return null;
@@ -1483,31 +1552,43 @@ export const resolveAiFoodLookup = async ({
     sourcesTried.push(FOOD_SEARCH_SOURCE.LOCAL);
   }
 
-  for (const term of terms) {
-    try {
-      const localResult = await resolvedDependencies.searchLocal({
+  // Per-term lookups run in parallel (terms are capped at 6): the serial loop
+  // used to cost one full round trip per term, which dominated retrieval
+  // latency whenever a lookup escalated past local.
+  const localTermResults = await Promise.allSettled(
+    terms.map((term) =>
+      resolvedDependencies.searchLocal({
         query: term,
         limit: resolvedLocalLimit,
         preferBrandMatches,
-      });
+      })
+    )
+  );
+
+  localTermResults.forEach((settled, termIndex) => {
+    if (settled.status === 'fulfilled') {
       localCandidateGroups.push(
         collectTopCandidates({
-          query: term,
-          foods: localResult,
+          query: terms[termIndex],
+          foods: settled.value,
           source: FOOD_SEARCH_SOURCE.LOCAL,
           preferBrandMatches,
           sourcePreferenceWeights: effectiveSourcePreferenceWeights,
         }).slice(0, 3)
       );
-    } catch (error) {
+      return;
+    }
+
+    // First error wins so diagnostics stay deterministic under parallelism.
+    if (!errorsBySource[FOOD_SEARCH_SOURCE.LOCAL]) {
       errorsBySource[FOOD_SEARCH_SOURCE.LOCAL] = toErrorMessage(
-        error,
+        settled.reason,
         'Local search failed.'
       );
       errorReasonsBySource[FOOD_SEARCH_SOURCE.LOCAL] =
         SOURCE_ERROR_REASON.LOCAL_SEARCH_FAILED;
     }
-  }
+  });
 
   const { best: bestLocalCandidate, second: secondLocalCandidate } =
     pickTopCandidateAcrossTerms(localCandidateGroups);
@@ -1575,36 +1656,46 @@ export const resolveAiFoodLookup = async ({
     sourcesTried.push(FOOD_SEARCH_SOURCE.CLOUD);
   }
 
-  for (const term of terms) {
-    try {
-      const cloudResult = await resolvedDependencies.searchCloud(term, {
+  // Parallel per-term cloud searches — with up to 6 terms this replaces up to
+  // 6 serial HTTP round trips per entry with one concurrent wave.
+  const cloudTermResults = await Promise.allSettled(
+    terms.map((term) =>
+      resolvedDependencies.searchCloud(term, {
         page: 1,
         pageSize: resolvedOnlinePageSize,
-      });
-      const cloudFoods = Array.isArray(cloudResult?.foods)
-        ? cloudResult.foods
+      })
+    )
+  );
+
+  cloudTermResults.forEach((settled, termIndex) => {
+    if (settled.status === 'fulfilled') {
+      const cloudFoods = Array.isArray(settled.value?.foods)
+        ? settled.value.foods
         : [];
       cloudCandidateGroups.push(
         collectTopCandidates({
-          query: term,
+          query: terms[termIndex],
           foods: cloudFoods,
           source: FOOD_SEARCH_SOURCE.CLOUD,
           preferBrandMatches,
           sourcePreferenceWeights: effectiveSourcePreferenceWeights,
         }).slice(0, 3)
       );
-    } catch (error) {
-      if (shouldForceGroundingFallbackFromCloudError(error)) {
-        shouldForceGroundingFallback = true;
-      }
+      return;
+    }
+
+    if (shouldForceGroundingFallbackFromCloudError(settled.reason)) {
+      shouldForceGroundingFallback = true;
+    }
+    if (!errorsBySource[FOOD_SEARCH_SOURCE.CLOUD]) {
       errorsBySource[FOOD_SEARCH_SOURCE.CLOUD] = toErrorMessage(
-        error,
+        settled.reason,
         'Online database search failed.'
       );
       errorReasonsBySource[FOOD_SEARCH_SOURCE.CLOUD] =
         SOURCE_ERROR_REASON.CLOUD_SEARCH_FAILED;
     }
-  }
+  });
 
   const { best: bestCloudCandidate } =
     pickTopCandidateAcrossTerms(cloudCandidateGroups);
@@ -1694,16 +1785,9 @@ export const resolveAiFoodLookup = async ({
       );
 
       if (hasUsablePer100g(groundedEstimate?.per100g)) {
-        const groundedScoreMap = {
-          high: 0.78,
-          medium: 0.64,
-          low: AI_SCORE_THRESHOLD.low,
-        };
-        const groundedScoreKey = String(
-          groundedEstimate?.confidence || ''
-        ).toLowerCase();
-        const groundedScore =
-          groundedScoreMap[groundedScoreKey] || AI_SCORE_THRESHOLD.low;
+        const groundedScore = resolveGroundedScoreFromConfidence(
+          groundedEstimate?.confidence
+        );
         const groundedCandidate = buildCandidate({
           source: FOOD_SEARCH_SOURCE.AI_WEB_SEARCH,
           queryUsed: groundedQuery,
@@ -1901,8 +1985,11 @@ export const resolveAiGroundedBatch = async ({
   }));
 
   const resolveSuccess = (request, estimate) => {
+    const groundedScore = resolveGroundedScoreFromConfidence(
+      estimate?.confidence
+    );
     const weightedConfidence = resolveWeightedConfidence({
-      score: AI_SCORE_THRESHOLD.low,
+      score: groundedScore,
       source: FOOD_SEARCH_SOURCE.AI_WEB_SEARCH,
       sourcePreferenceWeights: request.sourcePreferenceWeights,
     });
@@ -1918,17 +2005,12 @@ export const resolveAiGroundedBatch = async ({
         brand: null,
         category: null,
         subcategory: 'grounded_estimate',
-        per100g: {
-          calories: Number(estimate?.per100g?.calories) || 0,
-          protein: Number(estimate?.per100g?.protein) || 0,
-          carbs: Number(estimate?.per100g?.carbs) || 0,
-          fats: Number(estimate?.per100g?.fats) || 0,
-        },
+        per100g: buildMatchedFoodPer100g(estimate?.per100g),
       },
       errorsBySource: request.errorsBySource,
       errorReasonsBySource: request.errorReasonsBySource,
       matchConfidence: estimate?.confidence || weightedConfidence.confidence,
-      matchScore: AI_SCORE_THRESHOLD.low,
+      matchScore: groundedScore,
       weightedMatchScore: weightedConfidence.weightedScore,
       confidenceComponents: {
         rawScore: weightedConfidence.rawScore,
@@ -2000,33 +2082,72 @@ export const resolveAiGroundedBatch = async ({
 
   try {
     if (typeof resolvedDependencies.searchGroundedBatch === 'function') {
-      const response = await resolvedDependencies.searchGroundedBatch(
-        withGroundingSource.map((request) => request.groundingQuery),
-        undefined,
-        resolvedTimeoutMs
+      // The batch LLM call carries at most RAG_GROUNDING_BATCH_MAX_NAMES
+      // names. Requests beyond one batch are chunked into parallel waves so
+      // a full RAG_MAX_DEFERRED_GROUNDING_ENTRIES batch resolves every entry
+      // instead of silently failing everything past the first wave (the
+      // timing invariant budgets for exactly these waves).
+      const chunkSize = Math.max(
+        1,
+        Math.min(RAG_GROUNDING_BATCH_MAX_NAMES, withGroundingSource.length)
       );
-      const estimates = Array.isArray(response?.estimates)
-        ? response.estimates
-        : [];
+      const chunks = [];
+      for (
+        let offset = 0;
+        offset < withGroundingSource.length;
+        offset += chunkSize
+      ) {
+        chunks.push(withGroundingSource.slice(offset, offset + chunkSize));
+      }
 
-      return Object.fromEntries(
-        withGroundingSource.map((request, index) => {
-          const estimate = estimates[index]?.estimate || null;
+      const chunkSettled = await Promise.allSettled(
+        chunks.map((chunk) =>
+          resolvedDependencies.searchGroundedBatch(
+            chunk.map((request) => request.groundingQuery),
+            undefined,
+            resolvedTimeoutMs
+          )
+        )
+      );
 
-          if (estimate?.per100g && typeof estimate.per100g === 'object') {
-            return [request.entryKey, resolveSuccess(request, estimate)];
+      const resultsByEntryKey = [];
+      chunks.forEach((chunk, waveIndex) => {
+        const settled = chunkSettled[waveIndex];
+
+        chunk.forEach((request, indexInChunk) => {
+          if (settled.status !== 'fulfilled') {
+            resultsByEntryKey.push([
+              request.entryKey,
+              resolveFailure(request, settled.reason || null),
+            ]);
+            return;
           }
 
-          return [
+          const estimates = Array.isArray(settled.value?.estimates)
+            ? settled.value.estimates
+            : [];
+          const estimate = estimates[indexInChunk]?.estimate || null;
+
+          if (estimate?.per100g && typeof estimate.per100g === 'object') {
+            resultsByEntryKey.push([
+              request.entryKey,
+              resolveSuccess(request, estimate),
+            ]);
+            return;
+          }
+
+          resultsByEntryKey.push([
             request.entryKey,
             resolveFailure(
               request,
               'Grounded lookup returned no usable nutrition data for this entry.',
               SOURCE_ERROR_REASON.GROUNDING_INVALID_RESPONSE
             ),
-          ];
-        })
-      );
+          ]);
+        });
+      });
+
+      return Object.fromEntries(resultsByEntryKey);
     }
 
     if (typeof resolvedDependencies.searchGrounded === 'function') {

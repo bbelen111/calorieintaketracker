@@ -53,6 +53,58 @@ export const loadAllHistoryDocuments = async () => {
   }
 };
 
+/**
+ * Loads only the named history documents instead of the whole table.
+ *
+ * Telemetry hydration (and any other reader that needs a couple of specific
+ * documents) must use this instead of `loadAllHistoryDocuments()`: the full
+ * `toArray()` read deserializes every nutrition day, snapshot and session in
+ * the database, which used to sit on the RAG critical path whenever telemetry
+ * recorded its first event of a session.
+ */
+export const loadHistoryDocumentsByIds = async (documentIds = []) => {
+  const db = getDatabase();
+  const safeIds = (Array.isArray(documentIds) ? documentIds : [])
+    .map((id) => String(id ?? '').trim())
+    .filter(Boolean);
+
+  if (!db) {
+    return {
+      available: false,
+      hasAnyHistory: false,
+      documents: [],
+    };
+  }
+
+  if (safeIds.length === 0) {
+    return {
+      available: true,
+      hasAnyHistory: false,
+      documents: [],
+    };
+  }
+
+  try {
+    const documents = await db
+      .table(HISTORY_TABLE)
+      .where('id')
+      .anyOf(safeIds)
+      .toArray();
+    return {
+      available: true,
+      hasAnyHistory: documents.length > 0,
+      documents,
+    };
+  } catch (error) {
+    console.warn('Failed to load history documents by id from Dexie', error);
+    return {
+      available: true,
+      hasAnyHistory: false,
+      documents: [],
+    };
+  }
+};
+
 export const saveHistoryToDexie = async (historyData = {}) => {
   const db = getDatabase();
   if (!db) {

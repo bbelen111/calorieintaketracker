@@ -61,6 +61,95 @@ test('OpenRouter proxy enables web search only for grounded lookup requests', as
   }
 });
 
+test('OpenRouter proxy applies per-mode temperatures: extraction 0.3, presentation 0.5, grounding 0.2', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalKey = process.env.OPENROUTER_API_KEY;
+  process.env.OPENROUTER_API_KEY = 'test-key';
+  const temperatures = [];
+  globalThis.fetch = async (_url, options) => {
+    temperatures.push(JSON.parse(options.body).temperature);
+    return { ok: true, status: 200, json: async () => ({ choices: [] }) };
+  };
+  try {
+    for (const mode of ['extraction', 'presentation', 'grounding_lookup']) {
+      await handler(
+        { method: 'POST', body: { mode, messages }, headers: {} },
+        createResponse()
+      );
+    }
+    // Structured-JSON extraction runs cooler than prose presentation so the
+    // parser payload stays deterministic (fewer malformed-parser retries).
+    assert.deepEqual(temperatures, [0.3, 0.5, 0.2]);
+  } finally {
+    globalThis.fetch = originalFetch;
+    process.env.OPENROUTER_API_KEY = originalKey;
+  }
+});
+
+test('OpenRouter proxy aborts the upstream call at the configured timeout and returns 504', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalKey = process.env.OPENROUTER_API_KEY;
+  const originalTimeout = process.env.OPENROUTER_UPSTREAM_TIMEOUT_MS;
+  process.env.OPENROUTER_API_KEY = 'test-key';
+  process.env.OPENROUTER_UPSTREAM_TIMEOUT_MS = '10';
+
+  globalThis.fetch = (_url, options = {}) =>
+    new Promise((resolve, reject) => {
+      // Simulate the upstream never answering: reject with an AbortError the
+      // moment the proxy's own controller fires.
+      options.signal?.addEventListener('abort', () => {
+        const abortError = new Error('The operation was aborted');
+        abortError.name = 'AbortError';
+        reject(abortError);
+      });
+    });
+
+  try {
+    const response = createResponse();
+    await handler(
+      { method: 'POST', body: { mode: 'extraction', messages }, headers: {} },
+      response
+    );
+
+    assert.equal(response.statusCode, 504);
+    assert.equal(response.jsonPayload.error, 'Upstream model request timed out.');
+    assert.equal(response.jsonPayload.timeoutMs, 10);
+  } finally {
+    globalThis.fetch = originalFetch;
+    process.env.OPENROUTER_API_KEY = originalKey;
+    if (originalTimeout === undefined) {
+      delete process.env.OPENROUTER_UPSTREAM_TIMEOUT_MS;
+    } else {
+      process.env.OPENROUTER_UPSTREAM_TIMEOUT_MS = originalTimeout;
+    }
+  }
+});
+
+test('OpenRouter proxy passes an abort signal to the upstream fetch so client timeouts stop upstream spend', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalKey = process.env.OPENROUTER_API_KEY;
+  process.env.OPENROUTER_API_KEY = 'test-key';
+  let capturedSignal = null;
+  globalThis.fetch = async (_url, options = {}) => {
+    capturedSignal = options.signal;
+    return { ok: true, status: 200, json: async () => ({ choices: [] }) };
+  };
+  try {
+    await handler(
+      { method: 'POST', body: { mode: 'extraction', messages }, headers: {} },
+      createResponse()
+    );
+
+    // A signal must exist and belong to the (already-cleared) timeout
+    // controller so a slow model cannot outlive the caller's patience.
+    assert.ok(capturedSignal instanceof AbortSignal);
+    assert.equal(capturedSignal.aborted, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+    process.env.OPENROUTER_API_KEY = originalKey;
+  }
+});
+
 test('OpenRouter proxy forwards configured fallback models for rate-limit failover', async () => {
   const originalFetch = globalThis.fetch;
   const originalKey = process.env.OPENROUTER_API_KEY;

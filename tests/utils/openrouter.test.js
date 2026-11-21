@@ -5,6 +5,7 @@ import {
   __resetOpenRouterRateLimitQueueForTests,
   buildOpenRouterContents,
   composeExtractionMessage,
+  fetchMacrosWithGrounding,
   FOOD_PARSER_SCHEMA_VERSION,
   OPENROUTER_REQUEST_MODE,
   parseFoodParserPayloadFromText,
@@ -148,4 +149,68 @@ test('parses food parser payload and preserves food context prompts', () => {
   );
   assert.equal(parsed.payload.messageType, 'clarification');
   assert.ok(composeExtractionMessage('same as before', '1. Rice').includes('[RECENT_FOOD_CONTEXT]'));
+});
+
+test('parser normalizes top-level lookupTerms on clarification payloads', () => {
+  const { payload } = parseFoodParserPayloadFromText(
+    '<food_parser_json>{"version":"1.1.0","messageType":"clarification","assistantMessage":"Which rice?","lookupTerms":[" white rice ", 42, "", "steamed rice","a","b","c","d","e","f","g"],"entries":[]}</food_parser_json>'
+  );
+
+  assert.deepEqual(payload.lookupTerms, [
+    'white rice',
+    'steamed rice',
+    'a',
+    'b',
+    'c',
+    'd',
+  ]);
+});
+
+test('parser keeps lookupTerms as an empty array when the model omits them', () => {
+  const { payload } = parseFoodParserPayloadFromText(
+    '<food_parser_json>{"version":"1.1.0","messageType":"food_entries","assistantMessage":"ok","entries":[{"name":"Egg","grams":50,"calories":70,"protein":6,"carbs":0.5,"fats":5,"confidence":"medium"}]}</food_parser_json>'
+  );
+
+  assert.deepEqual(payload.lookupTerms, []);
+});
+
+test('fetchMacrosWithGrounding rescales portion-aware responses and passes micros through', async () => {
+  const originalFetch = globalThis.fetch;
+  let capturedBody;
+  globalThis.fetch = async (_url, options = {}) => {
+    capturedBody = JSON.parse(options.body);
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content:
+                '<food_parser_json>{"version":"1.1.0","messageType":"food_entries","assistantMessage":"ok","entries":[{"name":"White Rice","grams":320,"calories":416,"protein":8.6,"carbs":89,"fats":1,"fiber":1.3,"sodium":2,"confidence":"medium","source":"ai_web_search"}]}</food_parser_json>',
+            },
+          },
+        ],
+      }),
+    };
+  };
+
+  try {
+    const estimate = await fetchMacrosWithGrounding('2 cups of white rice');
+
+    // The grounded prompt asks the model to estimate the described portion.
+    assert.ok(capturedBody.mode === 'grounding_lookup');
+
+    // Portion-aware values are rescaled to the per-100g baseline...
+    assert.equal(estimate.portionGrams, 320);
+    assert.equal(estimate.per100g.calories, 130);
+    assert.equal(estimate.per100g.protein, 2.7);
+    assert.equal(estimate.per100g.carbs, 27.8);
+    // ...and micro nutrients survive the rescale without being invented.
+    assert.equal(estimate.per100g.fiber, 0.4);
+    assert.equal(estimate.per100g.sodium, 0.6);
+    assert.equal(estimate.per100g.sugars, undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

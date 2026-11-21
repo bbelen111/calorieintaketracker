@@ -12,6 +12,7 @@ import {
   recordRagLookupStats,
   recordRagPresentationNameDrift,
   recordRagStageLatency,
+  recordRagTokenUsage,
 } from '../../src/services/ragTelemetry.js';
 
 test.beforeEach(() => {
@@ -183,6 +184,41 @@ test('records implicit feedback by confidence and message id', async () => {
       .events,
     2
   );
+});
+
+test('records per-stage token usage from OpenRouter completion responses', async () => {
+  await recordRagTokenUsage({
+    stage: 'extraction',
+    promptTokens: 120,
+    completionTokens: 40,
+    totalTokens: 160,
+  });
+  await recordRagTokenUsage({
+    stage: 'extraction',
+    promptTokens: 80,
+    completionTokens: 20,
+    totalTokens: 100,
+  });
+  await recordRagTokenUsage({
+    stage: 'presentation',
+    promptTokens: 300,
+    completionTokens: 60,
+    totalTokens: 360,
+  });
+
+  const snapshot = getRagTelemetrySessionSnapshot();
+
+  assert.equal(snapshot.metrics.tokenUsage.extraction.count, 2);
+  assert.equal(snapshot.metrics.tokenUsage.extraction.promptTokens, 200);
+  assert.equal(snapshot.metrics.tokenUsage.extraction.completionTokens, 60);
+  assert.equal(snapshot.metrics.tokenUsage.extraction.totalTokens, 260);
+  assert.equal(snapshot.metrics.tokenUsage.presentation.count, 1);
+  assert.equal(snapshot.metrics.tokenUsage.presentation.totalTokens, 360);
+  // Out-of-range or unknown stages are ignored rather than corrupting totals.
+  await recordRagTokenUsage({ stage: 'not_a_stage', totalTokens: 9999 });
+  await recordRagTokenUsage({ stage: 'extraction', totalTokens: -5 });
+  const afterInvalid = getRagTelemetrySessionSnapshot();
+  assert.equal(afterInvalid.metrics.tokenUsage.extraction.totalTokens, 260);
 });
 
 test('confidence calibration and source weights reflect implicit feedback trends', async () => {

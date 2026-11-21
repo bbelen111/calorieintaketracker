@@ -315,10 +315,16 @@ FoodSearchModal (chat state machine, stage pill, abort controller, entry renderi
   -> runRagChatPipeline(...) in services/ragChatPipeline.js   # decoupled orchestration; unit-testable with stubbed OpenRouter modules
     stage: extraction     -> sendOpenRouterExtraction(...) in services/openrouter.js (mode='extraction')
                               -> retry short-circuit with constrained prompt when extraction idles (clarification/error/no entries)
-                              -> grounded single-entry fallback via fetchMacrosWithGrounding (mode='grounding_lookup') for low-confidence extraction
+                              -> grounded single-entry fallback via fetchMacrosWithGrounding (mode='grounding_lookup') for low-confidence extraction:
+                                 the query prefers the clarification payload's top-level lookupTerms (whole-word food terms) over the raw user text,
+                                 and the entry preserves the grounding model's inferred portion (portionGrams, default 100g) instead of pinning 100g
                               -> fail-closed: legacy single-call path (sendOpenRouterMessage, mode='processing') when extraction module is unavailable
     stage: retrieval      -> resolveFoodLookupContext(...) in services/foodLookupContext.js
                               -> local lookup (foodCatalog), online catalog lookup (services/foodCloud.js), deferred grounding batch (fetchMacrosWithGrounding, mode='grounding_lookup')
+                              -> per-term local + cloud searches run in PARALLEL (terms capped at 6) — never reintroduce a serial per-term await loop
+                              -> deferred grounding requests are CHUNKED into waves of RAG_GROUNDING_BATCH_MAX_NAMES (10) batch calls — the batch LLM call
+                                 caps at 10 names, so more than 10 deferred entries would otherwise silently fail past the first wave
+                              -> source-preference weights are hoisted once per unique entry category (promise-cached Map), not read per entry
     stage: verification   -> resolveAiFoodEntry(...) per entry in services/foodSearch.js (deterministic verified entries)
     stage: presentation   -> skipped for single-entry/simple results (shouldSkipPresentationPass -> buildVerifiedResultFromEntries)
                               -> sendOpenRouterPresentation(...) in services/openrouter.js (mode='presentation', [SYSTEM_DATA])
@@ -332,7 +338,13 @@ FoodSearchModal (chat state machine, stage pill, abort controller, entry renderi
   -> entry cards finalized via buildFinalizedEntryCardState(...) in utils/food/aiFinalizedEntryState.js, rendered by FoodSearchEntryCard.jsx
   -> provenance-first rendering in FoodSearchChatPanel (Verified Database / Reused / Web Estimate / AI Estimate)
   -> reason-coded trace diagnostics + recovery hints (canonical registry services/foodLookupReasons.js; re-exported by services/foodLookupContext.js)
-  -> telemetry: services/ragTelemetry.js (stage latency, extraction outcome, lookup stats, presentation name drift, presentation issues)
+  -> telemetry: services/ragTelemetry.js (stage latency, extraction outcome, lookup stats, presentation name drift, presentation issues,
+     per-stage token usage from raw.usage) — hydration loads ONLY the two telemetry docs via loadHistoryDocumentsByIds (never
+     loadAllHistoryDocuments, which deserializes the whole history DB), and persistence is debounced (one trailing Dexie flush per
+     1.5s window), not a write per event. All pipeline record.* calls are fire-and-forget (fireAndForgetTelemetry) — never re-await
+     one between stages. Chat history is capped at CHAT_REQUEST_HISTORY_MESSAGE_LIMIT (12, matching what the low-level client
+     actually sends) and NEVER replays historical image attachments (a re-encoded 5MB photo would blow the proxy's 500KB payload
+     cap on every follow-up message).
 ```
 
 ### `useAnimatedModal` Hook
@@ -1135,7 +1147,7 @@ OpenRouter food parsing is proxied through `api/openrouter.js` (server-side key 
 - Read-only/pure helpers exported for tests and reuse: `buildStructuredChatHistory`, `buildRollingFoodContextSummary`, `mergeEntriesWithLookupContext`, `shouldSkipPresentationPass`.
 - Single-entry/simple responses skip the presentation LLM pass (see `shouldSkipPresentationPass`) and reuse the internal `buildVerifiedResultFromEntries` (not exported) to shape the result.
 - Because the pipeline is standalone, it can be unit-tested with stubbed OpenRouter modules (see `tests/services/ragChatPipeline.test.js`); `FoodSearchModal` remains a thin consumer.
-- Stage timing/budget constants are the single source of truth in `services/ragBudget.js` (`RAG_TIMING`, `resolveRagStageTimeoutMs`, `RAG_MAX_DEFERRED_GROUNDING_ENTRIES`, `RAG_LOOKUP_CONCURRENCY_LIMIT`, `assertRagTimingInvariants`) — do not hardcode per-stage timeout values in callers.
+- Stage timing/budget constants are the single source of truth in `services/ragBudget.js` (`RAG_TIMING`, `resolveRagStageTimeoutMs`, `RAG_MAX_DEFERRED_GROUNDING_ENTRIES`, `RAG_GROUNDING_BATCH_MAX_NAMES`, `RAG_LOOKUP_CONCURRENCY_LIMIT`, `assertRagTimingInvariants`) — do not hardcode per-stage timeout values in callers. The grounding batch budget invariant derives its worst case from the chunk waves (`ceil(maxDeferred / maxBatchNames)`), so both constants must move together.
 - Reason codes (user-facing messages, recovery hints, chip labels) are centralized in `services/foodLookupReasons.js` and re-exported by `services/foodLookupContext.js`.
 
 **Serverless security/env configuration (`api/openrouter.js`):**
@@ -1153,18 +1165,25 @@ OpenRouter food parsing is proxied through `api/openrouter.js` (server-side key 
   - `OPENROUTER_MAX_TOKENS_EXTRACTION`
   - `OPENROUTER_MAX_TOKENS_PRESENTATION`
   - `OPENROUTER_MAX_TOKENS_GROUNDING`
+- The upstream OpenRouter call is aborted server-side (`OPENROUTER_UPSTREAM_TIMEOUT_MS`, default `28000` — just under the client's 30s stage timeout) and returns `504` on timeout, so a slow model cannot keep burning spend after the caller has given up.
 - Model/env controls remain:
   - `OPENROUTER_API_KEY` (required)
-  - `OPENROUTER_MODEL` (default extraction/presentation model)
+  - `OPENROUTER_MODEL` (default extraction/presentation model; prefer a **non-reasoning** instruct model — reasoning tokens count against `max_tokens` and push the structured parser toward truncated payloads, which trigger the client's malformed-parser retry, another billable call)
   - `OPENROUTER_GROUNDING_MODEL` (grounding mode default override)
   - `OPENROUTER_FALLBACK_MODELS` (optional comma-separated failover models)
   - `OPENROUTER_GROUNDING_FALLBACK_MODELS` (optional grounding-specific failover models)
 
+**Mode behavior notes:**
+- Per-mode temperatures: extraction `0.3` (structured JSON parsing stays deterministic), presentation `0.5` (prose), grounding `0.2` (retrieval). Do not raise extraction back to `0.5` without measuring the malformed-parser retry rate.
+- Extraction instruction biases toward **conservative entries with explicit assumptions** over clarification whenever the food is identifiable — the constrained-prompt retry is the escape hatch for genuinely ambiguous messages, not the common path.
+- Clarification payloads carry a top-level `lookupTerms` array (normalized by the client parser into `foodParser.lookupTerms`) so the grounded fallback gets a clean whole-word food query instead of the raw user text.
+- Grounding entries are **portion-aware**: `grams` is the model's best estimate of the described portion (default 100) and the client rescales the returned values to the per-100g baseline + `portionGrams` (`buildGroundedEstimateFromEntry`). Grounding entries may also carry the optional micro nutrients (fiber/sodium/saturatedFats/sugars, omit-when-unknown), passed through null-preserving end-to-end.
+
 **Policy requirements:**
 - Use **conservative estimation** when uncertainty materially affects calories/macros.
-- Prefer **one highest-impact clarification question** for low-confidence cases.
+- Prefer **conservative entries with explicit assumptions** whenever a reasonable estimate is possible; reserve the one highest-impact clarification question for requests where no reasonable default exists.
 - Do not invent foods/add-ons not explicitly mentioned or clearly visible.
-- Preserve machine payload contract exactly (`<food_parser_json>...</food_parser_json>` schema).
+- Preserve machine payload contract exactly (`<food_parser_json>...</food_parser_json>` schema; the v1.1 additions — top-level `lookupTerms` on clarification, grounding portion/micros — were coordinated parser+test updates and must stay in sync with `normalizeFoodParserEntryV1Dot1` / `parseFoodParserPayloadFromText`).
 
 If adjusting OpenRouter behavior, update the mode-specific instruction in `api/openrouter.js` first and verify parser/contract stability with `tests/utils/openrouter.test.js` and `tests/api/openrouter.contract.test.js`.
 
@@ -1369,6 +1388,7 @@ src/
 │   ├─ foodCache.js              # Cached food dedupe/trim helpers
 │   ├─ foodLookupContext.js      # Batch AI entry lookup context resolver + normalized lookup meta
 │   ├─ foodSearch.js             # Local/online-catalog/grounded lookup orchestration + deterministic AI entry resolution
+                                 #   (parallel per-term lookups, plural-stemmed token matching, chunked deferred grounding batches)
 │   ├─ foodLookupReasons.js      # Canonical lookup reason-code registry (messages, recovery hints, chip labels)
 │   ├─ ragTelemetry.js           # RAG telemetry aggregation + diagnostics helpers
 │   ├─ ragChatPipeline.js        # Decoupled RAG chat pipeline orchestration (extraction → retrieval → verification → presentation)
@@ -1599,3 +1619,7 @@ npm run test:ui:coverage # UI-tier coverage (components + hooks + modalStack)
 114. **Entry-modal wheel drafts relay on settle, not per scroll frame:** `WeightEntryModal` / `BodyFatEntryModal` stage wheel changes locally and relay `onWeightChange`/`onBodyFatChange` to the orchestrator's draft on a `SCROLL_SETTLE_DELAY` debounce; their Save buttons pass the LIVE value (`onSave?.(pending ?? prop)`) so a save racing the trailing commit can never persist a stale draft, and pending commits are dropped when the modal closes. Wiring wheel scroll frames straight into orchestrator state re-rendered the whole tree at ~60fps during a flick. `findClosestScrollItem` caches the wheel's `[data-value]` element list per container (child-count stamped; positions still read live), and the only continuous store-bound control in Settings (the AT smoothing window slider) stages locally and commits on pointer/key/blur release.
 
 115. **Profile persistence is identity-diffed like history:** `collectChangedProfileFields` gates the profile `JSON.stringify` on per-field reference movement (`lastSavedProfileFieldRefByField`, primed by `primePersistenceBaseline` alongside the history baselines, rebuilt wholesale after each successful write so removed keys leave it). Never reintroduce a whole-profile stringify on every debounced save, and never mutate a profile field in place — the diff depends on immutable replacement, exactly like the history fields.
+
+116. **RAG pipeline latency contracts — telemetry, history, and grounding batches:** (a) every pipeline `record.*` telemetry call is fire-and-forget (`fireAndForgetTelemetry` in `services/ragChatPipeline.js`) — awaiting one put a Dexie write between pipeline stages; (b) `services/ragTelemetry.js` hydrates via `loadHistoryDocumentsByIds` (two docs) and persists on a 1.5s trailing debounce — never revert to `loadAllHistoryDocuments` (full-DB read) or a write per telemetry event; (c) `buildStructuredChatHistory` caps at `CHAT_REQUEST_HISTORY_MESSAGE_LIMIT` (12, matching the client's `slice(-12)`) and replaces historical image attachments with a text note — re-encoded images blow the proxy's 500KB payload cap on every follow-up; (d) `resolveAiGroundedBatch` chunks requests into waves of `RAG_GROUNDING_BATCH_MAX_NAMES` — the batch LLM call drops names past its cap, so unchunked batches silently fail every entry beyond the first ten. Covered by `tests/services/ragChatPipeline.test.js`, `tests/services/foodSearch.test.js` and `tests/utils/concurrency.test.js`.
+
+117. **Lookup matching stems plurals on both sides:** `tokenize` in `services/foodSearch.js` applies `stemPluralToken` to query AND food tokens ("eggs" matches catalog "Egg"), and `BRAND_INTENT_TOKEN_HINTS` is stored pre-stemmed. Any new token-based comparison or cache key must go through `tokenize` — raw token equality on unstemmed strings regresses recall at the exact decision point that gates local-accept vs cloud/grounding escalation.

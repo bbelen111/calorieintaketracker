@@ -1259,3 +1259,140 @@ test('searchFoodsHierarchically local wrapper maps to local-only behavior', asyn
     console.warn = originalWarn;
   }
 });
+
+test('match scoring collapses plurals so "eggs" matches catalog "Egg"', async () => {
+  const result = await resolveAiFoodLookup({
+    entryName: 'eggs',
+    isOnline: true,
+    dependencies: {
+      searchLocal: async () => [
+        {
+          id: 'local_egg',
+          name: 'Egg',
+          per100g: { calories: 155, protein: 12.6, carbs: 1.1, fats: 10.6 },
+        },
+      ],
+      searchCloud: async () => {
+        throw new Error('cloud must not be consulted for a stemmable match');
+      },
+    },
+  });
+
+  // Without stemming the token sets {eggs} vs {egg} overlap zero and the
+  // lookup escalates to CLOUD; with it the exact singular match accepts.
+  assert.equal(result.status, 'resolved');
+  assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.LOCAL);
+  assert.equal(result.decision, 'accept_local');
+  assert.equal(result.matchedFood?.name, 'Egg');
+});
+
+test('resolveAiGroundedBatch chunks beyond the per-call name cap instead of dropping entries', async () => {
+  const batchCalls = [];
+  const requests = Array.from({ length: 12 }, (_, index) => ({
+    entryKey: `assistant-b-${index}`,
+    entryName: `rare food ${index}`,
+    groundingQuery: `rare food ${index}`,
+    sourcesTried: ['local', 'cloud'],
+  }));
+
+  const result = await resolveAiGroundedBatch({
+    requests,
+    dependencies: {
+      searchGroundedBatch: async (queries) => {
+        batchCalls.push([...queries]);
+        return {
+          estimates: queries.map((query) => ({
+            requestedFoodName: query,
+            estimate: {
+              name: query,
+              per100g: { calories: 100, protein: 1, carbs: 10, fats: 1 },
+              confidence: 'low',
+            },
+          })),
+        };
+      },
+    },
+  });
+
+  // 12 requests with a 10-name cap resolve via two waves (10 + 2) — the old
+  // single call silently failed every name past the first ten.
+  assert.equal(batchCalls.length, 2);
+  assert.equal(batchCalls[0].length, 10);
+  assert.equal(batchCalls[1].length, 2);
+  assert.equal(result['assistant-b-0'].status, 'resolved');
+  assert.equal(result['assistant-b-10'].status, 'resolved');
+  assert.equal(result['assistant-b-11'].status, 'resolved');
+  assert.equal(result['assistant-b-11'].matchedFood?.name, 'rare food 11');
+});
+
+test('resolveAiGroundedBatch scores grounded confidence and passes micros through', async () => {
+  const result = await resolveAiGroundedBatch({
+    requests: [
+      {
+        entryKey: 'assistant-c-0',
+        entryName: 'kulolo',
+        groundingQuery: 'kulolo',
+        sourcesTried: ['local', 'cloud'],
+      },
+    ],
+    dependencies: {
+      searchGroundedBatch: async () => ({
+        estimates: [
+          {
+            requestedFoodName: 'kulolo',
+            estimate: {
+              name: 'Kulolo',
+              per100g: {
+                calories: 250,
+                protein: 1.2,
+                carbs: 55,
+                fats: 2.1,
+                fiber: 1.4,
+                sodium: 30,
+              },
+              confidence: 'high',
+            },
+          },
+        ],
+      }),
+    },
+  });
+
+  const resolved = result['assistant-c-0'];
+  assert.equal(resolved.status, 'resolved');
+  // Confidence-based scoring keeps the batch path aligned with the single
+  // grounded lookup (high -> 0.78) instead of the old flat 0.55.
+  assert.equal(resolved.matchScore, 0.78);
+  assert.equal(resolved.matchedFood?.per100g?.fiber, 1.4);
+  assert.equal(resolved.matchedFood?.per100g?.sodium, 30);
+  // Untracked micros stay absent, never zero.
+  assert.equal(resolved.matchedFood?.per100g?.sugars, undefined);
+  assert.equal(resolved.matchedFood?.per100g?.saturatedFats, undefined);
+});
+
+test('resolveAiFoodLookup preserves grounded micros in the matched food result', async () => {
+  const result = await resolveAiFoodLookup({
+    entryName: 'rare local dessert',
+    isOnline: true,
+    dependencies: {
+      searchLocal: async () => [],
+      searchCloud: async () => ({ foods: [] }),
+      searchGrounded: async () => ({
+        name: 'Rare Local Dessert',
+        per100g: {
+          calories: 320,
+          protein: 4,
+          carbs: 45,
+          fats: 14,
+          fiber: 2.5,
+        },
+        confidence: 'low',
+      }),
+    },
+  });
+
+  assert.equal(result.status, 'resolved');
+  assert.equal(result.usedSource, FOOD_SEARCH_SOURCE.AI_WEB_SEARCH);
+  assert.equal(result.matchedFood?.per100g?.fiber, 2.5);
+  assert.equal(result.matchedFood?.per100g?.sodium, undefined);
+});

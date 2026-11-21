@@ -25,7 +25,9 @@ import {
   resolveFoodLookupContext,
 } from './foodLookupContext.js';
 import { mergePresentationEntriesWithVerified } from '../utils/food/aiPresentationMerge.js';
+import { scaleMacrosFromPer100g } from '../utils/food/portionNormalization.js';
 import {
+  RAG_GROUNDING_BATCH_MAX_NAMES,
   RAG_TIMING,
   RAG_MAX_DEFERRED_GROUNDING_ENTRIES,
   RAG_LOOKUP_CONCURRENCY_LIMIT,
@@ -33,6 +35,14 @@ import {
 } from './ragBudget.js';
 
 export const CHAT_HISTORY_MESSAGE_LIMIT = 48;
+
+/**
+ * History actually sent to the model per request. The low-level client
+ * (`buildOpenRouterContentsForRequest`) already slices to the last 12
+ * messages, so the builder caps here too instead of assembling 48 and
+ * discarding 36 — and the two constants can never drift silently.
+ */
+export const CHAT_REQUEST_HISTORY_MESSAGE_LIMIT = 12;
 
 export const CHAT_PIPELINE_STAGE = Object.freeze({
   EXTRACTION: 'extraction',
@@ -49,19 +59,15 @@ const getNowMs = () => {
   return Date.now();
 };
 
-// Null-preserving micro-nutrient passthrough for grounded estimates: omitted /
-// non-finite values stay undefined (untracked), never coerced to zero.
-const passthroughMicro = (value) => {
-  if (value == null || value === '') {
-    return undefined;
-  }
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : undefined;
-};
-
 /**
  * Builds the OpenRouter-style structured history (user parts + assistant
  * content) from the app's chat message list, stopping at `beforeMessageId`.
+ *
+ * Historical images are NEVER replayed: a 5MB photo re-encoded per request
+ * would both blow the proxy's 500KB payload cap (hard-failing every message
+ * after an image message) and waste re-encode time. Past image messages carry
+ * a text note instead; only the CURRENT message's files are sent (via the
+ * pipeline's `files` argument).
  */
 export const buildStructuredChatHistory = (messages, options = {}) => {
   const { beforeMessageId = null } = options;
@@ -93,7 +99,7 @@ export const buildStructuredChatHistory = (messages, options = {}) => {
             typeof window !== 'undefined' &&
             attachment.file instanceof window.File
           ) {
-            parts.push({ file: attachment.file });
+            parts.push({ text: '[an image was attached]' });
           }
         }
       );
@@ -111,7 +117,7 @@ export const buildStructuredChatHistory = (messages, options = {}) => {
     }
   }
 
-  return history.slice(-CHAT_HISTORY_MESSAGE_LIMIT);
+  return history.slice(-CHAT_REQUEST_HISTORY_MESSAGE_LIMIT);
 };
 /**
  * Builds a compact rolling summary of previously logged food entries for the
@@ -212,6 +218,48 @@ export const shouldSkipPresentationPass = ({ verifiedEntries = [] } = {}) =>
 
 const telemetryNoop = async () => {};
 
+/**
+ * Telemetry is fire-and-forget: every `record.*` call used to be awaited
+ * inline between pipeline stages, putting a telemetry write on the critical
+ * path of every message. Stage timings are still captured synchronously —
+ * only the recording stops blocking the next stage. A rejected telemetry
+ * promise must never surface as an unhandled rejection in the chat flow.
+ */
+const fireAndForgetTelemetry = (promise) => {
+  Promise.resolve(promise).catch(() => {});
+};
+
+/**
+ * Extracts OpenRouter usage stats from a raw completion response so token
+ * spend per stage is visible in telemetry (`raw.usage` is otherwise
+ * discarded). Returns null when the response carries no usage block.
+ */
+const extractUsageStats = (raw) => {
+  const usage = raw?.usage && typeof raw.usage === 'object' ? raw.usage : null;
+  if (!usage) {
+    return null;
+  }
+
+  const stats = {};
+  const promptTokens = Number(usage.prompt_tokens ?? usage.promptTokens);
+  const completionTokens = Number(
+    usage.completion_tokens ?? usage.completionTokens
+  );
+  const totalTokens = Number(usage.total_tokens ?? usage.totalTokens);
+
+  if (Number.isFinite(promptTokens) && promptTokens >= 0) {
+    stats.promptTokens = promptTokens;
+  }
+  if (Number.isFinite(completionTokens) && completionTokens >= 0) {
+    stats.completionTokens = completionTokens;
+  }
+  if (Number.isFinite(totalTokens) && totalTokens >= 0) {
+    stats.totalTokens = totalTokens;
+  }
+
+  return Object.keys(stats).length > 0 ? stats : null;
+};
+
 const buildVerifiedResultFromEntries = ({
   extractionResult,
   verifiedEntries,
@@ -269,6 +317,7 @@ export const runRagChatPipeline = async ({
     lookupStats: telemetry.recordRagLookupStats || telemetryNoop,
     nameDrift: telemetry.recordRagPresentationNameDrift || telemetryNoop,
     presentationIssues: telemetry.recordRagPresentationIssues || telemetryNoop,
+    tokenUsage: telemetry.recordRagTokenUsage || telemetryNoop,
   };
 
   const transitionStage = (nextStage) => onStageChange(nextStage);
@@ -320,13 +369,7 @@ export const runRagChatPipeline = async ({
       });
 
     let extractionResult = await runExtractionAttempt(trimmedText);
-    const extractionLatencyMs = getNowMs() - extractionStartedAt;
     extractionSchemaVersion = extractionResult?.foodParser?.version || null;
-    await record.stageLatency({
-      stage: 'extraction',
-      durationMs: extractionLatencyMs,
-      schemaVersion: extractionSchemaVersion,
-    });
 
     const extractionMessageType =
       extractionResult?.foodParser?.messageType || null;
@@ -365,13 +408,37 @@ export const runRagChatPipeline = async ({
       }
     }
 
-    await record.extractionOutcome({
-      messageType:
-        extractionMessageType ||
-        (extractionEntries.length > 0 ? 'food_entries' : 'no_entries'),
-      entriesCount: effectiveExtractionEntries.length,
-      schemaVersion: extractionSchemaVersion,
-    });
+    // Stage latency covers the whole extraction stage, including the
+    // constrained-prompt retry when it fires (the retry used to be invisible
+    // to stage telemetry because latency was recorded before it ran).
+    const extractionLatencyMs = getNowMs() - extractionStartedAt;
+    extractionSchemaVersion =
+      extractionResult?.foodParser?.version || extractionSchemaVersion;
+    const extractionUsage = extractUsageStats(extractionResult?.raw);
+    fireAndForgetTelemetry(
+      record.stageLatency({
+        stage: 'extraction',
+        durationMs: extractionLatencyMs,
+        schemaVersion: extractionSchemaVersion,
+      })
+    );
+    fireAndForgetTelemetry(
+      record.tokenUsage({
+        stage: 'extraction',
+        ...(extractionUsage || {}),
+        schemaVersion: extractionSchemaVersion,
+      })
+    );
+
+    fireAndForgetTelemetry(
+      record.extractionOutcome({
+        messageType:
+          extractionMessageType ||
+          (extractionEntries.length > 0 ? 'food_entries' : 'no_entries'),
+        entriesCount: effectiveExtractionEntries.length,
+        schemaVersion: extractionSchemaVersion,
+      })
+    );
 
     const shouldShortCircuit =
       extractionMessageType === 'clarification' ||
@@ -390,25 +457,54 @@ export const runRagChatPipeline = async ({
       ) {
         transitionStage(CHAT_PIPELINE_STAGE.RETRIEVAL);
         try {
+          // Prefer the extraction's clarification lookupTerms (whole-word
+          // food queries from the parser schema) over the raw user text —
+          // "2 cups of rice with egg" used to become the literal food name
+          // of the grounded entry.
+          const clarificationLookupTerms = Array.isArray(
+            extractionResult?.foodParser?.lookupTerms
+          )
+            ? extractionResult.foodParser.lookupTerms.filter(Boolean)
+            : [];
+          const groundedQuery = clarificationLookupTerms[0] || trimmedText;
+
           const groundedEstimate = await fetchMacrosWithGrounding(
-            trimmedText,
+            groundedQuery,
             signal,
             resolveStageTimeout('groundingLookup')
           );
 
+          // Preserve the portion the grounding model inferred from the
+          // request (default 100g) instead of pinning every fallback entry
+          // to 100 grams.
+          const groundedPortionGrams = Math.min(
+            2000,
+            Math.max(
+              1,
+              Math.round(Number(groundedEstimate?.portionGrams) || 100)
+            )
+          );
+          const groundedPer100g =
+            groundedEstimate?.per100g &&
+            typeof groundedEstimate.per100g === 'object'
+              ? groundedEstimate.per100g
+              : {};
+          const scaledGroundedMacros = scaleMacrosFromPer100g(
+            groundedPer100g,
+            groundedPortionGrams
+          );
+
           const groundedEntry = {
-            name: groundedEstimate?.name || trimmedText,
-            grams: 100,
-            calories: Number(groundedEstimate?.per100g?.calories) || 0,
-            protein: Number(groundedEstimate?.per100g?.protein) || 0,
-            carbs: Number(groundedEstimate?.per100g?.carbs) || 0,
-            fats: Number(groundedEstimate?.per100g?.fats) || 0,
-            fiber: passthroughMicro(groundedEstimate?.per100g?.fiber),
-            sodium: passthroughMicro(groundedEstimate?.per100g?.sodium),
-            saturatedFats: passthroughMicro(
-              groundedEstimate?.per100g?.saturatedFats
-            ),
-            sugars: passthroughMicro(groundedEstimate?.per100g?.sugars),
+            name: groundedEstimate?.name || groundedQuery,
+            grams: groundedPortionGrams,
+            calories: scaledGroundedMacros.calories,
+            protein: scaledGroundedMacros.protein,
+            carbs: scaledGroundedMacros.carbs,
+            fats: scaledGroundedMacros.fats,
+            fiber: scaledGroundedMacros.fiber ?? null,
+            sodium: scaledGroundedMacros.sodium ?? null,
+            saturatedFats: scaledGroundedMacros.saturatedFats ?? null,
+            sugars: scaledGroundedMacros.sugars ?? null,
             confidence: groundedEstimate?.confidence || 'low',
             rationale:
               groundedEstimate?.rationale ||
@@ -416,7 +512,7 @@ export const runRagChatPipeline = async ({
             assumptions: Array.isArray(groundedEstimate?.assumptions)
               ? groundedEstimate.assumptions
               : [],
-            lookupTerms: [trimmedText],
+            lookupTerms: [groundedQuery],
             source: FOOD_SEARCH_SOURCE.AI_WEB_SEARCH,
           };
 
@@ -453,15 +549,20 @@ export const runRagChatPipeline = async ({
         lookupOptions: normalizedLookupOptions,
         groundedBatchTimeoutMs: resolveStageTimeout('groundingBatch'),
       });
-      await record.stageLatency({
-        stage: 'retrieval',
-        durationMs: getNowMs() - retrievalStartedAt,
-        schemaVersion: extractionSchemaVersion,
-      });
-      await record.lookupStats({
-        lookupContext: preResolvedLookupContext,
-        schemaVersion: extractionSchemaVersion,
-      });
+      const retrievalLatencyMs = getNowMs() - retrievalStartedAt;
+      fireAndForgetTelemetry(
+        record.stageLatency({
+          stage: 'retrieval',
+          durationMs: retrievalLatencyMs,
+          schemaVersion: extractionSchemaVersion,
+        })
+      );
+      fireAndForgetTelemetry(
+        record.lookupStats({
+          lookupContext: preResolvedLookupContext,
+          schemaVersion: extractionSchemaVersion,
+        })
+      );
       lookupStatsRecorded = true;
 
       transitionStage(CHAT_PIPELINE_STAGE.VERIFICATION);
@@ -480,11 +581,14 @@ export const runRagChatPipeline = async ({
           });
         })
       );
-      await record.stageLatency({
-        stage: 'verification',
-        durationMs: getNowMs() - verificationStartedAt,
-        schemaVersion: extractionSchemaVersion,
-      });
+      const verificationLatencyMs = getNowMs() - verificationStartedAt;
+      fireAndForgetTelemetry(
+        record.stageLatency({
+          stage: 'verification',
+          durationMs: verificationLatencyMs,
+          schemaVersion: extractionSchemaVersion,
+        })
+      );
 
       const verifiedEntries = verifiedEntryResults
         .map((item) => item?.verifiedEntry || null)
@@ -507,19 +611,23 @@ export const runRagChatPipeline = async ({
       if (shouldSkipPresentationPass({ verifiedEntries })) {
         presentationSkipped = true;
         resultSchemaVersion = extractionSchemaVersion;
-        await record.stageLatency({
-          stage: 'presentation',
-          durationMs: getNowMs() - presentationStartedAt,
-          schemaVersion: resultSchemaVersion,
-        });
-        await record.presentationIssues({
-          presentationSkipped: true,
-          schemaVersion: resultSchemaVersion,
-        });
+        const presentationLatencyMs = getNowMs() - presentationStartedAt;
+        fireAndForgetTelemetry(
+          record.stageLatency({
+            stage: 'presentation',
+            durationMs: presentationLatencyMs,
+            schemaVersion: resultSchemaVersion,
+          })
+        );
+        fireAndForgetTelemetry(
+          record.presentationIssues({
+            presentationSkipped: true,
+            schemaVersion: resultSchemaVersion,
+          })
+        );
         result = buildVerifiedResultFromEntries({
           extractionResult,
           verifiedEntries,
-          schemaVersion: resultSchemaVersion,
           presentationSkipped: true,
         });
       } else if (typeof sendOpenRouterPresentation === 'function') {
@@ -535,11 +643,22 @@ export const runRagChatPipeline = async ({
           });
           resultSchemaVersion =
             presentationResult?.foodParser?.version || extractionSchemaVersion;
-          await record.stageLatency({
-            stage: 'presentation',
-            durationMs: getNowMs() - presentationStartedAt,
-            schemaVersion: resultSchemaVersion,
-          });
+          const presentationLatencyMs = getNowMs() - presentationStartedAt;
+          const presentationUsage = extractUsageStats(presentationResult?.raw);
+          fireAndForgetTelemetry(
+            record.stageLatency({
+              stage: 'presentation',
+              durationMs: presentationLatencyMs,
+              schemaVersion: resultSchemaVersion,
+            })
+          );
+          fireAndForgetTelemetry(
+            record.tokenUsage({
+              stage: 'presentation',
+              ...(presentationUsage || {}),
+              schemaVersion: resultSchemaVersion,
+            })
+          );
 
           const presentationEntries = Array.isArray(
             presentationResult?.foodParser?.entries
@@ -586,21 +705,25 @@ export const runRagChatPipeline = async ({
                 hasSparsePresentationEntries,
               });
             }
-            await record.presentationIssues({
-              lengthMismatch: hasPresentationLengthMismatch,
-              sparseEntryCount,
-              suppressedRewriteCount,
-              integrityIssueCount,
-              presentationFailed: false,
-              schemaVersion: resultSchemaVersion,
-            });
+            fireAndForgetTelemetry(
+              record.presentationIssues({
+                lengthMismatch: hasPresentationLengthMismatch,
+                sparseEntryCount,
+                suppressedRewriteCount,
+                integrityIssueCount,
+                presentationFailed: false,
+                schemaVersion: resultSchemaVersion,
+              })
+            );
           }
 
-          await record.nameDrift({
-            verifiedEntries,
-            presentationEntries,
-            schemaVersion: resultSchemaVersion,
-          });
+          fireAndForgetTelemetry(
+            record.nameDrift({
+              verifiedEntries,
+              presentationEntries,
+              schemaVersion: resultSchemaVersion,
+            })
+          );
 
           result = {
             ...presentationResult,
@@ -625,19 +748,24 @@ export const runRagChatPipeline = async ({
           }
 
           resultSchemaVersion = extractionSchemaVersion;
-          await record.stageLatency({
-            stage: 'presentation',
-            durationMs: getNowMs() - presentationStartedAt,
-            schemaVersion: resultSchemaVersion,
-          });
-          await record.presentationIssues({
-            presentationFailed: true,
-            schemaVersion: resultSchemaVersion,
-          });
+          const presentationFailureLatencyMs =
+            getNowMs() - presentationStartedAt;
+          fireAndForgetTelemetry(
+            record.stageLatency({
+              stage: 'presentation',
+              durationMs: presentationFailureLatencyMs,
+              schemaVersion: resultSchemaVersion,
+            })
+          );
+          fireAndForgetTelemetry(
+            record.presentationIssues({
+              presentationFailed: true,
+              schemaVersion: resultSchemaVersion,
+            })
+          );
           result = buildVerifiedResultFromEntries({
             extractionResult,
             verifiedEntries,
-            schemaVersion: resultSchemaVersion,
             presentationSkipped: false,
           });
         }
@@ -645,14 +773,15 @@ export const runRagChatPipeline = async ({
         // No presentation module available — skip the pass defensively.
         presentationSkipped = true;
         resultSchemaVersion = extractionSchemaVersion;
-        await record.presentationIssues({
-          presentationSkipped: true,
-          schemaVersion: resultSchemaVersion,
-        });
+        fireAndForgetTelemetry(
+          record.presentationIssues({
+            presentationSkipped: true,
+            schemaVersion: resultSchemaVersion,
+          })
+        );
         result = buildVerifiedResultFromEntries({
           extractionResult,
           verifiedEntries,
-          schemaVersion: resultSchemaVersion,
           presentationSkipped: true,
         });
       }
@@ -672,15 +801,28 @@ export const runRagChatPipeline = async ({
     });
     resultSchemaVersion = result?.foodParser?.version || null;
 
+    const processingUsage = extractUsageStats(result?.raw);
+    if (processingUsage) {
+      fireAndForgetTelemetry(
+        record.tokenUsage({
+          stage: 'processing',
+          ...processingUsage,
+          schemaVersion: resultSchemaVersion,
+        })
+      );
+    }
+
     if (result?.foodParser?.messageType) {
       const fallbackEntries = Array.isArray(result?.foodParser?.entries)
         ? result.foodParser.entries
         : [];
-      await record.extractionOutcome({
-        messageType: result.foodParser.messageType,
-        entriesCount: fallbackEntries.length,
-        schemaVersion: resultSchemaVersion,
-      });
+      fireAndForgetTelemetry(
+        record.extractionOutcome({
+          messageType: result.foodParser.messageType,
+          entriesCount: fallbackEntries.length,
+          schemaVersion: resultSchemaVersion,
+        })
+      );
     }
   }
   // Final lookup-context reconciliation for any branch that produced food
@@ -702,10 +844,12 @@ export const runRagChatPipeline = async ({
           });
 
     if (!lookupStatsRecorded && Object.keys(lookupContext).length > 0) {
-      await record.lookupStats({
-        lookupContext,
-        schemaVersion: resultSchemaVersion || extractionSchemaVersion,
-      });
+      fireAndForgetTelemetry(
+        record.lookupStats({
+          lookupContext,
+          schemaVersion: resultSchemaVersion || extractionSchemaVersion,
+        })
+      );
       lookupStatsRecorded = true;
     }
   }
@@ -725,6 +869,7 @@ export const runRagChatPipeline = async ({
 
 export const RAG_PIPELINE_LIMITS = Object.freeze({
   maxDeferredGroundingEntries: RAG_MAX_DEFERRED_GROUNDING_ENTRIES,
+  groundingBatchMaxNames: RAG_GROUNDING_BATCH_MAX_NAMES,
   lookupConcurrency: RAG_LOOKUP_CONCURRENCY_LIMIT,
   timing: RAG_TIMING,
 });

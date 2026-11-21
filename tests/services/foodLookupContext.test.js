@@ -393,6 +393,79 @@ test('resolveFoodLookupContext fast mode can skip deferred grounding batch', asy
   assert.equal(context[kuloloKey].status, 'needs_grounding');
 });
 
+test('normalizeAiLookupResult preserves provided micro nutrients and drops untracked ones', () => {
+  const result = normalizeAiLookupResult(
+    {
+      status: 'resolved',
+      usedSource: FOOD_SEARCH_SOURCE.AI_WEB_SEARCH,
+      matchConfidence: 'low',
+      matchedFood: {
+        name: 'Kulolo',
+        per100g: {
+          calories: 250,
+          protein: 1,
+          carbs: 55,
+          fats: 2,
+          fiber: 1.4,
+          sodium: 30,
+        },
+      },
+    },
+    { entryName: 'kulolo' }
+  );
+
+  assert.equal(result.matchedFood?.per100g?.fiber, 1.4);
+  assert.equal(result.matchedFood?.per100g?.sodium, 30);
+  // Untracked micros stay absent so verification keeps them untracked.
+  assert.equal(result.matchedFood?.per100g?.sugars, undefined);
+  assert.equal(result.matchedFood?.per100g?.saturatedFats, undefined);
+});
+
+test('resolveFoodLookupContext hoists source-preference weights per unique category', async () => {
+  const receivedWeights = [];
+  const seenCategoryWeights = [];
+
+  await resolveFoodLookupContext({
+    messageId: 'assistant-weights',
+    isOnline: true,
+    entries: [
+      { name: 'Chicken breast', category: 'protein' },
+      { name: 'White rice', category: 'protein' },
+      { name: 'Kulolo', category: 'fats' },
+    ],
+    resolveLookup: async ({ entryName, sourcePreferenceWeights }) => {
+      receivedWeights.push({ entryName, sourcePreferenceWeights });
+      return {
+        status: 'resolved',
+        usedSource: FOOD_SEARCH_SOURCE.LOCAL,
+        sourcesTried: ['local'],
+        queryUsed: entryName,
+        matchConfidence: 'high',
+        matchScore: 0.9,
+        matchedFood: null,
+        errorsBySource: {},
+      };
+    },
+  });
+
+  // Same category -> the exact same weights object (one telemetry read);
+  // different category -> its own resolution.
+  const proteinWeightsA = receivedWeights.find(
+    (item) => item.entryName === 'Chicken breast'
+  )?.sourcePreferenceWeights;
+  const proteinWeightsB = receivedWeights.find(
+    (item) => item.entryName === 'White rice'
+  )?.sourcePreferenceWeights;
+  const fatsWeights = receivedWeights.find(
+    (item) => item.entryName === 'Kulolo'
+  )?.sourcePreferenceWeights;
+
+  assert.ok(proteinWeightsA && typeof proteinWeightsA === 'object');
+  assert.equal(proteinWeightsA, proteinWeightsB);
+  assert.ok(fatsWeights && fatsWeights !== proteinWeightsA);
+  assert.equal(seenCategoryWeights.length, 0);
+});
+
 test('resolveFoodLookupContext uses collision-safe key format for hyphenated ids', async () => {
   const context = await resolveFoodLookupContext({
     messageId: 'msg-1-0',

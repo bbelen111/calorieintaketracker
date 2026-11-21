@@ -1,5 +1,6 @@
 /* eslint-disable no-undef */
 import { Capacitor } from '@capacitor/core';
+import { RAG_GROUNDING_BATCH_MAX_NAMES } from './ragBudget.js';
 
 export const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 export const MAX_IMAGE_COUNT = 3;
@@ -391,6 +392,15 @@ export function parseFoodParserPayloadFromText(text) {
         messageType,
         entries,
         followUpQuestion: asNonEmptyString(parsed.followUpQuestion),
+        // Top-level lookup terms: emitted by extraction on clarification
+        // payloads so the grounded fallback has a clean food query instead of
+        // the raw user text. Absent on older schemas — normalized to [].
+        lookupTerms: Array.isArray(parsed.lookupTerms)
+          ? parsed.lookupTerms
+              .map((item) => asNonEmptyString(item))
+              .filter(Boolean)
+              .slice(0, 6)
+          : [],
       },
     };
   } catch {
@@ -1050,7 +1060,11 @@ export async function fetchMacrosWithGrounding(
     );
   }
 
-  const prompt = `Find a conservative 100g nutrition estimate for: ${normalizedFoodName}. Return parser JSON only.`;
+  const prompt = [
+    `Estimate the nutrition for: ${normalizedFoodName}.`,
+    'If a portion is described, estimate its grams (otherwise use 100) and report calories/macros for that portion.',
+    'Return parser JSON only.',
+  ].join(' ');
 
   const result = await sendOpenRouterMessage({
     message: prompt,
@@ -1073,21 +1087,7 @@ export async function fetchMacrosWithGrounding(
     );
   }
 
-  return {
-    name: firstEntry.name || normalizedFoodName,
-    per100g: {
-      calories: Math.max(0, Number(firstEntry.calories) || 0),
-      protein: Math.max(0, Number(firstEntry.protein) || 0),
-      carbs: Math.max(0, Number(firstEntry.carbs) || 0),
-      fats: Math.max(0, Number(firstEntry.fats) || 0),
-    },
-    confidence: firstEntry.confidence || 'low',
-    rationale: firstEntry.rationale || null,
-    assumptions: Array.isArray(firstEntry.assumptions)
-      ? firstEntry.assumptions
-      : [],
-    source: 'ai_web_search',
-  };
+  return buildGroundedEstimateFromEntry(firstEntry, normalizedFoodName);
 }
 
 const normalizeFoodLabel = (value) =>
@@ -1097,20 +1097,65 @@ const normalizeFoodLabel = (value) =>
     .replace(/\s+/g, ' ')
     .trim();
 
-const buildGroundedEstimateFromEntry = (entry, fallbackName) => ({
-  name:
-    String(entry?.name || fallbackName).trim() || String(fallbackName || ''),
-  per100g: {
-    calories: Math.max(0, Number(entry?.calories) || 0),
-    protein: Math.max(0, Number(entry?.protein) || 0),
-    carbs: Math.max(0, Number(entry?.carbs) || 0),
-    fats: Math.max(0, Number(entry?.fats) || 0),
-  },
-  confidence: entry?.confidence || 'low',
-  rationale: entry?.rationale || null,
-  assumptions: Array.isArray(entry?.assumptions) ? entry.assumptions : [],
-  source: 'ai_web_search',
-});
+// Grounded entries report portion-aware values: `grams` is the model's best
+// estimate of the described portion (default 100) and the macro values are
+// totals for that portion. Everything is rescaled here to the canonical
+// per-100g baseline plus a `portionGrams` hint, so callers can rebuild either
+// representation. Older responses that hard-coded grams=100 scale by 1.
+const GROUNDED_PORTION_MIN_GRAMS = 1;
+const GROUNDED_PORTION_MAX_GRAMS = 2000;
+
+const buildGroundedEstimateFromEntry = (entry, fallbackName) => {
+  const portionGrams = Math.min(
+    GROUNDED_PORTION_MAX_GRAMS,
+    Math.max(
+      GROUNDED_PORTION_MIN_GRAMS,
+      Math.round(Number(entry?.grams) || 100)
+    )
+  );
+  const per100gFactor = 100 / portionGrams;
+
+  const scalePer100g = (value) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric < 0) {
+      return 0;
+    }
+    return Math.round(numeric * per100gFactor * 10) / 10;
+  };
+
+  // Micro nutrients are null-preserving: omitted/non-finite stays undefined
+  // (untracked), never coerced to zero.
+  const passthroughMicroPer100g = (value) => {
+    if (value == null || value === '') {
+      return undefined;
+    }
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric < 0) {
+      return undefined;
+    }
+    return Math.round(numeric * per100gFactor * 10) / 10;
+  };
+
+  return {
+    name:
+      String(entry?.name || fallbackName).trim() || String(fallbackName || ''),
+    per100g: {
+      calories: scalePer100g(entry?.calories),
+      protein: scalePer100g(entry?.protein),
+      carbs: scalePer100g(entry?.carbs),
+      fats: scalePer100g(entry?.fats),
+      fiber: passthroughMicroPer100g(entry?.fiber),
+      sodium: passthroughMicroPer100g(entry?.sodium),
+      saturatedFats: passthroughMicroPer100g(entry?.saturatedFats),
+      sugars: passthroughMicroPer100g(entry?.sugars),
+    },
+    portionGrams,
+    confidence: entry?.confidence || 'low',
+    rationale: entry?.rationale || null,
+    assumptions: Array.isArray(entry?.assumptions) ? entry.assumptions : [],
+    source: 'ai_web_search',
+  };
+};
 
 export async function fetchMacrosWithGroundingBatch(
   foodNames,
@@ -1122,7 +1167,7 @@ export async function fetchMacrosWithGroundingBatch(
     ? foodNames
         .map((item) => String(item ?? '').trim())
         .filter(Boolean)
-        .slice(0, 10)
+        .slice(0, RAG_GROUNDING_BATCH_MAX_NAMES)
     : [];
 
   if (normalizedFoodNames.length === 0) {
@@ -1137,7 +1182,8 @@ export async function fetchMacrosWithGroundingBatch(
     .join('\n');
 
   const prompt = [
-    'Find conservative 100g nutrition estimates for each food below.',
+    'Find conservative nutrition estimates for each food below.',
+    'If a portion is described, estimate its grams (otherwise use 100) and report calories/macros for that portion.',
     'Return parser JSON only.',
     'Keep entry order aligned to the list when possible.',
     '',

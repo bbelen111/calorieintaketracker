@@ -2,7 +2,10 @@
   FOOD_SEARCH_SOURCE,
   resolveAiFoodLookup,
   resolveAiGroundedBatch,
+  resolveSourceTrustMultiplier,
 } from './foodSearch.js';
+import { getRagSourcePreferenceWeightsForCategory } from './ragTelemetry.js';
+import { mapWithConcurrencyLimit } from '../utils/concurrency.js';
 import {
   DEFAULT_ERROR_REASON_BY_SOURCE,
   FOOD_LOOKUP_ERROR_REASONS,
@@ -11,53 +14,7 @@ import {
 } from './foodLookupReasons.js';
 import { RAG_TIMING } from './ragBudget.js';
 
-const SOURCE_TRUST_MULTIPLIER = Object.freeze({
-  [FOOD_SEARCH_SOURCE.LOCAL]: 1,
-
-  [FOOD_SEARCH_SOURCE.CLOUD]: 0.98,
-
-  [FOOD_SEARCH_SOURCE.AI_WEB_SEARCH]: 0.75,
-
-  estimate: 0.55,
-});
-
-const resolveSourceTrustMultiplier = (source) => {
-  return SOURCE_TRUST_MULTIPLIER[source] || SOURCE_TRUST_MULTIPLIER.estimate;
-};
-
 const LOOKUP_CONCURRENCY_LIMIT = 10;
-
-const mapWithConcurrencyLimit = async (items, limit, mapper) => {
-  const safeItems = Array.isArray(items) ? items : [];
-
-  const normalizedLimit = Math.max(1, Math.floor(Number(limit) || 1));
-
-  const results = new Array(safeItems.length);
-
-  let cursor = 0;
-
-  const workers = Array.from(
-    { length: Math.min(normalizedLimit, safeItems.length) },
-
-    async () => {
-      while (cursor < safeItems.length) {
-        const currentIndex = cursor;
-
-        cursor += 1;
-
-        results[currentIndex] = await mapper(
-          safeItems[currentIndex],
-
-          currentIndex
-        );
-      }
-    }
-  );
-
-  await Promise.all(workers);
-
-  return results;
-};
 
 export const getLookupErrorReasonMessage = (reasonCode) =>
   resolveCanonicalReasonMessage(reasonCode);
@@ -162,6 +119,25 @@ export const normalizeAiLookupResult = (result, { entryName = '' } = {}) => {
                   carbs: Number(result.matchedFood.per100g.carbs) || 0,
 
                   fats: Number(result.matchedFood.per100g.fats) || 0,
+
+                  // Micro passthrough is null-preserving: a nutrient the
+                  // lookup source did not provide stays absent, so
+                  // verification keeps it untracked instead of zero-filling.
+                  ...Object.fromEntries(
+                    ['fiber', 'sodium', 'saturatedFats', 'sugars']
+                      .filter((key) => {
+                        const raw = result.matchedFood.per100g[key];
+                        return (
+                          raw != null &&
+                          raw !== '' &&
+                          Number.isFinite(Number(raw))
+                        );
+                      })
+                      .map((key) => [
+                        key,
+                        Number(result.matchedFood.per100g[key]),
+                      ])
+                  ),
                 }
               : null,
         }
@@ -379,6 +355,39 @@ export const resolveFoodLookupContext = async ({
       ? normalizedLookupOptions.enableDeferredGrounding
       : true;
 
+  // Hoisted per-category source-preference weights: the lookup service used
+  // to re-read the telemetry aggregate once per entry; one read per unique
+  // category is enough (the resolver accepts the same `sourcePreferenceWeights`
+  // argument either way). Caller-provided weights short-circuit the hoist.
+  const callerSourcePreferenceWeights =
+    normalizedLookupOptions.sourcePreferenceWeights &&
+    typeof normalizedLookupOptions.sourcePreferenceWeights === 'object'
+      ? normalizedLookupOptions.sourcePreferenceWeights
+      : null;
+  // Keyed by category, holding the in-flight PROMISE: entries run under a
+  // concurrency limit, so caching the resolved value would let two workers
+  // for the same category each start their own read.
+  const weightsByCategory = new Map();
+
+  const resolveSourcePreferenceWeightsForCategory = async (category) => {
+    if (callerSourcePreferenceWeights) {
+      return callerSourcePreferenceWeights;
+    }
+
+    const categoryKey = String(category || '')
+      .trim()
+      .toLowerCase();
+
+    if (!weightsByCategory.has(categoryKey)) {
+      weightsByCategory.set(
+        categoryKey,
+        getRagSourcePreferenceWeightsForCategory(categoryKey)
+      );
+    }
+
+    return weightsByCategory.get(categoryKey);
+  };
+
   const pairs = await mapWithConcurrencyLimit(
     entries,
 
@@ -418,7 +427,7 @@ export const resolveFoodLookupContext = async ({
           onlinePageSize: normalizedLookupOptions.onlinePageSize,
 
           sourcePreferenceWeights:
-            normalizedLookupOptions.sourcePreferenceWeights,
+            await resolveSourcePreferenceWeightsForCategory(entry?.category),
         });
 
         return [entryKey, normalizeAiLookupResult(result, { entryName })];

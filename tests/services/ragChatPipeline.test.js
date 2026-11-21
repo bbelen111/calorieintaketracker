@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { buildLookupContextEntryKey } from '../../src/services/foodLookupContext.js';
 import {
   CHAT_HISTORY_MESSAGE_LIMIT,
+  CHAT_REQUEST_HISTORY_MESSAGE_LIMIT,
   CHAT_PIPELINE_STAGE,
   RAG_PIPELINE_LIMITS,
   buildRollingFoodContextSummary,
@@ -24,6 +25,7 @@ const makeTelemetry = () => {
     nameDrift: [],
     presentationIssues: [],
     stageLatency: [],
+    tokenUsage: [],
   };
   return {
     recordRagExtractionOutcome: async (payload) =>
@@ -34,6 +36,7 @@ const makeTelemetry = () => {
     recordRagPresentationIssues: async (payload) =>
       calls.presentationIssues.push(payload),
     recordRagStageLatency: async (payload) => calls.stageLatency.push(payload),
+    recordRagTokenUsage: async (payload) => calls.tokenUsage.push(payload),
     calls,
   };
 };
@@ -51,6 +54,7 @@ test('CHAT_PIPELINE_STAGE exposes the documented stage keys and is frozen', () =
 
 test('RAG_PIPELINE_LIMITS mirrors the centralized ragBudget constants', () => {
   assert.equal(RAG_PIPELINE_LIMITS.maxDeferredGroundingEntries, 20);
+  assert.equal(RAG_PIPELINE_LIMITS.groundingBatchMaxNames, 10);
   assert.equal(RAG_PIPELINE_LIMITS.lookupConcurrency, 10);
   assert.equal(RAG_PIPELINE_LIMITS.timing.groundingBatchMs, 90000);
 });
@@ -75,7 +79,7 @@ test('buildStructuredChatHistory keeps sent user/assistant messages up to before
   ]);
 });
 
-test('buildStructuredChatHistory caps history at CHAT_HISTORY_MESSAGE_LIMIT', () => {
+test('buildStructuredChatHistory caps the request payload at CHAT_REQUEST_HISTORY_MESSAGE_LIMIT', () => {
   const messages = Array.from({ length: 60 }, (_, index) => ({
     id: `m${index}`,
     role: index % 2 === 0 ? 'user' : 'assistant',
@@ -85,11 +89,56 @@ test('buildStructuredChatHistory caps history at CHAT_HISTORY_MESSAGE_LIMIT', ()
 
   const history = buildStructuredChatHistory(messages);
 
-  assert.equal(history.length, CHAT_HISTORY_MESSAGE_LIMIT);
+  // The builder caps at the request limit (what the low-level client actually
+  // sends) — CHAT_HISTORY_MESSAGE_LIMIT stays the UI-state retention cap and
+  // must remain larger so the modal can keep displaying older chat messages.
+  assert.equal(history.length, CHAT_REQUEST_HISTORY_MESSAGE_LIMIT);
+  assert.ok(CHAT_HISTORY_MESSAGE_LIMIT > CHAT_REQUEST_HISTORY_MESSAGE_LIMIT);
   assert.deepEqual(history[history.length - 1], {
     role: 'assistant',
     content: 'answer 59',
   });
+});
+
+test('buildStructuredChatHistory never replays historical image attachments', () => {
+  const originalWindow = globalThis.window;
+  globalThis.window = { File };
+
+  try {
+    const fakeFile = new File([], 'photo.jpg', { type: 'image/jpeg' });
+    const messages = [
+      {
+        id: 'm1',
+        role: 'user',
+        status: 'sent',
+        text: 'what is in this photo',
+        attachments: [{ file: fakeFile }],
+      },
+      { id: 'm2', role: 'assistant', status: 'sent', text: 'reply' },
+      { id: 'm3', role: 'user', status: 'sent', text: 'log it' },
+    ];
+
+    const history = buildStructuredChatHistory(messages, {
+      beforeMessageId: 'm3',
+    });
+
+    // Historical image parts are replaced by a text note: re-encoded images
+    // would blow the proxy's 500KB payload cap on every follow-up message.
+    assert.deepEqual(history[0].parts, [
+      { text: 'what is in this photo' },
+      { text: '[an image was attached]' },
+    ]);
+    const carriesFile = history.some((message) =>
+      (message.parts || []).some((part) => part?.file)
+    );
+    assert.equal(carriesFile, false);
+  } finally {
+    if (originalWindow === undefined) {
+      delete globalThis.window;
+    } else {
+      globalThis.window = originalWindow;
+    }
+  }
 });
 
 test('buildRollingFoodContextSummary lists recent assistant food entries before beforeMessageId', () => {
@@ -351,4 +400,92 @@ test('runRagChatPipeline keeps extraction short-circuit results when no groundin
   assert.equal(pipelineResult.result.foodParser.messageType, 'clarification');
   assert.equal(extractionCalls.length, 2);
   assert.deepEqual(stages, [CHAT_PIPELINE_STAGE.EXTRACTION]);
+});
+
+test('runRagChatPipeline records token usage from raw completion responses without blocking stages', async () => {
+  const telemetry = makeTelemetry();
+
+  const pipelineResult = await runRagChatPipeline({
+    message: 'some meal',
+    isOnline: false,
+    enableRag: true,
+    modules: {
+      sendOpenRouterExtraction: async () => ({
+        text: 'Could not parse.',
+        raw: {
+          usage: { prompt_tokens: 120, completion_tokens: 40, total_tokens: 160 },
+        },
+        foodParser: { version: 'v1', messageType: 'error' },
+      }),
+      fetchMacrosWithGrounding: async () => {
+        throw new Error('grounding must not run offline');
+      },
+    },
+    onStageChange: () => {},
+    telemetry,
+  });
+
+  assert.equal(pipelineResult.result.foodParser.messageType, 'error');
+  assert.equal(telemetry.calls.tokenUsage.length, 1);
+  assert.equal(telemetry.calls.tokenUsage[0].stage, 'extraction');
+  assert.equal(telemetry.calls.tokenUsage[0].promptTokens, 120);
+  assert.equal(telemetry.calls.tokenUsage[0].completionTokens, 40);
+  assert.equal(telemetry.calls.tokenUsage[0].totalTokens, 160);
+});
+
+test('runRagChatPipeline grounded fallback uses clarification lookupTerms and preserves the inferred portion', async () => {
+  const groundingQueries = [];
+  const stages = [];
+
+  const pipelineResult = await runRagChatPipeline({
+    message: '2 cups of white rice',
+    isOnline: true,
+    enableRag: true,
+    modules: {
+      sendOpenRouterExtraction: async () => ({
+        text: 'Which rice exactly?',
+        foodParser: {
+          version: '1.1.0',
+          messageType: 'clarification',
+          followUpQuestion: 'Which rice exactly?',
+          lookupTerms: ['white rice'],
+          entries: [],
+        },
+      }),
+      fetchMacrosWithGrounding: async (foodName) => {
+        groundingQueries.push(foodName);
+        return {
+          name: 'White Rice',
+          per100g: {
+            calories: 130,
+            protein: 2.7,
+            carbs: 28,
+            fats: 0.3,
+            fiber: 0.4,
+          },
+          portionGrams: 320,
+          confidence: 'low',
+        };
+      },
+    },
+    onStageChange: (stage) => stages.push(stage),
+    telemetry: makeTelemetry(),
+  });
+
+  // The grounded lookup searches the clarification's whole-word term, not the
+  // raw user text ("2 cups of white rice" used to become the food name).
+  assert.deepEqual(groundingQueries, ['white rice']);
+
+  const entries = pipelineResult.result.foodParser.entries;
+  assert.equal(pipelineResult.result.foodParser.messageType, 'food_entries');
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].name, 'White Rice');
+  // The model-inferred portion (320g for "2 cups") survives instead of the
+  // old hard-coded 100g, and macros scale to that portion.
+  assert.equal(entries[0].grams, 320);
+  assert.equal(entries[0].calories, 416);
+  assert.equal(entries[0].protein, 8.6);
+  assert.equal(entries[0].fiber, 1.3);
+  assert.deepEqual(entries[0].lookupTerms, ['white rice']);
+  assert.ok(stages.includes(CHAT_PIPELINE_STAGE.RETRIEVAL));
 });

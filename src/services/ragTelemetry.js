@@ -1,5 +1,5 @@
 import {
-  loadAllHistoryDocuments,
+  loadHistoryDocumentsByIds,
   saveHistoryDocumentsToDexie,
 } from '../utils/data/historyDatabase.js';
 
@@ -12,6 +12,13 @@ const createLatencyBucket = () => ({
   totalMs: 0,
   minMs: null,
   maxMs: null,
+});
+
+const createTokenUsageBucket = () => ({
+  count: 0,
+  promptTokens: 0,
+  completionTokens: 0,
+  totalTokens: 0,
 });
 
 const createEmptySnapshot = () => ({
@@ -73,6 +80,12 @@ const createEmptySnapshot = () => ({
   presentationNameDrift: {
     compared: 0,
     drifted: 0,
+  },
+  tokenUsage: {
+    extraction: createTokenUsageBucket(),
+    presentation: createTokenUsageBucket(),
+    processing: createTokenUsageBucket(),
+    groundingLookup: createTokenUsageBucket(),
   },
   presentationIssues: {
     lengthMismatch: 0,
@@ -351,6 +364,37 @@ const applyLookupContext = (targetMetrics, lookupContext = {}) => {
   });
 };
 
+const asNonNegativeTokenCount = (value) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return 0;
+  }
+  return Math.round(parsed);
+};
+
+const TOKEN_USAGE_STAGES = new Set([
+  'extraction',
+  'presentation',
+  'processing',
+  'groundingLookup',
+]);
+
+const applyTokenUsage = (
+  targetMetrics,
+  { stage, promptTokens, completionTokens, totalTokens } = {}
+) => {
+  const normalizedStage = String(stage || '').trim();
+  if (!TOKEN_USAGE_STAGES.has(normalizedStage)) {
+    return;
+  }
+
+  const bucket = targetMetrics.tokenUsage[normalizedStage];
+  bucket.count += 1;
+  bucket.promptTokens += asNonNegativeTokenCount(promptTokens);
+  bucket.completionTokens += asNonNegativeTokenCount(completionTokens);
+  bucket.totalTokens += asNonNegativeTokenCount(totalTokens);
+};
+
 const applyNameDrift = (
   targetMetrics,
   verifiedEntries = [],
@@ -514,6 +558,42 @@ const applyImplicitFeedback = (
   }
 };
 
+/**
+ * Telemetry persistence is debounced, not per-event.
+ *
+ * A single chat message fires ~8 telemetry events; persisting each one used to
+ * deep-clone the aggregate plus every session summary and write two Dexie
+ * documents per event, all while the pipeline waited between stages. Mutations
+ * still land in memory synchronously (awaited by the record* callers); only
+ * the write is coalesced into one trailing flush per debounce window.
+ */
+const PERSIST_DEBOUNCE_MS = 1500;
+let persistTimer = null;
+
+const clearPersistTimer = () => {
+  if (persistTimer) {
+    clearTimeout(persistTimer);
+    persistTimer = null;
+  }
+};
+
+const schedulePersistTelemetry = () => {
+  if (!initialized || persistTimer) {
+    return;
+  }
+
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    void persistTelemetry();
+  }, PERSIST_DEBOUNCE_MS);
+
+  // Never keep a Node test process (or a backgrounded worker) alive just for
+  // a telemetry flush; the next mutation re-arms the timer anyway.
+  if (typeof persistTimer?.unref === 'function') {
+    persistTimer.unref();
+  }
+};
+
 const persistTelemetry = async () => {
   if (!initialized) {
     return;
@@ -562,7 +642,10 @@ const ensureHydrated = async () => {
   }
 
   hydratePromise = (async () => {
-    const loaded = await loadAllHistoryDocuments();
+    const loaded = await loadHistoryDocumentsByIds([
+      RAG_TELEMETRY_AGGREGATE_DOC_ID,
+      RAG_TELEMETRY_SESSIONS_DOC_ID,
+    ]);
     const docsById = new Map(
       (loaded?.documents || []).map((doc) => [doc.id, doc.payload])
     );
@@ -601,7 +684,7 @@ const applyMutation = async (mutator) => {
   mutator(sessionState.metrics);
   mutator(aggregateState);
   sessionState.updatedAt = Date.now();
-  await persistTelemetry();
+  schedulePersistTelemetry();
 };
 
 export const recordRagStageLatency = async ({
@@ -694,6 +777,26 @@ export const recordRagImplicitFeedback = async ({
       source,
       confidence,
       category,
+    });
+    if (schemaVersion) {
+      applySchemaVersionCount(metrics, schemaVersion);
+    }
+  });
+};
+
+export const recordRagTokenUsage = async ({
+  stage,
+  promptTokens,
+  completionTokens,
+  totalTokens,
+  schemaVersion = null,
+} = {}) => {
+  await applyMutation((metrics) => {
+    applyTokenUsage(metrics, {
+      stage,
+      promptTokens,
+      completionTokens,
+      totalTokens,
     });
     if (schemaVersion) {
       applySchemaVersionCount(metrics, schemaVersion);
@@ -837,6 +940,7 @@ export const getRagTelemetryAggregateSnapshot = async () => {
 };
 
 export const __resetRagTelemetryForTests = () => {
+  clearPersistTimer();
   sessionState = createEmptySession();
   aggregateState = createEmptySnapshot();
   sessionsState = [];
