@@ -1027,13 +1027,6 @@ const HeartRateSettingsSection = ({ userData, onFieldChange, openers }) => {
               ? `${heartRateProfile.restingHr} bpm (7-day)`
               : 'No readings yet'}
           </PickerButton>
-          <button
-            type="button"
-            onClick={() => openers?.restingHeartRateEntry?.()}
-            className="mt-1.5 text-xs font-medium text-accent-blue focus-ring rounded px-1 pressable-inline"
-          >
-            Log today&apos;s reading
-          </button>
         </div>
 
         <div>

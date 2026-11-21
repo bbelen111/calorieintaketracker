@@ -652,11 +652,12 @@
   }
 
   /*
-    Settings navigation. The hub and its four pages swap in place (no router, no
+    Settings navigation. The hub and its pages swap in place (no router, no
     exit phase - same enter-only idiom as `header-stat-in`), so direction is
-    expressed on the way IN: a page slides in from the right, the hub from the
-    left. The blocks stagger by child index (capped at 7 so a long page never
-    feels slow).
+    expressed on the way IN: a page eases in from the right, the hub from the
+    left. Deliberately quiet - a short fade with a 6px nudge reads as "content
+    settled" without parading blocks across the screen. Blocks stagger by child
+    index (capped at 7 so a long page never feels slow).
 
     `backwards` fill is load-bearing: the animation only holds the `from` state
     during its delay, then RELEASES `transform`/`opacity`. A `both`/`forwards`
@@ -670,7 +671,7 @@
   @keyframes settingsEnterForward {
     from {
       opacity: 0;
-      transform: translateX(18px);
+      transform: translateX(6px);
     }
     to {
       opacity: 1;
@@ -681,7 +682,7 @@
   @keyframes settingsEnterBack {
     from {
       opacity: 0;
-      transform: translateX(-18px);
+      transform: translateX(-6px);
     }
     to {
       opacity: 1;
@@ -690,52 +691,54 @@
   }
 
   .settings-page-enter > * > * {
-    animation: settingsEnterForward 300ms cubic-bezier(0.32, 0.72, 0, 1)
+    animation: settingsEnterForward 180ms cubic-bezier(0.32, 0.72, 0, 1)
       backwards;
   }
 
   .settings-hub-enter > * {
-    animation: settingsEnterBack 300ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
+    animation: settingsEnterBack 180ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
   }
 
   .settings-page-enter > * > *:nth-child(2),
   .settings-hub-enter > *:nth-child(2) {
-    animation-delay: 45ms;
+    animation-delay: 20ms;
   }
   .settings-page-enter > * > *:nth-child(3),
   .settings-hub-enter > *:nth-child(3) {
-    animation-delay: 90ms;
+    animation-delay: 40ms;
   }
   .settings-page-enter > * > *:nth-child(4),
   .settings-hub-enter > *:nth-child(4) {
-    animation-delay: 135ms;
+    animation-delay: 60ms;
   }
   .settings-page-enter > * > *:nth-child(5),
   .settings-hub-enter > *:nth-child(5) {
-    animation-delay: 180ms;
+    animation-delay: 80ms;
   }
   .settings-page-enter > * > *:nth-child(6) {
-    animation-delay: 225ms;
+    animation-delay: 100ms;
   }
   .settings-page-enter > * > *:nth-child(n + 7) {
-    animation-delay: 270ms;
+    animation-delay: 120ms;
   }
 
   /* An option that only exists while its parent switch is on (EPOC carryover,
-     Smart TEF sub-toggles, AT smoothing...) eases in instead of popping. */
+     Smart TEF sub-toggles, AT smoothing...) eases in instead of popping. Fade +
+     a 3px nudge only - the old drop-and-scale read as too much theatre for a
+     toggle consequence. */
   @keyframes settingsReveal {
     from {
       opacity: 0;
-      transform: translateY(-6px) scale(0.985);
+      transform: translateY(-3px);
     }
     to {
       opacity: 1;
-      transform: translateY(0) scale(1);
+      transform: translateY(0);
     }
   }
 
   .settings-reveal {
-    animation: settingsReveal 240ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
+    animation: settingsReveal 160ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
     transform-origin: top center;
   }
 
@@ -757,7 +760,7 @@
   }
 
   .settings-select-pop {
-    animation: settingsSelectPop 360ms cubic-bezier(0.32, 0.72, 0, 1);
+    animation: settingsSelectPop 220ms cubic-bezier(0.32, 0.72, 0, 1);
   }
 
   /* Theme change cross-fade (View Transition API; see App.jsx). Unsupported
