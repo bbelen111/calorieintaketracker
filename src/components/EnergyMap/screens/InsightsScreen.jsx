@@ -52,6 +52,7 @@ import {
 } from '../../../utils/calculations/rollingEnergyBalance';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 import { RestingHeartRateCard } from '../common/RestingHeartRateCard';
+import { InsightHeadline, InsightStatus } from '../common/InsightHeadline';
 
 function AdaptiveCorrectionCard({ result, mode, goalDurationDays, onOpen }) {
   const insufficientData = Boolean(result?.insufficientData);
@@ -66,6 +67,9 @@ function AdaptiveCorrectionCard({ result, mode, goalDurationDays, onOpen }) {
       ? 'text-accent-orange'
       : 'text-accent-blue';
 
+  // The state words stand alone; a real correction gets a small "kcal/day"
+  // unit beside the big number (see InsightHeadline).
+  const hasCorrection = mode !== 'off' && !insufficientData && active;
   const headline =
     mode === 'off'
       ? 'Off'
@@ -73,7 +77,7 @@ function AdaptiveCorrectionCard({ result, mode, goalDurationDays, onOpen }) {
         ? 'No data'
         : !active
           ? 'Inactive'
-          : `${correction > 0 ? '+' : ''}${correction} kcal/day`;
+          : `${correction > 0 ? '+' : ''}${correction}`;
 
   const formatPressure = (value) => {
     const number = Number(value) || 0;
@@ -156,11 +160,19 @@ function AdaptiveCorrectionCard({ result, mode, goalDurationDays, onOpen }) {
             <p className="text-muted text-sm truncate">{subtitle}</p>
           </div>
           <div className="shrink-0 text-right">
-            <span className={`block text-md font-bold ${accent}`}>
-              {headline}
-            </span>
+            {hasCorrection ? (
+              <InsightHeadline
+                value={headline}
+                unit="kcal/day"
+                valueClass={accent}
+              />
+            ) : (
+              <InsightStatus label={headline} />
+            )}
             {active && (
-              <span className="text-[11px] text-muted">applied to target</span>
+              <span className="mt-1 block text-[11px] text-muted">
+                applied to target
+              </span>
             )}
           </div>
         </div>

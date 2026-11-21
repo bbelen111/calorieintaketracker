@@ -26,16 +26,26 @@ import {
   connectHeartRateSync,
   useHeartRateSyncState,
 } from '../../../services/heartRateSync';
+import { InsightHeadline } from './InsightHeadline';
 
-const SPARK_WIDTH = 120;
-const SPARK_HEIGHT = 36;
-const SPARK_DAYS = 28;
+const LATEST_LOOKBACK_DAYS = 28;
+
+const StatTile = ({ label, value }) => (
+  <div className="rounded-xl bg-surface-highlight/50 border border-border/50 px-3 py-2">
+    <p className="text-xs text-muted">{label}</p>
+    <p className="mt-0.5 text-base font-bold text-foreground truncate">
+      {value}
+    </p>
+  </div>
+);
 
 /**
- * Insights card: resting heart rate (7-day baseline), today's reading and its
- * method, the 28-day change (uncoloured — a lower resting HR is not
- * automatically good news), a sparkline, and the Zone 2 band. Opens the HR
- * tracker; the empty state offers a manual reading or a watch connection.
+ * Insights card: resting heart rate (7-day baseline) as the headline, the
+ * latest reading and how it was obtained, max HR and the Zone 2 band as stat
+ * tiles, and the 28-day change in the footer (uncoloured — a lower resting HR
+ * is not automatically good news). Same card grammar as the Adaptive
+ * Thermogenesis and Rolling Energy Balance cards. Opens the HR tracker; the
+ * empty state offers a manual reading or a watch connection.
  */
 export const RestingHeartRateCard = memo(function RestingHeartRateCard({
   onOpen,
@@ -51,36 +61,21 @@ export const RestingHeartRateCard = memo(function RestingHeartRateCard({
   const sync = useHeartRateSyncState();
   const todayKey = getTodayDateKey();
 
-  const { sparkPoints, latest } = useMemo(() => {
-    const windowKeys = getWindowDateKeys(todayKey, SPARK_DAYS);
+  // Newest reading inside the window, from ONE method family (measured and
+  // estimated readings never mix).
+  const latest = useMemo(() => {
+    const windowKeys = getWindowDateKeys(todayKey, LATEST_LOOKBACK_DAYS);
     const family = resolveRestingHrTrendFamily(heartRateEntries, {
       startDateKey: windowKeys[0],
       endDateKey: todayKey,
     });
-    const series = family
-      ? getRestingHrSeries(heartRateEntries, { family }).filter(
-          (entry) => entry.date >= windowKeys[0] && entry.date <= todayKey
-        )
-      : [];
-    if (series.length < 2) {
-      return { sparkPoints: '', latest: series[series.length - 1] ?? null };
+    if (!family) {
+      return null;
     }
-    const values = series.map((entry) => entry.restingHr);
-    const min = Math.min(...values) - 1;
-    const max = Math.max(...values) + 1;
-    const startMs = new Date(`${windowKeys[0]}T00:00:00Z`).getTime();
-    const spanMs = SPARK_DAYS * 86_400_000;
-    const points = series
-      .map((entry) => {
-        const x =
-          ((new Date(`${entry.date}T00:00:00Z`).getTime() - startMs) / spanMs) *
-          SPARK_WIDTH;
-        const y =
-          SPARK_HEIGHT - ((entry.restingHr - min) / (max - min)) * SPARK_HEIGHT;
-        return `${x.toFixed(1)},${y.toFixed(1)}`;
-      })
-      .join(' ');
-    return { sparkPoints: points, latest: series[series.length - 1] };
+    const series = getRestingHrSeries(heartRateEntries, { family }).filter(
+      (entry) => entry.date >= windowKeys[0] && entry.date <= todayKey
+    );
+    return series[series.length - 1] ?? null;
   }, [heartRateEntries, todayKey]);
 
   const trend = useMemo(
@@ -92,87 +87,87 @@ export const RestingHeartRateCard = memo(function RestingHeartRateCard({
     [heartRateProfile]
   );
 
-  const hasData = heartRateProfile?.restingHr != null || latest != null;
+  const baseline = heartRateProfile?.restingHr ?? null;
+  const hasData = baseline != null || latest != null;
   const canConnect =
     sync.status === HealthConnectStatus.DISCONNECTED ||
     sync.status === HealthConnectStatus.ERROR;
 
+  const subtitle = hasData
+    ? `${baseline != null ? '7-day average' : 'Latest'}${
+        latest
+          ? ` · ${latest.date === todayKey ? 'today' : 'last'} ${
+              latest.restingHr
+            } (${describeRestingHrMethod(latest.restingHrMethod)})`
+          : ''
+      }`
+    : 'Not tracked yet';
+
   return (
-    <div className="bg-surface rounded-2xl p-4 border border-border shadow-lg">
+    <div className="bg-surface rounded-2xl border border-border shadow-lg p-5 md:p-6">
       {hasData ? (
         <button
           type="button"
           onClick={() => onOpen?.()}
-          className="w-full text-left rounded-xl p-2 -m-2 pressable-card focus-ring group"
+          className="w-full text-left rounded-xl transition-all group pressable-card focus-ring"
         >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="flex items-center gap-2 text-foreground font-semibold">
-                <HeartPulse size={20} className="text-accent-red" />
-                Resting Heart Rate
-              </p>
-              <p className="mt-2 text-foreground text-3xl font-bold leading-none">
-                {heartRateProfile?.restingHr ?? latest?.restingHr ?? '—'}
-                <span className="text-base font-medium text-muted"> bpm</span>
-              </p>
-              <p className="mt-1 text-muted text-xs">
-                {heartRateProfile?.restingHr != null
-                  ? '7-day average'
-                  : 'Latest'}
-                {latest && (
-                  <>
-                    {' · '}
-                    {latest.date === todayKey ? 'today' : 'last'}{' '}
-                    {latest.restingHr} (
-                    {describeRestingHrMethod(latest.restingHrMethod)})
-                  </>
-                )}
-              </p>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1">
+              <HeartPulse className="text-accent-blue" size={30} />
             </div>
-            <div className="flex flex-col items-end gap-1 shrink-0">
-              {sparkPoints && (
-                <svg
-                  width={SPARK_WIDTH}
-                  height={SPARK_HEIGHT}
-                  aria-hidden="true"
-                  className="overflow-visible"
-                >
-                  <polyline
-                    points={sparkPoints}
-                    fill="none"
-                    stroke="rgb(var(--accent-red) / 0.9)"
-                    strokeWidth={2}
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              )}
-              <span className="text-xs text-muted">
-                {trend
-                  ? `${formatSignedBpm(trend.deltaBpm)} / 28d`
-                  : 'Trend after 7 readings'}
-              </span>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg font-bold text-foreground">
+                Resting Heart Rate
+              </h2>
+              <p className="text-muted text-sm leading-snug">{subtitle}</p>
+            </div>
+            <div className="shrink-0 text-right">
+              <InsightHeadline
+                testId="resting-hr-headline"
+                value={baseline ?? latest?.restingHr ?? '—'}
+                unit="bpm"
+              />
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between gap-3 border-t border-border/50 pt-2 text-xs text-muted">
-            <span>
-              {heartRateProfile?.maxHr != null &&
-                `Max ${heartRateProfile.maxHr}`}
-              {zone2 && ` · Zone 2 ${zone2.lowerBpm}–${zone2.upperBpm}`}
-            </span>
-            <ChevronRight
-              size={16}
-              className="text-muted md:group-hover:text-foreground transition-colors"
+
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <StatTile
+              label="Max HR"
+              value={
+                heartRateProfile?.maxHr != null
+                  ? `${heartRateProfile.maxHr} bpm`
+                  : '—'
+              }
             />
+            <StatTile
+              label="Zone 2"
+              value={zone2 ? `${zone2.lowerBpm}–${zone2.upperBpm} bpm` : '—'}
+            />
+          </div>
+
+          <div className="mt-3 flex items-center justify-between">
+            <span className="text-xs text-accent-blue/80">
+              {trend
+                ? `${formatSignedBpm(trend.deltaBpm)} over 28 days — tap for details`
+                : 'Trend after 7 readings — tap for details'}
+            </span>
+            <ChevronRight size={16} className="text-muted" />
           </div>
         </button>
       ) : (
         <div>
-          <p className="flex items-center gap-2 text-foreground font-semibold">
-            <HeartPulse size={20} className="text-accent-red" />
-            Resting Heart Rate
-          </p>
-          <p className="mt-2 text-muted text-sm">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1">
+              <HeartPulse className="text-accent-blue" size={30} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg font-bold text-foreground">
+                Resting Heart Rate
+              </h2>
+              <p className="text-muted text-sm leading-snug">{subtitle}</p>
+            </div>
+          </div>
+          <p className="mt-3 text-muted text-sm">
             Track your resting heart rate to unlock personal training zones and
             sharper after-burn (EPOC) estimates.
           </p>
