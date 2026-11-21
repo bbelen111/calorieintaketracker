@@ -89,19 +89,6 @@ describe('CalorieBreakdownModal', () => {
     expect(screen.queryByText(/2020/)).toBeNull();
   });
 
-  it('surfaces the recorded TDEE when the recompute differs', () => {
-    renderModal({ dateKey: '2020-01-01', recordedTdee: 2367 });
-
-    expect(screen.getByText(/Recorded that day:/)).toBeInTheDocument();
-    expect(screen.getByText(/2,367 kcal/)).toBeInTheDocument();
-  });
-
-  it('omits the recorded TDEE line when it matches the recompute', () => {
-    renderModal({ dateKey: '2020-01-01', recordedTdee: 2631 });
-
-    expect(screen.queryByText(/Recorded that day:/)).toBeNull();
-  });
-
   it('renders nothing while closed', () => {
     renderModal({ isOpen: false });
 

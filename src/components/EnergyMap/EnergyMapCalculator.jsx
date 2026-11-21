@@ -4396,12 +4396,6 @@ export const EnergyMapCalculator = () => {
             targetCalories={selectedRangeData?.targetCalories ?? null}
             difference={selectedRangeData?.difference ?? null}
             dateKey={breakdownRequestDateKey}
-            recordedTdee={
-              isHistoricalBreakdownRequest
-                ? (userData.dailySnapshots?.[breakdownRequestDateKey]?.tdee ??
-                  null)
-                : null
-            }
             onOpenBmrInfo={bmrModal.open}
             onOpenTefInfo={tefInfoModal.open}
             onOpenAdaptiveThermogenesisInfo={

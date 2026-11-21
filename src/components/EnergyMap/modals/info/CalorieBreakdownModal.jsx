@@ -16,7 +16,6 @@ export const CalorieBreakdownModal = ({
   targetCalories,
   difference,
   dateKey,
-  recordedTdee,
   onOpenBmrInfo,
   onOpenTefInfo,
   onOpenAdaptiveThermogenesisInfo,
@@ -34,12 +33,6 @@ export const CalorieBreakdownModal = ({
         year: 'numeric',
       })
     : null;
-  const recordedTdeeValue = Number.isFinite(Number(recordedTdee))
-    ? Math.round(Number(recordedTdee))
-    : null;
-  const showRecordedTdee =
-    recordedTdeeValue !== null &&
-    recordedTdeeValue !== Math.round(Number(breakdown?.total) || 0);
 
   if (!isOpen || !breakdown) {
     return null;
@@ -581,11 +574,6 @@ export const CalorieBreakdownModal = ({
               {breakdown.total.toLocaleString()} kcal
             </span>
           </div>
-          {showRecordedTdee && (
-            <p className="text-muted text-xs mt-2 text-right">
-              Recorded that day: {recordedTdeeValue.toLocaleString()} kcal
-            </p>
-          )}
         </div>
 
         <button
