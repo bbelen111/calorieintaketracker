@@ -262,6 +262,7 @@ export const PhaseDetailScreen = ({
     (state) => ({
       weightEntries: state.weightEntries ?? [],
       nutritionData: state.nutritionData ?? {},
+      heartRateEntries: state.heartRateEntries ?? [],
     }),
     shallow
   );
@@ -274,9 +275,15 @@ export const PhaseDetailScreen = ({
       calculatePhaseMetrics(
         phase,
         resolvedWeightEntries,
-        resolvedNutritionData
+        resolvedNutritionData,
+        store.heartRateEntries
       ),
-    [phase, resolvedNutritionData, resolvedWeightEntries]
+    [
+      phase,
+      resolvedNutritionData,
+      resolvedWeightEntries,
+      store.heartRateEntries,
+    ]
   );
 
   const calendarData = useMemo(
@@ -414,6 +421,11 @@ export const PhaseDetailScreen = ({
               {weightChangeDisplay}
             </div>
             <div className="text-muted text-xs mt-1">{weeklyRateDisplay}</div>
+            {metrics.restingHrStart != null && (
+              <div className="text-muted text-xs mt-1">
+                Resting HR {metrics.restingHrStart} → {metrics.restingHrEnd} bpm
+              </div>
+            )}
           </div>
 
           <div>

@@ -113,6 +113,39 @@ export const HealthMock = {
   readSamples: vi.fn(async () => []),
   saveSample: vi.fn(async () => {}),
   openHealthConnectSettings: vi.fn(async () => {}),
+  // Heart-rate sync (daily / hourly aggregates) and the workout import.
+  queryAggregated: vi.fn(async () => ({ samples: [] })),
+  queryWorkouts: vi.fn(async () => ({ workouts: [] })),
+};
+
+/**
+ * `@capacitor-community/bluetooth-le` double — only the BleClient calls
+ * services/heartRateSensor.js makes. `startNotifications` keeps the callback
+ * on `BluetoothLeMock.__notify` so a spec can push heart-rate frames.
+ */
+export const BluetoothLeMock = {
+  BleClient: {
+    initialize: vi.fn(async () => {}),
+    requestLEScan: vi.fn(async () => {}),
+    requestDevice: vi.fn(async () => ({
+      deviceId: 'web-device',
+      name: 'Strap',
+    })),
+    stopLEScan: vi.fn(async () => {}),
+    connect: vi.fn(async () => {}),
+    disconnect: vi.fn(async () => {}),
+    read: vi.fn(async () => new DataView(Uint8Array.from([80]).buffer)),
+    startNotifications: vi.fn(async (_deviceId, _service, _char, callback) => {
+      BluetoothLeMock.__notify = callback;
+    }),
+  },
+  __notify: null,
+};
+
+/** `@capacitor-community/keep-awake` double. */
+export const KeepAwakeMock = {
+  keepAwake: vi.fn(async () => {}),
+  allowSleep: vi.fn(async () => {}),
 };
 
 /**

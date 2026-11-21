@@ -1,0 +1,677 @@
+{
+  "maleTrainingDay": {
+    "breakdown": {
+      "total": 4425,
+      "baselineTotal": 4425,
+      "adjustedTotal": 4425,
+      "adaptiveThermogenesisMode": "off",
+      "adaptiveThermogenesisCorrection": 0,
+      "adaptiveThermogenesis": {
+        "mode": "off",
+        "correction": 0,
+        "active": false,
+        "insufficientData": false,
+        "confidence": 0,
+        "signal": null,
+        "details": null
+      },
+      "bmr": 1780,
+      "baseActivity": 356,
+      "activityMultiplier": 0.2,
+      "rawActivityMultiplier": 0.2,
+      "dailyNeatOverrideApplied": false,
+      "dailyNeatOverrideMultiplier": null,
+      "dailyNeatOverridePresetKey": null,
+      "dailyNeatOverrideLabel": null,
+      "effectiveActivityMultiplier": 0.2,
+      "tefOffsetApplied": 0,
+      "tefMode": "off",
+      "smartTefCalories": 0,
+      "smartTefDetails": null,
+      "stepCalories": 164,
+      "stepDetails": {
+        "parsedRange": {
+          "min": 9000,
+          "max": 9000,
+          "operator": "exact"
+        },
+        "estimatedSteps": 3522,
+        "stepCount": 3522,
+        "weightKg": 80,
+        "heightCm": 180,
+        "gender": "male",
+        "strideLengthMeters": 0.747,
+        "stepsPerMile": 2154.404283801874,
+        "distanceMiles": 1.6347906595250228,
+        "distanceKm": 2.6309340000000003,
+        "weightLbs": 176.3696,
+        "caloriesPerMile": 100.53067199999998,
+        "calories": 164,
+        "originalEstimatedSteps": 9000,
+        "deductedSteps": 5478,
+        "rawDeductedSteps": 5478,
+        "remainingEstimatedSteps": 3522,
+        "stepOverlapSessionsCount": 1,
+        "stepOverlapApplicableSessionsCount": 1,
+        "stepOverlapSessions": [
+          {
+            "id": "c1",
+            "type": "treadmill_run",
+            "label": "Treadmill Run",
+            "durationMinutes": 30,
+            "effortType": "intensity",
+            "enabled": true,
+            "estimatedSessionSteps": 5478
+          }
+        ]
+      },
+      "estimatedSteps": 3522,
+      "originalEstimatedSteps": 9000,
+      "deductedSteps": 5478,
+      "remainingEstimatedSteps": 3522,
+      "stepOverlapSessionsCount": 1,
+      "stepOverlapApplicableSessionsCount": 1,
+      "stepOverlapSessions": [
+        {
+          "id": "c1",
+          "type": "treadmill_run",
+          "label": "Treadmill Run",
+          "durationMinutes": 30,
+          "effortType": "intensity",
+          "enabled": true,
+          "estimatedSessionSteps": 5478
+        }
+      ],
+      "trainingBurn": 936,
+      "trainingDuration": 1.8,
+      "trainingCaloriesPerHour": 520,
+      "trainingTypeLabel": "2 sessions",
+      "cardioBurn": 1067,
+      "cardioDetails": [
+        {
+          "typeKey": "treadmill_run",
+          "typeLabel": "Treadmill Run",
+          "effortType": "intensity",
+          "intensityKey": "vigorous",
+          "met": 11,
+          "hours": 0.5,
+          "durationMinutes": 30,
+          "calories": 440,
+          "weightKg": 80
+        },
+        {
+          "typeKey": "bike_outdoor",
+          "typeLabel": "Outdoor Cycling",
+          "effortType": "heartRate",
+          "durationMinutes": 45,
+          "averageHeartRate": 145,
+          "calories": 627,
+          "caloriesPerMinute": 13.94326003824092,
+          "weightKg": 80,
+          "ageYears": 30,
+          "gender": "male"
+        }
+      ],
+      "epocEnabled": true,
+      "epocCalories": 122,
+      "trainingEpoc": 24,
+      "cardioEpoc": 98,
+      "epocFromTodaySessions": 55,
+      "epocCarryInCalories": 67,
+      "trainingEpocDetails": [
+        {
+          "dateKey": "2026-03-10",
+          "overlapMs": 39600000,
+          "overlapMinutes": 660,
+          "calories": 12,
+          "sessionId": "t1",
+          "sessionType": "trainingtype_1",
+          "sourceDate": "2026-03-10",
+          "carryoverWindowMinutes": 2250,
+          "sourceCalories": 42
+        },
+        {
+          "dateKey": "2026-03-10",
+          "overlapMs": 15300000,
+          "overlapMinutes": 255,
+          "calories": 12,
+          "sessionId": "t2",
+          "sessionType": "trainingtype_4",
+          "sourceDate": "2026-03-10",
+          "carryoverWindowMinutes": 1148,
+          "sourceCalories": 56
+        }
+      ],
+      "cardioEpocDetails": [
+        {
+          "dateKey": "2026-03-10",
+          "overlapMs": 59400000,
+          "overlapMinutes": 990,
+          "calories": 19,
+          "sessionId": "c1",
+          "sessionType": "treadmill_run",
+          "sourceDate": "2026-03-10",
+          "carryoverWindowMinutes": 2205,
+          "sourceCalories": 43
+        },
+        {
+          "dateKey": "2026-03-10",
+          "overlapMs": 20700000,
+          "overlapMinutes": 345,
+          "calories": 12,
+          "sessionId": "c2",
+          "sessionType": "bike_outdoor",
+          "sourceDate": "2026-03-10",
+          "carryoverWindowMinutes": 1148,
+          "sourceCalories": 40
+        },
+        {
+          "dateKey": "2026-03-10",
+          "overlapMs": 86400000,
+          "overlapMinutes": 1440,
+          "calories": 67,
+          "sessionId": "c3",
+          "sessionType": "rowing",
+          "sourceDate": "2026-03-09",
+          "carryoverWindowMinutes": 2250,
+          "sourceCalories": 104
+        }
+      ],
+      "bmrDetails": {
+        "method": "mifflin-st-jeor",
+        "age": 30,
+        "weight": 80,
+        "height": 180,
+        "gender": "male",
+        "bodyFat": null,
+        "leanMass": null
+      }
+    },
+    "snapshot": {
+      "date": "2026-03-10",
+      "goalAtSnapshot": "maintenance",
+      "tdee": 4425,
+      "baselineTdee": 4425,
+      "adaptiveThermogenesisCorrection": 0,
+      "adaptiveThermogenesisMode": "off",
+      "intake": 680,
+      "deficit": 3745,
+      "micros": {
+        "fiber": 10,
+        "sodium": 5,
+        "saturatedFats": 1.2,
+        "sugars": 1
+      },
+      "microsCoverage": {
+        "fiber": true,
+        "sodium": true,
+        "saturatedFats": true,
+        "sugars": true
+      },
+      "stepCount": 9000,
+      "isTrainingDay": true,
+      "bmr": 1780,
+      "stepCalories": 164,
+      "trainingBurn": 936,
+      "cardioBurn": 1067,
+      "tef": 0,
+      "tefMode": "off",
+      "epoc": 122,
+      "epocTraining": 24,
+      "epocCardio": 98,
+      "epocFromTodaySessions": 55,
+      "epocCarryInCalories": 67
+    }
+  },
+  "femaleSmartTefCrudeAt": {
+    "breakdown": {
+      "total": 3051,
+      "baselineTotal": 3151,
+      "adjustedTotal": 3051,
+      "adaptiveThermogenesisMode": "crude",
+      "adaptiveThermogenesisCorrection": -100,
+      "adaptiveThermogenesis": {
+        "mode": "crude",
+        "correction": -100,
+        "active": true,
+        "insufficientData": false,
+        "confidence": 1,
+        "signal": {
+          "balancePressure": -12,
+          "cutPressure": 12,
+          "surplusPressure": 0,
+          "windowDays": 12
+        },
+        "details": {
+          "goalType": "cut",
+          "balancePressure": -12,
+          "cutPressure": 12,
+          "surplusPressure": 0,
+          "windowDays": 12,
+          "windowStart": "2026-02-11",
+          "windowEnd": "2026-03-10",
+          "milestone": {
+            "minPressure": 7,
+            "kcal": -100
+          },
+          "dailyPressure": [
+            {
+              "date": "2026-02-26",
+              "goal": "cut",
+              "cutPressure": 1,
+              "surplusPressure": 0
+            },
+            {
+              "date": "2026-02-27",
+              "goal": "cut",
+              "cutPressure": 2,
+              "surplusPressure": 0
+            },
+            {
+              "date": "2026-02-28",
+              "goal": "cut",
+              "cutPressure": 3,
+              "surplusPressure": 0
+            },
+            {
+              "date": "2026-03-01",
+              "goal": "cut",
+              "cutPressure": 4,
+              "surplusPressure": 0
+            },
+            {
+              "date": "2026-03-02",
+              "goal": "cut",
+              "cutPressure": 5,
+              "surplusPressure": 0
+            },
+            {
+              "date": "2026-03-03",
+              "goal": "cut",
+              "cutPressure": 6,
+              "surplusPressure": 0
+            },
+            {
+              "date": "2026-03-04",
+              "goal": "cut",
+              "cutPressure": 7,
+              "surplusPressure": 0
+            },
+            {
+              "date": "2026-03-05",
+              "goal": "cut",
+              "cutPressure": 8,
+              "surplusPressure": 0
+            },
+            {
+              "date": "2026-03-06",
+              "goal": "cut",
+              "cutPressure": 9,
+              "surplusPressure": 0
+            },
+            {
+              "date": "2026-03-07",
+              "goal": "cut",
+              "cutPressure": 10,
+              "surplusPressure": 0
+            },
+            {
+              "date": "2026-03-08",
+              "goal": "cut",
+              "cutPressure": 11,
+              "surplusPressure": 0
+            },
+            {
+              "date": "2026-03-09",
+              "goal": "cut",
+              "cutPressure": 12,
+              "surplusPressure": 0
+            }
+          ]
+        }
+      },
+      "bmr": 1285,
+      "baseActivity": 129,
+      "activityMultiplier": 0.2,
+      "rawActivityMultiplier": 0.2,
+      "dailyNeatOverrideApplied": false,
+      "dailyNeatOverrideMultiplier": null,
+      "dailyNeatOverridePresetKey": null,
+      "dailyNeatOverrideLabel": null,
+      "effectiveActivityMultiplier": 0.1,
+      "tefOffsetApplied": 0.1,
+      "tefMode": "dynamic",
+      "smartTefCalories": 93,
+      "smartTefDetails": {
+        "proteinGrams": 69,
+        "carbsGrams": 67,
+        "fatsGrams": 13.5,
+        "proteinCalories": 276,
+        "carbCalories": 268,
+        "fatCalories": 121.5,
+        "proteinTefCalories": 69,
+        "carbTefCalories": 21.4,
+        "fatTefCalories": 2.4,
+        "rawTotalCalories": 92.9,
+        "totalCalories": 93,
+        "source": "logged-macros"
+      },
+      "stepCalories": 57,
+      "stepDetails": {
+        "parsedRange": {
+          "min": 7200,
+          "max": 7200,
+          "operator": "exact"
+        },
+        "estimatedSteps": 1722,
+        "stepCount": 1722,
+        "weightKg": 62,
+        "heightCm": 165,
+        "gender": "female",
+        "strideLengthMeters": 0.6814499999999999,
+        "stepsPerMile": 2361.640619267738,
+        "distanceMiles": 0.7291541252935986,
+        "distanceKm": 1.1734569,
+        "weightLbs": 136.68643999999998,
+        "caloriesPerMile": 77.91127079999998,
+        "calories": 57,
+        "originalEstimatedSteps": 7200,
+        "deductedSteps": 5478,
+        "rawDeductedSteps": 5478,
+        "remainingEstimatedSteps": 1722,
+        "stepOverlapSessionsCount": 1,
+        "stepOverlapApplicableSessionsCount": 1,
+        "stepOverlapSessions": [
+          {
+            "id": "c1",
+            "type": "treadmill_run",
+            "label": "Treadmill Run",
+            "durationMinutes": 30,
+            "effortType": "intensity",
+            "enabled": true,
+            "estimatedSessionSteps": 5478
+          }
+        ]
+      },
+      "estimatedSteps": 1722,
+      "originalEstimatedSteps": 7200,
+      "deductedSteps": 5478,
+      "remainingEstimatedSteps": 1722,
+      "stepOverlapSessionsCount": 1,
+      "stepOverlapApplicableSessionsCount": 1,
+      "stepOverlapSessions": [
+        {
+          "id": "c1",
+          "type": "treadmill_run",
+          "label": "Treadmill Run",
+          "durationMinutes": 30,
+          "effortType": "intensity",
+          "enabled": true,
+          "estimatedSessionSteps": 5478
+        }
+      ],
+      "trainingBurn": 725,
+      "trainingDuration": 1.8,
+      "trainingCaloriesPerHour": 403,
+      "trainingTypeLabel": "2 sessions",
+      "cardioBurn": 767,
+      "cardioDetails": [
+        {
+          "typeKey": "treadmill_run",
+          "typeLabel": "Treadmill Run",
+          "effortType": "intensity",
+          "intensityKey": "vigorous",
+          "met": 11,
+          "hours": 0.5,
+          "durationMinutes": 30,
+          "calories": 341,
+          "weightKg": 62
+        },
+        {
+          "typeKey": "bike_outdoor",
+          "typeLabel": "Outdoor Cycling",
+          "effortType": "heartRate",
+          "durationMinutes": 45,
+          "averageHeartRate": 145,
+          "calories": 426,
+          "caloriesPerMinute": 9.475430210325046,
+          "weightKg": 62,
+          "ageYears": 41,
+          "gender": "female"
+        }
+      ],
+      "epocEnabled": true,
+      "epocCalories": 95,
+      "trainingEpoc": 20,
+      "cardioEpoc": 75,
+      "epocFromTodaySessions": 43,
+      "epocCarryInCalories": 52,
+      "trainingEpocDetails": [
+        {
+          "dateKey": "2026-03-10",
+          "overlapMs": 39600000,
+          "overlapMinutes": 660,
+          "calories": 12,
+          "sessionId": "t1",
+          "sessionType": "trainingtype_1",
+          "sourceDate": "2026-03-10",
+          "carryoverWindowMinutes": 2250,
+          "sourceCalories": 42
+        },
+        {
+          "dateKey": "2026-03-10",
+          "overlapMs": 15300000,
+          "overlapMinutes": 255,
+          "calories": 8,
+          "sessionId": "t2",
+          "sessionType": "trainingtype_4",
+          "sourceDate": "2026-03-10",
+          "carryoverWindowMinutes": 1148,
+          "sourceCalories": 38
+        }
+      ],
+      "cardioEpocDetails": [
+        {
+          "dateKey": "2026-03-10",
+          "overlapMs": 59400000,
+          "overlapMinutes": 990,
+          "calories": 15,
+          "sessionId": "c1",
+          "sessionType": "treadmill_run",
+          "sourceDate": "2026-03-10",
+          "carryoverWindowMinutes": 2205,
+          "sourceCalories": 33
+        },
+        {
+          "dateKey": "2026-03-10",
+          "overlapMs": 20700000,
+          "overlapMinutes": 345,
+          "calories": 8,
+          "sessionId": "c2",
+          "sessionType": "bike_outdoor",
+          "sourceDate": "2026-03-10",
+          "carryoverWindowMinutes": 1148,
+          "sourceCalories": 27
+        },
+        {
+          "dateKey": "2026-03-10",
+          "overlapMs": 86400000,
+          "overlapMinutes": 1440,
+          "calories": 52,
+          "sessionId": "c3",
+          "sessionType": "rowing",
+          "sourceDate": "2026-03-09",
+          "carryoverWindowMinutes": 2250,
+          "sourceCalories": 81
+        }
+      ],
+      "bmrDetails": {
+        "method": "mifflin-st-jeor",
+        "age": 41,
+        "weight": 62,
+        "height": 165,
+        "gender": "female",
+        "bodyFat": null,
+        "leanMass": null
+      }
+    },
+    "snapshot": {
+      "date": "2026-03-10",
+      "goalAtSnapshot": "cutting",
+      "tdee": 3324,
+      "baselineTdee": 3424,
+      "adaptiveThermogenesisCorrection": -100,
+      "adaptiveThermogenesisMode": "crude",
+      "intake": 680,
+      "deficit": 2644,
+      "micros": {
+        "fiber": 10,
+        "sodium": 5,
+        "saturatedFats": 1.2,
+        "sugars": 1
+      },
+      "microsCoverage": {
+        "fiber": true,
+        "sodium": true,
+        "saturatedFats": true,
+        "sugars": true
+      },
+      "stepCount": 9000,
+      "isTrainingDay": true,
+      "bmr": 1285,
+      "stepCalories": 116,
+      "trainingBurn": 725,
+      "cardioBurn": 767,
+      "tef": 307,
+      "tefMode": "target",
+      "epoc": 95,
+      "epocTraining": 20,
+      "epocCardio": 75,
+      "epocFromTodaySessions": 43,
+      "epocCarryInCalories": 52
+    }
+  },
+  "restDayNoSessions": {
+    "breakdown": {
+      "total": 2359,
+      "baselineTotal": 2359,
+      "adjustedTotal": 2359,
+      "adaptiveThermogenesisMode": "off",
+      "adaptiveThermogenesisCorrection": 0,
+      "adaptiveThermogenesis": {
+        "mode": "off",
+        "correction": 0,
+        "active": false,
+        "insufficientData": false,
+        "confidence": 0,
+        "signal": null,
+        "details": null
+      },
+      "bmr": 1780,
+      "baseActivity": 392,
+      "activityMultiplier": 0.22,
+      "rawActivityMultiplier": 0.22,
+      "dailyNeatOverrideApplied": false,
+      "dailyNeatOverrideMultiplier": null,
+      "dailyNeatOverridePresetKey": null,
+      "dailyNeatOverrideLabel": null,
+      "effectiveActivityMultiplier": 0.22,
+      "tefOffsetApplied": 0,
+      "tefMode": "off",
+      "smartTefCalories": 0,
+      "smartTefDetails": null,
+      "stepCalories": 187,
+      "stepDetails": {
+        "parsedRange": {
+          "min": 4000,
+          "max": 4000,
+          "operator": "exact"
+        },
+        "estimatedSteps": 4000,
+        "stepCount": 4000,
+        "weightKg": 80,
+        "heightCm": 180,
+        "gender": "male",
+        "strideLengthMeters": 0.747,
+        "stepsPerMile": 2154.404283801874,
+        "distanceMiles": 1.8566617371096228,
+        "distanceKm": 2.9880000000000004,
+        "weightLbs": 176.3696,
+        "caloriesPerMile": 100.53067199999998,
+        "calories": 187,
+        "originalEstimatedSteps": 4000,
+        "deductedSteps": 0,
+        "rawDeductedSteps": 0,
+        "remainingEstimatedSteps": 4000,
+        "stepOverlapSessionsCount": 0,
+        "stepOverlapApplicableSessionsCount": 0,
+        "stepOverlapSessions": []
+      },
+      "estimatedSteps": 4000,
+      "originalEstimatedSteps": 4000,
+      "deductedSteps": 0,
+      "remainingEstimatedSteps": 4000,
+      "stepOverlapSessionsCount": 0,
+      "stepOverlapApplicableSessionsCount": 0,
+      "stepOverlapSessions": [],
+      "trainingBurn": 0,
+      "trainingDuration": 0,
+      "trainingCaloriesPerHour": 0,
+      "trainingTypeLabel": "No Training",
+      "cardioBurn": 0,
+      "cardioDetails": [],
+      "epocEnabled": true,
+      "epocCalories": 0,
+      "trainingEpoc": 0,
+      "cardioEpoc": 0,
+      "epocFromTodaySessions": 0,
+      "epocCarryInCalories": 0,
+      "trainingEpocDetails": [],
+      "cardioEpocDetails": [],
+      "bmrDetails": {
+        "method": "mifflin-st-jeor",
+        "age": 30,
+        "weight": 80,
+        "height": 180,
+        "gender": "male",
+        "bodyFat": null,
+        "leanMass": null
+      }
+    },
+    "snapshot": {
+      "date": "2026-03-10",
+      "goalAtSnapshot": "maintenance",
+      "tdee": 2359,
+      "baselineTdee": 2359,
+      "adaptiveThermogenesisCorrection": 0,
+      "adaptiveThermogenesisMode": "off",
+      "intake": 680,
+      "deficit": 1679,
+      "micros": {
+        "fiber": 10,
+        "sodium": 5,
+        "saturatedFats": 1.2,
+        "sugars": 1
+      },
+      "microsCoverage": {
+        "fiber": true,
+        "sodium": true,
+        "saturatedFats": true,
+        "sugars": true
+      },
+      "stepCount": 4000,
+      "isTrainingDay": false,
+      "bmr": 1780,
+      "stepCalories": 187,
+      "trainingBurn": 0,
+      "cardioBurn": 0,
+      "tef": 0,
+      "tefMode": "off",
+      "epoc": 0,
+      "epocTraining": 0,
+      "epocCardio": 0,
+      "epocFromTodaySessions": 0,
+      "epocCarryInCalories": 0
+    }
+  }
+}

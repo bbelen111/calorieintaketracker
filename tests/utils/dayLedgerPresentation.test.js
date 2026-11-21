@@ -528,6 +528,32 @@ test('buildDayLedgerDetailModel assembles sessions, meals and measurements', () 
   assert.equal(model.epoc.fromToday, 60);
 });
 
+test('buildDayLedgerDetailModel HR effort copy matches HomeScreen (no "0 bpm")', () => {
+  const hrSession = (averageHeartRate) => ({
+    id: `hr-${String(averageHeartRate)}`,
+    date: '2026-03-10',
+    type: 'running',
+    duration: 30,
+    intensity: 'moderate',
+    effortType: 'heartRate',
+    averageHeartRate,
+    startTime: '18:00',
+  });
+  const effortFor = (averageHeartRate) =>
+    buildDayLedgerDetailModel(
+      detailInput({
+        cardioSessions: [hrSession(averageHeartRate)],
+        trainingSessions: [],
+      })
+    ).sessions[0].effortDisplay;
+
+  assert.equal(effortFor(152), '152 bpm');
+  assert.equal(effortFor(0), 'N/A bpm');
+  assert.equal(effortFor(''), 'N/A bpm');
+  assert.equal(effortFor(null), 'N/A bpm');
+  assert.equal(effortFor(undefined), 'N/A bpm');
+});
+
 test('buildDayLedgerDetailModel rejects a stale dateKey and malformed snapshots', () => {
   assert.equal(
     buildDayLedgerDetailModel(detailInput({ dateKey: '2026-03-09' })),

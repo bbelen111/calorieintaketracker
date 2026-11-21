@@ -3,6 +3,7 @@ import {
   getNutritionTotalsForDate,
 } from './phases/phases';
 import { getTodayDateKey } from './data/dateKeys';
+import { sortHeartRateEntries } from './measurements/heartRate.js';
 import { saveTextFile } from '../services/fileShare.js';
 
 /**
@@ -15,6 +16,23 @@ import { saveTextFile } from '../services/fileShare.js';
 const buildPhaseExportFileName = (phase, extension) =>
   `${phase.name.replace(/[^a-z0-9]/gi, '_')}_${getTodayDateKey()}.${extension}`;
 
+/** Daily heart-rate entries inside the phase window (normalized, sorted). */
+const getPhaseHeartRateRows = (phase, heartRateEntries) =>
+  sortHeartRateEntries(heartRateEntries)
+    .filter(
+      (entry) =>
+        entry.date >= phase.startDate &&
+        (!phase.endDate || entry.date <= phase.endDate)
+    )
+    .map((entry) => ({
+      date: entry.date,
+      restingHr: entry.restingHr,
+      restingHrMethod: entry.restingHrMethod,
+      avgHr: entry.avgHr,
+      maxHr: entry.maxHr,
+      vo2Max: entry.vo2Max,
+    }));
+
 /**
  * Export phase data as CSV.
  *
@@ -25,13 +43,19 @@ const buildPhaseExportFileName = (phase, extension) =>
 export const exportPhaseAsCSV = async (
   phase,
   weightEntries,
-  nutritionData = {}
+  nutritionData = {},
+  heartRateEntries = []
 ) => {
   if (!phase) {
     return { success: false, method: 'none', error: 'No phase selected' };
   }
 
-  const metrics = calculatePhaseMetrics(phase, weightEntries, nutritionData);
+  const metrics = calculatePhaseMetrics(
+    phase,
+    weightEntries,
+    nutritionData,
+    heartRateEntries
+  );
 
   // Build CSV content
   let csv = '';
@@ -70,6 +94,11 @@ export const exportPhaseAsCSV = async (
   }
   if (metrics.avgSugars != null) {
     csv += `Average Sugars,${metrics.avgSugars.toFixed(1)} g\n`;
+  }
+  if (metrics.restingHrStart != null) {
+    csv += `Resting HR (start),${metrics.restingHrStart} bpm\n`;
+    csv += `Resting HR (end),${metrics.restingHrEnd} bpm\n`;
+    csv += `Resting HR Change,${metrics.restingHrChange} bpm\n`;
   }
   csv += '\n';
 
@@ -126,6 +155,25 @@ export const exportPhaseAsCSV = async (
     csv += `${entry.date},${entry.weight}\n`;
   });
 
+  const phaseHeartRate = getPhaseHeartRateRows(phase, heartRateEntries);
+  if (phaseHeartRate.length) {
+    csv += '\n';
+    csv += 'HEART RATE\n';
+    csv +=
+      'Date,Resting HR (bpm),Resting Source,Avg HR (bpm),Max HR (bpm),VO2 Max\n';
+    phaseHeartRate.forEach((entry) => {
+      csv += [
+        entry.date,
+        entry.restingHr ?? '',
+        entry.restingHrMethod ?? '',
+        entry.avgHr ?? '',
+        entry.maxHr ?? '',
+        entry.vo2Max ?? '',
+      ].join(',');
+      csv += '\n';
+    });
+  }
+
   return saveTextFile({
     fileName: buildPhaseExportFileName(phase, 'csv'),
     content: csv,
@@ -143,13 +191,19 @@ export const exportPhaseAsCSV = async (
 export const exportPhaseAsJSON = async (
   phase,
   weightEntries,
-  nutritionData = {}
+  nutritionData = {},
+  heartRateEntries = []
 ) => {
   if (!phase) {
     return { success: false, method: 'none', error: 'No phase selected' };
   }
 
-  const metrics = calculatePhaseMetrics(phase, weightEntries, nutritionData);
+  const metrics = calculatePhaseMetrics(
+    phase,
+    weightEntries,
+    nutritionData,
+    heartRateEntries
+  );
 
   const phaseWeights = weightEntries
     .filter((entry) => {
@@ -206,6 +260,9 @@ export const exportPhaseAsJSON = async (
         metrics.avgSugars != null
           ? parseFloat(metrics.avgSugars.toFixed(2))
           : null,
+      restingHrStart: metrics.restingHrStart,
+      restingHrEnd: metrics.restingHrEnd,
+      restingHrChange: metrics.restingHrChange,
     },
     dailyLogs: Object.entries(phase.dailyLogs || {})
       .map(([date, log]) => ({
@@ -218,6 +275,7 @@ export const exportPhaseAsJSON = async (
       }))
       .sort((a, b) => a.date.localeCompare(b.date)),
     weightEntries: phaseWeights,
+    heartRateEntries: getPhaseHeartRateRows(phase, heartRateEntries),
     exportedAt: new Date().toISOString(),
   };
 

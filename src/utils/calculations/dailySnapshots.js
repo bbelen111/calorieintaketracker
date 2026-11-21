@@ -6,6 +6,7 @@ import {
 } from './calculations.js';
 import { getNutritionTotalsForDate } from '../phases/phases.js';
 import { normalizeDateKey } from '../measurements/weight.js';
+import { normalizeHeartRateEntry } from '../measurements/heartRate.js';
 import {
   NUTRIENT_KEYS,
   normalizeNutrientValue,
@@ -18,6 +19,21 @@ const GOAL_KEYS = new Set([
   'cutting',
   'aggressive_cut',
 ]);
+
+/** The day's heart-rate entry projected onto flat snapshot fields. */
+export const buildSnapshotHeartRateFields = (heartRateEntries, dateKey) => {
+  const raw = Array.isArray(heartRateEntries)
+    ? heartRateEntries.find((entry) => entry?.date === dateKey)
+    : null;
+  const entry = raw ? normalizeHeartRateEntry(raw) : null;
+  return {
+    restingHr: entry?.restingHr ?? null,
+    restingHrMethod: entry?.restingHrMethod ?? null,
+    avgHr: entry?.avgHr ?? null,
+    maxHr: entry?.maxHr ?? null,
+    vo2Max: entry?.vo2Max ?? null,
+  };
+};
 
 const normalizeSelectedGoal = (value, fallback = 'maintenance') => {
   const normalized = String(value ?? '').trim();
@@ -233,6 +249,13 @@ export const buildDailySnapshot = ({
     ),
     epocCarryInCalories: Math.round(
       Number(breakdown?.epocCarryInCalories) || 0
+    ),
+    // Heart-rate context for history/analytics. Flat primitives on purpose:
+    // areDailySnapshotsEquivalent compares nested objects only one level deep.
+    // `null` = no reading that day (never zero-filled).
+    ...buildSnapshotHeartRateFields(
+      userData?.heartRateEntries,
+      normalizedDateKey
     ),
     createdAt: Number(existingSnapshot?.createdAt) || now,
     updatedAt: now,

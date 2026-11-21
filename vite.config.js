@@ -59,6 +59,14 @@ export default defineConfig({
               return undefined;
             }
 
+            // The live heart-rate sensor (Bluetooth LE) and keep-awake
+            // plugins are dynamically imported by services/heartRateSensor.js
+            // only when the user pairs or records. Keep them in their own
+            // async chunks — never in the boot-critical capacitor chunk.
+            if (id.includes('/@capacitor-community/')) {
+              return undefined;
+            }
+
             if (
               id.includes('/@capacitor/') ||
               id.includes('/@capgo/capacitor-health') ||

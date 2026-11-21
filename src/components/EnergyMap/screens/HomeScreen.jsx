@@ -39,6 +39,11 @@ import {
   getOldDataWarningText,
 } from '../../../utils/visuals/trackerHelpers';
 import { CalorieProgressPill } from '../common/CalorieProgressPill';
+import { HeartRateSourceGlyph } from '../common/HeartRateBadges';
+import {
+  getHeartRateZone,
+  resolveHeartRateZones,
+} from '../../../utils/calculations/heartRate';
 
 const GOAL_BORDER_CLASS_BY_BG = {
   'bg-accent-purple': 'border-accent-purple',
@@ -102,9 +107,31 @@ export const HomeScreen = memo(function HomeScreen({
       weightEntries: state.weightEntries ?? [],
       bodyFatEntries: state.bodyFatEntries ?? [],
       calculateTargetForGoal: state.calculateTargetForGoal,
+      heartRateProfile: state.heartRateProfile,
     }),
     shallow
   );
+
+  // Today's zones for the HR session rows (" · Z3" + where the HR came from).
+  const heartRateZoneModel = useMemo(
+    () => resolveHeartRateZones(store.heartRateProfile),
+    [store.heartRateProfile]
+  );
+  const renderHeartRateExtras = (session) => {
+    if ((session?.effortType ?? 'intensity') !== 'heartRate') {
+      return null;
+    }
+    const zone = getHeartRateZone(session.averageHeartRate, heartRateZoneModel);
+    return (
+      <>
+        {zone && ` · Z${zone.index}`}
+        <HeartRateSourceGlyph
+          source={session.heartRateSource}
+          className="inline ml-1 align-[-1px]"
+        />
+      </>
+    );
+  };
 
   const resolvedUserData = userData ?? store.userData;
   const resolvedTrainingCalories = trainingCalories ?? store.trainingCalories;
@@ -285,6 +312,10 @@ export const HomeScreen = memo(function HomeScreen({
         selectedGoal,
         { tefContext: todayTefContext, dateKey: todayDateKey }
       ).breakdown,
+    // heartRateProfile: a new resting / max HR / VO2 reading reprices today's
+    // HR sessions and EPOC (the profile object is memoized on its inputs, so
+    // it only changes identity when they do).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       calculateTargetForGoal,
       todayStepCount,
@@ -292,6 +323,7 @@ export const HomeScreen = memo(function HomeScreen({
       selectedGoal,
       todayTefContext,
       todayDateKey,
+      store.heartRateProfile,
     ]
   );
   const todayTdee = Math.round(Number(todayBreakdown?.total) || 0);
@@ -425,6 +457,7 @@ export const HomeScreen = memo(function HomeScreen({
                   </span>
                   {' • '}
                   {effortDisplay}
+                  {renderHeartRateExtras(session)}
                   {' • '}
                   <span className="text-foreground/70">~{calories} kcal</span>
                   {epocEnabled && (
@@ -556,6 +589,7 @@ export const HomeScreen = memo(function HomeScreen({
                   </span>
                   {' • '}
                   {effortDisplay}
+                  {renderHeartRateExtras(session)}
                   {' • '}
                   <span className="text-foreground/70">~{calories} kcal</span>
                   {epocEnabled && (

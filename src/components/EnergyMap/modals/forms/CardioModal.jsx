@@ -16,6 +16,14 @@ import {
   roundDurationHours,
 } from '../../../../utils/formatting/time';
 import { isStepBasedCardioType } from '../../../../utils/calculations/steps';
+import { normalizeSessionHeartRate } from '../../../../constants/health/heartRate';
+import {
+  applyManualHeartRate,
+  clearHeartRateFields,
+  resolveDraftWindow,
+} from '../../../../utils/calculations/sessionHeartRate';
+import { getTodayDateKey } from '../../../../utils/data/dateKeys';
+import { SessionHeartRatePanel } from '../../common/SessionHeartRatePanel';
 
 export const CardioModal = ({
   isOpen,
@@ -36,6 +44,7 @@ export const CardioModal = ({
   showFavouritesButton = false,
   mode = 'session',
   isEditing: isEditingProp,
+  onRecordLive,
 }) => {
   const {
     cardioTypes: storeCardioTypes,
@@ -65,34 +74,53 @@ export const CardioModal = ({
       : 'Add Cardio Session';
   const saveLabel = isFavouriteMode ? 'Save Favourite' : 'Save';
   const overlayClassName = isFavouriteMode ? 'z-80' : '';
-  const estimatedBurn = calculateCardioCalories(
-    session,
-    {
+  // The estimate prices with the same inputs the breakdown will: the full
+  // userData (HR profile as of the session date -> zones, VO2 max) with the
+  // form's profile overrides on top.
+  const pricingUserData = React.useMemo(
+    () => ({
+      ...userData,
       weight: resolvedUserWeight,
       age: resolvedUserAge,
       gender: resolvedUserGender,
-    },
+    }),
+    [userData, resolvedUserWeight, resolvedUserAge, resolvedUserGender]
+  );
+  const sessionDateKey = session?.date || getTodayDateKey();
+  const pricedSession = React.useMemo(
+    () => ({ ...session, date: sessionDateKey }),
+    [session, sessionDateKey]
+  );
+  const estimatedBurn = calculateCardioCalories(
+    pricedSession,
+    pricingUserData,
     resolvedCardioTypes
   );
   const estimatedEpoc = React.useMemo(() => {
     const epoc = resolveCardioSessionEpoc({
-      session,
+      session: pricedSession,
       exerciseCalories: estimatedBurn,
       cardioType: resolvedCardioTypes?.[session?.type],
-      userData: {
-        age: resolvedUserAge,
-        epocCarryoverHours: userData?.epocCarryoverHours,
-      },
+      userData: pricingUserData,
     });
 
     return Number(epoc?.totalCalories) || 0;
   }, [
-    session,
+    pricedSession,
     estimatedBurn,
     resolvedCardioTypes,
-    resolvedUserAge,
-    userData?.epocCarryoverHours,
+    session?.type,
+    pricingUserData,
   ]);
+  const sessionWindow = React.useMemo(
+    () =>
+      resolveDraftWindow({
+        dateKey: sessionDateKey,
+        startTime: session?.startTime,
+        durationMinutes: session?.duration,
+      }),
+    [sessionDateKey, session?.startTime, session?.duration]
+  );
   const hasValidDuration =
     Number.isFinite(Number(session.duration)) && Number(session.duration) > 0;
   const hasValidStartTime = /^([01]\d|2[0-3]):([0-5]\d)$/.test(
@@ -100,8 +128,7 @@ export const CardioModal = ({
   );
   const hasValidHeartRate =
     effortType === 'heartRate'
-      ? Number.isFinite(Number(session.averageHeartRate)) &&
-        Number(session.averageHeartRate) > 0
+      ? normalizeSessionHeartRate(session.averageHeartRate) != null
       : true;
   const canSave = hasValidDuration && hasValidHeartRate && hasValidStartTime;
   const intensityValue = session.intensity ?? 'moderate';
@@ -286,7 +313,7 @@ export const CardioModal = ({
     }
 
     onChange({
-      ...session,
+      ...clearHeartRateFields(session),
       effortType: 'intensity',
       intensity: session.intensity ?? 'moderate',
       averageHeartRate: '',
@@ -303,7 +330,8 @@ export const CardioModal = ({
 
   const handleHeartRatePickerSave = React.useCallback(
     (bpm) => {
-      onChange({ ...session, averageHeartRate: bpm });
+      // A typed average replaces the wearable's (and its peak / zone time).
+      onChange(applyManualHeartRate(session, bpm));
       requestHeartRatePickerClose();
     },
     [onChange, session, requestHeartRatePickerClose]
@@ -558,6 +586,16 @@ export const CardioModal = ({
                 Select the average beats per minute recorded during this
                 session.
               </p>
+              <SessionHeartRatePanel
+                kind="cardio"
+                session={session}
+                onChange={onChange}
+                dateKey={sessionDateKey}
+                window={sessionWindow}
+                cardioTypes={resolvedCardioTypes}
+                isFavouriteMode={isFavouriteMode}
+                onRecordLive={onRecordLive}
+              />
             </div>
           )}
 

@@ -19,6 +19,7 @@ import {
   sortWeightEntries,
 } from '../../../utils/measurements/weight';
 import { formatOne } from '../../../utils/formatting/format';
+import { LiveHeartRatePill } from './LiveHeartRatePill';
 import {
   RING_COPY_OFFSETS,
   SCREEN_DRAG_DURATION_VAR,
@@ -109,6 +110,7 @@ export const AppHeader = ({
   showSwipeHint,
   onDismissSwipeHint,
   onOpenSettings,
+  onOpenLiveHeartRate,
 }) => {
   const [now, setNow] = useState(() => new Date());
 
@@ -238,38 +240,42 @@ export const AppHeader = ({
           <p className="text-xs text-muted">{dateLabel}</p>
         </div>
 
-        {/* Row-1 right slot: swipe coach mark first, settings gear afterwards */}
-        <AnimatePresence mode="wait" initial={false}>
-          {showSwipeHint ? (
-            <motion.button
-              key="swipe-hint"
-              type="button"
-              onClick={onDismissSwipeHint}
-              initial={{ opacity: 0, x: 8 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 8 }}
-              transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
-              className="flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary pressable-inline focus-ring"
-            >
-              <ChevronsLeftRight size={14} className="shrink-0" />
-              Swipe between screens
-            </motion.button>
-          ) : (
-            <motion.button
-              key="settings"
-              type="button"
-              onClick={onOpenSettings}
-              aria-label="Open settings"
-              initial={{ opacity: 0, x: 8 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 8 }}
-              transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
-              className="rounded-full border border-border/50 bg-surface/60 p-2 text-muted shadow-sm md:hover:bg-surface-highlight/60 md:hover:text-foreground pressable-inline focus-ring"
-            >
-              <Settings size={20} className="shrink-0" />
-            </motion.button>
-          )}
-        </AnimatePresence>
+        {/* Row-1 right slot: live-recording pill (only while recording), then
+            the swipe coach mark first, settings gear afterwards */}
+        <div className="flex items-center gap-2 shrink-0">
+          <LiveHeartRatePill onOpen={onOpenLiveHeartRate} />
+          <AnimatePresence mode="wait" initial={false}>
+            {showSwipeHint ? (
+              <motion.button
+                key="swipe-hint"
+                type="button"
+                onClick={onDismissSwipeHint}
+                initial={{ opacity: 0, x: 8 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 8 }}
+                transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+                className="flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary pressable-inline focus-ring"
+              >
+                <ChevronsLeftRight size={14} className="shrink-0" />
+                Swipe between screens
+              </motion.button>
+            ) : (
+              <motion.button
+                key="settings"
+                type="button"
+                onClick={onOpenSettings}
+                aria-label="Open settings"
+                initial={{ opacity: 0, x: 8 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 8 }}
+                transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+                className="rounded-full border border-border/50 bg-surface/60 p-2 text-muted shadow-sm md:hover:bg-surface-highlight/60 md:hover:text-foreground pressable-inline focus-ring"
+              >
+                <Settings size={20} className="shrink-0" />
+              </motion.button>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       <div className="flex items-center justify-between gap-3">

@@ -17,6 +17,14 @@ import {
 } from './epoc.js';
 import { getCarryoverForDateFromSessions } from './sessionCarryover.js';
 import { getTodayDateKey } from '../data/dateKeys.js';
+import {
+  normalizeSessionHeartRate,
+  normalizeVo2Max,
+} from '../../constants/health/heartRate.js';
+import {
+  resolveHeartRateIntensity,
+  resolveHeartRateProfile,
+} from './heartRate.js';
 import { calculateMacroRecommendations } from './macroRecommendations.js';
 
 const HEART_RATE_COEFFICIENTS = {
@@ -34,6 +42,24 @@ const HEART_RATE_COEFFICIENTS = {
   },
 };
 
+// Keytel et al. 2005 mixed model including VO2 max (kJ/min).
+const HEART_RATE_VO2_MAX_COEFFICIENTS = {
+  male: {
+    base: -95.7735,
+    heartRate: 0.634,
+    vo2Max: 0.404,
+    weight: 0.394,
+    age: 0.271,
+  },
+  female: {
+    base: -59.3954,
+    heartRate: 0.45,
+    vo2Max: 0.38,
+    weight: 0.103,
+    age: 0.274,
+  },
+};
+
 export const TEF_MULTIPLIER_OFFSET = 0.1;
 export const TEF_PROTEIN_RATE = 0.25;
 export const TEF_CARB_RATE = 0.08;
@@ -48,8 +74,6 @@ const DEFAULT_CALCULATION_PROFILE = {
   height: 170,
   gender: 'male',
 };
-const MIN_HEART_RATE_BPM = 60;
-const MAX_HEART_RATE_BPM = 220;
 const DATE_KEY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 const normalizeSessionDateKey = (value) => {
@@ -114,17 +138,8 @@ const normalizeCalculationProfile = (userData = {}) => ({
   bodyFatTrackingEnabled: Boolean(userData?.bodyFatTrackingEnabled),
 });
 
-const normalizeHeartRate = (value) => {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) {
-    return null;
-  }
-  const rounded = Math.round(numeric);
-  if (rounded < MIN_HEART_RATE_BPM || rounded > MAX_HEART_RATE_BPM) {
-    return null;
-  }
-  return rounded;
-};
+// Session HR bounds are canonical in constants/health/heartRate.js.
+const normalizeHeartRate = normalizeSessionHeartRate;
 
 const resolveTefMacroDetails = ({ proteinGrams, carbsGrams, fatsGrams }) => {
   const safeProteinGrams = normalizeNonNegativeNumber(proteinGrams);
@@ -291,11 +306,17 @@ const resolveSmartTef = ({ tefContext, userData, targetCaloriesSeed }) => {
   };
 };
 
-const calculateCaloriesPerMinuteFromHeartRate = ({
+/**
+ * Keytel et al. 2005 energy expenditure from heart rate, in kcal/min.
+ * With a valid VO2 max the fitness-adjusted ("mixed model") equation is used;
+ * otherwise the HR / weight / age-only equation. Both are kJ/min / 4.184.
+ */
+export const calculateCaloriesPerMinuteFromHeartRate = ({
   heartRate,
   weightKg,
   ageYears,
   gender,
+  vo2Max = null,
 }) => {
   const safeHeartRate = normalizeHeartRate(heartRate);
   if (safeHeartRate == null) {
@@ -304,8 +325,21 @@ const calculateCaloriesPerMinuteFromHeartRate = ({
 
   const safeWeight = normalizeNonNegativeNumber(weightKg);
   const safeAge = normalizeNonNegativeNumber(ageYears);
-  const coefficients =
-    HEART_RATE_COEFFICIENTS[gender === 'female' ? 'female' : 'male'];
+  const genderKey = gender === 'female' ? 'female' : 'male';
+  const safeVo2Max = normalizeVo2Max(vo2Max);
+
+  if (safeVo2Max != null) {
+    const vo2Coefficients = HEART_RATE_VO2_MAX_COEFFICIENTS[genderKey];
+    const rawVo2Calories =
+      vo2Coefficients.base +
+      vo2Coefficients.heartRate * safeHeartRate +
+      vo2Coefficients.vo2Max * safeVo2Max +
+      vo2Coefficients.weight * safeWeight +
+      vo2Coefficients.age * safeAge;
+    return Math.max(0, rawVo2Calories / 4.184);
+  }
+
+  const coefficients = HEART_RATE_COEFFICIENTS[genderKey];
   const rawCalories =
     coefficients.base +
     coefficients.heartRate * safeHeartRate +
@@ -314,6 +348,23 @@ const calculateCaloriesPerMinuteFromHeartRate = ({
 
   return Math.max(0, rawCalories / 4.184);
 };
+
+/**
+ * Training HR intensity for a session priced with `hrBurnModel: 'intensity'`:
+ * HR picks light / moderate / vigorous from the profile as of the session's
+ * date (personal %HRR zones, else the legacy %HRmax rule). HR is a poor proxy
+ * for oxygen use during resistance work (straining spikes HR), so these
+ * sessions keep the training type's kcal/hr and only let HR choose the level.
+ */
+export const resolveTrainingHeartRateIntensity = (session, userData) =>
+  resolveHeartRateIntensity({
+    heartRate: session?.averageHeartRate,
+    profile: resolveHeartRateProfile(userData, session?.date),
+  });
+
+/** VO2 max that prices an HR cardio session (as of its date), or null. */
+export const resolveSessionVo2Max = (session, userData) =>
+  resolveHeartRateProfile(userData, session?.date).vo2Max ?? null;
 
 const resolveBmrDetails = ({
   age,
@@ -426,6 +477,7 @@ export const calculateCardioCalories = (
       weightKg: weight,
       ageYears: age,
       gender,
+      vo2Max: resolveSessionVo2Max(cardioSession, userData),
     });
 
     return Math.round(caloriesPerMinute * durationMinutes);
@@ -534,6 +586,22 @@ export const calculateTrainingSessionCalories = (
       return 0;
     }
 
+    // New HR training sessions: HR picks the intensity, the type keeps its
+    // kcal/hr. Sessions without the marker stay on Keytel so history holds.
+    if (trainingSession.hrBurnModel === 'intensity') {
+      const level =
+        resolveTrainingHeartRateIntensity(trainingSession, userData)?.level ??
+        trainingSession.intensity ??
+        'moderate';
+      const typeBase =
+        trainingTypes?.[trainingSession.type]?.caloriesPerHour ?? 0;
+      return Math.round(
+        durationHours *
+          typeBase *
+          (TRAINING_INTENSITY_MULTIPLIERS[level] ?? 1.0)
+      );
+    }
+
     const durationMinutes = durationHours * 60;
     const calsPerMin = calculateCaloriesPerMinuteFromHeartRate({
       heartRate,
@@ -634,11 +702,13 @@ const resolveCardioDetails = ({
         const weightKg = normalizedProfile.weight;
         const ageYears = normalizedProfile.age;
         const gender = normalizedProfile.gender;
+        const vo2Max = resolveSessionVo2Max(session, normalizedUserData);
         const caloriesPerMinute = calculateCaloriesPerMinuteFromHeartRate({
           heartRate,
           weightKg,
           ageYears,
           gender,
+          vo2Max,
         });
 
         return {
@@ -647,6 +717,8 @@ const resolveCardioDetails = ({
           effortType,
           durationMinutes,
           averageHeartRate: heartRate ?? 0,
+          vo2Max,
+          heartRateSource: session?.heartRateSource ?? null,
           calories,
           caloriesPerMinute,
           weightKg,
@@ -669,6 +741,100 @@ const resolveCardioDetails = ({
         durationMinutes,
         calories,
         weightKg: normalizedProfile.weight,
+      };
+    })
+    .filter(Boolean);
+
+/**
+ * Per-session training lines for the breakdown, mirroring `resolveCardioDetails`.
+ * Each line is priced by `calculateTrainingSessionCalories` (the canonical
+ * formula), so the explanation can never disagree with `trainingBurn`. Before
+ * this, the breakdown could only show one blended "kcal/hr x duration" line,
+ * which was wrong for heart-rate sessions and for mixed-type days.
+ */
+const resolveTrainingDetails = ({
+  trainingSessions,
+  normalizedUserData,
+  normalizedProfile,
+  trainingTypes,
+}) =>
+  trainingSessions
+    .map((session) => {
+      const rawDuration = Number(session?.duration);
+      const durationMinutes = Number.isFinite(rawDuration) ? rawDuration : 0;
+      if (durationMinutes <= 0) {
+        return null;
+      }
+
+      const effortType = session?.effortType ?? 'intensity';
+      const calories = calculateTrainingSessionCalories(
+        session,
+        normalizedUserData,
+        trainingTypes
+      );
+      const typeKey = session?.type;
+      const trainingType = trainingTypes?.[typeKey];
+      const typeLabel = trainingType?.label ?? typeKey ?? 'Training';
+
+      if (effortType === 'heartRate') {
+        const heartRate = normalizeHeartRate(session?.averageHeartRate);
+
+        if (session?.hrBurnModel === 'intensity') {
+          const hrIntensity = resolveTrainingHeartRateIntensity(
+            session,
+            normalizedUserData
+          );
+          const intensityKey =
+            hrIntensity?.level ?? session?.intensity ?? 'moderate';
+          return {
+            typeKey,
+            typeLabel,
+            effortType,
+            hrBurnModel: 'intensity',
+            averageHeartRate: heartRate ?? 0,
+            heartRatePercent: hrIntensity?.percent ?? null,
+            heartRateModel: hrIntensity?.model ?? null,
+            intensityKey,
+            durationMinutes,
+            baseCaloriesPerHour: Number(trainingType?.caloriesPerHour) || 0,
+            intensityMultiplier:
+              TRAINING_INTENSITY_MULTIPLIERS[intensityKey] ?? 1.0,
+            heartRateSource: session?.heartRateSource ?? null,
+            calories,
+          };
+        }
+
+        const caloriesPerMinute = calculateCaloriesPerMinuteFromHeartRate({
+          heartRate,
+          weightKg: normalizedProfile.weight,
+          ageYears: normalizedProfile.age,
+          gender: normalizedProfile.gender,
+        });
+
+        return {
+          typeKey,
+          typeLabel,
+          effortType,
+          hrBurnModel: 'keytel',
+          durationMinutes,
+          averageHeartRate: heartRate ?? 0,
+          heartRateSource: session?.heartRateSource ?? null,
+          calories,
+          caloriesPerMinute,
+        };
+      }
+
+      const intensityKey = session?.intensity ?? 'moderate';
+      return {
+        typeKey,
+        typeLabel,
+        effortType,
+        intensityKey,
+        durationMinutes,
+        baseCaloriesPerHour: Number(trainingType?.caloriesPerHour) || 0,
+        intensityMultiplier:
+          TRAINING_INTENSITY_MULTIPLIERS[intensityKey] ?? 1.0,
+        calories,
       };
     })
     .filter(Boolean);
@@ -851,6 +1017,12 @@ export const calculateCalorieBreakdown = ({
     normalizedProfile,
     cardioTypes,
   });
+  const trainingDetails = resolveTrainingDetails({
+    trainingSessions,
+    normalizedUserData,
+    normalizedProfile,
+    trainingTypes,
+  });
   const epocDetails = resolveEpocDetails({
     normalizedUserData,
     trainingTypes,
@@ -958,6 +1130,7 @@ export const calculateCalorieBreakdown = ({
     trainingDuration,
     trainingCaloriesPerHour,
     trainingTypeLabel,
+    trainingDetails,
     cardioBurn,
     cardioDetails,
     epocEnabled,

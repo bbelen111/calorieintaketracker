@@ -11,6 +11,7 @@ import {
   buildHealthConnectFallbackReadWindow,
   buildHealthConnectStepReadWindow,
 } from '../utils/healthConnectWindow.js';
+import { resolveHealthAvailability } from '../services/healthBridge.js';
 
 /**
  * The plugin's read/write scope request for the current platform.
@@ -60,34 +61,17 @@ export const useHealthConnect = () => {
    * iOS     → HealthKit, which is present on iPhone but NOT on iPad.
    */
   const checkAvailability = useCallback(async () => {
-    if (!isAndroid() && !isIOS()) {
-      setStatus(HealthConnectStatus.UNAVAILABLE);
+    // Android: a missing provider app is NOT_INSTALLED (installable).
+    // iOS: no HealthKit on this device (iPad, or restricted by a
+    // device-management profile) is UNAVAILABLE — nothing to install, so the
+    // step card stays hidden. Shared with the heart-rate sync.
+    const { available, status: unavailableStatus } =
+      await resolveHealthAvailability('[HealthConnect]');
+    if (!available) {
+      setStatus(unavailableStatus);
       return false;
     }
-
-    try {
-      const result = await Health.isAvailable();
-      const available = result?.available;
-
-      if (!available) {
-        // Android: the provider app is missing and the user must install it.
-        // iOS: HealthKit is not available on this device at all (iPad, or
-        // restricted by a device-management profile) — nothing to install, so
-        // this is UNAVAILABLE and the step card stays hidden.
-        setStatus(
-          isIOS()
-            ? HealthConnectStatus.UNAVAILABLE
-            : HealthConnectStatus.NOT_INSTALLED
-        );
-        return false;
-      }
-
-      return true;
-    } catch (err) {
-      console.warn('[HealthConnect] Availability check failed:', err);
-      setStatus(HealthConnectStatus.UNAVAILABLE);
-      return false;
-    }
+    return true;
   }, []);
 
   /**

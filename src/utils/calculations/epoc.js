@@ -1,3 +1,8 @@
+import {
+  resolveHeartRateIntensity,
+  resolveHeartRateProfile,
+} from './heartRate.js';
+
 const MIN_DURATION_MINUTES = 10;
 const DEFAULT_CARRYOVER_HOURS = 6;
 const MAX_CARRYOVER_HOURS = 24;
@@ -49,24 +54,6 @@ const normalizeIntensity = (value, fallback = 'moderate') => {
   return fallback;
 };
 
-const resolveIntensityFromHeartRate = ({ averageHeartRate, userAge }) => {
-  const heartRate = normalizeNumber(averageHeartRate, NaN);
-  const age = normalizeNumber(userAge, NaN);
-  if (!Number.isFinite(heartRate) || !Number.isFinite(age) || age <= 0) {
-    return null;
-  }
-
-  const maxHeartRate = 220 - age;
-  if (!Number.isFinite(maxHeartRate) || maxHeartRate <= 0) {
-    return null;
-  }
-
-  const intensityRatio = heartRate / maxHeartRate;
-  if (intensityRatio >= 0.85) return 'vigorous';
-  if (intensityRatio >= 0.7) return 'moderate';
-  return 'light';
-};
-
 const resolveLabelMultiplier = (label, table) => {
   const normalizedLabel = String(label ?? '').trim();
   if (!normalizedLabel) {
@@ -109,24 +96,40 @@ const resolveCarryoverWindowMinutes = ({
   );
 };
 
-const resolveSessionIntensity = ({ session, userAge }) => {
+/**
+ * EPOC intensity for a session. Heart-rate sessions are classified from the
+ * user's HR profile AS OF the session's own date (personal %HRR zones once a
+ * resting baseline exists, otherwise the exact legacy 220 - age rule). An
+ * invalid/out-of-range HR, or no usable profile, falls back to the stored
+ * intensity.
+ *
+ * @returns {{ level: string, heartRate: null | { percent: number, model: 'hrr'|'legacy' } }}
+ */
+const resolveSessionIntensity = ({ session, userData }) => {
   if (session?.effortType === 'heartRate') {
-    const fromHeartRate = resolveIntensityFromHeartRate({
-      averageHeartRate: session?.averageHeartRate,
-      userAge,
+    const fromHeartRate = resolveHeartRateIntensity({
+      heartRate: session?.averageHeartRate,
+      profile: resolveHeartRateProfile(userData, session?.date),
     });
     if (fromHeartRate) {
-      return fromHeartRate;
+      return {
+        level: fromHeartRate.level,
+        heartRate: {
+          percent: fromHeartRate.percent,
+          model: fromHeartRate.model,
+        },
+      };
     }
   }
 
-  return normalizeIntensity(session?.intensity);
+  return { level: normalizeIntensity(session?.intensity), heartRate: null };
 };
 
 const buildEpocResult = ({
   session,
   exerciseCalories,
   intensity,
+  heartRateIntensity = null,
   typeMultiplier,
   epocFactor,
   durationAdjustment,
@@ -146,6 +149,9 @@ const buildEpocResult = ({
     details: {
       sessionId: session?.id ?? null,
       intensity,
+      // How a heart-rate session's intensity was read: "64% HRR" (personal
+      // zones) or "% of max" (legacy rule). null for intensity sessions.
+      heartRateIntensity,
       exerciseCalories: safeExerciseCalories,
       epocFactor,
       typeMultiplier,
@@ -167,10 +173,8 @@ export const resolveTrainingSessionEpoc = ({
     return { totalCalories: 0, windowMinutes: 0, details: { intensity: null } };
   }
 
-  const intensity = resolveSessionIntensity({
-    session,
-    userAge: userData?.age,
-  });
+  const { level: intensity, heartRate: heartRateIntensity } =
+    resolveSessionIntensity({ session, userData });
   const epocFactor =
     INTENSITY_FACTOR_BY_LEVEL[intensity] ?? INTENSITY_FACTOR_BY_LEVEL.moderate;
   const typeMultiplier = resolveLabelMultiplier(
@@ -187,6 +191,7 @@ export const resolveTrainingSessionEpoc = ({
     session,
     exerciseCalories,
     intensity,
+    heartRateIntensity,
     typeMultiplier,
     epocFactor,
     durationAdjustment,
@@ -206,10 +211,8 @@ export const resolveCardioSessionEpoc = ({
     return { totalCalories: 0, windowMinutes: 0, details: { intensity: null } };
   }
 
-  const intensity = resolveSessionIntensity({
-    session,
-    userAge: userData?.age,
-  });
+  const { level: intensity, heartRate: heartRateIntensity } =
+    resolveSessionIntensity({ session, userData });
   const epocFactor =
     (INTENSITY_FACTOR_BY_LEVEL[intensity] ??
       INTENSITY_FACTOR_BY_LEVEL.moderate) * 0.9;
@@ -227,6 +230,7 @@ export const resolveCardioSessionEpoc = ({
     session,
     exerciseCalories,
     intensity,
+    heartRateIntensity,
     typeMultiplier,
     epocFactor,
     durationAdjustment,

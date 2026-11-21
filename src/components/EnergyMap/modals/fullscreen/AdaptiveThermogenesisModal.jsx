@@ -7,11 +7,14 @@ import {
   ChevronLeft,
   Flame,
   Gauge,
+  HeartPulse,
   HelpCircle,
   Info,
   TrendingDown,
   TrendingUp,
 } from 'lucide-react';
+import { assessAdaptiveThermogenesisPhysiology } from '../../../../utils/calculations/heartRate';
+import { formatSignedBpm } from '../../../../utils/formatting/heartRate';
 import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
@@ -76,12 +79,20 @@ export const AdaptiveThermogenesisModal = ({
       adaptiveSmoothingWindowDays:
         userData.adaptiveThermogenesisSmoothingWindowDays,
     };
+    const smart = computeAdaptiveThermogenesis({ ...base, mode: 'smart' });
     return {
       enabled: Boolean(userData.adaptiveThermogenesisEnabled),
       activeMode: resolveAdaptiveThermogenesisMode({ userData }),
       days: base.goalDurationDays,
       crude: computeAdaptiveThermogenesis({ ...base, mode: 'crude' }),
-      smart: computeAdaptiveThermogenesis({ ...base, mode: 'smart' }),
+      smart,
+      physiology: smart?.insufficientData
+        ? null
+        : assessAdaptiveThermogenesisPhysiology({
+            correction: smart?.correction,
+            heartRateEntries: userData.heartRateEntries,
+            dateKey: base.dateKey,
+          }),
       stages: { cut: CRUDE_CUT_STAGES, surplus: CRUDE_SURPLUS_STAGES },
     };
   }, [store.goalDurationDays, store.userData, store.weightEntries]);
@@ -262,6 +273,7 @@ export const AdaptiveThermogenesisModal = ({
               {tab === 'smart' ? (
                 <SmartView
                   result={data.smart}
+                  physiology={data.physiology}
                   onOpenRollingBalance={onOpenRollingBalance}
                 />
               ) : (
@@ -307,7 +319,7 @@ function Metric({ label, value, detail, tone = 'text-foreground' }) {
   );
 }
 
-function SmartView({ result, onOpenRollingBalance }) {
+function SmartView({ result, physiology, onOpenRollingBalance }) {
   if (!result)
     return <EmptyState message="No smart-mode result was provided." />;
   if (result.insufficientData) return <SmartSetup details={result.details} />;
@@ -394,6 +406,36 @@ function SmartView({ result, onOpenRollingBalance }) {
           </Pill>
         )}
       </div>
+      {physiology && <PhysiologyCheck physiology={physiology} />}
+    </div>
+  );
+}
+
+const PHYSIOLOGY_COPY = {
+  agrees: 'Your resting heart rate is moving the same way as this correction.',
+  disagrees:
+    'Your resting heart rate is moving the other way. Worth a second look — illness, sleep, alcohol and training load move it too.',
+  neutral: 'Your resting heart rate is roughly steady.',
+};
+
+/** Display-only resting-HR corroboration (never changes the correction). */
+function PhysiologyCheck({ physiology }) {
+  return (
+    <div className="rounded-xl border border-border bg-surface-highlight/40 px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <HeartPulse size={16} className="text-accent-red" />
+          Physiology check
+        </span>
+        <span className="text-sm font-bold text-foreground">
+          {formatSignedBpm(physiology.restingHrDeltaBpm)} / 28d
+        </span>
+      </div>
+      <p className="text-muted text-xs mt-1.5">
+        {PHYSIOLOGY_COPY[physiology.agreement]} Based on {physiology.readings}{' '}
+        resting readings. Shown for context only — it does not change the
+        number.
+      </p>
     </div>
   );
 }

@@ -1,6 +1,11 @@
 import { MEAL_TYPE_ORDER } from '../../constants/meal/mealTypes.js';
 import { formatDateKeyUtc } from '../data/dateKeys.js';
 import {
+  getRestingHrSeries,
+  resolveRestingHrTrendFamily,
+  sortHeartRateEntries,
+} from '../measurements/heartRate.js';
+import {
   NUTRIENT_KEYS,
   accumulateNutrientTotals,
   computeNutrientCoverage,
@@ -92,7 +97,8 @@ export const getNutritionTotalsForDate = (nutritionData = {}, dateKey) => {
 export const calculatePhaseMetrics = (
   phase,
   weightEntries = [],
-  nutritionData = {}
+  nutritionData = {},
+  heartRateEntries = []
 ) => {
   if (!phase || !phase.dailyLogs) {
     return {
@@ -250,6 +256,52 @@ export const calculatePhaseMetrics = (
     avgWeeklyRate,
     currentWeight,
     completionRate,
+    ...calculatePhaseRestingHeartRate(phase, heartRateEntries),
+  };
+};
+
+/**
+ * Resting HR at the start and end of a phase (first / last reading inside the
+ * phase window, one method family only — measured and estimated never mix).
+ * Every field is `null` when the phase holds fewer than two readings; the
+ * change is uncoloured, uninterpreted data.
+ */
+export const calculatePhaseRestingHeartRate = (
+  phase,
+  heartRateEntries = []
+) => {
+  const empty = {
+    restingHrStart: null,
+    restingHrEnd: null,
+    restingHrChange: null,
+    restingHrReadings: 0,
+  };
+  if (!phase?.startDate) {
+    return empty;
+  }
+  const startKey = phase.startDate;
+  const endKey = phase.endDate ?? '9999-12-31';
+  const entries = sortHeartRateEntries(heartRateEntries);
+  const family = resolveRestingHrTrendFamily(entries, {
+    startDateKey: startKey,
+    endDateKey: endKey,
+  });
+  if (!family) {
+    return empty;
+  }
+  const series = getRestingHrSeries(entries, { family }).filter(
+    (entry) => entry.date >= startKey && entry.date <= endKey
+  );
+  if (series.length < 2) {
+    return { ...empty, restingHrReadings: series.length };
+  }
+  const first = series[0].restingHr;
+  const last = series[series.length - 1].restingHr;
+  return {
+    restingHrStart: first,
+    restingHrEnd: last,
+    restingHrChange: last - first,
+    restingHrReadings: series.length,
   };
 };
 

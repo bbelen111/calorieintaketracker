@@ -193,7 +193,8 @@ test('primePersistenceBaseline tracks one shard per document, not per entry', ()
   // Three nutrition entries across two days -> two shards.
   assert.equal(footprint.shardsByField.nutritionData, 2);
   assert.equal(footprint.shardsByField.weightEntries, 1);
-  assert.equal(footprint.trackedFields, 10);
+  // Every history field, including heartRateEntries.
+  assert.equal(footprint.trackedFields, 11);
 });
 
 test('resetPersistenceTracking clears every baseline', () => {

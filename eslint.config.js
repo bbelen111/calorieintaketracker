@@ -27,6 +27,12 @@ export default [
         console: 'readonly',
         setTimeout: 'readonly',
         clearTimeout: 'readonly',
+        // Heart-rate features: the live-recording clock / checkpoint timer and
+        // the camera pulse reading (mediaDevices + frame timestamps).
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        navigator: 'readonly',
+        performance: 'readonly',
         Blob: 'readonly',
         URL: 'readonly',
         requestAnimationFrame: 'readonly',

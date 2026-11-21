@@ -1,3 +1,5 @@
+import { normalizeSessionHeartRate } from '../../constants/health/heartRate.js';
+
 const DEFAULT_RESULT = { min: 0, max: null, operator: 'exact' };
 const INTENSITY_CADENCE_MULTIPLIER = {
   light: 0.9,
@@ -23,13 +25,15 @@ const resolveCadenceFromCardioType = (cardioType) => {
 };
 
 const getHeartRateCadenceMultiplier = (heartRate) => {
-  const numeric = Number(heartRate);
-  if (!Number.isFinite(numeric) || numeric <= 0) {
+  // Out-of-range averages are typos (see constants/health/heartRate.js); they
+  // stay neutral instead of pinning the cadence to its 1.25 ceiling.
+  const safeHeartRate = normalizeSessionHeartRate(heartRate);
+  if (safeHeartRate == null) {
     return 1;
   }
 
   // Baseline around 140 bpm, bounded to avoid unrealistic spikes.
-  return clamp(numeric / 140, 0.85, 1.25);
+  return clamp(safeHeartRate / 140, 0.85, 1.25);
 };
 
 export const isStepBasedCardioType = (typeKey, cardioType) => {
@@ -58,13 +62,17 @@ export const estimateSessionStepsFromCardio = (session, cardioTypes = {}) => {
   if (!Number.isFinite(baseCadence) || baseCadence <= 0) {
     return 0;
   }
-  const intensityMultiplier =
-    INTENSITY_CADENCE_MULTIPLIER[session.intensity ?? 'moderate'] ?? 1;
+  const isHeartRateSession = session.effortType === 'heartRate';
+  // A heart-rate session keeps whatever `intensity` the form held before the
+  // user switched to HR; that value is stale. HR alone sets the cadence, so the
+  // intensity factor stays neutral instead of being stacked on top of it.
+  const intensityMultiplier = isHeartRateSession
+    ? 1
+    : (INTENSITY_CADENCE_MULTIPLIER[session.intensity ?? 'moderate'] ?? 1);
 
-  const heartRateMultiplier =
-    session.effortType === 'heartRate'
-      ? getHeartRateCadenceMultiplier(session.averageHeartRate)
-      : 1;
+  const heartRateMultiplier = isHeartRateSession
+    ? getHeartRateCadenceMultiplier(session.averageHeartRate)
+    : 1;
 
   const cadence = baseCadence * intensityMultiplier * heartRateMultiplier;
   return Math.round(Math.max(0, cadence * durationMinutes));

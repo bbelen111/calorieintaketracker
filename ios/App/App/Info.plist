@@ -66,14 +66,20 @@
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<!-- @capacitor/barcode-scanner requires camera access on iOS. -->
+	<!-- Camera: @capacitor/barcode-scanner, plus the experimental camera pulse
+	     reading (fingertip over the lens) in the resting heart rate sheet. -->
 	<key>NSCameraUsageDescription</key>
-	<string>Energy Map uses the camera to scan food barcodes.</string>
-	<!-- @capgo/capacitor-health reads step data through HealthKit (read-only:
-	     the app never writes health data on iOS, so NSHealthUpdateUsageDescription
-	     is deliberately absent to keep the permission prompt minimal). -->
+	<string>Energy Map uses the camera to scan food barcodes and, if you choose, to measure your resting pulse from your fingertip.</string>
+	<!-- @capgo/capacitor-health reads through HealthKit (read-only: the app
+	     never writes health data on iOS, so NSHealthUpdateUsageDescription is
+	     deliberately absent to keep the permission prompt minimal). Steps,
+	     heart rate, resting heart rate, VO2 max and workouts. -->
 	<key>NSHealthShareUsageDescription</key>
-	<string>Energy Map reads your step count from Apple Health so your daily activity can be included in your calorie estimate.</string>
+	<string>Energy Map reads your steps, heart rate, resting heart rate, VO2 max and workouts from Apple Health to estimate your daily calorie burn and your training zones. The data stays on your device.</string>
+	<!-- @capacitor-community/bluetooth-le: live heart-rate sensors
+	     (Heart Rate Service 0x180D). Foreground only, no background mode. -->
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Energy Map connects to your Bluetooth heart-rate strap or sensor to record your heart rate during a workout.</string>
 
 </dict>
 </plist>

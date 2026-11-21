@@ -16,6 +16,15 @@ import { HeartRatePickerModal } from '../pickers/HeartRatePickerModal';
 import { TrainingTypeListModal } from '../lists/TrainingTypeListModal';
 import { TrainingTypeEditorModal } from './TrainingTypeEditorModal';
 import { getDefaultEnergyMapData } from '../../../../utils/data/storage';
+import { normalizeSessionHeartRate } from '../../../../constants/health/heartRate';
+import {
+  applyManualHeartRate,
+  clearHeartRateFields,
+  resolveDraftWindow,
+  resolveTrainingHrBurnModel,
+} from '../../../../utils/calculations/sessionHeartRate';
+import { getTodayDateKey } from '../../../../utils/data/dateKeys';
+import { SessionHeartRatePanel } from '../../common/SessionHeartRatePanel';
 
 const DEFAULT_TRAINING_TYPE_CATALOG =
   getDefaultEnergyMapData().trainingType ?? {};
@@ -41,6 +50,7 @@ export const TrainingModal = ({
   isEditing: isEditingProp,
   onCancel,
   onSave,
+  onRecordLive,
 }) => {
   const store = useEnergyMapStore(
     (state) => ({
@@ -86,6 +96,7 @@ export const TrainingModal = ({
   const saveLabel = isFavouriteMode ? 'Save Favourite' : 'Save';
   const overlayClassName = isFavouriteMode ? 'z-80' : '';
 
+  const sessionDateKey = session?.date || getTodayDateKey();
   const pseudoTrainingSession = useMemo(() => {
     const durationHours = Number(session?.durationHours);
     const durationMinutes = Number.isFinite(durationHours)
@@ -94,37 +105,40 @@ export const TrainingModal = ({
 
     return {
       type: session?.type,
+      date: sessionDateKey,
       duration: durationMinutes,
       effortType,
       intensity: intensityValue,
       averageHeartRate: effortType === 'heartRate' ? heartRateValue : '',
+      // Mirrors the save path: a new HR session prices by HR-picked
+      // intensity; an edited legacy session keeps Keytel.
+      hrBurnModel:
+        effortType === 'heartRate'
+          ? resolveTrainingHrBurnModel(session)
+          : undefined,
     };
-  }, [
-    session?.type,
-    session?.durationHours,
-    effortType,
-    heartRateValue,
-    intensityValue,
-  ]);
+  }, [session, sessionDateKey, effortType, heartRateValue, intensityValue]);
+
+  // Same inputs as the breakdown: full userData (HR profile as of the session
+  // date) with the form's profile overrides on top.
+  const pricingUserData = useMemo(
+    () => ({
+      ...store.userData,
+      weight: resolvedUserWeight,
+      age: resolvedUserAge,
+      gender: resolvedUserGender,
+    }),
+    [store.userData, resolvedUserWeight, resolvedUserAge, resolvedUserGender]
+  );
 
   const estimatedBurn = useMemo(
     () =>
       calculateTrainingSessionCalories(
         pseudoTrainingSession,
-        {
-          weight: resolvedUserWeight,
-          age: resolvedUserAge,
-          gender: resolvedUserGender,
-        },
+        pricingUserData,
         resolvedTrainingTypes
       ),
-    [
-      pseudoTrainingSession,
-      resolvedUserWeight,
-      resolvedUserAge,
-      resolvedUserGender,
-      resolvedTrainingTypes,
-    ]
+    [pseudoTrainingSession, pricingUserData, resolvedTrainingTypes]
   );
 
   const estimatedEpoc = useMemo(() => {
@@ -132,10 +146,7 @@ export const TrainingModal = ({
       session: pseudoTrainingSession,
       exerciseCalories: estimatedBurn,
       trainingType: resolvedTrainingTypes?.[session?.type],
-      userData: {
-        age: resolvedUserAge,
-        epocCarryoverHours: store.userData?.epocCarryoverHours,
-      },
+      userData: pricingUserData,
     });
 
     return Number(epoc?.totalCalories) || 0;
@@ -144,9 +155,19 @@ export const TrainingModal = ({
     estimatedBurn,
     resolvedTrainingTypes,
     session?.type,
-    resolvedUserAge,
-    store.userData?.epocCarryoverHours,
+    pricingUserData,
   ]);
+
+  const sessionWindow = useMemo(() => {
+    const hours = Number(session?.durationHours);
+    return resolveDraftWindow({
+      dateKey: sessionDateKey,
+      startTime: session?.startTime,
+      durationMinutes: Number.isFinite(hours) ? Math.round(hours * 60) : 0,
+    });
+  }, [sessionDateKey, session?.startTime, session?.durationHours]);
+  const hrBurnModel =
+    effortType === 'heartRate' ? resolveTrainingHrBurnModel(session) : null;
 
   const formattedDuration = formatDurationLabel(session?.durationHours);
   const normalizedStartTime = useMemo(
@@ -167,7 +188,7 @@ export const TrainingModal = ({
     Number(session?.durationHours) > 0;
   const hasValidHeartRate =
     effortType === 'heartRate'
-      ? Number.isFinite(Number(heartRateValue)) && Number(heartRateValue) > 0
+      ? normalizeSessionHeartRate(heartRateValue) != null
       : true;
   const hasValidStartTime = /^([01]\d|2[0-3]):([0-5]\d)$/.test(
     String(session?.startTime ?? '').trim()
@@ -266,7 +287,7 @@ export const TrainingModal = ({
     }
 
     onChange({
-      ...session,
+      ...clearHeartRateFields(session),
       effortType: 'intensity',
       intensity: session?.intensity ?? 'moderate',
       averageHeartRate: '',
@@ -283,7 +304,7 @@ export const TrainingModal = ({
 
   const handleHeartRatePickerSave = useCallback(
     (bpm) => {
-      onChange({ ...session, averageHeartRate: bpm });
+      onChange(applyManualHeartRate(session, bpm));
       requestHeartRatePickerClose();
     },
     [onChange, requestHeartRatePickerClose, session]
@@ -507,9 +528,19 @@ export const TrainingModal = ({
                 <span className="text-[11px] opacity-75">Tap to change</span>
               </button>
               <p className="text-xs text-muted mt-2">
-                Select the average beats per minute recorded during this
-                session.
+                {hrBurnModel === 'keytel'
+                  ? 'Classic heart-rate formula (this session was logged before heart rate set the intensity).'
+                  : 'Heart rate sets the intensity; your training type keeps its kcal per hour.'}
               </p>
+              <SessionHeartRatePanel
+                kind="training"
+                session={session}
+                onChange={onChange}
+                dateKey={sessionDateKey}
+                window={sessionWindow}
+                isFavouriteMode={isFavouriteMode}
+                onRecordLive={onRecordLive}
+              />
             </div>
           )}
 

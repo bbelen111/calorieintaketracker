@@ -4,6 +4,7 @@ import {
   Bed,
   Dumbbell,
   Hammer,
+  HeartPulse,
   RotateCcw,
   Users,
 } from 'lucide-react';
@@ -53,6 +54,7 @@ export const DailyNeatOverrideModal = ({
   dayType,
   globalMultiplier,
   currentPresetKey,
+  heartRateAdvice = null,
   onApply,
   onClear,
   onClose,
@@ -75,6 +77,20 @@ export const DailyNeatOverrideModal = ({
 
   const selectedOption = options.find((option) => option.key === selectedKey);
   const DayIcon = DAY_ICON_BY_KEY[normalizedDayType];
+
+  // Advisory only (assessNeatFromHeartRate): suggest the next preset up/down
+  // from the level currently in effect. Tapping just stages it; the user still
+  // applies it, and nothing changes automatically.
+  const effectiveMultiplier = selectedOption?.value ?? resolvedGlobalMultiplier;
+  const suggestedOption = heartRateAdvice
+    ? heartRateAdvice.direction === 'up'
+      ? [...options]
+          .filter((option) => option.value > effectiveMultiplier + 1e-9)
+          .sort((a, b) => a.value - b.value)[0]
+      : [...options]
+          .filter((option) => option.value < effectiveMultiplier - 1e-9)
+          .sort((a, b) => b.value - a.value)[0]
+    : null;
 
   const handleApply = () => {
     if (selectedOption) {
@@ -113,6 +129,28 @@ export const DailyNeatOverrideModal = ({
         Tune today&apos;s non-exercise (NEAT) burn without touching your global
         settings. This applies to today only.
       </p>
+
+      {heartRateAdvice && suggestedOption && (
+        <div className="mb-4 rounded-lg border border-accent-red/30 bg-accent-red/10 px-3 py-2.5">
+          <p className="text-foreground text-sm">
+            <HeartPulse
+              size={14}
+              className="inline mr-1.5 text-accent-red align-[-2px]"
+            />
+            Your heart rate outside workouts ran{' '}
+            {Math.abs(heartRateAdvice.deltaBpm)} bpm{' '}
+            {heartRateAdvice.direction === 'up' ? 'above' : 'below'} your usual
+            today.
+          </p>
+          <button
+            type="button"
+            onClick={() => setSelectedKey(suggestedOption.key)}
+            className="mt-1.5 text-xs font-semibold text-accent-red focus-ring rounded px-1 pressable-inline"
+          >
+            Consider {suggestedOption.label}
+          </button>
+        </div>
+      )}
 
       <div className="space-y-3">
         {options.map((option) => {

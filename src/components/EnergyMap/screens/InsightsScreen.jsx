@@ -51,6 +51,7 @@ import {
   getDailyBalanceKind,
 } from '../../../utils/calculations/rollingEnergyBalance';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
+import { RestingHeartRateCard } from '../common/RestingHeartRateCard';
 
 function AdaptiveCorrectionCard({ result, mode, goalDurationDays, onOpen }) {
   const insufficientData = Boolean(result?.insufficientData);
@@ -336,6 +337,8 @@ export const InsightsScreen = memo(function InsightsScreen({
   onOpenMacroPicker,
   onOpenAdaptiveThermogenesis,
   onOpenRollingEnergyBalance,
+  onOpenHeartRateTracker,
+  onLogRestingHeartRate,
   macroLocks,
 }) {
   const store = useEnergyMapStore(
@@ -931,6 +934,10 @@ export const InsightsScreen = memo(function InsightsScreen({
         </div>
       </div>
 
+      <RestingHeartRateCard
+        onOpen={onOpenHeartRateTracker}
+        onLogReading={onLogRestingHeartRate}
+      />
       <AdaptiveCorrectionCard
         result={adaptiveThermogenesis.result}
         mode={adaptiveThermogenesis.mode}

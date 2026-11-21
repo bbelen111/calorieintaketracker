@@ -65,8 +65,6 @@ export const CalorieBreakdownModal = ({
     breakdown.remainingEstimatedSteps ?? stepDetails.remainingEstimatedSteps;
   const hasStepOverlapDeduction =
     Number.isFinite(deductedSteps) && deductedSteps > 0;
-  const trainingDuration = breakdown.trainingDuration ?? 0;
-  const trainingCaloriesPerHour = breakdown.trainingCaloriesPerHour ?? 0;
   const rawActivityMultiplier =
     breakdown.rawActivityMultiplier ?? breakdown.activityMultiplier ?? 0;
   const effectiveActivityMultiplier =
@@ -89,13 +87,17 @@ export const CalorieBreakdownModal = ({
   const showAdaptiveThermogenesisItem =
     resolvedAdaptiveMode !== 'off' ||
     Math.abs(adaptiveThermogenesisCorrection) > 0;
-  const showTrainingFormula =
-    selectedDay === 'training' &&
-    trainingDuration > 0 &&
-    breakdown.trainingBurn > 0;
+  // Per-session lines priced by the canonical formula (heart-rate sessions use
+  // Keytel, not kcal/hr), so the explanation always sums to trainingBurn.
+  const trainingDetails = Array.isArray(breakdown.trainingDetails)
+    ? breakdown.trainingDetails
+    : [];
   const cardioDetails = Array.isArray(breakdown.cardioDetails)
     ? breakdown.cardioDetails
     : [];
+  const hasHeartRateSessions = [...trainingDetails, ...cardioDetails].some(
+    (detail) => detail.effortType === 'heartRate'
+  );
   const breakdownRows = [
     { key: 'bmr', value: breakdown.bmr, colorClass: 'bg-accent-slate' },
     {
@@ -333,17 +335,48 @@ export const CalorieBreakdownModal = ({
             <p className="text-muted text-xs">
               Structured training session (resistance, weights, etc.).
             </p>
-            {showTrainingFormula ? (
-              <p className="text-muted text-xs mt-2">
-                <strong>Calculation:</strong>
-                <br />
-                {formatWhole(trainingCaloriesPerHour)} kcal/hr ×{' '}
-                {formatNumber(trainingDuration, 0)} min ÷ 60 ={' '}
-                {breakdown.trainingBurn.toLocaleString()} kcal
-              </p>
+            {trainingDetails.length ? (
+              <div className="text-muted text-xs mt-2 space-y-2">
+                <p className="font-semibold text-muted">Calculation:</p>
+                {trainingDetails.map((detail, index) =>
+                  detail.effortType === 'heartRate' &&
+                  detail.hrBurnModel === 'intensity' ? (
+                    <p key={`${detail.typeKey}-${index}`}>
+                      <strong>{detail.typeLabel}</strong> ({detail.intensityKey}{' '}
+                      from avg HR {formatWhole(detail.averageHeartRate)} bpm
+                      {detail.heartRatePercent != null &&
+                        ` · ${detail.heartRatePercent}% ${
+                          detail.heartRateModel === 'hrr' ? 'HRR' : 'of max'
+                        }`}
+                      ) {formatWhole(detail.baseCaloriesPerHour)} kcal/hr ×{' '}
+                      {formatNumber(detail.intensityMultiplier, 2)} ×{' '}
+                      {formatWhole(detail.durationMinutes)} min ÷ 60 ={' '}
+                      {detail.calories.toLocaleString()} kcal
+                    </p>
+                  ) : detail.effortType === 'heartRate' ? (
+                    <p key={`${detail.typeKey}-${index}`}>
+                      <strong>{detail.typeLabel}</strong>:{' '}
+                      {formatNumber(detail.caloriesPerMinute, 2)} kcal/min ×{' '}
+                      {formatWhole(detail.durationMinutes)} min ={' '}
+                      {detail.calories.toLocaleString()} kcal (avg HR{' '}
+                      {formatWhole(detail.averageHeartRate)} bpm)
+                    </p>
+                  ) : (
+                    <p key={`${detail.typeKey}-${index}`}>
+                      <strong>{detail.typeLabel}</strong> ({detail.intensityKey}
+                      ) {formatWhole(detail.baseCaloriesPerHour)} kcal/hr ×{' '}
+                      {formatNumber(detail.intensityMultiplier, 2)} ×{' '}
+                      {formatWhole(detail.durationMinutes)} min ÷ 60 ={' '}
+                      {detail.calories.toLocaleString()} kcal
+                    </p>
+                  )
+                )}
+              </div>
             ) : (
               <p className="text-muted text-xs mt-2">
-                Rest day — no training calories.
+                {selectedDay === 'training'
+                  ? 'No training sessions logged.'
+                  : 'Rest day — no training calories.'}
               </p>
             )}
           </BreakdownItem>
@@ -369,7 +402,10 @@ export const CalorieBreakdownModal = ({
                       {formatNumber(detail.caloriesPerMinute, 2)} kcal/min ×{' '}
                       {formatWhole(detail.durationMinutes)} min ={' '}
                       {detail.calories.toLocaleString()} kcal (avg HR{' '}
-                      {formatWhole(detail.averageHeartRate)} bpm)
+                      {formatWhole(detail.averageHeartRate)} bpm
+                      {detail.vo2Max != null &&
+                        `, VO2 max ${formatNumber(detail.vo2Max, 1)}`}
+                      )
                     </p>
                   ) : (
                     <p key={`${detail.typeKey}-${index}`}>
@@ -417,6 +453,13 @@ export const CalorieBreakdownModal = ({
                 )}{' '}
                 kcal
               </p>
+              {hasHeartRateSessions && (
+                <p className="text-muted text-xs mt-2">
+                  Heart-rate sessions set their intensity from your heart rate:
+                  as a share of heart-rate reserve once you have resting
+                  readings (personal zones), otherwise of age-predicted max.
+                </p>
+              )}
               {typeof onOpenEpocInfo === 'function' && (
                 <LearnMoreButton onClick={onOpenEpocInfo} />
               )}

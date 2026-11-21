@@ -70,6 +70,16 @@ vi.mock('@capgo/capacitor-health', async () => {
   return { Health: HealthMock };
 });
 
+vi.mock('@capacitor-community/bluetooth-le', async () => {
+  const { BluetoothLeMock } = await import('./mocks/capacitor.js');
+  return { BleClient: BluetoothLeMock.BleClient };
+});
+
+vi.mock('@capacitor-community/keep-awake', async () => {
+  const { KeepAwakeMock } = await import('./mocks/capacitor.js');
+  return { KeepAwake: KeepAwakeMock };
+});
+
 vi.mock('@capgo/capacitor-navigation-bar', async () => {
   const { NavigationBarMock } = await import('./mocks/capacitor.js');
   return { NavigationBar: NavigationBarMock };

@@ -16,6 +16,11 @@ import {
 } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import { TrackerCardMetric } from '../../common/TrackerSelectionCard';
+import { HeartRateSourceGlyph } from '../../common/HeartRateBadges';
+import {
+  describeRestingHrMethod,
+  formatSignedBpm,
+} from '../../../../utils/formatting/heartRate';
 import { goals as baseGoals } from '../../../../constants/goals/goals';
 import { NUTRIENT_META } from '../../../../constants/nutrients/nutrients';
 import { getTodayDateKey } from '../../../../utils/data/dateKeys';
@@ -165,6 +170,7 @@ export const DayLedgerModal = ({
         neatOverride,
         phaseLogV2,
         bodyFatTrackingEnabled,
+        heartRateEntries: userData?.heartRateEntries ?? [],
       }),
     [
       snapshot,
@@ -515,6 +521,43 @@ export const DayLedgerModal = ({
                 </div>
               )}
 
+              {model.measurements.restingHr?.value != null && (
+                <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border/40">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <HeartPulse
+                      size={18}
+                      className="text-accent-blue shrink-0"
+                    />
+                    <span className="text-foreground text-sm font-medium">
+                      Resting HR
+                    </span>
+                    <span className="text-muted text-[11px]">
+                      {describeRestingHrMethod(
+                        model.measurements.restingHr.method
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-foreground font-bold text-base">
+                      {model.measurements.restingHr.value} bpm
+                    </span>
+                    {model.measurements.restingHr.delta &&
+                      model.measurements.restingHr.delta.delta !== 0 && (
+                        <TrackerCardMetric
+                          label={
+                            model.measurements.restingHr.delta.spanDays > 1
+                              ? `vs prev (${model.measurements.restingHr.delta.spanDays}d)`
+                              : 'vs prev'
+                          }
+                          value={formatSignedBpm(
+                            model.measurements.restingHr.delta.delta
+                          )}
+                        />
+                      )}
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center justify-between gap-3 px-4 py-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <Footprints size={18} className="text-accent-blue shrink-0" />
@@ -558,13 +601,20 @@ export const DayLedgerModal = ({
                                 </span>
                               )}
                             </p>
-                            <p className="text-muted text-[11px] truncate">
-                              {row.startTime && `${row.startTime} \u00B7 `}
-                              {row.durationMin} min {'\u00B7'}{' '}
-                              {row.effortDisplay}
-                              {row.stepOverlapEnabled
-                                ? ' \u00B7 steps deducted'
-                                : ''}
+                            <p className="text-muted text-[11px] truncate flex items-center gap-1">
+                              <span className="truncate">
+                                {row.startTime && `${row.startTime} \u00B7 `}
+                                {row.durationMin} min {'\u00B7'}{' '}
+                                {row.effortDisplay}
+                                {row.heartRateZone &&
+                                  ` \u00B7 Z${row.heartRateZone.index}`}
+                                {row.stepOverlapEnabled
+                                  ? ' \u00B7 steps deducted'
+                                  : ''}
+                              </span>
+                              <HeartRateSourceGlyph
+                                source={row.heartRateSource}
+                              />
                             </p>
                           </div>
                           <div className="text-right shrink-0">

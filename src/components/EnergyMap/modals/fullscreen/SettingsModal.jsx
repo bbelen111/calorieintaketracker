@@ -62,6 +62,16 @@ import {
   FOOD_SEARCH_DEFAULT_ENTRY_OPTIONS,
   normalizeFoodSearchDefaultEntry,
 } from '../pickers/MealTypePickerModal';
+import {
+  HealthConnectStatus,
+  getHealthSourceName,
+} from '../../../../constants/health/healthSources';
+import {
+  connectHeartRateSync,
+  disconnectHeartRateSync,
+  useHeartRateSyncState,
+} from '../../../../services/heartRateSync';
+import { describeMaxHrSource } from '../../../../utils/formatting/heartRate';
 
 // `swatchClass` is the CSS class that carries the theme's variables, so the
 // preview swatch below resolves its colours from the real theme definition in
@@ -514,6 +524,7 @@ export const SettingsModal = ({
           adaptiveThermogenesisSmoothingWindowDays={
             adaptiveThermogenesisSmoothingWindowDays
           }
+          heartRateOpeners={resolvedActions.openers}
         />
       )}
     </FullscreenModalFrame>
@@ -588,6 +599,7 @@ const SettingsPageContent = ({
   adaptiveThermogenesisSmoothingEnabled,
   adaptiveThermogenesisSmoothingMethod,
   adaptiveThermogenesisSmoothingWindowDays,
+  heartRateOpeners,
 }) => (
   <div
     key={page}
@@ -606,6 +618,14 @@ const SettingsPageContent = ({
         onOpenHeightPicker={onOpenHeightPicker}
         onOpenWeightManager={onOpenWeightManager}
         onOpenBodyFatManager={onOpenBodyFatManager}
+      />
+    )}
+
+    {page === 'profile' && (
+      <HeartRateSettingsSection
+        userData={userData}
+        onFieldChange={onFieldChange}
+        openers={heartRateOpeners}
       />
     )}
 
@@ -947,6 +967,141 @@ const ProfileSection = ({
     </div>
   </div>
 );
+
+/**
+ * Profile & Measurements -> Heart rate. Max HR / VO2 max overrides apply
+ * immediately through onFieldChange (out-of-range = auto); watch sync and the
+ * BLE sensor go through their services. No new Settings category: the hub
+ * stays at five.
+ */
+const HeartRateSettingsSection = ({ userData, onFieldChange, openers }) => {
+  const heartRateProfile = useEnergyMapStore((state) => state.heartRateProfile);
+  const sync = useHeartRateSyncState();
+  const healthSourceName = getHealthSourceName();
+  const isSyncAvailable =
+    sync.status !== HealthConnectStatus.UNAVAILABLE &&
+    sync.status !== HealthConnectStatus.NOT_INSTALLED;
+  const isSyncOn =
+    Boolean(userData.heartRateSyncEnabled) &&
+    sync.status === HealthConnectStatus.CONNECTED;
+  const hasCustomMax = userData.maxHeartRateCustom != null;
+  const hasCustomVo2 = userData.vo2MaxCustom != null;
+
+  return (
+    <div className="mt-7 border-t border-border/70 pt-6">
+      <p className="text-foreground font-semibold mb-3">Heart rate</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+        {isSyncAvailable && (
+          <div className="md:col-span-2 rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-foreground text-sm font-medium leading-tight">
+                  Sync from {healthSourceName}
+                </p>
+                <p className="text-muted text-xs mt-0.5">
+                  {sync.status === HealthConnectStatus.CONNECTING
+                    ? 'Connecting…'
+                    : (sync.error ??
+                      'Resting heart rate, daily heart rate, VO2 max and workouts (read-only).')}
+                </p>
+              </div>
+              <BinarySwitch
+                checked={isSyncOn}
+                disabled={sync.status === HealthConnectStatus.CONNECTING}
+                ariaLabel={`Sync heart rate from ${healthSourceName}`}
+                onClick={() =>
+                  isSyncOn ? disconnectHeartRateSync() : connectHeartRateSync()
+                }
+              />
+            </div>
+          </div>
+        )}
+
+        <div>
+          <SettingLabel>Resting heart rate</SettingLabel>
+          <PickerButton
+            onClick={() => openers?.heartRateTracker?.()}
+            ariaLabel="Open heart rate tracker"
+          >
+            {heartRateProfile?.restingHr != null
+              ? `${heartRateProfile.restingHr} bpm (7-day)`
+              : 'No readings yet'}
+          </PickerButton>
+          <button
+            type="button"
+            onClick={() => openers?.restingHeartRateEntry?.()}
+            className="mt-1.5 text-xs font-medium text-accent-blue focus-ring rounded px-1 pressable-inline"
+          >
+            Log today&apos;s reading
+          </button>
+        </div>
+
+        <div>
+          <SettingLabel>Max heart rate</SettingLabel>
+          <PickerButton
+            onClick={() => openers?.maxHeartRatePicker?.()}
+            ariaLabel="Set max heart rate"
+          >
+            {heartRateProfile?.maxHr != null
+              ? `${heartRateProfile.maxHr} bpm · ${describeMaxHrSource(heartRateProfile.maxHrSource)}`
+              : '—'}
+          </PickerButton>
+          {hasCustomMax && (
+            <button
+              type="button"
+              onClick={() => onFieldChange?.('maxHeartRateCustom', null)}
+              className="mt-1.5 text-xs font-medium text-accent-blue focus-ring rounded px-1 pressable-inline"
+            >
+              Use automatic estimate
+            </button>
+          )}
+        </div>
+
+        <div>
+          <SettingLabel>VO2 max</SettingLabel>
+          <PickerButton
+            onClick={() => openers?.vo2MaxPicker?.()}
+            ariaLabel="Set VO2 max"
+          >
+            {heartRateProfile?.vo2Max != null
+              ? `${heartRateProfile.vo2Max} · ${
+                  heartRateProfile.vo2MaxSource === 'custom'
+                    ? 'custom'
+                    : 'from watch'
+                }`
+              : 'Not set'}
+          </PickerButton>
+          {hasCustomVo2 && (
+            <button
+              type="button"
+              onClick={() => onFieldChange?.('vo2MaxCustom', null)}
+              className="mt-1.5 text-xs font-medium text-accent-blue focus-ring rounded px-1 pressable-inline"
+            >
+              Use watch value
+            </button>
+          )}
+        </div>
+
+        <div>
+          <SettingLabel>Heart-rate sensor</SettingLabel>
+          <PickerButton
+            onClick={() => openers?.heartRateSensor?.()}
+            ariaLabel="Pair a Bluetooth heart-rate sensor"
+          >
+            {userData.heartRateSensor?.name ?? 'Pair a chest strap or arm band'}
+          </PickerButton>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={() => openers?.heartRateZonesInfo?.()}
+        className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted md:hover:text-foreground focus-ring rounded px-1 pressable-inline"
+      >
+        <Info size={14} /> How heart rate affects your numbers
+      </button>
+    </div>
+  );
+};
 
 const AppearanceSection = ({ userData, onFieldChange }) => {
   const fontScaleKey = normalizeFontScaleKey(userData.fontScale);

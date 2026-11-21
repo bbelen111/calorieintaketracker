@@ -25,7 +25,9 @@ React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor 
 - `@capacitor/keyboard` — Input handling (iOS: `resize: "none"` + `autoBackdropColor: "dom"` in config; Android's contract is the manifest's `adjustResize`)
 - `@capacitor/splash-screen` — Launch screen
 - `@capacitor/barcode-scanner` — Native barcode scanning (FoodSearch barcode action)
-- `@capgo/capacitor-health` — Step sync (Health Connect on Android, HealthKit on iOS)
+- `@capgo/capacitor-health` — Step + heart-rate sync (Health Connect on Android, HealthKit on iOS; read-only for HR)
+- `@capacitor-community/bluetooth-le` — Live heart-rate sensors (Heart Rate Service 0x180D); **dynamically imported** only
+- `@capacitor-community/keep-awake` — Keeps the screen on during a live HR recording; **dynamically imported** only
 - `@capgo/capacitor-navigation-bar` — Android navigation bar theming
 - `@capacitor/filesystem` + `@capacitor/share` — Native export delivery (Cache write + OS share sheet)
 
@@ -48,8 +50,8 @@ main.jsx
             │   ├─ CalorieMapScreen
             │   └─ InsightsScreen
             ├─ PhaseDetailScreen (drill-down, not in carousel)
-                └─ 47 top-level useAnimatedModal instances → 64 modal-related files (58 modals + 6 panels)
-                 └─ 25 additional child-level modal instances inside modal components
+                └─ 54 top-level useAnimatedModal instances → 70 modal-related files (64 modals + 6 panels)
+                 └─ 30 additional child-level modal instances inside modal/common components
 ```
 
 ### Data Flow
@@ -165,16 +167,17 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 
 ### Modal Count
 
-- **47 top-level `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
-- **25 additional child-level modal instances** declared inside modal components (e.g., delete confirmations, sub-pickers)
-- **58 modal component files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`, plus 6 supporting panel components under `fullscreen/panels/`:
-  - `fullscreen/` — WeightTrackerModal, BodyFatTrackerModal, StepTrackerModal, SettingsModal, FoodSearchModal, AdaptiveThermogenesisModal, RollingEnergyBalanceModal
+- **54 top-level `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
+- **30 additional child-level modal instances** declared inside modal components and `common/SessionHeartRatePanel.jsx` (e.g., delete confirmations, sub-pickers, the workout import list)
+- **64 modal component files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`, plus 6 supporting panel components under `fullscreen/panels/`:
+  - `fullscreen/` — WeightTrackerModal, BodyFatTrackerModal, StepTrackerModal, SettingsModal, FoodSearchModal, AdaptiveThermogenesisModal, RollingEnergyBalanceModal, **HeartRateTrackerModal**, **LiveHeartRateSessionModal**
+  - heart-rate additions elsewhere: `forms/` **RestingHeartRateEntryModal**, `info/` **HeartRateZonesInfoModal**, `lists/` **HealthWorkoutImportModal** (child of the cardio/training forms) and **HeartRateSensorPairingModal**
   - `pickers/` — AgePickerModal, CalendarPickerModal, **CaloriesPerHourPickerModal**, DatePickerModal, DurationPickerModal, EpocWindowPickerModal, FoodPortionModal, HeartRatePickerModal, HeightPickerModal, **MacroPickerModal**, MealTypePickerModal, MetValuePickerModal, **NumericValuePickerModal**, StepGoalPickerModal, TemplatePickerModal, TimePickerModal
   - `info/` — AdaptiveThermogenesisInfoModal, BmiInfoModal, BmrInfoModal, BodyFatTrendInfoModal, CalorieBreakdownModal, CaloriesPerHourGuideModal, DayLedgerModal, EpocInfoModal, FfmiInfoModal, TefInfoModal, WeightTrendInfoModal
   - `forms/` — AddCustomFoodModal, BarcodeEntryModal, BodyFatEntryModal, CardioModal, CustomCardioTypeModal, DailyActivityCustomModal, DailyActivityEditorModal, DailyLogModal, **DailyNeatOverrideModal**, FoodEntryModal, GoalModal, PhaseCreationModal, TrainingModal, StepRangesModal, TrainingTypeEditorModal, WeightEntryModal
   - `lists/` — CardioFavouritesModal, CardioTypeListModal, CalorieTargetModal, DayLedgerListModal
   - `common/` — ConfirmActionModal
-- Total across codebase: 72 modal hook instances (`useAnimatedModal`)
+- Total across codebase: 84 modal hook instances (`useAnimatedModal`)
 
 ### Settings Modal Navigation
 
@@ -184,7 +187,7 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 - Header back and Escape return to the hub from a category page; from the hub they close Settings. Android hardware back follows the same rule through `closeTopmostModal`.
 - **Settings motion (CSS, enter-only, reduced-motion safe).** The hub and pages swap in place, so direction lives on the way in: a page's blocks slide in from the right (`.settings-page-enter > * > *`, the section root's children) and the hub's rows from the left (`.settings-hub-enter > *`), both staggered by child index. The hub only animates when the user came *back* to it - `SettingsModal` derives that during render (`hasNavigated`, reset when the modal closes), never in an effect - so the modal's own open animation is not doubled. The header title is re-keyed (`header-stat-in`). Keyframes use `animation-fill-mode: backwards`, **never `both`/`forwards`**: a held fill pins `transform: none` over every button's `active:scale-*` press feedback. Options that exist only while a parent switch is on (EPOC carryover, Smart TEF sub-toggles, AT mode/smoothing, the NEAT baselines) carry `.settings-reveal`; a segmented choice plays `.settings-select-pop` only when `active` flips to true *after mount* (render-phase tracked in `SegmentedButton`, so a page opening does not pulse the already-selected buttons). `BinarySwitch` uses a springy thumb and an emerald glow when on. All of these classes are in the `data-motion` reduced/off opt-out list (see Motion Preference) in `index.css`; add any new Settings motion class there too.
 - Keep child pickers and info modals ahead of Settings in the orchestrator's close priority so the active child closes first. Categories are not separate or stacked modals.
-- Preserve the existing control ownership: Profile & Measurements contains profile and body-measurement settings; Appearance owns theme selection plus the **Text size**, **Density** and **Animations** controls and the **Swipe tip** reset (`hasSeenSwipeHint` back to `false`); Daily Activity shows one card per day type (Training Day / Rest Day: preset, offset, BMR+NEAT baseline, a "Today" badge and today's NEAT override if set); each card calls `openers.dailyActivity(dayType)` which opens `DailyActivityEditorModal` for that day directly (there is no intermediate day-picker modal), plus the **Daily step goal** and **Step ranges** pickers (reusing `StepGoalPickerModal` / `StepRangesModal` through the `openers` map); Calorie Adjustments contains EPOC, Smart TEF, and Adaptive Thermogenesis settings; **Food & Nutrition** owns the default Food Search view (`foodSearchDefaultEntry`, options shared with `MealTypePickerModal` via `FOOD_SEARCH_DEFAULT_ENTRY_OPTIONS`), the macro split summary that opens `MacroPickerModal`, and **Clear cached foods** (confirmed through `ConfirmActionModal`; favourites and logged meals are unaffected, pins on cached online/barcode foods stop showing). New Settings rows reuse existing store fields/modals through `actions.onFieldChange` / `actions.openers` - add no new systems here. **Appearance renders each theme as a live preview swatch**: `THEME_OPTIONS` carries a `swatchClass` per theme (`auto` is a dark/light split), and the swatch element wears that theme class so its `bg-background` / `bg-surface` / `bg-primary` resolve from the real theme definition in `index.css` - never hardcode a theme's colours in the picker. `.theme-dark` exists only as a swatch alias of the `:root` default (it is never applied to `<body>`).
+- Preserve the existing control ownership: Profile & Measurements contains profile and body-measurement settings, plus the **Heart rate** group (`HeartRateSettingsSection`: watch-sync switch, resting HR → HR tracker / "Log today's reading", Max HR + VO2 max pickers with an "automatic" reset, the BLE sensor row, and the zones explainer — all through `actions.openers` keys `heartRateTracker` / `restingHeartRateEntry` / `maxHeartRatePicker` / `vo2MaxPicker` / `heartRateSensor` / `heartRateZonesInfo`); Appearance owns theme selection plus the **Text size**, **Density** and **Animations** controls and the **Swipe tip** reset (`hasSeenSwipeHint` back to `false`); Daily Activity shows one card per day type (Training Day / Rest Day: preset, offset, BMR+NEAT baseline, a "Today" badge and today's NEAT override if set); each card calls `openers.dailyActivity(dayType)` which opens `DailyActivityEditorModal` for that day directly (there is no intermediate day-picker modal), plus the **Daily step goal** and **Step ranges** pickers (reusing `StepGoalPickerModal` / `StepRangesModal` through the `openers` map); Calorie Adjustments contains EPOC, Smart TEF, and Adaptive Thermogenesis settings; **Food & Nutrition** owns the default Food Search view (`foodSearchDefaultEntry`, options shared with `MealTypePickerModal` via `FOOD_SEARCH_DEFAULT_ENTRY_OPTIONS`), the macro split summary that opens `MacroPickerModal`, and **Clear cached foods** (confirmed through `ConfirmActionModal`; favourites and logged meals are unaffected, pins on cached online/barcode foods stop showing). New Settings rows reuse existing store fields/modals through `actions.onFieldChange` / `actions.openers` - add no new systems here. **Appearance renders each theme as a live preview swatch**: `THEME_OPTIONS` carries a `swatchClass` per theme (`auto` is a dark/light split), and the swatch element wears that theme class so its `bg-background` / `bg-surface` / `bg-primary` resolve from the real theme definition in `index.css` - never hardcode a theme's colours in the picker. `.theme-dark` exists only as a swatch alias of the `:root` default (it is never applied to `<body>`).
 
 ### Adaptive Thermogenesis Frontend
 
@@ -207,7 +210,7 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 
 ### Daily NEAT Override Frontend
 
-- `DailyNeatOverrideModal` (`modals/forms/DailyNeatOverrideModal.jsx`) is the session quick-sheet for today's **daily NEAT override**. It is mounted with an `isOpen || isClosing` guard, keyed by a version counter so it re-freshes its selection state on each open (no setState-in-effect on open).
+- `DailyNeatOverrideModal` (`modals/forms/DailyNeatOverrideModal.jsx`) is the session quick-sheet for today's **daily NEAT override**. It may show an advisory heart-rate chip (`heartRateAdvice` from `assessNeatFromHeartRate`) that only stages the next preset up/down — never applied automatically (see "Heart Rate"). It is mounted with an `isOpen || isClosing` guard, keyed by a version counter so it re-freshes its selection state on each open (no setState-in-effect on open).
 - It renders a curated set of preset cards from `ACTIVITY_PRESET_OPTIONS[dayType]` plus a **"Use my settings (default)"** clear action. Selecting a preset stages an apply; `onApply({ multiplier, presetKey, label })` saves the override, `onClear()` clears today's override and falls back to the global setting.
 - The top-right day pill is **color-coded by day type**: Training Day = `text-accent-blue` + **Dumbbell** icon, Rest Day = `text-accent-indigo` + **Bed** icon (via `DAY_PILL_CLASS` / `DAY_ICON_BY_KEY`).
 - **Home entry point:** In `HomeScreen`'s "Today's Activity Burn" hero, the **NEAT metric block** (icon + label + kcal) is the touch target — it carries a faint underline + chevron affordance, opens the override modal via `onOpenDailyActivityOverride`, and tints green when today's override is active. The **"~X% of daily TDEE"** pill there is a separate button wired to `onOpenTodayBreakdown`, which opens the `CalorieBreakdownModal` for today.
@@ -235,7 +238,9 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 - Its month/year picker overlays use the anchored pattern (relative nav-row wrapper + `absolute inset-x-0 top-full mt-2 flex justify-center pointer-events-none`, Motion animates only the inner card) — never `left-1/5`/`top-29` or Tailwind translate on Motion elements.
 - A calendar-cell **legend** sits between the grid and the dual panel (always rendered, static — never toggled by preview state, so it cannot shift layout). It reuses `DayLedgerListModal`'s legend grammar (`flex ... gap-3 pt-3 mt-3 border-t border-border text-[10px] text-muted flex-wrap` + `w-2 h-2` swatch + label) but is adapted to this modal's cell states instead of balance kinds: round `accent-blue` dot = has entries (mirrors the in-cell tracked marker), `accent-slate` square = no entries, `accent-blue` square = selected. The legend lives in the modal body, not inside `CalendarHeatmap`, so it stays outside the swipe-touch region.
 
-### Tracker Modal Selection Card (Weight / Body Fat / Step / Rolling Energy Balance)
+### Tracker Modal Selection Card (Weight / Body Fat / Step / Rolling Energy Balance / Heart Rate)
+
+`HeartRateTrackerModal` follows the same contract (fixed `topPx`, in-SVG guide line, tap-to-dismiss, re-tap to edit, render-phase retention) with resting-HR deltas from a pre-filtered single-family series; its month (12m) cards are read-only.
 
 - The four tracker modals share **one** detail surface: `TrackerSelectionCard` (`common/TrackerSelectionCard.jsx`, with the `TrackerCardMetric` inline label/value pair). It replaced a per-modal floating tooltip that was measured onto the tapped point (`getBoundingClientRect()` + `scrollLeft` + a `resize` listener) and rendered **outside** `ModalShell` at `z-[1200]`. Do not reintroduce a positioned tooltip: it drifted when the chart was panned (so panning had to dismiss it), overflowed at the first/last slot and above the header, escaped the `1000 + 2/depth` z-lanes, and needed a capture-phase `document.pointerdown` listener with `circle`/`g`/`[data-date-label]` whitelists to dismiss.
 - **Placement is fixed, never measured.** The card is a **graph-wide strip** (`w-full` inside a wrapper that defaults to `inset-x-2` — an 8px gutter, the same one the modals' graph row already carries as `pr-2`) inside a `relative` graph container, so its edges never touch the screen edges while its right edge still lands on the y-axis column's own right edge: the **whole axis (ticks + current-value pill) stays behind the card while it is open**. That is the accepted trade-off — the card's own value is the reading you need, the axis is a static scale, and a tap or a swipe dismisses the card; `className` can still override the inset, but no modal does today. The wrapper is `pointer-events-none` and only the card captures pointers. The only inline geometry is `top`, and it is a **constant handed down by the modal** (`topPx`, default `8`) — the plot's top edge — never a measurement, and never a `left`.
@@ -709,7 +714,8 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 |------------|----------|---------|
 | BMR | `calculateBMR(userData)` | Mifflin-St Jeor; auto-upgrades to Katch-McArdle when `bodyFatTrackingEnabled` with valid entries |
 | Step calories | `getStepDetails(steps, userData)` | **Lives in `utils/steps.js`**, not calculations.js. Stride length heuristic: height × 0.415 (male) / 0.413 (female). In full breakdown mode, step calories are computed from **remaining steps** after ambulatory-cardio overlap deduction. |
-| Cardio (single) | `calculateCardioCalories(session, userData, cardioTypes)` | MET-based (`effortType: 'intensity'`) or heart rate formula (`effortType: 'heartRate'`) |
+| Cardio (single) | `calculateCardioCalories(session, userData, cardioTypes)` | MET-based (`effortType: 'intensity'`) or heart rate formula (`effortType: 'heartRate'`: Keytel, or Keytel's VO2-max equation when a VO2 max exists as of the session date) |
+| Training (single) | `calculateTrainingSessionCalories(session, userData, trainingTypes)` | kcal/hr × intensity multiplier; HR sessions with `hrBurnModel: 'intensity'` let HR pick the level (`resolveTrainingHeartRateIntensity`), legacy HR sessions use Keytel |
 | Cardio (total) | `getTotalCardioBurn(userData, cardioTypes)` | Sums `calculateCardioCalories` for **today's date** only |
 | Cardio (for date) | `getTotalCardioBurnForDate(userData, cardioTypes, dateKey)` | Sums cardio calories for a specific `dateKey` |
 | Training EPOC (single) | `resolveTrainingSessionEpoc({ session, exerciseCalories, trainingType, userData })` | Post-exercise burn estimate + carryover window for one training session (`utils/epoc.js`) |
@@ -718,7 +724,7 @@ All calorie formulas are centralized. **Never duplicate or inline calculations.*
 | Training cal/hr | `getTrainingCaloriesPerHour(userData, trainingTypes)` | Base cal/hr × intensity multiplier (light 0.75 / moderate 1.0 / vigorous 1.25) |
 | Training (total) | `getTotalTrainingBurnForDate(userData, trainingTypes, dateKey)` | Session-first burn from `trainingSessions` (`effortType` + `averageHeartRate` or `intensity`) |
 | Training (for date) | `getTotalTrainingBurnForDate(userData, trainingTypes, dateKey)` | Sums training-session calories for a specific `dateKey` |
-| TDEE breakdown | `calculateCalorieBreakdown({...})` | BMR + activity multiplier + training + cardio + steps + EPOC. Accepts optional `tefContext`, `adaptiveThermogenesisContext`, and `dateKey`. Returns `bmrDetails`, TEF fields when Smart TEF is enabled, AT fields, EPOC fields (`epocCalories`, `trainingEpoc`, `cardioEpoc`, carry-in/from-today details), plus step-overlap diagnostics (`originalEstimatedSteps`, `deductedSteps`, `remainingEstimatedSteps`, overlap session counts/details). |
+| TDEE breakdown | `calculateCalorieBreakdown({...})` | BMR + activity multiplier + training + cardio + steps + EPOC. Accepts optional `tefContext`, `adaptiveThermogenesisContext`, and `dateKey`. Returns `bmrDetails`, TEF fields when Smart TEF is enabled, AT fields, EPOC fields (`epocCalories`, `trainingEpoc`, `cardioEpoc`, carry-in/from-today details), plus step-overlap diagnostics (`originalEstimatedSteps`, `deductedSteps`, `remainingEstimatedSteps`, overlap session counts/details), and per-session `cardioDetails` / `trainingDetails` lines (each priced by the canonical session formula, so they always sum to `cardioBurn` / `trainingBurn`; `CalorieBreakdownModal` renders them). |
 | TDEE (simple) | `calculateTDEE(options)` | Convenience wrapper — returns just `calculateCalorieBreakdown(options).total` |
 | Goal target | `calculateGoalCalories(tdee, goal, deltaOverride?)` | Applies ±300/500 modifier by goal, or explicit per-phase override when provided |
 | BMI | `calculateBMI(weight, height)` | Standard BMI: weight(kg) / height(m)² |
@@ -831,7 +837,7 @@ Do not duplicate target planning formulas in components.
 
 Primary history store is now Dexie (`energyMapHistory` DB), with document rows keyed by history field name.
 
-Split is determined by `HISTORY_FIELDS` array: `weightEntries`, `bodyFatEntries`, `stepEntries`, `nutritionData`, `phaseLogV2`, `cardioSessions`, `trainingSessions`, `cachedFoods`, `dailySnapshots`, `dailyNeatOverrides`.
+Split is determined by `HISTORY_FIELDS` array: `weightEntries`, `bodyFatEntries`, `stepEntries`, `nutritionData`, `phaseLogV2`, `cardioSessions`, `trainingSessions`, `cachedFoods`, `dailySnapshots`, `dailyNeatOverrides`, `heartRateEntries` (sharded `heartRateEntries:YYYY-MM-DD`; see "Heart Rate").
 
 `dailySnapshots` is also history-scoped and sharded by date document key (`dailySnapshots:YYYY-MM-DD`).
 
@@ -903,6 +909,7 @@ Migration behavior is now intentionally minimal:
 - `adaptiveThermogenesisSmoothingWindowDays: 7`
 - `epocEnabled: true`
 - `epocCarryoverHours: 6`
+- `heartRateEntries: []`, `maxHeartRateCustom: null`, `vo2MaxCustom: null`, `heartRateSyncEnabled: false`, `heartRateSensor: null`
 
 ---
 
@@ -949,8 +956,11 @@ Migration behavior is now intentionally minimal:
   macroLocks: { protein: null, carbs: null, fats: null },            // Gram anchors (null = unlocked; max 2)
 
   // History (Dexie)
+  // HR sessions may also carry maxHeartRate, heartRateSource, heartRateCoverage,
+  // heartRateZoneSeconds, healthWorkoutId; training adds hrBurnModel (see "Heart Rate")
   cardioSessions: [{ id, date, startTime, startedAt, endedAt, type, duration, intensity, effortType, averageHeartRate?, stepOverlapEnabled? }],
-  trainingSessions: [{ id, date, startTime, startedAt, endedAt, type, duration, intensity, effortType, averageHeartRate? }],
+  trainingSessions: [{ id, date, startTime, startedAt, endedAt, type, duration, intensity, effortType, averageHeartRate?, hrBurnModel? }],
+  heartRateEntries: [{ date, restingHr, restingHrMethod, avgHr, minHr, maxHr, wakingAvgHr, vo2Max, updatedAt }],
   weightEntries: [{ date: 'YYYY-MM-DD', weight }],
   bodyFatEntries: [{ date: 'YYYY-MM-DD', bodyFat }],
   stepEntries: [{ date: 'YYYY-MM-DD', steps, source: 'healthConnect'|'manual' }],
@@ -989,6 +999,7 @@ Migration behavior is now intentionally minimal:
       baselineTdee,
       adaptiveThermogenesisCorrection,
       adaptiveThermogenesisMode,
+      restingHr, restingHrMethod, avgHr, maxHr, vo2Max, // flat; null = no reading
       createdAt,
       updatedAt,
     }
@@ -1255,7 +1266,71 @@ Returns `{ status, steps, lastSynced, isLoading, error, connect, refresh, discon
 - **Authorization semantics (iOS):** HealthKit never reveals whether READ access was granted (deliberate Apple privacy design). The plugin maps `getRequestStatusForAuthorization` (`unnecessary` → authorized), so `checkAuthorization()` answers *"has the user already been asked?"* — exactly what `initialize()` needs to avoid re-prompting on every launch. A user who denied access still reads back as authorized and simply gets zero samples; that is a HealthKit limitation, not an app bug to paper over.
 - **Entitlement:** HealthKit requires `ios/App/App/App.entitlements` (`com.apple.developer.healthkit`), wired through `CODE_SIGN_ENTITLEMENTS` in both App build configs. When it is absent (e.g. an unsigned build) the plugin fails with `Missing com.apple.developer.healthkit entitlement` and the hook degrades to `UNAVAILABLE` — this path must never crash the app.
 
-Always returns `'unavailable'` on **web** (and on any native platform that owns no health store). Status constants live in `src/constants/health/healthSources.js`.
+Always returns `'unavailable'` on **web** (and on any native platform that owns no health store). Status constants live in `src/constants/health/healthSources.js`. Availability mapping (UNAVAILABLE vs NOT_INSTALLED) is shared with the heart-rate sync through `services/healthBridge.js` (`resolveHealthAvailability`).
+
+---
+
+## Heart Rate
+
+Heart rate is woven into the calorie system **conservatively**: it refines what already exists (session burns, EPOC intensity) and adds display-only context; it never invents an all-day burn. **BMR is never touched and NEAT is never changed automatically.** A user with no HR data gets byte-identical numbers to before — pinned by the golden regression (`tests/utils/heartRateGolden.test.js`).
+
+### Sources
+
+| Source | Module | Yields |
+|---|---|---|
+| Watch sync (Health Connect / Apple Health, read-only) | `services/heartRateSync.js` + `services/heartRateHealth.js`, lifecycle `hooks/useHeartRateSync.js` | Daily resting HR (device record, else **estimated** = lowest hourly average), daily avg/min/max, waking-hours HR, VO2 max readings |
+| Manual morning resting HR | `RestingHeartRateEntryModal` → store `setManualRestingHeartRate` | `restingHrMethod: 'manual'` |
+| Session samples / workout import | `SessionHeartRatePanel` ("Use watch data" / "Import workout") | Time-weighted session avg, peak, coverage, zone seconds |
+| Live BLE sensor (0x180D) | `services/heartRateSensor.js`, `LiveHeartRateSessionModal`, `HeartRateSensorPairingModal` | Live bpm, recorded session summary |
+| Camera pulse (experimental) | `services/cameraPulse.js` + pure `utils/calculations/pulseSignal.js` | One resting reading; refuses low-quality signals |
+
+### Data
+
+- **`userData.heartRateEntries`** (history, Dexie, sharded `heartRateEntries:YYYY-MM-DD`, date-sorted array): `{ date, restingHr, restingHrMethod: 'device'|'manual'|'estimated'|null, avgHr, minHr, maxHr, wakingAvgHr, vo2Max, updatedAt }`. Every value nullable (`null` = unknown, never zero-filled); an entry with no value is dropped. Normalizers/merge live in `utils/measurements/heartRate.js` (`normalizeHeartRateEntry`, `sortHeartRateEntries`, `mergeSyncedHeartRateEntry`, `applyManualRestingHeartRate`, `getRestingHrSeries`, `resolveRestingHrTrendFamily`).
+- **Profile fields:** `maxHeartRateCustom` (120–230 or `null` = auto), `vo2MaxCustom` (15–90 or `null`), `heartRateSyncEnabled`, `heartRateSensor` (`{ deviceId, name }`). Invalid values set through `handleUserDataChange` clear to auto.
+- **Session fields (optional):** `averageHeartRate` (canonical, priced), `maxHeartRate`, `heartRateSource` (`manual`|`healthConnect`|`ble`), `heartRateCoverage` (0–1), `heartRateZoneSeconds` ([z1..z5]), `healthWorkoutId` (dedupes imports), and **training only** `hrBurnModel` (`'keytel'`|`'intensity'`; missing = `'keytel'`). Helpers: `utils/calculations/sessionHeartRate.js`.
+- **Snapshot fields (flat):** `restingHr`, `restingHrMethod`, `avgHr`, `maxHr`, `vo2Max` (`buildSnapshotHeartRateFields`).
+- **Bounds** for every HR value are canonical in `constants/health/heartRate.js` (session 60–220, resting 30–120, max 120–230, daily 25–240, VO2 15–90); every normalizer **rejects** out-of-range values instead of clamping.
+
+### Engine (`utils/calculations/heartRate.js`, pure)
+
+- `resolveHeartRateProfile(userData, dateKey)` → `{ maxHr, maxHrSource, legacyMaxHr, restingHr, restingHrFamily, hasPersonalZones, hrReserve, vo2Max, … }` **as of the date** (no later data leaks back). Max HR = custom ?? max(Tanaka `208 − 0.7·age`, observed session peaks — observed only RAISES, needs ≥3 sessions, spikes > Tanaka+20 ignored). Resting baseline = 7-day trapezoidal (fallback 14-day) over ONE method family. **Personal zones** need ≥3 resting readings in 14 days and a reserve ≥40 bpm. Memoized per `(heartRateEntries, cardioSessions, trainingSessions)` reference + date + scalars.
+- `resolveHeartRateIntensity({ heartRate, profile })`: personal zones → %HRR with ACSM cutpoints (light <40 %, moderate 40–59 %, vigorous ≥60 %); otherwise the **exact legacy rule** (0.70 / 0.85 of `220 − age`, or of a custom max).
+- `resolveHeartRateZones` (5-zone Karvonen, or %max without a baseline), `getHeartRateZone`, `describeHeartRateLoad`.
+- `computeTimeWeightedHeartRate` (trapezoid; gaps >120 s excluded, never interpolated; sparse samplers fall back to a plain mean with `method: 'sparse'`), `selectPrimaryHeartRateSource` (one source, never a blend), `estimateRestingHrFromHourly`, `calculateRestingHrTrend` (single family, ≥7 readings), `computeWakingHeartRate`, `assessNeatFromHeartRate`, `assessAdaptiveThermogenesisPhysiology`, `parseHeartRateMeasurement` (BLE 0x2A37).
+
+### How it reaches TDEE
+
+| Component | Effect |
+|---|---|
+| BMR | none |
+| NEAT | none automatically; `assessNeatFromHeartRate` feeds a **chip** in `DailyNeatOverrideModal` that only stages the next preset (waking HR outside logged sessions ≥8 bpm above its 28-day median and steps not above theirs → up; ≤−6 → down; needs ≥14 baseline days) |
+| Cardio (HR) | Keytel; with a VO2 max as of the session date (custom, or a watch reading ≤180 days old) the Keytel **VO2-max** equation |
+| Training (HR) | `hrBurnModel: 'intensity'` (all NEW HR sessions): HR picks the level, the type keeps its kcal/hr. Legacy sessions (no marker) stay on Keytel; editing one keeps its stored model (`getStoredTrainingHrBurnModel`) |
+| EPOC | intensity from `resolveHeartRateIntensity` with the profile **as of the session's own date**; `details.heartRateIntensity` records `{ percent, model }` |
+| Step overlap | HR sessions ignore their stale stored intensity |
+| AT | none on the number; the Smart tab shows a display-only "Physiology check" (resting-HR drift vs correction, measured readings only) |
+
+### Sync rules (`services/heartRateSync.js`)
+
+- Module singleton status (`useHeartRateSyncState`), lifecycle in `useHeartRateSync({ isLoaded })` (mounted once in the orchestrator): init after hydration, refresh on native foreground. Pull-based, never polls.
+- Read types: `['heartRate', 'restingHeartRate', 'vo2Max', 'workouts']`, read-only on both platforms; HR denied → not connected; RHR denied → estimated method; iOS reads every type it asked for (HealthKit cannot report read grants).
+- Daily data is read **one local day per call** (`buildLocalDayReadWindow`, DST-safe: a day is 23/25 h when it must be) — never a multi-day `bucket: 'day'` aggregate. Routine sync = yesterday + today; first sync back-fills 30 days (Android, Health Connect's cap) / 90 (iOS).
+- `saveHeartRateEntries` merges field-by-field (a **manual resting HR is never overwritten**) and refreshes only **existing** snapshots from the earliest changed date to today via `upsertDailySnapshots(dateKeys, { onlyIfExisting: true })` — a synced day the user never tracked must never get a snapshot (it would carry intake 0).
+
+### Surfaces
+
+- **Insights:** `common/RestingHeartRateCard.jsx` (after Body Composition, before the AT card): 7-day baseline, latest + method, 28-day change (uncoloured), sparkline, Zone 2 band; empty state offers a manual reading / connect.
+- **`HeartRateTrackerModal`** (fullscreen, lazy): 30d / 90d / 12m, gap-aware runs, the shared `TrackerSelectionCard` (vs prev / vs 7d avg via the generic weight.js helpers on a **pre-filtered single-family series**), re-tap to edit, zones card, sync row.
+- **Cardio / Training forms:** `common/SessionHeartRatePanel.jsx` under the HR button — zone chip, provenance, time-in-zone bar, "Use watch data", "Import workout" (`HealthWorkoutImportModal`; the watch's own kcal is reference only), "Record live". Estimates price with the full `userData` so they match the breakdown.
+- **Live recording:** `LiveHeartRateSessionModal` + `LiveHeartRatePill` in `AppHeader` (subscribes to the sensor singleton itself, so a beat never re-renders the orchestrator). "Finish" fills the form via `applyLiveRecordingToDraft`; an app-kill checkpoint (Preferences, every 30 s) is offered back through `ConfirmActionModal` on the next launch.
+- **Also:** Home / Day Ledger session rows (`· Z3` + source glyph), Day Ledger "Resting HR" row, `CalorieBreakdownModal` per-session lines (intensity model, VO2), Phase Detail + exports (`restingHrStart/End/Change`, a HEART RATE CSV block), Settings → Profile & Measurements "Heart rate".
+
+### Platform
+
+- **Android** (`android/app/src/main/AndroidManifest.xml`): exactly READ_STEPS / WRITE_STEPS / READ_HEART_RATE / READ_RESTING_HEART_RATE / READ_VO2_MAX / READ_EXERCISE; every other plugin-merged health permission is `tools:node="remove"`d (keep the Play Console Health Connect declaration in sync). Privacy policy = the plugin's `PermissionsRationaleActivity` + alias loading `public/privacypolicy.html` — never re-declare those intent filters elsewhere. BLE: `BLUETOOTH_SCAN` (`neverForLocation`) + `BLUETOOTH_CONNECT`; location only ≤ API 30. Camera declared for the barcode scanner + camera pulse.
+- **iOS** (`Info.plist`): `NSHealthShareUsageDescription` names steps, heart rate, resting HR, VO2 max and workouts (still no update description: read-only); `NSBluetoothAlwaysUsageDescription`; camera string covers the pulse reading. No background modes: live recording is foreground + keep-awake, gaps are excluded and shown as coverage.
+- **Bundle:** both community plugins are dynamically imported by `services/heartRateSensor.js`; `vite.config.js` keeps `@capacitor-community/*` out of `chunk-capacitor`.
 
 ---
 
@@ -1306,8 +1381,11 @@ src/
 │   │  └─ nutrients.js           # Canonical micro nutrients (fiber/sodium/saturatedFats/sugars): units, clamps,
 │   │                            #   source-scoped soft invariants, OFF sodium conversion, totals/coverage helpers
 │   ├─ health/
-│   │  └─ healthSources.js       # Health-store vocabulary shared by the bridge hook and the UI
-│   │                            #   (HealthConnectStatus + getHealthSourceName → "Apple Health"/"Health Connect")
+│   │  ├─ healthSources.js       # Health-store vocabulary shared by the bridge hook and the UI
+│   │  │                         #   (HealthConnectStatus + getHealthSourceName → "Apple Health"/"Health Connect")
+│   │  ├─ heartRate.js           # Canonical HR bounds (session/resting/max/daily/VO2) + normalizers,
+│   │  │                         #   resting-HR methods, 5-zone model + zone accent classes
+│   │  └─ workoutTypeMap.js      # Health workout type -> cardio type key (+ strength set)
 ├─ hooks/
 │   ├─ useAnimatedModal.js       # Modal lifecycle (isOpen/isClosing/requestClose)
 │   ├─ useHardwareBackButton.js  # Android back handling (home-first + double-exit; registers nothing on iOS)
@@ -1315,6 +1393,7 @@ src/
 │   ├─ useCarouselDragVarSink.js # Registers a chrome element as a sink for the shell's live drag vars
 │   │                            #   (tab bar / header dots) so a drag frame never invalidates :root
 │   ├─ useHealthConnect.js       # Step sync bridge (Health Connect on Android, HealthKit read-only on iOS)
+│   ├─ useHeartRateSync.js       # Heart-rate sync lifecycle (init after hydration, refresh on foreground)
 │   ├─ usePortionCardFlight.js   # Food Portion modal hero transition (clone flies from the tapped result card; layout-effect driven, no state)
 │   ├─ useMotionMode.js          # Resolved motion mode + `useReducedMotionPreference()` (drop-in for framer's device-only `useReducedMotion`)
 │   ├─ useKeyboardGlide.js       # Smooths a centred modal's jump when the Android window resizes for the keyboard (FLIP via `translate`; iOS uses CSS transitions in ModalShell)
@@ -1338,6 +1417,11 @@ src/
   ├─ dayLedgerPresentation.js # Daily Ledger display-model builders (read-only snapshot projections;
   │                           #   buildDayLedgerDetailModel = full day model for DayLedgerModal)
 │   │  ├─ epoc.js                # Session EPOC estimate + carryover window resolution
+│   │  ├─ heartRate.js           # HR engine: as-of-date profile, %HRR intensity, zones, time-weighted
+│   │  │                         #   session HR, source selection, resting estimate/trend, NEAT advisory,
+│   │  │                         #   AT physiology check, BLE 0x2A37 parser
+│   │  ├─ sessionHeartRate.js    # Session HR fields (manual/summary/clear/sanitize, hrBurnModel, workout import)
+│   │  ├─ pulseSignal.js         # Camera PPG pulse estimate (autocorrelation; quality-gated)
 │   │  ├─ goalAlignment.js       # Weight trend vs goal alignment evaluation
 │   │  ├─ phaseTargetPlanning.js # Target-mode phase planning (delta estimation + feasible date bands)
 │   │  ├─ macroRecommendations.js # Macro target recommendation engine with profile anchoring and constraint-based logic
@@ -1352,6 +1436,8 @@ src/
 │   │                            #   primePersistenceBaseline / resetPersistenceTracking / diffShardedHistoryField
 │   ├─ measurements/
 │   │  ├─ bodyFat.js             # Body fat validation, trend analysis, sparklines, trapezoidal N-day averages
+│   │  ├─ heartRate.js           # Daily HR entries: normalize/sort, synced merge (manual-safe), manual set/clear,
+│   │  │                         #   single-family resting series
 │   │  ├─ profile.js             # Age/height sanitization helpers (sanitizeAge, sanitizeHeight, AGE/HEIGHT min/max constants)
 │   │  └─ weight.js              # Date normalization, weight clamping, sorting, trend analysis (capped fallback), sparklines,
 │   │                            #   calculateTrapezoidalWindowAverage + tracker entry deltas
@@ -1397,6 +1483,11 @@ src/
 │   ├─ openFoodFacts.js          # OpenFoodFacts barcode lookup client
 │   ├─ barcodeScanner.js         # Official Capacitor barcode scanner wrapper
 │   ├─ fileShare.js              # Export delivery bridge (web download / native Filesystem+Share sheet)
+│   ├─ healthBridge.js           # Shared health-store availability + read-type auth (steps + HR)
+│   ├─ heartRateHealth.js        # HR plugin reads: per-local-day aggregates, resting, VO2, session samples, workouts
+│   ├─ heartRateSync.js          # HR sync singleton (status store, connect/backfill/refresh/disconnect)
+│   ├─ heartRateSensor.js        # Live BLE HR sensor singleton (scan/connect/record/checkpoint; lazy plugins)
+│   ├─ cameraPulse.js            # Experimental camera pulse measurement (getUserMedia + torch)
 │   └─ foodCatalog.js            # SQLite-backed local food catalog service (sql.js)
 ├─ tests/                        # UI-tier harness ONLY — setup.js (plugin doubles) + mocks/capacitor.js
 │                                #   UI specs live beside their sources as `src/**/*.spec.{js,jsx}` (Vitest)
@@ -1479,7 +1570,9 @@ npm run test:ui:coverage # UI-tier coverage (components + hooks + modalStack)
 - Tests use `node --test` with ESM; use explicit `.js` extensions in relative imports for test-executed modules.
 - `npm run lint` can include pre-existing warnings in untouched files. Prefer targeted lint for changed files during incremental work, then full lint when practical.
 - Storage tests intentionally run with in-memory `window.localStorage` shims in Node context; avoid plugin monkey-patching when possible.
-- Full `npm run test` is green (461 tests; the shell's loop math — px transform geometry, teleport tiers, settle clock, wrap periods, shortest tab path, ease — is covered by `tests/utils/carouselLoop.test.js`). Earlier additions: `tests/utils/bezierPath.test.js` (gap-aware path runs), `tests/utils/trendAverages.test.js` (trapezoidal N-day averages + capped trend fallback), `tests/utils/entryDeltas.test.js` (tracker entry deltas + signed-delta formatting), staleness-gate cases in `tests/utils/adaptiveThermogenesis.test.js`, and the keyboard-inset rule in `tests/utils/keyboardInset.test.js`. `tests/utils/sessionCarryover.test.js` also pins the date-distance pre-filter (far sessions never reach the pricing pass; a session carrying its own long window is still honored), and `src/hooks/useFoodCatalogWarmUp.spec.js` covers the idle warm-up lifecycle (no warm-up before hydration, once-per-page-load, unmount cancels). The canonical defaults are asserted by `tests/constants/activityPresets.test.js` against `DEFAULT_ACTIVITY_MULTIPLIERS` (`{ training: 0.2, rest: 0.22 }`).
+- **Heart-rate golden regression:** `tests/utils/heartRateGolden.test.js` pins the full `calculateCalorieBreakdown` + `buildDailySnapshot` output for the scenarios in `tests/helpers/heartRateGoldenFixture.js` (intensity + in-range HR sessions, EPOC carry-in, step overlap, Smart TEF, crude AT) against `tests/fixtures/heartRateGolden.json`, captured before any heart-rate change and verified identical under local, UTC and America/New_York time zones. Existing fields must not move; new top-level fields are allowed. Re-capture the JSON only for an intended change, naming the moved field in the commit.
+- **Heart-rate coverage:** Node — `tests/utils/heartRate.test.js` (bounds, entries/merge, as-of-date profile, legacy-rule parity, %HRR cutpoints, observed max, VO2 validity, zones, time-weighted samples, source selection, resting estimate/trend, BLE parser, EPOC/training/VO2 weaving, sharded persistence, snapshot fields), `tests/utils/heartRateBounds.test.js` (session bounds, exact Keytel, `trainingDetails`), `tests/utils/sessionHeartRate.test.js` (session fields, workout map vs the real cardio catalog, waking HR, NEAT advisory, AT physiology, phase resting HR, live-recording accumulator), `tests/utils/localDayWindow.test.js` (DST-safe local-day windows, pinned `TZ`), `tests/utils/pulseSignal.test.js`, `tests/store/heartRateActions.test.js` (no snapshot seeding, manual wins, settings validation). UI — `services/heartRateSync.spec.js`, `services/heartRateSensor.spec.js`, `common/SessionHeartRatePanel.spec.jsx`, `fullscreen/HeartRateTrackerModal.spec.jsx`, `forms/RestingHeartRateEntryModal.spec.jsx`, `pickers/HeartRatePickerModal.spec.jsx`. The plugin doubles add `Health.queryAggregated` / `queryWorkouts`, a `BleClient` double (`BluetoothLeMock.__notify` pushes 0x2A37 frames) and `KeepAwake`.
+- Full `npm run test` is green (535 tests; the shell's loop math — px transform geometry, teleport tiers, settle clock, wrap periods, shortest tab path, ease — is covered by `tests/utils/carouselLoop.test.js`). Earlier additions: `tests/utils/bezierPath.test.js` (gap-aware path runs), `tests/utils/trendAverages.test.js` (trapezoidal N-day averages + capped trend fallback), `tests/utils/entryDeltas.test.js` (tracker entry deltas + signed-delta formatting), staleness-gate cases in `tests/utils/adaptiveThermogenesis.test.js`, and the keyboard-inset rule in `tests/utils/keyboardInset.test.js`. `tests/utils/sessionCarryover.test.js` also pins the date-distance pre-filter (far sessions never reach the pricing pass; a session carrying its own long window is still honored), and `src/hooks/useFoodCatalogWarmUp.spec.js` covers the idle warm-up lifecycle (no warm-up before hydration, once-per-page-load, unmount cancels). The canonical defaults are asserted by `tests/constants/activityPresets.test.js` against `DEFAULT_ACTIVITY_MULTIPLIERS` (`{ training: 0.2, rest: 0.22 }`).
 - The **UI tier is separate**: `npm run test:ui` runs Vitest 5 (jsdom + Testing Library) over `src/**/*.spec.{js,jsx}` for components and hooks. Logic specs stay `tests/**/*.test.js` under `node --test`, so neither runner can pick up the other's files. Harness: `vitest.config.js` (standalone, deliberately NOT extending `vite.config.js`) + `src/tests/setup.js` (Capacitor plugin doubles in `src/tests/mocks/capacitor.js`, `visualViewport`/`window.scrollTo`/`Element.prototype.scrollTo` shims — the tracker modals drive their chart carousels imperatively from effects — plus explicit RTL `cleanup` because `globals: false`). Modal stack/backdrop math was extracted to `src/utils/visuals/modalStack.js` so it is unit-testable without a DOM.
 - **Plugin boundaries are covered at the module boundary, not by monkey-patching plugin internals.** `src/tests/mocks/capacitor.js` doubles `@capacitor/core`, `preferences`, `app`, `status-bar`, `keyboard`, `splash-screen`, `barcode-scanner`, `@capgo/capacitor-health`, `navigation-bar`, `@capacitor/filesystem` and `@capacitor/share`, and each double exposes **only the API surface the app actually calls** (verified by grep) so an uncovered plugin call fails loudly instead of silently returning `undefined`. Keep it that way: extend the double when the app starts using a new plugin method, and never reach into real plugin internals from a spec.
 - Covered plugin contracts: `services/barcodeScanner.spec.js` (platform gating without invoking the plugin, digit normalisation, `UNSUPPORTED`/`NO_RESULT`/`CANCELLED`/`PERMISSION_DENIED`/`SCAN_FAILED` mapping, and the exact scanner option payload), `hooks/useHardwareBackButton.spec.js` (modal → home-first → double-exit + hint timing + listener cleanup, **plus: nothing is registered on iOS**), `hooks/useHealthConnect.spec.js` (status lifecycle, **today-scoped window as the primary read**, plugin default only as the degraded fallback, exact-midnight rolling retry, degradation to `null` instead of throwing, max-per-source step dedupe, refresh only while connected, foreground refresh only when `isActive`, **plus the iOS contract**: read-only scope, `UNAVAILABLE` instead of `NOT_INSTALLED`, Apple Health copy, Android-only settings/write helpers), `services/fileShare.spec.js` (web download vs native Cache-write + share sheet, share-sheet dismissal as success, never throwing) and `utils/theme.spec.js` (which plugin APIs each platform may touch), plus `hooks/useKeyboardVisible.spec.js` (both keyboard shapes, the plugin-event/window-resize ordering, the zoom guard, the published CSS variable, listener + handle teardown) and `common/ModalShell.spec.jsx` (the centered keyboard sizing).
@@ -1507,7 +1600,7 @@ npm run test:ui:coverage # UI-tier coverage (components + hooks + modalStack)
 8. **Food cache retention is intentional:** `cachedFoods` is history-scoped and persisted with dedupe + max cap (currently 500). Keep retention logic if changing cache schema.
 9. **Never call `forceClose()`** on modals unless absolutely necessary — it skips exit animations and can cause visual glitches.
 10. **Step range parsing** is complex — always use `parseStepRange()` from `utils/steps.js`. It handles `<10k`, `>20k`, `10k-15k`, `+` suffix formats.
-11. **Cardio effort types:** Check `session.effortType` — `'intensity'` uses MET-based calculation, `'heartRate'` uses gender-specific heart rate coefficients.
+11. **Cardio effort types:** Check `session.effortType` — `'intensity'` uses MET-based calculation, `'heartRate'` uses gender-specific heart rate coefficients (Keytel et al. 2005; bounds in pitfall 118).
 12. **Cardio overlap classification is metadata-driven:** Do not infer ambulatory cardio with string matching/keywords. Use `cardioTypes[type].ambulatory`.
 13. **Cadence source of truth:** For overlap estimation, use `cardioTypes[type].cadence` (or defined fallback path in `utils/steps.js` for custom types). Do not hardcode cadence by name in UI/store code.
 14. **Session-level overlap toggle:** Respect `session.stepOverlapEnabled` in overlap deduction; relevant types default on, non-ambulatory types force off.
@@ -1623,3 +1716,14 @@ npm run test:ui:coverage # UI-tier coverage (components + hooks + modalStack)
 116. **RAG pipeline latency contracts — telemetry, history, and grounding batches:** (a) every pipeline `record.*` telemetry call is fire-and-forget (`fireAndForgetTelemetry` in `services/ragChatPipeline.js`) — awaiting one put a Dexie write between pipeline stages; (b) `services/ragTelemetry.js` hydrates via `loadHistoryDocumentsByIds` (two docs) and persists on a 1.5s trailing debounce — never revert to `loadAllHistoryDocuments` (full-DB read) or a write per telemetry event; (c) `buildStructuredChatHistory` caps at `CHAT_REQUEST_HISTORY_MESSAGE_LIMIT` (12, matching the client's `slice(-12)`) and replaces historical image attachments with a text note — re-encoded images blow the proxy's 500KB payload cap on every follow-up; (d) `resolveAiGroundedBatch` chunks requests into waves of `RAG_GROUNDING_BATCH_MAX_NAMES` — the batch LLM call drops names past its cap, so unchunked batches silently fail every entry beyond the first ten. Covered by `tests/services/ragChatPipeline.test.js`, `tests/services/foodSearch.test.js` and `tests/utils/concurrency.test.js`.
 
 117. **Lookup matching stems plurals on both sides:** `tokenize` in `services/foodSearch.js` applies `stemPluralToken` to query AND food tokens ("eggs" matches catalog "Egg"), and `BRAND_INTENT_TOKEN_HINTS` is stored pre-stemmed. Any new token-based comparison or cache key must go through `tokenize` — raw token equality on unstemmed strings regresses recall at the exact decision point that gates local-accept vs cloud/grounding escalation.
+
+118. **Session heart rate has one set of bounds:** `normalizeSessionHeartRate` in `constants/health/heartRate.js` (whole bpm, 60–220, `null` otherwise — out-of-range values are rejected, never clamped) is the only validator. The form Save gates, the orchestrator sanitizers (`sanitizeCardioDraft` / `sanitizeTrainingSession`), the Keytel kcal formula, EPOC's HR→intensity rule (an invalid HR falls back to the stored `intensity`), the step-overlap cadence multiplier (an invalid HR is neutral) and `HeartRatePickerModal` all consume it. Do not reintroduce a per-layer `> 0` or `60/220` check. Two related contracts: a heart-rate session's stored `intensity` is stale (left over from before the user switched to HR), so step-overlap cadence ignores it and HR alone sets the cadence; and the HR picker opens an unset value at `DEFAULT_SESSION_HEART_RATE_BPM` (120) via `resolveInitialHeartRate`, because `Number('') === 0` used to clamp every fresh form to 60.
+119. **Heart-rate data never moves an HR-less user's numbers, and never reaches back in time:** every HR formula has the legacy branch (no resting baseline → the exact `220 − age` 0.70/0.85 EPOC rule; no `hrBurnModel` → Keytel; no VO2 max → plain Keytel), and every HR profile is resolved **as of the session's / day's date** (`resolveHeartRateProfile(userData, dateKey)`). Keep the golden regression green; never resolve a past session with today's profile.
+120. **Burn caches key on HR inputs:** `todayBurnProfileKey` carries `maxHeartRateCustom`, `vo2MaxCustom` and reference tokens for `heartRateEntries` and BOTH session arrays (observed max HR reads across them); HomeScreen's hero breakdown memo depends on the store's memoized `heartRateProfile`. A new HR input the burns read must join both.
+121. **Synced HR never seeds snapshots and never overwrites a manual resting HR:** `saveHeartRateEntries` merges field-by-field and refreshes only existing snapshots (`upsertDailySnapshots(..., { onlyIfExisting: true })`); a seeded untracked day would carry intake 0 into Rolling Energy Balance / smart AT.
+122. **Measured and estimated resting HR never share a trend:** trends, baselines, deltas and phase start/end resolve one family (`resolveRestingHrTrendFamily`); always pre-filter with `getRestingHrSeries` before the generic weight.js helpers (`getPreviousEntryDelta` compares with the immediately previous array entry).
+123. **HR reads are one local day per call:** use `buildLocalDayReadWindow(dateKey)`; never a multi-day `bucket: 'day'` aggregate (Android buckets are fixed 24 h and drift across DST). Session reads use `limit: 0` over the bounded window and ONE source (`selectPrimaryHeartRateSource`).
+124. **HR is display-only for AT and advisory-only for NEAT:** `assessAdaptiveThermogenesisPhysiology` must never feed the correction or its confidence, and `assessNeatFromHeartRate` only stages a preset in `DailyNeatOverrideModal`. BMR has no HR input.
+125. **Lifting HR prices intensity, not Keytel, for new sessions only:** `sanitizeTrainingSession` writes `hrBurnModel` via `resolveTrainingHrBurnModel(draft)`; edit drafts carry the stored model (`getStoredTrainingHrBurnModel`) so editing a legacy session can never switch its formula.
+126. **The BLE / keep-awake plugins stay lazy and the recording lives in the service:** only `services/heartRateSensor.js` imports them, dynamically; `vite.config.js` keeps `@capacitor-community/*` out of `chunk-capacitor`. Recording state is the module singleton (closing the view must not stop it); read it with `useHeartRateSensorState` in leaf components (e.g. `LiveHeartRatePill`), never by lifting beats into orchestrator state.
+

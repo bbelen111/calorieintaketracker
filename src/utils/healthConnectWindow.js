@@ -54,6 +54,53 @@ export const buildHealthConnectFallbackReadWindow = (
 };
 
 /**
+ * `[local 00:00, next local 00:00)` for a `YYYY-MM-DD` day, clipped to `now`
+ * for today. Built from the calendar date (not "start + 24 h"), so a DST day
+ * is correctly 23 or 25 hours long. Heart-rate reads query ONE local day per
+ * call for exactly this reason: a multi-day `bucket: 'day'` aggregate is a
+ * fixed 24 h duration on Android and drifts an hour across a DST change.
+ *
+ * @returns {{ startDate: string, endDate: string } | null} ISO strings, or
+ *   `null` for an invalid key or a day that has not started yet.
+ */
+export const buildLocalDayReadWindow = (dateKey, now = new Date()) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateKey ?? '').trim());
+  if (!match) {
+    return null;
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  const start = new Date(year, month, day, 0, 0, 0, 0);
+  if (
+    start.getFullYear() !== year ||
+    start.getMonth() !== month ||
+    start.getDate() !== day
+  ) {
+    return null;
+  }
+  const nextStart = new Date(year, month, day + 1, 0, 0, 0, 0);
+  const nowMs = now instanceof Date ? now.getTime() : Number(now);
+  if (!Number.isFinite(nowMs) || nowMs <= start.getTime()) {
+    return null;
+  }
+  const end = new Date(Math.min(nextStart.getTime(), nowMs));
+  return { startDate: start.toISOString(), endDate: end.toISOString() };
+};
+
+/** Local `YYYY-MM-DD` of an ISO timestamp / Date / epoch ms (null if invalid). */
+export const toLocalDateKey = (value) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+/**
  * Aggregate Health Connect step samples, deduping across multiple sources.
  *
  * Health Connect may return overlapping records from several apps

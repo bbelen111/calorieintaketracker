@@ -30,6 +30,14 @@ import { useHardwareBackButton } from '../../hooks/useHardwareBackButton';
 import { useHealthConnect } from '../../hooks/useHealthConnect';
 import { useFoodCatalogWarmUp } from '../../hooks/useFoodCatalogWarmUp';
 import { HealthConnectStatus } from '../../constants/health/healthSources.js';
+import { normalizeSessionHeartRate } from '../../constants/health/heartRate.js';
+import {
+  applyHeartRateSummary,
+  clearHeartRateFields,
+  getStoredTrainingHrBurnModel,
+  resolveTrainingHrBurnModel,
+  sanitizeSessionHeartRateDetails,
+} from '../../utils/calculations/sessionHeartRate.js';
 import { saveLastSelectedCardioType } from '../../utils/data/storage';
 import {
   ScreenTabs,
@@ -64,6 +72,22 @@ import { EpocWindowPickerModal } from './modals/pickers/EpocWindowPickerModal';
 import { DailyActivityEditorModal } from './modals/forms/DailyActivityEditorModal';
 import { DailyActivityCustomModal } from './modals/forms/DailyActivityCustomModal';
 import { DailyNeatOverrideModal } from './modals/forms/DailyNeatOverrideModal';
+import { RestingHeartRateEntryModal } from './modals/forms/RestingHeartRateEntryModal';
+import { HeartRateZonesInfoModal } from './modals/info/HeartRateZonesInfoModal';
+import { HeartRatePickerModal } from './modals/pickers/HeartRatePickerModal';
+import { useHeartRateSync } from '../../hooks/useHeartRateSync';
+import {
+  MAX_HEART_RATE_MAX_BPM,
+  MAX_HEART_RATE_MIN_BPM,
+  VO2_MAX_MAX,
+  VO2_MAX_MIN,
+} from '../../constants/health/heartRate.js';
+import { toLocalDateKey } from '../../utils/healthConnectWindow.js';
+import {
+  discardInterruptedRecording,
+  readInterruptedRecording,
+} from '../../services/heartRateSensor.js';
+import { assessNeatFromHeartRate } from '../../utils/calculations/heartRate.js';
 import { TemplatePickerModal } from './modals/pickers/TemplatePickerModal';
 import { FoodEntryModal } from './modals/forms/FoodEntryModal';
 import { MealTypePickerModal } from './modals/pickers/MealTypePickerModal';
@@ -163,6 +187,23 @@ const AdaptiveThermogenesisModal = lazy(() =>
 const RollingEnergyBalanceModal = lazy(() =>
   import('./modals/fullscreen/RollingEnergyBalanceModal').then((module) => ({
     default: module.RollingEnergyBalanceModal,
+  }))
+);
+// Heart-rate surfaces: the tracker and the live-sensor view are fullscreen and
+// rarely opened; the pairing sheet pulls in the sensor service.
+const HeartRateTrackerModal = lazy(() =>
+  import('./modals/fullscreen/HeartRateTrackerModal').then((module) => ({
+    default: module.HeartRateTrackerModal,
+  }))
+);
+const LiveHeartRateSessionModal = lazy(() =>
+  import('./modals/fullscreen/LiveHeartRateSessionModal').then((module) => ({
+    default: module.LiveHeartRateSessionModal,
+  }))
+);
+const HeartRateSensorPairingModal = lazy(() =>
+  import('./modals/lists/HeartRateSensorPairingModal').then((module) => ({
+    default: module.HeartRateSensorPairingModal,
   }))
 );
 // Heavy pickers, lazy like the fullscreen modals above: CalendarPickerModal
@@ -268,18 +309,26 @@ const sanitizeCardioDraft = (draft, cardioTypes = {}) => {
   };
 
   if (effortType === 'heartRate') {
-    const parsedHeartRate = Number.parseInt(draft.averageHeartRate, 10);
-    const heartRate = Number.isFinite(parsedHeartRate)
-      ? Math.max(parsedHeartRate, 0)
-      : 0;
+    // Out-of-range averages would price at 0 kcal; reject them at save time
+    // with the same bounds every calculation uses.
+    const heartRate = normalizeSessionHeartRate(
+      Number.parseInt(draft.averageHeartRate, 10)
+    );
 
-    if (!heartRate) {
+    if (heartRate == null) {
       return null;
     }
 
+    Object.assign(session, sanitizeSessionHeartRateDetails(session));
     session.averageHeartRate = heartRate;
-  } else if (session.averageHeartRate !== undefined) {
-    delete session.averageHeartRate;
+  } else {
+    // Intensity sessions carry no heart-rate fields (average, peak, source…).
+    const cleared = clearHeartRateFields(session);
+    Object.keys(session).forEach((key) => {
+      if (!(key in cleared)) {
+        delete session[key];
+      }
+    });
   }
 
   const selectedType = cardioTypes?.[session.type];
@@ -362,18 +411,26 @@ const sanitizeTrainingSession = (draft) => {
   };
 
   if (effortType === 'heartRate') {
-    const parsedHeartRate = Number.parseInt(draft.averageHeartRate, 10);
-    const heartRate = Number.isFinite(parsedHeartRate)
-      ? Math.max(parsedHeartRate, 0)
-      : 0;
+    const heartRate = normalizeSessionHeartRate(
+      Number.parseInt(draft.averageHeartRate, 10)
+    );
 
-    if (!heartRate) {
+    if (heartRate == null) {
       return null;
     }
 
+    Object.assign(session, sanitizeSessionHeartRateDetails(session));
     session.averageHeartRate = heartRate;
+    // New HR lifting sessions let HR pick the intensity; a session loaded for
+    // editing carries its stored model, so history never switches formula.
+    session.hrBurnModel = resolveTrainingHrBurnModel(draft);
   } else {
-    delete session.averageHeartRate;
+    const cleared = clearHeartRateFields(session);
+    Object.keys(session).forEach((key) => {
+      if (!(key in cleared)) {
+        delete session[key];
+      }
+    });
   }
 
   if (session.id !== undefined) {
@@ -697,6 +754,11 @@ export const EnergyMapCalculator = () => {
   // Health Connect integration for live step tracking
   const healthConnect = useHealthConnect();
 
+  // Heart-rate sync lifecycle (status lives in services/heartRateSync.js).
+  useHeartRateSync({ isLoaded });
+  // Memoized in the store on its inputs, so this rarely changes identity.
+  const heartRateProfile = useEnergyMapStore((state) => state.heartRateProfile);
+
   // Idle warm-up for the local food catalog (sql.js + bundled SQLite): hides
   // the first-search initialization cost once the app has settled. See
   // hooks/useFoodCatalogWarmUp.js.
@@ -964,6 +1026,23 @@ export const EnergyMapCalculator = () => {
   const stepGoalPickerModal = useAnimatedModal();
   const macroPickerModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
   const calorieTargetModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
+  // --- Heart rate (see AGENTS.md "Heart Rate") ---
+  const heartRateTrackerModal = useAnimatedModal();
+  const restingHeartRateEntryModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
+  const heartRateZonesInfoModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
+  const maxHeartRatePickerModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
+  const vo2MaxPickerModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
+  const heartRateSensorPairingModal = useAnimatedModal(
+    false,
+    MODAL_CLOSE_DELAY
+  );
+  const liveHeartRateModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
+  // The entry sheet is keyed by `version` so each open starts fresh.
+  const [restingHeartRateEntry, setRestingHeartRateEntry] = useState({
+    dateKey: null,
+    version: 0,
+  });
+  const [liveRecordingKind, setLiveRecordingKind] = useState('cardio');
   // ...existing code...
 
   // --- Cross-navigation: Adaptive Thermogenesis <-> Rolling Energy Balance ---
@@ -1047,6 +1126,13 @@ export const EnergyMapCalculator = () => {
 
   const isAnyModalOpen = [
     confirmActionModal,
+    heartRateSensorPairingModal,
+    maxHeartRatePickerModal,
+    vo2MaxPickerModal,
+    heartRateZonesInfoModal,
+    restingHeartRateEntryModal,
+    liveHeartRateModal,
+    heartRateTrackerModal,
     foodPortionModal,
     foodEntryModal,
     foodNutrientPickerModal,
@@ -1097,6 +1183,16 @@ export const EnergyMapCalculator = () => {
   const closeTopmostModal = useCallback(() => {
     const modalStack = [
       confirmActionModal,
+      // Heart-rate children sit above their parents (pairing over the live
+      // view, pickers/info/entry over Settings or the HR tracker, the live
+      // view over the cardio/training form).
+      heartRateSensorPairingModal,
+      maxHeartRatePickerModal,
+      vo2MaxPickerModal,
+      heartRateZonesInfoModal,
+      restingHeartRateEntryModal,
+      liveHeartRateModal,
+      heartRateTrackerModal,
       // Detail sits above the list when both are open: close it first.
       dayLedgerModal,
       dayLedgerListModal,
@@ -1206,6 +1302,13 @@ export const EnergyMapCalculator = () => {
     trainingModal,
     weightEntryModal,
     weightTrackerModal,
+    heartRateSensorPairingModal,
+    maxHeartRatePickerModal,
+    vo2MaxPickerModal,
+    heartRateZonesInfoModal,
+    restingHeartRateEntryModal,
+    liveHeartRateModal,
+    heartRateTrackerModal,
     handleSettingsBack,
   ]);
 
@@ -1716,6 +1819,18 @@ export const EnergyMapCalculator = () => {
           normalizedEffortType === 'heartRate'
             ? (existing.averageHeartRate ?? '')
             : '',
+        // Keep how the stored session is priced (legacy HR sessions stay on
+        // Keytel) and its wearable details.
+        ...(normalizedEffortType === 'heartRate'
+          ? sanitizeSessionHeartRateDetails({
+              hrBurnModel: getStoredTrainingHrBurnModel(existing),
+              maxHeartRate: existing.maxHeartRate,
+              heartRateSource: existing.heartRateSource,
+              heartRateCoverage: existing.heartRateCoverage,
+              heartRateZoneSeconds: existing.heartRateZoneSeconds,
+              healthWorkoutId: existing.healthWorkoutId,
+            })
+          : {}),
       });
       trainingModal.open();
     },
@@ -2069,6 +2184,183 @@ export const EnergyMapCalculator = () => {
     setCardioModalMode('add');
     cardioModal.open();
   }, [cardioModal, cardioTypes, lastSelectedCardioType]);
+
+  // --- Heart rate handlers -------------------------------------------------
+  // The modal hooks' functions are stable (useCallback) while the returned
+  // object is not, so callbacks depend on the functions themselves.
+  const { open: openHeartRateTrackerModal } = heartRateTrackerModal;
+  const {
+    open: openRestingHeartRateEntryModal,
+    requestClose: closeRestingHeartRateEntryModal,
+  } = restingHeartRateEntryModal;
+  const {
+    open: openLiveHeartRateModal,
+    requestClose: closeLiveHeartRateModal,
+  } = liveHeartRateModal;
+
+  const openHeartRateTracker = useCallback(() => {
+    openHeartRateTrackerModal();
+  }, [openHeartRateTrackerModal]);
+
+  // Opened with no argument (Insights card, Settings) it logs today; the HR
+  // tracker passes the tapped date.
+  const openRestingHeartRateEntry = useCallback(
+    (dateKey) => {
+      setRestingHeartRateEntry((previous) => ({
+        dateKey: normalizeDateKey(dateKey) ?? getTodayDateKey(),
+        version: previous.version + 1,
+      }));
+      openRestingHeartRateEntryModal();
+    },
+    [openRestingHeartRateEntryModal]
+  );
+
+  const handleRestingHeartRateSave = useCallback(
+    (dateKey, bpm) => {
+      useEnergyMapStore.getState().setManualRestingHeartRate(dateKey, bpm);
+      closeRestingHeartRateEntryModal();
+    },
+    [closeRestingHeartRateEntryModal]
+  );
+
+  const handleRestingHeartRateClear = useCallback(
+    (dateKey) => {
+      useEnergyMapStore.getState().setManualRestingHeartRate(dateKey, null);
+      closeRestingHeartRateEntryModal();
+    },
+    [closeRestingHeartRateEntryModal]
+  );
+
+  const openLiveHeartRate = useCallback(
+    (kind) => {
+      setLiveRecordingKind(kind === 'training' ? 'training' : 'cardio');
+      openLiveHeartRateModal();
+    },
+    [openLiveHeartRateModal]
+  );
+
+  /**
+   * A finished live recording (or one recovered after an app kill) fills the
+   * cardio / training form, which the user then saves the normal way. Opens
+   * the form when the recording outlived it.
+   */
+  const applyLiveRecordingToDraft = useCallback(
+    (summary) => {
+      if (!summary) {
+        return;
+      }
+      if (summary.kind === 'training') {
+        setTrainingDraft((previous) =>
+          applyHeartRateSummary(
+            {
+              ...(previous ??
+                getDefaultTrainingDraftForType(
+                  userData.selectedTrainingType,
+                  userData
+                )),
+              startTime: summary.startTime,
+              durationHours: summary.durationMinutes / 60,
+            },
+            summary,
+            'ble'
+          )
+        );
+        if (!trainingModal.isOpen) {
+          setTrainingModalMode('session');
+          setEditingTrainingSessionId(null);
+          trainingModal.open();
+        }
+        return;
+      }
+      setCardioDraft((previous) =>
+        applyHeartRateSummary(
+          {
+            ...(previous ??
+              getDefaultCardioSessionForType(
+                lastSelectedCardioType,
+                cardioTypes
+              )),
+            date: toLocalDateKey(summary.startedAt) ?? getTodayDateString(),
+            startTime: summary.startTime,
+            duration: summary.durationMinutes,
+          },
+          summary,
+          'ble'
+        )
+      );
+      if (!cardioModal.isOpen) {
+        setEditingCardioId(null);
+        setCardioModalMode('add');
+        cardioModal.open();
+      }
+    },
+    [cardioModal, cardioTypes, lastSelectedCardioType, trainingModal, userData]
+  );
+
+  const handleLiveRecordingFinish = useCallback(
+    (summary) => {
+      closeLiveHeartRateModal();
+      applyLiveRecordingToDraft(summary);
+    },
+    [applyLiveRecordingToDraft, closeLiveHeartRateModal]
+  );
+
+  // A recording interrupted by an app kill: offer to keep it, once.
+  useEffect(() => {
+    if (!isLoaded) {
+      return undefined;
+    }
+    let cancelled = false;
+    readInterruptedRecording().then((summary) => {
+      if (cancelled || !summary) {
+        return;
+      }
+      discardInterruptedRecording();
+      setConfirmActionTitle('Save interrupted recording?');
+      setConfirmActionDescription(
+        `A ${summary.durationMinutes} min heart-rate recording (avg ${summary.averageHeartRate} bpm) stopped when the app closed. Add it as a ${summary.kind === 'training' ? 'training' : 'cardio'} session?`
+      );
+      setConfirmActionLabel('Review session');
+      setConfirmActionTone('success');
+      setConfirmActionCallback(() => () => applyLiveRecordingToDraft(summary));
+      confirmActionModal.open();
+    });
+    return () => {
+      cancelled = true;
+    };
+    // Once per hydration.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded]);
+
+  // Advisory NEAT suggestion for the override sheet (never auto-applied).
+  const neatHeartRateAdvice = useMemo(
+    () =>
+      assessNeatFromHeartRate({
+        heartRateEntries: userData.heartRateEntries,
+        stepEntries,
+        dateKey: getTodayDateKey(),
+      }),
+    [userData.heartRateEntries, stepEntries]
+  );
+
+  const heartRateSettingsOpeners = useMemo(
+    () => ({
+      heartRateTracker: openHeartRateTracker,
+      restingHeartRateEntry: () => openRestingHeartRateEntry(),
+      maxHeartRatePicker: maxHeartRatePickerModal.open,
+      vo2MaxPicker: vo2MaxPickerModal.open,
+      heartRateSensor: heartRateSensorPairingModal.open,
+      heartRateZonesInfo: heartRateZonesInfoModal.open,
+    }),
+    [
+      openHeartRateTracker,
+      openRestingHeartRateEntry,
+      maxHeartRatePickerModal.open,
+      vo2MaxPickerModal.open,
+      heartRateSensorPairingModal.open,
+      heartRateZonesInfoModal.open,
+    ]
+  );
 
   const handleEditCardioSession = useCallback(
     (sessionId) => {
@@ -3901,13 +4193,24 @@ export const EnergyMapCalculator = () => {
     (format = 'csv') => {
       if (!selectedPhase) return;
 
+      const heartRateEntries = userData.heartRateEntries ?? [];
       if (format === 'json') {
-        exportPhaseAsJSON(selectedPhase, weightEntries, nutritionData);
+        exportPhaseAsJSON(
+          selectedPhase,
+          weightEntries,
+          nutritionData,
+          heartRateEntries
+        );
       } else {
-        exportPhaseAsCSV(selectedPhase, weightEntries, nutritionData);
+        exportPhaseAsCSV(
+          selectedPhase,
+          weightEntries,
+          nutritionData,
+          heartRateEntries
+        );
       }
     },
-    [nutritionData, selectedPhase, weightEntries]
+    [nutritionData, selectedPhase, userData.heartRateEntries, weightEntries]
   );
 
   // Phase archive/delete handlers
@@ -4139,6 +4442,7 @@ export const EnergyMapCalculator = () => {
           showSwipeHint={!hasSeenSwipeHint && !isAnyModalOpen}
           onDismissSwipeHint={markSwipeHintSeen}
           onOpenSettings={openSettingsModal}
+          onOpenLiveHeartRate={openLiveHeartRate}
         />
 
         <div className="relative">
@@ -4344,6 +4648,8 @@ export const EnergyMapCalculator = () => {
                   onOpenMacroPicker={openMacroPickerModal}
                   onOpenAdaptiveThermogenesis={adaptiveThermogenesisModal.open}
                   onOpenRollingEnergyBalance={rollingEnergyBalanceModal.open}
+                  onOpenHeartRateTracker={openHeartRateTracker}
+                  onLogRestingHeartRate={openRestingHeartRateEntry}
                   macroLocks={userData.macroLocks}
                 />
               </div>
@@ -4671,6 +4977,7 @@ export const EnergyMapCalculator = () => {
                 stepRanges: stepRangesModal.open,
                 macroPicker: openMacroPickerModal,
                 clearCachedFoods: handleClearCachedFoods,
+                ...heartRateSettingsOpeners,
               },
               info: {
                 tef: tefInfoModal.open,
@@ -4690,6 +4997,104 @@ export const EnergyMapCalculator = () => {
         </Suspense>
       )}
 
+      {(heartRateTrackerModal.isOpen || heartRateTrackerModal.isClosing) && (
+        <Suspense fallback={null}>
+          <HeartRateTrackerModal
+            isOpen={heartRateTrackerModal.isOpen}
+            isClosing={heartRateTrackerModal.isClosing}
+            onClose={heartRateTrackerModal.requestClose}
+            onAddReading={openRestingHeartRateEntry}
+            onOpenZonesInfo={heartRateZonesInfoModal.open}
+          />
+        </Suspense>
+      )}
+
+      {(restingHeartRateEntryModal.isOpen ||
+        restingHeartRateEntryModal.isClosing) && (
+        <RestingHeartRateEntryModal
+          key={restingHeartRateEntry.version}
+          isOpen={restingHeartRateEntryModal.isOpen}
+          isClosing={restingHeartRateEntryModal.isClosing}
+          dateKey={restingHeartRateEntry.dateKey}
+          existingEntry={
+            (userData.heartRateEntries ?? []).find(
+              (entry) => entry?.date === restingHeartRateEntry.dateKey
+            ) ?? null
+          }
+          onSave={handleRestingHeartRateSave}
+          onClear={handleRestingHeartRateClear}
+          onCancel={restingHeartRateEntryModal.requestClose}
+        />
+      )}
+
+      <HeartRateZonesInfoModal
+        isOpen={heartRateZonesInfoModal.isOpen}
+        isClosing={heartRateZonesInfoModal.isClosing}
+        onClose={heartRateZonesInfoModal.requestClose}
+      />
+
+      <HeartRatePickerModal
+        isOpen={maxHeartRatePickerModal.isOpen}
+        isClosing={maxHeartRatePickerModal.isClosing}
+        title="Max heart rate"
+        value={userData.maxHeartRateCustom ?? heartRateProfile?.maxHr ?? ''}
+        min={MAX_HEART_RATE_MIN_BPM}
+        max={MAX_HEART_RATE_MAX_BPM}
+        defaultValue={heartRateProfile?.predictedMaxHr ?? 190}
+        helperText="Only set this from a lab test or a hard all-out effort."
+        onCancel={maxHeartRatePickerModal.requestClose}
+        onSave={(bpm) => {
+          handleUserDataChange('maxHeartRateCustom', bpm);
+          maxHeartRatePickerModal.requestClose();
+        }}
+      />
+
+      <NumericValuePickerModal
+        isOpen={vo2MaxPickerModal.isOpen}
+        isClosing={vo2MaxPickerModal.isClosing}
+        title="VO2 max"
+        value={userData.vo2MaxCustom ?? heartRateProfile?.vo2Max ?? 40}
+        min={VO2_MAX_MIN}
+        max={VO2_MAX_MAX}
+        step={0.5}
+        unitLabel="mL/kg/min"
+        onCancel={vo2MaxPickerModal.requestClose}
+        onSave={(value) => {
+          handleUserDataChange('vo2MaxCustom', value);
+          vo2MaxPickerModal.requestClose();
+        }}
+      />
+
+      {(heartRateSensorPairingModal.isOpen ||
+        heartRateSensorPairingModal.isClosing) && (
+        <Suspense fallback={null}>
+          <HeartRateSensorPairingModal
+            isOpen={heartRateSensorPairingModal.isOpen}
+            isClosing={heartRateSensorPairingModal.isClosing}
+            pairedSensor={userData.heartRateSensor ?? null}
+            onPaired={(sensor) => {
+              handleUserDataChange('heartRateSensor', sensor);
+              heartRateSensorPairingModal.requestClose();
+            }}
+            onForget={() => handleUserDataChange('heartRateSensor', null)}
+            onClose={heartRateSensorPairingModal.requestClose}
+          />
+        </Suspense>
+      )}
+
+      {(liveHeartRateModal.isOpen || liveHeartRateModal.isClosing) && (
+        <Suspense fallback={null}>
+          <LiveHeartRateSessionModal
+            isOpen={liveHeartRateModal.isOpen}
+            isClosing={liveHeartRateModal.isClosing}
+            kind={liveRecordingKind}
+            onClose={liveHeartRateModal.requestClose}
+            onFinish={handleLiveRecordingFinish}
+            onOpenPairing={heartRateSensorPairingModal.open}
+          />
+        </Suspense>
+      )}
+
       {(dailyNeatOverrideModal.isOpen || dailyNeatOverrideModal.isClosing) && (
         <DailyNeatOverrideModal
           key={dailyNeatOverrideVersion}
@@ -4698,6 +5103,7 @@ export const EnergyMapCalculator = () => {
           dayType={selectedDay}
           globalMultiplier={activityMultipliers[selectedDay]}
           currentPresetKey={todayNeatOverride?.presetKey ?? null}
+          heartRateAdvice={neatHeartRateAdvice}
           onApply={handleDailyNeatOverrideApply}
           onClear={handleDailyNeatOverrideClear}
           onClose={closeDailyNeatOverrideModal}
@@ -4767,6 +5173,7 @@ export const EnergyMapCalculator = () => {
             userGender={userData.gender}
             onCancel={trainingModal.requestClose}
             onSave={handleTrainingSave}
+            onRecordLive={openLiveHeartRate}
           />
         </Suspense>
       )}
@@ -4801,6 +5208,7 @@ export const EnergyMapCalculator = () => {
             onStartTimePickerClick={openCardioStartTimePicker}
             showFavouritesButton={showFavouritesButton}
             isEditing={cardioModalMode === 'edit'}
+            onRecordLive={openLiveHeartRate}
           />
         </Suspense>
       )}

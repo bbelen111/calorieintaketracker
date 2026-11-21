@@ -16,6 +16,16 @@ import {
   deriveDailyLogStatus,
   LOG_COMPLETION_STATUS,
 } from '../data/phaseLogV2.js';
+import {
+  getRestingHrMethodFamily,
+  getRestingHrSeries,
+  sortHeartRateEntries,
+} from '../measurements/heartRate.js';
+import {
+  getHeartRateZone,
+  resolveHeartRateProfile,
+  resolveHeartRateZones,
+} from './heartRate.js';
 
 /**
  * Daily Ledger presentation helpers.
@@ -514,6 +524,27 @@ const buildMeasurementWithDelta = (entries, dateKey, valueField) => {
   };
 };
 
+/**
+ * The day's resting HR + an uncoloured `vs prev` delta, compared only within
+ * the day's own method family (measured vs estimated never mix). The series
+ * is pre-filtered to entries that carry a resting value so a day holding only
+ * daily aggregates cannot break the previous-entry comparison.
+ */
+const buildRestingHrMeasurement = (heartRateEntries, dateKey) => {
+  const entries = sortHeartRateEntries(heartRateEntries);
+  const entry = entries.find((item) => item.date === dateKey);
+  if (!entry || entry.restingHr == null) {
+    return { value: null, delta: null, method: null };
+  }
+  const family = getRestingHrMethodFamily(entry.restingHrMethod);
+  const series = getRestingHrSeries(entries, { family });
+  return {
+    value: entry.restingHr,
+    delta: getPreviousEntryDelta(series, dateKey, 'restingHr'),
+    method: entry.restingHrMethod,
+  };
+};
+
 /** Normalized NEAT override for the chip row (null → no override that day). */
 const buildNeatOverrideDisplay = (override) => {
   if (!override || typeof override !== 'object') {
@@ -558,7 +589,9 @@ const buildSessionEffortDisplay = (session) => {
   const effortType = session?.effortType ?? 'intensity';
   if (effortType === 'heartRate') {
     const heartRate = Number(session?.averageHeartRate);
-    return Number.isFinite(heartRate)
+    // Same guard as HomeScreen's rows: a stored 0 / '' is "N/A", not "0 bpm"
+    // (Number('') === 0 is finite, so a finite check alone printed "0 bpm").
+    return Number.isFinite(heartRate) && heartRate > 0
       ? `${Math.round(heartRate)} bpm`
       : 'N/A bpm';
   }
@@ -586,6 +619,7 @@ const buildDaySessionRows = ({
   types,
   typeLabelFallback,
   resolveCalories,
+  zoneModel = null,
 }) =>
   sortSessionRows(
     (Array.isArray(sessions) ? sessions : []).map((session) => {
@@ -593,7 +627,15 @@ const buildDaySessionRows = ({
         return null;
       }
       const typeId = session?.type;
+      const isHeartRate = (session?.effortType ?? 'intensity') === 'heartRate';
+      const zone = isHeartRate
+        ? getHeartRateZone(session?.averageHeartRate, zoneModel)
+        : null;
       return {
+        heartRateZone: zone ? { key: zone.key, index: zone.index } : null,
+        heartRateSource: isHeartRate
+          ? (session?.heartRateSource ?? null)
+          : null,
         id: String(session?.id ?? `${typeId}:${session?.startTime ?? ''}`),
         kind,
         typeId,
@@ -688,6 +730,7 @@ export const buildDayLedgerDetailModel = (params) => {
     neatOverride = null,
     phaseLogV2 = null,
     bodyFatTrackingEnabled = true,
+    heartRateEntries = [],
   } = params ?? {};
 
   const preview = buildDaySnapshotPreview(snapshot);
@@ -710,6 +753,17 @@ export const buildDayLedgerDetailModel = (params) => {
   };
 
   // --- Sessions (read-only rows; canonical kcal formulas) ---
+  // Pricing reads the HR profile as of the day (zones, VO2 max, observed max),
+  // so it gets the same history arrays the breakdown sees.
+  const pricingUserData = {
+    ...userData,
+    heartRateEntries,
+    cardioSessions,
+    trainingSessions,
+  };
+  const zoneModel = resolveHeartRateZones(
+    resolveHeartRateProfile(pricingUserData, dayDate)
+  );
   const sessions = [
     ...buildDaySessionRows({
       sessions: cardioSessions,
@@ -718,7 +772,8 @@ export const buildDayLedgerDetailModel = (params) => {
       types: cardioTypes,
       typeLabelFallback: 'Unknown cardio type',
       resolveCalories: (session) =>
-        calculateCardioCalories(session, userData, cardioTypes),
+        calculateCardioCalories(session, pricingUserData, cardioTypes),
+      zoneModel,
     }),
     ...buildDaySessionRows({
       sessions: trainingSessions,
@@ -727,7 +782,12 @@ export const buildDayLedgerDetailModel = (params) => {
       types: trainingTypes,
       typeLabelFallback: 'Unknown training type',
       resolveCalories: (session) =>
-        calculateTrainingSessionCalories(session, userData, trainingTypes),
+        calculateTrainingSessionCalories(
+          session,
+          pricingUserData,
+          trainingTypes
+        ),
+      zoneModel,
     }),
   ];
   const sessionsTotal = sessions.reduce((sum, row) => sum + row.calories, 0);
@@ -825,6 +885,7 @@ export const buildDayLedgerDetailModel = (params) => {
         bodyFatTrackingEnabled === false
           ? { value: null, delta: null }
           : buildMeasurementWithDelta(bodyFatEntries, dayDate, 'bodyFat'),
+      restingHr: buildRestingHrMeasurement(heartRateEntries, dayDate),
     },
     stepProvenance: resolveStepProvenance(stepEntries, dayDate),
     neatOverride: buildNeatOverrideDisplay(neatOverride),

@@ -45,6 +45,16 @@ import {
 } from '../utils/data/phaseLogV2.js';
 import { hasNutritionEntriesForDate } from '../utils/phases/phases.js';
 import { getTodayDateKey } from '../utils/data/dateKeys.js';
+import {
+  applyManualRestingHeartRate,
+  mergeSyncedHeartRateEntry,
+  sortHeartRateEntries,
+} from '../utils/measurements/heartRate.js';
+import { resolveHeartRateProfile } from '../utils/calculations/heartRate.js';
+import {
+  normalizeMaxHeartRate,
+  normalizeVo2Max,
+} from '../constants/health/heartRate.js';
 
 const SAVE_DEBOUNCE_MS = 1000;
 const DEFAULT_TRAINING_TYPE_CATALOG =
@@ -87,6 +97,67 @@ const stepEntriesSortCache = new WeakMap();
 const EMPTY_SESSIONS = [];
 const trainingBurnCache = new WeakMap();
 const cardioBurnCache = new WeakMap();
+
+// Burns also read heart-rate data (EPOC intensity via personal zones,
+// HR-priced training, the VO2-max Keytel variant), and the cardio/training
+// burns read EACH OTHER's sessions (observed max HR). Those are array
+// references, so the string cache key carries a stable per-reference token.
+const referenceTokens = new WeakMap();
+let nextReferenceToken = 1;
+const EMPTY_REFERENCE = {};
+const getReferenceToken = (value) => {
+  const ref = value && typeof value === 'object' ? value : EMPTY_REFERENCE;
+  let token = referenceTokens.get(ref);
+  if (!token) {
+    token = nextReferenceToken;
+    nextReferenceToken += 1;
+    referenceTokens.set(ref, token);
+  }
+  return token;
+};
+const heartRateEntriesSortCache = new WeakMap();
+const getCachedSortedHeartRateEntries = (entries) => {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+  const cached = heartRateEntriesSortCache.get(entries);
+  if (cached) {
+    return cached;
+  }
+  const sorted = sortHeartRateEntries(entries);
+  heartRateEntriesSortCache.set(entries, sorted);
+  return sorted;
+};
+
+const shiftDateKeyByDays = (dateKey, days) => {
+  const date = new Date(`${dateKey}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+};
+
+/**
+ * Dates whose snapshots a heart-rate change can move: a reading on D feeds the
+ * as-of-date HR profile of every later day (resting baseline lookback, a VO2
+ * max reading stays valid for months), so D .. today. Only EXISTING snapshots
+ * are refreshed (see upsertDailySnapshots) — synced history must never seed a
+ * day the user did not track — and unchanged rebuilds are skipped, so a
+ * routine sync (yesterday + today) touches two days.
+ */
+const getHeartRateAffectedDateKeys = (changedDateKeys) => {
+  if (!changedDateKeys.length) {
+    return [];
+  }
+  const todayKey = getTodayDateKey();
+  const start = [...changedDateKeys].sort()[0];
+  if (start > todayKey) {
+    return [];
+  }
+  const keys = [];
+  for (let key = start; key <= todayKey; key = shiftDateKeyByDays(key, 1)) {
+    keys.push(key);
+  }
+  return keys;
+};
 
 const getCachedDateBurn = ({
   cache,
@@ -452,7 +523,10 @@ const deriveState = (userData) => {
   const cardioTypes = resolveCardioTypes(userData);
   const todayDateKey = getTodayDateKey();
   const bmr = calculateBMR(userData);
-  const todayBurnProfileKey = `${todayDateKey}|${userData.weight}|${userData.age}|${userData.height}|${userData.gender}`;
+  // Every input the burn formulas read beyond the sessions array itself:
+  // profile scalars, the HR settings, and the HR data + the OTHER session
+  // array by reference (personal zones / observed max HR).
+  const todayBurnProfileKey = `${todayDateKey}|${userData.weight}|${userData.age}|${userData.height}|${userData.gender}|${userData.maxHeartRateCustom}|${userData.vo2MaxCustom}|${getReferenceToken(userData.heartRateEntries)}|${getReferenceToken(userData.cardioSessions)}|${getReferenceToken(userData.trainingSessions)}`;
   const trainingCalories = getCachedDateBurn({
     cache: trainingBurnCache,
     sessions: userData.trainingSessions,
@@ -472,6 +546,10 @@ const deriveState = (userData) => {
   const weightEntries = getCachedSortedWeightEntries(userData.weightEntries);
   const bodyFatEntries = getCachedSortedBodyFatEntries(userData.bodyFatEntries);
   const stepEntries = getCachedSortedStepEntries(userData.stepEntries);
+  const heartRateEntries = getCachedSortedHeartRateEntries(
+    userData.heartRateEntries
+  );
+  const heartRateProfile = resolveHeartRateProfile(userData, todayDateKey);
   const stepGoal = userData.stepGoal ?? 10000;
   const selectedGoal = userData.selectedGoal ?? 'maintenance';
   const goalChangedAt = Number(userData.goalChangedAt) || Date.now();
@@ -504,6 +582,8 @@ const deriveState = (userData) => {
     weightEntries,
     bodyFatEntries,
     stepEntries,
+    heartRateEntries,
+    heartRateProfile,
     stepGoal,
     selectedGoal,
     goalChangedAt,
@@ -608,8 +688,29 @@ export const useEnergyMapStore = createWithEqualityFn(
           };
         }
 
+        // HR settings: out-of-range values clear the override (auto).
+        if (field === 'maxHeartRateCustom') {
+          const next = normalizeMaxHeartRate(value);
+          return next === prev.maxHeartRateCustom
+            ? prev
+            : { ...prev, maxHeartRateCustom: next };
+        }
+
+        if (field === 'vo2MaxCustom') {
+          const next = normalizeVo2Max(value);
+          return next === prev.vo2MaxCustom
+            ? prev
+            : { ...prev, vo2MaxCustom: next };
+        }
+
         return { ...prev, [field]: value };
       });
+
+      // Max HR / VO2 max reprice today's HR sessions + EPOC; keep today's
+      // snapshot (header TDEE, ledger) in step.
+      if (field === 'maxHeartRateCustom' || field === 'vo2MaxCustom') {
+        get().upsertDailySnapshot(getTodayDateKey());
+      }
     },
 
     setSelectedGoal: (goalKey, changedAt = Date.now()) => {
@@ -1342,6 +1443,164 @@ export const useEnergyMapStore = createWithEqualityFn(
       });
 
       get().upsertDailySnapshot(normalizedDate);
+    },
+
+    /**
+     * Rebuilds several snapshots in ONE store write (a 30-90 day health
+     * backfill would otherwise cost one set() + deriveState per day).
+     * `onlyIfExisting: true` refreshes days that already have a snapshot and
+     * never seeds new ones: a seeded day the user did not track would carry
+     * intake 0 and poison Rolling Energy Balance / smart AT.
+     */
+    upsertDailySnapshots: (dateKeys, options = {}) => {
+      const storeState = get();
+      const { userData, bmr, cardioTypes, trainingTypes } = storeState;
+      const goalKey = userData?.selectedGoal;
+      const goalDeltaOverride = resolveGoalDeltaOverride(storeState, goalKey);
+      const updates = {};
+
+      Array.from(new Set(Array.isArray(dateKeys) ? dateKeys : []))
+        .map((dateKey) => normalizeDateKey(dateKey))
+        .filter(Boolean)
+        .forEach((normalizedDate) => {
+          const existingSnapshot = userData.dailySnapshots?.[normalizedDate];
+          if (options.onlyIfExisting && !existingSnapshot) {
+            return;
+          }
+          let nextSnapshot = null;
+          try {
+            nextSnapshot = buildDailySnapshot({
+              dateKey: normalizedDate,
+              userData,
+              bmr,
+              cardioTypes,
+              trainingTypes,
+              existingSnapshot,
+              goalKey,
+              goalDeltaOverride,
+            });
+          } catch (error) {
+            console.error('Failed to build daily snapshot', {
+              dateKey: normalizedDate,
+              error,
+            });
+          }
+          if (
+            nextSnapshot &&
+            !areDailySnapshotsEquivalent(existingSnapshot, nextSnapshot)
+          ) {
+            updates[normalizedDate] = nextSnapshot;
+          }
+        });
+
+      if (!Object.keys(updates).length) {
+        return;
+      }
+
+      updateUserData(set, get, (prev) => ({
+        ...prev,
+        dailySnapshots: { ...(prev.dailySnapshots ?? {}), ...updates },
+      }));
+    },
+
+    /**
+     * Merges synced daily heart-rate readings (field-level; a manual resting
+     * HR is never overwritten) and refreshes the existing snapshots they can
+     * move. Returns the dates whose entries changed.
+     */
+    saveHeartRateEntries: (incomingEntries) => {
+      if (!Array.isArray(incomingEntries) || !incomingEntries.length) {
+        return [];
+      }
+
+      const changedDates = [];
+      updateUserData(set, get, (prev) => {
+        const byDate = new Map(
+          (Array.isArray(prev.heartRateEntries) ? prev.heartRateEntries : [])
+            .filter((entry) => normalizeDateKey(entry?.date))
+            .map((entry) => [normalizeDateKey(entry.date), entry])
+        );
+        const now = Date.now();
+        incomingEntries.forEach((incoming) => {
+          const date = normalizeDateKey(incoming?.date);
+          if (!date) {
+            return;
+          }
+          const existing = byDate.get(date) ?? null;
+          const merged = mergeSyncedHeartRateEntry(
+            existing,
+            { ...incoming, date },
+            now
+          );
+          if (merged && merged !== existing) {
+            byDate.set(date, merged);
+            changedDates.push(date);
+          }
+        });
+
+        if (!changedDates.length) {
+          return prev;
+        }
+        return {
+          ...prev,
+          heartRateEntries: sortHeartRateEntries(Array.from(byDate.values())),
+        };
+      });
+
+      if (changedDates.length) {
+        get().upsertDailySnapshots(getHeartRateAffectedDateKeys(changedDates), {
+          onlyIfExisting: true,
+        });
+      }
+      return changedDates;
+    },
+
+    /** Sets (bpm) or clears (null) the manual morning resting HR for a date. */
+    setManualRestingHeartRate: (dateKey, bpmOrNull) => {
+      const normalizedDate = normalizeDateKey(dateKey);
+      if (!normalizedDate) {
+        return;
+      }
+
+      let changed = false;
+      updateUserData(set, get, (prev) => {
+        const entries = Array.isArray(prev.heartRateEntries)
+          ? prev.heartRateEntries
+          : [];
+        const existing =
+          entries.find(
+            (entry) => normalizeDateKey(entry?.date) === normalizedDate
+          ) ?? null;
+        const next = applyManualRestingHeartRate(
+          existing,
+          normalizedDate,
+          bpmOrNull
+        );
+        if (next === existing) {
+          return prev;
+        }
+        changed = true;
+        const others = entries.filter(
+          (entry) => normalizeDateKey(entry?.date) !== normalizedDate
+        );
+        return {
+          ...prev,
+          heartRateEntries: sortHeartRateEntries(
+            next ? [...others, next] : others
+          ),
+        };
+      });
+
+      if (!changed) {
+        return;
+      }
+      get().upsertDailySnapshots(
+        getHeartRateAffectedDateKeys([normalizedDate]),
+        { onlyIfExisting: true }
+      );
+      if (normalizedDate === getTodayDateKey()) {
+        get().upsertDailySnapshot(normalizedDate);
+      }
     },
 
     createPhase: (phaseData) => {

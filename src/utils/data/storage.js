@@ -22,6 +22,14 @@ import {
 } from './historyDatabase.js';
 import { normalizeDateKey, sortWeightEntries } from '../measurements/weight.js';
 import { clampBodyFat, sortBodyFatEntries } from '../measurements/bodyFat.js';
+import {
+  normalizeHeartRateEntry,
+  sortHeartRateEntries,
+} from '../measurements/heartRate.js';
+import {
+  normalizeMaxHeartRate,
+  normalizeVo2Max,
+} from '../../constants/health/heartRate.js';
 import { sanitizeAge, sanitizeHeight } from '../measurements/profile.js';
 import { isStepBasedCardioType } from '../calculations/steps.js';
 import {
@@ -62,6 +70,7 @@ const HISTORY_FIELDS = [
   'cachedFoods',
   'dailySnapshots',
   'dailyNeatOverrides',
+  'heartRateEntries',
 ];
 
 const buildPhaseLogV2Indexes = (phaseLogV2State) => {
@@ -536,6 +545,29 @@ const SHARDED_HISTORY_FIELD_CONFIG = {
 
       return next;
     },
+  },
+  heartRateEntries: {
+    prefix: 'heartRateEntries:',
+    shardEntries: (value) => {
+      if (!Array.isArray(value)) {
+        return [];
+      }
+
+      return value
+        .map((entry) => {
+          const dateKey = normalizeDateKey(entry?.date);
+          if (!dateKey || !normalizeHeartRateEntry(entry)) {
+            return null;
+          }
+
+          return { key: dateKey, source: entry, sourceRef: entry, order: 0 };
+        })
+        .filter(Boolean);
+    },
+    toPayload: ({ key, source }) =>
+      normalizeHeartRateEntry({ ...source, date: key }),
+    fromDocuments: (documents) =>
+      sortHeartRateEntries(documents.map(({ payload }) => payload)),
   },
 };
 
@@ -1449,6 +1481,12 @@ export const getDefaultEnergyMapData = () => ({
   cachedFoods: [], // Foods fetched from the online catalog (food cloud, OpenFoodFacts barcode, etc.)
   dailySnapshots: {}, // { 'YYYY-MM-DD': { date, tdee, intake, deficit, stepCount, ... } }
   dailyNeatOverrides: {}, // { 'YYYY-MM-DD': { multiplier, presetKey, label, updatedAt } }
+  // [{ date, restingHr, restingHrMethod: 'device'|'manual'|'estimated'|null, avgHr, minHr, maxHr, vo2Max, updatedAt }]
+  heartRateEntries: [],
+  maxHeartRateCustom: null, // bpm (120-230) or null = auto (Tanaka / observed)
+  vo2MaxCustom: null, // mL/kg/min (15-90) or null = auto (watch reading)
+  heartRateSyncEnabled: false, // read HR / resting HR / VO2 max / workouts from Health
+  heartRateSensor: null, // { deviceId, name } of the paired BLE heart-rate sensor
   // nutritionData structure: { 'YYYY-MM-DD': { mealType: [{ id, name, calories, protein, carbs, fats, timestamp }] } }
   trainingType: {
     trainingtype_1: {
@@ -1829,5 +1867,29 @@ function mergeWithDefaults(data) {
     dailyNeatOverrides: normalizeDailyNeatOverrides(
       normalizedInput.dailyNeatOverrides ?? defaults.dailyNeatOverrides
     ),
+    heartRateEntries: sortHeartRateEntries(
+      normalizedInput.heartRateEntries ?? defaults.heartRateEntries
+    ),
+    maxHeartRateCustom: normalizeMaxHeartRate(
+      normalizedInput.maxHeartRateCustom
+    ),
+    vo2MaxCustom: normalizeVo2Max(normalizedInput.vo2MaxCustom),
+    heartRateSyncEnabled: Boolean(
+      normalizedInput.heartRateSyncEnabled ?? defaults.heartRateSyncEnabled
+    ),
+    heartRateSensor: normalizeHeartRateSensor(normalizedInput.heartRateSensor),
   };
+}
+
+function normalizeHeartRateSensor(value) {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const deviceId =
+    typeof value.deviceId === 'string' ? value.deviceId.trim() : '';
+  if (!deviceId) {
+    return null;
+  }
+  const name = typeof value.name === 'string' ? value.name.trim() : '';
+  return { deviceId, name: name || 'Heart rate sensor' };
 }

@@ -11,29 +11,57 @@ import {
   alignScrollContainerToValue,
   createPickerScrollHandler,
 } from '../../../../utils/visuals/scroll';
+import {
+  DEFAULT_SESSION_HEART_RATE_BPM,
+  SESSION_HEART_RATE_MAX_BPM,
+  SESSION_HEART_RATE_MIN_BPM,
+} from '../../../../constants/health/heartRate';
 
-const MIN_BPM = 60;
-const MAX_BPM = 220;
 const STEP = 1;
 
-const clampBpm = (value) => {
-  if (!Number.isFinite(value)) {
-    return MIN_BPM;
+/**
+ * Where the wheel opens. An unset value ('' / null / undefined / 0) opens at
+ * the default rather than the floor: `Number('') === 0` used to clamp every
+ * fresh form to 60 bpm, the least likely exercise average.
+ */
+export const resolveInitialHeartRate = (
+  value,
+  defaultValue = DEFAULT_SESSION_HEART_RATE_BPM
+) => {
+  const numeric = Number(value);
+  if (
+    value === '' ||
+    value == null ||
+    !Number.isFinite(numeric) ||
+    numeric <= 0
+  ) {
+    return defaultValue;
   }
-
-  return Math.min(Math.max(Math.round(value), MIN_BPM), MAX_BPM);
+  return numeric;
 };
 
-const BPM_VALUES = Array.from(
-  { length: MAX_BPM - MIN_BPM + 1 },
-  (_, index) => MIN_BPM + index * STEP
-);
+const clampBpm = (value, min, max) => {
+  if (!Number.isFinite(value)) {
+    return min;
+  }
 
+  return Math.min(Math.max(Math.round(value), min), max);
+};
+
+/**
+ * Heart-rate wheel. Defaults to the session-average range; the resting-HR and
+ * max-HR settings reuse it with their own `min` / `max` / `defaultValue`
+ * (bounds from constants/health/heartRate.js).
+ */
 export const HeartRatePickerModal = ({
   isOpen,
   isClosing,
   title = 'Average Heart Rate',
   value,
+  min = SESSION_HEART_RATE_MIN_BPM,
+  max = SESSION_HEART_RATE_MAX_BPM,
+  defaultValue = DEFAULT_SESSION_HEART_RATE_BPM,
+  helperText = null,
   onCancel,
   onSave,
 }) => {
@@ -41,17 +69,26 @@ export const HeartRatePickerModal = ({
   const timeoutRef = useRef(null);
   const hasAlignedRef = useRef(false);
 
-  const normalizedValue = useMemo(() => {
-    const numeric = Number(value);
-    return clampBpm(Number.isNaN(numeric) ? 120 : numeric);
-  }, [value]);
+  const BPM_VALUES = useMemo(
+    () =>
+      Array.from({ length: max - min + 1 }, (_, index) => min + index * STEP),
+    [min, max]
+  );
+
+  const normalizedValue = useMemo(
+    () => clampBpm(resolveInitialHeartRate(value, defaultValue), min, max),
+    [value, defaultValue, min, max]
+  );
 
   const [selectedValue, setSelectedValue] = useState(normalizedValue);
 
-  const handleValueChange = useCallback((nextValue) => {
-    const clamped = clampBpm(nextValue);
-    setSelectedValue(clamped);
-  }, []);
+  const handleValueChange = useCallback(
+    (nextValue) => {
+      const clamped = clampBpm(nextValue, min, max);
+      setSelectedValue(clamped);
+    },
+    [min, max]
+  );
 
   const [handleScroll, setHandleScroll] = useState(() => () => {});
 
@@ -91,17 +128,20 @@ export const HeartRatePickerModal = ({
     return () => cancelAnimationFrame(frame);
   }, [isOpen, normalizedValue]);
 
-  const handleItemClick = useCallback((bpm) => {
-    const clamped = clampBpm(bpm);
-    setSelectedValue(clamped);
-    if (scrollRef.current) {
-      alignScrollContainerToValue(
-        scrollRef.current,
-        clamped.toString(),
-        'smooth'
-      );
-    }
-  }, []);
+  const handleItemClick = useCallback(
+    (bpm) => {
+      const clamped = clampBpm(bpm, min, max);
+      setSelectedValue(clamped);
+      if (scrollRef.current) {
+        alignScrollContainerToValue(
+          scrollRef.current,
+          clamped.toString(),
+          'smooth'
+        );
+      }
+    },
+    [min, max]
+  );
 
   const handleSave = useCallback(() => {
     onSave?.(selectedValue);
@@ -120,6 +160,9 @@ export const HeartRatePickerModal = ({
       <p className="text-muted text-xs text-center mb-2 uppercase tracking-wide">
         BPM
       </p>
+      {helperText && (
+        <p className="text-muted text-xs text-center mb-3">{helperText}</p>
+      )}
 
       <div className="relative h-48 overflow-hidden rounded-xl bg-surface/80">
         <div className="absolute inset-0 pointer-events-none z-10">
