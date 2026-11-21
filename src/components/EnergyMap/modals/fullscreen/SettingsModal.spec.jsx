@@ -278,14 +278,14 @@ describe('SettingsModal segmented navigation', () => {
     await user.click(
       screen.getByRole('button', { name: 'Open Daily Activity' })
     );
-    expect(
-      screen.getByText('Rest day baseline:', { exact: false })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /Training Day/ })
-    ).toBeInTheDocument();
+    expect(screen.getAllByText('(BMR + NEAT)', { exact: false }).length).toBe(
+      2
+    );
     await user.click(screen.getByRole('button', { name: /Training Day/ }));
-    expect(onDailyActivityClick).toHaveBeenCalledTimes(1);
+    expect(onDailyActivityClick).toHaveBeenLastCalledWith('training');
+    await user.click(screen.getByRole('button', { name: /Rest Day/ }));
+    expect(onDailyActivityClick).toHaveBeenLastCalledWith('rest');
+    expect(onDailyActivityClick).toHaveBeenCalledTimes(2);
 
     await user.click(screen.getByRole('button', { name: 'Back' }));
     await user.click(

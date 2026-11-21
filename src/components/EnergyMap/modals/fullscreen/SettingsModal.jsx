@@ -22,6 +22,8 @@ import {
   ChartPie,
   Trash2,
   Lightbulb,
+  Dumbbell,
+  BedDouble,
 } from 'lucide-react';
 import {
   DEFAULT_ACTIVITY_MULTIPLIERS,
@@ -31,6 +33,7 @@ import { ModalShell } from '../../common/ModalShell';
 import {
   formatDateLabel,
   formatWeight,
+  normalizeDateKey,
 } from '../../../../utils/measurements/weight';
 import { formatBodyFat } from '../../../../utils/measurements/bodyFat';
 import { shallow } from 'zustand/shallow';
@@ -1435,6 +1438,77 @@ const formatMultiplier = (value) => {
     : `${rounded.toFixed(1)}%`;
 };
 
+const NEAT_DAY_CARDS = [
+  {
+    day: 'training',
+    title: 'Training Day',
+    icon: Dumbbell,
+    className: 'border-primary bg-primary',
+  },
+  {
+    day: 'rest',
+    title: 'Rest Day',
+    icon: BedDouble,
+    className: 'border-accent-indigo bg-accent-indigo',
+  },
+];
+
+// One tappable summary per day type. Tapping opens that day's preset editor
+// directly (no intermediate "pick a day" sheet). The card knows whether it is
+// today's day type, shows the baseline it produces, and surfaces a one-off
+// override for today so the global number is never silently outranked.
+const NeatDayCard = ({
+  title,
+  icon: Icon,
+  className,
+  presetLabel,
+  multiplier,
+  baseline,
+  isToday,
+  todayOverride,
+  onClick,
+}) => (
+  <button
+    onClick={onClick}
+    type="button"
+    aria-label={`Edit ${title} NEAT, ${presetLabel}, offset ${formatMultiplier(multiplier)}`}
+    className={`w-full text-left p-3 md:p-4 rounded-lg border-2 text-primary-foreground transition-all press-feedback focus-ring md:hover:brightness-110 flex items-center gap-3 ${className}`}
+  >
+    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-highlight/20">
+      <Icon size={20} aria-hidden="true" />
+    </span>
+    <span className="min-w-0 flex-1">
+      <span className="flex items-center gap-2">
+        <span className="font-semibold text-sm md:text-base">{title}</span>
+        {isToday && (
+          <span className="rounded-full bg-surface-highlight/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+            Today
+          </span>
+        )}
+      </span>
+      <span className="block text-xs md:text-sm opacity-90">
+        {presetLabel} • NEAT offset: {formatMultiplier(multiplier)}
+      </span>
+      {baseline !== null && (
+        <span className="block text-xs opacity-75">
+          ~{baseline.toLocaleString()} cal baseline (BMR + NEAT)
+        </span>
+      )}
+      {todayOverride && (
+        <span className="mt-1 block text-xs font-medium">
+          Today is overridden to {formatMultiplier(todayOverride.multiplier)}
+          {todayOverride.label ? ` (${todayOverride.label})` : ''}
+        </span>
+      )}
+    </span>
+    <ChevronRight
+      size={18}
+      className="shrink-0 opacity-75"
+      aria-hidden="true"
+    />
+  </button>
+);
+
 const DailyActivitySection = ({
   userData,
   bmr,
@@ -1451,69 +1525,48 @@ const DailyActivitySection = ({
   const multipliers =
     userData.activityMultipliers ?? DEFAULT_ACTIVITY_MULTIPLIERS;
 
-  const trainingPresetKey = presets.training ?? 'default';
-  const restPresetKey = presets.rest ?? 'default';
-
-  const trainingPreset = getActivityPresetByKey('training', trainingPresetKey);
-  const restPreset = getActivityPresetByKey('rest', restPresetKey);
-
-  const trainingLabel = trainingPreset ? trainingPreset.label : 'Custom';
-  const restLabel = restPreset ? restPreset.label : 'Custom';
-
-  const trainingMultiplier =
-    multipliers.training ?? DEFAULT_ACTIVITY_MULTIPLIERS.training;
-  const restMultiplier = multipliers.rest ?? DEFAULT_ACTIVITY_MULTIPLIERS.rest;
-
-  const trainingBaseline = Number.isFinite(bmr)
-    ? Math.round(bmr + bmr * trainingMultiplier)
-    : null;
-  const restBaseline = Number.isFinite(bmr)
-    ? Math.round(bmr + bmr * restMultiplier)
-    : null;
+  const todayKey = getTodayDateKey();
+  const todayDay = (userData.trainingSessions ?? []).some(
+    (session) => normalizeDateKey(session?.date) === todayKey
+  )
+    ? 'training'
+    : 'rest';
+  const todayOverride = userData.dailyNeatOverrides?.[todayKey] ?? null;
 
   return (
     <div className="space-y-6">
       <div>
         <SettingLabel>Daily NEAT (Non-Exercise Activity)</SettingLabel>
-        <button
-          onClick={onDailyActivityClick}
-          type="button"
-          className="relative w-full text-left p-3 md:p-4 rounded-lg border-2 border-accent-indigo bg-accent-indigo text-primary-foreground transition-all press-feedback focus-ring md:hover:brightness-110"
-        >
-          <div className="min-w-0 pr-24 md:pr-28">
-            <div className="font-semibold text-sm md:text-base">
-              Training Day • {trainingLabel}
-            </div>
-            <div className="text-xs md:text-sm opacity-90">
-              NEAT offset: {formatMultiplier(trainingMultiplier)}
-            </div>
-            <div className="font-semibold text-sm md:text-base mt-3">
-              Rest Day • {restLabel}
-            </div>
-            <div className="text-xs md:text-sm opacity-90">
-              NEAT offset: {formatMultiplier(restMultiplier)}
-            </div>
-          </div>
-          <span className="pointer-events-none absolute top-3 right-3 md:top-4 md:right-4 text-[11px] opacity-75 whitespace-nowrap">
-            Tap to adjust
-          </span>
-        </button>
-        {Number.isFinite(bmr) && (
-          <div className="settings-reveal mt-2 space-y-1 text-xs text-foreground/80">
-            {restBaseline !== null && (
-              <p>
-                Rest day baseline: ~{restBaseline.toLocaleString()} cal (BMR +
-                NEAT)
-              </p>
-            )}
-            {trainingBaseline !== null && (
-              <p>
-                Training day baseline: ~{trainingBaseline.toLocaleString()} cal
-                (BMR + NEAT)
-              </p>
-            )}
-          </div>
-        )}
+        <div className="space-y-2">
+          {NEAT_DAY_CARDS.map(({ day, title, icon, className }) => {
+            const preset = getActivityPresetByKey(
+              day,
+              presets[day] ?? 'default'
+            );
+            const multiplier =
+              multipliers[day] ?? DEFAULT_ACTIVITY_MULTIPLIERS[day];
+            const isToday = day === todayDay;
+
+            return (
+              <NeatDayCard
+                key={day}
+                title={title}
+                icon={icon}
+                className={className}
+                presetLabel={preset ? preset.label : 'Custom'}
+                multiplier={multiplier}
+                baseline={
+                  Number.isFinite(bmr)
+                    ? Math.round(bmr + bmr * multiplier)
+                    : null
+                }
+                isToday={isToday}
+                todayOverride={isToday ? todayOverride : null}
+                onClick={() => onDailyActivityClick?.(day)}
+              />
+            );
+          })}
+        </div>
       </div>
 
       <div>

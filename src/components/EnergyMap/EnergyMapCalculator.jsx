@@ -61,7 +61,6 @@ import { RollingEnergyBalanceInfoModal } from './modals/info/RollingEnergyBalanc
 import { EpocInfoModal } from './modals/info/EpocInfoModal';
 import { TimePickerModal } from './modals/pickers/TimePickerModal';
 import { EpocWindowPickerModal } from './modals/pickers/EpocWindowPickerModal';
-import { DailyActivityModal } from './modals/forms/DailyActivityModal';
 import { DailyActivityEditorModal } from './modals/forms/DailyActivityEditorModal';
 import { DailyActivityCustomModal } from './modals/forms/DailyActivityCustomModal';
 import { DailyNeatOverrideModal } from './modals/forms/DailyNeatOverrideModal';
@@ -930,7 +929,6 @@ export const EnergyMapCalculator = () => {
     settingsModal.requestClose();
     return true;
   }, [settingsModal.requestClose, settingsPage]);
-  const dailyActivityModal = useAnimatedModal();
   const dailyActivityEditorModal = useAnimatedModal();
   const dailyActivityCustomModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
   const dailyNeatOverrideModal = useAnimatedModal();
@@ -1080,7 +1078,6 @@ export const EnergyMapCalculator = () => {
     calorieTargetModal,
     dailyActivityCustomModal,
     dailyActivityEditorModal,
-    dailyActivityModal,
     dailyNeatOverrideModal,
     settingsModal,
     bodyFatEntryModal,
@@ -1132,7 +1129,6 @@ export const EnergyMapCalculator = () => {
       calorieTargetModal,
       dailyActivityCustomModal,
       dailyActivityEditorModal,
-      dailyActivityModal,
       dailyNeatOverrideModal,
       bodyFatEntryModal,
       bodyFatTrackerModal,
@@ -1181,7 +1177,6 @@ export const EnergyMapCalculator = () => {
     confirmActionModal,
     dailyActivityCustomModal,
     dailyActivityEditorModal,
-    dailyActivityModal,
     dailyNeatOverrideModal,
     dayLedgerListModal,
     dayLedgerModal,
@@ -1845,22 +1840,6 @@ export const EnergyMapCalculator = () => {
     setTempHeight(userData.height);
     heightModal.open();
   }, [heightModal, userData.height]);
-
-  const openDailyActivitySettings = useCallback(() => {
-    setActivityEditorDay(null);
-    dailyActivityModal.open();
-  }, [dailyActivityModal]);
-
-  const handleDailyActivityModalClose = useCallback(() => {
-    dailyActivityModal.requestClose();
-    if (dailyActivityEditorModal.isOpen) {
-      dailyActivityEditorModal.forceClose();
-    }
-    if (dailyActivityCustomModal.isOpen) {
-      dailyActivityCustomModal.forceClose();
-    }
-    setActivityEditorDay(null);
-  }, [dailyActivityCustomModal, dailyActivityEditorModal, dailyActivityModal]);
 
   const openDailyActivityEditor = useCallback(
     (dayType) => {
@@ -4686,7 +4665,7 @@ export const EnergyMapCalculator = () => {
                 heightPicker: openHeightModal,
                 manageWeight: openWeightTracker,
                 manageBodyFat: openBodyFatTracker,
-                dailyActivity: openDailyActivitySettings,
+                dailyActivity: openDailyActivityEditor,
                 epocWindowPicker: openEpocWindowPickerModal,
                 stepGoalPicker: openStepGoalPicker,
                 stepRanges: stepRangesModal.open,
@@ -4710,15 +4689,6 @@ export const EnergyMapCalculator = () => {
           />
         </Suspense>
       )}
-
-      <DailyActivityModal
-        isOpen={dailyActivityModal.isOpen}
-        isClosing={dailyActivityModal.isClosing}
-        activityPresets={activityPresets}
-        activityMultipliers={activityMultipliers}
-        onSelectDay={openDailyActivityEditor}
-        onClose={handleDailyActivityModalClose}
-      />
 
       {(dailyNeatOverrideModal.isOpen || dailyNeatOverrideModal.isClosing) && (
         <DailyNeatOverrideModal
