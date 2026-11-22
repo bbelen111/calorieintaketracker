@@ -260,4 +260,26 @@ describe('WeightTrackerModal selection card', () => {
     expect(screen.queryByText(/Not losing as expected/)).toBeNull();
     expect(screen.queryByText(/On track/)).toBeNull();
   });
+
+  it('replaces the stats and chart with a guided empty state', async () => {
+    const user = userEvent.setup();
+    const onAddEntry = vi.fn();
+    renderModal({ entries: [], latestWeight: null, onAddEntry });
+
+    expect(screen.getByText('No weigh-ins yet')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Log your weight to see your 7-day trend/)
+    ).toBeInTheDocument();
+    // No all-dash stat strip, no "No data yet" chart placeholder, no duplicate
+    // Add Entry bar — the empty state owns the action.
+    expect(screen.queryByText('Current Weight')).toBeNull();
+    expect(screen.queryByText('7-Day Trend')).toBeNull();
+    expect(screen.queryByText('Add Entry')).toBeNull();
+    expect(screen.queryByText('No weight data yet.')).toBeNull();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Log your first weigh-in' })
+    );
+    expect(onAddEntry).toHaveBeenCalledTimes(1);
+  });
 });

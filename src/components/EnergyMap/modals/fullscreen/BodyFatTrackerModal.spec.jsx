@@ -152,4 +152,24 @@ describe('BodyFatTrackerModal selection card', () => {
     expect(screen.queryByText(/Not reducing as expected/)).toBeNull();
     expect(screen.queryByText(/On track/)).toBeNull();
   });
+
+  it('replaces the stats and chart with a guided empty state', async () => {
+    const user = userEvent.setup();
+    const onAddEntry = vi.fn();
+    renderModal({ entries: [], latestBodyFat: null, onAddEntry });
+
+    expect(screen.getByText('No body fat readings yet')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Log your body fat percentage to see your 7-day trend/)
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Current Body Fat')).toBeNull();
+    expect(screen.queryByText('7-Day Trend')).toBeNull();
+    expect(screen.queryByText('Add Entry')).toBeNull();
+    expect(screen.queryByText('No body fat data yet.')).toBeNull();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Log your first reading' })
+    );
+    expect(onAddEntry).toHaveBeenCalledTimes(1);
+  });
 });

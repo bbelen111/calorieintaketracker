@@ -6,7 +6,14 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { ChevronLeft, Info, Repeat, AlertCircle, Plus } from 'lucide-react';
+import {
+  ChevronLeft,
+  Info,
+  Repeat,
+  AlertCircle,
+  Plus,
+  Scale,
+} from 'lucide-react';
 import { resolveScrollBehavior } from '../../../../utils/visuals/motionPreference';
 import { useReducedMotionPreference } from '../../../../hooks/useMotionMode';
 import { ModalShell } from '../../common/ModalShell';
@@ -284,6 +291,7 @@ export const WeightTrackerModal = ({
     () => sortWeightEntries(resolvedEntries ?? []),
     [resolvedEntries]
   );
+  const hasEntries = sortedEntries.length > 0;
 
   const trend = useMemo(
     () => calculateWeightTrend(sortedEntries),
@@ -1566,160 +1574,76 @@ export const WeightTrackerModal = ({
 
         {/* Main content area */}
         <div className="flex-1 fullscreen-body bg-surface border-t border-border overflow-y-auto flex flex-col">
-          {/* View mode toggle */}
-          <div className="px-4 pt-3 pb-1 shrink-0">
-            <div className="relative flex items-center gap-2 p-1 bg-surface-highlight rounded-lg">
-              {/* Sliding pill */}
-              <div
-                className="absolute inset-y-1 rounded-md shadow-md bg-accent-blue"
-                style={{
-                  width: 'calc((100% - 24px) / 3)',
-                  left:
-                    viewMode === '7d'
-                      ? '4px'
-                      : viewMode === '30d'
-                        ? 'calc((100% - 24px) / 3 + 12px)'
-                        : 'calc((100% - 24px) / 3 * 2 + 20px)',
-                  transition:
-                    'left 0.28s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.28s ease-out, box-shadow 0.28s ease-out',
-                }}
-              />
-              {VIEW_MODES.map((mode) => (
-                <button
-                  key={mode.key}
-                  type="button"
-                  onClick={() => handleViewModeChange(mode.key)}
-                  className={`relative z-10 flex-1 flex items-center justify-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    viewMode === mode.key
-                      ? 'text-primary-foreground'
-                      : 'text-muted md:hover:text-foreground'
-                  }`}
-                >
-                  {mode.label}
-                </button>
-              ))}
+          {!hasEntries ? (
+            <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-surface-highlight border border-border/60 shadow-sm">
+                <Scale size={30} className="text-accent-blue" />
+              </div>
+              <h4 className="mt-5 text-xl font-bold text-foreground">
+                No weigh-ins yet
+              </h4>
+              <p className="mt-2 max-w-xs text-sm text-muted">
+                Log your weight to see your 7-day trend, averages and how
+                you&apos;re tracking against your goal.
+              </p>
+              <button
+                type="button"
+                onClick={() => onAddEntry?.()}
+                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-accent-blue px-5 py-3 text-sm font-semibold text-primary-foreground transition-all press-feedback focus-ring md:hover:brightness-110"
+              >
+                <Plus size={18} />
+                Log your first weigh-in
+              </button>
+              <p className="mt-3 text-xs text-muted">
+                You can pick a past date from the entry screen.
+              </p>
             </div>
-          </div>
-
-          {/* Dynamic stat cards */}
-          <div
-            className={`px-4 pt-3 pb-3 grid gap-3 shrink-0 ${
-              viewMode === '12m' ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-4'
-            }`}
-          >
-            {viewMode === '7d' ? (
-              <>
-                {/* Current Weight */}
-                <div>
-                  <p className="text-muted text-xs uppercase tracking-wide mb-1">
-                    Current Weight
-                  </p>
-                  <p className="text-foreground text-2xl font-bold">
-                    {currentWeightDisplay}
-                  </p>
-                  <p className="text-muted text-[11px] mt-1">
-                    {latestDate ? (
-                      <span className="inline-flex items-center gap-2">
-                        <span>{formatPanelDate(latestDate)}</span>
-                        {oldDataWarningText && (
-                          <span className="inline-flex items-center gap-1 text-accent-yellow">
-                            <AlertCircle size={10} className="shrink-0" />
-                            {oldDataWarningText}
-                          </span>
-                        )}
-                      </span>
-                    ) : (
-                      ''
-                    )}
-                  </p>
-                </div>
-                {/* 7-Day / 14-Day Averages */}
-                <div>
-                  <p className="text-muted text-xs uppercase tracking-wide mb-1">
-                    Averages
-                  </p>
-                  <div className="space-y-1">
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-muted text-[11px]">7d</span>
-                      <span className="text-foreground text-lg font-semibold">
-                        {avg7 != null ? `${formatWeight(avg7)} kg` : '—'}
-                      </span>
-                    </div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-muted text-[11px]">14d</span>
-                      <span className="text-foreground text-sm font-semibold">
-                        {avg14 != null ? `${formatWeight(avg14)} kg` : '—'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                {/* 7-Day Trend */}
-                <div
-                  role="button"
-                  tabIndex={0}
-                  aria-label="7-day trend details"
-                  onClick={openTrendInfo}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      openTrendInfo();
-                    }
-                  }}
-                  className="group cursor-pointer rounded-lg focus-ring pressable-card md:hover:bg-surface-highlight/40"
-                >
-                  <p className="text-muted text-xs uppercase tracking-wide mb-1 flex items-center gap-1 md:group-hover:text-foreground transition-colors">
-                    7-Day Trend
-                    <Info
-                      size={14}
-                      className="opacity-60 md:group-hover:opacity-100 transition-opacity"
-                    />
-                  </p>
-                  <p
-                    className={`${getTrendToneClass(trend7d, selectedGoal, 'weight')} font-semibold text-lg flex items-center gap-2`}
-                  >
-                    <TrendIcon direction={trend7d.direction} />
-                    {trend7d.label}
-                  </p>
-                  {goalAlignment7d && (
-                    <p
-                      className={`${goalAlignment7d.color} text-xs mt-1 font-medium`}
+          ) : (
+            <>
+              {/* View mode toggle */}
+              <div className="px-4 pt-3 pb-1 shrink-0">
+                <div className="relative flex items-center gap-2 p-1 bg-surface-highlight rounded-lg">
+                  {/* Sliding pill */}
+                  <div
+                    className="absolute inset-y-1 rounded-md shadow-md bg-accent-blue"
+                    style={{
+                      width: 'calc((100% - 24px) / 3)',
+                      left:
+                        viewMode === '7d'
+                          ? '4px'
+                          : viewMode === '30d'
+                            ? 'calc((100% - 24px) / 3 + 12px)'
+                            : 'calc((100% - 24px) / 3 * 2 + 20px)',
+                      transition:
+                        'left 0.28s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.28s ease-out, box-shadow 0.28s ease-out',
+                    }}
+                  />
+                  {VIEW_MODES.map((mode) => (
+                    <button
+                      key={mode.key}
+                      type="button"
+                      onClick={() => handleViewModeChange(mode.key)}
+                      className={`relative z-10 flex-1 flex items-center justify-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        viewMode === mode.key
+                          ? 'text-primary-foreground'
+                          : 'text-muted md:hover:text-foreground'
+                      }`}
                     >
-                      {goalAlignment7d.text}
-                    </p>
-                  )}
+                      {mode.label}
+                    </button>
+                  ))}
                 </div>
-                {/* 7-Day Rate */}
-                <div
-                  role="button"
-                  tabIndex={0}
-                  aria-label="7-day rate details"
-                  onClick={openTrendInfo}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      openTrendInfo();
-                    }
-                  }}
-                  className="group cursor-pointer rounded-lg focus-ring pressable-card md:hover:bg-surface-highlight/40"
-                >
-                  <p className="text-muted text-xs uppercase tracking-wide mb-1 flex items-center gap-1 md:group-hover:text-foreground transition-colors">
-                    7-Day Rate
-                    <Info
-                      size={14}
-                      className="opacity-60 md:group-hover:opacity-100 transition-opacity"
-                    />
-                  </p>
-                  <p className="text-foreground text-lg font-semibold">
-                    {weeklyRate7dDisplay}
-                  </p>
-                  <p className="text-muted text-xs mt-1">
-                    Goal: {getGoalWeeklyTarget(selectedGoal, 'weight')}
-                  </p>
-                </div>
-              </>
-            ) : (
-              <>
-                {viewMode === '30d' ? (
+              </div>
+
+              {/* Dynamic stat cards */}
+              <div
+                className={`px-4 pt-3 pb-3 grid gap-3 shrink-0 ${
+                  viewMode === '12m'
+                    ? 'grid-cols-2'
+                    : 'grid-cols-2 md:grid-cols-4'
+                }`}
+              >
+                {viewMode === '7d' ? (
                   <>
                     {/* Current Weight */}
                     <div>
@@ -1745,58 +1669,31 @@ export const WeightTrackerModal = ({
                         )}
                       </p>
                     </div>
-                    {/* 30 Day Avg */}
+                    {/* 7-Day / 14-Day Averages */}
                     <div>
                       <p className="text-muted text-xs uppercase tracking-wide mb-1">
-                        30-Day Avg
+                        Averages
                       </p>
-                      <p className="text-foreground text-2xl font-bold">
-                        {pageAverage != null
-                          ? `${formatWeight(pageAverage)} kg`
-                          : '—'}
-                      </p>
-                      <p className="text-muted text-[11px] mt-1">
-                        {pageTimeframeRange}
-                      </p>
+                      <div className="space-y-1">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-muted text-[11px]">7d</span>
+                          <span className="text-foreground text-lg font-semibold">
+                            {avg7 != null ? `${formatWeight(avg7)} kg` : '—'}
+                          </span>
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-muted text-[11px]">14d</span>
+                          <span className="text-foreground text-sm font-semibold">
+                            {avg14 != null ? `${formatWeight(avg14)} kg` : '—'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </>
-                ) : (
-                  <>
-                    {/* 12 Month Avg */}
-                    <div>
-                      <p className="text-muted text-xs uppercase tracking-wide mb-1">
-                        12-Month Avg
-                      </p>
-                      <p className="text-foreground text-2xl font-bold">
-                        {pageAverage != null
-                          ? `${formatWeight(pageAverage)} kg`
-                          : '—'}
-                      </p>
-                      <p className="text-muted text-[11px] mt-1">
-                        Current: {currentWeightDisplay}
-                      </p>
-                    </div>
-                    {/* Timeframe */}
-                    <div>
-                      <p className="text-muted text-xs uppercase tracking-wide mb-1">
-                        Timeframe
-                      </p>
-                      <p className="text-foreground text-sm font-semibold">
-                        {pageTimeframeRange}
-                      </p>
-                      <p className="text-muted text-[11px] mt-1">
-                        {`${visibleWindowTrackedDays} days tracked`}
-                      </p>
-                    </div>
-                  </>
-                )}
-                {viewMode === '30d' && (
-                  <>
-                    {/* 30-Day Trend */}
+                    {/* 7-Day Trend */}
                     <div
                       role="button"
                       tabIndex={0}
-                      aria-label="30-day trend details"
+                      aria-label="7-day trend details"
                       onClick={openTrendInfo}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' || event.key === ' ') {
@@ -1807,31 +1704,31 @@ export const WeightTrackerModal = ({
                       className="group cursor-pointer rounded-lg focus-ring pressable-card md:hover:bg-surface-highlight/40"
                     >
                       <p className="text-muted text-xs uppercase tracking-wide mb-1 flex items-center gap-1 md:group-hover:text-foreground transition-colors">
-                        30-Day Trend
+                        7-Day Trend
                         <Info
                           size={14}
                           className="opacity-60 md:group-hover:opacity-100 transition-opacity"
                         />
                       </p>
                       <p
-                        className={`${getTrendToneClass(trend, selectedGoal, 'weight')} font-semibold text-lg flex items-center gap-2`}
+                        className={`${getTrendToneClass(trend7d, selectedGoal, 'weight')} font-semibold text-lg flex items-center gap-2`}
                       >
-                        <TrendIcon direction={trend.direction} />
-                        {trend.label}
+                        <TrendIcon direction={trend7d.direction} />
+                        {trend7d.label}
                       </p>
-                      {goalAlignment && (
+                      {goalAlignment7d && (
                         <p
-                          className={`${goalAlignment.color} text-xs mt-1 font-medium`}
+                          className={`${goalAlignment7d.color} text-xs mt-1 font-medium`}
                         >
-                          {goalAlignment.text}
+                          {goalAlignment7d.text}
                         </p>
                       )}
                     </div>
-                    {/* 30-Day Rate */}
+                    {/* 7-Day Rate */}
                     <div
                       role="button"
                       tabIndex={0}
-                      aria-label="30-day rate details"
+                      aria-label="7-day rate details"
                       onClick={openTrendInfo}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' || event.key === ' ') {
@@ -1842,178 +1739,327 @@ export const WeightTrackerModal = ({
                       className="group cursor-pointer rounded-lg focus-ring pressable-card md:hover:bg-surface-highlight/40"
                     >
                       <p className="text-muted text-xs uppercase tracking-wide mb-1 flex items-center gap-1 md:group-hover:text-foreground transition-colors">
-                        30-Day Rate
+                        7-Day Rate
                         <Info
                           size={14}
                           className="opacity-60 md:group-hover:opacity-100 transition-opacity"
                         />
                       </p>
                       <p className="text-foreground text-lg font-semibold">
-                        {weeklyRateDisplay}
+                        {weeklyRate7dDisplay}
                       </p>
                       <p className="text-muted text-xs mt-1">
                         Goal: {getGoalWeeklyTarget(selectedGoal, 'weight')}
                       </p>
                     </div>
                   </>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* Add Entry button (hidden in 12m mode) */}
-          {viewMode !== '12m' ? (
-            <div className="sticky top-0 z-10 px-4 py-2 bg-surface/95 backdrop-blur-sm border-b border-border shrink-0">
-              <button
-                type="button"
-                onClick={() => onAddEntry?.()}
-                className="px-4 py-1.5 md:px-4 md:py-2.5 rounded-lg border-2 bg-accent-blue border-accent-blue/70 text-primary-foreground transition-all font-semibold text-sm md:hover:brightness-110 press-feedback focus-ring flex justify-center items-center"
-              >
-                <Plus size={16} className="mr-1" />
-                Add Entry
-              </button>
-            </div>
-          ) : (
-            <div className="border-b border-border shrink-0" />
-          )}
-
-          {/* Graph carousel + Y-axis */}
-          <div
-            className="relative flex-1 flex flex-col min-h-0"
-            onClick={dismissSelection}
-          >
-            <div className="flex-1 pr-2 pb-1 overflow-hidden flex">
-              {/* Carousel */}
-              <div className="relative rounded-l-lg flex-1 overflow-hidden">
-                <div
-                  ref={carouselRef}
-                  className={`overflow-x-auto overflow-y-hidden h-full flex ${graphAnimationClass}`}
-                  style={{
-                    scrollSnapType: 'x proximity',
-                    WebkitOverflowScrolling: 'touch',
-                  }}
-                  onScroll={handleCarouselScroll}
-                >
-                  {viewMode === '7d' ? (
-                    render7dContinuous()
-                  ) : viewMode === '30d' ? (
-                    render30dContinuous()
-                  ) : viewMode === '12m' ? (
-                    render12mContinuous()
-                  ) : (
-                    <div className="flex-1 flex items-center justify-center">
-                      <p className="text-muted text-lg">No weight data yet.</p>
-                    </div>
-                  )}
-                </div>
-                <div className="pointer-events-none absolute right-0 -mr-1 top-0 h-full w-3 bg-linear-to-l from-surface/90 to-transparent" />
-              </div>
-
-              {/* Y-axis — uses effective chart data with smooth transitions */}
-              <div className="rounded-r-lg w-12 shrink-0 relative">
-                <div
-                  className="absolute inset-x-0 px-1"
-                  style={{ top: '8px', height: `${chartHeight}px` }}
-                >
-                  {effectiveChartData
-                    ? yTickPositions.map(({ weight, index, lineY }) => (
-                        <div
-                          key={`tick-${index}`}
-                          className="absolute right-2 text-sm font-semibold text-foreground/70 tracking-tight text-right"
-                          style={{
-                            top: `${lineY}px`,
-                            transform: 'translateY(-50%)',
-                            transition: 'top 0.3s ease-out',
-                          }}
-                        >
-                          {formatWeight(weight)}
+                ) : (
+                  <>
+                    {viewMode === '30d' ? (
+                      <>
+                        {/* Current Weight */}
+                        <div>
+                          <p className="text-muted text-xs uppercase tracking-wide mb-1">
+                            Current Weight
+                          </p>
+                          <p className="text-foreground text-2xl font-bold">
+                            {currentWeightDisplay}
+                          </p>
+                          <p className="text-muted text-[11px] mt-1">
+                            {latestDate ? (
+                              <span className="inline-flex items-center gap-2">
+                                <span>{formatPanelDate(latestDate)}</span>
+                                {oldDataWarningText && (
+                                  <span className="inline-flex items-center gap-1 text-accent-yellow">
+                                    <AlertCircle
+                                      size={10}
+                                      className="shrink-0"
+                                    />
+                                    {oldDataWarningText}
+                                  </span>
+                                )}
+                              </span>
+                            ) : (
+                              ''
+                            )}
+                          </p>
                         </div>
-                      ))
-                    : null}
-                  {currentWeightTick &&
-                    (viewMode === '7d' || viewMode === '30d') && (
-                      <div
-                        className="absolute right-0.5 px-2.5 py-1 rounded-lg text-[12px] font-bold text-primary-foreground shadow-md flex items-center justify-center leading-none"
-                        style={{
-                          top: `${currentWeightTick.yPx}px`,
-                          transform: 'translateY(-50%)',
-                          transition: 'top 0.3s ease-out',
-                          backgroundColor: trendVisual.color,
-                          borderColor: trendVisual.color,
-                          borderWidth: '1px',
-                        }}
-                      >
-                        {formatWeight(currentWeightTick.weight)}
-                      </div>
+                        {/* 30 Day Avg */}
+                        <div>
+                          <p className="text-muted text-xs uppercase tracking-wide mb-1">
+                            30-Day Avg
+                          </p>
+                          <p className="text-foreground text-2xl font-bold">
+                            {pageAverage != null
+                              ? `${formatWeight(pageAverage)} kg`
+                              : '—'}
+                          </p>
+                          <p className="text-muted text-[11px] mt-1">
+                            {pageTimeframeRange}
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {/* 12 Month Avg */}
+                        <div>
+                          <p className="text-muted text-xs uppercase tracking-wide mb-1">
+                            12-Month Avg
+                          </p>
+                          <p className="text-foreground text-2xl font-bold">
+                            {pageAverage != null
+                              ? `${formatWeight(pageAverage)} kg`
+                              : '—'}
+                          </p>
+                          <p className="text-muted text-[11px] mt-1">
+                            Current: {currentWeightDisplay}
+                          </p>
+                        </div>
+                        {/* Timeframe */}
+                        <div>
+                          <p className="text-muted text-xs uppercase tracking-wide mb-1">
+                            Timeframe
+                          </p>
+                          <p className="text-foreground text-sm font-semibold">
+                            {pageTimeframeRange}
+                          </p>
+                          <p className="text-muted text-[11px] mt-1">
+                            {`${visibleWindowTrackedDays} days tracked`}
+                          </p>
+                        </div>
+                      </>
                     )}
-                </div>
+                    {viewMode === '30d' && (
+                      <>
+                        {/* 30-Day Trend */}
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          aria-label="30-day trend details"
+                          onClick={openTrendInfo}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              openTrendInfo();
+                            }
+                          }}
+                          className="group cursor-pointer rounded-lg focus-ring pressable-card md:hover:bg-surface-highlight/40"
+                        >
+                          <p className="text-muted text-xs uppercase tracking-wide mb-1 flex items-center gap-1 md:group-hover:text-foreground transition-colors">
+                            30-Day Trend
+                            <Info
+                              size={14}
+                              className="opacity-60 md:group-hover:opacity-100 transition-opacity"
+                            />
+                          </p>
+                          <p
+                            className={`${getTrendToneClass(trend, selectedGoal, 'weight')} font-semibold text-lg flex items-center gap-2`}
+                          >
+                            <TrendIcon direction={trend.direction} />
+                            {trend.label}
+                          </p>
+                          {goalAlignment && (
+                            <p
+                              className={`${goalAlignment.color} text-xs mt-1 font-medium`}
+                            >
+                              {goalAlignment.text}
+                            </p>
+                          )}
+                        </div>
+                        {/* 30-Day Rate */}
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          aria-label="30-day rate details"
+                          onClick={openTrendInfo}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              openTrendInfo();
+                            }
+                          }}
+                          className="group cursor-pointer rounded-lg focus-ring pressable-card md:hover:bg-surface-highlight/40"
+                        >
+                          <p className="text-muted text-xs uppercase tracking-wide mb-1 flex items-center gap-1 md:group-hover:text-foreground transition-colors">
+                            30-Day Rate
+                            <Info
+                              size={14}
+                              className="opacity-60 md:group-hover:opacity-100 transition-opacity"
+                            />
+                          </p>
+                          <p className="text-foreground text-lg font-semibold">
+                            {weeklyRateDisplay}
+                          </p>
+                          <p className="text-muted text-xs mt-1">
+                            Goal: {getGoalWeeklyTarget(selectedGoal, 'weight')}
+                          </p>
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
               </div>
-            </div>
 
-            {/* Selection card — one fixed slot inset 8px from the screen edges (so
+              {/* Add Entry button (hidden in 12m mode) */}
+              {viewMode !== '12m' ? (
+                <div className="sticky top-0 z-10 px-4 py-2 bg-surface/95 backdrop-blur-sm border-b border-border shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => onAddEntry?.()}
+                    className="px-4 py-1.5 md:px-4 md:py-2.5 rounded-lg border-2 bg-accent-blue border-accent-blue/70 text-primary-foreground transition-all font-semibold text-sm md:hover:brightness-110 press-feedback focus-ring flex justify-center items-center"
+                  >
+                    <Plus size={16} className="mr-1" />
+                    Add Entry
+                  </button>
+                </div>
+              ) : (
+                <div className="border-b border-border shrink-0" />
+              )}
+
+              {/* Graph carousel + Y-axis */}
+              <div
+                className="relative flex-1 flex flex-col min-h-0"
+                onClick={dismissSelection}
+              >
+                <div className="flex-1 pr-2 pb-1 overflow-hidden flex">
+                  {/* Carousel */}
+                  <div className="relative rounded-l-lg flex-1 overflow-hidden">
+                    <div
+                      ref={carouselRef}
+                      className={`overflow-x-auto overflow-y-hidden h-full flex ${graphAnimationClass}`}
+                      style={{
+                        scrollSnapType: 'x proximity',
+                        WebkitOverflowScrolling: 'touch',
+                      }}
+                      onScroll={handleCarouselScroll}
+                    >
+                      {viewMode === '7d' ? (
+                        render7dContinuous()
+                      ) : viewMode === '30d' ? (
+                        render30dContinuous()
+                      ) : viewMode === '12m' ? (
+                        render12mContinuous()
+                      ) : (
+                        <div className="flex-1 flex items-center justify-center">
+                          <p className="text-muted text-lg">
+                            No weight data yet.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="pointer-events-none absolute right-0 -mr-1 top-0 h-full w-3 bg-linear-to-l from-surface/90 to-transparent" />
+                  </div>
+
+                  {/* Y-axis — uses effective chart data with smooth transitions */}
+                  <div className="rounded-r-lg w-12 shrink-0 relative">
+                    <div
+                      className="absolute inset-x-0 px-1"
+                      style={{ top: '8px', height: `${chartHeight}px` }}
+                    >
+                      {effectiveChartData
+                        ? yTickPositions.map(({ weight, index, lineY }) => (
+                            <div
+                              key={`tick-${index}`}
+                              className="absolute right-2 text-sm font-semibold text-foreground/70 tracking-tight text-right"
+                              style={{
+                                top: `${lineY}px`,
+                                transform: 'translateY(-50%)',
+                                transition: 'top 0.3s ease-out',
+                              }}
+                            >
+                              {formatWeight(weight)}
+                            </div>
+                          ))
+                        : null}
+                      {currentWeightTick &&
+                        (viewMode === '7d' || viewMode === '30d') && (
+                          <div
+                            className="absolute right-0.5 px-2.5 py-1 rounded-lg text-[12px] font-bold text-primary-foreground shadow-md flex items-center justify-center leading-none"
+                            style={{
+                              top: `${currentWeightTick.yPx}px`,
+                              transform: 'translateY(-50%)',
+                              transition: 'top 0.3s ease-out',
+                              backgroundColor: trendVisual.color,
+                              borderColor: trendVisual.color,
+                              borderWidth: '1px',
+                            }}
+                          >
+                            {formatWeight(currentWeightTick.weight)}
+                          </div>
+                        )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Selection card — one fixed slot inset 8px from the screen edges (so
                 the strip never touches them) while still covering the y-axis column,
                 whose own right gutter is that same 8px. The guide line drawn inside
                 the chart is what ties the tapped slot to this card, and panning the
                 plot dismisses it. */}
-            <TrackerSelectionCard
-              isOpen={isCardOpen}
-              actionLabel={cardActionLabel}
-              onAction={isMonthSelection ? undefined : handleCardAction}
-              ariaLabel={cardAriaLabel}
-            >
-              <p className="text-muted text-[11px] truncate">
-                {isMonthSelection
-                  ? formatMonthLabel(panelMonth)
-                  : panelDate
-                    ? formatPanelDate(panelDate)
-                    : ''}
-              </p>
-              <div className="flex items-end justify-between gap-2 flex-wrap mt-0.5">
-                <p className="text-foreground text-xl font-bold leading-tight">
-                  {isMonthSelection
-                    ? panelMonth?.avg != null
-                      ? `${formatWeight(panelMonth.avg)} kg`
-                      : 'No entries'
-                    : panelEntry
-                      ? `${formatWeight(panelEntry.weight)} kg`
-                      : 'No entry'}
-                </p>
-                <span className="flex items-center gap-2 flex-wrap pb-0.5">
-                  {monthOverMonthDelta != null && (
-                    <TrackerCardMetric
-                      label="vs prev month"
-                      value={formatSignedDelta(monthOverMonthDelta, 'kg')}
-                    />
-                  )}
-                  {previousEntryDelta && (
-                    <TrackerCardMetric
-                      label={
-                        previousEntryDelta.spanDays > 1
-                          ? `vs prev (${previousEntryDelta.spanDays}d)`
-                          : 'vs prev'
-                      }
-                      value={formatSignedDelta(previousEntryDelta.delta, 'kg')}
-                    />
-                  )}
-                  {trendDeviation != null && (
-                    <TrackerCardMetric
-                      label="vs 7d avg"
-                      value={formatSignedDelta(trendDeviation, 'kg')}
-                    />
-                  )}
-                  {isMonthSelection && panelMonth?.avg != null && (
-                    <TrackerCardMetric
-                      label="Tracked"
-                      value={`${getTrackedDaysCount(panelMonth.entries)}/${getDaysInMonthUtc(
-                        panelMonth.year,
-                        panelMonth.month
-                      )} d`}
-                    />
-                  )}
-                </span>
+                <TrackerSelectionCard
+                  isOpen={isCardOpen}
+                  actionLabel={cardActionLabel}
+                  onAction={isMonthSelection ? undefined : handleCardAction}
+                  ariaLabel={cardAriaLabel}
+                >
+                  <p className="text-muted text-[11px] truncate">
+                    {isMonthSelection
+                      ? formatMonthLabel(panelMonth)
+                      : panelDate
+                        ? formatPanelDate(panelDate)
+                        : ''}
+                  </p>
+                  <div className="flex items-end justify-between gap-2 flex-wrap mt-0.5">
+                    <p className="text-foreground text-xl font-bold leading-tight">
+                      {isMonthSelection
+                        ? panelMonth?.avg != null
+                          ? `${formatWeight(panelMonth.avg)} kg`
+                          : 'No entries'
+                        : panelEntry
+                          ? `${formatWeight(panelEntry.weight)} kg`
+                          : 'No entry'}
+                    </p>
+                    <span className="flex items-center gap-2 flex-wrap pb-0.5">
+                      {monthOverMonthDelta != null && (
+                        <TrackerCardMetric
+                          label="vs prev month"
+                          value={formatSignedDelta(monthOverMonthDelta, 'kg')}
+                        />
+                      )}
+                      {previousEntryDelta && (
+                        <TrackerCardMetric
+                          label={
+                            previousEntryDelta.spanDays > 1
+                              ? `vs prev (${previousEntryDelta.spanDays}d)`
+                              : 'vs prev'
+                          }
+                          value={formatSignedDelta(
+                            previousEntryDelta.delta,
+                            'kg'
+                          )}
+                        />
+                      )}
+                      {trendDeviation != null && (
+                        <TrackerCardMetric
+                          label="vs 7d avg"
+                          value={formatSignedDelta(trendDeviation, 'kg')}
+                        />
+                      )}
+                      {isMonthSelection && panelMonth?.avg != null && (
+                        <TrackerCardMetric
+                          label="Tracked"
+                          value={`${getTrackedDaysCount(panelMonth.entries)}/${getDaysInMonthUtc(
+                            panelMonth.year,
+                            panelMonth.month
+                          )} d`}
+                        />
+                      )}
+                    </span>
+                  </div>
+                </TrackerSelectionCard>
               </div>
-            </TrackerSelectionCard>
-          </div>
+            </>
+          )}
         </div>
       </ModalShell>
 
