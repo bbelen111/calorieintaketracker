@@ -34,6 +34,10 @@ export default [
         navigator: 'readonly',
         performance: 'readonly',
         Blob: 'readonly',
+        // Settings -> Integrations import spec builds real files and spies on
+        // the file input element.
+        File: 'readonly',
+        HTMLInputElement: 'readonly',
         URL: 'readonly',
         requestAnimationFrame: 'readonly',
         cancelAnimationFrame: 'readonly',
