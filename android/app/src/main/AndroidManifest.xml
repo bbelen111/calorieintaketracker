@@ -59,6 +59,11 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Notifications: Android 13+ (API 33) runtime permission for local
+         reminders and optional remote announcements. Reminders are scheduled
+         inexactly (no SCHEDULE_EXACT_ALARM). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- Camera: barcode scanning and the experimental camera pulse reading. -->
     <uses-permission android:name="android.permission.CAMERA" />
 

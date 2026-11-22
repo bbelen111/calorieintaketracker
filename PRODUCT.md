@@ -33,7 +33,7 @@ That history is what a neighboring tracker could not truthfully copy: the mechan
 
 - **Used as a daily ritual on a phone, in portrait.** A morning weigh-in, meals logged across the day, one-handed entry in a kitchen or gym, sessions after training, and a review of the day's ledger in the evening.
 - **The device is the database.** Profile and settings live in Capacitor Preferences; history lives in IndexedDB. There are no accounts, no login, no analytics, and no crash-reporting SDK.
-- **Network is optional and explicit.** Offline catalog search and all tracking work with no connection. Only the queries a user actively makes — online catalog search, barcode lookup, AI food chat — leave the device, to Supabase, OpenFoodFacts or OpenRouter respectively.
+- **Network is optional and explicit.** Offline catalog search, local reminders, and all tracking work with no connection. Only the queries a user actively makes — online catalog search, barcode lookup, AI food chat — leave the device, to Supabase, OpenFoodFacts or OpenRouter respectively. If the user explicitly opts in to remote app/catalog announcements, only an anonymous installation UUID, platform, and OS push token are registered (never health or tracking data).
 - **Steps arrive from the OS health store.** Health Connect on Android (read/write scope); Apple Health on iOS, read-only by design.
 - **Exports leave through the OS share sheet** (CSV/JSON written to the app cache, never uploaded).
 - **Build and release are the maintainer's own loop:** Vite build → `cap copy`/`cap sync` → Xcode/Android Studio → device. Xcode live reload over LAN needs a temporary ATS exception that must not ship.
@@ -46,7 +46,7 @@ That history is what a neighboring tracker could not truthfully copy: the mechan
 - Steps manual or health-synced; cardio and training sessions by intensity or heart rate; EPOC with an adjustable carryover window.
 - Five goals and dual-mode phases (`goal` / `target`) with smart daily-delta planning and feasible-date bands; macro targets with gram locks.
 - Derived daily snapshots, a Daily Ledger calendar, and rolling energy-balance windows of 3/7/14/28 days.
-- Per-day NEAT override, eight themes, and an in-app text-size and density scale.
+- Per-day NEAT override, smart on-device notifications with quiet hours and tap deep-linking (plus optional anonymous remote announcements), eight themes, and an in-app text-size and density scale.
 
 **Constraints that future work must preserve:**
 - Local-first persistence split: Preferences for profile/settings, IndexedDB (sharded by date) for history. Saves are incremental, never whole-database writes.

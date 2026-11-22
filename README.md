@@ -1,4 +1,4 @@
-﻿# Energy Map Calorie Tracker
+# Energy Map Calorie Tracker
 
 <p align="center">
   <img src="https://github.com/bbelen111/calorieintaketracker/actions/workflows/ci.yml/badge.svg" alt="CI status">
@@ -79,6 +79,7 @@ It ships as a single **React + Vite** bundle wrapped by **Capacitor** into nativ
 - **Barcode Scanning** — Native barcode lookup via Capacitor
 - **Step Sync** — Health Connect on Android, read-only HealthKit on iOS, through one hook (no step double-counting)
 - **Daily Ledger & Rolling Energy Balance** — Date-keyed snapshot analytics: a calendar ledger plus 3/7/14/28-day energy-balance rollups
+- **Smart Local & Push Notifications** — On-device reminders that skip once logged (weigh-in, meals, steps, evening ledger, NEAT check-in), phase milestones, Smart AT unlock alert, weekly rolling-balance digest, EPOC refuel, unimported health workouts, live HR recording guard, quiet hours, plus optional anonymous remote announcements
 - **Offline-First** — SQLite local food catalog (13k+ foods) queried in-browser via `sql.js`, IndexedDB history
 - **AI-Powered Food Parsing** — OpenRouter-backed food entry assistance with Fast / Balanced / Precision quality modes
 - **Bundle-Split Performance** — Heavy modals and data/AI services are lazy-loaded to reduce startup cost
@@ -176,7 +177,7 @@ $$
 | **External APIs** | Supabase food catalog (seeded from USDA FDC), OpenFoodFacts, OpenRouter | — |
 
 **Key Capacitor Plugins:**
-- `@capacitor/preferences`, `@capacitor/app`, `@capacitor/status-bar`, `@capacitor/keyboard`, `@capacitor/barcode-scanner`, `@capgo/capacitor-health`, `@capgo/capacitor-navigation-bar`, `@capacitor/filesystem`, `@capacitor/share`
+- `@capacitor/preferences`, `@capacitor/app`, `@capacitor/status-bar`, `@capacitor/keyboard`, `@capacitor/barcode-scanner`, `@capgo/capacitor-health`, `@capgo/capacitor-navigation-bar`, `@capacitor/filesystem`, `@capacitor/share`, `@capacitor-community/bluetooth-le`, `@capacitor-community/keep-awake`, `@capacitor/local-notifications`, `@capacitor/push-notifications`
 
 **Both native platforms are supported:** Android (Health Connect + nav-bar theming + hardware back button) and iOS (HealthKit + native share sheet). Platform-divergent behaviour is resolved centrally through `src/utils/platform.js` — see [Platform Awareness](#-platform-awareness).
 
@@ -728,6 +729,13 @@ await saveTextFile({ fileName: 'phase.csv', content: csv, mimeType: 'text/csv' }
 
 An anchor `download` click is a **silent no-op inside a native WebView** (neither WKWebView nor the Android WebView implements it), so on native the payload is written to the app's Cache directory and handed to the OS share sheet instead. The plugin modules are imported dynamically so the web bundle never ships native-only code.
 
+### Notifications (Layer 1 Local + Layer 2 Remote Push)
+
+- **Layer 1 (`@capacitor/local-notifications`):** All personal reminders, phase milestones, weekly rolling-balance digests, Smart AT unlock alerts, EPOC refuel prompts, unimported health-workout alerts, and live BLE HR recording guards are planned and scheduled **on-device** (`utils/notifications/notificationPlanner.js` + `services/notifications.js` + `hooks/useNotifications.js`). Works 100% offline with quiet hours, smart suppression when already logged, inexact Android alarms (no `SCHEDULE_EXACT_ALARM`), and a 60-item cap under iOS's 64-notification limit. Configured in **Settings → Notifications**.
+- **Layer 2 (`@capacitor/push-notifications`):** Optional opt-in for anonymous app & food-catalog announcements. Registers only a random device `installation_id` UUID, platform (`ios`/`android`), push token, and topic list via Upstash-rate-limited `api/push/register.js` / `api/push/unregister.js`, which invoke narrow `SECURITY DEFINER` RPCs (`register_push_device` / `unregister_push_device`) using `SUPABASE_ANON_KEY` + server-only `PUSH_RPC_SECRET` (`scripts/push/push_devices.sql`). `SUPABASE_SERVICE_ROLE_KEY` stays off Vercel and is used only locally by `scripts/push/send-announcement.js`.
+  - **Android (FCM):** place `google-services.json` in `android/app/` (applied conditionally by `android/app/build.gradle`).
+  - **iOS (APNs):** enable **+ Capability → Push Notifications** in Xcode on signed release builds (`AppDelegate.swift` forwards token callbacks to Capacitor).
+
 ## 📊 Calorie Calculation System
 
 ### Key Formulas
@@ -810,6 +818,7 @@ Each theme hardcodes its own accent values, so the shade differs per theme: dark
 VITE_OPENFOODFACTS_API_BASE=https://your-vercel-url/api/openfoodfacts
 VITE_FOODS_API_BASE=https://your-vercel-url/api/foods
 VITE_OPENROUTER_API_BASE=https://your-vercel-url/api/openrouter
+VITE_PUSH_API_BASE=https://your-vercel-url/api/push
 VITE_AI_CHAT_RAG_ENABLED=true
 OPENROUTER_API_KEY=your_openrouter_key
 OPENROUTER_MODEL=openai/gpt-4.1-mini
@@ -839,6 +848,23 @@ OPENROUTER_RATE_LIMIT_MAX_REQUESTS=15
 OPENROUTER_RATE_LIMIT_WINDOW_SECONDS=60
 # true = fail closed if limiter backend is unavailable
 OPENROUTER_RATE_LIMIT_FAIL_CLOSED=true
+
+# Optional Layer 2 remote push registration (api/push/register.js & unregister.js)
+# Server-side only; verified inside private.push_config by SECURITY DEFINER RPCs.
+# SUPABASE_SERVICE_ROLE_KEY NEVER lives on Vercel.
+PUSH_RPC_SECRET=replace_with_strong_random_secret
+PUSH_RATE_LIMIT_MAX_REQUESTS=20
+PUSH_RATE_LIMIT_WINDOW_SECONDS=60
+PUSH_RATE_LIMIT_FAIL_CLOSED=true
+
+# Maintainer-only local dispatch script (scripts/push/send-announcement.js — never deploy to Vercel)
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+FCM_SERVICE_ACCOUNT_JSON=
+APNS_KEY_P8=
+APNS_KEY_ID=
+APNS_TEAM_ID=
+APNS_BUNDLE_ID=com.energymap.tracker
+APNS_USE_SANDBOX=false
 ```
 
 ### OpenRouter Proxy Security Notes

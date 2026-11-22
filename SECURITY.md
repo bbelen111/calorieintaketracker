@@ -21,6 +21,7 @@ stated plainly rather than papered over.
 | OpenRouter AI proxy | `api/openrouter.js` | **Highest-value target** — holds a paid API key server-side and is the only endpoint with an origin allowlist and a rate limiter. |
 | Online catalog search proxy | `api/foods.js`, `api/usda.js` | `api/usda.js` is a legacy alias that re-exports the same handler. |
 | Barcode lookup proxy | `api/openfoodfacts.js` | Forwards barcode lookups to OpenFoodFacts. |
+| Anonymous push registration | `api/push/register.js`, `api/push/unregister.js` | Optional Layer 2 announcements: stores anonymous device UUID + push token + topics in `public.push_devices` (no user accounts or health data). |
 | Offline catalog tooling | `scripts/food-db/` | Build/curate/enrich pipeline for the bundled SQLite catalog. |
 | Build, CI and release path | `vite.config.js`, `.github/workflows/ci.yml`, `capacitor.config.json`, `vercel.json` | Includes anything that could leak a secret into a shipped bundle. |
 
@@ -139,8 +140,10 @@ local development only**.
 | --- | --- |
 | `OPENROUTER_API_KEY` | **Server-side only.** Read in `api/openrouter.js`; never sent to the client. |
 | `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Server-side only; used for the rate limiter. |
-| `SUPABASE_ANON_KEY` / `SUPABASE_PUBLISHABLE_KEY` | Read-only key, public by design. `api/foods.js` never reads a service-role key. |
-| `SUPABASE_SERVICE_ROLE_KEY` | **Never used in this deployment** — it belongs to the offline catalog pipeline seeder only. |
+| `SUPABASE_ANON_KEY` / `SUPABASE_PUBLISHABLE_KEY` | Read-only key, public by design. Used by `api/foods.js` and to invoke the narrow `register_push_device` / `unregister_push_device` RPCs. |
+| `PUSH_RPC_SECRET` | **Server-side only.** Shared secret passed by `api/push/register.js` and `api/push/unregister.js` to the `SECURITY DEFINER` push RPCs and checked against `private.push_config` inside Postgres, closing direct-PostgREST rate-limit bypasses without giving Vercel a service-role key. |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Never used on Vercel** — reserved strictly for the offline catalog pipeline seeder and the maintainer's local `scripts/push/send-announcement.js` CLI. |
+| `FCM_SERVICE_ACCOUNT_JSON` / `APNS_KEY_P8` | **Maintainer-only local CLI secrets** for `scripts/push/send-announcement.js`; never deployed to Vercel or bundled into clients. |
 | `VITE_*` variables | **Public by definition** — Vite inlines them into the shipped bundle. Never put a secret here. |
 
 `.env`, `.env.*` and `.env*.local` are gitignored, and no environment file is tracked in the
@@ -151,9 +154,12 @@ repository.
 | Platform | Permission | Purpose |
 | --- | --- | --- |
 | Android | `INTERNET` | API calls |
-| Android | `health.READ_STEPS`, `ACTIVITY_RECOGNITION` | Read step count from Health Connect |
-| iOS | `NSHealthShareUsageDescription` | Read steps from Apple Health |
-| iOS | `NSCameraUsageDescription` | Scan food barcodes |
+| Android | `POST_NOTIFICATIONS` | Local reminders and optional remote announcements (inexact alarms only; no `SCHEDULE_EXACT_ALARM`) |
+| Android | `health.READ_STEPS`, `health.READ_HEART_RATE`, `health.READ_RESTING_HEART_RATE`, `health.READ_VO2_MAX`, `health.READ_EXERCISE`, `ACTIVITY_RECOGNITION` | Read steps, heart rate, and workouts from Health Connect |
+| Android | `BLUETOOTH_SCAN` (`neverForLocation`), `BLUETOOTH_CONNECT`, `CAMERA` | BLE heart-rate sensors, barcode scan, and camera pulse reading |
+| iOS | `NSHealthShareUsageDescription` | Read steps, heart rate, and workouts from Apple Health |
+| iOS | `NSCameraUsageDescription`, `NSBluetoothAlwaysUsageDescription` | Barcode scan, camera pulse reading, and BLE heart-rate sensors |
+| iOS | `UNUserNotificationCenter` (runtime prompt) | Local reminders and optional remote announcements (APNs on signed builds) |
 
 Health sync is **read-only on iOS by design**: `NSHealthUpdateUsageDescription` is deliberately
 absent and `ios/App/App/App.entitlements` carries only `com.apple.developer.healthkit` (no
@@ -219,6 +225,24 @@ Keeps the paid OpenRouter key server-side. Controls, in request order:
 - The upstream request uses a **fixed, allowlisted `fields` list** — callers cannot inject arbitrary
   OpenFoodFacts query parameters.
 - CORS is `*` by design; the endpoint returns public product data and holds no credentials.
+
+#### `api/push/register.js` & `api/push/unregister.js` — anonymous remote announcements (Layer 2)
+
+- `POST` (and `DELETE` for unregister) only; `Cache-Control: no-store`.
+- **Per-IP Upstash rate limiting** (`api/push/_shared.js`, mirroring `api/openrouter.js`: `x-real-ip`
+  or last `x-forwarded-for` hop, `PUSH_RATE_LIMIT_MAX_REQUESTS=20` per 60s, `429` + `Retry-After`).
+- **No `SUPABASE_SERVICE_ROLE_KEY` on Vercel.** Calls narrow `SECURITY DEFINER` RPCs
+  (`register_push_device` / `unregister_push_device`, `SET search_path = ''`, returning `void`) via
+  `SUPABASE_ANON_KEY` + server-only `PUSH_RPC_SECRET`. Both RPCs verify `p_secret` against
+  `private.push_config` (non-exposed schema, `REVOKE ALL` from `PUBLIC`, `anon`, and
+  `authenticated`) before validating platform, topics, and token lengths and touching
+  `public.push_devices`. Direct PostgREST calls from `anon` without the secret fail closed (`42501`).
+- Strict payload validation: `installationId` must be a valid UUID, `platform` must be `'ios'` or
+  `'android'`, `token` is capped at 512 chars, and `topics` are allowlisted (`['announcements']`).
+  `public.push_devices` includes a nullable `user_id` referencing `auth.users(id)` (unused now,
+  ready for future Auth binding), has RLS enabled, and revokes all table privileges from `PUBLIC`,
+  `anon`, and `authenticated`.
+- Fails closed (`500`) if `SUPABASE_URL`, `SUPABASE_ANON_KEY`, or `PUSH_RPC_SECRET` is unset.
 
 ---
 
@@ -304,9 +328,19 @@ Before exposing the API deployment to users, confirm every item:
 **Required — the online catalog is otherwise unavailable**
 
 - [ ] `SUPABASE_URL` and `SUPABASE_ANON_KEY` (or `SUPABASE_PUBLISHABLE_KEY`) are set. Use the
-      read-only key — **never** the service-role key.
+      read-only key for `api/foods.js`.
 - [ ] `OPENFOODFACTS_USER_AGENT` identifies the deployment (OpenFoodFacts requires a meaningful
       user agent).
+
+**Optional — Layer 2 remote push announcements**
+
+- [ ] Run `scripts/push/push_devices.sql` in Supabase and seed `private.push_config` (`rpc_secret`)
+      with a strong random secret; confirm RLS is enabled and `anon`/`authenticated` have no table
+      privileges on `public.push_devices` or `private.push_config`.
+- [ ] Set `PUSH_RPC_SECRET` (matching `private.push_config.rpc_secret`) server-side in Vercel —
+      **do not** put `SUPABASE_SERVICE_ROLE_KEY` on Vercel.
+- [ ] Keep Upstash configured (`UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`) and set
+      `PUSH_RATE_LIMIT_FAIL_CLOSED=true` so `/api/push/*` stays throttled.
 
 **Recommended**
 

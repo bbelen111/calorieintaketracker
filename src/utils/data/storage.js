@@ -51,6 +51,10 @@ import {
   NUTRIENT_KEYS,
   normalizeNutrientValue,
 } from '../../constants/nutrients/nutrients.js';
+import {
+  createDefaultNotificationSettings,
+  normalizeNotificationSettings,
+} from '../../constants/notifications/notificationConfig.js';
 
 // Split keys for performance
 const PROFILE_KEY = 'energyMapData_profile'; // Settings, preferences, small lists
@@ -1520,6 +1524,7 @@ export const getDefaultEnergyMapData = () => ({
   vo2MaxCustom: null, // mL/kg/min (15-90) or null = auto (watch reading)
   heartRateSyncEnabled: false, // read HR / resting HR / VO2 max / workouts from Health
   heartRateSensor: null, // { deviceId, name } of the paired BLE heart-rate sensor
+  notifications: createDefaultNotificationSettings(),
   // nutritionData structure: { 'YYYY-MM-DD': { mealType: [{ id, name, calories, protein, carbs, fats, timestamp }] } }
   trainingType: {
     trainingtype_1: {
@@ -1911,6 +1916,7 @@ function mergeWithDefaults(data) {
       normalizedInput.heartRateSyncEnabled ?? defaults.heartRateSyncEnabled
     ),
     heartRateSensor: normalizeHeartRateSensor(normalizedInput.heartRateSensor),
+    notifications: normalizeNotificationSettings(normalizedInput.notifications),
   };
 }
 

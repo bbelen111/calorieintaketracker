@@ -76,6 +76,8 @@ import { RestingHeartRateEntryModal } from './modals/forms/RestingHeartRateEntry
 import { HeartRateZonesInfoModal } from './modals/info/HeartRateZonesInfoModal';
 import { HeartRatePickerModal } from './modals/pickers/HeartRatePickerModal';
 import { useHeartRateSync } from '../../hooks/useHeartRateSync';
+import { useNotifications } from '../../hooks/useNotifications';
+import { NOTIFICATION_ROUTES } from '../../constants/notifications/notificationConfig';
 import {
   MAX_HEART_RATE_MAX_BPM,
   MAX_HEART_RATE_MIN_BPM,
@@ -817,6 +819,8 @@ export const EnergyMapCalculator = () => {
     useState(null);
   const [tempTimePickerValue, setTempTimePickerValue] = useState('12:00');
   const [timePickerTarget, setTimePickerTarget] = useState(null);
+  const [timePickerTitle, setTimePickerTitle] = useState('Select Time');
+  const notificationTimePickerCallbackRef = useRef(null);
   const [tempEpocWindowValue, setTempEpocWindowValue] = useState(
     userData.epocCarryoverHours ?? 6
   );
@@ -3697,8 +3701,11 @@ export const EnergyMapCalculator = () => {
           ...prev,
           startTime: normalizedValue,
         }));
+      } else if (timePickerTarget === 'notification-time') {
+        notificationTimePickerCallbackRef.current?.(normalizedValue);
       }
 
+      notificationTimePickerCallbackRef.current = null;
       setTimePickerTarget(null);
       timePickerModal.requestClose();
     },
@@ -3708,10 +3715,24 @@ export const EnergyMapCalculator = () => {
   const handleTimePickerCancel = useCallback(() => {
     setTimeout(() => {
       setTempTimePickerValue('12:00');
+      setTimePickerTitle('Select Time');
     }, MODAL_CLOSE_DELAY);
+    notificationTimePickerCallbackRef.current = null;
     setTimePickerTarget(null);
     timePickerModal.requestClose();
   }, [timePickerModal]);
+
+  const openNotificationTimePicker = useCallback(
+    ({ title, value, onSave } = {}) => {
+      setTempTimePickerValue(normalizeTimeOfDay(value, '09:00'));
+      setTimePickerTitle(title || 'Select Time');
+      notificationTimePickerCallbackRef.current =
+        typeof onSave === 'function' ? onSave : null;
+      setTimePickerTarget('notification-time');
+      timePickerModal.open();
+    },
+    [timePickerModal]
+  );
 
   const openTrainingStartTimePicker = useCallback(() => {
     setTempTimePickerValue(
@@ -4098,6 +4119,87 @@ export const EnergyMapCalculator = () => {
   const handleBackToLogbook = useCallback(() => {
     setSelectedPhase(null);
   }, []);
+
+  // Notification tap deep-link router (Layer 1 local + Layer 2 remote push).
+  const handleNotificationAction = useCallback(
+    (extra) => {
+      const route = extra?.route;
+      if (!route) {
+        return;
+      }
+
+      switch (route) {
+        case NOTIFICATION_ROUTES.OPEN_WEIGHT_ENTRY:
+          openAddWeightEntryModal(extra.dateKey);
+          break;
+        case NOTIFICATION_ROUTES.OPEN_BODY_FAT_ENTRY:
+          openAddBodyFatEntryModal(extra.dateKey);
+          break;
+        case NOTIFICATION_ROUTES.OPEN_FOOD_SEARCH:
+          openFoodSearchForMeal(extra.mealType || 'lunch');
+          break;
+        case NOTIFICATION_ROUTES.OPEN_DAY_LEDGER:
+          handleOpenDayLedgerDetail(extra.dateKey || getTodayDateKey());
+          break;
+        case NOTIFICATION_ROUTES.OPEN_DAILY_NEAT:
+          openDailyNeatOverrideModal();
+          break;
+        case NOTIFICATION_ROUTES.OPEN_PHASE_DETAIL: {
+          const allPhases = useEnergyMapStore.getState().phases ?? [];
+          const match =
+            allPhases.find((p) => String(p.id) === String(extra.phaseId)) ??
+            allPhases.find((p) => p.status === 'active') ??
+            null;
+          goToScreen(0);
+          if (match) {
+            setSelectedPhase(match);
+          }
+          break;
+        }
+        case NOTIFICATION_ROUTES.OPEN_ROLLING_BALANCE:
+          rollingEnergyBalanceModal.open();
+          break;
+        case NOTIFICATION_ROUTES.OPEN_STEP_TRACKER:
+          openStepTracker();
+          break;
+        case NOTIFICATION_ROUTES.OPEN_LIVE_HR:
+          openLiveHeartRate(extra.kind === 'training' ? 'training' : 'cardio');
+          break;
+        case NOTIFICATION_ROUTES.OPEN_CARDIO_IMPORT:
+          openCardioModal();
+          break;
+        case NOTIFICATION_ROUTES.OPEN_SETTINGS_PAGE:
+          setSettingsPage(
+            typeof extra.page === 'string' && extra.page ? extra.page : 'home'
+          );
+          settingsModal.open();
+          break;
+        case NOTIFICATION_ROUTES.OPEN_HOME:
+        default:
+          goToScreen(homeIndex);
+          break;
+      }
+    },
+    [
+      goToScreen,
+      handleOpenDayLedgerDetail,
+      homeIndex,
+      openAddBodyFatEntryModal,
+      openAddWeightEntryModal,
+      openCardioModal,
+      openDailyNeatOverrideModal,
+      openFoodSearchForMeal,
+      openLiveHeartRate,
+      openStepTracker,
+      rollingEnergyBalanceModal,
+      settingsModal,
+    ]
+  );
+
+  useNotifications({
+    isLoaded,
+    onAction: handleNotificationAction,
+  });
 
   // Daily log handlers (reference-based)
   const openDailyLogModal = useCallback(
@@ -4948,7 +5050,7 @@ export const EnergyMapCalculator = () => {
       <TimePickerModal
         isOpen={timePickerModal.isOpen}
         isClosing={timePickerModal.isClosing}
-        title="Select Time"
+        title={timePickerTitle}
         value={tempTimePickerValue}
         onCancel={handleTimePickerCancel}
         onSave={handleTimePickerSave}
@@ -5044,6 +5146,7 @@ export const EnergyMapCalculator = () => {
                 macroPicker: openMacroPickerModal,
                 clearCachedFoods: handleClearCachedFoods,
                 importData: handleImportData,
+                notificationTimePicker: openNotificationTimePicker,
                 ...heartRateSettingsOpeners,
               },
               info: {

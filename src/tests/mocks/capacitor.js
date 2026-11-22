@@ -176,3 +176,28 @@ export const KeyboardStyleMock = {
   Light: 'LIGHT',
   Default: 'DEFAULT',
 };
+
+/** `@capacitor/local-notifications` double (Layer 1). */
+export const LocalNotificationsMock = {
+  checkPermissions: vi.fn(async () => ({ display: 'granted' })),
+  requestPermissions: vi.fn(async () => ({ display: 'granted' })),
+  createChannel: vi.fn(async () => {}),
+  getPending: vi.fn(async () => ({ notifications: [] })),
+  schedule: vi.fn(async () => ({ notifications: [] })),
+  cancel: vi.fn(async () => {}),
+  removeDeliveredNotifications: vi.fn(async () => {}),
+  addListener: vi.fn(async () => ({
+    remove: vi.fn(async () => {}),
+  })),
+};
+
+/** `@capacitor/push-notifications` double (Layer 2). */
+export const PushNotificationsMock = {
+  checkPermissions: vi.fn(async () => ({ receive: 'granted' })),
+  requestPermissions: vi.fn(async () => ({ receive: 'granted' })),
+  register: vi.fn(async () => {}),
+  unregister: vi.fn(async () => {}),
+  addListener: vi.fn(async () => ({
+    remove: vi.fn(async () => {}),
+  })),
+};

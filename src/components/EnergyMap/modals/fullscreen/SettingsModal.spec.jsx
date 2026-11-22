@@ -10,6 +10,7 @@ import {
   connectHeartRateSync,
   resetHeartRateSyncState,
 } from '../../../../services/heartRateSync';
+import { resetNotificationState } from '../../../../services/notifications';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { HealthConnectStatus } from '../../../../constants/health/healthSources';
 import {
@@ -125,6 +126,7 @@ describe('SettingsModal segmented navigation', () => {
         /EPOC \(Post-Exercise Burn\)/,
       ],
       ['Open Food & Macros', 'Food & Macros', 'Food search opens in'],
+      ['Open Notifications', 'Notifications', 'Enable notifications'],
       ['Open Integrations', 'Integrations', 'Devices'],
     ];
 
@@ -861,5 +863,99 @@ describe('SettingsModal Integrations page', () => {
     });
     await user.click(screen.getByRole('button', { name: 'Export all data' }));
     await vi.waitFor(() => expect(screen.queryByRole('status')).toBeNull());
+  });
+});
+
+describe('SettingsModal Notifications page', () => {
+  beforeEach(async () => {
+    await resetNotificationState();
+  });
+
+  afterEach(async () => {
+    await resetNotificationState();
+    CapacitorMock.isNativePlatform.mockReturnValue(false);
+    CapacitorMock.getPlatform.mockReturnValue('web');
+  });
+
+  it('enables notifications, reveals rules, opens the time picker, toggles remote push, and sends a test', async () => {
+    const user = userEvent.setup();
+    const onFieldChange = vi.fn();
+    const notificationTimePicker = vi.fn();
+
+    const { rerender } = render(
+      <SettingsHarness
+        onFieldChange={onFieldChange}
+        openers={{ notificationTimePicker }}
+        userData={createUserData({
+          notifications: { enabled: false },
+        })}
+      />
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: 'Open Notifications' })
+    );
+    expect(screen.getByText('Enable notifications')).toBeInTheDocument();
+    expect(screen.queryByText('Quiet hours')).toBeNull();
+
+    await user.click(
+      screen.getByRole('switch', { name: 'Enable notifications' })
+    );
+    expect(onFieldChange).toHaveBeenLastCalledWith(
+      'notifications',
+      expect.objectContaining({ enabled: true })
+    );
+
+    const enabledPayload = onFieldChange.mock.calls.at(-1)[1];
+    rerender(
+      <SettingsHarness
+        onFieldChange={onFieldChange}
+        openers={{ notificationTimePicker }}
+        userData={createUserData({
+          bodyFatTrackingEnabled: true,
+          notifications: enabledPayload,
+        })}
+      />
+    );
+
+    expect(screen.getByText('Quiet hours')).toBeInTheDocument();
+    expect(screen.getByText('Morning weigh-in')).toBeInTheDocument();
+    expect(screen.getByText('Weekly body fat check-in')).toBeInTheDocument();
+    expect(screen.getByText('Meal logging nudges')).toBeInTheDocument();
+    expect(screen.getByText('Evening ledger close-out')).toBeInTheDocument();
+    expect(screen.getByText('Phase lifecycle milestones')).toBeInTheDocument();
+    expect(
+      screen.getByText('App & food-catalog announcements')
+    ).toBeInTheDocument();
+
+    expect(screen.queryByText(/backup reminder/i)).toBeNull();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Set morning weigh-in reminder time' })
+    );
+    expect(notificationTimePicker).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Morning Weigh-in Time',
+        value: '07:30',
+        onSave: expect.any(Function),
+      })
+    );
+
+    await user.click(
+      screen.getByRole('switch', {
+        name: 'Toggle remote app and catalog announcements',
+      })
+    );
+    expect(onFieldChange).toHaveBeenLastCalledWith(
+      'notifications',
+      expect.objectContaining({
+        remotePush: { announcementsEnabled: true },
+      })
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: 'Send test notification' })
+    );
+    expect(await screen.findByRole('status')).toHaveTextContent(/Preview sent/);
   });
 });

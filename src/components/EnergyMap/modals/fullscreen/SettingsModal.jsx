@@ -37,7 +37,9 @@ import {
   Download,
   Upload,
   Share2,
+  Bell,
 } from 'lucide-react';
+import { NotificationsSettingsSection } from './NotificationsSettingsSection';
 import {
   DEFAULT_ACTIVITY_MULTIPLIERS,
   getActivityPresetByKey,
@@ -158,6 +160,11 @@ const SETTINGS_PAGES = [
     id: 'food',
     title: 'Food & Macros',
     icon: UtensilsCrossed,
+  },
+  {
+    id: 'notifications',
+    title: 'Notifications',
+    icon: Bell,
   },
   {
     id: 'integrations',
@@ -675,6 +682,14 @@ const SettingsPageContent = ({
         onFieldChange={onFieldChange}
         onOpenMacroPicker={onOpenMacroPicker}
         onClearCachedFoods={onClearCachedFoods}
+      />
+    )}
+
+    {page === 'notifications' && (
+      <NotificationsSettingsSection
+        userData={userData}
+        onFieldChange={onFieldChange}
+        onOpenTimePicker={heartRateOpeners?.notificationTimePicker}
       />
     )}
 

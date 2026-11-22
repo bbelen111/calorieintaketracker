@@ -18,6 +18,13 @@
       "launchAutoHide": true,
       "showSpinner": false,
       "backgroundColor": "#0f172a"
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_energy_map",
+      "iconColor": "#3B82F6"
+    },
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
     }
   }
 }

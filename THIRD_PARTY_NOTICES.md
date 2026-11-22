@@ -7,12 +7,14 @@ licenses and, where the package provides one, the full license text.
 > This file is generated. Do not edit it by hand — regenerate with
 > `npm run licenses:generate`.
 
-Total: **128 packages**, 66 unique license texts.
+Total: **134 packages**, 76 unique license texts.
 
 ## Dependencies
 
 | Package | Version | License | Repository |
 | --- | --- | --- | --- |
+| @capacitor-community/bluetooth-le | 8.3.0 | MIT | [link](https://github.com/capacitor-community/bluetooth-le) |
+| @capacitor-community/keep-awake | 8.0.1 | MIT | [link](https://github.com/capacitor-community/keep-awake) |
 | @capacitor/android | 8.5.2 | MIT | [link](https://github.com/ionic-team/capacitor) |
 | @capacitor/app | 8.1.1 | MIT | [link](https://github.com/ionic-team/capacitor-plugins) |
 | @capacitor/barcode-scanner | 3.1.2 | MIT | [link](https://github.com/ionic-team/capacitor-barcode-scanner) |
@@ -21,7 +23,9 @@ Total: **128 packages**, 66 unique license texts.
 | @capacitor/filesystem | 8.1.3 | MIT | [link](https://github.com/ionic-team/capacitor-filesystem) |
 | @capacitor/ios | 8.5.2 | MIT | [link](https://github.com/ionic-team/capacitor) |
 | @capacitor/keyboard | 8.0.5 | MIT | [link](https://github.com/ionic-team/capacitor-keyboard) |
+| @capacitor/local-notifications | 8.3.1 | MIT | [link](https://github.com/ionic-team/capacitor-local-notifications) |
 | @capacitor/preferences | 8.0.1 | MIT | [link](https://github.com/ionic-team/capacitor-plugins) |
+| @capacitor/push-notifications | 8.1.3 | MIT | [link](https://github.com/ionic-team/capacitor-plugins) |
 | @capacitor/share | 8.0.2 | MIT | [link](https://github.com/ionic-team/capacitor-plugins) |
 | @capacitor/splash-screen | 8.0.2 | MIT | [link](https://github.com/ionic-team/capacitor-plugins) |
 | @capacitor/status-bar | 8.0.3 | MIT | [link](https://github.com/ionic-team/capacitor-plugins) |
@@ -38,9 +42,11 @@ Total: **128 packages**, 66 unique license texts.
 | @ionic/utils-subprocess | 3.0.1 | MIT | [link](https://github.com/ionic-team/ionic-cli) |
 | @ionic/utils-terminal | 2.3.5 | MIT | [link](https://github.com/ionic-team/ionic-cli) |
 | @isaacs/fs-minipass | 4.0.1 | ISC | [link](https://github.com/npm/fs-minipass) |
+| @isaacs/nonrecursive-glob-match | 1.1.0 | BlueOak-1.0.0 | — |
 | @types/fs-extra | 8.1.5 | MIT | [link](https://github.com/DefinitelyTyped/DefinitelyTyped) |
 | @types/node | 26.6.3 | MIT | [link](https://github.com/DefinitelyTyped/DefinitelyTyped) |
 | @types/slice-ansi | 4.0.0 | MIT | [link](https://github.com/DefinitelyTyped/DefinitelyTyped) |
+| @types/web-bluetooth | 0.0.20 | MIT | [link](https://github.com/DefinitelyTyped/DefinitelyTyped) |
 | @xmldom/xmldom | 0.9.12 | MIT | [link](https://github.com/xmldom/xmldom) |
 | ansi-regex | 5.0.1 | MIT | [link](chalk/ansi-regex) |
 | ansi-styles | 4.3.0 | MIT | [link](chalk/ansi-styles) |
@@ -52,7 +58,7 @@ Total: **128 packages**, 66 unique license texts.
 | bplist-creator | 0.1.0 | MIT | [link](https://github.com/nearinfinity/node-bplist-creator) |
 | bplist-parser | 0.3.1 | MIT | [link](https://github.com/nearinfinity/node-bplist-parser) |
 | bplist-parser | 0.3.2 | MIT | [link](https://github.com/nearinfinity/node-bplist-parser) |
-| brace-expansion | 5.0.12 | MIT | [link](https://github.com/juliangruber/brace-expansion) |
+| brace-expansion | 5.0.13 | MIT | [link](https://github.com/juliangruber/brace-expansion) |
 | buffer-crc32 | 0.2.13 | MIT | [link](https://github.com/brianloveswords/buffer-crc32) |
 | chownr | 3.0.0 | BlueOak-1.0.0 | [link](https://github.com/isaacs/chownr) |
 | color-convert | 2.0.1 | MIT | [link](Qix-/color-convert) |
@@ -69,7 +75,7 @@ Total: **128 packages**, 66 unique license texts.
 | framer-motion | 12.43.0 | MIT | [link](https://github.com/motiondivision/motion/) |
 | fs-extra | 11.4.1 | MIT | [link](https://github.com/jprichardson/node-fs-extra) |
 | fs-extra | 9.1.0 | MIT | [link](https://github.com/jprichardson/node-fs-extra) |
-| glob | 13.0.6 | BlueOak-1.0.0 | [link](git@github.com:isaacs/node-glob) |
+| glob | 14.0.6 | BlueOak-1.0.0 | [link](git@github.com:isaacs/node-glob) |
 | graceful-fs | 4.2.11 | ISC | [link](https://github.com/isaacs/node-graceful-fs) |
 | html5-qrcode | 2.3.8 | Apache-2.0 | [link](https://github.com/mebjas/html5-qrcode) |
 | inherits | 2.0.4 | ISC | [link](https://github.com/isaacs/inherits) |
@@ -85,7 +91,7 @@ Total: **128 packages**, 66 unique license texts.
 | loose-envify | 1.4.0 | MIT | [link](https://github.com/zertosh/loose-envify) |
 | lru-cache | 11.5.3 | BlueOak-1.0.0 | [link](ssh://git@github.com/isaacs/node-lru-cache) |
 | lucide-react | 0.562.0 | ISC | [link](https://github.com/lucide-icons/lucide) |
-| minimatch | 10.2.6 | BlueOak-1.0.0 | [link](git@github.com:isaacs/minimatch) |
+| minimatch | 11.0.9 | BlueOak-1.0.0 | [link](ssh://git@github.com/isaacs/minimatch) |
 | minipass | 7.1.3 | BlueOak-1.0.0 | [link](https://github.com/isaacs/minipass) |
 | minizlib | 3.1.0 | MIT | [link](https://github.com/isaacs/minizlib) |
 | motion-dom | 12.43.0 | MIT | [link](https://github.com/motiondivision/motion) |
@@ -96,7 +102,7 @@ Total: **128 packages**, 66 unique license texts.
 | open | 8.4.2 | MIT | [link](sindresorhus/open) |
 | package-json-from-dist | 1.0.1 | BlueOak-1.0.0 | [link](https://github.com/isaacs/package-json-from-dist) |
 | path-key | 3.1.1 | MIT | [link](sindresorhus/path-key) |
-| path-scurry | 2.0.2 | BlueOak-1.0.0 | [link](https://github.com/isaacs/path-scurry) |
+| path-scurry | 3.0.0 | BlueOak-1.0.0 | [link](https://github.com/isaacs/path-scurry) |
 | pend | 1.2.0 | MIT | [link](https://github.com/andrewrk/node-pend) |
 | plist | 3.1.1 | MIT | [link](https://github.com/TooTallNate/node-plist) |
 | prompts | 2.4.2 | MIT | [link](terkelg/prompts) |
@@ -105,7 +111,7 @@ Total: **128 packages**, 66 unique license texts.
 | react-dom | 18.3.1 | MIT | [link](https://github.com/facebook/react) |
 | react-is | 16.13.1 | MIT | [link](https://github.com/facebook/react) |
 | readable-stream | 3.6.2 | MIT | [link](https://github.com/nodejs/readable-stream) |
-| rimraf | 6.1.3 | BlueOak-1.0.0 | [link](git@github.com:isaacs/rimraf) |
+| rimraf | 6.1.4 | BlueOak-1.0.0 | [link](git@github.com:isaacs/rimraf) |
 | safe-buffer | 5.2.1 | MIT | [link](https://github.com/feross/safe-buffer) |
 | sax | 1.1.4 | ISC | [link](https://github.com/isaacs/sax-js) |
 | scheduler | 0.23.2 | MIT | [link](https://github.com/facebook/react) |
@@ -131,7 +137,7 @@ Total: **128 packages**, 66 unique license texts.
 | untildify | 4.0.0 | MIT | [link](sindresorhus/untildify) |
 | use-sync-external-store | 1.7.0 | MIT | [link](https://github.com/react/react) |
 | util-deprecate | 1.0.2 | MIT | [link](https://github.com/TooTallNate/util-deprecate) |
-| uuid | 7.0.3 | MIT | [link](https://github.com/uuidjs/uuid) |
+| uuid | 11.1.1 | MIT | [link](https://github.com/uuidjs/uuid) |
 | which | 2.0.2 | ISC | [link](https://github.com/isaacs/node-which) |
 | wrap-ansi | 7.0.0 | MIT | [link](chalk/wrap-ansi) |
 | xcode | 3.0.1 | Apache-2.0 | [link](https://github.com/apache/cordova-node-xcode) |
@@ -789,7 +795,69 @@ Apache License
 
 ### BlueOak-1.0.0
 
-Applies to: `chownr@3.0.0`, `glob@13.0.6`, `package-json-from-dist@1.0.1`, `yallist@5.0.0`
+Applies to: `@isaacs/nonrecursive-glob-match@1.1.0`, `lru-cache@11.5.3`, `minipass@7.1.3`, `path-scurry@3.0.0`, `rimraf@6.1.4`, `tar@7.5.22`
+
+```
+# Blue Oak Model License
+
+Version 1.0.0
+
+## Purpose
+
+This license gives everyone as much permission to work with
+this software as possible, while protecting contributors
+from liability.
+
+## Acceptance
+
+In order to receive this license, you must agree to its
+rules.  The rules of this license are both obligations
+under that agreement and conditions to your license.
+You must not do anything with this software that triggers
+a rule that you cannot or will not follow.
+
+## Copyright
+
+Each contributor licenses you to do everything with this
+software that would otherwise infringe that contributor's
+copyright in it.
+
+## Notices
+
+You must ensure that everyone who gets a copy of
+any part of this software from you, with or without
+changes, also gets the text of this license or a link to
+<https://blueoakcouncil.org/license/1.0.0>.
+
+## Excuse
+
+If anyone notifies you in writing that you have not
+complied with [Notices](#notices), you can keep your
+license by taking all practical steps to comply within 30
+days after the notice.  If you do not do so, your license
+ends immediately.
+
+## Patent
+
+Each contributor licenses you to do everything with this
+software that would otherwise infringe any patent claims
+they can license or become able to license.
+
+## Reliability
+
+No contributor can revoke this license.
+
+## No Liability
+
+***As far as the law allows, this software comes as is,
+without any warranty or condition, and no contributor
+will be liable to anyone for any damages related to this
+software or this license, under any kind of legal claim.***
+```
+
+### BlueOak-1.0.0
+
+Applies to: `chownr@3.0.0`, `glob@14.0.6`, `package-json-from-dist@1.0.1`, `yallist@5.0.0`
 
 ```
 All packages under `src/` are licensed according to the terms in
@@ -859,69 +927,7 @@ software or this license, under any kind of legal claim.***
 
 ### BlueOak-1.0.0
 
-Applies to: `lru-cache@11.5.3`, `minipass@7.1.3`, `path-scurry@2.0.2`, `rimraf@6.1.3`, `tar@7.5.22`
-
-```
-# Blue Oak Model License
-
-Version 1.0.0
-
-## Purpose
-
-This license gives everyone as much permission to work with
-this software as possible, while protecting contributors
-from liability.
-
-## Acceptance
-
-In order to receive this license, you must agree to its
-rules.  The rules of this license are both obligations
-under that agreement and conditions to your license.
-You must not do anything with this software that triggers
-a rule that you cannot or will not follow.
-
-## Copyright
-
-Each contributor licenses you to do everything with this
-software that would otherwise infringe that contributor's
-copyright in it.
-
-## Notices
-
-You must ensure that everyone who gets a copy of
-any part of this software from you, with or without
-changes, also gets the text of this license or a link to
-<https://blueoakcouncil.org/license/1.0.0>.
-
-## Excuse
-
-If anyone notifies you in writing that you have not
-complied with [Notices](#notices), you can keep your
-license by taking all practical steps to comply within 30
-days after the notice.  If you do not do so, your license
-ends immediately.
-
-## Patent
-
-Each contributor licenses you to do everything with this
-software that would otherwise infringe any patent claims
-they can license or become able to license.
-
-## Reliability
-
-No contributor can revoke this license.
-
-## No Liability
-
-***As far as the law allows, this software comes as is,
-without any warranty or condition, and no contributor
-will be liable to anyone for any damages related to this
-software or this license, under any kind of legal claim.***
-```
-
-### BlueOak-1.0.0
-
-Applies to: `minimatch@10.2.6`
+Applies to: `minimatch@11.0.9`
 
 ```
 # Blue Oak Model License
@@ -1227,6 +1233,62 @@ IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ### MIT
 
+Applies to: `@capacitor-community/bluetooth-le@8.3.0`
+
+```
+MIT License
+
+Copyright (c) 2021 Capacitor plugin for Bluetooth Low Energy
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### MIT
+
+Applies to: `@capacitor-community/keep-awake@8.0.1`
+
+```
+MIT License
+
+Copyright (c) 2019 The keep-awake developers.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### MIT
+
 Applies to: `@capacitor/android@8.5.2`, `@capacitor/cli@8.5.2`, `@capacitor/core@8.5.2`, `@capacitor/ios@8.5.2`
 
 ```
@@ -1255,7 +1317,7 @@ SOFTWARE.
 
 ### MIT
 
-Applies to: `@capacitor/app@8.1.1`, `@capacitor/keyboard@8.0.5`, `@capacitor/preferences@8.0.1`, `@capacitor/share@8.0.2`, `@capacitor/splash-screen@8.0.2`, `@capacitor/status-bar@8.0.3`
+Applies to: `@capacitor/app@8.1.1`, `@capacitor/keyboard@8.0.5`, `@capacitor/local-notifications@8.3.1`, `@capacitor/preferences@8.0.1`, `@capacitor/push-notifications@8.1.3`, `@capacitor/share@8.0.2`, `@capacitor/splash-screen@8.0.2`, `@capacitor/status-bar@8.0.3`
 
 ```
 Copyright 2020-present Ionic
@@ -1397,7 +1459,7 @@ SOFTWARE.
 
 ### MIT
 
-Applies to: `@types/fs-extra@8.1.5`, `@types/node@26.6.3`, `@types/slice-ansi@4.0.0`
+Applies to: `@types/fs-extra@8.1.5`, `@types/node@26.6.3`, `@types/slice-ansi@4.0.0`, `@types/web-bluetooth@0.0.20`
 
 ```
 MIT License
@@ -1430,6 +1492,38 @@ Applies to: `@xmldom/xmldom@0.9.12`
 ```
 Copyright 2019 - present Christopher J. Brody and other contributors, as listed in: https://github.com/xmldom/xmldom/graphs/contributors
 Copyright 2012 - 2017 @jindw <jindw@xidea.org> and other contributors, as listed in: https://github.com/jindw/xmldom/graphs/contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+### MIT
+
+Applies to: `ansi-regex@5.0.1`, `ansi-styles@4.3.0`, `define-lazy-prop@2.0.0`, `env-paths@2.2.1`, `is-fullwidth-code-point@3.0.0`, `is-wsl@2.2.0`, `path-key@3.1.1`, `shebang-regex@3.0.0`, `string-width@4.2.3`, `strip-ansi@6.0.1`, `untildify@4.0.0`
+
+```
+MIT License
+
+Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (sindresorhus.com)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+### MIT
+
+Applies to: `astral-regex@2.0.0`, `shebang-command@2.0.0`
+
+```
+MIT License
+
+Copyright (c) Kevin Mårtensson <kevinmartensson@gmail.com> (github.com/kevva)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -1523,7 +1617,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### MIT
 
-Applies to: `brace-expansion@5.0.12`
+Applies to: `brace-expansion@5.0.13`
 
 ```
 MIT License
@@ -1804,6 +1898,22 @@ OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHE
 
 ### MIT
 
+Applies to: `is-docker@2.2.1`, `open@8.4.2`, `wrap-ansi@7.0.0`
+
+```
+MIT License
+
+Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+### MIT
+
 Applies to: `js-tokens@4.0.0`
 
 ```
@@ -1850,6 +1960,34 @@ THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS
 OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
  ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+### MIT
+
+Applies to: `kleur@3.0.3`, `kleur@4.1.5`
+
+```
+The MIT License (MIT)
+
+Copyright (c) Luke Edwards <luke.edwards05@gmail.com> (lukeed.com)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 ```
 
 ### MIT
@@ -1943,6 +2081,34 @@ SOFTWARE.
 
 ### MIT
 
+Applies to: `ms@2.1.3`
+
+```
+The MIT License (MIT)
+
+Copyright (c) 2020 Vercel, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### MIT
+
 Applies to: `native-run@2.0.3`
 
 ```
@@ -1967,6 +2133,34 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+```
+
+### MIT
+
+Applies to: `object-assign@4.1.1`
+
+```
+The MIT License (MIT)
+
+Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (sindresorhus.com)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 ```
 
 ### MIT
@@ -2028,6 +2222,34 @@ HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
 WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
+```
+
+### MIT
+
+Applies to: `prompts@2.4.2`, `sisteransi@1.0.5`
+
+```
+MIT License
+
+Copyright (c) 2018 Terkel Gjervig Nielsen
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 
 ### MIT
@@ -2193,6 +2415,23 @@ FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+### MIT
+
+Applies to: `slice-ansi@4.0.0`
+
+```
+MIT License
+
+Copyright (c) DC <threedeecee@gmail.com>
+Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ### MIT
@@ -2406,30 +2645,18 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 ### MIT
 
-Applies to: `uuid@7.0.3`
+Applies to: `uuid@11.1.1`
 
 ```
 The MIT License (MIT)
 
-Copyright (c) 2010-2016 Robert Kieffer and other contributors
+Copyright (c) 2010-2020 Robert Kieffer and other contributors
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ### MIT
@@ -3057,31 +3284,8 @@ For more information, please refer to <http://unlicense.org>
 
 These declare a license but ship no license text — verify manually before distribution:
 
-- ansi-regex@5.0.1 — MIT
-- ansi-styles@4.3.0 — MIT
-- astral-regex@2.0.0 — MIT
 - bplist-parser@0.3.1 — MIT
 - bplist-parser@0.3.2 — MIT
-- define-lazy-prop@2.0.0 — MIT
 - emoji-regex@8.0.0 — MIT
-- env-paths@2.2.1 — MIT
-- is-docker@2.2.1 — MIT
-- is-fullwidth-code-point@3.0.0 — MIT
-- is-wsl@2.2.0 — MIT
-- kleur@3.0.3 — MIT
-- kleur@4.1.5 — MIT
-- ms@2.1.3 — MIT
-- object-assign@4.1.1 — MIT
-- open@8.4.2 — MIT
-- path-key@3.1.1 — MIT
-- prompts@2.4.2 — MIT
-- shebang-command@2.0.0 — MIT
-- shebang-regex@3.0.0 — MIT
-- sisteransi@1.0.5 — MIT
-- slice-ansi@4.0.0 — MIT
 - stream-buffers@2.2.0 — Unlicense
-- string-width@4.2.3 — MIT
-- strip-ansi@6.0.1 — MIT
-- untildify@4.0.0 — MIT
-- wrap-ansi@7.0.0 — MIT
 

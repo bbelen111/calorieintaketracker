@@ -16,7 +16,7 @@ React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor 
 - Framer Motion 12.23.24 (animations)
 - Tailwind 4.x (CSS-first: `@import 'tailwindcss'` + `@theme inline` in `src/index.css`, no `tailwind.config.js`; styling via CSS variable–based semantic tokens)
 - Lucide React 0.562.0 (icons)
-- **External APIs:** Supabase food catalog (online text search via `api/foods.js`; legacy `/api/usda` alias retained), OpenFoodFacts (barcode lookup via `api/openfoodfacts.js`), OpenRouter (AI parsing via `api/openrouter.js`)
+- **External APIs:** Supabase food catalog (online text search via `api/foods.js`; legacy `/api/usda` alias retained), OpenFoodFacts (barcode lookup via `api/openfoodfacts.js`), OpenRouter (AI parsing via `api/openrouter.js`), anonymous remote push device registration (`api/push/register.js`, `api/push/unregister.js`)
 
 **Key Capacitor Plugins:**
 - `@capacitor/preferences` — Profile/settings storage
@@ -28,6 +28,8 @@ React + Vite single-page app for fitness calorie tracking, wrapped by Capacitor 
 - `@capgo/capacitor-health` — Step + heart-rate sync (Health Connect on Android, HealthKit on iOS; read-only for HR)
 - `@capacitor-community/bluetooth-le` — Live heart-rate sensors (Heart Rate Service 0x180D); **dynamically imported** only
 - `@capacitor-community/keep-awake` — Keeps the screen on during a live HR recording; **dynamically imported** only
+- `@capacitor/local-notifications` — Layer 1 on-device reminders, digests, milestones, and live HR guard; **dynamically imported** only via `services/notificationBridge.js`
+- `@capacitor/push-notifications` — Layer 2 optional remote announcements (FCM/APNs); **dynamically imported** only via `services/notificationBridge.js`
 - `@capgo/capacitor-navigation-bar` — Android navigation bar theming
 - `@capacitor/filesystem` + `@capacitor/share` — Native export delivery (Cache write + OS share sheet)
 
@@ -72,7 +74,7 @@ User action → Store action (updateUserData) → deriveState() recalculates (wi
 2. **Derived state pattern:** The Zustand store's `deriveState()` owns canonical fields (`bmr`, `trainingCalories`, `totalCardioBurn`, sorted entries, resolved types). Hot-path caching is intentional (resolved type maps, sorted arrays, normalized phase state, phase view projection) and `updateUserData` short-circuits no-op mutations. Never duplicate these calculations — consume them from the store.
 
   - **Vite 8 / Rolldown chunking:** `build.rollupOptions.output.manualChunks` must be a function. The older object-map form throws `manualChunks is not a function` and prevents `dist/index.html` from being emitted, which breaks Capacitor sync.
-  - **Boot-critical chunking rules (`vite.config.js`):** `@capacitor/barcode-scanner` is deliberately excluded from the shared `chunk-capacitor` chunk, and `html5-qrcode` gets its own manual chunk. The scanner's *web* fallback bundles html5-qrcode (~350 kB min) which never runs on native; lumping it into the capacitor chunk (eagerly loaded at launch via the static `@capacitor/keyboard` import in `main.jsx` and `modulepreload`ed from `dist/index.html`) used to cost ~28% of cold-start JS. Both the scanner's async `web.js` and the html5-qrcode engine must stay lazy (fetched only when a web-platform scan initialises). Do not revert these rules; when touching chunking, verify the `modulepreload` list in `dist/index.html`.
+  - **Boot-critical chunking rules (`vite.config.js`):** `@capacitor/barcode-scanner`, `@capacitor-community/*`, `@capacitor/local-notifications`, and `@capacitor/push-notifications` are deliberately excluded from the shared `chunk-capacitor` chunk, and `html5-qrcode` gets its own manual chunk. The scanner's *web* fallback bundles html5-qrcode (~350 kB min) which never runs on native; lumping it into the capacitor chunk (eagerly loaded at launch via the static `@capacitor/keyboard` import in `main.jsx` and `modulepreload`ed from `dist/index.html`) used to cost ~28% of cold-start JS. Both the scanner's async `web.js` and the html5-qrcode engine must stay lazy (fetched only when a web-platform scan initialises), and the notification / BLE plugins must stay dynamically imported. Do not revert these rules; when touching chunking, verify the `modulepreload` list in `dist/index.html`.
 
 3. **Store initialization is async.** `setupEnergyMapStore()` is called once from `EnergyMapCalculator`, which gates rendering on `isLoaded === true` to prevent flash of default data.
 
@@ -181,7 +183,7 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 
 ### Settings Modal Navigation
 
-- `SettingsModal` remains one fullscreen modal. Its home page is a simple vertical list of six category buttons: Profile & Health, Appearance, Activity & Steps, Metabolic Adjustments, Food & Macros, and Integrations. Do not add numbering, descriptions, or a second page title to the hub.
+- `SettingsModal` remains one fullscreen modal. Its home page is a simple vertical list of seven category buttons: Profile & Health, Appearance, Activity & Steps, Metabolic Adjustments, Food & Macros, Notifications, and Integrations. Do not add numbering, descriptions, or a second page title to the hub.
 - Each category opens in place, using the shared fullscreen header pattern (back chevron + current page title); pages start directly with their controls rather than a separate intro heading/description.
 - Settings changes apply immediately through the existing `onFieldChange`/store path. There is no draft, Save, Cancel, or rollback when navigating between pages or closing the modal.
 - Header back and Escape return to the hub from a category page; from the hub they close Settings. Android hardware back follows the same rule through `closeTopmostModal`.
@@ -1337,6 +1339,25 @@ Heart rate is woven into the calorie system **conservatively**: it refines what 
 - **Android** (`android/app/src/main/AndroidManifest.xml`): exactly READ_STEPS / WRITE_STEPS / READ_HEART_RATE / READ_RESTING_HEART_RATE / READ_VO2_MAX / READ_EXERCISE; every other plugin-merged health permission is `tools:node="remove"`d (keep the Play Console Health Connect declaration in sync). Privacy policy = the plugin's `PermissionsRationaleActivity` + alias loading `public/privacypolicy.html` — never re-declare those intent filters elsewhere. BLE: `BLUETOOTH_SCAN` (`neverForLocation`) + `BLUETOOTH_CONNECT`; location only ≤ API 30. Camera declared for the barcode scanner + camera pulse.
 - **iOS** (`Info.plist`): `NSHealthShareUsageDescription` names steps, heart rate, resting HR, VO2 max and workouts (still no update description: read-only); `NSBluetoothAlwaysUsageDescription`; camera string covers the pulse reading. No background modes: live recording is foreground + keep-awake, gaps are excluded and shown as coverage.
 - **Bundle:** both community plugins are dynamically imported by `services/heartRateSensor.js`; `vite.config.js` keeps `@capacitor-community/*` out of `chunk-capacitor`.
+
+## Notification Subsystem (Layer 1 Local + Layer 2 Remote Push)
+
+Two-layer design that keeps personal tracking reminders 100% on-device while supporting optional anonymous broadcast announcements:
+
+- **Layer 1 (On-device, `@capacitor/local-notifications`):**
+  - Constants, Android channels (`energy_map_reminders`, `energy_map_insights`, `energy_map_workouts`, `energy_map_announcements`), deterministic ID ranges (`1000–2900`), deep-link routes (`NOTIFICATION_ROUTES`), and settings normalizer live in `src/constants/notifications/notificationConfig.js`.
+  - Pure planner in `src/utils/notifications/notificationPlanner.js` (`buildNotificationPlan`, `findUnimportedHealthWorkouts`, `buildLiveHrGuardNotifications`) computes a rolling 7-day schedule capped at `MAX_PENDING_LOCAL_NOTIFICATIONS = 60` (under iOS's 64-notification hard limit), applies quiet hours shifting, smart-skips already-logged weigh-ins/meals/steps/NEAT overrides, and reuses canonical calculation helpers (`calculateRollingEnergyBalance`, `getAdaptiveThermogenesisSmartModeDataStatus`, `resolveCardioSessionEpoc`, `resolveTrainingSessionEpoc`).
+  - Covers: morning weigh-in, weekly body fat check-in (when `bodyFatTrackingEnabled`), meal nudges (breakfast/lunch/dinner), evening ledger close-out, daily NEAT check-in, phase lifecycle milestones, one-shot Smart AT unlock (`meta.atUnlockNotified`), weekly rolling energy balance digest, stale weigh-in warning (active phase or Smart AT), EPOC post-workout refuel, step goal close-out, unimported health workouts (wired in `services/heartRateSync.js`), and live BLE HR recording guard (ongoing banner + 2.5h forgot-to-stop alert). Local backup reminders are intentionally omitted.
+  - Uses **inexact** scheduling (`allowWhileIdle: true`, no `SCHEDULE_EXACT_ALARM`).
+- **Layer 2 (Remote push, `@capacitor/push-notifications`):**
+  - Opt-in only (`notifications.remotePush.announcementsEnabled`).
+  - Anonymous `installation_id` UUID + registration cache live in standalone Capacitor Preferences keys (`services/pushRegistration.js`), **never** in `userData` or JSON exports.
+  - Registers/unregisters against Upstash-rate-limited `/api/push/register` and `/api/push/unregister`, which call narrow `SECURITY DEFINER` RPCs (`register_push_device` / `unregister_push_device`, `SET search_path = ''`, returning `void`) using `SUPABASE_ANON_KEY` + server-only `PUSH_RPC_SECRET` verified against `private.push_config` (`scripts/push/push_devices.sql`). `public.push_devices` carries a nullable `user_id` FK to `auth.users(id)` for future Auth readiness, enables RLS, and revokes all table privileges from `anon`/`authenticated`. `SUPABASE_SERVICE_ROLE_KEY` **never** lives on Vercel; only the maintainer's local CLI (`scripts/push/send-announcement.js`) uses it.
+- **Service, Hook & Settings UI:**
+  - `services/notificationBridge.js` dynamically imports both Capacitor plugins (`vite.config.js` keeps them out of `chunk-capacitor`).
+  - `services/notifications.js` (module singleton + `useNotificationState()`) owns permission state, channel creation, idempotent diff-and-reconcile scheduling, test notifications, and cold-start tap buffering.
+  - `hooks/useNotifications.js` (mounted once in `EnergyMapCalculator.jsx`) reconciles on hydration, debounced store updates, `appStateChange`, and live HR sensor transitions, routing notification taps to the target screen/modal.
+  - Settings page: `NotificationsSettingsSection.jsx` inside `SettingsModal.jsx`, reusing `TimePickerModal` for all time chips.
 
 ---
 

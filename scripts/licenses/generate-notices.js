@@ -31,10 +31,12 @@ const LICENSE_FILE_CANDIDATES = [
 function readProdTree() {
   let stdout = '';
   try {
-    stdout = execFileSync('npm', ['ls', '--omit=dev', '--all', '--json'], {
+    const npmBin = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+    stdout = execFileSync(npmBin, ['ls', '--omit=dev', '--all', '--json'], {
       cwd: ROOT,
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
+      shell: process.platform === 'win32',
     });
   } catch (error) {
     // npm exits non-zero on peer/optional issues but still prints the tree.

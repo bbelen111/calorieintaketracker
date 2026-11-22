@@ -100,6 +100,16 @@ vi.mock('@capacitor/share', async () => {
   return { Share: ShareMock };
 });
 
+vi.mock('@capacitor/local-notifications', async () => {
+  const { LocalNotificationsMock } = await import('./mocks/capacitor.js');
+  return { LocalNotifications: LocalNotificationsMock };
+});
+
+vi.mock('@capacitor/push-notifications', async () => {
+  const { PushNotificationsMock } = await import('./mocks/capacitor.js');
+  return { PushNotifications: PushNotificationsMock };
+});
+
 // ---------------------------------------------------------------------------
 // jsdom gaps
 // ---------------------------------------------------------------------------

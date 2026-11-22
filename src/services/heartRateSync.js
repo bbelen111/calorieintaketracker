@@ -32,7 +32,9 @@ import {
   HEART_RATE_READ_TYPES,
   readDailyHeartRate,
   readVo2MaxReadings,
+  readWorkoutsForDate,
 } from './heartRateHealth.js';
+import { notifyUnimportedHealthWorkouts } from './notifications.js';
 import { mapWithConcurrencyLimit } from '../utils/concurrency.js';
 import { toLocalDateKey } from '../utils/healthConnectWindow.js';
 import { isIOS } from '../utils/platform.js';
@@ -213,6 +215,35 @@ export const runHeartRateSync = ({
       const changed = useEnergyMapStore
         .getState()
         .saveHeartRateEntries(Array.from(entriesByDate.values()));
+
+      // Check recent workouts for unimported sessions (#11 notification) when
+      // workout read permission is granted and the user opted in.
+      const notifSettings =
+        useEnergyMapStore.getState().userData?.notifications;
+      if (
+        granted.includes('workouts') &&
+        notifSettings?.enabled &&
+        notifSettings?.rules?.unimportedWorkout?.enabled
+      ) {
+        const recentKeys = buildSyncDateKeys(
+          todayKey,
+          HEART_RATE_ROUTINE_SYNC_DAYS
+        );
+        Promise.all(
+          recentKeys.map((dateKey) => readWorkoutsForDate(dateKey, now))
+        )
+          .then((lists) =>
+            lists.flatMap((list) => (Array.isArray(list) ? list : []))
+          )
+          .then((workouts) => notifyUnimportedHealthWorkouts(workouts))
+          .catch((error) =>
+            console.warn(
+              '[HeartRate] Unimported workout notification check failed:',
+              error
+            )
+          );
+      }
+
       setState({ isLoading: false, lastSynced: new Date() });
       return changed;
     } catch (error) {

@@ -67,6 +67,16 @@ export default defineConfig({
               return undefined;
             }
 
+            // Local and remote push notification plugins are dynamically
+            // imported by services/notificationBridge.js so they never enter
+            // the boot-critical capacitor chunk.
+            if (
+              id.includes('/@capacitor/local-notifications') ||
+              id.includes('/@capacitor/push-notifications')
+            ) {
+              return undefined;
+            }
+
             if (
               id.includes('/@capacitor/') ||
               id.includes('/@capgo/capacitor-health') ||
