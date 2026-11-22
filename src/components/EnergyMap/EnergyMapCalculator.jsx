@@ -4649,7 +4649,6 @@ export const EnergyMapCalculator = () => {
                   onOpenAdaptiveThermogenesis={adaptiveThermogenesisModal.open}
                   onOpenRollingEnergyBalance={rollingEnergyBalanceModal.open}
                   onOpenHeartRateTracker={openHeartRateTracker}
-                  onLogRestingHeartRate={openRestingHeartRateEntry}
                   macroLocks={userData.macroLocks}
                 />
               </div>

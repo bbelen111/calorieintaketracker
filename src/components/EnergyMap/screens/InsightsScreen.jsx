@@ -369,7 +369,6 @@ export const InsightsScreen = memo(function InsightsScreen({
   onOpenAdaptiveThermogenesis,
   onOpenRollingEnergyBalance,
   onOpenHeartRateTracker,
-  onLogRestingHeartRate,
   macroLocks,
 }) {
   const store = useEnergyMapStore(
@@ -1020,10 +1019,7 @@ export const InsightsScreen = memo(function InsightsScreen({
         </div>
       </div>
 
-      <RestingHeartRateCard
-        onOpen={onOpenHeartRateTracker}
-        onLogReading={onLogRestingHeartRate}
-      />
+      <RestingHeartRateCard onOpen={onOpenHeartRateTracker} />
       <AdaptiveCorrectionCard
         result={adaptiveThermogenesis.result}
         mode={adaptiveThermogenesis.mode}

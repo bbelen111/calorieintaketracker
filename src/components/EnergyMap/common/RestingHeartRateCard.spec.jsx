@@ -32,7 +32,7 @@ describe('RestingHeartRateCard', () => {
     useEnergyMapStore
       .getState()
       .setManualRestingHeartRate(getTodayDateKey(), 61);
-    render(<RestingHeartRateCard onOpen={vi.fn()} onLogReading={vi.fn()} />);
+    render(<RestingHeartRateCard onOpen={vi.fn()} />);
 
     expect(
       screen.getByRole('heading', { name: 'Resting Heart Rate' })
@@ -61,9 +61,7 @@ describe('RestingHeartRateCard', () => {
     for (let offset = 8; offset >= 0; offset -= 1) {
       store.setManualRestingHeartRate(daysAgo(offset), 62 + offset);
     }
-    const { container } = render(
-      <RestingHeartRateCard onOpen={vi.fn()} onLogReading={vi.fn()} />
-    );
+    const { container } = render(<RestingHeartRateCard onOpen={vi.fn()} />);
 
     const footer = screen.getByText(/over 28 days — tap for details/);
     expect(footer).toHaveTextContent(/^-\d+(\.\d)? bpm over 28 days/);
@@ -80,26 +78,26 @@ describe('RestingHeartRateCard', () => {
     useEnergyMapStore
       .getState()
       .setManualRestingHeartRate(getTodayDateKey(), 58);
-    render(<RestingHeartRateCard onOpen={onOpen} onLogReading={vi.fn()} />);
+    render(<RestingHeartRateCard onOpen={onOpen} />);
 
     await user.click(screen.getByRole('button'));
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
 
-  it('offers a manual reading in the empty state, in the same card style', async () => {
+  it('opens the tracker from the empty state, with the same footer as the populated card', async () => {
     const user = userEvent.setup();
-    const onLogReading = vi.fn();
-    render(
-      <RestingHeartRateCard onOpen={vi.fn()} onLogReading={onLogReading} />
-    );
+    const onOpen = vi.fn();
+    render(<RestingHeartRateCard onOpen={onOpen} />);
 
     expect(
       screen.getByRole('heading', { name: 'Resting Heart Rate' })
     ).toBeInTheDocument();
     expect(screen.getByText('Not tracked yet')).toBeInTheDocument();
     expect(screen.queryByText('Max HR')).toBeNull();
+    expect(screen.queryByText(/log a reading/i)).toBeNull();
+    expect(screen.getByText('Tap to open the tracker')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /log a reading/i }));
-    expect(onLogReading).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByText('Tap to open the tracker'));
+    expect(onOpen).toHaveBeenCalledTimes(1);
   });
 });

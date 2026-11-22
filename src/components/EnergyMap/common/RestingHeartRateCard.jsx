@@ -1,5 +1,5 @@
 import React, { memo, useMemo } from 'react';
-import { ChevronRight, HeartPulse, Plus, Watch } from 'lucide-react';
+import { ChevronRight, HeartPulse, Watch } from 'lucide-react';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 import {
@@ -44,12 +44,12 @@ const StatTile = ({ label, value }) => (
  * latest reading and how it was obtained, max HR and the Zone 2 band as stat
  * tiles, and the 28-day change in the footer (uncoloured — a lower resting HR
  * is not automatically good news). Same card grammar as the Adaptive
- * Thermogenesis and Rolling Energy Balance cards. Opens the HR tracker; the
- * empty state offers a manual reading or a watch connection.
+ * Thermogenesis and Rolling Energy Balance cards. Opens the HR tracker (the
+ * empty state too, where readings are logged); the empty state also offers a
+ * watch connection.
  */
 export const RestingHeartRateCard = memo(function RestingHeartRateCard({
   onOpen,
-  onLogReading,
 }) {
   const { heartRateEntries, heartRateProfile } = useEnergyMapStore(
     (state) => ({
@@ -156,44 +156,51 @@ export const RestingHeartRateCard = memo(function RestingHeartRateCard({
         </button>
       ) : (
         <div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1">
-              <HeartPulse className="text-accent-blue" size={30} />
+          <button
+            type="button"
+            onClick={() => onOpen?.()}
+            className="w-full text-left rounded-xl transition-all group pressable-card focus-ring"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1">
+                <HeartPulse className="text-accent-blue" size={30} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg font-bold text-foreground">
+                  Resting Heart Rate
+                </h2>
+                <p className="text-muted text-sm leading-snug">{subtitle}</p>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-bold text-foreground">
-                Resting Heart Rate
-              </h2>
-              <p className="text-muted text-sm leading-snug">{subtitle}</p>
-            </div>
-          </div>
-          <p className="mt-3 text-muted text-sm">
-            Track your resting heart rate to unlock personal training zones and
-            sharper after-burn (EPOC) estimates.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => onLogReading?.()}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground focus-ring press-feedback"
-            >
-              <Plus size={16} /> Log a reading
-            </button>
-            {canConnect && (
-              <button
-                type="button"
-                onClick={() => connectHeartRateSync()}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-surface-highlight px-3 py-2 text-sm font-medium text-foreground focus-ring pressable-inline"
-              >
-                <Watch size={16} /> Connect {getHealthSourceName()}
-              </button>
-            )}
-            {sync.status === HealthConnectStatus.CONNECTING && (
-              <span className="self-center text-xs text-muted">
-                Connecting…
+            <p className="mt-3 text-muted text-sm">
+              Track your resting heart rate to unlock personal training zones
+              and sharper after-burn (EPOC) estimates.
+            </p>
+            <div className="mt-3 flex items-center justify-between">
+              <span className="text-xs text-accent-blue/80">
+                Tap to open the tracker
               </span>
-            )}
-          </div>
+              <ChevronRight size={16} className="text-muted" />
+            </div>
+          </button>
+          {(canConnect || sync.status === HealthConnectStatus.CONNECTING) && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {canConnect && (
+                <button
+                  type="button"
+                  onClick={() => connectHeartRateSync()}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-surface-highlight px-3 py-2 text-sm font-medium text-foreground focus-ring pressable-inline"
+                >
+                  <Watch size={16} /> Connect {getHealthSourceName()}
+                </button>
+              )}
+              {sync.status === HealthConnectStatus.CONNECTING && (
+                <span className="self-center text-xs text-muted">
+                  Connecting…
+                </span>
+              )}
+            </div>
+          )}
           {sync.error && (
             <p className="mt-2 text-xs text-accent-orange">{sync.error}</p>
           )}

@@ -29,7 +29,6 @@ const renderScreen = (props = {}) =>
       onOpenAdaptiveThermogenesis={vi.fn()}
       onOpenRollingEnergyBalance={vi.fn()}
       onOpenHeartRateTracker={vi.fn()}
-      onLogRestingHeartRate={vi.fn()}
       {...props}
     />
   );
