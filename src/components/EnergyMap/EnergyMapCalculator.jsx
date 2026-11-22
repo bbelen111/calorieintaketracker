@@ -5053,11 +5053,7 @@ export const EnergyMapCalculator = () => {
           isOpen={restingHeartRateEntryModal.isOpen}
           isClosing={restingHeartRateEntryModal.isClosing}
           dateKey={restingHeartRateEntry.dateKey}
-          existingEntry={
-            (userData.heartRateEntries ?? []).find(
-              (entry) => entry?.date === restingHeartRateEntry.dateKey
-            ) ?? null
-          }
+          entries={userData.heartRateEntries}
           onSave={handleRestingHeartRateSave}
           onClear={handleRestingHeartRateClear}
           onCancel={restingHeartRateEntryModal.requestClose}

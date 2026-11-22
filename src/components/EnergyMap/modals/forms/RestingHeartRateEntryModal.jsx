@@ -1,9 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, HeartPulse, Save, Trash2, X } from 'lucide-react';
+import { Camera, Save, Trash2, X } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
-import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
-import { HeartRatePickerModal } from '../pickers/HeartRatePickerModal';
-import { formatDateLabel } from '../../../../utils/measurements/weight';
+import { DateInput } from '../../common/DateInput';
+import { HeartRatePicker } from '../pickers/HeartRatePickerModal';
 import { getTodayDateKey } from '../../../../utils/data/dateKeys';
 import {
   DEFAULT_RESTING_HEART_RATE_BPM,
@@ -16,8 +15,6 @@ import {
   isCameraPulseSupported,
   measureRestingPulse,
 } from '../../../../services/cameraPulse';
-
-const MODAL_CLOSE_DELAY = 180;
 
 const CAMERA_HINTS = {
   starting: 'Starting the camera…',
@@ -34,29 +31,38 @@ const CAMERA_FAILURES = {
     'The signal was too noisy to trust, so nothing was filled in. Try again holding still.',
 };
 
+const findEntryForDate = (entries, dateKey) =>
+  (Array.isArray(entries) ? entries : []).find(
+    (entry) => entry?.date === dateKey
+  ) ?? null;
+
+/** What the wheel should show for a day: its reading, else the default. */
+const getEntryValue = (entry) =>
+  normalizeRestingHeartRate(entry?.restingHr) ?? DEFAULT_RESTING_HEART_RATE_BPM;
+
 /**
  * Morning resting heart rate (manual), for one date.
  *
- * A manual reading is never overwritten by a synced one; "Clear" removes only
- * the manual value (a watch's reading for the day then shows again). Keyed by
- * the orchestrator per open, so its state is fresh each time.
+ * Same shape as the weight / body fat entry modals: the wheel lives in the
+ * modal and the date is a `DateInput`. A manual reading is never overwritten
+ * by a synced one; "Clear" removes only the manual value (a watch's reading
+ * for the day then shows again). Keyed by the orchestrator per open, so its
+ * state is fresh each time.
  */
 export const RestingHeartRateEntryModal = ({
   isOpen,
   isClosing,
   dateKey,
-  existingEntry = null,
+  entries = [],
   onSave,
   onClear,
   onCancel,
 }) => {
-  const resolvedDateKey = dateKey ?? getTodayDateKey();
-  const existingManual =
-    existingEntry?.restingHrMethod === 'manual'
-      ? existingEntry.restingHr
-      : null;
+  const todayKey = getTodayDateKey();
+  const [date, setDate] = useState(dateKey ?? todayKey);
+  const existingEntry = findEntryForDate(entries, date);
   const [value, setValue] = useState(
-    existingManual ?? existingEntry?.restingHr ?? ''
+    getEntryValue(findEntryForDate(entries, dateKey ?? todayKey))
   );
   const [camera, setCamera] = useState({
     state: 'idle',
@@ -65,12 +71,10 @@ export const RestingHeartRateEntryModal = ({
   });
   const measurementRef = useRef(null);
 
-  const {
-    isOpen: isPickerOpen,
-    isClosing: isPickerClosing,
-    open: openPicker,
-    requestClose: requestPickerClose,
-  } = useAnimatedModal(false, MODAL_CLOSE_DELAY);
+  const existingManual =
+    existingEntry?.restingHrMethod === 'manual'
+      ? existingEntry.restingHr
+      : null;
 
   const stopCamera = useCallback(() => {
     measurementRef.current?.cancel();
@@ -85,7 +89,20 @@ export const RestingHeartRateEntryModal = ({
   }, [isOpen, stopCamera]);
   useEffect(() => stopCamera, [stopCamera]);
 
-  const handleCameraMeasure = useCallback(async () => {
+  // Picking a day that already has a reading loads it; a day without one
+  // keeps whatever the wheel shows.
+  const handleDateChange = (nextDate) => {
+    if (!nextDate) {
+      return;
+    }
+    setDate(nextDate);
+    const nextEntry = findEntryForDate(entries, nextDate);
+    if (normalizeRestingHeartRate(nextEntry?.restingHr) != null) {
+      setValue(getEntryValue(nextEntry));
+    }
+  };
+
+  const handleCameraMeasure = async () => {
     stopCamera();
     setCamera({
       state: 'running',
@@ -131,61 +148,58 @@ export const RestingHeartRateEntryModal = ({
       )}%). Check it looks right before saving.`,
       progress: 1,
     });
-  }, [stopCamera]);
+  };
 
   const normalizedValue = normalizeRestingHeartRate(value);
   const methodLabel = describeRestingHrMethod(existingEntry?.restingHrMethod);
   const isCameraRunning = camera.state === 'running';
 
   return (
-    <>
-      <ModalShell
-        isOpen={isOpen}
-        isClosing={isClosing}
-        onClose={onCancel}
-        contentClassName="w-full md:max-w-md p-6"
-      >
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <div>
-            <h3 className="text-foreground font-bold text-xl">
-              Resting heart rate
-            </h3>
-            <p className="text-muted text-sm">
-              {formatDateLabel(resolvedDateKey, {
-                weekday: 'short',
-                month: 'short',
-                day: 'numeric',
-              })}
-              {methodLabel && existingEntry?.restingHr != null && (
-                <span>
-                  {' '}
-                  · current {existingEntry.restingHr} bpm ({methodLabel})
-                </span>
-              )}
-            </p>
-          </div>
-          <HeartPulse size={28} className="text-accent-red shrink-0" />
+    <ModalShell
+      isOpen={isOpen}
+      isClosing={isClosing}
+      onClose={onCancel}
+      contentClassName="p-6 w-full max-w-lg"
+    >
+      <h3 className="text-foreground font-bold text-xl text-center mb-5">
+        Resting Heart Rate
+      </h3>
+
+      <div className="space-y-4">
+        <div
+          className={isCameraRunning ? 'opacity-60 pointer-events-none' : ''}
+        >
+          <p className="text-muted text-xs text-center mb-2 uppercase tracking-wide">
+            BPM
+          </p>
+          <HeartRatePicker
+            value={value}
+            onChange={(bpm) => setValue(bpm)}
+            min={RESTING_HEART_RATE_MIN_BPM}
+            max={RESTING_HEART_RATE_MAX_BPM}
+            defaultValue={DEFAULT_RESTING_HEART_RATE_BPM}
+          />
         </div>
 
-        <button
-          type="button"
-          onClick={openPicker}
-          disabled={isCameraRunning}
-          className="w-full px-4 py-3 rounded-lg border-2 bg-primary border-primary text-primary-foreground flex items-center justify-between focus-ring press-feedback disabled:opacity-60"
-        >
-          <span className="font-semibold text-lg">
-            {normalizedValue != null ? `${normalizedValue} bpm` : 'Set bpm'}
-          </span>
-          <span className="text-[11px] opacity-75">Tap to change</span>
-        </button>
-
-        <p className="text-muted text-xs mt-3 leading-relaxed">
-          Measure right after waking, before getting up: sit or lie still, count
-          your pulse for 60 seconds (or 30 seconds × 2).
-        </p>
+        <div>
+          <label className="text-muted text-sm block mb-2">Entry Date</label>
+          <div className="relative">
+            <DateInput
+              value={date}
+              onChange={handleDateChange}
+              max={todayKey}
+              className="w-full bg-surface-highlight text-foreground px-4 py-2 rounded-lg border border-border focus:outline-hidden focus-ring focus:border-accent-blue"
+            />
+          </div>
+          {methodLabel && existingEntry?.restingHr != null && (
+            <p className="text-muted text-xs mt-1">
+              This day: current {existingEntry.restingHr} bpm ({methodLabel})
+            </p>
+          )}
+        </div>
 
         {isCameraPulseSupported() && (
-          <div className="mt-4 rounded-lg border border-border bg-surface-highlight/40 p-3">
+          <div className="rounded-lg border border-border bg-surface-highlight/40 p-3">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-foreground text-sm font-medium">
@@ -238,51 +252,36 @@ export const RestingHeartRateEntryModal = ({
             )}
           </div>
         )}
+      </div>
 
-        <div className="flex gap-3 mt-6">
-          {existingManual != null && (
-            <button
-              type="button"
-              onClick={() => onClear?.(resolvedDateKey)}
-              aria-label="Clear manual reading"
-              className="px-4 py-3 rounded-lg bg-accent-red/15 text-accent-red focus-ring press-feedback"
-            >
-              <Trash2 size={20} />
-            </button>
-          )}
+      <div className="flex gap-3 mt-6">
+        {existingManual != null && (
           <button
             type="button"
-            onClick={onCancel}
-            className="flex-1 bg-surface-highlight text-foreground px-6 py-3 rounded-lg font-medium focus-ring press-feedback"
+            onClick={() => onClear?.(date)}
+            aria-label="Clear manual reading"
+            className="px-4 py-3 rounded-lg bg-accent-red/15 text-accent-red focus-ring press-feedback"
           >
-            Cancel
+            <Trash2 size={20} />
           </button>
-          <button
-            type="button"
-            disabled={normalizedValue == null || isCameraRunning}
-            onClick={() => onSave?.(resolvedDateKey, normalizedValue)}
-            className="flex-1 bg-primary text-primary-foreground px-6 py-3 rounded-lg flex items-center justify-center gap-2 font-medium focus-ring press-feedback disabled:opacity-60"
-          >
-            <Save size={20} />
-            Save
-          </button>
-        </div>
-      </ModalShell>
-
-      <HeartRatePickerModal
-        isOpen={isPickerOpen}
-        isClosing={isPickerClosing}
-        title="Resting heart rate"
-        value={value}
-        min={RESTING_HEART_RATE_MIN_BPM}
-        max={RESTING_HEART_RATE_MAX_BPM}
-        defaultValue={DEFAULT_RESTING_HEART_RATE_BPM}
-        onCancel={requestPickerClose}
-        onSave={(bpm) => {
-          setValue(bpm);
-          requestPickerClose();
-        }}
-      />
-    </>
+        )}
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex-1 bg-surface-highlight text-foreground px-6 py-3 rounded-lg font-medium focus-ring press-feedback"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          disabled={normalizedValue == null || isCameraRunning}
+          onClick={() => onSave?.(date, normalizedValue)}
+          className="flex-1 bg-primary text-primary-foreground px-6 py-3 rounded-lg flex items-center justify-center gap-2 font-medium focus-ring press-feedback disabled:opacity-60"
+        >
+          <Save size={20} />
+          Save
+        </button>
+      </div>
+    </ModalShell>
   );
 };
