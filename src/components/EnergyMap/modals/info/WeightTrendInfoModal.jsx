@@ -13,6 +13,7 @@ import { ModalShell } from '../../common/ModalShell';
 import {
   calculateGoalAlignment,
   getGoalAlignedTextClass,
+  hasTrendData,
 } from '../../../../utils/calculations/goalAlignment';
 import { goals } from '../../../../constants/goals/goals';
 
@@ -115,11 +116,10 @@ export const WeightTrendInfoModal = ({
           sampleRange: [],
         };
 
+  const hasData = hasTrendData(safeTrend);
+
   const getTrendColor = () => {
-    if (
-      safeTrend.label === 'Need more data' ||
-      safeTrend.label === 'No data yet'
-    ) {
+    if (!hasData) {
       return 'text-foreground';
     }
     return getGoalAlignedTextClass(safeTrend, selectedGoal, 'weight');
@@ -198,31 +198,38 @@ export const WeightTrendInfoModal = ({
               className={`${getTrendColor()} font-semibold text-lg flex items-center gap-2`}
             >
               <TrendIcon direction={safeTrend.direction} />
-              {safeTrend.label}
+              {hasData ? safeTrend.label : 'Not enough data yet'}
             </span>
           </div>
           <div className="text-sm space-y-1">
-            <p>
-              Weekly Rate:{' '}
-              <span className="text-foreground font-semibold">
-                {safeTrend.weeklyRate >= 0 ? '+' : ''}
-                {safeTrend.weeklyRate.toFixed(2)} kg/week
-              </span>
-            </p>
-            <p>
-              Data Points:{' '}
-              <span className="text-foreground font-semibold">
-                {safeTrend.sampleRange?.length || 0} entries
-              </span>
-            </p>
-            {safeTrend.sampleRange && safeTrend.sampleRange.length >= 2 && (
-              <p>
-                Period:{' '}
-                <span className="text-foreground font-semibold">
-                  {safeTrend.sampleRange[0].date} to{' '}
-                  {safeTrend.sampleRange[safeTrend.sampleRange.length - 1].date}
-                </span>
-              </p>
+            {hasData && (
+              <>
+                <p>
+                  Weekly Rate:{' '}
+                  <span className="text-foreground font-semibold">
+                    {safeTrend.weeklyRate >= 0 ? '+' : ''}
+                    {safeTrend.weeklyRate.toFixed(2)} kg/week
+                  </span>
+                </p>
+                <p>
+                  Data Points:{' '}
+                  <span className="text-foreground font-semibold">
+                    {safeTrend.sampleRange?.length || 0} entries
+                  </span>
+                </p>
+                {safeTrend.sampleRange && safeTrend.sampleRange.length >= 2 && (
+                  <p>
+                    Period:{' '}
+                    <span className="text-foreground font-semibold">
+                      {safeTrend.sampleRange[0].date} to{' '}
+                      {
+                        safeTrend.sampleRange[safeTrend.sampleRange.length - 1]
+                          .date
+                      }
+                    </span>
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -243,20 +250,35 @@ export const WeightTrendInfoModal = ({
                 {targetRate}
               </span>
             </p>
-            <p>
-              Your current rate:{' '}
-              <span className={`${getTrendColor()} font-semibold`}>
-                {safeTrend.weeklyRate >= 0 ? '+' : ''}
-                {safeTrend.weeklyRate.toFixed(2)} kg/week
-              </span>
-            </p>
+            {hasData && (
+              <p>
+                Your current rate:{' '}
+                <span className={`${getTrendColor()} font-semibold`}>
+                  {safeTrend.weeklyRate >= 0 ? '+' : ''}
+                  {safeTrend.weeklyRate.toFixed(2)} kg/week
+                </span>
+              </p>
+            )}
             <div className="mt-3 pt-3 border-t border-accent-emerald/30">
-              <div className="flex items-center gap-3">
-                <span className="shrink-0">{statusVisual.icon}</span>
-                <p className={statusVisual.textClass}>
-                  {toPrettyDescription(alignment.description)}
-                </p>
-              </div>
+              {hasData ? (
+                <div className="flex items-center gap-3">
+                  <span className="shrink-0">{statusVisual.icon}</span>
+                  <p className={statusVisual.textClass}>
+                    {toPrettyDescription(alignment.description)}
+                  </p>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <span className="shrink-0">
+                    <Info size={16} className="text-accent-blue" />
+                  </span>
+                  <p className="text-muted">
+                    {safeTrend.isStaleFallback
+                      ? 'Your last two weigh-ins are too far apart to describe a current trend. Log a new weigh-in to refresh it.'
+                      : 'Log two weigh-ins at least a day apart to compare your rate with this goal.'}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -13,7 +13,10 @@
 
 import React from 'react';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import { getGoalAlignedTextClass } from '../calculations/goalAlignment';
+import {
+  hasTrendData,
+  getGoalAlignedTextClass,
+} from '../calculations/goalAlignment';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -46,11 +49,7 @@ export const TrendIcon = ({ direction, size = 18 }) => {
  * @param {string}  metricType   – 'weight' | 'bodyFat'
  */
 export const getTrendToneClass = (trend, selectedGoal, metricType) => {
-  if (
-    !trend ||
-    trend.label === 'Need more data' ||
-    trend.label === 'No data yet'
-  ) {
+  if (!hasTrendData(trend)) {
     return 'text-foreground';
   }
   return getGoalAlignedTextClass(trend, selectedGoal, metricType);
@@ -59,16 +58,24 @@ export const getTrendToneClass = (trend, selectedGoal, metricType) => {
 /**
  * Produce a short "On track" / "Slower than goal" descriptor + colour class.
  *
- * @param {number} weeklyRate   – signed weekly rate (kg/wk or %/wk)
- * @param {string} selectedGoal – goal key
- * @param {string} metricType   – 'weight' | 'bodyFat'
+ * Takes the whole trend (not just its rate) because "no data" and "stable" both
+ * report `weeklyRate: 0`; without the trend there is no way to tell them apart.
+ * Returns `null` whenever the trend carries no usable rate, so callers render
+ * nothing rather than inventing a verdict.
+ *
+ * @param {object}  trend        – trend object (must have `.weeklyRate` + `.label`)
+ * @param {string}  selectedGoal – goal key
+ * @param {string}  metricType   – 'weight' | 'bodyFat'
  * @returns {{ text: string, color: string } | null}
  */
 export const getGoalAlignmentText = (
-  weeklyRate,
+  trend,
   selectedGoal,
   metricType = 'weight'
 ) => {
+  if (!hasTrendData(trend)) return null;
+  const weeklyRate = trend.weeklyRate;
+
   const goalExpectations = {
     aggressive_bulk: { min: 0.5, max: 1.0, direction: 'up' },
     bulking: { min: 0.25, max: 0.5, direction: 'up' },
@@ -103,7 +110,7 @@ export const getGoalAlignmentText = (
   // Maintenance
   if (expectation.direction === 'flat') {
     if (Math.abs(weeklyRate) <= 0.1)
-      return { text: 'On track with goal', color: 'text-accent-green' };
+      return { text: 'On track', color: 'text-accent-green' };
     return { text: 'Deviating from maintenance', color: 'text-accent-yellow' };
   }
 
@@ -111,7 +118,7 @@ export const getGoalAlignmentText = (
   const expectedRate =
     expectation.direction === 'down' ? -weeklyRate : weeklyRate;
   if (expectedRate >= expectation.min && expectedRate <= expectation.max)
-    return { text: 'On track with goal', color: 'text-accent-green' };
+    return { text: 'On track', color: 'text-accent-green' };
   if (expectedRate < expectation.min)
     return { text: 'Slower than goal target', color: 'text-accent-blue' };
   if (expectedRate > expectation.max)

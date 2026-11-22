@@ -810,6 +810,11 @@ Do not duplicate target planning formulas in components.
 
 - `calculateWeightTrend` / `calculateBodyFatTrend` fall back to the last two entries **only when their span ≤ `MAX_TREND_FALLBACK_SPAN_DAYS` (14 days)**. Otherwise they return `'Need more data'` with `isStaleFallback: true` instead of presenting a stale rate as current behaviour.
 
+### Trend Availability Gate (goal alignment)
+
+- `hasTrendData(trend)` (`utils/calculations/goalAlignment.js`) is the only sanctioned test for "is this a real trend". The calculators return `weeklyRate: 0` for "No data yet" / "Need more data" just as they do for a genuinely stable rate, so a bare number can never distinguish missing data from a stable trend.
+- `getGoalAlignmentText(trend, …)` takes the whole trend, not its rate, and returns `null` when `hasTrendData` is false. Surfaces must then render **no** verdict: the Insights snapshot cards show empty ("No weigh-ins yet"), "add one more entry" and stale-data guidance instead of a rate, and the tracker modals' alignment line simply disappears. Never let an empty log read as "On track".
+
 ### Smart AT Staleness Gate
 
 - `SMART_WEIGHT_STALENESS_MAX_AGE_DAYS = 3` (exported from `utils/calculations/adaptiveThermogenesis.js`). `getAdaptiveThermogenesisSmartModeDataStatus` gates the smart signal on weigh-in freshness: when the newest weigh-in is older than 3 days relative to the requested `dateKey`, it returns `{ isSufficient: false, reason: 'weight-data-stale', latestWeightEntryAgeDays, stalenessMaxAgeDays, ... }` regardless of how many historical entries sit inside the 28-day window, and `computeSmartCorrection` deactivates (correction 0, `insufficientData`). `AdaptiveThermogenesisModal` renders dedicated recovery copy for this reason ("Your latest weigh-in is too old…").

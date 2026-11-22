@@ -24,7 +24,10 @@ import {
   getWindowAverageDeviation,
   formatSignedDelta,
 } from '../../../../utils/measurements/weight';
-import { getGoalAlignedStyle } from '../../../../utils/calculations/goalAlignment';
+import {
+  getGoalAlignedStyle,
+  hasTrendData,
+} from '../../../../utils/calculations/goalAlignment';
 import {
   TrendIcon,
   getTrendToneClass,
@@ -300,12 +303,12 @@ export const WeightTrackerModal = ({
   );
   const trendVisual = viewMode === '7d' ? trendVisual7d : trendVisual30d;
   const goalAlignment = useMemo(
-    () => getGoalAlignmentText(trend.weeklyRate, selectedGoal, 'weight'),
-    [trend.weeklyRate, selectedGoal]
+    () => getGoalAlignmentText(trend, selectedGoal, 'weight'),
+    [trend, selectedGoal]
   );
   const goalAlignment7d = useMemo(
-    () => getGoalAlignmentText(trend7d.weeklyRate, selectedGoal, 'weight'),
-    [trend7d.weeklyRate, selectedGoal]
+    () => getGoalAlignmentText(trend7d, selectedGoal, 'weight'),
+    [trend7d, selectedGoal]
   );
 
   // Rolling averages (global, not per-page)
@@ -803,9 +806,13 @@ export const WeightTrackerModal = ({
     return formatted ? `${formatted} kg` : '—';
   })();
 
-  const weeklyRate7dDisplay = formatWeeklyRate(trend7d.weeklyRate, 'weight');
+  const weeklyRate7dDisplay = hasTrendData(trend7d)
+    ? formatWeeklyRate(trend7d.weeklyRate, 'weight')
+    : '—';
 
-  const weeklyRateDisplay = formatWeeklyRate(trend.weeklyRate, 'weight');
+  const weeklyRateDisplay = hasTrendData(trend)
+    ? formatWeeklyRate(trend.weeklyRate, 'weight')
+    : '—';
 
   // Per-page dynamic stat for 30d and 12m
   const pageAverage = useMemo(() => {

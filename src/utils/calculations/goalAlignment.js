@@ -52,6 +52,23 @@ const buildAlignmentResult = (
 };
 
 /**
+ * Does a trend object carry a usable rate?
+ *
+ * Trend calculators return `weeklyRate: 0` for "no entries" and "insufficient
+ * data" just as they do for a genuinely stable rate, so the number alone can
+ * never answer this. Anything that makes a claim about goal alignment must
+ * check here first — otherwise an empty log reads as "on track with goal".
+ *
+ * @param {object} trend - trend from calculateWeightTrend / calculateBodyFatTrend
+ * @returns {boolean}
+ */
+export const hasTrendData = (trend) =>
+  Boolean(trend) &&
+  Number.isFinite(trend.weeklyRate) &&
+  trend.label !== 'No data yet' &&
+  trend.label !== 'Need more data';
+
+/**
  * Calculate how aligned the actual weekly rate is with the goal's expectations
  * @param {number} weeklyRate - The actual weekly rate (kg/wk or %/wk)
  * @param {string} selectedGoal - The selected goal ('aggressive_bulk', 'bulking', 'maintenance', 'cutting', 'aggressive_cut')
@@ -311,12 +328,7 @@ export const getGoalAlignedStyle = (
   metricType = 'weight'
 ) => {
   // Handle no data case
-  if (
-    !trend ||
-    trend.label === 'Need more data' ||
-    trend.label === 'No data yet' ||
-    !Number.isFinite(trend.weeklyRate)
-  ) {
+  if (!hasTrendData(trend)) {
     return buildAlignmentResult(
       'no-data',
       'neutral',

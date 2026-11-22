@@ -26,7 +26,10 @@ import {
   calculateFFMI,
   getFFMICategory,
 } from '../../../utils/calculations/calculations';
-import { getGoalAlignedStyle } from '../../../utils/calculations/goalAlignment';
+import {
+  getGoalAlignedStyle,
+  hasTrendData,
+} from '../../../utils/calculations/goalAlignment';
 import {
   TrendIcon,
   getTrendToneClass,
@@ -212,9 +215,7 @@ function RollingBalancePreviewCard({ summary, onOpen }) {
       : 'text-accent-green';
 
   const displayRolling = -rolling;
-  const headline = !hasData
-    ? 'No data'
-    : `${displayRolling > 0 ? '+' : ''}${Math.round(displayRolling).toLocaleString()} kcal`;
+  const headline = `${displayRolling > 0 ? '+' : ''}${Math.round(displayRolling).toLocaleString()} kcal`;
 
   const subtitle = !hasData
     ? 'Log calories to track a rolling balance'
@@ -238,9 +239,13 @@ function RollingBalancePreviewCard({ summary, onOpen }) {
             <p className="text-muted text-sm truncate">{subtitle}</p>
           </div>
           <div className="shrink-0 text-right">
-            <span className={`block text-md font-bold ${accent}`}>
-              {headline}
-            </span>
+            {hasData ? (
+              <span className={`block text-md font-bold ${accent}`}>
+                {headline}
+              </span>
+            ) : (
+              <InsightStatus label="No data" />
+            )}
             {hasData && (
               <span className="text-[11px] text-muted">
                 avg {Number(-summary?.averageDailyBalance).toFixed(0)} kcal/day
@@ -332,6 +337,20 @@ const FFMI_COLOR_MAP = {
   },
 };
 
+/**
+ * Footer row shared by the Body Composition snapshot cards: one accent-tinted
+ * affordance label and the chevron. Extracted so the empty, insufficient-data
+ * and full states of both cards cannot drift apart.
+ */
+const SnapshotCardFooter = ({ label }) => (
+  <div className="mt-3 flex items-center justify-between">
+    <span className="text-accent-blue/80 text-[10px] tracking-wide">
+      {label}
+    </span>
+    <ChevronRight size={16} className="text-muted" />
+  </div>
+);
+
 // Memoized: the orchestrator's local state churn (modal opens, drafts,
 // pickers) re-renders its whole tree; the carousel screens receive stable
 // props, so React.memo keeps unrelated screens from reconciling each time.
@@ -386,8 +405,8 @@ export const InsightsScreen = memo(function InsightsScreen({
     [sortedEntries]
   );
   const weightGoalAlignment = useMemo(
-    () => getGoalAlignmentText(trend.weeklyRate, selectedGoal, 'weight'),
-    [trend.weeklyRate, selectedGoal]
+    () => getGoalAlignmentText(trend, selectedGoal, 'weight'),
+    [trend, selectedGoal]
   );
   const sparkline = useMemo(
     () =>
@@ -416,9 +435,8 @@ export const InsightsScreen = memo(function InsightsScreen({
     [sortedBodyFatEntries]
   );
   const bodyFatGoalAlignment = useMemo(
-    () =>
-      getGoalAlignmentText(bodyFatTrend.weeklyRate, selectedGoal, 'bodyFat'),
-    [bodyFatTrend.weeklyRate, selectedGoal]
+    () => getGoalAlignmentText(bodyFatTrend, selectedGoal, 'bodyFat'),
+    [bodyFatTrend, selectedGoal]
   );
 
   const bodyFatSparkline = useMemo(
@@ -471,9 +489,7 @@ export const InsightsScreen = memo(function InsightsScreen({
     [ffmiData, resolvedUserData.gender]
   );
 
-  const currentWeight = formatWeight(
-    latestEntry?.weight ?? resolvedUserData.weight
-  );
+  const currentWeight = formatWeight(latestEntry?.weight);
   const weightOldDataWarning = useMemo(
     () => getOldDataWarningText(latestEntry?.date),
     [latestEntry?.date]
@@ -484,6 +500,21 @@ export const InsightsScreen = memo(function InsightsScreen({
     () => getOldDataWarningText(latestBodyFatEntry?.date),
     [latestBodyFatEntry?.date]
   );
+
+  // A trend only exists once two entries sit close enough together to describe
+  // one. Until then the cards must not print a rate (0.0 kg/wk) or a goal
+  // verdict — see `hasTrendData`.
+  const weightEntryCount = sortedEntries.length;
+  const hasWeightTrend = hasTrendData(trend);
+  const weightTrendHint = trend?.isStaleFallback
+    ? 'Your last two weigh-ins are too far apart — log a new one to refresh your trend.'
+    : 'Add one more weigh-in to see your 7-day trend.';
+
+  const bodyFatEntryCount = sortedBodyFatEntries.length;
+  const hasBodyFatTrend = hasTrendData(bodyFatTrend);
+  const bodyFatTrendHint = bodyFatTrend?.isStaleFallback
+    ? 'Your last two readings are too far apart — log a new one to refresh your trend.'
+    : 'Add one more reading to see your 7-day trend.';
 
   // Calculate goal-aligned visual styles for sparklines
   const weightVisualStyle = useMemo(
@@ -608,23 +639,130 @@ export const InsightsScreen = memo(function InsightsScreen({
                 </p>
               )}
             </div>
-            <div className="flex items-start justify-between gap-3">
+            {hasWeightTrend ? (
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p
+                    className={`text-lg font-semibold flex items-center gap-1.5 ${getTrendToneClass(trend, selectedGoal, 'weight')}`}
+                  >
+                    <TrendIcon direction={trend.direction} size={16} />
+                    {trend.label}
+                  </p>
+                  <p className="text-muted text-sm mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                    <span className="font-bold text-foreground whitespace-nowrap">
+                      {currentWeight ? `${currentWeight} kg` : '—'}
+                    </span>
+                    <span className="whitespace-nowrap">
+                      • {formatSnapshotDate(latestEntry.date)}
+                    </span>
+                    {weightOldDataWarning && (
+                      <span className="inline-flex items-center gap-1 text-accent-yellow whitespace-nowrap">
+                        <AlertCircle size={10} className="shrink-0" />
+                        {weightOldDataWarning}
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-muted text-sm mt-2">
+                    <span className="font-bold text-foreground">
+                      {formatWeeklyRate(trend.weeklyRate, 'weight')}
+                    </span>{' '}
+                    over last 7 days
+                  </p>
+                </div>
+                {sparkline.pathData && (
+                  <div className="w-36 h-16 relative mask-[linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
+                    <svg
+                      width="100%"
+                      height="100%"
+                      viewBox="0 0 160 56"
+                      preserveAspectRatio="none"
+                      className="overflow-visible"
+                    >
+                      <defs>
+                        <linearGradient
+                          id="weightSparklineGradient"
+                          x1="0"
+                          x2="0"
+                          y1="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="0%"
+                            stopColor={weightVisualStyle.color}
+                            stopOpacity={weightVisualStyle.topOpacity}
+                          />
+                          <stop
+                            offset="100%"
+                            stopColor={weightVisualStyle.color}
+                            stopOpacity={weightVisualStyle.bottomOpacity}
+                          />
+                        </linearGradient>
+                        <linearGradient
+                          id="weightSparklineStroke"
+                          gradientUnits="userSpaceOnUse"
+                          x1="0"
+                          x2="0"
+                          y1="0"
+                          y2="56"
+                        >
+                          <stop
+                            offset="0%"
+                            stopColor={weightVisualStyle.color}
+                            stopOpacity="1"
+                          />
+                          <stop
+                            offset="100%"
+                            stopColor={weightVisualStyle.color}
+                            stopOpacity="0.8"
+                          />
+                        </linearGradient>
+                      </defs>
+                      {sparkline.areaPath && (
+                        <path
+                          d={sparkline.areaPath}
+                          fill="url(#weightSparklineGradient)"
+                        />
+                      )}
+                      <path
+                        d={sparkline.pathData}
+                        fill="none"
+                        stroke="url(#weightSparklineStroke)"
+                        strokeWidth={2.5}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      {sparkline.coordinates?.map((coord, index) => (
+                        <circle
+                          key={index}
+                          cx={coord.x}
+                          cy={coord.y}
+                          r="2.5"
+                          fill={weightVisualStyle.color}
+                          className="drop-shadow-xs"
+                        />
+                      ))}
+                    </svg>
+                  </div>
+                )}
+              </div>
+            ) : weightEntryCount === 0 ? (
               <div>
-                <p
-                  className={`text-lg font-semibold flex items-center gap-1.5 ${getTrendToneClass(trend, selectedGoal, 'weight')}`}
-                >
-                  <TrendIcon direction={trend.direction} size={16} />
-                  {trend.label}
+                <p className="font-semibold text-foreground">
+                  No weigh-ins yet
                 </p>
-                <p className="text-muted text-sm mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                <p className="text-muted text-sm mt-1">
+                  Log your weight to track a 7-day trend and see how it compares
+                  with your goal.
+                </p>
+              </div>
+            ) : (
+              <div>
+                <p className="text-muted text-sm flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                   <span className="font-bold text-foreground whitespace-nowrap">
-                    {currentWeight ? `${currentWeight} kg` : '—'}
+                    {currentWeight} kg
                   </span>
                   <span className="whitespace-nowrap">
-                    •{' '}
-                    {latestEntry?.date
-                      ? formatSnapshotDate(latestEntry.date)
-                      : 'No entries yet'}
+                    • {formatSnapshotDate(latestEntry.date)}
                   </span>
                   {weightOldDataWarning && (
                     <span className="inline-flex items-center gap-1 text-accent-yellow whitespace-nowrap">
@@ -633,95 +771,10 @@ export const InsightsScreen = memo(function InsightsScreen({
                     </span>
                   )}
                 </p>
-                <p className="text-muted text-sm mt-2">
-                  <span className="font-bold text-foreground">
-                    {formatWeeklyRate(trend.weeklyRate, 'weight')}
-                  </span>{' '}
-                  over last 7 days
-                </p>
+                <p className="text-muted text-sm mt-2">{weightTrendHint}</p>
               </div>
-              {sparkline.pathData && sortedEntries.length > 1 && (
-                <div className="w-36 h-16 relative mask-[linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
-                  <svg
-                    width="100%"
-                    height="100%"
-                    viewBox="0 0 160 56"
-                    preserveAspectRatio="none"
-                    className="overflow-visible"
-                  >
-                    <defs>
-                      <linearGradient
-                        id="weightSparklineGradient"
-                        x1="0"
-                        x2="0"
-                        y1="0"
-                        y2="1"
-                      >
-                        <stop
-                          offset="0%"
-                          stopColor={weightVisualStyle.color}
-                          stopOpacity={weightVisualStyle.topOpacity}
-                        />
-                        <stop
-                          offset="100%"
-                          stopColor={weightVisualStyle.color}
-                          stopOpacity={weightVisualStyle.bottomOpacity}
-                        />
-                      </linearGradient>
-                      <linearGradient
-                        id="weightSparklineStroke"
-                        gradientUnits="userSpaceOnUse"
-                        x1="0"
-                        x2="0"
-                        y1="0"
-                        y2="56"
-                      >
-                        <stop
-                          offset="0%"
-                          stopColor={weightVisualStyle.color}
-                          stopOpacity="1"
-                        />
-                        <stop
-                          offset="100%"
-                          stopColor={weightVisualStyle.color}
-                          stopOpacity="0.8"
-                        />
-                      </linearGradient>
-                    </defs>
-                    {sparkline.areaPath && (
-                      <path
-                        d={sparkline.areaPath}
-                        fill="url(#weightSparklineGradient)"
-                      />
-                    )}
-                    <path
-                      d={sparkline.pathData}
-                      fill="none"
-                      stroke="url(#weightSparklineStroke)"
-                      strokeWidth={2.5}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    {sparkline.coordinates?.map((coord, index) => (
-                      <circle
-                        key={index}
-                        cx={coord.x}
-                        cy={coord.y}
-                        r="2.5"
-                        fill={weightVisualStyle.color}
-                        className="drop-shadow-xs"
-                      />
-                    ))}
-                  </svg>
-                </div>
-              )}
-            </div>
-            <div className="mt-2 flex items-center justify-between">
-              <span className="text-accent-blue/80 text-[10px] tracking-wide">
-                Tap to open weight tracker
-              </span>
-              <ChevronRight size={16} className="text-muted" />
-            </div>
+            )}
+            <SnapshotCardFooter label="Tap to open weight tracker" />
           </button>
 
           {/* ── Body Fat card ── */}
@@ -743,40 +796,37 @@ export const InsightsScreen = memo(function InsightsScreen({
                   </p>
                 )}
               </div>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p
-                    className={`text-lg font-semibold flex items-center gap-1.5 ${getTrendToneClass(bodyFatTrend, selectedGoal, 'bodyFat')}`}
-                  >
-                    <TrendIcon direction={bodyFatTrend.direction} size={16} />
-                    {bodyFatTrend.label}
-                  </p>
-                  <p className="text-muted text-sm mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                    <span className="font-bold text-foreground whitespace-nowrap">
-                      {currentBodyFat ? `${currentBodyFat}%` : '—'}
-                    </span>
-                    <span className="whitespace-nowrap">
-                      •{' '}
-                      {latestBodyFatEntry?.date
-                        ? formatSnapshotDate(latestBodyFatEntry.date)
-                        : 'No entries yet'}
-                    </span>
-                    {bodyFatOldDataWarning && (
-                      <span className="inline-flex items-center gap-1 text-accent-yellow whitespace-nowrap">
-                        <AlertCircle size={10} className="shrink-0" />
-                        {bodyFatOldDataWarning}
+              {hasBodyFatTrend ? (
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p
+                      className={`text-lg font-semibold flex items-center gap-1.5 ${getTrendToneClass(bodyFatTrend, selectedGoal, 'bodyFat')}`}
+                    >
+                      <TrendIcon direction={bodyFatTrend.direction} size={16} />
+                      {bodyFatTrend.label}
+                    </p>
+                    <p className="text-muted text-sm mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                      <span className="font-bold text-foreground whitespace-nowrap">
+                        {currentBodyFat ? `${currentBodyFat}%` : '—'}
                       </span>
-                    )}
-                  </p>
-                  <p className="text-muted text-sm mt-2">
-                    <span className="font-bold text-foreground">
-                      {formatWeeklyRate(bodyFatTrend.weeklyRate, 'bodyFat')}
-                    </span>{' '}
-                    over last 7 days
-                  </p>
-                </div>
-                {bodyFatSparkline.pathData &&
-                  sortedBodyFatEntries.length > 1 && (
+                      <span className="whitespace-nowrap">
+                        • {formatSnapshotDate(latestBodyFatEntry.date)}
+                      </span>
+                      {bodyFatOldDataWarning && (
+                        <span className="inline-flex items-center gap-1 text-accent-yellow whitespace-nowrap">
+                          <AlertCircle size={10} className="shrink-0" />
+                          {bodyFatOldDataWarning}
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-muted text-sm mt-2">
+                      <span className="font-bold text-foreground">
+                        {formatWeeklyRate(bodyFatTrend.weeklyRate, 'bodyFat')}
+                      </span>{' '}
+                      over last 7 days
+                    </p>
+                  </div>
+                  {bodyFatSparkline.pathData && (
                     <div className="w-36 h-16 relative mask-[linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
                       <svg
                         width="100%"
@@ -851,13 +901,37 @@ export const InsightsScreen = memo(function InsightsScreen({
                       </svg>
                     </div>
                   )}
-              </div>
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-accent-blue/80 text-[10px] tracking-wide">
-                  Tap to open body fat tracker
-                </span>
-                <ChevronRight size={16} className="text-muted" />
-              </div>
+                </div>
+              ) : bodyFatEntryCount === 0 ? (
+                <div>
+                  <p className="font-semibold text-foreground">
+                    No body fat readings yet
+                  </p>
+                  <p className="text-muted text-sm mt-1">
+                    Log your body fat percentage to track a 7-day trend and see
+                    how it compares with your goal.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-muted text-sm flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                    <span className="font-bold text-foreground whitespace-nowrap">
+                      {currentBodyFat}%
+                    </span>
+                    <span className="whitespace-nowrap">
+                      • {formatSnapshotDate(latestBodyFatEntry.date)}
+                    </span>
+                    {bodyFatOldDataWarning && (
+                      <span className="inline-flex items-center gap-1 text-accent-yellow whitespace-nowrap">
+                        <AlertCircle size={10} className="shrink-0" />
+                        {bodyFatOldDataWarning}
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-muted text-sm mt-2">{bodyFatTrendHint}</p>
+                </div>
+              )}
+              <SnapshotCardFooter label="Tap to open body fat tracker" />
             </button>
           )}
 

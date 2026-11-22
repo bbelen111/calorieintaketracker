@@ -141,4 +141,15 @@ describe('BodyFatTrackerModal selection card', () => {
     expect(card).toHaveAttribute('aria-hidden', 'true');
     expect(within(card).getByText('17.6%')).toBeInTheDocument();
   });
+
+  it('does not claim goal alignment before a trend exists', () => {
+    renderModal({
+      entries: [{ date: '2026-01-01', bodyFat: 18 }],
+      latestBodyFat: 18,
+      selectedGoal: 'cutting',
+    });
+
+    expect(screen.queryByText(/Not reducing as expected/)).toBeNull();
+    expect(screen.queryByText(/On track/)).toBeNull();
+  });
 });

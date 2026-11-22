@@ -247,4 +247,17 @@ describe('WeightTrackerModal selection card', () => {
     expect(card).toHaveAttribute('aria-hidden', 'true');
     expect(within(card).getByText('74.4 kg')).toBeInTheDocument();
   });
+
+  it('does not claim goal alignment before a trend exists', () => {
+    renderModal({
+      entries: [{ date: '2026-01-01', weight: 74 }],
+      latestWeight: 74,
+      selectedGoal: 'cutting',
+    });
+
+    // A single entry reports `weeklyRate: 0`, which used to read as a real
+    // (and wrong) "Not losing as expected" verdict.
+    expect(screen.queryByText(/Not losing as expected/)).toBeNull();
+    expect(screen.queryByText(/On track/)).toBeNull();
+  });
 });
