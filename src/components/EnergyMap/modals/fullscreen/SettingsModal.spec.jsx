@@ -98,15 +98,15 @@ describe('SettingsModal segmented navigation', () => {
     expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
 
     const pages = [
-      ['Open Profile & Measurements', 'Profile & Measurements', /^Age$/],
+      ['Open Profile & Health', 'Profile & Health', /^Age$/],
       ['Open Appearance', 'Appearance', 'Color theme'],
-      ['Open Daily Activity', 'Daily Activity', /Daily NEAT/],
+      ['Open Activity & Steps', 'Activity & Steps', /Daily NEAT/],
       [
-        'Open Calorie Adjustments',
-        'Calorie Adjustments',
+        'Open Metabolic Adjustments',
+        'Metabolic Adjustments',
         /EPOC \(Post-Exercise Burn\)/,
       ],
-      ['Open Food & Nutrition', 'Food & Nutrition', 'Food search opens in'],
+      ['Open Food & Macros', 'Food & Macros', 'Food search opens in'],
     ];
 
     for (const [buttonName, pageTitle, contentMatcher] of pages) {
@@ -130,7 +130,7 @@ describe('SettingsModal segmented navigation', () => {
     render(<SettingsHarness onFieldChange={onFieldChange} />);
 
     await user.click(
-      screen.getByRole('button', { name: 'Open Profile & Measurements' })
+      screen.getByRole('button', { name: 'Open Profile & Health' })
     );
     await user.click(screen.getByRole('button', { name: 'Female' }));
     expect(onFieldChange).toHaveBeenCalledWith('gender', 'female');
@@ -263,7 +263,7 @@ describe('SettingsModal segmented navigation', () => {
     ).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('keeps Daily Activity and calorie adjustment controls on their own pages', async () => {
+  it('keeps Activity & Steps and calorie adjustment controls on their own pages', async () => {
     const user = userEvent.setup();
     const onFieldChange = vi.fn();
     const onDailyActivityClick = vi.fn();
@@ -276,7 +276,7 @@ describe('SettingsModal segmented navigation', () => {
     );
 
     await user.click(
-      screen.getByRole('button', { name: 'Open Daily Activity' })
+      screen.getByRole('button', { name: 'Open Activity & Steps' })
     );
     expect(screen.getAllByText('(BMR + NEAT)', { exact: false }).length).toBe(
       2
@@ -289,7 +289,7 @@ describe('SettingsModal segmented navigation', () => {
 
     await user.click(screen.getByRole('button', { name: 'Back' }));
     await user.click(
-      screen.getByRole('button', { name: 'Open Calorie Adjustments' })
+      screen.getByRole('button', { name: 'Open Metabolic Adjustments' })
     );
 
     expect(screen.getByText('EPOC (Post-Exercise Burn)')).toBeInTheDocument();
@@ -301,7 +301,7 @@ describe('SettingsModal segmented navigation', () => {
     expect(onFieldChange).toHaveBeenCalledWith('epocEnabled', false);
   });
 
-  it('opens the step goal and step range editors from Daily Activity', async () => {
+  it('opens the step goal and step range editors from Activity & Steps', async () => {
     const user = userEvent.setup();
     const stepGoalPicker = vi.fn();
     const stepRanges = vi.fn();
@@ -316,7 +316,7 @@ describe('SettingsModal segmented navigation', () => {
     );
 
     await user.click(
-      screen.getByRole('button', { name: 'Open Daily Activity' })
+      screen.getByRole('button', { name: 'Open Activity & Steps' })
     );
 
     const goalButton = screen.getByRole('button', {
@@ -361,7 +361,7 @@ describe('SettingsModal segmented navigation', () => {
     ).toBeDisabled();
   });
 
-  it('exposes food search, macro and cached-food controls on Food & Nutrition', async () => {
+  it('exposes food search, macro and cached-food controls on Food & Macros', async () => {
     const user = userEvent.setup();
     const onFieldChange = vi.fn();
     const macroPicker = vi.fn();
@@ -380,7 +380,7 @@ describe('SettingsModal segmented navigation', () => {
     );
 
     await user.click(
-      screen.getByRole('button', { name: 'Open Food & Nutrition' })
+      screen.getByRole('button', { name: 'Open Food & Macros' })
     );
 
     const entryGroup = within(
@@ -421,7 +421,7 @@ describe('SettingsModal segmented navigation', () => {
     );
 
     await user.click(
-      screen.getByRole('button', { name: 'Open Food & Nutrition' })
+      screen.getByRole('button', { name: 'Open Food & Macros' })
     );
 
     expect(

@@ -9,7 +9,7 @@ import {
   getMealTypeById,
 } from '../../../../constants/meal/mealTypes';
 
-// Also consumed by Settings -> Food & Nutrition so the two surfaces share one list.
+// Also consumed by Settings -> Food & Macros so the two surfaces share one list.
 export const FOOD_SEARCH_DEFAULT_ENTRY_OPTIONS = [
   {
     id: 'search_local',

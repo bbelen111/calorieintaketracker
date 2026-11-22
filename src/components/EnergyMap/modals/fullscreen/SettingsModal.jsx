@@ -118,7 +118,7 @@ const ThemeSwatch = ({ swatchClass }) => (
 const SETTINGS_PAGES = [
   {
     id: 'profile',
-    title: 'Profile & Measurements',
+    title: 'Profile & Health',
     icon: UserRound,
   },
   {
@@ -128,17 +128,17 @@ const SETTINGS_PAGES = [
   },
   {
     id: 'activity',
-    title: 'Daily Activity',
+    title: 'Activity & Steps',
     icon: Activity,
   },
   {
     id: 'adjustments',
-    title: 'Calorie Adjustments',
+    title: 'Metabolic Adjustments',
     icon: SlidersHorizontal,
   },
   {
     id: 'food',
-    title: 'Food & Nutrition',
+    title: 'Food & Macros',
     icon: UtensilsCrossed,
   },
 ];
@@ -969,7 +969,7 @@ const ProfileSection = ({
 );
 
 /**
- * Profile & Measurements -> Heart rate. Max HR / VO2 max overrides apply
+ * Profile & Health -> Heart rate. Max HR / VO2 max overrides apply
  * immediately through onFieldChange (out-of-range = auto); watch sync and the
  * BLE sensor go through their services. No new Settings category: the hub
  * stays at five.

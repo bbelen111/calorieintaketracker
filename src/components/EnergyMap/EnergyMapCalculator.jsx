@@ -4282,7 +4282,7 @@ export const EnergyMapCalculator = () => {
     confirmActionModal.open();
   }, [selectedPhase, deletePhase, confirmActionModal]);
 
-  // Settings -> Food & Nutrition. Favourites hold full food objects and logged
+  // Settings -> Food & Macros. Favourites hold full food objects and logged
   // meals carry their own values, so only the online/barcode foods that were
   // cached on select go away (plus the pins that pointed at them).
   const handleClearCachedFoods = useCallback(() => {

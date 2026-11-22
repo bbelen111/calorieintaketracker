@@ -312,7 +312,7 @@ describe('EnergyMapCalculator (orchestrator integration)', () => {
       await screen.findByRole('button', { name: 'Open settings' })
     );
     await user.click(
-      await screen.findByRole('button', { name: 'Open Profile & Measurements' })
+      await screen.findByRole('button', { name: 'Open Profile & Health' })
     );
     await user.click(
       await screen.findByRole('button', { name: 'Open age picker' })
@@ -337,7 +337,7 @@ describe('EnergyMapCalculator (orchestrator integration)', () => {
       expect(screen.queryByRole('heading', { name: 'Select Age' })).toBeNull()
     );
     expect(
-      screen.getByRole('heading', { name: 'Profile & Measurements' })
+      screen.getByRole('heading', { name: 'Profile & Health' })
     ).toBeInTheDocument();
   });
 
