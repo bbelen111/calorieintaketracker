@@ -18,7 +18,7 @@
  * ships native-only plugin code — the same hygiene the repo applies to
  * `foodCatalog` and `openrouter` in heavy UI flows.
  */
-import { isNative } from '../utils/platform.js';
+import { isAndroid, isNative } from '../utils/platform.js';
 
 /**
  * The iOS Share plugin rejects with `"Share canceled"` when the user dismisses
@@ -128,4 +128,61 @@ export const saveTextFile = async ({
       error: error?.message ?? String(error),
     };
   }
+};
+
+/**
+ * Writes the file into Android's public Documents folder, where the user can
+ * find it in any file manager. On Android 11+ an app may create (and later read)
+ * its own files there without a storage permission; on Android 10 and older the
+ * write is refused (no legacy-storage flag, no WRITE_EXTERNAL_STORAGE), which is
+ * why the caller falls back to the share sheet instead of failing.
+ */
+const deliverToAndroidDocuments = async ({ fileName, content }) => {
+  const { Directory, Encoding, Filesystem } =
+    await import('@capacitor/filesystem');
+
+  const { uri } = await Filesystem.writeFile({
+    path: fileName,
+    data: content,
+    directory: Directory.Documents,
+    encoding: Encoding.UTF8,
+  });
+
+  return {
+    success: true,
+    method: 'saved',
+    fileName,
+    uri,
+    location: 'Documents',
+  };
+};
+
+/**
+ * Like `saveTextFile`, but SAVES the file instead of opening the share sheet
+ * wherever the platform lets an app do that:
+ *
+ * - web: the usual download;
+ * - Android: straight into the Documents folder (`method: 'saved'`), falling
+ *   back to the share sheet when the OS refuses the write;
+ * - iOS: the share sheet, deliberately. iOS has no public folder an app can
+ *   write to, and the sheet's "Save to Files" IS the platform's download.
+ *
+ * Same never-throws contract as `saveTextFile`.
+ */
+export const saveTextFileToDevice = async (options = {}) => {
+  if (isAndroid()) {
+    try {
+      return await deliverToAndroidDocuments({
+        fileName: sanitizeExportFileName(options.fileName),
+        content: options.content,
+      });
+    } catch (error) {
+      console.warn(
+        'Could not save to Documents; falling back to the share sheet:',
+        error
+      );
+    }
+  }
+
+  return saveTextFile(options);
 };

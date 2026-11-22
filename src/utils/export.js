@@ -4,7 +4,11 @@ import {
 } from './phases/phases.js';
 import { getTodayDateKey } from './data/dateKeys.js';
 import { sortHeartRateEntries } from './measurements/heartRate.js';
-import { saveTextFile } from '../services/fileShare.js';
+import { saveTextFile, saveTextFileToDevice } from '../services/fileShare.js';
+import {
+  buildFullExportPayload,
+  FULL_EXPORT_FORMAT_VERSION,
+} from './data/fullExport.js';
 
 /**
  * `Phase Name 1` → `Phase_Name_1_2026-09-29.csv`.
@@ -183,54 +187,36 @@ export const exportPhaseAsCSV = async (
   });
 };
 
-export const FULL_EXPORT_FORMAT_VERSION = 1;
+// The file format (build + parse) lives in `data/fullExport.js`; re-exported so
+// existing callers keep importing it from here.
+export { buildFullExportPayload, FULL_EXPORT_FORMAT_VERSION };
 
-/**
- * Fields left out of a full export: `cachedFoods` is a re-downloadable lookup
- * cache (up to 500 catalog rows), not something the user logged.
- */
-const FULL_EXPORT_EXCLUDED_FIELDS = ['cachedFoods'];
-
-/**
- * Builds the full-export document: the user's profile, settings and every
- * history dataset (`userData` is already the merged profile + history shape),
- * wrapped with a format version so a future importer can recognise it.
- *
- * @returns {object | null} `null` when there is nothing to export.
- */
-export const buildFullExportPayload = (userData, now = new Date()) => {
-  if (!userData || typeof userData !== 'object') {
-    return null;
-  }
-
-  const data = { ...userData };
-  FULL_EXPORT_EXCLUDED_FIELDS.forEach((field) => {
-    delete data[field];
-  });
-
-  return {
-    app: 'Energy Map',
-    formatVersion: FULL_EXPORT_FORMAT_VERSION,
-    exportedAt: now.toISOString(),
-    data,
-  };
+/** `energy-map-export_2026-03-10_1432.json`: the time keeps repeat exports apart. */
+const buildFullExportFileName = (now = new Date()) => {
+  const pad = (value) => String(value).padStart(2, '0');
+  return `energy-map-export_${getTodayDateKey()}_${pad(now.getHours())}${pad(now.getMinutes())}.json`;
 };
 
 /**
  * Export everything the user has logged as one JSON file (Settings ->
  * Integrations -> Your data).
  *
- * Same delivery contract as `exportPhaseAsCSV`: web download or native share
- * sheet, resolved value instead of a throw.
+ * By default the file is SAVED where the platform lets an app do so (a web
+ * download; Android's public Documents folder), and only handed to the share
+ * sheet where that is the platform's own save route (iOS) or the save was
+ * refused. `{ share: true }` always opens the share sheet instead.
+ *
+ * Same delivery contract as `exportPhaseAsCSV`: resolved value, never a throw.
  */
-export const exportAllDataAsJSON = async (userData) => {
+export const exportAllDataAsJSON = async (userData, { share = false } = {}) => {
   const payload = buildFullExportPayload(userData);
   if (!payload) {
     return { success: false, method: 'none', error: 'No data to export' };
   }
 
-  return saveTextFile({
-    fileName: `energy-map-export_${getTodayDateKey()}.json`,
+  const deliver = share ? saveTextFile : saveTextFileToDevice;
+  return deliver({
+    fileName: buildFullExportFileName(),
     content: JSON.stringify(payload, null, 2),
     mimeType: 'application/json',
     title: 'Energy Map data export',

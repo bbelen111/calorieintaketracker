@@ -1326,7 +1326,7 @@ export const saveEnergyMapData = async (data) => {
     const hasHistoryChanges = Object.keys(changedHistoryData).length > 0;
 
     if (!hasProfileChanges && !hasHistoryChanges) {
-      return;
+      return true;
     }
 
     const profileSerialized = hasProfileChanges
@@ -1387,8 +1387,41 @@ export const saveEnergyMapData = async (data) => {
         hasExplicitFailureValue,
       });
     }
+
+    return !hasPersistenceRisk;
   } catch (error) {
     console.warn('Failed to save energy map data to storage', error);
+    return false;
+  }
+};
+
+/**
+ * Replace everything on disk with an imported dataset (Settings -> Integrations
+ * -> Import). Returns the merged, normalised data that is now persisted, or
+ * `null` when it could not be written (the caller then leaves memory as it was).
+ *
+ * It rides the existing identity-diff machinery rather than clearing the store:
+ *  1. the CURRENT state is flushed first, so the baselines describe exactly what
+ *     is on disk (a debounced save may still be pending);
+ *  2. the imported data is then saved as an ordinary change - every shard the
+ *     import lacks is a tracked-but-absent shard, so it is deleted, and nothing
+ *     is ever cleared before the new data is safely written.
+ */
+export const replaceEnergyMapData = async ({ currentData, importedData }) => {
+  try {
+    const merged = mergeWithDefaults(importedData);
+
+    if (currentData && !(await saveEnergyMapData(currentData))) {
+      return null;
+    }
+    if (!(await saveEnergyMapData(merged))) {
+      return null;
+    }
+
+    return merged;
+  } catch (error) {
+    console.warn('Failed to replace energy map data', error);
+    return null;
   }
 };
 

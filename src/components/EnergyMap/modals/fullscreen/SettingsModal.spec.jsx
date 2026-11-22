@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SettingsModal } from './SettingsModal';
 import { exportAllDataAsJSON } from '../../../../utils/export';
+import { buildFullExportPayload } from '../../../../utils/data/fullExport';
 import {
   connectHeartRateSync,
   resetHeartRateSyncState,
@@ -687,6 +688,154 @@ describe('SettingsModal Integrations page', () => {
     expect(await screen.findByRole('status')).toHaveTextContent(
       'Saved energy-map-export_2026-03-10.json'
     );
+  });
+
+  it('on Android, Export saves to Documents and a separate Share opens the share sheet', async () => {
+    CapacitorMock.isNativePlatform.mockReturnValue(true);
+    CapacitorMock.getPlatform.mockReturnValue('android');
+    exportAllDataAsJSON.mockResolvedValue({
+      success: true,
+      method: 'saved',
+      fileName: 'energy-map-export_2026-03-10_1432.json',
+      location: 'Documents',
+    });
+    const user = userEvent.setup();
+    const userData = createUserData();
+    render(<SettingsHarness userData={userData} />);
+    await openIntegrations(user);
+
+    await user.click(screen.getByRole('button', { name: 'Export all data' }));
+    expect(exportAllDataAsJSON).toHaveBeenLastCalledWith(userData);
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Saved to Documents/energy-map-export_2026-03-10_1432.json'
+    );
+
+    exportAllDataAsJSON.mockResolvedValue({
+      success: true,
+      method: 'share',
+      fileName: 'x.json',
+    });
+    await user.click(screen.getByRole('button', { name: 'Share export' }));
+    expect(exportAllDataAsJSON).toHaveBeenLastCalledWith(userData, {
+      share: true,
+    });
+  });
+
+  it('has no separate Share button on iOS, where Export already opens the share sheet', async () => {
+    CapacitorMock.isNativePlatform.mockReturnValue(true);
+    CapacitorMock.getPlatform.mockReturnValue('ios');
+    exportAllDataAsJSON.mockResolvedValue({
+      success: true,
+      method: 'share',
+      fileName: 'x.json',
+      canceled: false,
+    });
+    const user = userEvent.setup();
+    render(<SettingsHarness />);
+    await openIntegrations(user);
+
+    expect(screen.queryByRole('button', { name: 'Share export' })).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Export all data' }));
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      /Save to Files/
+    );
+  });
+
+  describe('import', () => {
+    const exportFile = (data = { age: 41 }) =>
+      new File(
+        [JSON.stringify(buildFullExportPayload(data, new Date('2026-03-10')))],
+        'energy-map-export.json',
+        { type: 'application/json' }
+      );
+
+    it('opens the file picker from the Import button', async () => {
+      const clickSpy = vi
+        .spyOn(HTMLInputElement.prototype, 'click')
+        .mockImplementation(() => {});
+      const user = userEvent.setup();
+      render(<SettingsHarness />);
+      await openIntegrations(user);
+
+      await user.click(
+        screen.getByRole('button', { name: 'Import data from file' })
+      );
+
+      expect(clickSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('validates the file, hands it to the confirmation step and reports the result', async () => {
+      const user = userEvent.setup();
+      const importData = vi.fn();
+      render(<SettingsHarness openers={{ importData }} />);
+      await openIntegrations(user);
+
+      await user.upload(
+        screen.getByTestId('import-file-input'),
+        exportFile({
+          age: 41,
+          weightEntries: [{ date: '2026-03-01', weight: 80 }],
+        })
+      );
+
+      await vi.waitFor(() => expect(importData).toHaveBeenCalledTimes(1));
+      const [parsed, onResult] = importData.mock.calls[0];
+      expect(parsed.ok).toBe(true);
+      expect(parsed.data.age).toBe(41);
+      expect(parsed.summary.weighIns).toBe(1);
+
+      // Nothing is claimed until the user confirms and the import finishes.
+      expect(screen.queryByRole('status')).toBeNull();
+
+      act(() => onResult(true));
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Import complete. Your data has been replaced.'
+      );
+
+      act(() => onResult(false));
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Import failed. Your current data was left as it is.'
+      );
+    });
+
+    it('rejects a file that is not an Energy Map export without opening the confirmation', async () => {
+      const user = userEvent.setup();
+      const importData = vi.fn();
+      render(<SettingsHarness openers={{ importData }} />);
+      await openIntegrations(user);
+
+      await user.upload(
+        screen.getByTestId('import-file-input'),
+        new File(['{"hello":"world"}'], 'notes.json', {
+          type: 'application/json',
+        })
+      );
+
+      expect(await screen.findByRole('status')).toHaveTextContent(
+        "This isn't an Energy Map export file."
+      );
+      expect(importData).not.toHaveBeenCalled();
+    });
+
+    it('rejects a file that is not JSON at all', async () => {
+      const user = userEvent.setup();
+      const importData = vi.fn();
+      render(<SettingsHarness openers={{ importData }} />);
+      await openIntegrations(user);
+
+      await user.upload(
+        screen.getByTestId('import-file-input'),
+        new File(['definitely not json'], 'x.json', {
+          type: 'application/json',
+        })
+      );
+
+      expect(await screen.findByRole('status')).toHaveTextContent(
+        "This file isn't valid JSON."
+      );
+      expect(importData).not.toHaveBeenCalled();
+    });
   });
 
   it('surfaces an export failure and stays quiet when the share sheet is dismissed', async () => {

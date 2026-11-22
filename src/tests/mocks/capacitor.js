@@ -158,7 +158,7 @@ export const FilesystemMock = {
 };
 
 /** Enum members the app actually reads (data, not API surface). */
-export const DirectoryMock = { Cache: 'CACHE' };
+export const DirectoryMock = { Cache: 'CACHE', Documents: 'DOCUMENTS' };
 export const EncodingMock = { UTF8: 'utf8' };
 
 /**

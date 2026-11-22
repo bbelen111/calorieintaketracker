@@ -18,8 +18,10 @@ import { clampCustomActivityMultiplier } from '../constants/activity/activityPre
 import {
   getDefaultEnergyMapData,
   loadEnergyMapData,
+  replaceEnergyMapData,
   saveEnergyMapData,
 } from '../utils/data/storage.js';
+import { applyDeviceBoundFields } from '../utils/data/fullExport.js';
 import {
   clampWeight,
   normalizeDateKey,
@@ -670,6 +672,43 @@ export const useEnergyMapStore = createWithEqualityFn(
         get().upsertDailySnapshot(previousDateKey, { onlyIfMissing: true });
       }
       get().upsertDailySnapshot(todayDateKey, { onlyIfMissing: true });
+    },
+
+    /**
+     * Replaces ALL data with an imported export (`parseFullExportText` has
+     * already validated the document). Persists first and swaps memory only on
+     * success, so a failed write leaves the app exactly as it was. Device-bound
+     * fields (paired sensor, health-sync opt-in) keep this device's values.
+     *
+     * @returns {Promise<boolean>} whether the import was applied.
+     */
+    importUserData: async (importedData) => {
+      // A pending debounced save belongs to the state being replaced;
+      // `replaceEnergyMapData` flushes that state itself before the swap.
+      if (saveTimeoutId) {
+        clearTimeout(saveTimeoutId);
+        saveTimeoutId = null;
+      }
+
+      const currentData = get().userData;
+      const persisted = await replaceEnergyMapData({
+        currentData,
+        importedData: applyDeviceBoundFields(importedData, currentData),
+      });
+      if (!persisted) {
+        return false;
+      }
+
+      const nextUserData = normalizePhaseStateForUserData(persisted);
+      set({ userData: nextUserData, ...deriveState(nextUserData) });
+
+      const todayDateKey = getTodayDateKey();
+      const previousDateKey = getPreviousDateKey(todayDateKey);
+      if (previousDateKey) {
+        get().upsertDailySnapshot(previousDateKey, { onlyIfMissing: true });
+      }
+      get().upsertDailySnapshot(todayDateKey, { onlyIfMissing: true });
+      return true;
     },
 
     handleUserDataChange: (field, value) => {

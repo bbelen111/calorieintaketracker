@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ChevronsUpDown,
   Mars,
@@ -29,6 +35,8 @@ import {
   HeartPulse,
   RefreshCw,
   Download,
+  Upload,
+  Share2,
 } from 'lucide-react';
 import {
   DEFAULT_ACTIVITY_MULTIPLIERS,
@@ -78,9 +86,10 @@ import {
   useHeartRateSyncState,
 } from '../../../../services/heartRateSync';
 import { describeMaxHrSource } from '../../../../utils/formatting/heartRate';
-import { isIOS } from '../../../../utils/platform';
+import { isAndroid, isIOS } from '../../../../utils/platform';
 import { formatRelativeTime } from '../../../../utils/formatting/relativeTime';
 import { exportAllDataAsJSON } from '../../../../utils/export';
+import { parseFullExportText } from '../../../../utils/data/fullExport';
 
 // `swatchClass` is the CSS class that carries the theme's variables, so the
 // preview swatch below resolves its colours from the real theme definition in
@@ -1077,6 +1086,9 @@ const HeartRateSettingsSection = ({ userData, onFieldChange, openers }) => {
   );
 };
 
+// An export is a few MB at most; anything near this is not one of ours.
+const MAX_IMPORT_FILE_BYTES = 64 * 1024 * 1024;
+
 const INTEGRATION_ACTION_CLASS =
   'inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold transition-all focus-ring pressable-inline';
 const INTEGRATION_PRIMARY_ACTION_CLASS = `${INTEGRATION_ACTION_CLASS} border-primary bg-primary text-primary-foreground md:hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60`;
@@ -1134,6 +1146,9 @@ const IntegrationsSection = ({ userData, stepSync, openers }) => {
   // Only Android can open the permission screen; iOS users manage access in
   // the Health app itself (see useHealthConnect.openSettings).
   const android = !isIOS();
+  // Where Export saves straight to the Documents folder (and a separate Share
+  // button makes sense) rather than opening the share sheet.
+  const savesToDocuments = isAndroid();
 
   const stepStatus = stepSync?.status ?? HealthConnectStatus.UNAVAILABLE;
   const stepsReachable = isHealthStoreReachable(stepStatus);
@@ -1182,26 +1197,92 @@ const IntegrationsSection = ({ userData, stepSync, openers }) => {
     }
   };
 
-  const [exportStatus, setExportStatus] = useState({ state: 'idle' });
-  const handleExport = async () => {
-    setExportStatus({ state: 'busy' });
-    const result = await exportAllDataAsJSON(userData);
+  // One status line serves export and import: `busy` names the running action,
+  // `message` the last outcome ({ tone: 'ok' | 'error', text }).
+  const [busy, setBusy] = useState(null);
+  const [dataMessage, setDataMessage] = useState(null);
+  const importInputRef = useRef(null);
+
+  const handleExport = async ({ share = false } = {}) => {
+    setBusy(share ? 'share' : 'export');
+    setDataMessage(null);
+    const result = await (share
+      ? exportAllDataAsJSON(userData, { share: true })
+      : exportAllDataAsJSON(userData));
+    setBusy(null);
+
     if (!result.success) {
-      setExportStatus({
-        state: 'error',
-        message: `Export failed${result.error ? `: ${result.error}` : '.'}`,
+      setDataMessage({
+        tone: 'error',
+        text: `Export failed${result.error ? `: ${result.error}` : '.'}`,
       });
     } else if (result.canceled) {
-      setExportStatus({ state: 'idle' });
+      setDataMessage(null);
+    } else if (result.method === 'saved') {
+      setDataMessage({
+        tone: 'ok',
+        text: `Saved to ${result.location}/${result.fileName}`,
+      });
+    } else if (result.method === 'download') {
+      setDataMessage({ tone: 'ok', text: `Saved ${result.fileName}` });
     } else {
-      setExportStatus({
-        state: 'done',
-        message:
-          result.method === 'download'
-            ? `Saved ${result.fileName}`
-            : 'Export ready to save or share.',
+      setDataMessage({
+        tone: 'ok',
+        text: 'Choose where to save or send your export (Save to Files keeps a copy on this device).',
       });
     }
+  };
+
+  const handleImportFile = async (event) => {
+    const input = event.target;
+    const file = input.files?.[0];
+    // Reset first so choosing the same file again still fires `change`.
+    input.value = '';
+    if (!file) {
+      return;
+    }
+
+    setDataMessage(null);
+    if (file.size > MAX_IMPORT_FILE_BYTES) {
+      setDataMessage({
+        tone: 'error',
+        text: 'That file is too large to be an Energy Map export.',
+      });
+      return;
+    }
+
+    setBusy('import');
+    let text;
+    try {
+      text = await file.text();
+    } catch {
+      setBusy(null);
+      setDataMessage({ tone: 'error', text: "Couldn't read that file." });
+      return;
+    }
+    setBusy(null);
+
+    const parsed = parseFullExportText(text);
+    if (!parsed.ok) {
+      setDataMessage({ tone: 'error', text: parsed.error });
+      return;
+    }
+
+    // The orchestrator owns the destructive-action confirmation and reports the
+    // outcome back here (the confirm modal closes the moment it is accepted).
+    openers?.importData?.(parsed, (applied) => {
+      setDataMessage(
+        applied
+          ? {
+              tone: 'ok',
+              text: 'Import complete. Your data has been replaced.',
+            }
+          : {
+              tone: 'error',
+              text: 'Import failed. Your current data was left as it is.',
+            }
+      );
+    });
   };
 
   return (
@@ -1319,34 +1400,83 @@ const IntegrationsSection = ({ userData, stepSync, openers }) => {
 
       <div>
         <SettingLabel>Your data</SettingLabel>
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5">
-          <div className="min-w-0">
-            <p className="text-foreground text-sm font-medium leading-tight">
-              Export all data
-            </p>
-            <p className="mt-0.5 text-xs text-muted">
-              Everything you&apos;ve logged, as one JSON file
-            </p>
+        <div className="divide-y divide-border/60 overflow-hidden rounded-lg border border-border bg-surface-highlight/40">
+          <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+            <div className="min-w-0">
+              <p className="text-foreground text-sm font-medium leading-tight">
+                Export all data
+              </p>
+              <p className="mt-0.5 text-xs text-muted">
+                {savesToDocuments
+                  ? 'Saves one JSON file to your Documents folder'
+                  : "Everything you've logged, as one JSON file"}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {savesToDocuments && (
+                <button
+                  type="button"
+                  onClick={() => handleExport({ share: true })}
+                  disabled={busy !== null}
+                  aria-label="Share export"
+                  className={INTEGRATION_SECONDARY_ACTION_CLASS}
+                >
+                  <Share2 size={15} aria-hidden="true" />
+                  {busy === 'share' ? 'Sharing…' : 'Share'}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => handleExport()}
+                disabled={busy !== null}
+                aria-label="Export all data"
+                className={INTEGRATION_SECONDARY_ACTION_CLASS}
+              >
+                <Download size={15} aria-hidden="true" />
+                {busy === 'export' ? 'Exporting…' : 'Export'}
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={handleExport}
-            disabled={exportStatus.state === 'busy'}
-            aria-label="Export all data"
-            className={INTEGRATION_SECONDARY_ACTION_CLASS}
-          >
-            <Download size={15} aria-hidden="true" />
-            {exportStatus.state === 'busy' ? 'Exporting…' : 'Export'}
-          </button>
+
+          <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+            <div className="min-w-0">
+              <p className="text-foreground text-sm font-medium leading-tight">
+                Import from file
+              </p>
+              <p className="mt-0.5 text-xs text-muted">
+                Replace the data on this device with an export file
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => importInputRef.current?.click()}
+              disabled={busy !== null}
+              aria-label="Import data from file"
+              className={INTEGRATION_SECONDARY_ACTION_CLASS}
+            >
+              <Upload size={15} aria-hidden="true" />
+              {busy === 'import' ? 'Reading…' : 'Import'}
+            </button>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".json,application/json,text/plain"
+              onChange={handleImportFile}
+              className="hidden"
+              data-testid="import-file-input"
+              tabIndex={-1}
+              aria-hidden="true"
+            />
+          </div>
         </div>
-        {(exportStatus.state === 'done' || exportStatus.state === 'error') && (
+        {dataMessage && (
           <p
             role="status"
             className={`mt-2 text-xs ${
-              exportStatus.state === 'error' ? 'text-accent-red' : 'text-muted'
+              dataMessage.tone === 'error' ? 'text-accent-red' : 'text-muted'
             }`}
           >
-            {exportStatus.message}
+            {dataMessage.text}
           </p>
         )}
       </div>

@@ -99,6 +99,7 @@ import { ConfirmActionModal } from './modals/common/ConfirmActionModal';
 import { clampWeight, normalizeDateKey } from '../../utils/measurements/weight';
 import { clampBodyFat } from '../../utils/measurements/bodyFat';
 import { exportPhaseAsCSV, exportPhaseAsJSON } from '../../utils/export';
+import { describeFullExportSummary } from '../../utils/data/fullExport';
 import {
   getNutritionTotalsForDate,
   hasNutritionEntriesForDate,
@@ -675,6 +676,7 @@ export const EnergyMapCalculator = () => {
     removeFoodFavourite,
     updateFoodFavourite,
     updateCachedFoods,
+    importUserData,
     createPhase,
     deletePhase,
     archivePhase,
@@ -744,6 +746,7 @@ export const EnergyMapCalculator = () => {
       removeFoodFavourite: state.removeFoodFavourite,
       updateFoodFavourite: state.updateFoodFavourite,
       updateCachedFoods: state.updateCachedFoods,
+      importUserData: state.importUserData,
       createPhase: state.createPhase,
       deletePhase: state.deletePhase,
       archivePhase: state.archivePhase,
@@ -4298,6 +4301,31 @@ export const EnergyMapCalculator = () => {
     confirmActionModal.open();
   }, [confirmActionModal, updateCachedFoods]);
 
+  // Settings -> Integrations -> Your data -> Import. The file was already read
+  // and validated by the Settings page; this is the destructive-action gate. The
+  // result goes back through `onResult` because the confirm modal itself closes
+  // as soon as the callback is invoked.
+  const handleImportData = useCallback(
+    ({ data, summary }, onResult) => {
+      setConfirmActionTitle('Replace all your data?');
+      setConfirmActionDescription(
+        `This replaces everything in the app with the contents of this file (${describeFullExportSummary(summary)}). Your current data on this device will be lost, so export it first if you want to keep a copy.`
+      );
+      setConfirmActionLabel('Replace');
+      setConfirmActionTone('danger');
+      setConfirmActionCallback(() => async () => {
+        const applied = await importUserData(data);
+        if (applied) {
+          // A phase opened from the old Logbook would be a dangling copy.
+          setSelectedPhase(null);
+        }
+        onResult?.(applied);
+      });
+      confirmActionModal.open();
+    },
+    [confirmActionModal, importUserData]
+  );
+
   useEffect(() => {
     if (!dailyLogModal.isOpen && !dailyLogModal.isClosing) {
       setDailyLogDate(getTodayDateString());
@@ -5015,6 +5043,7 @@ export const EnergyMapCalculator = () => {
                 stepRanges: stepRangesModal.open,
                 macroPicker: openMacroPickerModal,
                 clearCachedFoods: handleClearCachedFoods,
+                importData: handleImportData,
                 ...heartRateSettingsOpeners,
               },
               info: {

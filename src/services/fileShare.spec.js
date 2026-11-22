@@ -5,7 +5,11 @@ import {
   FilesystemMock,
   ShareMock,
 } from '../tests/mocks/capacitor.js';
-import { sanitizeExportFileName, saveTextFile } from './fileShare.js';
+import {
+  sanitizeExportFileName,
+  saveTextFile,
+  saveTextFileToDevice,
+} from './fileShare.js';
 
 /**
  * Export delivery contract.
@@ -191,6 +195,97 @@ describe('saveTextFile', () => {
         '_etc_passwd'
       );
     });
+  });
+});
+
+/**
+ * "Export" must put a file somewhere the user can find it. The share sheet is
+ * the only route on iOS (its "Save to Files" is the platform's download), but on
+ * Android it left users with a prompt and no file.
+ */
+describe('saveTextFileToDevice', () => {
+  beforeEach(() => {
+    FilesystemMock.writeFile.mockClear();
+    ShareMock.share.mockClear();
+  });
+
+  it('saves straight into Documents on Android without opening the share sheet', async () => {
+    setPlatform('android');
+
+    const result = await saveTextFileToDevice({
+      fileName: 'energy-map-export.json',
+      content: '{}',
+    });
+
+    expect(FilesystemMock.writeFile).toHaveBeenCalledWith({
+      path: 'energy-map-export.json',
+      data: '{}',
+      directory: 'DOCUMENTS',
+      encoding: 'utf8',
+    });
+    expect(ShareMock.share).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      success: true,
+      method: 'saved',
+      fileName: 'energy-map-export.json',
+      uri: 'file:///mock-cache/energy-map-export.json',
+      location: 'Documents',
+    });
+  });
+
+  it('falls back to the share sheet when Android refuses the Documents write', async () => {
+    setPlatform('android');
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    FilesystemMock.writeFile.mockRejectedValueOnce(new Error('denied'));
+
+    const result = await saveTextFileToDevice({
+      fileName: 'energy-map-export.json',
+      content: '{}',
+    });
+
+    // Attempt 1 (Documents) rejected, attempt 2 is the cache write for sharing.
+    expect(FilesystemMock.writeFile).toHaveBeenCalledTimes(2);
+    expect(FilesystemMock.writeFile.mock.calls[1][0].directory).toBe('CACHE');
+    expect(ShareMock.share).toHaveBeenCalledTimes(1);
+    expect(result.method).toBe('share');
+  });
+
+  it('uses the share sheet on iOS, where Save to Files is the download', async () => {
+    setPlatform('ios');
+
+    const result = await saveTextFileToDevice({
+      fileName: 'energy-map-export.json',
+      content: '{}',
+    });
+
+    expect(FilesystemMock.writeFile.mock.calls[0][0].directory).toBe('CACHE');
+    expect(ShareMock.share).toHaveBeenCalledTimes(1);
+    expect(result.method).toBe('share');
+  });
+
+  it('downloads on the web', async () => {
+    setPlatform('web');
+    vi.spyOn(window.HTMLAnchorElement.prototype, 'click').mockImplementation(
+      () => {}
+    );
+    URL.createObjectURL = vi.fn(() => 'blob:mock-url');
+    URL.revokeObjectURL = vi.fn();
+
+    const result = await saveTextFileToDevice({
+      fileName: 'energy-map-export.json',
+      content: '{}',
+    });
+
+    expect(result.method).toBe('download');
+    expect(FilesystemMock.writeFile).not.toHaveBeenCalled();
+  });
+
+  it('sanitizes the name before it reaches the public Documents folder', async () => {
+    setPlatform('android');
+
+    await saveTextFileToDevice({ fileName: '../x/y.json', content: '{}' });
+
+    expect(FilesystemMock.writeFile.mock.calls[0][0].path).toBe('_x_y.json');
   });
 });
 
