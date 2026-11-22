@@ -24,6 +24,11 @@ import {
   Lightbulb,
   Dumbbell,
   BedDouble,
+  Plug,
+  Footprints,
+  HeartPulse,
+  RefreshCw,
+  Download,
 } from 'lucide-react';
 import {
   DEFAULT_ACTIVITY_MULTIPLIERS,
@@ -69,9 +74,13 @@ import {
 import {
   connectHeartRateSync,
   disconnectHeartRateSync,
+  refreshHeartRateSync,
   useHeartRateSyncState,
 } from '../../../../services/heartRateSync';
 import { describeMaxHrSource } from '../../../../utils/formatting/heartRate';
+import { isIOS } from '../../../../utils/platform';
+import { formatRelativeTime } from '../../../../utils/formatting/relativeTime';
+import { exportAllDataAsJSON } from '../../../../utils/export';
 
 // `swatchClass` is the CSS class that carries the theme's variables, so the
 // preview swatch below resolves its colours from the real theme definition in
@@ -140,6 +149,11 @@ const SETTINGS_PAGES = [
     id: 'food',
     title: 'Food & Macros',
     icon: UtensilsCrossed,
+  },
+  {
+    id: 'integrations',
+    title: 'Integrations',
+    icon: Plug,
   },
 ];
 
@@ -256,6 +270,7 @@ export const SettingsModal = ({
   onMacroPickerClick,
   onClearCachedFoodsClick,
   onCancel,
+  stepSync = null,
   actions,
 }) => {
   const store = useEnergyMapStore(
@@ -525,6 +540,7 @@ export const SettingsModal = ({
             adaptiveThermogenesisSmoothingWindowDays
           }
           heartRateOpeners={resolvedActions.openers}
+          stepSync={stepSync}
         />
       )}
     </FullscreenModalFrame>
@@ -600,6 +616,7 @@ const SettingsPageContent = ({
   adaptiveThermogenesisSmoothingMethod,
   adaptiveThermogenesisSmoothingWindowDays,
   heartRateOpeners,
+  stepSync,
 }) => (
   <div
     key={page}
@@ -649,6 +666,14 @@ const SettingsPageContent = ({
         onFieldChange={onFieldChange}
         onOpenMacroPicker={onOpenMacroPicker}
         onClearCachedFoods={onClearCachedFoods}
+      />
+    )}
+
+    {page === 'integrations' && (
+      <IntegrationsSection
+        userData={userData}
+        stepSync={stepSync}
+        openers={heartRateOpeners}
       />
     )}
 
@@ -970,20 +995,12 @@ const ProfileSection = ({
 
 /**
  * Profile & Health -> Heart rate. Max HR / VO2 max overrides apply
- * immediately through onFieldChange (out-of-range = auto); watch sync and the
- * BLE sensor go through their services. No new Settings category: the hub
- * stays at five.
+ * immediately through onFieldChange (out-of-range = auto). Watch sync and the
+ * BLE sensor live under Settings -> Integrations (`IntegrationsSection`); this
+ * group keeps only the values that describe the user.
  */
 const HeartRateSettingsSection = ({ userData, onFieldChange, openers }) => {
   const heartRateProfile = useEnergyMapStore((state) => state.heartRateProfile);
-  const sync = useHeartRateSyncState();
-  const healthSourceName = getHealthSourceName();
-  const isSyncAvailable =
-    sync.status !== HealthConnectStatus.UNAVAILABLE &&
-    sync.status !== HealthConnectStatus.NOT_INSTALLED;
-  const isSyncOn =
-    Boolean(userData.heartRateSyncEnabled) &&
-    sync.status === HealthConnectStatus.CONNECTED;
   const hasCustomMax = userData.maxHeartRateCustom != null;
   const hasCustomVo2 = userData.vo2MaxCustom != null;
 
@@ -991,32 +1008,6 @@ const HeartRateSettingsSection = ({ userData, onFieldChange, openers }) => {
     <div className="mt-7 border-t border-border/70 pt-6">
       <p className="text-foreground font-semibold mb-3">Heart rate</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-        {isSyncAvailable && (
-          <div className="md:col-span-2 rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-foreground text-sm font-medium leading-tight">
-                  Sync from {healthSourceName}
-                </p>
-                <p className="text-muted text-xs mt-0.5">
-                  {sync.status === HealthConnectStatus.CONNECTING
-                    ? 'Connecting…'
-                    : (sync.error ??
-                      'Resting heart rate, daily heart rate, VO2 max and workouts (read-only).')}
-                </p>
-              </div>
-              <BinarySwitch
-                checked={isSyncOn}
-                disabled={sync.status === HealthConnectStatus.CONNECTING}
-                ariaLabel={`Sync heart rate from ${healthSourceName}`}
-                onClick={() =>
-                  isSyncOn ? disconnectHeartRateSync() : connectHeartRateSync()
-                }
-              />
-            </div>
-          </div>
-        )}
-
         <div>
           <SettingLabel>Resting heart rate</SettingLabel>
           <PickerButton
@@ -1074,16 +1065,6 @@ const HeartRateSettingsSection = ({ userData, onFieldChange, openers }) => {
             </button>
           )}
         </div>
-
-        <div>
-          <SettingLabel>Heart-rate sensor</SettingLabel>
-          <PickerButton
-            onClick={() => openers?.heartRateSensor?.()}
-            ariaLabel="Pair a Bluetooth heart-rate sensor"
-          >
-            {userData.heartRateSensor?.name ?? 'Pair a chest strap or arm band'}
-          </PickerButton>
-        </div>
       </div>
       <button
         type="button"
@@ -1092,6 +1073,283 @@ const HeartRateSettingsSection = ({ userData, onFieldChange, openers }) => {
       >
         <Info size={14} /> How heart rate affects your numbers
       </button>
+    </div>
+  );
+};
+
+const INTEGRATION_ACTION_CLASS =
+  'inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold transition-all focus-ring pressable-inline';
+const INTEGRATION_PRIMARY_ACTION_CLASS = `${INTEGRATION_ACTION_CLASS} border-primary bg-primary text-primary-foreground md:hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60`;
+const INTEGRATION_SECONDARY_ACTION_CLASS = `${INTEGRATION_ACTION_CLASS} border-border bg-surface-highlight text-foreground md:hover:border-muted/50 disabled:cursor-not-allowed disabled:opacity-60`;
+
+const isHealthStoreReachable = (status) =>
+  status !== HealthConnectStatus.UNAVAILABLE &&
+  status !== HealthConnectStatus.NOT_INSTALLED;
+
+const latestDate = (...dates) =>
+  dates
+    .filter((date) => date instanceof Date && !Number.isNaN(date.getTime()))
+    .reduce((latest, date) => (!latest || date > latest ? date : latest), null);
+
+/** One data source inside an integrations card: icon tile, title/status, control. */
+const IntegrationRow = ({ icon: Icon, title, status, tone, children }) => (
+  <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+    <div className="flex min-w-0 items-center gap-3">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-blue/10 ring-1 ring-accent-blue/20">
+        <Icon size={19} className="text-accent-blue" aria-hidden="true" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-foreground text-sm font-medium leading-tight">
+          {title}
+        </p>
+        <p
+          className={`mt-0.5 text-xs ${
+            tone === 'error' ? 'text-accent-red' : 'text-muted'
+          }`}
+        >
+          {status}
+        </p>
+      </div>
+    </div>
+    {children}
+  </div>
+);
+
+/**
+ * Settings -> Integrations. Everything that moves data across the app boundary:
+ * the on-device health store (steps, heart rate), Bluetooth devices, and the
+ * user's own data going out as a file.
+ *
+ * - Steps and heart rate share one permission store but not one switch. Heart
+ *   rate has a persisted opt-in (`heartRateSyncEnabled`); step sync has none -
+ *   `useHealthConnect` reconnects on launch whenever the OS grants access - so
+ *   its row offers Connect / Sync now, and revoking happens in the health app
+ *   (the footnote says so). Do not fake a step "off" switch: it would not survive
+ *   a relaunch.
+ * - The copy never claims more than the code does: the app only reads.
+ */
+const IntegrationsSection = ({ userData, stepSync, openers }) => {
+  const hrSync = useHeartRateSyncState();
+  const healthSourceName = getHealthSourceName();
+  // Only Android can open the permission screen; iOS users manage access in
+  // the Health app itself (see useHealthConnect.openSettings).
+  const android = !isIOS();
+
+  const stepStatus = stepSync?.status ?? HealthConnectStatus.UNAVAILABLE;
+  const stepsReachable = isHealthStoreReachable(stepStatus);
+  const hrReachable = isHealthStoreReachable(hrSync.status);
+  const stepsConnected = stepStatus === HealthConnectStatus.CONNECTED;
+  const hrOn =
+    Boolean(userData.heartRateSyncEnabled) &&
+    hrSync.status === HealthConnectStatus.CONNECTED;
+  const notInstalled =
+    stepStatus === HealthConnectStatus.NOT_INSTALLED ||
+    hrSync.status === HealthConnectStatus.NOT_INSTALLED;
+
+  const isSyncing = Boolean(stepSync?.isLoading) || hrSync.isLoading;
+  const canSyncNow = (stepsConnected || hrOn) && !isSyncing;
+
+  let stepsStatusText;
+  if (stepStatus === HealthConnectStatus.CONNECTING) {
+    stepsStatusText = 'Connecting…';
+  } else if (stepSync?.error) {
+    stepsStatusText = stepSync.error;
+  } else if (stepsConnected) {
+    const label = formatRelativeTime(stepSync?.lastSynced);
+    stepsStatusText = label ? `Synced ${label}` : 'Connected';
+  } else {
+    stepsStatusText = 'Not connected';
+  }
+
+  const hrStatusText =
+    hrSync.status === HealthConnectStatus.CONNECTING
+      ? 'Connecting…'
+      : (hrSync.error ??
+        'Resting heart rate, daily heart rate, VO2 max and workouts');
+
+  const lastSynced = latestDate(
+    stepsConnected ? stepSync?.lastSynced : null,
+    hrOn ? hrSync.lastSynced : null
+  );
+  const lastSyncedLabel = formatRelativeTime(lastSynced);
+
+  const handleSyncNow = () => {
+    if (stepsConnected) {
+      stepSync?.refresh?.();
+    }
+    if (hrOn) {
+      refreshHeartRateSync();
+    }
+  };
+
+  const [exportStatus, setExportStatus] = useState({ state: 'idle' });
+  const handleExport = async () => {
+    setExportStatus({ state: 'busy' });
+    const result = await exportAllDataAsJSON(userData);
+    if (!result.success) {
+      setExportStatus({
+        state: 'error',
+        message: `Export failed${result.error ? `: ${result.error}` : '.'}`,
+      });
+    } else if (result.canceled) {
+      setExportStatus({ state: 'idle' });
+    } else {
+      setExportStatus({
+        state: 'done',
+        message:
+          result.method === 'download'
+            ? `Saved ${result.fileName}`
+            : 'Export ready to save or share.',
+      });
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <SettingLabel>{healthSourceName}</SettingLabel>
+        {stepsReachable || hrReachable ? (
+          <>
+            <div className="divide-y divide-border/60 overflow-hidden rounded-lg border border-border bg-surface-highlight/40">
+              {stepsReachable && (
+                <IntegrationRow
+                  icon={Footprints}
+                  title="Steps"
+                  status={stepsStatusText}
+                  tone={stepSync?.error ? 'error' : 'muted'}
+                >
+                  {stepsConnected ? (
+                    <span className="shrink-0 rounded-full border border-accent-emerald/40 bg-accent-emerald/15 px-2.5 py-1 text-xs font-semibold text-accent-emerald">
+                      Connected
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => stepSync?.connect?.()}
+                      disabled={stepStatus === HealthConnectStatus.CONNECTING}
+                      aria-label={`Connect steps to ${healthSourceName}`}
+                      className={INTEGRATION_PRIMARY_ACTION_CLASS}
+                    >
+                      {stepStatus === HealthConnectStatus.ERROR
+                        ? 'Retry'
+                        : 'Connect'}
+                    </button>
+                  )}
+                </IntegrationRow>
+              )}
+
+              {hrReachable && (
+                <IntegrationRow
+                  icon={HeartPulse}
+                  title="Heart rate & workouts"
+                  status={hrStatusText}
+                  tone={hrSync.error ? 'error' : 'muted'}
+                >
+                  <BinarySwitch
+                    checked={hrOn}
+                    disabled={hrSync.status === HealthConnectStatus.CONNECTING}
+                    ariaLabel={`Sync heart rate from ${healthSourceName}`}
+                    onClick={() =>
+                      hrOn ? disconnectHeartRateSync() : connectHeartRateSync()
+                    }
+                  />
+                </IntegrationRow>
+              )}
+
+              <div className="flex flex-wrap items-center gap-2 px-3 py-2.5">
+                <button
+                  type="button"
+                  onClick={handleSyncNow}
+                  disabled={!canSyncNow}
+                  className={INTEGRATION_SECONDARY_ACTION_CLASS}
+                >
+                  <RefreshCw
+                    size={15}
+                    aria-hidden="true"
+                    className={isSyncing ? 'animate-spin' : ''}
+                  />
+                  Sync now
+                </button>
+                {android && (
+                  <button
+                    type="button"
+                    onClick={() => stepSync?.openSettings?.()}
+                    className={INTEGRATION_SECONDARY_ACTION_CLASS}
+                  >
+                    Manage permissions
+                  </button>
+                )}
+                {lastSyncedLabel && (
+                  <span className="ml-auto text-xs text-muted">
+                    Last synced {lastSyncedLabel}
+                  </span>
+                )}
+              </div>
+            </div>
+            <p className="mt-2 text-xs text-muted">
+              Energy Map only reads this data to fill in your steps and heart
+              rate; it never changes anything in {healthSourceName}.{' '}
+              {android
+                ? 'Revoke access any time from Manage permissions.'
+                : 'Manage access in the Health app under Profile → Privacy → Apps.'}
+            </p>
+          </>
+        ) : (
+          <p className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5 text-sm text-muted">
+            {notInstalled
+              ? `${healthSourceName} isn't installed. Install it from Google Play, then come back to connect.`
+              : `${healthSourceName} isn't available on this device.`}
+          </p>
+        )}
+      </div>
+
+      <div>
+        <SettingLabel>Devices</SettingLabel>
+        <PickerButton
+          onClick={() => openers?.heartRateSensor?.()}
+          ariaLabel="Pair a Bluetooth heart-rate sensor"
+        >
+          {userData.heartRateSensor?.name ?? 'Pair a chest strap or arm band'}
+        </PickerButton>
+        <p className="mt-2 text-xs text-muted">
+          Any Bluetooth heart-rate sensor that uses the standard heart-rate
+          profile.
+        </p>
+      </div>
+
+      <div>
+        <SettingLabel>Your data</SettingLabel>
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5">
+          <div className="min-w-0">
+            <p className="text-foreground text-sm font-medium leading-tight">
+              Export all data
+            </p>
+            <p className="mt-0.5 text-xs text-muted">
+              Everything you&apos;ve logged, as one JSON file
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={exportStatus.state === 'busy'}
+            aria-label="Export all data"
+            className={INTEGRATION_SECONDARY_ACTION_CLASS}
+          >
+            <Download size={15} aria-hidden="true" />
+            {exportStatus.state === 'busy' ? 'Exporting…' : 'Export'}
+          </button>
+        </div>
+        {(exportStatus.state === 'done' || exportStatus.state === 'error') && (
+          <p
+            role="status"
+            className={`mt-2 text-xs ${
+              exportStatus.state === 'error' ? 'text-accent-red' : 'text-muted'
+            }`}
+          >
+            {exportStatus.message}
+          </p>
+        )}
+      </div>
     </div>
   );
 };

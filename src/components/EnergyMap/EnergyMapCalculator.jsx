@@ -5001,6 +5001,7 @@ export const EnergyMapCalculator = () => {
             bodyFatEntries={bodyFatEntries}
             bodyFatTrackingEnabled={userData.bodyFatTrackingEnabled}
             bmr={bmr}
+            stepSync={healthConnect}
             actions={{
               onFieldChange: handleUserDataChange,
               openers: {

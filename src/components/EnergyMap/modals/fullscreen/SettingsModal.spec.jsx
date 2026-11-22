@@ -1,9 +1,24 @@
 import React, { useState } from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SettingsModal } from './SettingsModal';
+import { exportAllDataAsJSON } from '../../../../utils/export';
+import {
+  connectHeartRateSync,
+  resetHeartRateSyncState,
+} from '../../../../services/heartRateSync';
+import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
+import { HealthConnectStatus } from '../../../../constants/health/healthSources';
+import {
+  CapacitorMock,
+  HealthMock,
+} from '../../../../tests/mocks/capacitor.js';
+
+vi.mock('../../../../utils/export', () => ({
+  exportAllDataAsJSON: vi.fn(),
+}));
 
 const createUserData = (overrides = {}) => ({
   age: 32,
@@ -26,6 +41,7 @@ const SettingsHarness = ({
   onFieldChange = vi.fn(),
   onDailyActivityClick = vi.fn(),
   openers = {},
+  stepSync = null,
   userData = createUserData(),
 }) => {
   const [activePage, setActivePage] = useState('home');
@@ -48,6 +64,7 @@ const SettingsHarness = ({
       bmr={1800}
       weightEntries={[]}
       bodyFatEntries={[]}
+      stepSync={stepSync}
       actions={{
         onFieldChange,
         openers: {
@@ -107,6 +124,7 @@ describe('SettingsModal segmented navigation', () => {
         /EPOC \(Post-Exercise Burn\)/,
       ],
       ['Open Food & Macros', 'Food & Macros', 'Food search opens in'],
+      ['Open Integrations', 'Integrations', 'Devices'],
     ];
 
     for (const [buttonName, pageTitle, contentMatcher] of pages) {
@@ -449,5 +467,250 @@ describe('SettingsModal segmented navigation', () => {
 
     await user.click(screen.getByRole('button', { name: 'Back' }));
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+});
+
+const createStepSync = (overrides = {}) => ({
+  status: HealthConnectStatus.DISCONNECTED,
+  isLoading: false,
+  error: null,
+  lastSynced: null,
+  connect: vi.fn(),
+  refresh: vi.fn(),
+  openSettings: vi.fn(),
+  ...overrides,
+});
+
+const openIntegrations = (user) =>
+  user.click(screen.getByRole('button', { name: 'Open Integrations' }));
+
+const HR_SWITCH = 'Sync heart rate from Health Connect';
+
+describe('SettingsModal Integrations page', () => {
+  beforeEach(() => {
+    resetHeartRateSyncState();
+    useEnergyMapStore.setState(useEnergyMapStore.getInitialState());
+    exportAllDataAsJSON.mockReset();
+    HealthMock.isAvailable.mockReset().mockResolvedValue({ available: true });
+    HealthMock.checkAuthorization.mockReset().mockResolvedValue({
+      readAuthorized: ['heartRate', 'restingHeartRate', 'vo2Max', 'workouts'],
+      writeAuthorized: [],
+    });
+    HealthMock.requestAuthorization.mockReset().mockResolvedValue({
+      readAuthorized: ['heartRate', 'restingHeartRate', 'vo2Max', 'workouts'],
+      writeAuthorized: [],
+    });
+    HealthMock.queryAggregated.mockReset().mockResolvedValue({ samples: [] });
+    HealthMock.readSamples.mockReset().mockResolvedValue({ samples: [] });
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    CapacitorMock.isNativePlatform.mockReturnValue(false);
+    CapacitorMock.getPlatform.mockReturnValue('web');
+    vi.restoreAllMocks();
+  });
+
+  it('takes watch sync and the sensor out of Profile & Health', async () => {
+    const user = userEvent.setup();
+    render(<SettingsHarness />);
+
+    await user.click(
+      screen.getByRole('button', { name: 'Open Profile & Health' })
+    );
+
+    expect(screen.getByText('Resting heart rate')).toBeInTheDocument();
+    expect(screen.getByText('Max heart rate')).toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: HR_SWITCH })).toBeNull();
+    expect(
+      screen.queryByRole('button', {
+        name: 'Pair a Bluetooth heart-rate sensor',
+      })
+    ).toBeNull();
+  });
+
+  it('says so when no health store exists instead of rendering an empty group', async () => {
+    const user = userEvent.setup();
+    render(<SettingsHarness />);
+    await openIntegrations(user);
+
+    expect(
+      screen.getByText("Health Connect isn't available on this device.")
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Sync now/ })).toBeNull();
+  });
+
+  it('points to Google Play when Health Connect is not installed', async () => {
+    const user = userEvent.setup();
+    render(
+      <SettingsHarness
+        stepSync={createStepSync({
+          status: HealthConnectStatus.NOT_INSTALLED,
+        })}
+      />
+    );
+    await openIntegrations(user);
+
+    expect(screen.getByText(/isn't installed/)).toBeInTheDocument();
+  });
+
+  it('offers Connect for steps while disconnected', async () => {
+    const user = userEvent.setup();
+    const stepSync = createStepSync();
+    render(<SettingsHarness stepSync={stepSync} />);
+    await openIntegrations(user);
+
+    expect(screen.getByText('Not connected')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Sync now/ })).toBeDisabled();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Connect steps to Health Connect' })
+    );
+    expect(stepSync.connect).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows a connected step source with its last sync, a manual sync and Android permissions', async () => {
+    const user = userEvent.setup();
+    const stepSync = createStepSync({
+      status: HealthConnectStatus.CONNECTED,
+      lastSynced: new Date(),
+    });
+    render(<SettingsHarness stepSync={stepSync} />);
+    await openIntegrations(user);
+
+    expect(screen.getByText('Connected')).toBeInTheDocument();
+    expect(screen.getByText('Synced just now')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Sync now/ }));
+    expect(stepSync.refresh).toHaveBeenCalledTimes(1);
+
+    await user.click(
+      screen.getByRole('button', { name: 'Manage permissions' })
+    );
+    expect(stepSync.openSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows a step sync error in place of the status line and offers Retry', async () => {
+    const user = userEvent.setup();
+    render(
+      <SettingsHarness
+        stepSync={createStepSync({
+          status: HealthConnectStatus.ERROR,
+          error: 'Failed to connect',
+        })}
+      />
+    );
+    await openIntegrations(user);
+
+    expect(screen.getByText('Failed to connect')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Connect steps/ })
+    ).toHaveTextContent('Retry');
+  });
+
+  it('uses Apple Health copy on iOS and has no permissions button', async () => {
+    CapacitorMock.isNativePlatform.mockReturnValue(true);
+    CapacitorMock.getPlatform.mockReturnValue('ios');
+    const user = userEvent.setup();
+    render(
+      <SettingsHarness
+        stepSync={createStepSync({ status: HealthConnectStatus.CONNECTED })}
+      />
+    );
+    await openIntegrations(user);
+
+    expect(screen.getByText('Apple Health')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Manage permissions' })
+    ).toBeNull();
+    expect(screen.getByText(/Profile → Privacy → Apps/)).toBeInTheDocument();
+  });
+
+  it('toggles heart-rate sync through the shared sync service', async () => {
+    CapacitorMock.isNativePlatform.mockReturnValue(true);
+    CapacitorMock.getPlatform.mockReturnValue('android');
+    await act(async () => {
+      await connectHeartRateSync();
+    });
+    expect(useEnergyMapStore.getState().userData.heartRateSyncEnabled).toBe(
+      true
+    );
+
+    const user = userEvent.setup();
+    render(
+      <SettingsHarness
+        userData={createUserData({ heartRateSyncEnabled: true })}
+      />
+    );
+    await openIntegrations(user);
+
+    const toggle = screen.getByRole('switch', { name: HR_SWITCH });
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+
+    await user.click(toggle);
+
+    expect(useEnergyMapStore.getState().userData.heartRateSyncEnabled).toBe(
+      false
+    );
+    expect(screen.getByRole('switch', { name: HR_SWITCH })).toHaveAttribute(
+      'aria-checked',
+      'false'
+    );
+  });
+
+  it('opens the sensor pairing flow from Devices', async () => {
+    const user = userEvent.setup();
+    const heartRateSensor = vi.fn();
+    render(<SettingsHarness openers={{ heartRateSensor }} />);
+    await openIntegrations(user);
+
+    await user.click(
+      screen.getByRole('button', { name: 'Pair a Bluetooth heart-rate sensor' })
+    );
+    expect(heartRateSensor).toHaveBeenCalledTimes(1);
+  });
+
+  it('exports all data and reports the saved file', async () => {
+    exportAllDataAsJSON.mockResolvedValue({
+      success: true,
+      method: 'download',
+      fileName: 'energy-map-export_2026-03-10.json',
+    });
+    const user = userEvent.setup();
+    const userData = createUserData();
+    render(<SettingsHarness userData={userData} />);
+    await openIntegrations(user);
+
+    await user.click(screen.getByRole('button', { name: 'Export all data' }));
+
+    expect(exportAllDataAsJSON).toHaveBeenCalledWith(userData);
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Saved energy-map-export_2026-03-10.json'
+    );
+  });
+
+  it('surfaces an export failure and stays quiet when the share sheet is dismissed', async () => {
+    exportAllDataAsJSON.mockResolvedValueOnce({
+      success: false,
+      method: 'none',
+      error: 'disk full',
+    });
+    const user = userEvent.setup();
+    render(<SettingsHarness />);
+    await openIntegrations(user);
+
+    await user.click(screen.getByRole('button', { name: 'Export all data' }));
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Export failed: disk full'
+    );
+
+    exportAllDataAsJSON.mockResolvedValueOnce({
+      success: true,
+      method: 'share',
+      fileName: 'x.json',
+      canceled: true,
+    });
+    await user.click(screen.getByRole('button', { name: 'Export all data' }));
+    await vi.waitFor(() => expect(screen.queryByRole('status')).toBeNull());
   });
 });

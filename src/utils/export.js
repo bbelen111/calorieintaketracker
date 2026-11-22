@@ -1,8 +1,8 @@
 import {
   calculatePhaseMetrics,
   getNutritionTotalsForDate,
-} from './phases/phases';
-import { getTodayDateKey } from './data/dateKeys';
+} from './phases/phases.js';
+import { getTodayDateKey } from './data/dateKeys.js';
 import { sortHeartRateEntries } from './measurements/heartRate.js';
 import { saveTextFile } from '../services/fileShare.js';
 
@@ -180,6 +180,61 @@ export const exportPhaseAsCSV = async (
     mimeType: 'text/csv;charset=utf-8;',
     title: `Export ${phase.name}`,
     dialogTitle: 'Export phase data',
+  });
+};
+
+export const FULL_EXPORT_FORMAT_VERSION = 1;
+
+/**
+ * Fields left out of a full export: `cachedFoods` is a re-downloadable lookup
+ * cache (up to 500 catalog rows), not something the user logged.
+ */
+const FULL_EXPORT_EXCLUDED_FIELDS = ['cachedFoods'];
+
+/**
+ * Builds the full-export document: the user's profile, settings and every
+ * history dataset (`userData` is already the merged profile + history shape),
+ * wrapped with a format version so a future importer can recognise it.
+ *
+ * @returns {object | null} `null` when there is nothing to export.
+ */
+export const buildFullExportPayload = (userData, now = new Date()) => {
+  if (!userData || typeof userData !== 'object') {
+    return null;
+  }
+
+  const data = { ...userData };
+  FULL_EXPORT_EXCLUDED_FIELDS.forEach((field) => {
+    delete data[field];
+  });
+
+  return {
+    app: 'Energy Map',
+    formatVersion: FULL_EXPORT_FORMAT_VERSION,
+    exportedAt: now.toISOString(),
+    data,
+  };
+};
+
+/**
+ * Export everything the user has logged as one JSON file (Settings ->
+ * Integrations -> Your data).
+ *
+ * Same delivery contract as `exportPhaseAsCSV`: web download or native share
+ * sheet, resolved value instead of a throw.
+ */
+export const exportAllDataAsJSON = async (userData) => {
+  const payload = buildFullExportPayload(userData);
+  if (!payload) {
+    return { success: false, method: 'none', error: 'No data to export' };
+  }
+
+  return saveTextFile({
+    fileName: `energy-map-export_${getTodayDateKey()}.json`,
+    content: JSON.stringify(payload, null, 2),
+    mimeType: 'application/json',
+    title: 'Energy Map data export',
+    dialogTitle: 'Export all data',
   });
 };
 
