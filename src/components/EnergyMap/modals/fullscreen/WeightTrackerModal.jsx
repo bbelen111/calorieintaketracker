@@ -203,6 +203,7 @@ export const WeightTrackerModal = ({
   onEditEntry,
   canSwitchToBodyFat = false,
   onSwitchToBodyFat,
+  fadeIn = false,
 }) => {
   // Store fallback
   const store = useEnergyMapStore(
@@ -1542,7 +1543,9 @@ export const WeightTrackerModal = ({
         isOpen={isOpen}
         isClosing={isClosing}
         overlayClassName="fixed inset-0 bg-surface/70 p-0! flex-none! items-stretch! justify-stretch! z-1000"
-        contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none max-h-none! flex flex-col pt-[env(safe-area-inset-top)] keyboard-bottom-inset pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] z-1001"
+        contentClassName={`fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none max-h-none! flex flex-col pt-[env(safe-area-inset-top)] keyboard-bottom-inset pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] z-1001${
+          fadeIn ? ' modal-content-fade' : ''
+        }`}
       >
         {/* Header bar */}
         <div className="flex items-center justify-between px-4 py-3 fullscreen-header bg-background border-b border-border shrink-0">

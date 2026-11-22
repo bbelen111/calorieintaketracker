@@ -225,6 +225,9 @@ const MacroPickerModal = lazy(() =>
   }))
 );
 const MODAL_CLOSE_DELAY = 180; // Match CSS animation duration (150ms) + buffer
+// Weight <-> Body Fat switch: the incoming tracker's fade-in is 200ms
+// (`modal-content-fade`); the outgoing one is unmounted once it is fully covered.
+const TRACKER_CROSSFADE_MS = 220;
 const DEFAULT_TRAINING_INTENSITY = 'moderate';
 const FALLBACK_TRAINING_TYPE = 'trainingtype_1';
 const screenTabs = [
@@ -931,6 +934,10 @@ export const EnergyMapCalculator = () => {
     normalizeMacroLocks(userData.macroLocks)
   );
   const trackerSwitchTimeoutRef = useRef(null);
+  const trackerSwitchIdRef = useRef(0);
+  // Which tracker (if any) was opened by the Weight <-> Body Fat switch and so
+  // enters with a fade instead of the default slide-up.
+  const [trackerFadeTarget, setTrackerFadeTarget] = useState(null);
 
   const todayTrainingSessions = useMemo(
     () =>
@@ -1388,6 +1395,7 @@ export const EnergyMapCalculator = () => {
 
   const openWeightTracker = useCallback(() => {
     setWeightEntryError('');
+    setTrackerFadeTarget(null);
     weightTrackerModal.open();
   }, [weightTrackerModal]);
 
@@ -1399,35 +1407,62 @@ export const EnergyMapCalculator = () => {
       // For now, let's just open the tracker.
     }
     setBodyFatEntryError('');
+    setTrackerFadeTarget(null);
     bodyFatTrackerModal.open();
   }, [bodyFatTrackerModal, userData.bodyFatTrackingEnabled]);
 
+  // Weight <-> Body Fat switch is a crossfade, not close-then-open: the target
+  // fades in (`modal-content-fade`) on top of the source, which stays fully
+  // opaque underneath and is only unmounted once the target covers it, so the
+  // app never shows through between the two. The source is force-closed on
+  // purpose: it is entirely hidden by then, so there is no exit animation to cut.
+  const runTrackerSwitch = useCallback(
+    ({ target, source, preload, openTarget }) => {
+      if (trackerSwitchTimeoutRef.current) {
+        clearTimeout(trackerSwitchTimeoutRef.current);
+        trackerSwitchTimeoutRef.current = null;
+      }
+      const switchId = ++trackerSwitchIdRef.current;
+      // The target's lazy chunk may not be loaded yet; wait for it so the fade
+      // starts the moment the modal mounts instead of racing the unmount timer.
+      Promise.resolve(preload())
+        .catch(() => {})
+        .then(() => {
+          if (trackerSwitchIdRef.current !== switchId) return;
+          // Flag after the opener: the plain openers clear it, and in the same
+          // batch the last write wins.
+          openTarget();
+          setTrackerFadeTarget(target);
+          trackerSwitchTimeoutRef.current = setTimeout(() => {
+            trackerSwitchTimeoutRef.current = null;
+            source.forceClose();
+          }, TRACKER_CROSSFADE_MS);
+        });
+    },
+    []
+  );
+
   const handleSwitchToBodyFat = useCallback(() => {
-    weightTrackerModal.requestClose();
-    if (trackerSwitchTimeoutRef.current) {
-      clearTimeout(trackerSwitchTimeoutRef.current);
-      trackerSwitchTimeoutRef.current = null;
-    }
-    trackerSwitchTimeoutRef.current = setTimeout(() => {
-      openBodyFatTracker();
-      trackerSwitchTimeoutRef.current = null;
-    }, MODAL_CLOSE_DELAY + 20);
-  }, [openBodyFatTracker, weightTrackerModal]);
+    runTrackerSwitch({
+      target: 'bodyFat',
+      source: weightTrackerModal,
+      preload: () => import('./modals/fullscreen/BodyFatTrackerModal'),
+      openTarget: openBodyFatTracker,
+    });
+  }, [openBodyFatTracker, runTrackerSwitch, weightTrackerModal]);
 
   const handleSwitchToWeight = useCallback(() => {
-    bodyFatTrackerModal.requestClose();
-    if (trackerSwitchTimeoutRef.current) {
-      clearTimeout(trackerSwitchTimeoutRef.current);
-      trackerSwitchTimeoutRef.current = null;
-    }
-    trackerSwitchTimeoutRef.current = setTimeout(() => {
-      openWeightTracker();
-      trackerSwitchTimeoutRef.current = null;
-    }, MODAL_CLOSE_DELAY + 20);
-  }, [bodyFatTrackerModal, openWeightTracker]);
+    runTrackerSwitch({
+      target: 'weight',
+      source: bodyFatTrackerModal,
+      preload: () => import('./modals/fullscreen/WeightTrackerModal'),
+      openTarget: openWeightTracker,
+    });
+  }, [bodyFatTrackerModal, openWeightTracker, runTrackerSwitch]);
 
   const handleOpenWeightTrackerFromRollingBalance = useCallback(() => {
     dismissEnergyAnalysisContext();
+    setTrackerFadeTarget(null);
     weightTrackerModal.open();
     rollingEnergyBalanceModal.requestClose();
   }, [
@@ -1438,6 +1473,7 @@ export const EnergyMapCalculator = () => {
 
   useEffect(
     () => () => {
+      trackerSwitchIdRef.current += 1;
       if (trackerSwitchTimeoutRef.current) {
         clearTimeout(trackerSwitchTimeoutRef.current);
         trackerSwitchTimeoutRef.current = null;
@@ -4805,6 +4841,7 @@ export const EnergyMapCalculator = () => {
             onEditEntry={handleWeightEntryFromListEdit}
             canSwitchToBodyFat={userData.bodyFatTrackingEnabled}
             onSwitchToBodyFat={handleSwitchToBodyFat}
+            fadeIn={trackerFadeTarget === 'weight'}
           />
         </Suspense>
       )}
@@ -4822,6 +4859,7 @@ export const EnergyMapCalculator = () => {
               onAddEntry={openAddBodyFatEntryModal}
               onEditEntry={handleBodyFatEntryFromListEdit}
               onSwitchToWeight={handleSwitchToWeight}
+              fadeIn={trackerFadeTarget === 'bodyFat'}
             />
           </Suspense>
         )}
