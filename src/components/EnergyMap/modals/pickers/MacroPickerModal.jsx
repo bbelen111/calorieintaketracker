@@ -259,6 +259,10 @@ export const MacroPickerModal = ({
     [draftLocks]
   );
 
+  const showRelaxedNotice = relaxedMacros.length > 0;
+  const showAbsorbNotice =
+    hasTwoLocks && Boolean(absorbedKey) && !showRelaxedNotice;
+
   // Depth-transition states. The triangle layer is always mounted and animates
   // between a foreground (interactive) state and a dimmed/blurred backdrop
   // state behind the slider. Reduced-motion users get an opacity-only
@@ -613,42 +617,65 @@ export const MacroPickerModal = ({
         </AnimatePresence>
       </div>
 
-      {hasTwoLocks && absorbedKey ? (
+      {/* Status line. The relaxed warning and the two-lock hint are both always
+          mounted and stacked in one grid cell (opacity-toggled), so the row's
+          height is the constant max of the two and never changes with the
+          lock mode. The warning wins when both apply. */}
+      <div className="grid mt-3 text-center text-[11px]">
         <motion.p
-          className="text-center text-[11px] text-muted mt-3"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
+          className="row-start-1 col-start-1 text-accent-yellow"
+          initial={false}
+          animate={{ opacity: showRelaxedNotice ? 1 : 0 }}
           transition={{ duration: 0.15 }}
+          aria-hidden={!showRelaxedNotice}
         >
-          <span className="font-semibold capitalize">{absorbedKey}</span>{' '}
-          absorbs changes while{' '}
-          {lockedKeys.map((key) => key.toLowerCase()).join(' & ')} stay anchored
-        </motion.p>
-      ) : null}
-
-      {relaxedMacros.length > 0 ? (
-        <p className="text-center text-[11px] text-accent-yellow mt-2">
           Anchor temporarily relaxed: target too low to hold{' '}
-          {relaxedMacros.join(', ')} at locked grams
-        </p>
-      ) : null}
+          {relaxedMacros.length > 0
+            ? relaxedMacros.join(', ')
+            : 'protein, carbs'}{' '}
+          at locked grams
+        </motion.p>
+        <motion.p
+          className="row-start-1 col-start-1 text-muted"
+          initial={false}
+          animate={{ opacity: showAbsorbNotice ? 1 : 0 }}
+          transition={{ duration: 0.15 }}
+          aria-hidden={!showAbsorbNotice}
+        >
+          <span className="font-semibold capitalize">
+            {absorbedKey ?? 'carbs'}
+          </span>{' '}
+          absorbs changes while{' '}
+          {hasTwoLocks
+            ? lockedKeys.map((key) => key.toLowerCase()).join(' & ')
+            : 'protein & fats'}{' '}
+          stay anchored
+        </motion.p>
+      </div>
 
-      {/* Lock help text and clear anchors */}
-      <div className="flex items-center justify-center gap-2 mt-2 mb-3">
-        {lockedKeys.length > 0 ? (
-          <button
-            type="button"
-            onClick={handleClearLocks}
-            className="inline-flex items-center gap-1.5 text-[11px] font-medium text-accent-blue bg-accent-blue/10 px-3 py-1.5 rounded-full transition-all pressable-inline focus-ring md:hover:bg-accent-blue/20"
-          >
-            <Unlock size={12} />
-            Clear anchors ({lockedKeys.length}/{MAX_MACRO_LOCKS})
-          </button>
-        ) : (
-          <span className="text-[11px] text-muted">
-            Tap a macro chip to anchor its grams
-          </span>
-        )}
+      {/* Lock help text and clear anchors: both stacked in one cell so the
+          taller button never changes the row height. */}
+      <div className="grid place-items-center mt-2 mb-3">
+        <button
+          type="button"
+          onClick={handleClearLocks}
+          tabIndex={lockedKeys.length > 0 ? 0 : -1}
+          aria-hidden={lockedKeys.length === 0}
+          className={`row-start-1 col-start-1 inline-flex items-center gap-1.5 text-[11px] font-medium text-accent-blue bg-accent-blue/10 px-3 py-1.5 rounded-full transition-all pressable-inline focus-ring md:hover:bg-accent-blue/20 ${
+            lockedKeys.length > 0 ? '' : 'invisible pointer-events-none'
+          }`}
+        >
+          <Unlock size={12} />
+          Clear anchors ({lockedKeys.length}/{MAX_MACRO_LOCKS})
+        </button>
+        <span
+          aria-hidden={lockedKeys.length > 0}
+          className={`row-start-1 col-start-1 text-[11px] text-muted ${
+            lockedKeys.length > 0 ? 'invisible' : ''
+          }`}
+        >
+          Tap a macro chip to anchor its grams
+        </span>
       </div>
 
       {/* Macro chips */}
