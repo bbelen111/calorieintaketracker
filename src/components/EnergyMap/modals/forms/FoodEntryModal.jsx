@@ -8,6 +8,7 @@ import {
   TEF_CARB_RATE,
   TEF_FAT_RATE,
 } from '../../../../utils/calculations/calculations';
+import { formatPickerDisplayValue } from '../../../../utils/food/nutrientPicker';
 
 export const FoodEntryModal = ({
   isOpen,
@@ -117,19 +118,6 @@ export const FoodEntryModal = ({
     // Don't close - just mark as favourited
   };
 
-  const formatPickerValue = (value, unit = '') => {
-    const numericValue = Number.parseFloat(value);
-    if (!Number.isFinite(numericValue)) {
-      return unit ? `0 ${unit}` : '0';
-    }
-
-    const formatted = Number.isInteger(numericValue)
-      ? String(numericValue)
-      : numericValue.toFixed(1).replace(/\.0$/, '');
-
-    return unit ? `${formatted} ${unit}` : formatted;
-  };
-
   const handleOpenPicker = (openPickerCallback) => {
     const activeElement = document.activeElement;
     if (activeElement && typeof activeElement.blur === 'function') {
@@ -215,7 +203,7 @@ export const FoodEntryModal = ({
             aria-label="Open calories picker"
           >
             <span className="font-medium text-base">
-              {formatPickerValue(calories, 'kcal')}
+              {formatPickerDisplayValue(calories, 'kcal')}
             </span>
             <ChevronsUpDown size={16} className="text-muted shrink-0" />
           </button>
@@ -234,7 +222,7 @@ export const FoodEntryModal = ({
               aria-label="Open protein picker"
             >
               <span className="font-medium text-sm">
-                {formatPickerValue(protein, 'g')}
+                {formatPickerDisplayValue(protein, 'g')}
               </span>
               <ChevronsUpDown size={14} className="text-muted shrink-0" />
             </button>
@@ -251,7 +239,7 @@ export const FoodEntryModal = ({
               aria-label="Open carbs picker"
             >
               <span className="font-medium text-sm">
-                {formatPickerValue(carbs, 'g')}
+                {formatPickerDisplayValue(carbs, 'g')}
               </span>
               <ChevronsUpDown size={14} className="text-muted shrink-0" />
             </button>
@@ -268,7 +256,7 @@ export const FoodEntryModal = ({
               aria-label="Open fats picker"
             >
               <span className="font-medium text-sm">
-                {formatPickerValue(fats, 'g')}
+                {formatPickerDisplayValue(fats, 'g')}
               </span>
               <ChevronsUpDown size={14} className="text-muted shrink-0" />
             </button>
@@ -288,7 +276,7 @@ export const FoodEntryModal = ({
               aria-label="Open fiber picker"
             >
               <span className="font-medium text-sm">
-                {formatPickerValue(fiber, 'g')}
+                {formatPickerDisplayValue(fiber, 'g')}
               </span>
               <ChevronsUpDown size={14} className="text-muted shrink-0" />
             </button>
@@ -305,7 +293,7 @@ export const FoodEntryModal = ({
               aria-label="Open sodium picker"
             >
               <span className="font-medium text-sm">
-                {formatPickerValue(sodium, 'mg')}
+                {formatPickerDisplayValue(sodium, 'mg')}
               </span>
               <ChevronsUpDown size={14} className="text-muted shrink-0" />
             </button>
@@ -322,7 +310,7 @@ export const FoodEntryModal = ({
               aria-label="Open saturated fat picker"
             >
               <span className="font-medium text-sm">
-                {formatPickerValue(saturatedFats, 'g')}
+                {formatPickerDisplayValue(saturatedFats, 'g')}
               </span>
               <ChevronsUpDown size={14} className="text-muted shrink-0" />
             </button>
@@ -339,7 +327,7 @@ export const FoodEntryModal = ({
               aria-label="Open sugars picker"
             >
               <span className="font-medium text-sm">
-                {formatPickerValue(sugars, 'g')}
+                {formatPickerDisplayValue(sugars, 'g')}
               </span>
               <ChevronsUpDown size={14} className="text-muted shrink-0" />
             </button>

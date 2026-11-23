@@ -3869,8 +3869,8 @@ export const FoodSearchModal = ({
         isOpen={isAddCustomFoodOpen}
         isClosing={isAddCustomFoodClosing}
         onClose={requestAddCustomFoodClose}
-        onSaveFood={(customFood) => {
-          onAddCustomFood?.(customFood);
+        onSaveFood={(customFood, options) => {
+          onAddCustomFood?.(customFood, options);
         }}
       />
 

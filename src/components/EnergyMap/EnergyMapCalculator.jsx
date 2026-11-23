@@ -120,6 +120,11 @@ import {
   normalizeMacroRecommendationSplit,
 } from '../../utils/calculations/macroRecommendations';
 import { estimateRequiredDailyEnergyDelta } from '../../utils/calculations/phaseTargetPlanning';
+import {
+  NUTRIENT_PICKER_FIELDS,
+  formatPickerValueForState,
+  normalizePickerValue,
+} from '../../utils/food/nutrientPicker';
 
 const WeightTrackerModal = lazy(() =>
   import('./modals/fullscreen/WeightTrackerModal').then((module) => ({
@@ -451,105 +456,6 @@ const sanitizeTrainingSession = (draft) => {
 const getTodayDateString = () => getTodayDateKey();
 
 const DEFAULT_PORTION_GRAMS = 100;
-const FOOD_ENTRY_PICKER_FIELDS = {
-  calories: {
-    title: 'Calories',
-    unitLabel: 'kcal',
-    min: 0,
-    max: 5000,
-    step: 5,
-  },
-  protein: {
-    title: 'Protein',
-    unitLabel: 'grammes',
-    min: 0,
-    max: 500,
-    step: 0.5,
-  },
-  carbs: {
-    title: 'Carbs',
-    unitLabel: 'grammes',
-    min: 0,
-    max: 500,
-    step: 0.5,
-  },
-  fats: {
-    title: 'Fats',
-    unitLabel: 'grammes',
-    min: 0,
-    max: 500,
-    step: 0.5,
-  },
-  fiber: {
-    title: 'Fiber',
-    unitLabel: 'grammes',
-    min: 0,
-    max: 200,
-    step: 0.5,
-  },
-  sodium: {
-    title: 'Sodium',
-    unitLabel: 'milligrams',
-    min: 0,
-    max: 5000,
-    step: 10,
-  },
-  saturatedFats: {
-    title: 'Saturated Fat',
-    unitLabel: 'grammes',
-    min: 0,
-    max: 200,
-    step: 0.5,
-  },
-  sugars: {
-    title: 'Sugars',
-    unitLabel: 'grammes',
-    min: 0,
-    max: 200,
-    step: 0.5,
-  },
-};
-
-const getStepPrecision = (step) => {
-  const normalized = String(step ?? 1);
-  if (!normalized.includes('.')) {
-    return 0;
-  }
-
-  return normalized.split('.')[1]?.length ?? 0;
-};
-
-const normalizePickerValue = (value, config) => {
-  const { min = 0, max = 100, step = 1 } = config ?? {};
-  const safeStep = Number.isFinite(step) && step > 0 ? step : 1;
-  const precision = getStepPrecision(safeStep);
-  const scale = 10 ** precision;
-
-  const minInt = Math.round(min * scale);
-  const maxInt = Math.round(max * scale);
-  const stepInt = Math.max(1, Math.round(safeStep * scale));
-  const numericValue = Number.isFinite(value) ? value : min;
-  const valueInt = Math.round(
-    Math.min(Math.max(numericValue, min), max) * scale
-  );
-  const steppedInt =
-    minInt + Math.round((valueInt - minInt) / stepInt) * stepInt;
-  const clampedInt = Math.min(Math.max(steppedInt, minInt), maxInt);
-
-  return clampedInt / scale;
-};
-
-const formatPickerValueForState = (value, step) => {
-  const precision = getStepPrecision(step);
-  if (precision <= 0) {
-    return String(Math.round(value));
-  }
-
-  return value
-    .toFixed(precision)
-    .replace(/\.0+$/, '')
-    .replace(/(\.\d*?)0+$/, '$1');
-};
 
 const buildFallbackFoodFromEntry = (entry) => {
   const safeNumber = (value) => (Number.isFinite(value) ? value : 0);
@@ -3073,7 +2979,7 @@ export const EnergyMapCalculator = () => {
 
   const openFoodNutrientPicker = useCallback(
     (fieldKey) => {
-      const fieldConfig = FOOD_ENTRY_PICKER_FIELDS[fieldKey];
+      const fieldConfig = NUTRIENT_PICKER_FIELDS[fieldKey];
       if (!fieldConfig) {
         return;
       }
@@ -3462,9 +3368,11 @@ export const EnergyMapCalculator = () => {
   // Custom foods state (in-memory, added via AddCustomFoodModal)
   const [customFoods, setCustomFoods] = useState([]);
 
-  // Handle adding a custom food - adds to customFoods list AND auto-favourites
+  // Handle adding a custom food - adds to customFoods list AND auto-favourites.
+  // `options.log` (Save & log) then opens the portion picker for the new food so
+  // it is logged through the same flow as any other food.
   const handleAddCustomFood = useCallback(
-    (customFood) => {
+    (customFood, options = {}) => {
       // Add to custom foods list for search
       setCustomFoods((prev) => [...prev, customFood]);
 
@@ -3488,8 +3396,15 @@ export const EnergyMapCalculator = () => {
         portions: customFood.portions || [],
       };
       addFoodFavourite(favourite);
+
+      if (options.log) {
+        setEditingPortionEntry(null);
+        setPortionInitialGrams(null);
+        setSelectedFoodForPortion(customFood);
+        foodPortionModal.open();
+      }
     },
-    [addFoodFavourite]
+    [addFoodFavourite, foodPortionModal]
   );
 
   // Food Favourites Handlers
