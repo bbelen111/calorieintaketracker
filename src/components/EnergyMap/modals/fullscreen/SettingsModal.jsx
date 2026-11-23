@@ -69,6 +69,7 @@ import {
   normalizeMotionPreferenceKey,
 } from '../../../../constants/appearance/motion';
 import { getAdaptiveThermogenesisSmartModeDataStatus } from '../../../../utils/calculations/adaptiveThermogenesis';
+import { SettingsReveal } from './SettingsReveal';
 import {
   normalizeMacroLocks,
   normalizeMacroRecommendationSplit,
@@ -702,7 +703,7 @@ const SettingsPageContent = ({
     )}
 
     {page === 'adjustments' && (
-      <div className="space-y-7 divide-y divide-border/70">
+      <div className="space-y-7">
         <EpocSection
           epocEnabled={epocEnabled}
           epocCarryoverHours={epocCarryoverHours}
@@ -711,40 +712,36 @@ const SettingsPageContent = ({
           onFieldChange={onFieldChange}
         />
 
-        <div className="pt-6">
-          <SmartTefSection
-            userData={userData}
-            useTargetQuickEstimates={useTargetQuickEstimates}
-            showFoodModalTefBurn={showFoodModalTefBurn}
-            useTargetLiveCard={useTargetLiveCard}
-            onOpenInfo={onOpenTefInfo}
-            onFieldChange={onFieldChange}
-          />
-        </div>
+        <SmartTefSection
+          userData={userData}
+          useTargetQuickEstimates={useTargetQuickEstimates}
+          showFoodModalTefBurn={showFoodModalTefBurn}
+          useTargetLiveCard={useTargetLiveCard}
+          onOpenInfo={onOpenTefInfo}
+          onFieldChange={onFieldChange}
+        />
 
-        <div className="pt-6">
-          <AdaptiveThermogenesisSection
-            adaptiveThermogenesisEnabled={adaptiveThermogenesisEnabled}
-            adaptiveThermogenesisSmartMode={adaptiveThermogenesisSmartMode}
-            adaptiveThermogenesisSmartModeAvailable={
-              adaptiveThermogenesisSmartModeAvailable
-            }
-            adaptiveThermogenesisSmartModeDataStatus={
-              adaptiveThermogenesisSmartModeDataStatus
-            }
-            adaptiveThermogenesisSmoothingEnabled={
-              adaptiveThermogenesisSmoothingEnabled
-            }
-            adaptiveThermogenesisSmoothingMethod={
-              adaptiveThermogenesisSmoothingMethod
-            }
-            adaptiveThermogenesisSmoothingWindowDays={
-              adaptiveThermogenesisSmoothingWindowDays
-            }
-            onOpenInfo={onOpenAdaptiveThermogenesisInfo}
-            onFieldChange={onFieldChange}
-          />
-        </div>
+        <AdaptiveThermogenesisSection
+          adaptiveThermogenesisEnabled={adaptiveThermogenesisEnabled}
+          adaptiveThermogenesisSmartMode={adaptiveThermogenesisSmartMode}
+          adaptiveThermogenesisSmartModeAvailable={
+            adaptiveThermogenesisSmartModeAvailable
+          }
+          adaptiveThermogenesisSmartModeDataStatus={
+            adaptiveThermogenesisSmartModeDataStatus
+          }
+          adaptiveThermogenesisSmoothingEnabled={
+            adaptiveThermogenesisSmoothingEnabled
+          }
+          adaptiveThermogenesisSmoothingMethod={
+            adaptiveThermogenesisSmoothingMethod
+          }
+          adaptiveThermogenesisSmoothingWindowDays={
+            adaptiveThermogenesisSmoothingWindowDays
+          }
+          onOpenInfo={onOpenAdaptiveThermogenesisInfo}
+          onFieldChange={onFieldChange}
+        />
       </div>
     )}
   </div>
@@ -1689,15 +1686,15 @@ const EpocSection = ({
       following days based on session time.
     </p>
 
-    {epocEnabled && (
-      // The whole card is the tap target (not just the value chip); the chip is
-      // a visual affordance only. Spans, not <p>/<div>: button content must be
-      // phrasing content.
+    {/* The whole card is the tap target (not just the value chip); the chip is
+        a visual affordance only. Spans, not <p>/<div>: button content must be
+        phrasing content. */}
+    <SettingsReveal open={epocEnabled}>
       <button
         type="button"
         onClick={() => onOpenWindowPicker?.()}
         aria-label="Open carryover window picker"
-        className="settings-reveal group mt-3 flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5 text-left transition-all pressable-card focus-ring md:hover:border-muted/50 md:hover:bg-surface-highlight/70"
+        className="group mt-3 flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5 text-left transition-all pressable-card focus-ring md:hover:border-muted/50 md:hover:bg-surface-highlight/70"
       >
         <span className="block">
           <span className="block text-foreground text-sm font-medium leading-tight">
@@ -1712,7 +1709,7 @@ const EpocSection = ({
           <ChevronsUpDown size={14} className="text-muted shrink-0" />
         </span>
       </button>
-    )}
+    </SettingsReveal>
   </div>
 );
 
@@ -1773,8 +1770,8 @@ const SmartTefSection = ({
         macro-based version.
       </p>
 
-      {userData.smartTefEnabled && (
-        <div className="settings-reveal mt-3 space-y-2">
+      <SettingsReveal open={userData.smartTefEnabled}>
+        <div className="mt-3 space-y-2">
           {smartTefToggles.map((toggle) => (
             <SettingToggleCard key={toggle.key} {...toggle} />
           ))}
@@ -1794,7 +1791,7 @@ const SmartTefSection = ({
             />
           )}
         </div>
-      )}
+      </SettingsReveal>
     </div>
   );
 };
@@ -1858,9 +1855,9 @@ const AdaptiveThermogenesisSection = ({
         time-in-goal stages, smart mode uses weight/intake trend signal.
       </p>
 
-      {adaptiveThermogenesisEnabled && (
+      <SettingsReveal open={adaptiveThermogenesisEnabled}>
         <div
-          className={`settings-reveal mt-3 rounded-lg border px-3 py-2.5 ${
+          className={`mt-3 rounded-lg border px-3 py-2.5 ${
             adaptiveThermogenesisSmartModeAvailable
               ? 'border-border bg-surface-highlight/40'
               : 'border-border/70 bg-surface-highlight/20'
@@ -1896,10 +1893,12 @@ const AdaptiveThermogenesisSection = ({
             />
           </div>
         </div>
-      )}
+      </SettingsReveal>
 
-      {adaptiveThermogenesisEnabled && resolvedSmartModeEnabled && (
-        <div className="settings-reveal mt-2 space-y-2">
+      <SettingsReveal
+        open={adaptiveThermogenesisEnabled && resolvedSmartModeEnabled}
+      >
+        <div className="mt-2 space-y-2">
           <SettingToggleCard
             title="Smooth weight signal"
             description="Reduces day-to-day noise before trend slope is calculated."
@@ -1913,8 +1912,8 @@ const AdaptiveThermogenesisSection = ({
             ariaLabel="Toggle adaptive thermogenesis smoothing"
           />
 
-          {adaptiveThermogenesisSmoothingEnabled && (
-            <div className="settings-reveal rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5 space-y-2">
+          <SettingsReveal open={adaptiveThermogenesisSmoothingEnabled}>
+            <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5 space-y-2">
               <div className="grid grid-cols-2 gap-2">
                 <SegmentedButton
                   active={adaptiveThermogenesisSmoothingMethod === 'ema'}
@@ -1971,9 +1970,9 @@ const AdaptiveThermogenesisSection = ({
                 />
               </div>
             </div>
-          )}
+          </SettingsReveal>
         </div>
-      )}
+      </SettingsReveal>
     </div>
   );
 };

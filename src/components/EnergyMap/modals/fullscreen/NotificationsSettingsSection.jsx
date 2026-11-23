@@ -1,14 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import {
-  Bell,
-  BellOff,
-  BellRing,
-  Clock,
-  Moon,
-  Radio,
-  Send,
-  ShieldAlert,
-} from 'lucide-react';
+import { Bell, Clock, Send, ShieldAlert } from 'lucide-react';
 import {
   DAILY_NEAT_DAYS_MODES,
   STALE_WEIGH_IN_DAY_OPTIONS,
@@ -21,6 +12,7 @@ import {
   useNotificationState,
 } from '../../../../services/notifications';
 import { isIOS } from '../../../../utils/platform';
+import { SettingsReveal } from './SettingsReveal';
 
 const formatTime12h = (timeStr) => {
   const match = String(timeStr ?? '').match(/^(\d{1,2}):(\d{2})$/);
@@ -66,9 +58,9 @@ const TimeChipButton = ({ label, time, onClick, ariaLabel }) => (
     type="button"
     onClick={onClick}
     aria-label={ariaLabel}
-    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background/70 px-2.5 py-1.5 text-xs font-semibold text-foreground transition-all pressable-inline focus-ring md:hover:border-muted/50"
+    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-highlight px-3 py-1.5 text-sm font-medium text-foreground transition-all pressable-inline focus-ring md:hover:border-muted/50"
   >
-    <Clock size={13} className="text-accent-blue shrink-0" aria-hidden="true" />
+    <Clock size={14} className="text-muted shrink-0" aria-hidden="true" />
     {label ? <span className="text-muted font-normal">{label}</span> : null}
     <span>{formatTime12h(time)}</span>
   </button>
@@ -77,6 +69,7 @@ const TimeChipButton = ({ label, time, onClick, ariaLabel }) => (
 const RuleCard = ({
   title,
   description,
+  detail,
   checked,
   onToggle,
   ariaLabel,
@@ -98,24 +91,35 @@ const RuleCard = ({
         ariaLabel={ariaLabel}
       />
     </div>
-    {checked && children ? (
-      <div className="settings-reveal mt-2.5 pt-2.5 border-t border-border/60 flex flex-wrap items-center gap-2">
-        {children}
-      </div>
+    {detail ? (
+      <p className="mt-1.5 text-xs text-foreground/80">{detail}</p>
+    ) : null}
+    {children ? (
+      <SettingsReveal open={checked}>
+        <div className="mt-3 flex flex-wrap items-center gap-2">{children}</div>
+      </SettingsReveal>
     ) : null}
   </div>
 );
 
-const SmallChipToggle = ({ active, onClick, children, ariaLabel }) => (
+const SmallChipToggle = ({
+  active,
+  onClick,
+  children,
+  ariaLabel,
+  compact = false,
+}) => (
   <button
     type="button"
     onClick={onClick}
     aria-pressed={active}
     aria-label={ariaLabel}
-    className={`rounded-md border px-2 py-1 text-xs font-medium transition-all pressable-inline focus-ring ${
+    className={`inline-flex items-center justify-center rounded-lg border py-1.5 text-sm font-medium transition-all pressable-inline focus-ring ${
+      compact ? 'px-1' : 'px-3'
+    } ${
       active
         ? 'bg-primary border-primary text-primary-foreground'
-        : 'bg-background/60 border-border text-muted md:hover:border-muted/50'
+        : 'bg-surface-highlight border-border text-muted md:hover:border-muted/50'
     }`}
   >
     {children}
@@ -262,166 +266,125 @@ export const NotificationsSettingsSection = ({
     notifState.permission === 'prompt';
 
   return (
-    <div className="space-y-6">
-      {/* Master toggle + permission status */}
-      <div className="space-y-3">
-        <div className="rounded-xl border border-border bg-surface-highlight/50 px-3.5 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-blue/10 ring-1 ring-accent-blue/20">
-                {settings.enabled ? (
-                  <BellRing
-                    size={18}
-                    className="text-accent-blue"
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <BellOff
-                    size={18}
-                    className="text-muted"
-                    aria-hidden="true"
-                  />
-                )}
-              </span>
-              <div className="min-w-0">
-                <p className="text-foreground text-sm font-semibold leading-tight">
-                  Enable notifications
+    <div className="space-y-7">
+      {/* Master toggle + permission status, using the same header grammar as
+          the Metabolic Adjustments sections (title row with the switch, then
+          plain muted copy instead of an icon tile). */}
+      <div>
+        <div className="flex items-center justify-between mb-2 gap-3">
+          <span className="text-foreground/80 text-sm font-medium">
+            Enable notifications
+          </span>
+          <SwitchControl
+            checked={settings.enabled}
+            onClick={handleMasterToggle}
+            ariaLabel="Enable notifications"
+          />
+        </div>
+        <p className="text-muted text-xs">
+          {settings.enabled
+            ? notifState.pendingCount > 0
+              ? `${notifState.pendingCount} upcoming reminders scheduled on device`
+              : 'Local reminders run on-device and work offline'
+            : 'Off — no scheduled reminders or push alerts'}
+        </p>
+
+        <div className="mt-2 space-y-2">
+          {showDeniedBanner ? (
+            <div
+              role="status"
+              className="flex items-start gap-2.5 rounded-lg border border-accent-amber/40 bg-accent-amber/10 px-3 py-2.5 text-xs text-foreground"
+            >
+              <ShieldAlert
+                size={16}
+                className="mt-0.5 shrink-0 text-accent-amber"
+                aria-hidden="true"
+              />
+              <div>
+                <p className="font-semibold">
+                  Notifications are blocked in system settings
                 </p>
-                <p className="text-muted text-xs mt-0.5">
-                  {settings.enabled
-                    ? notifState.pendingCount > 0
-                      ? `${notifState.pendingCount} upcoming reminders scheduled on device`
-                      : 'Local reminders run on-device and work offline'
-                    : 'Off — no scheduled reminders or push alerts'}
+                <p className="mt-0.5 text-muted">
+                  {isIOS()
+                    ? 'Open iOS Settings → Notifications → Energy Map and enable Allow Notifications.'
+                    : 'Open Android Settings → Apps → Energy Map → Notifications and turn them on.'}
                 </p>
               </div>
             </div>
-            <SwitchControl
-              checked={settings.enabled}
-              onClick={handleMasterToggle}
-              ariaLabel="Enable notifications"
-            />
-          </div>
-        </div>
+          ) : null}
 
-        {showDeniedBanner ? (
-          <div
-            role="status"
-            className="flex items-start gap-2.5 rounded-lg border border-accent-amber/40 bg-accent-amber/10 px-3 py-2.5 text-xs text-foreground"
-          >
-            <ShieldAlert
-              size={16}
-              className="mt-0.5 shrink-0 text-accent-amber"
-              aria-hidden="true"
-            />
-            <div>
-              <p className="font-semibold">
-                Notifications are blocked in system settings
+          {showPromptBanner ? (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-accent-blue/30 bg-accent-blue/10 px-3 py-2.5">
+              <p className="text-xs text-foreground">
+                Grant notification permission so reminders can appear on your
+                lock screen.
               </p>
-              <p className="mt-0.5 text-muted">
-                {isIOS()
-                  ? 'Open iOS Settings → Notifications → Energy Map and enable Allow Notifications.'
-                  : 'Open Android Settings → Apps → Energy Map → Notifications and turn them on.'}
-              </p>
+              <button
+                type="button"
+                onClick={handleRequestPermission}
+                className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground pressable-inline focus-ring md:hover:brightness-110"
+              >
+                Allow
+              </button>
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        {showPromptBanner ? (
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-accent-blue/30 bg-accent-blue/10 px-3 py-2.5">
-            <p className="text-xs text-foreground">
-              Grant notification permission so reminders can appear on your lock
-              screen.
+          {!notifState.platformSupported ? (
+            <p className="text-xs text-muted">
+              Browser dev preview: preferences save normally, while OS banners
+              and FCM/APNs delivery run on iOS and Android builds.
             </p>
-            <button
-              type="button"
-              onClick={handleRequestPermission}
-              className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground pressable-inline focus-ring"
-            >
-              Allow
-            </button>
-          </div>
-        ) : null}
-
-        {!notifState.platformSupported ? (
-          <p className="text-xs text-muted px-0.5">
-            Browser dev preview: preferences save normally, while OS banners and
-            FCM/APNs delivery run on iOS and Android builds.
-          </p>
-        ) : null}
+          ) : null}
+        </div>
       </div>
 
-      {settings.enabled ? (
-        <div className="settings-reveal space-y-6">
+      <SettingsReveal open={settings.enabled}>
+        <div className="space-y-7">
           {/* Quiet hours */}
-          <div>
+          <div className="space-y-2">
             <GroupHeading>Quiet hours</GroupHeading>
-            <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <Moon
-                    size={16}
-                    className="text-accent-indigo shrink-0"
-                    aria-hidden="true"
-                  />
-                  <div className="min-w-0">
-                    <p className="text-foreground text-sm font-medium leading-tight">
-                      Silence overnight reminders
-                    </p>
-                    <p className="text-muted text-xs mt-0.5">
-                      Shifts reminders inside quiet hours to when quiet hours
-                      end
-                    </p>
-                  </div>
-                </div>
-                <SwitchControl
-                  checked={quietHours.enabled}
-                  onClick={() =>
+            <RuleCard
+              title="Silence overnight reminders"
+              description="Shifts reminders inside quiet hours to when quiet hours end"
+              checked={quietHours.enabled}
+              ariaLabel="Toggle quiet hours"
+              onToggle={() =>
+                updateNotifications((prev) => ({
+                  ...prev,
+                  quietHours: {
+                    ...prev.quietHours,
+                    enabled: !prev.quietHours.enabled,
+                  },
+                }))
+              }
+            >
+              <TimeChipButton
+                label="From"
+                time={quietHours.start}
+                ariaLabel="Set quiet hours start time"
+                onClick={() =>
+                  pickTime('Quiet Hours Start', quietHours.start, (nextTime) =>
                     updateNotifications((prev) => ({
                       ...prev,
-                      quietHours: {
-                        ...prev.quietHours,
-                        enabled: !prev.quietHours.enabled,
-                      },
+                      quietHours: { ...prev.quietHours, start: nextTime },
                     }))
-                  }
-                  ariaLabel="Toggle quiet hours"
-                />
-              </div>
-              {quietHours.enabled ? (
-                <div className="settings-reveal mt-2.5 pt-2.5 border-t border-border/60 flex flex-wrap items-center gap-2">
-                  <TimeChipButton
-                    label="From"
-                    time={quietHours.start}
-                    ariaLabel="Set quiet hours start time"
-                    onClick={() =>
-                      pickTime(
-                        'Quiet Hours Start',
-                        quietHours.start,
-                        (nextTime) =>
-                          updateNotifications((prev) => ({
-                            ...prev,
-                            quietHours: { ...prev.quietHours, start: nextTime },
-                          }))
-                      )
-                    }
-                  />
-                  <TimeChipButton
-                    label="Until"
-                    time={quietHours.end}
-                    ariaLabel="Set quiet hours end time"
-                    onClick={() =>
-                      pickTime('Quiet Hours End', quietHours.end, (nextTime) =>
-                        updateNotifications((prev) => ({
-                          ...prev,
-                          quietHours: { ...prev.quietHours, end: nextTime },
-                        }))
-                      )
-                    }
-                  />
-                </div>
-              ) : null}
-            </div>
+                  )
+                }
+              />
+              <TimeChipButton
+                label="Until"
+                time={quietHours.end}
+                ariaLabel="Set quiet hours end time"
+                onClick={() =>
+                  pickTime('Quiet Hours End', quietHours.end, (nextTime) =>
+                    updateNotifications((prev) => ({
+                      ...prev,
+                      quietHours: { ...prev.quietHours, end: nextTime },
+                    }))
+                  )
+                }
+              />
+            </RuleCard>
           </div>
 
           {/* Tier 1: Daily Logging */}
@@ -488,10 +451,11 @@ export const NotificationsSettingsSection = ({
                     )
                   }
                 />
-                <div className="flex flex-wrap gap-1">
+                <div className="grid grid-cols-7 gap-1">
                   {WEEKDAY_OPTIONS.map(({ value, shortLabel, label }) => (
                     <SmallChipToggle
                       key={value}
+                      compact
                       active={rules.bodyFatCheckIn.dayOfWeek === value}
                       ariaLabel={`Body fat check-in on ${label}`}
                       onClick={() =>
@@ -506,55 +470,55 @@ export const NotificationsSettingsSection = ({
             ) : null}
 
             {/* Meal nudges */}
-            <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5 space-y-2.5">
-              <div>
-                <p className="text-foreground text-sm font-medium leading-tight">
-                  Meal logging nudges
-                </p>
-                <p className="text-muted text-xs mt-0.5">
-                  Only fires if that meal slot is still empty today
-                </p>
-              </div>
-              {[
-                { key: 'breakfast', label: 'Breakfast' },
-                { key: 'lunch', label: 'Lunch' },
-                { key: 'dinner', label: 'Dinner' },
-              ].map(({ key, label }) => {
-                const mealRule = rules.meals[key];
-                return (
-                  <div
-                    key={key}
-                    className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/50"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-foreground font-medium">
-                        {label}
-                      </span>
-                      {mealRule.enabled ? (
-                        <TimeChipButton
-                          time={mealRule.time}
-                          ariaLabel={`Set ${label.toLowerCase()} reminder time`}
-                          onClick={() =>
-                            pickTime(
-                              `${label} Reminder Time`,
-                              mealRule.time,
-                              (nextTime) =>
-                                updateMealRule(key, { time: nextTime })
-                            )
-                          }
-                        />
-                      ) : null}
+            <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5">
+              <p className="text-foreground text-sm font-medium leading-tight">
+                Meal logging nudges
+              </p>
+              <p className="text-muted text-xs mt-0.5">
+                Only fires if that meal slot is still empty today
+              </p>
+              <div className="mt-3 space-y-2">
+                {[
+                  { key: 'breakfast', label: 'Breakfast' },
+                  { key: 'lunch', label: 'Lunch' },
+                  { key: 'dinner', label: 'Dinner' },
+                ].map(({ key, label }) => {
+                  const mealRule = rules.meals[key];
+                  return (
+                    <div
+                      key={key}
+                      className="flex flex-wrap items-center justify-between gap-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-foreground font-medium">
+                          {label}
+                        </span>
+                        <SettingsReveal open={mealRule.enabled}>
+                          <TimeChipButton
+                            time={mealRule.time}
+                            ariaLabel={`Set ${label.toLowerCase()} reminder time`}
+                            onClick={() =>
+                              pickTime(
+                                `${label} Reminder Time`,
+                                mealRule.time,
+                                (nextTime) =>
+                                  updateMealRule(key, { time: nextTime })
+                              )
+                            }
+                          />
+                        </SettingsReveal>
+                      </div>
+                      <SwitchControl
+                        checked={mealRule.enabled}
+                        ariaLabel={`Toggle ${label.toLowerCase()} reminder`}
+                        onClick={() =>
+                          updateMealRule(key, { enabled: !mealRule.enabled })
+                        }
+                      />
                     </div>
-                    <SwitchControl
-                      checked={mealRule.enabled}
-                      ariaLabel={`Toggle ${label.toLowerCase()} reminder`}
-                      onClick={() =>
-                        updateMealRule(key, { enabled: !mealRule.enabled })
-                      }
-                    />
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
 
             <RuleCard
@@ -670,10 +634,11 @@ export const NotificationsSettingsSection = ({
                   )
                 }
               />
-              <div className="flex flex-wrap gap-1">
+              <div className="grid grid-cols-7 gap-1">
                 {WEEKDAY_OPTIONS.map(({ value, shortLabel, label }) => (
                   <SmallChipToggle
                     key={value}
+                    compact
                     active={rules.weeklyDigest.dayOfWeek === value}
                     ariaLabel={`Weekly digest on ${label}`}
                     onClick={() =>
@@ -697,7 +662,7 @@ export const NotificationsSettingsSection = ({
                 })
               }
             >
-              <span className="text-xs text-muted">After</span>
+              <span className="text-sm text-muted">After</span>
               {STALE_WEIGH_IN_DAY_OPTIONS.map((days) => (
                 <SmallChipToggle
                   key={days}
@@ -781,58 +746,37 @@ export const NotificationsSettingsSection = ({
           {/* Layer 2: Remote Push Announcements */}
           <div className="space-y-2">
             <GroupHeading>Remote push updates</GroupHeading>
-            <div className="rounded-lg border border-border bg-surface-highlight/40 px-3 py-2.5">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-start gap-2.5 min-w-0">
-                  <Radio
-                    size={16}
-                    className="mt-0.5 text-accent-blue shrink-0"
-                    aria-hidden="true"
-                  />
-                  <div className="min-w-0">
-                    <p className="text-foreground text-sm font-medium leading-tight">
-                      App &amp; food-catalog announcements
-                    </p>
-                    <p className="text-muted text-xs mt-0.5">
-                      Optional remote push notifications. Uses an anonymous
-                      device token only — no account or tracking data is shared.
-                    </p>
-                    <p className="text-xs mt-1.5 text-foreground/80">
-                      {describePushStatus(
-                        notifState,
-                        remotePush.announcementsEnabled
-                      )}
-                    </p>
-                  </div>
-                </div>
-                <SwitchControl
-                  checked={remotePush.announcementsEnabled}
-                  ariaLabel="Toggle remote app and catalog announcements"
-                  onClick={() =>
-                    updateNotifications((prev) => ({
-                      ...prev,
-                      remotePush: {
-                        ...prev.remotePush,
-                        announcementsEnabled:
-                          !prev.remotePush.announcementsEnabled,
-                      },
-                    }))
-                  }
-                />
-              </div>
-            </div>
+            <RuleCard
+              title="App & food-catalog announcements"
+              description="Optional remote push notifications. Uses an anonymous device token only — no account or tracking data is shared."
+              detail={describePushStatus(
+                notifState,
+                remotePush.announcementsEnabled
+              )}
+              checked={remotePush.announcementsEnabled}
+              ariaLabel="Toggle remote app and catalog announcements"
+              onToggle={() =>
+                updateNotifications((prev) => ({
+                  ...prev,
+                  remotePush: {
+                    ...prev.remotePush,
+                    announcementsEnabled: !prev.remotePush.announcementsEnabled,
+                  },
+                }))
+              }
+            />
           </div>
 
           {/* Test notification utility */}
-          <div className="pt-1 space-y-2">
+          <div className="space-y-2">
             <button
               type="button"
               onClick={handleSendTest}
               disabled={isSendingTest}
               aria-label="Send test notification"
-              className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-surface-highlight px-4 py-3 text-sm font-semibold text-foreground transition-all pressable-inline focus-ring md:hover:border-muted/50 disabled:opacity-60"
+              className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all press-feedback focus-ring md:hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <Send size={15} className="text-accent-blue" aria-hidden="true" />
+              <Send size={15} className="shrink-0" aria-hidden="true" />
               <span>
                 {isSendingTest ? 'Sending test…' : 'Send test notification'}
               </span>
@@ -840,7 +784,7 @@ export const NotificationsSettingsSection = ({
             {testFeedback ? (
               <p
                 role="status"
-                className="flex items-center gap-1.5 text-xs text-muted px-1"
+                className="flex items-center gap-1.5 text-xs text-muted"
               >
                 <Bell size={13} className="shrink-0 text-accent-emerald" />
                 <span>{testFeedback}</span>
@@ -848,7 +792,7 @@ export const NotificationsSettingsSection = ({
             ) : null}
           </div>
         </div>
-      ) : null}
+      </SettingsReveal>
     </div>
   );
 };

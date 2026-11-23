@@ -724,26 +724,6 @@
     animation-delay: 120ms;
   }
 
-  /* An option that only exists while its parent switch is on (EPOC carryover,
-     Smart TEF sub-toggles, AT smoothing...) eases in instead of popping. Fade +
-     a 3px nudge only - the old drop-and-scale read as too much theatre for a
-     toggle consequence. */
-  @keyframes settingsReveal {
-    from {
-      opacity: 0;
-      transform: translateY(-3px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .settings-reveal {
-    animation: settingsReveal 160ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
-    transform-origin: top center;
-  }
-
   /* A segmented choice that just became active: a quick press-in + a soft ring
      that expands and fades. Played when the active class is added (the animation
      restarts whenever it is re-applied), so it reads as the selection landing. */
@@ -1431,7 +1411,6 @@
       .day-ledger-in-left,
       .settings-page-enter > * > *,
       .settings-hub-enter > *,
-      .settings-reveal,
       .settings-select-pop,
       .portion-enter > *:nth-child(n + 2)
     ) {
