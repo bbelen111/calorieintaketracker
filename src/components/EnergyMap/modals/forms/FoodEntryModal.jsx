@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Utensils, Save, Heart, Check, ChevronsUpDown } from 'lucide-react';
+import { Utensils, Heart, ChevronsUpDown } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
+import { TefBurnCard } from '../../common/TefBurnCard';
 import {
   calculateTefFromMacros,
   TEF_PROTEIN_RATE,
   TEF_CARB_RATE,
   TEF_FAT_RATE,
 } from '../../../../utils/calculations/calculations';
-import { formatOne } from '../../../../utils/formatting/format';
 
 export const FoodEntryModal = ({
   isOpen,
@@ -347,119 +347,49 @@ export const FoodEntryModal = ({
         </div>
 
         {smartTefEnabled && (
-          <div className="rounded-lg border border-accent-blue/70 bg-accent-blue overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setIsTefExpanded((prev) => !prev)}
-              aria-expanded={isTefExpanded}
-              className="w-full px-4 py-3 text-left transition-all rounded-lg pressable-card focus-ring md:hover:brightness-110"
-            >
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-primary-foreground font-semibold text-md">
-                    TEF Burn
-                  </p>
-                </div>
-                <p className="text-primary-foreground font-bold text-md whitespace-nowrap">
-                  {tefBreakdown.roundedTotalCalories.toLocaleString()} kcal
-                </p>
-              </div>
-              <div className="flex justify-center mt-2">
-                <span className="h-1 w-20 rounded-full bg-foreground/30" />
-              </div>
-            </button>
-
-            <div
-              className={`overflow-hidden transition-all duration-300 ease-out px-4 ${
-                isTefExpanded
-                  ? 'max-h-96 opacity-100 pb-4'
-                  : 'max-h-0 opacity-0'
-              }`}
-            >
-              <div className="rounded-lg border border-border bg-surface p-3 space-y-2 text-xs text-foreground/80">
-                <div className="flex items-center justify-between gap-3">
-                  <p>
-                    <span className="text-accent-red font-semibold">
-                      Protein
-                    </span>{' '}
-                    = {formatOne(tefBreakdown.proteinGrams)}g × 4 × 25%
-                  </p>
-                  <p className="text-accent-red font-semibold">
-                    {formatOne(tefBreakdown.proteinTefCalories)} kcal
-                  </p>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <p>
-                    <span className="text-accent-amber font-semibold">
-                      Carbs
-                    </span>{' '}
-                    = {formatOne(tefBreakdown.carbsGrams)}g × 4 × 8%
-                  </p>
-                  <p className="text-accent-amber font-semibold">
-                    {formatOne(tefBreakdown.carbsTefCalories)} kcal
-                  </p>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <p>
-                    <span className="text-accent-yellow font-semibold">
-                      Fats
-                    </span>{' '}
-                    = {formatOne(tefBreakdown.fatsGrams)}g × 9 × 2%
-                  </p>
-                  <p className="text-accent-yellow font-semibold">
-                    {formatOne(tefBreakdown.fatsTefCalories)} kcal
-                  </p>
-                </div>
-                <div className="pt-2 border-t border-border/60 space-y-1">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-foreground/90 font-semibold">
-                      TEF subtotal (Rounded)
-                    </p>
-                    <p className="text-foreground/90 font-semibold">
-                      {tefBreakdown.roundedTotalCalories} kcal
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <TefBurnCard
+            breakdown={tefBreakdown}
+            expanded={isTefExpanded}
+            onToggle={() => setIsTefExpanded((prev) => !prev)}
+          />
         )}
 
-        {/* Actions */}
-        <div className="flex flex-col gap-2 pt-2">
+        {/* Actions - same hierarchy as the Food Portion modal: one dominant
+            primary and two quiet tinted secondaries. No Cancel: the sheet
+            closes by tapping outside it (plus Escape / Android back). */}
+        <div className="flex flex-col gap-1.5 pt-2">
           {alreadyExists && (
             <p className="text-accent-yellow text-sm text-center">
               A food with this name already exists in favourites.
             </p>
           )}
-          <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => handleSave({ closeModal: false })}
+            disabled={!foodName.trim()}
+            className="w-full rounded-xl bg-primary px-3 py-2.5 text-[13px] font-semibold text-primary-foreground shadow-xs transition-all press-feedback focus-ring disabled:cursor-not-allowed disabled:bg-surface-highlight/60 disabled:text-muted md:hover:brightness-110"
+          >
+            {isEditing ? 'Save entry' : 'Log entry'}
+          </button>
+
+          <div
+            className={`grid gap-1.5 ${
+              typeof onSaveAsFavourite === 'function' && !isEditing
+                ? 'grid-cols-2'
+                : 'grid-cols-1'
+            }`}
+          >
             <button
-              onClick={() => handleSave({ closeModal: false })}
-              disabled={!foodName.trim()}
-              className="h-10 px-3 bg-primary disabled:bg-surface-highlight/60 disabled:cursor-not-allowed disabled:text-muted text-primary-foreground rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring md:hover:brightness-110"
-            >
-              <Save size={18} />
-              {isEditing ? 'Save' : 'Log'}
-            </button>
-            <button
+              type="button"
               onClick={() => handleSave({ closeModal: true })}
               disabled={!foodName.trim()}
-              className="h-10 px-3 bg-accent-blue disabled:bg-surface-highlight/60 disabled:cursor-not-allowed disabled:text-muted text-primary-foreground rounded-lg font-semibold transition-all flex items-center justify-center gap-2 text-sm press-feedback focus-ring md:hover:brightness-110"
+              className="rounded-xl bg-accent-blue/10 px-2.5 py-2 text-[12px] font-semibold text-accent-blue transition-all press-feedback focus-ring disabled:cursor-not-allowed disabled:bg-surface-highlight/60 disabled:text-muted md:hover:bg-accent-blue/15"
             >
-              <Save size={18} />
-              {isEditing ? 'Save & Exit' : 'Log & Exit'}
-            </button>
-          </div>
-
-          <div className="flex gap-2 items-center">
-            <button
-              onClick={onClose}
-              className="flex-1 h-10 px-4 bg-surface-highlight text-foreground rounded-lg font-semibold transition-all text-sm press-feedback focus-ring md:hover:bg-surface"
-            >
-              Cancel
+              {isEditing ? 'Save & exit' : 'Log & exit'}
             </button>
             {typeof onSaveAsFavourite === 'function' && !isEditing && (
               <button
+                type="button"
                 onClick={handleSaveAsFavourite}
                 disabled={!foodName.trim() || markedAsFavourite}
                 aria-label={
@@ -467,18 +397,18 @@ export const FoodEntryModal = ({
                     ? 'Added to favourites'
                     : 'Save as favourite'
                 }
-                title={
+                className={`flex items-center justify-center gap-1.5 rounded-xl px-2.5 py-2 text-[12px] font-semibold transition-all press-feedback focus-ring ${
                   markedAsFavourite
-                    ? 'Added to favourites'
-                    : 'Save as favourite'
-                }
-                className={`w-10 h-10 border disabled:cursor-not-allowed text-primary-foreground rounded-lg font-medium transition-all flex items-center justify-center press-feedback focus-ring ${
-                  markedAsFavourite
-                    ? 'bg-accent-green border-accent-green/50 text-primary-foreground'
-                    : 'bg-accent-indigo md:hover:brightness-110 border-accent-indigo/50 text-primary-foreground disabled:bg-surface-highlight/30 disabled:border-border/60 disabled:text-muted'
+                    ? 'cursor-default bg-accent-green/15 text-accent-green'
+                    : 'bg-accent-green/10 text-accent-green disabled:cursor-not-allowed disabled:bg-surface-highlight/60 disabled:text-muted md:hover:bg-accent-green/15'
                 }`}
               >
-                {markedAsFavourite ? <Check size={20} /> : <Heart size={20} />}
+                <Heart
+                  size={13}
+                  fill={markedAsFavourite ? 'currentColor' : 'none'}
+                  aria-hidden="true"
+                />
+                {markedAsFavourite ? 'Favourited' : 'Save & favourite'}
               </button>
             )}
           </div>
