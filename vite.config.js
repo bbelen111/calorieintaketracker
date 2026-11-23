@@ -4,6 +4,25 @@ import react from '@vitejs/plugin-react';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  // Dev-only dependency pre-bundling. These packages are only reachable
+  // through lazy/dynamic imports (React.lazy modals, notification/HR service
+  // bridges), so Vite's startup scan can miss them in a stale cache and then
+  // re-optimize the first time the surface opens. That runtime re-optimization
+  // changes the deps hash while the lazy import is in flight, aborting it with
+  // "504 (Outdated Optimize Dep)" and crashing the dynamic import. Declaring
+  // them up front keeps the optimizer hash stable for the whole session.
+  optimizeDeps: {
+    include: [
+      '@capacitor/barcode-scanner',
+      '@capacitor-community/bluetooth-le',
+      '@capacitor-community/keep-awake',
+      '@capacitor/filesystem',
+      '@capacitor/local-notifications',
+      '@capacitor/push-notifications',
+      '@capacitor/share',
+      'sql.js',
+    ],
+  },
   server: {
     host: true, // This is fine to keep
     port: 5173, // Enforce port 5173 explicitly
