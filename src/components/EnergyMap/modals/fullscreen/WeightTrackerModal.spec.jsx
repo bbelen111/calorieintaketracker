@@ -55,6 +55,25 @@ const getCardWrapper = (baseElement) =>
  * an outside pointerdown listener) must not come back: it drifted on scroll,
  * escaped the modal z-lanes and rendered outside `ModalShell`.
  */
+describe('WeightTrackerModal 30d tap spacing', () => {
+  it('keeps adjacent days at least 24px apart (the plot scrolls instead of cramming 30 days on screen)', async () => {
+    const user = userEvent.setup();
+    const { baseElement } = renderModal();
+    await user.click(screen.getByRole('button', { name: '30 Days' }));
+
+    const xs = [...getChartPoints(baseElement)].map((point) =>
+      Number(point.querySelector('circle').getAttribute('cx'))
+    );
+    expect(xs).toHaveLength(2);
+    expect(xs[1] - xs[0]).toBeGreaterThanOrEqual(24);
+    // Hit areas of neighbouring days may touch but must not overlap.
+    const hitRadius = Number(
+      getChartPoints(baseElement)[0].querySelector('circle').getAttribute('r')
+    );
+    expect(xs[1] - xs[0]).toBeGreaterThanOrEqual(hitRadius * 2);
+  });
+});
+
 describe('WeightTrackerModal selection card', () => {
   it('mounts one hidden card in a fixed slot and no measured tooltip', () => {
     const { baseElement } = renderModal();

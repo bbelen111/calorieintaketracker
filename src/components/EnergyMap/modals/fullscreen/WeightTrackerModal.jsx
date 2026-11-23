@@ -75,8 +75,28 @@ const GRAPH_SWITCH_DURATION_MS = 220;
 // Per-mode point sizing
 const MODE_POINT = {
   '7d': { radius: 6, hitRadius: 12 },
-  '30d': { radius: 3, hitRadius: 8 },
+  '30d': { radius: 4, hitRadius: 12 },
   '12m': { radius: 6, hitRadius: 12 },
+};
+
+// Below this width a day slot is too narrow to tap, so the 30d plot shows
+// fewer than 30 days per screen and scrolls instead (wide screens still fit
+// all 30). The 30-day stats follow whatever the right edge of the screen is.
+const MIN_SLOT_PX_30D = 24;
+const getWindowSize30d = (viewportWidth) =>
+  Math.min(30, Math.max(1, viewportWidth / MIN_SLOT_PX_30D));
+
+// The 30 days ending at the right edge of what is on screen. `leftIndex` is the
+// first visible slot (-1 = scrolled to the end).
+const getVisible30dWindow = (days, settledPageIndex, windowSize30d) => {
+  if (!days.length) return [];
+  const leftIndex =
+    settledPageIndex >= 0 ? settledPageIndex : days.length - windowSize30d;
+  const endIndex = Math.min(
+    days.length - 1,
+    Math.max(0, Math.round(leftIndex + windowSize30d) - 1)
+  );
+  return days.slice(Math.max(0, endIndex - 29), endIndex + 1);
 };
 
 const VIEW_MODES = [
@@ -463,6 +483,8 @@ export const WeightTrackerModal = ({
     return () => clearTimeout(timeout);
   }, [viewMode, isOpen]);
 
+  const windowSize30d = getWindowSize30d(graphViewportWidth || 300);
+
   // --- Snap detection via scroll ---
   // Panning the plot dismisses the card: a swipe means "let me read the plot".
   // Deliberately the first statement — ahead of the geometry guard — so it also
@@ -476,7 +498,8 @@ export const WeightTrackerModal = ({
 
     const node = carouselRef.current;
     if (!node || !node.clientWidth) return;
-    const windowSize = viewMode === '7d' ? 7 : viewMode === '30d' ? 30 : 12;
+    const windowSize =
+      viewMode === '7d' ? 7 : viewMode === '30d' ? windowSize30d : 12;
     const step = node.clientWidth / windowSize;
     const idx = Math.round(node.scrollLeft / step);
     setActivePageIndex(idx);
@@ -487,7 +510,7 @@ export const WeightTrackerModal = ({
       setSettledPageIndex(idx);
       headerSettleTimeoutRef.current = null;
     }, SCROLL_SETTLE_DELAY_MS);
-  }, [viewMode]);
+  }, [viewMode, windowSize30d]);
 
   // --- Global chart data (used for Y-axis in all modes) ---
   const globalChartData = useMemo(() => {
@@ -632,7 +655,7 @@ export const WeightTrackerModal = ({
       minValue: globalChartData.minWeight,
       range: globalChartData.range,
       chartWidth,
-      windowSize: 30,
+      windowSize: windowSize30d,
       chartHeight,
     })
       .map((slot) => (slot ? { ...slot, weight: slot.value } : null))
@@ -644,6 +667,7 @@ export const WeightTrackerModal = ({
     chartWidth,
     chartHeight,
     timeline30d,
+    windowSize30d,
   ]);
 
   // 12m continuous: all points in global coordinate space
@@ -736,8 +760,13 @@ export const WeightTrackerModal = ({
     [allPoints7d, buildChartRunsGeometry, timeline7d]
   );
   const chartRunsGeometry30d = useMemo(
-    () => buildChartRunsGeometry(allPoints30d, timeline30d.days.length, 30),
-    [allPoints30d, buildChartRunsGeometry, timeline30d]
+    () =>
+      buildChartRunsGeometry(
+        allPoints30d,
+        timeline30d.days.length,
+        windowSize30d
+      ),
+    [allPoints30d, buildChartRunsGeometry, timeline30d, windowSize30d]
   );
   const chartRunsGeometry12m = useMemo(
     () => buildChartRunsGeometry(allPoints12m, timeline12m.months.length, 12),
@@ -828,14 +857,11 @@ export const WeightTrackerModal = ({
     if (viewMode === '30d') {
       const { days } = timeline30d;
       if (!days.length) return null;
-      const startIdx = Math.max(
-        0,
-        Math.min(
-          settledPageIndex >= 0 ? settledPageIndex : days.length - 30,
-          days.length - 30
-        )
+      const windowDays = getVisible30dWindow(
+        days,
+        settledPageIndex,
+        windowSize30d
       );
-      const windowDays = days.slice(startIdx, startIdx + 30);
       const vals = windowDays.filter((d) => d.entry).map((d) => d.entry.weight);
       if (!vals.length) return null;
       return (
@@ -860,7 +886,7 @@ export const WeightTrackerModal = ({
       );
     }
     return null;
-  }, [viewMode, timeline30d, timeline12m, settledPageIndex]);
+  }, [viewMode, timeline30d, timeline12m, settledPageIndex, windowSize30d]);
 
   const visibleWindowTrackedDays = useMemo(() => {
     if (viewMode !== '12m') return 0;
@@ -884,14 +910,11 @@ export const WeightTrackerModal = ({
     if (viewMode === '30d') {
       const { days } = timeline30d;
       if (!days.length) return '';
-      const startIdx = Math.max(
-        0,
-        Math.min(
-          settledPageIndex >= 0 ? settledPageIndex : days.length - 30,
-          days.length - 30
-        )
+      const windowDays = getVisible30dWindow(
+        days,
+        settledPageIndex,
+        windowSize30d
       );
-      const windowDays = days.slice(startIdx, startIdx + 30);
       return `${formatShortDate(windowDays[0]?.date)} - ${formatShortDate(windowDays[windowDays.length - 1]?.date)}`;
     }
     if (viewMode === '12m') {
@@ -908,7 +931,7 @@ export const WeightTrackerModal = ({
       return `${formatShortDate(windowMonths[0]?.key + '-01')} - ${formatShortDate(windowMonths[windowMonths.length - 1]?.key + '-28')}`;
     }
     return '';
-  }, [viewMode, timeline30d, timeline12m, settledPageIndex]);
+  }, [viewMode, timeline30d, timeline12m, settledPageIndex, windowSize30d]);
 
   // --- Selected slot (drives the selection card + the chart guide line) ---
   const selectedSlot = useMemo(() => {
@@ -941,7 +964,7 @@ export const WeightTrackerModal = ({
         (d) => d.date === selectedDate
       );
       if (slotIdx >= 0) {
-        const STEP = chartWidth / 30;
+        const STEP = chartWidth / windowSize30d;
         const PAD = STEP / 2;
         return {
           date: selectedDate,
@@ -967,6 +990,7 @@ export const WeightTrackerModal = ({
     timeline30d,
     chartWidth,
     chartHeight,
+    windowSize30d,
   ]);
 
   const dismissSelection = useCallback(() => {
@@ -1406,17 +1430,17 @@ export const WeightTrackerModal = ({
       );
     }
 
-    const STEP = chartWidth / 30;
+    const STEP = chartWidth / windowSize30d;
     const firstRenderedDateByYear = new Map();
     timeline30d.days.forEach((slot, index) => {
-      if (index % 5 !== 0) return;
+      if (index % 2 !== 0) return;
       const yearKey = slot.date?.slice?.(0, 4);
       if (yearKey && !firstRenderedDateByYear.has(yearKey)) {
         firstRenderedDateByYear.set(yearKey, slot.date);
       }
     });
     const timelineSlots = timeline30d.days.map((s, i) => {
-      const showLabel = i % 5 === 0;
+      const showLabel = i % 2 === 0;
       const hasEntry = !!s.entry;
       const yearKey = s.date.slice(0, 4);
       const showYear =
@@ -1471,7 +1495,7 @@ export const WeightTrackerModal = ({
     return renderContinuousChart(
       allPoints30d,
       timelineSlots,
-      30,
+      windowSize30d,
       '30d-cont',
       '2',
       chartRunsGeometry30d
