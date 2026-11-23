@@ -1,4 +1,10 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ChevronDown,
   ChevronLeft,
@@ -64,9 +70,18 @@ const Y_TICK_COUNT = 6;
 const TIMELINE_TRACK_HEIGHT = 36;
 const DEFAULT_CHART_HEIGHT = 200;
 const MODE_POINT = {
-  '30d': 3,
-  '90d': 2,
+  '30d': 4,
+  '90d': 3,
   '12m': 6,
+};
+// Minimum horizontal room per day slot. Fitting 30 / 90 days into one
+// viewport leaves ~10 px / ~3 px per day — too narrow to tap a specific
+// reading — so below this width the plot scrolls sideways instead (latest on
+// the right). 12 months always fits the viewport.
+const MIN_SLOT_PX = {
+  '30d': 24,
+  '90d': 20,
+  '12m': 0,
 };
 
 const formatShortDate = (dateKey) =>
@@ -227,6 +242,13 @@ export const HeartRateTrackerModal = ({
     };
   }, [heartRateEntries, mode, todayKey]);
 
+  // The plot is as wide as the viewport, or wider when the window would
+  // squeeze its day slots below MIN_SLOT_PX (then it scrolls horizontally).
+  const plotWidth = Math.max(
+    chartWidth,
+    slots.length * (MIN_SLOT_PX[viewMode] ?? 0)
+  );
+
   const chart = useMemo(() => {
     const values = slots
       .map((slot) => slot.entry?.restingHr)
@@ -253,20 +275,36 @@ export const HeartRateTrackerModal = ({
       getValue: (entry) => entry.restingHr,
       minValue,
       range,
-      chartWidth,
+      chartWidth: plotWidth,
       windowSize: slots.length,
       chartHeight,
     });
-    const runs = buildGapAwarePathRuns(tagged).map((run) => ({
-      ...run,
-      ...(() => {
-        const { pathData, areaData } = buildBezierPaths(run.points, {
-          chartWidth,
-          chartHeight,
-        });
-        return { pathData, areaData };
-      })(),
-    }));
+    // Edge extension is decided against the FULL runs array (like the Weight /
+    // Body Fat trackers): the first run reaches the left edge, the last the
+    // right edge, and a lone reading stretches into a flat line end to end.
+    const gapRuns = buildGapAwarePathRuns(tagged);
+    const runs = [];
+    gapRuns.forEach((run, runIndex) => {
+      if (!run.points.length) {
+        return;
+      }
+      const isFirstRun = runIndex === 0;
+      const isLastRun = runIndex === gapRuns.length - 1;
+      const { pathData, areaData } = buildBezierPaths(run.points, {
+        chartWidth: plotWidth,
+        chartHeight,
+        extendToEdges:
+          isFirstRun && isLastRun
+            ? true
+            : isFirstRun
+              ? 'left'
+              : isLastRun
+                ? 'right'
+                : false,
+        singlePointStretch: run.points.length === 1 && isFirstRun && isLastRun,
+      });
+      runs.push({ ...run, pathData, areaData });
+    });
     const ticks = Array.from({ length: Y_TICK_COUNT }, (_, index) => ({
       value: maxValue - tickStep * index,
       y: (index / segments) * chartHeight,
@@ -278,7 +316,24 @@ export const HeartRateTrackerModal = ({
       }
     });
     return { tagged, runs, ticks, latestReal };
-  }, [chartHeight, chartWidth, slots]);
+  }, [chartHeight, plotWidth, slots]);
+
+  // Latest data lives on the right: open (and re-open on a window change)
+  // scrolled to the end. Layout effect so the first paint is already there.
+  const scrollRef = useRef(null);
+  const hasChart = chart != null;
+  useLayoutEffect(() => {
+    const node = scrollRef.current;
+    if (node) {
+      node.scrollLeft = node.scrollWidth - node.clientWidth;
+    }
+  }, [viewMode, plotWidth, hasChart]);
+
+  // Panning the plot dismisses the card ("let me read the plot"). Functional
+  // update so scroll frames with nothing selected cost no re-render.
+  const handlePlotScroll = useCallback(() => {
+    setSelectedKey((current) => (current === null ? current : null));
+  }, []);
 
   const zoneModel = useMemo(
     () => resolveHeartRateZones(heartRateProfile),
@@ -337,7 +392,7 @@ export const HeartRateTrackerModal = ({
 
   const modeIndex = VIEW_MODES.findIndex((item) => item.key === viewMode);
   const healthSourceName = getHealthSourceName();
-  const step = slots.length ? chartWidth / slots.length : 0;
+  const step = slots.length ? plotWidth / slots.length : 0;
   // Nothing heart-rate related has ever been recorded. The stat strip (all
   // dashes), the window toggle and the chart placeholder would all be noise —
   // one guided empty state owns the surface instead.
@@ -348,7 +403,7 @@ export const HeartRateTrackerModal = ({
     sync.status === HealthConnectStatus.ERROR;
 
   const pointRadius = MODE_POINT[viewMode] ?? 3;
-  const labelEvery = isMonthMode ? 1 : mode.days === 90 ? 15 : 5;
+  const labelEvery = isMonthMode ? 1 : mode.days === 90 ? 4 : 2;
   const latestRealDate = chart?.latestReal?.date ?? null;
   const showCurrentPill = !isMonthMode && chart?.latestReal != null;
 
@@ -716,148 +771,162 @@ export const HeartRateTrackerModal = ({
                       key={viewMode}
                       className="absolute inset-0 tracker-graph-switch"
                     >
-                      <svg
-                        width={chartWidth}
-                        height={chartHeight}
-                        viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-                        className="absolute left-0 block"
-                        style={{ top: `${PLOT_TOP_PX}px` }}
-                        role="img"
-                        aria-label="Resting heart rate chart"
+                      <div
+                        ref={scrollRef}
+                        onScroll={handlePlotScroll}
+                        className="absolute inset-0 overflow-x-auto overflow-y-hidden"
                       >
-                        <defs>
-                          <linearGradient
-                            id="heart-rate-area-gradient"
-                            gradientUnits="userSpaceOnUse"
-                            x1="0"
-                            x2="0"
-                            y1="0"
-                            y2={chartHeight}
-                          >
-                            <stop
-                              offset="0%"
-                              stopColor="rgb(var(--accent-red) / 1)"
-                              stopOpacity={0.3}
-                            />
-                            <stop
-                              offset="100%"
-                              stopColor="rgb(var(--accent-red) / 1)"
-                              stopOpacity={0.02}
-                            />
-                          </linearGradient>
-                        </defs>
-                        {chart.ticks.map((tick, index) => {
-                          const isBaseline = index === chart.ticks.length - 1;
-                          return (
-                            <line
-                              key={tick.y}
-                              x1={0}
-                              x2={chartWidth}
-                              y1={tick.y}
-                              y2={tick.y}
-                              stroke={
-                                isBaseline
-                                  ? 'rgb(var(--foreground) / 0.6)'
-                                  : 'currentColor'
-                              }
-                              strokeWidth={isBaseline ? 2 : 1}
-                              strokeDasharray={isBaseline ? 'none' : '4 6'}
-                              className={
-                                isBaseline
-                                  ? 'opacity-80'
-                                  : 'text-muted opacity-60'
-                              }
-                            />
-                          );
-                        })}
-                        {retainedSlot && selectedKey && (
-                          <line
-                            x1={retainedSlot.x}
-                            x2={retainedSlot.x}
-                            y1={0}
-                            y2={chartHeight}
-                            stroke="rgb(var(--accent-blue) / 0.45)"
-                            strokeWidth={1.5}
-                            strokeDasharray="3 4"
-                            pointerEvents="none"
-                          />
-                        )}
-                        {chart.runs.map((run, index) => (
-                          <React.Fragment
-                            key={`${index}-${run.dashArray ?? 'solid'}`}
-                          >
-                            {run.areaData && (
-                              <path
-                                d={run.areaData}
-                                fill="url(#heart-rate-area-gradient)"
-                                className="tracker-graph-fill"
-                              />
-                            )}
-                            {run.pathData && (
-                              <path
-                                d={run.pathData}
-                                fill="none"
-                                stroke="rgb(var(--accent-red) / 1)"
-                                strokeWidth={isMonthMode ? 3 : 2}
-                                strokeDasharray={run.dashArray ?? 'none'}
-                                pathLength={run.dashArray ? undefined : 1}
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                className="tracker-graph-path"
-                              />
-                            )}
-                          </React.Fragment>
-                        ))}
-                        {chart.tagged.map((slot) =>
-                          slot && !slot.isInterpolated ? (
-                            <circle
-                              key={slot.date}
-                              cx={slot.x}
-                              cy={slot.y}
-                              r={
-                                selectedKey === slot.date
-                                  ? pointRadius + 2
-                                  : pointRadius
-                              }
-                              fill={
-                                selectedKey === slot.date
-                                  ? 'rgb(var(--accent-blue) / 1)'
-                                  : 'rgb(var(--surface) / 1)'
-                              }
-                              stroke={
-                                selectedKey === slot.date
-                                  ? 'rgb(var(--surface) / 1)'
-                                  : 'rgb(var(--accent-red) / 1)'
-                              }
-                              strokeWidth={selectedKey === slot.date ? 3 : 2}
-                              className="transition-all tracker-graph-point"
-                            />
-                          ) : null
-                        )}
-                        {slots.map((slot, index) =>
-                          chart.tagged[index] &&
-                          !chart.tagged[index].isInterpolated ? (
-                            <rect
-                              key={`hit-${slot.date}`}
-                              x={index * step}
-                              y={0}
-                              width={step}
-                              height={chartHeight}
-                              fill="transparent"
-                              className="cursor-pointer"
-                              onClick={(event) =>
-                                handleSlotTap(event, chart.tagged[index])
-                              }
-                            />
-                          ) : null
-                        )}
-                      </svg>
-                      <div className="absolute inset-x-0 bottom-0 pb-2">
                         <div
-                          className="relative"
-                          style={{ height: `${TIMELINE_TRACK_HEIGHT}px` }}
+                          className="relative h-full"
+                          style={{ width: `${plotWidth}px` }}
                         >
-                          {timelineLabels}
+                          <svg
+                            width={plotWidth}
+                            height={chartHeight}
+                            viewBox={`0 0 ${plotWidth} ${chartHeight}`}
+                            className="absolute left-0 block"
+                            style={{ top: `${PLOT_TOP_PX}px` }}
+                            role="img"
+                            aria-label="Resting heart rate chart"
+                          >
+                            <defs>
+                              <linearGradient
+                                id="heart-rate-area-gradient"
+                                gradientUnits="userSpaceOnUse"
+                                x1="0"
+                                x2="0"
+                                y1="0"
+                                y2={chartHeight}
+                              >
+                                <stop
+                                  offset="0%"
+                                  stopColor="rgb(var(--accent-red) / 1)"
+                                  stopOpacity={0.3}
+                                />
+                                <stop
+                                  offset="100%"
+                                  stopColor="rgb(var(--accent-red) / 1)"
+                                  stopOpacity={0.02}
+                                />
+                              </linearGradient>
+                            </defs>
+                            {chart.ticks.map((tick, index) => {
+                              const isBaseline =
+                                index === chart.ticks.length - 1;
+                              return (
+                                <line
+                                  key={tick.y}
+                                  x1={0}
+                                  x2={plotWidth}
+                                  y1={tick.y}
+                                  y2={tick.y}
+                                  stroke={
+                                    isBaseline
+                                      ? 'rgb(var(--foreground) / 0.6)'
+                                      : 'currentColor'
+                                  }
+                                  strokeWidth={isBaseline ? 2 : 1}
+                                  strokeDasharray={isBaseline ? 'none' : '4 6'}
+                                  className={
+                                    isBaseline
+                                      ? 'opacity-80'
+                                      : 'text-muted opacity-60'
+                                  }
+                                />
+                              );
+                            })}
+                            {retainedSlot && selectedKey && (
+                              <line
+                                x1={retainedSlot.x}
+                                x2={retainedSlot.x}
+                                y1={0}
+                                y2={chartHeight}
+                                stroke="rgb(var(--accent-blue) / 0.45)"
+                                strokeWidth={1.5}
+                                strokeDasharray="3 4"
+                                pointerEvents="none"
+                              />
+                            )}
+                            {chart.runs.map((run, index) => (
+                              <React.Fragment
+                                key={`${index}-${run.dashArray ?? 'solid'}`}
+                              >
+                                {run.areaData && (
+                                  <path
+                                    d={run.areaData}
+                                    fill="url(#heart-rate-area-gradient)"
+                                    className="tracker-graph-fill"
+                                  />
+                                )}
+                                {run.pathData && (
+                                  <path
+                                    d={run.pathData}
+                                    fill="none"
+                                    stroke="rgb(var(--accent-red) / 1)"
+                                    strokeWidth={isMonthMode ? 3 : 2}
+                                    strokeDasharray={run.dashArray ?? 'none'}
+                                    pathLength={run.dashArray ? undefined : 1}
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="tracker-graph-path"
+                                  />
+                                )}
+                              </React.Fragment>
+                            ))}
+                            {chart.tagged.map((slot) =>
+                              slot && !slot.isInterpolated ? (
+                                <circle
+                                  key={slot.date}
+                                  cx={slot.x}
+                                  cy={slot.y}
+                                  r={
+                                    selectedKey === slot.date
+                                      ? pointRadius + 2
+                                      : pointRadius
+                                  }
+                                  fill={
+                                    selectedKey === slot.date
+                                      ? 'rgb(var(--accent-blue) / 1)'
+                                      : 'rgb(var(--surface) / 1)'
+                                  }
+                                  stroke={
+                                    selectedKey === slot.date
+                                      ? 'rgb(var(--surface) / 1)'
+                                      : 'rgb(var(--accent-red) / 1)'
+                                  }
+                                  strokeWidth={
+                                    selectedKey === slot.date ? 3 : 2
+                                  }
+                                  className="transition-all tracker-graph-point"
+                                />
+                              ) : null
+                            )}
+                            {slots.map((slot, index) =>
+                              chart.tagged[index] &&
+                              !chart.tagged[index].isInterpolated ? (
+                                <rect
+                                  key={`hit-${slot.date}`}
+                                  x={index * step}
+                                  y={0}
+                                  width={step}
+                                  height={chartHeight}
+                                  fill="transparent"
+                                  className="cursor-pointer"
+                                  onClick={(event) =>
+                                    handleSlotTap(event, chart.tagged[index])
+                                  }
+                                />
+                              ) : null
+                            )}
+                          </svg>
+                          <div className="absolute inset-x-0 bottom-0 pb-2">
+                            <div
+                              className="relative"
+                              style={{ height: `${TIMELINE_TRACK_HEIGHT}px` }}
+                            >
+                              {timelineLabels}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>

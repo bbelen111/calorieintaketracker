@@ -82,6 +82,38 @@ describe('HeartRateTrackerModal', () => {
     expect(screen.getByText(/^Reserve \d+ → \d+ bpm$/)).toBeInTheDocument();
   });
 
+  it('stretches a lone reading into a flat line across the whole plot', () => {
+    useEnergyMapStore.setState(INITIAL_STORE);
+    useEnergyMapStore.getState().setManualRestingHeartRate(daysAgo(0), 58);
+    const { baseElement } = renderModal();
+    const svg = baseElement.querySelector(
+      'svg[aria-label="Resting heart rate chart"]'
+    );
+    const width = Number(svg.getAttribute('width'));
+    const linePath = [...svg.querySelectorAll('path')].find(
+      (path) => path.getAttribute('fill') === 'none'
+    );
+    expect(linePath.getAttribute('d')).toMatch(
+      new RegExp(`^M 0 [\\d.]+ L ${width} [\\d.]+$`)
+    );
+  });
+
+  it('gives each day room to tap: 30d and 90d plots scroll instead of cramming', async () => {
+    const user = userEvent.setup();
+    seedReadings();
+    const { baseElement } = renderModal();
+    const plotWidth = () =>
+      Number(
+        baseElement
+          .querySelector('svg[aria-label="Resting heart rate chart"]')
+          .getAttribute('width')
+      );
+    // 30 slots x 24px, 90 slots x 20px — both wider than the viewport.
+    expect(plotWidth()).toBe(720);
+    await user.click(screen.getByRole('button', { name: '90 days' }));
+    expect(plotWidth()).toBe(1800);
+  });
+
   it('keeps the zones list collapsed until the row is tapped', async () => {
     const user = userEvent.setup();
     seedReadings();
