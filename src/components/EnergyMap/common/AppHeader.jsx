@@ -74,7 +74,7 @@ const SwipeDots = ({ count, activeScreen }) => {
       {RING_COPY_OFFSETS.map((copy) => (
         <span
           key={copy}
-          className="absolute left-0 top-0 rounded-full bg-primary"
+          className="carousel-drag-sync absolute left-0 top-0 rounded-full bg-primary"
           style={{
             width: DOT_SIZE_PX,
             height: DOT_SIZE_PX,

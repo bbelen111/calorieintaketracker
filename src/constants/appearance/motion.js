@@ -6,10 +6,12 @@
 //   mode        full | reduced | off                (what CSS and JS actually act on)
 //
 //  - full     every animation plays.
-//  - reduced  movement goes (slides, scales, staggers, the card flight, the keyboard
-//             glide, carousel travel); crossfades and short colour transitions stay.
+//  - reduced  decorative movement goes (slides, scales, staggers, the card flight,
+//             the keyboard glide); crossfades and short colour transitions stay.
 //             This is what the device's "Reduce motion" setting has always meant here.
-//  - off      nothing animates: durations collapse to ~0, fades and transitions too.
+//  - off      nothing decorative animates: durations collapse to ~0, fades and
+//             transitions too (spinners and the 5-screen direct-manipulation swipe
+//             carousel stay smooth so they don't look frozen or snap abruptly).
 //
 // `system` (the default) resolves from the device's Reduce Motion setting, so a user
 // who never opens Settings gets exactly the behaviour the app had before this

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { prefersReducedMotion } from '../utils/visuals/motionPreference';
 import {
   CAROUSEL_SETTLE_MS,
   SCREEN_DRAG_DURATION_ANIMATED,
@@ -50,9 +49,10 @@ const FADE_QUANTIZATION_STEPS = 50;
 const quantizeFade = (value) =>
   Math.round(value * FADE_QUANTIZATION_STEPS) / FADE_QUANTIZATION_STEPS;
 
-// Reduced and off both settle instantly (the Animations preference; see
-// constants/appearance/motion.js). Read per settle, so a change applies at once.
-const shouldAnimateSettle = () => !prefersReducedMotion();
+// The 5-screen swipe carousel is direct-manipulation navigation: its slides
+// track the finger live, so collapsing the release/tab settle to 0ms makes
+// switching screens snap abruptly. Like spinners in index.css, the carousel
+// settle stays animated across `full`, `reduced`, and `off` motion modes.
 
 /**
  * Looping, clone-free carousel for the five app screens.
@@ -342,7 +342,6 @@ export const useSwipeableScreens = (
       }
 
       const token = settleTokenRef.current;
-      const animate = shouldAnimateSettle();
 
       settleStateRef.current = {
         startPosition,
@@ -350,12 +349,7 @@ export const useSwipeableScreens = (
         startedAt: window.performance.now(),
       };
 
-      commitPosition(target, { animate });
-
-      if (!animate) {
-        finalizeSettle(token);
-        return true;
-      }
+      commitPosition(target, { animate: true });
 
       settleTimerIdRef.current = window.setTimeout(() => {
         settleTimerIdRef.current = null;
@@ -492,7 +486,7 @@ export const useSwipeableScreens = (
 
   // Fast path out of a settle: every animated slide shares one duration and start
   // frame, so the first transform `transitionend` means the animation is done.
-  // The timer remains the fallback (it also covers reduced-motion settles).
+  // The timer remains the fallback.
   useEffect(() => {
     const element = viewportRef.current;
     if (!element) {

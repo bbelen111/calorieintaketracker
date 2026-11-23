@@ -213,6 +213,11 @@ describe('AppHeader', () => {
       expect(dots).toHaveStyle({ width: '54px', height: '6px' });
       // Static dots + the ring copies that track the live drag position.
       expect(dots.children).toHaveLength(SCREEN_COUNT + 3);
+      // Ring copies stay exempt from `data-motion="off"` so they track slides.
+      const ringCopies = Array.from(dots.children).slice(SCREEN_COUNT);
+      ringCopies.forEach((copy) => {
+        expect(copy).toHaveClass('carousel-drag-sync');
+      });
     });
 
     it('receives the live drag variables on the dots row, not :root', () => {

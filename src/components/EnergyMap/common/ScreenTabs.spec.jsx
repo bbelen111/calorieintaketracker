@@ -125,7 +125,16 @@ describe('ScreenTabs', () => {
       expect(copy.style.transition).toContain(
         `var(${SCREEN_DRAG_DURATION_VAR}, 0.35s)`
       );
+      // Exempt from `data-motion="off"` universal transition collapse so the
+      // indicator stays in lockstep with the carousel slides.
+      expect(copy).toHaveClass('carousel-drag-sync');
     });
+
+    for (const tab of TABS) {
+      expect(screen.getByRole('button', { name: tab.label })).toHaveClass(
+        'carousel-drag-sync'
+      );
+    }
   });
 
   it('receives the live drag variables on its own element, never :root', () => {

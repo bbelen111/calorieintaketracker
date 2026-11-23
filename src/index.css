@@ -1442,17 +1442,18 @@
     transition: none !important;
   }
 
-  /* The carousel settles instantly (the shell skips the animated write); keep the
-     edge-fade ramp from gliding too. */
-  :root:is([data-motion='reduced'], [data-motion='off']) .carousel-slide {
-    transition: none !important;
-  }
-
   /* Off: collapse every remaining CSS animation and transition (fades, colour
      transitions, press feedback) to an instant change. The standard reset: a
      ~0 duration rather than `none`, so `animationend` / `transitionend` listeners
-     still fire. Spinners are exempt - a frozen spinner just looks hung. */
-  :root[data-motion='off'] *,
+     still fire. Two things are exempt:
+     - Spinners (a frozen spinner just looks hung).
+     - The 5-screen swipe carousel (`.carousel-slide` and its drag-linked
+       chrome `.carousel-drag-sync`): slides track the finger live, so snapping
+       the settle to 0ms makes swiping and switching screens jarring/unusable.
+       `:where(...)` keeps the universal selector's specificity at (0, 2, 0) so
+       class exemptions like `.animate-spin` still win cleanly. */
+  :root[data-motion='off']
+    :where(*:not(.carousel-slide):not(.carousel-drag-sync)),
   :root[data-motion='off'] *::before,
   :root[data-motion='off'] *::after {
     animation-duration: 0.01ms !important;

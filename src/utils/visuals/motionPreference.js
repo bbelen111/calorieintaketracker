@@ -3,7 +3,7 @@
 //
 // Framework-free on purpose: CSS reads the mode from the `data-motion` attribute,
 // React reads it through `hooks/useMotionMode.js`, and imperative code (the card
-// flight, the keyboard glide, the carousel settle) calls `prefersReducedMotion()`
+// flight, the keyboard glide) calls `prefersReducedMotion()`
 // directly. One source of truth replaces the dozen independent
 // `matchMedia('(prefers-reduced-motion)')` reads that used to be scattered through
 // the app - each of which only ever knew the device setting.

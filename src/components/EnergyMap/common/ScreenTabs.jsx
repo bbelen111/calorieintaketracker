@@ -109,7 +109,7 @@ export const ScreenTabs = ({ tabs, activeScreen, onSelect }) => {
             {RING_COPY_OFFSETS.map((copy) => (
               <div
                 key={copy}
-                className="absolute inset-0"
+                className="carousel-drag-sync absolute inset-0"
                 style={{
                   transform: `translate3d(calc((var(${SCREEN_DRAG_PROGRESS_VAR}, ${activeScreen + 1}) - 1 + ${copy * tabs.length}) * ${tabSharePercent}%), 0, 0)`,
                   transition: `transform var(${SCREEN_DRAG_DURATION_VAR}, 0.35s) cubic-bezier(0.32, 0.72, 0, 1)`,
@@ -145,7 +145,7 @@ export const ScreenTabs = ({ tabs, activeScreen, onSelect }) => {
                 onClick={() => onSelect(index)}
                 aria-pressed={isActive}
                 aria-label={label}
-                className={`relative z-10 flex flex-1 items-center justify-center rounded-full pressable-inline focus-ring ${
+                className={`carousel-drag-sync relative z-10 flex flex-1 items-center justify-center rounded-full pressable-inline focus-ring ${
                   isActive
                     ? 'text-primary-foreground'
                     : 'text-muted md:hover:text-foreground'
