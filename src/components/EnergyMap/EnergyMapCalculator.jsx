@@ -4181,6 +4181,60 @@ export const EnergyMapCalculator = () => {
     setSelectedPhase(null);
   }, []);
 
+  // --- Home hero shortcuts (pill + two tiles) ---
+  // Each configurable Home metric opens the screen that owns it. Today's
+  // ledger needs a recorded snapshot (the detail sheet renders nothing without
+  // one), so a day with none falls back to the ledger calendar. Read from the
+  // store at tap time so this map stays reference-stable across snapshot churn
+  // (it is a prop of the memoized HomeScreen).
+  const openTodayDayLedger = useCallback(() => {
+    const todayKey = getTodayDateKey();
+    const snapshots = useEnergyMapStore.getState().userData?.dailySnapshots;
+    if (snapshots?.[todayKey]) {
+      handleOpenDayLedgerDetail(todayKey);
+      return;
+    }
+    dayLedgerListModal.open();
+  }, [dayLedgerListModal, handleOpenDayLedgerDetail]);
+
+  const openActivePhaseFromHome = useCallback(() => {
+    const allPhases = useEnergyMapStore.getState().phases ?? [];
+    const match = allPhases.find((phase) => phase.status === 'active') ?? null;
+    goToScreen(0);
+    if (match) {
+      setSelectedPhase(match);
+    }
+  }, [goToScreen]);
+
+  const heroActionOpeners = useMemo(
+    () => ({
+      calories: handleLogFoodFromHome,
+      caloriesLeft: handleLogFoodFromHome,
+      protein: handleLogFoodFromHome,
+      steps: openStepTracker,
+      deficit: openTodayDayLedger,
+      balance7d: rollingEnergyBalanceModal.open,
+      phase: openActivePhaseFromHome,
+      streak: dayLedgerListModal.open,
+      restingHr: openHeartRateTracker,
+      burn: openTodayCalorieBreakdown,
+      weight: openWeightTracker,
+      bodyFat: openBodyFatTracker,
+    }),
+    [
+      dayLedgerListModal.open,
+      handleLogFoodFromHome,
+      openActivePhaseFromHome,
+      openBodyFatTracker,
+      openWeightTracker,
+      openHeartRateTracker,
+      openStepTracker,
+      openTodayCalorieBreakdown,
+      openTodayDayLedger,
+      rollingEnergyBalanceModal.open,
+    ]
+  );
+
   // Notification tap deep-link router (Layer 1 local + Layer 2 remote push).
   const handleNotificationAction = useCallback(
     (extra) => {
@@ -4803,9 +4857,6 @@ export const EnergyMapCalculator = () => {
                   isGoalLocked={isGoalLockedByActivePhase}
                   goalLockPhaseName={activePhase?.name ?? ''}
                   onGoalClick={openGoalModal}
-                  onLogFoodClick={handleLogFoodFromHome}
-                  onBodyFatClick={openBodyFatTracker}
-                  onWeightClick={openWeightTracker}
                   calorieTargetCalories={
                     selectedCalorieTargetData?.targetCalories
                   }
@@ -4825,6 +4876,7 @@ export const EnergyMapCalculator = () => {
                   totalCardioBurn={totalCardioBurn}
                   onOpenDailyActivityOverride={openDailyNeatOverrideModal}
                   onOpenTodayBreakdown={openTodayCalorieBreakdown}
+                  heroActionOpeners={heroActionOpeners}
                 />
               </div>
 

@@ -249,6 +249,107 @@ describe('SettingsModal segmented navigation', () => {
     );
   });
 
+  it('offers three Home slots that choose from one list and report each choice', async () => {
+    const user = userEvent.setup();
+    const onFieldChange = vi.fn();
+    render(<SettingsHarness onFieldChange={onFieldChange} />);
+
+    await user.click(screen.getByRole('button', { name: 'Open Appearance' }));
+    const shortcut = within(
+      screen.getByRole('group', { name: 'Home shortcut' })
+    );
+    const left = within(screen.getByRole('group', { name: 'Home left tile' }));
+    const right = within(
+      screen.getByRole('group', { name: 'Home right tile' })
+    );
+
+    // Out of the box: calories, Weight, Body Fat - the layout Home always had.
+    expect(
+      shortcut.getByRole('button', { name: /^Calories$/ })
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(left.getByRole('button', { name: /^Weight/ })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    expect(right.getByRole('button', { name: /^Body fat/ })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+
+    // Each slot reports to its own profile field.
+    await user.click(shortcut.getByRole('button', { name: /^Steps/ }));
+    expect(onFieldChange).toHaveBeenLastCalledWith('heroActionMetric', 'steps');
+    await user.click(left.getByRole('button', { name: /^Protein/ }));
+    expect(onFieldChange).toHaveBeenLastCalledWith(
+      'heroTileLeftMetric',
+      'protein'
+    );
+    await user.click(right.getByRole('button', { name: /^Streak/ }));
+    expect(onFieldChange).toHaveBeenLastCalledWith(
+      'heroTileRightMetric',
+      'streak'
+    );
+  });
+
+  it('tags a metric another Home slot shows and lets you pick it anyway (a swap)', async () => {
+    const user = userEvent.setup();
+    const onFieldChange = vi.fn();
+    render(<SettingsHarness onFieldChange={onFieldChange} />);
+
+    await user.click(screen.getByRole('button', { name: 'Open Appearance' }));
+    const right = within(
+      screen.getByRole('group', { name: 'Home right tile' })
+    );
+
+    // Weight is in the left tile: tagged, but never refused.
+    const weight = right.getByRole('button', { name: /^Weight/ });
+    expect(weight).toHaveTextContent('In left tile');
+    expect(weight).toBeEnabled();
+    await user.click(weight);
+    expect(onFieldChange).toHaveBeenLastCalledWith(
+      'heroTileRightMetric',
+      'weight'
+    );
+  });
+
+  it('omits Weight and Body fat from Home shortcut and disables Body fat on tiles while tracking is off', async () => {
+    const user = userEvent.setup();
+    render(
+      <SettingsHarness
+        userData={createUserData({ bodyFatTrackingEnabled: false })}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Open Appearance' }));
+
+    // Home shortcut never offers Weight or Body fat.
+    const shortcut = within(
+      screen.getByRole('group', { name: 'Home shortcut' })
+    );
+    expect(
+      shortcut.queryByRole('button', { name: /^Weight/ })
+    ).not.toBeInTheDocument();
+    expect(
+      shortcut.queryByRole('button', { name: /^Body fat/ })
+    ).not.toBeInTheDocument();
+    expect(shortcut.getByRole('button', { name: /^Steps/ })).toBeEnabled();
+
+    // The two tiles offer both, with Body fat disabled while tracking is off.
+    ['Home left tile', 'Home right tile'].forEach((name) => {
+      const group = within(screen.getByRole('group', { name }));
+      expect(group.getByRole('button', { name: /^Weight/ })).toBeEnabled();
+      expect(group.getByRole('button', { name: /^Body fat/ })).toBeDisabled();
+      expect(group.getByRole('button', { name: /^Steps/ })).toBeEnabled();
+    });
+    // And the right tile - Body Fat by default - shows what Home really shows.
+    expect(
+      within(screen.getByRole('group', { name: 'Home right tile' })).getByRole(
+        'button',
+        { name: /^Steps/ }
+      )
+    ).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('shows the stored Animations preference as pressed, and Auto when unset or invalid', async () => {
     const user = userEvent.setup();
     const { unmount } = render(

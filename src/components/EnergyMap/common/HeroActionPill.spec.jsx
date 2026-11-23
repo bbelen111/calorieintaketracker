@@ -3,10 +3,12 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
-import {
-  CalorieProgressPill,
-  getCalorieProgressPercent,
-} from './CalorieProgressPill';
+import { HeroActionPill } from './HeroActionPill';
+import { buildHeroActionModel } from '../../../utils/calculations/heroActionMetrics';
+
+// The pill renders a display model; build the same ones the app does.
+const caloriesModel = (consumed, calorieTarget) =>
+  buildHeroActionModel({ metric: 'calories', consumed, calorieTarget });
 
 // There is exactly one rect: the progress outline. No track is drawn, so at rest
 // the button stays flat and identical to its sibling hero buttons.
@@ -19,35 +21,16 @@ const attrValue = (element, name) =>
     (attribute) => attribute.name.toLowerCase() === name.toLowerCase()
   )?.value ?? null;
 
-describe('getCalorieProgressPercent', () => {
-  it('clamps to 0-100', () => {
-    expect(getCalorieProgressPercent(0, 2000)).toBe(0);
-    expect(getCalorieProgressPercent(50, 200)).toBe(25);
-    expect(getCalorieProgressPercent(200, 200)).toBe(100);
-    expect(getCalorieProgressPercent(400, 200)).toBe(100);
-    expect(getCalorieProgressPercent(-10, 200)).toBe(0);
-  });
-
-  it('treats a missing or invalid goal as no progress', () => {
-    expect(getCalorieProgressPercent(100, 0)).toBe(0);
-    expect(getCalorieProgressPercent(100, -5)).toBe(0);
-    expect(getCalorieProgressPercent(100, null)).toBe(0);
-    expect(getCalorieProgressPercent(100, undefined)).toBe(0);
-    expect(getCalorieProgressPercent(100, 'nope')).toBe(0);
-    expect(getCalorieProgressPercent(NaN, 200)).toBe(0);
-  });
-});
-
-describe('CalorieProgressPill', () => {
-  it('is a single tap target that reads consumed / goal kcal', async () => {
+describe('HeroActionPill', () => {
+  it('is a single tap target that reads value and unit', async () => {
     const user = userEvent.setup();
     const onPress = vi.fn();
     render(
-      <CalorieProgressPill consumed={1272} goal={2545} onPress={onPress} />
+      <HeroActionPill model={caloriesModel(1272, 2545)} onPress={onPress} />
     );
 
     const pill = screen.getByRole('button', {
-      name: 'Add meal, 1272 of 2545 kcal',
+      name: 'Calories today, 1272 of 2545 kcal. Add meal',
     });
 
     // One tap target: not a readout pill plus a separate add-meal button.
@@ -79,7 +62,7 @@ describe('CalorieProgressPill', () => {
 
   it('draws the outline-solid with the tracker palette without clipping the glow', () => {
     const { container } = render(
-      <CalorieProgressPill consumed={1000} goal={2000} />
+      <HeroActionPill model={caloriesModel(1000, 2000)} />
     );
 
     const progress = getProgressRect(container);
@@ -107,7 +90,7 @@ describe('CalorieProgressPill', () => {
 
   it('clamps the outline-solid at a full ring-3 past the goal', () => {
     const { container } = render(
-      <CalorieProgressPill consumed={5000} goal={2000} />
+      <HeroActionPill model={caloriesModel(5000, 2000)} />
     );
 
     expect(attrValue(getProgressRect(container), 'stroke-dasharray')).toBe(
@@ -115,12 +98,14 @@ describe('CalorieProgressPill', () => {
     );
   });
 
-  it('falls back to a dash and the plain action label without a goal', () => {
-    const { container } = render(<CalorieProgressPill consumed={800} />);
-
-    expect(screen.getByRole('button', { name: 'Add meal' })).toHaveTextContent(
-      '800 / —'
+  it('falls back to a dash and the plain label without a goal', () => {
+    const { container } = render(
+      <HeroActionPill model={caloriesModel(800, null)} />
     );
+
+    expect(
+      screen.getByRole('button', { name: 'Calories today, 800 kcal. Add meal' })
+    ).toHaveTextContent('800 / —');
     expect(attrValue(getProgressRect(container), 'stroke-dasharray')).toBe(
       '0 100'
     );
@@ -128,7 +113,7 @@ describe('CalorieProgressPill', () => {
 
   it('stays flat at rest, with no outline, rim or shadow-sm', () => {
     const { container } = render(
-      <CalorieProgressPill consumed={0} goal={2000} />
+      <HeroActionPill model={caloriesModel(0, 2000)} />
     );
 
     // A visible rim/dot at 0 % was the "colours seem wrong" complaint: until you
@@ -140,9 +125,52 @@ describe('CalorieProgressPill', () => {
     expect(screen.getByRole('button')).not.toHaveClass('shadow-md');
   });
 
+  it('draws no outline at all for a metric without a goal', () => {
+    const { container } = render(
+      <HeroActionPill
+        model={buildHeroActionModel({ metric: 'restingHr', restingHr: 61 })}
+      />
+    );
+
+    const pill = screen.getByRole('button', {
+      name: 'Resting heart rate, 61 bpm. Open heart rate tracker',
+    });
+    expect(pill).toHaveTextContent('61 bpm');
+    const progress = getProgressRect(container);
+    expect(attrValue(progress, 'stroke-dasharray')).toBe('0 100');
+    expect(attrValue(progress, 'stroke-opacity')).toBe('0');
+  });
+
+  it('renders any metric from its model: steps, a phase without a unit', () => {
+    const { rerender } = render(
+      <HeroActionPill
+        model={buildHeroActionModel({
+          metric: 'steps',
+          steps: 5000,
+          stepGoal: 10000,
+        })}
+      />
+    );
+    expect(screen.getByRole('button')).toHaveTextContent(
+      '5,000 / 10,000 steps'
+    );
+
+    rerender(
+      <HeroActionPill
+        model={buildHeroActionModel({
+          metric: 'phase',
+          todayKey: '2026-11-24',
+          activePhase: { startDate: '2026-11-07', endDate: '2026-12-18' },
+        })}
+      />
+    );
+    // No trailing unit span, and the outline tracks days elapsed.
+    expect(screen.getByRole('button')).toHaveTextContent(/^Day 18 \/ 42$/);
+  });
+
   it('uses only theme tokens and no inline geometry', () => {
     const { container } = render(
-      <CalorieProgressPill consumed={1000} goal={2000} />
+      <HeroActionPill model={caloriesModel(1000, 2000)} />
     );
 
     const button = screen.getByRole('button');

@@ -59,6 +59,15 @@ import {
 } from '../constants/health/heartRate.js';
 
 import { normalizeOnTargetTolerance } from '../constants/goals/onTarget.js';
+import {
+  HERO_SLOT_FIELDS,
+  assignHeroSlot,
+  readHeroSlots,
+} from '../constants/appearance/heroAction.js';
+
+const HERO_FIELD_TO_SLOT = Object.fromEntries(
+  Object.entries(HERO_SLOT_FIELDS).map(([slot, field]) => [field, slot])
+);
 
 const SAVE_DEBOUNCE_MS = 1000;
 const DEFAULT_TRAINING_TYPE_CATALOG =
@@ -742,6 +751,34 @@ export const useEnergyMapStore = createWithEqualityFn(
           return next === prev.vo2MaxCustom
             ? prev
             : { ...prev, vo2MaxCustom: next };
+        }
+
+        // Home hero: the pill and the two tiles never show the same metric.
+        // Picking a metric another slot already shows swaps the two; Body Fat
+        // is refused while body fat tracking is off. The slots are settled
+        // first so a stale stored pick can't be swapped into place.
+        if (HERO_FIELD_TO_SLOT[field]) {
+          const options = {
+            bodyFatTrackingEnabled: prev.bodyFatTrackingEnabled !== false,
+          };
+          const current = readHeroSlots(prev, options);
+          const next = assignHeroSlot(
+            current,
+            HERO_FIELD_TO_SLOT[field],
+            value,
+            options
+          );
+          const unchanged = Object.entries(HERO_SLOT_FIELDS).every(
+            ([slot, slotField]) => prev[slotField] === next[slot]
+          );
+          if (unchanged) {
+            return prev;
+          }
+          const updated = { ...prev };
+          Object.entries(HERO_SLOT_FIELDS).forEach(([slot, slotField]) => {
+            updated[slotField] = next[slot];
+          });
+          return updated;
         }
 
         if (field === 'onTargetToleranceKcal') {

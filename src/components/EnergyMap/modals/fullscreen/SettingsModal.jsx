@@ -69,6 +69,18 @@ import {
   normalizeMotionPreferenceKey,
 } from '../../../../constants/appearance/motion';
 import {
+  HERO_ACTION_METRICS,
+  HERO_ACTION_OPTIONS,
+  HERO_SLOTS,
+  HERO_SLOT_FIELDS,
+  getHeroOptionsForSlot,
+  readHeroSlots,
+} from '../../../../constants/appearance/heroAction';
+import {
+  HERO_ACTION_ICONS_BY_KEY,
+  HERO_ACTION_ICON_KEY_BY_METRIC,
+} from '../../common/heroActionIcons';
+import {
   ON_TARGET_TOLERANCE_OPTIONS,
   normalizeOnTargetTolerance,
 } from '../../../../constants/goals/onTarget';
@@ -1507,6 +1519,15 @@ const AppearanceSection = ({ userData, onFieldChange }) => {
   const hasSeenSwipeHint = userData.hasSeenSwipeHint === true;
   const hasSeenMacroHint = userData.hasSeenMacroHint === true;
   const hasSeenPinHint = userData.hasSeenPinHint === true;
+  const bodyFatTrackingEnabled = userData.bodyFatTrackingEnabled !== false;
+  // The three Home slots as they will actually render: unique, with Body Fat
+  // stepped aside while tracking is off.
+  const heroSlots = readHeroSlots(userData, { bodyFatTrackingEnabled });
+  const heroSlotDescription = (slot) =>
+    (
+      HERO_ACTION_OPTIONS.find((option) => option.key === heroSlots[slot]) ??
+      HERO_ACTION_OPTIONS[0]
+    ).description;
 
   // One block per setting (the page staggers its blocks in); text size and
   // density apply live to the whole app, including this page, so there is no
@@ -1635,6 +1656,22 @@ const AppearanceSection = ({ userData, onFieldChange }) => {
         </div>
       </div>
 
+      {HERO_SLOT_SETTINGS.map(({ slot, label, hint }) => (
+        <div key={slot}>
+          <SettingLabel>{label}</SettingLabel>
+          <HeroMetricPicker
+            ariaLabel={label}
+            slot={slot}
+            slots={heroSlots}
+            bodyFatTrackingEnabled={bodyFatTrackingEnabled}
+            onSelect={(key) => onFieldChange?.(HERO_SLOT_FIELDS[slot], key)}
+          />
+          <p className="mt-2 text-xs text-muted">
+            {hint} {heroSlotDescription(slot)}
+          </p>
+        </div>
+      ))}
+
       <div>
         <SettingLabel>Tips</SettingLabel>
         <div className="space-y-2">
@@ -1664,6 +1701,78 @@ const AppearanceSection = ({ userData, onFieldChange }) => {
     </div>
   );
 };
+
+// Where each Home slot lives, for the settings rows and for the "in use" tags.
+const HERO_SLOT_SETTINGS = [
+  {
+    slot: HERO_SLOTS.PILL,
+    label: 'Home shortcut',
+    tag: 'Shortcut',
+    hint: 'The button beside the title.',
+  },
+  {
+    slot: HERO_SLOTS.LEFT,
+    label: 'Home left tile',
+    tag: 'Left tile',
+    hint: 'The first tile under the title (Weight by default).',
+  },
+  {
+    slot: HERO_SLOTS.RIGHT,
+    label: 'Home right tile',
+    tag: 'Right tile',
+    hint: 'The second tile (Body Fat by default).',
+  },
+];
+
+// One choice from the Home hero metric list, for one slot. A metric another
+// slot already shows is tagged with where it is: picking it swaps the two (the
+// store enforces "one metric, one slot"), so it is never refused. Body Fat is
+// disabled while body fat tracking is off, with the reason as its tooltip.
+const HeroMetricPicker = ({
+  ariaLabel,
+  slot,
+  slots,
+  bodyFatTrackingEnabled,
+  onSelect,
+}) => (
+  <div role="group" aria-label={ariaLabel} className="grid grid-cols-2 gap-2">
+    {getHeroOptionsForSlot(slot).map(({ key, label }) => {
+      const Icon =
+        HERO_ACTION_ICONS_BY_KEY[HERO_ACTION_ICON_KEY_BY_METRIC[key]];
+      const active = slots[slot] === key;
+      const unavailable =
+        key === HERO_ACTION_METRICS.BODY_FAT && !bodyFatTrackingEnabled;
+      const usedBy = active
+        ? null
+        : HERO_SLOT_SETTINGS.find((other) => slots[other.slot] === key);
+      return (
+        <SegmentedButton
+          key={key}
+          active={active}
+          activeClassName={BUTTON_ACTIVE_PRIMARY_CLASS}
+          aria-pressed={active}
+          disabled={unavailable}
+          title={unavailable ? 'Body fat tracking is off' : undefined}
+          onClick={() => onSelect(key)}
+        >
+          <span
+            className={`flex items-center gap-2 ${unavailable ? 'opacity-40' : ''}`}
+          >
+            <Icon size={18} aria-hidden="true" className="shrink-0" />
+            <span className="min-w-0 text-left">
+              <span className="block text-sm">{label}</span>
+              {usedBy && (
+                <span className="block text-[11px] font-normal text-muted">
+                  In {usedBy.tag.toLowerCase()}
+                </span>
+              )}
+            </span>
+          </span>
+        </SegmentedButton>
+      );
+    })}
+  </div>
+);
 
 // One-time coach-mark row: enabled only once the tip has been seen (an unseen
 // tip is already pending, so there is nothing to reset).

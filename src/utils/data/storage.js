@@ -15,6 +15,12 @@ import {
   normalizeMotionPreferenceKey,
 } from '../../constants/appearance/motion.js';
 import {
+  DEFAULT_HERO_ACTION_METRIC,
+  DEFAULT_HERO_TILE_LEFT_METRIC,
+  DEFAULT_HERO_TILE_RIGHT_METRIC,
+  readHeroSlots,
+} from '../../constants/appearance/heroAction.js';
+import {
   DEFAULT_ON_TARGET_TOLERANCE_KCAL,
   normalizeOnTargetTolerance,
 } from '../../constants/goals/onTarget.js';
@@ -1482,6 +1488,9 @@ export const getDefaultEnergyMapData = () => ({
   uiDensity: DEFAULT_UI_DENSITY_KEY, // 'compact' | 'default' | 'comfortable' (spacing/size unit)
   onTargetToleranceKcal: DEFAULT_ON_TARGET_TOLERANCE_KCAL, // 50 | 100 | 150 | 250: Daily Ledger "on target" band
   motionPreference: DEFAULT_MOTION_PREFERENCE_KEY, // 'system' | 'full' | 'reduced' | 'off' (animations)
+  heroActionMetric: DEFAULT_HERO_ACTION_METRIC, // Home hero pill readout (a HERO_ACTION_METRICS key)
+  heroTileLeftMetric: DEFAULT_HERO_TILE_LEFT_METRIC, // Home left tile (Weight by default)
+  heroTileRightMetric: DEFAULT_HERO_TILE_RIGHT_METRIC, // Home right tile (Body Fat by default; steps in for it while tracking is off)
   selectedGoal: 'maintenance',
   goalChangedAt: Date.now(),
   hasSeenSwipeHint: false,
@@ -1754,6 +1763,18 @@ function mergeWithDefaults(data) {
     motionPreference: normalizeMotionPreferenceKey(
       normalizedInput.motionPreference
     ),
+    // The three Home slots are settled together so a corrupt or hand-edited
+    // profile can never load with one metric in two slots. Body Fat is NOT
+    // dropped here (tracking may be switched back on); Home steps it aside at
+    // render time instead.
+    ...(() => {
+      const slots = readHeroSlots(normalizedInput);
+      return {
+        heroActionMetric: slots.pill,
+        heroTileLeftMetric: slots.left,
+        heroTileRightMetric: slots.right,
+      };
+    })(),
     selectedGoal: normalizeSelectedGoal(
       normalizedInput.selectedGoal,
       defaults.selectedGoal

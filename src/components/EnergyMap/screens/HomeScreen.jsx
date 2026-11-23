@@ -4,7 +4,6 @@ import {
   Activity,
   Edit3,
   ChevronRight,
-  AlertCircle,
   Dumbbell,
   Target,
   Heart,
@@ -38,7 +37,10 @@ import {
   formatPanelDate,
   getOldDataWarningText,
 } from '../../../utils/visuals/trackerHelpers';
-import { CalorieProgressPill } from '../common/CalorieProgressPill';
+import { HeroActionPill } from '../common/HeroActionPill';
+import { HeroActionTile } from '../common/HeroActionTile';
+import { readHeroSlots } from '../../../constants/appearance/heroAction';
+import { buildHeroActionModel } from '../../../utils/calculations/heroActionMetrics';
 import { HeartRateSourceGlyph } from '../common/HeartRateBadges';
 import {
   getHeartRateZone,
@@ -71,9 +73,6 @@ export const HomeScreen = memo(function HomeScreen({
   isGoalLocked,
   goalLockPhaseName,
   onGoalClick,
-  onLogFoodClick,
-  onBodyFatClick,
-  onWeightClick,
   bodyFatTrackingEnabled,
   onTrainingDayClick,
   onEditTrainingSession,
@@ -94,6 +93,7 @@ export const HomeScreen = memo(function HomeScreen({
   onOpenDailyActivityOverride,
   onOpenTodayBreakdown,
   calorieTargetCalories,
+  heroActionOpeners,
 }) {
   const store = useEnergyMapStore(
     (state) => ({
@@ -108,6 +108,8 @@ export const HomeScreen = memo(function HomeScreen({
       bodyFatEntries: state.bodyFatEntries ?? [],
       calculateTargetForGoal: state.calculateTargetForGoal,
       heartRateProfile: state.heartRateProfile,
+      activePhase: state.activePhase,
+      goalDailyBalanceTarget: state.goalDailyBalanceTarget,
     }),
     shallow
   );
@@ -337,6 +339,77 @@ export const HomeScreen = memo(function HomeScreen({
   const todayCalorieTarget = Number.isFinite(Number(calorieTargetCalories))
     ? Math.round(Number(calorieTargetCalories))
     : null;
+
+  // The hero's three configurable readouts (Settings -> Appearance -> Home):
+  // the pill beside the title and the two tiles. They default to calories,
+  // Weight and Body Fat; any slot can show any metric, and no metric can sit in
+  // two slots (`readHeroSlots` settles every pick - Body Fat steps aside while
+  // tracking is off). Models are pure and memoized on today's inputs.
+  const heroSlots = readHeroSlots(resolvedUserData, {
+    bodyFatTrackingEnabled: resolvedBodyFatTrackingEnabled !== false,
+  });
+  const heroExerciseBurn =
+    (Number(resolvedTrainingCalories) || 0) +
+    (Number(resolvedTotalCardioBurn) || 0);
+  const heroRestingHr = store.heartRateProfile?.restingHr ?? null;
+  const heroActivePhase = store.activePhase;
+  const heroBalanceTarget = store.goalDailyBalanceTarget;
+  const heroWeightReading = useMemo(
+    () => ({
+      display: currentWeight || null,
+      dateLabel: weightDateLabel,
+      warning: weightOldDataWarning,
+    }),
+    [currentWeight, weightDateLabel, weightOldDataWarning]
+  );
+  const heroBodyFatReading = useMemo(
+    () => ({
+      display: currentBodyFat || null,
+      dateLabel: bodyFatDateLabel,
+      warning: bodyFatOldDataWarning,
+    }),
+    [currentBodyFat, bodyFatDateLabel, bodyFatOldDataWarning]
+  );
+  const heroModels = useMemo(() => {
+    const inputs = {
+      userData: resolvedUserData,
+      todayKey: todayDateKey,
+      calorieTarget: todayCalorieTarget,
+      consumed: todayIntakeCalories,
+      proteinGrams: todayNutritionTotals?.protein,
+      steps: todayStepCount,
+      stepGoal: resolvedUserData?.stepGoal,
+      tdee: todayTdee,
+      goalDailyBalanceTarget: heroBalanceTarget,
+      activePhase: heroActivePhase,
+      restingHr: heroRestingHr,
+      exerciseBurn: heroExerciseBurn,
+      weight: heroWeightReading,
+      bodyFat: heroBodyFatReading,
+    };
+    return {
+      pill: buildHeroActionModel({ metric: heroSlots.pill, ...inputs }),
+      left: buildHeroActionModel({ metric: heroSlots.left, ...inputs }),
+      right: buildHeroActionModel({ metric: heroSlots.right, ...inputs }),
+    };
+  }, [
+    heroActivePhase,
+    heroBalanceTarget,
+    heroBodyFatReading,
+    heroExerciseBurn,
+    heroRestingHr,
+    heroSlots.left,
+    heroSlots.pill,
+    heroSlots.right,
+    heroWeightReading,
+    resolvedUserData,
+    todayCalorieTarget,
+    todayDateKey,
+    todayIntakeCalories,
+    todayNutritionTotals,
+    todayStepCount,
+    todayTdee,
+  ]);
 
   const todayNeatOverride =
     resolvedUserData?.dailyNeatOverrides?.[todayDateKey] ?? null;
@@ -663,78 +736,26 @@ export const HomeScreen = memo(function HomeScreen({
             </h1>
           </div>
           {/* The header gear already owns Settings from every screen, so this
-              action slot carries the one core job Home could not do: logging
-              today's food — plus the day's progress at a glance. */}
-          <CalorieProgressPill
-            consumed={todayIntakeCalories}
-            goal={todayCalorieTarget}
-            onPress={onLogFoodClick}
+              action slot carries one glanceable readout for today and the
+              screen behind it. It is configurable (Settings -> Appearance);
+              the default is calories eaten, which also starts a meal. */}
+          <HeroActionPill
+            model={heroModels.pill}
+            onPress={heroActionOpeners?.[heroSlots.pill]}
           />
         </div>
+        {/* Two configurable tiles (Settings -> Appearance -> Home). They default
+            to Weight and Body Fat, exactly as before, and either slot can show
+            any hero metric instead. Both render the same tile design. */}
         <div className="grid grid-cols-2 gap-3">
-          {/* ── Compact Weight widget ── */}
-          <button
-            onClick={onWeightClick}
-            type="button"
-            className="group relative w-full text-left bg-surface-highlight/50 rounded-xl p-3 md:p-4 border border-border/50 transition-all active:scale-[0.99] pressable-card focus-ring md:hover:bg-surface-highlight md:hover:border-border/80"
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-muted text-xs font-medium">Weight</p>
-                <p className="text-2xl md:text-3xl font-bold text-foreground leading-tight mt-1 flex items-baseline gap-1.5">
-                  <span className="shrink-0">
-                    {currentWeight ? `${currentWeight} kg` : '—'}
-                  </span>
-                  {weightOldDataWarning && (
-                    <span className="inline-flex items-center gap-0.5 text-accent-yellow text-[10px] font-medium truncate min-w-0">
-                      <AlertCircle size={10} className="shrink-0" />
-                      {weightOldDataWarning}
-                    </span>
-                  )}
-                </p>
-                <p className="text-muted text-[11px] mt-1 truncate">
-                  {weightDateLabel}
-                </p>
-              </div>
-              <ChevronRight
-                size={20}
-                className="text-muted/60 shrink-0 mt-1 md:group-hover:text-primary transition-colors"
-              />
-            </div>
-          </button>
-
-          {/* ── Compact Body Fat widget ── */}
-          {resolvedBodyFatTrackingEnabled && (
-            <button
-              onClick={onBodyFatClick}
-              type="button"
-              className="group relative w-full text-left bg-surface-highlight/50 rounded-xl p-3 md:p-4 border border-border/50 transition-all active:scale-[0.99] pressable-card focus-ring md:hover:bg-surface-highlight md:hover:border-border/80"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-muted text-xs font-medium">Body Fat %</p>
-                  <p className="text-2xl md:text-3xl font-bold text-foreground leading-tight mt-1 flex items-baseline gap-1.5">
-                    <span className="shrink-0">
-                      {currentBodyFat ? `${currentBodyFat}%` : '—'}
-                    </span>
-                    {bodyFatOldDataWarning && (
-                      <span className="inline-flex items-center gap-0.5 text-accent-yellow text-[10px] font-medium truncate min-w-0">
-                        <AlertCircle size={10} className="shrink-0" />
-                        {bodyFatOldDataWarning}
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-muted text-[11px] mt-1 truncate">
-                    {bodyFatDateLabel}
-                  </p>
-                </div>
-                <ChevronRight
-                  size={20}
-                  className="text-muted/60 shrink-0 mt-1 md:group-hover:text-primary transition-colors"
-                />
-              </div>
-            </button>
-          )}
+          <HeroActionTile
+            model={heroModels.left}
+            onPress={heroActionOpeners?.[heroSlots.left]}
+          />
+          <HeroActionTile
+            model={heroModels.right}
+            onPress={heroActionOpeners?.[heroSlots.right]}
+          />
         </div>
 
         {/* Today's Activity Burn — folded into the hero */}

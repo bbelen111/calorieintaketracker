@@ -422,7 +422,7 @@ describe('EnergyMapCalculator (orchestrator integration)', () => {
       await screen.findByRole('heading', { name: 'Energy Map' })
     ).toBeInTheDocument();
     const mealPill = await screen.findByRole('button', {
-      name: /^Add meal, 0 of [\d,]+ kcal$/,
+      name: /^Calories today, 0 of \d+ kcal\. Add meal$/,
     });
     expect(mealPill).toHaveTextContent(/0 \/ [\d,]+ kcal/);
 
@@ -455,7 +455,121 @@ describe('EnergyMapCalculator (orchestrator integration)', () => {
 
     // Store mutation -> orchestrator props -> HomeScreen -> the pill's readout.
     expect(
-      await screen.findByRole('button', { name: /^Add meal, 500 of/ })
+      await screen.findByRole('button', { name: /^Calories today, 500 of/ })
+    ).toBeInTheDocument();
+  });
+
+  it('lets the Home pill show another metric without adding an extra add-meal button', async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await hydrateStore();
+    await findTabBar();
+
+    await screen.findByRole('button', { name: /^Calories today,/ });
+
+    await act(async () => {
+      get().handleUserDataChange('heroActionMetric', 'steps');
+    });
+
+    // The pill swaps cleanly to steps with no extra "+" tacked on beside it.
+    const stepsPill = await screen.findByRole('button', {
+      name: /^Steps today,.*Open step tracker$/,
+    });
+    expect(stepsPill).toHaveTextContent(/0 \/ [\d,]+ steps/);
+    expect(
+      screen.queryByRole('button', { name: /^Calories today,/ })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Add meal' })
+    ).not.toBeInTheDocument();
+
+    // Tapping the pill opens its target tracker.
+    await user.click(stepsPill);
+    expect(
+      await screen.findByRole('heading', { name: 'Step Tracker' })
+    ).toBeInTheDocument();
+  });
+
+  it('makes both Home tiles replaceable: Weight and Body Fat are just two options', async () => {
+    renderApp();
+    await hydrateStore();
+    await findTabBar();
+
+    await act(async () => {
+      get().handleUserDataChange('bodyFatTrackingEnabled', true);
+      get().handleUserDataChange('heroActionMetric', 'calories');
+      get().handleUserDataChange('heroTileLeftMetric', 'weight');
+      get().handleUserDataChange('heroTileRightMetric', 'bodyFat');
+    });
+
+    // Out of the box Home looks as it always did.
+    expect(
+      await screen.findByRole('button', {
+        name: /^Weight,.*Open weight tracker$/,
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /^Body fat,.*Open body fat tracker$/ })
+    ).toBeInTheDocument();
+
+    // Replace the Weight tile with steps: Weight is simply gone from Home.
+    await act(async () => {
+      get().handleUserDataChange('heroTileLeftMetric', 'steps');
+    });
+    expect(
+      await screen.findByRole('button', { name: /^Steps today,/ })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /^Weight,/ })
+    ).not.toBeInTheDocument();
+
+    // Pointing the pill at a metric a tile already shows swaps them instead of
+    // repeating it: steps moves up, the tile takes calories.
+    await act(async () => {
+      get().handleUserDataChange('heroActionMetric', 'steps');
+    });
+    expect(
+      await screen.findByRole('button', { name: /^Calories today,/ })
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByRole('button', { name: /^Steps today,/ })
+    ).toHaveLength(1);
+  });
+
+  it('steps Body Fat aside while tracking is off and brings it back with tracking', async () => {
+    renderApp();
+    await hydrateStore();
+    await findTabBar();
+
+    await act(async () => {
+      get().handleUserDataChange('bodyFatTrackingEnabled', true);
+      get().handleUserDataChange('heroActionMetric', 'calories');
+      get().handleUserDataChange('heroTileLeftMetric', 'weight');
+      get().handleUserDataChange('heroTileRightMetric', 'bodyFat');
+    });
+    expect(
+      await screen.findByRole('button', { name: /^Body fat,/ })
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      get().handleUserDataChange('bodyFatTrackingEnabled', false);
+    });
+
+    // No hole in the row: the slot shows the next free metric instead.
+    expect(
+      await screen.findByRole('button', { name: /^Steps today,/ })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /^Body fat,/ })
+    ).not.toBeInTheDocument();
+    // The stored pick is untouched, so it returns with tracking.
+    expect(get().userData.heroTileRightMetric).toBe('bodyFat');
+
+    await act(async () => {
+      get().handleUserDataChange('bodyFatTrackingEnabled', true);
+    });
+    expect(
+      await screen.findByRole('button', { name: /^Body fat,/ })
     ).toBeInTheDocument();
   });
 });
