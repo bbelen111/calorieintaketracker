@@ -275,6 +275,32 @@ describe('store - markSwipeHintSeen', () => {
   });
 });
 
+describe('store - markMacroHintSeen', () => {
+  it('flips the one-time flag and short-circuits on repeat calls', () => {
+    expect(get().userData.hasSeenMacroHint).toBe(false);
+
+    get().markMacroHintSeen();
+    const afterFirst = get().userData;
+    expect(afterFirst.hasSeenMacroHint).toBe(true);
+
+    get().markMacroHintSeen();
+    expect(get().userData).toBe(afterFirst);
+  });
+});
+
+describe('store - markPinHintSeen', () => {
+  it('flips the one-time flag and short-circuits on repeat calls', () => {
+    expect(get().userData.hasSeenPinHint).toBe(false);
+
+    get().markPinHintSeen();
+    const afterFirst = get().userData;
+    expect(afterFirst.hasSeenPinHint).toBe(true);
+
+    get().markPinHintSeen();
+    expect(get().userData).toBe(afterFirst);
+  });
+});
+
 describe('store - setDailyNeatOverride', () => {
   it('ignores an invalid date key', () => {
     const before = get().userData;

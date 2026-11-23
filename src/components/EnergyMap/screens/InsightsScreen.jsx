@@ -1,13 +1,5 @@
 import React, { memo, useMemo } from 'react';
-import {
-  Info,
-  PieChart,
-  LineChart,
-  AlertCircle,
-  Beef,
-  Droplet,
-  Cookie,
-} from 'lucide-react';
+import { Info, LineChart, AlertCircle } from 'lucide-react';
 import {
   calculateWeightTrend,
   createSparklinePoints,
@@ -38,10 +30,6 @@ import {
   formatSnapshotDate,
   getOldDataWarningText,
 } from '../../../utils/visuals/trackerHelpers';
-import {
-  calculateMacroRecommendations,
-  normalizeMacroRecommendationSplit,
-} from '../../../utils/calculations/macroRecommendations';
 import { shallow } from 'zustand/shallow';
 import { Gauge, ChevronRight, BarChart3 } from 'lucide-react';
 import { getTodayDateKey } from '../../../utils/data/dateKeys';
@@ -364,12 +352,9 @@ export const InsightsScreen = memo(function InsightsScreen({
   onOpenBodyFatTracker,
   onOpenBmiInfo,
   onOpenFfmiInfo,
-  targetCalories = 2500,
-  onOpenMacroPicker,
   onOpenAdaptiveThermogenesis,
   onOpenRollingEnergyBalance,
   onOpenHeartRateTracker,
-  macroLocks,
 }) {
   const store = useEnergyMapStore(
     (state) => ({
@@ -377,7 +362,6 @@ export const InsightsScreen = memo(function InsightsScreen({
       weightEntries: state.weightEntries ?? [],
       bodyFatEntries: state.bodyFatEntries ?? [],
       goalDurationDays: state.goalDurationDays ?? 0,
-      macroLocks: state.userData.macroLocks ?? undefined,
       goalDailyBalanceTarget: state.goalDailyBalanceTarget,
     }),
     shallow
@@ -386,7 +370,6 @@ export const InsightsScreen = memo(function InsightsScreen({
   const resolvedUserData = userData ?? store.userData;
   const resolvedWeightEntries = weightEntries ?? store.weightEntries;
   const resolvedBodyFatEntries = bodyFatEntries ?? store.bodyFatEntries;
-  const resolvedMacroLocks = macroLocks ?? store.macroLocks;
   const resolvedBodyFatTrackingEnabled =
     typeof bodyFatTrackingEnabled === 'boolean'
       ? bodyFatTrackingEnabled
@@ -524,24 +507,6 @@ export const InsightsScreen = memo(function InsightsScreen({
   const bodyFatVisualStyle = useMemo(
     () => getGoalAlignedStyle(bodyFatTrend, selectedGoal, 'bodyFat'),
     [bodyFatTrend, selectedGoal]
-  );
-
-  const macroSplit = useMemo(
-    () =>
-      normalizeMacroRecommendationSplit(
-        resolvedUserData.macroRecommendationSplit
-      ),
-    [resolvedUserData.macroRecommendationSplit]
-  );
-  const macroRecommendation = useMemo(
-    () =>
-      calculateMacroRecommendations({
-        targetCalories,
-        macroSplit,
-        userData: resolvedUserData,
-        macroLocks: resolvedMacroLocks,
-      }),
-    [macroSplit, resolvedMacroLocks, resolvedUserData, targetCalories]
   );
 
   // Adaptive Thermogenesis preview (matches what the store applies today).
@@ -1030,45 +995,6 @@ export const InsightsScreen = memo(function InsightsScreen({
         summary={rollingBalanceSummary}
         onOpen={onOpenRollingEnergyBalance}
       />
-      <div className="bg-surface rounded-2xl py-4 px-4 border border-border shadow-lg">
-        <button
-          type="button"
-          onClick={() => onOpenMacroPicker?.()}
-          className="w-full flex items-center justify-between p-2 rounded-xl transition-all group pressable-card focus-ring"
-        >
-          <div className="flex items-center gap-3">
-            <PieChart className="text-accent-blue" size={28} />
-            <div className="text-left">
-              <h2 className="text-lg font-bold text-foreground">
-                Macro Targets
-              </h2>
-              <p className="text-muted text-sm">
-                Tap to edit your macro targets
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <Beef className="text-accent-red" size={18} />
-              <span className="text-foreground font-semibold text-sm">
-                {macroRecommendation.grams.protein} g
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Droplet className="text-accent-yellow" size={18} />
-              <span className="text-foreground font-semibold text-sm">
-                {macroRecommendation.grams.fats} g
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Cookie className="text-accent-amber" size={18} />
-              <span className="text-foreground font-semibold text-sm">
-                {macroRecommendation.grams.carbs} g
-              </span>
-            </div>
-          </div>
-        </button>
-      </div>
     </div>
   );
 });

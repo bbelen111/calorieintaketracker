@@ -1501,6 +1501,8 @@ const AppearanceSection = ({ userData, onFieldChange }) => {
   const densityKey = normalizeUiDensityKey(userData.uiDensity);
   const motionKey = normalizeMotionPreferenceKey(userData.motionPreference);
   const hasSeenSwipeHint = userData.hasSeenSwipeHint === true;
+  const hasSeenMacroHint = userData.hasSeenMacroHint === true;
+  const hasSeenPinHint = userData.hasSeenPinHint === true;
 
   // One block per setting (the page staggers its blocks in); text size and
   // density apply live to the whole app, including this page, so there is no
@@ -1630,40 +1632,69 @@ const AppearanceSection = ({ userData, onFieldChange }) => {
       </div>
 
       <div>
-        <SettingLabel>Swipe tip</SettingLabel>
-        <button
-          type="button"
-          disabled={!hasSeenSwipeHint}
-          onClick={() => onFieldChange?.('hasSeenSwipeHint', false)}
-          aria-label="Show swipe tip again"
-          className={`w-full px-4 py-3 rounded-lg border transition-all text-left flex items-center justify-between gap-3 focus-ring ${
-            hasSeenSwipeHint
-              ? 'bg-surface-highlight text-foreground border-border md:hover:border-muted/50 pressable-inline'
-              : 'bg-surface-highlight/40 text-muted border-border/60 cursor-not-allowed'
-          }`}
-        >
-          <span className="flex items-center gap-3 min-w-0">
-            <Lightbulb
-              size={18}
-              aria-hidden="true"
-              className={`shrink-0 ${
-                hasSeenSwipeHint ? 'text-accent-amber' : 'text-muted'
-              }`}
-            />
-            <span className="min-w-0">
-              <span className="block font-medium text-base">
-                {hasSeenSwipeHint ? 'Show again' : 'Waiting to be shown'}
-              </span>
-              <span className="block text-xs text-muted">
-                The “Swipe between screens” hint in the header
-              </span>
-            </span>
-          </span>
-        </button>
+        <SettingLabel>Tips</SettingLabel>
+        <div className="space-y-2">
+          <TipResetRow
+            title="Swipe tip"
+            ariaLabel="Show swipe tip again"
+            description="The “Swipe between screens” hint in the header"
+            seen={hasSeenSwipeHint}
+            onReset={() => onFieldChange?.('hasSeenSwipeHint', false)}
+          />
+          <TipResetRow
+            title="Macro tip"
+            ariaLabel="Show macro tip again"
+            description="The “Tap your macros” hint on the Tracker screen"
+            seen={hasSeenMacroHint}
+            onReset={() => onFieldChange?.('hasSeenMacroHint', false)}
+          />
+          <TipResetRow
+            title="Pin tip"
+            ariaLabel="Show pin tip again"
+            description="The “Hold a food to pin it” hint in Food Search"
+            seen={hasSeenPinHint}
+            onReset={() => onFieldChange?.('hasSeenPinHint', false)}
+          />
+        </div>
       </div>
     </div>
   );
 };
+
+// One-time coach-mark row: enabled only once the tip has been seen (an unseen
+// tip is already pending, so there is nothing to reset).
+const TipResetRow = ({ title, ariaLabel, description, seen, onReset }) => (
+  <button
+    type="button"
+    disabled={!seen}
+    onClick={onReset}
+    aria-label={ariaLabel}
+    className={`w-full px-4 py-3 rounded-lg border transition-all text-left flex items-center justify-between gap-3 focus-ring ${
+      seen
+        ? 'bg-surface-highlight text-foreground border-border md:hover:border-muted/50 pressable-inline'
+        : 'bg-surface-highlight/40 text-muted border-border/60 cursor-not-allowed'
+    }`}
+  >
+    <span className="flex items-center gap-3 min-w-0">
+      <Lightbulb
+        size={18}
+        aria-hidden="true"
+        className={`shrink-0 ${seen ? 'text-accent-amber' : 'text-muted'}`}
+      />
+      <span className="min-w-0">
+        <span className="block font-medium text-base">{title}</span>
+        <span className="block text-xs text-muted">{description}</span>
+      </span>
+    </span>
+    <span
+      className={`shrink-0 text-xs font-semibold ${
+        seen ? 'text-accent-blue' : 'text-muted'
+      }`}
+    >
+      {seen ? 'Show again' : 'Pending'}
+    </span>
+  </button>
+);
 
 const EpocSection = ({
   epocEnabled,

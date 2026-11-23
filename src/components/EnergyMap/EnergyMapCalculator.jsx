@@ -596,6 +596,7 @@ export const EnergyMapCalculator = () => {
     updateDailyLog,
     deleteDailyLog,
     markSwipeHintSeen,
+    markMacroHintSeen,
   } = useEnergyMapStore(
     (state) => ({
       isLoaded: state.isLoaded,
@@ -646,6 +647,7 @@ export const EnergyMapCalculator = () => {
       setStepGoal: state.setStepGoal,
       setDailyNeatOverride: state.setDailyNeatOverride,
       markSwipeHintSeen: state.markSwipeHintSeen,
+      markMacroHintSeen: state.markMacroHintSeen,
       nutritionData: state.nutritionData,
       pinnedFoods: state.pinnedFoods,
       cachedFoods: state.cachedFoods,
@@ -4779,6 +4781,10 @@ export const EnergyMapCalculator = () => {
                     selectedCalorieTargetData.targetCalories
                   }
                   onOpenCalorieTargetModal={openCalorieTargetPicker}
+                  onOpenMacroPicker={openMacroPickerModal}
+                  isScreenActive={visibleScreen === trackerIndex}
+                  macroHintSeen={userData.hasSeenMacroHint === true}
+                  onMacroHintSeen={markMacroHintSeen}
                 />
               </div>
 
@@ -4867,14 +4873,9 @@ export const EnergyMapCalculator = () => {
                   onOpenBodyFatTracker={openBodyFatTracker}
                   onOpenBmiInfo={bmiModal.open}
                   onOpenFfmiInfo={ffmiModal.open}
-                  targetCalories={
-                    selectedCalorieTargetData.targetCalories ?? 2500
-                  }
-                  onOpenMacroPicker={openMacroPickerModal}
                   onOpenAdaptiveThermogenesis={adaptiveThermogenesisModal.open}
                   onOpenRollingEnergyBalance={rollingEnergyBalanceModal.open}
                   onOpenHeartRateTracker={openHeartRateTracker}
-                  macroLocks={userData.macroLocks}
                 />
               </div>
             </div>

@@ -1444,6 +1444,24 @@ export const useEnergyMapStore = createWithEqualityFn(
       });
     },
 
+    markMacroHintSeen: () => {
+      updateUserData(set, get, (prev) => {
+        if (prev.hasSeenMacroHint === true) {
+          return prev;
+        }
+        return { ...prev, hasSeenMacroHint: true };
+      });
+    },
+
+    markPinHintSeen: () => {
+      updateUserData(set, get, (prev) => {
+        if (prev.hasSeenPinHint === true) {
+          return prev;
+        }
+        return { ...prev, hasSeenPinHint: true };
+      });
+    },
+
     setDailyNeatOverride: (dateKey, overrideOrNull) => {
       const normalizedDate = normalizeDateKey(dateKey);
       if (!normalizedDate) {

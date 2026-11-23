@@ -23,6 +23,7 @@ import {
   CloudOff,
   Sparkles,
   Utensils,
+  Pin,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useReducedMotionPreference } from '../../../../hooks/useMotionMode';
@@ -294,6 +295,8 @@ const loadFoodCatalogModule = async () => {
   return foodCatalogModulePromise;
 };
 
+const PIN_HINT_DURATION_MS = 5000;
+
 let openRouterModulePromise = null;
 const loadOpenRouterModule = async () => {
   if (!openRouterModulePromise) {
@@ -331,6 +334,8 @@ export const FoodSearchModal = ({
     pinnedFoods: storePinnedFoods,
     cachedFoods: storeCachedFoods,
     foodSearchDefaultEntry,
+    hasSeenPinHint,
+    markPinHintSeen,
     togglePinnedFood,
     updateCachedFoods,
   } = useEnergyMapStore(
@@ -339,6 +344,8 @@ export const FoodSearchModal = ({
       pinnedFoods: state.pinnedFoods,
       cachedFoods: state.cachedFoods,
       foodSearchDefaultEntry: state.userData?.foodSearchDefaultEntry,
+      hasSeenPinHint: state.userData?.hasSeenPinHint === true,
+      markPinHintSeen: state.markPinHintSeen,
       togglePinnedFood: state.togglePinnedFood,
       updateCachedFoods: state.updateCachedFoods,
     }),
@@ -410,6 +417,10 @@ export const FoodSearchModal = ({
   const skipNextClickRef = useRef(false);
   const mealTypeDropdownRef = useRef(null);
   const [longPressingId, setLongPressingId] = useState(null);
+  // One-time "hold a food to pin it" helper (see the latch after the skeleton
+  // rules below). Declared up here so the long-press handler can dismiss it.
+  const [isPinHintVisible, setIsPinHintVisible] = useState(false);
+  const [hasPinHintShown, setHasPinHintShown] = useState(false);
   const [isMealTypeMenuOpen, setIsMealTypeMenuOpen] = useState(false);
   const [isMealPreviewOpen, setIsMealPreviewOpen] = useState(false);
   const [isMealCountFlashing, setIsMealCountFlashing] = useState(false);
@@ -1372,6 +1383,8 @@ export const FoodSearchModal = ({
       if (resolvedTogglePin) {
         resolvedTogglePin(foodId);
         skipNextClickRef.current = true;
+        // They found the gesture - the helper has done its job.
+        setIsPinHintVisible(false);
       }
       setLongPressingId(null);
       longPressTimerRef.current = null;
@@ -1910,6 +1923,33 @@ export const FoodSearchModal = ({
     searchMode === 'local' &&
     (isFirstLocalLoad ||
       (isLocalSearching && visibleDisplayResults.length === 0));
+
+  // One-time pin helper: shown the first time real result rows are on screen,
+  // recorded as seen immediately (so it never returns, even if the modal is
+  // closed mid-hint), and faded by a timer or by the first successful pin.
+  // Visibility is derived in render; the effect only writes the store flag and
+  // arms the timer callback. `hasPinHintShown` is a local latch because the
+  // persisted flag lands a render later.
+  const canShowPinHint =
+    isOpen &&
+    !isClosing &&
+    viewMode === 'search' &&
+    !showLocalSkeleton &&
+    visibleDisplayResults.length > 0;
+  if (canShowPinHint && !hasSeenPinHint && !hasPinHintShown) {
+    setHasPinHintShown(true);
+    setIsPinHintVisible(true);
+  }
+
+  useEffect(() => {
+    if (!isPinHintVisible) return undefined;
+    markPinHintSeen?.();
+    const timer = setTimeout(
+      () => setIsPinHintVisible(false),
+      PIN_HINT_DURATION_MS
+    );
+    return () => clearTimeout(timer);
+  }, [isPinHintVisible, markPinHintSeen]);
 
   useEffect(() => {
     if (viewMode !== 'search') {
@@ -3712,6 +3752,39 @@ export const FoodSearchModal = ({
 
               {/* Search Results */}
               <div className="flex-1 min-h-0 px-4 py-4 relative">
+                {/* One-time pin helper. Flex centering (not translate) because
+                    Motion owns the inner element's transform; pointer-
+                    transparent so it never eats a press on the list. */}
+                <div
+                  role="status"
+                  className="pointer-events-none absolute inset-x-0 bottom-6 z-10 flex justify-center"
+                >
+                  <AnimatePresence>
+                    {isPinHintVisible && canShowPinHint && (
+                      <motion.div
+                        key="pin-hint"
+                        initial={
+                          prefersReducedMotion ? false : { opacity: 0, y: 8 }
+                        }
+                        animate={{
+                          opacity: 1,
+                          y: 0,
+                          transition: { duration: 0.22, delay: 0.35 },
+                        }}
+                        exit={{
+                          opacity: 0,
+                          y: 8,
+                          transition: { duration: 0.22 },
+                        }}
+                      >
+                        <span className="flex items-center gap-1.5 rounded-full border border-border/40 bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-lg">
+                          <Pin size={14} aria-hidden="true" />
+                          Hold a food to pin it to the top
+                        </span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
                 <div className="h-full overflow-y-auto overflow-x-hidden touch-action-pan-y space-y-2">
                   <AnimatePresence mode="wait" initial={false}>
                     {viewMode === 'favourites' ? (

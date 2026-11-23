@@ -1480,6 +1480,8 @@ export const getDefaultEnergyMapData = () => ({
   selectedGoal: 'maintenance',
   goalChangedAt: Date.now(),
   hasSeenSwipeHint: false,
+  hasSeenMacroHint: false,
+  hasSeenPinHint: false,
   phaseGoalCalorieDelta: null,
   phaseGoalCalorieDeltaSourcePhaseId: null,
   smartTefEnabled: false,

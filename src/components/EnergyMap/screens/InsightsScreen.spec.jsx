@@ -20,12 +20,10 @@ const renderScreen = (props = {}) =>
       weightEntries={[]}
       bodyFatEntries={[]}
       bodyFatTrackingEnabled
-      targetCalories={2500}
       onOpenWeightTracker={vi.fn()}
       onOpenBodyFatTracker={vi.fn()}
       onOpenBmiInfo={vi.fn()}
       onOpenFfmiInfo={vi.fn()}
-      onOpenMacroPicker={vi.fn()}
       onOpenAdaptiveThermogenesis={vi.fn()}
       onOpenRollingEnergyBalance={vi.fn()}
       onOpenHeartRateTracker={vi.fn()}

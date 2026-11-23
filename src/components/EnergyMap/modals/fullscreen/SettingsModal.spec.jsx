@@ -382,6 +382,56 @@ describe('SettingsModal segmented navigation', () => {
     ).toBeDisabled();
   });
 
+  it('lets the macro tip be shown again only once it has been seen', async () => {
+    const user = userEvent.setup();
+    const onFieldChange = vi.fn();
+    const { unmount } = render(
+      <SettingsHarness
+        onFieldChange={onFieldChange}
+        userData={createUserData({ hasSeenMacroHint: true })}
+      />
+    );
+    await user.click(screen.getByRole('button', { name: 'Open Appearance' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Show macro tip again' })
+    );
+    expect(onFieldChange).toHaveBeenLastCalledWith('hasSeenMacroHint', false);
+    unmount();
+
+    render(
+      <SettingsHarness userData={createUserData({ hasSeenMacroHint: false })} />
+    );
+    await user.click(screen.getByRole('button', { name: 'Open Appearance' }));
+    expect(
+      screen.getByRole('button', { name: 'Show macro tip again' })
+    ).toBeDisabled();
+  });
+
+  it('lets the pin tip be shown again only once it has been seen', async () => {
+    const user = userEvent.setup();
+    const onFieldChange = vi.fn();
+    const { unmount } = render(
+      <SettingsHarness
+        onFieldChange={onFieldChange}
+        userData={createUserData({ hasSeenPinHint: true })}
+      />
+    );
+    await user.click(screen.getByRole('button', { name: 'Open Appearance' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Show pin tip again' })
+    );
+    expect(onFieldChange).toHaveBeenLastCalledWith('hasSeenPinHint', false);
+    unmount();
+
+    render(
+      <SettingsHarness userData={createUserData({ hasSeenPinHint: false })} />
+    );
+    await user.click(screen.getByRole('button', { name: 'Open Appearance' }));
+    expect(
+      screen.getByRole('button', { name: 'Show pin tip again' })
+    ).toBeDisabled();
+  });
+
   it('exposes food search, macro and cached-food controls on Food & Macros', async () => {
     const user = userEvent.setup();
     const onFieldChange = vi.fn();

@@ -16,6 +16,7 @@ import {
   Calendar,
   CalendarCog,
   Settings2,
+  PieChart,
 } from 'lucide-react';
 import {
   MEAL_TYPE_ORDER,
@@ -42,6 +43,8 @@ import { formatFoodDisplayName } from '../../../utils/food/foodPresentation';
 import { MicroStat } from '../common/MicroStat';
 
 const getTodayDate = () => getTodayDateKey();
+
+const MACRO_HINT_DURATION_MS = 5000;
 
 // Circular progress bar component
 const CircularProgress = ({ percent, color, size = 120, strokeWidth = 10 }) => {
@@ -150,6 +153,10 @@ export const TrackerScreen = memo(function TrackerScreen({
   calorieTargetLabel = '',
   calorieTargetCalories = 2500,
   onOpenCalorieTargetModal,
+  onOpenMacroPicker,
+  isScreenActive = false,
+  macroHintSeen = true,
+  onMacroHintSeen,
 }) {
   const store = useEnergyMapStore(
     (state) => ({
@@ -166,6 +173,30 @@ export const TrackerScreen = memo(function TrackerScreen({
     macroRecommendationSplit ?? store.macroRecommendationSplit
   );
   const resolvedMacroLocks = macroLocks ?? store.macroLocks;
+
+  // One-time macro helper: appears the first time this screen is the visible
+  // one, is recorded as seen immediately (so it never returns, even if the user
+  // swipes away mid-hint), and fades out on its own timer or on the first tap.
+  // Visibility is derived in render (no setState-in-effect); the effect only
+  // writes the store flag and arms the timer callback.
+  const [macroHintVisible, setMacroHintVisible] = useState(false);
+  // Local "already shown" latch: the persisted flag lands a render later, and
+  // must not be what stops the hint from re-triggering after it fades.
+  const [macroHintShown, setMacroHintShown] = useState(false);
+  if (isScreenActive && !macroHintSeen && !macroHintShown) {
+    setMacroHintShown(true);
+    setMacroHintVisible(true);
+  }
+  useEffect(() => {
+    if (!macroHintVisible) return undefined;
+    onMacroHintSeen?.();
+    const timer = setTimeout(
+      () => setMacroHintVisible(false),
+      MACRO_HINT_DURATION_MS
+    );
+    return () => clearTimeout(timer);
+  }, [macroHintVisible, onMacroHintSeen]);
+
   // Support controlled (selectedDateProp + onSelectedDateChange) or uncontrolled mode
   const [internalSelectedDate, setInternalSelectedDate] = useState(
     selectedDateProp || getTodayDate()
@@ -892,7 +923,61 @@ export const TrackerScreen = memo(function TrackerScreen({
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-6">
+        {/* The whole macro ring area opens the macro split picker */}
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label="Edit macro split"
+          onClick={() => {
+            setMacroHintVisible(false);
+            onOpenMacroPicker?.();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setMacroHintVisible(false);
+              onOpenMacroPicker?.();
+            }
+          }}
+          className="relative grid grid-cols-3 gap-6 rounded-xl transition-all pressable-card focus-ring"
+        >
+          {/* Anchored with flex centering (not translate) because Motion owns
+              the inner element's transform. Pointer-transparent: a tap on the
+              bubble is a tap on the rings. */}
+          <div
+            role="status"
+            className="pointer-events-none absolute inset-x-0 bottom-full z-10 mb-1 flex justify-center"
+          >
+            <AnimatePresence>
+              {macroHintVisible && (
+                <motion.div
+                  key="macro-hint"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{
+                    opacity: 1,
+                    y: 0,
+                    transition: { duration: 0.22, delay: 0.35 },
+                  }}
+                  exit={{ opacity: 0, y: 6, transition: { duration: 0.22 } }}
+                  className="flex flex-col items-center"
+                >
+                  <span className="flex items-center gap-1.5 rounded-full border border-border/40 bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-lg">
+                    <PieChart size={14} aria-hidden="true" />
+                    Tap your macros to edit the split
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className="-mt-1 h-2 w-2 rotate-45 bg-primary"
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+          <PieChart
+            className="absolute -top-1 right-0 text-muted/70"
+            size={14}
+            aria-hidden="true"
+          />
           {/* Protein */}
           <div className="flex flex-col items-center">
             <div className="relative">
