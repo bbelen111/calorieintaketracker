@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, Save, Trash2, X } from 'lucide-react';
-import { ModalShell } from '../../common/ModalShell';
-import { DateInput } from '../../common/DateInput';
+import { Camera, X } from 'lucide-react';
+import { TrackerEntryModal } from '../../common/TrackerEntryModal';
 import { HeartRatePicker } from '../pickers/HeartRatePickerModal';
 import { getTodayDateKey } from '../../../../utils/data/dateKeys';
 import {
@@ -31,50 +30,42 @@ const CAMERA_FAILURES = {
     'The signal was too noisy to trust, so nothing was filled in. Try again holding still.',
 };
 
+const IDLE_CAMERA = { state: 'idle', message: null, progress: 0 };
+
 const findEntryForDate = (entries, dateKey) =>
   (Array.isArray(entries) ? entries : []).find(
     (entry) => entry?.date === dateKey
   ) ?? null;
 
-/** What the wheel should show for a day: its reading, else the default. */
-const getEntryValue = (entry) =>
-  normalizeRestingHeartRate(entry?.restingHr) ?? DEFAULT_RESTING_HEART_RATE_BPM;
-
 /**
  * Morning resting heart rate (manual), for one date.
  *
- * Same shape as the weight / body fat entry modals: the wheel lives in the
- * modal and the date is a `DateInput`. A manual reading is never overwritten
- * by a synced one; "Clear" removes only the manual value (a watch's reading
- * for the day then shows again). Keyed by the orchestrator per open, so its
- * state is fresh each time.
+ * A thin wrapper over the shared `TrackerEntryModal`, exactly like the weight
+ * and body fat entry modals: add/edit title, date locked while editing,
+ * confirmed delete, error line and settle-relayed wheel drafts all come from
+ * the shell, and the draft (`mode` / `date` / `bpm` / `error`) is owned by the
+ * orchestrator. What is specific here: the wheel's bounds, the note about what
+ * the day already holds (a watch reading is never overwritten — a manual one
+ * is layered over it, and deleting the manual reading only removes that), and
+ * the experimental camera measurement. Keyed by the orchestrator per open, so
+ * the camera state is fresh each time.
  */
 export const RestingHeartRateEntryModal = ({
   isOpen,
   isClosing,
-  dateKey,
+  mode = 'add',
+  date,
+  bpm,
   entries = [],
-  onSave,
-  onClear,
+  error,
+  onDateChange,
+  onBpmChange,
   onCancel,
+  onSave,
+  onDelete,
 }) => {
-  const todayKey = getTodayDateKey();
-  const [date, setDate] = useState(dateKey ?? todayKey);
-  const existingEntry = findEntryForDate(entries, date);
-  const [value, setValue] = useState(
-    getEntryValue(findEntryForDate(entries, dateKey ?? todayKey))
-  );
-  const [camera, setCamera] = useState({
-    state: 'idle',
-    message: null,
-    progress: 0,
-  });
+  const [camera, setCamera] = useState(IDLE_CAMERA);
   const measurementRef = useRef(null);
-
-  const existingManual =
-    existingEntry?.restingHrMethod === 'manual'
-      ? existingEntry.restingHr
-      : null;
 
   const stopCamera = useCallback(() => {
     measurementRef.current?.cancel();
@@ -88,19 +79,6 @@ export const RestingHeartRateEntryModal = ({
     }
   }, [isOpen, stopCamera]);
   useEffect(() => stopCamera, [stopCamera]);
-
-  // Picking a day that already has a reading loads it; a day without one
-  // keeps whatever the wheel shows.
-  const handleDateChange = (nextDate) => {
-    if (!nextDate) {
-      return;
-    }
-    setDate(nextDate);
-    const nextEntry = findEntryForDate(entries, nextDate);
-    if (normalizeRestingHeartRate(nextEntry?.restingHr) != null) {
-      setValue(getEntryValue(nextEntry));
-    }
-  };
 
   const handleCameraMeasure = async () => {
     stopCamera();
@@ -128,11 +106,11 @@ export const RestingHeartRateEntryModal = ({
     }
     measurementRef.current = null;
     if (outcome.reason === 'cancelled') {
-      setCamera({ state: 'idle', message: null, progress: 0 });
+      setCamera(IDLE_CAMERA);
       return;
     }
-    const bpm = normalizeRestingHeartRate(outcome.bpm);
-    if (bpm == null) {
+    const measured = normalizeRestingHeartRate(outcome.bpm);
+    if (measured == null) {
       setCamera({
         state: 'failed',
         message: CAMERA_FAILURES[outcome.reason] ?? CAMERA_FAILURES.quality,
@@ -140,148 +118,109 @@ export const RestingHeartRateEntryModal = ({
       });
       return;
     }
-    setValue(bpm);
+    onBpmChange?.(measured);
     setCamera({
       state: 'done',
-      message: `Measured ${bpm} bpm (signal quality ${Math.round(
+      message: `Measured ${measured} bpm (signal quality ${Math.round(
         outcome.quality * 100
       )}%). Check it looks right before saving.`,
       progress: 1,
     });
   };
 
-  const normalizedValue = normalizeRestingHeartRate(value);
+  const existingEntry = findEntryForDate(entries, date);
   const methodLabel = describeRestingHrMethod(existingEntry?.restingHrMethod);
   const isCameraRunning = camera.state === 'running';
 
   return (
-    <ModalShell
+    <TrackerEntryModal
       isOpen={isOpen}
       isClosing={isClosing}
-      onClose={onCancel}
-      contentClassName="p-6 w-full max-w-lg"
-    >
-      <h3 className="text-foreground font-bold text-xl text-center mb-5">
-        Resting Heart Rate
-      </h3>
-
-      <div className="space-y-4">
-        <div
-          className={isCameraRunning ? 'opacity-60 pointer-events-none' : ''}
-        >
-          <p className="text-muted text-xs text-center mb-2 uppercase tracking-wide">
-            BPM
+      mode={mode}
+      title={
+        mode === 'edit' ? 'Edit Resting Heart Rate' : 'Add Resting Heart Rate'
+      }
+      unitLabel="BPM"
+      value={bpm}
+      onValueChange={onBpmChange}
+      Picker={HeartRatePicker}
+      pickerProps={{
+        value: bpm,
+        min: RESTING_HEART_RATE_MIN_BPM,
+        max: RESTING_HEART_RATE_MAX_BPM,
+        defaultValue: DEFAULT_RESTING_HEART_RATE_BPM,
+      }}
+      pickerLocked={isCameraRunning}
+      date={date}
+      onDateChange={onDateChange}
+      dateMax={getTodayDateKey()}
+      dateNote={
+        methodLabel && existingEntry?.restingHr != null ? (
+          <p className="text-muted text-xs mt-1">
+            This day: current {existingEntry.restingHr} bpm ({methodLabel})
           </p>
-          <HeartRatePicker
-            value={value}
-            onChange={(bpm) => setValue(bpm)}
-            min={RESTING_HEART_RATE_MIN_BPM}
-            max={RESTING_HEART_RATE_MAX_BPM}
-            defaultValue={DEFAULT_RESTING_HEART_RATE_BPM}
-          />
-        </div>
-
-        <div>
-          <label className="text-muted text-sm block mb-2">Entry Date</label>
-          <div className="relative">
-            <DateInput
-              value={date}
-              onChange={handleDateChange}
-              max={todayKey}
-              className="w-full bg-surface-highlight text-foreground px-4 py-2 rounded-lg border border-border focus:outline-hidden focus-ring focus:border-accent-blue"
-            />
+        ) : null
+      }
+      error={error}
+      deleteTitle="Delete resting heart rate?"
+      deleteDescription="This removes your manual reading for the selected day. A watch reading, if there is one, will show again."
+      saveDisabled={isCameraRunning}
+      onCancel={onCancel}
+      onSave={onSave}
+      onDelete={onDelete}
+    >
+      {isCameraPulseSupported() && (
+        <div className="rounded-lg border border-border bg-surface-highlight/40 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-foreground text-sm font-medium">
+                Measure with camera
+              </p>
+              <p className="text-muted text-[11px]">
+                Experimental · resting and still only
+              </p>
+            </div>
+            {isCameraRunning ? (
+              <button
+                type="button"
+                onClick={() => {
+                  stopCamera();
+                  setCamera(IDLE_CAMERA);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-surface-highlight px-3 py-2 text-sm text-foreground focus-ring pressable-inline"
+              >
+                <X size={16} /> Stop
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleCameraMeasure}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-accent-blue/15 px-3 py-2 text-sm font-medium text-accent-blue focus-ring pressable-inline"
+              >
+                <Camera size={16} /> Measure
+              </button>
+            )}
           </div>
-          {methodLabel && existingEntry?.restingHr != null && (
-            <p className="text-muted text-xs mt-1">
-              This day: current {existingEntry.restingHr} bpm ({methodLabel})
+          {camera.message && (
+            <p
+              className={`mt-2 text-xs ${
+                camera.state === 'failed' ? 'text-accent-orange' : 'text-muted'
+              }`}
+              aria-live="polite"
+            >
+              {camera.message}
             </p>
           )}
-        </div>
-
-        {isCameraPulseSupported() && (
-          <div className="rounded-lg border border-border bg-surface-highlight/40 p-3">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-foreground text-sm font-medium">
-                  Measure with camera
-                </p>
-                <p className="text-muted text-[11px]">
-                  Experimental · resting and still only
-                </p>
-              </div>
-              {isCameraRunning ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    stopCamera();
-                    setCamera({ state: 'idle', message: null, progress: 0 });
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-surface-highlight px-3 py-2 text-sm text-foreground focus-ring pressable-inline"
-                >
-                  <X size={16} /> Stop
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleCameraMeasure}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-accent-blue/15 px-3 py-2 text-sm font-medium text-accent-blue focus-ring pressable-inline"
-                >
-                  <Camera size={16} /> Measure
-                </button>
-              )}
+          {isCameraRunning && (
+            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-highlight">
+              <div
+                className="h-full bg-accent-red transition-[width] duration-300"
+                style={{ width: `${Math.round(camera.progress * 100)}%` }}
+              />
             </div>
-            {camera.message && (
-              <p
-                className={`mt-2 text-xs ${
-                  camera.state === 'failed'
-                    ? 'text-accent-orange'
-                    : 'text-muted'
-                }`}
-                aria-live="polite"
-              >
-                {camera.message}
-              </p>
-            )}
-            {isCameraRunning && (
-              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-highlight">
-                <div
-                  className="h-full bg-accent-red transition-[width] duration-300"
-                  style={{ width: `${Math.round(camera.progress * 100)}%` }}
-                />
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="flex gap-3 mt-6">
-        {existingManual != null && (
-          <button
-            type="button"
-            onClick={() => onClear?.(date)}
-            aria-label="Clear manual reading"
-            className="px-4 py-3 rounded-lg bg-accent-red/15 text-accent-red focus-ring press-feedback"
-          >
-            <Trash2 size={20} />
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={onCancel}
-          className="flex-1 bg-surface-highlight text-foreground px-6 py-3 rounded-lg font-medium focus-ring press-feedback"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          disabled={normalizedValue == null || isCameraRunning}
-          onClick={() => onSave?.(date, normalizedValue)}
-          className="flex-1 bg-primary text-primary-foreground px-6 py-3 rounded-lg flex items-center justify-center gap-2 font-medium focus-ring press-feedback disabled:opacity-60"
-        >
-          <Save size={20} />
-          Save
-        </button>
-      </div>
-    </ModalShell>
+          )}
+        </div>
+      )}
+    </TrackerEntryModal>
   );
 };

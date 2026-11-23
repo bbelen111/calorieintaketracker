@@ -30,7 +30,11 @@ import { useHardwareBackButton } from '../../hooks/useHardwareBackButton';
 import { useHealthConnect } from '../../hooks/useHealthConnect';
 import { useFoodCatalogWarmUp } from '../../hooks/useFoodCatalogWarmUp';
 import { HealthConnectStatus } from '../../constants/health/healthSources.js';
-import { normalizeSessionHeartRate } from '../../constants/health/heartRate.js';
+import {
+  DEFAULT_RESTING_HEART_RATE_BPM,
+  normalizeRestingHeartRate,
+  normalizeSessionHeartRate,
+} from '../../constants/health/heartRate.js';
 import {
   applyHeartRateSummary,
   clearHeartRateFields,
@@ -957,10 +961,16 @@ export const EnergyMapCalculator = () => {
     MODAL_CLOSE_DELAY
   );
   const liveHeartRateModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
-  // The entry sheet is keyed by `version` so each open starts fresh.
+  // The entry draft follows the weight / body fat entry modals (`mode`, `date`,
+  // `originalDate`, `error`); the sheet is also keyed by `version` so each open
+  // starts with fresh camera state.
   const [restingHeartRateEntry, setRestingHeartRateEntry] = useState({
-    dateKey: null,
     version: 0,
+    mode: 'add',
+    date: null,
+    originalDate: null,
+    bpm: DEFAULT_RESTING_HEART_RATE_BPM,
+    error: '',
   });
   const [liveRecordingKind, setLiveRecordingKind] = useState('cardio');
   // ...existing code...
@@ -1583,23 +1593,38 @@ export const EnergyMapCalculator = () => {
         return entry.date === normalizedDate;
       });
 
-      if (hasConflict) {
-        setBodyFatEntryError(
-          'An entry already exists for this date. Edit that entry instead.'
+      const saveEntry = () => {
+        saveBodyFatEntry(
+          { date: normalizedDate, bodyFat: normalizedBodyFat },
+          originalDateKey
         );
+        setBodyFatEntryError('');
+        bodyFatEntryModal.requestClose();
+      };
+
+      if (hasConflict) {
+        if (bodyFatEntryMode === 'add') {
+          setConfirmActionTitle('Overwrite body fat entry?');
+          setConfirmActionDescription(
+            'A body fat entry already exists for this date. Do you want to overwrite it?'
+          );
+          setConfirmActionLabel('Overwrite');
+          setConfirmActionTone('default');
+          setConfirmActionCallback(() => saveEntry);
+          confirmActionModal.open();
+        } else {
+          setBodyFatEntryError(
+            'An entry already exists for this date. Edit that entry instead.'
+          );
+        }
         return;
       }
 
-      saveBodyFatEntry(
-        { date: normalizedDate, bodyFat: normalizedBodyFat },
-        originalDateKey
-      );
-
-      setBodyFatEntryError('');
-      bodyFatEntryModal.requestClose();
+      saveEntry();
     },
     [
       bodyFatEntries,
+      confirmActionModal,
       bodyFatEntryDraft.bodyFat,
       bodyFatEntryDraft.date,
       bodyFatEntryMode,
@@ -2151,34 +2176,153 @@ export const EnergyMapCalculator = () => {
     openHeartRateTrackerModal();
   }, [openHeartRateTrackerModal]);
 
-  // Opened with no argument (Insights card, Settings) it logs today; the HR
-  // tracker passes the tapped date.
-  const openRestingHeartRateEntry = useCallback(
-    (dateKey) => {
+  // Same split as the weight modal: the "Log" entry points (HR tracker button,
+  // Insights card, Settings) ALWAYS open an add for the given day (today when
+  // none) — a day that already holds a manual reading is then caught by the
+  // overwrite confirm on save — while re-tapping a point / its card opens an
+  // edit (date locked, delete offered) of that day's MANUAL reading. A day
+  // with only a watch reading is never edited: the manual value layers over it
+  // as an add, pre-filled with whatever the day shows. Entries are read from
+  // the store at call time so the openers stay referentially stable.
+  const openRestingHeartRateDraft = useCallback(
+    (dateKey, wantsEdit) => {
+      const date = normalizeDateKey(dateKey) ?? getTodayDateKey();
+      const entry =
+        (useEnergyMapStore.getState().userData.heartRateEntries ?? []).find(
+          (candidate) => candidate?.date === date
+        ) ?? null;
+      const isEdit = wantsEdit && entry?.restingHrMethod === 'manual';
+
       setRestingHeartRateEntry((previous) => ({
-        dateKey: normalizeDateKey(dateKey) ?? getTodayDateKey(),
         version: previous.version + 1,
+        mode: isEdit ? 'edit' : 'add',
+        date,
+        originalDate: isEdit ? date : null,
+        bpm:
+          normalizeRestingHeartRate(entry?.restingHr) ??
+          DEFAULT_RESTING_HEART_RATE_BPM,
+        error: '',
       }));
       openRestingHeartRateEntryModal();
     },
     [openRestingHeartRateEntryModal]
   );
 
-  const handleRestingHeartRateSave = useCallback(
-    (dateKey, bpm) => {
-      useEnergyMapStore.getState().setManualRestingHeartRate(dateKey, bpm);
-      closeRestingHeartRateEntryModal();
-    },
-    [closeRestingHeartRateEntryModal]
+  const openRestingHeartRateEntry = useCallback(
+    (dateKey) => openRestingHeartRateDraft(dateKey, false),
+    [openRestingHeartRateDraft]
   );
 
-  const handleRestingHeartRateClear = useCallback(
-    (dateKey) => {
-      useEnergyMapStore.getState().setManualRestingHeartRate(dateKey, null);
-      closeRestingHeartRateEntryModal();
-    },
-    [closeRestingHeartRateEntryModal]
+  const editRestingHeartRateEntry = useCallback(
+    (dateKey) => openRestingHeartRateDraft(dateKey, true),
+    [openRestingHeartRateDraft]
   );
+
+  // `nextBpm` is the entry modal's live wheel value (the draft relays on a
+  // settle debounce, so it can lag one settle window behind; see
+  // handleWeightEntrySave). Falls back to the draft.
+  const handleRestingHeartRateSave = useCallback(
+    (nextBpm) => {
+      const normalizedDate = normalizeDateKey(restingHeartRateEntry.date);
+      if (!normalizedDate) {
+        setRestingHeartRateEntry((previous) => ({
+          ...previous,
+          error: 'Select a valid date.',
+        }));
+        return;
+      }
+
+      const normalizedBpm = normalizeRestingHeartRate(
+        Number.isFinite(Number(nextBpm)) ? nextBpm : restingHeartRateEntry.bpm
+      );
+      if (normalizedBpm == null) {
+        setRestingHeartRateEntry((previous) => ({
+          ...previous,
+          error: 'Select a valid resting heart rate.',
+        }));
+        return;
+      }
+
+      const originalDateKey =
+        restingHeartRateEntry.mode === 'edit'
+          ? restingHeartRateEntry.originalDate
+          : null;
+      // Only a manual reading is something to overwrite: a watch reading is
+      // never replaced, the manual value simply takes precedence over it.
+      const hasConflict =
+        normalizedDate !== originalDateKey &&
+        (useEnergyMapStore.getState().userData.heartRateEntries ?? []).some(
+          (entry) =>
+            entry?.date === normalizedDate && entry.restingHrMethod === 'manual'
+        );
+
+      const saveEntry = () => {
+        useEnergyMapStore
+          .getState()
+          .setManualRestingHeartRate(normalizedDate, normalizedBpm);
+        closeRestingHeartRateEntryModal();
+      };
+
+      if (hasConflict) {
+        setConfirmActionTitle('Overwrite resting heart rate?');
+        setConfirmActionDescription(
+          'A manual reading already exists for this date. Do you want to overwrite it?'
+        );
+        setConfirmActionLabel('Overwrite');
+        setConfirmActionTone('default');
+        setConfirmActionCallback(() => saveEntry);
+        confirmActionModal.open();
+        return;
+      }
+
+      saveEntry();
+    },
+    [
+      closeRestingHeartRateEntryModal,
+      confirmActionModal,
+      restingHeartRateEntry.bpm,
+      restingHeartRateEntry.date,
+      restingHeartRateEntry.mode,
+      restingHeartRateEntry.originalDate,
+    ]
+  );
+
+  const handleRestingHeartRateDelete = useCallback(() => {
+    const targetDate = normalizeDateKey(
+      restingHeartRateEntry.originalDate ?? restingHeartRateEntry.date
+    );
+    if (targetDate) {
+      useEnergyMapStore.getState().setManualRestingHeartRate(targetDate, null);
+    }
+    closeRestingHeartRateEntryModal();
+  }, [
+    closeRestingHeartRateEntryModal,
+    restingHeartRateEntry.date,
+    restingHeartRateEntry.originalDate,
+  ]);
+
+  const handleRestingHeartRateDateChange = useCallback((value) => {
+    if (!value) {
+      return;
+    }
+    setRestingHeartRateEntry((previous) => ({
+      ...previous,
+      date: value,
+      error: '',
+    }));
+  }, []);
+
+  const handleRestingHeartRateBpmChange = useCallback((value) => {
+    const sanitized = normalizeRestingHeartRate(value);
+    if (sanitized == null) {
+      return;
+    }
+    setRestingHeartRateEntry((previous) => ({
+      ...previous,
+      bpm: sanitized,
+      error: '',
+    }));
+  }, []);
 
   const openLiveHeartRate = useCallback(
     (kind) => {
@@ -5089,6 +5233,7 @@ export const EnergyMapCalculator = () => {
             isClosing={heartRateTrackerModal.isClosing}
             onClose={heartRateTrackerModal.requestClose}
             onAddReading={openRestingHeartRateEntry}
+            onEditReading={editRestingHeartRateEntry}
             onOpenZonesInfo={heartRateZonesInfoModal.open}
           />
         </Suspense>
@@ -5100,11 +5245,20 @@ export const EnergyMapCalculator = () => {
           key={restingHeartRateEntry.version}
           isOpen={restingHeartRateEntryModal.isOpen}
           isClosing={restingHeartRateEntryModal.isClosing}
-          dateKey={restingHeartRateEntry.dateKey}
+          mode={restingHeartRateEntry.mode}
+          date={restingHeartRateEntry.date}
+          bpm={restingHeartRateEntry.bpm}
           entries={userData.heartRateEntries}
-          onSave={handleRestingHeartRateSave}
-          onClear={handleRestingHeartRateClear}
+          error={restingHeartRateEntry.error}
+          onDateChange={handleRestingHeartRateDateChange}
+          onBpmChange={handleRestingHeartRateBpmChange}
           onCancel={restingHeartRateEntryModal.requestClose}
+          onSave={handleRestingHeartRateSave}
+          onDelete={
+            restingHeartRateEntry.mode === 'edit'
+              ? handleRestingHeartRateDelete
+              : undefined
+          }
         />
       )}
 

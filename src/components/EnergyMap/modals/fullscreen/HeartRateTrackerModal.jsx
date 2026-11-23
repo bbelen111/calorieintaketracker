@@ -124,6 +124,7 @@ export const HeartRateTrackerModal = ({
   isClosing,
   onClose,
   onAddReading,
+  onEditReading,
   onOpenZonesInfo,
 }) => {
   const { heartRateEntries, heartRateProfile } = useEnergyMapStore(
@@ -369,6 +370,22 @@ export const HeartRateTrackerModal = ({
     setZonesOpen(false);
   }, []);
 
+  // Same routing as the weight tracker's re-tap / card action: a day with a
+  // manual reading edits it; any other day (including one that only has a
+  // watch reading) adds one. The "Log" buttons never route here — they always
+  // add.
+  const openReadingForDay = useCallback(
+    (dateKey) => {
+      const entry = heartRateEntries.find((item) => item.date === dateKey);
+      if (entry?.restingHrMethod === 'manual') {
+        onEditReading?.(dateKey);
+      } else {
+        onAddReading?.(dateKey);
+      }
+    },
+    [heartRateEntries, onAddReading, onEditReading]
+  );
+
   const handleSlotTap = useCallback(
     (event, slot) => {
       if (!slot) {
@@ -377,12 +394,12 @@ export const HeartRateTrackerModal = ({
       event.stopPropagation();
       setZonesOpen(false);
       if (selectedKey === slot.date && !isMonthMode) {
-        onAddReading?.(slot.date);
+        openReadingForDay(slot.date);
         return;
       }
       setSelectedKey(slot.date);
     },
-    [isMonthMode, onAddReading, selectedKey]
+    [isMonthMode, openReadingForDay, selectedKey]
   );
 
   const handleViewModeChange = useCallback((nextMode) => {
@@ -1005,7 +1022,7 @@ export const HeartRateTrackerModal = ({
                 topPx={PLOT_TOP_PX}
                 actionLabel={isMonthMode ? null : 'Tap to edit reading'}
                 onAction={
-                  isMonthMode ? undefined : () => onAddReading?.(retainedKey)
+                  isMonthMode ? undefined : () => openReadingForDay(retainedKey)
                 }
                 ariaLabel="Selected resting heart rate"
               >

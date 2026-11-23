@@ -35,6 +35,7 @@ const renderModal = (props = {}) =>
       isClosing={false}
       onClose={vi.fn()}
       onAddReading={vi.fn()}
+      onEditReading={vi.fn()}
       onOpenZonesInfo={vi.fn()}
       {...props}
     />
@@ -125,11 +126,12 @@ describe('HeartRateTrackerModal', () => {
     expect(screen.getByText('Zone 3')).toBeVisible();
   });
 
-  it('tapping a day opens the card with an uncoloured vs-prev delta; re-tap edits', async () => {
+  it('tapping a day opens the card with an uncoloured vs-prev delta; re-tap edits its manual reading', async () => {
     const user = userEvent.setup();
     const onAddReading = vi.fn();
+    const onEditReading = vi.fn();
     seedReadings();
-    const { baseElement } = renderModal({ onAddReading });
+    const { baseElement } = renderModal({ onAddReading, onEditReading });
 
     const hitTargets = baseElement.querySelectorAll(
       'svg[aria-label="Resting heart rate chart"] rect.cursor-pointer'
@@ -145,15 +147,44 @@ describe('HeartRateTrackerModal', () => {
     expect(card).toHaveTextContent('-2 bpm');
 
     await user.click(last);
-    expect(onAddReading).toHaveBeenCalledWith(getTodayDateKey());
+    expect(onEditReading).toHaveBeenCalledWith(getTodayDateKey());
+    expect(onAddReading).not.toHaveBeenCalled();
   });
 
-  it('logs a reading for today from the log-resting bar once readings exist', async () => {
+  it('re-tapping a day that only has a watch reading adds a manual one instead', async () => {
     const user = userEvent.setup();
     const onAddReading = vi.fn();
+    const onEditReading = vi.fn();
     seedReadings();
-    renderModal({ onAddReading });
+    // Today now holds only a watch reading (no manual one to edit)
+    useEnergyMapStore
+      .getState()
+      .setManualRestingHeartRate(getTodayDateKey(), null);
+    useEnergyMapStore
+      .getState()
+      .saveHeartRateEntries([
+        { date: getTodayDateKey(), restingHr: 54, restingHrMethod: 'device' },
+      ]);
+    const { baseElement } = renderModal({ onAddReading, onEditReading });
+
+    const hitTargets = baseElement.querySelectorAll(
+      'svg[aria-label="Resting heart rate chart"] rect.cursor-pointer'
+    );
+    const last = hitTargets[hitTargets.length - 1];
+    await user.click(last);
+    await user.click(last);
+    expect(onAddReading).toHaveBeenCalledWith(getTodayDateKey());
+    expect(onEditReading).not.toHaveBeenCalled();
+  });
+
+  it('the log-resting bar always adds, even when today already has a manual reading', async () => {
+    const user = userEvent.setup();
+    const onAddReading = vi.fn();
+    const onEditReading = vi.fn();
+    seedReadings(); // includes a manual reading for today
+    renderModal({ onAddReading, onEditReading });
     await user.click(screen.getByRole('button', { name: 'Log resting' }));
     expect(onAddReading).toHaveBeenCalledWith(getTodayDateKey());
+    expect(onEditReading).not.toHaveBeenCalled();
   });
 });
