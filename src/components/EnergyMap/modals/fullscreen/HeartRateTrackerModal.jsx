@@ -410,13 +410,21 @@ export const HeartRateTrackerModal = ({
   // Sync status lives beside the log button (one bar for "add data" and
   // "where data comes from"). It stays out of the way when the platform has
   // no health store at all.
+  // Without the log button (12m mode, empty state) the row owns the whole bar:
+  // status text left-aligned, refresh/connect pinned to the right edge, instead
+  // of a right-hugging cluster with dead space on its left.
+  const showLogButton = hasAnyData && !isMonthMode;
   const syncControl =
     sync.status === HealthConnectStatus.UNAVAILABLE ? null : (
-      <div className="ml-auto flex min-w-0 items-center gap-2 text-[11px] text-muted">
+      <div
+        className={`flex min-w-0 items-center gap-2 text-[11px] text-muted ${
+          showLogButton ? 'ml-auto' : 'flex-1'
+        }`}
+      >
         {sync.status === HealthConnectStatus.CONNECTED ? (
           <>
             <Watch size={14} className="shrink-0 text-accent-green" />
-            <span className="min-w-0 leading-tight">
+            <span className="min-w-0 flex-1 leading-tight">
               <span className="block truncate">
                 Synced from {healthSourceName}
               </span>
@@ -442,10 +450,12 @@ export const HeartRateTrackerModal = ({
             </button>
           </>
         ) : sync.status === HealthConnectStatus.NOT_INSTALLED ? (
-          <span className="truncate">Install {healthSourceName} to sync</span>
+          <span className="min-w-0 flex-1 truncate">
+            Install {healthSourceName} to sync
+          </span>
         ) : (
           <>
-            <span className="min-w-0 truncate">
+            <span className="min-w-0 flex-1 truncate">
               {sync.error ?? `Sync from ${healthSourceName}`}
             </span>
             <button
@@ -462,7 +472,6 @@ export const HeartRateTrackerModal = ({
         )}
       </div>
     );
-  const showLogButton = hasAnyData && !isMonthMode;
 
   // Timeline labels under the plot (same grammar as the Weight tracker: a
   // label every N days counted back from today, year tucked under the first

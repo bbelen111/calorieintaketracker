@@ -1628,7 +1628,7 @@ export const WeightTrackerModal = ({
           ) : (
             <>
               {/* View mode toggle */}
-              <div className="px-4 pt-3 pb-1 shrink-0">
+              <div className="px-4 pt-3 pb-1 shrink-0 bg-surface">
                 <div className="relative flex items-center gap-2 p-1 bg-surface-highlight rounded-lg">
                   {/* Sliding pill */}
                   <div
@@ -1664,7 +1664,7 @@ export const WeightTrackerModal = ({
 
               {/* Dynamic stat cards */}
               <div
-                className={`px-4 pt-3 pb-3 grid gap-3 shrink-0 ${
+                className={`px-4 pt-3 pb-3 grid gap-3 shrink-0 bg-surface ${
                   viewMode === '12m'
                     ? 'grid-cols-2'
                     : 'grid-cols-2 md:grid-cols-4'
@@ -1929,7 +1929,7 @@ export const WeightTrackerModal = ({
 
               {/* Add Entry button (hidden in 12m mode) */}
               {viewMode !== '12m' ? (
-                <div className="sticky top-0 z-10 px-4 py-2 bg-surface/95 backdrop-blur-sm border-b border-border shrink-0">
+                <div className="sticky top-0 z-10 px-4 py-2 bg-surface border-b border-border shrink-0">
                   <button
                     type="button"
                     onClick={() => onAddEntry?.()}

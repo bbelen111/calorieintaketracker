@@ -11,8 +11,12 @@ const DEFAULT_TENSION = 0.4;
 /** Gaps up to this many days are bridged with a solid line. */
 export const GAP_SOLID_MAX_DAYS = 7;
 
-/** Gaps up to this many days (inclusive) are bridged with a dashed line. */
-export const GAP_DASHED_MAX_DAYS = 14;
+/**
+ * Gaps up to this many days (inclusive) are bridged with a dashed line. Longer
+ * gaps are bridged too (the dashes already mark the span as missing data), so
+ * a sparse log reads as one line instead of disconnected fragments.
+ */
+export const GAP_DASHED_MAX_DAYS = Infinity;
 
 /** Dash pattern used for bridged gaps longer than GAP_SOLID_MAX_DAYS. */
 export const GAP_DASH_PATTERN = '4 6';
@@ -36,6 +40,64 @@ export const bezierControlPoints = (
     cp1y: current.y,
     cp2x: next.x - dx * tension,
     cp2y: next.y,
+  };
+};
+
+/**
+ * Fritsch–Carlson monotone tangents (dy/dx at each point).
+ *
+ * Horizontal control points (see `bezierControlPoints`) make every data point
+ * a flat spot, so a dense sloped line turns into a staircase of S-curves.
+ * Monotone tangents follow the data instead: collinear points stay a straight
+ * line, and the curve never overshoots a local extremum.
+ */
+const monotoneTangents = (
+  points,
+  { flatStart = false, flatEnd = false } = {}
+) => {
+  const n = points.length;
+  const slopes = [];
+  for (let i = 0; i < n - 1; i++) {
+    const dx = points[i + 1].x - points[i].x;
+    slopes.push(dx === 0 ? 0 : (points[i + 1].y - points[i].y) / dx);
+  }
+
+  const tangents = new Array(n);
+  tangents[0] = slopes[0];
+  tangents[n - 1] = slopes[n - 2];
+  for (let i = 1; i < n - 1; i++) {
+    tangents[i] =
+      slopes[i - 1] * slopes[i] <= 0 ? 0 : (slopes[i - 1] + slopes[i]) / 2;
+  }
+
+  for (let i = 0; i < n - 1; i++) {
+    if (slopes[i] === 0) {
+      tangents[i] = 0;
+      tangents[i + 1] = 0;
+      continue;
+    }
+    const a = tangents[i] / slopes[i];
+    const b = tangents[i + 1] / slopes[i];
+    const magnitude = a * a + b * b;
+    if (magnitude > 9) {
+      const scale = 3 / Math.sqrt(magnitude);
+      tangents[i] = scale * a * slopes[i];
+      tangents[i + 1] = scale * b * slopes[i];
+    }
+  }
+
+  if (flatStart) tangents[0] = 0;
+  if (flatEnd) tangents[n - 1] = 0;
+  return tangents;
+};
+
+const monotoneControlPoints = (current, next, tangentCurrent, tangentNext) => {
+  const dx = next.x - current.x;
+  return {
+    cp1x: current.x + dx / 3,
+    cp1y: current.y + (tangentCurrent * dx) / 3,
+    cp2x: next.x - dx / 3,
+    cp2y: next.y - (tangentNext * dx) / 3,
   };
 };
 
@@ -71,7 +133,8 @@ const resolveEdgeExtension = (extendToEdges) => ({
  * @param {number}  [options.chartHeight]          - Total chart height (required for area baseline).
  * @param {boolean} [options.extendToEdges=false]  - Extend line to left/right edges.
  * @param {boolean} [options.singlePointStretch=false] - Stretch a single point across the viewport.
- * @param {number}  [options.tension=0.4]          - Bézier control-point tension.
+ * Segments use monotone cubic tangents (no tension option): the curve follows
+ * the data without wobbling between points or overshooting extremes.
  * @returns {{ pathData: string, areaData: string }}
  */
 export const buildBezierPaths = (points, options = {}) => {
@@ -80,7 +143,6 @@ export const buildBezierPaths = (points, options = {}) => {
     chartHeight = 0,
     extendToEdges = false,
     singlePointStretch = false,
-    tension = DEFAULT_TENSION,
   } = options;
 
   if (!points || points.length === 0) {
@@ -137,12 +199,18 @@ export const buildBezierPaths = (points, options = {}) => {
       ? `M 0 ${chartHeight} L 0 ${firstPoint.y} L ${firstPoint.x} ${firstPoint.y}`
       : `M ${firstPoint.x} ${chartHeight} L ${firstPoint.x} ${firstPoint.y}`;
 
-    // Cubic Bézier through each pair of consecutive points
+    // Monotone cubic through each pair of consecutive points. Where a leader
+    // or trailer is drawn, the end tangent is flat so the join stays smooth.
+    const tangents = monotoneTangents(points, {
+      flatStart: edges.left,
+      flatEnd: edges.right,
+    });
     for (let i = 0; i < points.length - 1; i++) {
-      const { cp1x, cp1y, cp2x, cp2y } = bezierControlPoints(
+      const { cp1x, cp1y, cp2x, cp2y } = monotoneControlPoints(
         points[i],
         points[i + 1],
-        tension
+        tangents[i],
+        tangents[i + 1]
       );
       const seg = ` C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${points[i + 1].x} ${points[i + 1].y}`;
       pathData += seg;

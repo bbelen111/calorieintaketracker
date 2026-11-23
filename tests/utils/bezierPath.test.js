@@ -70,21 +70,66 @@ test('medium gaps (8-14 days) bridge with a dashed run anchored at the previous 
   assert.deepEqual(runs[2].points, [{ x: 100, y: 12 }]);
 });
 
-test('wide gaps (>14 days) split the line instead of bridging', () => {
+test('wide gaps (>14 days) are still bridged with a dashed run', () => {
   const runs = buildGapAwarePathRuns([
     pt(0, 10),
     pt(10, 11),
-    // 20-day gap: interpolated slots must be dropped entirely
     pt(20, 12, { isInterpolated: true, gapLength: 20 }),
     pt(30, 13, { isInterpolated: true, gapLength: 20 }),
     pt(40, 14),
     pt(50, 15),
   ]);
 
+  assert.equal(runs.length, 3);
+  assert.equal(runs[0].dashArray, null);
+  assert.equal(runs[1].dashArray, GAP_DASH_PATTERN);
+  assert.deepEqual(runs[1].points[0], { x: 10, y: 11 });
+  assert.deepEqual(runs[1].points[runs[1].points.length - 1], { x: 40, y: 14 });
+  assert.equal(runs[2].dashArray, null);
+});
+
+test('an explicit dashedMaxGapDays still splits gaps wider than it', () => {
+  const runs = buildGapAwarePathRuns(
+    [
+      pt(0, 10),
+      pt(10, 11),
+      pt(20, 12, { isInterpolated: true, gapLength: 20 }),
+      pt(30, 13, { isInterpolated: true, gapLength: 20 }),
+      pt(40, 14),
+      pt(50, 15),
+    ],
+    { dashedMaxGapDays: 14 }
+  );
+
   assert.equal(runs.length, 2);
-  assert.equal(runs[0].points.length, 2);
-  assert.equal(runs[1].points.length, 2);
   runs.forEach((run) => assert.equal(run.dashArray, null));
+});
+
+test('collinear points render as a straight line, not a wobble', () => {
+  const { pathData } = buildBezierPaths(
+    [pt(0, 0), pt(10, 5), pt(20, 10), pt(30, 15)],
+    { chartWidth: 30, chartHeight: 20 }
+  );
+  const controls = [
+    ...pathData.matchAll(/C ([\d. -]+?) ([\d. -]+?) ([\d. -]+?) ([\d. -]+?) /g),
+  ];
+  assert.equal(controls.length, 3);
+  controls.forEach((m) => {
+    // every control point sits on y = x / 2
+    assert.ok(Math.abs(Number(m[2]) - Number(m[1]) / 2) < 1e-9);
+    assert.ok(Math.abs(Number(m[4]) - Number(m[3]) / 2) < 1e-9);
+  });
+});
+
+test('the curve never overshoots a local extremum', () => {
+  const { pathData } = buildBezierPaths([pt(0, 10), pt(10, 2), pt(20, 10)], {
+    chartWidth: 20,
+    chartHeight: 20,
+  });
+  const ys = [...pathData.matchAll(/-?\d+(?:\.\d+)? (-?\d+(?:\.\d+)?)/g)].map(
+    (m) => Number(m[1])
+  );
+  assert.ok(Math.min(...ys) >= 2);
 });
 
 test('a trailing bridge without a closing real point is discarded', () => {
