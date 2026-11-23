@@ -828,6 +828,14 @@
 
   body {
     margin: 0;
+    /* Text with no explicit size utility inherits this instead of the fixed
+       root font-size (the root stays 13.5px / 17px so the Text size setting
+       never grows the layout). Without this, unstyled text - e.g. the
+       Settings hub rows, section headings like "Heart rate" and the
+       Male/Female segment labels - silently ignored `--font-scale`.
+       Anything with a `text-*` utility or a fixed-px size still overrides
+       this; at the default scale it resolves to the same size as before. */
+    font-size: calc(1rem * var(--font-scale));
     font-family:
       'BarlowDigits',
       -apple-system,
