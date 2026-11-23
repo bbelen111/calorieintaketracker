@@ -290,6 +290,8 @@ test('historical/older-schema snapshots remain compatible', () => {
     tdee: 2400,
     intake: 2100,
     balance: 300,
+    // No recorded target: falls back to the nominal delta of its goal.
+    goalTarget: 300,
   });
 
   const result = run({ '2026-08-12': older }, 7);
@@ -305,4 +307,65 @@ test('empty / missing snapshot maps report no data without crashing', () => {
   const empty = run({}, 7);
   assert.equal(empty.estimatedWeightChangeKg, null);
   assert.equal(empty.balanceVariance, null);
+});
+
+test('expectedBalance judges each day against the target it was lived under', () => {
+  const snapshots = {
+    // Lived under a recorded +500 target (e.g. an aggressive phase).
+    '2026-08-10': {
+      date: '2026-08-10',
+      tdee: 2500,
+      intake: 2000,
+      goalTarget: 500,
+      goalAtSnapshot: 'cutting',
+    },
+    // Lived under maintenance.
+    '2026-08-11': {
+      date: '2026-08-11',
+      tdee: 2500,
+      intake: 2500,
+      goalTarget: 0,
+      goalAtSnapshot: 'maintenance',
+    },
+  };
+  const result = calculateRollingEnergyBalance({
+    snapshots,
+    windowDays: 7,
+    asOfDate: '2026-08-12',
+    // Today's target must NOT be applied to history.
+    goalDailyBalanceTarget: 300,
+  });
+
+  assert.equal(result.expectedBalance, 500);
+  assert.equal(result.rollingBalance, 500);
+  assert.equal(result.balanceVariance, 0);
+});
+
+test('expectedBalance falls back to the current target only for days with no target of their own', () => {
+  const snapshots = {
+    '2026-08-10': {
+      date: '2026-08-10',
+      tdee: 2500,
+      intake: 2200,
+      goalTarget: 300,
+    },
+    // No goalTarget and no goal: nothing to judge it by except the current target.
+    '2026-08-11': { date: '2026-08-11', tdee: 2500, intake: 2200 },
+  };
+
+  const withFallback = calculateRollingEnergyBalance({
+    snapshots,
+    windowDays: 7,
+    asOfDate: '2026-08-12',
+    goalDailyBalanceTarget: 200,
+  });
+  assert.equal(withFallback.expectedBalance, 500);
+
+  const withoutFallback = calculateRollingEnergyBalance({
+    snapshots,
+    windowDays: 7,
+    asOfDate: '2026-08-12',
+  });
+  assert.equal(withoutFallback.expectedBalance, null);
+  assert.equal(withoutFallback.balanceVariance, null);
 });

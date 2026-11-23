@@ -9,11 +9,19 @@ import {
   Target,
   Play,
   Archive,
+  Flame,
 } from 'lucide-react';
 import { goals } from '../../../constants/goals/goals';
 import { formatWeight } from '../../../utils/measurements/weight';
 import { calculatePhaseMetrics } from '../../../utils/phases/phases';
-import { isValidDaySnapshot } from '../../../utils/calculations/dayLedgerPresentation';
+import {
+  buildDayLedgerCardSummary,
+  DAY_LEDGER_BALANCE_META,
+  formatSignedKcal,
+} from '../../../utils/calculations/dayLedgerPresentation';
+import { getDailyBalanceKind } from '../../../utils/calculations/rollingEnergyBalance';
+import { InsightStatus } from '../common/InsightHeadline';
+import { normalizeOnTargetTolerance } from '../../../constants/goals/onTarget';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 
@@ -173,34 +181,275 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
   );
 };
 
-const DayLedgerCard = ({ dailySnapshots, onOpen }) => {
-  const trackedDays = useMemo(
-    () => Object.values(dailySnapshots ?? {}).filter(isValidDaySnapshot).length,
-    [dailySnapshots]
+// A day's bar spans 30–100 % of the strip height; 1,000 kcal either side of
+// maintenance fills it. The floor keeps a near-maintenance day visible.
+const STRIP_FULL_BAR_KCAL = 1000;
+const STRIP_MIN_BAR_PERCENT = 30;
+
+const getStripBarHeightPercent = (balance) => {
+  const ratio = Math.min(1, Math.abs(balance) / STRIP_FULL_BAR_KCAL);
+  return Math.round(
+    STRIP_MIN_BAR_PERCENT + ratio * (100 - STRIP_MIN_BAR_PERCENT)
   );
+};
+
+const formatStripDay = (dateKey) =>
+  formatDate(dateKey).replace(/,\s*\d{4}$/, '');
+
+/** "Oct 3", or "Oct 3, 2025" when it is not this year. */
+const formatSinceDate = (dateKey) => {
+  const full = formatDate(dateKey);
+  return dateKey.slice(0, 4) === String(new Date().getFullYear())
+    ? full.replace(/,\s*\d{4}$/, '')
+    : full;
+};
+
+/**
+ * The card's big number: the count beside a two-line unit ("days / logged").
+ * The unit column is centred against the number's height and keeps its two
+ * lines tight (a small gap, not spread across the full block), so it reads as
+ * one compact block at any text size (both scale with Text size).
+ */
+const LedgerHeadline = ({ value, singular }) => (
+  <span
+    data-testid="day-ledger-headline"
+    className="flex items-stretch justify-end gap-1.5"
+  >
+    <span className="text-4xl font-bold leading-none text-foreground">
+      {value}
+    </span>
+    <span
+      aria-hidden="true"
+      className="flex flex-col justify-center gap-1 text-left text-[11px] font-medium leading-none text-muted"
+    >
+      <span>{singular ? 'day' : 'days'}</span>
+      <span>logged</span>
+    </span>
+  </span>
+);
+
+const LedgerTile = ({ label, children }) => (
+  <div className="rounded-xl bg-surface-highlight/50 border border-border/50 px-3 py-2 min-w-0">
+    <p className="text-xs text-muted">{label}</p>
+    {children}
+  </div>
+);
+
+/** One "7 days ........ +280" row inside the average tile. */
+const LedgerAverageRow = ({ label, value }) => {
+  const meta =
+    value !== null ? DAY_LEDGER_BALANCE_META[getDailyBalanceKind(value)] : null;
+  return (
+    <p className="mt-0.5 flex items-baseline justify-between gap-2">
+      <span className="text-[11px] text-muted">{label}</span>
+      <span
+        className={`text-base font-bold ${meta?.textClass ?? 'text-muted'}`}
+      >
+        {value !== null ? formatSignedKcal(value) : '—'}
+      </span>
+    </p>
+  );
+};
+
+/**
+ * Logbook entry point to the Daily Ledger: a live preview of the last two
+ * weeks (one bar per finished day, coloured by balance kind exactly like the
+ * ledger's calendar and sized by how far the day landed from maintenance;
+ * bars that missed their goal target dim), how many of those days were on
+ * target, the goal streak, yesterday against its target and the 7/14-day
+ * average balance. Same card grammar as the Insights cards; the strip is the
+ * signature element. All numbers come from `buildDayLedgerCardSummary` -
+ * read-only snapshot projections; an unlogged day is a gap, never a zero.
+ */
+const DayLedgerCard = ({ dailySnapshots, selectedGoal, tolerance, onOpen }) => {
+  const summary = useMemo(
+    () =>
+      buildDayLedgerCardSummary({
+        snapshots: dailySnapshots,
+        currentGoal: selectedGoal,
+        tolerance,
+      }),
+    [dailySnapshots, selectedGoal, tolerance]
+  );
+  const {
+    trackedDays,
+    firstLoggedDate,
+    days,
+    yesterday,
+    streak,
+    judgedDays,
+    onTargetDays,
+    avgBalance7,
+    avgBalance14,
+  } = summary;
+  const hasData = trackedDays > 0;
+
+  const subtitle = firstLoggedDate
+    ? `Tracking since ${formatSinceDate(firstLoggedDate)}`
+    : 'Browse your day-by-day energy history';
+
+  const yesterdayMeta = yesterday
+    ? DAY_LEDGER_BALANCE_META[yesterday.kind]
+    : null;
 
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="bg-surface rounded-2xl w-full p-8 border border-border shadow-lg flex items-center justify-between mb-4"
-    >
-      <div className="flex items-center gap-3 min-w-0">
-        <CalendarRange className="text-accent-blue shrink-0" size={24} />
-        <div className="min-w-0">
-          <h2 className="text-foreground font-semibold">Daily Ledger</h2>
-          <p className="text-muted text-sm truncate">
-            {trackedDays > 0
-              ? `${trackedDays} day${trackedDays === 1 ? '' : 's'} tracked`
-              : 'Browse your day-by-day energy history'}
-          </p>
+    <div className="bg-surface rounded-2xl border border-border shadow-lg p-5 md:p-6">
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={
+          hasData
+            ? `Daily Ledger, ${trackedDays} ${trackedDays === 1 ? 'day' : 'days'} logged. Open`
+            : 'Daily Ledger. Open'
+        }
+        className="w-full text-left rounded-xl transition-all group pressable-card focus-ring"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1">
+            <CalendarRange className="text-accent-blue" size={30} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-bold text-foreground">Daily Ledger</h2>
+            <p className="text-muted text-sm truncate">{subtitle}</p>
+          </div>
+          <div className="shrink-0 text-right">
+            {hasData ? (
+              <LedgerHeadline
+                value={trackedDays.toLocaleString()}
+                singular={trackedDays === 1}
+              />
+            ) : (
+              <InsightStatus label="No days yet" />
+            )}
+          </div>
         </div>
-      </div>
-      <ChevronRight
-        className="text-muted md:group-hover:text-primary transition-colors shrink-0"
-        size={20}
-      />
-    </button>
+
+        {hasData ? (
+          <>
+            <div className="mt-4">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                <span className="text-xs text-muted">
+                  {judgedDays > 0
+                    ? `${onTargetDays} of ${judgedDays} logged ${
+                        judgedDays === 1 ? 'day' : 'days'
+                      } on target`
+                    : `Last ${summary.windowDays} days`}
+                </span>
+                {streak >= 2 && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-accent-orange/40 bg-accent-orange/15 px-2 py-0.5 text-[11px] font-semibold text-accent-orange">
+                    <Flame size={12} />
+                    {streak}-day {goals[summary.streakGoal]?.label ?? 'goal'}{' '}
+                    streak
+                  </span>
+                )}
+              </div>
+              <div
+                role="img"
+                aria-label={`${summary.loggedDays} of ${summary.windowDays} recent days logged`}
+                data-testid="day-ledger-strip"
+                className="flex h-9 items-end gap-1"
+              >
+                {days.map((day) => {
+                  const meta = day.kind
+                    ? DAY_LEDGER_BALANCE_META[day.kind]
+                    : null;
+                  return (
+                    <div
+                      key={day.date}
+                      title={formatStripDay(day.date)}
+                      className="flex h-full flex-1 items-end"
+                    >
+                      {meta ? (
+                        <div
+                          data-on-target={day.onTarget ? 'true' : 'false'}
+                          className={`w-full rounded-sm ${meta.dotClass} ${
+                            day.deviation === null || day.onTarget
+                              ? 'opacity-100'
+                              : 'opacity-50'
+                          }`}
+                          style={{
+                            height: `${getStripBarHeightPercent(day.balance)}%`,
+                          }}
+                        />
+                      ) : (
+                        <div className="h-1.5 w-full rounded-full bg-border/60" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted">
+                <span>{formatStripDay(days[0].date)}</span>
+                <span>Yesterday</span>
+              </div>
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <LedgerTile label="Yesterday">
+                {yesterday ? (
+                  <>
+                    <p
+                      className={`mt-0.5 text-base font-bold truncate ${yesterdayMeta.textClass}`}
+                    >
+                      {formatSignedKcal(yesterday.balance)}
+                      <span className="ml-1 text-[11px] font-medium text-muted">
+                        {yesterdayMeta.label}
+                      </span>
+                    </p>
+                    <p className="mt-0.5 text-[11px] truncate">
+                      {yesterday.deviation === null ? (
+                        <span className="text-muted">No target recorded</span>
+                      ) : yesterday.onTarget ? (
+                        <span className="font-semibold text-accent-green">
+                          On target
+                        </span>
+                      ) : (
+                        <span className="font-semibold text-accent-orange">
+                          {formatSignedKcal(yesterday.deviation)} vs target
+                        </span>
+                      )}
+                      {yesterday.target !== null && (
+                        <span className="text-muted">
+                          {' · '}target {formatSignedKcal(yesterday.target)}
+                        </span>
+                      )}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="mt-0.5 text-base font-bold text-muted">
+                      Not logged
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-muted">
+                      Nothing eaten yesterday
+                    </p>
+                  </>
+                )}
+              </LedgerTile>
+              <LedgerTile label="Average balance">
+                <LedgerAverageRow label="7 days" value={avgBalance7} />
+                <LedgerAverageRow label="14 days" value={avgBalance14} />
+              </LedgerTile>
+            </div>
+          </>
+        ) : (
+          <p className="mt-3 text-muted text-sm">
+            Log a day of food and it lands here: energy in, energy out, and the
+            balance between them, one day at a time.
+          </p>
+        )}
+
+        <div className="mt-3 flex items-center justify-between">
+          <span className="text-xs text-accent-blue/80">
+            {hasData ? 'Tap to browse every day' : 'Tap to open the ledger'}
+          </span>
+          <ChevronRight
+            size={16}
+            className="text-muted transition-colors md:group-hover:text-primary"
+          />
+        </div>
+      </button>
+    </div>
   );
 };
 
@@ -221,6 +470,8 @@ export const LogbookScreen = memo(function LogbookScreen({
       weightEntries: state.weightEntries ?? [],
       nutritionData: state.nutritionData ?? {},
       dailySnapshots: state.userData?.dailySnapshots ?? {},
+      selectedGoal: state.selectedGoal,
+      onTargetToleranceKcal: state.userData?.onTargetToleranceKcal,
     }),
     shallow
   );
@@ -344,6 +595,8 @@ export const LogbookScreen = memo(function LogbookScreen({
       {/* Daily Ledger entry card */}
       <DayLedgerCard
         dailySnapshots={store.dailySnapshots}
+        selectedGoal={store.selectedGoal}
+        tolerance={normalizeOnTargetTolerance(store.onTargetToleranceKcal)}
         onOpen={onOpenDayLedger}
       />
     </div>

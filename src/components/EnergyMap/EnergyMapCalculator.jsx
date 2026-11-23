@@ -5650,6 +5650,7 @@ export const EnergyMapCalculator = () => {
             weightEntries={weightEntries}
             bodyFatEntries={bodyFatEntries}
             bodyFatTrackingEnabled={userData.bodyFatTrackingEnabled}
+            onTargetTolerance={userData.onTargetToleranceKcal}
             selectedDate={dayLedgerSelectedDate}
             onSelectDay={handleDayLedgerSelectDay}
             onOpenDayDetail={handleOpenDayLedgerDetail}

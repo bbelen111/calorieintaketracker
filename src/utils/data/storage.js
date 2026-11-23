@@ -15,6 +15,10 @@ import {
   normalizeMotionPreferenceKey,
 } from '../../constants/appearance/motion.js';
 import {
+  DEFAULT_ON_TARGET_TOLERANCE_KCAL,
+  normalizeOnTargetTolerance,
+} from '../../constants/goals/onTarget.js';
+import {
   deleteHistoryDocumentsFromDexie,
   loadAllHistoryDocuments,
   saveHistoryToDexie,
@@ -1476,6 +1480,7 @@ export const getDefaultEnergyMapData = () => ({
   theme: 'auto', // 'auto' | 'dark' | 'light' | 'amoled_dark' | 'forest' | 'dawn' | 'dusk' | 'midnight'
   fontScale: DEFAULT_FONT_SCALE_KEY, // 'small' | 'default' | 'large' | 'xlarge' (text only)
   uiDensity: DEFAULT_UI_DENSITY_KEY, // 'compact' | 'default' | 'comfortable' (spacing/size unit)
+  onTargetToleranceKcal: DEFAULT_ON_TARGET_TOLERANCE_KCAL, // 50 | 100 | 150 | 250: Daily Ledger "on target" band
   motionPreference: DEFAULT_MOTION_PREFERENCE_KEY, // 'system' | 'full' | 'reduced' | 'off' (animations)
   selectedGoal: 'maintenance',
   goalChangedAt: Date.now(),
@@ -1669,9 +1674,22 @@ function mergeWithDefaults(data) {
         microsCoverage[key] = Boolean(snapshot?.microsCoverage?.[key]);
       });
 
+      // `goalTarget` (kcal, positive = deficit) is a finite number or null;
+      // legacy snapshots predate it and read as null (readers then fall back
+      // to the nominal delta of their goal).
+      const rawGoalTarget = snapshot.goalTarget;
+      const goalTarget =
+        rawGoalTarget !== null &&
+        rawGoalTarget !== undefined &&
+        rawGoalTarget !== '' &&
+        Number.isFinite(Number(rawGoalTarget))
+          ? Math.round(Number(rawGoalTarget))
+          : null;
+
       acc[normalizedDateKey] = {
         ...snapshot,
         date: normalizedDateKey,
+        goalTarget,
         micros,
         microsCoverage,
       };
@@ -1730,6 +1748,9 @@ function mergeWithDefaults(data) {
     // reaching the CSS variables.
     fontScale: normalizeFontScaleKey(normalizedInput.fontScale),
     uiDensity: normalizeUiDensityKey(normalizedInput.uiDensity),
+    onTargetToleranceKcal: normalizeOnTargetTolerance(
+      normalizedInput.onTargetToleranceKcal
+    ),
     motionPreference: normalizeMotionPreferenceKey(
       normalizedInput.motionPreference
     ),

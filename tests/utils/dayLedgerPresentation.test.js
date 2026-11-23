@@ -2,11 +2,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  buildDayLedgerCardSummary,
   buildDayLedgerRows,
+  describeGoalTarget,
   buildDaySnapshotPreview,
   formatSignedKcal,
   getAdjacentTrackedDates,
   getMeasurementForDate,
+  isDayOnTarget,
   isValidDaySnapshot,
   summarizeMonthSnapshots,
 } from '../../src/utils/calculations/dayLedgerPresentation.js';
@@ -626,4 +629,282 @@ test('buildDayLedgerDetailModel honors BF-off, NEAT override and phase context',
   // links empty + notes -> PARTIAL (never COMPLETE)
   assert.equal(model.phaseContext.complete, false);
   assert.equal(model.phaseContext.partial, true);
+});
+
+// Card fixtures: "today" is 2026-03-20, so the 14-day window is 03-06..03-19.
+const TODAY = '2026-03-20';
+const logged = (date, deficit, overrides = {}) =>
+  makeSnapshot({
+    date,
+    deficit,
+    tdee: 2500,
+    intake: 2500 - deficit,
+    goalAtSnapshot: 'cutting',
+    goalTarget: 300,
+    ...overrides,
+  });
+
+test('isDayOnTarget: inclusive band, unknown deviation is never on target', () => {
+  assert.equal(isDayOnTarget(100, 100), true);
+  assert.equal(isDayOnTarget(-100, 100), true);
+  assert.equal(isDayOnTarget(101, 100), false);
+  assert.equal(isDayOnTarget(null, 100), false);
+  assert.equal(isDayOnTarget(undefined, 100), false);
+});
+
+test('buildDayLedgerCardSummary: nothing logged yields gaps, never zeros', () => {
+  const empty = buildDayLedgerCardSummary({ snapshots: {}, todayKey: TODAY });
+  assert.equal(empty.trackedDays, 0);
+  assert.equal(empty.days.length, 14);
+  assert.equal(empty.days.at(-1).date, '2026-03-19');
+  assert.ok(
+    empty.days.every((day) => day.kind === null && day.balance === null)
+  );
+  assert.equal(empty.avgBalance7, null);
+  assert.equal(empty.avgBalance14, null);
+  assert.equal(empty.yesterday, null);
+  assert.equal(empty.streak, 0);
+
+  const invalidToday = buildDayLedgerCardSummary({
+    snapshots: { '2026-03-19': logged('2026-03-19', 300) },
+    todayKey: 'nope',
+  });
+  assert.equal(invalidToday.trackedDays, 1);
+  assert.deepEqual(invalidToday.days, []);
+});
+
+test('buildDayLedgerCardSummary: a seeded snapshot with no intake is not a logged day', () => {
+  const summary = buildDayLedgerCardSummary({
+    snapshots: {
+      '2026-03-18': logged('2026-03-18', 300),
+      // The app seeds yesterday on launch: valid snapshot, nothing eaten.
+      '2026-03-19': makeSnapshot({
+        date: '2026-03-19',
+        intake: 0,
+        deficit: 2500,
+        tdee: 2500,
+      }),
+    },
+    todayKey: TODAY,
+  });
+
+  assert.equal(summary.trackedDays, 1);
+  assert.equal(summary.loggedDays, 1);
+  assert.equal(summary.yesterday, null);
+  assert.equal(summary.days.at(-1).kind, null);
+});
+
+test('buildDayLedgerCardSummary: today never feeds the window', () => {
+  const summary = buildDayLedgerCardSummary({
+    snapshots: {
+      '2026-03-19': logged('2026-03-19', 280),
+      [TODAY]: logged(TODAY, 2000),
+    },
+    todayKey: TODAY,
+  });
+  assert.equal(
+    summary.days.some((day) => day.date === TODAY),
+    false
+  );
+  assert.equal(summary.avgBalance14, 280);
+  assert.equal(summary.yesterday.balance, 280);
+});
+
+test('buildDayLedgerCardSummary: deviation, on-target count and 7d/14d averages', () => {
+  const summary = buildDayLedgerCardSummary({
+    snapshots: {
+      '2026-03-19': logged('2026-03-19', 340), // +40  on target
+      '2026-03-18': logged('2026-03-18', 150), // -150 off
+      '2026-03-17': logged('2026-03-17', 300), //  0   on target
+      '2026-03-08': logged('2026-03-08', 600), // +300 off (outside the 7d window)
+    },
+    todayKey: TODAY,
+    tolerance: 100,
+  });
+
+  assert.equal(summary.yesterday.deviation, 40);
+  assert.equal(summary.yesterday.target, 300);
+  assert.equal(summary.loggedDays, 4);
+  assert.equal(summary.judgedDays, 4);
+  assert.equal(summary.onTargetDays, 2);
+  assert.equal(summary.avgBalance7, 263); // (340 + 150 + 300) / 3
+  assert.equal(summary.avgBalance14, 348); // (340 + 150 + 300 + 600) / 4
+
+  const strict = buildDayLedgerCardSummary({
+    snapshots: { '2026-03-19': logged('2026-03-19', 340) },
+    todayKey: TODAY,
+    tolerance: 30,
+  });
+  assert.equal(strict.onTargetDays, 0);
+});
+
+test("buildDayLedgerCardSummary: a legacy snapshot is judged against its goal's nominal delta", () => {
+  const legacy = logged('2026-03-19', 320);
+  delete legacy.goalTarget;
+  const summary = buildDayLedgerCardSummary({
+    snapshots: { '2026-03-19': legacy },
+    todayKey: TODAY,
+  });
+  assert.equal(summary.yesterday.target, 300);
+  assert.equal(summary.yesterday.onTarget, true);
+
+  const noGoal = logged('2026-03-19', 320);
+  delete noGoal.goalTarget;
+  delete noGoal.goalAtSnapshot;
+  const unjudged = buildDayLedgerCardSummary({
+    snapshots: { '2026-03-19': noGoal },
+    todayKey: TODAY,
+  });
+  assert.equal(unjudged.yesterday.target, null);
+  assert.equal(unjudged.judgedDays, 0);
+  assert.equal(unjudged.onTargetDays, 0);
+});
+
+test('buildDayLedgerCardSummary: streak = consecutive on-target days under the current goal', () => {
+  const snapshots = {
+    '2026-03-19': logged('2026-03-19', 310),
+    '2026-03-18': logged('2026-03-18', 290),
+    '2026-03-17': logged('2026-03-17', 300),
+    '2026-03-16': logged('2026-03-16', 900), // off target: breaks the run
+    '2026-03-15': logged('2026-03-15', 300),
+  };
+
+  const summary = buildDayLedgerCardSummary({
+    snapshots,
+    todayKey: TODAY,
+    currentGoal: 'cutting',
+  });
+  assert.equal(summary.streak, 3);
+  assert.equal(summary.streakGoal, 'cutting');
+
+  // The user switched goals: the old goal's run is not their streak.
+  assert.equal(
+    buildDayLedgerCardSummary({
+      snapshots,
+      todayKey: TODAY,
+      currentGoal: 'maintenance',
+    }).streak,
+    0
+  );
+
+  // A goal change inside the run ends it at the change.
+  const switched = buildDayLedgerCardSummary({
+    snapshots: {
+      ...snapshots,
+      '2026-03-17': logged('2026-03-17', 0, {
+        goalAtSnapshot: 'maintenance',
+        goalTarget: 0,
+      }),
+    },
+    todayKey: TODAY,
+    currentGoal: 'cutting',
+  });
+  assert.equal(switched.streak, 2);
+
+  // A missed (unlogged) day also ends it.
+  const gap = { ...snapshots };
+  delete gap['2026-03-18'];
+  assert.equal(
+    buildDayLedgerCardSummary({
+      snapshots: gap,
+      todayKey: TODAY,
+      currentGoal: 'cutting',
+    }).streak,
+    1
+  );
+});
+
+test("buildDaySnapshotPreview: exposes the day's target and its deviation", () => {
+  const preview = buildDaySnapshotPreview(
+    makeSnapshot({ deficit: 340, goalTarget: 300, goalAtSnapshot: 'cutting' })
+  );
+  assert.equal(preview.goalTarget, 300);
+  assert.equal(preview.targetDeviation, 40);
+
+  const unknown = buildDaySnapshotPreview(
+    makeSnapshot({ goalAtSnapshot: undefined, goalTarget: undefined })
+  );
+  assert.equal(unknown.goalTarget, null);
+  assert.equal(unknown.targetDeviation, null);
+});
+
+test('describeGoalTarget words a daily target by direction', () => {
+  assert.equal(describeGoalTarget(300), '300 kcal deficit');
+  assert.equal(describeGoalTarget(-500), '500 kcal surplus');
+  assert.equal(describeGoalTarget(0), 'at TDEE');
+  assert.equal(describeGoalTarget(null), 'at TDEE');
+});
+
+test('buildDaySnapshotPreview: a day with nothing eaten has a target but no verdict', () => {
+  const unlogged = buildDaySnapshotPreview(
+    makeSnapshot({
+      intake: 0,
+      tdee: 2062,
+      deficit: 2062,
+      goalAtSnapshot: 'maintenance',
+      goalTarget: 0,
+    })
+  );
+  assert.equal(unlogged.goalTarget, 0);
+  assert.equal(unlogged.targetDeviation, null);
+});
+
+test('summarizeMonthSnapshots counts finished, logged days that hit their own target', () => {
+  const day = (date, deficit, overrides = {}) => ({
+    date,
+    tdee: 2500,
+    intake: 2500 - deficit,
+    deficit,
+    goalAtSnapshot: 'cutting',
+    goalTarget: 300,
+    ...overrides,
+  });
+  const snapshots = {
+    '2026-03-01': day('2026-03-01', 320), // +20  on target
+    '2026-03-02': day('2026-03-02', 150), // -150 off
+    '2026-03-03': day('2026-03-03', 380), // +80  on target
+    // Recorded under a different target: judged against ITS target, not 300.
+    '2026-03-04': day('2026-03-04', 0, {
+      goalTarget: 0,
+      goalAtSnapshot: 'maintenance',
+    }),
+    // Nothing eaten (launch-seeded): never judged.
+    '2026-03-05': day('2026-03-05', 2500, { intake: 0 }),
+    // Today is still in progress: never judged.
+    '2026-03-06': day('2026-03-06', 300),
+  };
+
+  const summary = summarizeMonthSnapshots(snapshots, 2026, 2, '2026-03-06', {
+    tolerance: 100,
+  });
+  assert.equal(summary.judgedDays, 4);
+  assert.equal(summary.onTargetDays, 3);
+
+  const strict = summarizeMonthSnapshots(snapshots, 2026, 2, '2026-03-06', {
+    tolerance: 50,
+  });
+  assert.equal(strict.onTargetDays, 2); // the +80 day drops out
+});
+
+test('buildDayLedgerCardSummary: firstLoggedDate is the earliest logged day, ignoring empty and future ones', () => {
+  const summary = buildDayLedgerCardSummary({
+    snapshots: {
+      // Seeded on launch, nothing eaten: not a logged day, so not "since".
+      '2026-02-01': makeSnapshot({
+        date: '2026-02-01',
+        intake: 0,
+        deficit: 2500,
+      }),
+      '2026-03-10': logged('2026-03-10', 300),
+      '2026-03-19': logged('2026-03-19', 300),
+      // After today: ignored.
+      '2026-04-01': logged('2026-04-01', 300),
+    },
+    todayKey: TODAY,
+  });
+  assert.equal(summary.firstLoggedDate, '2026-03-10');
+  assert.equal(summary.trackedDays, 2);
+
+  const none = buildDayLedgerCardSummary({ snapshots: {}, todayKey: TODAY });
+  assert.equal(none.firstLoggedDate, null);
 });

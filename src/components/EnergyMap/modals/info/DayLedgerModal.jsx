@@ -13,6 +13,7 @@ import {
   HeartPulse,
   Percent,
   Scale,
+  Target,
 } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import { TrackerCardMetric } from '../../common/TrackerSelectionCard';
@@ -22,6 +23,7 @@ import {
   formatSignedBpm,
 } from '../../../../utils/formatting/heartRate';
 import { goals as baseGoals } from '../../../../constants/goals/goals';
+import { normalizeOnTargetTolerance } from '../../../../constants/goals/onTarget';
 import { NUTRIENT_META } from '../../../../constants/nutrients/nutrients';
 import { getTodayDateKey } from '../../../../utils/data/dateKeys';
 import {
@@ -32,7 +34,9 @@ import {
 import { formatBodyFat } from '../../../../utils/measurements/bodyFat';
 import {
   buildDayLedgerDetailModel,
+  describeGoalTarget,
   formatSignedKcal,
+  isDayOnTarget,
   getAdjacentTrackedDates,
   DAY_LEDGER_BALANCE_META,
 } from '../../../../utils/calculations/dayLedgerPresentation';
@@ -206,6 +210,13 @@ export const DayLedgerModal = ({
     ? (DAY_LEDGER_BALANCE_META[preview.balanceKind] ?? null)
     : null;
   const goalMeta = preview ? (baseGoals[preview.goalAtSnapshot] ?? null) : null;
+  const targetOnTarget =
+    preview && preview.targetDeviation !== null
+      ? isDayOnTarget(
+          preview.targetDeviation,
+          normalizeOnTargetTolerance(userData?.onTargetToleranceKcal)
+        )
+      : false;
   const showBodyFat = bodyFatTrackingEnabled !== false;
   const hasEpoc = Boolean(preview) && model.epoc.total > 0;
 
@@ -358,34 +369,59 @@ export const DayLedgerModal = ({
               onClick={() => onOpenBreakdown?.(preview.date)}
               className="w-full text-left bg-surface-highlight/60 rounded-xl p-4 border border-border/60 pressable-card focus-ring md:hover:border-accent-blue/40 transition-colors"
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-muted text-xs font-medium">TDEE</p>
-                  <p className="text-foreground text-3xl font-black leading-tight mt-0.5">
-                    {preview.tdee.toLocaleString()}
-                    <span className="text-muted text-sm font-medium ml-1">
-                      kcal
-                    </span>
-                  </p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p
-                    className={`text-lg font-black leading-none ${kindMeta.textClass}`}
-                  >
-                    {formatSignedKcal(preview.deficit)}
-                  </p>
-                  <p
-                    className={`text-[10px] font-bold mt-1 ${kindMeta.textClass}`}
-                  >
-                    {kindMeta.label}
-                  </p>
-                </div>
+              {/* Two rows on one grid with baseline alignment: the labels share
+                  a row and the TDEE number sits on the same baseline as the
+                  balance, however different their sizes. */}
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3">
+                <p className="text-muted text-xs font-medium">TDEE</p>
+                <p
+                  className={`text-right text-[10px] font-bold ${kindMeta.textClass}`}
+                >
+                  {kindMeta.label}
+                </p>
+                <p className="text-foreground text-3xl font-black leading-tight mt-0.5">
+                  {preview.tdee.toLocaleString()}
+                  <span className="text-muted text-sm font-medium ml-1">
+                    kcal
+                  </span>
+                </p>
+                <p
+                  className={`text-right text-lg font-black leading-none mt-0.5 ${kindMeta.textClass}`}
+                >
+                  {formatSignedKcal(preview.deficit)}
+                </p>
               </div>
 
-              <p className="text-muted text-xs mt-2">
-                Eaten {preview.intake.toLocaleString()} kcal {'\u00B7'}{' '}
-                {preview.stepCount.toLocaleString()} steps
-              </p>
+              {/* Eaten and the day's goal target share one line (steps live in
+                  the measurements strip below). A day with nothing eaten shows
+                  the target but no verdict. Wraps only if both cannot fit. */}
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
+                <p className="text-muted">
+                  Eaten {preview.intake.toLocaleString()} kcal
+                </p>
+                {preview.goalTarget !== null && (
+                  <p className="flex items-center gap-1">
+                    <Target size={12} className="shrink-0 text-muted" />
+                    <span className="text-muted">
+                      Target {describeGoalTarget(preview.goalTarget)}
+                    </span>
+                    {preview.targetDeviation !== null && (
+                      <span
+                        className={`font-semibold ${
+                          targetOnTarget
+                            ? 'text-accent-green'
+                            : 'text-accent-orange'
+                        }`}
+                      >
+                        {' · '}
+                        {targetOnTarget
+                          ? 'on target'
+                          : `${formatSignedKcal(preview.targetDeviation)} vs target`}
+                      </span>
+                    )}
+                  </p>
+                )}
+              </div>
 
               {/* Composition bar */}
               {(() => {

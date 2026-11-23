@@ -6,6 +6,7 @@ import {
   buildDailySnapshot,
   getPreviousDateKey,
   resolveSnapshotBreakdownContexts,
+  resolveSnapshotGoalTarget,
 } from '../../src/utils/calculations/dailySnapshots.js';
 import { calculateGoalSeededBreakdown } from '../../src/utils/calculations/calculations.js';
 import { getNutritionTotalsForDate } from '../../src/utils/phases/phases.js';
@@ -382,4 +383,92 @@ test('resolveSnapshotBreakdownContexts rebuilds recorded modes with pinned enabl
     tefContext: { mode: 'off', enabled: false },
     adaptiveThermogenesisContext: { mode: 'off', enabled: false },
   });
+});
+
+const buildFor = (overrides = {}) =>
+  buildDailySnapshot({
+    dateKey,
+    userData,
+    trainingTypes: {},
+    cardioTypes: {},
+    todayKey: dateKey,
+    ...overrides,
+  });
+
+test("buildDailySnapshot records the day's goal target (positive = deficit)", () => {
+  assert.equal(buildFor().goalTarget, 300); // userData.selectedGoal = cutting
+  assert.equal(buildFor({ goalKey: 'aggressive_bulk' }).goalTarget, -500);
+  assert.equal(buildFor({ goalKey: 'maintenance' }).goalTarget, 0);
+});
+
+test('buildDailySnapshot records an active phase delta instead of the nominal one', () => {
+  // Phase deltas are signed calorie deltas (negative = cut), like the store's.
+  assert.equal(buildFor({ goalDeltaOverride: -420 }).goalTarget, 420);
+  assert.equal(buildFor({ goalDeltaOverride: 250 }).goalTarget, -250);
+});
+
+test('buildDailySnapshot: a past day keeps its recorded goal and target on rebuild', () => {
+  const recorded = buildFor({ goalKey: 'aggressive_cut' });
+  assert.equal(recorded.goalTarget, 500);
+
+  // Later, the user is on a different goal and edits a meal on that old day.
+  const rebuilt = buildFor({
+    existingSnapshot: { ...recorded, goalAtSnapshot: 'aggressive_cut' },
+    goalKey: 'maintenance',
+    userData: { ...userData, selectedGoal: 'maintenance' },
+    todayKey: '2026-03-25',
+  });
+  assert.equal(rebuilt.goalAtSnapshot, 'aggressive_cut');
+  assert.equal(rebuilt.goalTarget, 500);
+});
+
+test('buildDailySnapshot: today follows the live goal on rebuild', () => {
+  const morning = buildFor({ goalKey: 'cutting' });
+  const evening = buildFor({
+    existingSnapshot: morning,
+    goalKey: 'maintenance',
+    userData: { ...userData, selectedGoal: 'maintenance' },
+    todayKey: dateKey,
+  });
+  assert.equal(evening.goalAtSnapshot, 'maintenance');
+  assert.equal(evening.goalTarget, 0);
+});
+
+test('buildDailySnapshot: a legacy past snapshot keeps its goal and leaves the target unknown', () => {
+  const legacy = {
+    ...buildFor({ goalKey: 'cutting' }),
+    goalAtSnapshot: 'bulking',
+  };
+  delete legacy.goalTarget;
+
+  const rebuilt = buildFor({
+    existingSnapshot: legacy,
+    goalKey: 'maintenance',
+    userData: { ...userData, selectedGoal: 'maintenance' },
+    todayKey: '2026-03-25',
+  });
+  assert.equal(rebuilt.goalAtSnapshot, 'bulking');
+  assert.equal(rebuilt.goalTarget, null);
+  assert.deepEqual(resolveSnapshotGoalTarget(rebuilt), {
+    target: -300,
+    source: 'nominal',
+  });
+});
+
+test('resolveSnapshotGoalTarget: recorded wins, nominal is the legacy fallback, else unknown', () => {
+  assert.deepEqual(
+    resolveSnapshotGoalTarget({ goalTarget: 420.4, goalAtSnapshot: 'cutting' }),
+    { target: 420, source: 'recorded' }
+  );
+  assert.deepEqual(resolveSnapshotGoalTarget({ goalTarget: 0 }), {
+    target: 0,
+    source: 'recorded',
+  });
+  assert.deepEqual(
+    resolveSnapshotGoalTarget({ goalAtSnapshot: 'maintenance' }),
+    { target: 0, source: 'nominal' }
+  );
+  assert.equal(resolveSnapshotGoalTarget({ goalTarget: null }), null);
+  assert.equal(resolveSnapshotGoalTarget({ goalAtSnapshot: 'nonsense' }), null);
+  assert.equal(resolveSnapshotGoalTarget(null), null);
 });

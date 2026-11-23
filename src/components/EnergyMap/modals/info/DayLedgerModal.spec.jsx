@@ -330,3 +330,43 @@ describe('DayLedgerModal', () => {
     expect(onSelectDate).not.toHaveBeenCalled();
   });
 });
+
+describe('DayLedgerModal goal target line', () => {
+  // SNAPSHOT: cutting (nominal target 300 deficit), deficit 540 -> +240 vs target.
+  it("shows the day's target and verdict inside the TDEE card", () => {
+    renderModal();
+
+    expect(screen.getByText('Target 300 kcal deficit')).toBeInTheDocument();
+    expect(screen.getByText(/\+240 vs target/)).toBeInTheDocument();
+    // It replaced the chip: no chip-style "Target ..." pill in the chip row.
+    expect(screen.queryByText(/Target \+300/)).not.toBeInTheDocument();
+  });
+
+  it('judges the day by the on-target range from Settings', () => {
+    renderModal({
+      userData: { ...RENDER_PROPS.userData, onTargetToleranceKcal: 250 },
+    });
+
+    expect(screen.getByText(/on target/)).toBeInTheDocument();
+    expect(screen.queryByText(/vs target/)).not.toBeInTheDocument();
+  });
+
+  it('shows the target but no verdict for a day with nothing eaten', () => {
+    const unlogged = {
+      ...SNAPSHOT,
+      goalAtSnapshot: 'maintenance',
+      goalTarget: 0,
+      intake: 0,
+      tdee: 2062,
+      deficit: 2062,
+    };
+    renderModal({
+      snapshot: unlogged,
+      dailySnapshots: { ...DAILY_SNAPSHOTS, [SNAP_DATE]: unlogged },
+    });
+
+    expect(screen.getByText('Target at TDEE')).toBeInTheDocument();
+    expect(screen.queryByText(/vs target/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/on target/)).not.toBeInTheDocument();
+  });
+});

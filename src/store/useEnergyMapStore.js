@@ -58,6 +58,8 @@ import {
   normalizeVo2Max,
 } from '../constants/health/heartRate.js';
 
+import { normalizeOnTargetTolerance } from '../constants/goals/onTarget.js';
+
 const SAVE_DEBOUNCE_MS = 1000;
 const DEFAULT_TRAINING_TYPE_CATALOG =
   getDefaultEnergyMapData().trainingType ?? {};
@@ -740,6 +742,13 @@ export const useEnergyMapStore = createWithEqualityFn(
           return next === prev.vo2MaxCustom
             ? prev
             : { ...prev, vo2MaxCustom: next };
+        }
+
+        if (field === 'onTargetToleranceKcal') {
+          const next = normalizeOnTargetTolerance(value);
+          return next === prev.onTargetToleranceKcal
+            ? prev
+            : { ...prev, onTargetToleranceKcal: next };
         }
 
         return { ...prev, [field]: value };
@@ -1766,6 +1775,11 @@ export const useEnergyMapStore = createWithEqualityFn(
         };
       });
 
+      // A phase starting/ending/changing moves the goal lock and its smart
+      // delta, i.e. today's `goalTarget`; keep today's snapshot in step (the
+      // same refresh `setSelectedGoal` does). Past days keep their record.
+      get().upsertDailySnapshot(getTodayDateKey());
+
       return newPhase.id;
     },
 
@@ -1812,6 +1826,11 @@ export const useEnergyMapStore = createWithEqualityFn(
           }),
         };
       });
+
+      // A phase starting/ending/changing moves the goal lock and its smart
+      // delta, i.e. today's `goalTarget`; keep today's snapshot in step (the
+      // same refresh `setSelectedGoal` does). Past days keep their record.
+      get().upsertDailySnapshot(getTodayDateKey());
     },
 
     deletePhase: (phaseId) => {
@@ -1854,6 +1873,11 @@ export const useEnergyMapStore = createWithEqualityFn(
           }),
         };
       });
+
+      // A phase starting/ending/changing moves the goal lock and its smart
+      // delta, i.e. today's `goalTarget`; keep today's snapshot in step (the
+      // same refresh `setSelectedGoal` does). Past days keep their record.
+      get().upsertDailySnapshot(getTodayDateKey());
     },
 
     archivePhase: (phaseId) => {
@@ -1901,6 +1925,11 @@ export const useEnergyMapStore = createWithEqualityFn(
           }),
         };
       });
+
+      // A phase starting/ending/changing moves the goal lock and its smart
+      // delta, i.e. today's `goalTarget`; keep today's snapshot in step (the
+      // same refresh `setSelectedGoal` does). Past days keep their record.
+      get().upsertDailySnapshot(getTodayDateKey());
     },
 
     addDailyLog: (phaseId, date, logData) => {

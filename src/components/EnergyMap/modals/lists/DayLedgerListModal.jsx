@@ -12,6 +12,7 @@ import {
   TrendingUp,
   Utensils,
   CalendarCheck,
+  Target,
 } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import { goals as baseGoals } from '../../../../constants/goals/goals';
@@ -27,12 +28,14 @@ import { formatBodyFat } from '../../../../utils/measurements/bodyFat';
 import {
   buildDaySnapshotPreview,
   formatSignedKcal,
+  isDayOnTarget,
   getMeasurementForDate,
   isValidDaySnapshot,
   summarizeMonthSnapshots,
   DAY_LEDGER_BALANCE_META,
 } from '../../../../utils/calculations/dayLedgerPresentation';
 import { getDailyBalanceKind } from '../../../../utils/calculations/rollingEnergyBalance';
+import { DEFAULT_ON_TARGET_TOLERANCE_KCAL } from '../../../../constants/goals/onTarget';
 import { useContentRefresh } from '../../../../hooks/useContentRefresh';
 
 const MONTH_NAMES = [
@@ -83,6 +86,7 @@ export const DayLedgerListModal = ({
   currentMonth,
   currentYear,
   onMonthChange,
+  onTargetTolerance = DEFAULT_ON_TARGET_TOLERANCE_KCAL,
 }) => {
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showYearPicker, setShowYearPicker] = useState(false);
@@ -145,8 +149,16 @@ export const DayLedgerListModal = ({
       summarizeMonthSnapshots(dailySnapshots, currentYear, currentMonth, null, {
         weightEntries,
         bodyFatEntries,
+        tolerance: onTargetTolerance,
       }),
-    [bodyFatEntries, currentMonth, currentYear, dailySnapshots, weightEntries]
+    [
+      bodyFatEntries,
+      currentMonth,
+      currentYear,
+      dailySnapshots,
+      onTargetTolerance,
+      weightEntries,
+    ]
   );
 
   const selectedPreview = useMemo(
@@ -665,6 +677,29 @@ export const DayLedgerListModal = ({
                         DAY_LEDGER_BALANCE_META[dayPanelPreview.balanceKind]
                           .label
                       }
+                      {/* The day's goal target rides on this existing caption
+                          line (no extra row), so the panel's height - the max
+                          across its stacked surfaces - never changes. */}
+                      {dayPanelPreview.targetDeviation !== null && (
+                        <span
+                          className={`whitespace-nowrap ${
+                            isDayOnTarget(
+                              dayPanelPreview.targetDeviation,
+                              onTargetTolerance
+                            )
+                              ? 'text-accent-green'
+                              : 'text-accent-orange'
+                          }`}
+                        >
+                          {' · '}
+                          {isDayOnTarget(
+                            dayPanelPreview.targetDeviation,
+                            onTargetTolerance
+                          )
+                            ? 'on target'
+                            : `${formatSignedKcal(dayPanelPreview.targetDeviation)} vs target`}
+                        </span>
+                      )}
                     </p>
                   </div>
                   <div className="min-w-0 text-right">
@@ -774,18 +809,35 @@ export const DayLedgerListModal = ({
           >
             <div ref={monthRefreshRef}>
               <div className="flex items-center justify-between mb-2">
-                <div>
+                <div className="min-w-0">
                   <p className="text-foreground font-bold text-sm">
                     Month Summary
                   </p>
-                  <p className="text-muted text-xs">
+                  <p className="text-muted text-xs truncate">
                     {MONTH_NAMES[currentMonth]} {currentYear}
                   </p>
                 </div>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold text-accent-blue border border-accent-blue/20 bg-accent-blue/10">
-                  <CalendarCheck size={11} />
-                  {monthSummary.daysTracked}/{monthSummary.daysInMonth} days
-                </span>
+                {/* Both badges live in the title row's right slot, so neither
+                    can add a line: the header height stays the two-line title
+                    block, whatever the badges show. */}
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {monthSummary.judgedDays > 0 && (
+                    <span
+                      className={`inline-flex shrink-0 items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold whitespace-nowrap border ${
+                        monthSummary.onTargetDays > 0
+                          ? 'text-accent-green border-accent-green/20 bg-accent-green/10'
+                          : 'text-muted border-border bg-surface-highlight'
+                      }`}
+                    >
+                      <Target size={11} />
+                      {monthSummary.onTargetDays} on target
+                    </span>
+                  )}
+                  <span className="inline-flex shrink-0 items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold whitespace-nowrap text-accent-blue border border-accent-blue/20 bg-accent-blue/10">
+                    <CalendarCheck size={11} />
+                    {monthSummary.daysTracked}/{monthSummary.daysInMonth} days
+                  </span>
+                </div>
               </div>
 
               {/* Empty vs filled months are stacked in the same cell too, so

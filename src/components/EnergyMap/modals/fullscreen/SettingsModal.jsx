@@ -68,6 +68,10 @@ import {
   MOTION_PREFERENCE_OPTIONS,
   normalizeMotionPreferenceKey,
 } from '../../../../constants/appearance/motion';
+import {
+  ON_TARGET_TOLERANCE_OPTIONS,
+  normalizeOnTargetTolerance,
+} from '../../../../constants/goals/onTarget';
 import { getAdaptiveThermogenesisSmartModeDataStatus } from '../../../../utils/calculations/adaptiveThermogenesis';
 import { SettingsReveal } from './SettingsReveal';
 import {
@@ -2205,6 +2209,14 @@ const FoodNutritionSection = ({
     ? userData.cachedFoods.length
     : 0;
 
+  const onTargetTolerance = normalizeOnTargetTolerance(
+    userData.onTargetToleranceKcal
+  );
+  const onTargetOption =
+    ON_TARGET_TOLERANCE_OPTIONS.find(
+      (option) => option.value === onTargetTolerance
+    ) ?? ON_TARGET_TOLERANCE_OPTIONS[0];
+
   const toPercent = (ratio) => `${Math.round((Number(ratio) || 0) * 100)}%`;
 
   return (
@@ -2257,6 +2269,32 @@ const FoodNutritionSection = ({
             </span>
           )}
         </PickerButton>
+      </div>
+
+      <div>
+        <SettingLabel>On-target range</SettingLabel>
+        <div
+          role="group"
+          aria-label="On-target range"
+          className="grid grid-cols-4 gap-2"
+        >
+          {ON_TARGET_TOLERANCE_OPTIONS.map(({ value }) => (
+            <SegmentedButton
+              key={value}
+              active={onTargetTolerance === value}
+              activeClassName={BUTTON_ACTIVE_PRIMARY_CLASS}
+              aria-pressed={onTargetTolerance === value}
+              onClick={() => onFieldChange?.('onTargetToleranceKcal', value)}
+            >
+              <span className="text-sm">±{value}</span>
+            </SegmentedButton>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-muted">
+          {onTargetOption.label}: a day counts as on target when its balance
+          lands within {onTargetOption.value} kcal of your goal&apos;s daily
+          target. Used by the Daily Ledger.
+        </p>
       </div>
 
       <div>

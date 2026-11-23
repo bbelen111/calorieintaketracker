@@ -1,5 +1,6 @@
 import { normalizeDateKey } from '../measurements/weight.js';
 import { getTodayDateKey } from '../data/dateKeys.js';
+import { resolveSnapshotGoalTarget } from './dailySnapshots.js';
 
 /**
  * Rolling Energy Balance.
@@ -45,7 +46,10 @@ export const resolveWindowDays = (windowDays) => {
  * Validate a single daily snapshot and extract its energy balance.
  *
  * @param {object|undefined} snapshot
- * @returns {{ date, tdee, intake, balance } | null}
+ * @returns {{ date, tdee, intake, balance, goalTarget } | null}
+ *   `goalTarget` is the daily balance target that day was lived under
+ *   (positive = deficit): recorded on the snapshot, else the nominal delta of
+ *   its goal, else `null` when the snapshot predates both.
  *   Returns null for any snapshot that cannot produce a trustworthy balance
  *   (missing/invalid date, missing/non-finite tdee or intake). Malformed
  *   records are excluded rather than producing nonsense.
@@ -72,6 +76,7 @@ export const parseDailyEnergyBalance = (snapshot) => {
     tdee,
     intake,
     balance: tdee - intake,
+    goalTarget: resolveSnapshotGoalTarget(snapshot)?.target ?? null,
   };
 };
 
@@ -152,10 +157,13 @@ export const getDailyBalanceKind = (balance) => {
  * @param {number} [params.windowDays]               – requested window size (default 7)
  * @param {string} [params.asOfDate]                 – `YYYY-MM-DD` reference date (local)
  * @param {string} [params.startDate]                – optional inclusive range start
- * @param {number} [params.goalDailyBalanceTarget]   – target daily deficit/surplus in
+ * @param {number} [params.goalDailyBalanceTarget]   – CURRENT daily deficit/surplus target in
  *                                                     balance convention (positive = deficit),
- *                                                     e.g. +300 for a cut. Pass 0/undefined to
- *                                                     disable the expected/actual breakdown.
+ *                                                     e.g. +300 for a cut. Used only for days
+ *                                                     whose snapshot carries no target of its
+ *                                                     own: each day is otherwise judged against
+ *                                                     the target it was lived under, so a goal
+ *                                                     or phase change never rewrites history.
  * @returns {{
  *   windowDays: number,
  *   trackedDays: number,
@@ -166,7 +174,7 @@ export const getDailyBalanceKind = (balance) => {
  *   estimatedWeightChangeKg: number|null,
  *   hasData: boolean,
  *   insufficientData: boolean,
- *   days: Array<{date, tdee, intake, balance}>,
+ *   days: Array<{date, tdee, intake, balance, goalTarget}>,
  * }}
  */
 export const calculateRollingEnergyBalance = ({
@@ -191,12 +199,21 @@ export const calculateRollingEnergyBalance = ({
   const averageDailyBalance = hasData ? rollingBalance / trackedDays : null;
 
   const goalTarget = Number(goalDailyBalanceTarget);
-  const hasGoalTarget = Number.isFinite(goalTarget);
+  const hasGoalTarget =
+    goalDailyBalanceTarget !== null &&
+    goalDailyBalanceTarget !== undefined &&
+    Number.isFinite(goalTarget);
 
+  // Expected balance = the sum of each day's own target; a day without one
+  // falls back to the current target, and with neither there is no honest
+  // expectation to compare against.
+  const dayTargets = days.map((day) =>
+    day.goalTarget !== null ? day.goalTarget : hasGoalTarget ? goalTarget : null
+  );
   let expectedBalance = null;
   let balanceVariance = null;
-  if (hasData && hasGoalTarget) {
-    expectedBalance = goalTarget * trackedDays;
+  if (hasData && dayTargets.every((target) => target !== null)) {
+    expectedBalance = dayTargets.reduce((sum, target) => sum + target, 0);
     balanceVariance = rollingBalance - expectedBalance;
   }
 

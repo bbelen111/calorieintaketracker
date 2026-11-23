@@ -483,6 +483,59 @@ describe('SettingsModal segmented navigation', () => {
     expect(clearCachedFoods).toHaveBeenCalledTimes(1);
   });
 
+  it('lets the user pick the Daily Ledger on-target range on Food & Macros', async () => {
+    const user = userEvent.setup();
+    const onFieldChange = vi.fn();
+    render(
+      <SettingsHarness
+        onFieldChange={onFieldChange}
+        userData={createUserData({ onTargetToleranceKcal: 150 })}
+      />
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: 'Open Food & Macros' })
+    );
+
+    const range = within(
+      screen.getByRole('group', { name: 'On-target range' })
+    );
+    expect(range.getByRole('button', { name: '±150' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    expect(range.getByRole('button', { name: '±100' })).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    );
+    expect(
+      screen.getByText(/Relaxed: a day counts as on target/)
+    ).toBeInTheDocument();
+
+    await user.click(range.getByRole('button', { name: '±50' }));
+    expect(onFieldChange).toHaveBeenLastCalledWith('onTargetToleranceKcal', 50);
+  });
+
+  it('falls back to the default on-target range for a corrupt value', async () => {
+    const user = userEvent.setup();
+    render(
+      <SettingsHarness
+        userData={createUserData({ onTargetToleranceKcal: 'wide' })}
+      />
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: 'Open Food & Macros' })
+    );
+
+    expect(
+      within(screen.getByRole('group', { name: 'On-target range' })).getByRole(
+        'button',
+        { name: '±100' }
+      )
+    ).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('disables Clear cached foods when nothing is cached and falls back to Local search', async () => {
     const user = userEvent.setup();
     render(

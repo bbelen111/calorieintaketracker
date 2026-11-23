@@ -2,6 +2,8 @@ import {
   getDailyBalanceKind,
   ESTIMATED_ENERGY_PER_KG,
 } from './rollingEnergyBalance.js';
+import { resolveSnapshotGoalTarget } from './dailySnapshots.js';
+import { DEFAULT_ON_TARGET_TOLERANCE_KCAL } from '../../constants/goals/onTarget.js';
 import {
   calculateCardioCalories,
   calculateTrainingSessionCalories,
@@ -10,7 +12,11 @@ import {
   getPreviousEntryDelta,
   normalizeDateKey,
 } from '../measurements/weight.js';
-import { formatDateKeyUtc, getTodayDateKey } from '../data/dateKeys.js';
+import {
+  formatDateKeyUtc,
+  getTodayDateKey,
+  getWindowDateKeys,
+} from '../data/dateKeys.js';
 import { MEAL_TYPE_ORDER, MEAL_TYPES } from '../../constants/meal/mealTypes.js';
 import {
   deriveDailyLogStatus,
@@ -201,6 +207,7 @@ export const buildDayLedgerRows = (snapshot) => {
  * @param {object} [options]        – optional canonical entry arrays
  * @param {Array<{date:string,weight:number}>} [options.weightEntries]
  * @param {Array<{date:string,bodyFat:number}>} [options.bodyFatEntries]
+ * @param {number} [options.tolerance] – on-target band (kcal) for `onTargetDays`
  */
 export const summarizeMonthSnapshots = (
   snapshots,
@@ -242,6 +249,8 @@ export const summarizeMonthSnapshots = (
     weightSampleCount: 0,
     avgBodyFatPercent: null,
     bodyFatSampleCount: 0,
+    onTargetDays: 0,
+    judgedDays: 0,
   };
 
   if (
@@ -279,6 +288,21 @@ export const summarizeMonthSnapshots = (
       0,
       Math.round(toNumber(snapshot.stepCount) ?? 0)
     );
+
+    // On-target days: logged (something eaten), finished (today is still in
+    // progress) and judged against the target that day was lived under.
+    const dayTarget = resolveSnapshotGoalTarget(snapshot);
+    if (dateKey < todayKey && intake > 0 && dayTarget) {
+      summary.judgedDays += 1;
+      if (
+        isDayOnTarget(
+          balance - dayTarget.target,
+          options?.tolerance ?? DEFAULT_ON_TARGET_TOLERANCE_KCAL
+        )
+      ) {
+        summary.onTargetDays += 1;
+      }
+    }
 
     const kind = getDailyBalanceKind(balance);
     if (kind === 'deficit') {
@@ -389,6 +413,198 @@ export const getAdjacentTrackedDates = (snapshots, dateKey) => {
   return { prev, next };
 };
 
+const DAY_LEDGER_CARD_WINDOW_DAYS = 14;
+const DAY_LEDGER_CARD_SHORT_AVG_DAYS = 7;
+
+const shiftDateKeyUtc = (dateKey, deltaDays) => {
+  const date = new Date(`${dateKey}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + deltaDays);
+  return formatDateKeyUtc(date);
+};
+
+/**
+ * Whether a day's balance landed within `tolerance` kcal of its goal target.
+ * `deviation` is `deficit - goalTarget` (see `buildDayLedgerCardSummary`); a
+ * missing deviation is unknown, never "on target".
+ */
+export const isDayOnTarget = (deviation, tolerance) => {
+  const numeric = Number(deviation);
+  const band = Number(tolerance);
+  if (deviation === null || deviation === undefined) {
+    return false;
+  }
+  return (
+    Number.isFinite(numeric) &&
+    Number.isFinite(band) &&
+    Math.abs(numeric) <= band
+  );
+};
+
+const averageBalance = (days) =>
+  days.length
+    ? Math.round(days.reduce((sum, day) => sum + day.balance, 0) / days.length)
+    : null;
+
+/**
+ * Display model for the Logbook's Daily Ledger entry card.
+ *
+ * Read-only projection of `dailySnapshots` over the `windowDays` FINISHED days
+ * ending yesterday (today is still in progress, so it never feeds a headline
+ * number). A day is "logged" only when it has a valid snapshot AND intake above
+ * zero: the app seeds yesterday's/today's snapshots on launch, so a bare
+ * snapshot only proves the app was opened. Unlogged days are gaps
+ * (`kind: null`) - never zero-filled.
+ *
+ * Each logged day carries its balance (positive = deficit, the snapshot
+ * `deficit` convention), the goal target it was lived under
+ * (`resolveSnapshotGoalTarget`: recorded, else nominal for legacy snapshots),
+ * `deviation = balance - target` and whether that is within `tolerance`.
+ *
+ * `trackedDays` / `firstLoggedDate` cover ALL history (logged days up to today,
+ * and the earliest of them); everything else reads the finished-day window.
+ *
+ * The streak counts consecutive on-target logged days ending yesterday, all
+ * under the CURRENT goal (a goal switch starts a new streak).
+ *
+ * @param {object} params
+ * @param {object} params.snapshots     - `userData.dailySnapshots`
+ * @param {string} [params.todayKey]    - `YYYY-MM-DD`, defaults to local today
+ * @param {number} [params.windowDays]
+ * @param {number} [params.tolerance]   - on-target band (kcal)
+ * @param {string} [params.currentGoal] - the goal a streak must belong to
+ */
+export const buildDayLedgerCardSummary = ({
+  snapshots,
+  todayKey = getTodayDateKey(),
+  windowDays = DAY_LEDGER_CARD_WINDOW_DAYS,
+  tolerance = DEFAULT_ON_TARGET_TOLERANCE_KCAL,
+  currentGoal = null,
+} = {}) => {
+  const normalizedToday = normalizeDateKey(todayKey);
+  const source = snapshots && typeof snapshots === 'object' ? snapshots : {};
+
+  const snapshotByDate = new Map();
+  Object.values(source).forEach((snapshot) => {
+    if (isValidDaySnapshot(snapshot) && toNumber(snapshot.intake) > 0) {
+      snapshotByDate.set(normalizeDateKey(snapshot.date), snapshot);
+    }
+  });
+  const trackedKeys = Array.from(snapshotByDate.keys())
+    .filter((key) => !normalizedToday || key <= normalizedToday)
+    .sort();
+  const trackedDays = trackedKeys.length;
+  // The first day anything was logged (the card's "Tracking since" anchor).
+  const firstLoggedDate = trackedKeys[0] ?? null;
+
+  const empty = {
+    trackedDays,
+    firstLoggedDate,
+    windowDays,
+    days: [],
+    loggedDays: 0,
+    judgedDays: 0,
+    onTargetDays: 0,
+    avgBalance7: null,
+    avgBalance14: null,
+    yesterday: null,
+    streak: 0,
+    streakGoal: null,
+    tolerance,
+  };
+  if (!normalizedToday) {
+    return empty;
+  }
+
+  const yesterdayKey = shiftDateKeyUtc(normalizedToday, -1);
+  const days = getWindowDateKeys(yesterdayKey, windowDays).map((date) => {
+    const snapshot = snapshotByDate.get(date);
+    if (!snapshot) {
+      return {
+        date,
+        goal: null,
+        balance: null,
+        kind: null,
+        target: null,
+        deviation: null,
+        onTarget: false,
+      };
+    }
+    const balance = Math.round(toNumber(snapshot.deficit) ?? 0);
+    const target = resolveSnapshotGoalTarget(snapshot)?.target ?? null;
+    const deviation = target === null ? null : balance - target;
+    return {
+      date,
+      goal: snapshot.goalAtSnapshot ?? null,
+      balance,
+      kind: getDailyBalanceKind(balance),
+      target,
+      deviation,
+      onTarget: isDayOnTarget(deviation, tolerance),
+    };
+  });
+
+  const logged = days.filter((day) => day.balance !== null);
+  const judged = logged.filter((day) => day.deviation !== null);
+
+  let streak = 0;
+  const streakGoal = currentGoal ?? days.at(-1)?.goal ?? null;
+  for (let index = days.length - 1; index >= 0; index -= 1) {
+    const day = days[index];
+    if (!day.onTarget || !streakGoal || day.goal !== streakGoal) {
+      break;
+    }
+    streak += 1;
+  }
+
+  const lastDay = days.at(-1);
+  return {
+    ...empty,
+    days,
+    loggedDays: logged.length,
+    judgedDays: judged.length,
+    onTargetDays: judged.filter((day) => day.onTarget).length,
+    avgBalance7: averageBalance(
+      days
+        .slice(-DAY_LEDGER_CARD_SHORT_AVG_DAYS)
+        .filter((day) => day.balance !== null)
+    ),
+    avgBalance14: averageBalance(logged),
+    yesterday: lastDay && lastDay.balance !== null ? lastDay : null,
+    streak,
+    streakGoal: streak > 0 ? streakGoal : null,
+  };
+};
+
+/**
+ * Human wording for a daily balance target (positive = deficit):
+ * "300 kcal deficit" / "300 kcal surplus" / "at TDEE".
+ */
+export const describeGoalTarget = (target) => {
+  const rounded = Math.round(Number(target) || 0);
+  if (rounded === 0) {
+    return 'at TDEE';
+  }
+  return `${Math.abs(rounded).toLocaleString()} kcal ${
+    rounded > 0 ? 'deficit' : 'surplus'
+  }`;
+};
+
+/**
+ * The goal-target view of one day: the target it was lived under and how far
+ * the day's balance landed from it (`deficit - goalTarget`; positive = more
+ * deficit-ward than planned). Both `null` when the target is unknown.
+ */
+const buildSnapshotTargetFields = (snapshot, deficit) => {
+  const resolved = resolveSnapshotGoalTarget(snapshot);
+  // A day with nothing eaten has a target but no verdict: its "balance" is
+  // just the whole TDEE, and judging it against the goal would be nonsense.
+  const isLogged = toNumber(snapshot.intake) > 0;
+  return {
+    goalTarget: resolved?.target ?? null,
+    targetDeviation: resolved && isLogged ? deficit - resolved.target : null,
+  };
+};
+
 /**
  * Compact display model for the list modal's tappable day-preview panel.
  * Returns null for unavailable/malformed snapshots. `rawRows` carries the
@@ -406,6 +622,7 @@ export const buildDaySnapshotPreview = (snapshot) => {
   return {
     date: normalizeDateKey(snapshot.date),
     goalAtSnapshot: snapshot.goalAtSnapshot ?? null,
+    ...buildSnapshotTargetFields(snapshot, deficit),
     isTrainingDay: Boolean(snapshot.isTrainingDay),
     tdee: Math.round(toNumber(snapshot.tdee)),
     intake: Math.round(toNumber(snapshot.intake)),

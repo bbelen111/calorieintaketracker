@@ -3,7 +3,9 @@ import {
   buildTefContextForMode,
   calculateBMR,
   calculateGoalSeededBreakdown,
+  resolveGoalCalorieDelta,
 } from './calculations.js';
+import { getTodayDateKey } from '../data/dateKeys.js';
 import { getNutritionTotalsForDate } from '../phases/phases.js';
 import { normalizeDateKey } from '../measurements/weight.js';
 import { normalizeHeartRateEntry } from '../measurements/heartRate.js';
@@ -38,6 +40,41 @@ export const buildSnapshotHeartRateFields = (heartRateEntries, dateKey) => {
 const normalizeSelectedGoal = (value, fallback = 'maintenance') => {
   const normalized = String(value ?? '').trim();
   return GOAL_KEYS.has(normalized) ? normalized : fallback;
+};
+
+const isFiniteNumber = (value) =>
+  value !== null &&
+  value !== undefined &&
+  value !== '' &&
+  Number.isFinite(Number(value));
+
+/**
+ * The daily balance target a snapshot's day was measured against, in the
+ * snapshot's own sign convention (positive = deficit, e.g. +300 for a cut).
+ *
+ * - `recorded`: the snapshot carries `goalTarget` (stamped at build time from
+ *   the goal AND any active phase delta override).
+ * - `nominal`: a legacy snapshot without it; falls back to the nominal delta
+ *   of its `goalAtSnapshot` (phase overrides are not recoverable from history).
+ * - `null`: neither is known, so no judgement can be made about that day.
+ *
+ * @returns {{ target: number, source: 'recorded'|'nominal' }|null}
+ */
+export const resolveSnapshotGoalTarget = (snapshot) => {
+  if (!snapshot || typeof snapshot !== 'object') {
+    return null;
+  }
+  if (isFiniteNumber(snapshot.goalTarget)) {
+    return {
+      target: Math.round(Number(snapshot.goalTarget)),
+      source: 'recorded',
+    };
+  }
+  const goal = String(snapshot.goalAtSnapshot ?? '').trim();
+  if (GOAL_KEYS.has(goal)) {
+    return { target: 0 - resolveGoalCalorieDelta(goal), source: 'nominal' };
+  }
+  return null;
 };
 
 const toDateKeyFromDate = (date) => {
@@ -155,11 +192,29 @@ export const buildDailySnapshot = ({
   existingSnapshot,
   goalKey,
   goalDeltaOverride = null,
+  todayKey = getTodayDateKey(),
 }) => {
   const normalizedDateKey = normalizeDateKey(dateKey);
   if (!normalizedDateKey) {
     return null;
   }
+
+  // The goal a day was lived under is history: once the day is over, a rebuild
+  // (an edited meal, a health backfill) must not restamp it with today's goal
+  // and target. Today's snapshot is still in progress, so it follows the live
+  // goal (a mid-day switch or a phase change). A legacy past snapshot keeps its
+  // goal; its target stays unknown (`null`) and readers fall back to nominal.
+  const recordedGoal = String(existingSnapshot?.goalAtSnapshot ?? '').trim();
+  const keepsRecordedGoal =
+    Boolean(existingSnapshot) &&
+    normalizedDateKey < todayKey &&
+    GOAL_KEYS.has(recordedGoal);
+  const resolvedGoalKey = goalKey ?? userData?.selectedGoal;
+  const goalTarget = keepsRecordedGoal
+    ? isFiniteNumber(existingSnapshot.goalTarget)
+      ? Math.round(Number(existingSnapshot.goalTarget))
+      : null
+    : 0 - resolveGoalCalorieDelta(resolvedGoalKey, goalDeltaOverride);
 
   const nutritionTotals = getNutritionTotalsForDate(
     userData?.nutritionData ?? {},
@@ -224,7 +279,13 @@ export const buildDailySnapshot = ({
 
   return {
     date: normalizedDateKey,
-    goalAtSnapshot: normalizeSelectedGoal(userData?.selectedGoal),
+    goalAtSnapshot: keepsRecordedGoal
+      ? recordedGoal
+      : normalizeSelectedGoal(userData?.selectedGoal),
+    // Daily balance target this day is judged against (kcal, positive =
+    // deficit, same convention as `deficit`). Includes an active phase's smart
+    // delta. The deviation is derived (`deficit - goalTarget`), never stored.
+    goalTarget,
     tdee,
     baselineTdee,
     adaptiveThermogenesisCorrection,
