@@ -5,8 +5,9 @@ import React, {
   useCallback,
   useMemo,
 } from 'react';
-import { ChevronDown, Heart } from 'lucide-react';
+import { Heart } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
+import { PortionUnitSelect } from '../../common/PortionUnitSelect';
 import { FoodTagBadges } from '../../common/FoodTagBadges';
 import { MicroStat } from '../../common/MicroStat';
 import { TefBurnCard } from '../../common/TefBurnCard';
@@ -277,10 +278,22 @@ export const FoodPortionModal = ({
     setSelectedDecimal(clampedDecimal);
   }, []);
 
-  const handleUnitChange = useCallback(
-    (event) => {
-      const newUnit = event.target.value;
+  const unitOptions = useMemo(
+    () => [
+      { id: 'grams', label: 'Grammes', detail: 'Exact weight' },
+      ...(selectedFood?.portions ?? []).map((portion) => ({
+        id: portion.id,
+        label: portion.label,
+        detail: Number.isFinite(portion.grams)
+          ? `${formatOne(portion.grams)} g`
+          : undefined,
+      })),
+    ],
+    [selectedFood]
+  );
 
+  const handleUnitChange = useCallback(
+    (newUnit) => {
       if (newUnit === selectedUnit) {
         return;
       }
@@ -515,31 +528,12 @@ export const FoodPortionModal = ({
         </h3>
 
         {/* Unit Selector Label with Dropdown */}
-        <div className="flex items-center justify-center gap-2 mb-2">
-          {hasCustomPortions ? (
-            <div className="relative">
-              <select
-                value={selectedUnit}
-                onChange={handleUnitChange}
-                className="bg-surface-highlight border border-border rounded-sm px-3 py-1.5 pr-8 text-muted text-xs uppercase tracking-wide appearance-none focus:outline-hidden focus:ring-1 focus:ring-accent-blue cursor-pointer md:hover:bg-surface transition-all"
-              >
-                <option value="grams">Grammes</option>
-                {selectedFood.portions.map((portion) => (
-                  <option key={portion.id} value={portion.id}>
-                    {portion.label}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
-                size={14}
-              />
-            </div>
-          ) : (
-            <label className="text-muted text-xs uppercase tracking-wide">
-              Grammes
-            </label>
-          )}
+        <div className="relative z-20 mb-3">
+          <PortionUnitSelect
+            value={selectedUnit}
+            options={hasCustomPortions ? unitOptions : unitOptions.slice(0, 1)}
+            onChange={handleUnitChange}
+          />
         </div>
 
         {/* Picker - always visible */}

@@ -534,7 +534,7 @@ export const HeartRateTrackerModal = ({
           </>
         ) : (
           <>
-            <div className="px-4 pt-3 pb-1 shrink-0">
+            <div className="px-4 pt-3 pb-1 shrink-0 bg-surface">
               <div className="relative flex items-center gap-2 p-1 bg-surface-highlight rounded-lg">
                 <div
                   className="absolute inset-y-1 rounded-md shadow-md bg-accent-blue"
@@ -561,7 +561,7 @@ export const HeartRateTrackerModal = ({
               </div>
             </div>
 
-            <div className="px-4 pt-3 pb-3 grid grid-cols-2 md:grid-cols-4 gap-3 shrink-0">
+            <div className="px-4 pt-3 pb-3 grid grid-cols-2 md:grid-cols-4 gap-3 shrink-0 bg-surface">
               <div>
                 <p className="text-muted text-xs uppercase tracking-wide mb-1">
                   Resting
@@ -615,7 +615,7 @@ export const HeartRateTrackerModal = ({
 
             {/* Log resting + sync status (log hidden in 12m mode, like the other trackers) */}
             {showLogButton || syncControl ? (
-              <div className="sticky top-0 z-10 px-4 py-2 bg-surface/95 backdrop-blur-sm border-b border-border shrink-0 flex items-center gap-3">
+              <div className="sticky top-0 z-10 px-4 py-2 bg-surface border-b border-border shrink-0 flex items-center gap-3">
                 {showLogButton && (
                   <button
                     type="button"
@@ -635,7 +635,7 @@ export const HeartRateTrackerModal = ({
             {zoneModel && (
               // z-20 + relative: the list below opens as an overlay over the
               // chart instead of pushing it down.
-              <div className="relative z-20 border-b border-border/60 shrink-0">
+              <div className="relative z-20 border-b border-border/60 shrink-0 bg-surface">
                 <button
                   type="button"
                   onClick={() => setZonesOpen((open) => !open)}
