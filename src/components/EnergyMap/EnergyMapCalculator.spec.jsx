@@ -268,8 +268,12 @@ describe('EnergyMapCalculator (orchestrator integration)', () => {
       await screen.findByRole('button', { name: 'Open settings' })
     );
     await user.click(
-      await screen.findByRole('button', { name: 'Open Appearance' })
+      await screen.findByRole('button', { name: 'Open Home & Tips' })
     );
+    await user.click(await screen.findByRole('button', { name: /Shortcut:/ }));
+    expect(
+      screen.getByRole('heading', { name: 'Choose a metric' })
+    ).toBeInTheDocument();
 
     const pressAndroidBack = async () => {
       let handler;
@@ -282,12 +286,23 @@ describe('EnergyMapCalculator (orchestrator integration)', () => {
       act(() => handler());
     };
 
+    // Choose a metric -> Home & Tips
+    await pressAndroidBack();
+    expect(
+      screen.getByRole('heading', { name: 'Home & Tips' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Choose a metric' })
+    ).toBeNull();
+
+    // Home & Tips -> Settings hub
     await pressAndroidBack();
     expect(
       screen.getByRole('navigation', { name: 'Settings categories' })
     ).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Appearance' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Home & Tips' })).toBeNull();
 
+    // Settings hub -> close
     await pressAndroidBack();
     await waitFor(() =>
       expect(

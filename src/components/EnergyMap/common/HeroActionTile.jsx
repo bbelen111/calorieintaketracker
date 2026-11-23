@@ -22,12 +22,17 @@ const OUTLINE_RADIUS_PX = 12; // matches `rounded-xl`
  * outline as the pill (`HeroProgressOutline`); a plain reading (Weight, resting
  * HR) has none and stays flat like its neighbours.
  */
-export const HeroActionTile = ({ model, onPress }) => (
+export const HeroActionTile = ({
+  model,
+  onPress,
+  className = '',
+  ariaLabel,
+}) => (
   <button
     onClick={onPress}
     type="button"
-    aria-label={model?.ariaLabel}
-    className="group relative w-full text-left bg-surface-highlight/50 rounded-xl p-3 md:p-4 border border-border/50 transition-all active:scale-[0.99] pressable-card focus-ring md:hover:bg-surface-highlight md:hover:border-border/80"
+    aria-label={ariaLabel ?? model?.ariaLabel}
+    className={`group relative w-full text-left bg-surface-highlight/50 rounded-xl p-3 md:p-4 border border-border/50 transition-all active:scale-[0.99] pressable-card focus-ring md:hover:bg-surface-highlight md:hover:border-border/80 ${className}`.trim()}
   >
     <HeroProgressOutline
       progress={model?.progress}

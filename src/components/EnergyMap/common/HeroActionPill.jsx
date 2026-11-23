@@ -40,15 +40,20 @@ const OUTLINE_RADIUS_PX = 8; // matches `rounded-lg`, i.e. the hero buttons
  * charts' palette and is fully transparent until there is progress, so at rest
  * the button is indistinguishable from its siblings.
  */
-export const HeroActionPill = ({ model, onPress }) => {
+export const HeroActionPill = ({
+  model,
+  onPress,
+  className = '',
+  ariaLabel,
+}) => {
   const Icon = HERO_ACTION_ICONS_BY_KEY[model?.iconKey] ?? Utensils;
 
   return (
     <button
       type="button"
       onClick={onPress}
-      aria-label={model?.ariaLabel}
-      className="relative inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-4 py-2 font-semibold text-primary-foreground transition-all press-feedback focus-ring md:hover:brightness-110"
+      aria-label={ariaLabel ?? model?.ariaLabel}
+      className={`relative inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-4 py-2 font-semibold text-primary-foreground transition-all press-feedback focus-ring md:hover:brightness-110 ${className}`.trim()}
     >
       <HeroProgressOutline
         progress={model?.progress}

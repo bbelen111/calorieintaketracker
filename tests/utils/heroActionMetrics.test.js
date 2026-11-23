@@ -3,16 +3,26 @@ import test from 'node:test';
 
 import {
   DEFAULT_HERO_ACTION_METRIC,
+  HERO_ACTION_CATEGORIES,
   HERO_ACTION_METRICS,
   HERO_ACTION_OPTIONS,
   HERO_SLOT_DEFAULTS,
   HERO_SLOT_FIELDS,
   assignHeroSlot,
+  getHeroOptionGroupsForSlot,
   getHeroOptionsForSlot,
   normalizeHeroActionMetric,
   readHeroSlots,
   resolveHeroSlots,
 } from '../../src/constants/appearance/heroAction.js';
+import {
+  HOME_LAYOUT_PAGE,
+  SETTINGS_HOME_PAGE,
+  getSettingsPageDepth,
+  getSettingsParentPage,
+  makeHomeSlotPickerPage,
+  parseHomeSlotPickerPage,
+} from '../../src/utils/settings/settingsNavigation.js';
 import {
   buildHeroActionModel,
   getProgressPercent,
@@ -66,6 +76,50 @@ test('getHeroOptionsForSlot omits Weight and Body Fat from the pill only', () =>
   assert.equal(pillKeys.length, HERO_ACTION_OPTIONS.length - 2);
   assert.equal(leftKeys.length, HERO_ACTION_OPTIONS.length);
   assert.equal(rightKeys.length, HERO_ACTION_OPTIONS.length);
+});
+
+test('getHeroOptionGroupsForSlot partitions every option once and filters tile-only metrics from the pill', () => {
+  const categoryKeys = HERO_ACTION_CATEGORIES.flatMap((c) => c.metrics);
+  assert.equal(new Set(categoryKeys).size, HERO_ACTION_OPTIONS.length);
+  assert.deepEqual(
+    [...categoryKeys].sort(),
+    Object.values(HERO_ACTION_METRICS).sort()
+  );
+
+  const pillGroups = getHeroOptionGroupsForSlot('pill');
+  const pillBody = pillGroups.find((g) => g.id === 'body');
+  assert.deepEqual(
+    pillBody.options.map((o) => o.key),
+    ['restingHr']
+  );
+
+  const leftGroups = getHeroOptionGroupsForSlot('left');
+  const leftBody = leftGroups.find((g) => g.id === 'body');
+  assert.deepEqual(
+    leftBody.options.map((o) => o.key),
+    ['weight', 'bodyFat', 'restingHr']
+  );
+});
+
+test('settingsNavigation routes Home & Tips slot pickers cleanly for back and depth', () => {
+  assert.equal(makeHomeSlotPickerPage('pill'), 'homeLayout:pill');
+  assert.equal(makeHomeSlotPickerPage('left'), 'homeLayout:left');
+  assert.equal(makeHomeSlotPickerPage('right'), 'homeLayout:right');
+  assert.equal(makeHomeSlotPickerPage('invalid'), 'homeLayout:pill');
+
+  assert.equal(parseHomeSlotPickerPage('homeLayout:left'), 'left');
+  assert.equal(parseHomeSlotPickerPage('homeLayout'), null);
+  assert.equal(parseHomeSlotPickerPage('homeLayout:bogus'), null);
+  assert.equal(parseHomeSlotPickerPage(null), null);
+
+  assert.equal(getSettingsParentPage('homeLayout:right'), HOME_LAYOUT_PAGE);
+  assert.equal(getSettingsParentPage(HOME_LAYOUT_PAGE), SETTINGS_HOME_PAGE);
+  assert.equal(getSettingsParentPage('appearance'), SETTINGS_HOME_PAGE);
+  assert.equal(getSettingsParentPage(SETTINGS_HOME_PAGE), null);
+
+  assert.equal(getSettingsPageDepth(SETTINGS_HOME_PAGE), 0);
+  assert.equal(getSettingsPageDepth(HOME_LAYOUT_PAGE), 1);
+  assert.equal(getSettingsPageDepth('homeLayout:pill'), 2);
 });
 
 test('defaults keep Home as it always was: calories, Weight, Body Fat', () => {

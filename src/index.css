@@ -695,31 +695,41 @@
       backwards;
   }
 
+  .settings-page-back > * > * {
+    animation: settingsEnterBack 180ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
+  }
+
   .settings-hub-enter > * {
     animation: settingsEnterBack 180ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
   }
 
   .settings-page-enter > * > *:nth-child(2),
+  .settings-page-back > * > *:nth-child(2),
   .settings-hub-enter > *:nth-child(2) {
     animation-delay: 20ms;
   }
   .settings-page-enter > * > *:nth-child(3),
+  .settings-page-back > * > *:nth-child(3),
   .settings-hub-enter > *:nth-child(3) {
     animation-delay: 40ms;
   }
   .settings-page-enter > * > *:nth-child(4),
+  .settings-page-back > * > *:nth-child(4),
   .settings-hub-enter > *:nth-child(4) {
     animation-delay: 60ms;
   }
   .settings-page-enter > * > *:nth-child(5),
+  .settings-page-back > * > *:nth-child(5),
   .settings-hub-enter > *:nth-child(5) {
     animation-delay: 80ms;
   }
   .settings-page-enter > * > *:nth-child(6),
+  .settings-page-back > * > *:nth-child(6),
   .settings-hub-enter > *:nth-child(6) {
     animation-delay: 100ms;
   }
   .settings-page-enter > * > *:nth-child(n + 7),
+  .settings-page-back > * > *:nth-child(n + 7),
   .settings-hub-enter > *:nth-child(n + 7) {
     animation-delay: 120ms;
   }
@@ -1410,6 +1420,7 @@
       .day-ledger-in-right,
       .day-ledger-in-left,
       .settings-page-enter > * > *,
+      .settings-page-back > * > *,
       .settings-hub-enter > *,
       .settings-select-pop,
       .portion-enter > *:nth-child(n + 2)

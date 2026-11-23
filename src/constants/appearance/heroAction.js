@@ -7,7 +7,7 @@
 //
 // The two tiles choose from all 12 options (`HERO_ACTION_OPTIONS`); the pill
 // chooses from the 10 non-measurement options (Weight and Body Fat are tile-only).
-// Settings -> Appearance -> Home owns the choices.
+// Settings -> Home & Tips owns the choices.
 //
 // The stored value is the option KEY. Only the listed keys are accepted so a
 // corrupt or future profile can never reach the UI. No metric can appear in two
@@ -135,6 +135,49 @@ export const HERO_ACTION_OPTIONS = [
   },
 ];
 
+export const HERO_ACTION_CATEGORIES = [
+  {
+    id: 'food',
+    label: 'Food',
+    metrics: [
+      HERO_ACTION_METRICS.CALORIES,
+      HERO_ACTION_METRICS.CALORIES_LEFT,
+      HERO_ACTION_METRICS.PROTEIN,
+    ],
+  },
+  {
+    id: 'activity',
+    label: 'Activity',
+    metrics: [
+      HERO_ACTION_METRICS.STEPS,
+      HERO_ACTION_METRICS.BURN,
+      HERO_ACTION_METRICS.STREAK,
+    ],
+  },
+  {
+    id: 'body',
+    label: 'Body',
+    metrics: [
+      HERO_ACTION_METRICS.WEIGHT,
+      HERO_ACTION_METRICS.BODY_FAT,
+      HERO_ACTION_METRICS.RESTING_HR,
+    ],
+  },
+  {
+    id: 'trends',
+    label: 'Trends',
+    metrics: [
+      HERO_ACTION_METRICS.DEFICIT,
+      HERO_ACTION_METRICS.BALANCE_7D,
+      HERO_ACTION_METRICS.PHASE,
+    ],
+  },
+];
+
+const OPTION_BY_KEY = Object.fromEntries(
+  HERO_ACTION_OPTIONS.map((option) => [option.key, option])
+);
+
 const ALL_KEYS = HERO_ACTION_OPTIONS.map((option) => option.key);
 const VALID_KEYS = new Set(ALL_KEYS);
 
@@ -193,6 +236,21 @@ export const getHeroOptionsForSlot = (slot) =>
   slot === HERO_SLOTS.PILL
     ? HERO_ACTION_OPTIONS.filter((option) => !TILE_ONLY_METRICS.has(option.key))
     : HERO_ACTION_OPTIONS;
+
+/** Categorised options for the Settings metric picker, filtered for one slot. */
+export const getHeroOptionGroupsForSlot = (slot) => {
+  const allowedKeys = new Set(
+    getHeroOptionsForSlot(slot).map((option) => option.key)
+  );
+  return HERO_ACTION_CATEGORIES.map((category) => ({
+    id: category.id,
+    label: category.label,
+    options: category.metrics
+      .filter((key) => allowedKeys.has(key))
+      .map((key) => OPTION_BY_KEY[key])
+      .filter(Boolean),
+  })).filter((group) => group.options.length > 0);
+};
 
 /**
  * The three slots as they should actually render: every pick valid, available

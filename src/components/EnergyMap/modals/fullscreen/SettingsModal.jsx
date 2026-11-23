@@ -27,7 +27,7 @@ import {
   UtensilsCrossed,
   ChartPie,
   Trash2,
-  Lightbulb,
+  LayoutGrid,
   Dumbbell,
   BedDouble,
   Plug,
@@ -40,6 +40,17 @@ import {
   Bell,
 } from 'lucide-react';
 import { NotificationsSettingsSection } from './NotificationsSettingsSection';
+import {
+  HeroMetricPickerPage,
+  HomeLayoutSettingsSection,
+} from './HomeLayoutSettingsSection';
+import {
+  HOME_LAYOUT_PAGE,
+  SETTINGS_HOME_PAGE,
+  getSettingsPageDepth,
+  makeHomeSlotPickerPage,
+  parseHomeSlotPickerPage,
+} from '../../../../utils/settings/settingsNavigation';
 import {
   DEFAULT_ACTIVITY_MULTIPLIERS,
   getActivityPresetByKey,
@@ -68,18 +79,6 @@ import {
   MOTION_PREFERENCE_OPTIONS,
   normalizeMotionPreferenceKey,
 } from '../../../../constants/appearance/motion';
-import {
-  HERO_ACTION_METRICS,
-  HERO_ACTION_OPTIONS,
-  HERO_SLOTS,
-  HERO_SLOT_FIELDS,
-  getHeroOptionsForSlot,
-  readHeroSlots,
-} from '../../../../constants/appearance/heroAction';
-import {
-  HERO_ACTION_ICONS_BY_KEY,
-  HERO_ACTION_ICON_KEY_BY_METRIC,
-} from '../../common/heroActionIcons';
 import {
   ON_TARGET_TOLERANCE_OPTIONS,
   normalizeOnTargetTolerance,
@@ -162,6 +161,11 @@ const SETTINGS_PAGES = [
     id: 'appearance',
     title: 'Appearance',
     icon: Palette,
+  },
+  {
+    id: HOME_LAYOUT_PAGE,
+    title: 'Home & Tips',
+    icon: LayoutGrid,
   },
   {
     id: 'activity',
@@ -294,6 +298,7 @@ export const SettingsModal = ({
   weightEntries,
   bodyFatEntries,
   bodyFatTrackingEnabled,
+  calorieTargetCalories,
   onOpenTefInfo,
   onOpenAdaptiveThermogenesisInfo,
   onOpenEpocInfo,
@@ -499,41 +504,63 @@ export const SettingsModal = ({
     return `Last logged ${formatDateLabel(latestBodyFatEntry.date, { month: 'short', day: 'numeric' })}`;
   }, [latestBodyFatEntry]);
 
-  // The hub slides in from the left only when the user came BACK to it from a
-  // page - never on the modal's own first open (the shell already animates that).
-  // Derived during render (the app's retention pattern) rather than in an effect:
-  // flip on the first navigation into a page, reset once the modal is closed.
-  const [hasNavigated, setHasNavigated] = useState(false);
-  const isOnHub = resolvedActions.navigation.activePage === 'home';
-  if (!isOpen && hasNavigated) {
-    setHasNavigated(false);
-  } else if (isOpen && !isOnHub && !hasNavigated) {
-    setHasNavigated(true);
+  // Track navigation depth during render (no effect) so directional CSS enters
+  // match the move: deeper -> from right, stepping back -> from left, and the
+  // hub only slides in when returning from a page (never on modal open).
+  const currentPage = resolvedActions.navigation.activePage;
+  const currentDepth = getSettingsPageDepth(currentPage);
+  const [navTrack, setNavTrack] = useState({
+    hasNavigated: false,
+    lastDepth: currentDepth,
+    direction: 'forward',
+  });
+  if (!isOpen && (navTrack.hasNavigated || navTrack.lastDepth !== 0)) {
+    setNavTrack({
+      hasNavigated: false,
+      lastDepth: 0,
+      direction: 'forward',
+    });
+  } else if (isOpen && currentDepth !== navTrack.lastDepth) {
+    setNavTrack({
+      hasNavigated: navTrack.hasNavigated || currentDepth > 0,
+      lastDepth: currentDepth,
+      direction: currentDepth < navTrack.lastDepth ? 'back' : 'forward',
+    });
   }
+
+  const activeSlotPicker = parseHomeSlotPickerPage(currentPage);
+  const headerTitle = activeSlotPicker
+    ? 'Choose a metric'
+    : (SETTINGS_PAGES.find((page) => page.id === currentPage)?.title ??
+      'Settings');
 
   return (
     <FullscreenModalFrame
       isOpen={isOpen}
       isClosing={isClosing}
       onBack={handleBack}
-      title={
-        SETTINGS_PAGES.find(
-          (page) => page.id === resolvedActions.navigation.activePage
-        )?.title ?? 'Settings'
-      }
+      title={headerTitle}
     >
-      {resolvedActions.navigation.activePage === 'home' ? (
-        <SettingsHome onOpenPage={handleOpenPage} animateIn={hasNavigated} />
+      {currentPage === SETTINGS_HOME_PAGE ? (
+        <SettingsHome
+          onOpenPage={handleOpenPage}
+          animateIn={navTrack.hasNavigated}
+        />
       ) : (
         <SettingsPageContent
-          page={resolvedActions.navigation.activePage}
+          page={currentPage}
+          transitionDirection={navTrack.direction}
           userData={resolvedUserData}
           bmr={resolvedBmr}
+          weightEntries={resolvedWeightEntries}
+          bodyFatEntries={resolvedBodyFatEntries}
+          calorieTargetCalories={calorieTargetCalories}
           displayedWeight={displayedWeight}
           lastLoggedLabel={lastLoggedLabel}
           displayedBodyFat={displayedBodyFat}
           bodyFatLoggedLabel={bodyFatLoggedLabel}
           bodyFatTrackingEnabled={resolvedBodyFatTrackingEnabled}
+          onNavigate={handleOpenPage}
           onFieldChange={handleFieldChange}
           onOpenAgePicker={resolvedActions.openers.agePicker}
           onOpenHeightPicker={resolvedActions.openers.heightPicker}
@@ -615,13 +642,18 @@ const SettingsHome = ({ onOpenPage, animateIn = false }) => (
 
 const SettingsPageContent = ({
   page,
+  transitionDirection = 'forward',
   userData,
   bmr,
+  weightEntries,
+  bodyFatEntries,
+  calorieTargetCalories,
   displayedWeight,
   lastLoggedLabel,
   displayedBodyFat,
   bodyFatLoggedLabel,
   bodyFatTrackingEnabled,
+  onNavigate,
   onFieldChange,
   onOpenAgePicker,
   onOpenHeightPicker,
@@ -650,118 +682,153 @@ const SettingsPageContent = ({
   adaptiveThermogenesisSmoothingWindowDays,
   heartRateOpeners,
   stepSync,
-}) => (
-  <div
-    key={page}
-    className="settings-page-enter mx-auto w-full max-w-3xl p-4 pb-8 md:p-8"
-  >
-    {page === 'profile' && (
-      <ProfileSection
-        userData={userData}
-        displayedWeight={displayedWeight}
-        lastLoggedLabel={lastLoggedLabel}
-        displayedBodyFat={displayedBodyFat}
-        bodyFatLoggedLabel={bodyFatLoggedLabel}
-        bodyFatTrackingEnabled={bodyFatTrackingEnabled}
-        onFieldChange={onFieldChange}
-        onOpenAgePicker={onOpenAgePicker}
-        onOpenHeightPicker={onOpenHeightPicker}
-        onOpenWeightManager={onOpenWeightManager}
-        onOpenBodyFatManager={onOpenBodyFatManager}
-      />
-    )}
+}) => {
+  const activeSlotPicker = parseHomeSlotPickerPage(page);
+  // Keep one wrapper key across Shortcut / Left tile / Right tile tabs inside
+  // the picker so switching slots doesn't replay the whole-page enter motion.
+  const pageKey = activeSlotPicker ? `${HOME_LAYOUT_PAGE}:picker` : page;
+  const enterClass =
+    transitionDirection === 'back'
+      ? 'settings-page-back'
+      : 'settings-page-enter';
 
-    {page === 'profile' && (
-      <HeartRateSettingsSection
-        userData={userData}
-        onFieldChange={onFieldChange}
-        openers={heartRateOpeners}
-      />
-    )}
-
-    {page === 'appearance' && (
-      <AppearanceSection userData={userData} onFieldChange={onFieldChange} />
-    )}
-
-    {page === 'activity' && (
-      <DailyActivitySection
-        userData={userData}
-        bmr={bmr}
-        onDailyActivityClick={onDailyActivityClick}
-        onOpenStepGoalPicker={onOpenStepGoalPicker}
-        onOpenStepRanges={onOpenStepRanges}
-      />
-    )}
-
-    {page === 'food' && (
-      <FoodNutritionSection
-        userData={userData}
-        onFieldChange={onFieldChange}
-        onOpenMacroPicker={onOpenMacroPicker}
-        onClearCachedFoods={onClearCachedFoods}
-      />
-    )}
-
-    {page === 'notifications' && (
-      <NotificationsSettingsSection
-        userData={userData}
-        onFieldChange={onFieldChange}
-        onOpenTimePicker={heartRateOpeners?.notificationTimePicker}
-      />
-    )}
-
-    {page === 'integrations' && (
-      <IntegrationsSection
-        userData={userData}
-        stepSync={stepSync}
-        openers={heartRateOpeners}
-      />
-    )}
-
-    {page === 'adjustments' && (
-      <div className="space-y-7">
-        <EpocSection
-          epocEnabled={epocEnabled}
-          epocCarryoverHours={epocCarryoverHours}
-          onOpenInfo={onOpenEpocInfo}
-          onOpenWindowPicker={onOpenEpocWindowPicker}
-          onFieldChange={onFieldChange}
-        />
-
-        <SmartTefSection
+  return (
+    <div
+      key={pageKey}
+      className={`${enterClass} mx-auto w-full max-w-3xl p-4 pb-8 md:p-8`}
+    >
+      {page === 'profile' && (
+        <ProfileSection
           userData={userData}
-          useTargetQuickEstimates={useTargetQuickEstimates}
-          showFoodModalTefBurn={showFoodModalTefBurn}
-          useTargetLiveCard={useTargetLiveCard}
-          onOpenInfo={onOpenTefInfo}
+          displayedWeight={displayedWeight}
+          lastLoggedLabel={lastLoggedLabel}
+          displayedBodyFat={displayedBodyFat}
+          bodyFatLoggedLabel={bodyFatLoggedLabel}
+          bodyFatTrackingEnabled={bodyFatTrackingEnabled}
           onFieldChange={onFieldChange}
+          onOpenAgePicker={onOpenAgePicker}
+          onOpenHeightPicker={onOpenHeightPicker}
+          onOpenWeightManager={onOpenWeightManager}
+          onOpenBodyFatManager={onOpenBodyFatManager}
         />
+      )}
 
-        <AdaptiveThermogenesisSection
-          adaptiveThermogenesisEnabled={adaptiveThermogenesisEnabled}
-          adaptiveThermogenesisSmartMode={adaptiveThermogenesisSmartMode}
-          adaptiveThermogenesisSmartModeAvailable={
-            adaptiveThermogenesisSmartModeAvailable
+      {page === 'profile' && (
+        <HeartRateSettingsSection
+          userData={userData}
+          onFieldChange={onFieldChange}
+          openers={heartRateOpeners}
+        />
+      )}
+
+      {page === 'appearance' && (
+        <AppearanceSection userData={userData} onFieldChange={onFieldChange} />
+      )}
+
+      {page === HOME_LAYOUT_PAGE && (
+        <HomeLayoutSettingsSection
+          userData={userData}
+          weightEntries={weightEntries}
+          bodyFatEntries={bodyFatEntries}
+          bodyFatTrackingEnabled={bodyFatTrackingEnabled}
+          calorieTargetCalories={calorieTargetCalories}
+          onFieldChange={onFieldChange}
+          onOpenSlotPicker={(slot) =>
+            onNavigate?.(makeHomeSlotPickerPage(slot))
           }
-          adaptiveThermogenesisSmartModeDataStatus={
-            adaptiveThermogenesisSmartModeDataStatus
-          }
-          adaptiveThermogenesisSmoothingEnabled={
-            adaptiveThermogenesisSmoothingEnabled
-          }
-          adaptiveThermogenesisSmoothingMethod={
-            adaptiveThermogenesisSmoothingMethod
-          }
-          adaptiveThermogenesisSmoothingWindowDays={
-            adaptiveThermogenesisSmoothingWindowDays
-          }
-          onOpenInfo={onOpenAdaptiveThermogenesisInfo}
+        />
+      )}
+
+      {activeSlotPicker && (
+        <HeroMetricPickerPage
+          activeSlot={activeSlotPicker}
+          userData={userData}
+          bodyFatTrackingEnabled={bodyFatTrackingEnabled}
+          onSelectSlot={(slot) => onNavigate?.(makeHomeSlotPickerPage(slot))}
           onFieldChange={onFieldChange}
         />
-      </div>
-    )}
-  </div>
-);
+      )}
+
+      {page === 'activity' && (
+        <DailyActivitySection
+          userData={userData}
+          bmr={bmr}
+          onDailyActivityClick={onDailyActivityClick}
+          onOpenStepGoalPicker={onOpenStepGoalPicker}
+          onOpenStepRanges={onOpenStepRanges}
+        />
+      )}
+
+      {page === 'food' && (
+        <FoodNutritionSection
+          userData={userData}
+          onFieldChange={onFieldChange}
+          onOpenMacroPicker={onOpenMacroPicker}
+          onClearCachedFoods={onClearCachedFoods}
+        />
+      )}
+
+      {page === 'notifications' && (
+        <NotificationsSettingsSection
+          userData={userData}
+          onFieldChange={onFieldChange}
+          onOpenTimePicker={heartRateOpeners?.notificationTimePicker}
+        />
+      )}
+
+      {page === 'integrations' && (
+        <IntegrationsSection
+          userData={userData}
+          stepSync={stepSync}
+          openers={heartRateOpeners}
+        />
+      )}
+
+      {page === 'adjustments' && (
+        <div className="space-y-7">
+          <EpocSection
+            epocEnabled={epocEnabled}
+            epocCarryoverHours={epocCarryoverHours}
+            onOpenInfo={onOpenEpocInfo}
+            onOpenWindowPicker={onOpenEpocWindowPicker}
+            onFieldChange={onFieldChange}
+          />
+
+          <SmartTefSection
+            userData={userData}
+            useTargetQuickEstimates={useTargetQuickEstimates}
+            showFoodModalTefBurn={showFoodModalTefBurn}
+            useTargetLiveCard={useTargetLiveCard}
+            onOpenInfo={onOpenTefInfo}
+            onFieldChange={onFieldChange}
+          />
+
+          <AdaptiveThermogenesisSection
+            adaptiveThermogenesisEnabled={adaptiveThermogenesisEnabled}
+            adaptiveThermogenesisSmartMode={adaptiveThermogenesisSmartMode}
+            adaptiveThermogenesisSmartModeAvailable={
+              adaptiveThermogenesisSmartModeAvailable
+            }
+            adaptiveThermogenesisSmartModeDataStatus={
+              adaptiveThermogenesisSmartModeDataStatus
+            }
+            adaptiveThermogenesisSmoothingEnabled={
+              adaptiveThermogenesisSmoothingEnabled
+            }
+            adaptiveThermogenesisSmoothingMethod={
+              adaptiveThermogenesisSmoothingMethod
+            }
+            adaptiveThermogenesisSmoothingWindowDays={
+              adaptiveThermogenesisSmoothingWindowDays
+            }
+            onOpenInfo={onOpenAdaptiveThermogenesisInfo}
+            onFieldChange={onFieldChange}
+          />
+        </div>
+      )}
+    </div>
+  );
+};
 
 const FullscreenModalFrame = ({
   isOpen,
@@ -1516,18 +1583,6 @@ const AppearanceSection = ({ userData, onFieldChange }) => {
   const fontScaleKey = normalizeFontScaleKey(userData.fontScale);
   const densityKey = normalizeUiDensityKey(userData.uiDensity);
   const motionKey = normalizeMotionPreferenceKey(userData.motionPreference);
-  const hasSeenSwipeHint = userData.hasSeenSwipeHint === true;
-  const hasSeenMacroHint = userData.hasSeenMacroHint === true;
-  const hasSeenPinHint = userData.hasSeenPinHint === true;
-  const bodyFatTrackingEnabled = userData.bodyFatTrackingEnabled !== false;
-  // The three Home slots as they will actually render: unique, with Body Fat
-  // stepped aside while tracking is off.
-  const heroSlots = readHeroSlots(userData, { bodyFatTrackingEnabled });
-  const heroSlotDescription = (slot) =>
-    (
-      HERO_ACTION_OPTIONS.find((option) => option.key === heroSlots[slot]) ??
-      HERO_ACTION_OPTIONS[0]
-    ).description;
 
   // One block per setting (the page staggers its blocks in); text size and
   // density apply live to the whole app, including this page, so there is no
@@ -1655,159 +1710,9 @@ const AppearanceSection = ({ userData, onFieldChange }) => {
           })}
         </div>
       </div>
-
-      {HERO_SLOT_SETTINGS.map(({ slot, label, hint }) => (
-        <div key={slot}>
-          <SettingLabel>{label}</SettingLabel>
-          <HeroMetricPicker
-            ariaLabel={label}
-            slot={slot}
-            slots={heroSlots}
-            bodyFatTrackingEnabled={bodyFatTrackingEnabled}
-            onSelect={(key) => onFieldChange?.(HERO_SLOT_FIELDS[slot], key)}
-          />
-          <p className="mt-2 text-xs text-muted">
-            {hint} {heroSlotDescription(slot)}
-          </p>
-        </div>
-      ))}
-
-      <div>
-        <SettingLabel>Tips</SettingLabel>
-        <div className="space-y-2">
-          <TipResetRow
-            title="Swipe tip"
-            ariaLabel="Show swipe tip again"
-            description="The “Swipe between screens” hint in the header"
-            seen={hasSeenSwipeHint}
-            onReset={() => onFieldChange?.('hasSeenSwipeHint', false)}
-          />
-          <TipResetRow
-            title="Macro tip"
-            ariaLabel="Show macro tip again"
-            description="The “Tap your macros” hint on the Tracker screen"
-            seen={hasSeenMacroHint}
-            onReset={() => onFieldChange?.('hasSeenMacroHint', false)}
-          />
-          <TipResetRow
-            title="Pin tip"
-            ariaLabel="Show pin tip again"
-            description="The “Hold a food to pin it” hint in Food Search"
-            seen={hasSeenPinHint}
-            onReset={() => onFieldChange?.('hasSeenPinHint', false)}
-          />
-        </div>
-      </div>
     </div>
   );
 };
-
-// Where each Home slot lives, for the settings rows and for the "in use" tags.
-const HERO_SLOT_SETTINGS = [
-  {
-    slot: HERO_SLOTS.PILL,
-    label: 'Home shortcut',
-    tag: 'Shortcut',
-    hint: 'The button beside the title.',
-  },
-  {
-    slot: HERO_SLOTS.LEFT,
-    label: 'Home left tile',
-    tag: 'Left tile',
-    hint: 'The first tile under the title (Weight by default).',
-  },
-  {
-    slot: HERO_SLOTS.RIGHT,
-    label: 'Home right tile',
-    tag: 'Right tile',
-    hint: 'The second tile (Body Fat by default).',
-  },
-];
-
-// One choice from the Home hero metric list, for one slot. A metric another
-// slot already shows is tagged with where it is: picking it swaps the two (the
-// store enforces "one metric, one slot"), so it is never refused. Body Fat is
-// disabled while body fat tracking is off, with the reason as its tooltip.
-const HeroMetricPicker = ({
-  ariaLabel,
-  slot,
-  slots,
-  bodyFatTrackingEnabled,
-  onSelect,
-}) => (
-  <div role="group" aria-label={ariaLabel} className="grid grid-cols-2 gap-2">
-    {getHeroOptionsForSlot(slot).map(({ key, label }) => {
-      const Icon =
-        HERO_ACTION_ICONS_BY_KEY[HERO_ACTION_ICON_KEY_BY_METRIC[key]];
-      const active = slots[slot] === key;
-      const unavailable =
-        key === HERO_ACTION_METRICS.BODY_FAT && !bodyFatTrackingEnabled;
-      const usedBy = active
-        ? null
-        : HERO_SLOT_SETTINGS.find((other) => slots[other.slot] === key);
-      return (
-        <SegmentedButton
-          key={key}
-          active={active}
-          activeClassName={BUTTON_ACTIVE_PRIMARY_CLASS}
-          aria-pressed={active}
-          disabled={unavailable}
-          title={unavailable ? 'Body fat tracking is off' : undefined}
-          onClick={() => onSelect(key)}
-        >
-          <span
-            className={`flex items-center gap-2 ${unavailable ? 'opacity-40' : ''}`}
-          >
-            <Icon size={18} aria-hidden="true" className="shrink-0" />
-            <span className="min-w-0 text-left">
-              <span className="block text-sm">{label}</span>
-              {usedBy && (
-                <span className="block text-[11px] font-normal text-muted">
-                  In {usedBy.tag.toLowerCase()}
-                </span>
-              )}
-            </span>
-          </span>
-        </SegmentedButton>
-      );
-    })}
-  </div>
-);
-
-// One-time coach-mark row: enabled only once the tip has been seen (an unseen
-// tip is already pending, so there is nothing to reset).
-const TipResetRow = ({ title, ariaLabel, description, seen, onReset }) => (
-  <button
-    type="button"
-    disabled={!seen}
-    onClick={onReset}
-    aria-label={ariaLabel}
-    className={`w-full px-4 py-3 rounded-lg border transition-all text-left flex items-center justify-between gap-3 focus-ring ${
-      seen
-        ? 'bg-surface-highlight text-foreground border-border md:hover:border-muted/50 pressable-inline'
-        : 'bg-surface-highlight/40 text-muted border-border/60 cursor-not-allowed'
-    }`}
-  >
-    <span className="flex items-center gap-3 min-w-0">
-      <Lightbulb
-        size={18}
-        aria-hidden="true"
-        className={`shrink-0 ${seen ? 'text-accent-amber' : 'text-muted'}`}
-      />
-      <span className="min-w-0">
-        <span className="block font-medium text-base">{title}</span>
-        <span className="block text-xs text-muted">{description}</span>
-      </span>
-    </span>
-    <span
-      className={`shrink-0 text-xs font-semibold ${
-        seen ? 'text-accent-blue' : 'text-muted'
-      }`}
-    >
-      {seen ? 'Show again' : 'Pending'}
-    </span>
-  </button>
-);
 
 const EpocSection = ({
   epocEnabled,

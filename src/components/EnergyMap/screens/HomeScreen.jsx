@@ -340,7 +340,7 @@ export const HomeScreen = memo(function HomeScreen({
     ? Math.round(Number(calorieTargetCalories))
     : null;
 
-  // The hero's three configurable readouts (Settings -> Appearance -> Home):
+  // The hero's three configurable readouts (Settings -> Home & Tips):
   // the pill beside the title and the two tiles. They default to calories,
   // Weight and Body Fat; any slot can show any metric, and no metric can sit in
   // two slots (`readHeroSlots` settles every pick - Body Fat steps aside while
@@ -737,14 +737,14 @@ export const HomeScreen = memo(function HomeScreen({
           </div>
           {/* The header gear already owns Settings from every screen, so this
               action slot carries one glanceable readout for today and the
-              screen behind it. It is configurable (Settings -> Appearance);
+              screen behind it. It is configurable (Settings -> Home & Tips);
               the default is calories eaten, which also starts a meal. */}
           <HeroActionPill
             model={heroModels.pill}
             onPress={heroActionOpeners?.[heroSlots.pill]}
           />
         </div>
-        {/* Two configurable tiles (Settings -> Appearance -> Home). They default
+        {/* Two configurable tiles (Settings -> Home & Tips). They default
             to Weight and Body Fat, exactly as before, and either slot can show
             any hero metric instead. Both render the same tile design. */}
         <div className="grid grid-cols-2 gap-3">

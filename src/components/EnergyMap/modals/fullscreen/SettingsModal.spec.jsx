@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SettingsModal } from './SettingsModal';
+import { getSettingsParentPage } from '../../../../utils/settings/settingsNavigation';
 import { exportAllDataAsJSON } from '../../../../utils/export';
 import { buildFullExportPayload } from '../../../../utils/data/fullExport';
 import {
@@ -48,8 +49,9 @@ const SettingsHarness = ({
 }) => {
   const [activePage, setActivePage] = useState('home');
   const handleBack = () => {
-    if (activePage !== 'home') {
-      setActivePage('home');
+    const parent = getSettingsParentPage(activePage);
+    if (parent) {
+      setActivePage(parent);
       return;
     }
     onCancel();
@@ -119,6 +121,7 @@ describe('SettingsModal segmented navigation', () => {
     const pages = [
       ['Open Profile & Health', 'Profile & Health', /^Age$/],
       ['Open Appearance', 'Appearance', 'Color theme'],
+      ['Open Home & Tips', 'Home & Tips', 'Live preview'],
       ['Open Activity & Steps', 'Activity & Steps', /Daily NEAT/],
       [
         'Open Metabolic Adjustments',
@@ -249,70 +252,154 @@ describe('SettingsModal segmented navigation', () => {
     );
   });
 
-  it('offers three Home slots that choose from one list and report each choice', async () => {
+  it('keeps Home layout and Tips out of Appearance', async () => {
+    const user = userEvent.setup();
+    render(<SettingsHarness />);
+
+    await user.click(screen.getByRole('button', { name: 'Open Appearance' }));
+
+    expect(screen.getByText('Color theme')).toBeInTheDocument();
+    expect(screen.getByText('Animations')).toBeInTheDocument();
+    expect(screen.queryByText('Live preview')).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Show all tips again' })
+    ).toBeNull();
+  });
+
+  it('shows live preview and currently showing rows on Home & Tips and opens the metric picker for any slot', async () => {
     const user = userEvent.setup();
     const onFieldChange = vi.fn();
     render(<SettingsHarness onFieldChange={onFieldChange} />);
 
-    await user.click(screen.getByRole('button', { name: 'Open Appearance' }));
-    const shortcut = within(
-      screen.getByRole('group', { name: 'Home shortcut' })
-    );
-    const left = within(screen.getByRole('group', { name: 'Home left tile' }));
-    const right = within(
-      screen.getByRole('group', { name: 'Home right tile' })
-    );
+    await user.click(screen.getByRole('button', { name: 'Open Home & Tips' }));
 
-    // Out of the box: calories, Weight, Body Fat - the layout Home always had.
+    expect(screen.getByText('Live preview')).toBeInTheDocument();
     expect(
-      shortcut.getByRole('button', { name: /^Calories$/ })
-    ).toHaveAttribute('aria-pressed', 'true');
-    expect(left.getByRole('button', { name: /^Weight/ })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    );
-    expect(right.getByRole('button', { name: /^Body fat/ })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    );
+      screen.getByText('Tap anything with a dashed outline to change it.')
+    ).toBeInTheDocument();
 
-    // Each slot reports to its own profile field.
-    await user.click(shortcut.getByRole('button', { name: /^Steps/ }));
+    // Out of the box: Calories, Weight, Body fat.
+    expect(
+      screen.getByRole('button', { name: 'Edit shortcut: Calories' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Edit left tile: Weight' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Edit right tile: Body fat' })
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByRole('button', { name: 'Shortcut: Calories' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Left tile: Weight' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Right tile: Body fat' })
+    ).toBeInTheDocument();
+
+    // Tap the dashed shortcut pill in the live preview to open Choose a metric.
+    await user.click(
+      screen.getByRole('button', { name: 'Edit shortcut: Calories' })
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Choose a metric' })
+    ).toBeInTheDocument();
+
+    const slotGroup = screen.getByRole('group', { name: 'Home slot' });
+    const slotTabs = within(slotGroup);
+    const slidingPill = slotGroup.querySelector('[aria-hidden="true"]');
+    expect(slidingPill).toHaveStyle({ transform: 'translateX(0%)' });
+    expect(slotTabs.getByRole('button', { name: 'Shortcut' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    expect(
+      within(screen.getByRole('group', { name: 'Food' })).getByRole('button', {
+        name: /^Calories(?! left)/,
+      })
+    ).toHaveAttribute('aria-pressed', 'true');
+
+    // Selecting stays on the picker so the user can configure all 3 slots in one go.
+    await user.click(
+      within(screen.getByRole('group', { name: 'Activity' })).getByRole(
+        'button',
+        { name: /^Steps/ }
+      )
+    );
     expect(onFieldChange).toHaveBeenLastCalledWith('heroActionMetric', 'steps');
-    await user.click(left.getByRole('button', { name: /^Protein/ }));
+    expect(
+      screen.getByRole('heading', { name: 'Choose a metric' })
+    ).toBeInTheDocument();
+
+    // Switch to Left tile and Right tile in-place via the animated 3-way toggle.
+    await user.click(slotTabs.getByRole('button', { name: 'Left tile' }));
+    expect(slidingPill).toHaveStyle({ transform: 'translateX(100%)' });
+    expect(
+      within(screen.getByRole('group', { name: 'Body' })).getByRole('button', {
+        name: /^Weight/,
+      })
+    ).toHaveAttribute('aria-pressed', 'true');
+    await user.click(
+      within(screen.getByRole('group', { name: 'Food' })).getByRole('button', {
+        name: /^Protein/,
+      })
+    );
     expect(onFieldChange).toHaveBeenLastCalledWith(
       'heroTileLeftMetric',
       'protein'
     );
-    await user.click(right.getByRole('button', { name: /^Streak/ }));
+
+    await user.click(slotTabs.getByRole('button', { name: 'Right tile' }));
+    expect(slidingPill).toHaveStyle({ transform: 'translateX(200%)' });
+    expect(
+      within(screen.getByRole('group', { name: 'Body' })).getByRole('button', {
+        name: /^Body fat/,
+      })
+    ).toHaveAttribute('aria-pressed', 'true');
+    await user.click(
+      within(screen.getByRole('group', { name: 'Activity' })).getByRole(
+        'button',
+        { name: /^Streak/ }
+      )
+    );
     expect(onFieldChange).toHaveBeenLastCalledWith(
       'heroTileRightMetric',
       'streak'
     );
   });
 
-  it('tags a metric another Home slot shows and lets you pick it anyway (a swap)', async () => {
+  it('tags a metric another Home slot shows and lets you pick it anyway (a swap or move)', async () => {
     const user = userEvent.setup();
     const onFieldChange = vi.fn();
     render(<SettingsHarness onFieldChange={onFieldChange} />);
 
-    await user.click(screen.getByRole('button', { name: 'Open Appearance' }));
-    const right = within(
-      screen.getByRole('group', { name: 'Home right tile' })
+    await user.click(screen.getByRole('button', { name: 'Open Home & Tips' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Right tile: Body fat' })
     );
 
-    // Weight is in the left tile: tagged, but never refused.
-    const weight = right.getByRole('button', { name: /^Weight/ });
+    // Weight is in Left tile -> tagged with compact swap badge and still clickable.
+    const weight = within(
+      screen.getByRole('group', { name: 'Body' })
+    ).getByRole('button', { name: /^Weight/ });
     expect(weight).toHaveTextContent('In left tile');
+    expect(weight).not.toHaveTextContent('swaps');
     expect(weight).toBeEnabled();
     await user.click(weight);
     expect(onFieldChange).toHaveBeenLastCalledWith(
       'heroTileRightMetric',
       'weight'
     );
+
+    const calories = within(
+      screen.getByRole('group', { name: 'Food' })
+    ).getByRole('button', { name: /^Calories(?! left)/ });
+    expect(calories).toHaveTextContent('In shortcut');
   });
 
-  it('omits Weight and Body fat from Home shortcut and disables Body fat on tiles while tracking is off', async () => {
+  it('omits Weight and Body fat from Shortcut and disables Body fat on tiles while tracking is off', async () => {
     const user = userEvent.setup();
     render(
       <SettingsHarness
@@ -320,34 +407,72 @@ describe('SettingsModal segmented navigation', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: 'Open Appearance' }));
+    await user.click(screen.getByRole('button', { name: 'Open Home & Tips' }));
+    // Right tile (Body Fat by default) shows what Home really shows while tracking is off.
+    expect(
+      screen.getByRole('button', { name: 'Right tile: Steps' })
+    ).toBeInTheDocument();
 
-    // Home shortcut never offers Weight or Body fat.
-    const shortcut = within(
-      screen.getByRole('group', { name: 'Home shortcut' })
+    // Open Shortcut picker: Weight and Body fat are omitted.
+    await user.click(
+      screen.getByRole('button', { name: 'Shortcut: Calories' })
     );
+    const bodyForPill = within(screen.getByRole('group', { name: 'Body' }));
     expect(
-      shortcut.queryByRole('button', { name: /^Weight/ })
+      bodyForPill.queryByRole('button', { name: /^Weight/ })
     ).not.toBeInTheDocument();
     expect(
-      shortcut.queryByRole('button', { name: /^Body fat/ })
+      bodyForPill.queryByRole('button', { name: /^Body fat/ })
     ).not.toBeInTheDocument();
-    expect(shortcut.getByRole('button', { name: /^Steps/ })).toBeEnabled();
+    expect(
+      bodyForPill.getByRole('button', { name: /^Resting HR/ })
+    ).toBeEnabled();
 
-    // The two tiles offer both, with Body fat disabled while tracking is off.
-    ['Home left tile', 'Home right tile'].forEach((name) => {
-      const group = within(screen.getByRole('group', { name }));
-      expect(group.getByRole('button', { name: /^Weight/ })).toBeEnabled();
-      expect(group.getByRole('button', { name: /^Body fat/ })).toBeDisabled();
-      expect(group.getByRole('button', { name: /^Steps/ })).toBeEnabled();
-    });
-    // And the right tile - Body Fat by default - shows what Home really shows.
+    // Switch to Left tile and Right tile: Body fat is present but disabled.
+    const slotTabs = within(screen.getByRole('group', { name: 'Home slot' }));
+    for (const tabName of ['Left tile', 'Right tile']) {
+      await user.click(slotTabs.getByRole('button', { name: tabName }));
+      const bodyForTile = within(screen.getByRole('group', { name: 'Body' }));
+      expect(
+        bodyForTile.getByRole('button', { name: /^Weight/ })
+      ).toBeEnabled();
+      const bodyFat = bodyForTile.getByRole('button', { name: /^Body fat/ });
+      expect(bodyFat).toBeDisabled();
+      expect(bodyFat).toHaveTextContent('Tracking off');
+    }
     expect(
-      within(screen.getByRole('group', { name: 'Home right tile' })).getByRole(
+      within(screen.getByRole('group', { name: 'Activity' })).getByRole(
         'button',
         { name: /^Steps/ }
       )
     ).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('steps back from Choose a metric to Home & Tips, then to the hub, then closes', async () => {
+    const user = userEvent.setup();
+    const onCancel = vi.fn();
+    render(<SettingsHarness onCancel={onCancel} />);
+
+    await user.click(screen.getByRole('button', { name: 'Open Home & Tips' }));
+    await user.click(screen.getByRole('button', { name: 'Left tile: Weight' }));
+    expect(
+      screen.getByRole('heading', { name: 'Choose a metric' })
+    ).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+    expect(
+      screen.getByRole('heading', { name: 'Home & Tips' })
+    ).toBeInTheDocument();
+    expect(onCancel).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    expect(
+      screen.getByRole('navigation', { name: 'Settings categories' })
+    ).toBeInTheDocument();
+    expect(onCancel).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
   it('shows the stored Animations preference as pressed, and Auto when unset or invalid', async () => {
@@ -457,80 +582,48 @@ describe('SettingsModal segmented navigation', () => {
     expect(stepRanges).toHaveBeenCalledTimes(1);
   });
 
-  it('lets the swipe tip be shown again only once it has been seen', async () => {
+  it('lets all seen tips be shown again from one row on Home & Tips and disables when all are pending', async () => {
     const user = userEvent.setup();
     const onFieldChange = vi.fn();
     const { unmount } = render(
       <SettingsHarness
         onFieldChange={onFieldChange}
-        userData={createUserData({ hasSeenSwipeHint: true })}
+        userData={createUserData({
+          hasSeenSwipeHint: true,
+          hasSeenMacroHint: false,
+          hasSeenPinHint: true,
+        })}
       />
     );
-    await user.click(screen.getByRole('button', { name: 'Open Appearance' }));
-    await user.click(
-      screen.getByRole('button', { name: 'Show swipe tip again' })
-    );
-    expect(onFieldChange).toHaveBeenLastCalledWith('hasSeenSwipeHint', false);
+    await user.click(screen.getByRole('button', { name: 'Open Home & Tips' }));
+    const resetButton = screen.getByRole('button', {
+      name: 'Show all tips again',
+    });
+    expect(resetButton).toBeEnabled();
+    expect(resetButton).toHaveTextContent('Show all again');
+
+    await user.click(resetButton);
+    expect(onFieldChange).toHaveBeenCalledWith('hasSeenSwipeHint', false);
+    expect(onFieldChange).toHaveBeenCalledWith('hasSeenPinHint', false);
+    expect(onFieldChange).not.toHaveBeenCalledWith('hasSeenMacroHint', false);
     unmount();
 
-    // Not seen yet: it is already pending, so there is nothing to reset.
+    // None seen yet: all tips are already pending, so there is nothing to reset.
     render(
-      <SettingsHarness userData={createUserData({ hasSeenSwipeHint: false })} />
-    );
-    await user.click(screen.getByRole('button', { name: 'Open Appearance' }));
-    expect(
-      screen.getByRole('button', { name: 'Show swipe tip again' })
-    ).toBeDisabled();
-  });
-
-  it('lets the macro tip be shown again only once it has been seen', async () => {
-    const user = userEvent.setup();
-    const onFieldChange = vi.fn();
-    const { unmount } = render(
       <SettingsHarness
-        onFieldChange={onFieldChange}
-        userData={createUserData({ hasSeenMacroHint: true })}
+        userData={createUserData({
+          hasSeenSwipeHint: false,
+          hasSeenMacroHint: false,
+          hasSeenPinHint: false,
+        })}
       />
     );
-    await user.click(screen.getByRole('button', { name: 'Open Appearance' }));
-    await user.click(
-      screen.getByRole('button', { name: 'Show macro tip again' })
-    );
-    expect(onFieldChange).toHaveBeenLastCalledWith('hasSeenMacroHint', false);
-    unmount();
-
-    render(
-      <SettingsHarness userData={createUserData({ hasSeenMacroHint: false })} />
-    );
-    await user.click(screen.getByRole('button', { name: 'Open Appearance' }));
-    expect(
-      screen.getByRole('button', { name: 'Show macro tip again' })
-    ).toBeDisabled();
-  });
-
-  it('lets the pin tip be shown again only once it has been seen', async () => {
-    const user = userEvent.setup();
-    const onFieldChange = vi.fn();
-    const { unmount } = render(
-      <SettingsHarness
-        onFieldChange={onFieldChange}
-        userData={createUserData({ hasSeenPinHint: true })}
-      />
-    );
-    await user.click(screen.getByRole('button', { name: 'Open Appearance' }));
-    await user.click(
-      screen.getByRole('button', { name: 'Show pin tip again' })
-    );
-    expect(onFieldChange).toHaveBeenLastCalledWith('hasSeenPinHint', false);
-    unmount();
-
-    render(
-      <SettingsHarness userData={createUserData({ hasSeenPinHint: false })} />
-    );
-    await user.click(screen.getByRole('button', { name: 'Open Appearance' }));
-    expect(
-      screen.getByRole('button', { name: 'Show pin tip again' })
-    ).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Open Home & Tips' }));
+    const disabledButton = screen.getByRole('button', {
+      name: 'Show all tips again',
+    });
+    expect(disabledButton).toBeDisabled();
+    expect(disabledButton).toHaveTextContent('All pending');
   });
 
   it('exposes food search, macro and cached-food controls on Food & Macros', async () => {

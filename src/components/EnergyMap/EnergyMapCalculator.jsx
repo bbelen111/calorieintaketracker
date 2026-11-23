@@ -43,6 +43,7 @@ import {
   sanitizeSessionHeartRateDetails,
 } from '../../utils/calculations/sessionHeartRate.js';
 import { saveLastSelectedCardioType } from '../../utils/data/storage';
+import { getSettingsParentPage } from '../../utils/settings/settingsNavigation';
 import {
   ScreenTabs,
   SCREEN_TABS_BOTTOM_CLEARANCE_PX,
@@ -909,8 +910,9 @@ export const EnergyMapCalculator = () => {
     settingsModal.open();
   }, [settingsModal.open]);
   const handleSettingsBack = useCallback(() => {
-    if (settingsPage !== 'home') {
-      setSettingsPage('home');
+    const parentPage = getSettingsParentPage(settingsPage);
+    if (parentPage) {
+      setSettingsPage(parentPage);
       return true;
     }
 
@@ -5242,6 +5244,7 @@ export const EnergyMapCalculator = () => {
             weightEntries={weightEntries}
             bodyFatEntries={bodyFatEntries}
             bodyFatTrackingEnabled={userData.bodyFatTrackingEnabled}
+            calorieTargetCalories={selectedCalorieTargetData?.targetCalories}
             bmr={bmr}
             stepSync={healthConnect}
             actions={{
