@@ -1,5 +1,12 @@
 import React from 'react';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import {
+  act,
+  configure,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -11,6 +18,35 @@ import {
   CapacitorMock,
   PreferencesMock,
 } from '../../tests/mocks/capacitor.js';
+
+// The orchestrator schedules an idle food-catalog warm-up a few seconds after
+// hydration (hooks/useFoodCatalogWarmUp.js, covered by its own spec). Under
+// jsdom it tries to load the sql.js WASM from a path that does not exist here,
+// which (a) burns CPU in the middle of a test and (b) surfaces as an unhandled
+// rejection that vitest warns "might cause false positive tests". Nothing in
+// this file is about the warm-up, so it is stubbed out.
+vi.mock('../../hooks/useFoodCatalogWarmUp', () => ({
+  useFoodCatalogWarmUp: () => {},
+}));
+
+// These tests mount the whole app (five screens, the store, lazily loaded
+// modals) and drive real user events, so they are the slowest in the UI tier:
+// the heaviest takes ~2.6s ALONE, against vitest's 5s default. In a full run
+// dozens of jsdom workers compete for the CPU and that doubles, which made
+// them fail intermittently in TWO different ways, so there are two ceilings:
+//
+//  - the whole test timing out ("confirms before overwriting a weight entry"
+//    hit vitest's 5s limit): `testTimeout` below;
+//  - an async query giving up before a lazily loaded modal had rendered
+//    ("Unable to find heading 'Weight Tracker'" after Testing Library's 1s
+//    default for `findBy*` / `waitFor`): `asyncUtilTimeout` below.
+//
+// Both are ceilings for a loaded machine, not expectations: a query returns the
+// instant it matches, so passing tests are no slower, and a real regression
+// (the element never appears) still fails with its element error - just after
+// 5s instead of 1s, well inside the test limit.
+vi.setConfig({ testTimeout: 20_000 });
+configure({ asyncUtilTimeout: 5000 });
 
 /**
  * Orchestrator integration tier.
