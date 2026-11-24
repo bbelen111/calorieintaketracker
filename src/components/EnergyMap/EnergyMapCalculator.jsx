@@ -131,6 +131,7 @@ import {
   normalizePickerValue,
 } from '../../utils/food/nutrientPicker';
 import { buildRecipeFood, getRecipeStartGrams } from '../../utils/food/recipe';
+import { closeTopmostStackedModal } from '../../utils/visuals/modalStack';
 
 const WeightTrackerModal = lazy(() =>
   import('./modals/fullscreen/WeightTrackerModal').then((module) => ({
@@ -1122,6 +1123,17 @@ export const EnergyMapCalculator = () => {
   ].some((modal) => modal?.isOpen || modal?.isClosing);
 
   const closeTopmostModal = useCallback(() => {
+    // Hardware back behaves like Escape on whatever modal is visually on top.
+    // That has to come from the shared modal stack, not the list below: the list
+    // only knows the orchestrator's own modals, so a child modal opened from
+    // inside one (the Add Custom Food form, the recipe ingredient page, the
+    // portion sheet it opens, a wheel picker...) was invisible to it and back
+    // closed its PARENT - e.g. the whole Food Search page - underneath it.
+    if (closeTopmostStackedModal()) {
+      return true;
+    }
+
+    // Fallback for anything that is open but has no stacked dismissal.
     const modalStack = [
       confirmActionModal,
       // Heart-rate children sit above their parents (pairing over the live

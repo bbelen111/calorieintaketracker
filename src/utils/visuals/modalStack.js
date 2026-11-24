@@ -88,9 +88,39 @@ export class ModalStackManager {
     // Reserve one z-index lane between modal wrappers for the shared overlay.
     // This guarantees: lower modal < overlay < top modal.
     const zIndex = this.getHighestZIndex() + 2;
-    this.modals.set(id, { zIndex, isClosing });
+    this.modals.set(id, { zIndex, isClosing, closeHandler: null });
     this.notifyListeners();
     return { id, zIndex };
+  }
+
+  /**
+   * Attach what "dismiss this modal" means for a registered modal (its
+   * `onClose`, honouring `closeOnEscape`). The handler returns `true` when it
+   * consumed the dismissal, `false` when this modal cannot be dismissed that way.
+   */
+  setCloseHandler(id, handler) {
+    const modal = this.modals.get(id);
+    if (modal) {
+      modal.closeHandler = typeof handler === 'function' ? handler : null;
+    }
+  }
+
+  /**
+   * Dismiss the topmost NON-closing modal the way Escape would - the Android
+   * hardware back button. Works for every modal on the stack, including the
+   * child-level ones (pickers, sub-forms, sheets opened from inside another
+   * modal) that the orchestrator knows nothing about, which is the point: a
+   * fixed priority list of the orchestrator's own modals used to close the
+   * PARENT (e.g. the whole Food Search page) while a child was on top.
+   *
+   * Returns `true` only when a handler ran and consumed the press.
+   */
+  closeTopmost() {
+    const { id } = this.getTopModal();
+    if (id === null) return false;
+
+    const handler = this.modals.get(id)?.closeHandler;
+    return typeof handler === 'function' ? handler() === true : false;
   }
 
   unregister(id) {
@@ -165,3 +195,13 @@ export class ModalStackManager {
     });
   }
 }
+
+/**
+ * The one stack every `ModalShell` registers with (top-level modals and the
+ * child-level ones alike). A module singleton so the orchestrator's hardware
+ * back handler can reach it without importing a component file.
+ */
+export const modalStackManager = new ModalStackManager();
+
+/** Dismiss the topmost modal like Escape does; `true` if one consumed it. */
+export const closeTopmostStackedModal = () => modalStackManager.closeTopmost();

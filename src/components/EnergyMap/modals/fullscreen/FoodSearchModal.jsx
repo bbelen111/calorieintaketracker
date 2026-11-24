@@ -708,8 +708,8 @@ export const FoodSearchModal = ({
         clearTimeout(barcodeToastTimerRef.current);
         barcodeToastTimerRef.current = null;
       }
-      revokeChatAttachments(chatAttachments);
-      chatMessages.forEach((message) => {
+      revokeChatAttachments(latestChatAttachmentsRef.current);
+      latestChatMessagesRef.current.forEach((message) => {
         revokeChatAttachments(message.attachments);
       });
       setChatAttachments([]);
@@ -730,13 +730,11 @@ export const FoodSearchModal = ({
       recordedFeedbackEventsRef.current.clear();
     }
   }, [
-    chatAttachments,
     forceDeleteConfirmClose,
     forceManualAddConfirmClose,
     forceAddCustomFoodClose,
     forceBarcodeEntryClose,
     isClosing,
-    chatMessages,
   ]);
 
   // Clear online results when switching modes

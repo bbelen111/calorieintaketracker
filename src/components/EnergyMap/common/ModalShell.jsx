@@ -17,8 +17,8 @@ import {
 import {
   BASE_Z_INDEX,
   OVERLAY_FADE_MS,
-  ModalStackManager,
   calculateLayerOpacity,
+  modalStackManager,
   queueTask,
 } from '../../../utils/visuals/modalStack.js';
 
@@ -26,9 +26,9 @@ import {
 // MODAL STACK MANAGER - Tracks all open modals with stable ordering
 // ============================================================================
 
-// Singleton instance. Lane allocation + backdrop opacity math live in
-// `utils/visuals/modalStack.js` so they stay unit-testable without a DOM.
-const modalStackManager = new ModalStackManager();
+// The singleton lives in `utils/visuals/modalStack.js` (lane allocation,
+// backdrop opacity math and the hardware-back dismissal), so all of it stays
+// unit-testable without a DOM and the orchestrator can reach it too.
 
 // ============================================================================
 // BODY SCROLL LOCK MANAGER - Reference counted scroll lock
@@ -122,6 +122,15 @@ export const ModalShell = ({
     .filter((className) => !/^!?bg-/.test(className))
     .join(' ');
 
+  // The latest `onClose` / `closeOnEscape`, readable by the stack's dismissal
+  // handler (hardware back) without re-registering on every render.
+  const onCloseRef = useRef(onClose);
+  const closeOnEscapeRef = useRef(closeOnEscape);
+  useLayoutEffect(() => {
+    onCloseRef.current = onClose;
+    closeOnEscapeRef.current = closeOnEscape;
+  });
+
   // Register modal on open / unregister on close (useLayoutEffect for synchronous execution)
   useLayoutEffect(() => {
     if (!isOpen || hasRegisteredRef.current) return;
@@ -130,6 +139,18 @@ export const ModalShell = ({
     modalIdRef.current = id;
     zIndexRef.current = zIndex;
     hasRegisteredRef.current = true;
+
+    // Android hardware back dismisses the topmost modal exactly like Escape
+    // (see `ModalStackManager.closeTopmost`), whatever level it lives at. A modal
+    // that opts out of Escape is not dismissed by back either - the press is
+    // still consumed so it cannot fall through and close its parent.
+    modalStackManager.setCloseHandler(id, () => {
+      if (!closeOnEscapeRef.current) return true;
+      const handleClose = onCloseRef.current;
+      if (typeof handleClose !== 'function') return false;
+      handleClose();
+      return true;
+    });
     queueTask(() => {
       if (modalIdRef.current === id) {
         setStackDepth(modalStackManager.getDepth(id));

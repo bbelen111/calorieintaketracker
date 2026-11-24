@@ -29,6 +29,25 @@ vi.mock('../../hooks/useFoodCatalogWarmUp', () => ({
   useFoodCatalogWarmUp: () => {},
 }));
 
+// Food Search and the recipe ingredient page query the food catalog / online
+// service on open. Real queries would need the sql.js WASM and the network, so
+// they return empty pages; nothing here is about what they return.
+vi.mock('../../services/foodSearch', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    searchFoodsLocal: vi.fn(async () => ({
+      results: [],
+      nextOffset: 0,
+      hasMoreLocal: false,
+    })),
+    searchFoodsOnline: vi.fn(async () => ({
+      results: [],
+      errorsBySource: {},
+    })),
+  };
+});
+
 // These tests mount the whole app (five screens, the store, lazily loaded
 // modals) and drive real user events, so they are the slowest in the UI tier:
 // the heaviest takes ~2.6s ALONE, against vitest's 5s default. In a full run
@@ -390,6 +409,80 @@ describe('EnergyMapCalculator (orchestrator integration)', () => {
     expect(
       screen.getByRole('heading', { name: 'Profile & Health' })
     ).toBeInTheDocument();
+  });
+
+  /**
+   * Regression: modals opened from INSIDE another modal (the Add Custom Food
+   * form over Food Search, the recipe ingredient page over that) were not in the
+   * orchestrator's priority list, so Android back skipped them and closed the
+   * whole Food Search page underneath. Back must peel the stack one layer at a
+   * time, top first, whatever level each layer lives at.
+   */
+  it('peels Food Search child modals one layer per Android back press', async () => {
+    CapacitorMock.isNativePlatform.mockReturnValue(true);
+    CapacitorMock.getPlatform.mockReturnValue('android');
+    const user = userEvent.setup();
+    renderApp();
+    await hydrateStore();
+    await findTabBar();
+
+    const pressAndroidBack = async () => {
+      let handler;
+      await waitFor(() => {
+        handler = AppMock.addListener.mock.calls.find(
+          ([event]) => event === 'backButton'
+        )?.[1];
+        expect(handler).toBeTypeOf('function');
+      });
+      act(() => handler());
+    };
+    const heading = (name) => screen.queryByRole('heading', { name });
+    const gone = (name) => waitFor(() => expect(heading(name)).toBeNull());
+
+    // Home pill -> meal type -> Food Search.
+    await user.click(
+      await screen.findByRole('button', {
+        name: /^Calories today, 0 of \d+ kcal\. Add meal$/,
+      })
+    );
+    await user.click(await screen.findByRole('button', { name: 'Lunch' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Add Food' })
+    ).toBeInTheDocument();
+
+    // Layer 1: the Add Custom Food form.
+    await user.click(screen.getByRole('button', { name: 'Add Food' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Add Custom Food' })
+    ).toBeInTheDocument();
+
+    await pressAndroidBack();
+    await gone('Add Custom Food');
+    // The page underneath is still there: this is the reported bug.
+    expect(heading('Add Food')).toBeInTheDocument();
+
+    // Layers 2 and 3: the recipe form, then the ingredient page above it.
+    await user.click(screen.getByRole('button', { name: 'Add Food' }));
+    await user.click(await screen.findByRole('button', { name: 'Recipe' }));
+    await user.click(
+      await screen.findByRole('button', { name: /add ingredient/i })
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Add ingredient' })
+    ).toBeInTheDocument();
+
+    await pressAndroidBack();
+    await gone('Add ingredient');
+    expect(heading('New Recipe')).toBeInTheDocument();
+    expect(heading('Add Food')).toBeInTheDocument();
+
+    await pressAndroidBack();
+    await gone('New Recipe');
+    expect(heading('Add Food')).toBeInTheDocument();
+
+    // Only now does back reach the Food Search page itself.
+    await pressAndroidBack();
+    await gone('Add Food');
   });
 
   it('confirms before overwriting a weight entry while adding', async () => {

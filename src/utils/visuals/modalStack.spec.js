@@ -192,3 +192,109 @@ describe('modalStack - backdrop opacity', () => {
     expect(calculateLayerOpacity(capped)).toBe(0);
   });
 });
+
+/**
+ * Android hardware back dismisses the topmost modal exactly like Escape. The
+ * orchestrator used to close only the modals it owned, so a child opened from
+ * inside one (the Add Custom Food form over Food Search, the ingredient page
+ * over that) was invisible to it and back closed the PARENT underneath.
+ */
+describe('modalStack - dismissal (hardware back)', () => {
+  const stack = () => {
+    const manager = new ModalStackManager();
+    const calls = [];
+    const open = (name, result = true) => {
+      const { id } = manager.register();
+      manager.setCloseHandler(id, () => {
+        calls.push(name);
+        return result;
+      });
+      return id;
+    };
+    return { manager, calls, open };
+  };
+
+  it('dismisses only the topmost modal, however deep it sits', () => {
+    const { manager, calls, open } = stack();
+    open('food search');
+    open('add custom food');
+    open('ingredient page');
+
+    expect(manager.closeTopmost()).toBe(true);
+
+    expect(calls).toEqual(['ingredient page']);
+  });
+
+  it('hands the next press to the modal beneath once the top one is closing', () => {
+    const { manager, calls, open } = stack();
+    open('food search');
+    const form = open('add custom food');
+    const page = open('ingredient page');
+
+    manager.closeTopmost();
+    manager.setClosing(page, true);
+    manager.closeTopmost();
+    manager.setClosing(form, true);
+    manager.closeTopmost();
+
+    expect(calls).toEqual([
+      'ingredient page',
+      'add custom food',
+      'food search',
+    ]);
+  });
+
+  it('is not fooled by an exiting modal that is still registered', () => {
+    const { manager, calls, open } = stack();
+    open('food search');
+    const exiting = open('add custom food');
+    manager.setClosing(exiting, true);
+
+    manager.closeTopmost();
+
+    expect(calls).toEqual(['food search']);
+  });
+
+  it('reports nothing consumed for an empty stack or a modal with no handler', () => {
+    const manager = new ModalStackManager();
+    expect(manager.closeTopmost()).toBe(false);
+
+    manager.register();
+    expect(manager.closeTopmost()).toBe(false);
+  });
+
+  it('only counts a press as consumed when the handler says so', () => {
+    const { manager, open } = stack();
+    open('modal that declines', false);
+
+    expect(manager.closeTopmost()).toBe(false);
+  });
+
+  it('forgets a modal`s handler when it unregisters', () => {
+    const { manager, calls, open } = stack();
+    open('food search');
+    const form = open('add custom food');
+
+    manager.unregister(form);
+    manager.closeTopmost();
+
+    expect(calls).toEqual(['food search']);
+  });
+
+  it('ignores a handler that is not a function', () => {
+    const manager = new ModalStackManager();
+    const { id } = manager.register();
+    manager.setCloseHandler(id, 'nope');
+
+    expect(manager.closeTopmost()).toBe(false);
+    expect(() => manager.setCloseHandler(999, () => true)).not.toThrow();
+  });
+
+  it('exposes one shared stack and a helper over it', async () => {
+    const { modalStackManager, closeTopmostStackedModal } =
+      await import('../../utils/visuals/modalStack.js');
+
+    expect(modalStackManager).toBeInstanceOf(ModalStackManager);
+    expect(closeTopmostStackedModal()).toBe(false);
+  });
+});
