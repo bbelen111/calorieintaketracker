@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, Globe, Search } from 'lucide-react';
+import { AlertCircle, Edit3, Globe, Search } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { FoodTagBadges } from '../../../common/FoodTagBadges';
 import { formatOne } from '../../../../../utils/formatting/format';
@@ -80,6 +80,58 @@ const resolveOnlineTypeBadge = (type) => {
   return null;
 };
 
+// The inside of a local result card (shared by the plain card and the recipe
+// row, so the two can never drift apart).
+const ResultCardContent = ({ food, isPinned }) => (
+  <>
+    {isPinned && (
+      <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-accent-blue rounded-full"></div>
+    )}
+    <div className="flex items-start justify-between gap-3">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <h4 className="text-foreground font-semibold text-sm truncate">
+            {formatFoodDisplayName({
+              name: food.name,
+              brand: food.brand,
+            })}
+          </h4>
+        </div>
+        <FoodTagBadges food={food} className="mt-1" />
+      </div>
+      <div className="flex flex-col items-end gap-1">
+        <span className="text-muted text-[10px] font-medium">per 100g</span>
+        <div className="flex items-center gap-3 text-xs">
+          <div className="text-center">
+            <p className="text-accent-emerald font-bold">
+              {formatOne(food.per100g.calories)}
+            </p>
+            <p className="text-muted">cal</p>
+          </div>
+          <div className="text-center">
+            <p className="text-accent-red font-bold">
+              {formatOne(food.per100g.protein)}g
+            </p>
+            <p className="text-muted">prot</p>
+          </div>
+          <div className="text-center">
+            <p className="text-accent-amber font-bold">
+              {formatOne(food.per100g.carbs)}g
+            </p>
+            <p className="text-muted">carb</p>
+          </div>
+          <div className="text-center">
+            <p className="text-accent-yellow font-bold">
+              {formatOne(food.per100g.fats)}g
+            </p>
+            <p className="text-muted">fat</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </>
+);
+
 export const FoodSearchResultsPanel = ({
   searchMode,
   activeSearchSource,
@@ -100,6 +152,7 @@ export const FoodSearchResultsPanel = ({
   performOnlineSearch,
   animatedFoodIds,
   prefersReducedMotion,
+  onEditRecipe,
 }) => (
   <>
     {searchMode === 'online' && fallbackUsed && (
@@ -333,93 +386,78 @@ export const FoodSearchResultsPanel = ({
             const borderClass = isPinned
               ? 'border-accent-blue'
               : 'border-border';
+            const rowMotionProps = {
+              style: RESULT_CARD_STYLE,
+              initial:
+                !prefersReducedMotion && shouldAnimate
+                  ? { opacity: 0, y: 8 }
+                  : false,
+              animate: { opacity: 1, y: 0 },
+              exit: prefersReducedMotion
+                ? { opacity: 1 }
+                : { opacity: 0, y: -4, transition: { duration: 0.12 } },
+              transition: prefersReducedMotion
+                ? { duration: 0 }
+                : {
+                    duration: 0.2,
+                    ease: STAGGER_EASE,
+                    delay: shouldAnimate ? getRowDelay(index) : 0,
+                  },
+            };
+            const pressProps = {
+              onClick: (event) => {
+                rememberPortionOrigin(event.currentTarget);
+                handleFoodClick(food);
+              },
+              onPointerDown: (event) => handlePressStart(food.id, event),
+              onPointerUp: () => handlePressEnd(false),
+              onPointerLeave: () => handlePressEnd(true),
+              onPointerCancel: () => handlePressEnd(true),
+              onContextMenu: (event) => event.preventDefault(),
+            };
+            const cardClassName = `relative bg-surface-highlight border rounded-xl p-3 text-left transition-all ${
+              isLongPressing
+                ? 'border-accent-blue scale-[0.98]'
+                : `${borderClass} active:scale-[0.99]`
+            }`;
+
+            // A recipe row also carries an edit button. It sits beside the card
+            // rather than inside it: the card is itself a button, and nesting
+            // buttons is invalid (and would fire the card's tap + long-press).
+            if (food.isRecipe && typeof onEditRecipe === 'function') {
+              return (
+                <motion.div
+                  key={food.id}
+                  {...rowMotionProps}
+                  className="flex items-stretch gap-2"
+                >
+                  <button
+                    type="button"
+                    {...pressProps}
+                    className={`${cardClassName} min-w-0 flex-1`}
+                  >
+                    <ResultCardContent food={food} isPinned={isPinned} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onEditRecipe(food)}
+                    aria-label={`Edit recipe ${food.name}`}
+                    className="flex w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-surface-highlight text-muted transition-colors press-feedback focus-ring md:hover:text-foreground"
+                  >
+                    <Edit3 size={16} aria-hidden="true" />
+                  </button>
+                </motion.div>
+              );
+            }
 
             return (
               <motion.button
                 key={food.id}
-                style={RESULT_CARD_STYLE}
-                initial={
-                  !prefersReducedMotion && shouldAnimate
-                    ? { opacity: 0, y: 8 }
-                    : false
-                }
-                animate={{ opacity: 1, y: 0 }}
-                exit={
-                  prefersReducedMotion
-                    ? { opacity: 1 }
-                    : { opacity: 0, y: -4, transition: { duration: 0.12 } }
-                }
-                transition={
-                  prefersReducedMotion
-                    ? { duration: 0 }
-                    : {
-                        duration: 0.2,
-                        ease: STAGGER_EASE,
-                        delay: shouldAnimate ? getRowDelay(index) : 0,
-                      }
-                }
-                onClick={(event) => {
-                  rememberPortionOrigin(event.currentTarget);
-                  handleFoodClick(food);
-                }}
-                onPointerDown={(event) => handlePressStart(food.id, event)}
-                onPointerUp={() => handlePressEnd(false)}
-                onPointerLeave={() => handlePressEnd(true)}
-                onPointerCancel={() => handlePressEnd(true)}
-                onContextMenu={(event) => event.preventDefault()}
-                className={`relative w-full bg-surface-highlight border rounded-xl p-3 text-left transition-all ${
-                  isLongPressing
-                    ? 'border-accent-blue scale-[0.98]'
-                    : `${borderClass} active:scale-[0.99]`
-                }`}
+                {...rowMotionProps}
+                {...pressProps}
+                className={`${cardClassName} w-full`}
               >
-                {isPinned && (
-                  <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-accent-blue rounded-full"></div>
-                )}
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-foreground font-semibold text-sm truncate">
-                        {formatFoodDisplayName({
-                          name: food.name,
-                          brand: food.brand,
-                        })}
-                      </h4>
-                    </div>
-                    <FoodTagBadges food={food} className="mt-1" />
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <span className="text-muted text-[10px] font-medium">
-                      per 100g
-                    </span>
-                    <div className="flex items-center gap-3 text-xs">
-                      <div className="text-center">
-                        <p className="text-accent-emerald font-bold">
-                          {formatOne(food.per100g.calories)}
-                        </p>
-                        <p className="text-muted">cal</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-accent-red font-bold">
-                          {formatOne(food.per100g.protein)}g
-                        </p>
-                        <p className="text-muted">prot</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-accent-amber font-bold">
-                          {formatOne(food.per100g.carbs)}g
-                        </p>
-                        <p className="text-muted">carb</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-accent-yellow font-bold">
-                          {formatOne(food.per100g.fats)}g
-                        </p>
-                        <p className="text-muted">fat</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <ResultCardContent food={food} isPinned={isPinned} />
               </motion.button>
             );
           })}

@@ -59,6 +59,7 @@ import {
 } from '../constants/health/heartRate.js';
 
 import { normalizeOnTargetTolerance } from '../constants/goals/onTarget.js';
+import { normalizeRecipe } from '../utils/food/recipe.js';
 import {
   HERO_SLOT_FIELDS,
   assignHeroSlot,
@@ -606,6 +607,7 @@ const deriveState = (userData) => {
     cardioFavourites: userData.cardioFavourites ?? [],
     trainingFavourites: userData.trainingFavourites ?? [],
     foodFavourites: userData.foodFavourites ?? [],
+    recipes: userData.recipes ?? [],
     nutritionData: userData.nutritionData ?? {},
     pinnedFoods: userData.pinnedFoods ?? [],
     pinnedCalorieTargets: userData.pinnedCalorieTargets ?? [],
@@ -2241,6 +2243,71 @@ export const useEnergyMapStore = createWithEqualityFn(
           fav.id === id ? { ...fav, ...updates, id: fav.id } : fav
         ),
       }));
+    },
+
+    // Recipes: user-built foods (ingredients + yield). Per-100g values and the
+    // "1 serving" portion are derived (`buildRecipeFood`), so only the recipe
+    // itself is stored. Logged entries are denormalised snapshots, so editing
+    // or deleting a recipe never rewrites history. All three return whether
+    // the change was applied.
+    addRecipe: (recipe) => {
+      const normalized = normalizeRecipe(recipe);
+      if (!normalized) return false;
+
+      const now = Date.now();
+      updateUserData(set, get, (prev) => ({
+        ...prev,
+        recipes: [
+          ...(prev.recipes ?? []).filter((item) => item.id !== normalized.id),
+          {
+            ...normalized,
+            createdAt: normalized.createdAt ?? now,
+            updatedAt: now,
+          },
+        ],
+      }));
+      return true;
+    },
+
+    updateRecipe: (id, updates) => {
+      if (!id || !updates || typeof updates !== 'object') return false;
+
+      const existing = (get().userData.recipes ?? []).find(
+        (item) => item.id === id
+      );
+      if (!existing) return false;
+
+      // Re-normalise the merged recipe so an edit can never store an invalid
+      // one; the id and creation time are not editable.
+      const next = normalizeRecipe({
+        ...existing,
+        ...updates,
+        id,
+        createdAt: existing.createdAt,
+        updatedAt: Date.now(),
+      });
+      if (!next) return false;
+
+      updateUserData(set, get, (prev) => ({
+        ...prev,
+        recipes: (prev.recipes ?? []).map((item) =>
+          item.id === id ? next : item
+        ),
+      }));
+      return true;
+    },
+
+    removeRecipe: (id) => {
+      if (!id) return false;
+      if (!(get().userData.recipes ?? []).some((item) => item.id === id)) {
+        return false;
+      }
+
+      updateUserData(set, get, (prev) => ({
+        ...prev,
+        recipes: (prev.recipes ?? []).filter((item) => item.id !== id),
+      }));
+      return true;
     },
 
     updateCachedFoods: (newCachedFoods) => {

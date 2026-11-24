@@ -95,6 +95,12 @@ export const FoodPortionModal = ({
   smartTefEnabled = false,
   isEditing = false,
   isFoodFavourited = false,
+  // Ingredient mode (recipe builder): the wheels pick an amount of the food and
+  // hand it back through `onConfirmIngredient({ food, grams, portionLabel })`.
+  // Nothing is logged and there is no favourite / "Log & exit" action.
+  ingredientMode = false,
+  confirmLabel = null,
+  onConfirmIngredient,
 }) => {
   const roundToTenth = (value) => Math.round(value * 10) / 10;
 
@@ -416,6 +422,22 @@ export const FoodPortionModal = ({
     onAddFood?.(foodEntry, options);
   };
 
+  const handleConfirmIngredient = () => {
+    if (!nutrition || typeof onConfirmIngredient !== 'function') return;
+    skipReturnRef.current = false;
+
+    // Portion units are display-only here: the recipe stores the resolved grams
+    // and just remembers how the user picked them ("1.5 x 1 cup").
+    const quantity = buildGramValue(selectedWhole, selectedDecimal);
+    onConfirmIngredient({
+      food: selectedFood,
+      grams,
+      portionLabel: currentPortion
+        ? `${formatOne(quantity)} × ${currentPortion.label}`
+        : null,
+    });
+  };
+
   const handleSaveAsFavourite = () => {
     if (!nutrition || typeof onSaveAsFavourite !== 'function') return;
 
@@ -718,59 +740,70 @@ export const FoodPortionModal = ({
         <button
           type="button"
           onClick={() =>
-            handleAddFood({
-              closePortionModal: true,
-              closeSearchModal: false,
-            })
+            ingredientMode
+              ? handleConfirmIngredient()
+              : handleAddFood({
+                  closePortionModal: true,
+                  closeSearchModal: false,
+                })
           }
           disabled={!nutrition}
           className="w-full rounded-xl bg-primary px-3 py-2.5 text-[13px] font-semibold text-primary-foreground shadow-xs transition-all press-feedback focus-ring disabled:cursor-not-allowed disabled:bg-surface-highlight/60 disabled:text-muted md:hover:brightness-110"
         >
-          {isEditing ? 'Save entry' : 'Log entry'}
+          {ingredientMode
+            ? (confirmLabel ?? 'Add to recipe')
+            : isEditing
+              ? 'Save entry'
+              : 'Log entry'}
         </button>
 
-        <div
-          className={`grid gap-1.5 ${
-            typeof onSaveAsFavourite === 'function' && !isEditing
-              ? 'grid-cols-2'
-              : 'grid-cols-1'
-          }`}
-        >
-          <button
-            type="button"
-            onClick={() =>
-              handleAddFood({ closePortionModal: true, closeSearchModal: true })
-            }
-            disabled={!nutrition}
-            className="rounded-xl bg-accent-blue/10 px-2.5 py-2 text-[12px] font-semibold text-accent-blue transition-all press-feedback focus-ring disabled:cursor-not-allowed disabled:bg-surface-highlight/60 disabled:text-muted md:hover:bg-accent-blue/15"
+        {!ingredientMode && (
+          <div
+            className={`grid gap-1.5 ${
+              typeof onSaveAsFavourite === 'function' && !isEditing
+                ? 'grid-cols-2'
+                : 'grid-cols-1'
+            }`}
           >
-            {isEditing ? 'Save & exit' : 'Log & exit'}
-          </button>
-          {typeof onSaveAsFavourite === 'function' && !isEditing && (
             <button
               type="button"
-              onClick={handleSaveAsFavourite}
-              disabled={isCurrentlyFavourited || !nutrition}
-              aria-label={
-                isCurrentlyFavourited
-                  ? 'Already favourited'
-                  : 'Save as favourite'
+              onClick={() =>
+                handleAddFood({
+                  closePortionModal: true,
+                  closeSearchModal: true,
+                })
               }
-              className={`flex items-center justify-center gap-1.5 rounded-xl px-2.5 py-2 text-[12px] font-semibold transition-all press-feedback focus-ring ${
-                isCurrentlyFavourited
-                  ? 'cursor-default bg-accent-green/15 text-accent-green'
-                  : 'bg-accent-green/10 text-accent-green disabled:cursor-not-allowed disabled:bg-surface-highlight/60 disabled:text-muted md:hover:bg-accent-green/15'
-              }`}
+              disabled={!nutrition}
+              className="rounded-xl bg-accent-blue/10 px-2.5 py-2 text-[12px] font-semibold text-accent-blue transition-all press-feedback focus-ring disabled:cursor-not-allowed disabled:bg-surface-highlight/60 disabled:text-muted md:hover:bg-accent-blue/15"
             >
-              <Heart
-                size={13}
-                fill={isCurrentlyFavourited ? 'currentColor' : 'none'}
-                aria-hidden="true"
-              />
-              {isCurrentlyFavourited ? 'Favourited' : 'Save & favourite'}
+              {isEditing ? 'Save & exit' : 'Log & exit'}
             </button>
-          )}
-        </div>
+            {typeof onSaveAsFavourite === 'function' && !isEditing && (
+              <button
+                type="button"
+                onClick={handleSaveAsFavourite}
+                disabled={isCurrentlyFavourited || !nutrition}
+                aria-label={
+                  isCurrentlyFavourited
+                    ? 'Already favourited'
+                    : 'Save as favourite'
+                }
+                className={`flex items-center justify-center gap-1.5 rounded-xl px-2.5 py-2 text-[12px] font-semibold transition-all press-feedback focus-ring ${
+                  isCurrentlyFavourited
+                    ? 'cursor-default bg-accent-green/15 text-accent-green'
+                    : 'bg-accent-green/10 text-accent-green disabled:cursor-not-allowed disabled:bg-surface-highlight/60 disabled:text-muted md:hover:bg-accent-green/15'
+                }`}
+              >
+                <Heart
+                  size={13}
+                  fill={isCurrentlyFavourited ? 'currentColor' : 'none'}
+                  aria-hidden="true"
+                />
+                {isCurrentlyFavourited ? 'Favourited' : 'Save & favourite'}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </ModalShell>
   );

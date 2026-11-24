@@ -42,6 +42,26 @@ test('buildFullExportPayload drops the re-downloadable food cache only', () => {
   assert.deepEqual(data.foodFavourites, [{ id: 'f1' }]);
 });
 
+test('buildFullExportPayload carries recipes, and they survive a parse round trip', () => {
+  const recipes = [
+    {
+      id: 'recipe_1',
+      name: 'Beef bowl',
+      servings: 2,
+      ingredients: [
+        { id: 'a', name: 'Beef', grams: 150, per100g: { calories: 250 } },
+      ],
+    },
+  ];
+
+  const payload = buildFullExportPayload({ age: 30, recipes }, NOW);
+  assert.deepEqual(payload.data.recipes, recipes);
+
+  const parsed = parseFullExportText(JSON.stringify(payload));
+  assert.equal(parsed.ok, true);
+  assert.deepEqual(parsed.data.recipes, recipes);
+});
+
 test('buildFullExportPayload never mutates the live user data', () => {
   const userData = { cachedFoods: [{ id: 'x' }], age: 30 };
 

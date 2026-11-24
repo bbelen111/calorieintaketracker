@@ -46,6 +46,19 @@ import {
 } from '../../../../constants/meal/mealTypes';
 import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
 import { resolveAiEntryCategory } from '../../../../utils/food/aiCategory';
+import { buildRecipeFood } from '../../../../utils/food/recipe';
+import {
+  ONLINE_FOOD_CATEGORIES,
+  appendUniqueFoodsById,
+  buildLocalCategoryOptions,
+  buildLocalFoodList,
+  buildLocalSubcategories,
+  buildOnlineFoodList,
+  buildOnlineServingOptions,
+  getFilterActiveClass,
+  getSortLabel as formatSortLabel,
+  mergeFoodsById,
+} from '../../../../utils/food/foodListing';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { addToFoodCache, trimFoodCache } from '../../../../services/foodCache';
 import {
@@ -109,40 +122,6 @@ const FOOD_SEARCH_DEFAULT_ENTRY_SET = new Set([
   'manual_entry',
   'barcode',
 ]);
-
-const normalizeSearchText = (value) =>
-  String(value ?? '')
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-const scoreLocalNameRelevance = (query, food) => {
-  const normalizedQuery = normalizeSearchText(query);
-  if (!normalizedQuery) {
-    return 0;
-  }
-
-  const normalizedName = normalizeSearchText(food?.name);
-  const normalizedBrand = normalizeSearchText(food?.brand);
-  const normalizedCategory = normalizeSearchText(food?.category);
-
-  if (!normalizedName && !normalizedBrand && !normalizedCategory) {
-    return 0;
-  }
-
-  if (normalizedName === normalizedQuery) return 1000;
-  if (normalizedName.startsWith(normalizedQuery)) return 700;
-  if (` ${normalizedName} `.includes(` ${normalizedQuery} `)) return 450;
-  if (normalizedName.includes(normalizedQuery)) return 250;
-
-  if (normalizedBrand === normalizedQuery) return 140;
-  if (normalizedBrand.includes(normalizedQuery)) return 80;
-  if (normalizedCategory === normalizedQuery) return 40;
-  if (normalizedCategory.includes(normalizedQuery)) return 20;
-
-  return 0;
-};
 
 const initialUiState = {
   searchMode: 'local',
@@ -312,6 +291,7 @@ export const FoodSearchModal = ({
   onSelectFood,
   onOpenManualEntry,
   onAddCustomFood,
+  onSaveRecipe,
   favourites = [],
   onSelectFavourite,
   onEditFavourite,
@@ -320,7 +300,7 @@ export const FoodSearchModal = ({
   onTogglePin,
   cachedFoods = [],
   onUpdateCachedFoods,
-  customFoods = [],
+  customFoods: sessionCustomFoods = EMPTY_RESULTS,
   onSaveAsFavourite,
   selectedMealType = '',
   mealNutritionEntries = [],
@@ -338,6 +318,8 @@ export const FoodSearchModal = ({
     markPinHintSeen,
     togglePinnedFood,
     updateCachedFoods,
+    recipes,
+    removeRecipe,
   } = useEnergyMapStore(
     (state) => ({
       foodFavourites: state.foodFavourites,
@@ -348,8 +330,29 @@ export const FoodSearchModal = ({
       markPinHintSeen: state.markPinHintSeen,
       togglePinnedFood: state.togglePinnedFood,
       updateCachedFoods: state.updateCachedFoods,
+      recipes: state.recipes,
+      removeRecipe: state.removeRecipe,
     }),
     shallow
+  );
+  // Saved recipes are derived into ordinary foods and searched alongside the
+  // session's custom foods, so the merge / filter / sort below needs no recipe
+  // special-casing. They are NOT favourited on save (a favourite would freeze a
+  // stale copy of the nutrition); the store is their only source of truth.
+  const recipeFoods = useMemo(
+    () => (recipes ?? []).map(buildRecipeFood).filter(Boolean),
+    [recipes]
+  );
+  const recipeFoodsById = useMemo(
+    () => Object.fromEntries(recipeFoods.map((food) => [food.id, food])),
+    [recipeFoods]
+  );
+  const customFoods = useMemo(
+    () =>
+      recipeFoods.length === 0
+        ? sessionCustomFoods
+        : [...sessionCustomFoods, ...recipeFoods],
+    [recipeFoods, sessionCustomFoods]
   );
   const resolvedFavourites = favourites ?? foodFavourites;
   const resolvedPinnedFoods = pinnedFoods ?? storePinnedFoods;
@@ -371,10 +374,6 @@ export const FoodSearchModal = ({
   }, []);
   const LONG_PRESS_DURATION = 650;
   const DEBOUNCE_DELAY = 500;
-  const ONLINE_CATEGORIES = {
-    Brand: { label: 'Branded', color: 'blue' },
-    Generic: { label: 'Generic', color: 'slate' },
-  };
 
   const [uiState, dispatchUiState] = useReducer(uiStateReducer, initialUiState);
   const {
@@ -453,6 +452,35 @@ export const FoodSearchModal = ({
     requestClose: requestAddCustomFoodClose,
     forceClose: forceAddCustomFoodClose,
   } = useAnimatedModal(false);
+
+  // The recipe being edited in the same form (null = creating something new).
+  // It is kept until the form has finished closing so its title and fields do
+  // not flip mid-animation.
+  const [editingRecipe, setEditingRecipe] = useState(null);
+
+  useEffect(() => {
+    if (!isAddCustomFoodClosing) {
+      return undefined;
+    }
+    const timer = setTimeout(() => setEditingRecipe(null), 250);
+    return () => clearTimeout(timer);
+  }, [isAddCustomFoodClosing]);
+
+  const handleOpenAddCustomFood = () => {
+    setEditingRecipe(null);
+    openAddCustomFood();
+  };
+
+  const handleEditRecipe = (food) => {
+    const recipe = (recipes ?? []).find(
+      (item) => item.id === (food?.recipeId ?? food?.id)
+    );
+    if (!recipe) {
+      return;
+    }
+    setEditingRecipe(recipe);
+    openAddCustomFood();
+  };
 
   const {
     isOpen: isBarcodeEntryOpen,
@@ -757,22 +785,6 @@ export const FoodSearchModal = ({
     return cloudMessage || null;
   }, []);
 
-  const mergeUniqueFoodsById = useCallback((baseRows, extraRows) => {
-    const mergedMap = new Map();
-
-    (Array.isArray(baseRows) ? baseRows : []).forEach((food) => {
-      if (!food?.id) return;
-      mergedMap.set(food.id, food);
-    });
-
-    (Array.isArray(extraRows) ? extraRows : []).forEach((food) => {
-      if (!food?.id || mergedMap.has(food.id)) return;
-      mergedMap.set(food.id, food);
-    });
-
-    return Array.from(mergedMap.values());
-  }, []);
-
   const runLocalSearch = useCallback(
     async ({ append, offset }) => {
       const requestId = localSearchRequestIdRef.current + 1;
@@ -813,7 +825,9 @@ export const FoodSearchModal = ({
         setOnlineResults([]);
 
         setLocalDbResults((previousRows) =>
-          append ? mergeUniqueFoodsById(previousRows, safeResults) : safeResults
+          append
+            ? appendUniqueFoodsById(previousRows, safeResults)
+            : safeResults
         );
         setLocalDbOffset(
           Number(result?.nextOffset) || offset + safeResults.length
@@ -844,7 +858,6 @@ export const FoodSearchModal = ({
       }
     },
     [
-      mergeUniqueFoodsById,
       resolvedPinnedFoods,
       searchQuery,
       selectedCategory,
@@ -1440,7 +1453,10 @@ export const FoodSearchModal = ({
 
   const resolveFoodById = (foodId) => {
     if (!foodId) return null;
-    return favouriteFoodLookup[foodId] ?? null;
+    // A favourited recipe resolves to the LIVE recipe, so editing the recipe
+    // updates what the favourite shows; a deleted recipe falls back to the
+    // favourite's own saved snapshot.
+    return favouriteFoodLookup[foodId] ?? recipeFoodsById[foodId] ?? null;
   };
   const toPer100g = (value, grams) => {
     if (!grams || grams <= 0) return 0;
@@ -1716,52 +1732,35 @@ export const FoodSearchModal = ({
     return () => observer.disconnect();
   }, [actionScrollEl, updateActionFade]);
 
-  const localCategoryOptions = useMemo(() => {
-    const merged = { ...FOOD_CATEGORIES };
-    if (resolvedCachedFoods.length > 0) {
-      merged.cached = { label: 'Cached', color: 'purple' };
-    }
-    return merged;
-  }, [resolvedCachedFoods]);
+  const localCategoryOptions = useMemo(
+    () =>
+      buildLocalCategoryOptions(
+        FOOD_CATEGORIES,
+        resolvedCachedFoods.length > 0
+      ),
+    [resolvedCachedFoods]
+  );
 
   const categoryOptions =
-    searchMode === 'online' ? ONLINE_CATEGORIES : localCategoryOptions;
+    searchMode === 'online' ? ONLINE_FOOD_CATEGORIES : localCategoryOptions;
 
   // Get unique subcategories for selected category
   const availableSubcategories = useMemo(() => {
     if (!selectedCategory) return [];
 
     if (searchMode === 'online') {
-      const servingSet = new Set();
-      onlineResults.forEach((food) => {
-        if (food.type === selectedCategory) {
-          const servingInfo = food.previewMacros?.servingInfo;
-          if (servingInfo) {
-            servingSet.add(servingInfo);
-          }
-        }
+      return buildOnlineServingOptions({
+        category: selectedCategory,
+        foods: onlineResults,
       });
-      return Array.from(servingSet).sort();
     }
 
     // Include both local DB-derived and cached foods
-    const allFoods = [
-      ...localDbResults,
-      ...resolvedCachedFoods,
-      ...customFoods,
-    ];
-    const subcats = new Set();
-
-    localSubcategories.forEach((subcategory) => {
-      subcats.add(subcategory);
+    return buildLocalSubcategories({
+      category: selectedCategory,
+      foods: [...localDbResults, ...resolvedCachedFoods, ...customFoods],
+      catalogSubcategories: localSubcategories,
     });
-
-    allFoods.forEach((food) => {
-      if (food.category === selectedCategory && food.subcategory) {
-        subcats.add(food.subcategory);
-      }
-    });
-    return Array.from(subcats).sort();
   }, [
     customFoods,
     localDbResults,
@@ -1773,135 +1772,41 @@ export const FoodSearchModal = ({
   ]);
 
   // Apply search, filter, and sort for LOCAL mode
-  const localSearchResults = useMemo(() => {
-    const mergedMap = new Map();
+  const localSearchResults = useMemo(
+    () =>
+      buildLocalFoodList({
+        foods: mergeFoodsById(localDbResults, resolvedCachedFoods, customFoods),
+        query: searchQuery,
+        category: selectedCategory,
+        subcategory: selectedSubcategory,
+        sortBy,
+        sortOrder,
+        pinnedIds: resolvedPinnedFoods,
+      }),
+    [
+      customFoods,
+      localDbResults,
+      resolvedCachedFoods,
+      searchQuery,
+      selectedCategory,
+      selectedSubcategory,
+      sortBy,
+      sortOrder,
+      resolvedPinnedFoods,
+    ]
+  );
 
-    [...localDbResults, ...resolvedCachedFoods, ...customFoods].forEach(
-      (food) => {
-        if (!food?.id) {
-          return;
-        }
-        mergedMap.set(food.id, food);
-      }
-    );
-
-    let results = Array.from(mergedMap.values());
-
-    if (selectedCategory) {
-      results = results.filter((food) => food.category === selectedCategory);
-    }
-
-    if (selectedSubcategory) {
-      results = results.filter(
-        (food) => food.subcategory === selectedSubcategory
-      );
-    }
-
-    if (searchQuery.trim()) {
-      const normalizedQuery = searchQuery.toLowerCase().trim();
-      results = results.filter(
-        (food) =>
-          String(food.name ?? '')
-            .toLowerCase()
-            .includes(normalizedQuery) ||
-          String(food.brand ?? '')
-            .toLowerCase()
-            .includes(normalizedQuery) ||
-          String(food.category ?? '')
-            .toLowerCase()
-            .includes(normalizedQuery)
-      );
-    }
-
-    const normalizedQuery = normalizeSearchText(searchQuery);
-
-    results.sort((a, b) => {
-      if (sortBy === 'name') {
-        if (normalizedQuery) {
-          const scoreA = scoreLocalNameRelevance(normalizedQuery, a);
-          const scoreB = scoreLocalNameRelevance(normalizedQuery, b);
-
-          if (scoreA !== scoreB) {
-            return scoreB - scoreA;
-          }
-
-          const lengthA = String(a?.name ?? '').length;
-          const lengthB = String(b?.name ?? '').length;
-          if (lengthA !== lengthB) {
-            return lengthA - lengthB;
-          }
-
-          return String(a.name ?? '').localeCompare(String(b.name ?? ''));
-        }
-
-        const compare = String(a.name ?? '').localeCompare(
-          String(b.name ?? '')
-        );
-        return sortOrder === 'asc' ? compare : -compare;
-      }
-
-      const aValue = Number(a?.per100g?.[sortBy] ?? 0);
-      const bValue = Number(b?.per100g?.[sortBy] ?? 0);
-      return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
-    });
-
-    // Sort pinned foods to the top
-    results = [...results].sort((a, b) => {
-      const aIsPinned = resolvedPinnedFoods.includes(a.id);
-      const bIsPinned = resolvedPinnedFoods.includes(b.id);
-      if (aIsPinned && !bIsPinned) return -1;
-      if (!aIsPinned && bIsPinned) return 1;
-      return 0;
-    });
-
-    return results;
-  }, [
-    customFoods,
-    localDbResults,
-    resolvedCachedFoods,
-    searchQuery,
-    selectedCategory,
-    selectedSubcategory,
-    sortBy,
-    sortOrder,
-    resolvedPinnedFoods,
-  ]);
-
-  const onlineSearchResults = useMemo(() => {
-    let results = [...onlineResults];
-
-    if (selectedCategory) {
-      results = results.filter((food) => food.type === selectedCategory);
-    }
-
-    if (selectedSubcategory) {
-      results = results.filter(
-        (food) => food.previewMacros?.servingInfo === selectedSubcategory
-      );
-    }
-
-    results = [...results].sort((a, b) => {
-      let compareValue = 0;
-
-      if (sortBy === 'name') {
-        compareValue = String(a?.name ?? '').localeCompare(
-          String(b?.name ?? '')
-        );
-      } else {
-        const aValue = Number(
-          a?.previewMacros?.[sortBy] ?? a?.per100g?.[sortBy] ?? 0
-        );
-        const bValue = Number(
-          b?.previewMacros?.[sortBy] ?? b?.per100g?.[sortBy] ?? 0
-        );
-        compareValue = aValue - bValue;
-      }
-
-      return sortOrder === 'asc' ? compareValue : -compareValue;
-    });
-
-    return results;
-  }, [onlineResults, selectedCategory, selectedSubcategory, sortBy, sortOrder]);
+  const onlineSearchResults = useMemo(
+    () =>
+      buildOnlineFoodList({
+        foods: onlineResults,
+        category: selectedCategory,
+        subcategory: selectedSubcategory,
+        sortBy,
+        sortOrder,
+      }),
+    [onlineResults, selectedCategory, selectedSubcategory, sortBy, sortOrder]
+  );
 
   // Current results based on selected browse mode
   const displayResults =
@@ -2046,21 +1951,6 @@ export const FoodSearchModal = ({
     viewMode,
   ]);
 
-  const getFilterActiveClass = (color) => {
-    const map = {
-      red: 'bg-accent-red',
-      amber: 'bg-accent-amber',
-      green: 'bg-accent-green',
-      yellow: 'bg-accent-yellow',
-      purple: 'bg-accent-purple',
-      blue: 'bg-accent-blue',
-      emerald: 'bg-accent-emerald',
-      slate: 'bg-accent-slate',
-      indigo: 'bg-accent-indigo',
-    };
-    return `${map[color] || 'bg-accent-slate'} text-primary-foreground`;
-  };
-
   const clearFilters = () => {
     setSelectedCategory(null);
     setSelectedSubcategory(null);
@@ -2094,17 +1984,7 @@ export const FoodSearchModal = ({
     return `${labels[favouritesSortBy]} ${orderLabel}`;
   };
 
-  const getSortLabel = () => {
-    const labels = {
-      name: 'Name',
-      calories: 'Calories',
-      protein: 'Protein',
-      carbs: 'Carbs',
-      fats: 'Fats',
-    };
-    const orderLabel = sortOrder === 'asc' ? '↑' : '↓';
-    return `${labels[sortBy]} ${orderLabel}`;
-  };
+  const getSortLabel = () => formatSortLabel(sortBy, sortOrder);
 
   const isSearchAddExpanded =
     viewMode === 'search' || viewMode === 'favourites';
@@ -3388,7 +3268,7 @@ export const FoodSearchModal = ({
                     style={{ display: 'inline-flex' }}
                   >
                     <motion.button
-                      onClick={openAddCustomFood}
+                      onClick={handleOpenAddCustomFood}
                       aria-label="Add Food"
                       whileHover={{ y: -2 }}
                       whileTap={{ scale: 0.99 }}
@@ -3864,6 +3744,7 @@ export const FoodSearchModal = ({
                           performOnlineSearch={performOnlineSearch}
                           animatedFoodIds={animatedFoodIds}
                           prefersReducedMotion={prefersReducedMotion}
+                          onEditRecipe={handleEditRecipe}
                         />
                       </motion.div>
                     )}
@@ -3945,6 +3826,12 @@ export const FoodSearchModal = ({
         onSaveFood={(customFood, options) => {
           onAddCustomFood?.(customFood, options);
         }}
+        onSaveRecipe={(recipe, options) => {
+          onSaveRecipe?.(recipe, options);
+        }}
+        editingRecipe={editingRecipe}
+        onDeleteRecipe={(recipe) => removeRecipe(recipe.id)}
+        userFoods={sessionCustomFoods}
       />
 
       <BarcodeEntryModal

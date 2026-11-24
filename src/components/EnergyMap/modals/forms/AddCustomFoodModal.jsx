@@ -1,8 +1,13 @@
-import React, { useState, useCallback, useMemo, useRef } from 'react';
-import { ChevronsUpDown, Plus, Trash2, Utensils } from 'lucide-react';
+import React, { Suspense, useState, useCallback, useMemo, useRef } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ChefHat, ChevronsUpDown, Plus, Trash2, Utensils } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
+import { SegmentedToggle } from '../../common/SegmentedToggle';
 import { NumericValuePickerModal } from '../pickers/NumericValuePickerModal';
+import { ConfirmActionModal } from '../common/ConfirmActionModal';
+import { RecipeIngredientsSection } from './RecipeIngredientsSection';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
+import { useReducedMotionPreference } from '../../../../hooks/useMotionMode';
 import { FOOD_CATEGORIES } from '../../../../constants/food/foodDatabase';
 import {
   NUTRIENT_PICKER_FIELDS,
@@ -11,6 +16,44 @@ import {
   formatPickerValueForState,
   normalizePickerValue,
 } from '../../../../utils/food/nutrientPicker';
+import {
+  RECIPE_MAX_INGREDIENTS,
+  RECIPE_MAX_SERVINGS,
+  RECIPE_MIN_SERVINGS,
+  buildRecipeFood,
+  buildRecipeIngredient,
+  createRecipeId,
+  validateRecipeDraft,
+} from '../../../../utils/food/recipe';
+
+// The ingredient picker (a fullscreen browse page: search, filters, online
+// paging, portion wheel) only matters once someone opens Recipe mode, so it
+// stays out of this modal's chunk.
+const RecipeIngredientPickerModal = React.lazy(() =>
+  import('../fullscreen/RecipeIngredientPickerModal').then((module) => ({
+    default: module.RecipeIngredientPickerModal,
+  }))
+);
+
+const EMPTY = [];
+const ROW_EASE = [0.32, 0.72, 0, 1];
+
+// Food | Recipe: both modes are the same form, so the pill stays the same blue
+// as the "Add Custom Food" header in either position (it only glides).
+const MODE_OPTIONS = [
+  {
+    id: 'food',
+    label: 'Food',
+    icon: Utensils,
+    pillClassName: 'bg-accent-blue',
+  },
+  {
+    id: 'recipe',
+    label: 'Recipe',
+    icon: ChefHat,
+    pillClassName: 'bg-accent-blue',
+  },
+];
 
 // Build tags from FOOD_CATEGORIES, excluding 'custom' and 'manual' as they're auto-applied
 const CUSTOM_FOOD_TAGS = Object.entries(FOOD_CATEGORIES)
@@ -57,12 +100,45 @@ const getTagClasses = (tagId, isSelected) => {
   return isSelected ? styles.active : styles.idle;
 };
 
+const CUSTOM_FOOD_TAG_IDS = new Set(CUSTOM_FOOD_TAGS.map((tag) => tag.id));
+
+// Category chips to pre-select when editing a recipe: its saved tags, or its
+// category when it was saved before tags existed. 'custom' is the implicit
+// default, never a chip.
+const getRecipeTagSelection = (recipe) => {
+  const tags = (recipe?.tags ?? []).filter((tag) =>
+    CUSTOM_FOOD_TAG_IDS.has(tag)
+  );
+  if (tags.length > 0) return tags;
+  return CUSTOM_FOOD_TAG_IDS.has(recipe?.category) ? [recipe.category] : [];
+};
+
 export const AddCustomFoodModal = ({
   isOpen,
   isClosing,
   onClose,
   onSaveFood,
+  // Recipe mode: `onSaveRecipe(recipe, { log, isEditing })` saves a recipe
+  // built from existing foods. `editingRecipe` opens the form pre-filled (the
+  // Food | Recipe switch is hidden then) and enables `onDeleteRecipe`.
+  // `userFoods` = the foods the user added this session; the ingredient picker
+  // lists them next to favourites, pins and cached foods.
+  onSaveRecipe,
+  editingRecipe = null,
+  onDeleteRecipe,
+  userFoods = EMPTY,
 }) => {
+  const prefersReducedMotion = useReducedMotionPreference();
+  const [mode, setMode] = useState(editingRecipe ? 'recipe' : 'food');
+  // Which way the last Food | Recipe switch went (null until the user switches,
+  // so opening the form - or opening a recipe to edit - plays no swap
+  // animation on top of the modal's own entrance).
+  const [swapDirection, setSwapDirection] = useState(null);
+  const [ingredients, setIngredients] = useState([]);
+  const [servings, setServings] = useState(1);
+  const [cookedWeightGrams, setCookedWeightGrams] = useState('');
+  const ingredientPickerModal = useAnimatedModal(false);
+  const deleteConfirmModal = useAnimatedModal(false);
   const [name, setName] = useState('');
   const [selectedTags, setSelectedTags] = useState([]);
   const [calories, setCalories] = useState('');
@@ -84,10 +160,37 @@ export const AddCustomFoodModal = ({
   const numericPickerModal = useAnimatedModal(false);
   const [numericPickerState, setNumericPickerState] = useState(null);
 
+  // Pre-fill when opened to edit a recipe. Derived during render (keyed by what
+  // is being opened) rather than in an effect, so the first painted frame
+  // already shows the recipe and no state is set from an effect on open.
+  const openKey = isOpen ? (editingRecipe?.id ?? 'new') : null;
+  const [seededKey, setSeededKey] = useState(null);
+  if (seededKey !== openKey) {
+    setSeededKey(openKey);
+    if (openKey && editingRecipe) {
+      setMode('recipe');
+      setName(editingRecipe.name ?? '');
+      setSelectedTags(getRecipeTagSelection(editingRecipe));
+      setIngredients(editingRecipe.ingredients ?? []);
+      setServings(editingRecipe.servings ?? 1);
+      setCookedWeightGrams(
+        editingRecipe.cookedWeightGrams != null
+          ? String(editingRecipe.cookedWeightGrams)
+          : ''
+      );
+      setPortions(editingRecipe.portions ?? []);
+    }
+  }
+
   // Reset form when modal closes
   React.useEffect(() => {
     if (isClosing) {
       setTimeout(() => {
+        setMode('food');
+        setSwapDirection(null);
+        setIngredients([]);
+        setServings(1);
+        setCookedWeightGrams('');
         setName('');
         setSelectedTags([]);
         setCalories('');
@@ -227,7 +330,75 @@ export const AddCustomFoodModal = ({
     setPortions((prev) => prev.filter((p) => p.id !== portionId));
   }, []);
 
+  // --- Recipe mode ----------------------------------------------------------
+  const isRecipeMode = mode === 'recipe';
+
+  const handleSelectMode = (nextMode) => {
+    if (nextMode === mode) return;
+    // The section swap enters from the side the user is heading to: Recipe
+    // from the right, back to Food from the left.
+    setSwapDirection(nextMode === 'recipe' ? 'forward' : 'back');
+    setMode(nextMode);
+  };
+
+  const recipeDraft = useMemo(
+    () => ({
+      name,
+      servings,
+      cookedWeightGrams:
+        cookedWeightGrams === '' ? null : Number(cookedWeightGrams),
+      ingredients,
+    }),
+    [name, servings, cookedWeightGrams, ingredients]
+  );
+  const recipeValidation = useMemo(
+    () => validateRecipeDraft(recipeDraft),
+    [recipeDraft]
+  );
+  // Live preview of the derived food (works before the recipe has a name).
+  const previewFood = useMemo(
+    () =>
+      isRecipeMode
+        ? buildRecipeFood({
+            ...recipeDraft,
+            id: 'recipe_preview',
+            name: name.trim() || 'Recipe',
+          })
+        : null,
+    [isRecipeMode, recipeDraft, name]
+  );
+
+  const handleAddIngredient = useCallback(({ food, grams, portionLabel }) => {
+    const ingredient = buildRecipeIngredient({ food, grams, portionLabel });
+    if (!ingredient) return;
+    setIngredients((prev) =>
+      prev.length >= RECIPE_MAX_INGREDIENTS ? prev : [...prev, ingredient]
+    );
+  }, []);
+
+  const handleChangeIngredientGrams = useCallback((id, grams) => {
+    setIngredients((prev) =>
+      prev.map((ingredient) =>
+        ingredient.id === id ? { ...ingredient, grams } : ingredient
+      )
+    );
+  }, []);
+
+  const handleRemoveIngredient = useCallback((id) => {
+    setIngredients((prev) => prev.filter((ingredient) => ingredient.id !== id));
+  }, []);
+
+  const handleChangeServings = useCallback((value) => {
+    setServings(
+      Math.min(
+        RECIPE_MAX_SERVINGS,
+        Math.max(RECIPE_MIN_SERVINGS, Math.round(Number(value) || 1))
+      )
+    );
+  }, []);
+
   const isFormValid = useMemo(() => {
+    if (isRecipeMode) return recipeValidation.isValid;
     if (!name.trim()) return false;
     const cal = parseFloat(calories) || 0;
     const prot = parseFloat(protein) || 0;
@@ -235,7 +406,7 @@ export const AddCustomFoodModal = ({
     const fat = parseFloat(fats) || 0;
     // At least one macro or calorie should be set
     return cal > 0 || prot > 0 || carb > 0 || fat > 0;
-  }, [name, calories, protein, carbs, fats]);
+  }, [isRecipeMode, recipeValidation, name, calories, protein, carbs, fats]);
 
   const handleSave = useCallback(
     (options = {}) => {
@@ -243,6 +414,25 @@ export const AddCustomFoodModal = ({
 
       // Determine category from selected tags (first one wins) or default to 'custom'
       const category = selectedTags.length > 0 ? selectedTags[0] : 'custom';
+
+      if (isRecipeMode) {
+        onSaveRecipe?.(
+          {
+            id: editingRecipe?.id ?? createRecipeId(),
+            name: name.trim(),
+            category,
+            tags: [...selectedTags],
+            servings,
+            cookedWeightGrams: recipeDraft.cookedWeightGrams,
+            ingredients,
+            portions: [...portions],
+            createdAt: editingRecipe?.createdAt ?? null,
+          },
+          { log: options.log === true, isEditing: Boolean(editingRecipe) }
+        );
+        onClose?.();
+        return;
+      }
 
       const customFood = {
         id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -272,6 +462,11 @@ export const AddCustomFoodModal = ({
     },
     [
       isFormValid,
+      isRecipeMode,
+      editingRecipe,
+      recipeDraft,
+      ingredients,
+      servings,
       name,
       selectedTags,
       calories,
@@ -284,6 +479,7 @@ export const AddCustomFoodModal = ({
       sugars,
       portions,
       onSaveFood,
+      onSaveRecipe,
       onClose,
     ]
   );
@@ -298,25 +494,57 @@ export const AddCustomFoodModal = ({
         onClose={onClose}
         contentClassName="w-full md:max-w-2xl p-6"
       >
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <Utensils className="text-accent-blue" size={28} />
-          <h3 className="text-foreground font-bold text-2xl">
-            Add Custom Food
-          </h3>
+        {/* Header: the icon + title swap with a short fade/rise when the mode
+            changes (re-keyed, enter-only - the same idiom as the app header's
+            stat line). Not on open, so it never doubles the modal's entrance. */}
+        <div className={editingRecipe ? 'mb-6' : 'mb-4'}>
+          <div
+            key={`title-${mode}`}
+            className={`flex items-center gap-3 ${
+              swapDirection ? 'header-stat-in' : ''
+            }`}
+          >
+            {isRecipeMode ? (
+              <ChefHat className="text-accent-blue" size={28} />
+            ) : (
+              <Utensils className="text-accent-blue" size={28} />
+            )}
+            <h3 className="text-foreground font-bold text-2xl">
+              {isRecipeMode
+                ? editingRecipe
+                  ? 'Edit Recipe'
+                  : 'New Recipe'
+                : 'Add Custom Food'}
+            </h3>
+          </div>
         </div>
+
+        {/* Food | Recipe: one door for "make my own food", two ways to fill it
+            in. A sliding pill (the Food Search Local | Online grammar). Hidden
+            while editing a recipe (its type cannot change). */}
+        {editingRecipe ? null : (
+          <SegmentedToggle
+            ariaLabel="Food type"
+            options={MODE_OPTIONS}
+            value={mode}
+            onChange={handleSelectMode}
+            className="mb-5"
+          />
+        )}
 
         <div className="space-y-5">
           {/* Food Name */}
           <div>
             <label className="block text-foreground text-sm font-semibold mb-2">
-              Food Name
+              {isRecipeMode ? 'Recipe Name' : 'Food Name'}
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Mom's Chicken Curry"
+              placeholder={
+                isRecipeMode ? 'e.g., Beef bowl' : "e.g., Mom's Chicken Curry"
+              }
               className="w-full bg-surface-highlight border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus-ring"
             />
           </div>
@@ -344,149 +572,206 @@ export const AddCustomFoodModal = ({
             </div>
           </div>
 
-          {/* Nutrition per 100g */}
-          <div>
-            <label className="block text-foreground text-sm font-semibold mb-2">
-              Nutrition per 100g
-            </label>
+          {/* Nutrition per 100g (Food) / ingredients + servings (Recipe).
+              Re-keyed by mode so the section remounts, and - once the user has
+              switched - its blocks ease in from the side they are heading to
+              (the Settings page-enter idiom: staggered children, enter-only,
+              reduced-motion safe). Each branch's root holds the blocks as its
+              direct children, which is what that animation targets. */}
+          <div
+            key={mode}
+            className={
+              swapDirection === 'forward'
+                ? 'settings-page-enter'
+                : swapDirection === 'back'
+                  ? 'settings-page-back'
+                  : undefined
+            }
+          >
+            {isRecipeMode ? (
+              <RecipeIngredientsSection
+                ingredients={ingredients}
+                servings={servings}
+                cookedWeightGrams={cookedWeightGrams}
+                previewFood={previewFood}
+                validation={recipeValidation}
+                onAddIngredient={ingredientPickerModal.open}
+                onChangeIngredientGrams={handleChangeIngredientGrams}
+                onRemoveIngredient={handleRemoveIngredient}
+                onChangeServings={handleChangeServings}
+                onChangeCookedWeight={setCookedWeightGrams}
+              />
+            ) : (
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-foreground text-sm font-semibold mb-2">
+                    Nutrition per 100g
+                  </label>
 
-            {/* Calories */}
-            <div className="mb-3">
-              <label className="block text-muted text-xs mb-1.5">
-                Calories
-              </label>
-              <button
-                type="button"
-                onClick={() => openNumericPicker('calories')}
-                className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-3 pressable-inline"
-                aria-label="Open calories picker"
-              >
-                <span className="font-medium text-base">
-                  {formatPickerDisplayValue(calories, 'kcal')}
-                </span>
-                <ChevronsUpDown size={16} className="text-muted shrink-0" />
-              </button>
-            </div>
+                  {/* Calories */}
+                  <div className="mb-3">
+                    <label className="block text-muted text-xs mb-1.5">
+                      Calories
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => openNumericPicker('calories')}
+                      className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-3 pressable-inline"
+                      aria-label="Open calories picker"
+                    >
+                      <span className="font-medium text-base">
+                        {formatPickerDisplayValue(calories, 'kcal')}
+                      </span>
+                      <ChevronsUpDown
+                        size={16}
+                        className="text-muted shrink-0"
+                      />
+                    </button>
+                  </div>
 
-            {/* Macros Grid */}
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className="block text-muted text-xs mb-1.5">
-                  Protein (g)
-                </label>
-                <button
-                  type="button"
-                  onClick={() => openNumericPicker('protein')}
-                  className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
-                  aria-label="Open protein picker"
-                >
-                  <span className="font-medium text-sm">
-                    {formatPickerDisplayValue(protein, 'g')}
-                  </span>
-                  <ChevronsUpDown size={14} className="text-muted shrink-0" />
-                </button>
-              </div>
-              <div>
-                <label className="block text-muted text-xs mb-1.5">
-                  Carbs (g)
-                </label>
-                <button
-                  type="button"
-                  onClick={() => openNumericPicker('carbs')}
-                  className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
-                  aria-label="Open carbs picker"
-                >
-                  <span className="font-medium text-sm">
-                    {formatPickerDisplayValue(carbs, 'g')}
-                  </span>
-                  <ChevronsUpDown size={14} className="text-muted shrink-0" />
-                </button>
-              </div>
-              <div>
-                <label className="block text-muted text-xs mb-1.5">
-                  Fats (g)
-                </label>
-                <button
-                  type="button"
-                  onClick={() => openNumericPicker('fats')}
-                  className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
-                  aria-label="Open fats picker"
-                >
-                  <span className="font-medium text-sm">
-                    {formatPickerDisplayValue(fats, 'g')}
-                  </span>
-                  <ChevronsUpDown size={14} className="text-muted shrink-0" />
-                </button>
-              </div>
-            </div>
+                  {/* Macros Grid */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-muted text-xs mb-1.5">
+                        Protein (g)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => openNumericPicker('protein')}
+                        className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
+                        aria-label="Open protein picker"
+                      >
+                        <span className="font-medium text-sm">
+                          {formatPickerDisplayValue(protein, 'g')}
+                        </span>
+                        <ChevronsUpDown
+                          size={14}
+                          className="text-muted shrink-0"
+                        />
+                      </button>
+                    </div>
+                    <div>
+                      <label className="block text-muted text-xs mb-1.5">
+                        Carbs (g)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => openNumericPicker('carbs')}
+                        className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
+                        aria-label="Open carbs picker"
+                      >
+                        <span className="font-medium text-sm">
+                          {formatPickerDisplayValue(carbs, 'g')}
+                        </span>
+                        <ChevronsUpDown
+                          size={14}
+                          className="text-muted shrink-0"
+                        />
+                      </button>
+                    </div>
+                    <div>
+                      <label className="block text-muted text-xs mb-1.5">
+                        Fats (g)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => openNumericPicker('fats')}
+                        className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
+                        aria-label="Open fats picker"
+                      >
+                        <span className="font-medium text-sm">
+                          {formatPickerDisplayValue(fats, 'g')}
+                        </span>
+                        <ChevronsUpDown
+                          size={14}
+                          className="text-muted shrink-0"
+                        />
+                      </button>
+                    </div>
+                  </div>
 
-            {/* Micros Grid (optional, nullable; empty = untracked) */}
-            <div className="grid grid-cols-2 gap-3 mt-3">
-              <div>
-                <label className="block text-muted text-xs mb-1.5">
-                  Fiber (g)
-                </label>
-                <button
-                  type="button"
-                  onClick={() => openNumericPicker('fiber')}
-                  className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
-                  aria-label="Open fiber picker"
-                >
-                  <span className="font-medium text-sm">
-                    {formatPickerDisplayValue(fiber, 'g')}
-                  </span>
-                  <ChevronsUpDown size={14} className="text-muted shrink-0" />
-                </button>
+                  {/* Micros Grid (optional, nullable; empty = untracked) */}
+                  <div className="grid grid-cols-2 gap-3 mt-3">
+                    <div>
+                      <label className="block text-muted text-xs mb-1.5">
+                        Fiber (g)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => openNumericPicker('fiber')}
+                        className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
+                        aria-label="Open fiber picker"
+                      >
+                        <span className="font-medium text-sm">
+                          {formatPickerDisplayValue(fiber, 'g')}
+                        </span>
+                        <ChevronsUpDown
+                          size={14}
+                          className="text-muted shrink-0"
+                        />
+                      </button>
+                    </div>
+                    <div>
+                      <label className="block text-muted text-xs mb-1.5">
+                        Sodium (mg)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => openNumericPicker('sodium')}
+                        className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
+                        aria-label="Open sodium picker"
+                      >
+                        <span className="font-medium text-sm">
+                          {formatPickerDisplayValue(sodium, 'mg')}
+                        </span>
+                        <ChevronsUpDown
+                          size={14}
+                          className="text-muted shrink-0"
+                        />
+                      </button>
+                    </div>
+                    <div>
+                      <label className="block text-muted text-xs mb-1.5">
+                        Sat. Fat (g)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => openNumericPicker('saturatedFats')}
+                        className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
+                        aria-label="Open saturated fat picker"
+                      >
+                        <span className="font-medium text-sm">
+                          {formatPickerDisplayValue(saturatedFats, 'g')}
+                        </span>
+                        <ChevronsUpDown
+                          size={14}
+                          className="text-muted shrink-0"
+                        />
+                      </button>
+                    </div>
+                    <div>
+                      <label className="block text-muted text-xs mb-1.5">
+                        Sugars (g)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => openNumericPicker('sugars')}
+                        className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
+                        aria-label="Open sugars picker"
+                      >
+                        <span className="font-medium text-sm">
+                          {formatPickerDisplayValue(sugars, 'g')}
+                        </span>
+                        <ChevronsUpDown
+                          size={14}
+                          className="text-muted shrink-0"
+                        />
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-muted text-xs mb-1.5">
-                  Sodium (mg)
-                </label>
-                <button
-                  type="button"
-                  onClick={() => openNumericPicker('sodium')}
-                  className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
-                  aria-label="Open sodium picker"
-                >
-                  <span className="font-medium text-sm">
-                    {formatPickerDisplayValue(sodium, 'mg')}
-                  </span>
-                  <ChevronsUpDown size={14} className="text-muted shrink-0" />
-                </button>
-              </div>
-              <div>
-                <label className="block text-muted text-xs mb-1.5">
-                  Sat. Fat (g)
-                </label>
-                <button
-                  type="button"
-                  onClick={() => openNumericPicker('saturatedFats')}
-                  className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
-                  aria-label="Open saturated fat picker"
-                >
-                  <span className="font-medium text-sm">
-                    {formatPickerDisplayValue(saturatedFats, 'g')}
-                  </span>
-                  <ChevronsUpDown size={14} className="text-muted shrink-0" />
-                </button>
-              </div>
-              <div>
-                <label className="block text-muted text-xs mb-1.5">
-                  Sugars (g)
-                </label>
-                <button
-                  type="button"
-                  onClick={() => openNumericPicker('sugars')}
-                  className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
-                  aria-label="Open sugars picker"
-                >
-                  <span className="font-medium text-sm">
-                    {formatPickerDisplayValue(sugars, 'g')}
-                  </span>
-                  <ChevronsUpDown size={14} className="text-muted shrink-0" />
-                </button>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Custom Portions */}
@@ -496,34 +781,58 @@ export const AddCustomFoodModal = ({
               <span className="text-muted text-xs font-normal">(optional)</span>
             </label>
 
-            {/* Existing portions list */}
-            {portions.length > 0 && (
-              <div className="space-y-2 mb-3">
+            {/* Existing portions list: rows expand in / collapse out as they
+                are added / removed, so the form below glides instead of
+                jumping by a row. Each row carries its own bottom gap (inside
+                the collapsing wrapper), so the gap collapses with it. */}
+            <div className="mb-1">
+              <AnimatePresence initial={false}>
                 {portions.map((portion) => (
-                  <div
+                  <motion.div
                     key={portion.id}
-                    className="flex items-center justify-between bg-surface/60 border border-border rounded-lg px-3 py-2"
+                    initial={
+                      prefersReducedMotion ? false : { height: 0, opacity: 0 }
+                    }
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={
+                      prefersReducedMotion
+                        ? undefined
+                        : { height: 0, opacity: 0 }
+                    }
+                    transition={
+                      prefersReducedMotion
+                        ? { duration: 0 }
+                        : {
+                            height: { duration: 0.24, ease: ROW_EASE },
+                            opacity: { duration: 0.18, ease: 'easeOut' },
+                          }
+                    }
+                    style={{ overflow: 'hidden' }}
                   >
-                    <div className="flex items-center gap-3">
-                      <span className="text-foreground font-medium text-sm">
-                        {portion.label}
-                      </span>
-                      <span className="text-muted text-sm">
-                        ({portion.grams}g)
-                      </span>
+                    <div className="pb-2">
+                      <div className="flex items-center justify-between bg-surface/60 border border-border rounded-lg px-3 py-2">
+                        <div className="flex items-center gap-3">
+                          <span className="text-foreground font-medium text-sm">
+                            {portion.label}
+                          </span>
+                          <span className="text-muted text-sm">
+                            ({portion.grams}g)
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removePortion(portion.id)}
+                          className="text-muted md:hover:text-accent-red transition-colors pressable-inline focus-ring"
+                          aria-label={`Remove ${portion.label}`}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => removePortion(portion.id)}
-                      className="text-muted md:hover:text-accent-red transition-colors pressable-inline focus-ring"
-                      aria-label={`Remove ${portion.label}`}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+                  </motion.div>
                 ))}
-              </div>
-            )}
+              </AnimatePresence>
+            </div>
 
             {/* Add new portion */}
             <div className="flex items-end gap-2">
@@ -574,7 +883,17 @@ export const AddCustomFoodModal = ({
               disabled={!isFormValid}
               className="w-full rounded-xl bg-primary px-3 py-2.5 text-[13px] font-semibold text-primary-foreground shadow-xs transition-all press-feedback focus-ring disabled:cursor-not-allowed disabled:bg-surface-highlight/60 disabled:text-muted md:hover:brightness-110"
             >
-              Save food
+              {/* Re-keyed so the label eases in when the mode changes. */}
+              <span
+                key={`save-${mode}`}
+                className={`inline-block ${swapDirection ? 'header-stat-in' : ''}`}
+              >
+                {isRecipeMode
+                  ? editingRecipe
+                    ? 'Save changes'
+                    : 'Save recipe'
+                  : 'Save food'}
+              </span>
             </button>
             <div className="grid grid-cols-2 gap-1.5">
               <button
@@ -593,6 +912,16 @@ export const AddCustomFoodModal = ({
                 Save &amp; log
               </button>
             </div>
+            {editingRecipe && onDeleteRecipe ? (
+              <button
+                type="button"
+                onClick={deleteConfirmModal.open}
+                className="mt-1 flex items-center justify-center gap-1.5 rounded-xl px-2.5 py-2 text-[12px] font-semibold text-accent-red transition-all press-feedback focus-ring md:hover:bg-accent-red/10"
+              >
+                <Trash2 size={14} aria-hidden="true" />
+                Delete recipe
+              </button>
+            ) : null}
           </div>
         </div>
       </ModalShell>
@@ -608,6 +937,37 @@ export const AddCustomFoodModal = ({
         unitLabel={pickerField?.unitLabel ?? ''}
         onCancel={numericPickerModal.requestClose}
         onSave={handleNumericPickerSave}
+      />
+
+      {ingredientPickerModal.isOpen || ingredientPickerModal.isClosing ? (
+        <Suspense fallback={null}>
+          <RecipeIngredientPickerModal
+            isOpen={ingredientPickerModal.isOpen}
+            isClosing={ingredientPickerModal.isClosing}
+            onClose={ingredientPickerModal.requestClose}
+            onPickIngredient={handleAddIngredient}
+            ingredientCount={ingredients.length}
+            customFoods={userFoods}
+          />
+        </Suspense>
+      ) : null}
+
+      <ConfirmActionModal
+        isOpen={deleteConfirmModal.isOpen}
+        isClosing={deleteConfirmModal.isClosing}
+        title="Delete this recipe?"
+        description="The recipe is removed from your foods. Meals you already logged with it keep their calories and macros."
+        confirmLabel="Delete"
+        cancelLabel="Keep"
+        tone="danger"
+        onConfirm={() => {
+          deleteConfirmModal.requestClose();
+          if (editingRecipe) {
+            onDeleteRecipe?.(editingRecipe);
+          }
+          onClose?.();
+        }}
+        onCancel={deleteConfirmModal.requestClose}
       />
     </>
   );

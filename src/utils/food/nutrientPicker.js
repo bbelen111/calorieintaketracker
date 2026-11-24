@@ -70,6 +70,24 @@ export const PORTION_GRAMS_PICKER_FIELD = {
   step: 1,
 };
 
+// Recipe builder weights. Capped at 1000 g / 5000 g so the wheel stays a
+// reasonable number of rows (an ingredient above 1 kg is added as two lines).
+export const RECIPE_INGREDIENT_GRAMS_PICKER_FIELD = {
+  title: 'Ingredient Weight',
+  unitLabel: 'grammes',
+  min: 1,
+  max: 1000,
+  step: 1,
+};
+
+export const RECIPE_COOKED_WEIGHT_PICKER_FIELD = {
+  title: 'Cooked Weight',
+  unitLabel: 'grammes',
+  min: 10,
+  max: 5000,
+  step: 5,
+};
+
 export const getStepPrecision = (step) => {
   const normalized = String(step ?? 1);
   if (!normalized.includes('.')) {

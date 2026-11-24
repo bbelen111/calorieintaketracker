@@ -3,6 +3,7 @@ export const FOOD_SOURCE_TYPES = {
   LOCAL: 'local',
   MANUAL: 'manual',
   CUSTOM: 'custom',
+  RECIPE: 'recipe',
   AI: 'ai',
 };
 
@@ -26,12 +27,14 @@ const TAG_COLOR_CLASS_MAP = {
   emerald: 'bg-accent-emerald/20 text-accent-emerald',
   slate: 'bg-surface-highlight/60 text-muted',
   indigo: 'bg-accent-indigo/20 text-accent-indigo',
+  pink: 'bg-accent-pink/20 text-accent-pink',
 };
 
 const SOURCE_META = {
   [FOOD_SOURCE_TYPES.CACHED]: { label: 'Cached', color: 'purple' },
   [FOOD_SOURCE_TYPES.MANUAL]: { label: 'Manual', color: 'indigo' },
   [FOOD_SOURCE_TYPES.CUSTOM]: { label: 'Custom', color: 'blue' },
+  [FOOD_SOURCE_TYPES.RECIPE]: { label: 'Recipe', color: 'pink' },
   [FOOD_SOURCE_TYPES.AI]: { label: 'AI', color: 'blue' },
   [FOOD_SOURCE_TYPES.LOCAL]: { label: 'Local', color: 'slate' },
 };
@@ -43,6 +46,13 @@ export const getFoodTagClassByColor = (color) => {
 export const resolveFoodSourceType = (food) => {
   const source = String(food?.source ?? '').toLowerCase();
   const category = String(food?.category ?? '').toLowerCase();
+
+  // A recipe is also `isCustom` (user-owned data), so it must be recognised
+  // before the custom branch below or it would read as a plain custom food.
+  if (food?.isRecipe === true || source === 'recipe') {
+    return FOOD_SOURCE_TYPES.RECIPE;
+  }
+
   const isExplicitlyCached =
     food?.isCached === true ||
     Number.isFinite(Number(food?.cachedAt)) ||

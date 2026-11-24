@@ -65,6 +65,7 @@ import {
   createDefaultNotificationSettings,
   normalizeNotificationSettings,
 } from '../../constants/notifications/notificationConfig.js';
+import { normalizeRecipes } from '../food/recipe.js';
 
 // Split keys for performance
 const PROFILE_KEY = 'energyMapData_profile'; // Settings, preferences, small lists
@@ -1525,6 +1526,10 @@ export const getDefaultEnergyMapData = () => ({
   cardioFavourites: [],
   trainingFavourites: [],
   foodFavourites: [],
+  // User-built foods assembled from existing foods (profile scope, like
+  // favourites). Stores only ingredients + yield; per-100g values and the
+  // "1 serving" portion are derived by `buildRecipeFood`, never persisted.
+  recipes: [],
   customCardioTypes: {},
   nutritionData: {},
   pinnedFoods: [],
@@ -1940,6 +1945,7 @@ function mergeWithDefaults(data) {
     foodFavourites: Array.isArray(normalizedInput.foodFavourites)
       ? normalizedInput.foodFavourites
       : defaults.foodFavourites,
+    recipes: normalizeRecipes(normalizedInput.recipes),
     cachedFoods: Array.isArray(normalizedInput.cachedFoods)
       ? normalizeCachedFoodsForPersistence(normalizedInput.cachedFoods)
       : defaults.cachedFoods,

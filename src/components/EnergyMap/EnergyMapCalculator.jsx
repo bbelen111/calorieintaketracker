@@ -130,6 +130,7 @@ import {
   formatPickerValueForState,
   normalizePickerValue,
 } from '../../utils/food/nutrientPicker';
+import { buildRecipeFood, getRecipeStartGrams } from '../../utils/food/recipe';
 
 const WeightTrackerModal = lazy(() =>
   import('./modals/fullscreen/WeightTrackerModal').then((module) => ({
@@ -541,6 +542,7 @@ export const EnergyMapCalculator = () => {
     customCardioTypes,
     cardioFavourites,
     foodFavourites,
+    recipes,
     phases,
     activePhase,
     isGoalLockedByActivePhase,
@@ -588,6 +590,8 @@ export const EnergyMapCalculator = () => {
     addFoodFavourite,
     removeFoodFavourite,
     updateFoodFavourite,
+    addRecipe,
+    updateRecipe,
     updateCachedFoods,
     importUserData,
     createPhase,
@@ -611,6 +615,7 @@ export const EnergyMapCalculator = () => {
       customCardioTypes: state.customCardioTypes,
       cardioFavourites: state.cardioFavourites,
       foodFavourites: state.foodFavourites,
+      recipes: state.recipes,
       phases: state.phases,
       activePhase: state.activePhase,
       isGoalLockedByActivePhase: state.isGoalLockedByActivePhase,
@@ -660,6 +665,8 @@ export const EnergyMapCalculator = () => {
       addFoodFavourite: state.addFoodFavourite,
       removeFoodFavourite: state.removeFoodFavourite,
       updateFoodFavourite: state.updateFoodFavourite,
+      addRecipe: state.addRecipe,
+      updateRecipe: state.updateRecipe,
       updateCachedFoods: state.updateCachedFoods,
       importUserData: state.importUserData,
       createPhase: state.createPhase,
@@ -3111,7 +3118,9 @@ export const EnergyMapCalculator = () => {
     (food) => {
       // Reset editing state to ensure we're in "add" mode
       setEditingPortionEntry(null);
-      setPortionInitialGrams(null);
+      // A recipe opens on one serving's weight; every other food keeps the
+      // portion modal's own default.
+      setPortionInitialGrams(getRecipeStartGrams(food));
       setSelectedFoodForPortion(food);
       foodPortionModal.open();
     },
@@ -3307,14 +3316,23 @@ export const EnergyMapCalculator = () => {
         return;
       }
 
-      // Open FoodPortionModal for entries with grams
-      const { getFoodById: getFoodByIdFromCatalog } =
-        await import('../../services/foodCatalog');
-      const resolvedFoodFromCatalog = existing.foodId
-        ? await getFoodByIdFromCatalog(existing.foodId)
+      // Open FoodPortionModal for entries with grams. A recipe entry resolves
+      // to the live recipe (so its "1 serving" portion is still offered); a
+      // recipe that has since been deleted falls back to the entry's own
+      // snapshot like any other custom food.
+      const recipeFood = existing.foodId
+        ? buildRecipeFood((recipes ?? []).find((r) => r.id === existing.foodId))
         : null;
-      const resolvedFood =
-        resolvedFoodFromCatalog || buildFallbackFoodFromEntry(existing);
+      let resolvedFood = recipeFood;
+      if (!resolvedFood) {
+        const { getFoodById: getFoodByIdFromCatalog } =
+          await import('../../services/foodCatalog');
+        const resolvedFoodFromCatalog = existing.foodId
+          ? await getFoodByIdFromCatalog(existing.foodId)
+          : null;
+        resolvedFood =
+          resolvedFoodFromCatalog || buildFallbackFoodFromEntry(existing);
+      }
 
       setFoodMealType(mealType);
       setSelectedFoodForPortion(resolvedFood);
@@ -3322,7 +3340,13 @@ export const EnergyMapCalculator = () => {
       setPortionInitialGrams(existing.grams);
       foodPortionModal.open();
     },
-    [nutritionData, trackerSelectedDate, foodPortionModal, foodEntryModal]
+    [
+      nutritionData,
+      trackerSelectedDate,
+      foodPortionModal,
+      foodEntryModal,
+      recipes,
+    ]
   );
 
   // Delete food entry from meal
@@ -3553,6 +3577,32 @@ export const EnergyMapCalculator = () => {
       }
     },
     [addFoodFavourite, foodPortionModal]
+  );
+
+  // Save a recipe built in the Add Custom Food form. Unlike a custom food it is
+  // NOT auto-favourited: a favourite would freeze a copy of the nutrition that
+  // goes stale on the next edit, and the saved recipe is always searchable from
+  // the store anyway. `options.log` (Save & log) opens the portion picker on the
+  // recipe, starting at one serving.
+  const handleSaveRecipe = useCallback(
+    (recipe, options = {}) => {
+      const saved = options.isEditing
+        ? updateRecipe(recipe.id, recipe)
+        : addRecipe(recipe);
+      if (!saved || !options.log) {
+        return;
+      }
+
+      const food = buildRecipeFood(recipe);
+      if (!food) {
+        return;
+      }
+      setEditingPortionEntry(null);
+      setPortionInitialGrams(getRecipeStartGrams(food));
+      setSelectedFoodForPortion(food);
+      foodPortionModal.open();
+    },
+    [addRecipe, foodPortionModal, updateRecipe]
   );
 
   // Food Favourites Handlers
@@ -5825,6 +5875,7 @@ export const EnergyMapCalculator = () => {
             onUpdateCachedFoods={updateCachedFoods}
             customFoods={customFoods}
             onAddCustomFood={handleAddCustomFood}
+            onSaveRecipe={handleSaveRecipe}
             onSaveAsFavourite={handleCreateFoodFavourite}
             selectedMealType={foodMealType}
             mealNutritionEntries={

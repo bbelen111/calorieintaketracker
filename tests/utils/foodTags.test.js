@@ -59,6 +59,33 @@ test('resolveFoodSourceType distinguishes manual and custom paths', () => {
   );
 });
 
+test('resolveFoodSourceType recognises recipes ahead of the custom branch', () => {
+  // A derived recipe food is also `isCustom`, so it must not read as Custom.
+  assert.equal(
+    resolveFoodSourceType({ isRecipe: true, isCustom: true, source: 'recipe' }),
+    FOOD_SOURCE_TYPES.RECIPE
+  );
+  assert.equal(
+    resolveFoodSourceType({ source: 'recipe' }),
+    FOOD_SOURCE_TYPES.RECIPE
+  );
+  assert.equal(
+    resolveFoodSourceType({ isRecipe: true }),
+    FOOD_SOURCE_TYPES.RECIPE
+  );
+  assert.equal(
+    resolveFoodSourceType({ source: 'user', isCustom: true }),
+    FOOD_SOURCE_TYPES.CUSTOM
+  );
+});
+
+test('getFoodSourceBadgeMeta labels recipes with a pink badge', () => {
+  const meta = getFoodSourceBadgeMeta({ isRecipe: true, isCustom: true });
+  assert.equal(meta.sourceType, FOOD_SOURCE_TYPES.RECIPE);
+  assert.equal(meta.label, 'Recipe');
+  assert.equal(meta.color, 'pink');
+});
+
 test('resolveFoodSourceType falls back to local for unclassified foods', () => {
   assert.equal(
     resolveFoodSourceType({ source: 'local' }),
