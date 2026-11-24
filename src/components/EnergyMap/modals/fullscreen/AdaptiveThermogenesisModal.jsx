@@ -28,7 +28,7 @@ import {
 } from '../../../../utils/calculations/adaptiveThermogenesis';
 
 const TABS = [
-  { key: 'crude', label: 'Crude', icon: Flame },
+  { key: 'crude', label: 'Staged', icon: Flame },
   { key: 'smart', label: 'Smart', icon: Activity },
 ];
 const REASONS = {
@@ -294,7 +294,7 @@ export const AdaptiveThermogenesisModal = ({
 };
 
 function ActiveModeBadge({ enabled, mode }) {
-  const label = mode === 'smart' ? 'Smart' : mode === 'crude' ? 'Crude' : null;
+  const label = mode === 'smart' ? 'Smart' : mode === 'crude' ? 'Staged' : null;
   return (
     <span
       className={
@@ -742,7 +742,7 @@ function CrudeMaintenanceView({ result, stages, onOpenRollingBalance }) {
       <div className="rounded-xl border border-border bg-surface-highlight/40 overflow-hidden">
         <div className="px-4 py-3 border-b border-border">
           <p className="text-base font-semibold text-foreground">
-            How Crude mode responds by goal
+            How Staged mode responds by goal
           </p>
         </div>
         <div className="divide-y divide-border/60">

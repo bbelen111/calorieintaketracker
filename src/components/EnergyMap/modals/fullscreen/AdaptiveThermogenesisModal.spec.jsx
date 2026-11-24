@@ -63,13 +63,13 @@ describe('AdaptiveThermogenesisModal', () => {
     const user = userEvent.setup();
     renderModal({ onOpenRollingBalance });
 
-    await user.click(screen.getByRole('button', { name: 'Crude' }));
+    await user.click(screen.getByRole('button', { name: 'Staged' }));
 
     expect(
       screen.getByText('Why maintenance stays at 0 kcal')
     ).toBeInTheDocument();
     expect(
-      screen.getByText('How Crude mode responds by goal')
+      screen.getByText('How Staged mode responds by goal')
     ).toBeInTheDocument();
     expect(
       screen.queryByText(
@@ -105,7 +105,7 @@ describe('AdaptiveThermogenesisModal', () => {
     const user = userEvent.setup();
     renderModal();
 
-    await user.click(screen.getByRole('button', { name: 'Crude' }));
+    await user.click(screen.getByRole('button', { name: 'Staged' }));
 
     expect(
       screen.getByText('Why maintenance stays at 0 kcal')
@@ -128,7 +128,7 @@ describe('AdaptiveThermogenesisModal', () => {
     const user = userEvent.setup();
     renderModal();
 
-    await user.click(screen.getByRole('button', { name: 'Crude' }));
+    await user.click(screen.getByRole('button', { name: 'Staged' }));
 
     expect(screen.getByText('Cut milestones')).toBeInTheDocument();
     expect(screen.getByText('Unwinding on maintenance')).toBeInTheDocument();

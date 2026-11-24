@@ -567,7 +567,7 @@ export const CalorieBreakdownModal = ({
 
           {showAdaptiveThermogenesisItem && (
             <BreakdownItem
-              label={`Adaptive Thermogenesis (${resolvedAdaptiveMode === 'smart' ? 'Smart' : resolvedAdaptiveMode === 'crude' ? 'Crude' : 'Off'})`}
+              label={`Adaptive Thermogenesis (${resolvedAdaptiveMode === 'smart' ? 'Smart' : resolvedAdaptiveMode === 'crude' ? 'Staged' : 'Off'})`}
               value={adaptiveThermogenesisCorrection}
               total={breakdown.total}
               expanded={expandedItem === 'adaptive-thermogenesis'}

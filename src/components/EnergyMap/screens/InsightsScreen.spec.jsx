@@ -134,7 +134,7 @@ describe('InsightsScreen body composition empty states', () => {
     });
 
     expect(
-      screen.getByText('Crude mode · no adjustment at maintenance')
+      screen.getByText('Staged mode · no adjustment at maintenance')
     ).toBeInTheDocument();
     expect(screen.getByText('None at maintenance')).toBeInTheDocument();
   });

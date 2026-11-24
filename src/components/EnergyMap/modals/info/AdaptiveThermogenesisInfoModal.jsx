@@ -54,14 +54,14 @@ export const AdaptiveThermogenesisInfoModal = ({
             baseline TDEE + AT correction = adjusted TDEE
           </p>
           <p className="text-xs">
-            Corrections are bounded: crude −250 to +150 kcal/day, smart up to
+            Corrections are bounded: staged −250 to +150 kcal/day, smart up to
             ±300 kcal/day.
           </p>
         </div>
 
         <div className="bg-accent-blue/10 border border-accent-blue/30 rounded-lg p-4 space-y-2 text-sm">
           <p className="font-bold text-accent-blue">
-            Crude mode (rolling pressure)
+            Staged mode (rolling pressure)
           </p>
           <p>
             Built from up to 28 days of your daily goal history. Cut days push
@@ -143,7 +143,7 @@ export const AdaptiveThermogenesisInfoModal = ({
         <div className="bg-surface-highlight/50 rounded-lg p-4 text-sm space-y-2">
           <p className="text-foreground font-bold">Practical guidance</p>
           <p>
-            Use <span className="text-foreground font-semibold">Crude</span>{' '}
+            Use <span className="text-foreground font-semibold">Staged</span>{' '}
             when you want predictable behavior with minimal logging effort.
           </p>
           <p>

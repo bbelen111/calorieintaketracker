@@ -1900,7 +1900,7 @@ const AdaptiveThermogenesisSection = ({
       />
 
       <p className="text-muted text-xs">
-        Adds a metabolic adaptation correction to TDEE. Crude mode uses
+        Adds a metabolic adaptation correction to TDEE. Staged mode uses
         time-in-goal stages, smart mode uses weight/intake trend signal.
       </p>
 
@@ -1925,7 +1925,7 @@ const AdaptiveThermogenesisSection = ({
               </p>
               <p className="text-muted text-xs mt-0.5">
                 {adaptiveThermogenesisSmartModeAvailable
-                  ? 'When off, Adaptive Thermogenesis uses Crude staged mode.'
+                  ? 'When off, Adaptive Thermogenesis uses Staged mode.'
                   : lockMessage}
               </p>
             </div>

@@ -86,10 +86,10 @@ function AdaptiveCorrectionCard({ result, mode, goalDurationDays, onOpen }) {
       ? 'Not enabled'
       : mode === 'crude'
         ? active
-          ? `Crude mode · Pressure ${crudePressure}`
+          ? `Staged mode · Pressure ${crudePressure}`
           : isCrudeMaintenanceIdle
-            ? 'Crude mode · no adjustment at maintenance'
-            : 'Crude mode · not yet active'
+            ? 'Staged mode · no adjustment at maintenance'
+            : 'Staged mode · not yet active'
         : isSmartMaintenance
           ? 'Smart mode · paused at maintenance'
           : insufficientData
