@@ -1,9 +1,17 @@
 import React from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { WeightTrackerModal } from './WeightTrackerModal';
+import { closeTopmostStackedModal } from '../../../../utils/visuals/modalStack';
 
 const ENTRIES = [
   { date: '2026-01-01', weight: 74 },
@@ -300,5 +308,58 @@ describe('WeightTrackerModal selection card', () => {
       screen.getByRole('button', { name: 'Log your first weigh-in' })
     );
     expect(onAddEntry).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes only the trend info modal on stacked back or Escape, keeping the tracker open', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    renderModal({ onClose });
+
+    await user.click(
+      screen.getByRole('button', { name: '7-day trend details' })
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Weight Trends' })
+    ).toBeInTheDocument();
+
+    // Hardware back consumes the topmost info modal without touching the tracker.
+    let handled;
+    act(() => {
+      handled = closeTopmostStackedModal();
+    });
+    expect(handled).toBe(true);
+    expect(onClose).not.toHaveBeenCalled();
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', { name: 'Weight Trends' })
+      ).toBeNull()
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Weight Tracker' })
+    ).toBeInTheDocument();
+
+    // Escape also dismisses only the info modal when re-opened.
+    await user.click(
+      screen.getByRole('button', { name: '7-day trend details' })
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Weight Trends' })
+    ).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+    expect(onClose).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', { name: 'Weight Trends' })
+      ).toBeNull()
+    );
+
+    // Only once the info modal is gone does back reach the tracker itself.
+    act(() => {
+      handled = closeTopmostStackedModal();
+    });
+    expect(handled).toBe(true);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

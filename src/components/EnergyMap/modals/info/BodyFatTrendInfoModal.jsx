@@ -138,6 +138,7 @@ export const BodyFatTrendInfoModal = ({
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
+      onClose={onClose}
       contentClassName="p-6 max-w-lg w-full"
     >
       <div className="flex items-start justify-between gap-4 mb-4">

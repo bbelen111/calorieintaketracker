@@ -1,9 +1,17 @@
 import React from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { BodyFatTrackerModal } from './BodyFatTrackerModal';
+import { closeTopmostStackedModal } from '../../../../utils/visuals/modalStack';
 
 const ENTRIES = [
   { date: '2026-01-01', bodyFat: 18 },
@@ -171,5 +179,55 @@ describe('BodyFatTrackerModal selection card', () => {
       screen.getByRole('button', { name: 'Log your first reading' })
     );
     expect(onAddEntry).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes only the trend info modal on stacked back or Escape, keeping the tracker open', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    renderModal({ onClose });
+
+    await user.click(
+      screen.getByRole('button', { name: '7-day trend details' })
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Body Fat Trends' })
+    ).toBeInTheDocument();
+
+    let handled;
+    act(() => {
+      handled = closeTopmostStackedModal();
+    });
+    expect(handled).toBe(true);
+    expect(onClose).not.toHaveBeenCalled();
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', { name: 'Body Fat Trends' })
+      ).toBeNull()
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Body Fat Tracker' })
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole('button', { name: '7-day trend details' })
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Body Fat Trends' })
+    ).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+    expect(onClose).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', { name: 'Body Fat Trends' })
+      ).toBeNull()
+    );
+
+    act(() => {
+      handled = closeTopmostStackedModal();
+    });
+    expect(handled).toBe(true);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

@@ -1562,6 +1562,7 @@ export const BodyFatTrackerModal = ({
       <ModalShell
         isOpen={isOpen}
         isClosing={isClosing}
+        onClose={onClose}
         overlayClassName="fixed inset-0 bg-surface/70 p-0! flex-none! items-stretch! justify-stretch! z-1000"
         contentClassName={`fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none max-h-none! flex flex-col pt-[env(safe-area-inset-top)] keyboard-bottom-inset pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] z-1001${
           fadeIn ? ' modal-content-fade' : ''

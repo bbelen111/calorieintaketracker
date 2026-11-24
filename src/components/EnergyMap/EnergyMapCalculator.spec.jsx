@@ -716,4 +716,201 @@ describe('EnergyMapCalculator (orchestrator integration)', () => {
       await screen.findByRole('button', { name: /^Body fat,/ })
     ).toBeInTheDocument();
   });
+
+  it('peels trend info modals on Android back without closing the weight or body fat tracker behind them', async () => {
+    CapacitorMock.isNativePlatform.mockReturnValue(true);
+    CapacitorMock.getPlatform.mockReturnValue('android');
+    const user = userEvent.setup();
+    renderApp();
+    await hydrateStore();
+    await findTabBar();
+
+    await act(async () => {
+      get().handleUserDataChange('bodyFatTrackingEnabled', true);
+      get().saveWeightEntry({ date: TODAY, weight: 75 });
+      get().saveBodyFatEntry({ date: TODAY, bodyFat: 18 });
+    });
+
+    const pressAndroidBack = async () => {
+      let handler;
+      await waitFor(() => {
+        handler = AppMock.addListener.mock.calls.find(
+          ([event]) => event === 'backButton'
+        )?.[1];
+        expect(handler).toBeTypeOf('function');
+      });
+      act(() => handler());
+    };
+
+    // Weight Tracker -> Weight Trends info -> back closes only the info modal.
+    await tapTab(user, 'Insights');
+    await user.click(
+      await screen.findByRole('button', { name: /Weight Snapshot/ })
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Weight Tracker' })
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole('button', { name: '7-day trend details' })
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Weight Trends' })
+    ).toBeInTheDocument();
+
+    await pressAndroidBack();
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', { name: 'Weight Trends' })
+      ).toBeNull()
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Weight Tracker' })
+    ).toBeInTheDocument();
+
+    await pressAndroidBack();
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', { name: 'Weight Tracker' })
+      ).toBeNull()
+    );
+
+    // Body Fat Tracker -> Body Fat Trends info -> back closes only the info modal.
+    await user.click(
+      await screen.findByRole('button', { name: /Body Fat % Snapshot/ })
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Body Fat Tracker' })
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole('button', { name: '7-day trend details' })
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Body Fat Trends' })
+    ).toBeInTheDocument();
+
+    await pressAndroidBack();
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', { name: 'Body Fat Trends' })
+      ).toBeNull()
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Body Fat Tracker' })
+    ).toBeInTheDocument();
+
+    await pressAndroidBack();
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', { name: 'Body Fat Tracker' })
+      ).toBeNull()
+    );
+  });
+
+  it('crossfades cleanly across repeated Weight <-> Body Fat switches without stripping fadeIn from the outgoing sheet', async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await hydrateStore();
+    await findTabBar();
+
+    await act(async () => {
+      get().handleUserDataChange('bodyFatTrackingEnabled', true);
+    });
+
+    const getSheet = (headingName) =>
+      screen
+        .getByRole('heading', { name: headingName })
+        .closest('.modal-content');
+    const getZIndex = (headingName) =>
+      Number(
+        screen
+          .getByRole('heading', { name: headingName })
+          .closest('.modal-overlay-wrapper').style.zIndex
+      );
+
+    // Plain launch uses the default slide-up (no fade class).
+    await tapTab(user, 'Insights');
+    await user.click(
+      await screen.findByRole('button', { name: /Weight Snapshot/ })
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Weight Tracker' })
+    ).toBeInTheDocument();
+    expect(getSheet('Weight Tracker')).not.toHaveClass('modal-content-fade');
+
+    // Switch 1: Weight -> Body Fat.
+    await user.click(
+      screen.getByRole('button', { name: 'Switch to body fat tracker' })
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Body Fat Tracker' })
+    ).toBeInTheDocument();
+    expect(getSheet('Body Fat Tracker')).toHaveClass('modal-content-fade');
+    expect(getZIndex('Body Fat Tracker')).toBeGreaterThan(
+      getZIndex('Weight Tracker')
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', { name: 'Weight Tracker' })
+      ).toBeNull()
+    );
+    expect(getSheet('Body Fat Tracker')).toHaveClass('modal-content-fade');
+
+    // Switch 2: Body Fat -> Weight. The outgoing Body Fat sheet MUST keep its
+    // `modal-content-fade` class while mounted underneath so CSS never restarts
+    // `.modal-content`'s slide-up animation from opacity 0.
+    await user.click(
+      screen.getByRole('button', { name: 'Switch to weight tracker' })
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Weight Tracker' })
+    ).toBeInTheDocument();
+    expect(getSheet('Body Fat Tracker')).toHaveClass('modal-content-fade');
+    expect(getSheet('Weight Tracker')).toHaveClass('modal-content-fade');
+    expect(getZIndex('Weight Tracker')).toBeGreaterThan(
+      getZIndex('Body Fat Tracker')
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', { name: 'Body Fat Tracker' })
+      ).toBeNull()
+    );
+
+    // Switch 3: Weight -> Body Fat. Outgoing Weight sheet likewise keeps fadeIn.
+    await user.click(
+      screen.getByRole('button', { name: 'Switch to body fat tracker' })
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Body Fat Tracker' })
+    ).toBeInTheDocument();
+    expect(getSheet('Weight Tracker')).toHaveClass('modal-content-fade');
+    expect(getSheet('Body Fat Tracker')).toHaveClass('modal-content-fade');
+    expect(getZIndex('Body Fat Tracker')).toBeGreaterThan(
+      getZIndex('Weight Tracker')
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', { name: 'Weight Tracker' })
+      ).toBeNull()
+    );
+
+    // Closing and re-opening normally restores the default slide-up.
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', { name: 'Body Fat Tracker' })
+      ).toBeNull()
+    );
+    await user.click(
+      await screen.findByRole('button', { name: /Weight Snapshot/ })
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Weight Tracker' })
+    ).toBeInTheDocument();
+    expect(getSheet('Weight Tracker')).not.toHaveClass('modal-content-fade');
+  });
 });
