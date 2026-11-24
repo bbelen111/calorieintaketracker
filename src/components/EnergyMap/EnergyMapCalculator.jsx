@@ -3409,7 +3409,10 @@ export const EnergyMapCalculator = () => {
   // Delete food entry from meal
   const handleFoodEntrySave = useCallback(
     (options = {}) => {
-      const shouldClose = options?.closeModal !== false;
+      const shouldCloseEntryModal =
+        options?.closeEntryModal ?? options?.closeModal !== false;
+      const shouldCloseSearchModal =
+        options?.closeSearchModal ?? shouldCloseEntryModal;
 
       // If editing a manual favourite, update the favourite AND add to tracker
       if (editingManualFavouriteId) {
@@ -3446,8 +3449,11 @@ export const EnergyMapCalculator = () => {
           addFoodEntry(trackerSelectedDate, foodMealType, entry);
         }
 
-        if (shouldClose) {
+        if (shouldCloseEntryModal) {
           foodEntryModal.requestClose();
+        }
+
+        if (shouldCloseSearchModal) {
           // Close search modal after editing favourite
           setTimeout(() => {
             foodSearchModal.requestClose();
@@ -3479,14 +3485,15 @@ export const EnergyMapCalculator = () => {
         addFoodEntry(trackerSelectedDate, foodMealType, entry);
       }
 
-      if (shouldClose) {
+      if (shouldCloseEntryModal) {
         foodEntryModal.requestClose();
+      }
+
+      if (shouldCloseSearchModal && !editingFoodEntryId) {
         // Close search modal after a short delay so nested modals finish closing
-        if (!editingFoodEntryId) {
-          setTimeout(() => {
-            foodSearchModal.requestClose();
-          }, 250);
-        }
+        setTimeout(() => {
+          foodSearchModal.requestClose();
+        }, 250);
       }
     },
     [

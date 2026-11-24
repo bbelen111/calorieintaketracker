@@ -353,7 +353,12 @@ export const FoodEntryModal = ({
           )}
           <button
             type="button"
-            onClick={() => handleSave({ closeModal: false })}
+            onClick={() =>
+              handleSave({
+                closeEntryModal: true,
+                closeSearchModal: false,
+              })
+            }
             disabled={!foodName.trim()}
             className="w-full rounded-xl bg-primary px-3 py-2.5 text-[13px] font-semibold text-primary-foreground shadow-xs transition-all press-feedback focus-ring disabled:cursor-not-allowed disabled:bg-surface-highlight/60 disabled:text-muted md:hover:brightness-110"
           >
@@ -369,7 +374,12 @@ export const FoodEntryModal = ({
           >
             <button
               type="button"
-              onClick={() => handleSave({ closeModal: true })}
+              onClick={() =>
+                handleSave({
+                  closeEntryModal: true,
+                  closeSearchModal: true,
+                })
+              }
               disabled={!foodName.trim()}
               className="rounded-xl bg-accent-blue/10 px-2.5 py-2 text-[12px] font-semibold text-accent-blue transition-all press-feedback focus-ring disabled:cursor-not-allowed disabled:bg-surface-highlight/60 disabled:text-muted md:hover:bg-accent-blue/15"
             >
