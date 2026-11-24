@@ -76,6 +76,10 @@ function AdaptiveCorrectionCard({ result, mode, goalDurationDays, onOpen }) {
   };
   const crudePressure =
     mode === 'crude' ? formatPressure(result?.details?.balancePressure) : null;
+  const isCrudeMaintenanceIdle =
+    mode === 'crude' && !active && result?.details?.goalType === 'maintenance';
+  const isSmartMaintenance =
+    mode === 'smart' && result?.details?.reason === 'maintenance-goal';
 
   const subtitle =
     mode === 'off'
@@ -83,12 +87,16 @@ function AdaptiveCorrectionCard({ result, mode, goalDurationDays, onOpen }) {
       : mode === 'crude'
         ? active
           ? `Crude mode · Pressure ${crudePressure}`
-          : 'Crude mode · not yet active'
-        : insufficientData
-          ? 'Still collecting data'
-          : !active
-            ? 'No correction needed right now'
-            : `Smart mode · ${Math.round((result?.confidence ?? 0) * 100)}% confidence`;
+          : isCrudeMaintenanceIdle
+            ? 'Crude mode · no adjustment at maintenance'
+            : 'Crude mode · not yet active'
+        : isSmartMaintenance
+          ? 'Smart mode · paused at maintenance'
+          : insufficientData
+            ? 'Still collecting data'
+            : !active
+              ? 'No correction needed right now'
+              : `Smart mode · ${Math.round((result?.confidence ?? 0) * 100)}% confidence`;
 
   const stats = [];
   if (mode === 'crude') {
@@ -99,12 +107,19 @@ function AdaptiveCorrectionCard({ result, mode, goalDurationDays, onOpen }) {
         label: 'Active stage',
         value: milestone
           ? `${milestone.kcal > 0 ? '+' : ''}${milestone.kcal} kcal`
-          : 'Not reached yet',
+          : isCrudeMaintenanceIdle
+            ? 'None at maintenance'
+            : 'Not reached yet',
       },
       {
         label: 'Snapshot days',
         value: `${windowDays} day${windowDays === 1 ? '' : 's'}`,
       }
+    );
+  } else if (isSmartMaintenance) {
+    stats.push(
+      { label: 'Days on goal', value: `${goalDurationDays ?? 0} days` },
+      { label: 'Status', value: 'None at maintenance' }
     );
   } else if (mode === 'smart' && insufficientData) {
     const d = result?.details;

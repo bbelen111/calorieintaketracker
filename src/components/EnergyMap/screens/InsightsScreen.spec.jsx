@@ -117,4 +117,43 @@ describe('InsightsScreen body composition empty states', () => {
       screen.queryByText('No body fat readings yet')
     ).not.toBeInTheDocument();
   });
+
+  it('explains that crude adaptive thermogenesis has no adjustment on maintenance', () => {
+    const today = getTodayDateKey();
+    renderScreen({
+      selectedGoal: 'maintenance',
+      userData: {
+        ...getDefaultEnergyMapData(),
+        selectedGoal: 'maintenance',
+        adaptiveThermogenesisEnabled: true,
+        adaptiveThermogenesisSmartMode: false,
+        dailySnapshots: {
+          [today]: { date: today, goalAtSnapshot: 'maintenance' },
+        },
+      },
+    });
+
+    expect(
+      screen.getByText('Crude mode · no adjustment at maintenance')
+    ).toBeInTheDocument();
+    expect(screen.getByText('None at maintenance')).toBeInTheDocument();
+  });
+
+  it('explains that smart adaptive thermogenesis is paused on maintenance', () => {
+    renderScreen({
+      selectedGoal: 'maintenance',
+      userData: {
+        ...getDefaultEnergyMapData(),
+        selectedGoal: 'maintenance',
+        adaptiveThermogenesisEnabled: true,
+        adaptiveThermogenesisSmartMode: true,
+      },
+    });
+
+    expect(
+      screen.getByText('Smart mode · paused at maintenance')
+    ).toBeInTheDocument();
+    expect(screen.getByText('None at maintenance')).toBeInTheDocument();
+    expect(screen.queryByText(/0 kg\/wk/)).not.toBeInTheDocument();
+  });
 });
