@@ -1058,11 +1058,13 @@ Migration behavior is now intentionally minimal:
 ### Food Entry Shape
 
 ```javascript
-{ id: 'uuid', foodId: 'chicken_breast', name: 'Chicken Breast',
+{ id: 1699876543210, foodId: 'chicken_breast', name: 'Chicken Breast',
   grams: 174, calories: 287, protein: 54, carbs: 0, fats: 6.3,
   fiber: 0, sodium: 65, saturatedFats: 1.4, sugars: 0,   // optional micros
-  timestamp: 1699876543210 }
+  timestamp: 1699876543210 }                             // ISO string or epoch ms
 ```
+
+**`id` is unique within its day, and the store guarantees it** (`utils/food/entryIds.js`): `addFoodEntry` keeps a requested id only if no entry that day has it (`resolveEntryId`), and `normalizeNutritionData` renumbers repeats left by older builds on load (`repairDayEntryIds` - deterministic, because the repair is only written back when that day next changes).
 
 **Micro nutrients (fiber, sodium, saturatedFats, sugars) are optional and NULL
 semantic.** `null`/absent = untracked (rendered as —); `0` = measured zero. The
@@ -1522,6 +1524,7 @@ src/
 │   │  ├─ recipe.js              # Recipes: normalise, totals (full precision, null-honest micros), buildRecipeFood (derived per100g + "1 serving"),
 │   │  │                         #   validateRecipeDraft (serving <= 1000 g), favouriteToIngredientFood, buildRecipeIngredient
 │   │  ├─ loggedEntry.js         # Logged-entry mapping: AI card → logged nutrition, logged entry → editable fallback food
+│   │  ├─ entryIds.js            # Per-day unique food entry ids (resolve on add, repair on load)
 │   │  └─ portionNormalization.js # AI/lookup portion→grams normalization + per100g scaling helpers
 │   ├─ formatting/
 │   │  ├─ format.js              # Number formatting (formatOne: 1 decimal place)
@@ -1804,4 +1807,6 @@ npm run test:ui:coverage # UI-tier coverage (components + hooks + modalStack)
 127. **Recipes are derived foods over snapshotted ingredients - keep them that way:** persist only `userData.recipes` (ingredients + servings + cooked weight); per-100g values and the "1 serving" portion always come from `buildRecipeFood` (`utils/food/recipe.js`), never stored, so a calculator fix fixes every recipe. Do not store a live reference to an ingredient's source food (its `per100g` is copied at add time), do not auto-favourite a recipe (the copy would go stale), do not sum micro nutrients that any ingredient lacks (the result is `null`), do not nest recipes in the ingredient picker, and do not nest the recipe edit button inside the result card button. The ingredient picker is Food Search's browse view: keep filtering / sorting / pinned-first in `utils/food/foodListing.js` (shared with `FoodSearchModal`) and its loading derived from request keys in `useFoodBrowser` rather than copying search-modal logic or setting loading state from effects; its Food | Recipe and Local | Online switches are the shared `SegmentedToggle` (one persistent sliding pill, never per-button remounts), and Food | Recipe keeps the "Add Custom Food" blue in both positions. Logging a recipe adds one entry, never one per ingredient. A recipe food is `isCustom` **and** `isRecipe` - check `isRecipe` / `FOOD_SOURCE_TYPES.RECIPE` first (`resolveFoodSourceType` does). A serving above 1000 g is rejected by `validateRecipeDraft` because the portion modal's gram wheel stops there. Pre-filling the form for an edit is a render-phase seed keyed by what is being opened, not an effect. See "Recipes".
 
 128. **A logged entry is what the user saw - tags and numbers survive log and edit:** an AI chat entry is logged with exactly the card's numbers (`buildAiEntryNutrition`, `utils/food/loggedEntry.js`); database substitution happens once, in `resolveAiFoodEntry`, never again at log time (a second pass logged different macros than the card in the legacy / grounded-fallback paths). Editing an entry whose food can't be looked up goes through `buildFallbackFoodFromEntry`, which keeps the entry's own `category` / `foodId` / `brand` and never invents a category (it used to hard-code `supplements`). Logging paths carry `category` onto the entry, and saving an edit spreads the previous entry first so metadata is not dropped. Covered by `tests/utils/loggedEntry.test.js`.
+
+129. **Food entry ids are settled by the store, never trusted from the caller:** delete and edit match by id, and the logging surfaces number entries from counters that restart on every mount (that once gave a whole meal `id: 1`, so deleting one food removed them all). Every new entry goes through `addFoodEntry`, which resolves the id against the whole day; any other writer of `nutritionData` must do the same (`utils/food/entryIds.js`). Keep the load repair deterministic. Covered by `tests/utils/entryIds.test.js`, the id block in `useEnergyMapStore.spec.js` and `tests/utils/storage.test.js`.
 

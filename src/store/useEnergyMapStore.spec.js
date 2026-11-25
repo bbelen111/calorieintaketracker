@@ -91,6 +91,62 @@ describe('store - addFoodEntry', () => {
   });
 });
 
+// Logging surfaces number their entries from a counter that restarts every time
+// they mount, so the store is what guarantees an id is unique within a day.
+describe('store - food entry ids', () => {
+  const first = { ...ENTRY, id: 1, name: 'First', calories: 100 };
+  const second = { ...ENTRY, id: 1, name: 'Second', calories: 200 };
+
+  const idsFor = (meal) =>
+    get().userData.nutritionData[TODAY][meal].map((entry) => entry.id);
+
+  it('gives a repeated id a new one', () => {
+    get().addFoodEntry(TODAY, 'lunch', first);
+    get().addFoodEntry(TODAY, 'lunch', second);
+
+    const [firstId, secondId] = idsFor('lunch');
+    expect(firstId).toBe(1);
+    expect(secondId).not.toBe(1);
+  });
+
+  it('keeps ids unique across the meals of one day', () => {
+    get().addFoodEntry(TODAY, 'breakfast', first);
+    get().addFoodEntry(TODAY, 'lunch', second);
+
+    expect(idsFor('lunch')[0]).not.toBe(idsFor('breakfast')[0]);
+  });
+
+  it('assigns an id to an entry that has none', () => {
+    get().addFoodEntry(TODAY, 'lunch', { ...first, id: undefined });
+
+    expect(idsFor('lunch')[0]).toEqual(expect.any(Number));
+  });
+
+  it('deletes only the chosen entry', () => {
+    get().addFoodEntry(TODAY, 'lunch', first);
+    get().addFoodEntry(TODAY, 'lunch', second);
+
+    get().deleteFoodEntry(TODAY, 'lunch', idsFor('lunch')[1]);
+
+    expect(get().userData.nutritionData[TODAY].lunch).toEqual([first]);
+  });
+
+  it('edits only the chosen entry', () => {
+    get().addFoodEntry(TODAY, 'lunch', first);
+    get().addFoodEntry(TODAY, 'lunch', second);
+
+    get().updateFoodEntry(TODAY, 'lunch', {
+      ...second,
+      id: idsFor('lunch')[1],
+      calories: 250,
+    });
+
+    const entries = get().userData.nutritionData[TODAY].lunch;
+    expect(entries.map((entry) => entry.calories)).toEqual([100, 250]);
+    expect(entries.map((entry) => entry.name)).toEqual(['First', 'Second']);
+  });
+});
+
 describe('store - updateFoodEntry', () => {
   it('replaces the matching entry only', () => {
     const sibling = { ...ENTRY, id: 'entry-2', calories: 90 };

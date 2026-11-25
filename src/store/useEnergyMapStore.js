@@ -60,6 +60,7 @@ import {
 
 import { normalizeOnTargetTolerance } from '../constants/goals/onTarget.js';
 import { normalizeRecipe } from '../utils/food/recipe.js';
+import { collectDayEntryIds, resolveEntryId } from '../utils/food/entryIds.js';
 import {
   HERO_SLOT_FIELDS,
   assignHeroSlot,
@@ -2031,11 +2032,17 @@ export const useEnergyMapStore = createWithEqualityFn(
           ? dateData[mealType]
           : [];
 
+        // Logging surfaces number entries from counters that restart on every
+        // mount, so uniqueness within the day is settled here.
+        const entryId = resolveEntryId(entry.id, collectDayEntryIds(dateData));
+        const nextEntry =
+          entryId === entry.id ? entry : { ...entry, id: entryId };
+
         const nextNutritionData = {
           ...prev.nutritionData,
           [date]: {
             ...dateData,
-            [mealType]: [...mealEntries, entry],
+            [mealType]: [...mealEntries, nextEntry],
           },
         };
 

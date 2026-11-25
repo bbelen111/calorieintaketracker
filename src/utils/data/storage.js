@@ -66,6 +66,7 @@ import {
   normalizeNotificationSettings,
 } from '../../constants/notifications/notificationConfig.js';
 import { normalizeRecipes } from '../food/recipe.js';
+import { repairDayEntryIds } from '../food/entryIds.js';
 
 // Split keys for performance
 const PROFILE_KEY = 'energyMapData_profile'; // Settings, preferences, small lists
@@ -1659,6 +1660,9 @@ function mergeWithDefaults(data) {
             })
           : [];
       }
+
+      // Older builds could log several entries under one id.
+      normalized[date] = repairDayEntryIds(normalized[date]);
     }
 
     return normalized;
